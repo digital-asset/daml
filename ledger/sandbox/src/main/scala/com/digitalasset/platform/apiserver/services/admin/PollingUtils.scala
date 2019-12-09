@@ -1,7 +1,7 @@
 // Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.services.admin
+package com.digitalasset.platform.apiserver.services.admin
 
 import akka.actor.Scheduler
 import akka.pattern.after

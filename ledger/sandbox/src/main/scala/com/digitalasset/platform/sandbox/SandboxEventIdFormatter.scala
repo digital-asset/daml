@@ -1,7 +1,7 @@
 // Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.services.transaction
+package com.digitalasset.platform.sandbox
 
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, TransactionIdString}
 import com.digitalasset.daml.lf.transaction.Transaction
@@ -11,7 +11,6 @@ import com.digitalasset.daml.lf.value.{Value => Lf}
 import scala.util.{Failure, Success, Try}
 
 object SandboxEventIdFormatter {
-
   case class TransactionIdWithIndex(transactionId: TransactionIdString, nodeId: Transaction.NodeId)
 
   def makeAbsCoid(transactionId: TransactionIdString)(coid: Lf.ContractId): Lf.AbsoluteContractId =
@@ -20,6 +19,7 @@ object SandboxEventIdFormatter {
       case Lf.RelativeContractId(txnid) =>
         Lf.AbsoluteContractId(fromTransactionId(transactionId, txnid))
     }
+
   // this method defines the EventId format used by the sandbox
   def fromTransactionId(transactionId: TransactionIdString, nid: Transaction.NodeId): LedgerString =
     fromTransactionId(transactionId, nid.name)
@@ -32,7 +32,8 @@ object SandboxEventIdFormatter {
     */
   def fromTransactionId(
       transactionId: TransactionIdString,
-      nid: Ledger.ScenarioNodeId): LedgerString =
+      nid: Ledger.ScenarioNodeId,
+  ): LedgerString =
     LedgerString.concat(`#`, transactionId, `:`, nid)
 
   def split(eventId: String): Option[TransactionIdWithIndex] =

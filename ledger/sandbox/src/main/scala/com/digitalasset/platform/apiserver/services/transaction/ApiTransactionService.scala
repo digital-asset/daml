@@ -1,7 +1,7 @@
 // Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.services.transaction
+package com.digitalasset.platform.apiserver.services.transaction
 
 import java.util.concurrent.atomic.AtomicLong
 
@@ -13,16 +13,16 @@ import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.domain._
 import com.digitalasset.ledger.api.messages.transaction._
+import com.digitalasset.ledger.api.v1.transaction_service.TransactionServiceLogging
 import com.digitalasset.ledger.api.validation.PartyNameChecker
-import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter.TransactionIdWithIndex
+import com.digitalasset.platform.common.logging.NamedLoggerFactory
+import com.digitalasset.platform.sandbox.SandboxEventIdFormatter
+import com.digitalasset.platform.sandbox.SandboxEventIdFormatter.TransactionIdWithIndex
 import com.digitalasset.platform.server.api.services.domain.TransactionService
 import com.digitalasset.platform.server.api.services.grpc.GrpcTransactionService
 import com.digitalasset.platform.server.api.validation.ErrorFactories
-
 import io.grpc._
 import scalaz.syntax.tag._
-import com.digitalasset.ledger.api.v1.transaction_service.TransactionServiceLogging
-import com.digitalasset.platform.common.logging.NamedLoggerFactory
 
 import scala.concurrent.{ExecutionContext, Future}
 

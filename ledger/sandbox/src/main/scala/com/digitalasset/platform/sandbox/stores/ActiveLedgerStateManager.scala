@@ -13,7 +13,7 @@ import com.digitalasset.daml.lf.transaction.{GenTransaction, Node => N}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.ledger.{EventId, WorkflowId}
-import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
+import com.digitalasset.platform.sandbox.SandboxEventIdFormatter
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState._
 import com.digitalasset.platform.sandbox.stores.ledger.SequencingError
 import com.digitalasset.platform.sandbox.stores.ledger.SequencingError.PredicateType.{

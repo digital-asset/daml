@@ -1,7 +1,7 @@
 // Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.services.admin
+package com.digitalasset.platform.apiserver.services.admin
 
 import java.io.ByteArrayInputStream
 import java.util.zip.ZipInputStream
@@ -19,7 +19,6 @@ import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DE}
 import com.digitalasset.platform.server.api.validation.ErrorFactories
 import com.google.protobuf.timestamp.Timestamp
-
 import io.grpc.ServerServiceDefinition
 import org.slf4j.Logger
 

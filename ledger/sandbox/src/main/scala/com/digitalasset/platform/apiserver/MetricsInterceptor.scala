@@ -1,7 +1,7 @@
 // Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.metrics
+package com.digitalasset.platform.apiserver
 
 import com.codahale.metrics.MetricRegistry
 import io.grpc.{Metadata, ServerCall, ServerCallHandler, ServerInterceptor}

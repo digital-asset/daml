@@ -1,7 +1,7 @@
 // Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.services
+package com.digitalasset.platform.apiserver.services
 
 import java.util.concurrent.atomic.AtomicLong
 
@@ -15,14 +15,15 @@ import com.digitalasset.ledger.api.domain.{CompletionEvent, LedgerId, LedgerOffs
 import com.digitalasset.ledger.api.messages.command.completion.CompletionStreamRequest
 import com.digitalasset.ledger.api.v1.command_completion_service._
 import com.digitalasset.ledger.api.validation.PartyNameChecker
-import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.api.grpc.GrpcApiService
+import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.participant.util.Slf4JLog
 import com.digitalasset.platform.server.api.services.domain.CommandCompletionService
 import com.digitalasset.platform.server.api.services.grpc.GrpcCommandCompletionService
 import io.grpc.ServerServiceDefinition
 import org.slf4j.Logger
+
 import scala.concurrent.{ExecutionContext, Future}
 
 class ApiCommandCompletionService private (

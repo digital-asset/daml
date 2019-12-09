@@ -1,8 +1,8 @@
 // Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.services
-import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissionServiceLogging
+package com.digitalasset.platform.apiserver.services
+
 import akka.stream.ActorMaterializer
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.index.v2.ContractStore
@@ -15,19 +15,20 @@ import com.daml.ledger.participant.state.v1.SubmissionResult.{
 import com.daml.ledger.participant.state.v1.{
   SubmissionResult,
   SubmitterInfo,
+  TimeModel,
   TransactionMeta,
   WriteService
 }
-import com.daml.ledger.participant.state.v1._
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.engine.{Error => LfError}
-import com.digitalasset.daml.lf.transaction.{BlindingInfo, Transaction}
 import com.digitalasset.daml.lf.transaction.Transaction.Transaction
+import com.digitalasset.daml.lf.transaction.{BlindingInfo, Transaction}
 import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
 import com.digitalasset.ledger.api.domain.{LedgerId, Commands => ApiCommands}
 import com.digitalasset.ledger.api.messages.command.submission.SubmitRequest
-import com.digitalasset.platform.common.logging.NamedLoggerFactory
+import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissionServiceLogging
 import com.digitalasset.platform.api.grpc.GrpcApiService
+import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.sandbox.metrics.timedFuture
 import com.digitalasset.platform.sandbox.stores.ledger.{CommandExecutor, ErrorCause}
 import com.digitalasset.platform.server.api.services.domain.CommandSubmissionService

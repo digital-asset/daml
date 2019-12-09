@@ -1,28 +1,23 @@
 // Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.services
+package com.digitalasset.platform.apiserver.services
 
 import com.daml.ledger.participant.state.index.v2.IndexPackagesService
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml_lf_dev.DamlLf.{Archive, HashFunction}
 import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.ledger.api.v1.package_service.PackageServiceGrpc.PackageService
-import com.digitalasset.ledger.api.v1.package_service.{
-  GetPackageResponse,
-  HashFunction => APIHashFunction,
-  _
-}
-import com.digitalasset.platform.api.grpc.GrpcApiService
-import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
-import com.digitalasset.platform.server.api.validation.PackageServiceValidation
-
-import io.grpc.{BindableService, ServerServiceDefinition, Status}
 import com.digitalasset.ledger.api.v1.package_service.HashFunction.{
   SHA256 => APISHA256,
   Unrecognized => APIUnrecognized
 }
+import com.digitalasset.ledger.api.v1.package_service.PackageServiceGrpc.PackageService
+import com.digitalasset.ledger.api.v1.package_service.{HashFunction => APIHashFunction, _}
+import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
+import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
+import com.digitalasset.platform.server.api.validation.PackageServiceValidation
+import io.grpc.{BindableService, ServerServiceDefinition, Status}
 
 import scala.concurrent.{ExecutionContext, Future}
 

@@ -1,7 +1,7 @@
 // Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.services
+package com.digitalasset.platform.apiserver.services
 
 import akka.NotUsed
 import akka.stream.Materializer
@@ -21,12 +21,10 @@ import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.participant.util.LfEngineToApi
 import com.digitalasset.platform.server.api.validation.ActiveContractsServiceValidation
-
 import io.grpc.{BindableService, ServerServiceDefinition}
+import scalaz.syntax.tag._
 
 import scala.concurrent.ExecutionContext
-
-import scalaz.syntax.tag._
 
 class ApiActiveContractsService private (
     backend: ACSBackend,

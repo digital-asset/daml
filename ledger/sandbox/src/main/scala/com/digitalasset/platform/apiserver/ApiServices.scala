@@ -6,11 +6,15 @@ package com.digitalasset.platform.apiserver
 import akka.stream.ActorMaterializer
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.index.v2.{
+  ContractStore,
   IdentityProvider,
   IndexActiveContractsService,
+  IndexCompletionsService,
   IndexConfigurationService,
   IndexPackagesService,
-  _
+  IndexPartyManagementService,
+  IndexService,
+  IndexTransactionsService
 }
 import com.daml.ledger.participant.state.v1.{TimeModel, WriteService}
 import com.digitalasset.api.util.TimeProvider
@@ -21,14 +25,20 @@ import com.digitalasset.ledger.api.auth.services._
 import com.digitalasset.ledger.api.health.HealthChecks
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionEndRequest
 import com.digitalasset.ledger.client.services.commands.CommandSubmissionFlow
-import com.digitalasset.platform.common.logging.NamedLoggerFactory
-import com.digitalasset.platform.sandbox.config.CommandConfiguration
-import com.digitalasset.platform.sandbox.services._
-import com.digitalasset.platform.sandbox.services.admin.{
+import com.digitalasset.platform.apiserver.services.admin.{
   ApiPackageManagementService,
   ApiPartyManagementService
 }
-import com.digitalasset.platform.sandbox.services.transaction.ApiTransactionService
+import com.digitalasset.platform.apiserver.services.transaction.ApiTransactionService
+import com.digitalasset.platform.apiserver.services.{
+  ApiActiveContractsService,
+  ApiCommandCompletionService,
+  ApiLedgerConfigurationService,
+  ApiPackageService,
+  ApiSubmissionService
+}
+import com.digitalasset.platform.common.logging.NamedLoggerFactory
+import com.digitalasset.platform.sandbox.config.CommandConfiguration
 import com.digitalasset.platform.sandbox.stores.ledger.CommandExecutorImpl
 import com.digitalasset.platform.server.api.services.grpc.GrpcHealthService
 import com.digitalasset.platform.server.services.command.ApiCommandService

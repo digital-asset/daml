@@ -1,17 +1,17 @@
 // Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.services.transaction
+package com.digitalasset.platform.sandbox
 
-import com.digitalasset.daml.lf.transaction.Transaction
-import SandboxEventIdFormatter.TransactionIdWithIndex
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.transaction.Transaction
+import com.digitalasset.platform.sandbox.SandboxEventIdFormatter.TransactionIdWithIndex
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{Matchers, WordSpec}
 
-class EventIdFormatterSpec extends WordSpec with Matchers with ScalaFutures {
+class SandboxEventIdFormatterSpec extends WordSpec with Matchers with ScalaFutures {
 
-  "EventIdFormatter" should {
+  "SandboxEventIdFormatter" should {
     val transactionId: Ref.TransactionIdString = Ref.TransactionIdString.fromInt(42)
     val index: Transaction.NodeId = Transaction.NodeId.unsafeFromIndex(42)
     val referenceEventID = s"#$transactionId:${index.index}"
