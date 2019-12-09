@@ -80,7 +80,7 @@ class ApiPartyManagementService private (
         case entry @ AllocationAccepted(Some(`submissionId`), _, _) => entry
         case entry @ AllocationRejected(`submissionId`, _, _) => entry
       }
-      .completionTimeout(10.seconds)
+      .completionTimeout(30.seconds)
       .runWith(Sink.head)(materializer)
   }
 

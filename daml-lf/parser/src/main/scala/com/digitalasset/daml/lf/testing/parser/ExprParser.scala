@@ -287,16 +287,10 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     "GREATER_EQ_TEXT" -> BGreaterEqText,
     "GREATER_EQ_TIMESTAMP" -> BGreaterEqTimestamp,
     "GREATER_EQ_DATE" -> BGreaterEqDate,
-    "EQUAL_INT64" -> BEqualInt64,
     "EQUAL_NUMERIC" -> BEqualNumeric,
-    "EQUAL_TEXT" -> BEqualText,
-    "EQUAL_TIMESTAMP" -> BEqualTimestamp,
-    "EQUAL_DATE" -> BEqualDate,
-    "EQUAL_PARTY" -> BEqualParty,
-    "EQUAL_BOOL" -> BEqualBool,
     "EQUAL_LIST" -> BEqualList,
     "EQUAL_CONTRACT_ID" -> BEqualContractId,
-    "EQUAL_TYPE_REP" -> BEqualTypeRep,
+    "EQUAL" -> BEqual,
     "COERCE_CONTRACT_ID" -> BCoerceContractId,
   )
 

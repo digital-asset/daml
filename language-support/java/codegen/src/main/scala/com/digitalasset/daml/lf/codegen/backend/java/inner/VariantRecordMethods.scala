@@ -43,7 +43,7 @@ private[inner] object VariantRecordMethods extends StrictLogging {
     }
 
     Vector(constructor) ++ conversionMethods ++
-      ObjectMethods(className.rawType, fields.map(_.javaName))
+      ObjectMethods(className.rawType, typeParameters, fields.map(_.javaName))
   }
 
 }

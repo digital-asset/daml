@@ -23,13 +23,9 @@ import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
-import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
 import com.digitalasset.platform.sandbox.metrics.timedFuture
-import com.digitalasset.platform.sandbox.stores.ledger.{LedgerEntry, PartyLedgerEntry}
-import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlLedger.{
-  defaultNumberOfShortLivedConnections,
-  defaultNumberOfStreamingConnections
-}
+import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
+import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlLedger.defaultNumberOfShortLivedConnections
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{
   DbType,
   JdbcLedgerDao,
@@ -44,6 +40,7 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   ValueSerializer
 }
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
+import com.digitalasset.platform.sandbox.stores.ledger.{LedgerEntry, PartyLedgerEntry}
 import scalaz.syntax.tag._
 
 import scala.concurrent.duration._
@@ -116,13 +113,13 @@ class JdbcIndexerFactory[Status <: InitStatus] private (
       executionContext: ExecutionContext) = {
     val dbType = DbType.jdbcType(jdbcUrl)
     val dbDispatcher =
-      new DbDispatcher(
+      DbDispatcher.start(
         jdbcUrl,
         if (dbType.supportsParallelWrites) defaultNumberOfShortLivedConnections else 1,
-        defaultNumberOfStreamingConnections,
         loggerFactory,
-        metrics)
-    val ledgerDao = LedgerDao.metered(
+        metrics,
+      )
+    LedgerDao.metered(
       JdbcLedgerDao(
         dbDispatcher,
         ContractSerializer,
@@ -131,9 +128,10 @@ class JdbcIndexerFactory[Status <: InitStatus] private (
         KeyHasher,
         dbType,
         loggerFactory,
-        executionContext),
-      metrics)
-    ledgerDao
+        executionContext,
+      ),
+      metrics,
+    )
   }
 
   private def ledgerFound(foundLedgerId: LedgerId) = {

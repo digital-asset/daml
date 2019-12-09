@@ -36,6 +36,15 @@ trait SandboxFixtureWithAuth extends SandboxFixture { self: Suite =>
   def expiringIn(t: Duration, p: AuthServiceJWTPayload): AuthServiceJWTPayload =
     p.copy(exp = Option(Instant.now().plusNanos(t.toNanos)))
 
+  def forLedgerId(id: String, p: AuthServiceJWTPayload): AuthServiceJWTPayload =
+    p.copy(ledgerId = Some(id))
+
+  def forParticipantId(id: String, p: AuthServiceJWTPayload): AuthServiceJWTPayload =
+    p.copy(participantId = Some(id))
+
+  def forApplicationId(id: String, p: AuthServiceJWTPayload): AuthServiceJWTPayload =
+    p.copy(applicationId = Some(id))
+
   override protected def config: SandboxConfig =
     super.config.copy(
       authService = Some(

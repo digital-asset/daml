@@ -246,18 +246,28 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
     }
 
     /** * Encoding Expression ***/
-    private val builtinFunctionMap =
+    private val builtinFunctionInfos =
       DecodeV1.builtinFunctionInfos
         .filterNot(
           info =>
             versionIsOlderThan(info.minVersion) &&
               info.maxVersion.forall(v => !versionIsOlderThan(v)))
+
+    private val directBuiltinFunctionMap =
+      builtinFunctionInfos
+        .filter(_.implicitParameters.isEmpty)
         .map(info => info.builtin -> info)
         .toMap
 
+    private val indirectBuiltinFunctionMap =
+      builtinFunctionInfos
+        .filter(_.implicitParameters.nonEmpty)
+        .groupBy(_.builtin)
+        .transform((_, infos) => infos.map(info => info.implicitParameters -> info).toMap)
+
     @inline
     private implicit def encodeBuiltins(builtinFunction: BuiltinFunction): PLF.BuiltinFunction =
-      builtinFunctionMap(builtinFunction).proto
+      directBuiltinFunctionMap(builtinFunction).proto
 
     private implicit def encodeTyConApp(tyCon: TypeConApp): PLF.Type.Con =
       PLF.Type.Con
@@ -455,12 +465,6 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
       case ETyAbs(binder, body) => binder -> body
     })
 
-    private def implicitDecimalScaleParameters(expr: Expr) =
-      expr match {
-        case EBuiltin(f) => builtinFunctionMap(f).implicitDecimalScaleParameters
-        case _ => 0
-      }
-
     private def encodeExprBuilder(expr0: Expr): PLF.Expr.Builder = {
       val builder = PLF.Expr.newBuilder()
 
@@ -518,11 +522,15 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
           builder.setStructUpd(b)
         case EApps(fun, args) =>
           builder.setApp(PLF.Expr.App.newBuilder().setFun(fun).accumulateLeft(args)(_ addArgs _))
-        case ETyApps(expr, typs1) =>
-          val typs =
-            ntimes(implicitDecimalScaleParameters(expr), ignoreOneDecimalScaleParameter, typs1)
-          builder.setTyApp(
-            PLF.Expr.TyApp.newBuilder().setExpr(expr).accumulateLeft(typs)(_ addTypes _))
+        case ETyApps(expr: Expr, typs0) =>
+          expr match {
+            case EBuiltin(builtin) if indirectBuiltinFunctionMap.contains(builtin) =>
+              val typs = typs0.toSeq.toList
+              builder.setBuiltin(indirectBuiltinFunctionMap(builtin)(typs).proto)
+            case _ =>
+              builder.setTyApp(
+                PLF.Expr.TyApp.newBuilder().setExpr(expr).accumulateLeft(typs0)(_ addTypes _))
+          }
         case ETyApps(expr, typs) =>
           builder.setTyApp(
             PLF.Expr.TyApp.newBuilder().setExpr(expr).accumulateLeft(typs)(_ addTypes _))
@@ -692,10 +700,6 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
 }
 
 object EncodeV1 {
-
-  @tailrec
-  private def ntimes[A](n: Int, f: A => A, a: A): A =
-    if (n == 0) a else ntimes(n - 1, f, f(a))
 
   private sealed abstract class LeftRecMatcher[Left, Right] {
     def unapply(arg: Left): Option[(Left, ImmArray[Right])]

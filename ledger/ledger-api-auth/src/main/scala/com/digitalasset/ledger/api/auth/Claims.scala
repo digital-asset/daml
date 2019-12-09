@@ -73,8 +73,23 @@ final case class ClaimReadAsParty(name: Ref.Party) extends Claim
   * | TransactionService                  | LedgerEnd                  | isPublic                                 |
   * | TransactionService                  | *                          | for each requested party p: canReadAs(p) |
   * +-------------------------------------+----------------------------+------------------------------------------+
+  *
+  * @param claims         List of [[Claim]]s describing the authorization this object describes.
+  * @param ledgerId       If set, the claims will only be valid on the given ledger.
+  * @param participantId  If set, the claims will only be valid on the given participant.
+  * @param expiration     If set, the claims will cease to be valid at the given time.
   */
-final case class Claims(claims: Seq[Claim], expiration: Option[Instant] = None) {
+final case class Claims(
+    claims: Seq[Claim],
+    ledgerId: Option[String] = None,
+    participantId: Option[String] = None,
+    expiration: Option[Instant] = None,
+) {
+  def validForLedger(id: String): Boolean =
+    ledgerId.forall(_ == id)
+
+  def validForParticipant(id: String): Boolean =
+    participantId.forall(_ == id)
 
   /** Returns false if the expiration timestamp exists and is greather than or equal to the current time */
   def notExpired(now: Instant): Boolean =
@@ -111,9 +126,13 @@ final case class Claims(claims: Seq[Claim], expiration: Option[Instant] = None) 
 object Claims {
 
   /** A set of [[Claims]] that does not have any authorization */
-  val empty = Claims(List.empty[Claim])
+  val empty = Claims(List.empty[Claim], expiration = None, ledgerId = None, participantId = None)
 
   /** A set of [[Claims]] that has all possible authorizations */
-  val wildcard = Claims(List[Claim](ClaimPublic, ClaimAdmin, ClaimActAsAnyParty))
+  val wildcard = Claims(
+    List[Claim](ClaimPublic, ClaimAdmin, ClaimActAsAnyParty),
+    expiration = None,
+    ledgerId = None,
+    participantId = None)
 
 }

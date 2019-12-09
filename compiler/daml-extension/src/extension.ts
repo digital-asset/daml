@@ -14,15 +14,13 @@ import { LanguageClient, LanguageClientOptions, RequestType, NotificationType, T
 import { Uri, Event, TextDocumentContentProvider, ViewColumn, EventEmitter, window, QuickPickOptions, ExtensionContext, env, WorkspaceConfiguration } from 'vscode';
 import * as which from 'which';
 import * as util from 'util';
-import fetch, { Response } from 'node-fetch';
+import fetch from 'node-fetch';
 import { getOrd } from 'fp-ts/lib/Array';
 import { ordNumber } from 'fp-ts/lib/Ord';
-import { parseStringPromise } from 'xml2js';
 
 let damlRoot: string = path.join(os.homedir(), '.daml');
 
 const versionContextKey = 'version'
-const recentBlogContextKey = 'lastSeenBlog'
 
 type WebviewFiles = {
     src: Uri;  // The JavaScript file.
@@ -42,8 +40,6 @@ export async function activate(context: vscode.ExtensionContext) {
 
     // Display release notes on updates
     showReleaseNotesIfNewVersion(context);
-    // Notify about new blog posts
-    showBlogIfNotSeen(config, context);
 
     damlLanguageClient = createLanguageClient(config, await consent);
     damlLanguageClient.registerProposedFeatures();
@@ -157,38 +153,6 @@ async function showReleaseNotes(version: string) {
                 {} // No webview options for now
             );
             panel.webview.html = await res.text();
-        }
-    } catch (_error) {}
-}
-
-// Check if there is a new blog post which the user has not yet seen.
-// If so, display a notification with the link to the new post.
-// Update the user state so we don't notify about the same blog post again.
-// The user can opt out of these notifications entirely by changing the
-// 'daml.showNewBlogPosts' setting.
-async function showBlogIfNotSeen(config: WorkspaceConfiguration, context: ExtensionContext) {
-    if (!config.get('showNewBlogPosts')) { return; }
-    try {
-        const feedUrl = 'https://blog.daml.com/daml-driven/rss.xml';
-        const res = await fetch(feedUrl);
-        if (res.ok) {
-            const rssXml = await res.text();
-            const rss = await parseStringPromise(rssXml);
-            const latestBlog = rss.rss.channel[0].item[0];
-            const latestTitle = latestBlog.title[0];
-            const lastSeenBlog = context.globalState.get(recentBlogContextKey);
-            if (latestBlog && (!lastSeenBlog || lastSeenBlog !== latestTitle)) {
-                // Update last seen blog to avoid showing the same notification again.
-                await context.globalState.update(recentBlogContextKey, latestTitle);
-                const clicked = await window.showInformationMessage(
-                    `New blog post: ${latestTitle}`,
-                    'Go to blog'
-                );
-                if (clicked === 'Go to blog') {
-                    const link = latestBlog.link[0];
-                    env.openExternal(Uri.parse(link));
-                }
-            }
         }
     } catch (_error) {}
 }

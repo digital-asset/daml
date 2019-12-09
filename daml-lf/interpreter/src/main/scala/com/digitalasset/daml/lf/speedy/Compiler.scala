@@ -290,15 +290,9 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
               case BGreaterEqParty => SBGreaterEq
 
               // Equality
-              case BEqualText => SBEqual
-              case BEqualInt64 => SBEqual
               case BEqualNumeric => SBEqualNumeric
-              case BEqualTimestamp => SBEqual
-              case BEqualDate => SBEqual
-              case BEqualParty => SBEqual
-              case BEqualBool => SBEqual
               case BEqualContractId => SBEqual
-              case BEqualTypeRep => SBEqual
+              case BEqual => SBEqual
 
               // TextMap
 

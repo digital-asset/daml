@@ -3,33 +3,37 @@
 
 package com.digitalasset.platform.sandbox.stores.ledger.sql.dao
 
-import java.sql.Connection
+import java.sql.{Connection, SQLTransientConnectionException}
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.{Timer, TimerTask}
 
+import com.codahale.metrics.MetricRegistry
+import com.digitalasset.ledger.api.health.{HealthStatus, Healthy, ReportsHealth, Unhealthy}
+import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.HikariJdbcConnectionProvider._
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 
-import scala.concurrent.duration.{FiniteDuration, _}
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.util.control.NonFatal
 
 /** A helper to run JDBC queries using a pool of managed connections */
-trait JdbcConnectionProvider extends AutoCloseable {
+trait JdbcConnectionProvider extends AutoCloseable with ReportsHealth {
 
   /** Blocks are running in a single transaction as the commit happens when the connection
     * is returned to the pool.
     * The block must not recursively call [[runSQL]], as this could result in a deadlock
     * waiting for a free connection from the same pool. */
   def runSQL[T](block: Connection => T): T
-
-  /** Returns a connection meant to be used for long running streaming queries. The Connection has to be closed manually! */
-  def getStreamingConnection(): Connection
 }
 
 object HikariConnection {
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def createDataSource(
       jdbcUrl: String,
       poolName: String,
       minimumIdle: Int,
       maxPoolSize: Int,
-      connectionTimeout: FiniteDuration): HikariDataSource = {
+      connectionTimeout: FiniteDuration,
+      metrics: Option[MetricRegistry]): HikariDataSource = {
     val config = new HikariConfig
     config.setJdbcUrl(jdbcUrl)
     config.setDriverClassName(DbType.jdbcType(jdbcUrl).driver)
@@ -41,6 +45,7 @@ object HikariConnection {
     config.setMinimumIdle(minimumIdle)
     config.setConnectionTimeout(connectionTimeout.toMillis)
     config.setPoolName(poolName)
+    metrics.foreach(config.setMetricRegistry)
 
     //note that Hikari uses auto-commit by default.
     //in `runSql` below, the `.close()` will automatically trigger a commit.
@@ -48,38 +53,41 @@ object HikariConnection {
   }
 }
 
-class HikariJdbcConnectionProvider(
-    jdbcUrl: String,
-    noOfShortLivedConnections: Int,
-    noOfStreamingConnections: Int)
+class HikariJdbcConnectionProvider(dataSource: HikariDataSource, healthPoller: Timer)
     extends JdbcConnectionProvider {
+  private val transientFailureCount = new AtomicInteger(0)
 
-  // these connections should never timeout as we have exactly the same number of threads using them as many connections we have
-  private val shortLivedDataSource =
-    HikariConnection.createDataSource(
-      jdbcUrl,
-      "Short-Lived-Connections",
-      noOfShortLivedConnections,
-      noOfShortLivedConnections,
-      250.millis)
+  private val checkHealth = new TimerTask {
+    override def run(): Unit = {
+      try {
+        dataSource.getConnection().close()
+        transientFailureCount.set(0)
+      } catch {
+        case _: SQLTransientConnectionException =>
+          val _ = transientFailureCount.incrementAndGet()
+      }
+    }
+  }
 
-  // this a dynamic pool as it's used for serving ACS snapshot requests, which we don't expect to get a lot
-  private val streamingDataSource =
-    HikariConnection.createDataSource(
-      jdbcUrl,
-      "Streaming-Connections",
-      1,
-      noOfStreamingConnections,
-      60.seconds)
+  healthPoller.schedule(checkHealth, 0, HealthPollingSchedule.toMillis)
+
+  override def currentHealth(): HealthStatus =
+    if (transientFailureCount.get() < MaxTransientFailureCount)
+      Healthy
+    else
+      Unhealthy
 
   override def runSQL[T](block: Connection => T): T = {
-    val conn = shortLivedDataSource.getConnection()
+    val conn = dataSource.getConnection()
     conn.setAutoCommit(false)
     try {
       val res = block(conn)
       conn.commit()
       res
     } catch {
+      case e: SQLTransientConnectionException =>
+        transientFailureCount.incrementAndGet()
+        throw e
       case NonFatal(t) =>
         // Log the error in the caller with access to more logging context (such as the sql statement description)
         conn.rollback()
@@ -89,11 +97,32 @@ class HikariJdbcConnectionProvider(
     }
   }
 
-  override def getStreamingConnection(): Connection =
-    streamingDataSource.getConnection()
-
   override def close(): Unit = {
-    shortLivedDataSource.close()
-    streamingDataSource.close()
+    healthPoller.cancel()
+    dataSource.close()
+  }
+}
+
+object HikariJdbcConnectionProvider {
+  private val MaxTransientFailureCount: Int = 5
+  private val HealthPollingSchedule: FiniteDuration = 1.second
+
+  def start(
+      jdbcUrl: String,
+      maxConnections: Int,
+      metrics: MetricRegistry,
+  ): HikariJdbcConnectionProvider = {
+    // these connections should never time out as we have the same number of threads as connections
+    val dataSource = HikariConnection.createDataSource(
+      jdbcUrl,
+      "Short-Lived-Connections",
+      maxConnections,
+      maxConnections,
+      250.millis,
+      Some(metrics),
+    )
+    val healthPoller: Timer =
+      new Timer(s"${classOf[HikariJdbcConnectionProvider].getName}#healthPoller")
+    new HikariJdbcConnectionProvider(dataSource, healthPoller)
   }
 }

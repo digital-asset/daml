@@ -17,6 +17,7 @@ import Control.Monad.Extra
 import DA.Daml.LF.Ast
 import DA.Daml.LF.Ast.Optics
 import Data.List
+import Data.Maybe
 import Options.Applicative
 import System.Directory
 import System.FilePath
@@ -24,6 +25,7 @@ import System.FilePath
 data Options = Options
     { optInputDar :: FilePath
     , optOutputDir :: FilePath
+    , optMainPackageName :: Maybe String
     }
 
 optionsParser :: Parser Options
@@ -37,6 +39,11 @@ optionsParser = Options
         <> metavar "DIR"
         <> help "Output directory for the generated TypeScript files"
         )
+    <*> optional (strOption
+        (  long "main-package-name"
+        <> metavar "STRING"
+        <> help "Package name to use for the main DALF of the DAR"
+        ))
 
 optionsParserInfo :: ParserInfo Options
 optionsParserInfo = info (optionsParser <**> helper)
@@ -49,13 +56,13 @@ main = do
     opts@Options{..} <- execParser optionsParserInfo
     dar <- B.readFile optInputDar
     dalfs <- either fail pure $ DAR.readDalfs $ Zip.toArchive $ BSL.fromStrict dar
-    forM_ (DAR.mainDalf dalfs : DAR.dalfs dalfs) $ \dalf -> do
+    forM_ ((DAR.mainDalf dalfs, optMainPackageName) : map (, Nothing) (DAR.dalfs dalfs)) $ \(dalf, mbPkgName) -> do
         (pkgId, pkg) <- either (fail . show)  pure $ Archive.decodeArchive Archive.DecodeAsMain (BSL.toStrict dalf)
-        daml2ts opts pkgId pkg
+        daml2ts opts pkgId pkg mbPkgName
 
-daml2ts :: Options -> PackageId -> Package -> IO ()
-daml2ts Options{..} pkgId pkg = do
-    let outputDir = optOutputDir </> T.unpack (unPackageId pkgId)
+daml2ts :: Options -> PackageId -> Package -> Maybe String -> IO ()
+daml2ts Options{..} pkgId pkg mbPkgName = do
+    let outputDir = optOutputDir </> fromMaybe (T.unpack (unPackageId pkgId)) mbPkgName
     createDirectoryIfMissing True outputDir
     T.writeFileUtf8 (outputDir </> "packageId.ts") $ T.unlines
         ["export default '" <> unPackageId pkgId <> "';"]

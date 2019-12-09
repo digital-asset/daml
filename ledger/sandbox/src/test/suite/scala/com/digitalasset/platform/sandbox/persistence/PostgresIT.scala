@@ -3,6 +3,7 @@
 
 package com.digitalasset.platform.sandbox.persistence
 
+import com.codahale.metrics.MetricRegistry
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.HikariJdbcConnectionProvider
 import com.digitalasset.platform.sandbox.stores.ledger.sql.migration.FlywayMigrations
@@ -12,8 +13,11 @@ class PostgresIT extends WordSpec with Matchers with PostgresAroundAll {
 
   private val loggerFactory = NamedLoggerFactory("PostgresIT")
 
-  private lazy val connectionProvider =
-    new HikariJdbcConnectionProvider(postgresFixture.jdbcUrl, 4, 4)
+  private lazy val connectionProvider = HikariJdbcConnectionProvider.start(
+    postgresFixture.jdbcUrl,
+    maxConnections = 4,
+    new MetricRegistry,
+  )
 
   "Postgres" when {
 

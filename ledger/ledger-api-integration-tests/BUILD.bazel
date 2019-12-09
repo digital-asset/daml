@@ -51,6 +51,7 @@ dependencies = [
     "//ledger/ledger-api-common",
     "//ledger/ledger-api-common:ledger-api-common-scala-tests-lib",
     "//ledger/ledger-api-domain",
+    "//ledger/ledger-api-scala-logging:ledger-api-scala-logging-base",
     "//ledger/ledger-api-scala-logging",
     "//ledger/sandbox",
     "//ledger/sandbox:sandbox-scala-tests-lib",

@@ -428,15 +428,6 @@ nixpkgs_package(
     repositories = dev_env_nix_repos,
 )
 
-#Docker
-nixpkgs_package(
-    name = "docker_nix",
-    attribute_path = "docker",
-    nix_file = "//nix:bazel.nix",
-    nix_file_deps = common_nix_file_deps,
-    repositories = dev_env_nix_repos,
-)
-
 #Javadoc
 nixpkgs_package(
     name = "jdk_nix",
@@ -602,6 +593,18 @@ scala_register_toolchains()
 load("@io_bazel_rules_scala//jmh:jmh.bzl", "jmh_repositories")
 
 jmh_repositories()
+
+load("@io_bazel_rules_docker//repositories:repositories.bzl", container_repositories = "repositories")
+
+container_repositories()
+
+load("@io_bazel_rules_docker//repositories:deps.bzl", container_deps = "deps")
+
+container_deps()
+
+load("@io_bazel_rules_docker//java:image.bzl", java_image_repositories = "repositories")
+
+java_image_repositories()
 
 dev_env_tool(
     name = "nodejs_dev_env",

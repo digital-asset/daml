@@ -157,7 +157,7 @@ private[inner] object TemplateClass extends StrictLogging {
           key,
           packagePrefixes
         ))
-      .addMethods(ObjectMethods(contractClassName, fields, templateClassName).asJava)
+      .addMethods(ObjectMethods(contractClassName, IndexedSeq.empty, fields, templateClassName).asJava)
       .build()
   }
 

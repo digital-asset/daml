@@ -49,7 +49,7 @@ da_scala_library(
 da_scala_test_suite(
     name = "tests",
     size = "small",
-    srcs = glob(["src/test/scala/com/digitalasset/daml/lf/archive/testing/**/*.scala"]),
+    srcs = glob(["src/test/scala/**/*.scala"]),
     data = [":testing-dar-%s" % target for target in lf_targets],
     scalacopts = lf_scalacopts,
     deps = [

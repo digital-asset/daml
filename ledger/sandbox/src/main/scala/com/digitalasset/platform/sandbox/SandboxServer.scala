@@ -238,7 +238,10 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
         sys.error(msg)
       }, identity)
 
-    val authorizer = new Authorizer(() => java.time.Clock.systemUTC.instant())
+    val authorizer = new Authorizer(
+      () => java.time.Clock.systemUTC.instant(),
+      LedgerId.unwrap(ledgerId),
+      participantId)
 
     val healthChecks = new HealthChecks(
       "index" -> indexAndWriteService.indexService,

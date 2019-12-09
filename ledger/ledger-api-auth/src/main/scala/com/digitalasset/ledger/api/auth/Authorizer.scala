@@ -21,28 +21,34 @@ object Authorizer {
 /** A simple helper that allows services to use authorization claims
   * that have been stored by [[AuthorizationInterceptor]].
   */
-final class Authorizer(now: () => Instant) {
+final class Authorizer(now: () => Instant, ledgerId: String, participantId: String) {
+
+  /** Validates all properties of claims that do not depend on the request,
+    * such as expiration time or ledger ID. */
+  private def validClaims(claims: Claims): Boolean =
+    claims.notExpired(now()) && claims.validForLedger(ledgerId) && claims.validForParticipant(
+      participantId)
 
   def requirePublicClaimsOnStream[Req, Res](
       call: (Req, StreamObserver[Res]) => Unit): (Req, StreamObserver[Res]) => Unit =
-    wrapStream(c => c.notExpired(now()) && c.isPublic, call)
+    wrapStream(c => validClaims(c) && c.isPublic, call)
 
   def requirePublicClaims[Req, Res](call: Req => Future[Res]): Req => Future[Res] =
-    wrapSingleCall(c => c.notExpired(now()) && c.isPublic, call)
+    wrapSingleCall(c => validClaims(c) && c.isPublic, call)
 
   def requireAdminClaimsOnStream[Req, Res](
       call: (Req, StreamObserver[Res]) => Unit): (Req, StreamObserver[Res]) => Unit =
-    wrapStream(c => c.notExpired(now()) && c.isAdmin, call)
+    wrapStream(c => validClaims(c) && c.isAdmin, call)
 
   def requireAdminClaims[Req, Res](call: Req => Future[Res]): Req => Future[Res] =
-    wrapSingleCall(c => c.notExpired(now()) && c.isAdmin, call)
+    wrapSingleCall(c => validClaims(c) && c.isAdmin, call)
 
   def requireNotExpiredOnStream[Req, Res](
       call: (Req, StreamObserver[Res]) => Unit): (Req, StreamObserver[Res]) => Unit =
-    wrapStream(_.notExpired(now()), call)
+    wrapStream(validClaims, call)
 
   def requireNotExpired[Req, Res](call: Req => Future[Res]): Req => Future[Res] =
-    wrapSingleCall(_.notExpired(now()), call)
+    wrapSingleCall(validClaims, call)
 
   /** Wraps a streaming call to verify whether some Claims authorize to read as all parties
     * of the given set. Authorization is always granted for an empty collection of parties.
@@ -50,7 +56,7 @@ final class Authorizer(now: () => Instant) {
   def requireReadClaimsForAllPartiesOnStream[Req, Res](
       parties: Iterable[String],
       call: (Req, StreamObserver[Res]) => Unit): (Req, StreamObserver[Res]) => Unit =
-    wrapStream(c => c.notExpired(now()) && parties.forall(p => c.canReadAs(p)), call)
+    wrapStream(c => validClaims(c) && parties.forall(p => c.canReadAs(p)), call)
 
   /** Wraps a single call to verify whether some Claims authorize to read as all parties
     * of the given set. Authorization is always granted for an empty collection of parties.
@@ -58,7 +64,7 @@ final class Authorizer(now: () => Instant) {
   def requireReadClaimsForAllParties[Req, Res](
       parties: Iterable[String],
       call: Req => Future[Res]): Req => Future[Res] =
-    wrapSingleCall(c => c.notExpired(now()) && parties.forall(p => c.canReadAs(p)), call)
+    wrapSingleCall(c => validClaims(c) && parties.forall(p => c.canReadAs(p)), call)
 
   /** Wraps a single call to verify whether some Claims authorize to act as all parties
     * of the given set. Authorization is always granted for an empty collection of parties.
@@ -66,7 +72,7 @@ final class Authorizer(now: () => Instant) {
   def requireActClaimsForAllParties[Req, Res](
       parties: Iterable[String],
       call: Req => Future[Res]): Req => Future[Res] =
-    wrapSingleCall(c => c.notExpired(now()) && parties.forall(p => c.canActAs(p)), call)
+    wrapSingleCall(c => validClaims(c) && parties.forall(p => c.canActAs(p)), call)
 
   /** Checks whether the current Claims authorize to read as the given party, if any.
     * Note: A missing party does NOT result in an authorization error.

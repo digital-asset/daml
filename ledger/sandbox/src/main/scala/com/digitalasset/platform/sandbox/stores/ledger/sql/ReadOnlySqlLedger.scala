@@ -33,7 +33,6 @@ import scala.concurrent.{ExecutionContext, Future}
 object ReadOnlySqlLedger {
 
   val noOfShortLivedConnections = 16
-  val noOfStreamingConnections = 2
 
   //jdbcUrl must have the user/password encoded in form of: "jdbc:postgresql://localhost/test?user=fred&password=secret"
   def apply(
@@ -45,14 +44,12 @@ object ReadOnlySqlLedger {
     implicit val ec: ExecutionContext = DEC
 
     val dbType = DbType.jdbcType(jdbcUrl)
-    val dbDispatcher =
-      new DbDispatcher(
-        jdbcUrl,
-        noOfShortLivedConnections,
-        noOfStreamingConnections,
-        loggerFactory,
-        metrics,
-      )
+    val dbDispatcher = DbDispatcher.start(
+      jdbcUrl,
+      noOfShortLivedConnections,
+      loggerFactory,
+      metrics,
+    )
     val ledgerReadDao = LedgerDao.meteredRead(
       JdbcLedgerDao(
         dbDispatcher,
