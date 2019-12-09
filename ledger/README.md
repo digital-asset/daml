@@ -95,6 +95,9 @@ $ grpc-health-probe -addr=localhost:6865
 status: SERVING
 ```
 
+An example of how to naively configure Kubernetes to run the Sandbox, with accompanying health checks, can be found in
+[sandbox/kubernetes.yaml]().
+
 More details can be found on the Kubernetes blog, in the post titled _[Health checking gRPC servers on Kubernetes][]_.
 
 [grpc-health-probe]: https://github.com/grpc-ecosystem/grpc-health-probe
