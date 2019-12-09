@@ -13,16 +13,17 @@ import com.digitalasset.ledger.api.testing.utils.{
   SuiteResourceManagementAroundAll
 }
 import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc
+import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc.TimeServiceStub
 import com.digitalasset.ledger.client.services.testing.time.StaticTime
 import com.digitalasset.platform.sandbox.services.SandboxFixture
 import io.grpc.Status
 import org.awaitility.Awaitility
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.time.{Seconds, Span}
+import org.scalatest.{Assertion, Matchers, WordSpec}
 import scalaz.syntax.tag._
 
-import scala.concurrent.Await
-import scala.concurrent.duration._
+import scala.concurrent.{Await, ExecutionContext}
 
 class StaticTimeIT
     extends WordSpec
@@ -31,7 +32,10 @@ class StaticTimeIT
     with ScalaFutures
     with Matchers {
 
-  implicit private def ec = materializer.executionContext
+  override implicit val patienceConfig: PatienceConfig =
+    PatienceConfig(timeout = scaled(Span(1, Seconds)))
+
+  implicit private def ec: ExecutionContext = materializer.executionContext
 
   private lazy val notLedgerId: domain.LedgerId = domain.LedgerId(s"not-${ledgerId().unwrap}")
 
@@ -39,7 +43,7 @@ class StaticTimeIT
 
   override protected def packageFiles: List[File] = Nil
 
-  def clientStub = TimeServiceGrpc.stub(channel)
+  def clientStub: TimeServiceStub = TimeServiceGrpc.stub(channel)
 
   "StaticTime" when {
 
@@ -86,7 +90,10 @@ class StaticTimeIT
     }
   }
 
-  private def assertTimeIsSynchronized(timeSetter: StaticTime, getTimeReader: => StaticTime) = {
+  private def assertTimeIsSynchronized(
+      timeSetter: StaticTime,
+      getTimeReader: => StaticTime,
+  ): Assertion = {
     val oldTime = timeSetter.getCurrentTime
     val timeToSet = oldTime.plus(duration)
 
@@ -110,14 +117,13 @@ class StaticTimeIT
     }
   }
 
-  private def withStaticTime[T](ledgerId: domain.LedgerId)(action: StaticTime => T) = {
+  private def withStaticTime[T](ledgerId: domain.LedgerId)(action: StaticTime => T): T = {
     val staticTime = createStaticTime(ledgerId)
     val res = action(staticTime)
     staticTime.close()
     res
   }
 
-  private def createStaticTime(ledgerId: domain.LedgerId) = {
-    Await.result(StaticTime.updatedVia(clientStub, ledgerId.unwrap), 30.seconds)
-  }
+  private def createStaticTime(ledgerId: domain.LedgerId) =
+    Await.result(StaticTime.updatedVia(clientStub, ledgerId.unwrap), patienceConfig.timeout)
 }
