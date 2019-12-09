@@ -18,6 +18,7 @@ ledger_api_auth_deps = [
     "//ledger/ledger-api-client",
     "//ledger/ledger-api-common",
     "//ledger/ledger-api-domain",
+    "//ledger/ledger-api-scala-logging:ledger-api-scala-logging-base",
     "//ledger/ledger-api-scala-logging",
     "@maven//:com_auth0_java_jwt",
     "@maven//:com_github_scopt_scopt_2_12",

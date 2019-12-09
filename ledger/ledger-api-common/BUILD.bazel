@@ -34,6 +34,7 @@ da_scala_library(
         "//ledger/ledger-api-domain",
         "//ledger/ledger-api-health",
         "//ledger/ledger-api-scala-logging",
+        "//ledger/ledger-api-scala-logging:ledger-api-scala-logging-base",
         "//ledger/participant-state",
         "//ledger/participant-state-index",
         "@maven//:com_github_blemale_scaffeine_2_12",
