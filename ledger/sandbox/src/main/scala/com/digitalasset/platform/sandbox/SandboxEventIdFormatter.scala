@@ -11,6 +11,9 @@ import com.digitalasset.daml.lf.value.{Value => Lf}
 import scala.util.{Failure, Success, Try}
 
 object SandboxEventIdFormatter {
+  private val `#` = LedgerString.assertFromString("#")
+  private val `:` = LedgerString.assertFromString(":")
+
   case class TransactionIdWithIndex(transactionId: TransactionIdString, nodeId: Transaction.NodeId)
 
   def makeAbsCoid(transactionId: TransactionIdString)(coid: Lf.ContractId): Lf.AbsoluteContractId =
@@ -23,9 +26,6 @@ object SandboxEventIdFormatter {
   // this method defines the EventId format used by the sandbox
   def fromTransactionId(transactionId: TransactionIdString, nid: Transaction.NodeId): LedgerString =
     fromTransactionId(transactionId, nid.name)
-
-  private val `#` = LedgerString.assertFromString("#")
-  private val `:` = LedgerString.assertFromString(":")
 
   /** When loading a scenario we get already absolute nids from the ledger -- still prefix them with the transaction
     * id, just to be safe.
