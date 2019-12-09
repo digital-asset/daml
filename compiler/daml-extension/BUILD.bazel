@@ -3,8 +3,6 @@
 
 package(default_visibility = ["//visibility:public"])
 
-load("@os_info//:os_info.bzl", "is_windows")
-
 filegroup(
     name = "json-files",
     srcs = glob([
@@ -71,14 +69,6 @@ genrule(
     """,
 )
 
-# This is needed to be able to call `$(location ...)` in the vsix rule.
-# Otherwise I have not found a way to express the conditional within the
-# `$(location ...)` substitution.
-alias(
-    name = "yarn",
-    actual = "@nodejs//:bin/yarn.cmd" if is_windows else "@nodejs//:bin/yarn",
-)
-
 genrule(
     name = "vsix",
     srcs = glob([
@@ -109,12 +99,12 @@ genrule(
         tar xzf $$DIR/$(location :node_deps_cache)
         sed -i "s/__VERSION__/$$VERSION/" package.json
         sed -i 's/"name": "daml"/"name": "daml-bundled"/' package.json
-        $$DIR/$(location :yarn)
-        $$DIR/$(location :yarn) compile
+        $$DIR/$(location //:yarn)
+        $$DIR/$(location //:yarn) compile
         $$DIR/$(location @daml_extension_deps//vsce/bin:vsce) package -o $$DIR/$@
     """,
     tools = [
-        ":yarn",
+        "//:yarn",
         "@daml_extension_deps//vsce/bin:vsce",
     ],
 )
