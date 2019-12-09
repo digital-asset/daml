@@ -57,9 +57,9 @@ object ReferenceServer extends App {
   }
 
   val participantF: Future[(AutoCloseable, AutoCloseable)] = for {
-    indexerServer <- newIndexer(config)
-    indexServer <- newIndexServer(config).start()
-  } yield (indexerServer, indexServer)
+    indexer <- newIndexer(config)
+    apiServer <- newApiServer(config).start()
+  } yield (indexer, apiServer)
 
   val extraParticipants =
     for {
@@ -72,7 +72,7 @@ object ReferenceServer extends App {
       )
       for {
         extraIndexer <- newIndexer(participantConfig)
-        extraLedgerApiServer <- newIndexServer(participantConfig).start()
+        extraLedgerApiServer <- newApiServer(participantConfig).start()
       } yield (extraIndexer, extraLedgerApiServer)
     }
 
@@ -84,7 +84,7 @@ object ReferenceServer extends App {
       SharedMetricRegistries.getOrCreate(s"indexer-${config.participantId}"),
     )
 
-  def newIndexServer(config: Config) =
+  def newApiServer(config: Config) =
     new StandaloneApiServer(
       config,
       readService,
@@ -99,16 +99,16 @@ object ReferenceServer extends App {
   def closeServer(): Unit = {
     if (closed.compareAndSet(false, true)) {
       participantF.foreach {
-        case (indexer, indexServer) =>
+        case (indexer, apiServer) =>
           indexer.close()
-          indexServer.close()
+          apiServer.close()
       }
 
       for (extraParticipantF <- extraParticipants) {
         extraParticipantF.foreach {
-          case (indexer, indexServer) =>
+          case (indexer, apiServer) =>
             indexer.close()
-            indexServer.close()
+            apiServer.close()
         }
       }
       ledger.close()

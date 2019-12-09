@@ -38,7 +38,7 @@ class StandaloneApiServer(
     authService: AuthService,
     loggerFactory: NamedLoggerFactory,
     metrics: MetricRegistry,
-    engine: Engine = engineSharedAmongIndexServers, // allows sharing DAML engine with DAML-on-X participant
+    engine: Engine = sharedEngine, // allows sharing DAML engine with DAML-on-X participant
     timeServiceBackendO: Option[TimeServiceBackend] = None,
 ) {
   private val logger = loggerFactory.getLogger(this.getClass)
@@ -175,7 +175,7 @@ object StandaloneApiServer {
 
   private val asyncTolerance = 30.seconds
 
-  private val engineSharedAmongIndexServers = Engine()
+  private val sharedEngine = Engine()
 
   private case class ApiServerState(
       ledgerId: LedgerId,
