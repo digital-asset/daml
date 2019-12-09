@@ -126,6 +126,14 @@ def daml_deps():
             patch_args = ["-p1"],
         )
 
+    if "io_bazel_rules_docker" not in native.existing_rules():
+        http_archive(
+            name = "io_bazel_rules_docker",
+            url = "https://github.com/bazelbuild/rules_docker/releases/download/v0.12.1/rules_docker-v0.12.1.tar.gz",
+            strip_prefix = "rules_docker-0.12.1",
+            sha256 = "14ac30773fdb393ddec90e158c9ec7ebb3f8a4fd533ec2abbfd8789ad81a284b",
+        )
+
     if "com_google_protobuf" not in native.existing_rules():
         http_archive(
             name = "com_google_protobuf",
@@ -149,8 +157,11 @@ def daml_deps():
     if "bazel_gazelle" not in native.existing_rules():
         http_archive(
             name = "bazel_gazelle",
-            urls = ["https://github.com/bazelbuild/bazel-gazelle/releases/download/0.17.0/bazel-gazelle-0.17.0.tar.gz"],
-            sha256 = "3c681998538231a2d24d0c07ed5a7658cb72bfb5fd4bf9911157c0e9ac6a2687",
+            urls = [
+                "https://storage.googleapis.com/bazel-mirror/github.com/bazelbuild/bazel-gazelle/releases/download/v0.19.1/bazel-gazelle-v0.19.1.tar.gz",
+                "https://github.com/bazelbuild/bazel-gazelle/releases/download/v0.19.1/bazel-gazelle-v0.19.1.tar.gz",
+            ],
+            sha256 = "86c6d481b3f7aedc1d60c1c211c6f76da282ae197c3b3160f54bd3a8f847896f",
         )
 
     if "io_bazel_rules_sass" not in native.existing_rules():
@@ -237,4 +248,15 @@ def daml_deps():
             sha256 = "48a209fed9575c9d108eaf11fb77f7fe6178a90135e4d60cac6f70c2603aa53a",
             strip_prefix = "bazel-common-9e3880428c1837db9fb13335ed390b7e33e346a7",
             urls = ["https://github.com/google/bazel-common/archive/9e3880428c1837db9fb13335ed390b7e33e346a7.zip"],
+        )
+
+    if "com_github_grpc_ecosystem_grpc_health_probe_binary" not in native.existing_rules():
+        http_file(
+            name = "com_github_grpc_ecosystem_grpc_health_probe_binary",
+            sha256 = "bfbe82e34645e91cdf3bacbb0d2dc7786f3c3cc4da6b64a446e5fdfb7bb0429f",
+            downloaded_file_path = "grpc-health-probe",
+            urls = [
+                "https://github.com/grpc-ecosystem/grpc-health-probe/releases/download/v0.3.1/grpc_health_probe-linux-amd64",
+            ],
+            executable = True,
         )
