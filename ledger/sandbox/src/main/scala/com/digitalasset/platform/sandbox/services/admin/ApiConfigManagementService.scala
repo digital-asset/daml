@@ -7,7 +7,7 @@ import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
 import com.daml.ledger.participant.state.index.v2.IndexConfigManagementService
 import com.daml.ledger.participant.state.v1
-import com.daml.ledger.participant.state.v1.{Configuration, SubmissionResult, WriteConfigService}
+import com.daml.ledger.participant.state.v1.{Configuration, SubmissionId, SubmissionResult, WriteConfigService}
 import com.digitalasset.api.util.{DurationConversion, TimeProvider, TimestampConversion}
 import com.digitalasset.daml.lf.data.Time
 import com.digitalasset.ledger.api.domain
@@ -99,7 +99,7 @@ class ApiConfigManagementService private (
         .toScala(
           writeService.submitConfiguration(
             params.maximumRecordTime,
-            request.submissionId, /* FIXME validate, SubmissionId in #3391 */
+            SubmissionId.assertFromString(request.submissionId),
             newConfig
           ))
 

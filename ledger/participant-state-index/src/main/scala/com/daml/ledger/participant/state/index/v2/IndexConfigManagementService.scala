@@ -17,12 +17,12 @@ import scala.concurrent.Future
   */
 trait IndexConfigManagementService {
 
-  /** Looks up the current configuration, if set, and the offset at which
-    * it is current. Offset can be used to subscribe to further configuration changes
-    * using [[configurationEntries]]. */
+  /** Looks up the current configuration, if set, and the offset from which
+    * to subscribe to new configuration entries using [[configurationEntries]].
+    */
   def lookupConfiguration(): Future[Option[(Long, Configuration)]]
 
   /** Retrieve configuration entries. */
-  def configurationEntries(startExclusive: Option[Long]): Source[ConfigurationEntry, NotUsed]
+  def configurationEntries(startInclusive: Option[Long]): Source[ConfigurationEntry, NotUsed]
 
 }

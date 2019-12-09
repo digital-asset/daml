@@ -21,21 +21,21 @@ final class ConfigManagement(session: LedgerSession) extends LedgerTestSuite(ses
     case Participants(Participant(ledger)) =>
       val newTimeModel = TimeModel(
         minTransactionLatency = Some(Duration(0, 1)),
-        maxClockSkew = Some(Duration(1, 2)),
-        maxTtl = Some(Duration(2, 3))
+        maxClockSkew = Some(Duration(60, 0)),
+        maxTtl = Some(Duration(120, 0))
       )
       for {
         // Get the current time model
         response1 <- ledger.getTimeModel()
         oldTimeModel = {
-          assert(getResponse.timeModel.isDefined, "Expected time model to be defined")
-          getResponse.timeModel.get
+          assert(response1.timeModel.isDefined, "Expected time model to be defined")
+          response1.timeModel.get
         }
 
         // Set a new temporary time model
         _ <- ledger.setTimeModel(
           mrt = Instant.now.plusSeconds(30),
-          generation = getResponse.configurationGeneration,
+          generation = response1.configurationGeneration,
           newTimeModel = newTimeModel
         )
 
@@ -45,7 +45,7 @@ final class ConfigManagement(session: LedgerSession) extends LedgerTestSuite(ses
         // Restore the original time model
         _ <- ledger.setTimeModel(
           mrt = Instant.now.plusSeconds(30),
-          generation = getResponse2.configurationGeneration,
+          generation = response2.configurationGeneration,
           newTimeModel = oldTimeModel
         )
 
@@ -53,7 +53,7 @@ final class ConfigManagement(session: LedgerSession) extends LedgerTestSuite(ses
         response3 <- ledger.getTimeModel()
       } yield {
         assert(
-          response.configurationGeneration < response2.configurationGeneration,
+          response1.configurationGeneration < response2.configurationGeneration,
           "Expected configuration generation to have increased after setting time model"
         )
         assert(
@@ -64,7 +64,7 @@ final class ConfigManagement(session: LedgerSession) extends LedgerTestSuite(ses
           response2.timeModel.equals(Some(newTimeModel)),
           "Setting the new time model failed")
         assert(
-          response3.timeModel.equals(response.timeModel),
+          response3.timeModel.equals(response1.timeModel),
           "Restoring the original time model failed")
       }
   }
@@ -74,17 +74,17 @@ final class ConfigManagement(session: LedgerSession) extends LedgerTestSuite(ses
     case Participants(Participant(ledger)) =>
       for {
         // Get the current time model
-        getResponse <- ledger.getTimeModel()
+        response <- ledger.getTimeModel()
         oldTimeModel = {
-          assert(getResponse.timeModel.isDefined, "Expected time model to be defined")
-          getResponse.timeModel.get
+          assert(response.timeModel.isDefined, "Expected time model to be defined")
+          response.timeModel.get
         }
 
         // Try to set a time model with an expired MRT.
         failure <- ledger
           .setTimeModel(
             mrt = Instant.now.minusSeconds(10),
-            generation = getResponse.configurationGeneration,
+            generation = response.configurationGeneration,
             newTimeModel = oldTimeModel
           )
           .failed

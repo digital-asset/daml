@@ -291,12 +291,12 @@ class JdbcLedgerDaoSpec
           defaultConfig,
           None
         )
-        storedConfig <- ledgerDao.lookupLedgerConfiguration()
+        optStoredConfig <- ledgerDao.lookupLedgerConfiguration()
         endingOffset <- ledgerDao.lookupLedgerEnd()
       } yield {
         response shouldEqual PersistenceResponse.Ok
         startingConfig shouldEqual None
-        storedConfig shouldEqual Some(defaultConfig)
+        optStoredConfig.map(_._2) shouldEqual Some(defaultConfig)
         endingOffset shouldEqual (startingOffset + 1)
       }
     }

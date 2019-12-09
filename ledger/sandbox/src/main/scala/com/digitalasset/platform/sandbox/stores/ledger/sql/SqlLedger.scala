@@ -48,6 +48,7 @@ import scala.collection.immutable
 import scala.collection.immutable.Queue
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
+import com.digitalasset.ledger.api.domain.PartyDetails
 
 sealed abstract class SqlStartMode extends Product with Serializable
 

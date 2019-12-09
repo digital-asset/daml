@@ -13,7 +13,6 @@ import akka.stream.scaladsl.Source
 import anorm.SqlParser._
 import anorm.ToStatement.optionToStatement
 import anorm.{
-  AkkaStream,
   BatchSql,
   Macro,
   NamedParameter,
