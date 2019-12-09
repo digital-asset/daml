@@ -7,48 +7,17 @@
     name: base
     modules:
     - import Prelude
-    - import Control.Arrow
-    - import Control.Exception
-    - import Control.Monad
-    - import Control.Monad.Trans.State
-    - import qualified Data.Foldable
-    - import Data.Foldable(asum, sequenceA_, traverse_, for_)
-    - import Data.Traversable(traverse, for)
-    - import Control.Applicative
-    - import Data.Bifunctor
-    - import Data.Function
-    - import Data.Int
-    - import Data.Char
-    - import Data.List as Data.List
-    - import Data.List as X
-    - import Data.Maybe
-    - import Data.Monoid
-    - import System.IO
-    - import Control.Concurrent.Chan
-    - import System.Mem.Weak
-    - import Control.Exception.Base
-    - import System.Exit
-    - import Data.Either
-    - import Numeric
-
-    - import IO as System.IO
-    - import List as Data.List
-    - import Maybe as Data.Maybe
-    - import Monad as Control.Monad
-    - import Char as Data.Char
-
-- package:
-    name: lens
-    modules:
-    - import Control.Lens
-    - import Control.Lens.Operators
-    - import Control.Monad.Reader
-
-- package:
-    name: attoparsec
-    modules:
-    - import Data.Attoparsec.Text
-    - import Data.Attoparsec.ByteString
+    - import DA.Action
+    - import DA.Action.State
+    - import qualified DA.Foldable
+    - import DA.Foldable(asum, sequenceA_, traverse_, for_)
+    - import DA.Traversable(traverse, for)
+    - import DA.Functor
+    - import DA.Bifunctor
+    - import DA.List as DA.List
+    - import DA.List as X
+    - import DA.Optional
+    - import DA.Either
 
 - group:
     name: default
@@ -101,8 +70,8 @@
     - warn: {lhs: reverse (sortBy f x), rhs: sortBy (flip f) x, name: Avoid reverse, side: isCompare f, note: Stabilizes sort order}
     - warn: {lhs: sortBy (comparing (flip f)), rhs: sortOn (Down . f)}
     - warn: {lhs: sortBy (comparing f), rhs: sortOn f}
-    - warn: {lhs: reverse (sortOn f x), rhs: sortOn (Data.Ord.Down . f) x, name: Avoid reverse, note: Stabilizes sort order}
-    - warn: {lhs: reverse (sort x), rhs: sortOn Data.Ord.Down x, name: Avoid reverse, note: Stabilizes sort order}
+    - warn: {lhs: reverse (sortOn f x), rhs: sortOn (Down . f) x, name: Avoid reverse, note: Stabilizes sort order}
+    - warn: {lhs: reverse (sort x), rhs: sortOn Down x, name: Avoid reverse, note: Stabilizes sort order}
     - hint: {lhs: flip (g `on` h), rhs: flip g `on` h, name: Move flip}
     - hint: {lhs: (f `on` g) `on` h, rhs: f `on` (g . h), name: Fuse on/on}
 
@@ -277,7 +246,7 @@
     - warn: {lhs: f (fst p) (snd p), rhs: uncurry f p}
     - warn: {lhs: ($) . f, rhs: f, name: Redundant $}
     - warn: {lhs: (f $), rhs: f, name: Redundant $}
-    - warn: {lhs: (Data.Function.& f), rhs: f, name: Redundant Data.Function.&}
+    - warn: {lhs: (& f), rhs: f, name: Redundant &}
     - hint: {lhs: \x -> y, rhs: const y, side: isAtom y && not (isWildcard y)}
         # If any isWildcard recursively then x may be used but not mentioned explicitly
     - warn: {lhs: flip f x y, rhs: f y x, side: isApp original}
@@ -331,14 +300,6 @@
     # warn "Too strict if": {lhs: if c then f x else f y, rhs: f (if c then x else y), note: IncreasesLaziness}
     # also breaks types, see #87
 
-    # ARROW
-
-    - warn: {lhs: id *** g, rhs: second g}
-    - warn: {lhs: f *** id, rhs: first f}
-    - ignore: {lhs: zip (map f x) (map g x), rhs: map (f Control.Arrow.&&& g) x}
-    - ignore: {lhs: "\\x -> (f x, g x)", rhs: f Control.Arrow.&&& g}
-    - hint: {lhs: "(fst x, snd x)", rhs:  x, note: DecreasesLaziness, name: Redundant pair}
-
     # BIFUNCTOR
 
     - warn: {lhs: bimap id g, rhs: second g}
@@ -355,12 +316,12 @@
     - warn: {lhs: second g1 (bimap f g2 x), rhs: bimap f (g1 . g2) x}
     - warn: {lhs: bimap f1 g (first f2 x), rhs: bimap (f1 . f2) g x}
     - warn: {lhs: bimap f g1 (second g2 x), rhs: bimap f (g1 . g2) x}
-    - hint: {lhs: "\\(x,y) -> (f x, g y)", rhs: Data.Bifunctor.bimap f g, note: IncreasesLaziness}
-    - hint: {lhs: "\\(x,y) -> (f x,y)", rhs: Data.Bifunctor.first f, note: IncreasesLaziness}
-    - hint: {lhs: "\\(x,y) -> (x,f y)", rhs: Data.Bifunctor.second f, note: IncreasesLaziness}
-    - hint: {lhs: "(f (fst x), g (snd x))", rhs: Data.Bifunctor.bimap f g x}
-    - hint: {lhs: "(f (fst x), snd x)", rhs: Data.Bifunctor.first f x}
-    - hint: {lhs: "(fst x, g (snd x))", rhs: Data.Bifunctor.second g x}
+    - hint: {lhs: "\\(x,y) -> (f x, g y)", rhs: DA.Bifunctor.bimap f g, note: IncreasesLaziness}
+    - hint: {lhs: "\\(x,y) -> (f x,y)", rhs: DA.Bifunctor.first f, note: IncreasesLaziness}
+    - hint: {lhs: "\\(x,y) -> (x,f y)", rhs: DA.Bifunctor.second f, note: IncreasesLaziness}
+    - hint: {lhs: "(f (fst x), g (snd x))", rhs: DA.Bifunctor.bimap f g x}
+    - hint: {lhs: "(f (fst x), snd x)", rhs: DA.Bifunctor.first f x}
+    - hint: {lhs: "(fst x, g (snd x))", rhs: DA.Bifunctor.second g x}
 
     # FUNCTOR
 
@@ -370,16 +331,16 @@
     - warn: {lhs: id <$> x, rhs: x, name: Functor law}
     - hint: {lhs: fmap f $ x, rhs: f Control.Applicative.<$> x, side: isApp x || isAtom x}
     - hint: {lhs: \x -> a <$> b x, rhs: fmap a . b}
-    - hint: {lhs: x *> pure y, rhs: x Data.Functor.$> y}
-    - hint: {lhs: x *> return y, rhs: x Data.Functor.$> y}
-    - hint: {lhs: pure x <* y, rhs: x Data.Functor.<$ y}
-    - hint: {lhs: return x <* y, rhs: x Data.Functor.<$ y}
+    - hint: {lhs: x *> pure y, rhs: x DA.Functor.$> y}
+    - hint: {lhs: x *> return y, rhs: x DA.Functor.$> y}
+    - hint: {lhs: pure x <* y, rhs: x DA.Functor.<$ y}
+    - hint: {lhs: return x <* y, rhs: x DA.Functor.<$ y}
     - hint: {lhs: const x <$> y, rhs: x <$ y}
     - hint: {lhs: pure x <$> y, rhs: x <$ y}
     - hint: {lhs: return x <$> y, rhs: x <$ y}
-    - hint: {lhs: x <&> const y, rhs: x Data.Functor.$> y}
-    - hint: {lhs: x <&> pure y, rhs: x Data.Functor.$> y}
-    - hint: {lhs: x <&> return y, rhs: x Data.Functor.$> y}
+    - hint: {lhs: x <&> const y, rhs: x DA.Functor.$> y}
+    - hint: {lhs: x <&> pure y, rhs: x DA.Functor.$> y}
+    - hint: {lhs: x <&> return y, rhs: x DA.Functor.$> y}
 
     # APPLICATIVE
 
@@ -398,34 +359,34 @@
     - warn: {lhs: liftA, rhs: fmap}
     - hint: {lhs: m >>= return . f, rhs: f <$> m}
     - hint: {lhs: return . f =<< m, rhs: f <$> m}
-    - warn: {lhs: if x then y else return (), rhs: Control.Monad.when x $ _noParen_ y, side: not (isAtom y)}
-    - warn: {lhs: if x then y else return (), rhs: Control.Monad.when x y, side: isAtom y}
-    - warn: {lhs: if x then return () else y, rhs: Control.Monad.unless x $ _noParen_ y, side: isAtom y}
-    - warn: {lhs: if x then return () else y, rhs: Control.Monad.unless x y, side: isAtom y}
+    - warn: {lhs: if x then y else return (), rhs: DA.Action.when x $ _noParen_ y, side: not (isAtom y)}
+    - warn: {lhs: if x then y else return (), rhs: DA.Action.when x y, side: isAtom y}
+    - warn: {lhs: if x then return () else y, rhs: DA.Action.unless x $ _noParen_ y, side: isAtom y}
+    - warn: {lhs: if x then return () else y, rhs: DA.Action.unless x y, side: isAtom y}
     - warn: {lhs: sequence (map f x), rhs: mapM f x}
     - warn: {lhs: sequence_ (map f x), rhs: mapM_ f x}
     - warn: {lhs: sequence (fmap f x), rhs: mapM f x}
     - warn: {lhs: sequence_ (fmap f x), rhs: mapM_ f x}
-    - hint: {lhs: flip mapM, rhs: Control.Monad.forM}
-    - hint: {lhs: flip mapM_, rhs: Control.Monad.forM_}
+    - hint: {lhs: flip mapM, rhs: DA.Action.forM}
+    - hint: {lhs: flip mapM_, rhs: DA.Action.forM_}
     - hint: {lhs: flip forM, rhs: mapM}
     - hint: {lhs: flip forM_, rhs: mapM_}
     - warn: {lhs: when (not x), rhs: unless x}
-    - warn: {lhs: x >>= id, rhs: Control.Monad.join x}
-    - warn: {lhs: id =<< x, rhs: Control.Monad.join x}
-    - warn: {lhs: id =<< x, rhs: Control.Monad.join x}
-    - warn: {lhs: id =<< x, rhs: Control.Monad.join x}
+    - warn: {lhs: x >>= id, rhs: DA.Action.join x}
+    - warn: {lhs: id =<< x, rhs: DA.Action.join x}
+    - warn: {lhs: id =<< x, rhs: DA.Action.join x}
+    - warn: {lhs: id =<< x, rhs: DA.Action.join x}
     - hint: {lhs: join (f <$> x), rhs: f =<< x}
     - hint: {lhs: join (fmap f x), rhs: f =<< x}
-    - hint: {lhs: a >> return (), rhs: Control.Monad.void a, side: isAtom a || isApp a}
-    - warn: {lhs: fmap (const ()), rhs: Control.Monad.void}
-    - warn: {lhs: const () <$> x, rhs: Control.Monad.void x}
+    - hint: {lhs: a >> return (), rhs: DA.Action.void a, side: isAtom a || isApp a}
+    - warn: {lhs: fmap (const ()), rhs: DA.Action.void}
+    - warn: {lhs: const () <$> x, rhs: DA.Action.void x}
     - warn: {lhs: flip (>=>), rhs: (<=<)}
     - warn: {lhs: flip (<=<), rhs: (>=>)}
     - warn: {lhs: flip (>>=), rhs: (=<<)}
     - warn: {lhs: flip (=<<), rhs: (>>=)}
-    - hint: {lhs: \x -> f x >>= g, rhs: f Control.Monad.>=> g}
-    - hint: {lhs: \x -> f =<< g x, rhs: f Control.Monad.<=< g}
+    - hint: {lhs: \x -> f x >>= g, rhs: f DA.Action.>=> g}
+    - hint: {lhs: \x -> f =<< g x, rhs: f DA.Action.<=< g}
     - warn: {lhs: a >> forever a, rhs: forever a}
     - hint: {lhs: liftM2 id, rhs: ap}
     - warn: {lhs: mapM (uncurry f) (zip l m), rhs: zipWithM f l m}
@@ -444,13 +405,13 @@
 
     # MONAD LIST
 
-    - warn: {lhs: fmap unzip (mapM f x), rhs: Control.Monad.mapAndUnzipM f x}
-    - warn: {lhs: sequence (zipWith f x y), rhs: Control.Monad.zipWithM f x y}
-    - warn: {lhs: sequence_ (zipWith f x y), rhs: Control.Monad.zipWithM_ f x y}
-    - warn: {lhs: sequence (replicate n x), rhs: Control.Monad.replicateM n x}
-    - warn: {lhs: sequence_ (replicate n x), rhs: Control.Monad.replicateM_ n x}
-    - warn: {lhs: mapM f (replicate n x), rhs: Control.Monad.replicateM n (f x)}
-    - warn: {lhs: mapM_ f (replicate n x), rhs: Control.Monad.replicateM_ n (f x)}
+    - warn: {lhs: fmap unzip (mapM f x), rhs: DA.Action.mapAndUnzipM f x}
+    - warn: {lhs: sequence (zipWith f x y), rhs: DA.Action.zipWithM f x y}
+    - warn: {lhs: sequence_ (zipWith f x y), rhs: DA.Action.zipWithM_ f x y}
+    - warn: {lhs: sequence (replicate n x), rhs: DA.Action.replicateM n x}
+    - warn: {lhs: sequence_ (replicate n x), rhs: DA.Action.replicateM_ n x}
+    - warn: {lhs: mapM f (replicate n x), rhs: DA.Action.replicateM n (f x)}
+    - warn: {lhs: mapM_ f (replicate n x), rhs: DA.Action.replicateM_ n (f x)}
     - warn: {lhs: mapM f (map g x), rhs: mapM (f . g) x, name: Fuse mapM/map}
     - warn: {lhs: mapM_ f (map g x), rhs: mapM_ (f . g) x, name: Fuse mapM_/map}
     - warn: {lhs: traverse f (map g x), rhs: traverse (f . g) x, name: Fuse traverse/map}
@@ -467,7 +428,7 @@
     - warn: {lhs: foldr (*>) (pure ()), rhs: sequenceA_}
     - warn: {lhs: foldr (<|>) empty, rhs: asum}
     - warn: {lhs: liftA2 (flip ($)), rhs: (<**>)}
-    - warn: {lhs: Just <$> a <|> pure Nothing, rhs: optional a}
+    - warn: {lhs: Some <$> a <|> pure None, rhs: optional a}
     - hint: {lhs: m >>= pure . f, rhs: f <$> m}
     - hint: {lhs: pure . f =<< m, rhs: f <$> m}
     - warn: {lhs: empty <|> x, rhs: x, name: "Alternative law, left identity"}
@@ -497,47 +458,47 @@
 
     # MAYBE
 
-    - warn: {lhs: maybe x id, rhs: Data.Maybe.fromMaybe x}
-    - warn: {lhs: maybe False (const True), rhs: Data.Maybe.isJust}
-    - warn: {lhs: maybe True (const False), rhs: Data.Maybe.isNothing}
-    - warn: {lhs: maybe False (== x), rhs: (== Just x)}
-    - warn: {lhs: maybe True (/= x), rhs: (/= Just x)}
-    - warn: {lhs: not (isNothing x), rhs: isJust x}
-    - warn: {lhs: not (isJust x), rhs: isNothing x}
+    - warn: {lhs: maybe x id, rhs: DA.Optional.fromMaybe x}
+    - warn: {lhs: maybe False (const True), rhs: DA.Optional.isSome}
+    - warn: {lhs: maybe True (const False), rhs: DA.Optional.isNone}
+    - warn: {lhs: maybe False (== x), rhs: (== Some x)}
+    - warn: {lhs: maybe True (/= x), rhs: (/= Some x)}
+    - warn: {lhs: not (isNone x), rhs: isSome x}
+    - warn: {lhs: not (isSome x), rhs: isNone x}
     - warn: {lhs: "maybe [] (:[])", rhs: maybeToList}
     - warn: {lhs: catMaybes (map f x), rhs: mapMaybe f x}
     - warn: {lhs: catMaybes (fmap f x), rhs: mapMaybe f x}
-    - hint: {lhs: case x of Nothing -> y; Just a -> a , rhs: Data.Maybe.fromMaybe y x, side: isAtom y, name: Replace case with fromMaybe}
-    - hint: {lhs: case x of Just a -> a; Nothing -> y, rhs: Data.Maybe.fromMaybe y x, side: isAtom y, name: Replace case with fromMaybe}
-    - hint: {lhs: case x of Nothing -> y; Just a -> f a , rhs: maybe y f x, side: isAtom y && isAtom f, name: Replace case with maybe}
-    - hint: {lhs: case x of Just a -> f a; Nothing -> y, rhs: maybe y f x, side: isAtom y && isAtom f, name: Replace case with maybe}
-    - warn: {lhs: if isNothing x then y else f (fromJust x), rhs: maybe y f x}
-    - warn: {lhs: if isJust x then f (fromJust x) else y, rhs: maybe y f x}
-    - warn: {lhs: maybe Nothing (Just . f), rhs: fmap f}
-    - hint: {lhs: map fromJust . filter isJust , rhs:  Data.Maybe.catMaybes}
-    - warn: {lhs: x == Nothing , rhs:  isNothing x}
-    - warn: {lhs: Nothing == x , rhs:  isNothing x}
-    - warn: {lhs: x /= Nothing , rhs:  Data.Maybe.isJust x}
-    - warn: {lhs: Nothing /= x , rhs:  Data.Maybe.isJust x}
-    - warn: {lhs: concatMap (maybeToList . f), rhs: Data.Maybe.mapMaybe f}
+    - hint: {lhs: case x of None -> y; Some a -> a , rhs: DA.Optional.fromMaybe y x, side: isAtom y, name: Replace case with fromMaybe}
+    - hint: {lhs: case x of Some a -> a; None -> y, rhs: DA.Optional.fromMaybe y x, side: isAtom y, name: Replace case with fromMaybe}
+    - hint: {lhs: case x of None -> y; Some a -> f a , rhs: maybe y f x, side: isAtom y && isAtom f, name: Replace case with maybe}
+    - hint: {lhs: case x of Some a -> f a; None -> y, rhs: maybe y f x, side: isAtom y && isAtom f, name: Replace case with maybe}
+    - warn: {lhs: if isNone x then y else f (fromSome x), rhs: maybe y f x}
+    - warn: {lhs: if isSome x then f (fromSome x) else y, rhs: maybe y f x}
+    - warn: {lhs: maybe None (Some . f), rhs: fmap f}
+    - hint: {lhs: map fromSome . filter isSome , rhs:  DA.Optional.catMaybes}
+    - warn: {lhs: x == None , rhs:  isNone x}
+    - warn: {lhs: None == x , rhs:  isNone x}
+    - warn: {lhs: x /= None , rhs:  DA.Optional.isSome x}
+    - warn: {lhs: None /= x , rhs:  DA.Optional.isSome x}
+    - warn: {lhs: concatMap (maybeToList . f), rhs: DA.Optional.mapMaybe f}
     - warn: {lhs: concatMap maybeToList, rhs: catMaybes}
-    - warn: {lhs: maybe n Just x, rhs: x Control.Applicative.<|> n}
-    - warn: {lhs: if isNothing x then y else fromJust x, rhs: fromMaybe y x}
-    - warn: {lhs: if isJust x then fromJust x else y, rhs: fromMaybe y x}
-    - warn: {lhs: isJust x && (fromJust x == y), rhs: x == Just y}
+    - warn: {lhs: maybe n Some x, rhs: x Control.Applicative.<|> n}
+    - warn: {lhs: if isNone x then y else fromSome x, rhs: fromMaybe y x}
+    - warn: {lhs: if isSome x then fromSome x else y, rhs: fromMaybe y x}
+    - warn: {lhs: isSome x && (fromSome x == y), rhs: x == Some y}
     - warn: {lhs: mapMaybe f (map g x), rhs: mapMaybe (f . g) x, name: Fuse mapMaybe/map}
     - warn: {lhs: fromMaybe a (fmap f x), rhs: maybe a f x}
     - warn: {lhs: fromMaybe a (f <$> x), rhs: maybe a f x}
     - warn: {lhs: mapMaybe id, rhs: catMaybes}
-    - hint: {lhs: "[x | Just x <- a]", rhs: Data.Maybe.catMaybes a}
-    - hint: {lhs: case m of Nothing -> Nothing; Just x -> x, rhs: Control.Monad.join m}
-    - hint: {lhs: maybe Nothing id, rhs: join}
-    - hint: {lhs: maybe Nothing f x, rhs: f =<< x}
+    - hint: {lhs: "[x | Some x <- a]", rhs: DA.Optional.catMaybes a}
+    - hint: {lhs: case m of None -> None; Some x -> x, rhs: DA.Action.join m}
+    - hint: {lhs: maybe None id, rhs: join}
+    - hint: {lhs: maybe None f x, rhs: f =<< x}
     - hint: {lhs: maybe (f x) (f . g), rhs: f . maybe x g, note: IncreasesLaziness, name: Too strict maybe}
     - warn: {lhs: maybe x f (fmap g y), rhs: maybe x (f . g) y, name: Redundant fmap}
-    - warn: {lhs: isJust (fmap f x), rhs: isJust x}
-    - warn: {lhs: isNothing (fmap f x), rhs: isNothing x}
-    - warn: {lhs: fromJust (fmap f x), rhs: f (fromJust x), note: IncreasesLaziness}
+    - warn: {lhs: isSome (fmap f x), rhs: isSome x}
+    - warn: {lhs: isNone (fmap f x), rhs: isNone x}
+    - warn: {lhs: fromSome (fmap f x), rhs: f (fromSome x), note: IncreasesLaziness}
     - warn: {lhs: mapMaybe f (fmap g x), rhs: mapMaybe (f . g) x, name: Redundant fmap}
 
     # EITHER
@@ -594,8 +555,8 @@
 
     - hint: {lhs: flip Control.Exception.catch, rhs: handle}
     - hint: {lhs: flip handle, rhs: Control.Exception.catch}
-    - hint: {lhs: flip (catchJust p), rhs: handleJust p}
-    - hint: {lhs: flip (handleJust p), rhs: catchJust p}
+    - hint: {lhs: flip (catchSome p), rhs: handleSome p}
+    - hint: {lhs: flip (handleSome p), rhs: catchSome p}
     - hint: {lhs: Control.Exception.bracket b (const a) (const t), rhs: Control.Exception.bracket_ b a t}
     - hint: {lhs: Control.Exception.bracket (openFile x y) hClose, rhs: withFile x y}
     - hint: {lhs: Control.Exception.bracket (openBinaryFile x y) hClose, rhs: withBinaryFile x y}
@@ -625,17 +586,17 @@
 
     # FOLDABLE
 
-    - warn: {lhs: case m of Nothing -> return (); Just x -> f x, rhs: Data.Foldable.forM_ m f}
-    - warn: {lhs: case m of Just x -> f x; Nothing -> return (), rhs: Data.Foldable.forM_ m f}
-    - warn: {lhs: case m of Just x -> f x; _ -> return (), rhs: Data.Foldable.forM_ m f}
-    - warn: {lhs: when (isJust m) (f (fromJust m)), rhs: Data.Foldable.forM_ m f}
+    - warn: {lhs: case m of None -> return (); Some x -> f x, rhs: DA.Foldable.forM_ m f}
+    - warn: {lhs: case m of Some x -> f x; None -> return (), rhs: DA.Foldable.forM_ m f}
+    - warn: {lhs: case m of Some x -> f x; _ -> return (), rhs: DA.Foldable.forM_ m f}
+    - warn: {lhs: when (isSome m) (f (fromSome m)), rhs: DA.Foldable.forM_ m f}
 
     # STATE MONAD
 
-    - warn: {lhs: f <$> Control.Monad.State.get, rhs: gets f}
-    - warn: {lhs: fmap f  Control.Monad.State.get, rhs: gets f}
-    - warn: {lhs: f <$> Control.Monad.Reader.ask, rhs: asks f}
-    - warn: {lhs: fmap f Control.Monad.Reader.ask, rhs: asks f}
+    - warn: {lhs: f <$> DA.Action.State.get, rhs: gets f}
+    - warn: {lhs: fmap f  DA.Action.State.get, rhs: gets f}
+    - warn: {lhs: f <$> DA.Action.Reader.ask, rhs: asks f}
+    - warn: {lhs: fmap f DA.Action.Reader.ask, rhs: asks f}
     - warn: {lhs: fst (runState m s), rhs: evalState m s}
     - warn: {lhs: snd (runState m s), rhs: execState m s}
 
@@ -647,8 +608,8 @@
     - warn: {lhs: False || x, rhs: x, name: Evaluate}
     - warn: {lhs: not True, rhs: "False", name: Evaluate}
     - warn: {lhs: not False, rhs: "True", name: Evaluate}
-    - warn: {lhs: Nothing >>= k, rhs: Nothing, name: Evaluate}
-    - warn: {lhs: k =<< Nothing, rhs: Nothing, name: Evaluate}
+    - warn: {lhs: None >>= k, rhs: None, name: Evaluate}
+    - warn: {lhs: k =<< None, rhs: None, name: Evaluate}
     - warn: {lhs: either f g (Left x), rhs: f x, name: Evaluate}
     - warn: {lhs: either f g (Right y), rhs: g y, name: Evaluate}
     - warn: {lhs: "fst (x,y)", rhs: x, name: Evaluate}
@@ -723,50 +684,6 @@
     - warn: {lhs: length x, rhs: "1"    , side: isTuple x, name: Using length on tuple}
 
 - group:
-    name: lens
-    enabled: true
-    imports:
-    - package base
-    - package lens
-    rules:
-    - warn: {lhs: "(a ^. b) ^. c", rhs: "a ^. (b . c)"}
-    - warn: {lhs: "fromJust (a ^? b)", rhs: "a ^?! b"}
-    - warn: {lhs: "a .~ Just b", rhs: "a ?~ b"}
-    - warn: {lhs: "a & (mapped %~ b)", rhs: "a <&> b"}
-    - warn: {lhs: "a & ((mapped . b) %~ c)", rhs: "a <&> b %~ c"}
-    - warn: {lhs: "a & (mapped .~ b)", rhs: "b <$ a"}
-    - warn: {lhs: "ask <&> (^. a)", rhs: "view a"}
-    - warn: {lhs: "view a <&> (^. b)", rhs: "view (a . b)"}
-
-    # `at` pitfalls:
-
-    - warn: {lhs: "Control.Lens.at a . Control.Lens._Just", rhs: "Control.Lens.ix a"}
-    - error: {lhs: "Control.Lens.has (Control.Lens.at a)", rhs: "True"}
-    - error: {lhs: "Control.Lens.has (a . Control.Lens.at b)", rhs: "Control.Lens.has a"}
-    - error: {lhs: "Control.Lens.nullOf (Control.Lens.at a)", rhs: "False"}
-    - error: {lhs: "Control.Lens.nullOf (a . Control.Lens.at b)", rhs: "Control.Lens.nullOf a"}
-
-- group:
-    name: use-lens
-    enabled: false
-    imports:
-    - package base
-    - package lens
-    rules:
-    - warn: {lhs: "either Just (const Nothing)", rhs: preview _Left}
-    - warn: {lhs: "either (const Nothing) Just", rhs: preview _Right}
-
-- group:
-    name: attoparsec
-    enabled: true
-    imports:
-    - package base
-    - package attoparsec
-    rules:
-    - warn: {lhs: Data.Attoparsec.Text.option Nothing (Just <$> p),       rhs: optional p}
-    - warn: {lhs: Data.Attoparsec.ByteString.option Nothing (Just <$> p), rhs: optional p}
-
-- group:
     name: generalise
     enabled: false
     imports:
@@ -786,9 +703,9 @@
     rules:
     - warn: {lhs: maybe mempty, rhs: foldMap}
     - warn: {lhs: either (const mempty), rhs: foldMap}
-    - warn: {lhs: Data.Maybe.fromMaybe mempty, rhs: Data.Foldable.fold}
-    - warn: {lhs: Data.Either.fromRight mempty, rhs: Data.Foldable.fold}
-    - warn: {lhs: if f x then Just x else Nothing, rhs: mfilter f (Just x)}
+    - warn: {lhs: DA.Optional.fromMaybe mempty, rhs: DA.Foldable.fold}
+    - warn: {lhs: DA.Either.fromRight mempty, rhs: DA.Foldable.fold}
+    - warn: {lhs: if f x then Some x else None, rhs: mfilter f (Some x)}
     - hint: {lhs: maybe (pure ()), rhs: traverse_, note: IncreasesLaziness}
     - hint: {lhs: fromMaybe (pure ()), rhs: sequenceA_, note: IncreasesLaziness}
     - hint: {lhs: fromRight (pure ()), rhs: sequenceA_, note: IncreasesLaziness}
@@ -811,195 +728,6 @@
     - hint: {lhs: "[] /= x", rhs: not (null x), name: Use null}
     - hint: {lhs: "not (x || y)", rhs: "not x && not y", name: Apply De Morgan law}
     - hint: {lhs: "not (x && y)", rhs: "not x || not y", name: Apply De Morgan law}
-
-# <TEST>
-# yes = concat . map f -- concatMap f
-# yes = foo . bar . concat . map f . baz . bar -- concatMap f . baz . bar
-# yes = map f (map g x) -- map (f . g) x
-# yes = concat.map (\x->if x==e then l' else [x]) -- concatMap (\x->if x==e then l' else [x])
-# yes = f x where f x = concat . map head -- concatMap head
-# yes = concat . map f . g -- concatMap f . g
-# yes = concat $ map f x -- concatMap f x
-# yes = "test" ++ concatMap (' ':) ["of","this"] -- unwords ("test":["of","this"])
-# yes = if f a then True else b -- f a || b
-# yes = not (a == b) -- a /= b
-# yes = not (a /= b) -- a == b
-# yes = not . (a ==) -- (a /=)
-# yes = not . (== a) -- (/= a)
-# yes = not . (a /=) -- (a ==)
-# yes = not . (/= a) -- (== a)
-# yes = if a then 1 else if b then 1 else 2 -- if a || b then 1 else 2
-# no  = if a then 1 else if b then 3 else 2
-# yes = a >>= return . bob -- bob <$> a
-# yes = return . bob =<< a -- bob <$> a
-# yes = m alice >>= pure . b -- b <$> m alice
-# yes = pure .b =<< m alice -- b <$> m alice
-# yes = asciiCI "hi" *> pure Hi -- asciiCI "hi" Data.Functor.$> Hi
-# yes = asciiCI "bye" *> return Bye -- asciiCI "bye" Data.Functor.$> Bye
-# yes = pure x <* y -- x Data.Functor.<$ y
-# yes = return x <* y -- x Data.Functor.<$ y
-# yes = const x <$> y -- x <$ y
-# yes = pure alice <$> [1, 2] -- alice <$ [1, 2]
-# yes = return alice <$> "Bob" -- alice <$ "Bob"
-# yes = Just a <&> const b -- Just a Data.Functor.$> b
-# yes = [a,b] <&> pure c -- [a,b] Data.Functor.$> c
-# yes = Hi <&> return bye -- Hi Data.Functor.$> bye
-# yes = (x !! 0) + (x !! 2) -- head x
-# yes = if b < 42 then [a] else [] -- [a | b < 42]
-# no  = take n (foo xs) == "hello"
-# yes = head (reverse xs) -- last xs
-# yes = reverse xs `isPrefixOf` reverse ys -- isSuffixOf xs ys
-# no = putStrLn $ show (length xs) ++ "Test"
-# yes = ftable ++ map (\ (c, x) -> (toUpper c, urlEncode x)) ftable -- Data.Bifunctor.bimap toUpper urlEncode
-# yes = map (\(a,b) -> a) xs -- fst
-# yes = map (\(a,_) -> a) xs -- fst
-# yes = readFile $ args !! 0 -- head args
-# yes = if Debug `elem` opts then ["--debug"] else [] -- ["--debug" | Debug `elem` opts]
-# yes = if nullPS s then return False else if headPS s /= '\n' then return False else alter_input tailPS >> return True \
-#     -- if nullPS s || (headPS s /= '\n') then return False else alter_input tailPS >> return True
-# yes = if foo then do stuff; moreStuff; lastOfTheStuff else return () \
-#     -- Control.Monad.when foo $ do stuff ; moreStuff ; lastOfTheStuff
-# yes = if foo then stuff else return () -- Control.Monad.when foo stuff
-# yes = foo $ \(a, b) -> (a, y + b) -- Data.Bifunctor.second ((+) y)
-# no  = foo $ \(a, b) -> (a, a + b)
-# yes = map (uncurry (+)) $ zip [1 .. 5] [6 .. 10] -- zipWith (+) [1 .. 5] [6 .. 10]
-# no = do iter <- textBufferGetTextIter tb ; textBufferSelectRange tb iter iter
-# no = flip f x $ \y -> y*y+y
-# no = \x -> f x (g x)
-# no = foo (\ v -> f v . g)
-# yes = concat . intersperse " " -- unwords
-# yes = Prelude.concat $ intersperse " " xs -- unwords xs
-# yes = concat $ Data.List.intersperse " " xs -- unwords xs
-# yes = if a then True else False -- a
-# yes = if x then true else False -- x && true
-# yes = elem x y -- x `elem` y
-# yes = foo (elem x y) -- x `elem` y
-# no  = x `elem` y
-# no  = elem 1 [] : []
-# test a = foo (\x -> True) -- const True
-# test a = foo (\_ -> True) -- const True
-# test a = foo (\x -> x) -- id
-# h a = flip f x (y z) -- f (y z) x
-# h a = flip f x $ y z
-# yes x = case x of {True -> a ; False -> b} -- if x then a else b
-# yes x = case x of {False -> a ; _ -> b} -- if x then b else a
-# no = const . ok . toResponse $ "saved"
-# yes = case x z of Nothing -> y; Just pat -> pat -- Data.Maybe.fromMaybe y (x z)
-# yes = if p then s else return () -- Control.Monad.when p s
-# warn = a $$$$ b $$$$ c ==> a . b $$$$$ c
-# yes = when (not . null $ asdf) -- unless (null asdf)
-# yes = id 1 -- 1
-# yes = case concat (map f x) of [] -> [] -- concatMap f x
-# yes = [v | v <- xs] -- xs
-# no  = [Left x | Left x <- xs]
-# when p s = if p then s else return ()
-# no = x ^^ 18.5
-# instance Arrow (->) where first f = f *** id
-# yes = fromInteger 12 -- 12
-# import Prelude hiding (catch); no = catch
-# import Control.Exception as E; no = E.catch
-# main = do f; putStrLn $ show x -- print x
-# main = map (writer,) $ map arcObj $ filter (rdfPredEq (Res dctreferences)) ts -- map ((writer,) . arcObj) (filter (rdfPredEq (Res dctreferences)) ts)
-# h x y = return $! (x, y) -- return (x, y)
-# h x y = return $! x
-# getInt = do { x <- readIO "0"; return $! (x :: Int) }
-# foo = evaluate [12] -- return [12]
-# test = \ a -> f a >>= \ b -> return (a, b)
-# fooer input = catMaybes . map Just $ input -- mapMaybe Just
-# yes = mapMaybe id -- catMaybes
-# main = print $ map (\_->5) [2,3,5] -- const 5
-# main = head $ drop n x -- x !! max 0 n
-# main = head $ drop (-3) x -- x
-# main = head $ drop 2 x -- x !! 2
-# main = drop 0 x -- x
-# main = take 0 x -- []
-# main = take (-5) x -- []
-# main = take (-y) x
-# main = take 4 x
-# main = let (first, rest) = (takeWhile p l, dropWhile p l) in rest -- span p l
-# main = map $ \ d -> ([| $d |], [| $d |])
-# pairs (x:xs) = map (x,) xs ++ pairs xs
-# {-# ANN foo "HLint: ignore" #-};foo = map f (map g x) -- @Ignore ???
-# {-# HLINT ignore foo #-};foo = map f (map g x) -- @Ignore ???
-# yes = fmap lines $ abc 123 -- lines Control.Applicative.<$> abc 123
-# no = fmap lines $ abc $ def 123
-# test = foo . not . not -- id
-# test = map (not . not) xs -- id
-# used = not . not . any (`notElem` special) . fst . derives -- any (`notElem` special) . fst . derives
-# test = foo . id . map -- map
-# test = food id xs
-# yes = baz baz >> return () -- Control.Monad.void (baz baz)
-# no = foo >>= bar >>= something >>= elsee >> return ()
-# no = f (#) x
-# data Pair = P {a :: !Int}; foo = return $! P{a=undefined}
-# data Pair = P {a :: !Int}; foo = return $! P undefined
-# foo = return $! Just undefined -- return (Just undefined)
-# foo = return $! (a,b) -- return (a,b)
-# foo = return $! 1
-# foo = return $! "test"
-# bar = [x | (x,_) <- pts]
-# return' x = x `seq` return x
-# foo = last (sortBy (compare `on` fst) xs) -- maximumBy (compare `on` fst) xs
-# g = \ f -> parseFile f >>= (\ cu -> return (f, cu))
-# foo = bar $ \(x,y) -> x x y
-# foo = (\x -> f x >>= g) -- f Control.Monad.>=> g
-# foo = (\f -> h f >>= g) -- h Control.Monad.>=> g
-# foo = (\f -> h f >>= f)
-# foo = bar $ \x -> [x,y]
-# foo = bar $ \x -> [z,y] -- const [z,y]
-# f condition tChar tBool = if condition then _monoField tChar else _monoField tBool
-# foo = maybe Bar{..} id -- Data.Maybe.fromMaybe Bar{..}
-# foo = (\a -> Foo {..}) 1
-# foo = zipWith SymInfo [0 ..] (repeat ty) -- map (\ x -> SymInfo x ty) [0 ..]
-# f rec = rec
-# mean x = fst $ foldl (\(m, n) x' -> (m+(x'-m)/(n+1),n+1)) (0,0) x
-# {-# LANGUAGE TypeApplications #-} \
-# foo = id @Int
-# {-# LANGUAGE TypeApplications #-} \
-# foo = const @_ @SomeException
-# foo = id 12 -- 12
-# yes = foldr (\ curr acc -> (+ 1) curr : acc) [] -- map (\ curr -> (+ 1) curr)
-# yes = foldr (\ curr acc -> curr + curr : acc) [] -- map (\ curr -> curr + curr)
-# no = foo $ (,) x $ do {this is a test; and another test}
-# no = sequence (return x)
-# no = sequenceA (pure a)
-# {-# LANGUAGE QuasiQuotes #-}; no = f (\url -> [hamlet|foo @{url}|])
-# yes = f ((,) x) -- (x,)
-
-# import Prelude \
-# yes = flip mapM -- Control.Monad.forM
-# import Control.Monad \
-# yes = flip mapM -- forM
-# import Control.Monad(forM) \
-# yes = flip mapM -- forM
-# import Control.Monad(forM_) \
-# yes = flip mapM -- Control.Monad.forM
-# import qualified Control.Monad \
-# yes = flip mapM -- Control.Monad.forM
-# import qualified Control.Monad as CM \
-# yes = flip mapM -- CM.forM
-# import qualified Control.Monad as CM(forM,filterM) \
-# yes = flip mapM -- CM.forM
-# import Control.Monad as CM(forM,filterM) \
-# yes = flip mapM -- forM
-# import Control.Monad hiding (forM) \
-# yes = flip mapM -- Control.Monad.forM
-# import Control.Monad hiding (filterM) \
-# yes = flip mapM -- forM
-# import qualified Data.Text.Lazy as DTL \
-# main = DTL.concat $ map (`DTL.snoc` '-') [DTL.pack "one", DTL.pack "two", DTL.pack "three"]
-# import Text.Blaze.Html5.Attributes as A \
-# main = A.id (stringValue id')
-# import Prelude((==)) \
-# import qualified Prelude as P \
-# main = P.length xs == 0 -- P.null xs
-# main = hello .~ Just 12 -- hello ?~ 12
-# foo = liftIO $ window `on` deleteEvent $ do a; b
-# no = sort <$> f input `shouldBe` sort <$> x
-# sortBy (comparing snd) -- sortOn snd
-# myJoin = on $ child ^. ChildParentId ==. parent ^. ParentId
-# {-# RULES "Id-fmap-id" forall (x :: Id a). fmap id x = x #-}
-# </TEST>
 
 # --
 # DAML specific
