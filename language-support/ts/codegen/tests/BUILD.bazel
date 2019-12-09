@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("//rules_daml:daml.bzl", "daml_compile")
-load("@os_info//:os_info.bzl", "is_windows")
 
 daml_compile(
     name = "daml2ts-test",
@@ -10,25 +9,12 @@ daml_compile(
     main_src = "daml/Main.daml",
 )
 
-# This is needed to be able to call `$(location ...)` in rules.
-# Otherwise I have not found a way to express the conditional within the
-# `$(location ...)` substitution.
-alias(
-    name = "yarn",
-    actual = "@nodejs//:bin/yarn.cmd" if is_windows else "@nodejs//:bin/yarn",
-)
-
-alias(
-    name = "java",
-    actual = "@local_jdk//:bin/java.exe" if is_windows else "@local_jdk//:bin/java",
-)
-
 sh_test(
     name = "build-and-lint",
     srcs = ["build-and-lint.sh"],
     args = [
-        "$(location :java)",
-        "$(location :yarn)",
+        "$(location //:java)",
+        "$(location //:yarn)",
         "$(location //:daml2ts)",
         "$(location //ledger/sandbox:sandbox-binary_deploy.jar)",
         "$(location //ledger-service/http-json:http-json-binary_deploy.jar)",
@@ -36,8 +22,8 @@ sh_test(
         "$(location ts/package.json)",
     ],
     data = [
-        ":java",
-        ":yarn",
+        "//:java",
+        "//:yarn",
         "//:daml2ts",
         "//ledger/sandbox:sandbox-binary_deploy.jar",
         "//ledger-service/http-json:http-json-binary_deploy.jar",

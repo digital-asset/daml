@@ -193,6 +193,16 @@ alias(
     actual = "//language-support/java/bindings:bindings-java",
 )
 
+alias(
+    name = "yarn",
+    actual = "@nodejs//:bin/yarn.cmd" if is_windows else "@nodejs//:bin/yarn",
+)
+
+alias(
+    name = "java",
+    actual = "@local_jdk//:bin/java.exe" if is_windows else "@local_jdk//:bin/java",
+)
+
 exports_files([
     ".scalafmt.conf",
 ])
