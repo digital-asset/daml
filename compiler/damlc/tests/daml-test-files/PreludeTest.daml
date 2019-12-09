@@ -2,6 +2,9 @@
 -- All rights reserved.
 
 -- @INFO Use uncurry
+-- @INFO Redundant identity
+-- @INFO Redundant identity
+-- @INFO Redundant identity
 -- @INFO Evaluate
 -- @INFO Use elem
 -- @INFO Use elem
@@ -14,12 +17,14 @@
 -- @INFO Use &&
 -- @INFO Use &&
 -- @INFO Use &&
+-- @INFO Use isNone
 -- @INFO Use $>
 -- @INFO Evaluate
 -- @INFO Evaluate
 -- @INFO Use ++
 -- @INFO Redundant flip
 -- @INFO Redundant flip
+-- @INFO Evaluate
 -- @INFO Take on a non-positive
 -- @INFO Drop on a non-positive
 -- @INFO Use zip

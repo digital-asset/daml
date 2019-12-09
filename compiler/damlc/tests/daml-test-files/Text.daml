@@ -6,6 +6,8 @@
 -- @INFO Use null
 -- @INFO Use null
 -- @INFO Use null
+-- @INFO Use isNone
+-- @INFO Use isNone
 
 daml 1.2
 module Text where

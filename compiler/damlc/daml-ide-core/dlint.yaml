@@ -119,8 +119,8 @@
     - warn: {lhs: fst (break p x), rhs: takeWhile (not . p) x}
     - warn: {lhs: snd (break p x), rhs: dropWhile (not . p) x}
     - warn: {lhs: concatMap (++ "\n"), rhs: unlines}
-    - warn: {lhs: map id, rhs: id}
-    - warn: {lhs: concatMap id, rhs: concat}
+    - warn: {lhs: map identity, rhs: identity}
+    - warn: {lhs: concatMap identity, rhs: concat}
     - warn: {lhs: or (map p x), rhs: any p x}
     - warn: {lhs: and (map p x), rhs: all p x}
     - warn: {lhs: "zipWith (,)", rhs: zip}
@@ -147,8 +147,8 @@
     - warn: {lhs: null (filter f x), rhs: not (any f x), name: Use any}
     - warn: {lhs: "filter f x == []", rhs: not (any f x), name: Use any}
     - warn: {lhs: "filter f x /= []", rhs: any f x}
-    - warn: {lhs: any id, rhs: or}
-    - warn: {lhs: all id, rhs: and}
+    - warn: {lhs: any identity, rhs: or}
+    - warn: {lhs: all identity, rhs: and}
     - warn: {lhs: any ((==) a), rhs: elem a, note: ValidInstance Eq a}
     - warn: {lhs: any (== a), rhs: elem a}
     - warn: {lhs: any (a ==), rhs: elem a, note: ValidInstance Eq a}
@@ -176,7 +176,7 @@
     - warn: {lhs: drop i x, rhs: x, side: isNegZero i, name: Drop on a non-positive}
     - warn: {lhs: last (scanl f z x), rhs: foldl f z x}
     - warn: {lhs: head (scanr f z x), rhs: foldr f z x}
-    - warn: {lhs: iterate id, rhs: repeat}
+    - warn: {lhs: iterate identity, rhs: repeat}
     - warn: {lhs: zipWith f (repeat x), rhs: map (f x)}
     - warn: {lhs: zipWith f y (repeat z), rhs: map (\x -> f x z) y}
 
@@ -196,7 +196,7 @@
     - warn: {lhs: sequence (fmap f x), rhs: traverse f x}
     - warn: {lhs: sequenceA_ (map f x), rhs: traverse_ f x}
     - warn: {lhs: sequenceA_ (fmap f x), rhs: traverse_ f x}
-    - warn: {lhs: foldMap id, rhs: fold}
+    - warn: {lhs: foldMap identiy, rhs: fold}
 
     # BY
 
@@ -250,9 +250,9 @@
     - hint: {lhs: \x -> y, rhs: const y, side: isAtom y && not (isWildcard y)}
         # If any isWildcard recursively then x may be used but not mentioned explicitly
     - warn: {lhs: flip f x y, rhs: f y x, side: isApp original}
-    - warn: {lhs: id x, rhs: x}
-    - warn: {lhs: id . x, rhs: x, name: Redundant id}
-    - warn: {lhs: x . id, rhs: x, name: Redundant id}
+    - warn: {lhs: identity x, rhs: x}
+    - warn: {lhs: identity . x, rhs: x, name: Redundant identity}
+    - warn: {lhs: x . identity, rhs: x, name: Redundant identity}
     - warn: {lhs: "((,) x)", rhs: "(_noParen_ x,)", name: Use tuple-section, note: RequiresExtension TupleSections}
     - warn: {lhs: "flip (,) x", rhs: "(,_noParen_ x)", name: Use tuple-section, note: RequiresExtension TupleSections}
     - warn: {lhs: "\\y -> (x,y)", rhs: "(x,)", name: Use tuple-section, note: RequiresExtension TupleSections}
@@ -302,11 +302,11 @@
 
     # BIFUNCTOR
 
-    - warn: {lhs: bimap id g, rhs: second g}
-    - warn: {lhs: bimap f id, rhs: first f}
-    - warn: {lhs: first id, rhs: id}
-    - warn: {lhs: second id, rhs: id}
-    - warn: {lhs: bimap id id, rhs: id}
+    - warn: {lhs: bimap identity g, rhs: second g}
+    - warn: {lhs: bimap f identity, rhs: first f}
+    - warn: {lhs: first identity, rhs: identity}
+    - warn: {lhs: second identity, rhs: identity}
+    - warn: {lhs: bimap identity identity, rhs: id}
     - warn: {lhs: first f (second g x), rhs: bimap f g x}
     - warn: {lhs: second g (first f x), rhs: bimap f g x}
     - warn: {lhs: first f1 (first f2 x), rhs: first (f1 . f2) x}
@@ -327,9 +327,9 @@
 
     - warn: {lhs: fmap f (fmap g x), rhs: fmap (f . g) x, name: Functor law}
     - warn: {lhs: f <$> g <$> x, rhs: f . g <$> x, name: Functor law}
-    - warn: {lhs: fmap id, rhs: id, name: Functor law}
-    - warn: {lhs: id <$> x, rhs: x, name: Functor law}
-    - hint: {lhs: fmap f $ x, rhs: f Control.Applicative.<$> x, side: isApp x || isAtom x}
+    - warn: {lhs: fmap identity, rhs: identity, name: Functor law}
+    - warn: {lhs: identity <$> x, rhs: x, name: Functor law}
+    - hint: {lhs: fmap f $ x, rhs: f DA.Functor.<$> x, side: isApp x || isAtom x}
     - hint: {lhs: \x -> a <$> b x, rhs: fmap a . b}
     - hint: {lhs: x *> pure y, rhs: x DA.Functor.$> y}
     - hint: {lhs: x *> return y, rhs: x DA.Functor.$> y}
@@ -372,10 +372,10 @@
     - hint: {lhs: flip forM, rhs: mapM}
     - hint: {lhs: flip forM_, rhs: mapM_}
     - warn: {lhs: when (not x), rhs: unless x}
-    - warn: {lhs: x >>= id, rhs: DA.Action.join x}
-    - warn: {lhs: id =<< x, rhs: DA.Action.join x}
-    - warn: {lhs: id =<< x, rhs: DA.Action.join x}
-    - warn: {lhs: id =<< x, rhs: DA.Action.join x}
+    - warn: {lhs: x >>= identity, rhs: DA.Action.join x}
+    - warn: {lhs: identity =<< x, rhs: DA.Action.join x}
+    - warn: {lhs: identity =<< x, rhs: DA.Action.join x}
+    - warn: {lhs: identity =<< x, rhs: DA.Action.join x}
     - hint: {lhs: join (f <$> x), rhs: f =<< x}
     - hint: {lhs: join (fmap f x), rhs: f =<< x}
     - hint: {lhs: a >> return (), rhs: DA.Action.void a, side: isAtom a || isApp a}
@@ -388,7 +388,7 @@
     - hint: {lhs: \x -> f x >>= g, rhs: f DA.Action.>=> g}
     - hint: {lhs: \x -> f =<< g x, rhs: f DA.Action.<=< g}
     - warn: {lhs: a >> forever a, rhs: forever a}
-    - hint: {lhs: liftM2 id, rhs: ap}
+    - hint: {lhs: liftM2 identity, rhs: ap}
     - warn: {lhs: mapM (uncurry f) (zip l m), rhs: zipWithM f l m}
     - warn: {lhs: mapM_ (void . f), rhs: mapM_ f}
     - warn: {lhs: forM_ x (void . f), rhs: forM_ x f}
@@ -416,8 +416,8 @@
     - warn: {lhs: mapM_ f (map g x), rhs: mapM_ (f . g) x, name: Fuse mapM_/map}
     - warn: {lhs: traverse f (map g x), rhs: traverse (f . g) x, name: Fuse traverse/map}
     - warn: {lhs: traverse_ f (map g x), rhs: traverse_ (f . g) x, name: Fuse traverse_/map}
-    - warn: {lhs: mapM id, rhs: sequence}
-    - warn: {lhs: mapM_ id, rhs: sequence_}
+    - warn: {lhs: mapM identity, rhs: sequence}
+    - warn: {lhs: mapM_ identity, rhs: sequence_}
 
     # APPLICATIVE / TRAVERSABLE
 
@@ -444,8 +444,8 @@
     # SEQ
 
     - warn: {lhs: seq x x, rhs: x, name: Redundant seq}
-    - warn: {lhs: join seq, rhs: id, name: Redundant seq}
-    - warn: {lhs: id $! x, rhs: x, name: Redundant $!}
+    - warn: {lhs: join seq, rhs: identity, name: Redundant seq}
+    - warn: {lhs: identity $! x, rhs: x, name: Redundant $!}
     - warn: {lhs: seq x y, rhs: "y", side: isWHNF x, name: Redundant seq}
     - warn: {lhs: f $! x, rhs: f x, side: isWHNF x, name: Redundant $!}
     - warn: {lhs: evaluate x, rhs: return x, side: isWHNF x, name: Redundant evaluate}
@@ -458,7 +458,7 @@
 
     # MAYBE
 
-    - warn: {lhs: maybe x id, rhs: DA.Optional.fromMaybe x}
+    - warn: {lhs: maybe x identity, rhs: DA.Optional.fromOptional x}
     - warn: {lhs: maybe False (const True), rhs: DA.Optional.isSome}
     - warn: {lhs: maybe True (const False), rhs: DA.Optional.isNone}
     - warn: {lhs: maybe False (== x), rhs: (== Some x)}
@@ -466,40 +466,40 @@
     - warn: {lhs: not (isNone x), rhs: isSome x}
     - warn: {lhs: not (isSome x), rhs: isNone x}
     - warn: {lhs: "maybe [] (:[])", rhs: maybeToList}
-    - warn: {lhs: catMaybes (map f x), rhs: mapMaybe f x}
-    - warn: {lhs: catMaybes (fmap f x), rhs: mapMaybe f x}
-    - hint: {lhs: case x of None -> y; Some a -> a , rhs: DA.Optional.fromMaybe y x, side: isAtom y, name: Replace case with fromMaybe}
-    - hint: {lhs: case x of Some a -> a; None -> y, rhs: DA.Optional.fromMaybe y x, side: isAtom y, name: Replace case with fromMaybe}
+    - warn: {lhs: catOptionals (map f x), rhs: mapOptional f x}
+    - warn: {lhs: catOptionals (fmap f x), rhs: mapOptional f x}
+    - hint: {lhs: case x of None -> y; Some a -> a , rhs: DA.Optional.fromOptional y x, side: isAtom y, name: Replace case with fromOptional}
+    - hint: {lhs: case x of Some a -> a; None -> y, rhs: DA.Optional.fromOptional y x, side: isAtom y, name: Replace case with fromOptional}
     - hint: {lhs: case x of None -> y; Some a -> f a , rhs: maybe y f x, side: isAtom y && isAtom f, name: Replace case with maybe}
     - hint: {lhs: case x of Some a -> f a; None -> y, rhs: maybe y f x, side: isAtom y && isAtom f, name: Replace case with maybe}
     - warn: {lhs: if isNone x then y else f (fromSome x), rhs: maybe y f x}
     - warn: {lhs: if isSome x then f (fromSome x) else y, rhs: maybe y f x}
     - warn: {lhs: maybe None (Some . f), rhs: fmap f}
-    - hint: {lhs: map fromSome . filter isSome , rhs:  DA.Optional.catMaybes}
+    - hint: {lhs: map fromSome . filter isSome , rhs:  DA.Optional.catOptionals}
     - warn: {lhs: x == None , rhs:  isNone x}
     - warn: {lhs: None == x , rhs:  isNone x}
     - warn: {lhs: x /= None , rhs:  DA.Optional.isSome x}
     - warn: {lhs: None /= x , rhs:  DA.Optional.isSome x}
-    - warn: {lhs: concatMap (maybeToList . f), rhs: DA.Optional.mapMaybe f}
-    - warn: {lhs: concatMap maybeToList, rhs: catMaybes}
-    - warn: {lhs: maybe n Some x, rhs: x Control.Applicative.<|> n}
-    - warn: {lhs: if isNone x then y else fromSome x, rhs: fromMaybe y x}
-    - warn: {lhs: if isSome x then fromSome x else y, rhs: fromMaybe y x}
+    - warn: {lhs: concatMap (maybeToList . f), rhs: DA.Optional.mapOptional f}
+    - warn: {lhs: concatMap maybeToList, rhs: catOptionals}
+    - warn: {lhs: maybe n Some x, rhs: x DA.Functor.<|> n}
+    - warn: {lhs: if isNone x then y else fromSome x, rhs: fromOptional y x}
+    - warn: {lhs: if isSome x then fromSome x else y, rhs: fromOptional y x}
     - warn: {lhs: isSome x && (fromSome x == y), rhs: x == Some y}
-    - warn: {lhs: mapMaybe f (map g x), rhs: mapMaybe (f . g) x, name: Fuse mapMaybe/map}
-    - warn: {lhs: fromMaybe a (fmap f x), rhs: maybe a f x}
-    - warn: {lhs: fromMaybe a (f <$> x), rhs: maybe a f x}
-    - warn: {lhs: mapMaybe id, rhs: catMaybes}
-    - hint: {lhs: "[x | Some x <- a]", rhs: DA.Optional.catMaybes a}
+    - warn: {lhs: mapOptional f (map g x), rhs: mapOptional (f . g) x, name: Fuse mapOptional/map}
+    - warn: {lhs: fromOptional a (fmap f x), rhs: maybe a f x}
+    - warn: {lhs: fromOptional a (f <$> x), rhs: maybe a f x}
+    - warn: {lhs: mapOptional identity, rhs: catOptionals}
+    - hint: {lhs: "[x | Some x <- a]", rhs: DA.Optional.catOptionals a}
     - hint: {lhs: case m of None -> None; Some x -> x, rhs: DA.Action.join m}
-    - hint: {lhs: maybe None id, rhs: join}
+    - hint: {lhs: maybe None identity, rhs: join}
     - hint: {lhs: maybe None f x, rhs: f =<< x}
     - hint: {lhs: maybe (f x) (f . g), rhs: f . maybe x g, note: IncreasesLaziness, name: Too strict maybe}
     - warn: {lhs: maybe x f (fmap g y), rhs: maybe x (f . g) y, name: Redundant fmap}
     - warn: {lhs: isSome (fmap f x), rhs: isSome x}
     - warn: {lhs: isNone (fmap f x), rhs: isNone x}
     - warn: {lhs: fromSome (fmap f x), rhs: f (fromSome x), note: IncreasesLaziness}
-    - warn: {lhs: mapMaybe f (fmap g x), rhs: mapMaybe (f . g) x, name: Redundant fmap}
+    - warn: {lhs: mapOptional f (fmap g x), rhs: mapOptional (f . g) x, name: Redundant fmap}
 
     # EITHER
 
@@ -703,11 +703,11 @@
     rules:
     - warn: {lhs: maybe mempty, rhs: foldMap}
     - warn: {lhs: either (const mempty), rhs: foldMap}
-    - warn: {lhs: DA.Optional.fromMaybe mempty, rhs: DA.Foldable.fold}
+    - warn: {lhs: DA.Optional.fromOptional mempty, rhs: DA.Foldable.fold}
     - warn: {lhs: DA.Either.fromRight mempty, rhs: DA.Foldable.fold}
     - warn: {lhs: if f x then Some x else None, rhs: mfilter f (Some x)}
     - hint: {lhs: maybe (pure ()), rhs: traverse_, note: IncreasesLaziness}
-    - hint: {lhs: fromMaybe (pure ()), rhs: sequenceA_, note: IncreasesLaziness}
+    - hint: {lhs: fromOptional (pure ()), rhs: sequenceA_, note: IncreasesLaziness}
     - hint: {lhs: fromRight (pure ()), rhs: sequenceA_, note: IncreasesLaziness}
 
 - group:
