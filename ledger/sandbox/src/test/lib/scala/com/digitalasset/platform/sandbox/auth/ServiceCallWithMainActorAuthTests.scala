@@ -37,4 +37,22 @@ trait ServiceCallWithMainActorAuthTests extends ServiceCallAuthTests {
   protected val canActAsMainActorExpiresTomorrow =
     Option(toHeader(expiringIn(Duration.ofDays(1), readWriteToken(mainActor))))
 
+  protected lazy val canReadAsMainActorActualLedgerId =
+    Option(toHeader(forLedgerId(unwrappedLedgerId, readOnlyToken(mainActor))))
+  protected val canReadAsMainActorRandomLedgerId =
+    Option(toHeader(forLedgerId(UUID.randomUUID.toString, readOnlyToken(mainActor))))
+  protected val canReadAsMainActorActualParticipantId =
+    Option(toHeader(forParticipantId("sandbox-participant", readOnlyToken(mainActor))))
+  protected val canReadAsMainActorRandomParticipantId =
+    Option(toHeader(forParticipantId(UUID.randomUUID.toString, readOnlyToken(mainActor))))
+
+  protected lazy val canActAsMainActorActualLedgerId =
+    Option(toHeader(forLedgerId(unwrappedLedgerId, readWriteToken(mainActor))))
+  protected val canActAsMainActorRandomLedgerId =
+    Option(toHeader(forLedgerId(UUID.randomUUID.toString, readWriteToken(mainActor))))
+  protected val canActAsMainActorActualParticipantId =
+    Option(toHeader(forParticipantId("sandbox-participant", readWriteToken(mainActor))))
+  protected val canActAsMainActorRandomParticipantId =
+    Option(toHeader(forParticipantId(UUID.randomUUID.toString, readWriteToken(mainActor))))
+
 }
