@@ -41,7 +41,7 @@ private[kvutils] trait Committer[Submission, PartialResult] {
   def steps: Iterable[(StepInfo, Step)]
 
   /** The initial internal state passed to first step. */
-  def init(subm: Submission): PartialResult
+  def init(ctx: CommitContext, subm: Submission): PartialResult
 
   val logger: Logger = LoggerFactory.getLogger(this.getClass)
 
@@ -74,7 +74,7 @@ private[kvutils] trait Committer[Submission, PartialResult] {
         override def getParticipantId: ParticipantId = participantId
         override def inputs: DamlStateMap = inputState
       }
-      var cstate = init(submission)
+      var cstate = init(ctx, submission)
       for ((info, step) <- steps) {
         val result: StepResult[PartialResult] =
           stepTimers(info).time(() => step(ctx, cstate))

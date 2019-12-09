@@ -120,6 +120,7 @@ private[kvutils] case object PartyAllocationCommitter
   }
 
   override def init(
+      ctx: CommitContext,
       partyAllocationEntry: DamlPartyAllocationEntry): DamlPartyAllocationEntry.Builder =
     partyAllocationEntry.toBuilder
 

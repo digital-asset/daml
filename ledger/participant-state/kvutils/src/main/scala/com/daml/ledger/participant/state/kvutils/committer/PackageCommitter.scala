@@ -124,7 +124,9 @@ private[kvutils] case class PackageCommitter(engine: Engine)
     )
   }
 
-  override def init(uploadEntry: DamlPackageUploadEntry): DamlPackageUploadEntry.Builder =
+  override def init(
+      ctx: CommitContext,
+      uploadEntry: DamlPackageUploadEntry): DamlPackageUploadEntry.Builder =
     uploadEntry.toBuilder
 
   override val steps: Iterable[(StepInfo, Step)] = Iterable(

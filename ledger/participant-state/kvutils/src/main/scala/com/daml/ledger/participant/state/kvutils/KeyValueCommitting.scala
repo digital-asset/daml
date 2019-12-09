@@ -38,7 +38,8 @@ object KeyValueCommitting {
   def packDamlLogEntryId(entry: DamlLogEntryId): ByteString = entry.toByteString
   def unpackDamlLogEntryId(bytes: ByteString): DamlLogEntryId = DamlLogEntryId.parseFrom(bytes)
 
-  private def estimateMaximumRecordTime(recordTime: Timestamp): Timestamp = recordTime.addMicros(100)
+  private def estimateMaximumRecordTime(recordTime: Timestamp): Timestamp =
+    recordTime.addMicros(100)
 
   /** Processes a DAML submission, given the allocated log entry id, the submission and its resolved inputs.
     * Produces the log entry to be committed, and DAML state updates.
@@ -108,7 +109,7 @@ object KeyValueCommitting {
 
         case DamlSubmission.PayloadCase.CONFIGURATION_SUBMISSION =>
           val (logEntry, outputs) =
-            ConfigCommitter(defaultConfig, inputState).run(
+            ConfigCommitter(defaultConfig).run(
               entryId,
               parseTimestamp(submission.getConfigurationSubmission.getMaximumRecordTime),
               recordTime,
