@@ -783,10 +783,8 @@ list of built-in functions and their respective types.
 Type synonym resolution
 .......................
 
-
-First, we define the synonym resolution relation ``↠`` over type,
+First, we define the synonym resolution relation ``↠`` over types,
 which inline type synonym definitions inside types::
-
 
   ——————————————————————————————————————————————— RewriteVar
    α  ↠  α
@@ -803,7 +801,7 @@ which inline type synonym definitions inside types::
    'synonym' S (α₁:k₁) … (αₙ:kₙ) ↦ τ  ∈ 〚Ξ〛Mod
    τ  ↠  σ      τ₁  ↠  σ₁  ⋯  τₙ  ↠  σₙ
   ——————————————————————————————————————————————— RewriteSynonym
-   Mod:S τ₁ ⋯ τₙ   ↠   σ[α₁ ↦ σ₁, …, αₙ ↦ σₙ]
+   Mod:S τ₁ … τₙ   ↠   σ[α₁ ↦ σ₁, …, αₙ ↦ σₙ]
 
    τ₁ ↠ σ₁  ⋯  τₙ  ↠  σₙ
   ———————————————————————————————————————————————— RewriteText
@@ -819,10 +817,11 @@ which inline type synonym definitions inside types::
 
 
 
-Note that relation ``↠`` defines a partial normalization function over
-types as soon as:
+Note that the relation ``↠`` defines a partial normalization function
+over types as soon as:
 
-1. there is at most one definition for a type synonym ``S`` in each module
+1. there is at most one definition for a type synonym ``S`` in each
+   module
 
 2. there is no cycles between type synonym definitions.
 
@@ -833,8 +832,7 @@ These two properties will be enforced by the notion of
 Well-formed types
 .................
 
-
-First, we formally defined *well-formed types*. ::
+We now formally defined *well-formed types*. ::
 
  Type context:
    Γ ::= ε                                 -- CtxEmpty
@@ -955,7 +953,7 @@ Then we define *well-formed expressions*. ::
     ——————————————————————————————————————————————————————————————— ExpTyApp
       Γ  ⊢  e @τ  :  σ[α ↦ τ]
 
-      x : τ' · Γ  ⊢  e  :  σ     Γ  ⊢ τ'  :  ⋆      τ ↠ τ'
+      τ ↠ τ'      x : τ' · Γ  ⊢  e  :  σ     Γ  ⊢ τ'  :  ⋆
     ——————————————————————————————————————————————————————————————— ExpAbs
       Γ  ⊢  λ x : τ . e  :  τ' → σ
 
@@ -1316,15 +1314,15 @@ for the ``DefTemplate`` rule). ::
   Well-formed definitions │ ⊢  Def │
                           └────────┘
 
-     τ  ↠  τ₁'      αₙ : kₙ · ⋯ · α₁ : k₁  ⊢  τ₁'  :  ⋆
+     τ  ↠  τ₁'      αₙ : kₙ · … · α₁ : k₁  ⊢  τ₁'  :  ⋆
        ⋮
-     τ  ↠  τₘ'      αₙ : kₙ · ⋯ · α₁ : k₁  ⊢  τₘ'  :  ⋆
+     τ  ↠  τₘ'      αₙ : kₙ · … · α₁ : k₁  ⊢  τₘ'  :  ⋆
   ——————————————————————————————————————————————————————————————— DefRec
     ⊢  'record' T (α₁: k₁) … (αₙ: kₙ) ↦ { f₁: τ₁, …, fₘ: τₘ }
 
-    τ  ↠  τ₁'      αₙ : kₙ · ⋯ · α₁ : k₁  ⊢  τ₁'  :  ⋆
+    τ  ↠  τ₁'      αₙ : kₙ · … · α₁ : k₁  ⊢  τ₁'  :  ⋆
      ⋮
-    τ  ↠  τₘ'      αₙ : kₙ · ⋯ · α₁ : k₁  ⊢  τₘ'  :  ⋆
+    τ  ↠  τₘ'      αₙ : kₙ · … · α₁ : k₁  ⊢  τₘ'  :  ⋆
   ——————————————————————————————————————————————————————————————— DefVariant
     ⊢  'record' T (α₁: k₁) … (αₙ: kₙ) ↦ V₁: τ₁ | … | Vₘ: τₘ
 
