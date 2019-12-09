@@ -23,15 +23,15 @@ trait ReadWriteServiceCallAuthTests extends ServiceCallWithMainActorAuthTests {
   }
 
   it should "allow calls with the correct ledger ID" in {
-    expectSuccess(serviceCallWithToken(canReadAsMainActorActualLedgerId))
+    expectSuccess(serviceCallWithToken(canActAsMainActorActualLedgerId))
   }
   it should "deny calls with a random ledger ID" in {
-    expectPermissionDenied(serviceCallWithToken(canReadAsMainActorRandomLedgerId))
+    expectPermissionDenied(serviceCallWithToken(canActAsMainActorRandomLedgerId))
   }
   it should "allow calls with the correct participant ID" in {
-    expectSuccess(serviceCallWithToken(canReadAsMainActorActualParticipantId))
+    expectSuccess(serviceCallWithToken(canActAsMainActorActualParticipantId))
   }
   it should "deny calls with a random participant ID" in {
-    expectPermissionDenied(serviceCallWithToken(canReadAsMainActorRandomParticipantId))
+    expectPermissionDenied(serviceCallWithToken(canActAsMainActorRandomParticipantId))
   }
 }

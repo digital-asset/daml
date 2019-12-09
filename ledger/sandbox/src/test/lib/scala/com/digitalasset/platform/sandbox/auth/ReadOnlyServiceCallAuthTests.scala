@@ -36,15 +36,15 @@ trait ReadOnlyServiceCallAuthTests extends ServiceCallWithMainActorAuthTests {
   }
 
   it should "allow calls with the correct ledger ID" in {
-    expectSuccess(serviceCallWithToken(canActAsMainActorActualLedgerId))
+    expectSuccess(serviceCallWithToken(canReadAsMainActorActualLedgerId))
   }
   it should "deny calls with a random ledger ID" in {
-    expectPermissionDenied(serviceCallWithToken(canActAsMainActorRandomLedgerId))
+    expectPermissionDenied(serviceCallWithToken(canReadAsMainActorRandomLedgerId))
   }
   it should "allow calls with the correct participant ID" in {
-    expectSuccess(serviceCallWithToken(canActAsMainActorActualParticipantId))
+    expectSuccess(serviceCallWithToken(canReadAsMainActorActualParticipantId))
   }
   it should "deny calls with a random participant ID" in {
-    expectPermissionDenied(serviceCallWithToken(canActAsMainActorRandomParticipantId))
+    expectPermissionDenied(serviceCallWithToken(canReadAsMainActorRandomParticipantId))
   }
 }
