@@ -19,7 +19,7 @@ import java.util.concurrent.TimeUnit;
  * an existing Ledger and provides clients to query it. To use the {@link DamlLedgerClient}:
  * <ol>
  *     <li>Create an instance of a {@link Builder} using {@link DamlLedgerClient#newBuilder(String, int)}
- *     <li>Specify and expected ledger identifier, {@link SslContext}, and/or access token, depending on your needs</li>
+ *     <li>Specify an expected ledger identifier, {@link SslContext}, and/or access token, depending on your needs</li>
  *     <li>Invoke {@link Builder#build()} to finalize and construct a {@link DamlLedgerClient}</li>
  *     <li>Call the method {@link DamlLedgerClient#connect()} to initialize the clients for that particular ledger</li>
  *     <li>Retrieve one of the clients by using a getter, e.g. {@link DamlLedgerClient#getActiveContractSetClient()}</li>
