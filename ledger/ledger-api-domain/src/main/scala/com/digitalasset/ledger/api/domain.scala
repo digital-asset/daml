@@ -307,7 +307,7 @@ object domain {
     ) extends PartyEntry
   }
 
-  // FIXME(JM): comments
+  /** Configuration entry describes a change to the current configuration. */
   sealed abstract class ConfigurationEntry extends Product with Serializable
   object ConfigurationEntry {
 

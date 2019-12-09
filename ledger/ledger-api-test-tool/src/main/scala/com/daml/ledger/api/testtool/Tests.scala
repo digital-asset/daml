@@ -38,7 +38,7 @@ object Tests {
     "TransactionScaleIT" -> (new TransactionScale(_)),
     "WitnessesIT" -> (new Witnesses(_)),
     "WronglyTypedContractIdIT" -> (new WronglyTypedContractId(_)),
-    "ConfigManagementServiceIT" -> (new ConfigManagement(_))
+    "ConfigManagementServiceIT" -> (new ConfigManagement(_)),
   )
 
   val all: Tests = default ++ optional

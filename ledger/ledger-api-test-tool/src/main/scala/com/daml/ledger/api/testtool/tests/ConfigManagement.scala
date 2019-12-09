@@ -26,7 +26,7 @@ final class ConfigManagement(session: LedgerSession) extends LedgerTestSuite(ses
       )
       for {
         // Get the current time model
-        getResponse <- ledger.getTimeModel()
+        response1 <- ledger.getTimeModel()
         oldTimeModel = {
           assert(getResponse.timeModel.isDefined, "Expected time model to be defined")
           getResponse.timeModel.get
@@ -40,7 +40,7 @@ final class ConfigManagement(session: LedgerSession) extends LedgerTestSuite(ses
         )
 
         // Retrieve the new model
-        getResponse2 <- ledger.getTimeModel()
+        response2 <- ledger.getTimeModel()
 
         // Restore the original time model
         _ <- ledger.setTimeModel(
@@ -50,21 +50,21 @@ final class ConfigManagement(session: LedgerSession) extends LedgerTestSuite(ses
         )
 
         // Verify that we've restored the original time model
-        getResponse3 <- ledger.getTimeModel()
+        response3 <- ledger.getTimeModel()
       } yield {
         assert(
-          getResponse.configurationGeneration < getResponse2.configurationGeneration,
+          response.configurationGeneration < response2.configurationGeneration,
           "Expected configuration generation to have increased after setting time model"
         )
         assert(
-          getResponse2.configurationGeneration < getResponse3.configurationGeneration,
+          response2.configurationGeneration < response3.configurationGeneration,
           "Expected configuration generation to have increased after setting time model the second time"
         )
         assert(
-          getResponse2.timeModel.equals(Some(newTimeModel)),
+          response2.timeModel.equals(Some(newTimeModel)),
           "Setting the new time model failed")
         assert(
-          getResponse3.timeModel.equals(getResponse.timeModel),
+          response3.timeModel.equals(response.timeModel),
           "Restoring the original time model failed")
       }
   }
