@@ -332,6 +332,11 @@ output::
         }
     }
 
+Where:
+
+- ``exerciseResult`` -- the return value of the exercised contract choice.
+- ``contracts`` -- an array containing contracts that were archived and created as part of the exercised choice. The array may contain: **zero or many** ``{"archived": {...}}`` and **zero or many** ``{"created": {...}}`` elements. The order of the contracts is the same as on the ledger.
+
 GET http://localhost:7575/parties
 =================================
 
