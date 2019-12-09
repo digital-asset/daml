@@ -6,7 +6,6 @@ package com.daml.ledger.participant.state.kvutils.committer
 import com.codahale.metrics.Counter
 import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.daml.ledger.participant.state.kvutils.Pretty
 import com.digitalasset.daml.lf.data.Ref
 
 private[kvutils] case object PartyAllocationCommitter
@@ -82,14 +81,14 @@ private[kvutils] case object PartyAllocationCommitter
 
     Metrics.accepts.inc()
     logger.trace(
-      s"Party allocated, party=$party, entryId=${Pretty.prettyEntryId(ctx.getEntryId)}, submId=${partyAllocationEntry.getSubmissionId}")
+      s"Party allocated, party=$party correlationId=${partyAllocationEntry.getSubmissionId}")
 
     ctx.set(
       partyKey,
       DamlStateValue.newBuilder
         .setParty(
           DamlPartyAllocation.newBuilder
-            .setParticipantId(partyAllocationEntry.getParticipantId)
+            .setParticipantId(ctx.getParticipantId)
         )
         .build
     )

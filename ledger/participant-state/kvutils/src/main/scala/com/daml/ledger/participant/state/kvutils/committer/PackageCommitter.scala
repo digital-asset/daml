@@ -23,6 +23,7 @@ private[kvutils] case class PackageCommitter(engine: Engine)
     val preloadTimer: Timer = metricsRegistry.timer(metricsName("preload-timer"))
     val decodeTimer: Timer = metricsRegistry.timer(metricsName("decode-timer"))
     val accepts: Counter = metricsRegistry.counter(metricsName("accepts"))
+    val rejections: Counter = metricsRegistry.counter(metricsName("rejections"))
     metricsRegistry.gauge(
       metricsName("loaded-packages"),
       () =>
@@ -33,8 +34,8 @@ private[kvutils] case class PackageCommitter(engine: Engine)
   }
 
   private def rejectionTraceLog(
-     msg: String,
-     packageUploadEntry: DamlPackageUploadEntry.Builder): Unit =
+      msg: String,
+      packageUploadEntry: DamlPackageUploadEntry.Builder): Unit =
     logger.trace(
       s"Package upload rejected, $msg, correlationId=${packageUploadEntry.getSubmissionId}")
 
@@ -67,13 +68,15 @@ private[kvutils] case class PackageCommitter(engine: Engine)
     }
     if (errors.isEmpty)
       StepContinue(uploadEntry)
-    else{
+    else {
+      val msg = errors.mkString(", ")
+      rejectionTraceLog(msg, uploadEntry)
       StepStop(
         buildPackageRejectionLogEntry(
           ctx,
           uploadEntry,
           _.setInvalidPackage(DamlPackageUploadRejectionEntry.InvalidPackage.newBuilder
-            .setDetails(errors.mkString(", ")))))
+            .setDetails(msg))))
     }
 
   }
@@ -103,8 +106,9 @@ private[kvutils] case class PackageCommitter(engine: Engine)
   }
 
   private val buildLogEntry: Step = (ctx, uploadEntry) => {
+    Metrics.accepts.inc()
     logger.trace(
-      s"Packages committed, packages=[${uploadEntry.getArchivesList.asScala.map(_.getHash).mkString(", ")}] correlationId=$uploadEntry.getSubmissionId")
+      s"Packages committed, packages=[${uploadEntry.getArchivesList.asScala.map(_.getHash).mkString(", ")}] correlationId=${uploadEntry.getSubmissionId}")
 
     uploadEntry.getArchivesList.forEach { archive =>
       ctx.set(
@@ -136,6 +140,7 @@ private[kvutils] case class PackageCommitter(engine: Engine)
       packageUploadEntry: DamlPackageUploadEntry.Builder,
       addErrorDetails: DamlPackageUploadRejectionEntry.Builder => DamlPackageUploadRejectionEntry.Builder)
     : DamlLogEntry = {
+    Metrics.rejections.inc()
     DamlLogEntry.newBuilder
       .setRecordTime(buildTimestamp(ctx.getRecordTime))
       .setPackageUploadRejectionEntry(
@@ -182,12 +187,12 @@ private[kvutils] case class PackageCommitter(engine: Engine)
               _ => sys.error("Unexpected request to keys in preloadPackage")
             )
       }
-      trace(s"Preload complete.")
+      trace(s"Preload complete")
     } catch {
       case scala.util.control.NonFatal(err) =>
         logger.error(
-          s"[submissionId=$submissionId]: Preload exception: $err. Stack trace: ${err.getStackTrace
-            .mkString(", ")}")
+          s"Preload exception, submissionId=$submissionId err=$err stackTrace='${err.getStackTrace
+            .mkString(", ")}'")
     } finally {
       val _ = ctx.stop()
     }
