@@ -61,8 +61,8 @@ a `MetricRegistry` and a suitable metric reporting strategy that fits their need
 
 ### Ledger API Server health checks
 
-The Ledger API Server exposes health checks over the [GRPC Health Checking Protocol][]. You can check the health of
-the overall server by making a GRPC request to `grpc.health.v1.Health.Check`.
+The Ledger API Server exposes health checks over the [gRPC Health Checking Protocol][]. You can check the health of
+the overall server by making a gRPC request to `grpc.health.v1.Health.Check`.
 
 You can also perform a streaming health check by making a request to `grpc.health.v1.Health.Watch`. The server will
 immediately send the current health of the Ledger API Server, and then send a new message whenever the health changes.
@@ -74,13 +74,13 @@ ledger-dependent. For example, the Sandbox exposes two service health checks:
 - the `"write"` service tests the health of the connection to the ledger database
 
 To use these, make a request with the `service` field set to the name of the service. An unknown service name will
-result in a GRPC `NOT_FOUND` error.
+result in a gRPC `NOT_FOUND` error.
 
-[GRPC Health Checking Protocol]: https://github.com/grpc/grpc/blob/master/doc/health-checking.md
+[gRPC Health Checking Protocol]: https://github.com/grpc/grpc/blob/master/doc/health-checking.md
 
 ### Indexer health checks
 
-The Indexer does not currently run a GRPC server, and so does not expose any health checks on its own.
+The Indexer does not currently run a gRPC server, and so does not expose any health checks on its own.
 
 In the situation where it is run in the same process as the Ledger API Server, the authors of the binary are encouraged
 to add specific health checks for the Indexer. This is the case in the Sandbox and Reference implementations.
