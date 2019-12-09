@@ -13,6 +13,7 @@ import com.digitalasset.http.domain.{
   Contract,
   CreateCommand,
   ExerciseCommand,
+  ExerciseResponse,
   JwtPayload
 }
 import com.digitalasset.http.util.ClientUtil.uniqueCommandId
@@ -59,14 +60,15 @@ class CommandService(
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def exercise(jwt: Jwt, jwtPayload: JwtPayload, input: ExerciseCommand[lav1.value.Value])
-    : Future[Error \/ List[Contract[lav1.value.Value]]] = {
+    : Future[Error \/ ExerciseResponse[lav1.value.Value]] = {
 
-    val et: EitherT[Future, Error, List[Contract[lav1.value.Value]]] = for {
+    val et: EitherT[Future, Error, ExerciseResponse[lav1.value.Value]] = for {
       command <- EitherT.either(exerciseCommand(input))
       request = submitAndWaitRequest(jwtPayload, input.meta, command)
       response <- liftET(logResult('exercise, submitAndWaitForTransactionTree(jwt, request)))
+      exerciseResult <- EitherT.either(exerciseResult(response))
       contracts <- EitherT.either(contracts(response))
-    } yield contracts
+    } yield ExerciseResponse(exerciseResult, contracts)
 
     et.run
   }

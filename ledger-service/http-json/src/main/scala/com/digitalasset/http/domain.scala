@@ -83,6 +83,11 @@ object domain {
       argument: LfV,
       meta: Option[CommandMeta])
 
+  final case class ExerciseResponse[+LfV](
+      exerciseResult: LfV,
+      contracts: List[Contract[LfV]]
+  )
+
   object PartyDetails {
     def fromLedgerApi(p: com.digitalasset.ledger.api.domain.PartyDetails): PartyDetails =
       PartyDetails(Party(p.party), p.displayName, p.isLocal)
@@ -359,5 +364,22 @@ object domain {
               .leftMap(e => Error('ExerciseCommand_hasTemplateId_lfIdentifier, e.shows))
           } yield IdentifierConverters.lfIdentifier(apiId)
       }
+  }
+
+  object ExerciseResponse {
+    implicit val traverseInstance: Traverse[ExerciseResponse] = new Traverse[ExerciseResponse] {
+      override def traverseImpl[G[_]: Applicative, A, B](fa: ExerciseResponse[A])(
+          f: A => G[B]): G[ExerciseResponse[B]] = {
+        import scalaz.syntax.applicative._
+        val gb: G[B] = f(fa.exerciseResult)
+        val gbs: G[List[Contract[B]]] = fa.contracts.traverse(_.traverse(f))
+        ^(gb, gbs) { (exerciseResult, contracts) =>
+          ExerciseResponse(
+            exerciseResult = exerciseResult,
+            contracts = contracts
+          )
+        }
+      }
+    }
   }
 }

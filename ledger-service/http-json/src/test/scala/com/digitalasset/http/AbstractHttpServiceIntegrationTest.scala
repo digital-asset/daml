@@ -30,7 +30,7 @@ import scalaz.std.scalaFuture._
 import scalaz.syntax.show._
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
-import scalaz.{\/, \/-}
+import scalaz.{-\/, \/, \/-}
 import spray.json._
 
 import scala.collection.breakOut
@@ -301,19 +301,41 @@ abstract class AbstractHttpServiceIntegrationTest
                 inside(exerciseOutput) {
                   case JsObject(fields) =>
                     inside(fields.get("result")) {
-                      case Some(JsArray(Vector(contract1: JsObject, contract2: JsObject))) =>
-                        inside(contract1.fields.toList) {
-                          case List(("archived", archived: JsObject)) =>
-                            assertArchivedContract(archived, contractId)
-                        }
-                        inside(contract2.fields.toList) {
-                          case List(("created", active: JsObject)) =>
-                            assertActiveContract(decoder, active, create, exercise)
-                        }
+                      case Some(exerciseResponse @ JsObject(_)) =>
+                        assertExerciseResponseNewActiveContract(
+                          decoder,
+                          exerciseResponse,
+                          create,
+                          exercise)
                     }
                 }
             }
       }: Future[Assertion]
+  }
+
+  private def assertExerciseResponseNewActiveContract(
+      decoder: DomainJsonDecoder,
+      exerciseResponse: JsValue,
+      create: domain.CreateCommand[v.Record],
+      exercise: domain.ExerciseCommand[v.Value]
+  ): Assertion = {
+    inside(exerciseResponse) {
+      case result @ JsObject(_) =>
+        inside(SprayJson.decode[domain.ExerciseResponse[JsValue]](result)) {
+          case \/-(domain.ExerciseResponse(JsString(exerciseResult), List(contract1, contract2))) => {
+            // TODO make sure you can lookup new exerciseResult contractID, blocked on #3755
+            exerciseResult.length should be > (0)
+            inside(contract1) {
+              case domain.Contract(-\/(archivedContract)) =>
+                (archivedContract.contractId.unwrap: String) shouldBe (exercise.contractId.unwrap: String)
+            }
+            inside(contract2) {
+              case domain.Contract(\/-(activeContract)) =>
+                assertActiveContract(decoder, activeContract, create, exercise)
+            }
+          }
+        }
+    }
   }
 
   "command/exercise-with-result IOU_Transfer" in withHttpService { (uri, encoder, _) =>
@@ -338,7 +360,7 @@ abstract class AbstractHttpServiceIntegrationTest
                     inside(fields.get("result")) {
                       case Some(JsString(newContractId)) =>
                         (newContractId: String) should not be (contractId.unwrap: String)
-                      // TODO(Leo) fetch the newly created IouTransfer by newContractId
+                      // TODO(Leo) fetch the newly created IouTransfer by newContractId, blocked on: #3755
                     }
                 }
             }
@@ -378,32 +400,33 @@ abstract class AbstractHttpServiceIntegrationTest
               case (exerciseStatus, exerciseOutput) =>
                 exerciseStatus shouldBe StatusCodes.OK
                 assertStatus(exerciseOutput, StatusCodes.OK)
-                println(s"----- exerciseOutput: $exerciseOutput")
-                inside(exerciseOutput) {
-                  case JsObject(fields) =>
-                    inside(fields.get("result")) {
-                      case Some(JsArray(Vector(contract1: JsObject))) =>
-                        inside(contract1.fields.toList) {
-                          case List(("archived", archived: JsObject)) =>
-                            assertArchivedContract(archived, contractId)
-                        }
-                    }
-                }
+                val exercisedResponse: JsObject = getResultField(exerciseOutput)
+                assertExerciseResponseArchivedContract(decoder, exercisedResponse, exercise)
             }
       }: Future[Assertion]
   }
 
-  private def assertArchivedContract(
-      jsObject: JsObject,
-      contractId: domain.ContractId): Assertion = {
-    import JsonProtocol._
-    val archived = SprayJson.decode[domain.ArchivedContract](jsObject).valueOr(e => fail(e.shows))
-    archived.contractId shouldBe contractId
+  private def assertExerciseResponseArchivedContract(
+      decoder: DomainJsonDecoder,
+      exerciseResponse: JsValue,
+      exercise: domain.ExerciseCommand[v.Value]
+  ): Assertion = {
+    inside(exerciseResponse) {
+      case result @ JsObject(_) =>
+        inside(SprayJson.decode[domain.ExerciseResponse[JsValue]](result)) {
+          case \/-(domain.ExerciseResponse(exerciseResult, List(contract1))) =>
+            exerciseResult shouldBe JsObject()
+            inside(contract1) {
+              case domain.Contract(-\/(archivedContract)) =>
+                (archivedContract.contractId.unwrap: String) shouldBe (exercise.contractId.unwrap: String)
+            }
+        }
+    }
   }
 
   private def assertActiveContract(
       decoder: DomainJsonDecoder,
-      jsObject: JsObject,
+      actual: domain.ActiveContract[JsValue],
       create: domain.CreateCommand[v.Record],
       exercise: domain.ExerciseCommand[v.Value]): Assertion = {
 
@@ -413,7 +436,9 @@ abstract class AbstractHttpServiceIntegrationTest
       .flatMap(_.value)
       .getOrElse(fail("Cannot extract expected newOwner"))
 
-    val active = decoder.decodeV[domain.ActiveContract](jsObject).valueOr(e => fail(e.shows))
+    val active: domain.ActiveContract[v.Value] =
+      decoder.decodeUnderlyingValues(actual).valueOr(e => fail(e.shows))
+
     inside(active.argument.sum.record.map(_.fields)) {
       case Some(
           Seq(
@@ -651,4 +676,16 @@ abstract class AbstractHttpServiceIntegrationTest
       .decode[List[domain.ActiveContract[JsValue]]](result)
       .valueOr(e => fail(e.shows))
   }
+
+  private def getResultField(output: JsValue): JsObject = {
+    def errorMsg = s"Expected JsObject with 'result' field, got: $output"
+
+    output
+      .asJsObject(errorMsg)
+      .getFields("result")
+      .headOption
+      .getOrElse(fail(errorMsg))
+      .asJsObject(errorMsg)
+  }
+
 }

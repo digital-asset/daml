@@ -3,24 +3,23 @@
 
 package com.digitalasset.http
 
+import akka.NotUsed
 import akka.http.scaladsl.model.HttpMethods.{GET, POST}
 import akka.http.scaladsl.model._
-import akka.NotUsed
 import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.stream.Materializer
+import akka.stream.scaladsl.{Flow, Source}
 import akka.util.ByteString
 import com.digitalasset.daml.lf
 import com.digitalasset.http.Statement.discard
 import com.digitalasset.http.domain.JwtPayload
-import com.digitalasset.http.json.ResponseFormats
-import com.digitalasset.http.json.{DomainJsonDecoder, DomainJsonEncoder, SprayJson}
+import com.digitalasset.http.json.{DomainJsonDecoder, DomainJsonEncoder, ResponseFormats, SprayJson}
 import com.digitalasset.http.util.FutureUtil.{either, eitherT}
 import com.digitalasset.http.util.{ApiValueToLfValueConverter, FutureUtil}
 import com.digitalasset.jwt.domain.{DecodedJwt, Jwt}
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
 import com.typesafe.scalalogging.StrictLogging
-import scalaz.std.list._
 import scalaz.std.scalaFuture._
 import scalaz.syntax.show._
 import scalaz.syntax.std.option._
@@ -31,9 +30,6 @@ import spray.json._
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
-
-import akka.stream.Materializer
-import akka.stream.scaladsl.{Source, Flow}
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class Endpoints(
@@ -90,14 +86,15 @@ class Endpoints(
             .leftMap(e => InvalidUserInput(e.shows))
         ): ET[domain.ExerciseCommand[ApiValue]]
 
-        cs <- eitherT(
+        apiResp <- eitherT(
           handleFutureFailure(commandService.exercise(jwt, jwtPayload, cmd))
-        ): ET[List[domain.Contract[ApiValue]]]
+        ): ET[domain.ExerciseResponse[ApiValue]]
 
-        jsVal <- either(
-          cs.traverse(a => encoder.encodeV(a))
-            .leftMap(e => ServerError(e.shows))
-            .flatMap(as => encodeList(as))): ET[JsValue]
+        lfResp <- either(apiResp.traverse(apiValueToLfValue)): ET[domain.ExerciseResponse[LfValue]]
+
+        jsResp <- either(lfResp.traverse(lfValueToJsValue)): ET[domain.ExerciseResponse[JsValue]]
+
+        jsVal <- either(SprayJson.encode(jsResp).leftMap(e => ServerError(e.shows))): ET[JsValue]
 
       } yield jsVal
 
