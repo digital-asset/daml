@@ -99,15 +99,15 @@
     - warn: {lhs: head (reverse x), rhs: last x}
     - warn: {lhs: head (drop n x), rhs: x !! n, side: isNat n}
     - warn: {lhs: head (drop n x), rhs: x !! max 0 n, side: not (isNat n) && not (isNeg n)}
-    - warn: {lhs: reverse (tail (reverse x)), rhs: init x, note: IncreasesLaziness}
-    - warn: {lhs: reverse (reverse x), rhs: x, note: IncreasesLaziness, name: Avoid reverse}
+    - warn: {lhs: reverse (tail (reverse x)), rhs: init x}
+    - warn: {lhs: reverse (reverse x), rhs: x, name: Avoid reverse}
     - warn: {lhs: isPrefixOf (reverse x) (reverse y), rhs: isSuffixOf x y}
     - warn: {lhs: "foldr (++) []", rhs: concat}
     - warn: {lhs: foldr (++) "", rhs: concat}
     - warn: {lhs: "foldr ((++) . f) []", rhs: concatMap f}
     - warn: {lhs: foldr ((++) . f) "", rhs: concatMap f}
-    - warn: {lhs: "foldl (++) []", rhs: concat, note: IncreasesLaziness}
-    - warn: {lhs: foldl (++) "", rhs: concat, note: IncreasesLaziness}
+    - warn: {lhs: "foldl (++) []", rhs: concat}
+    - warn: {lhs: foldl (++) "", rhs: concat}
     - warn: {lhs: foldl f (head x) (tail x), rhs: foldl1 f x}
     - warn: {lhs: foldr f (last x) (init x), rhs: foldr1 f x}
     - warn: {lhs: "foldr (\\c a -> x : a) []", rhs: "map (\\c -> x)"}
@@ -125,16 +125,16 @@
     - warn: {lhs: and (map p x), rhs: all p x}
     - warn: {lhs: "zipWith (,)", rhs: zip}
     - warn: {lhs: "zipWith3 (,,)", rhs: zip3}
-    - hint: {lhs: length x == 0, rhs: null x, note: IncreasesLaziness}
-    - hint: {lhs: 0 == length x, rhs: null x, note: IncreasesLaziness}
-    - hint: {lhs: length x < 1, rhs: null x, note: IncreasesLaziness}
-    - hint: {lhs: 1 > length x, rhs: null x, note: IncreasesLaziness}
-    - hint: {lhs: length x <= 0, rhs: null x, note: IncreasesLaziness}
-    - hint: {lhs: 0 >= length x, rhs: null x, note: IncreasesLaziness}
+    - hint: {lhs: length x == 0, rhs: null x}
+    - hint: {lhs: 0 == length x, rhs: null x}
+    - hint: {lhs: length x < 1, rhs: null x}
+    - hint: {lhs: 1 > length x, rhs: null x}
+    - hint: {lhs: length x <= 0, rhs: null x}
+    - hint: {lhs: 0 >= length x, rhs: null x}
     - hint: {lhs: "x == []", rhs: null x}
     - hint: {lhs: "[] == x", rhs: null x}
-    - hint: {lhs: length x /= 0, rhs: not (null x), note: IncreasesLaziness, name: Use null}
-    - hint: {lhs: 0 /= length x, rhs: not (null x), note: IncreasesLaziness, name: Use null}
+    - hint: {lhs: length x /= 0, rhs: not (null x), name: Use null}
+    - hint: {lhs: 0 /= length x, rhs: not (null x), name: Use null}
     - hint: {lhs: "\\x -> [x]", rhs: "(:[])", name: "Use :"}
     - warn: {lhs: map (uncurry f) (zip x y), rhs: zipWith f x y}
     - hint: {lhs: map f (zip x y), rhs: zipWith (curry f) x y, side: isVar f}
@@ -168,10 +168,10 @@
     - hint: {lhs: "notElem x [y]", rhs: x /= y, note: ValidInstance Eq a}
     - hint: {lhs: length x >= 0, rhs: "True", name: Length always non-negative}
     - hint: {lhs: 0 <= length x, rhs: "True", name: Length always non-negative}
-    - hint: {lhs: length x > 0, rhs: not (null x), note: IncreasesLaziness, name: Use null}
-    - hint: {lhs: 0 < length x, rhs: not (null x), note: IncreasesLaziness, name: Use null}
-    - hint: {lhs: length x >= 1, rhs: not (null x), note: IncreasesLaziness, name: Use null}
-    - hint: {lhs: 1 <= length x, rhs: not (null x), note: IncreasesLaziness, name: Use null}
+    - hint: {lhs: length x > 0, rhs: not (null x), name: Use null}
+    - hint: {lhs: 0 < length x, rhs: not (null x), name: Use null}
+    - hint: {lhs: length x >= 1, rhs: not (null x), name: Use null}
+    - hint: {lhs: 1 <= length x, rhs: not (null x), name: Use null}
     - warn: {lhs: take i x, rhs: "[]", side: isNegZero i, name: Take on a non-positive}
     - warn: {lhs: drop i x, rhs: x, side: isNegZero i, name: Drop on a non-positive}
     - warn: {lhs: last (scanl f z x), rhs: foldl f z x}
@@ -214,11 +214,11 @@
 
     - warn: {lhs: foldr  (>>) (return ()), rhs: sequence_}
     - warn: {lhs: foldr  (&&) True, rhs: and}
-    - warn: {lhs: foldl  (&&) True, rhs: and, note: IncreasesLaziness}
+    - warn: {lhs: foldl  (&&) True, rhs: and}
     - warn: {lhs: foldr1 (&&) , rhs: and, note: "RemovesError on `[]`"}
     - warn: {lhs: foldl1 (&&) , rhs: and, note: "RemovesError on `[]`"}
     - warn: {lhs: foldr  (||) False, rhs: or}
-    - warn: {lhs: foldl  (||) False, rhs: or, note: IncreasesLaziness}
+    - warn: {lhs: foldl  (||) False, rhs: or}
     - warn: {lhs: foldr1 (||) , rhs: or, note: "RemovesError on `[]`"}
     - warn: {lhs: foldl1 (||) , rhs: or, note: "RemovesError on `[]`"}
     - warn: {lhs: foldl  (+) 0, rhs: sum}
@@ -242,15 +242,14 @@
     - warn: {lhs: "\\(x,y) -> y", rhs: snd}
     - warn: {lhs: "\\(x,y) -> x", rhs: fst}
     - hint: {lhs: "\\x y -> f (x,y)", rhs: curry f}
-    - hint: {lhs: "\\(x,y) -> f x y", rhs: uncurry f, note: IncreasesLaziness}
+    - hint: {lhs: "\\(x,y) -> f x y", rhs: uncurry f}
     - warn: {lhs: f (fst p) (snd p), rhs: uncurry f p}
     - warn: {lhs: ($) . f, rhs: f, name: Redundant $}
     - warn: {lhs: (f $), rhs: f, name: Redundant $}
-    - warn: {lhs: (& f), rhs: f, name: Redundant &}
     - hint: {lhs: \x -> y, rhs: const y, side: isAtom y && not (isWildcard y)}
         # If any isWildcard recursively then x may be used but not mentioned explicitly
     - warn: {lhs: flip f x y, rhs: f y x, side: isApp original}
-    - warn: {lhs: identity x, rhs: x}
+    - warn: {lhs: identity x, rhs: x, side: not (isTypeApp x)}
     - warn: {lhs: identity . x, rhs: x, name: Redundant identity}
     - warn: {lhs: x . identity, rhs: x, name: Redundant identity}
     - warn: {lhs: "((,) x)", rhs: "(_noParen_ x,)", name: Use tuple-section, note: RequiresExtension TupleSections}
@@ -277,7 +276,7 @@
     - hint: {lhs: a /= False, rhs: a, name: Redundant /=}
     - warn: {lhs: True /= a, rhs: not a, name: Redundant /=}
     - hint: {lhs: False /= a, rhs: a, name: Redundant /=}
-    - warn: {lhs: if a then x else x, rhs: x, note: IncreasesLaziness, name: Redundant if}
+    - warn: {lhs: if a then x else x, rhs: x, name: Redundant if}
     - warn: {lhs: if a then True else False, rhs: a, name: Redundant if}
     - warn: {lhs: if a then False else True, rhs: not a, name: Redundant if}
     - warn: {lhs: if a then t else (if b then t else f), rhs: if a || b then t else f, name: Redundant if}
@@ -288,8 +287,8 @@
     - hint: {lhs: "case a of {False -> f; True -> t}", rhs: if a then t else f, name: Use if}
     - hint: {lhs: "case a of {True -> t; _ -> f}", rhs: if a then t else f, name: Use if}
     - hint: {lhs: "case a of {False -> f; _ -> t}", rhs: if a then t else f, name: Use if}
-    - hint: {lhs: "if c then (True, x) else (False, x)", rhs: "(c, x)", note: IncreasesLaziness, name: Redundant if}
-    - hint: {lhs: "if c then (False, x) else (True, x)", rhs: "(not c, x)", note: IncreasesLaziness, name: Redundant if}
+    - hint: {lhs: "if c then (True, x) else (False, x)", rhs: "(c, x)", name: Redundant if}
+    - hint: {lhs: "if c then (False, x) else (True, x)", rhs: "(not c, x)", name: Redundant if}
     - hint: {lhs: "or [x, y]", rhs: x || y}
     - hint: {lhs: "or [x, y, z]", rhs: x || y || z}
     - hint: {lhs: "and [x, y]", rhs: x && y}
@@ -297,7 +296,7 @@
     - warn: {lhs: if x then False else y, rhs: not x && y, side: notEq y True, name: Redundant if}
     - warn: {lhs: if x then y else True, rhs: not x || y, side: notEq y False, name: Redundant if}
     - warn: {lhs: not (not x), rhs: x, name: Redundant not}
-    # warn "Too strict if": {lhs: if c then f x else f y, rhs: f (if c then x else y), note: IncreasesLaziness}
+    # warn "Too strict if": {lhs: if c then f x else f y, rhs: f (if c then x else y)}
     # also breaks types, see #87
 
     # BIFUNCTOR
@@ -316,9 +315,9 @@
     - warn: {lhs: second g1 (bimap f g2 x), rhs: bimap f (g1 . g2) x}
     - warn: {lhs: bimap f1 g (first f2 x), rhs: bimap (f1 . f2) g x}
     - warn: {lhs: bimap f g1 (second g2 x), rhs: bimap f (g1 . g2) x}
-    - hint: {lhs: "\\(x,y) -> (f x, g y)", rhs: DA.Bifunctor.bimap f g, note: IncreasesLaziness}
-    - hint: {lhs: "\\(x,y) -> (f x,y)", rhs: DA.Bifunctor.first f, note: IncreasesLaziness}
-    - hint: {lhs: "\\(x,y) -> (x,f y)", rhs: DA.Bifunctor.second f, note: IncreasesLaziness}
+    - hint: {lhs: "\\(x,y) -> (f x, g y)", rhs: DA.Bifunctor.bimap f g}
+    - hint: {lhs: "\\(x,y) -> (f x,y)", rhs: DA.Bifunctor.first f}
+    - hint: {lhs: "\\(x,y) -> (x,f y)", rhs: DA.Bifunctor.second f}
     - hint: {lhs: "(f (fst x), g (snd x))", rhs: DA.Bifunctor.bimap f g x}
     - hint: {lhs: "(f (fst x), snd x)", rhs: DA.Bifunctor.first f x}
     - hint: {lhs: "(fst x, g (snd x))", rhs: DA.Bifunctor.second g x}
@@ -456,49 +455,49 @@
     - warn: {lhs: fst (unzip x), rhs: map fst x}
     - warn: {lhs: snd (unzip x), rhs: map snd x}
 
-    # MAYBE
+    # OPTIONAL
 
-    - warn: {lhs: maybe x identity, rhs: DA.Optional.fromOptional x}
-    - warn: {lhs: maybe False (const True), rhs: DA.Optional.isSome}
-    - warn: {lhs: maybe True (const False), rhs: DA.Optional.isNone}
-    - warn: {lhs: maybe False (== x), rhs: (== Some x)}
-    - warn: {lhs: maybe True (/= x), rhs: (/= Some x)}
+    - warn: {lhs: optional x identity, rhs: DA.Optional.fromOptional x}
+    - warn: {lhs: optional False (const True), rhs: DA.Optional.isSome}
+    - warn: {lhs: optional True (const False), rhs: DA.Optional.isNone}
+    - warn: {lhs: optional False (== x), rhs: (== Some x)}
+    - warn: {lhs: optional True (/= x), rhs: (/= Some x)}
     - warn: {lhs: not (isNone x), rhs: isSome x}
     - warn: {lhs: not (isSome x), rhs: isNone x}
-    - warn: {lhs: "maybe [] (:[])", rhs: maybeToList}
+    - warn: {lhs: "optional [] (:[])", rhs: optionalToList}
     - warn: {lhs: catOptionals (map f x), rhs: mapOptional f x}
     - warn: {lhs: catOptionals (fmap f x), rhs: mapOptional f x}
     - hint: {lhs: case x of None -> y; Some a -> a , rhs: DA.Optional.fromOptional y x, side: isAtom y, name: Replace case with fromOptional}
     - hint: {lhs: case x of Some a -> a; None -> y, rhs: DA.Optional.fromOptional y x, side: isAtom y, name: Replace case with fromOptional}
-    - hint: {lhs: case x of None -> y; Some a -> f a , rhs: maybe y f x, side: isAtom y && isAtom f, name: Replace case with maybe}
-    - hint: {lhs: case x of Some a -> f a; None -> y, rhs: maybe y f x, side: isAtom y && isAtom f, name: Replace case with maybe}
-    - warn: {lhs: if isNone x then y else f (fromSome x), rhs: maybe y f x}
-    - warn: {lhs: if isSome x then f (fromSome x) else y, rhs: maybe y f x}
-    - warn: {lhs: maybe None (Some . f), rhs: fmap f}
+    - hint: {lhs: case x of None -> y; Some a -> f a , rhs: optional y f x, side: isAtom y && isAtom f, name: Replace case with optional}
+    - hint: {lhs: case x of Some a -> f a; None -> y, rhs: optional y f x, side: isAtom y && isAtom f, name: Replace case with optional}
+    - warn: {lhs: if isNone x then y else f (fromSome x), rhs: optional y f x}
+    - warn: {lhs: if isSome x then f (fromSome x) else y, rhs: optional y f x}
+    - warn: {lhs: optinoal None (Some . f), rhs: fmap f}
     - hint: {lhs: map fromSome . filter isSome , rhs:  DA.Optional.catOptionals}
     - warn: {lhs: x == None , rhs:  isNone x}
     - warn: {lhs: None == x , rhs:  isNone x}
     - warn: {lhs: x /= None , rhs:  DA.Optional.isSome x}
     - warn: {lhs: None /= x , rhs:  DA.Optional.isSome x}
-    - warn: {lhs: concatMap (maybeToList . f), rhs: DA.Optional.mapOptional f}
-    - warn: {lhs: concatMap maybeToList, rhs: catOptionals}
-    - warn: {lhs: maybe n Some x, rhs: x DA.Functor.<|> n}
+    - warn: {lhs: concatMap (optionalToList . f), rhs: DA.Optional.mapOptional f}
+    - warn: {lhs: concatMap optionalToList, rhs: catOptionals}
+    - warn: {lhs: optional n Some x, rhs: x DA.Functor.<|> n}
     - warn: {lhs: if isNone x then y else fromSome x, rhs: fromOptional y x}
     - warn: {lhs: if isSome x then fromSome x else y, rhs: fromOptional y x}
     - warn: {lhs: isSome x && (fromSome x == y), rhs: x == Some y}
     - warn: {lhs: mapOptional f (map g x), rhs: mapOptional (f . g) x, name: Fuse mapOptional/map}
-    - warn: {lhs: fromOptional a (fmap f x), rhs: maybe a f x}
-    - warn: {lhs: fromOptional a (f <$> x), rhs: maybe a f x}
+    - warn: {lhs: fromOptional a (fmap f x), rhs: optional a f x}
+    - warn: {lhs: fromOptional a (f <$> x), rhs: optional a f x}
     - warn: {lhs: mapOptional identity, rhs: catOptionals}
     - hint: {lhs: "[x | Some x <- a]", rhs: DA.Optional.catOptionals a}
     - hint: {lhs: case m of None -> None; Some x -> x, rhs: DA.Action.join m}
-    - hint: {lhs: maybe None identity, rhs: join}
-    - hint: {lhs: maybe None f x, rhs: f =<< x}
-    - hint: {lhs: maybe (f x) (f . g), rhs: f . maybe x g, note: IncreasesLaziness, name: Too strict maybe}
-    - warn: {lhs: maybe x f (fmap g y), rhs: maybe x (f . g) y, name: Redundant fmap}
+    - hint: {lhs: optional None identity, rhs: join}
+    - hint: {lhs: optional None f x, rhs: f =<< x}
+    - hint: {lhs: optional (f x) (f . g), rhs: f . optional x g, name: Too strict optional}
+    - warn: {lhs: optional x f (fmap g y), rhs: optional x (f . g) y, name: Redundant fmap}
     - warn: {lhs: isSome (fmap f x), rhs: isSome x}
     - warn: {lhs: isNone (fmap f x), rhs: isNone x}
-    - warn: {lhs: fromSome (fmap f x), rhs: f (fromSome x), note: IncreasesLaziness}
+    - warn: {lhs: fromSome (fmap f x), rhs: f (fromSome x)}
     - warn: {lhs: mapOptional f (fmap g x), rhs: mapOptional (f . g) x, name: Redundant fmap}
 
     # EITHER
@@ -623,8 +622,8 @@
     - warn: {lhs: "scanr f z []", rhs: "[z]", name: Evaluate}
     - warn: {lhs: "scanr1 f []", rhs: "[]", name: Evaluate}
     - warn: {lhs: "scanr1 f [x]", rhs: "[x]", name: Evaluate}
-    - warn: {lhs: "take n []", rhs: "[]", note: IncreasesLaziness, name: Evaluate}
-    - warn: {lhs: "drop n []", rhs: "[]", note: IncreasesLaziness, name: Evaluate}
+    - warn: {lhs: "take n []", rhs: "[]", name: Evaluate}
+    - warn: {lhs: "drop n []", rhs: "[]", name: Evaluate}
     - warn: {lhs: "takeWhile p []", rhs: "[]", name: Evaluate}
     - warn: {lhs: "dropWhile p []", rhs: "[]", name: Evaluate}
     - warn: {lhs: "span p []", rhs: "([],[])", name: Evaluate}
@@ -701,14 +700,14 @@
     imports:
     - package base
     rules:
-    - warn: {lhs: maybe mempty, rhs: foldMap}
+    - warn: {lhs: optional mempty, rhs: foldMap}
     - warn: {lhs: either (const mempty), rhs: foldMap}
     - warn: {lhs: DA.Optional.fromOptional mempty, rhs: DA.Foldable.fold}
     - warn: {lhs: DA.Either.fromRight mempty, rhs: DA.Foldable.fold}
     - warn: {lhs: if f x then Some x else None, rhs: mfilter f (Some x)}
-    - hint: {lhs: maybe (pure ()), rhs: traverse_, note: IncreasesLaziness}
-    - hint: {lhs: fromOptional (pure ()), rhs: sequenceA_, note: IncreasesLaziness}
-    - hint: {lhs: fromRight (pure ()), rhs: sequenceA_, note: IncreasesLaziness}
+    - hint: {lhs: optional (pure ()), rhs: traverse_}
+    - hint: {lhs: fromOptional (pure ()), rhs: sequenceA_}
+    - hint: {lhs: fromRight (pure ()), rhs: sequenceA_}
 
 - group:
     name: dollar
