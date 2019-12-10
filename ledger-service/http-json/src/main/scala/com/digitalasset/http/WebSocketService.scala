@@ -47,7 +47,7 @@ class WebSocketService(transactionClient: TransactionClient,
     import scala.concurrent.duration._
 
     wsMessageHandler(jwt, jwtPayload)
-      .takeWithin(wsConfig.maxDuration) //TODO: move these to websocketConfig
+      .takeWithin(wsConfig.maxDuration)
       .throttle(wsConfig.throttleElem,
                 wsConfig.throttlePer,
                 wsConfig.maxBurst,
@@ -101,7 +101,7 @@ class WebSocketService(transactionClient: TransactionClient,
     resolveTemplateIds(request.templateIds) match {
       case \/-(ids) =>
         val filter = transactionFilterFor(jwtPayload.party, ids)
-        transactionClient.getTransactions(LedgerOffsetOrdering.ledgerBegin, None, transactionFilter = filter)
+        transactionClient.getTransactions(LedgerOffsetOrdering.ledgerBegin, None, transactionFilter = filter) // TODO: make offSet pass along with client message
           .via(Flow[Transaction].filter(_.events.nonEmpty))
           .map(tx => {
             lfVToJson(tx) match {
