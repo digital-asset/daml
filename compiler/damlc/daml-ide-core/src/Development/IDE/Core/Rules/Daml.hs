@@ -210,7 +210,8 @@ generateRawDalfRule =
         fmap (first (coreDiags ++)) $
             case mbCore of
                 Nothing -> return ([], Nothing)
-                Just core -> do
+                Just (safeMode, cgGuts, details) -> do
+                    let core = cgGutsToCoreModule safeMode cgGuts details
                     setPriority priorityGenerateDalf
                     -- Generate the map from package names to package hashes
                     pkgMap <- useNoFile_ GeneratePackageMap
