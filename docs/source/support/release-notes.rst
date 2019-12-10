@@ -6,6 +6,42 @@ Release notes
 
 This page contains release notes for the SDK.
 
+.. _release-0-13-40:
+
+0.13.40 - 2019-12-10
+--------------------
+
+DAML Compiler
+~~~~~~~~~~~~~
+
+- The modules DA.Types and GHC.Tuple from daml-prim have been moved to separate DALF packages.
+- Fixed an issue where packages produced by damlc resulted in type errors during validation by DAML engine.
+
+
+Sandbox
+~~~~~~~
+
+- The sandbox JWT authentication now respects the ledgerId and participantId fields of the token payload.
+- Improve loading of active contracts for the Sandbox SQL backend.
+- AuthService implementations can now restrict the validity of access tokens to a single ledger or participant.
+
+Java Client
+~~~~~~~~~~~
+
+- Ensure the access token is initialized when using a
+deprecated constructor.
+
+RxJava Bindings
+~~~~~~~~~~~~~~~
+
+- Added a method to the ``Bot`` class allowing users to specify a ``Scheduler`` to use for running the bot. See `issue #2356 <https://github.com/digital-asset/daml/issues/2356>`__.
+
+Java Bindings
+~~~~~~~~~~~~~
+
+- Removed warnings in code emitted by the Java Codegen.
+
+
 .. _release-0-13-39:
 
 0.13.39 - 2019-12-05
