@@ -28,8 +28,7 @@ Sandbox
 Java Client
 ~~~~~~~~~~~
 
-- Ensure the access token is initialized when using a
-deprecated constructor.
+- Ensure the access token is initialized when using a deprecated constructor.
 
 RxJava Bindings
 ~~~~~~~~~~~~~~~
