@@ -167,6 +167,16 @@ trait LedgerReadDao extends AutoCloseable with ReportsHealth {
 
   /** Returns the given DAML-LF archive */
   def getLfArchive(packageId: PackageId): Future[Option[Archive]]
+
+  /** Returns a stream of package upload entries.
+    * @param startInclusive starting offset inclusive
+    * @param endExclusive   ending offset exclusive
+    * @return a stream of package entries tupled with their offset
+    */
+  def getPackageEntries(
+      startInclusive: LedgerOffset,
+      endExclusive: LedgerOffset): Source[(LedgerOffset, PackageLedgerEntry), NotUsed]
+
 }
 
 trait LedgerWriteDao extends AutoCloseable with ReportsHealth {

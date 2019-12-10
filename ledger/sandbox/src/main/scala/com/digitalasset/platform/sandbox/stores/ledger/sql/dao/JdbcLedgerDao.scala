@@ -1611,6 +1611,61 @@ private class JdbcLedgerDao(
     // TODO(JM): check duplicates? packages.length - updated
   }
 
+  private val SQL_GET_PACKAGE_ENTRIES = SQL(
+    "select * from package_entries where ledger_offset>={startInclusive} and ledger_offset<{endExclusive} order by ledger_offset asc limit {pageSize} offset {queryOffset}")
+
+  private val packageEntryParser: RowParser[(Long, PackageLedgerEntry)] =
+    (long("ledger_offset") ~
+      date("recorded_at") ~
+      ledgerString("submission_id").? ~
+      str("typ") ~
+      str("rejection_reason").?)
+      .map(flatten)
+      .map {
+        case (
+            offset,
+            recordTime,
+            Some(submissionId),
+            `acceptType`,
+            None) =>
+          offset ->
+            PackageLedgerEntry.PackageUploadAccepted(
+              submissionId,
+              recordTime.toInstant)
+        case (
+            offset,
+            recordTime,
+            Some(submissionId),
+            `rejectType`,
+            Some(reason)) =>
+          offset ->
+            PackageLedgerEntry.PackageUploadRejected(
+              submissionId,
+              recordTime.toInstant,
+              reason)
+        case invalidRow =>
+          sys.error(s"packageEntryParser: invalid party entry row: $invalidRow")
+      }
+
+  override def getPackageEntries(
+      startInclusive: LedgerOffset,
+      endExclusive: LedgerOffset): Source[(Long, PackageLedgerEntry), NotUsed] = {
+    PaginatingAsyncStream(PageSize, executionContext) { queryOffset =>
+      dbDispatcher.executeSql(
+        "load_package_entries",
+        Some(s"bounds: [$startInclusive, $endExclusive[ queryOffset $queryOffset")) {
+        implicit conn =>
+          SQL_GET_PACKAGE_ENTRIES
+            .on(
+              "startInclusive" -> startInclusive,
+              "endExclusive" -> endExclusive,
+              "pageSize" -> PageSize,
+              "queryOffset" -> queryOffset)
+            .as(packageEntryParser.*)
+      }
+    }
+  }
+
   private val SQL_TRUNCATE_ALL_TABLES =
     SQL("""
         |truncate ledger_entries cascade;

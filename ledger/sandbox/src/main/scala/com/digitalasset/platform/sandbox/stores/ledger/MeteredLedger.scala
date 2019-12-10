@@ -126,13 +126,15 @@ private class MeteredLedger(ledger: Ledger, metrics: MetricRegistry)
       Metrics.publishPartyAllocation,
       ledger.publishPartyAllocation(submissionId, party, displayName))
 
-  override def uploadPackages(
+  def uploadPackages(
+      submissionId: SubmissionId,
+      maxRecordTime: Time.Timestamp,
       knownSince: Instant,
       sourceDescription: Option[String],
-      payload: List[Archive]): Future[UploadPackagesResult] =
+      payload: List[Archive]): Future[SubmissionResult] =
     timedFuture(
       Metrics.uploadPackages,
-      ledger.uploadPackages(knownSince, sourceDescription, payload))
+      ledger.uploadPackages(submissionId, maxRecordTime, knownSince, sourceDescription, payload))
 
   override def publishConfiguration(
       maxRecordTime: Time.Timestamp,

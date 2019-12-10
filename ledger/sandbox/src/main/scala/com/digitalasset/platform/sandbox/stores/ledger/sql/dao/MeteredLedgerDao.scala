@@ -101,6 +101,11 @@ private class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegi
   override def getLfArchive(packageId: PackageId): Future[Option[Archive]] =
     timedFuture(Metrics.getLfArchive, ledgerDao.getLfArchive(packageId))
 
+  override def getPackageEntries(
+      startInclusive: LedgerOffset,
+      endExclusive: LedgerOffset): Source[(LedgerOffset, PackageLedgerEntry), NotUsed] =
+    ledgerDao.getPackageEntries(startInclusive, endExclusive)
+
   override def close(): Unit = {
     ledgerDao.close()
   }
