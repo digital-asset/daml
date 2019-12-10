@@ -48,14 +48,14 @@ numericTests = testGroup "Numeric"
 substitutionTests :: TestTree
 substitutionTests = testGroup "substitution"
     [ testCase "TForall" $ do
-        let subst = Map.fromList [(beta1, TVar beta2)]
-            ty1 = TForall (beta1, KStar) $ TForall (beta2, KStar) $
-                TBuiltin BTArrow `TApp` vBeta1 `TApp` vBeta2
+        let subst = Map.fromList [(beta11, vBeta1)]
+            ty1 = TForall (beta11, KStar) $ TForall (beta1, KStar) $
+                TBuiltin BTArrow `TApp` vBeta11 `TApp` vBeta1
             ty2 = substitute subst ty1
         assertBool "wrong substitution" (alphaEquiv ty1 ty2)
     ]
   where
-    beta1 = TypeVarName "beta11"
-    beta2 = TypeVarName "beta1"
+    beta1 = TypeVarName "beta1"
+    beta11 = TypeVarName "beta11"
     vBeta1 = TVar beta1
-    vBeta2 = TVar beta2
+    vBeta11 = TVar beta11
