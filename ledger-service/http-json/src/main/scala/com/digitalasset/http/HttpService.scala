@@ -186,19 +186,20 @@ object HttpService extends StrictLogging {
 
     val lfTypeLookup = LedgerReader.damlLfTypeLookup(packageService.packageStore _) _
     val jsValueToApiValueConverter = new JsValueToApiValueConverter(lfTypeLookup)
-    val jsObjectToApiRecord = jsValueToApiValueConverter.jsObjectToApiRecord _
-    val jsValueToApiValue = jsValueToApiValueConverter.jsValueToApiValue _
+
     val apiValueToJsValueConverter = new ApiValueToJsValueConverter(
       ApiValueToLfValueConverter.apiValueToLfValue)
-    val apiValueToJsValue = apiValueToJsValueConverter.apiValueToJsValue _
-    val apiRecordToJsObject = apiValueToJsValueConverter.apiRecordToJsObject _
 
-    val encoder = new DomainJsonEncoder(apiRecordToJsObject, apiValueToJsValue)
+    val encoder = new DomainJsonEncoder(
+      apiValueToJsValueConverter.apiRecordToJsObject,
+      apiValueToJsValueConverter.apiValueToJsValue)
+
     val decoder = new DomainJsonDecoder(
       packageService.resolveTemplateId,
       packageService.resolveChoiceRecordId,
-      jsObjectToApiRecord,
-      jsValueToApiValue)
+      jsValueToApiValueConverter.jsObjectToApiRecord,
+      jsValueToApiValueConverter.jsValueToApiValue,
+    )
 
     (encoder, decoder)
   }

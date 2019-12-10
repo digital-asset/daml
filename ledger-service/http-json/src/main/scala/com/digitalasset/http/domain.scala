@@ -308,18 +308,23 @@ object domain {
         }
       }
     }
+  }
 
-    implicit val hasTemplateId: HasTemplateId[ContractLocator] =
-      new HasTemplateId[ContractLocator] {
-        override def templateId(fa: ContractLocator[_]): TemplateId.OptionalPkg =
-          fa match {
-            case EnrichedContractKey(templateId, _) => templateId
-            case EnrichedContractId(Some(templateId), _) => templateId
-            case EnrichedContractId(None, _) => TemplateId(None, "", "")
-          }
+  object EnrichedContractKey {
+    implicit val covariant: Traverse[EnrichedContractKey] = new Traverse[EnrichedContractKey] {
+      override def traverseImpl[G[_]: Applicative, A, B](fa: EnrichedContractKey[A])(
+          f: A => G[B]): G[EnrichedContractKey[B]] = {
+        f(fa.key).map(b => EnrichedContractKey(fa.templateId, b))
+      }
+    }
+
+    implicit val hasTemplateId: HasTemplateId[EnrichedContractKey] =
+      new HasTemplateId[EnrichedContractKey] {
+
+        override def templateId(fa: EnrichedContractKey[_]): TemplateId.OptionalPkg = fa.templateId
 
         override def lfIdentifier(
-            fa: ContractLocator[_],
+            fa: EnrichedContractKey[_],
             templateId: TemplateId.RequiredPkg,
             f: PackageService.ResolveChoiceRecordId): Error \/ Ref.Identifier =
           \/-(IdentifierConverters.lfIdentifier(templateId))

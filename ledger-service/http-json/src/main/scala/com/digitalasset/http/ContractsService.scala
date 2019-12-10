@@ -57,12 +57,12 @@ class ContractsService(
     : Future[Option[domain.ActiveContract[LfValue]]] =
     contractLocator match {
       case domain.EnrichedContractKey(templateId, contractKey) =>
-        lookup(jwt, jwtPayload.party, templateId, contractKey)
+        findByContractKey(jwt, jwtPayload.party, templateId, contractKey)
       case domain.EnrichedContractId(templateId, contractId) =>
-        lookup(jwt, jwtPayload.party, templateId, contractId)
+        findByContractId(jwt, jwtPayload.party, templateId, contractId)
     }
 
-  def lookup(
+  def findByContractKey(
       jwt: Jwt,
       party: lar.Party,
       templateId: TemplateId.OptionalPkg,
@@ -87,7 +87,7 @@ class ContractsService(
   private def isContractKey(k: LfValue)(a: domain.ActiveContract[LfValue]): Boolean =
     a.key.fold(false)(_ == k)
 
-  def lookup(
+  def findByContractId(
       jwt: Jwt,
       party: lar.Party,
       templateId: Option[domain.TemplateId.OptionalPkg],

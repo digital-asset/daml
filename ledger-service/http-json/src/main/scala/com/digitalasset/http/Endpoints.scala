@@ -136,7 +136,7 @@ class Endpoints(
 
         cl <- either(
           decoder
-            .decodeV[domain.ContractLocator](reqBody)
+            .decodeContractLocator(reqBody)
             .leftMap(e => InvalidUserInput(e.shows))
         ): ET[domain.ContractLocator[ApiValue]]
 
