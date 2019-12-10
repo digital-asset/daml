@@ -51,7 +51,7 @@ private[validation] object TypeSubst {
       dEnum
   }
 
-  def subsitute(subst: Map[TypeVarName, Type], app: TypeConApp): TypeConApp = app match {
+  def substitute(subst: Map[TypeVarName, Type], app: TypeConApp): TypeConApp = app match {
     case TypeConApp(tycon, args) =>
       val fv = freeVars(subst)
       TypeConApp(tycon, args.map(go(fv, subst, _)))
