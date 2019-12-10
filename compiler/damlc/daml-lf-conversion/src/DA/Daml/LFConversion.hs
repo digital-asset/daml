@@ -1427,7 +1427,7 @@ qualify env m x = do
 qDA_Types :: Env -> a -> ConvertM (Qualified a)
 qDA_Types env a = do
   pkgRef <- packageNameToPkgRef env "daml-prim"
-  pure $ Qualified pkgRef (mkModName ["DA", "Types"]) a
+  pure $ rewriteStableQualified env $ Qualified pkgRef (mkModName ["DA", "Types"]) a
 
 -- | Rewrite an a qualified name into a reference into one of the hardcoded
 -- stable packages if there is one.

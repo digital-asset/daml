@@ -1,6 +1,16 @@
 -- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
+-- @INFO Use null
+-- @INFO Evaluate
+-- @INFO Use sum
+-- @INFO Use sum
+-- @INFO Use sum
+-- @INFO Use head
+-- @INFO Use head
+-- @INFO Use isNone
+-- @INFO Use isNone
+
 daml 1.2
 module List where
 
