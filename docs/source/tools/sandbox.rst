@@ -23,7 +23,7 @@ Sandbox can also be run manually as in this example:
    _\ \/ _ `/ _ \/ _  / _ \/ _ \\ \ /
   /___/\_,_/_//_/\_,_/_.__/\___/_\_\
   initialized sandbox with ledger-id = sandbox-16ae201c-b2fd-45e0-af04-c61abe13fed7, port = 6865,
-  dar file = DAR files at List(/Users/donkeykong/temp/da-sdk/test/Main.dar), time mode = Static, daml-engine = {}
+  dar file = DAR files at List(/Users/damluser/temp/da-sdk/test/Main.dar), time mode = Static, daml-engine = {}
   Initialized Static time provider, starting from 1970-01-01T00:00:00Z
   listening on localhost:6865
 
@@ -31,7 +31,7 @@ Here, ``daml sandbox`` tells the SDK Assistant to run ``sandbox`` from the activ
 
 .. note::
   
-  The scenario is used for testing and development only, and is not supported by production DAML Ledgers. It is therefore unadvisable to rely on scenarios for ledger initialization.
+  The scenario is used for testing and development only, and is not supported by production DAML Ledgers. It is therefore inadvisable to rely on scenarios for ledger initialization.
 
   ``submitMustFail`` is only supported by the test-ledger used by ``daml test`` and the IDE, not by the Sandbox.
 
@@ -88,7 +88,9 @@ use one of the following command line options:
 Token payload
 =============
 
-The JWT payload has the following schema:
+JWTs express claims which are documented in the :ref:`authentication <authentication-claims>` documentation.
+
+The following is an example of a valid JWT payload:
 
 .. code-block:: json
 
@@ -106,9 +108,9 @@ where
 
 - ``ledgerId``, ``participantId``, ``applicationId`` restricts the validity of the token to the given ledger, participant, or application
 - ``exp`` is the standard JWT expiration date (in seconds since EPOCH)
-- ``admin`` determines whether the token bearer is authorized to use admin endpoints of the ledger API
-- ``actAs`` lists all DAML parties the token bearer can act as (e.g., as submitter of a command) and read data for
-- ``readAs`` lists all DAML parties the token bearer can read data for
+- ``admin``, ``actAs`` and ``readAs`` bear the same meaning as in the :ref:`authentication <authentication-claims>` documentation
+
+The ``public`` claim is implicitly held by anyone bearing a valid JWT (even without being an admin or being able to act or read on behalf of any party).
 
 Generating tokens
 =================
@@ -119,7 +121,7 @@ To generate RSA keys for testing purposes, use the following command
 
 .. code-block:: none
 
-  openssl req -nodes -new -x509  -keyout sandbox.key -out sandbox.crt
+  openssl req -nodes -new -x509 -keyout sandbox.key -out sandbox.crt
 
 which generates the following files:
 
@@ -129,6 +131,6 @@ which generates the following files:
 Command-line reference
 **********************
 
-To start Sandbox, run: ``sandbox [options] <archive>...``
+To start Sandbox, run: ``sandbox [options] <archive>...``.
 
-To see all the available options, run ``daml sandbox --help``
+To see all the available options, run ``daml sandbox --help``.
