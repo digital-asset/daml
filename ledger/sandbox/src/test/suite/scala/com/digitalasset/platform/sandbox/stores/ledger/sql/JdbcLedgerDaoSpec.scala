@@ -54,7 +54,7 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   ValueSerializer
 }
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
-import com.digitalasset.platform.sandbox.stores.ledger.{ConfigurationEntry, LedgerEntry}
+import com.digitalasset.platform.sandbox.stores.ledger.{ConfigurationEntry, LedgerEntry, PackageLedgerEntry}
 import org.scalatest.{AsyncWordSpec, Matchers, OptionValues}
 
 import scala.collection.immutable.TreeMap
@@ -408,7 +408,12 @@ class JdbcLedgerDaoSpec
 
     "refuse to persist an upload with no packages without external offset" in {
       recoverToSucceededIf[IllegalArgumentException] {
-        ledgerDao.uploadLfPackages(UUID.randomUUID().toString, Nil, None)
+        val offset = nextOffset()
+        ledgerDao.storePackageEntry(
+          offset, offset + 1,
+          None,
+          Nil,
+          Some(PackageLedgerEntry.PackageUploadAccepted(UUID.randomUUID().toString, Instant.EPOCH)))
       }
     }
 
@@ -416,33 +421,36 @@ class JdbcLedgerDaoSpec
       for {
         beforeExternalLedgerEnd <- ledgerDao.lookupExternalLedgerEnd()
         _ <- recoverToSucceededIf[IllegalArgumentException] {
-          ledgerDao.uploadLfPackages(UUID.randomUUID().toString, Nil, nextExternalOffset())
+          val offset = nextOffset()
+          ledgerDao.storePackageEntry(
+            offset, offset + 1,
+            nextExternalOffset(),
+            Nil,
+            Some(PackageLedgerEntry.PackageUploadAccepted(UUID.randomUUID().toString, Instant.EPOCH)))
         }
         afterExternalLedgerEnd <- ledgerDao.lookupExternalLedgerEnd()
 
       } yield beforeExternalLedgerEnd shouldEqual afterExternalLedgerEnd
     }
 
-    "refuse to persist an upload with an empty id" in {
-      recoverToSucceededIf[IllegalArgumentException] {
-        ledgerDao.uploadLfPackages("", JdbcLedgerDaoSpec.Fixtures.packages, None)
-      }
-    }
-
     "upload packages in an idempotent fashion, maintaining existing descriptions" in {
       val firstDescription = "first description"
       val secondDescription = "second description"
+      val offset1 = nextOffset()
+      val offset2 = nextOffset()
       for {
         firstUploadResult <- ledgerDao
-          .uploadLfPackages(
-            UUID.randomUUID().toString,
+          .storePackageEntry(
+            offset1, offset1 + 1,
+            None,
             JdbcLedgerDaoSpec.Fixtures.packages
               .map(a => a._1 -> a._2.copy(sourceDescription = Some(firstDescription)))
               .take(1),
             None)
         secondUploadResult <- ledgerDao
-          .uploadLfPackages(
-            UUID.randomUUID().toString,
+          .storePackageEntry(
+            offset2, offset2 + 1,
+            None,
             JdbcLedgerDaoSpec.Fixtures.packages.map(a =>
               a._1 -> a._2.copy(sourceDescription = Some(secondDescription))),
             None)

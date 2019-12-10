@@ -1540,16 +1540,15 @@ private class JdbcLedgerDao(
         .map(data => Archive.parseFrom(Decode.damlLfCodedInputStreamFromBytes(data)))
     }
 
+  protected[JdbcLedgerDao] val SQL_INSERT_PACKAGE_ENTRY_ACCEPT =
+    SQL("""insert into package_entries(ledger_offset, recorded_at, submission_id, typ)
+      |values ({ledger_offset}, {recorded_at}, {submission_id}, 'accept')
+      |""".stripMargin)
 
-    override protected[JdbcLedgerDao] val SQL_INSERT_PACKAGE_ENTRY_ACCEPT =
-      SQL("""insert into package_entries(ledger_offset, recorded_at, submission_id, typ)
-        |values ({ledger_offset}, {recorded_at}, {submission_id}, 'accept')
-        |""".stripMargin)
-
-    override protected[JdbcLedgerDao] val SQL_INSERT_PACKAGE_ENTRY_REJECT =
-      SQL("""insert into package_entries(ledger_offset, recorded_at, submission_id, typ, rejection_reason)
-        |values ({ledger_offset}, {recorded_at}, {submission_id}, 'reject', {rejection_reason})
-        |""".stripMargin)
+  protected[JdbcLedgerDao] val SQL_INSERT_PACKAGE_ENTRY_REJECT =
+    SQL("""insert into package_entries(ledger_offset, recorded_at, submission_id, typ, rejection_reason)
+      |values ({ledger_offset}, {recorded_at}, {submission_id}, 'reject', {rejection_reason})
+      |""".stripMargin)
 
   override def storePackageEntry(
       offset: LedgerOffset,
@@ -1558,37 +1557,44 @@ private class JdbcLedgerDao(
       packages: List[(Archive, PackageDetails)],
       optEntry: Option[PackageLedgerEntry]
   ): Future[PersistenceResponse] = {
-    dbDispatcher.executeSql("store_package_entry",
-      Some(s"packages: ${packages.map(_._1.getHash).mkString(", ")}")) { implicit conn =>
-      updateLedgerEnd(newLedgerEnd, externalOffset)
-
-      if (packages.nonEmpty) {
-        val uploadId = optEntry.map(_.submissionId).getOrElse(UUID.randomUUID().toString)
-        uploadLfPackages(uploadId, packages)
-        // FIXME(JM): catch duplicates?
-      }
-
-      optEntry.foreach {
-        case PackageLedgerEntry.PackageUploadAccepted(submissionId, recordTime) =>
-          SQL_INSERT_PACKAGE_ENTRY_ACCEPT
-            .on(
-              "ledger_offset" -> offset,
-              "recorded_at" -> recordTime,
-              "submission_id" -> submissionId,
-            )
-            .execute()
-        case PackageLedgerEntry.PackageUploadRejected(submissionId, recordTime, reason) =>
-          SQL_INSERT_PACKAGE_ENTRY_REJECT
-            .on(
-              "ledger_offset" -> offset,
-              "recorded_at" -> recordTime,
-              "submission_id" -> submissionId,
-              "rejection_reason" -> reason
-            )
-            .execute()
-      }
-      PersistenceResponse.Ok
+    val requirements = Try {
+      require(packages.nonEmpty, "The list of packages to upload cannot be empty")
     }
+    requirements.fold(
+      Future.failed,
+      _ =>
+      dbDispatcher.executeSql("store_package_entry",
+        Some(s"packages: ${packages.map(_._1.getHash).mkString(", ")}")) { implicit conn =>
+        updateLedgerEnd(newLedgerEnd, externalOffset)
+
+        if (packages.nonEmpty) {
+          val uploadId = optEntry.map(_.submissionId).getOrElse(UUID.randomUUID().toString)
+          uploadLfPackages(uploadId, packages)
+          // FIXME(JM): catch duplicates?
+        }
+
+        optEntry.foreach {
+          case PackageLedgerEntry.PackageUploadAccepted(submissionId, recordTime) =>
+            SQL_INSERT_PACKAGE_ENTRY_ACCEPT
+              .on(
+                "ledger_offset" -> offset,
+                "recorded_at" -> recordTime,
+                "submission_id" -> submissionId,
+              )
+              .execute()
+          case PackageLedgerEntry.PackageUploadRejected(submissionId, recordTime, reason) =>
+            SQL_INSERT_PACKAGE_ENTRY_REJECT
+              .on(
+                "ledger_offset" -> offset,
+                "recorded_at" -> recordTime,
+                "submission_id" -> submissionId,
+                "rejection_reason" -> reason
+              )
+              .execute()
+        }
+        PersistenceResponse.Ok
+      }
+    )
   }
 
   private def uploadLfPackages(
@@ -1677,6 +1683,7 @@ private class JdbcLedgerDao(
         |truncate parameters cascade;
         |truncate contract_keys cascade;
         |truncate configuration_entries cascade;
+        |truncate package_entries cascade;
       """.stripMargin)
 
   override def reset(): Future[Unit] =

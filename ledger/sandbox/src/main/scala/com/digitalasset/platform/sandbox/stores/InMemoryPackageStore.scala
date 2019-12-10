@@ -3,10 +3,13 @@
 
 package com.digitalasset.platform.sandbox.stores
 
+import akka.NotUsed
+import akka.stream.scaladsl.Source
 import java.io.File
 import java.time.Instant
 
 import com.daml.ledger.participant.state.index.v2.{IndexPackagesService, PackageDetails}
+import com.digitalasset.ledger.api.domain.{LedgerOffset, PackageEntry}
 import com.digitalasset.daml.lf.archive.Reader.ParseError
 import com.digitalasset.daml.lf.archive.{DarReader, Decode}
 import com.digitalasset.daml.lf.data.Ref.PackageId
@@ -69,6 +72,9 @@ case class InMemoryPackageStore(
       packages <- addArchives(knownSince, sourceDescription, archives)
     } yield packages
   }
+
+  // FIXME(JM): Move packageEntries into its own interface?
+  def packageEntries(beginOffset: LedgerOffset.Absolute): Source[PackageEntry, NotUsed] = ???
 
   private[InMemoryPackageStore] def addPackage(
       pkgId: PackageId,

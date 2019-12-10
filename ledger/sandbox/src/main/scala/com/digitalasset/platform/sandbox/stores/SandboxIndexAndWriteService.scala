@@ -413,6 +413,10 @@ abstract class LedgerBackedIndexService(
     }
   }
 
+  override def packageEntries(beginOffset: LedgerOffset.Absolute): Source[PackageEntry, NotUsed] =
+    ledger.packageEntries(beginOffset.value.toLong)
+      .map(_._2.toDomain)
+
   override def close(): Unit = {
     ledger.close()
   }

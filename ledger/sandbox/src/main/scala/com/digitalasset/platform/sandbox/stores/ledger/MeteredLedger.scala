@@ -78,6 +78,9 @@ private class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegis
   override def getLfPackage(packageId: PackageId): Future[Option[Ast.Package]] =
     timedFuture(Metrics.getLfPackage, ledger.getLfPackage(packageId))
 
+  override def packageEntries(beginOffset: Long): Source[(Long, PackageLedgerEntry), NotUsed] =
+    ledger.packageEntries(beginOffset)
+
   override def close(): Unit = {
     ledger.close()
   }

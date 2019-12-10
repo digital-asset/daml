@@ -302,6 +302,11 @@ class InMemoryLedger(
   override def getLfPackage(packageId: PackageId): Future[Option[Ast.Package]] =
     packageStoreRef.get.getLfPackage(packageId)
 
+  override def packageEntries(beginOffset: Long): Source[(Long, PackageLedgerEntry), NotUsed] =
+    entries.getSource(Some(beginOffset)).collect {
+      case (offset, InMemoryPackageEntry(entry)) => (offset, entry)
+    }
+
   override def uploadPackages(
       submissionId: SubmissionId,
       maxRecordTime: Time.Timestamp,
