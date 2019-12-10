@@ -16,7 +16,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
 
   "Checker.kindOf" should {
 
-    "infers the proper kind for builtin types (but ContractId)" ignore {
+    "infers the proper kind for builtin types (but ContractId)" in {
       val testCases = Table(
         "builtin type" -> "expected kind",
         BTInt64 -> k"*",
@@ -42,7 +42,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
       }
     }
 
-    "infers the proper kind for complex type" ignore {
+    "infers the proper kind for complex type" in {
 
       val testCases = Table(
         "type" -> "expected kind",
@@ -67,7 +67,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
 
   "Checker.typeOf" should {
 
-    "infers the proper type for expression" ignore {
+    "infers the proper type for expression" in {
       // The part of the expression that corresponds to the expression
       // defined by the given rule should be wrapped in double
       // parentheses.
@@ -203,7 +203,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
       }
     }
 
-    "infers proper type for Scenarios" ignore {
+    "infers proper type for Scenarios" in {
       val testCases = Table(
         "expression" ->
           "expected type",
@@ -230,7 +230,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
       }
     }
 
-    "infers proper type for Update" ignore {
+    "infers proper type for Update" in {
       val testCases = Table(
         "expression" ->
           "expected type",
@@ -262,7 +262,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
       }
     }
 
-    "shadow variables properly" ignore {
+    "shadow variables properly" in {
 
       val testCases = Table(
         "expression" ->
@@ -298,7 +298,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
       }
     }
 
-    "reject ill formed terms" ignore {
+    "reject ill formed terms" in {
       val testCases = Table(
         "non-well formed expression",
         // ExpDefVar
@@ -451,7 +451,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
       }
     }
 
-    "reject ill formed template definition" ignore {
+    "reject ill formed template definition" in {
 
       val pkg =
         p"""
@@ -681,7 +681,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
 
   }
 
-  "rejects choice controller expressions that use choice argument if DAML-LF < 1.2 " ignore {
+  "rejects choice controller expressions that use choice argument if DAML-LF < 1.2 " in {
 
     val testCases = Table[LV, Boolean](
       "LF version" -> "reject",
@@ -725,7 +725,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
 
   }
 
-  "rejects choice that use same variable for template and choice params if DAML-LF < 1.2 " ignore {
+  "rejects choice that use same variable for template and choice params if DAML-LF < 1.2 " in {
 
     val testCases = Table[LV, Boolean](
       "LF version" -> "reject",
