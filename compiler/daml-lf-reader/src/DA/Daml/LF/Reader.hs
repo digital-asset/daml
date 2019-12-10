@@ -21,6 +21,7 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.UTF8 as BSUTF8
 import Data.Char
+import Data.Either.Extra
 import Data.List.Extra
 import Data.Maybe
 import qualified Data.Text as T
@@ -91,6 +92,7 @@ data DalfManifest = DalfManifest
     , dalfPaths :: [FilePath]
     -- ^ Includes the mainDalf.
     , sdkVersion :: String
+    , packageName :: Maybe String
     } deriving (Show)
 
 -- | The dalfs stored in the DAR.
@@ -106,7 +108,8 @@ readDalfManifest dar = do
     mainDalf <- getAttr "Main-Dalf" attrs
     dalfPaths <- splitOn ", " <$> getAttr "Dalfs" attrs
     sdkVersion <- getAttr "Sdk-Version" attrs
-    pure $ DalfManifest mainDalf dalfPaths sdkVersion
+    let mbName = eitherToMaybe (getAttr "Name" attrs)
+    pure $ DalfManifest mainDalf dalfPaths sdkVersion mbName
   where
     getAttr :: ByteString -> [(ByteString, ByteString)] -> Either String String
     getAttr attrName attrs =

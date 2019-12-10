@@ -7,6 +7,7 @@ import qualified "zip-archive" Codec.Archive.Zip as Zip
 import Control.Monad.Extra
 import Control.Exception.Safe
 import DA.Bazel.Runfiles
+import DA.Daml.LF.Reader (readDalfManifest, packageName)
 import Data.Conduit.Tar.Extra (dropDirectory1)
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSL.Char8
@@ -355,6 +356,21 @@ tests damlc = testGroup "Packaging"
             , "data C = C Int"
             ]
         buildProjectError projDir "" "name collision between module A.B and variant A:B"
+
+    , testCase "Manifest name" $ withTempDir $ \projDir -> do
+          createDirectoryIfMissing True (projDir </> "src")
+          writeFileUTF8 (projDir </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: foobar"
+            , "version: 0.0.1"
+            , "source: src"
+            , "dependencies: [daml-prim, daml-stdlib]"
+            ]
+          withCurrentDirectory projDir $ callProcessSilent damlc ["build", "-o", "baz.dar"]
+          Right manifest <- readDalfManifest . Zip.toArchive  <$> BSL.readFile (projDir </> "baz.dar")
+          -- Verify that the name in the manifest is independent of the DAR name.
+          packageName manifest @?= Just "foobar-0.0.1"
+
 
     , dataDependencyTests damlc
     ]
