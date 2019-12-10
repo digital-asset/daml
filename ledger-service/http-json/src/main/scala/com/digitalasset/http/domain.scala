@@ -58,19 +58,17 @@ object domain {
       templateId: TemplateId.RequiredPkg,
       witnessParties: Seq[Party])
 
-  sealed trait ContractLocator[+LfV]
+  sealed abstract class ContractLocator[+LfV] extends Product with Serializable
 
-  case class EnrichedContractKey[+LfV](
+  final case class EnrichedContractKey[+LfV](
       templateId: TemplateId.OptionalPkg,
       key: LfV
   ) extends ContractLocator[LfV]
 
-  case class EnrichedContractId(
+  final case class EnrichedContractId(
       templateId: Option[TemplateId.OptionalPkg],
       contractId: domain.ContractId
   ) extends ContractLocator[Nothing]
-
-  case class ContractLookupRequest[+LfV](id: ContractLocator[LfV])
 
   case class GetActiveContractsRequest(
       templateIds: Set[TemplateId.OptionalPkg],
@@ -291,45 +289,41 @@ object domain {
       }
   }
 
-  object ContractLookupRequest {
-    implicit val covariant: Traverse[ContractLookupRequest] = new Traverse[ContractLookupRequest] {
-      override def traverseImpl[G[_]: Applicative, A, B](fa: ContractLookupRequest[A])(
-          f: A => G[B]): G[ContractLookupRequest[B]] = {
-        val G: Applicative[G] = implicitly
-        fa.id match {
-          case ka @ EnrichedContractKey(_, _) => ka.traverse(f).map(ContractLookupRequest.apply)
-          case c: EnrichedContractId => G.point(ContractLookupRequest(c))
+  object ContractLocator {
+    implicit val covariant: Traverse[ContractLocator] = new Traverse[ContractLocator] {
+
+      override def map[A, B](fa: ContractLocator[A])(f: A => B): ContractLocator[B] = fa match {
+        case ka: EnrichedContractKey[A] => EnrichedContractKey(ka.templateId, f(ka.key))
+        case c: EnrichedContractId => c
+      }
+
+      override def traverseImpl[G[_]: Applicative, A, B](fa: ContractLocator[A])(
+          f: A => G[B]): G[ContractLocator[B]] = {
+        fa match {
+          case ka: EnrichedContractKey[A] =>
+            f(ka.key).map(b => EnrichedContractKey(ka.templateId, b))
+          case c: EnrichedContractId =>
+            val G: Applicative[G] = implicitly
+            G.point(c)
         }
       }
     }
 
-    implicit val hasTemplateId: HasTemplateId[ContractLookupRequest] =
-      new HasTemplateId[ContractLookupRequest] {
-        override def templateId(fa: ContractLookupRequest[_]): TemplateId.OptionalPkg =
-          fa.id match {
+    implicit val hasTemplateId: HasTemplateId[ContractLocator] =
+      new HasTemplateId[ContractLocator] {
+        override def templateId(fa: ContractLocator[_]): TemplateId.OptionalPkg =
+          fa match {
             case EnrichedContractKey(templateId, _) => templateId
             case EnrichedContractId(Some(templateId), _) => templateId
             case EnrichedContractId(None, _) => TemplateId(None, "", "")
           }
 
         override def lfIdentifier(
-            fa: ContractLookupRequest[_],
+            fa: ContractLocator[_],
             templateId: TemplateId.RequiredPkg,
             f: PackageService.ResolveChoiceRecordId): Error \/ Ref.Identifier =
           \/-(IdentifierConverters.lfIdentifier(templateId))
       }
-  }
-
-  object EnrichedContractKey {
-    implicit var covariant: Traverse[EnrichedContractKey] = new Traverse[EnrichedContractKey] {
-
-      override def map[A, B](fa: EnrichedContractKey[A])(f: A => B): EnrichedContractKey[B] =
-        EnrichedContractKey(fa.templateId, f(fa.key))
-
-      override def traverseImpl[G[_]: Applicative, A, B](fa: EnrichedContractKey[A])(
-          f: A => G[B]): G[EnrichedContractKey[B]] =
-        f(fa.key).map(b => EnrichedContractKey(fa.templateId, b))
-    }
   }
 
   private[this] implicit final class ErrorOps[A](private val o: Option[A]) extends AnyVal {

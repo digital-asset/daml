@@ -134,14 +134,14 @@ class Endpoints(
 
         (jwt, jwtPayload, reqBody) = input
 
-        cmd <- either(
+        cl <- either(
           decoder
-            .decodeV[domain.ContractLookupRequest](reqBody)
+            .decodeV[domain.ContractLocator](reqBody)
             .leftMap(e => InvalidUserInput(e.shows))
-        ): ET[domain.ContractLookupRequest[ApiValue]]
+        ): ET[domain.ContractLocator[ApiValue]]
 
         ac <- eitherT(
-          handleFutureFailure(contractsService.lookup(jwt, jwtPayload, cmd))
+          handleFutureFailure(contractsService.lookup(jwt, jwtPayload, cl))
         ): ET[Option[domain.ActiveContract[LfValue]]]
 
         jsVal <- either(

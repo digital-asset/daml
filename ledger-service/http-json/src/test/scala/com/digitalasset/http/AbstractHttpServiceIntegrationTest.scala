@@ -240,7 +240,7 @@ abstract class AbstractHttpServiceIntegrationTest
       case (status, output) =>
         status shouldBe StatusCodes.OK
         assertStatus(output, StatusCodes.OK)
-        val activeContract: JsObject = getResultField(output)
+        val activeContract: JsObject = getResult(output)
         assertActiveContract(decoder, activeContract, command)
     }: Future[Assertion]
   }
@@ -284,7 +284,7 @@ abstract class AbstractHttpServiceIntegrationTest
           createStatus shouldBe StatusCodes.OK
           assertStatus(createOutput, StatusCodes.OK)
 
-          val contractId = getContractId(createOutput)
+          val contractId = getContractId(getResult(createOutput))
           val exercise: domain.ExerciseCommand[v.Value] = iouExerciseTransferCommand(contractId)
           val exerciseJson: JsValue = encoder.encodeV(exercise).valueOr(e => fail(e.shows))
 
@@ -357,7 +357,7 @@ abstract class AbstractHttpServiceIntegrationTest
           createStatus shouldBe StatusCodes.OK
           assertStatus(createOutput, StatusCodes.OK)
 
-          val contractId = getContractId(createOutput)
+          val contractId = getContractId(getResult(createOutput))
           val exercise: domain.ExerciseCommand[v.Value] = iouArchiveCommand(contractId)
           val exerciseJson: JsValue = encoder.encodeV(exercise).valueOr(e => fail(e.shows))
 
@@ -366,7 +366,7 @@ abstract class AbstractHttpServiceIntegrationTest
               case (exerciseStatus, exerciseOutput) =>
                 exerciseStatus shouldBe StatusCodes.OK
                 assertStatus(exerciseOutput, StatusCodes.OK)
-                val exercisedResponse: JsObject = getResultField(exerciseOutput)
+                val exercisedResponse: JsObject = getResult(exerciseOutput)
                 assertExerciseResponseArchivedContract(decoder, exercisedResponse, exercise)
             }
       }: Future[Assertion]
@@ -516,8 +516,15 @@ abstract class AbstractHttpServiceIntegrationTest
       case (status, output) =>
         status shouldBe StatusCodes.OK
         assertStatus(output, StatusCodes.OK)
-        val contractId = getContractId(getResultField(output))
-        ???
+        val contractId = getContractId(getResult(output))
+        postContractsLookup(domain.EnrichedContractId(None, contractId), encoder, uri).flatMap {
+          case (status, output) =>
+            status shouldBe StatusCodes.OK
+            assertStatus(output, StatusCodes.OK)
+            val result = getResult(output)
+            contractId shouldBe getContractId(result)
+            assertActiveContract(decoder, result, command)
+        }
     }: Future[Assertion]
   }
 
@@ -617,17 +624,6 @@ abstract class AbstractHttpServiceIntegrationTest
     }
   }
 
-  private def getContractId(output: JsValue): domain.ContractId =
-    inside(output) {
-      case JsObject(topFields) =>
-        inside(topFields.get("result")) {
-          case Some(JsObject(fields)) =>
-            inside(fields.get("contractId")) {
-              case Some(JsString(contractId)) => domain.ContractId(contractId)
-            }
-        }
-    }
-
   private def expectedOneErrorMessage(output: JsValue): String =
     inside(output) {
       case JsObject(fields) =>
@@ -646,13 +642,13 @@ abstract class AbstractHttpServiceIntegrationTest
     } yield result
 
   private def postContractsLookup(
-      cmd: domain.ContractLookupRequest[v.Value],
+      cmd: domain.ContractLocator[v.Value],
       encoder: DomainJsonEncoder,
-      uri: Uri): Future[(StatusCode, JsValue)] = ???
-//    for {
-//      json <- toFuture(encoder.encodeV(cmd)): Future[JsValue]
-//      result <- postJsonRequest(uri.withPath(Uri.Path("/contracts/lookup")), json)
-//    } yield result
+      uri: Uri): Future[(StatusCode, JsValue)] =
+    for {
+      json <- toFuture(encoder.encodeV(cmd)): Future[JsValue]
+      result <- postJsonRequest(uri.withPath(Uri.Path("/contracts/lookup")), json)
+    } yield result
 
   private def activeContractList(output: JsValue): List[domain.ActiveContract[JsValue]] = {
     val result = SprayJson
@@ -675,4 +671,8 @@ abstract class AbstractHttpServiceIntegrationTest
       .asJsObject(errorMsg)
   }
 
+  private def getContractId(result: JsObject): domain.ContractId =
+    inside(result.fields.get("contractId")) {
+      case Some(JsString(contractId)) => domain.ContractId(contractId)
+    }
 }

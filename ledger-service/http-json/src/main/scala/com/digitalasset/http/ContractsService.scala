@@ -53,12 +53,12 @@ class ContractsService(
       )
   }
 
-  def lookup(jwt: Jwt, jwtPayload: JwtPayload, request: domain.ContractLookupRequest[ApiValue])
+  def lookup(jwt: Jwt, jwtPayload: JwtPayload, contractLocator: domain.ContractLocator[ApiValue])
     : Future[Option[domain.ActiveContract[LfValue]]] =
-    request.id match {
-      case -\/((templateId, contractKey)) =>
+    contractLocator match {
+      case domain.EnrichedContractKey(templateId, contractKey) =>
         lookup(jwt, jwtPayload.party, templateId, contractKey)
-      case \/-((templateId, contractId)) =>
+      case domain.EnrichedContractId(templateId, contractId) =>
         lookup(jwt, jwtPayload.party, templateId, contractId)
     }
 
