@@ -43,6 +43,31 @@ On Linux and Mac `dev-env` can be installed with:
 1. Install Nix by running: `bash <(curl https://nixos.org/nix/install)`
 2. Enter `dev-env` by running: `eval "$(dev-env/bin/dade assist)"`
 
+> Note: For **macOS Catalina** users, there are some extra steps required to
+> get `nix` working, as it requires access to a top-level `/nix` directory. The
+> following steps will create a symlink from `/nix` to a folder on the Data
+> volume (the main, user-writable partition on Catalina).
+>
+> 0. Permanently set an environment variable to get nix to accept running with
+>    its store under a symlink: `echo "export NIX_IGNORE_SYMLINK_STORE=1" >>
+>    ~/.zprofile`. Note: this will work for `zsh`, which is the default shell
+>    on Catalina. If you are using a custom shell setup, you know how to set
+>    your env vars.
+> 1. Run `sudo bash -c "echo nix /System/Volumes/Data/nix | tr ' ' '\t' >>
+>    /etc/synthetic.conf"` to request the creation of a symlink. See `man
+>    synthetic.conf` for more information.
+> 2. Create the target: `sudo mkdir /System/Volumes/Data/nix`.
+> 3. Make it your own: `sudo chown $USER /System/Volumes/Data/nix`.
+> 4. Reboot your machine.
+>
+> You should now have a `/nix` folder and write access to it. The above
+> commands will now work as expected.
+>
+> Nix support for Catalina is still in flux; See
+> [here](https://github.com/NixOS/nix/issues/2925) for ongoing discussions as
+> well as other methods and the tradeoffs involved. The method described here
+> will work for this repo but may not work for more general Nix usage.
+
 If you don't want to enter `dev-env` manually each time using `eval "$(dev-env/bin/dade assist)"`,
 you can also install [direnv](https://direnv.net). This repo already provides a `.envrc`
 file, with an option to add more in a `.envrc.private` file.
@@ -71,7 +96,7 @@ We have a single script to build most targets and run the tests. On Linux and Ma
 
 To just build do `bazel build //...`, and to just test do `bazel test //...`. To read more about Bazel and how to use it, see [the Bazel site](https://bazel.build).
 
-On Mac if building is causing trouble complaining about missing nix packages, you can try first running `nix-build -A tools -A cached nix` repeatedly until it completes without error. 
+On Mac if building is causing trouble complaining about missing nix packages, you can try first running `nix-build -A tools -A cached nix` repeatedly until it completes without error.
 
 ### 4. Installing a local copy
 
