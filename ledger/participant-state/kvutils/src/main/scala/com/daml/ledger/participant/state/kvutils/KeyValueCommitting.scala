@@ -38,6 +38,7 @@ object KeyValueCommitting {
   def packDamlLogEntryId(entry: DamlLogEntryId): ByteString = entry.toByteString
   def unpackDamlLogEntryId(bytes: ByteString): DamlLogEntryId = DamlLogEntryId.parseFrom(bytes)
 
+  // A stop-gap measure, to be used while maximum record time is not yet available on every request
   private def estimateMaximumRecordTime(recordTime: Timestamp): Timestamp =
     recordTime.addMicros(100)
 
@@ -88,6 +89,7 @@ object KeyValueCommitting {
         case DamlSubmission.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
           val (logEntry, outputs) = PackageCommitter(engine).run(
             entryId,
+            //TODO replace this call with an explicit maxRecordTime from the request once available
             estimateMaximumRecordTime(recordTime),
             recordTime,
             submission.getPackageUploadEntry,
@@ -99,6 +101,7 @@ object KeyValueCommitting {
         case DamlSubmission.PayloadCase.PARTY_ALLOCATION_ENTRY =>
           val (logEntry, outputs) = PartyAllocationCommitter.run(
             entryId,
+            //TODO replace this call with an explicit maxRecordTime from the request once available
             estimateMaximumRecordTime(recordTime),
             recordTime,
             submission.getPartyAllocationEntry,

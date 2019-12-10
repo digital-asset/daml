@@ -4,13 +4,13 @@
 package com.daml.ledger.participant.state.kvutils.committer
 
 import com.daml.ledger.participant.state.kvutils.Conversions._
-import com.daml.ledger.participant.state.kvutils.DamlKvutils._
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlConfigurationEntry, _}
 import com.daml.ledger.participant.state.kvutils.committing.Common.getCurrentConfiguration
 import com.daml.ledger.participant.state.v1.Configuration
 
 private[kvutils] object ConfigCommitter {
   case class Result(
-      builder: DamlConfigurationEntry.Builder,
+      submission: DamlConfigurationSubmission,
       currentConfig: (Option[DamlConfigurationEntry], Configuration))
 }
 
@@ -24,11 +24,8 @@ private[kvutils] case class ConfigCommitter(
     val rejections = metricsRegistry.counter("rejections")
   }
 
-  private def rejectionTraceLog(
-      msg: String,
-      configurationEntry: DamlConfigurationEntry.Builder): Unit =
-    logger.trace(
-      s"Configuration rejected, $msg, correlationId=${configurationEntry.getSubmissionId}")
+  private def rejectionTraceLog(msg: String, submission: DamlConfigurationSubmission): Unit =
+    logger.trace(s"Configuration rejected, $msg, correlationId=${submission.getSubmissionId}")
 
   private val checkTtl: Step = (ctx, result) => {
     // Check the maximum record time against the record time of the commit.
@@ -37,11 +34,11 @@ private[kvutils] case class ConfigCommitter(
     if (ctx.getRecordTime > ctx.getMaximumRecordTime) {
       rejectionTraceLog(
         s"submission timed out (${ctx.getRecordTime} > ${ctx.getMaximumRecordTime})",
-        result.builder)
+        result.submission)
       StepStop(
         buildRejectionLogEntry(
           ctx,
-          result.builder,
+          result.submission,
           _.setTimedOut(
             DamlConfigurationRejectionEntry.TimedOut.newBuilder
               .setMaximumRecordTime(buildTimestamp(ctx.getMaximumRecordTime))
@@ -59,30 +56,30 @@ private[kvutils] case class ConfigCommitter(
     //      there exists no current configuration
     //   OR the current configuration's participant matches the submitting participant.
     //  )
-    val authorized = result.builder.getParticipantId == ctx.getParticipantId
+    val authorized = result.submission.getParticipantId == ctx.getParticipantId
 
     val wellFormed =
       result.currentConfig._1.forall(_.getParticipantId == ctx.getParticipantId)
 
     if (!authorized) {
       val msg =
-        s"participant id ${result.builder.getParticipantId} did not match authenticated participant id ${ctx.getParticipantId}"
-      rejectionTraceLog(msg, result.builder)
+        s"participant id ${result.submission.getParticipantId} did not match authenticated participant id ${ctx.getParticipantId}"
+      rejectionTraceLog(msg, result.submission)
       StepStop(
         buildRejectionLogEntry(
           ctx,
-          result.builder,
+          result.submission,
           _.setParticipantNotAuthorized(
             DamlConfigurationRejectionEntry.ParticipantNotAuthorized.newBuilder
               .setDetails(msg)
           )))
     } else if (!wellFormed) {
       val msg = s"${ctx.getParticipantId} is not authorized to change configuration."
-      rejectionTraceLog(msg, result.builder)
+      rejectionTraceLog(msg, result.submission)
       StepStop(
         buildRejectionLogEntry(
           ctx,
-          result.builder,
+          result.submission,
           _.setParticipantNotAuthorized(
             DamlConfigurationRejectionEntry.ParticipantNotAuthorized.newBuilder
               .setDetails(msg)
@@ -94,13 +91,13 @@ private[kvutils] case class ConfigCommitter(
 
   private val validateSubmission: Step = (ctx, result) => {
     Configuration
-      .decode(result.builder.getConfiguration)
+      .decode(result.submission.getConfiguration)
       .fold(
         err =>
           StepStop(
             buildRejectionLogEntry(
               ctx,
-              result.builder,
+              result.submission,
               _.setInvalidConfiguration(
                 DamlConfigurationRejectionEntry.InvalidConfiguration.newBuilder
                   .setError(err)))),
@@ -109,7 +106,7 @@ private[kvutils] case class ConfigCommitter(
             StepStop(
               buildRejectionLogEntry(
                 ctx,
-                result.builder,
+                result.submission,
                 _.setGenerationMismatch(
                   DamlConfigurationRejectionEntry.GenerationMismatch.newBuilder
                     .setExpectedGeneration(1 + result.currentConfig._2.generation))
@@ -124,26 +121,32 @@ private[kvutils] case class ConfigCommitter(
 
     Metrics.accepts.inc()
     logger.trace(
-      s"Configuration accepted, generation=${result.builder.getConfiguration.getGeneration} correlationId=${result.builder.getSubmissionId}")
+      s"Configuration accepted, generation=${result.submission.getConfiguration.getGeneration} correlationId=${result.submission.getSubmissionId}")
+
+    val configurationEntry = DamlConfigurationEntry.newBuilder
+      .setSubmissionId(result.submission.getSubmissionId)
+      .setParticipantId(result.submission.getParticipantId)
+      .setConfiguration(result.submission.getConfiguration)
+      .build
 
     ctx.set(
       configurationStateKey,
       DamlStateValue.newBuilder
-        .setConfigurationEntry(result.builder.build)
+        .setConfigurationEntry(configurationEntry)
         .build
     )
 
     StepStop(
       DamlLogEntry.newBuilder
         .setRecordTime(buildTimestamp(ctx.getRecordTime))
-        .setConfigurationEntry(result.builder)
+        .setConfigurationEntry(configurationEntry)
         .build
     )
   }
 
   private def buildRejectionLogEntry(
       ctx: CommitContext,
-      configurationEntry: DamlConfigurationEntry.Builder,
+      submission: DamlConfigurationSubmission,
       addErrorDetails: DamlConfigurationRejectionEntry.Builder => DamlConfigurationRejectionEntry.Builder)
     : DamlLogEntry = {
     Metrics.rejections.inc()
@@ -152,9 +155,9 @@ private[kvutils] case class ConfigCommitter(
       .setConfigurationRejectionEntry(
         addErrorDetails(
           DamlConfigurationRejectionEntry.newBuilder
-            .setSubmissionId(configurationEntry.getSubmissionId)
-            .setParticipantId(configurationEntry.getParticipantId)
-            .setConfiguration(configurationEntry.getConfiguration)
+            .setSubmissionId(submission.getSubmissionId)
+            .setParticipantId(submission.getParticipantId)
+            .setConfiguration(submission.getConfiguration)
         )
       )
       .build
@@ -164,10 +167,7 @@ private[kvutils] case class ConfigCommitter(
       ctx: CommitContext,
       configurationSubmission: DamlConfigurationSubmission): ConfigCommitter.Result =
     ConfigCommitter.Result(
-      DamlConfigurationEntry.newBuilder
-        .setSubmissionId(configurationSubmission.getSubmissionId)
-        .setParticipantId(configurationSubmission.getParticipantId)
-        .setConfiguration(configurationSubmission.getConfiguration),
+      configurationSubmission,
       getCurrentConfiguration(defaultConfig, ctx.inputs, logger)
     )
 
