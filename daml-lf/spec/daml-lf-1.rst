@@ -525,6 +525,9 @@ strings as *package identifiers*.  ::
   Type constructors
               T ::= Name                            -- TyCon
 
+  Type synonym
+              S ::= Name                            -- TySyn
+
   Module names
         ModName ::= Name                            -- ModName
 
@@ -593,7 +596,7 @@ Then we can define our kinds, types, and expressions::
        |  ∀ α : k . τ                               -- TyForall: Universal quantification
        |  BuiltinType                               -- TyBuiltin: Builtin type
        |  Mod:T                                     -- TyCon: type constructor
-       |  |Mod:T τ₁ … τₘ|                           -- TySyn: type synonym
+       |  |Mod:S τ₁ … τₘ|                           -- TySyn: type synonym
        |  ⟨ f₁: τ₁, …, fₘ: τₘ ⟩                     -- TyStruct: Structural record type
 
   Expressions
@@ -704,9 +707,9 @@ available for usage::
        |  'record' T (α₁: k₁)… (αₙ: kₙ) ↦ { f₁ : τ₁, …, fₘ : τₘ }
                                                     -- DefRecord: Nominal record type
        |  'variant' T (α₁: k₁)… (αₙ: kₙ) ↦ V₁ : τ₁ | … | Vₘ : τₘ
-                                                     -- DefVariant
+                                                    -- DefVariant
        |  'enum' T  ↦ E₁ | … | Eₘ                   -- DefEnum
-       |  'synonym' T (α₁: k₁)… (αₙ: kₙ) ↦ τ        -- DefTypeSynonym
+       |  'synonym' S (α₁: k₁)… (αₙ: kₙ) ↦ τ        -- DefTypeSynonym
        |  'val' W : τ ↦ e                           -- DefValue
        |  'tpl' (x : T) ↦                           -- DefTemplate
             { 'precondition' e₁
@@ -795,10 +798,10 @@ which inline type synonym definitions inside types::
   ———————————————————————————————————————————————— RewriteTyCon
    Mod:T ↠  Mod:T
 
-   'synonym' T (α₁:k₁) … (αₙ:kₙ) ↦ τ  ∈ 〚Ξ〛Mod
+   'synonym' S (α₁:k₁) … (αₙ:kₙ) ↦ τ  ∈ 〚Ξ〛Mod
    τ  ↠  σ      τ₁  ↠  σ₁  ⋯  τₙ  ↠  σₙ
   ——————————————————————————————————————————————— RewriteSynonym
-   |Mod:T τ₁ … τₙ|  ↠  σ[α₁ ↦ σ₁, …, αₙ ↦ σₙ]
+   |Mod:S τ₁ … τₙ|   ↠   σ[α₁ ↦ σ₁, …, αₙ ↦ σₙ]
 
    τ₁ ↠ σ₁  ⋯  τₙ  ↠  σₙ
   ———————————————————————————————————————————————— RewriteText
@@ -1326,7 +1329,7 @@ for the ``DefTemplate`` rule). ::
 
     τ  ↠  τ'      (α₁:k₁) … (αₙ:kₙ) · Γ  ⊢  τ'  :  ⋆
   ——————————————————————————————————————————————————————————————— DefTypeSynonym
-    ⊢  'synonym' T (α₁: k₁) … (αₙ: kₙ) ↦ τ
+    ⊢  'synonym' S (α₁: k₁) … (αₙ: kₙ) ↦ τ
 
     τ  ↠  τ'      ε  ⊢  e  :  τ'
   ——————————————————————————————————————————————————————————————— DefValue
@@ -1452,8 +1455,8 @@ name* construct as follows:
   defined in the module ``Mod`` is ``Mod.T``.
 * The *fully resolved name* of a enum type constructor ``T`` defined
   in the module ``Mod`` is ``Mod.T``.
-* The *fully resolved name* of a type synonym ``T`` defined in the
-  module ``Mod`` is ``Mod.T``.
+* The *fully resolved name* of a type synonym ``S`` defined in the
+  module ``Mod`` is ``Mod.S``.
 * The *fully resolved name* of a field ``fᵢ`` of a record type
   definition ``'record' T …  ↦ { …, fᵢ: τᵢ, … }`` defined in the
   module ``Mod`` is ``Mod.T.fᵢ``
