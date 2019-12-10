@@ -525,9 +525,6 @@ strings as *package identifiers*.  ::
   Type constructors
               T ::= Name                            -- TyCon
 
-  Type synonym
-              S ::= Name                            -- TySyn
-
   Module names
         ModName ::= Name                            -- ModName
 
@@ -596,7 +593,7 @@ Then we can define our kinds, types, and expressions::
        |  ∀ α : k . τ                               -- TyForall: Universal quantification
        |  BuiltinType                               -- TyBuiltin: Builtin type
        |  Mod:T                                     -- TyCon: type constructor
-       |  Mod:S                                     -- TySyn: type synonym
+       |  |Mod:T τ₁ … τₘ|                           -- TySyn: type synonym
        |  ⟨ f₁: τ₁, …, fₘ: τₘ ⟩                     -- TyStruct: Structural record type
 
   Expressions
@@ -707,8 +704,8 @@ available for usage::
        |  'record' T (α₁: k₁)… (αₙ: kₙ) ↦ { f₁ : τ₁, …, fₘ : τₘ }
                                                     -- DefRecord: Nominal record type
        |  'variant' T (α₁: k₁)… (αₙ: kₙ) ↦ V₁ : τ₁ | … | Vₘ : τₘ
-                                                    -- DefVariant
-       |  'enum' T  ↦ E₁ | … | Eₘ                    -- DefEnum
+                                                     -- DefVariant
+       |  'enum' T  ↦ E₁ | … | Eₘ                   -- DefEnum
        |  'synonym' T (α₁: k₁)… (αₙ: kₙ) ↦ τ        -- DefTypeSynonym
        |  'val' W : τ ↦ e                           -- DefValue
        |  'tpl' (x : T) ↦                           -- DefTemplate
@@ -798,10 +795,10 @@ which inline type synonym definitions inside types::
   ———————————————————————————————————————————————— RewriteTyCon
    Mod:T ↠  Mod:T
 
-   'synonym' S (α₁:k₁) … (αₙ:kₙ) ↦ τ  ∈ 〚Ξ〛Mod
+   'synonym' T (α₁:k₁) … (αₙ:kₙ) ↦ τ  ∈ 〚Ξ〛Mod
    τ  ↠  σ      τ₁  ↠  σ₁  ⋯  τₙ  ↠  σₙ
   ——————————————————————————————————————————————— RewriteSynonym
-   Mod:S τ₁ … τₙ   ↠   σ[α₁ ↦ σ₁, …, αₙ ↦ σₙ]
+   |Mod:T τ₁ … τₙ|  ↠  σ[α₁ ↦ σ₁, …, αₙ ↦ σₙ]
 
    τ₁ ↠ σ₁  ⋯  τₙ  ↠  σₙ
   ———————————————————————————————————————————————— RewriteText
@@ -827,6 +824,10 @@ over types as soon as:
 
 These two properties will be enforced by the notion of
 `well-formedness <Well-formed packages_>`_ defined below.
+
+Note ``↠`` is undefined on type contains an undefined type synonym or
+a type synonym applied to a wrong number. Such type are assumed non
+well-formed and will be rejected by the DAML-LF type checker.
 
 
 Well-formed types
@@ -924,7 +925,6 @@ We now formally defined *well-formed types*. ::
       Γ  ⊢  τ₁  :  ⋆    …    Γ  ⊢  τₙ  :  ⋆
     ————————————————————————————————————————————— TyStruct
       Γ  ⊢  ⟨ f₁: τ₁, …, fₙ: τₙ ⟩  :  ⋆
-
 
 
 Well-formed expression
@@ -1452,8 +1452,8 @@ name* construct as follows:
   defined in the module ``Mod`` is ``Mod.T``.
 * The *fully resolved name* of a enum type constructor ``T`` defined
   in the module ``Mod`` is ``Mod.T``.
-* The *fully resolved name* of a type synonym ``S`` defined in the
-  module ``Mod`` is ``Mod.S``.
+* The *fully resolved name* of a type synonym ``T`` defined in the
+  module ``Mod`` is ``Mod.T``.
 * The *fully resolved name* of a field ``fᵢ`` of a record type
   definition ``'record' T …  ↦ { …, fᵢ: τᵢ, … }`` defined in the
   module ``Mod`` is ``Mod.T.fᵢ``
