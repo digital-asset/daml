@@ -985,7 +985,7 @@ Then we define *well-formed expressions*. ::
 
       τ ↠ τ'     Γ  ⊢  τ'  :  ⋆     Γ  ⊢  e  :  τ'
     ——————————————————————————————————————————————————————————————— ExpOptionalSome
-      Γ  ⊢  'Some' @τ' e  :  'Optional' τ'
+      Γ  ⊢  'Some' @τ e  :  'Optional' τ'
 
 
       ∀ i,j ∈ 1, …, n  i > j ∨ tᵢ ≤ tⱼ
