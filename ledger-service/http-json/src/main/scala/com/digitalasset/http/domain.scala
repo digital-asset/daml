@@ -37,6 +37,9 @@ object domain {
 
   case class Contract[+LfV](value: ArchivedContract \/ ActiveContract[LfV])
 
+  type InputContractRef[+LfV] =
+    (TemplateId.OptionalPkg, LfV) \/ (Option[TemplateId.OptionalPkg], ContractId)
+
   case class ActiveContract[+LfV](
       contractId: ContractId,
       templateId: TemplateId.RequiredPkg,
