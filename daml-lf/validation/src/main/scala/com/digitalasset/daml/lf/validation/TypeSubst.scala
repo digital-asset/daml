@@ -20,7 +20,7 @@ private[validation] object TypeSubst {
       case TApp(t1, t2) => TApp(go(fv0, subst0, t1), go(fv0, subst0, t2))
       case TForall((v0, k), t) =>
         if (fv0.contains(v0)) {
-          val v1 = freshTypeVarName(fv0 + v0)
+          val v1 = freshTypeVarName(fv0)
           val fv1 = fv0 + v1
           val subst1 = subst0 + (v0 -> TVar(v1))
           TForall(v1 -> k, go(fv1, subst1, t))
