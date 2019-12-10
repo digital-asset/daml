@@ -28,6 +28,7 @@ import spray.json.JsValue
 
 import scala.concurrent.{ExecutionContext, Future}
 
+// TODO(Leo) split it into ContractsServiceInMemory and ContractsServiceDb
 class ContractsService(
     resolveTemplateIds: PackageService.ResolveTemplateIds,
     resolveTemplateId: PackageService.ResolveTemplateId,

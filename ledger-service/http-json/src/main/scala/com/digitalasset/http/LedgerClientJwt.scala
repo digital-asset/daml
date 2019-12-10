@@ -9,6 +9,7 @@ import com.digitalasset.jwt.domain.Jwt
 import com.digitalasset.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.digitalasset.ledger.api.v1.command_service.{
   SubmitAndWaitForTransactionResponse,
+  SubmitAndWaitForTransactionTreeResponse,
   SubmitAndWaitRequest
 }
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
@@ -23,6 +24,9 @@ object LedgerClientJwt {
   type SubmitAndWaitForTransaction =
     (Jwt, SubmitAndWaitRequest) => Future[SubmitAndWaitForTransactionResponse]
 
+  type SubmitAndWaitForTransactionTree =
+    (Jwt, SubmitAndWaitRequest) => Future[SubmitAndWaitForTransactionTreeResponse]
+
   type GetActiveContracts =
     (Jwt, TransactionFilter, Boolean) => Source[GetActiveContractsResponse, NotUsed]
 
@@ -33,6 +37,9 @@ object LedgerClientJwt {
 
   def submitAndWaitForTransaction(client: LedgerClient): SubmitAndWaitForTransaction =
     (jwt, req) => client.commandServiceClient.submitAndWaitForTransaction(req, bearer(jwt))
+
+  def submitAndWaitForTransactionTree(client: LedgerClient): SubmitAndWaitForTransactionTree =
+    (jwt, req) => client.commandServiceClient.submitAndWaitForTransactionTree(req, bearer(jwt))
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def getActiveContracts(client: LedgerClient): GetActiveContracts =
@@ -46,6 +53,6 @@ object LedgerClientJwt {
       Source
         .fromFuture(client.transactionClient.getLedgerEnd(bearer(jwt)))
         .flatMapConcat(end =>
-          client.transactionClient.getTransactions(offset, end.offset, filter, true, bearer(jwt)))
-
+          client.transactionClient
+            .getTransactions(offset, end.offset, filter, verbose = true, token = bearer(jwt)))
 }
