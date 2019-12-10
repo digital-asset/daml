@@ -12,6 +12,7 @@ import akka.util.ByteString
 import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.digitalasset.http.HttpServiceTestFixture.jsonCodecs
+import com.digitalasset.http.domain.ContractId
 import com.digitalasset.http.domain.TemplateId.OptionalPkg
 import com.digitalasset.http.json.SprayJson.objectField
 import com.digitalasset.http.json._
@@ -293,43 +294,48 @@ abstract class AbstractHttpServiceIntegrationTest
               case (exerciseStatus, exerciseOutput) =>
                 exerciseStatus shouldBe StatusCodes.OK
                 assertStatus(exerciseOutput, StatusCodes.OK)
-                inside(exerciseOutput) {
-                  case JsObject(fields) =>
-                    inside(fields.get("result")) {
-                      case Some(exerciseResponse @ JsObject(_)) =>
-                        assertExerciseResponseNewActiveContract(
-                          decoder,
-                          exerciseResponse,
-                          create,
-                          exercise)
-                    }
-                }
+                assertExerciseResponseNewActiveContract(
+                  getResult(exerciseOutput),
+                  create,
+                  exercise,
+                  encoder,
+                  decoder,
+                  uri)
             }
       }: Future[Assertion]
   }
 
   private def assertExerciseResponseNewActiveContract(
-      decoder: DomainJsonDecoder,
       exerciseResponse: JsValue,
-      create: domain.CreateCommand[v.Record],
-      exercise: domain.ExerciseCommand[v.Value]
-  ): Assertion = {
-    inside(exerciseResponse) {
-      case result @ JsObject(_) =>
-        inside(SprayJson.decode[domain.ExerciseResponse[JsValue]](result)) {
-          case \/-(domain.ExerciseResponse(JsString(exerciseResult), List(contract1, contract2))) => {
-            // TODO make sure you can lookup new exerciseResult contractID, blocked on #3755
-            exerciseResult.length should be > (0)
-            inside(contract1) {
-              case domain.Contract(-\/(archivedContract)) =>
-                (archivedContract.contractId.unwrap: String) shouldBe (exercise.contractId.unwrap: String)
-            }
-            inside(contract2) {
-              case domain.Contract(\/-(activeContract)) =>
-                assertActiveContract(decoder, activeContract, create, exercise)
-            }
-          }
+      createCmd: domain.CreateCommand[v.Record],
+      exerciseCmd: domain.ExerciseCommand[v.Value],
+      encoder: DomainJsonEncoder,
+      decoder: DomainJsonDecoder,
+      uri: Uri
+  ): Future[Assertion] = {
+    inside(SprayJson.decode[domain.ExerciseResponse[JsValue]](exerciseResponse)) {
+      case \/-(domain.ExerciseResponse(JsString(exerciseResult), List(contract1, contract2))) => {
+        // checking contracts
+        inside(contract1) {
+          case domain.Contract(-\/(archivedContract)) =>
+            (archivedContract.contractId.unwrap: String) shouldBe (exerciseCmd.contractId.unwrap: String)
         }
+        inside(contract2) {
+          case domain.Contract(\/-(activeContract)) =>
+            assertActiveContract(decoder, activeContract, createCmd, exerciseCmd)
+        }
+        // checking exerciseResult
+        exerciseResult.length should be > (0)
+        val newContractLocator = domain.EnrichedContractId(
+          Some(domain.TemplateId(None, "Iou", "IouTransfer")),
+          domain.ContractId(exerciseResult))
+        postContractsLookup(newContractLocator, encoder, uri).flatMap {
+          case (status, output) =>
+            status shouldBe StatusCodes.OK
+            assertStatus(output, StatusCodes.OK)
+            getContractId(getResult(output)) shouldBe newContractLocator.contractId
+        }: Future[Assertion]
+      }
     }
   }
 
@@ -516,17 +522,24 @@ abstract class AbstractHttpServiceIntegrationTest
       case (status, output) =>
         status shouldBe StatusCodes.OK
         assertStatus(output, StatusCodes.OK)
-        val contractId = getContractId(getResult(output))
-        postContractsLookup(domain.EnrichedContractId(None, contractId), encoder, uri).flatMap {
-          case (status, output) =>
-            status shouldBe StatusCodes.OK
-            assertStatus(output, StatusCodes.OK)
-            val result = getResult(output)
-            contractId shouldBe getContractId(result)
-            assertActiveContract(decoder, result, command)
-        }
+        lookupContractAndAssert(getContractId(getResult(output)), command, encoder, decoder, uri)
     }: Future[Assertion]
   }
+
+  private def lookupContractAndAssert(
+      contractId: ContractId,
+      create: domain.CreateCommand[v.Record],
+      encoder: DomainJsonEncoder,
+      decoder: DomainJsonDecoder,
+      uri: Uri): Future[Assertion] =
+    postContractsLookup(domain.EnrichedContractId(None, contractId), encoder, uri).flatMap {
+      case (status, output) =>
+        status shouldBe StatusCodes.OK
+        assertStatus(output, StatusCodes.OK)
+        val result = getResult(output)
+        contractId shouldBe getContractId(result)
+        assertActiveContract(decoder, result, create)
+    }
 
   protected def getResponseDataBytes(resp: HttpResponse, debug: Boolean = false): Future[String] = {
     val fb = resp.entity.dataBytes.runFold(ByteString.empty)((b, a) => b ++ a).map(_.utf8String)
