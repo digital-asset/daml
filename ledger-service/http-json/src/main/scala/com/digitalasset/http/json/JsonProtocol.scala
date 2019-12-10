@@ -130,9 +130,6 @@ object JsonProtocol extends DefaultJsonProtocol {
       }
     }
 
-  implicit val ContractLookupRequestFormat: RootJsonFormat[domain.ContractLookupRequest[JsValue]] =
-    jsonFormat1(domain.ContractLookupRequest.apply[JsValue])
-
   implicit val ContractFormat: RootJsonFormat[domain.Contract[JsValue]] =
     new RootJsonFormat[domain.Contract[JsValue]] {
       private val archivedKey = "archived"

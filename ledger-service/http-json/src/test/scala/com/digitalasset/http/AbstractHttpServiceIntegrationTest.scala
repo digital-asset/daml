@@ -664,7 +664,7 @@ abstract class AbstractHttpServiceIntegrationTest
       .valueOr(e => fail(e.shows))
   }
 
-  private def getResultField(output: JsValue): JsObject = {
+  private def getResult(output: JsValue): JsObject = {
     def errorMsg = s"Expected JsObject with 'result' field, got: $output"
 
     output
