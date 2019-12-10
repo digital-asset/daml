@@ -6,15 +6,19 @@ module DA.Daml.LF.Ast.Tests
     ) where
 
 import Data.Foldable
+import qualified Data.Map.Strict as Map
 import Text.Read
 import Test.Tasty
 import Test.Tasty.HUnit
 
+import DA.Daml.LF.Ast.Base
 import DA.Daml.LF.Ast.Numeric
+import DA.Daml.LF.Ast.Type
 
 main :: IO ()
 main = defaultMain $ testGroup "DA.Daml.LF.Ast"
-    [ numericTests
+    [ numericTests,
+      substitutionTests
     ]
 
 numericExamples :: [(String, Numeric)]
@@ -39,3 +43,20 @@ numericTests = testGroup "Numeric"
         for_ numericExamples $ \(str,num) -> do
             assertEqual "read produced wrong numeric or failed" (Just num) (readMaybe str)
     ]
+
+
+substitutionTests :: TestTree
+substitutionTests = testGroup "substitution"
+   [ testCase "forall" $ do
+        assertBool "wrong substitution" $
+          (alphaEquiv y substitutionExample)
+   ]
+   where
+     beta1 = TypeVarName "beta11"
+     beta2 = TypeVarName "beta1"
+     vBeta1 = TVar beta1
+     vBeta2 = TVar beta2
+     subst1 = Map.insert beta1 (TVar beta2) Map.empty
+     substitutionExample =
+         TForall (beta1, KStar) $ TForall (beta2, KStar) $  TBuiltin BTArrow `TApp` vBeta1 `TApp` vBeta2
+     y = substitute subst1 substitutionExample
