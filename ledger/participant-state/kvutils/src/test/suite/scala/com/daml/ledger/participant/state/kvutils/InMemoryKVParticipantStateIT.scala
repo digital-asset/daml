@@ -68,43 +68,41 @@ class InMemoryKVParticipantStateIT
     }
 
     "provide update after uploadPackages" in {
+      val submissionId = randomLedgerString()
       for {
-        result <- ps.uploadPackages(List(archives.head), sourceDescription).toScala
+        _ <- ps.uploadPackages(submissionId, List(archives.head), sourceDescription).toScala
         updateTuple <- ps.stateUpdates(beginAfter = None).runWith(Sink.head)
       } yield {
-        assert(result == UploadPackagesResult.Ok, "unexpected response to party allocation")
-        matchPackageUpload(updateTuple, Offset(Array(0L, 0L)), archives.head, rt)
+        matchPackageUpload(updateTuple, submissionId, Offset(Array(0L, 0L)), List(archives.head), rt)
       }
     }
 
     "provide two updates after uploadPackages with two archives" in {
       val archive1 :: archive2 :: _ = archives
-
+      val submissionId = randomLedgerString()
       for {
-        result <- ps.uploadPackages(archives, sourceDescription).toScala
-        Seq(update1, update2) <- ps.stateUpdates(beginAfter = None).take(2).runWith(Sink.seq)
+        _ <- ps.uploadPackages(submissionId, archives, sourceDescription).toScala
+        update1 <- ps.stateUpdates(beginAfter = None).runWith(Sink.head)
       } yield {
-        assert(result == UploadPackagesResult.Ok, "unexpected response to party allocation")
-        matchPackageUpload(update1, Offset(Array(0L, 0L)), archive1, rt)
-        matchPackageUpload(update2, Offset(Array(0L, 1L)), archive2, rt)
+        matchPackageUpload(update1, submissionId, Offset(Array(0L, 0L)), archives, rt)
       }
     }
 
     "remove duplicate package from update after uploadPackages" in {
       val archive1 :: archive2 :: _ = archives
+      val (subId1, subId2, subId3) =
+        (randomLedgerString(), randomLedgerString(), randomLedgerString())
 
       for {
-        _ <- ps.uploadPackages(List(archive1), sourceDescription).toScala
-        result <- ps.uploadPackages(List(archive1), sourceDescription).toScala
-        _ <- ps.uploadPackages(List(archive2), sourceDescription).toScala
-        Seq(update1, update2) <- ps.stateUpdates(beginAfter = None).take(2).runWith(Sink.seq)
+        _ <- ps.uploadPackages(subId1, List(archive1), sourceDescription).toScala
+        _ <- ps.uploadPackages(subId2, List(archive1), sourceDescription).toScala
+        _ <- ps.uploadPackages(subId3, List(archive2), sourceDescription).toScala
+        Seq(update1, update2, update3) <- ps.stateUpdates(beginAfter = None).take(3).runWith(Sink.seq)
       } yield {
-        assert(result == UploadPackagesResult.Ok, "unexpected response to party allocation")
         // first upload arrives as head update:
-        matchPackageUpload(update1, Offset(Array(0L, 0L)), archive1, rt)
-        // second upload results in no update because it was a duplicate
-        // third upload arrives as a second update:
-        matchPackageUpload(update2, Offset(Array(2L, 0L)), archive2, rt)
+        matchPackageUpload(update1, subId1, Offset(Array(0L, 0L)), List(archive1), rt)
+        matchPackageUpload(update2, subId2, Offset(Array(1L, 0L)), List(), rt)
+        matchPackageUpload(update3, subId3, Offset(Array(2L, 0L)), List(archive2), rt)
       }
     }
 
@@ -114,14 +112,20 @@ class InMemoryKVParticipantStateIT
         .setHash("asdf")
         .build
 
+      val submissionId = randomLedgerString()
+
       for {
-        result <- ps.uploadPackages(List(badArchive), sourceDescription).toScala
+        _ <- ps.uploadPackages(submissionId, List(badArchive), sourceDescription).toScala
+        updateTuple <- ps.stateUpdates(beginAfter = None).runWith(Sink.head)
       } yield {
-        result match {
-          case UploadPackagesResult.InvalidPackage(_) =>
-            succeed
+        updateTuple match {
+          case (offset: Offset, update: PublicPackageUploadRejected) =>
+            assert(offset == Offset(Array(0L, 0L)))
+            assert(update.submissionId  == submissionId)
+            assert(update.recordTime >= rt)
           case _ =>
-            fail("unexpected response to package upload")
+            fail(
+              s"unexpected update message after package upload: $updateTuple")
         }
       }
     }
@@ -146,7 +150,7 @@ class InMemoryKVParticipantStateIT
             assert(update.recordTime >= rt)
           case _ =>
             fail(
-              s"unexpected update message after a party allocation. Error : ${allocResult.description}")
+              s"unexpected update message after a party allocation: $updateTuple")
         }
       }
     }
@@ -254,17 +258,6 @@ class InMemoryKVParticipantStateIT
         val (offset, update) = offsetAndUpdate
         assert(offset == Offset(Array(2L, 0L)))
         assert(update.isInstanceOf[Update.CommandRejected])
-      }
-    }
-
-    "return update [0,1] with beginAfter=[0,0]" in {
-      for {
-        _ <- ps
-          .uploadPackages(archives, sourceDescription)
-          .toScala
-        updateTuple <- ps.stateUpdates(beginAfter = Some(Offset(Array(0L, 0L)))).runWith(Sink.head)
-      } yield {
-        matchPackageUpload(updateTuple, Offset(Array(0L, 1L)), archives(1), rt)
       }
     }
 
@@ -405,16 +398,17 @@ object InMemoryKVParticipantStateIT {
 
   private def matchPackageUpload(
       updateTuple: (Offset, Update),
+      submissionId: SubmissionId,
       givenOffset: Offset,
-      givenArchive: DamlLf.Archive,
+      expectedArchives: List[DamlLf.Archive],
       rt: Timestamp
   ): Assertion = updateTuple match {
-    case (offset: Offset, update: PublicPackageUploaded) =>
+    case (offset: Offset, update: PublicPackageUpload) =>
+      assert(update.submissionId == Some(submissionId))
       assert(offset == givenOffset)
-      assert(update.archive.getHash == givenArchive.getHash)
+      assert(update.archives.map(_.getHash).toSet == expectedArchives.map(_.getHash).toSet)
       assert(update.sourceDescription == sourceDescription)
-      assert(update.participantId == participantId)
       assert(update.recordTime >= rt)
-    case _ => fail("unexpected update message after a package upload")
+    case _ => fail("unexpected update message after a package upload: $updateTuple")
   }
 }
