@@ -1,3 +1,6 @@
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.digitalasset.http
 
 import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpMethod, HttpRequest, HttpResponse, StatusCode, StatusCodes, Uri}
