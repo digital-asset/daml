@@ -850,9 +850,9 @@ We now formally defined *well-formed types*. ::
     ————————————————————————————————————————————— TyNat
       Γ  ⊢  n  :  'nat'
 
-      Γ  ⊢  τ  :  k₁ → k₂      Γ  ⊢  σ  :  k₂
+      Γ  ⊢  τ  :  k₁ → k₂      Γ  ⊢  σ  :  k₁
     ————————————————————————————————————————————— TyApp
-      Γ  ⊢  τ σ  :  k₁
+      Γ  ⊢  τ σ  :  k₂
 
       α : k · Γ  ⊢  τ : ⋆
     ————————————————————————————————————————————— TyForall
@@ -925,11 +925,6 @@ We now formally defined *well-formed types*. ::
     ————————————————————————————————————————————— TyStruct
       Γ  ⊢  ⟨ f₁: τ₁, …, fₙ: τₙ ⟩  :  ⋆
 
-      'synonym' T (α₁:k₁) … (αₙ:kₙ) ↦ τ ∈ 〚Ξ〛Mod
-      Γ  ⊢  τ₁ : k₁  …  Γ  ⊢  τₙ : kₙ
-    ————————————————————————————————————————————— TyTypeSynonym
-      Γ  ⊢  Mod:T τ₁ … τₙ  :  ⋆
-
 
 
 Well-formed expression
@@ -949,9 +944,9 @@ Then we define *well-formed expressions*. ::
     ——————————————————————————————————————————————————————————————— ExpApp
       Γ  ⊢  e₁ e₂  :  τ₂
 
-      Γ  ⊢  τ  :  k      Γ  ⊢  e  :  ∀ α : k . σ
+      τ ↠ τ'     Γ  ⊢  τ'  :  k      Γ  ⊢  e  :  ∀ α : k . σ
     ——————————————————————————————————————————————————————————————— ExpTyApp
-      Γ  ⊢  e @τ  :  σ[α ↦ τ]
+      Γ  ⊢  e @τ  :  σ[α ↦ τ']
 
       τ ↠ τ'      x : τ' · Γ  ⊢  e  :  σ     Γ  ⊢ τ'  :  ⋆
     ——————————————————————————————————————————————————————————————— ExpAbs
@@ -975,7 +970,7 @@ Then we define *well-formed expressions*. ::
     ——————————————————————————————————————————————————————————————— ExpFalse
       Γ  ⊢  'False'  :  'Bool'
 
-      τ ↠ τ'      Γ  ⊢  τ  :  ⋆
+      τ ↠ τ'      Γ  ⊢  τ'  :  ⋆
     ——————————————————————————————————————————————————————————————— ExpListNil
       Γ  ⊢  'Nil' @τ  :  'List' τ'
 
@@ -1011,7 +1006,7 @@ Then we define *well-formed expressions*. ::
       τ contains no quantifiers nor type synonyms
       ε  ⊢  τ : *     Γ  ⊢  e  : Any
     ——————————————————————————————————————————————————————————————— ExpFromAny
-      Γ  ⊢  'from_any' @τ e  :  'Optional' τ'
+      Γ  ⊢  'from_any' @τ e  :  'Optional' τ
 
       ε  ⊢  τ : *     τ contains no quantifiers nor type synonyms
     ——————————————————————————————————————————————————————————————— ExpTypeRep
