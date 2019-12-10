@@ -86,6 +86,14 @@ message UploadDarFileRequest {
   // ``daml_lf.proto``.
   // Required
   bytes dar_file = 1;
+
+  // The deadline for accepting the request after which the ledger rejects it.
+  // Optional, defaults to maximum time to live in ledger's active time model.
+  google.protobuf.Timestamp maximum_record_time = 2;
+
+  // Unique submission identifier.
+  // Optional, defaults to a random identifier.
+  string submission_id = 3;
 }
 
 // An empty message that is received when the upload operation succeeded.
