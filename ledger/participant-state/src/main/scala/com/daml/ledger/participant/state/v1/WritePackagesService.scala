@@ -6,6 +6,7 @@ package com.daml.ledger.participant.state.v1
 import java.util.concurrent.CompletionStage
 
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
+import com.digitalasset.daml.lf.data.Time.Timestamp
 
 /** An interface for uploading packages via a participant. */
 trait WritePackagesService {
@@ -29,6 +30,7 @@ trait WritePackagesService {
     * original size, which would be quite confusing.
     *
     * @param submissionId      : Submitter chosen submission identifier.
+    * @param maxRecordTime     : The maximum record time after which the request is rejected.
     * @param sourceDescription : Description provided by the backing participant
     *   describing where it got the package from, e.g., when, where, or by whom
     *   the packages were uploaded.
@@ -39,6 +41,7 @@ trait WritePackagesService {
     */
   def uploadPackages(
       submissionId: SubmissionId,
+      maxRecordTime: Timestamp,
       payload: List[Archive],
       sourceDescription: Option[String]
   ): CompletionStage[SubmissionResult]

@@ -438,11 +438,18 @@ class LedgerBackedWriteService(ledger: Ledger, timeProvider: TimeProvider) exten
 
   // WritePackagesService
   override def uploadPackages(
+      submissionId: SubmissionId,
+      maxRecordTime: Time.Timestamp,
       payload: List[Archive],
       sourceDescription: Option[String]
-  ): CompletionStage[UploadPackagesResult] =
+  ): CompletionStage[SubmissionResult] =
     FutureConverters.toJava(
-      ledger.uploadPackages(timeProvider.getCurrentTime, sourceDescription, payload))
+      ledger.uploadPackages(
+        submissionId,
+        maxRecordTime,
+        timeProvider.getCurrentTime,
+        sourceDescription,
+        payload))
 
   // WriteConfigService
   override def submitConfiguration(
