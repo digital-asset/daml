@@ -27,6 +27,7 @@ private[kvutils] trait CommitContext {
     mutable.HashMap.empty[DamlStateKey, DamlStateValue]
 
   def getEntryId: DamlLogEntryId
+  def getMaximumRecordTime: Timestamp
   def getRecordTime: Timestamp
   def getParticipantId: ParticipantId
 

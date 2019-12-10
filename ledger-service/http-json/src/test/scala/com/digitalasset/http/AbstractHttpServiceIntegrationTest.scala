@@ -15,6 +15,7 @@ import com.digitalasset.http.HttpServiceTestFixture.jsonCodecs
 import com.digitalasset.http.domain.TemplateId.OptionalPkg
 import com.digitalasset.http.json.SprayJson.objectField
 import com.digitalasset.http.json._
+import com.digitalasset.http.util.ClientUtil.boxedRecord
 import com.digitalasset.http.util.FutureUtil.toFuture
 import com.digitalasset.http.util.TestUtil.requiredFile
 import com.digitalasset.jwt.JwtSigner
@@ -29,7 +30,7 @@ import scalaz.std.scalaFuture._
 import scalaz.syntax.show._
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
-import scalaz.{\/, \/-}
+import scalaz.{-\/, \/, \/-}
 import spray.json._
 
 import scala.collection.breakOut
@@ -284,38 +285,59 @@ abstract class AbstractHttpServiceIntegrationTest
           assertStatus(createOutput, StatusCodes.OK)
 
           val contractId = getContractId(createOutput)
-          val exercise: domain.ExerciseCommand[v.Record] = iouExerciseTransferCommand(contractId)
-          val exerciseJson: JsObject = encoder.encodeR(exercise).valueOr(e => fail(e.shows))
+          val exercise: domain.ExerciseCommand[v.Value] = iouExerciseTransferCommand(contractId)
+          val exerciseJson: JsValue = encoder.encodeV(exercise).valueOr(e => fail(e.shows))
 
           postJsonRequest(uri.withPath(Uri.Path("/command/exercise")), exerciseJson)
             .flatMap {
               case (exerciseStatus, exerciseOutput) =>
                 exerciseStatus shouldBe StatusCodes.OK
                 assertStatus(exerciseOutput, StatusCodes.OK)
-                println(s"----- exerciseOutput: $exerciseOutput")
                 inside(exerciseOutput) {
                   case JsObject(fields) =>
                     inside(fields.get("result")) {
-                      case Some(JsArray(Vector(contract1: JsObject, contract2: JsObject))) =>
-                        inside(contract1.fields.toList) {
-                          case List(("archived", archived: JsObject)) =>
-                            assertArchivedContract(archived, contractId)
-                        }
-                        inside(contract2.fields.toList) {
-                          case List(("created", active: JsObject)) =>
-                            assertActiveContract(decoder, active, create, exercise)
-                        }
+                      case Some(exerciseResponse @ JsObject(_)) =>
+                        assertExerciseResponseNewActiveContract(
+                          decoder,
+                          exerciseResponse,
+                          create,
+                          exercise)
                     }
                 }
             }
       }: Future[Assertion]
   }
 
+  private def assertExerciseResponseNewActiveContract(
+      decoder: DomainJsonDecoder,
+      exerciseResponse: JsValue,
+      create: domain.CreateCommand[v.Record],
+      exercise: domain.ExerciseCommand[v.Value]
+  ): Assertion = {
+    inside(exerciseResponse) {
+      case result @ JsObject(_) =>
+        inside(SprayJson.decode[domain.ExerciseResponse[JsValue]](result)) {
+          case \/-(domain.ExerciseResponse(JsString(exerciseResult), List(contract1, contract2))) => {
+            // TODO make sure you can lookup new exerciseResult contractID, blocked on #3755
+            exerciseResult.length should be > (0)
+            inside(contract1) {
+              case domain.Contract(-\/(archivedContract)) =>
+                (archivedContract.contractId.unwrap: String) shouldBe (exercise.contractId.unwrap: String)
+            }
+            inside(contract2) {
+              case domain.Contract(\/-(activeContract)) =>
+                assertActiveContract(decoder, activeContract, create, exercise)
+            }
+          }
+        }
+    }
+  }
+
   "command/exercise IOU_Transfer with unknown contractId should return proper error" in withHttpService {
     (uri, encoder, _) =>
       val contractId = lar.ContractId("NonExistentContractId")
-      val exercise: domain.ExerciseCommand[v.Record] = iouExerciseTransferCommand(contractId)
-      val exerciseJson: JsObject = encoder.encodeR(exercise).valueOr(e => fail(e.shows))
+      val exercise: domain.ExerciseCommand[v.Value] = iouExerciseTransferCommand(contractId)
+      val exerciseJson: JsValue = encoder.encodeV(exercise).valueOr(e => fail(e.shows))
 
       postJsonRequest(uri.withPath(Uri.Path("/command/exercise")), exerciseJson)
         .flatMap {
@@ -336,49 +358,53 @@ abstract class AbstractHttpServiceIntegrationTest
           assertStatus(createOutput, StatusCodes.OK)
 
           val contractId = getContractId(createOutput)
-          val exercise: domain.ExerciseCommand[v.Record] = iouArchiveCommand(contractId)
-          val exerciseJson: JsObject = encoder.encodeR(exercise).valueOr(e => fail(e.shows))
+          val exercise: domain.ExerciseCommand[v.Value] = iouArchiveCommand(contractId)
+          val exerciseJson: JsValue = encoder.encodeV(exercise).valueOr(e => fail(e.shows))
 
           postJsonRequest(uri.withPath(Uri.Path("/command/exercise")), exerciseJson)
             .flatMap {
               case (exerciseStatus, exerciseOutput) =>
                 exerciseStatus shouldBe StatusCodes.OK
                 assertStatus(exerciseOutput, StatusCodes.OK)
-                println(s"----- exerciseOutput: $exerciseOutput")
-                inside(exerciseOutput) {
-                  case JsObject(fields) =>
-                    inside(fields.get("result")) {
-                      case Some(JsArray(Vector(contract1: JsObject))) =>
-                        inside(contract1.fields.toList) {
-                          case List(("archived", archived: JsObject)) =>
-                            assertArchivedContract(archived, contractId)
-                        }
-                    }
-                }
+                val exercisedResponse: JsObject = getResultField(exerciseOutput)
+                assertExerciseResponseArchivedContract(decoder, exercisedResponse, exercise)
             }
       }: Future[Assertion]
   }
 
-  private def assertArchivedContract(
-      jsObject: JsObject,
-      contractId: domain.ContractId): Assertion = {
-    import JsonProtocol._
-    val archived = SprayJson.decode[domain.ArchivedContract](jsObject).valueOr(e => fail(e.shows))
-    archived.contractId shouldBe contractId
+  private def assertExerciseResponseArchivedContract(
+      decoder: DomainJsonDecoder,
+      exerciseResponse: JsValue,
+      exercise: domain.ExerciseCommand[v.Value]
+  ): Assertion = {
+    inside(exerciseResponse) {
+      case result @ JsObject(_) =>
+        inside(SprayJson.decode[domain.ExerciseResponse[JsValue]](result)) {
+          case \/-(domain.ExerciseResponse(exerciseResult, List(contract1))) =>
+            exerciseResult shouldBe JsObject()
+            inside(contract1) {
+              case domain.Contract(-\/(archivedContract)) =>
+                (archivedContract.contractId.unwrap: String) shouldBe (exercise.contractId.unwrap: String)
+            }
+        }
+    }
   }
 
   private def assertActiveContract(
       decoder: DomainJsonDecoder,
-      jsObject: JsObject,
+      actual: domain.ActiveContract[JsValue],
       create: domain.CreateCommand[v.Record],
-      exercise: domain.ExerciseCommand[v.Record]): Assertion = {
+      exercise: domain.ExerciseCommand[v.Value]): Assertion = {
 
     val expectedContractFields: Seq[v.RecordField] = create.argument.fields
-    val expectedNewOwner: v.Value = exercise.argument.fields.headOption
+    val expectedNewOwner: v.Value = exercise.argument.sum.record
+      .flatMap(_.fields.headOption)
       .flatMap(_.value)
       .getOrElse(fail("Cannot extract expected newOwner"))
 
-    val active = decoder.decodeV[domain.ActiveContract](jsObject).valueOr(e => fail(e.shows))
+    val active: domain.ActiveContract[v.Value] =
+      decoder.decodeUnderlyingValues(actual).valueOr(e => fail(e.shows))
+
     inside(active.argument.sum.record.map(_.fields)) {
       case Some(
           Seq(
@@ -432,12 +458,12 @@ abstract class AbstractHttpServiceIntegrationTest
       decoder: DomainJsonDecoder): Assertion = {
     import json.JsonProtocol._
 
-    val command0: domain.ExerciseCommand[v.Record] = iouExerciseTransferCommand(
+    val command0: domain.ExerciseCommand[v.Value] = iouExerciseTransferCommand(
       lar.ContractId("a-contract-ID"))
 
     val x = for {
-      jsonObj <- encoder.encodeR(command0)
-      command1 <- decoder.decodeR[domain.ExerciseCommand](jsonObj)
+      jsVal <- encoder.encodeV(command0)
+      command1 <- decoder.decodeV[domain.ExerciseCommand](jsVal)
     } yield command1.map(removeRecordId) should ===(command0)
 
     x.fold(e => fail(e.shows), identity)
@@ -501,6 +527,13 @@ abstract class AbstractHttpServiceIntegrationTest
     fb
   }
 
+  private def removeRecordId(a: v.Value): v.Value = a match {
+    case v.Value(v.Value.Sum.Record(r)) if r.recordId.isDefined =>
+      v.Value(v.Value.Sum.Record(removeRecordId(r)))
+    case _ =>
+      a
+  }
+
   private def removeRecordId(a: v.Record): v.Record = a.copy(recordId = None)
 
   private def iouCreateCommand(
@@ -520,21 +553,21 @@ abstract class AbstractHttpServiceIntegrationTest
   }
 
   private def iouExerciseTransferCommand(
-      contractId: lar.ContractId): domain.ExerciseCommand[v.Record] = {
+      contractId: lar.ContractId): domain.ExerciseCommand[v.Value] = {
     val templateId: OptionalPkg = domain.TemplateId(None, "Iou", "Iou")
     val arg: Record = v.Record(
       fields = List(v.RecordField("newOwner", Some(v.Value(v.Value.Sum.Party("Alice")))))
     )
     val choice = lar.Choice("Iou_Transfer")
 
-    domain.ExerciseCommand(templateId, contractId, choice, arg, None)
+    domain.ExerciseCommand(templateId, contractId, choice, boxedRecord(arg), None)
   }
 
-  private def iouArchiveCommand(contractId: lar.ContractId): domain.ExerciseCommand[v.Record] = {
+  private def iouArchiveCommand(contractId: lar.ContractId): domain.ExerciseCommand[v.Value] = {
     val templateId: OptionalPkg = domain.TemplateId(None, "Iou", "Iou")
     val arg: Record = v.Record()
     val choice = lar.Choice("Archive")
-    domain.ExerciseCommand(templateId, contractId, choice, arg, None)
+    domain.ExerciseCommand(templateId, contractId, choice, boxedRecord(arg), None)
   }
 
   private def postJsonStringRequest(

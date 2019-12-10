@@ -344,6 +344,7 @@ createArchive PackageConfigFields {..} pkgId dalf dalfDependencies srcRoot fileD
         map (breakAt72Bytes . BSLUTF8.fromString)
             [ "Manifest-Version: 1.0"
             , "Created-By: damlc"
+            , "Name: " <> pkgNameVersion pName pVersion
             , "Sdk-Version: " <> unPackageSdkVersion pSdkVersion
             , "Main-Dalf: " <> toPosixFilePath location
             , "Dalfs: " <> intercalate ", " (map toPosixFilePath dalfs)
