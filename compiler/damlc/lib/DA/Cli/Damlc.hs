@@ -58,7 +58,7 @@ import qualified Data.NameMap as NM
 import qualified Data.Set as Set
 import qualified Data.Text.Extended as T
 import Development.IDE.Core.API
-import Development.IDE.Core.RuleTypes.Daml (GetParsedModule(..))
+import Development.IDE.Core.RuleTypes.Daml (GetParsedModule(..), GenerateStablePackages(..), GeneratePackageMap(..))
 import Development.IDE.Core.Rules
 import Development.IDE.Core.Rules.Daml (getDalf, getDlintIdeas)
 import Development.IDE.Core.Service (runAction)
@@ -785,17 +785,16 @@ execGenerateSrc opts dalfFp mbOutDir = Command GenerateSrc effect
     effect = do
         bytes <- B.readFile dalfFp
         (pkgId, pkg) <- decode bytes
-        opts' <- mkOptions opts
-        pkgMap0 <-
-            fmap MS.unions $
-            forM (optPackageDbs opts') $ \dbDir -> do
-                allFiles <- listFilesRecursive dbDir
-                let dalfsFp = filter (".dalf" `isExtensionOf`) allFiles
-                fmap MS.fromList $
-                    forM dalfsFp $ \dalfFp -> do
-                        dalfBS <- B.readFile dalfFp
-                        (pkgId, _pkg) <- decode dalfBS
-                        pure (pkgId, stringToUnitId $ takeFileName dalfFp)
+        opts <- mkOptions opts
+        logger <- getLogger opts "generate-src"
+        pkgMap0 <- withDamlIdeState opts { optScenarioService = EnableScenarioService False } logger diagnosticsLogger $ \ideState -> runAction ideState $ do
+          stablePkgs <-
+              MS.fromList . map (\((unitId, _modName), dalfPkg) -> (LF.dalfPackageId dalfPkg, unitId)) . MS.toList <$>
+              useNoFile_ GenerateStablePackages
+          pkgs <-
+              MS.fromList . map (\(unitId, dalfPkg) -> (LF.dalfPackageId dalfPkg, unitId)) . MS.toList <$>
+              useNoFile_ GeneratePackageMap
+          pure $ stablePkgs `MS.union` pkgs
         let pkgMap = MS.insert pkgId unitId pkgMap0
         let genSrcs = generateSrcPkgFromLf (getUnitId unitId pkgMap) (Just "Sdk") pkg
         forM_ genSrcs $ \(path, src) -> do

@@ -37,17 +37,23 @@ class DarReaderTest extends WordSpec with Matchers with Inside with BazelRunfile
               ((packageId3, archive3), LanguageMajorVersion.V1) ::
               ((packageId4, archive4), LanguageMajorVersion.V1) ::
               ((packageId5, archive5), LanguageMajorVersion.V1) ::
+              ((packageId6, archive6), LanguageMajorVersion.V1) ::
+              ((packageId7, archive7), LanguageMajorVersion.V1) ::
               Nil)) =>
         packageId1 shouldNot be('empty)
         packageId2 shouldNot be('empty)
         packageId3 shouldNot be('empty)
         packageId4 shouldNot be('empty)
         packageId5 shouldNot be('empty)
+        packageId6 shouldNot be('empty)
+        packageId7 shouldNot be('empty)
         archive1.getDamlLf1.getModulesCount should be > 0
         archive2.getDamlLf1.getModulesCount should be > 0
         archive3.getDamlLf1.getModulesCount should be > 0
         archive4.getDamlLf1.getModulesCount should be > 0
         archive5.getDamlLf1.getModulesCount should be > 0
+        archive6.getDamlLf1.getModulesCount should be > 0
+        archive7.getDamlLf1.getModulesCount should be > 0
 
         val archive1Modules = archive1.getDamlLf1.getModulesList.asScala
         val archive1InternedDotted = archive1.getDamlLf1.getInternedDottedNamesList.asScala
@@ -82,10 +88,8 @@ class DarReaderTest extends WordSpec with Matchers with Inside with BazelRunfile
           "GHC.Enum",
           "GHC.Show",
           "GHC.Num",
-          "DA.Types",
           "GHC.Classes",
           "Control.Exception.Base",
-          "GHC.Tuple",
           "GHC.Err",
           "GHC.Base",
           "LibraryModules"
