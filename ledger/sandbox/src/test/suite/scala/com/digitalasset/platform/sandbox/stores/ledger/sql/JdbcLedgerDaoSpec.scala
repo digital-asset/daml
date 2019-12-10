@@ -17,28 +17,12 @@ import com.digitalasset.daml.lf.data.Ref.LedgerString.ordering
 import com.digitalasset.daml.lf.data.Ref.{Identifier, LedgerString, Party}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.transaction.GenTransaction
-import com.digitalasset.daml.lf.transaction.Node.{
-  KeyWithMaintainers,
-  NodeCreate,
-  NodeExercises,
-  NodeFetch
-}
-import com.digitalasset.daml.lf.value.Value.{
-  AbsoluteContractId,
-  ContractInst,
-  ValueText,
-  VersionedValue
-}
+import com.digitalasset.daml.lf.transaction.Node.{KeyWithMaintainers, NodeCreate, NodeExercises, NodeFetch}
+import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst, ValueRecord, ValueText, VersionedValue}
 import com.digitalasset.daml.lf.value.ValueVersions
 import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.ledger.EventId
-import com.digitalasset.ledger.api.domain.{
-  Filters,
-  InclusiveFilters,
-  LedgerId,
-  RejectionReason,
-  TransactionFilter
-}
+import com.digitalasset.ledger.api.domain.{Filters, InclusiveFilters, LedgerId, RejectionReason, TransactionFilter}
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.participant.util.EventFilter
@@ -47,6 +31,7 @@ import com.digitalasset.platform.sandbox.persistence.PostgresAroundAll
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.ActiveContract
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao._
 import com.digitalasset.platform.sandbox.stores.ledger.sql.migration.FlywayMigrations
+import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{ContractSerializer, KeyHasher, TransactionSerializer, ValueSerializer}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
 import com.digitalasset.platform.sandbox.stores.ledger.{ConfigurationEntry, LedgerEntry}
 import org.scalatest.{AsyncWordSpec, Matchers, OptionValues}
@@ -98,8 +83,26 @@ class JdbcLedgerDaoSpec
   private val alice = Party.assertFromString("Alice")
   private val bob = Party.assertFromString("Bob")
   private val charlie = Party.assertFromString("Charlie")
+
+  private val someAgreement = "agreement"
+  private val someTemplateId = Identifier(
+    Ref.PackageId.assertFromString("packageId"),
+    Ref.QualifiedName(
+      Ref.ModuleName.assertFromString("moduleName"),
+      Ref.DottedName.assertFromString("someTemplate")))
+  private val someRecordId = Identifier(
+    Ref.PackageId.assertFromString("packageId"),
+    Ref.QualifiedName(
+      Ref.ModuleName.assertFromString("moduleName"),
+      Ref.DottedName.assertFromString("someRecord")))
   private val someValueText = ValueText("some text")
-  private val agreement = "agreement"
+  private val someValueRecord = ValueRecord(Some(someRecordId), ImmArray(Some(Ref.Name("field")) -> someValueText))
+  private val someContractKey = VersionedValue(ValueVersions.acceptedVersions.head, someValueText)
+  private val someContractInstance = ContractInst(
+    someTemplateId,
+    VersionedValue(ValueVersions.acceptedVersions.head, someValueText),
+    someAgreement
+  )
 
   private val nextExternalOffset = {
     val n = new AtomicLong(0)
@@ -118,15 +121,6 @@ class JdbcLedgerDaoSpec
       val txId = s"trId-$offset"
       val workflowId = s"workflowId-$offset"
       val let = Instant.now
-      val contractInstance = ContractInst(
-        Identifier(
-          Ref.PackageId.assertFromString("packageId"),
-          Ref.QualifiedName(
-            Ref.ModuleName.assertFromString("moduleName"),
-            Ref.DottedName.assertFromString("name"))),
-        VersionedValue(ValueVersions.acceptedVersions.head, someValueText),
-        agreement
-      )
       val keyWithMaintainers = KeyWithMaintainers(
         VersionedValue(ValueVersions.acceptedVersions.head, ValueText(s"key-$offset")),
         Set(alice)
@@ -138,13 +132,13 @@ class JdbcLedgerDaoSpec
         txId,
         event1,
         Some(workflowId),
-        contractInstance,
+        someContractInstance,
         Set(alice, bob),
         Map(alice -> txId, bob -> txId),
         Some(keyWithMaintainers),
         Set(alice, bob),
         Set.empty,
-        contractInstance.agreementText
+        someContractInstance.agreementText
       )
 
       val transaction = LedgerEntry.Transaction(
@@ -159,7 +153,7 @@ class JdbcLedgerDaoSpec
           TreeMap(
             event1 -> NodeCreate(
               absCid,
-              contractInstance,
+              someContractInstance,
               None,
               Set(alice, bob),
               Set(alice, bob),
@@ -447,15 +441,6 @@ class JdbcLedgerDaoSpec
       val offset = nextOffset()
       val absCid = AbsoluteContractId("cId2")
       val let = Instant.now
-      val contractInstance = ContractInst(
-        Identifier(
-          Ref.PackageId.assertFromString("packageId"),
-          Ref.QualifiedName(
-            Ref.ModuleName.assertFromString("moduleName"),
-            Ref.DottedName.assertFromString("name"))),
-        VersionedValue(ValueVersions.acceptedVersions.head, someValueText),
-        agreement
-      )
 
       val keyWithMaintainers = KeyWithMaintainers(
         VersionedValue(ValueVersions.acceptedVersions.head, ValueText("key2")),
@@ -474,7 +459,7 @@ class JdbcLedgerDaoSpec
           TreeMap(
             event1 -> NodeCreate(
               absCid,
-              contractInstance,
+              someContractInstance,
               None,
               Set(alice, bob),
               Set(alice, bob),
@@ -505,15 +490,6 @@ class JdbcLedgerDaoSpec
       val offset = nextOffset()
       val absCid = AbsoluteContractId(s"cId$offset")
       val let = Instant.now
-      val contractInstance = ContractInst(
-        Identifier(
-          Ref.PackageId.assertFromString("packageId"),
-          Ref.QualifiedName(
-            Ref.ModuleName.assertFromString("moduleName"),
-            Ref.DottedName.assertFromString("name"))),
-        VersionedValue(ValueVersions.acceptedVersions.head, someValueText),
-        agreement
-      )
 
       val transactionId = s"trId$offset"
 
@@ -530,7 +506,7 @@ class JdbcLedgerDaoSpec
           TreeMap(
             event1 -> NodeCreate(
               absCid,
-              contractInstance,
+              someContractInstance,
               None,
               Set(alice, bob),
               Set(alice, bob),
@@ -538,7 +514,7 @@ class JdbcLedgerDaoSpec
             ),
             event2 -> NodeFetch(
               absCid,
-              contractInstance.template,
+              someContractInstance.template,
               None,
               Some(Set(alice, bob)),
               Set(alice, bob),
@@ -567,21 +543,10 @@ class JdbcLedgerDaoSpec
     }
 
     "be able to produce a valid snapshot" in {
-      val templateId = Identifier(
-        Ref.PackageId.assertFromString("packageId"),
-        Ref.QualifiedName(
-          Ref.ModuleName.assertFromString("moduleName"),
-          Ref.DottedName.assertFromString("name")))
-
       def genCreateTransaction(id: Long) = {
         val txId = s"trId$id"
         val absCid = AbsoluteContractId(s"cId$id")
         val let = Instant.now
-        val contractInstance = ContractInst(
-          templateId,
-          VersionedValue(ValueVersions.acceptedVersions.head, someValueText),
-          agreement
-        )
 
         LedgerEntry.Transaction(
           Some(s"commandId$id"),
@@ -595,7 +560,7 @@ class JdbcLedgerDaoSpec
             TreeMap(
               (s"event$id": EventId) -> NodeCreate(
                 absCid,
-                contractInstance,
+                someContractInstance,
                 None,
                 Set(alice, bob),
                 Set(alice, bob),
@@ -623,7 +588,7 @@ class JdbcLedgerDaoSpec
             TreeMap(
               (s"event$id": EventId) -> NodeExercises(
                 targetCid,
-                templateId,
+                someTemplateId,
                 Ref.Name.assertFromString("choice"),
                 None,
                 consuming = true,
@@ -685,17 +650,17 @@ class JdbcLedgerDaoSpec
       val aliceWildcardFilter =
         EventFilter.byTemplates(TransactionFilter(Map(alice -> Filters(None))))
       val aliceSpecificTemplatesFilter = EventFilter.byTemplates(
-        TransactionFilter(Map(alice -> Filters(InclusiveFilters(Set(templateId))))))
+        TransactionFilter(Map(alice -> Filters(InclusiveFilters(Set(someTemplateId))))))
 
       val charlieWildcardFilter =
         EventFilter.byTemplates(TransactionFilter(Map(charlie -> Filters(None))))
       val charlieSpecificFilter = EventFilter.byTemplates(
-        TransactionFilter(Map(charlie -> Filters(InclusiveFilters(Set(templateId))))))
+        TransactionFilter(Map(charlie -> Filters(InclusiveFilters(Set(someTemplateId))))))
 
       val mixedFilter = EventFilter.byTemplates(
         TransactionFilter(
           Map(
-            alice -> Filters(InclusiveFilters(Set(templateId))),
+            alice -> Filters(InclusiveFilters(Set(someTemplateId))),
             bob -> Filters(None),
             charlie -> Filters(None),
           )))
