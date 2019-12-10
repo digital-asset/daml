@@ -14,8 +14,6 @@ CREATE TABLE package_entries
     recorded_at      timestamp          not null, --with timezone
     -- SubmissionId for package to be uploaded
     submission_id    varchar,
-    -- participant id that initiated the package upload
-    participant_id   varchar            not null,
     -- The type of entry, one of 'accept' or 'reject'
     typ              varchar            not null,
     -- If the type is 'reject', then the rejection reason is set.

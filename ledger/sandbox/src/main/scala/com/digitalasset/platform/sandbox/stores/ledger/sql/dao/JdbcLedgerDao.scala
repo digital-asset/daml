@@ -6,6 +6,7 @@ import java.io.InputStream
 import java.sql.Connection
 import java.time.Instant
 import java.util.Date
+import java.util.UUID
 
 import akka.NotUsed
 import akka.stream.Materializer
@@ -65,7 +66,8 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.util.{
 import com.digitalasset.platform.sandbox.stores.ledger.{
   ConfigurationEntry,
   LedgerEntry,
-  PartyLedgerEntry
+  PartyLedgerEntry,
+  PackageLedgerEntry,
 }
 import com.google.common.io.ByteStreams
 import scalaz.syntax.tag._
@@ -1538,43 +1540,75 @@ private class JdbcLedgerDao(
         .map(data => Archive.parseFrom(Decode.damlLfCodedInputStreamFromBytes(data)))
     }
 
-  override def uploadLfPackages(
-      uploadId: String,
-      packages: List[(Archive, PackageDetails)],
-      externalOffset: Option[ExternalOffset]): Future[Map[PersistenceResponse, Int]] = {
-    val requirements = Try {
-      require(uploadId.nonEmpty, "The upload identifier cannot be the empty string")
-      require(packages.nonEmpty, "The list of packages to upload cannot be empty")
-    }
-    requirements.fold(
-      Future.failed,
-      _ =>
-        dbDispatcher.executeSql(
-          "store_packages",
-          Some(s"packages: ${packages.map(_._1.getHash).mkString(", ")}")) { implicit conn =>
-          externalOffset.foreach(updateExternalLedgerEnd)
-          val params = packages
-            .map(
-              p =>
-                Seq[NamedParameter](
-                  "package_id" -> p._1.getHash,
-                  "upload_id" -> uploadId,
-                  "source_description" -> p._2.sourceDescription,
-                  "size" -> p._2.size,
-                  "known_since" -> p._2.knownSince,
-                  "package" -> p._1.toByteArray
-              )
-            )
-          val updated =
-            executeBatchSql(queries.SQL_INSERT_PACKAGE, params).map(math.max(0, _)).sum
-          val duplicates = packages.length - updated
 
-          Map(
-            PersistenceResponse.Ok -> updated,
-            PersistenceResponse.Duplicate -> duplicates
-          ).filter(_._2 > 0)
+    override protected[JdbcLedgerDao] val SQL_INSERT_PACKAGE_ENTRY_ACCEPT =
+      SQL("""insert into package_entries(ledger_offset, recorded_at, submission_id, typ)
+        |values ({ledger_offset}, {recorded_at}, {submission_id}, 'accept')
+        |""".stripMargin)
+
+    override protected[JdbcLedgerDao] val SQL_INSERT_PACKAGE_ENTRY_REJECT =
+      SQL("""insert into package_entries(ledger_offset, recorded_at, submission_id, typ, rejection_reason)
+        |values ({ledger_offset}, {recorded_at}, {submission_id}, 'reject', {rejection_reason})
+        |""".stripMargin)
+
+  override def storePackageEntry(
+      offset: LedgerOffset,
+      newLedgerEnd: LedgerOffset,
+      externalOffset: Option[ExternalOffset],
+      packages: List[(Archive, PackageDetails)],
+      optEntry: Option[PackageLedgerEntry]
+  ): Future[PersistenceResponse] = {
+    dbDispatcher.executeSql("store_package_entry",
+      Some(s"packages: ${packages.map(_._1.getHash).mkString(", ")}")) { implicit conn =>
+      updateLedgerEnd(newLedgerEnd, externalOffset)
+
+      if (packages.nonEmpty) {
+        val uploadId = optEntry.map(_.submissionId).getOrElse(UUID.randomUUID().toString)
+        uploadLfPackages(uploadId, packages)
+        // FIXME(JM): catch duplicates?
       }
-    )
+
+      optEntry.foreach {
+        case PackageLedgerEntry.PackageUploadAccepted(submissionId, recordTime) =>
+          SQL_INSERT_PACKAGE_ENTRY_ACCEPT
+            .on(
+              "ledger_offset" -> offset,
+              "recorded_at" -> recordTime,
+              "submission_id" -> submissionId,
+            )
+            .execute()
+        case PackageLedgerEntry.PackageUploadRejected(submissionId, recordTime, reason) =>
+          SQL_INSERT_PACKAGE_ENTRY_REJECT
+            .on(
+              "ledger_offset" -> offset,
+              "recorded_at" -> recordTime,
+              "submission_id" -> submissionId,
+              "rejection_reason" -> reason
+            )
+            .execute()
+      }
+      PersistenceResponse.Ok
+    }
+  }
+
+  private def uploadLfPackages(
+      uploadId: String,
+      packages: List[(Archive, PackageDetails)])(implicit conn: Connection): Unit = {
+    val params = packages
+      .map(
+        p =>
+          Seq[NamedParameter](
+            "package_id" -> p._1.getHash,
+            "upload_id" -> uploadId,
+            "source_description" -> p._2.sourceDescription,
+            "size" -> p._2.size,
+            "known_since" -> p._2.knownSince,
+            "package" -> p._1.toByteArray
+        )
+      )
+    val updated =
+      executeBatchSql(queries.SQL_INSERT_PACKAGE, params).map(math.max(0, _)).sum
+    // TODO(JM): check duplicates? packages.length - updated
   }
 
   private val SQL_TRUNCATE_ALL_TABLES =

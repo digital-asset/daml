@@ -31,7 +31,8 @@ import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{ActiveContrac
 import com.digitalasset.platform.sandbox.stores.ledger.{
   ConfigurationEntry,
   LedgerEntry,
-  PartyLedgerEntry
+  PartyLedgerEntry,
+  PackageLedgerEntry
 }
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.Transaction
 
@@ -240,20 +241,15 @@ trait LedgerWriteDao extends AutoCloseable with ReportsHealth {
   ): Future[PersistenceResponse]
 
   /**
-    * Stores a set of DAML-LF packages
-    *
-    * @param uploadId A unique identifier for this upload. Can be used to find
-    *   out which packages were uploaded together, in the case of concurrent uploads.
-    *
-    * @param packages The DAML-LF archives to upload, including their meta-data.
-    *
-    * @return Values from the PersistenceResponse enum to the number of archives that led to that result
+    * Store a DAML-LF package upload result.
     */
-  def uploadLfPackages(
-      uploadId: String,
+  def storePackageEntry(
+      offset: LedgerOffset,
+      newLedgerEnd: LedgerOffset,
+      externalOffset: Option[ExternalOffset],
       packages: List[(Archive, PackageDetails)],
-      externalOffset: Option[ExternalOffset]
-  ): Future[Map[PersistenceResponse, Int]]
+      optEntry: Option[PackageLedgerEntry]
+  ): Future[PersistenceResponse]
 
   /** Resets the platform into a state as it was never used before. Meant to be used solely for testing. */
   def reset(): Future[Unit]
