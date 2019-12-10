@@ -13,7 +13,6 @@ import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
 
 import scala.collection.JavaConverters._
-import scala.collection.breakOut
 
 /** Utilities for producing [[Update]] events from [[DamlLogEntry]]'s committed to a
   * key-value based ledger.

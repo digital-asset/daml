@@ -28,6 +28,7 @@ trait WritePackagesService {
     * provide the size, and the size might potentially be different from the
     * original size, which would be quite confusing.
     *
+    * @param submissionId      : Submitter chosen submission identifier.
     * @param sourceDescription : Description provided by the backing participant
     *   describing where it got the package from, e.g., when, where, or by whom
     *   the packages were uploaded.
@@ -37,6 +38,7 @@ trait WritePackagesService {
     * @return an async result of a [[SubmissionResult]]
     */
   def uploadPackages(
+      submissionId: SubmissionId,
       payload: List[Archive],
       sourceDescription: Option[String]
   ): CompletionStage[SubmissionResult]
