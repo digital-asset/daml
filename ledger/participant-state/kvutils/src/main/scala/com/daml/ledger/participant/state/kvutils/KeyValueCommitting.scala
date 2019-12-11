@@ -134,7 +134,7 @@ object KeyValueCommitting {
           ).run
 
         case DamlSubmission.PayloadCase.PAYLOAD_NOT_SET =>
-          throw Err.InvalidSubmission("DamlSubmission.payload not set.")
+          throw Err.InvalidSubmission("DamlSubmission payload not set")
       }
 
       // Dump ledger entry to disk if ledger dumping is enabled.
@@ -143,7 +143,7 @@ object KeyValueCommitting {
       (logEntry, outputState)
     } catch {
       case scala.util.control.NonFatal(e) =>
-        logger.warn(s"Exception: $e")
+        logger.warn(s"Exception while processing submission, error='$e'")
         Metrics.lastExceptionGauge.updateValue(
           Pretty.prettyEntryId(entryId) + s"[${submission.getPayloadCase}]: " + e.toString
         )
@@ -240,7 +240,7 @@ object KeyValueCommitting {
         )
 
       case DamlSubmission.PayloadCase.PAYLOAD_NOT_SET =>
-        throw Err.InvalidSubmission("DamlSubmission.payload not set.")
+        throw Err.InvalidSubmission("DamlSubmission payload not set")
 
     }
   }
