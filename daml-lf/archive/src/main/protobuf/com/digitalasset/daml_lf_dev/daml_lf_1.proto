@@ -503,7 +503,7 @@ enum BuiltinFunction {
   EQUAL_DATE = 83;        // *Available in versions < 1.dev*
   EQUAL_PARTY = 84;       // *Available in versions < 1.dev*
   EQUAL_BOOL = 85;        // *Available in versions < 1.dev*
-  EQUAL_CONTRACT_ID = 86; // *Available in versions < 1.dev*
+  EQUAL_CONTRACT_ID = 86;
   EQUAL_LIST = 87;
   EQUAL_TYPE_REP = 123;   // *Available in versions < 1.dev*
   EQUAL = 131;            // *Available in versions >= 1.dev*
