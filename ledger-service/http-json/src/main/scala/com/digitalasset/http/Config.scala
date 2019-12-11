@@ -6,13 +6,14 @@ package com.digitalasset.http
 import java.io.File
 import java.nio.file.Path
 
+import akka.stream.ThrottleMode
 import com.digitalasset.http.util.ExceptionOps._
 import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
 import scalaz.std.option._
 import scalaz.syntax.traverse._
 import scalaz.{Show, \/}
 
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration._
 import scala.util.Try
 
 private[http] final case class Config(
@@ -26,11 +27,22 @@ private[http] final case class Config(
     jdbcConfig: Option[JdbcConfig] = None,
     staticContentConfig: Option[StaticContentConfig] = None,
     accessTokenFile: Option[Path] = None,
+    wsConfig: WebsocketConfig = Config.DefaultWsConfig
 )
 
 private[http] object Config {
+  import scala.language.postfixOps
   val Empty = Config(ledgerHost = "", ledgerPort = -1, httpPort = -1)
+  val DefaultWsConfig = WebsocketConfig(12 hours, 20, 1 second, 20, ThrottleMode.Shaping)
 }
+
+protected case class WebsocketConfig(
+      maxDuration: FiniteDuration,
+      throttleElem: Int,
+      throttlePer: FiniteDuration,
+      maxBurst: Int,
+      mode: ThrottleMode
+)
 
 private[http] abstract class ConfigCompanion[A](name: String) {
 

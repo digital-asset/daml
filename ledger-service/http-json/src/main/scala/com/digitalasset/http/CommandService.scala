@@ -173,18 +173,13 @@ class CommandService(
     : Error \/ List[Contract[lav1.value.Value]] =
     response.transaction
       .toRightDisjunction(Error('contracts, s"Received response without transaction: $response"))
-      .flatMap(contracts)
+      .flatMap(Commands.contracts)
 
   private def contracts(response: lav1.command_service.SubmitAndWaitForTransactionTreeResponse)
     : Error \/ List[Contract[lav1.value.Value]] =
-    response.transaction
-      .toRightDisjunction(Error('contracts, s"Received response without transaction: $response"))
-      .flatMap(contracts)
-
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  private def contracts(
-      tx: lav1.transaction.Transaction): Error \/ List[Contract[lav1.value.Value]] =
-    Contract.fromTransaction(tx).leftMap(e => Error('contracts, e.shows))
+  response.transaction
+    .toRightDisjunction(Error('contracts, s"Received response without transaction: $response"))
+    .flatMap(contracts)
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def contracts(

@@ -14,12 +14,7 @@ import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.auth.TokenHolder
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.http.dbbackend.ContractDao
-import com.digitalasset.http.json.{
-  ApiValueToJsValueConverter,
-  DomainJsonDecoder,
-  DomainJsonEncoder,
-  JsValueToApiValueConverter
-}
+import com.digitalasset.http.json.{ApiValueToJsValueConverter, DomainJsonDecoder, DomainJsonEncoder, JsValueToApiValueConverter}
 import com.digitalasset.http.util.ApiValueToLfValueConverter
 import com.digitalasset.http.util.ExceptionOps._
 import com.digitalasset.http.util.FutureUtil._
@@ -28,11 +23,7 @@ import com.digitalasset.jwt.JwtDecoder
 import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.client.LedgerClient
-import com.digitalasset.ledger.client.configuration.{
-  CommandClientConfiguration,
-  LedgerClientConfiguration,
-  LedgerIdRequirement
-}
+import com.digitalasset.ledger.client.configuration.{CommandClientConfiguration, LedgerClientConfiguration, LedgerIdRequirement}
 import com.digitalasset.ledger.client.services.pkg.PackageClient
 import com.digitalasset.ledger.service.LedgerReader
 import com.digitalasset.ledger.service.LedgerReader.PackageStore
@@ -60,12 +51,13 @@ object HttpService extends StrictLogging {
       applicationId: ApplicationId,
       address: String,
       httpPort: Int,
+      wsConfig: WebsocketConfig,
       accessTokenFile: Option[Path],
       contractDao: Option[ContractDao] = None,
       staticContentConfig: Option[StaticContentConfig] = None,
       packageReloadInterval: FiniteDuration = DefaultPackageReloadInterval,
       maxInboundMessageSize: Int = DefaultMaxInboundMessageSize,
-      validateJwt: Endpoints.ValidateJwt = decodeJwt)(
+      validateJwt: EndpointsCompanion.ValidateJwt = decodeJwt)(
       implicit asys: ActorSystem,
       mat: Materializer,
       aesf: ExecutionSequencerFactory,
@@ -133,9 +125,24 @@ object HttpService extends StrictLogging {
         decoder,
       )
 
+// NOTE: Disabled websocketServices for now util @li addresses some improvements
+//      websocketService = new WebSocketService(
+//        client.transactionClient,
+//        packageService.resolveTemplateIds,
+//        encoder,
+//        decoder,
+//        wsConfig
+//      )
+//
+//      websocketEndpoints = new WebsocketEndpoints(
+//        ledgerId,
+//        validateJwt,
+//        websocketService
+//      )
+
       allEndpoints = staticContentConfig.cata(
-        c => StaticContentEndpoints.all(c) orElse jsonEndpoints.all,
-        jsonEndpoints.all
+        c => StaticContentEndpoints.all(c) orElse jsonEndpoints.all orElse EndpointsCompanion.notFound,
+        jsonEndpoints.all orElse EndpointsCompanion.notFound
       )
 
       binding <- liftET[Error](
@@ -178,8 +185,8 @@ object HttpService extends StrictLogging {
   }
 
   // Decode JWT without any validation
-  private val decodeJwt: Endpoints.ValidateJwt =
-    jwt => JwtDecoder.decode(jwt).leftMap(e => Endpoints.Unauthorized(e.shows))
+  private val decodeJwt: EndpointsCompanion.ValidateJwt =
+    jwt => JwtDecoder.decode(jwt).leftMap(e => EndpointsCompanion.Unauthorized(e.shows))
 
   private[http] def buildJsonCodecs(
       ledgerId: lar.LedgerId,
