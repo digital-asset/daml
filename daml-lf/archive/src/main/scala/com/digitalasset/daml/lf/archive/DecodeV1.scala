@@ -1404,31 +1404,30 @@ private[lf] object DecodeV1 {
       BuiltinFunctionInfo(UNIX_DAYS_TO_DATE, BUnixDaysToDate),
       BuiltinFunctionInfo(UNIX_MICROSECONDS_TO_TIMESTAMP, BUnixMicrosecondsToTimestamp),
       BuiltinFunctionInfo(GREATER_DATE, BGreaterDate),
+      BuiltinFunctionInfo(EQUAL, BEqual, minVersion = genMap),
+      BuiltinFunctionInfo(EQUAL_LIST, BEqualList),
+      BuiltinFunctionInfo(EQUAL_CONTRACT_ID, BEqualContractId),
+      // FIXME https://github.com/digital-asset/daml/issues/3752
+      // Constrain max version of the following 'EQUAL_' builtin once
+      // generic equality is handled by the compiler
+      BuiltinFunctionInfo(EQUAL_INT64, BEqual, implicitParameters = List(TInt64)),
       BuiltinFunctionInfo(
         EQUAL_DECIMAL,
         BEqualNumeric,
         maxVersion = Some(numeric),
         implicitParameters = List(TNat.Decimal)
       ),
-      BuiltinFunctionInfo(EQUAL, BEqual),
-      BuiltinFunctionInfo(EQUAL_LIST, BEqualList),
-      // FIXME https://github.com/digital-asset/daml/issues/3752
-      // Constrain max version of the following 'EQUAL_' builtin once
-      // generic equality is handled by the compiler
-      BuiltinFunctionInfo(EQUAL_INT64, BEqual, implicitParameters = List(TInt64)),
       BuiltinFunctionInfo(EQUAL_NUMERIC, BEqualNumeric, minVersion = numeric),
       BuiltinFunctionInfo(EQUAL_TEXT, BEqual, implicitParameters = List(TText)),
       BuiltinFunctionInfo(EQUAL_TIMESTAMP, BEqual, implicitParameters = List(TTimestamp)),
       BuiltinFunctionInfo(EQUAL_DATE, BEqual, implicitParameters = List(TDate)),
       BuiltinFunctionInfo(EQUAL_PARTY, BEqual, implicitParameters = List(TParty)),
       BuiltinFunctionInfo(EQUAL_BOOL, BEqual, implicitParameters = List(TBool)),
-      BuiltinFunctionInfo(EQUAL_CONTRACT_ID, BEqualContractId),
       BuiltinFunctionInfo(
         EQUAL_TYPE_REP,
         BEqual,
         minVersion = typeRep,
         implicitParameters = List(TTypeRep)),
-      //
       BuiltinFunctionInfo(TRACE, BTrace),
       BuiltinFunctionInfo(COERCE_CONTRACT_ID, BCoerceContractId, minVersion = coerceContractId),
       BuiltinFunctionInfo(TEXT_TO_UPPER, BTextToUpper, minVersion = unstable),
