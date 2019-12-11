@@ -14,7 +14,6 @@ module DA.Cli.Damlc.Packaging
 
 import qualified "zip" Codec.Archive.Zip as Zip
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
-import Control.Exception.Safe (handleIO)
 import Control.Lens (toListOf)
 import Control.Monad
 import Data.Bifunctor
@@ -47,7 +46,6 @@ import DA.Daml.LF.Ast.Optics (packageRefs)
 import qualified DA.Daml.LF.Proto3.Archive as Archive
 import DA.Daml.LF.Reader
 import DA.Daml.Options.Types
-import DA.Daml.Project.Consts
 import qualified DA.Pretty
 import SdkVersion
 
@@ -165,23 +163,6 @@ createProjectPackageDb opts thisSdkVer deps dataDeps = do
     forM_ depsExtracted $
         \ExtractedDar{..} -> installDar dbPath edConfFiles edDalfs edSrcs
 
--- Expand SDK package dependencies using the SDK root path.
--- E.g. `daml-trigger` --> `$DAML_SDK/daml-libs/daml-trigger.dar`
--- When invoked outside of the SDK, we will only error out
--- if there is actually an SDK package so that
--- When there is no SDK
-expandSdkPackages :: [FilePath] -> IO [FilePath]
-expandSdkPackages dars = do
-    mbSdkPath <- handleIO (\_ -> pure Nothing) $ Just <$> getSdkPath
-    mapM (expand mbSdkPath) dars
-  where
-    isSdkPackage fp = takeExtension fp `notElem` [".dar", ".dalf"]
-    expand mbSdkPath fp
-      | isSdkPackage fp = case mbSdkPath of
-            Just sdkPath -> pure $ sdkPath </> "daml-libs" </> fp <.> "dar"
-            Nothing -> fail $ "Cannot resolve SDK dependency '" ++ fp ++ "'. Use daml assistant."
-      | otherwise = pure fp
-
 -- generate interface files and install them in the package database
 generateAndInstallIfaceFiles ::
        LF.Package
@@ -225,7 +206,7 @@ generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase
             (toNormalizedFilePath "./")
             [fp | (fp, _content) <- src']
     -- write the conf file and refresh the package cache
-    let (cfPath, cfBs) =
+    (cfPath, cfBs) <-
             mkConfFile
                 PackageConfigFields
                     { pName = pkgName
