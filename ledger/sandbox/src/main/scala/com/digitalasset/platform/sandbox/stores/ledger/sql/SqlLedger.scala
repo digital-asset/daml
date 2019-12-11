@@ -40,7 +40,12 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   ValueSerializer
 }
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
-import com.digitalasset.platform.sandbox.stores.ledger.{Ledger, LedgerEntry, PartyLedgerEntry, PackageLedgerEntry}
+import com.digitalasset.platform.sandbox.stores.ledger.{
+  Ledger,
+  LedgerEntry,
+  PartyLedgerEntry,
+  PackageLedgerEntry
+}
 import com.digitalasset.platform.sandbox.stores.{InMemoryActiveLedgerState, InMemoryPackageStore}
 import scalaz.syntax.tag._
 
@@ -336,10 +341,8 @@ private final class SqlLedger(
     }
   }
 
-
   override def uploadPackages(
       submissionId: SubmissionId,
-      maxRecordTime: Time.Timestamp,
       knownSince: Instant,
       sourceDescription: Option[String],
       payload: List[Archive]): Future[SubmissionResult] = {
@@ -352,9 +355,7 @@ private final class SqlLedger(
           offsets.nextOffset,
           None,
           packages,
-          Some(
-            PackageLedgerEntry.PackageUploadAccepted(
-              submissionId, timeProvider.getCurrentTime)),
+          Some(PackageLedgerEntry.PackageUploadAccepted(submissionId, timeProvider.getCurrentTime)),
         )
         .map(_ => ())(DEC)
         .recover {
@@ -545,7 +546,10 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao, loggerFactory: NamedL
     ledgerDao.initializeLedger(ledgerId, 0)
   }
 
-  private def copyPackages(store: InMemoryPackageStore, knownSince: Instant, newLedgerEnd: Long): Future[Unit] = {
+  private def copyPackages(
+      store: InMemoryPackageStore,
+      knownSince: Instant,
+      newLedgerEnd: Long): Future[Unit] = {
 
     val packageDetails = store.listLfPackagesSync()
     if (packageDetails.nonEmpty) {
@@ -564,7 +568,7 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao, loggerFactory: NamedL
           None,
           packages,
           None)
-      .transform(_ => (), e => sys.error("Failed to copy initial packages: " + e.getMessage))(DEC)
+        .transform(_ => (), e => sys.error("Failed to copy initial packages: " + e.getMessage))(DEC)
     } else {
       Future.successful(())
     }

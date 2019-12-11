@@ -11,9 +11,7 @@ import akka.actor.Scheduler
 import akka.stream.{ActorMaterializer, Materializer}
 import akka.stream.scaladsl.Sink
 import com.daml.ledger.participant.state.v1.{SubmissionId, SubmissionResult, WritePackagesService}
-import com.daml.ledger.participant.state.index.v2.{
-  IndexPackagesService, IndexTransactionsService
-}
+import com.daml.ledger.participant.state.index.v2.{IndexPackagesService, IndexTransactionsService}
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
@@ -24,18 +22,16 @@ import com.digitalasset.platform.common.util.{DirectExecutionContext => DE}
 import com.digitalasset.platform.server.api.validation.ErrorFactories
 import com.google.protobuf.timestamp.Timestamp
 import com.digitalasset.ledger.api.domain.{LedgerOffset, PackageEntry}
-import com.digitalasset.api.util.{TimeProvider, TimestampConversion}
-
+import com.digitalasset.api.util.TimeProvider
 import io.grpc.ServerServiceDefinition
 import org.slf4j.Logger
-import com.digitalasset.daml.lf.data.Time
 
 import scala.compat.java8.FutureConverters
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.util.Try
 
- class ApiPackageManagementService(
+class ApiPackageManagementService(
     packagesIndex: IndexPackagesService,
     transactionsService: IndexTransactionsService,
     packagesWrite: WritePackagesService,
@@ -76,53 +72,43 @@ import scala.util.Try
       else
         SubmissionId.assertFromString(request.submissionId)
 
-    // TODO(JM): Implement computation of maximum record time from
-    // the current configuration. I am leaving this to another PR as
-    // we need this change in other services as well and this PR is
-    // large enough. For now, we'll default to 1 minute.
-    val timeToLive = 60.seconds
-    val maxRecordTime =
-      Time.Timestamp.assertFromInstant(
-        request
-          .maximumRecordTime
-          .map(TimestampConversion.toInstant)
-          .getOrElse(timeProvider.getCurrentTime.plusNanos(timeToLive.toNanos))
-      )
+    // Amount of time we wait for the ledger to commit the request before we
+    // give up on polling for the result.
+    // TODO(JM): This constant should be replaced by user-provided maximum record time
+    // which should be wired through the stack and verified during validation, just like
+    // with transactions. I'm leaving this for another PR.
+    val timeToLive = 30.seconds
 
-    val resultT = for {
+    implicit val ec: ExecutionContext = DE
+    for {
       dar <- DarReader { case (_, x) => Try(Archive.parseFrom(x)) }
         .readArchive(
           "package-upload",
           new ZipInputStream(new ByteArrayInputStream(request.darFile.toByteArray)))
-    } yield {
-      packagesWrite.uploadPackages(submissionId, maxRecordTime, dar.all, None)
-    }
-
-    resultT.fold(
-      err => Future.failed(ErrorFactories.invalidArgument(err.getMessage)),
-      res =>
-      transactionsService
-        .currentLedgerEnd()
-        .flatMap { ledgerEndBeforeRequest =>
-          FutureConverters
-            .toScala(res)
-            .flatMap {
-              case SubmissionResult.Acknowledged =>
-                pollUntilPersisted(submissionId, timeToLive, ledgerEndBeforeRequest).flatMap {
-                  case _: PackageEntry.PackageUploadAccepted =>
-                    Future.successful(UploadDarFileResponse())
-                  case PackageEntry.PackageUploadRejected(_, _, reason) =>
-                    Future.failed(ErrorFactories.invalidArgument(reason))
-                }(DE)
-              case r @ SubmissionResult.Overloaded =>
-                Future.failed(ErrorFactories.resourceExhausted(r.description))
-              case r @ SubmissionResult.InternalError(_) =>
-                Future.failed(ErrorFactories.internal(r.reason))
-              case r @ SubmissionResult.NotSupported =>
-                Future.failed(ErrorFactories.unimplemented(r.description))
-            }(DE)
-        }(DE)
-    )
+        .fold(
+          err => Future.failed(ErrorFactories.invalidArgument(err.getMessage)),
+          Future.successful
+        )
+      ledgerEndBeforeRequest <- transactionsService.currentLedgerEnd()
+      result <- FutureConverters.toScala(
+        packagesWrite.uploadPackages(submissionId, dar.all, None)
+      )
+      response <- result match {
+        case SubmissionResult.Acknowledged =>
+          pollUntilPersisted(submissionId, timeToLive, ledgerEndBeforeRequest).flatMap {
+            case _: PackageEntry.PackageUploadAccepted =>
+              Future.successful(UploadDarFileResponse())
+            case PackageEntry.PackageUploadRejected(_, _, reason) =>
+              Future.failed(ErrorFactories.invalidArgument(reason))
+          }
+        case r @ SubmissionResult.Overloaded =>
+          Future.failed(ErrorFactories.resourceExhausted(r.description))
+        case r @ SubmissionResult.InternalError(_) =>
+          Future.failed(ErrorFactories.internal(r.reason))
+        case r @ SubmissionResult.NotSupported =>
+          Future.failed(ErrorFactories.unimplemented(r.description))
+      }
+    } yield response
   }
 
   private def pollUntilPersisted(
@@ -137,7 +123,7 @@ import scala.util.Try
       }
       .completionTimeout(timeToLive)
       .runWith(Sink.head)(materializer)
-    }
+  }
 }
 
 object ApiPackageManagementService {
@@ -148,6 +134,12 @@ object ApiPackageManagementService {
       timeProvider: TimeProvider,
       loggerFactory: NamedLoggerFactory)(implicit mat: ActorMaterializer)
     : PackageManagementServiceGrpc.PackageManagementService with GrpcApiService =
-    new ApiPackageManagementService(readBackend, transactionsService, writeBackend, timeProvider, mat, mat.system.scheduler, loggerFactory)
-    with PackageManagementServiceLogging
+    new ApiPackageManagementService(
+      readBackend,
+      transactionsService,
+      writeBackend,
+      timeProvider,
+      mat,
+      mat.system.scheduler,
+      loggerFactory) with PackageManagementServiceLogging
 }

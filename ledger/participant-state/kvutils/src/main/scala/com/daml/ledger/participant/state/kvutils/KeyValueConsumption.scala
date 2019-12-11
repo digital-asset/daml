@@ -18,12 +18,6 @@ import scala.collection.JavaConverters._
   * key-value based ledger.
   */
 object KeyValueConsumption {
-
-  sealed trait AsyncResponse extends Serializable with Product
-
-  final case class PackageUploadResponse(submissionId: String, result: UploadPackagesResult)
-      extends AsyncResponse
-
   def packDamlLogEntry(entry: DamlStateKey): ByteString = entry.toByteString
   def unpackDamlLogEntry(bytes: ByteString): DamlLogEntry = DamlLogEntry.parseFrom(bytes)
 

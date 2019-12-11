@@ -148,14 +148,13 @@ object Update {
     * @param rejectionReason:
     *   Reason why the upload was rejected.
     */
-
   final case class PublicPackageUploadRejected(
       submissionId: SubmissionId,
       recordTime: Timestamp,
       rejectionReason: String)
       extends Update {
     override def description: String =
-      s"Public package upload '$submissionId' rejected: $rejectionReason"
+      s"Public package upload rejected, correlationId=$submissionId reason='$rejectionReason'"
   }
 
   /** Signal the acceptance of a transaction.

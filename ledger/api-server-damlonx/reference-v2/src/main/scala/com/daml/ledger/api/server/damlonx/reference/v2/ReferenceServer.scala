@@ -3,11 +3,13 @@
 
 package com.daml.ledger.api.server.damlonx.reference.v2
 
+import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 
 import akka.actor.ActorSystem
 import akka.stream.{ActorMaterializer, ActorMaterializerSettings, Supervision}
 import com.codahale.metrics.SharedMetricRegistries
+import com.daml.ledger.participant.state.v1.SubmissionId
 import com.daml.ledger.api.server.damlonx.reference.v2.cli.Cli
 import com.daml.ledger.participant.state.kvutils.InMemoryKVParticipantState
 import com.digitalasset.daml.lf.archive.DarReader
@@ -50,10 +52,11 @@ object ReferenceServer extends App {
   val authService = AuthServiceWildcard
 
   config.archiveFiles.foreach { file =>
+    val submissionId = SubmissionId.assertFromString(UUID.randomUUID().toString)
     for {
       dar <- DarReader { case (_, x) => Try(Archive.parseFrom(x)) }
         .readArchiveFromFile(file)
-    } yield ledger.uploadPackages(dar.all, None)
+    } yield ledger.uploadPackages(submissionId, dar.all, None)
   }
 
   val participantF: Future[(AutoCloseable, StandaloneIndexServer#SandboxState)] = for {

@@ -56,7 +56,6 @@ trait WriteLedger extends ReportsHealth with AutoCloseable {
   // Package management
   def uploadPackages(
       submissionId: SubmissionId,
-      maxRecordTime: Timestamp,
       knownSince: Instant,
       sourceDescription: Option[String],
       payload: List[Archive]): Future[SubmissionResult]

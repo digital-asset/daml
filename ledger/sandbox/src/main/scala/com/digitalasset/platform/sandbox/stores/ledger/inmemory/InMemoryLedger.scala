@@ -309,7 +309,6 @@ class InMemoryLedger(
 
   override def uploadPackages(
       submissionId: SubmissionId,
-      maxRecordTime: Time.Timestamp,
       knownSince: Instant,
       sourceDescription: Option[String],
       payload: List[Archive]): Future[SubmissionResult] = {
@@ -320,23 +319,17 @@ class InMemoryLedger(
       .fold(
         err => {
           entries.publish(
-            InMemoryPackageEntry(
-              PackageLedgerEntry.PackageUploadRejected(
-                submissionId,
-                timeProvider.getCurrentTime,
-                err)))
+            InMemoryPackageEntry(PackageLedgerEntry
+              .PackageUploadRejected(submissionId, timeProvider.getCurrentTime, err)))
           Future.successful(SubmissionResult.Acknowledged)
         },
         newStore => {
           if (packageStoreRef.compareAndSet(oldStore, newStore)) {
-            entries.publish(
-              InMemoryPackageEntry(
-                PackageLedgerEntry.PackageUploadAccepted(
-                  submissionId,
-                  timeProvider.getCurrentTime)))
+            entries.publish(InMemoryPackageEntry(
+              PackageLedgerEntry.PackageUploadAccepted(submissionId, timeProvider.getCurrentTime)))
             Future.successful(SubmissionResult.Acknowledged)
           } else {
-            uploadPackages(submissionId, maxRecordTime, knownSince, sourceDescription, payload)
+            uploadPackages(submissionId, knownSince, sourceDescription, payload)
           }
         }
       )

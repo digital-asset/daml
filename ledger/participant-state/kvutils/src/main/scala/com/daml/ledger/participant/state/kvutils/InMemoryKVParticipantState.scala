@@ -73,10 +73,6 @@ object InMemoryKVParticipantState {
   /** A periodically emitted heartbeat that is committed to the ledger. */
   final case class CommitHeartbeat(recordTime: Timestamp) extends Commit
 
-  final case class AddPackageUploadRequest(
-      submissionId: String,
-      cf: CompletableFuture[UploadPackagesResult])
-
   final case class AddPotentialResponse(idx: Int)
 
 }
@@ -400,21 +396,29 @@ class InMemoryKVParticipantState(
   private def generateRandomParty(): Ref.Party =
     Ref.Party.assertFromString(s"party-${UUID.randomUUID().toString.take(8)}")
 
+  /*
   /** Upload DAML-LF packages to the ledger */
+
+   */
+
+  /** Upload a collection of DAML-LF packages to the ledger. */
   override def uploadPackages(
       submissionId: SubmissionId,
       archives: List[Archive],
-      sourceDescription: Option[String]): CompletionStage[SubmissionResult] = {
+      sourceDescription: Option[String]): CompletionStage[SubmissionResult] =
     CompletableFuture.completedFuture({
       commitActorRef ! CommitSubmission(
         allocateEntryId,
         Envelope.enclose(
           KeyValueSubmission
-            .archivesToSubmission(submissionId, archives, sourceDescription.getOrElse(""), participantId))
+            .archivesToSubmission(
+              submissionId,
+              archives,
+              sourceDescription.getOrElse(""),
+              participantId))
       )
       SubmissionResult.Acknowledged
     })
-  }
 
   /** Retrieve the static initial conditions of the ledger, containing
     * the ledger identifier and the initial ledger record time.
@@ -429,21 +433,6 @@ class InMemoryKVParticipantState(
   /** Shutdown the in-memory participant state. */
   override def close(): Unit = {
     val _ = Await.ready(gracefulStop(commitActorRef, 5.seconds, PoisonPill), 6.seconds)
-  }
-
-  private def getLogEntry(state: State, entryId: Proto.DamlLogEntryId): Proto.DamlLogEntry = {
-    Envelope.open(
-      state.store
-        .getOrElse(
-          entryId.getEntryId,
-          sys.error(s"getLogEntry: Cannot find ${Pretty.prettyEntryId(entryId)}!")
-        )
-    ) match {
-      case Right(Envelope.LogEntryMessage(logEntry)) =>
-        logEntry
-      case _ =>
-        sys.error(s"getLogEntry: Envelope did not contain log entry")
-    }
   }
 
   private def getDamlState(state: State, key: Proto.DamlStateKey): Option[Proto.DamlStateValue] =

@@ -414,7 +414,8 @@ abstract class LedgerBackedIndexService(
   }
 
   override def packageEntries(beginOffset: LedgerOffset.Absolute): Source[PackageEntry, NotUsed] =
-    ledger.packageEntries(beginOffset.value.toLong)
+    ledger
+      .packageEntries(beginOffset.value.toLong)
       .map(_._2.toDomain)
 
   override def close(): Unit = {
@@ -443,17 +444,11 @@ class LedgerBackedWriteService(ledger: Ledger, timeProvider: TimeProvider) exten
   // WritePackagesService
   override def uploadPackages(
       submissionId: SubmissionId,
-      maxRecordTime: Time.Timestamp,
       payload: List[Archive],
       sourceDescription: Option[String]
   ): CompletionStage[SubmissionResult] =
     FutureConverters.toJava(
-      ledger.uploadPackages(
-        submissionId,
-        maxRecordTime,
-        timeProvider.getCurrentTime,
-        sourceDescription,
-        payload))
+      ledger.uploadPackages(submissionId, timeProvider.getCurrentTime, sourceDescription, payload))
 
   // WriteConfigService
   override def submitConfiguration(
