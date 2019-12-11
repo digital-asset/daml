@@ -294,6 +294,10 @@ mkConfFile PackageConfigFields {..} pkgModuleNames pkgId = do
   where
     darUnitId "daml-stdlib" = pure damlStdlib
     darUnitId "daml-prim" = pure "daml-prim"
+    darUnitId f
+      -- This case is used by data-dependencies. DALF names are not affected by
+      -- -o so this should be fine.
+      | takeExtension f == ".dalf" = pure $ dropExtension $ takeFileName f
     darUnitId darPath = do
         archive <- ZipArchive.toArchive . BSL.fromStrict  <$> BS.readFile darPath
         manifest <- either (\err -> fail $ "Failed to read manifest of " <> darPath <> ": " <> err) pure $ readDalfManifest archive
