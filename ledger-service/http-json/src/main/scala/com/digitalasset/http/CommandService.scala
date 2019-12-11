@@ -170,12 +170,10 @@ class CommandService(
   }
 
   private def contracts(response: lav1.command_service.SubmitAndWaitForTransactionResponse)
-    : Error \/ List[Contract[lav1.value.Value]] = {
-    import com.digitalasset.http.util.Commands.contracts
+    : Error \/ List[Contract[lav1.value.Value]] =
     response.transaction
       .toRightDisjunction(Error('contracts, s"Received response without transaction: $response"))
-      .flatMap(contracts)
-  }
+      .flatMap(Commands.contracts)
 
   private def contracts(response: lav1.command_service.SubmitAndWaitForTransactionTreeResponse)
     : Error \/ List[Contract[lav1.value.Value]] =

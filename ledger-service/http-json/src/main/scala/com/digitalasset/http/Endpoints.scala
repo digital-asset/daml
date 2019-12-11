@@ -7,9 +7,6 @@ import akka.NotUsed
 import akka.http.scaladsl.model.HttpMethods.{GET, POST}
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
-import akka.stream.Materializer
-import akka.stream.scaladsl.{Flow, Source}
-import akka.util.ByteString
 import com.digitalasset.daml.lf
 import com.digitalasset.http.Statement.discard
 import com.digitalasset.http.domain.JwtPayload

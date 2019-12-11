@@ -77,5 +77,5 @@ object Commands extends StrictLogging {
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def contracts(tx: lav1.transaction.Transaction): Error \/ List[Contract[lav1.value.Value]] =
-    Contract.fromLedgerApi(tx).leftMap(e => Error('contracts, e.shows))
+    Contract.fromTransaction(tx).leftMap(e => Error('contracts, e.shows))
 }
