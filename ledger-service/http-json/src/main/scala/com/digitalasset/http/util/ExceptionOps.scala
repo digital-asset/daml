@@ -10,7 +10,7 @@ object ExceptionOps {
   }
 
   def getDescription(e: Throwable): String = {
-    val name: String = getClass.getName
+    val name: String = e.getClass.getName
     Option(e.getMessage).filter(_.nonEmpty) match {
       case Some(m) => s"$name: $m"
       case None => name
