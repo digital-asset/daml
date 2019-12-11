@@ -283,3 +283,5 @@ da_scala_test(
         "@maven//:io_reactivex_rxjava2_rxjava",
     ],
 )
+
+exports_files(["src/main/resources/logback.xml"])
