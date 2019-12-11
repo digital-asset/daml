@@ -13,9 +13,9 @@ import com.daml.ledger.participant.state.kvutils.InMemoryKVParticipantState
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.auth.AuthServiceWildcard
-import com.digitalasset.platform.apiserver.{Config, StandaloneApiServer}
+import com.digitalasset.platform.apiserver.{ApiServerConfig, StandaloneApiServer}
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
-import com.digitalasset.platform.indexer.StandaloneIndexerServer
+import com.digitalasset.platform.indexer.{IndexerConfig, StandaloneIndexerServer}
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -79,14 +79,23 @@ object ReferenceServer extends App {
   def newIndexer(config: Config) =
     StandaloneIndexerServer(
       readService,
-      config,
+      IndexerConfig(config.participantId, config.jdbcUrl, config.startupMode),
       NamedLoggerFactory.forParticipant(config.participantId),
       SharedMetricRegistries.getOrCreate(s"indexer-${config.participantId}"),
     )
 
   def newApiServer(config: Config) =
     new StandaloneApiServer(
-      config,
+      ApiServerConfig(
+        config.participantId,
+        config.archiveFiles,
+        config.port,
+        config.jdbcUrl,
+        config.tlsConfig,
+        config.timeProvider,
+        config.maxInboundMessageSize,
+        config.portFile,
+      ),
       readService,
       writeService,
       authService,
