@@ -22,7 +22,10 @@ final case class Config(
     participantId: ParticipantId,
     extraParticipants: Vector[(ParticipantId, Int, String)],
     startupMode: IndexerStartupMode,
-)
+) {
+  def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): Config =
+    copy(tlsConfig = Some(modify(tlsConfig.getOrElse(TlsConfiguration.Empty))))
+}
 
 object Config {
   val DefaultMaxInboundMessageSize = 4194304

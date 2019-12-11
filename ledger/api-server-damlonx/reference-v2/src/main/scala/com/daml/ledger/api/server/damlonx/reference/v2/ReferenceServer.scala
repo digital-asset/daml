@@ -29,9 +29,9 @@ object ReferenceServer extends App {
     Cli
       .parse(
         args,
-        "damlonx-reference-server",
-        "A fully compliant DAML Ledger API server backed by an in-memory store.",
-        allowExtraParticipants = true)
+        binaryName = "damlonx-reference-server",
+        description = "A fully compliant DAML Ledger API server backed by an in-memory store.",
+      )
       .getOrElse(sys.exit(1))
 
   implicit val system: ActorSystem = ActorSystem("indexed-kvutils")
