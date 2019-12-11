@@ -16,8 +16,8 @@ import com.digitalasset.ledger.api.messages.transaction._
 import com.digitalasset.ledger.api.v1.transaction_service.TransactionServiceLogging
 import com.digitalasset.ledger.api.validation.PartyNameChecker
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
-import com.digitalasset.platform.sandbox.SandboxEventIdFormatter
-import com.digitalasset.platform.sandbox.SandboxEventIdFormatter.TransactionIdWithIndex
+import com.digitalasset.platform.sandbox.EventIdFormatter
+import com.digitalasset.platform.sandbox.EventIdFormatter.TransactionIdWithIndex
 import com.digitalasset.platform.server.api.services.domain.TransactionService
 import com.digitalasset.platform.server.api.services.grpc.GrpcTransactionService
 import com.digitalasset.platform.server.api.validation.ErrorFactories
@@ -84,7 +84,7 @@ class ApiTransactionService private (
   override def getTransactionByEventId(
       request: GetTransactionByEventIdRequest): Future[TransactionTree] = {
     logger.debug("Received {}", request)
-    SandboxEventIdFormatter
+    EventIdFormatter
       .split(request.eventId.unwrap)
       .fold(
         Future.failed[TransactionTree](
@@ -103,7 +103,7 @@ class ApiTransactionService private (
 
   override def getFlatTransactionByEventId(
       request: GetTransactionByEventIdRequest): Future[Transaction] =
-    SandboxEventIdFormatter
+    EventIdFormatter
       .split(request.eventId.unwrap)
       .fold(
         Future.failed[Transaction](

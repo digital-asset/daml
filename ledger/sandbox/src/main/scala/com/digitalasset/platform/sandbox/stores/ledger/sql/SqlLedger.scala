@@ -40,7 +40,7 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
 import com.digitalasset.platform.sandbox.stores.ledger.{Ledger, LedgerEntry, PartyLedgerEntry}
 import com.digitalasset.platform.sandbox.stores.{InMemoryActiveLedgerState, InMemoryPackageStore}
-import com.digitalasset.platform.sandbox.{LedgerIdGenerator, SandboxEventIdFormatter}
+import com.digitalasset.platform.sandbox.{EventIdFormatter, LedgerIdGenerator}
 import scalaz.syntax.tag._
 
 import scala.collection.immutable
@@ -239,22 +239,22 @@ private final class SqlLedger(
     enqueue { offsets =>
       val transactionId = Ref.LedgerString.fromLong(offsets.offset)
       val toAbsCoid: ContractId => AbsoluteContractId =
-        SandboxEventIdFormatter.makeAbsCoid(transactionId)
+        EventIdFormatter.makeAbsCoid(transactionId)
 
       val mappedTx = transaction
         .mapContractIdAndValue(toAbsCoid, _.mapContractId(toAbsCoid))
-        .mapNodeId(SandboxEventIdFormatter.fromTransactionId(transactionId, _))
+        .mapNodeId(EventIdFormatter.fromTransactionId(transactionId, _))
 
       val blindingInfo = Blinding.blind(transaction)
 
       val mappedDisclosure = blindingInfo.disclosure
         .map {
           case (nodeId, parties) =>
-            SandboxEventIdFormatter.fromTransactionId(transactionId, nodeId) -> parties
+            EventIdFormatter.fromTransactionId(transactionId, nodeId) -> parties
         }
 
       val mappedLocalDivulgence = blindingInfo.localDivulgence.map {
-        case (k, v) => SandboxEventIdFormatter.fromTransactionId(transactionId, k) -> v
+        case (k, v) => EventIdFormatter.fromTransactionId(transactionId, k) -> v
       }
 
       val recordTime = timeProvider.getCurrentTime

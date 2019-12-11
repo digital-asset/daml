@@ -10,7 +10,7 @@ import com.digitalasset.daml.lf.value.{Value => Lf}
 
 import scala.util.{Failure, Success, Try}
 
-object SandboxEventIdFormatter {
+object EventIdFormatter {
   private val `#` = LedgerString.assertFromString("#")
   private val `:` = LedgerString.assertFromString(":")
 

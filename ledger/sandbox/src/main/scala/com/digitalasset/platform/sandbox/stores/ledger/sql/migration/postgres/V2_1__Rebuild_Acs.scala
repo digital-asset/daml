@@ -23,7 +23,7 @@ import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
 import com.digitalasset.ledger._
 import com.digitalasset.ledger.api.domain.RejectionReason
 import com.digitalasset.ledger.api.domain.RejectionReason._
-import com.digitalasset.platform.sandbox.SandboxEventIdFormatter
+import com.digitalasset.platform.sandbox.EventIdFormatter
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.ActiveContract
 import com.digitalasset.platform.sandbox.stores._
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
@@ -700,12 +700,12 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
             // as this should not affect the blinding.
             val toCoid: AbsoluteContractId => ContractId = identity
             val unmappedTx: Transaction.Transaction = tx.transaction
-              .mapNodeId(SandboxEventIdFormatter.split(_).get.nodeId)
+              .mapNodeId(EventIdFormatter.split(_).get.nodeId)
               .mapContractIdAndValue(toCoid, _.mapContractId(toCoid))
 
             val blindingInfo = Blinding.blind(unmappedTx)
             val mappedLocalDivulgence = blindingInfo.localDivulgence.map {
-              case (k, v) => SandboxEventIdFormatter.fromTransactionId(tx.transactionId, k) -> v
+              case (k, v) => EventIdFormatter.fromTransactionId(tx.transactionId, k) -> v
             }
 
             updateActiveContractSet(

@@ -23,7 +23,7 @@ import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
-import com.digitalasset.platform.sandbox.SandboxEventIdFormatter
+import com.digitalasset.platform.sandbox.EventIdFormatter
 import com.digitalasset.platform.sandbox.metrics.timedFuture
 import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlLedger.defaultNumberOfShortLivedConnections
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{
@@ -315,18 +315,18 @@ class JdbcIndexer private[indexer] (
           recordTime,
           divulgedContracts) =>
         val toAbsCoid: ContractId => AbsoluteContractId =
-          SandboxEventIdFormatter.makeAbsCoid(transactionId)
+          EventIdFormatter.makeAbsCoid(transactionId)
 
         val blindingInfo = Blinding.blind(transaction.mapContractId(cid => cid: ContractId))
 
         val mappedDisclosure = blindingInfo.disclosure.map {
           case (nodeId, parties) =>
-            SandboxEventIdFormatter.fromTransactionId(transactionId, nodeId) -> parties
+            EventIdFormatter.fromTransactionId(transactionId, nodeId) -> parties
         }
 
         val mappedLocalDivulgence = blindingInfo.localDivulgence.map {
           case (nodeId, parties) =>
-            SandboxEventIdFormatter.fromTransactionId(transactionId, nodeId) -> parties
+            EventIdFormatter.fromTransactionId(transactionId, nodeId) -> parties
         }
 
         assert(blindingInfo.localDivulgence.isEmpty)
@@ -342,7 +342,7 @@ class JdbcIndexer private[indexer] (
             recordTime.toInstant,
             transaction
               .mapContractIdAndValue(toAbsCoid, _.mapContractId(toAbsCoid))
-              .mapNodeId(SandboxEventIdFormatter.fromTransactionId(transactionId, _)),
+              .mapNodeId(EventIdFormatter.fromTransactionId(transactionId, _)),
             mappedDisclosure
           ),
           mappedLocalDivulgence,
