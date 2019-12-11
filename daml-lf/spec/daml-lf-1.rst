@@ -829,7 +829,7 @@ These two properties will be enforced by the notion of
 `well-formedness <Well-formed packages_>`_ defined below.
 
 Note ``↠`` is undefined on type contains an undefined type synonym or
-a type synonym applied to a wrong number. Such type are assumed non
+a type synonym applied to a wrong number. Such types are assumed non
 well-formed and will be rejected by the DAML-LF type checker.
 
 
