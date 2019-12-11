@@ -15,8 +15,8 @@ import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.ledger.api.auth.AuthService
 import com.digitalasset.ledger.api.domain.LedgerId
+import com.digitalasset.platform.apiserver.services.ApiSubmissionService
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
-import com.digitalasset.platform.sandbox.services.ApiSubmissionService
 import com.digitalasset.platform.sandbox.stores.ledger.CommandExecutorImpl
 import com.digitalasset.platform.sandbox.stores.{
   InMemoryActiveLedgerState,
