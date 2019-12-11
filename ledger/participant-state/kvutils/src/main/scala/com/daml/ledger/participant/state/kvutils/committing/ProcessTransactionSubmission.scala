@@ -197,7 +197,7 @@ private[kvutils] case class ProcessTransactionSubmission(
       r <- if (allUnique)
         pass
       else
-        reject(RejectionReason.Disputed("Contract Key not unique"))
+        reject(RejectionReason.Disputed("DuplicateKey: Contract Key not unique"))
     } yield r
 
   /** All checks passed. Produce the log entry and contract state updates. */
