@@ -125,23 +125,24 @@ object HttpService extends StrictLogging {
         decoder,
       )
 
-      websocketService = new WebSocketService(
-        client.transactionClient,
-        packageService.resolveTemplateIds,
-        encoder,
-        decoder,
-        wsConfig
-      )
-
-      websocketEndpoints = new WebsocketEndpoints(
-        ledgerId,
-        validateJwt,
-        websocketService
-      )
+// NOTE: Disabled websocketServices for now util @li addresses some improvements
+//      websocketService = new WebSocketService(
+//        client.transactionClient,
+//        packageService.resolveTemplateIds,
+//        encoder,
+//        decoder,
+//        wsConfig
+//      )
+//
+//      websocketEndpoints = new WebsocketEndpoints(
+//        ledgerId,
+//        validateJwt,
+//        websocketService
+//      )
 
       allEndpoints = staticContentConfig.cata(
-        c => StaticContentEndpoints.all(c) orElse jsonEndpoints.all orElse websocketEndpoints.transactionWebSocket orElse EndpointsCompanion.notFound,
-        jsonEndpoints.all orElse websocketEndpoints.transactionWebSocket orElse EndpointsCompanion.notFound
+        c => StaticContentEndpoints.all(c) orElse jsonEndpoints.all orElse EndpointsCompanion.notFound,
+        jsonEndpoints.all orElse EndpointsCompanion.notFound
       )
 
       binding <- liftET[Error](
