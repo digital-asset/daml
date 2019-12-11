@@ -184,7 +184,7 @@ object StandaloneApiServer {
     def port: Int = apiServer.port
 
     override def close(): Unit = {
-      apiServer.close() //fully tear down the old server.
+      apiServer.close()
       indexAndWriteService.close()
     }
   }
