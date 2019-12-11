@@ -30,36 +30,13 @@ import com.digitalasset.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement
 }
-
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.SandboxServer
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.services.time.TimeProviderType
 import com.digitalasset.sample.EventDecoder
-import com.digitalasset.sample.MyMain.NameClashRecordVariant.NameClashRecordVariantA
-import com.digitalasset.sample.MyMain.{
-  CallablePayout,
-  ListTextMapInt,
-  Maybes,
-  MkListExample,
-  MyRecord,
-  MyVariant,
-  MyEnum,
-  NameClashRecord,
-  NameClashVariant,
-  OptTextMapInt,
-  PayOut,
-  RecordWithNestedMyVariantMyEnum,
-  SimpleListExample,
-  TemplateWith23Arguments,
-  TemplateWithCustomTypes,
-  TemplateWithNestedRecordsVariantsAndEnums,
-  TemplateWithSelfReference,
-  TemplateWithUnitParam,
-  TextMapInt,
-  TextMapTextMapInt,
-  VariantWithRecordWithVariant
-}
+import com.digitalasset.sample.MyMain
+import com.digitalasset.sample.MyMain.{CallablePayout, MkListExample, PayOut}
 import com.digitalasset.sample.MySecondMain
 import com.digitalasset.util.Ctx
 import com.google.protobuf.empty.Empty
@@ -71,7 +48,6 @@ import org.scalatest.time.{Millis, Seconds, Span}
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
-
 import com.digitalasset.ledger.api.domain.LedgerId
 
 import scalaz.syntax.tag._
@@ -178,34 +154,42 @@ class ScalaCodeGenIT
   "alice creates TemplateWithSelfReference contract and receives corresponding event" in {
     import com.digitalasset.sample.MyMain
     val parent = MyMain.Maybe.Nothing(())
-    val contract = TemplateWithSelfReference(alice, parent)
+    val contract = MyMain.TemplateWithSelfReference(alice, parent)
     testCreateContractAndReceiveEvent(contract, alice)
   }
 
   "alice creates TemplateWithCustomTypes contract with ProductArity variant and receives corresponding event from the ledger" in {
     val nameClashRecord =
-      NameClashRecord(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18)
-    val nameClashVariant = NameClashVariant.ProductArity("test")
-    val nameClashRecordVariant = NameClashRecordVariantA(1, 2, 3)
+      MyMain.NameClashRecord(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18)
+    val nameClashVariant = MyMain.NameClashVariant.ProductArity("test")
+    val nameClashRecordVariant = MyMain.NameClashRecordVariant.NameClashRecordVariantA(1, 2, 3)
     val contract =
-      TemplateWithCustomTypes(alice, nameClashRecord, nameClashVariant, nameClashRecordVariant)
+      MyMain.TemplateWithCustomTypes(
+        alice,
+        nameClashRecord,
+        nameClashVariant,
+        nameClashRecordVariant)
 
     testCreateContractAndReceiveEvent(contract, alice)
   }
 
   "alice creates TemplateWithCustomTypes contract with a NotifyAll variant and receives corresponding event from the ledger" in {
     val nameClashRecord =
-      NameClashRecord(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18)
-    val nameClashVariant = NameClashVariant.NotifyAll(100L)
-    val nameClashRecordVariant = NameClashRecordVariantA(1, 2, 3)
+      MyMain.NameClashRecord(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18)
+    val nameClashVariant = MyMain.NameClashVariant.NotifyAll(100L)
+    val nameClashRecordVariant = MyMain.NameClashRecordVariant.NameClashRecordVariantA(1, 2, 3)
     val contract =
-      TemplateWithCustomTypes(alice, nameClashRecord, nameClashVariant, nameClashRecordVariant)
+      MyMain.TemplateWithCustomTypes(
+        alice,
+        nameClashRecord,
+        nameClashVariant,
+        nameClashRecordVariant)
 
     testCreateContractAndReceiveEvent(contract, alice)
   }
 
   "alice creates TemplateWithUnitParam contract and receives corresponding event from the ledger" in {
-    val contract = TemplateWithUnitParam(alice)
+    val contract = MyMain.TemplateWithUnitParam(alice)
     testCreateContractAndReceiveEvent(contract, alice)
   }
 
@@ -214,14 +198,14 @@ class ScalaCodeGenIT
     val time: P.Timestamp =
       P.Timestamp.discardNanos(Instant.now).getOrElse(fail("Can't create time instance"))
     val myRecord =
-      MyRecord(1, BigDecimal("1.2"), alice, "Text", time, (), boolVal, List(10, 20, 30))
-    val myVariant = MyVariant.MyVariantA(())
-    val myEnum = MyEnum.MyEnumA
+      MyMain.MyRecord(1, BigDecimal("1.2"), alice, "Text", time, (), boolVal, List(10, 20, 30))
+    val myVariant = MyMain.MyVariant.MyVariantA(())
+    val myEnum = MyMain.MyEnum.MyEnumA
     val recordWithNestedMyVariant =
-      RecordWithNestedMyVariantMyEnum(MyVariant.MyVariantB(()), MyEnum.MyEnumB)
+      MyMain.RecordWithNestedMyVariantMyEnum(MyMain.MyVariant.MyVariantB(()), MyMain.MyEnum.MyEnumB)
     val variantWithRecordWithVariant =
-      VariantWithRecordWithVariant.VariantWithRecordWithVariantA(recordWithNestedMyVariant)
-    val contract = TemplateWithNestedRecordsVariantsAndEnums(
+      MyMain.VariantWithRecordWithVariant.VariantWithRecordWithVariantA(recordWithNestedMyVariant)
+    val contract = MyMain.TemplateWithNestedRecordsVariantsAndEnums(
       alice,
       myRecord,
       myVariant,
@@ -320,7 +304,7 @@ class ScalaCodeGenIT
   }
 
   "alice creates TemplateWith23Arguments contract and receives corresponding event" in {
-    val contract = TemplateWith23Arguments(
+    val contract = MyMain.TemplateWith23Arguments(
       alice,
       true,
       true,
@@ -349,34 +333,66 @@ class ScalaCodeGenIT
 
   "alice creates Maybes contract and receives corresponding event" in {
     import com.digitalasset.ledger.client.binding.encoding.GenEncoding.Implicits._
-    val contract = arbitrary[Maybes].sample getOrElse sys.error("random Maybes failed")
+    val contract = arbitrary[MyMain.Maybes].sample getOrElse sys.error("random Maybes failed")
     testCreateContractAndReceiveEvent(contract copy (party = alice), alice)
   }
 
   "alice creates TextMapInt contract and receives corresponding event" in {
     import com.digitalasset.ledger.client.binding.encoding.GenEncoding.Implicits._
-    val contract = arbitrary[TextMapInt].sample getOrElse sys.error("random TexMap failed")
+    val contract = arbitrary[MyMain.TextMapInt].sample getOrElse sys.error("random TexMap failed")
     testCreateContractAndReceiveEvent(contract copy (party = alice), alice)
   }
 
   "alice creates OptTextMapInt contract and receives corresponding event" in {
     import com.digitalasset.ledger.client.binding.encoding.GenEncoding.Implicits._
-    val contract = arbitrary[OptTextMapInt].sample getOrElse sys.error(
+    val contract = arbitrary[MyMain.OptTextMapInt].sample getOrElse sys.error(
       "random OptTextMapInt failed")
     testCreateContractAndReceiveEvent(contract copy (party = alice), alice)
   }
 
   "alice creates TextMapTextMapInt contract and receives corresponding event" in {
     import com.digitalasset.ledger.client.binding.encoding.GenEncoding.Implicits._
-    val contract = arbitrary[TextMapTextMapInt].sample getOrElse sys.error(
+    val contract = arbitrary[MyMain.TextMapTextMapInt].sample getOrElse sys.error(
       "random TextMapTextMapInt failed")
+    testCreateContractAndReceiveEvent(contract copy (party = alice), alice)
+  }
+
+  "alice creates TextMapText contract and receives corresponding event" in {
+    import com.digitalasset.ledger.client.binding.encoding.GenEncoding.Implicits._
+    val contract = arbitrary[MyMain.TextMapText].sample getOrElse sys.error(
+      "random TextMapText failed")
     testCreateContractAndReceiveEvent(contract copy (party = alice), alice)
   }
 
   "alice creates ListTextMapInt contract and receives corresponding event" in {
     import com.digitalasset.ledger.client.binding.encoding.GenEncoding.Implicits._
-    val contract = arbitrary[ListTextMapInt].sample getOrElse sys.error(
-      "random TListTextMapInt failed")
+    val contract = arbitrary[MyMain.ListTextMapInt].sample getOrElse sys.error(
+      "random ListTextMapInt failed")
+    testCreateContractAndReceiveEvent(contract copy (party = alice), alice)
+  }
+
+  "alice creates OptMapInt contract and receives corresponding event" in {
+    import com.digitalasset.ledger.client.binding.encoding.GenEncoding.Implicits._
+    val contract = arbitrary[MyMain.OptMapInt].sample getOrElse sys.error("random OptMapInt failed")
+    testCreateContractAndReceiveEvent(contract copy (party = alice), alice)
+  }
+
+  "alice creates ListMapInt contract and receives corresponding event" in {
+    import com.digitalasset.ledger.client.binding.encoding.GenEncoding.Implicits._
+    val contract = arbitrary[MyMain.ListMapInt].sample getOrElse sys.error(
+      "random ListMapInt failed")
+    testCreateContractAndReceiveEvent(contract copy (party = alice), alice)
+  }
+
+  "alice creates MapMapInt contract and receives corresponding event" in {
+    import com.digitalasset.ledger.client.binding.encoding.GenEncoding.Implicits._
+    val contract = arbitrary[MyMain.MapMapInt].sample getOrElse sys.error("random MapMapInt failed")
+    testCreateContractAndReceiveEvent(contract copy (party = alice), alice)
+  }
+
+  "alice creates MapInt contract and receives corresponding event" in {
+    import com.digitalasset.ledger.client.binding.encoding.GenEncoding.Implicits._
+    val contract = arbitrary[MyMain.MapInt].sample getOrElse sys.error("random MapInt failed")
     testCreateContractAndReceiveEvent(contract copy (party = alice), alice)
   }
 
@@ -388,7 +404,7 @@ class ScalaCodeGenIT
   }
 
   "alice creates-and-exercises SimpleListExample with Go and receives corresponding event" in {
-    val contract = SimpleListExample(alice, P.List(42))
+    val contract = MyMain.SimpleListExample(alice, P.List(42))
     val exerciseConsequence = MkListExample(alice, P.List(42))
     testCommandAndReceiveEvent(
       contract.createAnd.exerciseGo(alice),

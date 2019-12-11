@@ -7,13 +7,7 @@ import com.codahale.metrics
 import com.codahale.metrics.{Counter, Timer}
 import com.daml.ledger.participant.state.kvutils.Conversions.{buildTimestamp, commandDedupKey, _}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.daml.ledger.participant.state.kvutils.{
-  Conversions,
-  Err,
-  InputsAndEffects,
-  Pretty,
-  DamlStateMap
-}
+import com.daml.ledger.participant.state.kvutils.{Conversions, Err, InputsAndEffects, DamlStateMap}
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId, RejectionReason}
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.archive.Reader.ParseError
@@ -43,8 +37,7 @@ private[kvutils] case class ProcessTransactionSubmission(
   import Commit._
   private val commandId = txEntry.getSubmitterInfo.getCommandId
   private implicit val logger =
-    LoggerFactory.getLogger(
-      s"ProcessTransactionSubmission[entryId=${Pretty.prettyEntryId(entryId)}, cmdId=$commandId]")
+    LoggerFactory.getLogger(this.getClass)
 
   def run: (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) = Metrics.runTimer.time { () =>
     runSequence(
@@ -281,6 +274,8 @@ private[kvutils] case class ProcessTransactionSubmission(
       }),
       delay {
         Metrics.accepts.inc()
+        logger.trace(
+          s"Transaction accepted, correlationId=${txEntry.getSubmitterInfo.getCommandId}")
         done(
           DamlLogEntry.newBuilder
             .setRecordTime(buildTimestamp(recordTime))
@@ -299,7 +294,8 @@ private[kvutils] case class ProcessTransactionSubmission(
     for {
       // Fetch the state of the contract so that activeness and visibility can be checked.
       contractState <- inputState.get(stateKey).flatMap(_.map(_.getContractState)).orElse {
-        logger.trace(s"lookupContract($coid): Contract state not found!")
+        logger.warn(
+          s"Lookup contract failed, contractId=$coid correlationId=${txEntry.getSubmitterInfo.getCommandId}")
         throw Err.MissingInputState(stateKey)
       }
       if contractIsActiveAndVisibleToSubmitter(contractState)
@@ -317,6 +313,8 @@ private[kvutils] case class ProcessTransactionSubmission(
         .get(stateKey)
         .flatten
         .orElse {
+          logger.warn(
+            s"Lookup package failed, package not found, packageId=$pkgId correlationId=${txEntry.getSubmitterInfo.getCommandId}")
           throw Err.MissingInputState(stateKey)
         }
       pkg <- value.getValueCase match {
@@ -326,11 +324,17 @@ private[kvutils] case class ProcessTransactionSubmission(
           try {
             Some(Decode.decodeArchive(value.getArchive)._2)
           } catch {
-            case ParseError(err) => throw Err.DecodeError("Archive", err)
+            case ParseError(err) =>
+              logger.warn(
+                s"Decode archive failed, packageId=$pkgId correlationId=${txEntry.getSubmitterInfo.getCommandId}")
+              throw Err.DecodeError("Archive", err)
           }
 
         case _ =>
-          throw Err.DecodeError("Archive", "lookupPackage($pkgId): value not a DAML-LF archive!")
+          val msg = s"value not a DAML-LF archive"
+          logger.warn(
+            s"Lookup package failed, $msg, packageId=$pkgId correlationId=${txEntry.getSubmitterInfo.getCommandId}")
+          throw Err.DecodeError("Archive", msg)
       }
 
     } yield pkg
@@ -357,6 +361,8 @@ private[kvutils] case class ProcessTransactionSubmission(
 
   private def reject[A](reason: RejectionReason): Commit[A] = {
 
+    logger.trace(
+      s"Transaction rejected, ${reason.description}, correlationId=${txEntry.getSubmitterInfo.getCommandId}")
     val rejectionEntry = {
       val builder = DamlTransactionRejectionEntry.newBuilder
       builder

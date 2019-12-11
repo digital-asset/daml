@@ -21,6 +21,7 @@ import com.digitalasset.http.json.{
   JsValueToApiValueConverter
 }
 import com.digitalasset.http.util.ApiValueToLfValueConverter
+import com.digitalasset.http.util.ExceptionOps._
 import com.digitalasset.http.util.FutureUtil._
 import com.digitalasset.http.util.IdentifierConverters.apiLedgerId
 import com.digitalasset.jwt.JwtDecoder
@@ -33,8 +34,8 @@ import com.digitalasset.ledger.client.configuration.{
   LedgerIdRequirement
 }
 import com.digitalasset.ledger.client.services.pkg.PackageClient
-import com.digitalasset.ledger.service.LedgerReader.PackageStore
 import com.digitalasset.ledger.service.LedgerReader
+import com.digitalasset.ledger.service.LedgerReader.PackageStore
 import com.typesafe.scalalogging.StrictLogging
 import io.grpc.netty.NettyChannelBuilder
 import scalaz.Scalaz._
@@ -232,6 +233,6 @@ object HttpService extends StrictLogging {
       .map(_.right)
       .recover {
         case NonFatal(e) =>
-          \/.left(Error(s"Cannot connect to the ledger server, error: ${e.getMessage}"))
+          \/.left(Error(s"Cannot connect to the ledger server, error: ${e.description}"))
       }
 }

@@ -2711,7 +2711,7 @@ ContractId functions
   Returns ``'True'`` if the first contact id is equal to the second,
   ``'False'`` otherwise.
 
-  [*Available in version < 1.dev*]
+  [*Available in versions < 1.dev*]
 
 * ``COERCE_CONTRACT_ID  : ∀ (α : ⋆) (β : ⋆) . 'ContractId' α → 'ContractId' β``
 
@@ -3213,9 +3213,9 @@ TextMap
 [*Available in versions >= 1.3*]
 
 The deserialization process will reject any DAML-LF 1.2 (or earlier)
-program using the builtin functions : ``TEXTMAP_EMPTY``,
-``TEXTMAP_INSERT``, ``TEXTMAP_LOOKUP``, ``TEXTMAP_DELETE``,
-``TEXTMAP_LIST``, ``TEXTMAP_SIZE``,
+program using the builtin type ``TEXTMAP`` or the builtin functions
+``TEXTMAP_EMPTY``, ``TEXTMAP_INSERT``, ``TEXTMAP_LOOKUP``,
+``TEXTMAP_DELETE``, ``TEXTMAP_LIST``, ``TEXTMAP_SIZE``,
 
 ``'TextMap'`` was called ``'Map'`` in versions <= 1.dev.
 
@@ -3389,6 +3389,16 @@ type representation.
 The deserialization process will reject any DAML-LF 1.0 program using
 this data structure.
 
+Generic Map
+............
+
+[*Available in versions >= 1.dev*]
+
+The deserialization process will reject any DAML-LF 1.7 (or earlier)
+program using the builtin type ``GENMAP`` or the functions
+``GENMAP_EMPTY``, ``GENMAP_INSERT``, ``GENMAP_LOOKUP``,
+``GENMAP_DELETE``, ``GENMAP_KEYS``, ``GENMAP_VALUES``,
+``GENMAP_SIZE``.
 
 
 .. Local Variables:

@@ -12,17 +12,22 @@ module DA.Daml.Compiler.Dar
     , getDamlRootFiles
     , writeIfacesAndHie
     , mkConfFile
+    , expandSdkPackages
     ) where
 
 import qualified "zip" Codec.Archive.Zip as Zip
+import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
 import Control.Exception (assert)
+import Control.Exception.Safe (handleIO)
 import Control.Monad.Extra
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Maybe
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Proto3.Archive (encodeArchiveAndHash)
+import DA.Daml.LF.Reader (readDalfManifest, packageName)
 import DA.Daml.Options.Types
+import DA.Daml.Project.Consts
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSC
@@ -146,7 +151,8 @@ buildDar service pkgConf@PackageConfigFields {..} ifDir dalfInput = do
                          [ (T.pack $ unitIdString unitId, LF.dalfPackageBytes pkg, LF.dalfPackageId pkg)
                          | (unitId, pkg) <- Map.toList dalfDependencies0
                          ]
-                 let dataFiles = [mkConfFile pkgConf pkgModuleNames (T.unpack pkgId)]
+                 confFile <- liftIO $ mkConfFile pkgConf pkgModuleNames (T.unpack pkgId)
+                 let dataFiles = [confFile]
                  srcRoot <- getSrcRoot pSrc
                  pure $
                      createArchive
@@ -262,15 +268,43 @@ pkgNameVersion n mbV =
         Nothing -> n
         Just v -> n ++ "-" ++ v
 
-mkConfFile ::
-       PackageConfigFields -> [String] -> String -> (String, BS.ByteString)
-mkConfFile PackageConfigFields {..} pkgModuleNames pkgId = (confName, bs)
+-- Expand SDK package dependencies using the SDK root path.
+-- E.g. `daml-trigger` --> `$DAML_SDK/daml-libs/daml-trigger.dar`
+-- When invoked outside of the SDK, we will only error out
+-- if there is actually an SDK package so that
+-- When there is no SDK
+expandSdkPackages :: [FilePath] -> IO [FilePath]
+expandSdkPackages dars = do
+    mbSdkPath <- handleIO (\_ -> pure Nothing) $ Just <$> getSdkPath
+    mapM (expand mbSdkPath) dars
   where
+    isSdkPackage fp = takeExtension fp `notElem` [".dar", ".dalf"]
+    expand mbSdkPath fp
+      | fp `elem` basePackages = pure fp
+      | isSdkPackage fp = case mbSdkPath of
+            Just sdkPath -> pure $ sdkPath </> "daml-libs" </> fp <.> "dar"
+            Nothing -> fail $ "Cannot resolve SDK dependency '" ++ fp ++ "'. Use daml assistant."
+      | otherwise = pure fp
+
+mkConfFile ::
+       PackageConfigFields -> [String] -> String -> IO (String, BS.ByteString)
+mkConfFile PackageConfigFields {..} pkgModuleNames pkgId = do
+    deps <- mapM darUnitId =<< expandSdkPackages pDependencies
+    pure (confName, confContent deps)
+  where
+    darUnitId "daml-stdlib" = pure damlStdlib
+    darUnitId "daml-prim" = pure "daml-prim"
+    darUnitId f
+      -- This case is used by data-dependencies. DALF names are not affected by
+      -- -o so this should be fine.
+      | takeExtension f == ".dalf" = pure $ dropExtension $ takeFileName f
+    darUnitId darPath = do
+        archive <- ZipArchive.toArchive . BSL.fromStrict  <$> BS.readFile darPath
+        manifest <- either (\err -> fail $ "Failed to read manifest of " <> darPath <> ": " <> err) pure $ readDalfManifest archive
+        maybe (fail $ "Missing 'Name' attribute in manifest of " <> darPath) pure (packageName manifest)
     confName = pkgNameVersion pName pVersion ++ ".conf"
     key = fullPkgName pName pVersion pkgId
-    sanitizeBaseDeps "daml-stdlib" = damlStdlib
-    sanitizeBaseDeps dep = dep
-    bs =
+    confContent deps =
         BSC.toStrict $
         BSC.pack $
         unlines $
@@ -286,11 +320,7 @@ mkConfFile PackageConfigFields {..} pkgModuleNames pkgId = (confName, bs)
             , "import-dirs: ${pkgroot}" ++ "/" ++ key -- we really want '/' here
             , "library-dirs: ${pkgroot}" ++ "/" ++ key
             , "data-dir: ${pkgroot}" ++ "/" ++ key
-            , "depends: " ++
-              unwords
-                  [ sanitizeBaseDeps $ dropExtension $ takeFileName dep
-                  | dep <- pDependencies
-                  ]
+            , "depends: " ++ unwords deps
             ]
 
 -- | Helper to bundle up all files into a DAR.
