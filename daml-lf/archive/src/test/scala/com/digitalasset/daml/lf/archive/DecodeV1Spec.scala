@@ -373,11 +373,14 @@ class DecodeV1Spec
 
     "translate Numeric builtins as is if version >= 1.7" in {
 
+      val v1_7 = LV.Minor.Stable("7")
+
       forEvery(postNumericMinVersions) { version =>
         val decoder = moduleDecoder(version)
 
         forEvery(numericBuiltinTestCases) { (proto, scala) =>
-          decoder.decodeExpr(toProtoExpr(proto), "test") shouldBe scala
+          if (proto != DamlLf1.BuiltinFunction.EQUAL_NUMERIC || version == v1_7)
+            decoder.decodeExpr(toProtoExpr(proto), "test") shouldBe scala
         }
       }
     }

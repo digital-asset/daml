@@ -1406,10 +1406,6 @@ private[lf] object DecodeV1 {
       BuiltinFunctionInfo(GREATER_DATE, BGreaterDate),
       BuiltinFunctionInfo(EQUAL, BEqual, minVersion = genMap),
       BuiltinFunctionInfo(EQUAL_LIST, BEqualList),
-      BuiltinFunctionInfo(EQUAL_CONTRACT_ID, BEqualContractId),
-      // FIXME https://github.com/digital-asset/daml/issues/3752
-      // Constrain max version of the following 'EQUAL_' builtin once
-      // generic equality is handled by the compiler
       BuiltinFunctionInfo(EQUAL_INT64, BEqual, implicitParameters = List(TInt64)),
       BuiltinFunctionInfo(
         EQUAL_DECIMAL,
@@ -1417,17 +1413,43 @@ private[lf] object DecodeV1 {
         maxVersion = Some(numeric),
         implicitParameters = List(TNat.Decimal)
       ),
-      BuiltinFunctionInfo(EQUAL_NUMERIC, BEqualNumeric, minVersion = numeric),
-      BuiltinFunctionInfo(EQUAL_TEXT, BEqual, implicitParameters = List(TText)),
-      BuiltinFunctionInfo(EQUAL_TIMESTAMP, BEqual, implicitParameters = List(TTimestamp)),
-      BuiltinFunctionInfo(EQUAL_DATE, BEqual, implicitParameters = List(TDate)),
-      BuiltinFunctionInfo(EQUAL_PARTY, BEqual, implicitParameters = List(TParty)),
-      BuiltinFunctionInfo(EQUAL_BOOL, BEqual, implicitParameters = List(TBool)),
+      BuiltinFunctionInfo(
+        EQUAL_NUMERIC,
+        BEqualNumeric,
+        minVersion = numeric,
+        maxVersion = Some(genMap)),
+      BuiltinFunctionInfo(
+        EQUAL_TEXT,
+        BEqual,
+        maxVersion = Some(genMap),
+        implicitParameters = List(TText)),
+      BuiltinFunctionInfo(
+        EQUAL_TIMESTAMP,
+        BEqual,
+        maxVersion = Some(genMap),
+        implicitParameters = List(TTimestamp)),
+      BuiltinFunctionInfo(
+        EQUAL_DATE,
+        BEqual,
+        maxVersion = Some(genMap),
+        implicitParameters = List(TDate)),
+      BuiltinFunctionInfo(
+        EQUAL_PARTY,
+        BEqual,
+        maxVersion = Some(genMap),
+        implicitParameters = List(TParty)),
+      BuiltinFunctionInfo(
+        EQUAL_BOOL,
+        BEqual,
+        maxVersion = Some(genMap),
+        implicitParameters = List(TBool)),
       BuiltinFunctionInfo(
         EQUAL_TYPE_REP,
         BEqual,
         minVersion = typeRep,
+        maxVersion = Some(genMap),
         implicitParameters = List(TTypeRep)),
+      BuiltinFunctionInfo(EQUAL_CONTRACT_ID, BEqualContractId, maxVersion = Some(genMap)),
       BuiltinFunctionInfo(TRACE, BTrace),
       BuiltinFunctionInfo(COERCE_CONTRACT_ID, BCoerceContractId, minVersion = coerceContractId),
       BuiltinFunctionInfo(TEXT_TO_UPPER, BTextToUpper, minVersion = unstable),
