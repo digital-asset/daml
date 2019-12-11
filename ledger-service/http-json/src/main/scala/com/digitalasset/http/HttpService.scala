@@ -104,6 +104,7 @@ object HttpService extends StrictLogging {
         packageService.resolveTemplateId,
         packageService.resolveChoiceRecordId,
         LedgerClientJwt.submitAndWaitForTransaction(client),
+        LedgerClientJwt.submitAndWaitForTransactionTree(client),
         TimeProvider.UTC
       )
 

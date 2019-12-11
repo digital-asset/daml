@@ -7,6 +7,7 @@ import qualified "zip-archive" Codec.Archive.Zip as Zip
 import Control.Monad.Extra
 import Control.Exception.Safe
 import DA.Bazel.Runfiles
+import DA.Daml.LF.Reader (readDalfManifest, packageName)
 import Data.Conduit.Tar.Extra (dropDirectory1)
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSL.Char8
@@ -332,12 +333,72 @@ tests damlc = testGroup "Packaging"
             ]
         createDirectoryIfMissing True (projDir </> "src")
         buildProject projDir
+
+    , testCase "Package-wide name collision" $ withTempDir $ \projDir -> do
+        createDirectoryIfMissing True (projDir </> "src")
+        createDirectoryIfMissing True (projDir </> "src" </> "A")
+        writeFileUTF8 (projDir </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: proj"
+            , "version: 0.0.1"
+            , "source: src"
+            , "dependencies: [daml-prim, daml-stdlib]"
+            ]
+        writeFileUTF8 (projDir </> "src" </> "A.daml") $ unlines
+            [ "daml 1.2"
+            , "module A where"
+            , "data B = B Int"
+            ]
+        writeFileUTF8 (projDir </> "src" </> "A" </> "B.daml") $ unlines
+            [ "daml 1.2"
+            , "module A.B where"
+            , "import A()" -- TODO [#3252]: Remove this import, so we can catch the name collision even when there isn't a strict dependency.
+            , "data C = C Int"
+            ]
+        buildProjectError projDir "" "name collision between module A.B and variant A:B"
+
+    , testCase "Manifest name" $ withTempDir $ \projDir -> do
+          createDirectoryIfMissing True (projDir </> "src")
+          writeFileUTF8 (projDir </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: foobar"
+            , "version: 0.0.1"
+            , "source: src"
+            , "dependencies: [daml-prim, daml-stdlib]"
+            ]
+          withCurrentDirectory projDir $ callProcessSilent damlc ["build", "-o", "baz.dar"]
+          Right manifest <- readDalfManifest . Zip.toArchive  <$> BSL.readFile (projDir </> "baz.dar")
+          -- Verify that the name in the manifest is independent of the DAR name.
+          packageName manifest @?= Just "foobar-0.0.1"
+
+
     , dataDependencyTests damlc
     ]
   where
       buildProject' :: FilePath -> FilePath -> IO ()
       buildProject' damlc dir = withCurrentDirectory dir $ callProcessSilent damlc ["build"]
       buildProject = buildProject' damlc
+
+      buildProjectError :: FilePath -> String -> String -> IO ()
+      buildProjectError dir expectedOut expectedErr = withCurrentDirectory dir $ do
+          (exitCode, out, err) <- readProcessWithExitCode damlc ["build"] ""
+          if exitCode /= ExitSuccess then do
+              unless (expectedOut `isInfixOf` out && expectedErr `isInfixOf` err) $ do
+                  hPutStrLn stderr $ unlines
+                      [ "TEST FAILED:"
+                      , "    Command \"damlc build\" failed as expected, but did not produce expected output."
+                      , "    stdout = " <> show out
+                      , "    stderr = " <> show err
+                      ]
+                  exitFailure
+          else do
+              hPutStrLn stderr $ unlines
+                  [ "TEST FAILED:"
+                  , "    Command \"damlc build\" was expected to fail, but it succeeded."
+                  , "    stdout = " <> show out
+                  , "    stderr = " <> show err
+                  ]
+              exitFailure
 
 dataDependencyTests :: FilePath -> TestTree
 dataDependencyTests damlc = testGroup "Data Dependencies" $

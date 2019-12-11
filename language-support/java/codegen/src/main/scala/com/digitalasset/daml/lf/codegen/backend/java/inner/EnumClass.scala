@@ -43,8 +43,16 @@ private[inner] object EnumClass extends StrictLogging {
     fieldSpec.build()
   }
 
-  private def mapType(className: ClassName) = ParameterizedTypeName.get(ClassName.get(classOf[java.util.Map[Any, Any]]), ClassName.get(classOf[String]), className)
-  private def hashMapType(className: ClassName) = ParameterizedTypeName.get(ClassName.get(classOf[java.util.HashMap[Any, Any]]), ClassName.get(classOf[String]), className)
+  private def mapType(className: ClassName) =
+    ParameterizedTypeName.get(
+      ClassName.get(classOf[java.util.Map[Any, Any]]),
+      ClassName.get(classOf[String]),
+      className)
+  private def hashMapType(className: ClassName) =
+    ParameterizedTypeName.get(
+      ClassName.get(classOf[java.util.HashMap[Any, Any]]),
+      ClassName.get(classOf[String]),
+      className)
 
   private def generateEnumsMap(className: ClassName): FieldSpec =
     FieldSpec
@@ -57,10 +65,7 @@ private[inner] object EnumClass extends StrictLogging {
     val builder = MethodSpec.methodBuilder("__buildEnumsMap$")
     builder.addModifiers(Modifier.PRIVATE, Modifier.STATIC, Modifier.FINAL)
     builder.returns(mapType(className))
-    builder.addStatement(
-      "$T m = new $T()",
-      mapType(className),
-      hashMapType(className))
+    builder.addStatement("$T m = new $T()", mapType(className), hashMapType(className))
     enum.constructors.foreach(c => builder.addStatement(s"""m.put("$c", ${c.toUpperCase()})"""))
     builder.addStatement("return m")
     builder.build()

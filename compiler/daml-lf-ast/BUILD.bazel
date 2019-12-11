@@ -36,6 +36,7 @@ da_haskell_test(
     srcs = glob(["test/**/*.hs"]),
     hackage_deps = [
         "base",
+        "containers",
         "tasty",
         "tasty-hunit",
     ],

@@ -21,12 +21,14 @@ unitTests = testGroup "testing dar reader for longer manifest lines"
                  [ ("Dalfs", "stdlib.dalf, prim.dalf")
                  , ("Main-Dalf", "testing.dalf")
                  , ("Sdk-Version", "0.13.30")
+                 , ("Name", "foobar-2.0")
                  ])
             (parseManifestFile $ BS.unlines
                  [ "Dalfs: stdlib.da"
                  , " lf, prim.dalf"
                  , "Main-Dalf: testing.dalf"
                  , "Sdk-Version: 0.13.30"
+                 , "Name: foobar-2.0"
                  ])
     , testCase "multiline manifest file test" $
         assertEqual "all content in the same line"

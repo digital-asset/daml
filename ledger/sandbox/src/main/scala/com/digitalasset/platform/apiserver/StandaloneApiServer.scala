@@ -85,10 +85,12 @@ final class StandaloneApiServer(
     val packageStore = loadDamlPackages()
     preloadPackages(packageStore)
 
-    val authorizer = new Authorizer(() => java.time.Clock.systemUTC.instant())
-
     for {
       cond <- readService.getLedgerInitialConditions().runWith(Sink.head)
+      authorizer = new Authorizer(
+        () => java.time.Clock.systemUTC.instant(),
+        cond.ledgerId,
+        participantId)
       indexService <- JdbcIndex(
         readService,
         domain.LedgerId(cond.ledgerId),

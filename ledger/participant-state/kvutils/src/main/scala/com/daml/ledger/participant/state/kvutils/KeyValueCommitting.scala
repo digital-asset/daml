@@ -8,7 +8,8 @@ import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committer.{
   PackageCommitter,
-  PartyAllocationCommitter
+  PartyAllocationCommitter,
+  ConfigCommitter
 }
 import com.daml.ledger.participant.state.kvutils.committing._
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId}
@@ -36,6 +37,10 @@ object KeyValueCommitting {
 
   def packDamlLogEntryId(entry: DamlLogEntryId): ByteString = entry.toByteString
   def unpackDamlLogEntryId(bytes: ByteString): DamlLogEntryId = DamlLogEntryId.parseFrom(bytes)
+
+  // A stop-gap measure, to be used while maximum record time is not yet available on every request
+  private def estimateMaximumRecordTime(recordTime: Timestamp): Timestamp =
+    recordTime.addMicros(100)
 
   /** Processes a DAML submission, given the allocated log entry id, the submission and its resolved inputs.
     * Produces the log entry to be committed, and DAML state updates.
@@ -84,6 +89,8 @@ object KeyValueCommitting {
         case DamlSubmission.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
           val (logEntry, outputs) = PackageCommitter(engine).run(
             entryId,
+            //TODO replace this call with an explicit maxRecordTime from the request once available
+            estimateMaximumRecordTime(recordTime),
             recordTime,
             submission.getPackageUploadEntry,
             participantId,
@@ -94,6 +101,8 @@ object KeyValueCommitting {
         case DamlSubmission.PayloadCase.PARTY_ALLOCATION_ENTRY =>
           val (logEntry, outputs) = PartyAllocationCommitter.run(
             entryId,
+            //TODO replace this call with an explicit maxRecordTime from the request once available
+            estimateMaximumRecordTime(recordTime),
             recordTime,
             submission.getPartyAllocationEntry,
             participantId,
@@ -102,14 +111,16 @@ object KeyValueCommitting {
           logEntry -> outputs.toMap
 
         case DamlSubmission.PayloadCase.CONFIGURATION_SUBMISSION =>
-          ProcessConfigSubmission(
-            entryId,
-            recordTime,
-            defaultConfig,
-            participantId,
-            submission.getConfigurationSubmission,
-            inputState
-          ).run
+          val (logEntry, outputs) =
+            ConfigCommitter(defaultConfig).run(
+              entryId,
+              parseTimestamp(submission.getConfigurationSubmission.getMaximumRecordTime),
+              recordTime,
+              submission.getConfigurationSubmission,
+              participantId,
+              inputState
+            )
+          logEntry -> outputs.toMap
 
         case DamlSubmission.PayloadCase.TRANSACTION_ENTRY =>
           ProcessTransactionSubmission(

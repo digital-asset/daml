@@ -10,6 +10,7 @@ import DA.Daml.LF.TypeChecker.Env
 import DA.Daml.LF.TypeChecker.Error
 import Data.Maybe
 import Control.Monad.Extra
+import qualified Data.NameMap as NM
 import qualified Data.Map.Strict as M
 import qualified Data.Text as T
 import qualified Control.Monad.State.Strict as S
@@ -25,6 +26,7 @@ data Name
     | NRecordType ModuleName TypeConName
     | NVariantType ModuleName TypeConName
     | NEnumType ModuleName TypeConName
+    | NTypeSynonym ModuleName TypeConName
     | NVariantCon ModuleName TypeConName VariantConName
     | NEnumCon ModuleName TypeConName VariantConName
     | NField ModuleName TypeConName FieldName
@@ -41,6 +43,8 @@ displayName = \case
         T.concat ["variant ", dot m, ":", dot t]
     NEnumType (ModuleName m) (TypeConName t) ->
         T.concat ["enum ", dot m, ":", dot t]
+    NTypeSynonym (ModuleName m) (TypeConName t) ->
+        T.concat ["synonym ", dot m, ":", dot t]
     NVariantCon (ModuleName m) (TypeConName t) (VariantConName v) ->
         T.concat ["variant constructor ", dot m, ":", dot t, ".", v]
     NEnumCon (ModuleName m) (TypeConName t) (VariantConName v) ->
@@ -87,6 +91,8 @@ fullyResolve = FRName . map T.toLower . \case
     NVariantType (ModuleName m) (TypeConName t) ->
         m ++ t
     NEnumType (ModuleName m) (TypeConName t) ->
+        m ++ t
+    NTypeSynonym (ModuleName m) (TypeConName t) ->
         m ++ t
     NVariantCon (ModuleName m) (TypeConName t) (VariantConName v) ->
         m ++ t ++ [v]
@@ -148,21 +154,50 @@ checkDataType moduleName DefDataType{..} =
                 checkName (NEnumCon moduleName dataTypeCon vconName)
 
         DataSynonym _ ->
-            checkName (NEnumType moduleName dataTypeCon)
+            checkName (NTypeSynonym moduleName dataTypeCon)
 
 checkTemplate :: MonadGamma m => ModuleName -> Template -> S.StateT NCState m ()
 checkTemplate moduleName Template{..} = do
     forM_ tplChoices $ \TemplateChoice{..} ->
         checkName (NChoice moduleName tplTypeCon chcName)
 
+checkModuleName :: MonadGamma m => Module -> S.StateT NCState m ()
+checkModuleName m = checkName (NModule (moduleName m))
+
+checkModuleTypes :: MonadGamma m => Module -> S.StateT NCState m ()
+checkModuleTypes m = do
+    forM_ (moduleDataTypes m) $ \dataType ->
+        withContext (ContextDefDataType m dataType) $
+            checkDataType (moduleName m) dataType
+    forM_ (moduleTemplates m) $ \tpl ->
+        withContext (ContextTemplate m tpl TPWhole) $
+            checkTemplate (moduleName m) tpl
+
+checkModuleFully :: MonadGamma m => Module -> S.StateT NCState m ()
+checkModuleFully m = do
+    checkModuleName m
+    checkModuleTypes m
+
+-- | Is the first module an ascendant of the second? This check
+-- is case-insensitive because name collisions are case-insensitive.
+isAscendant :: ModuleName -> ModuleName -> Bool
+isAscendant (ModuleName xs) (ModuleName ys) =
+    (length xs < length ys) && and (zipWith sameish xs ys)
+    where sameish a b = T.toLower a == T.toLower b
+
 -- | Check whether a module satisfies the name collision condition.
+--
+-- This involves not only checking the current module, but also
+-- the module's ascendants and descendants for potential collisions.
 checkModule :: MonadGamma m => Module -> m ()
-checkModule mod0 =
-    void . flip S.runStateT initialState $ do
-        checkName (NModule (moduleName mod0))
-        forM_ (moduleDataTypes mod0) $ \dataType ->
-            withContext (ContextDefDataType mod0 dataType) $
-                checkDataType (moduleName mod0) dataType
-        forM_ (moduleTemplates mod0) $ \tpl ->
-            withContext (ContextTemplate mod0 tpl TPWhole) $
-                checkTemplate (moduleName mod0) tpl
+checkModule mod0 = do
+    world <- getWorld
+    let package = getWorldSelf world
+        modules = NM.toList (packageModules package)
+        name0 = moduleName mod0
+        ascendants = filter (flip isAscendant name0 . moduleName) modules
+        descendants = filter (isAscendant name0 . moduleName) modules
+    flip S.evalStateT initialState $ do
+        mapM_ checkModuleTypes ascendants -- only need type names
+        mapM_ checkModuleName descendants -- only need module names
+        checkModuleFully mod0

@@ -450,10 +450,12 @@ class JdbcLedgerDaoSpec
       } yield {
         firstUploadResult shouldBe Map(PersistenceResponse.Ok -> 1)
         secondUploadResult shouldBe Map(
-          PersistenceResponse.Ok -> 4,
+          PersistenceResponse.Ok -> 6,
           PersistenceResponse.Duplicate -> 1)
         loadedPackages.values.flatMap(_.sourceDescription.toList) should contain theSameElementsAs Seq(
           firstDescription,
+          secondDescription,
+          secondDescription,
           secondDescription,
           secondDescription,
           secondDescription,

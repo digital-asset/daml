@@ -74,4 +74,26 @@ trait ServiceCallAuthTests
     Option(toHeader(expiringIn(Duration.ofDays(-1), adminToken)))
   protected val canReadAsAdminExpiresTomorrow = Option(
     toHeader(expiringIn(Duration.ofDays(1), adminToken)))
+
+  // Note: lazy val, because the ledger ID is only known after the sandbox start
+  protected lazy val canReadAsRandomPartyActualLedgerId =
+    Option(toHeader(forLedgerId(unwrappedLedgerId, readOnlyToken(UUID.randomUUID.toString))))
+  protected val canReadAsRandomPartyRandomLedgerId =
+    Option(toHeader(forLedgerId(UUID.randomUUID.toString, readOnlyToken(UUID.randomUUID.toString))))
+  protected val canReadAsRandomPartyActualParticipantId =
+    Option(
+      toHeader(forParticipantId("sandbox-participant", readOnlyToken(UUID.randomUUID.toString))))
+  protected val canReadAsRandomPartyRandomParticipantId =
+    Option(
+      toHeader(forParticipantId(UUID.randomUUID.toString, readOnlyToken(UUID.randomUUID.toString))))
+
+  // Note: lazy val, because the ledger ID is only known after the sandbox start
+  protected lazy val canReadAsAdminActualLedgerId =
+    Option(toHeader(forLedgerId(unwrappedLedgerId, adminToken)))
+  protected val canReadAsAdminRandomLedgerId =
+    Option(toHeader(forLedgerId(UUID.randomUUID.toString, adminToken)))
+  protected val canReadAsAdminActualParticipantId =
+    Option(toHeader(forParticipantId("sandbox-participant", adminToken)))
+  protected val canReadAsAdminRandomParticipantId =
+    Option(toHeader(forParticipantId(UUID.randomUUID.toString, adminToken)))
 }
