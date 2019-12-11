@@ -3,7 +3,10 @@
 
 package com.digitalasset.daml.lf.data
 
-import scala.collection.immutable.{HashMap, Map, Queue}
+import scalaz.{Cord, Show}
+
+import scala.collection.generic.{CanBuildFrom, ImmutableMapFactory}
+import scala.collection.immutable.{AbstractMap, HashMap, Map, Queue}
 
 /**
   * Insert-ordered Map (like ListMap), but with efficient lookups.
@@ -18,7 +21,11 @@ import scala.collection.immutable.{HashMap, Map, Queue}
 final class InsertOrdMap[K, +V] private (
     override val keys: Queue[K],
     hashMap: HashMap[K, V]
-) extends Map[K, V] {
+) extends AbstractMap[K, V]
+    with Map[K, V]
+    with MapKOps[K, V, InsertOrdMap[K, +?]] {
+
+  override def empty: InsertOrdMap[K, V] = InsertOrdMap.empty[K, V]
 
   override def size: Int = hashMap.size
 
@@ -28,10 +35,7 @@ final class InsertOrdMap[K, +V] private (
   override def get(key: K): Option[V] = hashMap.get(key)
 
   override def updated[V1 >: V](key: K, value: V1): InsertOrdMap[K, V1] =
-    if (hashMap.contains(key))
-      new InsertOrdMap(keys, hashMap.updated(key, value))
-    else
-      new InsertOrdMap(keys :+ key, hashMap.updated(key, value))
+    new InsertOrdMap(if (hashMap.contains(key)) keys else keys :+ key, hashMap.updated(key, value))
 
   override def +[V1 >: V](kv: (K, V1)): InsertOrdMap[K, V1] = {
     val (key, value) = kv
@@ -43,13 +47,21 @@ final class InsertOrdMap[K, +V] private (
 
 }
 
-object InsertOrdMap {
+object InsertOrdMap extends ImmutableMapFactory[InsertOrdMap] {
 
   private val Empty: InsertOrdMap[Unit, Nothing] = new InsertOrdMap(Queue.empty, HashMap.empty)
 
   def empty[K, V]: InsertOrdMap[K, V] = Empty.asInstanceOf[InsertOrdMap[K, V]]
 
-  def apply[K, V](entries: (K, V)*): InsertOrdMap[K, V] =
-    entries.foldLeft(empty[K, V])(_ + _)
+  implicit def canBuildFrom[A, B]: CanBuildFrom[Coll, (A, B), InsertOrdMap[A, B]] =
+    new MapCanBuildFrom[A, B]
+
+  implicit def insertMapShow[K: Show, V: Show]: Show[InsertOrdMap[K, V]] =
+    Show.show { m =>
+      "InsertOrdMap[" +:
+        Cord.mkCord(", ", m.toSeq.map { x =>
+        Cord(implicitly[Show[K]] show x._1, "->", implicitly[Show[V]] show x._2)
+      }: _*) :+ "]"
+    }
 
 }

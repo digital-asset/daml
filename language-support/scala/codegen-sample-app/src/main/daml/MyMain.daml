@@ -5,7 +5,8 @@ daml 1.2
 module MyMain where
 
 import Prelude hiding (Date, Enum, Maybe)
-import DA.TextMap
+import qualified DA.TextMap as TM
+import DA.Map
 
 type Unit = ()
 
@@ -472,21 +473,21 @@ template Maybes
 template OptTextMapInt
    with
       party: Party
-      optMap: Optional (TextMap Int)
+      optMap: Optional (TM.TextMap Int)
     where
       signatory party
 
 template ListTextMapInt
    with
       party: Party
-      listMap: [TextMap Int]
+      listMap: [TM.TextMap Int]
     where
       signatory party
 
 template TextMapTextMapInt
    with
       party: Party
-      mapMap: TextMap (TextMap Int)
+      mapMap: TM.TextMap (TM.TextMap Int)
     where
       signatory party
 
@@ -494,7 +495,7 @@ template TextMapTextMapInt
 template TextMapInt
    with
       party: Party
-      aMap: TextMap Int
+      aMap: TM.TextMap Int
     where
       signatory party
 
@@ -502,11 +503,44 @@ template TextMapInt
 template TextMapText
    with
       party: Party
-      aMap: TextMap Text
+      aMap: TM.TextMap Text
     where
       signatory party
 
-{- can fully test with LF 1.5 supposing that includes https://github.com/digital-asset/daml/pull/1315
+template OptMapInt
+   with
+      party: Party
+      optMap: Optional (Map Int Int)
+    where
+      signatory party
+
+template ListMapInt
+   with
+      party: Party
+      listMap: [Map Int Int]
+    where
+      signatory party
+
+template MapMapInt
+   with
+      party: Party
+      mapMap: Map (Map Int Int) (Map Int Int)
+    where
+      signatory party
+
+template MapInt
+   with
+      party: Party
+      aMap: Map Int Int
+    where
+      signatory party
+
+template MapText
+   with
+      party: Party
+      aMap: Map Text Text
+    where
+      signatory party
 
 data ContractIdNT a = ContractIdNT with unContractIdNT : ContractId a
   deriving (Eq, Show)
@@ -517,4 +551,4 @@ template SelfContractIdReferent
        it: ContractIdNT SelfContractIdReferent
      where
        signatory party
--}
+

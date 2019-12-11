@@ -4,7 +4,7 @@
 package com.digitalasset.codegen
 
 import com.digitalasset.ledger.client.binding.{Value, Primitive => P}
-import com.digitalasset.sample.{EnumMod, RecordMod, VariantMod}
+import com.digitalasset.sample._
 import org.scalatest.{Matchers, WordSpec}
 
 class DataTypeIT extends WordSpec with Matchers {
@@ -33,7 +33,7 @@ class DataTypeIT extends WordSpec with Matchers {
       Value.decode[T](Value.encode(variant2)) shouldBe Some(variant2)
     }
 
-    "enums" in {
+    "idempotent on enums" in {
       import EnumMod.Color._
 
       for (color <- List(EnumMod.Color.Red, EnumMod.Color.Blue, EnumMod.Color.Green))
@@ -41,6 +41,35 @@ class DataTypeIT extends WordSpec with Matchers {
 
     }
 
+    "idempotent on textMap" in {
+      type T = P.TextMap[Long]
+
+      val genMap: T =
+        P.TextMap("1" -> 1L, "2" -> 2L, "3" -> 3L)
+
+      Value.decode[T](Value.encode(genMap)) shouldBe Some(genMap)
+    }
+
+    val pair1 = RecordMod.Pair(1L, BigDecimal("1.000"))
+    val pair2 = RecordMod.Pair(2L, BigDecimal("-2.222"))
+    val pair3 = RecordMod.Pair(3L, BigDecimal("3.333"))
+
+    type T = P.GenMap[RecordMod.Pair[P.Int64, P.Numeric], VariantMod.Either[P.Int64, P.Numeric]]
+
+    val genMap: T =
+      P.GenMap(
+        pair1 -> VariantMod.Either.Left(1L),
+        pair2 -> VariantMod.Either.Right(BigDecimal("-2.222")),
+        pair3 -> VariantMod.Either.Left(3L)
+      )
+
+    "idempotent on genMap" in {
+      Value.decode[T](Value.encode(genMap)) shouldBe Some(genMap)
+    }
+
+    "preserve order of genMap entries" in {
+      Value.decode[T](Value.encode(genMap)).map(_.keys) shouldBe Some(Seq(pair1, pair2, pair3))
+    }
   }
 
 }

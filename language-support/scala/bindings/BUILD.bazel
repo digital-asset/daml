@@ -12,6 +12,7 @@ bindings_scala_deps = [
     "@maven//:io_grpc_grpc_core",
     "@maven//:org_scalaz_scalaz_core_2_12",
     "//ledger-api/grpc-definitions:ledger-api-scalapb",
+    "//daml-lf/data",
 ]
 
 da_scala_library(
