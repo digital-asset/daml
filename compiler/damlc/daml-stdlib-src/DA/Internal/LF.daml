@@ -243,7 +243,9 @@ data AnyContractKey = AnyContractKey
   , getanyContractKeyTemplateRep : TemplateTypeRep
   }
 
-#ifdef DAML_GENMAP
+#ifdef DAML_GENMAP && DAML_ANY_TYPE
+-- We do not separate generic equality from generic maps so this guards on DAML_GENMAP.
+
 -- We do not have a general Eq instance for Any since Any is not exposed
 -- to users directly and that instance will crash on some values but
 -- we can have total Eq instances for AnyTemplate, AnyChoice and AnyContractKey
