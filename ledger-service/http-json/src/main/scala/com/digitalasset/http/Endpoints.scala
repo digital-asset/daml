@@ -14,6 +14,7 @@ import com.digitalasset.daml.lf
 import com.digitalasset.http.Statement.discard
 import com.digitalasset.http.domain.JwtPayload
 import com.digitalasset.http.json.{DomainJsonDecoder, DomainJsonEncoder, ResponseFormats, SprayJson}
+import com.digitalasset.http.util.ExceptionOps._
 import com.digitalasset.http.util.FutureUtil.{either, eitherT}
 import com.digitalasset.http.util.{ApiValueToLfValueConverter, FutureUtil}
 import com.digitalasset.jwt.domain.{DecodedJwt, Jwt}
@@ -105,14 +106,14 @@ class Endpoints(
     fa.map(a => a.leftMap(e => ServerError(e.shows))).recover {
       case NonFatal(e) =>
         logger.error("Future failed", e)
-        -\/(ServerError(e.getMessage))
+        -\/(ServerError(e.description))
     }
 
   private def handleFutureFailure[A](fa: Future[A]): Future[ServerError \/ A] =
     fa.map(a => \/-(a)).recover {
       case NonFatal(e) =>
         logger.error("Future failed", e)
-        -\/(ServerError(e.getMessage))
+        -\/(ServerError(e.description))
     }
 
   private def handleSourceFailure[E: Show, A]: Flow[E \/ A, ServerError \/ A, NotUsed] =
@@ -121,7 +122,7 @@ class Endpoints(
       .recover {
         case NonFatal(e) =>
           logger.error("Source failed", e)
-          -\/(ServerError(e.getMessage))
+          -\/(ServerError(e.description))
       }
 
   private def encodeList(as: Seq[JsValue]): ServerError \/ JsValue =
@@ -200,7 +201,7 @@ class Endpoints(
 
   private def lfValueToJsValue(a: LfValue): Error \/ JsValue =
     \/.fromTryCatchNonFatal(LfValueCodec.apiValueToJsValue(a)).leftMap(e =>
-      ServerError(e.getMessage))
+      ServerError(e.description))
 
   private def collectActiveContracts(
       predicates: Map[domain.TemplateId.RequiredPkg, LfValue => Boolean]): PartialFunction[
@@ -230,7 +231,7 @@ class Endpoints(
         case -\/(e) => httpResponseError(e)
       }
       .recover {
-        case NonFatal(e) => httpResponseError(ServerError(e.getMessage))
+        case NonFatal(e) => httpResponseError(ServerError(e.description))
       }
   }
 
@@ -242,7 +243,7 @@ class Endpoints(
         case \/-(source) => httpResponseFromSource(source)
       }
       .recover {
-        case NonFatal(e) => httpResponseError(ServerError(e.getMessage))
+        case NonFatal(e) => httpResponseError(ServerError(e.description))
       }
 
   private def httpResponseOk(data: JsValue): HttpResponse =

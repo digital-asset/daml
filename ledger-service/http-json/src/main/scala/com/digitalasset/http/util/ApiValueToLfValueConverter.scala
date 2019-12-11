@@ -14,7 +14,8 @@ object ApiValueToLfValueConverter {
 
   object Error {
     implicit val ErrorShow: Show[Error] = Show shows { e =>
-      s"ApiValueToLfValueConverter.Error: ${e.cause.getMessage}"
+      import ExceptionOps._
+      s"ApiValueToLfValueConverter.Error: ${e.cause.description}"
     }
   }
 

@@ -8,7 +8,8 @@ import scala.collection.GenTraversableOnce
 import scala.collection.immutable.{Map, MapLike}
 
 /** Halfway between the *-kinded MapLike and *->*->*-kinded MapOps. */
-trait MapKOps[K, +V, +This[+TV] <: Map[K, TV] with MapKOps[K, TV, This]] extends MapLike[K, V, This[V]] { this: This[V] =>
+trait MapKOps[K, +V, +This[+TV] <: Map[K, TV] with MapKOps[K, TV, This]]
+    extends MapLike[K, V, This[V]] { this: This[V] =>
   override def updated[V1 >: V](key: K, value: V1): This[V1] = this + ((key, value))
   override def +[V1 >: V](kv: (K, V1)): This[V1]
   override def +[V1 >: V](elem1: (K, V1), elem2: (K, V1), elems: (K, V1)*): This[V1] =
