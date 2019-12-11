@@ -11,6 +11,8 @@ da_haskell_test(
     data = [
         "//compiler/damlc",
     ],
+    # Marked flaky since the hDuplicateTo call seems to fail sometimes.
+    flaky = True,
     hackage_deps = [
         "aeson",
         "base",
