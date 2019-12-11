@@ -7,10 +7,11 @@ import java.io.File
 import java.nio.file.Path
 
 import akka.stream.ThrottleMode
+import com.digitalasset.http.util.ExceptionOps._
 import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
-import scalaz.{Show, \/}
 import scalaz.std.option._
 import scalaz.syntax.traverse._
+import scalaz.{Show, \/}
 
 import scala.concurrent.duration._
 import scala.util.Try
@@ -65,14 +66,14 @@ private[http] abstract class ConfigCompanion[A](name: String) {
 
   protected def parseBoolean(k: String)(v: String): String \/ Boolean =
     \/.fromTryCatchNonFatal(v.toBoolean).leftMap(e =>
-      s"$k=$v must be a boolean value: ${e.getMessage}")
+      s"$k=$v must be a boolean value: ${e.description}")
 
   protected def requiredDirectoryField(m: Map[String, String])(k: String): Either[String, File] =
     requiredField(m)(k).flatMap(directory)
 
   protected def directory(s: String): Either[String, File] =
     Try(new File(s).getAbsoluteFile).toEither.left
-      .map(e => e.getMessage)
+      .map(e => e.description)
       .flatMap { d =>
         if (d.isDirectory) Right(d)
         else Left(s"Directory does not exist: ${d.getAbsolutePath}")

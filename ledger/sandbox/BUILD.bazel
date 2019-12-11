@@ -158,7 +158,8 @@ genrule(
 
 container_image(
     name = "sandbox-image-base",
-    base = "@java_image_base//image",
+    base = "@openjdk_base//image",
+    cmd = None,
     directory = "/usr/bin",
     files = [
         "@com_github_grpc_ecosystem_grpc_health_probe_binary//file",

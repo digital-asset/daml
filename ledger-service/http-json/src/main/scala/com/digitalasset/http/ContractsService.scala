@@ -14,6 +14,7 @@ import com.digitalasset.http.json.JsonProtocol.LfValueCodec
 import com.digitalasset.http.query.ValuePredicate
 import com.digitalasset.http.query.ValuePredicate.LfV
 import com.digitalasset.http.util.ApiValueToLfValueConverter
+import com.digitalasset.http.util.ExceptionOps._
 import com.digitalasset.http.util.FutureUtil.toFuture
 import com.digitalasset.http.util.IdentifierConverters.apiIdentifier
 import com.digitalasset.jwt.domain.Jwt
@@ -28,6 +29,7 @@ import spray.json.JsValue
 
 import scala.concurrent.{ExecutionContext, Future}
 
+// TODO(Leo) split it into ContractsServiceInMemory and ContractsServiceDb
 class ContractsService(
     resolveTemplateIds: PackageService.ResolveTemplateIds,
     resolveTemplateId: PackageService.ResolveTemplateId,
@@ -299,7 +301,7 @@ class ContractsService(
 
   private def lfValueToJsValue(a: LfValue): Error \/ JsValue =
     \/.fromTryCatchNonFatal(LfValueCodec.apiValueToJsValue(a)).leftMap(e =>
-      Error('lfValueToJsValue, e.getMessage))
+      Error('lfValueToJsValue, e.description))
 }
 
 object ContractsService {

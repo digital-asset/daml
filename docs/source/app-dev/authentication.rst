@@ -44,12 +44,12 @@ However, most authentication setups share the following pattern:
 First, the DAML application contacts a token issuer to get an access token.
 The token issuer verifies the identity of the requesting user
 (e.g., by checking the username/password credentials sent with the request),
-looks up the priviledges of the user,
-and generates a signed access token describing those priviledges.
+looks up the privileges of the user,
+and generates a signed access token describing those privileges.
 
 Then, the DAML application sends the access token along with each ledger API request.
 The DAML ledger verifies the signature of the token (to make sure it has not been tampered with),
-and then checks that the priviledges described in the token authorize the given ledger API request.
+and then checks that the privileges described in the token authorize the given ledger API request.
 
 .. image:: ./images/Authentication.svg
 
@@ -57,8 +57,63 @@ Glossary:
 
 - ``Authentication`` is the process of confirming an identity.
 - ``Authorization`` is the process of checking permissions to access a resource.
-- A ``token`` is a tamper-proof piece of data that contains security information, such as the user identity or its priviledges.
+- A ``token`` (or ``access token``) is a tamper-proof piece of data that contains security information, such as the user identity or its privileges.
 - A ``token issuer`` is a service that generates tokens. Also known as "authentication server" or "Identity and Access Management (IAM) system".
+
+.. _authentication-claims:
+
+Access tokens and claims
+************************
+
+Access tokens contain information about the capabilities held by the bearer of the token. This information is represented by a *claim* to a given capability.
+
+The claims can express the following capabilities:
+
+- ``public``: ability to retrieve publicly available information, such as the ledger identity
+- ``admin``: ability to interact with admin-level services, such as package uploading and user allocation
+- ``canReadAs(p)``: ability to read information off the ledger (like the active contracts) visible to the party ``p``
+- ``canActsAs(p)``: same as ``canReadAs(p)``, with the added ability of issuing commands on behalf of the party ``p``
+
+The following table summarizes what kind of claim is required to access each Ledger API endpoint:
+
++-------------------------------------+----------------------------+------------------------------------------+
+| Ledger API service                  | Endpoint                   | Required claim                           |
++=====================================+============================+==========================================+
+| LedgerIdentityService               | GetLedgerIdentity          | public                                   |
++-------------------------------------+----------------------------+------------------------------------------+
+| ActiveContractsService              | GetActiveContracts         | for each requested party p: canReadAs(p) |
++-------------------------------------+----------------------------+------------------------------------------+
+| CommandSubmissionService            | Submit                     | for submitting party p: canActAs(p)      |
+|                                     +----------------------------+------------------------------------------+
+|                                     | CompletionEnd              | public                                   |
+|                                     +----------------------------+------------------------------------------+
+|                                     | CompletionStream           | for each requested party p: canReadAs(p) |
++-------------------------------------+----------------------------+------------------------------------------+
+| CommandService                      | All                        | for submitting party p: canActAs(p)      |
++-------------------------------------+----------------------------+------------------------------------------+
+| LedgerConfigurationService          | GetLedgerConfiguration     | public                                   |
++-------------------------------------+----------------------------+------------------------------------------+
+| PackageService                      | All                        | public                                   |
++-------------------------------------+----------------------------+------------------------------------------+
+| PackageManagementService            | All                        | admin                                    |
++-------------------------------------+----------------------------+------------------------------------------+
+| PartyManagementService              | All                        | admin                                    |
++-------------------------------------+----------------------------+------------------------------------------+
+| ResetService                        | All                        | admin                                    |
++-------------------------------------+----------------------------+------------------------------------------+
+| TimeService                         | GetTime                    | public                                   |
+|                                     +----------------------------+------------------------------------------+
+|                                     | SetTime                    | admin                                    |
++-------------------------------------+----------------------------+------------------------------------------+
+| TransactionService                  | LedgerEnd                  | public                                   |
+|                                     +----------------------------+------------------------------------------+
+|                                     | All (except LedgerEnd)     | for each requested party p: canReadAs(p) |
++-------------------------------------+----------------------------+------------------------------------------+
+
+Access tokens may be represented differently based on the ledger implementation.
+
+To learn how these claims are represented in the Sandbox,
+read the :ref:`sandbox <sandbox-authentication>` documentation.
 
 Getting access tokens
 *********************
@@ -67,9 +122,8 @@ To learn how to receive access tokens for a deployed ledger, contact your ledger
 This may be a manual exchange over a secure channel,
 or your application may have to request tokens at runtime using an API such as `OAuth <https://oauth.net/2/>`__.
 
-To learn how to generate access tokens for a local sandbox,
+To learn how to generate access tokens for the Sandbox,
 read the :ref:`sandbox <sandbox-authentication>` documentation.
-
 
 Using access tokens
 *******************

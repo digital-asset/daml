@@ -3,22 +3,24 @@
 
 package com.digitalasset.http
 
+import akka.NotUsed
 import akka.http.scaladsl.model.HttpMethods.{GET, POST}
 import akka.http.scaladsl.model._
-import akka.NotUsed
 import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
+import akka.stream.Materializer
+import akka.stream.scaladsl.{Flow, Source}
+import akka.util.ByteString
 import com.digitalasset.daml.lf
 import com.digitalasset.http.Statement.discard
 import com.digitalasset.http.domain.JwtPayload
-import com.digitalasset.http.json.ResponseFormats
-import com.digitalasset.http.json.{DomainJsonDecoder, DomainJsonEncoder, SprayJson}
+import com.digitalasset.http.json.{DomainJsonDecoder, DomainJsonEncoder, ResponseFormats, SprayJson}
+import com.digitalasset.http.util.ExceptionOps._
 import com.digitalasset.http.util.FutureUtil.{either, eitherT}
 import com.digitalasset.http.util.{ApiValueToLfValueConverter, FutureUtil}
 import com.digitalasset.jwt.domain.Jwt
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
 import com.typesafe.scalalogging.StrictLogging
-import scalaz.std.list._
 import scalaz.std.scalaFuture._
 import scalaz.syntax.show._
 import scalaz.syntax.std.option._
@@ -85,18 +87,19 @@ class Endpoints(
 
         cmd <- either(
           decoder
-            .decodeR[domain.ExerciseCommand](reqBody)
+            .decodeV[domain.ExerciseCommand](reqBody)
             .leftMap(e => InvalidUserInput(e.shows))
-        ): ET[domain.ExerciseCommand[lav1.value.Record]]
+        ): ET[domain.ExerciseCommand[ApiValue]]
 
-        cs <- eitherT(
+        apiResp <- eitherT(
           handleFutureFailure(commandService.exercise(jwt, jwtPayload, cmd))
-        ): ET[List[domain.Contract[lav1.value.Value]]]
+        ): ET[domain.ExerciseResponse[ApiValue]]
 
-        jsVal <- either(
-          cs.traverse(a => encoder.encodeV(a))
-            .leftMap(e => ServerError(e.shows))
-            .flatMap(as => encodeList(as))): ET[JsValue]
+        lfResp <- either(apiResp.traverse(apiValueToLfValue)): ET[domain.ExerciseResponse[LfValue]]
+
+        jsResp <- either(lfResp.traverse(lfValueToJsValue)): ET[domain.ExerciseResponse[JsValue]]
+
+        jsVal <- either(SprayJson.encode(jsResp).leftMap(e => ServerError(e.shows))): ET[JsValue]
 
       } yield jsVal
 
@@ -107,14 +110,14 @@ class Endpoints(
     fa.map(a => a.leftMap(e => ServerError(e.shows))).recover {
       case NonFatal(e) =>
         logger.error("Future failed", e)
-        -\/(ServerError(e.getMessage))
+        -\/(ServerError(e.description))
     }
 
   private def handleFutureFailure[A](fa: Future[A]): Future[ServerError \/ A] =
     fa.map(a => \/-(a)).recover {
       case NonFatal(e) =>
         logger.error("Future failed", e)
-        -\/(ServerError(e.getMessage))
+        -\/(ServerError(e.description))
     }
 
   private def handleSourceFailure[E: Show, A]: Flow[E \/ A, ServerError \/ A, NotUsed] =
@@ -123,7 +126,7 @@ class Endpoints(
       .recover {
         case NonFatal(e) =>
           logger.error("Source failed", e)
-          -\/(ServerError(e.getMessage))
+          -\/(ServerError(e.description))
       }
 
   private def encodeList(as: Seq[JsValue]): ServerError \/ JsValue =
@@ -202,7 +205,7 @@ class Endpoints(
 
   private def lfValueToJsValue(a: LfValue): Error \/ JsValue =
     \/.fromTryCatchNonFatal(LfValueCodec.apiValueToJsValue(a)).leftMap(e =>
-      ServerError(e.getMessage))
+      ServerError(e.description))
 
   private def collectActiveContracts(
       predicates: Map[domain.TemplateId.RequiredPkg, LfValue => Boolean]): PartialFunction[
@@ -232,7 +235,7 @@ class Endpoints(
         case -\/(e) => httpResponseError(e)
       }
       .recover {
-        case NonFatal(e) => httpResponseError(ServerError(e.getMessage))
+        case NonFatal(e) => httpResponseError(ServerError(e.description))
       }
   }
 
@@ -244,7 +247,7 @@ class Endpoints(
         case \/-(source) => httpResponseFromSource(source)
       }
       .recover {
-        case NonFatal(e) => httpResponseError(ServerError(e.getMessage))
+        case NonFatal(e) => httpResponseError(ServerError(e.description))
       }
 
   private def httpResponseFromSource(data: Source[Error \/ JsValue, NotUsed]): HttpResponse =

@@ -243,6 +243,28 @@ data AnyContractKey = AnyContractKey
   , getanyContractKeyTemplateRep : TemplateTypeRep
   }
 
+#ifdef DAML_GENMAP && DAML_ANY_TYPE
+-- We do not separate generic equality from generic maps so this guards on DAML_GENMAP.
+
+-- We do not have a general Eq instance for Any since Any is not exposed
+-- to users directly and that instance will crash on some values but
+-- we can have total Eq instances for AnyTemplate, AnyChoice and AnyContractKey
+-- since those are guaranteed to be serializable.
+eqAny : Any -> Any -> Bool
+eqAny = primitive @"BEEqual"
+
+instance Eq AnyTemplate where
+  AnyTemplate a == AnyTemplate b = eqAny a b
+
+instance Eq AnyChoice where
+  AnyChoice aAny aRep == AnyChoice bAny bRep =
+    eqAny aAny bAny && aRep == bRep
+
+instance Eq AnyContractKey where
+  AnyContractKey aAny aRep == AnyContractKey bAny bRep =
+    eqAny aAny bAny && aRep == bRep
+#endif
+
 -- | Value-level representation of a type.
 -- We do not expose this directly and instead only expose TemplateTypeRep.
 data TypeRep = TypeRep Opaque

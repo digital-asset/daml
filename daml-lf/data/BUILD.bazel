@@ -11,6 +11,9 @@ load(
 da_scala_library(
     name = "data",
     srcs = glob(["src/main/**/*.scala"]),
+    plugins = [
+        "@maven//:org_spire_math_kind_projector_2_12",
+    ],
     scalacopts = lf_scalacopts,
     tags = ["maven_coordinates=com.digitalasset:daml-lf-data:__VERSION__"],
     visibility = [

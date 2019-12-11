@@ -241,9 +241,9 @@ output::
             "signatories": [
                 "Alice"
             ],
-            "contractId": "#56:0",
+            "contractId": "#228:0",
             "templateId": {
-                "packageId": "ac3a64908d9f6b4453329b3d7d8ddea44c83f4f5469de5f7ae19158c69bf8473",
+                "packageId": "6c3b507f18337d64d9b72a5340f6b961c027bfe9dfc1bbf33ac73a9f11623503",
                 "moduleName": "Iou",
                 "entityName": "Iou"
             },
@@ -265,7 +265,7 @@ POST http://localhost:7575/command/exercise
 
 Exercise a choice on a contract.
 
-``"contractId": "#56:0"`` is the value from the create output
+``"contractId": "#228:0"`` is the value from the create output
 application/json body::
 
     {
@@ -273,7 +273,7 @@ application/json body::
             "moduleName": "Iou",
             "entityName": "Iou"
         },
-        "contractId": "#56:0",
+        "contractId": "#228:0",
         "choice": "Iou_Transfer",
         "argument": {
             "newOwner": "Alice"
@@ -284,50 +284,58 @@ output::
 
     {
         "status": 200,
-        "result": [
-            {
-                "archived": {
-                    "contractId": "#56:0",
-                    "templateId": {
-                        "packageId": "ac3a64908d9f6b4453329b3d7d8ddea44c83f4f5469de5f7ae19158c69bf8473",
-                        "moduleName": "Iou",
-                        "entityName": "Iou"
-                    },
-                    "witnessParties": [
-                        "Alice"
-                    ]
-                }
-            },
-            {
-                "created": {
-                    "observers": [],
-                    "agreementText": "",
-                    "signatories": [
-                        "Alice"
-                    ],
-                    "contractId": "#301:1",
-                    "templateId": {
-                        "packageId": "ac3a64908d9f6b4453329b3d7d8ddea44c83f4f5469de5f7ae19158c69bf8473",
-                        "moduleName": "Iou",
-                        "entityName": "IouTransfer"
-                    },
-                    "witnessParties": [
-                        "Alice"
-                    ],
-                    "argument": {
-                        "iou": {
-                            "observers": [],
-                            "issuer": "Alice",
-                            "amount": "999.99",
-                            "currency": "USD",
-                            "owner": "Alice"
+        "result": {
+            "exerciseResult": "#328:1",
+            "contracts": [
+                {
+                    "archived": {
+                        "contractId": "#228:0",
+                        "templateId": {
+                            "packageId": "6c3b507f18337d64d9b72a5340f6b961c027bfe9dfc1bbf33ac73a9f11623503",
+                            "moduleName": "Iou",
+                            "entityName": "Iou"
                         },
-                        "newOwner": "Alice"
+                        "witnessParties": [
+                            "Alice"
+                        ]
+                    }
+                },
+                {
+                    "created": {
+                        "observers": [],
+                        "agreementText": "",
+                        "signatories": [
+                            "Alice"
+                        ],
+                        "contractId": "#328:1",
+                        "templateId": {
+                            "packageId": "6c3b507f18337d64d9b72a5340f6b961c027bfe9dfc1bbf33ac73a9f11623503",
+                            "moduleName": "Iou",
+                            "entityName": "IouTransfer"
+                        },
+                        "witnessParties": [
+                            "Alice"
+                        ],
+                        "argument": {
+                            "iou": {
+                                "observers": [],
+                                "issuer": "Alice",
+                                "amount": "999.99",
+                                "currency": "USD",
+                                "owner": "Alice"
+                            },
+                            "newOwner": "Alice"
+                        }
                     }
                 }
-            }
-        ]
+            ]
+        }
     }
+
+Where:
+
+- ``exerciseResult`` -- the return value of the exercised contract choice.
+- ``contracts`` -- an array containing contracts that were archived and created as part of the exercised choice. The array may contain: **zero or many** ``{"archived": {...}}`` and **zero or many** ``{"created": {...}}`` elements. The order of the contracts is the same as on the ledger.
 
 GET http://localhost:7575/parties
 =================================
