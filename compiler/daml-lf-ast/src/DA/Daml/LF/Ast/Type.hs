@@ -104,7 +104,9 @@ substitute subst = go (Map.foldl' (\acc t -> acc `Set.union` freeVars t) Set.emp
                 fvSubst1 = Set.insert v1 fvSubst0
                 subst1 = Map.insert v0 (TVar v1) subst0
             in  TForall (v1, k) (go fvSubst1 subst1 t)
-        | otherwise -> TForall (v0, k) (go fvSubst0 (Map.delete v0 subst0) t)
+        | otherwise ->
+            let fvSubst1 = Set.insert v0 fvSubst0
+            in TForall (v0, k) (go fvSubst1 (Map.delete v0 subst0) t)
       TStruct fs -> TStruct (map (second go0) fs)
       TNat n -> TNat n
       where

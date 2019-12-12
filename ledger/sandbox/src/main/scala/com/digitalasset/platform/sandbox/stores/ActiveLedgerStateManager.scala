@@ -13,7 +13,7 @@ import com.digitalasset.daml.lf.transaction.{GenTransaction, Node => N}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.ledger.{EventId, WorkflowId}
-import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
+import com.digitalasset.platform.sandbox.EventIdFormatter
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState._
 import com.digitalasset.platform.sandbox.stores.ledger.SequencingError
 import com.digitalasset.platform.sandbox.stores.ledger.SequencingError.PredicateType.{
@@ -124,7 +124,7 @@ class ActiveLedgerStateManager[ALS](initialState: => ALS)(
                 val nodeParties = nf.signatories
                   .union(nf.stakeholders)
                   .union(nf.actingParties.getOrElse(Set.empty))
-                val absCoid = SandboxEventIdFormatter.makeAbsCoid(transactionId)(nf.coid)
+                val absCoid = EventIdFormatter.makeAbsCoid(transactionId)(nf.coid)
                 AddTransactionState(
                   Some(acc),
                   contractCheck(absCoid, Fetch).fold(errs)(errs + _),
@@ -135,7 +135,7 @@ class ActiveLedgerStateManager[ALS](initialState: => ALS)(
                 val nodeParties = nc.signatories
                   .union(nc.stakeholders)
                   .union(nc.key.map(_.maintainers).getOrElse(Set.empty))
-                val absCoid = SandboxEventIdFormatter.makeAbsCoid(transactionId)(nc.coid)
+                val absCoid = EventIdFormatter.makeAbsCoid(transactionId)(nc.coid)
                 val withoutStakeHolders = localDivulgence
                   .getOrElse(nodeId, Set.empty) diff nc.stakeholders
                 val withStakeHolders = localDivulgence
@@ -150,7 +150,7 @@ class ActiveLedgerStateManager[ALS](initialState: => ALS)(
                   eventId = nodeId,
                   workflowId = workflowId,
                   contract = nc.coinst.mapValue(
-                    _.mapContractId(SandboxEventIdFormatter.makeAbsCoid(transactionId))),
+                    _.mapContractId(EventIdFormatter.makeAbsCoid(transactionId))),
                   witnesses = disclosure(nodeId),
                   // we need to `getOrElse` here because the `Nid` might include absolute
                   // contract ids, and those are never present in the local disclosure.
@@ -187,7 +187,7 @@ class ActiveLedgerStateManager[ALS](initialState: => ALS)(
                 val nodeParties = ne.signatories
                   .union(ne.stakeholders)
                   .union(ne.actingParties)
-                val absCoid = SandboxEventIdFormatter.makeAbsCoid(transactionId)(ne.targetCoid)
+                val absCoid = EventIdFormatter.makeAbsCoid(transactionId)(ne.targetCoid)
                 ats.copy(
                   errs = contractCheck(absCoid, Exercise).fold(errs)(errs + _),
                   acc = Some(if (ne.consuming) {

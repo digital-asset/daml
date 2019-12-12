@@ -41,7 +41,9 @@ trait ValuePrimitiveEncoding[TC[_]] {
 
   implicit def valueOptional[A: TC]: TC[P.Optional[A]]
 
-  implicit def valueMap[A: TC]: TC[P.Map[A]]
+  implicit def valueTextMap[A: TC]: TC[P.TextMap[A]]
+
+  implicit def valueGenMap[K: TC, V: TC]: TC[P.GenMap[K, V]]
 }
 
 object ValuePrimitiveEncoding {
@@ -66,10 +68,8 @@ object ValuePrimitiveEncoding {
       case List(_) => Some(valueList(valueText))
       case ContractId(_) => Some(valueContractId)
       case Optional(_) => Some(valueOptional(valueText))
-      case Map(_) => Some(valueMap(valueText))
-      case GenMap(_) =>
-        // FIXME https://github.com/digital-asset/daml/issues/2256
-        sys.error("GenMap not supported")
+      case Map(_) => Some(valueTextMap(valueText))
+      case GenMap(_) => Some(valueGenMap(valueText, valueText))
       // types that represent non-primitives only
       case Record(_) | Variant(_) | Enum(_) | Empty => None
     }
@@ -120,8 +120,11 @@ object ValuePrimitiveEncoding {
       override def valueOptional[A](implicit ev: (F[A], G[A])) =
         (vpef.valueOptional(ev._1), vpeg.valueOptional(ev._2))
 
-      override def valueMap[A](implicit ev: (F[A], G[A])) =
-        (vpef.valueMap(ev._1), vpeg.valueMap(ev._2))
+      override def valueTextMap[A](implicit ev: (F[A], G[A])) =
+        (vpef.valueTextMap(ev._1), vpeg.valueTextMap(ev._2))
+
+      override def valueGenMap[K, V](implicit evK: (F[K], G[K]), evV: (F[V], G[V])) =
+        (vpef.valueGenMap(evK._1, evV._1), vpeg.valueGenMap(evK._2, evV._2))
     }
 
   /** Transforms all the base cases of `F` to `G`, leaving the inductive cases
@@ -169,6 +172,10 @@ object ValuePrimitiveEncoding {
       override def valueOptional[A](implicit ev: G[A]): G[P.Optional[A]] =
         iso.to(vpe.valueOptional(iso.from(ev)))
 
-      override def valueMap[A](implicit ev: G[A]): G[P.Map[A]] = iso.to(vpe.valueMap(iso.from(ev)))
+      override def valueTextMap[A](implicit ev: G[A]): G[P.TextMap[A]] =
+        iso.to(vpe.valueTextMap(iso.from(ev)))
+
+      override def valueGenMap[K, V](implicit evK: G[K], evV: G[V]): G[P.GenMap[K, V]] =
+        iso.to(vpe.valueGenMap(iso.from(evK), iso.from(evV)))
     }
 }

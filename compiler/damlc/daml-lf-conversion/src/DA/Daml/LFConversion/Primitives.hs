@@ -44,6 +44,8 @@ convertPrim _ "SGetParty" (t1@TText :-> TScenario TParty) =
     ETmLam (varV1, t1) $ EScenario $ SGetParty $ EVar varV1
 
 -- Comparison
+convertPrim v "BEEqual" (a1 :-> a2 :-> TBool) | a1 == a2, v `supports` featureGenMap =
+    EBuiltin BEEqualGeneric `ETyApp` a1
 convertPrim _ "BEEqual" (TBuiltin a1 :-> TBuiltin a2 :-> TBool) | a1 == a2 =
     EBuiltin $ BEEqual a1
 convertPrim _ "BELess" (TBuiltin a1 :-> TBuiltin a2 :-> TBool) | a1 == a2 =
@@ -56,8 +58,10 @@ convertPrim _ "BEGreater" (TBuiltin a1 :-> TBuiltin a2 :-> TBool) | a1 == a2 =
     EBuiltin $ BEGreater a1
 convertPrim _ "BEEqualList" ((a1 :-> a2 :-> TBool) :-> TList a3 :-> TList a4 :-> TBool) | a1 == a2, a2 == a3, a3 == a4 =
     EBuiltin BEEqualList `ETyApp` a1
-convertPrim _ "BEEqualContractId" (TContractId a1 :-> TContractId a2 :-> TBool) | a1 == a2 =
-    EBuiltin BEEqualContractId `ETyApp` a1
+convertPrim v "BEEqualContractId" (TContractId a1 :-> TContractId a2 :-> TBool) | a1 == a2 =
+    if v `supports` featureGenMap
+        then EBuiltin BEEqualGeneric `ETyApp` TContractId a1
+        else EBuiltin BEEqualContractId `ETyApp` a1
 
 -- Decimal arithmetic
 convertPrim _ "BEAddDecimal" (TDecimal :-> TDecimal :-> TDecimal) =
@@ -219,8 +223,10 @@ convertPrim _ "BECastNumeric" (TNumeric n1 :-> TNumeric n2) =
     EBuiltin BECastNumeric `ETyApp` n1 `ETyApp` n2
 convertPrim _ "BEShiftNumeric" (TNumeric n1 :-> TNumeric n2) =
     EBuiltin BEShiftNumeric `ETyApp` n1 `ETyApp` n2
-convertPrim _ "BEEqualNumeric" (TNumeric n1 :-> TNumeric n2 :-> TBool) | n1 == n2 =
-    ETyApp (EBuiltin BEEqualNumeric) n1
+convertPrim v "BEEqualNumeric" (TNumeric n1 :-> TNumeric n2 :-> TBool) | n1 == n2 =
+    if v `supports` featureGenMap
+        then ETyApp (EBuiltin BEEqualGeneric) (TNumeric n1)
+        else ETyApp (EBuiltin BEEqualNumeric) n1
 convertPrim _ "BELessNumeric" (TNumeric n1 :-> TNumeric n2 :-> TBool) | n1 == n2 =
     ETyApp (EBuiltin BELessNumeric) n1
 convertPrim _ "BELessEqNumeric" (TNumeric n1 :-> TNumeric n2 :-> TBool) | n1 == n2 =

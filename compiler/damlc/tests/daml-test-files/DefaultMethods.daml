@@ -3,6 +3,9 @@
 
 -- Check that default implementations for type class methods can be translated
 -- even in corner cases.
+
+-- @INFO Use identity
+
 daml 1.2
 module DefaultMethods where
 

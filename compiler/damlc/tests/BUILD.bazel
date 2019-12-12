@@ -243,6 +243,7 @@ da_haskell_test(
     visibility = ["//visibility:public"],
     deps = [
         "//:sdk-version-hs-lib",
+        "//compiler/daml-lf-reader",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
     ],

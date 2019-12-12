@@ -18,7 +18,7 @@ import com.digitalasset.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.digitalasset.ledger.api.auth.{AuthService, AuthServiceWildcard, Authorizer}
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.health.HealthChecks
-import com.digitalasset.ledger.server.apiserver.{ApiServer, ApiServices, LedgerApiServer}
+import com.digitalasset.platform.apiserver.{ApiServer, ApiServices, LedgerApiServer}
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.daml.ledger.participant.state.{v1 => ParticipantState}
@@ -241,7 +241,10 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
         sys.error(msg)
       }, identity)
 
-    val authorizer = new Authorizer(() => java.time.Clock.systemUTC.instant())
+    val authorizer = new Authorizer(
+      () => java.time.Clock.systemUTC.instant(),
+      LedgerId.unwrap(ledgerId),
+      participantId)
 
     val healthChecks = new HealthChecks(
       "index" -> indexAndWriteService.indexService,

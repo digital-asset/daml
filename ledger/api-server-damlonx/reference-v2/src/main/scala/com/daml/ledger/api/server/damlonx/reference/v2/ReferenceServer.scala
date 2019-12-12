@@ -13,9 +13,9 @@ import com.daml.ledger.participant.state.kvutils.InMemoryKVParticipantState
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.auth.AuthServiceWildcard
+import com.digitalasset.platform.apiserver.{ApiServerConfig, StandaloneApiServer}
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
-import com.digitalasset.platform.index.config.Config
-import com.digitalasset.platform.index.{StandaloneIndexServer, StandaloneIndexerServer}
+import com.digitalasset.platform.indexer.{IndexerConfig, StandaloneIndexerServer}
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -29,9 +29,9 @@ object ReferenceServer extends App {
     Cli
       .parse(
         args,
-        "damlonx-reference-server",
-        "A fully compliant DAML Ledger API server backed by an in-memory store.",
-        allowExtraParticipants = true)
+        binaryName = "damlonx-reference-server",
+        description = "A fully compliant DAML Ledger API server backed by an in-memory store.",
+      )
       .getOrElse(sys.exit(1))
 
   implicit val system: ActorSystem = ActorSystem("indexed-kvutils")
@@ -56,10 +56,10 @@ object ReferenceServer extends App {
     } yield ledger.uploadPackages(dar.all, None)
   }
 
-  val participantF: Future[(AutoCloseable, StandaloneIndexServer#SandboxState)] = for {
-    indexerServer <- newIndexer(config)
-    indexServer <- newIndexServer(config).start()
-  } yield (indexerServer, indexServer)
+  val participantF: Future[(AutoCloseable, AutoCloseable)] = for {
+    indexer <- newIndexer(config)
+    apiServer <- newApiServer(config).start()
+  } yield (indexer, apiServer)
 
   val extraParticipants =
     for {
@@ -72,21 +72,30 @@ object ReferenceServer extends App {
       )
       for {
         extraIndexer <- newIndexer(participantConfig)
-        extraLedgerApiServer <- newIndexServer(participantConfig).start()
+        extraLedgerApiServer <- newApiServer(participantConfig).start()
       } yield (extraIndexer, extraLedgerApiServer)
     }
 
   def newIndexer(config: Config) =
     StandaloneIndexerServer(
       readService,
-      config,
+      IndexerConfig(config.participantId, config.jdbcUrl, config.startupMode),
       NamedLoggerFactory.forParticipant(config.participantId),
       SharedMetricRegistries.getOrCreate(s"indexer-${config.participantId}"),
     )
 
-  def newIndexServer(config: Config) =
-    new StandaloneIndexServer(
-      config,
+  def newApiServer(config: Config) =
+    new StandaloneApiServer(
+      ApiServerConfig(
+        config.participantId,
+        config.archiveFiles,
+        config.port,
+        config.jdbcUrl,
+        config.tlsConfig,
+        config.timeProvider,
+        config.maxInboundMessageSize,
+        config.portFile,
+      ),
       readService,
       writeService,
       authService,
@@ -99,16 +108,16 @@ object ReferenceServer extends App {
   def closeServer(): Unit = {
     if (closed.compareAndSet(false, true)) {
       participantF.foreach {
-        case (indexer, indexServer) =>
+        case (indexer, apiServer) =>
           indexer.close()
-          indexServer.close()
+          apiServer.close()
       }
 
       for (extraParticipantF <- extraParticipants) {
         extraParticipantF.foreach {
-          case (indexer, indexServer) =>
+          case (indexer, apiServer) =>
             indexer.close()
-            indexServer.close()
+            apiServer.close()
         }
       }
       ledger.close()

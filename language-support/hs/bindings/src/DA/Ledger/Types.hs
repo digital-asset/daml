@@ -207,6 +207,7 @@ data Value
     | VDate DaysSinceEpoch
     | VOpt (Maybe Value)
     | VMap (Map Text Value)
+    | VGenMap [(Value, Value)] -- GenMap is sensitive to order.
     | VEnum Enum
     deriving (Eq,Ord,Show)
 

@@ -41,3 +41,5 @@ da_scala_binary(
     visibility = ["//visibility:public"],
     deps = [":script-runner-lib"],
 )
+
+exports_files(["src/main/resources/logback.xml"])

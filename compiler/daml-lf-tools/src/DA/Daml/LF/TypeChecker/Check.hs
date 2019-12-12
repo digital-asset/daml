@@ -156,6 +156,7 @@ typeOfBuiltin = \case
   BEUnit             -> pure TUnit
   BEBool _           -> pure TBool
   BEError            -> pure $ TForall (alpha, KStar) (TText :-> tAlpha)
+  BEEqualGeneric     -> pure $ TForall (alpha, KStar) (tAlpha :-> tAlpha :-> TBool)
   BEEqual     btype  -> pure $ tComparison btype
   BELess      btype  -> pure $ tComparison btype
   BELessEq    btype  -> pure $ tComparison btype

@@ -10,7 +10,10 @@ import com.digitalasset.daml.lf.codegen.backend.java.inner.ClassNameExtensions
 
 private[codegen] object ObjectMethods extends StrictLogging {
 
-  def apply(className: ClassName, typeParameters: IndexedSeq[String], fieldNames: IndexedSeq[String]): Vector[MethodSpec] =
+  def apply(
+      className: ClassName,
+      typeParameters: IndexedSeq[String],
+      fieldNames: IndexedSeq[String]): Vector[MethodSpec] =
     Vector(
       generateEquals(className.asWildcardType(typeParameters), fieldNames),
       generateHashCode(fieldNames),
@@ -24,7 +27,8 @@ private[codegen] object ObjectMethods extends StrictLogging {
     Vector(
       generateEquals(className.asWildcardType(typeParameters), fieldNames),
       generateHashCode(fieldNames),
-      generateToString(className, fieldNames, Some(enclosingClassName)))
+      generateToString(className, fieldNames, Some(enclosingClassName))
+    )
 
   private def initEqualsBuilder(className: TypeName): MethodSpec.Builder =
     MethodSpec

@@ -35,7 +35,7 @@ class CodeGenRunnerTests extends FlatSpec with Matchers with BazelRunfiles {
 
     val (interfaces, pkgPrefixes) = CodeGenRunner.collectDamlLfInterfaces(conf)
 
-    assert(interfaces.length == 5)
+    assert(interfaces.length == 7)
     assert(pkgPrefixes == Map.empty)
   }
 
@@ -48,8 +48,8 @@ class CodeGenRunnerTests extends FlatSpec with Matchers with BazelRunfiles {
 
     val (interfaces, pkgPrefixes) = CodeGenRunner.collectDamlLfInterfaces(conf)
 
-    assert(interfaces.map(_.packageId).length == 5)
-    assert(pkgPrefixes.size == 5)
+    assert(interfaces.map(_.packageId).length == 7)
+    assert(pkgPrefixes.size == 7)
     assert(pkgPrefixes.values.forall(_ == "PREFIX"))
   }
 }

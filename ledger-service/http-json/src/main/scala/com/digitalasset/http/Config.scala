@@ -6,12 +6,14 @@ package com.digitalasset.http
 import java.io.File
 import java.nio.file.Path
 
+import akka.stream.ThrottleMode
+import com.digitalasset.http.util.ExceptionOps._
 import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
-import scalaz.{Show, \/}
 import scalaz.std.option._
 import scalaz.syntax.traverse._
+import scalaz.{Show, \/}
 
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration._
 import scala.util.Try
 
 private[http] final case class Config(
@@ -25,11 +27,22 @@ private[http] final case class Config(
     jdbcConfig: Option[JdbcConfig] = None,
     staticContentConfig: Option[StaticContentConfig] = None,
     accessTokenFile: Option[Path] = None,
+    wsConfig: WebsocketConfig = Config.DefaultWsConfig
 )
 
 private[http] object Config {
+  import scala.language.postfixOps
   val Empty = Config(ledgerHost = "", ledgerPort = -1, httpPort = -1)
+  val DefaultWsConfig = WebsocketConfig(12 hours, 20, 1 second, 20, ThrottleMode.Shaping)
 }
+
+protected case class WebsocketConfig(
+      maxDuration: FiniteDuration,
+      throttleElem: Int,
+      throttlePer: FiniteDuration,
+      maxBurst: Int,
+      mode: ThrottleMode
+)
 
 private[http] abstract class ConfigCompanion[A](name: String) {
 
@@ -53,14 +66,14 @@ private[http] abstract class ConfigCompanion[A](name: String) {
 
   protected def parseBoolean(k: String)(v: String): String \/ Boolean =
     \/.fromTryCatchNonFatal(v.toBoolean).leftMap(e =>
-      s"$k=$v must be a boolean value: ${e.getMessage}")
+      s"$k=$v must be a boolean value: ${e.description}")
 
   protected def requiredDirectoryField(m: Map[String, String])(k: String): Either[String, File] =
     requiredField(m)(k).flatMap(directory)
 
   protected def directory(s: String): Either[String, File] =
     Try(new File(s).getAbsoluteFile).toEither.left
-      .map(e => e.getMessage)
+      .map(e => e.description)
       .flatMap { d =>
         if (d.isDirectory) Right(d)
         else Left(s"Directory does not exist: ${d.getAbsolutePath}")

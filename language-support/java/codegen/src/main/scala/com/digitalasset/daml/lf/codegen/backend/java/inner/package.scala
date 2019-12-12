@@ -198,7 +198,10 @@ package object inner {
 
     def asWildcardType(typeParams: IndexedSeq[String]): TypeName = {
       if (typeParams.isEmpty) name
-      else ParameterizedTypeName.get(name, typeParams.map(_ => WildcardTypeName.subtypeOf(classOf[Object])): _*)
+      else
+        ParameterizedTypeName.get(
+          name,
+          typeParams.map(_ => WildcardTypeName.subtypeOf(classOf[Object])): _*)
     }
   }
 

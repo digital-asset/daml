@@ -44,7 +44,9 @@ final class LedgerServices(val ledgerId: String) {
 
   val executionContext: ExecutionContext = global
   private val esf: ExecutionSequencerFactory = new SingleThreadExecutionSequencerPool(ledgerId)
-  private val authorizer = new Authorizer(() => Clock.systemUTC().instant())
+  private val participantId = "LedgerServicesParticipant"
+  private val authorizer =
+    new Authorizer(() => Clock.systemUTC().instant(), ledgerId, participantId)
 
   def newServerBuilder(): NettyServerBuilder = NettyServerBuilder.forAddress(nextAddress())
 

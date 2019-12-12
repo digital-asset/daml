@@ -195,10 +195,12 @@ envLookupAlias x = MS.lookup x . envAliases
 
 -- | Bind a type var without shadowing its LF name.
 envBindTypeVar :: Var -> Env -> (TypeVarName, Env)
-envBindTypeVar x env = try 1 (TypeVarName prefix)
+envBindTypeVar x env = try 1 (TypeVarName (prefix <> suffix))
     where
         prefix = getOccText x
-        nameFor i = TypeVarName (prefix <> T.pack (show i))
+        suffix = "_" <> T.pack (show (varUnique x))
+            -- NOTE: Workaround for #3777. Remove suffix once issue fixed.
+        nameFor i = TypeVarName (prefix <> T.pack (show i) <> suffix)
 
         try :: Int -> TypeVarName -> (TypeVarName, Env)
         try !i name =
@@ -433,14 +435,14 @@ convertSimpleRecordDef env tycon = do
     let fields = zipExact labels (map sanitize fieldTypes)
         tconName = mkTypeCon [getOccText tycon]
         typeDef = defDataType tconName tyVars (DataRecord fields)
-        workerDef = defNewtypeWorker env tycon tconName con tyVars fields
+        workerDef = defNewtypeWorker (envLFModuleName env) tycon tconName con tyVars fields
     pure $ typeDef : [workerDef | flavour == NewtypeFlavour]
 
-defNewtypeWorker :: NamedThing a => Env -> a -> TypeConName -> DataCon
+defNewtypeWorker :: NamedThing a => LF.ModuleName -> a -> TypeConName -> DataCon
     -> [(TypeVarName, LF.Kind)] -> [(FieldName, LF.Type)] -> Definition
-defNewtypeWorker env loc tconName con tyVars fields =
+defNewtypeWorker lfModuleName loc tconName con tyVars fields =
     let tcon = TypeConApp
-            (Qualified PRSelf (envLFModuleName env) tconName)
+            (Qualified PRSelf lfModuleName tconName)
             (map (TVar . fst) tyVars)
         workerName = mkWorkerName (getOccText con)
         workerType = mkTForalls tyVars $ mkTFuns (map snd fields) $ typeConAppToType tcon
@@ -1425,7 +1427,7 @@ qualify env m x = do
 qDA_Types :: Env -> a -> ConvertM (Qualified a)
 qDA_Types env a = do
   pkgRef <- packageNameToPkgRef env "daml-prim"
-  pure $ Qualified pkgRef (mkModName ["DA", "Types"]) a
+  pure $ rewriteStableQualified env $ Qualified pkgRef (mkModName ["DA", "Types"]) a
 
 -- | Rewrite an a qualified name into a reference into one of the hardcoded
 -- stable packages if there is one.

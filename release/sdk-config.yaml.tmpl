@@ -37,15 +37,15 @@ commands:
 - name: sandbox
   path: daml-helper/daml-helper
   desc: "Launch the Sandbox"
-  args: ["run-jar", "daml-sdk/daml-sdk.jar", "sandbox"]
+  args: ["run-jar", "--logback-config=daml-sdk/sandbox-logback.xml", "daml-sdk/daml-sdk.jar", "sandbox"]
 - name: navigator
   path: daml-helper/daml-helper
   desc: "Launch the Navigator"
-  args: ["run-jar", "daml-sdk/daml-sdk.jar", "navigator"]
+  args: ["run-jar", "--logback-config=daml-sdk/navigator-logback.xml", "daml-sdk/daml-sdk.jar", "navigator"]
 - name: extractor
   path: daml-helper/daml-helper
   desc: "Launch the Extractor"
-  args: ["run-jar", "daml-sdk/daml-sdk.jar", "extractor"]
+  args: ["run-jar", "--logback-config=daml-sdk/extractor-logback.xml", "daml-sdk/daml-sdk.jar", "extractor"]
 - name: ledger
   path: daml-helper/daml-helper
   desc: "Interact with a DAML ledger (experimental)"
@@ -64,12 +64,12 @@ commands:
 - name: codegen
   path: daml-helper/daml-helper
   desc: "Run the DAML codegen"
-  args: ["run-jar", "daml-sdk/daml-sdk.jar", "codegen"]
+  args: ["run-jar", "--logback-config=daml-sdk/codegen-logback.xml", "daml-sdk/daml-sdk.jar", "codegen"]
 - name: trigger
   path: daml-helper/daml-helper
-  args: ["run-jar", "daml-sdk/daml-sdk.jar", "trigger"]
+  args: ["run-jar", "--logback-config=daml-sdk/trigger-logback.xml", "daml-sdk/daml-sdk.jar", "trigger"]
   desc: "Run a DAML trigger (experimental)"
 - name: script
   path: daml-helper/daml-helper
-  args: ["run-jar", "daml-sdk/daml-sdk.jar", "script"]
+  args: ["run-jar", "--logback-config=daml-sdk/script-logback.xml", "daml-sdk/daml-sdk.jar", "script"]
   desc: "Run a DAML trigger (experimental)"
