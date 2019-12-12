@@ -151,6 +151,20 @@ uriToVirtualResource uri = do
           $ BS.fromString
           $ URI.unEscapeString u
 
+sendFileDiagnostics :: [FileDiagnostic] -> Action ()
+sendFileDiagnostics diags =
+    mapM_ (uncurry sendDiagnostics) (groupSort diags)
+
+-- TODO: Move this to ghcide, perhaps.
+sendDiagnostics :: NormalizedFilePath -> [Diagnostic] -> Action ()
+sendDiagnostics fp diags = do
+    let uri = filePathToUri (fromNormalizedFilePath fp)
+        event = LSP.NotPublishDiagnostics $
+            LSP.NotificationMessage "2.0" LSP.TextDocumentPublishDiagnostics $
+            LSP.PublishDiagnosticsParams uri (List diags)
+            -- ^ This is just 'publishDiagnosticsNotification' from ghcide.
+    sendEvent event
+
 -- | Get an unvalidated DALF package.
 -- This must only be used for debugging/testing.
 getRawDalf :: NormalizedFilePath -> Action (Maybe LF.Package)
@@ -174,6 +188,15 @@ getDlintIdeas f = runMaybeT $ useE GetDlintDiagnostics f
 ideErrorPretty :: Pretty.Pretty e => NormalizedFilePath -> e -> FileDiagnostic
 ideErrorPretty fp = ideErrorText fp . T.pack . HughesPJPretty.prettyShow
 
+finalPackageCheck :: NormalizedFilePath -> LF.Package -> Action (Maybe ())
+finalPackageCheck fp pkg = do
+    case LF.nameCheckPackage pkg of
+        Left e -> do
+            sendFileDiagnostics [ideErrorPretty fp e]
+            pure Nothing
+
+        Right () ->
+            pure $ Just ()
 
 getDalfDependencies :: [NormalizedFilePath] -> MaybeT Action (Map.Map UnitId LF.DalfPackage)
 getDalfDependencies files = do

@@ -187,3 +187,5 @@ da_scala_test_suite(
         ":extractor-scala-tests-lib",
     ] + testDependencies,
 )
+
+exports_files(["src/main/resources/logback.xml"])

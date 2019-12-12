@@ -18,8 +18,8 @@ common_jvm_flags = [
     "-Xmx2G",
 ]
 
-# All frontend resource files.
-# These come in a manually created JAR file, this rule is just wrapping it in
+# All frontend resource files.
+# These come in a manually created JAR file, this rule is just wrapping it in
 # a java_import, so that it is a valid target for the 'resources' property of
 # scala_binary.
 java_import(
@@ -30,7 +30,7 @@ java_import(
     visibility = ["//visibility:public"],
 )
 
-# Version file, as a top level resources.
+# Version file, as a top level resources.
 java_library(
     name = "version-resource",
     resources = [
@@ -39,7 +39,7 @@ java_library(
     visibility = ["//visibility:public"],
 )
 
-# Static backend resources.
+# Static backend resources.
 java_library(
     name = "backend-resources",
     resources = glob(["src/main/resources/**/*"]),
@@ -148,7 +148,7 @@ da_scala_binary(
     ],
 )
 
-# Static test resources.
+# Static test resources.
 java_library(
     name = "test-resources",
     resources = glob(["src/test/resources/**/*"]),
@@ -168,3 +168,5 @@ da_scala_test_suite(
         ":version-resource",
     ] + testDependencies,
 )
+
+exports_files(["src/main/resources/logback.xml"])

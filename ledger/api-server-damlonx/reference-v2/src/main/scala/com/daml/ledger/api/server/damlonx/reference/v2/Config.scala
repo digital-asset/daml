@@ -1,7 +1,7 @@
 // Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.apiserver
+package com.daml.ledger.api.server.damlonx.reference.v2
 
 import java.io.File
 
@@ -9,7 +9,7 @@ import com.daml.ledger.participant.state.v1.ParticipantId
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.Ref.LedgerString
 import com.digitalasset.ledger.api.tls.TlsConfiguration
-import com.digitalasset.platform.apiserver.Config._
+import com.digitalasset.platform.indexer.IndexerStartupMode
 
 final case class Config(
     port: Int,
@@ -21,30 +21,26 @@ final case class Config(
     tlsConfig: Option[TlsConfiguration],
     participantId: ParticipantId,
     extraParticipants: Vector[(ParticipantId, Int, String)],
-    startupMode: StartupMode,
-)
+    startupMode: IndexerStartupMode,
+) {
+  def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): Config =
+    copy(tlsConfig = Some(modify(tlsConfig.getOrElse(TlsConfiguration.Empty))))
+}
 
 object Config {
-  sealed trait StartupMode
-
-  object StartupMode {
-    case object ValidateAndStart extends StartupMode
-    case object MigrateAndStart extends StartupMode
-    case object MigrateOnly extends StartupMode
-  }
-
   val DefaultMaxInboundMessageSize = 4194304
+
   def default: Config =
     new Config(
-      0,
-      None,
-      List.empty,
-      DefaultMaxInboundMessageSize,
-      TimeProvider.UTC,
-      "",
-      None,
-      LedgerString.assertFromString("standalone-participant"),
-      Vector.empty,
-      StartupMode.MigrateAndStart
+      port = 0,
+      portFile = None,
+      archiveFiles = List.empty,
+      maxInboundMessageSize = DefaultMaxInboundMessageSize,
+      timeProvider = TimeProvider.UTC,
+      jdbcUrl = "",
+      tlsConfig = None,
+      participantId = LedgerString.assertFromString("standalone-participant"),
+      extraParticipants = Vector.empty,
+      startupMode = IndexerStartupMode.MigrateAndStart,
     )
 }
