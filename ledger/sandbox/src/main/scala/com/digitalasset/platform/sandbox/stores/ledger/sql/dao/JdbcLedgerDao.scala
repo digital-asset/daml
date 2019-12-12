@@ -513,18 +513,20 @@ private class JdbcLedgerDao(
       .as(ledgerString("contract_id").singleOpt)
       .map(AbsoluteContractId)
 
+  private[this] def lookupKeySync(key: Node.GlobalKey, forParty: Party)(
+      implicit connection: Connection): Option[AbsoluteContractId] =
+    SQL_SELECT_CONTRACT_KEY_FOR_PARTY
+      .on(
+        "package_id" -> key.templateId.packageId,
+        "name" -> key.templateId.qualifiedName.toString,
+        "value_hash" -> keyHasher.hashKeyString(key),
+        "party" -> forParty
+      )
+      .as(ledgerString("contract_id").singleOpt)
+      .map(AbsoluteContractId)
+
   override def lookupKey(key: Node.GlobalKey, forParty: Party): Future[Option[AbsoluteContractId]] =
-    dbDispatcher.executeSql("lookup_contract_by_key")(
-      implicit conn =>
-        SQL_SELECT_CONTRACT_KEY_FOR_PARTY
-          .on(
-            "package_id" -> key.templateId.packageId,
-            "name" -> key.templateId.qualifiedName.toString,
-            "value_hash" -> keyHasher.hashKeyString(key),
-            "party" -> forParty
-          )
-          .as(ledgerString("contract_id").singleOpt)
-          .map(AbsoluteContractId))
+    dbDispatcher.executeSql("lookup_contract_by_key")(implicit conn => lookupKeySync(key, forParty))
 
   private def storeContract(offset: Long, contract: ActiveContract)(
       implicit connection: Connection): Unit = storeContracts(offset, List(contract))
@@ -775,6 +777,7 @@ private class JdbcLedgerDao(
     */
   private def updateActiveContractSet(
       offset: Long,
+      submitter: Option[Party],
       tx: Transaction,
       localDivulgence: Relation[EventId, Party],
       globalDivulgence: Relation[AbsoluteContractId, Party],
@@ -792,10 +795,16 @@ private class JdbcLedgerDao(
         disclosure) =>
       final class AcsStoreAcc extends ActiveLedgerState[AcsStoreAcc] {
 
+        override def lookupContractByKey(
+            key: GlobalKey,
+            forParty: Party): Option[AbsoluteContractId] =
+          lookupKeySync(key, forParty)
+
+        override def keyExists(key: GlobalKey): Boolean =
+          selectContractKey(key).isDefined
+
         override def lookupContractLet(cid: AbsoluteContractId): Option[LetLookup] =
           lookupContractLetSync(cid)
-
-        override def keyExists(key: GlobalKey): Boolean = selectContractKey(key).isDefined
 
         override def addContract(c: ActiveContract, keyO: Option[GlobalKey]): AcsStoreAcc = {
           storeContract(offset, c)
@@ -859,6 +868,7 @@ private class JdbcLedgerDao(
         ledgerEffectiveTime,
         transactionId,
         workflowId,
+        submitter,
         transaction,
         disclosure,
         localDivulgence,
@@ -976,6 +986,7 @@ private class JdbcLedgerDao(
 
             updateActiveContractSet(
               offset,
+              tx.submittingParty,
               tx,
               localDivulgence,
               globalDivulgence,

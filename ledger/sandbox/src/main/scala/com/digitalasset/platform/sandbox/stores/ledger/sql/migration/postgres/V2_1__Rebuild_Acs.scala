@@ -343,10 +343,18 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
 
       final class AcsStoreAcc extends ActiveLedgerState[AcsStoreAcc] {
 
+        override def lookupContractByKey(
+            key: GlobalKey,
+            forParty: Party): Option[AbsoluteContractId] =
+          // Note: this implementation does not respect privacy rules, but this is how it worked
+          // when this migration was written.
+          selectContractKey(key)
+
+        override def keyExists(key: GlobalKey): Boolean =
+          selectContractKey(key).isDefined
+
         override def lookupContractLet(cid: AbsoluteContractId) =
           lookupActiveContractLetSync(cid)
-
-        override def keyExists(key: GlobalKey): Boolean = selectContractKey(key).isDefined
 
         override def addContract(c: ActiveLedgerState.ActiveContract, keyO: Option[GlobalKey]) = {
           storeContract(offset, c)
@@ -400,6 +408,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
         ledgerEffectiveTime,
         transactionId,
         workflowId,
+        tx.submittingParty,
         transaction,
         mappedDisclosure,
         localDivulgence,

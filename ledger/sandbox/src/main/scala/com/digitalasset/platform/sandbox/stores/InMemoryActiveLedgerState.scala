@@ -26,6 +26,16 @@ case class InMemoryActiveLedgerState(
     parties: Map[Party, PartyDetails])
     extends ActiveLedgerState[InMemoryActiveLedgerState] {
 
+  def isVisibleFor(contractId: AbsoluteContractId, forParty: Party): Boolean =
+    activeContracts
+      .get(contractId)
+      .exists(ac => ac.witnesses.contains(forParty) || ac.divulgences.contains(forParty))
+
+  override def lookupContractByKey(key: GlobalKey, forParty: Party): Option[AbsoluteContractId] =
+    keys.get(key).filter(isVisibleFor(_, forParty))
+
+  override def keyExists(key: GlobalKey): Boolean = keys.contains(key)
+
   def lookupContract(cid: AbsoluteContractId): Option[Contract] =
     activeContracts.get(cid).orElse[Contract](divulgedContracts.get(cid))
 
@@ -34,8 +44,6 @@ case class InMemoryActiveLedgerState(
       .get(cid)
       .map(c => Let(c.let))
       .orElse[LetLookup](divulgedContracts.get(cid).map(_ => LetUnknown))
-
-  override def keyExists(key: GlobalKey): Boolean = keys.contains(key)
 
   /**
     * Updates divulgence information on the given active contract with information
@@ -136,6 +144,7 @@ case class InMemoryActiveLedgerState(
       let: Instant,
       transactionId: TransactionIdString,
       workflowId: Option[WorkflowId],
+      submitter: Option[Party],
       transaction: GenTransaction.WithTxValue[EventId, AbsoluteContractId],
       disclosure: Relation[EventId, Party],
       localDivulgence: Relation[EventId, Party],
@@ -146,6 +155,7 @@ case class InMemoryActiveLedgerState(
       let,
       transactionId,
       workflowId,
+      submitter,
       transaction,
       disclosure,
       localDivulgence,
