@@ -50,12 +50,11 @@ Use ``fetchByKey`` to fetch the ID and data of the contract with the specified k
 
 It returns a tuple of the ID and the contract object (containing all its data).
 
-You need authorization from **at least one** of the maintainers to run ``fetchByKey``. A maintainer can authorize by being a signatory, or by submitting the command/being a controller for the choice.
+``fetchByKey`` is authorized like ``fetch`` so you need to be a stakeholder to run ``fetchByKey``.
 
 ``fetchByKey`` fails and aborts the transaction if:
 
-- you don't have sufficient authorization
-- you're not a stakeholder of the contract you're trying to fetch
+- you don't have sufficient authorization, i.e., you’re not a stakeholder of the contract you’re trying to fetch.
 
 This means that if it fails, it doesn't guarantee that a contract with that key doesn't exist, just that you can't see one.
 
@@ -72,7 +71,7 @@ Because different templates can use the same key type, you need to specify the t
 
 Use ``lookupByKey`` to check whether a contract with the specified key exists. If it does exist, ``lookupByKey`` returns the ``Some contractId``, where ``contractId`` is the ID of the contract; otherwise, it returns ``None``.
 
-You need authorization from **all** of the maintainers to run ``lookupByKey``, and it can only be submitted by one of the maintainers.
+You need authorization from **all** of the maintainers to run ``lookupByKey`` but the submitter does not need to be a maintainer.
 
 If the lookup fails (ie returns ``None``), this guarantees that no contract has this key.
 
