@@ -3,12 +3,13 @@
 
 package com.digitalasset.http.json
 
-import com.digitalasset.http.Generators.contractGen
+import com.digitalasset.http.Generators.{contractGen, contractLocatorGen}
 import com.digitalasset.http.domain
+import org.scalacheck.Arbitrary.arbitrary
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.{FreeSpec, Inside, Matchers}
 import scalaz.{\/, \/-}
-import spray.json.{JsObject, JsValue}
+import spray.json.{JsObject, JsNumber, JsValue}
 
 class JsonProtocolTest
     extends FreeSpec
@@ -43,6 +44,14 @@ class JsonProtocolTest
         inside(actual) {
           case \/-(contract1) => contract1 shouldBe contract0
         }
+    }
+  }
+
+  "domain.ContractLocator" - {
+    type Loc = domain.ContractLocator[JsValue]
+    "roundtrips" in forAll(contractLocatorGen(arbitrary[Int] map (JsNumber(_)))) { locator: Loc =>
+      import spray.json._
+      locator.toJson.convertTo[Loc] should ===(locator)
     }
   }
 }

@@ -122,9 +122,7 @@ object JsonProtocol extends DefaultJsonProtocol {
 
       override def read(json: JsValue): domain.ContractLocator[JsValue] = json match {
         case JsObject(fields) =>
-          if (fields.get("key").isDefined) EnrichedContractKeyFormat.read(json)
-          else if (fields.get("contractId").isDefined) EnrichedContractIdFormat.read(json)
-          else deserializationError(s"Cannot read ContractLocator from json: $json")
+          domain.ContractLocator.structure.from(decodeContractRef(fields, "ContractLocator"))
         case _ =>
           deserializationError(s"Cannot read ContractLocator from json: $json")
       }

@@ -54,11 +54,17 @@ object Generators {
     override def gen: Gen[Option[String]] = Gen.option(RequiredPackageIdGen.gen)
   }
 
-  def contractIdGen: Gen[domain.ContractId] = Gen.identifier.map(domain.ContractId(_))
-  def partyGen: Gen[domain.Party] = Gen.identifier.map(domain.Party(_))
+  def contractIdGen: Gen[domain.ContractId] = domain.ContractId subst Gen.identifier
+  def partyGen: Gen[domain.Party] = domain.Party subst Gen.identifier
 
-  def scalazEitherGen[A, B](a: Gen[A], b: Gen[B]): Gen[\/[A, B]] =
+  def scalazEitherGen[A, B](a: Gen[A], b: Gen[B]): Gen[A \/ B] =
     Gen.oneOf(a.map(-\/(_)), b.map(\/-(_)))
+
+  def inputContractRefGen[LfV](lfv: Gen[LfV]): Gen[domain.InputContractRef[LfV]] =
+    scalazEitherGen(Gen.zip(genDomainTemplateIdO[Option[String]], lfv), Gen.zip(Gen.option(genDomainTemplateIdO[Option[String]]), contractIdGen))
+
+  def contractLocatorGen[LfV](lfv: Gen[LfV]): Gen[domain.ContractLocator[LfV]] =
+    inputContractRefGen(lfv) map (domain.ContractLocator.structure.from(_))
 
   def contractGen: Gen[domain.Contract[JsValue]] =
     scalazEitherGen(archivedContractGen, activeContractGen).map(domain.Contract(_))
