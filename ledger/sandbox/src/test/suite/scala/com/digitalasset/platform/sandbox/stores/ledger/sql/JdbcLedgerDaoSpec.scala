@@ -5,7 +5,6 @@ package com.digitalasset.platform.sandbox.stores.ledger.sql
 
 import java.io.File
 import java.time.Instant
-import java.util.UUID
 import java.util.concurrent.atomic.AtomicLong
 
 import akka.stream.scaladsl.{Sink, Source}
@@ -54,7 +53,7 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   ValueSerializer
 }
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
-import com.digitalasset.platform.sandbox.stores.ledger.{ConfigurationEntry, LedgerEntry, PackageLedgerEntry}
+import com.digitalasset.platform.sandbox.stores.ledger.{ConfigurationEntry, LedgerEntry}
 import org.scalatest.{AsyncWordSpec, Matchers, OptionValues}
 
 import scala.collection.immutable.TreeMap
@@ -406,33 +405,6 @@ class JdbcLedgerDaoSpec
       }
     }
 
-    "refuse to persist an upload with no packages without external offset" in {
-      recoverToSucceededIf[IllegalArgumentException] {
-        val offset = nextOffset()
-        ledgerDao.storePackageEntry(
-          offset, offset + 1,
-          None,
-          Nil,
-          Some(PackageLedgerEntry.PackageUploadAccepted(UUID.randomUUID().toString, Instant.EPOCH)))
-      }
-    }
-
-    "refuse to persist an upload with no packages with external offset" in {
-      for {
-        beforeExternalLedgerEnd <- ledgerDao.lookupExternalLedgerEnd()
-        _ <- recoverToSucceededIf[IllegalArgumentException] {
-          val offset = nextOffset()
-          ledgerDao.storePackageEntry(
-            offset, offset + 1,
-            nextExternalOffset(),
-            Nil,
-            Some(PackageLedgerEntry.PackageUploadAccepted(UUID.randomUUID().toString, Instant.EPOCH)))
-        }
-        afterExternalLedgerEnd <- ledgerDao.lookupExternalLedgerEnd()
-
-      } yield beforeExternalLedgerEnd shouldEqual afterExternalLedgerEnd
-    }
-
     "upload packages in an idempotent fashion, maintaining existing descriptions" in {
       val firstDescription = "first description"
       val secondDescription = "second description"
@@ -441,7 +413,8 @@ class JdbcLedgerDaoSpec
       for {
         firstUploadResult <- ledgerDao
           .storePackageEntry(
-            offset1, offset1 + 1,
+            offset1,
+            offset1 + 1,
             None,
             JdbcLedgerDaoSpec.Fixtures.packages
               .map(a => a._1 -> a._2.copy(sourceDescription = Some(firstDescription)))
@@ -449,17 +422,16 @@ class JdbcLedgerDaoSpec
             None)
         secondUploadResult <- ledgerDao
           .storePackageEntry(
-            offset2, offset2 + 1,
+            offset2,
+            offset2 + 1,
             None,
             JdbcLedgerDaoSpec.Fixtures.packages.map(a =>
               a._1 -> a._2.copy(sourceDescription = Some(secondDescription))),
             None)
         loadedPackages <- ledgerDao.listLfPackages
       } yield {
-        firstUploadResult shouldBe Map(PersistenceResponse.Ok -> 1)
-        secondUploadResult shouldBe Map(
-          PersistenceResponse.Ok -> 4,
-          PersistenceResponse.Duplicate -> 1)
+        firstUploadResult shouldBe PersistenceResponse.Ok
+        secondUploadResult shouldBe PersistenceResponse.Ok
         loadedPackages.values.flatMap(_.sourceDescription.toList) should contain theSameElementsAs Seq(
           firstDescription,
           secondDescription,
