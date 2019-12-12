@@ -4,9 +4,8 @@ package com.daml.ledger.api.server.damlonx.reference.v2.cli
 
 import java.io.File
 
+import com.daml.ledger.api.server.damlonx.reference.v2.Config
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.ledger.api.tls.TlsConfiguration
-import com.digitalasset.platform.apiserver.Config
 import scopt.Read
 
 object Cli {
@@ -23,28 +22,7 @@ object Cli {
       case a => throw new RuntimeException(s"Expected a comma-separated triple, got '$a'")
     }
 
-  private val pemConfig = (path: String, config: Config) =>
-    config.copy(
-      tlsConfig = config.tlsConfig.fold(
-        Some(TlsConfiguration(enabled = true, None, Some(new File(path)), None)))(c =>
-        Some(c.copy(keyFile = Some(new File(path))))))
-
-  private val crtConfig = (path: String, config: Config) =>
-    config.copy(
-      tlsConfig = config.tlsConfig.fold(
-        Some(TlsConfiguration(enabled = true, Some(new File(path)), None, None)))(c =>
-        Some(c.copy(keyCertChainFile = Some(new File(path))))))
-
-  private val cacrtConfig = (path: String, config: Config) =>
-    config.copy(
-      tlsConfig = config.tlsConfig.fold(
-        Some(TlsConfiguration(enabled = true, None, None, Some(new File(path)))))(c =>
-        Some(c.copy(trustCertCollectionFile = Some(new File(path))))))
-
-  private def cmdArgParser(
-      binaryName: String,
-      description: String,
-      allowExtraParticipants: Boolean) =
+  private def cmdArgParser(binaryName: String, description: String) =
     new scopt.OptionParser[Config](binaryName) {
       head(description)
       opt[Int]("port")
@@ -58,15 +36,17 @@ object Cli {
       opt[String]("pem")
         .optional()
         .text("TLS: The pem file to be used as the private key.")
-        .action(pemConfig)
+        .action((path, config) => config.withTlsConfig(c => c.copy(keyFile = Some(new File(path)))))
       opt[String]("crt")
         .optional()
         .text("TLS: The crt file to be used as the cert chain. Required if any other TLS parameters are set.")
-        .action(crtConfig)
+        .action((path, config) =>
+          config.withTlsConfig(c => c.copy(keyCertChainFile = Some(new File(path)))))
       opt[String]("cacrt")
         .optional()
         .text("TLS: The crt file to be used as the the trusted root CA.")
-        .action(cacrtConfig)
+        .action((path, config) =>
+          config.withTlsConfig(c => c.copy(trustCertCollectionFile = Some(new File(path)))))
       opt[Int]("maxInboundMessageSize")
         .action((x, c) => c.copy(maxInboundMessageSize = x))
         .text(
@@ -78,13 +58,11 @@ object Cli {
         .optional()
         .text("The participant id given to all components of a ledger api server")
         .action((p, c) => c.copy(participantId = p))
-      if (allowExtraParticipants) {
-        opt[(Ref.LedgerString, Int, String)]('P', "extra-participant")
-          .optional()
-          .unbounded()
-          .text("A list of triples in the form `<participant-id>,<port>,<index-jdbc-url>` to spin up multiple nodes backed by the same in-memory ledger")
-          .action((e, c) => c.copy(extraParticipants = c.extraParticipants :+ e))
-      }
+      opt[(Ref.LedgerString, Int, String)]('P', "extra-participant")
+        .optional()
+        .unbounded()
+        .text("A list of triples in the form `<participant-id>,<port>,<index-jdbc-url>` to spin up multiple nodes backed by the same in-memory ledger")
+        .action((e, c) => c.copy(extraParticipants = c.extraParticipants :+ e))
       arg[File]("<archive>...")
         .optional()
         .unbounded()
@@ -92,10 +70,6 @@ object Cli {
         .text("DAR files to load. Scenarios are ignored. The servers starts with an empty ledger by default.")
     }
 
-  def parse(
-      args: Array[String],
-      binaryName: String,
-      description: String,
-      allowExtraParticipants: Boolean = false): Option[Config] =
-    cmdArgParser(binaryName, description, allowExtraParticipants).parse(args, Config.default)
+  def parse(args: Array[String], binaryName: String, description: String): Option[Config] =
+    cmdArgParser(binaryName, description).parse(args, Config.default)
 }

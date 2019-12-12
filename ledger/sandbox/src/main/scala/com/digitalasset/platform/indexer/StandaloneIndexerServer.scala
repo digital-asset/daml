@@ -6,8 +6,6 @@ package com.digitalasset.platform.indexer
 import akka.actor.ActorSystem
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.v1.ReadService
-import com.digitalasset.platform.apiserver.Config
-import com.digitalasset.platform.apiserver.Config.StartupMode
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.DirectExecutionContext.implicitEC
 
@@ -22,7 +20,7 @@ object StandaloneIndexerServer {
 
   def apply(
       readService: ReadService,
-      config: Config,
+      config: IndexerConfig,
       loggerFactory: NamedLoggerFactory,
       metrics: MetricRegistry,
   ): Future[AutoCloseable] = {
@@ -54,11 +52,11 @@ object StandaloneIndexerServer {
 
     try {
       config.startupMode match {
-        case StartupMode.MigrateOnly =>
+        case IndexerStartupMode.MigrateOnly =>
           promise.success(())
-        case StartupMode.MigrateAndStart =>
+        case IndexerStartupMode.MigrateAndStart =>
           startIndexer(indexerFactory.migrateSchema(config.jdbcUrl))
-        case StartupMode.ValidateAndStart =>
+        case IndexerStartupMode.ValidateAndStart =>
           startIndexer(indexerFactory.validateSchema(config.jdbcUrl))
       }
     } catch {
