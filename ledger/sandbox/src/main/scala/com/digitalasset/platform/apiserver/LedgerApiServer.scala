@@ -22,7 +22,7 @@ import io.netty.util.concurrent.DefaultThreadFactory
 
 import scala.collection.mutable
 import scala.concurrent.{Future, Promise}
-import scala.util.control.NoStackTrace
+import scala.util.control.{NoStackTrace, NonFatal}
 
 trait ApiServer extends AutoCloseable {
 
@@ -49,6 +49,12 @@ object LedgerApiServer {
     val logger = loggerFactory.getLogger(this.getClass)
 
     val closeables = mutable.Stack[AutoCloseable]()
+
+    def stop(): Unit = {
+      while (closeables.nonEmpty) {
+        closeables.pop().close()
+      }
+    }
 
     val serverEsf = new AkkaExecutionSequencerPool(
       // NOTE(JM): Pick a unique pool name as we want to allow multiple ledger api server
@@ -106,7 +112,11 @@ object LedgerApiServer {
         grpcServer.start()
       } catch {
         case io: IOException if io.getCause != null && io.getCause.isInstanceOf[BindException] =>
+          stop()
           throw new UnableToBind(desiredPort, io.getCause)
+        case NonFatal(e) =>
+          stop()
+          throw e
       }
       closeables.push(() => {
         grpcServer.shutdown()
@@ -134,10 +144,7 @@ object LedgerApiServer {
 
         override def servicesClosed(): Future[Unit] = servicesClosedP.future
 
-        override def close(): Unit =
-          while (closeables.nonEmpty) {
-            closeables.pop().close()
-          }
+        override def close(): Unit = stop()
       }
     }(mat.executionContext)
   }
