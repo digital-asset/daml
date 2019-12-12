@@ -12,7 +12,8 @@ final case class TlsConfiguration(
     enabled: Boolean,
     keyCertChainFile: Option[File], // mutual auth is disabled if null
     keyFile: Option[File],
-    trustCertCollectionFile: Option[File]) { // System default if null
+    trustCertCollectionFile: Option[File] // System default if null
+) {
 
   def keyFileOrFail: File =
     keyFile.getOrElse(throw new IllegalStateException(
@@ -49,4 +50,13 @@ final case class TlsConfiguration(
           .build
       )
     else None
+}
+
+object TlsConfiguration {
+  val Empty = TlsConfiguration(
+    enabled = true,
+    keyCertChainFile = None,
+    keyFile = None,
+    trustCertCollectionFile = None,
+  )
 }

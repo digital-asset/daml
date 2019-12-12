@@ -682,7 +682,8 @@ navigatorURL (NavigatorPort p) = "http://localhost:" <> show p
 
 withSandbox :: SandboxPort -> [String] -> (Process () () () -> IO a) -> IO a
 withSandbox (SandboxPort port) args a = do
-    withJar damlSdkJar [] (["sandbox", "--port", show port] ++ args) $ \ph -> do
+    logbackArg <- getLogbackArg (damlSdkJarFolder </> "sandbox-logback.xml")
+    withJar damlSdkJar [logbackArg] (["sandbox", "--port", show port] ++ args) $ \ph -> do
         putStrLn "Waiting for sandbox to start: "
         -- TODO We need to figure out what a sane timeout for this step.
         waitForConnectionOnPort (putStr "." *> threadDelay 500000) port
@@ -695,7 +696,8 @@ withNavigator (SandboxPort sandboxPort) navigatorPort args a = do
             , navigatorPortNavigatorArgs navigatorPort
             , args
             ]
-    withJar damlSdkJar [] ("navigator":navigatorArgs) $ \ph -> do
+    logbackArg <- getLogbackArg (damlSdkJarFolder </> "navigator-logback.xml")
+    withJar damlSdkJar [logbackArg] ("navigator":navigatorArgs) $ \ph -> do
         putStrLn "Waiting for navigator to start: "
         -- TODO We need to figure out a sane timeout for this step.
         waitForHttpServer (putStr "." *> threadDelay 500000) (navigatorURL navigatorPort) []
@@ -884,6 +886,7 @@ runLedgerUploadDar flags darPathM = do
 -- should fetch the list of parties itself.
 runLedgerNavigator :: LedgerFlags -> [String] -> IO ()
 runLedgerNavigator flags remainingArguments = do
+    logbackArg <- getLogbackArg (damlSdkJarFolder </> "navigator-logback.xml")
     hostAndPort <- getHostAndPortDefaults flags
     putStrLn $ "Opening navigator at " <> show hostAndPort
     partyDetails <- Ledger.listParties hostAndPort
@@ -898,7 +901,7 @@ runLedgerNavigator flags remainingArguments = do
 
         writeFileUTF8 navigatorConfPath (T.unpack $ navigatorConfig partyDetails)
         unsetEnv "DAML_PROJECT" -- necessary to prevent config contamination
-        withJar damlSdkJar [] ("navigator" : navigatorArgs ++ ["-c", confDir </> "ui-backend.conf"]) $ \ph -> do
+        withJar damlSdkJar [logbackArg] ("navigator" : navigatorArgs ++ ["-c", confDir </> "ui-backend.conf"]) $ \ph -> do
             exitCode <- waitExitCode ph
             exitWith exitCode
 

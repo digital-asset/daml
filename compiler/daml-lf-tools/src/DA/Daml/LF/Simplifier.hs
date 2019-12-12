@@ -115,6 +115,7 @@ safetyStep = \case
       BEUnit              -> Safe 0
       BEBool _            -> Safe 0
       BEError             -> Safe 0
+      BEEqualGeneric      -> Safe 1 -- may crash if values are incomparable
       BEEqual _           -> Safe 2
       BELess _            -> Safe 2
       BELessEq _          -> Safe 2

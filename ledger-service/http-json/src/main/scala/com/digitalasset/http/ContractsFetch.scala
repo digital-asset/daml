@@ -26,6 +26,7 @@ import com.digitalasset.http.json.JsonProtocol.LfValueDatabaseCodec.{
   apiValueToJsValue => lfValueToDbJsValue
 }
 import com.digitalasset.http.util.IdentifierConverters.apiIdentifier
+import com.digitalasset.http.util.ExceptionOps._
 import com.digitalasset.jwt.domain.Jwt
 import com.digitalasset.ledger.api.v1.transaction.Transaction
 import com.digitalasset.ledger.api.{v1 => lav1}
@@ -81,10 +82,10 @@ private class ContractsFetch(
       logger.debug(s"contractsIo, maxAttempts: $maxAttempts")
       contractsIo_(jwt, party, templateId).exceptSql {
         case e if maxAttempts > 0 && retrySqlStates(e.getSQLState) =>
-          logger.debug(s"contractsIo, exception: ${e.getMessage}, state: ${e.getSQLState}")
+          logger.debug(s"contractsIo, exception: ${e.description}, state: ${e.getSQLState}")
           connection.rollback flatMap (_ => loop(maxAttempts - 1))
         case e @ _ =>
-          logger.error(s"contractsIo3 exception: ${e.getMessage}, state: ${e.getSQLState}")
+          logger.error(s"contractsIo3 exception: ${e.description}, state: ${e.getSQLState}")
           connection.raiseError(e)
       }
     }

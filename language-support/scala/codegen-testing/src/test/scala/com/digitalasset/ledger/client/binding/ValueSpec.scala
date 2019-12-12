@@ -90,7 +90,8 @@ object ValueSpec {
 
     override def valueTextMap[A](implicit vc: ValueCheck[A]) = {
       import vc._
-      implicit val arbTM: Arbitrary[P.TextMap[A]] = Arbitrary(GenEncoding.primitive.valueTextMap(TA.arbitrary))
+      implicit val arbTM: Arbitrary[P.TextMap[A]] = Arbitrary(
+        GenEncoding.primitive.valueTextMap(TA.arbitrary))
       ValueCheck[P.TextMap[A]](s"Map[$tName]")
     }
 

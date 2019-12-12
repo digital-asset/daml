@@ -352,10 +352,9 @@ tests damlc = testGroup "Packaging"
         writeFileUTF8 (projDir </> "src" </> "A" </> "B.daml") $ unlines
             [ "daml 1.2"
             , "module A.B where"
-            , "import A()" -- TODO [#3252]: Remove this import, so we can catch the name collision even when there isn't a strict dependency.
             , "data C = C Int"
             ]
-        buildProjectError projDir "" "name collision between module A.B and variant A:B"
+        buildProjectError projDir "" "name collision"
 
     , testCase "Manifest name" $ withTempDir $ \projDir -> do
           createDirectoryIfMissing True (projDir </> "src")
@@ -370,6 +369,64 @@ tests damlc = testGroup "Packaging"
           Right manifest <- readDalfManifest . Zip.toArchive  <$> BSL.readFile (projDir </> "baz.dar")
           -- Verify that the name in the manifest is independent of the DAR name.
           packageName manifest @?= Just "foobar-0.0.1"
+
+    , testCase "Transitive package deps" $ withTempDir $ \projDir -> do
+          -- Check that the depends field in the package config files does not depend on the name of the DAR.
+          let projA = projDir </> "a"
+          let projB = projDir </> "b"
+          let projC = projDir </> "c"
+
+          createDirectoryIfMissing True (projA </> "src")
+          writeFileUTF8 (projA </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: a"
+            , "version: 0.0.1"
+            , "source: src"
+            , "dependencies: [daml-prim, daml-stdlib]"
+            ]
+          writeFileUTF8 (projA </> "src" </> "A.daml") $ unlines
+            [ "daml 1.2"
+            , "module A where"
+            ]
+          withCurrentDirectory projA $ callProcessSilent damlc ["build", "-o", "foo.dar"]
+
+          createDirectoryIfMissing True (projB </> "src")
+          writeFileUTF8 (projB </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: b"
+            , "version: 0.0.1"
+            , "source: src"
+            , "dependencies:"
+            , " - daml-prim"
+            , " - daml-stdlib"
+            , " - " <> projA </> "foo.dar"
+            ]
+          writeFileUTF8 (projB </> "src" </> "B.daml") $ unlines
+            [ "daml 1.2"
+            , "module B where"
+            , "import A"
+            ]
+          withCurrentDirectory projB $ callProcessSilent damlc ["build", "-o", "bar.dar"]
+
+          createDirectoryIfMissing True (projC </> "src")
+          writeFileUTF8 (projC </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: c"
+            , "version: 0.0.1"
+            , "source: src"
+            , "dependencies:"
+            , " - daml-prim"
+            , " - daml-stdlib"
+            , " - " <> projA </> "foo.dar"
+            , " - " <> projB </> "bar.dar"
+            ]
+          writeFileUTF8 (projC </> "src" </> "C.daml") $ unlines
+            [ "daml 1.2"
+            , "module C where"
+            , "import A"
+            , "import B"
+            ]
+          withCurrentDirectory projC $ callProcessSilent damlc ["build", "-o", "baz.dar"]
 
 
     , dataDependencyTests damlc

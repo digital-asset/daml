@@ -7,16 +7,14 @@ import akka.NotUsed
 import akka.http.scaladsl.model.HttpMethods.{GET, POST}
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
-import akka.stream.Materializer
-import akka.stream.scaladsl.{Flow, Source}
-import akka.util.ByteString
 import com.digitalasset.daml.lf
 import com.digitalasset.http.Statement.discard
 import com.digitalasset.http.domain.JwtPayload
 import com.digitalasset.http.json.{DomainJsonDecoder, DomainJsonEncoder, ResponseFormats, SprayJson}
+import com.digitalasset.http.util.ExceptionOps._
 import com.digitalasset.http.util.FutureUtil.{either, eitherT}
 import com.digitalasset.http.util.{ApiValueToLfValueConverter, FutureUtil}
-import com.digitalasset.jwt.domain.{DecodedJwt, Jwt}
+import com.digitalasset.jwt.domain.Jwt
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
 import com.typesafe.scalalogging.StrictLogging
@@ -31,10 +29,14 @@ import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
+import akka.stream.Materializer
+import akka.stream.scaladsl.{Source, Flow}
+import com.digitalasset.http.EndpointsCompanion._
+
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class Endpoints(
     ledgerId: lar.LedgerId,
-    decodeJwt: Endpoints.ValidateJwt,
+    decodeJwt: EndpointsCompanion.ValidateJwt,
     commandService: CommandService,
     contractsService: ContractsService,
     partiesService: PartiesService,
@@ -49,7 +51,7 @@ class Endpoints(
   import json.JsonProtocol._
 
   lazy val all: PartialFunction[HttpRequest, Future[HttpResponse]] =
-    command orElse contracts orElse parties orElse notFound
+    command orElse contracts orElse parties
 
   lazy val command: PartialFunction[HttpRequest, Future[HttpResponse]] = {
     case req @ HttpRequest(POST, Uri.Path("/command/create"), _, _, _) =>
@@ -105,14 +107,14 @@ class Endpoints(
     fa.map(a => a.leftMap(e => ServerError(e.shows))).recover {
       case NonFatal(e) =>
         logger.error("Future failed", e)
-        -\/(ServerError(e.getMessage))
+        -\/(ServerError(e.description))
     }
 
   private def handleFutureFailure[A](fa: Future[A]): Future[ServerError \/ A] =
     fa.map(a => \/-(a)).recover {
       case NonFatal(e) =>
         logger.error("Future failed", e)
-        -\/(ServerError(e.getMessage))
+        -\/(ServerError(e.description))
     }
 
   private def handleSourceFailure[E: Show, A]: Flow[E \/ A, ServerError \/ A, NotUsed] =
@@ -121,7 +123,7 @@ class Endpoints(
       .recover {
         case NonFatal(e) =>
           logger.error("Source failed", e)
-          -\/(ServerError(e.getMessage))
+          -\/(ServerError(e.description))
       }
 
   private def encodeList(as: Seq[JsValue]): ServerError \/ JsValue =
@@ -200,7 +202,7 @@ class Endpoints(
 
   private def lfValueToJsValue(a: LfValue): Error \/ JsValue =
     \/.fromTryCatchNonFatal(LfValueCodec.apiValueToJsValue(a)).leftMap(e =>
-      ServerError(e.getMessage))
+      ServerError(e.description))
 
   private def collectActiveContracts(
       predicates: Map[domain.TemplateId.RequiredPkg, LfValue => Boolean]): PartialFunction[
@@ -230,7 +232,7 @@ class Endpoints(
         case -\/(e) => httpResponseError(e)
       }
       .recover {
-        case NonFatal(e) => httpResponseError(ServerError(e.getMessage))
+        case NonFatal(e) => httpResponseError(ServerError(e.description))
       }
   }
 
@@ -242,32 +244,8 @@ class Endpoints(
         case \/-(source) => httpResponseFromSource(source)
       }
       .recover {
-        case NonFatal(e) => httpResponseError(ServerError(e.getMessage))
+        case NonFatal(e) => httpResponseError(ServerError(e.description))
       }
-
-  private def httpResponseOk(data: JsValue): HttpResponse =
-    httpResponse(StatusCodes.OK, ResponseFormats.resultJsObject(data))
-
-  private def httpResponseError(error: Error): HttpResponse = {
-    val (status, jsObject) = errorsJsObject(error)
-    httpResponse(status, jsObject)
-  }
-
-  private def errorsJsObject(error: Error): (StatusCode, JsObject) = {
-    val (status, errorMsg): (StatusCode, String) = error match {
-      case InvalidUserInput(e) => StatusCodes.BadRequest -> e
-      case ServerError(e) => StatusCodes.InternalServerError -> e
-      case Unauthorized(e) => StatusCodes.Unauthorized -> e
-      case NotFound(e) => StatusCodes.NotFound -> e
-    }
-    (status, ResponseFormats.errorsJsObject(status, errorMsg))
-  }
-
-  private def httpResponse(status: StatusCode, data: JsValue): HttpResponse = {
-    HttpResponse(
-      status = status,
-      entity = HttpEntity.Strict(ContentTypes.`application/json`, format(data)))
-  }
 
   private def httpResponseFromSource(data: Source[Error \/ JsValue, NotUsed]): HttpResponse =
     HttpResponse(
@@ -276,15 +254,8 @@ class Endpoints(
         .CloseDelimited(ContentTypes.`application/json`, ResponseFormats.resultJsObject(data))
     )
 
-  lazy val notFound: PartialFunction[HttpRequest, Future[HttpResponse]] = {
-    case HttpRequest(method, uri, _, _, _) =>
-      Future.successful(httpResponseError(NotFound(s"${method: HttpMethod}, uri: ${uri: Uri}")))
-  }
-
-  private def format(a: JsValue): ByteString = ByteString(a.compactPrint)
-
   private[http] def input(req: HttpRequest): Future[Unauthorized \/ (Jwt, JwtPayload, String)] = {
-    findJwt(req).flatMap(decodeAndParsePayload) match {
+    findJwt(req).flatMap(decodeAndParsePayload(_, decodeJwt)) match {
       case e @ -\/(_) =>
         discard { req.entity.discardBytes(mat) }
         Future.successful(e)
@@ -302,14 +273,6 @@ class Endpoints(
       }
       .toRightDisjunction(Unauthorized("missing Authorization header with OAuth 2.0 Bearer Token"))
 
-  private def decodeAndParsePayload(jwt: Jwt): Unauthorized \/ (Jwt, JwtPayload) =
-    for {
-      a <- decodeJwt(jwt): Unauthorized \/ DecodedJwt[String]
-      p <- parsePayload(a)
-    } yield (jwt, p)
-
-  private def parsePayload(jwt: DecodedJwt[String]): Unauthorized \/ JwtPayload =
-    SprayJson.decode[JwtPayload](jwt.payload).leftMap(e => Unauthorized(e.shows))
 }
 
 object Endpoints {
@@ -322,24 +285,4 @@ object Endpoints {
 
   private type ActiveContractStream[A] = Source[A, NotUsed]
 
-  type ValidateJwt = Jwt => Unauthorized \/ DecodedJwt[String]
-
-  sealed abstract class Error(message: String) extends Product with Serializable
-
-  final case class InvalidUserInput(message: String) extends Error(message)
-
-  final case class Unauthorized(message: String) extends Error(message)
-
-  final case class ServerError(message: String) extends Error(message)
-
-  final case class NotFound(message: String) extends Error(message)
-
-  object Error {
-    implicit val ShowInstance: Show[Error] = Show shows {
-      case InvalidUserInput(e) => s"Endpoints.InvalidUserInput: ${e: String}"
-      case ServerError(e) => s"Endpoints.ServerError: ${e: String}"
-      case Unauthorized(e) => s"Endpoints.Unauthorized: ${e: String}"
-      case NotFound(e) => s"Endpoints.NotFound: ${e: String}"
-    }
-  }
 }
