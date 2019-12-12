@@ -1,7 +1,7 @@
 // Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.services.admin
+package com.digitalasset.platform.apiserver.services.admin
 
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
@@ -47,8 +47,6 @@ class ApiConfigManagementService private (
       .lookupConfiguration()
       .flatMap {
         case None =>
-          // TODO(JM): Gnarly. Should the default configuration instead be wired through the index
-          // and stored into parameters on indexer init?
           Future.successful(configToResponse(defaultConfiguration))
         case Some((_, config)) =>
           Future.successful(configToResponse(config))
@@ -106,7 +104,6 @@ class ApiConfigManagementService private (
       result <- submissionResult match {
         case SubmissionResult.Acknowledged =>
           // Ledger acknowledged. Start polling to wait for the result to land in the index.
-          // FIXME(JM): We should wait slightly longer than maxTtl? How much longer?
           val maxTtl = Duration.fromNanos(currentConfig.timeModel.maxTtl.toNanos)
           val timeToLive = if (params.timeToLive < maxTtl) params.timeToLive else maxTtl
           pollUntilPersisted(request.submissionId, pollOffset, timeToLive).flatMap {
@@ -151,7 +148,7 @@ class ApiConfigManagementService private (
         case Failure(err) => Left(ErrorFactories.invalidArgument(err.toString))
         case Success(ok) => Right(ok)
       }
-      // FIXME(JM): The maximum record time should be constrained, probably by the current active time model?
+      // TODO(JM): The maximum record time should be constrained, probably by the current active time model?
       pMaxRecordTime <- requirePresence(request.maximumRecordTime, "maximum_record_time")
       mrtInstant = TimestampConversion.toInstant(pMaxRecordTime)
       timeToLive = {
@@ -169,10 +166,6 @@ class ApiConfigManagementService private (
       submissionId: String,
       offset: Option[Long],
       timeToLive: FiniteDuration): Future[domain.ConfigurationEntry] = {
-    // FIXME(JM): We cannot tell the application that the maximum record time has exceeded,
-    // as to do that we would need to see an entry with an effective time exceeding the MRT
-    // Do we need give the guarantee to application that MRT indeed exceeded and that
-    // the request will not be accepted?
     index
       .configurationEntries(offset)
       .collect {

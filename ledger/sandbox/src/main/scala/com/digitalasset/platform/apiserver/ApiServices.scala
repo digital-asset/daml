@@ -14,7 +14,8 @@ import com.daml.ledger.participant.state.index.v2.{
   IndexPackagesService,
   IndexPartyManagementService,
   IndexService,
-  IndexTransactionsService
+  IndexTransactionsService,
+  IndexConfigManagementService
 }
 import com.daml.ledger.participant.state.v1.{Configuration, WriteService}
 import com.digitalasset.api.util.TimeProvider
