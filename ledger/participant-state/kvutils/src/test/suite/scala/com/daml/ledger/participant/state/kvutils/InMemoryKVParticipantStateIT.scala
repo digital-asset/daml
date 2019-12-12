@@ -73,7 +73,12 @@ class InMemoryKVParticipantStateIT
         _ <- ps.uploadPackages(submissionId, List(archives.head), sourceDescription).toScala
         updateTuple <- ps.stateUpdates(beginAfter = None).runWith(Sink.head)
       } yield {
-        matchPackageUpload(updateTuple, submissionId, Offset(Array(0L, 0L)), List(archives.head), rt)
+        matchPackageUpload(
+          updateTuple,
+          submissionId,
+          Offset(Array(0L, 0L)),
+          List(archives.head),
+          rt)
       }
     }
 
@@ -97,7 +102,10 @@ class InMemoryKVParticipantStateIT
         _ <- ps.uploadPackages(subId1, List(archive1), sourceDescription).toScala
         _ <- ps.uploadPackages(subId2, List(archive1), sourceDescription).toScala
         _ <- ps.uploadPackages(subId3, List(archive2), sourceDescription).toScala
-        Seq(update1, update2, update3) <- ps.stateUpdates(beginAfter = None).take(3).runWith(Sink.seq)
+        Seq(update1, update2, update3) <- ps
+          .stateUpdates(beginAfter = None)
+          .take(3)
+          .runWith(Sink.seq)
       } yield {
         // first upload arrives as head update:
         matchPackageUpload(update1, subId1, Offset(Array(0L, 0L)), List(archive1), rt)
@@ -121,11 +129,10 @@ class InMemoryKVParticipantStateIT
         updateTuple match {
           case (offset: Offset, update: PublicPackageUploadRejected) =>
             assert(offset == Offset(Array(0L, 0L)))
-            assert(update.submissionId  == submissionId)
+            assert(update.submissionId == submissionId)
             assert(update.recordTime >= rt)
           case _ =>
-            fail(
-              s"unexpected update message after package upload: $updateTuple")
+            fail(s"unexpected update message after package upload: $updateTuple")
         }
       }
     }
@@ -149,8 +156,7 @@ class InMemoryKVParticipantStateIT
             assert(update.participantId == ps.participantId)
             assert(update.recordTime >= rt)
           case _ =>
-            fail(
-              s"unexpected update message after a party allocation: $updateTuple")
+            fail(s"unexpected update message after a party allocation: $updateTuple")
         }
       }
     }

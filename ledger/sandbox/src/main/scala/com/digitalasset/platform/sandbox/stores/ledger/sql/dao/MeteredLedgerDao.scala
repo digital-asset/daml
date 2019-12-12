@@ -191,7 +191,6 @@ private class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: MetricRegistry)
         rejectionReason)
     )
 
-
   override def storePackageEntry(
       offset: LedgerOffset,
       newLedgerEnd: LedgerOffset,
@@ -201,9 +200,7 @@ private class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: MetricRegistry)
   ): Future[PersistenceResponse] =
     timedFuture(
       Metrics.storePackageEntry,
-      ledgerDao.storePackageEntry(
-        offset, newLedgerEnd, externalOffset,
-        packages, entry))
+      ledgerDao.storePackageEntry(offset, newLedgerEnd, externalOffset, packages, entry))
 
   override def close(): Unit = {
     ledgerDao.close()

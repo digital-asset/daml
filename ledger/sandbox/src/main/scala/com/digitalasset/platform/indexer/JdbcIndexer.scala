@@ -39,7 +39,11 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   ValueSerializer
 }
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
-import com.digitalasset.platform.sandbox.stores.ledger.{LedgerEntry, PartyLedgerEntry, PackageLedgerEntry}
+import com.digitalasset.platform.sandbox.stores.ledger.{
+  LedgerEntry,
+  PartyLedgerEntry,
+  PackageLedgerEntry
+}
 import scalaz.syntax.tag._
 
 import scala.concurrent.duration._
@@ -296,39 +300,41 @@ class JdbcIndexer private[indexer] (
 
       case PublicPackageUpload(archives, optSourceDescription, recordTime, optSubmissionId) =>
         val recordTimeInstant = recordTime.toInstant
-        val packages: List[(DamlLf.Archive, v2.PackageDetails)] =          archives.map(archive =>
+        val packages: List[(DamlLf.Archive, v2.PackageDetails)] = archives.map(
+          archive =>
             archive -> v2.PackageDetails(
               size = archive.getPayload.size.toLong,
               knownSince = recordTimeInstant,
-              sourceDescription = optSourceDescription)
-          )
+              sourceDescription = optSourceDescription))
         val optEntry: Option[PackageLedgerEntry] =
           optSubmissionId.map(submissionId =>
-            PackageLedgerEntry.PackageUploadAccepted(
-              submissionId,
-              recordTimeInstant))
-        ledgerDao.storePackageEntry(
-          headRef,
-          headRef + 1,
-          externalOffset,
-          packages,
-          optEntry
-        )
-        .map(_ => headRef = headRef + 1)(DEC)
+            PackageLedgerEntry.PackageUploadAccepted(submissionId, recordTimeInstant))
+        ledgerDao
+          .storePackageEntry(
+            headRef,
+            headRef + 1,
+            externalOffset,
+            packages,
+            optEntry
+          )
+          .map(_ => headRef = headRef + 1)(DEC)
 
       case PublicPackageUploadRejected(submissionId, recordTime, rejectionReason) =>
         val entry: PackageLedgerEntry =
           PackageLedgerEntry.PackageUploadRejected(
-            submissionId, recordTime.toInstant, rejectionReason
+            submissionId,
+            recordTime.toInstant,
+            rejectionReason
           )
-        ledgerDao.storePackageEntry(
-          headRef,
-          headRef + 1,
-          externalOffset,
-          List.empty,
-          Some(entry)
-        )
-        .map(_ => headRef = headRef + 1)(DEC)
+        ledgerDao
+          .storePackageEntry(
+            headRef,
+            headRef + 1,
+            externalOffset,
+            List.empty,
+            Some(entry)
+          )
+          .map(_ => headRef = headRef + 1)(DEC)
 
       case TransactionAccepted(
           optSubmitterInfo,
