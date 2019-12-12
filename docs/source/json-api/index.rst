@@ -351,3 +351,90 @@ output::
             }
         ]
     }
+
+POST http://localhost:7575/contracts/lookup
+============================================
+
+Lookup by Contract ID
+---------------------
+
+application/json body::
+
+    {
+      "contractId": "#1:0"
+    }
+
+output::
+
+    {
+        "status": 200,
+        "result": {
+            "observers": [],
+            "agreementText": "",
+            "signatories": [
+                "Alice"
+            ],
+            "contractId": "#1:0",
+            "templateId": {
+                "packageId": "8a6f2ab52a068c78c0c325591060ccfe744a3106f345061bf09b2ccffd77c3fa",
+                "moduleName": "Iou",
+                "entityName": "Iou"
+            },
+            "witnessParties": [
+                "Alice"
+            ],
+            "argument": {
+                "observers": [],
+                "issuer": "Alice",
+                "amount": "999.99",
+                "currency": "USD",
+                "owner": "Alice"
+            }
+        }
+    }
+
+Lookup by Contract Key
+----------------------
+
+application/json body::
+
+    {
+        "templateId": {
+            "moduleName": "Account",
+            "entityName": "Account"
+        },
+        "key": [
+            "Alice",
+            "abc123"
+        ]
+    }
+
+output::
+
+    {
+        "status": 200,
+        "result": {
+            "observers": [],
+            "agreementText": "",
+            "signatories": [
+                "Alice"
+            ],
+            "key": {
+                "_1": "Alice",
+                "_2": "abc123"
+            },
+            "contractId": "#1:0",
+            "templateId": {
+                "packageId": "d7be7966c36fb3588bee1b727cef78a7251caabe3ae4105ba62f06a7af97272b",
+                "moduleName": "Account",
+                "entityName": "Account"
+            },
+            "witnessParties": [
+                "Alice"
+            ],
+            "argument": {
+                "owner": "Alice",
+                "number": "abc123"
+            }
+        }
+    }
