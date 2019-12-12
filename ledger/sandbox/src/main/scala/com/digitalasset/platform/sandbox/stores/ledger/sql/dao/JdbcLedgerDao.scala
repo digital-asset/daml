@@ -31,7 +31,7 @@ import com.digitalasset.daml.lf.data.Ref.{
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers}
-import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.{Value, ValueHasher}
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger._
@@ -53,7 +53,6 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.JdbcLedgerDao.{
 }
 import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   ContractSerializer,
-  KeyHasher,
   TransactionSerializer,
   ValueSerializer
 }
@@ -80,7 +79,6 @@ private class JdbcLedgerDao(
     contractSerializer: ContractSerializer,
     transactionSerializer: TransactionSerializer,
     valueSerializer: ValueSerializer,
-    keyHasher: KeyHasher,
     dbType: DbType,
     loggerFactory: NamedLoggerFactory,
     executionContext: ExecutionContext,
@@ -468,7 +466,7 @@ private class JdbcLedgerDao(
       .on(
         "package_id" -> key.templateId.packageId,
         "name" -> key.templateId.qualifiedName.toString,
-        "value_hash" -> keyHasher.hashKeyString(key),
+        "value_hash" -> ValueHasher.hashValueString(key.key.value, key.templateId),
         "contract_id" -> cid.coid
       )
       .execute()
@@ -487,7 +485,7 @@ private class JdbcLedgerDao(
       .on(
         "package_id" -> key.templateId.packageId,
         "name" -> key.templateId.qualifiedName.toString,
-        "value_hash" -> keyHasher.hashKeyString(key)
+        "value_hash" -> ValueHasher.hashValueString(key.key.value, key.templateId),
       )
       .as(ledgerString("contract_id").singleOpt)
       .map(AbsoluteContractId)
@@ -499,7 +497,7 @@ private class JdbcLedgerDao(
           .on(
             "package_id" -> key.templateId.packageId,
             "name" -> key.templateId.qualifiedName.toString,
-            "value_hash" -> keyHasher.hashKeyString(key),
+            "value_hash" -> ValueHasher.hashValueString(key.key.value, key.templateId),
             "party" -> forParty
           )
           .as(ledgerString("contract_id").singleOpt)
@@ -1613,7 +1611,6 @@ object JdbcLedgerDao {
       contractSerializer: ContractSerializer,
       transactionSerializer: TransactionSerializer,
       valueSerializer: ValueSerializer,
-      keyHasher: KeyHasher,
       dbType: DbType,
       loggerFactory: NamedLoggerFactory,
       executionContext: ExecutionContext): LedgerDao =
@@ -1622,7 +1619,6 @@ object JdbcLedgerDao {
       contractSerializer,
       transactionSerializer,
       valueSerializer,
-      keyHasher,
       dbType,
       loggerFactory,
       executionContext)

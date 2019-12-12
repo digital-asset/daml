@@ -1,26 +1,16 @@
 // Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation
+package com.digitalasset.daml.lf.value
 
 import java.nio.ByteBuffer
 import java.security.MessageDigest
 
+import com.digitalasset.daml.lf.data.Ref.Identifier
 import com.digitalasset.daml.lf.data.{Numeric, Utf8}
-import com.digitalasset.daml.lf.transaction.Node.GlobalKey
-import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 
-trait KeyHasher {
-
-  /** Returns the hash of the given DAML-LF value */
-  def hashKey(key: GlobalKey): Array[Byte]
-
-  /** Returns a string representation of the hash of the given DAML-LF value */
-  def hashKeyString(key: GlobalKey): String = hashKey(key).map("%02x" format _).mkString
-}
-
-object KeyHasher extends KeyHasher {
+object ValueHasher {
 
   /**
     * ADT for data elements that appear in the input stream of the hash function
@@ -123,19 +113,20 @@ object KeyHasher extends KeyHasher {
     digest.update(bytes)
   }
 
-  override def hashKey(key: GlobalKey): Array[Byte] = {
+  // Returns the hash of the given DAML-LF value */
+  def hashValue(value: Value[AbsoluteContractId], templateId: Identifier): Array[Byte] = {
     val digest = MessageDigest.getInstance("SHA-256")
 
     // First, write the template ID
-    putString(digest, key.templateId.packageId)
-    putString(digest, key.templateId.qualifiedName.toString())
+    putString(digest, templateId.packageId)
+    putString(digest, templateId.qualifiedName.toString())
 
     // Note: We do not emit the value or language version, as both are
     // implied by the template ID.
 
     // Then, write the value
     foldLeft[MessageDigest](
-      key.key.value,
+      value,
       digest,
       (d, token) => {
         // Append bytes:
@@ -156,5 +147,9 @@ object KeyHasher extends KeyHasher {
       }
     ).digest()
   }
+
+  /** Returns a string representation of the hash of the given DAML-LF value */
+  def hashValueString(value: Value[AbsoluteContractId], templateId: Identifier): String =
+    hashValue(value, templateId).map("%02x" format _).mkString
 
 }

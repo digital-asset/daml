@@ -18,7 +18,7 @@ import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.transaction.Transaction
-import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.{Value, ValueHasher}
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
 import com.digitalasset.ledger._
 import com.digitalasset.ledger.api.domain.RejectionReason
@@ -29,7 +29,6 @@ import com.digitalasset.platform.sandbox.stores._
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
 import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   ContractSerializer,
-  KeyHasher,
   TransactionSerializer,
   ValueSerializer
 }
@@ -47,7 +46,6 @@ import scala.collection.immutable
 class V2_1__Rebuild_Acs extends BaseJavaMigration {
 
   // Serializers used in SqlLedger/PostgresLedgerDao
-  private val keyHasher = KeyHasher
   private val contractSerializer = ContractSerializer
   private val transactionSerializer = TransactionSerializer
   private val valueSerializer = ValueSerializer
@@ -99,7 +97,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
       .on(
         "package_id" -> key.templateId.packageId,
         "name" -> key.templateId.qualifiedName.toString,
-        "value_hash" -> keyHasher.hashKeyString(key),
+        "value_hash" -> ValueHasher.hashValueString(key.key.value, key.templateId),
         "contract_id" -> cid.coid
       )
       .execute()
@@ -118,7 +116,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
       .on(
         "package_id" -> key.templateId.packageId,
         "name" -> key.templateId.qualifiedName.toString,
-        "value_hash" -> keyHasher.hashKeyString(key)
+        "value_hash" -> ValueHasher.hashValueString(key.key.value, key.templateId),
       )
       .as(ledgerString("contract_id").singleOpt)
       .map(AbsoluteContractId)

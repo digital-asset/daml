@@ -49,7 +49,6 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.dao._
 import com.digitalasset.platform.sandbox.stores.ledger.sql.migration.FlywayMigrations
 import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   ContractSerializer,
-  KeyHasher,
   TransactionSerializer,
   ValueSerializer
 }
@@ -92,7 +91,6 @@ class JdbcLedgerDaoSpec
       ContractSerializer,
       TransactionSerializer,
       ValueSerializer,
-      KeyHasher,
       DbType.Postgres,
       loggerFactory,
       system.dispatcher)

@@ -33,7 +33,6 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.dao._
 import com.digitalasset.platform.sandbox.stores.ledger.sql.migration.FlywayMigrations
 import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   ContractSerializer,
-  KeyHasher,
   TransactionSerializer,
   ValueSerializer
 }
@@ -104,7 +103,6 @@ object SqlLedger {
         ContractSerializer,
         TransactionSerializer,
         ValueSerializer,
-        KeyHasher,
         dbType,
         loggerFactory,
         mat.executionContext,

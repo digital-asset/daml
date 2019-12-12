@@ -20,7 +20,6 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{
 }
 import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   ContractSerializer,
-  KeyHasher,
   TransactionSerializer,
   ValueSerializer
 }
@@ -56,7 +55,6 @@ object ReadOnlySqlLedger {
         ContractSerializer,
         TransactionSerializer,
         ValueSerializer,
-        KeyHasher,
         dbType,
         loggerFactory,
         mat.executionContext),

@@ -11,10 +11,8 @@ import anorm.{BatchSql, NamedParameter}
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
-import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
-  KeyHasher,
-  ValueSerializer
-}
+import com.digitalasset.daml.lf.value.ValueHasher
+import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.ValueSerializer
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.Conversions._
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 
@@ -85,7 +83,10 @@ class V3__Recompute_Key_Hash extends BaseJavaMigration {
 
     val statements = contractKeys.map {
       case (cid, key) =>
-        Seq[NamedParameter]("contractId" -> cid.coid, "valueHash" -> KeyHasher.hashKeyString(key))
+        Seq[NamedParameter](
+          "contractId" -> cid.coid,
+          "valueHash" -> ValueHasher.hashValue(key.key.value, key.templateId)
+        )
     }
 
     statements.toStream.grouped(batchSize).foreach { batch =>

@@ -35,7 +35,6 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{
 import com.digitalasset.platform.sandbox.stores.ledger.sql.migration.FlywayMigrations
 import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   ContractSerializer,
-  KeyHasher,
   TransactionSerializer,
   ValueSerializer
 }
@@ -125,7 +124,6 @@ class JdbcIndexerFactory[Status <: InitStatus] private (
         ContractSerializer,
         TransactionSerializer,
         ValueSerializer,
-        KeyHasher,
         dbType,
         loggerFactory,
         executionContext,
