@@ -3,7 +3,16 @@
 
 package com.digitalasset.http
 
-import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpMethod, HttpRequest, HttpResponse, StatusCode, StatusCodes, Uri}
+import akka.http.scaladsl.model.{
+  ContentTypes,
+  HttpEntity,
+  HttpMethod,
+  HttpRequest,
+  HttpResponse,
+  StatusCode,
+  StatusCodes,
+  Uri
+}
 import akka.util.ByteString
 import com.digitalasset.http.domain.JwtPayload
 import com.digitalasset.http.json.{ResponseFormats, SprayJson}
@@ -69,7 +78,9 @@ object EndpointsCompanion {
 
   private[http] def format(a: JsValue): ByteString = ByteString(a.compactPrint)
 
-  private[http] def decodeAndParsePayload(jwt: Jwt, decodeJwt: ValidateJwt): Unauthorized \/ (Jwt, JwtPayload) =
+  private[http] def decodeAndParsePayload(
+      jwt: Jwt,
+      decodeJwt: ValidateJwt): Unauthorized \/ (Jwt, JwtPayload) =
     for {
       a <- decodeJwt(jwt): Unauthorized \/ DecodedJwt[String]
       p <- parsePayload(a)
@@ -82,7 +93,3 @@ object EndpointsCompanion {
     SprayJson.encode(as).leftMap(e => ServerError(e.shows))
 
 }
-
-
-
-

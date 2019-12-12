@@ -54,16 +54,16 @@ class ContractsService(
       )
   }
 
-  def lookup(jwt: Jwt, jwtPayload: JwtPayload, request: domain.ContractLookupRequest[ApiValue])
+  def lookup(jwt: Jwt, jwtPayload: JwtPayload, contractLocator: domain.ContractLocator[ApiValue])
     : Future[Option[domain.ActiveContract[LfValue]]] =
-    request.id match {
-      case -\/((templateId, contractKey)) =>
-        lookup(jwt, jwtPayload.party, templateId, contractKey)
-      case \/-((templateId, contractId)) =>
-        lookup(jwt, jwtPayload.party, templateId, contractId)
+    contractLocator match {
+      case domain.EnrichedContractKey(templateId, contractKey) =>
+        findByContractKey(jwt, jwtPayload.party, templateId, contractKey)
+      case domain.EnrichedContractId(templateId, contractId) =>
+        findByContractId(jwt, jwtPayload.party, templateId, contractId)
     }
 
-  def lookup(
+  def findByContractKey(
       jwt: Jwt,
       party: lar.Party,
       templateId: TemplateId.OptionalPkg,
@@ -74,10 +74,12 @@ class ContractsService(
 
       resolvedTemplateId <- toFuture(resolveTemplateId(templateId)): Future[TemplateId.RequiredPkg]
 
+      predicate = isContractKey(keyToTuple(lfKey)) _
+
       errorOrAc <- searchInMemoryOneTpId(jwt, party, resolvedTemplateId, Map.empty)
         .collect {
           case e @ -\/(_) => e
-          case a @ \/-(ac) if isContractKey(lfKey)(ac) => a
+          case a @ \/-(ac) if predicate(ac) => a
         }
         .runWith(Sink.headOption): Future[Option[Error \/ domain.ActiveContract[LfValue]]]
 
@@ -86,9 +88,16 @@ class ContractsService(
     } yield result
 
   private def isContractKey(k: LfValue)(a: domain.ActiveContract[LfValue]): Boolean =
-    a.key.fold(false)(_ == k)
+    a.key.fold(false)(key => keyToTuple(key) == k)
 
-  def lookup(
+  private def keyToTuple(a: LfValue): LfValue = a match {
+    case lf.value.Value.ValueRecord(_, fields) =>
+      lf.value.Value.ValueRecord(None, fields.map(k => (None, k._2)))
+    case _ =>
+      a
+  }
+
+  def findByContractId(
       jwt: Jwt,
       party: lar.Party,
       templateId: Option[domain.TemplateId.OptionalPkg],

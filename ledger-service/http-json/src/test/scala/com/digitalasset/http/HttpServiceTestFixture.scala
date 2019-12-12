@@ -43,7 +43,7 @@ object HttpServiceTestFixture {
 
   def withHttpService[A](
       testName: String,
-      dar: File,
+      dars: List[File],
       jdbcConfig: Option[JdbcConfig],
       staticContentConfig: Option[StaticContentConfig]
   )(testFn: (Uri, DomainJsonEncoder, DomainJsonDecoder) => Future[A])(
@@ -59,7 +59,7 @@ object HttpServiceTestFixture {
 
     val ledgerF: Future[(SandboxServer, Int)] = for {
       port <- toFuture(findOpenPort())
-      ledger <- Future(SandboxServer(ledgerConfig(port, dar, ledgerId)))
+      ledger <- Future(SandboxServer(ledgerConfig(port, dars, ledgerId)))
     } yield (ledger, port)
 
     val httpServiceF: Future[(ServerBinding, Int)] = for {
@@ -106,7 +106,7 @@ object HttpServiceTestFixture {
   }
 
   def withLedger[A](
-      dar: File,
+      dars: List[File],
       testName: String,
       token: Option[String] = None,
       authService: Option[AuthService] = None)(testFn: LedgerClient => Future[A])(
@@ -118,7 +118,7 @@ object HttpServiceTestFixture {
 
     val ledgerF: Future[(SandboxServer, Int)] = for {
       port <- toFuture(findOpenPort())
-      ledger <- Future(SandboxServer(ledgerConfig(port, dar, ledgerId, authService)))
+      ledger <- Future(SandboxServer(ledgerConfig(port, dars, ledgerId, authService)))
     } yield (ledger, port)
 
     val clientF: Future[LedgerClient] = for {
@@ -140,12 +140,12 @@ object HttpServiceTestFixture {
 
   private def ledgerConfig(
       ledgerPort: Int,
-      dar: File,
+      dars: List[File],
       ledgerId: LedgerId,
       authService: Option[AuthService] = None): SandboxConfig =
     SandboxConfig.default.copy(
       port = ledgerPort,
-      damlPackages = List(dar),
+      damlPackages = dars,
       timeProviderType = TimeProviderType.WallClock,
       ledgerIdMode = LedgerIdMode.Static(ledgerId),
       authService = authService

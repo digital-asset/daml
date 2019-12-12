@@ -59,7 +59,8 @@ final class AuthorizationTest extends AsyncFlatSpec with BeforeAndAfterAll with 
   }
 
   protected def withLedger[A] =
-    HttpServiceTestFixture.withLedger[A](dar, testId, Option(publicToken), mockedAuthService) _
+    HttpServiceTestFixture
+      .withLedger[A](List(dar), testId, Option(publicToken), mockedAuthService) _
 
   private def packageService(client: LedgerClient): PackageService =
     new PackageService(HttpService.loadPackageStoreUpdates(client.packageClient, tokenHolder))
