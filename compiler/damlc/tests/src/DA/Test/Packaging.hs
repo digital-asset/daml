@@ -352,10 +352,9 @@ tests damlc = testGroup "Packaging"
         writeFileUTF8 (projDir </> "src" </> "A" </> "B.daml") $ unlines
             [ "daml 1.2"
             , "module A.B where"
-            , "import A()" -- TODO [#3252]: Remove this import, so we can catch the name collision even when there isn't a strict dependency.
             , "data C = C Int"
             ]
-        buildProjectError projDir "" "name collision between module A.B and variant A:B"
+        buildProjectError projDir "" "name collision"
 
     , testCase "Manifest name" $ withTempDir $ \projDir -> do
           createDirectoryIfMissing True (projDir </> "src")
