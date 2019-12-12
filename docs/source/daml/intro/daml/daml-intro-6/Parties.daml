@@ -27,7 +27,7 @@ simple_iou_test = scenario do
   bob <- getParty "Bob"
 
   -- Alice and Bob enter into a trade.
-  -- Alice transfers the payment as a SimpleIou
+  -- Alice transfers the payment as a SimpleIou.
   iou <- submit alice do
     create SimpleIou with
       issuer = alice
@@ -37,7 +37,7 @@ simple_iou_test = scenario do
         currency = "USD"
 
   pass (days 1)
-  -- Bob delivers the goods
+  -- Bob delivers the goods.
 
   pass (minutes 10)
   -- Alice just deletes the payment again.
@@ -181,7 +181,7 @@ iou_test = scenario do
   bob <- getParty "Bob"
 
   -- Alice and Bob enter into a trade.
-  -- Alice wants to give Bob an Iou, but she can't without Bobs authority
+  -- Alice wants to give Bob an Iou, but she can't without Bob's authority.
   submitMustFail alice do
     create Iou with
       issuer = alice
@@ -190,7 +190,7 @@ iou_test = scenario do
         amount = 100.0
         currency = "USD"
 
-  -- She can issue herself an Iou
+  -- She can issue herself an Iou.
   iou <- submit alice do
     create Iou with
       issuer = alice
@@ -199,7 +199,7 @@ iou_test = scenario do
         amount = 100.0
         currency = "USD"
 
-  -- But can't transfer it to Bob
+  -- However, she can't transfer it to Bob.
   submitMustFail alice do
     exercise iou Transfer with
       newOwner = bob
@@ -222,7 +222,7 @@ iou_test = scenario do
 -- IOU_TRANSFER_SCENARIO_BEGIN
   charlie <- getParty "Charlie"
 
-  -- Alice issues an iou using a transfer proposal
+  -- Alice issues an Iou using a transfer proposal.
   tpab <- submit alice do
     create IouTransferProposal with
       newOwner = bob
@@ -233,39 +233,39 @@ iou_test = scenario do
           amount = 100.0
           currency = "USD"
 
-  -- Bob accepts
+  -- Bob accepts the transfer from Alice.
   iou2 <- submit bob do
     exercise tpab IouTransferProposal_Accept
 
-  -- Bob offers charlie a transfer
+  -- Bob offers Charlie a transfer.
   tpbc <- submit bob do
     exercise iou2 ProposeTransfer with
       newOwner = charlie
 
-  -- Charlie accepts
+  -- Charlie accepts the transfer from Bob.
   submit charlie do
     exercise tpbc IouTransferProposal_Accept
 -- IOU_TRANSFER_SCENARIO_END
 
 -- SENDER_SCENARIO_BEGIN
-  -- Bob allows Alice to send him Ious
+  -- Bob allows Alice to send him Ious.
   sab <- submit bob do
     create IouSender with
       sender = alice
       receiver = bob
 
-  -- Charlie allows Bob to send him Ious
+  -- Charlie allows Bob to send him Ious.
   sbc <- submit charlie do
     create IouSender with
       sender = bob
       receiver = charlie
 
-  -- Alice can now send the iou she issued herself earlier
+  -- Alice can now send the Iou she issued herself earlier.
   iou4 <- submit alice do
     exercise sab Send_Iou with
       iouCid = iou
 
-  -- Bob sends it on to charlie
+  -- Bob sends it on to Charlie.
   submit bob do
     exercise sbc Send_Iou with
       iouCid = iou4

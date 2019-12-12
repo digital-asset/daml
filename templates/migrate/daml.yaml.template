@@ -1,6 +1,6 @@
 sdk-version: __VERSION__
 name: __PROJECT_NAME__
-source: __MAIN__
+source: daml
 parties:
   - Alice
   - Bob
@@ -8,4 +8,5 @@ version: 0.0.1
 dependencies:
   - daml-prim
   - daml-stdlib
-__DEPENDENCIES__
+data-dependencies:
+__DATA_DEPENDENCIES__

@@ -12,4 +12,5 @@ import io.reactivex.Flowable;
 public interface LedgerConfigurationClient {
 
     Flowable<LedgerConfigurationServiceOuterClass.LedgerConfiguration> getLedgerConfiguration();
+    Flowable<LedgerConfigurationServiceOuterClass.LedgerConfiguration> getLedgerConfiguration(String accessToken);
 }

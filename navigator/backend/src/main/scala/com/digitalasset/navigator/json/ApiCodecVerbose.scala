@@ -36,7 +36,7 @@ object ApiCodecVerbose {
   private[this] final val propConstructor: String = "constructor"
   private[this] final val tagText: String = "text"
   private[this] final val tagInt64: String = "int64"
-  private[this] final val tagDecimal: String = "decimal"
+  private[this] final val tagNumeric: String = "numeric"
   private[this] final val tagBool: String = "bool"
   private[this] final val tagContractId: String = "contractid"
   private[this] final val tagTimestamp: String = "timestamp"
@@ -45,7 +45,8 @@ object ApiCodecVerbose {
   private[this] final val tagUnit: String = "unit"
   private[this] final val tagOptional: String = "optional"
   private[this] final val tagList: String = "list"
-  private[this] final val tagMap: String = "map"
+  private[this] final val tagTextMap: String = "textmap"
+  private[this] final val tagGenMap: String = "genmap"
   private[this] final val tagRecord: String = "record"
   private[this] final val tagVariant: String = "variant"
   private[this] final val tagEnum: String = "enum"
@@ -61,8 +62,8 @@ object ApiCodecVerbose {
     case V.ValueText(v) => JsObject(propType -> JsString(tagText), propValue -> JsString(v))
     case V.ValueInt64(v) =>
       JsObject(propType -> JsString(tagInt64), propValue -> JsString((v: Long).toString))
-    case V.ValueDecimal(v) =>
-      JsObject(propType -> JsString(tagDecimal), propValue -> JsString(v.decimalToString))
+    case V.ValueNumeric(v) =>
+      JsObject(propType -> JsString(tagNumeric), propValue -> JsString(v.toUnscaledString))
     case V.ValueBool(v) => JsObject(propType -> JsString(tagBool), propValue -> JsBoolean(v))
     case V.ValueContractId(v) =>
       JsObject(propType -> JsString(tagContractId), propValue -> JsString(v))
@@ -76,8 +77,9 @@ object ApiCodecVerbose {
     case V.ValueOptional(None) => JsObject(propType -> JsString(tagOptional), propValue -> JsNull)
     case V.ValueOptional(Some(v)) =>
       JsObject(propType -> JsString(tagOptional), propValue -> apiValueToJsValue(v))
-    case v: Model.ApiMap => apiMapToJsValue(v)
-    case _: Model.ApiImpossible => serializationError("impossible! tuples are not serializable")
+    case v: Model.ApiMap => apiTextMapToJsValue(v)
+    case v: Model.ApiGenMap => apiGenMapToJsValue(v)
+    case _: Model.ApiImpossible => serializationError("impossible! structs are not serializable")
   }
 
   def apiListToJsValue(value: Model.ApiList): JsValue =
@@ -86,15 +88,21 @@ object ApiCodecVerbose {
       propValue -> JsArray(value.values.map(apiValueToJsValue).toImmArray.toSeq: _*)
     )
 
-  private[this] val fieldKey = "key"
-  private[this] val fieldValue = "value"
-
-  def apiMapToJsValue(value: Model.ApiMap): JsValue =
+  def apiTextMapToJsValue(value: Model.ApiMap): JsValue =
     JsObject(
-      propType -> JsString(tagMap),
+      propType -> JsString(tagTextMap),
       propValue -> JsArray(value.value.toImmArray.toSeq.toVector.map {
         case (k, v) =>
-          JsObject(fieldKey -> JsString(k), fieldValue -> apiValueToJsValue(v))
+          JsObject("key" -> JsString(k), "value" -> apiValueToJsValue(v))
+      })
+    )
+
+  def apiGenMapToJsValue(value: Model.ApiGenMap): JsValue =
+    JsObject(
+      propType -> JsString(tagGenMap),
+      propValue -> JsArray(value.entries.toSeq.toVector.map {
+        case (k, v) =>
+          JsObject("key" -> apiValueToJsValue(k), "value" -> apiValueToJsValue(v))
       })
     )
 
@@ -145,8 +153,8 @@ object ApiCodecVerbose {
         V.ValueList(arrayField(value, propValue, "ApiList").map(jsValueToApiValue).to[FrontStack])
       case `tagText` => V.ValueText(strField(value, propValue, "ApiText"))
       case `tagInt64` => V.ValueInt64(strField(value, propValue, "ApiInt64").toLong)
-      case `tagDecimal` =>
-        V.ValueDecimal(assertDE(LfDecimal fromString strField(value, propValue, "ApiDecimal")))
+      case `tagNumeric` =>
+        V.ValueNumeric(assertDE(LfDecimal fromString strField(value, propValue, "ApiNumeric")))
       case `tagBool` => V.ValueBool(boolField(value, propValue, "ApiBool"))
       case `tagContractId` => V.ValueContractId(strField(value, propValue, "ApiContractId"))
       case `tagTimestamp` =>
@@ -157,17 +165,19 @@ object ApiCodecVerbose {
       case `tagUnit` => V.ValueUnit
       case `tagOptional` =>
         anyField(value, propValue, "ApiOptional") match {
-          case JsNull => V.ValueOptional(None)
+          case JsNull => V.ValueNone
           case v => V.ValueOptional(Some(jsValueToApiValue(v)))
         }
-      case `tagMap` =>
-        V.ValueMap(
+      case `tagTextMap` =>
+        V.ValueTextMap(
           SortedLookupList
             .fromImmArray(ImmArray(arrayField(value, propValue, "ApiMap").map(jsValueToMapEntry)))
             .fold(
               err => deserializationError(s"Can't read ${value.prettyPrint} as ApiValue, $err'"),
               identity
             ))
+      case `tagGenMap` =>
+        V.ValueGenMap(ImmArray(arrayField(value, propValue, "ApiGenMap").map(jsValueToGenMapEntry)))
       case t =>
         deserializationError(s"Can't read ${value.prettyPrint} as ApiValue, unknown type '$t'")
     }
@@ -190,8 +200,21 @@ object ApiCodecVerbose {
     val translation = value match {
       case JsObject(map) =>
         for {
-          key <- map.get(fieldKey).collect { case JsString(s) => s }
-          value <- map.get(fieldValue).map(jsValueToApiValue)
+          key <- map.get("key").collect { case JsString(s) => s }
+          value <- map.get("value").map(jsValueToApiValue)
+        } yield key -> value
+      case _ => None
+    }
+
+    translation.getOrElse(deserializationError(s"Can't read ${value.prettyPrint} as a map entry"))
+  }
+
+  def jsValueToGenMapEntry(value: JsValue): (Model.ApiValue, Model.ApiValue) = {
+    val translation = value match {
+      case JsObject(genMap) =>
+        for {
+          key <- genMap.get("key").map(jsValueToApiValue)
+          value <- genMap.get("value").map(jsValueToApiValue)
         } yield key -> value
       case _ => None
     }

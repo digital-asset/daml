@@ -84,7 +84,7 @@ object project {
 
         case DamlLfTypeVar(name) => Right(StringValue(name))
         case DamlLfTypePrim(DamlLfPrimType.Bool, _) => Right(StringValue("bool"))
-        case DamlLfTypePrim(DamlLfPrimType.Decimal, _) => Right(StringValue("decimal"))
+        case DamlLfTypeNumeric(_) => Right(StringValue("decimal"))
         case DamlLfTypePrim(DamlLfPrimType.Int64, _) => Right(StringValue("int64"))
         case DamlLfTypePrim(DamlLfPrimType.Date, _) => Right(StringValue("date"))
         case DamlLfTypePrim(DamlLfPrimType.Text, _) => Right(StringValue("text"))
@@ -94,7 +94,8 @@ object project {
         case DamlLfTypePrim(DamlLfPrimType.List, _) => Right(StringValue("list"))
         case DamlLfTypePrim(DamlLfPrimType.ContractId, _) => Right(StringValue("contractid"))
         case DamlLfTypePrim(DamlLfPrimType.Optional, _) => Right(StringValue("optional"))
-        case DamlLfTypePrim(DamlLfPrimType.Map, _) => Right(StringValue("map"))
+        case DamlLfTypePrim(DamlLfPrimType.TextMap, _) => Right(StringValue("textmap"))
+        case DamlLfTypePrim(DamlLfPrimType.GenMap, _) => Right(StringValue("genmap"))
       }
 
     loop(rootParam, cursor.prev.get, ps)
@@ -117,6 +118,15 @@ object project {
     @annotation.tailrec
     def loop(argument: ApiValue, cursor: PropertyCursor): Either[DotNotFailure, ProjectValue] =
       argument match {
+        case V.ValueContractId(value) if cursor.isLast => Right(StringValue(value))
+        case V.ValueInt64(value) if cursor.isLast => Right(NumberValue(value))
+        case V.ValueNumeric(value) if cursor.isLast => Right(StringValue(value.toUnscaledString))
+        case V.ValueText(value) if cursor.isLast => Right(StringValue(value))
+        case V.ValueParty(value) if cursor.isLast => Right(StringValue(value))
+        case V.ValueBool(value) if cursor.isLast => Right(BooleanValue(value))
+        case V.ValueUnit if cursor.isLast => Right(StringValue(""))
+        case t: V.ValueTimestamp if cursor.isLast => Right(StringValue(t.toIso8601))
+        case t: V.ValueDate if cursor.isLast => Right(StringValue(t.toIso8601))
         case V.ValueRecord(_, fields) =>
           cursor.next match {
             case None => Left(MustNotBeLastPart("record", cursor, expectedValue))
@@ -147,23 +157,6 @@ object project {
                 case _ => Left(UnknownProperty("enum", nextCursor, expectedValue))
               }
           }
-        case V.ValueList(elements) =>
-          cursor.next match {
-            case None => Left(MustNotBeLastPart("list", cursor, expectedValue))
-            case Some(nextCursor) =>
-              Try(nextCursor.current.toInt) match {
-                case Success(index) => loop(elements.slowApply(index), nextCursor)
-                case Failure(e) =>
-                  Left(TypeCoercionFailure("list index", "int", cursor, cursor.current))
-              }
-          }
-        case V.ValueContractId(value) if cursor.isLast => Right(StringValue(value))
-        case V.ValueInt64(value) if cursor.isLast => Right(NumberValue(value))
-        case V.ValueDecimal(value) if cursor.isLast => Right(StringValue(value.decimalToString))
-        case V.ValueText(value) if cursor.isLast => Right(StringValue(value))
-        case V.ValueParty(value) if cursor.isLast => Right(StringValue(value))
-        case V.ValueBool(value) if cursor.isLast => Right(BooleanValue(value))
-        case V.ValueUnit if cursor.isLast => Right(StringValue(""))
         case V.ValueOptional(optValue) =>
           (cursor.next, optValue) match {
             case (None, None) => Right(StringValue("None"))
@@ -174,8 +167,47 @@ object project {
             case (Some(nextCursor), _) =>
               Left(UnknownProperty("optional", nextCursor, expectedValue))
           }
-        case t: V.ValueTimestamp if cursor.isLast => Right(StringValue(t.toIso8601))
-        case t: V.ValueDate if cursor.isLast => Right(StringValue(t.toIso8601))
+        case V.ValueList(elements) =>
+          cursor.next match {
+            case None => Left(MustNotBeLastPart("list", cursor, expectedValue))
+            case Some(nextCursor) =>
+              Try(nextCursor.current.toInt) match {
+                case Success(index) => loop(elements.slowApply(index), nextCursor)
+                case Failure(_) =>
+                  Left(TypeCoercionFailure("list index", "int", cursor, cursor.current))
+              }
+          }
+        case V.ValueTextMap(textMap) =>
+          cursor.next match {
+            case None => Left(MustNotBeLastPart("textmap", cursor, expectedValue))
+            case Some(nextCursor) =>
+              textMap.toImmArray.toSeq.collectFirst {
+                case (k, v) if k == nextCursor.current => v
+              } match {
+                case Some(v) => loop(v, nextCursor)
+                case None =>
+                  Left(UnknownProperty(nextCursor.current, nextCursor, expectedValue))
+              }
+          }
+        case V.ValueGenMap(entries) =>
+          cursor.next match {
+            case None =>
+              Left(MustNotBeLastPart("genmap", cursor, expectedValue))
+            case Some(nextCursor) =>
+              Try(nextCursor.current.toInt) match {
+                case Success(index) =>
+                  nextCursor.next match {
+                    case Some(nextNextCursor) if nextNextCursor.current == "key" =>
+                      loop(entries(index)._1, nextNextCursor)
+                    case Some(nextNextCursor) if nextNextCursor.current == "value" =>
+                      loop(entries(index)._2, nextNextCursor)
+                    case None =>
+                      Left(UnknownProperty(nextCursor.current, nextCursor, expectedValue))
+                  }
+                case Failure(_) =>
+                  Left(TypeCoercionFailure("GenMap index", "int", cursor, cursor.current))
+              }
+          }
       }
     loop(rootArgument, cursor.prev.get)
   }

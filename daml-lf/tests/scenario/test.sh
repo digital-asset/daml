@@ -35,6 +35,7 @@ fi
 REPL=$(rlocation "$TEST_WORKSPACE/$1")
 DAMLC=$(rlocation "$TEST_WORKSPACE/$2")
 TESTMAIN=$(rlocation "$TEST_WORKSPACE/$3")
+DIFF="$4"
 TESTDIR="$(dirname $TESTMAIN)"
 TESTDAR="$TESTDIR/Main.dar"
 
@@ -44,4 +45,4 @@ $DAMLC package --debug $TESTMAIN 'main' -o $TESTDAR
 
 $REPL test Test:run $TESTDAR | sed '1d' | sed -E "$REGEX_HIDE_HASHES" > ${TESTDIR}/ACTUAL.ledger
 
-diff --strip-trailing-cr ${TESTDIR}/ACTUAL.ledger ${TESTDIR}/EXPECTED.ledger
+$DIFF --strip-trailing-cr ${TESTDIR}/ACTUAL.ledger ${TESTDIR}/EXPECTED.ledger

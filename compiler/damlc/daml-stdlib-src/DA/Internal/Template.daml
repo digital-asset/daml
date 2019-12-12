@@ -3,6 +3,7 @@
 
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 daml 1.2
 -- | MOVE Prelude DAML-LF primitives, just templates/contracts
@@ -36,6 +37,20 @@ class Template t where
   -- | Archive the contract with the given contract ID.
   archive : ContractId t -> Update ()
 
+  -- | Wrap the template in AnyTemplate
+  toAnyTemplate : t -> AnyTemplate
+
+  -- | Extract the underlying template from AnyTemplate if the type matches
+  -- or return `None`.
+  fromAnyTemplate : AnyTemplate -> Optional t
+
+  -- | Generate a unique textual representation of the template Id.
+  _templateTypeRep : proxy t -> TemplateTypeRep
+
+-- | Generate a unique textual representation of the template Id.
+templateTypeRep : forall t. Template t => TemplateTypeRep
+templateTypeRep = _templateTypeRep ([] : [t])
+
 -- | The stakeholders of a contract: its signatories and observers.
 stakeholder : Template t => t -> [Party]
 stakeholder t = signatory t ++ observer t
@@ -43,6 +58,20 @@ stakeholder t = signatory t ++ observer t
 class Template t => Choice t c r | t c -> r where
   -- | Exercise a choice on the contract with the given contract ID.
   exercise : ContractId t -> c -> Update r
+  _toAnyChoice : proxy t -> c -> Any
+  _fromAnyChoice : proxy t -> Any -> Optional c
+
+toAnyChoice : forall t c r. Choice t c r => c -> AnyChoice
+toAnyChoice c =
+  AnyChoice
+    (_toAnyChoice ([] : [t]) c)
+    (templateTypeRep @t)
+
+fromAnyChoice : forall t c r. Choice t c r => AnyChoice -> Optional c
+fromAnyChoice (AnyChoice any typeRep)
+  | Some c <- _fromAnyChoice ([] : [t]) any
+  , templateTypeRep @t == typeRep = Some c
+  | otherwise = None
 
 class Template t => TemplateKey t k | t -> k where
   -- | The key of a contract.
@@ -75,6 +104,27 @@ class Template t => TemplateKey t k | t -> k where
   --    stakeholders of the fetched contract are, which requires
   --    getting the contract instance.
 
+  -- | The list of maintainers of a contract key.
+  _maintainer : proxy t -> k -> [Party]
+
+  _toAnyContractKey : proxy t -> k -> Any
+  _fromAnyContractKey : proxy t -> Any -> Optional k
+
+-- | The list of maintainers of a contract key.
+maintainer : forall t k. TemplateKey t k => k -> [Party]
+maintainer = _maintainer ([] : [t])
+
+toAnyContractKey : forall t k. TemplateKey t k => k -> AnyContractKey
+toAnyContractKey k =
+  AnyContractKey
+    (_toAnyContractKey ([] : [t]) k)
+    (templateTypeRep @t)
+
+fromAnyContractKey : forall t k. TemplateKey t k => AnyContractKey -> Optional k
+fromAnyContractKey (AnyContractKey any rep)
+  | Some k <- _fromAnyContractKey ([] : [t]) any
+  , templateTypeRep @t == rep = Some k
+  | otherwise = None
 
 -- | Exercise a choice on the contract associated with the given key.
 --
@@ -87,6 +137,12 @@ exerciseByKey k c = do
     (cid, _) <- fetchByKey @t k
     exercise cid c
 
+-- | Create a contract and exercise the choice on the newly created contract.
+createAndExercise : forall t k c r. Choice t c r => t -> c -> Update r
+createAndExercise t c = do
+    cid <- create t
+    exercise cid c
+
 data NonConsuming t = NonConsuming {}
 data PreConsuming t = PreConsuming {}
 data PostConsuming t = PostConsuming {}
@@ -95,8 +151,6 @@ data PostConsuming t = PostConsuming {}
 -- choice in every template.
 data Archive = Archive {}
   deriving (Eq, Show)
-
-data HasKey t = HasKey {}
 
 -- | Accepted ways to specify a list of parties: either a single party, or a list of parties.
 class IsParties a where

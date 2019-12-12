@@ -7,7 +7,7 @@ import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.archive.Decode.ParseError
 import com.digitalasset.daml.lf.data.Ref.{Identifier, ModuleName, PackageId, QualifiedName}
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
-import com.digitalasset.daml.lf.scenario.api.v1.{Module => ProtoModule}
+import com.digitalasset.daml.lf.scenario.api.v1.{ScenarioModule => ProtoScenarioModule}
 import com.digitalasset.daml.lf.speedy.Compiler
 import com.digitalasset.daml.lf.speedy.ScenarioRunner
 import com.digitalasset.daml.lf.speedy.SError._
@@ -17,7 +17,7 @@ import com.digitalasset.daml.lf.speedy.SValue
 import com.digitalasset.daml.lf.types.Ledger.Ledger
 import com.digitalasset.daml.lf.PureCompiledPackages
 import com.digitalasset.daml.lf.speedy.SExpr.{LfDefRef, SDefinitionRef}
-import com.digitalasset.daml.lf.validation.{Validation, ValidationError}
+import com.digitalasset.daml.lf.validation.Validation
 import com.google.protobuf.ByteString
 import com.digitalasset.daml.lf.transaction.VersionTimeline
 
@@ -73,32 +73,26 @@ class Context(val contextId: Context.ContextId) {
   private def decodeModule(
       major: LanguageVersion.Major,
       minor: String,
-      bytes: ByteString): Ast.Module = {
+      bytes: ByteString
+  ): Ast.Module = {
     val lfVer = LanguageVersion(major, LanguageVersion.Minor fromProtoIdentifier minor)
     val dop: Decode.OfPackage[_] = Decode.decoders
       .lift(lfVer)
       .getOrElse(throw Context.ContextException(s"No decode support for LF ${lfVer.pretty}"))
       .decoder
-    val lfMod = dop.protoModule(
-      Decode.damlLfCodedInputStream(bytes.newInput)
+    val lfScenarioModule = dop.protoScenarioModule(Decode.damlLfCodedInputStream(bytes.newInput))
+    dop.decodeScenarioModule(homePackageId, lfScenarioModule)
+  }
+
+  private def validate(pkgIds: Traversable[PackageId]): Unit =
+    pkgIds.foreach(
+      Validation.checkPackage(allPackages, _).left.foreach(e => throw ParseError(e.pretty))
     )
-    dop.decodeScenarioModule(homePackageId, lfMod)
-  }
-
-  private def validate(pkgIds: Traversable[PackageId], forScenarioService: Boolean): Unit = {
-    val validator: PackageId => Either[ValidationError, Unit] =
-      if (forScenarioService)
-        Validation.checkPackageForScenarioService(allPackages, _)
-      else
-        Validation.checkPackage(allPackages, _)
-
-    pkgIds.foreach(validator(_).left.foreach(e => throw ParseError(e.pretty)))
-  }
 
   @throws[ParseError]
   def update(
       unloadModules: Seq[String],
-      loadModules: Seq[ProtoModule],
+      loadModules: Seq[ProtoScenarioModule],
       unloadPackages: Seq[String],
       loadPackages: Seq[ByteString],
       forScenarioService: Boolean
@@ -129,15 +123,11 @@ class Context(val contextId: Context.ContextId) {
 
     // And now the new modules can be loaded.
     val lfModules = loadModules.map(module =>
-      module.getModuleCase match {
-        case ProtoModule.ModuleCase.DAML_LF_1 =>
-          decodeModule(LanguageVersion.Major.V1, module.getMinor, module.getDamlLf1)
-        case ProtoModule.ModuleCase.DAML_LF_DEV | ProtoModule.ModuleCase.MODULE_NOT_SET =>
-          throw Context.ContextException("Module.MODULE_NOT_SET")
-    })
-    modules ++= lfModules.map(m => m.name -> m)
+      decodeModule(LanguageVersion.Major.V1, module.getMinor, module.getDamlLf1))
 
-    validate(newPackages.keys ++ Iterable(homePackageId), forScenarioService)
+    modules ++= lfModules.map(m => m.name -> m)
+    if (!forScenarioService)
+      validate(newPackages.keys ++ Iterable(homePackageId))
 
     // At this point 'allPackages' is consistent and we can
     // compile the new modules.
@@ -158,7 +148,7 @@ class Context(val contextId: Context.ContextId) {
   }
 
   def allPackages: Map[PackageId, Ast.Package] =
-    extPackages + (homePackageId -> Ast.Package(modules))
+    extPackages + (homePackageId -> Ast.Package(modules, extPackages.keySet))
 
   private def buildMachine(identifier: Identifier): Option[Speedy.Machine] = {
     for {

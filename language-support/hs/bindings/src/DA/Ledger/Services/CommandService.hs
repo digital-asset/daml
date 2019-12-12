@@ -20,34 +20,34 @@ import qualified Com.Digitalasset.Ledger.Api.V1.CommandService as LL
 
 submitAndWait :: Commands -> LedgerService (Either String ())
 submitAndWait commands =
-    makeLedgerService $ \timeout config ->
+    makeLedgerService $ \timeout config mdm ->
     withGRPCClient config $ \client -> do
         service <- LL.commandServiceClient client
         let LL.CommandService{commandServiceSubmitAndWaitForTransactionId=rpc} = service
         let request = LL.SubmitAndWaitRequest (Just (lowerCommands commands)) noTrace
-        rpc (ClientNormalRequest request timeout emptyMdm)
+        rpc (ClientNormalRequest request timeout mdm)
             >>= unwrapWithInvalidArgument
             <&> fmap (\LL.SubmitAndWaitForTransactionIdResponse{} -> ())
 
 submitAndWaitForTransactionId :: Commands -> LedgerService (Either String TransactionId)
 submitAndWaitForTransactionId commands =
-    makeLedgerService $ \timeout config ->
+    makeLedgerService $ \timeout config mdm ->
     withGRPCClient config $ \client -> do
         service <- LL.commandServiceClient client
         let LL.CommandService{commandServiceSubmitAndWaitForTransactionId=rpc} = service
         let request = LL.SubmitAndWaitRequest (Just (lowerCommands commands)) noTrace
-        rpc (ClientNormalRequest request timeout emptyMdm)
+        rpc (ClientNormalRequest request timeout mdm)
             >>= unwrapWithInvalidArgument
             <&> fmap (TransactionId . LL.submitAndWaitForTransactionIdResponseTransactionId)
 
 submitAndWaitForTransaction :: Commands -> LedgerService (Either String Transaction)
 submitAndWaitForTransaction commands =
-    makeLedgerService $ \timeout config ->
+    makeLedgerService $ \timeout config mdm ->
     withGRPCClient config $ \client -> do
         service <- LL.commandServiceClient client
         let LL.CommandService{commandServiceSubmitAndWaitForTransaction=rpc} = service
         let request = LL.SubmitAndWaitRequest (Just (lowerCommands commands)) noTrace
-        rpc (ClientNormalRequest request timeout emptyMdm)
+        rpc (ClientNormalRequest request timeout mdm)
             >>= unwrapWithInvalidArgument
             >>= \case
             Right response ->
@@ -62,12 +62,12 @@ submitAndWaitForTransaction commands =
 
 submitAndWaitForTransactionTree :: Commands -> LedgerService (Either String TransactionTree)
 submitAndWaitForTransactionTree commands =
-    makeLedgerService $ \timeout config ->
+    makeLedgerService $ \timeout config mdm ->
     withGRPCClient config $ \client -> do
         service <- LL.commandServiceClient client
         let LL.CommandService{commandServiceSubmitAndWaitForTransactionTree=rpc} = service
         let request = LL.SubmitAndWaitRequest (Just (lowerCommands commands)) noTrace
-        rpc (ClientNormalRequest request timeout emptyMdm)
+        rpc (ClientNormalRequest request timeout mdm)
             >>= unwrapWithInvalidArgument
             >>= \case
             Right response ->

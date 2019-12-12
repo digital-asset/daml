@@ -117,7 +117,11 @@ onDecl o = descendBi onExp o : extraDecls o
             where ctors = dd_cons $ tcdDataDefn x
         extraDecls _ = []
 
-getFields :: TyClDecl GhcPs -> [(LHsType GhcPs, IdP GhcPs, FieldOcc GhcPs, HsType GhcPs)]
+-- Process a Haskell data type definition. Walk its constructors. For
+-- each, harvest a tuple of the parent type, the ctor name, the field
+-- name and the field type.
+getFields :: TyClDecl GhcPs ->
+               [(LHsType GhcPs, IdP GhcPs, FieldOcc GhcPs, HsType GhcPs)]
 getFields DataDecl{tcdDataDefn=HsDataDefn{..}, ..} = concatMap ctor dd_cons
     where
         ctor (L _ ConDeclH98{con_args=RecCon (L _ fields),con_name=L _ name}) = concatMap (field name) fields
@@ -126,7 +130,9 @@ getFields DataDecl{tcdDataDefn=HsDataDefn{..}, ..} = concatMap ctor dd_cons
         field name (L _ ConDeclField{cd_fld_type=L _ ty, ..}) = [(result, name, fld, ty) | L _ fld <- cd_fld_names]
         field _ _ = error "unknown field declaration in getFields"
 
-        result = noL $ HsParTy noE $ foldl (\x y -> noL $ HsAppTy noE x $ hsLTyVarBndrToType y) (noL $ HsTyVar noE GHC.NotPromoted tcdLName) $ hsq_explicit tcdTyVars
+        -- A value of this data declaration will have this type.
+        result = foldl' (\x y -> noL $ HsAppTy noE x $ hsLTyVarBndrToType y)
+                   (noL $ HsTyVar noE GHC.NotPromoted tcdLName) $ hsq_explicit tcdTyVars
 getFields _ = []
 
 
@@ -152,13 +158,15 @@ onExp (L o (SectionR _ mid@(isDot -> True) rhs))
     , srcSpanStart o == srcSpanStart (getLoc mid)
     , srcSpanEnd o == srcSpanEnd (getLoc rhs)
     , Just sels <- getSelectors rhs
-    = setL o $ mkParen $ foldl1 (\x y -> noL $ OpApp noE x (mkVar var_dot) y) $ map (mkVar var_getField `mkAppType`) $ reverse sels
+    -- Don't bracket here. The argument came in as a section so it's
+    -- already enclosed in brackets.
+    = setL o $ foldl1 (\x y -> noL $ OpApp noE x (mkVar var_dot) y) $ map (mkVar var_getField `mkAppType`) $ reverse sels
 
 -- Turn a{b=c, ...} into setField calls
 onExp (L o upd@RecordUpd{rupd_expr,rupd_flds=L _ (HsRecField (fmap rdrNameAmbiguousFieldOcc -> lbl) arg pun):flds})
     | let sel = mkSelector lbl
     , let arg2 = if pun then noL $ HsVar noE lbl else arg
-    , let expr = mkParen $ mkVar var_setField `mkAppType` sel `mkApp` arg2 `mkApp` mkParen rupd_expr
+    , let expr = mkParen $ mkVar var_setField `mkAppType` sel `mkApp` arg2 `mkApp` rupd_expr -- 'rupd_expr' never needs bracketing.
     = onExp $ if null flds then expr else L o upd{rupd_expr=expr,rupd_flds=flds}
 
 onExp x = descend onExp x

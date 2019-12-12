@@ -12,7 +12,7 @@ load(
 )
 
 dependencies = [
-    "//3rdparty/jvm/ch/qos/logback:logback_classic",
+    "@maven//:ch_qos_logback_logback_classic",
     "//ledger-api/testing-utils",
     "//ledger-api/rs-grpc-bridge",
     "//ledger-api/rs-grpc-akka",
@@ -23,8 +23,8 @@ dependencies = [
     "//daml-lf/engine",
     "//daml-lf/data",
     "//daml-lf/language",
-    "//daml-lf/archive:daml_lf_java_proto",
-    "//daml-lf/archive:daml_lf_archive_scala",
+    "//daml-lf/archive:daml_lf_dev_archive_java_proto",
+    "//daml-lf/archive:daml_lf_archive_reader",
     "//daml-lf/interpreter",
     "//ledger/ledger-api-integration-tests:ledger-api-integration-tests-lib",
     "//ledger/sandbox",
@@ -33,10 +33,10 @@ dependencies = [
     "//ledger/ledger-api-client",
     "//ledger/participant-state",
     "//ledger/ledger-api-domain",
-    "//3rdparty/jvm/com/google/protobuf:protobuf_java",
-    "//3rdparty/jvm/org/scalaz:scalaz_core",
-    "//3rdparty/jvm/com/typesafe/akka:akka_stream",
-    "//3rdparty/jvm/com/typesafe/akka:akka_actor",
+    "@maven//:com_google_protobuf_protobuf_java",
+    "@maven//:org_scalaz_scalaz_core_2_12",
+    "@maven//:com_typesafe_akka_akka_stream_2_12",
+    "@maven//:com_typesafe_akka_akka_actor_2_12",
 ]
 
 da_scala_library(
@@ -60,11 +60,8 @@ da_scala_benchmark_jmh(
     srcs = glob(["src/perf/benches/**/*.scala"]),
     data = [
         "//ledger/sandbox-perf:LargeTransaction.dar",
-        "//ledger/test-common:Test.dar",
+        "//ledger/test-common:Test-stable.dar",
         "@postgresql_dev_env//:all",
-        "@postgresql_dev_env//:createdb",
-        "@postgresql_dev_env//:initdb",
-        "@postgresql_dev_env//:pg_ctl",
     ],
     visibility = ["//visibility:public"],
     deps = [

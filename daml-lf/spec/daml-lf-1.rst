@@ -72,12 +72,12 @@ to interpret previous versions of the language in a backward
 compatibility way.
 
 In the following of this document, we will use annotations between
-square brackets such as *[Available since version x.y]* and *[Changed
-in version x.y]* to emphasize that a particular feature is concerned
-with a change introduced in DAML x.y version. In addition, we will
-mark lines within inference rules with annotations of the form
-``[DAML-LF < x.y]`` and ``[DAML-LF ≥ x.y]`` to make the respective
-line conditional upon the DAML-LF version.
+square brackets such as *[Available in version < x.y]*, *[Available in
+versions >= x.y]*, and *[Changed in version x.y]* to emphasize that a
+particular feature is concerned with a change introduced in DAML x.y
+version. In addition, we will mark lines within inference rules with
+annotations of the form ``[DAML-LF < x.y]`` and ``[DAML-LF ≥ x.y]`` to
+make the respective line conditional upon the DAML-LF version.
 
 The version 1.dev is a special staging area for the next 1.x version to
 be released. Compliant implementations are not required to implement any
@@ -96,145 +96,190 @@ and backward compatibility.
 Version 1.0
 ...........
 
- * Introduction date:
+* Introduction date:
 
-      2018-12-11
+    2018-12-11
 
-  * Description:
+* Description:
 
-      Initial version
+    Initial version
 
 Version: 1.1
 ............
 
-  * Introduction date:
+* Introduction date:
 
-      2019-01-25
+    2019-01-25
 
-  * Last amendment date:
+* Description:
 
-      2019-01-29
+  + **Add** support for `option type
+    <https://en.wikipedia.org/wiki/Option_type>`_.
 
-  * Description:
+    For more details, one can refer to the `Abstract Syntax`_,
+    `Operational semantics`_ and `Type system`_ sections. There, the
+    option type is denoted by ``'Optional'`` and populated thanks to
+    the constructor ``'None'`` and ``'Some'``.
 
-    * **Add** support for `option type
-      <https://en.wikipedia.org/wiki/Option_type>`_.
+  + **Add** built-in functions to order party literals.
 
-      For more details, one can refer to the `Abstract Syntax`_,
-      `Operational semantics`_ and `Type system`_ sections. There, the
-      option type is denoted by ``'Option'`` and populated thanks to
-      the constructor ``'None'`` and ``'Some'``.
+    For more details about party literal order functions, one can to
+    `Party built-in functions <Party functions_>`_ section.
 
-    * **Add** built-in functions to order party literals.
+  + **Change** the representation of serialized function
+    type. Deprecate the ``'Fun'`` type in favor of the more general
+    built-in type ``'TArrow'``.
 
-      For more details about party literal order functions, one can to
-      `Party built-in functions <Party functions_>`_ section.
-
-    * **Change** the representation of serialized function
-      type. Deprecate the ``'Fun'`` type in favor of the more general
-      built-in type ``'TArrow'``.
-
-      For more details about the type ``'TArrow'``, one can refer to
-      the sections "`Abstract Syntax`_", "`Operational semantics`_"
-      and "`Type system`_".  For details about the ``'Fun'`` type, one
-      can refer to section `Function type vs arrow type`.
+    For more details about the type ``'TArrow'``, one can refer to the
+    sections "`Abstract Syntax`_", "`Operational semantics`_" and
+    "`Type system`_".  For details about the ``'Fun'`` type, one can
+    refer to section `Function type vs arrow type`.
 
 
 Version: 1.2
 ............
 
-  * Introduction date:
+* Introduction date:
 
-      2019-03-18
+    2019-03-18
 
-  * Last amendment date:
+* Description:
 
-      2019-03-22
+  + **Add** a built-in function to perform `SHA-256
+    <https://en.wikipedia.org/wiki/SHA-2>`_ hashing of strings
 
-  * Description:
+  + **Add** built-in functions to convert from ``'Party'`` to
+    ``'Text'`` and vice versa.
 
-    * **Add** a built-in function to perform `SHA-256
-      <https://en.wikipedia.org/wiki/SHA-2>`_ hashing of strings
-
-    * **Add** built-in functions to convert from ``'Party'`` to
-      ``'Text'`` and vice versa.
-
-    * **Change** the scope when the controllers of a choice are
-      computed. Needed to support the so-called `flexible controllers`_
-      in the surface language
+  + **Change** the scope when the controllers of a choice are
+    computed. Needed to support the so-called `flexible controllers`_
+    in the surface language
 
 
 Version: 1.3
 ............
 
-  * Introduction date:
+* Introduction date:
 
-      2019-03-25
+    2019-03-25
 
-  * Last amendment date:
+* Description:
 
-      2019-03-25
+  + **Add** support for contract keys.
 
-  * **Add** support for contract keys.
-
-  * **Add** support for built-in ``'Map'`` type.
+  + **Add** support for built-in ``'Map'`` type.
 
 Version: 1.4
 ............
 
-  * Introduction date:
+* Introduction date:
 
-      2019-05-21
+    2019-05-21
 
-  * Last amendment date:
+* Description:
 
-      2019-05-21
-
-  * **Add** support for complex contract keys.
+  + **Add** support for complex contract keys.
 
 Version: 1.5
 ............
 
-  * Introduction date:
+* Introduction date:
 
-      2019-05-27
+    2019-05-27
 
-  * **Change** serializability condition for ``ContractId`` such that
+* Description:
+
+  + **Change** serializability condition for ``ContractId`` such that
     ``ContractId a`` is serializable whenever ``a`` is so. This is more
     relaxed than the previous condition.
 
-  * **Add** ``COERCE_CONTRACT_ID`` primitive for coercing ``ContractId``s.
+  + **Add** ``COERCE_CONTRACT_ID`` primitive for coercing ``ContractId``.
 
-  * **Change** ``Update.Exercise`` such that ``actor`` is now optional.
+  + **Change** ``Update.Exercise`` such that ``actor`` is now optional.
 
-  * **Add** ``FROM_TEXT_INT64`` and ``FROM_TEXT_DECIMAL`` primitives for
+  + **Add** ``FROM_TEXT_INT64`` and ``FROM_TEXT_DECIMAL`` primitives for
     parsing integer and decimal values.
 
 Version: 1.6
 ............
 
-  * Introduction date:
+* Introduction date:
 
-      2019-07-01
+    2019-07-01
 
-  * **Add** support for built-in ``'Enum'`` type.
+* Description:
 
-  * **Add** ``TEXT_FROM_CODE_POINTS`` and ``TEXT_TO_CODE_POINTS``
+  + **Add** support for built-in ``'Enum'`` type.
+
+  + **Add** ``TEXT_FROM_CODE_POINTS`` and ``TEXT_TO_CODE_POINTS``
     primitives for (un)packing strings.
 
-  * **Add** intern package IDs in external package references.
+  + **Add** package IDs interning in external package references.
+
+Version: 1.7
+............
+
+
+* Introduction date:
+
+    2019-11-07
+
+* Description:
+
+  + **Add** Nat kind and Nat type.
+
+    - add `nat` kind
+    - add `nat` type
+
+  + **Add** parametrically scaled Numeric type.
+
+    - add `NUMERIC` primitive type
+    - add `numeric` primitive literal
+    - add numeric builtins, namely `ADD_NUMERIC`, `SUB_NUMERIC`,
+      `MUL_NUMERIC`, `DIV_NUMERIC`, `ROUND_NUMERIC`, `CAST_NUMERIC`,
+      `SHIFT_NUMERIC`, `LEQ_NUMERIC`, `LESS_NUMERIC`, `GEQ_NUMERIC`,
+      `GREATER_NUMERIC`, `FROM_TEXT_NUMERIC`, `TO_TEXT_NUMERIC`,
+      `INT64_TO_NUMERIC`, `NUMERIC_TO_INT64`, `EQUAL_NUMERIC`
+
+  + **Drop** support for Decimal type. Use Numeric of scale 10 instead.
+
+    - drop `DECIMAL` primitive type
+    - drop `decimal` primitive literal
+    - drop decimal builtins, namely `ADD_DECIMAL`, `SUB_DECIMAL`,
+      `MUL_DECIMAL`, `DIV_DECIMAL`, `ROUND_DECIMAL`, `LEQ_DECIMAL`,
+      `LESS_DECIMAL`, `GEQ_DECIMAL`, `GREATER_DECIMAL`,
+      `FROM_TEXT_DECIMAL`, `TO_TEXT_DECIMAL`, `INT64_TO_DECIMAL`,
+      `DECIMAL_TO_INT64`, `EQUAL_DECIMAL`
+
+  + **Add** string interning in external package references.
+
+  + **Add** name interning in external package references.
+
+  + **Add** existential ``Any`` type
+
+    - add `'Any'` primitive type
+    - add `'to_an'y` and `'from_any'` expression to convert from/to an
+      arbitrary ground type (i.e. a type with no free type variables)
+      to ``Any``.
+
+  + **Add** for Type representation.
+
+    - add `'TypeRep'` primitive type
+    - add `type_rep` expression to reify a arbitrary ground type
+      (i.e. a type with no free type variables) to a value.
 
 Version: 1.dev
 ..............
 
-  * **Change** Transaction submitter must be in the contract key
-    maintainers when performing lookup or fetches by key. See
-    `issue #1866 <https://github.com/digital-asset/daml/issues/1866>`_
+  + **Rename** structural records from ``Tuple`` to ``Struct``
 
-  * **Add** Nat kind and Nat type.
+  + **Rename** ``Map`` to ``TextMap``
 
-  * **Replace** fixed scaled 'Decimal' type by parametricly  scaled
-    'Numeric' type.
+  + **Add** generic equality builtin.
+
+  + **Add** generic map type ``GenMap``.
+
+  + **Add** type synonyms.
 
 Abstract syntax
 ^^^^^^^^^^^^^^^
@@ -370,7 +415,7 @@ We can now define all the literals that a program can handle::
        n ∈  \d+
 
   64-bit integer literals:
-        LitInt64  ∈  (-?)\d+                         -- LitInt64:
+        LitInt64  ∈  (-?)\d+                         -- LitInt64
 
   Numeric literals:
       LitNumeric  ∈  ([+-]?)([1-9]\d+|0).\d*        -- LitNumeric
@@ -382,7 +427,7 @@ We can now define all the literals that a program can handle::
      LitTimestamp ∈  \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(.\d{1,3})?Z
                                                      -- LitTimestamp
   UTF8 string literals:
-         LitText ::= String                          -- LitText
+               t ::= String                          -- LitText
 
   Party literals:
         LitParty ::= PartyIdString                   -- LitParty
@@ -397,7 +442,7 @@ The literals represent actual DAML-LF values:
   in base-10 without loss of precision with at most 38 digits
   (ignoring possible leading 0 and with a scale (the number of
   significant digits on the right of the decimal point) between ``0``
-  and ``38`` (bounds inclusive). In the following, we will use
+  and ``37`` (bounds inclusive). In the following, we will use
   ``scale(LitNumeric)`` to denote the scale of the decimal number.
 * A ``LitDate`` represents the number of day since
   ``1970-01-01`` with allowed range from ``0001-01-01`` to
@@ -419,6 +464,11 @@ The literals represent actual DAML-LF values:
    integer, i.e. it equals ``2⁶³``.  Similarly,``2019-13-28`` is not a
    valid ``LitDate`` because there are only 12 months in a year.
 
+Number-like literals (``LitNatTyp``, ``LitInt64``, ``LitNumeric``,
+``LitDate``, ``LitTimestamp``) are ordered by natural
+ordering. Text-like literals (``LitText`` and ``LitParty`` are ordered
+lexicographically.  Contract Ids are not ordered.
+
 
 Identifiers
 ~~~~~~~~~~~
@@ -437,10 +487,14 @@ Identifiers are standard `java identifiers
 restricted to US-ASCII while names are sequences of identifiers
 intercalated with dots.
 
+The character ``%`` is reserved for external languages built on
+DAML-LF as a "not an Ident" notation, so should not be considered for
+future addition to allowed identifier characters.
+
 In the following, we will use identifiers to represent *built-in
-functions*, term and type *variable names*, record and tuple *field
-names*, *variant constructors*, and *template choices*. On the other
-hand, we will use names to represent *type constructors*, *value
+functions*, term and type *variable names*, record and struct *field
+names*, *variant constructors* and *template choices*. On the other
+hand, we will use names to represent *type constructors*, *type synonyms*, *value
 references*, and *module names*. Finally, we will use PackageId
 strings as *package identifiers*.  ::
 
@@ -453,7 +507,7 @@ strings as *package identifiers*.  ::
   Built-in function names
               F ::= Ident                           -- Builtin
 
-  Record and tuple field names
+  Record and struct field names
               f ::= Ident                           -- Field
 
   Variant data constructors
@@ -491,8 +545,8 @@ Also note that package identifiers are typically `cryptographic hash
 <Package hash_>`_ of the content of the package itself.
 
 
-Kinds, types and, expression
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Kinds, types, and expressions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. TODO We might want to consider changing the syntax for ``Mod``,
    since in our software we use the colon to separate the module name
@@ -514,7 +568,7 @@ Then we can define our kinds, types, and expressions::
     BuiltinType
       ::= 'TArrow'                                  -- BTArrow: Arrow type
        |  'Int64'                                   -- BTyInt64: 64-bit integer
-       |  'Numeric'                                 -- BTyNumeric: numeric, precision 38, parametric scale between 0 and 38
+       |  'Numeric'                                 -- BTyNumeric: numeric, precision 38, parametric scale between 0 and 37
        |  'Text'                                    -- BTyText: UTF-8 string
        |  'Date'                                    -- BTyDate
        |  'Timestamp'                               -- BTyTime: UTC timestamp
@@ -523,10 +577,13 @@ Then we can define our kinds, types, and expressions::
        |  'Unit'                                    -- BTyUnit
        |  'Bool'                                    -- BTyBool
        |  'List'                                    -- BTyList
-       |  'Option'                                  -- BTyOption
-       |  'Map'                                     -- BTMap
+       |  'Optional'                                -- BTyOptional
+       |  'TextMap'                                 -- BTTextMap: map with string keys
+       |  'GenMap'                                  -- BTGenMap: map with general value keys
        |  'Update'                                  -- BTyUpdate
        |  'ContractId'                              -- BTyContractId
+       |  'Any'                                     -- BTyAny
+       |  'TypeRep'                                 -- BTTypeRep
 
   Types (mnemonic: tau for type)
     τ, σ
@@ -536,7 +593,7 @@ Then we can define our kinds, types, and expressions::
        |  ∀ α : k . τ                               -- TyForall: Universal quantification
        |  BuiltinType                               -- TyBuiltin: Builtin type
        |  Mod:T                                     -- TyCon: type constructor
-       |  ⟨ f₁: τ₁, …, fₘ: τₘ ⟩                     -- TyTuple: Tuple type
+       |  ⟨ f₁: τ₁, …, fₘ: τₘ ⟩                     -- TyStruct: Structural record type
 
   Expressions
     e ::= x                                         -- ExpVar: Local variable
@@ -549,13 +606,9 @@ Then we can define our kinds, types, and expressions::
        |  ()                                        -- ExpUnit
        |  'True'                                    -- ExpTrue
        |  'False'                                   -- ExpFalse
-       |  'Nil' @τ                                  -- ExpListNil: Empty list
-       |  'Cons' @τ e₁ e₂                           -- ExpListCons: Cons list
-       |  'None' @τ                                 -- ExpOptionNone: Empty Option
-       |  'Some' @τ e                               -- ExpOptionSome: Non-empty Option
        |  LitInt64                                  -- ExpLitInt64: 64-bit integer literal
        |  LitNumeric                                -- ExpLitNumeric: Numeric literal
-       |  LitText                                   -- ExpLitText: UTF-8 string literal
+       |  t                                         -- ExpLitText: UTF-8 string literal
        |  LitDate                                   -- ExpLitDate: Date literal
        |  LitTimestamp                              -- ExpLitTimestamp: UTC timestamp literal
        |  LitParty                                  -- ExpLitParty: Party literal
@@ -567,9 +620,18 @@ Then we can define our kinds, types, and expressions::
        |  Mod:T @τ₁ … @τₙ { e₁ 'with' f = e₂ }      -- ExpRecUpdate: Record update
        |  Mod:T:V @τ₁ … @τₙ e                       -- ExpVariantCon: Variant construction
        |  Mod:T:E                                   -- ExpEnumCon:Enum construction
-       |  ⟨ f₁ = e₁, …, fₘ = eₘ ⟩                   -- ExpTupleCon: Tuple construction
-       |  e.f                                       -- ExpTupleProj: Tuple projection
-       |  ⟨ e₁ 'with' f = e₂ ⟩                      -- ExpTupleUpdate: Tuple update
+       |  ⟨ f₁ = e₁, …, fₘ = eₘ ⟩                   -- ExpStructCon: Struct construction
+       |  e.f                                       -- ExpStructProj: Struct projection
+       |  ⟨ e₁ 'with' f = e₂ ⟩                      -- ExpStructUpdate: Struct update
+       |  'Nil' @τ                                  -- ExpListNil: Empty list
+       |  'Cons' @τ e₁ e₂                           -- ExpListCons: Cons list
+       |  'None' @τ                                 -- ExpOptionalNone: Empty Optional
+       |  'Some' @τ e                               -- ExpOptionalSome: Non-empty Optional
+       |  [t₁ ↦ e₁; …; tₙ ↦ eₙ]                     -- ExpTextMap
+       | 〚e₁ ↦ e₁; …; eₙ ↦ eₙ'〛                    -- ExpGenMap
+       | 'to_any' @τ t                              -- ExpToAny: Wrap a value of the given type in Any
+       | 'from_any' @τ t                            -- ExpToAny: Extract a value of the given from Any or return None
+       | 'type_rep' @τ                              -- ExpToTypeRep: A type representation
        |  u                                         -- ExpUpdate: Update expression
 
   Patterns
@@ -598,18 +660,22 @@ Then we can define our kinds, types, and expressions::
        |  'embed_expr' @τ e                         -- UpdateEmbedExpr
 
 
-.. (RH) is better?
-    *  Mod:T @τ₁ … @τₙ {f} e
-    *  e.(Mod:T @τ₁ … @τₙ)
+.. note:: The explicit syntax for maps (cases ``ExpTextMap`` and
+  ``ExpGenMap``) is forbidden in serialized programs. It is specifies
+  here to ease the definition of `values`_, `operational semantics`_
+  and `value equality`_. In practice, `text map functions`_ and
+  `generic map functions`_ are the only way to create and handle those
+  objects.
 
+.. note:: The order of entries in maps (cases ``ExpTextMap`` and
+  ``ExpGenMap``) is always significant. For text maps, the entries
+  should be always ordered by keys. On the other hand, the order of
+  entries in generic maps indicate the order in which the keys have
+  been inserted into the map.
 
 In the following, we will use ``τ₁ → τ₂`` as syntactic sugar for the
 type application ``('TArrow' τ₁ τ₂)`` where ``τ₁`` and ``τ₂`` are
 types.
-
-*Note that the type* ``'Option'`` *together with the
-constructors/patterns* ``'None'`` *and* ``'Some'`` *are available
-since version 1.1*.
 
 
 Definitions
@@ -635,10 +701,11 @@ available for usage::
     Def
       ::=
        |  'record' T (α₁: k₁)… (αₙ: kₙ) ↦ { f₁ : τ₁, …, fₘ : τₘ }
-                                                    -- DefRecord
+                                                    -- DefRecord: Nominal record type
        |  'variant' T (α₁: k₁)… (αₙ: kₙ) ↦ V₁ : τ₁ | … | Vₘ : τₘ
                                                     -- DefVariant
        |  'enum' T  ↦ E₁ | … | Eₘ                    -- DefEnum
+       |  'synonym' T (α₁: k₁)… (αₙ: kₙ) ↦ τ        -- DefTypeSynonym
        |  'val' W : τ ↦ e                           -- DefValue
        |  'tpl' (x : T) ↦                           -- DefTemplate
             { 'precondition' e₁
@@ -739,10 +806,16 @@ First, we formally defined *well-formed types*. ::
     ————————————————————————————————————————————— TyForall
       Γ  ⊢  ∀ α : k . τ  :  ⋆
 
-    ————————————————————————————————————————————— TyInt64
+    ————————————————————————————————————————————— TyArrow
       Γ  ⊢  'TArrow' : ⋆ → ⋆
 
-    ————————————————————————————————————————————— TyInt64
+    ————————————————————————————————————————————— TyUnit
+      Γ  ⊢  'Unit' : ⋆
+
+    ————————————————————————————————————————————— TyBool
+      Γ  ⊢  'Bool' : ⋆
+
+   ————————————————————————————————————————————— TyInt64
       Γ  ⊢  'Int64' : ⋆
 
     ————————————————————————————————————————————— TyNumeric
@@ -760,29 +833,29 @@ First, we formally defined *well-formed types*. ::
     ————————————————————————————————————————————— TyParty
       Γ  ⊢  'Party' : ⋆
 
-    ————————————————————————————————————————————— TyUnit
-      Γ  ⊢  'Unit' : ⋆
-
-    ————————————————————————————————————————————— TyBool
-      Γ  ⊢  'Bool' : ⋆
-
-    ————————————————————————————————————————————— TyDate
-      Γ  ⊢  'Date' : ⋆
-
     ————————————————————————————————————————————— TyList
       Γ  ⊢  'List' : ⋆ → ⋆
 
-    ————————————————————————————————————————————— TyOption
-      Γ  ⊢  'Option' : ⋆ → ⋆
+    ————————————————————————————————————————————— TyOptional
+      Γ  ⊢  'Optional' : ⋆ → ⋆
 
-    ————————————————————————————————————————————— TyOption
-      Γ  ⊢  'Map' : ⋆ → ⋆
+    ————————————————————————————————————————————— TyTextMap
+      Γ  ⊢  'TextMap' : ⋆ → ⋆
+
+    ————————————————————————————————————————————— TyGenMap
+      Γ  ⊢  'GenMap' : ⋆ → ⋆ → ⋆
 
     ————————————————————————————————————————————— TyUpdate
       Γ  ⊢  'Update' : ⋆ → ⋆
 
     ————————————————————————————————————————————— TyContractId
       Γ  ⊢  'ContractId' : ⋆  → ⋆
+
+    ————————————————————————————————————————————— TyAny
+      Γ  ⊢  'Any' : ⋆
+
+    ————————————————————————————————————————————— TyTypeRep
+      Γ  ⊢  'TypeRep' : ⋆
 
       'record' T (α₁:k₁) … (αₙ:kₙ) ↦ … ∈ 〚Ξ〛Mod
     ————————————————————————————————————————————— TyRecordCon
@@ -797,8 +870,14 @@ First, we formally defined *well-formed types*. ::
       Γ  ⊢  Mod:T :  ⋆
 
       Γ  ⊢  τ₁  :  ⋆    …    Γ  ⊢  τₙ  :  ⋆
-    ————————————————————————————————————————————— TyTuple
+    ————————————————————————————————————————————— TyStruct
       Γ  ⊢  ⟨ f₁: τ₁, …, fₙ: τₙ ⟩  :  ⋆
+
+      'synonym' T (α₁:k₁) … (αₙ:kₙ) ↦ τ ∈ 〚Ξ〛Mod
+      Γ  ⊢  τ₁ : k₁  …  Γ  ⊢  τₙ : kₙ
+    ————————————————————————————————————————————— TyTypeSynonym
+      Γ  ⊢  Mod:T τ₁ … τₙ  :  ⋆
+
 
 
 Well-formed expression
@@ -860,6 +939,30 @@ Then we define *well-formed expressions*. ::
     ——————————————————————————————————————————————————————————————— ExpOptionSome
       Γ  ⊢  'Some' @τ e  :  'Option' τ
 
+      ∀ i,j ∈ 1, …, n  i > j ∨ tᵢ ≤ tⱼ
+      Γ  ⊢  e₁  :  τ     Γ  ⊢  eₙ :  τ
+    ——————————————————————————————————————————————————————————————— ExpTextMap
+      Γ  ⊢  [t₁ ↦ e₁; …; tₙ ↦ eₙ] : 'TextMap' τ
+
+      Γ  ⊢  e₁  :  σ      Γ  ⊢  eₙ :  σ
+      Γ  ⊢  e₁'  :  τ     Γ  ⊢  eₙ' :  τ
+    ——————————————————————————————————————————————————————————————— ExpGenMap (*)
+      Γ  ⊢  〚e₁ ↦ e₁'; …; eₙ ↦ eₙ'〛: GenMap σ τ
+
+      τ contains no quantifiers
+      ε  ⊢  τ : *     Γ  ⊢  e  : τ
+    ——————————————————————————————————————————————————————————————— ExpToAny
+      Γ  ⊢  'to_any' @τ e  :  'Any'
+
+      τ contains no quantifiers
+      ε  ⊢  τ : *     Γ  ⊢  e  : Any
+    ——————————————————————————————————————————————————————————————— ExpFromAny
+      Γ  ⊢  'from_any' @τ e  :  'Optional' τ
+
+      ε  ⊢  τ : *     τ contains no quantifiers
+    ——————————————————————————————————————————————————————————————— ExpTypeRep
+      Γ  ⊢  'type_rep' @τ  :  'TypeRep'
+
     ——————————————————————————————————————————————————————————————— ExpBuiltin
       Γ  ⊢  F : 𝕋(F)
 
@@ -871,7 +974,7 @@ Then we define *well-formed expressions*. ::
       Γ  ⊢  LitNumeric  :  'Numeric' n
 
     ——————————————————————————————————————————————————————————————— ExpLitText
-      Γ  ⊢  LitText  :  'Text'
+      Γ  ⊢  t  :  'Text'
 
     ——————————————————————————————————————————————————————————————— ExpLitDate
       Γ  ⊢  LitDate  :  'Date'
@@ -922,17 +1025,23 @@ Then we define *well-formed expressions*. ::
     ——————————————————————————————————————————————————————————————— ExpEnumCon
       Γ  ⊢  Mod:T:Eᵢ  :  Mod:T
 
-      Γ  ⊢  e₁  :  τ₁      …      Γ  ⊢  eₘ  :  τₘ
-    ——————————————————————————————————————————————————————————————— ExpTupleCon
+      'synonym' T (α₁:k₁) … (αₙ:kₙ) ↦ τ
+      Γ  ⊢  τ₁ : k₁    ⋯     Γ  ⊢  τₙ : kₙ
+      Γ  ↦  e : τ[α₁ ↦ τ₁, …, α₁ ↦ τₙ]
+    ——————————————————————————————————————————————————————————————— ExpTypeSynonym
+      Γ  ⊢  e : Mod:T τ₁ … τₙ
+
+      Γ  ⊢  e₁  :  τ₁      ⋯      Γ  ⊢  eₘ  :  τₘ
+    ——————————————————————————————————————————————————————————————— ExpStructCon
       Γ  ⊢  ⟨ f₁ = e₁, …, fₘ = eₘ ⟩  :  ⟨ f₁: τ₁, …, fₘ: τₘ ⟩
 
       Γ  ⊢  e  :  ⟨ …, fᵢ: τᵢ, … ⟩
-    ——————————————————————————————————————————————————————————————— ExpTupleProj
+    ——————————————————————————————————————————————————————————————— ExpStructProj
       Γ  ⊢  e.fᵢ  :  τᵢ
 
       Γ  ⊢  e  :  ⟨ f₁: τ₁, …, fᵢ: τᵢ, …, fₙ: τₙ ⟩
       Γ  ⊢  eᵢ  :  τᵢ
-    ——————————————————————————————————————————————————————————————— ExpTupleUpdate
+    ——————————————————————————————————————————————————————————————— ExpStructUpdate
       Γ  ⊢   ⟨ e 'with' fᵢ = eᵢ ⟩  :  ⟨ f₁: τ₁, …, fₙ: τₙ ⟩
 
       'variant' T (α₁:k₁) … (αₙ:kn) ↦ … | V : τ | …  ∈  〚Ξ〛Mod
@@ -957,11 +1066,11 @@ Then we define *well-formed expressions*. ::
     ——————————————————————————————————————————————————————————————— ExpCaseCons
       Γ  ⊢  'case' e₁ 'of' Cons xₕ xₜ → e₂  :  σ
 
-      Γ  ⊢  e₁  : 'Option' τ      Γ  ⊢  e₂  :  σ
+      Γ  ⊢  e₁  : 'Optional' τ      Γ  ⊢  e₂  :  σ
     ——————————————————————————————————————————————————————————————— ExpCaseNone
       Γ  ⊢  'case' e₁ 'of' 'None' → e₂ : σ
 
-      Γ  ⊢  e₁  : 'Option' τ      Γ  ⊢  x : τ · Γ  ⊢  e₂  :  σ
+      Γ  ⊢  e₁  : 'Optional' τ      Γ  ⊢  x : τ · Γ  ⊢  e₂  :  σ
     ——————————————————————————————————————————————————————————————— ExpCaseSome
       Γ  ⊢  'case' e₁ 'of' 'Some' x → e₂  :  σ
 
@@ -1041,11 +1150,18 @@ Then we define *well-formed expressions*. ::
     ——————————————————————————————————————————————————————————————— UpdLookupByKey
       Γ  ⊢  'lookup_by_key' @Mod:T e
               :
-	    'Update' ('Option' (ContractId Mod:T))
+	    'Update' ('Optional' (ContractId Mod:T))
 
       Γ  ⊢  e  :  'Update' τ
     ——————————————————————————————————————————————————————————————— UpdEmbedExpr
       Γ  ⊢  'embed_expr' @τ e  :  Update' τ
+
+
+.. note :: Unlike ``ExpTextMap``, the ``ExpGenMap`` rule does not
+  enforce uniqueness of key. In practice, the uniqueness is enforced
+  by the `builtin functions <Generic Map functions>`_ that are the
+  only way to handle generic maps in a serialized program, the
+  explicit syntax for maps being forbidden in serialized programs.
 
 
 Serializable types
@@ -1070,8 +1186,8 @@ types are the types whose values can be persisted on the ledger. ::
       ⊢ₛ  'List' τ
 
       ⊢ₛ  τ
-    ———————————————————————————————————————————————————————————————— STyOption
-      ⊢ₛ  'Option' τ
+    ———————————————————————————————————————————————————————————————— STyOptional
+      ⊢ₛ  'Optional' τ
 
     ———————————————————————————————————————————————————————————————— STyInt64
       ⊢ₛ  'Int64'
@@ -1125,7 +1241,7 @@ types are the types whose values can be persisted on the ledger. ::
 
 Note that
 
-1. Tuples are *not* serializable.
+1. Structs are *not* serializable.
 2. Uninhabited variant and enum types are *not* serializable.
 3. For a data type to be serializable, *all* type
    parameters must be instantiated with serializable types, even
@@ -1145,7 +1261,7 @@ for the ``DefTemplate`` rule). ::
                           └────────┘
 
     αₙ : kₙ · ⋯ · α₁ : k₁  ⊢  τ₁  :  ⋆
-     ⋮
+       ⋮
     αₙ : kₙ · ⋯ · α₁ : k₁  ⊢  τₘ  :  ⋆
   ——————————————————————————————————————————————————————————————— DefRec
     ⊢  'record' T (α₁: k₁) … (αₙ: kₙ) ↦ { f₁: τ₁, …, fₘ: τₘ }
@@ -1159,6 +1275,10 @@ for the ``DefTemplate`` rule). ::
   ——————————————————————————————————————————————————————————————— DefEnum
     ⊢  'enum' T  ↦ E₁ | … | Eₘ
 
+    (α₁:k₁) … (αₙ:kₙ) · Γ  ⊢  τ  :  ⋆
+  ——————————————————————————————————————————————————————————————— DefTypeSynonym
+    ⊢  'synonym' T (α₁: k₁) … (αₙ: kₙ) ↦ τ
+
     ε  ⊢  e  :  τ
   ——————————————————————————————————————————————————————————————— DefValue
     ⊢  'val' W : τ ↦ e
@@ -1169,7 +1289,7 @@ for the ``DefTemplate`` rule). ::
     x : Mod:T  ⊢  eₛ  :  'List' 'Party'
     x : Mod:T  ⊢  eₒ  :  'List' 'Party'
     x : Mod:T  ⊢  eₐ  :  'Text'
-    x : Mod:T  ⊢  ChDef₁      …      x : Mod:T  ⊢  ChDefₘ
+    x : Mod:T  ⊢  ChDef₁      ⋯      x : Mod:T  ⊢  ChDefₘ
     x : Mod:T  ⊢  KeyDef
   ——————————————————————————————————————————————————————————————— DefTemplate
     ⊢  'tpl' (x : T) ↦
@@ -1203,7 +1323,7 @@ for the ``DefTemplate`` rule). ::
   ——————————————————————————————————————————————————————————————— ExpRecProj
     ⊢ₖ  Mod:T @τ₁ … @τₙ {f} e
 
-    ⊢ₖ  e₁    …    ⊢ₖ eₘ
+    ⊢ₖ  e₁    ⋯    ⊢ₖ eₘ
   ———————————————————————————————————————————————————————————————— ExpRecCon
     ⊢ₖ  Mod:T @σ₁ … @σₙ { f₁ = e₁, …, fₘ = eₘ }
 
@@ -1281,17 +1401,19 @@ name* construct as follows:
   in the module ``Mod`` is ``Mod.T``.
 * The *fully resolved name* of a variant type constructor ``T``
   defined in the module ``Mod`` is ``Mod.T``.
-* The *fully resolved name* of a enum type constructor ``T``
-  defined in the module ``Mod`` is ``Mod.T``.
+* The *fully resolved name* of a enum type constructor ``T`` defined
+  in the module ``Mod`` is ``Mod.T``.
+* The *fully resolved name* of a type synonym ``T`` defined in the
+  module ``Mod`` is ``Mod.T``.
 * The *fully resolved name* of a field ``fᵢ`` of a record type
-  definition ``'record' T …  ↦ { …, fᵢ: τᵢ, … }`` defined in the module
-  ``Mod`` is ``Mod.T.fᵢ``
+  definition ``'record' T …  ↦ { …, fᵢ: τᵢ, … }`` defined in the
+  module ``Mod`` is ``Mod.T.fᵢ``
 * The *fully resolved name* of a variant constructor ``Vᵢ`` of a
-  variant type definition ``'variant' T … ↦ …  | Vᵢ: τᵢ | …`` defined in
-  the module ``Mod`` is ``Mod.T.Vᵢ``.
-* The *fully resolved name* of a enum constructor ``Eᵢ`` of a enum type
-   definition ``'enum' T ↦ …  | Eᵢ | …`` defined in the module ``Mod``
-   is ``Mod.T.Eᵢ``.
+  variant type definition ``'variant' T … ↦ …  | Vᵢ: τᵢ | …`` defined
+  in the module ``Mod`` is ``Mod.T.Vᵢ``.
+* The *fully resolved name* of a enum constructor ``Eᵢ`` of a enum
+   type definition ``'enum' T ↦ …  | Eᵢ | …`` defined in the module
+   ``Mod`` is ``Mod.T.Eᵢ``.
 * The *fully resolved name* of a choice ``Ch`` of a template
   definition ``'tpl' (x : T) ↦ { …, 'choices' { …, 'choice' ChKind Ch
   … ↦ …, … } }`` defined in the module ``Mod`` is ``Mod.T.Ch``.
@@ -1403,7 +1525,7 @@ need to be evaluated further. ::
      ⊢ᵥ  LitNumeric
 
    ——————————————————————————————————————————————————— ValExpLitText
-     ⊢ᵥ  LitText
+     ⊢ᵥ  t
 
    ——————————————————————————————————————————————————— ValExpLitDate
      ⊢ᵥ  LitDate
@@ -1426,27 +1548,32 @@ need to be evaluated further. ::
    ——————————————————————————————————————————————————— ValExpListNil
      ⊢ᵥ  'Nil' @τ
 
-     ⊢ᵥ  e₁     ⊢ᵥ  e₂
+     ⊢ᵥ  eₕ     ⊢ᵥ  eₜ
    ——————————————————————————————————————————————————— ValExpListCons
      ⊢ᵥ  'Cons' @τ eₕ eₜ
 
-   ——————————————————————————————————————————————————— ValExpListNil
+   ——————————————————————————————————————————————————— ValExpOptionalNone
      ⊢ᵥ  'None' @τ
 
      ⊢ᵥ  e
-   ——————————————————————————————————————————————————— ValExpListCons
+   ——————————————————————————————————————————————————— ValExpOptionalSome
      ⊢ᵥ  'Some' @τ e
 
-     ⊢ᵥ  e₁      …      ⊢ᵥ  eₙ
-   ——————————————————————————————————————————————————— ValExpRecCon
-     ⊢ᵥ  Mod:T @τ₁ … @τₙ { f₁ = e₁, …, fₙ = eₙ }
+     ⊢ᵥ  e₁    ⋯    ⊢ᵥ eₙ
+   ——————————————————————————————————————————————————— ValExpTextMap
+     ⊢ᵥ  [t₁ ↦ e₁; … ; tₙ ↦ eₙ]
 
-     1 ≤ k ≤ m
+     ⊢ᵥ  e₁    ⋯    ⊢ᵥ eₙ
+     ⊢ᵥ  e₁'   ⋯    ⊢ᵥ eₙ'
+   ——————————————————————————————————————————————————— ValExpGenMap
+     ⊢ᵥ  〚e₁ ↦ e₁'; … ; eₙ ↦ eₙ'〛
+
+     0 ≤ k < m
      𝕋(F) = ∀ (α₁: ⋆) … (αₘ: ⋆). σ₁ → … → σₙ → σ
    ——————————————————————————————————————————————————— ValExpBuiltin₁
      ⊢ᵥ  F @τ₁ … @τₖ
 
-     1 ≤ k < n
+     0 ≤ k < n
      𝕋(F) = ∀ (α₁: ⋆) … (αₘ: ⋆). σ₁ → … → σₙ → σ
      ⊢ᵥ  e₁      …      ⊢ᵥ  eₖ
    ——————————————————————————————————————————————————— ValExpBuiltin₂
@@ -1464,8 +1591,15 @@ need to be evaluated further. ::
      ⊢ᵥ  Mod:T:E
 
      ⊢ᵥ  e₁      ⋯      ⊢ᵥ  eₘ
-   ——————————————————————————————————————————————————— ValExpTupleCon
+   ——————————————————————————————————————————————————— ValExpStructCon
      ⊢ᵥ  ⟨ f₁ = e₁, …, fₘ = eₘ ⟩
+
+     ⊢ᵥ  e
+   ——————————————————————————————————————————————————— ValExpToAny
+     ⊢ᵥ  'to_any' @τ e
+
+   ——————————————————————————————————————————————————— ValExpTypeRep
+     ⊢ᵥ  'type_rep' @τ
 
      ⊢ᵥ  e
    ——————————————————————————————————————————————————— ValExpUpdPure
@@ -1488,7 +1622,7 @@ need to be evaluated further. ::
      ⊢ᵥ  'exercise_without_actors' Mod:T.Ch e₁ e₂
 
      ⊢ᵥ  e
-   ——————————————————————————————————————————————————— ValExpUpFecthByKey
+   ——————————————————————————————————————————————————— ValExpUpFetchByKey
      ⊢ᵥ  'fetch_by_key' @τ e
 
      ⊢ᵥ  e
@@ -1505,7 +1639,7 @@ need to be evaluated further. ::
 
 Note that the argument of an embedded expression does not need to be a
 value for the whole to be so.  In the following, we will use the
-symbol ``v`` to represent an expression which is a value.
+symbol ``v`` or ``w`` to represent an expression which is a value.
 
 
 Pattern matching
@@ -1567,6 +1701,107 @@ bound by pattern.
        v 'matches' p  ⇝  Fail
 
 
+Value equality
+~~~~~~~~~~~~~~
+
+We define here the relation ``~ᵥ`` on values that is used as equality
+check. This is a partial equivalence relation over all values, but a
+(total) equivalence relation over serialized values. This relation
+will always be used to compare values of same types::
+
+                                ┌────────┐
+  Value Equivalence Relation    │ v ~ᵥ w │
+                                └────────┘
+
+  ——————————————————————————————————————————————————— GenEqUnit
+   () ~ᵥ ()
+
+  ——————————————————————————————————————————————————— GenEqTrue
+   'True' ~ᵥ 'True'
+
+  ——————————————————————————————————————————————————— GenEqFalse
+   'False' ~ᵥ 'False'
+
+  ——————————————————————————————————————————————————— GenEqLitNumeric
+   LitNumeric ~ᵥ LitNumeric
+
+  ——————————————————————————————————————————————————— GenEqLitText
+   t ~ᵥ t
+
+  ——————————————————————————————————————————————————— GenEqLitDate
+   LitDate ~ᵥ LitDate
+
+  ——————————————————————————————————————————————————— GenEqLitTimestamp
+   LitTimestamp ~ᵥ LitTimestamp
+
+  ——————————————————————————————————————————————————— GenEqLitParty
+   LitParty ~ᵥ LitParty
+
+   cid₁ and cid₂ are the same
+  ——————————————————————————————————————————————————— GenEqLitContractId
+   cid₁ ~ᵥ cid₂
+
+  ——————————————————————————————————————————————————— GenEqListNil
+   'Nil' @τ₁ ~ᵥ 'Nil' @τ₂
+
+   vₕ ~ᵥ wₕ  vₜ ~ᵥ wₜ
+  ——————————————————————————————————————————————————— GenEqListCons
+   'Cons' @τ vₕ vₜ  ~ᵥ 'Cons' @τ wₜ wₜ
+
+  ——————————————————————————————————————————————————— GenEqOptionalNone
+   'None' @τ ~ᵥ 'None' @σ
+
+   v ~ᵥ w
+  ——————————————————————————————————————————————————— GenEqOptionalSome
+   'Some' @τ v ~ᵥ 'Some' @σ w
+
+   v₁ ~ᵥ v₁     ⋯       vₘ ~ᵥ wₘ
+  ——————————————————————————————————————————————————— GenEqRecCon
+  Mod:T @τ1 … @τₙ { f₁ = v₁, …, fₙ = wₘ }
+    ~ᵥ Mod:T @σ₁ … @σₙ { f₁ = w₁, …, fₙ = wₘ }
+
+   v ~ᵥ w
+  ——————————————————————————————————————————————————— GenEqVariantCon
+   Mod:T:V @τ₁ … @τₙ v ~ᵥ Mod:T:V @σ₁ … @σₙ w
+
+  ——————————————————————————————————————————————————— GenEqEnumCon
+   Mod:T:E ~ᵥ Mod:T:E
+
+   v₁ ~ᵥ w₁     ⋯       vₙ ~ᵥ wₙ
+  ——————————————————————————————————————————————————— GenEqStructCon
+   ⟨ f₁ = v₁, …, fₘ = vₘ ⟩ ~ᵥ ⟨ f₁ = w₁, …, fₘ = wₘ ⟩
+
+
+    ∀ i ∈ 1,…, m . ∃ j ∈ 1, …,m . vⱼ ~ vₘ ∧ v(vⱼ) = w(vₘ)
+
+
+    v₁ ~ᵥ w₁     ⋯       vₙ ~ᵥ wₙ
+  ——————————————————————————————————————————————————— GenEqTextMap
+   [ t₁ ↦ v₁, …, tₘ ↦ vₘ ]
+     ~ᵥ  [s₁ ↦ w₁, …, sₘ ↦ wₘ]
+
+
+  ——————————————————————————————————————————————————— GenEqEmptyGenMap
+   〚 〛 ~ᵥ 〚 〛
+
+    i ∈ 1 … m       vᵢ ~ᵥ v₁'      wᵢ ~ᵥ w₁'
+   〚 v₁ ↦ w₁, …, vᵢ₋₁ ↦ vᵢ₋₁, vᵢ₊₁ ↦ vᵢ₊₁, …,  vₘ ↦ wₘ 〛
+      ~ᵥ〚 v₂' ↦ w₂', …, vₘ' ↦ wₘ' 〛
+  ——————————————————————————————————————————————————— GenEqNonEmptyGenMap
+   〚 v₁ ↦ w₁, …, vₘ ↦ wₘ 〛 ~ᵥ 〚 v₁' ↦ w₁', …, vₘ' ↦ wₘ 〛
+
+  ——————————————————————————————————————————————————— GenEqTypeRep
+    'type_rep' @τ ~ᵥ 'type_rep' @τ
+
+    v ~ᵥ w
+  ——————————————————————————————————————————————————— GenEqAny
+    'to_any' @τ v ~ᵥ 'to_any' @τ w
+
+
+.. note:: the equality of generic map is not sensitive to the order of
+          its entries. See rules ``'GenEqNonEmptyGenMap'``.
+
+
 Expression evaluation
 ~~~~~~~~~~~~~~~~~~~~~
 
@@ -1599,7 +1834,7 @@ exact output.
 
   Evaluation result
     r ::= Ok v                                      -- ResOk
-       |  Err LitText                               -- ResErr
+       |  Err t                                     -- ResErr
 
                            ┌───────────────────┐
   Big-step evaluation      │ e ‖ E₁  ⇓  r ‖ E₂ │
@@ -1624,6 +1859,18 @@ exact output.
       e₂[x ↦ v₁] ‖ E₁  ⇓  r ‖ E₂
     —————————————————————————————————————————————————————————————————————— EvExpLet
       'let' x : τ = e₁ 'in' e₂ ‖ E₀  ⇓  r ‖ E₂
+
+      e ‖ E₀  ⇓  Ok v ‖ E₁
+    —————————————————————————————————————————————————————————————————————— EvExpToAny
+      'to_any' @τ e ‖ E₀  ⇓  Ok('to_any' @τ v) ‖ E₁
+
+      e ‖ E₀  ⇓  Ok ('to_any' @τ v) ‖ E₁
+    —————————————————————————————————————————————————————————————————————— EvExpFromAnySucc
+      'from_any' @τ e ‖ E₀  ⇓  'Some' @τ v ‖ E₁
+
+      e ‖ E₀  ⇓  Ok ('to_any' @τ₁ v) ‖ E₁     τ₁ ≠ τ₂
+    —————————————————————————————————————————————————————————————————————— EvExpFromAnyFail
+      'from_any' @τ₂ e ‖ E₀  ⇓  'None' ‖ E₁
 
       e₁ ‖ E₀  ⇓  Ok v₁ ‖ E₁
       v 'matches' p₁  ⇝  Succ (x₁ ↦ v₁ · … · xₘ ↦ vₘ · ε)
@@ -1693,16 +1940,16 @@ exact output.
       e₁ ‖ E₀  ⇓  Ok v₁ ‖ E₁
         ⋮
       eₙ ‖ Eₙ₋₁  ⇓  Ok vₙ ‖ Eₙ
-    —————————————————————————————————————————————————————————————————————— EvExpTupleCon
+    —————————————————————————————————————————————————————————————————————— EvExpStructCon
       ⟨f₁ = e₁, …, fₙ = eₙ⟩ ‖ E₀  ⇓  Ok ⟨f₁ = v₁, …, fₙ = vₙ⟩ ‖ Eₙ
 
       e ‖ E₀  ⇓  Ok ⟨ f₁= v₁, …, fᵢ = vᵢ, …, fₙ = vₙ ⟩ ‖ E₁
-    —————————————————————————————————————————————————————————————————————— EvExpTupleProj
+    —————————————————————————————————————————————————————————————————————— EvExpStructProj
       e.fᵢ ‖ E₀  ⇓  Ok vᵢ ‖ E₁
 
       e ‖ E₀  ⇓  Ok ⟨ f₁= v₁, …, fᵢ = vᵢ, …, fₙ = vₙ ⟩ ‖ E₁
       eᵢ ‖ E₁  ⇓  Ok vᵢ' ‖ E₂
-    —————————————————————————————————————————————————————————————————————— EvExpTupleUpd
+    —————————————————————————————————————————————————————————————————————— EvExpStructUpd
       ⟨ e 'with' fᵢ = eᵢ ⟩ ‖ E₀
         ⇓
       Ok ⟨ f₁= v₁, …, fᵢ= vᵢ', …, fₙ= vₙ ⟩ ‖ E₂
@@ -2023,10 +2270,19 @@ straightforward way by following the left-to-right evaluation order.
 Built-in functions
 ^^^^^^^^^^^^^^^^^^
 
-This section lists the built-in functions supported by DAML 1.1 or
-earlier. The functions come with their types and a description of
-their behavior.
+This section lists the built-in functions supported by DAML LF 1.
+The functions come with their types and a description of their
+behavior.
 
+Generic equality function
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+* ``EQUAL : ∀ (α:*). α → α → 'Bool'``
+
+  Returns ``'True'`` if the two argument are equal according ``~ᵥ``,
+  ``'False'`` otherwise.
+
+  [*Available in version >= 1.dev*]
 
 Boolean functions
 ~~~~~~~~~~~~~~~~~
@@ -2035,6 +2291,8 @@ Boolean functions
 
   Returns ``'True'`` if the two booleans are syntactically equal,
   ``False`` otherwise.
+
+  [*Available in version < 1.dev*]
 
 Int64 functions
 ~~~~~~~~~~~~~~~
@@ -2093,6 +2351,8 @@ Int64 functions
   Returns ``'True'`` if the first integer is equal to the second,
   ``'False'`` otherwise.
 
+  [*Available in version < 1.dev*]
+
 * ``TO_TEXT_INT64 : 'Int64' → 'Text'``
 
   Returns the decimal representation of the integer as a string.
@@ -2103,7 +2363,7 @@ Int64 functions
   in ``Some``. If the input does not match the regexp ``[+-]?\d+`` or
   if the result of the conversion overflows, returns ``None``.
 
-  [*Available since version 1.5*]
+  [*Available in versions >= 1.5*]
 
 Numeric functions
 ~~~~~~~~~~~~~~~~~
@@ -2117,83 +2377,87 @@ Numeric functions
 * ``SUB_NUMERIC : ∀ (α : nat) . 'Numeric' α → 'Numeric' α → 'Numeric' α``
 
   Subtracts the second decimal from the first one.  The
-  scale of the inputs and the ouput is given by the type parameter
+  scale of the inputs and the output is given by the type parameter
   `α`.  Throws an error if overflow.
 
-* ``MUL_NUMERIC : ∀ (α : nat) . 'Numeric' α → 'Numeric' α → 'Numeric' α``
+* ``MUL_NUMERIC : ∀ (α₁ α₂ α : nat) . 'Numeric' α₁ → 'Numeric' α₂ → 'Numeric' α``
 
-  Multiplies the two decimals and rounds the result to the closest
+  Multiplies the two numerics and rounds the result to the closest
   multiple of ``10⁻ᵅ`` using `banker's rounding convention
-  <https://en.wikipedia.org/wiki/Rounding#Round_half_to_even>`_.  The
-  scale of the inputs and the ouput is given by the type parameter
-  `α`. Throws an error in case of overflow.
+  <https://en.wikipedia.org/wiki/Rounding#Round_half_to_even>`_.
+  The type parameters `α₁`, `α₂`, `α` define the scale of the first
+  input, the second input, and the output, respectively. Throws an
+  error in case of overflow.
 
-* ``DIV_NUMERIC : ∀ (α : nat) . 'Numeric' α → 'Numeric' α → 'Numeric' α``
+* ``DIV_NUMERIC : ∀ (α₁ α₂ α : nat) . 'Numeric' α₁ → 'Numeric' α₂ → 'Numeric' α``
 
   Divides the first decimal by the second one and rounds the result to
   the closest multiple of ``10⁻ᵅ`` using `banker's rounding convention
   <https://en.wikipedia.org/wiki/Rounding#Round_half_to_even>`_ (where
-  `n` is given as the type parameter).  The scale of the inputs and
-  the ouput is given by the type parameter `α`.  Throws an error in
-  case of overflow.
+  `n` is given as the type parameter).  The type parameters `α₁`,
+  `α₂`, `α` define the scale of the first input, the second input, and
+  the output, respectively. Throws an error in case of overflow.
 
-* ``ROUND_NUMERIC : ∀ (α : nat) . 'Int64' → 'Numeric' α → 'Numeric' α``
 
-  Rounds the decimal to the closest multiple of ``10ⁱ`` where ``i`` is
-  integer argument.  In case the value to be rounded is exactly
-  half-way between two multiples, rounds toward the even one,
-  following the `banker's rounding convention
-  <https://en.wikipedia.org/wiki/Rounding#Round_half_to_even>`_.  The
-  scale of the inputs and the ouput is given by the type parameter
-  `α`.  Throws an exception if the integer is not between `α-37` and
-  `α` inclusive.
+* ``CAST_NUMERIC : ∀ (α₁, α₂: nat) . 'Numeric' α₁ → 'Numeric' α₂``
+
+  Converts a decimal of scale `α₁` to a decimal scale `α₂` while
+  keeping the value the same. Throws an exception in case of
+  overflow or precision loss.
+
+* ``SHIFT_NUMERIC : ∀ (α₁, α₂: nat) . 'Int64' → 'Numeric' α₁ → 'Numeric' α₂``
+
+  Converts a decimal of scale `α₁` to a decimal scale `α₂` to another
+  by shifting the decimal point. Thus the ouput will be equal to the input
+  multiplied by `1E(α₁-α₂)`.
 
 * ``LESS_EQ_NUMERIC : ∀ (α : nat) . 'Numeric' α → 'Numeric' α → 'Bool'``
 
-  Returns ``'True'`` if the first decimal is less or equal than the
+  Returns ``'True'`` if the first numeric is less or equal than the
   second, ``'False'`` otherwise.  The scale of the inputs is given by
   the type parameter `α`.
 
 * ``GREATER_EQ_NUMERIC : ∀ (α : nat) . 'Numeric' α → 'Numeric' α → 'Bool'``
 
-  Returns ``'True'`` if the first decimal is greater or equal than the
+  Returns ``'True'`` if the first numeric is greater or equal than the
   second, ``'False'`` otherwise. The scale of the inputs is given by
   the type parameter `α`.
 
 * ``LESS_NUMERIC : ∀ (α : nat) . 'Numeric' α → 'Numeric' α → 'Bool'``
 
-  Returns ``'True'`` if the first decimal is strictly less than the
+  Returns ``'True'`` if the first numeric is strictly less than the
   second, ``'False'`` otherwise.  The scale of the inputs is given by
   the type parameter `α`.
 
-
 * ``GREATER_NUMERIC : ∀ (α : nat) . 'Numeric' α → 'Numeric' α → 'Bool'``
 
-  Returns ``'True'`` if the first decimal is strictly greater than the
+  Returns ``'True'`` if the first numeric is strictly greater than the
   second, ``'False'`` otherwise.  The scale of the inputs is given by
   the type parameter `α`.
 
 * ``EQUAL_NUMERIC : ∀ (α : nat) . 'Numeric' α → 'Numeric' α → 'Bool'``
 
-  Returns ``'True'`` if the first decimal is equal to the second,
+  Returns ``'True'`` if the first numeric is equal to the second,
   ``'False'`` otherwise.  The scale of the inputs is given by the type
   parameter `α`.
 
+  [*Available in version < 1.dev*]
+
 * ``TO_TEXT_NUMERIC : ∀ (α : nat) . 'Numeric' α → 'Text'``
 
-  Returns the decimal string representation of the decimal.  The scale
+  Returns the numeric string representation of the numeric.  The scale
   of the input is given by the type parameter `α`.
 
 * ``FROM_TEXT_NUMERIC : ∀ (α : nat) .'Text' → 'Optional' 'Numeric' α``
 
-  Given a string representation of a decimal returns the decimal
+  Given a string representation of a numeric returns the numeric
   wrapped in ``Some``. If the input does not match the regexp
   ``[+-]?\d+(\.d+)?`` or if the result of the conversion cannot
   be mapped into a decimal without loss of precision, returns
   ``None``.  The scale of the output is given by the type parameter
   `α`.
 
-  [*Available since version 1.5*]
+  [*Available in versions >= 1.5*]
 
 String functions
 ~~~~~~~~~~~~~~~~
@@ -2218,32 +2482,34 @@ String functions
   hashing of the UTF-8 string and returns it encoded as a Hexadecimal
   string (lower-case).
 
-  [*Available since version 1.2*]
+  [*Available in versions >= 1.2*]
 
 * ``LESS_EQ_TEXT : 'Text' → 'Text' → 'Bool'``
 
-  Returns ``'True'`` if the first decimal is lexicographically less
+  Returns ``'True'`` if the first string is lexicographically less
   or equal than the second, ``'False'`` otherwise.
 
 * ``GREATER_EQ_TEXT : 'Text' → 'Text' → 'Bool'``
 
-  Returns ``'True'`` if the first decimal is lexicographically
+  Returns ``'True'`` if the first string is lexicographically
   greater or equal than the second, ``'False'`` otherwise.
 
 * ``LESS_TEXT : 'Text' → 'Text' → 'Bool'``
 
-  Returns ``'True'`` if the first decimal is lexicographically
+  Returns ``'True'`` if the first string is lexicographically
   strictly less than the second, ``'False'`` otherwise.
 
 * ``GREATER_TEXT : 'Text' → 'Text' → 'Bool'``
 
-  Returns ``'True'`` if the first decimal is lexicographically
+  Returns ``'True'`` if the first string is lexicographically
   strictly greater than the second, ``'False'`` otherwise.
 
 * ``EQUAL_TEXT : 'Text' → 'Text' → 'Bool'``
 
-  Returns ``'True'`` if the first decimal is equal to the second,
+  Returns ``'True'`` if the first string is equal to the second,
   ``'False'`` otherwise.
+
+  [*Available in version < 1.dev*]
 
 * ``TO_TEXT_TEXT : 'Text' → 'Text'``
 
@@ -2255,7 +2521,7 @@ String functions
   <https://en.wikipedia.org/wiki/Code_point>`_ of the input
   string represented as integer.
 
-  [*Available since version 1.6*]
+  [*Available in versions >= 1.6*]
 
 * ``TEXT_TO_CODE_POINTS``: 'List' 'Int64' → 'Text'
 
@@ -2265,7 +2531,7 @@ String functions
   from `0x000000` to `0x00D7FF` or in the range from `0x00DFFF`
   to `0x10FFFF` (bounds included).
 
-  [*Available since version 1.6*]
+  [*Available in versions >= 1.6*]
 
 Timestamp functions
 ~~~~~~~~~~~~~~~~~~~
@@ -2294,6 +2560,8 @@ Timestamp functions
 
   Returns ``'True'`` if the first timestamp is equal to the second,
   ``'False'`` otherwise.
+
+  [*Available in version < 1.dev*]
 
 * ``TO_TEXT_TIMESTAMP : 'Timestamp' → 'Text'``
 
@@ -2355,6 +2623,8 @@ Date functions
   Returns ``'True'`` if the first date is equal to the second,
   ``'False'`` otherwise.
 
+  [*Available in version < 1.dev*]
+
 * ``TO_TEXT_DATE : 'Date' → 'Text'``
 
   Returns an `ISO 8601 <https://en.wikipedia.org/wiki/ISO_8601>`_
@@ -2384,27 +2654,29 @@ Party functions
 * ``LESS_EQ_PARTY : 'Party' → 'Party' → 'Bool'``
 
   Returns ``'True'`` if the first party is less or equal than the
-  second, ``'False'`` otherwise. [*Available since version 1.1*]
+  second, ``'False'`` otherwise. [*Available in versions >= 1.1*]
 
 * ``GREATER_EQ_PARTY : 'Party' → 'Party' → 'Bool'``
 
   Returns ``'True'`` if the first party is greater or equal than the
-  second, ``'False'`` otherwise. [*Available since version 1.1*]
+  second, ``'False'`` otherwise. [*Available in versions >= 1.1*]
 
 * ``LESS_PARTY : 'Party' → 'Party' → 'Bool'``
 
   Returns ``'True'`` if the first party is strictly less than the
-  second, ``'False'`` otherwise. [*Available since version 1.1*]
+  second, ``'False'`` otherwise. [*Available in versions >= 1.1*]
 
 * ``GREATER_PARTY : 'Party' → 'Party' → 'Bool'``
 
   Returns ``'True'`` if the first party is strictly greater than the
-  second, ``'False'`` otherwise. [*Available since version 1.1*]
+  second, ``'False'`` otherwise. [*Available in versions >= 1.1*]
 
 * ``EQUAL_PARTY : 'Party' → 'Party' → 'Bool'``
 
   Returns ``'True'`` if the first party is equal to the second,
   ``'False'`` otherwise.
+
+  [*Available in version < 1.dev*]
 
 * ``TO_QUOTED_TEXT_PARTY : 'Party' → 'Text'``
 
@@ -2422,14 +2694,14 @@ Party functions
     ∀ p. FROM_TEXT_PARTY (TO_TEXT_PARTY p) = 'Some' p
     ∀ txt p. FROM_TEXT_PARTY txt = 'Some' p → TO_TEXT_PARTY p = txt
 
-  [*Available since version 1.2*]
+  [*Available in versions >= 1.2*]
 
 * ``FROM_TEXT_PARTY : 'Text' → 'Optional' 'Party'``
 
   Given the string representation of the party, returns the party,
   if the input string is a `PartyId strings <Literals_>`_.
 
-  [*Available since version 1.2*]
+  [*Available in versions >= 1.2*]
 
 ContractId functions
 ~~~~~~~~~~~~~~~~~~~~
@@ -2439,11 +2711,13 @@ ContractId functions
   Returns ``'True'`` if the first contact id is equal to the second,
   ``'False'`` otherwise.
 
+  [*Available in versions < 1.dev*]
+
 * ``COERCE_CONTRACT_ID  : ∀ (α : ⋆) (β : ⋆) . 'ContractId' α → 'ContractId' β``
 
   Returns the given contract id unchanged at a different type.
 
-  [*Available since version 1.5*]
+  [*Available in versions >= 1.5*]
 
 List functions
 ~~~~~~~~~~~~~~
@@ -2463,62 +2737,171 @@ List functions
   predicate give as first argument.
 
 
-Map functions
-~~~~~~~~~~~~~
+Text map functions
+~~~~~~~~~~~~~~~~~~
 
- * ``MAP_EMPTY : ∀ α. 'Map' α``
+**Entry order**: The operations above return always a map with entries
+ordered by keys.
 
-   Returns the empty map.
+* ``TEXTMAP_EMPTY : ∀ α. 'TextMap' α``
 
-   [*Available since version 1.3*]
+  Returns the empty TextMap.
 
- * ``MAP_INSERT : ∀ α.  'Text' → α → 'Map' α → 'Map' α``
+  [*Available in versions >= 1.3*]
 
-   Inserts a new key and value in the map. If the key is already
-   present in the map, the associated value is replaced with the
-   supplied value.
+* ``TEXTMAP_INSERT : ∀ α.  'Text' → α → 'TextMap' α → 'TextMap' α``
 
-   [*Available since version 1.3*]
+  Inserts a new key and value in the map. If the key is already
+  present in the map, the associated value is replaced with the
+  supplied value.
 
- * ``MAP_LOOKUP : ∀ α. 'Text' → 'Map' α → 'Optional' α``
+  [*Available in versions >= 1.3*]
 
-   Lookups the value at a key in the map.
+* ``TEXTMAP_LOOKUP : ∀ α. 'Text' → 'TextMap' α → 'Optional' α``
 
-   [*Available since version 1.3*]
+  Looks up the value at a key in the map.
 
- * ``MAP_DELETE : ∀ α. 'Text' → 'Map' α → 'Map' α``
+  [*Available in versions >= 1.3*]
 
-   Deletes a key and its value from the map. When the key is not a
-   member of the map, the original map is returned.
+* ``TEXTMAP_DELETE : ∀ α. 'Text' → 'TextMap' α → 'TextMap' α``
 
-   [*Available since version 1.3*]
+  Deletes a key and its value from the map. When the key is not a
+  member of the map, the original map is returned.
 
- * ``MAP_LIST : ∀ α. 'Map' α → 'List' ⟨ key: 'Text', value: α  ⟩``
+  [*Available in versions >= 1.3*]
 
-   Converts to a list of key/value pairs. The output list is guaranteed to be
-   sorted according to the ordering of its keys.
+* ``TEXTMAP_LIST : ∀ α. 'TextMap' α → 'List' ⟨ key: 'Text', value: α  ⟩``
 
-   [*Available since version 1.3*]
+  Converts to a list of key/value pairs. The output list is guaranteed to be
+  sorted according to the ordering of its keys.
 
- * ``MAP_SIZE : ∀ α. 'Map' α → 'Int64'``
+  [*Available in versions >= 1.3*]
 
-   Return the number of elements in the map.
+* ``TEXTMAP_SIZE : ∀ α. 'TextMap' α → 'Int64'``
 
-   [*Available since version 1.3*]
+  Return the number of elements in the map.
+
+  [*Available in versions >= 1.3*]
+
+Generic map functions
+~~~~~~~~~~~~~~~~~~~~~
+
+**Validity of Keys:** A key is valid if and only if it is equivalent
+to itself according to the relation ``~ᵥ`` defined in `value equality`
+section. Attempts to use an invalid key in the operations listed under
+always result in a runtime error.
+
+Of particular note, the following values are never valid keys:
+
+* Lambda expressions ``λ x : τ . e``
+* Type abstractions ``Λ α : k . e``
+* (Partially applied) built-in functions
+* Update statement
+* Any value containing an invalid key
+
+**Comparison of Keys:** The `value equality`_ is used for key
+ comparison.
+
+**Entries ordering**: The builtins listed below maintain the order
+in which keys were inserted into the map (insertion-order).
+
+
+* ``GENMAP_EMPTY : ∀ α. ∀ β. 'GenMap' α β``
+
+  Returns an empty generic map.
+
+  [*Available in versions >= 1.dev*]
+
+* ``GENMAP_INSERT : ∀ α. ∀ β.  α → β → 'GenMap' α β → 'GenMap' α β``
+
+  Inserts a new key and value in the map. If the key is already
+  present in the map, the associated value is replaced with the
+  supplied value, otherwise the new key/value entry is appended at the
+  ends of the map.
+
+  This raises an error if the key is not a valid map key. Keys are
+  compared according to ``~ᵥ``.
+
+  [*Available in versions >= 1.dev*]
+
+* ``GENMAP_LOOKUP : ∀ α. ∀ β.  α → 'GenMap' α β → 'Optional' α``
+
+  Looks up the value at a key in the map.
+
+  This raises an error if the key is not a valid map key. Keys are
+  compared according to the rules listed below.
+
+  [*Available in versions >= 1.dev*]
+
+* ``GENMAP_DELETE : ∀ α. ∀ β.  α → 'GenMap' α β → 'GenMap' α β``
+
+  Deletes a key and its value from the map. When the key is not a
+  member of the map, the original map is returned.
+
+  This raises an error if the key is not a valid map key. Keys are
+  compared according to ``~ᵥ``.
+
+  [*Available in versions >= 1.dev*]
+
+* ``GENMAP_KEYS : ∀ α. ∀ β.  'GenMap' α β → 'List' α``
+
+  Get the list of keys in the map. The keys are returned by insertion
+  order, so if you insert key ``x`` before key ``y``, then ``x`` will
+  appear before ``y`` in the list.
+
+  [*Available in versions >= 1.dev*]
+
+* ``GENMAP_VALUES : ∀ α. ∀ β.  'GenMap' α β → 'List' β``
+
+  Get the list of values in the map. The values are returned in the
+  same order as ``GENMAP_KEYS``, so the ith element of ``GENMAP_KEYS``
+  maps to the ith element of ``GENMAP_VALUES``.
+
+  [*Available in versions >= 1.dev*]
+
+* ``GENMAP_SIZE : ∀ α. ∀ β.  'GenMap' α β → 'Int64'``
+
+  Return the number of elements in the map.
+
+  [*Available in versions >= 1.dev*]
+
+
+**Validity of Keys:** A key is valid if and only if it is equivalent
+to itself according to the relation ``~ᵥ`` defined below. Attempts to
+use an invalid key in the operations above always result in a runtime
+error.
+
+Of particular note, the following values are never valid keys:
+
+* Lambda expressions ``λ x : τ . e``
+* Type abstractions ``Λ α : k . e``
+* (Partially applied) built-in functions
+* Any value containing an invalid key
+
+Type Representation function
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+* ``EQUAL_TYPE_REP`` : 'TypeRep' → 'TypeRep' → 'Bool'``
+
+  Returns ``'True'`` if the first type representation is syntactically equal to
+  the second one, ``'False'`` otherwise.
+
+  [*Available in versions = 1.7*]
+
 
 Conversions functions
 ~~~~~~~~~~~~~~~~~~~~~
 
 * ``INT64_TO_NUMERIC : ∀ (α : nat) . 'Int64' → 'Numeric' α``
 
-  Returns a decimal representation of the integer.  The scale of the
-  output and the ouput is given by the type parameter `α`. Throws an
+  Returns a numeric representation of the integer.  The scale of the
+  output and the output is given by the type parameter `α`. Throws an
   error in case of overflow.
 
 * ``NUMERIC_TO_INT64 : ∀ (α : nat) . 'Numeric' α → 'Int64'``
 
-  Returns the integral part of the given decimal -- in other words,
-  rounds towards 0. The scale of the input and the ouput is given by
+  Returns the integral part of the given numeric -- in other words,
+  rounds towards 0. The scale of the input and the output is given by
   the type parameter `α`.  Throws an error in case of overflow.
 
 * ``TIMESTAMP_TO_UNIX_MICROSECONDS : 'Timestamp' → 'Int64'``
@@ -2563,7 +2946,7 @@ DAML-LF programs are serialized using `Protocol Buffers
 <https://developers.google.com/protocol-buffers/>`_.  The
 machine-readable definition of the serialization for DAML-LF major
 version 1 can be found in the `daml_lf_1.proto
-<../archive/da/daml_lf_1.proto>`_ file.
+<../archive/src/main/protobuf/com/digitalasset/daml_lf_dev/daml_lf_1.proto>`_ file.
 
 For the sake of brevity, we do no exhaustively describe how DAML-LF
 programs are (un)serialized into protocol buffer. In the rest of this
@@ -2613,23 +2996,14 @@ message::
   message PackageRef {
     oneof Sum {
       Unit self = 1;
-      string package_id = 2;
-      uint32 interned_id = 3;
+      string package_id_str = 2;
     }
   }
 
 One should use either the field ``self`` to refer the current package or
-one of ``interned_id`` [available since version 1.6] or ``package_id``
-to refer to an external package. During deserialization ``self``
-references are replaced by the actual digest of the package in which it
-appears.
-
-[*Available since version 1.6*]
-
-``Package.interned_package_ids`` is a list of package IDs.
-``interned_id``, if used, must be a valid zero-based index into this
-list in the ``Package`` that contains the ``PackageRef`` in question;
-such a ``PackageRef`` refers to the external package ID at that index.
+``package_id_str`` to refer to an external package. During deserialization
+``self`` references are replaced by the actual digest of the package in
+which it appears.
 
 
 Template precondition
@@ -2675,6 +3049,15 @@ comments::
   // * must be non empty *
 
 
+Maps
+....
+
+The program serialization format does not provide any direct way to
+encode either `TextMap` or `GenMap`. DAML-LF programs can create such
+objects only dynamically using the builtin functions prefixed by
+`TEXTMAP_` or `'GENMAP_'`
+
+
 Serialization changes since version 1.0
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -2687,10 +3070,10 @@ Below we list, in chronological order, all the changes that have been
 introduced to the serialization format since version 1.0
 
 
-Option type
-...........
+Optional type
+.............
 
-[*Available since version 1.1*]
+[*Available in versions >= 1.1*]
 
 DAML-LF 1.1 is the first version that supports option type.
 
@@ -2701,7 +3084,7 @@ this data structure.
 Party ordering
 ..............
 
-[*Available since version 1.1*]
+[*Available in versions >= 1.1*]
 
 DAML-LF 1.1 is the first version that supports the built-in functions
 ``LESS_EQ_PARTY``, ``GREATER_EQ_PARTY``, ``LESS_PARTY``, and
@@ -2750,7 +3133,7 @@ The deserialization process will reject:
 Flexible controllers
 ....................
 
-[*Available since version 1.2*]
+[*Available in versions >= 1.2*]
 
 Version 1.2 changes what is in scope when the controllers of a choice are
 computed.
@@ -2793,12 +3176,12 @@ validation phases can be distinguished.
 
 * The second phase occurs after the deserialization, on the complete
   abstract syntax tree of the package. It is concerned with the
-  `well-formedness <Well formed packages_>`_ of the package.
+  `well-formedness <Well-formed packages_>`_ of the package.
 
 SHA-256 Hashing
 ...............
 
-[*Available since version 1.2*]
+[*Available in versions >= 1.2*]
 
 DAML-LF 1.2 is the first version that supports the built-in functions
 ``SHA256_TEXT`` to hash string.
@@ -2809,7 +3192,7 @@ program using this functions.
 Contract Key
 ............
 
-[*Available since version 1.3*]
+[*Available in versions >= 1.3*]
 
 Since DAML-LF 1.3, a contract key can be associated to a contract at
 creation. Subsequently, the contract can be retrieved by the corresponding
@@ -2824,44 +3207,102 @@ The deserialization process will reject any DAML-LF 1.2 (or earlier)
 program using the two statements above or the field ``key`` within
 the message ``DefTemplate`` .
 
-Map
-...
+TextMap
+.......
 
-[*Available since version 1.3*]
+[*Available in versions >= 1.3*]
 
 The deserialization process will reject any DAML-LF 1.2 (or earlier)
-program using the builtin functions : ``MAP_EMPTY``, ``MAP_INSERT``,
-``MAP_LOOKUP``, ``MAP_DELETE``, ``MAP_LIST``, ``MAP_SIZE``,
+program using the builtin type ``TEXTMAP`` or the builtin functions
+``TEXTMAP_EMPTY``, ``TEXTMAP_INSERT``, ``TEXTMAP_LOOKUP``,
+``TEXTMAP_DELETE``, ``TEXTMAP_LIST``, ``TEXTMAP_SIZE``,
+
+``'TextMap'`` was called ``'Map'`` in versions <= 1.dev.
 
 Enum
 ....
 
-[*Available since version 1.6*]
+[*Available in versions >= 1.6*]
 
 The deserialization process will reject any DAML-LF 1.5 (or earlier)
 program using the field ``enum`` in ``DefDataType`` messages, the
-field ``enum`` in  ``CaseAlt`` messages, or the field ``enum_con``
+field ``enum`` in  ``CaseAlt`` messages, or the field ``enum_con_str``
 in ``Expr`` messages.
 
-intern package IDs
-..................
 
-[*Available since version 1.6*]
+String Interning
+................
 
-In ``PackageRef``, the alternative ``interned_id`` may be used in place
-of ``package_id``, in which case the package ID will be that at the
-given index into ``Package.interned_package_ids``.
-See `Package reference`_.
+[*Available in versions >= 1.6*]
+
+To provide string sharing, the so-called *string interning* mechanism
+allows the strings within messages to be stored in a global table and
+referenced by their index.
+
+The field ``Package.interned_strings`` is a list of strings. A
+so-called `interned string` is a valid zero-based index of this
+list. An `interned string` is interpreted as the string it points to
+in ``Package.interned_strings``.
+
++ An `interned package id` is an `interned string` that can be
+  interpreted as a valid `PackageId string`.
++ An `interned party` is an `interned string` that can be interpreted
+  as a valid `Party string`.
++ An `interned numeric id` is an `interned string` that can be
+  interpreted as a valid `numeric` literal.
++ An `interned text` is an `interned string` interpreted as a text
+  literal
++ An `interned identifier` is an `interned string` that can be
+  interpreted as a valid `identifier`
+
+Starting from DAML-LF 1.6, the field
+``PackageRef.package_id_interned_str`` [*Available in versions >=
+1.6*] may be used instead of ``PackageRef.package_id_str`` and it
+must be a valid *interned packageId*.
+
+Starting from DAML-LF 1.7, all ``string`` (or ``repeated string``)
+fields with the suffix ``_str`` are forbidden. Alternative fields of
+type ``int32`` (or ``repeated int32``) with the suffix
+``_interned_str`` must be used instead.  Except
+``PackageRef.package_id_interned_str`` which is [*Available in
+versions >= 1.6*], all fields with suffix ``_interned_str`` are
+[*Available in versions >= 1.7*].  The deserialization process will
+reject any DAML-LF 1.7 (or later) that does not comply with this
+restriction.
+
+Name Interning
+..............
+
+[*Available in versions >= 1.7*]
+
+To provide sharing of `names <Identifiers_>`_, the so-called *name
+interning* mechanism allows the *names* within messages to be stored
+in a global table and be referenced by their index.
+
+``InternedDottedName`` is a non-empty list of valid `interned
+identifiers`. Such message is interpreted as the name built from the
+sequence the interned identifiers it contains.  The field
+``Package.interned_dotted_names`` is a list of such messages. A
+so-called `interned name` is a valid zero-based index of this list. An
+`interned name` is interpreted as the name built form the `name` it
+points to in ``Package.interned_dotted_names``.
+
+Starting from DAML-LF 1.7, all ``DottedName`` (or ``repeated
+string``) fields with the suffix ``_dname`` are forbidden. Alternative
+fields of type ``int32`` with the suffix ``_interned_dname``
+[*Available in versions >= 1.7*] must be used instead. The
+deserialization process will reject any DAML-LF 1.7 (or later) that
+that does not comply this restriction.
 
 Nat kind and Nat types
 ......................
 
-[*Available since version 1.dev*]
+[*Available in versions >= 1.7*]
 
 The deserialization process will reject any DAML-LF 1.6 (or earlier)
 that uses ``nat`` field in ``Kind`` or ``Type`` messages.
 
-Starting from DAML-LF 1.dev those messages are deserialized to ``nat``
+Starting from DAML-LF 1.7 those messages are deserialized to ``nat``
 kind and ``nat`` type respectively. The field ``nat`` of ``Type``
 message must be a positive integer.
 
@@ -2873,25 +3314,16 @@ section.
 Parametric scaled Decimals
 ..........................
 
-[*Available since version 1.dev*]
+[*Available in versions >= 1.7*]
 
-DAML-LF 1.dev is the first version that supports parametric scaled
+DAML-LF 1.7 is the first version that supports parametric scaled
 decimals. Prior versions have decimal number with a fixed scale of 10
-called Decimal. Backward compatibility with the current specification
-is achieved by
-
-1. Renaming the fields and the enum values containing "``decimal``" in
-   the Protocol buffer definition with "``numeric``" instead,
-2. Unconditionally fixing the scale of Numeric literals to ``10`` when
-   reading DAML-LF 1.6 (or earlier),
-3. Automatically applying the Numeric types and the numeric
-   builtin functions to the Nat type ``10`` when reading DAML-LF
-   1.6 (or earlier).
-
+called Decimal.  Backward compatibility with the current specification
+is achieved as follows:
 
 On the one hand, in case of DAML-LF 1.6 (or earlier) archive:
 
-- The ``numeric`` fields of the ``PrimLit`` message must match the
+- The ``decimal`` fields of the ``PrimLit`` message must match the
   regexp::
 
     ``[+-]?\d{1,28}(.[0-9]\d{1-10})?``
@@ -2900,15 +3332,35 @@ On the one hand, in case of DAML-LF 1.6 (or earlier) archive:
   contains such field to a numeric literal of scale 10. The
   deserialization process will reject any non-compliant program.
 
-- ``PrimType`` message with a field ``numeric`` set are translated to
+- ``PrimType`` message with a field ``decimal`` set are translated to
   ``(Numeric 10)`` type when deserialized.
 
-- Any ``BuiltinFunction`` message that corresponds to a numeric
-  builtin (all those builtins that contains ``NUMERIC`` within their
-  name) are silently applied to the ``nat`` type ``10`` when
-  deserialized to expression.
+- Decimal ``BuiltinFunction`` messages are translated as follows :
 
-On the other hand, starting from DAML-LF 1.dev:
+  + ``ADD_DECIMAL`` message is translated to ``(ADD_NUMERIC @10)``
+  + ``SUB_DECIMAL`` message is translated to ``(SUB_NUMERIC @10)``
+  + ``MUL_DECIMAL`` message is translated to ``(MUL_NUMERIC @10)``
+  + ``DIV_DECIMAL`` message is translated to ``(DIV_NUMERIC @10)``
+  + ``ROUND_DECIMAL`` message is translated to ``(ROUND_NUMERIC @10)``
+  + ``LESS_EQ_DECIMAL`` message is translated to ``(LESS_EQ_NUMERIC @10)``
+  + ``GREATER_EQ_DECIMAL`` message is translated to ``(GREATER_EQ_NUMERIC @10)``
+  + ``LESS_DECIMAL`` message is translated to ``(LESS_NUMERIC @10)``
+  + ``GREATER_DECIMAL`` message is translated to ``(GREATER_NUMERIC @10)``
+  + ``GREATER_DECIMAL`` message is translated to ``(GREATER_NUMERIC @10)``
+  + ``EQUAL_DECIMAL`` message is translated to ``(EQUAL_NUMERIC @10)``
+  + ``TO_TEXT_DECIMAL`` message is translated to ``(TO_TEXT_NUMERIC @10)``
+  + ``FROM_TEXT_DECIMAL`` message is translated to ``(FROM_TEXT_NUMERIC @10)``  [*Available in versions >= 1.5*]
+  + ``INT64_TO_DECIMAL`` message is translated to ``(INT64_TO_NUMERIC @10)``
+  + ``DECIMAL_TO_INT64`` message is translated to ``(NUMERIC_TO_INT64 @10)``
+
+- Numeric types, literals and builtins cannot be referred directly.
+  In other words ``numeric`` fields in ``PrimLit`` and ``PrimType``
+  messages must remain unset and Numeric ``BuiltinFunction`` (those
+  containing ``NUMERIC`` in their name) are forbidden. The
+  deserialization process will reject any DAML-LF 1.6 (or earlier)
+  that does not comply those restrictions.
+
+On the other hand, starting from DAML-LF 1.7:
 
 - The ``numeric`` field of the ``PrimLit`` message must match the
   regexp:
@@ -2916,19 +3368,37 @@ On the other hand, starting from DAML-LF 1.dev:
   ``[-]?([1-9]\d*|0).\d*``
 
   with the addition constrains that it contains at most 38 digits
-  (ignoring possibly leading ``0``). The deserialization process will
-  use the number of digits on the right of the dot as scale when
-  converting the message to numeric literals. The deserialization
-  process will reject any non-compliant program.
+  (ignoring a possibly leading ``0``). The deserialization process
+  will use the number of digits on the right of the decimal dot
+  as scale when converting the message to numeric literals. The
+  deserialization process will reject any non-compliant program.
 
-- ``PrimType`` messages with a field ``numeric`` set and
-  ``BuiltinFunction`` messages that corresponds to a numeric builtin
-  are straightforwardly translated to the corresponding types or
-  expressions without implicit application.
+- Decimal types, literals and builtins cannot be referred directly.
+  In other words ``decimal`` fields in ``PrimLit`` and ``PrimType``
+  messages must remain unset and Decimal ``BuiltinFunction`` (those
+  containing ``DECIMAL`` in their name are forbidden). The
+  deserialization process will reject any DAML-LF 1.7 (or later)
+  that does not comply those restrictions.
 
+Any type and type representation
+................................
 
+DAML-LF 1.7 is the first version that supports any type and
+type representation.
 
+The deserialization process will reject any DAML-LF 1.0 program using
+this data structure.
 
+Generic Map
+............
+
+[*Available in versions >= 1.dev*]
+
+The deserialization process will reject any DAML-LF 1.7 (or earlier)
+program using the builtin type ``GENMAP`` or the functions
+``GENMAP_EMPTY``, ``GENMAP_INSERT``, ``GENMAP_LOOKUP``,
+``GENMAP_DELETE``, ``GENMAP_KEYS``, ``GENMAP_VALUES``,
+``GENMAP_SIZE``.
 
 
 .. Local Variables:

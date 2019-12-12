@@ -20,6 +20,7 @@ import org.scalacheck.Gen
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.{FreeSpec, Matchers}
 
+import scala.collection.immutable.TreeMap
 import scala.language.implicitConversions
 
 class TransactionSpec extends FreeSpec with Matchers with GeneratorDrivenPropertyChecks {
@@ -27,23 +28,23 @@ class TransactionSpec extends FreeSpec with Matchers with GeneratorDrivenPropert
 
   "isWellFormed" - {
     "detects dangling references in roots" in {
-      val tx = StringTransaction(Map.empty, ImmArray("1"))
+      val tx = StringTransaction(TreeMap.empty, ImmArray("1"))
       tx.isWellFormed shouldBe Set(NotWellFormedError("1", DanglingNodeId))
     }
 
     "detects dangling references in children" in {
-      val tx = StringTransaction(Map("1" -> dummyExerciseNode(ImmArray("2"))), ImmArray("1"))
+      val tx = StringTransaction(TreeMap("1" -> dummyExerciseNode(ImmArray("2"))), ImmArray("1"))
       tx.isWellFormed shouldBe Set(NotWellFormedError("2", DanglingNodeId))
     }
 
     "detects cycles" in {
-      val tx = StringTransaction(Map("1" -> dummyExerciseNode(ImmArray("1"))), ImmArray("1"))
+      val tx = StringTransaction(TreeMap("1" -> dummyExerciseNode(ImmArray("1"))), ImmArray("1"))
       tx.isWellFormed shouldBe Set(NotWellFormedError("1", AliasedNode))
     }
 
     "detects aliasing from roots and exercise" in {
       val tx = StringTransaction(
-        Map(
+        TreeMap(
           "0" -> dummyExerciseNode(ImmArray("1")),
           "1" -> dummyExerciseNode(ImmArray("2")),
           "2" -> dummyCreateNode),
@@ -52,7 +53,7 @@ class TransactionSpec extends FreeSpec with Matchers with GeneratorDrivenPropert
     }
 
     "detects orphans" in {
-      val tx = StringTransaction(Map("1" -> dummyCreateNode), ImmArray.empty)
+      val tx = StringTransaction(TreeMap("1" -> dummyCreateNode), ImmArray.empty)
       tx.isWellFormed shouldBe Set(NotWellFormedError("1", OrphanedNode))
     }
   }
@@ -114,8 +115,8 @@ object TransactionSpec {
   private[this] type Value[+Cid] = V[Cid]
   type StringTransaction = GenTransaction[String, String, Value[String]]
   def StringTransaction(
-      nodes: Map[String, GenNode[String, String, Value[String]]],
-      roots: ImmArray[String]): StringTransaction = GenTransaction(nodes, roots, Set.empty)
+      nodes: TreeMap[String, GenNode[String, String, Value[String]]],
+      roots: ImmArray[String]): StringTransaction = GenTransaction(nodes, roots, None)
 
   def dummyExerciseNode(
       children: ImmArray[String],

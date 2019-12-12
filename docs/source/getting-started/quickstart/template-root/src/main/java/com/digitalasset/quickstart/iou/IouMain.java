@@ -43,10 +43,10 @@ public class IouMain {
         String party = args[2];
         int restport = Integer.valueOf(args[3]);
 
-        // create a client object to access services on the ledger
+        // Create a client object to access services on the ledger.
         DamlLedgerClient client = DamlLedgerClient.forHostWithLedgerIdDiscovery(ledgerhost, ledgerport, Optional.empty());
 
-        // Connects to the ledger and runs initial validation
+        // Connects to the ledger and runs initial validation.
         client.connect();
 
         String ledgerId = client.getLedgerId();
@@ -69,7 +69,6 @@ public class IouMain {
                                 long id = idCounter.getAndIncrement();
                                 contracts.put(id, contract.data);
                                 idMap.put(id, contract.id);
-
                             });
                 });
 
@@ -115,7 +114,7 @@ public class IouMain {
             return "Iou transfer submitted.";
         }, g::toJson);
 
-        // Run until user terminates
+        // Run until user terminates.
         while (true)
             try {
                 Thread.sleep(1000);

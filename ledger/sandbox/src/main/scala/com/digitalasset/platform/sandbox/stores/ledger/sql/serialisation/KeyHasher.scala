@@ -6,7 +6,7 @@ package com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation
 import java.nio.ByteBuffer
 import java.security.MessageDigest
 
-import com.digitalasset.daml.lf.data.{Decimal, Utf8}
+import com.digitalasset.daml.lf.data.{Numeric, Utf8}
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
@@ -49,7 +49,7 @@ object KeyHasher extends KeyHasher {
     value match {
       case ValueContractId(v) => op(z, HashTokenText(v.coid))
       case ValueInt64(v) => op(z, HashTokenLong(v))
-      case ValueDecimal(v) => op(z, HashTokenText(Decimal.toString(v)))
+      case ValueNumeric(v) => op(z, HashTokenText(Numeric.toUnscaledString(v)))
       case ValueText(v) => op(z, HashTokenText(v))
       case ValueTimestamp(v) => op(z, HashTokenLong(v.micros))
       case ValueParty(v) => op(z, HashTokenText(v))
@@ -92,7 +92,7 @@ object KeyHasher extends KeyHasher {
         op(z2, HashTokenCollectionEnd())
 
       // Map: [CollectionBegin(), (Text(key), Token(value))*, CollectionEnd()]
-      case ValueMap(xs) =>
+      case ValueTextMap(xs) =>
         val arr = xs.toImmArray
         val z1 = op(z, HashTokenCollectionBegin(arr.length))
         val z2 = arr.foldLeft[T](z1)((t, v) => {
@@ -100,10 +100,14 @@ object KeyHasher extends KeyHasher {
           foldLeft(v._2, zz1, op)
         })
         op(z2, HashTokenCollectionEnd())
+      case ValueGenMap(entries) =>
+        val z1 = op(z, HashTokenCollectionBegin(entries.length))
+        val z2 = entries.foldLeft[T](z1) { case (t, (k, v)) => foldLeft(k, foldLeft(v, t, op), op) }
+        op(z2, HashTokenCollectionEnd())
 
-      // Tuple: should never be encountered
-      case ValueTuple(xs) =>
-        sys.error("Hashing of tuple values is not supported")
+      // Struct: should never be encountered
+      case ValueStruct(_) =>
+        sys.error("Hashing of struct values is not supported")
     }
   }
 

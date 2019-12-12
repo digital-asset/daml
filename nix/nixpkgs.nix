@@ -1,6 +1,6 @@
 # Pinned version of nixpkgs that we use for our development and deployment.
 
-{ system ? builtins.currentSystem }:
+{ system ? builtins.currentSystem, ... }:
 
 let
   # See ./nixpkgs/README.md for upgrade instructions.
@@ -8,21 +8,21 @@ let
 
   # package overrides
   overrides = _: pkgs: rec {
-    # We can't use pkgs.bazel here, as it is somewhat outdated. It features
-    # version 0.10.1, while rules_haskell (for example) requires bazel >= 0.14.
-    bazel = pkgs.callPackage ./overrides/bazel {
-      inherit (pkgs.darwin) cctools;
-      inherit (pkgs.darwin.apple_sdk.frameworks) CoreFoundation CoreServices Foundation;
-      buildJdk = pkgs.jdk8;
-      buildJdkName = "jdk8";
-      runJdk = pkgs.jdk8;
-      stdenv = if pkgs.stdenv.cc.isClang then pkgs.llvmPackages_6.stdenv else pkgs.stdenv;
-    };
+    grpc = pkgs.grpc.overrideAttrs (oldAttrs: {
+      version = "1.23.1";
+      src = pkgs.fetchFromGitHub {
+        owner = "grpc";
+        repo = "grpc";
+        rev = "v1.23.1";
+        sha256 = "1jcyd9jy7kz5zfch25s4inwlivb1y1w52fzfjy5ra5vcnp3hmqyr";
+        fetchSubmodules = true;
+      };
+    });
     ephemeralpg = pkgs.ephemeralpg.overrideAttrs(oldAttrs: {
       installPhase = ''
         mkdir -p $out
         PREFIX=$out make install
-        wrapProgram $out/bin/pg_tmp --prefix PATH : ${pkgs.postgresql}/bin:$out/bin
+        wrapProgram $out/bin/pg_tmp --prefix PATH : ${pkgs.postgresql_9_6}/bin:$out/bin
       '';
     });
     haskellPackages = pkgs.haskellPackages.override {

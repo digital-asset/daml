@@ -79,7 +79,7 @@ message UpdateContextRequest {
   message UpdateModules {
     // Modules to load in to the context.
     // Existing modules with the same name are replaced.
-    repeated Module load_modules = 2;
+    repeated ScenarioModule load_modules = 2;
 
     // Modules to remove.
     repeated string unload_modules = 3;
@@ -98,7 +98,7 @@ message UpdateContextRequest {
   int64 context_id = 1;
   UpdateModules update_modules = 2;
   UpdatePackages update_packages = 3;
-  bool lightValidation = 4; // if true runs only a subset of the validations
+  bool noValidation = 4; // if true, does not run the package validations
 }
 
 message UpdateContextResponse {
@@ -305,6 +305,7 @@ message Value {
     Optional optional = 15;
     Map map = 16;
     Enum enum = 17;
+    GenMap gen_map = 18;
 
     // An unserializable value, e.g. closure. Contains a description of the value.
     string unserializable = 14;
@@ -324,14 +325,21 @@ message Map {
     repeated Entry entries = 1;
 }
 
+message GenMap{
+  message Entry {
+    Value key = 1;
+    Value value = 2;
+  }
+
+  repeated Entry entries = 1;
+}
+
 // Modules that can be loaded. The actual message types are not
 // used here as LF modules can have deep nesting depth and it is
 // not easy to change the recursion depth limit in gRPC.
-message Module {
-  oneof module {
-    bytes daml_lf_1 = 2;
-    bytes daml_lf_dev = 3;
-  }
+message ScenarioModule {
+  // each LF v1 module is wrapped in a proto package
+  bytes daml_lf_1 = 2;
 
   // for daml_lf_dev the minor version is ignored by the scenario service.
   string minor = 1;

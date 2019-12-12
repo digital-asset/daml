@@ -3,7 +3,14 @@
 
 package com.digitalasset.daml.lf.value.json
 
-import com.digitalasset.daml.lf.data.{Decimal => LfDecimal, FrontStack, Ref, SortedLookupList, Time}
+import com.digitalasset.daml.lf.data.{
+  FrontStack,
+  ImmArray,
+  Ref,
+  SortedLookupList,
+  Time,
+  Numeric => LfNumeric
+}
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.data.ScalazEqual._
 import com.digitalasset.daml.lf.iface
@@ -11,13 +18,8 @@ import com.digitalasset.daml.lf.value.{Value => V}
 import com.digitalasset.daml.lf.value.json.{NavigatorModelAliases => Model}
 import Model.{DamlLfIdentifier, DamlLfType, DamlLfTypeLookup}
 import ApiValueImplicits._
-
 import spray.json._
 import scalaz.syntax.std.string._
-
-import java.math.MathContext
-
-import scala.math.BigDecimal
 
 /**
   * A compressed encoding of API values.
@@ -27,7 +29,7 @@ import scala.math.BigDecimal
   *
   * Therefore, this JSON format can only decode given a target type.
   *
-  * [[ApiCodecCompressed.apiValueJsonReader]] can create a JSON reader with the necessary type information
+  * `apiValueJsonReader` can create a JSON reader with the necessary type information.
   *
   * @param encodeDecimalAsString Not used yet.
   * @param encodeInt64AsString Not used yet.
@@ -46,8 +48,8 @@ abstract class ApiCodecCompressed[Cid](
     case v: V.ValueList[Cid] => apiListToJsValue(v)
     case V.ValueText(v) => JsString(v)
     case V.ValueInt64(v) => if (encodeInt64AsString) JsString((v: Long).toString) else JsNumber(v)
-    case V.ValueDecimal(v) =>
-      if (encodeDecimalAsString) JsString(v.decimalToString) else JsNumber(v)
+    case V.ValueNumeric(v) =>
+      if (encodeDecimalAsString) JsString(LfNumeric.toUnscaledString(v)) else JsNumber(v)
     case V.ValueBool(v) => JsBoolean(v)
     case V.ValueContractId(v) => apiContractIdToJsValue(v)
     case t: V.ValueTimestamp => JsString(t.toIso8601)
@@ -61,9 +63,11 @@ abstract class ApiCodecCompressed[Cid](
         case V.ValueOptional(Some(_)) => JsArray(apiValueToJsValue(v))
         case _ => apiValueToJsValue(v)
       }
-    case v: V.ValueMap[Cid] =>
-      apiMapToJsValue(v)
-    case _: V.ValueTuple[Cid] => serializationError("impossible! tuples are not serializable")
+    case textMap: V.ValueTextMap[Cid] =>
+      apiMapToJsValue(textMap)
+    case genMap: V.ValueGenMap[Cid] =>
+      apiGenMapToJsValue(genMap)
+    case _: V.ValueStruct[Cid] => serializationError("impossible! structs are not serializable")
   }
 
   @throws[SerializationException]
@@ -93,11 +97,18 @@ abstract class ApiCodecCompressed[Cid](
       }: _*)
   }
 
-  private[this] def apiMapToJsValue(value: V.ValueMap[Cid]): JsValue =
+  private[this] def apiMapToJsValue(value: V.ValueTextMap[Cid]): JsValue =
     JsObject(
       value.value
         .mapValue(apiValueToJsValue)
         .toHashMap)
+
+  private[this] def apiGenMapToJsValue(value: V.ValueGenMap[Cid]): JsValue =
+    JsArray(
+      value.entries.map {
+        case (key, value) => JsArray(apiValueToJsValue(key), apiValueToJsValue(value))
+      }.toSeq: _*
+    )
 
   // ------------------------------------------------------------------------------------------------------------------
   // Decoding - this needs access to DAML-LF types
@@ -111,14 +122,6 @@ abstract class ApiCodecCompressed[Cid](
       prim: Model.DamlLfTypePrim,
       defs: Model.DamlLfTypeLookup): V[Cid] = {
     (prim.typ, value).match2 {
-      case Model.DamlLfPrimType.Decimal => {
-        case JsString(v) =>
-          V.ValueDecimal(
-            assertDE(LfDecimal checkWithinBoundsAndRound BigDecimal
-              .decimal(new java.math.BigDecimal(v), MathContext.UNLIMITED)))
-        case JsNumber(v) =>
-          V.ValueDecimal(assertDE(LfDecimal checkWithinBoundsAndRound v))
-      }
       case Model.DamlLfPrimType.Int64 => {
         case JsString(v) => V.ValueInt64(assertDE(v.parseLong.leftMap(_.getMessage).toEither))
         case JsNumber(v) if v.isValidLong => V.ValueInt64(v.toLongExact)
@@ -145,22 +148,31 @@ abstract class ApiCodecCompressed[Cid](
         val typArg = prim.typArgs.head
         val useArray = nestsOptional(prim);
         {
-          case JsNull => V.ValueOptional(None)
+          case JsNull => V.ValueNone
           case JsArray(ov) if useArray =>
             ov match {
-              case Seq() => V.ValueOptional(Some(V.ValueOptional(None)))
+              case Seq() => V.ValueOptional(Some(V.ValueNone))
               case Seq(v) => V.ValueOptional(Some(jsValueToApiValue(v, typArg, defs)))
               case _ =>
                 deserializationError(s"Can't read ${value.prettyPrint} as Optional of Optional")
             }
           case _ if !useArray => V.ValueOptional(Some(jsValueToApiValue(value, typArg, defs)))
         }
-      case Model.DamlLfPrimType.Map => {
+      case Model.DamlLfPrimType.TextMap => {
         case JsObject(a) =>
-          V.ValueMap(SortedLookupList(a.transform { (_, v) =>
+          V.ValueTextMap(SortedLookupList(a.transform { (_, v) =>
             jsValueToApiValue(v, prim.typArgs.head, defs)
           }))
       }
+      case Model.DamlLfPrimType.GenMap => {
+        case JsArray(entries) =>
+          V.ValueGenMap(ImmArray(entries.map {
+            case JsArray(Vector(key, value)) =>
+              jsValueToApiValue(key, prim.typArgs(0), defs) ->
+                jsValueToApiValue(value, prim.typArgs(1), defs)
+          }))
+      }
+
     }(fallback = deserializationError(s"Can't read ${value.prettyPrint} as $prim"))
   }
 
@@ -186,7 +198,7 @@ abstract class ApiCodecCompressed[Cid](
                   .get(fName)
                   .map(jsValueToApiValue(_, fTy, defs))
                   .getOrElse(fTy match {
-                    case iface.TypePrim(iface.PrimType.Optional, _) => V.ValueOptional(None)
+                    case iface.TypePrim(iface.PrimType.Optional, _) => V.ValueNone
                     case _ =>
                       deserializationError(
                         s"Can't read ${value.prettyPrint} as DamlLfRecord $id, missing field '$fName'")
@@ -256,7 +268,17 @@ abstract class ApiCodecCompressed[Cid](
           typeCon,
           defs(id).getOrElse(deserializationError(s"Type $id not found")))
         jsValueToApiDataType(value, id, dt, defs)
-      case v: Model.DamlLfTypeVar =>
+      case Model.DamlLfTypeNumeric(scale) =>
+        val numericOrError = value match {
+          case JsString(v) =>
+            LfNumeric.checkWithinBoundsAndRound(scale, BigDecimal(v))
+          case JsNumber(v) =>
+            LfNumeric.checkWithinBoundsAndRound(scale, v)
+          case _ =>
+            deserializationError(s"Can't read ${value.prettyPrint} as (Numeric $scale)")
+        }
+        V.ValueNumeric(assertDE(numericOrError))
+      case Model.DamlLfTypeVar(_) =>
         deserializationError(s"Can't read ${value.prettyPrint} as DamlLfTypeVar")
     }
   }
@@ -274,11 +296,11 @@ abstract class ApiCodecCompressed[Cid](
     jsValueToApiDataType(value, id, dt, defs)
   }
 
-  /** Creates a [[JsonReader]] for arbitrary [[Model.ApiValue]]s with the relevant type information */
+  /** Creates a JsonReader for Values with the relevant type information */
   def apiValueJsonReader(typ: DamlLfType, defs: DamlLfTypeLookup): JsonReader[V[Cid]] =
     jsValueToApiValue(_, typ, defs)
 
-  /** Creates a [[JsonReader]] for arbitrary [[Model.ApiValue]]s with the relevant type information */
+  /** Creates a JsonReader for Values with the relevant type information */
   def apiValueJsonReader(typ: DamlLfIdentifier, defs: DamlLfTypeLookup): JsonReader[V[Cid]] =
     jsValueToApiValue(_, typ, defs)
 

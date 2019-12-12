@@ -27,16 +27,20 @@ version1_5 = V1 $ PointStable 5
 version1_6 :: Version
 version1_6 = V1 $ PointStable 6
 
+-- | DAML-LF version 1.7
+version1_7 :: Version
+version1_7 = V1 $ PointStable 7
+
 -- | The DAML-LF version used by default.
 versionDefault :: Version
-versionDefault = version1_6
+versionDefault = version1_7
 
 -- | The DAML-LF development version.
 versionDev :: Version
 versionDev = V1 PointDev
 
 supportedOutputVersions :: [Version]
-supportedOutputVersions = [version1_6, versionDev]
+supportedOutputVersions = [version1_6, version1_7, versionDev]
 
 supportedInputVersions :: [Version]
 supportedInputVersions = version1_5 : supportedOutputVersions
@@ -45,11 +49,67 @@ supportedInputVersions = version1_5 : supportedOutputVersions
 data Feature = Feature
     { featureName :: !T.Text
     , featureMinVersion :: !Version
+    , featureCppFlag :: !T.Text
+        -- ^ CPP flag to test for availability of the feature.
     }
 
--- NOTE(MH): We comment this out to leave an example how to deal with features.
--- featureTextCodePoints :: Feature
--- featureTextCodePoints = Feature "Conversion between text and code points" version1_6
+featureNumeric :: Feature
+featureNumeric = Feature
+    { featureName = "Numeric type"
+    , featureMinVersion = version1_7
+    , featureCppFlag = "DAML_NUMERIC"
+    }
+
+featureAnyType :: Feature
+featureAnyType = Feature
+   { featureName = "Any type"
+   , featureMinVersion = version1_7
+   , featureCppFlag = "DAML_ANY_TYPE"
+   }
+
+featureTypeRep :: Feature
+featureTypeRep = Feature
+    { featureName = "TypeRep type"
+    , featureMinVersion = version1_7
+    , featureCppFlag = "DAML_TYPE_REP"
+    }
+
+featureStringInterning :: Feature
+featureStringInterning = Feature
+    { featureName = "String interning"
+    , featureMinVersion = version1_7
+    , featureCppFlag = "DAML_STRING_INTERNING"
+    }
+
+featureGenMap :: Feature
+featureGenMap = Feature
+    { featureName = "Generic map"
+    , featureMinVersion = versionDev
+    , featureCppFlag = "DAML_GENMAP"
+    }
+
+-- Unstable, experimental features. This should stay in 1.dev forever.
+-- Features implemented with this flag should be moved to a separate
+-- feature flag once the decision to add them permanently has been made.
+featureUnstable :: Feature
+featureUnstable = Feature
+    { featureName = "Unstable, experimental features"
+    , featureMinVersion = versionDev
+    , featureCppFlag = "DAML_UNSTABLE"
+    }
+
+allFeatures :: [Feature]
+allFeatures =
+    [ featureNumeric
+    , featureAnyType
+    , featureTypeRep
+    , featureStringInterning
+    , featureGenMap
+    , featureUnstable
+    ]
+
+allFeaturesForVersion :: Version -> [Feature]
+allFeaturesForVersion version = filter (supports version) allFeatures
 
 supports :: Version -> Feature -> Bool
 supports version feature = version >= featureMinVersion feature

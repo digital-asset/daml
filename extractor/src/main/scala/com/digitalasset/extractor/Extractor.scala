@@ -4,39 +4,44 @@
 package com.digitalasset.extractor
 
 import akka.actor.ActorSystem
-import akka.stream.{KillSwitches, ActorMaterializer}
 import akka.stream.scaladsl.{RestartSource, Sink}
+import akka.stream.{ActorMaterializer, KillSwitches}
+import com.digitalasset.auth.TokenHolder
 import com.digitalasset.extractor.Types._
 import com.digitalasset.extractor.config.{ExtractorConfig, SnapshotEndSetting}
-import com.digitalasset.ledger.service.LedgerReader
+import com.digitalasset.extractor.helpers.FutureUtil.toFuture
+import com.digitalasset.extractor.helpers.{TemplateIds, TransactionTreeTrimmer}
 import com.digitalasset.extractor.ledger.types.TransactionTree
 import com.digitalasset.extractor.ledger.types.TransactionTree._
-import com.digitalasset.ledger.service.LedgerReader.PackageStore
 import com.digitalasset.extractor.writers.Writer
 import com.digitalasset.extractor.writers.Writer.RefreshPackages
-import com.digitalasset.extractor.helpers.TemplateIds
-import com.digitalasset.extractor.helpers.TransactionTreeTrimmer
-import com.digitalasset.extractor.helpers.FutureUtil.toFuture
-import com.digitalasset.grpc.adapter.{ExecutionSequencerFactory, AkkaExecutionSequencerPool}
+import com.digitalasset.grpc.GrpcException
+import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.digitalasset.ledger.api.{v1 => api}
 import com.digitalasset.ledger.client.LedgerClient
 import com.digitalasset.ledger.client.configuration._
-import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
+import com.digitalasset.ledger.client.services.pkg.PackageClient
+import com.digitalasset.ledger.service.LedgerReader
+import com.digitalasset.ledger.service.LedgerReader.PackageStore
+import com.digitalasset.timer.RetryStrategy
+import com.typesafe.scalalogging.StrictLogging
+import io.grpc.netty.NettyChannelBuilder
+import scalaz.Scalaz._
+import scalaz._
+import scalaz.syntax.tag._
 
 import scala.collection.breakOut
-import scala.concurrent.duration._
 import scala.concurrent.Future
+import scala.concurrent.duration._
 import scala.util.control.NonFatal
-import scalaz._
-import Scalaz._
-import com.typesafe.scalalogging.StrictLogging
-import scalaz.syntax.tag._
 
 class Extractor[T](config: ExtractorConfig, target: T)(
     writerSupplier: (ExtractorConfig, T, String) => Writer = Writer.apply _)
     extends StrictLogging {
+
+  private val tokenHolder = config.accessTokenFile.map(new TokenHolder(_))
 
   implicit val system: ActorSystem = ActorSystem()
   import system.dispatcher
@@ -61,7 +66,7 @@ class Extractor[T](config: ExtractorConfig, target: T)(
 
       _ = logger.info(s"Connected to ledger ${client.ledgerId}\n\n")
 
-      endResponse <- client.transactionClient.getLedgerEnd
+      endResponse <- client.transactionClient.getLedgerEnd(tokenHolder.flatMap(_.token))
 
       endOffset = endResponse.offset.getOrElse(
         throw new RuntimeException("Failed to get ledger end: response did not contain an offset.")
@@ -114,10 +119,25 @@ class Extractor[T](config: ExtractorConfig, target: T)(
     system.terminate().map(_ => killSwitch.shutdown())
   }
 
+  private def keepRetryingOnPermissionDenied[A](f: () => Future[A]): Future[A] =
+    RetryStrategy.constant(1.second) {
+      case GrpcException.PERMISSION_DENIED() => true
+    } { (attempt, wait) =>
+      logger.error(s"Failed to authenticate with Ledger API on attempt $attempt, next one in $wait")
+      tokenHolder.foreach(_.refresh())
+      f()
+    }
+
+  private def doFetchPackages(
+      packageClient: PackageClient): Future[LedgerReader.Error \/ Option[PackageStore]] =
+    keepRetryingOnPermissionDenied { () =>
+      LedgerReader.loadPackageStoreUpdates(packageClient, tokenHolder.flatMap(_.token))(Set.empty)
+    }
+
   private def fetchPackages(client: LedgerClient, writer: Writer): Future[PackageStore] = {
     for {
-      packageStoreE <- LedgerReader.createPackageStore(client.packageClient): Future[
-        String \/ PackageStore]
+      packageStoreE <- doFetchPackages(client.packageClient)
+        .map(_.map(_.getOrElse(Map.empty))): Future[LedgerReader.Error \/ PackageStore]
       packageStore <- toFuture(packageStoreE): Future[PackageStore]
       _ <- writer.handlePackages(packageStore)
     } yield packageStore
@@ -151,13 +171,15 @@ class Extractor[T](config: ExtractorConfig, target: T)(
         maxBackoff = 30.seconds,
         randomFactor = 0.2 // adds 20% "noise" to vary the intervals slightly
       ) { () =>
+        tokenHolder.foreach(_.refresh())
         logger.info(s"Starting streaming transactions from ${startOffSet}...")
         client.transactionClient
           .getTransactionTrees(
             LedgerOffset(startOffSet),
             streamUntil,
             transactionFilter,
-            verbose = true
+            verbose = true,
+            tokenHolder.flatMap(_.token)
           )
           .via(killSwitch.flow)
           .map(trim)
@@ -223,33 +245,18 @@ class Extractor[T](config: ExtractorConfig, target: T)(
     Future.successful(())
   }
 
-  private def createClient: Future[LedgerClient] = {
-    val builder: NettyChannelBuilder = NettyChannelBuilder
-      .forAddress(config.ledgerHost, config.ledgerPort)
-      .maxInboundMessageSize(config.ledgerInboundMessageSizeMax)
-
-    config.tlsConfig.client
-      .fold {
-        logger.debug(
-          s"Connecting to ${config.ledgerHost}:${config.ledgerPort}, using a plaintext connection")
-        builder.usePlaintext()
-      } { sslContext =>
-        logger.debug(s"Connecting to ${config.ledgerHost}:${config.ledgerPort}, using TLS")
-        builder.sslContext(sslContext).negotiationType(NegotiationType.TLS)
-      }
-
-    val channel = builder.build()
-
-    sys.addShutdownHook { channel.shutdownNow(); () }
-
-    LedgerClient.forChannel(
+  private def createClient: Future[LedgerClient] =
+    LedgerClient.fromBuilder(
+      NettyChannelBuilder
+        .forAddress(config.ledgerHost, config.ledgerPort)
+        .maxInboundMessageSize(config.ledgerInboundMessageSizeMax),
       LedgerClientConfiguration(
         config.appId,
         LedgerIdRequirement(ledgerId = "", enabled = false),
         CommandClientConfiguration(1, 1, overrideTtl = true, java.time.Duration.ofSeconds(20L)),
-        sslContext = config.tlsConfig.client
-      ),
-      channel
+        sslContext = config.tlsConfig.client,
+        tokenHolder.flatMap(_.token)
+      )
     )
-  }
+
 }

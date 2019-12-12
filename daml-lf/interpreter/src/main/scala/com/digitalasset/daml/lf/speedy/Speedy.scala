@@ -65,7 +65,34 @@ object Speedy {
     def popEnv(count: Int): Unit =
       env.subList(env.size - count, env.size).clear
 
-    /* Compute a stack trace from the locations in the continuation stack. */
+    /** Push a single location to the continuation stack for the sake of
+        maintaining a stack trace. */
+    def pushLocation(loc: Location): Unit = {
+      lastLocation = Some(loc)
+      val last_index = kont.size() - 1
+      val last_kont = if (last_index >= 0) Some(kont.get(last_index)) else None
+      last_kont match {
+        // NOTE(MH): If the top of the continuation stack is the monadic token,
+        // we push location information under it to account for the implicit
+        // lambda binding the token.
+        case Some(KArg(Array(SEValue.Token))) => kont.add(last_index, KLocation(loc))
+        // NOTE(MH): When we use a cached top level value, we need to put the
+        // stack trace it produced back on the continuation stack to get
+        // complete stack trace at the use site. Thus, we store the stack traces
+        // of top level values separately during their execution.
+        case Some(KCacheVal(v, stack_trace)) =>
+          kont.set(last_index, KCacheVal(v, loc :: stack_trace)); ()
+        case _ => kont.add(KLocation(loc)); ()
+      }
+    }
+
+    /** Push an entire stack trace to the continuation stack. The first
+        element of the list will be pushed last. */
+    def pushStackTrace(locs: List[Location]): Unit =
+      locs.reverse.foreach(pushLocation)
+
+    /** Compute a stack trace from the locations in the continuation stack.
+        The last seen location will come last. */
     def stackTrace(): ImmArray[Location] = {
       val s = new ArrayList[Location]
       kont.forEach { k =>
@@ -121,13 +148,14 @@ object Speedy {
     }
 
     def lookupVal(eval: SEVal): Ctrl = {
-      ptx = ptx.markPackage(eval.ref.packageId)
       eval.cached match {
-        case Some(v) =>
-          CtrlValue(v.asInstanceOf[SValue])
+        case Some((v, stack_trace)) => {
+          pushStackTrace(stack_trace)
+          CtrlValue(v)
+        }
         case None =>
           val ref = eval.ref
-          kont.add(KCacheVal(eval))
+          kont.add(KCacheVal(eval, Nil))
           compiledPackages.getDefinition(ref) match {
             case Some(body) =>
               CtrlExpr(body)
@@ -220,8 +248,10 @@ object Speedy {
         compiledPackages: CompiledPackages): Either[SError, (Boolean, Expr) => Machine] = {
       val compiler = Compiler(compiledPackages.packages)
       Right({ (checkSubmitterInMaintainers: Boolean, expr: Expr) =>
-        initial(checkSubmitterInMaintainers, compiledPackages).copy(
-          ctrl = CtrlExpr(compiler.compile(expr)(SEValue(SToken))))
+        fromSExpr(
+          SEApp(compiler.compile(expr), Array(SEValue.Token)),
+          checkSubmitterInMaintainers,
+          compiledPackages)
       })
     }
 
@@ -229,10 +259,7 @@ object Speedy {
         checkSubmitterInMaintainers: Boolean,
         sexpr: SExpr,
         compiledPackages: CompiledPackages): Machine =
-      initial(checkSubmitterInMaintainers, compiledPackages).copy(
-        // apply token
-        ctrl = CtrlExpr(sexpr(SEValue(SToken))),
-      )
+      fromSExpr(SEApp(sexpr, Array(SEValue.Token)), checkSubmitterInMaintainers, compiledPackages)
 
     // Used from repl.
     def fromExpr(
@@ -243,14 +270,21 @@ object Speedy {
       val compiler = Compiler(compiledPackages.packages)
       val sexpr =
         if (scenario)
-          compiler.compile(expr)(SEValue(SToken))
+          SEApp(compiler.compile(expr), Array(SEValue.Token))
         else
           compiler.compile(expr)
 
-      initial(checkSubmitterInMaintainers, compiledPackages).copy(
-        ctrl = CtrlExpr(sexpr),
-      )
+      fromSExpr(sexpr, checkSubmitterInMaintainers, compiledPackages)
     }
+
+    // Construct a machine from an SExpr. This is useful when you don’t have
+    // an update expression and build’s behavior of applying the expression to
+    // a token is not appropriate.
+    def fromSExpr(
+        sexpr: SExpr,
+        checkSubmitterInMaintainers: Boolean,
+        compiledPackages: CompiledPackages): Machine =
+      initial(checkSubmitterInMaintainers, compiledPackages).copy(ctrl = CtrlExpr(sexpr))
   }
 
   /** Control specifies the thing that the machine should be reducing.
@@ -309,6 +343,8 @@ object Speedy {
         machine.kontPop.execute(value, machine)
     }
   }
+
+  object CtrlValue extends SValueContainer[CtrlValue]
 
   /** When we fetch a contract id from upstream we cannot crash in the
     * that upstream calls. Rather, we set the control to this and then crash
@@ -446,7 +482,7 @@ object Speedy {
               case _ => false
             }
           }
-        case _: SUnit =>
+        case SUnit =>
           alts.find { alt =>
             alt.pattern match {
               case SCPPrimCon(PCUnit) => true
@@ -470,8 +506,9 @@ object Speedy {
               case _ => false
             }
           }
-        case _: SContractId | _: SDate | _: SDecimal | _: SInt64 | _: SParty | _: SText |
-            _: STimestamp | _: STuple | _: SMap | _: SRecord | _: SPAP | SToken =>
+        case SContractId(_) | SDate(_) | SNumeric(_) | SInt64(_) | SParty(_) | SText(_) |
+            STimestamp(_) | SStruct(_, _) | STextMap(_) | SGenMap(_) | SRecord(_, _, _) |
+            SAny(_, _) | STypeRep(_) | STNat(_) | _: SPAP | SToken =>
           crash("Match on non-matchable value")
       }
 
@@ -499,12 +536,13 @@ object Speedy {
   /** Store the evaluated value in the 'SEVal' from which the expression came from.
     * This in principle makes top-level values lazy. It is a useful optimization to
     * allow creation of large constants (for example records) that are repeatedly
-    * accessed. In older compilers which did not use the builtin record and tuple
+    * accessed. In older compilers which did not use the builtin record and struct
     * updates this solves the blow-up which would happen when a large record is
     * updated multiple times. */
-  final case class KCacheVal(v: SEVal) extends Kont {
+  final case class KCacheVal(v: SEVal, stack_trace: List[Location]) extends Kont {
     def execute(sv: SValue, machine: Machine) = {
-      v.cached = Some(sv)
+      machine.pushStackTrace(stack_trace)
+      v.cached = Some((sv, stack_trace))
     }
   }
 

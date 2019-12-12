@@ -9,16 +9,18 @@ load(
 da_haskell_library(
     name = "daml-lf-conversion",
     srcs = glob(["src/**/*.hs"]),
-    hazel_deps = [
+    hackage_deps = [
         "base",
         "bytestring",
         "containers",
+        "Decimal",
         "directory",
         "extra",
         "filepath",
         "haskell-lsp-types",
         "ghc-lib-parser",
         "ghc-lib",
+        "ghcide",
         "lens",
         "mtl",
         "recursion-schemes",
@@ -26,6 +28,8 @@ da_haskell_library(
         "text",
         "uniplate",
     ],
+    # hie-bios depends on "ghc" which conflicts with ghc-lib(-parser)
+    repl_ghci_args = ["-hide-package=ghc"],
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
@@ -33,7 +37,6 @@ da_haskell_library(
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto",
         "//compiler/daml-lf-tools",
-        "//compiler/hie-core",
         "//libs-haskell/da-hs-base",
     ],
 )

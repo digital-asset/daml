@@ -31,8 +31,8 @@ sealed abstract class Value[+Cid] extends Product with Serializable {
         ValueRecord(id, fs.map({
           case (lbl, value) => (lbl, value.mapContractId(f))
         }))
-      case ValueTuple(fs) =>
-        ValueTuple(fs.map[(Name, Value[Cid2])] {
+      case ValueStruct(fs) =>
+        ValueStruct(fs.map[(Name, Value[Cid2])] {
           case (lbl, value) => (lbl, value.mapContractId(f))
         })
       case ValueVariant(id, variant, value) =>
@@ -41,7 +41,9 @@ sealed abstract class Value[+Cid] extends Product with Serializable {
       case ValueList(vs) =>
         ValueList(vs.map(_.mapContractId(f)))
       case ValueOptional(x) => ValueOptional(x.map(_.mapContractId(f)))
-      case ValueMap(x) => ValueMap(x.mapValue(_.mapContractId(f)))
+      case ValueTextMap(x) => ValueTextMap(x.mapValue(_.mapContractId(f)))
+      case ValueGenMap(entries) =>
+        ValueGenMap(entries.map { case (k, v) => k.mapContractId(f) -> v.mapContractId(f) })
     }
 
   /** returns a list of validation errors: if the result is non-empty the value is
@@ -61,12 +63,13 @@ sealed abstract class Value[+Cid] extends Product with Serializable {
       case FrontStackCons((v, nesting), vs) =>
         // we cannot define helper functions because otherwise go is not tail recursive. fun!
         val exceedsNestingErr = s"exceeds maximum nesting value of $MAXIMUM_NESTING"
+        val newNesting = nesting + 1
 
         v match {
-          case tpl: ValueTuple[Cid] =>
-            go(exceededNesting, errs :+ s"contains tuple $tpl", vs)
+          case tpl: ValueStruct[Cid] =>
+            go(exceededNesting, errs :+ s"contains struct $tpl", vs)
           case ValueRecord(_, flds) =>
-            if (nesting + 1 > MAXIMUM_NESTING) {
+            if (newNesting > MAXIMUM_NESTING) {
               if (exceededNesting) {
                 // we already exceeded the nesting, do not output again
                 go(exceededNesting, errs, vs)
@@ -74,11 +77,11 @@ sealed abstract class Value[+Cid] extends Product with Serializable {
                 go(true, errs :+ exceedsNestingErr, vs)
               }
             } else {
-              go(exceededNesting, errs, flds.map(v => (v._2, nesting + 1)) ++: vs)
+              go(exceededNesting, errs, flds.map(v => (v._2, newNesting)) ++: vs)
             }
 
           case ValueList(values) =>
-            if (nesting + 1 > MAXIMUM_NESTING) {
+            if (newNesting > MAXIMUM_NESTING) {
               if (exceededNesting) {
                 // we already exceeded the nesting, do not output again
                 go(exceededNesting, errs, vs)
@@ -86,11 +89,11 @@ sealed abstract class Value[+Cid] extends Product with Serializable {
                 go(true, errs :+ exceedsNestingErr, vs)
               }
             } else {
-              go(exceededNesting, errs, values.toImmArray.map(v => (v, nesting + 1)) ++: vs)
+              go(exceededNesting, errs, values.toImmArray.map(v => (v, newNesting)) ++: vs)
             }
 
           case ValueVariant(_, _, value) =>
-            if (nesting + 1 > MAXIMUM_NESTING) {
+            if (newNesting > MAXIMUM_NESTING) {
               if (exceededNesting) {
                 // we already exceeded the nesting, do not output again
                 go(exceededNesting, errs, vs)
@@ -98,13 +101,13 @@ sealed abstract class Value[+Cid] extends Product with Serializable {
                 go(true, errs :+ exceedsNestingErr, vs)
               }
             } else {
-              go(exceededNesting, errs, (value, nesting + 1) +: vs)
+              go(exceededNesting, errs, (value, newNesting) +: vs)
             }
 
           case _: ValueCidlessLeaf | _: ValueContractId[Cid] =>
             go(exceededNesting, errs, vs)
           case ValueOptional(x) =>
-            if (nesting + 1 > MAXIMUM_NESTING) {
+            if (newNesting > MAXIMUM_NESTING) {
               if (exceededNesting) {
                 // we already exceeded nesting, do not output again
                 go(exceededNesting, errs, vs)
@@ -112,10 +115,10 @@ sealed abstract class Value[+Cid] extends Product with Serializable {
                 go(true, errs :+ exceedsNestingErr, vs)
               }
             } else {
-              go(exceededNesting, errs, ImmArray(x.toList.map(v => (v, nesting + 1))) ++: vs)
+              go(exceededNesting, errs, ImmArray(x.toList.map(v => (v, newNesting))) ++: vs)
             }
-          case ValueMap(value) =>
-            if (nesting + 1 > MAXIMUM_NESTING) {
+          case ValueTextMap(value) =>
+            if (newNesting > MAXIMUM_NESTING) {
               if (exceededNesting) {
                 // we already exceeded the nesting, do not output again
                 go(exceededNesting, errs, vs)
@@ -123,7 +126,21 @@ sealed abstract class Value[+Cid] extends Product with Serializable {
                 go(true, errs :+ exceedsNestingErr, vs)
               }
             } else {
-              go(exceededNesting, errs, value.values.map(v => (v, nesting + 1)) ++: vs)
+              go(exceededNesting, errs, value.values.map(v => (v, newNesting)) ++: vs)
+            }
+          case ValueGenMap(entries) =>
+            if (newNesting > MAXIMUM_NESTING) {
+              if (exceededNesting) {
+                // we already exceeded the nesting, do not output again
+                go(exceededNesting, errs, vs)
+              } else {
+                go(true, errs :+ exceedsNestingErr, vs)
+              }
+            } else {
+              val vs1 = entries.foldLeft(vs) {
+                case (acc, (k, v)) => (k -> newNesting) +: (v -> newNesting) +: acc
+              }
+              go(exceededNesting, errs, vs1)
             }
         }
     }
@@ -187,25 +204,33 @@ object Value {
     */
   final case class ValueList[+Cid](values: FrontStack[Value[Cid]]) extends Value[Cid]
   final case class ValueInt64(value: Long) extends ValueCidlessLeaf
-  final case class ValueDecimal(value: Decimal) extends ValueCidlessLeaf
+  final case class ValueNumeric(value: Numeric) extends ValueCidlessLeaf
   // Note that Text are assume to be UTF8
   final case class ValueText(value: String) extends ValueCidlessLeaf
   final case class ValueTimestamp(value: Time.Timestamp) extends ValueCidlessLeaf
   final case class ValueDate(value: Time.Date) extends ValueCidlessLeaf
   final case class ValueParty(value: Ref.Party) extends ValueCidlessLeaf
   final case class ValueBool(value: Boolean) extends ValueCidlessLeaf
+  object ValueBool {
+    val True = new ValueBool(true)
+    val Fasle = new ValueBool(false)
+    def apply(value: Boolean): ValueBool =
+      if (value) ValueTrue else ValueFalse
+  }
   case object ValueUnit extends ValueCidlessLeaf
   final case class ValueOptional[+Cid](value: Option[Value[Cid]]) extends Value[Cid]
-  final case class ValueMap[+Cid](value: SortedLookupList[Value[Cid]]) extends Value[Cid]
+  final case class ValueTextMap[+Cid](value: SortedLookupList[Value[Cid]]) extends Value[Cid]
+  final case class ValueGenMap[+Cid](entries: ImmArray[(Value[Cid], Value[Cid])]) extends Value[Cid]
   // this is present here just because we need it in some internal code --
   // specifically the scenario interpreter converts committed values to values and
-  // currently those can be tuples, although we should probably ban that.
-  final case class ValueTuple[+Cid](fields: ImmArray[(Name, Value[Cid])]) extends Value[Cid]
+  // currently those can be structs, although we should probably ban that.
+  final case class ValueStruct[+Cid](fields: ImmArray[(Name, Value[Cid])]) extends Value[Cid]
 
+  // Order of GenMap entries is relevant for this equality.
   implicit def `Value Equal instance`[Cid: Equal]: Equal[Value[Cid]] =
     ScalazEqual.withNatural(Equal[Cid].equalIsNatural) {
       ScalazEqual.match2(fallback = false) {
-        case a @ (_: ValueInt64 | _: ValueDecimal | _: ValueText | _: ValueTimestamp |
+        case a @ (_: ValueInt64 | _: ValueNumeric | _: ValueText | _: ValueTimestamp |
             _: ValueParty | _: ValueBool | _: ValueDate | ValueUnit) => { case b => a == b }
         case r: ValueRecord[Cid] => {
           case ValueRecord(tycon2, fields2) =>
@@ -234,13 +259,17 @@ object Value {
           case ValueOptional(value2) =>
             value === value2
         }
-        case ValueTuple(fields) => {
-          case ValueTuple(fields2) =>
+        case ValueStruct(fields) => {
+          case ValueStruct(fields2) =>
             fields === fields2
         }
-        case ValueMap(map1) => {
-          case ValueMap(map2) =>
+        case ValueTextMap(map1) => {
+          case ValueTextMap(map2) =>
             map1 === map2
+        }
+        case genMap: ValueGenMap[Cid] => {
+          case ValueGenMap(entries2) =>
+            genMap.entries === entries2
         }
       }
     }
@@ -301,6 +330,7 @@ object Value {
     override def toString = "NodeId(" + index.toString + ")"
 
     val name: LedgerString = LedgerString.assertFromString(index.toString)
+
   }
 
   object NodeId {
@@ -309,6 +339,16 @@ object Value {
     def unsafeFromIndex(i: Int) = new NodeId(i)
   }
 
+  implicit object NodeIdOrdering extends Ordering[NodeId] {
+    override def compare(x: NodeId, y: NodeId): Int =
+      x.index.compare(y.index)
+  }
+
   /*** Keys cannot contain contract ids */
   type Key = Value[Nothing]
+
+  val ValueTrue: ValueBool = ValueBool.True
+  val ValueFalse: ValueBool = ValueBool.Fasle
+  val ValueNil: ValueList[Nothing] = ValueList(FrontStack.empty)
+  val ValueNone: ValueOptional[Nothing] = ValueOptional(None)
 }

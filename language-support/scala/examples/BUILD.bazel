@@ -31,9 +31,6 @@ genrule(
     cmd = """
         mkdir -p $@
         cp -rL $(SRCS) $@
-        rm -rf $@/project/project/*
-        ln -s ../Artifactory.scala $@/project/project/Artifactory.scala
-        ln -s ../Versions.scala $@/project/project/Versions.scala
         rm -rf $@/target
         rm -rf $@/project/target
         rm -rf $@/application/target
@@ -65,10 +62,10 @@ da_scala_binary(
     scalacopts = ["-Xsource:2.13"],
     deps = [
         ":quickstart-scala-codegen-lib",
-        "//3rdparty/jvm/com/typesafe/akka:akka_slf4j",
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
+        "@maven//:com_typesafe_akka_akka_slf4j_2_12",
     ],
 )
 

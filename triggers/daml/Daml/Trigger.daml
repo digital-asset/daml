@@ -1,0 +1,253 @@
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+{-# LANGUAGE AllowAmbiguousTypes #-}
+daml 1.2
+module Daml.Trigger
+ ( ACS
+ , getContracts
+ , getTemplates
+ , Trigger(..)
+ , TriggerA
+ , emitCommands
+ , runTrigger
+ , CommandId
+ , Command(..)
+ , AnyContractId
+ , toAnyContractId
+ , fromAnyContractId
+ , exerciseCmd
+ , createCmd
+ , exerciseByKeyCmd
+ , dedupExercise
+ , dedupCreate
+ , dedupExerciseByKey
+ , Message(..)
+ , Completion(..)
+ , Transaction(..)
+ , CompletionStatus(..)
+ , RegisteredTemplates(..)
+ , registeredTemplate
+ ) where
+
+import DA.Action
+import DA.Action.State
+import DA.Next.Map (Map)
+import qualified DA.Next.Map as Map
+import DA.Optional
+
+import Daml.Trigger.LowLevel hiding (Trigger)
+import qualified Daml.Trigger.LowLevel as LowLevel
+
+-- public API
+
+-- | Active contract set, you can use `getContracts` to access the templates of
+-- a given type.
+
+-- This will change to a Map once we have proper maps in DAML-LF
+data ACS = ACS
+  { activeContracts : [(AnyContractId, AnyTemplate)]
+  , pendingContracts : Map CommandId [AnyContractId]
+  }
+
+{-# DEPRECATED getTemplates "getTemplates is deprecated in favor of getContracts" #-}
+getTemplates : forall a. Template a => ACS -> [(ContractId a, a)]
+getTemplates = getContracts
+
+-- | Extract the contracts of a given template from the ACS.
+getContracts : forall a. Template a => ACS -> [(ContractId a, a)]
+getContracts (ACS tpls pending) = mapOptional fromAny $ filter (\(cid, _) -> not $ cid `elem` allPending) tpls
+  where
+    fromAny (cid, tpl) = (,) <$> fromAnyContractId cid <*> fromAnyTemplate tpl
+    allPending = concatMap snd $ Map.toList pending
+
+-- | This is the type of your trigger. `s` is the user-defined state type which
+-- you can often leave at `()`.
+data Trigger s = Trigger
+  { initialize : ACS -> s
+  -- ^ Initialize the user-defined state based on the ACS.
+  , updateState : ACS -> Message -> s -> s
+  -- ^ Update the user-defined state based on the ACS and a transaction or
+  -- completion message.
+  , rule : Party -> ACS -> Map CommandId [Command] -> s -> TriggerA ()
+  -- ^ The rule defines the main logic of your trigger.
+  -- Given the party your trigger is running as, the ACS, the commands in flight
+  -- and the user-defined state, you can send commands to the ledger using
+  -- `emitCommands` to change the ACS.
+  , registeredTemplates : RegisteredTemplates
+  -- ^ The templates the trigger will receive events for.
+  }
+
+-- | TriggerA is the type used in the `rule` of a DAML trigger.
+-- Its main feature is that you can call `emitCommands` to
+-- send commands to the ledger.
+newtype TriggerA a = TriggerA (State TriggerAState a)
+  deriving (Functor, Applicative, Action)
+
+-- | Send a transaction consisting of the given commands to the ledger.
+-- The second argument can be used to mark a list of contract ids as pending.
+-- These contracts will automatically be filtered from getContracts until we
+-- either get the corresponding transaction event for this command or
+-- a failing completion.
+emitCommands : [Command] -> [AnyContractId] -> TriggerA CommandId
+emitCommands cmds pending = do
+  state <- TriggerA get
+  let id = CommandId $ show $ state.nextCommandId
+  let commands = Commands id cmds
+  TriggerA $ modify $ \s -> s
+    { emittedCommands = commands :: s.emittedCommands
+    , pendingContracts = Map.insert id pending s.pendingContracts
+    , nextCommandId = s.nextCommandId + 1
+    }
+  pure id
+
+-- | Create the template if it’s not already in the list of commands
+-- in flight (it will still be created if it is in the ACS).
+--
+-- Note that this will send the create as a single-command transaction.
+-- If you need to send multiple commands in one transaction, use
+-- `emitCommands` with `createCmd` and handle filtering yourself.
+dedupCreate : (Eq t, Template t) => t -> TriggerA ()
+dedupCreate t = do
+  aState <- TriggerA get
+  -- This is a very naive approach that is linear in the number of commands in flight.
+  -- We probably want to change this to express the commands in flight as some kind of
+  -- map to make these lookups cheaper.
+  let cmds = concat $ map snd (Map.toList aState.commandsInFlight) <> map commands aState.emittedCommands
+  unless (any ((Some t ==) . fromCreate) cmds) $
+    void $ emitCommands [createCmd t] []
+
+-- | Exercise the choice on the given contract if it is not already
+-- in flight.
+--
+-- Note that this will send the exercise as a single-command transaction.
+-- If you need to send multiple commands in one transaction, use
+-- `emitCommands` with `exerciseCmd` and handle filtering yourself.
+--
+-- If you are calling a consuming choice, you might be better off by using
+-- `emitCommands` and adding the contract id to the pending set.
+dedupExercise : (Eq c, Choice t c r) => ContractId t -> c -> TriggerA ()
+dedupExercise cid c = do
+  aState <- TriggerA get
+  -- This is a very naive approach that is linear in the number of commands in flight.
+  -- We probably want to change this to express the commands in flight as some kind of
+  -- map to make these lookups cheaper.
+  let cmds = concat $ map snd (Map.toList aState.commandsInFlight) <> map commands aState.emittedCommands
+  unless (any ((Some (cid, c) ==) . fromExercise) cmds) $
+    void $ emitCommands [exerciseCmd cid c] []
+
+-- | Exercise the choice on the given contract if it is not already
+-- in flight.
+--
+-- Note that this will send the exercise as a single-command transaction.
+-- If you need to send multiple commands in one transaction, use
+-- `emitCommands` with `exerciseCmd` and handle filtering yourself.
+dedupExerciseByKey : forall t c r k. (Eq c, Eq k, Choice t c r, TemplateKey t k) => k -> c -> TriggerA ()
+dedupExerciseByKey k c = do
+  aState <- TriggerA get
+  -- This is a very naive approach that is linear in the number of commands in flight.
+  -- We probably want to change this to express the commands in flight as some kind of
+  -- map to make these lookups cheaper.
+  let cmds = concat $ map snd (Map.toList aState.commandsInFlight) <> map commands aState.emittedCommands
+  unless (any ((Some (k, c) ==) . fromExerciseByKey @t) cmds) $
+    void $ emitCommands [exerciseByKeyCmd @t k c] []
+
+-- | Transform the high-level trigger type into the one from `Daml.Trigger.LowLevel`.
+runTrigger : Trigger s -> LowLevel.Trigger (TriggerState s)
+runTrigger userTrigger = LowLevel.Trigger
+  { initialState = initialState
+  , update = update
+  , registeredTemplates = userTrigger.registeredTemplates
+  }
+  where
+    initialState party (ActiveContracts createdEvents) =
+      let acs = foldl (\acs created -> applyEvent (CreatedEvent created) acs) (ACS [] Map.empty) createdEvents
+          userState = userTrigger.initialize acs
+          state = TriggerState acs party userState Map.empty 0
+      in runRule userTrigger.rule state
+    update msg state =
+      case msg of
+        MCompletion completion ->
+          let userState = userTrigger.updateState state.acs (MCompletion completion) state.userState
+          in case completion.status of
+            Succeeded {} ->
+              -- We delete successful completions when we receive the corresponding transaction
+              -- to avoid removing a command from commandsInFlight before we have modified the ACS.
+              (state { userState }, [] )
+            Failed {} ->
+                let commandsInFlight = Map.delete completion.commandId state.commandsInFlight
+                    acs = state.acs { pendingContracts = Map.delete completion.commandId state.acs.pendingContracts }
+                    state' = state { commandsInFlight, userState, acs }
+                in runRule userTrigger.rule state'
+        MTransaction transaction ->
+          let acs = applyTransaction transaction state.acs
+              userState = userTrigger.updateState acs (MTransaction transaction) state.userState
+              -- See the comment above for why we delete this here instead of when we receive the completion.
+              (acs', commandsInFlight) = case transaction.commandId of
+                None -> (acs, state.commandsInFlight)
+                Some commandId -> (acs { pendingContracts = Map.delete commandId acs.pendingContracts }, Map.delete commandId state.commandsInFlight)
+              state' = state { acs = acs', userState, commandsInFlight }
+          in runRule userTrigger.rule state'
+
+-- Internal API
+
+addCommands : Map CommandId [Command] -> Commands -> Map CommandId [Command]
+addCommands m (Commands cid cmds) = Map.insert cid cmds m
+
+insertTpl : AnyContractId -> AnyTemplate -> ACS -> ACS
+insertTpl cid tpl acs = acs { activeContracts = (cid, tpl) :: acs.activeContracts }
+
+deleteTpl : AnyContractId -> ACS -> ACS
+deleteTpl cid acs = acs { activeContracts = filter (\(cid', _) -> cid /= cid') acs.activeContracts }
+
+lookupTpl : Template a => AnyContractId -> ACS -> Optional a
+lookupTpl cid acs = do
+  (_, tpl) <- find ((cid ==) . fst) $ acs.activeContracts
+  fromAnyTemplate tpl
+
+applyEvent : Event -> ACS -> ACS
+applyEvent ev acs = case ev of
+  CreatedEvent (Created _ cid tpl) -> insertTpl cid tpl acs
+  ArchivedEvent (Archived _ cid) -> deleteTpl cid acs
+
+applyTransaction : Transaction -> ACS -> ACS
+applyTransaction (Transaction _ _ evs) acs = foldl (flip applyEvent) acs evs
+
+runRule
+  : (Party -> ACS -> Map CommandId [Command] -> s -> TriggerA ())
+  -> TriggerState s
+  -> (TriggerState s, [Commands])
+runRule rule state =
+  let (_, aState) =
+        runTriggerA
+          (rule state.party state.acs state.commandsInFlight state.userState)
+          (TriggerAState state.commandsInFlight [] state.acs.pendingContracts state.nextCommandId)
+      commandsInFlight = foldl addCommands state.commandsInFlight aState.emittedCommands
+      acs = state.acs { pendingContracts = aState.pendingContracts }
+  in (state { nextCommandId = aState.nextCommandId, commandsInFlight, acs }, aState.emittedCommands)
+
+runTriggerA : TriggerA a -> TriggerAState -> (a, TriggerAState)
+runTriggerA (TriggerA f) s =
+  let (a, s') = runState f s
+  in (a, s' { emittedCommands = reverse s'.emittedCommands })
+
+data TriggerAState = TriggerAState
+  { commandsInFlight : Map CommandId [Command]
+  -- This is not modified during a run (new commands end up in emittedCommands)
+  -- but for simplicity we keep it in TriggerAState instead of layering a
+  -- Reader on top of it.
+  -- This will be used for dedupCreateCmd/dedupExerciseCmd helpers.
+  , emittedCommands : [Commands]
+  -- ^ Emitted commands in reverse because I can’t be bothered to implement a dlist.
+  , pendingContracts : Map CommandId [AnyContractId]
+  -- ^ Map from command ids to the contract ids marked pending by that command.
+  , nextCommandId : Int
+  -- ^ Command id used for the next submit
+  }
+
+data TriggerState s = TriggerState
+  { acs : ACS
+  , party : Party
+  , userState : s
+  , commandsInFlight : Map CommandId [Command]
+  , nextCommandId : Int
+  }

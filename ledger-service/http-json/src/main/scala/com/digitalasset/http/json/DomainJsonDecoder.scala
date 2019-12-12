@@ -16,6 +16,7 @@ import scala.language.higherKinds
 
 class DomainJsonDecoder(
     resolveTemplateId: PackageService.ResolveTemplateId,
+    resolveChoiceRecordId: PackageService.ResolveChoiceRecordId,
     jsObjectToApiRecord: (lf.data.Ref.Identifier, JsObject) => JsonError \/ lav1.value.Record,
     jsValueToApiValue: (lf.data.Ref.Identifier, JsValue) => JsonError \/ lav1.value.Value) {
 
@@ -78,8 +79,12 @@ class DomainJsonDecoder(
       fa: F[_]): JsonError \/ lf.data.Ref.Identifier = {
     val H: HasTemplateId[F] = implicitly
     val templateId: domain.TemplateId.OptionalPkg = H.templateId(fa)
-    resolveTemplateId(templateId)
-      .map(x => H.lfIdentifier(fa, x))
-      .leftMap(e => JsonError("lookupLfIdentifier: " + e.shows))
+    for {
+      tId <- resolveTemplateId(templateId)
+        .leftMap(e => JsonError("DomainJsonDecoder_lookupLfIdentifier " + e.shows))
+      lfId <- H
+        .lfIdentifier(fa, tId, resolveChoiceRecordId)
+        .leftMap(e => JsonError("DomainJsonDecoder_lookupLfIdentifier " + e.shows))
+    } yield lfId
   }
 }

@@ -5,7 +5,7 @@ package com.daml.ledger.participant.state.v1
 
 import java.util.concurrent.CompletionStage
 
-import com.digitalasset.daml_lf.DamlLf.Archive
+import com.digitalasset.daml_lf_dev.DamlLf.Archive
 
 /** An interface for uploading packages via a participant. */
 trait WritePackagesService {

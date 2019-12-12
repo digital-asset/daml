@@ -9,6 +9,7 @@ import Options.Applicative.Extended
 import System.Environment
 import System.Exit
 import System.IO
+import Text.Read (readMaybe)
 
 import DA.Signals
 import DA.Daml.Helper.Run
@@ -27,17 +28,31 @@ main =
 
 data Command
     = DamlStudio { replaceExtension :: ReplaceExtension, remainingArguments :: [String] }
-    | RunJar { jarPath :: FilePath, remainingArguments :: [String] }
+    | RunJar
+        { jarPath :: FilePath
+        , mbLogbackConfig :: Maybe FilePath
+        -- Both file paths are relative to the SDK directory.
+        , remainingArguments :: [String] }
     | New { targetFolder :: FilePath, templateNameM :: Maybe String }
-    | Migrate { targetFolder :: FilePath, mainPath :: FilePath, pkgPathFrom :: FilePath, pkgPathTo :: FilePath }
+    | Migrate { targetFolder :: FilePath, pkgPathFrom :: FilePath, pkgPathTo :: FilePath }
     | Init { targetFolderM :: Maybe FilePath }
     | ListTemplates
-    | Start { sandboxPortM :: Maybe SandboxPort, openBrowser :: OpenBrowser, startNavigator :: StartNavigator, onStartM :: Maybe String, waitForSignal :: WaitForSignal }
-    | Deploy { flags :: HostAndPortFlags }
-    | LedgerListParties { flags :: HostAndPortFlags, json :: JsonFlag }
-    | LedgerAllocateParties { flags :: HostAndPortFlags, parties :: [String] }
-    | LedgerUploadDar { flags :: HostAndPortFlags, darPathM :: Maybe FilePath }
-    | LedgerNavigator { flags :: HostAndPortFlags, remainingArguments :: [String] }
+    | Start
+      { sandboxPortM :: Maybe SandboxPort
+      , openBrowser :: OpenBrowser
+      , startNavigator :: StartNavigator
+      , jsonApiCfg :: JsonApiConfig
+      , onStartM :: Maybe String
+      , waitForSignal :: WaitForSignal
+      , sandboxOptions :: SandboxOptions
+      , navigatorOptions :: NavigatorOptions
+      , jsonApiOptions :: JsonApiOptions
+      }
+    | Deploy { flags :: LedgerFlags }
+    | LedgerListParties { flags :: LedgerFlags, json :: JsonFlag }
+    | LedgerAllocateParties { flags :: LedgerFlags, parties :: [String] }
+    | LedgerUploadDar { flags :: LedgerFlags, darPathM :: Maybe FilePath }
+    | LedgerNavigator { flags :: LedgerFlags, remainingArguments :: [String] }
 
 commandParser :: Parser Command
 commandParser = subparser $ fold
@@ -69,6 +84,7 @@ commandParser = subparser $ fold
 
     runJarCmd = RunJar
         <$> argument str (metavar "JAR" <> help "Path to JAR relative to SDK path")
+        <*> optional (strOption (long "logback-config"))
         <*> many (argument str (metavar "ARG"))
 
     newCmd = asum
@@ -80,7 +96,6 @@ commandParser = subparser $ fold
 
     migrateCmd =  Migrate
         <$> argument str (metavar "TARGET_PATH" <> help "Path where the new project should be   located")
-        <*> argument str (metavar "SOURCE" <> help "Path to the main source file ('source' entry of the project configuration files of the input projects).")
         <*> argument str (metavar "FROM_PATH" <> help "Path to the dar-package from which to migrate from")
         <*> argument str (metavar "TO_PATH" <> help "Path to the dar-package to which to migrate to")
 
@@ -91,8 +106,12 @@ commandParser = subparser $ fold
         <$> optional (SandboxPort <$> option auto (long "sandbox-port" <> metavar "PORT_NUM" <>     help "Port number for the sandbox"))
         <*> (OpenBrowser <$> flagYesNoAuto "open-browser" True "Open the browser after navigator" idm)
         <*> (StartNavigator <$> flagYesNoAuto "start-navigator" True "Start navigator after sandbox" idm)
+        <*> jsonApiCfg
         <*> optional (option str (long "on-start" <> metavar "COMMAND" <> help "Command to run once sandbox and navigator are running."))
         <*> (WaitForSignal <$> flagYesNoAuto "wait-for-signal" True "Wait for Ctrl+C or interrupt after starting servers." idm)
+        <*> (SandboxOptions <$> many (strOption (long "sandbox-option" <> metavar "SANDBOX_OPTION" <> help "Pass option to sandbox")))
+        <*> (NavigatorOptions <$> many (strOption (long "navigator-option" <> metavar "NAVIGATOR_OPTION" <> help "Pass option to navigator")))
+        <*> (JsonApiOptions <$> many (strOption (long "json-api-option" <> metavar "JSON_API_OPTION" <> help "Pass option to HTTP JSON API")))
 
     deployCmdInfo = mconcat
         [ progDesc $ concat
@@ -101,7 +120,10 @@ commandParser = subparser $ fold
               , "(if missing) and upload the project's built DAR file. You "
               , "can specify the ledger in daml.yaml with the ledger.host and "
               , "ledger.port options, or you can pass the --host and --port "
-              , "flags to this command instead."
+              , "flags to this command instead. "
+              , "If the ledger is authenticated, you should pass "
+              , "the name of the file containing the token "
+              , "using the --access-token-file flag."
               ]
         , deployFooter
         ]
@@ -109,7 +131,21 @@ commandParser = subparser $ fold
     deployFooter = footer "See https://docs.daml.com/deploy/ for more information on deployment."
 
     deployCmd = Deploy
-        <$> hostAndPortFlags
+        <$> ledgerFlags
+
+    jsonApiCfg = JsonApiConfig <$> option
+        readJsonApiPort
+        ( long "json-api-port"
+       <> value (Just $ JsonApiPort 7575)
+       <> help "Port that the HTTP JSON API should listen on or 'none' to disable it"
+        )
+
+    readJsonApiPort = eitherReader $ \case
+        "none" -> Right Nothing
+        s -> maybe
+            (Left $ "Failed to parse port " <> show s)
+            (Right . Just . JsonApiPort)
+            (readMaybe s)
 
     ledgerCmdInfo = mconcat
         [ forwardOptions
@@ -117,7 +153,10 @@ commandParser = subparser $ fold
               [ "Interact with a remote DAML ledger. You can specify "
               , "the ledger in daml.yaml with the ledger.host and "
               , "ledger.port options, or you can pass the --host "
-              , "and --port flags to each command below."
+              , "and --port flags to each command below. "
+              , "If the ledger is authenticated, you should pass "
+              , "the name of the file containing the token "
+              , "using the --access-token-file flag."
               ]
         , deployFooter
         ]
@@ -145,29 +184,30 @@ commandParser = subparser $ fold
         ]
 
     ledgerListPartiesCmd = LedgerListParties
-        <$> hostAndPortFlags
+        <$> ledgerFlags
         <*> fmap JsonFlag (switch $ long "json" <> help "Output party list in JSON")
 
     ledgerAllocatePartiesCmd = LedgerAllocateParties
-        <$> hostAndPortFlags
+        <$> ledgerFlags
         <*> many (argument str (metavar "PARTY" <> help "Parties to be allocated on the ledger (defaults to project parties if empty)"))
 
     -- same as allocate-parties but requires a single party.
     ledgerAllocatePartyCmd = LedgerAllocateParties
-        <$> hostAndPortFlags
+        <$> ledgerFlags
         <*> fmap (:[]) (argument str (metavar "PARTY" <> help "Party to be allocated on the ledger"))
 
     ledgerUploadDarCmd = LedgerUploadDar
-        <$> hostAndPortFlags
+        <$> ledgerFlags
         <*> optional (argument str (metavar "PATH" <> help "DAR file to upload (defaults to project DAR)"))
 
     ledgerNavigatorCmd = LedgerNavigator
-        <$> hostAndPortFlags
+        <$> ledgerFlags
         <*> many (argument str (metavar "ARG" <> help "Extra arguments to navigator."))
 
-    hostAndPortFlags = HostAndPortFlags
+    ledgerFlags = LedgerFlags
         <$> hostFlag
         <*> portFlag
+        <*> accessTokenFileFlag
 
     hostFlag :: Parser (Maybe String)
     hostFlag = optional . option str $
@@ -181,14 +221,30 @@ commandParser = subparser $ fold
         <> metavar "PORT_NUM"
         <> help "Port number for the ledger"
 
+    accessTokenFileFlag :: Parser (Maybe FilePath)
+    accessTokenFileFlag = optional . option str $
+        long "access-token-file"
+        <> metavar "TOKEN_PATH"
+        <> help "Path to the token-file for ledger authorization"
+
 runCommand :: Command -> IO ()
 runCommand DamlStudio {..} = runDamlStudio replaceExtension remainingArguments
-runCommand RunJar {..} = runJar jarPath remainingArguments
-runCommand New {..} = runNew targetFolder templateNameM Nothing []
-runCommand Migrate {..} = runMigrate targetFolder mainPath pkgPathFrom pkgPathTo
+runCommand RunJar {..} = runJar jarPath mbLogbackConfig remainingArguments
+runCommand New {..} = runNew targetFolder templateNameM [] []
+runCommand Migrate {..} = runMigrate targetFolder pkgPathFrom pkgPathTo
 runCommand Init {..} = runInit targetFolderM
 runCommand ListTemplates = runListTemplates
-runCommand Start {..} = runStart sandboxPortM startNavigator openBrowser onStartM waitForSignal
+runCommand Start {..} =
+    runStart
+        sandboxPortM
+        startNavigator
+        jsonApiCfg
+        openBrowser
+        onStartM
+        waitForSignal
+        sandboxOptions
+        navigatorOptions
+        jsonApiOptions
 runCommand Deploy {..} = runDeploy flags
 runCommand LedgerListParties {..} = runLedgerListParties flags json
 runCommand LedgerAllocateParties {..} = runLedgerAllocateParties flags parties

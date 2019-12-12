@@ -22,7 +22,7 @@ object IouCommands {
       RecordField("issuer", Some(Value(Value.Sum.Party(issuer)))),
       RecordField("owner", Some(Value(Value.Sum.Party(owner)))),
       RecordField("currency", Some(Value(Value.Sum.Text(currency)))),
-      RecordField("amount", Some(Value(Value.Sum.Decimal(amount.toString)))),
+      RecordField("amount", Some(Value(Value.Sum.Numeric(amount.toString)))),
       RecordField("observers", Some(Value(Value.Sum.List(List())))),
     )
     Command.Create(

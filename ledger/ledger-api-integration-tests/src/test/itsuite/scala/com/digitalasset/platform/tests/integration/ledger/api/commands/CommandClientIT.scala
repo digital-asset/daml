@@ -8,7 +8,6 @@ import java.util.concurrent.TimeUnit
 import akka.NotUsed
 import akka.stream.scaladsl.{Sink, Source}
 import com.digitalasset.ledger.api.testing.utils.{
-  AkkaBeforeAndAfterAll,
   IsStatusException,
   SuiteResourceManagementAroundAll
 }
@@ -17,22 +16,27 @@ import com.digitalasset.ledger.api.v1.commands.{CreateCommand, ExerciseCommand}
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary.LEDGER_BEGIN
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.Value.Boundary
-import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
-import com.digitalasset.ledger.api.v1.value.{Record, RecordField}
+import com.digitalasset.ledger.api.v1.value.Value.Sum.{Bool, Text, Timestamp}
+import com.digitalasset.ledger.api.v1.value.{
+  Identifier,
+  Optional,
+  Record,
+  RecordField,
+  Value,
+  Variant
+}
 import com.digitalasset.ledger.client.services.commands.{CommandClient, CompletionStreamElement}
-import com.digitalasset.platform.apitesting.LedgerContextExtensions._
-import com.digitalasset.platform.apitesting.TestTemplateIds
-import com.digitalasset.platform.esf.TestExecutionSequencerFactory
+import com.digitalasset.platform.apitesting.LedgerContext
+import com.digitalasset.platform.apitesting.TestParties.Alice
 import com.digitalasset.platform.participant.util.ValueConversions._
-import com.digitalasset.platform.tests.integration.ledger.api.ParameterShowcaseTesting
 import com.digitalasset.util.Ctx
 import com.google.rpc.code.Code
 import io.grpc.{Status, StatusRuntimeException}
 import org.scalatest.time.Span
 import org.scalatest.time.SpanSugar._
 import org.scalatest.{AsyncWordSpec, Matchers, Succeeded, TryValues}
-
 import scalaz.syntax.tag._
+
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 import scala.util.Success
@@ -40,23 +44,27 @@ import scala.util.Success
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class CommandClientIT
     extends AsyncWordSpec
-    with AkkaBeforeAndAfterAll
-    with TestExecutionSequencerFactory
+    with MultiLedgerCommandUtils
     with Matchers
     with SuiteResourceManagementAroundAll
-    with ParameterShowcaseTesting
-    with TryValues
-    with MultiLedgerCommandUtils {
-
-  protected val testTemplateIds = new TestTemplateIds(config)
-  protected val templateIds = testTemplateIds.templateIds
+    with TryValues {
 
   private val submittingParty: String = submitRequest.getCommands.party
   private val submittingPartyList = List(submittingParty)
   private val LedgerBegin = LedgerOffset(Boundary(LEDGER_BEGIN))
 
-  private def submitRequestWithId(id: String): SubmitRequest =
-    submitRequest.copy(commands = submitRequest.commands.map(_.copy(commandId = id)))
+  private def submitRequestWithId(id: String, ctx: LedgerContext): SubmitRequest =
+    ctx.command(
+      id,
+      submittingParty,
+      List(
+        CreateCommand(
+          Some(templateIds.dummy),
+          Some(
+            Record(
+              Some(templateIds.dummy),
+              Seq(RecordField("operator", Option(Value(Value.Sum.Party(submittingParty)))))))).wrap)
+    )
 
   // Commands and completions can be read out of order. Since we use GRPC monocalls to send,
   // they can even be sent out of order.
@@ -94,21 +102,62 @@ class CommandClientIT
       case CompletionStreamElement.CompletionElement(c) => c.commandId
     }, expected, timeLimit)
 
+  private def paramShowcaseArgs(packageId: String): Vector[RecordField] = {
+    val variant = Value(
+      Value.Sum.Variant(
+        Variant(Some(Identifier(packageId, "Test", "OptionalInteger")), "SomeInteger", 1.asInt64)))
+    val nestedVariant = Vector("value" -> variant)
+      .asRecordValueOf(Identifier(packageId, "Test", "NestedOptionalInteger"))
+    val integerList = Vector(1, 2).map(_.toLong.asInt64).asList
+    val optionalText = Optional(Value(Text("foo")))
+    Vector(
+      RecordField("operator", Alice.asParty),
+      RecordField("integer", 1.asInt64),
+      RecordField("decimal", "1.1000000000".asNumeric),
+      RecordField("text", Value(Text("text"))),
+      RecordField("bool", Value(Bool(true))),
+      RecordField("time", Value(Timestamp(0))),
+      RecordField("nestedOptionalInteger", nestedVariant),
+      RecordField("integerList", integerList),
+      RecordField("optionalText", Some(Value(Value.Sum.Optional(optionalText))))
+    )
+  }
+
+  private def recordWithArgument(original: Record, fieldToInclude: RecordField): Record =
+    original.update(_.fields.modify(recordFieldsWithArgument(_, fieldToInclude)))
+
+  private def recordFieldsWithArgument(
+      originalFields: Seq[RecordField],
+      fieldToInclude: RecordField): Seq[RecordField] = {
+    var replacedAnElement: Boolean = false
+    val updated = originalFields.map { original =>
+      if (original.label == fieldToInclude.label) {
+        replacedAnElement = true
+        fieldToInclude
+      } else {
+        original
+      }
+    }
+    if (replacedAnElement) updated else originalFields :+ fieldToInclude
+  }
+
   "Command Client" when {
     "asked for ledger end" should {
 
       "return it" in allFixtures { ctx =>
         for {
           client <- ctx.commandClient()
-          _ <- client.getCompletionEnd
+          _ <- client.getCompletionEnd()
         } yield {
           succeed
         }
       }
 
       "fail with the expected status on a ledger Id mismatch" in allFixtures { ctx =>
-        ctx.commandClientWithoutTime(testNotLedgerId).getCompletionEnd.failed map IsStatusException(
-          Status.NOT_FOUND)
+        ctx
+          .commandClientWithoutTime(testNotLedgerId)
+          .getCompletionEnd()
+          .failed map IsStatusException(Status.NOT_FOUND)
       }
     }
 
@@ -119,8 +168,8 @@ class CommandClientIT
 
         for {
           client <- ctx.commandClient()
-          result <- Source(contexts.map(i => Ctx(i, submitRequestWithId(i.toString))))
-            .via(client.submissionFlow)
+          result <- Source(contexts.map(i => Ctx(i, submitRequestWithId(i.toString, ctx))))
+            .via(client.submissionFlow())
             .map(_.map(_.isSuccess))
             .runWith(Sink.seq)
         } yield {
@@ -130,10 +179,11 @@ class CommandClientIT
 
       "fail with the expected status on a ledger Id mismatch" in allFixtures { ctx =>
         Source
-          .single(Ctx(
-            1,
-            submitRequestWithId(1.toString).update(_.commands.ledgerId := testNotLedgerId.unwrap)))
-          .via(ctx.commandClientWithoutTime(testNotLedgerId).submissionFlow)
+          .single(
+            Ctx(
+              1,
+              submitRequestWithId("1", ctx).update(_.commands.ledgerId := testNotLedgerId.unwrap)))
+          .via(ctx.commandClientWithoutTime(testNotLedgerId).submissionFlow())
           .runWith(Sink.head)
           .map(err => IsStatusException(Status.NOT_FOUND)(err.value.failure.exception))
       }
@@ -141,7 +191,7 @@ class CommandClientIT
       "fail with INVALID REQUEST for empty application ids" in allFixtures { ctx =>
         val resF = for {
           client <- ctx.commandClient(applicationId = "")
-          request = submitRequestWithId(7000.toString).update(_.commands.applicationId := "")
+          request = submitRequestWithId("7000", ctx).update(_.commands.applicationId := "")
           res <- client.submitSingleCommand(request)
         } yield (res)
 
@@ -190,11 +240,11 @@ class CommandClientIT
           // val for type inference
           val resultF = for {
             client <- ctx.commandClient()
-            checkpoint <- client.getCompletionEnd
+            checkpoint <- client.getCompletionEnd()
             submissionResults <- Source(
-              commandIds.map(i => Ctx(i, submitRequestWithId(i.toString))))
+              commandIds.map(i => Ctx(i, submitRequestWithId(i.toString, ctx))))
               .flatMapMerge(10, randomDelay)
-              .via(client.submissionFlow)
+              .via(client.submissionFlow())
               .map(_.value)
               .runWith(Sink.seq)
             _ = submissionResults.foreach(v => v shouldBe a[Success[_]])
@@ -223,11 +273,11 @@ class CommandClientIT
         // val for type inference
         val resultF = for {
           client <- ctx.commandClient()
-          checkpoint <- client.getCompletionEnd
+          checkpoint <- client.getCompletionEnd()
           result = readExpectedCommandIds(client, checkpoint.getOffset, commandIdStrings)
-          _ <- Source(commandIds.map(i => Ctx(i, submitRequestWithId(i.toString))))
+          _ <- Source(commandIds.map(i => Ctx(i, submitRequestWithId(i.toString, ctx))))
             .flatMapMerge(10, randomDelay)
-            .via(client.submissionFlow)
+            .via(client.submissionFlow())
             .map(_.context)
             .runWith(Sink.ignore)
         } yield {
@@ -252,7 +302,7 @@ class CommandClientIT
         for {
           client <- ctx.commandClient()
           tracker <- client.trackCommands[Int](submittingPartyList)
-          result <- Source(contexts.map(i => Ctx(i, submitRequestWithId(i.toString))))
+          result <- Source(contexts.map(i => Ctx(i, submitRequestWithId(i.toString, ctx))))
             .via(tracker)
             .map(_.context)
             .runWith(Sink.seq)
@@ -265,43 +315,9 @@ class CommandClientIT
         for {
           client <- ctx.commandClient()
           tracker <- client.trackCommands[Int](submittingPartyList)
-          result <- Source.empty[Ctx[Int, SubmitRequest]].via(tracker).runWith(Sink.ignore)
+          _ <- Source.empty[Ctx[Int, SubmitRequest]].via(tracker).runWith(Sink.ignore)
         } yield {
           succeed
-        }
-      }
-
-      "not accept double spends, return INVALID_ARGUMENT" in allFixtures { c =>
-        for {
-          contract <- c.submitCreate(
-            "Creating_contracts_for_double_spend_test",
-            templateIds.dummyFactory,
-            List("operator" -> submittingParty.asParty).asRecordFields,
-            submittingParty)
-          _ <- c.submitExercise(
-            "Double_spend_test_exercise_1",
-            templateIds.dummyFactory,
-            unit,
-            "DummyFactoryCall",
-            contract.contractId,
-            submittingParty)
-          assertion <- c.testingHelpers.assertCommandFailsWithCode(
-            c.command(
-              "Double_spend_test_exercise_2",
-              submittingParty,
-              List(
-                ExerciseCommand(
-                  Some(templateIds.dummyFactory),
-                  contract.contractId,
-                  "DummyFactoryCall",
-                  Some(unit)).wrap)
-            ),
-            Code.INVALID_ARGUMENT,
-            "dependency",
-            ignoreCase = true
-          )
-        } yield {
-          assertion
         }
       }
 
@@ -364,40 +380,10 @@ class CommandClientIT
         )
       }
 
-      "return stack trace in case of interpretation error" in allFixtures { c =>
-        // Note: we only check that the beginning of the error matches otherwise every time the package id
-        // changes this test fails.
-        val expectedMessageSubstring =
-          "Command interpretation error in LF-DAMLe: Interpretation error: Error: User abort: Assertion failed. Details: Last location: [DA.Internal.Assert:20], partial transaction: root node"
-        val command = c.createCommand(
-          "Dummy_for_failing_assert",
-          templateIds.dummy,
-          List("operator" -> "party".asParty).asRecordFields,
-          "party")
-        for {
-          tx <- c.testingHelpers.submitAndListenForSingleResultOfCommand(
-            command,
-            TransactionFilter(Map("party" -> Filters.defaultInstance)))
-          create = c.testingHelpers.findCreatedEventIn(tx, templateIds.dummy)
-          res <- c.testingHelpers.assertCommandFailsWithCode(
-            c.exerciseCommand(
-              "Failing_assert",
-              templateIds.dummy,
-              Nil.asRecordValue,
-              "FailingClone",
-              create.contractId,
-              "party"),
-            Code.INVALID_ARGUMENT,
-            expectedMessageSubstring
-          )
-        } yield res
-
-      }
-
       "not accept commands with malformed decimals, return INVALID_ARGUMENT" in allFixtures { c =>
         val commandId = "Malformed_decimal"
         val expectedMessageSubString =
-          """Could not read Decimal string "1E-19""""
+          """Could not read Numeric string "1E-19""""
 
         val command = c.command(
           commandId,
@@ -406,11 +392,11 @@ class CommandClientIT
             CreateCommand(
               Some(templateIds.parameterShowcase),
               Some(
-                c.testingHelpers.recordWithArgument(
+                recordWithArgument(
                   Record(
                     Some(templateIds.parameterShowcase),
                     paramShowcaseArgs(templateIds.testPackageId)),
-                  RecordField("decimal", "1E-19".asDecimal)))
+                  RecordField("decimal", "1E-19".asNumeric)))
             ).wrap)
         )
 
@@ -449,31 +435,6 @@ class CommandClientIT
           )
 
         c.testingHelpers.assertCommandFailsWithCode(command, Code.INVALID_ARGUMENT, "error")
-      }
-
-      "not accept exercises of bad choices, return INVALID_ARGUMENT" in allFixtures { c =>
-        for {
-          contract <- c.submitCreate(
-            "Creating_contract_for_bad_choice_test",
-            templateIds.dummyFactory,
-            List("operator" -> submittingParty.asParty).asRecordFields,
-            submittingParty)
-          assertion <- c.testingHelpers.assertCommandFailsWithCode(
-            c.command(
-              "Bad_choice_test",
-              submittingParty,
-              List(
-                ExerciseCommand(
-                  Some(templateIds.dummyFactory),
-                  contract.contractId,
-                  "hotdog",
-                  Some(unit)).wrap)),
-            Code.INVALID_ARGUMENT,
-            "Couldn't find requested choice"
-          )
-        } yield {
-          assertion
-        }
       }
     }
   }

@@ -9,58 +9,56 @@ import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Flow, Keep, Source}
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionService
 import com.digitalasset.ledger.api.v1.command_completion_service.{
   CompletionEndResponse,
   CompletionStreamRequest,
   CompletionStreamResponse
 }
 import com.digitalasset.ledger.api.v1.command_service._
-import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.CommandSubmissionService
 import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
 import com.digitalasset.ledger.api.v1.completion.Completion
-import com.digitalasset.ledger.api.v1.transaction_service.TransactionServiceGrpc.TransactionService
 import com.digitalasset.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
   GetTransactionByIdRequest,
   GetTransactionResponse
 }
-import com.digitalasset.ledger.client.configuration.CommandClientConfiguration
 import com.digitalasset.ledger.client.services.commands.{
-  CommandClient,
   CommandCompletionSource,
   CommandTrackerFlow
 }
+import com.digitalasset.platform.common.logging.NamedLoggerFactory
+import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.platform.server.api.ApiException
 import com.digitalasset.platform.server.api.services.grpc.GrpcCommandService
 import com.digitalasset.platform.server.services.command.ApiCommandService.LowLevelCommandServiceAccess
 import com.digitalasset.util.Ctx
 import com.digitalasset.util.akkastreams.MaxInFlight
 import com.google.protobuf.empty.Empty
+
 import io.grpc._
-import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.Try
-
 import scalaz.syntax.tag._
 
 class ApiCommandService private (
     lowLevelCommandServiceAccess: LowLevelCommandServiceAccess,
-    configuration: ApiCommandService.Configuration)(
+    configuration: ApiCommandService.Configuration,
+    loggerFactory: NamedLoggerFactory)(
     implicit grpcExecutionContext: ExecutionContext,
     actorMaterializer: ActorMaterializer,
     esf: ExecutionSequencerFactory)
     extends CommandServiceGrpc.CommandService
     with AutoCloseable {
 
-  private val logger = LoggerFactory.getLogger(this.getClass.getName)
+  private val logger = loggerFactory.getLogger(this.getClass)
 
   private type CommandId = String
   private type ApplicationId = String
 
-  private val submissionTracker: TrackerMap = TrackerMap(configuration.retentionPeriod)
+  private val submissionTracker: TrackerMap =
+    TrackerMap(configuration.retentionPeriod, loggerFactory)
   private val staleCheckerInterval: FiniteDuration = 30.seconds
 
   private val trackerCleanupJob: Cancellable = actorMaterializer.system.scheduler.schedule(
@@ -78,22 +76,6 @@ class ApiCommandService private (
     submissionTracker.close()
   }
 
-  private def commandClient(
-      applicationId: ApplicationId,
-      submissionStub: CommandSubmissionService,
-      completionStub: CommandCompletionService) =
-    new CommandClient(
-      submissionStub,
-      completionStub,
-      configuration.ledgerId,
-      applicationId,
-      CommandClientConfiguration(
-        configuration.maxCommandsInFlight,
-        configuration.maxParallelSubmissions,
-        false,
-        java.time.Duration.ofMillis(configuration.commandTtl.toMillis))
-    )
-
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def submitAndWaitInternal(request: SubmitAndWaitRequest): Future[Completion] = {
 
@@ -106,12 +88,6 @@ class ApiCommandService private (
           for {
             trackingFlow <- {
               lowLevelCommandServiceAccess match {
-                case LowLevelCommandServiceAccess.RemoteServices(submission, completion, _) =>
-                  val client = commandClient(appId, submission, completion)
-                  if (configuration.limitMaxCommandsInFlight)
-                    client.trackCommands[Promise[Completion]](List(submitter.party))
-                  else
-                    client.trackCommandsUnbounded[Promise[Completion]](List(submitter.party))
                 case LowLevelCommandServiceAccess.LocalServices(
                     submissionFlow,
                     getCompletionSource,
@@ -190,9 +166,6 @@ class ApiCommandService private (
 
   private val (treeById, flatById) = {
     lowLevelCommandServiceAccess match {
-      case LowLevelCommandServiceAccess.RemoteServices(_, _, transaction) =>
-        (transaction.getTransactionById _, transaction.getFlatTransactionById _)
-
       case LowLevelCommandServiceAccess.LocalServices(
           _,
           _,
@@ -206,13 +179,16 @@ class ApiCommandService private (
 
 object ApiCommandService {
 
-  def create(configuration: Configuration, svcAccess: LowLevelCommandServiceAccess)(
+  def create(
+      configuration: Configuration,
+      svcAccess: LowLevelCommandServiceAccess,
+      loggerFactory: NamedLoggerFactory)(
       implicit grpcExecutionContext: ExecutionContext,
       actorMaterializer: ActorMaterializer,
       esf: ExecutionSequencerFactory
-  ): CommandServiceGrpc.CommandService with BindableService with CommandServiceLogging =
+  ): CommandServiceGrpc.CommandService with GrpcApiService with CommandServiceLogging =
     new GrpcCommandService(
-      new ApiCommandService(svcAccess, configuration),
+      new ApiCommandService(svcAccess, configuration, loggerFactory),
       configuration.ledgerId
     ) with CommandServiceLogging
 
@@ -229,12 +205,6 @@ object ApiCommandService {
   sealed abstract class LowLevelCommandServiceAccess extends Product with Serializable
 
   object LowLevelCommandServiceAccess {
-
-    final case class RemoteServices(
-        submissionStub: CommandSubmissionService,
-        completionStub: CommandCompletionService,
-        transactionService: TransactionService)
-        extends LowLevelCommandServiceAccess
 
     final case class LocalServices(
         submissionFlow: Flow[

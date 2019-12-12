@@ -5,11 +5,12 @@
 
 module DA.Daml.LF.Ast.World(
     World,
+    DalfPackage(..),
+    getWorldSelf,
     initWorld,
     initWorldSelf,
     extendWorldSelf,
     ExternalPackage(..),
-    rewriteSelfReferences,
     LookupError,
     lookupTemplate,
     lookupDataType,
@@ -22,13 +23,13 @@ import DA.Pretty
 
 import Control.DeepSeq
 import Control.Lens
+import qualified Data.ByteString as BS
 import qualified Data.HashMap.Strict as HMS
 import Data.List
 import qualified Data.NameMap as NM
 import GHC.Generics
 
 import DA.Daml.LF.Ast.Base
-import DA.Daml.LF.Ast.Optics (moduleModuleRef)
 import DA.Daml.LF.Ast.Pretty ()
 import DA.Daml.LF.Ast.Version
 
@@ -40,6 +41,9 @@ data World = World
   , _worldSelf :: Package
   }
 
+getWorldSelf :: World -> Package
+getWorldSelf = _worldSelf
+
 makeLensesFor [("_worldSelf","worldSelf")] ''World
 
 -- | A package where all references to `PRSelf` have been rewritten
@@ -49,25 +53,23 @@ data ExternalPackage = ExternalPackage PackageId Package
 
 instance NFData ExternalPackage
 
--- | Rewrite all `PRSelf` references to `PRImport` references.
-rewriteSelfReferences :: PackageId -> Package -> ExternalPackage
-rewriteSelfReferences pkgId = ExternalPackage pkgId . rewrite
-    where
-        rewrite = over (_packageModules . NM.traverse . moduleModuleRef . _1) $ \case
-            PRSelf -> PRImport pkgId
-            ref@PRImport{} -> ref
+data DalfPackage = DalfPackage
+    { dalfPackageId :: PackageId
+    , dalfPackagePkg :: ExternalPackage
+    , dalfPackageBytes :: BS.ByteString
+    } deriving (Show, Eq, Generic)
+
+instance NFData DalfPackage
 
 -- | Construct the 'World' from only the imported packages.
+-- TODO (drsk) : hurraybit: please check that the duplicate package id check here is not needed.
 initWorld :: [ExternalPackage] -> Version -> World
 initWorld importedPkgs version =
   World
     (foldl' insertPkg HMS.empty importedPkgs)
     (Package version NM.empty)
   where
-    insertPkg hms (ExternalPackage pkgId pkg)
-      | pkgId `HMS.member` hms =
-          error $  "World.initWorld: duplicate package id " ++ show pkgId
-      | otherwise = HMS.insert pkgId pkg hms
+    insertPkg hms (ExternalPackage pkgId pkg) = HMS.insert pkgId pkg hms
 
 -- | Create a World with an initial self package
 initWorldSelf :: [ExternalPackage] -> Package -> World

@@ -6,7 +6,7 @@ package com.daml.ledger.api.server.damlonx.reference.v2
 import com.digitalasset.platform.sandbox.persistence.PostgresAround
 
 object EphemeralPostgresReferenceServerMain extends App with PostgresAround {
-  val fixture = startEphemeralPg()
-  sys.addShutdownHook(stopAndCleanUp(fixture.tempDir, fixture.dataDir, fixture.logFile))
-  ReferenceServer.main(args ++ List("--jdbc-url", fixture.jdbcUrl))
+  startEphemeralPostgres()
+  sys.addShutdownHook(stopAndCleanUpPostgres())
+  ReferenceServer.main(args ++ List("--jdbc-url", postgresFixture.jdbcUrl))
 }

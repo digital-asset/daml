@@ -144,6 +144,8 @@ object Pretty {
           Some(typeCon.name.identifier.qualifiedName.name.toString),
           damlLfDataType(dt, typeDefs, doNotExpand + id))
       }
+    case model.DamlLfTypeNumeric(_) =>
+      (None, PrettyPrimitive("Decimal"))
     case typePrim: model.DamlLfTypePrim =>
       (None, damlLfPrimitive(typePrim.typ, typePrim.typArgs, typeDefs, doNotExpand))
     case typeVar: model.DamlLfTypeVar =>
@@ -165,7 +167,6 @@ object Pretty {
         PrettyField(listType._1.fold("List")(n => s"List [$n]"), listType._2)
       )
     case model.DamlLfPrimType.Bool => PrettyPrimitive("Bool")
-    case model.DamlLfPrimType.Decimal => PrettyPrimitive("Decimal")
     case model.DamlLfPrimType.Int64 => PrettyPrimitive("Int64")
     case model.DamlLfPrimType.ContractId => PrettyPrimitive("ContractId")
     case model.DamlLfPrimType.Date => PrettyPrimitive("Date")
@@ -234,7 +235,7 @@ object Pretty {
       )
     case V.ValueText(value) => PrettyPrimitive(value)
     case V.ValueInt64(value) => PrettyPrimitive(value.toString)
-    case V.ValueDecimal(value) => PrettyPrimitive(value.decimalToString)
+    case V.ValueNumeric(value) => PrettyPrimitive(value.toUnscaledString)
     case V.ValueBool(value) => PrettyPrimitive(value.toString)
     case V.ValueContractId(value) => PrettyPrimitive(value.toString)
     case V.ValueTimestamp(value) => PrettyPrimitive(value.toString)
@@ -243,11 +244,19 @@ object Pretty {
     case V.ValueUnit => PrettyPrimitive("<unit>")
     case V.ValueOptional(None) => PrettyPrimitive("<none>")
     case V.ValueOptional(Some(v)) => PrettyObject(PrettyField("value", argument(v)))
-    case V.ValueMap(map) =>
+    case V.ValueTextMap(map) =>
       PrettyObject(map.toImmArray.toList.map {
-        case (key, value) => PrettyField(key, argument(arg))
+        case (key, value) => PrettyField(key, argument(value))
       })
-    case _: model.ApiImpossible => sys.error("impossible! tuples are not serializable")
+    case V.ValueGenMap(genMap) =>
+      PrettyArray(genMap.toSeq.map {
+        case (key, value) =>
+          PrettyObject(
+            PrettyField("key", argument(key)),
+            PrettyField("value", argument(value))
+          )
+      }: _*)
+    case _: model.ApiImpossible => sys.error("impossible! structs are not serializable")
   }
 
   /** Outputs an object in YAML format */

@@ -45,3 +45,5 @@ test = scenario do
         fetchByKey accountKey
     accountCid' === accountCid
     account' === account
+
+    maintainer @Account accountKey === [bank]

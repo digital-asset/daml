@@ -8,7 +8,7 @@ import com.digitalasset.daml.lf.data.Ref.{Identifier, QualifiedName, PackageId}
 import com.digitalasset.daml.lf.data.BackStack
 import org.scalatest.{Matchers, WordSpec}
 import com.digitalasset.daml.lf.testing.parser.Implicits._
-import com.digitalasset.daml.lf.language.{Ast => Pkg}
+import com.digitalasset.daml.lf.language.{Ast => Pkg, Util => PkgUtil}
 
 import scala.language.implicitConversions
 
@@ -29,15 +29,17 @@ class TypeSpec extends WordSpec with Matchers {
       case Pkg.TVar(v) =>
         assertZeroArgs(args)
         TypeVar(v)
+      case PkgUtil.TNumeric(Pkg.TNat(n)) =>
+        assertZeroArgs(args)
+        TypeNumeric(n)
       case Pkg.TApp(fun, arg) => go(fun, args :+ fromLfPackageType(arg))
       case Pkg.TBuiltin(bltin) =>
         bltin match {
           case Pkg.BTInt64 =>
             assertZeroArgs(args)
             TypePrim(PrimTypeInt64, ImmArraySeq.empty)
-          case Pkg.BTDecimal =>
-            assertZeroArgs(args)
-            TypePrim(PrimTypeDecimal, ImmArraySeq.empty)
+          case Pkg.BTNumeric =>
+            sys.error("cannot use Numeric not applied to TNat in interface type")
           case Pkg.BTText =>
             assertZeroArgs(args)
             TypePrim(PrimTypeText, ImmArraySeq.empty)
@@ -55,8 +57,11 @@ class TypeSpec extends WordSpec with Matchers {
             TypePrim(PrimTypeBool, ImmArraySeq.empty)
           case Pkg.BTList =>
             TypePrim(PrimTypeList, ImmArraySeq(assertOneArg(args)))
-          case Pkg.BTMap =>
-            TypePrim(PrimTypeMap, ImmArraySeq(assertOneArg(args)))
+          case Pkg.BTTextMap =>
+            TypePrim(PrimTypeTextMap, ImmArraySeq(assertOneArg(args)))
+          case Pkg.BTGenMap =>
+            // FIXME https://github.com/digital-asset/daml/issues/2256
+            sys.error("GenMap not supported in interface type")
           case Pkg.BTUpdate =>
             sys.error("cannot use update in interface type")
           case Pkg.BTScenario =>
@@ -68,9 +73,12 @@ class TypeSpec extends WordSpec with Matchers {
             TypePrim(PrimTypeBool, ImmArraySeq(assertOneArg(args)))
           case Pkg.BTOptional => TypePrim(PrimTypeOptional, ImmArraySeq(assertOneArg(args)))
           case Pkg.BTArrow => sys.error("cannot use arrow in interface type")
+          case Pkg.BTAny => sys.error("cannot use any in interface type")
+          case Pkg.BTTypeRep => sys.error("cannot use type representation in interface type")
         }
       case Pkg.TTyCon(tycon) => TypeCon(TypeConName(tycon), args.toImmArray.toSeq)
-      case _: Pkg.TTuple => sys.error("cannot use tuples in interface type")
+      case Pkg.TNat(_) => sys.error("cannot use nat type in interface type")
+      case _: Pkg.TStruct => sys.error("cannot use structs in interface type")
       case _: Pkg.TForall => sys.error("cannot use forall in interface type")
     }
 

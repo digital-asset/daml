@@ -356,7 +356,7 @@ object Pretty {
   def prettyValue(verbose: Boolean)(v: Value[ContractId]): Doc =
     v match {
       case ValueInt64(i) => str(i)
-      case ValueDecimal(d) => str(d)
+      case ValueNumeric(d) => str(d)
       case ValueRecord(mbId, fs) =>
         (mbId match {
           case None => text("")
@@ -369,7 +369,7 @@ object Pretty {
               text("<no-label>") & char('=') & prettyValue(true)(v)
           }) &
           char('}')
-      case ValueTuple(fs) =>
+      case ValueStruct(fs) =>
         char('{') &
           fill(text(", "), fs.toList.map {
             case (k, v) => text(k) & char('=') & prettyValue(true)(v)
@@ -413,11 +413,16 @@ object Pretty {
       case ValueParty(p) => char('\'') + str(p) + char('\'')
       case ValueOptional(Some(v1)) => text("Option(") + prettyValue(verbose)(v1) + char(')')
       case ValueOptional(None) => text("None")
-      case ValueMap(map) =>
+      case ValueTextMap(map) =>
         val list = map.toImmArray.map {
           case (k, v) => text(k) + text(" -> ") + prettyValue(verbose)(v)
         }
-        text("Map(") + intercalate(text(", "), list.toSeq) + text(")")
+        text("TextMap(") + intercalate(text(", "), list.toSeq) + text(")")
+      case ValueGenMap(entries) =>
+        val list = entries.map {
+          case (k, v) => prettyValue(verbose)(k) + text(" -> ") + prettyValue(verbose)(v)
+        }
+        text("GenMap(") + intercalate(text(", "), list.toSeq) + text(")")
     }
 
   object SExpr {

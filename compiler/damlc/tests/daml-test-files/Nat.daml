@@ -15,4 +15,4 @@ add (S x) y = add x (S y)
 
 main = scenario do
     alice <- getParty "alice"
-    submit alice $ assert $ add (S (S Z)) (S Z) == (S (S (S Z)))
+    submit alice $ assert $ add (S (S Z)) (S Z) == S (S (S Z))

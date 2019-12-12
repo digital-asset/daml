@@ -159,7 +159,7 @@ Definition »key state«
 
 A key is **unassigned** if its key state is either **free** or **unknown**.
     
-Key consistency ensures that there is at most one active contract for each key and that all key assertions are satisfies.
+Key consistency ensures that there is at most one active contract for each key and that all key assertions are satisfied.
 
 .. _def-key-consistency:
 
@@ -214,11 +214,11 @@ and the `Iou Bank A` contracts are used without being created before:
    :width: 60%
 
 However, the transaction can still be appended to a ledger
-that creates these contracts and yield a consistent ledger. Such
+that creates these contracts and yields a consistent ledger. Such
 transactions are said to be internally consistent,
 and contracts such as the `PaintOffer A P Bank P123` and `Iou Bank A` are called
 input contracts of the transaction.
-Dually, output contracts of a transactions are the contracts that a transactions creates and does not archive.
+Dually, output contracts of a transaction are the contracts that a transaction creates and does not archive.
 
 .. _def-internal-consistency:
 
@@ -242,7 +242,7 @@ Definition »input contract«
 Definition »output contract«
   For an internally consistent transaction,
   a contract `c` is an **output contract** of the transaction
-  if the transaction contains a **Create c** action, but no a consuming **Exercise** action on `c`.
+  if the transaction contains a **Create c** action, but not a consuming **Exercise** action on `c`.
 
 Note that
 the input and output contracts are undefined for transactions that are not
@@ -300,14 +300,14 @@ the bank and the owner must remain the same.
 Furthermore, to be conformant, the actor of a transfer action must be the same as the owner of the contract.
 
 Of course, the constraints on the relationship between the parameters can be
-arbitrary complex, and cannot conveniently be reproduced in this
+arbitrarily complex, and cannot conveniently be reproduced in this
 graphical representation. This is the role of DAML -- it
 provides a much more convenient way of representing contract models.
 The link between DAML and contract models is explained in more detail in a :ref:`later section <da-model-daml>`.
 
 To see the conformance criterion in action, assume that
 the contract model allows only the following actions on `PaintOffer`
-and `MustPaint` contracts.
+and `PaintAgree` contracts.
 
 .. https://www.lucidchart.com/documents/edit/1ea6f551-c212-4620-9417-27784adccbcc
 .. image:: ./images/models-paint-offer.svg
@@ -362,7 +362,7 @@ additionally specifies, for each contract in the system:
 #. If the contract is associated with a key, a non-empty set of **maintainers**,
    the parties that make sure that at most one unconsumed contract exists for the key.
    The maintainers must be a subset of the signatories and depend only on the key.
-   This dependence is captured the function `maintainers` that takes a key and returns the key's maintainers.
+   This dependence is captured by the function `maintainers` that takes a key and returns the key's maintainers.
 
 
 In the example, the contract model specifies that
@@ -410,7 +410,7 @@ agree to this obligation. In other words, the painter did not *authorize*
 the creation of the obligation.
 
 In a DA ledger, a party can **authorize** a subaction of a commit in
-one of the two ways:
+either of the following ways:
 
 * Every top-level action of the commit is authorized by all requesters
   of the commit.

@@ -5,10 +5,10 @@ package com.digitalasset.daml.lf
 package value
 
 import scala.language.higherKinds
-import data.{Decimal, FrontStack, Ref, SortedLookupList, Time}
+import data.{FrontStack, Numeric, Ref, SortedLookupList, Time}
 import data.ImmArray.ImmArraySeq
 import data.DataArbitrary._
-import iface.{DefDataType, Record, Type, TypeCon, TypeConName, TypePrim, PrimType => PT}
+import iface.{DefDataType, Record, Type, TypeCon, TypeConName, TypeNumeric, TypePrim, PrimType => PT}
 
 import scalaz.Id.Id
 import scalaz.syntax.traverse._
@@ -60,12 +60,31 @@ object TypedValueGenerators {
     import Value._, ValueGenerators.Implicits._
     val text = noCid(PT.Text, ValueText) { case ValueText(t) => t }
     val int64 = noCid(PT.Int64, ValueInt64) { case ValueInt64(i) => i }
-    val decimal = noCid(PT.Decimal, ValueDecimal) { case ValueDecimal(d) => d }
     val unit = noCid(PT.Unit, (_: Unit) => ValueUnit) { case ValueUnit => () }
     val date = noCid(PT.Date, ValueDate) { case ValueDate(d) => d }
     val timestamp = noCid(PT.Timestamp, ValueTimestamp) { case ValueTimestamp(t) => t }
-    val bool = noCid(PT.Bool, ValueBool) { case ValueBool(b) => b }
+    val bool = noCid(PT.Bool, ValueBool(_)) { case ValueBool(b) => b }
     val party = noCid(PT.Party, ValueParty) { case ValueParty(p) => p }
+
+    def numeric(scale: Numeric.Scale): NoCid[Numeric] = new ValueAddend {
+      type Inj[Cid] = Numeric
+
+      override def t: Type = TypeNumeric(scale)
+
+      override def inj[Cid]: Numeric => Value[Cid] = ValueNumeric
+
+      override def prj[Cid]: Value[Cid] => Option[Numeric] = {
+        case ValueNumeric(x) if x.scale <= scale => Some(x)
+        case _ => None
+      }
+
+      override def injarb[Cid: Arbitrary]: Arbitrary[Numeric] =
+        Arbitrary(ValueGenerators.numGen(scale))
+
+      override def injshrink[Cid: Shrink]: Shrink[Numeric] =
+        implicitly
+
+    }
 
     val contractId: Aux[Id] = new ValueAddend {
       type Inj[Cid] = Cid
@@ -121,11 +140,11 @@ object TypedValueGenerators {
 
     def map(elt: ValueAddend): Aux[Compose[SortedLookupList, elt.Inj, ?]] = new ValueAddend {
       type Inj[Cid] = SortedLookupList[elt.Inj[Cid]]
-      override val t = TypePrim(PT.Map, ImmArraySeq(elt.t))
+      override val t = TypePrim(PT.TextMap, ImmArraySeq(elt.t))
       override def inj[Cid] =
-        (sll: SortedLookupList[elt.Inj[Cid]]) => ValueMap(sll map elt.inj)
+        (sll: SortedLookupList[elt.Inj[Cid]]) => ValueTextMap(sll map elt.inj)
       override def prj[Cid] = {
-        case ValueMap(sll) => sll traverse elt.prj
+        case ValueTextMap(sll) => sll traverse elt.prj
         case _ => None
       }
       override def injarb[Cid: Arbitrary] = {
@@ -174,13 +193,12 @@ object TypedValueGenerators {
   trait PrimInstances[F[_]] {
     def text: F[String]
     def int64: F[Long]
-    def decimal: F[Decimal]
     def unit: F[Unit]
     def date: F[Time.Date]
     def timestamp: F[Time.Timestamp]
     def bool: F[Boolean]
     def party: F[Ref.Party]
-    def leafInstances: Seq[F[_]] = Seq(text, int64, decimal, unit, date, timestamp, bool, party)
+    def leafInstances: Seq[F[_]] = Seq(text, int64, unit, date, timestamp, bool, party)
   }
 
   /** This is the key member of interest, supporting many patterns:
@@ -196,10 +214,11 @@ object TypedValueGenerators {
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   val genAddend: Gen[ValueAddend] = Gen.sized { sz =>
     val self = Gen.resize(sz / 2, Gen.lzy(genAddend))
-    val nestSize = sz / 6
+    val nestSize = sz / 3
     Gen.frequency(
       ((sz max 1) * ValueAddend.leafInstances.length, Gen.oneOf(ValueAddend.leafInstances)),
       (sz max 1, Gen.const(ValueAddend.contractId)),
+      (sz max 1, Gen.oneOf(Numeric.Scale.values).map(ValueAddend.numeric)),
       (nestSize, self.map(ValueAddend.list(_))),
       (nestSize, self.map(ValueAddend.optional(_))),
       (nestSize, self.map(ValueAddend.map(_))),

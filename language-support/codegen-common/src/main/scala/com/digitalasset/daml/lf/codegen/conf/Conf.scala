@@ -70,13 +70,13 @@ object Conf {
 
   private[conf] val readPath: scopt.Read[Path] = scopt.Read.stringRead.map(s => Paths.get(s))
 
-  private[conf] val readClassName: scopt.Read[(String, String)] = scopt.Read.stringRead.map {
+  val readClassName: scopt.Read[(String, String)] = scopt.Read.stringRead.map {
     case PackageAndClassRegex(p, c) => (p, c)
     case _ =>
       throw new IllegalArgumentException("Expected a Full Qualified Class Name")
   }
 
-  private[conf] val readVerbosity: scopt.Read[Level] = scopt.Read.stringRead.map {
+  val readVerbosity: scopt.Read[Level] = scopt.Read.stringRead.map {
     case "0" => Level.ERROR
     case "1" => Level.WARN
     case "2" => Level.INFO

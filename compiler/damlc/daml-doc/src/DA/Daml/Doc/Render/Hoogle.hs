@@ -101,20 +101,21 @@ cls2hoogle ClassDoc{..} = concat
                  ++ maybe [] ((:["=>"]) . type2hoogle) cl_super
                  ++ wrapOp (unTypename cl_name) : cl_args
       , "" ]
-    , concatMap (fct2hoogle . addToContext) cl_functions
+    , concatMap classMethod2hoogle cl_methods
     ]
-  where
-    addToContext :: FunctionDoc -> FunctionDoc
-    addToContext fndoc = fndoc { fct_context = newContext (fct_context fndoc) }
 
-    newContext :: Maybe Type -> Maybe Type
-    newContext = \case
-        Nothing -> Just contextTy
-        Just (TypeTuple ctx) -> Just (TypeTuple (contextTy : ctx))
-        Just ctx -> Just (TypeTuple [contextTy, ctx])
-
-    contextTy :: Type
-    contextTy = TypeApp Nothing cl_name [TypeApp Nothing (Typename arg) [] | arg <- cl_args]
+classMethod2hoogle :: ClassMethodDoc -> [T.Text]
+classMethod2hoogle ClassMethodDoc{..} | cm_isDefault = [] -- hide default methods from hoogle search
+classMethod2hoogle ClassMethodDoc{..} = concat
+    [ hooglify cm_descr
+    , [ urlTag cm_anchor
+      , T.unwords . concat $
+          [ [wrapOp (unFieldname cm_name), "::"]
+          , maybe [] ((:["=>"]) . type2hoogle) cm_globalContext
+          , [type2hoogle cm_type]
+          ]
+      , "" ]
+    ]
 
 fct2hoogle :: FunctionDoc -> [T.Text]
 fct2hoogle FunctionDoc{..} = concat

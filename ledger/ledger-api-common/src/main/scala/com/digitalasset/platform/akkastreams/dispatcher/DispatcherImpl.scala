@@ -13,11 +13,11 @@ import org.slf4j.LoggerFactory
 import scala.collection.immutable
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
-final class DispatcherImpl[Index: Ordering, T](
-    subsource: SubSource[Index, T],
+final class DispatcherImpl[Index: Ordering](
+    name: String,
     zeroIndex: Index,
     headAtInitialization: Index)
-    extends Dispatcher[Index, T] {
+    extends Dispatcher[Index] {
 
   private val logger = LoggerFactory.getLogger(getClass)
 
@@ -75,31 +75,38 @@ final class DispatcherImpl[Index: Ordering, T](
       case Running(prev, disp) =>
         if (Ordering[Index].gt(head, prev)) disp.signal()
       case c: Closed =>
-        logger.debug("Failed to update Dispatcher HEAD: instance already closed.")
+        logger.debug(s"$name: Failed to update Dispatcher HEAD: instance already closed.")
     }
 
-  override def startingAt(start: Index, requestedEnd: Option[Index]): Source[(Index, T), NotUsed] =
-    requestedEnd.fold(startingAt(start))(
+  override def startingAt[T](
+      start: Index,
+      subSource: SubSource[Index, T],
+      requestedEnd: Option[Index]): Source[(Index, T), NotUsed] =
+    requestedEnd.fold(startingAt(start, subSource))(
       end =>
         if (Ordering[Index].gt(start, end))
           Source.failed(new IllegalArgumentException(
-            s"Invalid index section: start '$start' is after end '$end'"))
-        else startingAt(start).takeWhile(_._1 != end, inclusive = true))
+            s"$name: Invalid index section: start '$start' is after end '$end'"))
+        else startingAt(start, subSource).takeWhile(_._1 != end, inclusive = true))
 
   // noinspection MatchToPartialFunction, ScalaUnusedSymbol
-  override def startingAt(start: Index): Source[(Index, T), NotUsed] =
+  override def startingAt[T](
+      start: Index,
+      subsource: SubSource[Index, T]): Source[(Index, T), NotUsed] =
     if (indexIsBeforeZero(start))
       Source.failed(
         new IllegalArgumentException(
-          s"Invalid start index: '$start' before zero index '$zeroIndex'"))
-    else
+          s"$name: Invalid start index: '$start' before zero index '$zeroIndex'"))
+    else {
       state.get.getSignalDispatcher.fold(Source.failed[(Index, T)](closedError))(
         _.subscribe(signalOnSubscribe = true)
+        // This needs to call getHead directly, otherwise this subscription might miss a Signal being emitted
           .map(_ => getHead())
           .statefulMapConcat(() => new ContinuousRangeEmitter(start))
           .flatMapConcat {
             case (previousHead, head) => subsource(previousHead, head)
           })
+    }
 
   private class ContinuousRangeEmitter(private var max: Index) // var doesn't need to be synchronized, it is accessed in a GraphStage.
       extends (Index => immutable.Iterable[(Index, Index)]) {
@@ -131,6 +138,6 @@ final class DispatcherImpl[Index: Ordering, T](
     }
 
   private def closedError: IllegalStateException =
-    new IllegalStateException("Dispatcher is closed")
+    new IllegalStateException(s"$name: Dispatcher is closed")
 
 }

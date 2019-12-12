@@ -29,7 +29,7 @@ DAML package management. To import a package ``Bar`` in project ``Foo``, add the
 
   sdk-version: 0.0.0
   name: foo
-  source: daml/Foo.daml
+  source: daml
   version: 1.0.0
   exposed-modules:
     - Some.Module
@@ -37,7 +37,7 @@ DAML package management. To import a package ``Bar`` in project ``Foo``, add the
   dependencies:
     - daml-prim
     - daml-stdlib
-    - /home/johndoe/bar/.daml/dist/bar.dar
+    - /home/johndoe/bar/.daml/dist/bar-1.0.0.dar
 
 The import path needs to be the relative or absolute path pointing to the created DAML archive of
 the ``bar`` project. The archive can reside anywhere on the local file system. Note that the SDK
@@ -53,3 +53,34 @@ Some.Module``.
 Note that all modules of package ``foo`` that should be available as imports of other packages need
 to be exposed by adding them to the ``exposed-modules`` stanza of the `daml.yaml` file. If the
 ``exposed-modules`` stanza is omitted, all modules of the project are exposed by default.
+
+Importing archives compiled with different SDK's
+************************************************
+
+All DAML archive dependencies of a project need to be compiled with the same SDK as the project
+itself. However, it is possible to import templates and data types of an archive compiled with an
+older SDK, by listing them under the ``data-dependencies`` stanza:
+
+.. code-block:: yaml
+
+  sdk-version: 0.0.0
+  name: foo
+  source: daml
+  version: 1.0.0
+  exposed-modules:
+    - Some.Module
+    - Some.Other.Module
+  dependencies:
+    - daml-prim
+    - daml-stdlib
+    - /home/johndoe/bar/.daml/dist/bar.dar
+  data-dependencies:
+    - /home/jondoe/bar-0.0.0/.daml/dist/bar-0.0.0.dar
+
+Modules from data dependencies can be imported as usual, but need to be qualified by the
+(generated) instances package:
+
+.. code-block:: daml
+
+  import "instances-bar" Foo
+

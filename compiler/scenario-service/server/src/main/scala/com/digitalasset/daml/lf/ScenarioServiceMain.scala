@@ -201,7 +201,7 @@ class ScenarioService extends ScenarioServiceGrpc.ScenarioServiceImplBase {
             loadModules,
             unloadPackages,
             loadPackages,
-            req.getLightValidation
+            req.getNoValidation
           )
 
           resp.addAllLoadedModules(ctx.loadedModules().map(_.toString).asJava)

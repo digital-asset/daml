@@ -13,23 +13,28 @@ load(
 )
 
 dependencies = [
-    "//3rdparty/jvm/ch/qos/logback:logback_classic",
-    "//3rdparty/jvm/com/github/scopt:scopt",
-    "//3rdparty/jvm/com/google/guava:guava",
-    "//3rdparty/jvm/com/typesafe/akka:akka_stream",
-    "//3rdparty/jvm/com/typesafe/scala_logging:scala_logging",
-    "//3rdparty/jvm/io/grpc:grpc_core",
-    "//3rdparty/jvm/io/grpc:grpc_netty",
-    "//3rdparty/jvm/io/grpc:grpc_services",
-    "//3rdparty/jvm/io/netty:netty_codec_http2",
-    "//3rdparty/jvm/io/netty:netty_handler",
-    "//3rdparty/jvm/org/scalatest:scalatest",
-    "//3rdparty/jvm/org/scalaz:scalaz_concurrent",
-    "//3rdparty/jvm/org/scalaz:scalaz_core",
-    "//3rdparty/jvm/org/slf4j:slf4j_api",
+    "@maven//:ch_qos_logback_logback_classic",
+    "@maven//:com_github_scopt_scopt_2_12",
+    "@maven//:com_google_guava_guava",
+    "@maven//:com_typesafe_akka_akka_actor_2_12",
+    "@maven//:com_typesafe_akka_akka_stream_2_12",
+    "@maven//:com_typesafe_config",
+    "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
+    "@maven//:io_grpc_grpc_core",
+    "@maven//:io_grpc_grpc_netty",
+    "@maven//:io_grpc_grpc_services",
+    "@maven//:io_netty_netty_codec_http2",
+    "@maven//:io_netty_netty_common",
+    "@maven//:io_netty_netty_handler",
+    "@maven//:io_netty_netty_transport",
+    "@maven//:org_scalactic_scalactic_2_12",
+    "@maven//:org_scalatest_scalatest_2_12",
+    "@maven//:org_scalaz_scalaz_concurrent_2_12",
+    "@maven//:org_scalaz_scalaz_core_2_12",
+    "@maven//:org_slf4j_slf4j_api",
     "//bazel_tools/runfiles:scala_runfiles",
-    "//daml-lf/archive:daml_lf_archive_scala",
-    "//daml-lf/archive:daml_lf_java_proto",
+    "//daml-lf/archive:daml_lf_archive_reader",
+    "//daml-lf/archive:daml_lf_dev_archive_java_proto",
     "//daml-lf/data",
     "//daml-lf/engine",
     "//daml-lf/interpreter",
@@ -40,14 +45,20 @@ dependencies = [
     "//ledger-api/rs-grpc-akka",
     "//ledger-api/rs-grpc-bridge",
     "//ledger-api/testing-utils",
-    "//ledger/ledger-api-client:ledger-api-client",
-    "//ledger/ledger-api-common:ledger-api-common",
-    "//ledger/ledger-api-domain:ledger-api-domain",
+    "//ledger/ledger-api-auth",
+    "//ledger/ledger-api-auth-client",
+    "//ledger/ledger-api-client",
+    "//ledger/ledger-api-common",
+    "//ledger/ledger-api-common:ledger-api-common-scala-tests-lib",
+    "//ledger/ledger-api-domain",
+    "//ledger/ledger-api-scala-logging:ledger-api-scala-logging-base",
     "//ledger/ledger-api-scala-logging",
-    "//ledger/sandbox:sandbox",
-    "//ledger/test-common:test-common",
+    "//ledger/sandbox",
     "//ledger/sandbox:sandbox-scala-tests-lib",
+    "//ledger/test-common",
     "//ledger/participant-state",
+    "//ledger-service/jwt",
+    "//libs-scala/grpc-utils",
 ]
 
 da_scala_library(
@@ -56,9 +67,7 @@ da_scala_library(
     visibility = [
         "//visibility:public",
     ],
-    deps = dependencies + [
-        "//daml-lf/testing-tools",
-    ],
+    deps = dependencies,
 )
 
 java_library(
@@ -81,15 +90,47 @@ da_scala_test_suite(
         # the excluded tests are run by the conformance test via the ledger-api-test-tool
         # see //ledger/sandbox:conformance-test-*
         # exclude = ["src/test/itsuite/**/TransactionServiceIT.scala"],
+        exclude = [
+            # XXX: Flaky tests are excluded, see below.
+            "src/test/itsuite/scala/com/digitalasset/platform/tests/integration/ledger/api/commands/CommandServiceBackPressureIT.scala",
+            "src/test/itsuite/scala/com/digitalasset/platform/tests/integration/ledger/api/ResetServiceIT.scala",
+        ],
     ),
     data = [
         "//ledger/sandbox:Test-1.5.dar",
-        "//ledger/test-common:Test.dar",
+        "//ledger/test-common:Test-stable.dar",
         "@postgresql_dev_env//:all",
-        "@postgresql_dev_env//:createdb",
-        "@postgresql_dev_env//:initdb",
-        "@postgresql_dev_env//:pg_ctl",
     ],
+    # this test suite is very intensive, long, and relying on timeouts. Moreover,
+    # the test suite already parallelizes each scala test, so we'll still be busy
+    # only with this one. for the same reason we do not run it on macos -- it takes
+    # up to 20 minutes on our macOS ci workers.
+    tags = [
+        "dont-run-on-darwin",
+        "exclusive",
+    ],
+    deps = [
+        ":default-it-logback-config",
+        ":ledger-api-integration-tests-lib",
+    ] + dependencies,
+)
+
+# XXX: Some tests have been found to be flaky on Windows and Linux. These are
+# excluded from the main test suite so that they can be marked flaky
+# individually.
+da_scala_test_suite(
+    name = "ledger-api-integration-tests-flaky",
+    size = "large",
+    srcs = [
+        "src/test/itsuite/scala/com/digitalasset/platform/tests/integration/ledger/api/ResetServiceIT.scala",
+        "src/test/itsuite/scala/com/digitalasset/platform/tests/integration/ledger/api/commands/CommandServiceBackPressureIT.scala",
+    ],
+    data = [
+        "//ledger/sandbox:Test-1.5.dar",
+        "//ledger/test-common:Test-stable.dar",
+        "@postgresql_dev_env//:all",
+    ],
+    flaky = True,
     # this test suite is very intensive, long, and relying on timeouts. Moreover,
     # the test suite already parallelizes each scala test, so we'll still be busy
     # only with this one. for the same reason we do not run it on macos -- it takes

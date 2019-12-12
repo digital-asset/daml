@@ -8,13 +8,10 @@ da_scala_binary(
     srcs = glob(["*.scala"]),
     main_class = "com.digitalasset.protoc.plugins.scalapb.ScalaPbCompilerPlugin",
     visibility = ["//visibility:public"],
-    runtime_deps = [
-        "@com_github_scalapb_scalapb//:scala-library",
-    ],
     deps = [
-        "//3rdparty/jvm/com/google/protobuf:protobuf_java",
-        "//3rdparty/jvm/com/thesamet/scalapb:compilerplugin",
-        "//3rdparty/jvm/com/thesamet/scalapb:protoc_bridge",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:com_thesamet_scalapb_compilerplugin_2_12",
+        "@maven//:com_thesamet_scalapb_protoc_bridge_2_12",
     ],
 )
 

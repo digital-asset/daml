@@ -277,45 +277,37 @@ object Queries {
         case V.ValueBool(value) =>
           Fragment.const(if (value) "TRUE" else "FALSE")
         case r @ V.ValueRecord(_, _) =>
-          Fragment(
-            "?::jsonb",
-            toJsonString(r)
-          )
+          Fragment("?::jsonb", toJsonString(r))
         case v @ V.ValueVariant(_, _, _) =>
-          Fragment(
-            "?::jsonb",
-            toJsonString(v)
-          )
-
-        case e @ V.ValueEnum(_, constructor) =>
+          Fragment("?::jsonb", toJsonString(v))
+        case V.ValueEnum(_, constructor) =>
           Fragment("?", constructor: String)
-
         case o @ V.ValueOptional(_) =>
-          Fragment(
-            "?::jsonb",
-            toJsonString(o)
-          )
+          Fragment("?::jsonb", toJsonString(o))
         case V.ValueContractId(value) => Fragment("?", value)
         case l @ V.ValueList(_) =>
-          Fragment(
-            "?::jsonb",
-            toJsonString(l)
-          )
-        case V.ValueInt64(value) => Fragment("?", value)
-        case V.ValueDecimal(value) => Fragment("?::numeric(38,10)", value: BigDecimal)
-        case V.ValueText(value) => Fragment("?", value)
-        case ts @ V.ValueTimestamp(_) => Fragment("?", ts)
-        case V.ValueParty(value) => Fragment("?", value: String)
-        case V.ValueUnit => Fragment.const("FALSE")
-        case V.ValueDate(LfTime.Date(days)) => Fragment("?", LocalDate.ofEpochDay(days.toLong))
-        case V.ValueMap(m) =>
-          Fragment(
-            "?::jsonb",
-            toJsonString(m)
-          )
-        case tuple @ V.ValueTuple(_) =>
+          Fragment("?::jsonb", toJsonString(l))
+        case V.ValueInt64(value) =>
+          Fragment("?", value)
+        case V.ValueNumeric(value) =>
+          Fragment(s"?::numeric(38,${value.scale})", value: BigDecimal)
+        case V.ValueText(value) =>
+          Fragment("?", value)
+        case ts @ V.ValueTimestamp(_) =>
+          Fragment("?", ts)
+        case V.ValueParty(value) =>
+          Fragment("?", value: String)
+        case V.ValueUnit =>
+          Fragment.const("FALSE")
+        case V.ValueDate(LfTime.Date(days)) =>
+          Fragment("?", LocalDate.ofEpochDay(days.toLong))
+        case V.ValueTextMap(value) =>
+          Fragment("?::jsonb", toJsonString(value))
+        case V.ValueGenMap(entries) =>
+          Fragment("?::jsonb", toJsonString(entries))
+        case struct @ V.ValueStruct(_) =>
           throw new IllegalArgumentException(
-            s"tuple should not be present in contract, as raw tuples are not serializable: $tuple")
+            s"struct should not be present in contract, as raw structs are not serializable: $struct")
       }
     }
   }

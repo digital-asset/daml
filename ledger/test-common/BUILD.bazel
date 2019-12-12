@@ -13,6 +13,12 @@ load(
     "//language-support/scala/codegen:codegen.bzl",
     "dar_to_scala",
 )
+load(
+    "//daml-lf/language:daml-lf.bzl",
+    "lf_dev_version",
+    "lf_latest_version",
+    "lf_stable_version",
+)
 
 da_scala_library(
     name = "test-common",
@@ -22,12 +28,17 @@ da_scala_library(
     ],
     deps = [
         "//ledger-api/grpc-definitions:ledger-api-scalapb",
+        "//libs-scala/timer-utils",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_context",
+        "@maven//:io_grpc_grpc_core",
     ],
 )
 
 daml_compile(
     name = "SemanticTests",
     main_src = "src/main/daml/SemanticTests.daml",
+    target = lf_stable_version,
     visibility = ["//visibility:public"],
 )
 
@@ -51,56 +62,46 @@ da_scala_library(
     ],
 )
 
-daml_compile(
-    name = "Test-1.6",
-    main_src = "src/main/daml/Test.daml",
-    target = "1.6",
-    visibility = ["//visibility:public"],
-)
+lf_test_versions = [
+    (lf_stable_version, "stable"),
+    (lf_latest_version, "latest"),
+    (lf_dev_version, "dev"),
+]
 
-dar_to_scala(
-    name = "Test-1.6.scala-codegen",
+[
+    [
+        daml_compile(
+            name = "Test-%s" % target_name,
+            main_src = "src/main/daml/Test.daml",
+            target = target,
+            visibility = ["//visibility:public"],
+        ),
+        dar_to_scala(
+            name = "Test-%s.scala-codegen" % target_name,
+            srcs = [":Test-%s.dar" % target_name],
+            package_prefix = "com.digitalasset.ledger.test_%s" % target_name,
+            srcjar_out = "Test-%s.scala.srcjar" % target_name,
+            verbosity = 2,
+            visibility = ["//visibility:public"],
+        ),
+        da_scala_library(
+            name = "Test-%s.scala" % target_name,
+            srcs = [":Test-%s.scala-codegen" % target_name],
+            visibility = ["//visibility:public"],
+            deps = [
+                "//language-support/scala/bindings",
+            ],
+        ),
+    ]
+    for (target, target_name) in lf_test_versions
+]
+
+filegroup(
+    name = "dar-files",
     srcs = [
-        ":Test-1.6.dar",
+        ":SemanticTests.dar",
+        ":Test-dev.dar",
+        ":Test-stable.dar",
     ],
-    package_prefix = "com.digitalasset.ledger.test_1_6",
-    srcjar_out = "Test-1.6.scala.srcjar",
-    verbosity = 2,
     visibility = ["//visibility:public"],
-)
-
-da_scala_library(
-    name = "Test-1.6.scala",
-    srcs = [":Test-1.6.scala-codegen"],
-    visibility = ["//visibility:public"],
-    deps = [
-        "//language-support/scala/bindings",
-    ],
-)
-
-daml_compile(
-    name = "Test",
-    main_src = "src/main/daml/Test.daml",
-    target = "1.dev",
-    visibility = ["//visibility:public"],
-)
-
-dar_to_scala(
-    name = "Test.scala-codegen",
-    srcs = [
-        ":Test.dar",
-    ],
-    package_prefix = "com.digitalasset.ledger.test",
-    srcjar_out = "Test.scala.srcjar",
-    verbosity = 2,
-    visibility = ["//visibility:public"],
-)
-
-da_scala_library(
-    name = "Test.scala",
-    srcs = [":Test.scala-codegen"],
-    visibility = ["//visibility:public"],
-    deps = [
-        "//language-support/scala/bindings",
-    ],
 )

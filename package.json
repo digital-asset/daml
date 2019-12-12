@@ -1,6 +1,6 @@
 {
-  "name": "dummy",
-  "displayName": "dummy",
+  "name": "digital-asset_daml_dummy",
+  "displayName": "digital-asset_daml_dummy",
   "description": "package for bazel-managed nodejs dependencies",
   "private": true,
   "version": "0.0.0",

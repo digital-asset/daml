@@ -10,7 +10,7 @@ import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.LanguageMajorVersion._
 import com.digitalasset.daml.lf.language.LanguageVersion
-import com.digitalasset.daml_lf.DamlLf
+import com.digitalasset.daml_lf_dev.DamlLf
 import com.google.protobuf.CodedInputStream
 
 sealed class Decode(onlySerializableDataDefs: Boolean)
@@ -66,15 +66,15 @@ object Decode extends Decode(onlySerializableDataDefs = false) {
   }
 
   private[lf] trait OfPackage[-Pkg] {
-    type ProtoModule
-    def protoModule(cis: CodedInputStream): ProtoModule
+    type ProtoScenarioModule
+    def protoScenarioModule(cis: CodedInputStream): ProtoScenarioModule
     @throws[ParseError]
     def decodePackage(
         packageId: PackageId,
         lfPackage: Pkg,
         onlySerializableDataDefs: Boolean = false): Package
     @throws[ParseError]
-    def decodeScenarioModule(packageId: PackageId, lfModule: ProtoModule): Module
+    def decodeScenarioModule(packageId: PackageId, lfModuleForScenario: ProtoScenarioModule): Module
   }
 
   private def identifierStart(c: Char) =

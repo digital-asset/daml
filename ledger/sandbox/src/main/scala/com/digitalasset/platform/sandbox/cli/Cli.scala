@@ -8,6 +8,8 @@ import java.time.Duration
 
 import ch.qos.logback.classic.Level
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.jwt.{HMAC256Verifier, JwksVerifier, RSA256Verifier}
+import com.digitalasset.ledger.api.auth.AuthServiceJWT
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.BuildInfo
@@ -33,6 +35,13 @@ object Cli {
   // format: off
   private val cmdArgParser = new scopt.OptionParser[SandboxConfig]("sandbox") {
     head(s"Sandbox version ${BuildInfo.Version}")
+
+    arg[File]("<archive>...")
+      .optional()
+      .unbounded()
+      .validate(f => Either.cond(checkIfZip(f), (), s"Invalid dar file: ${f.getName}"))
+      .action((f, c) => c.copy(damlPackages = f :: c.damlPackages))
+      .text("DAML archives to load in .dar format. Only DAML-LF v1 Archives are currently supported. Can be mixed in with optional arguments.")
 
     opt[Int]('p', "port")
       .action((x, c) => c.copy(port = x))
@@ -81,13 +90,6 @@ object Cli {
           "Note that when using --postgres-backend the scenario will be ran only if starting from a fresh database, _not_ when resuming from an existing one. " +
           "Two identifier formats are supported: Module.Name:Entity.Name (preferred) and Module.Name.Entity.Name (deprecated, will print a warning when used)." +
           "Also note that instructing the sandbox to load a scenario will have the side effect of loading _all_ the .dar files provided eagerly (see --eager-package-loading).")
-
-    arg[File]("<archive>...")
-      .optional()
-      .unbounded()
-      .validate(f => Either.cond(checkIfZip(f), (), s"Invalid dar file: ${f.getName}"))
-      .action((f, c) => c.copy(damlPackages = f :: c.damlPackages))
-      .text("DAML archives to load in .dar format. Only DAML-LF v1 Archives are currently supported.")
 
     opt[String]("pem")
       .optional()
@@ -146,6 +148,31 @@ object Cli {
         .optional()
         .text("Whether to load all the packages in the .dar files provided eagerly, rather than when needed as the commands come.")
         .action( (_, config) => config.copy(eagerPackageLoading = true))
+
+    opt[Long]("max-ttl-seconds")
+        .optional()
+        .validate(v => Either.cond(v > 0, (), "Max TTL must be a positive number"))
+        .text("The maximum TTL allowed for commands in seconds")
+        .action( (maxTtl, config) => config.copy(timeModel = config.timeModel.copy(maxTtl = Duration.ofSeconds(maxTtl))))
+
+    opt[String]("auth-jwt-hs256-unsafe")
+      .optional()
+      .hidden()
+      .validate(v => Either.cond(v.length > 0, (), "HMAC secret must be a non-empty string"))
+      .text("[UNSAFE] Enables JWT-based authorization with shared secret HMAC256 signing: USE THIS EXCLUSIVELY FOR TESTING")
+      .action( (secret, config) => config.copy(authService = Some(AuthServiceJWT(HMAC256Verifier(secret).valueOr(err => sys.error(s"Failed to create HMAC256 verifier: $err"))))))
+
+    opt[String]("auth-jwt-rs256-crt")
+      .optional()
+      .validate(v => Either.cond(v.length > 0, (), "Certificate file path must be a non-empty string"))
+      .text("Enables JWT-based authorization, where the JWT is signed by RSA256 with a public key loaded from the given X509 certificate file (.crt)")
+      .action( (path, config) => config.copy(authService = Some(AuthServiceJWT(RSA256Verifier.fromCrtFile(path).valueOr(err => sys.error(s"Failed to create RSA256 verifier: $err"))))))
+
+    opt[String]("auth-jwt-rs256-jwks")
+      .optional()
+      .validate(v => Either.cond(v.length > 0, (), "JWK server URL must be a non-empty string"))
+      .text("Enables JWT-based authorization, where the JWT is signed by RSA256 with a public key loaded from the given JWKS URL")
+      .action( (url, config) => config.copy(authService = Some(AuthServiceJWT(JwksVerifier(url)))))
 
     help("help").text("Print the usage text")
 

@@ -8,20 +8,23 @@ import java.time.Instant
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
+import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party, TransactionIdString}
+import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
-import com.digitalasset.daml_lf.DamlLf.Archive
+import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
-import com.digitalasset.platform.sandbox.metrics.MetricsManager
-import com.digitalasset.platform.sandbox.stores.ActiveContracts.ActiveContract
-import com.digitalasset.platform.sandbox.stores.{InMemoryActiveContracts, InMemoryPackageStore}
+import com.digitalasset.ledger.api.health.ReportsHealth
+import com.digitalasset.platform.common.logging.NamedLoggerFactory
+import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
+import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.Contract
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.digitalasset.platform.sandbox.stores.ledger.inmemory.InMemoryLedger
 import com.digitalasset.platform.sandbox.stores.ledger.sql.{
@@ -29,12 +32,13 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.{
   SqlLedger,
   SqlStartMode
 }
+import com.digitalasset.platform.sandbox.stores.{InMemoryActiveLedgerState, InMemoryPackageStore}
 
 import scala.concurrent.Future
 
 trait Ledger extends ReadOnlyLedger with WriteLedger
 
-trait WriteLedger extends AutoCloseable {
+trait WriteLedger extends ReportsHealth with AutoCloseable {
 
   def publishHeartbeat(time: Instant): Future[Unit]
 
@@ -44,17 +48,28 @@ trait WriteLedger extends AutoCloseable {
       transaction: SubmittedTransaction): Future[SubmissionResult]
 
   // Party management
-  def allocateParty(party: Party, displayName: Option[String]): Future[PartyAllocationResult]
+  def publishPartyAllocation(
+      submissionId: SubmissionId,
+      party: Party,
+      displayName: Option[String]): Future[SubmissionResult]
 
   // Package management
   def uploadPackages(
       knownSince: Instant,
       sourceDescription: Option[String],
       payload: List[Archive]): Future[UploadPackagesResult]
+
+  // Configuration management
+  def publishConfiguration(
+      maxRecordTime: Timestamp,
+      submissionId: String,
+      config: Configuration
+  ): Future[SubmissionResult]
+
 }
 
 /** Defines all the functionalities a Ledger needs to provide */
-trait ReadOnlyLedger extends AutoCloseable {
+trait ReadOnlyLedger extends ReportsHealth with AutoCloseable {
 
   def ledgerId: LedgerId
 
@@ -62,17 +77,21 @@ trait ReadOnlyLedger extends AutoCloseable {
 
   def ledgerEnd: Long
 
-  def snapshot(): Future[LedgerSnapshot]
+  def snapshot(filter: TemplateAwareFilter): Future[LedgerSnapshot]
 
-  def lookupContract(contractId: Value.AbsoluteContractId): Future[Option[ActiveContract]]
+  def lookupContract(
+      contractId: Value.AbsoluteContractId,
+      forParty: Party): Future[Option[Contract]]
 
-  def lookupKey(key: GlobalKey): Future[Option[AbsoluteContractId]]
+  def lookupKey(key: GlobalKey, forParty: Party): Future[Option[AbsoluteContractId]]
 
   def lookupTransaction(
       transactionId: TransactionIdString): Future[Option[(Long, LedgerEntry.Transaction)]]
 
   // Party management
   def parties: Future[List[PartyDetails]]
+
+  def partyEntries(beginOffset: Long): Source[(Long, PartyLedgerEntry), NotUsed]
 
   // Package management
   def listLfPackages(): Future[Map[PackageId, PackageDetails]]
@@ -81,16 +100,21 @@ trait ReadOnlyLedger extends AutoCloseable {
 
   def getLfPackage(packageId: PackageId): Future[Option[Ast.Package]]
 
+  // Configuration management
+  def lookupLedgerConfiguration(): Future[Option[Configuration]]
+
+  def configurationEntries(offset: Option[Long]): Source[(Long, ConfigurationEntry), NotUsed]
 }
 
 object Ledger {
 
-  type LedgerFactory = (InMemoryActiveContracts, Seq[LedgerEntry]) => Ledger
+  type LedgerFactory = (InMemoryActiveLedgerState, Seq[LedgerEntry]) => Ledger
 
   /**
     * Creates an in-memory ledger
     *
     * @param ledgerId      the id to be used for the ledger
+    * @param participantId the id of the participant
     * @param timeProvider  the provider of time
     * @param acs           the starting ACS store
     * @param ledgerEntries the starting entries
@@ -98,17 +122,19 @@ object Ledger {
     */
   def inMemory(
       ledgerId: LedgerId,
+      participantId: ParticipantId,
       timeProvider: TimeProvider,
-      acs: InMemoryActiveContracts,
+      acs: InMemoryActiveLedgerState,
       packages: InMemoryPackageStore,
       ledgerEntries: ImmArray[LedgerEntryOrBump]): Ledger =
-    new InMemoryLedger(ledgerId, timeProvider, acs, packages, ledgerEntries)
+    new InMemoryLedger(ledgerId, participantId, timeProvider, acs, packages, ledgerEntries)
 
   /**
-    * Creates a Postgres backed ledger
+    * Creates a JDBC backed ledger
     *
     * @param jdbcUrl       the jdbc url string containing the username and password as well
     * @param ledgerId      the id to be used for the ledger
+    * @param participantId the participant identifier
     * @param timeProvider  the provider of time
     * @param acs           the starting ACS store
     * @param ledgerEntries the starting entries
@@ -116,45 +142,52 @@ object Ledger {
     * @param startMode     whether the ledger should be reset, or continued where it was
     * @return a Postgres backed Ledger
     */
-  def postgres(
+  def jdbcBacked(
       jdbcUrl: String,
       ledgerId: LedgerId,
+      participantId: ParticipantId,
       timeProvider: TimeProvider,
-      acs: InMemoryActiveContracts,
+      acs: InMemoryActiveLedgerState,
       packages: InMemoryPackageStore,
       ledgerEntries: ImmArray[LedgerEntryOrBump],
       queueDepth: Int,
-      startMode: SqlStartMode
-  )(implicit mat: Materializer, mm: MetricsManager): Future[Ledger] =
+      startMode: SqlStartMode,
+      loggerFactory: NamedLoggerFactory,
+      metrics: MetricRegistry
+  )(implicit mat: Materializer): Future[Ledger] =
     SqlLedger(
       jdbcUrl,
       Some(ledgerId),
+      participantId,
       timeProvider,
       acs,
       packages,
       ledgerEntries,
       queueDepth,
-      startMode)
+      startMode,
+      loggerFactory,
+      metrics)
 
   /**
-    * Creates a Postgres backed read only ledger
+    * Creates a JDBC backed read only ledger
     *
     * @param jdbcUrl       the jdbc url string containing the username and password as well
     * @param ledgerId      the id to be used for the ledger
-    * @param timeProvider  the provider of time
-    * @return a Postgres backed Ledger
+    * @return a jdbc backed Ledger
     */
-  def postgresReadOnly(
+  def jdbcBackedReadOnly(
       jdbcUrl: String,
       ledgerId: LedgerId,
-  )(implicit mat: Materializer, mm: MetricsManager): Future[ReadOnlyLedger] =
-    ReadOnlySqlLedger(jdbcUrl, Some(ledgerId))
+      loggerFactory: NamedLoggerFactory,
+      metrics: MetricRegistry
+  )(implicit mat: Materializer): Future[ReadOnlyLedger] =
+    ReadOnlySqlLedger(jdbcUrl, Some(ledgerId), loggerFactory, metrics)
 
   /** Wraps the given Ledger adding metrics around important calls */
-  def metered(ledger: Ledger)(implicit mm: MetricsManager): Ledger = MeteredLedger(ledger)
+  def metered(ledger: Ledger, metrics: MetricRegistry): Ledger = MeteredLedger(ledger, metrics)
 
   /** Wraps the given Ledger adding metrics around important calls */
-  def meteredReadOnly(ledger: ReadOnlyLedger)(implicit mm: MetricsManager): ReadOnlyLedger =
-    MeteredReadOnlyLedger(ledger)
+  def meteredReadOnly(ledger: ReadOnlyLedger, metrics: MetricRegistry): ReadOnlyLedger =
+    MeteredReadOnlyLedger(ledger, metrics)
 
 }

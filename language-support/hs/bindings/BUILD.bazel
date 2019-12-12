@@ -8,28 +8,29 @@ load("@os_info//:os_info.bzl", "is_windows")
 da_haskell_library(
     name = "hs-ledger",
     srcs = glob(["src/**/*.hs"]),
-    hazel_deps = [
+    hackage_deps = [
+        "MissingH",
         "async",
         "base",
         "bytestring",
         "containers",
         "exceptions",
         "extra",
+        "mtl",
+        "grpc-haskell",
         "proto3-suite",
         "retry",
+        "sorted-list",
         "text",
         "time",
         "transformers",
         "unliftio",
+        "utf8-string",
         "vector",
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//compiler/daml-lf-ast",
-        "//compiler/daml-lf-proto",
-        "//daml-lf/archive:daml_lf_haskell_proto",
         "//ledger-api/grpc-definitions:ledger-api-haskellpb",
-        "//nix/third-party/gRPC-haskell:grpc-haskell",
     ],
 )
 
@@ -53,9 +54,10 @@ da_haskell_test(
         ":for-upload.dar",
         "//ledger/sandbox:sandbox-binary",
     ],
-    # Sometimes, we seem to be seeing segfaults on Windows.
-    flaky = is_windows,
-    hazel_deps = [
+    # The tests are flaky probably due to issues in gRPC-haskell.
+    flaky = True,
+    hackage_deps = [
+        "aeson",
         "async",
         "base",
         "bytestring",
@@ -63,6 +65,7 @@ da_haskell_test(
         "filepath",
         "directory",
         "extra",
+        "jwt",
         "process",
         "random",
         "retry",
@@ -73,6 +76,7 @@ da_haskell_test(
         "time",
         "utf8-string",
         "uuid",
+        "vector",
         "zip-archive",
     ],
     main_function = "DA.Ledger.Tests.main",

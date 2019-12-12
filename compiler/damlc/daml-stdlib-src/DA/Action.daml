@@ -66,3 +66,20 @@ replicateA : (Applicative m) => Int -> m a -> m [a]
 replicateA n x
   | n <= 0 = pure []
   | otherwise = liftA2 (::) x (replicateA (n-1) x)
+
+-- | Like `replicateA`, but discards the result.
+replicateA_ : Applicative m => Int -> m a -> m ()
+replicateA_ n f
+  | n <= 0 = pure ()
+  | otherwise = f *> replicateA_ (n - 1) f
+
+infixr 1 <=<, >=>
+
+-- | Left-to-right composition of Kleisli arrows.
+(>=>) : Action m => (a -> m b) -> (b -> m c) -> (a -> m c)
+f >=> g = \x -> f x >>= g
+
+-- | Right-to-left composition of Kleisli arrows. @('>=>')@, with the arguments
+-- flipped.
+(<=<) : Action m => (b -> m c) -> (a -> m b) -> (a -> m c)
+(<=<) = flip (>=>)

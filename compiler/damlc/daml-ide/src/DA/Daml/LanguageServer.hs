@@ -27,10 +27,12 @@ import Development.IDE.Core.Rules
 import Development.IDE.Core.Rules.Daml
 import Development.IDE.Core.Service.Daml
 
+import DA.Daml.LanguageServer.Visualize
 import qualified Network.URI                               as URI
 
 import Language.Haskell.LSP.Messages
 import qualified Language.Haskell.LSP.Core as LSP
+import qualified Language.Haskell.LSP.Types as LSP
 
 
 textShow :: Show a => a -> T.Text
@@ -74,6 +76,7 @@ setHandlersVirtualResource = PartialHandlers $ \WithMessage{..} x -> return x
         \_ ide (DidOpenTextDocumentParams TextDocumentItem{_uri}) ->
             withUriDaml _uri $ \vr -> do
                 logInfo (ideLogger ide) $ "Opened virtual resource: " <> textShow vr
+                logTelemetry (ideLogger ide) "Viewed scenario results"
                 modifyOpenVirtualResources ide (S.insert vr)
 
     ,LSP.didCloseTextDocumentNotificationHandler = withNotification (LSP.didCloseTextDocumentNotificationHandler x) $
@@ -98,14 +101,12 @@ withUriDaml _ _ = return ()
 ------------------------------------------------------------------------
 
 runLanguageServer
-    :: ((FromServerMessage -> IO ()) -> VFSHandle -> ClientCapabilities -> IO IdeState)
+    :: (IO LSP.LspId -> (FromServerMessage -> IO ()) -> VFSHandle -> ClientCapabilities -> IO IdeState)
     -> IO ()
 runLanguageServer getIdeState = do
-    let handlers = setHandlersKeepAlive <> setHandlersVirtualResource <> setHandlersCodeLens <> setIgnoreOptionalHandlers
+    let handlers = setHandlersKeepAlive <> setHandlersVirtualResource <> setHandlersCodeLens <> setIgnoreOptionalHandlers <> setCommandHandler
     LS.runLanguageServer options handlers getIdeState
 
 
 options :: LSP.Options
-options = def
-    { LSP.codeLensProvider = Just $ CodeLensOptions $ Just False
-    }
+options = def { LSP.executeCommandCommands = Just ["daml/damlVisualize"] }

@@ -122,13 +122,13 @@ class InterfaceReaderSpec extends WordSpec with Matchers with Inside {
     actual.typeDecls shouldBe expectedResult
   }
 
-  "map should extract a map" in {
+  "map should extract a TextMap" in {
     val dataType = Ast.DDataType(
       serializable = true,
       ImmArray.empty,
       Ast.DataRecord(
         ImmArray(
-          primField("map", Ast.BTMap, Ast.TBuiltin(Ast.BTInt64)),
+          primField("map", Ast.BTTextMap, Ast.TBuiltin(Ast.BTInt64)),
         ),
         None
       ))
@@ -136,13 +136,11 @@ class InterfaceReaderSpec extends WordSpec with Matchers with Inside {
     val actual = InterfaceReader.foldModule(wrappInModule(dnfs("MapRecord"), dataType))
     val expectedResult = Map(
       Ref.QualifiedName(moduleName, dnfs("MapRecord")) ->
-        iface.InterfaceType.Normal(
-          DefDataType(
-            ImmArray.empty.toSeq,
-            Record(
-              ImmArraySeq[(Ref.Name, TypePrim)](
-                ("map", TypePrim(PrimTypeMap, ImmArraySeq(TypePrim(PrimTypeInt64, ImmArraySeq()))))
-              ))))
+        iface.InterfaceType.Normal(DefDataType(
+          ImmArray.empty.toSeq,
+          Record(ImmArraySeq[(Ref.Name, TypePrim)](
+            ("map", TypePrim(PrimTypeTextMap, ImmArraySeq(TypePrim(PrimTypeInt64, ImmArraySeq()))))
+          ))))
     )
 
     actual.typeDecls shouldBe expectedResult

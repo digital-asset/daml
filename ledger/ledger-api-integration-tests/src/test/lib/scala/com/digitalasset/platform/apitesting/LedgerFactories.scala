@@ -3,42 +3,22 @@
 
 package com.digitalasset.platform.apitesting
 
-import java.io.{BufferedInputStream, FileInputStream, InputStream}
 import java.nio.file.Path
 
+import akka.stream.ActorMaterializer
+import com.digitalasset.daml.lf.archive.UniversalArchiveReader
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.testing.utils.Resource
 import com.digitalasset.platform.PlatformApplications
 import com.digitalasset.platform.apitesting.LedgerFactories.SandboxStore.InMemory
-import com.digitalasset.platform.damllf.PackageParser
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.sandbox.persistence.{PostgresFixture, PostgresResource}
 
-import scala.util.control.NonFatal
-
 object LedgerFactories {
 
-  private def packageIdFromString(str: String): Either[Throwable, Ref.PackageId] =
-    Ref.PackageId.fromString(str) match {
-      case Left(e) => Left(new IllegalStateException(e))
-      case Right(x) => Right(x)
-    }
-
-  private def getPackageId(path: Path): Either[Throwable, Ref.PackageId] = {
-    val inputStream: InputStream = new BufferedInputStream(new FileInputStream(path.toFile))
-    try {
-      if (path.toFile.getName.endsWith(".dalf")) {
-        PackageParser.getPackageIdFromDalf(inputStream)
-      } else
-        PackageParser.getPackageIdFromDar(inputStream).flatMap(packageIdFromString)
-    } catch {
-      case NonFatal(t) => throw new RuntimeException(s"Couldn't parse ${path}", t)
-    }
-  }
-
   private def getPackageIdOrThrow(path: Path): Ref.PackageId =
-    getPackageId(path).fold(t => throw t, identity)
+    UniversalArchiveReader().readFile(path.toFile).map(_.all.head._1).get
 
   sealed abstract class SandboxStore extends Product with Serializable
 
@@ -56,27 +36,15 @@ object LedgerFactories {
 
   }
 
-  def createRemoteApiProxyResource(config: PlatformApplications.Config)(
-      implicit esf: ExecutionSequencerFactory): Resource[LedgerContext.SingleChannelContext] = {
-    require(config.remoteApiEndpoint.isDefined, "config.remoteApiEndpoint has to be set")
-    val endpoint = config.remoteApiEndpoint.get
-    val packageIds = config.darFiles.map(getPackageIdOrThrow)
-
-    RemoteServerResource(endpoint.host, endpoint.port, endpoint.tlsConfig)
-      .map {
-        case PlatformChannels(channel) =>
-          LedgerContext.SingleChannelContext(channel, config.ledgerId, packageIds)
-      }
-  }
-
   def createSandboxResource(config: PlatformApplications.Config, store: SandboxStore = InMemory)(
-      implicit esf: ExecutionSequencerFactory): Resource[LedgerContext.SingleChannelContext] = {
+      implicit esf: ExecutionSequencerFactory,
+      mat: ActorMaterializer): Resource[LedgerContext.SingleChannelContext] = {
     val packageIds = config.darFiles.map(getPackageIdOrThrow)
 
     def createResource(sandboxConfig: SandboxConfig) =
       SandboxServerResource(sandboxConfig).map {
         case PlatformChannels(channel) =>
-          LedgerContext.SingleChannelContext(channel, config.ledgerId, packageIds)
+          LedgerContext.SingleChannelContext(channel, None, config.ledgerId, packageIds)
       }
 
     store match {

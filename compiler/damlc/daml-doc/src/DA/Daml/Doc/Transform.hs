@@ -49,7 +49,7 @@ applyTransform opts = distributeInstanceDocs . maybeDoAnnotations opts'
     processWith (ExcludeModules rs : rest) ms
       = maybeDoAnnotations rest $ filter (not . moduleMatchesAny (map withSlashes rs)) ms
 
-    processWith (DataOnly : rest) ms = maybeDoAnnotations rest $ map prune ms
+    processWith (DataOnly : rest) ms = maybeDoAnnotations rest $ map pruneNonData ms
 
     processWith (IgnoreAnnotations : rest) ms = processWith rest ms
 
@@ -74,8 +74,17 @@ applyTransform opts = distributeInstanceDocs . maybeDoAnnotations opts'
           -- went past it without finding IgnoreAnnotations, so apply them
 
 
-    prune :: ModuleDoc -> ModuleDoc
-    prune m = m{ md_functions = [], md_classes = [] }
+    -- When --data-only is chosen, remove all non-data documentation. This
+    -- includes functions, classes, and instances of all data types (but not
+    -- template instances).
+    pruneNonData :: ModuleDoc -> ModuleDoc
+    pruneNonData m = m{ md_functions = []
+                      , md_classes = []
+                      , md_instances = []
+                      , md_adts = map noInstances $ md_adts m
+                      }
+    noInstances :: ADTDoc -> ADTDoc
+    noInstances d = d{ ad_instances = Nothing }
 
     -- conversions to use file pattern matcher
 
@@ -122,7 +131,10 @@ instance IsEmpty ChoiceDoc
 
 instance IsEmpty ClassDoc
   where isEmpty ClassDoc{..} =
-          isNothing cl_descr && all isEmpty cl_functions
+          isNothing cl_descr && all isEmpty cl_methods
+
+instance IsEmpty ClassMethodDoc where
+    isEmpty ClassMethodDoc{..} = isNothing cm_descr
 
 instance IsEmpty ADTDoc
   where isEmpty ADTDoc{..} =
@@ -165,11 +177,13 @@ distributeInstanceDocs docs =
         [ (anchor, Set.singleton inst)
         | anchor <- Set.toList . getTypeAnchors $ id_type inst ]
 
+    -- | Get the set of internal references i.e. anchors in the type expression.
     getTypeAnchors :: Type -> Set.Set Anchor
     getTypeAnchors = \case
-        TypeApp anchorM _ args -> Set.unions
-            $ maybe Set.empty Set.singleton anchorM
+        TypeApp (Just (Reference Nothing anchor)) _ args -> Set.unions
+            $ Set.singleton anchor
             : map getTypeAnchors args
+        TypeApp _ _ args -> Set.unions $ map getTypeAnchors args
         TypeFun parts -> Set.unions $ map getTypeAnchors parts
         TypeTuple parts -> Set.unions $ map getTypeAnchors parts
         TypeList p -> getTypeAnchors p
@@ -182,7 +196,6 @@ distributeInstanceDocs docs =
         , md_descr = md_descr
         , md_functions = md_functions
         , md_templates = md_templates
-        , md_templateInstances = md_templateInstances
         , md_classes = map (addClassInstances imap) md_classes
         , md_adts = map (addTypeInstances imap) md_adts
         , md_instances = md_instances

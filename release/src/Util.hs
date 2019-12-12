@@ -25,6 +25,7 @@ module Util (
     getBazelLocations,
     resolvePomData,
     loggedProcess_,
+    isDeployJar,
   ) where
 
 
@@ -147,9 +148,15 @@ buildTargets art@Artifact{..} =
                (catMaybes
                     [ sourceJarName art
                     , scalaSourceJarName art
+                    , deploySourceJarName art
+                    -- java_proto_library produces the sources as a side-effect, but is not a proper implicit target
+                    -- therefore we cannot add it here as a "required target" to build as with the others
+                    -- , protoSourceJarName art
                     , T.pack . toFilePath <$> artSourceJar
                     , javadocJarName art
                     , scaladocJarName art
+                    , javadocDeployJarName art
+                    , javadocProtoJarName art
                     , T.pack . toFilePath <$> artJavadocJar
                     ])
         Zip -> [artTarget]
@@ -197,13 +204,11 @@ resolvePomData BazelLocations{..} sdkVersion sdkComponentVersion art =
 
 data BazelLocations = BazelLocations
     { bazelBin :: !(Path Abs Dir)
-    , bazelGenfiles :: !(Path Abs Dir)
     } deriving Show
 
 getBazelLocations :: IO BazelLocations
 getBazelLocations = do
     bazelBin <- parseAbsDir . T.unpack . T.strip . T.pack =<< System.Process.readProcess "bazel" ["info", "bazel-bin"] ""
-    bazelGenfiles <- parseAbsDir . T.unpack . T.strip . T.pack =<< System.Process.readProcess "bazel" ["info", "bazel-genfiles"] ""
     pure BazelLocations{..}
 
 splitBazelTarget :: BazelTarget -> (Text, Text)
@@ -239,6 +244,16 @@ scalaSourceJarName Artifact{..}
   | Jar Scala <- artReleaseType = Just $ snd (splitBazelTarget artTarget) <> "_src.jar"
   | otherwise = Nothing
 
+deploySourceJarName :: Artifact a -> Maybe Text
+deploySourceJarName Artifact{..}
+  | Jar Deploy <- artReleaseType = Just $ snd (splitBazelTarget artTarget) <> "_src.jar"
+  | otherwise = Nothing
+
+protoSourceJarName :: Artifact a -> Maybe Text
+protoSourceJarName Artifact{..}
+  | Jar Proto <- artReleaseType = Just $ T.replace "_java" "" (snd (splitBazelTarget artTarget)) <> "-speed-src.jar"
+  | otherwise = Nothing
+
 customSourceJarName :: Artifact a -> Maybe Text
 customSourceJarName Artifact{..} = T.pack . toFilePath <$> artSourceJar
 
@@ -246,6 +261,16 @@ scaladocJarName :: Artifact a -> Maybe Text
 scaladocJarName Artifact{..}
    | Jar Scala <- artReleaseType = Just $ snd (splitBazelTarget artTarget) <> "_scaladoc.jar"
    | otherwise = Nothing
+
+javadocDeployJarName :: Artifact a -> Maybe Text
+javadocDeployJarName Artifact{..}
+  | Jar Deploy <- artReleaseType = Just $ snd (splitBazelTarget artTarget) <> "_javadoc.jar"
+  | otherwise = Nothing
+
+javadocProtoJarName :: Artifact a -> Maybe Text
+javadocProtoJarName Artifact{..}
+  | Jar Proto <- artReleaseType = Just $ snd (splitBazelTarget artTarget) <> "_javadoc.jar"
+  | otherwise = Nothing
 
 javadocJarName :: Artifact a -> Maybe Text
 javadocJarName Artifact{..}
@@ -274,13 +299,13 @@ artifactFiles allArtifacts art@Artifact{..} = do
     mbSourceJarIn <-
         traverse
             (parseRelFile . unpack)
-            (customSourceJarName art <|> sourceJarName art <|> scalaSourceJarName art)
+            (customSourceJarName art <|> sourceJarName art <|> scalaSourceJarName art <|> deploySourceJarName art <|> protoSourceJarName art)
     sourceJarOut <- releaseSourceJarPath artMetadata
 
     mbJavadocJarIn <-
         traverse
             (parseRelFile . unpack)
-            (customJavadocJarName art <|> javadocJarName art <|> scaladocJarName art)
+            (customJavadocJarName art <|> javadocJarName art <|> scaladocJarName art <|> javadocDeployJarName art <|> javadocProtoJarName art)
     javadocJarOut <- releaseDocJarPath artMetadata
 
     let shouldReleasePlatInd = shouldRelease allArtifacts (PlatformDependent False)
@@ -337,9 +362,7 @@ shouldRelease (AllArtifacts allArtifacts) (PlatformDependent platformDependent) 
 
 copyToReleaseDir :: (MonadLogger m, MonadIO m) => BazelLocations -> Path Abs Dir -> Path Rel File -> Path Rel File -> m ()
 copyToReleaseDir BazelLocations{..} releaseDir inp out = do
-    binExists <- doesFileExist (bazelBin </> inp)
-    let absIn | binExists = bazelBin </> inp
-              | otherwise = bazelGenfiles </> inp
+    let absIn = bazelBin </> inp
     let absOut = releaseDir </> out
     $logInfo ("Copying " <> pathToText absIn <> " to " <> pathToText absOut)
     createDirIfMissing True (parent absOut)
@@ -356,6 +379,12 @@ isJar :: ReleaseType -> Bool
 isJar t =
     case t of
         Jar{} -> True
+        _ -> False
+
+isDeployJar :: ReleaseType -> Bool
+isDeployJar t =
+    case t of
+        Jar Deploy -> True
         _ -> False
 
 bintrayTargetLocation :: BintrayPackage -> TextVersion -> Text
@@ -415,11 +444,10 @@ isReleaseCommit :: MonadCI m => m Bool
 isReleaseCommit = do
     files <- gitChangedFiles "HEAD"
     let isRelease = "VERSION" `elem` files
-                 && "unreleased.rst" `elem` files
                  && "docs/source/support/release-notes.rst" `elem` files
-                 && length files == 3
+                 && length files == 2
     if "VERSION" `elem` files && not isRelease
-    then throwIO $ CIException "Release commit should only change VERSION, release-notes.rst and unreleased.rst."
+    then throwIO $ CIException "Release commit should only change VERSION and release-notes.rst"
     else return isRelease
 
 runFastLoggingT :: LoggingT IO c -> IO c

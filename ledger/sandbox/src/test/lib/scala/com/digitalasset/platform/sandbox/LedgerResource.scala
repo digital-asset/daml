@@ -4,16 +4,19 @@
 package com.digitalasset.platform.sandbox
 
 import akka.stream.Materializer
+import com.codahale.metrics.MetricRegistry
+import com.daml.ledger.participant.state.v1.ParticipantId
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.ledger.api.testing.utils.Resource
-import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.persistence.{PostgresFixture, PostgresResource}
-import com.digitalasset.platform.sandbox.stores.{InMemoryActiveContracts, InMemoryPackageStore}
+import com.digitalasset.platform.sandbox.stores.{InMemoryActiveLedgerState, InMemoryPackageStore}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode
 import com.digitalasset.platform.sandbox.stores.ledger.Ledger
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.ledger.api.domain.LedgerId
+import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
+import scalaz.Tag
 
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
@@ -32,23 +35,24 @@ object LedgerResource {
 
   def inMemory(
       ledgerId: LedgerId,
+      participantId: ParticipantId,
       timeProvider: TimeProvider,
-      acs: InMemoryActiveContracts = InMemoryActiveContracts.empty,
+      acs: InMemoryActiveLedgerState = InMemoryActiveLedgerState.empty,
       packages: InMemoryPackageStore = InMemoryPackageStore.empty,
       entries: ImmArray[LedgerEntryOrBump] = ImmArray.empty): Resource[Ledger] =
     LedgerResource.resource(
       () =>
         Future.successful(
-          Ledger.inMemory(ledgerId, timeProvider, acs, packages, entries)
+          Ledger.inMemory(ledgerId, participantId, timeProvider, acs, packages, entries)
       )
     )
 
   def postgres(
       ledgerId: LedgerId,
+      participantId: ParticipantId,
       timeProvider: TimeProvider,
-      packages: InMemoryPackageStore = InMemoryPackageStore.empty)(
-      implicit mat: Materializer,
-      mm: MetricsManager) = {
+      metrics: MetricRegistry,
+      packages: InMemoryPackageStore = InMemoryPackageStore.empty)(implicit mat: Materializer) = {
     new Resource[Ledger] {
       @volatile
       private var postgres: Resource[PostgresFixture] = null
@@ -64,15 +68,19 @@ object LedgerResource {
 
         ledger = LedgerResource.resource(
           () =>
-            Ledger.postgres(
+            Ledger.jdbcBacked(
               postgres.value.jdbcUrl,
               ledgerId,
+              participantId,
               timeProvider,
-              InMemoryActiveContracts.empty,
+              InMemoryActiveLedgerState.empty,
               packages,
               ImmArray.empty,
               128,
-              SqlStartMode.AlwaysReset))
+              SqlStartMode.AlwaysReset,
+              NamedLoggerFactory(Tag.unwrap(ledgerId)),
+              metrics
+          ))
         ledger.setup()
       }
 

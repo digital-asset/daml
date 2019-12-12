@@ -13,8 +13,11 @@ import io.reactivex.Single;
  */
 public interface PackageClient {
     Flowable<String> listPackages();
+    Flowable<String> listPackages(String accessToken);
 
     Single<GetPackageResponse> getPackage(String packageId);
+    Single<GetPackageResponse> getPackage(String packageId, String accessToken);
 
     Single<GetPackageStatusResponse> getPackageStatus(String packageId);
+    Single<GetPackageStatusResponse> getPackageStatus(String packageId, String accessToken);
 }

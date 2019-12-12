@@ -56,7 +56,7 @@ load(
 
 c2hs_toolchain(
     name = "c2hs-toolchain",
-    c2hs = "@haskell_c2hs//:bin",
+    c2hs = "@c2hs//:c2hs",
 )
 
 #
@@ -138,12 +138,10 @@ genrule(
     outs = ["SdkVersion.hs"],
     cmd = """
         SDK_VERSION=$$(cat $(location VERSION))
-        COMPONENT_VERSION=$$(cat $(location :component-version))
         cat > $@ <<EOF
 module SdkVersion where
-sdkVersion, componentVersion, damlStdlib :: String
+sdkVersion, damlStdlib :: String
 sdkVersion = "$$SDK_VERSION"
-componentVersion = "$$COMPONENT_VERSION"
 damlStdlib = "daml-stdlib-" ++ sdkVersion
 EOF
     """,
@@ -152,17 +150,8 @@ EOF
 da_haskell_library(
     name = "sdk-version-hs-lib",
     srcs = [":sdk-version-hs"],
-    hazel_deps = ["base"],
+    hackage_deps = ["base"],
     visibility = ["//visibility:public"],
-)
-
-genrule(
-    name = "git-revision",
-    outs = [".git-revision"],
-    cmd = """
-        grep '^STABLE_GIT_REVISION ' bazel-out/stable-status.txt | cut -d ' ' -f 2 > $@
-    """,
-    stamp = True,
 )
 
 #
@@ -185,9 +174,14 @@ alias(
 )
 
 alias(
-    name = "hie-core",
-    actual = "//compiler/hie-core:hie-core-exe",
-) if not is_windows else None  # Disable on Windows until ghc-paths is fixed upstream
+    name = "daml2ts",
+    actual = "//language-support/ts/codegen:daml2ts",
+)
+
+alias(
+    name = "daml2ts@ghci",
+    actual = "//language-support/ts/codegen:daml2ts@ghci",
+)
 
 alias(
     name = "daml-lf-repl",
@@ -197,6 +191,16 @@ alias(
 alias(
     name = "bindings-java",
     actual = "//language-support/java/bindings:bindings-java",
+)
+
+alias(
+    name = "yarn",
+    actual = "@nodejs//:bin/yarn.cmd" if is_windows else "@nodejs//:bin/yarn",
+)
+
+alias(
+    name = "java",
+    actual = "@local_jdk//:bin/java.exe" if is_windows else "@local_jdk//:bin/java",
 )
 
 exports_files([
@@ -210,9 +214,6 @@ load("@com_github_bazelbuild_buildtools//buildifier:def.bzl", "buildifier")
 buildifier_excluded_patterns = [
     "./3rdparty/haskell/c2hs-package.bzl",
     "./3rdparty/haskell/network-package.bzl",
-    "./3rdparty/jvm/*",
-    "./3rdparty/workspace.bzl",
-    "./hazel/packages.bzl",
     "./node_modules/*",
 ]
 
@@ -234,10 +235,15 @@ buildifier(
 # Default target for da-ghci, da-ghcid.
 da_haskell_repl(
     name = "repl",
+    testonly = True,
     visibility = ["//visibility:public"],
     deps = [
         ":damlc",
+        "//compiler/damlc/tests:generate-simple-dalf",
         "//daml-assistant:daml",
         "//daml-assistant/daml-helper",
+        "//daml-assistant/integration-tests",
+        "//language-support/hs/bindings:hs-ledger",
+        "//language-support/hs/bindings:test",
     ],
 )

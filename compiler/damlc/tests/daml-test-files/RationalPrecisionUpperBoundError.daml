@@ -8,4 +8,5 @@ daml 1.2
 
 module RationalPrecisionUpperBoundError where
 
+a : Decimal
 a = 0.00000000005

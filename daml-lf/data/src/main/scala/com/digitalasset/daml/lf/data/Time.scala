@@ -3,6 +3,10 @@
 
 package com.digitalasset.daml.lf.data
 
+import scalaz.Order
+import scalaz.std.anyVal._
+import scalaz.syntax.order._
+
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoField
 import java.time.{Instant, LocalDate, ZoneId}
@@ -63,10 +67,16 @@ object Time {
 
     @throws[IllegalArgumentException]
     final def assertFromString(s: String): T =
-      assert(fromString(s))
+      assertRight(fromString(s))
 
     def assertFromDaysSinceEpoch(days: Int): Date =
-      assert(fromDaysSinceEpoch(days))
+      assertRight(fromDaysSinceEpoch(days))
+
+    implicit val `Time.Date Order`: Order[Date] = new Order[Date] {
+      override def equalIsNatural = true
+      override def equal(x: Date, y: Date) = x == y
+      override def order(x: Date, y: Date) = x.days ?|? y.days
+    }
 
   }
 
@@ -125,7 +135,7 @@ object Time {
 
     @throws[IllegalArgumentException]
     def assertFromLong(micros: Long): Timestamp =
-      assert(fromLong(micros))
+      assertRight(fromLong(micros))
 
     def fromString(str: String): Either[String, Timestamp] =
       Try(assertMicrosFromString(str)).toEither.left
@@ -134,7 +144,7 @@ object Time {
 
     @throws[IllegalArgumentException]
     final def assertFromString(s: String): T =
-      assert(fromString(s))
+      assertRight(fromString(s))
 
     def fromInstant(i: Instant): Either[String, Timestamp] =
       Try(assertMicrosFromInstant(i)).toEither.left
@@ -144,6 +154,11 @@ object Time {
     def assertFromInstant(i: Instant): Timestamp =
       assertFromLong(assertMicrosFromInstant(i))
 
+    implicit val `Time.Timestamp Order`: Order[Timestamp] = new Order[Timestamp] {
+      override def equalIsNatural = true
+      override def equal(x: Timestamp, y: Timestamp) = x == y
+      override def order(x: Timestamp, y: Timestamp) = x.micros ?|? y.micros
+    }
   }
 
 }

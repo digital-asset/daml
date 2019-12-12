@@ -3,6 +3,7 @@
 
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE MagicHash #-}
+{-# LANGUAGE CPP #-}
 
 daml 1.2
 -- | MOVE Prelude
@@ -111,8 +112,14 @@ deriving instance (Show a, Show b) => Show (Either a b)
 
 instance Show Int where
   show = primitive @"BEToText"
+
+#ifdef DAML_NUMERIC
+instance Show (Numeric n) where
+  show = primitive @"BEToTextNumeric"
+#else
 instance Show Decimal where
   show = primitive @"BEToText"
+#endif
 
 instance Show Text where
   show x = "\"" ++ x ++ "\""

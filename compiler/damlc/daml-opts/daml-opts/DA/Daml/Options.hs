@@ -15,10 +15,11 @@ module DA.Daml.Options
 
 import Control.Monad
 import qualified CmdLineParser as Cmd (warnMsg)
-import Data.Bifunctor
 import Data.IORef
 import Data.List
 import DynFlags (parseDynamicFilePragma)
+import qualified Data.Text as T
+import qualified Platform as P
 import qualified EnumSet
 import GHC                         hiding (convertLit)
 import GHC.LanguageExtensions.Type
@@ -28,36 +29,41 @@ import HscMain
 import Panic (throwGhcExceptionIO)
 import System.Directory
 import System.FilePath
+import qualified DA.Daml.LF.Ast.Version as LF
 
 import DA.Daml.Options.Types
 import DA.Daml.Preprocessor
 import Development.IDE.GHC.Util
-import qualified Development.IDE.Types.Options as HieCore
+import qualified Development.IDE.Types.Options as Ghcide
 
--- | Convert to hie-core’s IdeOptions type.
-toCompileOpts :: Options -> HieCore.IdeReportProgress -> HieCore.IdeOptions
+-- | Convert to ghcide’s IdeOptions type.
+toCompileOpts :: Options -> Ghcide.IdeReportProgress -> Ghcide.IdeOptions
 toCompileOpts options@Options{..} reportProgress =
-    HieCore.IdeOptions
-      { optPreprocessor = if optIsGenerated then noPreprocessor else damlPreprocessor optMbPackageName
+    Ghcide.IdeOptions
+      { optPreprocessor = if optIsGenerated then generatedPreprocessor else damlPreprocessor optMbPackageName
       , optGhcSession = do
-            env <- liftIO $ runGhcFast $ do
+            env <- runGhcFast $ do
                 setupDamlGHC options
                 GHC.getSession
-            pkg <- liftIO $ generatePackageState optPackageDbs optHideAllPkgs $ map (second toRenaming) optPackageImports
-            return env{hsc_dflags = setPackageDynFlags pkg $ hsc_dflags env}
-      , optPkgLocationOpts = HieCore.IdePkgLocationOptions
+            pkg <- generatePackageState optPackageDbs optHideAllPkgs $ map toRenaming optPackageImports
+            dflags <- checkDFlags options $ setPackageDynFlags pkg $ hsc_dflags env
+            hscenv <- newHscEnvEq env{hsc_dflags = dflags}
+            return $ const $ return hscenv
+      , optPkgLocationOpts = Ghcide.IdePkgLocationOptions
           { optLocateHieFile = locateInPkgDb "hie"
           , optLocateSrcFile = locateInPkgDb "daml"
           }
       , optExtensions = ["daml"]
       , optThreads = optThreads
+      , optShakeFiles = if getIncrementalBuild optIncrementalBuild then Just ".daml/build/shake" else Nothing
       , optShakeProfiling = optShakeProfiling
       , optReportProgress = reportProgress
       , optLanguageSyntax = "daml"
       , optNewColonConvention = True
+      , optDefer = Ghcide.IdeDefer False
       }
   where
-    toRenaming aliases = ModRenaming False [(GHC.mkModuleName mod, GHC.mkModuleName alias) | (mod, alias) <- aliases]
+    toRenaming PackageImport{..} = (pkgImportUnitId, ModRenaming pkgImportExposeImplicit pkgImportModRenamings)
     locateInPkgDb :: String -> PackageConfig -> GHC.Module -> IO (Maybe FilePath)
     locateInPkgDb ext pkgConfig mod
       | (importDir : _) <- importDirs pkgConfig = do
@@ -90,7 +96,7 @@ getPackageDynFlags DynFlags{..} = PackageDynFlags
     , pdfThisUnitIdInsts = thisUnitIdInsts_
     }
 
-generatePackageState :: [FilePath] -> Bool -> [(String, ModRenaming)] -> IO PackageDynFlags
+generatePackageState :: [FilePath] -> Bool -> [(UnitId, ModRenaming)] -> IO PackageDynFlags
 generatePackageState paths hideAllPkgs pkgImports = do
   let dflags = setPackageImports hideAllPkgs pkgImports $ setPackageDbs paths fakeDynFlags
   (newDynFlags, _) <- initPackages dflags
@@ -110,10 +116,11 @@ setPackageDbs paths dflags =
         }
     }
 
-setPackageImports :: Bool -> [(String, ModRenaming)] -> DynFlags -> DynFlags
+setPackageImports :: Bool -> [(UnitId, ModRenaming)] -> DynFlags -> DynFlags
 setPackageImports hideAllPkgs pkgImports dflags = dflags {
     packageFlags = packageFlags dflags ++
-        [ExposePackage pkgName (UnitIdArg $ stringToUnitId pkgName) renaming
+        [ExposePackage ("-package " <> unitIdString pkgName) (UnitIdArg pkgName) renaming
+        -- The first string is only used in error messages.
         | (pkgName, renaming) <- pkgImports
         ]
     , generalFlags = if hideAllPkgs
@@ -147,8 +154,10 @@ xExtensionsSet =
   , DataKinds, KindSignatures, RankNTypes, TypeApplications
   , ConstraintKinds
     -- type classes
-  , MultiParamTypeClasses, FlexibleInstances, GeneralizedNewtypeDeriving, TypeSynonymInstances
+  , MultiParamTypeClasses, FlexibleContexts, FlexibleInstances, GeneralizedNewtypeDeriving, TypeSynonymInstances
   , DefaultSignatures, StandaloneDeriving, FunctionalDependencies, DeriveFunctor
+    -- let generalization
+  , MonoLocalBinds
     -- replacing primitives
   , RebindableSyntax, OverloadedStrings
     -- strictness
@@ -201,8 +210,8 @@ wOptsUnset =
   ]
 
 
-adjustDynFlags :: Options -> DynFlags -> DynFlags
-adjustDynFlags options@Options{..} dflags
+adjustDynFlags :: Options -> FilePath -> DynFlags -> DynFlags
+adjustDynFlags options@Options{..} tmpDir dflags
   =
   -- Generally, the lexer's "haddock mode" is disabled (`Haddock
   -- False` is the default option. In this case, we run the lexer in
@@ -223,14 +232,52 @@ adjustDynFlags options@Options{..} dflags
   $ apply xopt_set xExtensionsSet
   $ apply xopt_unset xExtensionsUnset
   $ apply gopt_set (xFlagsSet options)
+  $ addPlatformFlags
+  $ addCppFlags
   dflags{
     mainModIs = mkModule primUnitId (mkModuleName "NotAnExistingName"), -- avoid DEL-6770
     debugLevel = 1,
-    ghcLink = NoLink, hscTarget = HscNothing -- avoid generating .o or .hi files
+    ghcLink = NoLink, hscTarget = HscNothing, -- avoid generating .o or .hi files
     {-, dumpFlags = Opt_D_ppr_debug `EnumSet.insert` dumpFlags dflags -- turn on debug output from GHC-}
+    ghcVersionFile = optGhcVersionFile
   }
-  where apply f xs d = foldl' f d xs
+  where
+    apply f xs d = foldl' f d xs
+    alterSettings f d = d { settings = f (settings d) }
+    addCppFlags = case optCppPath of
+        Nothing -> id
+        Just cppPath -> alterSettings $ \s -> s
+            { sPgm_P = (cppPath, [])
+            , sOpt_P = "-P" : ["-D" <> T.unpack flag | flag <- cppFlags]
+                -- We add "-P" here to suppress #line pragmas from the
+                -- preprocessor (hpp, specifically) because the daml
+                -- parser can't handle them. This is a non-issue right now
+                -- because ghcversion.h is empty, but if it weren't empty
+                -- it would result in #line pragmas. By suppressing these
+                -- pragmas, line numbers may be wrong up when using CPP.
+                -- Ideally we fix the issue with the daml parser and
+                -- then remove this flag.
+            , sTmpDir = tmpDir
+                -- sometimes this is required by CPP?
+            }
 
+    cppFlags = map LF.featureCppFlag (LF.allFeaturesForVersion optDamlLfVersion)
+
+    -- We need to add platform info in order to run CPP. To prevent
+    -- .hi file incompatibilities, we set the platform the same way
+    -- for everyone even if they don't use CPP.
+    addPlatformFlags = alterSettings $ \s -> s
+        { sTargetPlatform = P.Platform
+            { platformArch = P.ArchUnknown
+            , platformOS = P.OSUnknown
+            , platformWordSize = 8
+            , platformUnregisterised = True
+            , platformHasGnuNonexecStack = False
+            , platformHasIdentDirective = False
+            , platformHasSubsectionsViaSymbols = False
+            , platformIsCrossCompiling = False
+            }
+        }
 
 setThisInstalledUnitId :: UnitId -> DynFlags -> DynFlags
 setThisInstalledUnitId unitId dflags =
@@ -250,7 +297,8 @@ setImports paths dflags = dflags { importPaths = paths }
 --       (may fail if the custom options are inconsistent with std DAML ones)
 setupDamlGHC :: GhcMonad m => Options -> m ()
 setupDamlGHC options@Options{..} = do
-  modifyDynFlags $ adjustDynFlags options
+  tmpDir <- liftIO getTemporaryDirectory
+  modifyDynFlags $ adjustDynFlags options tmpDir
 
   unless (null optGhcCustomOpts) $ do
     damlDFlags <- getSessionDynFlags
@@ -265,3 +313,21 @@ setupDamlGHC options@Options{..} = do
 
     modifySession $ \h ->
       h { hsc_dflags = dflags', hsc_IC = (hsc_IC h) {ic_dflags = dflags' } }
+
+-- | Check for bad @DynFlags@.
+-- Checks:
+--    * thisInstalledUnitId not contained in loaded packages.
+checkDFlags :: Options -> DynFlags -> IO DynFlags
+checkDFlags Options {..} dflags@DynFlags {..}
+    | not optDflagCheck || thisInstalledUnitId == toInstalledUnitId primUnitId =
+        pure dflags
+    | otherwise = do
+        case lookupPackage dflags $
+             DefiniteUnitId $ DefUnitId thisInstalledUnitId of
+            Nothing -> pure dflags
+            Just _conf ->
+                fail $
+                "Package " <> installedUnitIdString thisInstalledUnitId <>
+                " imports a package with the same name. \
+            \ Please check your dependencies and rename the package you are compiling \
+            \ or the dependency."

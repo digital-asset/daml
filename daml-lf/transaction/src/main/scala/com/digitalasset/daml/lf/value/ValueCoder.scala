@@ -115,9 +115,6 @@ object ValueCoder {
     * of builders.
     */
   private[lf] implicit final class codecContractId[A](private val self: A) extends AnyVal {
-    private[this] def useOldStringField(sv: SpecifiedVersion): Boolean =
-      sv precedes ValueVersions.minContractIdStruct
-
     def setContractIdOrStruct[Cid, Z](
         encodeCid: EncodeCid[Cid],
         version: SpecifiedVersion,
@@ -277,6 +274,10 @@ object ValueCoder {
           identity
         )
 
+    def assertSince(minVersion: ValueVersion, description: => String) =
+      if (valueVersion precedes minVersion)
+        throw Err(s"$description is not supported by value version $valueVersion")
+
     def go(nesting: Int, protoValue: proto.Value): Value[Cid] = {
       if (nesting > MAXIMUM_NESTING) {
         throw Err(
@@ -289,9 +290,13 @@ object ValueCoder {
             ValueBool(protoValue.getBool)
           case proto.Value.SumCase.UNIT =>
             ValueUnit
-          case proto.Value.SumCase.DECIMAL =>
-            val d = Decimal.fromString(protoValue.getDecimal)
-            d.fold(e => throw Err("error decoding decimal: " + e), ValueDecimal)
+          case proto.Value.SumCase.NUMERIC =>
+            val d =
+              if (useLegacyDecimal(valueVersion))
+                Decimal.fromString(protoValue.getNumeric)
+              else
+                Numeric.fromString(protoValue.getNumeric)
+            d.fold(e => throw Err("error decoding decimal: " + e), ValueNumeric)
           case proto.Value.SumCase.INT64 =>
             ValueInt64(protoValue.getInt64)
           case proto.Value.SumCase.TEXT =>
@@ -330,6 +335,7 @@ object ValueCoder {
             ValueVariant(id, identifier(variant.getConstructor), go(newNesting, variant.getValue))
 
           case proto.Value.SumCase.ENUM =>
+            assertSince(ValueVersions.minEnum, "Value.SumCase.ENUM")
             val enum = protoValue.getEnum
             val id =
               if (enum.getEnumId == ValueOuterClass.Identifier.getDefaultInstance) None
@@ -364,6 +370,7 @@ object ValueCoder {
             )
 
           case proto.Value.SumCase.OPTIONAL =>
+            assertSince(ValueVersions.minOptional, "Value.SumCase.OPTIONAL")
             val option = protoValue.getOptional
             val mbV =
               if (option.getValue == ValueOuterClass.Value.getDefaultInstance) None
@@ -371,8 +378,9 @@ object ValueCoder {
             ValueOptional(mbV)
 
           case proto.Value.SumCase.MAP =>
+            assertSince(ValueVersions.minMap, "Value.SumCase.MAP")
             val entries = ImmArray(protoValue.getMap.getEntriesList.asScala.map(entry =>
-              (entry.getKey) -> go(newNesting, entry.getValue)))
+              entry.getKey -> go(newNesting, entry.getValue)))
 
             val map = SortedLookupList
               .fromImmArray(entries)
@@ -380,7 +388,13 @@ object ValueCoder {
                 err => throw Err(err),
                 identity
               )
-            ValueMap(map)
+            ValueTextMap(map)
+
+          case proto.Value.SumCase.GEN_MAP =>
+            assertSince(ValueVersions.minGenMap, "Value.SumCase.MAP")
+            val genMap = protoValue.getGenMap.getEntriesList.asScala.map(entry =>
+              go(newNesting, entry.getKey) -> go(newNesting, entry.getValue))
+            ValueGenMap(ImmArray(genMap))
 
           case proto.Value.SumCase.SUM_NOT_SET =>
             throw Err(s"Value not set")
@@ -426,8 +440,11 @@ object ValueCoder {
             builder.setBool(b).build()
           case ValueInt64(i) =>
             builder.setInt64(i).build()
-          case ValueDecimal(d) =>
-            builder.setDecimal(Decimal.toString(d)).build()
+          case ValueNumeric(d) =>
+            if (useLegacyDecimal(valueVersion))
+              builder.setNumeric(Numeric.toUnscaledString(d)).build()
+            else
+              builder.setNumeric(Numeric.toString(d)).build()
           case ValueText(t) =>
             builder.setText(t).build()
           case ValueParty(p) =>
@@ -470,11 +487,11 @@ object ValueCoder {
               .setRecord(recordBuilder)
               .build()
 
-          case ValueVariant(id, con, v) =>
+          case ValueVariant(id, con, arg) =>
             val protoVar = proto.Variant
               .newBuilder()
               .setConstructor(con)
-              .setValue(go(newNesting, v))
+              .setValue(go(newNesting, arg))
             id.foreach(i => protoVar.setVariantId(encodeIdentifier(i)))
             builder.setVariant(protoVar).build()
 
@@ -490,7 +507,7 @@ object ValueCoder {
             mbV.foreach(v => protoOption.setValue(go(newNesting, v)))
             builder.setOptional(protoOption).build()
 
-          case ValueMap(map) =>
+          case ValueTextMap(map) =>
             val protoMap = proto.Map.newBuilder()
             map.toImmArray.foreach {
               case (key, value) =>
@@ -504,8 +521,22 @@ object ValueCoder {
             }
             builder.setMap(protoMap).build()
 
-          case ValueTuple(fields) =>
-            throw Err(s"Trying to serialize tuple, which are not serializable. Fields: $fields")
+          case ValueGenMap(entries) =>
+            val protoMap = proto.GenMap.newBuilder()
+            entries.foreach {
+              case (key, value) =>
+                protoMap.addEntries(
+                  proto.GenMap.Entry
+                    .newBuilder()
+                    .setKey(go(newNesting, key))
+                    .setValue(go(newNesting, value))
+                )
+                ()
+            }
+            builder.setGenMap(protoMap).build()
+
+          case ValueStruct(fields) =>
+            throw Err(s"Trying to serialize struct, which are not serializable. Fields: $fields")
         }
       }
     }
@@ -533,4 +564,10 @@ object ValueCoder {
       bytes: Array[Byte]): Either[DecodeError, Value[Cid]] = {
     decodeValue(decodeCid, proto.VersionedValue.parseFrom(bytes))
   }
+
+  private[this] def useOldStringField(sv: SpecifiedVersion): Boolean =
+    sv precedes ValueVersions.minContractIdStruct
+
+  private[this] def useLegacyDecimal(sv: SpecifiedVersion): Boolean =
+    sv precedes ValueVersions.minNumeric
 }

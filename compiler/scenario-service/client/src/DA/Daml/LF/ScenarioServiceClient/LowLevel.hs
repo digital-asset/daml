@@ -18,11 +18,11 @@ module DA.Daml.LF.ScenarioServiceClient.LowLevel
   , deleteCtx
   , gcCtxs
   , ContextUpdate(..)
-  , LightValidation(..)
+  , SkipValidation(..)
   , updateCtx
   , runScenario
   , SS.ScenarioResult(..)
-  , encodeModule
+  , encodeScenarioModule
   , ScenarioServiceException(..)
   ) where
 
@@ -81,8 +81,9 @@ data Handle = Handle
 newtype ContextId = ContextId { getContextId :: Int64 }
   deriving (NFData, Eq, Show)
 
--- | If true, the scenario service server only runs a subset of validations.
-newtype LightValidation = LightValidation { getLightValidation :: Bool }
+-- | If true, the scenario service server do not run package validations.
+newtype SkipValidation = SkipValidation { getSkipValidation :: Bool }
+  deriving Show
 
 data ContextUpdate = ContextUpdate
   { updLoadModules :: ![(LF.ModuleName, BS.ByteString)]
@@ -90,12 +91,12 @@ data ContextUpdate = ContextUpdate
   , updLoadPackages :: ![(LF.PackageId, BS.ByteString)]
   , updUnloadPackages :: ![LF.PackageId]
   , updDamlLfVersion :: LF.Version
-  , updLightValidation :: LightValidation
+  , updSkipValidation :: SkipValidation
   }
 
-encodeModule :: LF.Version -> LF.Module -> BS.ByteString
-encodeModule version m = case version of
-    LF.V1{} -> BSL.toStrict (Proto.toLazyByteString (EncodeV1.encodeModuleWithLargePackageIds version m))
+encodeScenarioModule :: LF.Version -> LF.Module -> BS.ByteString
+encodeScenarioModule version m = case version of
+    LF.V1{} -> BSL.toStrict (Proto.toLazyByteString (EncodeV1.encodeScenarioModule version m))
 
 data BackendError
   = BErrorClient ClientError
@@ -234,12 +235,11 @@ withScenarioService opts@Options{..} f = do
         -- if they are blocked in hGetNonBlocking so it is crucial that we close stdin in the
         -- callback or withAsync will block forever.
         flip finally (closeStdin stdinHdl) $ do
-            System.IO.hFlush System.IO.stdout
             port <- either fail pure =<< takeMVar portMVar
             liftIO $ optLogInfo $ "Scenario service backend running on port " <> show port
             -- Using 127.0.0.1 instead of localhost helps when our packaging logic falls over
             -- and DNS lookups break, e.g., on Alpine linux.
-            let grpcConfig = ClientConfig (Host "127.0.0.1") (Port port) [] Nothing
+            let grpcConfig = ClientConfig (Host "127.0.0.1") (Port port) [] Nothing Nothing
             withGRPCClient grpcConfig $ \client -> do
                 ssClient <- SS.scenarioServiceClient client
                 f Handle
@@ -293,7 +293,7 @@ updateCtx Handle{..} (ContextId ctxId) ContextUpdate{..} = do
           ctxId
           (Just updModules)
           (Just updPackages)
-          (getLightValidation updLightValidation)
+          (getSkipValidation updSkipValidation)
   pure (void res)
   where
     updModules =
@@ -305,10 +305,10 @@ updateCtx Handle{..} (ContextId ctxId) ContextUpdate{..} = do
         (V.fromList (map snd updLoadPackages))
         (V.fromList (map (TL.fromStrict . LF.unPackageId) updUnloadPackages))
     encodeName = TL.fromStrict . T.intercalate "." . LF.unModuleName
-    convModule :: (LF.ModuleName, BS.ByteString) -> SS.Module
+    convModule :: (LF.ModuleName, BS.ByteString) -> SS.ScenarioModule
     convModule (_, bytes) =
         case updDamlLfVersion of
-            LF.V1 minor -> SS.Module (Just (SS.ModuleModuleDamlLf1 bytes)) (TL.pack $ LF.renderMinorVersion minor)
+            LF.V1 minor -> SS.ScenarioModule bytes (TL.pack $ LF.renderMinorVersion minor)
 
 runScenario :: Handle -> ContextId -> LF.ValueRef -> IO (Either Error SS.ScenarioResult)
 runScenario Handle{..} (ContextId ctxId) name = do

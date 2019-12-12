@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf.data
 
 import scalaz.Equal
 
-private[lf] object ScalazEqual {
+private[digitalasset] object ScalazEqual {
   def withNatural[A](isNatural: Boolean)(c: (A, A) => Boolean): Equal[A] =
     if (isNatural) Equal.equalA else Equal.equal(c)
 

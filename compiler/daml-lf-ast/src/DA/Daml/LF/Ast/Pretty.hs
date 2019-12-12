@@ -19,6 +19,7 @@ import qualified Data.Time.Format           as Time.Format
 import           Data.Foldable (toList)
 
 import           DA.Daml.LF.Ast.Base hiding (dataCons)
+import           DA.Daml.LF.Ast.TypeLevelNat
 import           DA.Daml.LF.Ast.Util
 import           DA.Daml.LF.Ast.Optics
 import           DA.Pretty hiding (keyword_, type_)
@@ -103,6 +104,7 @@ prettyHasType  = ":"
 instance Pretty Kind where
   pPrintPrec lvl prec = \case
     KStar -> "*"
+    KNat -> "nat"
     KArrow k1 k2 ->
       maybeParens (prec > precKArrow) $
         pPrintPrec lvl (succ precKArrow) k1 <-> prettyFunArrow <-> pPrintPrec lvl precKArrow k2
@@ -118,6 +120,7 @@ instance Pretty BuiltinType where
   pPrint = \case
     BTInt64          -> "Int64"
     BTDecimal        -> "Decimal"
+    BTNumeric -> "Numeric"
     BTText           -> "Text"
     BTTimestamp      -> "Timestamp"
     BTParty          -> "Party"
@@ -129,8 +132,11 @@ instance Pretty BuiltinType where
     BTDate           -> "Date"
     BTContractId -> "ContractId"
     BTOptional -> "Optional"
-    BTMap -> "Map"
+    BTTextMap -> "TextMap"
+    BTGenMap -> "GenMap"
     BTArrow -> "(->)"
+    BTAny -> "Any"
+    BTTypeRep -> "TypeRep"
 
 prettyRecord :: (Pretty a) =>
   PrettyLevel -> Doc ann -> [(FieldName, a)] -> Doc ann
@@ -139,9 +145,9 @@ prettyRecord lvl sept fields =
   where
     prettyField (name, thing) = hang (pretty name <-> sept) 2 (pPrintPrec lvl 0 thing)
 
-prettyTuple :: (Pretty a) =>
+prettyStruct :: (Pretty a) =>
   PrettyLevel -> Doc ann -> [(FieldName, a)] -> Doc ann
-prettyTuple lvl sept fields =
+prettyStruct lvl sept fields =
   "<" <> sep (punctuate ";" (map prettyField fields)) <> ">"
   where
     prettyField (name, thing) = hang (pretty name <-> sept) 2 (pPrintPrec lvl 0 thing)
@@ -162,7 +168,8 @@ instance Pretty Type where
       in  maybeParens (prec > precTForall)
             (prettyForall <-> hsep (map (prettyAndKind lvl) vs) <> "."
              <-> pPrintPrec lvl precTForall t1)
-    TTuple fields -> prettyTuple lvl prettyHasType fields
+    TStruct fields -> prettyStruct lvl prettyHasType fields
+    TNat n -> integer (fromTypeLevelNat n)
 
 precEApp, precEAbs :: Rational
 precEApp = 2
@@ -182,22 +189,40 @@ instance Pretty BuiltinExpr where
   pPrintPrec lvl prec = \case
     BEInt64 n -> pretty (toInteger n)
     BEDecimal dec -> string (show dec)
+    BENumeric n -> string (show n)
     BEText t -> string (show t) -- includes the double quotes, and escapes characters
     BEParty p -> pretty p
     BEUnit -> keyword_ "unit"
     BEBool b -> keyword_ $ case b of { False -> "false"; True -> "true" }
     BEError -> "ERROR"
+    BEEqualGeneric -> "EQUAL"
     BEEqual t     -> maybeParens (prec > precEApp) ("EQUAL"      <-> prettyBTyArg lvl t)
     BELess t      -> maybeParens (prec > precEApp) ("LESS"       <-> prettyBTyArg lvl t)
     BELessEq t    -> maybeParens (prec > precEApp) ("LESS_EQ"    <-> prettyBTyArg lvl t)
     BEGreater t   -> maybeParens (prec > precEApp) ("GREATER"    <-> prettyBTyArg lvl t)
     BEGreaterEq t -> maybeParens (prec > precEApp) ("GREATER_EQ" <-> prettyBTyArg lvl t)
     BEToText t    -> maybeParens (prec > precEApp) ("TO_TEXT"    <-> prettyBTyArg lvl t)
-    BEAddDecimal -> "ADD_NUMERIC"
-    BESubDecimal -> "SUB_NUMERIC"
-    BEMulDecimal -> "MUL_NUMERIC"
-    BEDivDecimal -> "DIV_NUMERIC"
-    BERoundDecimal -> "ROUND_NUMERIC"
+    BEAddDecimal -> "ADD_DECIMAL"
+    BESubDecimal -> "SUB_DECIMAL"
+    BEMulDecimal -> "MUL_DECIMAL"
+    BEDivDecimal -> "DIV_DECIMAL"
+    BERoundDecimal -> "ROUND_DECIMAL"
+    BEAddNumeric -> "ADD_NUMERIC"
+    BESubNumeric -> "SUB_NUMERIC"
+    BEMulNumeric -> "MUL_NUMERIC"
+    BEDivNumeric -> "DIV_NUMERIC"
+    BERoundNumeric -> "ROUND_NUMERIC"
+    BECastNumeric -> "CAST_NUMERIC"
+    BEShiftNumeric -> "SHIFT_NUMERIC"
+    BEInt64ToNumeric -> "INT64_TO_NUMERIC"
+    BENumericToInt64 -> "NUMERIC_TO_INT64"
+    BEEqualNumeric -> "EQUAL_NUMERIC"
+    BELessEqNumeric -> "LEQ_NUMERIC"
+    BELessNumeric -> "LESS_NUMERIC"
+    BEGreaterEqNumeric -> "GEQ_NUMERIC"
+    BEGreaterNumeric -> "GREATER_NUMERIC"
+    BENumericFromText -> "FROM_TEXT_NUMERIC"
+    BEToTextNumeric -> "TO_TEXT_NUMERIC"
     BEAddInt64 -> "ADD_INT64"
     BESubInt64 -> "SUB_INT64"
     BEMulInt64 -> "MUL_INT64"
@@ -206,18 +231,25 @@ instance Pretty BuiltinExpr where
     BEExpInt64 -> "EXP_INT64"
     BEFoldl -> "FOLDL"
     BEFoldr -> "FOLDR"
-    BEMapEmpty -> "MAP_EMPTY"
-    BEMapInsert -> "MAP_INSERT"
-    BEMapLookup -> "MAP_LOOKUP"
-    BEMapDelete -> "MAP_DELETE"
-    BEMapSize -> "MAP_SIZE"
-    BEMapToList -> "MAP_TO_LIST"
+    BETextMapEmpty -> "TEXTMAP_EMPTY"
+    BETextMapInsert -> "TEXTMAP_INSERT"
+    BETextMapLookup -> "TEXTMAP_LOOKUP"
+    BETextMapDelete -> "TEXTMAP_DELETE"
+    BETextMapSize -> "TEXTMAP_SIZE"
+    BETextMapToList -> "TEXTMAP_TO_LIST"
+    BEGenMapEmpty -> "GENMAP_EMPTY"
+    BEGenMapInsert -> "GENMAP_INSERT"
+    BEGenMapLookup -> "GENMAP_LOOKUP"
+    BEGenMapDelete -> "GENMAP_DELETE"
+    BEGenMapSize -> "GENMAP_SIZE"
+    BEGenMapKeys -> "GENMAP_KEYS"
+    BEGenMapValues -> "GENMAP_VALUES"
     BEEqualList -> "EQUAL_LIST"
     BEAppendText -> "APPEND_TEXT"
     BETimestamp ts -> pretty (timestampToText ts)
     BEDate date -> pretty (dateToText date)
-    BEInt64ToDecimal -> "INT64_TO_NUMERIC"
-    BEDecimalToInt64 -> "NUMERIC_TO_INT64"
+    BEInt64ToDecimal -> "INT64_TO_DECIMAL"
+    BEDecimalToInt64 -> "DECIMAL_TO_INT64"
     BETimestampToUnixMicroseconds -> "TIMESTAMP_TO_UNIX_MICROSECONDS"
     BEUnixMicrosecondsToTimestamp -> "UNIX_MICROSECONDS_TO_TIMESTAMP"
     BEDateToUnixDays -> "DATE_TO_UNIX_DAYS"
@@ -229,12 +261,20 @@ instance Pretty BuiltinExpr where
     BEEqualContractId -> "EQUAL_CONTRACT_ID"
     BEPartyFromText -> "FROM_TEXT_PARTY"
     BEInt64FromText -> "FROM_TEXT_INT64"
-    BEDecimalFromText -> "FROM_TEXT_NUMERIC"
+    BEDecimalFromText -> "FROM_TEXT_DECIMAL"
     BEPartyToQuotedText -> "PARTY_TO_QUOTED_TEXT"
     BETextToCodePoints -> "TEXT_TO_CODE_POINTS"
     BETextFromCodePoints -> "TEXT_FROM_CODE_POINTS"
-
     BECoerceContractId -> "COERCE_CONTRACT_ID"
+    BETextToUpper -> "TEXT_TO_UPPER"
+    BETextToLower -> "TEXT_TO_LOWER"
+    BETextSlice -> "TEXT_SLICE"
+    BETextSliceIndex -> "TEXT_SLICE_INDEX"
+    BETextContainsOnly -> "TEXT_CONTAINS_ONLY"
+    BETextReplicate -> "TEXT_REPLICATE"
+    BETextSplitOn -> "TEXT_SPLIT_ON"
+    BETextIntercalate -> "TEXT_INTERCALATE"
+
     where
       epochToText fmt secs =
         T.pack $
@@ -386,14 +426,14 @@ instance Pretty Expr where
         (map TyArg targs ++ [TmArg arg])
     EEnumCon tcon con ->
       pretty tcon <> ":" <> pretty con
-    ETupleCon fields ->
-      prettyTuple lvl "=" fields
-    ETupleProj field expr -> pPrintPrec lvl precHighest expr <> "." <> pretty field
-    ETupleUpd field tuple update ->
+    EStructCon fields ->
+      prettyStruct lvl "=" fields
+    EStructProj field expr -> pPrintPrec lvl precHighest expr <> "." <> pretty field
+    EStructUpd field struct update ->
           "<" <> updDoc <> ">"
       where
         updDoc = sep
-          [ pPrintPrec lvl 0 tuple
+          [ pPrintPrec lvl 0 struct
           , keyword_ "with"
           , hang (pretty field <-> "=") 2 (pPrintPrec lvl 0 update)
           ]
@@ -425,10 +465,15 @@ instance Pretty Expr where
         | otherwise -> pPrintPrec lvl prec x
     ESome typ body -> prettyAppKeyword lvl prec "some" [TyArg typ, TmArg body]
     ENone typ -> prettyAppKeyword lvl prec "none" [TyArg typ]
+    EToAny ty body -> prettyAppKeyword lvl prec "to_any" [TyArg ty, TmArg body]
+    EFromAny ty body -> prettyAppKeyword lvl prec "from_any" [TyArg ty, TmArg body]
+    ETypeRep ty -> prettyAppKeyword lvl prec "type_rep" [TyArg ty]
 
 instance Pretty DefDataType where
   pPrintPrec lvl _prec (DefDataType mbLoc tcon (IsSerializable serializable) params dataCons) =
     withSourceLoc mbLoc $ case dataCons of
+    DataSynonym typ ->
+      (keyword_ "synonym" <-> lhsDoc) $$ nest 2 (pPrintPrec lvl 0 typ)
     DataRecord fields ->
       hang (keyword_ "record" <-> lhsDoc) 2 (prettyRecord lvl prettyHasType fields)
     DataVariant variants ->

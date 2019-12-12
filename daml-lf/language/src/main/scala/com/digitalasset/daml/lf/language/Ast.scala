@@ -81,14 +81,14 @@ object Ast {
   /** Variant construction. */
   final case class EEnumCon(tyConName: TypeConName, con: EnumConName) extends Expr
 
-  /** Tuple construction. */
-  final case class ETupleCon(fields: ImmArray[(FieldName, Expr)]) extends Expr
+  /** Struct construction. */
+  final case class EStructCon(fields: ImmArray[(FieldName, Expr)]) extends Expr
 
-  /** Tuple projection. */
-  final case class ETupleProj(field: FieldName, tuple: Expr) extends Expr
+  /** Struct projection. */
+  final case class EStructProj(field: FieldName, struct: Expr) extends Expr
 
-  /** Non-destructive tuple update. */
-  final case class ETupleUpd(field: FieldName, tuple: Expr, update: Expr) extends Expr
+  /** Non-destructive struct update. */
+  final case class EStructUpd(field: FieldName, struct: Expr, update: Expr) extends Expr
 
   /** Expression application. Function can be an abstraction or a builtin function. */
   final case class EApp(fun: Expr, arg: Expr) extends Expr
@@ -145,6 +145,15 @@ object Ast {
 
   final case class ESome(typ: Type, body: Expr) extends Expr
 
+  /** Any constructor **/
+  final case class EToAny(ty: Type, body: Expr) extends Expr
+
+  /** Extract the underlying value if it matches the ty **/
+  final case class EFromAny(ty: Type, body: Expr) extends Expr
+
+  /** Unique textual representation of template Id **/
+  final case class ETypeRep(typ: Type) extends Expr
+
   //
   // Kinds
   //
@@ -157,10 +166,11 @@ object Ast {
 
     def prettyKind(kind: Kind, needParens: Boolean = false): String = kind match {
       case KStar => "*"
+      case KNat => "nat"
       case KArrow(fun, arg) if needParens =>
         "(" + prettyKind(fun, true) + "->" + prettyKind(arg, false)
         ")"
-      case KArrow(fun, arg) if needParens =>
+      case KArrow(fun, arg) =>
         prettyKind(fun, true) + "->" + prettyKind(arg, false)
     }
   }
@@ -168,12 +178,18 @@ object Ast {
   /** Kind of a proper data type. */
   case object KStar extends Kind
 
+  /** Kind of nat tye */
+  case object KNat extends Kind
+
   /** Kind of higher kinded type. */
   final case class KArrow(param: Kind, result: Kind) extends Kind
 
   //
   // Types
   //
+
+  // Note that we rely on the equality of Type so this must stay sealed
+  // and all inhabitants should be case classes or case objects.
 
   sealed abstract class Type extends Product with Serializable {
     def pretty: String = Type.prettyType(this)
@@ -191,6 +207,7 @@ object Ast {
 
       def prettyType(t0: Type, prec: Int = precTForall): String = t0 match {
         case TVar(n) => n
+        case TNat(n) => n.toString
         case TTyCon(con) => con.qualifiedName.name.toString
         case TBuiltin(BTArrow) => "(->)"
         case TBuiltin(bt) => bt.toString.stripPrefix("BT")
@@ -204,7 +221,7 @@ object Ast {
             prettyType(fun, precTApp) + " " + prettyType(arg, precTApp + 1))
         case TForall((v, _), body) =>
           maybeParens(prec > precTForall, "∀" + v + prettyForAll(body))
-        case TTuple(fields) =>
+        case TStruct(fields) =>
           "(" + fields
             .map { case (n, t) => n + ": " + prettyType(t, precTForall) }
             .toSeq
@@ -223,6 +240,17 @@ object Ast {
   /** Reference to a type variable. */
   final case class TVar(name: TypeVarName) extends Type
 
+  /** nat type */
+  // for now it can contains only a Numeric Scale
+  final case class TNat(n: Numeric.Scale) extends Type
+
+  object TNat {
+    // works because Numeric.Scale.MinValue = 0
+    val values = Numeric.Scale.values.map(new TNat(_))
+    def apply(n: Numeric.Scale): TNat = values(n)
+    val Decimal: TNat = values(10)
+  }
+
   /** Reference to a type constructor. */
   final case class TTyCon(tycon: TypeConName) extends Type
 
@@ -235,19 +263,19 @@ object Ast {
   /** Universally quantified type. */
   final case class TForall(binder: (TypeVarName, Kind), body: Type) extends Type
 
-  /** Tuples */
-  final case class TTuple private (sortedFields: ImmArray[(FieldName, Type)]) extends Type
+  /** Structs */
+  final case class TStruct private (sortedFields: ImmArray[(FieldName, Type)]) extends Type
 
-  object TTuple extends (ImmArray[(FieldName, Type)] => TTuple) {
+  object TStruct extends (ImmArray[(FieldName, Type)] => TStruct) {
     // should be dropped once the compiler sort fields.
-    def apply(fields: ImmArray[(FieldName, Type)]): TTuple =
-      new TTuple(ImmArray(fields.toSeq.sortBy(_._1: String)))
+    def apply(fields: ImmArray[(FieldName, Type)]): TStruct =
+      new TStruct(ImmArray(fields.toSeq.sortBy(_._1: String)))
   }
 
   sealed abstract class BuiltinType extends Product with Serializable
 
   case object BTInt64 extends BuiltinType
-  case object BTDecimal extends BuiltinType
+  case object BTNumeric extends BuiltinType
   case object BTText extends BuiltinType
   case object BTTimestamp extends BuiltinType
   case object BTParty extends BuiltinType
@@ -255,12 +283,15 @@ object Ast {
   case object BTBool extends BuiltinType
   case object BTList extends BuiltinType
   case object BTOptional extends BuiltinType
-  case object BTMap extends BuiltinType
+  case object BTTextMap extends BuiltinType
+  case object BTGenMap extends BuiltinType
   case object BTUpdate extends BuiltinType
   case object BTScenario extends BuiltinType
   case object BTDate extends BuiltinType
   case object BTContractId extends BuiltinType
   case object BTArrow extends BuiltinType
+  case object BTAny extends BuiltinType
+  case object BTTypeRep extends BuiltinType
 
   //
   // Primitive literals
@@ -271,7 +302,7 @@ object Ast {
   }
 
   final case class PLInt64(override val value: Long) extends PrimLit
-  final case class PLDecimal(override val value: Decimal) extends PrimLit
+  final case class PLNumeric(override val value: Numeric) extends PrimLit
   // Text should be treated as Utf8, data.Utf8 provide emulation functions for that
   final case class PLText(override val value: String) extends PrimLit
   final case class PLTimestamp(override val value: Time.Timestamp) extends PrimLit
@@ -296,12 +327,14 @@ object Ast {
 
   final case object BTrace extends BuiltinFunction(2) // : ∀a. Text -> a -> a
 
-  // Decimal arithmetic
-  final case object BAddDecimal extends BuiltinFunction(2) // : Decimal → Decimal → Decimal
-  final case object BSubDecimal extends BuiltinFunction(2) // : Decimal → Decimal → Decimal
-  final case object BMulDecimal extends BuiltinFunction(2) // : Decimal → Decimal → Decimal
-  final case object BDivDecimal extends BuiltinFunction(2) // : Decimal → Decimal → Decimal
-  final case object BRoundDecimal extends BuiltinFunction(2) // : Integer → Decimal → Decimal
+  // Numeric arithmetic
+  final case object BAddNumeric extends BuiltinFunction(2) // :  ∀s. Numeric s → Numeric s → Numeric s
+  final case object BSubNumeric extends BuiltinFunction(2) // :  ∀s. Numeric s → Numeric s → Numeric s
+  final case object BMulNumeric extends BuiltinFunction(2) // :  ∀s1 s2 s. Numeric s1 → Numeric s2 → Numeric s
+  final case object BDivNumeric extends BuiltinFunction(2) // :  ∀s1 s2 s. Numeric s1 → Numeric s2 → Numeric s
+  final case object BRoundNumeric extends BuiltinFunction(2) // :  ∀s. Integer → Numeric s → Numeric s
+  final case object BCastNumeric extends BuiltinFunction(1) // : ∀s1 s2. Numeric s1 → Numeric s2
+  final case object BShiftNumeric extends BuiltinFunction(1) // : ∀s1 s2. Numeric s1 → Numeric s2
 
   // Int64 arithmetic
   final case object BAddInt64 extends BuiltinFunction(2) // : Int64 → Int64 → Int64
@@ -312,8 +345,8 @@ object Ast {
   final case object BExpInt64 extends BuiltinFunction(2) // : Int64 → Int64 → Int64
 
   // Conversions
-  final case object BInt64ToDecimal extends BuiltinFunction(1) // : Int64 → Decimal
-  final case object BDecimalToInt64 extends BuiltinFunction(1) // : Decimal → Int64
+  final case object BInt64ToNumeric extends BuiltinFunction(1) // : ∀s. Int64 → Numeric s
+  final case object BNumericToInt64 extends BuiltinFunction(1) // : ∀s. Numeric s → Int64
   final case object BDateToUnixDays extends BuiltinFunction(1) // : Date -> Int64
   final case object BUnixDaysToDate extends BuiltinFunction(1) // : Int64 -> Date
   final case object BTimestampToUnixMicroseconds extends BuiltinFunction(1) // : Timestamp -> Int64
@@ -324,12 +357,21 @@ object Ast {
   final case object BFoldr extends BuiltinFunction(3) // : ∀a b. (a → b → b) → b → List a → b
 
   // Maps
-  final case object BMapEmpty extends BuiltinFunction(0) // : ∀ a. Map a
-  final case object BMapInsert extends BuiltinFunction(3) // : ∀ a. Text -> a -> Map a -> Map a
-  final case object BMapLookup extends BuiltinFunction(2) // : ∀ a. Text -> Map a -> Optional a
-  final case object BMapDelete extends BuiltinFunction(2) // : ∀ a. Text -> Map a -> Map a
-  final case object BMapToList extends BuiltinFunction(1) // : ∀ a. Map a -> [Text]
-  final case object BMapSize extends BuiltinFunction(1) // : ∀ a. Map a -> Int64
+  final case object BTextMapEmpty extends BuiltinFunction(0) // : ∀ a. TextMap a
+  final case object BTextMapInsert extends BuiltinFunction(3) // : ∀ a. Text -> a -> TextMap a -> TextMap a
+  final case object BTextMapLookup extends BuiltinFunction(2) // : ∀ a. Text -> TextMap a -> Optional a
+  final case object BTextMapDelete extends BuiltinFunction(2) // : ∀ a. Text -> TextMap a -> TextMap a
+  final case object BTextMapToList extends BuiltinFunction(1) // : ∀ a. TextMap a -> [Struct("key":Text, "value":a)]
+  final case object BTextMapSize extends BuiltinFunction(1) // : ∀ a. TextMap a -> Int64
+
+  // Generic Maps
+  final case object BGenMapEmpty extends BuiltinFunction(0) // : ∀ a b. GenMap a b
+  final case object BGenMapInsert extends BuiltinFunction(3) // : ∀ a b. a -> b -> GenMap a b -> GenMap a b
+  final case object BGenMapLookup extends BuiltinFunction(2) // : ∀ a b. a -> GenMap a b -> Optional b
+  final case object BGenMapDelete extends BuiltinFunction(2) // : ∀ a b. a -> GenMap a b -> GenMap a b
+  final case object BGenMapKeys extends BuiltinFunction(1) // : ∀ a b. GenMap a b -> [a]
+  final case object BGenMapValues extends BuiltinFunction(1) // : ∀ a b. GenMap a b -> [b]
+  final case object BGenMapSize extends BuiltinFunction(1) // : ∀ a b. GenMap a b -> Int64
 
   // Text functions
   final case object BExplodeText extends BuiltinFunction(1) // : Text → List Char
@@ -337,7 +379,7 @@ object Ast {
   final case object BAppendText extends BuiltinFunction(2) // : Text → Text → Text
 
   final case object BToTextInt64 extends BuiltinFunction(1) //  Int64 → Text
-  final case object BToTextDecimal extends BuiltinFunction(1) // : Decimal → Text
+  final case object BToTextNumeric extends BuiltinFunction(1) // : ∀s. Numeric s → Text
   final case object BToTextText extends BuiltinFunction(1) // : Text → Text
   final case object BToTextTimestamp extends BuiltinFunction(1) // : Timestamp → Text
   final case object BToTextParty extends BuiltinFunction(1) // : Party → Text
@@ -346,7 +388,7 @@ object Ast {
   final case object BToTextCodePoints extends BuiltinFunction(1) // : [Int64] -> Text
   final case object BFromTextParty extends BuiltinFunction(1) // : Text -> Optional Party
   final case object BFromTextInt64 extends BuiltinFunction(1) // : Text -> Optional Int64
-  final case object BFromTextDecimal extends BuiltinFunction(1) // : Text -> Optional Decimal
+  final case object BFromTextNumeric extends BuiltinFunction(1) // :  ∀s. Text -> Optional (Numeric s)
   final case object BFromTextCodePoints extends BuiltinFunction(1) // : Text -> List Int64
 
   final case object BSHA256Text extends BuiltinFunction(arity = 1) // : Text -> Text
@@ -356,43 +398,48 @@ object Ast {
 
   // Comparisons
   final case object BLessInt64 extends BuiltinFunction(2) // : Int64 → Int64 → Bool
-  final case object BLessDecimal extends BuiltinFunction(2) // : Decimal → Decimal → Bool
+  final case object BLessNumeric extends BuiltinFunction(2) // :  ∀s. Numeric s → Numeric s → Bool
   final case object BLessText extends BuiltinFunction(2) // : Text → Text → Bool
   final case object BLessTimestamp extends BuiltinFunction(2) // : Timestamp → Timestamp → Bool
   final case object BLessDate extends BuiltinFunction(2) // : Date → Date → Bool
   final case object BLessParty extends BuiltinFunction(2) // : Party → Party → Bool
 
   final case object BLessEqInt64 extends BuiltinFunction(2) // : Int64 → Int64 → Bool
-  final case object BLessEqDecimal extends BuiltinFunction(2) // : Decimal → Decimal → Bool
+  final case object BLessEqNumeric extends BuiltinFunction(2) // :  ∀s. Numeric →  ∀s. Numeric → Bool
   final case object BLessEqText extends BuiltinFunction(2) // : Text → Text → Bool
   final case object BLessEqTimestamp extends BuiltinFunction(2) // : Timestamp → Timestamp → Bool
   final case object BLessEqDate extends BuiltinFunction(2) // : Date → Date → Bool
   final case object BLessEqParty extends BuiltinFunction(2) // : Party → Party → Bool
 
   final case object BGreaterInt64 extends BuiltinFunction(2) // : Int64 → Int64 → Bool
-  final case object BGreaterDecimal extends BuiltinFunction(2) // : Decimal → Decimal → Bool
+  final case object BGreaterNumeric extends BuiltinFunction(2) // :  ∀s. Numeric s → Numeric s → Bool
   final case object BGreaterText extends BuiltinFunction(2) // : Text → Text → Bool
   final case object BGreaterTimestamp extends BuiltinFunction(2) // : Timestamp → Timestamp → Bool
   final case object BGreaterDate extends BuiltinFunction(2) // : Date → Date → Bool
   final case object BGreaterParty extends BuiltinFunction(2) // : Party → Party → Bool
 
   final case object BGreaterEqInt64 extends BuiltinFunction(2) // : Int64 → Int64 → Bool
-  final case object BGreaterEqDecimal extends BuiltinFunction(2) // : Decimal → Decimal → Bool
+  final case object BGreaterEqNumeric extends BuiltinFunction(2) // : ∀s. Numeric s → Numeric s → Bool
   final case object BGreaterEqText extends BuiltinFunction(2) // : Text → Text → Bool
   final case object BGreaterEqTimestamp extends BuiltinFunction(2) // : Timestamp → Timestamp → Bool
   final case object BGreaterEqDate extends BuiltinFunction(2) // : Date → Date → Bool
   final case object BGreaterEqParty extends BuiltinFunction(2) // : Party → Party → Bool
 
-  final case object BEqualInt64 extends BuiltinFunction(2) // : Int64 -> Int64 -> Bool
-  final case object BEqualDecimal extends BuiltinFunction(2) // : Decimal -> Decimal -> Bool
-  final case object BEqualText extends BuiltinFunction(2) // : Text -> Text -> Bool
-  final case object BEqualTimestamp extends BuiltinFunction(2) // : Timestamp -> Timestamp -> Bool
-  final case object BEqualDate extends BuiltinFunction(2) // : Date -> Date -> Bool
-  final case object BEqualParty extends BuiltinFunction(2) // : Party -> Party -> Bool
-  final case object BEqualBool extends BuiltinFunction(2) // : Bool -> Bool -> Bool
+  final case object BEqualNumeric extends BuiltinFunction(2) // :  ∀s. Numeric s ->  ∀s. Numeric s -> Bool
   final case object BEqualList extends BuiltinFunction(3) // : ∀a. (a -> a -> Bool) -> List a -> List a -> Bool
   final case object BEqualContractId extends BuiltinFunction(2) // : ∀a. ContractId a -> ContractId a -> Bool
+  final case object BEqual extends BuiltinFunction(2) // ∀a. a -> a -> Bool
   final case object BCoerceContractId extends BuiltinFunction(1) // : ∀a b. ContractId a -> ContractId b
+
+  // Unstable Text Primitives
+  final case object BTextToUpper extends BuiltinFunction(1) // Text → Text
+  final case object BTextToLower extends BuiltinFunction(1) // : Text → Text
+  final case object BTextSlice extends BuiltinFunction(3) // : Int64 → Int64 → Text → Text
+  final case object BTextSliceIndex extends BuiltinFunction(2) // : Text → Text → Optional Int64
+  final case object BTextContainsOnly extends BuiltinFunction(2) // : Text → Text → Bool
+  final case object BTextReplicate extends BuiltinFunction(2) // : Int64 → Text → Text
+  final case object BTextSplitOn extends BuiltinFunction(2) // : Text → Text → List Text
+  final case object BTextIntercalate extends BuiltinFunction(2) // : Text → List Text → Text
 
   //
   // Update expressions
@@ -618,7 +665,7 @@ object Ast {
     }
   }
 
-  case class Package(modules: Map[ModuleName, Module]) {
+  case class Package(modules: Map[ModuleName, Module], directDeps: Set[PackageId]) {
     def lookupIdentifier(identifier: QualifiedName): Either[String, Definition] = {
       this.modules.get(identifier.module) match {
         case None =>
@@ -637,12 +684,12 @@ object Ast {
 
   object Package {
 
-    def apply(modules: Traversable[Module]): Package = {
+    def apply(modules: Traversable[Module], directDeps: Traversable[PackageId]): Package = {
       val modulesWithNames = modules.map(m => m.name -> m)
       findDuplicate(modulesWithNames).foreach { modName =>
         throw PackageError(s"Collision on module name ${modName.toString}")
       }
-      Package(modulesWithNames.toMap)
+      Package(modulesWithNames.toMap, directDeps.toSet)
     }
   }
 

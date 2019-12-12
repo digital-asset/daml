@@ -44,3 +44,11 @@ template Foo
         owner : Party
     where
         signatory owner
+
+data ParametrizedContractId a = ParametricContractId
+    with
+        parametrizedContractId: ContractId a
+
+data FixedContractId = FixedContractId
+    with
+        fixedContractId: ParametrizedContractId Foo

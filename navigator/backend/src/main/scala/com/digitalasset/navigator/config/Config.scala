@@ -39,6 +39,12 @@ final case class ConfigNotFound(reason: String) extends ConfigReadError
 final case class ConfigInvalid(reason: String) extends ConfigReadError
 final case class ConfigParseFailed(reason: String) extends ConfigReadError
 
+sealed abstract class ConfigOption {
+  def path: Path
+}
+final case class DefaultConfig(path: Path) extends ConfigOption
+final case class ExplicitConfig(path: Path) extends ConfigOption
+
 @SuppressWarnings(
   Array(
     "org.wartremover.warts.Any",
@@ -46,18 +52,24 @@ final case class ConfigParseFailed(reason: String) extends ConfigReadError
     "org.wartremover.warts.ExplicitImplicitTypes"))
 object Config {
 
-  private[this] def logger = LoggerFactory.getLogger(this.getClass)
+  private[this] val logger = LoggerFactory.getLogger(this.getClass)
 
-  def load(configFile: Path, useDatabase: Boolean): Either[ConfigReadError, Config] = {
-    loadSdkConfig(useDatabase).left
-      .flatMap {
-        case ConfigNotFound(_) =>
-          logger.warn("SDK config does not exist. Falling back to Navigator config file.")
-          loadNavigatorConfig(configFile, useDatabase)
-        case e: ConfigReadError =>
-          logger.warn(s"SDK config exists, but is not usable: ${e.reason}")
-          Left(e)
-      }
+  def load(configOpt: ConfigOption, useDatabase: Boolean): Either[ConfigReadError, Config] = {
+    configOpt match {
+      case ExplicitConfig(configFile) =>
+        // If users specified a config file explicitly, we ignore the SDK config.
+        loadNavigatorConfig(configFile, useDatabase)
+      case DefaultConfig(configFile) =>
+        loadSdkConfig(useDatabase).left
+          .flatMap {
+            case ConfigNotFound(_) =>
+              logger.warn("SDK config does not exist. Falling back to Navigator config file.")
+              loadNavigatorConfig(configFile, useDatabase)
+            case e: ConfigReadError =>
+              logger.warn(s"SDK config exists, but is not usable: ${e.reason}")
+              Left(e)
+          }
+    }
   }
 
   def loadNavigatorConfig(

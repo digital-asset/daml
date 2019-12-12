@@ -49,14 +49,14 @@ Event-driven applications
 
 **Event-driven** applications react to events on the the ledger and generate commands and other outputs on a per-event basis. They do not require access to ledger state beyond the event they are reacting to.
 
-Examples are sink applications that read the ledger and dump events to an external store (e.g. an external (reporting) database)
+Examples are sink applications that read the ledger and dump events to an external store (e.g. an external (reporting) database).
 
 State-driven applications
 =========================
 
 **State-driven** applications build up a real-time view of the ledger state by reading events and recording contract create and archive events. They then generate commands based on a given state, not just single events.
 
-Examples of these are automation and interactive applications that let a user or code react to complex state on the ledger e.g the DA Navigator tool.
+Examples of these are automation and interactive applications that let a user or code react to complex state on the ledger (e.g. the DA Navigator tool).
 
 Which approach to take
 ======================
@@ -91,7 +91,7 @@ To do this, the application should:
 
 2. Optionally, create a connection to the Command Submission Service to send any required commands back to the ledger.
 
-3. Act on the content of events (type, content) to perform any action required by the application e.g writing a database record or generating and submitting a command.
+3. Act on the content of events (type, content) to perform any action required by the application e.g. writing a database record or generating and submitting a command.
 
 .. _state-driven-applications-1:
 
@@ -116,7 +116,7 @@ To do this, the application should:
 
 4. Create a connection to the Command Completion Service, and set up a stream handler to handle completions.
 
-5. Read the event stream and process each event to update it's view of the ledger state. 
+5. Read the event stream and process each event to update its view of the ledger state.
 
    To make accessing and examining this state easier, this often involves turning the generic description of create contracts into instances of structures (such as class instances that are more appropriate for the language being used. This also allows the application to ignore contract data it does not need.
 
@@ -135,8 +135,8 @@ Both styles of applications will take the following steps:
 
 -  Define an **applicationId** - this identifies the application to the ledger server.
 -  Connect to the ledger (including handling authentication). This creates a client interface object that allows creation of the stream connection described in `Structuring an application <#structuring-an-application>`__.
--  Handle execution errors. Because these are received asynchronously, the application will need to keep a record of commands in flight - those send but not yet indicated complete (via an event). Correlate commands and completions via an application-defined :ref:`commandId <com.digitalasset.ledger.api.v1.Commands.command_id>`. Categorize different sets of commands with a :ref:`workflowId <com.digitalasset.ledger.api.v1.Commands.workflow_id>`.
-- Handle lost commands. The ledger server does not guarantee that all commands submitted to it will be executed. This means that a command submission will not result in a corresponding completion, and some other mechanism must be employed to detect this. This is done using the values of Ledger Effective Time (LET) and Maximum Record Time (MRT). The server does guarantee that if a command is executed, it will be executed within a time window between the LET and MRT specified in the command submission. Since the value of the ledger time at which a command is executed is returned with every completion, reception of a completion with an record time that is greater than the MRT of any pending command guarantees that the pending command will not be executed, and can be considered lost.
+-  Handle execution errors. Because these are received asynchronously, the application will need to keep a record of commands in flight - those sent but not yet indicated complete (via an event). Correlate commands and completions via an application-defined :ref:`commandId <com.digitalasset.ledger.api.v1.Commands.command_id>`. Categorize different sets of commands with a :ref:`workflowId <com.digitalasset.ledger.api.v1.Commands.workflow_id>`.
+- Handle lost commands. The ledger server does not guarantee that all commands submitted to it will be executed. This means that a command submission will not result in a corresponding completion, and some other mechanism must be employed to detect this. This is done using the values of Ledger Effective Time (LET) and Maximum Record Time (MRT). The server does guarantee that if a command is executed, it will be executed within a time window between the LET and MRT specified in the command submission. Since the value of the ledger time at which a command is executed is returned with every completion, reception of a completion with a record time that is greater than the MRT of any pending command guarantees that the pending command will not be executed, and can be considered lost.
 -  Have a policy regarding command resubmission. In what situations should failing commands be re-submitted? Duplicate commands must be avoided in some situations - what state must be kept to implement this?
 -  Access auxiliary services such as the time service and package service. The `time service <#time-service>`__ will be used to determine Ledger Effective Time value for command submission, and the package service will be used to determine packageId, used in creating a connection, as well as metadata that allows creation events to be turned in to application domain objects.
 
@@ -180,7 +180,7 @@ In general, you should consider using a reactive architecture for your applicati
 
 -  It matches well to the streaming nature of the ledger API.
 -  It will handle all the multi-threading issues, providing you with sequential model to implement your application code.
--  It allows for several implementation strategies that are inherently scalable e.g RxJava, Akka Streams/Actors, RxJS, RxPy etc.
+-  It allows for several implementation strategies that are inherently scalable e.g. RxJava, Akka Streams/Actors, RxJS, RxPy etc.
 
 Prefer a state-driven approach
 ==============================
@@ -200,13 +200,13 @@ As far as possible, aim to encode the core application as a function between app
 -  The command generation is the core of the application - implementing as a pure function makes it easy to reason about, and thus reduces bugs and fosters correctness.
 -  Doing this will also require that the application is structured so that the state examined by that function is stable - that is, not subject to an update while the function is running. This is one of the things that makes the function, and hence the application, easier to reason about.
 
-The Java Reactive Components library provides an abstraction and framework that directly supports this. It provides a `Bot <../../packages/bindings-java/static/com/daml/ledger/rxjava/components/Bot.html>`__ abstraction that handles much of work of doing this, and allows the command generation function to be represented as an actual Java function, and wired into the framework, along with a transform function that allows the state objects to be Java classes that better represent the underlying contracts.
+The Java Reactive Components library provides an abstraction and framework that directly supports this. It provides a `Bot <../../app-dev/bindings-java/javadocs/com/daml/ledger/rxjava/components/Bot.html>`__ abstraction that handles much of work of doing this, and allows the command generation function to be represented as an actual Java function, and wired into the framework, along with a transform function that allows the state objects to be Java classes that better represent the underlying contracts.
 
-This allows you to reduce the work of building and application to the tasks of:
+This allows you to reduce the work of building an application to the following tasks:
 
--  defining the Bot function.
--  defining the event transformation.
--  defining setup tasks such as disposing of command failure, connecting to the ledger and obtaining ledger- and package- IDs.
+-  Define the Bot function.
+-  Define the event transformation.
+-  Define setup tasks such as disposing of command failure, connecting to the ledger and obtaining ledger- and package- IDs.
 
 The framework handles much of the work of building a state-driven application. It handles the streams of events and completions, transforming events into domain objects (via the provided event transform function) and storing them in a `LedgerView <../../app-dev/bindings-java/javadocs/com/daml/ledger/rxjava/components/LedgerViewFlowable.LedgerView.html>`__ object. This is then passed to the Bot function (provided by the application), which generates a set of commands and a pending set. The commands are sent back to the ledger, and the pending set, along with the commandId that identifies it, is held by the framework (`LedgerViewFlowable <../../app-dev/bindings-java/javadocs/com/daml/ledger/rxjava/components/LedgerViewFlowable.html>`__). This allows it to handle all command completion events.
 
@@ -229,8 +229,8 @@ There are some identifier fields that are represented as strings in the protobuf
 There are some other identifiers that are determined by your client code. These aren't interpreted by the server, and are transparently passed to the responses. They include:
 
 - Command IDs: used to uniquely identify a command and to match it against its response.
-- Application ID: used to uniquely identify client process talking to the server. You could use a combination of command ID and application ID for deduplication.
--  Workflow IDs: identify chains of transactions. You can use these to correlate transactions sent across time spans and by different parties.
+- Application ID: used to uniquely identify client process talking to the server. You could use a combination of submitting party, command ID, and application ID for deduplication of commands.
+- Workflow IDs: identify chains of transactions. You can use these to correlate transactions sent across time spans and by different parties.
 
 .. |image0| image:: images/BotFlow.png
    :width: 6.5in
@@ -258,12 +258,12 @@ In production, your application is going to interact with a DAML model deployed 
 
 Mocking a ledger response is usually not desirable to test the business logic, because so much of it is encapsulated in the DAML model. This makes integration testing with an actual running ledger fundamental to evaluating the correctness of an application.
 
-This is usually achieved by running a ledger as part of the test process and run several tests against it, possibly coordinated by a test framework. Since the in-memory sandbox shipped as part of the SDK is a full-fledged implementation of a DAML ledger, it's usually the tool of choice for these tests. Please note that this does not replace acceptance tests with the actual ledger implementation that your application aims to use in production. Whatever your choice is, sharing a single ledger to run several tests is a suggested best practice.
+This is usually achieved by running a ledger as part of the test process and running several tests against it, possibly coordinated by a test framework. Since the in-memory sandbox shipped as part of the SDK is a full-fledged implementation of a DAML ledger, it's usually the tool of choice for these tests. Please note that this does not replace acceptance tests with the actual ledger implementation that your application aims to use in production. Whatever your choice is, sharing a single ledger to run several tests is a suggested best practice.
 
 Share the ledger
 ****************
 
-Sharing a ledger is useful because booting a ledger and loading DAML code into it takes time. Since to properly test your application you need an actual ledger you're likely to have a lot of very short tests whose total running time would suffer from the overhead of running a new ledger for every test.
+Sharing a ledger is useful because booting a ledger and loading DAML code into it takes time. As you're likely to have a lot of very short tests in order to properly test your application the total running time of these would be severely impacted if you ran a new ledger for every test.
 
 Tests must thus be designed to not interfere with each other. Both the transaction and the active contract service offer the possibility of filtering by party. Parties can thus be used as a way to isolate tests.
 
@@ -272,8 +272,11 @@ You can use the party management service to allocate new parties and use them to
 In summary:
 
 1. retrieve the current offset of the ledger end before the test starts
+
 1. use the party management service to allocate the parties needed by the test
+
 1. whenever you issue a command, issue it as one of the parties allocated for this test
+
 1. whenever you need to get the set of active contracts or a stream of transactions, always filter by one or more of the parties allocated for this test
 
 This isolation between instances of tests also means that different tests can be run completely in parallel with respect to each other, possibly improving on the overall running time of your test suite.
@@ -287,6 +290,6 @@ If that's the case, the leak of resources caused by the approach to test isolati
 
 As a last resort for these cases, your tests can use the reset service, which ledger implementations can optionally expose for testing.
 
-The reset service has a single ``reset`` method that will cause all the accumulated state to be dropped, including all active contracts, the entire history of transactions and all allocated users. Only the DAML packges loaded in the ledger is preserved, possibly saving on the time needed to be loaded as opposed to simply spinning up a new ledger.
+The reset service has a single ``reset`` method that will cause all the accumulated state to be dropped, including all active contracts, the entire history of transactions and all allocated users. Only the DAML packages loaded in the ledger are preserved, thereby saving the time needed for reloading them as opposed to simply spinning up a new ledger.
 
 The reset service momentarily shuts down the gRPC channel it communicates over, so your testing infrastructure must take this into account and, when the ``reset`` is invoked, must ensure that tests are temporarily suspended as attempts to reconnect with the rebooted ledger are performed. There is no guarantee as to how long the reset will take, so this should also be taken into account when attempting to reconnect.

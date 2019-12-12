@@ -8,8 +8,10 @@ import java.time.Instant
 import brave.propagation.TraceContext
 
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.LedgerString.ordering
 import com.digitalasset.ledger.api.domain.Event.{CreateOrArchiveEvent, CreateOrExerciseEvent}
 import scalaz.{@@, Tag}
+import scalaz.syntax.tag._
 import com.digitalasset.daml.lf.value.{Value => Lf}
 import com.digitalasset.daml.lf.command.{Commands => LfCommands}
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ValueRecord}
@@ -253,6 +255,7 @@ object domain {
 
   type EventId = Ref.LedgerString @@ EventIdTag
   val EventId: Tag.TagOf[EventIdTag] = Tag.of[EventIdTag]
+  implicit val eventIdOrdering = scala.math.Ordering.by[EventId, Ref.LedgerString](_.unwrap)
 
   sealed trait LedgerIdTag
 
@@ -287,4 +290,20 @@ object domain {
     * @param isLocal True if party is hosted by the backing participant.
     */
   case class PartyDetails(party: Ref.Party, displayName: Option[String], isLocal: Boolean)
+
+  sealed abstract class PartyEntry() extends Product with Serializable
+
+  object PartyEntry {
+    final case class AllocationAccepted(
+        submissionId: Option[String],
+        participantId: ParticipantId,
+        partyDetails: PartyDetails
+    ) extends PartyEntry
+
+    final case class AllocationRejected(
+        submissionId: String,
+        participantId: ParticipantId,
+        reason: String
+    ) extends PartyEntry
+  }
 }

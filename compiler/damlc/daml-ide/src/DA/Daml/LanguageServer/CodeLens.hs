@@ -29,11 +29,11 @@ handle
     :: IdeState
     -> CodeLensParams
     -> IO (List CodeLens)
-handle ide (CodeLensParams (TextDocumentIdentifier uri)) = do
+handle ide (CodeLensParams (TextDocumentIdentifier uri) _) = do
     mbResult <- case uriToFilePath' uri of
         Just (toNormalizedFilePath -> filePath) -> do
           logInfo (ideLogger ide) $ "CodeLens request for file: " <> T.pack (fromNormalizedFilePath filePath)
-          mbModMapping <- runAction ide (useWithStale GenerateDalf filePath)
+          mbModMapping <- runAction ide (useWithStale GenerateRawDalf filePath)
           case mbModMapping of
               Nothing -> pure []
               Just (mod, mapping) ->

@@ -12,17 +12,17 @@ import com.digitalasset.daml.lf.language.Ast.{DDataType, DValue, Definition}
 import com.digitalasset.daml.lf.speedy.{ScenarioRunner, Speedy}
 import com.digitalasset.daml.lf.types.{Ledger => L}
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
-import com.digitalasset.platform.sandbox.stores.{InMemoryActiveContracts, InMemoryPackageStore}
+import com.digitalasset.platform.sandbox.stores.{InMemoryActiveLedgerState, InMemoryPackageStore}
 import org.slf4j.LoggerFactory
 import com.digitalasset.daml.lf.transaction.GenTransaction
 import com.digitalasset.daml.lf.types.Ledger.ScenarioTransactionId
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.Transaction
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.VersionTimeline
+import com.digitalasset.daml.lf.data.Ref.LedgerString.ordering
 
 import scala.collection.breakOut
 import scala.collection.mutable.ArrayBuffer
-import scalaz.syntax.std.map._
 
 import scala.annotation.tailrec
 
@@ -60,16 +60,16 @@ object ScenarioLoader {
   def fromScenario(
       packages: InMemoryPackageStore,
       compiledPackages: CompiledPackages,
-      scenario: String): (InMemoryActiveContracts, ImmArray[LedgerEntryOrBump], Instant) = {
+      scenario: String): (InMemoryActiveLedgerState, ImmArray[LedgerEntryOrBump], Instant) = {
     val (scenarioLedger, scenarioRef) = buildScenarioLedger(packages, compiledPackages, scenario)
     // we store the tx id since later we need to recover how much to bump the
     // ledger end by, and here the transaction id _is_ the ledger end.
     val ledgerEntries =
       new ArrayBuffer[(ScenarioTransactionId, LedgerEntry)](scenarioLedger.scenarioSteps.size)
-    type Acc = (InMemoryActiveContracts, Time.Timestamp, Option[ScenarioTransactionId])
+    type Acc = (InMemoryActiveLedgerState, Time.Timestamp, Option[ScenarioTransactionId])
     val (acs, time, txId) =
       scenarioLedger.scenarioSteps.iterator
-        .foldLeft[Acc]((InMemoryActiveContracts.empty, Time.Timestamp.Epoch, None)) {
+        .foldLeft[Acc]((InMemoryActiveLedgerState.empty, Time.Timestamp.Epoch, None)) {
           case ((acs, time, mbOldTxId), (stepId @ _, step)) =>
             executeScenarioStep(ledgerEntries, scenarioRef, acs, time, mbOldTxId, stepId, step)
         }
@@ -215,12 +215,12 @@ object ScenarioLoader {
   private def executeScenarioStep(
       ledger: ArrayBuffer[(ScenarioTransactionId, LedgerEntry)],
       scenarioRef: Ref.DefinitionRef,
-      acs: InMemoryActiveContracts,
+      acs: InMemoryActiveLedgerState,
       time: Time.Timestamp,
       mbOldTxId: Option[ScenarioTransactionId],
       stepId: Int,
       step: L.ScenarioStep
-  ): (InMemoryActiveContracts, Time.Timestamp, Option[ScenarioTransactionId]) = {
+  ): (InMemoryActiveLedgerState, Time.Timestamp, Option[ScenarioTransactionId]) = {
     step match {
       case L.Commit(txId: ScenarioTransactionId, richTransaction: L.RichTransaction, _) =>
         mbOldTxId match {
@@ -232,33 +232,35 @@ object ScenarioLoader {
             }
         }
 
-        val transactionId = Ref.LedgerString.concat(transactionIdPrefix, txId.id)
+        val transactionId = txId.id
         val workflowId =
           Some(Ref.LedgerString.concat(workflowIdPrefix, Ref.LedgerString.fromInt(stepId)))
-        // note that it's important that we keep the event ids in line with the contract ids, since
-        // the sandbox code assumes that in TransactionConversion.
-        val txNoHash = GenTransaction(richTransaction.nodes, richTransaction.roots, Set.empty)
-        val tx = txNoHash.mapContractIdAndValue(absCidWithHash, _.mapContractId(absCidWithHash))
-        import richTransaction.{explicitDisclosure, implicitDisclosure}
+        val txNoHash = GenTransaction(richTransaction.nodes, richTransaction.roots, None)
+        val tx = txNoHash
+          .mapContractIdAndValue(absCidWithHash, _.mapContractId(absCidWithHash))
+          .mapNodeId(nodeIdWithHash)
+        val mappedExplicitDisclosure = richTransaction.explicitDisclosure.map {
+          case (nid, parties) => nodeIdWithHash(nid) -> parties
+        }
+        val mappedLocalImplicitDisclosure = richTransaction.localImplicitDisclosure.map {
+          case (nid, parties) => nodeIdWithHash(nid) -> parties
+        }
+        val mappedGlobalImplicitDisclosure = richTransaction.globalImplicitDisclosure.map {
+          case (k, v) => absCidWithHash(k) -> v
+        }
         // copies non-absolute-able node IDs, but IDs that don't match
         // get intersected away later
-        val globalizedImplicitDisclosure = richTransaction.implicitDisclosure mapKeys { nid =>
-          absCidWithHash(AbsoluteContractId(nid))
-        }
-        acs.addTransaction[L.ScenarioNodeId](
+        acs.addTransaction(
           time.toInstant,
           transactionId,
           workflowId,
           tx,
-          explicitDisclosure,
-          implicitDisclosure,
-          globalizedImplicitDisclosure) match {
+          mappedExplicitDisclosure,
+          mappedLocalImplicitDisclosure,
+          mappedGlobalImplicitDisclosure,
+          List.empty
+        ) match {
           case Right(newAcs) =>
-            val recordTx = tx.mapNodeId(nodeIdWithHash)
-            val recordDisclosure = explicitDisclosure.map {
-              case (nid, parties) => (nodeIdWithHash(nid), parties)
-            }
-
             ledger +=
               (
                 (
@@ -271,8 +273,8 @@ object ScenarioLoader {
                     workflowId,
                     time.toInstant,
                     time.toInstant,
-                    recordTx,
-                    recordDisclosure
+                    tx,
+                    mappedExplicitDisclosure
                   )))
             (newAcs, time, Some(txId))
           case Left(err) =>

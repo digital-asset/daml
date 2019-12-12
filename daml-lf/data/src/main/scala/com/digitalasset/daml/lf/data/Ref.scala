@@ -81,7 +81,7 @@ object Ref {
 
     @throws[IllegalArgumentException]
     final def assertFromString(s: String): T =
-      assert(fromString(s))
+      assertRight(fromString(s))
 
     def fromSegments(strings: Iterable[String]): Either[String, DottedName] = {
       val init: Either[String, BackStack[Name]] = Right(BackStack.empty)
@@ -98,14 +98,14 @@ object Ref {
 
     @throws[IllegalArgumentException]
     def assertFromSegments(s: Iterable[String]): DottedName =
-      assert(fromSegments(s))
+      assertRight(fromSegments(s))
 
     def fromNames(names: ImmArray[Name]): Either[String, DottedName] =
       Either.cond(names.nonEmpty, new DottedName(names), "No segments provided")
 
     @throws[IllegalArgumentException]
     def assertFromNames(names: ImmArray[Name]): DottedName =
-      assert(fromNames(names))
+      assertRight(fromNames(names))
 
     /** You better know what you're doing if you use this one -- specifically you need to comply
       * to the lexical specification embodied by `fromStrings`.
@@ -136,7 +136,7 @@ object Ref {
 
     @throws[IllegalArgumentException]
     final def assertFromString(s: String): T =
-      assert(fromString(s))
+      assertRight(fromString(s))
   }
 
   /* A fully-qualified identifier pointing to a definition in the
@@ -150,8 +150,8 @@ object Ref {
   type ModuleName = DottedName
   val ModuleName = DottedName
 
-  /** Party are non empty US-ASCII strings built with letters, digits, space, minus and,
-      underscore. We use them to represent [PackageId]s and [Party] literals. In this way, we avoid
+  /** Party identifiers are non-empty US-ASCII strings built from letters, digits, space, colon, minus and,
+      underscore. We use them to represent [Party] literals. In this way, we avoid
       empty identifiers, escaping problems, and other similar pitfalls.
     */
   val Party = ConcatenableMatchingStringModule(":-_ ".contains(_))

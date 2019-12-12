@@ -3,13 +3,14 @@
 
 package com.digitalasset.daml.lf.validation
 
-import com.digitalasset.daml.lf.data.ImmArray
+import com.digitalasset.daml.lf.data.{ImmArray, Numeric}
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.Util._
 import com.digitalasset.daml.lf.language.{LanguageVersion, LanguageMajorVersion => LMV}
 import com.digitalasset.daml.lf.validation.AlphaEquiv._
 import com.digitalasset.daml.lf.validation.Util._
+import com.digitalasset.daml.lf.validation.traversable.TypeTraversable
 
 import scala.annotation.tailrec
 
@@ -23,14 +24,17 @@ private[validation] object Typing {
   }
 
   private def kindOfBuiltin(bType: BuiltinType): Kind = bType match {
-    case BTInt64 | BTDecimal | BTText | BTTimestamp | BTParty | BTBool | BTDate | BTUnit => KStar
-    case BTList | BTUpdate | BTScenario | BTContractId | BTOptional | BTMap => KArrow(KStar, KStar)
-    case BTArrow => KArrow(KStar, KArrow(KStar, KStar))
+    case BTInt64 | BTText | BTTimestamp | BTParty | BTBool | BTDate | BTUnit | BTAny | BTTypeRep =>
+      KStar
+    case BTNumeric => KArrow(KNat, KStar)
+    case BTList | BTUpdate | BTScenario | BTContractId | BTOptional | BTTextMap =>
+      KArrow(KStar, KStar)
+    case BTArrow | BTGenMap => KArrow(KStar, KArrow(KStar, KStar))
   }
 
   private def typeOfPrimLit(lit: PrimLit): Type = lit match {
     case PLInt64(_) => TInt64
-    case PLDecimal(_) => TDecimal
+    case PLNumeric(s) => TNumeric(TNat(Numeric.scale(s)))
     case PLText(_) => TText
     case PLTimestamp(_) => TTimestamp
     case PLParty(_) => TParty
@@ -40,17 +44,30 @@ private[validation] object Typing {
   protected[validation] lazy val typeOfBuiltinFunction = {
     val alpha = TVar(Name.assertFromString("$alpha$"))
     val beta = TVar(Name.assertFromString("$beta$"))
+    val gamma = TVar(Name.assertFromString("$gamma$"))
     def tBinop(typ: Type): Type = typ ->: typ ->: typ
+    val tNumBinop = TForall(alpha.name -> KNat, tBinop(TNumeric(alpha)))
+    val tMultiNumBinop =
+      TForall(
+        alpha.name -> KNat,
+        TForall(
+          beta.name -> KNat,
+          TForall(gamma.name -> KNat, TNumeric(alpha) ->: TNumeric(beta) ->: TNumeric(gamma))))
+    val tNumConversion =
+      TForall(alpha.name -> KNat, TForall(beta.name -> KNat, TNumeric(alpha) ->: TNumeric(beta)))
     def tComparison(bType: BuiltinType): Type = TBuiltin(bType) ->: TBuiltin(bType) ->: TBool
+    val tNumComparison = TForall(alpha.name -> KNat, TNumeric(alpha) ->: TNumeric(alpha) ->: TBool)
 
     Map[BuiltinFunction, Type](
       BTrace -> TForall(alpha.name -> KStar, TText ->: alpha ->: alpha),
-      // Decimal arithmetic
-      BAddDecimal -> tBinop(TDecimal),
-      BSubDecimal -> tBinop(TDecimal),
-      BMulDecimal -> tBinop(TDecimal),
-      BDivDecimal -> tBinop(TDecimal),
-      BRoundDecimal -> (TInt64 ->: TDecimal ->: TDecimal),
+      // Numeric arithmetic
+      BAddNumeric -> tNumBinop,
+      BSubNumeric -> tNumBinop,
+      BMulNumeric -> tMultiNumBinop,
+      BDivNumeric -> tMultiNumBinop,
+      BRoundNumeric -> TForall(alpha.name -> KNat, TInt64 ->: TNumeric(alpha) ->: TNumeric(alpha)),
+      BCastNumeric -> tNumConversion,
+      BShiftNumeric -> tNumConversion,
       // Int64 arithmetic
       BAddInt64 -> tBinop(TInt64),
       BSubInt64 -> tBinop(TInt64),
@@ -59,8 +76,8 @@ private[validation] object Typing {
       BModInt64 -> tBinop(TInt64),
       BExpInt64 -> tBinop(TInt64),
       // Conversions
-      BInt64ToDecimal -> (TInt64 ->: TDecimal),
-      BDecimalToInt64 -> (TDecimal ->: TInt64),
+      BInt64ToNumeric -> TForall(alpha.name -> KNat, TInt64 ->: TNumeric(alpha)),
+      BNumericToInt64 -> TForall(alpha.name -> KNat, TNumeric(alpha) ->: TInt64),
       BDateToUnixDays -> (TDate ->: TInt64),
       BUnixDaysToDate -> (TInt64 ->: TDate),
       BTimestampToUnixMicroseconds -> (TTimestamp ->: TInt64),
@@ -79,41 +96,86 @@ private[validation] object Typing {
             beta.name -> KStar,
             (alpha ->: beta ->: beta) ->: beta ->: TList(alpha) ->: beta)),
       // Maps
-      BMapEmpty ->
+      BTextMapEmpty ->
         TForall(
           alpha.name -> KStar,
-          TMap(alpha)
+          TTextMap(alpha)
         ),
-      BMapInsert ->
+      BTextMapInsert ->
         TForall(
           alpha.name -> KStar,
-          TText ->: alpha ->: TMap(alpha) ->: TMap(alpha)
+          TText ->: alpha ->: TTextMap(alpha) ->: TTextMap(alpha)
         ),
-      BMapLookup ->
+      BTextMapLookup ->
         TForall(
           alpha.name -> KStar,
-          TText ->: TMap(alpha) ->: TOptional(alpha)
+          TText ->: TTextMap(alpha) ->: TOptional(alpha)
         ),
-      BMapDelete ->
+      BTextMapDelete ->
         TForall(
           alpha.name -> KStar,
-          TText ->: TMap(alpha) ->: TMap(alpha)
+          TText ->: TTextMap(alpha) ->: TTextMap(alpha)
         ),
-      BMapToList ->
+      BTextMapToList ->
         TForall(
           alpha.name -> KStar,
-          TMap(alpha) ->: TList(TTuple(ImmArray(keyFieldName -> TText, valueFieldName -> alpha)))
+          TTextMap(alpha) ->: TList(
+            TStruct(ImmArray(keyFieldName -> TText, valueFieldName -> alpha)))
         ),
-      BMapSize ->
+      BTextMapSize ->
         TForall(
           alpha.name -> KStar,
-          TMap(alpha) ->: TInt64
+          TTextMap(alpha) ->: TInt64
         ),
+      // GenMaps
+      BGenMapEmpty ->
+        TForall(alpha.name -> KStar, TForall(beta.name -> KStar, TGenMap(alpha, beta))),
+      BGenMapInsert ->
+        TForall(
+          alpha.name -> KStar,
+          TForall(
+            beta.name -> KStar,
+            alpha ->: beta ->: TGenMap(alpha, beta) ->: TGenMap(alpha, beta))),
+      BGenMapLookup ->
+        TForall(
+          alpha.name -> KStar,
+          TForall(
+            beta.name -> KStar,
+            alpha ->: TGenMap(alpha, beta) ->: TOptional(beta)
+          )),
+      BGenMapDelete ->
+        TForall(
+          alpha.name -> KStar,
+          TForall(
+            beta.name -> KStar,
+            alpha ->: TGenMap(alpha, beta) ->: TGenMap(alpha, beta)
+          )),
+      BGenMapKeys ->
+        TForall(
+          alpha.name -> KStar,
+          TForall(
+            beta.name -> KStar,
+            TGenMap(alpha, beta) ->: TList(alpha)
+          )),
+      BGenMapValues ->
+        TForall(
+          alpha.name -> KStar,
+          TForall(
+            beta.name -> KStar,
+            TGenMap(alpha, beta) ->: TList(beta)
+          )),
+      BGenMapSize ->
+        TForall(
+          alpha.name -> KStar,
+          TForall(
+            beta.name -> KStar,
+            TGenMap(alpha, beta) ->: TInt64
+          )),
       // Text functions
       BExplodeText -> (TText ->: TList(TText)),
       BAppendText -> tBinop(TText),
       BToTextInt64 -> (TInt64 ->: TText),
-      BToTextDecimal -> (TDecimal ->: TText),
+      BToTextNumeric -> TForall(alpha.name -> KNat, TNumeric(alpha) ->: TText),
       BToTextText -> (TText ->: TText),
       BToTextTimestamp -> (TTimestamp ->: TText),
       BToTextParty -> (TParty ->: TText),
@@ -123,52 +185,56 @@ private[validation] object Typing {
       BToTextCodePoints -> (TList(TInt64) ->: TText),
       BFromTextParty -> (TText ->: TOptional(TParty)),
       BFromTextInt64 -> (TText ->: TOptional(TInt64)),
-      BFromTextDecimal -> (TText ->: TOptional(TDecimal)),
+      BFromTextNumeric -> TForall(alpha.name -> KNat, TText ->: TOptional(TNumeric(alpha))),
       BFromTextCodePoints -> (TText ->: TList(TInt64)),
       BError -> TForall(alpha.name -> KStar, TText ->: alpha),
       // ComparisonsA
       BLessInt64 -> tComparison(BTInt64),
-      BLessDecimal -> tComparison(BTDecimal),
+      BLessNumeric -> tNumComparison,
       BLessText -> tComparison(BTText),
       BLessTimestamp -> tComparison(BTTimestamp),
       BLessDate -> tComparison(BTDate),
       BLessParty -> tComparison(BTParty),
       BLessEqInt64 -> tComparison(BTInt64),
-      BLessEqDecimal -> tComparison(BTDecimal),
+      BLessEqNumeric -> tNumComparison,
       BLessEqText -> tComparison(BTText),
       BLessEqTimestamp -> tComparison(BTTimestamp),
       BLessEqDate -> tComparison(BTDate),
       BLessEqParty -> tComparison(BTParty),
       BGreaterInt64 -> tComparison(BTInt64),
-      BGreaterDecimal -> tComparison(BTDecimal),
+      BGreaterNumeric -> tNumComparison,
       BGreaterText -> tComparison(BTText),
       BGreaterTimestamp -> tComparison(BTTimestamp),
       BGreaterDate -> tComparison(BTDate),
       BGreaterParty -> tComparison(BTParty),
       BGreaterEqInt64 -> tComparison(BTInt64),
-      BGreaterEqDecimal -> tComparison(BTDecimal),
+      BGreaterEqNumeric -> tNumComparison,
       BGreaterEqText -> tComparison(BTText),
       BGreaterEqTimestamp -> tComparison(BTTimestamp),
       BGreaterEqDate -> tComparison(BTDate),
       BGreaterEqParty -> tComparison(BTParty),
       BImplodeText -> (TList(TText) ->: TText),
-      BEqualInt64 -> tComparison(BTInt64),
-      BEqualDecimal -> tComparison(BTDecimal),
-      BEqualText -> tComparison(BTText),
-      BEqualTimestamp -> tComparison(BTTimestamp),
-      BEqualDate -> tComparison(BTDate),
-      BEqualParty -> tComparison(BTParty),
-      BEqualBool -> tComparison(BTBool),
+      BEqualNumeric -> tNumComparison,
       BEqualList ->
         TForall(
           alpha.name -> KStar,
           (alpha ->: alpha ->: TBool) ->: TList(alpha) ->: TList(alpha) ->: TBool),
       BEqualContractId ->
         TForall(alpha.name -> KStar, TContractId(alpha) ->: TContractId(alpha) ->: TBool),
+      BEqual -> TForall(alpha.name -> KStar, alpha ->: alpha ->: TBool),
       BCoerceContractId ->
         TForall(
           alpha.name -> KStar,
           TForall(beta.name -> KStar, TContractId(alpha) ->: TContractId(beta))),
+      // Unstable text functions
+      BTextToUpper -> (TText ->: TText),
+      BTextToLower -> (TText ->: TText),
+      BTextSlice -> (TInt64 ->: TInt64 ->: TText ->: TText),
+      BTextSliceIndex -> (TText ->: TText ->: TOptional(TInt64)),
+      BTextContainsOnly -> (TText ->: TText ->: TBool),
+      BTextReplicate -> (TInt64 ->: TText ->: TText),
+      BTextSplitOn -> (TText ->: TText ->: TList(TText)),
+      BTextIntercalate -> (TText ->: TList(TText) ->: TText),
     )
   }
 
@@ -337,7 +403,7 @@ private[validation] object Typing {
         val DDataType(_, tparams, dataCons) = lookupDataType(ctx, tyCon)
         if (tparams.length != tArgs.length) throw ETypeConAppWrongArity(ctx, tparams.length, app)
         (tArgs.iterator zip tparams.values).foreach((checkType _).tupled)
-        TypeSubst((tparams.keys zip tArgs.iterator).toMap).apply(dataCons)
+        TypeSubst.substitute((tparams.keys zip tArgs.iterator).toMap, dataCons)
     }
 
     def checkType(typ: Type, kind: Kind): Unit = {
@@ -352,11 +418,13 @@ private[validation] object Typing {
     def kindOf(typ0: Type): Kind = typ0 match {
       case TVar(v) =>
         lookupTypeVar(v)
+      case TNat(_) =>
+        KNat
       case TTyCon(tycon) =>
         kindOfDataType(lookupDataType(ctx, tycon))
       case TApp(tFun, tArg) =>
         kindOf(tFun) match {
-          case KStar => throw EExpectedHigherKind(ctx, KStar)
+          case KStar | KNat => throw EExpectedHigherKind(ctx, KStar)
           case KArrow(argKind, resKind) =>
             checkType(tArg, argKind)
             resKind
@@ -366,7 +434,7 @@ private[validation] object Typing {
       case TForall((v, k), b) =>
         introTypeVar(v, k).checkType(b, KStar)
         KStar
-      case TTuple(recordType) =>
+      case TStruct(recordType) =>
         checkRecordType(recordType)
         KStar
     }
@@ -421,27 +489,27 @@ private[validation] object Typing {
           throw EExpectedRecordType(ctx, typ0)
       }
 
-    private def typeOfTupleCon(fields: ImmArray[(FieldName, Expr)]): Type = {
+    private def typeOfStructCon(fields: ImmArray[(FieldName, Expr)]): Type = {
       checkUniq[FieldName](fields.keys, EDuplicateField(ctx, _))
-      TTuple(fields.transform { (_, x) =>
+      TStruct(fields.transform { (_, x) =>
         typeOf(x)
       })
     }
 
-    private def typeOfTupleProj(field: FieldName, expr: Expr): Type = typeOf(expr) match {
-      case TTuple(tupleType) =>
-        tupleType.lookup(field, EUnknownField(ctx, field))
+    private def typeOfStructProj(field: FieldName, expr: Expr): Type = typeOf(expr) match {
+      case TStruct(structType) =>
+        structType.lookup(field, EUnknownField(ctx, field))
       case typ =>
-        throw EExpectedTupleType(ctx, typ)
+        throw EExpectedStructType(ctx, typ)
     }
 
-    private def typeOfTupleUpd(field: FieldName, tuple: Expr, update: Expr): Type =
-      typeOf(tuple) match {
-        case typ @ TTuple(tupleType) =>
-          checkExpr(update, tupleType.lookup(field, EUnknownField(ctx, field)))
+    private def typeOfStructUpd(field: FieldName, struct: Expr, update: Expr): Type =
+      typeOf(struct) match {
+        case typ @ TStruct(structType) =>
+          checkExpr(update, structType.lookup(field, EUnknownField(ctx, field)))
           typ
         case typ =>
-          throw EExpectedTupleType(ctx, typ)
+          throw EExpectedStructType(ctx, typ)
       }
 
     private def typeOfTmApp(fun: Expr, arg: Expr): Type = typeOf(fun) match {
@@ -456,7 +524,7 @@ private[validation] object Typing {
       typeOf(expr) match {
         case TForall((v, k), body) =>
           checkType(typ, k)
-          TypeSubst(v -> typ)(body)
+          TypeSubst.substitute(Map(v -> typ), body)
         case typ0 =>
           throw EExpectedUniversalType(ctx, typ0)
       }
@@ -474,12 +542,13 @@ private[validation] object Typing {
         val DDataType(_, tparams, dataCons) = lookupDataType(ctx, patnTCon)
         dataCons match {
           case DataVariant(variantCons) =>
-            val conArgType = variantCons.lookup(con, EUnknownVariantCon(ctx, con))
+            val conArgType0 = variantCons.lookup(con, EUnknownVariantCon(ctx, con))
             scrutType match {
               case TTyConApp(scrutTCon, scrutTArgs) =>
                 if (scrutTCon != patnTCon) throw ETypeConMismatch(ctx, patnTCon, scrutTCon)
-                val subst = TypeSubst((tparams.map(_._1) zip scrutTArgs).toMap)
-                introExprVar(varName, subst(conArgType))
+                val conArgType =
+                  TypeSubst.substitute((tparams.map(_._1) zip scrutTArgs).toMap, conArgType0)
+                introExprVar(varName, conArgType)
               case _ =>
                 throw EExpectedDataType(ctx, scrutType)
             }
@@ -664,7 +733,7 @@ private[validation] object Typing {
         checkRetrieveByKey(retrieveByKey)
         // fetches return the contract id and the contract itself
         TUpdate(
-          TTuple(
+          TStruct(
             ImmArray(
               (contractIdFieldName, TContractId(TTyCon(retrieveByKey.templateId))),
               (contractFieldName, TTyCon(retrieveByKey.templateId)))))
@@ -709,6 +778,21 @@ private[validation] object Typing {
         checkExpr(exp, TScenario(typ))
     }
 
+    // we check that typ contains neither variables nor quantifiers
+    private def checkGroundType_(typ: Type): Unit = {
+      typ match {
+        case TVar(_) | TForall(_, _) =>
+          throw EExpectedAnyType(ctx, typ)
+        case _ =>
+          TypeTraversable(typ).foreach(checkGroundType_)
+      }
+    }
+
+    private def checkGroundType(typ: Type): Unit = {
+      checkGroundType_(typ)
+      checkType(typ, KStar)
+    }
+
     def typeOf(expr0: Expr): Type = expr0 match {
       case EVar(name) =>
         lookupExpVar(name)
@@ -733,12 +817,12 @@ private[validation] object Typing {
       case EEnumCon(tyCon, constructor) =>
         checkEnumCon(tyCon, constructor)
         TTyCon(tyCon)
-      case ETupleCon(fields) =>
-        typeOfTupleCon(fields)
-      case ETupleProj(field, tuple) =>
-        typeOfTupleProj(field, tuple)
-      case ETupleUpd(field, tuple, update) =>
-        typeOfTupleUpd(field, tuple, update)
+      case EStructCon(fields) =>
+        typeOfStructCon(fields)
+      case EStructProj(field, struct) =>
+        typeOfStructProj(field, struct)
+      case EStructUpd(field, struct, update) =>
+        typeOfStructUpd(field, struct, update)
       case EApp(fun, arg) =>
         typeOfTmApp(fun, arg)
       case ETyApp(expr, typ) =>
@@ -772,6 +856,17 @@ private[validation] object Typing {
         checkType(typ, KStar)
         val _ = checkExpr(body, typ)
         TOptional(typ)
+      case EToAny(typ, body) =>
+        checkGroundType(typ)
+        checkExpr(body, typ)
+        TAny
+      case EFromAny(typ, body) =>
+        checkGroundType(typ)
+        checkExpr(body, TAny)
+        TOptional(typ)
+      case ETypeRep(typ) =>
+        checkGroundType(typ)
+        TTypeRep
     }
 
     def checkExpr(expr: Expr, typ: Type): Type = {
@@ -783,16 +878,6 @@ private[validation] object Typing {
   }
 
   /* Utils */
-
-  private val TInt64 = TBuiltin(BTInt64)
-  private val TDecimal = TBuiltin(BTDecimal)
-  private val TText = TBuiltin(BTText)
-  private val TTimestamp = TBuiltin(BTTimestamp)
-  private val TParty = TBuiltin(BTParty)
-  private val TParties = TList(TParty)
-  private val TBool = TBuiltin(BTBool)
-  private val TUnit = TBuiltin(BTUnit)
-  private val TDate = TBuiltin(BTDate)
 
   private implicit final class TypeOp(val rightType: Type) extends AnyVal {
     def ->:(leftType: Type) = TFun(leftType, rightType)

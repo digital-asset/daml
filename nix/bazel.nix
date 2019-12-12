@@ -6,20 +6,23 @@
 }:
 let shared = rec {
   inherit (pkgs)
+    coreutils
     curl
     docker
     gawk
     gnutar
+    grpc
+    grpcurl
     gzip
     hlint
     imagemagick
     jdk8
     jq
-    libffi
+    netcat-gnu
     nodejs
     patchelf
-    postgresql
-    protobuf3_5
+    postgresql_9_6
+    protobuf3_8
     python3
     zip
     ;
@@ -33,14 +36,10 @@ let shared = rec {
     postFixup = ''touch $out/share/go/ROOT'';
   });
 
-  # the GHC version we use plus custom overrides to sync with the
-  # stackage version as specified in stack.yaml. Prefer to use this for
-  # haskell binaries to keep the dev-env closure size as small
-  # as possible.
-  ghc = import ./ghc.nix { inherit pkgs; };
+  ghc = pkgs.haskell.packages.ghc865;
 
   # GHC configured for static linking only.
-  ghcStatic = ghc.ghc.override { enableShared = false; };
+  ghcStatic = (import ./ghc.nix { inherit pkgs; }).ghc.override { enableShared = false; };
 
 
   # Java 8 development
@@ -48,14 +47,9 @@ let shared = rec {
     exec ${pkgs.maven}/bin/mvn ''${MVN_SETTINGS:+-s "$MVN_SETTINGS"} "$@"
   '';
 
-  # The sass derivation in nixos-18.09 is broken, so we add our own
-  # created with bundix.
-  sass = pkgs.callPackage ./overrides/sass {};
+  sass = pkgs.sass;
 
-  sphinx183 = import ./tools/sphinx183 {
-    inherit pkgs;
-    pythonPackages = pkgs.python37Packages;
-  };
+  sphinx183 = pkgs.python3Packages.sphinx;
 
   # Custom combination of latex packages for our latex needs
   texlive = pkgs.texlive.combine {

@@ -1,6 +1,7 @@
 -- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE CPP #-}
 
 module DA.Daml.Doc.Tests(mkTestTree)
   where
@@ -15,13 +16,17 @@ import DA.Daml.Doc.Types
 import DA.Daml.Doc.Transform
 import DA.Daml.Doc.Anchor
 
+import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
 import Development.IDE.Types.Options (IdeReportProgress(..))
+import Development.IDE.LSP.Protocol
 
-import           Control.Monad.Except
+import Control.Monad
+import           Control.Monad.Trans.Maybe
 import qualified Data.Aeson.Encode.Pretty as AP
 import           Data.List.Extra
 import qualified Data.Text          as T
+import qualified Data.Text.IO as T
 import qualified Data.Text.Extended as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Encoding as TL
@@ -194,8 +199,8 @@ unitTests =
                    ("Expected a class description and a function description, got " <> show md)
                    (isJust $ do cls <- getSingle $ md_classes md
                                 check (Just "Class description" == cl_descr cls)
-                                member <- getSingle $ cl_functions cls
-                                check (Just "Member description" == fct_descr member)))
+                                member <- getSingle $ cl_methods cls
+                                check (Just "Member description" == cm_descr member)))
          ]
 
 
@@ -209,7 +214,7 @@ unitTests =
         check False = Nothing
 
         td_choicesWithoutArchive :: TemplateDoc -> [ChoiceDoc]
-        td_choicesWithoutArchive = filter (\ch -> cd_name ch /= "External:Archive") . td_choices
+        td_choicesWithoutArchive = filter (\ch -> cd_name ch /= "Archive") . td_choices
 
 
 testModule :: String
@@ -226,7 +231,6 @@ emptyDocs name =
         md_anchor = Just (moduleAnchor md_name)
         md_descr = Nothing
         md_templates = []
-        md_templateInstances = []
         md_adts = []
         md_functions = []
         md_classes = []
@@ -257,17 +261,22 @@ runDamldoc testfile importPathM = do
                   optImportPath opts
           }
 
+    let diagLogger = \case
+            EventFileDiagnostics fp diags -> T.hPutStrLn stderr $ showDiagnostics $ map (toNormalizedFilePath fp,) diags
+            _ -> pure ()
+
     -- run the doc generator on that file
-    mbResult <- runExceptT $ extractDocs
+    mbResult <- runMaybeT $ extractDocs
         defaultExtractOptions
+        diagLogger
         (toCompileOpts opts' (IdeReportProgress False))
         [toNormalizedFilePath testfile]
 
     case mbResult of
-      Left err ->
-        assertFailure $ unlines ["Parse error(s) for test file " <> testfile, show err]
+      Nothing ->
+        assertFailure $ unlines ["Parse error(s) for test file " <> testfile]
 
-      Right docs -> do
+      Just docs -> do
           let docs' = applyTransform [] docs
                 -- apply transforms to get instance data
               name = md_name (head docs)
@@ -302,4 +311,4 @@ fileTest damlFile = do
             ".json" -> AP.encodePretty' jsonConf doc
             other -> error $ "Unsupported file extension " <> other
   where
-    diff ref new = ["diff", "--strip-trailing-cr", ref, new]
+    diff ref new = [POSIX_DIFF, "--strip-trailing-cr", ref, new]

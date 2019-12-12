@@ -8,8 +8,7 @@ import java.util
 import java.util.{Collections, Optional}
 
 import com.daml.ledger.javaapi.data
-import com.daml.ledger.testkit.services.TransactionServiceImpl
-import com.daml.ledger.testkit.services.TransactionServiceImpl.LedgerItem
+import com.daml.ledger.rxjava.grpc.helpers.TransactionsServiceImpl.LedgerItem
 import com.digitalasset.ledger.api.v1.event.Event.Event.{Archived, Created}
 import com.digitalasset.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event, ExercisedEvent}
 import com.digitalasset.ledger.api.v1.transaction.TreeEvent.Kind.Exercised
@@ -143,18 +142,18 @@ object TransactionGenerator {
       (elementsSize, newHeight) <- splitSizeAndHeight(height)
       elements <- Gen.listOfN(elementsSize, valueGen(newHeight))
       (scalaElements, javaElements) = elements.unzip
-    } yield (Sum.List(value.List(scalaElements)), new data.DamlList(javaElements.asJava))
+    } yield (Sum.List(value.List(scalaElements)), data.DamlList.of(javaElements.asJava))
 
   val int64ValueGen: Gen[(Sum.Int64, data.Int64)] = Arbitrary.arbLong.arbitrary.map { int64 =>
     (Sum.Int64(int64), new data.Int64(int64))
   }
 
-  val decimalValueGen: Gen[(Sum.Decimal, data.Decimal)] = for {
+  val decimalValueGen: Gen[(Sum.Numeric, data.Numeric)] = for {
     sign <- Gen.pick(1, List("", "+", "-"))
     leading <- Gen.choose(1, 9)
     decimals <- Gen.listOfN(37, Gen.choose(0, 9))
     text = s"${sign.head}$leading${decimals.take(27).mkString}.${decimals.drop(27).mkString}"
-  } yield (Sum.Decimal(text), new data.Decimal(new java.math.BigDecimal(text)))
+  } yield (Sum.Numeric(text), new data.Numeric(new java.math.BigDecimal(text)))
 
   val textValueGen: Gen[(Sum.Text, data.Text)] = Arbitrary.arbString.arbitrary.map { text =>
     (Sum.Text(text), new data.Text(text))
@@ -251,7 +250,7 @@ object TransactionGenerator {
           actingParties,
           consuming,
           witnessParties,
-          Nil, //TODO DEL-6007
+          Nil,
           Some(scalaExerciseResult)
         )),
       new data.ExercisedEvent(
@@ -264,7 +263,6 @@ object TransactionGenerator {
         actingParties.asJava,
         consuming,
         Collections.emptyList(),
-        //TODO DEL-6007
         javaExerciseResult
       )
     )
@@ -306,8 +304,8 @@ object TransactionGenerator {
         commandId,
         workflowId,
         javaTimestamp,
-        Collections.emptyMap(), //TODO DEL-6007
-        Collections.emptyList(), //TODO DEL-6007
+        Collections.emptyMap(),
+        Collections.emptyList(),
         offset)
     )
 
@@ -321,7 +319,7 @@ object TransactionGenerator {
     (arbitraryLedgerContent, _) <- ledgerContentTreeGen
     (queriedLedgerContent, queriedTransaction) <- transactionTreeGen.suchThat(_._1.events.nonEmpty)
     ledgerContent = arbitraryLedgerContent :+ queriedLedgerContent
-    eventIds = queriedLedgerContent.events.map(TransactionServiceImpl.eventId)
+    eventIds = queriedLedgerContent.events.map(TransactionsServiceImpl.eventId)
     eventIdList <- Gen.pick(1, eventIds)
     eventId = eventIdList.head
   } yield (ledgerContent, eventId, queriedTransaction)

@@ -6,15 +6,14 @@ package com.digitalasset.platform
 import java.io.File
 import java.nio.file.Path
 import java.time.Duration
-
 import ch.qos.logback.classic.Level
 import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.ledger.api.tls.TlsConfiguration
+import com.digitalasset.ledger.api.auth.AuthService
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.config.{CommandConfiguration, SandboxConfig}
-import com.digitalasset.platform.services.time.{TimeModel, TimeProviderType}
-
+import com.digitalasset.platform.services.time.TimeProviderType
+import com.daml.ledger.participant.state.v1.TimeModel
 import scala.concurrent.duration.{FiniteDuration, _}
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.platform.apitesting.TestParties
@@ -43,7 +42,7 @@ object PlatformApplications {
       commandConfiguration: CommandConfiguration = SandboxConfig.defaultCommandConfig,
       uniqueCommandIdentifiers: Boolean = true,
       uniquePartyIdentifiers: Boolean = true,
-      remoteApiEndpoint: Option[RemoteApiEndpoint] = None) {
+      authService: Option[AuthService] = None) {
     require(
       Duration.ofSeconds(timeModel.minTtl.getSeconds) == timeModel.minTtl &&
         Duration.ofSeconds(timeModel.maxTtl.getSeconds) == timeModel.maxTtl,
@@ -79,26 +78,13 @@ object PlatformApplications {
 
     def withCommandConfiguration(cc: CommandConfiguration) = copy(commandConfiguration = cc)
 
-    def withRemoteApiEndpoint(endpoint: RemoteApiEndpoint) =
-      copy(remoteApiEndpoint = Some(endpoint))
-  }
-
-  final case class RemoteApiEndpoint(
-      host: String,
-      port: Integer,
-      tlsConfig: Option[TlsConfiguration]) {
-    def withHost(host: String) = copy(host = host)
-    def withPort(port: Int) = copy(port = port)
-    def withTlsConfig(tlsConfig: Option[TlsConfiguration]) = copy(tlsConfig = tlsConfig)
-  }
-
-  object RemoteApiEndpoint {
-    def default: RemoteApiEndpoint = RemoteApiEndpoint("localhost", 6865, None)
+    def withAuthService(authService: AuthService) =
+      copy(authService = Some(authService))
   }
 
   object Config {
     val defaultLedgerId: LedgerId = LedgerId(Ref.LedgerString.assertFromString("ledger-server"))
-    val defaultDarFile = new File(rlocation("ledger/test-common/Test.dar"))
+    val defaultDarFile = new File(rlocation("ledger/test-common/Test-stable.dar"))
     val defaultParties = TestParties.AllParties
     val defaultTimeProviderType = TimeProviderType.Static
 
@@ -132,7 +118,8 @@ object PlatformApplications {
       maxInboundMessageSize = SandboxConfig.DefaultMaxInboundMessageSize,
       jdbcUrl = jdbcUrl,
       eagerPackageLoading = false,
-      logLevel = Level.INFO
+      logLevel = Level.INFO,
+      authService = config.authService,
     )
   }
 }

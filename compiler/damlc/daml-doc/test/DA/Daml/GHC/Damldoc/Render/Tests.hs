@@ -29,36 +29,35 @@ mkTestTree = do
 
 cases :: [(String, ModuleDoc)]
 cases = [ ("Empty module",
-           ModuleDoc Nothing "Empty" Nothing [] [] [] [] [] [])
+           ModuleDoc Nothing "Empty" Nothing [] [] [] [] [])
         , ("Type def with argument",
-           ModuleDoc (Just "module-typedef") "Typedef" Nothing [] []
+           ModuleDoc (Just "module-typedef") "Typedef" Nothing []
             [TypeSynDoc (Just "type-typedef-t") "T" (Just "T descr") ["a"] (TypeApp Nothing "TT" [TypeApp Nothing "TTT" []]) Nothing]
             [] [] []
           )
         , ("Two types",
-           ModuleDoc (Just "module-twotypes") "TwoTypes" Nothing [] []
+           ModuleDoc (Just "module-twotypes") "TwoTypes" Nothing []
             [ TypeSynDoc (Just "type-twotypes-t") "T" (Just "T descr") ["a"] (TypeApp Nothing "TT" []) Nothing
             , ADTDoc (Just "data-twotypes-d") "D" Nothing ["d"] [PrefixC (Just "constr-twotypes-d") "D" (Just "D descr") [TypeApp Nothing "a" []]] Nothing
             ]
             [] [] []
           )
         , ("Documented function",
-           ModuleDoc (Just "module-function1") "Function1" Nothing [] [] []
+           ModuleDoc (Just "module-function1") "Function1" Nothing [] []
             [FunctionDoc (Just "function-function1-f") "f" Nothing (TypeApp Nothing "TheType" []) (Just "the doc")] [] []
           )
         , ("Undocumented function",
-           ModuleDoc (Just "module-function3") "Function3" Nothing [] [] []
+           ModuleDoc (Just "module-function3") "Function3" Nothing [] []
             [FunctionDoc (Just "function-function3-f") "f" Nothing (TypeApp Nothing "TheType" []) Nothing] [] []
           )
         , ("Module with only a type class",
-           ModuleDoc (Just "module-onlyclass") "OnlyClass" Nothing [] [] [] []
-            [ClassDoc (Just "class-onlyclass-c") "C" Nothing Nothing ["a"] [FunctionDoc (Just "function-onlyclass-member") "member" Nothing (TypeApp Nothing "a" []) Nothing] Nothing] [])
+           ModuleDoc (Just "module-onlyclass") "OnlyClass" Nothing [] [] []
+            [ClassDoc (Just "class-onlyclass-c") "C" Nothing Nothing ["a"] [ClassMethodDoc (Just "function-onlyclass-member") "member" False Nothing Nothing (TypeApp Nothing "a" []) Nothing] Nothing] [])
         , ("Multiline field description",
            ModuleDoc
              (Just "module-multilinefield")
              "MultiLineField"
              Nothing
-             []
              []
              [ADTDoc
                 (Just "data-multilinefield-d")
@@ -74,7 +73,7 @@ cases = [ ("Empty module",
         , ("Functions with context",
            ModuleDoc
             (Just "module-functionctx") "FunctionCtx"
-            Nothing [] [] []
+            Nothing [] []
             [ FunctionDoc (Just "function-g") "g"
                 (Just $ TypeTuple [TypeApp Nothing "Eq" [TypeApp Nothing "t" []]])
                 (TypeFun [TypeApp Nothing "t" [], TypeApp Nothing "Bool" []])
@@ -90,7 +89,7 @@ expectRst =
             [ ".. _type-typedef-t:"
             , ""
             , "**type** `T <type-typedef-t_>`_ a"
-            , "  = TT TTT"
+            , "  \\= TT TTT"
             , "  "
             , "  T descr"
             ] []
@@ -99,7 +98,7 @@ expectRst =
             [ ".. _type-twotypes-t:"
             , ""
             , "**type** `T <type-twotypes-t_>`_ a"
-            , "  = TT"
+            , "  \\= TT"
             , "  "
             , "  T descr"
             , ""
@@ -118,7 +117,7 @@ expectRst =
             [ ".. _function-function1-f:"
             , ""
             , "`f <function-function1-f_>`_"
-            , "  : TheType"
+            , "  \\: TheType"
             , "  "
             , "  the doc"
             ]
@@ -126,7 +125,7 @@ expectRst =
             [ ".. _function-function3-f:"
             , ""
             , "`f <function-function3-f_>`_"
-            , "  : TheType"
+            , "  \\: TheType"
             ]
         , mkExpectRst "module-onlyclass" "OnlyClass" ""
             []
@@ -137,7 +136,7 @@ expectRst =
             , "  .. _function-onlyclass-member:"
             , "  "
             , "  `member <function-onlyclass-member_>`_"
-            , "    : a"
+            , "    \\: a"
             ]
             []
             []
@@ -168,7 +167,7 @@ expectRst =
             [ ".. _function-g:"
             , ""
             , "`g <function-g_>`_"
-            , "  : Eq t => t -> Bool"
+            , "  \\: Eq t \\=\\> t \\-\\> Bool"
             , "  "
             , "  function with context"
             ]

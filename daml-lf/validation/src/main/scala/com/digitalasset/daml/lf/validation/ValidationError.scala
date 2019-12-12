@@ -108,8 +108,14 @@ case object URUpdate extends UnserializabilityReason {
 case object URScenario extends UnserializabilityReason {
   def pretty: String = "Scenario"
 }
-case object URTuple extends UnserializabilityReason {
+case object URStruct extends UnserializabilityReason {
   def pretty: String = "structural record"
+}
+case object URNumeric extends UnserializabilityReason {
+  def pretty: String = "unapplied Numeric"
+}
+case object URNat extends UnserializabilityReason {
+  def pretty: String = "Nat"
 }
 case object URList extends UnserializabilityReason {
   def pretty: String = "unapplied List"
@@ -117,8 +123,11 @@ case object URList extends UnserializabilityReason {
 case object UROptional extends UnserializabilityReason {
   def pretty: String = "unapplied Option"
 }
-case object URMap extends UnserializabilityReason {
-  def pretty: String = "unapplied Map"
+case object URTextMap extends UnserializabilityReason {
+  def pretty: String = "unapplied TextMap"
+}
+case object URGenMap extends UnserializabilityReason {
+  def pretty: String = "unapplied GenMap"
 }
 case object URContractId extends UnserializabilityReason {
   def pretty: String = "ContractId not applied to a template type"
@@ -131,6 +140,12 @@ final case class URHigherKinded(varName: TypeVarName, kind: Kind) extends Unseri
 }
 case object URUninhabitatedType extends UnserializabilityReason {
   def pretty: String = "variant type without constructors"
+}
+case object URAny extends UnserializabilityReason {
+  def pretty: String = "Any"
+}
+case object URTypeRep extends UnserializabilityReason {
+  def pretty: String = "TypeRep"
 }
 
 abstract class ValidationError extends java.lang.RuntimeException with Product with Serializable {
@@ -203,8 +218,8 @@ final case class EUnknownEnumCon(context: Context, conName: EnumConName) extends
 final case class EUnknownField(context: Context, fieldName: FieldName) extends ValidationError {
   protected def prettyInternal: String = s"unknown field: $fieldName"
 }
-final case class EExpectedTupleType(context: Context, typ: Type) extends ValidationError {
-  protected def prettyInternal: String = s"expected tuple type, but found: ${typ.pretty}"
+final case class EExpectedStructType(context: Context, typ: Type) extends ValidationError {
+  protected def prettyInternal: String = s"expected struct type, but found: ${typ.pretty}"
 }
 final case class EKindMismatch(context: Context, foundKind: Kind, expectedKind: Kind)
     extends ValidationError {
@@ -223,6 +238,10 @@ final case class ETypeMismatch(
     s"""type mismatch:
        | * expected type: ${expectedType.pretty}
        | * found type: ${foundType.pretty}""".stripMargin
+}
+final case class EExpectedAnyType(context: Context, typ: Type) extends ValidationError {
+  protected def prettyInternal: String =
+    s"expected a type containing neither type variables nor quantifiers, but found: ${typ.pretty}"
 }
 final case class EExpectedHigherKind(context: Context, kind: Kind) extends ValidationError {
   protected def prettyInternal: String = s"expected higher kinded type, but found: ${kind.pretty}"

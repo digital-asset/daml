@@ -19,6 +19,8 @@ import com.digitalasset.daml.lf.value.Value.{
 import com.digitalasset.daml.lf.value.ValueVersions
 import org.scalatest.{Matchers, WordSpec}
 
+import scala.collection.immutable.TreeMap
+
 class ProjectionsSpec extends WordSpec with Matchers {
 
   def makeCreateNode(cid: ContractId, signatories: Set[Party], stakeholders: Set[Party]) =
@@ -68,7 +70,7 @@ class ProjectionsSpec extends WordSpec with Matchers {
   "computePerPartyProjectionRoots" should {
 
     "yield no roots with empty transaction" in {
-      val emptyTransaction: Transaction = GenTransaction(Map.empty, ImmArray.empty, Set.empty)
+      val emptyTransaction: Transaction = GenTransaction(TreeMap.empty, ImmArray.empty, None)
       project(emptyTransaction) shouldBe List.empty
     }
 
@@ -79,7 +81,7 @@ class ProjectionsSpec extends WordSpec with Matchers {
         Set(Party.assertFromString("Alice")),
         Set(Party.assertFromString("Alice"), Party.assertFromString("Bob")))
       val tx =
-        GenTransaction(nodes = Map(nid -> root), roots = ImmArray(nid), usedPackages = Set.empty)
+        GenTransaction(nodes = TreeMap(nid -> root), roots = ImmArray(nid), optUsedPackages = None)
 
       project(tx) shouldBe List(
         ProjectionRoots(Party.assertFromString("Alice"), BackStack(nid)),
@@ -119,9 +121,9 @@ class ProjectionsSpec extends WordSpec with Matchers {
 
       val tx =
         GenTransaction(
-          nodes = Map(nid1 -> exe, nid2 -> create, nid3 -> bobCreate, nid4 -> charlieCreate),
+          nodes = TreeMap(nid1 -> exe, nid2 -> create, nid3 -> bobCreate, nid4 -> charlieCreate),
           roots = ImmArray(nid1, nid3, nid4),
-          usedPackages = Set.empty)
+          optUsedPackages = None)
 
       project(tx) shouldBe List(
         // Alice should see the exercise as the root.

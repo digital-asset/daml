@@ -8,6 +8,7 @@ final case class LanguageVersion(major: LanguageMajorVersion, minor: LanguageMin
 }
 
 object LanguageVersion {
+
   type Major = LanguageMajorVersion
   val Major = LanguageMajorVersion
 
@@ -23,10 +24,10 @@ object LanguageVersion {
   private[lf] def apply(major: LanguageMajorVersion, minor: String): LanguageVersion =
     apply(major, Minor fromProtoIdentifier minor)
 
-  def default: LanguageVersion =
+  val default: LanguageVersion =
     defaultV1
 
-  def ordering: Ordering[LanguageVersion] =
+  final val ordering: Ordering[LanguageVersion] =
     (left, right) =>
       (left, right) match {
         case (LanguageVersion(leftMajor, leftMinor), LanguageVersion(rightMajor, rightMinor))
@@ -37,7 +38,7 @@ object LanguageVersion {
     }
   object Features {
 
-    private val List(v1_0, v1_1, v1_2, v1_3, v1_4, v1_5, v1_6, v1_dev) =
+    private val List(v1_0, v1_1, v1_2, v1_3, v1_4, v1_5, v1_6, v1_7, v1_dev) =
       Major.V1.supportedMinorVersions.map(LanguageVersion(Major.V1, _))
 
     val default = v1_0
@@ -47,14 +48,26 @@ object LanguageVersion {
     val partyTextConversions = v1_2
     val shaText = v1_2
     val contractKeys = v1_3
-    val map = v1_3
+    val textMap = v1_3
     val complexContactKeys = v1_4
     val optionalExerciseActor = v1_5
     val numberParsing = v1_5
     val coerceContractId = v1_5
     val textPacking = v1_6
     val enum = v1_6
-    val internedIds = v1_6
+    val internedPackageId = v1_6
+    val internedStrings = v1_7
+    val internedDottedNames = v1_7
+    val numeric = v1_7
+    val anyType = v1_7
+    val typeRep = v1_7
+    val genMap = v1_dev
+
+    /** Unstable, experimental features. This should stay in 1.dev forever.
+      * Features implemented with this flag should be moved to a separate
+      * feature flag once the decision to add them permanently has been made.
+      */
+    val unstable = v1_dev
 
     /** See <https://github.com/digital-asset/daml/issues/1866>. To not break backwards
       * compatibility, we introduce a new DAML-LF version where this restriction is in

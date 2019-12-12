@@ -3,9 +3,11 @@
 
 package com.digitalasset
 
+import java.math.BigDecimal
 import java.time.temporal.ChronoField
 import java.time.{Instant, LocalDate, ZoneOffset}
 
+import com.digitalasset.daml.lf.data.Numeric
 import com.daml.ledger.javaapi.data.{Unit => DamlUnit}
 import org.scalatest.{FlatSpec, Matchers}
 import wolpertinger.color.Grey
@@ -21,7 +23,7 @@ class CodegenLedgerTest extends FlatSpec with Matchers {
   val glookofly = new Wolpertinger(
     Alice,
     3L,
-    BigDecimal(17.42).bigDecimal,
+    new BigDecimal("17.4200000000"),
     "Glookofly",
     true,
     LocalDate.of(1583, 12, 8),
@@ -33,7 +35,7 @@ class CodegenLedgerTest extends FlatSpec with Matchers {
   val sruquito = new Wolpertinger(
     Alice,
     1L,
-    BigDecimal(8.2).bigDecimal,
+    new BigDecimal("8.2000000000"),
     "Sruquito",
     true,
     LocalDate.of(1303, 3, 19),
@@ -107,7 +109,8 @@ class CodegenLedgerTest extends FlatSpec with Matchers {
     val wolpertinger :: _ = readActiveContracts(Wolpertinger.Contract.fromCreatedEvent)(client)
 
     wolpertinger.agreementText.isPresent shouldBe true
-    wolpertinger.agreementText.get shouldBe s"${wolpertinger.data.name} has ${wolpertinger.data.wings} wings and is ${wolpertinger.data.age} years old."
+    wolpertinger.agreementText.get shouldBe s"${wolpertinger.data.name} has ${wolpertinger.data.wings} wings and is ${Numeric
+      .toUnscaledString(Numeric.assertFromUnscaledBigDecimal(wolpertinger.data.age))} years old."
   }
 
   it should "provide the key" in withClient { client =>
@@ -117,7 +120,7 @@ class CodegenLedgerTest extends FlatSpec with Matchers {
 
     wolpertinger.key.isPresent shouldBe true
     wolpertinger.key.get.owner shouldEqual "Alice"
-    wolpertinger.key.get.age shouldEqual java.math.BigDecimal.valueOf(17.42)
+    wolpertinger.key.get.age shouldEqual new BigDecimal("17.4200000000")
   }
 
   it should "be able to exercise by key" in withClient { client =>

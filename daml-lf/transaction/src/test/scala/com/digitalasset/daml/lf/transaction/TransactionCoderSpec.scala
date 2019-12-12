@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf.transaction
 
 import com.digitalasset.daml.lf.EitherAssertions
-import com.digitalasset.daml.lf.data.{ImmArray}
+import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, Party, QualifiedName}
 import com.digitalasset.daml.lf.transaction.Node.{GenNode, NodeCreate, NodeExercises, NodeFetch}
 import com.digitalasset.daml.lf.transaction.{Transaction => Tx, TransactionOuterClass => proto}
@@ -15,6 +15,9 @@ import com.digitalasset.daml.lf.transaction.TransactionVersions._
 import com.digitalasset.daml.lf.transaction.VersionTimeline.Implicits._
 import org.scalatest.prop.PropertyChecks
 import org.scalatest.{Inside, Matchers, WordSpec}
+
+import scala.collection.breakOut
+import scala.collection.immutable.TreeMap
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class TransactionCoderSpec
@@ -42,7 +45,7 @@ class TransactionCoderSpec
     }
 
     "do NodeCreate" in {
-      forAll(malformedCreateNodeGen, valueVersionGen) {
+      forAll(malformedCreateNodeGen, valueVersionGen()) {
         (node: NodeCreate[Tx.TContractId, Tx.Value[Tx.TContractId]], valVer: ValueVersion) =>
           Right((Tx.NodeId.unsafeFromIndex(0), node)) shouldEqual TransactionCoder.decodeNode(
             defaultNidDecode,
@@ -64,23 +67,24 @@ class TransactionCoderSpec
     }
 
     "do NodeFetch" in {
-      forAll(fetchNodeGen, valueVersionGen) { (node: NodeFetch[ContractId], valVer: ValueVersion) =>
-        Right((Tx.NodeId.unsafeFromIndex(0), node)) shouldEqual TransactionCoder.decodeNode(
-          defaultNidDecode,
-          defaultCidDecode,
-          defaultValDecode,
-          defaultTransactionVersion,
-          TransactionCoder
-            .encodeNode(
-              defaultNidEncode,
-              defaultCidEncode,
-              defaultValEncode,
-              defaultTransactionVersion,
-              Tx.NodeId.unsafeFromIndex(0),
-              node)
-            .toOption
-            .get
-        )
+      forAll(fetchNodeGen, valueVersionGen()) {
+        (node: NodeFetch[ContractId], valVer: ValueVersion) =>
+          Right((Tx.NodeId.unsafeFromIndex(0), node)) shouldEqual TransactionCoder.decodeNode(
+            defaultNidDecode,
+            defaultCidDecode,
+            defaultValDecode,
+            defaultTransactionVersion,
+            TransactionCoder
+              .encodeNode(
+                defaultNidEncode,
+                defaultCidEncode,
+                defaultValEncode,
+                defaultTransactionVersion,
+                Tx.NodeId.unsafeFromIndex(0),
+                node)
+              .toOption
+              .get
+          )
       }
     }
 
@@ -250,9 +254,9 @@ class TransactionCoderSpec
         (nid.toString, node)
       })
       val tx = GenTransaction(
-        nodes = Map(nodes.toSeq: _*),
+        nodes = TreeMap(nodes.toSeq: _*),
         roots = nodes.map(_._1),
-        usedPackages = Set.empty
+        optUsedPackages = None
       )
       tx shouldEqual TransactionCoder
         .decodeVersionedTransaction(
@@ -297,12 +301,12 @@ class TransactionCoderSpec
       case _ => gn
     }
 
-  def transactionWithout[Nid, Cid, Val](
+  def transactionWithout[Nid: Ordering, Cid, Val](
       t: GenTransaction[Nid, Cid, Val],
       f: GenNode[Nid, Cid, Val] => GenNode[Nid, Cid, Val]): GenTransaction[Nid, Cid, Val] =
-    t copy (nodes = t.nodes transform ((_, gn) => f(gn)))
+    t copy (nodes = t.nodes.transform((_, gn) => f(gn))(breakOut))
 
-  def minimalistTx[Nid, Cid, Val](
+  def minimalistTx[Nid: Ordering, Cid, Val](
       txvMin: TransactionVersion,
       tx: GenTransaction[Nid, Cid, Val]): GenTransaction[Nid, Cid, Val] =
     if (txvMin precedes minExerciseResult)

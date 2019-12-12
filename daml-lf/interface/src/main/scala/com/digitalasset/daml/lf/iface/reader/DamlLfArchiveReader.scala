@@ -7,7 +7,7 @@ package reader
 
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.language.Ast
-import com.digitalasset.daml_lf.DamlLf
+import com.digitalasset.daml_lf_dev.DamlLf
 import com.google.protobuf.InvalidProtocolBufferException
 import scalaz.\/
 

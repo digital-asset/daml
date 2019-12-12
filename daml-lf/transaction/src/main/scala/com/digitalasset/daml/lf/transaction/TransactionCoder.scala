@@ -19,6 +19,8 @@ import scalaz.syntax.traverse.ToTraverseOps
 import scalaz.std.either.eitherMonad
 import scalaz.std.option._
 
+import scala.collection.immutable.TreeMap
+
 object TransactionCoder {
 
   import ValueCoder.{DecodeCid, EncodeCid, codecContractId}
@@ -382,7 +384,7 @@ object TransactionCoder {
     * @tparam Cid contract id type
     * @return protobuf encoded transaction
     */
-  private[transaction] def encodeTransaction[Nid, Cid](
+  private[transaction] def encodeTransaction[Nid: Ordering, Cid](
       encodeNid: EncodeNid[Nid],
       encodeCid: EncodeCid[Cid],
       tx: GenTransaction[Nid, Cid, VersionedValue[Cid]])
@@ -402,7 +404,7 @@ object TransactionCoder {
     * @tparam Cid contract id type
     * @return protobuf encoded transaction
     */
-  def encodeTransactionWithCustomVersion[Nid, Cid](
+  def encodeTransactionWithCustomVersion[Nid: Ordering, Cid](
       encodeNid: EncodeNid[Nid],
       encodeCid: EncodeCid[Cid],
       transaction: VersionedTransaction[Nid, Cid])
@@ -452,7 +454,7 @@ object TransactionCoder {
     * @tparam Cid contract id type
     * @return  decoded transaction
     */
-  def decodeVersionedTransaction[Nid, Cid, Val](
+  def decodeVersionedTransaction[Nid: Ordering, Cid, Val](
       decodeNid: String => Either[DecodeError, Nid],
       decodeCid: DecodeCid[Cid],
       protoTx: TransactionOuterClass.Transaction)
@@ -481,7 +483,7 @@ object TransactionCoder {
     * @tparam Val value type
     * @return  decoded transaction
     */
-  private def decodeTransaction[Nid, Cid, Val](
+  private def decodeTransaction[Nid: Ordering, Cid, Val](
       decodeNid: String => Either[DecodeError, Nid],
       decodeCid: DecodeCid[Cid],
       decodeVal: ValueOuterClass.VersionedValue => Either[DecodeError, Val],
@@ -496,7 +498,7 @@ object TransactionCoder {
       .map(_.toImmArray)
 
     val nodes = protoTx.getNodesList.asScala
-      .foldLeft[Either[DecodeError, Map[Nid, GenNode[Nid, Cid, Val]]]](Right(Map.empty)) {
+      .foldLeft[Either[DecodeError, TreeMap[Nid, GenNode[Nid, Cid, Val]]]](Right(TreeMap.empty)) {
         case (Left(e), _) => Left(e)
         case (Right(acc), s) =>
           decodeNode(decodeNid, decodeCid, decodeVal, txVersion, s).map(acc + _)
@@ -505,7 +507,7 @@ object TransactionCoder {
     for {
       rs <- roots
       ns <- nodes
-    } yield GenTransaction(ns, rs, Set.empty)
+    } yield GenTransaction(ns, rs, None)
   }
 
   private def toPartySet(strList: ProtocolStringList): Either[DecodeError, Set[Party]] = {

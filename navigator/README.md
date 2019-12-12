@@ -58,10 +58,10 @@ Note: Browsers are instructed never to cache `index.html`, and indefinitely cach
 Scala binary, compiled as a fat JAR.
 Code from `backend/src/**/*.scala`, bundled frontend code is copied to `backend/src/main/resources/frontend`.
 
-### backend commit and version
+### backend version
 
-The commit and version are included as resource files in the Navigator fat jar.
-This is to reduce rebuild times when the git commit changes.
+The version is included as resource files in the Navigator fat jar.
+This is to reduce rebuild times when the version changes.
 
 ### frontend development build
 
@@ -72,3 +72,6 @@ For developing frontend code, `webpack-dev-server` is used. This serves the curr
 - Forward network requests to a different port, where a Navigator backend is expected to run.
 
 This is orders of magnitude faster than what the current Bazel build offers, so it is desirable to keep the `webpack-dev-server` setup working. 
+
+Note, the browser is instructed to cache assets based on the SDK version.
+During development this is too aggressive and you will need to manually refresh to see updates to the front-end.

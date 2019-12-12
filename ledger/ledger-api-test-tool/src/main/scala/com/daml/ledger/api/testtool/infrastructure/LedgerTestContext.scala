@@ -3,83 +3,72 @@
 
 package com.daml.ledger.api.testtool.infrastructure
 
-import java.time.Instant
-
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.language.Ast
-import com.digitalasset.ledger.api.v1.event.CreatedEvent
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree}
-import com.digitalasset.ledger.api.v1.value.Identifier
+import com.daml.ledger.api.testtool.infrastructure.Allocation.{
+  Participant,
+  ParticipantAllocation,
+  Participants
+}
+import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
+import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.digitalasset.ledger.client.binding.Primitive.Party
-import com.digitalasset.ledger.client.binding.{Contract, Primitive, Template, ValueDecoder}
 
-import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 
-final class LedgerTestContext(
-    val applicationId: String,
-    val offsetAtStart: LedgerOffset,
-    bindings: LedgerBindings)(implicit val ec: ExecutionContext)
-    extends ExecutionContext {
+private[testtool] final class LedgerTestContext private[infrastructure] (
+    participants: Vector[ParticipantTestContext])(implicit ec: ExecutionContext) {
 
-  override def execute(runnable: Runnable): Unit = ec.execute(runnable)
-  override def reportFailure(cause: Throwable): Unit = ec.reportFailure(cause)
+  require(participants.nonEmpty, "At least one participant must be provided.")
 
-  private[this] val nextPartyHintId: () => String = {
-    val it = Iterator.from(0).map(n => s"$applicationId-party-$n")
-    () =>
-      it.synchronized(it.next())
+  private[this] val participantsRing = Iterator.continually(participants).flatten
+
+  /**
+    * This allocates participants and a specified number of parties for each participant.
+    *
+    * e.g. `allocate(ParticipantAllocation(SingleParty, Parties(3), NoParties, TwoParties))`
+    * will eventually return:
+    *
+    * {{{
+    * Participants(
+    *   Participant(alpha: ParticipantTestContext, alice: Party),
+    *   Participant(beta: ParticipantTestContext, bob: Party, barbara: Party, bernard: Party),
+    *   Participant(gamma: ParticipantTestContext),
+    *   Participant(delta: ParticipantTestContext, doreen: Party, dan: Party),
+    * )
+    * }}}
+    *
+    * Each test allocates participants, then deconstructs the result and uses the various ledgers
+    * and parties throughout the test.
+    */
+  def allocate(allocation: ParticipantAllocation): Future[Participants] =
+    Future
+      .sequence(allocation.partyCounts.map(partyCount => {
+        val participant = nextParticipant()
+        for {
+          parties <- participant.allocateParties(partyCount.count)
+          partiesSet = parties.toSet
+          _ <- eventually(waitForParties(participant, partiesSet))
+        } yield Participant(participant, parties: _*)
+      }))
+      .map(Participants(_: _*))
+
+  private[this] def waitForParties(
+      participant: ParticipantTestContext,
+      expectedParties: Set[Party]): Future[Unit] = {
+    Future
+      .sequence(participants.map(otherParticipant => {
+        otherParticipant
+          .listParties()
+          .map(actualParties => {
+            assert(
+              expectedParties.subsetOf(actualParties),
+              s"Parties from $participant never appeared on $otherParticipant.")
+          })
+      }))
+      .map(_ => ())
   }
-  private[this] val nextCommandId: () => String = {
-    val it = Iterator.from(0).map(n => s"$applicationId-command-$n")
-    () =>
-      it.synchronized(it.next())
-  }
 
-  val ledgerId: Future[String] = bindings.ledgerId
-
-  def allocateParty(): Future[Party] =
-    bindings.allocateParty(nextPartyHintId())
-
-  def time: Future[Instant] = bindings.time
-
-  def passTime(t: Duration): Future[Unit] = bindings.passTime(t)
-
-  def activeContracts(
-      parties: Seq[Party],
-      templateIds: Seq[Identifier]): Future[Vector[CreatedEvent]] =
-    bindings.activeContracts(parties, templateIds)
-
-  def create[T <: Template[T]: ValueDecoder](
-      party: Party,
-      template: Template[T]): Future[Contract[T]] =
-    bindings.create(party, applicationId, nextCommandId(), template)
-
-  def createAndGetTransactionId[T <: Template[T]: ValueDecoder](
-      party: Party,
-      template: Template[T]): Future[(String, Contract[T])] =
-    bindings.createAndGetTransactionId(party, applicationId, nextCommandId(), template)
-
-  def exercise[T](
-      party: Party,
-      exercise: Party => Primitive.Update[T]
-  ): Future[TransactionTree] = bindings.exercise(party, applicationId, nextCommandId(), exercise)
-
-  def flatTransactions(
-      parties: Seq[Party],
-      templateIds: Seq[Identifier]): Future[Vector[Transaction]] =
-    bindings.flatTransactions(offsetAtStart, parties, templateIds)
-
-  def transactionTrees(
-      parties: Seq[Party],
-      templateIds: Seq[Identifier]): Future[Vector[TransactionTree]] =
-    bindings.transactionTrees(offsetAtStart, parties, templateIds)
-
-  def transactionTreeById(transactionId: String, parties: Seq[Party]): Future[TransactionTree] =
-    bindings.getTransactionById(transactionId, parties)
-
-  def semanticTesterLedger(parties: Set[Ref.Party], packages: Map[Ref.PackageId, Ast.Package]) =
-    new SemanticTesterLedger(bindings)(parties, packages)(this)
-
+  private[this] def nextParticipant(): ParticipantTestContext =
+    participantsRing.synchronized {
+      participantsRing.next()
+    }
 }

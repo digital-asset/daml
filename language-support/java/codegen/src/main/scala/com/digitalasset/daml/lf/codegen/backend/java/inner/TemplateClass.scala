@@ -6,7 +6,8 @@ package com.digitalasset.daml.lf.codegen.backend.java.inner
 import java.util.Optional
 
 import com.daml.ledger.javaapi
-import com.daml.ledger.javaapi.data.{ContractId, CreatedEvent}
+import com.daml.ledger.javaapi.data.CreatedEvent
+import com.daml.ledger.javaapi.data.codegen.{ContractId => CodegenContractId}
 import com.digitalasset.daml.lf.codegen.TypeWithContext
 import com.digitalasset.daml.lf.codegen.backend.java.ObjectMethods
 import com.digitalasset.daml.lf.data.Ref.{ChoiceName, PackageId, QualifiedName}
@@ -156,7 +157,8 @@ private[inner] object TemplateClass extends StrictLogging {
           key,
           packagePrefixes
         ))
-      .addMethods(ObjectMethods(contractClassName, fields, templateClassName).asJava)
+      .addMethods(
+        ObjectMethods(contractClassName, IndexedSeq.empty, fields, templateClassName).asJava)
       .build()
   }
 
@@ -301,14 +303,15 @@ private[inner] object TemplateClass extends StrictLogging {
     val idClassBuilder =
       TypeSpec
         .classBuilder("ContractId")
+        .superclass(ParameterizedTypeName
+          .get(ClassName.get(classOf[CodegenContractId[_]]), templateClassName))
         .addModifiers(Modifier.FINAL, Modifier.PUBLIC, Modifier.STATIC)
-        .addField(ClassName.get(classOf[String]), "contractId", Modifier.PUBLIC, Modifier.FINAL)
     val constructor =
       MethodSpec
         .constructorBuilder()
         .addModifiers(Modifier.PUBLIC)
         .addParameter(ClassName.get(classOf[String]), "contractId")
-        .addStatement("this.contractId = contractId")
+        .addStatement("super(contractId)")
         .build()
     idClassBuilder.addMethod(constructor)
     for ((choiceName, choice) <- choices) {
@@ -317,6 +320,7 @@ private[inner] object TemplateClass extends StrictLogging {
       idClassBuilder.addMethod(exerciseChoiceMethod)
       for (record <- choice.param.fold(
           getRecord(_, typeDeclarations, packageId),
+          _ => None,
           _ => None,
           _ => None)) {
         val splatted = generateFlattenedExerciseMethod(
@@ -327,19 +331,6 @@ private[inner] object TemplateClass extends StrictLogging {
         idClassBuilder.addMethod(splatted)
       }
     }
-    val toValue = MethodSpec
-      .methodBuilder("toValue")
-      .addModifiers(Modifier.PUBLIC)
-      .returns(classOf[javaapi.data.Value])
-      .addStatement(
-        CodeBlock.of("return new $L(this.contractId)", ClassName.get(classOf[ContractId])))
-      .build()
-    idClassBuilder.addMethod(toValue)
-
-    idClassBuilder.addMethods(ObjectMethods(
-      ClassName.bestGuess("ContractId"),
-      IndexedSeq("contractId"),
-      templateClassName).asJava)
     idClassBuilder.build()
   }
 
@@ -374,15 +365,16 @@ private[inner] object TemplateClass extends StrictLogging {
           templateClassName,
           packagePrefixes)
         val flattened = for (record <- choice.param
-            .fold(getRecord(_, typeDeclarations, packageId), _ => None, _ => None)) yield {
-          generateFlattenedStaticExerciseByKeyMethod(
-            choiceName,
-            choice,
-            key,
-            templateClassName,
-            getFieldsWithTypes(record.fields, packagePrefixes),
-            packagePrefixes)
-        }
+            .fold(getRecord(_, typeDeclarations, packageId), _ => None, _ => None, _ => None))
+          yield {
+            generateFlattenedStaticExerciseByKeyMethod(
+              choiceName,
+              choice,
+              key,
+              templateClassName,
+              getFieldsWithTypes(record.fields, packagePrefixes),
+              packagePrefixes)
+          }
         raw :: flattened.toList
       }
       methods.flatten.asJava
@@ -404,8 +396,7 @@ private[inner] object TemplateClass extends StrictLogging {
     exerciseByKeyBuilder.addParameter(choiceJavaType, "arg")
     val choiceArgument = choice.param match {
       case TypeCon(_, _) => "arg.toValue()"
-      case TypePrim(_, _) => "arg"
-      case TypeVar(_) => "arg"
+      case TypePrim(_, _) | TypeVar(_) | TypeNumeric(_) => "arg"
     }
     exerciseByKeyBuilder.addStatement(
       "return new $T($T.TEMPLATE_ID, $L, $S, $L)",
@@ -456,7 +447,7 @@ private[inner] object TemplateClass extends StrictLogging {
       val createAndExerciseChoiceMethod =
         generateCreateAndExerciseMethod(choiceName, choice, templateClassName, packagePrefixes)
       val splatted = for (record <- choice.param
-          .fold(getRecord(_, typeDeclarations, packageId), _ => None, _ => None)) yield {
+          .fold(getRecord(_, typeDeclarations, packageId), _ => None, _ => None, _ => None)) yield {
         generateFlattenedCreateAndExerciseMethod(
           choiceName,
           choice,
@@ -482,8 +473,7 @@ private[inner] object TemplateClass extends StrictLogging {
     createAndExerciseChoiceBuilder.addParameter(javaType, "arg")
     val choiceArgument = choice.param match {
       case TypeCon(_, _) => "arg.toValue()"
-      case TypePrim(_, _) => "arg"
-      case TypeVar(_) => "arg"
+      case TypePrim(_, _) | TypeVar(_) | TypeNumeric(_) => "arg"
     }
     createAndExerciseChoiceBuilder.addStatement(
       "return new $T($T.TEMPLATE_ID, this.toValue(), $S, $L)",
@@ -530,8 +520,7 @@ private[inner] object TemplateClass extends StrictLogging {
     exerciseChoiceBuilder.addParameter(javaType, "arg")
     val choiceArgument = choice.param match {
       case TypeCon(_, _) => "arg.toValue()"
-      case TypePrim(_, _) => "arg"
-      case TypeVar(_) => "arg"
+      case TypePrim(_, _) | TypeVar(_) | TypeNumeric(_) => "arg"
     }
     exerciseChoiceBuilder.addStatement(
       "return new $T($T.TEMPLATE_ID, this.contractId, $S, $L)",

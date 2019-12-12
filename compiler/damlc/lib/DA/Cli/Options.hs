@@ -5,18 +5,19 @@ module DA.Cli.Options
   ( module DA.Cli.Options
   ) where
 
-import qualified Data.Text           as T
+import Data.Bifunctor
 import           Data.List.Extra     (trim, splitOn)
 import Options.Applicative.Extended
 import Safe (lastMay)
 import Data.List
 import Data.Maybe
-import Text.Read
 import qualified DA.Pretty           as Pretty
 import DA.Daml.Options.Types
 import qualified DA.Daml.LF.Ast.Version as LF
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Types
+import qualified Module as GHC
+import Text.Read
 
 
 -- | Pretty-printing documents with syntax-highlighting annotations.
@@ -39,30 +40,16 @@ render s d = resolve s d
       Plain   -> Pretty.renderPlain
       Colored -> Pretty.renderColored
 
-inputFileOpt :: Parser FilePath
-inputFileOpt = argument str $
+inputFileOptWithExt :: String -> Parser FilePath
+inputFileOptWithExt extension = argument str $
        metavar "FILE"
-    <> help "Input .daml file whose contents are read"
+    <> help ("Input " <> extension <> " file whose contents are read")
 
-inputDarOpt :: Parser FilePath
-inputDarOpt = argument str $
-       metavar "FILE"
-    <> help "Input .dar file whose contents are read"
-
-inputFileRstOpt :: Parser FilePath
-inputFileRstOpt = argument str $
-       metavar "FILE"
-    <> help "Input .rst file whose contents are read"
-
-inputDamlPackageOpt :: Parser FilePath
-inputDamlPackageOpt = argument str $
-        metavar "PACKAGE_FILE"
-    <> help "Input DAML Package to create the package from"
-
-targetDirOpt :: Parser FilePath
-targetDirOpt = argument str $
-        metavar "TARGET_DIR"
-    <> help "Target directory for DAR package"
+inputFileOpt, inputDarOpt, inputFileRstOpt, inputDalfOpt :: Parser FilePath
+inputFileOpt = inputFileOptWithExt ".daml"
+inputDarOpt = inputFileOptWithExt ".dar"
+inputDalfOpt = inputFileOptWithExt ".dalf"
+inputFileRstOpt = inputFileOptWithExt ".rst"
 
 targetSrcDirOpt :: Parser (Maybe FilePath)
 targetSrcDirOpt =
@@ -72,13 +59,13 @@ targetSrcDirOpt =
     <> long "srcdir"
     <> value Nothing
 
-optionalInputFileOpt :: Parser (Maybe FilePath)
-optionalInputFileOpt = option (Just <$> str) $
-       metavar "FILE"
-    <> help "Optional input DAML file"
-    <> short 'i'
-    <> long "input"
-    <> value Nothing
+qualOpt :: Parser (Maybe String)
+qualOpt =
+    option (Just <$> str) $
+    metavar "QUALIFICATION" <>
+    help "Optional qualification to append to generated module name." <>
+    long "qualify" <>
+    value Nothing
 
 outputFileOpt :: Parser String
 outputFileOpt = strOption $
@@ -108,21 +95,6 @@ packageNameOpt = argument str $
        metavar "PACKAGE-NAME"
     <> help "Name of the DAML package"
 
-groupIdOpt :: Parser String
-groupIdOpt = argument str $
-        metavar "GROUP"
-    <> help "Artifact's group Id"
-
-artifactIdOpt :: Parser String
-artifactIdOpt = argument str $
-        metavar "ARTIFACT"
-    <> help "Artifact's artifact Id"
-
-versionOpt :: Parser String
-versionOpt = argument str $
-        metavar "VERSION"
-    <> help "Artifact's version"
-
 lfVersionOpt :: Parser LF.Version
 lfVersionOpt = option (str >>= select) $
        metavar "DAML-LF-VERSION"
@@ -143,32 +115,6 @@ lfVersionOpt = option (str >>= select) $
         | otherwise
         -> readerError $ "Unknown DAML-LF version: " ++ versionsStr
 
-damlLfOpt :: Parser Bool
-damlLfOpt = switch $
-       long "daml-lf"
-    <> help "Use the DAML-LF archive format"
-
-styleOpt :: Parser Style
-styleOpt = option (str >>= select) $
-       metavar "STYLE"
-    <> help "Pretty printing style: \"plain\", \"colored\" (default)"
-    <> short 's'
-    <> long "style"
-    <> value Colored
-  where
-    select :: String -> ReadM Style
-    select s = case () of
-      _ | s == "plain"   -> return Plain
-      _ | s == "colored" -> return Colored
-      _ -> readerError $ "Unknown styleOpt '" <> show s <> "'"
-
-junitFileOpt :: Parser (Maybe FilePath)
-junitFileOpt = option (Just <$> str) $
-       metavar "FILE"
-    <> help "Name of the junit output xml file."
-    <> long "junit"
-    <> value Nothing
-
 dotFileOpt :: Parser (Maybe FilePath)
 dotFileOpt = option (Just <$> str) $
        metavar "FILE"
@@ -176,88 +122,23 @@ dotFileOpt = option (Just <$> str) $
     <> long "dot"
     <> value Nothing
 
-junitPackageNameOpt :: Parser (Maybe String)
-junitPackageNameOpt = option (Just <$> str) $
-       metavar "NAME"
-    <> help "Name to be displayed as the JUnit package name. Path of the file will be used if none passed."
-    <> long "junit-package"
-    <> value Nothing
+htmlOutFile :: Parser FilePath
+htmlOutFile = strOption $
+    metavar "FILE"
+    <> help "Name of the HTML file to be generated"
+    <> short 'o'
+    <> long "output"
+    <> value "visual.html"
 
-encryptOpt :: Parser Bool
-encryptOpt = switch $
-       long "encrypt"
-    <> short 'e'
-    <> help "Encrypt sdaml or not"
+-- switch' if a value is not present it is assumed to be be true, while switch assumes it to be false
+switch' :: Mod FlagFields Bool -> Parser Bool
+switch' = flag True False
 
--- Looks quite a bit like 'damlLfOpt', but is not quite that
-damlLfOutputOpt :: Parser Bool
-damlLfOutputOpt = switch $
-       long "daml-lf"
-    <> help "Generate an output .dalf file"
-
-dumpTypeCheckTraceOpt :: Parser Bool
-dumpTypeCheckTraceOpt = switch $
-       long "dump-trace"
-    <> short 'd'
-    <> help "Dump the type checker trace to a file"
-
-dumpCoreOpt :: Parser Bool
-dumpCoreOpt = switch $
-       long "dump-core"
-    <> help "Dump core intermediate representations to files"
-
-isPackage :: Parser Bool
-isPackage =
-    switch
-  $ help "The input file is a DAML package (dar)." <> long "dar-pkg"
-
--- | Option for specifing bind address (IPv4/IPv6)
-addrOpt :: String -> Parser String
-addrOpt defaultValue = option str $
-      metavar "ADDR"
-   <> help ( "The address from which the server should serve the API\
-             \. (default " <> show defaultValue <> ")" )
-   <> long "address"
-   <> value defaultValue
-
--- | An option to set the port of the GUI server.
-portOpt :: Int -> Parser Int
-portOpt defaultValue = option (str >>= parse) $
-       metavar "INT"
-    <> help
-        ( "Port with which the server should serve the client and the\
-          \ API (default " <> show defaultValue <> ")"
-        )
-    <> long "port"
-    <> value defaultValue
-  where
-    parse cs = case readMaybe cs of
-      Just p  -> return p
-      Nothing -> readerError $ "Invalid port '" <> cs <> "'."
-
-mbPrefixOpt :: Parser (Maybe T.Text)
-mbPrefixOpt = option (str >>= pure . Just . T.pack) $
-       metavar "PREFIX"
-    <> help "Optional prefix for the sandbox API, e.g. platform/api"
-    <> value Nothing
-    <> long "prefix"
-
-ekgPortOpt :: Parser (Maybe Int)
-ekgPortOpt = option (str >>= parse) $
-       metavar "INT"
-    <> help "Port which the server should serve the monitoring tool"
-    <> value Nothing
-    <> long "ekg"
-  where
-    parse cs = case readMaybe cs of
-      Nothing -> readerError $ "Invalid port '" <> cs <> "'."
-      p       -> pure p
-
-verboseOpt :: Parser Bool
-verboseOpt = switch $
+openBrowser :: Parser Bool
+openBrowser = switch' $
        long "verbose"
-    <> short 'v'
-    <> help "Enable verbose output."
+    <> short 'b'
+    <> help "Open Browser after generating D3 visualization, defaults to true"
 
 newtype Debug = Debug Bool
 debugOpt :: Parser Debug
@@ -266,13 +147,6 @@ debugOpt = fmap Debug $
        long "debug"
     <> short 'd'
     <> help "Enable debug output."
-
-newtype Experimental = Experimental Bool
-experimentalOpt :: Parser Experimental
-experimentalOpt =
-    fmap Experimental $
-    switch $
-    help "Enable experimental IDE features" <> long "experimental"
 
 newtype InitPkgDb = InitPkgDb Bool
 initPkgDbOpt :: Parser InitPkgDb
@@ -358,3 +232,144 @@ dlintDisabledOpt = flag' DlintDisabled
 dlintUsageOpt :: Parser DlintUsage
 dlintUsageOpt = fmap (fromMaybe DlintDisabled . lastMay) $
   many (dlintEnabledOpt <|> dlintDisabledOpt)
+
+
+optDebugLog :: Parser Bool
+optDebugLog = switch $ help "Enable debug output" <> long "debug"
+
+optPackageName :: Parser (Maybe String)
+optPackageName = optional $ strOption $
+       metavar "PACKAGE-NAME"
+    <> help "create package artifacts for the given package name"
+    <> long "package-name"
+
+-- | Parametrized by the type of pkgname parser since we want that to be different for
+-- "package".
+optionsParser :: Int -> EnableScenarioService -> Parser (Maybe String) -> Parser Options
+optionsParser numProcessors enableScenarioService parsePkgName = Options
+    <$> optImportPath
+    <*> optPackageDir
+    <*> pure Nothing
+    <*> parsePkgName
+    <*> optWriteIface
+    <*> pure Nothing
+    <*> optHideAllPackages
+    <*> many optPackageImport
+    <*> shakeProfilingOpt
+    <*> optShakeThreads
+    <*> lfVersionOpt
+    <*> optDebugLog
+    <*> optGhcCustomOptions
+    <*> pure enableScenarioService
+    <*> pure (optSkipScenarioValidation $ defaultOptions Nothing)
+    <*> dlintUsageOpt
+    <*> optIsGenerated
+    <*> optNoDflagCheck
+    <*> pure False
+    <*> pure (Haddock False)
+    <*> optCppPath
+    <*> pure Nothing
+    <*> pure (IncrementalBuild False)
+  where
+    optImportPath :: Parser [FilePath]
+    optImportPath =
+        many $
+        strOption $
+        metavar "INCLUDE-PATH" <>
+        help "Path to an additional source directory to be included" <>
+        long "include"
+
+    optPackageDir :: Parser [FilePath]
+    optPackageDir = many $ strOption $ metavar "LOC-OF-PACKAGE-DB"
+                      <> help "use package database in the given location"
+                      <> long "package-db"
+
+    optWriteIface :: Parser Bool
+    optWriteIface =
+        switch $
+          help "Whether to write interface files during type checking, required for building a package such as daml-prim" <>
+          long "write-iface"
+
+    optPackageImport :: Parser PackageImport
+    optPackageImport =
+      option readPackageImport $
+      metavar "PACKAGE" <>
+      help "explicit import of a package with optional renaming of modules" <>
+      long "package" <>
+      internal
+
+    readPackageImport = maybeReader $ \s -> do
+        (unitId, exposeImplicit, modRenamings) <- readMaybe s
+        pure PackageImport
+          { pkgImportUnitId = GHC.stringToUnitId unitId
+          , pkgImportExposeImplicit = exposeImplicit
+          , pkgImportModRenamings = map (bimap GHC.mkModuleName GHC.mkModuleName) modRenamings
+          }
+
+    optHideAllPackages :: Parser Bool
+    optHideAllPackages =
+      switch $
+      help "hide all packages, use -package for explicit import" <>
+      long "hide-all-packages" <>
+      internal
+
+    optIsGenerated :: Parser Bool
+    optIsGenerated =
+        switch $
+        help "Tell the compiler that the source was generated." <>
+        long "generated-src" <>
+        internal
+
+    -- optparse-applicative does not provide a nice way
+    -- to make the argument for -j optional, see
+    -- https://github.com/pcapriotti/optparse-applicative/issues/243
+    optShakeThreads :: Parser Int
+    optShakeThreads =
+        flag' numProcessors
+          (short 'j' <>
+           internal) <|>
+        option auto
+          (long "jobs" <>
+           metavar "THREADS" <>
+           help threadsHelp <>
+           value 1)
+    threadsHelp =
+        unlines
+            [ "The number of threads to run in parallel."
+            , "When -j is not passed, 1 thread is used."
+            , "If -j is passed, the number of threads defaults to the number of processors."
+            , "Use --jobs=N to explicitely set the number of threads to N."
+            , "Note that the output is not deterministic for > 1 job."
+            ]
+
+
+    optNoDflagCheck :: Parser Bool
+    optNoDflagCheck =
+      flag True False $
+      help "Dont check generated GHC DynFlags for errors." <>
+      long "no-dflags-check" <>
+      internal
+
+    optCppPath :: Parser (Maybe FilePath)
+    optCppPath = optional . option str
+        $ metavar "PATH"
+        <> long "cpp"
+        <> help "Set path to CPP."
+        <> internal
+
+optGhcCustomOptions :: Parser [String]
+optGhcCustomOptions =
+    fmap concat $ many $
+    option (stringsSepBy ' ') $
+    long "ghc-option" <>
+    metavar "OPTION" <>
+    help "Options to pass to the underlying GHC"
+
+shakeProfilingOpt :: Parser (Maybe FilePath)
+shakeProfilingOpt = optional $ strOption $
+       metavar "PROFILING-REPORT"
+    <> help "Directory for Shake profiling reports"
+    <> long "shake-profiling"
+
+incrementalBuildOpt :: Parser IncrementalBuild
+incrementalBuildOpt = IncrementalBuild <$> flagYesNoAuto "incremental" False "Enable incremental builds" idm

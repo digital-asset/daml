@@ -18,7 +18,7 @@ various flags affecting most `damlc` commands. Most of the options can
 be controlled via command line flags.
 
 `daml-opts` contains the conversion from `damlc`’s `Options` type to
-`hie-core`’s `IdeOptions` type. This is in a separate package to avoid
+`ghcide`’s `IdeOptions` type. This is in a separate package to avoid
 making everything depend on `daml-preprocessor`.
 
 ### daml-lf-conversion
@@ -27,7 +27,7 @@ making everything depend on `daml-preprocessor`.
 
 ### daml-ide-core
 
-`daml-ide-core` is a wrapper around `hie-core` that adds DAML-specific
+`daml-ide-core` is a wrapper around `ghcide` that adds DAML-specific
 rules such as rules for producing `DAML-LF`.
 
 
@@ -39,7 +39,7 @@ rules such as rules for producing `DAML-LF`.
 ### daml-ide
 
 `daml-ide` contains the LSP layer of the IDE and wraps the
-corresponding LSP layer in `hie-core` and adds custom handlers such as
+corresponding LSP layer in `ghcide` and adds custom handlers such as
 those for scenario results.
 
 ### daml-compiler

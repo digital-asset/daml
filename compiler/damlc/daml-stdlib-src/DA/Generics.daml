@@ -52,7 +52,7 @@ module DA.Generics (
   ) where
 
 -- We use some base types
-import GHC.Types
+import GHC.Types hiding (Nat)
 
 -- Needed for instances
 import GHC.Classes ( Eq(..), Ord(..) )

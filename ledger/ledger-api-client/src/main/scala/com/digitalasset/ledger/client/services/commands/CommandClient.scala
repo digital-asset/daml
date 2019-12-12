@@ -9,16 +9,17 @@ import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionService
+import com.digitalasset.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionServiceStub
 import com.digitalasset.ledger.api.v1.command_completion_service.{
   CompletionEndRequest,
   CompletionEndResponse,
   CompletionStreamRequest
 }
-import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.CommandSubmissionService
+import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.CommandSubmissionServiceStub
 import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
 import com.digitalasset.ledger.api.v1.completion.Completion
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
+import com.digitalasset.ledger.client.LedgerClient
 import com.digitalasset.ledger.client.configuration.CommandClientConfiguration
 import com.digitalasset.ledger.client.services.commands.CommandTrackerFlow.Materialized
 import com.digitalasset.util.Ctx
@@ -28,7 +29,6 @@ import org.slf4j.LoggerFactory
 
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 import scala.util.Try
-
 import scalaz.syntax.tag._
 
 /**
@@ -43,13 +43,13 @@ import scalaz.syntax.tag._
   *                                 Let will be set based on current time, and TTL will stay the same or be adjusted based on [[config]]
   */
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
-class CommandClient(
-    commandSubmissionService: CommandSubmissionService,
-    commandCompletionService: CommandCompletionService,
+final class CommandClient(
+    commandSubmissionService: CommandSubmissionServiceStub,
+    commandCompletionService: CommandCompletionServiceStub,
     ledgerId: LedgerId,
     applicationId: String,
     config: CommandClientConfiguration,
-    val timeProviderO: Option[TimeProvider] = None)(implicit esf: ExecutionSequencerFactory) {
+    timeProviderO: Option[TimeProvider] = None)(implicit esf: ExecutionSequencerFactory) {
 
   private val commandUpdater =
     new CommandUpdater(timeProviderO, config.ttl, config.overrideTtl)
@@ -60,19 +60,23 @@ class CommandClient(
     * Submit a single command. Successful result does not guarantee that the resulting transaction has been written to
     * the ledger. In order to get that semantic, use [[trackCommands]] or [[trackCommandsUnbounded]].
     */
-  def submitSingleCommand(submitRequest: SubmitRequest): Future[Empty] =
-    commandSubmissionService.submit(
-      submitRequest.copy(commands = submitRequest.commands.map(commandUpdater.applyOverrides)))
+  def submitSingleCommand(
+      submitRequest: SubmitRequest,
+      token: Option[String] = None): Future[Empty] =
+    LedgerClient
+      .stub(commandSubmissionService, token)
+      .submit(
+        submitRequest.copy(commands = submitRequest.commands.map(commandUpdater.applyOverrides)))
 
   /**
     * Submits and tracks a single command. High frequency usage is discouraged as it causes a dedicated completion
     * stream to be established and torn down.
     */
-  def trackSingleCommand(submitRequest: SubmitRequest)(
+  def trackSingleCommand(submitRequest: SubmitRequest, token: Option[String] = None)(
       implicit mat: Materializer): Future[Completion] = {
     implicit val executionContext: ExecutionContextExecutor = mat.executionContext
     for {
-      tracker <- trackCommandsUnbounded[Unit](List(submitRequest.getCommands.party))
+      tracker <- trackCommandsUnbounded[Unit](List(submitRequest.getCommands.party), token)
       result <- Source.single(Ctx.unit(submitRequest)).via(tracker).runWith(Sink.head)
     } yield {
       result.value
@@ -85,10 +89,11 @@ class CommandClient(
     *
     * @param parties Commands that have a submitting party which is not part of this collection will fail the stream.
     */
-  def trackCommands[Context](parties: Seq[String])(implicit ec: ExecutionContext): Future[
+  def trackCommands[Context](parties: Seq[String], token: Option[String] = None)(
+      implicit ec: ExecutionContext): Future[
     Flow[Ctx[Context, SubmitRequest], Ctx[Context, Completion], Materialized[NotUsed, Context]]] = {
     for {
-      tracker <- trackCommandsUnbounded[Context](parties)
+      tracker <- trackCommandsUnbounded[Context](parties, token)
     } yield {
       MaxInFlight(config.maxCommandsInFlight)
         .joinMat(tracker)(Keep.right)
@@ -100,18 +105,19 @@ class CommandClient(
     *
     * @param parties Commands that have a submitting party which is not part of this collection will fail the stream.
     */
-  def trackCommandsUnbounded[Context](parties: Seq[String])(implicit ec: ExecutionContext): Future[
+  def trackCommandsUnbounded[Context](parties: Seq[String], token: Option[String] = None)(
+      implicit ec: ExecutionContext): Future[
     Flow[Ctx[Context, SubmitRequest], Ctx[Context, Completion], Materialized[NotUsed, Context]]] =
     for {
-      ledgerEnd <- getCompletionEnd
+      ledgerEnd <- getCompletionEnd(token)
     } yield {
       partyFilter(parties.toSet)
         .via(commandUpdaterFlow[Context])
         .viaMat(CommandTrackerFlow[Context, NotUsed](
           CommandSubmissionFlow[(Context, String)](
-            commandSubmissionService.submit,
+            LedgerClient.stub(commandSubmissionService, token).submit,
             config.maxParallelSubmissions),
-          offset => completionSource(parties, offset),
+          offset => completionSource(parties, offset, token),
           ledgerEnd.getOffset
         ))(Keep.right)
     }
@@ -127,14 +133,15 @@ class CommandClient(
 
   def completionSource(
       parties: Seq[String],
-      offset: LedgerOffset): Source[CompletionStreamElement, NotUsed] = {
+      offset: LedgerOffset,
+      token: Option[String] = None): Source[CompletionStreamElement, NotUsed] = {
     logger.debug(
       "Connecting to completion service with parties '{}' from offset: '{}'",
       parties,
       offset: Any)
     CommandCompletionSource(
       CompletionStreamRequest(ledgerId.unwrap, applicationId, parties, Some(offset)),
-      commandCompletionService.completionStream)
+      LedgerClient.stub(commandCompletionService, token).completionStream)
   }
 
   private def commandUpdaterFlow[Context] =
@@ -150,19 +157,20 @@ class CommandClient(
         r.copy(commands = r.commands.map(commandUpdater.applyOverrides))
       })
 
-  def submissionFlow[Context]
+  def submissionFlow[Context](token: Option[String] = None)
     : Flow[Ctx[Context, SubmitRequest], Ctx[Context, Try[Empty]], NotUsed] = {
     Flow[Ctx[Context, SubmitRequest]]
       .via(commandUpdaterFlow)
       .via(
         CommandSubmissionFlow[Context](
-          commandSubmissionService.submit,
+          LedgerClient.stub(commandSubmissionService, token).submit,
           config.maxParallelSubmissions))
   }
 
-  def getCompletionEnd: Future[CompletionEndResponse] = {
-    commandCompletionService.completionEnd(CompletionEndRequest(ledgerId.unwrap))
-  }
+  def getCompletionEnd(token: Option[String] = None): Future[CompletionEndResponse] =
+    LedgerClient
+      .stub(commandCompletionService, token)
+      .completionEnd(CompletionEndRequest(ledgerId.unwrap))
 
   /**
     * Returns a new CommandClient which will update ledger effective times and maximum record times based on the new time provider.

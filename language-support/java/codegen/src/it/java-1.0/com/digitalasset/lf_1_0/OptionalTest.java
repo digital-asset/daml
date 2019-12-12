@@ -62,7 +62,7 @@ public class OptionalTest {
         Record record = new Record(
                 new Record.Field(
                         new Variant("Some",
-                                new DamlList(new Int64(42))
+                                DamlList.of(new Int64(42))
                         )
                 )
         );
@@ -76,7 +76,7 @@ public class OptionalTest {
     @Test
     void listOfOptionals() {
         Record record = new Record(
-                new Record.Field(new DamlList(new Variant("Some", new Int64(42))))
+                new Record.Field(DamlList.of(new Variant("Some", new Int64(42))))
         );
 
         MyListOfOptionalsRecord fromValue = MyListOfOptionalsRecord.fromValue(record);

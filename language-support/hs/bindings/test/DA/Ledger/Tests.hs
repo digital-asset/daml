@@ -5,46 +5,49 @@
 
 module DA.Ledger.Tests (main) where
 
-import Prelude hiding(Enum)
 import Control.Concurrent
 import Control.Monad
 import Control.Monad.IO.Class(liftIO)
 import DA.Bazel.Runfiles
-import DA.Daml.LF.Proto3.Archive (decodeArchive)
-import DA.Daml.LF.Reader(ManifestData(..),manifestFromDar)
+import DA.Daml.LF.Proto3.Archive (DecodingMode(DecodeAsMain), decodeArchive)
+import DA.Daml.LF.Reader(Dalfs(..),readDalfs)
+import DA.Ledger as Ledger
 import DA.Ledger.Sandbox (Sandbox,SandboxSpec(..),startSandbox,shutdownSandbox,withSandbox)
+import DA.Ledger.Sandbox as Sandbox
 import Data.List (elem,isPrefixOf,isInfixOf,(\\))
-import Data.Text.Lazy (Text)
+import Prelude hiding(Enum)
 import System.Environment.Blank (setEnv)
 import System.FilePath
 import System.Random (randomIO)
 import System.Time.Extra (timeout)
 import Test.Tasty as Tasty (TestName,TestTree,testGroup,withResource,defaultMain)
 import Test.Tasty.HUnit as Tasty(assertFailure,assertBool,assertEqual,testCase)
-import qualified Codec.Archive.Zip as Zip
+import qualified "zip-archive" Codec.Archive.Zip as Zip
 import qualified DA.Daml.LF.Ast as LF
+import qualified Data.Aeson.Types as Aeson
 import qualified Data.ByteString as BS (readFile)
 import qualified Data.ByteString.Lazy as BSL (readFile,toStrict)
 import qualified Data.ByteString.UTF8 as BS (ByteString,fromString)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
-import qualified Data.Text.Lazy as Text(pack,unpack,fromStrict)
+import qualified Data.Text as T(pack,unpack)
+import qualified Data.Text.Lazy as TL(Text,pack,unpack,fromStrict)
 import qualified Data.UUID as UUID (toString)
-
-import DA.Ledger.Sandbox as Sandbox
-import DA.Ledger as Ledger
+import qualified Data.Vector as Vector
+import qualified Web.JWT as JWT
 
 main :: IO ()
 main = do
     setEnv "TASTY_NUM_THREADS" "1" True
     Tasty.defaultMain $ testGroup "Ledger bindings"
         [ sharedSandboxTests
+        , authenticatingSandboxTests
         ]
 
 type SandboxTest = WithSandbox -> TestTree
 
 sharedSandboxTests :: TestTree
-sharedSandboxTests = testGroupWithSandbox (ShareSandbox True) "shared sandbox"
+sharedSandboxTests = testGroupWithSandbox (ShareSandbox True Nothing) "shared sandbox"
     [ tGetLedgerIdentity
     -- The reset service causes a bunch of issues so for now
     -- we disable these tests.
@@ -78,14 +81,25 @@ sharedSandboxTests = testGroupWithSandbox (ShareSandbox True) "shared sandbox"
     , tSubmitAndWaitForTransactionTree
     , tGetParticipantId
     , tValueConversion
-
     , tUploadDarFileBad
-    , tUploadDarFile
+    , tUploadDarFileGood
     , tAllocateParty
     ]
 
+authenticatingSandboxTests :: TestTree
+authenticatingSandboxTests =
+  testGroupWithSandbox (ShareSandbox True (Just authSpec)) "shared authenticating sandbox"
+  [ tGetLedgerIdentity
+  , tListPackages
+  , tAllocateParty
+  , tUploadDarFileGood
+  ]
+  where authSpec = AuthSpec {sharedSecret = "Brexit-is-a-very-silly-idea"}
+
+
 run :: WithSandbox -> (PackageId -> TestId -> LedgerService ()) -> IO ()
-run withSandbox f = withSandbox $ \sandbox pid testId -> runWithSandbox sandbox (f pid testId)
+run withSandbox f =
+  withSandbox $ \sandbox maybeAuth pid testId -> runWithSandbox sandbox maybeAuth testId (f pid testId)
 
 tGetLedgerIdentity :: SandboxTest
 tGetLedgerIdentity withSandbox = testCase "getLedgerIdentity" $ run withSandbox $ \_pid _testId -> do
@@ -115,14 +129,14 @@ tListPackages withSandbox = testCase "listPackages" $ run withSandbox $ \pid _te
     lid <- getLedgerIdentity
     pids <- listPackages lid
     liftIO $ do
-        assertEqual "#packages" 3 (length pids)
+        assertEqual "#packages" 7 (length pids)
         assertBool "The pid is listed" (pid `elem` pids)
 
 tGetPackage :: SandboxTest
 tGetPackage withSandbox = testCase "getPackage" $ run withSandbox $ \pid _testId -> do
     lid <-  getLedgerIdentity
-    Just package <- getPackage lid pid
-    liftIO $ assertBool "contents" ("currency" `isInfixOf` show package)
+    Just (Package bs) <- getPackage lid pid
+    liftIO $ assertBool "contents" ("currency" `isInfixOf` show bs)
 
 tGetPackageBad :: SandboxTest
 tGetPackageBad withSandbox = testCase "getPackage/bad" $ run withSandbox $ \_pid _testId -> do
@@ -308,15 +322,15 @@ tGetActiveContracts :: SandboxTest
 tGetActiveContracts withSandbox = testCase "tGetActiveContracts" $ run withSandbox $ \pid testId -> do
     lid <- getLedgerIdentity
     -- no active contracts here
-    [(off1,_,[])] <- getActiveContracts lid (filterEverthingForParty (alice testId)) (Verbosity True)
+    [(off1,_,[])] <- getActiveContracts lid (filterEverythingForParty (alice testId)) (Verbosity True)
     -- so let's create one
     Right _ <- submitCommand lid (alice testId) (createIOU pid (alice testId) "A-coin" 100)
     withGetAllTransactions lid (alice testId) (Verbosity True) $ \txs -> do
     Just (Right [Transaction{events=[ev]}]) <- liftIO $ timeout 1 (takeStream txs)
     -- and then we get it
-    [(off2,_,[active]),(off3,_,[])] <- getActiveContracts lid (filterEverthingForParty (alice testId)) (Verbosity True)
+    [(off2,_,[active]),(off3,_,[])] <- getActiveContracts lid (filterEverythingForParty (alice testId)) (Verbosity True)
     let diffOffset :: AbsOffset -> AbsOffset -> Int
-        (AbsOffset a) `diffOffset` (AbsOffset b) = read (Text.unpack a) - read (Text.unpack b)
+        (AbsOffset a) `diffOffset` (AbsOffset b) = read (TL.unpack a) - read (TL.unpack b)
     liftIO $ do
         assertEqual "off2" (AbsOffset "" ) off2 -- strange
         assertEqual "off3 - off1" 1 (off3 `diffOffset` off1)
@@ -339,8 +353,8 @@ tUploadDarFileBad withSandbox = testCase "tUploadDarFileBad" $ run withSandbox $
     Left err <- uploadDarFileGetPid lid bytes
     liftIO $ assertTextContains err "Invalid DAR: package-upload"
 
-tUploadDarFile :: SandboxTest
-tUploadDarFile withSandbox = testCase "tUploadDarFileGood" $ run withSandbox $ \_pid testId -> do
+tUploadDarFileGood :: SandboxTest
+tUploadDarFileGood withSandbox = testCase "tUploadDarFileGood" $ run withSandbox $ \_pid testId -> do
     lid <- getLedgerIdentity
     bytes <- liftIO getBytesForUpload
     before <- listKnownPackages
@@ -419,7 +433,7 @@ tSetTime withSandbox = testCase "tSetTime" $ run withSandbox $ \_ _testId -> do
 
 requiresAuthorizerButGot :: Party -> Party -> String -> IO ()
 requiresAuthorizerButGot (Party required) (Party given) err =
-    assertTextContains err $ "requires authorizers " <> Text.unpack required <> ", but only " <> Text.unpack given <> " were given"
+    assertTextContains err $ "requires authorizers " <> TL.unpack required <> ", but only " <> TL.unpack given <> " were given"
 
 tSubmitAndWait :: SandboxTest
 tSubmitAndWait withSandbox =
@@ -489,7 +503,7 @@ tGetParticipantId withSandbox = testCase "tGetParticipantId" $ run withSandbox $
 
 tAllocateParty :: SandboxTest
 tAllocateParty withSandbox = testCase "tAllocateParty" $ run withSandbox $ \_pid (TestId testId) -> do
-    let party = Party (Text.pack $ "me" <> show testId)
+    let party = Party (TL.pack $ "me" <> show testId)
     before <- listKnownParties
     let displayName = "Only Me"
     let request = AllocatePartyRequest { partyIdHint = unParty party, displayName }
@@ -578,10 +592,10 @@ nextTestId :: TestId -> TestId
 nextTestId (TestId i) = TestId (i + 1)
 
 alice,bob :: TestId -> Party
-alice (TestId i) = Party $ Text.pack $ "Alice" <> show i
-bob (TestId i) = Party $ Text.pack $ "Bob" <> show i
+alice (TestId i) = Party $ TL.pack $ "Alice" <> show i
+bob (TestId i) = Party $ TL.pack $ "Bob" <> show i
 
-createIOU :: PackageId -> Party -> Text -> Int -> Command
+createIOU :: PackageId -> Party -> TL.Text -> Int -> Command
 createIOU pid party currency quantity = CreateCommand {tid,args}
     where
         tid = TemplateId (Identifier pid mod ent)
@@ -636,18 +650,37 @@ myAid :: ApplicationId
 myAid = ApplicationId ":my-application:"
 
 randomCid :: IO CommandId
-randomCid = do fmap (CommandId . Text.pack . UUID.toString) randomIO
+randomCid = do fmap (CommandId . TL.pack . UUID.toString) randomIO
 
 looksLikeSandBoxLedgerId :: LedgerId -> Bool
 looksLikeSandBoxLedgerId (LedgerId text) =
-    "sandbox-" `isPrefixOf` s && length s == 44 where s = Text.unpack text
+    "sandbox-" `isPrefixOf` s && length s == 44 where s = TL.unpack text
 
 ----------------------------------------------------------------------
 -- runWithSandbox
 
-runWithSandbox :: Sandbox -> LedgerService a -> IO a
-runWithSandbox Sandbox{port} ls = runLedgerService ls timeout (configOfPort port)
+runWithSandbox :: forall a. Sandbox -> Maybe AuthSpec -> TestId -> LedgerService a -> IO a
+runWithSandbox Sandbox{port} maybeAuth tid ls = runLedgerService ls' timeout (configOfPort port)
     where timeout = 30 :: TimeoutSeconds
+          ls' :: LedgerService a
+          ls' = case maybeAuth of
+            Nothing -> ls
+            Just authSpec -> do
+              let tok = Ledger.Token ("Bearer " <> makeSignedJwt authSpec tid)
+              setToken tok ls
+
+makeSignedJwt :: AuthSpec -> TestId -> String
+makeSignedJwt AuthSpec{sharedSecret} tid = do
+  let parties = [ T.pack $ TL.unpack $ unParty $ p tid | p <- [alice,bob] ]
+  let urc = JWT.ClaimsMap $ Map.fromList
+        [ ("admin", Aeson.Bool True)
+        , ("actAs", Aeson.Array $ Vector.fromList $ map Aeson.String parties)
+        ]
+  let cs = mempty { JWT.unregisteredClaims = urc }
+  let key = JWT.hmacSecret $ T.pack sharedSecret
+  let text = JWT.encodeSigned key mempty cs
+  T.unpack text
+
 
 -- resetSandbox :: Sandbox-> IO ()
 -- resetSandbox sandbox = runWithSandbox sandbox $ do
@@ -667,46 +700,46 @@ assertTextContains text frag =
 ----------------------------------------------------------------------
 -- test with/out shared sandboxes...
 
-createSpec :: IO SandboxSpec
-createSpec = do
+createSpec :: Maybe AuthSpec -> IO SandboxSpec
+createSpec maybeAuth = do
     dar <- locateRunfiles (mainWorkspace </> "language-support/hs/bindings/for-tests.dar")
-    return SandboxSpec {dar}
+    return SandboxSpec {dar, maybeAuth}
 
-newtype ShareSandbox = ShareSandbox Bool
+data ShareSandbox = ShareSandbox Bool (Maybe AuthSpec)
 
 testGroupWithSandbox :: ShareSandbox -> TestName -> [WithSandbox -> TestTree] -> TestTree
-testGroupWithSandbox (ShareSandbox enableSharing) name tests =
+testGroupWithSandbox (ShareSandbox enableSharing maybeAuth) name tests = do
     if enableSharing
     then
         -- waits to run in the one shared sandbox
-        withResource acquireShared releaseShared $ \resource -> do
-        testGroup name $ map (\f -> f (withShared resource)) tests
+        withResource (acquireShared maybeAuth) releaseShared $ \resource -> do
+        testGroup name $ map (\f -> f (withShared maybeAuth resource)) tests
     else do
         -- runs in it's own freshly (and very slowly!) spun-up sandbox
         let withSandbox' f = do
-                spec <- createSpec
+                spec <- createSpec maybeAuth
                 pid <- mainPackageId spec
-                withSandbox spec $ \sandbox -> f sandbox pid (TestId 0)
+                withSandbox spec $ \sandbox -> f sandbox maybeAuth pid (TestId 0)
         testGroup name $ map (\f -> f withSandbox') tests
 
 mainPackageId :: SandboxSpec -> IO PackageId
-mainPackageId (SandboxSpec dar) = do
+mainPackageId SandboxSpec{dar} = do
     archive <- Zip.toArchive <$> BSL.readFile dar
-    let ManifestData { mainDalfContent } = manifestFromDar archive
-    case decodeArchive (BSL.toStrict mainDalfContent) of
+    Dalfs { mainDalf } <- either fail pure $ readDalfs archive
+    case decodeArchive DecodeAsMain (BSL.toStrict mainDalf) of
         Left err -> fail $ show err
-        Right (LF.PackageId pId, _) -> pure (PackageId $ Text.fromStrict pId)
+        Right (LF.PackageId pId, _) -> pure (PackageId $ TL.fromStrict pId)
 
 ----------------------------------------------------------------------
 -- SharedSandbox
 
-type WithSandbox = (Sandbox -> PackageId -> TestId -> IO ()) -> IO ()
+type WithSandbox = (Sandbox -> Maybe AuthSpec -> PackageId -> TestId -> IO ()) -> IO ()
 
 data SharedSandbox = SharedSandbox (MVar (Sandbox, PackageId, TestId))
 
-acquireShared :: IO SharedSandbox
-acquireShared = do
-    spec <- createSpec
+acquireShared :: Maybe AuthSpec -> IO SharedSandbox
+acquireShared maybeAuth = do
+    spec <- createSpec maybeAuth
     sandbox <- startSandbox spec
     pid <- mainPackageId spec
     mv <- newMVar (sandbox, pid, TestId 0)
@@ -717,10 +750,10 @@ releaseShared (SharedSandbox mv) = do
     (sandbox, _, _) <- takeMVar mv
     shutdownSandbox sandbox
 
-withShared :: IO SharedSandbox -> WithSandbox
-withShared resource f = do
+withShared :: Maybe AuthSpec -> IO SharedSandbox -> WithSandbox
+withShared maybeAuth resource f = do
     SharedSandbox mv <- resource
     modifyMVar_ mv $ \(sandbox, pid, testId) -> do
         -- resetSandbox sandbox
-        f sandbox pid testId
+        f sandbox maybeAuth pid testId
         pure (sandbox, pid, nextTestId testId)

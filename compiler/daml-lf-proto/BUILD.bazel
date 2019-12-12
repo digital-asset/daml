@@ -6,7 +6,7 @@ load("//bazel_tools:haskell.bzl", "da_haskell_library")
 da_haskell_library(
     name = "daml-lf-proto",
     srcs = glob(["src/**/*.hs"]),
-    hazel_deps = [
+    hackage_deps = [
         "base",
         "bytestring",
         "containers",
@@ -20,13 +20,14 @@ da_haskell_library(
         "template-haskell",
         "text",
         "transformers",
+        "unordered-containers",
         "vector",
     ],
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
-        "//daml-lf/archive:daml_lf_haskell_proto",
+        "//daml-lf/archive:daml_lf_dev_archive_haskell_proto",
         "//libs-haskell/da-hs-base",
     ],
 )

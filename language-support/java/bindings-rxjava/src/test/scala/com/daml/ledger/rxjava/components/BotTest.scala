@@ -13,20 +13,21 @@ import com.daml.ledger.javaapi.data.{Unit => DAMLUnit, _}
 import com.daml.ledger.rxjava.components.LedgerViewFlowable.LedgerView
 import com.daml.ledger.rxjava.components.helpers.{CommandsAndPendingSet, CreatedContract}
 import com.daml.ledger.rxjava.components.tests.helpers.DummyLedgerClient
-import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices}
-import com.daml.ledger.rxjava.{CommandSubmissionClient, DamlLedgerClient}
-import com.daml.ledger.testkit.services.TransactionServiceImpl
+import com.daml.ledger.rxjava.grpc.helpers.{LedgerServices, TransactionsServiceImpl}
+import com.daml.ledger.rxjava.{CommandSubmissionClient, DamlLedgerClient, untestedEndpoint}
+import com.digitalasset.grpc.{GrpcException, GrpcStatus}
+import com.digitalasset.ledger.api.auth.AuthServiceWildcard
 import com.digitalasset.ledger.api.v1.command_service.{
   SubmitAndWaitForTransactionIdResponse,
   SubmitAndWaitForTransactionResponse,
   SubmitAndWaitForTransactionTreeResponse
 }
 import com.digitalasset.ledger.api.{v1 => scalaAPI}
-import com.google.protobuf.{Empty => JEmpty}
 import com.google.protobuf.empty.Empty
+import com.google.protobuf.{Empty => JEmpty}
 import com.google.rpc.Status
+import com.google.rpc.code.Code.OK
 import io.grpc.Metadata
-import io.grpc.Status.Code
 import io.reactivex.{Flowable, Observable, Single}
 import org.pcollections.{HashTreePMap, HashTreePSet}
 import org.reactivestreams.{Subscriber, Subscription}
@@ -40,9 +41,9 @@ import scala.util.Random
 import scala.util.control.NonFatal
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
-class BotTest extends FlatSpec with Matchers with DataLayerHelpers {
+final class BotTest extends FlatSpec with Matchers {
 
-  override def ledgerServices: LedgerServices = new LedgerServices("bot-test")
+  def ledgerServices: LedgerServices = new LedgerServices("bot-test")
   val ec: ExecutionContext = ledgerServices.executionContext
   val logger = LoggerFactory.getLogger(this.getClass)
 
@@ -150,6 +151,16 @@ class BotTest extends FlatSpec with Matchers with DataLayerHelpers {
                   commands))
               Single.error(new RuntimeException("expected failure"))
             }
+            override def submit(
+                workflowId: String,
+                applicationId: String,
+                commandId: String,
+                party: String,
+                ledgerEffectiveTime: Instant,
+                maximumRecordTime: Instant,
+                commands: util.List[Command],
+                accessToken: String): Single[JEmpty] =
+              untestedEndpoint
           }
       }
 
@@ -204,7 +215,7 @@ class BotTest extends FlatSpec with Matchers with DataLayerHelpers {
       }
 
     val counter = new AtomicInteger(0)
-    Bot.wire(appId, ledgerClient, transactionFilter, bot, c => counter)
+    Bot.wire(appId, ledgerClient, transactionFilter, bot, _ => counter)
 
     // when the bot is wired-up, no command should have been submitted to the server
     ledgerClient.submitted.size shouldBe 0
@@ -284,20 +295,20 @@ class BotTest extends FlatSpec with Matchers with DataLayerHelpers {
     Bot.wireSimple(appId, ledgerClient, transactionFilter, bot)
 
     // when the bot is wired-up, no command should have been submitted to the server
-    Thread.sleep(1l)
+    Thread.sleep(100l)
     ledgerClient.submitted.size shouldBe 0
 
     // when the bot receives a transaction, a command should be submitted to the server
     val createdEvent1 = create(party, templateId)
     transactions.emit(transactionArray(createdEvent1))
-    Thread.sleep(1l)
+    Thread.sleep(100l)
     ledgerClient.submitted.size shouldBe 1
 
     val archivedEvent1 = archive(createdEvent1)
     val createEvent2 = create(party, templateId)
     val createEvent3 = create(party, templateId)
     transactions.emit(transactionArray(archivedEvent1, createEvent2, createEvent3))
-    Thread.sleep(1l)
+    Thread.sleep(100l)
     ledgerClient.submitted.size shouldBe 3
 
     // we complete the first command with success and then check that the client hasn't submitted a new command
@@ -308,10 +319,10 @@ class BotTest extends FlatSpec with Matchers with DataLayerHelpers {
           scalaAPI.CompletionOuterClass.Completion
             .newBuilder()
             .setCommandId("commandId_0")
-            .setStatus(Status.newBuilder().setCode(Code.OK.value()).build())
+            .setStatus(Status.newBuilder().setCode(OK.value).build())
             .build()).asJava
       ))
-    Thread.sleep(1l)
+    Thread.sleep(100l)
     ledgerClient.submitted.size shouldBe 3
 
     // WARNING: THE FOLLOWING TEST IS NOT PASSING YET
@@ -357,7 +368,7 @@ class BotTest extends FlatSpec with Matchers with DataLayerHelpers {
      * of getACSDone.future.isCompleted
      */
     def dummyTransactionResponse(offset: String) =
-      TransactionServiceImpl.LedgerItem(
+      TransactionsServiceImpl.LedgerItem(
         "",
         "",
         "",
@@ -365,7 +376,7 @@ class BotTest extends FlatSpec with Matchers with DataLayerHelpers {
         Seq(),
         offset,
         None)
-    val getTransactionsResponses = Observable.defer[TransactionServiceImpl.LedgerItem](
+    val getTransactionsResponses = Observable.defer[TransactionsServiceImpl.LedgerItem](
       () =>
         Observable.fromArray(
           dummyTransactionResponse(if (getACSDone.future.isCompleted) rightOffset else wrongOffset))
@@ -385,10 +396,11 @@ class BotTest extends FlatSpec with Matchers with DataLayerHelpers {
       Seq.empty,
       Future.successful(scalaAPI.package_service.ListPackagesResponse.defaultInstance),
       Future.successful(scalaAPI.package_service.GetPackageResponse.defaultInstance),
-      Future.successful(scalaAPI.package_service.GetPackageStatusResponse.defaultInstance)
+      Future.successful(scalaAPI.package_service.GetPackageStatusResponse.defaultInstance),
+      AuthServiceWildcard
     ) { (server, _) =>
       val client =
-        DamlLedgerClient.forHostWithLedgerIdDiscovery("localhost", server.getPort, Optional.empty())
+        DamlLedgerClient.newBuilder("localhost", server.getPort).build()
       client.connect()
 
       /* The bot is wired here and inside wire is where the race condition can happen. We catch the possible
@@ -401,10 +413,9 @@ class BotTest extends FlatSpec with Matchers with DataLayerHelpers {
           new FiltersByParty(Collections.emptyMap()),
           _ => Flowable.empty())
       } catch {
-        case e: io.grpc.StatusRuntimeException
-            if e.getStatus.getCode.equals(Code.INVALID_ARGUMENT) =>
-          /** the tests relies on specific implementation of the [[TransactionServiceImpl.getTransactions()]]  */
-          fail(e.getTrailers.get(Metadata.Key.of("cause", Metadata.ASCII_STRING_MARSHALLER)))
+        case GrpcException(GrpcStatus.INVALID_ARGUMENT(), trailers) =>
+          /** the tests relies on specific implementation of the [[TransactionsServiceImpl.getTransactions()]]  */
+          fail(trailers.get(Metadata.Key.of("cause", Metadata.ASCII_STRING_MARSHALLER)))
       }
 
       // test is passed, we wait a bit to avoid issues with gRPC and then close the client. If there is an exception,

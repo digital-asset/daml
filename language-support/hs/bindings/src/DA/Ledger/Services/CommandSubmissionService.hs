@@ -16,11 +16,11 @@ import Network.GRPC.HighLevel.Generated
 
 submit :: Commands -> LedgerService (Either String ())
 submit commands =
-    makeLedgerService $ \timeout config ->
+    makeLedgerService $ \timeout config mdm ->
     withGRPCClient config $ \client -> do
         service <- commandSubmissionServiceClient client
         let CommandSubmissionService rpc = service
         let request = SubmitRequest (Just (lowerCommands commands)) noTrace
-        rpc (ClientNormalRequest request timeout emptyMdm)
+        rpc (ClientNormalRequest request timeout mdm)
             >>= unwrapWithInvalidArgument
             <&> fmap (\Empty{} -> ())

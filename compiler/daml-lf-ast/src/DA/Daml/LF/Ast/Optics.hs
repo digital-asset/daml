@@ -6,7 +6,9 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
 module DA.Daml.LF.Ast.Optics(
+    ModuleRef,
     moduleModuleRef,
+    typeModuleRef,
     unlocate,
     moduleExpr,
     dataConsType,
@@ -25,6 +27,7 @@ import Data.Functor.Foldable (cata, embed)
 import qualified Data.NameMap as NM
 
 import DA.Daml.LF.Ast.Base
+import DA.Daml.LF.Ast.TypeLevelNat
 import DA.Daml.LF.Ast.Recursive
 import DA.Daml.LF.Ast.Version (Version)
 
@@ -89,6 +92,7 @@ dataConsType f = \case
   DataRecord  fs -> DataRecord  <$> (traverse . _2) f fs
   DataVariant cs -> DataVariant <$> (traverse . _2) f cs
   DataEnum cs -> pure $ DataEnum cs
+  DataSynonym t -> DataSynonym <$> f t
 
 builtinType :: Traversal' Type BuiltinType
 builtinType f =
@@ -98,13 +102,17 @@ builtinType f =
         TApp s t -> TApp <$> builtinType f s <*> builtinType f t
         TBuiltin x -> TBuiltin <$> f x
         TForall b body -> TForall b <$> builtinType f body
-        TTuple fs -> TTuple <$> (traverse . _2) (builtinType f) fs
+        TStruct fs -> TStruct <$> (traverse . _2) (builtinType f) fs
+        TNat n -> pure $ TNat n
 
 type ModuleRef = (PackageRef, ModuleName)
 
 -- | Traverse all the module references contained in 'Qualified's in a 'Package'.
 moduleModuleRef :: Traversal' Module ModuleRef
 moduleModuleRef = monoTraverse
+
+typeModuleRef :: Traversal' Type ModuleRef
+typeModuleRef = monoTraverse
 
 instance MonoTraversable ModuleRef (Qualified a) where
   monoTraverse f (Qualified pkg0 mod0 x) =
@@ -137,6 +145,8 @@ instance MonoTraversable ModuleRef BuiltinExpr where monoTraverse _ = pure
 -- https://github.com/digital-asset/daml/pull/2327#discussion_r308445649 for
 -- discussion
 instance MonoTraversable ModuleRef SourceLoc where monoTraverse _ = pure
+
+instance MonoTraversable ModuleRef TypeLevelNat where monoTraverse _ = pure
 
 instance MonoTraversable ModuleRef TypeConApp
 instance MonoTraversable ModuleRef Type

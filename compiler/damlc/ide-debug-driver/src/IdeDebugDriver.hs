@@ -83,19 +83,19 @@ runSession (Verbose verbose) SessionConfig{..} =
     where cnf = LSP.defaultConfig { LSP.logStdErr = verbose, LSP.logMessages = verbose }
           fullCaps' = LSP.fullCaps { _window = Just $ WindowClientCapabilities $ Just True }
 
-progressStart :: LSP.Session ProgressStartNotification
+progressStart :: LSP.Session WorkDoneProgressBeginNotification
 progressStart = do
-    NotProgressStart msg <- LSP.satisfy $ \case
-        NotProgressStart _ -> True
-        _ -> False
-    pure msg
+    NotWorkDoneProgressBegin not <- LSP.satisfy $ \case
+      NotWorkDoneProgressBegin _ -> True
+      _ -> False
+    pure not
 
-progressDone :: LSP.Session ProgressDoneNotification
+progressDone :: LSP.Session WorkDoneProgressEndNotification
 progressDone = do
-    NotProgressDone msg <- LSP.satisfy $ \case
-        NotProgressDone _ -> True
-        _ -> False
-    pure msg
+    NotWorkDoneProgressEnd not <- LSP.satisfy $ \case
+      NotWorkDoneProgressEnd _ -> True
+      _ -> False
+    pure not
 
 interpretCommand :: Command -> LSP.Session ()
 interpretCommand = \case
@@ -107,7 +107,7 @@ interpretCommand = \case
         start <- progressStart
         skipManyTill LSP.anyMessage $ do
             done <- progressDone
-            guard $ done ^. params . LSP.id == start ^. params . LSP.id
+            guard $ done ^. params . LSP.token == start ^. params . LSP.token
     Repeat count cmds -> replicateM_ count $ traverse_ interpretCommand cmds
     InsertLine f l t -> do
         uri <- LSP.getDocUri f

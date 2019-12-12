@@ -10,11 +10,13 @@ import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.model.Uri
 import akka.stream.Materializer
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
+import com.digitalasset.http.dbbackend.ContractDao
 import com.digitalasset.http.json.{DomainJsonDecoder, DomainJsonEncoder}
 import com.digitalasset.http.util.FutureUtil
 import com.digitalasset.http.util.FutureUtil.toFuture
 import com.digitalasset.http.util.IdentifierConverters.apiLedgerId
 import com.digitalasset.http.util.TestUtil.findOpenPort
+import com.digitalasset.ledger.api.auth.AuthService
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
 import com.digitalasset.ledger.client.LedgerClient
@@ -23,19 +25,28 @@ import com.digitalasset.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement
 }
-import com.digitalasset.ledger.service.LedgerReader
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.SandboxServer
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.services.time.TimeProviderType
 import scalaz._
+import scalaz.syntax.traverse._
+import scalaz.std.scalaFuture._
+import scalaz.std.option._
 
+import scala.concurrent.duration.{DAYS, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 
 object HttpServiceTestFixture {
 
-  def withHttpService[A](dar: File, testName: String)(
-      testFn: (Uri, DomainJsonEncoder, DomainJsonDecoder) => Future[A])(
+  private val doNotReloadPackages = FiniteDuration(100, DAYS)
+
+  def withHttpService[A](
+      testName: String,
+      dar: File,
+      jdbcConfig: Option[JdbcConfig],
+      staticContentConfig: Option[StaticContentConfig]
+  )(testFn: (Uri, DomainJsonEncoder, DomainJsonDecoder) => Future[A])(
       implicit asys: ActorSystem,
       mat: Materializer,
       aesf: ExecutionSequencerFactory,
@@ -44,6 +55,8 @@ object HttpServiceTestFixture {
     val ledgerId = LedgerId(testName)
     val applicationId = ApplicationId(testName)
 
+    val contractDaoF: Future[Option[ContractDao]] = jdbcConfig.map(c => initializeDb(c)).sequence
+
     val ledgerF: Future[(SandboxServer, Int)] = for {
       port <- toFuture(findOpenPort())
       ledger <- Future(SandboxServer(ledgerConfig(port, dar, ledgerId)))
@@ -51,8 +64,20 @@ object HttpServiceTestFixture {
 
     val httpServiceF: Future[(ServerBinding, Int)] = for {
       (_, ledgerPort) <- ledgerF
+      contractDao <- contractDaoF
       httpPort <- toFuture(findOpenPort())
-      httpService <- stripLeft(HttpService.start("localhost", ledgerPort, applicationId, httpPort))
+      httpService <- stripLeft(
+        HttpService.start(
+          "localhost",
+          ledgerPort,
+          applicationId,
+          "localhost",
+          httpPort,
+          Config.DefaultWsConfig,
+          None,
+          contractDao,
+          staticContentConfig,
+          doNotReloadPackages))
     } yield (httpService, httpPort)
 
     val clientF: Future[LedgerClient] = for {
@@ -80,7 +105,11 @@ object HttpServiceTestFixture {
     fa
   }
 
-  def withLedger[A](dar: File, testName: String)(testFn: LedgerClient => Future[A])(
+  def withLedger[A](
+      dar: File,
+      testName: String,
+      token: Option[String] = None,
+      authService: Option[AuthService] = None)(testFn: LedgerClient => Future[A])(
       implicit aesf: ExecutionSequencerFactory,
       ec: ExecutionContext): Future[A] = {
 
@@ -89,12 +118,12 @@ object HttpServiceTestFixture {
 
     val ledgerF: Future[(SandboxServer, Int)] = for {
       port <- toFuture(findOpenPort())
-      ledger <- Future(SandboxServer(ledgerConfig(port, dar, ledgerId)))
+      ledger <- Future(SandboxServer(ledgerConfig(port, dar, ledgerId, authService)))
     } yield (ledger, port)
 
     val clientF: Future[LedgerClient] = for {
       (_, ledgerPort) <- ledgerF
-      client <- LedgerClient.singleHost("localhost", ledgerPort, clientConfig(applicationId))
+      client <- LedgerClient.singleHost("localhost", ledgerPort, clientConfig(applicationId, token))
     } yield client
 
     val fa: Future[A] = for {
@@ -109,31 +138,39 @@ object HttpServiceTestFixture {
     fa
   }
 
-  private def ledgerConfig(ledgerPort: Int, dar: File, ledgerId: LedgerId): SandboxConfig =
+  private def ledgerConfig(
+      ledgerPort: Int,
+      dar: File,
+      ledgerId: LedgerId,
+      authService: Option[AuthService] = None): SandboxConfig =
     SandboxConfig.default.copy(
       port = ledgerPort,
       damlPackages = List(dar),
       timeProviderType = TimeProviderType.WallClock,
       ledgerIdMode = LedgerIdMode.Static(ledgerId),
+      authService = authService
     )
 
-  private def clientConfig[A](applicationId: ApplicationId): LedgerClientConfiguration =
+  private def clientConfig[A](
+      applicationId: ApplicationId,
+      token: Option[String] = None): LedgerClientConfiguration =
     LedgerClientConfiguration(
       applicationId = ApplicationId.unwrap(applicationId),
       ledgerIdRequirement = LedgerIdRequirement("", enabled = false),
       commandClient = CommandClientConfiguration.default,
-      sslContext = None
+      sslContext = None,
+      token = token
     )
 
   def jsonCodecs(client: LedgerClient)(
       implicit ec: ExecutionContext): Future[(DomainJsonEncoder, DomainJsonDecoder)] = {
-    import scalaz.std.string._
     val ledgerId = apiLedgerId(client.ledgerId)
-    for {
-      packageStore <- FutureUtil.stripLeft(LedgerReader.createPackageStore(client.packageClient))
-      templateIdMap = PackageService.getTemplateIdMap(packageStore)
-      codecs = HttpService.buildJsonCodecs(ledgerId, packageStore, templateIdMap)
-    } yield codecs
+    val packageService = new PackageService(
+      HttpService.loadPackageStoreUpdates(client.packageClient, holderM = None))
+    packageService
+      .reload(ec)
+      .flatMap(x => FutureUtil.toFuture(x))
+      .map(_ => HttpService.buildJsonCodecs(ledgerId, packageService))
   }
 
   private def stripLeft(fa: Future[HttpService.Error \/ ServerBinding])(
@@ -144,4 +181,10 @@ object HttpServiceTestFixture {
       case \/-(a) =>
         Future.successful(a)
     }
+
+  private def initializeDb(c: JdbcConfig)(implicit ec: ExecutionContext): Future[ContractDao] =
+    for {
+      dao <- Future(ContractDao(c.driver, c.url, c.user, c.password))
+      _ <- dao.transact(ContractDao.initialize(dao.logHandler)).unsafeToFuture(): Future[Unit]
+    } yield dao
 }

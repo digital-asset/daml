@@ -6,7 +6,8 @@
 
 daml 1.2
 
-module RationalUpperBound where
+module RationalUpperBoundError where
 
 -- 10^38 / 10^10
+a : Decimal
 a = 10000000000000000000000000000.0000000000

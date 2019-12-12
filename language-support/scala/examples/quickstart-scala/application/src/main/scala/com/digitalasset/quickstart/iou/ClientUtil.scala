@@ -38,7 +38,7 @@ class ClientUtil(
   private val transactionClient = client.transactionClient
 
   def ledgerEnd(implicit ec: ExecutionContext): Future[LedgerOffset] =
-    transactionClient.getLedgerEnd.flatMap(response => toFuture(response.offset))
+    transactionClient.getLedgerEnd().flatMap(response => toFuture(response.offset))
 
   def submitCommand[T](
       sender: P.Party,

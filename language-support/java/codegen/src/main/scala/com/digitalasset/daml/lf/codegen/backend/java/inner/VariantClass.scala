@@ -31,7 +31,7 @@ private[inner] object VariantClass extends StrictLogging {
       val variantType = TypeSpec
         .classBuilder(variantClassName)
         .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)
-        .addTypeVariables(typeVariableNames(typeArguments).asJava)
+        .addTypeVariables(typeArguments.map(TypeVariableName.get).asJava)
         .addMethod(MethodSpec.constructorBuilder().addModifiers(Modifier.PUBLIC).build())
         .addMethod(generateAbstractToValueSpec(typeArguments))
         .addMethod(generateFromValue(typeArguments, constructorInfo, variantClassName, subPackage))
@@ -177,11 +177,11 @@ private[inner] object VariantClass extends StrictLogging {
     val innerClasses = new collection.mutable.ArrayBuffer[TypeSpec]
     val variantRecords = new collection.mutable.HashSet[String]()
     val fullVariantClassName = variantClassName.parameterized(typeArgs)
-    for (info @ FieldInfo(damlName, damlType, javaName, _) <- getFieldsWithTypes(
+    for (FieldInfo(damlName, damlType, javaName, _) <- getFieldsWithTypes(
         variant.fields,
         packagePrefixes)) {
       damlType match {
-        case t @ TypeCon(TypeConName(id), _) if isVariantRecord(typeWithContext, damlName, id) =>
+        case TypeCon(TypeConName(id), _) if isVariantRecord(typeWithContext, damlName, id) =>
           // Variant records will be dealt with in a subsequent phase
           variantRecords.add(damlName)
         case _ =>
@@ -221,16 +221,6 @@ private[inner] object VariantClass extends StrictLogging {
       }
     }
     innerClasses.toList
-  }
-
-  private def typeVariableNames(typeArguments: IndexedSeq[String]) =
-    typeArguments.map(TypeVariableName.get)
-
-  private def typeName(rawType: ClassName, typeArgs: IndexedSeq[String]) = {
-    val tArgs = typeVariableNames(typeArgs)
-    if (tArgs.nonEmpty)
-      ParameterizedTypeName.get(rawType, tArgs: _*)
-    else rawType
   }
 
 }

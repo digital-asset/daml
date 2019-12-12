@@ -11,7 +11,7 @@ import scala.util.Try
 /**
   * Custom marshallers and unmarshallers for dealing with raw JSON values.
   *
-  * The declared implicit objects replace the ones you would usually import from [[sangria.marshalling.sprayJson]].
+  * The declared implicit objects replace the ones you would usually import from `sangria.marshalling.sprayJson`.
   * In fact they are largely identical to those except for the additional support for non-scalar JSON values.
   *
   * The entire object is only relevant as long as we use raw JSON values in the model.

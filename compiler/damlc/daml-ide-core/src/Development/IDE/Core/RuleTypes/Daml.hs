@@ -34,7 +34,10 @@ import qualified DA.Daml.LF.ScenarioServiceClient as SS
 
 import Language.Haskell.HLint4
 
+import HscTypes (ModIface, ModSummary)
+
 type instance RuleResult GenerateDalf = LF.Module
+type instance RuleResult GenerateSerializedDalf = ()
 type instance RuleResult GenerateRawDalf = LF.Module
 
 -- | A newtype wrapper for LF.Package that does not force the modules
@@ -53,15 +56,9 @@ type instance RuleResult GeneratePackage = WhnfPackage
 type instance RuleResult GenerateRawPackage = WhnfPackage
 type instance RuleResult GeneratePackageDeps = WhnfPackage
 
-data DalfPackage = DalfPackage
-    { dalfPackageId :: LF.PackageId
-    , dalfPackagePkg :: LF.ExternalPackage
-    , dalfPackageBytes :: BS.ByteString
-    } deriving (Show, Eq, Generic)
 
-instance NFData DalfPackage
-
-type instance RuleResult GeneratePackageMap = Map UnitId DalfPackage
+type instance RuleResult GeneratePackageMap = Map UnitId LF.DalfPackage
+type instance RuleResult GenerateStablePackages = Map (UnitId, LF.ModuleName) LF.DalfPackage
 
 -- | Runs all scenarios in the given file (but not scenarios in imports).
 type instance RuleResult RunScenarios = [(VirtualResource, Either SS.Error SS.ScenarioResult)]
@@ -89,11 +86,43 @@ type instance RuleResult GetScenarioRoot = NormalizedFilePath
 -- envOfInterestVar and envOpenVirtualResources.
 type instance RuleResult GetOpenVirtualResources = Set VirtualResource
 
+-- | This is used for on-disk incremental builds
+type instance RuleResult ReadSerializedDalf = LF.Module
+-- | Read the interface and the summary. This rule has a cutoff on the ABI hash of the interface.
+-- It is important to get the modsummary from this rule rather than depending on the parsed module.
+-- Otherwise you will always recompile module B if B depends on A and A changed even if A’s ABI stayed
+-- the same
+type instance RuleResult ReadInterface = (ModSummary, ModIface)
+
+instance Show ModIface where
+    show _ = "<ModIface>"
+
+instance NFData ModIface where
+    rnf = rwhnf
+
 data GenerateDalf = GenerateDalf
     deriving (Eq, Show, Typeable, Generic)
 instance Binary   GenerateDalf
 instance Hashable GenerateDalf
 instance NFData   GenerateDalf
+
+data GenerateSerializedDalf = GenerateSerializedDalf
+    deriving (Eq, Show, Typeable, Generic)
+instance Binary GenerateSerializedDalf
+instance Hashable GenerateSerializedDalf
+instance NFData GenerateSerializedDalf
+
+data ReadSerializedDalf = ReadSerializedDalf
+    deriving (Eq, Show, Typeable, Generic)
+instance Binary   ReadSerializedDalf
+instance Hashable ReadSerializedDalf
+instance NFData   ReadSerializedDalf
+
+data ReadInterface = ReadInterface
+    deriving (Eq, Show, Typeable, Generic)
+instance Binary   ReadInterface
+instance Hashable ReadInterface
+instance NFData   ReadInterface
 
 data GenerateRawDalf = GenerateRawDalf
     deriving (Eq, Show, Typeable, Generic)
@@ -125,6 +154,12 @@ instance Binary   GeneratePackageMap
 instance Hashable GeneratePackageMap
 instance NFData   GeneratePackageMap
 
+data GenerateStablePackages = GenerateStablePackages
+   deriving (Eq, Show, Typeable, Generic)
+instance Binary GenerateStablePackages
+instance Hashable GenerateStablePackages
+instance NFData GenerateStablePackages
+
 data RunScenarios = RunScenarios
     deriving (Eq, Show, Typeable, Generic)
 instance Binary   RunScenarios
@@ -147,16 +182,19 @@ data GetScenarioRoots = GetScenarioRoots
     deriving (Eq, Show, Typeable, Generic)
 instance Hashable GetScenarioRoots
 instance NFData   GetScenarioRoots
+instance Binary   GetScenarioRoots
 
 data GetScenarioRoot = GetScenarioRoot
     deriving (Eq, Show, Typeable, Generic)
 instance Hashable GetScenarioRoot
 instance NFData   GetScenarioRoot
+instance Binary   GetScenarioRoot
 
 data GetOpenVirtualResources = GetOpenVirtualResources
     deriving (Eq, Show, Typeable, Generic)
 instance Hashable GetOpenVirtualResources
 instance NFData   GetOpenVirtualResources
+instance Binary   GetOpenVirtualResources
 
 data GetDlintSettings = GetDlintSettings
     deriving (Eq, Show, Typeable, Generic)
@@ -165,6 +203,7 @@ instance NFData   GetDlintSettings
 instance NFData Hint where rnf = rwhnf
 instance NFData Classify where rnf = rwhnf
 instance Show Hint where show = const "<hint>"
+instance Binary GetDlintSettings
 
 type instance RuleResult GetDlintSettings = ([Classify], Hint)
 
@@ -172,6 +211,7 @@ data GetDlintDiagnostics = GetDlintDiagnostics
     deriving (Eq, Show, Typeable, Generic)
 instance Hashable GetDlintDiagnostics
 instance NFData   GetDlintDiagnostics
+instance Binary   GetDlintDiagnostics
 
 type instance RuleResult GetDlintDiagnostics = ()
 
@@ -179,6 +219,7 @@ data GenerateDocTestModule = GenerateDocTestModule
     deriving (Eq, Show, Typeable, Generic)
 instance Hashable GenerateDocTestModule
 instance NFData   GenerateDocTestModule
+instance Binary   GenerateDocTestModule
 
 -- | File path of the generated module
 type instance RuleResult GenerateDocTestModule = GeneratedModule
@@ -190,3 +231,4 @@ data OfInterest = OfInterest
     deriving (Eq, Show, Typeable, Generic)
 instance Hashable OfInterest
 instance NFData   OfInterest
+instance Binary   OfInterest

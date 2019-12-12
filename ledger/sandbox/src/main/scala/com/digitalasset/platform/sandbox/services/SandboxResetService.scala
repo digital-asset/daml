@@ -3,49 +3,39 @@
 
 package com.digitalasset.platform.sandbox.services
 
+import java.util.concurrent.atomic.AtomicBoolean
+
+import com.digitalasset.ledger.api.auth.Authorizer
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.v1.testing.reset_service.{ResetRequest, ResetServiceGrpc}
+import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DE}
 import com.digitalasset.platform.server.api.validation.ErrorFactories
 import com.google.protobuf.empty.Empty
-import io.grpc._
 import io.grpc.ServerCall.Listener
-import java.util.concurrent.atomic.AtomicBoolean
-import org.slf4j.LoggerFactory
+import io.grpc._
+
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
 class SandboxResetService(
     ledgerId: LedgerId,
     getEc: () => ExecutionContext,
-    resetAndRestartServer: () => Future[Unit])
+    resetAndRestartServer: () => Future[Unit],
+    authorizer: Authorizer,
+    loggerFactory: NamedLoggerFactory)
     extends ResetServiceGrpc.ResetService
     with BindableService
     with ServerInterceptor {
 
-  private val logger = LoggerFactory.getLogger(this.getClass)
+  private val logger = loggerFactory.getLogger(this.getClass)
 
   private val resetInitialized = new AtomicBoolean(false)
 
   override def bindService(): ServerServiceDefinition =
     ResetServiceGrpc.bindService(this, DE)
 
-  override def reset(request: ResetRequest): Future[Empty] = {
-
-    // to reset:
-    // * initiate a graceful shutdown -- note that this won't kill the in-flight requests, including
-    //   the reset request itself we're serving;
-    // * serve the response to the reset request;
-    // * then, close all the services so hopefully the graceful shutdown will terminate quickly...
-    // * ...but not before serving the request to the reset request itself, which we've already done.
-    Either
-      .cond(
-        ledgerId == LedgerId(request.ledgerId),
-        request.ledgerId,
-        ErrorFactories.ledgerIdMismatch(ledgerId, LedgerId(request.ledgerId)))
-      .fold(Future.failed[Empty], { _ =>
-        actuallyReset().map(_ => Empty())(DE)
-      })
-  }
+  override def reset(request: ResetRequest): Future[Empty] =
+    authorizer.requireAdminClaims(doReset)(request)
 
   override def interceptCall[ReqT, RespT](
       serverCall: ServerCall[ReqT, RespT],
@@ -58,6 +48,20 @@ class SandboxResetService(
 
     serverCallHandler.startCall(serverCall, metadata)
   }
+
+  // to reset:
+  // * initiate a graceful shutdown -- note that this won't kill the in-flight requests, including
+  //   the reset request itself we're serving;
+  // * serve the response to the reset request;
+  // * then, close all the services so hopefully the graceful shutdown will terminate quickly...
+  // * ...but not before serving the request to the reset request itself, which we've already done.
+  private def doReset(request: ResetRequest): Future[Empty] =
+    Either
+      .cond(
+        ledgerId == LedgerId(request.ledgerId),
+        request.ledgerId,
+        ErrorFactories.ledgerIdMismatch(ledgerId, LedgerId(request.ledgerId)))
+      .fold(Future.failed[Empty], _ => actuallyReset().map(_ => Empty())(DE))
 
   private def actuallyReset() = {
     logger.info("Initiating server reset.")

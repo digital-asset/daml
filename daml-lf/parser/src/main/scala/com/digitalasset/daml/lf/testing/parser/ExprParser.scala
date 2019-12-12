@@ -26,12 +26,15 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       eRecProj |
       eRecUpd |
       eVariantOrEnumCon |
-      eTupleCon |
-      eTupleUpd |
-      eTupleProj |
+      eStructCon |
+      eStructUpd |
+      eStructProj |
       eAbs |
       eTyAbs |
       eLet |
+      eToAny |
+      eFromAny |
+      eToTextTypeConName |
       contractId |
       fullIdentifier ^^ EVal |
       (id ^? builtinFunctions) ^^ EBuiltin |
@@ -46,7 +49,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
 
   private lazy val literal: Parsers.Parser[PrimLit] =
     acceptMatch[PrimLit]("Number", { case Number(l) => PLInt64(l) }) |
-      acceptMatch("Decimal", { case Decimal(d) => PLDecimal(d) }) |
+      acceptMatch("Numeric", { case Numeric(d) => PLNumeric(d) }) |
       acceptMatch("Text", { case Text(s) => PLText(s) }) |
       acceptMatch("Timestamp", { case Timestamp(l) => PLTimestamp(l) }) |
       acceptMatch("Date", { case Date(l) => PLDate(l) }) |
@@ -135,17 +138,17 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
         EEnumCon(tName, vName)
     }
 
-  private lazy val eTupleCon: Parser[Expr] =
-    `<` ~> fieldInits <~ `>` ^^ ETupleCon
+  private lazy val eStructCon: Parser[Expr] =
+    `<` ~> fieldInits <~ `>` ^^ EStructCon
 
-  private lazy val eTupleProj: Parser[Expr] =
+  private lazy val eStructProj: Parser[Expr] =
     (`(` ~> expr <~ `)` ~ `.`) ~! id ^^ {
-      case tuple ~ fName => ETupleProj(fName, tuple)
+      case struct ~ fName => EStructProj(fName, struct)
     }
 
-  private lazy val eTupleUpd: Parser[Expr] =
+  private lazy val eStructUpd: Parser[Expr] =
     `<` ~> expr ~ (`with` ~>! fieldInit) <~ `>` ^^ {
-      case tuple ~ ((fName, value)) => ETupleUpd(fName, tuple, value)
+      case struct ~ ((fName, value)) => EStructUpd(fName, struct, value)
     }
 
   private[parser] lazy val varBinder: Parser[(Name, Type)] =
@@ -174,6 +177,19 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       case b ~ body => ELet(b, body)
     }
 
+  private lazy val eToAny: Parser[Expr] =
+    `to_any` ~>! argTyp ~ expr0 ^^ {
+      case ty ~ e => EToAny(ty, e)
+    }
+
+  private lazy val eFromAny: Parser[Expr] =
+    `from_any` ~>! argTyp ~ expr0 ^^ {
+      case ty ~ e => EFromAny(ty, e)
+    }
+
+  private lazy val eToTextTypeConName: Parser[Expr] =
+    `type_rep` ~>! argTyp ^^ ETypeRep
+
   private lazy val pattern: Parser[CasePat] =
     primCon ^^ CPPrimCon |
       `nil` ^^^ CPNil |
@@ -200,37 +216,46 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
 
   private val builtinFunctions = Map(
     "TRACE" -> BTrace,
-    "ADD_DECIMAL" -> BAddDecimal,
-    "SUB_DECIMAL" -> BSubDecimal,
-    "MUL_DECIMAL" -> BMulDecimal,
-    "DIV_DECIMAL" -> BDivDecimal,
-    "ROUND_DECIMAL" -> BRoundDecimal,
+    "ADD_NUMERIC" -> BAddNumeric,
+    "SUB_NUMERIC" -> BSubNumeric,
+    "MUL_NUMERIC" -> BMulNumeric,
+    "DIV_NUMERIC" -> BDivNumeric,
+    "ROUND_NUMERIC" -> BRoundNumeric,
+    "CAST_NUMERIC" -> BCastNumeric,
+    "SHIFT_NUMERIC" -> BShiftNumeric,
     "ADD_INT64" -> BAddInt64,
     "SUB_INT64" -> BSubInt64,
     "MUL_INT64" -> BMulInt64,
     "DIV_INT64" -> BDivInt64,
     "MOD_INT64" -> BModInt64,
     "EXP_INT64" -> BExpInt64,
-    "INT64_TO_DECIMAL" -> BInt64ToDecimal,
-    "DECIMAL_TO_INT64" -> BDecimalToInt64,
+    "INT64_TO_NUMERIC" -> BInt64ToNumeric,
+    "NUMERIC_TO_INT64" -> BNumericToInt64,
     "DATE_TO_UNIX_DAYS" -> BDateToUnixDays,
     "UNIX_DAYS_TO_DATE" -> BUnixDaysToDate,
     "TIMESTAMP_TO_UNIX_MICROSECONDS" -> BTimestampToUnixMicroseconds,
     "UNIX_MICROSECONDS_TO_TIMESTAMP" -> BUnixMicrosecondsToTimestamp,
     "FOLDL" -> BFoldl,
     "FOLDR" -> BFoldr,
-    "MAP_EMPTY" -> BMapEmpty,
-    "MAP_INSERT" -> BMapInsert,
-    "MAP_LOOKUP" -> BMapLookup,
-    "MAP_DELETE" -> BMapDelete,
-    "MAP_TO_LIST" -> BMapToList,
-    "MAP_SIZE" -> BMapSize,
+    "TEXTMAP_EMPTY" -> BTextMapEmpty,
+    "TEXTMAP_INSERT" -> BTextMapInsert,
+    "TEXTMAP_LOOKUP" -> BTextMapLookup,
+    "TEXTMAP_DELETE" -> BTextMapDelete,
+    "TEXTMAP_TO_LIST" -> BTextMapToList,
+    "TEXTMAP_SIZE" -> BTextMapSize,
+    "GENMAP_EMPTY" -> BGenMapEmpty,
+    "GENMAP_INSERT" -> BGenMapInsert,
+    "GENMAP_LOOKUP" -> BGenMapLookup,
+    "GENMAP_DELETE" -> BGenMapDelete,
+    "GENMAP_KEYS" -> BGenMapKeys,
+    "GENMAP_VALUES" -> BGenMapValues,
+    "GENMAP_SIZE" -> BGenMapSize,
     "EXPLODE_TEXT" -> BExplodeText,
     "IMPLODE_TEXT" -> BImplodeText,
     "APPEND_TEXT" -> BAppendText,
     "SHA256_TEXT" -> BSHA256Text,
     "TO_TEXT_INT64" -> BToTextInt64,
-    "TO_TEXT_DECIMAL" -> BToTextDecimal,
+    "TO_TEXT_NUMERIC" -> BToTextNumeric,
     "TO_TEXT_TEXT" -> BToTextText,
     "TO_TEXT_TIMESTAMP" -> BToTextTimestamp,
     "TO_TEXT_PARTY" -> BToTextParty,
@@ -239,38 +264,33 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     "TEXT_FROM_CODE_POINTS" -> BToTextCodePoints,
     "FROM_TEXT_PARTY" -> BFromTextParty,
     "FROM_TEXT_INT64" -> BFromTextInt64,
-    "FROM_TEXT_DECIMAL" -> BFromTextDecimal,
+    "FROM_TEXT_NUMERIC" -> BFromTextNumeric,
     "TEXT_TO_CODE_POINTS" -> BFromTextCodePoints,
     "ERROR" -> BError,
     "LESS_INT64" -> BLessInt64,
-    "LESS_DECIMAL" -> BLessDecimal,
+    "LESS_NUMERIC" -> BLessNumeric,
     "LESS_TEXT" -> BLessText,
     "LESS_TIMESTAMP" -> BLessTimestamp,
     "LESS_DATE" -> BLessDate,
     "LESS_EQ_INT64" -> BLessEqInt64,
-    "LESS_EQ_DECIMAL" -> BLessEqDecimal,
+    "LESS_EQ_NUMERIC" -> BLessEqNumeric,
     "LESS_EQ_TEXT" -> BLessEqText,
     "LESS_EQ_TIMESTAMP" -> BLessEqTimestamp,
     "LESS_EQ_DATE" -> BLessEqDate,
     "GREATER_INT64" -> BGreaterInt64,
-    "GREATER_DECIMAL" -> BGreaterDecimal,
+    "GREATER_NUMERIC" -> BGreaterNumeric,
     "GREATER_TEXT" -> BGreaterText,
     "GREATER_TIMESTAMP" -> BGreaterTimestamp,
     "GREATER_DATE" -> BGreaterDate,
     "GREATER_EQ_INT64" -> BGreaterEqInt64,
-    "GREATER_EQ_DECIMAL" -> BGreaterEqDecimal,
+    "GREATER_EQ_NUMERIC" -> BGreaterEqNumeric,
     "GREATER_EQ_TEXT" -> BGreaterEqText,
     "GREATER_EQ_TIMESTAMP" -> BGreaterEqTimestamp,
     "GREATER_EQ_DATE" -> BGreaterEqDate,
-    "EQUAL_INT64" -> BEqualInt64,
-    "EQUAL_DECIMAL" -> BEqualDecimal,
-    "EQUAL_TEXT" -> BEqualText,
-    "EQUAL_TIMESTAMP" -> BEqualTimestamp,
-    "EQUAL_DATE" -> BEqualDate,
-    "EQUAL_PARTY" -> BEqualParty,
-    "EQUAL_BOOL" -> BEqualBool,
+    "EQUAL_NUMERIC" -> BEqualNumeric,
     "EQUAL_LIST" -> BEqualList,
     "EQUAL_CONTRACT_ID" -> BEqualContractId,
+    "EQUAL" -> BEqual,
     "COERCE_CONTRACT_ID" -> BCoerceContractId,
   )
 

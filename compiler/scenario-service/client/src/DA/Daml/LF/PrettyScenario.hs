@@ -674,6 +674,7 @@ prettyValue' showRecordType prec world (Value (Just vsum)) = case vsum of
   ValueSumOptional (Optional Nothing) -> text "none"
   ValueSumOptional (Optional (Just v)) -> "some " <> prettyValue' True precHighest world v
   ValueSumMap (Map entries) -> "Map" <> brackets (fcommasep (mapV (prettyEntry prec world) entries))
+  ValueSumGenMap (GenMap entries) -> "GenMap" <> brackets (fcommasep (mapV (prettyGenMapEntry prec world) entries))
   ValueSumUnserializable what -> ltext what
   where
     prettyField (Field label mbValue) =
@@ -681,6 +682,11 @@ prettyValue' showRecordType prec world (Value (Just vsum)) = case vsum of
         (prettyMay "<missing value>" (prettyValue' True precHighest world) mbValue)
     precWith = 1
     precHighest = 9
+
+prettyGenMapEntry :: Int -> LF.World -> GenMap_Entry -> Doc SyntaxClass
+prettyGenMapEntry prec world (GenMap_Entry keyM valueM) =
+    prettyMay "<missing key>" (prettyValue' True prec world) keyM <> "->" <>
+    prettyMay "<missing value>" (prettyValue' True prec world) valueM
 
 prettyEntry :: Int -> LF.World ->  Map_Entry -> Doc SyntaxClass
 prettyEntry prec world (Map_Entry key (Just value)) =
@@ -799,44 +805,15 @@ renderValue world name = \case
         renderField (Field label mbValue) =
             renderValue world (name ++ [TL.toStrict label]) (fromJust mbValue)
 
-templateConName :: Identifier -> LF.Qualified LF.TypeConName
-templateConName (Identifier mbPkgId (TL.toStrict -> qualName)) = LF.Qualified pkgRef  mdN tpl
-  where (mdN, tpl) = case T.splitOn ":" qualName of
-          [modName, defN] -> (LF.ModuleName (T.splitOn "." modName) , LF.TypeConName (T.splitOn "." defN) )
-          _ -> error "malformed identifier"
-        pkgRef = case mbPkgId of
-                  Just (PackageIdentifier (Just (PackageIdentifierSumPackageId pkgId))) -> LF.PRImport $ LF.PackageId $ TL.toStrict pkgId
-                  Just (PackageIdentifier (Just (PackageIdentifierSumSelf _))) -> LF.PRSelf
-                  Just (PackageIdentifier Nothing) -> error "unidentified package reference"
-                  Nothing -> error "unidentified package reference"
-
-labledField :: T.Text -> T.Text -> T.Text
-labledField fname "" = fname
-labledField fname label = fname <> "." <> label
-
-typeConFieldsNames :: LF.World -> (LF.FieldName, LF.Type) -> [T.Text]
-typeConFieldsNames world (LF.FieldName fName, LF.TConApp tcn _) = map (labledField fName) (typeConFields tcn world)
-typeConFieldsNames _ (LF.FieldName fName, _) = [fName]
-
-typeConFields :: LF.Qualified LF.TypeConName -> LF.World -> [T.Text]
-typeConFields qName world = case LF.lookupDataType qName world of
-  Right dataType -> case LF.dataCons dataType of
-    LF.DataRecord re -> concatMap (typeConFieldsNames world) re
-    LF.DataVariant _ -> [""]
-    LF.DataEnum _ -> [""]
-  Left _ -> error "malformed template constructor"
-
-renderHeader :: LF.World -> Identifier -> S.Set T.Text -> H.Html
-renderHeader world identifier parties = H.tr $ mconcat
+renderRow :: LF.World -> S.Set T.Text -> NodeInfo -> (H.Html, H.Html)
+renderRow world parties NodeInfo{..} =
+    let (ths, tds) = renderValue world [] niValue
+        header = H.tr $ mconcat
             [ foldMap (H.th . (H.div H.! A.class_ "observer") . H.text) parties
             , H.th "id"
             , H.th "status"
-            , foldMap (H.th . H.text) (typeConFields (templateConName identifier) world)
+            , ths
             ]
-
-renderRow :: LF.World -> S.Set T.Text -> NodeInfo -> H.Html
-renderRow world parties NodeInfo{..} =
-    let (_, tds) = renderValue world [] niValue
         observed party = if party `S.member` niObservers then "X" else "-"
         active = if niActive then "active" else "archived"
         row = H.tr H.! A.class_ (H.textValue active) $ mconcat
@@ -845,15 +822,16 @@ renderRow world parties NodeInfo{..} =
             , H.td (H.text active)
             , tds
             ]
-    in row
+    in (header, row)
 
+-- TODO(MH): The header should be rendered from the type rather than from the
+-- first value.
 renderTable :: LF.World -> Table -> H.Html
 renderTable world Table{..} = H.div H.! A.class_ active $ do
     let parties = S.unions $ map niObservers tRows
     H.h1 $ renderPlain $ prettyDefName world tTemplateId
-    let rows = map (renderRow world parties) tRows
-    let header = renderHeader world tTemplateId parties
-    H.table $ header <> mconcat rows
+    let (headers, rows) = unzip $ map (renderRow world parties) tRows
+    H.table $ head headers <> mconcat rows
     where
         active = if any niActive tRows then "active" else "archived"
 
@@ -873,8 +851,8 @@ renderScenarioResult world res = TL.toStrict $ Blaze.renderHtml $ do
     H.docTypeHtml $ do
         H.head $ do
             H.style $ H.text Pretty.highlightStylesheet
-            H.style $ H.text stylesheet
             H.script "" H.! A.src "$webviewSrc"
+            H.link H.! A.rel "stylesheet" H.! A.href "$webviewCss"
         let tableView = renderTableView world res
         let transView = renderTransactionView world res
         let noteView = H.div H.! A.class_ "note" H.! A.id "note" $ H.toHtml $ T.pack " "
@@ -894,48 +872,6 @@ renderScenarioResult world res = TL.toStrict $ Blaze.renderHtml $ do
                 noteView
                 tbl
                 transView
-
-stylesheet :: T.Text
-stylesheet = T.unlines
-  [ "table, th, td {"
-  , "  border: 1px solid;"
-  , "  border-collapse: collapse;"
-  , "}"
-  , "th, td {"
-  , "  padding-left: 2px;"
-  , "  padding-right: 2px;"
-  , "}"
-  , "body.hide_archived .archived {"
-  , "  display: none;"
-  , "}"
-  , "body.hide_table .table {"
-  , "  display: none;"
-  , "}"
-  , "body.hide_transaction .transaction {"
-  , "  display: none;"
-  , "}"
-  , "body.hide_note .note {"
-  , "  display: none;"
-  , "}"
-  , "tr.archived td {"
-  , "  text-decoration: line-through;"
-  , "}"
-  , "td.disclosure {"
-  , "  max-width: 1em;"
-  , "  text-align: center;"
-  , "}"
-  , "tr.archived td.disclosure {"
-  , "  text-decoration: none;"
-  , "}"
-  , "th {"
-  , "  vertical-align: bottom;"
-  , "}"
-  , "div.observer {"
-  , "  max-width: 1em;"
-  , "  writing-mode: vertical-rl;"
-  , "  transform: rotate(180deg);"
-  , "}"
-  ]
 
 scenarioNotInFileNote :: T.Text -> T.Text
 scenarioNotInFileNote file = htmlNote $ T.pack $

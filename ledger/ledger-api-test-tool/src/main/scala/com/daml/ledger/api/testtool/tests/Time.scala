@@ -5,25 +5,20 @@ package com.daml.ledger.api.testtool.tests
 
 import java.time.Duration
 
-import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTest, LedgerTestSuite}
-
-import scala.concurrent.duration.DurationInt
+import com.daml.ledger.api.testtool.infrastructure.Allocation._
+import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
 
 final class Time(session: LedgerSession) extends LedgerTestSuite(session) {
-
-  val pass =
-    LedgerTest("PassTime", "Advancing time should return the new time") { implicit context =>
+  test("PassTime", "Advancing time should return the new time", allocate(NoParties)) {
+    case Participants(Participant(ledger)) =>
       for {
-        t1 <- time()
-        _ <- passTime(1.second)
-        t2 <- time()
+        t1 <- ledger.time()
+        _ <- ledger.passTime(Duration.ofSeconds(1))
+        t2 <- ledger.time()
         travel = Duration.between(t1, t2)
       } yield
         assert(
           travel == Duration.ofSeconds(1),
           s"Time travel was expected to be 1 second but was instead $travel")
-    }
-
-  override val tests: Vector[LedgerTest] = Vector(pass)
-
+  }
 }

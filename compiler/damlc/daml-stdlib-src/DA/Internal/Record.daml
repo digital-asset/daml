@@ -5,6 +5,8 @@
 {-# LANGUAGE AllowAmbiguousTypes #-} -- setField doesn't mention x, because we pass it as a type application
 
 daml 1.2
+
+-- | MOVE DA.Record
 module DA.Internal.Record(HasField(..), Symbol, getFieldPrim, setFieldPrim) where
 
 import GHC.Types
@@ -15,9 +17,11 @@ class HasField (x : Symbol) r a | x r -> a where
     getField : r -> a
     setField : a -> r -> r
 
+-- | HIDE Not re-exported in DA.Record
 getFieldPrim : forall (f : Symbol) rec fld. rec -> fld
 getFieldPrim = getFieldPrim
 
+-- | HIDE Not re-exported in DA.Record
 setFieldPrim : forall (f : Symbol) rec fld. fld -> rec -> rec
 setFieldPrim = setFieldPrim
 

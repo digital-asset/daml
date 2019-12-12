@@ -22,16 +22,32 @@ public interface CommandClient {
                                 @NonNull String commandId, @NonNull String party, @NonNull Instant ledgerEffectiveTime,
                                 @NonNull Instant maximumRecordTime, @NonNull List<@NonNull Command> commands);
 
+    Single<Empty> submitAndWait(@NonNull String workflowId, @NonNull String applicationId,
+                                @NonNull String commandId, @NonNull String party, @NonNull Instant ledgerEffectiveTime,
+                                @NonNull Instant maximumRecordTime, @NonNull List<@NonNull Command> commands, @NonNull String accessToken);
+
     Single<String> submitAndWaitForTransactionId(@NonNull String workflowId, @NonNull String applicationId,
                                                  @NonNull String commandId, @NonNull String party, @NonNull Instant ledgerEffectiveTime,
                                                  @NonNull Instant maximumRecordTime, @NonNull List<@NonNull Command> commands);
+
+    Single<String> submitAndWaitForTransactionId(@NonNull String workflowId, @NonNull String applicationId,
+                                                 @NonNull String commandId, @NonNull String party, @NonNull Instant ledgerEffectiveTime,
+                                                 @NonNull Instant maximumRecordTime, @NonNull List<@NonNull Command> commands, @NonNull String accessToken);
 
     Single<Transaction> submitAndWaitForTransaction(@NonNull String workflowId, @NonNull String applicationId,
                                                     @NonNull String commandId, @NonNull String party, @NonNull Instant ledgerEffectiveTime,
                                                     @NonNull Instant maximumRecordTime, @NonNull List<@NonNull Command> commands);
 
+    Single<Transaction> submitAndWaitForTransaction(@NonNull String workflowId, @NonNull String applicationId,
+                                                    @NonNull String commandId, @NonNull String party, @NonNull Instant ledgerEffectiveTime,
+                                                    @NonNull Instant maximumRecordTime, @NonNull List<@NonNull Command> commands, @NonNull String accessToken);
+
     Single<TransactionTree> submitAndWaitForTransactionTree(@NonNull String workflowId, @NonNull String applicationId,
                                                             @NonNull String commandId, @NonNull String party, @NonNull Instant ledgerEffectiveTime,
                                                             @NonNull Instant maximumRecordTime, @NonNull List<@NonNull Command> commands);
+
+    Single<TransactionTree> submitAndWaitForTransactionTree(@NonNull String workflowId, @NonNull String applicationId,
+                                                            @NonNull String commandId, @NonNull String party, @NonNull Instant ledgerEffectiveTime,
+                                                            @NonNull Instant maximumRecordTime, @NonNull List<@NonNull Command> commands, @NonNull String accessToken);
 
 }

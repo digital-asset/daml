@@ -247,6 +247,23 @@ To advance time:
   :width: 25%
   :align: center
 
+.. _navigator-authentication:
+
+Authenticating Navigator
+************************
+
+If you are running Navigator against a Ledger API server that requires authentication, you must provide the access token when you start the Navigator server.
+
+The access token retrieval depends on the specific DAML setup you are working with: please refer to the ledger operator to learn how.
+
+Once you have retrieved your access token, you can provide it to Navigator by storing it in a file and provide the path to it using the ``--access-token-file`` command line option.
+
+If the access token cannot be retrieved, is missing or wrong, you'll be unable to move past the Navigator's frontend login screen and see the following:
+
+.. image:: images/access-denied.png
+  :width: 50%
+  :align: center
+
 .. _navigator-manual-advanced-usage:
 
 Advanced usage
@@ -361,7 +378,6 @@ form::
   users {
       <USERNAME> {
           party = <PARTYNAME>
-          password = <PASSWORD>
       }
       ..
   }
@@ -374,10 +390,6 @@ respective parties is sufficient to configure the Navigator. Example::
       BANK2 { party = "BANK2" }
       OPERATOR { party = "OPERATOR" }
   }
-
-.. note::
-  The password is used only if you activate the ``--require-password``
-  flag. This feature is only intended for demonstration purposes and may be removed in the future.
 
 Using Navigator with the Digital Asset ledger
 =============================================

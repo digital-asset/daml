@@ -47,6 +47,7 @@ abstract class ShowEncoding extends LfTypeEncoding {
 
   override def fields[A](fi: Field[A]): RecordFields[A] = fi
 
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   override def enumAll[A](
       enumId: Identifier,
       index: A => Int,
@@ -97,7 +98,7 @@ object ShowEncoding extends ShowEncoding {
 
     override def valueInt64: Show[P.Int64] = longInstance
 
-    override def valueDecimal: Show[P.Decimal] = bigDecimalInstance
+    override def valueNumeric: Show[P.Numeric] = bigDecimalInstance
 
     override def valueParty: Show[P.Party] =
       P.Party.subst(show(p => Cord("P@", ShowUnicodeEscapedString.show(p))))
@@ -119,7 +120,10 @@ object ShowEncoding extends ShowEncoding {
 
     override def valueOptional[A: Show]: Show[P.Optional[A]] = optionShow
 
-    override def valueMap[A: Show]: Show[P.Map[A]] = mapShow
+    override def valueTextMap[A: Show]: Show[P.TextMap[A]] = P.TextMap.leibniz[A].subst(mapShow)
+
+    override def valueGenMap[K: Show, V: Show]: Show[P.GenMap[K, V]] = P.GenMap.insertMapShow
+
   }
 
   object Implicits {

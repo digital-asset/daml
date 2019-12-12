@@ -1,13 +1,23 @@
 .. Copyright (c) 2019 The DAML Authors. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Release notes
-#############
+WARNING: THIS FILE IS NO LONGER USED AND WILL SOON BE DELETED!
 
-This page contains release notes for the SDK.
+Changelog additions must now be added to the end of one or more commit message bodies in a PR.
 
-HEAD — ongoing
---------------
+The following is an example of a commit message including a description and a body that includes changelog additions:
 
-+ [Documentation] Added platform-independent tips for testing
-+ [DAML Compiler] Some issues that caused ``damlc test`` to crash on shutdown have been fixed.
+.. code-block:: none
+
+  Fixes #1311
+
+  Also fixes a typo in the Scala bindings documentation.
+
+  CHANGELOG_BEGIN
+
+  - [Sandbox] Introduced a new API for package management.
+    See `#1311 <https://github.com/digital-asset/daml/issues/1311>`__.
+
+  CHANGELOG_END
+
+Please check `CONTRIBUTING.MD <https://github.com/digital-asset/daml/blob/master/CONTRIBUTING.md#pull-request-checklist>`__ for more details.

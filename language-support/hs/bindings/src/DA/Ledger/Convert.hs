@@ -122,7 +122,7 @@ lowerValue = LL.Value . Just . \case
     VContract c -> (LL.ValueSumContractId . unContractId) c
     VList vs -> (LL.ValueSumList . LL.List . Vector.fromList . map lowerValue) vs
     VInt i -> (LL.ValueSumInt64 . fromIntegral) i
-    VDecimal t -> LL.ValueSumDecimal $ Text.pack $ show t
+    VDecimal t -> LL.ValueSumNumeric $ Text.pack $ show t
     VText t -> LL.ValueSumText t
     VTime x -> (LL.ValueSumTimestamp . fromIntegral . unMicroSecondsSinceEpoch) x
     VParty p -> (LL.ValueSumParty . unParty) p
@@ -131,6 +131,7 @@ lowerValue = LL.Value . Just . \case
     VDate d -> (LL.ValueSumDate . fromIntegral . unDaysSinceEpoch) d
     VOpt o -> (LL.ValueSumOptional . LL.Optional . fmap lowerValue) o
     VMap m -> (LL.ValueSumMap . lowerTextMap) m
+    VGenMap m -> (LL.ValueSumGenMap . lowerGenMap) m
     VEnum e -> (LL.ValueSumEnum . lowerEnum) e
 
 lowerVariant :: Variant -> LL.Variant
@@ -155,6 +156,13 @@ lowerTextMap = LL.Map . Vector.fromList . map lowerTextMapEntry . Map.toList
 
 lowerTextMapEntry :: (Text,Value) -> LL.Map_Entry
 lowerTextMapEntry (key,value) = LL.Map_Entry key (Just $ lowerValue value)
+
+lowerGenMap :: [(Value, Value)] -> LL.GenMap
+lowerGenMap = LL.GenMap . Vector.fromList . map lowerGenMapEntry
+
+lowerGenMapEntry :: (Value, Value) -> LL.GenMap_Entry
+lowerGenMapEntry (key,value) = LL.GenMap_Entry
+    (Just $ lowerValue key) (Just $ lowerValue value)
 
 lowerRecord :: Record -> LL.Record
 lowerRecord = \case
@@ -355,7 +363,7 @@ raiseValue = \case
         LL.ValueSumContractId c -> (return . VContract . ContractId) c
         LL.ValueSumList vs -> (fmap VList . raiseList raiseValue . LL.listElements) vs
         LL.ValueSumInt64 i -> (return . VInt . fromIntegral) i
-        LL.ValueSumDecimal t -> (return . VDecimal . read . Text.unpack) t
+        LL.ValueSumNumeric t -> (return . VDecimal . read . Text.unpack) t
         LL.ValueSumText t -> (return . VText) t
         LL.ValueSumTimestamp x -> (return . VTime . MicroSecondsSinceEpoch . fromIntegral) x
         LL.ValueSumParty p -> (return . VParty . Party) p
@@ -364,6 +372,7 @@ raiseValue = \case
         LL.ValueSumDate x -> (return . VDate . DaysSinceEpoch . fromIntegral) x
         LL.ValueSumOptional o -> (fmap VOpt . raiseOptional) o
         LL.ValueSumMap m -> (fmap VMap . raiseTextMap) m
+        LL.ValueSumGenMap m -> (fmap VGenMap . raiseGenMap) m
 
 raiseVariant :: LL.Variant -> Perhaps Variant
 raiseVariant = \case
@@ -386,7 +395,7 @@ raiseOptional = \case
     LL.Optional (Just v) -> fmap Just (raiseValue v)
 
 raiseTextMap :: LL.Map -> Perhaps (Map Text Value)
-raiseTextMap m = (fmap Map.fromList . raiseList raiseTextMapEntry . LL.mapEntries) m
+raiseTextMap = fmap Map.fromList . raiseList raiseTextMapEntry . LL.mapEntries
 
 raiseTextMapEntry :: LL.Map_Entry -> Perhaps (Text,Value)
 raiseTextMapEntry = \case
@@ -394,6 +403,15 @@ raiseTextMapEntry = \case
         let key = map_EntryKey
         value <- perhaps "value" map_EntryValue >>= raiseValue
         return (key,value)
+
+raiseGenMap :: LL.GenMap -> Perhaps [(Value, Value)]
+raiseGenMap = raiseList raiseGenMapEntry . LL.genMapEntries
+
+raiseGenMapEntry :: LL.GenMap_Entry -> Perhaps (Value,Value)
+raiseGenMapEntry LL.GenMap_Entry {..} = do
+    key <- perhaps "key" genMap_EntryKey >>= raiseValue
+    value <- perhaps "value" genMap_EntryValue >>= raiseValue
+    return (key, value)
 
 raiseTimestamp :: LL.Timestamp -> Perhaps Timestamp
 raiseTimestamp = \case

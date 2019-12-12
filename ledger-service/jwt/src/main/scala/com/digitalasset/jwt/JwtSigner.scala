@@ -4,6 +4,7 @@
 package com.digitalasset.jwt
 
 import java.nio.charset.Charset
+import java.security.interfaces.RSAPrivateKey
 
 import com.auth0.jwt.algorithms.Algorithm
 import scalaz.syntax.traverse._
@@ -24,6 +25,24 @@ object JwtSigner {
 
         signature <- \/.fromTryCatchNonFatal(algorithm.sign(base64Jwt.header, base64Jwt.payload))
           .leftMap(e => Error(Symbol("HMAC256.sign"), e.getMessage))
+
+        base64Signature <- base64Encode(signature)
+
+      } yield
+        domain.Jwt(
+          s"${str(base64Jwt.header): String}.${str(base64Jwt.payload)}.${str(base64Signature): String}")
+  }
+
+  object RSA256 {
+    def sign(jwt: domain.DecodedJwt[String], privateKey: RSAPrivateKey): Error \/ domain.Jwt =
+      for {
+        base64Jwt <- base64Encode(jwt)
+
+        algorithm <- \/.fromTryCatchNonFatal(Algorithm.RSA256(null, privateKey))
+          .leftMap(e => Error(Symbol("RSA256.sign"), e.getMessage))
+
+        signature <- \/.fromTryCatchNonFatal(algorithm.sign(base64Jwt.header, base64Jwt.payload))
+          .leftMap(e => Error(Symbol("RSA256.sign"), e.getMessage))
 
         base64Signature <- base64Encode(signature)
 

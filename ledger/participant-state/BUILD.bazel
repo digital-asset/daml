@@ -4,7 +4,7 @@
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
-    "da_scala_test_suite",
+    "da_scala_test",
 )
 
 da_scala_library(
@@ -15,15 +15,37 @@ da_scala_library(
     visibility = [
         "//visibility:public",
     ],
+    exports = [
+        "//ledger/participant-state/protobuf:ledger_configuration_java_proto",
+    ],
     runtime_deps = [],
     deps = [
-        "//3rdparty/jvm/com/google/guava",
-        "//3rdparty/jvm/com/typesafe/akka:akka_stream",
-        "//daml-lf/archive:daml_lf_java_proto",
+        "//daml-lf/archive:daml_lf_dev_archive_java_proto",
         "//daml-lf/data",
         "//daml-lf/transaction",
-        "//daml-lf/transaction/src/main/protobuf:transaction_java_proto",
-        "//daml-lf/transaction/src/main/protobuf:value_java_proto",
+        "//daml-lf/transaction:transaction_java_proto",
+        "//daml-lf/transaction:value_java_proto",
         "//ledger/ledger-api-domain",
+        "//ledger/ledger-api-health",
+        "//ledger/participant-state/protobuf:ledger_configuration_java_proto",
+        "@maven//:com_google_guava_guava",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:com_typesafe_akka_akka_actor_2_12",
+        "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_core",
+        "@maven//:io_grpc_grpc_services",
+    ],
+)
+
+da_scala_test(
+    name = "participant-state-tests",
+    size = "small",
+    srcs = glob(["src/test/suite/**/*.scala"]),
+    resources = glob(["src/test/resources/*"]),
+    deps = [
+        ":participant-state",
+        "//bazel_tools/runfiles:scala_runfiles",
+        "@maven//:org_scalatest_scalatest_2_12",
     ],
 )

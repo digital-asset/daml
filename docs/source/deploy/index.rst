@@ -3,24 +3,26 @@
 
 .. _deploy-ref_index:
 
-Deploying to DAML ledgers
+Deploying to DAML Ledgers
 *************************
 
 To run a DAML application, you'll need to deploy it to a DAML ledger.
 
-How to deploy
+How to Deploy
 =============
 
 You can deploy to:
 
-- The Sandbox with persistence. For information on how to do this, see the section on persistence in :doc:`/tools/sandbox` docs
-- Further deployment options which are in development. For information on these options and their stage of development, see the table below.
+- The Sandbox with persistence. For information on how to do this, see the section on persistence in :doc:`/tools/sandbox` docs.
+- Other available DAML ledgers. For information on these options and their stage of development, see the :ref:`tables below <deploy-ref_available>`.
 
 To deploy a DAML project to a ledger, you will need the ledger's hostname (or IP) and the port number for the gRPC Ledger API. The default port number is 6865. Then, inside your DAML project folder, run the following command, taking care to substitute the ledger's hostname and port for ``<HOSTNAME>`` and ``<PORT>``:
 
+Once you have retrieved your access token, you can provide it by storing it in a file and provide the path to it using the ``--access-token-file`` command line option.
+
 .. code-block:: none
 
-   $ daml deploy --host=<HOSTNAME> --port=<PORT>
+   $ daml deploy --host=<HOSTNAME> --port=<PORT> --access-token-file=<TOKEN-FILE>
 
 This command will deploy your project to the ledger. This has two steps:
 
@@ -29,6 +31,8 @@ This command will deploy your project to the ledger. This has two steps:
 #. It will upload the project's compiled DAR file to the ledger via the package management service of the Ledger API. This will make the templates defined in the current project available to the users of the ledger.
 
 Instead of passing ``--host`` and ``--port`` flags to the command above, you can add the following section to the project's ``daml.yaml`` file:
+
+If the ledger has no authenication, the ``--access-token-file`` flag may be ommitted.
 
 .. code-block:: yaml
 
@@ -44,7 +48,9 @@ You can also use the ``daml ledger`` command for more fine-grained deployment op
    Usage: daml ledger COMMAND
      Interact with a remote DAML ledger. You can specify the ledger in daml.yaml
      with the ledger.host and ledger.port options, or you can pass the --host and
-     --port flags to each command below.
+     --port flags to each command below. If the ledger is authenticated, you should
+     pass the name of the file containing the token using the --access-token-file
+     flag.
 
    Available options:
      -h,--help                Show this help text
@@ -55,60 +61,75 @@ You can also use the ``daml ledger`` command for more fine-grained deployment op
      upload-dar               Upload DAR file to ledger
      navigator                Launch Navigator on ledger
 
-.. _deploy-ref_in_development:
+.. _deploy-ref_available:
 
-DAML ledgers built or in development
-====================================
+Available DAML Products
+=======================
 
-The following table lists the ledgers that support DAML, or are implementing
-support for running DAML.
-
-.. note: the table renderer fails *silently* if you don't have the right
-   number of columns!
+The following table lists commercially supported DAML ledgers and environments that are available for production use today.
 
 .. list-table::
-   :widths: 25 25 25 25
+   :header-rows: 1
+
+   * - Product
+     - Ledger
+     - Vendor
+   * - `Sextant for DAML <https://blockchaintp.com/sextant/daml/>`__
+     - `Amazon Aurora <https://aws.amazon.com/rds/aurora/>`__
+     - `Blockchain Technology Partners <https://blockchaintp.com/>`__
+   * - `Sextant for DAML <https://blockchaintp.com/sextant/daml/>`__
+     - `Hyperledger Sawtooth <https://sawtooth.hyperledger.org/>`__
+     - `Blockchain Technology Partners <https://blockchaintp.com/>`__
+   * - `project : DABL <https://projectdabl.com/>`__
+     - `Managed cloud enviroment <https://projectdabl.com/>`__
+     - `Digital Asset <https://digitalasset.com/>`__
+
+.. _deploy-ref_open_source:
+
+Open Source Integrations
+========================
+
+The following table lists open source DAML integrations.
+
+.. list-table::
    :header-rows: 1
 
    * - Ledger
-     - Status
-     - Developer (Managed Offering)
-     - More information
-   * - `VMware Blockchain <https://blogs.vmware.com/blockchain>`__
-     - In development
-     - `VMware <https://www.vmware.com/>`__
-     - `press release, April 2019
-       <http://hub.digitalasset.com/press-release/digital-asset-daml-smart-contract-language-now-extended-to-vmware-blockchain>`__
+     - Developer
+     - More Information
    * - `Hyperledger Sawtooth <https://sawtooth.hyperledger.org/>`__
-     - In development
      - `Blockchain Technology Partners <https://blockchaintp.com/>`__
-       (`Sextant <https://blockchaintp.com/sextant/>`__)
-     - `press release, April 2019
-       <https://www.hyperledger.org/blog/2019/04/16/daml-smart-contracts-coming-to-hyperledger-sawtooth>`__
+     - `Github Repo <https://github.com/blockchaintp/daml-on-sawtooth>`__
    * - `Hyperledger Fabric <https://www.hyperledger.org/projects/fabric>`__
-     - In development
-     - `Hacera <https://hacera.com>`__
-       (`Hacera Unbounded Network <https://unbounded.network/>`__)
-     - `press release, June 2019
-       <https://hub.digitalasset.com/press-release/digital-asset-announces-daml-partner-integrations-with-hyperledger-fabric-r3-corda-and-amazon-aurora>`__
-   * - `R3 Corda <https://www.corda.net>`__
-     - In development
+     - `Hacera <https://hacera.com/>`__
+     - `Github Repo <https://github.com/hacera/daml-on-fabric>`__
+   * - `PostgreSQL <https://www.postgresql.org/>`__
      - `Digital Asset <https://digitalasset.com/>`__
-     - `press release, June 2019
-       <https://hub.digitalasset.com/press-release/digital-asset-announces-daml-partner-integrations-with-hyperledger-fabric-r3-corda-and-amazon-aurora>`__
-   * - `Amazon Aurora <https://aws.amazon.com/rds/aurora/>`__
-     - In development
+     - `DAML Sandbox Docs <https://docs.daml.com/tools/sandbox.html>`__
+
+.. _deploy-ref_in_development:
+
+DAML Ledgers in Development
+===========================
+
+The following table lists the ledgers that are implementing support for running DAML.
+
+.. list-table::
+   :header-rows: 1
+
+   * - Ledger
+     - Developer
+     - More Information
+   * - `VMware Blockchain <https://blogs.vmware.com/blockchain>`__
+     - `VMware <https://www.vmware.com/>`__
+     - `Press release, April 2019 <http://hub.digitalasset.com/press-release/digital-asset-daml-smart-contract-language-now-extended-to-vmware-blockchain>`__
+   * - `Corda <https://www.corda.net/>`__
+     - `R3 <https://www.corda.net/>`__
+     - `press release, June 2019 <https://hub.digitalasset.com/press-release/digital-asset-announces-daml-partner-integrations-with-hyperledger-fabric-r3-corda-and-amazon-aurora>`__
+   * - `QLDB <https://aws.amazon.com/qldb/>`__
      - `Blockchain Technology Partners <https://blockchaintp.com/>`__
-       (`Sextant <https://blockchaintp.com/sextant/>`__)
-     - `press release, June 2019
-       <https://hub.digitalasset.com/press-release/digital-asset-announces-daml-partner-integrations-with-hyperledger-fabric-r3-corda-and-amazon-aurora>`__
-   * - :doc:`/tools/sandbox`
-     - Stable
-     - `Digital Asset <https://digitalasset.com/>`__
-     - supports `PostgreSQL <https://www.postgresql.org/>`__,
-       see section on persistence in :doc:`/tools/sandbox` docs
-   * - `Canton <https://www.canton.io>`__
-     - In development
-     - `Digital Asset <https://digitalasset.com/>`__
-     - `www.canton.io <https://www.canton.io>`__, has native support for :doc:`DAML's fine-grained privacy model
-       </concepts/ledger-model/ledger-privacy>`.
+     - `press release, September 2019 <https://blog.daml.com/daml-driven/quantum-daml-amazon-qldb-goes-ga>`__
+   * - `Canton <https://www.canton.io/>`__
+     - `Digital Asset <https://digitalasset.com/>`__ reference implementation
+     - `canton.io <https://www.canton.io/>`__
+

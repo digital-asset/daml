@@ -6,53 +6,56 @@ package com.digitalasset.http.util
 import java.time.Instant
 
 import com.digitalasset.api.util.TimestampConversion.fromInstant
+import com.digitalasset.http.CommandService.Error
+import com.digitalasset.http.domain.Contract
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
+import com.typesafe.scalalogging.StrictLogging
+import scalaz.\/
+import scalaz.syntax.show._
 
-object Commands {
+object Commands extends StrictLogging {
   def create(
       templateId: lar.TemplateId,
-      arguments: lav1.value.Record): lav1.commands.Command.Command.Create =
+      arguments: lav1.value.Record): lav1.commands.Command.Command.Create = {
+
     lav1.commands.Command.Command.Create(
       lav1.commands.CreateCommand(
         templateId = Some(lar.TemplateId.unwrap(templateId)),
         createArguments = Some(arguments)))
+  }
 
+  // TODO(Leo) #3390: choiceRecordId should be Optional, choice argument can be a primitive
   def exercise(
       templateId: lar.TemplateId,
       contractId: lar.ContractId,
       choice: lar.Choice,
-      arguments: lav1.value.Record): lav1.commands.Command.Command.Exercise = {
-
-    val choiceStr: String = lar.Choice.unwrap(choice)
-    val id: lav1.value.Identifier = lar.TemplateId.unwrap(templateId)
+      choiceRecordId: lav1.value.Identifier,
+      argument: lav1.value.Value): lav1.commands.Command.Command.Exercise = {
 
     lav1.commands.Command.Command.Exercise(
       lav1.commands.ExerciseCommand(
-        templateId = Some(id),
+        templateId = Some(lar.TemplateId.unwrap(templateId)),
         contractId = lar.ContractId.unwrap(contractId),
-        choice = choiceStr,
-        choiceArgument = Some(lav1.value.Value(
-          lav1.value.Value.Sum.Record(recordWithRecordId(arguments, id, choiceStr))))
-      ))
+        choice = lar.Choice.unwrap(choice),
+        choiceArgument = Some(setRecordId(argument, choiceRecordId))
+      )
+    )
   }
 
-  private def recordWithRecordId(
-      record: lav1.value.Record,
-      templateId: lav1.value.Identifier,
-      choice: String): lav1.value.Record = {
-
-    val recordId = lav1.value.Identifier(
-      packageId = templateId.packageId,
-      moduleName = templateId.moduleName,
-      entityName = choice)
-    record.copy(recordId = Some(recordId))
+  // TODO(Leo) #3390: choiceRecordId should be Optional, choice argument can be a primitive
+  private def setRecordId(
+      a: lav1.value.Value,
+      choiceRecordId: lav1.value.Identifier): lav1.value.Value = a match {
+    case lav1.value.Value(lav1.value.Value.Sum.Record(r)) if r.recordId.isEmpty =>
+      lav1.value.Value(lav1.value.Value.Sum.Record(r.copy(recordId = Some(choiceRecordId))))
+    case _ =>
+      a
   }
 
   def submitAndWaitRequest(
       ledgerId: lar.LedgerId,
       applicationId: lar.ApplicationId,
-      workflowId: lar.WorkflowId,
       commandId: lar.CommandId,
       ledgerEffectiveTime: Instant,
       maximumRecordTime: Instant,
@@ -61,7 +64,6 @@ object Commands {
 
     val commands = lav1.commands.Commands(
       ledgerId = lar.LedgerId.unwrap(ledgerId),
-      workflowId = lar.WorkflowId.unwrap(workflowId),
       applicationId = lar.ApplicationId.unwrap(applicationId),
       commandId = lar.CommandId.unwrap(commandId),
       party = lar.Party.unwrap(party),
@@ -72,4 +74,8 @@ object Commands {
 
     lav1.command_service.SubmitAndWaitRequest(Some(commands))
   }
+
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
+  def contracts(tx: lav1.transaction.Transaction): Error \/ List[Contract[lav1.value.Value]] =
+    Contract.fromTransaction(tx).leftMap(e => Error('contracts, e.shows))
 }

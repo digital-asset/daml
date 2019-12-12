@@ -3,6 +3,7 @@
 
 package com.digitalasset.daml.lf.testing.parser
 
+import com.digitalasset.daml.lf.data
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.Util._
@@ -13,7 +14,7 @@ private[parser] class TypeParser[P](parameters: ParserParameters[P]) {
 
   private def builtinTypes = Map[String, BuiltinType](
     "Int64" -> BTInt64,
-    "Decimal" -> BTDecimal,
+    "Numeric" -> BTNumeric,
     "Text" -> BTText,
     "Timestamp" -> BTTimestamp,
     "Party" -> BTParty,
@@ -26,7 +27,10 @@ private[parser] class TypeParser[P](parameters: ParserParameters[P]) {
     "Date" -> BTDate,
     "ContractId" -> BTContractId,
     "Arrow" -> BTArrow,
-    "Map" -> BTMap,
+    "TextMap" -> BTTextMap,
+    "GenMap" -> BTGenMap,
+    "Any" -> BTAny,
+    "TypeRep" -> BTTypeRep,
   )
 
   private[parser] def fullIdentifier: Parser[Ref.Identifier] =
@@ -41,19 +45,25 @@ private[parser] class TypeParser[P](parameters: ParserParameters[P]) {
     `(` ~> id ~ `:` ~ KindParser.kind <~ `)` ^^ { case name ~ _ ~ k => name -> k } |
       id ^^ (_ -> KStar)
 
+  private[parser] def tNat: Parser[TNat] =
+    accept("Number", {
+      case Number(l) if l.toInt == l => TNat(data.Numeric.Scale.assertFromLong(l))
+    })
+
   private lazy val tForall: Parser[Type] =
     `forall` ~>! rep1(typeBinder) ~ `.` ~ typ ^^ { case bs ~ _ ~ t => (bs :\ t)(TForall) }
 
   private lazy val fieldType: Parser[(FieldName, Type)] =
     id ~ `:` ~ typ ^^ { case name ~ _ ~ t => name -> t }
 
-  private lazy val tTuple: Parser[Type] =
-    `<` ~>! rep1sep(fieldType, `,`) <~ `>` ^^ (fs => TTuple(ImmArray(fs)))
+  private lazy val tStruct: Parser[Type] =
+    `<` ~>! rep1sep(fieldType, `,`) <~ `>` ^^ (fs => TStruct(ImmArray(fs)))
 
   lazy val typ0: Parser[Type] =
     `(` ~> typ <~ `)` |
+      tNat |
       tForall |
-      tTuple |
+      tStruct |
       (id ^? builtinTypes) ^^ TBuiltin |
       fullIdentifier ^^ TTyCon.apply |
       id ^^ TVar.apply

@@ -45,8 +45,8 @@ The project contains the following files:
   │   ├── IouTrade.daml
   │   ├── Main.daml
   │   └── Tests
-  │       ├── IouTest.daml
-  │       └── TradeTest.daml
+  │       ├── Iou.daml
+  │       └── Trade.daml
   ├── daml.yaml
   ├── frontend-config.js
   ├── pom.xml
@@ -116,15 +116,15 @@ In this section, you will run the quickstart application and get introduced to t
 
 #. To compile the DAML model, run ``daml build``
 
-   This creates a :ref:`DAR file <dar-file-dalf-file>` (DAR is just the format that DAML compiles to) called ``.daml/dist/quickstart.dar``. The output should look like this:
+   This creates a :ref:`DAR file <dar-file-dalf-file>` (DAR is just the format that DAML compiles to) called ``.daml/dist/quickstart-0.0.1.dar``. The output should look like this:
 
    .. code-block:: none
 
-      Created .daml/dist/quickstart.dar.
+      Created .daml/dist/quickstart-0.0.1.dar.
 
    .. _quickstart-sandbox:
 
-#. To run the :doc:`sandbox </tools/sandbox>` (a lightweight local version of the ledger), run ``daml sandbox --scenario Main:setup .daml/dist/quickstart.dar``
+#. To run the :doc:`sandbox </tools/sandbox>` (a lightweight local version of the ledger), run ``daml sandbox --scenario Main:setup .daml/dist/quickstart-0.0.1.dar``
 
    The output should look like this:
 
@@ -208,7 +208,7 @@ Now everything is running, you can try out the quickstart application:
 
    Go back to *Owned Ious*, open the Iou for €100 and click on the button *Iou_AddObserver*. Submit *Bob* as the *newObserver*.
 
-   Contracts in DAML are immutable, meaning they can not be changed, only created and archived. If you head back to the **Owned Ious** screen, you can see that the Iou now has a new Contract ID `#6:1`.
+   Contracts in DAML are immutable, meaning they cannot be changed, only created and archived. If you head back to the **Owned Ious** screen, you can see that the Iou now has a new Contract ID `#6:1`.
 #. To propose the trade, go to the **Templates** screen. Click on the *IouTrade:IouTrade* template, fill in the form as shown below and submit the transaction.
 
    .. figure:: quickstart/images/tradeProp.png
@@ -338,13 +338,13 @@ You can check the correct authorization and privacy of a contract model using *s
 
 Scenarios are a linear sequence of transactions that is evaluated using the same consistency, conformance and authorization rules as it would be on the full ledger server or the sandbox ledger. They are integrated into DAML Studio, which can show you the resulting transaction graph, making them a powerful tool to test and troubleshoot the contract model.
 
-To take a look at the scenarios in the quickstart application, open ``daml/Tests/TradeTest.daml`` in DAML Studio.
+To take a look at the scenarios in the quickstart application, open ``daml/Tests/Trade.daml`` in DAML Studio.
 
 A scenario test is defined with ``trade_test = scenario do``. The ``submit`` function takes a submitting party and a transaction, which is specified the same way as in contract choices.
 
 The following block, for example, issues an ``Iou`` and transfers it to Alice:
 
-.. literalinclude:: quickstart/template-root/daml/Tests/TradeTest.daml
+.. literalinclude:: quickstart/template-root/daml/Tests/Trade.daml
   :language: daml
   :lines: 19-27
 
@@ -445,7 +445,7 @@ In the transaction view, transaction ``#6`` is of particular interest, as it sho
               with
                 issuer = 'EUR_Bank'; owner = 'Bob'; currency = "EUR"; amount = 100.0; observers = []
 
-The ``submit`` function used in this scenario tries to perform a transaction and fails if any of the ledger integrity rules are violated. There is also a ``submitMustFail`` function, which checks that certain transactions are not possible. This is used in ``daml/Tests/IouTest.daml``, for example, to confirm that the ledger model prevents double spends.
+The ``submit`` function used in this scenario tries to perform a transaction and fails if any of the ledger integrity rules are violated. There is also a ``submitMustFail`` function, which checks that certain transactions are not possible. This is used in ``daml/Tests/Iou.daml``, for example, to confirm that the ledger model prevents double spends.
 
 ..  Interact with the ledger through the command line
     *************************************************
@@ -502,7 +502,7 @@ The following REST services are included:
   ``curl -X PUT -d '{"issuer":"Alice","owner":"Alice","currency":"AliceCoin","amount":1.0,"observers":[]}' http://localhost:8080/iou``
 - ``POST`` on ``http://localhost:8080/iou/ID/transfer`` transfers the Iou with Id ``ID``.
 
-  Check that the Id of your new *AliceCoin* using step 1.. If you have followed this guide, it will be ``0`` so you can run:
+  Check the Id of your new *AliceCoin* by listing all active Ious. If you have followed this guide, it will be ``0`` so you can run:
 
   ``curl -X POST -d '{ "newOwner":"Bob" }' http://localhost:8080/iou/0/transfer``
 
@@ -523,18 +523,18 @@ It consists of the application in file ``IouMain.java``. It uses the class ``Iou
       :lines: 46-50
       :dedent: 8
 
-#. An in-memory contract-store is initialized. This is intended to provide a live view of all active contracts, with mappings between ledger and external Ids.
+#. An in-memory contract store is initialized. This is intended to provide a live view of all active contracts, with mappings between ledger and external Ids.
 
    .. literalinclude:: quickstart/template-root/src/main/java/com/digitalasset/quickstart/iou/IouMain.java
       :language: java
       :lines: 58-60
       :dedent: 8
 
-#. The Active Contracts Service (ACS) is used to quickly build up the contract-store to a recent state.
+#. The Active Contracts Service (ACS) is used to quickly build up the contract store to a recent state.
 
    .. literalinclude:: quickstart/template-root/src/main/java/com/digitalasset/quickstart/iou/IouMain.java
       :language: java
-      :lines: 63-74
+      :lines: 63-73
       :dedent: 8
 
    Note the use of ``blockingForEach`` to ensure that the contract store is fully built and the ledger-offset up to which the ACS provides data is known before moving on.
@@ -544,14 +544,14 @@ It consists of the application in file ``IouMain.java``. It uses the class ``Iou
 
    .. literalinclude:: quickstart/template-root/src/main/java/com/digitalasset/quickstart/iou/IouMain.java
       :language: java
-      :lines: 76-92
+      :lines: 75-91
       :dedent: 8
 
 #. Commands are submitted via the Command Submission Service.
 
    .. literalinclude:: quickstart/template-root/src/main/java/com/digitalasset/quickstart/iou/IouMain.java
       :language: java
-      :lines: 127-137
+      :lines: 126-136
       :dedent: 4
 
    You can find examples of ``ExerciseCommand`` and ``CreateCommand`` instantiation in the bodies of the ``transfer`` and ``iou`` endpoints, respectively.
@@ -559,13 +559,13 @@ It consists of the application in file ``IouMain.java``. It uses the class ``Iou
    .. literalinclude:: quickstart/template-root/src/main/java/com/digitalasset/quickstart/iou/IouMain.java
       :caption: ExerciseCommand
       :language: java
-      :lines: 108-109
+      :lines: 107-108
       :dedent: 12
 
    .. literalinclude:: quickstart/template-root/src/main/java/com/digitalasset/quickstart/iou/IouMain.java
       :caption: CreateCommand
       :language: java
-      :lines: 101-102
+      :lines: 100-101
       :dedent: 12
 
 The rest of the application sets up the REST services using `Spark Java <http://sparkjava.com/>`_, and does dynamic package Id detection using the Package Service. The latter is useful during development when package Ids change frequently.

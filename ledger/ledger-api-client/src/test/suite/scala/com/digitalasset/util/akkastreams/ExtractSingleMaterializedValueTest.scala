@@ -38,7 +38,7 @@ class ExtractSingleMaterializedValueTest
     }
 
     "there are multiple valid values" should {
-      "extract the first" in {
+      "extract the first matching element" in {
         val elemToExtract = -1
         val otherCandidateShuffledIn = -2
 

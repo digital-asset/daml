@@ -25,7 +25,8 @@ package object v2 {
         stakeholders: Set[Ref.Party],
         contractKey: Option[Value.VersionedValue[Value.AbsoluteContractId]],
         signatories: Set[Ref.Party],
-        observers: Set[Ref.Party]
+        observers: Set[Ref.Party],
+        agreementText: String
     )
   }
 

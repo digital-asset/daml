@@ -14,4 +14,6 @@ import io.reactivex.Flowable;
 public interface ActiveContractsClient {
 
     Flowable<GetActiveContractsResponse> getActiveContracts(TransactionFilter filter, boolean verbose);
+
+    Flowable<GetActiveContractsResponse> getActiveContracts(TransactionFilter filter, boolean verbose, String accessToken);
 }

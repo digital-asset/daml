@@ -47,14 +47,15 @@ public class RecordTest {
     @Test
     void deserializableFromRecord() {
         Int64 int_ = new Int64(int64Value);
-        Decimal decimal = new Decimal(decimalValue);
+        Numeric decimal = new Numeric(decimalValue);
         Text text = new Text(textValue);
         Bool bool = new Bool(boolValue);
         Party party = new Party(partyValue);
         Date date = new Date(dateValue);
         Timestamp timestamp = new Timestamp(timestampMicrosValue);
-        DamlList list = new DamlList(Unit.getInstance(), Unit.getInstance());
-        DamlList nestedList = new DamlList(nestedListValue.stream().map(ns -> new DamlList(ns.stream().map(n -> new Int64(n)).collect(Collectors.toList()))).collect(Collectors.toList()));
+        DamlList list = DamlList.of(Unit.getInstance(), Unit.getInstance());
+        DamlList nestedList =
+                nestedListValue.stream().collect(DamlCollectors.toDamlList(ns -> ns.stream().collect(DamlCollectors.toDamlList(Int64::new))));
         Record nestedRecord = new Record(new Record.Field("value", new Int64(42)));
         Variant nestedVariant = new Variant("Nested", new Int64(42));
         ArrayList<Record.Field> fieldsList = new ArrayList<>(10);

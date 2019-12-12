@@ -12,10 +12,6 @@ load(
     "@rules_haskell//haskell:c2hs.bzl",
     "c2hs_library",
 )
-load(
-    "@ai_formation_hazel//:hazel.bzl",
-    "hazel_library",
-)
 load("//bazel_tools:hlint.bzl", "haskell_hlint")
 load("@os_info//:os_info.bzl", "is_windows")
 
@@ -64,13 +60,13 @@ common_haskell_flags = [
     "-with-rtsopts=-N2 -qg -I0",
 ]
 
-def _wrap_rule(rule, name = "", deps = [], hazel_deps = [], compiler_flags = [], **kwargs):
+def _wrap_rule(rule, name = "", deps = [], hackage_deps = [], compiler_flags = [], **kwargs):
     ext_flags = ["-X%s" % ext for ext in common_haskell_exts]
-    hazel_libs = [hazel_library(dep) for dep in hazel_deps]
+    stackage_libs = ["@stackage//:{}".format(dep) for dep in hackage_deps]
     rule(
         name = name,
         compiler_flags = ext_flags + common_haskell_flags + compiler_flags,
-        deps = hazel_libs + deps,
+        deps = stackage_libs + deps,
         **kwargs
     )
 
@@ -101,7 +97,7 @@ def da_haskell_library(**kwargs):
     """
     Define a Haskell library.
 
-    Allows to define Hazel dependencies using `hazel_deps`,
+    Allows to define Hackage dependencies using `hackage_deps`,
     applies common Haskell options defined in `bazel_tools/haskell.bzl`
     and forwards to `haskell_library` from `rules_haskell`.
     Refer to the [`rules_haskell` documentation][rules_haskell_docs].
@@ -114,7 +110,7 @@ def da_haskell_library(**kwargs):
             name = "example",
             src_strip_prefix = "src",
             srcs = glob(["src/**/*.hs"]),
-            hazel_deps = [
+            hackage_deps = [
                 "base",
                 "text",
             ],
@@ -131,7 +127,7 @@ def da_haskell_binary(main_function = "Main.main", **kwargs):
     """
     Define a Haskell executable.
 
-    Allows to define Hazel dependencies using `hazel_deps`,
+    Allows to define Hackage dependencies using `hackage_deps`,
     applies common Haskell options defined in `bazel_tools/haskell.bzl`
     and forwards to `haskell_binary` from `rules_haskell`.
     Refer to the [`rules_haskell` documentation][rules_haskell_docs].
@@ -144,7 +140,7 @@ def da_haskell_binary(main_function = "Main.main", **kwargs):
             name = "example",
             src_strip_prefix = "src",
             srcs = glob(["src/**/*.hs"]),
-            hazel_deps = [
+            hackage_deps = [
                 "base",
                 "text",
             ],
@@ -167,7 +163,7 @@ def da_haskell_test(main_function = "Main.main", testonly = True, **kwargs):
     """
     Define a Haskell test suite.
 
-    Allows to define Hazel dependencies using `hazel_deps`,
+    Allows to define Hackage dependencies using `hackage_deps`,
     applies common Haskell options defined in `bazel_tools/haskell.bzl`
     and forwards to `haskell_test` from `rules_haskell`.
     Refer to the [`rules_haskell` documentation][rules_haskell_docs].
@@ -180,7 +176,7 @@ def da_haskell_test(main_function = "Main.main", testonly = True, **kwargs):
             name = "example",
             src_strip_prefix = "src",
             srcs = glob(["src/**/*.hs"]),
-            hazel_deps = [
+            hackage_deps = [
                 "base",
                 "text",
             ],
@@ -284,7 +280,7 @@ def _sanitize_string_for_usage(s):
             res_array.append("_")
     return "".join(res_array)
 
-def c2hs_suite(name, hazel_deps, deps = [], srcs = [], c2hs_srcs = [], c2hs_src_strip_prefix = "", **kwargs):
+def c2hs_suite(name, hackage_deps, deps = [], srcs = [], c2hs_srcs = [], c2hs_src_strip_prefix = "", **kwargs):
     ts = []
     for file in c2hs_srcs:
         n = _sanitize_string_for_usage(file)
@@ -293,19 +289,15 @@ def c2hs_suite(name, hazel_deps, deps = [], srcs = [], c2hs_srcs = [], c2hs_src_
             srcs = [file],
             deps = deps + [":" + t for t in ts],
             src_strip_prefix = c2hs_src_strip_prefix,
+            # language-c fails to pass mingw’s intrinsic-impl.h header if
+            # we do not unset this option.
+            extra_args = ["-C-U__GCC_ASM_FLAG_OUTPUTS__"] if is_windows else [],
         )
         ts.append(n)
     da_haskell_library(
         name = name,
         srcs = [":" + t for t in ts] + srcs,
         deps = deps,
-        hazel_deps = hazel_deps,
+        hackage_deps = hackage_deps,
         **kwargs
     )
-
-# Add extra packages, e.g., packages that are on Hackage but not in Stackage.
-# This cannot be inlined since it is impossible to create a struct in WORKSPACE.
-def add_extra_packages(pkgs, extra):
-    result = dict(pkgs)
-    result.update({k: struct(**v) for (k, v) in extra})
-    return result

@@ -5,6 +5,7 @@ genrule(
     name = "templates-tarball",
     srcs = glob([
         "default-gitignore",
+        "default-dlint-yaml",
         "skeleton/**",
         "migrate/**",
         "quickstart-java/**",
@@ -12,6 +13,8 @@ genrule(
     ]) + [
         "//docs:quickstart-java.tar.gz",
         "//docs:daml-intro-templates",
+        "//docs:copy-trigger-template",
+        "//docs:script-example-template",
         "//language-support/scala/examples:quickstart-scala-dir",
     ],
     outs = ["templates-tarball.tar.gz"],
@@ -24,6 +27,7 @@ genrule(
             mkdir -p $$OUT/$$d
             cp -rL $$SRC/$$d/* $$OUT/$$d/
             cp $$SRC/default-gitignore $$OUT/$$d/.gitignore
+            cp $$SRC/default-dlint-yaml $$OUT/$$d/.dlint.yaml
         done
 
         ## special cases we should work to remove
@@ -40,6 +44,12 @@ genrule(
 
         # daml intro templates
         tar xf $(location //docs:daml-intro-templates) -C $$OUT
+
+        mkdir -p $$OUT/copy-trigger
+        tar xf $(location //docs:copy-trigger-template) -C $$OUT/copy-trigger
+
+        mkdir -p $$OUT/script-example
+        tar xf $(location //docs:script-example-template) -C $$OUT/script-example
 
         tar zcf $(location :templates-tarball.tar.gz) templates-tarball
     """,

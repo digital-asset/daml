@@ -21,12 +21,16 @@ class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
       Package(
         List(
           Module(modName1, List.empty, List.empty, defaultVersion, FeatureFlags.default),
-          Module(modName2, List.empty, List.empty, defaultVersion, FeatureFlags.default)))
-      an[PackageError] shouldBe thrownBy(
+          Module(modName2, List.empty, List.empty, defaultVersion, FeatureFlags.default)),
+        Set.empty
+      )
+      a[PackageError] shouldBe thrownBy(
         Package(
           List(
             Module(modName1, List.empty, List.empty, defaultVersion, FeatureFlags.default),
-            Module(modName1, List.empty, List.empty, defaultVersion, FeatureFlags.default))))
+            Module(modName1, List.empty, List.empty, defaultVersion, FeatureFlags.default)),
+          Set.empty
+        ))
 
     }
 
@@ -67,7 +71,7 @@ class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         featureFlags = FeatureFlags.default,
       )
 
-      an[PackageError] shouldBe thrownBy(
+      a[PackageError] shouldBe thrownBy(
         Module.apply(
           name = modName1,
           definitions = List(
@@ -98,7 +102,7 @@ class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         featureFlags = FeatureFlags.default,
       )
 
-      an[PackageError] shouldBe thrownBy(
+      a[PackageError] shouldBe thrownBy(
         Module.apply(
           name = modName1,
           definitions = List(
@@ -129,7 +133,7 @@ class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         featureFlags = FeatureFlags.default,
       )
 
-      an[PackageError] shouldBe thrownBy(
+      a[PackageError] shouldBe thrownBy(
         Module.apply(
           name = modName1,
           definitions = List(
@@ -177,7 +181,7 @@ class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         key = None
       )
 
-      an[PackageError] shouldBe thrownBy(
+      a[PackageError] shouldBe thrownBy(
         Template(
           param = Name.assertFromString("x"),
           precond = ETrue,

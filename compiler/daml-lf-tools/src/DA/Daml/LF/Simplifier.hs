@@ -44,9 +44,9 @@ freeVarsStep = \case
   ERecUpdF _ _ s1 s2 -> s1 <> s2
   EVariantConF _ _ s -> s
   EEnumConF _ _ -> Set.empty
-  ETupleConF fs -> foldMap snd fs
-  ETupleProjF _ s -> s
-  ETupleUpdF _ s1 s2 -> s1 <> s2
+  EStructConF fs -> foldMap snd fs
+  EStructProjF _ s -> s
+  EStructUpdF _ s1 s2 -> s1 <> s2
   ETmAppF s1 s2 -> s1 <> s2
   ETyAppF s _ -> s
   ETmLamF (x, _) s -> x `Set.delete` s
@@ -57,6 +57,9 @@ freeVarsStep = \case
   EConsF _ s1 s2 -> s1 <> s2
   ENoneF _ -> mempty
   ESomeF _ s -> s
+  EToAnyF _ s -> s
+  EFromAnyF _ s -> s
+  ETypeRepF _ -> mempty
   EUpdateF u ->
     case u of
       UPureF _ s -> s
@@ -104,6 +107,7 @@ safetyStep = \case
     case b of
       BEInt64 _           -> Safe 0
       BEDecimal _         -> Safe 0
+      BENumeric _         -> Safe 0
       BEText _            -> Safe 0
       BETimestamp _       -> Safe 0
       BEParty _           -> Safe 0
@@ -111,6 +115,7 @@ safetyStep = \case
       BEUnit              -> Safe 0
       BEBool _            -> Safe 0
       BEError             -> Safe 0
+      BEEqualGeneric      -> Safe 1 -- may crash if values are incomparable
       BEEqual _           -> Safe 2
       BELess _            -> Safe 2
       BELessEq _          -> Safe 2
@@ -123,6 +128,22 @@ safetyStep = \case
       BEMulDecimal        -> Safe 1
       BEDivDecimal        -> Safe 1
       BERoundDecimal      -> Safe 1
+      BEEqualNumeric      -> Safe 2
+      BELessNumeric       -> Safe 2
+      BELessEqNumeric     -> Safe 2
+      BEGreaterNumeric    -> Safe 2
+      BEGreaterEqNumeric  -> Safe 2
+      BEAddNumeric        -> Safe 1
+      BESubNumeric        -> Safe 1
+      BEMulNumeric        -> Safe 1
+      BEDivNumeric        -> Safe 1
+      BEInt64ToNumeric    -> Safe 0
+      BENumericToInt64    -> Safe 0
+      BENumericFromText   -> Safe 1
+      BEToTextNumeric     -> Safe 1
+      BERoundNumeric      -> Safe 1
+      BECastNumeric       -> Safe 0
+      BEShiftNumeric      -> Safe 1
       BEAddInt64          -> Safe 1
       BESubInt64          -> Safe 1
       BEMulInt64          -> Safe 1
@@ -133,12 +154,19 @@ safetyStep = \case
       BEDecimalToInt64    -> Safe 0 -- crash if the decimal doesn't fit
       BEFoldl             -> Safe 2
       BEFoldr             -> Safe 2
-      BEMapEmpty          -> Safe 1
-      BEMapInsert         -> Safe 3
-      BEMapLookup         -> Safe 2
-      BEMapDelete         -> Safe 2
-      BEMapToList         -> Safe 1
-      BEMapSize           -> Safe 1
+      BETextMapEmpty      -> Safe 0
+      BETextMapInsert     -> Safe 3
+      BETextMapLookup     -> Safe 2
+      BETextMapDelete     -> Safe 2
+      BETextMapToList     -> Safe 1
+      BETextMapSize       -> Safe 1
+      BEGenMapEmpty       -> Safe 0
+      BEGenMapInsert      -> Safe 2 -- crash if key invalid
+      BEGenMapLookup      -> Safe 1 -- crash if key invalid
+      BEGenMapDelete      -> Safe 1 -- crash if key invalid
+      BEGenMapKeys        -> Safe 1
+      BEGenMapValues      -> Safe 1
+      BEGenMapSize        -> Safe 1
       BEEqualList         -> Safe 2 -- expects 3, 2-safe
       BEExplodeText       -> Safe 1
       BEImplodeText       -> Safe 1
@@ -156,14 +184,23 @@ safetyStep = \case
       BEDecimalFromText -> Safe 1
       BETextToCodePoints -> Safe 1
       BECoerceContractId -> Safe 1
+      BETextToUpper -> Safe 1
+      BETextToLower -> Safe 1
+      BETextSlice -> Safe 3
+      BETextSliceIndex -> Safe 2
+      BETextContainsOnly -> Safe 2
+      BETextReplicate -> Safe 2
+      BETextSplitOn -> Safe 2
+      BETextIntercalate -> Safe 2
+
   ERecConF _ fs -> minimum (Safe 0 : map snd fs)
   ERecProjF _ _ s -> s `min` Safe 0
   ERecUpdF _ _ s1 s2 -> s1 `min` s2 `min` Safe 0
   EVariantConF _ _ s -> s `min` Safe 0
   EEnumConF _ _ -> Safe 0
-  ETupleConF fs -> minimum (Safe 0 : map snd fs)
-  ETupleProjF _ s -> s `min` Safe 0
-  ETupleUpdF _ s1 s2 -> s1 `min` s2 `min` Safe 0
+  EStructConF fs -> minimum (Safe 0 : map snd fs)
+  EStructProjF _ s -> s `min` Safe 0
+  EStructUpdF _ s1 s2 -> s1 `min` s2 `min` Safe 0
   ETmAppF s1 s2 ->
     case s2 of
       Unsafe -> Unsafe
@@ -191,6 +228,14 @@ safetyStep = \case
   ESomeF _ s
     | Safe _ <- s -> Safe 0
     | otherwise   -> Unsafe
+  EToAnyF _ s
+    | Safe _ <- s -> Safe 0
+    | otherwise -> Unsafe
+  EFromAnyF _ s
+    | Safe _ <- s -> Safe 0
+    | otherwise -> Unsafe
+  ETypeRepF _ -> Safe 0
+
 
 infoStep :: ExprF Info -> Info
 infoStep e = Info (freeVarsStep (fmap freeVars e)) (safetyStep (fmap safety e))
@@ -201,7 +246,7 @@ simplifyExpr = fst . cata go
     go :: ExprF (Expr, Info) -> (Expr, Info)
     go = \case
       -- <...; f = e; ...>.f    ==>    e
-      ETupleProjF f (ETupleCon fes, s)
+      EStructProjF f (EStructCon fes, s)
         -- NOTE(MH): We're deliberately overapproximating the potential of
         -- bottoms and the set of free variables below to avoid recomputing
         -- them.
@@ -216,20 +261,20 @@ simplifyExpr = fst . cata go
         | x == x' -> e
 
       -- let x = <...; f = e; ...> in x.f    ==>    e
-      ELetF (BindingF (x, _) (ETupleCon fes, s)) (ETupleProj f (EVar x'), _)
+      ELetF (BindingF (x, _) (EStructCon fes, s)) (EStructProj f (EVar x'), _)
         -- NOTE(MH): See NOTE above on @s@.
         | x == x', Safe _ <- safety s, Just e <- f `lookup` fes -> (e, s)
 
       -- let x = <f1 = e1; ...; fn = en> in T {f1 = x.f1; ...; fn = x.fn}
       -- ==>
       -- T {f1 = e1; ...; fn = en}
-      ELetF (BindingF (x1, _) (ETupleCon fes1, s)) (ERecCon t fes2, _)
+      ELetF (BindingF (x1, _) (EStructCon fes1, s)) (ERecCon t fes2, _)
         | Just bs <- Safe.zipWithExactMay matchField fes1 fes2
         , and bs ->
             (ERecCon t fes1, s)
         where
           matchField (f1, _) (f2, e2)
-            | f1 == f2, ETupleProj f3 (EVar x3) <- e2, f1 == f3, x1 == x3 = True
+            | f1 == f2, EStructProj f3 (EVar x3) <- e2, f1 == f3, x1 == x3 = True
             | otherwise = False
 
       -- let x = e1 in e2    ==>    e2, if e1 cannot be bottom and x is not free in e2
@@ -243,8 +288,8 @@ simplifyExpr = fst . cata go
       --   `fv(e2) ⊆ V ∪ {x}`.
       -- - If `let x = e1 in e2` is k-safe, then `e1` is 0-safe and `e2` is
       --   k-safe.
-      ETupleProjF f (ELet (Binding (x, t) e1) e2, Info fv sf) ->
-        go $ ELetF (BindingF (x, t) (e1, s1)) (go $ ETupleProjF f (e2, s2))
+      EStructProjF f (ELet (Binding (x, t) e1) e2, Info fv sf) ->
+        go $ ELetF (BindingF (x, t) (e1, s1)) (go $ EStructProjF f (e2, s2))
         where
           s1 = Info fv (sf `min` Safe 0)
           s2 = Info (Set.insert x fv) sf

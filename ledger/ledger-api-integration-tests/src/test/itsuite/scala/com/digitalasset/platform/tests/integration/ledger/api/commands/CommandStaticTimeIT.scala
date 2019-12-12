@@ -10,10 +10,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import akka.stream.scaladsl.Sink
 import com.digitalasset.api.util.TimestampConversion._
 import com.digitalasset.grpc.adapter.client.akka.ClientAdapter
-import com.digitalasset.ledger.api.testing.utils.{
-  AkkaBeforeAndAfterAll,
-  SuiteResourceManagementAroundAll
-}
+import com.digitalasset.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
 import com.digitalasset.ledger.api.v1.commands.Command.Command.{Create, Exercise}
 import com.digitalasset.ledger.api.v1.commands.{Command, CreateCommand, ExerciseCommand}
@@ -26,13 +23,13 @@ import com.digitalasset.ledger.api.v1.value.Value.Sum
 import com.digitalasset.ledger.api.v1.value.Value.Sum.Party
 import com.digitalasset.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.digitalasset.ledger.client.services.commands.CommandClient
-import com.digitalasset.platform.apitesting.{LedgerContext, TestTemplateIds}
+import com.digitalasset.platform.apitesting.LedgerContext
 import io.grpc.Status
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.Span
 import org.scalatest.{AsyncWordSpec, Matchers, OptionValues}
-
 import scalaz.syntax.tag._
+
 import scala.concurrent.duration._
 
 @SuppressWarnings(
@@ -42,14 +39,10 @@ import scala.concurrent.duration._
 class CommandStaticTimeIT
     extends AsyncWordSpec
     with Matchers
-    with AkkaBeforeAndAfterAll
+    with MultiLedgerCommandUtils
     with ScalaFutures
     with SuiteResourceManagementAroundAll
-    with MultiLedgerCommandUtils
     with OptionValues {
-
-  protected val testTemplateIds = new TestTemplateIds(config)
-  protected val templateIds = testTemplateIds.templateIds
 
   override def timeLimit: Span = scaled(15.seconds)
 
@@ -192,7 +185,7 @@ class CommandStaticTimeIT
             getTimeResponse <- timeSource(ctx).runWith(Sink.head)
             currentTime = getTimeResponse.getCurrentTime
             templateId = templateIds.dummy
-            txEndOffset <- ctx.transactionClient.getLedgerEnd.map(_.getOffset)
+            txEndOffset <- ctx.transactionClient.getLedgerEnd().map(_.getOffset)
             comp <- commandClient.send(dummyCreateRequest(ctx, toInstant(currentTime), templateId))
             _ = comp.getStatus should have('code(0))
             transaction <- ctx.transactionClient.getTransactions(txEndOffset, None, TransactionFilter(Map(submitRequest.commands.value.party -> Filters.defaultInstance)))

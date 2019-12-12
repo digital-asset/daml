@@ -5,6 +5,7 @@ package com.daml.ledger.participant.state.v1
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
+import com.digitalasset.ledger.api.health.ReportsHealth
 
 /** An interface for reading the state of a ledger participant.
   *
@@ -19,7 +20,7 @@ import akka.stream.scaladsl.Source
   * communicated by [[ReadService!.stateUpdates]].
   *
   */
-trait ReadService {
+trait ReadService extends ReportsHealth {
 
   /** Retrieve the static initial conditions of the ledger, containing
     * the ledger identifier and the initial the ledger record time.

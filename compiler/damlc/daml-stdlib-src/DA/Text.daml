@@ -1,6 +1,8 @@
 -- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE CPP #-}
+
 daml 1.2
 -- | Functions for working with Text.
 module DA.Text
@@ -44,10 +46,32 @@ module DA.Text
   , DA.Text.isAlpha
   , DA.Text.isAlphaNum
   , DA.Text.parseInt
+#ifdef DAML_NUMERIC
+  , DA.Text.parseNumeric
+#endif
   , DA.Text.parseDecimal
   , DA.Text.sha256
   , DA.Text.toCodePoints
   , DA.Text.fromCodePoints
+
+#ifdef DAML_UNSTABLE
+  -- unstable, experimental primitives
+  , unstableToUpper
+  , unstableToLower
+  , unstableSlice
+  , unstableSliceIndex
+  , unstableContainsOnly
+  , unstableReplicate
+  , unstableSplitOn
+  , unstableIntercalate
+  -- unstable, experimental derived functions
+  , unstableTake
+  , unstableDrop
+  , unstableBreakOn
+  , unstableSplitAt
+  , unstableStripInfix
+#endif
+
   ) where
 
 import Prelude
@@ -257,6 +281,22 @@ isAlphaNum = isPred (\t -> t >= "0" && t <= "9" || t >= "a" && t <= "z" || t >= 
 parseInt : Text -> Optional Int
 parseInt = primitive @"BEInt64FromText"
 
+#ifdef DAML_NUMERIC
+-- | Attempt to parse a `Numeric` value from a given `Text`.
+-- To get `Some` value, the text must follow the regex
+-- `(-|\+)?[0-9]+(\.[0-9]+)?`
+-- In particular, the shorthands `".12"` and `"12."` do not work,
+-- but the value can be prefixed with `+`.
+-- Leading and trailing zeros are fine, however spaces are not.
+-- Examples:
+-- ```
+--   parseNumeric "3.14" == Some 3.14
+--   parseNumeric "+12.0" == Some 12
+-- ```
+parseNumeric : Text -> Optional (Numeric n)
+parseNumeric = primitive @"BENumericFromText"
+#endif
+
 -- | Attempt to parse a `Decimal` value from a given `Text`.
 -- To get `Some` value, the text must follow the regex
 -- `(-|\+)?[0-9]+(\.[0-9]+)?`
@@ -269,7 +309,11 @@ parseInt = primitive @"BEInt64FromText"
 --   parseDecimal "+12.0" == Some 12
 -- ```
 parseDecimal : Text -> Optional Decimal
+#ifdef DAML_NUMERIC
+parseDecimal = parseNumeric
+#else
 parseDecimal = primitive @"BEDecimalFromText"
+#endif
 
 -- | Computes the SHA256 of the UTF8 bytes of the `Text`, and returns it in its hex-encoded
 -- form. The hex encoding uses lowercase letters.
@@ -294,3 +338,52 @@ toCodePoints = primitive @"BETextToCodePoints"
 -- exception if any of the code points is invalid.
 fromCodePoints : [Int] -> Text
 fromCodePoints = primitive @"BETextFromCodePoints"
+
+
+#ifdef DAML_UNSTABLE
+
+unstableToUpper : Text -> Text
+unstableToUpper = primitive @"BETextToUpper"
+
+unstableToLower : Text -> Text
+unstableToLower = primitive @"BETextToLower"
+
+unstableSlice : Int -> Int -> Text -> Text
+unstableSlice = primitive @"BETextSlice"
+
+unstableTake : Int -> Text -> Text
+unstableTake = unstableSlice 0
+
+unstableDrop : Int -> Text -> Text
+unstableDrop n x = unstableSlice (DA.Text.length x - n) (DA.Text.length x) x
+
+unstableSplitAt : Int -> Text -> (Text, Text)
+unstableSplitAt n x = (unstableTake n x, unstableDrop n x)
+
+unstableSliceIndex : Text -> Text -> Optional Int
+unstableSliceIndex = primitive @"BETextSliceIndex"
+
+unstableBreakOn : Text -> Text -> (Text, Text)
+unstableBreakOn k x =
+    case unstableSliceIndex k x of
+        None -> (x, "")
+        Some i -> unstableSplitAt i x
+
+unstableStripInfix : Text -> Text -> Optional (Text, Text)
+unstableStripInfix k x = do
+    i <- unstableSliceIndex k x
+    Some (unstableTake i x, unstableDrop (i + DA.Text.length k) x)
+
+unstableContainsOnly : Text -> Text -> Bool
+unstableContainsOnly = primitive @"BETextContainsOnly"
+
+unstableReplicate : Int -> Text -> Text
+unstableReplicate = primitive @"BETextReplicate"
+
+unstableSplitOn : Text -> Text -> [Text]
+unstableSplitOn = primitive @"BETextSplitOn"
+
+unstableIntercalate : Text -> [Text] -> Text
+unstableIntercalate = primitive @"BETextIntercalate"
+
+#endif

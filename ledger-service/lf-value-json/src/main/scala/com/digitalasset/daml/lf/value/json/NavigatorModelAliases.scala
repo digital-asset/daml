@@ -39,6 +39,8 @@ trait NavigatorModelAliases[Cid] {
   val DamlLfTypeVar = iface.TypeVar
   type DamlLfTypeConName = iface.TypeConName
   val DamlLfTypeConName = iface.TypeConName
+  type DamlLfTypeNumeric = iface.TypeNumeric
+  val DamlLfTypeNumeric = iface.TypeNumeric
 
   type DamlLfPrimType = iface.PrimType
   val DamlLfPrimType = iface.PrimType
@@ -78,6 +80,7 @@ trait NavigatorModelAliases[Cid] {
           case t @ DamlLfTypeVar(_) => f(t)
           case t @ DamlLfTypeCon(_, _) => DamlLfTypeCon(t.name, t.typArgs.map(mapTypeVars(_, f)))
           case t @ DamlLfTypePrim(_, _) => DamlLfTypePrim(t.typ, t.typArgs.map(mapTypeVars(_, f)))
+          case t @ DamlLfTypeNumeric(_) => t
         }
         val withTyp: iface.Type => iface.Type = { typ =>
           mapTypeVars(typ, v => paramsMap.getOrElse(v.name, v))
@@ -94,8 +97,9 @@ trait NavigatorModelAliases[Cid] {
   type ApiVariant = OfCid[V.ValueVariant]
   type ApiList = OfCid[V.ValueList]
   type ApiOptional = OfCid[V.ValueOptional]
-  type ApiMap = OfCid[V.ValueMap]
-  type ApiImpossible = OfCid[V.ValueTuple]
+  type ApiMap = OfCid[V.ValueTextMap]
+  type ApiGenMap = OfCid[V.ValueGenMap]
+  type ApiImpossible = OfCid[V.ValueStruct]
 }
 
 object NavigatorModelAliases extends NavigatorModelAliases[String]

@@ -1,0 +1,12 @@
+diff --git a/haskell/ghc_bindist.bzl b/haskell/ghc_bindist.bzl
+index 884b2c31..2c97d50e 100644
+--- a/haskell/ghc_bindist.bzl
++++ b/haskell/ghc_bindist.bzl
+@@ -273,6 +273,7 @@ haskell_toolchain(
+         _execute_fail_loudly(ctx, ["rm", "mingw/lib/gcc/x86_64-w64-mingw32/7.2.0/libstdc++.dll.a"])
+         _execute_fail_loudly(ctx, ["rm", "mingw/x86_64-w64-mingw32/lib/libpthread.dll.a"])
+         _execute_fail_loudly(ctx, ["rm", "mingw/x86_64-w64-mingw32/lib/libwinpthread.dll.a"])
++        _execute_fail_loudly(ctx, ["rm", "mingw/lib/libz.dll.a"])
+ 
+     ctx.template(
+         "BUILD",

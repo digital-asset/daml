@@ -21,28 +21,45 @@ proto_gen(
 )
 
 da_scala_library(
+    name = "ledger-api-scala-logging-base",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    tags = ["maven_coordinates=com.digitalasset.ledger-api:ledger-api-scala-logging-base:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_stub",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
+da_scala_library(
     name = "ledger-api-scala-logging",
-    srcs = [":ledger-api-scala-logging-srcs"] + glob(["src/main/scala/**/*.scala"]),
+    srcs = [":ledger-api-scala-logging-srcs"],
     tags = ["maven_coordinates=com.digitalasset.ledger-api:ledger-api-scala-logging:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
     deps = [
-        "//3rdparty/jvm/io/grpc:grpc_stub",
-        "//3rdparty/jvm/org/slf4j:slf4j_api",
+        ":ledger-api-scala-logging-base",
         "//ledger-api/grpc-definitions:ledger-api-scalapb",
         "//scala-protoc-plugins/scala-logging:scala-logging-lib",
+        "@maven//:org_slf4j_slf4j_api",
     ],
 )
 
 testDependencies = [
-    "//3rdparty/jvm/io/grpc:grpc_core",
-    "//3rdparty/jvm/io/grpc:grpc_stub",
-    "//ledger-api/grpc-definitions:ledger-api-scalapb",
-    "//scala-protoc-plugins/scala-logging:scala-logging-lib",
+    ":ledger-api-scala-logging-base",
     ":ledger-api-scala-logging",
-    "//3rdparty/jvm/org/scalatest:scalatest",
-    "//3rdparty/jvm/ch/qos/logback:logback_classic",
+    "//ledger-api/grpc-definitions:ledger-api-scalapb",
+    "@maven//:ch_qos_logback_logback_classic",
+    "@maven//:ch_qos_logback_logback_core",
+    "@maven//:io_grpc_grpc_core",
+    "@maven//:io_grpc_grpc_stub",
+    "@maven//:org_scalactic_scalactic_2_12",
+    "@maven//:org_scalatest_scalatest_2_12",
+    "@maven//:org_slf4j_slf4j_api",
 ]
 
 da_scala_library(

@@ -7,9 +7,11 @@ import com.digitalasset.daml.lf.engine
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, VersionedValue}
 import com.digitalasset.daml.lf.value.{Value => Lf}
 import com.digitalasset.ledger.api.domain
+import com.digitalasset.ledger.api.domain.eventIdOrdering
 import com.digitalasset.ledger.api.domain.Event.{CreateOrArchiveEvent, CreateOrExerciseEvent}
 import com.digitalasset.platform.api.v1.event.EventOps.getEventIndex
 import com.digitalasset.platform.common.{PlatformTypes => P}
+import com.digitalasset.platform.participant.util.EventFilter
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.server.services.transaction.TransactionFiltration.RichTransactionFilter
 import com.digitalasset.platform.server.services.transaction.TransientContractRemover
@@ -37,7 +39,7 @@ trait TransactionConversion {
     val eventFilter = TemplateAwareFilter(filter)
     val filteredEvents = TransientContractRemover
       .removeTransients(allEvents)
-      .flatMap(eventFilter.filterCreateOrArchiveWitnesses(_).toList)
+      .flatMap(EventFilter.filterCreateOrArchiveWitnesses(eventFilter, _).toList)
 
     val submitterIsSubscriber =
       trans.submittingParty.exists(eventFilter.isSubmitterSubscriber)

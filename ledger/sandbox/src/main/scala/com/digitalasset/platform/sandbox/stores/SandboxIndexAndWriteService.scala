@@ -4,11 +4,12 @@
 package com.digitalasset.platform.sandbox.stores
 
 import java.time.Instant
-import java.util.concurrent.{CompletableFuture, CompletionStage}
+import java.util.concurrent.CompletionStage
 
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
+import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.index.v2._
 import com.daml.ledger.participant.state.v1.{
   ApplicationId => _,
@@ -19,12 +20,12 @@ import com.daml.ledger.participant.state.v1.{
 import com.daml.ledger.participant.state.{v1 => ParticipantState}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party, TransactionIdString}
-import com.digitalasset.daml.lf.data.{ImmArray, Ref}
+import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
-import com.digitalasset.daml_lf.DamlLf.Archive
+import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.CompletionEvent.{
   Checkpoint,
@@ -32,14 +33,14 @@ import com.digitalasset.ledger.api.domain.CompletionEvent.{
   CommandRejected
 }
 import com.digitalasset.ledger.api.domain.{ParticipantId => _, _}
+import com.digitalasset.ledger.api.health.HealthStatus
+import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.participant.util.EventFilter
-import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.digitalasset.platform.sandbox.stores.ledger._
 import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode
 import com.digitalasset.platform.server.api.validation.ErrorFactories
-import com.digitalasset.platform.services.time.TimeModel
 import org.slf4j.LoggerFactory
 import scalaz.Tag
 import scalaz.syntax.tag._
@@ -64,49 +65,57 @@ object SandboxIndexAndWriteService {
       ledgerId: LedgerId,
       participantId: ParticipantId,
       jdbcUrl: String,
-      timeModel: TimeModel,
+      timeModel: ParticipantState.TimeModel,
       timeProvider: TimeProvider,
-      acs: InMemoryActiveContracts,
+      acs: InMemoryActiveLedgerState,
       ledgerEntries: ImmArray[LedgerEntryOrBump],
       startMode: SqlStartMode,
       queueDepth: Int,
-      templateStore: InMemoryPackageStore)(
-      implicit mat: Materializer,
-      mm: MetricsManager): Future[IndexAndWriteService] =
+      templateStore: InMemoryPackageStore,
+      loggerFactory: NamedLoggerFactory,
+      metrics: MetricRegistry,
+  )(implicit mat: Materializer): Future[IndexAndWriteService] =
     Ledger
-      .postgres(
+      .jdbcBacked(
         jdbcUrl,
         ledgerId,
+        participantId,
         timeProvider,
         acs,
         templateStore,
         ledgerEntries,
         queueDepth,
-        startMode
+        startMode,
+        loggerFactory,
+        metrics,
       )
       .map(ledger =>
-        createInstance(Ledger.metered(ledger), participantId, timeModel, timeProvider))(DEC)
+        createInstance(Ledger.metered(ledger, metrics), participantId, timeModel, timeProvider))(
+        DEC)
 
   def inMemory(
       ledgerId: LedgerId,
       participantId: ParticipantId,
-      timeModel: TimeModel,
+      timeModel: ParticipantState.TimeModel,
       timeProvider: TimeProvider,
-      acs: InMemoryActiveContracts,
+      acs: InMemoryActiveLedgerState,
       ledgerEntries: ImmArray[LedgerEntryOrBump],
-      templateStore: InMemoryPackageStore)(
-      implicit mat: Materializer,
-      mm: MetricsManager): IndexAndWriteService = {
+      templateStore: InMemoryPackageStore,
+      metrics: MetricRegistry,
+  )(implicit mat: Materializer): IndexAndWriteService = {
     val ledger =
-      Ledger.metered(Ledger.inMemory(ledgerId, timeProvider, acs, templateStore, ledgerEntries))
+      Ledger.metered(
+        Ledger.inMemory(ledgerId, participantId, timeProvider, acs, templateStore, ledgerEntries),
+        metrics)
     createInstance(ledger, participantId, timeModel, timeProvider)
   }
 
   private def createInstance(
       ledger: Ledger,
       participantId: ParticipantId,
-      timeModel: TimeModel,
-      timeProvider: TimeProvider)(implicit mat: Materializer) = {
+      timeModel: ParticipantState.TimeModel,
+      timeProvider: TimeProvider,
+  )(implicit mat: Materializer): IndexAndWriteService = {
     val contractStore = new SandboxContractStore(ledger)
     val indexSvc = new LedgerBackedIndexService(ledger, contractStore, participantId) {
       override def getLedgerConfiguration(): Source[LedgerConfiguration, NotUsed] =
@@ -118,9 +127,9 @@ object SandboxIndexAndWriteService {
     val heartbeats = scheduleHeartbeats(timeProvider, ledger.publishHeartbeat)
 
     new IndexAndWriteService {
-      override def indexService: IndexService = indexSvc
+      override val indexService: IndexService = indexSvc
 
-      override def writeService: WriteService = writeSvc
+      override val writeService: WriteService = writeSvc
 
       override def publishHeartbeat(instant: Instant): Future[Unit] =
         ledger.publishHeartbeat(instant)
@@ -162,41 +171,44 @@ abstract class LedgerBackedIndexService(
     with AutoCloseable {
   override def getLedgerId(): Future[LedgerId] = Future.successful(ledger.ledgerId)
 
+  override def currentHealth(): HealthStatus = ledger.currentHealth()
+
   override def getActiveContractSetSnapshot(
-      filter: TransactionFilter): Future[ActiveContractSetSnapshot] =
+      txFilter: TransactionFilter): Future[ActiveContractSetSnapshot] = {
+    val filter = EventFilter.byTemplates(txFilter)
     ledger
-      .snapshot()
+      .snapshot(filter)
       .map {
         case LedgerSnapshot(offset, acsStream) =>
           ActiveContractSetSnapshot(
             LedgerOffset.Absolute(LedgerString.fromLong(offset)),
             acsStream
-              .mapConcat {
-                case (cId, ac) =>
-                  val create = toUpdateEvent(cId, ac)
-                  EventFilter
-                    .byTemplates(filter)
-                    .filterActiveContractWitnesses(create)
-                    .map(create => ac.workflowId.map(domain.WorkflowId(_)) -> create)
-                    .toList
+              .mapConcat { ac =>
+                val create = toUpdateEvent(ac.id, ac)
+                EventFilter
+                  .filterActiveContractWitnesses(filter, create)
+                  .map(create => ac.workflowId.map(domain.WorkflowId(_)) -> create)
+                  .toList
               }
           )
       }(mat.executionContext)
+  }
 
   private def toUpdateEvent(
       cId: Value.AbsoluteContractId,
-      ac: ActiveContracts.ActiveContract): AcsUpdateEvent.Create =
+      ac: ActiveLedgerState.ActiveContract): AcsUpdateEvent.Create =
     AcsUpdateEvent.Create(
       // we use absolute contract ids as event ids throughout the sandbox
       domain.TransactionId(ac.transactionId),
-      EventId(cId.coid),
+      domain.EventId(ac.eventId),
       cId,
       ac.contract.template,
       ac.contract.arg,
       ac.witnesses,
       ac.key.map(_.key),
       ac.signatories,
-      ac.observers
+      ac.observers,
+      ac.agreementText
     )
 
   private def getTransactionById(
@@ -227,9 +239,9 @@ abstract class LedgerBackedIndexService(
       }
 
   private class OffsetConverter {
-    lazy val currentEndF = currentLedgerEnd()
+    lazy val currentEndF: Future[LedgerOffset.Absolute] = currentLedgerEnd()
 
-    def toAbsolute(offset: LedgerOffset) = offset match {
+    def toAbsolute(offset: LedgerOffset): Source[LedgerOffset.Absolute, NotUsed] = offset match {
       case LedgerOffset.LedgerBegin =>
         Source.single(LedgerOffset.Absolute(Ref.LedgerString.assertFromString("0")))
       case LedgerOffset.LedgerEnd => Source.fromFuture(currentEndF)
@@ -352,7 +364,8 @@ abstract class LedgerBackedIndexService(
               Checkpoint(
                 domain.LedgerOffset.Absolute(Ref.LedgerString.assertFromString(offset.toString)),
                 c.recordedAt)
-            case (offset, r: LedgerEntry.Rejection) =>
+            case (offset, r: LedgerEntry.Rejection)
+                if r.commandId.nonEmpty && r.applicationId.contains(applicationId.unwrap) =>
               CommandRejected(
                 domain.LedgerOffset.Absolute(Ref.LedgerString.assertFromString(offset.toString)),
                 r.recordTime,
@@ -391,12 +404,23 @@ abstract class LedgerBackedIndexService(
   override def listParties(): Future[List[PartyDetails]] =
     ledger.parties
 
+  override def partyEntries(beginOffset: LedgerOffset.Absolute): Source[PartyEntry, NotUsed] = {
+    ledger.partyEntries(beginOffset.value.toLong).map {
+      case (_, PartyLedgerEntry.AllocationRejected(subId, participantId, _, reason)) =>
+        PartyEntry.AllocationRejected(subId, domain.ParticipantId(participantId), reason)
+      case (_, PartyLedgerEntry.AllocationAccepted(subId, participantId, _, details)) =>
+        PartyEntry.AllocationAccepted(subId, domain.ParticipantId(participantId), details)
+    }
+  }
+
   override def close(): Unit = {
     ledger.close()
   }
 }
 
 class LedgerBackedWriteService(ledger: Ledger, timeProvider: TimeProvider) extends WriteService {
+
+  override def currentHealth(): HealthStatus = ledger.currentHealth()
 
   override def submitTransaction(
       submitterInfo: ParticipantState.SubmitterInfo,
@@ -405,25 +429,25 @@ class LedgerBackedWriteService(ledger: Ledger, timeProvider: TimeProvider) exten
     FutureConverters.toJava(ledger.publishTransaction(submitterInfo, transactionMeta, transaction))
 
   override def allocateParty(
-      hint: Option[String],
-      displayName: Option[String]): CompletionStage[PartyAllocationResult] = {
-    // In the sandbox, the hint is used as-is.
-    // If hint is not a valid and unallocated party name, the call fails
-    hint.map(p => Party.fromString(p)) match {
-      case None =>
-        FutureConverters.toJava(
-          ledger.allocateParty(PartyIdGenerator.generateRandomId(), displayName))
-      case Some(Right(party)) => FutureConverters.toJava(ledger.allocateParty(party, displayName))
-      case Some(Left(error)) =>
-        CompletableFuture.completedFuture(PartyAllocationResult.InvalidName(error))
-    }
+      hint: Option[Party],
+      displayName: Option[String],
+      submissionId: SubmissionId): CompletionStage[SubmissionResult] = {
+    val party = hint.getOrElse(PartyIdGenerator.generateRandomId())
+    FutureConverters.toJava(ledger.publishPartyAllocation(submissionId, party, displayName))
   }
 
-  // PackageWriteService
+  // WritePackagesService
   override def uploadPackages(
       payload: List[Archive],
       sourceDescription: Option[String]
   ): CompletionStage[UploadPackagesResult] =
     FutureConverters.toJava(
       ledger.uploadPackages(timeProvider.getCurrentTime, sourceDescription, payload))
+
+  // WriteConfigService
+  override def submitConfiguration(
+      maxRecordTime: Time.Timestamp,
+      submissionId: SubmissionId,
+      config: Configuration): CompletionStage[SubmissionResult] =
+    FutureConverters.toJava(ledger.publishConfiguration(maxRecordTime, submissionId, config))
 }

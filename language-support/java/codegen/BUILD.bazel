@@ -19,6 +19,11 @@ load(
     "mangle_for_java",
 )
 load(
+    "//daml-lf/language:daml-lf.bzl",
+    "lf_latest_version",
+    "lf_stable_version",
+)
+load(
     "@com_github_johnynek_bazel_jar_jar//:jar_jar.bzl",
     "jar_jar",
 )
@@ -40,35 +45,40 @@ da_scala_library(
         "src/main/resources/logback.xml",
         "//:COMPONENT-VERSION",
     ],
+    tags = ["maven_coordinates=com.daml.java:codegen-lib:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
-        "//3rdparty/jvm/ch/qos/logback:logback_classic",
-        "//3rdparty/jvm/com/github/scopt",
-        "//3rdparty/jvm/com/google/protobuf:protobuf_java",
-        "//3rdparty/jvm/com/squareup:javapoet",
-        "//3rdparty/jvm/com/typesafe/scala_logging",
-        "//3rdparty/jvm/org/scalaz:scalaz_core",
-        "//daml-lf/archive:daml_lf_archive_scala",
-        "//daml-lf/archive:daml_lf_java_proto",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive:daml_lf_dev_archive_java_proto",
         "//daml-lf/data",
         "//daml-lf/interface",
         "//language-support/codegen-common",
         "//language-support/java/bindings:bindings-java",
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:ch_qos_logback_logback_core",
+        "@maven//:com_github_scopt_scopt_2_12",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:com_squareup_javapoet",
+        "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
+        "@maven//:org_slf4j_slf4j_api",
     ],
 )
 
 test_deps = [
     ":lib",
-    "//3rdparty/jvm/ch/qos/logback:logback_classic",
-    "//3rdparty/jvm/com/github/scopt",
-    "//3rdparty/jvm/com/squareup:javapoet",
-    "//3rdparty/jvm/com/typesafe/scala_logging",
-    "//3rdparty/jvm/org/scalacheck",
-    "//3rdparty/jvm/org/scalatest",
-    "//3rdparty/jvm/org/scalaz:scalaz_core",
-    "//3rdparty/jvm/com/google/protobuf:protobuf_java",
+    "@maven//:ch_qos_logback_logback_classic",
+    "@maven//:com_github_scopt_scopt_2_12",
+    "@maven//:com_squareup_javapoet",
+    "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
+    "@maven//:io_grpc_grpc_api",
+    "@maven//:org_scalacheck_scalacheck_2_12",
+    "@maven//:org_scalatest_scalatest_2_12",
+    "@maven//:org_scalaz_scalaz_core_2_12",
+    "@maven//:org_slf4j_slf4j_api",
+    "@maven//:com_google_protobuf_protobuf_java",
     "//bazel_tools/runfiles:scala_runfiles",
-    "//daml-lf/archive:daml_lf_java_proto",
+    "//daml-lf/archive:daml_lf_dev_archive_java_proto",
     "//daml-lf/data",
     "//daml-lf/interface",
     "//language-support/java/bindings:bindings-java",
@@ -126,6 +136,7 @@ test_daml_lf_target_versions = [
     "1.1",
     "1.3",
     "1.6",
+    "1.7",
     "1.dev",
 ]
 
@@ -136,27 +147,24 @@ test_daml_lf_target_versions = [
             src = "//daml-lf/encoder:testing-dar-%s" % target,
             package_prefix = "test",
         ),
+        java_test(
+            name = "tests-%s" % target,
+            srcs = glob([
+                "src/test/java/**/*ForAll*.java",
+                "src/test/java/**/*For%s*.java" % mangle_for_java(target),
+            ]),
+            test_class = "com.digitalasset.testing.AllTestsFor%s" % mangle_for_java(target),
+            deps = [
+                ":test-model-%s.jar" % target,
+                "//language-support/java/bindings:bindings-java",
+                "@maven//:com_google_protobuf_protobuf_java",
+                "@maven//:org_junit_jupiter_junit_jupiter_api",
+                "@maven//:org_junit_jupiter_junit_jupiter_engine",
+                "@maven//:org_junit_platform_junit_platform_runner",
+            ],
+        ),
     ]
     for target in test_daml_lf_target_versions
-]
-
-[
-    java_test(
-        name = "tests-%s" % target,
-        srcs = glob([
-            "src/test/java-%s/**/*.java" % target,
-        ]),
-        test_class = "com.digitalasset.lf_%s.AllTests" % mangle_for_java(target),
-        deps = [
-            ":test-model-%s.jar" % target,
-            "//3rdparty/jvm/com/google/protobuf:protobuf_java",
-            "//3rdparty/jvm/org/junit/jupiter:junit_jupiter_api",
-            "//3rdparty/jvm/org/junit/jupiter:junit_jupiter_engine",
-            "//3rdparty/jvm/org/junit/platform:junit_platform_runner",
-            "//language-support/java/bindings:bindings-java",
-        ],
-    )
-    for target in ["1.6"]
 ]
 
 ########################################################
@@ -195,6 +203,7 @@ daml_compile(
     name = "integration-tests-model-latest",
     srcs = glob(["src/it/daml/**/*.daml"]),
     main_src = "src/it/daml/Lib.daml",
+    target = lf_latest_version,
 )
 
 [
@@ -215,29 +224,26 @@ daml_compile(
             src = ":integration-tests-model-%s.dar" % target,
             package_prefix = "lf_%s" % mangle_for_java(target),
         ),
+        java_test(
+            name = "integration-tests-%s" % target,
+            srcs = glob([
+                "src/it/java-%s/**/*.java" % target,
+                "src/it/java/**/*.java",
+            ]),
+            test_class = "com.digitalasset.lf_%s.AllTests" % mangle_for_java(target),
+            deps = [
+                ":integration-tests-model-%s.jar" % target,
+                ":integration-tests-model-noprefix-%s.jar" % target,
+                "//language-support/java/bindings:bindings-java",
+                "//ledger/sandbox:sandbox-scala-tests-lib",
+                "@maven//:com_google_protobuf_protobuf_java",
+                "@maven//:org_junit_jupiter_junit_jupiter_api",
+                "@maven//:org_junit_jupiter_junit_jupiter_engine",
+                "@maven//:org_junit_platform_junit_platform_commons",
+                "@maven//:org_junit_platform_junit_platform_runner",
+            ],
+        ),
     ]
-    for target in it_daml_lf_target_versions
-]
-
-[
-    java_test(
-        name = "integration-tests-%s" % target,
-        srcs = glob([
-            "src/it/java-%s/**/*.java" % target,
-            "src/it/java/**/*.java",
-        ]),
-        test_class = "com.digitalasset.lf_%s.AllTests" % mangle_for_java(target),
-        deps = [
-            ":integration-tests-model-%s.jar" % target,
-            ":integration-tests-model-noprefix-%s.jar" % target,
-            "//3rdparty/jvm/com/google/protobuf:protobuf_java",
-            "//3rdparty/jvm/org/junit/jupiter:junit_jupiter_api",
-            "//3rdparty/jvm/org/junit/jupiter:junit_jupiter_engine",
-            "//3rdparty/jvm/org/junit/platform:junit_platform_runner",
-            "//language-support/java/bindings:bindings-java",
-            "//ledger/sandbox:sandbox-scala-tests-lib",
-        ],
-    )
     for target in it_daml_lf_target_versions
 ]
 
@@ -249,11 +255,12 @@ daml_compile(
     name = "ledger-tests-model",
     srcs = glob(["src/ledger-tests/daml/**/*.daml"]),
     main_src = "src/ledger-tests/daml/AllTests.daml",
+    target = lf_stable_version,
 )
 
 dar_to_java(
     name = "ledger-tests-model",
-    src = "ledger-tests-model.dar",
+    src = ":ledger-tests-model.dar",
 )
 
 da_scala_test(
@@ -271,8 +278,10 @@ da_scala_test(
         "//ledger/sandbox:sandbox-scala-tests-lib",
         "//ledger-api/testing-utils",
         "//ledger/ledger-api-common:ledger-api-common",
-        "//3rdparty/jvm/io/grpc:grpc_core",
-        "//3rdparty/jvm/io/grpc:grpc_stub",
-        "//3rdparty/jvm/io/reactivex/rxjava2:rxjava",
+        "@maven//:io_grpc_grpc_core",
+        "@maven//:io_grpc_grpc_stub",
+        "@maven//:io_reactivex_rxjava2_rxjava",
     ],
 )
+
+exports_files(["src/main/resources/logback.xml"])

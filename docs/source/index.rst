@@ -47,6 +47,7 @@ DAML SDK documentation
    app-dev/grpc/index
    app-dev/bindings-x-lang/index
    app-dev/app-arch
+   app-dev/authentication
 
 .. toctree::
    :titlesonly:
@@ -56,8 +57,8 @@ DAML SDK documentation
 
    tools/assistant
    tools/sandbox
-   tools/visual
    tools/navigator/index
+   tools/codegen
 
 .. toctree::
    :titlesonly:
@@ -67,6 +68,7 @@ DAML SDK documentation
 
    concepts/glossary
    concepts/ledger-model/index
+   concepts/identity-and-package-management
 
 .. toctree::
    :titlesonly:
@@ -75,6 +77,7 @@ DAML SDK documentation
    :caption: Deploying
 
    deploy/index
+   deploy/ledger-topologies
 
 .. toctree::
    :titlesonly:
@@ -92,6 +95,12 @@ DAML SDK documentation
 
    experimental/warning
    daml-integration-kit/index
+   tools/ledger-api-test-tool/index
+   migrate/index
+   json-api/index
+   DAML Triggers <triggers/index>
+   DAML Script <daml-script/index>
+   tools/visual
 
 .. toctree::
    :titlesonly:

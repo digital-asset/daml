@@ -1,0 +1,38 @@
+# Copyright (c) 2019 The DAML Authors. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//rules_daml:daml.bzl", "daml_compile")
+
+daml_compile(
+    name = "daml2ts-test",
+    srcs = glob(["daml/**/*.daml"]),
+    main_src = "daml/Main.daml",
+)
+
+sh_test(
+    name = "build-and-lint",
+    srcs = ["build-and-lint.sh"],
+    args = [
+        "$(location //:java)",
+        "$(location //:yarn)",
+        "$(location //:daml2ts)",
+        "$(location //ledger/sandbox:sandbox-binary_deploy.jar)",
+        "$(location //ledger-service/http-json:http-json-binary_deploy.jar)",
+        "$(location :daml2ts-test.dar)",
+        "$(location ts/package.json)",
+    ],
+    data = [
+        "//:java",
+        "//:yarn",
+        "//:daml2ts",
+        "//ledger/sandbox:sandbox-binary_deploy.jar",
+        "//ledger-service/http-json:http-json-binary_deploy.jar",
+        ":daml2ts-test.dar",
+    ] + glob(
+        ["ts/**"],
+        exclude = ["ts/**/node_modules/**"],
+    ),
+    deps = [
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)

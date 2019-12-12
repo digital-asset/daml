@@ -53,24 +53,25 @@ trait TestCommands {
       _.commands.maximumRecordTime := maxRecordTime
     )
 
-  protected def dummyCommands(ledgerId: domain.LedgerId, commandId: String) =
+  protected def dummyCommands(
+      ledgerId: domain.LedgerId,
+      commandId: String,
+      party: String = "party") =
     buildRequest(
       ledgerId,
       commandId,
       List(
-        createWithOperator(templateIds.dummy),
-        createWithOperator(templateIds.dummyWithParam),
-        createWithOperator(templateIds.dummyFactory)
+        createWithOperator(templateIds.dummy, party),
+        createWithOperator(templateIds.dummyWithParam, party),
+        createWithOperator(templateIds.dummyFactory, party)
       )
     )
 
-  protected def createWithOperator(templateId: Identifier) =
+  protected def createWithOperator(templateId: Identifier, party: String = "party") =
     Command(
-      Create(
-        CreateCommand(
-          Some(templateId),
-          Some(
-            Record(Some(templateId), List(RecordField("operator", Some(Value(Party("party"))))))))))
+      Create(CreateCommand(
+        Some(templateId),
+        Some(Record(Some(templateId), List(RecordField("operator", Some(Value(Party(party))))))))))
 
   private def oneKilobyteString: String = {
     val numChars = 500 // each char takes 2 bytes for now in Java 8
@@ -104,7 +105,7 @@ trait TestCommands {
       Vector(
         RecordField("operator", "Alice".asParty),
         RecordField("integer", 1.asInt64),
-        RecordField("decimal", "1.1".asDecimal),
+        RecordField("decimal", "1.1".asNumeric),
         RecordField("text", Value(Text("text"))),
         RecordField("bool", Value(Bool(true))),
         RecordField("time", Value(Timestamp(0))),

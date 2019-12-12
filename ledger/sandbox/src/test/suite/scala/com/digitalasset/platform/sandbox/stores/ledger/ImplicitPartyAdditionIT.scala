@@ -6,7 +6,12 @@ package com.digitalasset.platform.sandbox.stores.ledger
 import java.time.Instant
 
 import akka.stream.scaladsl.Sink
-import com.daml.ledger.participant.state.v1.{SubmissionResult, SubmitterInfo, TransactionMeta}
+import com.daml.ledger.participant.state.v1.{
+  ParticipantId,
+  SubmissionResult,
+  SubmitterInfo,
+  TransactionMeta
+}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.transaction.Node._
@@ -31,6 +36,7 @@ import org.scalatest.time.Span
 import org.scalatest.{AsyncWordSpec, Matchers}
 import com.digitalasset.ledger.api.domain.LedgerId
 
+import scala.collection.immutable.TreeMap
 import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.language.implicitConversions
@@ -59,6 +65,7 @@ class ImplicitPartyAdditionIT
   override def timeLimit: Span = scaled(60.seconds)
 
   private val ledgerId: LedgerId = LedgerId("ledgerId")
+  private val participantId: ParticipantId = Ref.LedgerString.assertFromString("participantId")
   private val timeProvider = TimeProvider.Constant(Instant.EPOCH.plusSeconds(10))
 
   private val templateId1: Ref.Identifier = Ref.Identifier(
@@ -79,9 +86,9 @@ class ImplicitPartyAdditionIT
   override protected def constructResource(index: Int, fixtureId: BackendType): Resource[Ledger] =
     fixtureId match {
       case BackendType.InMemory =>
-        LedgerResource.inMemory(ledgerId, timeProvider)
+        LedgerResource.inMemory(ledgerId, participantId, timeProvider)
       case BackendType.Postgres =>
-        LedgerResource.postgres(ledgerId, timeProvider)
+        LedgerResource.postgres(ledgerId, participantId, timeProvider, metrics)
     }
 
   private def publishSingleNodeTx(
@@ -92,9 +99,9 @@ class ImplicitPartyAdditionIT
     val event1: NodeId = NodeId.unsafeFromIndex(0)
 
     val transaction = GenTransaction[NodeId, TContractId, Value[TContractId]](
-      Map(event1 -> node),
+      TreeMap(event1 -> node),
       ImmArray(event1),
-      Set.empty
+      None
     )
 
     val submitterInfo = SubmitterInfo(

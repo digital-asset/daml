@@ -42,6 +42,7 @@ Building applications
    app-dev/grpc/index
    app-dev/bindings-x-lang/index
    app-dev/app-arch
+   app-dev/authentication
 
 SDK tools
 ---------
@@ -91,6 +92,10 @@ Experimental features
 
    experimental/warning
    daml-integration-kit/index
+   json-api/index
+   triggers/index
+   daml-script/index
+   tools/visual
 
 Support and updates
 -------------------

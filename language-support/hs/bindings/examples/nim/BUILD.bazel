@@ -14,7 +14,7 @@ da_haskell_binary(
     name = "nim",
     srcs = glob(["src/**/*.hs"]),
     compiler_flags = [],
-    hazel_deps = [
+    hackage_deps = [
         "ansi-terminal",
         "base",
         "containers",

@@ -241,16 +241,6 @@ this section is best read jointly with the code in
   These are the
   interfaces whose implementation is specific to a particular `X` ledger. These
   interfaces are optimized for ease of implementation.
-``participant-state-index.jar`` (`source code <https://github.com/digital-asset/daml/tree/master/ledger/participant-state-index>`__)
-  Contains code for reading the abstract state
-  of a participant node and indexing it to satisfy the read access
-  patterns required for serving the Ledger API.
-
-  The library provides both
-  an interface enumerating all read access methods and an in-memory
-  reference implementation of that interface.
-  We expect to provide a persistent, SQL-backed index in the future
-  (`tracking GitHub issue <https://github.com/digital-asset/daml/issues/581>`__).
 ``participant-state-kvutils.jar`` (`source code <https://github.com/digital-asset/daml/tree/master/ledger/participant-state/kvutils/src/main/scala/com/daml/ledger/participant/state/kvutils>`__)
   These utilities provide methods to succintly implement interfaces from
   ``participant-state.jar`` on top of a key-value state storage.
@@ -258,9 +248,10 @@ this section is best read jointly with the code in
   See documentation in `package.scala
   <https://github.com/digital-asset/daml/blob/master/ledger/participant-state/kvutils/src/main/scala/com/daml/ledger/participant/state/kvutils/package.scala>`__
 
-``api-server-damlonx.jar`` (`source code <https://github.com/digital-asset/daml/blob/master/ledger/api-server-damlonx/src/main/scala/com/daml/ledger/api/server/damlonx/Server.scala>`__)
-  Contains code that implements a DAML Ledger API
-  server given implementations of the interfaces in ``participant-state.jar``.
+``ledger-api-server.jar`` (`source code for API server <https://github.com/digital-asset/daml/blob/master/ledger/sandbox/src/main/scala/com/digitalasset/platform/apiserver/StandaloneApiServer.scala>`__, `source code for indexer <https://github.com/digital-asset/daml/blob/master/ledger/sandbox/src/main/scala/com/digitalasset/platform/indexer/StandaloneIndexerServer.scala>`__)
+  Contains code that implements a DAML Ledger API server and the SQL-backed indexer
+  given implementations of the interfaces in ``participant-state.jar``.
+
 ``daml-engine.jar`` (`source code <https://github.com/digital-asset/daml/blob/master/daml-lf/engine/src/main/scala/com/digitalasset/daml/lf/engine/Engine.scala>`__)
   Contains code for serializing and deserializing DAML
   transactions and for validating them.
@@ -275,6 +266,8 @@ this section is best read jointly with the code in
 This diagram shows how the classes and interfaces provided by these
 libraries are typically combined to instantiate a DAML Ledger API server
 backed by an `X` ledger:
+
+*TODO: Update this diagram to mention ledger server classes above instead of deprecated daml-on-x-server*
 
 .. image:: images/server-classes-and-interfaces.svg
 
@@ -318,24 +311,12 @@ of their qualified names where unambiguous):
   is a class implementing the ``ReadService`` and the
   ``WriteService`` on top of the ``<X> services``. You need to implement this
   for your DAML on `X` ledger.
-``IndexService`` (`source code <https://github.com/digital-asset/daml/blob/master/ledger/participant-state-index/src/main/scala/com/daml/ledger/participant/state/index/v1/IndexService.scala>`__)
-  is an interface specific to the needs
-  that the ``damlonx.Server`` class has for querying the participant state
-  exposed by the ``ReadService``.
-  It contains methods for all the different read access patterns the
-  ``Server`` uses to serve the Ledger API. We include it in this diagram, as
-  in the future there will be choice on what implementation of the
-  ``IndexService`` to choose.
-``index.v1.impl.reference.Indexer`` (`source code <https://github.com/digital-asset/daml/blob/master/ledger/participant-state-index/reference/src/main/scala/com/daml/ledger/participant/state/index/v1/impl/reference/ReferenceIndexService.scala>`__)
-  is an in-memory implementation of
-  the ``IndexService`` interface. We recommend using that until the SQL-based
-  index service is ready. See this `GitHub issue
-  <https://github.com/digital-asset/daml/issues/581>`_ for its status.
-``damlonx.Server`` (`source code <https://github.com/digital-asset/daml/blob/master/ledger/api-server-damlonx/src/main/scala/com/daml/ledger/api/server/damlonx/Server.scala>`__)
+``StandaloneIndexerServer`` (`source code <https://github.com/digital-asset/daml/blob/master/ledger/sandbox/src/main/scala/com/digitalasset/platform/indexer/StandaloneIndexerServer.scala>`__)
+  is a standalone service that subscribe to ledger changes using ``ReadService`` and inserts
+  the data into a SQL backend ("index") for the purpose of serving the data over the Ledger API.
+``StandaloneIndexServer`` (`source code <https://github.com/digital-asset/daml/blob/master/ledger/sandbox/src/main/scala/com/digitalasset/platform/apiserver/StandaloneApiServer.scala>`__)
   is a class containing all the code to implement the
-  Ledger API on top of an ``IndexService`` and a ``WriteService``. Its
-  constructor also takes additional arguments for configuring among others
-  logging and the port at which the Ledger API is served.
+  Ledger API on top of an ledger backend. It serves the data from a SQL database populated by the ``StandaloneIndexerServer``.
 
 .. _integration-kit_deploying:
 
@@ -353,6 +334,30 @@ Deploying a DAML Ledger
   scripted package upload) can be supported by a uniform admin interface
   (`GitHub issue <https://github.com/digital-asset/daml/issues/347>`__).
 
+.. _integration-kit_authorization:
+
+Authorization
+=============
+
+To implement authorization on your ledger,
+do the following modifications to your code:
+
+- Implement the ``com.digitalasset.ledger.api.auth.AuthService`` (`source code <https://github.com/digital-asset/daml/blob/master/ledger/ledger-api-auth/src/main/scala/com/digitalasset/ledger/api/auth/AuthService.scala>`__) interface.
+  An AuthService receives all HTTP headers attached to a gRPC ledger API request
+  and returns a set of ``Claims`` (`source code <https://github.com/digital-asset/daml/blob/master/ledger/ledger-api-auth/src/main/scala/com/digitalasset/ledger/api/auth/Claims.scala>`__), which describe the authorization of the request.
+- Instantiate a ``com.digitalasset.ledger.api.auth.interceptor.AuthorizationInterceptor`` (`source code <https://github.com/digital-asset/daml/blob/master/ledger/ledger-api-auth/src/main/scala/com/digitalasset/ledger/api/auth/interceptor/AuthorizationInterceptor.scala>`__),
+  and pass it an instance of your AuthService implementation.
+  This interceptor will be responsible for storing the decoded Claims in a place where ledger API services can access them.
+- When starting the ``com.digitalasset.platform.apiserver.LedgerApiServer`` (`source code <https://github.com/digital-asset/daml/blob/master/ledger/sandbox/src/main/scala/com/digitalasset/platform/apiserver/LedgerApiServer.scala>`__),
+  add the above AuthorizationInterceptor to the list of interceptors (see ``interceptors`` parameter of ``LedgerApiServer.create``).
+
+For reference, you can have a look at how authorization is implemented in the sandbox:
+
+- The ``com.digitalasset.ledger.api.auth.AuthServiceJWT`` class (`source code <https://github.com/digital-asset/daml/blob/master/ledger/ledger-api-auth/src/main/scala/com/digitalasset/ledger/api/auth/AuthServiceJWT.scala>`__)
+  reads a `JWT <https://jwt.io/>`__ token from HTTP headers.
+- The ``com.digitalasset.ledger.api.auth.AuthServiceJWTPayload`` class (`source code <https://github.com/digital-asset/daml/blob/master/ledger/ledger-api-auth/src/main/scala/com/digitalasset/ledger/api/auth/AuthServiceJWTPayload.scala>`__)
+  defines the format of the token payload.
+- The token signature algorithm and the corresponding public key is specified as a sandbox command line parameter.
 
 .. _integration-kit_testing:
 
@@ -379,7 +384,7 @@ Assuming that your Ledger API endpoint is accessible at ``localhost:6865``, you 
 
 #. Run the tool against your ledger:
 
-   ``java -jar ledger-api-test-tool.jar -h localhost -p 6865``
+   ``java -jar ledger-api-test-tool.jar localhost:6865``
 
 See more in :doc:`Ledger API Test Tool </tools/ledger-api-test-tool/index>`.
 

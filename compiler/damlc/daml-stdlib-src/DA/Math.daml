@@ -19,6 +19,7 @@ module DA.Math
 ) where
 
 import DA.List
+import DA.Numeric (pi)
 
 infixr 8 **
 
@@ -58,7 +59,10 @@ logt10k x
   | x < 0.5 = logt10k (x * 2.0) - ln2t10k
   | otherwise = logt10kInner 10 x
   where
+    ln10t10k : Decimal
     ln10t10k = 23025.8509299405
+
+    ln2t10k : Decimal
     ln2t10k = 6931.4718055994
 
 -- | `log10kInner n x` approximates 10000 * ln(x) using n terms of the
@@ -124,9 +128,6 @@ tan x = s / c
   where
     (c, s) = cordic 34 x
 
--- | The number Pi
-pi = 3.1415926536
-
 -- | `cordic` is an implementation of the CORDIC algorithm.
 -- See https://en.wikipedia.org/wiki/CORDIC
 -- `cordic n r == (sin(r), cos(r))` computed to n iterations
@@ -144,7 +145,10 @@ cordic n r
     let (c, s) = cordicInner n r (1.0, 0.0) 1.0 angles
     in (kn * c, kn * s)
   where
+    pi : Decimal
     pi = 3.1415926536
+
+    angles : [Decimal]
     angles =
       [ 0.7853981634, 0.4636476090, 0.2449786631, 0.1243549945
       , 0.0624188100, 0.0312398334, 0.0156237286, 0.0078123411
@@ -156,12 +160,14 @@ cordic n r
       , 0.0000000037, 0.0000000019, 0.0000000009, 0.0000000005
       , 0.0000000002, 0.0000000001 ]
 
+    ks : [Decimal]
     ks =
       [ 0.7071067812, 0.6324555320, 0.6135719911, 0.6088339125
       , 0.6076482563, 0.6073517701, 0.6072776441, 0.6072591123
       , 0.6072544793, 0.6072533211, 0.6072530315, 0.6072529591
       , 0.6072529410, 0.6072529365, 0.6072529354, 0.6072529351
       , 0.6072529350 ]
+
     kn = if n < 17
       then ks !! n
       else last ks

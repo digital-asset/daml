@@ -44,8 +44,10 @@ library
       DA.Daml.LF.Proto3.EncodeV1
       DA.Daml.LF.Proto3.Error
     default-extensions:
+      BangPatterns
       FlexibleContexts
       LambdaCase
+      NonDecreasingIndentation
       OverloadedStrings
       PackageImports
       RecordWildCards

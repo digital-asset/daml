@@ -3,7 +3,7 @@
 
 load("@build_bazel_rules_nodejs//:defs.bzl", "nodejs_binary")
 load("@os_info//:os_info.bzl", "is_linux", "is_windows")
-load("//rules_daml:daml.bzl", "daml_test")
+load("//rules_daml:daml.bzl", "daml_compile", "daml_test")
 load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 
 nodejs_binary(
@@ -79,6 +79,8 @@ genrule(
     name = "sources",
     srcs = glob(["source/**"]) + [
         "//compiler/damlc:daml-base-rst-docs",
+        "//triggers/daml:daml-trigger-rst-docs",
+        "//daml-script/daml:daml-script-rst-docs",
         "//ledger-api/grpc-definitions:docs",
         "//:LICENSE",
         "//:NOTICES",
@@ -89,6 +91,12 @@ genrule(
 
         # Copy in Stdlib
         cp -rL $(location //compiler/damlc:daml-base-rst-docs) source/daml/reference/base.rst
+
+        # Copy in daml-trigger documentation
+        cp -rL $(location //triggers/daml:daml-trigger-rst-docs) source/triggers/trigger-docs.rst
+
+        # Copy in daml-script documentation
+        cp -rL $(location //daml-script/daml:daml-script-rst-docs) source/daml-script/daml-script-docs.rst
 
         # Copy in Protobufs
         cp -rL $(location //ledger-api/grpc-definitions:docs) source/app-dev/grpc/proto-docs.rst
@@ -289,7 +297,6 @@ genrule(
     visibility = ["//visibility:public"],
 )
 
-load("//rules_daml:daml.bzl", "daml_compile")
 load("//language-support/java/codegen:codegen.bzl", "dar_to_java")
 
 daml_compile(
@@ -313,15 +320,16 @@ java_binary(
     srcs = glob(["source/getting-started/quickstart/template-root/src/main/java/**/*.java"]) + [":quickstart-model-srcjar"],
     main_class = "com.digitalasset.quickstart.iou.IouMain",
     deps = [
-        "//3rdparty/jvm/ch/qos/logback:logback_classic",
-        "//3rdparty/jvm/com/google/code/gson",
-        "//3rdparty/jvm/com/google/guava",
-        "//3rdparty/jvm/com/google/protobuf:protobuf_java",
-        "//3rdparty/jvm/com/sparkjava:spark_core",
-        "//3rdparty/jvm/io/reactivex/rxjava2:rxjava",
-        "//daml-lf/archive:daml_lf_java_proto",
+        "//daml-lf/archive:daml_lf_dev_archive_java_proto",
         "//language-support/java/bindings:bindings-java",
         "//language-support/java/bindings-rxjava",
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:com_google_code_gson_gson",
+        "@maven//:com_google_guava_guava",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:com_sparkjava_spark_core",
+        "@maven//:io_reactivex_rxjava2_rxjava",
+        "@maven//:org_slf4j_slf4j_api",
     ],
 )
 
@@ -397,3 +405,28 @@ pkg_tar(
     strip_prefix = "source/daml/intro/daml",
     visibility = ["//visibility:public"],
 )
+
+pkg_tar(
+    name = "copy-trigger-template",
+    srcs = glob(
+        ["source/triggers/template-root/**"],
+        exclude = ["**/*~"],
+    ),
+    strip_prefix = "source/triggers/template-root",
+    visibility = ["//visibility:public"],
+)
+
+pkg_tar(
+    name = "script-example-template",
+    srcs = glob(
+        ["source/daml-script/template-root/**"],
+        exclude = ["**/*~"],
+    ),
+    strip_prefix = "source/daml-script/template-root",
+    visibility = ["//visibility:public"],
+)
+
+exports_files([
+    "source/triggers/template-root/src/CopyTrigger.daml",
+    "source/daml-script/template-root/src/ScriptExample.daml",
+])

@@ -1,6 +1,6 @@
 sdk-version: __VERSION__
 name: __PROJECT_NAME__
-source: daml/Main.daml
+source: daml
 scenario: Main:setup
 parties:
   - Alice

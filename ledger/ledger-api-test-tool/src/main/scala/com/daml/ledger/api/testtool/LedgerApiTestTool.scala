@@ -20,6 +20,17 @@ object LedgerApiTestTool {
 
   private[this] val logger = LoggerFactory.getLogger(getClass.getName.stripSuffix("$"))
 
+  // The suffix that will be appended to all party and command identifiers to ensure
+  // they are unique across test runs (but still somewhat stable within a single test run)
+  // This implementation could fail based on the limitations of System.nanoTime, that you
+  // can read on here: https://docs.oracle.com/javase/8/docs/api/java/lang/System.html#nanoTime--
+  // Still, the only way in which this can fail is if two test runs target the same ledger
+  // with the identifier suffix being computed to the same value, which at the very least
+  // requires this to happen on what is resolved by the JVM as the very same millisecond.
+  // This is very unlikely to fail and allows to easily "date" parties on a ledger used
+  // for testing and compare data related to subsequent runs without any reference
+  private[this] val identifierSuffix = f"${System.nanoTime}%x"
+
   private[this] val uncaughtExceptionErrorMessage =
     "UNEXPECTED UNCAUGHT EXCEPTION ON MAIN THREAD, GATHER THE STACKTRACE AND OPEN A _DETAILED_ TICKET DESCRIBING THE ISSUE HERE: https://github.com/digital-asset/daml/issues/new"
 
@@ -28,8 +39,8 @@ object LedgerApiTestTool {
 
   private def printAvailableTests(): Unit = {
     println("Tests marked with * are run by default.\n")
-    tests.default.keySet.toSeq.sorted.map(_ + " *").foreach(println(_))
-    tests.optional.keySet.toSeq.sorted.foreach(println(_))
+    Tests.default.keySet.toSeq.sorted.map(_ + " *").foreach(println(_))
+    Tests.optional.keySet.toSeq.sorted.foreach(println(_))
   }
 
   private def extractResources(resources: String*): Unit = {
@@ -56,18 +67,32 @@ object LedgerApiTestTool {
     if (config.extract) {
       extractResources(
         "/ledger/test-common/SemanticTests.dar",
-        "/ledger/test-common/Test.dar",
-        "/ledger/test-common/Test-1.6.dar"
+        "/ledger/test-common/Test-stable.dar",
+        "/ledger/test-common/Test-dev.dar"
       )
       sys.exit(0)
     }
 
+    if (config.participants.isEmpty) {
+      println("No participant to test, exiting.")
+      sys.exit(0)
+    }
+
+    val missingTests = (config.included ++ config.excluded).filterNot(Tests.all.contains)
+    if (missingTests.nonEmpty) {
+      println("The following tests could not be found:")
+      missingTests.foreach { testName =>
+        println(s"  - $testName")
+      }
+      sys.exit(2)
+    }
+
     val included =
-      if (config.allTests) tests.all.keySet
-      else if (config.included.isEmpty) tests.default.keySet
+      if (config.allTests) Tests.all.keySet
+      else if (config.included.isEmpty) Tests.default.keySet
       else config.included
 
-    val testsToRun = tests.all.filterKeys(included -- config.excluded)
+    val testsToRun = Tests.all.filterKeys(included -- config.excluded)
 
     if (testsToRun.isEmpty) {
       println("No tests to run.")
@@ -82,17 +107,19 @@ object LedgerApiTestTool {
       })
 
     val runner = new LedgerTestSuiteRunner(
-      Vector(
-        LedgerSessionConfiguration(
-          config.host,
-          config.port,
-          config.tlsConfig,
-          config.commandSubmissionTtlScaleFactor)),
+      LedgerSessionConfiguration(
+        config.participants,
+        config.tlsConfig,
+        config.commandSubmissionTtlScaleFactor,
+        config.loadScaleFactor,
+      ),
       testsToRun.values.toVector,
-      config.timeoutScaleFactor
+      identifierSuffix,
+      config.timeoutScaleFactor,
+      config.concurrentTestRuns,
     )
 
-    runner.run {
+    runner.verifyRequirementsAndRun {
       case Success(summaries) =>
         new ColorizedPrintStreamReporter(System.out, config.verbose).report(summaries)
         sys.exit(exitCode(summaries, config.mustFail))

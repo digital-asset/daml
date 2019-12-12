@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf
 package iface
 package reader
 
-import com.digitalasset.daml_lf.DamlLf
+import com.digitalasset.daml_lf_dev.DamlLf
 import scalaz.{Enum => _, _}
 import scalaz.syntax.monoid._
 import scalaz.syntax.traverse._
@@ -15,7 +15,7 @@ import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref}
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.data.Ref.{PackageId, QualifiedName}
 import com.digitalasset.daml.lf.language.Ast
-import com.digitalasset.daml.lf.language.Ast.TypeVarName
+import com.digitalasset.daml.lf.language.{Util => AstUtil}
 
 import scala.collection.immutable.Map
 
@@ -108,7 +108,7 @@ object InterfaceReader {
     (State() /: module.definitions) {
       case (state, (name, Ast.DDataType(true, params, dataType))) =>
         val fullName = QualifiedName(module.name, name)
-        val tyVars: ImmArraySeq[TypeVarName] = params.map(_._1).toSeq
+        val tyVars: ImmArraySeq[Ast.TypeVarName] = params.map(_._1).toSeq
 
         val result = dataType match {
           case dfn: Ast.DataRecord =>
@@ -131,7 +131,7 @@ object InterfaceReader {
 
   private[reader] def recordOrTemplate(
       name: QualifiedName,
-      tyVars: ImmArraySeq[TypeVarName],
+      tyVars: ImmArraySeq[Ast.TypeVarName],
       record: Ast.DataRecord
   ) =
     for {
@@ -153,7 +153,7 @@ object InterfaceReader {
       choices <- dfn.choices.toList traverseU {
         case (choiceName, choice) => visitChoice(name, choice) map (x => choiceName -> x)
       }
-      key <- dfn.key traverseU (k => type_(name, k.typ))
+      key <- dfn.key traverseU (k => toIfaceType(name, k.typ))
     } yield name -> iface.InterfaceType.Template(Record(fields), DefTemplate(choices.toMap, key))
 
   private def visitChoice(
@@ -161,8 +161,8 @@ object InterfaceReader {
       choice: Ast.TemplateChoice
   ): InterfaceReaderError \/ TemplateChoice[Type] =
     for {
-      tParam <- type_(ctx, choice.argBinder._2)
-      tReturn <- type_(ctx, choice.returnType)
+      tParam <- toIfaceType(ctx, choice.argBinder._2)
+      tReturn <- toIfaceType(ctx, choice.returnType)
     } yield
       TemplateChoice(
         param = tParam,
@@ -172,7 +172,7 @@ object InterfaceReader {
 
   private[reader] def variant(
       name: QualifiedName,
-      tyVars: ImmArraySeq[TypeVarName],
+      tyVars: ImmArraySeq[Ast.TypeVarName],
       variant: Ast.DataVariant
   ) = {
     for {
@@ -182,7 +182,7 @@ object InterfaceReader {
 
   private[reader] def enum(
       name: QualifiedName,
-      tyVars: ImmArraySeq[TypeVarName],
+      tyVars: ImmArraySeq[Ast.TypeVarName],
       enum: Ast.DataEnum) =
     if (tyVars.isEmpty)
       \/-(
@@ -193,9 +193,11 @@ object InterfaceReader {
 
   private[reader] def fieldsOrCons(ctx: QualifiedName, fields: ImmArray[(Ref.Name, Ast.Type)])
     : InterfaceReaderError \/ ImmArraySeq[(Ref.Name, Type)] =
-    fields.toSeq traverseU { case (fieldName, typ) => type_(ctx, typ).map(x => fieldName -> x) }
+    fields.toSeq traverseU {
+      case (fieldName, typ) => toIfaceType(ctx, typ).map(x => fieldName -> x)
+    }
 
-  private def type_(
+  private[lf] def toIfaceType(
       ctx: QualifiedName,
       a: Ast.Type,
       args: FrontStack[Type] = FrontStack.empty
@@ -208,11 +210,14 @@ object InterfaceReader {
           unserializableDataType(ctx, "arguments passed to a type parameter")
       case Ast.TTyCon(c) =>
         \/-(TypeCon(TypeConName(c), args.toImmArray.toSeq))
+      case AstUtil.TNumeric(Ast.TNat(n)) if args.empty =>
+        \/-(TypeNumeric(n))
       case Ast.TBuiltin(bt) =>
         primitiveType(ctx, bt, args.toImmArray.toSeq)
       case Ast.TApp(tyfun, arg) =>
-        type_(ctx, arg, FrontStack.empty) flatMap (tArg => type_(ctx, tyfun, tArg +: args))
-      case Ast.TForall(_, _) | Ast.TTuple(_) =>
+        toIfaceType(ctx, arg, FrontStack.empty) flatMap (tArg =>
+          toIfaceType(ctx, tyfun, tArg +: args))
+      case Ast.TForall(_, _) | Ast.TStruct(_) | Ast.TNat(_) =>
         unserializableDataType(ctx, s"unserializable data type: ${a.pretty}")
     }
 
@@ -226,7 +231,6 @@ object InterfaceReader {
         case Ast.BTUnit => \/-((0, PrimType.Unit))
         case Ast.BTBool => \/-((0, PrimType.Bool))
         case Ast.BTInt64 => \/-((0, PrimType.Int64))
-        case Ast.BTDecimal => \/-((0, PrimType.Decimal))
         case Ast.BTText => \/-((0, PrimType.Text))
         case Ast.BTDate => \/-((0, PrimType.Date))
         case Ast.BTTimestamp => \/-((0, PrimType.Timestamp))
@@ -234,8 +238,13 @@ object InterfaceReader {
         case Ast.BTContractId => \/-((1, PrimType.ContractId))
         case Ast.BTList => \/-((1, PrimType.List))
         case Ast.BTOptional => \/-((1, PrimType.Optional))
-        case Ast.BTMap => \/-((1, PrimType.Map))
-        case Ast.BTUpdate | Ast.BTScenario | Ast.BTArrow =>
+        case Ast.BTTextMap => \/-((1, PrimType.TextMap))
+        case Ast.BTGenMap => \/-((2, PrimType.GenMap))
+        case Ast.BTNumeric =>
+          unserializableDataType(
+            ctx,
+            s"Unserializable primitive type: $a must be applied to one and only one TNat")
+        case Ast.BTUpdate | Ast.BTScenario | Ast.BTArrow | Ast.BTAny | Ast.BTTypeRep =>
           unserializableDataType(ctx, s"Unserializable primitive type: $a")
       }
       (arity, primType) = ab

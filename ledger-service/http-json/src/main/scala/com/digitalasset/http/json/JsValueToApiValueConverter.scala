@@ -13,20 +13,25 @@ import spray.json.{JsObject, JsValue}
 
 class JsValueToApiValueConverter(lfTypeLookup: LfTypeLookup) {
 
+  def jsValueToLfValue(
+      lfId: lf.data.Ref.Identifier,
+      jsValue: JsValue): JsonError \/ lf.value.Value[lf.value.Value.AbsoluteContractId] =
+    \/.fromTryCatchNonFatal(
+      LfValueCodec.jsValueToApiValue(jsValue, lfId, lfTypeLookup)
+    ).leftMap(JsonError.toJsonError)
+
+  def lfValueToApiValue(
+      lfValue: lf.value.Value[lf.value.Value.AbsoluteContractId]): JsonError \/ lav1.value.Value =
+    \/.fromEither(LfEngineToApi.lfValueToApiValue(verbose = true, lfValue))
+      .leftMap(JsonError.toJsonError)
+
   def jsValueToApiValue(
       lfId: lf.data.Ref.Identifier,
-      jsValue: JsValue): JsonError \/ lav1.value.Value = {
-
+      jsValue: JsValue): JsonError \/ lav1.value.Value =
     for {
-      lfValue <- \/.fromTryCatchNonFatal(
-        LfValueCodec
-          .jsValueToApiValue(jsValue, lfId, lfTypeLookup))
-        .leftMap(JsonError.toJsonError)
-
-      apiValue <- \/.fromEither(LfEngineToApi.lfValueToApiValue(verbose = true, lfValue))
-        .leftMap(JsonError.toJsonError)
+      lfValue <- jsValueToLfValue(lfId, jsValue)
+      apiValue <- lfValueToApiValue(lfValue)
     } yield apiValue
-  }
 
   def jsObjectToApiRecord(
       lfId: lf.data.Ref.Identifier,

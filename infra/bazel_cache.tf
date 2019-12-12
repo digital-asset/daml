@@ -29,13 +29,6 @@ resource "google_storage_bucket_object" "index_bazel_cache" {
   depends_on   = ["module.nix_cache"]
 }
 
-// Set ACL for ./index.html
-resource "google_storage_object_acl" "index_bazel_cache-acl" {
-  bucket         = "${module.bazel_cache.bucket_name}"
-  object         = "${google_storage_bucket_object.index_bazel_cache.name}"
-  predefined_acl = "publicRead"
-}
-
 // allow rw access for CI writer (see writer.tf)
 resource "google_storage_bucket_iam_member" "bazel_cache_writer" {
   bucket = "${module.bazel_cache.bucket_name}"

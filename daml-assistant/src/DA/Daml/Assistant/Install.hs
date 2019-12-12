@@ -59,11 +59,22 @@ import System.PosixCompat.Files
 
 data InstallEnv = InstallEnv
     { options :: InstallOptions
+        -- ^ command-line options to daml install
     , targetVersionM :: Maybe SdkVersion
+        -- ^ target install version
     , assistantVersion :: Maybe DamlAssistantSdkVersion
+        -- ^ version of running daml assistant
     , damlPath :: DamlPath
+        -- ^ path to install daml assistant
+    , missingAssistant :: Bool
+        -- ^ daml assistant is not installed in expected path.
+    , installingFromOutside :: Bool
+        -- ^ daml install is running from outside daml path
+        -- (e.g. when running install script).
     , projectPathM :: Maybe ProjectPath
+        -- ^ project path (for "daml install project")
     , output :: String -> IO ()
+        -- ^ output an informative message
     }
 
 -- | Perform action unless user has passed --quiet flag.
@@ -146,14 +157,18 @@ installExtracted env@InstallEnv{..} sourcePath =
         when (shouldInstallAssistant env sourceVersion) $
             activateDaml env targetPath
 
+installedAssistantPath :: DamlPath -> FilePath
+installedAssistantPath damlPath =
+    let damlName = if isWindows then "daml.cmd" else "daml"
+    in unwrapDamlPath damlPath </> "bin" </> damlName
+
 activateDaml :: InstallEnv -> SdkPath -> IO ()
 activateDaml env@InstallEnv{..} targetPath = do
 
     let damlSourceName = if isWindows then "daml.exe" else "daml"
-        damlTargetName = if isWindows then "daml.cmd" else "daml"
         damlBinarySourcePath = unwrapSdkPath targetPath </> "daml" </> damlSourceName
-        damlBinaryTargetDir  = unwrapDamlPath damlPath </> "bin"
-        damlBinaryTargetPath = damlBinaryTargetDir </> damlTargetName
+        damlBinaryTargetPath = installedAssistantPath damlPath
+        damlBinaryTargetDir = takeDirectory damlBinaryTargetPath
 
     unlessM (doesFileExist damlBinarySourcePath) $
         throwIO $ assistantErrorBecause
@@ -360,7 +375,8 @@ shouldInstallAssistant :: InstallEnv -> SdkVersion -> Bool
 shouldInstallAssistant InstallEnv{..} versionToInstall =
     let isNewer = maybe True (< versionToInstall) (unwrapDamlAssistantSdkVersion <$> assistantVersion)
     in unActivateInstall (iActivate options)
-    || determineAuto isNewer (unwrapInstallAssistant (iAssistant options))
+    || determineAuto (isNewer || missingAssistant || installingFromOutside)
+        (unwrapInstallAssistant (iAssistant options))
 
 -- | Run install command.
 install :: InstallOptions -> DamlPath -> Maybe ProjectPath -> Maybe DamlAssistantSdkVersion -> IO ()
@@ -371,7 +387,11 @@ install options damlPath projectPathM assistantVersion = do
             , ""
             ]
 
-    let targetVersionM = Nothing -- determined later
+    missingAssistant <- not <$> doesFileExist (installedAssistantPath damlPath)
+    execPath <- getExecutablePath
+    let installingFromOutside = not $
+            isPrefixOf (unwrapDamlPath damlPath </> "") execPath
+        targetVersionM = Nothing -- determined later
         output = putStrLn -- Output install messages to stdout.
         env = InstallEnv {..}
     case iTargetM options of

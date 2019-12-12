@@ -20,6 +20,10 @@ class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with P
 
   implicit val noStringShrink: Shrink[String] = Shrink.shrinkAny[String]
 
+  private[this] val lastDecimalVersion = ValueVersion("5")
+
+  private[this] val firstNumericVersion = ValueVersion("6")
+
   private[this] val defaultValueVersion = ValueVersions.acceptedVersions.lastOption getOrElse sys
     .error("there are no allowed versions! impossible! but could it be?")
 
@@ -41,24 +45,48 @@ class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with P
       }
     }
 
-    // decimal is tricky
     "do Decimal" in {
       forAll("Decimal (BigDecimal) invariant") { d: BigDecimal =>
         // we are filtering on decimals invariant under string conversion
         whenever(Decimal.fromBigDecimal(d).isRight) {
           val Right(dec) = Decimal.fromBigDecimal(d)
-          val value = ValueDecimal(dec)
+          val value = ValueNumeric(dec)
           val recoveredDecimal = ValueCoder.decodeValue[ContractId](
             defaultCidDecode,
-            defaultValueVersion,
+            lastDecimalVersion,
             assertRight(
               ValueCoder
-                .encodeValue[ContractId](defaultCidEncode, defaultValueVersion, value))) match {
-            case Right(ValueDecimal(d)) => d
-            case _ => fail("should have got a decimal back")
+                .encodeValue[ContractId](defaultCidEncode, lastDecimalVersion, value))) match {
+            case Right(ValueNumeric(d)) => d
+            case x => fail(s"should have got a decimal back, got $x")
           }
-          Decimal.toString(value.value) shouldEqual Decimal.toString(recoveredDecimal)
+          Numeric.toUnscaledString(value.value) shouldEqual Numeric.toUnscaledString(
+            recoveredDecimal)
         }
+      }
+    }
+
+    "do Numeric" in {
+      import ValueGenerators.Implicits._
+
+      forAll("Numeric scale", "Decimal (BigDecimal) invariant") {
+        (s: Numeric.Scale, d: BigDecimal) =>
+          // we are filtering on decimals invariant under string conversion
+          whenever(Numeric.fromBigDecimal(s, d).isRight) {
+            val Right(dec) = Numeric.fromBigDecimal(s, d)
+            val value = ValueNumeric(dec)
+            val recoveredDecimal = ValueCoder.decodeValue[ContractId](
+              defaultCidDecode,
+              firstNumericVersion,
+              assertRight(
+                ValueCoder
+                  .encodeValue[ContractId](defaultCidEncode, firstNumericVersion, value))) match {
+              case Right(ValueNumeric(x)) => x
+              case x => fail(s"should have got a numeric back, got $x")
+            }
+            Numeric.toUnscaledString(value.value) shouldEqual Numeric.toUnscaledString(
+              recoveredDecimal)
+          }
       }
     }
 
@@ -94,7 +122,7 @@ class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with P
       }
     }
 
-    "do ContractId in any ValueVersion" in forAll(coidValueGen, valueVersionGen)(
+    "do ContractId in any ValueVersion" in forAll(coidValueGen, valueVersionGen())(
       testRoundTripWithVersion)
 
     "do lists" in {
@@ -110,7 +138,13 @@ class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with P
     }
 
     "do maps" in {
-      forAll(valueMapGen) { v: ValueMap[ContractId] =>
+      forAll(valueMapGen) { v: ValueTextMap[ContractId] =>
+        testRoundTrip(v)
+      }
+    }
+
+    "do genMaps" in {
+      forAll(valueGenMapGen) { v: ValueGenMap[ContractId] =>
         testRoundTrip(v)
       }
     }
@@ -127,9 +161,9 @@ class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with P
       }
     }
 
-    "don't tuple" in {
-      val tuple = ValueTuple(ImmArray((Ref.Name.assertFromString("foo"), ValueInt64(42))))
-      val res = ValueCoder.encodeValue[ContractId](defaultCidEncode, defaultValueVersion, tuple)
+    "don't struct" in {
+      val struct = ValueStruct(ImmArray((Ref.Name.assertFromString("foo"), ValueInt64(42))))
+      val res = ValueCoder.encodeValue[ContractId](defaultCidEncode, defaultValueVersion, struct)
       res.left.get.errorMessage should include("serializable")
     }
 
@@ -152,16 +186,15 @@ class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with P
       }
     }
 
-    "do identifier with supported override version" in forAll(idGen, valueVersionGen) {
+    "do identifier with supported override version" in forAll(idGen, valueVersionGen()) {
       (i, version) =>
         val (v2, ei) = ValueCoder.encodeIdentifier(i, Some(version))
         v2 shouldEqual version
         ValueCoder.decodeIdentifier(ei) shouldEqual Right(i)
     }
 
-    "do versioned value with supported override version" in forAll(valueGen, valueVersionGen) {
-      (value: Value[ContractId], version: ValueVersion) =>
-        testRoundTripWithVersion(value, version)
+    "do versioned value with supported override version" in forAll(versionedValueGen) {
+      case VersionedValue(version, value) => testRoundTripWithVersion(value, version)
     }
 
     "do versioned value with assigned version" in forAll(valueGen) { v: Value[ContractId] =>

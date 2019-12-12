@@ -62,7 +62,7 @@ object ValueSpec {
 
   private[this] object TautologicalValueChecks extends ValuePrimitiveEncoding[ValueCheck] {
     override val valueInt64 = ValueCheck[P.Int64]("Int64")
-    override val valueDecimal = ValueCheck[P.Decimal]("Decimal")
+    override val valueNumeric = ValueCheck[P.Numeric]("Numeric")
     override val valueParty = {
       implicit val PA: Arbitrary[P.Party] = Arbitrary(GenEncoding.primitive.valueParty)
       ValueCheck[P.Party]("Party")
@@ -88,9 +88,18 @@ object ValueSpec {
       ValueCheck[P.Optional[A]](s"Option[$tName]")
     }
 
-    override def valueMap[A](implicit vc: ValueCheck[A]) = {
+    override def valueTextMap[A](implicit vc: ValueCheck[A]) = {
       import vc._
-      ValueCheck[P.Map[A]](s"Map[$tName]")
+      implicit val arbTM: Arbitrary[P.TextMap[A]] = Arbitrary(
+        GenEncoding.primitive.valueTextMap(TA.arbitrary))
+      ValueCheck[P.TextMap[A]](s"Map[$tName]")
+    }
+
+    override def valueGenMap[K, V](implicit vcK: ValueCheck[K], vcV: ValueCheck[V]) = {
+      import vcK.{TA => KA, TS => KS, TV => KV}
+      import vcV.{TA => VA, TS => VS, TV => VV}
+
+      ValueCheck[P.GenMap[K, V]](s"GenMap[${vcK.tName}, ${vcV.tName}]")
     }
   }
 
@@ -112,7 +121,12 @@ object ValueSpec {
       }),
       (1, Gen.lzy {
         valueChecks.map { vc =>
-          Exists(TautologicalValueChecks.valueMap(vc.run))
+          Exists(TautologicalValueChecks.valueTextMap(vc.run))
+        }
+      }),
+      (1, Gen.lzy {
+        valueChecks.map { vc =>
+          Exists(TautologicalValueChecks.valueGenMap(vc.run, vc.run))
         }
       })
     )

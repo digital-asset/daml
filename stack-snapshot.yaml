@@ -1,0 +1,23 @@
+resolver: lts-14.1
+packages:
+  - archive: http://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-parser-8.8.1.20191204.tar.gz
+    sha256: "ffac287040a0fc85e97b1aa2347947a086fa729f0702d0e7cf4ad2f65d46fa80"
+  - archive: http://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-8.8.1.20191204.tar.gz
+    sha256: "9648145ef7b3566fad7073ef63d0ef85056abe2c70c98f753306b70cbe9e0b5a"
+  - github: digital-asset/hlint
+    commit: "88e96f715b5174ebfc93179ecf88dca4262f3365"
+    sha256: "c8c18979c117c4fd517939be400b60e573d41fc9c88510cac870e9d8ba28f107"
+  - bytestring-nums-0.3.6
+  - extra-1.6.18
+  - grpc-haskell-0.0.1.0
+  - grpc-haskell-core-0.0.0.0
+  - haskell-lsp-0.18.0.0
+  - haskell-lsp-types-0.18.0.0
+  - hie-bios-0.2.1
+  - hpp-0.6.1
+  - lsp-test-0.8.2.0
+  - proto3-suite-0.4.0.0
+  - proto3-wire-1.1.0
+  # Core packages, need to be listed for integer-simple flags.
+  - integer-simple-0.1.1.1
+  - text-1.2.3.1

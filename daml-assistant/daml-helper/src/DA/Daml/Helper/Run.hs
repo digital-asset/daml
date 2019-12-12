@@ -9,7 +9,7 @@ module DA.Daml.Helper.Run
     , runListTemplates
     , runStart
 
-    , HostAndPortFlags(..)
+    , LedgerFlags(..)
     , JsonFlag(..)
     , runDeploy
     , runLedgerAllocateParties
@@ -28,11 +28,16 @@ module DA.Daml.Helper.Run
 
     , NavigatorPort(..)
     , SandboxPort(..)
+    , JsonApiPort(..)
+    , JsonApiConfig(..)
     , ReplaceExtension(..)
     , OpenBrowser(..)
     , StartNavigator(..)
     , WaitForSignal(..)
     , DamlHelperError(..)
+    , SandboxOptions(..)
+    , NavigatorOptions(..)
+    , JsonApiOptions(..)
     ) where
 
 import Control.Concurrent
@@ -41,6 +46,7 @@ import Control.Exception.Safe
 import Control.Monad
 import Control.Monad.Extra hiding (fromMaybeM)
 import Control.Monad.Loops (untilJust)
+import Data.Foldable
 import Data.Maybe
 import Data.List.Extra
 import qualified Data.ByteString as BS
@@ -73,7 +79,6 @@ import DA.Daml.Project.Config
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Types
 import DA.Daml.Project.Util
-
 
 data DamlHelperError = DamlHelperError
     { errMessage :: T.Text
@@ -300,14 +305,23 @@ installBundledExtension pathToVsix = do
            , "https://github.com/digital-asset/daml/issues/new?template=bug_report.md"
            ]
 
-runJar :: FilePath -> [String] -> IO ()
-runJar jarPath remainingArguments = withJar jarPath remainingArguments (const $ pure ())
+runJar :: FilePath -> Maybe FilePath -> [String] -> IO ()
+runJar jarPath mbLogbackPath remainingArgs = do
+    mbLogbackArg <- traverse getLogbackArg mbLogbackPath
+    withJar jarPath (toList mbLogbackArg) remainingArgs (const $ pure ())
 
-withJar :: FilePath -> [String] -> (Process () () () -> IO a) -> IO a
-withJar jarPath args a = do
+getLogbackArg :: FilePath -> IO String
+getLogbackArg relPath = do
+    sdkPath <- getSdkPath
+    let logbackPath = sdkPath </> relPath
+    pure $ "-Dlogback.configurationFile=" <> logbackPath
+
+-- The first set of arguments is passed before -jar, the other after the jar path.
+withJar :: FilePath -> [String] -> [String] -> (Process () () () -> IO a) -> IO a
+withJar jarPath jvmArgs jarArgs a = do
     sdkPath <- getSdkPath
     let absJarPath = sdkPath </> jarPath
-    withProcessWait_ (proc "java" ("-jar" : absJarPath : args)) a `catchIO`
+    withProcessWait_ (proc "java" (jvmArgs ++ ["-jar", absJarPath] ++ jarArgs)) a `catchIO`
         (\e -> hPutStrLn stderr "Failed to start java. Make sure it is installed and in the PATH." *> throwIO e)
 
 getTemplatesFolder :: IO FilePath
@@ -510,8 +524,8 @@ runInit targetFolderM = do
 -- * Creation of a project in existing folder (suggest daml init instead).
 -- * Creation of a project inside another project.
 --
-runNew :: FilePath -> Maybe String -> Maybe FilePath -> [String] -> IO ()
-runNew targetFolder templateNameM mbMain pkgDeps = do
+runNew :: FilePath -> Maybe String -> [String] -> [String] -> IO ()
+runNew targetFolder templateNameM pkgDeps dataDeps = do
     templatesFolder <- getTemplatesFolder
     let templateName = fromMaybe defaultProjectTemplate templateNameM
         templateFolder = templatesFolder </> templateName
@@ -591,7 +605,7 @@ runNew targetFolder templateNameM mbMain pkgDeps = do
         let config = replace "__VERSION__"  sdkVersion
                    . replace "__PROJECT_NAME__" projectName
                    . replace "__DEPENDENCIES__" (unlines ["  - " <> dep | dep <- pkgDeps])
-                   . maybe id (replace "__MAIN__") mbMain
+                   . replace "__DATA_DEPENDENCIES__" (unlines ["  - " <> dep | dep <- dataDeps])
                    $ configTemplate
         writeFileUTF8 configPath config
         removeFile configTemplatePath
@@ -602,13 +616,13 @@ runNew targetFolder templateNameM mbMain pkgDeps = do
         "\" based on the template \"" <> templateName <> "\"."
 
 -- | Create a project containing code to migrate a running system between two given packages.
-runMigrate :: FilePath -> FilePath -> FilePath -> FilePath -> IO ()
-runMigrate targetFolder main pkgPath1 pkgPath2
+runMigrate :: FilePath -> FilePath -> FilePath -> IO ()
+runMigrate targetFolder pkgPath1 pkgPath2
  = do
     pkgPath1Abs <- makeAbsolute pkgPath1
     pkgPath2Abs <- makeAbsolute pkgPath2
     -- Create a new project
-    runNew targetFolder (Just "migrate") (Just main) [pkgPath1Abs, pkgPath2Abs]
+    runNew targetFolder (Just "migrate") [] [pkgPath1Abs, pkgPath2Abs]
 
     -- Call damlc to create the upgrade source files.
     procConfig <- toAssistantCommand
@@ -618,7 +632,6 @@ runMigrate targetFolder main pkgPath1 pkgPath2
         , "daml"
         , "--project-root"
         , targetFolder
-        , "upgrade-pkg"
         , pkgPath1
         , pkgPath2
         ]
@@ -659,6 +672,7 @@ runListTemplates = do
 
 newtype SandboxPort = SandboxPort Int
 newtype NavigatorPort = NavigatorPort Int
+newtype JsonApiPort = JsonApiPort Int
 
 navigatorPortNavigatorArgs :: NavigatorPort -> [String]
 navigatorPortNavigatorArgs (NavigatorPort p) = ["--port", show p]
@@ -668,7 +682,8 @@ navigatorURL (NavigatorPort p) = "http://localhost:" <> show p
 
 withSandbox :: SandboxPort -> [String] -> (Process () () () -> IO a) -> IO a
 withSandbox (SandboxPort port) args a = do
-    withJar sandboxPath (["--port", show port] ++ args) $ \ph -> do
+    logbackArg <- getLogbackArg (damlSdkJarFolder </> "sandbox-logback.xml")
+    withJar damlSdkJar [logbackArg] (["sandbox", "--port", show port] ++ args) $ \ph -> do
         putStrLn "Waiting for sandbox to start: "
         -- TODO We need to figure out what a sane timeout for this step.
         waitForConnectionOnPort (putStr "." *> threadDelay 500000) port
@@ -681,10 +696,33 @@ withNavigator (SandboxPort sandboxPort) navigatorPort args a = do
             , navigatorPortNavigatorArgs navigatorPort
             , args
             ]
-    withJar navigatorPath navigatorArgs $ \ph -> do
+    logbackArg <- getLogbackArg (damlSdkJarFolder </> "navigator-logback.xml")
+    withJar damlSdkJar [logbackArg] ("navigator":navigatorArgs) $ \ph -> do
         putStrLn "Waiting for navigator to start: "
         -- TODO We need to figure out a sane timeout for this step.
-        waitForHttpServer (putStr "." *> threadDelay 500000) (navigatorURL navigatorPort)
+        waitForHttpServer (putStr "." *> threadDelay 500000) (navigatorURL navigatorPort) []
+        a ph
+
+damlSdkJarFolder :: FilePath
+damlSdkJarFolder = "daml-sdk"
+
+damlSdkJar :: FilePath
+damlSdkJar = damlSdkJarFolder </> "daml-sdk.jar"
+
+withJsonApi :: SandboxPort -> JsonApiPort -> [String] -> (Process () () () -> IO a) -> IO a
+withJsonApi (SandboxPort sandboxPort) (JsonApiPort jsonApiPort) args a = do
+    logbackArg <- getLogbackArg (damlSdkJarFolder </> "json-api-logback.xml")
+    let jsonApiArgs =
+            ["--ledger-host", "localhost", "--ledger-port", show sandboxPort, "--http-port", show jsonApiPort] <> args
+    withJar damlSdkJar [logbackArg] ("json-api":jsonApiArgs) $ \ph -> do
+        putStrLn "Waiting for JSON API to start: "
+        -- For now, we have a dummy authorization header here to wait for startup since we cannot get a 200
+        -- response otherwise. We probably want to add some method to detect successful startup without
+        -- any authorization
+        let headers =
+                [ ("Authorization", "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJsZWRnZXJJZCI6Ik15TGVkZ2VyIiwiYXBwbGljYXRpb25JZCI6ImZvb2JhciIsInBhcnR5IjoiQWxpY2UifQ.4HYfzjlYr1ApUDot0a6a4zB49zS_jrwRUOCkAiPMqo0")
+                ] :: HTTP.RequestHeaders
+        waitForHttpServer (putStr "." *> threadDelay 500000) ("http://localhost:" <> show jsonApiPort <> "/contracts/search") headers
         a ph
 
 -- | Whether `daml start` should open a browser automatically.
@@ -693,11 +731,39 @@ newtype OpenBrowser = OpenBrowser Bool
 -- | Whether `daml start` should start the navigator automatically.
 newtype StartNavigator = StartNavigator Bool
 
+data JsonApiConfig = JsonApiConfig
+  { mbJsonApiPort :: Maybe JsonApiPort -- If Nothing, don’t start the JSON API
+  }
+
 -- | Whether `daml start` should wait for Ctrl+C or interrupt after starting servers.
 newtype WaitForSignal = WaitForSignal Bool
 
-runStart :: Maybe SandboxPort -> StartNavigator -> OpenBrowser -> Maybe String -> WaitForSignal -> IO ()
-runStart sandboxPortM (StartNavigator shouldStartNavigator) (OpenBrowser shouldOpenBrowser) onStartM (WaitForSignal shouldWaitForSignal) = withProjectRoot Nothing (ProjectCheck "daml start" True) $ \_ _ -> do
+newtype SandboxOptions = SandboxOptions [String]
+newtype NavigatorOptions = NavigatorOptions [String]
+newtype JsonApiOptions = JsonApiOptions [String]
+
+runStart
+    :: Maybe SandboxPort
+    -> StartNavigator
+    -> JsonApiConfig
+    -> OpenBrowser
+    -> Maybe String
+    -> WaitForSignal
+    -> SandboxOptions
+    -> NavigatorOptions
+    -> JsonApiOptions
+    -> IO ()
+runStart
+  sandboxPortM
+  (StartNavigator shouldStartNavigator)
+  (JsonApiConfig mbJsonApiPort)
+  (OpenBrowser shouldOpenBrowser)
+  onStartM
+  (WaitForSignal shouldWaitForSignal)
+  (SandboxOptions sandboxOpts)
+  (NavigatorOptions navigatorOpts)
+  (JsonApiOptions jsonApiOpts)
+  = withProjectRoot Nothing (ProjectCheck "daml start" True) $ \_ _ -> do
     let sandboxPort = fromMaybe defaultSandboxPort sandboxPortM
     projectConfig <- getProjectConfig
     darPath <- getDarPath
@@ -706,13 +772,14 @@ runStart sandboxPortM (StartNavigator shouldStartNavigator) (OpenBrowser shouldO
         queryProjectConfig ["scenario"] projectConfig
     doBuild
     let scenarioArgs = maybe [] (\scenario -> ["--scenario", scenario]) mbScenario
-    withSandbox sandboxPort (darPath : scenarioArgs) $ \sandboxPh -> do
-        withNavigator' sandboxPh sandboxPort navigatorPort [] $ \navigatorPh -> do
+    withSandbox sandboxPort (darPath : scenarioArgs ++ sandboxOpts) $ \sandboxPh -> do
+        withNavigator' sandboxPh sandboxPort navigatorPort navigatorOpts $ \navigatorPh -> do
             whenJust onStartM $ \onStart -> runProcess_ (shell onStart)
             when (shouldStartNavigator && shouldOpenBrowser) $
                 void $ openBrowser (navigatorURL navigatorPort)
-            when shouldWaitForSignal $
-                void $ race (waitExitCode navigatorPh) (waitExitCode sandboxPh)
+            withJsonApi' sandboxPh sandboxPort jsonApiOpts $ \jsonApiPh -> do
+                when shouldWaitForSignal $
+                  void $ waitAnyCancel =<< mapM (async . waitExitCode) [navigatorPh,sandboxPh,jsonApiPh]
 
     where
         navigatorPort = NavigatorPort 7500
@@ -721,22 +788,39 @@ runStart sandboxPortM (StartNavigator shouldStartNavigator) (OpenBrowser shouldO
             if shouldStartNavigator
                 then withNavigator
                 else (\_ _ _ f -> f sandboxPh)
+        withJsonApi' sandboxPh sandboxPort args f =
+            case mbJsonApiPort of
+                Nothing -> f sandboxPh
+                Just jsonApiPort -> withJsonApi sandboxPort jsonApiPort args f
 
-data HostAndPortFlags = HostAndPortFlags { hostM :: Maybe String, portM :: Maybe Int }
+data LedgerFlags = LedgerFlags
+  { hostM :: Maybe String
+  , portM :: Maybe Int
+  , tokFileM :: Maybe FilePath
+  }
 
-getHostAndPortDefaults :: HostAndPortFlags -> IO HostAndPort
-getHostAndPortDefaults HostAndPortFlags{hostM,portM} = do
+getTokFromFile :: Maybe FilePath -> IO (Maybe Token)
+getTokFromFile tokFileM = do
+  case tokFileM of
+    Nothing -> return Nothing
+    Just tokFile -> do
+      tok <- readFileUTF8 tokFile
+      return (Just (Token tok))
+
+getHostAndPortDefaults :: LedgerFlags -> IO LedgerArgs
+getHostAndPortDefaults LedgerFlags{hostM,portM,tokFileM} = do
     host <- fromMaybeM getProjectLedgerHost hostM
     port <- fromMaybeM getProjectLedgerPort portM
-    return HostAndPort {..}
+    tokM <- getTokFromFile tokFileM
+    return LedgerArgs {..}
 
 
 -- | Allocate project parties and upload project DAR file to ledger.
-runDeploy :: HostAndPortFlags -> IO ()
+runDeploy :: LedgerFlags -> IO ()
 runDeploy flags = do
     hp <- getHostAndPortDefaults flags
     putStrLn $ "Deploying to " <> show hp
-    let flags' = HostAndPortFlags
+    let flags' = flags
             { hostM = Just (host hp)
             , portM = Just (port hp) }
     runLedgerAllocateParties flags' []
@@ -746,7 +830,7 @@ runDeploy flags = do
 newtype JsonFlag = JsonFlag { unJsonFlag :: Bool }
 
 -- | Fetch list of parties from ledger.
-runLedgerListParties :: HostAndPortFlags -> JsonFlag -> IO ()
+runLedgerListParties :: LedgerFlags -> JsonFlag -> IO ()
 runLedgerListParties flags (JsonFlag json) = do
     hp <- getHostAndPortDefaults flags
     unless json . putStrLn $ "Listing parties at " <> show hp
@@ -767,7 +851,7 @@ runLedgerListParties flags (JsonFlag json) = do
 
 -- | Allocate parties on ledger. If list of parties is empty,
 -- defaults to the project parties.
-runLedgerAllocateParties :: HostAndPortFlags -> [String] -> IO ()
+runLedgerAllocateParties :: LedgerFlags -> [String] -> IO ()
 runLedgerAllocateParties flags partiesArg = do
     parties <- if notNull partiesArg
         then pure partiesArg
@@ -777,7 +861,7 @@ runLedgerAllocateParties flags partiesArg = do
     mapM_ (allocatePartyIfRequired hp) parties
 
 -- | Allocate a party if it doesn't already exist (by display name).
-allocatePartyIfRequired :: HostAndPort -> String -> IO ()
+allocatePartyIfRequired :: LedgerArgs -> String -> IO ()
 allocatePartyIfRequired hp name = do
     partyM <- Ledger.lookupParty hp name
     party <- flip fromMaybeM partyM $ do
@@ -786,7 +870,7 @@ allocatePartyIfRequired hp name = do
     putStrLn $ "Allocated " <> show party <> " for '" <> name <> "' at " <> show hp
 
 -- | Upload a DAR file to the ledger. (Defaults to project DAR)
-runLedgerUploadDar :: HostAndPortFlags -> Maybe FilePath -> IO ()
+runLedgerUploadDar :: LedgerFlags -> Maybe FilePath -> IO ()
 runLedgerUploadDar flags darPathM = do
     hp <- getHostAndPortDefaults flags
     darPath <- flip fromMaybeM darPathM $ do
@@ -800,8 +884,9 @@ runLedgerUploadDar flags darPathM = do
 -- | Run navigator against configured ledger. We supply Navigator with
 -- the list of parties from the ledger, but in the future Navigator
 -- should fetch the list of parties itself.
-runLedgerNavigator :: HostAndPortFlags -> [String] -> IO ()
+runLedgerNavigator :: LedgerFlags -> [String] -> IO ()
 runLedgerNavigator flags remainingArguments = do
+    logbackArg <- getLogbackArg (damlSdkJarFolder </> "navigator-logback.xml")
     hostAndPort <- getHostAndPortDefaults flags
     putStrLn $ "Opening navigator at " <> show hostAndPort
     partyDetails <- Ledger.listParties hostAndPort
@@ -811,23 +896,14 @@ runLedgerNavigator flags remainingArguments = do
             navigatorArgs = concat
                 [ ["server"]
                 , [host hostAndPort, show (port hostAndPort)]
-                , navigatorPortNavigatorArgs navigatorPort
                 , remainingArguments
                 ]
 
         writeFileUTF8 navigatorConfPath (T.unpack $ navigatorConfig partyDetails)
         unsetEnv "DAML_PROJECT" -- necessary to prevent config contamination
-        withCurrentDirectory confDir $ do
-            withJar navigatorPath navigatorArgs $ \ph -> do
-                putStrLn "Waiting for navigator to start: "
-                -- TODO We need to figure out a sane timeout for this step.
-                waitForHttpServer (putStr "." *> threadDelay 500000) (navigatorURL navigatorPort)
-                putStr . unlines $
-                    [ ""
-                    , "Navigator is running at " <> navigatorURL navigatorPort
-                    , "Use Ctrl+C to stop."
-                    ]
-                exitWith =<< waitExitCode ph
+        withJar damlSdkJar [logbackArg] ("navigator" : navigatorArgs ++ ["-c", confDir </> "ui-backend.conf"]) $ \ph -> do
+            exitCode <- waitExitCode ph
+            exitWith exitCode
 
   where
     navigatorConfig :: [PartyDetails] -> T.Text
@@ -847,12 +923,12 @@ runLedgerNavigator flags remainingArguments = do
           ]
         , ["  }"]
         ]
-    navigatorPort = NavigatorPort 7500
 
 getDarPath :: IO FilePath
 getDarPath = do
     projectName <- getProjectName
-    return $ ".daml" </> "dist" </> projectName <> ".dar"
+    projectVersion <- getProjectVersion
+    return $ ".daml" </> "dist" </> projectName <> "-" <> projectVersion <> ".dar"
 
 doBuild :: IO ()
 doBuild = do
@@ -869,6 +945,12 @@ getProjectName = do
     projectConfig <- getProjectConfig
     requiredE "Failed to read project name from project config" $
         queryProjectConfigRequired ["name"] projectConfig
+
+getProjectVersion :: IO String
+getProjectVersion = do
+    projectConfig <- getProjectConfig
+    requiredE "Failed to read project version from project config" $
+        queryProjectConfigRequired ["version"] projectConfig
 
 getProjectParties :: IO [String]
 getProjectParties = do
@@ -909,10 +991,11 @@ waitForConnectionOnPort sleep port = do
 
 -- | `waitForHttpServer sleep url` keeps trying to establish an HTTP connection on the given URL.
 -- Between each connection request it calls `sleep`.
-waitForHttpServer :: IO () -> String -> IO ()
-waitForHttpServer sleep url = do
+waitForHttpServer :: IO () -> String -> HTTP.RequestHeaders -> IO ()
+waitForHttpServer sleep url headers = do
     manager <- HTTP.newManager HTTP.defaultManagerSettings
     request <- HTTP.parseRequest $ "HEAD " <> url
+    request <- pure request { HTTP.requestHeaders = headers }
     untilJust $ do
         r <- tryJust (\e -> guard (isIOException e || isHttpException e)) $ HTTP.httpNoBody request manager
         case r of
@@ -921,9 +1004,3 @@ waitForHttpServer sleep url = do
             _ -> sleep *> pure Nothing
     where isIOException e = isJust (fromException e :: Maybe IOException)
           isHttpException e = isJust (fromException e :: Maybe HTTP.HttpException)
-
-sandboxPath :: FilePath
-sandboxPath = "sandbox/sandbox.jar"
-
-navigatorPath :: FilePath
-navigatorPath = "navigator/navigator.jar"

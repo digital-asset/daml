@@ -7,10 +7,7 @@ import akka.NotUsed
 import akka.stream.scaladsl.{Sink, Source}
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.testing.utils.MockMessages.applicationId
-import com.digitalasset.ledger.api.testing.utils.{
-  AkkaBeforeAndAfterAll,
-  SuiteResourceManagementAroundAll
-}
+import com.digitalasset.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.digitalasset.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionService
 import com.digitalasset.ledger.api.v1.command_completion_service.{
   Checkpoint,
@@ -36,21 +33,21 @@ import com.digitalasset.ledger.client.services.commands.{
   CommandCompletionSource,
   CompletionStreamElement
 }
-import com.digitalasset.platform.apitesting.LedgerContextExtensions._
+import com.digitalasset.platform.apitesting.TestParties._
 import com.digitalasset.platform.apitesting.{LedgerContext, MultiLedgerFixture, TestTemplateIds}
+import com.digitalasset.platform.participant.util.ValueConversions._
 import com.digitalasset.platform.services.time.TimeProviderType.WallClock
+import com.digitalasset.platform.testing.SingleItemObserver
 import com.digitalasset.util.Ctx
 import org.scalatest.{AsyncWordSpec, Matchers}
 import scalaz.syntax.tag._
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
-import com.digitalasset.platform.apitesting.TestParties._
-import com.digitalasset.platform.testing.SingleItemObserver
+
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class CommandCompletionServiceIT
     extends AsyncWordSpec
-    with AkkaBeforeAndAfterAll
     with Matchers
     with MultiLedgerFixture
     with SuiteResourceManagementAroundAll {
@@ -75,7 +72,21 @@ class CommandCompletionServiceIT
         for {
           commandClient <- ctx.commandClient(ctx.ledgerId)
           tracker <- commandClient.trackCommands[String](configuredParties)
-          commands = configuredParties.map(p => Ctx(p, ctx.command(p, p, Nil)))
+          commands = configuredParties.map(
+            p =>
+              Ctx(
+                p,
+                ctx.command(
+                  p,
+                  p,
+                  List(
+                    ProtoCreateCommand(
+                      Some(templateIds.dummy),
+                      Some(Record(
+                        Some(templateIds.dummy),
+                        Seq(RecordField("operator", Option(Value(Value.Sum.Party(p)))))))).wrap)
+                )
+            ))
           result <- Source(commands).via(tracker).runWith(Sink.seq)
         } yield {
           val expected = configuredParties.map(p => (p, 0))
@@ -132,12 +143,22 @@ class CommandCompletionServiceIT
             startingOffset = startingOffsetResponse.getOffset
             commandClient <- ctx.commandClient(ctx.ledgerId)
             commands = configuredParties
-              .map(p => ctx.command(p, p, Nil))
+              .map(p =>
+                ctx.command(
+                  p,
+                  p,
+                  List(
+                    ProtoCreateCommand(
+                      Some(templateIds.dummy),
+                      Some(Record(
+                        Some(templateIds.dummy),
+                        Seq(RecordField("operator", Option(Value(Value.Sum.Party(p)))))))).wrap)
+              ))
               .zipWithIndex
               .map { case (req, i) => req.update(_.commands.commandId := s"command-id-$i") }
             _ <- Future.sequence(
               commands
-                .map(commandClient.submitSingleCommand))
+                .map(commandClient.trackSingleCommand(_)))
 
             completions1 <- completionsFrom(startingOffset)
               .take(commands.size.toLong)

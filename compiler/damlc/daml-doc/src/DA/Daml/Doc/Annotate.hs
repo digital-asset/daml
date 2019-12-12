@@ -27,8 +27,6 @@ applyMove = map (foldr1 g) . groupSortOn (modulePriorityKey . md_name) . map f
             , md_adts = md_adts m1 ++ md_adts m2
             , md_functions = md_functions m1 ++ md_functions m2
             , md_templates = md_templates m2 ++ md_templates m2
-            , md_templateInstances =
-                md_templateInstances m1 ++ md_templateInstances m2
             , md_classes = md_classes m1 ++ md_classes m2
             , md_instances = md_instances m1 ++ md_instances m2
             }
@@ -53,9 +51,10 @@ applyHide = concatMap onModule
         -- as that would be a security risk
         onTemplate x = [x | not $ isHide $ td_descr x]
         onFunction x = [x | not $ isHide $ fct_descr x]
+        onMethod x = [x | not $ isHide $ cm_descr x]
         onClass x
             | isHide $ cl_descr x = []
-            | ClassDoc {..} <- x = [x { cl_functions = concatMap onFunction cl_functions }]
+            | ClassDoc {..} <- x = [x { cl_methods = concatMap onMethod cl_methods }]
 
         onADT x
             | isHide $ ad_descr x = []

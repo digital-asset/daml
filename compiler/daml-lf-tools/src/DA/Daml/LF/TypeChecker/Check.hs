@@ -32,10 +32,11 @@ module DA.Daml.LF.TypeChecker.Check(
     ) where
 
 import Data.Hashable
-import           Control.Lens hiding (Context)
+import           Control.Lens hiding (Context, para)
 import           Control.Monad.Extra
 import           Data.Foldable
 import           Data.Functor
+import Data.Generics.Uniplate.Data (para)
 import qualified Data.HashSet as HS
 import qualified Data.Map.Strict as Map
 import           Safe.Exact (zipExactMay)
@@ -43,6 +44,7 @@ import           Safe.Exact (zipExactMay)
 import           DA.Daml.LF.Ast
 import           DA.Daml.LF.Ast.Optics (dataConsType)
 import           DA.Daml.LF.Ast.Type
+import           DA.Daml.LF.Ast.Numeric
 import           DA.Daml.LF.TypeChecker.Env
 import           DA.Daml.LF.TypeChecker.Error
 
@@ -104,6 +106,7 @@ kindOfBuiltin :: BuiltinType -> Kind
 kindOfBuiltin = \case
   BTInt64 -> KStar
   BTDecimal -> KStar
+  BTNumeric -> KNat `KArrow` KStar
   BTText -> KStar
   BTTimestamp -> KStar
   BTParty -> KStar
@@ -115,8 +118,11 @@ kindOfBuiltin = \case
   BTScenario -> KStar `KArrow` KStar
   BTContractId -> KStar `KArrow` KStar
   BTOptional -> KStar `KArrow` KStar
-  BTMap -> KStar `KArrow` KStar
+  BTTextMap -> KStar `KArrow` KStar
+  BTGenMap -> KStar `KArrow` KStar `KArrow` KStar
   BTArrow -> KStar `KArrow` KStar `KArrow` KStar
+  BTAny -> KStar
+  BTTypeRep -> KStar
 
 kindOf :: MonadGamma m => Type -> m Kind
 kindOf = \case
@@ -135,12 +141,14 @@ kindOf = \case
     pure resKind
   TBuiltin btype -> pure (kindOfBuiltin btype)
   TForall (v, k) t1 -> introTypeVar v k $ checkType t1 KStar $> KStar
-  TTuple recordType -> checkRecordType recordType $> KStar
+  TStruct recordType -> checkRecordType recordType $> KStar
+  TNat _ -> pure KNat
 
 typeOfBuiltin :: MonadGamma m => BuiltinExpr -> m Type
 typeOfBuiltin = \case
   BEInt64 _          -> pure TInt64
   BEDecimal _        -> pure TDecimal
+  BENumeric n        -> pure (TNumeric (TNat (typeLevelNat (numericScale n))))
   BEText    _        -> pure TText
   BETimestamp _      -> pure TTimestamp
   BEParty   _        -> pure TParty
@@ -148,6 +156,7 @@ typeOfBuiltin = \case
   BEUnit             -> pure TUnit
   BEBool _           -> pure TBool
   BEError            -> pure $ TForall (alpha, KStar) (TText :-> tAlpha)
+  BEEqualGeneric     -> pure $ TForall (alpha, KStar) (tAlpha :-> tAlpha :-> TBool)
   BEEqual     btype  -> pure $ tComparison btype
   BELess      btype  -> pure $ tComparison btype
   BELessEq    btype  -> pure $ tComparison btype
@@ -165,6 +174,23 @@ typeOfBuiltin = \case
   BEMulDecimal       -> pure $ tBinop TDecimal
   BEDivDecimal       -> pure $ tBinop TDecimal
   BERoundDecimal     -> pure $ TInt64 :-> TDecimal :-> TDecimal
+  BEEqualNumeric     -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TBool
+  BELessNumeric      -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TBool
+  BELessEqNumeric    -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TBool
+  BEGreaterNumeric   -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TBool
+  BEGreaterEqNumeric -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TBool
+  BEAddNumeric -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TNumeric tAlpha
+  BESubNumeric -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TNumeric tAlpha
+  BEMulNumeric -> pure $ TForall (alpha, KNat) $ TForall (beta, KNat) $ TForall (gamma, KNat) $ TNumeric tAlpha :-> TNumeric tBeta :-> TNumeric tGamma
+  BEDivNumeric -> pure $ TForall (alpha, KNat) $ TForall (beta, KNat) $ TForall (gamma, KNat) $ TNumeric tAlpha :-> TNumeric tBeta :-> TNumeric tGamma
+  BERoundNumeric -> pure $ TForall (alpha, KNat) $ TInt64 :-> TNumeric tAlpha :-> TNumeric tAlpha
+  BECastNumeric -> pure $ TForall (alpha, KNat) $ TForall (beta, KNat) $ TNumeric tAlpha :-> TNumeric tBeta
+  BEShiftNumeric -> pure $ TForall (alpha, KNat) $ TForall (beta, KNat) $ TNumeric tAlpha :-> TNumeric tBeta
+  BEInt64ToNumeric -> pure $ TForall (alpha, KNat) $ TInt64 :-> TNumeric tAlpha
+  BENumericToInt64 -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TInt64
+  BEToTextNumeric -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TText
+  BENumericFromText -> pure $ TForall (alpha, KNat) $ TText :-> TOptional (TNumeric tAlpha)
+
   BEAddInt64         -> pure $ tBinop TInt64
   BESubInt64         -> pure $ tBinop TInt64
   BEMulInt64         -> pure $ tBinop TInt64
@@ -181,12 +207,20 @@ typeOfBuiltin = \case
              (tBeta :-> tAlpha :-> tBeta) :-> tBeta :-> TList tAlpha :-> tBeta
   BEFoldr -> pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $
              (tAlpha :-> tBeta :-> tBeta) :-> tBeta :-> TList tAlpha :-> tBeta
-  BEMapEmpty  -> pure $ TForall (alpha, KStar) $ TMap tAlpha
-  BEMapInsert -> pure $ TForall (alpha, KStar) $ TText :-> tAlpha :-> TMap tAlpha :-> TMap tAlpha
-  BEMapLookup -> pure $ TForall (alpha, KStar) $ TText :-> TMap tAlpha :-> TOptional tAlpha
-  BEMapDelete -> pure $ TForall (alpha, KStar) $ TText :-> TMap tAlpha :-> TMap tAlpha
-  BEMapToList -> pure $ TForall (alpha, KStar) $ TMap tAlpha :-> TList (TMapEntry tAlpha)
-  BEMapSize   -> pure $ TForall (alpha, KStar) $ TMap tAlpha :-> TInt64
+  BETextMapEmpty  -> pure $ TForall (alpha, KStar) $ TTextMap tAlpha
+  BETextMapInsert -> pure $ TForall (alpha, KStar) $ TText :-> tAlpha :-> TTextMap tAlpha :-> TTextMap tAlpha
+  BETextMapLookup -> pure $ TForall (alpha, KStar) $ TText :-> TTextMap tAlpha :-> TOptional tAlpha
+  BETextMapDelete -> pure $ TForall (alpha, KStar) $ TText :-> TTextMap tAlpha :-> TTextMap tAlpha
+  BETextMapToList -> pure $ TForall (alpha, KStar) $ TTextMap tAlpha :-> TList (TTextMapEntry tAlpha)
+  BETextMapSize   -> pure $ TForall (alpha, KStar) $ TTextMap tAlpha :-> TInt64
+  BEGenMapEmpty -> pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $ TGenMap tAlpha tBeta
+  BEGenMapInsert -> pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $ tAlpha :-> tBeta :-> TGenMap tAlpha tBeta :-> TGenMap tAlpha tBeta
+  BEGenMapLookup -> pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $ tAlpha :-> TGenMap tAlpha tBeta :-> TOptional tBeta
+  BEGenMapDelete -> pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $ tAlpha :-> TGenMap tAlpha tBeta :-> TGenMap tAlpha tBeta
+  BEGenMapKeys -> pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $ TGenMap tAlpha tBeta :-> TList tAlpha
+  BEGenMapValues -> pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $ TGenMap tAlpha tBeta :-> TList tBeta
+  BEGenMapSize -> pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $ TGenMap tAlpha tBeta :-> TInt64
+
   BEEqualList -> pure $
     TForall (alpha, KStar) $
     (tAlpha :-> tAlpha :-> TBool) :-> TList tAlpha :-> TList tAlpha :-> TBool
@@ -200,6 +234,16 @@ typeOfBuiltin = \case
     TContractId tAlpha :-> TContractId tAlpha :-> TBool
   BECoerceContractId -> do
     pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $ TContractId tAlpha :-> TContractId tBeta
+
+  BETextToUpper -> pure (TText :-> TText)
+  BETextToLower -> pure (TText :-> TText)
+  BETextSlice -> pure (TInt64 :-> TInt64 :-> TText :-> TText)
+  BETextSliceIndex -> pure (TText :-> TText :-> TOptional TInt64)
+  BETextContainsOnly -> pure (TText :-> TText :-> TBool)
+  BETextReplicate -> pure (TInt64 :-> TText :-> TText)
+  BETextSplitOn -> pure (TText :-> TText :-> TList TText)
+  BETextIntercalate -> pure (TText :-> TList TText :-> TText)
+
   where
     tComparison btype = TBuiltin btype :-> TBuiltin btype :-> TBool
     tBinop typ = typ :-> typ :-> typ
@@ -245,22 +289,22 @@ typeOfRecUpd typ0 field record update = do
   checkExpr update fieldType
   pure typ1
 
-typeOfTupleCon :: MonadGamma m => [(FieldName, Expr)] -> m Type
-typeOfTupleCon recordExpr = do
+typeOfStructCon :: MonadGamma m => [(FieldName, Expr)] -> m Type
+typeOfStructCon recordExpr = do
   checkUnique EDuplicateField (map fst recordExpr)
-  TTuple <$> (traverse . _2) typeOf recordExpr
+  TStruct <$> (traverse . _2) typeOf recordExpr
 
-typeOfTupleProj :: MonadGamma m => FieldName -> Expr -> m Type
-typeOfTupleProj field expr = do
+typeOfStructProj :: MonadGamma m => FieldName -> Expr -> m Type
+typeOfStructProj field expr = do
   typ <- typeOf expr
-  tupleType <- match _TTuple (EExpectedTupleType typ) typ
-  match _Just (EUnknownField field) (lookup field tupleType)
+  structType <- match _TStruct (EExpectedStructType typ) typ
+  match _Just (EUnknownField field) (lookup field structType)
 
-typeOfTupleUpd :: MonadGamma m => FieldName -> Expr -> Expr -> m Type
-typeOfTupleUpd field tuple update = do
-  typ <- typeOf tuple
-  tupleType <- match _TTuple (EExpectedTupleType typ) typ
-  fieldType <- match _Just (EUnknownField field) (lookup field tupleType)
+typeOfStructUpd :: MonadGamma m => FieldName -> Expr -> Expr -> m Type
+typeOfStructUpd field struct update = do
+  typ <- typeOf struct
+  structType <- match _TStruct (EExpectedStructType typ) typ
+  fieldType <- match _Just (EUnknownField field) (lookup field structType)
   checkExpr update fieldType
   pure typ
 
@@ -423,7 +467,7 @@ typeOfUpdate = \case
     return (TUpdate typ)
   UFetchByKey retrieveByKey -> do
     (cidType, contractType) <- checkRetrieveByKey retrieveByKey
-    return (TUpdate (TTuple [(FieldName "contractId", cidType), (FieldName "contract", contractType)]))
+    return (TUpdate (TStruct [(FieldName "contractId", cidType), (FieldName "contract", contractType)]))
   ULookupByKey retrieveByKey -> do
     (cidType, _contractType) <- checkRetrieveByKey retrieveByKey
     return (TUpdate (TOptional cidType))
@@ -465,9 +509,9 @@ typeOf = \case
   ERecUpd typ field record update -> typeOfRecUpd typ field record update
   EVariantCon typ con arg -> checkVariantCon typ con arg $> typeConAppToType typ
   EEnumCon typ con -> checkEnumCon typ con $> TCon typ
-  ETupleCon recordExpr -> typeOfTupleCon recordExpr
-  ETupleProj field expr -> typeOfTupleProj field expr
-  ETupleUpd field tuple update -> typeOfTupleUpd field tuple update
+  EStructCon recordExpr -> typeOfStructCon recordExpr
+  EStructProj field expr -> typeOfStructProj field expr
+  EStructUpd field struct update -> typeOfStructUpd field struct update
   ETmApp fun arg -> typeOfTmApp fun arg
   ETyApp expr typ -> typeOfTyApp expr typ
   ETmLam binder body -> typeOfTmLam binder body
@@ -478,9 +522,33 @@ typeOf = \case
   ECons elemType headExpr tailExpr -> checkCons elemType headExpr tailExpr $> TList elemType
   ESome bodyType bodyExpr -> checkSome bodyType bodyExpr $> TOptional bodyType
   ENone bodyType -> checkType bodyType KStar $> TOptional bodyType
+  EToAny ty bodyExpr -> do
+    checkGroundType ty
+    checkExpr bodyExpr ty
+    pure $ TBuiltin BTAny
+  EFromAny ty bodyExpr -> do
+    checkGroundType ty
+    checkExpr bodyExpr (TBuiltin BTAny)
+    pure $ TOptional ty
+  ETypeRep ty -> do
+    checkGroundType ty
+    pure $ TBuiltin BTTypeRep
   EUpdate upd -> typeOfUpdate upd
   EScenario scen -> typeOfScenario scen
   ELocation _ expr -> typeOf expr
+
+-- Check that the type contains no type variables or quantifiers
+checkGroundType' :: MonadGamma m => Type -> m ()
+checkGroundType' ty =
+    when (para (\t children -> or (isForbidden t : children)) ty) $ throwWithContext $ EExpectedAnyType ty
+  where isForbidden (TVar _) = True
+        isForbidden (TForall _ _) = True
+        isForbidden _ = False
+
+checkGroundType :: MonadGamma m => Type -> m ()
+checkGroundType ty = do
+    _ <- checkType ty KStar
+    checkGroundType' ty
 
 checkExpr' :: MonadGamma m => Expr -> Type -> m Type
 checkExpr' expr typ = do
@@ -506,6 +574,8 @@ checkDefDataType (DefDataType _loc _name _serializable params dataCons) = do
       DataEnum names -> do
         unless (null params) $ throwWithContext EEnumTypeWithParams
         checkUnique EDuplicateConstructor names
+      DataSynonym typ -> do -- TODO(NICK): check for cycles
+        typ `checkType` KStar
 
 checkDefValue :: MonadGamma m => DefValue -> m ()
 checkDefValue (DefValue _loc (_, typ) _noParties (IsTest isTest) expr) = do

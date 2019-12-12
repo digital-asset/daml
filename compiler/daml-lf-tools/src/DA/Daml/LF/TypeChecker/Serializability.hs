@@ -24,6 +24,7 @@ import           Data.Foldable (for_)
 import qualified Data.HashSet as HS
 
 import DA.Daml.LF.Ast
+import DA.Daml.LF.Ast.Numeric (numericMaxScale)
 import DA.Daml.LF.Ast.Optics (_PRSelfModule, dataConsType)
 import DA.Daml.LF.TypeChecker.Env
 import DA.Daml.LF.TypeChecker.Error
@@ -52,7 +53,17 @@ serializabilityConditionsType world0 _version mbModNameTpls vars = go
       TContractId typ -> go typ
       TList typ -> go typ
       TOptional typ -> go typ
-      TMap typ -> go typ
+      TTextMap typ -> go typ
+      TGenMap t1 t2 -> HS.union <$> go t1 <*> go t2
+      TNumeric (TNat n)
+          | fromTypeLevelNat n <= numericMaxScale -> noConditions
+          | otherwise -> Left (URNumericOutOfRange (fromTypeLevelNat n))
+      TNumeric _ -> Left URNumericNotFixed
+          -- We statically enforce bounds check for Numeric type,
+          -- requiring 0 <= n <= 'numericMaxScale' for the argument
+          -- to Numeric. If the argument isn't given explicitly, we
+          -- can't guarantee serializability.
+      TNat _ -> Left URTypeLevelNat
       TVar v
         | v `HS.member` vars -> noConditions
         | otherwise -> Left (URFreeVar v)
@@ -80,14 +91,18 @@ serializabilityConditionsType world0 _version mbModNameTpls vars = go
         BTBool -> noConditions
         BTList -> Left URList  -- 'List' is used as a higher-kinded type constructor.
         BTOptional -> Left UROptional  -- 'Optional' is used as a higher-kinded type constructor.
-        BTMap -> Left URMap  -- 'Map' is used as a higher-kinded type constructor.
+        BTTextMap -> Left URMap  -- 'TextMap' is used as a higher-kinded type constructor.
+        BTGenMap -> Left URGenMap -- 'GenMap' is used as a higher-kinded type constructor.
         BTUpdate -> Left URUpdate
         BTScenario -> Left URScenario
         BTContractId -> Left URContractId  -- 'ContractId' is used as a higher-kinded type constructor
                                            -- (or polymorphically in DAML-LF <= 1.4).
         BTArrow -> Left URFunction
+        BTNumeric -> Left URNumeric -- 'Numeric' is used as a higher-kinded type constructor.
+        BTAny -> Left URAny
+        BTTypeRep -> Left URTypeRep
       TForall{} -> Left URForall
-      TTuple{} -> Left URTuple
+      TStruct{} -> Left URStruct
 
 -- | Determine whether a data type preserves serializability. When a module
 -- name is given, -- data types in this module are returned rather than lookup

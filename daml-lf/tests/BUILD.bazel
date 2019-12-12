@@ -10,7 +10,7 @@ TEST_FILES = \
     [
         "BasicTests",
         "AuthorizedDivulgence",
-        "DontDiscloseNonConsumingChoicesToObservers",
+        "DontDiscloseNonConsumingExercisesToObservers",
         "LargeTransaction",
         "ConjunctionChoices",
     ]
@@ -61,12 +61,16 @@ daml_compile(
             "$(location //daml-lf/repl:repl)",
             "$(location //compiler/damlc)",
             "$(location :%s)" % file,
+            "$(POSIX_DIFF)",
         ],
         data = [
             "//compiler/damlc",
             "//daml-lf/repl",
             file,
             "%s/EXPECTED.ledger" % "/".join(file.split("/")[0:3]),
+        ],
+        toolchains = [
+            "@rules_sh//sh/posix:make_variables",
         ],
         deps = [
             "@bazel_tools//tools/bash/runfiles",

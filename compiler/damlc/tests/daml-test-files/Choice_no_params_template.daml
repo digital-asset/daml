@@ -22,8 +22,8 @@ template Bond
       Split : (ContractId Bond, ContractId Bond)
         with splitAmount : Decimal
         do
-          f <- create $ this with amount = splitAmount
-          s <- create $ this with amount = amount - splitAmount
+          f <- create this with amount = splitAmount
+          s <- create this with amount = amount - splitAmount
           return (f, s)
 
       Merge : ContractId Bond

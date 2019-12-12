@@ -8,9 +8,8 @@ import com.squareup.javapoet.{ClassName, ParameterSpec, ParameterizedTypeName, T
 
 private[inner] object ToValueExtractorParameters {
 
-  def generate(typeParameters: IndexedSeq[String]) = {
+  def generate(typeParameters: IndexedSeq[String]): IndexedSeq[ParameterSpec] =
     typeParameters.map(extractorParameter)
-  }
 
   private def extractorParameter(t: String): ParameterSpec =
     ParameterSpec.builder(extractorType(TypeVariableName.get(t)), s"toValue$t").build()

@@ -17,11 +17,11 @@ import DA.Daml.Doc.Extract
 import DA.Daml.Doc.Transform
 
 import Development.IDE.Types.Location
-import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Options
+import qualified Language.Haskell.LSP.Messages as LSP
 
 import Control.Monad.Extra
-import Control.Monad.Except
+import Control.Monad.Trans.Maybe
 import Data.Maybe
 import System.IO
 import System.Exit
@@ -38,6 +38,7 @@ import qualified Data.Text.Encoding as T
 data DamldocOptions = DamldocOptions
     { do_inputFormat :: InputFormat
     , do_ideOptions :: IdeOptions
+    , do_diagsLogger :: LSP.FromServerMessage -> IO ()
     , do_outputPath :: FilePath
     , do_outputFormat :: OutputFormat
     , do_docTemplate :: Maybe FilePath
@@ -73,8 +74,7 @@ inputDocData DamldocOptions{..} = do
                 ]
             exitFailure
 
-        renderDiags = T.unpack . showDiagnosticsColored
-        onErrorExit act = act >>= either (printAndExit . renderDiags) pure
+        onErrorExit act = act >>= maybe (printAndExit "") pure
 
     case do_inputFormat of
         InputJson -> do
@@ -82,8 +82,8 @@ inputDocData DamldocOptions{..} = do
             let mbData = map (AE.eitherDecode . LBS.fromStrict) input
             concatMapM (either printAndExit pure) mbData
 
-        InputDaml -> onErrorExit . runExceptT $
-            extractDocs do_extractOptions do_ideOptions do_inputFiles
+        InputDaml -> onErrorExit . runMaybeT $
+            extractDocs do_extractOptions do_diagsLogger do_ideOptions do_inputFiles
 
 -- | Output doc data.
 renderDocData :: DamldocOptions -> [ModuleDoc] -> IO ()

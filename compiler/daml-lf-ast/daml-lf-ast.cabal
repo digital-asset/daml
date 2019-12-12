@@ -44,6 +44,7 @@ library
       DA.Daml.LF.Ast.Version
       DA.Daml.LF.Ast.World
     default-extensions:
+      BangPatterns
       DeriveDataTypeable
       DeriveFoldable
       DeriveFunctor

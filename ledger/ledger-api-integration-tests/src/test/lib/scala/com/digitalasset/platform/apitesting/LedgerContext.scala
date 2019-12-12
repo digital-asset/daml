@@ -7,7 +7,7 @@ import java.time.Duration
 
 import akka.actor.ActorSystem
 import akka.pattern
-import akka.stream.Materializer
+import akka.stream.{ActorMaterializer, Materializer}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.PackageId
@@ -15,32 +15,37 @@ import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.testing.utils.MockMessages
 import com.digitalasset.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc
-import com.digitalasset.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc.ActiveContractsService
+import com.digitalasset.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc.ActiveContractsServiceStub
 import com.digitalasset.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc
 import com.digitalasset.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
 import com.digitalasset.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc
 import com.digitalasset.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
 import com.digitalasset.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc
-import com.digitalasset.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionService
+import com.digitalasset.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionServiceStub
 import com.digitalasset.ledger.api.v1.command_service.CommandServiceGrpc
 import com.digitalasset.ledger.api.v1.command_service.CommandServiceGrpc.CommandService
-import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc
-import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.CommandSubmissionService
+import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.CommandSubmissionServiceStub
+import com.digitalasset.ledger.api.v1.command_submission_service.{
+  CommandSubmissionServiceGrpc,
+  SubmitRequest
+}
+import com.digitalasset.ledger.api.v1.commands.Command
 import com.digitalasset.ledger.api.v1.ledger_configuration_service.LedgerConfigurationServiceGrpc
-import com.digitalasset.ledger.api.v1.ledger_configuration_service.LedgerConfigurationServiceGrpc.LedgerConfigurationService
-import com.digitalasset.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc.LedgerIdentityService
+import com.digitalasset.ledger.api.v1.ledger_configuration_service.LedgerConfigurationServiceGrpc.LedgerConfigurationServiceStub
+import com.digitalasset.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc.LedgerIdentityServiceStub
 import com.digitalasset.ledger.api.v1.ledger_identity_service.{
   GetLedgerIdentityRequest,
   LedgerIdentityServiceGrpc
 }
 import com.digitalasset.ledger.api.v1.package_service.PackageServiceGrpc
-import com.digitalasset.ledger.api.v1.package_service.PackageServiceGrpc.PackageService
+import com.digitalasset.ledger.api.v1.package_service.PackageServiceGrpc.PackageServiceStub
 import com.digitalasset.ledger.api.v1.testing.reset_service.ResetServiceGrpc.ResetService
 import com.digitalasset.ledger.api.v1.testing.reset_service.{ResetRequest, ResetServiceGrpc}
 import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc
-import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc.TimeService
+import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc.TimeServiceStub
 import com.digitalasset.ledger.api.v1.transaction_service.TransactionServiceGrpc
-import com.digitalasset.ledger.api.v1.transaction_service.TransactionServiceGrpc.TransactionService
+import com.digitalasset.ledger.api.v1.transaction_service.TransactionServiceGrpc.TransactionServiceStub
+import com.digitalasset.ledger.api.auth.client.LedgerCallCredentials
 import com.digitalasset.ledger.client.configuration.CommandClientConfiguration
 import com.digitalasset.ledger.client.services.acs.ActiveContractSetClient
 import com.digitalasset.ledger.client.services.commands.CommandClient
@@ -49,8 +54,9 @@ import com.digitalasset.ledger.client.services.testing.time.StaticTime
 import com.digitalasset.ledger.client.services.transactions.TransactionClient
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.common.util.DirectExecutionContext
+import com.digitalasset.platform.tests.integration.ledger.api.LedgerTestingHelpers
 import io.grpc.reflection.v1alpha.ServerReflectionGrpc
-import io.grpc.{Channel, StatusRuntimeException}
+import io.grpc.{CallCredentials, Channel, StatusRuntimeException}
 import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._
 
@@ -62,6 +68,7 @@ trait LedgerContext {
   import LedgerContext._
 
   implicit protected def esf: ExecutionSequencerFactory
+  implicit protected def mat: ActorMaterializer
 
   /**
     * Convenience function to either use statically configured ledger id or fetch it from the server under test.
@@ -73,18 +80,34 @@ trait LedgerContext {
     *  Reset the ledger server and return a new LedgerContext appropriate to the new state of the ledger API server under test.
     *  @return the new LedgerContext
     * */
-  def reset()(implicit system: ActorSystem, mat: Materializer): Future[LedgerContext]
+  def reset()(implicit system: ActorSystem): Future[LedgerContext]
+
+  /**
+    *  Return a copy of the current ledger context, where all gRPC calls use the given call credentials.
+    *  Use for tests that need to override call credentials on a per-test basis.
+    *  @return the new LedgerContext
+    */
+  def withCallCredentials(credentials: CallCredentials): LedgerContext
+
+  /**
+    *  Return a copy of the current ledger context, where all gRPC calls use the given Authorization header.
+    *  Use for tests that need to override call credentials on a per-test basis.
+    *  @return the new LedgerContext
+    */
+  def withAuthorizationHeader(headerValue: String): LedgerContext =
+    withCallCredentials(new LedgerCallCredentials(headerValue))
 
   def packageIds: Iterable[Ref.PackageId]
-  def ledgerIdentityService: LedgerIdentityService
-  def ledgerConfigurationService: LedgerConfigurationService
-  def packageService: PackageService
-  def commandSubmissionService: CommandSubmissionService
-  def commandCompletionService: CommandCompletionService
+  def ledgerIdentityService: LedgerIdentityServiceStub
+  def ledgerConfigurationService: LedgerConfigurationServiceStub
+  def packageService: PackageServiceStub
+  def commandSubmissionService: CommandSubmissionServiceStub
+  def commandCompletionService: CommandCompletionServiceStub
   def commandService: CommandService
-  def transactionService: TransactionService
-  def timeService: TimeService
-  def acsService: ActiveContractsService
+  def transactionService: TransactionServiceStub
+  def timeService: TimeServiceStub
+
+  def acsService: ActiveContractsServiceStub
   def transactionClient: TransactionClient
   def packageClient: PackageClient
   def acsClient: ActiveContractSetClient
@@ -139,6 +162,23 @@ trait LedgerContext {
       .updatedVia(timeService, ledgerId.unwrap)
       .recover { case NonFatal(_) => TimeProvider.UTC }(DirectExecutionContext)
   }
+
+  def command(commandId: String, party: String, individualCommands: Seq[Command]): SubmitRequest =
+    MockMessages.submitRequest.update(
+      _.commands.commandId := commandId,
+      _.commands.ledgerId := ledgerId.unwrap,
+      _.commands.commands := individualCommands,
+      _.commands.party := party
+    )
+
+  def testingHelpers: LedgerTestingHelpers = {
+    val c = commandClient()
+    new LedgerTestingHelpers(
+      req => c.flatMap(_.trackSingleCommand(req))(mat.executionContext),
+      this
+    )
+  }
+
 }
 
 object LedgerContext {
@@ -151,8 +191,10 @@ object LedgerContext {
 
   final case class SingleChannelContext(
       channel: Channel,
+      credentials: Option[CallCredentials],
       configuredLedgerId: LedgerIdMode,
       packageIds: Iterable[PackageId])(
+      implicit override protected val mat: ActorMaterializer,
       implicit override protected val esf: ExecutionSequencerFactory)
       extends LedgerContext {
 
@@ -167,11 +209,12 @@ object LedgerContext {
           domain.LedgerId(
             LedgerIdentityServiceGrpc
               .blockingStub(channel)
+              .withCallCredentials(credentials.orNull)
               .getLedgerIdentity(GetLedgerIdentityRequest())
               .ledgerId)
       }
 
-    final def reset()(implicit system: ActorSystem, mat: Materializer): Future[LedgerContext] = {
+    override def reset()(implicit system: ActorSystem): Future[LedgerContext] = {
       implicit val ec: ExecutionContext = mat.executionContext
       def waitForNewLedger(retries: Int): Future[domain.LedgerId] =
         if (retries <= 0)
@@ -197,24 +240,31 @@ object LedgerContext {
       for {
         _ <- resetService.reset(ResetRequest(ledgerId.unwrap))
         newLedgerId <- waitForNewLedger(10)
-      } yield SingleChannelContext(channel, LedgerIdMode.Static(newLedgerId), packageIds)
+      } yield
+        SingleChannelContext(channel, credentials, LedgerIdMode.Static(newLedgerId), packageIds)
     }
 
-    override def ledgerIdentityService: LedgerIdentityService =
-      LedgerIdentityServiceGrpc.stub(channel)
-    override def ledgerConfigurationService: LedgerConfigurationService =
-      LedgerConfigurationServiceGrpc.stub(channel)
-    override def packageService: PackageService = PackageServiceGrpc.stub(channel)
-    override def commandSubmissionService: CommandSubmissionService =
-      CommandSubmissionServiceGrpc.stub(channel)
-    override def commandCompletionService: CommandCompletionService =
-      CommandCompletionServiceGrpc.stub(channel)
-    override def commandService: CommandService = CommandServiceGrpc.stub(channel)
-    override def transactionService: TransactionService = TransactionServiceGrpc.stub(channel)
-    override def timeService: TimeService = TimeServiceGrpc.stub(channel)
+    override def withCallCredentials(newCallCredentials: CallCredentials): LedgerContext =
+      SingleChannelContext(channel, Some(newCallCredentials), configuredLedgerId, packageIds)
 
-    override def acsService: ActiveContractsService =
-      ActiveContractsServiceGrpc.stub(channel)
+    override def ledgerIdentityService: LedgerIdentityServiceStub =
+      LedgerIdentityServiceGrpc.stub(channel).withCallCredentials(credentials.orNull)
+    override def ledgerConfigurationService: LedgerConfigurationServiceStub =
+      LedgerConfigurationServiceGrpc.stub(channel).withCallCredentials(credentials.orNull)
+    override def packageService: PackageServiceStub = PackageServiceGrpc.stub(channel)
+    override def commandSubmissionService: CommandSubmissionServiceStub =
+      CommandSubmissionServiceGrpc.stub(channel).withCallCredentials(credentials.orNull)
+    override def commandCompletionService: CommandCompletionServiceStub =
+      CommandCompletionServiceGrpc.stub(channel).withCallCredentials(credentials.orNull)
+    override def commandService: CommandService =
+      CommandServiceGrpc.stub(channel).withCallCredentials(credentials.orNull)
+    override def transactionService: TransactionServiceStub =
+      TransactionServiceGrpc.stub(channel).withCallCredentials(credentials.orNull)
+    override def timeService: TimeServiceStub =
+      TimeServiceGrpc.stub(channel).withCallCredentials(credentials.orNull)
+
+    override def acsService: ActiveContractsServiceStub =
+      ActiveContractsServiceGrpc.stub(channel).withCallCredentials(credentials.orNull)
 
     override def transactionClient: TransactionClient =
       new TransactionClient(ledgerId, transactionService)
@@ -224,16 +274,17 @@ object LedgerContext {
     override def acsClient: ActiveContractSetClient =
       new ActiveContractSetClient(ledgerId, acsService)
 
-    override def resetService: ResetService = ResetServiceGrpc.stub(channel)
+    override def resetService: ResetService =
+      ResetServiceGrpc.stub(channel).withCallCredentials(credentials.orNull)
 
     override def reflectionService: ServerReflectionGrpc.ServerReflectionStub =
-      ServerReflectionGrpc.newStub(channel)
+      ServerReflectionGrpc.newStub(channel).withCallCredentials(credentials.orNull)
 
     override def partyManagementService: PartyManagementService =
-      PartyManagementServiceGrpc.stub(channel)
+      PartyManagementServiceGrpc.stub(channel).withCallCredentials(credentials.orNull)
 
     override def packageManagementService: PackageManagementService =
-      PackageManagementServiceGrpc.stub(channel)
+      PackageManagementServiceGrpc.stub(channel).withCallCredentials(credentials.orNull)
   }
 
 }

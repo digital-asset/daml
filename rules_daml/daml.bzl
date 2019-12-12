@@ -6,7 +6,6 @@ load("@bazel_skylib//lib:paths.bzl", "paths")
 daml_provider = provider(doc = "DAML provider", fields = {
     "dalf": "The DAML-LF file.",
     "dar": "The packaged archive.",
-    "srcjar": "The generated Scala sources as srcjar.",
 })
 
 def _daml_impl_compile_dalf(ctx):
@@ -43,17 +42,6 @@ def _daml_impl_package_dar(ctx):
         executable = ctx.executable.damlc,
     )
 
-def _daml_outputs_impl(name):
-    patterns = {
-        "dalf": "{name}.dalf",
-        "dar": "{name}.dar",
-        "srcjar": "{name}.srcjar",
-    }
-    return {
-        k: v.format(name = name)
-        for (k, v) in patterns.items()
-    }
-
 def _daml_compile_impl(ctx):
     _daml_impl_compile_dalf(ctx)
     _daml_impl_package_dar(ctx)
@@ -75,8 +63,6 @@ def _daml_compile_outputs_impl(name):
         for (k, v) in patterns.items()
     }
 
-# TODO(JM): The daml_compile() is same as daml(), but without the codegen bits.
-# All of this needs a cleanup once we understand the needs for daml related rules.
 daml_compile = rule(
     implementation = _daml_compile_impl,
     attrs = {
@@ -148,11 +134,16 @@ def _daml_doctest_impl(ctx):
     script = """
       set -eou pipefail
       DAMLC=$(rlocation $TEST_WORKSPACE/{damlc})
+      CPP=$(rlocation $TEST_WORKSPACE/{cpp})
       rlocations () {{ for i in $@; do echo $(rlocation $TEST_WORKSPACE/$i); done; }}
-      $DAMLC doctest --package-name {package_name}-`cat $(rlocation $TEST_WORKSPACE/{version_file})` $(rlocations "{files}")
+      $DAMLC doctest {flags} --cpp $CPP --package-name {package_name}-`cat $(rlocation $TEST_WORKSPACE/{version_file})` $(rlocations "{files}")
     """.format(
         damlc = ctx.executable.damlc.short_path,
+        # we end up with "../hpp/hpp" while we want "external/hpp/hpp"
+        # so we just do the replacement ourselves.
+        cpp = ctx.executable.cpp.short_path.replace("..", "external"),
         package_name = ctx.attr.package_name,
+        flags = " ".join(ctx.attr.flags),
         version_file = ctx.file.version.path,
         files = " ".join([
             f.short_path
@@ -165,10 +156,11 @@ def _daml_doctest_impl(ctx):
         content = script,
     )
     damlc_runfiles = ctx.attr.damlc[DefaultInfo].data_runfiles
+    cpp_runfiles = ctx.attr.cpp[DefaultInfo].data_runfiles
     runfiles = ctx.runfiles(
         collect_data = True,
         files = ctx.files.srcs + [ctx.file.version],
-    ).merge(damlc_runfiles)
+    ).merge(damlc_runfiles).merge(cpp_runfiles)
     return [DefaultInfo(runfiles = runfiles)]
 
 daml_doc_test = rule(
@@ -189,6 +181,16 @@ daml_doc_test = rule(
             allow_files = True,
             default = Label("//compiler/damlc"),
         ),
+        "cpp": attr.label(
+            executable = True,
+            cfg = "host",
+            allow_files = True,
+            default = Label("@hpp//:hpp"),
+        ),
+        "flags": attr.string_list(
+            default = [],
+            doc = "Flags for damlc invokation.",
+        ),
         "package_name": attr.string(),
         "version": attr.label(
             allow_single_file = True,
@@ -197,105 +199,3 @@ daml_doc_test = rule(
     },
     test = True,
 )
-
-_daml_binary_script_template = """
-#!/usr/bin/env sh
-{java} -jar {sandbox} $@ {dar}
-"""
-
-def _daml_binary_impl(ctx):
-    script = _daml_binary_script_template.format(
-        java = ctx.executable._java.short_path,
-        sandbox = ctx.file._sandbox.short_path,
-        dar = ctx.file.dar.short_path,
-    )
-
-    ctx.actions.write(
-        output = ctx.outputs.executable,
-        content = script,
-    )
-
-    runfiles = ctx.runfiles(
-        files = [ctx.file.dar, ctx.file._sandbox, ctx.executable._java],
-    )
-
-    return [DefaultInfo(runfiles = runfiles)]
-
-daml_binary = rule(
-    implementation = _daml_binary_impl,
-    attrs = {
-        "dar": attr.label(
-            allow_single_file = [".dar"],
-            mandatory = True,
-            doc = "The DAR to execute in the sandbox.",
-        ),
-        "_sandbox": attr.label(
-            cfg = "target",
-            allow_single_file = [".jar"],
-            default = Label("//ledger/sandbox:sandbox-binary_deploy.jar"),
-        ),
-        "_java": attr.label(
-            executable = True,
-            cfg = "target",
-            allow_files = True,
-            default = Label("@bazel_tools//tools/jdk:java"),
-        ),
-    },
-    executable = True,
-)
-"""
-Executable target that runs the DAML sandbox on the given DAR package.
-
-Example:
-  ```
-  daml_binary(
-      name = "example-exec",
-      dar = ":dar-out/com/digitalasset/sample/example/0.1/example-0.1.dar",
-  )
-  ```
-
-  This target can be executed as follows:
-
-  ```
-  $ bazel run //:example-exec
-  ```
-
-  Command-line arguments can be passed to the sandbox as follows:
-
-  ```
-  $ bazel run //:example-exec -- --help
-  ```
-"""
-
-def _daml_compile_dalf_output_impl(name):
-    return {"dalf": name + ".dalf"}
-
-dalf_compile = rule(
-    implementation = _daml_impl_compile_dalf,
-    attrs = {
-        "main_src": attr.label(
-            allow_single_file = [".daml"],
-            mandatory = True,
-            doc = "The main DAML file that will be passed to the compiler.",
-        ),
-        "srcs": attr.label_list(
-            allow_files = [".daml"],
-            default = [],
-            doc = "Other DAML files that compilation depends on.",
-        ),
-        "target": attr.string(doc = "DAML-LF version to output"),
-        "damlc": attr.label(
-            executable = True,
-            cfg = "host",
-            allow_files = True,
-            default = Label("//compiler/damlc"),
-        ),
-    },
-    executable = False,
-    outputs = _daml_compile_dalf_output_impl,
-)
-"""
-Stripped down version of daml_compile that does not package DALFs into DARs
-"""
-
-daml_sandbox_version = "6.0.0"

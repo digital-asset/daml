@@ -4,11 +4,13 @@
 package com.digitalasset.platform.sandbox.services
 
 import java.io.File
-
-import akka.stream.Materializer
+import java.util.concurrent.Executors
+import akka.actor.ActorSystem
+import akka.stream.{ActorMaterializer, Materializer}
 import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
+import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.digitalasset.ledger.api.auth.client.LedgerCallCredentials
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.testing.utils.{Resource, SuiteResource}
 import com.digitalasset.ledger.api.v1.ledger_identity_service.{
@@ -19,28 +21,58 @@ import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc
 import com.digitalasset.ledger.client.services.testing.time.StaticTime
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.config.SandboxConfig
-import com.digitalasset.platform.services.time.{TimeModel, TimeProviderType}
+import com.digitalasset.platform.services.time.TimeProviderType
 import io.grpc.Channel
-import org.scalatest.Suite
-
+import org.scalatest.{BeforeAndAfterAll, Suite}
 import scalaz.syntax.tag._
-import scala.concurrent.Await
+import scala.concurrent.{Await, ExecutionContext}
 import scala.concurrent.duration._
 import scala.util.Try
-
 import com.digitalasset.ledger.api.domain.LedgerId
+import com.google.common.util.concurrent.ThreadFactoryBuilder
+import com.daml.ledger.participant.state.v1.TimeModel
+import org.slf4j.LoggerFactory
 
-trait SandboxFixture extends SuiteResource[Channel] {
+trait SandboxFixture extends SuiteResource[Channel] with BeforeAndAfterAll {
   self: Suite =>
 
-  protected def darFile = new File(rlocation("ledger/test-common/Test.dar"))
+  private[this] val logger = LoggerFactory.getLogger(getClass)
+
+  private[this] val actorSystemName = this.getClass.getSimpleName
+
+  private lazy val executorContext = ExecutionContext.fromExecutorService(
+    Executors.newSingleThreadExecutor(
+      new ThreadFactoryBuilder()
+        .setDaemon(true)
+        .setNameFormat(s"${actorSystemName}-thread-pool-worker-%d")
+        .setUncaughtExceptionHandler((thread, _) =>
+          logger.error(s"got an uncaught exception on thread: ${thread.getName}"))
+        .build()))
+
+  protected implicit val system: ActorSystem =
+    ActorSystem(actorSystemName, defaultExecutionContext = Some(executorContext))
+
+  protected implicit val materializer: ActorMaterializer = ActorMaterializer()(system)
+
+  protected implicit val executionSequencerFactory: ExecutionSequencerFactory =
+    new AkkaExecutionSequencerPool("esf-" + this.getClass.getSimpleName)(system)
+
+  override protected def afterAll(): Unit = {
+    executionSequencerFactory.close()
+    materializer.shutdown()
+    Await.result(system.terminate(), 30.seconds)
+    super.afterAll()
+  }
+
+  protected def darFile = new File(rlocation("ledger/test-common/Test-stable.dar"))
 
   protected def channel: Channel = suiteResource.value
 
-  protected def ledgerIdOnServer: domain.LedgerId =
+  protected def ledgerId(token: Option[String] = None): domain.LedgerId =
     domain.LedgerId(
       LedgerIdentityServiceGrpc
         .blockingStub(channel)
+        .withCallCredentials(token.map(new LedgerCallCredentials(_)).orNull)
         .getLedgerIdentity(GetLedgerIdentityRequest())
         .ledgerId)
 
@@ -48,7 +80,7 @@ trait SandboxFixture extends SuiteResource[Channel] {
       implicit mat: Materializer,
       esf: ExecutionSequencerFactory): TimeProvider = {
     Try(TimeServiceGrpc.stub(channel))
-      .map(StaticTime.updatedVia(_, ledgerIdOnServer.unwrap)(mat, esf))
+      .map(StaticTime.updatedVia(_, ledgerId().unwrap)(mat, esf))
       .fold[TimeProvider](_ => TimeProvider.UTC, Await.result(_, 30.seconds))
   }
 
@@ -66,8 +98,6 @@ trait SandboxFixture extends SuiteResource[Channel] {
   protected def packageFiles: List[File] = List(darFile)
 
   protected def scenario: Option[String] = None
-
-  protected def ledgerId: domain.LedgerId = ledgerIdOnServer
 
   private lazy val sandboxResource = new SandboxServerResource(config)
 

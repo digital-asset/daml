@@ -133,6 +133,6 @@ case object Info extends SimpleCommand {
       .fromResource("banner.txt")
       .getLines
       .toList
-    banner.mkString("\n") + s"\nVersion ${state.applicationInfo.version} commit ${state.applicationInfo.revision}"
+    banner.mkString("\n") + s"\nVersion ${state.applicationInfo.version}"
   }
 }

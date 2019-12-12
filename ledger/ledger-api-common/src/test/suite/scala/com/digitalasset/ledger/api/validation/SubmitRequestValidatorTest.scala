@@ -6,14 +6,14 @@ package com.digitalasset.ledger.api.validation
 import java.time.Instant
 
 import com.digitalasset.api.util.TimestampConversion
-import com.digitalasset.daml.lf.command.{Commands => LfCommands}
+import com.digitalasset.daml.lf.command.{Commands => LfCommands, CreateCommand => LfCreateCommand}
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.value.Value.ValueRecord
 import com.digitalasset.daml.lf.value.{Value => Lf}
 import com.digitalasset.ledger.api.DomainMocks
 import com.digitalasset.ledger.api.DomainMocks.{applicationId, commandId, workflowId}
 import com.digitalasset.ledger.api.domain.{LedgerId, Commands => ApiCommands}
-import com.digitalasset.ledger.api.v1.commands.Commands
+import com.digitalasset.ledger.api.v1.commands.{Command, Commands, CreateCommand}
 import com.digitalasset.ledger.api.v1.value.Value.Sum
 import com.digitalasset.ledger.api.v1.value.{
   List => ApiList,
@@ -26,7 +26,6 @@ import io.grpc.Status.Code.INVALID_ARGUMENT
 import org.scalatest.WordSpec
 import org.scalatest.prop.TableDrivenPropertyChecks
 import scalaz.syntax.tag._
-
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class SubmitRequestValidatorTest
     extends WordSpec
@@ -46,6 +45,14 @@ class SubmitRequestValidatorTest
     val submitter = "party"
     val let = TimestampConversion.fromInstant(Instant.now)
     val mrt = TimestampConversion.fromInstant(Instant.now)
+    val command =
+      Command(
+        Command.Command.Create(CreateCommand(
+          Some(Identifier("package", moduleName = "module", entityName = "entity")),
+          Some(Record(
+            Some(Identifier("package", moduleName = "module", entityName = "entity")),
+            Seq(RecordField("something", Some(Value(Value.Sum.Bool(true)))))))
+        )))
 
     val commands = Commands(
       ledgerId.unwrap,
@@ -55,7 +62,7 @@ class SubmitRequestValidatorTest
       submitter,
       Some(let),
       Some(mrt),
-      Seq.empty
+      Seq(command)
     )
   }
 
@@ -74,7 +81,23 @@ class SubmitRequestValidatorTest
       mrt,
       LfCommands(
         DomainMocks.party,
-        ImmArray.empty,
+        ImmArray(
+          LfCreateCommand(
+            Ref.Identifier(
+              Ref.PackageId.assertFromString("package"),
+              Ref.QualifiedName(
+                Ref.ModuleName.assertFromString("module"),
+                Ref.DottedName.assertFromString("entity"))),
+            Lf.ValueRecord(
+              Option(
+                Ref.Identifier(
+                  Ref.PackageId.assertFromString("package"),
+                  Ref.QualifiedName(
+                    Ref.ModuleName.assertFromString("module"),
+                    Ref.DottedName.assertFromString("entity")))),
+              ImmArray((Option(Ref.Name.assertFromString("something")), Lf.ValueTrue))
+            )
+          )),
         Time.Timestamp.assertFromInstant(let),
         workflowId.unwrap
       )
@@ -90,8 +113,11 @@ class SubmitRequestValidatorTest
 
   "CommandSubmissionRequestValidator" when {
     "validating command submission requests" should {
-      "convert valid requests with empty commands" in {
-        commandsValidator.validateCommands(api.commands) shouldEqual Right(internal.emptyCommands)
+      "reject requests with empty commands" in {
+        requestMustFailWith(
+          commandsValidator.validateCommands(api.commands.withCommands(Seq.empty)),
+          INVALID_ARGUMENT,
+          "Missing field: commands")
       }
 
       "not allow missing ledgerId" in {
@@ -178,45 +204,48 @@ class SubmitRequestValidatorTest
         val signs = Table("signs", "", "+", "-")
         val absoluteValues =
           Table(
-            "absolute values",
-            "0",
-            "0.0",
-            "3.1415926536",
-            "1" + "0" * 27,
-            "1" + "0" * 27 + "." + "0" * 9 + "1",
-            "0." + "0" * 9 + "1"
+            "absolute values" -> "scale",
+            "0" -> 0,
+            "0.0" -> 0,
+            "1.0000" -> 0,
+            "3.1415926536" -> 10,
+            "1" + "0" * 27 -> 0,
+            "1" + "0" * 27 + "." + "0" * 9 + "1" -> 10,
+            "0." + "0" * 9 + "1" -> 10,
+            "0." -> 0,
           )
 
         forEvery(signs) { sign =>
-          forEvery(absoluteValues) { absoluteValue =>
+          forEvery(absoluteValues) { (absoluteValue, expectedScale) =>
             val s = sign + absoluteValue
-            val input = Value(Sum.Decimal(s))
-            val expected = Lf.ValueDecimal(Decimal.fromString(s).getOrElse(unexpectedError))
+            val input = Value(Sum.Numeric(s))
+            val expected =
+              Lf.ValueNumeric(Numeric
+                .assertFromBigDecimal(Numeric.Scale.assertFromInt(expectedScale), BigDecimal(s)))
             validateValue(input) shouldEqual Right(expected)
           }
         }
+
       }
 
       "reject out-of-bound decimals" in {
         val signs = Table("signs", "", "+", "-")
         val absoluteValues =
           Table(
-            "absolute values",
-            "1" + "0" * 28,
-            "1" + "0" * 28 + "." + "0" * 9 + "1",
-            "1" + "0" * 28 + "." + "0" * 10 + "1",
-            "1" + "0" * 27 + "." + "0" * 10 + "1",
-            "0." + "0" * 10 + "1",
+            "absolute values" -> "scale",
+            "1" + "0" * 38 -> 0,
+            "1" + "0" * 28 + "." + "0" * 10 + "1" -> 11,
+            "1" + "0" * 27 + "." + "0" * 11 + "1" -> 12
           )
 
         forEvery(signs) { sign =>
-          forEvery(absoluteValues) { absoluteValue =>
+          forEvery(absoluteValues) { (absoluteValue, scale) =>
             val s = sign + absoluteValue
-            val input = Value(Sum.Decimal(s))
+            val input = Value(Sum.Numeric(s))
             requestMustFailWith(
               validateValue(input),
               INVALID_ARGUMENT,
-              s"""Invalid argument: Could not read Decimal string "$s""""
+              s"""Invalid argument: Could not read Numeric string "$s""""
             )
           }
         }
@@ -234,18 +263,18 @@ class SubmitRequestValidatorTest
             "0x01",
             ".",
             "",
-            "0.",
             ".0",
+            "0." + "0" * 37 + "1",
           )
 
         forEvery(signs) { sign =>
           forEvery(absoluteValues) { absoluteValue =>
             val s = sign + absoluteValue
-            val input = Value(Sum.Decimal(s))
+            val input = Value(Sum.Numeric(s))
             requestMustFailWith(
               validateValue(input),
               INVALID_ARGUMENT,
-              s"""Invalid argument: Could not read Decimal string "$s""""
+              s"""Invalid argument: Could not read Numeric string "$s""""
             )
           }
         }
@@ -340,8 +369,8 @@ class SubmitRequestValidatorTest
 
     "validating boolean values" should {
       "accept any of them" in {
-        validateValue(Value(Sum.Bool(true))) shouldEqual Right(Lf.ValueBool(true))
-        validateValue(Value(Sum.Bool(false))) shouldEqual Right(Lf.ValueBool(false))
+        validateValue(Value(Sum.Bool(true))) shouldEqual Right(Lf.ValueTrue)
+        validateValue(Value(Sum.Bool(false))) shouldEqual Right(Lf.ValueFalse)
       }
     }
 
@@ -424,7 +453,7 @@ class SubmitRequestValidatorTest
       "convert empty lists" in {
         val input = Value(Sum.List(ApiList(List.empty)))
         val expected =
-          Lf.ValueList(FrontStack.empty)
+          Lf.ValueNil
 
         validateValue(input) shouldEqual Right(expected)
       }
@@ -450,7 +479,7 @@ class SubmitRequestValidatorTest
     "validating optional values" should {
       "convert empty optionals" in {
         val input = Value(Sum.Optional(ApiOptional(None)))
-        val expected = Lf.ValueOptional(None)
+        val expected = Lf.ValueNone
 
         validateValue(input) shouldEqual Right(expected)
       }
@@ -473,7 +502,7 @@ class SubmitRequestValidatorTest
     "validating map values" should {
       "convert empty maps" in {
         val input = Value(Sum.Map(ApiMap(List.empty)))
-        val expected = Lf.ValueMap(SortedLookupList.empty)
+        val expected = Lf.ValueTextMap(SortedLookupList.empty)
         validateValue(input) shouldEqual Right(expected)
       }
 
@@ -487,7 +516,7 @@ class SubmitRequestValidatorTest
         val input = Value(Sum.Map(ApiMap(apiEntries.toSeq)))
         val lfEntries = entries.map { case (k, v) => k -> Lf.ValueInt64(v) }
         val expected =
-          Lf.ValueMap(SortedLookupList.fromImmArray(lfEntries).getOrElse(unexpectedError))
+          Lf.ValueTextMap(SortedLookupList.fromImmArray(lfEntries).getOrElse(unexpectedError))
 
         validateValue(input) shouldEqual Right(expected)
       }

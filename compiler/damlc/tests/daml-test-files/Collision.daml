@@ -1,4 +1,4 @@
--- @ERROR collision between record Collision:RECORD and record Collision:Record
+-- @ERROR name collision between record Collision:Record and record Collision:RECORD
 daml 1.2
 module Collision where
 

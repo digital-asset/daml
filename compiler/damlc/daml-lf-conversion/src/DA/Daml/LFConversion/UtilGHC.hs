@@ -16,20 +16,21 @@ module DA.Daml.LFConversion.UtilGHC(
     module DA.Daml.LFConversion.UtilGHC
     ) where
 
-import           "ghc-lib-parser" Class
-import           "ghc-lib" GHC                         hiding (convertLit)
-import           "ghc-lib" GhcPlugins                  as GHC hiding (fst3, (<>))
+import "ghc-lib" GHC hiding (convertLit)
+import "ghc-lib" GhcPlugins as GHC hiding (fst3, (<>))
 
-import           Data.Generics.Uniplate.Data
-import           Data.List
-import qualified Data.Set as Set
-import           Data.Tuple.Extra
+import Data.Generics.Uniplate.Data
+import Data.Maybe
+import Data.List
+import Data.Tuple.Extra
 import qualified Data.ByteString as BS
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import Control.Exception
 import GHC.Ptr(Ptr(..))
 import System.IO.Unsafe
+import Text.Read (readMaybe)
+import Control.Monad (guard)
 
 
 ----------------------------------------------------------------------
@@ -53,6 +54,76 @@ pattern TypeCon c ts <- (splitTyConApp_maybe -> Just (c, ts))
 
 pattern StrLitTy :: T.Text -> Type
 pattern StrLitTy x <- (fmap fsToText . isStrLitTy -> Just x)
+
+pattern NameIn :: NamedThing a => GHC.Module -> FastString -> a
+pattern NameIn m x <- (\n -> (nameModule_maybe (getName n), getOccFS n) -> (Just m, x))
+
+pattern VarIn :: GHC.Module -> FastString -> GHC.Expr Var
+pattern VarIn m x <- Var (NameIn m x)
+
+pattern ModuleIn :: GHC.UnitId -> FastString -> GHC.Module
+pattern ModuleIn u n <- (\m -> (moduleUnitId m, GHC.moduleNameFS (GHC.moduleName m)) -> (u, n))
+
+-- builtin unit id patterns
+pattern DamlPrim, DamlStdlib :: GHC.UnitId
+pattern DamlPrim <- ((== primUnitId) -> True)
+pattern DamlStdlib <- (T.stripPrefix "daml-stdlib-" . fsToText . unitIdFS -> Just _)
+    -- The unit name for daml-stdlib includes the SDK version.
+    -- This pattern accepts all SDK versions for daml-stdlib.
+
+pattern IgnoreWorkerPrefix :: T.Text -> T.Text
+pattern IgnoreWorkerPrefix n <- (\w -> fromMaybe w (T.stripPrefix "$W" w) -> n)
+
+pattern IgnoreWorkerPrefixFS :: T.Text -> FastString
+pattern IgnoreWorkerPrefixFS n <- (fsToText -> IgnoreWorkerPrefix n)
+
+-- daml-prim module patterns
+pattern Control_Exception_Base, Data_String, GHC_Base, GHC_Classes, GHC_CString, GHC_Integer_Type, GHC_Num, GHC_Prim, GHC_Real, GHC_Tuple, GHC_Types :: GHC.Module
+pattern Control_Exception_Base <- ModuleIn DamlPrim "Control.Exception.Base"
+pattern Data_String <- ModuleIn DamlPrim "Data.String"
+pattern GHC_Base <- ModuleIn DamlPrim "GHC.Base"
+pattern GHC_Classes <- ModuleIn DamlPrim "GHC.Classes"
+pattern GHC_CString <- ModuleIn DamlPrim "GHC.CString"
+pattern GHC_Integer_Type <- ModuleIn DamlPrim "GHC.Integer.Type"
+pattern GHC_Num <- ModuleIn DamlPrim "GHC.Num"
+pattern GHC_Prim <- ModuleIn DamlPrim "GHC.Prim" -- wired-in by GHC
+pattern GHC_Real <- ModuleIn DamlPrim "GHC.Real"
+pattern GHC_Tuple <- ModuleIn DamlPrim "GHC.Tuple"
+pattern GHC_Types <- ModuleIn DamlPrim "GHC.Types"
+
+-- daml-stdlib module patterns
+pattern DA_Action, DA_Generics, DA_Internal_LF, DA_Internal_Prelude, DA_Internal_Record :: GHC.Module
+pattern DA_Action <- ModuleIn DamlStdlib "DA.Action"
+pattern DA_Generics <- ModuleIn DamlStdlib "DA.Generics"
+pattern DA_Internal_LF <- ModuleIn DamlStdlib "DA.Internal.LF"
+pattern DA_Internal_Prelude <- ModuleIn DamlStdlib "DA.Internal.Prelude"
+pattern DA_Internal_Record <- ModuleIn DamlStdlib "DA.Internal.Record"
+
+-- | Break down a constraint tuple projection function name
+-- into an (index, arity) pair. These names have the form
+-- "$p1(%,%)" "$p2(%,%)" "$p1(%,,%)" etc.
+constraintTupleProjection_maybe :: T.Text -> Maybe (Int, Int)
+constraintTupleProjection_maybe t1 = do
+    t2 <- T.stripPrefix "$p" t1
+    t3 <- T.stripSuffix "%)" t2
+    let (tIndex, tRest) = T.breakOn "(%" t3
+    tCommas <- T.stripPrefix "(%" tRest
+    guard (all (== ',') (T.unpack tCommas))
+    index <- readMaybe (T.unpack tIndex)
+    pure (index, T.length tCommas + 1)
+
+pattern ConstraintTupleProjectionFS :: Int -> Int -> FastString
+pattern ConstraintTupleProjectionFS index arity <-
+    (constraintTupleProjection_maybe . fsToText -> Just (index, arity))
+
+pattern ConstraintTupleProjectionName :: Int -> Int -> Var
+pattern ConstraintTupleProjectionName index arity <-
+    NameIn GHC_Classes (ConstraintTupleProjectionFS index arity)
+
+pattern ConstraintTupleProjection :: Int -> Int -> GHC.Expr Var
+pattern ConstraintTupleProjection index arity <-
+    Var (ConstraintTupleProjectionName index arity)
+
 
 subst :: [(TyVar, GHC.Type)] -> GHC.Type -> GHC.Type
 subst env = transform $ \t ->
@@ -80,6 +151,16 @@ isSingleConType t = case algTyConRhs t of
     TupleTyCon{} -> True
     _ -> False
 
+hasDamlEnumCtx :: TyCon -> Bool
+hasDamlEnumCtx t
+    | [theta] <- tyConStupidTheta t
+    , TypeCon tycon [] <- theta
+    , NameIn GHC_Types "DamlEnum" <- tycon
+    = True
+
+    | otherwise
+    = False
+
 -- Pretty printing is very expensive, so clone the logic for when to add unique suffix
 varPrettyPrint :: Var -> T.Text
 varPrettyPrint (varName -> x) = getOccText x <> (if isSystemName x then "_" <> T.pack (show $ nameUnique x) else "")
@@ -90,13 +171,6 @@ defaultLast = uncurry (++) . partition ((/=) DEFAULT . fst3)
 isLitAlt :: Alt Var -> Bool
 isLitAlt (LitAlt{},_,_) = True
 isLitAlt _              = False
-
-defaultMethods :: CoreModule -> Set.Set Name
-defaultMethods core = Set.fromList
-  [ name
-  | ATyCon (tyConClass_maybe -> Just class_) <- nameEnvElts (cm_types core)
-  , (_id, Just (name, VanillaDM)) <- classOpItems class_
-  ]
 
 untick :: GHC.Expr b -> GHC.Expr b
 untick = \case

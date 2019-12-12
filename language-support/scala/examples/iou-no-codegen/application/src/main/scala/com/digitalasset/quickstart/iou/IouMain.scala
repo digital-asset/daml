@@ -102,20 +102,20 @@ object IouMain extends App with StrictLogging {
       "USD",
       BigDecimal("99999.00"))
     _ <- clientUtil.submitCommand(issuer, issuerWorkflowId, createCmd)
-    _ = logger.info(s"$issuer sent create command: $createCmd")
+    _ = logger.info(s"$issuer sent create command: ${createCmd.toString}")
 
     tx0 <- clientUtil.nextTransaction(issuer, offset0)(amat)
-    _ = logger.info(s"$issuer received transaction: $tx0")
+    _ = logger.info(s"$issuer received transaction: ${tx0.toString}")
 
     createdEvent <- toFuture(decodeCreatedEvent(tx0))
-    _ = logger.info(s"$issuer received created event: $createdEvent")
+    _ = logger.info(s"$issuer received created event: ${createdEvent.toString}")
 
     exerciseCmd = IouCommands.iouTransferExerciseCommand(
       iouTemplateId,
       createdEvent.contractId,
       newOwner)
     _ <- clientUtil.submitCommand(issuer, issuerWorkflowId, exerciseCmd)
-    _ = logger.info(s"$issuer sent exercise command: $exerciseCmd")
+    _ = logger.info(s"$issuer sent exercise command: ${exerciseCmd.toString}")
 
   } yield ()
 

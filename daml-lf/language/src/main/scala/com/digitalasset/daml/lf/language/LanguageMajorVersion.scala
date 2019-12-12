@@ -17,15 +17,15 @@ sealed abstract class LanguageMajorVersion(
     with Product
     with Serializable {
 
-  val maxSupportedStableMinorVersion: LanguageMinorVersion.Stable =
+  final val maxSupportedStableMinorVersion: LanguageMinorVersion.Stable =
     LanguageMinorVersion.Stable(stableAscending.last)
 
   // do *not* use implicitly unless type `LanguageMinorVersion` becomes
   // indexed by the enclosing major version's singleton type --SC
-  final def minorVersionOrdering: Ordering[LanguageMinorVersion] =
+  final val minorVersionOrdering: Ordering[LanguageMinorVersion] =
     Ordering.by(acceptedVersions.zipWithIndex.toMap)
 
-  val supportedMinorVersions: List[LanguageMinorVersion] =
+  final val supportedMinorVersions: List[LanguageMinorVersion] =
     acceptedVersions
 
   final def supportsMinorVersion(fromLFFile: String): Boolean =
@@ -40,7 +40,7 @@ object LanguageMajorVersion {
   case object V1
       extends LanguageMajorVersion(
         pretty = "1",
-        stableAscending = NonEmptyList("0", "1", "2", "3", "4", "5", "6"))
+        stableAscending = NonEmptyList("0", "1", "2", "3", "4", "5", "6", "7"))
 
   val All: List[LanguageMajorVersion] = List(V0, V1)
 

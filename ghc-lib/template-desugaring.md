@@ -19,13 +19,13 @@ template Iou
   with
     issuer : Party
     owner : Party
-    amount : Float
+    amount : Decimal
     regulators : [Party]
   where
-    ensure amount > 0
+    ensure amount > 0.0
     signatory issuer, owner
     observer regulators
-    agreement issuer <> " will pay " <> owner <> " " <> show amount
+    agreement show issuer <> " will pay " <> show owner <> " " <> show amount
 
     choice Transfer : ContractId Iou
       with
@@ -46,6 +46,8 @@ class Template t where
   create : t -> Update (ContractId t)
   fetch : ContractId t -> Update t
   archive : ContractId t -> Update ()
+  toAnyTemplate : t -> AnyTemplate
+  fromAnyTemplate : AnyTemplate -> Optional t
 ```
 
 In this example, `t` is identified with `Iou`. The rest of this section shows you how desugaring proceeds.
@@ -56,9 +58,7 @@ First we have data type definitions for the `Iou` template and the `Transfer` ch
 data Iou = Iou with
     issuer : Party
     owner : Party
-    currency : Party
     amount : Decimal
-    account : Party
     regulators : [Party]
   deriving (Eq, Show)
 
@@ -67,56 +67,31 @@ data Transfer = Transfer with
   deriving (Eq, Show)
 ```
 
-Next we have a `class IouInstance` with the bulk of the definitions we will need.
+
+Next we have the instance of the `Template` typeclass:
 
 ```haskell
-class IouInstance where
-  signatoryIou : Iou -> [Party]
-  signatoryIou this@Iou{..} = [issuer, owner]
-  observerIou : Iou -> [Party]
-  observerIou this@Iou{..} = regulators
-  ensureIou : Iou -> Bool
-  ensureIou this@Iou{..} = amount > 0.0
-  agreementIou : Iou -> Text
-  agreementIou this@Iou{..} = show issuer <> " will pay " <> show owner <> " " <> show amount
-  createIou : Iou -> Update (ContractId Iou)
-  createIou = magic @"create"
-  fetchIou : ContractId Iou -> Update Iou
-  fetchIou = magic @"fetch"
-  archiveIou : ContractId Iou -> Update ()
-  archiveIou cid = exerciseIouArchive cid Archive
-
-  consumptionIouArchive : PreConsuming Iou
-  consumptionIouArchive = PreConsuming
-  controllerIouArchive : Iou -> Archive -> [Party]
-  controllerIouArchive this@Iou{..} arg@Archive = signatoryIou this
-  actionIouArchive : ContractId Iou -> Iou -> Archive -> Update ()
-  actionIouArchive self this@Iou{..} arg@Archive = pure ()
-  exerciseIouArchive : ContractId Iou -> Archive -> Update ()
-  exerciseIouArchive = magic @"archive"
-
-  consumptionIouTransfer : PreConsuming Iou
-  consumptionIouTransfer = PreConsuming
-  controllerIouTransfer : Iou -> Transfer -> [Party]
-  controllerIouTransfer this@Iou{..} arg@Transfer{..} = [owner]
-  actionIouTransfer : ContractId Iou -> Iou -> Transfer -> Update (ContractId Iou)
-  actionIouTransfer self this@Iou{..} arg@Transfer{..} = create this with owner = newOwner
-  exerciseIouTransfer : ContractId Iou -> Transfer -> Update (ContractId Iou)
-  exerciseIouTransfer = magic @"exercise"
-```
-
-With that class defined, we can define an `instance` declaration for `Iou` to declare its membership in `Template`:
-```haskell
-instance IouInstance => Template Iou where
-  signatory = signatoryIou
-  observer = observerIou
-  ensure = ensureIou
-  agreement = agreementIou
-  create = createIou
-  fetch = fetchIou
-  archive = archiveIou
-
-instance IouInstance where
+instance Template Iou where
+  ensure this@Iou {..} = amount > 0.0
+  agreement this@Iou {..}
+    = show issuer <> " will pay " <> show owner <> " " <> show amount
+  signatory this@Iou {..}
+    = concat
+        [concat
+           [toParties (owner),
+            toParties (issuer)]]
+  observer this@Iou {..}
+    = concat
+        [concat
+           [concat
+              [toParties (regulators)]]]
+  archive cid
+    = exercise cid Archive
+  create = magic @"create"
+  fetch = magic @"fetch"
+  toAnyTemplate = magic @"toAnyTemplate"
+  fromAnyTemplate = magic @"fromAnyTemplate"
+  _templateTypeRep = magic @"_templateTypeRep"
 ```
 
 When a type `t` is a `Template` instance, `class Choice` (defined by the DAML standard library) defines a (multi-parameter type class) relation on types `t`, `c` and `r` such that `r` is uniquely determined by the pair `(t, c)`:
@@ -124,6 +99,8 @@ When a type `t` is a `Template` instance, `class Choice` (defined by the DAML st
 ```haskell
 class Template t => Choice t c r | t c -> r where
   exercise : ContractId t -> c -> Update r
+  _toAnyChoice : proxy t -> c -> Any
+  _fromAnyChoice : proxy t -> Any -> Optional c
 ```
 
 In this example, `c` is identified with `Transfer` and `r` with `ContractId Iou`.
@@ -132,7 +109,32 @@ The `instance` declaration establishes the triple `(Iou, Transfer, ContractId Io
 
 ```haskell
 instance Choice Iou Transfer (ContractId Iou) where
-  exercise = exerciseIouTransfer
+  exercise = magic @"exerciseIouTransfer"
+  _toAnyChoice = magic @"toAnyChoiceIouTransfer"
+  _fromAnyChoice
+    = magic @"fromAnyChoiceIouTransfer"
+```
+
+Information about a choice that is not part of the `Choice` typeclass is recorded in a
+separate top-level identifier. Specifically, this is a tuple containing the controller,
+the choice body and information on whether the choice is pre-, post- or nonconsuming:
+
+```
+_choice_IouTransfer :
+  (Iou -> Transfer -> [Party],
+   ContractId Iou
+   -> Iou -> Transfer -> Update (ContractId Iou),
+   PreConsuming Iou)
+_choice_IouTransfer
+  = (\ this@Iou {..} arg@Transfer {..}
+       -> let
+          in
+            concat
+              [toParties (owner)], 
+     \ self this@Iou {..} arg@Transfer {..}
+       -> let
+          in do create (DA.Internal.Record.setField @"owner" newOwner this), 
+     PreConsuming)
 ```
 
 ### Example (2)
@@ -145,6 +147,9 @@ class Template t => TemplateKey t k | t -> k where
   key : t -> k
   fetchByKey : k -> Update (ContractId t, t)
   lookupByKey : k -> Update (Optional (ContractId t))
+  _maintainer : proxy t -> k -> [Party]
+  _toAnyContractKey : proxy t -> k -> Any
+  _fromAnyContractKey : proxy t -> Any -> Optional ks
 ```
 
 In the following `Enrollment` contract, there are no choices but there are declarations of `key` and `maintainer`.
@@ -180,183 +185,37 @@ data Enrollment =
     reg : Registration
   deriving (Show, Eq)
 
-class EnrollmentInstance where
-  signatoryEnrollment : Enrollment -> [Party]
-  signatoryEnrollment this@Enrollment{..} = [reg.student, reg.course.institution]
-  observerEnrollment : Enrollment -> [Party]
-  observerEnrollment this@Enrollment{..} = []
-  ensureEnrollment : Enrollment -> Bool
-  ensureEnrollment this@Enrollment{..} = True
-  agreementEnrollment : Enrollment -> Text
-  agreementEnrollment this@Enrollment{..} = ""
-  createEnrollment : Enrollment -> Update (ContractId Enrollment)
-  createEnrollment = magic @"create"
-  fetchEnrollment : ContractId Enrollment -> Update Enrollment
-  fetchEnrollment = magic @"fetch"
-  archiveEnrollment : ContractId Enrollment -> Update ()
-  archiveEnrollment cid = exerciseEnrollmentArchive cid Archive
-
-  hasKeyEnrollment : HasKey Enrollment
-  hasKeyEnrollment = HasKey
-  keyEnrollment : Enrollment -> Registration
-  keyEnrollment this@Enrollment{..} = reg
-  maintainerEnrollment : HasKey Enrollment -> Registration -> [Party]
-  maintainerEnrollment HasKey key = [key.course.institution]
-  fetchByKeyEnrollment : Registration -> Update (ContractId Enrollment, Enrollment)
-  fetchByKeyEnrollment = magic @"fetchByKey"
-  lookupByKeyEnrollment : Registration -> Update (Optional (ContractId Enrollment))
-  lookupByKeyEnrollment = magic @"lookupByKey"
-
-  consumptionEnrollmentArchive : PreConsuming Enrollment
-  consumptionEnrollmentArchive = PreConsuming
-  controllerEnrollmentArchive : Enrollment -> Archive -> [Party]
-  controllerEnrollmentArchive this@Enrollment{..} arg@Archive = signatoryEnrollment this
-  actionEnrollmentArchive : ContractId Enrollment -> Enrollment -> Archive -> Update ()
-  actionEnrollmentArchive self this@Enrollment{..} arg@Archive = pure ()
-  exerciseEnrollmentArchive : ContractId Enrollment -> Archive -> Update ()
-  exerciseEnrollmentArchive = magic @"archive"
-
-instance EnrollmentInstance where
-
-instance EnrollmentInstance => Template Enrollment where
-  signatory = signatoryEnrollment
-  observer = observerEnrollment
-  ensure = ensureEnrollment
-  agreement = agreementEnrollment
-  create = createEnrollment
-  fetch = fetchEnrollment
-  archive = archiveEnrollment
+instance Template Enrollment where
+  signatory this@Enrollment {..}
+    = concat
+        [concat
+           [toParties
+              ((DA.Internal.Record.getField
+                  @"institution" (DA.Internal.Record.getField @"course" reg))),
+            toParties
+              ((DA.Internal.Record.getField @"student" reg))]]
+  observer this@Enrollment {..} = concat []
+  ensure this@Enrollment {..} = True
+  agreement this@Enrollment {..} = ""
+  archive cid
+    = exercise cid Archive
+  create = magic @"create"
+  fetch = magic @"fetch"
+  toAnyTemplate = magic @"toAnyTemplate"
+  fromAnyTemplate = magic @"fromAnyTemplate"
+  _templateTypeRep = magic @"_templateTypeRep"
 
 instance TemplateKey Enrollment Registration where
-  key = keyEnrollment
-  fetchByKey = fetchByKeyEnrollment
-  lookupByKey = lookupByKeyEnrollment
+  key this@Enrollment {..} = reg
+  _maintainer _ key
+    = concat
+        [concat
+           [toParties
+              ((DA.Internal.Record.getField
+                  @"institution" (DA.Internal.Record.getField @"course" key)))]]
+  fetchByKey = magic @"fetchByKey"
+  lookupByKey = magic @"lookupByKey"
+  _toAnyContractKey = magic @"_toAnyContractKey"
+  _fromAnyContractKey
+    = magic @"_fromAnyContractKey"
 ```
-
-### Example (3)
-
-The final example shows a generic proposal template.
-
-```haskell
-template Template t => Proposal t with
-    asset : t
-    receivers : [Party]
-    name : Text
-  where
-    signatory (signatory t \\ receivers)
-    observer receivers
-    key (signatory this, name)
-    maintainer (fst key)
-    choice Accept : ContractId t
-      controller receivers
-      do
-        create asset
-```
-
-Notice that the `Proposal` template has a type argument `t` with a `Template` constraint preceding it.
-We also specify a primary key for the Proposal template by combining data from the underlying template as well as the proposal.
-This desugars to the following declarations.
-
-```haskell
-data Proposal t = Proposal with
-    asset : t
-    receivers : [Party]
-    name : Party
-  deriving (Eq, Show)
-
-data Accept = Accept with
-  deriving (Eq, Show)
-
-class Template t => ProposalInstance t where
-    signatoryProposal : Proposal t -> [Party]
-    signatoryProposal this@Proposal{..} = signatory asset \\ receivers
-    observerProposal : Proposal t -> [Party]
-    observerProposal this@Proposal{..} = receivers
-    ensureProposal : Proposal t -> Bool
-    ensureProposal this@Proposal{..} = True
-    agreementProposal : Proposal t -> Text
-    agreementProposal this@Proposal{..} = implode
-        [ "Proposal:\n"
-        , "* proposers: " <> show (signatory this) <> "\n"
-        , "* receivers: " <> show receivers <> "\n"
-        , "* agreement: " <> agreement asset
-        ]
-    createProposal : Proposal t -> Update (ContractId (Proposal t))
-    createProposal = magic @"create"
-    fetchProposal : ContractId (Proposal t) -> Update (Proposal t)
-    fetchProposal = magic @"fetch"
-    archiveProposal : ContractId (Proposal t) -> Update ()
-    archiveProposal cid = exerciseProposalArchive cid Archive
-
-    hasKeyProposal : HasKey (Proposal t)
-    hasKeyProposal = HasKey
-    keyProposal : Proposal t -> ([Party], Text)
-    keyProposal this@Proposal{..} = (signatory this, name)
-    maintainerProposal : HasKey (Proposal t) -> ([Party], Text) -> [Party]
-    maintainerProposal HasKey key = fst key
-    fetchByKeyProposal : ([Party], Text) -> Update (ContractId (Proposal t), Proposal t)
-    fetchByKeyProposal = magic @"fetchByKey"
-    lookupByKeyProposal : ([Party], Text) -> Update (Optional (ContractId (Proposal t)))
-    lookupByKeyProposal = magic @"lookupByKey"
-
-    consumptionProposalArchive : PreConsuming (Proposal t)
-    consumptionProposalArchive = PreConsuming
-    controllerProposalArchive : Proposal t -> Archive -> [Party]
-    controllerProposalArchive this@Proposal{..} arg@Archive = signatoryProposal this
-    actionProposalArchive : ContractId (Proposal t) -> Proposal t -> Archive -> Update ()
-    actionProposalArchive self this@Proposal{..} arg@Archive = pure ()
-    exerciseProposalArchive : ContractId (Proposal t) -> Archive -> Update ()
-    exerciseProposalArchive = magic @"archive"
-
-    consumptionProposalAccept : PreConsuming (Proposal t)
-    consumptionProposalAccept = PreConsuming
-    controllerProposalAccept : Proposal t -> Accept -> [Party]
-    controllerProposalAccept this@Proposal{..} arg@Accept = receivers
-    actionProposalAccept : ContractId (Proposal t) -> Proposal t -> Accept -> Update (ContractId t)
-    actionProposalAccept self this@Proposal{..} arg@Accept = do
-        create asset
-    exerciseProposalAccept : ContractId (Proposal t) -> Accept -> Update (ContractId t)
-    exerciseProposalAccept = magic @"exercise"
-
-instance ProposalInstance t => Template (Proposal t) where
-    signatory = signatoryProposal
-    observer = observerProposal
-    ensure = ensureProposal
-    agreement = agreementProposal
-    create = createProposal
-    fetch = fetchProposal
-    archive = archiveProposal
-
-instance ProposalInstance t => TemplateKey (Proposal t) ([Party], Text) where
-    key = keyProposal
-    fetchByKey = fetchByKeyProposal
-    lookupByKey = lookupByKeyProposal
-
-instance ProposalInstance t => Choice (Proposal t) Accept (ContractId t) where
-    exercise = exerciseProposalAccept
-
-instance ProposalInstance t => Choice (Proposal t) Archive () where
-    exercise = exerciseProposalArchive
-```
-
-### Example (3)(cont)
-
-We showed the generic proposal template above, but have not showed what an instance looks like.
-Let's instantiate the `Proposal` template with the `Iou` (concrete) template from Example 1.
-This is done using the syntax below.
-
-```haskell
-template instance ProposalIou = Proposal Iou
-```
-
-This allows us to create and exercise choices on a proposal contract instantiated to an Iou contract.
-The name `ProposalIou` is not needed in DAML code but is required when creating contracts via the Ledger API
-(as client languages may not be able to express generic template and type instantiation).
-The `template instance` desugars to the following declarations.
-
-```haskell
-newtype ProposalIou = ProposalIou (Proposal Iou)
-instance ProposalInstance Iou where
-```
-
-The `instance` here simply leverages the implementation of the `ProposalInstance` class.

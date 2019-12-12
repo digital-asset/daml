@@ -25,7 +25,7 @@ import scala.annotation.tailrec
 object ShouldCheckSubmitterInMaintainers {
 
   private def templateShouldCheckSubmitterInMaintainers(
-      compiledPackages: Option[ConcurrentCompiledPackages],
+      compiledPackages: Option[MutableCompiledPackages],
       templateId: Identifier): Result[Boolean] = {
     def withPkg(pkg: Package): Result[Boolean] =
       pkg.modules.get(templateId.qualifiedName.module) match {
@@ -41,7 +41,7 @@ object ShouldCheckSubmitterInMaintainers {
   }
 
   private def apply(
-      compiledPackages: Option[ConcurrentCompiledPackages],
+      compiledPackages: Option[MutableCompiledPackages],
       templates0: ImmArray[Identifier]): Result[Boolean] = {
     // not using [[Result#sequence]] on purpose, see
     // <https://github.com/digital-asset/daml/blob/995ee82fd0655231d7034d0a66c9fe2c6a419536/daml-lf/engine/src/main/scala/com/digitalasset/daml/lf/engine/CommandPreprocessor.scala#L463>
@@ -81,14 +81,14 @@ object ShouldCheckSubmitterInMaintainers {
   def apply(commands: Commands): Result[Boolean] =
     apply(None, commands.commands.map(_.templateId))
 
-  def apply(compiledPackages: ConcurrentCompiledPackages, commands: Commands): Result[Boolean] =
+  def apply(compiledPackages: MutableCompiledPackages, commands: Commands): Result[Boolean] =
     apply(Some(compiledPackages), commands.commands.map(_.templateId))
 
   def apply(templates: ImmArray[Identifier]): Result[Boolean] =
     apply(None, templates)
 
   def apply(
-      compiledPackages: ConcurrentCompiledPackages,
+      compiledPackages: MutableCompiledPackages,
       templates: ImmArray[Identifier]): Result[Boolean] =
     apply(Some(compiledPackages), templates)
 }

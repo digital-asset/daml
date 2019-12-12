@@ -39,7 +39,7 @@ object Projections {
         // the parent of this node (if there was one).
         // Note that we're using blinding info instead of repeating the authorization
         // logic from [[Ledger.enrichTransaction]] here.
-        val witnesses = blindingInfo.explicitDisclosure(nodeId)
+        val witnesses = blindingInfo.disclosure(nodeId)
         (
           (witnesses -- alreadyWitnessed).foldLeft(perPartyRoots) {
             case (ppr, p) =>

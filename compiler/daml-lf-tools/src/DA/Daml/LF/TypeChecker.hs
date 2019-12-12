@@ -4,6 +4,7 @@
 module DA.Daml.LF.TypeChecker
   ( Error (..)
   , checkModule
+  , nameCheckPackage
   , errorLocation
   ) where
 
@@ -14,6 +15,7 @@ import           DA.Daml.LF.TypeChecker.Error
 import qualified DA.Daml.LF.TypeChecker.PartyLiterals as PartyLits
 import qualified DA.Daml.LF.TypeChecker.Recursion as Recursion
 import qualified DA.Daml.LF.TypeChecker.Serializability as Serializability
+import qualified DA.Daml.LF.TypeChecker.NameCollision as NameCollision
 
 checkModule ::
      World
@@ -26,3 +28,8 @@ checkModule world0 version m = do
       Recursion.checkModule m
       Serializability.checkModule m
       PartyLits.checkModule m
+    NameCollision.runCheckModuleDeps world0 m
+
+-- | Check whether the whole package satisfies the name collision condition.
+nameCheckPackage :: Package -> Either Error ()
+nameCheckPackage = NameCollision.runCheckPackage

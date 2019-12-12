@@ -3,7 +3,7 @@
 
 package com.digitalasset.navigator.json
 
-import com.digitalasset.daml.lf.data.{Ref => DamlLfRef}
+import com.digitalasset.daml.lf.data.{Ref => DamlLfRef, Numeric => DamlLfNumeric}
 import com.digitalasset.navigator.json.Util._
 import com.digitalasset.navigator.{model => Model}
 import spray.json._
@@ -28,13 +28,14 @@ object DamlLfCodec {
   private[this] final val propVars: String = "vars"
   private[this] final val propFields: String = "fields"
   private[this] final val propConstructors: String = "constructors"
+  private[this] final val propScale: String = "scale"
 
   private[this] final val tagTypeCon: String = "typecon"
   private[this] final val tagTypeVar: String = "typevar"
   private[this] final val tagTypePrim: String = "primitive"
   private[this] final val tagTypeList: String = "list"
   private[this] final val tagTypeBool: String = "bool"
-  private[this] final val tagTypeDecimal: String = "decimal"
+  private[this] final val tagTypeNumeric: String = "numeric"
   private[this] final val tagTypeInt64: String = "int64"
   private[this] final val tagTypeContractId: String = "contractid"
   private[this] final val tagTypeDate: String = "date"
@@ -46,7 +47,8 @@ object DamlLfCodec {
   private[this] final val tagTypeVariant: String = "variant"
   private[this] final val tagTypeEnum: String = "enum"
   private[this] final val tagTypeOptional: String = "optional"
-  private[this] final val tagTypeMap: String = "map"
+  private[this] final val tagTypeTextMap: String = "textmap"
+  private[this] final val tagTypeGenMap: String = "genmap"
 
   // ------------------------------------------------------------------------------------------------------------------
   // Encoding
@@ -55,6 +57,7 @@ object DamlLfCodec {
     case typeCon: Model.DamlLfTypeCon => damlLfTypeConToJsValue(typeCon)
     case typePrim: Model.DamlLfTypePrim => damlLfPrimToJsValue(typePrim)
     case typeVar: Model.DamlLfTypeVar => damlLfTypeVarToJsValue(typeVar)
+    case typeNum: Model.DamlLfTypeNumeric => damlLfNumericToJsValue(typeNum)
   }
 
   def damlLfTypeConToJsValue(value: Model.DamlLfTypeCon): JsValue = {
@@ -82,16 +85,21 @@ object DamlLfCodec {
     case Model.DamlLfPrimType.List => JsString(tagTypeList)
     case Model.DamlLfPrimType.ContractId => JsString(tagTypeContractId)
     case Model.DamlLfPrimType.Bool => JsString(tagTypeBool)
-    case Model.DamlLfPrimType.Decimal => JsString(tagTypeDecimal)
     case Model.DamlLfPrimType.Int64 => JsString(tagTypeInt64)
     case Model.DamlLfPrimType.Date => JsString(tagTypeDate)
     case Model.DamlLfPrimType.Party => JsString(tagTypeParty)
     case Model.DamlLfPrimType.Text => JsString(tagTypeText)
     case Model.DamlLfPrimType.Timestamp => JsString(tagTypeTimestamp)
     case Model.DamlLfPrimType.Optional => JsString(tagTypeOptional)
-    case Model.DamlLfPrimType.Map => JsString(tagTypeMap)
+    case Model.DamlLfPrimType.TextMap => JsString(tagTypeTextMap)
+    case Model.DamlLfPrimType.GenMap => JsString(tagTypeGenMap)
     case Model.DamlLfPrimType.Unit => JsString(tagTypeUnit)
   }
+
+  def damlLfNumericToJsValue(typeNum: Model.DamlLfTypeNumeric): JsValue = JsObject(
+    propType -> JsString(tagTypeNumeric),
+    propScale -> JsNumber(typeNum.scale)
+  )
 
   def damlLfIdentifierToJsValue(value: Model.DamlLfIdentifier): JsValue = JsObject(
     propName -> JsString(value.qualifiedName.name.toString()),
@@ -148,13 +156,16 @@ object DamlLfCodec {
           Model.DamlLfImmArraySeq(
             arrayField(value, propArgs, "DamlLfTypePrim").map(jsValueToDamlLfType): _*)
         )
+      case `tagTypeNumeric` =>
+        DamlLfNumeric.Scale
+          .fromLong(intField(value, propScale, "DamlLfTypeNumeric"))
+          .fold[Model.DamlLfTypeNumeric](deserializationError(_), Model.DamlLfTypeNumeric)
     }
 
   def jsValueToDamlLfPrimType(value: String): Model.DamlLfPrimType = value match {
     case `tagTypeList` => Model.DamlLfPrimType.List
     case `tagTypeContractId` => Model.DamlLfPrimType.ContractId
     case `tagTypeBool` => Model.DamlLfPrimType.Bool
-    case `tagTypeDecimal` => Model.DamlLfPrimType.Decimal
     case `tagTypeInt64` => Model.DamlLfPrimType.Int64
     case `tagTypeDate` => Model.DamlLfPrimType.Date
     case `tagTypeParty` => Model.DamlLfPrimType.Party
@@ -162,7 +173,7 @@ object DamlLfCodec {
     case `tagTypeTimestamp` => Model.DamlLfPrimType.Timestamp
     case `tagTypeUnit` => Model.DamlLfPrimType.Unit
     case `tagTypeOptional` => Model.DamlLfPrimType.Optional
-    case `tagTypeMap` => Model.DamlLfPrimType.Map
+    case `tagTypeTextMap` => Model.DamlLfPrimType.TextMap
   }
 
   def jsValueToDamlLfDataType(value: JsValue): Model.DamlLfDataType =

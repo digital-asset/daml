@@ -8,25 +8,14 @@ load(
 )
 
 compileDependencies = [
-    "//3rdparty/jvm/com/typesafe/akka:akka_stream",
-    "//daml-lf/archive:daml_lf_java_proto",
+    "@maven//:com_typesafe_akka_akka_stream_2_12",
+    "//daml-lf/archive:daml_lf_dev_archive_java_proto",
     "//daml-lf/data",
     "//daml-lf/language",
     "//daml-lf/transaction",
     "//ledger/ledger-api-domain",
+    "//ledger/ledger-api-health",
 ]
-
-da_scala_library(
-    name = "participant-state-index-v1",
-    srcs = glob(["src/main/scala/com/daml/ledger/participant/state/index/v1/*.scala"]),
-    resources = glob(["src/main/resources/**/*"]),
-    tags = ["maven_coordinates=com.daml.ledger:participant-state-index-v1:__VERSION__"],
-    visibility = [
-        "//visibility:public",
-    ],
-    runtime_deps = [],
-    deps = compileDependencies + ["//ledger/participant-state"],
-)
 
 da_scala_library(
     name = "participant-state-index",
@@ -38,7 +27,9 @@ da_scala_library(
     ],
     runtime_deps = [],
     deps = compileDependencies + [
-        "//3rdparty/jvm/org/scalaz:scalaz_core",
+        "@maven//:com_typesafe_akka_akka_actor_2_12",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:org_scalaz_scalaz_core_2_12",
         "//ledger/participant-state:participant-state",
     ],
 )

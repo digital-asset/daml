@@ -58,7 +58,7 @@ To migrate the project manually:
 
       sdk-version: 0.12.14
       name: my_project
-      source: daml/Main.daml
+      source: daml
       scenario: Main:setup
       parties:
       - Alice
@@ -80,7 +80,7 @@ To migrate the project manually:
         sdk-version: 0.12.12
         scenario: Main:setup
         name: foobar
-      source: daml/Main.daml
+      source: daml
         parties:
         - Alice
         - Bob

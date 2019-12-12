@@ -11,7 +11,7 @@ module DA.Ledger.Services.TransactionService (
     getFlatTransactionByEventId,
     getFlatTransactionById,
     ledgerEnd,
-    GetTransactionsRequest(..), filterEverthingForParty,
+    GetTransactionsRequest(..), filterEverythingForParty,
     ) where
 
 import Com.Digitalasset.Ledger.Api.V1.TransactionFilter --TODO: HL mirror
@@ -27,31 +27,31 @@ import qualified Data.Vector as Vector
 
 getTransactions :: GetTransactionsRequest -> LedgerService (Stream [Transaction])
 getTransactions req =
-    makeLedgerService $ \timeout config -> do
+    makeLedgerService $ \timeout config mdm -> do
     asyncStreamGen $ \stream ->
         withGRPCClient config $ \client -> do
             service <- LL.transactionServiceClient client
             let LL.TransactionService {transactionServiceGetTransactions=rpc} = service
-            sendToStream timeout (lowerRequest req) f stream rpc
+            sendToStream timeout mdm (lowerRequest req) f stream rpc
     where f = raiseList raiseTransaction . LL.getTransactionsResponseTransactions
 
 getTransactionTrees :: GetTransactionsRequest -> LedgerService (Stream [TransactionTree])
 getTransactionTrees req =
-    makeLedgerService $ \timeout config -> do
+    makeLedgerService $ \timeout config mdm -> do
     asyncStreamGen $ \stream ->
         withGRPCClient config $ \client -> do
             service <- LL.transactionServiceClient client
             let LL.TransactionService {transactionServiceGetTransactionTrees=rpc} = service
-            sendToStream timeout (lowerRequest req) f stream rpc
+            sendToStream timeout mdm (lowerRequest req) f stream rpc
     where f = raiseList raiseTransactionTree . LL.getTransactionTreesResponseTransactions
 
 getTransactionByEventId :: LedgerId -> EventId -> [Party] -> LedgerService (Maybe TransactionTree)
 getTransactionByEventId lid eid parties =
-    makeLedgerService $ \timeout config -> do
+    makeLedgerService $ \timeout config mdm -> do
     withGRPCClient config $ \client -> do
         service <- LL.transactionServiceClient client
         let LL.TransactionService{transactionServiceGetTransactionByEventId=rpc} = service
-        rpc (ClientNormalRequest (mkByEventIdRequest lid eid parties) timeout emptyMdm)
+        rpc (ClientNormalRequest (mkByEventIdRequest lid eid parties) timeout mdm)
             >>= unwrapWithNotFound
             >>= \case
             Just (LL.GetTransactionResponse Nothing) ->
@@ -65,11 +65,11 @@ getTransactionByEventId lid eid parties =
 
 getTransactionById :: LedgerId -> TransactionId -> [Party] -> LedgerService (Maybe TransactionTree)
 getTransactionById lid trid parties =
-    makeLedgerService $ \timeout config -> do
+    makeLedgerService $ \timeout config mdm -> do
     withGRPCClient config $ \client -> do
         service <- LL.transactionServiceClient client
         let LL.TransactionService{transactionServiceGetTransactionById=rpc} = service
-        rpc (ClientNormalRequest (mkByIdRequest lid trid parties) timeout emptyMdm)
+        rpc (ClientNormalRequest (mkByIdRequest lid trid parties) timeout mdm)
             >>= unwrapWithNotFound
             >>= \case
             Just (LL.GetTransactionResponse Nothing) ->
@@ -83,11 +83,11 @@ getTransactionById lid trid parties =
 
 getFlatTransactionByEventId :: LedgerId -> EventId -> [Party] -> LedgerService (Maybe Transaction)
 getFlatTransactionByEventId lid eid parties =
-    makeLedgerService $ \timeout config -> do
+    makeLedgerService $ \timeout config mdm -> do
     withGRPCClient config $ \client -> do
         service <- LL.transactionServiceClient client
         let LL.TransactionService{transactionServiceGetFlatTransactionByEventId=rpc} = service
-        rpc (ClientNormalRequest (mkByEventIdRequest lid eid parties) timeout emptyMdm)
+        rpc (ClientNormalRequest (mkByEventIdRequest lid eid parties) timeout mdm)
             >>= unwrapWithNotFound
             >>= \case
             Just (LL.GetFlatTransactionResponse Nothing) ->
@@ -101,11 +101,11 @@ getFlatTransactionByEventId lid eid parties =
 
 getFlatTransactionById :: LedgerId -> TransactionId -> [Party] -> LedgerService (Maybe Transaction)
 getFlatTransactionById lid trid parties =
-    makeLedgerService $ \timeout config -> do
+    makeLedgerService $ \timeout config mdm -> do
     withGRPCClient config $ \client -> do
         service <- LL.transactionServiceClient client
         let LL.TransactionService{transactionServiceGetFlatTransactionById=rpc} = service
-        rpc (ClientNormalRequest (mkByIdRequest lid trid parties) timeout emptyMdm)
+        rpc (ClientNormalRequest (mkByIdRequest lid trid parties) timeout mdm)
             >>= unwrapWithNotFound
             >>= \case
             Just (LL.GetFlatTransactionResponse Nothing) ->
@@ -119,12 +119,12 @@ getFlatTransactionById lid trid parties =
 
 ledgerEnd :: LedgerId -> LedgerService AbsOffset
 ledgerEnd lid =
-    makeLedgerService $ \timeout config -> do
+    makeLedgerService $ \timeout config mdm -> do
     withGRPCClient config $ \client -> do
         service <- LL.transactionServiceClient client
         let LL.TransactionService{transactionServiceGetLedgerEnd=rpc} = service
         let request = LL.GetLedgerEndRequest (unLedgerId lid) noTrace
-        rpc (ClientNormalRequest request timeout emptyMdm)
+        rpc (ClientNormalRequest request timeout mdm)
             >>= unwrap
             >>= \case
             LL.GetLedgerEndResponse (Just offset) ->
@@ -143,8 +143,8 @@ data GetTransactionsRequest = GetTransactionsRequest {
     verbose :: Verbosity
     }
 
-filterEverthingForParty :: Party -> TransactionFilter
-filterEverthingForParty party = TransactionFilter (Map.singleton (unParty party) (Just noFilters))
+filterEverythingForParty :: Party -> TransactionFilter
+filterEverythingForParty party = TransactionFilter (Map.singleton (unParty party) (Just noFilters))
     where
         noFilters :: Filters
         noFilters = Filters Nothing

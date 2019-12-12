@@ -9,22 +9,16 @@ import java.util.concurrent.atomic.AtomicReference
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2.PackageDetails
-import com.daml.ledger.participant.state.v1.{
-  PartyAllocationResult,
-  SubmissionResult,
-  SubmittedTransaction,
-  SubmitterInfo,
-  TransactionMeta,
-  UploadPackagesResult
-}
+import com.daml.ledger.participant.state.v1._
 import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.lf.data.ImmArray
+import com.digitalasset.daml.lf.data.Ref.LedgerString.ordering
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party, TransactionIdString}
+import com.digitalasset.daml.lf.data.{ImmArray, Time}
 import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
-import com.digitalasset.daml_lf.DamlLf.Archive
+import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.domain.{
   ApplicationId,
   CommandId,
@@ -32,14 +26,17 @@ import com.digitalasset.ledger.api.domain.{
   PartyDetails,
   RejectionReason
 }
-import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
+import com.digitalasset.ledger.api.health.{HealthStatus, Healthy}
+import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
+import com.digitalasset.platform.sandbox.EventIdFormatter
+import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.ActiveContract
 import com.digitalasset.platform.sandbox.stores.deduplicator.Deduplicator
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.{Checkpoint, Rejection}
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
-import com.digitalasset.platform.sandbox.stores.ledger.{Ledger, LedgerEntry, LedgerSnapshot}
+import com.digitalasset.platform.sandbox.stores.ledger._
 import com.digitalasset.platform.sandbox.stores.{
-  ActiveContracts,
-  InMemoryActiveContracts,
+  ActiveLedgerState,
+  InMemoryActiveLedgerState,
   InMemoryPackageStore
 }
 import org.slf4j.LoggerFactory
@@ -47,13 +44,19 @@ import org.slf4j.LoggerFactory
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
 
+sealed trait InMemoryEntry extends Product with Serializable
+final case class InMemoryLedgerEntry(entry: LedgerEntry) extends InMemoryEntry
+final case class InMemoryConfigEntry(entry: ConfigurationEntry) extends InMemoryEntry
+final case class InMemoryPartyEntry(entry: PartyLedgerEntry) extends InMemoryEntry
+
 /** This stores all the mutable data that we need to run a ledger: the PCS, the ACS, and the deduplicator.
   *
   */
 class InMemoryLedger(
     val ledgerId: LedgerId,
+    participantId: ParticipantId,
     timeProvider: TimeProvider,
-    acs0: InMemoryActiveContracts,
+    acs0: InMemoryActiveLedgerState,
     packageStoreInit: InMemoryPackageStore,
     ledgerEntries: ImmArray[LedgerEntryOrBump])
     extends Ledger {
@@ -61,13 +64,13 @@ class InMemoryLedger(
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   private val entries = {
-    val l = new LedgerEntries[LedgerEntry](_.toString)
+    val l = new LedgerEntries[InMemoryEntry](_.toString)
     ledgerEntries.foreach {
       case LedgerEntryOrBump.Bump(increment) =>
         l.incrementOffset(increment)
         ()
       case LedgerEntryOrBump.Entry(entry) =>
-        l.publish(entry)
+        l.publish(InMemoryLedgerEntry(entry))
         ()
     }
     l
@@ -75,35 +78,48 @@ class InMemoryLedger(
 
   private val packageStoreRef = new AtomicReference[InMemoryPackageStore](packageStoreInit)
 
+  override def currentHealth(): HealthStatus = Healthy
+
   override def ledgerEntries(offset: Option[Long]): Source[(Long, LedgerEntry), NotUsed] =
-    entries.getSource(offset)
+    entries
+      .getSource(offset)
+      .collect { case (offset, InMemoryLedgerEntry(entry)) => offset -> entry }
 
   // mutable state
   private var acs = acs0
   private var deduplicator = Deduplicator()
+  private var ledgerConfiguration: Option[Configuration] = None
 
   override def ledgerEnd: Long = entries.ledgerEnd
 
   // need to take the lock to make sure the two pieces of data are consistent.
-  override def snapshot(): Future[LedgerSnapshot] =
+  override def snapshot(filter: TemplateAwareFilter): Future[LedgerSnapshot] =
     Future.successful(this.synchronized {
-      LedgerSnapshot(entries.ledgerEnd, Source(acs.contracts))
+      LedgerSnapshot(
+        entries.ledgerEnd,
+        Source.fromIterator[ActiveContract](() => acs.activeContracts.valuesIterator))
     })
 
   override def lookupContract(
-      contractId: AbsoluteContractId): Future[Option[ActiveContracts.ActiveContract]] =
+      contractId: AbsoluteContractId,
+      forParty: Party): Future[Option[ActiveLedgerState.Contract]] =
     Future.successful(this.synchronized {
-      acs.contracts.get(contractId)
+      acs.activeContracts.get(contractId).filter(ac => isVisibleFor(ac.id, forParty))
     })
 
-  override def lookupKey(key: Node.GlobalKey): Future[Option[AbsoluteContractId]] =
+  private def isVisibleFor(contractId: AbsoluteContractId, forParty: Party): Boolean =
+    acs.activeContracts
+      .get(contractId)
+      .exists(ac => ac.witnesses.contains(forParty) || ac.divulgences.contains(forParty))
+
+  override def lookupKey(key: Node.GlobalKey, forParty: Party): Future[Option[AbsoluteContractId]] =
     Future.successful(this.synchronized {
-      acs.keys.get(key)
+      acs.keys.get(key).filter(isVisibleFor(_, forParty))
     })
 
   override def publishHeartbeat(time: Instant): Future[Unit] =
     Future.successful(this.synchronized[Unit] {
-      entries.publish(Checkpoint(time))
+      entries.publish(InMemoryLedgerEntry(Checkpoint(time)))
       ()
     })
 
@@ -115,6 +131,7 @@ class InMemoryLedger(
       this.synchronized[SubmissionResult] {
         val (newDeduplicator, isDuplicate) =
           deduplicator.checkAndAdd(
+            submitterInfo.submitter,
             ApplicationId(submitterInfo.applicationId),
             CommandId(submitterInfo.commandId))
         deduplicator = newDeduplicator
@@ -146,11 +163,20 @@ class InMemoryLedger(
           s"RecordTime $recordTime is after MaxiumRecordTime ${submitterInfo.maxRecordTime}"))
     } else {
       val toAbsCoid: ContractId => AbsoluteContractId =
-        SandboxEventIdFormatter.makeAbsCoid(trId)
+        EventIdFormatter.makeAbsCoid(trId)
 
       val blindingInfo = Blinding.blind(transaction)
+      val mappedDisclosure = blindingInfo.disclosure.map {
+        case (nodeId, v) => EventIdFormatter.fromTransactionId(trId, nodeId) -> v
+      }
+      val mappedLocalDivulgence = blindingInfo.localDivulgence.map {
+        case (nodeId, v) => EventIdFormatter.fromTransactionId(trId, nodeId) -> v
+      }
+      val mappedGlobalDivulgence = blindingInfo.globalDivulgence
 
-      val mappedTx = transaction.mapContractIdAndValue(toAbsCoid, _.mapContractId(toAbsCoid))
+      val mappedTx = transaction
+        .mapContractIdAndValue(toAbsCoid, _.mapContractId(toAbsCoid))
+        .mapNodeId(EventIdFormatter.fromTransactionId(trId, _))
       // 5b. modify the ActiveContracts, while checking that we do not have double
       // spends or timing issues
       val acsRes = acs.addTransaction(
@@ -158,9 +184,10 @@ class InMemoryLedger(
         trId,
         transactionMeta.workflowId,
         mappedTx,
-        blindingInfo.explicitDisclosure,
-        blindingInfo.localImplicitDisclosure,
-        blindingInfo.globalImplicitDisclosure,
+        mappedDisclosure,
+        mappedLocalDivulgence,
+        mappedGlobalDivulgence,
+        List.empty
       )
       acsRes match {
         case Left(err) =>
@@ -169,12 +196,10 @@ class InMemoryLedger(
             RejectionReason.Inconsistent(s"Reason: ${err.mkString("[", ", ", "]")}"))
         case Right(newAcs) =>
           acs = newAcs
-          val recordTx = mappedTx
-            .mapNodeId(SandboxEventIdFormatter.fromTransactionId(trId, _))
           val recordBlinding =
-            blindingInfo.explicitDisclosure.map {
+            blindingInfo.disclosure.map {
               case (nid, parties) =>
-                (SandboxEventIdFormatter.fromTransactionId(trId, nid), parties)
+                (EventIdFormatter.fromTransactionId(trId, nid), parties)
             }
           val entry = LedgerEntry
             .Transaction(
@@ -185,10 +210,10 @@ class InMemoryLedger(
               transactionMeta.workflowId,
               transactionMeta.ledgerEffectiveTime.toInstant,
               recordTime,
-              recordTx,
+              mappedTx,
               recordBlinding
             )
-          entries.publish(entry)
+          entries.publish(InMemoryLedgerEntry(entry))
           ()
       }
     }
@@ -198,12 +223,14 @@ class InMemoryLedger(
   private def handleError(submitterInfo: SubmitterInfo, reason: RejectionReason): Unit = {
     logger.warn(s"Publishing error to ledger: ${reason.description}")
     entries.publish(
-      Rejection(
-        timeProvider.getCurrentTime,
-        submitterInfo.commandId,
-        submitterInfo.applicationId,
-        submitterInfo.submitter,
-        reason)
+      InMemoryLedgerEntry(
+        Rejection(
+          timeProvider.getCurrentTime,
+          submitterInfo.commandId,
+          submitterInfo.applicationId,
+          submitterInfo.submitter,
+          reason)
+      )
     )
     ()
   }
@@ -220,8 +247,8 @@ class InMemoryLedger(
         Future.successful(
           entries
             .getEntryAt(n)
-            .collect[(Long, LedgerEntry.Transaction)] {
-              case t: LedgerEntry.Transaction =>
+            .collect {
+              case InMemoryLedgerEntry(t: LedgerEntry.Transaction) =>
                 (n, t) // the transaction id is also the offset
             })
     }
@@ -232,20 +259,38 @@ class InMemoryLedger(
       acs.parties.values.toList
     })
 
-  override def allocateParty(
+  override def publishPartyAllocation(
+      submissionId: SubmissionId,
       party: Party,
-      displayName: Option[String]): Future[PartyAllocationResult] =
-    Future.successful(this.synchronized {
+      displayName: Option[String]): Future[SubmissionResult] =
+    Future.successful(this.synchronized[SubmissionResult] {
       val ids = acs.parties.keySet
-
-      if (ids.contains(party))
-        PartyAllocationResult.AlreadyExists
-      else {
-        val details = PartyDetails(party, displayName, true)
-        acs = acs.addParty(details)
-        PartyAllocationResult.Ok(details)
+      if (ids.contains(party)) {
+        entries.publish(
+          InMemoryPartyEntry(
+            PartyLedgerEntry.AllocationRejected(
+              submissionId,
+              participantId,
+              timeProvider.getCurrentTime,
+              "Party already exists")))
+      } else {
+        acs = acs.addParty(PartyDetails(party, displayName, true))
+        entries.publish(
+          InMemoryPartyEntry(
+            PartyLedgerEntry.AllocationAccepted(
+              Some(submissionId),
+              participantId,
+              timeProvider.getCurrentTime,
+              PartyDetails(party, displayName, isLocal = true))))
       }
+      SubmissionResult.Acknowledged
     })
+
+  override def partyEntries(beginOffset: Long): Source[(Long, PartyLedgerEntry), NotUsed] = {
+    entries.getSource(Some(beginOffset)).collect {
+      case (offset, InMemoryPartyEntry(partyEntry)) => (offset, partyEntry)
+    }
+  }
 
   override def listLfPackages(): Future[Map[PackageId, PackageDetails]] =
     packageStoreRef.get.listLfPackages()
@@ -272,4 +317,37 @@ class InMemoryLedger(
         }
       )
   }
+
+  override def publishConfiguration(
+      maxRecordTime: Time.Timestamp,
+      submissionId: String,
+      config: Configuration): Future[SubmissionResult] =
+    Future.successful {
+      this.synchronized {
+        ledgerConfiguration match {
+          case Some(currentConfig) if config.generation != currentConfig.generation =>
+            entries.publish(InMemoryConfigEntry(ConfigurationEntry.Rejected(
+              submissionId,
+              participantId,
+              "Generation mismatch, expected ${currentConfig.generation}, got ${config.generation}",
+              config)))
+
+          case _ =>
+            entries.publish(
+              InMemoryConfigEntry(ConfigurationEntry.Accepted(submissionId, participantId, config)))
+            ledgerConfiguration = Some(config)
+        }
+        SubmissionResult.Acknowledged
+      }
+    }
+
+  override def lookupLedgerConfiguration(): Future[Option[Configuration]] =
+    Future.successful(this.synchronized { ledgerConfiguration })
+
+  override def configurationEntries(
+      offset: Option[Long]): Source[(Long, ConfigurationEntry), NotUsed] =
+    entries
+      .getSource(offset)
+      .collect { case (offset, InMemoryConfigEntry(entry)) => offset -> entry }
+
 }

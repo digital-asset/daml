@@ -7,7 +7,7 @@ import scalaz.std.map._
 import scalaz.std.tuple._
 import scalaz.syntax.applicative.^
 import scalaz.syntax.traverse._
-import scalaz.{Applicative, Bifunctor, Bitraverse, Functor, Traverse}
+import scalaz.{Applicative, Bifunctor, Bitraverse, Bifoldable, Foldable, Functor, Monoid, Traverse}
 import java.{util => j}
 
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
@@ -32,7 +32,17 @@ object DefDataType {
   type FWT = DefDataType[Type, Type]
 
   implicit val `DDT bitraverse`: Bitraverse[DefDataType] =
-    new Bitraverse[DefDataType] {
+    new Bitraverse[DefDataType] with Bifoldable.FromBifoldMap[DefDataType] {
+
+      override def bimap[A, B, C, D](
+          fab: DefDataType[A, B])(f: A => C, g: B => D): DefDataType[C, D] = {
+        DefDataType(fab.typeVars, Bifunctor[DataType].bimap(fab.dataType)(f, g))
+      }
+
+      override def bifoldMap[A, B, M: Monoid](fab: DefDataType[A, B])(f: A => M)(g: B => M): M = {
+        Bifoldable[DataType].bifoldMap(fab.dataType)(f)(g)
+      }
+
       override def bitraverseImpl[G[_]: Applicative, A, B, C, D](
           fab: DefDataType[A, B])(f: A => G[C], g: B => G[D]): G[DefDataType[C, D]] = {
         Applicative[G].map(Bitraverse[DataType].bitraverse(fab.dataType)(f)(g))(dataTyp =>
@@ -58,7 +68,30 @@ object DataType {
   // naturality holds with respect to those instances and this one, so there is
   // no risk of confusion.
   implicit val `DT bitraverse`: Bitraverse[DataType] =
-    new Bitraverse[DataType] {
+    new Bitraverse[DataType] with Bifoldable.FromBifoldMap[DataType] {
+
+      override def bimap[A, B, C, D](fab: DataType[A, B])(f: A => C, g: B => D): DataType[C, D] =
+        fab match {
+          case r @ Record(_) =>
+            Functor[Record].map(r)(f).widen
+          case v @ Variant(_) =>
+            Functor[Variant].map(v)(g).widen
+          case e @ Enum(_) =>
+            e
+        }
+
+      override def bifoldMap[A, B, M: Monoid](fab: DataType[A, B])(f: A => M)(g: B => M): M =
+        fab match {
+          case r @ Record(_) =>
+            Foldable[Record].foldMap(r)(f)
+          case v @ Variant(_) =>
+            Foldable[Variant].foldMap(v)(g)
+          case Enum(_) => {
+            val m = implicitly[Monoid[M]]
+            m.zero
+          }
+        }
+
       override def bitraverseImpl[G[_]: Applicative, A, B, C, D](
           fab: DataType[A, B])(f: A => G[C], g: B => G[D]): G[DataType[C, D]] =
         fab match {
@@ -88,7 +121,14 @@ final case class Record[+RT](fields: ImmArraySeq[(Ref.Name, RT)])
 
 object Record extends FWTLike[Record] {
   implicit val `R traverse`: Traverse[Record] =
-    new Traverse[Record] {
+    new Traverse[Record] with Foldable.FromFoldMap[Record] {
+
+      override def map[A, B](fa: Record[A])(f: A => B): Record[B] =
+        Record(fa.fields map (_ map f))
+
+      override def foldMap[A, B: Monoid](fa: Record[A])(f: A => B): B =
+        fa.fields foldMap { case (_, a) => f(a) }
+
       override def traverseImpl[G[_]: Applicative, A, B](fa: Record[A])(
           f: A => G[B]): G[Record[B]] =
         Applicative[G].map(fa.fields traverse (_ traverse f))(bs => fa.copy(fields = bs))
@@ -106,7 +146,14 @@ final case class Variant[+VT](fields: ImmArraySeq[(Ref.Name, VT)])
 
 object Variant extends FWTLike[Variant] {
   implicit val `V traverse`: Traverse[Variant] =
-    new Traverse[Variant] {
+    new Traverse[Variant] with Foldable.FromFoldMap[Variant] {
+
+      override def map[A, B](fa: Variant[A])(f: A => B): Variant[B] =
+        Variant(fa.fields map (_ map f))
+
+      override def foldMap[A, B: Monoid](fa: Variant[A])(f: A => B): B =
+        fa.fields foldMap { case (_, a) => f(a) }
+
       override def traverseImpl[G[_]: Applicative, A, B](fa: Variant[A])(
           f: A => G[B]): G[Variant[B]] =
         Applicative[G].map(fa.fields traverse (_ traverse f))(bs => fa.copy(fields = bs))
@@ -133,7 +180,10 @@ object DefTemplate {
   type FWT = DefTemplate[Type]
 
   implicit val `TemplateDecl traverse`: Traverse[DefTemplate] =
-    new Traverse[DefTemplate] {
+    new Traverse[DefTemplate] with Foldable.FromFoldMap[DefTemplate] {
+      override def foldMap[A, B: Monoid](fa: DefTemplate[A])(f: A => B): B =
+        fa.choices foldMap (_ foldMap f)
+
       override def traverseImpl[G[_]: Applicative, A, B](fab: DefTemplate[A])(
           f: A => G[B]): G[DefTemplate[B]] = {
         Applicative[G].map(fab.choices traverse (_ traverse f))(choices =>

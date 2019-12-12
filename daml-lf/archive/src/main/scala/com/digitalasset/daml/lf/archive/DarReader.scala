@@ -11,7 +11,7 @@ import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.TryOps.Bracket.bracket
 import com.digitalasset.daml.lf.data.TryOps.sequence
 import com.digitalasset.daml.lf.language.LanguageMajorVersion
-import com.digitalasset.daml_lf.DamlLf
+import com.digitalasset.daml_lf_dev.DamlLf
 import org.apache.commons.io.IOUtils
 
 import scala.annotation.tailrec

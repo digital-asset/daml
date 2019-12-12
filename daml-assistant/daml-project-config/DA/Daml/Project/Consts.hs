@@ -17,6 +17,7 @@ module DA.Daml.Project.Consts
     , getProjectPath
     , getSdkPath
     , getSdkVersion
+    , getSdkVersionMaybe
     , getDamlAssistant
     , ProjectCheck(..)
     , withProjectRoot
@@ -129,8 +130,12 @@ getSdkPath = getEnv sdkPathEnvVar
 --
 -- This will throw an `IOException` if the environment has not been setup by
 -- the assistant.
-getSdkVersion  :: IO String
+getSdkVersion :: IO String
 getSdkVersion = getEnv sdkVersionEnvVar
+
+-- | Returns the current SDK version if set, or Nothing.
+getSdkVersionMaybe :: IO (Maybe String)
+getSdkVersionMaybe = lookupEnv sdkVersionEnvVar
 
 -- | Returns the absolute path to the assistant.
 --

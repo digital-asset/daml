@@ -21,6 +21,6 @@ rm -rf $BUILD_DIR
 mkdir $BUILD_DIR
 
 bazel build //docs:docs
-tar -zxf ../../bazel-genfiles/docs/html.tar.gz -C $BUILD_DIR
+tar -zxf ../../bazel-bin/docs/html.tar.gz -C $BUILD_DIR
 cd $BUILD_DIR/html
 python -m http.server 8000

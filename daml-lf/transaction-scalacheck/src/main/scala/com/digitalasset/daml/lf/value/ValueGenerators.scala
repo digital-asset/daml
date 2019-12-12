@@ -11,11 +11,13 @@ import com.digitalasset.daml.lf.transaction.Node.{
   NodeExercises,
   NodeFetch
 }
+import com.digitalasset.daml.lf.transaction.VersionTimeline.Implicits._
 import com.digitalasset.daml.lf.transaction.{Transaction => Tx}
 import com.digitalasset.daml.lf.transaction._
 import com.digitalasset.daml.lf.value.Value._
 import org.scalacheck.{Arbitrary, Gen}
 import Arbitrary.arbitrary
+import scala.collection.immutable.TreeMap
 import scalaz.syntax.apply._
 import scalaz.scalacheck.ScalaCheckBinding._
 import scalaz.std.string.parseInt
@@ -77,19 +79,23 @@ object ValueGenerators {
   val defaultNidEncode: TransactionCoder.EncodeNid[NodeId] = nid => nid.index.toString
 
   //generate decimal values
-  val decimalGen: Gen[ValueDecimal] = {
-    val integerPart = Gen.listOfN(28, Gen.choose(1, 9)).map(_.mkString)
-    val decimalPart = Gen.listOfN(10, Gen.choose(1, 9)).map(_.mkString)
-    val bd = integerPart.flatMap(i => decimalPart.map(d => s"$i.$d")).map(BigDecimal(_))
+  def numGen(scale: Numeric.Scale): Gen[Numeric] = {
+    val num = for {
+      integerPart <- Gen.listOfN(Numeric.maxPrecision - scale, Gen.choose(1, 9)).map(_.mkString)
+      decimalPart <- Gen.listOfN(scale, Gen.choose(1, 9)).map(_.mkString)
+    } yield Numeric.assertFromString(s"$integerPart.$decimalPart")
+
     Gen
       .frequency(
-        (1, Gen.const(BigDecimal("0.0"))),
-        (1, Gen.const(Decimal.MaxValue)),
-        (1, Gen.const(Decimal.MinValue)),
-        (5, bd)
+        (1, Gen.const(Numeric.assertFromBigDecimal(scale, 0))),
+        (1, Gen.const(Numeric.maxValue(scale))),
+        (1, Gen.const(Numeric.minValue(scale))),
+        (5, num)
       )
-      .map(d => ValueDecimal(Decimal.assertFromBigDecimal(d)))
   }
+
+  def unscaledNumGen: Gen[Numeric] =
+    Gen.oneOf(Numeric.Scale.values).flatMap(numGen)
 
   val moduleSegmentGen: Gen[String] = for {
     n <- Gen.choose(1, 100)
@@ -187,8 +193,15 @@ object ValueGenerators {
       list <- Gen.listOf(for {
         k <- Gen.asciiPrintableStr; v <- Gen.lzy(valueGen(nesting))
       } yield k -> v)
-    } yield ValueMap[ContractId](SortedLookupList(Map(list: _*)))
-  def valueMapGen: Gen[ValueMap[ContractId]] = valueMapGen(0)
+    } yield ValueTextMap[ContractId](SortedLookupList(Map(list: _*)))
+  def valueMapGen: Gen[ValueTextMap[ContractId]] = valueMapGen(0)
+
+  private def valueGenMapGen(nesting: Int) =
+    Gen
+      .listOf(Gen.zip(Gen.lzy(valueGen(nesting)), Gen.lzy(valueGen(nesting))))
+      .map(list => ValueGenMap[ContractId](ImmArray(list)))
+
+  def valueGenMapGen: Gen[ValueGenMap[ContractId]] = valueGenMapGen(0)
 
   def coidGen: Gen[ContractId] = {
     val genRel: Gen[ContractId] =
@@ -216,14 +229,15 @@ object ValueGenerators {
       )
       val flat = List(
         (sz + 1, dateGen.map(ValueDate)),
-        (sz + 1, Gen.alphaStr.map(x => ValueText(x))),
-        (sz + 1, decimalGen),
+        (sz + 1, Gen.alphaStr.map(ValueText)),
+        (sz + 1, unscaledNumGen.map(ValueNumeric)),
+        (sz + 1, numGen(Decimal.scale).map(ValueNumeric)),
         (sz + 1, Arbitrary.arbLong.arbitrary.map(ValueInt64)),
-        (sz + 1, Gen.alphaStr.map(x => ValueText(x))),
+        (sz + 1, Gen.alphaStr.map(ValueText)),
         (sz + 1, timestampGen.map(ValueTimestamp)),
         (sz + 1, coidValueGen),
         (sz + 1, party.map(ValueParty)),
-        (sz + 1, Gen.oneOf(true, false).map(ValueBool))
+        (sz + 1, Gen.oneOf(ValueTrue, ValueFalse)),
       )
       val all =
         if (nesting >= MAXIMUM_NESTING) { List() } else { nested } ++
@@ -251,8 +265,9 @@ object ValueGenerators {
 
   def versionedValueGen: Gen[VersionedValue[ContractId]] =
     for {
-      version <- valueVersionGen
       value <- valueGen
+      minVersion = ValueVersions.assertAssignVersion(value)
+      version <- valueVersionGen(minVersion)
     } yield VersionedValue(version, value)
 
   private[lf] val genMaybeEmptyParties: Gen[Set[Party]] = Gen.listOf(party).map(_.toSet)
@@ -375,7 +390,7 @@ object ValueGenerators {
     for {
       nodes <- Gen.listOf(danglingRefGenNode)
       roots <- Gen.listOf(Arbitrary.arbInt.arbitrary.map(NodeId.unsafeFromIndex))
-    } yield GenTransaction(nodes.toMap, ImmArray(roots), Set.empty)
+    } yield GenTransaction(TreeMap(nodes: _*), ImmArray(roots), None)
   }
 
   @deprecated("use malformedGenTransaction instead", since = "100.11.17")
@@ -407,7 +422,8 @@ object ValueGenerators {
     Gen.frequency((1, Gen.const("")), (10, g))
   }
 
-  def valueVersionGen: Gen[ValueVersion] = Gen.oneOf(ValueVersions.acceptedVersions.toSeq)
+  def valueVersionGen(minVersion: ValueVersion = ValueVersions.minVersion): Gen[ValueVersion] =
+    Gen.oneOf(ValueVersions.acceptedVersions.filterNot(_ precedes minVersion).toSeq)
 
   def unsupportedValueVersionGen: Gen[ValueVersion] =
     stringVersionGen.map(ValueVersion).filter(x => !ValueVersions.acceptedVersions.contains(x))
@@ -421,9 +437,9 @@ object ValueGenerators {
       .filter(x => !TransactionVersions.acceptedVersions.contains(x))
 
   object Implicits {
-    implicit val vdecimalArb: Arbitrary[Decimal] = Arbitrary(decimalGen map (_.value))
     implicit val vdateArb: Arbitrary[Time.Date] = Arbitrary(dateGen)
     implicit val vtimestampArb: Arbitrary[Time.Timestamp] = Arbitrary(timestampGen)
     implicit val vpartyArb: Arbitrary[Ref.Party] = Arbitrary(party)
+    implicit val scaleArb: Arbitrary[Numeric.Scale] = Arbitrary(Gen.oneOf(Numeric.Scale.values))
   }
 }
