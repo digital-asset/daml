@@ -5,8 +5,8 @@ package com.digitalasset.daml.lf
 package value
 
 import scala.language.higherKinds
-import data.{FrontStack, Numeric, Ref, SortedLookupList, Time}
-import data.ImmArray.ImmArraySeq
+import data.{FrontStack, ImmArray, Numeric, Ref, SortedLookupList, Time}
+import ImmArray.ImmArraySeq
 import data.DataArbitrary._
 import iface.{DefDataType, Record, Type, TypeCon, TypeConName, TypeNumeric, TypePrim, PrimType => PT}
 
@@ -154,41 +154,42 @@ object TypedValueGenerators {
       override def injshrink[Cid: Shrink] = Shrink.shrinkAny // XXX descend
     }
 
-    def record[Rec](name: Ref.Identifier, rec: Rec)(
-        implicit ev: RecordVa[Rec]): (DefDataType.FWT, Aux[ev.Inj]) =
-      (DefDataType(ImmArraySeq.empty, Record(ev.t(rec).to[ImmArraySeq])), new ValueAddend {
-        type Inj[Cid] = ev.Inj[Cid]
+    def record[Rec](name: Ref.Identifier, rec: RecordVa): (DefDataType.FWT, Aux[rec.Inj]) =
+      (DefDataType(ImmArraySeq.empty, Record(rec.t.to[ImmArraySeq])), new ValueAddend {
+        private[this] val lfvFieldNames = rec.t map {case (n, _) => Some(n)}
+        type Inj[Cid] = rec.Inj[Cid]
         override val t = TypeCon(TypeConName(name), ImmArraySeq.empty)
+        override def inj[Cid] = hl => ValueRecord(Some(name), (lfvFieldNames zip rec.inj(hl)).to[ImmArray])
+        override def prj[Cid] = ???
+        override def injarb[Cid: Arbitrary] = ???
+        override def injshrink[Cid: Shrink] = ???
       })
+  }
 
-    sealed abstract class RecordVa[Rec] {
-      type Inj[Cid] <: shapeless.HList
-      def t(rec: Rec): List[(Ref.Name, Type)]
-      def inj[Cid](rec: Rec, v: Inj[Cid]): shapeless.HList
+    sealed abstract class RecordVa { self =>
+      import shapeless.{::, HList}
+      type Inj[Cid] <: HList
+      def ::(h: (String, ValueAddend)): RecordVa.Aux[Lambda[cid => h._2.Inj[cid] :: Inj[cid]]] =
+        new RecordVa {
+          type Inj[Cid] = h._2.Inj[Cid] :: self.Inj[Cid]
+          override val t = (Ref.Name assertFromString h._1, h._2.t) :: self.t
+          override def inj[Cid](v: Inj[Cid]) =
+            h._2.inj(v.head) :: self.inj(v.tail)
+
+        }
+      val t: List[(Ref.Name, Type)]
+      def inj[Cid](v: Inj[Cid]): List[Value[Cid]]
+    }
+
+    case object RNil extends RecordVa {
+      type Inj[Cid] = shapeless.HNil
+      override val t = List.empty
+      override def inj[Cid](v: shapeless.HNil) = List.empty
     }
 
     object RecordVa {
-      import shapeless.{::, HList, HNil, Witness}
-      import shapeless.labelled.{FieldType => :->>:}
-      type Aux[Rec, Inj0[_]] = RecordVa[Rec] { type Inj[Cid] = Inj0[Cid] }
-      implicit val emptyRVA: Aux[HNil, Lambda[cid => HNil]] = new RecordVa[HNil] {
-        type Inj[Cid] = HNil
-        override def t(rec: HNil) = List.empty
-      }
-
-      implicit def consRVA[K <: Symbol, VA <: ValueAddend, T <: HList](
-          implicit k: Witness.Aux[K],
-          ind: RecordVa[T])
-        : Aux[(K :->>: VA) :: T, Lambda[cid => (K :->>: VA#Inj[cid]) :: ind.Inj[cid]]] =
-        new RecordVa[(K :->>: VA) :: T] {
-          type Inj[Cid] = (K :->>: VA#Inj[Cid]) :: ind.Inj[Cid]
-          override def t(rec: (K :->>: VA) :: T) =
-            (Ref.Name assertFromString k.value.name, rec.head.t) +: ind.t(rec.tail)
-          override def inj[Cid](rec: (K :->>: VA) :: T, v: (K :->>: VA#Inj[Cid]) :: ind.Inj[Cid]) =
-            rec.head.inj(v.head) :: ind.inj(rec.tail, v.tail)
-        }
+      type Aux[Inj0[_]] = RecordVa { type Inj[Cid] = Inj0[Cid] }
     }
-  }
 
   trait PrimInstances[F[_]] {
     def text: F[String]
