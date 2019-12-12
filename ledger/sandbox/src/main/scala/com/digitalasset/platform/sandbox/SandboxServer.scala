@@ -249,7 +249,7 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
     )
 
     val apiServer = Await.result(
-      LedgerApiServer.create(
+      LedgerApiServer.start(
         (am: ActorMaterializer, esf: ExecutionSequencerFactory) =>
           ApiServices
             .create(
