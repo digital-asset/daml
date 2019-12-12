@@ -24,6 +24,7 @@ import com.digitalasset.jwt.domain.{DecodedJwt, Jwt}
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.v1.value.Record
 import com.digitalasset.ledger.api.v1.{value => v}
+import com.digitalasset.ledger.client.LedgerClient
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest._
 import scalaz.std.list._
@@ -75,11 +76,13 @@ abstract class AbstractHttpServiceIntegrationTest
 
   private val headersWithAuth = List(Authorization(OAuth2BearerToken(jwt.value)))
 
-  protected def withHttpService[A] =
+  protected def withHttpService[A]
+    : ((Uri, DomainJsonEncoder, DomainJsonDecoder) => Future[A]) => Future[A] =
     HttpServiceTestFixture
-      .withHttpService[A](testId, List(dar1, dar2), jdbcConfig, staticContentConfig) _
+      .withHttpService[A](testId, List(dar1, dar2), jdbcConfig, staticContentConfig)
 
-  protected def withLedger[A] = HttpServiceTestFixture.withLedger[A](List(dar1, dar2), testId) _
+  protected def withLedger[A]: (LedgerClient => Future[A]) => Future[A] =
+    HttpServiceTestFixture.withLedger[A](List(dar1, dar2), testId)
 
   "contracts/search GET empty results" in withHttpService { (uri: Uri, _, _) =>
     getRequest(uri = uri.withPath(Uri.Path("/contracts/search")))
@@ -90,7 +93,7 @@ abstract class AbstractHttpServiceIntegrationTest
           inside(output) {
             case JsObject(fields) =>
               inside(fields.get("result")) {
-                case Some(JsArray(vector)) => vector should have size (0L)
+                case Some(JsArray(vector)) => vector should have size 0L
               }
           }
       }: Future[Assertion]
@@ -116,7 +119,7 @@ abstract class AbstractHttpServiceIntegrationTest
               case JsObject(fields) =>
                 inside(fields.get("result")) {
                   case Some(JsArray(vector)) =>
-                    vector should have size (searchDataSet.size.toLong)
+                    vector should have size searchDataSet.size.toLong
                 }
             }
         }: Future[Assertion]
