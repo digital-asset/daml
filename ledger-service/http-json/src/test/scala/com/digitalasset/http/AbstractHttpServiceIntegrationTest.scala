@@ -50,7 +50,10 @@ abstract class AbstractHttpServiceIntegrationTest
 
   import json.JsonProtocol._
 
-  private val dar = requiredFile(rlocation("docs/quickstart-model.dar"))
+  private val dar1 = requiredFile(rlocation("docs/quickstart-model.dar"))
+    .fold(e => throw new IllegalStateException(e), identity)
+
+  private val dar2 = requiredFile(rlocation("ledger-service/http-json/Account.dar"))
     .fold(e => throw new IllegalStateException(e), identity)
 
   private val testId: String = this.getClass.getSimpleName
@@ -73,9 +76,10 @@ abstract class AbstractHttpServiceIntegrationTest
   private val headersWithAuth = List(Authorization(OAuth2BearerToken(jwt.value)))
 
   protected def withHttpService[A] =
-    HttpServiceTestFixture.withHttpService[A](testId, dar, jdbcConfig, staticContentConfig) _
+    HttpServiceTestFixture
+      .withHttpService[A](testId, List(dar1, dar2), jdbcConfig, staticContentConfig) _
 
-  protected def withLedger[A] = HttpServiceTestFixture.withLedger[A](dar, testId) _
+  protected def withLedger[A] = HttpServiceTestFixture.withLedger[A](List(dar1, dar2), testId) _
 
   "contracts/search GET empty results" in withHttpService { (uri: Uri, _, _) =>
     getRequest(uri = uri.withPath(Uri.Path("/contracts/search")))
@@ -242,7 +246,7 @@ abstract class AbstractHttpServiceIntegrationTest
         status shouldBe StatusCodes.OK
         assertStatus(output, StatusCodes.OK)
         val activeContract: JsObject = getResult(output)
-        assertActiveContract(decoder, activeContract, command)
+        assertActiveContract(activeContract)(command, encoder, decoder)
     }: Future[Assertion]
   }
 
@@ -328,8 +332,9 @@ abstract class AbstractHttpServiceIntegrationTest
         exerciseResult.length should be > (0)
         val newContractLocator = domain.EnrichedContractId(
           Some(domain.TemplateId(None, "Iou", "IouTransfer")),
-          domain.ContractId(exerciseResult))
-        postContractsLookup(newContractLocator, encoder, uri).flatMap {
+          domain.ContractId(exerciseResult)
+        )
+        postContractsLookup(newContractLocator, uri).flatMap {
           case (status, output) =>
             status shouldBe StatusCodes.OK
             assertStatus(output, StatusCodes.OK)
@@ -423,16 +428,16 @@ abstract class AbstractHttpServiceIntegrationTest
     }
   }
 
-  private def assertActiveContract(
-      decoder: DomainJsonDecoder,
-      jsObject: JsObject,
-      command: domain.CreateCommand[v.Record]): Assertion = {
+  private def assertActiveContract(jsObject: JsObject)(
+      command: domain.CreateCommand[Record],
+      encoder: DomainJsonEncoder,
+      decoder: DomainJsonDecoder) = {
 
-    inside(decoder.decodeV[domain.ActiveContract](jsObject)) {
+    inside(SprayJson.decode[domain.ActiveContract[JsValue]](jsObject)) {
       case \/-(activeContract) =>
-        inside(activeContract.argument.sum.record) {
-          case Some(argument) => removeRecordId(argument) shouldBe command.argument
-        }
+        val expectedArgument: JsValue =
+          encoder.encodeUnderlyingRecord(command).map(_.argument).getOrElse(fail)
+        (activeContract.argument: JsValue) shouldBe expectedArgument
     }
   }
 
@@ -522,23 +527,43 @@ abstract class AbstractHttpServiceIntegrationTest
       case (status, output) =>
         status shouldBe StatusCodes.OK
         assertStatus(output, StatusCodes.OK)
-        lookupContractAndAssert(getContractId(getResult(output)), command, encoder, decoder, uri)
+        val contractId: ContractId = getContractId(getResult(output))
+        val locator = domain.EnrichedContractId(None, contractId)
+        lookupContractAndAssert(locator)(contractId, command, encoder, decoder, uri)
     }: Future[Assertion]
   }
 
-  private def lookupContractAndAssert(
+  "contracts/lookup by contractKey" in withHttpService { (uri, encoder, decoder) =>
+    val owner = domain.Party("Alice")
+    val accountNumber = "abc123"
+    val command: domain.CreateCommand[v.Record] = accountCreateCommand(owner, accountNumber)
+
+    postCreateCommand(command, encoder, uri).flatMap {
+      case (status, output) =>
+        status shouldBe StatusCodes.OK
+        assertStatus(output, StatusCodes.OK)
+        val contractId: ContractId = getContractId(getResult(output))
+        val locator = domain.EnrichedContractKey(
+          domain.TemplateId(None, "Account", "Account"),
+          JsArray(JsString(owner.unwrap), JsString(accountNumber))
+        )
+        lookupContractAndAssert(locator)(contractId, command, encoder, decoder, uri)
+    }: Future[Assertion]
+  }
+
+  private def lookupContractAndAssert(contractLocator: domain.ContractLocator[JsValue])(
       contractId: ContractId,
       create: domain.CreateCommand[v.Record],
       encoder: DomainJsonEncoder,
       decoder: DomainJsonDecoder,
       uri: Uri): Future[Assertion] =
-    postContractsLookup(domain.EnrichedContractId(None, contractId), encoder, uri).flatMap {
+    postContractsLookup(contractLocator, uri).flatMap {
       case (status, output) =>
         status shouldBe StatusCodes.OK
         assertStatus(output, StatusCodes.OK)
         val result = getResult(output)
         contractId shouldBe getContractId(result)
-        assertActiveContract(decoder, result, create)
+        assertActiveContract(result)(create, encoder, decoder)
     }
 
   protected def getResponseDataBytes(resp: HttpResponse, debug: Boolean = false): Future[String] = {
@@ -588,6 +613,19 @@ abstract class AbstractHttpServiceIntegrationTest
     val arg: Record = v.Record()
     val choice = lar.Choice("Archive")
     domain.ExerciseCommand(templateId, contractId, choice, boxedRecord(arg), None)
+  }
+
+  private def accountCreateCommand(
+      owner: domain.Party,
+      number: String): domain.CreateCommand[v.Record] = {
+    val templateId: OptionalPkg = domain.TemplateId(None, "Account", "Account")
+    val arg: Record = v.Record(
+      fields = List(
+        v.RecordField("owner", Some(v.Value(v.Value.Sum.Party(owner.unwrap)))),
+        v.RecordField("number", Some(v.Value(v.Value.Sum.Text(number)))),
+      ))
+
+    domain.CreateCommand(templateId, arg, None)
   }
 
   private def postJsonStringRequest(
@@ -655,11 +693,10 @@ abstract class AbstractHttpServiceIntegrationTest
     } yield result
 
   private def postContractsLookup(
-      cmd: domain.ContractLocator[v.Value],
-      encoder: DomainJsonEncoder,
+      cmd: domain.ContractLocator[JsValue],
       uri: Uri): Future[(StatusCode, JsValue)] =
     for {
-      json <- toFuture(encoder.encodeV(cmd)): Future[JsValue]
+      json <- toFuture(SprayJson.encode(cmd)): Future[JsValue]
       result <- postJsonRequest(uri.withPath(Uri.Path("/contracts/lookup")), json)
     } yield result
 

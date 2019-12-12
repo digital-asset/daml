@@ -7,6 +7,7 @@ load(
     "da_scala_library",
     "da_scala_test",
 )
+load("//rules_daml:daml.bzl", "daml_compile")
 
 hj_scalacopts = [
     "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
@@ -67,11 +68,17 @@ da_scala_binary(
     deps = [":http-json"] + http_json_deps,
 )
 
+daml_compile(
+  name = "Account",
+  main_src = "src/test/daml/Account.daml",
+)
+
 da_scala_test(
     name = "tests",
     size = "medium",
     srcs = glob(["src/test/scala/**/*.scala"]),
     data = [
+        ":Account.dar",
         "//docs:quickstart-model.dar",
         "@postgresql_dev_env//:all",
     ],

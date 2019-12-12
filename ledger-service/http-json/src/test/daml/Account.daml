@@ -1,0 +1,16 @@
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+daml 1.2
+module Account where
+
+type AccountKey = (Party, Text)
+
+template Account with
+    owner : Party
+    number : Text
+  where
+    signatory owner
+
+    key (owner, number) : AccountKey
+    maintainer key._1
