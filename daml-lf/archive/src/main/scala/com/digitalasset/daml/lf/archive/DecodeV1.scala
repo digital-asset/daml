@@ -263,10 +263,6 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         lfDataType.getSerializable,
         ImmArray(params).map(decodeTypeVarWithKind),
         lfDataType.getDataConsCase match {
-          case PLF.DefDataType.DataConsCase.SYNONYM =>
-            // FIXME https://github.com/digital-asset/daml/issues/3616
-            //assertSince(LV.Features.type_syn, "DefDataType.DataCons.Synonym") //TODO(NICK)
-            throw ParseError("DefDataType.DataCons.Synonym") //TODO(NICK)
           case PLF.DefDataType.DataConsCase.RECORD =>
             DataRecord(decodeFields(ImmArray(lfDataType.getRecord.getFieldsList.asScala)), None)
           case PLF.DefDataType.DataConsCase.VARIANT =>
@@ -551,6 +547,9 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           val tcon = lfType.getCon
           (TTyCon(decodeTypeConName(tcon.getTycon)) /: [Type] tcon.getArgsList.asScala)(
             (typ, arg) => TApp(typ, decodeType(arg)))
+        case PLF.Type.SumCase.SYN =>
+          // FIXME https://github.com/digital-asset/daml/issues/3616
+          throw ParseError("PLF.Type.SumCase.SYN") //TODO
         case PLF.Type.SumCase.PRIM =>
           val prim = lfType.getPrim
           val baseType =

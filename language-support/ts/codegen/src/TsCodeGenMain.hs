@@ -1,6 +1,6 @@
 -- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-module Main (main) where
+module TsCodeGenMain (main) where
 
 import qualified DA.Daml.LF.Proto3.Archive as Archive
 import qualified DA.Daml.LF.Reader as DAR
@@ -121,7 +121,6 @@ genDefDataType curModName tpls def = case unTypeConName (dataTypeCon def) of
     [] -> error "IMPOSSIBLE: empty type constructor name"
     _:_:_ -> error "TODO(MH): multi-part type constructor names"
     [conName] -> case dataCons def of
-        DataSynonym{} -> ((makeType ["unknown;"], makeSer ["jtv.unknownJson,"]), Set.empty)  -- TODO(NICK)
         DataVariant{} -> ((makeType ["unknown;"], makeSer ["jtv.unknownJson,"]), Set.empty)  -- TODO(MH): make variants type safe
         DataEnum{} -> ((makeType ["unknown;"], makeSer ["jtv.unknownJson,"]), Set.empty)  -- TODO(MH): make enum types type safe
         DataRecord fields ->
@@ -228,6 +227,7 @@ genType curModName = go
                     ( con' <> "<" <> T.intercalate ", " ts' <> ">"
                     , ser <> "(" <> T.intercalate ", " sers <> ")"
                     )
+        TSyn _ -> error "TODO: genType, type synonym"
         TCon _ -> error "IMPOSSIBLE: lonely type constructor"
         t@TApp{} -> error $ "IMPOSSIBLE: type application not serializable - " <> DA.Pretty.renderPretty t
         TBuiltin t -> error $ "IMPOSSIBLE: partially applied primitive type not serializable - " <> DA.Pretty.renderPretty t

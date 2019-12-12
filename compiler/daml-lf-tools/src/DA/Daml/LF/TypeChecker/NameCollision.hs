@@ -161,9 +161,6 @@ checkDataType moduleName DefDataType{..} =
             forM_ constrs $ \vconName -> do
                 checkName (NEnumCon moduleName dataTypeCon vconName)
 
-        DataSynonym _ ->
-            checkName (NTypeSynonym moduleName dataTypeCon)
-
 checkTemplate :: ModuleName -> Template -> NCMonad ()
 checkTemplate moduleName Template{..} = do
     forM_ tplChoices $ \TemplateChoice{..} ->
@@ -208,6 +205,7 @@ isAscendant (ModuleName xs) (ModuleName ys) =
 -- name collision condition.
 checkModuleDeps :: World -> Module -> NCMonad ()
 checkModuleDeps world mod0 = do
+    -- TODO(NICK) - check for collisions with TypeSynonyms
     let package = getWorldSelf world
         modules = NM.toList (packageModules package)
         name0 = moduleName mod0

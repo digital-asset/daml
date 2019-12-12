@@ -179,11 +179,12 @@ decodeScenarioModule minorText protoPkg = do
     pure $ head $ NM.toList modules
 
 decodeModule :: LF1.Module -> Decode Module
-decodeModule (LF1.Module name flags dataTypes values templates) =
+decodeModule (LF1.Module name flags synonyms dataTypes values templates) =
   Module
     <$> decodeDottedName ModuleName name
     <*> pure Nothing
     <*> mayDecode "flags" flags decodeFeatureFlags
+    <*> decodeNM DuplicateTypeSyn decodeDefTypeSyn synonyms
     <*> decodeNM DuplicateDataType decodeDefDataType dataTypes
     <*> decodeNM DuplicateValue decodeDefValue values
     <*> decodeNM EDuplicateTemplate decodeDefTemplate templates
@@ -197,6 +198,14 @@ decodeFeatureFlags LF1.FeatureFlags{..} =
       { forbidPartyLiterals = featureFlagsForbidPartyLiterals
       }
 
+decodeDefTypeSyn :: LF1.DefTypeSyn -> Decode DefTypeSyn
+decodeDefTypeSyn LF1.DefTypeSyn{..} =
+  DefTypeSyn
+    <$> traverse decodeLocation defTypeSynLocation
+    <*> decodeDottedName TypeSynName defTypeSynName
+    <*> traverse decodeTypeVarWithKind (V.toList defTypeSynParams)
+    <*> mayDecode "typeSynType" defTypeSynType decodeType
+
 decodeDefDataType :: LF1.DefDataType -> Decode DefDataType
 decodeDefDataType LF1.DefDataType{..} =
   DefDataType
@@ -208,8 +217,6 @@ decodeDefDataType LF1.DefDataType{..} =
 
 decodeDataCons :: LF1.DefDataTypeDataCons -> Decode DataCons
 decodeDataCons = \case
-  LF1.DefDataTypeDataConsSynonym ty ->
-    DataSynonym <$> decodeType ty
   LF1.DefDataTypeDataConsRecord (LF1.DefDataType_Fields fs) ->
     DataRecord <$> mapM (decodeFieldWithType FieldName) (V.toList fs)
   LF1.DefDataTypeDataConsVariant (LF1.DefDataType_Fields fs) ->
@@ -721,6 +728,8 @@ decodeType LF1.Type{..} = mayDecode "typeSum" typeSum $ \case
   LF1.TypeSumNat n -> TNat <$> decodeTypeLevelNat (fromIntegral n)
   LF1.TypeSumCon (LF1.Type_Con mbCon args) ->
     decodeWithArgs args $ TCon <$> mayDecode "type_ConTycon" mbCon decodeTypeConName
+  LF1.TypeSumSyn (LF1.Type_Syn mbSyn args) ->
+    decodeWithArgs args $ TSyn <$> mayDecode "type_SynTysyn" mbSyn decodeTypeSynName
   LF1.TypeSumPrim (LF1.Type_Prim (Proto.Enumerated (Right prim)) args) -> do
     decodeWithArgs args $ TBuiltin <$> decodePrim prim
   LF1.TypeSumPrim (LF1.Type_Prim (Proto.Enumerated (Left idx)) _args) ->
@@ -756,6 +765,12 @@ decodeTypeConApp LF1.Type_Con{..} =
   TypeConApp
     <$> mayDecode "typeConAppTycon" type_ConTycon decodeTypeConName
     <*> mapM decodeType (V.toList type_ConArgs)
+
+decodeTypeSynName :: LF1.TypeSynName -> Decode (Qualified TypeSynName)
+decodeTypeSynName LF1.TypeSynName{..} = do
+  (pref, mname) <- mayDecode "typeSynNameModule" typeSynNameModule decodeModuleRef
+  syn <- decodeDottedName TypeSynName typeSynNameName
+  pure $ Qualified pref mname syn
 
 decodeTypeConName :: LF1.TypeConName -> Decode (Qualified TypeConName)
 decodeTypeConName LF1.TypeConName{..} = do

@@ -112,6 +112,21 @@ message TypeConName {
   }
 }
 
+// A fully qualified reference to a type synonym name.
+message TypeSynName {
+
+  // Module where the type is defined.
+  ModuleRef module = 1;
+
+  oneof name {
+    // type synonym name.
+    DottedName name_dname = 2;
+
+    // *Must be a valid interned name*
+    int32 name_interned_dname = 3; // *Available in versions >= 1.7*
+  }
+}
+
 // A fully qualified reference to a value definition.
 message ValName {
 
@@ -319,6 +334,17 @@ message Type {
     repeated Type args = 2;
   }
 
+  // Fully applied type constructor 'TySyn'
+  // *Available in versions >= 1.dev*
+  message Syn {
+
+    // Name of the type synonym
+    TypeSynName tysyn = 1;
+
+    // Types to which the synonym is applied.
+    repeated Type args = 2;
+  }
+
   // Possibly applied builtin types
   message Prim {
 
@@ -366,6 +392,7 @@ message Type {
     // *Must be between 0 and 37 (bounds inclusive)*
     // use standard signed long for future usage.
     sint64 nat = 11;
+    Syn syn = 12; // *Available in versions >= 1.dev*
   }
 
   reserved 6; // This was list. Removed in favour of PrimType.LIST
@@ -1322,7 +1349,6 @@ message DefDataType {
     Fields record = 3; // Records without fields are explicitly allowed.
     Fields variant = 4; // Variants without constructors are explicitly allowed.
     EnumConstructors enum = 7; // *Available in versions >= 1.6*
-    Type synonym = 9; // *Available in versions >= 1.dev*
   }
 
   // If true, this data type preserves serializability in the sense that when
@@ -1335,6 +1361,25 @@ message DefDataType {
   bool serializable = 5;
 
   Location location = 6;
+}
+
+// Type synonym definition
+message DefTypeSyn {
+
+  // name of the defined type synonym
+  oneof name {
+    DottedName name_dname = 1;
+
+    // *Must be a valid interned name*
+    int32 name_interned_dname = 8; // *Available in versions >= 1.7*
+  }
+
+  // type parameters
+  repeated TypeVarWithKind params = 2;
+
+  Type type = 3; // *Available in versions >= 1.dev*
+
+  Location location = 4;
 }
 
 // Value definition
@@ -1388,6 +1433,7 @@ message Module {
   // repeated string scenario_tests = 3; // Removed in favour of DefValue.is_test.
   reserved 3;
   FeatureFlags flags = 4;
+  repeated DefTypeSyn synonyms = 9;
   repeated DefDataType data_types = 5;
   repeated DefValue values = 6;
   repeated DefTemplate templates = 7;

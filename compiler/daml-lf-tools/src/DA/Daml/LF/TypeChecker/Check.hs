@@ -127,6 +127,7 @@ kindOfBuiltin = \case
 kindOf :: MonadGamma m => Type -> m Kind
 kindOf = \case
   TVar v -> lookupTypeVar v
+  TSyn{} -> error "TODO: kindOf, expand type synonym" -- TODO(NICK)
   TCon tcon -> kindOfDataType <$> inWorld (lookupDataType tcon)
   -- NOTE(MH): Types of the form `(forall f. f) a` are only relevant for
   -- impredicative polymorphism, which we don't support. Since this type
@@ -574,8 +575,6 @@ checkDefDataType (DefDataType _loc _name _serializable params dataCons) = do
       DataEnum names -> do
         unless (null params) $ throwWithContext EEnumTypeWithParams
         checkUnique EDuplicateConstructor names
-      DataSynonym typ -> do -- TODO(NICK): check for cycles
-        typ `checkType` KStar
 
 checkDefValue :: MonadGamma m => DefValue -> m ()
 checkDefValue (DefValue _loc (_, typ) _noParties (IsTest isTest) expr) = do
@@ -627,7 +626,8 @@ checkTemplateKey param tcon TemplateKey{..} = do
 -- The type checker for expressions relies on the fact that data type
 -- definitions do _not_ contain free variables.
 checkModule :: MonadGamma m => Module -> m ()
-checkModule m@(Module _modName _path _flags  dataTypes values templates) = do
+checkModule m@(Module _modName _path _flags _synonyms dataTypes values templates) = do
+  -- TODO(NICK) check type synonyms, including for cycles
   let with ctx f x = withContext (ctx x) (f x)
   traverse_ (with (ContextDefDataType m) checkDefDataType) dataTypes
   traverse_ (with (\t -> ContextTemplate m t TPWhole) $ checkTemplate m) templates
