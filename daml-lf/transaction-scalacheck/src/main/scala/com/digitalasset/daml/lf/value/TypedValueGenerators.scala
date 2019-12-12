@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf
 package value
 
 import scala.language.higherKinds
-import data.{FrontStack, ImmArray, Numeric, Ref, SortedLookupList, Time}
+import data.{FrontStack, ImmArray, ImmArrayCons, Numeric, Ref, SortedLookupList, Time}
 import ImmArray.ImmArraySeq
 import data.DataArbitrary._
 import iface.{DefDataType, Record, Type, TypeCon, TypeConName, TypeNumeric, TypePrim, PrimType => PT}
@@ -160,7 +160,11 @@ object TypedValueGenerators {
         type Inj[Cid] = rec.Inj[Cid]
         override val t = TypeCon(TypeConName(name), ImmArraySeq.empty)
         override def inj[Cid] = hl => ValueRecord(Some(name), (lfvFieldNames zip rec.inj(hl)).to[ImmArray])
-        override def prj[Cid] = ???
+        override def prj[Cid] = {
+          case ValueRecord(_, fields) if fields.length == rec.t.length =>
+            rec.prj(fields)
+          case _ => None
+        }
         override def injarb[Cid: Arbitrary] = ???
         override def injshrink[Cid: Shrink] = ???
       })
@@ -168,7 +172,7 @@ object TypedValueGenerators {
 
     sealed abstract class RecordVa { self =>
       import shapeless.{::, HList, Witness}
-      import shapeless.labelled.{FieldType => :->>:}
+      import shapeless.labelled.{field, FieldType => :->>:}
       type Inj[Cid] <: HList
       def ::[K <: Symbol](h: K :->>: ValueAddend)(implicit ev: Witness.Aux[K])
       : RecordVa.Aux[Lambda[cid => (K :->>: h.Inj[cid]) :: Inj[cid]]] =
@@ -178,16 +182,24 @@ object TypedValueGenerators {
           override val t = (fname, h.t) :: self.t
           override def inj[Cid](v: Inj[Cid]) =
             h.inj(v.head) :: self.inj(v.tail)
-
+          override def prj[Cid](v: ImmArray[(_, Value[Cid])]) = v match {
+            case ImmArrayCons(vh, vt) => for {
+              pvh <- h.prj(vh._2)
+              pvt <- self.prj(vt)
+            } yield field[K](pvh) :: pvt
+            case _ => None
+          }
         }
       val t: List[(Ref.Name, Type)]
       def inj[Cid](v: Inj[Cid]): List[Value[Cid]]
+      def prj[Cid](v: ImmArray[(_, Value[Cid])]): Option[Inj[Cid]]
     }
 
     case object RNil extends RecordVa {
       type Inj[Cid] = shapeless.HNil
       override val t = List.empty
       override def inj[Cid](v: shapeless.HNil) = List.empty
+      override def prj[Cid](v: ImmArray[(_, Value[Cid])]) = Some(shapeless.HNil)
     }
 
     object RecordVa {
