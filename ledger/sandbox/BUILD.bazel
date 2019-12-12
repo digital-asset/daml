@@ -284,3 +284,5 @@ server_conformance_test(
         "--exclude=TimeIT",
     ],
 )
+
+exports_files(["src/main/resources/logback.xml"])
