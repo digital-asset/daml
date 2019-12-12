@@ -65,7 +65,7 @@ afterAll(() => {
   console.log('Killed JSON API');
 });
 
-test('hello', async () => {
+test('create + fetch', async () => {
   const ledger = new Ledger(ALICE_TOKEN, `http://localhost:${JSON_API_PORT}/`);
   const alice: Main.Person = {
     name: 'Alice from Wonderland',
@@ -78,5 +78,30 @@ test('hello', async () => {
   const personContracts = await ledger.fetchAll(Main.Person);
   expect(personContracts).toHaveLength(1);
   expect(personContracts[0]).toEqual(aliceContract);
-});
 
+  const allTypes: Main.AllTypes = {
+    unit: {},
+    bool: true,
+    int: '5',
+    text: 'Hello',
+    date: '2019-04-04',
+    time: '2019-12-31T12:34:56.789Z',
+    party: ALICE_PARTY,
+    contractId: aliceContract.contractId,
+    optional: '5',
+    list: [true, false],
+    textMap: {'alice': '2', 'bob & carl': '3'},
+    monoRecord: alice,
+    polyRecord: {one: '10', two: 'XYZ'},
+    imported: {field: {something: 'pqr'}},
+    archiveX: {},
+    either: {'Right': 'really?'},
+    tuple: {_1: '12', _2: 'mmm'},
+  };
+  const allTypesContract = await ledger.create(Main.AllTypes, allTypes);
+  expect(allTypesContract.argument).toEqual(allTypes);
+
+  const allTypesContracts = await ledger.fetchAll(Main.AllTypes);
+  expect(allTypesContracts).toHaveLength(1);
+  expect(allTypesContracts[0]).toEqual(allTypesContract);
+});
