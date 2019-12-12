@@ -18,6 +18,7 @@ import scalaz.syntax.show._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
 import scalaz.{-\/, @@, Applicative, Show, Tag, Traverse, \/, \/-}
+import scalaz.Isomorphism.{<~>, IsoFunctorTemplate}
 import spray.json.JsValue
 
 import scala.annotation.tailrec
@@ -306,6 +307,14 @@ object domain {
             val G: Applicative[G] = implicitly
             G.point(c)
         }
+      }
+    }
+
+    val structure: ContractLocator <~> InputContractRef = new IsoFunctorTemplate[ContractLocator, InputContractRef] {
+      override def from[A](ga: InputContractRef[A]) = ga.fold((EnrichedContractKey[A] _).tupled, EnrichedContractId.tupled)
+      override def to[A](fa: ContractLocator[A]) = fa match {
+        case EnrichedContractId(otid, cid) => \/-((otid, cid))
+        case EnrichedContractKey(tid, key) => -\/((tid, key))
       }
     }
   }
