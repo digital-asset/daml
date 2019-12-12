@@ -218,8 +218,8 @@ checkModuleDeps world mod0 = do
     checkModule mod0
 
 -- | Check a whole package for name collisions. This is used
--- when building a DAR, which may include many packages that
--- don't depend on each other.
+-- when building a DAR, which may include modules in conflict
+-- that don't depend on each other.
 checkPackage :: Package -> NCMonad ()
 checkPackage = mapM_ checkModule . packageModules
 
