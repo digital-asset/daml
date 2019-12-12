@@ -175,7 +175,7 @@ object TypedValueGenerators {
       import shapeless.labelled.{field, FieldType => :->>:}
       type Inj[Cid] <: HList
       def ::[K <: Symbol](h: K :->>: ValueAddend)(implicit ev: Witness.Aux[K])
-      : RecordVa.Aux[Lambda[cid => (K :->>: h.Inj[cid]) :: Inj[cid]]] =
+      : RecordVa { type Inj[Cid] = (K :->>: h.Inj[Cid]) :: self.Inj[Cid] } =
         new RecordVa {
           private[this] val fname = Ref.Name assertFromString ev.value.name
           type Inj[Cid] = (K :->>: h.Inj[Cid]) :: self.Inj[Cid]
@@ -203,8 +203,6 @@ object TypedValueGenerators {
     }
 
     object RecordVa {
-      type Aux[Inj0[_]] = RecordVa { type Inj[Cid] = Inj0[Cid] }
-
       @SuppressWarnings(Array("org.wartremover.warts.Any"))
       private[value] val sample = {
         import shapeless.syntax.singleton._
