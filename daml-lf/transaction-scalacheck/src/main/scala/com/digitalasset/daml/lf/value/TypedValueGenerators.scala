@@ -192,6 +192,15 @@ object TypedValueGenerators {
 
     object RecordVa {
       type Aux[Inj0[_]] = RecordVa { type Inj[Cid] = Inj0[Cid] }
+
+      @SuppressWarnings(Array("org.wartremover.warts.Any"))
+      private[value] val sample = {
+        import shapeless.syntax.singleton._
+        ('foo ->> ValueAddend.int64) :: ('bar ->> ValueAddend.text) :: RNil
+      }
+      import shapeless.record.Record
+      private[value] val sampleData: sample.Inj[Nothing] =
+        Record(foo = 42L, bar = "hi")
     }
 
   trait PrimInstances[F[_]] {
