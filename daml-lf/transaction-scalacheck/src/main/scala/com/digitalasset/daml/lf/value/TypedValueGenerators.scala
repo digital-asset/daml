@@ -167,14 +167,17 @@ object TypedValueGenerators {
   }
 
     sealed abstract class RecordVa { self =>
-      import shapeless.{::, HList}
+      import shapeless.{::, HList, Witness}
+      import shapeless.labelled.{FieldType => :->>:}
       type Inj[Cid] <: HList
-      def ::(h: (String, ValueAddend)): RecordVa.Aux[Lambda[cid => h._2.Inj[cid] :: Inj[cid]]] =
+      def ::[K <: Symbol](h: K :->>: ValueAddend)(implicit ev: Witness.Aux[K])
+      : RecordVa.Aux[Lambda[cid => (K :->>: h.Inj[cid]) :: Inj[cid]]] =
         new RecordVa {
-          type Inj[Cid] = h._2.Inj[Cid] :: self.Inj[Cid]
-          override val t = (Ref.Name assertFromString h._1, h._2.t) :: self.t
+          private[this] val fname = Ref.Name assertFromString ev.value.name
+          type Inj[Cid] = (K :->>: h.Inj[Cid]) :: self.Inj[Cid]
+          override val t = (fname, h.t) :: self.t
           override def inj[Cid](v: Inj[Cid]) =
-            h._2.inj(v.head) :: self.inj(v.tail)
+            h.inj(v.head) :: self.inj(v.tail)
 
         }
       val t: List[(Ref.Name, Type)]
