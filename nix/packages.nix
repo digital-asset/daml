@@ -134,7 +134,10 @@ in rec {
     yapf = pkgs.python37Packages.yapf;
 
     pex = pkgs.python37Packages.pex;
-    pipenv = pkgs.pipenv;
+    pipenv = import ./tools/pipenv {
+      lib = pkgs.stdenv.lib;
+      python3 = python3;
+    };
 
     sphinx            = pkgs.python37.withPackages (ps: [ps.sphinx ps.sphinx_rtd_theme]);
     sphinx-build      = sphinx;

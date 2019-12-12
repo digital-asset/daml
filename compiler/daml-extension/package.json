@@ -107,11 +107,6 @@
                     "default": "From consent popup",
                     "description": "Controls whether you send DAML usage data to Digital Asset"
                 },
-                "daml.showNewBlogPosts": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Notify when new DAML Driven blog posts are available"
-                },
                 "daml.extraArguments": {
                     "type": "string",
                     "default": "",

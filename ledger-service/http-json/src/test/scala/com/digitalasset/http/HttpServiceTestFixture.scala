@@ -73,6 +73,7 @@ object HttpServiceTestFixture {
           applicationId,
           "localhost",
           httpPort,
+          Config.DefaultWsConfig,
           None,
           contractDao,
           staticContentConfig,

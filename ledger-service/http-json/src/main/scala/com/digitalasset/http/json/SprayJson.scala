@@ -3,6 +3,7 @@
 
 package com.digitalasset.http.json
 
+import com.digitalasset.http.util.ExceptionOps._
 import scalaz.{-\/, Show, \/, \/-}
 import spray.json.{JsValue, JsonReader, _}
 
@@ -32,7 +33,7 @@ object SprayJson {
   }
 
   def parse(str: String): JsonReaderError \/ JsValue =
-    \/.fromTryCatchNonFatal(JsonParser(str)).leftMap(e => JsonReaderError(str, e.getMessage))
+    \/.fromTryCatchNonFatal(JsonParser(str)).leftMap(e => JsonReaderError(str, e.description))
 
   def decode[A: JsonReader](str: String): JsonReaderError \/ A =
     for {
@@ -41,11 +42,11 @@ object SprayJson {
     } yield a
 
   def decode[A: JsonReader](a: JsValue): JsonReaderError \/ A =
-    \/.fromTryCatchNonFatal(a.convertTo[A]).leftMap(e => JsonReaderError(a.toString, e.getMessage))
+    \/.fromTryCatchNonFatal(a.convertTo[A]).leftMap(e => JsonReaderError(a.toString, e.description))
 
   def encode[A: JsonWriter](a: A): JsonWriterError \/ JsValue = {
     import spray.json._
-    \/.fromTryCatchNonFatal(a.toJson).leftMap(e => JsonWriterError(a, e.getMessage))
+    \/.fromTryCatchNonFatal(a.toJson).leftMap(e => JsonWriterError(a, e.description))
   }
 
   def mustBeJsObject(a: JsValue): JsonError \/ JsObject = a match {

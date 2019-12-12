@@ -28,7 +28,7 @@ import com.digitalasset.ledger.api.domain.{
 }
 import com.digitalasset.ledger.api.health.{HealthStatus, Healthy}
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
-import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
+import com.digitalasset.platform.sandbox.EventIdFormatter
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.ActiveContract
 import com.digitalasset.platform.sandbox.stores.deduplicator.Deduplicator
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.{Checkpoint, Rejection}
@@ -164,20 +164,20 @@ class InMemoryLedger(
           s"RecordTime $recordTime is after MaxiumRecordTime ${submitterInfo.maxRecordTime}"))
     } else {
       val toAbsCoid: ContractId => AbsoluteContractId =
-        SandboxEventIdFormatter.makeAbsCoid(trId)
+        EventIdFormatter.makeAbsCoid(trId)
 
       val blindingInfo = Blinding.blind(transaction)
       val mappedDisclosure = blindingInfo.disclosure.map {
-        case (nodeId, v) => SandboxEventIdFormatter.fromTransactionId(trId, nodeId) -> v
+        case (nodeId, v) => EventIdFormatter.fromTransactionId(trId, nodeId) -> v
       }
       val mappedLocalDivulgence = blindingInfo.localDivulgence.map {
-        case (nodeId, v) => SandboxEventIdFormatter.fromTransactionId(trId, nodeId) -> v
+        case (nodeId, v) => EventIdFormatter.fromTransactionId(trId, nodeId) -> v
       }
       val mappedGlobalDivulgence = blindingInfo.globalDivulgence
 
       val mappedTx = transaction
         .mapContractIdAndValue(toAbsCoid, _.mapContractId(toAbsCoid))
-        .mapNodeId(SandboxEventIdFormatter.fromTransactionId(trId, _))
+        .mapNodeId(EventIdFormatter.fromTransactionId(trId, _))
       // 5b. modify the ActiveContracts, while checking that we do not have double
       // spends or timing issues
       val acsRes = acs.addTransaction(
@@ -200,7 +200,7 @@ class InMemoryLedger(
           val recordBlinding =
             blindingInfo.disclosure.map {
               case (nid, parties) =>
-                (SandboxEventIdFormatter.fromTransactionId(trId, nid), parties)
+                (EventIdFormatter.fromTransactionId(trId, nid), parties)
             }
           val entry = LedgerEntry
             .Transaction(

@@ -18,7 +18,7 @@ import com.digitalasset.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.digitalasset.ledger.api.auth.{AuthService, AuthServiceWildcard, Authorizer}
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.health.HealthChecks
-import com.digitalasset.ledger.server.apiserver.{ApiServer, ApiServices, LedgerApiServer}
+import com.digitalasset.platform.apiserver.{ApiServer, ApiServices, LedgerApiServer}
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.sandbox.SandboxServer.{asyncTolerance, createInitialState, logger}

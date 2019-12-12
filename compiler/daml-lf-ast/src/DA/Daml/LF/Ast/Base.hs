@@ -208,6 +208,7 @@ data BuiltinExpr
 
   -- Polymorphic functions
   | BEError                      -- :: ∀a. Text -> a
+  | BEEqualGeneric               -- :: ∀t. t -> t -> Bool
   | BEEqual      !BuiltinType    -- :: t -> t -> Bool, where t is the builtin type
   | BELess       !BuiltinType    -- :: t -> t -> Bool, where t is the builtin type
   | BELessEq     !BuiltinType    -- :: t -> t -> Bool, where t is the builtin type

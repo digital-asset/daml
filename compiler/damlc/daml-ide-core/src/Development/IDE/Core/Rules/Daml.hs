@@ -151,6 +151,20 @@ uriToVirtualResource uri = do
           $ BS.fromString
           $ URI.unEscapeString u
 
+sendFileDiagnostics :: [FileDiagnostic] -> Action ()
+sendFileDiagnostics diags =
+    mapM_ (uncurry sendDiagnostics) (groupSort diags)
+
+-- TODO: Move this to ghcide, perhaps.
+sendDiagnostics :: NormalizedFilePath -> [Diagnostic] -> Action ()
+sendDiagnostics fp diags = do
+    let uri = filePathToUri (fromNormalizedFilePath fp)
+        event = LSP.NotPublishDiagnostics $
+            LSP.NotificationMessage "2.0" LSP.TextDocumentPublishDiagnostics $
+            LSP.PublishDiagnosticsParams uri (List diags)
+            -- ^ This is just 'publishDiagnosticsNotification' from ghcide.
+    sendEvent event
+
 -- | Get an unvalidated DALF package.
 -- This must only be used for debugging/testing.
 getRawDalf :: NormalizedFilePath -> Action (Maybe LF.Package)
@@ -174,6 +188,15 @@ getDlintIdeas f = runMaybeT $ useE GetDlintDiagnostics f
 ideErrorPretty :: Pretty.Pretty e => NormalizedFilePath -> e -> FileDiagnostic
 ideErrorPretty fp = ideErrorText fp . T.pack . HughesPJPretty.prettyShow
 
+finalPackageCheck :: NormalizedFilePath -> LF.Package -> Action (Maybe ())
+finalPackageCheck fp pkg = do
+    case LF.nameCheckPackage pkg of
+        Left e -> do
+            sendFileDiagnostics [ideErrorPretty fp e]
+            pure Nothing
+
+        Right () ->
+            pure $ Just ()
 
 getDalfDependencies :: [NormalizedFilePath] -> MaybeT Action (Map.Map UnitId LF.DalfPackage)
 getDalfDependencies files = do
@@ -210,7 +233,8 @@ generateRawDalfRule =
         fmap (first (coreDiags ++)) $
             case mbCore of
                 Nothing -> return ([], Nothing)
-                Just core -> do
+                Just (safeMode, cgGuts, details) -> do
+                    let core = cgGutsToCoreModule safeMode cgGuts details
                     setPriority priorityGenerateDalf
                     -- Generate the map from package names to package hashes
                     pkgMap <- useNoFile_ GeneratePackageMap
@@ -339,7 +363,7 @@ generateSerializedDalfRule options =
         , runRule = do
             lfVersion <- getDamlLfVersion
             -- build dependencies
-            files <- discardInternalModules . transitiveModuleDeps =<< use_ GetDependencies file
+            files <- discardInternalModules (optMbPackageName options) . transitiveModuleDeps =<< use_ GetDependencies file
             dalfDeps <- uses_ ReadSerializedDalf files
             -- type checking
             pm <- use_ GetParsedModule file
@@ -501,7 +525,7 @@ generateSerializedPackage :: String -> [NormalizedFilePath] -> MaybeT Action LF.
 generateSerializedPackage pkgName rootFiles = do
     fileDeps <- usesE GetDependencies rootFiles
     let allFiles = nubSort $ rootFiles <> concatMap transitiveModuleDeps fileDeps
-    files <- lift $ discardInternalModules allFiles
+    files <- lift $ discardInternalModules (Just pkgName) allFiles
     dalfs <- usesE ReadSerializedDalf files
     lfVersion <- lift getDamlLfVersion
     pure $ buildPackage (Just pkgName) lfVersion dalfs
@@ -545,7 +569,7 @@ generateRawPackageRule options =
     define $ \GenerateRawPackage file -> do
         lfVersion <- getDamlLfVersion
         fs <- transitiveModuleDeps <$> use_ GetDependencies file
-        files <- discardInternalModules (fs ++ [file])
+        files <- discardInternalModules (optMbPackageName options) (fs ++ [file])
         dalfs <- uses_ GenerateRawDalf files
         -- build package
         let pkg = buildPackage (optMbPackageName options) lfVersion dalfs
@@ -556,7 +580,7 @@ generatePackageDepsRule options =
     define $ \GeneratePackageDeps file -> do
         lfVersion <- getDamlLfVersion
         fs <- transitiveModuleDeps <$> use_ GetDependencies file
-        files <- discardInternalModules fs
+        files <- discardInternalModules (optMbPackageName options) fs
         dalfs <- uses_ GenerateDalf files
 
         -- build package
@@ -846,12 +870,12 @@ runScenario scenarioService file ctxId scenario = do
     let vr = VRScenario file (LF.unExprValName scenarioName)
     pure (vr, res)
 
-encodeModuleRule :: Rules ()
-encodeModuleRule =
+encodeModuleRule :: Options -> Rules ()
+encodeModuleRule options =
     define $ \EncodeModule file -> do
         lfVersion <- getDamlLfVersion
         fs <- transitiveModuleDeps <$> use_ GetDependencies file
-        files <- discardInternalModules fs
+        files <- discardInternalModules (optMbPackageName options) fs
         encodedDeps <- uses_ EncodeModule files
         m <- dalfForScenario file
         let (hash, bs) = SS.encodeModule lfVersion m
@@ -932,9 +956,17 @@ getDamlLfVersion :: Action LF.Version
 getDamlLfVersion = envDamlLfVersion <$> getDamlServiceEnv
 
 -- | This operates on file paths rather than module names so that we avoid introducing a dependency on GetParsedModule.
-discardInternalModules :: [NormalizedFilePath] -> Action [NormalizedFilePath]
-discardInternalModules files =
-    pure $ filter (\f -> not $ any (\internalMod -> internalMod `isSuffixOf` fromNormalizedFilePath f) internalModules) files
+discardInternalModules :: Maybe String -> [NormalizedFilePath] -> Action [NormalizedFilePath]
+discardInternalModules mbPackageName files = do
+    stablePackages <- useNoFile_ GenerateStablePackages
+    pure $ filter (shouldKeep stablePackages) files
+  where shouldKeep stablePackages f =
+            not (any (`isSuffixOf` fromNormalizedFilePath f) internalModules) &&
+            not (any (\(unitId, modName) ->
+                          mbPackageName == Just (GHC.unitIdString unitId) &&
+                          moduleNameFile modName `isSuffixOf` fromNormalizedFilePath f)
+                     $ Map.keys stablePackages)
+        moduleNameFile (LF.ModuleName segments) = joinPath (map T.unpack segments) <.> "daml"
 
 internalModules :: [FilePath]
 internalModules = map normalise
@@ -972,7 +1004,7 @@ damlRule opts = do
     getScenarioRootRule
     getDlintDiagnosticsRule
     ofInterestRule opts
-    encodeModuleRule
+    encodeModuleRule opts
     createScenarioContextRule
     getOpenVirtualResourcesRule
     getDlintSettingsRule (optDlintUsage opts)

@@ -96,162 +96,174 @@ and backward compatibility.
 Version 1.0
 ...........
 
- * Introduction date:
+* Introduction date:
 
-      2018-12-11
+    2018-12-11
 
-  * Description:
+* Description:
 
-      Initial version
+    Initial version
 
 Version: 1.1
 ............
 
-  * Introduction date:
+* Introduction date:
 
-      2019-01-25
+    2019-01-25
 
-  * Last amendment date:
+* Description:
 
-      2019-01-29
+  + **Add** support for `option type
+    <https://en.wikipedia.org/wiki/Option_type>`_.
 
-  * Description:
+    For more details, one can refer to the `Abstract Syntax`_,
+    `Operational semantics`_ and `Type system`_ sections. There, the
+    option type is denoted by ``'Optional'`` and populated thanks to
+    the constructor ``'None'`` and ``'Some'``.
 
-    * **Add** support for `option type
-      <https://en.wikipedia.org/wiki/Option_type>`_.
+  + **Add** built-in functions to order party literals.
 
-      For more details, one can refer to the `Abstract Syntax`_,
-      `Operational semantics`_ and `Type system`_ sections. There, the
-      option type is denoted by ``'Option'`` and populated thanks to
-      the constructor ``'None'`` and ``'Some'``.
+    For more details about party literal order functions, one can to
+    `Party built-in functions <Party functions_>`_ section.
 
-    * **Add** built-in functions to order party literals.
+  + **Change** the representation of serialized function
+    type. Deprecate the ``'Fun'`` type in favor of the more general
+    built-in type ``'TArrow'``.
 
-      For more details about party literal order functions, one can to
-      `Party built-in functions <Party functions_>`_ section.
-
-    * **Change** the representation of serialized function
-      type. Deprecate the ``'Fun'`` type in favor of the more general
-      built-in type ``'TArrow'``.
-
-      For more details about the type ``'TArrow'``, one can refer to
-      the sections "`Abstract Syntax`_", "`Operational semantics`_"
-      and "`Type system`_".  For details about the ``'Fun'`` type, one
-      can refer to section `Function type vs arrow type`.
+    For more details about the type ``'TArrow'``, one can refer to the
+    sections "`Abstract Syntax`_", "`Operational semantics`_" and
+    "`Type system`_".  For details about the ``'Fun'`` type, one can
+    refer to section `Function type vs arrow type`.
 
 
 Version: 1.2
 ............
 
-  * Introduction date:
+* Introduction date:
 
-      2019-03-18
+    2019-03-18
 
-  * Last amendment date:
+* Description:
 
-      2019-03-22
+  + **Add** a built-in function to perform `SHA-256
+    <https://en.wikipedia.org/wiki/SHA-2>`_ hashing of strings
 
-  * Description:
+  + **Add** built-in functions to convert from ``'Party'`` to
+    ``'Text'`` and vice versa.
 
-    * **Add** a built-in function to perform `SHA-256
-      <https://en.wikipedia.org/wiki/SHA-2>`_ hashing of strings
-
-    * **Add** built-in functions to convert from ``'Party'`` to
-      ``'Text'`` and vice versa.
-
-    * **Change** the scope when the controllers of a choice are
-      computed. Needed to support the so-called `flexible controllers`_
-      in the surface language
+  + **Change** the scope when the controllers of a choice are
+    computed. Needed to support the so-called `flexible controllers`_
+    in the surface language
 
 
 Version: 1.3
 ............
 
-  * Introduction date:
+* Introduction date:
 
-      2019-03-25
+    2019-03-25
 
-  * Last amendment date:
+* Description:
 
-      2019-03-25
+  + **Add** support for contract keys.
 
-  * **Add** support for contract keys.
-
-  * **Add** support for built-in ``'Map'`` type.
+  + **Add** support for built-in ``'Map'`` type.
 
 Version: 1.4
 ............
 
-  * Introduction date:
+* Introduction date:
 
-      2019-05-21
+    2019-05-21
 
-  * Last amendment date:
+* Description:
 
-      2019-05-21
-
-  * **Add** support for complex contract keys.
+  + **Add** support for complex contract keys.
 
 Version: 1.5
 ............
 
-  * Introduction date:
+* Introduction date:
 
-      2019-05-27
+    2019-05-27
 
-  * **Change** serializability condition for ``ContractId`` such that
+* Description:
+
+  + **Change** serializability condition for ``ContractId`` such that
     ``ContractId a`` is serializable whenever ``a`` is so. This is more
     relaxed than the previous condition.
 
-  * **Add** ``COERCE_CONTRACT_ID`` primitive for coercing ``ContractId``s.
+  + **Add** ``COERCE_CONTRACT_ID`` primitive for coercing ``ContractId``.
 
-  * **Change** ``Update.Exercise`` such that ``actor`` is now optional.
+  + **Change** ``Update.Exercise`` such that ``actor`` is now optional.
 
-  * **Add** ``FROM_TEXT_INT64`` and ``FROM_TEXT_DECIMAL`` primitives for
+  + **Add** ``FROM_TEXT_INT64`` and ``FROM_TEXT_DECIMAL`` primitives for
     parsing integer and decimal values.
 
 Version: 1.6
 ............
 
-  * Introduction date:
+* Introduction date:
 
-      2019-07-01
+    2019-07-01
 
-  * **Add** support for built-in ``'Enum'`` type.
+* Description:
 
-  * **Add** ``TEXT_FROM_CODE_POINTS`` and ``TEXT_TO_CODE_POINTS``
+  + **Add** support for built-in ``'Enum'`` type.
+
+  + **Add** ``TEXT_FROM_CODE_POINTS`` and ``TEXT_TO_CODE_POINTS``
     primitives for (un)packing strings.
 
-  * **Add** package IDs interning in external package references.
+  + **Add** package IDs interning in external package references.
 
 Version: 1.7
 ............
 
-  * **Add** Nat kind and Nat type.
+
+* Introduction date:
+
+    2019-11-07
+
+* Description:
+
+  + **Add** Nat kind and Nat type.
+
     - add `nat` kind
     - add `nat` type
 
-  * **Add** parametrically scaled Numeric type.
+  + **Add** parametrically scaled Numeric type.
+
     - add `NUMERIC` primitive type
     - add `numeric` primitive literal
-    - add numeric builtins, namely  `ADD_NUMERIC`, `SUB_NUMERIC`, `MUL_NUMERIC`, `DIV_NUMERIC`, `ROUND_NUMERIC`, `CAST_NUMERIC`, `SHIFT_NUMERIC`, `LEQ_NUMERIC`, `LESS_NUMERIC`, `GEQ_NUMERIC`, `GREATER_NUMERIC`, `FROM_TEXT_NUMERIC`, `TO_TEXT_NUMERIC`, `INT64_TO_NUMERIC`, `NUMERIC_TO_INT64`, `EQUAL_NUMERIC`
+    - add numeric builtins, namely `ADD_NUMERIC`, `SUB_NUMERIC`,
+      `MUL_NUMERIC`, `DIV_NUMERIC`, `ROUND_NUMERIC`, `CAST_NUMERIC`,
+      `SHIFT_NUMERIC`, `LEQ_NUMERIC`, `LESS_NUMERIC`, `GEQ_NUMERIC`,
+      `GREATER_NUMERIC`, `FROM_TEXT_NUMERIC`, `TO_TEXT_NUMERIC`,
+      `INT64_TO_NUMERIC`, `NUMERIC_TO_INT64`, `EQUAL_NUMERIC`
 
-  * **Drop** support for Decimal type. Use Numeric of scale 10 instead.
+  + **Drop** support for Decimal type. Use Numeric of scale 10 instead.
+
     - drop `DECIMAL` primitive type
     - drop `decimal` primitive literal
-    - drop decimal builtins, namely  `ADD_DECIMAL`, `SUB_DECIMAL`, `MUL_DECIMAL`, `DIV_DECIMAL`, `ROUND_DECIMAL`, `LEQ_DECIMAL`, `LESS_DECIMAL`, `GEQ_DECIMAL`, `GREATER_DECIMAL`, `FROM_TEXT_DECIMAL`, `TO_TEXT_DECIMAL`, `INT64_TO_DECIMAL`, `DECIMAL_TO_INT64`, `EQUAL_DECIMAL`
+    - drop decimal builtins, namely `ADD_DECIMAL`, `SUB_DECIMAL`,
+      `MUL_DECIMAL`, `DIV_DECIMAL`, `ROUND_DECIMAL`, `LEQ_DECIMAL`,
+      `LESS_DECIMAL`, `GEQ_DECIMAL`, `GREATER_DECIMAL`,
+      `FROM_TEXT_DECIMAL`, `TO_TEXT_DECIMAL`, `INT64_TO_DECIMAL`,
+      `DECIMAL_TO_INT64`, `EQUAL_DECIMAL`
 
-  * **Add** string interning in external package references.
+  + **Add** string interning in external package references.
 
-  * **Add** name interning in external package references.
+  + **Add** name interning in external package references.
 
-  * **Add** existential ``Any`` type
+  + **Add** existential ``Any`` type
+
     - add `'Any'` primitive type
-    - add `'to_an'y` and `'from_any'` expression to convert from/to
-      an arbitrary ground type (i.e. a type with no free type variables)
-       to ``Any``.
+    - add `'to_an'y` and `'from_any'` expression to convert from/to an
+      arbitrary ground type (i.e. a type with no free type variables)
+      to ``Any``.
 
-  * **Add** for Type representation.
+  + **Add** for Type representation.
+
     - add `'TypeRep'` primitive type
     - add `type_rep` expression to reify a arbitrary ground type
       (i.e. a type with no free type variables) to a value.
@@ -259,15 +271,15 @@ Version: 1.7
 Version: 1.dev
 ..............
 
-  * **Rename** structural records from ``Tuple`` to ``Struct``
+  + **Rename** structural records from ``Tuple`` to ``Struct``
 
-  * **Rename** ``Map`` to ``TextMap``
+  + **Rename** ``Map`` to ``TextMap``
 
-  * **Add** generic equality builtin.
+  + **Add** generic equality builtin.
 
-  * **Add** generic map type ``GenMap``.
+  + **Add** generic map type ``GenMap``.
 
-  * **Add** type synonyms.
+  + **Add** type synonyms.
 
 Abstract syntax
 ^^^^^^^^^^^^^^^
@@ -376,7 +388,8 @@ US-ASCII characters (See the rules `PackageIdChar` and `PartyIdChar`
 below for the exact sets of characters). We use those string in
 instances when we want to avoid empty identifiers, escaping problems,
 and other similar pitfalls. ::
-PackageId strings
+
+  PackageId strings
    PackageIdString ::= ' PackageIdChars '             -- PackageIdString
 
   Sequences of PackageId character
@@ -564,7 +577,7 @@ Then we can define our kinds, types, and expressions::
        |  'Unit'                                    -- BTyUnit
        |  'Bool'                                    -- BTyBool
        |  'List'                                    -- BTyList
-       |  'Option'                                  -- BTyOption
+       |  'Optional'                                -- BTyOptional
        |  'TextMap'                                 -- BTTextMap: map with string keys
        |  'GenMap'                                  -- BTGenMap: map with general value keys
        |  'Update'                                  -- BTyUpdate
@@ -612,10 +625,10 @@ Then we can define our kinds, types, and expressions::
        |  ⟨ e₁ 'with' f = e₂ ⟩                      -- ExpStructUpdate: Struct update
        |  'Nil' @τ                                  -- ExpListNil: Empty list
        |  'Cons' @τ e₁ e₂                           -- ExpListCons: Cons list
-       |  'None' @τ                                 -- ExpOptionNone: Empty Option
-       |  'Some' @τ e                               -- ExpOptionSome: Non-empty Option
+       |  'None' @τ                                 -- ExpOptionalNone: Empty Optional
+       |  'Some' @τ e                               -- ExpOptionalSome: Non-empty Optional
        |  [t₁ ↦ e₁; …; tₙ ↦ eₙ]                     -- ExpTextMap
-       | 〚e₁ ↦ e₁; …; eₙ ↦ eₙ'〛                 -- ExpGenMap
+       | 〚e₁ ↦ e₁; …; eₙ ↦ eₙ'〛                    -- ExpGenMap
        | 'to_any' @τ t                              -- ExpToAny: Wrap a value of the given type in Any
        | 'from_any' @τ t                            -- ExpToAny: Extract a value of the given from Any or return None
        | 'type_rep' @τ                              -- ExpToTypeRep: A type representation
@@ -650,7 +663,7 @@ Then we can define our kinds, types, and expressions::
 .. note:: The explicit syntax for maps (cases ``ExpTextMap`` and
   ``ExpGenMap``) is forbidden in serialized programs. It is specifies
   here to ease the definition of `values`_, `operational semantics`_
-  and `generic equality`_. In practice, `text map functions`_ and
+  and `value equality`_. In practice, `text map functions`_ and
   `generic map functions`_ are the only way to create and handle those
   objects.
 
@@ -793,10 +806,16 @@ First, we formally defined *well-formed types*. ::
     ————————————————————————————————————————————— TyForall
       Γ  ⊢  ∀ α : k . τ  :  ⋆
 
-    ————————————————————————————————————————————— TyInt64
+    ————————————————————————————————————————————— TyArrow
       Γ  ⊢  'TArrow' : ⋆ → ⋆
 
-    ————————————————————————————————————————————— TyInt64
+    ————————————————————————————————————————————— TyUnit
+      Γ  ⊢  'Unit' : ⋆
+
+    ————————————————————————————————————————————— TyBool
+      Γ  ⊢  'Bool' : ⋆
+
+   ————————————————————————————————————————————— TyInt64
       Γ  ⊢  'Int64' : ⋆
 
     ————————————————————————————————————————————— TyNumeric
@@ -814,20 +833,11 @@ First, we formally defined *well-formed types*. ::
     ————————————————————————————————————————————— TyParty
       Γ  ⊢  'Party' : ⋆
 
-    ————————————————————————————————————————————— TyUnit
-      Γ  ⊢  'Unit' : ⋆
-
-    ————————————————————————————————————————————— TyBool
-      Γ  ⊢  'Bool' : ⋆
-
-    ————————————————————————————————————————————— TyDate
-      Γ  ⊢  'Date' : ⋆
-
     ————————————————————————————————————————————— TyList
       Γ  ⊢  'List' : ⋆ → ⋆
 
-    ————————————————————————————————————————————— TyOption
-      Γ  ⊢  'Option' : ⋆ → ⋆
+    ————————————————————————————————————————————— TyOptional
+      Γ  ⊢  'Optional' : ⋆ → ⋆
 
     ————————————————————————————————————————————— TyTextMap
       Γ  ⊢  'TextMap' : ⋆ → ⋆
@@ -867,7 +877,6 @@ First, we formally defined *well-formed types*. ::
       Γ  ⊢  τ₁ : k₁  …  Γ  ⊢  τₙ : kₙ
     ————————————————————————————————————————————— TyTypeSynonym
       Γ  ⊢  Mod:T τ₁ … τₙ  :  ⋆
-
 
 
 
@@ -1022,7 +1031,7 @@ Then we define *well-formed expressions*. ::
     ——————————————————————————————————————————————————————————————— ExpTypeSynonym
       Γ  ⊢  e : Mod:T τ₁ … τₙ
 
-      Γ  ⊢  e₁  :  τ₁      …      Γ  ⊢  eₘ  :  τₘ
+      Γ  ⊢  e₁  :  τ₁      ⋯      Γ  ⊢  eₘ  :  τₘ
     ——————————————————————————————————————————————————————————————— ExpStructCon
       Γ  ⊢  ⟨ f₁ = e₁, …, fₘ = eₘ ⟩  :  ⟨ f₁: τ₁, …, fₘ: τₘ ⟩
 
@@ -1057,11 +1066,11 @@ Then we define *well-formed expressions*. ::
     ——————————————————————————————————————————————————————————————— ExpCaseCons
       Γ  ⊢  'case' e₁ 'of' Cons xₕ xₜ → e₂  :  σ
 
-      Γ  ⊢  e₁  : 'Option' τ      Γ  ⊢  e₂  :  σ
+      Γ  ⊢  e₁  : 'Optional' τ      Γ  ⊢  e₂  :  σ
     ——————————————————————————————————————————————————————————————— ExpCaseNone
       Γ  ⊢  'case' e₁ 'of' 'None' → e₂ : σ
 
-      Γ  ⊢  e₁  : 'Option' τ      Γ  ⊢  x : τ · Γ  ⊢  e₂  :  σ
+      Γ  ⊢  e₁  : 'Optional' τ      Γ  ⊢  x : τ · Γ  ⊢  e₂  :  σ
     ——————————————————————————————————————————————————————————————— ExpCaseSome
       Γ  ⊢  'case' e₁ 'of' 'Some' x → e₂  :  σ
 
@@ -1141,7 +1150,7 @@ Then we define *well-formed expressions*. ::
     ——————————————————————————————————————————————————————————————— UpdLookupByKey
       Γ  ⊢  'lookup_by_key' @Mod:T e
               :
-	    'Update' ('Option' (ContractId Mod:T))
+	    'Update' ('Optional' (ContractId Mod:T))
 
       Γ  ⊢  e  :  'Update' τ
     ——————————————————————————————————————————————————————————————— UpdEmbedExpr
@@ -1177,8 +1186,8 @@ types are the types whose values can be persisted on the ledger. ::
       ⊢ₛ  'List' τ
 
       ⊢ₛ  τ
-    ———————————————————————————————————————————————————————————————— STyOption
-      ⊢ₛ  'Option' τ
+    ———————————————————————————————————————————————————————————————— STyOptional
+      ⊢ₛ  'Optional' τ
 
     ———————————————————————————————————————————————————————————————— STyInt64
       ⊢ₛ  'Int64'
@@ -1252,7 +1261,7 @@ for the ``DefTemplate`` rule). ::
                           └────────┘
 
     αₙ : kₙ · ⋯ · α₁ : k₁  ⊢  τ₁  :  ⋆
-     ⋮
+       ⋮
     αₙ : kₙ · ⋯ · α₁ : k₁  ⊢  τₘ  :  ⋆
   ——————————————————————————————————————————————————————————————— DefRec
     ⊢  'record' T (α₁: k₁) … (αₙ: kₙ) ↦ { f₁: τ₁, …, fₘ: τₘ }
@@ -1280,7 +1289,7 @@ for the ``DefTemplate`` rule). ::
     x : Mod:T  ⊢  eₛ  :  'List' 'Party'
     x : Mod:T  ⊢  eₒ  :  'List' 'Party'
     x : Mod:T  ⊢  eₐ  :  'Text'
-    x : Mod:T  ⊢  ChDef₁      …      x : Mod:T  ⊢  ChDefₘ
+    x : Mod:T  ⊢  ChDef₁      ⋯      x : Mod:T  ⊢  ChDefₘ
     x : Mod:T  ⊢  KeyDef
   ——————————————————————————————————————————————————————————————— DefTemplate
     ⊢  'tpl' (x : T) ↦
@@ -1314,7 +1323,7 @@ for the ``DefTemplate`` rule). ::
   ——————————————————————————————————————————————————————————————— ExpRecProj
     ⊢ₖ  Mod:T @τ₁ … @τₙ {f} e
 
-    ⊢ₖ  e₁    …    ⊢ₖ eₘ
+    ⊢ₖ  e₁    ⋯    ⊢ₖ eₘ
   ———————————————————————————————————————————————————————————————— ExpRecCon
     ⊢ₖ  Mod:T @σ₁ … @σₙ { f₁ = e₁, …, fₘ = eₘ }
 
@@ -1543,21 +1552,21 @@ need to be evaluated further. ::
    ——————————————————————————————————————————————————— ValExpListCons
      ⊢ᵥ  'Cons' @τ eₕ eₜ
 
-   ——————————————————————————————————————————————————— ValExpOptionNone
+   ——————————————————————————————————————————————————— ValExpOptionalNone
      ⊢ᵥ  'None' @τ
 
      ⊢ᵥ  e
-   ——————————————————————————————————————————————————— ValExpOptionSome
+   ——————————————————————————————————————————————————— ValExpOptionalSome
      ⊢ᵥ  'Some' @τ e
 
      ⊢ᵥ  e₁    ⋯    ⊢ᵥ eₙ
    ——————————————————————————————————————————————————— ValExpTextMap
-     ⊢ᵥ  [t₁ ↦ e₁; ⋯ ; tₙ ↦ eₙ]
+     ⊢ᵥ  [t₁ ↦ e₁; … ; tₙ ↦ eₙ]
 
      ⊢ᵥ  e₁    ⋯    ⊢ᵥ eₙ
      ⊢ᵥ  e₁'   ⋯    ⊢ᵥ eₙ'
    ——————————————————————————————————————————————————— ValExpGenMap
-     ⊢ᵥ  〚e₁ ↦ e₁'; ⋯ ; eₙ ↦ eₙ'〛
+     ⊢ᵥ  〚e₁ ↦ e₁'; … ; eₙ ↦ eₙ'〛
 
      0 ≤ k < m
      𝕋(F) = ∀ (α₁: ⋆) … (αₘ: ⋆). σ₁ → … → σₙ → σ
@@ -1700,9 +1709,9 @@ check. This is a partial equivalence relation over all values, but a
 (total) equivalence relation over serialized values. This relation
 will always be used to compare values of same types::
 
-                                  ┌────────┐
-  Generic Equivalence Relation    │ v ~ᵥ w │
-                                  └────────┘
+                                ┌────────┐
+  Value Equivalence Relation    │ v ~ᵥ w │
+                                └────────┘
 
   ——————————————————————————————————————————————————— GenEqUnit
    () ~ᵥ ()
@@ -1739,14 +1748,14 @@ will always be used to compare values of same types::
   ——————————————————————————————————————————————————— GenEqListCons
    'Cons' @τ vₕ vₜ  ~ᵥ 'Cons' @τ wₜ wₜ
 
-  ——————————————————————————————————————————————————— GenEqOptionNone
+  ——————————————————————————————————————————————————— GenEqOptionalNone
    'None' @τ ~ᵥ 'None' @σ
 
    v ~ᵥ w
-  ——————————————————————————————————————————————————— GenEqOptionSome
+  ——————————————————————————————————————————————————— GenEqOptionalSome
    'Some' @τ v ~ᵥ 'Some' @σ w
 
-   v₁ ~ᵥ v₁     …       vₘ ~ᵥ wₘ
+   v₁ ~ᵥ v₁     ⋯       vₘ ~ᵥ wₘ
   ——————————————————————————————————————————————————— GenEqRecCon
   Mod:T @τ1 … @τₙ { f₁ = v₁, …, fₙ = wₘ }
     ~ᵥ Mod:T @σ₁ … @σₙ { f₁ = w₁, …, fₙ = wₘ }
@@ -1758,15 +1767,15 @@ will always be used to compare values of same types::
   ——————————————————————————————————————————————————— GenEqEnumCon
    Mod:T:E ~ᵥ Mod:T:E
 
-   v₁ ~ᵥ w₁     …       vₙ ~ᵥ wₙ
+   v₁ ~ᵥ w₁     ⋯       vₙ ~ᵥ wₙ
   ——————————————————————————————————————————————————— GenEqStructCon
    ⟨ f₁ = v₁, …, fₘ = vₘ ⟩ ~ᵥ ⟨ f₁ = w₁, …, fₘ = wₘ ⟩
 
 
-    ∀ i ∈ 1 ⋯ m, ∃ j ∈ 1 ⋯ m, vⱼ ~ vₘ  v(vⱼ) = w(vₘ)
+    ∀ i ∈ 1,…, m . ∃ j ∈ 1, …,m . vⱼ ~ vₘ ∧ v(vⱼ) = w(vₘ)
 
 
-    v₁ ~ᵥ w₁     …       vₙ ~ᵥ wₙ
+    v₁ ~ᵥ w₁     ⋯       vₙ ~ᵥ wₙ
   ——————————————————————————————————————————————————— GenEqTextMap
    [ t₁ ↦ v₁, …, tₘ ↦ vₘ ]
      ~ᵥ  [s₁ ↦ w₁, …, sₘ ↦ wₘ]
@@ -2702,7 +2711,7 @@ ContractId functions
   Returns ``'True'`` if the first contact id is equal to the second,
   ``'False'`` otherwise.
 
-  [*Available in version < 1.dev*]
+  [*Available in versions < 1.dev*]
 
 * ``COERCE_CONTRACT_ID  : ∀ (α : ⋆) (β : ⋆) . 'ContractId' α → 'ContractId' β``
 
@@ -3167,7 +3176,7 @@ validation phases can be distinguished.
 
 * The second phase occurs after the deserialization, on the complete
   abstract syntax tree of the package. It is concerned with the
-  `well-formedness <Well formed packages_>`_ of the package.
+  `well-formedness <Well-formed packages_>`_ of the package.
 
 SHA-256 Hashing
 ...............
@@ -3204,9 +3213,9 @@ TextMap
 [*Available in versions >= 1.3*]
 
 The deserialization process will reject any DAML-LF 1.2 (or earlier)
-program using the builtin functions : ``TEXTMAP_EMPTY``,
-``TEXTMAP_INSERT``, ``TEXTMAP_LOOKUP``, ``TEXTMAP_DELETE``,
-``TEXTMAP_LIST``, ``TEXTMAP_SIZE``,
+program using the builtin type ``TEXTMAP`` or the builtin functions
+``TEXTMAP_EMPTY``, ``TEXTMAP_INSERT``, ``TEXTMAP_LOOKUP``,
+``TEXTMAP_DELETE``, ``TEXTMAP_LIST``, ``TEXTMAP_SIZE``,
 
 ``'TextMap'`` was called ``'Map'`` in versions <= 1.dev.
 
@@ -3380,6 +3389,16 @@ type representation.
 The deserialization process will reject any DAML-LF 1.0 program using
 this data structure.
 
+Generic Map
+............
+
+[*Available in versions >= 1.dev*]
+
+The deserialization process will reject any DAML-LF 1.7 (or earlier)
+program using the builtin type ``GENMAP`` or the functions
+``GENMAP_EMPTY``, ``GENMAP_INSERT``, ``GENMAP_LOOKUP``,
+``GENMAP_DELETE``, ``GENMAP_KEYS``, ``GENMAP_VALUES``,
+``GENMAP_SIZE``.
 
 
 .. Local Variables:

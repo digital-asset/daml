@@ -53,6 +53,10 @@ main = do
       writePackage ghcTypes optOutputPath
     ModuleName ["GHC", "Prim"] ->
       writePackage ghcPrim optOutputPath
+    ModuleName ["GHC", "Tuple"] ->
+      writePackage ghcTuple optOutputPath
+    ModuleName ["DA", "Types"] ->
+      writePackage daTypes optOutputPath
     _ -> fail $ "Unknown module: " <> show optModule
 
 lfVersion :: Version
@@ -111,3 +115,71 @@ ghcPrim = Module
       , dvalBody = EEnumCon (qual (dataTypeCon dataVoid)) conName
       }
 
+daTypes :: Module
+daTypes = Module
+  { moduleName = modName
+  , moduleSource = Nothing
+  , moduleFeatureFlags = daml12FeatureFlags
+  , moduleTemplates = NM.empty
+  , moduleDataTypes = types
+  , moduleValues = values
+  }
+  where
+    modName = mkModName ["DA", "Types"]
+    types = NM.fromList $
+      (DefDataType Nothing (mkTypeCon ["Either"]) (IsSerializable True) eitherTyVars $
+         DataVariant [(mkVariantCon "Left", TVar aTyVar), (mkVariantCon "Right", TVar bTyVar)]
+      ) : map tupleN [2..20]
+    tupleN n = DefDataType
+      Nothing
+      (tupleTyName n)
+      (IsSerializable True)
+      [(tupleTyVar i, KStar) | i <- [1..n]]
+      (DataRecord [(mkIndexedField i, TVar (tupleTyVar i)) | i <- [1..n]])
+    aTyVar = mkTypeVar "a"
+    bTyVar = mkTypeVar "b"
+    eitherTyVars = [(aTyVar, KStar), (bTyVar, KStar)]
+    eitherTyConApp = TypeConApp (Qualified PRSelf modName (mkTypeCon ["Either"])) [TVar aTyVar, TVar bTyVar]
+    eitherTy = typeConAppToType eitherTyConApp
+    values = NM.fromList $ eitherWorkers ++ tupleWorkers
+    eitherWorkers =
+      [ DefValue Nothing (mkWorkerName "Left", mkTForalls eitherTyVars (TVar aTyVar :-> eitherTy)) (HasNoPartyLiterals True) (IsTest False) $
+          mkETyLams eitherTyVars (ETmLam (mkVar "a", TVar aTyVar) (EVariantCon eitherTyConApp (mkVariantCon "Left") (EVar $ mkVar "a")))
+      , DefValue Nothing (mkWorkerName "Right", mkTForalls eitherTyVars (TVar bTyVar :-> eitherTy)) (HasNoPartyLiterals True) (IsTest False) $
+          mkETyLams eitherTyVars (ETmLam (mkVar "b", TVar bTyVar) (EVariantCon eitherTyConApp (mkVariantCon "Right") (EVar $ mkVar "b")))
+      ]
+    tupleTyVar i = mkTypeVar ("t" <> T.pack (show i))
+    tupleTyVars n = [(tupleTyVar i, KStar) | i <- [1..n]]
+    tupleTyName n = mkTypeCon ["Tuple" <> T.pack (show n)]
+    tupleTyConApp n = TypeConApp (Qualified PRSelf modName (tupleTyName n)) (map (TVar . tupleTyVar) [1..n])
+    tupleTy = typeConAppToType . tupleTyConApp
+    tupleTmVar i = mkVar $ "a" <> T.pack (show i)
+    tupleWorker n = DefValue Nothing (mkWorkerName $ "Tuple" <> T.pack (show n), mkTForalls (tupleTyVars n) (mkTFuns (map (TVar . tupleTyVar) [1..n]) $ tupleTy n)) (HasNoPartyLiterals True) (IsTest False) $
+      mkETyLams (tupleTyVars n) $ mkETmLams [(tupleTmVar i, TVar $ tupleTyVar i) | i <- [1..n]] $
+      ERecCon (tupleTyConApp n) [(mkIndexedField i, EVar $ tupleTmVar i) | i <- [1..n]]
+    tupleWorkers = map tupleWorker [2..20]
+
+ghcTuple :: Module
+ghcTuple = Module
+  { moduleName = modName
+  , moduleSource = Nothing
+  , moduleFeatureFlags = daml12FeatureFlags
+  , moduleTemplates = NM.empty
+  , moduleDataTypes = types
+  , moduleValues = values
+  }
+  where
+    modName = mkModName ["GHC", "Tuple"]
+    tyVar = mkTypeVar "a"
+    tyVars = [(tyVar, KStar)]
+    unitTyCon = mkTypeCon ["Unit"]
+    unitTyConApp = TypeConApp (Qualified PRSelf modName unitTyCon) [TVar tyVar]
+    unitTy = typeConAppToType unitTyConApp
+    types = NM.fromList
+      [ DefDataType Nothing unitTyCon (IsSerializable True) tyVars $
+          DataRecord [(mkIndexedField 1, TVar tyVar)]
+      ]
+    values = NM.fromList
+      [ DefValue Nothing (mkWorkerName "Unit", mkTForalls tyVars (TVar tyVar :-> unitTy)) (HasNoPartyLiterals True) (IsTest False) $
+          mkETyLams tyVars $ mkETmLams [(mkVar "a", TVar tyVar)] (ERecCon unitTyConApp [(mkIndexedField 1, EVar $ mkVar "a")])
+      ]

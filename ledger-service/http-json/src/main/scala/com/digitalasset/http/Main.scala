@@ -85,6 +85,7 @@ object Main extends StrictLogging {
         config.applicationId,
         config.address,
         config.httpPort,
+        Config.DefaultWsConfig,
         config.accessTokenFile,
         contractDao,
         config.staticContentConfig,

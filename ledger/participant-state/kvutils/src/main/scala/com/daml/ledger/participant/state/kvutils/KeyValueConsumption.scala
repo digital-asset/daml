@@ -104,7 +104,7 @@ object KeyValueConsumption {
               case DamlPartyAllocationRejectionEntry.ReasonCase.PARTICIPANT_NOT_AUTHORIZED =>
                 "Participant is not authorized to allocate a party"
               case DamlPartyAllocationRejectionEntry.ReasonCase.REASON_NOT_SET =>
-                sys.error("logEntryToUpdate: DamlPartyAllocationRejectionEntry.REASON_NOT_SET!")
+                "Unknown reason"
             }
           )
         )
@@ -196,6 +196,7 @@ object KeyValueConsumption {
             rejEntry.getSubmitterCannotActViaParticipant.getDetails
           )
         case DamlTransactionRejectionEntry.ReasonCase.REASON_NOT_SET =>
+          //TODO: Replace with "Unknown reason" error code or something similar
           throw Err.InternalError("transactionRejectionEntryToUpdate: REASON_NOT_SET!")
       }
     )

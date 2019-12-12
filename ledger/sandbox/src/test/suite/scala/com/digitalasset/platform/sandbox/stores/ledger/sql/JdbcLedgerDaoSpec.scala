@@ -437,6 +437,8 @@ class JdbcLedgerDaoSpec
           secondDescription,
           secondDescription,
           secondDescription,
+          secondDescription,
+          secondDescription,
           secondDescription)
       }
     }

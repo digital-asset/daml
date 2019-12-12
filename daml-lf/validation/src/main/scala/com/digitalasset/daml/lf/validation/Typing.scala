@@ -403,7 +403,7 @@ private[validation] object Typing {
         val DDataType(_, tparams, dataCons) = lookupDataType(ctx, tyCon)
         if (tparams.length != tArgs.length) throw ETypeConAppWrongArity(ctx, tparams.length, app)
         (tArgs.iterator zip tparams.values).foreach((checkType _).tupled)
-        TypeSubst((tparams.keys zip tArgs.iterator).toMap).apply(dataCons)
+        TypeSubst.substitute((tparams.keys zip tArgs.iterator).toMap, dataCons)
     }
 
     def checkType(typ: Type, kind: Kind): Unit = {
@@ -524,7 +524,7 @@ private[validation] object Typing {
       typeOf(expr) match {
         case TForall((v, k), body) =>
           checkType(typ, k)
-          TypeSubst(v -> typ)(body)
+          TypeSubst.substitute(Map(v -> typ), body)
         case typ0 =>
           throw EExpectedUniversalType(ctx, typ0)
       }
@@ -542,12 +542,13 @@ private[validation] object Typing {
         val DDataType(_, tparams, dataCons) = lookupDataType(ctx, patnTCon)
         dataCons match {
           case DataVariant(variantCons) =>
-            val conArgType = variantCons.lookup(con, EUnknownVariantCon(ctx, con))
+            val conArgType0 = variantCons.lookup(con, EUnknownVariantCon(ctx, con))
             scrutType match {
               case TTyConApp(scrutTCon, scrutTArgs) =>
                 if (scrutTCon != patnTCon) throw ETypeConMismatch(ctx, patnTCon, scrutTCon)
-                val subst = TypeSubst((tparams.map(_._1) zip scrutTArgs).toMap)
-                introExprVar(varName, subst(conArgType))
+                val conArgType =
+                  TypeSubst.substitute((tparams.map(_._1) zip scrutTArgs).toMap, conArgType0)
+                introExprVar(varName, conArgType)
               case _ =>
                 throw EExpectedDataType(ctx, scrutType)
             }

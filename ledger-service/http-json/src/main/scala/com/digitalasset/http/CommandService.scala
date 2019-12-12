@@ -13,6 +13,7 @@ import com.digitalasset.http.domain.{
   Contract,
   CreateCommand,
   ExerciseCommand,
+  ExerciseResponse,
   JwtPayload
 }
 import com.digitalasset.http.util.ClientUtil.uniqueCommandId
@@ -36,6 +37,7 @@ class CommandService(
     resolveTemplateId: PackageService.ResolveTemplateId,
     resolveChoiceRecordId: PackageService.ResolveChoiceRecordId,
     submitAndWaitForTransaction: LedgerClientJwt.SubmitAndWaitForTransaction,
+    submitAndWaitForTransactionTree: LedgerClientJwt.SubmitAndWaitForTransactionTree,
     timeProvider: TimeProvider,
     defaultTimeToLive: Duration = 30.seconds)(implicit ec: ExecutionContext)
     extends StrictLogging {
@@ -57,20 +59,36 @@ class CommandService(
   private def liftET[A](fa: Future[A]): EitherT[Future, Error, A] = EitherT.rightT(fa)
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  def exercise(jwt: Jwt, jwtPayload: JwtPayload, input: ExerciseCommand[lav1.value.Record])
-    : Future[Error \/ List[Contract[lav1.value.Value]]] = {
+  def exercise(jwt: Jwt, jwtPayload: JwtPayload, input: ExerciseCommand[lav1.value.Value])
+    : Future[Error \/ ExerciseResponse[lav1.value.Value]] = {
 
-    val et: EitherT[Future, Error, List[Contract[lav1.value.Value]]] = for {
+    val et: EitherT[Future, Error, ExerciseResponse[lav1.value.Value]] = for {
       command <- EitherT.either(exerciseCommand(input))
       request = submitAndWaitRequest(jwtPayload, input.meta, command)
-      response <- liftET(logResult('exercise, submitAndWaitForTransaction(jwt, request)))
+      response <- liftET(logResult('exercise, submitAndWaitForTransactionTree(jwt, request)))
+      exerciseResult <- EitherT.either(exerciseResult(response))
       contracts <- EitherT.either(contracts(response))
-    } yield contracts
+    } yield ExerciseResponse(exerciseResult, contracts)
 
     et.run
   }
 
-  def eitherT[A](fa: Future[A]): Future[Error \/ A] = fa.map(a => \/-(a))
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
+  def exerciseWithResult(
+      jwt: Jwt,
+      jwtPayload: JwtPayload,
+      input: ExerciseCommand[lav1.value.Value]): Future[Error \/ lav1.value.Value] = {
+
+    val et: EitherT[Future, Error, lav1.value.Value] = for {
+      command <- EitherT.either(exerciseCommand(input))
+      request = submitAndWaitRequest(jwtPayload, input.meta, command)
+      response <- liftET(
+        logResult('exerciseWithResult, submitAndWaitForTransactionTree(jwt, request)))
+      result <- EitherT.either(exerciseResult(response))
+    } yield result
+
+    et.run
+  }
 
   private def logResult[A](op: Symbol, fa: Future[A]): Future[A] = {
     fa.onComplete {
@@ -89,7 +107,7 @@ class CommandService(
   }
 
   private def exerciseCommand(
-      input: ExerciseCommand[lav1.value.Record]): Error \/ lav1.commands.Command.Command.Exercise =
+      input: ExerciseCommand[lav1.value.Value]): Error \/ lav1.commands.Command.Command.Exercise =
     for {
       templateId <- resolveTemplateId(input.templateId)
         .leftMap(e => Error('exerciseCommand, e.shows))
@@ -155,12 +173,39 @@ class CommandService(
     : Error \/ List[Contract[lav1.value.Value]] =
     response.transaction
       .toRightDisjunction(Error('contracts, s"Received response without transaction: $response"))
-      .flatMap(contracts)
+      .flatMap(Commands.contracts)
+
+  private def contracts(response: lav1.command_service.SubmitAndWaitForTransactionTreeResponse)
+    : Error \/ List[Contract[lav1.value.Value]] =
+  response.transaction
+    .toRightDisjunction(Error('contracts, s"Received response without transaction: $response"))
+    .flatMap(contracts)
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def contracts(
-      tx: lav1.transaction.Transaction): Error \/ List[Contract[lav1.value.Value]] =
-    Contract.fromLedgerApi(tx).leftMap(e => Error('contracts, e.shows))
+      tx: lav1.transaction.TransactionTree): Error \/ List[Contract[lav1.value.Value]] =
+    Contract.fromTransactionTree(tx).leftMap(e => Error('contracts, e.shows)).map(_.toList)
+
+  private def exerciseResult(a: lav1.command_service.SubmitAndWaitForTransactionTreeResponse)
+    : Error \/ lav1.value.Value = {
+    val result: Option[lav1.value.Value] = for {
+      transaction <- a.transaction: Option[lav1.transaction.TransactionTree]
+      treeEvent <- rootTreeEvent(transaction): Option[lav1.transaction.TreeEvent]
+      exercised <- treeEvent.kind.exercised: Option[lav1.event.ExercisedEvent]
+      exResult <- exercised.exerciseResult: Option[lav1.value.Value]
+    } yield exResult
+
+    result.toRightDisjunction(
+      Error(
+        'choiceArgument,
+        s"Cannot get exerciseResult from the first root event of gRPC response: ${a.toString}"))
+  }
+
+  private def rootTreeEvent(
+      a: lav1.transaction.TransactionTree): Option[lav1.transaction.TreeEvent] =
+    a.rootEventIds.headOption.flatMap { id =>
+      a.eventsById.get(id)
+    }
 }
 
 object CommandService {

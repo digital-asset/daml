@@ -602,6 +602,15 @@ load("@io_bazel_rules_docker//repositories:deps.bzl", container_deps = "deps")
 
 container_deps()
 
+load("@io_bazel_rules_docker//container:container.bzl", "container_pull")
+
+container_pull(
+    name = "openjdk_base",
+    registry = "docker.io",
+    repository = "openjdk",
+    tag = "8-alpine",
+)
+
 load("@io_bazel_rules_docker//java:image.bzl", java_image_repositories = "repositories")
 
 java_image_repositories()

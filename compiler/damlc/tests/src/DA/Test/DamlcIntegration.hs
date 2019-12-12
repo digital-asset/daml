@@ -350,7 +350,9 @@ dlint :: (String -> IO ()) -> NormalizedFilePath -> Action ()
 dlint log file = timed log "DLint" $ unjust $ getDlintIdeas file
 
 ghcCompile :: (String -> IO ()) -> NormalizedFilePath -> Action GHC.CoreModule
-ghcCompile log file = timed log "GHC compile" $ unjust $ fmap snd $ generateCore file
+ghcCompile log file = timed log "GHC compile" $ do
+    (_, Just (safeMode, guts, details)) <- generateCore file
+    pure $ cgGutsToCoreModule safeMode guts details
 
 lfConvert :: (String -> IO ()) -> NormalizedFilePath -> Action LF.Package
 lfConvert log file = timed log "LF convert" $ unjust $ getRawDalf file

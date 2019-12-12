@@ -768,6 +768,27 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
 
   }
 
+  "accepts regression test #3777" in {
+    // This is a regression test for https://github.com/digital-asset/daml/issues/3777
+    def pkg =
+      p"""
+        module TypeVarShadowing2 {
+
+         val bar : forall b1 b2 a1 a2. (b1 -> b2) -> (a1 -> a2) -> a1 -> a2 =
+             /\b1 b2 a1 a2. \(f : b1 -> b2) (g : a1 -> a2) -> g ;
+
+          val baz : forall a1 a2 b1 b2. (a1 -> a2) -> (b1 -> b2) -> b1 -> b2 =
+            /\a1 a2 b1 b2.
+              \(f : a1 -> a2) (g : b1 -> b2) ->
+                TypeVarShadowing2:bar @a1 @a2 @b1 @b2 f g;
+        }
+      """
+
+    val mod = pkg.modules(DottedName.assertFromString("TypeVarShadowing2"))
+    val world = new World(Map(defaultPackageId -> pkg))
+    Typing.checkModule(world, defaultPackageId, mod)
+  }
+
   private val pkg =
     p"""
        module Mod {
