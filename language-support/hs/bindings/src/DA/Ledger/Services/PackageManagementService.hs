@@ -15,6 +15,7 @@ import DA.Ledger.Types
 import Data.ByteString(ByteString)
 import Data.Functor
 import Data.Text.Lazy (Text)
+import qualified Data.Text.Lazy as TL
 import Network.GRPC.HighLevel.Generated
 import qualified Com.Digitalasset.Ledger.Api.V1.Admin.PackageManagementService as LL
 
@@ -57,7 +58,7 @@ uploadDarFile bytes =
     withGRPCClient config $ \client -> do
         service <- LL.packageManagementServiceClient client
         let LL.PackageManagementService {packageManagementServiceUploadDarFile=rpc} = service
-        let request = LL.UploadDarFileRequest bytes
+        let request = LL.UploadDarFileRequest bytes TL.empty {- let server allocate submission id -}
         rpc (ClientNormalRequest request timeout mdm)
             >>= unwrapWithInvalidArgument
             <&> fmap (\LL.UploadDarFileResponse{} -> ())
