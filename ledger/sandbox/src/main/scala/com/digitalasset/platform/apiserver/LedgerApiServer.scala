@@ -20,6 +20,7 @@ import io.netty.channel.socket.nio.NioServerSocketChannel
 import io.netty.handler.ssl.SslContext
 import io.netty.util.concurrent.DefaultThreadFactory
 
+import scala.collection.mutable
 import scala.concurrent.{Future, Promise}
 import scala.util.control.NoStackTrace
 
@@ -47,6 +48,8 @@ object LedgerApiServer {
 
     val logger = loggerFactory.getLogger(this.getClass)
 
+    val closeables = mutable.Stack[AutoCloseable]()
+
     val serverEsf = new AkkaExecutionSequencerPool(
       // NOTE(JM): Pick a unique pool name as we want to allow multiple ledger api server
       // instances, and it's pretty difficult to wait for the name to become available
@@ -56,11 +59,26 @@ object LedgerApiServer {
       poolName = s"ledger-api-server-rs-grpc-bridge-${UUID.randomUUID}",
       actorCount = Runtime.getRuntime.availableProcessors() * 8
     )(mat.system)
+    closeables.push(serverEsf)
 
     val workerEventLoopGroup = createEventLoopGroup(
       mat.system.name + "-nio-worker",
       parallelism = Runtime.getRuntime.availableProcessors)
     val bossEventLoopGroup = createEventLoopGroup(mat.system.name + "-nio-boss", parallelism = 1)
+    closeables.push(() => {
+      // `shutdownGracefully` has a "quiet period" which specifies a time window in which
+      // _no requests_ must be witnessed before shutdown is _initiated_. Here we want to
+      // start immediately, so no quiet period -- by default it's 2 seconds.
+      // Moreover, there's also a "timeout" parameter
+      // which caps the time to wait for the quiet period to be fullfilled. Since we have
+      // no quiet period, this can also be 0.
+      // See <https://netty.io/4.1/api/io/netty/util/concurrent/EventExecutorGroup.html#shutdownGracefully-long-long-java.util.concurrent.TimeUnit->.
+      // The 10 seconds to wait is sort of arbitrary, it's long enough to be noticeable though.
+      Seq(
+        workerEventLoopGroup.shutdownGracefully(0, 0, MILLISECONDS),
+        bossEventLoopGroup.shutdownGracefully(0, 0, MILLISECONDS),
+      ).foreach(_.await(10, SECONDS))
+    })
 
     createApiServices(mat, serverEsf).map { apiServices =>
       val builder = address.fold(NettyServerBuilder.forPort(desiredPort))(address =>
@@ -90,47 +108,36 @@ object LedgerApiServer {
         case io: IOException if io.getCause != null && io.getCause.isInstanceOf[BindException] =>
           throw new UnableToBind(desiredPort, io.getCause)
       }
+      closeables.push(() => {
+        grpcServer.shutdown()
+        if (!grpcServer.awaitTermination(10, SECONDS)) {
+          logger.warn(
+            "Server did not terminate gracefully in one second. " +
+              "Clients probably did not disconnect. " +
+              "Proceeding with forced termination.")
+          val _ = grpcServer.shutdownNow()
+        }
+      })
 
       val host = address.getOrElse("localhost")
       val actualPort = grpcServer.getPort
       logger.info(s"listening on $host:$actualPort")
 
-      new ApiServer {
-        private val servicesClosedP = Promise[Unit]()
+      val servicesClosedP = Promise[Unit]()
+      closeables.push(() => {
+        apiServices.close()
+        servicesClosedP.success(())
+      })
 
+      new ApiServer {
         override def port: Int = actualPort
 
         override def servicesClosed(): Future[Unit] = servicesClosedP.future
 
-        override def close(): Unit = {
-          apiServices.close()
-          servicesClosedP.success(())
-
-          grpcServer.shutdown()
-
-          if (!grpcServer.awaitTermination(10, SECONDS)) {
-            logger.warn(
-              "Server did not terminate gracefully in one second. " +
-                "Clients probably did not disconnect. " +
-                "Proceeding with forced termination.")
-            val _ = grpcServer.shutdownNow()
+        override def close(): Unit =
+          while (closeables.nonEmpty) {
+            closeables.pop().close()
           }
-
-          // `shutdownGracefully` has a "quiet period" which specifies a time window in which
-          // _no requests_ must be witnessed before shutdown is _initiated_. Here we want to
-          // start immediately, so no quiet period -- by default it's 2 seconds.
-          // Moreover, there's also a "timeout" parameter
-          // which caps the time to wait for the quiet period to be fullfilled. Since we have
-          // no quiet period, this can also be 0.
-          // See <https://netty.io/4.1/api/io/netty/util/concurrent/EventExecutorGroup.html#shutdownGracefully-long-long-java.util.concurrent.TimeUnit->.
-          // The 10 seconds to wait is sort of arbitrary, it's long enough to be noticeable though.
-          Seq(
-            workerEventLoopGroup.shutdownGracefully(0, 0, MILLISECONDS),
-            bossEventLoopGroup.shutdownGracefully(0, 0, MILLISECONDS),
-          ).foreach(_.await(10, SECONDS))
-
-          serverEsf.close()
-        }
       }
     }(mat.executionContext)
   }
