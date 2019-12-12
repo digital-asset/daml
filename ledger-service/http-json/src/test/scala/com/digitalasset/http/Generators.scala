@@ -61,7 +61,9 @@ object Generators {
     Gen.oneOf(a.map(-\/(_)), b.map(\/-(_)))
 
   def inputContractRefGen[LfV](lfv: Gen[LfV]): Gen[domain.InputContractRef[LfV]] =
-    scalazEitherGen(Gen.zip(genDomainTemplateIdO[Option[String]], lfv), Gen.zip(Gen.option(genDomainTemplateIdO[Option[String]]), contractIdGen))
+    scalazEitherGen(
+      Gen.zip(genDomainTemplateIdO[Option[String]], lfv),
+      Gen.zip(Gen.option(genDomainTemplateIdO[Option[String]]), contractIdGen))
 
   def contractLocatorGen[LfV](lfv: Gen[LfV]): Gen[domain.ContractLocator[LfV]] =
     inputContractRefGen(lfv) map (domain.ContractLocator.structure.from(_))

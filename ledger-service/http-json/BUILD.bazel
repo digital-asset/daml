@@ -69,8 +69,8 @@ da_scala_binary(
 )
 
 daml_compile(
-  name = "Account",
-  main_src = "src/test/daml/Account.daml",
+    name = "Account",
+    main_src = "src/test/daml/Account.daml",
 )
 
 da_scala_test(
