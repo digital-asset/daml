@@ -7,6 +7,10 @@ package com.daml.ledger.participant.state.kvutils
   * and the changelog of kvutils.
   *
   * Changes:
+  * [after 100.13.39]:
+  * - logEntryToAsyncResponse has now been removed as all requests
+  *   now have event based responses.
+  *
   * [after 100.13.37]:
   * - Removed DamlConfiguration in favour of participant-state's LedgerConfiguration.
   * - Authorization of configuration changes is now based on validating against the participant id

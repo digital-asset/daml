@@ -48,6 +48,7 @@ sealed trait InMemoryEntry extends Product with Serializable
 final case class InMemoryLedgerEntry(entry: LedgerEntry) extends InMemoryEntry
 final case class InMemoryConfigEntry(entry: ConfigurationEntry) extends InMemoryEntry
 final case class InMemoryPartyEntry(entry: PartyLedgerEntry) extends InMemoryEntry
+final case class InMemoryPackageEntry(entry: PackageLedgerEntry) extends InMemoryEntry
 
 /** This stores all the mutable data that we need to run a ledger: the PCS, the ACS, and the deduplicator.
   *
@@ -301,19 +302,35 @@ class InMemoryLedger(
   override def getLfPackage(packageId: PackageId): Future[Option[Ast.Package]] =
     packageStoreRef.get.getLfPackage(packageId)
 
+  override def packageEntries(beginOffset: Long): Source[(Long, PackageLedgerEntry), NotUsed] =
+    entries.getSource(Some(beginOffset)).collect {
+      case (offset, InMemoryPackageEntry(entry)) => (offset, entry)
+    }
+
   override def uploadPackages(
+      submissionId: SubmissionId,
       knownSince: Instant,
       sourceDescription: Option[String],
-      payload: List[Archive]): Future[UploadPackagesResult] = {
+      payload: List[Archive]): Future[SubmissionResult] = {
+
     val oldStore = packageStoreRef.get
     oldStore
       .withPackages(knownSince, sourceDescription, payload)
       .fold(
-        err => Future.successful(UploadPackagesResult.InvalidPackage(err)),
+        err => {
+          entries.publish(
+            InMemoryPackageEntry(PackageLedgerEntry
+              .PackageUploadRejected(submissionId, timeProvider.getCurrentTime, err)))
+          Future.successful(SubmissionResult.Acknowledged)
+        },
         newStore => {
-          if (packageStoreRef.compareAndSet(oldStore, newStore))
-            Future.successful(UploadPackagesResult.Ok)
-          else uploadPackages(knownSince, sourceDescription, payload)
+          if (packageStoreRef.compareAndSet(oldStore, newStore)) {
+            entries.publish(InMemoryPackageEntry(
+              PackageLedgerEntry.PackageUploadAccepted(submissionId, timeProvider.getCurrentTime)))
+            Future.successful(SubmissionResult.Acknowledged)
+          } else {
+            uploadPackages(submissionId, knownSince, sourceDescription, payload)
+          }
         }
       )
   }

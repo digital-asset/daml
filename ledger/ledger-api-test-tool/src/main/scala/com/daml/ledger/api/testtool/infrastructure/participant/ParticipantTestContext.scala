@@ -206,6 +206,23 @@ private[testtool] final class ParticipantTestContext private[participant] (
       .listKnownParties(new ListKnownPartiesRequest())
       .map(_.partyDetails.map(partyDetails => Party(partyDetails.party)).toSet)
 
+  def waitForParties(
+      otherParticipants: Iterable[ParticipantTestContext],
+      expectedParties: Set[Party]): Future[Unit] = {
+    val participants = otherParticipants.toSet + this
+    Future
+      .sequence(participants.map(otherParticipant => {
+        otherParticipant
+          .listParties()
+          .map(actualParties => {
+            assert(
+              expectedParties.subsetOf(actualParties),
+              s"Parties from $this never appeared on $otherParticipant.")
+          })
+      }))
+      .map(_ => ())
+  }
+
   def activeContracts(
       request: GetActiveContractsRequest): Future[(Option[LedgerOffset], Vector[CreatedEvent])] =
     for {

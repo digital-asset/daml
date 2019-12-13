@@ -103,7 +103,7 @@ final class StandaloneApiServer(
         "read" -> readService,
         "write" -> writeService,
       )
-      apiServer <- LedgerApiServer.create(
+      apiServer <- LedgerApiServer.start(
         (am: ActorMaterializer, esf: ExecutionSequencerFactory) =>
           ApiServices
             .create(

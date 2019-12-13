@@ -323,7 +323,22 @@ object domain {
         rejectionReason: String,
         proposedConfiguration: Configuration
     ) extends ConfigurationEntry
+  }
 
+  sealed abstract class PackageEntry() extends Product with Serializable
+
+  object PackageEntry {
+
+    final case class PackageUploadAccepted(
+        submissionId: String,
+        recordTime: Instant
+    ) extends PackageEntry
+
+    final case class PackageUploadRejected(
+        submissionId: String,
+        recordTime: Instant,
+        reason: String
+    ) extends PackageEntry
   }
 
 }

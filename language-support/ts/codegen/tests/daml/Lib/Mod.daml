@@ -4,9 +4,9 @@ daml 1.2
 module Lib.Mod where
 
 data Field = Field {
-  something: Int
-}
+  something: Text
+} deriving (Eq, Show)
 
 data Imported = Imported {
   field: Field
-}
+} deriving (Eq, Show)

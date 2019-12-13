@@ -14,7 +14,12 @@ import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.auth.TokenHolder
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.http.dbbackend.ContractDao
-import com.digitalasset.http.json.{ApiValueToJsValueConverter, DomainJsonDecoder, DomainJsonEncoder, JsValueToApiValueConverter}
+import com.digitalasset.http.json.{
+  ApiValueToJsValueConverter,
+  DomainJsonDecoder,
+  DomainJsonEncoder,
+  JsValueToApiValueConverter
+}
 import com.digitalasset.http.util.ApiValueToLfValueConverter
 import com.digitalasset.http.util.ExceptionOps._
 import com.digitalasset.http.util.FutureUtil._
@@ -23,7 +28,11 @@ import com.digitalasset.jwt.JwtDecoder
 import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.client.LedgerClient
-import com.digitalasset.ledger.client.configuration.{CommandClientConfiguration, LedgerClientConfiguration, LedgerIdRequirement}
+import com.digitalasset.ledger.client.configuration.{
+  CommandClientConfiguration,
+  LedgerClientConfiguration,
+  LedgerIdRequirement
+}
 import com.digitalasset.ledger.client.services.pkg.PackageClient
 import com.digitalasset.ledger.service.LedgerReader
 import com.digitalasset.ledger.service.LedgerReader.PackageStore
@@ -141,7 +150,8 @@ object HttpService extends StrictLogging {
 //      )
 
       allEndpoints = staticContentConfig.cata(
-        c => StaticContentEndpoints.all(c) orElse jsonEndpoints.all orElse EndpointsCompanion.notFound,
+        c =>
+          StaticContentEndpoints.all(c) orElse jsonEndpoints.all orElse EndpointsCompanion.notFound,
         jsonEndpoints.all orElse EndpointsCompanion.notFound
       )
 
@@ -194,19 +204,20 @@ object HttpService extends StrictLogging {
 
     val lfTypeLookup = LedgerReader.damlLfTypeLookup(packageService.packageStore _) _
     val jsValueToApiValueConverter = new JsValueToApiValueConverter(lfTypeLookup)
-    val jsObjectToApiRecord = jsValueToApiValueConverter.jsObjectToApiRecord _
-    val jsValueToApiValue = jsValueToApiValueConverter.jsValueToApiValue _
+
     val apiValueToJsValueConverter = new ApiValueToJsValueConverter(
       ApiValueToLfValueConverter.apiValueToLfValue)
-    val apiValueToJsValue = apiValueToJsValueConverter.apiValueToJsValue _
-    val apiRecordToJsObject = apiValueToJsValueConverter.apiRecordToJsObject _
 
-    val encoder = new DomainJsonEncoder(apiRecordToJsObject, apiValueToJsValue)
+    val encoder = new DomainJsonEncoder(
+      apiValueToJsValueConverter.apiRecordToJsObject,
+      apiValueToJsValueConverter.apiValueToJsValue)
+
     val decoder = new DomainJsonDecoder(
       packageService.resolveTemplateId,
       packageService.resolveChoiceRecordId,
-      jsObjectToApiRecord,
-      jsValueToApiValue)
+      jsValueToApiValueConverter.jsObjectToApiRecord,
+      jsValueToApiValueConverter.jsValueToApiValue,
+    )
 
     (encoder, decoder)
   }

@@ -112,8 +112,7 @@ object IntegrityCheck extends App {
       case Proto.DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY =>
         assert(updates.head.isInstanceOf[Update.CommandRejected])
       case Proto.DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
-        // NOTE(JM): Possibly empty.
-        assert(updates.forall(_.isInstanceOf[Update.PublicPackageUploaded]))
+        assert(updates.head.isInstanceOf[Update.PublicPackageUpload])
       case Proto.DamlLogEntry.PayloadCase.CONFIGURATION_ENTRY =>
         assert(updates.head.isInstanceOf[Update.ConfigurationChanged])
       case Proto.DamlLogEntry.PayloadCase.CONFIGURATION_REJECTION_ENTRY =>

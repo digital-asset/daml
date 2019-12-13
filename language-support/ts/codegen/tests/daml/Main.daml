@@ -6,25 +6,26 @@ module Main where
 import DA.TextMap
 import Lib.Mod
 
-data AllTypes = AllTypes {
-  unit: ();
-  bool: Bool;
-  int: Int;
-  text: Text;
-  date: Date;
-  time: Time;
-  party: Party;
-  contractId: ContractId Person;
-  optional: Optional Int;
-  list: [Bool];
-  textMap: TextMap Party;
-  monoRecord: Person;
-  polyRecord: Pair Date Time;
-  imported: Imported;
-  archive: Archive;
-  either: Either Int Text;
-  tuple: (Date, Time)
-}
+template AllTypes with
+    unit: ()
+    bool: Bool
+    int: Int
+    text: Text
+    date: Date
+    time: Time
+    party: Party
+    contractId: ContractId Person
+    optional: Optional Int
+    list: [Bool]
+    textMap: TextMap Int
+    monoRecord: Person
+    polyRecord: Pair Int Text
+    imported: Imported
+    archiveX: Archive
+    either: Either Int Text
+    tuple: (Int, Text)
+  where
+    signatory party
 
 template Person with
     name: Text
@@ -41,7 +42,7 @@ template Person with
 data Pair a b = Pair {
   one: a;
   two: b
-}
+} deriving (Eq, Show)
 
 data Bar a = Bar {
   u: a

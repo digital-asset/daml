@@ -15,12 +15,7 @@ trait WritePackagesService {
     * This method must be thread-safe, not throw, and not block on IO. It is
     * though allowed to perform significant computation.
     *
-    * The result of the archives upload is communicated synchronously.
-    * TODO: consider also providing an asynchronous response in a similar
-    * manner as it is done for transaction submission. It is possible that
-    * in some implementations, upload will fail due to authorization etc.
-    *
-    * Successful archives upload will result in a [[Update.PublicPackageUploaded]]
+    * Successful archives upload will result in a [[Update.PublicPackageUpload]]
     * message. See the comments on [[ReadService.stateUpdates]] and [[Update]] for
     * further details.
     *
@@ -33,16 +28,17 @@ trait WritePackagesService {
     * provide the size, and the size might potentially be different from the
     * original size, which would be quite confusing.
     *
+    * @param submissionId      : Submitter chosen submission identifier.
     * @param sourceDescription : Description provided by the backing participant
     *   describing where it got the package from, e.g., when, where, or by whom
     *   the packages were uploaded.
+    * @param archives           : DAML-LF archives to be uploaded to the ledger.
     *
-    * @param payload           : DAML-LF archives to be uploaded to the ledger.
-    *
-    * @return an async result of a [[UploadPackagesResult]]
+    * @return an async result of a [[SubmissionResult]]
     */
   def uploadPackages(
-      payload: List[Archive],
+      submissionId: SubmissionId,
+      archives: List[Archive],
       sourceDescription: Option[String]
-  ): CompletionStage[UploadPackagesResult]
+  ): CompletionStage[SubmissionResult]
 }

@@ -157,7 +157,7 @@ genDefDataType curModName tpls def = case unTypeConName (dataTypeCon def) of
                             map ("  " <>) (onHead ("decoder: " <>) serDesc) ++
                             concat
                             [ ["  " <> x <> ": {"
-                              ,"    template: undefined as unknown as daml.Template<" <> conName <> ">,"
+                              ,"    template: () => " <> conName <> ","
                               ,"    choiceName: '" <> x <> "',"
                               ,"    decoder: " <> t <> ".decoder,"
                               ,"  },"
@@ -165,13 +165,11 @@ genDefDataType curModName tpls def = case unTypeConName (dataTypeCon def) of
                             | (x, t) <- chcs
                             ] ++
                             ["};"]
-                        knots =
-                            [conName <> "." <> x <> ".template = " <> conName <> ";" | (x, _) <- chcs]
                         registrations =
                             ["daml.registerTemplate(" <> conName <> ");"]
                         refs = Set.unions (fieldRefs ++ argRefs)
                     in
-                    ((makeType typeDesc, dict ++ knots ++ registrations), refs)
+                    ((makeType typeDesc, dict ++ registrations), refs)
       where
         paramNames = map (unTypeVarName . fst) (dataParams def)
         typeParams

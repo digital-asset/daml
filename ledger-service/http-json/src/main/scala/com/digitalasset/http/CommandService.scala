@@ -177,9 +177,9 @@ class CommandService(
 
   private def contracts(response: lav1.command_service.SubmitAndWaitForTransactionTreeResponse)
     : Error \/ List[Contract[lav1.value.Value]] =
-  response.transaction
-    .toRightDisjunction(Error('contracts, s"Received response without transaction: $response"))
-    .flatMap(contracts)
+    response.transaction
+      .toRightDisjunction(Error('contracts, s"Received response without transaction: $response"))
+      .flatMap(contracts)
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def contracts(

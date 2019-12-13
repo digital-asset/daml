@@ -38,7 +38,12 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   ValueSerializer
 }
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
-import com.digitalasset.platform.sandbox.stores.ledger.{Ledger, LedgerEntry, PartyLedgerEntry}
+import com.digitalasset.platform.sandbox.stores.ledger.{
+  Ledger,
+  LedgerEntry,
+  PartyLedgerEntry,
+  PackageLedgerEntry
+}
 import com.digitalasset.platform.sandbox.stores.{InMemoryActiveLedgerState, InMemoryPackageStore}
 import com.digitalasset.platform.sandbox.{EventIdFormatter, LedgerIdGenerator}
 import scalaz.syntax.tag._
@@ -337,26 +342,29 @@ private final class SqlLedger(
   }
 
   override def uploadPackages(
+      submissionId: SubmissionId,
       knownSince: Instant,
       sourceDescription: Option[String],
-      payload: List[Archive]): Future[UploadPackagesResult] = {
-    val submissionId = UUID.randomUUID().toString
+      payload: List[Archive]): Future[SubmissionResult] = {
     val packages = payload.map(archive =>
       (archive, PackageDetails(archive.getPayload.size().toLong, knownSince, sourceDescription)))
-    ledgerDao
-      .uploadLfPackages(submissionId, packages, None)
-      .map { result =>
-        result.get(PersistenceResponse.Ok).fold(logger.info(s"No package uploaded")) { uploaded =>
-          logger.info(s"Successfully uploaded $uploaded packages")
-        }
-        for (duplicates <- result.get(PersistenceResponse.Duplicate)) {
-          logger.info(s"$duplicates packages discarded as duplicates")
-        }
-        // Unlike the data access layer, the API has no concept of duplicates, so we
-        // discard the information; package upload is idempotent, apart from the fact
-        // that we only keep the knownSince and sourceDescription of the first upload.
-        UploadPackagesResult.Ok
-      }(DEC)
+    enqueue { offsets =>
+      ledgerDao
+        .storePackageEntry(
+          offsets.offset,
+          offsets.nextOffset,
+          None,
+          packages,
+          Some(PackageLedgerEntry.PackageUploadAccepted(submissionId, timeProvider.getCurrentTime)),
+        )
+        .map(_ => ())(DEC)
+        .recover {
+          case t =>
+            //recovering from the failure so the persistence stream doesn't die
+            logger.error(s"Failed to persist packages with offsets: $offsets", t)
+            ()
+        }(DEC)
+    }
   }
 
   override def publishConfiguration(
@@ -526,7 +534,7 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao, loggerFactory: NamedL
               implicit val ec: ExecutionContext = DEC
               for {
                 _ <- doInit(initialId)
-                _ <- copyPackages(packages, timeProvider.getCurrentTime)
+                _ <- copyPackages(packages, timeProvider.getCurrentTime, entriesWithOffset._1)
                 _ <- ledgerDao.storeInitialState(
                   contracts,
                   entriesWithOffset._2,
@@ -558,7 +566,10 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao, loggerFactory: NamedL
     ledgerDao.initializeLedger(ledgerId, 0)
   }
 
-  private def copyPackages(store: InMemoryPackageStore, knownSince: Instant): Future[Unit] = {
+  private def copyPackages(
+      store: InMemoryPackageStore,
+      knownSince: Instant,
+      newLedgerEnd: Long): Future[Unit] = {
 
     val packageDetails = store.listLfPackagesSync()
     if (packageDetails.nonEmpty) {
@@ -569,8 +580,14 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao, loggerFactory: NamedL
           store.getLfArchiveSync(pkg._1).getOrElse(sys.error(s"Package ${pkg._1} not found"))
         archive -> PackageDetails(archive.getPayload.size.toLong, knownSince, None)
       })
+
       ledgerDao
-        .uploadLfPackages(submissionId, packages, None)
+        .storePackageEntry(
+          newLedgerEnd, // FIXME(JM): Find a more reasonable way to do this.
+          newLedgerEnd,
+          None,
+          packages,
+          None)
         .transform(_ => (), e => sys.error("Failed to copy initial packages: " + e.getMessage))(DEC)
     } else {
       Future.successful(())
