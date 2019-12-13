@@ -54,10 +54,38 @@ class ApiCodecCompressedSpec
     val (emptyRecordDDT, emptyRecordT) = VA.record(emptyRecordId, RNil)
     val simpleRecordId = defRef("SimpleRecord")
     val (simpleRecordDDT, simpleRecordT) =
-      VA.record(simpleRecordId, ('fA ->> VA.text) :: ('fB ->> VA.int64) :: RNil)
+      VA.record(simpleRecordId, 'fA ->> VA.text :: 'fB ->> VA.int64 :: RNil)
     val simpleRecordV: simpleRecordT.Inj[Cid] = HRecord(fA = "foo", fB = 100L)
+
+    val complexRecordId = defRef("ComplexRecord")
+    val (complexRecordDDT, complexRecordT) =
+      VA.record(
+        complexRecordId,
+        'fText ->> VA.text
+          :: 'fBool ->> VA.bool
+          :: 'fDecimal ->> VA.numeric(Decimal.scale)
+          :: 'fUnit ->> VA.unit
+          :: 'fInt64 ->> VA.int64
+          :: 'fParty ->> VA.party
+          :: 'fContractId ->> VA.contractId
+          :: 'fListOfText ->> VA.list(VA.text)
+          :: 'fListOfUnit ->> VA.list(VA.unit)
+          :: 'fDate ->> VA.date
+          :: 'fTimestamp ->> VA.timestamp
+          :: 'fOptionalText ->> VA.optional(VA.text)
+          :: 'fOptionalUnit ->> VA.optional(VA.unit)
+          :: 'fOptOptText ->> VA.optional(VA.optional(VA.text))
+          :: 'fMap ->> VA.map(VA.int64)
+        // :: 'fVariant ->> simpleVariantT
+          :: 'fRecord ->> simpleRecordT
+          :: RNil
+      )
+
     val typeLookup: NavigatorModelAliases.DamlLfTypeLookup =
-      Map(emptyRecordId -> emptyRecordDDT, simpleRecordId -> simpleRecordDDT).lift
+      Map(
+        emptyRecordId -> emptyRecordDDT,
+        simpleRecordId -> simpleRecordDDT,
+        complexRecordId -> complexRecordDDT).lift
   }
 
   type Cid = String
