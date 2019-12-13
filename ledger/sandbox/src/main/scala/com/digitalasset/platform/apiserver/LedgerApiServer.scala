@@ -89,13 +89,7 @@ object LedgerApiServer {
     createApiServices(mat, serverEsf).map { apiServices =>
       val builder = address.fold(NettyServerBuilder.forPort(desiredPort))(address =>
         NettyServerBuilder.forAddress(new InetSocketAddress(address, desiredPort)))
-      sslContext
-        .fold {
-          logger.info("Starting plainText server")
-        } { sslContext =>
-          logger.info("Starting TLS server")
-          val _ = builder.sslContext(sslContext)
-        }
+      builder.sslContext(sslContext.orNull)
       builder.directExecutor()
       builder.channelType(classOf[NioServerSocketChannel])
       builder.bossEventLoopGroup(bossEventLoopGroup)
@@ -129,7 +123,8 @@ object LedgerApiServer {
 
       val host = address.getOrElse("localhost")
       val actualPort = grpcServer.getPort
-      logger.info(s"listening on $host:$actualPort")
+      val transportMedium = if (sslContext.isDefined) "TLS" else "plain text"
+      logger.info(s"Listening on $host:$actualPort over $transportMedium.")
 
       val servicesClosedP = Promise[Unit]()
       closeables.push(() => {
