@@ -158,7 +158,7 @@ class Ledger {
    */
   async exercise<T, C>(choice: Choice<T, C>, contractId: ContractId<T>, argument: C): Promise<Event[]> {
     const payload = {
-      templateId: choice.template.templateId,
+      templateId: choice.template().templateId,
       contractId,
       choice: choice.choiceName,
       argument,
@@ -172,7 +172,7 @@ class Ledger {
    * contract key as a query.
    */
   async pseudoExerciseByKey<T, C>(choice: Choice<T, C>, key: Query<T>, argument: C): Promise<Event[]> {
-    const contract = await this.pseudoFetchByKey(choice.template, key);
+    const contract = await this.pseudoFetchByKey(choice.template(), key);
     return this.exercise(choice, contract.contractId, argument);
   }
 

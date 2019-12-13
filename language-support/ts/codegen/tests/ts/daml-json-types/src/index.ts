@@ -45,7 +45,7 @@ export interface Template<T extends {}> extends Serializable<T> {
  * `Choice` type class in DAML.
  */
 export interface Choice<T, C> extends Serializable<C> {
-  template: Template<T>;
+  template: () => Template<T>;
   choiceName: string;
 }
 
