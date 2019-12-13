@@ -129,10 +129,10 @@ class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
   "a function returning an AutoCloseable" should {
     "convert to a ResourceOwner" in {
       val newCloseable = new TestCloseableConstructor(54)
-      val owner: () => TestCloseable[Int] = newCloseable.apply _
+      val acquirer: () => TestCloseable[Int] = newCloseable.apply _
 
       val resource = for {
-        closeable <- owner.acquire()
+        closeable <- ResourceOwner(acquirer).acquire()
       } yield {
         newCloseable.hasBeenAcquired should be(true)
         closeable.value should be(54)

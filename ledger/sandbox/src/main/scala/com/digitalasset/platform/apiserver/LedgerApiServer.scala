@@ -12,7 +12,7 @@ import akka.stream.ActorMaterializer
 import com.codahale.metrics.MetricRegistry
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
-import com.digitalasset.platform.resources.{Resource, ResourceOwner, _}
+import com.digitalasset.platform.resources.{Resource, ResourceOwner}
 import io.grpc.netty.NettyServerBuilder
 import io.grpc.{Server, ServerInterceptor}
 import io.netty.channel.EventLoopGroup
@@ -71,7 +71,7 @@ object LedgerApiServer {
       }
 
     val server = for {
-      serverEsf <- (executionSequencerFactoryResource _).acquire()
+      serverEsf <- ResourceOwner(executionSequencerFactoryResource _).acquire()
       workerEventLoopGroup <- eventLoopGroup(
         mat.system.name + "-nio-worker",
         parallelism = Runtime.getRuntime.availableProcessors).acquire()
