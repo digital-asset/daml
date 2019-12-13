@@ -35,7 +35,7 @@ export const TemplateId: Serializable<TemplateId> = {
  * Interface for objects representing DAML templates. It is similar to the
  * `Template` type class in DAML.
  */
-export interface Template<T extends {}> extends Serializable<T> {
+export interface Template<T> extends Serializable<T> {
   templateId: TemplateId;
   Archive: Choice<T, {}>;
 }
@@ -49,12 +49,12 @@ export interface Choice<T, C> extends Serializable<C> {
   choiceName: string;
 }
 
-const registeredTemplates: {[key: string]: Template<object>} = {};
+const registeredTemplates: {[key: string]: Template<unknown>} = {};
 
 const templateIdToString = ({packageId, moduleName, entityName}: TemplateId) =>
   `${packageId}:${moduleName}:${entityName}`;
 
-export const registerTemplate = <T extends {}>(template: Template<T>) => {
+export const registerTemplate = <T>(template: Template<T>) => {
   const templateId = templateIdToString(template.templateId);
   const oldTemplate = registeredTemplates[templateId];
   if (oldTemplate === undefined) {
@@ -65,7 +65,7 @@ export const registerTemplate = <T extends {}>(template: Template<T>) => {
   }
 }
 
-export const lookupTemplate = (templateId: TemplateId): Template<object> => {
+export const lookupTemplate = (templateId: TemplateId): Template<unknown> => {
   const templateIdStr = templateIdToString(templateId);
   const template = registeredTemplates[templateIdStr];
   if (template === undefined) {
@@ -196,12 +196,17 @@ export const Date: Serializable<Date> = {
 export type ContractId<T> = string;
 
 /**
- * Companion object of the `ContractId` type.
+ * Companion object of the `ContractId<unknown>` type.
+ */
+const AnyContractId: Serializable<ContractId<unknown>> = {
+  decoder: jtv.string,
+};
+
+/**
+ * Companion object of the generic `ContractId` type.
  */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export const ContractId = <T>(_t: Serializable<T>): Serializable<ContractId<T>> => ({
-  decoder: jtv.string,
-});
+export const ContractId = <T>(_t: Serializable<T>): Serializable<ContractId<T>> => AnyContractId;
 
 /**
  * The counterpart of DAML's `Optional T` type. Nested optionals are not yet
@@ -252,19 +257,32 @@ export type Contract<T> = {
 }
 
 /**
- * Companion object of the `Contract` type.
+ * Companion object of the `Contract<unknown>` type.
  */
-export const Contract = <T extends {}>(t: Template<T>): Serializable<Contract<T>> => ({
+export const AnyContract: Serializable<Contract<unknown>> = ({
   decoder: () => jtv.object({
     templateId: TemplateId.decoder(),
-    contractId: ContractId(t).decoder(),
+    contractId: AnyContractId.decoder(),
     signatories: jtv.array(Party.decoder()),
     observers: jtv.array(Party.decoder()),
     agreementText: Text.decoder(),
     key: jtv.unknownJson(),
-    argument: t.decoder(),
+    argument: jtv.unknownJson(),
     witnessParties: jtv.array(Party.decoder()),
     workflowId: jtv.optional(jtv.string()),
+  }),
+});
+
+/**
+ * Companion object of the generic `Contract` type.
+ */
+export const Contract = <T>(t: Template<T>): Serializable<Contract<T>> => ({
+  decoder: () => AnyContract.decoder().andThen((contract) => {
+    const expected = templateIdToString(t.templateId);
+    const got = templateIdToString(contract.templateId);
+    return expected === got
+      ? jtv.valueAt(['argument'], t.decoder().map((argument) => ({...contract, argument})))
+      : jtv.fail(`expected template id ${expected}, but got ${got}`);
   }),
 });
 
@@ -280,3 +298,58 @@ export const Contract = <T extends {}>(t: Template<T>): Serializable<Contract<T>
  */
 export type Query<T> = T extends object ? {[K in keyof T]?: Query<T[K]>} : T;
 // TODO(MH): Support comparison queries.
+
+/**
+ * Type of `created` events reported by the `/commands/exercise` endpoint
+ * of the JSON API.
+ */
+export type CreatedEvent = {
+  created: Contract<unknown>;
+}
+
+/**
+ * Companion object of the `CreatedEvent` type.
+ */
+const CreatedEvent: Serializable<CreatedEvent> = {
+  decoder: () => jtv.object({
+    created: AnyContract.decoder(),
+  }),
+};
+
+/**
+ * Type of `archived` events reported by the `/commands/exercise` endpoint
+ * of the JSON API.
+ */
+export type ArchivedEvent = {
+  archived: {
+    templateId: TemplateId;
+    contractId: ContractId<unknown>;
+    witnessParties: Party[];
+  };
+}
+
+/**
+ * Companion object of the `ArchivedEvent` type.
+ */
+const ArchivedEvent: Serializable<ArchivedEvent> = {
+  decoder: () => jtv.object({
+    archived: jtv.object({
+      templateId: TemplateId.decoder(),
+      contractId: AnyContractId.decoder(),
+      witnessParties: jtv.array(Party.decoder()),
+    }),
+  }),
+};
+
+/**
+ * Type of events, either `created` or `archived`, reported by the
+ * `/commands/exercise` endpoint of the JSON API.
+ */
+export type Event = CreatedEvent | ArchivedEvent;
+
+/**
+ * Companion object of the `Event` type.
+ */
+export const Event: Serializable<Event> = {
+  decoder: () => jtv.oneOf<Event>(CreatedEvent.decoder(), ArchivedEvent.decoder()),
+}

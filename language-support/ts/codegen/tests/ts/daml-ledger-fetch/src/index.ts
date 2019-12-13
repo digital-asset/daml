@@ -1,7 +1,7 @@
 // Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import { Choice, Contract, ContractId, Party, Template, Query, TemplateId, Serializable } from '@digitalasset/daml-json-types';
+import { Choice, Contract, ContractId, Event, Template, Query } from '@digitalasset/daml-json-types';
 import * as jtv from '@mojotech/json-type-validation';
 import fetch from 'cross-fetch';
 
@@ -13,47 +13,6 @@ type LedgerResponse = {
 type LedgerError = {
   status: number;
   errors: string[];
-}
-
-export type CreatedEvent = {
-  created: Contract<object>;
-}
-
-export type ArchivedEvent = {
-  archived: {
-    templateId: TemplateId;
-    contractId: ContractId<object>;
-    witnessParties: Party[];
-  };
-}
-
-export type Event = CreatedEvent | ArchivedEvent;
-
-// FIXME(MH): The cast below is a gross hack relying on the fact that
-// `Contract` will only use the `decoder` field of its argument. We should
-// instead provide something like a proper `AnyContract` in `daml-json-types`.
-const AnyTemplate: Template<object> = {
-  decoder: () => jtv.object({}),
-} as Template<object>;
-
-const CreatedEvent: Serializable<CreatedEvent> = {
-  decoder: () => jtv.object({
-    created: Contract(AnyTemplate).decoder(),
-  }),
-};
-
-const ArchivedEvent: Serializable<ArchivedEvent> = {
-  decoder: () => jtv.object({
-    archived: jtv.object({
-      templateId: TemplateId.decoder(),
-      contractId: ContractId(AnyTemplate).decoder(),
-      witnessParties: jtv.array(Party.decoder()),
-    }),
-  }),
-};
-
-const Event: Serializable<Event> = {
-  decoder: () => jtv.oneOf<Event>(CreatedEvent.decoder(), ArchivedEvent.decoder()),
 }
 
 /**
@@ -192,4 +151,3 @@ class Ledger {
 }
 
 export default Ledger;
-
