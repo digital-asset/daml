@@ -80,6 +80,25 @@ class ApiCodecCompressedSpec
           :: 'fRecord ->> simpleRecordT
           :: RNil
       )
+    val complexRecordV: complexRecordT.Inj[Cid] =
+      HRecord(
+        fText = "foo",
+        fBool = true,
+        fDecimal = Decimal assertFromString "100",
+        fUnit = (),
+        fInt64 = 100L,
+        fParty = Ref.Party assertFromString "BANK1",
+        fContractId = "C0",
+        fListOfText = Vector("foo", "bar"),
+        fListOfUnit = Vector((), ()),
+        fDate = Time.Date assertFromString "2019-01-28",
+        fTimestamp = Time.Timestamp assertFromString "2019-01-28T12:44:33.22Z",
+        fOptionalText = None,
+        fOptionalUnit = Some(()),
+        fOptOptText = Some(Some("foo")),
+        fMap = SortedLookupList(Map("1" -> 1L, "2" -> 2L, "3" -> 3L)),
+        /* fVariant = ???, */ fRecord = simpleRecordV
+      )
 
     val typeLookup: NavigatorModelAliases.DamlLfTypeLookup =
       Map(
@@ -141,9 +160,11 @@ class ApiCodecCompressedSpec
       "work for SimpleVariant" in {
         serializeAndParse(C.simpleVariantV, C.simpleVariantTC) shouldBe Success(C.simpleVariantV)
       }
+       */
       "work for ComplexRecord" in {
-        serializeAndParse(C.complexRecordV, C.complexRecordTC) shouldBe Success(C.complexRecordV)
+        roundtrip(C.complexRecordT)(C.complexRecordV) should ===(Some(C.complexRecordV))
       }
+      /*
       "work for Tree" in {
         serializeAndParse(C.treeV, C.treeTC) shouldBe Success(C.treeV)
       }
