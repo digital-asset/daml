@@ -14,6 +14,7 @@ import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.example.Util.{findOpenPort, toFuture}
 import com.digitalasset.example.daml.{Main => M}
 import com.digitalasset.grpc.adapter.AkkaExecutionSequencerPool
+import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.refinements.ApiTypes.{CommandId, WorkflowId}
 import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
 import com.digitalasset.ledger.api.v1.commands.Commands
@@ -40,8 +41,6 @@ import com.google.protobuf.empty.Empty
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Future}
 
-import com.digitalasset.ledger.api.domain.LedgerId
-
 object ExampleMain extends App {
 
   private val dar = new File("./scala-codegen/target/repository/daml-codegen/Main.dar")
@@ -57,7 +56,7 @@ object ExampleMain extends App {
     ledgerIdMode = LedgerIdMode.Static(LedgerId(ledgerId)),
   )
 
-  private val server = SandboxServer(serverConfig)
+  private val server = new SandboxServer(serverConfig)
   sys.addShutdownHook(server.close())
 
   private val asys = ActorSystem()

@@ -45,14 +45,10 @@ import scala.util.Try
 import scala.util.control.NonFatal
 
 object SandboxServer {
-  private val logger = LoggerFactory.getLogger(this.getClass)
-  private val asyncTolerance = 30.seconds
+  private val ActorSystemName = "sandbox"
+  private val AsyncTolerance = 30.seconds
 
-  def apply(config: => SandboxConfig): SandboxServer =
-    new SandboxServer(
-      "sandbox",
-      config
-    )
+  private val logger = LoggerFactory.getLogger(this.getClass)
 
   // We memoize the engine between resets so we avoid the expensive
   // repeated validation of the sames packages after each reset
@@ -93,7 +89,7 @@ object SandboxServer {
 
     override def close(): Unit = {
       materializer.shutdown()
-      Await.result(actorSystem.terminate(), asyncTolerance)
+      Await.result(actorSystem.terminate(), AsyncTolerance)
       ()
     }
   }
@@ -113,7 +109,7 @@ object SandboxServer {
 
 }
 
-final class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends AutoCloseable {
+final class SandboxServer(config: => SandboxConfig) extends AutoCloseable {
 
   // Name of this participant
   // TODO: Pass this info in command-line (See issue #2025)
@@ -234,7 +230,7 @@ final class SandboxServer(actorSystemName: String, config: => SandboxConfig) ext
           ))
     }
 
-    val indexAndWriteService = Try(Await.result(indexAndWriteServiceF, asyncTolerance))
+    val indexAndWriteService = Try(Await.result(indexAndWriteServiceF, AsyncTolerance))
       .fold(t => {
         val msg = "Could not create SandboxIndexAndWriteService"
         logger.error(msg, t)
@@ -282,7 +278,7 @@ final class SandboxServer(actorSystemName: String, config: => SandboxConfig) ext
         ),
         metrics
       ),
-      asyncTolerance
+      AsyncTolerance
     )
 
     val newState = new ApiServerState(
@@ -309,7 +305,7 @@ final class SandboxServer(actorSystemName: String, config: => SandboxConfig) ext
   }
 
   private def start(): SandboxState = {
-    val actorSystem = ActorSystem(actorSystemName)
+    val actorSystem = ActorSystem(ActorSystemName)
     val infrastructure = new Infrastructure(actorSystem, ActorMaterializer()(actorSystem))
     try {
       val packageStore = loadDamlPackages()
