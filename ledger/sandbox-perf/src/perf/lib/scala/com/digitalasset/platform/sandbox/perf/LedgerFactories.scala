@@ -49,10 +49,9 @@ object LedgerFactories {
   def createSandboxResource(store: String, darFiles: List[File])(
       implicit esf: ExecutionSequencerFactory,
       mat: ActorMaterializer): Resource[LedgerContext] = {
-    val packageIds = darFiles.map(getPackageIdOrThrow)
-
     def createResource(sandboxConfig: SandboxConfig): Resource[LedgerContext] =
-      SandboxServerResource(sandboxConfig).map(new LedgerContext(_, packageIds))
+      SandboxServerResource(sandboxConfig).map(
+        new LedgerContext(_, darFiles.map(getPackageIdOrThrow)))
 
     store match {
       case `mem` =>
