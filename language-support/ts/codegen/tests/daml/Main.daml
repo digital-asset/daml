@@ -6,6 +6,7 @@ module Main where
 import DA.TextMap
 import Lib.Mod
 
+
 template AllTypes with
     unit: ()
     bool: Bool
@@ -52,3 +53,5 @@ data Foo a b = Foo {
   y: Foo b a;
   z: b
 }
+
+data Color = Red | Blue | Yellow

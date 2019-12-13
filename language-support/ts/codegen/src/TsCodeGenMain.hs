@@ -92,8 +92,14 @@ genModule mod
             ["// Generated from " <> T.intercalate "/" (unModuleName curModName) <> ".daml"
             ,"/* eslint-disable @typescript-eslint/camelcase */"
             ,"/* eslint-disable @typescript-eslint/no-use-before-define */"
-            ,"import * as daml from '@digitalasset/daml-json-types';"
+            ,"/* eslint-disable @typescript-eslint/no-namespace */"
+            -- We use namespaces to add decoders to enumerations. eslint prefers modules, but
+            -- these would have to live in "d.ts" files and are restricted in what they can contain.
             ,"import * as jtv from '@mojotech/json-type-validation';"
+            ] ++
+            [
+            "import * as daml from '@digitalasset/daml-json-types';"
+            | moduleNameString curModName `notElem` ["GHC.Types", "DA.Date"]
             ]
         imports =
             ["import * as " <> modNameStr <> " from '" <> pkgRootPath <> "/" <> pkgRefStr <> T.intercalate "/" (unModuleName modName) <> "';"
@@ -122,7 +128,19 @@ genDefDataType curModName tpls def = case unTypeConName (dataTypeCon def) of
     _:_:_ -> error "TODO(MH): multi-part type constructor names"
     [conName] -> case dataCons def of
         DataVariant{} -> ((makeType ["unknown;"], makeSer ["jtv.unknownJson,"]), Set.empty)  -- TODO(MH): make variants type safe
-        DataEnum{} -> ((makeType ["unknown;"], makeSer ["jtv.unknownJson,"]), Set.empty)  -- TODO(MH): make enum types type safe
+        DataEnum enumCons ->
+          let
+            typeDesc =
+                [ "export enum " <> conName <> "{"] ++
+                [ "  " <> cons <> " = " <> "\'" <> cons <> "\'" <> ","
+                | (VariantConName cons) <- enumCons] ++
+                [ "}" ]
+            serDesc =
+                ["  () => jtv.oneOf("] ++
+                ["    jtv.constant(" <> conName <> "." <> cons <> ")," | VariantConName cons <- enumCons] ++
+                ["  )"]
+          in
+          ((typeDesc, makeNameSpace serDesc), Set.empty)
         DataRecord fields ->
             let (fieldNames, fieldTypesLf) = unzip [(unFieldName x, t) | (x, t) <- fields]
                 (fieldTypesTs, fieldSers) = unzip (map (genType curModName) fieldTypesLf)
@@ -183,6 +201,12 @@ genDefDataType curModName tpls def = case unTypeConName (dataTypeCon def) of
             ["export const " <> conName <> serHeader <> " ({"] ++
             map ("  " <>) (onHead ("decoder: " <>) serDesc) ++
             ["});"]
+        makeNameSpace serDesc =
+            [ "export namespace " <> conName <> "{"
+            , "  export const decoder ="
+            ] ++
+            serDesc ++
+            ["}"]
 
 genType :: ModuleName -> Type -> (T.Text, T.Text)
 genType curModName = go
