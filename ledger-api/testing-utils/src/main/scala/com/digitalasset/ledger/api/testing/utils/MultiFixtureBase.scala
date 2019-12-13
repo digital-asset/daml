@@ -12,9 +12,8 @@ import org.scalatest.exceptions.TestCanceledException
 import org.scalatest.time.Span
 
 import scala.collection.immutable.Iterable
-import scala.concurrent.ExecutionContext.global
 import scala.concurrent.duration.DurationInt
-import scala.concurrent.{ExecutionContext, Future, Promise, TimeoutException}
+import scala.concurrent.{Future, Promise, TimeoutException}
 import scala.util.control.{NoStackTrace, NonFatal}
 
 trait MultiFixtureBase[FixtureId, TestContext]
@@ -109,7 +108,6 @@ trait MultiFixtureBase[FixtureId, TestContext]
 
   protected def forAllMatchingFixtures(
       runTest: PartialFunction[TestFixture, Future[Assertion]]): Future[Assertion] = {
-    implicit val ec: ExecutionContext = global
     if (parallelExecution) {
       val results = fixtures.map(
         fixture =>
