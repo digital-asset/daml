@@ -23,6 +23,7 @@ import scalaz.Id.Id
 import scalaz.syntax.traverse._
 import scalaz.std.option._
 import org.scalacheck.{Arbitrary, Gen, Shrink}
+import Arbitrary.arbitrary
 
 /** [[ValueGenerators]] produce untyped values; for example, if you use the list gen,
   * you get a heterogeneous list.  The generation target here, on the other hand, is
@@ -163,6 +164,7 @@ object TypedValueGenerators {
       override def injshrink[Cid: Shrink] = Shrink.shrinkAny // XXX descend
     }
 
+    /** See [[RecordVa]] companion for usage examples. */
     def record[Rec](name: Ref.Identifier, rec: RecordVa): (DefDataType.FWT, Aux[rec.Inj]) =
       (DefDataType(ImmArraySeq.empty, Record(rec.t.to[ImmArraySeq])), new ValueAddend {
         private[this] val lfvFieldNames = rec.t map { case (n, _) => Some(n) }
@@ -175,14 +177,15 @@ object TypedValueGenerators {
             rec.prj(fields)
           case _ => None
         }
-        override def injarb[Cid: Arbitrary] = ???
-        override def injshrink[Cid: Shrink] = ???
+        override def injarb[Cid: Arbitrary] = rec.injarb
+        override def injshrink[Cid: Shrink] = rec.injshrink
       })
   }
 
   sealed abstract class RecordVa { self =>
     import shapeless.{::, HList, Witness}
     import shapeless.labelled.{field, FieldType => :->>:}
+
     type Inj[Cid] <: HList
     def ::[K <: Symbol](h: K :->>: ValueAddend)(implicit ev: Witness.Aux[K])
       : RecordVa { type Inj[Cid] = (K :->>: h.Inj[Cid]) :: self.Inj[Cid] } =
@@ -200,19 +203,43 @@ object TypedValueGenerators {
             } yield field[K](pvh) :: pvt
           case _ => None
         }
+        override def injarb[Cid: Arbitrary] = {
+          import self.{injarb => tailarb}, h.{injarb => headarb}
+          Arbitrary(arbitrary[(h.Inj[Cid], self.Inj[Cid])] map {
+            case (vh, vt) =>
+              field[K](vh) :: vt
+          })
+        }
+
+        override def injshrink[Cid: Shrink]: Shrink[Inj[Cid]] = {
+          import h.{injshrink => hshrink}, self.{injshrink => tshrink}
+          Shrink {
+            case vh :: vt =>
+              (Shrink.shrink(vh: h.Inj[Cid]) zip Shrink.shrink(vt)) map {
+                case (nh, nt) => field[K](nh) :: nt
+              }
+          }
+        }
       }
 
     private[TypedValueGenerators] val t: List[(Ref.Name, Type)]
     private[TypedValueGenerators] def inj[Cid](v: Inj[Cid]): List[Value[Cid]]
     private[TypedValueGenerators] def prj[Cid](v: ImmArray[(_, Value[Cid])]): Option[Inj[Cid]]
+    private[TypedValueGenerators] implicit def injarb[Cid: Arbitrary]: Arbitrary[Inj[Cid]]
+    private[TypedValueGenerators] implicit def injshrink[Cid: Shrink]: Shrink[Inj[Cid]]
   }
 
   case object RNil extends RecordVa {
-    type Inj[Cid] = shapeless.HNil
+    import shapeless.HNil
+    type Inj[Cid] = HNil
     private[TypedValueGenerators] override val t = List.empty
-    private[TypedValueGenerators] override def inj[Cid](v: shapeless.HNil) = List.empty
+    private[TypedValueGenerators] override def inj[Cid](v: HNil) = List.empty
     private[TypedValueGenerators] override def prj[Cid](v: ImmArray[(_, Value[Cid])]) =
-      Some(shapeless.HNil)
+      Some(HNil)
+    private[TypedValueGenerators] override def injarb[Cid: Arbitrary] =
+      Arbitrary(Gen const HNil)
+    private[TypedValueGenerators] override def injshrink[Cid: Shrink] =
+      Shrink.shrinkAny
   }
 
   object RecordVa {
