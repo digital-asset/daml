@@ -42,7 +42,7 @@ abstract class ValueHasher {
 
 object ValueHasher extends ValueHasher {
 
-  // tag are used to avoid hash collisions due to equal encoding for different objects
+  // tags are used to avoid hash collisions due to equal encoding for different objects
   private val tagUnit: Byte = 1
   private val tagTrue: Byte = 2
   private val tagFalse: Byte = 3
@@ -85,68 +85,72 @@ object ValueHasher extends ValueHasher {
 
     def mixBytes(v: Array[Byte]): MessageDigest = {
       digest.update(v)
-      digest mixByte tagEnd
+      mixByte(tagEnd)
     }
 
+    def iterateOver[T](traversable: Iterator[T])(
+        mix: (MessageDigest, T) => MessageDigest): MessageDigest =
+      traversable.foldLeft(digest)(mix).mixByte(tagEnd)
+
     def mixString(v: String): MessageDigest =
-      digest mixBytes Utf8.getBytes(v)
+      mixBytes(Utf8.getBytes(v))
 
     def mixIdentifier(id: Ref.Identifier): MessageDigest =
-      digest mixString id.packageId mixString id.qualifiedName.toString
+      mixString(id.packageId).mixString(id.qualifiedName.toString)
 
     def mixValue(value: Value[AbsoluteContractId]): MessageDigest = value match {
       case ValueUnit =>
-        digest mixByte tagUnit
+        mixByte(tagUnit)
       case Value.ValueBool(true) =>
-        digest mixByte tagTrue
+        mixByte(tagTrue)
       case Value.ValueBool(false) =>
-        digest mixByte tagFalse
+        mixByte(tagFalse)
       case ValueInt64(v) =>
-        digest mixByte tagInt64 mixLong v
+        mixByte(tagInt64).mixLong(v)
       case ValueNumeric(v) =>
-        digest mixByte tagNumeric mixString Numeric.toString(v)
+        mixByte(tagNumeric).mixString(Numeric.toString(v))
       case ValueTimestamp(v) =>
-        digest mixByte tagTimeStamp mixLong v.micros
+        mixByte(tagTimeStamp).mixLong(v.micros)
       case ValueDate(v) =>
-        digest mixByte tagDate mixInt v.days
+        mixByte(tagDate).mixInt(v.days)
       case ValueParty(v) =>
-        digest mixByte tagParty mixString v
+        mixByte(tagParty).mixString(v)
       case ValueText(v) =>
-        digest mixByte tagText mixString v
+        mixByte(tagText).mixString(v)
       case ValueContractId(v) =>
-        digest mixByte tagContractId mixString v.coid
+        mixByte(tagContractId).mixString(v.coid)
       case ValueRecord(_, fs) =>
-        fs.foldLeft(digest mixByte tagRecord)(_ mixValue _._2) mixByte tagEnd
+        mixByte(tagRecord).iterateOver(fs.iterator)(_ mixValue _._2)
       case ValueVariant(_, variant, v) =>
-        digest mixByte tagVariant mixString variant mixValue v
+        mixByte(tagVariant).mixString(variant).mixValue(v)
       case ValueEnum(_, v) =>
-        digest mixByte tagEnum mixString v
+        mixByte(tagEnum).mixString(v)
       case ValueOptional(None) =>
-        digest mixByte tagNone
+        mixByte(tagNone)
       case ValueOptional(Some(v)) =>
-        digest mixByte tagSome mixValue v
+        mixByte(tagSome).mixValue(v)
       case ValueList(xs) =>
-        xs.iterator.foldLeft(digest mixByte tagList)(_ mixValue _) mixByte tagEnd
+        mixByte(tagList).iterateOver(xs.iterator)(_ mixValue _)
       case ValueTextMap(xs) =>
-        xs.toImmArray.foldLeft(digest mixByte tagTextMap) {
-          case (acc, (k, v)) => acc mixString k mixValue v
-        } mixByte tagEnd
+        mixByte(tagTextMap).iterateOver(xs.toImmArray.iterator) {
+          case (acc, (k, v)) => acc.mixString(k).mixValue(v)
+        }
       case ValueGenMap(entries) =>
-        entries.foldLeft(digest mixByte tagGenMap) {
-          case (acc, (k, v)) => acc mixValue k mixValue v
-        } mixByte tagEnd
+        mixByte(tagGenMap).iterateOver(entries.iterator) {
+          case (acc, (k, v)) => acc.mixValue(k).mixValue(v)
+        }
       // Struct: should never be encountered
       case ValueStruct(_) =>
         sys.error("Hashing of struct values is not supported")
     }
 
     def mixContract(identifier: Ref.Identifier, value: Value[AbsoluteContractId]): MessageDigest =
-      digest mixByte tagContract mixIdentifier identifier mixValue value
+      mixByte(tagContract).mixIdentifier(identifier).mixValue(value)
 
     def mixContractKey(
         identifier: Ref.Identifier,
         value: Value[AbsoluteContractId]): MessageDigest =
-      digest mixByte tagContractKey mixIdentifier identifier mixValue value
+      mixByte(tagContractKey).mixIdentifier(identifier).mixValue(value)
   }
 
   private def newDigest: MessageDigest = MessageDigest.getInstance("SHA-256")
