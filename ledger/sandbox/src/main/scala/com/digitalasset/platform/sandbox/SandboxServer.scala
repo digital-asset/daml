@@ -10,6 +10,7 @@ import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.ledger.participant.state.{v1 => ParticipantState}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.engine.Engine
@@ -21,8 +22,7 @@ import com.digitalasset.ledger.api.health.HealthChecks
 import com.digitalasset.platform.apiserver.{ApiServer, ApiServices, LedgerApiServer}
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
-import com.daml.ledger.participant.state.{v1 => ParticipantState}
-import com.digitalasset.platform.sandbox.SandboxServer.{asyncTolerance, createInitialState, logger}
+import com.digitalasset.platform.sandbox.SandboxServer._
 import com.digitalasset.platform.sandbox.banner.Banner
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.sandbox.metrics.MetricsReporting
@@ -86,9 +86,34 @@ object SandboxServer {
         (acs, records, Some(ledgerTime))
     }
   }
+
+  private final class Infrastructure(actorSystem: ActorSystem, val materializer: ActorMaterializer)
+      extends AutoCloseable {
+    def executionContext: ExecutionContext = materializer.executionContext
+
+    override def close(): Unit = {
+      materializer.shutdown()
+      Await.result(actorSystem.terminate(), asyncTolerance)
+      ()
+    }
+  }
+
+  private final class ApiServerState(
+      ledgerId: LedgerId,
+      val apiServer: ApiServer,
+      indexAndWriteService: AutoCloseable,
+  ) extends AutoCloseable {
+    def port: Int = apiServer.port
+
+    override def close(): Unit = {
+      apiServer.close() //fully tear down the old server.
+      indexAndWriteService.close()
+    }
+  }
+
 }
 
-class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends AutoCloseable {
+final class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends AutoCloseable {
 
   // Name of this participant
   // TODO: Pass this info in command-line (See issue #2025)
@@ -100,33 +125,9 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
   private val metricsReporting =
     new MetricsReporting(metrics, "com.digitalasset.platform.sandbox")
 
-  case class ApiServerState(
-      ledgerId: LedgerId,
-      apiServer: ApiServer,
-      indexAndWriteService: AutoCloseable
-  ) extends AutoCloseable {
-    def port: Int = apiServer.port
-
-    override def close: Unit = {
-      apiServer.close() //fully tear down the old server.
-      indexAndWriteService.close()
-    }
-  }
-
-  case class Infrastructure(actorSystem: ActorSystem, materializer: ActorMaterializer)
-      extends AutoCloseable {
-    def executionContext: ExecutionContext = materializer.executionContext
-
-    override def close: Unit = {
-      materializer.shutdown()
-      Await.result(actorSystem.terminate(), asyncTolerance)
-      ()
-    }
-  }
-
   @volatile private var sandboxState: SandboxState = _
 
-  case class SandboxState(
+  private case class SandboxState(
       apiServerState: ApiServerState,
       infra: Infrastructure,
       packageStore: InMemoryPackageStore)
@@ -143,7 +144,7 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
       //need to run this async otherwise the callback kills the server under the in-flight reset service request!
 
       Future {
-        apiServerState.close // fully tear down the old server
+        apiServerState.close() // fully tear down the old server
         //TODO: eliminate the state mutation somehow
         //yes, it's horrible that we mutate the state here, but believe me, it's still an improvement to what we had before!
         sandboxState = copy(
@@ -284,7 +285,7 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
       asyncTolerance
     )
 
-    val newState = ApiServerState(
+    val newState = new ApiServerState(
       ledgerId,
       apiServer,
       indexAndWriteService
@@ -309,8 +310,7 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
 
   private def start(): SandboxState = {
     val actorSystem = ActorSystem(actorSystemName)
-    val infrastructure =
-      Infrastructure(actorSystem, ActorMaterializer()(actorSystem))
+    val infrastructure = new Infrastructure(actorSystem, ActorMaterializer()(actorSystem))
     try {
       val packageStore = loadDamlPackages()
       val apiState = buildAndStartApiServer(infrastructure, packageStore)
