@@ -113,6 +113,7 @@ message TypeConName {
 }
 
 // A fully qualified reference to a type synonym name.
+// *Available in versions >= 1.dev*
 message TypeSynName {
 
   // Module where the type is defined.
@@ -123,7 +124,7 @@ message TypeSynName {
     DottedName name_dname = 2;
 
     // *Must be a valid interned name*
-    int32 name_interned_dname = 3; // *Available in versions >= 1.7*
+    int32 name_interned_dname = 3;
   }
 }
 
@@ -1364,6 +1365,7 @@ message DefDataType {
 }
 
 // Type synonym definition
+// *Available in versions >= 1.dev*
 message DefTypeSyn {
 
   // name of the defined type synonym
@@ -1371,13 +1373,13 @@ message DefTypeSyn {
     DottedName name_dname = 1;
 
     // *Must be a valid interned name*
-    int32 name_interned_dname = 8; // *Available in versions >= 1.7*
+    int32 name_interned_dname = 8;
   }
 
   // type parameters
   repeated TypeVarWithKind params = 2;
 
-  Type type = 3; // *Available in versions >= 1.dev*
+  Type type = 3;
 
   Location location = 4;
 }

@@ -201,11 +201,12 @@ isAscendant (ModuleName xs) (ModuleName ys) =
     (length xs < length ys) && and (zipWith sameish xs ys)
     where sameish a b = T.toLower a == T.toLower b
 
+
 -- | Check whether a module and its dependencies satisfy the
 -- name collision condition.
 checkModuleDeps :: World -> Module -> NCMonad ()
 checkModuleDeps world mod0 = do
-    -- TODO(NICK) - check for collisions with TypeSynonyms
+    -- TODO #3616:  check for collisions with TypeSynonyms
     let package = getWorldSelf world
         modules = NM.toList (packageModules package)
         name0 = moduleName mod0
