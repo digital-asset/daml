@@ -173,7 +173,13 @@ object ApiServices {
             loggerFactory)
 
       val apiPackageManagementService =
-        ApiPackageManagementService.createApiService(indexService, writeService, loggerFactory)
+        ApiPackageManagementService
+          .createApiService(
+            indexService,
+            transactionsService,
+            writeService,
+            timeProvider,
+            loggerFactory)
 
       val apiReflectionService = ProtoReflectionService.newInstance()
 

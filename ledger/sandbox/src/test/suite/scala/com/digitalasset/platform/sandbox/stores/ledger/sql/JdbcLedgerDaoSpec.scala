@@ -5,7 +5,6 @@ package com.digitalasset.platform.sandbox.stores.ledger.sql
 
 import java.io.File
 import java.time.Instant
-import java.util.UUID
 import java.util.concurrent.atomic.AtomicLong
 
 import akka.stream.scaladsl.{Sink, Source}
@@ -406,52 +405,33 @@ class JdbcLedgerDaoSpec
       }
     }
 
-    "refuse to persist an upload with no packages without external offset" in {
-      recoverToSucceededIf[IllegalArgumentException] {
-        ledgerDao.uploadLfPackages(UUID.randomUUID().toString, Nil, None)
-      }
-    }
-
-    "refuse to persist an upload with no packages with external offset" in {
-      for {
-        beforeExternalLedgerEnd <- ledgerDao.lookupExternalLedgerEnd()
-        _ <- recoverToSucceededIf[IllegalArgumentException] {
-          ledgerDao.uploadLfPackages(UUID.randomUUID().toString, Nil, nextExternalOffset())
-        }
-        afterExternalLedgerEnd <- ledgerDao.lookupExternalLedgerEnd()
-
-      } yield beforeExternalLedgerEnd shouldEqual afterExternalLedgerEnd
-    }
-
-    "refuse to persist an upload with an empty id" in {
-      recoverToSucceededIf[IllegalArgumentException] {
-        ledgerDao.uploadLfPackages("", JdbcLedgerDaoSpec.Fixtures.packages, None)
-      }
-    }
-
     "upload packages in an idempotent fashion, maintaining existing descriptions" in {
       val firstDescription = "first description"
       val secondDescription = "second description"
+      val offset1 = nextOffset()
+      val offset2 = nextOffset()
       for {
         firstUploadResult <- ledgerDao
-          .uploadLfPackages(
-            UUID.randomUUID().toString,
+          .storePackageEntry(
+            offset1,
+            offset1 + 1,
+            None,
             JdbcLedgerDaoSpec.Fixtures.packages
               .map(a => a._1 -> a._2.copy(sourceDescription = Some(firstDescription)))
               .take(1),
             None)
         secondUploadResult <- ledgerDao
-          .uploadLfPackages(
-            UUID.randomUUID().toString,
+          .storePackageEntry(
+            offset2,
+            offset2 + 1,
+            None,
             JdbcLedgerDaoSpec.Fixtures.packages.map(a =>
               a._1 -> a._2.copy(sourceDescription = Some(secondDescription))),
             None)
         loadedPackages <- ledgerDao.listLfPackages
       } yield {
-        firstUploadResult shouldBe Map(PersistenceResponse.Ok -> 1)
-        secondUploadResult shouldBe Map(
-          PersistenceResponse.Ok -> 6,
-          PersistenceResponse.Duplicate -> 1)
+        firstUploadResult shouldBe PersistenceResponse.Ok
+        secondUploadResult shouldBe PersistenceResponse.Ok
         loadedPackages.values.flatMap(_.sourceDescription.toList) should contain theSameElementsAs Seq(
           firstDescription,
           secondDescription,

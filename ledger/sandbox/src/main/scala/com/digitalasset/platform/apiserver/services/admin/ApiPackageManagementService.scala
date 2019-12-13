@@ -5,11 +5,13 @@ package com.digitalasset.platform.apiserver.services.admin
 
 import java.io.ByteArrayInputStream
 import java.util.zip.ZipInputStream
+import java.util.UUID
 
 import akka.actor.Scheduler
-import akka.stream.ActorMaterializer
-import com.daml.ledger.participant.state.index.v2.IndexPackagesService
-import com.daml.ledger.participant.state.v1.{UploadPackagesResult, WritePackagesService}
+import akka.stream.{ActorMaterializer, Materializer}
+import akka.stream.scaladsl.Sink
+import com.daml.ledger.participant.state.v1.{SubmissionId, SubmissionResult, WritePackagesService}
+import com.daml.ledger.participant.state.index.v2.{IndexPackagesService, IndexTransactionsService}
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
@@ -19,17 +21,22 @@ import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DE}
 import com.digitalasset.platform.server.api.validation.ErrorFactories
 import com.google.protobuf.timestamp.Timestamp
+import com.digitalasset.ledger.api.domain.{LedgerOffset, PackageEntry}
+import com.digitalasset.api.util.TimeProvider
 import io.grpc.ServerServiceDefinition
 import org.slf4j.Logger
 
 import scala.compat.java8.FutureConverters
-import scala.concurrent.Future
-import scala.concurrent.duration.DurationInt
+import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.util.Try
 
 class ApiPackageManagementService(
     packagesIndex: IndexPackagesService,
+    transactionsService: IndexTransactionsService,
     packagesWrite: WritePackagesService,
+    timeProvider: TimeProvider,
+    materializer: Materializer,
     scheduler: Scheduler,
     loggerFactory: NamedLoggerFactory)
     extends PackageManagementService
@@ -59,74 +66,80 @@ class ApiPackageManagementService(
   }
 
   override def uploadDarFile(request: UploadDarFileRequest): Future[UploadDarFileResponse] = {
-    val resultT = for {
+    val submissionId =
+      if (request.submissionId.isEmpty)
+        SubmissionId.assertFromString(UUID.randomUUID().toString)
+      else
+        SubmissionId.assertFromString(request.submissionId)
+
+    // Amount of time we wait for the ledger to commit the request before we
+    // give up on polling for the result.
+    // TODO(JM): This constant should be replaced by user-provided maximum record time
+    // which should be wired through the stack and verified during validation, just like
+    // with transactions. I'm leaving this for another PR.
+    val timeToLive = 30.seconds
+
+    implicit val ec: ExecutionContext = DE
+    for {
       dar <- DarReader { case (_, x) => Try(Archive.parseFrom(x)) }
         .readArchive(
           "package-upload",
           new ZipInputStream(new ByteArrayInputStream(request.darFile.toByteArray)))
-    } yield {
-      (packagesWrite.uploadPackages(dar.all, None), dar.all.map(_.getHash))
-    }
-    resultT.fold(
-      err => Future.failed(ErrorFactories.invalidArgument(err.getMessage)),
-      res =>
-        FutureConverters
-          .toScala(res._1)
-          .flatMap {
-            case UploadPackagesResult.Ok =>
+        .fold(
+          err => Future.failed(ErrorFactories.invalidArgument(err.getMessage)),
+          Future.successful
+        )
+      ledgerEndBeforeRequest <- transactionsService.currentLedgerEnd()
+      result <- FutureConverters.toScala(
+        packagesWrite.uploadPackages(submissionId, dar.all, None)
+      )
+      response <- result match {
+        case SubmissionResult.Acknowledged =>
+          pollUntilPersisted(submissionId, timeToLive, ledgerEndBeforeRequest).flatMap {
+            case _: PackageEntry.PackageUploadAccepted =>
               Future.successful(UploadDarFileResponse())
-            case r @ UploadPackagesResult.Overloaded =>
-              Future.failed(ErrorFactories.resourceExhausted(r.description))
-            case r @ UploadPackagesResult.InternalError(_) =>
-              Future.failed(ErrorFactories.internal(r.reason))
-            case r @ UploadPackagesResult.InvalidPackage(_) =>
-              Future.failed(ErrorFactories.invalidArgument(r.description))
-            case r @ UploadPackagesResult.ParticipantNotAuthorized =>
-              Future.failed(ErrorFactories.permissionDenied(r.description))
-            case r @ UploadPackagesResult.NotSupported =>
-              Future.failed(ErrorFactories.unimplemented(r.description))
-          }(DE)
-          .flatMap(pollUntilPersisted(res._2, _))(DE)
-    )
+            case PackageEntry.PackageUploadRejected(_, _, reason) =>
+              Future.failed(ErrorFactories.invalidArgument(reason))
+          }
+        case r @ SubmissionResult.Overloaded =>
+          Future.failed(ErrorFactories.resourceExhausted(r.description))
+        case r @ SubmissionResult.InternalError(_) =>
+          Future.failed(ErrorFactories.internal(r.reason))
+        case r @ SubmissionResult.NotSupported =>
+          Future.failed(ErrorFactories.unimplemented(r.description))
+      }
+    } yield response
   }
 
-  /**
-    * Wraps a call [[PollingUtils.pollUntilPersisted]] so that it can be chained on the package upload with a `flatMap`.
-    *
-    * Checks invariants and forwards the original result after all packages are found to be persisted.
-    *
-    * @param ids The IDs of the uploaded packages
-    * @return The result of the party allocation received originally, wrapped in a [[Future]]
-    */
   private def pollUntilPersisted(
-      ids: List[String],
-      result: UploadDarFileResponse): Future[UploadDarFileResponse] = {
-    val newPackages = ids.toSet
-    val description = s"packages ${ids.mkString(", ")}"
-
-    PollingUtils
-      .pollUntilPersisted(packagesIndex.listLfPackages _)(
-        x => newPackages.subsetOf(x.keySet.toSet),
-        description,
-        50.milliseconds,
-        500.milliseconds,
-        d => d * 2,
-        scheduler,
-        loggerFactory)
-      .map { numberOfAttempts =>
-        logger.debug(
-          s"All ${ids.length} packages available, read after $numberOfAttempts attempt(s)")
-        result
-      }(DE)
+      submissionId: SubmissionId,
+      timeToLive: FiniteDuration,
+      offset: LedgerOffset.Absolute): Future[PackageEntry] = {
+    packagesIndex
+      .packageEntries(offset)
+      .collect {
+        case entry @ PackageEntry.PackageUploadAccepted(`submissionId`, _) => entry
+        case entry @ PackageEntry.PackageUploadRejected(`submissionId`, _, _) => entry
+      }
+      .completionTimeout(timeToLive)
+      .runWith(Sink.head)(materializer)
   }
 }
 
 object ApiPackageManagementService {
   def createApiService(
       readBackend: IndexPackagesService,
+      transactionsService: IndexTransactionsService,
       writeBackend: WritePackagesService,
+      timeProvider: TimeProvider,
       loggerFactory: NamedLoggerFactory)(implicit mat: ActorMaterializer)
     : PackageManagementServiceGrpc.PackageManagementService with GrpcApiService =
-    new ApiPackageManagementService(readBackend, writeBackend, mat.system.scheduler, loggerFactory)
-    with PackageManagementServiceLogging
+    new ApiPackageManagementService(
+      readBackend,
+      transactionsService,
+      writeBackend,
+      timeProvider,
+      mat,
+      mat.system.scheduler,
+      loggerFactory) with PackageManagementServiceLogging
 }
