@@ -107,6 +107,17 @@ object SandboxServer {
     }
   }
 
+  private final case class SandboxState(
+      apiServerState: ApiServerState,
+      infra: Infrastructure,
+      packageStore: InMemoryPackageStore,
+  ) extends AutoCloseable {
+    override def close(): Unit = {
+      // FIXME: extra close - when closed during reset close is called on already closed service causing an exception!
+      apiServerState.close()
+      infra.close()
+    }
+  }
 }
 
 final class SandboxServer(config: => SandboxConfig) extends AutoCloseable {
@@ -123,36 +134,7 @@ final class SandboxServer(config: => SandboxConfig) extends AutoCloseable {
 
   @volatile private var sandboxState: SandboxState = _
 
-  private case class SandboxState(
-      apiServerState: ApiServerState,
-      infra: Infrastructure,
-      packageStore: InMemoryPackageStore)
-      extends AutoCloseable {
-    override def close(): Unit = {
-      // FIXME: extra close - when closed during reset close is called on already closed service causing an exception!
-      apiServerState.close()
-      infra.close()
-    }
-
-    def resetAndRestartServer(): Future[Unit] = {
-      implicit val ec: ExecutionContext = sandboxState.infra.executionContext
-      val apiServicesClosed = apiServerState.apiServer.servicesClosed()
-      //need to run this async otherwise the callback kills the server under the in-flight reset service request!
-
-      Future {
-        apiServerState.close() // fully tear down the old server
-        //TODO: eliminate the state mutation somehow
-        //yes, it's horrible that we mutate the state here, but believe me, it's still an improvement to what we had before!
-        sandboxState = copy(
-          apiServerState =
-            buildAndStartApiServer(infra, sandboxState.packageStore, SqlStartMode.AlwaysReset))
-      }(infra.executionContext)
-
-      // waits for the services to be closed, so we can guarantee that future API calls after finishing the reset will never be handled by the old one
-      apiServicesClosed
-    }
-
-  }
+  sandboxState = start()
 
   def port: Int = sandboxState.apiServerState.port
 
@@ -164,17 +146,36 @@ final class SandboxServer(config: => SandboxConfig) extends AutoCloseable {
     new SandboxResetService(
       ledgerId,
       () => sandboxState.infra.executionContext,
-      () => sandboxState.resetAndRestartServer(),
+      () => resetAndRestartServer(),
       authorizer,
       loggerFactory
     )
 
-  sandboxState = start()
+  def resetAndRestartServer(): Future[Unit] = {
+    implicit val ec: ExecutionContext = sandboxState.infra.executionContext
+    val apiServicesClosed = sandboxState.apiServerState.apiServer.servicesClosed()
+    //need to run this async otherwise the callback kills the server under the in-flight reset service request!
+
+    Future {
+      sandboxState.apiServerState.close() // fully tear down the old server
+      //TODO: eliminate the state mutation somehow
+      //yes, it's horrible that we mutate the state here, but believe me, it's still an improvement to what we had before!
+      sandboxState = sandboxState.copy(
+        apiServerState = buildAndStartApiServer(
+          sandboxState.infra,
+          sandboxState.packageStore,
+          SqlStartMode.AlwaysReset))
+    }(sandboxState.infra.executionContext)
+
+    // waits for the services to be closed, so we can guarantee that future API calls after finishing the reset will never be handled by the old one
+    apiServicesClosed
+  }
 
   private def buildAndStartApiServer(
       infra: Infrastructure,
       packageStore: InMemoryPackageStore,
-      startMode: SqlStartMode = SqlStartMode.ContinueIfExists): ApiServerState = {
+      startMode: SqlStartMode = SqlStartMode.ContinueIfExists,
+  ): ApiServerState = {
     implicit val mat: ActorMaterializer = infra.materializer
     implicit val ec: ExecutionContext = infra.executionContext
 
