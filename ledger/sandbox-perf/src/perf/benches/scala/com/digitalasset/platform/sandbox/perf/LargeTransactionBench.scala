@@ -3,18 +3,17 @@
 
 package com.digitalasset.platform.sandbox.perf
 
+import java.io.File
 import java.util.concurrent.TimeUnit
 
-import com.digitalasset.platform.PlatformApplications
 import com.digitalasset.platform.sandbox.perf.TestHelper._
 import org.openjdk.jmh.annotations._
 
 import scala.concurrent.Await
 
 abstract class CreatedStateBase extends PerfBenchState {
-  override def config: PlatformApplications.Config =
-    PlatformApplications.Config.default
-      .withDarFile(darFile.toPath)
+
+  override def darFile: File = TestHelper.darFile
 
   @Param(Array("10", "100", "1000", "100000"))
   var n: Int = _
@@ -25,23 +24,22 @@ abstract class CreatedStateBase extends PerfBenchState {
   def init(): Unit = {
     workflowId = uniqueId()
     sendCreates()
-
   }
 
   def sendCreates(): Unit
 }
 
-class RangeOfIntsCreatedState extends CreatedStateBase {
+final class RangeOfIntsCreatedState extends CreatedStateBase {
   override def sendCreates(): Unit =
     Await.result(rangeOfIntsCreateCommand(this, workflowId, n), setupTimeout)
 }
 
-class ListOfNIntsCreatedState extends CreatedStateBase {
+final class ListOfNIntsCreatedState extends CreatedStateBase {
   override def sendCreates(): Unit =
     Await.result(listUtilCreateCommand(this, workflowId), setupTimeout)
 }
 
-class LargeTransactionBench {
+final class LargeTransactionBench {
 
   @Benchmark
   def singleHugeContract(state: RangeOfIntsCreatedState): Unit =

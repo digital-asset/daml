@@ -20,7 +20,7 @@ import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.sandbox.perf.util.DarUtil
 import com.google.protobuf.timestamp.Timestamp
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
 
 trait TestHelper {
@@ -90,8 +90,7 @@ trait TestHelper {
       workflowId: String,
       choice: String,
       args: Option[Value]): Future[Unit] = {
-    @SuppressWarnings(Array("org.wartremover.warts.ExplicitImplicitTypes"))
-    implicit val ec = state.mat.executionContext
+    implicit val ec: ExecutionContext = state.mat.executionContext
     for {
       contractId <- firstActiveContractId(state, rangeOfIntsTemplateId, workflowId)
       exerciseCmd = LargeTransactionCommands.exerciseCommand(
@@ -145,8 +144,7 @@ trait TestHelper {
       templateId: Identifier,
       workflowId: String,
       n: Int): Future[Unit] = {
-    @SuppressWarnings(Array("org.wartremover.warts.ExplicitImplicitTypes"))
-    implicit val ec = state.mat.executionContext
+    implicit val ec: ExecutionContext = state.mat.executionContext
     for {
       contractId <- firstActiveContractId(state, templateId, workflowId)
       exerciseCmd = LargeTransactionCommands.exerciseSizeCommand(templateId, contractId, n)
