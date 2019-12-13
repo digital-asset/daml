@@ -27,7 +27,7 @@ object LedgerFactories {
     SandboxConfig(
       address = None,
       port = 0,
-      None,
+      portFile = None,
       damlPackages = darFiles,
       timeProviderType = TimeProviderType.Static,
       timeModel = TimeModel.reasonableDefault,
