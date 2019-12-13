@@ -93,7 +93,6 @@ da_scala_test_suite(
         exclude = [
             # XXX: Flaky tests are excluded, see below.
             "src/test/itsuite/scala/com/digitalasset/platform/tests/integration/ledger/api/commands/CommandServiceBackPressureIT.scala",
-            "src/test/itsuite/scala/com/digitalasset/platform/tests/integration/ledger/api/ResetServiceIT.scala",
         ],
     ),
     data = [
@@ -122,7 +121,6 @@ da_scala_test_suite(
     name = "ledger-api-integration-tests-flaky",
     size = "large",
     srcs = [
-        "src/test/itsuite/scala/com/digitalasset/platform/tests/integration/ledger/api/ResetServiceIT.scala",
         "src/test/itsuite/scala/com/digitalasset/platform/tests/integration/ledger/api/commands/CommandServiceBackPressureIT.scala",
     ],
     data = [
@@ -131,10 +129,6 @@ da_scala_test_suite(
         "@postgresql_dev_env//:all",
     ],
     flaky = True,
-    # this test suite is very intensive, long, and relying on timeouts. Moreover,
-    # the test suite already parallelizes each scala test, so we'll still be busy
-    # only with this one. for the same reason we do not run it on macos -- it takes
-    # up to 20 minutes on our macOS ci workers.
     tags = [
         "dont-run-on-darwin",
         "exclusive",
