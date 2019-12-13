@@ -165,10 +165,10 @@ object TypedValueGenerators {
     }
 
     /** See [[RecordVa]] companion for usage examples. */
-    def record[Rec](name: Ref.Identifier, rec: RecordVa): (DefDataType.FWT, Aux[rec.Inj]) =
+    def record[Rec](name: Ref.Identifier, rec: RecordVa): (DefDataType.FWT, Aux[rec.HRec]) =
       (DefDataType(ImmArraySeq.empty, Record(rec.t.to[ImmArraySeq])), new ValueAddend {
         private[this] val lfvFieldNames = rec.t map { case (n, _) => Some(n) }
-        type Inj[Cid] = rec.Inj[Cid]
+        type Inj[Cid] = rec.HRec[Cid]
         override val t = TypeCon(TypeConName(name), ImmArraySeq.empty)
         override def inj[Cid] =
           hl => ValueRecord(Some(name), (lfvFieldNames zip rec.inj(hl)).to[ImmArray])
@@ -177,7 +177,7 @@ object TypedValueGenerators {
             rec.prj(fields)
           case _ => None
         }
-        override def injarb[Cid: Arbitrary] = rec.injarb
+        override def injarb[Cid: Arbitrary] = rec.injarb[Cid]
         override def injshrink[Cid: Shrink] = rec.injshrink
       })
   }
@@ -186,14 +186,14 @@ object TypedValueGenerators {
     import shapeless.{::, HList, Witness}
     import shapeless.labelled.{field, FieldType => :->>:}
 
-    type Inj[Cid] <: HList
+    type HRec[Cid] <: HList
     def ::[K <: Symbol](h: K :->>: ValueAddend)(implicit ev: Witness.Aux[K])
-      : RecordVa { type Inj[Cid] = (K :->>: h.Inj[Cid]) :: self.Inj[Cid] } =
+      : RecordVa { type HRec[Cid] = (K :->>: h.Inj[Cid]) :: self.HRec[Cid] } =
       new RecordVa {
         private[this] val fname = Ref.Name assertFromString ev.value.name
-        type Inj[Cid] = (K :->>: h.Inj[Cid]) :: self.Inj[Cid]
+        type HRec[Cid] = (K :->>: h.Inj[Cid]) :: self.HRec[Cid]
         override val t = (fname, h.t) :: self.t
-        override def inj[Cid](v: Inj[Cid]) =
+        override def inj[Cid](v: HRec[Cid]) =
           h.inj(v.head) :: self.inj(v.tail)
         override def prj[Cid](v: ImmArray[(_, Value[Cid])]) = v match {
           case ImmArrayCons(vh, vt) =>
@@ -205,13 +205,13 @@ object TypedValueGenerators {
         }
         override def injarb[Cid: Arbitrary] = {
           import self.{injarb => tailarb}, h.{injarb => headarb}
-          Arbitrary(arbitrary[(h.Inj[Cid], self.Inj[Cid])] map {
+          Arbitrary(arbitrary[(h.Inj[Cid], self.HRec[Cid])] map {
             case (vh, vt) =>
               field[K](vh) :: vt
           })
         }
 
-        override def injshrink[Cid: Shrink]: Shrink[Inj[Cid]] = {
+        override def injshrink[Cid: Shrink]: Shrink[HRec[Cid]] = {
           import h.{injshrink => hshrink}, self.{injshrink => tshrink}
           Shrink {
             case vh :: vt =>
@@ -223,15 +223,15 @@ object TypedValueGenerators {
       }
 
     private[TypedValueGenerators] val t: List[(Ref.Name, Type)]
-    private[TypedValueGenerators] def inj[Cid](v: Inj[Cid]): List[Value[Cid]]
-    private[TypedValueGenerators] def prj[Cid](v: ImmArray[(_, Value[Cid])]): Option[Inj[Cid]]
-    private[TypedValueGenerators] implicit def injarb[Cid: Arbitrary]: Arbitrary[Inj[Cid]]
-    private[TypedValueGenerators] implicit def injshrink[Cid: Shrink]: Shrink[Inj[Cid]]
+    private[TypedValueGenerators] def inj[Cid](v: HRec[Cid]): List[Value[Cid]]
+    private[TypedValueGenerators] def prj[Cid](v: ImmArray[(_, Value[Cid])]): Option[HRec[Cid]]
+    private[TypedValueGenerators] implicit def injarb[Cid: Arbitrary]: Arbitrary[HRec[Cid]]
+    private[TypedValueGenerators] implicit def injshrink[Cid: Shrink]: Shrink[HRec[Cid]]
   }
 
   case object RNil extends RecordVa {
     import shapeless.HNil
-    type Inj[Cid] = HNil
+    type HRec[Cid] = HNil
     private[TypedValueGenerators] override val t = List.empty
     private[TypedValueGenerators] override def inj[Cid](v: HNil) = List.empty
     private[TypedValueGenerators] override def prj[Cid](v: ImmArray[(_, Value[Cid])]) =
@@ -249,7 +249,7 @@ object TypedValueGenerators {
       ('foo ->> ValueAddend.int64) :: ('bar ->> ValueAddend.text) :: RNil
     }
     import shapeless.record.Record
-    private[value] val sampleData: sample.Inj[Nothing] =
+    private[value] val sampleData: sample.HRec[Nothing] =
       Record(foo = 42L, bar = "hi")
   }
 
