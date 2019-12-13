@@ -426,8 +426,8 @@ abstract class LedgerBackedIndexService(
 
   /** Retrieve configuration entries. */
   override def configurationEntries(
-      startExclusive: Option[Long]): Source[domain.ConfigurationEntry, NotUsed] =
-    ledger.configurationEntries(startExclusive).map(_._2.toDomain)
+      startInclusive: Option[Long]): Source[domain.ConfigurationEntry, NotUsed] =
+    ledger.configurationEntries(startInclusive).map(_._2.toDomain)
 }
 
 class LedgerBackedWriteService(ledger: Ledger, timeProvider: TimeProvider) extends WriteService {

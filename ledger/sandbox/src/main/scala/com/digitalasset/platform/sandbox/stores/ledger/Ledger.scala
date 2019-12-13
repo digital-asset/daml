@@ -103,7 +103,7 @@ trait ReadOnlyLedger extends ReportsHealth with AutoCloseable {
   // Configuration management
   def lookupLedgerConfiguration(): Future[Option[(Long, Configuration)]]
   def configurationEntries(
-      startExclusive: Option[Long]): Source[(Long, ConfigurationEntry), NotUsed]
+      startInclusive: Option[Long]): Source[(Long, ConfigurationEntry), NotUsed]
 }
 
 object Ledger {

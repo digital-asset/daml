@@ -66,7 +66,8 @@ class ApiConfigManagementService private (
   }
 
   override def setTimeModel(request: SetTimeModelRequest): Future[SetTimeModelResponse] = {
-    /* All asynchronous calls executed directly in current thread. */
+    // Execute subsequent transforms in the thread of the previous
+    // operation.
     implicit val ec: ExecutionContext = DE
 
     for {
@@ -110,7 +111,6 @@ class ApiConfigManagementService private (
             case accept: domain.ConfigurationEntry.Accepted =>
               Future.successful(SetTimeModelResponse(accept.configuration.generation))
             case rejected: domain.ConfigurationEntry.Rejected =>
-              // TODO(JM): Reconsider error kind. E.g. emit deadline exceeded when MRT exceeds?
               Future.failed(ErrorFactories.aborted(rejected.rejectionReason))
           }
         case SubmissionResult.Overloaded =>

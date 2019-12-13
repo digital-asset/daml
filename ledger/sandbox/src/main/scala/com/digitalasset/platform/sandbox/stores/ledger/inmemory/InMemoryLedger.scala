@@ -324,13 +324,24 @@ class InMemoryLedger(
       config: Configuration): Future[SubmissionResult] =
     Future.successful {
       this.synchronized {
+        val recordTime = timeProvider.getCurrentTime
+        val mrt = maxRecordTime.toInstant
         ledgerConfiguration match {
-          case Some(currentConfig) if config.generation != currentConfig.generation =>
+          case Some(currentConfig) if config.generation != currentConfig.generation + 1 =>
             entries.publish(InMemoryConfigEntry(ConfigurationEntry.Rejected(
               submissionId,
               participantId,
-              "Generation mismatch, expected ${currentConfig.generation}, got ${config.generation}",
+              s"Generation mismatch, expected ${currentConfig.generation+1}, got ${config.generation}",
               config)))
+
+          case _ if recordTime.isAfter(mrt) =>
+            entries.publish(
+              InMemoryConfigEntry(ConfigurationEntry.Rejected(
+              submissionId,
+              participantId,
+              s"Configuration change timed out: $mrt > $recordTime",
+              config)))
+            ledgerConfiguration = Some(config)
 
           case _ =>
             entries.publish(
@@ -347,9 +358,9 @@ class InMemoryLedger(
     })
 
   override def configurationEntries(
-      startExclusive: Option[Long]): Source[(Long, ConfigurationEntry), NotUsed] =
+      startInclusive: Option[Long]): Source[(Long, ConfigurationEntry), NotUsed] =
     entries
-      .getSource(startExclusive.map(_ + 1))
+      .getSource(startInclusive)
       .collect { case (offset, InMemoryConfigEntry(entry)) => offset -> entry }
 
 }

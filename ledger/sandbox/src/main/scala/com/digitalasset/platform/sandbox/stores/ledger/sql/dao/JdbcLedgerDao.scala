@@ -278,14 +278,22 @@ private class JdbcLedgerDao(
   ): Future[PersistenceResponse] = {
     dbDispatcher.executeSql("store_configuration_entry", Some(s"submissionId=$submissionId")) {
       implicit conn =>
-        val currentConfig = selectLedgerConfiguration
-        var finalRejectionReason = rejectionReason
-        if (rejectionReason.isEmpty && (currentConfig exists (_._2.generation + 1 != configuration.generation))) {
-          // If we're not storing a rejection and the new generation is not succ of current configuration, then
-          // we store a rejection. This code path is only expected to be taken in sandbox. This follows the same
-          // pattern as storing transactions.
-          finalRejectionReason = Some(s"Generation mismatch")
-        }
+        val optCurrentConfig = selectLedgerConfiguration
+        val optExpectedGeneration: Option[Long] =
+          optCurrentConfig.map { case (_, c)  => c.generation + 1 }
+        val finalRejectionReason: Option[String] =
+          optExpectedGeneration match {
+            case Some(expGeneration) if rejectionReason.isEmpty && expGeneration != configuration.generation =>
+              // If we're not storing a rejection and the new generation is not succ of current configuration, then
+              // we store a rejection. This code path is only expected to be taken in sandbox. This follows the same
+              // pattern as with transactions.
+              Some(s"Generation mismatch: expected=${expGeneration}, actual=${configuration.generation}")
+
+            case _ =>
+              // Rejection reason was set, or we have no previous configuration generation, in which case we accept any
+              // generation.
+              rejectionReason
+          }
 
         updateLedgerEnd(newLedgerEnd, externalOffset)
         val configurationBytes = Configuration.encode(configuration).toByteArray
@@ -316,7 +324,7 @@ private class JdbcLedgerDao(
         }).recover {
           case NonFatal(e) if e.getMessage.contains(queries.DUPLICATE_KEY_ERROR) =>
             logger.warn(
-              s"Ignoring duplicate configuration submission for submissionId $submissionId, participantId $participantId")
+              s"Ignoring duplicate configuration submission, submissionId=$submissionId, participantId=$participantId")
             conn.rollback()
             PersistenceResponse.Duplicate
         }.get

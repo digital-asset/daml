@@ -3,8 +3,6 @@
 
 package com.daml.ledger.api.testtool.tests
 
-import java.time.Instant
-
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
@@ -33,8 +31,9 @@ final class ConfigManagement(session: LedgerSession) extends LedgerTestSuite(ses
         }
 
         // Set a new temporary time model
+        t1 <- ledger.time()
         _ <- ledger.setTimeModel(
-          mrt = Instant.now.plusSeconds(30),
+          mrt = t1.plusSeconds(30),
           generation = response1.configurationGeneration,
           newTimeModel = newTimeModel
         )
@@ -43,14 +42,25 @@ final class ConfigManagement(session: LedgerSession) extends LedgerTestSuite(ses
         response2 <- ledger.getTimeModel()
 
         // Restore the original time model
+        t2 <- ledger.time()
         _ <- ledger.setTimeModel(
-          mrt = Instant.now.plusSeconds(30),
+          mrt = t2.plusSeconds(30),
           generation = response2.configurationGeneration,
           newTimeModel = oldTimeModel
         )
 
         // Verify that we've restored the original time model
         response3 <- ledger.getTimeModel()
+
+        // Try to set a time model with an expired MRT.
+        t3 <- ledger.time()
+        expiredMRTFailure <- ledger
+          .setTimeModel(
+            mrt = t3.minusSeconds(10),
+            generation = response3.configurationGeneration,
+            newTimeModel = oldTimeModel
+          )
+          .failed
       } yield {
         assert(
           response1.configurationGeneration < response2.configurationGeneration,
@@ -66,30 +76,8 @@ final class ConfigManagement(session: LedgerSession) extends LedgerTestSuite(ses
         assert(
           response3.timeModel.equals(response1.timeModel),
           "Restoring the original time model failed")
-      }
-  }
 
-  test("CMSetTimeModelTimeout", "It should time out requests with too low MRT", allocate(NoParties)) {
-
-    case Participants(Participant(ledger)) =>
-      for {
-        // Get the current time model
-        response <- ledger.getTimeModel()
-        oldTimeModel = {
-          assert(response.timeModel.isDefined, "Expected time model to be defined")
-          response.timeModel.get
-        }
-
-        // Try to set a time model with an expired MRT.
-        failure <- ledger
-          .setTimeModel(
-            mrt = Instant.now.minusSeconds(10),
-            generation = response.configurationGeneration,
-            newTimeModel = oldTimeModel
-          )
-          .failed
-      } yield {
-        assertGrpcError(failure, Status.Code.ABORTED, "")
+        assertGrpcError(expiredMRTFailure, Status.Code.ABORTED, "")
       }
   }
 

@@ -365,28 +365,48 @@ private final class SqlLedger(
       config: Configuration): Future[SubmissionResult] =
     enqueue { offsets =>
       val recordTime = timeProvider.getCurrentTime
-      // NOTE(JM): If the generation in the new configuration is invalid
-      // we persist a rejection.
-      ledgerDao
-        .storeConfigurationEntry(
-          offsets.offset,
-          offsets.nextOffset,
-          None,
-          recordTime,
-          submissionId,
-          participantId,
-          config,
-          None
-        )
-        .map(_ => ())(DEC)
-        .recover {
-          case t =>
-            //recovering from the failure so the persistence stream doesn't die
-            logger.error(s"Failed to persist configuration with offsets: $offsets", t)
-            ()
-        }(DEC)
-    }
+      val mrt = maxRecordTime.toInstant
 
+      val storeF =
+        if (recordTime.isAfter(mrt)) {
+          ledgerDao
+            .storeConfigurationEntry(
+              offsets.offset,
+              offsets.nextOffset,
+              None,
+              recordTime,
+              submissionId,
+              participantId,
+              config,
+              Some(s"Configuration change timed out: $mrt > $recordTime"),
+            )
+        } else {
+          // NOTE(JM): If the generation in the new configuration is invalid
+          // we persist a rejection. This is done inside storeConfigurationEntry
+          // as we need to check against the current configuration within the same
+          // database transaction.
+          ledgerDao
+            .storeConfigurationEntry(
+              offsets.offset,
+              offsets.nextOffset,
+              None,
+              recordTime,
+              submissionId,
+              participantId,
+              config,
+              None
+            )
+        }
+
+      storeF
+          .map(_ => ())(DEC)
+          .recover {
+            case t =>
+              //recovering from the failure so the persistence stream doesn't die
+              logger.error(s"Failed to persist configuration with offsets: $offsets", t)
+              ()
+          }(DEC)
+    }
 }
 
 private final class SqlLedgerFactory(ledgerDao: LedgerDao, loggerFactory: NamedLoggerFactory) {
