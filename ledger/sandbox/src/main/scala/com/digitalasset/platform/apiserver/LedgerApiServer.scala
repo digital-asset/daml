@@ -12,17 +12,19 @@ import akka.stream.ActorMaterializer
 import com.codahale.metrics.MetricRegistry
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
-import io.grpc.ServerInterceptor
+import com.digitalasset.platform.resources.{Resource, ResourceOwner, _}
 import io.grpc.netty.NettyServerBuilder
+import io.grpc.{Server, ServerInterceptor}
 import io.netty.channel.EventLoopGroup
 import io.netty.channel.nio.NioEventLoopGroup
 import io.netty.channel.socket.nio.NioServerSocketChannel
 import io.netty.handler.ssl.SslContext
 import io.netty.util.concurrent.DefaultThreadFactory
 
-import scala.collection.mutable
-import scala.concurrent.{Future, Promise}
-import scala.util.control.{NoStackTrace, NonFatal}
+import scala.concurrent.duration.DurationInt
+import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Future, Promise}
+import scala.util.Try
+import scala.util.control.NoStackTrace
 
 trait ApiServer extends AutoCloseable {
 
@@ -45,18 +47,71 @@ object LedgerApiServer {
       interceptors: List[ServerInterceptor] = List.empty,
       metrics: MetricRegistry,
   )(implicit mat: ActorMaterializer): Future[ApiServer] = {
+    implicit val executionContext: ExecutionContextExecutor = mat.executionContext
 
     val logger = loggerFactory.getLogger(this.getClass)
+    val servicesClosedPromise = Promise[Unit]()
 
-    val closeables = mutable.Stack[AutoCloseable]()
+    def apiServicesResourceOwner(serverEsf: ExecutionSequencerFactory): ResourceOwner[ApiServices] =
+      new ResourceOwner[ApiServices] {
+        override def acquire()(
+            implicit _executionContext: ExecutionContext
+        ): Resource[ApiServices] =
+          new Resource[ApiServices] {
+            override protected val executionContext: ExecutionContext = _executionContext
 
-    def stop(): Unit = {
-      while (closeables.nonEmpty) {
-        closeables.pop().close()
+            override protected val future: Future[ApiServices] = createApiServices(mat, serverEsf)
+
+            override def release(): Future[Unit] =
+              future.map(apiServices => {
+                apiServices.close()
+                servicesClosedPromise.success(())
+              })
+          }
       }
+
+    val server = for {
+      serverEsf <- (executionSequencerFactoryResource _).acquire()
+      workerEventLoopGroup <- eventLoopGroup(
+        mat.system.name + "-nio-worker",
+        parallelism = Runtime.getRuntime.availableProcessors).acquire()
+      bossEventLoopGroup <- eventLoopGroup(mat.system.name + "-nio-boss", parallelism = 1).acquire()
+      apiServices <- apiServicesResourceOwner(serverEsf).acquire()
+      server <- grpcServer(
+        address,
+        desiredPort,
+        maxInboundMessageSize,
+        sslContext,
+        interceptors,
+        metrics,
+        bossEventLoopGroup,
+        workerEventLoopGroup,
+        apiServices).acquire()
+    } yield {
+      val host = address.getOrElse("localhost")
+      val actualPort = server.getPort
+      val transportMedium = if (sslContext.isDefined) "TLS" else "plain text"
+      logger.info(s"Listening on $host:$actualPort over $transportMedium.")
+      server
     }
 
-    val serverEsf = new AkkaExecutionSequencerPool(
+    server.asFuture.map(grpcServer =>
+      new ApiServer {
+        override val port: Int =
+          grpcServer.getPort
+
+        override def servicesClosed(): Future[Unit] =
+          servicesClosedPromise.future
+
+        override def close(): Unit =
+          Await.result(server.release(), 10.seconds)
+    })
+  }
+
+  private def executionSequencerFactoryResource()(
+      implicit mat: ActorMaterializer
+  ): ExecutionSequencerFactory =
+    new AkkaExecutionSequencerPool(
       // NOTE(JM): Pick a unique pool name as we want to allow multiple ledger api server
       // instances, and it's pretty difficult to wait for the name to become available
       // again (the name deregistration is asynchronous and the close method is not waiting for
@@ -65,89 +120,77 @@ object LedgerApiServer {
       poolName = s"ledger-api-server-rs-grpc-bridge-${UUID.randomUUID}",
       actorCount = Runtime.getRuntime.availableProcessors() * 8
     )(mat.system)
-    closeables.push(serverEsf)
 
-    val workerEventLoopGroup = createEventLoopGroup(
-      mat.system.name + "-nio-worker",
-      parallelism = Runtime.getRuntime.availableProcessors)
-    val bossEventLoopGroup = createEventLoopGroup(mat.system.name + "-nio-boss", parallelism = 1)
-    closeables.push(() => {
-      // `shutdownGracefully` has a "quiet period" which specifies a time window in which
-      // _no requests_ must be witnessed before shutdown is _initiated_. Here we want to
-      // start immediately, so no quiet period -- by default it's 2 seconds.
-      // Moreover, there's also a "timeout" parameter
-      // which caps the time to wait for the quiet period to be fullfilled. Since we have
-      // no quiet period, this can also be 0.
-      // See <https://netty.io/4.1/api/io/netty/util/concurrent/EventExecutorGroup.html#shutdownGracefully-long-long-java.util.concurrent.TimeUnit->.
-      // The 10 seconds to wait is sort of arbitrary, it's long enough to be noticeable though.
-      Seq(
-        workerEventLoopGroup.shutdownGracefully(0, 0, MILLISECONDS),
-        bossEventLoopGroup.shutdownGracefully(0, 0, MILLISECONDS),
-      ).foreach(_.await(10, SECONDS))
-    })
+  private def eventLoopGroup(
+      threadPoolName: String,
+      parallelism: Int
+  ): ResourceOwner[EventLoopGroup] = new ResourceOwner[EventLoopGroup] {
+    override def acquire()(
+        implicit _executionContext: ExecutionContext
+    ): Resource[EventLoopGroup] = {
+      val group = new NioEventLoopGroup(
+        parallelism,
+        new DefaultThreadFactory(s"$threadPoolName-grpc-eventloop-${UUID.randomUUID()}", true))
+      new Resource[EventLoopGroup] {
+        override protected val executionContext: ExecutionContext = _executionContext
 
-    createApiServices(mat, serverEsf).map { apiServices =>
-      val builder = address.fold(NettyServerBuilder.forPort(desiredPort))(address =>
-        NettyServerBuilder.forAddress(new InetSocketAddress(address, desiredPort)))
-      builder.sslContext(sslContext.orNull)
-      builder.directExecutor()
-      builder.channelType(classOf[NioServerSocketChannel])
-      builder.bossEventLoopGroup(bossEventLoopGroup)
-      builder.workerEventLoopGroup(workerEventLoopGroup)
-      builder.permitKeepAliveTime(10, SECONDS)
-      builder.permitKeepAliveWithoutCalls(true)
-      builder.maxInboundMessageSize(maxInboundMessageSize)
-      interceptors.foreach(builder.intercept)
-      builder.intercept(new MetricsInterceptor(metrics))
-      apiServices.services.foreach(builder.addService)
-      val grpcServer = builder.build()
+        override protected val future: Future[EventLoopGroup] = Future.successful(group)
 
-      try {
-        grpcServer.start()
-      } catch {
-        case io: IOException if io.getCause != null && io.getCause.isInstanceOf[BindException] =>
-          stop()
-          throw new UnableToBind(desiredPort, io.getCause)
-        case NonFatal(e) =>
-          stop()
-          throw e
-      }
-      closeables.push(() => {
-        grpcServer.shutdown()
-        if (!grpcServer.awaitTermination(10, SECONDS)) {
-          logger.warn(
-            "Server did not terminate gracefully in one second. " +
-              "Clients probably did not disconnect. " +
-              "Proceeding with forced termination.")
-          val _ = grpcServer.shutdownNow()
+        override def release(): Future[Unit] = {
+          val future = group.shutdownGracefully(0, 0, MILLISECONDS)
+          val promise = Promise[Unit]()
+          future.addListener((future: io.netty.util.concurrent.Future[_]) =>
+            promise.complete(Try(future.get).map(_ => ())))
+          promise.future
         }
-      })
-
-      val host = address.getOrElse("localhost")
-      val actualPort = grpcServer.getPort
-      val transportMedium = if (sslContext.isDefined) "TLS" else "plain text"
-      logger.info(s"Listening on $host:$actualPort over $transportMedium.")
-
-      val servicesClosedP = Promise[Unit]()
-      closeables.push(() => {
-        apiServices.close()
-        servicesClosedP.success(())
-      })
-
-      new ApiServer {
-        override val port: Int = actualPort
-
-        override def servicesClosed(): Future[Unit] = servicesClosedP.future
-
-        override def close(): Unit = stop()
       }
-    }(mat.executionContext)
+    }
   }
 
-  private def createEventLoopGroup(threadPoolName: String, parallelism: Int): EventLoopGroup =
-    new NioEventLoopGroup(
-      parallelism,
-      new DefaultThreadFactory(s"$threadPoolName-grpc-eventloop-${UUID.randomUUID()}", true))
+  private def grpcServer(
+      address: Option[String],
+      desiredPort: Int,
+      maxInboundMessageSize: Int,
+      sslContext: Option[SslContext] = None,
+      interceptors: List[ServerInterceptor] = List.empty,
+      metrics: MetricRegistry,
+      bossEventLoopGroup: EventLoopGroup,
+      workerEventLoopGroup: EventLoopGroup,
+      apiServices: ApiServices,
+  ) = new ResourceOwner[Server] {
+    override def acquire()(implicit _executionContext: ExecutionContext): Resource[Server] = {
+      new Resource[Server] {
+        override protected val executionContext: ExecutionContext = _executionContext
+
+        override protected val future: Future[Server] = Future {
+          val builder = address.fold(NettyServerBuilder.forPort(desiredPort))(address =>
+            NettyServerBuilder.forAddress(new InetSocketAddress(address, desiredPort)))
+          builder.sslContext(sslContext.orNull)
+          builder.channelType(classOf[NioServerSocketChannel])
+          builder.permitKeepAliveTime(10, SECONDS)
+          builder.permitKeepAliveWithoutCalls(true)
+          builder.directExecutor()
+          builder.maxInboundMessageSize(maxInboundMessageSize)
+          interceptors.foreach(builder.intercept)
+          builder.intercept(new MetricsInterceptor(metrics))
+          builder.bossEventLoopGroup(bossEventLoopGroup)
+          builder.workerEventLoopGroup(workerEventLoopGroup)
+          apiServices.services.foreach(builder.addService)
+          val server = builder.build()
+          try {
+            server.start()
+          } catch {
+            case e: IOException if e.getCause != null && e.getCause.isInstanceOf[BindException] =>
+              throw new UnableToBind(desiredPort, e.getCause)
+          }
+          server
+        }
+
+        override def release(): Future[Unit] =
+          asFuture.map(server => server.shutdown().awaitTermination())
+      }
+    }
+  }
 
   class UnableToBind(port: Int, cause: Throwable)
       extends RuntimeException(
