@@ -7,7 +7,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
 trait Open[A] {
-  a =>
+  self =>
 
   protected implicit val executionContext: ExecutionContext
 
@@ -22,31 +22,28 @@ trait Open[A] {
       override protected val executionContext: ExecutionContext = _executionContext
 
       override protected val future: Future[B] =
-        a.asFuture.map(f)
+        self.asFuture.map(f)
 
       override def close(): Future[Unit] =
-        a.close()
+        self.close()
     }
 
   def flatMap[B](f: A => Open[B])(implicit _executionContext: ExecutionContext): Open[B] =
     new Open[B] {
       override protected val executionContext: ExecutionContext = _executionContext
 
-      private val bFuture: Future[Open[B]] =
-        a.asFuture
+      private val nextFuture: Future[Open[B]] =
+        self.asFuture
           .map(f)
-          .flatMap(
-            b =>
-              b.asFuture
-                .map(_ => b) // if `b.asFuture` fails, `bFuture` should also fail
-                .transformWith(closeOnFailure))
+          // if `next.asFuture` fails, `nextFuture` should also fail
+          .flatMap(next => next.asFuture.map(_ => next).transformWith(closeOnFailure))
 
       override protected val future: Future[B] =
-        bFuture.flatMap(_.asFuture)
+        nextFuture.flatMap(_.asFuture)
 
       override def close(): Future[Unit] =
-        bFuture.transformWith {
-          case Success(b) => b.close().flatMap(_ => a.close())
+        nextFuture.transformWith {
+          case Success(b) => b.close().flatMap(_ => self.close())
           case Failure(_) => Future.successful(())
         }
     }
@@ -56,7 +53,7 @@ trait Open[A] {
       override protected val executionContext: ExecutionContext = _executionContext
 
       override protected val future: Future[A] =
-        a.asFuture.flatMap(
+        self.asFuture.flatMap(
           value =>
             if (p(value))
               Future.successful(value)
@@ -65,7 +62,7 @@ trait Open[A] {
         )
 
       override def close(): Future[Unit] =
-        a.close()
+        self.close()
     }
 
   private def closeOnFailure[T](result: Try[T]): Future[T] =
