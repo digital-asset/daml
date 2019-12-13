@@ -13,6 +13,13 @@ import com.digitalasset.ledger.api.v1.active_contracts_service.{
   GetActiveContractsRequest,
   GetActiveContractsResponse
 }
+import com.digitalasset.ledger.api.v1.admin.config_management_service.{
+  GetTimeModelRequest,
+  GetTimeModelResponse,
+  SetTimeModelRequest,
+  SetTimeModelResponse,
+  TimeModel
+}
 import com.digitalasset.ledger.api.v1.admin.package_management_service.{
   ListKnownPackagesRequest,
   PackageDetails,
@@ -113,6 +120,8 @@ private[testtool] final class ParticipantTestContext private[participant] (
     Identification.indexSuffix(s"$identifierPrefix-party")
   private[this] val nextCommandId: () => String =
     Identification.indexSuffix(s"$identifierPrefix-command")
+  private[this] val nextSubmissionId: () => String =
+    Identification.indexSuffix(s"$identifierPrefix-submission")
 
   /**
     * Gets the absolute offset of the ledger end at a point in time. Use [[end]] if you need
@@ -549,4 +558,15 @@ private[testtool] final class ParticipantTestContext private[participant] (
 
   def watchHealth(): Future[Seq[HealthCheckResponse]] =
     TimeBoundObserver[HealthCheckResponse](1.second)(services.health.watch(HealthCheckRequest(), _))
+
+  def getTimeModel(): Future[GetTimeModelResponse] =
+    services.configManagement.getTimeModel(GetTimeModelRequest())
+
+  def setTimeModel(
+      mrt: Instant,
+      generation: Long,
+      newTimeModel: TimeModel): Future[SetTimeModelResponse] =
+    services.configManagement.setTimeModel(
+      SetTimeModelRequest(nextSubmissionId(), Some(mrt.asProtobuf), generation, Some(newTimeModel))
+    )
 }

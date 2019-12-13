@@ -95,7 +95,7 @@ class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Long, ledgerDao: 
   override def packageEntries(beginOffset: Long): Source[(Long, PackageLedgerEntry), NotUsed] =
     dispatcher.startingAt(beginOffset, RangeSource(ledgerDao.getPackageEntries))
 
-  override def lookupLedgerConfiguration(): Future[Option[Configuration]] =
+  override def lookupLedgerConfiguration(): Future[Option[(Long, Configuration)]] =
     ledgerDao.lookupLedgerConfiguration()
 
   override def configurationEntries(

@@ -10,6 +10,7 @@ option java_package = "com.digitalasset.ledger.api.v1.admin";
 option csharp_namespace = "Com.DigitalAsset.Ledger.Api.V1.Admin";
 
 import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
 
 // Status: experimental interface, will change before it is deemed production
 // ready
@@ -27,6 +28,9 @@ service ConfigManagementService {
   //   does not match the current active configuration generation. The caller is expected
   //   to retry by again fetching current time model using 'GetTimeModel', applying changes
   //   and resubmitting.
+  // - ABORTED if the request is rejected or times out. Note that a timed out request may
+  //   have still been committed to the ledger. Application should re-query the current
+  //   time model before retrying.
   // - UNIMPLEMENTED if this method is not supported by the backing ledger.
   rpc SetTimeModel (SetTimeModelRequest) returns (SetTimeModelResponse);
 }
@@ -49,18 +53,23 @@ message SetTimeModelRequest {
   // Required.
   string submission_id = 1;
 
+  // Deadline for the configuration change after which the change is rejected.
+  google.protobuf.Timestamp maximum_record_time = 2;
+
   // The current configuration generation which we're submitting the change against.
   // This is used to perform a compare-and-swap of the configuration to
   // safeguard against concurrent modifications.
   // Required.
-  int64 configuration_generation = 2;
+  int64 configuration_generation = 3;
 
   // The new time model that replaces the current one.
   // Required.
-  TimeModel new_time_model = 3;
+  TimeModel new_time_model = 4;
 }
 
 message SetTimeModelResponse {
+  // The configuration generation of the committed time model.
+  int64 configuration_generation = 1;
 }
 
 message TimeModel {

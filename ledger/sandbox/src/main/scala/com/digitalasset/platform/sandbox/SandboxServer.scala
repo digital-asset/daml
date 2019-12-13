@@ -21,6 +21,7 @@ import com.digitalasset.ledger.api.health.HealthChecks
 import com.digitalasset.platform.apiserver.{ApiServer, ApiServices, LedgerApiServer}
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
+import com.daml.ledger.participant.state.{v1 => ParticipantState}
 import com.digitalasset.platform.sandbox.SandboxServer.{asyncTolerance, createInitialState, logger}
 import com.digitalasset.platform.sandbox.banner.Banner
 import com.digitalasset.platform.sandbox.config.SandboxConfig
@@ -186,6 +187,8 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
       case LedgerIdMode.Dynamic() => LedgerIdGenerator.generateRandomId()
     }
 
+    val defaultConfiguration = ParticipantState.Configuration(0, config.timeModel)
+
     val (acs, ledgerEntries, mbLedgerTime) = createInitialState(config, packageStore)
 
     val (timeProvider, timeServiceBackendO: Option[TimeServiceBackend]) =
@@ -258,7 +261,7 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
               authorizer,
               SandboxServer.engine,
               timeProvider,
-              config.timeModel,
+              defaultConfiguration,
               config.commandConfig,
               timeServiceBackendO
                 .map(TimeServiceBackend.withObserver(_, indexAndWriteService.publishHeartbeat)),

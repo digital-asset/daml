@@ -6,15 +6,15 @@ package com.digitalasset.ledger.api
 import java.time.Instant
 
 import brave.propagation.TraceContext
-
+import com.daml.ledger.participant.state.v1.Configuration
+import com.digitalasset.daml.lf.command.{Commands => LfCommands}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.LedgerString.ordering
-import com.digitalasset.ledger.api.domain.Event.{CreateOrArchiveEvent, CreateOrExerciseEvent}
-import scalaz.{@@, Tag}
-import scalaz.syntax.tag._
-import com.digitalasset.daml.lf.value.{Value => Lf}
-import com.digitalasset.daml.lf.command.{Commands => LfCommands}
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ValueRecord}
+import com.digitalasset.daml.lf.value.{Value => Lf}
+import com.digitalasset.ledger.api.domain.Event.{CreateOrArchiveEvent, CreateOrExerciseEvent}
+import scalaz.syntax.tag._
+import scalaz.{@@, Tag}
 
 import scala.collection.{breakOut, immutable}
 
@@ -305,6 +305,24 @@ object domain {
         participantId: ParticipantId,
         reason: String
     ) extends PartyEntry
+  }
+
+  /** Configuration entry describes a change to the current configuration. */
+  sealed abstract class ConfigurationEntry extends Product with Serializable
+  object ConfigurationEntry {
+
+    final case class Accepted(
+        submissionId: String,
+        participantId: ParticipantId,
+        configuration: Configuration,
+    ) extends ConfigurationEntry
+
+    final case class Rejected(
+        submissionId: String,
+        participantId: ParticipantId,
+        rejectionReason: String,
+        proposedConfiguration: Configuration
+    ) extends ConfigurationEntry
   }
 
   sealed abstract class PackageEntry() extends Product with Serializable

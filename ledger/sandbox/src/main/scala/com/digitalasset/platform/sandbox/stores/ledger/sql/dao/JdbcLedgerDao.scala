@@ -13,7 +13,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import anorm.SqlParser._
 import anorm.ToStatement.optionToStatement
-import anorm.{BatchSql, Macro, NamedParameter, RowParser, SQL, SqlParser}
+import anorm.{BatchSql, Macro, NamedParameter, ResultSetParser, RowParser, SQL, SqlParser}
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.v1.{
   AbsoluteContractInst,
@@ -161,7 +161,8 @@ private class JdbcLedgerDao(
   private val SQL_UPDATE_CURRENT_CONFIGURATION = SQL(
     "update parameters set configuration={configuration}"
   )
-  private val SQL_SELECT_CURRENT_CONFIGURATION = SQL("select configuration from parameters")
+  private val SQL_SELECT_CURRENT_CONFIGURATION = SQL(
+    "select ledger_end, configuration from parameters")
 
   private val SQL_GET_CONFIGURATION_ENTRIES = SQL(
     "select * from configuration_entries where ledger_offset>={startInclusive} and ledger_offset<{endExclusive} order by ledger_offset asc limit {pageSize} offset {queryOffset}")
@@ -174,12 +175,22 @@ private class JdbcLedgerDao(
     ()
   }
 
-  private def selectLedgerConfiguration(implicit conn: Connection) =
-    SQL_SELECT_CURRENT_CONFIGURATION
-      .as(byteArray("configuration").?.single)
-      .flatMap(Configuration.decode(_).toOption)
+  private val currentConfigurationParser: ResultSetParser[Option[(Long, Configuration)]] =
+    (long("ledger_end") ~
+      byteArray("configuration").? map flatten).single
+      .map {
+        case (_, None) => None
+        case (offset, Some(configBytes)) =>
+          Configuration
+            .decode(configBytes)
+            .toOption
+            .map(config => offset -> config)
+      }
 
-  override def lookupLedgerConfiguration(): Future[Option[Configuration]] =
+  private def selectLedgerConfiguration(implicit conn: Connection) =
+    SQL_SELECT_CURRENT_CONFIGURATION.as(currentConfigurationParser)
+
+  override def lookupLedgerConfiguration(): Future[Option[(Long, Configuration)]] =
     dbDispatcher.executeSql("lookup_configuration")(implicit conn => selectLedgerConfiguration)
 
   private val acceptType = "accept"
@@ -261,14 +272,24 @@ private class JdbcLedgerDao(
   ): Future[PersistenceResponse] = {
     dbDispatcher.executeSql("store_configuration_entry", Some(s"submissionId=$submissionId")) {
       implicit conn =>
-        val currentConfig = selectLedgerConfiguration
-        var finalRejectionReason = rejectionReason
-        if (rejectionReason.isEmpty && (currentConfig exists (_.generation + 1 != configuration.generation))) {
-          // If we're not storing a rejection and the new generation is not succ of current configuration, then
-          // we store a rejection. This code path is only expected to be taken in sandbox. This follows the same
-          // pattern as storing transactions.
-          finalRejectionReason = Some(s"Generation mismatch")
-        }
+        val optCurrentConfig = selectLedgerConfiguration
+        val optExpectedGeneration: Option[Long] =
+          optCurrentConfig.map { case (_, c) => c.generation + 1 }
+        val finalRejectionReason: Option[String] =
+          optExpectedGeneration match {
+            case Some(expGeneration)
+                if rejectionReason.isEmpty && expGeneration != configuration.generation =>
+              // If we're not storing a rejection and the new generation is not succ of current configuration, then
+              // we store a rejection. This code path is only expected to be taken in sandbox. This follows the same
+              // pattern as with transactions.
+              Some(
+                s"Generation mismatch: expected=${expGeneration}, actual=${configuration.generation}")
+
+            case _ =>
+              // Rejection reason was set, or we have no previous configuration generation, in which case we accept any
+              // generation.
+              rejectionReason
+          }
 
         updateLedgerEnd(newLedgerEnd, externalOffset)
         val configurationBytes = Configuration.encode(configuration).toByteArray
@@ -299,7 +320,7 @@ private class JdbcLedgerDao(
         }).recover {
           case NonFatal(e) if e.getMessage.contains(queries.DUPLICATE_KEY_ERROR) =>
             logger.warn(
-              s"Ignoring duplicate configuration submission for submissionId $submissionId, participantId $participantId")
+              s"Ignoring duplicate configuration submission, submissionId=$submissionId, participantId=$participantId")
             conn.rollback()
             PersistenceResponse.Duplicate
         }.get

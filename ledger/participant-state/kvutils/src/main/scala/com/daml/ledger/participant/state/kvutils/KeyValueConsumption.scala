@@ -156,7 +156,7 @@ object KeyValueConsumption {
                 val timedOut = rejection.getTimedOut
                 val mrt = Conversions.parseTimestamp(timedOut.getMaximumRecordTime)
                 val rt = Conversions.parseTimestamp(timedOut.getRecordTime)
-                s"Configuration change request timed out: $mrt > $rt"
+                s"Configuration change timed out: $mrt > $rt"
               case DamlConfigurationRejectionEntry.ReasonCase.REASON_NOT_SET =>
                 "Unknown reason"
             }

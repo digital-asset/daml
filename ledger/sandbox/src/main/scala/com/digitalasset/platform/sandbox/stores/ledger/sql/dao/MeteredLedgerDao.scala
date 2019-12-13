@@ -111,7 +111,7 @@ private class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegi
   }
 
   /** Looks up the current ledger configuration, if it has been set. */
-  override def lookupLedgerConfiguration(): Future[Option[Configuration]] =
+  override def lookupLedgerConfiguration(): Future[Option[(Long, Configuration)]] =
     timedFuture(Metrics.lookupLedgerConfiguration, ledgerDao.lookupLedgerConfiguration())
 
   /** Get a stream of configuration entries. */

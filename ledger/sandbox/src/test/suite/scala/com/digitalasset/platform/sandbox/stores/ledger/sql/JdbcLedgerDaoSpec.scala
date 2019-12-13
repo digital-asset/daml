@@ -285,17 +285,17 @@ class JdbcLedgerDaoSpec
           offset + 1,
           None,
           Instant.EPOCH,
-          "submission-0",
+          "submission-${offset}",
           Ref.LedgerString.assertFromString("participant-0"),
           defaultConfig,
           None
         )
-        storedConfig <- ledgerDao.lookupLedgerConfiguration()
+        optStoredConfig <- ledgerDao.lookupLedgerConfiguration()
         endingOffset <- ledgerDao.lookupLedgerEnd()
       } yield {
         response shouldEqual PersistenceResponse.Ok
         startingConfig shouldEqual None
-        storedConfig shouldEqual Some(defaultConfig)
+        optStoredConfig.map(_._2) shouldEqual Some(defaultConfig)
         endingOffset shouldEqual (startingOffset + 1)
       }
     }
@@ -304,19 +304,19 @@ class JdbcLedgerDaoSpec
       val offset = nextOffset()
       val participantId = Ref.LedgerString.assertFromString("participant-0")
       for {
-        startingConfig <- ledgerDao.lookupLedgerConfiguration()
+        startingConfig <- ledgerDao.lookupLedgerConfiguration().map(_.map(_._2))
         proposedConfig = startingConfig.getOrElse(defaultConfig)
         response <- ledgerDao.storeConfigurationEntry(
           offset,
           offset + 1,
           None,
           Instant.EPOCH,
-          "config-rejection-0",
+          s"config-rejection-$offset",
           participantId,
           proposedConfig,
           Some("bad config")
         )
-        storedConfig <- ledgerDao.lookupLedgerConfiguration()
+        storedConfig <- ledgerDao.lookupLedgerConfiguration().map(_.map(_._2))
         entries <- ledgerDao.getConfigurationEntries(offset, offset + 1).runWith(Sink.seq)
 
       } yield {
@@ -324,7 +324,7 @@ class JdbcLedgerDaoSpec
         startingConfig shouldEqual storedConfig
         entries shouldEqual List(
           offset -> ConfigurationEntry
-            .Rejected("config-rejection-0", participantId, "bad config", proposedConfig)
+            .Rejected(s"config-rejection-$offset", participantId, "bad config", proposedConfig)
         )
       }
     }
@@ -333,20 +333,21 @@ class JdbcLedgerDaoSpec
       val offset0 = nextOffset()
       val participantId = Ref.LedgerString.assertFromString("participant-0")
       for {
-        config <- ledgerDao.lookupLedgerConfiguration().map(_.getOrElse(defaultConfig))
+        config <- ledgerDao.lookupLedgerConfiguration().map(_.map(_._2).getOrElse(defaultConfig))
 
         // Store a new configuration with a known submission id
+        submissionId = s"refuse-config-$offset0"
         resp0 <- ledgerDao.storeConfigurationEntry(
           offset0,
           offset0 + 1,
           None,
           Instant.EPOCH,
-          "refuse-config-0",
+          submissionId,
           participantId,
           config.copy(generation = config.generation + 1),
           None
         )
-        newConfig <- ledgerDao.lookupLedgerConfiguration().map(_.get)
+        newConfig <- ledgerDao.lookupLedgerConfiguration().map(_.map(_._2).get)
 
         // Submission with duplicate submissionId is rejected
         offset1 = nextOffset()
@@ -355,7 +356,7 @@ class JdbcLedgerDaoSpec
           offset1 + 1,
           None,
           Instant.EPOCH,
-          "refuse-config-0",
+          submissionId,
           participantId,
           newConfig.copy(generation = config.generation + 1),
           None
@@ -368,7 +369,7 @@ class JdbcLedgerDaoSpec
           offset2 + 1,
           None,
           Instant.EPOCH,
-          "refuse-config-1",
+          s"refuse-config-$offset2",
           participantId,
           config,
           None
@@ -382,12 +383,12 @@ class JdbcLedgerDaoSpec
           offset3 + 1,
           None,
           Instant.EPOCH,
-          "refuse-config-2",
+          s"refuse-config-$offset3",
           participantId,
           lastConfig,
           None
         )
-        lastConfigActual <- ledgerDao.lookupLedgerConfiguration().map(_.get)
+        lastConfigActual <- ledgerDao.lookupLedgerConfiguration().map(_.map(_._2).get)
 
         entries <- ledgerDao.getConfigurationEntries(offset0, offset3 + 1).runWith(Sink.seq)
       } yield {
@@ -397,10 +398,17 @@ class JdbcLedgerDaoSpec
         resp3 shouldEqual PersistenceResponse.Ok
         lastConfig shouldEqual lastConfigActual
         entries.toList shouldEqual List(
-          offset0 -> ConfigurationEntry.Accepted("refuse-config-0", participantId, newConfig),
+          offset0 -> ConfigurationEntry
+            .Accepted(s"refuse-config-$offset0", participantId, newConfig),
+          /* offset1 is duplicate */
           offset2 -> ConfigurationEntry
-            .Rejected("refuse-config-1", participantId, "Generation mismatch", config),
-          offset3 -> ConfigurationEntry.Accepted("refuse-config-2", participantId, lastConfig)
+            .Rejected(
+              s"refuse-config-$offset2",
+              participantId,
+              "Generation mismatch: expected=2, actual=0",
+              config),
+          offset3 -> ConfigurationEntry
+            .Accepted(s"refuse-config-$offset3", participantId, lastConfig)
         )
       }
     }

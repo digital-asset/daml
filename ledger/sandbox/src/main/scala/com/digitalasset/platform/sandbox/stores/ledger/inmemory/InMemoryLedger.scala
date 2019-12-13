@@ -341,13 +341,27 @@ class InMemoryLedger(
       config: Configuration): Future[SubmissionResult] =
     Future.successful {
       this.synchronized {
+        val recordTime = timeProvider.getCurrentTime
+        val mrt = maxRecordTime.toInstant
         ledgerConfiguration match {
-          case Some(currentConfig) if config.generation != currentConfig.generation =>
-            entries.publish(InMemoryConfigEntry(ConfigurationEntry.Rejected(
-              submissionId,
-              participantId,
-              "Generation mismatch, expected ${currentConfig.generation}, got ${config.generation}",
-              config)))
+          case Some(currentConfig) if config.generation != currentConfig.generation + 1 =>
+            entries.publish(
+              InMemoryConfigEntry(
+                ConfigurationEntry.Rejected(
+                  submissionId,
+                  participantId,
+                  s"Generation mismatch, expected ${currentConfig.generation + 1}, got ${config.generation}",
+                  config)))
+
+          case _ if recordTime.isAfter(mrt) =>
+            entries.publish(
+              InMemoryConfigEntry(
+                ConfigurationEntry.Rejected(
+                  submissionId,
+                  participantId,
+                  s"Configuration change timed out: $mrt > $recordTime",
+                  config)))
+            ledgerConfiguration = Some(config)
 
           case _ =>
             entries.publish(
@@ -358,13 +372,15 @@ class InMemoryLedger(
       }
     }
 
-  override def lookupLedgerConfiguration(): Future[Option[Configuration]] =
-    Future.successful(this.synchronized { ledgerConfiguration })
+  override def lookupLedgerConfiguration(): Future[Option[(Long, Configuration)]] =
+    Future.successful(this.synchronized {
+      ledgerConfiguration.map(config => ledgerEnd -> config)
+    })
 
   override def configurationEntries(
-      offset: Option[Long]): Source[(Long, ConfigurationEntry), NotUsed] =
+      startInclusive: Option[Long]): Source[(Long, ConfigurationEntry), NotUsed] =
     entries
-      .getSource(offset)
+      .getSource(startInclusive)
       .collect { case (offset, InMemoryConfigEntry(entry)) => offset -> entry }
 
 }
