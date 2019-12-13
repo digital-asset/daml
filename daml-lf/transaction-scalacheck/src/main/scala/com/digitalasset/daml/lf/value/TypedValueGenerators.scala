@@ -8,7 +8,16 @@ import scala.language.higherKinds
 import data.{FrontStack, ImmArray, ImmArrayCons, Numeric, Ref, SortedLookupList, Time}
 import ImmArray.ImmArraySeq
 import data.DataArbitrary._
-import iface.{DefDataType, Record, Type, TypeCon, TypeConName, TypeNumeric, TypePrim, PrimType => PT}
+import iface.{
+  DefDataType,
+  Record,
+  Type,
+  TypeCon,
+  TypeConName,
+  TypeNumeric,
+  TypePrim,
+  PrimType => PT
+}
 
 import scalaz.Id.Id
 import scalaz.syntax.traverse._
@@ -156,10 +165,11 @@ object TypedValueGenerators {
 
     def record[Rec](name: Ref.Identifier, rec: RecordVa): (DefDataType.FWT, Aux[rec.Inj]) =
       (DefDataType(ImmArraySeq.empty, Record(rec.t.to[ImmArraySeq])), new ValueAddend {
-        private[this] val lfvFieldNames = rec.t map {case (n, _) => Some(n)}
+        private[this] val lfvFieldNames = rec.t map { case (n, _) => Some(n) }
         type Inj[Cid] = rec.Inj[Cid]
         override val t = TypeCon(TypeConName(name), ImmArraySeq.empty)
-        override def inj[Cid] = hl => ValueRecord(Some(name), (lfvFieldNames zip rec.inj(hl)).to[ImmArray])
+        override def inj[Cid] =
+          hl => ValueRecord(Some(name), (lfvFieldNames zip rec.inj(hl)).to[ImmArray])
         override def prj[Cid] = {
           case ValueRecord(_, fields) if fields.length == rec.t.length =>
             rec.prj(fields)
@@ -170,25 +180,25 @@ object TypedValueGenerators {
       })
   }
 
-    sealed abstract class RecordVa { self =>
-      import shapeless.{::, HList, Witness}
-      import shapeless.labelled.{field, FieldType => :->>:}
-      type Inj[Cid] <: HList
-      def ::[K <: Symbol](h: K :->>: ValueAddend)(implicit ev: Witness.Aux[K])
+  sealed abstract class RecordVa { self =>
+    import shapeless.{::, HList, Witness}
+    import shapeless.labelled.{field, FieldType => :->>:}
+    type Inj[Cid] <: HList
+    def ::[K <: Symbol](h: K :->>: ValueAddend)(implicit ev: Witness.Aux[K])
       : RecordVa { type Inj[Cid] = (K :->>: h.Inj[Cid]) :: self.Inj[Cid] } =
-        new RecordVa {
-          private[this] val fname = Ref.Name assertFromString ev.value.name
-          type Inj[Cid] = (K :->>: h.Inj[Cid]) :: self.Inj[Cid]
-          override val t = (fname, h.t) :: self.t
-          override def inj[Cid](v: Inj[Cid]) =
-            h.inj(v.head) :: self.inj(v.tail)
-          override def prj[Cid](v: ImmArray[(_, Value[Cid])]) = v match {
-            case ImmArrayCons(vh, vt) => for {
+      new RecordVa {
+        private[this] val fname = Ref.Name assertFromString ev.value.name
+        type Inj[Cid] = (K :->>: h.Inj[Cid]) :: self.Inj[Cid]
+        override val t = (fname, h.t) :: self.t
+        override def inj[Cid](v: Inj[Cid]) =
+          h.inj(v.head) :: self.inj(v.tail)
+        override def prj[Cid](v: ImmArray[(_, Value[Cid])]) = v match {
+          case ImmArrayCons(vh, vt) =>
+            for {
               pvh <- h.prj(vh._2)
               pvt <- self.prj(vt)
             } yield field[K](pvh) :: pvt
-            case _ => None
-          }
+          case _ => None
         }
       val t: List[(Ref.Name, Type)]
       def inj[Cid](v: Inj[Cid]): List[Value[Cid]]
