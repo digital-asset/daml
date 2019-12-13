@@ -174,12 +174,11 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
 
   sandboxState = start()
 
-  @SuppressWarnings(Array("org.wartremover.warts.ExplicitImplicitTypes"))
   private def buildAndStartApiServer(
       infra: Infrastructure,
       packageStore: InMemoryPackageStore,
       startMode: SqlStartMode = SqlStartMode.ContinueIfExists): ApiServerState = {
-    implicit val mat = infra.materializer
+    implicit val mat: ActorMaterializer = infra.materializer
     implicit val ec: ExecutionContext = infra.executionContext
 
     val ledgerId = config.ledgerIdMode match {
