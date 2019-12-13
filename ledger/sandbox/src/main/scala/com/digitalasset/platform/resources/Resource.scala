@@ -6,50 +6,50 @@ package com.digitalasset.platform.resources
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
-trait Open[A] {
+trait Resource[A] {
   self =>
 
   protected implicit val executionContext: ExecutionContext
 
   protected val future: Future[A]
 
-  lazy val asFuture: Future[A] = future.transformWith(closeOnFailure)
+  lazy val asFuture: Future[A] = future.transformWith(releaseOnFailure)
 
-  def close(): Future[Unit]
+  def release(): Future[Unit]
 
-  def map[B](f: A => B)(implicit _executionContext: ExecutionContext): Open[B] =
-    new Open[B] {
+  def map[B](f: A => B)(implicit _executionContext: ExecutionContext): Resource[B] =
+    new Resource[B] {
       override protected val executionContext: ExecutionContext = _executionContext
 
       override protected val future: Future[B] =
         self.asFuture.map(f)
 
-      override def close(): Future[Unit] =
-        self.close()
+      override def release(): Future[Unit] =
+        self.release()
     }
 
-  def flatMap[B](f: A => Open[B])(implicit _executionContext: ExecutionContext): Open[B] =
-    new Open[B] {
+  def flatMap[B](f: A => Resource[B])(implicit _executionContext: ExecutionContext): Resource[B] =
+    new Resource[B] {
       override protected val executionContext: ExecutionContext = _executionContext
 
-      private val nextFuture: Future[Open[B]] =
+      private val nextFuture: Future[Resource[B]] =
         self.asFuture
           .map(f)
           // if `next.asFuture` fails, `nextFuture` should also fail
-          .flatMap(next => next.asFuture.map(_ => next).transformWith(closeOnFailure))
+          .flatMap(next => next.asFuture.map(_ => next).transformWith(releaseOnFailure))
 
       override protected val future: Future[B] =
         nextFuture.flatMap(_.asFuture)
 
-      override def close(): Future[Unit] =
+      override def release(): Future[Unit] =
         nextFuture.transformWith {
-          case Success(b) => b.close().flatMap(_ => self.close())
+          case Success(b) => b.release().flatMap(_ => self.release())
           case Failure(_) => Future.successful(())
         }
     }
 
-  def withFilter(p: A => Boolean)(implicit _executionContext: ExecutionContext): Open[A] =
-    new Open[A] {
+  def withFilter(p: A => Boolean)(implicit _executionContext: ExecutionContext): Resource[A] =
+    new Resource[A] {
       override protected val executionContext: ExecutionContext = _executionContext
 
       override protected val future: Future[A] =
@@ -61,13 +61,13 @@ trait Open[A] {
               Future.failed(new ResourceAcquisitionFilterException())
         )
 
-      override def close(): Future[Unit] =
-        self.close()
+      override def release(): Future[Unit] =
+        self.release()
     }
 
-  private def closeOnFailure[T](result: Try[T]): Future[T] =
+  private def releaseOnFailure[T](result: Try[T]): Future[T] =
     result match {
       case Success(value) => Future.successful(value)
-      case Failure(throwable) => close().flatMap(_ => Future.failed(throwable))
+      case Failure(throwable) => release().flatMap(_ => Future.failed(throwable))
     }
 }

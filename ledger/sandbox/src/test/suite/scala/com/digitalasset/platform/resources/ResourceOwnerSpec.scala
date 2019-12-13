@@ -14,19 +14,19 @@ class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
   "a resource owner" should {
     "be closeable" in {
       val owner = new TestResourceOwner(42)
-      owner.isOpen should be(false)
+      owner.hasBeenAcquired should be(false)
 
-      val open = for {
-        value <- owner.open()
+      val resource = for {
+        value <- owner.acquire()
       } yield {
-        owner.isOpen should be(true)
+        owner.hasBeenAcquired should be(true)
         value should be(42)
       }
 
       for {
-        _ <- open.close()
+        _ <- resource.release()
       } yield {
-        owner.isOpen should be(false)
+        owner.hasBeenAcquired should be(false)
       }
     }
 
@@ -34,94 +34,94 @@ class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
       val ownerA = new TestResourceOwner(1)
       val ownerB = new TestResourceOwner("two")
 
-      val open = for {
-        _ <- ownerA.open()
-        _ <- ownerB.open()
+      val resource = for {
+        _ <- ownerA.acquire()
+        _ <- ownerB.acquire()
       } yield {
-        ownerA.isOpen should be(true)
-        ownerB.isOpen should be(true)
+        ownerA.hasBeenAcquired should be(true)
+        ownerB.hasBeenAcquired should be(true)
         ()
       }
 
       for {
-        _ <- open.close()
+        _ <- resource.release()
       } yield {
-        ownerA.isOpen should be(false)
-        ownerB.isOpen should be(false)
+        ownerA.hasBeenAcquired should be(false)
+        ownerB.hasBeenAcquired should be(false)
       }
     }
 
     "handles failure gracefully" in {
       val owner = new FailingResourceOwner[String]()
 
-      val open = owner.open()
+      val resource = owner.acquire()
 
       for {
-        throwable <- open.asFuture.failed
+        throwable <- resource.asFuture.failed
       } yield {
         throwable should be(a[FailingResourceFailedToOpen])
       }
     }
 
-    "on failure, close any open sub-resources" in {
+    "on failure, release any acquired sub-resources" in {
       val ownerA = new TestResourceOwner(1)
       val ownerB = new TestResourceOwner(2)
       val ownerC = new FailingResourceOwner[Int]()
 
-      val open = for {
-        openA <- ownerA.open()
-        openB <- ownerB.open()
-        openC <- ownerC.open()
-      } yield openA + openB + openC
+      val resource = for {
+        resourceA <- ownerA.acquire()
+        resourceB <- ownerB.acquire()
+        resourceC <- ownerC.acquire()
+      } yield resourceA + resourceB + resourceC
 
       for {
-        throwable <- open.asFuture.failed
+        throwable <- resource.asFuture.failed
       } yield {
         throwable should be(a[FailingResourceFailedToOpen])
-        ownerA.isOpen should be(false)
-        ownerB.isOpen should be(false)
+        ownerA.hasBeenAcquired should be(false)
+        ownerB.hasBeenAcquired should be(false)
       }
     }
 
-    "on failure mid-way, close any open sub-resources" in {
+    "on failure mid-way, release any acquired sub-resources" in {
       val ownerA = new TestResourceOwner(5)
       val ownerB = new TestResourceOwner(6)
       val ownerC = new FailingResourceOwner[Int]()
       val ownerD = new TestResourceOwner(8)
 
-      val open = for {
-        openA <- ownerA.open()
-        openB <- ownerB.open()
-        openC <- ownerC.open()
-        openD <- ownerD.open()
-      } yield openA + openB + openC + openD
+      val resource = for {
+        resourceA <- ownerA.acquire()
+        resourceB <- ownerB.acquire()
+        resourceC <- ownerC.acquire()
+        resourceD <- ownerD.acquire()
+      } yield resourceA + resourceB + resourceC + resourceD
 
       for {
-        throwable <- open.asFuture.failed
+        throwable <- resource.asFuture.failed
       } yield {
         throwable should be(a[FailingResourceFailedToOpen])
-        ownerA.isOpen should be(false)
-        ownerB.isOpen should be(false)
-        ownerD.isOpen should be(false)
+        ownerA.hasBeenAcquired should be(false)
+        ownerB.hasBeenAcquired should be(false)
+        ownerD.hasBeenAcquired should be(false)
       }
     }
 
-    "on filter, close any open sub-resources" in {
+    "on filter, release any acquired sub-resources" in {
       val ownerA = new TestResourceOwner(99)
       val ownerB = new TestResourceOwner(100)
 
-      val open = for {
-        openA <- ownerA.open()
+      val resource = for {
+        resourceA <- ownerA.acquire()
         if false
-        openB <- ownerB.open()
-      } yield openA + openB
+        resourceB <- ownerB.acquire()
+      } yield resourceA + resourceB
 
       for {
-        throwable <- open.asFuture.failed
+        throwable <- resource.asFuture.failed
       } yield {
         throwable should be(a[ResourceAcquisitionFilterException])
-        ownerA.isOpen should be(false)
-        ownerB.isOpen should be(false)
+        ownerA.hasBeenAcquired should be(false)
+        ownerB.hasBeenAcquired should be(false)
       }
     }
   }
@@ -129,32 +129,32 @@ class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
 
 object ResourceOwnerSpec {
   final class TestResourceOwner[T](value: T) extends ResourceOwner[T] {
-    private val opened = new AtomicBoolean(false)
+    private val acquired = new AtomicBoolean(false)
 
-    def isOpen: Boolean = opened.get
+    def hasBeenAcquired: Boolean = acquired.get
 
-    def open()(implicit _executionContext: ExecutionContext): Open[T] = {
-      if (!opened.compareAndSet(false, true)) {
-        throw new TriedToOpenTwice
+    def acquire()(implicit _executionContext: ExecutionContext): Resource[T] = {
+      if (!acquired.compareAndSet(false, true)) {
+        throw new TriedToAcquireTwice
       }
-      new Open[T] {
+      new Resource[T] {
         override protected val executionContext: ExecutionContext = _executionContext
 
         override protected val future: Future[T] =
           Future.successful(TestResourceOwner.this.value)
 
-        override def close(): Future[Unit] =
-          if (opened.compareAndSet(true, false))
+        override def release(): Future[Unit] =
+          if (acquired.compareAndSet(true, false))
             Future.successful(())
           else
-            Future.failed(new TriedToCloseTwice)
+            Future.failed(new TriedToReleaseTwice)
       }
     }
   }
 
   final class FailingResourceOwner[T] extends ResourceOwner[T] {
-    override def open()(implicit _executionContext: ExecutionContext): Open[T] =
-      new Open[T] {
+    override def acquire()(implicit _executionContext: ExecutionContext): Resource[T] =
+      new Resource[T] {
         private def closedAlready = new AtomicBoolean(false)
 
         override protected val executionContext: ExecutionContext = _executionContext
@@ -162,17 +162,17 @@ object ResourceOwnerSpec {
         override protected val future: Future[T] =
           Future.failed(new FailingResourceFailedToOpen)
 
-        override def close(): Future[Unit] =
+        override def release(): Future[Unit] =
           if (closedAlready.compareAndSet(false, true))
             Future.successful(())
           else
-            Future.failed(new TriedToCloseTwice)
+            Future.failed(new TriedToReleaseTwice)
       }
   }
 
-  final class TriedToOpenTwice extends Exception("Tried to open twice.")
+  final class TriedToAcquireTwice extends Exception("Tried to acquire twice.")
 
-  final class TriedToCloseTwice extends Exception("Tried to close twice.")
+  final class TriedToReleaseTwice extends Exception("Tried to release twice.")
 
   final class FailingResourceFailedToOpen extends Exception("Something broke!")
 }

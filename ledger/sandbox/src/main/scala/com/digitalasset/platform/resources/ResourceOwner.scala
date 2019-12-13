@@ -6,5 +6,5 @@ package com.digitalasset.platform.resources
 import scala.concurrent.ExecutionContext
 
 trait ResourceOwner[T] {
-  def open()(implicit executionContext: ExecutionContext): Open[T]
+  def acquire()(implicit executionContext: ExecutionContext): Resource[T]
 }
