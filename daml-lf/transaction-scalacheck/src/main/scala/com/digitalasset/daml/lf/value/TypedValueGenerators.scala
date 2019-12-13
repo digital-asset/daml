@@ -200,28 +200,31 @@ object TypedValueGenerators {
             } yield field[K](pvh) :: pvt
           case _ => None
         }
-      val t: List[(Ref.Name, Type)]
-      def inj[Cid](v: Inj[Cid]): List[Value[Cid]]
-      def prj[Cid](v: ImmArray[(_, Value[Cid])]): Option[Inj[Cid]]
-    }
-
-    case object RNil extends RecordVa {
-      type Inj[Cid] = shapeless.HNil
-      override val t = List.empty
-      override def inj[Cid](v: shapeless.HNil) = List.empty
-      override def prj[Cid](v: ImmArray[(_, Value[Cid])]) = Some(shapeless.HNil)
-    }
-
-    object RecordVa {
-      @SuppressWarnings(Array("org.wartremover.warts.Any"))
-      private[value] val sample = {
-        import shapeless.syntax.singleton._
-        ('foo ->> ValueAddend.int64) :: ('bar ->> ValueAddend.text) :: RNil
       }
-      import shapeless.record.Record
-      private[value] val sampleData: sample.Inj[Nothing] =
-        Record(foo = 42L, bar = "hi")
+
+    private[TypedValueGenerators] val t: List[(Ref.Name, Type)]
+    private[TypedValueGenerators] def inj[Cid](v: Inj[Cid]): List[Value[Cid]]
+    private[TypedValueGenerators] def prj[Cid](v: ImmArray[(_, Value[Cid])]): Option[Inj[Cid]]
+  }
+
+  case object RNil extends RecordVa {
+    type Inj[Cid] = shapeless.HNil
+    private[TypedValueGenerators] override val t = List.empty
+    private[TypedValueGenerators] override def inj[Cid](v: shapeless.HNil) = List.empty
+    private[TypedValueGenerators] override def prj[Cid](v: ImmArray[(_, Value[Cid])]) =
+      Some(shapeless.HNil)
+  }
+
+  object RecordVa {
+    @SuppressWarnings(Array("org.wartremover.warts.Any"))
+    private[value] val sample = {
+      import shapeless.syntax.singleton._
+      ('foo ->> ValueAddend.int64) :: ('bar ->> ValueAddend.text) :: RNil
     }
+    import shapeless.record.Record
+    private[value] val sampleData: sample.Inj[Nothing] =
+      Record(foo = 42L, bar = "hi")
+  }
 
   trait PrimInstances[F[_]] {
     def text: F[String]
