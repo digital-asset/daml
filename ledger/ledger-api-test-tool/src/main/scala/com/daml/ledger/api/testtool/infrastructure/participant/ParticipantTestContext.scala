@@ -5,6 +5,7 @@ package com.daml.ledger.api.testtool.infrastructure.participant
 
 import java.time.{Clock, Duration, Instant}
 
+import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
 import com.daml.ledger.api.testtool.infrastructure.ProtobufConverters._
 import com.daml.ledger.api.testtool.infrastructure.{Identification, LedgerServices}
 import com.digitalasset.ledger.api.refinements.ApiTypes.TemplateId
@@ -199,7 +200,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
 
   def waitForParties(
       otherParticipants: Iterable[ParticipantTestContext],
-      expectedParties: Set[Party]): Future[Unit] = {
+      expectedParties: Set[Party]): Future[Unit] = eventually {
     val participants = otherParticipants.toSet + this
     Future
       .sequence(participants.map(otherParticipant => {

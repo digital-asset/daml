@@ -8,9 +8,7 @@ import com.daml.ledger.api.testtool.infrastructure.Allocation.{
   ParticipantAllocation,
   Participants
 }
-import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
-import com.digitalasset.ledger.client.binding.Primitive.Party
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -46,15 +44,10 @@ private[testtool] final class LedgerTestContext private[infrastructure] (
         for {
           parties <- participant.allocateParties(partyCount.count)
           partiesSet = parties.toSet
-          _ <- eventually(waitForParties(participant, partiesSet))
+          _ <- participant.waitForParties(participants, partiesSet)
         } yield Participant(participant, parties: _*)
       }))
       .map(Participants(_: _*))
-
-  private[this] def waitForParties(
-      participant: ParticipantTestContext,
-      expectedParties: Set[Party]): Future[Unit] =
-    participant.waitForParties(participants, expectedParties)
 
   private[this] def nextParticipant(): ParticipantTestContext =
     participantsRing.synchronized {
