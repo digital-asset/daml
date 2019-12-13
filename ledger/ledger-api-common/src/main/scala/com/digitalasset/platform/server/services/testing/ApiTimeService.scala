@@ -71,9 +71,7 @@ class ApiTimeService private (
 
   @SuppressWarnings(Array("org.wartremover.warts.JavaSerializable"))
   override def setTime(request: SetTimeRequest): Future[Empty] = {
-    @SuppressWarnings(Array("org.wartremover.warts.ExplicitImplicitTypes"))
-    implicit val dec = DirectExecutionContext
-
+    implicit val dec: ExecutionContext = DirectExecutionContext
     def updateTime(
         expectedTime: Instant,
         requestedTime: Instant): Future[Either[StatusRuntimeException, Instant]] = {

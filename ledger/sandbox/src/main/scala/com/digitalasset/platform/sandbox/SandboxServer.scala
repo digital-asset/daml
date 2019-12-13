@@ -7,7 +7,7 @@ import java.io.{File, FileWriter}
 import java.time.Instant
 
 import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
+import akka.stream.{ActorMaterializer, Materializer}
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.digitalasset.api.util.TimeProvider
@@ -173,12 +173,11 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
 
   sandboxState = start()
 
-  @SuppressWarnings(Array("org.wartremover.warts.ExplicitImplicitTypes"))
   private def buildAndStartApiServer(
       infra: Infrastructure,
       packageStore: InMemoryPackageStore,
       startMode: SqlStartMode = SqlStartMode.ContinueIfExists): ApiServerState = {
-    implicit val mat = infra.materializer
+    implicit val mat: ActorMaterializer = infra.materializer
     implicit val ec: ExecutionContext = infra.executionContext
 
     val ledgerId = config.ledgerIdMode match {
