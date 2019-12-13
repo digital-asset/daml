@@ -31,8 +31,6 @@ final class LedgerContext(channel: Channel, packageIds: Iterable[PackageId])(
     implicit protected val mat: ActorMaterializer,
     implicit protected val esf: ExecutionSequencerFactory) {
 
-  require(esf != null, "ExecutionSequencerFactory must not be null.")
-
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   val ledgerId: domain.LedgerId =
