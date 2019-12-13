@@ -125,9 +125,50 @@ class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
       }
     }
   }
+
+  "a function returning an AutoCloseable" should {
+    "convert to a ResourceOwner" in {
+      val newCloseable = new TestCloseableConstructor(54)
+      val owner: () => TestCloseable[Int] = newCloseable.apply _
+
+      val resource = for {
+        closeable <- owner.acquire()
+      } yield {
+        newCloseable.hasBeenAcquired should be(true)
+        closeable.value should be(54)
+      }
+
+      for {
+        _ <- resource.release()
+      } yield {
+        newCloseable.hasBeenAcquired should be(false)
+      }
+    }
+  }
 }
 
 object ResourceOwnerSpec {
+
+  final class TestCloseableConstructor[T](value: T) {
+    private val acquired = new AtomicBoolean(false)
+
+    def hasBeenAcquired: Boolean = acquired.get
+
+    def apply(): TestCloseable[T] = new TestCloseable(value, acquired)
+  }
+
+  final class TestCloseable[T](val value: T, acquired: AtomicBoolean) extends AutoCloseable {
+    if (!acquired.compareAndSet(false, true)) {
+      throw new TriedToAcquireTwice
+    }
+
+    override def close(): Unit = {
+      if (!acquired.compareAndSet(true, false)) {
+        throw new TriedToReleaseTwice
+      }
+    }
+  }
+
   final class TestResourceOwner[T](value: T) extends ResourceOwner[T] {
     private val acquired = new AtomicBoolean(false)
 
