@@ -221,14 +221,18 @@ class InMemoryKVParticipantStateIT
 
     "reject duplicate commands" in {
       val rt = ps.getNewRecordTime()
+      val commandIds = ("X1", "X2")
 
       for {
         _ <- ps.allocateParty(hint = Some(alice), None, randomLedgerString()).toScala
         _ <- ps
-          .submitTransaction(submitterInfo(rt, alice), transactionMeta(rt), emptyTransaction)
+          .submitTransaction(submitterInfo(rt, alice, commandIds._1), transactionMeta(rt), emptyTransaction)
           .toScala
         _ <- ps
-          .submitTransaction(submitterInfo(rt, alice), transactionMeta(rt), emptyTransaction)
+          .submitTransaction(submitterInfo(rt, alice, commandIds._1), transactionMeta(rt), emptyTransaction)
+          .toScala
+        _ <- ps
+          .submitTransaction(submitterInfo(rt, alice, commandIds._2), transactionMeta(rt), emptyTransaction)
           .toScala
         updates <- ps.stateUpdates(beginAfter = None).take(3).runWith(Sink.seq)
       } yield {
@@ -236,12 +240,8 @@ class InMemoryKVParticipantStateIT
         assert(offset0 == Offset(Array(0L, 0L)))
         assert(update0.isInstanceOf[Update.PartyAddedToParticipant])
 
-        val (offset1, update1) = updates(1)
-        assert(offset1 == Offset(Array(1L, 0L)))
-        assert(update1.isInstanceOf[Update.TransactionAccepted])
-
-        val (offset2, update2) = updates(2)
-        assert(offset2 == Offset(Array(2L, 0L)))
+        matchTransaction(updates(1), commandIds._1, Offset(Array(1L, 0L)), rt)
+        matchTransaction(updates(2), commandIds._2, Offset(Array(3L, 0L)), rt)
       }
     }
 
@@ -252,10 +252,10 @@ class InMemoryKVParticipantStateIT
           .allocateParty(hint = Some(alice), None, randomLedgerString())
           .toScala // offset now at [1,0]
         _ <- ps
-          .submitTransaction(submitterInfo(rt, alice), transactionMeta(rt), emptyTransaction)
+          .submitTransaction(submitterInfo(rt, alice,"X1"), transactionMeta(rt), emptyTransaction)
           .toScala
         _ <- ps
-          .submitTransaction(submitterInfo(rt, alice), transactionMeta(rt), emptyTransaction)
+          .submitTransaction(submitterInfo(rt, alice,"X2"), transactionMeta(rt), emptyTransaction)
           .toScala
         offsetAndUpdate <- ps
           .stateUpdates(beginAfter = Some(Offset(Array(1L, 0L))))
@@ -263,7 +263,7 @@ class InMemoryKVParticipantStateIT
       } yield {
         val (offset, update) = offsetAndUpdate
         assert(offset == Offset(Array(2L, 0L)))
-        assert(update.isInstanceOf[Update.CommandRejected])
+        assert(update.isInstanceOf[Update.TransactionAccepted])
       }
     }
 
@@ -390,10 +390,10 @@ object InMemoryKVParticipantStateIT {
   private val archives =
     darReader.readArchiveFromFile(new File(rlocation("ledger/test-common/Test-stable.dar"))).get.all
 
-  private def submitterInfo(rt: Timestamp, party: Ref.Party) = SubmitterInfo(
+  private def submitterInfo(rt: Timestamp, party: Ref.Party, commandId: String = "X") = SubmitterInfo(
     submitter = party,
     applicationId = Ref.LedgerString.assertFromString("tests"),
-    commandId = Ref.LedgerString.assertFromString("X"),
+    commandId = Ref.LedgerString.assertFromString(commandId),
     maxRecordTime = rt.addMicros(Duration.ofSeconds(10).toNanos / 1000)
   )
 
@@ -416,5 +416,22 @@ object InMemoryKVParticipantStateIT {
       assert(update.sourceDescription == sourceDescription)
       assert(update.recordTime >= rt)
     case _ => fail("unexpected update message after a package upload: $updateTuple")
+  }
+
+  private def matchTransaction(
+      updateTuple: (Offset, Update),
+      commandId: String,
+      givenOffset: Offset,
+      rt: Timestamp): Assertion = updateTuple match {
+    case (offset: Offset, update: TransactionAccepted) =>
+      update.optSubmitterInfo match {
+        case Some(info) =>
+          assert(info.commandId == commandId)
+        case _ =>
+          fail("missing submitter info")
+      }
+      assert(offset == givenOffset)
+      assert(update.recordTime >= rt)
+    case _ => fail("unexpected update message after a transaction submission: $updateTuple")
   }
 }

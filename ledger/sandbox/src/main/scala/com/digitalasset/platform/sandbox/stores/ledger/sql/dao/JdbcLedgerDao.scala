@@ -1077,7 +1077,6 @@ private class JdbcLedgerDao(
       case _: OutOfQuota => "OutOfQuota"
       case _: TimedOut => "TimedOut"
       case _: Disputed => "Disputed"
-      case _: DuplicateCommandId => "DuplicateCommandId"
       case _: PartyNotKnownOnLedger => "PartyNotKnownOnLedger"
       case _: SubmitterCannotActViaParticipant => "SubmitterCannotActViaParticipant"
     })
@@ -1088,7 +1087,6 @@ private class JdbcLedgerDao(
       case "OutOfQuota" => OutOfQuota(description)
       case "TimedOut" => TimedOut(description)
       case "Disputed" => Disputed(description)
-      case "DuplicateCommandId" => DuplicateCommandId(description)
       case "PartyNotKnownOnLedger" => PartyNotKnownOnLedger(description)
       case "SubmitterCannotActViaParticipant" => SubmitterCannotActViaParticipant(description)
       case typ => sys.error(s"unknown rejection reason: $typ")

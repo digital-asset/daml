@@ -237,9 +237,15 @@ message DamlPackageUploadRejectionEntry {
     string details = 1;
   }
 
+  // Duplicate submission with same (participant_id, submission_id) as a previous one
+  message DuplicateSubmission {
+    string details = 1;
+  }
+
   oneof reason {
     InvalidPackage invalid_package = 3;
     ParticipantNotAuthorized participant_not_authorized = 4;
+    DuplicateSubmission duplicate_submission = 5;
   }
 }
 
@@ -297,11 +303,17 @@ message DamlConfigurationRejectionEntry {
     string details = 1;
   }
 
+  // Duplicate submission with same (participant_id, submission_id) as a previous one
+  message DuplicateSubmission {
+    string details = 1;
+  }
+
   oneof reason {
     ParticipantNotAuthorized participant_not_authorized = 4;
     GenerationMismatch generation_mismatch = 5;
     InvalidConfiguration invalid_configuration = 6;
     TimedOut timed_out = 7;
+    DuplicateSubmission duplicate_submission = 8;
   }
 }
 
@@ -363,10 +375,16 @@ message DamlPartyAllocationRejectionEntry {
     string details = 1;
   }
 
+  // Duplicate submission with same (participant_id, submission_id) as a previous one
+  message DuplicateSubmission {
+    string details = 1;
+  }
+
   oneof reason {
     AlreadyExists already_exists = 3;
     InvalidName invalid_name = 4;
     ParticipantNotAuthorized participant_not_authorized = 5;
+    DuplicateSubmission duplicate_submission = 6;
   }
 }
 
