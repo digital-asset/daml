@@ -129,16 +129,18 @@ class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
 
 object ResourceOwnerSpec {
   final class TestResourceOwner[T](value: T) extends ResourceOwner[T] {
-    private val opened = new AtomicBoolean()
+    private val opened = new AtomicBoolean(false)
 
     def isOpen: Boolean = opened.get
 
-    def open()(implicit executionContext: ExecutionContext): Open[T] = {
+    def open()(implicit _executionContext: ExecutionContext): Open[T] = {
       if (!opened.compareAndSet(false, true)) {
         throw new TriedToOpenTwice
       }
       new Open[T] {
-        override val asFuture: Future[T] =
+        override protected val executionContext: ExecutionContext = _executionContext
+
+        override protected val future: Future[T] =
           Future.successful(TestResourceOwner.this.value)
 
         override def close(): Future[Unit] =
@@ -151,13 +153,20 @@ object ResourceOwnerSpec {
   }
 
   final class FailingResourceOwner[T] extends ResourceOwner[T] {
-    override def open()(implicit executionContext: ExecutionContext): Open[T] =
+    override def open()(implicit _executionContext: ExecutionContext): Open[T] =
       new Open[T] {
-        override val asFuture: Future[T] =
+        private def closedAlready = new AtomicBoolean(false)
+
+        override protected val executionContext: ExecutionContext = _executionContext
+
+        override protected val future: Future[T] =
           Future.failed(new FailingResourceFailedToOpen)
 
         override def close(): Future[Unit] =
-          Future.successful(())
+          if (closedAlready.compareAndSet(false, true))
+            Future.successful(())
+          else
+            Future.failed(new TriedToCloseTwice)
       }
   }
 

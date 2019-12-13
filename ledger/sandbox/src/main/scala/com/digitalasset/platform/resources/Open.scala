@@ -9,27 +9,39 @@ import scala.util.{Failure, Success, Try}
 trait Open[A] {
   a =>
 
-  val asFuture: Future[A]
+  protected implicit val executionContext: ExecutionContext
+
+  protected val future: Future[A]
+
+  lazy val asFuture: Future[A] = future.transformWith(closeOnFailure)
 
   def close(): Future[Unit]
 
-  def map[B](f: A => B)(implicit executionContext: ExecutionContext): Open[B] = new Open[B] {
-    override val asFuture: Future[B] =
-      a.asFuture.map(f).transformWith(closeOnFailure)
-
-    override def close(): Future[Unit] =
-      a.close()
-  }
-
-  def flatMap[B](f: A => Open[B])(implicit executionContext: ExecutionContext): Open[B] =
+  def map[B](f: A => B)(implicit _executionContext: ExecutionContext): Open[B] =
     new Open[B] {
+      override protected val executionContext: ExecutionContext = _executionContext
+
+      override protected val future: Future[B] =
+        a.asFuture.map(f)
+
+      override def close(): Future[Unit] =
+        a.close()
+    }
+
+  def flatMap[B](f: A => Open[B])(implicit _executionContext: ExecutionContext): Open[B] =
+    new Open[B] {
+      override protected val executionContext: ExecutionContext = _executionContext
+
       private val bFuture: Future[Open[B]] =
         a.asFuture
           .map(f)
-          .flatMap(b => b.asFuture.map(_ => b)) // if `b.asFuture` fails, `bFuture` should also fail
-          .transformWith(closeOnFailure)
+          .flatMap(
+            b =>
+              b.asFuture
+                .map(_ => b) // if `b.asFuture` fails, `bFuture` should also fail
+                .transformWith(closeOnFailure))
 
-      override val asFuture: Future[B] =
+      override protected val future: Future[B] =
         bFuture.flatMap(_.asFuture)
 
       override def close(): Future[Unit] =
@@ -39,9 +51,11 @@ trait Open[A] {
         }
     }
 
-  def withFilter(p: A => Boolean)(implicit executionContext: ExecutionContext): Open[A] =
+  def withFilter(p: A => Boolean)(implicit _executionContext: ExecutionContext): Open[A] =
     new Open[A] {
-      override val asFuture: Future[A] =
+      override protected val executionContext: ExecutionContext = _executionContext
+
+      override protected val future: Future[A] =
         a.asFuture.flatMap(
           value =>
             if (p(value))
@@ -54,11 +68,9 @@ trait Open[A] {
         a.close()
     }
 
-  private def closeOnFailure[T](result: Try[T])(
-      implicit executionContext: ExecutionContext
-  ): Future[T] =
+  private def closeOnFailure[T](result: Try[T]): Future[T] =
     result match {
       case Success(value) => Future.successful(value)
-      case Failure(throwable) => a.close().flatMap(_ => Future.failed(throwable))
+      case Failure(throwable) => close().flatMap(_ => Future.failed(throwable))
     }
 }
