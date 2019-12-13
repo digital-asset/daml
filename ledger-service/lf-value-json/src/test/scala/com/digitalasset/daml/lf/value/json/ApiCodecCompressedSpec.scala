@@ -6,13 +6,14 @@ package value.json
 
 import data.{Decimal, Ref, SortedLookupList, Time}
 import value.json.{NavigatorModelAliases => model}
-import value.TypedValueGenerators.{ValueAddend => VA, genAddend, genTypeAndValue}
+import value.TypedValueGenerators.{ValueAddend => VA, RNil, genAddend, genTypeAndValue}
 import ApiCodecCompressed.{apiValueToJsValue, jsValueToApiValue}
 
 import org.scalactic.source
 import org.scalatest.{Matchers, WordSpec}
 import org.scalatest.prop.{GeneratorDrivenPropertyChecks, TableDrivenPropertyChecks}
 import org.scalacheck.{Arbitrary, Gen}
+import shapeless.record.{Record => HRecord}
 import spray.json._
 
 import scala.util.{Success, Try}
@@ -23,9 +24,7 @@ class ApiCodecCompressedSpec
     with Matchers
     with GeneratorDrivenPropertyChecks
     with TableDrivenPropertyChecks {
-
-  /** XXX SC replace when TypedValueGenerators supports TypeCons */
-  private val typeLookup: NavigatorModelAliases.DamlLfTypeLookup = _ => None
+  import C.typeLookup
 
   /** Serializes the API value to JSON, then parses it back to an API value */
   private def serializeAndParse(
@@ -42,6 +41,24 @@ class ApiCodecCompressedSpec
 
   private def roundtrip(va: VA)(v: va.Inj[Cid]): Option[va.Inj[Cid]] =
     va.prj(jsValueToApiValue(apiValueToJsValue(va.inj(v)), va.t, typeLookup))
+
+  private object C /* based on navigator DamlConstants */ {
+    import shapeless.syntax.singleton._
+    val packageId0 = Ref.PackageId assertFromString "hash"
+    val moduleName0 = Ref.ModuleName assertFromString "Module"
+    def defRef(name: String) =
+      Ref.Identifier(
+        packageId0,
+        Ref.QualifiedName(moduleName0, Ref.DottedName assertFromString name))
+    val emptyRecordId = defRef("EmptyRecord")
+    val (emptyRecordDDT, emptyRecordT) = VA.record(emptyRecordId, RNil)
+    val simpleRecordId = defRef("SimpleRecord")
+    val (simpleRecordDDT, simpleRecordT) =
+      VA.record(simpleRecordId, ('fA ->> VA.text) :: ('fB ->> VA.int64) :: RNil)
+    val simpleRecordV: simpleRecordT.Inj[Cid] = HRecord(fA = "foo", fB = 100L)
+    val typeLookup: NavigatorModelAliases.DamlLfTypeLookup =
+      Map(emptyRecordId -> emptyRecordDDT, simpleRecordId -> simpleRecordDDT).lift
+  }
 
   type Cid = String
   private val genCid = Gen.zip(Gen.alphaChar, Gen.alphaStr) map { case (h, t) => h +: t }
@@ -86,13 +103,13 @@ class ApiCodecCompressedSpec
           roundtrip(va)(v) should ===(Some(v))
         }
       }
-      /*
       "work for EmptyRecord" in {
-        serializeAndParse(C.emptyRecordV, C.emptyRecordTC) shouldBe Success(C.emptyRecordV)
+        roundtrip(C.emptyRecordT)(HRecord()) should ===(Some(HRecord()))
       }
       "work for SimpleRecord" in {
-        serializeAndParse(C.simpleRecordV, C.simpleRecordTC) shouldBe Success(C.simpleRecordV)
+        roundtrip(C.simpleRecordT)(C.simpleRecordV) should ===(Some(C.simpleRecordV))
       }
+      /*
       "work for SimpleVariant" in {
         serializeAndParse(C.simpleVariantV, C.simpleVariantTC) shouldBe Success(C.simpleVariantV)
       }
