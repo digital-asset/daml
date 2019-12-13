@@ -22,7 +22,7 @@ import io.netty.util.concurrent.DefaultThreadFactory
 
 import scala.collection.mutable
 import scala.concurrent.{Future, Promise}
-import scala.util.control.{NoStackTrace, NonFatal}
+import scala.util.control.NoStackTrace
 
 trait ApiServer extends AutoCloseable {
 
@@ -112,11 +112,9 @@ object LedgerApiServer {
         grpcServer.start()
       } catch {
         case io: IOException if io.getCause != null && io.getCause.isInstanceOf[BindException] =>
-          stop()
           throw new UnableToBind(desiredPort, io.getCause)
-        case NonFatal(e) =>
-          stop()
-          throw e
+      } finally {
+        stop()
       }
       closeables.push(() => {
         grpcServer.shutdown()
@@ -140,7 +138,7 @@ object LedgerApiServer {
       })
 
       new ApiServer {
-        override def port: Int = actualPort
+        override val port: Int = actualPort
 
         override def servicesClosed(): Future[Unit] = servicesClosedP.future
 
