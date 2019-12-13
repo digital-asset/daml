@@ -398,11 +398,17 @@ class JdbcLedgerDaoSpec
         resp3 shouldEqual PersistenceResponse.Ok
         lastConfig shouldEqual lastConfigActual
         entries.toList shouldEqual List(
-          offset0 -> ConfigurationEntry.Accepted(s"refuse-config-$offset0", participantId, newConfig),
+          offset0 -> ConfigurationEntry
+            .Accepted(s"refuse-config-$offset0", participantId, newConfig),
           /* offset1 is duplicate */
           offset2 -> ConfigurationEntry
-            .Rejected(s"refuse-config-$offset2", participantId, "Generation mismatch: expected=2, actual=0", config),
-          offset3 -> ConfigurationEntry.Accepted(s"refuse-config-$offset3", participantId, lastConfig)
+            .Rejected(
+              s"refuse-config-$offset2",
+              participantId,
+              "Generation mismatch: expected=2, actual=0",
+              config),
+          offset3 -> ConfigurationEntry
+            .Accepted(s"refuse-config-$offset3", participantId, lastConfig)
         )
       }
     }

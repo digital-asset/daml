@@ -13,15 +13,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import anorm.SqlParser._
 import anorm.ToStatement.optionToStatement
-import anorm.{
-  BatchSql,
-  Macro,
-  NamedParameter,
-  ResultSetParser,
-  RowParser,
-  SQL,
-  SqlParser
-}
+import anorm.{BatchSql, Macro, NamedParameter, ResultSetParser, RowParser, SQL, SqlParser}
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.v1.{
   AbsoluteContractInst,
@@ -282,14 +274,16 @@ private class JdbcLedgerDao(
       implicit conn =>
         val optCurrentConfig = selectLedgerConfiguration
         val optExpectedGeneration: Option[Long] =
-          optCurrentConfig.map { case (_, c)  => c.generation + 1 }
+          optCurrentConfig.map { case (_, c) => c.generation + 1 }
         val finalRejectionReason: Option[String] =
           optExpectedGeneration match {
-            case Some(expGeneration) if rejectionReason.isEmpty && expGeneration != configuration.generation =>
+            case Some(expGeneration)
+                if rejectionReason.isEmpty && expGeneration != configuration.generation =>
               // If we're not storing a rejection and the new generation is not succ of current configuration, then
               // we store a rejection. This code path is only expected to be taken in sandbox. This follows the same
               // pattern as with transactions.
-              Some(s"Generation mismatch: expected=${expGeneration}, actual=${configuration.generation}")
+              Some(
+                s"Generation mismatch: expected=${expGeneration}, actual=${configuration.generation}")
 
             case _ =>
               // Rejection reason was set, or we have no previous configuration generation, in which case we accept any

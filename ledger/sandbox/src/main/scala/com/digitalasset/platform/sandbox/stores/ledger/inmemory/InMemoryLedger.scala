@@ -345,19 +345,22 @@ class InMemoryLedger(
         val mrt = maxRecordTime.toInstant
         ledgerConfiguration match {
           case Some(currentConfig) if config.generation != currentConfig.generation + 1 =>
-            entries.publish(InMemoryConfigEntry(ConfigurationEntry.Rejected(
-              submissionId,
-              participantId,
-              s"Generation mismatch, expected ${currentConfig.generation+1}, got ${config.generation}",
-              config)))
+            entries.publish(
+              InMemoryConfigEntry(
+                ConfigurationEntry.Rejected(
+                  submissionId,
+                  participantId,
+                  s"Generation mismatch, expected ${currentConfig.generation + 1}, got ${config.generation}",
+                  config)))
 
           case _ if recordTime.isAfter(mrt) =>
             entries.publish(
-              InMemoryConfigEntry(ConfigurationEntry.Rejected(
-              submissionId,
-              participantId,
-              s"Configuration change timed out: $mrt > $recordTime",
-              config)))
+              InMemoryConfigEntry(
+                ConfigurationEntry.Rejected(
+                  submissionId,
+                  participantId,
+                  s"Configuration change timed out: $mrt > $recordTime",
+                  config)))
             ledgerConfiguration = Some(config)
 
           case _ =>

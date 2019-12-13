@@ -407,13 +407,13 @@ private final class SqlLedger(
         }
 
       storeF
-          .map(_ => ())(DEC)
-          .recover {
-            case t =>
-              //recovering from the failure so the persistence stream doesn't die
-              logger.error(s"Failed to persist configuration with offsets: $offsets", t)
-              ()
-          }(DEC)
+        .map(_ => ())(DEC)
+        .recover {
+          case t =>
+            //recovering from the failure so the persistence stream doesn't die
+            logger.error(s"Failed to persist configuration with offsets: $offsets", t)
+            ()
+        }(DEC)
     }
 }
 
