@@ -3,52 +3,62 @@
 
 package com.digitalasset.platform.resources
 
-import java.io.Closeable
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success, Try}
 
-import scala.util.control.NonFatal
+trait Open[A] {
+  a =>
 
-trait Open[A] extends Closeable {
-  def value: A
+  val asFuture: Future[A]
 
-  def map[B](f: A => B): Open[B] = new Open[B] {
-    override val value: B = f(Open.this.value)
+  def close(): Future[Unit]
 
-    override def close(): Unit = Open.this.close()
-  }
+  def map[B](f: A => B)(implicit executionContext: ExecutionContext): Open[B] = new Open[B] {
+    override val asFuture: Future[B] =
+      a.asFuture.map(f).transformWith(closeOnFailure)
 
-  def flatMap[B](f: A => Open[B]): Open[B] = new Open[B] {
-    private val a: Open[A] = Open.this
-    private val b: Open[B] =
-      try {
-        f(a.value)
-      } catch {
-        case NonFatal(e) =>
-          a.close()
-          throw e
-      }
-
-    override val value: B = b.value
-
-    override def close(): Unit = {
-      b.close()
+    override def close(): Future[Unit] =
       a.close()
-    }
   }
 
-  def foreach[U](f: A => U): Unit = discard(f(value))
+  def flatMap[B](f: A => Open[B])(implicit executionContext: ExecutionContext): Open[B] =
+    new Open[B] {
+      private val bFuture: Future[Open[B]] =
+        a.asFuture
+          .map(f)
+          .flatMap(b => b.asFuture.map(_ => b)) // if `b.asFuture` fails, `bFuture` should also fail
+          .transformWith(closeOnFailure)
 
-  def withFilter(p: A => Boolean): Open[A] =
-    if (p(value))
-      this
-    else {
-      close()
-      new Open[A] {
-        override def value: A =
-          throw new ResourceAcquisitionFilterException()
+      override val asFuture: Future[B] =
+        bFuture.flatMap(_.asFuture)
 
-        override def close(): Unit = ()
-      }
+      override def close(): Future[Unit] =
+        bFuture.transformWith {
+          case Success(b) => b.close().flatMap(_ => a.close())
+          case Failure(_) => Future.successful(())
+        }
     }
 
-  private def discard[T](value: T): Unit = ()
+  def withFilter(p: A => Boolean)(implicit executionContext: ExecutionContext): Open[A] =
+    new Open[A] {
+      override val asFuture: Future[A] =
+        a.asFuture.flatMap(
+          value =>
+            if (p(value))
+              Future.successful(value)
+            else
+              Future.failed(new ResourceAcquisitionFilterException())
+        )
+
+      override def close(): Future[Unit] =
+        a.close()
+    }
+
+  private def closeOnFailure[T](result: Try[T])(
+      implicit executionContext: ExecutionContext
+  ): Future[T] =
+    result match {
+      case Success(value) => Future.successful(value)
+      case Failure(throwable) => a.close().flatMap(_ => Future.failed(throwable))
+    }
 }
