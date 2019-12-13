@@ -53,8 +53,9 @@ class ApiCodecCompressedSpec
     val emptyRecordId = defRef("EmptyRecord")
     val (emptyRecordDDT, emptyRecordT) = VA.record(emptyRecordId, RNil)
     val simpleRecordId = defRef("SimpleRecord")
+    val simpleRecordVariantSpec = 'fA ->> VA.text :: 'fB ->> VA.int64 :: RNil
     val (simpleRecordDDT, simpleRecordT) =
-      VA.record(simpleRecordId, 'fA ->> VA.text :: 'fB ->> VA.int64 :: RNil)
+      VA.record(simpleRecordId, simpleRecordVariantSpec)
     val simpleRecordV: simpleRecordT.Inj[Cid] = HRecord(fA = "foo", fB = 100L)
 
     val complexRecordId = defRef("ComplexRecord")

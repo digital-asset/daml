@@ -242,15 +242,31 @@ object TypedValueGenerators {
       Shrink.shrinkAny
   }
 
-  object RecordVa {
-    @SuppressWarnings(Array("org.wartremover.warts.Any"))
-    private[value] val sample = {
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
+  private[value] object RecordVa {
+    // specifying records and variants works the same way: a
+    // record written with ->> and ::, terminated with RNil (*not* HNil)
+    val sample = {
       import shapeless.syntax.singleton._
-      ('foo ->> ValueAddend.int64) :: ('bar ->> ValueAddend.text) :: RNil
+      'foo ->> ValueAddend.int64 :: 'bar ->> ValueAddend.text :: RNil
     }
+
+    // a RecordVa can be turned into a ValueAddend for records
+    val (sampleRecordDDT, sampleAsRecord) =
+      ValueAddend.record(
+        Ref.Identifier(
+          Ref.PackageId assertFromString "hash",
+          Ref.QualifiedName assertFromString "Foo.SomeRecord"),
+        sample)
     import shapeless.record.Record
-    private[value] val sampleData: sample.HRec[Nothing] =
+    // supposing Cid = String, you can ascribe a matching value
+    // using either the spec,
+    val sampleData: sample.HRec[String] =
       Record(foo = 42L, bar = "hi")
+    // or the record VA
+    val sampleDataAgain: sampleAsRecord.Inj[String] = sampleData
+    // ascription is not necessary; a correct `Record` expression already
+    // has the correct type, as implicit conversion is not used at all
   }
 
   trait PrimInstances[F[_]] {
