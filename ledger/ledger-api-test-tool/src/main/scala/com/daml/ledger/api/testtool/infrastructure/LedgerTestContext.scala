@@ -53,19 +53,8 @@ private[testtool] final class LedgerTestContext private[infrastructure] (
 
   private[this] def waitForParties(
       participant: ParticipantTestContext,
-      expectedParties: Set[Party]): Future[Unit] = {
-    Future
-      .sequence(participants.map(otherParticipant => {
-        otherParticipant
-          .listParties()
-          .map(actualParties => {
-            assert(
-              expectedParties.subsetOf(actualParties),
-              s"Parties from $participant never appeared on $otherParticipant.")
-          })
-      }))
-      .map(_ => ())
-  }
+      expectedParties: Set[Party]): Future[Unit] =
+    participant.waitForParties(participants, expectedParties)
 
   private[this] def nextParticipant(): ParticipantTestContext =
     participantsRing.synchronized {
