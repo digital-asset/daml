@@ -8,8 +8,8 @@ import java.util.concurrent.TimeUnit
 import com.digitalasset.ledger.api.testing.utils.Resource
 import com.digitalasset.platform.sandbox.SandboxServer
 import com.digitalasset.platform.sandbox.config.SandboxConfig
-import io.grpc.{Channel, ManagedChannel}
 import io.grpc.netty.NettyChannelBuilder
+import io.grpc.{Channel, ManagedChannel}
 import io.netty.channel.EventLoopGroup
 import io.netty.channel.nio.NioEventLoopGroup
 import io.netty.util.concurrent.DefaultThreadFactory
@@ -29,7 +29,7 @@ final class SandboxServerResource(sandboxConfig: SandboxConfig) extends Resource
   override def value: Channel = channel
 
   override def setup(): Unit = {
-    sandboxServer = SandboxServer(sandboxConfig)
+    sandboxServer = new SandboxServer(sandboxConfig)
 
     eventLoopGroup = createEventLoopGroup("api-client")
 
