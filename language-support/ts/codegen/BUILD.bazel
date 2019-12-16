@@ -18,6 +18,7 @@ da_haskell_binary(
         "text",
         "zip-archive",
     ],
+    main_function = "TsCodeGenMain.main",
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [

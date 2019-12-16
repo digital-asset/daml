@@ -82,8 +82,8 @@ templateKeyExpr f (TemplateKey typ body maintainers) = TemplateKey
   <*> f maintainers
 
 moduleExpr :: Traversal' Module Expr
-moduleExpr f (Module name path flags dataTypes values templates) =
-  Module name path flags dataTypes
+moduleExpr f (Module name path flags synonyms dataTypes values templates) =
+  Module name path flags synonyms dataTypes
   <$> (NM.traverse . _dvalBody) f values
   <*> (NM.traverse . templateExpr) f templates
 
@@ -92,12 +92,12 @@ dataConsType f = \case
   DataRecord  fs -> DataRecord  <$> (traverse . _2) f fs
   DataVariant cs -> DataVariant <$> (traverse . _2) f cs
   DataEnum cs -> pure $ DataEnum cs
-  DataSynonym t -> DataSynonym <$> f t
 
 builtinType :: Traversal' Type BuiltinType
 builtinType f =
     \case
         TVar n -> pure $ TVar n
+        TSyn tySyn -> pure $ TSyn tySyn
         TCon tyCon -> pure $ TCon tyCon
         TApp s t -> TApp <$> builtinType f s <*> builtinType f t
         TBuiltin x -> TBuiltin <$> f x
@@ -123,6 +123,7 @@ instance MonoTraversable ModuleRef ExprValName where monoTraverse _ = pure
 instance MonoTraversable ModuleRef ExprVarName where monoTraverse _ = pure
 instance MonoTraversable ModuleRef FieldName where monoTraverse _ = pure
 instance MonoTraversable ModuleRef ModuleName where monoTraverse _ = pure
+instance MonoTraversable ModuleRef TypeSynName where monoTraverse _ = pure
 instance MonoTraversable ModuleRef TypeConName where monoTraverse _ = pure
 instance MonoTraversable ModuleRef TypeVarName where monoTraverse _ = pure
 instance MonoTraversable ModuleRef VariantConName where monoTraverse _ = pure
@@ -162,6 +163,7 @@ instance MonoTraversable ModuleRef Expr
 instance MonoTraversable ModuleRef IsSerializable
 instance MonoTraversable ModuleRef DataCons
 instance MonoTraversable ModuleRef DefDataType
+instance MonoTraversable ModuleRef DefTypeSyn
 
 instance MonoTraversable ModuleRef HasNoPartyLiterals
 instance MonoTraversable ModuleRef IsTest

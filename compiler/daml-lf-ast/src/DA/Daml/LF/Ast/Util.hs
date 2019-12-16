@@ -241,22 +241,24 @@ typeConAppToType (TypeConApp tcon targs) = TConApp tcon targs
 -- Compatibility type and functions
 
 data Definition
-  = DDataType DefDataType
+  = DTypeSyn DefTypeSyn
+  | DDataType DefDataType
   | DValue DefValue
   | DTemplate Template
 
 moduleFromDefinitions :: ModuleName -> Maybe FilePath -> FeatureFlags -> [Definition] -> Module
-moduleFromDefinitions name path flags defs =
-  let (dats, vals, tpls) = partitionDefinitions defs
-  in  Module name path flags (NM.fromList dats) (NM.fromList vals) (NM.fromList tpls)
+moduleFromDefinitions name path flags defs = do
+  let (syns, dats, vals, tpls) = partitionDefinitions defs
+  Module name path flags (NM.fromList syns) (NM.fromList dats) (NM.fromList vals) (NM.fromList tpls)
 
-partitionDefinitions :: [Definition] -> ([DefDataType], [DefValue], [Template])
-partitionDefinitions = foldr f ([], [], [])
+partitionDefinitions :: [Definition] -> ([DefTypeSyn], [DefDataType], [DefValue], [Template])
+partitionDefinitions = foldr f ([], [], [], [])
   where
     f = \case
-      DDataType d -> over _1 (d:)
-      DValue v    -> over _2 (v:)
-      DTemplate t -> over _3 (t:)
+      DTypeSyn s  -> over _1 (s:)
+      DDataType d -> over _2 (d:)
+      DValue v    -> over _3 (v:)
+      DTemplate t -> over _4 (t:)
 
 -- | This is the analogue of GHC’s moduleNameString for the LF
 -- `ModuleName` type.
