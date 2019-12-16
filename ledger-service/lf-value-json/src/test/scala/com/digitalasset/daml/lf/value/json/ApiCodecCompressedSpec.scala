@@ -13,6 +13,7 @@ import org.scalactic.source
 import org.scalatest.{Matchers, WordSpec}
 import org.scalatest.prop.{GeneratorDrivenPropertyChecks, TableDrivenPropertyChecks}
 import org.scalacheck.{Arbitrary, Gen}
+import shapeless.{Coproduct => HSum}
 import shapeless.record.{Record => HRecord}
 import spray.json._
 
@@ -57,6 +58,11 @@ class ApiCodecCompressedSpec
     val (simpleRecordDDT, simpleRecordT) =
       VA.record(simpleRecordId, simpleRecordVariantSpec)
     val simpleRecordV: simpleRecordT.Inj[Cid] = HRecord(fA = "foo", fB = 100L)
+
+    val simpleVariantId = defRef("SimpleVariant")
+    val (simpleVariantDDT, simpleVariantT) =
+      VA.variant(simpleVariantId, simpleRecordVariantSpec)
+    val simpleVariantV = HSum[simpleVariantT.Inj[Cid]]('fA ->> "foo")
 
     val complexRecordId = defRef("ComplexRecord")
     val (complexRecordDDT, complexRecordT) =
@@ -105,6 +111,7 @@ class ApiCodecCompressedSpec
       Map(
         emptyRecordId -> emptyRecordDDT,
         simpleRecordId -> simpleRecordDDT,
+        simpleVariantId -> simpleVariantDDT,
         complexRecordId -> complexRecordDDT).lift
   }
 
@@ -153,13 +160,13 @@ class ApiCodecCompressedSpec
       }
 
       def cr(typ: VA)(v: typ.Inj[Cid]) =
-        (typ, v, typ.inj(v))
+        (typ, v: Any, typ.inj(v))
 
       val roundtrips = Table(
         ("type", "original value", "DAML value"),
         cr(C.emptyRecordT)(HRecord()),
         cr(C.simpleRecordT)(C.simpleRecordV),
-        // cr(C.simpleVariantT)(C.simpleVariantV),
+        cr(C.simpleVariantT)(C.simpleVariantV),
         cr(C.complexRecordT)(C.complexRecordV),
       )
       "work for records and variants" in forAll(roundtrips) { (typ, origValue, damlValue) =>
