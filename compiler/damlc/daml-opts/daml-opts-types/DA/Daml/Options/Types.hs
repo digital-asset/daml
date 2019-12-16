@@ -67,7 +67,9 @@ data Options = Options
   , optMbPackageName :: Maybe String
     -- ^ compile in the context of the given package name and create interface files
   , optWriteInterface :: Bool
-    -- ^ whether to write interface files or not.
+    -- ^ whether to write interface files or not during `damlc compile`. This is _only_
+    -- relevant for `compile` which at the moment is only used for building daml-stdlib
+    -- and daml-prim.
   , optIfaceDir :: Maybe FilePath
     -- ^ alternative directory to write interface files to. Default is <current working dir>.daml/interfaces.
   , optHideAllPkgs :: Bool
