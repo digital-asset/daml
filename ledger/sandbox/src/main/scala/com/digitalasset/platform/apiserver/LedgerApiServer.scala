@@ -71,7 +71,7 @@ object LedgerApiServer {
       }
 
     val server = for {
-      serverEsf <- ResourceOwner(executionSequencerFactoryResource _).acquire()
+      serverEsf <- ResourceOwner.forCloseable(executionSequencerFactoryResource _).acquire()
       workerEventLoopGroup <- eventLoopGroup(
         mat.system.name + "-nio-worker",
         parallelism = Runtime.getRuntime.availableProcessors).acquire()

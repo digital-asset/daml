@@ -3,6 +3,7 @@
 
 package com.digitalasset.platform.resources
 
+import scala.collection.generic.CanBuildFrom
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
@@ -70,4 +71,49 @@ trait Resource[A] {
       case Success(value) => Future.successful(value)
       case Failure(throwable) => release().flatMap(_ => Future.failed(throwable))
     }
+}
+
+object Resource {
+
+  import scala.language.higherKinds
+
+  def pure[T](value: T)(implicit _executionContext: ExecutionContext): Resource[T] =
+    new Resource[T] {
+      override protected val executionContext: ExecutionContext = _executionContext
+
+      override protected val future: Future[T] = Future.successful(value)
+
+      override def release(): Future[Unit] = Future.successful(())
+    }
+
+  def failed[T](throwable: Throwable)(implicit _executionContext: ExecutionContext): Resource[T] =
+    new Resource[T] {
+      override protected val executionContext: ExecutionContext = _executionContext
+
+      override protected val future: Future[T] = Future.failed(throwable)
+
+      override def release(): Future[Unit] = Future.successful(())
+    }
+
+  def sequence[T, C[_] <: TraversableOnce[_]](seq: C[Resource[T]])(
+      implicit bf: CanBuildFrom[C[Resource[T]], T, C[T]],
+      _executionContext: ExecutionContext,
+  ): Resource[C[T]] =
+    seq
+      .foldLeft(ResourceOwner.pure(bf()).acquire())((builderResource, elementResource) =>
+        for {
+          builder <- builderResource
+          element <- elementResource.asInstanceOf[Resource[T]]
+        } yield builder += element)
+      .map(_.result())
+
+  def sequence_[T, C[_] <: TraversableOnce[_]](seq: C[Resource[T]])(
+      implicit _executionContext: ExecutionContext,
+  ): Resource[Unit] =
+    seq
+      .foldLeft(ResourceOwner.pure(()).acquire())((builderResource, elementResource) =>
+        for {
+          _ <- builderResource
+          _ <- elementResource.asInstanceOf[Resource[T]]
+        } yield ())
 }
