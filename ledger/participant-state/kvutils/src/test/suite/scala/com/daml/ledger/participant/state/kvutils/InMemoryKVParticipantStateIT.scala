@@ -145,7 +145,8 @@ class InMemoryKVParticipantStateIT
         result1 <- ps.uploadPackages(submissionIds._1, List(archive1), sourceDescription).toScala
         result2 <- ps.uploadPackages(submissionIds._1, List(archive1), sourceDescription).toScala
         result3 <- ps.uploadPackages(submissionIds._2, List(archive2), sourceDescription).toScala
-        Seq(update1, update2) <- ps
+        // second submission is a duplicate, it fails silently
+        Seq(_, update2) <- ps
           .stateUpdates(beginAfter = None)
           .take(2)
           .runWith(Sink.seq)
