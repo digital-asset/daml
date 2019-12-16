@@ -52,7 +52,11 @@ object LedgerApiServer {
     val logger = loggerFactory.getLogger(this.getClass)
     val servicesClosedPromise = Promise[Unit]()
 
-    def apiServicesResourceOwner(serverEsf: ExecutionSequencerFactory): ResourceOwner[ApiServices] =
+    // This is necessary because we need to signal to the ResetService that we have shut down the
+    // APIs so it can consider the reset "done". Once it's finished, the reset request will finish,
+    // the gRPC connection will be closed and we can safely shut down the gRPC server. If we don't
+    // do that, the server won't shut down and we'll enter a deadlock.
+    def reorderApiServices(apiServices: Resource[ApiServices]): ResourceOwner[ApiServices] =
       new ResourceOwner[ApiServices] {
         override def acquire()(
             implicit _executionContext: ExecutionContext
@@ -60,13 +64,12 @@ object LedgerApiServer {
           new Resource[ApiServices] {
             override protected val executionContext: ExecutionContext = _executionContext
 
-            override protected val future: Future[ApiServices] = createApiServices(mat, serverEsf)
+            override protected val future: Future[ApiServices] = apiServices.asFuture
 
             override def releaseResource(): Future[Unit] =
-              future.map(apiServices => {
-                apiServices.close()
-                servicesClosedPromise.success(())
-              })
+              apiServices
+                .release()
+                .map(_ => servicesClosedPromise.success(()))
           }
       }
 
@@ -76,7 +79,10 @@ object LedgerApiServer {
         mat.system.name + "-nio-worker",
         parallelism = Runtime.getRuntime.availableProcessors).acquire()
       bossEventLoopGroup <- eventLoopGroup(mat.system.name + "-nio-boss", parallelism = 1).acquire()
-      apiServices <- apiServicesResourceOwner(serverEsf).acquire()
+      apiServicesResource = ResourceOwner
+        .forFutureCloseable(() => createApiServices(mat, serverEsf))
+        .acquire()
+      apiServices <- apiServicesResource
       server <- grpcServer(
         address,
         desiredPort,
@@ -86,7 +92,9 @@ object LedgerApiServer {
         metrics,
         bossEventLoopGroup,
         workerEventLoopGroup,
-        apiServices).acquire()
+        apiServices,
+      ).acquire()
+      _ <- reorderApiServices(apiServicesResource).acquire()
     } yield {
       val host = address.getOrElse("localhost")
       val actualPort = server.getPort
@@ -137,10 +145,10 @@ object LedgerApiServer {
         override protected val future: Future[EventLoopGroup] = Future.successful(group)
 
         override def releaseResource(): Future[Unit] = {
-          val future = group.shutdownGracefully(0, 0, MILLISECONDS)
           val promise = Promise[Unit]()
-          future.addListener((future: io.netty.util.concurrent.Future[_]) =>
-            promise.complete(Try(future.get).map(_ => ())))
+          val future = group.shutdownGracefully(0, 0, MILLISECONDS)
+          future.addListener((f: io.netty.util.concurrent.Future[_]) =>
+            promise.complete(Try(f.get).map(_ => ())))
           promise.future
         }
       }
@@ -157,7 +165,7 @@ object LedgerApiServer {
       bossEventLoopGroup: EventLoopGroup,
       workerEventLoopGroup: EventLoopGroup,
       apiServices: ApiServices,
-  ) = new ResourceOwner[Server] {
+  ): ResourceOwner[Server] = new ResourceOwner[Server] {
     override def acquire()(implicit _executionContext: ExecutionContext): Resource[Server] = {
       new Resource[Server] {
         override protected val executionContext: ExecutionContext = _executionContext
