@@ -250,8 +250,18 @@ object TypedValueGenerators {
 
         @SuppressWarnings(Array("org.wartremover.warts.Any"))
         override val prjVar = self.prjVar transform { (_, tf) =>
-          Lambda[Value ~> Lambda[c => Option[HVar[c]]]](tv => tf(tv) map (Inr(_)))
+          Lambda[Value ~> PrjResult](tv => tf(tv) map (Inr(_)))
         } updated (fname, Lambda[Value ~> PrjResult](hv => h.prj(hv) map (pv => Inl(field[K](pv)))))
+
+        override def vararb[Cid: Arbitrary] = ???
+        override def varshrink[Cid: Shrink] = {
+          val lshr: Shrink[h.Inj[Cid]] = h.injshrink
+          val rshr: Shrink[self.HVar[Cid]] = self.varshrink
+          Shrink {
+            case Inl(hv) => lshr shrink hv map (shv => Inl(field[K](shv)))
+            case Inr(tl) => rshr shrink tl map (Inr(_))
+          }
+        }
       }
 
     private[TypedValueGenerators] val t: List[(Ref.Name, Type)]
@@ -263,6 +273,9 @@ object TypedValueGenerators {
     private[TypedValueGenerators] def injVar[Cid](v: HVar[Cid]): (Ref.Name, Value[Cid])
     private[TypedValueGenerators] type PrjResult[Cid] = Option[HVar[Cid]]
     private[TypedValueGenerators] val prjVar: Map[Ref.Name, Value ~> PrjResult]
+    private[TypedValueGenerators] implicit def vararb[Cid: Arbitrary]
+      : Map[Ref.Name, Arbitrary[HVar[Cid]]]
+    private[TypedValueGenerators] implicit def varshrink[Cid: Shrink]: Shrink[HVar[Cid]]
   }
 
   case object RNil extends RecordVa {
@@ -280,6 +293,8 @@ object TypedValueGenerators {
 
     private[TypedValueGenerators] override def injVar[Cid](v: CNil) = v.impossible
     private[TypedValueGenerators] override val prjVar = Map.empty
+    private[TypedValueGenerators] override def vararb[Cid: Arbitrary] = Map.empty
+    private[TypedValueGenerators] override def varshrink[Cid: Shrink] = Shrink.shrinkAny
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
