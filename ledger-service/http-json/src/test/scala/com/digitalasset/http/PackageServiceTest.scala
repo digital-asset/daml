@@ -64,7 +64,7 @@ class PackageServiceTest
 
     "TemplateIdMap.all should contain dups and unique identifiers" in
       forAll(nonEmptyListOf(genDomainTemplateId), genDuplicateDomainTemplateIdR) { (xs, dups) =>
-        whenever(noDups(xs, dups)) {
+        whenever(noIntersection(xs, dups)) {
           val map = PackageService.buildTemplateIdMap((xs ++ dups).toSet)
           map.all should ===(xs.toSet ++ dups.toSet)
           dups.foreach { x =>
@@ -78,7 +78,7 @@ class PackageServiceTest
 
     "TemplateIdMap.unique should not contain dups" in
       forAll(nonEmptyListOf(genDomainTemplateId), genDuplicateDomainTemplateIdR) { (xs, dups) =>
-        whenever(noDups(xs, dups)) {
+        whenever(noIntersection(xs, dups)) {
           val map = PackageService.buildTemplateIdMap((xs ++ dups).toSet)
           map.all should ===(dups.toSet ++ xs.toSet)
           xs.foreach { x =>
@@ -137,7 +137,7 @@ class PackageServiceTest
   private def appendToPackageId(x: String)(a: domain.TemplateId.RequiredPkg) =
     a.copy(packageId = a.packageId + x)
 
-  private def noDups(
+  private def noIntersection(
       as: List[domain.TemplateId.RequiredPkg],
       bs: List[domain.TemplateId.RequiredPkg]): Boolean =
     !(toNoPkgSet(as) exists toNoPkgSet(bs))
