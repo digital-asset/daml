@@ -140,10 +140,8 @@ class PackageServiceTest
   private def noDups(
       as: List[domain.TemplateId.RequiredPkg],
       bs: List[domain.TemplateId.RequiredPkg]): Boolean =
-    (toNoPkgSet(as) intersect toNoPkgSet(bs)).isEmpty
+    !(toNoPkgSet(as) exists toNoPkgSet(bs))
 
   private def toNoPkgSet(xs: List[domain.TemplateId.RequiredPkg]): Set[domain.TemplateId.NoPkg] =
-    xs.toSet.map { x: domain.TemplateId.RequiredPkg =>
-      domain.TemplateId((), x.moduleName, x.entityName)
-    }
+    xs.map(_ copy (packageId = ()))(collection.breakOut)
 }
