@@ -209,8 +209,10 @@ object TypedValueGenerators {
 
     type HRec[Cid] <: HList
     type HVar[Cid] <: Coproduct
-    def ::[K <: Symbol](h: K :->>: ValueAddend)(implicit ev: Witness.Aux[K])
-      : RecordVa { type HRec[Cid] = (K :->>: h.Inj[Cid]) :: self.HRec[Cid] } =
+    def ::[K <: Symbol](h: K :->>: ValueAddend)(implicit ev: Witness.Aux[K]): RecordVa {
+      type HRec[Cid] = (K :->>: h.Inj[Cid]) :: self.HRec[Cid]
+      type HVar[Cid] = (K :->>: h.Inj[Cid]) :+: self.HVar[Cid]
+    } =
       new RecordVa {
         private[this] val fname = Ref.Name assertFromString ev.value.name
         type HRec[Cid] = (K :->>: h.Inj[Cid]) :: self.HRec[Cid]
@@ -331,6 +333,27 @@ object TypedValueGenerators {
     val sampleDataAgain: sampleAsRecord.Inj[String] = sampleData
     // ascription is not necessary; a correct `Record` expression already
     // has the correct type, as implicit conversion is not used at all
+
+    // a RecordVa can be turned into a ValueAddend for variants
+    val (sampleVariantDDT, sampleAsVariant) =
+      ValueAddend.variant(
+        Ref.Identifier(
+          Ref.PackageId assertFromString "hash",
+          Ref.QualifiedName assertFromString "Foo.SomeVariant"),
+        sample)
+    // supposing Cid = String, you can create a matching value with Coproduct
+    import shapeless.Coproduct, shapeless.syntax.singleton._
+    val sampleVt =
+      Coproduct[sample.HVar[String]]('foo ->> 42L)
+    val anotherSampleVt =
+      Coproduct[sample.HVar[String]]('bar ->> "hi")
+    // and the `variant` function produces Inj as a synonym for HVar
+    // just as `record` makes it a synonym for HRec
+    val samples: List[sampleAsVariant.Inj[String]] = List(sampleVt, anotherSampleVt)
+    // Coproduct can be factored out, but the implicit resolution means you cannot
+    // turn this into the obvious `map` call
+    val sampleCp = Coproduct[sample.HVar[String]]
+    val moreSamples = List(sampleCp('foo ->> 84L), sampleCp('bar ->> "bye"))
   }
 
   trait PrimInstances[F[_]] {
