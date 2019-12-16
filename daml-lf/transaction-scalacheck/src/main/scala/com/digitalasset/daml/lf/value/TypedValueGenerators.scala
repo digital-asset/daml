@@ -16,9 +16,11 @@ import iface.{
   TypeConName,
   TypeNumeric,
   TypePrim,
-  PrimType => PT
+  PrimType => PT,
+  Variant,
 }
 
+import scalaz.~>
 import scalaz.Id.Id
 import scalaz.syntax.traverse._
 import scalaz.std.option._
@@ -165,7 +167,7 @@ object TypedValueGenerators {
     }
 
     /** See [[RecordVa]] companion for usage examples. */
-    def record[Rec](name: Ref.Identifier, rec: RecordVa): (DefDataType.FWT, Aux[rec.HRec]) =
+    def record(name: Ref.Identifier, rec: RecordVa): (DefDataType.FWT, Aux[rec.HRec]) =
       (DefDataType(ImmArraySeq.empty, Record(rec.t.to[ImmArraySeq])), new ValueAddend {
         private[this] val lfvFieldNames = rec.t map { case (n, _) => Some(n) }
         type Inj[Cid] = rec.HRec[Cid]
@@ -180,18 +182,38 @@ object TypedValueGenerators {
         override def injarb[Cid: Arbitrary] = rec.injarb[Cid]
         override def injshrink[Cid: Shrink] = rec.injshrink
       })
+
+    /** See [[RecordVa]] companion for usage examples. */
+    def variant(name: Ref.Identifier, spec: RecordVa): (DefDataType.FWT, Aux[spec.HVar]) =
+      (DefDataType(ImmArraySeq.empty, Variant(spec.t.to[ImmArraySeq])), new ValueAddend {
+        type Inj[Cid] = spec.HVar[Cid]
+        override val t = TypeCon(TypeConName(name), ImmArraySeq.empty)
+        override def inj[Cid] = { cp =>
+          val (ctor, v) = spec.injVar(cp)
+          ValueVariant(Some(name), ctor, v)
+        }
+        override def prj[Cid] = {
+          case ValueVariant(_, name, vv) =>
+            spec.prjVar get name flatMap (_(vv))
+          case _ => None
+        }
+        override def injarb[Cid: Arbitrary] = ???
+        override def injshrink[Cid: Shrink] = ???
+      })
   }
 
   sealed abstract class RecordVa { self =>
-    import shapeless.{::, HList, Witness}
+    import shapeless.{::, :+:, Coproduct, HList, Inl, Inr, Witness}
     import shapeless.labelled.{field, FieldType => :->>:}
 
     type HRec[Cid] <: HList
+    type HVar[Cid] <: Coproduct
     def ::[K <: Symbol](h: K :->>: ValueAddend)(implicit ev: Witness.Aux[K])
       : RecordVa { type HRec[Cid] = (K :->>: h.Inj[Cid]) :: self.HRec[Cid] } =
       new RecordVa {
         private[this] val fname = Ref.Name assertFromString ev.value.name
         type HRec[Cid] = (K :->>: h.Inj[Cid]) :: self.HRec[Cid]
+        type HVar[Cid] = (K :->>: h.Inj[Cid]) :+: self.HVar[Cid]
         override val t = (fname, h.t) :: self.t
         override def inj[Cid](v: HRec[Cid]) =
           h.inj(v.head) :: self.inj(v.tail)
@@ -220,6 +242,16 @@ object TypedValueGenerators {
               }
           }
         }
+
+        override def injVar[Cid](v: HVar[Cid]) = v match {
+          case Inl(hv) => (fname, h.inj(hv))
+          case Inr(tl) => self.injVar(tl)
+        }
+
+        @SuppressWarnings(Array("org.wartremover.warts.Any"))
+        override val prjVar = self.prjVar transform { (_, tf) =>
+          Lambda[Value ~> Lambda[c => Option[HVar[c]]]](tv => tf(tv) map (Inr(_)))
+        } updated (fname, Lambda[Value ~> PrjResult](hv => h.prj(hv) map (pv => Inl(field[K](pv)))))
       }
 
     private[TypedValueGenerators] val t: List[(Ref.Name, Type)]
@@ -227,11 +259,16 @@ object TypedValueGenerators {
     private[TypedValueGenerators] def prj[Cid](v: ImmArray[(_, Value[Cid])]): Option[HRec[Cid]]
     private[TypedValueGenerators] implicit def injarb[Cid: Arbitrary]: Arbitrary[HRec[Cid]]
     private[TypedValueGenerators] implicit def injshrink[Cid: Shrink]: Shrink[HRec[Cid]]
+
+    private[TypedValueGenerators] def injVar[Cid](v: HVar[Cid]): (Ref.Name, Value[Cid])
+    private[TypedValueGenerators] type PrjResult[Cid] = Option[HVar[Cid]]
+    private[TypedValueGenerators] val prjVar: Map[Ref.Name, Value ~> PrjResult]
   }
 
   case object RNil extends RecordVa {
-    import shapeless.HNil
+    import shapeless.{HNil, CNil}
     type HRec[Cid] = HNil
+    type HVar[Cid] = CNil
     private[TypedValueGenerators] override val t = List.empty
     private[TypedValueGenerators] override def inj[Cid](v: HNil) = List.empty
     private[TypedValueGenerators] override def prj[Cid](v: ImmArray[(_, Value[Cid])]) =
@@ -240,6 +277,9 @@ object TypedValueGenerators {
       Arbitrary(Gen const HNil)
     private[TypedValueGenerators] override def injshrink[Cid: Shrink] =
       Shrink.shrinkAny
+
+    private[TypedValueGenerators] override def injVar[Cid](v: CNil) = v.impossible
+    private[TypedValueGenerators] override val prjVar = Map.empty
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
