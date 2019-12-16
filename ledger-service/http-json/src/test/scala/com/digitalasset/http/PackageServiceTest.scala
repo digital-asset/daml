@@ -31,6 +31,7 @@ class PackageServiceTest
   "PackageService.buildTemplateIdMap" - {
     "identifiers with the same (moduleName, entityName) are not unique" in
       forAll(genDuplicateDomainTemplateIdR) { ids =>
+        toNoPkgSet(ids) should have size 1L
         val map = PackageService.buildTemplateIdMap(ids.toSet)
         map.all shouldBe ids.toSet
         map.unique shouldBe Map.empty
@@ -63,25 +64,29 @@ class PackageServiceTest
 
     "TemplateIdMap.all should contain dups and unique identifiers" in
       forAll(nonEmptyListOf(genDomainTemplateId), genDuplicateDomainTemplateIdR) { (xs, dups) =>
-        val map = PackageService.buildTemplateIdMap((xs ++ dups).toSet)
-        map.all should ===(xs.toSet ++ dups.toSet)
-        dups.foreach { x =>
-          map.all.contains(x) shouldBe true
-        }
-        xs.foreach { x =>
-          map.all.contains(x) shouldBe true
+        whenever(noDups(xs, dups)) {
+          val map = PackageService.buildTemplateIdMap((xs ++ dups).toSet)
+          map.all should ===(xs.toSet ++ dups.toSet)
+          dups.foreach { x =>
+            map.all.contains(x) shouldBe true
+          }
+          xs.foreach { x =>
+            map.all.contains(x) shouldBe true
+          }
         }
       }
 
     "TemplateIdMap.unique should not contain dups" in
       forAll(nonEmptyListOf(genDomainTemplateId), genDuplicateDomainTemplateIdR) { (xs, dups) =>
-        val map = PackageService.buildTemplateIdMap((xs ++ dups).toSet)
-        map.all should ===(dups.toSet ++ xs.toSet)
-        xs.foreach { x =>
-          map.unique.get(PackageService.key2(x)) shouldBe Some(x)
-        }
-        dups.foreach { x =>
-          map.unique.get(PackageService.key2(x)) shouldBe None
+        whenever(noDups(xs, dups)) {
+          val map = PackageService.buildTemplateIdMap((xs ++ dups).toSet)
+          map.all should ===(dups.toSet ++ xs.toSet)
+          xs.foreach { x =>
+            map.unique.get(PackageService.key2(x)) shouldBe Some(x)
+          }
+          dups.foreach { x =>
+            map.unique.get(PackageService.key2(x)) shouldBe None
+          }
         }
       }
   }
@@ -132,4 +137,13 @@ class PackageServiceTest
   private def appendToPackageId(x: String)(a: domain.TemplateId.RequiredPkg) =
     a.copy(packageId = a.packageId + x)
 
+  private def noDups(
+      as: List[domain.TemplateId.RequiredPkg],
+      bs: List[domain.TemplateId.RequiredPkg]): Boolean =
+    (toNoPkgSet(as) intersect toNoPkgSet(bs)).isEmpty
+
+  private def toNoPkgSet(xs: List[domain.TemplateId.RequiredPkg]): Set[domain.TemplateId.NoPkg] =
+    xs.toSet.map { x: domain.TemplateId.RequiredPkg =>
+      domain.TemplateId((), x.moduleName, x.entityName)
+    }
 }
