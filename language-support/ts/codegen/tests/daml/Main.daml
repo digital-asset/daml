@@ -6,6 +6,7 @@ module Main where
 import DA.TextMap
 import Lib.Mod
 
+
 template AllTypes with
     unit: ()
     bool: Bool
@@ -24,6 +25,8 @@ template AllTypes with
     archiveX: Archive
     either: Either Int Text
     tuple: (Int, Text)
+    enum: Color
+    enumList: [Color]
   where
     signatory party
 
@@ -52,3 +55,5 @@ data Foo a b = Foo {
   y: Foo b a;
   z: b
 }
+
+data Color = Red | Blue | Yellow deriving (Eq, Show)
