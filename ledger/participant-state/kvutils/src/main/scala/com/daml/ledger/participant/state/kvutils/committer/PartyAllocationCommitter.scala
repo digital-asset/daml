@@ -4,7 +4,10 @@
 package com.daml.ledger.participant.state.kvutils.committer
 
 import com.codahale.metrics.Counter
-import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
+import com.daml.ledger.participant.state.kvutils.Conversions.{
+  buildTimestamp,
+  partyAllocationDedupKey
+}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.digitalasset.daml.lf.data.Ref
 
@@ -34,9 +37,8 @@ private[kvutils] case object PartyAllocationCommitter
         buildRejectionLogEntry(
           ctx,
           partyAllocationEntry,
-          _.setParticipantNotAuthorized(
-            DamlPartyAllocationRejectionEntry.ParticipantNotAuthorized.newBuilder
-              .setDetails(msg))))
+          _.setParticipantNotAuthorized(ParticipantNotAuthorized.newBuilder
+            .setDetails(msg))))
     }
   }
 
@@ -51,12 +53,12 @@ private[kvutils] case object PartyAllocationCommitter
         buildRejectionLogEntry(
           ctx,
           partyAllocationEntry,
-          _.setInvalidName(DamlPartyAllocationRejectionEntry.InvalidName.newBuilder
+          _.setInvalidName(Invalid.newBuilder
             .setDetails(msg))))
     }
   }
 
-  private val deduplicate: Step = (ctx, partyAllocationEntry) => {
+  private val deduplicateParty: Step = (ctx, partyAllocationEntry) => {
     val party = partyAllocationEntry.getParty
     val partyKey = DamlStateKey.newBuilder.setParty(party).build
     if (ctx.get(partyKey).isEmpty)
@@ -68,8 +70,25 @@ private[kvutils] case object PartyAllocationCommitter
         buildRejectionLogEntry(
           ctx,
           partyAllocationEntry,
-          _.setAlreadyExists(
-            DamlPartyAllocationRejectionEntry.AlreadyExists.newBuilder.setDetails(""))
+          _.setAlreadyExists(AlreadyExists.newBuilder.setDetails(msg))
+        )
+      )
+    }
+  }
+
+  private val deduplicateSubmission: Step = (ctx, partyAllocationEntry) => {
+    val submissionKey =
+      partyAllocationDedupKey(ctx.getParticipantId, partyAllocationEntry.getSubmissionId)
+    if (ctx.get(submissionKey).isEmpty)
+      StepContinue(partyAllocationEntry)
+    else {
+      val msg = s"duplicate submission='${partyAllocationEntry.getSubmissionId}'"
+      rejectionTraceLog(msg, partyAllocationEntry)
+      StepStop(
+        buildRejectionLogEntry(
+          ctx,
+          partyAllocationEntry,
+          _.setDuplicateSubmission(Duplicate.newBuilder.setDetails(msg))
         )
       )
     }
@@ -90,6 +109,13 @@ private[kvutils] case object PartyAllocationCommitter
           DamlPartyAllocation.newBuilder
             .setParticipantId(ctx.getParticipantId)
         )
+        .build
+    )
+
+    ctx.set(
+      partyAllocationDedupKey(ctx.getParticipantId, partyAllocationEntry.getSubmissionId),
+      DamlStateValue.newBuilder
+        .setSubmissionDedup(DamlSubmissionDedupValue.newBuilder.build)
         .build
     )
 
@@ -127,7 +153,8 @@ private[kvutils] case object PartyAllocationCommitter
   override val steps: Iterable[(StepInfo, Step)] = Iterable(
     "authorizeSubmission" -> authorizeSubmission,
     "validateParty" -> validateParty,
-    "deduplicate" -> deduplicate,
+    "deduplicateSubmission" -> deduplicateSubmission,
+    "deduplicateParty" -> deduplicateParty,
     "buildLogEntry" -> buildLogEntry
   )
 

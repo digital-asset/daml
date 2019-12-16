@@ -103,8 +103,7 @@ private[kvutils] case class ProcessTransactionSubmission(
         reject(
           DamlTransactionRejectionEntry.newBuilder
             .setSubmitterInfo(txEntry.getSubmitterInfo)
-            .setDuplicateCommand(
-              DamlTransactionRejectionEntry.DuplicateCommand.newBuilder.setDetails("")))
+            .setDuplicateCommand(Duplicate.newBuilder.setDetails("")))
       }
     }
   }
@@ -377,23 +376,18 @@ private[kvutils] case class ProcessTransactionSubmission(
 
     reason match {
       case RejectionReason.Inconsistent =>
-        builder.setInconsistent(
-          DamlTransactionRejectionEntry.Inconsistent.newBuilder.setDetails(""))
+        builder.setInconsistent(Inconsistent.newBuilder.setDetails(""))
       case RejectionReason.Disputed(disputeReason) =>
-        builder.setDisputed(
-          DamlTransactionRejectionEntry.Disputed.newBuilder.setDetails(disputeReason))
+        builder.setDisputed(Disputed.newBuilder.setDetails(disputeReason))
       case RejectionReason.ResourcesExhausted =>
-        builder.setResourcesExhausted(
-          DamlTransactionRejectionEntry.ResourcesExhausted.newBuilder.setDetails(""))
+        builder.setResourcesExhausted(ResourcesExhausted.newBuilder.setDetails(""))
       case RejectionReason.MaximumRecordTimeExceeded =>
-        builder.setMaximumRecordTimeExceeded(
-          DamlTransactionRejectionEntry.MaximumRecordTimeExceeded.newBuilder.setDetails(""))
+        builder.setMaximumRecordTimeExceeded(MaximumRecordTimeExceeded.newBuilder.setDetails(""))
       case RejectionReason.PartyNotKnownOnLedger =>
-        builder.setPartyNotKnownOnLedger(
-          DamlTransactionRejectionEntry.PartyNotKnownOnLedger.newBuilder.setDetails(""))
+        builder.setPartyNotKnownOnLedger(PartyNotKnownOnLedger.newBuilder.setDetails(""))
       case RejectionReason.SubmitterCannotActViaParticipant(details) =>
         builder.setSubmitterCannotActViaParticipant(
-          DamlTransactionRejectionEntry.SubmitterCannotActViaParticipant.newBuilder
+          SubmitterCannotActViaParticipant.newBuilder
             .setDetails(details))
     }
     builder

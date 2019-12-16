@@ -155,40 +155,12 @@ message DamlTransactionEntry {
 message DamlTransactionRejectionEntry {
   DamlSubmitterInfo submitter_info = 1;
 
-  message Inconsistent {
-    string details = 1;
-  }
-
-  message Disputed {
-    string details = 1;
-  }
-
-  message ResourcesExhausted {
-    string details = 1;
-  }
-
-  message MaximumRecordTimeExceeded {
-    string details = 1;
-  }
-
-  message DuplicateCommand {
-    string details = 1;
-  }
-
-  message PartyNotKnownOnLedger {
-    string details = 1;
-  }
-
-  message SubmitterCannotActViaParticipant {
-    string details = 1;
-  }
-
   oneof reason {
     Inconsistent inconsistent = 2;
     Disputed disputed = 3;
     ResourcesExhausted resources_exhausted = 4;
     MaximumRecordTimeExceeded maximum_record_time_exceeded = 5;
-    DuplicateCommand duplicate_command = 6;
+    Duplicate duplicate_command = 6;
     PartyNotKnownOnLedger party_not_known_on_ledger = 7;
     SubmitterCannotActViaParticipant submitter_cannot_act_via_participant = 8;
   }
@@ -227,25 +199,10 @@ message DamlPackageUploadRejectionEntry {
   // Id of the participant that uploaded the package.
   string participant_id = 2;
 
-  // One of the uploaded packages is not valid.
-  message InvalidPackage {
-    string details = 1;
-  }
-
-  // Participant not authorized to submit the request
-  message ParticipantNotAuthorized {
-    string details = 1;
-  }
-
-  // Duplicate submission with same (participant_id, submission_id) as a previous one
-  message DuplicateSubmission {
-    string details = 1;
-  }
-
   oneof reason {
-    InvalidPackage invalid_package = 3;
+    Invalid invalid_package = 3;
     ParticipantNotAuthorized participant_not_authorized = 4;
-    DuplicateSubmission duplicate_submission = 5;
+    Duplicate duplicate_submission = 5;
   }
 }
 
@@ -279,41 +236,12 @@ message DamlConfigurationRejectionEntry {
   // The new proposed configuration that was rejected.
   com.daml.ledger.participant.state.LedgerConfiguration configuration = 3;
 
-  // A mismatch in the configuration generation, that is, the
-  // new configuration did not carry a generation that was one
-  // larger than previous generation.
-  message GenerationMismatch {
-    int64 expected_generation = 1;
-  }
-
-  // The provided configuration was invalid, e.g. the time model contained negative or
-  // out-of-bounds values.
-  message InvalidConfiguration {
-    string error = 1;
-  }
-
-  // The request timed out, e.g. record time exceeded maximum record time.
-  message TimedOut {
-    google.protobuf.Timestamp record_time = 1;
-    google.protobuf.Timestamp maximum_record_time = 2;
-  }
-
-  // Participant not authorized to submit the request
-  message ParticipantNotAuthorized {
-    string details = 1;
-  }
-
-  // Duplicate submission with same (participant_id, submission_id) as a previous one
-  message DuplicateSubmission {
-    string details = 1;
-  }
-
   oneof reason {
     ParticipantNotAuthorized participant_not_authorized = 4;
     GenerationMismatch generation_mismatch = 5;
-    InvalidConfiguration invalid_configuration = 6;
+    Invalid invalid_configuration = 6;
     TimedOut timed_out = 7;
-    DuplicateSubmission duplicate_submission = 8;
+    Duplicate duplicate_submission = 8;
   }
 }
 
@@ -360,31 +288,11 @@ message DamlPartyAllocationRejectionEntry {
   // Uploading participant's id.
   string participant_id = 2;
 
-  // The requested party name already exists.
-  message AlreadyExists {
-    string details = 1;
-  }
-
-  // The requested party name is not valid.
-  message InvalidName {
-    string details = 1;
-  }
-
-  // Participant not authorized to submit the request
-  message ParticipantNotAuthorized {
-    string details = 1;
-  }
-
-  // Duplicate submission with same (participant_id, submission_id) as a previous one
-  message DuplicateSubmission {
-    string details = 1;
-  }
-
   oneof reason {
     AlreadyExists already_exists = 3;
-    InvalidName invalid_name = 4;
+    Invalid invalid_name = 4;
     ParticipantNotAuthorized participant_not_authorized = 5;
-    DuplicateSubmission duplicate_submission = 6;
+    Duplicate duplicate_submission = 6;
   }
 }
 
@@ -400,6 +308,7 @@ message DamlStateKey {
     string party = 4;
     DamlContractKey contract_key = 5;
     google.protobuf.Empty configuration = 6;
+    DamlSubmissionDedupKey submission_dedup = 7;
   }
 }
 
@@ -413,6 +322,7 @@ message DamlStateValue {
     DamlPartyAllocation party = 4;
     DamlContractKeyState contract_key_state = 5;
     DamlConfigurationEntry configuration_entry = 6;
+    DamlSubmissionDedupValue submission_dedup = 7;
   }
 }
 
@@ -426,10 +336,30 @@ message DamlCommandDedupKey {
   string application_id = 2;
   string command_id = 3;
 }
+
 message DamlCommandDedupValue {
-  // NOTE(JM): Currently no content. Could store pointer to log entry.
+  // Currently no content. Could store pointer to log entry.
 }
 
+message DamlSubmissionDedupKey {
+  enum SubmissionKind {
+    PARTY_ALLOCATION = 0;
+    PACKAGE_UPLOAD = 1;
+    CONFIGURATION = 2;
+  }
+
+  SubmissionKind submission_kind = 1;
+
+  // A unique string scoped to a particular participant.
+  string submission_id = 2;
+
+  // Uploading participant's id.
+  string participant_id = 3;
+}
+
+message DamlSubmissionDedupValue {
+  // Currently no content. Could store pointer to log entry.
+}
 
 // DAML contract state, recording the activeness state of a contract.
 // The contract instance itself is stored within the transaction in a log entry.
@@ -511,4 +441,72 @@ message LedgerDumpEntry {
 
   // The resulting output state.
   repeated StatePair output_state = 5;
+}
+
+// Errors
+
+// The transaction relied on contracts or keys being active that were no longer active
+message Inconsistent {
+  string details = 1;
+}
+
+// The transaction has been disputed
+message Disputed {
+  string details = 1;
+}
+
+// Committer did not have sufficient resources to process the transaction
+message ResourcesExhausted {
+  string details = 1;
+}
+
+// The transaction submission exceeded its maximum record time
+message MaximumRecordTimeExceeded {
+  string details = 1;
+}
+
+// The committer has already seen a command/submission with the same deduplication
+// key during its implementation specific deduplication window
+message Duplicate {
+  string details = 1;
+}
+
+// A party mentioned as a stakeholder or actor has not been on-boarded on
+// the ledger
+message PartyNotKnownOnLedger {
+  string details = 1;
+}
+
+// The submitting party cannot act via participant given
+message SubmitterCannotActViaParticipant {
+  string details = 1;
+}
+
+// Submitted request content was not valid: a daml package, a party name
+// or a configuration
+message Invalid {
+  string details = 1;
+}
+
+// Participant not authorized to submit the request
+message ParticipantNotAuthorized {
+  string details = 1;
+}
+
+// A mismatch in the configuration generation, that is, the
+// new configuration did not carry a generation that was one
+// larger than previous generation.
+message GenerationMismatch {
+  int64 expected_generation = 1;
+}
+
+// The request timed out, e.g. record time exceeded maximum record time.
+message TimedOut {
+  google.protobuf.Timestamp record_time = 1;
+  google.protobuf.Timestamp maximum_record_time = 2;
+}
+
+// The requested entity already exists.
+message AlreadyExists {
+  string details = 1;
 }

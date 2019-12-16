@@ -73,11 +73,13 @@ object KeyValueSubmission {
       sourceDescription: String,
       participantId: ParticipantId): DamlSubmission = {
 
-    val inputDamlState = archives.map(
-      archive =>
-        DamlStateKey.newBuilder
-          .setPackageId(archive.getHash)
-          .build)
+    val inputDamlState =
+      packageUploadDedupKey(participantId, submissionId) ::
+        archives.map(
+        archive =>
+          DamlStateKey.newBuilder
+            .setPackageId(archive.getHash)
+            .build)
 
     DamlSubmission.newBuilder
       .addAllInputDamlState(inputDamlState.asJava)
@@ -98,8 +100,11 @@ object KeyValueSubmission {
       displayName: Option[String],
       participantId: ParticipantId): DamlSubmission = {
     val party = hint.getOrElse("")
+    val inputDamlState =
+      partyAllocationDedupKey(participantId, submissionId) ::
+        partyStateKey(party) :: Nil
     DamlSubmission.newBuilder
-      .addInputDamlState(partyStateKey(party))
+      .addAllInputDamlState(inputDamlState.asJava)
       .setPartyAllocationEntry(
         DamlPartyAllocationEntry.newBuilder
           .setSubmissionId(submissionId)
@@ -117,8 +122,11 @@ object KeyValueSubmission {
       participantId: ParticipantId,
       config: Configuration): DamlSubmission = {
     val tm = config.timeModel
+    val inputDamlState =
+      configDedupKey(participantId, submissionId) ::
+        configurationStateKey :: Nil
     DamlSubmission.newBuilder
-      .addInputDamlState(configurationStateKey)
+      .addAllInputDamlState(inputDamlState.asJava)
       .setConfigurationSubmission(
         DamlConfigurationSubmission.newBuilder
           .setSubmissionId(submissionId)

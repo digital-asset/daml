@@ -52,13 +52,13 @@ object KeyValueConsumption {
 
       case DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_REJECTION_ENTRY =>
         val pur = entry.getPackageUploadRejectionEntry
-        def wrap = { reason: String =>
+        def wrap(reason: String) =
           List(
             Update.PublicPackageUploadRejected(
               parseLedgerString("SubmissionId")(pur.getSubmissionId),
               recordTime,
               reason))
-        }
+
         pur.getReasonCase match {
           case DamlPackageUploadRejectionEntry.ReasonCase.INVALID_PACKAGE =>
             wrap(s"Invalid package, details=${pur.getInvalidPackage.getDetails}")
@@ -91,9 +91,8 @@ object KeyValueConsumption {
         val rejection = entry.getPartyAllocationRejectionEntry
         val participantId = parseLedgerString("ParticipantId")(rejection.getParticipantId)
         val submissionId = parseLedgerString("SubmissionId")(rejection.getSubmissionId)
-        def wrap = { reason: String =>
+        def wrap(reason: String) =
           List(Update.PartyAllocationRejected(submissionId, participantId, recordTime, reason))
-        }
 
         // TODO(BH): only send for matching participant who sent request
         // if (participantId == entry.getPartyAllocationRejectionEntry.getParticipantId)
@@ -141,7 +140,7 @@ object KeyValueConsumption {
           parseLedgerString("ParticipantId")(rejection.getParticipantId)
         val submissionId =
           parseLedgerString("SubmissionId")(rejection.getSubmissionId)
-        def wrap = { reason: String =>
+        def wrap(reason: String) =
           List(
             Update.ConfigurationChangeRejected(
               recordTime = recordTime,
@@ -149,14 +148,13 @@ object KeyValueConsumption {
               participantId = participantId,
               proposedConfiguration = proposedConfig,
               reason))
-        }
 
         rejection.getReasonCase match {
           case DamlConfigurationRejectionEntry.ReasonCase.GENERATION_MISMATCH =>
             wrap(
               s"Generation mismatch: ${proposedConfig.generation} != ${rejection.getGenerationMismatch.getExpectedGeneration}")
           case DamlConfigurationRejectionEntry.ReasonCase.INVALID_CONFIGURATION =>
-            wrap(s"Invalid configuration: ${rejection.getInvalidConfiguration.getError}")
+            wrap(s"Invalid configuration: ${rejection.getInvalidConfiguration.getDetails}")
           case DamlConfigurationRejectionEntry.ReasonCase.PARTICIPANT_NOT_AUTHORIZED =>
             wrap(s"Participant not authorized to modify configuration")
           case DamlConfigurationRejectionEntry.ReasonCase.TIMED_OUT =>
@@ -182,13 +180,12 @@ object KeyValueConsumption {
   private def transactionRejectionEntryToUpdate(
       recordTime: Timestamp,
       rejEntry: DamlTransactionRejectionEntry): List[Update] = {
-    def wrap = { reason: RejectionReason =>
+    def wrap(reason: RejectionReason) =
       List(
         Update.CommandRejected(
           recordTime = recordTime,
           submitterInfo = parseSubmitterInfo(rejEntry.getSubmitterInfo),
           reason = reason))
-    }
 
     rejEntry.getReasonCase match {
       case DamlTransactionRejectionEntry.ReasonCase.DISPUTED =>
