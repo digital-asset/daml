@@ -19,27 +19,31 @@ option csharp_namespace = "Com.DigitalAsset.Ledger.Api.V1";
 service TransactionService {
 
   // Read the ledger's filtered transaction stream for a set of parties.
+  // Returns ``NOT_FOUND`` if the ledger offsets are no longer available due to pruning via the LedgerPruningService.
+  // Applications are expected to reinitialize themselves using the ActiveContractsService.
   rpc GetTransactions (GetTransactionsRequest) returns (stream GetTransactionsResponse);
 
   // Read the ledger's complete transaction tree stream for a set of parties.
+  // Returns ``NOT_FOUND`` if the ledger offsets are no longer available due to pruning via the LedgerPruningService.
+  // Applications are expected to reinitialize themselves using the ActiveContractsService.
   rpc GetTransactionTrees (GetTransactionsRequest) returns (stream GetTransactionTreesResponse);
 
   // Lookup a transaction tree by the ID of an event that appears within it.
-  // Returns ``NOT_FOUND`` if no such transaction exists.
+  // Returns ``NOT_FOUND`` if such a transaction has never existed or has been pruned via the LedgerPruningService.
   // For looking up a transaction instead of a transaction tree, please see GetFlatTransactionByEventId
   rpc GetTransactionByEventId (GetTransactionByEventIdRequest) returns (GetTransactionResponse);
 
   // Lookup a transaction tree by its ID.
-  // Returns ``NOT_FOUND`` if no such transaction exists.
+  // Returns ``NOT_FOUND`` if such a transaction has never existed or has been pruned via the LedgerPruningService.
   // For looking up a transaction instead of a transaction tree, please see GetFlatTransactionById
   rpc GetTransactionById (GetTransactionByIdRequest) returns (GetTransactionResponse);
 
   // Lookup a transaction by the ID of an event that appears within it.
-  // Returns ``NOT_FOUND`` if no such transaction exists.
+  // Returns ``NOT_FOUND`` if such a transaction has never existed or has been pruned via the LedgerPruningService.
   rpc GetFlatTransactionByEventId (GetTransactionByEventIdRequest) returns (GetFlatTransactionResponse);
 
   // Lookup a transaction by its ID.
-  // Returns ``NOT_FOUND`` if no such transaction exists.
+  // Returns ``NOT_FOUND`` if such a transaction has never existed or has been pruned via the LedgerPruningService.
   rpc GetFlatTransactionById (GetTransactionByIdRequest) returns (GetFlatTransactionResponse);
 
   // Get the current ledger end.

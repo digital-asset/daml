@@ -34,6 +34,8 @@ option csharp_namespace = "Com.DigitalAsset.Ledger.Api.V1";
 service CommandCompletionService {
 
   // Subscribe to command completion events.
+  // Returns ``NOT_FOUND`` if the specified ledger offset are no longer available due to pruning via the
+  // LedgerPruningService. Applications are expected to reinitialize themselves using the ActiveContractsService.
   rpc CompletionStream (CompletionStreamRequest) returns (stream CompletionStreamResponse);
 
   // Returns the offset after the latest completion.

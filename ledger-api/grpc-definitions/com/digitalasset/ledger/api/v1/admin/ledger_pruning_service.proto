@@ -1,0 +1,42 @@
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.ledger.api.v1.admin;
+
+import "google/protobuf/timestamp.proto";
+
+option java_outer_classname = "LedgerPruningServiceOuterClass";
+option java_package = "com.digitalasset.ledger.api.v1.admin";
+option csharp_namespace = "Com.DigitalAsset.Ledger.Api.V1.Admin";
+
+// Status: experimental interface, will change before it is deemed production
+// ready
+
+// Prunes/truncates the "oldest" ledger transactions from the ledger (specifically the Ledger Api Server) to
+// 1. keep the "inactive" portion of the ledger to a manageable size (i.e. removing the portion of the ledger that does
+//    not affect the set of allowed, future commands.
+// 2. remove inactive state to honor right-to-forget guarantees.
+service LedgerPruningService {
+
+  // Main entry point specifying the point in time or offset-space before which ledger transactions should be removed.
+  rpc prune (PruneRequest) returns (PruneResponse);
+}
+
+message PruneRequest {
+  // The "prune before" can be expressed in ledger time or as an offset. Returns an error if the ledger api server is
+  // not configured to support pruning.
+  oneof prune_before {
+    google.protobuf.Timestamp timestamp = 1;
+    string offset = 2;
+  }
+}
+
+message PruneResponse {
+  // The actual point before which pruning was applied. May be smaller than PruneRequest.prune_before values e.g. if
+  // the specified pruning point is in the future or is too recent pruning transactions tracked as inflight-transactions
+  // by the CommandService.
+  google.protobuf.Timestamp pruned_timestamp = 1;
+  string pruned_offset = 2;
+}
