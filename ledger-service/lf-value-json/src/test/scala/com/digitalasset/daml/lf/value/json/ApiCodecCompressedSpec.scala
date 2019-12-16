@@ -151,19 +151,20 @@ class ApiCodecCompressedSpec
           roundtrip(va)(v) should ===(Some(v))
         }
       }
-      "work for EmptyRecord" in {
-        roundtrip(C.emptyRecordT)(HRecord()) should ===(Some(HRecord()))
-      }
-      "work for SimpleRecord" in {
-        roundtrip(C.simpleRecordT)(C.simpleRecordV) should ===(Some(C.simpleRecordV))
-      }
-      /*
-      "work for SimpleVariant" in {
-        serializeAndParse(C.simpleVariantV, C.simpleVariantTC) shouldBe Success(C.simpleVariantV)
-      }
-       */
-      "work for ComplexRecord" in {
-        roundtrip(C.complexRecordT)(C.complexRecordV) should ===(Some(C.complexRecordV))
+
+      def cr(typ: VA)(v: typ.Inj[Cid]) =
+        (typ, v, typ.inj(v))
+
+      val roundtrips = Table(
+        ("type", "original value", "DAML value"),
+        cr(C.emptyRecordT)(HRecord()),
+        cr(C.simpleRecordT)(C.simpleRecordV),
+        // cr(C.simpleVariantT)(C.simpleVariantV),
+        cr(C.complexRecordT)(C.complexRecordV),
+      )
+      "work for records and variants" in forAll(roundtrips) { (typ, origValue, damlValue) =>
+        typ.prj(jsValueToApiValue(apiValueToJsValue(damlValue), typ.t, typeLookup)) should ===(
+          Some(origValue))
       }
       /*
       "work for Tree" in {
