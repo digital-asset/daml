@@ -127,7 +127,7 @@ genDefDataType curModName tpls def = case unTypeConName (dataTypeCon def) of
             typeDesc =
                 [ "export enum " <> conName <> "{"] ++
                 [ "  " <> cons <> " = " <> "\'" <> cons <> "\'" <> ","
-                | (VariantConName cons) <- enumCons] ++
+                | VariantConName cons <- enumCons] ++
                 [ "}"
                 , "daml.STATIC_IMPLEMENTS_SERIALIZABLE_CHECK<" <> conName <> ">(" <> conName <> ")"
                 ]
