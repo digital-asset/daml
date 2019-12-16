@@ -48,3 +48,26 @@ da_scala_test_suite(
         "@maven//:org_scalatest_scalatest_2_12",
     ],
 )
+
+da_scala_test_suite(
+    name = "ledger-api-client-integration-tests",
+    srcs = glob(["src/it/**/*.scala"]),
+    data = [
+        "//ledger/test-common:Test-stable.dar",
+    ],
+    deps = [
+        ":ledger-api-client",
+        "//language-support/scala/bindings",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger-api/testing-utils",
+        "//ledger/ledger-api-common",
+        "//ledger/ledger-api-domain",
+        "//ledger/participant-state",
+        "//ledger/sandbox",
+        "//ledger/sandbox:sandbox-scala-tests-lib",
+        "//ledger/test-common",
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:com_typesafe_akka_akka_actor_2_12",
+        "@maven//:com_typesafe_akka_akka_stream_2_12",
+    ],
+)
