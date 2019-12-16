@@ -197,8 +197,9 @@ object TypedValueGenerators {
             spec.prjVar get name flatMap (_(vv))
           case _ => None
         }
-        override def injarb[Cid: Arbitrary] = ???
-        override def injshrink[Cid: Shrink] = ???
+        override def injarb[Cid: Arbitrary] =
+          Arbitrary(Gen.oneOf(spec.vararb[Cid].toSeq).flatMap(_._2))
+        override def injshrink[Cid: Shrink] = spec.varshrink
       })
   }
 
@@ -253,7 +254,14 @@ object TypedValueGenerators {
           Lambda[Value ~> PrjResult](tv => tf(tv) map (Inr(_)))
         } updated (fname, Lambda[Value ~> PrjResult](hv => h.prj(hv) map (pv => Inl(field[K](pv)))))
 
-        override def vararb[Cid: Arbitrary] = ???
+        override def vararb[Cid: Arbitrary] =
+          self.vararb[Cid] transform { (_, ta) =>
+            ta map (Inr(_))
+          } updated (fname, {
+            import h.{injarb => harb}
+            arbitrary[h.Inj[Cid]] map (hv => Inl(field[K](hv)))
+          })
+
         override def varshrink[Cid: Shrink] = {
           val lshr: Shrink[h.Inj[Cid]] = h.injshrink
           val rshr: Shrink[self.HVar[Cid]] = self.varshrink
@@ -272,9 +280,10 @@ object TypedValueGenerators {
 
     private[TypedValueGenerators] def injVar[Cid](v: HVar[Cid]): (Ref.Name, Value[Cid])
     private[TypedValueGenerators] type PrjResult[Cid] = Option[HVar[Cid]]
+    // could be made more efficient by replacing ~> with a Nat GADT,
+    // but the :+: case is tricky enough as it is
     private[TypedValueGenerators] val prjVar: Map[Ref.Name, Value ~> PrjResult]
-    private[TypedValueGenerators] implicit def vararb[Cid: Arbitrary]
-      : Map[Ref.Name, Arbitrary[HVar[Cid]]]
+    private[TypedValueGenerators] implicit def vararb[Cid: Arbitrary]: Map[Ref.Name, Gen[HVar[Cid]]]
     private[TypedValueGenerators] implicit def varshrink[Cid: Shrink]: Shrink[HVar[Cid]]
   }
 
