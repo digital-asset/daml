@@ -172,7 +172,7 @@ data Nat
 --
 -- `Numeric n` represents a fixed-point decimal number with a
 -- fixed precision of 38 (i.e. 38 digits not including a leading zero)
--- and a precision of `n`, i.e., `n` digits after the decimal point.
+-- and a scale of `n`, i.e., `n` digits after the decimal point.
 --
 -- `n` must be between 0 and 37 (bounds inclusive).
 --
