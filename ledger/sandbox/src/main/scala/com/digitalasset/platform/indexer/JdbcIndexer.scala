@@ -32,17 +32,11 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{
   PersistenceEntry
 }
 import com.digitalasset.platform.sandbox.stores.ledger.sql.migration.FlywayMigrations
-import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
-  ContractSerializer,
-  KeyHasher,
-  TransactionSerializer,
-  ValueSerializer
-}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
 import com.digitalasset.platform.sandbox.stores.ledger.{
   LedgerEntry,
-  PartyLedgerEntry,
-  PackageLedgerEntry
+  PackageLedgerEntry,
+  PartyLedgerEntry
 }
 import scalaz.syntax.tag._
 
@@ -113,28 +107,13 @@ class JdbcIndexerFactory[Status <: InitStatus] private (
   private def initializeDao(
       jdbcUrl: String,
       metrics: MetricRegistry,
-      executionContext: ExecutionContext) = {
+      executionContext: ExecutionContext,
+  ) = {
     val dbType = DbType.jdbcType(jdbcUrl)
-    val dbDispatcher =
-      DbDispatcher.start(
-        jdbcUrl,
-        if (dbType.supportsParallelWrites) defaultNumberOfShortLivedConnections else 1,
-        loggerFactory,
-        metrics,
-      )
-    LedgerDao.metered(
-      JdbcLedgerDao(
-        dbDispatcher,
-        ContractSerializer,
-        TransactionSerializer,
-        ValueSerializer,
-        KeyHasher,
-        dbType,
-        loggerFactory,
-        executionContext,
-      ),
-      metrics,
-    )
+    val maxConnections =
+      if (dbType.supportsParallelWrites) defaultNumberOfShortLivedConnections else 1
+    val dbDispatcher = DbDispatcher.start(jdbcUrl, maxConnections, loggerFactory, metrics)
+    LedgerDao.metered(JdbcLedgerDao(dbDispatcher, dbType, loggerFactory, executionContext), metrics)
   }
 
   private def ledgerFound(foundLedgerId: LedgerId) = {

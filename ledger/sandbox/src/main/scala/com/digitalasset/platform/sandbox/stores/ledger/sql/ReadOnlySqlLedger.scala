@@ -18,12 +18,6 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{
   LedgerDao,
   LedgerReadDao
 }
-import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
-  ContractSerializer,
-  KeyHasher,
-  TransactionSerializer,
-  ValueSerializer
-}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
 import scalaz.syntax.tag._
 
@@ -32,7 +26,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 object ReadOnlySqlLedger {
 
-  val noOfShortLivedConnections = 16
+  val maxConnections = 16
 
   //jdbcUrl must have the user/password encoded in form of: "jdbc:postgresql://localhost/test?user=fred&password=secret"
   def apply(
@@ -41,27 +35,12 @@ object ReadOnlySqlLedger {
       loggerFactory: NamedLoggerFactory,
       metrics: MetricRegistry,
   )(implicit mat: Materializer): Future[ReadOnlyLedger] = {
-    implicit val ec: ExecutionContext = DEC
-
     val dbType = DbType.jdbcType(jdbcUrl)
-    val dbDispatcher = DbDispatcher.start(
-      jdbcUrl,
-      noOfShortLivedConnections,
-      loggerFactory,
+    val dbDispatcher = DbDispatcher.start(jdbcUrl, maxConnections, loggerFactory, metrics)
+    val ledgerReadDao = LedgerDao.meteredRead(
+      JdbcLedgerDao(dbDispatcher, dbType, loggerFactory, mat.executionContext),
       metrics,
     )
-    val ledgerReadDao = LedgerDao.meteredRead(
-      JdbcLedgerDao(
-        dbDispatcher,
-        ContractSerializer,
-        TransactionSerializer,
-        ValueSerializer,
-        KeyHasher,
-        dbType,
-        loggerFactory,
-        mat.executionContext),
-      metrics)
-
     new ReadOnlySqlLedgerFactory(ledgerReadDao, loggerFactory)
       .createReadOnlySqlLedger(ledgerId)
   }

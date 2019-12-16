@@ -5,8 +5,7 @@ package com.digitalasset.platform.sandbox.stores.ledger.sql.dao
 import java.io.InputStream
 import java.sql.Connection
 import java.time.Instant
-import java.util.Date
-import java.util.UUID
+import java.util.{Date, UUID}
 
 import akka.NotUsed
 import akka.stream.Materializer
@@ -66,8 +65,8 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.util.{
 import com.digitalasset.platform.sandbox.stores.ledger.{
   ConfigurationEntry,
   LedgerEntry,
-  PartyLedgerEntry,
   PackageLedgerEntry,
+  PartyLedgerEntry
 }
 import com.google.common.io.ByteStreams
 import scalaz.syntax.tag._
@@ -1703,22 +1702,20 @@ private class JdbcLedgerDao(
 object JdbcLedgerDao {
   def apply(
       dbDispatcher: DbDispatcher,
-      contractSerializer: ContractSerializer,
-      transactionSerializer: TransactionSerializer,
-      valueSerializer: ValueSerializer,
-      keyHasher: KeyHasher,
       dbType: DbType,
       loggerFactory: NamedLoggerFactory,
-      executionContext: ExecutionContext): LedgerDao =
+      executionContext: ExecutionContext,
+  ): LedgerDao =
     new JdbcLedgerDao(
       dbDispatcher,
-      contractSerializer,
-      transactionSerializer,
-      valueSerializer,
-      keyHasher,
+      ContractSerializer,
+      TransactionSerializer,
+      ValueSerializer,
+      KeyHasher,
       dbType,
       loggerFactory,
-      executionContext)
+      executionContext,
+    )
 
   private val PARTY_SEPARATOR = '%'
 

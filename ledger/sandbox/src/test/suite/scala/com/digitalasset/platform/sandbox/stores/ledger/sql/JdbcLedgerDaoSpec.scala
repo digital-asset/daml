@@ -46,12 +46,6 @@ import com.digitalasset.platform.sandbox.persistence.PostgresAroundAll
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.ActiveContract
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao._
 import com.digitalasset.platform.sandbox.stores.ledger.sql.migration.FlywayMigrations
-import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
-  ContractSerializer,
-  KeyHasher,
-  TransactionSerializer,
-  ValueSerializer
-}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
 import com.digitalasset.platform.sandbox.stores.ledger.{ConfigurationEntry, LedgerEntry}
 import org.scalatest.{AsyncWordSpec, Matchers, OptionValues}
@@ -86,15 +80,7 @@ class JdbcLedgerDaoSpec
     val loggerFactory = NamedLoggerFactory(JdbcLedgerDaoSpec.getClass)
     FlywayMigrations(postgresFixture.jdbcUrl, loggerFactory).migrate()
     dbDispatcher = DbDispatcher.start(postgresFixture.jdbcUrl, 4, loggerFactory, new MetricRegistry)
-    ledgerDao = JdbcLedgerDao(
-      dbDispatcher,
-      ContractSerializer,
-      TransactionSerializer,
-      ValueSerializer,
-      KeyHasher,
-      DbType.Postgres,
-      loggerFactory,
-      system.dispatcher)
+    ledgerDao = JdbcLedgerDao(dbDispatcher, DbType.Postgres, loggerFactory, system.dispatcher)
     Await.result(ledgerDao.initializeLedger(LedgerId("test-ledger"), 0), 10.seconds)
   }
 
