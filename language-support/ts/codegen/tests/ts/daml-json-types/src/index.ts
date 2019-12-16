@@ -12,6 +12,14 @@ export interface Serializable<T> {
 }
 
 /**
+ * This is a check to ensure that enum's are serializable. If the enum is named 'Color', the check
+ * is done by adding a line 'STATIC_IMPLEMENTS_SERIALIZABLE_CHECK<Color>(Color)' after the
+ * definition of 'Color'.
+ */
+// eslint-disable-next-line @typescript-eslint/no-empty-function, @typescript-eslint/no-unused-vars
+export const STATIC_IMPLEMENTS_SERIALIZABLE_CHECK = <T>(_: Serializable<T>) => {}
+
+/**
  * Identifier of a DAML template.
  */
 export type TemplateId = {

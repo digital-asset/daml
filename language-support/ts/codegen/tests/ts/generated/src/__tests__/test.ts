@@ -97,6 +97,8 @@ test('create + fetch', async () => {
     archiveX: {},
     either: {'Right': 'really?'},
     tuple: {_1: '12', _2: 'mmm'},
+    enum: Main.Color.Red,
+    enumList: [Main.Color.Red, Main.Color.Blue, Main.Color.Yellow]
   };
   const allTypesContract = await ledger.create(Main.AllTypes, allTypes);
   expect(allTypesContract.argument).toEqual(allTypes);

@@ -25,6 +25,8 @@ template AllTypes with
     archiveX: Archive
     either: Either Int Text
     tuple: (Int, Text)
+    enum: Color
+    enumList: [Color]
   where
     signatory party
 
@@ -54,4 +56,4 @@ data Foo a b = Foo {
   z: b
 }
 
-data Color = Red | Blue | Yellow
+data Color = Red | Blue | Yellow deriving (Eq, Show)

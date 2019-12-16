@@ -92,14 +92,8 @@ genModule mod
             ["// Generated from " <> T.intercalate "/" (unModuleName curModName) <> ".daml"
             ,"/* eslint-disable @typescript-eslint/camelcase */"
             ,"/* eslint-disable @typescript-eslint/no-use-before-define */"
-            ,"/* eslint-disable @typescript-eslint/no-namespace */"
-            -- We use namespaces to add decoders to enumerations. eslint prefers modules, but
-            -- these would have to live in "d.ts" files and are restricted in what they can contain.
             ,"import * as jtv from '@mojotech/json-type-validation';"
-            ] ++
-            [
-            "import * as daml from '@digitalasset/daml-json-types';"
-            | moduleNameString curModName `notElem` ["GHC.Types", "DA.Date"]
+            ,"import * as daml from '@digitalasset/daml-json-types';"
             ]
         imports =
             ["import * as " <> modNameStr <> " from '" <> pkgRootPath <> "/" <> pkgRefStr <> T.intercalate "/" (unModuleName modName) <> "';"
@@ -134,7 +128,10 @@ genDefDataType curModName tpls def = case unTypeConName (dataTypeCon def) of
                 [ "export enum " <> conName <> "{"] ++
                 [ "  " <> cons <> " = " <> "\'" <> cons <> "\'" <> ","
                 | (VariantConName cons) <- enumCons] ++
-                [ "}" ]
+                [ "}"
+                , "daml.STATIC_IMPLEMENTS_SERIALIZABLE_CHECK<" <> conName <> ">(" <> conName <> ")"
+                ]
+
             serDesc =
                 ["  () => jtv.oneOf("] ++
                 ["    jtv.constant(" <> conName <> "." <> cons <> ")," | VariantConName cons <- enumCons] ++
@@ -202,7 +199,8 @@ genDefDataType curModName tpls def = case unTypeConName (dataTypeCon def) of
             map ("  " <>) (onHead ("decoder: " <>) serDesc) ++
             ["});"]
         makeNameSpace serDesc =
-            [ "export namespace " <> conName <> "{"
+            [ "// eslint-disable-next-line @typescript-eslint/no-namespace"
+            , "export namespace " <> conName <> "{"
             , "  export const decoder ="
             ] ++
             serDesc ++
