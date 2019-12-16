@@ -334,6 +334,16 @@ object TypedValueGenerators {
     // ascription is not necessary; a correct `Record` expression already
     // has the correct type, as implicit conversion is not used at all
 
+    // unlike most `name = value` calls in Scala, `Record` is order-sensitive,
+    // just as DAML-LF record values are order-sensitive. Most tests should preserve
+    // this behavior, but if you want to automatically reorder the keys (for a runtime cost!)
+    // you can do so with `align`. The resulting error messages are far worse, so
+    // I recommend just writing them in the correct order
+    shapeless.test
+      .illTyped("""Record(bar = "bye", foo = 84L): sample.HRec[String]""", "type mismatch.*")
+    val backwardsSampleData: sample.HRec[String] =
+      Record(bar = "bye", foo = 84L).align[sample.HRec[String]]
+
     // a RecordVa can be turned into a ValueAddend for variants
     val (sampleVariantDDT, sampleAsVariant) =
       ValueAddend.variant(
