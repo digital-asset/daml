@@ -16,7 +16,7 @@ class TimerResourceOwner(acquireTimer: () => Timer) extends ResourceOwner[Timer]
 
       override protected val future: Future[Timer] = Future.successful(timer)
 
-      override def release(): Future[Unit] = Future {
+      override def releaseResource(): Future[Unit] = Future {
         timer.cancel()
       }
     }

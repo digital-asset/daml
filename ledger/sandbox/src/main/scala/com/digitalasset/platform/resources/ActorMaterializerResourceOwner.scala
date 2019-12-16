@@ -18,7 +18,7 @@ class ActorMaterializerResourceOwner(acquireMaterializer: () => ActorMaterialize
 
       override protected val future: Future[ActorMaterializer] = Future.successful(materializer)
 
-      override def release(): Future[Unit] = Future {
+      override def releaseResource(): Future[Unit] = Future {
         materializer.shutdown()
       }
     }

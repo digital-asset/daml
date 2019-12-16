@@ -3,6 +3,8 @@
 
 package com.digitalasset.platform.resources
 
+import java.util.concurrent.atomic.AtomicBoolean
+
 import scala.collection.generic.CanBuildFrom
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
@@ -12,11 +14,19 @@ trait Resource[A] {
 
   protected implicit val executionContext: ExecutionContext
 
+  private val released: AtomicBoolean = new AtomicBoolean(false)
+
   protected val future: Future[A]
 
-  lazy val asFuture: Future[A] = future.transformWith(releaseOnFailure)
+  final lazy val asFuture: Future[A] = future.transformWith(releaseOnFailure)
 
-  def release(): Future[Unit]
+  final def release(): Future[Unit] =
+    if (released.compareAndSet(false, true))
+      releaseResource()
+    else
+      Future.successful(())
+
+  def releaseResource(): Future[Unit]
 
   def map[B](f: A => B)(implicit _executionContext: ExecutionContext): Resource[B] =
     new Resource[B] {
@@ -25,7 +35,7 @@ trait Resource[A] {
       override protected val future: Future[B] =
         self.asFuture.map(f)
 
-      override def release(): Future[Unit] =
+      override def releaseResource(): Future[Unit] =
         self.release()
     }
 
@@ -42,7 +52,7 @@ trait Resource[A] {
       override protected val future: Future[B] =
         nextFuture.flatMap(_.asFuture)
 
-      override def release(): Future[Unit] =
+      override def releaseResource(): Future[Unit] =
         nextFuture.transformWith {
           case Success(b) => b.release().flatMap(_ => self.release())
           case Failure(_) => Future.successful(())
@@ -62,7 +72,7 @@ trait Resource[A] {
               Future.failed(new ResourceAcquisitionFilterException())
         )
 
-      override def release(): Future[Unit] =
+      override def releaseResource(): Future[Unit] =
         self.release()
     }
 
@@ -83,7 +93,7 @@ object Resource {
 
       override protected val future: Future[T] = Future.successful(value)
 
-      override def release(): Future[Unit] = Future.successful(())
+      override def releaseResource(): Future[Unit] = Future.successful(())
     }
 
   def failed[T](throwable: Throwable)(implicit _executionContext: ExecutionContext): Resource[T] =
@@ -92,7 +102,7 @@ object Resource {
 
       override protected val future: Future[T] = Future.failed(throwable)
 
-      override def release(): Future[Unit] = Future.successful(())
+      override def releaseResource(): Future[Unit] = Future.successful(())
     }
 
   def sequence[T, C[_] <: TraversableOnce[_]](seq: C[Resource[T]])(

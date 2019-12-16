@@ -12,6 +12,6 @@ class FutureResourceOwner[T](acquireFuture: () => Future[T]) extends ResourceOwn
 
       override protected val future: Future[T] = acquireFuture()
 
-      override def release(): Future[Unit] = Future.successful(())
+      override def releaseResource(): Future[Unit] = Future.successful(())
     }
 }

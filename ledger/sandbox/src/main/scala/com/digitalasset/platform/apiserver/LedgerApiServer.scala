@@ -62,7 +62,7 @@ object LedgerApiServer {
 
             override protected val future: Future[ApiServices] = createApiServices(mat, serverEsf)
 
-            override def release(): Future[Unit] =
+            override def releaseResource(): Future[Unit] =
               future.map(apiServices => {
                 apiServices.close()
                 servicesClosedPromise.success(())
@@ -136,7 +136,7 @@ object LedgerApiServer {
 
         override protected val future: Future[EventLoopGroup] = Future.successful(group)
 
-        override def release(): Future[Unit] = {
+        override def releaseResource(): Future[Unit] = {
           val future = group.shutdownGracefully(0, 0, MILLISECONDS)
           val promise = Promise[Unit]()
           future.addListener((future: io.netty.util.concurrent.Future[_]) =>
@@ -186,7 +186,7 @@ object LedgerApiServer {
           server
         }
 
-        override def release(): Future[Unit] =
+        override def releaseResource(): Future[Unit] =
           asFuture.map(server => server.shutdown().awaitTermination())
       }
     }

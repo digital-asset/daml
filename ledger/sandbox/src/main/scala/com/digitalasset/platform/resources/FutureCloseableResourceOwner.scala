@@ -13,6 +13,6 @@ class FutureCloseableResourceOwner[T <: AutoCloseable](acquireFutureCloseable: (
 
       override protected val future: Future[T] = acquireFutureCloseable()
 
-      override def release(): Future[Unit] = asFuture.map(_.close())
+      override def releaseResource(): Future[Unit] = asFuture.map(_.close())
     }
 }

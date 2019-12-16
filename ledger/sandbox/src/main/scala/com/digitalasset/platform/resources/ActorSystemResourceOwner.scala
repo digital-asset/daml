@@ -17,6 +17,6 @@ class ActorSystemResourceOwner(acquireActorSystem: () => ActorSystem)
 
       override protected val future: Future[ActorSystem] = Future.successful(actorSystem)
 
-      override def release(): Future[Unit] = actorSystem.terminate().map(_ => ())
+      override def releaseResource(): Future[Unit] = actorSystem.terminate().map(_ => ())
     }
 }

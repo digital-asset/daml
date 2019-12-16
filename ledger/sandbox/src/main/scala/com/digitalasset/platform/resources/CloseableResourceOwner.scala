@@ -16,6 +16,6 @@ class CloseableResourceOwner[T <: AutoCloseable](acquireCloseable: () => T)
 
       override protected val future: Future[T] = Future.fromTry(closeable)
 
-      override def release(): Future[Unit] = Future.fromTry(closeable.map(_.close()))
+      override def releaseResource(): Future[Unit] = Future.fromTry(closeable.map(_.close()))
     }
 }

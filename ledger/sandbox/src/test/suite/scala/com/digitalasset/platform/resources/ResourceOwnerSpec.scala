@@ -18,7 +18,7 @@ import scala.concurrent.{ExecutionContext, Future, Promise}
 
 class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
   "a resource owner" should {
-    "be closeable" in {
+    "acquire and release a resource" in {
       val owner = new TestResourceOwner(42)
       owner.hasBeenAcquired should be(false)
 
@@ -36,7 +36,7 @@ class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
       }
     }
 
-    "close all sub-resources" in {
+    "release all sub-resources when released" in {
       val ownerA = new TestResourceOwner(1)
       val ownerB = new TestResourceOwner("two")
 
@@ -51,6 +51,24 @@ class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
 
       for {
         _ <- resource.release()
+      } yield {
+        ownerA.hasBeenAcquired should be(false)
+        ownerB.hasBeenAcquired should be(false)
+      }
+    }
+
+    "only release once" in {
+      val ownerA = new TestResourceOwner(7)
+      val ownerB = new TestResourceOwner("eight")
+
+      val resource = for {
+        _ <- ownerA.acquire()
+        _ <- ownerB.acquire()
+      } yield ()
+
+      for {
+        _ <- resource.release()
+        _ <- resource.release() // will throw an exception if it actually releases twice
       } yield {
         ownerA.hasBeenAcquired should be(false)
         ownerB.hasBeenAcquired should be(false)
@@ -379,7 +397,7 @@ object ResourceOwnerSpec {
         override protected val future: Future[T] =
           Future.successful(TestResourceOwner.this.value)
 
-        override def release(): Future[Unit] =
+        override def releaseResource(): Future[Unit] =
           if (acquired.compareAndSet(true, false))
             Future.successful(())
           else
@@ -398,7 +416,7 @@ object ResourceOwnerSpec {
         override protected val future: Future[T] =
           Future.failed(new FailingResourceFailedToOpen)
 
-        override def release(): Future[Unit] =
+        override def releaseResource(): Future[Unit] =
           if (closedAlready.compareAndSet(false, true))
             Future.successful(())
           else

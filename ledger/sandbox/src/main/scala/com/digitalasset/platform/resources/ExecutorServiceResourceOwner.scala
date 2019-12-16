@@ -17,7 +17,7 @@ class ExecutorServiceResourceOwner[T <: ExecutorService](acquireExecutorService:
 
       override protected val future: Future[T] = Future.successful(executorService)
 
-      override def release(): Future[Unit] = Future {
+      override def releaseResource(): Future[Unit] = Future {
         executorService.shutdown()
         val _ = executorService.awaitTermination(Long.MaxValue, TimeUnit.SECONDS)
       }
