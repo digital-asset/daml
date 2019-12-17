@@ -83,7 +83,7 @@ class ApiCodecCompressedSpec
           :: 'fOptionalUnit ->> VA.optional(VA.unit)
           :: 'fOptOptText ->> VA.optional(VA.optional(VA.text))
           :: 'fMap ->> VA.map(VA.int64)
-        // :: 'fVariant ->> simpleVariantT
+          :: 'fVariant ->> simpleVariantT
           :: 'fRecord ->> simpleRecordT
           :: RNil
       )
@@ -104,7 +104,8 @@ class ApiCodecCompressedSpec
         fOptionalUnit = Some(()),
         fOptOptText = Some(Some("foo")),
         fMap = SortedLookupList(Map("1" -> 1L, "2" -> 2L, "3" -> 3L)),
-        /* fVariant = ???, */ fRecord = simpleRecordV
+        fVariant = simpleVariantV,
+        fRecord = simpleRecordV
       )
 
     val typeLookup: NavigatorModelAliases.DamlLfTypeLookup =
