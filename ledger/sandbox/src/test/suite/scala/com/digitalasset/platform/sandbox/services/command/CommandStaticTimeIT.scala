@@ -73,7 +73,7 @@ final class CommandStaticTimeIT
 
   private lazy val unwrappedLedgerId = ledgerId().unwrap
 
-  private def commandClient(implicit mat: Materializer): Future[CommandClient] =
+  private def createCommandClient()(implicit mat: Materializer): Future[CommandClient] =
     StaticTime
       .updatedVia(TimeServiceGrpc.stub(channel), unwrappedLedgerId)
       .recover { case NonFatal(_) => TimeProvider.UTC }(DirectExecutionContext)
@@ -172,7 +172,7 @@ final class CommandStaticTimeIT
 
       "commands should be accepted" in {
         for {
-          commandClient <- commandClient
+          commandClient <- createCommandClient()
           completion <- commandClient
             .withTimeProvider(None)
             .trackSingleCommand(
@@ -189,7 +189,7 @@ final class CommandStaticTimeIT
 
         "reject commands with ABORTED" in {
           for {
-            commandClient <- commandClient
+            commandClient <- createCommandClient()
             getTimeResponse <- timeSource.runWith(Sink.head)
             currentTime = toInstant(getTimeResponse.getCurrentTime)
             completion <- commandClient.send(submissionWithTime(currentTime.plus(tenDays)))
@@ -208,7 +208,7 @@ final class CommandStaticTimeIT
 
         "commands should be accepted" in {
           for {
-            commandClient <- commandClient
+            commandClient <- createCommandClient()
             getTimeResponse <- timeSource.runWith(Sink.head)
             oldTime = getTimeResponse.getCurrentTime
             newTime = toInstant(oldTime).plus(tenDays)
@@ -226,7 +226,7 @@ final class CommandStaticTimeIT
 
         "reject commands with ABORTED" in {
           for {
-            commandClient <- commandClient
+            commandClient <- createCommandClient()
             getTimeResponse <- timeSource.runWith(Sink.head)
             oldTime = getTimeResponse.getCurrentTime
             newTime = toInstant(oldTime).plus(tenDays)
@@ -248,7 +248,7 @@ final class CommandStaticTimeIT
       "a choice on a contract is exercised before its LET" should {
         "result in a rejection" in {
           for {
-            commandClient <- commandClient
+            commandClient <- createCommandClient()
             getTimeResponse <- timeSource.runWith(Sink.head)
             currentTime = getTimeResponse.getCurrentTime
             templateId = templateIds.dummy
