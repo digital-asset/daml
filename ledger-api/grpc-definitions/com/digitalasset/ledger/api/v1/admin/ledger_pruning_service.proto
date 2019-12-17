@@ -14,29 +14,35 @@ option csharp_namespace = "Com.DigitalAsset.Ledger.Api.V1.Admin";
 // Status: experimental interface, will change before it is deemed production
 // ready
 
-// Prunes/truncates the "oldest" ledger transactions from the ledger (specifically the Ledger Api Server) to
-// 1. keep the "inactive" portion of the ledger to a manageable size (i.e. removing the portion of the ledger that does
-//    not affect the set of allowed, future commands.
-// 2. remove inactive state to honor right-to-forget guarantees.
+// Prunes/truncates the "oldest" ledger transactions from the ledger (specifically the Ledger Api Server) by removing
+// a portion of the ledger that does not affect the set of allowed, future commands). This enables:
+// 1. keeping the "inactive" portion of the ledger to a manageable size and
+// 2. removing inactive state to honor right-to-forget guarantees.
 service LedgerPruningService {
 
-  // Main entry point specifying the point in time or offset-space before which ledger transactions should be removed.
-  rpc prune (PruneRequest) returns (PruneResponse);
+  // Prune the ledger specifying the point in time or offset-space before which ledger transactions should be removed.
+  // Returns an error if the ledger api server is not configured to support pruning.
+  rpc PruneByOffset (PruneByOffsetRequest) returns (PruneResponse);
+
+  // Prune the ledger specifying the point in time or offset-space before which ledger transactions should be removed.
+  // Returns an error if the ledger api server is not configured to support pruning or is configured with a static
+  // time (such that time is does not differentiate specific pruning points).
+  rpc PruneByTime (PruneByTimeRequest) returns (PruneResponse);
 }
 
-message PruneRequest {
-  // The "prune before" can be expressed in ledger time or as an offset. Returns an error if the ledger api server is
-  // not configured to support pruning.
-  oneof prune_before {
-    google.protobuf.Timestamp timestamp = 1;
-    string offset = 2;
-  }
+message PruneByOffsetRequest {
+  google.protobuf.Timestamp prune_before = 1;
+}
+
+message PruneByTimeRequest {
+  string prune_before = 1;
 }
 
 message PruneResponse {
-  // The actual point before which pruning was applied. May be smaller than PruneRequest.prune_before values e.g. if
-  // the specified pruning point is in the future or is too recent pruning transactions tracked as inflight-transactions
-  // by the CommandService.
+  // The actual point before which pruning was applied. May be smaller than "prune_before" e.g. if the specified pruning
+  // point is:
+  // 1. in the future or
+  // 2. too recent, attempting pruning transactions tracked as inflight-transactions by the CommandService.
   google.protobuf.Timestamp pruned_timestamp = 1;
   string pruned_offset = 2;
 }
