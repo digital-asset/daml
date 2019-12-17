@@ -628,13 +628,14 @@ class KeyHasherSpec extends WordSpec with Matchers {
           | 7ac33585fca214756dfe4b2c4de9283d7682f5a47ae8a78acf7abe266d5f41bc
           |""".stripMargin
 
+      val sep = System.getProperty("line.separator")
       testCases
         .map { value =>
           val digest = MessageDigest.getInstance("SHA-256")
           val hash = KeyHasher.putValue(digest, value).digest.map("%02x" format _).mkString
-          value.toString + "\n " + hash
+          s"${value.toString}$sep $hash"
         }
-        .mkString("", "\n", "\n") shouldBe expectedOut
+        .mkString("", sep, sep) shouldBe expectedOut
 
     }
   }
