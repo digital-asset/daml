@@ -47,26 +47,32 @@ trait Resource[A] {
 object Resource {
   import scala.language.higherKinds
 
-  def apply[T](
+  def apply[T](future: Future[T], releaseResource: T => Future[Unit])(
+      implicit executionContext: ExecutionContext
+  ): Resource[T] =
+    apply(future, releaseResource, () => Future.successful(()))
+
+  private def apply[T](
       future: Future[T],
       releaseResource: T => Future[Unit],
-      releaseSubResources: () => Future[Unit] = () => Future.successful(()),
-  )(implicit executionContext: ExecutionContext): Resource[T] = new Resource[T] {
-    private val released: AtomicBoolean = new AtomicBoolean(false)
+      releaseSubResources: () => Future[Unit],
+  )(implicit executionContext: ExecutionContext): Resource[T] =
+    new Resource[T] {
+      private val released: AtomicBoolean = new AtomicBoolean(false)
 
-    final lazy val asFuture: Future[T] = future.transformWith {
-      case Success(value) => Future.successful(value)
-      case Failure(throwable) => release().flatMap(_ => Future.failed(throwable))
+      final lazy val asFuture: Future[T] = future.transformWith {
+        case Success(value) => Future.successful(value)
+        case Failure(throwable) => release().flatMap(_ => Future.failed(throwable))
+      }
+
+      def release(): Future[Unit] =
+        if (released.compareAndSet(false, true))
+          future.transformWith {
+            case Success(value) => releaseResource(value).flatMap(_ => releaseSubResources())
+            case Failure(_) => releaseSubResources()
+          } else
+          Future.successful(())
     }
-
-    def release(): Future[Unit] =
-      if (released.compareAndSet(false, true))
-        future.transformWith {
-          case Success(value) => releaseResource(value).flatMap(_ => releaseSubResources())
-          case Failure(_) => releaseSubResources()
-        } else
-        Future.successful(())
-  }
 
   def pure[T](value: T)(implicit executionContext: ExecutionContext): Resource[T] =
     Resource(Future.successful(value), _ => Future.successful(()))
