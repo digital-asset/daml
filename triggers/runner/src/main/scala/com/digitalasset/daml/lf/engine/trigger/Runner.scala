@@ -19,6 +19,7 @@ import com.digitalasset.daml.lf.PureCompiledPackages
 import com.digitalasset.daml.lf.archive.Dar
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.speedy.Compiler
 import com.digitalasset.daml.lf.speedy.Pretty
@@ -249,6 +250,7 @@ class Runner(
 
   def getTriggerSink(
       triggerId: Identifier,
+      timeProviderType: TimeProviderType,
       acs: Seq[CreatedEvent],
       submit: SubmitRequest => Unit,
   ): Sink[TriggerMsg, Future[SExpr]] = {
@@ -263,8 +265,15 @@ class Runner(
       case Left(err) => throw new ConverterException(err)
       case Right(x) => x
     })
+    val clientTime: Timestamp =
+      Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
     val initialState =
-      SEApp(getInitialState, Array(SEValue(SParty(Party.assertFromString(party))), createdExpr))
+      SEApp(
+        getInitialState,
+        Array(
+          SEValue(SParty(Party.assertFromString(party))),
+          SEValue(STimestamp(clientTime)): SExpr,
+          createdExpr))
     machine.ctrl = Speedy.CtrlExpr(initialState)
     machine = stepToValue(machine)
     val evaluatedInitialState = handleStepResult(machine.toSValue, submit)
@@ -313,7 +322,10 @@ class Runner(
             }
           }
         }
-        machine.ctrl = Speedy.CtrlExpr(SEApp(update, Array(SEValue(messageVal), state)))
+        val clientTime: Timestamp =
+          Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
+        machine.ctrl = Speedy.CtrlExpr(
+          SEApp(update, Array(SEValue(STimestamp(clientTime)): SExpr, SEValue(messageVal), state)))
         machine = stepToValue(machine)
         val newState = handleStepResult(machine.toSValue, submit)
         SEValue(newState)
@@ -354,7 +366,7 @@ class Runner(
     }
     source
       .via(msgFlow)
-      .runWith(getTriggerSink(triggerId, acs, submit))
+      .runWith(getTriggerSink(triggerId, timeProviderType, acs, submit))
   }
 }
 

@@ -36,6 +36,7 @@ EXPECTED="\
   Numeric:test
   Retry:retryTrigger
   ACS:test
+  Time:test
   TemplateIdFilter:testOne
   TemplateIdFilter:testTwo\
 "
