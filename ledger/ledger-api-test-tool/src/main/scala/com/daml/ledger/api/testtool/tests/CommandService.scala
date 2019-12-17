@@ -15,11 +15,8 @@ import com.digitalasset.ledger.test_stable.Test.Dummy._
 import com.digitalasset.ledger.test_stable.Test.DummyFactory._
 import com.digitalasset.ledger.test_stable.Test.WithObservers._
 import com.digitalasset.ledger.test_stable.Test.{Dummy, _}
-import com.digitalasset.platform.testing.{TimeoutException, WithTimeout}
 import io.grpc.Status
 import scalaz.syntax.tag._
-
-import scala.concurrent.duration.DurationInt
 
 final class CommandService(session: LedgerSession) extends LedgerTestSuite(session) {
   test(
