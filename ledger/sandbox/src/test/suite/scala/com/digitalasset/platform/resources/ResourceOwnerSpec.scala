@@ -86,6 +86,7 @@ class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
 
       for {
         throwable <- resource.asFuture.failed
+        _ <- resource.release()
       } yield {
         throwable should be(a[FailingResourceFailedToOpen])
       }
@@ -352,19 +353,16 @@ class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
       val releaseOrder = mutable.Buffer[Int]()
       val owners = (1 to 10).map(value =>
         new ResourceOwner[Int] {
-          override def acquire()(implicit _executionContext: ExecutionContext): Resource[Int] = {
+          override def acquire()(implicit executionContext: ExecutionContext): Resource[Int] = {
             acquireOrder += value
-            new Resource[Int] {
-              override protected val executionContext: ExecutionContext = _executionContext
-
-              override protected val future: Future[Int] = Future {
+            Resource(
+              Future {
                 value
-              }
-
-              override def releaseResource(): Future[Unit] = Future {
-                releaseOrder += value
-              }
-            }
+              },
+              v =>
+                Future {
+                  releaseOrder += v
+              })
           }
       })
       val resources = owners.map(_.acquire())
@@ -414,41 +412,26 @@ object ResourceOwnerSpec {
 
     def hasBeenAcquired: Boolean = acquired.get
 
-    def acquire()(implicit _executionContext: ExecutionContext): Resource[T] = {
+    def acquire()(implicit executionContext: ExecutionContext): Resource[T] = {
       if (!acquired.compareAndSet(false, true)) {
         throw new TriedToAcquireTwice
       }
-      new Resource[T] {
-        override protected val executionContext: ExecutionContext = _executionContext
-
-        override protected val future: Future[T] =
-          Future.successful(TestResourceOwner.this.value)
-
-        override def releaseResource(): Future[Unit] =
+      Resource(
+        Future.successful(value),
+        _ =>
           if (acquired.compareAndSet(true, false))
             Future.successful(())
           else
             Future.failed(new TriedToReleaseTwice)
-      }
+      )
     }
   }
 
   final class FailingResourceOwner[T] extends ResourceOwner[T] {
-    override def acquire()(implicit _executionContext: ExecutionContext): Resource[T] =
-      new Resource[T] {
-        private def closedAlready = new AtomicBoolean(false)
-
-        override protected val executionContext: ExecutionContext = _executionContext
-
-        override protected val future: Future[T] =
-          Future.failed(new FailingResourceFailedToOpen)
-
-        override def releaseResource(): Future[Unit] =
-          if (closedAlready.compareAndSet(false, true))
-            Future.successful(())
-          else
-            Future.failed(new TriedToReleaseTwice)
-      }
+    override def acquire()(implicit executionContext: ExecutionContext): Resource[T] =
+      Resource(
+        Future.failed(new FailingResourceFailedToOpen),
+        _ => Future.failed(new TriedToReleaseAFailedResource))
   }
 
   final class TriedToAcquireTwice extends Exception("Tried to acquire twice.")
@@ -456,4 +439,7 @@ object ResourceOwnerSpec {
   final class TriedToReleaseTwice extends Exception("Tried to release twice.")
 
   final class FailingResourceFailedToOpen extends Exception("Something broke!")
+
+  final class TriedToReleaseAFailedResource extends Exception("Tried to release a failed resource.")
+
 }

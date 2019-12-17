@@ -6,12 +6,6 @@ package com.digitalasset.platform.resources
 import scala.concurrent.{ExecutionContext, Future}
 
 class FutureResourceOwner[T](acquireFuture: () => Future[T]) extends ResourceOwner[T] {
-  override def acquire()(implicit _executionContext: ExecutionContext): Resource[T] =
-    new Resource[T] {
-      override protected val executionContext: ExecutionContext = _executionContext
-
-      override protected val future: Future[T] = acquireFuture()
-
-      override def releaseResource(): Future[Unit] = Future.successful(())
-    }
+  override def acquire()(implicit executionContext: ExecutionContext): Resource[T] =
+    Resource(acquireFuture(), _ => Future.successful(()))
 }

@@ -9,14 +9,6 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class ActorSystemResourceOwner(acquireActorSystem: () => ActorSystem)
     extends ResourceOwner[ActorSystem] {
-  override def acquire()(implicit _executionContext: ExecutionContext): Resource[ActorSystem] =
-    new Resource[ActorSystem] {
-      override protected val executionContext: ExecutionContext = _executionContext
-
-      private val actorSystem: ActorSystem = acquireActorSystem()
-
-      override protected val future: Future[ActorSystem] = Future.successful(actorSystem)
-
-      override def releaseResource(): Future[Unit] = actorSystem.terminate().map(_ => ())
-    }
+  override def acquire()(implicit executionContext: ExecutionContext): Resource[ActorSystem] =
+    Resource(Future(acquireActorSystem()), actorSystem => actorSystem.terminate().map(_ => ()))
 }

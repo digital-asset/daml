@@ -11,8 +11,9 @@ import akka.stream.ActorMaterializer
 
 import scala.concurrent.{ExecutionContext, Future}
 
+@FunctionalInterface
 trait ResourceOwner[T] {
-  def acquire()(implicit _executionContext: ExecutionContext): Resource[T]
+  def acquire()(implicit executionContext: ExecutionContext): Resource[T]
 }
 
 object ResourceOwner {
@@ -22,27 +23,24 @@ object ResourceOwner {
   def failed[T](exception: Throwable): ResourceOwner[T] =
     new FutureResourceOwner(() => Future.failed(exception))
 
-  def forFuture[T](acquireFuture: () => Future[T]): ResourceOwner[T] =
-    new FutureResourceOwner[T](acquireFuture)
+  def forFuture[T](acquire: () => Future[T]): ResourceOwner[T] =
+    new FutureResourceOwner(acquire)
 
-  def forCloseable[T <: AutoCloseable](acquireCloseable: () => T): ResourceOwner[T] =
-    new CloseableResourceOwner[T](acquireCloseable)
+  def forCloseable[T <: AutoCloseable](acquire: () => T): ResourceOwner[T] =
+    new CloseableResourceOwner(acquire)
 
-  def forFutureCloseable[T <: AutoCloseable](
-      acquireFutureCloseable: () => Future[T]): ResourceOwner[T] =
-    new FutureCloseableResourceOwner[T](acquireFutureCloseable)
+  def forFutureCloseable[T <: AutoCloseable](acquire: () => Future[T]): ResourceOwner[T] =
+    new FutureCloseableResourceOwner(acquire)
 
-  def forExecutorService[T <: ExecutorService](acquireExecutorService: () => T): ResourceOwner[T] =
-    new ExecutorServiceResourceOwner(acquireExecutorService)
+  def forExecutorService[T <: ExecutorService](acquire: () => T): ResourceOwner[T] =
+    new ExecutorServiceResourceOwner[T](acquire)
 
-  def forTimer(acquireTimer: () => Timer): ResourceOwner[Timer] =
-    new TimerResourceOwner(acquireTimer)
+  def forTimer(acquire: () => Timer): ResourceOwner[Timer] =
+    new TimerResourceOwner(acquire)
 
-  def forActorSystem(acquireActorSystem: () => ActorSystem): ResourceOwner[ActorSystem] =
-    new ActorSystemResourceOwner(acquireActorSystem)
+  def forActorSystem(acquire: () => ActorSystem): ResourceOwner[ActorSystem] =
+    new ActorSystemResourceOwner(acquire)
 
-  def forMaterializer(
-      acquireMaterializer: () => ActorMaterializer
-  ): ResourceOwner[ActorMaterializer] =
-    new ActorMaterializerResourceOwner(acquireMaterializer)
+  def forMaterializer(acquire: () => ActorMaterializer): ResourceOwner[ActorMaterializer] =
+    new ActorMaterializerResourceOwner(acquire)
 }

@@ -7,12 +7,6 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class FutureCloseableResourceOwner[T <: AutoCloseable](acquireFutureCloseable: () => Future[T])
     extends ResourceOwner[T] {
-  override def acquire()(implicit _executionContext: ExecutionContext): Resource[T] =
-    new Resource[T] {
-      override protected val executionContext: ExecutionContext = _executionContext
-
-      override protected val future: Future[T] = acquireFutureCloseable()
-
-      override def releaseResource(): Future[Unit] = asFuture.map(_.close())
-    }
+  override def acquire()(implicit executionContext: ExecutionContext): Resource[T] =
+    Resource(acquireFutureCloseable(), closeable => Future(closeable.close()))
 }

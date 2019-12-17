@@ -9,17 +9,6 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class ActorMaterializerResourceOwner(acquireMaterializer: () => ActorMaterializer)
     extends ResourceOwner[ActorMaterializer] {
-  override def acquire()(
-      implicit _executionContext: ExecutionContext): Resource[ActorMaterializer] =
-    new Resource[ActorMaterializer] {
-      override protected val executionContext: ExecutionContext = _executionContext
-
-      private val materializer: ActorMaterializer = acquireMaterializer()
-
-      override protected val future: Future[ActorMaterializer] = Future.successful(materializer)
-
-      override def releaseResource(): Future[Unit] = Future {
-        materializer.shutdown()
-      }
-    }
+  override def acquire()(implicit executionContext: ExecutionContext): Resource[ActorMaterializer] =
+    Resource(Future(acquireMaterializer()), materializer => Future(materializer.shutdown()))
 }

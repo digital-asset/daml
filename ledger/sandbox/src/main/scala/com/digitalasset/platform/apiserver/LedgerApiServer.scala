@@ -58,19 +58,11 @@ object LedgerApiServer {
     // do that, the server won't shut down and we'll enter a deadlock.
     def reorderApiServices(apiServices: Resource[ApiServices]): ResourceOwner[ApiServices] =
       new ResourceOwner[ApiServices] {
-        override def acquire()(
-            implicit _executionContext: ExecutionContext
-        ): Resource[ApiServices] =
-          new Resource[ApiServices] {
-            override protected val executionContext: ExecutionContext = _executionContext
-
-            override protected val future: Future[ApiServices] = apiServices.asFuture
-
-            override def releaseResource(): Future[Unit] =
-              apiServices
-                .release()
-                .map(_ => servicesClosedPromise.success(()))
-          }
+        override def acquire()(implicit executionContext: ExecutionContext): Resource[ApiServices] =
+          Resource(
+            apiServices.asFuture,
+            _ => apiServices.release().map(_ => servicesClosedPromise.success(())),
+          )
       }
 
     val server = for {
@@ -131,28 +123,21 @@ object LedgerApiServer {
 
   private def eventLoopGroup(
       threadPoolName: String,
-      parallelism: Int
+      parallelism: Int,
   ): ResourceOwner[EventLoopGroup] = new ResourceOwner[EventLoopGroup] {
-    override def acquire()(
-        implicit _executionContext: ExecutionContext
-    ): Resource[EventLoopGroup] = {
-      val group = new NioEventLoopGroup(
-        parallelism,
-        new DefaultThreadFactory(s"$threadPoolName-grpc-eventloop-${UUID.randomUUID()}", true))
-      new Resource[EventLoopGroup] {
-        override protected val executionContext: ExecutionContext = _executionContext
-
-        override protected val future: Future[EventLoopGroup] = Future.successful(group)
-
-        override def releaseResource(): Future[Unit] = {
+    override def acquire()(implicit executionContext: ExecutionContext): Resource[EventLoopGroup] =
+      Resource(
+        Future(new NioEventLoopGroup(
+          parallelism,
+          new DefaultThreadFactory(s"$threadPoolName-grpc-eventloop-${UUID.randomUUID()}", true))),
+        group => {
           val promise = Promise[Unit]()
           val future = group.shutdownGracefully(0, 0, MILLISECONDS)
           future.addListener((f: io.netty.util.concurrent.Future[_]) =>
             promise.complete(Try(f.get).map(_ => ())))
           promise.future
         }
-      }
-    }
+      )
   }
 
   private def grpcServer(
@@ -166,11 +151,9 @@ object LedgerApiServer {
       workerEventLoopGroup: EventLoopGroup,
       apiServices: ApiServices,
   ): ResourceOwner[Server] = new ResourceOwner[Server] {
-    override def acquire()(implicit _executionContext: ExecutionContext): Resource[Server] = {
-      new Resource[Server] {
-        override protected val executionContext: ExecutionContext = _executionContext
-
-        override protected val future: Future[Server] = Future {
+    override def acquire()(implicit executionContext: ExecutionContext): Resource[Server] =
+      Resource(
+        Future {
           val builder = address.fold(NettyServerBuilder.forPort(desiredPort))(address =>
             NettyServerBuilder.forAddress(new InetSocketAddress(address, desiredPort)))
           builder.sslContext(sslContext.orNull)
@@ -192,12 +175,9 @@ object LedgerApiServer {
               throw new UnableToBind(desiredPort, e.getCause)
           }
           server
-        }
-
-        override def releaseResource(): Future[Unit] =
-          asFuture.map(server => server.shutdown().awaitTermination())
-      }
-    }
+        },
+        server => Future(server.shutdown().awaitTermination())
+      )
   }
 
   class UnableToBind(port: Int, cause: Throwable)
