@@ -147,7 +147,15 @@ cmdCompile numProcessors =
         <$> inputFileOpt
         <*> outputFileOpt
         <*> optionsParser numProcessors (EnableScenarioService False) optPackageName
+        <*> optWriteIface
         <*> optional (strOption $ long "iface-dir" <> metavar "IFACE_DIR" <> help "Directory for interface files")
+
+    optWriteIface =
+        fmap WriteInterface $
+        switch $
+        help "Produce interface files. This is used for building the package db for daml-prim and daml-stdib" <>
+        long "write-iface"
+
 
 cmdLint :: Int -> Mod CommandFields Command
 cmdLint numProcessors =
@@ -394,8 +402,11 @@ execIde telemetry (Debug debug) enableScenarioService ghcOpts mbProfileDir (from
                       getDamlIdeState opts mbScenarioService loggerH getLspId sendMsg vfs (clientSupportsProgress caps)
 
 
-execCompile :: FilePath -> FilePath -> Options -> Maybe FilePath -> Command
-execCompile inputFile outputFile opts mbIfaceDir =
+-- | Whether we should write interface files during `damlc compile`.
+newtype WriteInterface = WriteInterface Bool
+
+execCompile :: FilePath -> FilePath -> Options -> WriteInterface -> Maybe FilePath -> Command
+execCompile inputFile outputFile opts (WriteInterface writeInterface) mbIfaceDir =
   Command Compile effect
   where
     effect = withProjectRoot' (ProjectOpts Nothing (ProjectCheck "" False)) $ \relativize -> do
@@ -413,7 +424,7 @@ execCompile inputFile outputFile opts mbIfaceDir =
               ErrUtils.dumpIfSet_dyn dflags Opt_D_dump_parsed_ast "Parser AST" $ showAstData NoBlankSrcSpan parsed
               ErrUtils.dumpIfSet_dyn dflags Opt_D_source_stats "Source Statistics" $ ppSourceStats False parsed
 
-            when (optWriteInterface opts') $ do
+            when writeInterface $ do
                 files <- nubSort . concatMap transitiveModuleDeps <$> use GetDependencies inputFile
                 mbIfaces <- writeIfacesAndHie (toNormalizedFilePath $ fromMaybe ifaceDir $ optIfaceDir opts') files
                 void $ liftIO $ mbErr "ERROR: Compilation failed." mbIfaces
