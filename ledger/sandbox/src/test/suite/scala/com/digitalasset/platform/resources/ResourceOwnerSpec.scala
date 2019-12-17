@@ -14,6 +14,7 @@ import akka.{Done, NotUsed}
 import com.digitalasset.platform.resources.ResourceOwnerSpec._
 import org.scalatest.{AsyncWordSpec, Matchers}
 
+import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
 class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
@@ -347,24 +348,40 @@ class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
 
   "many resources in a sequence" should {
     "be able to be sequenced" in {
-      val constructors = (1 to 10)
-        .map(value => new MockConstructor(acquire => new TestCloseable(value, acquire)))
-      val resources =
-        constructors.map(constructor => ResourceOwner.forCloseable(constructor.apply _).acquire())
+      val acquireOrder = mutable.Buffer[Int]()
+      val releaseOrder = mutable.Buffer[Int]()
+      val owners = (1 to 10).map(value =>
+        new ResourceOwner[Int] {
+          override def acquire()(implicit _executionContext: ExecutionContext): Resource[Int] = {
+            acquireOrder += value
+            new Resource[Int] {
+              override protected val executionContext: ExecutionContext = _executionContext
+
+              override protected val future: Future[Int] = Future {
+                value
+              }
+
+              override def releaseResource(): Future[Unit] = Future {
+                releaseOrder += value
+              }
+            }
+          }
+      })
+      val resources = owners.map(_.acquire())
 
       val resource = for {
-        allResources <- Resource.sequence(resources)
+        values <- Resource.sequence(resources)
       } yield {
-        all(constructors.map(_.hasBeenAcquired)) should be(true)
-        allResources.map(_.value) should be(1 to 10)
-        allResources
+        acquireOrder should be(1 to 10)
+        values should be(1 to 10)
+        ()
       }
 
       for {
         _ <- resource.asFuture
         _ <- resource.release()
       } yield {
-        all(constructors.map(_.hasBeenAcquired)) should be(false)
+        releaseOrder should be(10.to(1, step = -1))
       }
     }
   }

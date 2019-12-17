@@ -105,25 +105,25 @@ object Resource {
       override def releaseResource(): Future[Unit] = Future.successful(())
     }
 
-  def sequence[T, C[_] <: TraversableOnce[_]](seq: C[Resource[T]])(
+  def sequence[T, C[X] <: TraversableOnce[X]](seq: C[Resource[T]])(
       implicit bf: CanBuildFrom[C[Resource[T]], T, C[T]],
-      _executionContext: ExecutionContext,
+      executionContext: ExecutionContext,
   ): Resource[C[T]] =
     seq
-      .foldLeft(ResourceOwner.pure(bf()).acquire())((builderResource, elementResource) =>
+      .foldLeft(Resource.pure(bf()))((builderResource, elementResource) =>
         for {
           builder <- builderResource
-          element <- elementResource.asInstanceOf[Resource[T]]
+          element <- elementResource
         } yield builder += element)
       .map(_.result())
 
-  def sequence_[T, C[_] <: TraversableOnce[_]](seq: C[Resource[T]])(
-      implicit _executionContext: ExecutionContext,
+  def sequence_[T, C[X] <: TraversableOnce[X]](seq: C[Resource[T]])(
+      implicit executionContext: ExecutionContext,
   ): Resource[Unit] =
     seq
-      .foldLeft(ResourceOwner.pure(()).acquire())((builderResource, elementResource) =>
+      .foldLeft(Resource.pure(()))((builderResource, elementResource) =>
         for {
           _ <- builderResource
-          _ <- elementResource.asInstanceOf[Resource[T]]
+          _ <- elementResource
         } yield ())
 }
