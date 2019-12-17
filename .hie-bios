@@ -1,2 +1,2 @@
 #!/bin/sh
-cat "$HIE_BIOS_ARGS" | sed "s/'//g" | sed "s/-qg//g" | sed "s/+RTS.*-RTS//" | sed "s|/bazel-out|bazel-out|g" | sed "s/-fexternal-interpreter//g"
+cat "$HIE_BIOS_ARGS" | sed "s/'//g" | sed "s/-qg//g" | sed "s/+RTS.*-RTS//" | sed "s|/bazel-out|bazel-out|g" | sed "s/-fexternal-interpreter//g" | tr " " "\n" > "$HIE_BIOS_OUTPUT"
