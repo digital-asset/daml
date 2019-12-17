@@ -52,30 +52,18 @@ object LedgerApiServer {
     val logger = loggerFactory.getLogger(this.getClass)
     val servicesClosedPromise = Promise[Unit]()
 
-    // This is necessary because we need to signal to the ResetService that we have shut down the
-    // APIs so it can consider the reset "done". Once it's finished, the reset request will finish,
-    // the gRPC connection will be closed and we can safely shut down the gRPC server. If we don't
-    // do that, the server won't shut down and we'll enter a deadlock.
-    def reorderApiServices(apiServices: Resource[ApiServices]): ResourceOwner[ApiServices] =
-      new ResourceOwner[ApiServices] {
-        override def acquire()(implicit executionContext: ExecutionContext): Resource[ApiServices] =
-          Resource(
-            apiServices.asFuture,
-            _ => apiServices.release().map(_ => servicesClosedPromise.success(())),
-          )
-      }
-
     val server = for {
       serverEsf <- ResourceOwner.forCloseable(executionSequencerFactoryResource _).acquire()
-      workerEventLoopGroup <- eventLoopGroup(
+      workerEventLoopGroup <- new EventLoopGroupOwner(
         mat.system.name + "-nio-worker",
         parallelism = Runtime.getRuntime.availableProcessors).acquire()
-      bossEventLoopGroup <- eventLoopGroup(mat.system.name + "-nio-boss", parallelism = 1).acquire()
+      bossEventLoopGroup <- new EventLoopGroupOwner(mat.system.name + "-nio-boss", parallelism = 1)
+        .acquire()
       apiServicesResource = ResourceOwner
         .forFutureCloseable(() => createApiServices(mat, serverEsf))
         .acquire()
       apiServices <- apiServicesResource
-      server <- grpcServer(
+      server <- new GrpcServerOwner(
         address,
         desiredPort,
         maxInboundMessageSize,
@@ -86,7 +74,7 @@ object LedgerApiServer {
         workerEventLoopGroup,
         apiServices,
       ).acquire()
-      _ <- reorderApiServices(apiServicesResource).acquire()
+      _ <- new ReorderApiServices(apiServicesResource, servicesClosedPromise).acquire()
     } yield {
       val host = address.getOrElse("localhost")
       val actualPort = server.getPort
@@ -121,10 +109,8 @@ object LedgerApiServer {
       actorCount = Runtime.getRuntime.availableProcessors() * 8
     )(mat.system)
 
-  private def eventLoopGroup(
-      threadPoolName: String,
-      parallelism: Int,
-  ): ResourceOwner[EventLoopGroup] = new ResourceOwner[EventLoopGroup] {
+  private final class EventLoopGroupOwner(threadPoolName: String, parallelism: Int)
+      extends ResourceOwner[EventLoopGroup] {
     override def acquire()(implicit executionContext: ExecutionContext): Resource[EventLoopGroup] =
       Resource(
         Future(new NioEventLoopGroup(
@@ -140,7 +126,7 @@ object LedgerApiServer {
       )
   }
 
-  private def grpcServer(
+  private final class GrpcServerOwner(
       address: Option[String],
       desiredPort: Int,
       maxInboundMessageSize: Int,
@@ -150,7 +136,7 @@ object LedgerApiServer {
       bossEventLoopGroup: EventLoopGroup,
       workerEventLoopGroup: EventLoopGroup,
       apiServices: ApiServices,
-  ): ResourceOwner[Server] = new ResourceOwner[Server] {
+  ) extends ResourceOwner[Server] {
     override def acquire()(implicit executionContext: ExecutionContext): Resource[Server] =
       Resource(
         Future {
@@ -180,7 +166,22 @@ object LedgerApiServer {
       )
   }
 
-  class UnableToBind(port: Int, cause: Throwable)
+  // This is necessary because we need to signal to the ResetService that we have shut down the
+  // APIs so it can consider the reset "done". Once it's finished, the reset request will finish,
+  // the gRPC connection will be closed and we can safely shut down the gRPC server. If we don't
+  // do that, the server won't shut down and we'll enter a deadlock.
+  private final class ReorderApiServices(
+      apiServices: Resource[ApiServices],
+      servicesClosedPromise: Promise[Unit],
+  ) extends ResourceOwner[ApiServices] {
+    override def acquire()(implicit executionContext: ExecutionContext): Resource[ApiServices] =
+      Resource(
+        apiServices.asFuture,
+        _ => apiServices.release().map(_ => servicesClosedPromise.success(())),
+      )
+  }
+
+  final class UnableToBind(port: Int, cause: Throwable)
       extends RuntimeException(
         s"LedgerApiServer was unable to bind to port $port. " +
           "User should terminate the process occupying the port, or choose a different one.",
