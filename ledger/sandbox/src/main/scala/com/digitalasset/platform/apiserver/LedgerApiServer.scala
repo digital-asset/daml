@@ -21,12 +21,11 @@ import io.netty.channel.socket.nio.NioServerSocketChannel
 import io.netty.handler.ssl.SslContext
 import io.netty.util.concurrent.DefaultThreadFactory
 
-import scala.concurrent.duration.DurationInt
-import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Future, Promise}
+import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.Try
 import scala.util.control.NoStackTrace
 
-trait ApiServer extends AutoCloseable {
+trait ApiServer {
 
   /** the API port the server is listening on */
   def port: Int
@@ -36,23 +35,22 @@ trait ApiServer extends AutoCloseable {
 
 }
 
-object LedgerApiServer {
-  def start(
-      createApiServices: (ActorMaterializer, ExecutionSequencerFactory) => Future[ApiServices],
-      desiredPort: Int,
-      maxInboundMessageSize: Int,
-      address: Option[String],
-      loggerFactory: NamedLoggerFactory,
-      sslContext: Option[SslContext] = None,
-      interceptors: List[ServerInterceptor] = List.empty,
-      metrics: MetricRegistry,
-  )(implicit mat: ActorMaterializer): Future[ApiServer] = {
-    implicit val executionContext: ExecutionContextExecutor = mat.executionContext
-
+class LedgerApiServer(
+    createApiServices: (ActorMaterializer, ExecutionSequencerFactory) => Future[ApiServices],
+    desiredPort: Int,
+    maxInboundMessageSize: Int,
+    address: Option[String],
+    loggerFactory: NamedLoggerFactory,
+    sslContext: Option[SslContext] = None,
+    interceptors: List[ServerInterceptor] = List.empty,
+    metrics: MetricRegistry,
+)(implicit mat: ActorMaterializer)
+    extends ResourceOwner[ApiServer] {
+  override def acquire()(implicit executionContext: ExecutionContext): Resource[ApiServer] = {
     val logger = loggerFactory.getLogger(this.getClass)
     val servicesClosedPromise = Promise[Unit]()
 
-    val server = for {
+    for {
       serverEsf <- ResourceOwner.forCloseable(executionSequencerFactoryResource _).acquire()
       workerEventLoopGroup <- new EventLoopGroupOwner(
         mat.system.name + "-nio-worker",
@@ -80,20 +78,14 @@ object LedgerApiServer {
       val actualPort = server.getPort
       val transportMedium = if (sslContext.isDefined) "TLS" else "plain text"
       logger.info(s"Listening on $host:$actualPort over $transportMedium.")
-      server
-    }
-
-    server.asFuture.map(grpcServer =>
       new ApiServer {
         override val port: Int =
-          grpcServer.getPort
+          server.getPort
 
         override def servicesClosed(): Future[Unit] =
           servicesClosedPromise.future
-
-        override def close(): Unit =
-          Await.result(server.release(), 10.seconds)
-    })
+      }
+    }
   }
 
   private def executionSequencerFactoryResource()(

@@ -20,6 +20,7 @@ import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.health.HealthChecks
 import com.digitalasset.platform.apiserver.StandaloneApiServer._
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
+import com.digitalasset.platform.resources.Resource
 import com.digitalasset.platform.sandbox.BuildInfo
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.sandbox.stores.InMemoryPackageStore
@@ -103,7 +104,7 @@ final class StandaloneApiServer(
         "read" -> readService,
         "write" -> writeService,
       )
-      apiServer <- LedgerApiServer.start(
+      apiServerResource = new LedgerApiServer(
         (am: ActorMaterializer, esf: ExecutionSequencerFactory) =>
           ApiServices
             .create(
@@ -126,11 +127,13 @@ final class StandaloneApiServer(
         config.tlsConfig.flatMap(_.server),
         List(AuthorizationInterceptor(authService, ec)),
         metrics
-      )
+      ).acquire()
+      apiServer <- apiServerResource.asFuture
       apiServerState = new ApiServerState(
         domain.LedgerId(cond.ledgerId),
         apiServer,
-        indexService
+        apiServerResource,
+        indexService,
       )
       _ = logger.info(
         "Initialized index server version {} with ledger-id = {}, port = {}, dar file = {}",
@@ -181,12 +184,13 @@ object StandaloneApiServer {
   private final class ApiServerState(
       ledgerId: LedgerId,
       apiServer: ApiServer,
+      apiServerResource: Resource[ApiServer],
       indexAndWriteService: AutoCloseable,
   ) extends AutoCloseable {
     def port: Int = apiServer.port
 
     override def close(): Unit = {
-      apiServer.close()
+      Await.result(apiServerResource.release(), 10.seconds)
       indexAndWriteService.close()
     }
   }
