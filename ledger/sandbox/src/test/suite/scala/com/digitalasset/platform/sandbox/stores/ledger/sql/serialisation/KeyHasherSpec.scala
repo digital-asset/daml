@@ -634,7 +634,7 @@ class KeyHasherSpec extends WordSpec with Matchers {
           val hash = KeyHasher.putValue(digest, value).digest.map("%02x" format _).mkString
           value.toString + "\n " + hash
         }
-        .mkString("\n") shouldBe expectedOut
+        .mkString("", "\n", "\n") shouldBe expectedOut
 
     }
   }
