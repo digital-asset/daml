@@ -11,6 +11,7 @@ import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
+import com.digitalasset.platform.resources.{Resource, ResourceOwner}
 import com.digitalasset.platform.sandbox.stores.ledger.ReadOnlyLedger
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{
   DbType,
@@ -34,15 +35,22 @@ object ReadOnlySqlLedger {
       ledgerId: Option[LedgerId],
       loggerFactory: NamedLoggerFactory,
       metrics: MetricRegistry,
-  )(implicit mat: Materializer): Future[ReadOnlyLedger] = {
+  )(implicit mat: Materializer): Resource[ReadOnlyLedger] = {
+    implicit val ec: ExecutionContext = mat.executionContext
     val dbType = DbType.jdbcType(jdbcUrl)
-    val dbDispatcher = DbDispatcher.start(jdbcUrl, maxConnections, loggerFactory, metrics)
-    val ledgerReadDao = LedgerDao.meteredRead(
-      JdbcLedgerDao(dbDispatcher, dbType, loggerFactory, mat.executionContext),
-      metrics,
-    )
-    new ReadOnlySqlLedgerFactory(ledgerReadDao, loggerFactory)
-      .createReadOnlySqlLedger(ledgerId)
+    for {
+      dbDispatcher <- DbDispatcher
+        .owner(jdbcUrl, maxConnections, loggerFactory, metrics)
+        .acquire()
+      ledgerReadDao = LedgerDao.meteredRead(
+        JdbcLedgerDao(dbDispatcher, dbType, loggerFactory, mat.executionContext),
+        metrics,
+      )
+      factory = new ReadOnlySqlLedgerFactory(ledgerReadDao, loggerFactory)
+      ledger <- ResourceOwner
+        .forFutureCloseable(() => factory.createReadOnlySqlLedger(ledgerId))
+        .acquire()
+    } yield ledger
   }
 }
 

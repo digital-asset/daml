@@ -3,9 +3,11 @@
 
 package com.digitalasset.platform.resources
 
+import java.io.Closeable
 import java.util.concurrent.atomic.AtomicBoolean
 
 import scala.collection.generic.CanBuildFrom
+import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
@@ -15,6 +17,14 @@ trait Resource[A] {
   val asFuture: Future[A]
 
   def release(): Future[Unit]
+
+  def asCloseable(releaseTimeout: FiniteDuration): Closeable =
+    new CloseableResource(this, releaseTimeout)
+
+  def asFutureCloseable(releaseTimeout: FiniteDuration)(
+      implicit executionContext: ExecutionContext
+  ): Future[Closeable] =
+    asFuture.map(_ => new CloseableResource(this, releaseTimeout))
 
   def map[B](f: A => B)(implicit executionContext: ExecutionContext): Resource[B] =
     Resource(asFuture.map(f), _ => Future.successful(()), release _)
@@ -42,6 +52,8 @@ trait Resource[A] {
           Future.failed(new ResourceAcquisitionFilterException()))
     Resource(future, _ => Future.successful(()), release _)
   }
+
+  def vary[B >: A]: Resource[B] = asInstanceOf[Resource[B]]
 }
 
 object Resource {

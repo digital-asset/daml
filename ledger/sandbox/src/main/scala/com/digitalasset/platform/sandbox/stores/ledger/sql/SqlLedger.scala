@@ -24,6 +24,7 @@ import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, RejectionReas
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
+import com.digitalasset.platform.resources.ResourceOwner
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode.{
   AlwaysReset,
@@ -71,7 +72,7 @@ object SqlLedger {
   )
 
   //jdbcUrl must have the user/password encoded in form of: "jdbc:postgresql://localhost/test?user=fred&password=secret"
-  def apply(
+  def owner(
       jdbcUrl: String,
       ledgerId: Option[LedgerId],
       participantId: ParticipantId,
@@ -83,7 +84,7 @@ object SqlLedger {
       startMode: SqlStartMode = SqlStartMode.ContinueIfExists,
       loggerFactory: NamedLoggerFactory,
       metrics: MetricRegistry,
-  )(implicit mat: Materializer): Future[Ledger] = {
+  )(implicit mat: Materializer): ResourceOwner[Ledger] = {
     implicit val ec: ExecutionContext = DEC
 
     new FlywayMigrations(jdbcUrl, loggerFactory).migrate()
@@ -91,25 +92,30 @@ object SqlLedger {
     val dbType = DbType.jdbcType(jdbcUrl)
     val maxConnections =
       if (dbType.supportsParallelWrites) defaultNumberOfShortLivedConnections else 1
-    val dbDispatcher = DbDispatcher.start(jdbcUrl, maxConnections, loggerFactory, metrics)
-    val ledgerDao = LedgerDao.metered(
-      JdbcLedgerDao(dbDispatcher, dbType, loggerFactory, mat.executionContext),
-      metrics,
-    )
-    SqlLedgerFactory(ledgerDao, loggerFactory).createSqlLedger(
-      ledgerId,
-      participantId,
-      timeProvider,
-      startMode,
-      acs,
-      packages,
-      initialLedgerEntries,
-      queueDepth,
-      // we use `maxConnections` for the maximum batch size, since it doesn't make sense to try to
-      // persist more ledger entries concurrently than we have SQL executor threads and SQL
-      // connections available.
-      maxConnections,
-    )
+    for {
+      dbDispatcher <- DbDispatcher.owner(jdbcUrl, maxConnections, loggerFactory, metrics)
+      ledgerDao = LedgerDao.metered(
+        JdbcLedgerDao(dbDispatcher, dbType, loggerFactory, mat.executionContext),
+        metrics,
+      )
+      ledger <- ResourceOwner
+        .forFutureCloseable(
+          () =>
+            SqlLedgerFactory(ledgerDao, loggerFactory).createSqlLedger(
+              ledgerId,
+              participantId,
+              timeProvider,
+              startMode,
+              acs,
+              packages,
+              initialLedgerEntries,
+              queueDepth,
+              // we use `maxConnections` for the maximum batch size, since it doesn't make sense to try to
+              // persist more ledger entries concurrently than we have SQL executor threads and SQL
+              // connections available.
+              maxConnections,
+          ))
+    } yield ledger
   }
 }
 

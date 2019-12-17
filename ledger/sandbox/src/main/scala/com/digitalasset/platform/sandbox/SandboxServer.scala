@@ -98,15 +98,11 @@ object SandboxServer {
   private final class ApiServerState(
       ledgerId: LedgerId,
       val apiServer: ApiServer,
-      apiServerResource: Resource[ApiServer],
-      indexAndWriteService: AutoCloseable,
+      resource: Resource[_],
   ) extends AutoCloseable {
     def port: Int = apiServer.port
 
-    override def close(): Unit = {
-      Await.result(apiServerResource.release(), 10.seconds) //fully tear down the old server
-      indexAndWriteService.close()
-    }
+    override def close(): Unit = resource.asCloseable(10.seconds).close()
   }
 
   private final case class SandboxState(
@@ -202,7 +198,7 @@ final class SandboxServer(config: => SandboxConfig) extends AutoCloseable {
 
     val loggerFactory = NamedLoggerFactory.forParticipant(participantId)
 
-    val (ledgerType, indexAndWriteServiceF) = config.jdbcUrl match {
+    val (ledgerType, indexAndWriteServiceResourceOwner) = config.jdbcUrl match {
       case Some(jdbcUrl) =>
         "postgres" -> SandboxIndexAndWriteService.postgres(
           ledgerId,
@@ -220,25 +216,26 @@ final class SandboxServer(config: => SandboxConfig) extends AutoCloseable {
         )
 
       case None =>
-        "in-memory" -> Future.successful(
-          SandboxIndexAndWriteService.inMemory(
-            ledgerId,
-            participantId,
-            config.timeModel,
-            timeProvider,
-            acs,
-            ledgerEntries,
-            packageStore,
-            metrics,
-          ))
+        "in-memory" -> SandboxIndexAndWriteService.inMemory(
+          ledgerId,
+          participantId,
+          config.timeModel,
+          timeProvider,
+          acs,
+          ledgerEntries,
+          packageStore,
+          metrics,
+        )
     }
 
-    val indexAndWriteService = Try(Await.result(indexAndWriteServiceF, AsyncTolerance))
-      .fold(t => {
-        val msg = "Could not create SandboxIndexAndWriteService"
-        logger.error(msg, t)
-        sys.error(msg)
-      }, identity)
+    val indexAndWriteServiceResource = indexAndWriteServiceResourceOwner.acquire()
+    val indexAndWriteService =
+      Try(Await.result(indexAndWriteServiceResource.asFuture, AsyncTolerance))
+        .fold(t => {
+          val msg = "Could not create SandboxIndexAndWriteService"
+          logger.error(msg, t)
+          sys.error(msg)
+        }, identity)
 
     val authorizer = new Authorizer(
       () => java.time.Clock.systemUTC.instant(),
@@ -286,8 +283,7 @@ final class SandboxServer(config: => SandboxConfig) extends AutoCloseable {
     val newState = new ApiServerState(
       ledgerId,
       apiServer,
-      apiServerResource,
-      indexAndWriteService
+      indexAndWriteServiceResource.flatMap(_ => apiServerResource),
     )
 
     Banner.show(Console.out)

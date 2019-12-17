@@ -5,19 +5,38 @@ package com.digitalasset.platform.sandbox.persistence
 
 import com.codahale.metrics.MetricRegistry
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
-import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.HikariJdbcConnectionProvider
+import com.digitalasset.platform.common.util.DirectExecutionContext
+import com.digitalasset.platform.resources.Resource
+import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{
+  HikariJdbcConnectionProvider,
+  JdbcConnectionProvider
+}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.migration.FlywayMigrations
 import org.scalatest._
 
-class PostgresIT extends WordSpec with Matchers with PostgresAroundAll {
+import scala.concurrent.Await
+import scala.concurrent.duration.DurationInt
+
+class PostgresIT extends WordSpec with Matchers with PostgresAroundAll with BeforeAndAfterAll {
 
   private val loggerFactory = NamedLoggerFactory("PostgresIT")
 
-  private lazy val connectionProvider = HikariJdbcConnectionProvider.start(
-    postgresFixture.jdbcUrl,
-    maxConnections = 4,
-    new MetricRegistry,
-  )
+  private var connectionProviderResource: Resource[JdbcConnectionProvider] = _
+  private var connectionProvider: JdbcConnectionProvider = _
+
+  override def beforeAll(): Unit = {
+    super.beforeAll()
+    connectionProviderResource = HikariJdbcConnectionProvider
+      .owner(postgresFixture.jdbcUrl, maxConnections = 4, new MetricRegistry)
+      .acquire()(DirectExecutionContext)
+      .vary
+    connectionProvider = Await.result(connectionProviderResource.asFuture, 10.seconds)
+  }
+
+  override protected def afterAll(): Unit = {
+    Await.result(connectionProviderResource.release(), 10.seconds)
+    super.afterAll()
+  }
 
   "Postgres" when {
 
@@ -56,10 +75,4 @@ class PostgresIT extends WordSpec with Matchers with PostgresAroundAll {
     }
 
   }
-
-  override protected def afterAll(): Unit = {
-    connectionProvider.close()
-    super.afterAll()
-  }
-
 }

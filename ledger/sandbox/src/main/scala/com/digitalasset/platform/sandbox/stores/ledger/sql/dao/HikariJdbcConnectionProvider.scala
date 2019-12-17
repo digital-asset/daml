@@ -9,6 +9,7 @@ import java.util.{Timer, TimerTask}
 
 import com.codahale.metrics.MetricRegistry
 import com.digitalasset.ledger.api.health.{HealthStatus, Healthy, ReportsHealth, Unhealthy}
+import com.digitalasset.platform.resources.ResourceOwner
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.HikariJdbcConnectionProvider._
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 
@@ -16,7 +17,7 @@ import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.util.control.NonFatal
 
 /** A helper to run JDBC queries using a pool of managed connections */
-trait JdbcConnectionProvider extends AutoCloseable with ReportsHealth {
+trait JdbcConnectionProvider extends ReportsHealth {
 
   /** Blocks are running in a single transaction as the commit happens when the connection
     * is returned to the pool.
@@ -27,30 +28,32 @@ trait JdbcConnectionProvider extends AutoCloseable with ReportsHealth {
 
 object HikariConnection {
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  def createDataSource(
+  def owner(
       jdbcUrl: String,
       poolName: String,
       minimumIdle: Int,
       maxPoolSize: Int,
       connectionTimeout: FiniteDuration,
-      metrics: Option[MetricRegistry]): HikariDataSource = {
-    val config = new HikariConfig
-    config.setJdbcUrl(jdbcUrl)
-    config.setDriverClassName(DbType.jdbcType(jdbcUrl).driver)
-    config.addDataSourceProperty("cachePrepStmts", "true")
-    config.addDataSourceProperty("prepStmtCacheSize", "128")
-    config.addDataSourceProperty("prepStmtCacheSqlLimit", "2048")
-    config.setAutoCommit(false)
-    config.setMaximumPoolSize(maxPoolSize)
-    config.setMinimumIdle(minimumIdle)
-    config.setConnectionTimeout(connectionTimeout.toMillis)
-    config.setPoolName(poolName)
-    metrics.foreach(config.setMetricRegistry)
+      metrics: Option[MetricRegistry],
+  ): ResourceOwner[HikariDataSource] =
+    ResourceOwner.forCloseable(() => {
+      val config = new HikariConfig
+      config.setJdbcUrl(jdbcUrl)
+      config.setDriverClassName(DbType.jdbcType(jdbcUrl).driver)
+      config.addDataSourceProperty("cachePrepStmts", "true")
+      config.addDataSourceProperty("prepStmtCacheSize", "128")
+      config.addDataSourceProperty("prepStmtCacheSqlLimit", "2048")
+      config.setAutoCommit(false)
+      config.setMaximumPoolSize(maxPoolSize)
+      config.setMinimumIdle(minimumIdle)
+      config.setConnectionTimeout(connectionTimeout.toMillis)
+      config.setPoolName(poolName)
+      metrics.foreach(config.setMetricRegistry)
 
-    //note that Hikari uses auto-commit by default.
-    //in `runSql` below, the `.close()` will automatically trigger a commit.
-    new HikariDataSource(config)
-  }
+      //note that Hikari uses auto-commit by default.
+      //in `runSql` below, the `.close()` will automatically trigger a commit.
+      new HikariDataSource(config)
+    })
 }
 
 class HikariJdbcConnectionProvider(dataSource: HikariDataSource, healthPoller: Timer)
@@ -96,33 +99,28 @@ class HikariJdbcConnectionProvider(dataSource: HikariDataSource, healthPoller: T
       conn.close()
     }
   }
-
-  override def close(): Unit = {
-    healthPoller.cancel()
-    dataSource.close()
-  }
 }
 
 object HikariJdbcConnectionProvider {
   private val MaxTransientFailureCount: Int = 5
   private val HealthPollingSchedule: FiniteDuration = 1.second
 
-  def start(
+  def owner(
       jdbcUrl: String,
       maxConnections: Int,
       metrics: MetricRegistry,
-  ): HikariJdbcConnectionProvider = {
-    // these connections should never time out as we have the same number of threads as connections
-    val dataSource = HikariConnection.createDataSource(
-      jdbcUrl,
-      "Short-Lived-Connections",
-      maxConnections,
-      maxConnections,
-      250.millis,
-      Some(metrics),
-    )
-    val healthPoller: Timer =
-      new Timer(s"${classOf[HikariJdbcConnectionProvider].getName}#healthPoller")
-    new HikariJdbcConnectionProvider(dataSource, healthPoller)
-  }
+  ): ResourceOwner[HikariJdbcConnectionProvider] =
+    for {
+      // these connections should never time out as we have the same number of threads as connections
+      dataSource <- HikariConnection.owner(
+        jdbcUrl,
+        "Short-Lived-Connections",
+        maxConnections,
+        maxConnections,
+        250.millis,
+        Some(metrics),
+      )
+      healthPoller <- ResourceOwner.forTimer(() =>
+        new Timer(s"${classOf[HikariJdbcConnectionProvider].getName}#healthPoller"))
+    } yield new HikariJdbcConnectionProvider(dataSource, healthPoller)
 }

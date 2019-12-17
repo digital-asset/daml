@@ -1689,7 +1689,7 @@ private class JdbcLedgerDao(
     }
 
   override def close(): Unit =
-    dbDispatcher.close()
+    ()
 
   private def executeBatchSql(query: String, params: Iterable[Seq[NamedParameter]])(
       implicit con: Connection) = {

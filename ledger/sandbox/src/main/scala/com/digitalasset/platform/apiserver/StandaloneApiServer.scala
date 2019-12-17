@@ -16,19 +16,18 @@ import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.digitalasset.ledger.api.auth.{AuthService, Authorizer}
 import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.health.HealthChecks
 import com.digitalasset.platform.apiserver.StandaloneApiServer._
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
-import com.digitalasset.platform.resources.Resource
+import com.digitalasset.platform.common.util.DirectExecutionContext
+import com.digitalasset.platform.resources.{Resource, ResourceOwner}
 import com.digitalasset.platform.sandbox.BuildInfo
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.sandbox.stores.InMemoryPackageStore
 import com.digitalasset.platform.server.services.testing.TimeServiceBackend
 
 import scala.concurrent.duration.DurationInt
-import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.util.control.NonFatal
+import scala.concurrent.{ExecutionContext, Future}
 
 // Main entry point to start an index server that also hosts the ledger API.
 // See v2.ReferenceServer on how it is used.
@@ -79,32 +78,36 @@ final class StandaloneApiServer(
       .fold({ case (err, file) => sys.error(s"Could not load package $file: $err") }, identity)
   }
 
-  private def buildAndStartApiServer(infra: Infrastructure)(
-      implicit ec: ExecutionContext): Future[ApiServerState] = {
-    implicit val mat: ActorMaterializer = infra.materializer
-
+  private def buildAndStartApiServer()(implicit ec: ExecutionContext): Resource[ApiServer] = {
     val packageStore = loadDamlPackages()
     preloadPackages(packageStore)
 
     for {
-      cond <- readService.getLedgerInitialConditions().runWith(Sink.head)
+      actorSystem <- ResourceOwner.forActorSystem(() => ActorSystem(actorSystemName)).acquire()
+      materializer <- ResourceOwner
+        .forMaterializer(() => ActorMaterializer()(actorSystem))
+        .acquire()
+      initialConditions <- ResourceOwner
+        .forFuture(() => readService.getLedgerInitialConditions().runWith(Sink.head)(materializer))
+        .acquire()
       authorizer = new Authorizer(
         () => java.time.Clock.systemUTC.instant(),
-        cond.ledgerId,
+        initialConditions.ledgerId,
         participantId)
       indexService <- JdbcIndex(
         readService,
-        domain.LedgerId(cond.ledgerId),
+        domain.LedgerId(initialConditions.ledgerId),
         participantId,
         config.jdbcUrl,
         loggerFactory,
-        metrics)
+        metrics,
+      )(materializer)
       healthChecks = new HealthChecks(
         "index" -> indexService,
         "read" -> readService,
         "write" -> writeService,
       )
-      apiServerResource = new LedgerApiServer(
+      apiServer <- new LedgerApiServer(
         (am: ActorMaterializer, esf: ExecutionSequencerFactory) =>
           ApiServices
             .create(
@@ -113,7 +116,7 @@ final class StandaloneApiServer(
               authorizer,
               engine,
               config.timeProvider,
-              cond.config,
+              initialConditions.config,
               SandboxConfig.defaultCommandConfig,
               timeServiceBackendO,
               loggerFactory,
@@ -127,41 +130,22 @@ final class StandaloneApiServer(
         config.tlsConfig.flatMap(_.server),
         List(AuthorizationInterceptor(authService, ec)),
         metrics
-      ).acquire()
-      apiServer <- apiServerResource.asFuture
-      apiServerState = new ApiServerState(
-        domain.LedgerId(cond.ledgerId),
-        apiServer,
-        apiServerResource,
-        indexService,
-      )
+      )(materializer).acquire()
       _ = logger.info(
         "Initialized index server version {} with ledger-id = {}, port = {}, dar file = {}",
         BuildInfo.Version,
-        cond.ledgerId,
-        apiServerState.port.toString,
+        initialConditions.ledgerId,
+        apiServer.port.toString,
         config.archiveFiles
       )
-
-      _ = writePortFile(apiServerState.port)
-    } yield apiServerState
+      _ = writePortFile(apiServer.port)
+    } yield apiServer
   }
 
   def start(): Future[AutoCloseable] = {
-    val actorSystem = ActorSystem(actorSystemName)
-    val infrastructure =
-      new Infrastructure(
-        actorSystem,
-        ActorMaterializer()(actorSystem)
-      )
-    implicit val ec: ExecutionContext = infrastructure.executionContext
-    val apiState = buildAndStartApiServer(infrastructure)
+    val apiServer = buildAndStartApiServer()(DirectExecutionContext)
     logger.info("Started Index Server")
-    apiState.transform(new SandboxState(_, infrastructure), {
-      case NonFatal(e) =>
-        infrastructure.close()
-        e
-    })
+    apiServer.asFutureCloseable(releaseTimeout = 10.seconds)(DirectExecutionContext)
   }
 
   private def writePortFile(port: Int): Unit = {
@@ -177,40 +161,5 @@ final class StandaloneApiServer(
 object StandaloneApiServer {
   private val actorSystemName = "index"
 
-  private val asyncTolerance = 30.seconds
-
   private val sharedEngine = Engine()
-
-  private final class ApiServerState(
-      ledgerId: LedgerId,
-      apiServer: ApiServer,
-      apiServerResource: Resource[ApiServer],
-      indexAndWriteService: AutoCloseable,
-  ) extends AutoCloseable {
-    def port: Int = apiServer.port
-
-    override def close(): Unit = {
-      Await.result(apiServerResource.release(), 10.seconds)
-      indexAndWriteService.close()
-    }
-  }
-
-  private final class Infrastructure(actorSystem: ActorSystem, val materializer: ActorMaterializer)
-      extends AutoCloseable {
-    def executionContext: ExecutionContext = materializer.executionContext
-
-    override def close(): Unit = {
-      materializer.shutdown()
-      Await.result(actorSystem.terminate(), asyncTolerance)
-      ()
-    }
-  }
-
-  private final class SandboxState(apiServerState: ApiServerState, infra: Infrastructure)
-      extends AutoCloseable {
-    override def close(): Unit = {
-      apiServerState.close()
-      infra.close()
-    }
-  }
 }

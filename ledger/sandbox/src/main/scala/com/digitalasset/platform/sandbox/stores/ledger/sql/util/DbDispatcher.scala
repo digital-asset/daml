@@ -9,6 +9,7 @@ import java.util.concurrent.{ExecutorService, Executors, TimeUnit}
 import com.codahale.metrics.{MetricRegistry, Timer}
 import com.digitalasset.ledger.api.health.{HealthStatus, ReportsHealth}
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
+import com.digitalasset.platform.resources.ResourceOwner
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.HikariJdbcConnectionProvider
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import org.slf4j.Logger
@@ -22,8 +23,7 @@ final class DbDispatcher(
     sqlExecutor: ExecutorService,
     logger: Logger,
     metrics: MetricRegistry,
-) extends AutoCloseable
-    with ReportsHealth {
+) extends ReportsHealth {
   private val sqlExecution = ExecutionContext.fromExecutorService(sqlExecutor)
 
   object Metrics {
@@ -81,35 +81,29 @@ final class DbDispatcher(
       }
     }(sqlExecution)
   }
-
-  override def close(): Unit = {
-    sqlExecutor.shutdown()
-    connectionProvider.close()
-  }
 }
 
 object DbDispatcher {
-  def start(
+  def owner(
       jdbcUrl: String,
       maxConnections: Int,
       loggerFactory: NamedLoggerFactory,
       metrics: MetricRegistry,
-  ): DbDispatcher = {
+  ): ResourceOwner[DbDispatcher] = {
     val logger = loggerFactory.getLogger(classOf[DbDispatcher])
-
-    val connectionProvider = HikariJdbcConnectionProvider.start(jdbcUrl, maxConnections, metrics)
-
-    lazy val sqlExecutor =
-      Executors.newFixedThreadPool(
-        maxConnections,
-        new ThreadFactoryBuilder()
-          .setDaemon(true)
-          .setNameFormat("sql-executor-%d")
-          .setUncaughtExceptionHandler((_, e) =>
-            logger.error("Got an uncaught exception in SQL executor!", e))
-          .build()
-      )
-
-    new DbDispatcher(maxConnections, connectionProvider, sqlExecutor, logger, metrics)
+    for {
+      connectionProvider <- HikariJdbcConnectionProvider.owner(jdbcUrl, maxConnections, metrics)
+      sqlExecutor <- ResourceOwner.forExecutorService(
+        () =>
+          Executors.newFixedThreadPool(
+            maxConnections,
+            new ThreadFactoryBuilder()
+              .setDaemon(true)
+              .setNameFormat("sql-executor-%d")
+              .setUncaughtExceptionHandler((_, e) =>
+                logger.error("Got an uncaught exception in SQL executor!", e))
+              .build()
+        ))
+    } yield new DbDispatcher(maxConnections, connectionProvider, sqlExecutor, logger, metrics)
   }
 }

@@ -42,7 +42,9 @@ object StandaloneIndexerServer {
         .start(
           () =>
             initializedIndexerFactory
-              .create(config.participantId, actorSystem, readService, config.jdbcUrl)
+              .owner(config.participantId, actorSystem, readService, config.jdbcUrl)
+              .acquire()
+              .asFuture
               .flatMap { indexer =>
                 // signal when ready
                 promise.trySuccess(())

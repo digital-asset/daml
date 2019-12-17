@@ -22,6 +22,7 @@ import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
+import com.digitalasset.platform.resources.ResourceOwner
 import com.digitalasset.platform.sandbox.EventIdFormatter
 import com.digitalasset.platform.sandbox.metrics.timedFuture
 import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlLedger.defaultNumberOfShortLivedConnections
@@ -41,7 +42,7 @@ import com.digitalasset.platform.sandbox.stores.ledger.{
 import scalaz.syntax.tag._
 
 import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future}
 
 sealed trait InitStatus
 final abstract class Initialized extends InitStatus
@@ -72,48 +73,49 @@ class JdbcIndexerFactory[Status <: InitStatus] private (
     this.asInstanceOf[JdbcIndexerFactory[Initialized]]
   }
 
-  def create(
+  def owner(
       participantId: ParticipantId,
       actorSystem: ActorSystem,
       readService: ReadService,
-      jdbcUrl: String)(implicit x: Status =:= Initialized): Future[JdbcIndexer] = {
+      jdbcUrl: String,
+  )(implicit x: Status =:= Initialized): ResourceOwner[JdbcIndexer] = {
     val materializer: ActorMaterializer = ActorMaterializer()(actorSystem)
 
     implicit val ec: ExecutionContext = DEC
 
-    val ledgerInit = readService
-      .getLedgerInitialConditions()
-      .runWith(Sink.head)(materializer)
-
-    val ledgerDao: LedgerDao = initializeDao(jdbcUrl, metrics, actorSystem.dispatcher)
     for {
-      LedgerInitialConditions(ledgerIdString, _, _) <- ledgerInit
+      // acquire the existing actor system and materializer, so they're shut down on release
+      _ <- ResourceOwner.forActorSystem(() => actorSystem)
+      _ <- ResourceOwner.forMaterializer(() => materializer)
+      ledgerDao <- ledgerDaoOwner(jdbcUrl, metrics, actorSystem.dispatcher)
+      LedgerInitialConditions(ledgerIdString, _, _) <- ResourceOwner
+        .forFuture(
+          () =>
+            readService
+              .getLedgerInitialConditions()
+              .runWith(Sink.head)(materializer))
       ledgerId = domain.LedgerId(ledgerIdString)
-      _ <- initializeLedger(ledgerId, ledgerDao)
-      ledgerEnd <- ledgerDao.lookupLedgerEnd()
-      externalOffset <- ledgerDao.lookupExternalLedgerEnd()
-    } yield {
-      new JdbcIndexer(ledgerEnd, externalOffset, participantId, ledgerDao, metrics)(materializer) {
-        override def close(): Unit = {
-          super.close()
-          materializer.shutdown()
-          Await.result(actorSystem.terminate(), asyncTolerance)
-          ()
-        }
-      }
-    }
+      _ <- ResourceOwner.forFuture(() => initializeLedger(ledgerId, ledgerDao))
+      ledgerEnd <- ResourceOwner.forFuture(() => ledgerDao.lookupLedgerEnd())
+      externalOffset <- ResourceOwner.forFuture(() => ledgerDao.lookupExternalLedgerEnd())
+    } yield
+      new JdbcIndexer(ledgerEnd, externalOffset, participantId, ledgerDao, metrics)(materializer)
   }
 
-  private def initializeDao(
+  private def ledgerDaoOwner(
       jdbcUrl: String,
       metrics: MetricRegistry,
       executionContext: ExecutionContext,
-  ) = {
+  ): ResourceOwner[LedgerDao] = {
     val dbType = DbType.jdbcType(jdbcUrl)
     val maxConnections =
       if (dbType.supportsParallelWrites) defaultNumberOfShortLivedConnections else 1
-    val dbDispatcher = DbDispatcher.start(jdbcUrl, maxConnections, loggerFactory, metrics)
-    LedgerDao.metered(JdbcLedgerDao(dbDispatcher, dbType, loggerFactory, executionContext), metrics)
+    for {
+      dbDispatcher <- DbDispatcher.owner(jdbcUrl, maxConnections, loggerFactory, metrics)
+    } yield
+      LedgerDao.metered(
+        JdbcLedgerDao(dbDispatcher, dbType, loggerFactory, executionContext),
+        metrics)
   }
 
   private def ledgerFound(foundLedgerId: LedgerId) = {

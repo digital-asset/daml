@@ -37,6 +37,7 @@ import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.participant.util.EventFilter
+import com.digitalasset.platform.resources.ResourceOwner
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.digitalasset.platform.sandbox.stores.ledger._
 import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode
@@ -47,9 +48,9 @@ import scalaz.syntax.tag._
 
 import scala.compat.java8.FutureConverters
 import scala.concurrent.duration._
-import scala.concurrent.{Future, Promise}
+import scala.concurrent.{ExecutionContext, Future, Promise}
 
-trait IndexAndWriteService extends AutoCloseable {
+trait IndexAndWriteService {
   def indexService: IndexService
 
   def writeService: WriteService
@@ -74,7 +75,8 @@ object SandboxIndexAndWriteService {
       templateStore: InMemoryPackageStore,
       loggerFactory: NamedLoggerFactory,
       metrics: MetricRegistry,
-  )(implicit mat: Materializer): Future[IndexAndWriteService] =
+  )(implicit mat: Materializer): ResourceOwner[IndexAndWriteService] = {
+    implicit val executionContext: ExecutionContext = mat.executionContext
     Ledger
       .jdbcBacked(
         jdbcUrl,
@@ -89,9 +91,9 @@ object SandboxIndexAndWriteService {
         loggerFactory,
         metrics,
       )
-      .map(ledger =>
-        createInstance(Ledger.metered(ledger, metrics), participantId, timeModel, timeProvider))(
-        DEC)
+      .flatMap(ledger =>
+        owner(Ledger.metered(ledger, metrics), participantId, timeModel, timeProvider))
+  }
 
   def inMemory(
       ledgerId: LedgerId,
@@ -102,20 +104,22 @@ object SandboxIndexAndWriteService {
       ledgerEntries: ImmArray[LedgerEntryOrBump],
       templateStore: InMemoryPackageStore,
       metrics: MetricRegistry,
-  )(implicit mat: Materializer): IndexAndWriteService = {
-    val ledger =
-      Ledger.metered(
-        Ledger.inMemory(ledgerId, participantId, timeProvider, acs, templateStore, ledgerEntries),
-        metrics)
-    createInstance(ledger, participantId, timeModel, timeProvider)
+  )(implicit mat: Materializer): ResourceOwner[IndexAndWriteService] = {
+    implicit val executionContext: ExecutionContext = mat.executionContext
+    Ledger
+      .inMemory(ledgerId, participantId, timeProvider, acs, templateStore, ledgerEntries)
+      .flatMap(ledger =>
+        owner(Ledger.metered(ledger, metrics), participantId, timeModel, timeProvider))
   }
 
-  private def createInstance(
+  private def owner(
       ledger: Ledger,
       participantId: ParticipantId,
       timeModel: ParticipantState.TimeModel,
       timeProvider: TimeProvider,
-  )(implicit mat: Materializer): IndexAndWriteService = {
+  )(implicit mat: Materializer): ResourceOwner[IndexAndWriteService] = {
+    implicit val executionContext: ExecutionContext = mat.executionContext
+
     val contractStore = new SandboxContractStore(ledger)
     val indexSvc = new LedgerBackedIndexService(ledger, contractStore, participantId) {
       override def getLedgerConfiguration(): Source[LedgerConfiguration, NotUsed] =
@@ -124,21 +128,19 @@ object SandboxIndexAndWriteService {
           .concat(Source.fromFuture(Promise[LedgerConfiguration]().future)) // we should keep the stream open!
     }
     val writeSvc = new LedgerBackedWriteService(ledger, timeProvider)
-    val heartbeats = scheduleHeartbeats(timeProvider, ledger.publishHeartbeat)
 
-    new IndexAndWriteService {
-      override val indexService: IndexService = indexSvc
+    for {
+      _ <- ResourceOwner.forCloseable(() =>
+        scheduleHeartbeats(timeProvider, ledger.publishHeartbeat))
+    } yield
+      new IndexAndWriteService {
+        override val indexService: IndexService = indexSvc
 
-      override val writeService: WriteService = writeSvc
+        override val writeService: WriteService = writeSvc
 
-      override def publishHeartbeat(instant: Instant): Future[Unit] =
-        ledger.publishHeartbeat(instant)
-
-      override def close(): Unit = {
-        heartbeats.close()
-        ledger.close()
+        override def publishHeartbeat(instant: Instant): Future[Unit] =
+          ledger.publishHeartbeat(instant)
       }
-    }
   }
 
   private def scheduleHeartbeats(timeProvider: TimeProvider, onTimeChange: Instant => Future[Unit])(
@@ -167,8 +169,7 @@ abstract class LedgerBackedIndexService(
     contractStore: ContractStore,
     participantId: ParticipantId
 )(implicit mat: Materializer)
-    extends IndexService
-    with AutoCloseable {
+    extends IndexService {
   override def getLedgerId(): Future[LedgerId] = Future.successful(ledger.ledgerId)
 
   override def currentHealth(): HealthStatus = ledger.currentHealth()
@@ -417,10 +418,6 @@ abstract class LedgerBackedIndexService(
     ledger
       .packageEntries(beginOffset.value.toLong)
       .map(_._2.toDomain)
-
-  override def close(): Unit = {
-    ledger.close()
-  }
 
   /** Looks up the current configuration, if set, and the offset from which
     * to subscribe to further configuration changes.
