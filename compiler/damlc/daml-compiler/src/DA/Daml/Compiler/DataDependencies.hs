@@ -468,7 +468,7 @@ convType env =
     \case
         LF.TVar tyVarName ->
             HsTyVar noExt NotPromoted $ mkRdrName $ LF.unTypeVarName tyVarName
-        LF.TSyn tySyn -> error $ "TODO: DataDependencies, convType, type synonym: " <> show tySyn
+        LF.TSynApp tySyn _ -> error $ "TODO: DataDependencies, convType, type synonym application: " <> show tySyn
         LF.TCon LF.Qualified {..}
           | qualModule == LF.ModuleName ["DA", "Types"]
           , [name] <- LF.unTypeConName qualObject
