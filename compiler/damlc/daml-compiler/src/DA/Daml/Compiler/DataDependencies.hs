@@ -306,6 +306,7 @@ generateTemplateInstanceModule env externPkgId
         , "import \"" <> packageName <> "\" " <> modName
         , "import qualified DA.Internal.Template (Archive)" -- needed for the Archive data type
         , "import qualified " <> prefixStdlibImport env "DA.Internal.Template"
+        , "import qualified " <> prefixStdlibImport env "DA.Internal.Template.Functions"
         , "import qualified " <> prefixStdlibImport env "DA.Internal.LF"
         , "import qualified GHC.Types"
         ]
@@ -345,7 +346,7 @@ generateTemplateInstance env typeCon typeParams externPkgId =
         noLoc $
         HsTyVar noExt NotPromoted $
         noLoc $
-        mkRdrQual (mkModuleName $ prefixStdlibImport env "DA.Internal.Template") $
+        mkRdrQual (mkModuleName $ prefixStdlibImport env "DA.Internal.Template.Functions") $
         mkOccName varName "Template" :: LHsType GhcPs
     lfTemplateType = mkLfTemplateType moduleName0 typeCon typeParams
     mkExternalString :: T.Text -> String
@@ -400,7 +401,7 @@ generateChoiceInstance env externPkgId template choice =
         noLoc $
         HsTyVar noExt NotPromoted $
         noLoc $
-        mkRdrQual (mkModuleName $ prefixStdlibImport env "DA.Internal.Template") $
+        mkRdrQual (mkModuleName $ prefixStdlibImport env "DA.Internal.Template.Functions") $
         mkOccName varName "Choice" :: LHsType GhcPs
 
     arg1 :: LHsType GhcPs =

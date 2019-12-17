@@ -171,7 +171,7 @@ startFromExpr seen world e = case e of
 
 pattern EInternalTemplateVal :: T.Text -> LF.Expr
 pattern EInternalTemplateVal val <-
-    LF.EVal (LF.Qualified _pkg (LF.ModuleName ["DA", "Internal", "Template"]) (LF.ExprValName val))
+    LF.EVal (LF.Qualified _pkg (LF.ModuleName ["DA", "Internal", "Template", "Functions"]) (LF.ExprValName val))
 
 startFromChoice :: LF.World -> LF.TemplateChoice -> Set.Set Action
 startFromChoice world chc = startFromExpr Set.empty world (LF.chcUpdate chc)

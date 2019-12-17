@@ -482,7 +482,7 @@ dataDependencyTests damlc = testGroup "Data Dependencies" $
             [ "daml 1.2"
             , "module A where"
             , "import qualified \"instances-simple-dalf\" Module"
-            , "import DA.Internal.Template (toAnyTemplate, fromAnyTemplate)"
+            , "import DA.Internal.Template.Functions (toAnyTemplate, fromAnyTemplate)"
             , "newTemplate : Party -> Party -> Module.Template"
             , "newTemplate p1 p2 = Module.Template with Module.this = p1, Module.arg = p2"
             , "newChoice : Module.Choice"
