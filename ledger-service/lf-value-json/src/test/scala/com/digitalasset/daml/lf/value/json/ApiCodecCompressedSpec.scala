@@ -4,7 +4,8 @@
 package com.digitalasset.daml.lf
 package value.json
 
-import com.digitalasset.daml.bazeltools.BazelRunfiles.rlocation
+import com.digitalasset.daml.bazeltools.BazelRunfiles._
+import com.digitalasset.daml.lf.archive.DarReader
 import data.{Decimal, Ref, SortedLookupList, Time}
 import value.json.{NavigatorModelAliases => model}
 import value.TypedValueGenerators.{ValueAddend => VA, genAddend, genTypeAndValue}
@@ -27,6 +28,8 @@ class ApiCodecCompressedSpec
 
   private val dar = new java.io.File(rlocation("ledger-service/lf-value-json/JsonEncodingTest.dar"))
   require(dar.exists())
+
+  DarReader().readArchiveFromFile(dar).getOrElse(fail(s"Cannot parse $dar"))
 
   /** XXX SC replace when TypedValueGenerators supports TypeCons */
   private val typeLookup: NavigatorModelAliases.DamlLfTypeLookup = _ => None
