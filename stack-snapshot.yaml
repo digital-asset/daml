@@ -11,11 +11,11 @@ packages:
   - extra-1.6.18
   - grpc-haskell-0.0.1.0
   - grpc-haskell-core-0.0.0.0
-  - haskell-lsp-0.18.0.0
-  - haskell-lsp-types-0.18.0.0
-  - hie-bios-0.2.1
+  - haskell-lsp-0.19.0.0
+  - haskell-lsp-types-0.19.0.0
+  - hie-bios-0.3.0
   - hpp-0.6.1
-  - lsp-test-0.8.2.0
+  - lsp-test-0.9.0.0
   - proto3-suite-0.4.0.0
   - proto3-wire-1.1.0
   # Core packages, need to be listed for integer-simple flags.

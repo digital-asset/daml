@@ -5,7 +5,7 @@ package com.digitalasset.platform.testing
 
 import com.digitalasset.ledger.api.v1.value.Identifier
 
-final case class TestTemplateIdentifiers(testPackageId: String) {
+final class TestTemplateIdentifiers(testPackageId: String) {
 
   val dummy =
     Identifier(testPackageId, moduleName = "Test", entityName = "Dummy")

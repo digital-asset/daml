@@ -181,8 +181,7 @@ generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase
     opts' <-
         mkOptions $
         opts
-            { optWriteInterface = False
-            , optIfaceDir = Nothing
+            { optIfaceDir = Nothing
             -- We write ifaces below using writeIfacesAndHie so we don’t need to enable these options.
             , optPackageDbs = projectPackageDatabase : optPackageDbs opts
             , optIsGenerated = True
@@ -292,8 +291,7 @@ generateAndInstallInstancesPkg thisSdkVer templInstSrc opts dbPath projectPackag
             opts' <-
                 mkOptions $
                 opts
-                    { optWriteInterface = False
-                    , optIfaceDir = Nothing
+                    { optIfaceDir = Nothing
                     , optPackageDbs = projectPackageDatabaseAbs : optPackageDbs opts
                     , optIsGenerated = True
                     , optDflagCheck = False
