@@ -95,7 +95,10 @@ private[kvutils] case class ProcessTransactionSubmission(
         Commit.set(
           dedupKey ->
             DamlStateValue.newBuilder
-              .setCommandDedup(DamlCommandDedupValue.newBuilder.build)
+              .setCommandDedup(
+                DamlCommandDedupValue.newBuilder
+                  .setRecordTime(buildTimestamp(recordTime))
+                  .build)
               .build)
       } else {
         logger.trace(

@@ -115,7 +115,10 @@ private[kvutils] case object PartyAllocationCommitter
     ctx.set(
       partyAllocationDedupKey(ctx.getParticipantId, partyAllocationEntry.getSubmissionId),
       DamlStateValue.newBuilder
-        .setSubmissionDedup(DamlSubmissionDedupValue.newBuilder.build)
+        .setSubmissionDedup(
+          DamlSubmissionDedupValue.newBuilder
+            .setRecordTime(buildTimestamp(ctx.getRecordTime))
+            .build)
         .build
     )
 

@@ -134,7 +134,10 @@ private[kvutils] case class PackageCommitter(engine: Engine)
     ctx.set(
       packageUploadDedupKey(ctx.getParticipantId, uploadEntry.getSubmissionId),
       DamlStateValue.newBuilder
-        .setSubmissionDedup(DamlSubmissionDedupValue.newBuilder.build)
+        .setSubmissionDedup(
+          DamlSubmissionDedupValue.newBuilder
+            .setRecordTime(buildTimestamp(ctx.getRecordTime))
+            .build)
         .build
     )
     StepStop(

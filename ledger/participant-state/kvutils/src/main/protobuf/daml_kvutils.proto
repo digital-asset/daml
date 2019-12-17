@@ -338,7 +338,7 @@ message DamlCommandDedupKey {
 }
 
 message DamlCommandDedupValue {
-  // Currently no content. Could store pointer to log entry.
+  google.protobuf.Timestamp record_time = 1;
 }
 
 message DamlSubmissionDedupKey {
@@ -358,7 +358,7 @@ message DamlSubmissionDedupKey {
 }
 
 message DamlSubmissionDedupValue {
-  // Currently no content. Could store pointer to log entry.
+  google.protobuf.Timestamp record_time = 1;
 }
 
 // DAML contract state, recording the activeness state of a contract.
@@ -450,7 +450,8 @@ message Inconsistent {
   string details = 1;
 }
 
-// The transaction has been disputed
+// The transaction has been disputed.
+// Dispute occurs when the DAML model conformance or authorization fails.
 message Disputed {
   string details = 1;
 }

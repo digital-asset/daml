@@ -48,14 +48,12 @@ object KeyValueSubmission {
 
     val inputDamlStateFromTx = InputsAndEffects.computeInputs(tx)
     val encodedSubInfo = buildSubmitterInfo(submitterInfo)
-    val inputDamlState =
-      commandDedupKey(encodedSubInfo) ::
-        configurationStateKey ::
-        partyStateKey(submitterInfo.submitter) ::
-        inputDamlStateFromTx
 
     DamlSubmission.newBuilder
-      .addAllInputDamlState(inputDamlState.asJava)
+      .addInputDamlState(commandDedupKey(encodedSubInfo))
+      .addInputDamlState(configurationStateKey)
+      .addInputDamlState(partyStateKey(submitterInfo.submitter))
+      .addAllInputDamlState(inputDamlStateFromTx.asJava)
       .setTransactionEntry(
         DamlTransactionEntry.newBuilder
           .setTransaction(Conversions.encodeTransaction(tx))
@@ -73,16 +71,16 @@ object KeyValueSubmission {
       sourceDescription: String,
       participantId: ParticipantId): DamlSubmission = {
 
-    val inputDamlState =
-      packageUploadDedupKey(participantId, submissionId) ::
-        archives.map(
+    val archivetDamlState =
+      archives.map(
         archive =>
           DamlStateKey.newBuilder
             .setPackageId(archive.getHash)
             .build)
 
     DamlSubmission.newBuilder
-      .addAllInputDamlState(inputDamlState.asJava)
+      .addInputDamlState(packageUploadDedupKey(participantId, submissionId))
+      .addAllInputDamlState(archivetDamlState.asJava)
       .setPackageUploadEntry(
         DamlPackageUploadEntry.newBuilder
           .setSubmissionId(submissionId)
@@ -100,11 +98,9 @@ object KeyValueSubmission {
       displayName: Option[String],
       participantId: ParticipantId): DamlSubmission = {
     val party = hint.getOrElse("")
-    val inputDamlState =
-      partyAllocationDedupKey(participantId, submissionId) ::
-        partyStateKey(party) :: Nil
     DamlSubmission.newBuilder
-      .addAllInputDamlState(inputDamlState.asJava)
+      .addInputDamlState(partyAllocationDedupKey(participantId, submissionId))
+      .addInputDamlState(partyStateKey(party))
       .setPartyAllocationEntry(
         DamlPartyAllocationEntry.newBuilder
           .setSubmissionId(submissionId)

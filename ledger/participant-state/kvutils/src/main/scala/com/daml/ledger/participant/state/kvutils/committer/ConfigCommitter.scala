@@ -118,7 +118,6 @@ private[kvutils] case class ConfigCommitter(
   private val deduplicateSubmission: Step = (ctx, result) => {
     val submissionKey = configDedupKey(ctx.getParticipantId, result.submission.getSubmissionId)
     if (ctx.get(submissionKey).isEmpty) {
-      logger.info(s"Accepting submissionId ${result.submission.getSubmissionId}")
       StepContinue(result)
     } else {
       val msg = s"duplicate submission='${result.submission.getSubmissionId}'"
@@ -155,7 +154,10 @@ private[kvutils] case class ConfigCommitter(
     ctx.set(
       configDedupKey(ctx.getParticipantId, result.submission.getSubmissionId),
       DamlStateValue.newBuilder
-        .setSubmissionDedup(DamlSubmissionDedupValue.newBuilder.build)
+        .setSubmissionDedup(
+          DamlSubmissionDedupValue.newBuilder
+            .setRecordTime(buildTimestamp(ctx.getRecordTime))
+            .build)
         .build
     )
 
