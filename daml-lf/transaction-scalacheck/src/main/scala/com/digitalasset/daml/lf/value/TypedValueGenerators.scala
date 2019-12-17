@@ -166,25 +166,25 @@ object TypedValueGenerators {
       override def injshrink[Cid: Shrink] = Shrink.shrinkAny // XXX descend
     }
 
-    /** See [[RecordVa]] companion for usage examples. */
-    def record(name: Ref.Identifier, rec: RecordVa): (DefDataType.FWT, Aux[rec.HRec]) =
-      (DefDataType(ImmArraySeq.empty, Record(rec.t.to[ImmArraySeq])), new ValueAddend {
-        private[this] val lfvFieldNames = rec.t map { case (n, _) => Some(n) }
-        type Inj[Cid] = rec.HRec[Cid]
+    /** See [[RecVarSpec]] companion for usage examples. */
+    def record(name: Ref.Identifier, spec: RecVarSpec): (DefDataType.FWT, Aux[spec.HRec]) =
+      (DefDataType(ImmArraySeq.empty, Record(spec.t.to[ImmArraySeq])), new ValueAddend {
+        private[this] val lfvFieldNames = spec.t map { case (n, _) => Some(n) }
+        type Inj[Cid] = spec.HRec[Cid]
         override val t = TypeCon(TypeConName(name), ImmArraySeq.empty)
         override def inj[Cid] =
-          hl => ValueRecord(Some(name), (lfvFieldNames zip rec.injRec(hl)).to[ImmArray])
+          hl => ValueRecord(Some(name), (lfvFieldNames zip spec.injRec(hl)).to[ImmArray])
         override def prj[Cid] = {
-          case ValueRecord(_, fields) if fields.length == rec.t.length =>
-            rec.prjRec(fields)
+          case ValueRecord(_, fields) if fields.length == spec.t.length =>
+            spec.prjRec(fields)
           case _ => None
         }
-        override def injarb[Cid: Arbitrary] = rec.recarb[Cid]
-        override def injshrink[Cid: Shrink] = rec.recshrink
+        override def injarb[Cid: Arbitrary] = spec.recarb[Cid]
+        override def injshrink[Cid: Shrink] = spec.recshrink
       })
 
-    /** See [[RecordVa]] companion for usage examples. */
-    def variant(name: Ref.Identifier, spec: RecordVa): (DefDataType.FWT, Aux[spec.HVar]) =
+    /** See [[RecVarSpec]] companion for usage examples. */
+    def variant(name: Ref.Identifier, spec: RecVarSpec): (DefDataType.FWT, Aux[spec.HVar]) =
       (DefDataType(ImmArraySeq.empty, Variant(spec.t.to[ImmArraySeq])), new ValueAddend {
         type Inj[Cid] = spec.HVar[Cid]
         override val t = TypeCon(TypeConName(name), ImmArraySeq.empty)
@@ -203,17 +203,17 @@ object TypedValueGenerators {
       })
   }
 
-  sealed abstract class RecordVa { self =>
+  sealed abstract class RecVarSpec { self =>
     import shapeless.{::, :+:, Coproduct, HList, Inl, Inr, Witness}
     import shapeless.labelled.{field, FieldType => :->>:}
 
     type HRec[Cid] <: HList
     type HVar[Cid] <: Coproduct
-    def ::[K <: Symbol](h: K :->>: ValueAddend)(implicit ev: Witness.Aux[K]): RecordVa {
+    def ::[K <: Symbol](h: K :->>: ValueAddend)(implicit ev: Witness.Aux[K]): RecVarSpec {
       type HRec[Cid] = (K :->>: h.Inj[Cid]) :: self.HRec[Cid]
       type HVar[Cid] = (K :->>: h.Inj[Cid]) :+: self.HVar[Cid]
     } =
-      new RecordVa {
+      new RecVarSpec {
         private[this] val fname = Ref.Name assertFromString ev.value.name
         type HRec[Cid] = (K :->>: h.Inj[Cid]) :: self.HRec[Cid]
         type HVar[Cid] = (K :->>: h.Inj[Cid]) :+: self.HVar[Cid]
@@ -289,7 +289,7 @@ object TypedValueGenerators {
     private[TypedValueGenerators] implicit def varshrink[Cid: Shrink]: Shrink[HVar[Cid]]
   }
 
-  case object RNil extends RecordVa {
+  case object RNil extends RecVarSpec {
     import shapeless.{HNil, CNil}
     type HRec[Cid] = HNil
     type HVar[Cid] = CNil
@@ -309,7 +309,7 @@ object TypedValueGenerators {
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  private[value] object RecordVa {
+  private[value] object RecVarSpec {
     // specifying records and variants works the same way: a
     // record written with ->> and ::, terminated with RNil (*not* HNil)
     val sample = {
@@ -317,7 +317,7 @@ object TypedValueGenerators {
       'foo ->> ValueAddend.int64 :: 'bar ->> ValueAddend.text :: RNil
     }
 
-    // a RecordVa can be turned into a ValueAddend for records
+    // a RecVarSpec can be turned into a ValueAddend for records
     val (sampleRecordDDT, sampleAsRecord) =
       ValueAddend.record(
         Ref.Identifier(
@@ -344,7 +344,7 @@ object TypedValueGenerators {
     val backwardsSampleData: sample.HRec[String] =
       Record(bar = "bye", foo = 84L).align[sample.HRec[String]]
 
-    // a RecordVa can be turned into a ValueAddend for variants
+    // a RecVarSpec can be turned into a ValueAddend for variants
     val (sampleVariantDDT, sampleAsVariant) =
       ValueAddend.variant(
         Ref.Identifier(
