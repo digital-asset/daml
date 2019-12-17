@@ -173,14 +173,14 @@ object TypedValueGenerators {
         type Inj[Cid] = rec.HRec[Cid]
         override val t = TypeCon(TypeConName(name), ImmArraySeq.empty)
         override def inj[Cid] =
-          hl => ValueRecord(Some(name), (lfvFieldNames zip rec.inj(hl)).to[ImmArray])
+          hl => ValueRecord(Some(name), (lfvFieldNames zip rec.injRec(hl)).to[ImmArray])
         override def prj[Cid] = {
           case ValueRecord(_, fields) if fields.length == rec.t.length =>
-            rec.prj(fields)
+            rec.prjRec(fields)
           case _ => None
         }
-        override def injarb[Cid: Arbitrary] = rec.injarb[Cid]
-        override def injshrink[Cid: Shrink] = rec.injshrink
+        override def injarb[Cid: Arbitrary] = rec.recarb[Cid]
+        override def injshrink[Cid: Shrink] = rec.recshrink
       })
 
     /** See [[RecordVa]] companion for usage examples. */
@@ -218,26 +218,26 @@ object TypedValueGenerators {
         type HRec[Cid] = (K :->>: h.Inj[Cid]) :: self.HRec[Cid]
         type HVar[Cid] = (K :->>: h.Inj[Cid]) :+: self.HVar[Cid]
         override val t = (fname, h.t) :: self.t
-        override def inj[Cid](v: HRec[Cid]) =
-          h.inj(v.head) :: self.inj(v.tail)
-        override def prj[Cid](v: ImmArray[(_, Value[Cid])]) = v match {
+        override def injRec[Cid](v: HRec[Cid]) =
+          h.inj(v.head) :: self.injRec(v.tail)
+        override def prjRec[Cid](v: ImmArray[(_, Value[Cid])]) = v match {
           case ImmArrayCons(vh, vt) =>
             for {
               pvh <- h.prj(vh._2)
-              pvt <- self.prj(vt)
+              pvt <- self.prjRec(vt)
             } yield field[K](pvh) :: pvt
           case _ => None
         }
-        override def injarb[Cid: Arbitrary] = {
-          import self.{injarb => tailarb}, h.{injarb => headarb}
+        override def recarb[Cid: Arbitrary] = {
+          import self.{recarb => tailarb}, h.{injarb => headarb}
           Arbitrary(arbitrary[(h.Inj[Cid], self.HRec[Cid])] map {
             case (vh, vt) =>
               field[K](vh) :: vt
           })
         }
 
-        override def injshrink[Cid: Shrink]: Shrink[HRec[Cid]] = {
-          import h.{injshrink => hshrink}, self.{injshrink => tshrink}
+        override def recshrink[Cid: Shrink]: Shrink[HRec[Cid]] = {
+          import h.{injshrink => hshrink}, self.{recshrink => tshrink}
           Shrink {
             case vh :: vt =>
               (Shrink.shrink(vh: h.Inj[Cid]) zip Shrink.shrink(vt)) map {
@@ -275,10 +275,10 @@ object TypedValueGenerators {
       }
 
     private[TypedValueGenerators] val t: List[(Ref.Name, Type)]
-    private[TypedValueGenerators] def inj[Cid](v: HRec[Cid]): List[Value[Cid]]
-    private[TypedValueGenerators] def prj[Cid](v: ImmArray[(_, Value[Cid])]): Option[HRec[Cid]]
-    private[TypedValueGenerators] implicit def injarb[Cid: Arbitrary]: Arbitrary[HRec[Cid]]
-    private[TypedValueGenerators] implicit def injshrink[Cid: Shrink]: Shrink[HRec[Cid]]
+    private[TypedValueGenerators] def injRec[Cid](v: HRec[Cid]): List[Value[Cid]]
+    private[TypedValueGenerators] def prjRec[Cid](v: ImmArray[(_, Value[Cid])]): Option[HRec[Cid]]
+    private[TypedValueGenerators] implicit def recarb[Cid: Arbitrary]: Arbitrary[HRec[Cid]]
+    private[TypedValueGenerators] implicit def recshrink[Cid: Shrink]: Shrink[HRec[Cid]]
 
     private[TypedValueGenerators] def injVar[Cid](v: HVar[Cid]): (Ref.Name, Value[Cid])
     private[TypedValueGenerators] type PrjResult[Cid] = Option[HVar[Cid]]
@@ -294,12 +294,12 @@ object TypedValueGenerators {
     type HRec[Cid] = HNil
     type HVar[Cid] = CNil
     private[TypedValueGenerators] override val t = List.empty
-    private[TypedValueGenerators] override def inj[Cid](v: HNil) = List.empty
-    private[TypedValueGenerators] override def prj[Cid](v: ImmArray[(_, Value[Cid])]) =
+    private[TypedValueGenerators] override def injRec[Cid](v: HNil) = List.empty
+    private[TypedValueGenerators] override def prjRec[Cid](v: ImmArray[(_, Value[Cid])]) =
       Some(HNil)
-    private[TypedValueGenerators] override def injarb[Cid: Arbitrary] =
+    private[TypedValueGenerators] override def recarb[Cid: Arbitrary] =
       Arbitrary(Gen const HNil)
-    private[TypedValueGenerators] override def injshrink[Cid: Shrink] =
+    private[TypedValueGenerators] override def recshrink[Cid: Shrink] =
       Shrink.shrinkAny
 
     private[TypedValueGenerators] override def injVar[Cid](v: CNil) = v.impossible
