@@ -153,6 +153,37 @@ class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
         ownerB.hasBeenAcquired should be(false)
       }
     }
+
+    "map and flatMap just like a Resource" in {
+      val ownerA = new TestResourceOwner(1)
+      val ownerB = new TestResourceOwner(2)
+      val ownerC = new TestResourceOwner(3)
+
+      val owner = for {
+        resourceA <- ownerA
+        resourceB <- ownerB
+        resourceC <- ownerC
+      } yield resourceA + resourceB + resourceC
+
+      val resource = for {
+        value <- owner.acquire()
+      } yield {
+        value should be(6)
+        ownerA.hasBeenAcquired should be(true)
+        ownerB.hasBeenAcquired should be(true)
+        ownerC.hasBeenAcquired should be(true)
+        value
+      }
+
+      for {
+        _ <- resource.asFuture
+        _ <- resource.release()
+      } yield {
+        ownerA.hasBeenAcquired should be(false)
+        ownerB.hasBeenAcquired should be(false)
+        ownerC.hasBeenAcquired should be(false)
+      }
+    }
   }
 
   "a pure value" should {

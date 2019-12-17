@@ -12,8 +12,26 @@ import akka.stream.ActorMaterializer
 import scala.concurrent.{ExecutionContext, Future}
 
 @FunctionalInterface
-trait ResourceOwner[T] {
-  def acquire()(implicit executionContext: ExecutionContext): Resource[T]
+trait ResourceOwner[A] {
+  self =>
+
+  def acquire()(implicit executionContext: ExecutionContext): Resource[A]
+
+  def map[B](f: A => B): ResourceOwner[B] = new ResourceOwner[B] {
+    override def acquire()(implicit executionContext: ExecutionContext): Resource[B] =
+      self.acquire().map(f)
+  }
+
+  def flatMap[B](f: A => ResourceOwner[B]): ResourceOwner[B] = new ResourceOwner[B] {
+    override def acquire()(implicit executionContext: ExecutionContext): Resource[B] =
+      self.acquire().flatMap(value => f(value).acquire())
+  }
+
+  def withFilter(p: A => Boolean)(implicit executionContext: ExecutionContext): ResourceOwner[A] =
+    new ResourceOwner[A] {
+      override def acquire()(implicit executionContext: ExecutionContext): Resource[A] =
+        self.acquire().withFilter(p)
+    }
 }
 
 object ResourceOwner {
