@@ -55,6 +55,9 @@ da_scala_test_suite(
     data = [
         "//ledger/test-common:Test-stable.dar",
     ],
+    resources = [
+        "src/it/resources/logback-test.xml",
+    ],
     deps = [
         ":ledger-api-client",
         "//language-support/scala/bindings",
