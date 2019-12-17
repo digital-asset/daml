@@ -103,7 +103,7 @@ final class StandaloneApiServer(
         "read" -> readService,
         "write" -> writeService,
       )
-      apiServer <- LedgerApiServer.create(
+      apiServer <- LedgerApiServer.start(
         (am: ActorMaterializer, esf: ExecutionSequencerFactory) =>
           ApiServices
             .create(
@@ -112,7 +112,7 @@ final class StandaloneApiServer(
               authorizer,
               engine,
               config.timeProvider,
-              cond.config.timeModel,
+              cond.config,
               SandboxConfig.defaultCommandConfig,
               timeServiceBackendO,
               loggerFactory,

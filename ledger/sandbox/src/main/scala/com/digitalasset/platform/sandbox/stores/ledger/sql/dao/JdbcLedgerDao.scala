@@ -6,13 +6,14 @@ import java.io.InputStream
 import java.sql.Connection
 import java.time.Instant
 import java.util.Date
+import java.util.UUID
 
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import anorm.SqlParser._
 import anorm.ToStatement.optionToStatement
-import anorm.{BatchSql, Macro, NamedParameter, RowParser, SQL, SqlParser}
+import anorm.{BatchSql, Macro, NamedParameter, ResultSetParser, RowParser, SQL, SqlParser}
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.v1.{
   AbsoluteContractInst,
@@ -65,7 +66,8 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.util.{
 import com.digitalasset.platform.sandbox.stores.ledger.{
   ConfigurationEntry,
   LedgerEntry,
-  PartyLedgerEntry
+  PartyLedgerEntry,
+  PackageLedgerEntry,
 }
 import com.google.common.io.ByteStreams
 import scalaz.syntax.tag._
@@ -159,7 +161,8 @@ private class JdbcLedgerDao(
   private val SQL_UPDATE_CURRENT_CONFIGURATION = SQL(
     "update parameters set configuration={configuration}"
   )
-  private val SQL_SELECT_CURRENT_CONFIGURATION = SQL("select configuration from parameters")
+  private val SQL_SELECT_CURRENT_CONFIGURATION = SQL(
+    "select ledger_end, configuration from parameters")
 
   private val SQL_GET_CONFIGURATION_ENTRIES = SQL(
     "select * from configuration_entries where ledger_offset>={startInclusive} and ledger_offset<{endExclusive} order by ledger_offset asc limit {pageSize} offset {queryOffset}")
@@ -172,12 +175,22 @@ private class JdbcLedgerDao(
     ()
   }
 
-  private def selectLedgerConfiguration(implicit conn: Connection) =
-    SQL_SELECT_CURRENT_CONFIGURATION
-      .as(byteArray("configuration").?.single)
-      .flatMap(Configuration.decode(_).toOption)
+  private val currentConfigurationParser: ResultSetParser[Option[(Long, Configuration)]] =
+    (long("ledger_end") ~
+      byteArray("configuration").? map flatten).single
+      .map {
+        case (_, None) => None
+        case (offset, Some(configBytes)) =>
+          Configuration
+            .decode(configBytes)
+            .toOption
+            .map(config => offset -> config)
+      }
 
-  override def lookupLedgerConfiguration(): Future[Option[Configuration]] =
+  private def selectLedgerConfiguration(implicit conn: Connection) =
+    SQL_SELECT_CURRENT_CONFIGURATION.as(currentConfigurationParser)
+
+  override def lookupLedgerConfiguration(): Future[Option[(Long, Configuration)]] =
     dbDispatcher.executeSql("lookup_configuration")(implicit conn => selectLedgerConfiguration)
 
   private val acceptType = "accept"
@@ -259,14 +272,24 @@ private class JdbcLedgerDao(
   ): Future[PersistenceResponse] = {
     dbDispatcher.executeSql("store_configuration_entry", Some(s"submissionId=$submissionId")) {
       implicit conn =>
-        val currentConfig = selectLedgerConfiguration
-        var finalRejectionReason = rejectionReason
-        if (rejectionReason.isEmpty && (currentConfig exists (_.generation + 1 != configuration.generation))) {
-          // If we're not storing a rejection and the new generation is not succ of current configuration, then
-          // we store a rejection. This code path is only expected to be taken in sandbox. This follows the same
-          // pattern as storing transactions.
-          finalRejectionReason = Some(s"Generation mismatch")
-        }
+        val optCurrentConfig = selectLedgerConfiguration
+        val optExpectedGeneration: Option[Long] =
+          optCurrentConfig.map { case (_, c) => c.generation + 1 }
+        val finalRejectionReason: Option[String] =
+          optExpectedGeneration match {
+            case Some(expGeneration)
+                if rejectionReason.isEmpty && expGeneration != configuration.generation =>
+              // If we're not storing a rejection and the new generation is not succ of current configuration, then
+              // we store a rejection. This code path is only expected to be taken in sandbox. This follows the same
+              // pattern as with transactions.
+              Some(
+                s"Generation mismatch: expected=${expGeneration}, actual=${configuration.generation}")
+
+            case _ =>
+              // Rejection reason was set, or we have no previous configuration generation, in which case we accept any
+              // generation.
+              rejectionReason
+          }
 
         updateLedgerEnd(newLedgerEnd, externalOffset)
         val configurationBytes = Configuration.encode(configuration).toByteArray
@@ -297,7 +320,7 @@ private class JdbcLedgerDao(
         }).recover {
           case NonFatal(e) if e.getMessage.contains(queries.DUPLICATE_KEY_ERROR) =>
             logger.warn(
-              s"Ignoring duplicate configuration submission for submissionId $submissionId, participantId $participantId")
+              s"Ignoring duplicate configuration submission, submissionId=$submissionId, participantId=$participantId")
             conn.rollback()
             PersistenceResponse.Duplicate
         }.get
@@ -1538,43 +1561,112 @@ private class JdbcLedgerDao(
         .map(data => Archive.parseFrom(Decode.damlLfCodedInputStreamFromBytes(data)))
     }
 
-  override def uploadLfPackages(
-      uploadId: String,
-      packages: List[(Archive, PackageDetails)],
-      externalOffset: Option[ExternalOffset]): Future[Map[PersistenceResponse, Int]] = {
-    val requirements = Try {
-      require(uploadId.nonEmpty, "The upload identifier cannot be the empty string")
-      require(packages.nonEmpty, "The list of packages to upload cannot be empty")
-    }
-    requirements.fold(
-      Future.failed,
-      _ =>
-        dbDispatcher.executeSql(
-          "store_packages",
-          Some(s"packages: ${packages.map(_._1.getHash).mkString(", ")}")) { implicit conn =>
-          externalOffset.foreach(updateExternalLedgerEnd)
-          val params = packages
-            .map(
-              p =>
-                Seq[NamedParameter](
-                  "package_id" -> p._1.getHash,
-                  "upload_id" -> uploadId,
-                  "source_description" -> p._2.sourceDescription,
-                  "size" -> p._2.size,
-                  "known_since" -> p._2.knownSince,
-                  "package" -> p._1.toByteArray
-              )
-            )
-          val updated =
-            executeBatchSql(queries.SQL_INSERT_PACKAGE, params).map(math.max(0, _)).sum
-          val duplicates = packages.length - updated
+  protected[JdbcLedgerDao] val SQL_INSERT_PACKAGE_ENTRY_ACCEPT =
+    SQL("""insert into package_entries(ledger_offset, recorded_at, submission_id, typ)
+      |values ({ledger_offset}, {recorded_at}, {submission_id}, 'accept')
+      |""".stripMargin)
 
-          Map(
-            PersistenceResponse.Ok -> updated,
-            PersistenceResponse.Duplicate -> duplicates
-          ).filter(_._2 > 0)
+  protected[JdbcLedgerDao] val SQL_INSERT_PACKAGE_ENTRY_REJECT =
+    SQL(
+      """insert into package_entries(ledger_offset, recorded_at, submission_id, typ, rejection_reason)
+      |values ({ledger_offset}, {recorded_at}, {submission_id}, 'reject', {rejection_reason})
+      |""".stripMargin)
+
+  override def storePackageEntry(
+      offset: LedgerOffset,
+      newLedgerEnd: LedgerOffset,
+      externalOffset: Option[ExternalOffset],
+      packages: List[(Archive, PackageDetails)],
+      optEntry: Option[PackageLedgerEntry]
+  ): Future[PersistenceResponse] = {
+    dbDispatcher.executeSql(
+      "store_package_entry",
+      Some(s"packages: ${packages.map(_._1.getHash).mkString(", ")}")) { implicit conn =>
+      updateLedgerEnd(newLedgerEnd, externalOffset)
+
+      if (packages.nonEmpty) {
+        val uploadId = optEntry.map(_.submissionId).getOrElse(UUID.randomUUID().toString)
+        uploadLfPackages(uploadId, packages)
       }
-    )
+
+      optEntry.foreach {
+        case PackageLedgerEntry.PackageUploadAccepted(submissionId, recordTime) =>
+          SQL_INSERT_PACKAGE_ENTRY_ACCEPT
+            .on(
+              "ledger_offset" -> offset,
+              "recorded_at" -> recordTime,
+              "submission_id" -> submissionId,
+            )
+            .execute()
+        case PackageLedgerEntry.PackageUploadRejected(submissionId, recordTime, reason) =>
+          SQL_INSERT_PACKAGE_ENTRY_REJECT
+            .on(
+              "ledger_offset" -> offset,
+              "recorded_at" -> recordTime,
+              "submission_id" -> submissionId,
+              "rejection_reason" -> reason
+            )
+            .execute()
+      }
+      PersistenceResponse.Ok
+    }
+  }
+
+  private def uploadLfPackages(uploadId: String, packages: List[(Archive, PackageDetails)])(
+      implicit conn: Connection): Unit = {
+    val params = packages
+      .map(
+        p =>
+          Seq[NamedParameter](
+            "package_id" -> p._1.getHash,
+            "upload_id" -> uploadId,
+            "source_description" -> p._2.sourceDescription,
+            "size" -> p._2.size,
+            "known_since" -> p._2.knownSince,
+            "package" -> p._1.toByteArray
+        )
+      )
+    val _ = executeBatchSql(queries.SQL_INSERT_PACKAGE, params)
+  }
+
+  private val SQL_GET_PACKAGE_ENTRIES = SQL(
+    "select * from package_entries where ledger_offset>={startInclusive} and ledger_offset<{endExclusive} order by ledger_offset asc limit {pageSize} offset {queryOffset}")
+
+  private val packageEntryParser: RowParser[(Long, PackageLedgerEntry)] =
+    (long("ledger_offset") ~
+      date("recorded_at") ~
+      ledgerString("submission_id").? ~
+      str("typ") ~
+      str("rejection_reason").?)
+      .map(flatten)
+      .map {
+        case (offset, recordTime, Some(submissionId), `acceptType`, None) =>
+          offset ->
+            PackageLedgerEntry.PackageUploadAccepted(submissionId, recordTime.toInstant)
+        case (offset, recordTime, Some(submissionId), `rejectType`, Some(reason)) =>
+          offset ->
+            PackageLedgerEntry.PackageUploadRejected(submissionId, recordTime.toInstant, reason)
+        case invalidRow =>
+          sys.error(s"packageEntryParser: invalid party entry row: $invalidRow")
+      }
+
+  override def getPackageEntries(
+      startInclusive: LedgerOffset,
+      endExclusive: LedgerOffset): Source[(Long, PackageLedgerEntry), NotUsed] = {
+    PaginatingAsyncStream(PageSize, executionContext) { queryOffset =>
+      dbDispatcher.executeSql(
+        "load_package_entries",
+        Some(s"bounds: [$startInclusive, $endExclusive[ queryOffset $queryOffset")) {
+        implicit conn =>
+          SQL_GET_PACKAGE_ENTRIES
+            .on(
+              "startInclusive" -> startInclusive,
+              "endExclusive" -> endExclusive,
+              "pageSize" -> PageSize,
+              "queryOffset" -> queryOffset)
+            .as(packageEntryParser.*)
+      }
+    }
   }
 
   private val SQL_TRUNCATE_ALL_TABLES =
@@ -1588,6 +1680,7 @@ private class JdbcLedgerDao(
         |truncate parameters cascade;
         |truncate contract_keys cascade;
         |truncate configuration_entries cascade;
+        |truncate package_entries cascade;
       """.stripMargin)
 
   override def reset(): Future[Unit] =

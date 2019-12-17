@@ -1,6 +1,6 @@
 -- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-module Main (main) where
+module TsCodeGenMain (main) where
 
 import qualified DA.Daml.LF.Proto3.Archive as Archive
 import qualified DA.Daml.LF.Reader as DAR
@@ -92,8 +92,8 @@ genModule mod
             ["// Generated from " <> T.intercalate "/" (unModuleName curModName) <> ".daml"
             ,"/* eslint-disable @typescript-eslint/camelcase */"
             ,"/* eslint-disable @typescript-eslint/no-use-before-define */"
-            ,"import * as daml from '@digitalasset/daml-json-types';"
             ,"import * as jtv from '@mojotech/json-type-validation';"
+            ,"import * as daml from '@digitalasset/daml-json-types';"
             ]
         imports =
             ["import * as " <> modNameStr <> " from '" <> pkgRootPath <> "/" <> pkgRefStr <> T.intercalate "/" (unModuleName modName) <> "';"
@@ -121,9 +121,23 @@ genDefDataType curModName tpls def = case unTypeConName (dataTypeCon def) of
     [] -> error "IMPOSSIBLE: empty type constructor name"
     _:_:_ -> error "TODO(MH): multi-part type constructor names"
     [conName] -> case dataCons def of
-        DataSynonym{} -> ((makeType ["unknown;"], makeSer ["jtv.unknownJson,"]), Set.empty)  -- TODO(NICK)
         DataVariant{} -> ((makeType ["unknown;"], makeSer ["jtv.unknownJson,"]), Set.empty)  -- TODO(MH): make variants type safe
-        DataEnum{} -> ((makeType ["unknown;"], makeSer ["jtv.unknownJson,"]), Set.empty)  -- TODO(MH): make enum types type safe
+        DataEnum enumCons ->
+          let
+            typeDesc =
+                [ "export enum " <> conName <> "{"] ++
+                [ "  " <> cons <> " = " <> "\'" <> cons <> "\'" <> ","
+                | VariantConName cons <- enumCons] ++
+                [ "}"
+                , "daml.STATIC_IMPLEMENTS_SERIALIZABLE_CHECK<" <> conName <> ">(" <> conName <> ")"
+                ]
+
+            serDesc =
+                ["  () => jtv.oneOf("] ++
+                ["    jtv.constant(" <> conName <> "." <> cons <> ")," | VariantConName cons <- enumCons] ++
+                ["  )"]
+          in
+          ((typeDesc, makeNameSpace serDesc), Set.empty)
         DataRecord fields ->
             let (fieldNames, fieldTypesLf) = unzip [(unFieldName x, t) | (x, t) <- fields]
                 (fieldTypesTs, fieldSers) = unzip (map (genType curModName) fieldTypesLf)
@@ -157,7 +171,7 @@ genDefDataType curModName tpls def = case unTypeConName (dataTypeCon def) of
                             map ("  " <>) (onHead ("decoder: " <>) serDesc) ++
                             concat
                             [ ["  " <> x <> ": {"
-                              ,"    template: undefined as unknown as daml.Template<" <> conName <> ">,"
+                              ,"    template: () => " <> conName <> ","
                               ,"    choiceName: '" <> x <> "',"
                               ,"    decoder: " <> t <> ".decoder,"
                               ,"  },"
@@ -165,13 +179,11 @@ genDefDataType curModName tpls def = case unTypeConName (dataTypeCon def) of
                             | (x, t) <- chcs
                             ] ++
                             ["};"]
-                        knots =
-                            [conName <> "." <> x <> ".template = " <> conName <> ";" | (x, _) <- chcs]
                         registrations =
                             ["daml.registerTemplate(" <> conName <> ");"]
                         refs = Set.unions (fieldRefs ++ argRefs)
                     in
-                    ((makeType typeDesc, dict ++ knots ++ registrations), refs)
+                    ((makeType typeDesc, dict ++ registrations), refs)
       where
         paramNames = map (unTypeVarName . fst) (dataParams def)
         typeParams
@@ -186,6 +198,13 @@ genDefDataType curModName tpls def = case unTypeConName (dataTypeCon def) of
             ["export const " <> conName <> serHeader <> " ({"] ++
             map ("  " <>) (onHead ("decoder: " <>) serDesc) ++
             ["});"]
+        makeNameSpace serDesc =
+            [ "// eslint-disable-next-line @typescript-eslint/no-namespace"
+            , "export namespace " <> conName <> "{"
+            , "  export const decoder ="
+            ] ++
+            serDesc ++
+            ["}"]
 
 genType :: ModuleName -> Type -> (T.Text, T.Text)
 genType curModName = go
@@ -230,6 +249,7 @@ genType curModName = go
                     ( con' <> "<" <> T.intercalate ", " ts' <> ">"
                     , ser <> "(" <> T.intercalate ", " sers <> ")"
                     )
+        TSyn _ -> error "TODO: genType, type synonym"
         TCon _ -> error "IMPOSSIBLE: lonely type constructor"
         t@TApp{} -> error $ "IMPOSSIBLE: type application not serializable - " <> DA.Pretty.renderPretty t
         TBuiltin t -> error $ "IMPOSSIBLE: partially applied primitive type not serializable - " <> DA.Pretty.renderPretty t

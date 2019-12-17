@@ -169,6 +169,18 @@ data Nat
 
 -- | A type for fixed-point decimal numbers, with the scale
 -- being passed as part of the type.
+--
+-- `Numeric n` represents a fixed-point decimal number with a
+-- fixed precision of 38 (i.e. 38 digits not including a leading zero)
+-- and a scale of `n`, i.e., `n` digits after the decimal point.
+--
+-- `n` must be between 0 and 37 (bounds inclusive).
+--
+-- Examples:
+-- ```
+-- 0.01 : Numeric 2
+-- 0.0001 : Numeric 4
+-- ```
 data Numeric (n:Nat) =
   -- | HIDE
   Numeric Opaque

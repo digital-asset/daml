@@ -108,9 +108,6 @@ generateSrcFromLf env = noLoc mod
 
     convDataCons :: T.Text -> LF.DataCons -> [LConDecl GhcPs]
     convDataCons dataTypeCon0 = \case
-            LF.DataSynonym _ ->
-              [] -- TODO(NICK) write the Haskell type synonym
-
             LF.DataRecord fields ->
                 [ noLoc $
                   ConDeclH98
@@ -470,6 +467,7 @@ convType env =
     \case
         LF.TVar tyVarName ->
             HsTyVar noExt NotPromoted $ mkRdrName $ LF.unTypeVarName tyVarName
+        LF.TSyn tySyn -> error $ "TODO: DataDependencies, convType, type synonym: " <> show tySyn
         LF.TCon LF.Qualified {..}
           | qualModule == LF.ModuleName ["DA", "Types"]
           , [name] <- LF.unTypeConName qualObject

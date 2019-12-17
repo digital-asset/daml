@@ -13,6 +13,7 @@ import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.api.util.TimestampConversion.fromInstant
 import com.digitalasset.codegen.util.TestUtil.{TestContext, findOpenPort, requiredResource}
 import com.digitalasset.grpc.adapter.AkkaExecutionSequencerPool
+import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.refinements.ApiTypes.{CommandId, WorkflowId}
 import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
 import com.digitalasset.ledger.api.v1.commands.Commands
@@ -34,23 +35,19 @@ import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.SandboxServer
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.services.time.TimeProviderType
-import com.digitalasset.sample.EventDecoder
-import com.digitalasset.sample.MyMain
 import com.digitalasset.sample.MyMain.{CallablePayout, MkListExample, PayOut}
-import com.digitalasset.sample.MySecondMain
+import com.digitalasset.sample.{EventDecoder, MyMain, MySecondMain}
 import com.digitalasset.util.Ctx
 import com.google.protobuf.empty.Empty
 import org.scalacheck.Arbitrary.arbitrary
 import org.scalatest._
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{Millis, Seconds, Span}
+import scalaz.syntax.tag._
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
-import com.digitalasset.ledger.api.domain.LedgerId
-
-import scalaz.syntax.tag._
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class ScalaCodeGenIT
@@ -87,7 +84,7 @@ class ScalaCodeGenIT
     ledgerIdMode = LedgerIdMode.Static(LedgerId(ledgerId)),
   )
 
-  private val sandbox: SandboxServer = SandboxServer(serverConfig)
+  private val sandbox: SandboxServer = new SandboxServer(serverConfig)
 
   private val applicationId = ledgerId + "-client"
   private val decoder: DecoderType = EventDecoder.createdEventToContractRef

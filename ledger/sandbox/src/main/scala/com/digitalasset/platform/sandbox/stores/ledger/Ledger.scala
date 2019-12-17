@@ -55,9 +55,10 @@ trait WriteLedger extends ReportsHealth with AutoCloseable {
 
   // Package management
   def uploadPackages(
+      submissionId: SubmissionId,
       knownSince: Instant,
       sourceDescription: Option[String],
-      payload: List[Archive]): Future[UploadPackagesResult]
+      payload: List[Archive]): Future[SubmissionResult]
 
   // Configuration management
   def publishConfiguration(
@@ -100,10 +101,12 @@ trait ReadOnlyLedger extends ReportsHealth with AutoCloseable {
 
   def getLfPackage(packageId: PackageId): Future[Option[Ast.Package]]
 
-  // Configuration management
-  def lookupLedgerConfiguration(): Future[Option[Configuration]]
+  def packageEntries(beginOffset: Long): Source[(Long, PackageLedgerEntry), NotUsed]
 
-  def configurationEntries(offset: Option[Long]): Source[(Long, ConfigurationEntry), NotUsed]
+  // Configuration management
+  def lookupLedgerConfiguration(): Future[Option[(Long, Configuration)]]
+  def configurationEntries(
+      startInclusive: Option[Long]): Source[(Long, ConfigurationEntry), NotUsed]
 }
 
 object Ledger {

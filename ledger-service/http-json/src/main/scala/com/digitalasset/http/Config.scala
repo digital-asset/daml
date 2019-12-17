@@ -37,11 +37,11 @@ private[http] object Config {
 }
 
 protected case class WebsocketConfig(
-      maxDuration: FiniteDuration,
-      throttleElem: Int,
-      throttlePer: FiniteDuration,
-      maxBurst: Int,
-      mode: ThrottleMode
+    maxDuration: FiniteDuration,
+    throttleElem: Int,
+    throttlePer: FiniteDuration,
+    maxBurst: Int,
+    mode: ThrottleMode
 )
 
 private[http] abstract class ConfigCompanion[A](name: String) {

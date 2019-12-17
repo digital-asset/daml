@@ -5,12 +5,20 @@ package com.daml.ledger.api.testtool.infrastructure.participant
 
 import java.time.{Clock, Duration, Instant}
 
+import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
 import com.daml.ledger.api.testtool.infrastructure.ProtobufConverters._
 import com.daml.ledger.api.testtool.infrastructure.{Identification, LedgerServices}
 import com.digitalasset.ledger.api.refinements.ApiTypes.TemplateId
 import com.digitalasset.ledger.api.v1.active_contracts_service.{
   GetActiveContractsRequest,
   GetActiveContractsResponse
+}
+import com.digitalasset.ledger.api.v1.admin.config_management_service.{
+  GetTimeModelRequest,
+  GetTimeModelResponse,
+  SetTimeModelRequest,
+  SetTimeModelResponse,
+  TimeModel
 }
 import com.digitalasset.ledger.api.v1.admin.package_management_service.{
   ListKnownPackagesRequest,
@@ -112,6 +120,8 @@ private[testtool] final class ParticipantTestContext private[participant] (
     Identification.indexSuffix(s"$identifierPrefix-party")
   private[this] val nextCommandId: () => String =
     Identification.indexSuffix(s"$identifierPrefix-command")
+  private[this] val nextSubmissionId: () => String =
+    Identification.indexSuffix(s"$identifierPrefix-submission")
 
   /**
     * Gets the absolute offset of the ledger end at a point in time. Use [[end]] if you need
@@ -196,6 +206,23 @@ private[testtool] final class ParticipantTestContext private[participant] (
     services.partyManagement
       .listKnownParties(new ListKnownPartiesRequest())
       .map(_.partyDetails.map(partyDetails => Party(partyDetails.party)).toSet)
+
+  def waitForParties(
+      otherParticipants: Iterable[ParticipantTestContext],
+      expectedParties: Set[Party]): Future[Unit] = eventually {
+    val participants = otherParticipants.toSet + this
+    Future
+      .sequence(participants.map(otherParticipant => {
+        otherParticipant
+          .listParties()
+          .map(actualParties => {
+            assert(
+              expectedParties.subsetOf(actualParties),
+              s"Parties from $this never appeared on $otherParticipant.")
+          })
+      }))
+      .map(_ => ())
+  }
 
   def activeContracts(
       request: GetActiveContractsRequest): Future[(Option[LedgerOffset], Vector[CreatedEvent])] =
@@ -531,4 +558,15 @@ private[testtool] final class ParticipantTestContext private[participant] (
 
   def watchHealth(): Future[Seq[HealthCheckResponse]] =
     TimeBoundObserver[HealthCheckResponse](1.second)(services.health.watch(HealthCheckRequest(), _))
+
+  def getTimeModel(): Future[GetTimeModelResponse] =
+    services.configManagement.getTimeModel(GetTimeModelRequest())
+
+  def setTimeModel(
+      mrt: Instant,
+      generation: Long,
+      newTimeModel: TimeModel): Future[SetTimeModelResponse] =
+    services.configManagement.setTimeModel(
+      SetTimeModelRequest(nextSubmissionId(), Some(mrt.asProtobuf), generation, Some(newTimeModel))
+    )
 }

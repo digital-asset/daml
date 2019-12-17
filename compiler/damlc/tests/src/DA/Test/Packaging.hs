@@ -526,7 +526,7 @@ dataDependencyTests damlc = testGroup "Data Dependencies" $
         withCurrentDirectory projDir $
             callProcessSilent genSimpleDalf $
             ["--with-archive-choice" | withArchiveChoice ] <> ["simple-dalf-0.0.0.dalf"]
-        withCurrentDirectory projDir $ callProcessSilent damlc ["build", "--target=1.dev", "--generated-src"]
+        withCurrentDirectory projDir $ callProcess damlc ["build", "--target=1.dev", "--generated-src"]
         let dar = projDir </> ".daml/dist/proj-0.1.0.dar"
         assertBool "proj-0.1.0.dar was not created." =<< doesFileExist dar
         callProcessSilent damlc ["test", "--target=1.dev", "--project-root", projDir, "--generated-src"]

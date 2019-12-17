@@ -44,6 +44,13 @@ newtype ModuleName = ModuleName{unModuleName :: [T.Text]}
     deriving stock (Eq, Data, Generic, Ord, Show)
     deriving newtype (Hashable, NFData)
 
+-- | Name for a type synonym. Must match the regex
+--
+-- > ([A-Z][a-zA-Z0-9_]*)(\.[A-Z][a-zA-Z0-9_]*)*
+newtype TypeSynName = TypeSynName{unTypeSynName :: [T.Text]}
+    deriving stock (Eq, Data, Generic, Ord, Show)
+    deriving newtype (Hashable, NFData)
+
 -- | Name for a type constructor. Must match the regex
 --
 -- > ([A-Z][a-zA-Z0-9_]*)(\.[A-Z][a-zA-Z0-9_]*)*
@@ -164,6 +171,8 @@ data Type
   -- | Reference to a type variable.
   = TVar        !TypeVarName
   -- | Reference to a type constructor.
+  | TSyn        !(Qualified TypeSynName)
+  -- | Application of a type function to a type.
   | TCon        !(Qualified TypeConName)
   -- | Application of a type function to a type.
   | TApp        !Type !Type
@@ -657,6 +666,19 @@ newtype IsSerializable = IsSerializable{getIsSerializable :: Bool}
   deriving stock (Eq, Data, Generic, Ord, Show)
   deriving anyclass (NFData)
 
+-- | Definition of a type synonym.
+data DefTypeSyn = DefTypeSyn
+  { synLocation :: !(Maybe SourceLoc)
+    -- ^ Location of the definition in the source file.
+  , synName     :: !TypeSynName
+    -- ^ Name of the synonym.
+  , synParams   :: ![(TypeVarName, Kind)]
+    -- ^ Type paramaters to the type synonym.
+  , synType     :: !Type
+    -- ^ Type synonomized.
+  }
+  deriving (Eq, Data, Generic, NFData, Ord, Show)
+
 -- | Definition of a data type.
 data DefDataType = DefDataType
   { dataLocation :: !(Maybe SourceLoc)
@@ -681,8 +703,6 @@ data DataCons
   | DataVariant ![(VariantConName, Type)]
   -- | An enum type given by the name of its constructors.
   | DataEnum ![VariantConName]
-  -- | A type synonym
-  | DataSynonym !Type
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 newtype HasNoPartyLiterals = HasNoPartyLiterals{getHasNoPartyLiterals :: Bool}
@@ -808,6 +828,8 @@ data Module = Module
     -- protobuf serialization format.
   , moduleFeatureFlags :: !FeatureFlags
     -- ^ Feature flags of this module.
+  , moduleSynonyms :: !(NM.NameMap DefTypeSyn)
+    -- ^ Type synonym definitions.
   , moduleDataTypes :: !(NM.NameMap DefDataType)
     -- ^ Data type definitions.
   , moduleValues :: !(NM.NameMap DefValue)
@@ -837,6 +859,10 @@ instance Hashable a => Hashable (Qualified a)
 instance NM.Named TemplateChoice where
   type Name TemplateChoice = ChoiceName
   name = chcName
+
+instance NM.Named DefTypeSyn where
+  type Name DefTypeSyn = TypeSynName
+  name = synName
 
 instance NM.Named DefDataType where
   type Name DefDataType = TypeConName

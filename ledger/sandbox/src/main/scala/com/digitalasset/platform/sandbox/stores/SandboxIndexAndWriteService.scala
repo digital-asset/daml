@@ -413,9 +413,26 @@ abstract class LedgerBackedIndexService(
     }
   }
 
+  override def packageEntries(beginOffset: LedgerOffset.Absolute): Source[PackageEntry, NotUsed] =
+    ledger
+      .packageEntries(beginOffset.value.toLong)
+      .map(_._2.toDomain)
+
   override def close(): Unit = {
     ledger.close()
   }
+
+  /** Looks up the current configuration, if set, and the offset from which
+    * to subscribe to further configuration changes.
+    * The offset is internal and not exposed over Ledger API.
+    */
+  override def lookupConfiguration(): Future[Option[(Long, Configuration)]] =
+    ledger.lookupLedgerConfiguration()
+
+  /** Retrieve configuration entries. */
+  override def configurationEntries(
+      startInclusive: Option[Long]): Source[domain.ConfigurationEntry, NotUsed] =
+    ledger.configurationEntries(startInclusive).map(_._2.toDomain)
 }
 
 class LedgerBackedWriteService(ledger: Ledger, timeProvider: TimeProvider) extends WriteService {
@@ -438,11 +455,12 @@ class LedgerBackedWriteService(ledger: Ledger, timeProvider: TimeProvider) exten
 
   // WritePackagesService
   override def uploadPackages(
+      submissionId: SubmissionId,
       payload: List[Archive],
       sourceDescription: Option[String]
-  ): CompletionStage[UploadPackagesResult] =
+  ): CompletionStage[SubmissionResult] =
     FutureConverters.toJava(
-      ledger.uploadPackages(timeProvider.getCurrentTime, sourceDescription, payload))
+      ledger.uploadPackages(submissionId, timeProvider.getCurrentTime, sourceDescription, payload))
 
   // WriteConfigService
   override def submitConfiguration(

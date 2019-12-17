@@ -30,6 +30,8 @@ object Synchronize {
     for {
       alice <- alpha.allocateParty()
       bob <- beta.allocateParty()
+      _ <- alpha.waitForParties(Set(beta), Set(alice, bob))
+      _ <- beta.waitForParties(Set(alpha), Set(alice, bob))
       factory <- alpha.create(alice, AgreementFactory(bob, alice))
       agreement <- eventually { beta.exercise(bob, factory.exerciseCreateAgreement) }
       _ <- eventually { alpha.transactionTreeById(agreement.transactionId, alice) }

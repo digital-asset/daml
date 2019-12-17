@@ -193,6 +193,15 @@ encodeList encodeElem = fmap V.fromList . mapM encodeElem
 encodeNameMap :: NM.Named a => (a -> Encode b) -> NM.NameMap a -> Encode (V.Vector b)
 encodeNameMap encodeElem = fmap V.fromList . mapM encodeElem . NM.toList
 
+encodeQualTypeSynName' :: Qualified TypeSynName -> Encode (P.TypeSynName)
+encodeQualTypeSynName' (Qualified pref mname syn) = do
+    typeSynNameModule <- encodeModuleRef pref mname
+    typeSynNameName <- encodeDottedName unTypeSynName syn
+    pure $ P.TypeSynName{..}
+
+encodeQualTypeSynName :: Qualified TypeSynName -> Encode (Just P.TypeSynName)
+encodeQualTypeSynName tysyn = Just <$> encodeQualTypeSynName' tysyn
+
 encodeQualTypeConName' :: Qualified TypeConName -> Encode (P.TypeConName)
 encodeQualTypeConName' (Qualified pref mname con) = do
     typeConNameModule <- encodeModuleRef pref mname
@@ -285,6 +294,10 @@ encodeType' typ = fmap (P.Type . Just) $ case typ ^. _TApps of
         type_VarVar <- encodeName unTypeVarName var
         type_VarArgs <- encodeList encodeType' args
         pure $ P.TypeSumVar P.Type_Var{..}
+    (TSyn syn, args) -> do
+        type_SynTysyn <- encodeQualTypeSynName syn
+        type_SynArgs <- encodeList encodeType' args
+        pure $ P.TypeSumSyn P.Type_Syn{..}
     (TCon con, args) -> do
         type_ConTycon <- encodeQualTypeConName con
         type_ConArgs <- encodeList encodeType' args
@@ -717,14 +730,19 @@ encodeCaseAlternative CaseAlternative{..} = do
     caseAltBody <- encodeExpr altExpr
     pure P.CaseAlt{..}
 
+encodeDefTypeSyn :: DefTypeSyn -> Encode P.DefTypeSyn
+encodeDefTypeSyn DefTypeSyn{..} = do
+    defTypeSynName <- encodeDottedName unTypeSynName synName
+    defTypeSynParams <- encodeTypeVarsWithKinds synParams
+    defTypeSynType <- encodeType synType
+    defTypeSynLocation <- traverse encodeSourceLoc synLocation
+    pure P.DefTypeSyn{..}
+
 encodeDefDataType :: DefDataType -> Encode P.DefDataType
 encodeDefDataType DefDataType{..} = do
     defDataTypeName <- encodeDottedName unTypeConName dataTypeCon
     defDataTypeParams <- encodeTypeVarsWithKinds dataParams
     defDataTypeDataCons <- fmap Just $ case dataCons of
-        DataSynonym typ -> do
-            t <- encodeType' typ
-            pure $ P.DefDataTypeDataConsSynonym t
         DataRecord fs -> do
             defDataType_FieldsFields <- encodeFieldsWithTypes unFieldName fs
             pure $ P.DefDataTypeDataConsRecord P.DefDataType_Fields{..}
@@ -802,6 +820,7 @@ encodeModule :: Module -> Encode P.Module
 encodeModule Module{..} = do
     moduleName <- encodeDottedName unModuleName moduleName
     let moduleFlags = encodeFeatureFlags moduleFeatureFlags
+    moduleSynonyms <- encodeNameMap encodeDefTypeSyn moduleSynonyms
     moduleDataTypes <- encodeNameMap encodeDefDataType moduleDataTypes
     moduleValues <- encodeNameMap encodeDefValue moduleValues
     moduleTemplates <- encodeNameMap encodeTemplate moduleTemplates

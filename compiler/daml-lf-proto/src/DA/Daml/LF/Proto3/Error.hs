@@ -15,6 +15,7 @@ data Error
   | UnknownEnum String Int32
   | ParseError String
   | DuplicateModule ModuleName
+  | DuplicateTypeSyn TypeSynName
   | DuplicateDataType TypeConName
   | DuplicateValue ExprValName
   | EDuplicateTemplate TypeConName

@@ -14,9 +14,10 @@ import com.daml.ledger.participant.state.index.v2.{
   IndexPackagesService,
   IndexPartyManagementService,
   IndexService,
-  IndexTransactionsService
+  IndexTransactionsService,
+  IndexConfigManagementService
 }
-import com.daml.ledger.participant.state.v1.{TimeModel, WriteService}
+import com.daml.ledger.participant.state.v1.{Configuration, WriteService}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.engine._
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
@@ -27,7 +28,8 @@ import com.digitalasset.ledger.api.v1.command_completion_service.CompletionEndRe
 import com.digitalasset.ledger.client.services.commands.CommandSubmissionFlow
 import com.digitalasset.platform.apiserver.services.admin.{
   ApiPackageManagementService,
-  ApiPartyManagementService
+  ApiPartyManagementService,
+  ApiConfigManagementService
 }
 import com.digitalasset.platform.apiserver.services.transaction.ApiTransactionService
 import com.digitalasset.platform.apiserver.services.{
@@ -78,7 +80,7 @@ object ApiServices {
       authorizer: Authorizer,
       engine: Engine,
       timeProvider: TimeProvider,
-      timeModel: TimeModel,
+      defaultLedgerConfiguration: Configuration,
       commandConfig: CommandConfiguration,
       optTimeServiceBackend: Option[TimeServiceBackend],
       loggerFactory: NamedLoggerFactory,
@@ -96,6 +98,7 @@ object ApiServices {
     val contractStore: ContractStore = indexService
     val completionsService: IndexCompletionsService = indexService
     val partyManagementService: IndexPartyManagementService = indexService
+    val configManagementService: IndexConfigManagementService = indexService
 
     identityService.getLedgerId().map { ledgerId =>
       val apiSubmissionService =
@@ -103,7 +106,7 @@ object ApiServices {
           ledgerId,
           contractStore,
           writeService,
-          timeModel,
+          defaultLedgerConfiguration.timeModel,
           timeProvider,
           new CommandExecutorImpl(engine, packagesService.getLfPackage),
           loggerFactory,
@@ -173,7 +176,22 @@ object ApiServices {
             loggerFactory)
 
       val apiPackageManagementService =
-        ApiPackageManagementService.createApiService(indexService, writeService, loggerFactory)
+        ApiPackageManagementService
+          .createApiService(
+            indexService,
+            transactionsService,
+            writeService,
+            timeProvider,
+            loggerFactory)
+
+      val apiConfigManagementService =
+        ApiConfigManagementService
+          .createApiService(
+            configManagementService,
+            writeService,
+            timeProvider,
+            defaultLedgerConfiguration,
+            loggerFactory)
 
       val apiReflectionService = ProtoReflectionService.newInstance()
 
@@ -194,6 +212,7 @@ object ApiServices {
           new ActiveContractsServiceAuthorization(apiActiveContractsService, authorizer),
           new PartyManagementServiceAuthorization(apiPartyManagementService, authorizer),
           new PackageManagementServiceAuthorization(apiPackageManagementService, authorizer),
+          new ConfigManagementServiceAuthorization(apiConfigManagementService, authorizer),
           apiReflectionService,
           apiHealthService,
         ))

@@ -44,11 +44,7 @@ import scala.util.{Failure, Success, Try}
   * A new UI backend can be implemented by extending [[UIBackend]] and by providing
   * the [[customEndpoints]], [[customRoutes]], [[applicationInfo]] definitions.
   */
-@SuppressWarnings(
-  Array(
-    "org.wartremover.warts.Any",
-    "org.wartremover.warts.ExplicitImplicitTypes",
-    "org.wartremover.warts.Option2Iterable"))
+@SuppressWarnings(Array("org.wartremover.warts.Any", "org.wartremover.warts.Option2Iterable"))
 abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
 
   def customEndpoints: Set[CustomEndpoint[_]]
@@ -216,8 +212,8 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
 
     banner.foreach(println)
 
-    implicit val system = ActorSystem("da-ui-backend")
-    implicit val materializer = ActorMaterializer()
+    implicit val system: ActorSystem = ActorSystem("da-ui-backend")
+    implicit val materializer: ActorMaterializer = ActorMaterializer()
 
     import system.dispatcher
 

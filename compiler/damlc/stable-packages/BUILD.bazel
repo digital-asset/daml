@@ -13,6 +13,7 @@ da_haskell_binary(
         "text",
     ],
     main_function = "GenerateStablePackage.main",
+    visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto",

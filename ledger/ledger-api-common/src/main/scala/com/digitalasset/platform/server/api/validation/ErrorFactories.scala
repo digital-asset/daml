@@ -32,7 +32,7 @@ trait ErrorFactories {
     grpcError(Status.INTERNAL.withDescription(description))
 
   def aborted(description: String): StatusRuntimeException =
-    grpcError(Status.INTERNAL.withDescription(description))
+    grpcError(Status.ABORTED.withDescription(description))
 
   def unimplemented(description: String): StatusRuntimeException =
     grpcError(Status.UNIMPLEMENTED.withDescription(description))
