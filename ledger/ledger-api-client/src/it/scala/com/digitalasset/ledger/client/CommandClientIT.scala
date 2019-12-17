@@ -27,7 +27,7 @@ import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary.LEDGER_BEGIN
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.Value.Boundary
 import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc
-import com.digitalasset.ledger.api.v1.value.{Record, RecordField}
+import com.digitalasset.ledger.api.v1.value.{Record, RecordField, Value}
 import com.digitalasset.ledger.client.configuration.CommandClientConfiguration
 import com.digitalasset.ledger.client.services.commands.{CommandClient, CompletionStreamElement}
 import com.digitalasset.ledger.client.services.testing.time.StaticTime

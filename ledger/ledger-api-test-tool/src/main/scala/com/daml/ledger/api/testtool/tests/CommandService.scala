@@ -206,20 +206,6 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
   }
 
   test(
-    "CSsubmitAndWaitInvalidLedgerId",
-    "SubmitAndWait should fail for invalid ledger ids",
-    allocate(SingleParty)) {
-    case Participants(Participant(ledger, party)) =>
-      val invalidLedgerId = "CSsubmitAndWaitInvalidLedgerId"
-      for {
-        request <- ledger.submitRequest(party, Dummy(party).create.command)
-        badLedgerId = request.update(_.commands.ledgerId := invalidLedgerId)
-        failure <- ledger.submit(badLedgerId).failed
-      } yield
-        assertGrpcError(failure, Status.Code.NOT_FOUND, s"Ledger ID '$invalidLedgerId' not found.")
-  }
-
-  test(
     "CSsubmitAndWaitForTransactionIdInvalidLedgerId",
     "SubmitAndWaitForTransactionId should fail for invalid ledger ids",
     allocate(SingleParty)) {
@@ -262,35 +248,17 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
   }
 
   test(
-    "CSDisallowEmptyTransactionsSubmission",
-    "The submission of an empty command should be rejected with INVALID_ARGUMENT",
+    "CSRefuseBadParameter",
+    "The submission of a creation that contains a bad parameter label should result in an INVALID_ARGUMENT",
     allocate(SingleParty)) {
     case Participants(Participant(ledger, party)) =>
+      val createWithBadArgument = Dummy(party).create.command
+        .update(_.create.createArguments.fields.foreach(_.label := "INVALID_PARAM"))
       for {
-        emptyRequest <- ledger.submitRequest(party)
-        failure <- ledger.submit(emptyRequest).failed
+        badRequest <- ledger.submitAndWaitRequest(party, createWithBadArgument)
+        failure <- ledger.submitAndWait(badRequest).failed
       } yield {
-        assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "Missing field: commands")
-      }
-  }
-
-  test(
-    "CSRefuseBadChoice",
-    "The submission of an exercise of a choice that does not exist should yield INVALID_ARGUMENT",
-    allocate(SingleParty)) {
-    case Participants(Participant(ledger, party)) =>
-      val badChoice = "THIS_IS_NOT_A_VALID_CHOICE"
-      for {
-        dummy <- ledger.create(party, Dummy(party))
-        exercise = dummy.exerciseDummyChoice1(party).command
-        wrongExercise = exercise.update(_.exercise.choice := badChoice)
-        wrongRequest <- ledger.submitRequest(party, wrongExercise)
-        failure <- ledger.submit(wrongRequest).failed
-      } yield {
-        assertGrpcError(
-          failure,
-          Status.Code.INVALID_ARGUMENT,
-          s"Couldn't find requested choice $badChoice")
+        assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, s"Missing record label")
       }
   }
 
@@ -334,7 +302,7 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
           observer1Created.getCreateArguments.fields,
           observer2Created.getCreateArguments.fields)
         assertEquals(
-          "The observers shouls see the created contract",
+          "The observers should see the created contract",
           observer1Created.getCreateArguments.fields,
           encode(template).getRecord.fields
         )
@@ -370,7 +338,7 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
   }
 
   test(
-    "CSHugeCommandSubmittion",
+    "CSHugeCommandSubmission",
     "The server should accept a submission with 15 commands",
     allocate(SingleParty)) {
     case Participants(Participant(ledger, party)) =>
@@ -417,55 +385,6 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
         assert(exercise.contractId == factory.unwrap, "Contract identifier mismatch")
         assert(exercise.consuming, "The choice should have been consuming")
         val _ = assertLength("Two creations should have occured", 2, createdEvents(tree))
-      }
-  }
-
-  test(
-    "CSCompletions",
-    "Read completions correctly with a correct application identifier and reading party",
-    allocate(SingleParty)) {
-    case Participants(Participant(ledger, party)) =>
-      for {
-        request <- ledger.submitRequest(party, Dummy(party).create.command)
-        _ <- ledger.submit(request)
-        completions <- ledger.firstCompletions(party)
-      } yield {
-        val commandId =
-          assertSingleton("Expected only one completion", completions.map(_.commandId))
-        assert(
-          commandId == request.commands.get.commandId,
-          "Wrong command identifier on completion")
-      }
-  }
-
-  test(
-    "CSNoCompletionsWithoutRightAppId",
-    "Read no completions without the correct application identifier",
-    allocate(SingleParty)) {
-    case Participants(Participant(ledger, party)) =>
-      for {
-        request <- ledger.submitRequest(party, Dummy(party).create.command)
-        _ <- ledger.submit(request)
-        invalidRequest = ledger
-          .completionStreamRequest(party)
-          .update(_.applicationId := "invalid-application-id")
-        failed <- WithTimeout(5.seconds)(ledger.firstCompletions(invalidRequest)).failed
-      } yield {
-        assert(failed == TimeoutException, "Timeout expected")
-      }
-  }
-
-  test(
-    "CSNoCompletionsWithoutRightParty",
-    "Read no completions without the correct party",
-    allocate(TwoParties)) {
-    case Participants(Participant(ledger, party, notTheSubmittingParty)) =>
-      for {
-        request <- ledger.submitRequest(party, Dummy(party).create.command)
-        _ <- ledger.submit(request)
-        failed <- WithTimeout(5.seconds)(ledger.firstCompletions(notTheSubmittingParty)).failed
-      } yield {
-        assert(failed == TimeoutException, "Timeout expected")
       }
   }
 }
