@@ -8,6 +8,7 @@ import java.net.{BindException, InetSocketAddress}
 import java.util.UUID
 import java.util.concurrent.TimeUnit.{MILLISECONDS, SECONDS}
 
+import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import com.codahale.metrics.MetricRegistry
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
@@ -51,7 +52,7 @@ class LedgerApiServer(
     val servicesClosedPromise = Promise[Unit]()
 
     for {
-      serverEsf <- ResourceOwner.forCloseable(executionSequencerFactoryResource _).acquire()
+      serverEsf <- new ExecutionSequencerFactoryOwner()(mat.system).acquire()
       workerEventLoopGroup <- new EventLoopGroupOwner(
         mat.system.name + "-nio-worker",
         parallelism = Runtime.getRuntime.availableProcessors).acquire()
@@ -88,18 +89,24 @@ class LedgerApiServer(
     }
   }
 
-  private def executionSequencerFactoryResource()(
-      implicit mat: ActorMaterializer
-  ): ExecutionSequencerFactory =
-    new AkkaExecutionSequencerPool(
-      // NOTE(JM): Pick a unique pool name as we want to allow multiple ledger api server
-      // instances, and it's pretty difficult to wait for the name to become available
-      // again (the name deregistration is asynchronous and the close method is not waiting for
-      // it, and it isn't trivial to implement).
-      // https://doc.akka.io/docs/akka/2.5/actors.html#graceful-stop
-      poolName = s"ledger-api-server-rs-grpc-bridge-${UUID.randomUUID}",
-      actorCount = Runtime.getRuntime.availableProcessors() * 8
-    )(mat.system)
+  private final class ExecutionSequencerFactoryOwner(implicit actorSystem: ActorSystem)
+      extends ResourceOwner[ExecutionSequencerFactory] {
+    // NOTE: Pick a unique pool name as we want to allow multiple LedgerApiServer instances,
+    // and it's pretty difficult to wait for the name to become available again.
+    // The name deregistration is asynchronous and the close method does not wait, and it isn't
+    // trivial to implement.
+    // https://doc.akka.io/docs/akka/2.5/actors.html#graceful-stop
+    private val poolName = s"ledger-api-server-rs-grpc-bridge-${UUID.randomUUID}"
+
+    private val ActorCount = Runtime.getRuntime.availableProcessors() * 8
+
+    override def acquire()(
+        implicit executionContext: ExecutionContext
+    ): Resource[ExecutionSequencerFactory] =
+      Resource[AkkaExecutionSequencerPool](
+        Future(new AkkaExecutionSequencerPool(poolName, ActorCount)),
+        _.closeAsync()).vary
+  }
 
   private final class EventLoopGroupOwner(threadPoolName: String, parallelism: Int)
       extends ResourceOwner[EventLoopGroup] {
