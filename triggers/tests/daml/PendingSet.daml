@@ -41,8 +41,8 @@ booTrigger = Trigger with
   rule = booRule
   registeredTemplates = AllInDar
 
-booRule : Party -> ACS -> Map CommandId [Command] -> () -> TriggerA ()
-booRule party acs _commandsInFlight _userState = do
+booRule : Party -> ACS -> Time -> Map CommandId [Command] -> () -> TriggerA ()
+booRule party acs _time _commandsInFlight _userState = do
   let foos : [(ContractId Foo, Foo)] = getContracts @Foo acs
   let boos : [(ContractId Boo, Boo)] = getContracts @Boo acs
   case (boos, foos) of
