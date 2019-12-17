@@ -30,6 +30,7 @@ class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
       }
 
       for {
+        _ <- resource.asFuture
         _ <- resource.release()
       } yield {
         owner.hasBeenAcquired should be(false)
@@ -50,6 +51,7 @@ class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
       }
 
       for {
+        _ <- resource.asFuture
         _ <- resource.release()
       } yield {
         ownerA.hasBeenAcquired should be(false)
@@ -67,6 +69,7 @@ class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
       } yield ()
 
       for {
+        _ <- resource.asFuture
         _ <- resource.release()
         _ <- resource.release() // will throw an exception if it actually releases twice
       } yield {
@@ -159,6 +162,7 @@ class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
       }
 
       for {
+        _ <- resource.asFuture
         _ <- resource.release()
       } yield {
         succeed
@@ -190,6 +194,7 @@ class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
       }
 
       for {
+        _ <- resource.asFuture
         _ <- resource.release()
       } yield {
         succeed
@@ -204,10 +209,11 @@ class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
         closeable <- ResourceOwner.forCloseable(newCloseable.apply _).acquire()
       } yield {
         newCloseable.hasBeenAcquired should be(true)
-        closeable.value should be(54)
+        closeable.value should be(42)
       }
 
       for {
+        _ <- resource.asFuture
         _ <- resource.release()
       } yield {
         newCloseable.hasBeenAcquired should be(false)
@@ -227,6 +233,7 @@ class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
       }
 
       for {
+        _ <- resource.asFuture
         _ <- resource.release()
       } yield {
         newCloseable.hasBeenAcquired should be(false)
@@ -247,6 +254,7 @@ class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
       }
 
       for {
+        _ <- resource.asFuture
         _ <- testPromise.future
         _ <- resource.release()
         executor <- resource.asFuture
@@ -269,6 +277,7 @@ class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
       }
 
       for {
+        _ <- resource.asFuture
         _ <- testPromise.future
         _ <- resource.release()
         timer <- resource.asFuture
@@ -352,6 +361,7 @@ class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
       }
 
       for {
+        _ <- resource.asFuture
         _ <- resource.release()
       } yield {
         all(constructors.map(_.hasBeenAcquired)) should be(false)
