@@ -1,0 +1,11 @@
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+daml 1.2
+module JsonEncodingTest where
+
+data Foo = Bar Int | Baz BazRecord | Qux { qux: Qux }
+
+data BazRecord = BazRecord { baz : Text }
+
+data Qux =  Quux | Quuz

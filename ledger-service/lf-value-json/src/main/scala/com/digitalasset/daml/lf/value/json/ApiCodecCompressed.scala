@@ -77,7 +77,8 @@ abstract class ApiCodecCompressed[Cid](
     JsArray(value.values.map(apiValueToJsValue(_)).toImmArray.toSeq: _*)
 
   private[this] def apiVariantToJsValue(value: V.ValueVariant[Cid]): JsValue =
-    JsObject(Map((value.variant: String) -> apiValueToJsValue(value.value)))
+    JsObject(
+      Map("type" -> JsString(value.variant: String), "data" -> apiValueToJsValue(value.value)))
 
   private[this] def apiEnumToJsValue(value: V.ValueEnum): JsValue =
     JsString(value.value)

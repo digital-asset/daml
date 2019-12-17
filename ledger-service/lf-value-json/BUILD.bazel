@@ -6,6 +6,10 @@ load(
     "da_scala_library",
     "da_scala_test",
 )
+load(
+    "//rules_daml:daml.bzl",
+    "daml_compile",
+)
 
 lf_value_json_deps = [
     "@maven//:org_scalaz_scalaz_core_2_12",
@@ -26,11 +30,18 @@ da_scala_library(
     deps = lf_value_json_deps,
 )
 
+daml_compile(
+    name = "JsonEncodingTest",
+    main_src = "src/test/daml/JsonEncodingTest.daml",
+)
+
 da_scala_test(
     name = "tests",
     size = "medium",
     srcs = glob(["src/test/scala/**/*.scala"]),
-    # data = ["//docs:quickstart-model.dar"],
+    data = [
+        ":JsonEncodingTest.dar",
+    ],
     deps = [
         ":lf-value-json",
         "@maven//:org_scalacheck_scalacheck_2_12",
