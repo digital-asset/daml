@@ -29,21 +29,10 @@ export type TemplateId = {
 }
 
 /**
- * Companion object of the `TemplateId` type.
- */
-export const TemplateId: Serializable<TemplateId> = {
-  decoder: () => jtv.object({
-    packageId: jtv.string(),
-    moduleName: jtv.string(),
-    entityName: jtv.string(),
-  })
-}
-
-/**
  * Interface for objects representing DAML templates. It is similar to the
  * `Template` type class in DAML.
  */
-export interface Template<T extends {}> extends Serializable<T> {
+export interface Template<T> extends Serializable<T> {
   templateId: TemplateId;
   Archive: Choice<T, {}>;
 }
@@ -77,7 +66,7 @@ export const lookupTemplate = (templateId: TemplateId): Template<object> => {
   const templateIdStr = templateIdToString(templateId);
   const template = registeredTemplates[templateIdStr];
   if (template === undefined) {
-    throw Error(`Trying to look up template ${templateIdStr}`);
+    throw Error(`Trying to look up template ${templateIdStr}.`);
   }
   return template;
 }
@@ -240,51 +229,3 @@ export const TextMap = <T>(t: Serializable<T>): Serializable<TextMap<T>> => ({
 // TODO(MH): `Numeric` type.
 
 // TODO(MH): `Map` type.
-
-/**
- * Type for a contract instance of a template type `T`. Besides the contract
- * payload it also contains meta data like the contract id, signatories, etc.
- *
- * Contract keys are not yet properly supported.
- */
-export type Contract<T> = {
-  templateId: TemplateId;
-  contractId: ContractId<T>;
-  signatories: Party[];
-  observers: Party[];
-  agreementText: Text;
-  key: unknown;
-  argument: T;
-  witnessParties: Party[];
-  workflowId?: string;
-}
-
-/**
- * Companion object of the `Contract` type.
- */
-export const Contract = <T extends {}>(t: Template<T>): Serializable<Contract<T>> => ({
-  decoder: () => jtv.object({
-    templateId: TemplateId.decoder(),
-    contractId: ContractId(t).decoder(),
-    signatories: jtv.array(Party.decoder()),
-    observers: jtv.array(Party.decoder()),
-    agreementText: Text.decoder(),
-    key: jtv.unknownJson(),
-    argument: t.decoder(),
-    witnessParties: jtv.array(Party.decoder()),
-    workflowId: jtv.optional(jtv.string()),
-  }),
-});
-
-/**
- * Type for queries against the `/contract/search` endpoint of the JSON API.
- * `Query<T>` is the type of queries that are valid when searching for
- * contracts of template type `T`.
- *
- * Comparison queries are not yet supported.
- *
- * NB: This type is heavily related to the `DeepPartial` type that can be found
- * in the TypeScript community.
- */
-export type Query<T> = T extends object ? {[K in keyof T]?: Query<T[K]>} : T;
-// TODO(MH): Support comparison queries.
