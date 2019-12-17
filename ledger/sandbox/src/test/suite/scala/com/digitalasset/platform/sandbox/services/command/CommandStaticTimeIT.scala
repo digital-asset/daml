@@ -8,7 +8,7 @@ import java.time.Instant
 import java.util.concurrent.atomic.AtomicInteger
 
 import akka.stream.Materializer
-import akka.stream.scaladsl.{Sink, Source}
+import akka.stream.scaladsl.Sink
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.api.util.TimestampConversion._
 import com.digitalasset.grpc.adapter.client.akka.ClientAdapter
@@ -20,6 +20,7 @@ import com.digitalasset.ledger.api.v1.command_submission_service.{
 }
 import com.digitalasset.ledger.api.v1.commands.Command.Command.{Create, Exercise}
 import com.digitalasset.ledger.api.v1.commands.{Command, CreateCommand, ExerciseCommand}
+import com.digitalasset.ledger.api.v1.completion.Completion
 import com.digitalasset.ledger.api.v1.event.CreatedEvent
 import com.digitalasset.ledger.api.v1.event.Event.Event.Created
 import com.digitalasset.ledger.api.v1.testing.time_service.{
@@ -108,11 +109,10 @@ final class CommandStaticTimeIT
     )
 
   implicit class CommandClientOps(commandClient: CommandClient) {
-    def send(request: SubmitRequest) =
+    def send(request: SubmitRequest): Future[Completion] =
       commandClient
         .withTimeProvider(None)
         .trackSingleCommand(request)
-
   }
 
   private def submissionWithTime(time: Instant): SubmitRequest = {
@@ -258,7 +258,7 @@ final class CommandStaticTimeIT
               .map(_.getOffset)
             comp <- commandClient.send(dummyCreateRequest(toInstant(currentTime), templateId))
             _ = comp.getStatus should have('code (0))
-            transaction <- ClientAdapter
+            transactions <- ClientAdapter
               .serverStreaming(
                 GetTransactionsRequest(
                   unwrappedLedgerId,
@@ -270,11 +270,11 @@ final class CommandStaticTimeIT
                   .stub(channel)
                   .getTransactions
               )
-              .flatMapConcat(res => Source.fromIterator(() => res.transactions.iterator))
+              .map(_.transactions)
               .take(1)
               .takeWithin(3.seconds)
               .runWith(Sink.head)
-            contractId = extractContractId(transaction)
+            contractId = extractContractId(transactions.head)
             timeBefore = toInstant(currentTime).minusSeconds(1)
             completion <- commandClient
               .withTimeProvider(None)
