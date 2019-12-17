@@ -15,34 +15,49 @@ option csharp_namespace = "Com.DigitalAsset.Ledger.Api.V1.Admin";
 // ready
 
 // Prunes/truncates the "oldest" ledger transactions from the ledger (specifically the Ledger Api Server) by removing
-// a portion of the ledger that does not affect the set of allowed, future commands). This enables:
+// a portion of the ledger that does not affect the set of allowed, future commands). This enables
 // 1. keeping the "inactive" portion of the ledger to a manageable size and
 // 2. removing inactive state to honor right-to-forget guarantees.
 service LedgerPruningService {
 
-  // Prune the ledger specifying the point in time or offset-space before which ledger transactions should be removed.
+  // Prune the ledger specifying the point in offset-space up to which ledger transactions can be removed.
   // Returns an error if the ledger api server is not configured to support pruning.
-  rpc PruneByOffset (PruneByOffsetRequest) returns (PruneResponse);
+  rpc PruneByOffset (PruneByOffsetRequest) returns (PruneByOffsetResponse);
 
-  // Prune the ledger specifying the point in time or offset-space before which ledger transactions should be removed.
+  // Prune the ledger specifying the exclusive point in time before which ledger transactions can be removed.
   // Returns an error if the ledger api server is not configured to support pruning or is configured with a static
   // time (such that time is does not differentiate specific pruning points).
-  rpc PruneByTime (PruneByTimeRequest) returns (PruneResponse);
+  rpc PruneByTime (PruneByTimeRequest) returns (PruneByTimeResponse);
 }
 
 message PruneByOffsetRequest {
-  google.protobuf.Timestamp prune_before = 1;
-}
-
-message PruneByTimeRequest {
+  // Exclusive offset up to which the ledger is allowed to be pruned.
   string prune_before = 1;
 }
 
-message PruneResponse {
-  // The actual point before which pruning was applied. May be smaller than "prune_before" e.g. if the specified pruning
-  // point is:
-  // 1. in the future or
-  // 2. too recent, attempting pruning transactions tracked as inflight-transactions by the CommandService.
-  google.protobuf.Timestamp pruned_timestamp = 1;
-  string pruned_offset = 2;
+message PruneByTimeRequest {
+  // Exclusive point in time up to which the ledger is allowed to be pruned.
+  google.protobuf.Timestamp prune_before = 1;
 }
+
+// The actual pruning point may be smaller than "prune_before" e.g. if the specified
+// pruning point is
+// 1. in the future or
+// 2. too recent, attempting pruning transactions tracked as inflight-transactions by the CommandService.
+message PruneByOffsetResponse {
+  // Exclusive offset up to which pruning has actually been applied.
+  string pruned_offset = 1;
+}
+
+message PruneByTimeResponse {
+  // Exclusive point in time up to which pruning has actually been applied.
+  google.protobuf.Timestamp pruned_timestamp = 1;
+}
+
+// Open issues to resolve:
+// 1. If the ledger does not support pruning, the ledger api server should probably not add a LedgerPruningService in
+//    the first place.
+// 2. If the submitted prune_before is obviously wrong and this can be determined quickly (e.g. time in future), we
+//    should probably return an error (e.g. OUT_OF_RANGE) instead of lowering the offset.
+// 3. If ledger is on static time and PruneByTime is used, is there a less confusing error than OUT_OF_RANGE, something
+//    that expressed "not supported" - perhaps FAILED_PRECONDITION.
