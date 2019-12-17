@@ -243,6 +243,7 @@ baseImports =
        False
        (map (bimap GHC.mkModuleName GHC.mkModuleName)
           [ ("DA.Internal.Template", "Sdk.DA.Internal.Template")
+          , ("DA.Internal.Template.Functions", "Sdk.DA.Internal.Template.Functions")
           , ("DA.Internal.LF", "Sdk.DA.Internal.LF")
           , ("DA.Internal.Prelude", "Sdk.DA.Internal.Prelude")
           ]
