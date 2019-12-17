@@ -1837,7 +1837,7 @@ anyTemplateTyFromStdlib stdlibRef =
     TypeConApp
         (Qualified
              stdlibRef
-             (mkModName ["DA", "Internal", "LF"])
+             (mkModName ["DA", "Internal", "Template"])
              (mkTypeCon ["AnyTemplate"]))
         []
 
@@ -1849,7 +1849,7 @@ templateTypeRepTyFromStdlib stdlibRef =
     TypeConApp
         (Qualified
              stdlibRef
-             (mkModName ["DA", "Internal", "LF"])
+             (mkModName ["DA", "Internal", "Template"])
              (mkTypeCon ["TemplateTypeRep"]))
         []
 
