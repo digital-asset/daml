@@ -60,7 +60,12 @@ class RecoveringIndexer(
       case NonFatal(t) =>
         logger.error(s"Error while running indexer, restart scheduled after $restartDelay", t)
         lastHandle.set(None)
-        after(restartDelay, scheduler)(start(subscribe))
+        subscribeResource
+          .release()
+          .recover {
+            case _ => ()
+          }
+          .flatMap(_ => after(restartDelay, scheduler)(start(subscribe)))
     }(DEC)
   }
 

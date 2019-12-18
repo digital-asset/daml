@@ -183,6 +183,7 @@ class RecoveringIndexerIT extends AsyncWordSpec with Matchers {
           EventSubscribeCalled("B"),
           EventSubscribeSuccess("B"),
           EventStreamFail("B"),
+          EventStopCalled("B"),
           EventSubscribeCalled("C"),
           EventSubscribeSuccess("C"),
           EventStreamComplete("C")
