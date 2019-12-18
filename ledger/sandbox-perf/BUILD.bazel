@@ -32,6 +32,7 @@ dependencies = [
     "//ledger/ledger-api-client",
     "//ledger/participant-state",
     "//ledger/ledger-api-domain",
+    "//libs-scala/direct-execution-context",
     "@maven//:com_google_protobuf_protobuf_java",
     "@maven//:org_scalaz_scalaz_core_2_12",
     "@maven//:com_typesafe_akka_akka_stream_2_12",

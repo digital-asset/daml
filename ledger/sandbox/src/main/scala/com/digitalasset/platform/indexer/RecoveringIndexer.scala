@@ -8,7 +8,7 @@ import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import akka.actor.Scheduler
 import akka.pattern.after
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
-import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
+import com.digitalasset.dec.{DirectExecutionContext => DEC}
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Await, ExecutionContext, Future}

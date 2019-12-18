@@ -31,6 +31,7 @@ import com.digitalasset.ledger.api.v1.admin.party_management_service.{
   ListKnownPartiesRequest
 }
 import com.digitalasset.ledger.api.v1.command_completion_service.{
+  Checkpoint,
   CompletionStreamRequest,
   CompletionStreamResponse
 }
@@ -67,12 +68,7 @@ import com.digitalasset.ledger.api.v1.transaction_service.{
 import com.digitalasset.ledger.api.v1.value.{Identifier, Value}
 import com.digitalasset.ledger.client.binding.Primitive.Party
 import com.digitalasset.ledger.client.binding.{Primitive, Template}
-import com.digitalasset.platform.testing.{
-  FiniteStreamObserver,
-  SingleItemObserver,
-  SizeBoundObserver,
-  TimeBoundObserver
-}
+import com.digitalasset.platform.testing.StreamConsumer
 import com.google.protobuf.ByteString
 import io.grpc.health.v1.health.{HealthCheckRequest, HealthCheckResponse}
 import io.grpc.stub.StreamObserver
@@ -140,8 +136,8 @@ private[testtool] final class ParticipantTestContext private[participant] (
     services.transaction.getLedgerEnd(new GetLedgerEndRequest(overrideLedgerId)).map(_.getOffset)
 
   def time(): Future[Instant] =
-    SingleItemObserver
-      .first[GetTimeResponse](services.time.getTime(new GetTimeRequest(ledgerId), _))
+    new StreamConsumer[GetTimeResponse](services.time.getTime(new GetTimeRequest(ledgerId), _))
+      .first()
       .map(_.map(r => r.getCurrentTime.asJava).get)
       .recover {
         case NonFatal(_) => Clock.systemUTC().instant()
@@ -227,9 +223,9 @@ private[testtool] final class ParticipantTestContext private[participant] (
   def activeContracts(
       request: GetActiveContractsRequest): Future[(Option[LedgerOffset], Vector[CreatedEvent])] =
     for {
-      contracts <- FiniteStreamObserver[GetActiveContractsResponse](
+      contracts <- new StreamConsumer[GetActiveContractsResponse](
         services.activeContracts.getActiveContracts(request, _)
-      )
+      ).all()
     } yield
       contracts.lastOption.map(c => LedgerOffset(LedgerOffset.Value.Absolute(c.offset))) -> contracts
         .flatMap(_.activeContracts)
@@ -270,15 +266,15 @@ private[testtool] final class ParticipantTestContext private[participant] (
     )
 
   private def transactions[Res](
-      take: Int,
+      n: Int,
       request: GetTransactionsRequest,
       service: (GetTransactionsRequest, StreamObserver[Res]) => Unit): Future[Vector[Res]] =
-    SizeBoundObserver[Res](take)(service(request, _))
+    new StreamConsumer[Res](service(request, _)).take(n)
 
   private def transactions[Res](
       request: GetTransactionsRequest,
       service: (GetTransactionsRequest, StreamObserver[Res]) => Unit): Future[Vector[Res]] =
-    FiniteStreamObserver[Res](service(request, _))
+    new StreamConsumer[Res](service(request, _)).all()
 
   def flatTransactionsByTemplateId(
       templateId: TemplateId,
@@ -536,28 +532,54 @@ private[testtool] final class ParticipantTestContext private[participant] (
       Some(referenceOffset))
 
   def firstCompletions(request: CompletionStreamRequest): Future[Vector[Completion]] =
-    SingleItemObserver
-      .find[CompletionStreamResponse](_.completions.nonEmpty)(
-        services.commandCompletion.completionStream(request, _))
+    new StreamConsumer[CompletionStreamResponse](
+      services.commandCompletion.completionStream(request, _))
+      .find(_.completions.nonEmpty)
       .map(_.fold(Seq.empty[Completion])(_.completions).toVector)
 
   def firstCompletions(parties: Party*): Future[Vector[Completion]] =
     firstCompletions(completionStreamRequest(parties: _*))
 
+  def findCompletion(request: CompletionStreamRequest)(
+      p: Completion => Boolean): Future[Option[Completion]] =
+    new StreamConsumer[CompletionStreamResponse](
+      services.commandCompletion.completionStream(request, _))
+      .find(_.completions.exists(p))
+      .map(_.flatMap(_.completions.find(p)))
+
+  def findCompletion(parties: Party*)(p: Completion => Boolean): Future[Option[Completion]] =
+    findCompletion(completionStreamRequest(parties: _*))(p)
+
+  def checkpoints(n: Int, request: CompletionStreamRequest): Future[Vector[Checkpoint]] =
+    new StreamConsumer[CompletionStreamResponse](
+      services.commandCompletion.completionStream(request, _))
+      .filterTake(_.checkpoint.isDefined)(n)
+      .map(_.map(_.getCheckpoint))
+
+  def checkpoints(n: Int, parties: Party*): Future[Vector[Checkpoint]] =
+    checkpoints(n, completionStreamRequest(parties: _*))
+
+  def nextCheckpoint(request: CompletionStreamRequest): Future[Checkpoint] =
+    checkpoints(1, request).map(_.head)
+
+  def nextCheckpoint(parties: Party*): Future[Checkpoint] =
+    checkpoints(1, parties: _*).map(_.head)
+
   def configuration(overrideLedgerId: Option[String] = None): Future[LedgerConfiguration] =
-    SingleItemObserver
-      .first[GetLedgerConfigurationResponse](
-        services.configuration
-          .getLedgerConfiguration(
-            new GetLedgerConfigurationRequest(overrideLedgerId.getOrElse(ledgerId)),
-            _))
+    new StreamConsumer[GetLedgerConfigurationResponse](
+      services.configuration
+        .getLedgerConfiguration(
+          new GetLedgerConfigurationRequest(overrideLedgerId.getOrElse(ledgerId)),
+          _))
+      .first()
       .map(_.fold(sys.error("No ledger configuration available."))(_.getLedgerConfiguration))
 
   def checkHealth(): Future[HealthCheckResponse] =
     services.health.check(HealthCheckRequest())
 
   def watchHealth(): Future[Seq[HealthCheckResponse]] =
-    TimeBoundObserver[HealthCheckResponse](1.second)(services.health.watch(HealthCheckRequest(), _))
+    new StreamConsumer[HealthCheckResponse](services.health.watch(HealthCheckRequest(), _))
+      .within(1.second)
 
   def getTimeModel(): Future[GetTimeModelResponse] =
     services.configManagement.getTimeModel(GetTimeModelRequest())

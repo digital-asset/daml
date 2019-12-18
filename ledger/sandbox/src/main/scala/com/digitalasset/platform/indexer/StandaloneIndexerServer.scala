@@ -7,7 +7,7 @@ import akka.actor.ActorSystem
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.v1.ReadService
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
-import com.digitalasset.platform.common.util.DirectExecutionContext.implicitEC
+import com.digitalasset.dec.DirectExecutionContext
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Await, Future, Promise}
@@ -47,8 +47,8 @@ object StandaloneIndexerServer {
                 // signal when ready
                 promise.trySuccess(())
                 indexer.subscribe(readService)
-            })
-        .map(_ => ())
+              }(DirectExecutionContext))
+        .map(_ => ())(DirectExecutionContext)
 
     try {
       config.startupMode match {
@@ -74,6 +74,6 @@ object StandaloneIndexerServer {
           val _ = Await.result(actorSystem.terminate(), asyncTolerance)
         }
       }
-    }
+    }(DirectExecutionContext)
   }
 }

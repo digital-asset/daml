@@ -8,7 +8,7 @@ import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.transaction.Transaction.{Value => TxValue}
 import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
+import com.digitalasset.dec.{DirectExecutionContext => DEC}
 
 import scala.concurrent.{ExecutionContext, Future}
 

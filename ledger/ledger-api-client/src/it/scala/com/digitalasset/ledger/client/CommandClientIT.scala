@@ -31,7 +31,7 @@ import com.digitalasset.ledger.client.configuration.CommandClientConfiguration
 import com.digitalasset.ledger.client.services.commands.{CommandClient, CompletionStreamElement}
 import com.digitalasset.ledger.client.services.testing.time.StaticTime
 import com.digitalasset.platform.common.LedgerIdMode
-import com.digitalasset.platform.common.util.DirectExecutionContext
+import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.platform.participant.util.ValueConversions._
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.sandbox.services.{SandboxFixture, TestCommands}

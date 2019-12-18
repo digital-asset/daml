@@ -16,7 +16,7 @@ import com.digitalasset.ledger.api.testing.utils.{
 import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.digitalasset.ledger.api.v1.commands.Commands
 import com.digitalasset.ledger.api.v1.completion.Completion
-import com.digitalasset.platform.common.util.DirectExecutionContext
+import com.digitalasset.dec.DirectExecutionContext
 import com.google.rpc.status.{Status => RpcStatus}
 import io.grpc.Status
 import org.scalatest.concurrent.ScalaFutures

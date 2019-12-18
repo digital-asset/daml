@@ -34,7 +34,7 @@ import com.digitalasset.ledger.api.v1.transaction_filter.TransactionFilter
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.sandbox.services.{SandboxFixture, TestCommands}
-import com.digitalasset.platform.testing.{FiniteStreamObserver, WaitForCompletionsObserver}
+import com.digitalasset.platform.testing.{StreamConsumer, WaitForCompletionsObserver}
 import com.digitalasset.timer.RetryStrategy
 import com.google.protobuf.empty.Empty
 import io.grpc.Status
@@ -87,10 +87,11 @@ final class ResetServiceIT
     CommandServiceGrpc.stub(channel).submitAndWait(req)
 
   private def activeContracts(ledgerId: String, f: TransactionFilter): Future[Set[CreatedEvent]] =
-    FiniteStreamObserver[GetActiveContractsResponse](
+    new StreamConsumer[GetActiveContractsResponse](
       ActiveContractsServiceGrpc
         .stub(channel)
         .getActiveContracts(GetActiveContractsRequest(ledgerId, Some(f)), _))
+      .all()
       .map(_.flatMap(_.activeContracts)(collection.breakOut))
 
   private def submitAndExpectCompletions(ledgerId: String, commands: Int): Future[Unit] =

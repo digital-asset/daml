@@ -3,13 +3,17 @@
 
 package com.daml.ledger.api.testtool.tests
 
+import java.util.UUID
+
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
+import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
 import com.digitalasset.ledger.test_stable.Test.Dummy
 import com.digitalasset.ledger.test_stable.Test.Dummy._
 import com.digitalasset.platform.testing.{TimeoutException, WithTimeout}
 import io.grpc.Status
+import scalaz.Tag
 
 import scala.concurrent.duration.DurationInt
 
@@ -110,4 +114,70 @@ final class CommandSubmissionCompletion(session: LedgerSession) extends LedgerTe
         assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "Missing field: commands")
       }
   }
+
+  test(
+    "CSCHandleMultiPartySubscriptions",
+    "Listening for completions should support multi-party subscriptions",
+    allocate(TwoParties)) {
+    case Participants(Participant(ledger, alice, bob)) =>
+      val a = UUID.randomUUID.toString
+      val b = UUID.randomUUID.toString
+      for {
+        aliceRequest <- ledger.submitRequest(alice, Dummy(alice).create.command)
+        bobRequest <- ledger.submitRequest(bob, Dummy(bob).create.command)
+        _ <- ledger.submit(aliceRequest.update(_.commands.commandId := a))
+        _ <- ledger.submit(bobRequest.update(_.commands.commandId := b))
+        _ <- WithTimeout(5.seconds)(ledger.findCompletion(alice, bob)(_.commandId == a))
+        _ <- WithTimeout(5.seconds)(ledger.findCompletion(alice, bob)(_.commandId == b))
+      } yield {
+        // Nothing to do, if the two completions are found the test is passed
+      }
+  }
+
+  test(
+    "CSCEmitPeriodicCheckpoints",
+    "The CommandCompletionService should emit periodic checkpoints (at least 2 over 10 seconds)",
+    allocate(SingleParty)) {
+    case Participants(Participant(ledger, party)) =>
+      WithTimeout(10.seconds)(ledger.checkpoints(2, party)).map(_ => ())
+  }
+
+  test(
+    "CSCEmitExclusiveEndpoints",
+    "Checkpoint offsets should not overlap with completion offsets",
+    allocate(SingleParty)) {
+    case Participants(Participant(ledger, party)) =>
+      for {
+        first <- ledger.create(party, Dummy(party)).map(Tag.unwrap)
+        cp1 <- ledger.nextCheckpoint(party).map(_.getOffset)
+        second <- ledger.create(party, Dummy(party)).map(Tag.unwrap)
+        cp2 <- ledger.nextCheckpoint(party).map(_.getOffset)
+        third <- ledger.create(party, Dummy(party)).map(Tag.unwrap)
+        request = ledger.getTransactionsRequest(Seq(party))
+        sinceStart <- ledger.flatTransactions(request)
+        sinceCp1 <- ledger.flatTransactions(request.update(_.begin := cp1))
+        sinceCp2 <- ledger.flatTransactions(request.update(_.begin := cp2))
+      } yield {
+        val contractsSinceStart = sinceStart.flatMap(createdEvents).map(_.contractId).toSet
+        val expectedContractsSinceStart = Set(first, second, third)
+        assert(
+          contractsSinceStart == expectedContractsSinceStart,
+          s"Expected contracts since start: $expectedContractsSinceStart, actual result: $contractsSinceStart")
+
+        val contractsSinceCp1 = sinceCp1.flatMap(createdEvents).map(_.contractId).toSet
+        val expectedContractsSinceCp1 = Set(second, third)
+        assert(
+          contractsSinceCp1 == expectedContractsSinceCp1,
+          s"Expected contracts since first checkpoint: $expectedContractsSinceCp1, actual result: $expectedContractsSinceCp1"
+        )
+
+        val contractsSinceCp2 = sinceCp2.flatMap(createdEvents).map(_.contractId).toSet
+        val expectedContractsSinceCp2 = Set(third)
+        assert(
+          contractsSinceCp2 == expectedContractsSinceCp2,
+          s"Expected contracts since second checkpoint: $expectedContractsSinceCp2, actual result: $expectedContractsSinceCp2"
+        )
+      }
+  }
+
 }

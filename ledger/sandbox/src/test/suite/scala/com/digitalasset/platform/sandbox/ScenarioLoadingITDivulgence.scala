@@ -12,7 +12,7 @@ import com.digitalasset.ledger.api.testing.utils.{
 import com.digitalasset.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc
 import com.digitalasset.ledger.api.v1.transaction_filter._
 import com.digitalasset.ledger.client.services.acs.ActiveContractSetClient
-import com.digitalasset.platform.common.util.DirectExecutionContext
+import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.platform.sandbox.services.{SandboxFixture, TestCommands}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{Millis, Span}

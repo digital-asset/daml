@@ -13,8 +13,7 @@ import com.digitalasset.ledger.api.v1.command_submission_service.{
 }
 import com.digitalasset.ledger.api.validation.{CommandsValidator, SubmitRequestValidator}
 import com.digitalasset.platform.api.grpc.GrpcApiService
-import com.digitalasset.platform.common.util.DirectExecutionContext
-import com.digitalasset.platform.common.util.DirectExecutionContext.implicitEC
+import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.platform.server.api.ProxyCloseable
 import com.digitalasset.platform.server.api.services.domain.CommandSubmissionService
 import com.google.protobuf.empty.Empty
@@ -38,7 +37,9 @@ class GrpcCommandSubmissionService(
   override def submit(request: ApiSubmitRequest): Future[Empty] =
     validator
       .validate(request)
-      .fold(Future.failed, service.submit(_).map(_ => Empty.defaultInstance))
+      .fold(
+        Future.failed,
+        service.submit(_).map(_ => Empty.defaultInstance)(DirectExecutionContext))
 
   override def bindService(): ServerServiceDefinition =
     CommandSubmissionServiceGrpc.bindService(this, DirectExecutionContext)

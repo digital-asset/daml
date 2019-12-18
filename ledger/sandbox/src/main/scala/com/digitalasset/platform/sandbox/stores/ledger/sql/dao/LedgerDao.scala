@@ -25,7 +25,7 @@ import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger._
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
 import com.digitalasset.ledger.api.health.ReportsHealth
-import com.digitalasset.platform.common.util.DirectExecutionContext
+import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{ActiveContract, Contract}
 import com.digitalasset.platform.sandbox.stores.ledger.{

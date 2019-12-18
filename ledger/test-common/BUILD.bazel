@@ -28,6 +28,7 @@ da_scala_library(
     ],
     deps = [
         "//ledger-api/grpc-definitions:ledger-api-scalapb",
+        "//libs-scala/direct-execution-context",
         "//libs-scala/timer-utils",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_context",
