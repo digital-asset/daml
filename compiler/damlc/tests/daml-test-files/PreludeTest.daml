@@ -337,14 +337,16 @@ testFloor = scenario do
     assert $ floor (0.0 : Decimal) == 0
 
 testRound = scenario do
-    assert $ roundCommercial 0 10.5 == (11.0 : Decimal)
-    assert $ roundCommercial 2 22.105 == (22.110 : Decimal)
-    assert $ roundBankers 0 10.5 == (10.0 : Decimal)
-    assert $ roundBankers 2 22.105 == (22.100 : Decimal)
-    assert $ roundCommercial 0 (-10.5) == (-11.0 : Decimal)
-    assert $ roundCommercial 2 (-22.105) == (-22.110 : Decimal)
-    assert $ roundBankers 0 (-10.5) == (-10.0 : Decimal)
-    assert $ roundBankers 2 (-22.105) == (-22.100 : Decimal)
+    roundCommercial 0 10.5 === (11.0 : Decimal)
+    roundCommercial 2 22.105 === (22.110 : Decimal)
+    roundBankers 0 10.5 === (10.0 : Decimal)
+    roundBankers 2 22.105 === (22.100 : Decimal)
+    roundCommercial 0 (-10.5) === (-11.0 : Decimal)
+    roundCommercial 2 (-22.105) === (-22.110 : Decimal)
+    roundBankers 0 (-10.5) === (-10.0 : Decimal)
+    roundBankers 2 (-22.105) === (-22.100 : Decimal)
+    roundCommercial 9 (1e10 : Numeric 17) === (1e10 : Numeric 17)
+    roundCommercial 11 (1e10 : Numeric 17) === (1e10 : Numeric 17)
 
 testNth = scenario do
     let l = [1, 5, 10]

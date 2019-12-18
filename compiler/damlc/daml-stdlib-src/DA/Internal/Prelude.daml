@@ -538,13 +538,41 @@ intToDecimal = IF_NUMERIC(intToNumeric, primitive @"BEInt64ToDecimal")
 roundBankers : Int -> IF_NUMERIC(Numeric n -> Numeric n, Decimal -> Decimal)
 roundBankers = primitive @IF_NUMERIC("BERoundNumeric", "BERoundDecimal")
 
+#ifdef DAML_NUMERIC
+divNumeric : Numeric n1 -> Numeric n2 -> Numeric n3
+divNumeric = primitive @"BEDivNumeric"
+#endif
+
 -- | Commercial Rounding: `roundCommercial dp x` rounds `x` to `dp` decimal places, where a `.5` is rounded away from zero.
-roundCommercial : Int -> IF_NUMERIC(Numeric n -> Numeric n, Decimal -> Decimal)
+#ifdef DAML_NUMERIC
+roundCommercial : forall n. NumericScale n => Int -> Numeric n -> Numeric n
+#else
+roundCommercial : Int -> Decimal -> Decimal
+#endif
 roundCommercial d x =
+#ifdef DAML_NUMERIC
+  -- We must avoid conversions to Int, otherwise this will crash in some cases.
+  -- Until we have a `roundCommercial` primitive, we use a somewhat hacky implementation
+  -- relying on `roundBankers` is a primitive.
+
+  -- We first use bankers rounding and then check if the difference is exactly .5
+  -- If that is the case, we shift the result by 1.
+  let t = roundBankers d x
+      diff = x - t
+      problematicDiff = (0.5 : Numeric 1) `divNumeric` (10.0 ^ d : Numeric 0)
+      offset | d == 0 = munit
+             | otherwise = (1.0 : Numeric 0) `divNumeric` (10.0 ^ d : Numeric 0)
+  in if diff == signum x * problematicDiff
+       then t + offset * signum x
+       else t
+#else
+-- This suffers from the same issue as the Numeric implementation but given
+-- that Decimal is dead for newer LF versions anyway, we don’t bother fixing it.
   let t = IF_NUMERIC(intToNumeric, intToDecimal) (10 ^ d)
       v = round (x * t)
       w = IF_NUMERIC(intToNumeric, intToDecimal) v
   in w / t
+#endif
 
 -- | Round a `Decimal` to the nearest integer, where a `.5` is rounded away from zero.
 round : IF_NUMERIC(Numeric n, Decimal) -> Int
