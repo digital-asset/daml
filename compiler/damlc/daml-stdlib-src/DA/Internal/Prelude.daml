@@ -551,7 +551,7 @@ roundCommercial d x =
   -- relying on `roundBankers` is a primitive.
 
   -- We first use bankers rounding and then check if the difference is exactly .5
-  -- If that is the case, we’ve rounded in the wrong directino, so we shift it the other way.
+  -- If that is the case, we’ve rounded in the wrong direction, so we shift it the other way.
   let t = roundBankers d x
       diff = x - t
       -- This is defined in DA.Numeric but we inline it here to avoid creating a cyclic module dependency.
