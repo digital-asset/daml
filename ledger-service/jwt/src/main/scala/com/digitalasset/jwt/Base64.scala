@@ -29,6 +29,6 @@ private object Base64 {
       .leftMap(e => Error('encode, "Cannot base64 encode a string. Cause: " + e.getMessage))
 
   def decode(base64str: String): Error \/ String =
-    \/.fromTryCatchNonFatal(new String(java.util.Base64.getDecoder.decode(base64str)))
+    \/.fromTryCatchNonFatal(new String(java.util.Base64.getUrlDecoder.decode(base64str)))
       .leftMap(e => Error('decode, "Cannot base64 decode a string. Cause: " + e.getMessage))
 }
