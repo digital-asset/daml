@@ -541,11 +541,7 @@ roundBankers = primitive @IF_NUMERIC("BERoundNumeric", "BERoundDecimal")
 -- | Commercial Rounding: `roundCommercial dp x` rounds `x` to `dp` decimal places, where a `.5` is rounded away from zero.
 #ifdef DAML_NUMERIC
 roundCommercial : forall n. NumericScale n => Int -> Numeric n -> Numeric n
-#else
-roundCommercial : Int -> Decimal -> Decimal
-#endif
 roundCommercial d x =
-#ifdef DAML_NUMERIC
   -- We must avoid conversions to Int, otherwise this will crash in some cases.
   -- Until we have a `roundCommercial` primitive, we use a somewhat hacky implementation
   -- relying on `roundBankers` is a primitive.
@@ -562,11 +558,13 @@ roundCommercial d x =
        then x + problematicDiff
        else t
 #else
--- This suffers from the same issue as the Numeric implementation but given
--- that Decimal is dead for newer LF versions anyway, we don’t bother fixing it.
-  let t = IF_NUMERIC(intToNumeric, intToDecimal) (10 ^ d)
+roundCommercial : Int -> Decimal -> Decimal
+roundCommercial d x =
+  -- This suffers from the same issue as the Numeric implementation but given
+  -- that Decimal is dead for newer LF versions anyway, we don’t bother fixing it.
+  let t = intToDecimal (10 ^ d)
       v = round (x * t)
-      w = IF_NUMERIC(intToNumeric, intToDecimal) v
+      w = intToDecimal v
   in w / t
 #endif
 
