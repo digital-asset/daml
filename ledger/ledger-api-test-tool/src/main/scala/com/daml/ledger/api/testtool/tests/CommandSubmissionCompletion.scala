@@ -34,7 +34,7 @@ final class CommandSubmissionCompletion(session: LedgerSession) extends LedgerTe
   }
 
   test(
-    "CSNoCompletionsWithoutRightAppId",
+    "CSCNoCompletionsWithoutRightAppId",
     "Read no completions without the correct application identifier",
     allocate(SingleParty)) {
     case Participants(Participant(ledger, party)) =>
@@ -99,7 +99,7 @@ final class CommandSubmissionCompletion(session: LedgerSession) extends LedgerTe
   }
 
   test(
-    "CSDisallowEmptyTransactionsSubmission",
+    "CSCDisallowEmptyTransactionsSubmission",
     "The submission of an empty command should be rejected with INVALID_ARGUMENT",
     allocate(SingleParty)) {
     case Participants(Participant(ledger, party)) =>
