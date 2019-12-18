@@ -134,18 +134,6 @@ To test your ledger in a CI pipeline, run it as part of your pipeline:
 The tool is tailored to be used in CI pipelines: as customary, when the tests
 succeed, it will produce minimal output and return the success exit code.
 
-
-Output error and suite results to separate files
-================================================
-
-To output error logs and test suite results to separate files, you can pipe STDERR and STDOUT and send the program to run in the background 
-   
-   .. code-block:: console
-     
-     $ java -jar ledger-api-test-tool.jar localhost:6865 --all-tests --exclude=TimeIT 2> errorOutput.log > output.log &
-     $ [1] 58708
-     $ [1]  + 58708 done       java -jar ledger-api-test-tool.jar localhost:6865 --all-tests --exclude=TimeI
-
 Using the tool with a known-to-be-faulty Ledger API implementation
 ==================================================================
 
