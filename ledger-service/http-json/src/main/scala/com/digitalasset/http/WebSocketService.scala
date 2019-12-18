@@ -27,7 +27,7 @@ import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success}
 
 object WebSocketService {
-  val heartBeat: String = JsObject("heartbeat" -> JsString("ping")).toString
+  val heartBeat: String = JsObject("heartbeat" -> JsString("ping")).compactPrint
   val emptyGetActiveContractsRequest = domain.GetActiveContractsRequest(Set.empty, Map.empty)
   private val numConns = new java.util.concurrent.atomic.AtomicInteger(0)
 }
@@ -44,7 +44,6 @@ class WebSocketService(transactionClient: TransactionClient,
 
   @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements", "org.wartremover.warts.JavaSerializable"))
   private[http] def transactionMessageHandler(jwt: Jwt, jwtPayload: JwtPayload): Flow[Message, Message, _] = {
-    import scala.concurrent.duration._
 
     wsMessageHandler(jwt, jwtPayload)
       .takeWithin(wsConfig.maxDuration)
@@ -52,7 +51,7 @@ class WebSocketService(transactionClient: TransactionClient,
                 wsConfig.throttlePer,
                 wsConfig.maxBurst,
                 wsConfig.mode)
-      .keepAlive(5.seconds, () => TextMessage.Strict(heartBeat))
+      .keepAlive(wsConfig.heartBeatPer, () => TextMessage.Strict(heartBeat))
       .watchTermination() {
         (_, future) =>
           numConns.incrementAndGet
@@ -105,7 +104,7 @@ class WebSocketService(transactionClient: TransactionClient,
           .via(Flow[Transaction].filter(_.events.nonEmpty))
           .map(tx => {
             lfVToJson(tx) match {
-              case \/-(a) => TextMessage(JsObject("transaction" -> a).toString)
+              case \/-(a) => TextMessage(JsObject("transaction" -> a).compactPrint)
               case -\/(e) => wsErrorMessage(e.shows)
             }
           })
@@ -115,7 +114,7 @@ class WebSocketService(transactionClient: TransactionClient,
 
   private[http] def wsErrorMessage(errorMsg: String): TextMessage.Strict = {
     TextMessage(
-      JsObject("error" -> JsString(errorMsg)).toString
+      JsObject("error" -> JsString(errorMsg)).compactPrint
     )
   }
 

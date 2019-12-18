@@ -59,7 +59,7 @@ abstract class AbstractHttpServiceIntegrationTest
   implicit val aesf: ExecutionSequencerFactory = new AkkaExecutionSequencerPool(testId)(asys)
   implicit val ec: ExecutionContext = asys.dispatcher
 
-  private val jwt: Jwt = {
+  protected val jwt: Jwt = {
     val decodedJwt = DecodedJwt(
       """{"alg": "HS256", "typ": "JWT"}""",
       s"""{"ledgerId": "${testId: String}", "applicationId": "ledger-service-test", "party": "Alice"}"""
@@ -629,7 +629,7 @@ abstract class AbstractHttpServiceIntegrationTest
         }
     }
 
-  private def postCreateCommand(
+  protected def postCreateCommand(
       cmd: domain.CreateCommand[v.Record],
       encoder: DomainJsonEncoder,
       uri: Uri): Future[(StatusCode, JsValue)] =

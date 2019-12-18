@@ -17,8 +17,8 @@ import scala.concurrent.{ExecutionContext, Future}
 import EndpointsCompanion._
 
 object WebsocketEndpoints {
-  private val tokenPrefix: String = "jwt.token."
-  private val wsProtocol: String = "daml.ws.auth"
+  private[http] val tokenPrefix: String = "jwt.token."
+  private[http] val wsProtocol: String = "daml.ws.auth"
 }
 
 class WebsocketEndpoints(ledgerId: lar.LedgerId,
@@ -29,7 +29,7 @@ class WebsocketEndpoints(ledgerId: lar.LedgerId,
   import WebsocketEndpoints._
 
   lazy val transactionWebSocket: PartialFunction[HttpRequest, Future[HttpResponse]] = {
-    case req@HttpRequest(GET, Uri.Path("/transaction/connect"), _, _, _) =>
+    case req@HttpRequest(GET, Uri.Path("/transactions"), _, _, _) =>
       req.header[UpgradeToWebSocket] match {
         case Some(upgradeReq) =>
           connect(upgradeReq, Some(wsProtocol))

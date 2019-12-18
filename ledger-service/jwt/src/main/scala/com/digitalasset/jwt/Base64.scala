@@ -14,9 +14,9 @@ private object Base64 {
       Show.shows(e => s"Base64.Error: ${e.what}, ${e.message}")
   }
 
-  private val defaultEncoder = java.util.Base64.getEncoder
+  private val defaultEncoder = java.util.Base64.getUrlEncoder
 
-  private val encoderWithoutPadding = java.util.Base64.getEncoder.withoutPadding
+  private val encoderWithoutPadding = java.util.Base64.getUrlEncoder.withoutPadding
 
   def encode(bs: Array[Byte]): Error \/ Array[Byte] =
     encode(defaultEncoder, bs)

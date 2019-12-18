@@ -33,15 +33,16 @@ private[http] final case class Config(
 private[http] object Config {
   import scala.language.postfixOps
   val Empty = Config(ledgerHost = "", ledgerPort = -1, httpPort = -1)
-  val DefaultWsConfig = WebsocketConfig(12 hours, 20, 1 second, 20, ThrottleMode.Shaping)
+  val DefaultWsConfig = WebsocketConfig(12 hours, 20, 1 second, 20, ThrottleMode.Shaping, 5 second)
 }
 
-protected case class WebsocketConfig(
+private[http] final case class WebsocketConfig(
       maxDuration: FiniteDuration,
       throttleElem: Int,
       throttlePer: FiniteDuration,
       maxBurst: Int,
-      mode: ThrottleMode
+      mode: ThrottleMode,
+      heartBeatPer: FiniteDuration
 )
 
 private[http] abstract class ConfigCompanion[A](name: String) {
