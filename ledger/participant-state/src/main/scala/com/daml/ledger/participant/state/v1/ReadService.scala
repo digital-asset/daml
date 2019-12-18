@@ -84,12 +84,11 @@ trait ReadService extends ReportsHealth {
     *
     * - *acceptance finality*: if there is a [[Update.TransactionAccepted]] with
     *   an associated [[SubmitterInfo]] `info1`, then for every later
-    *   [[Update.CommandRejected]] with [[SubmitterInfo]] `info2` that agrees with
+    *   transaction with [[SubmitterInfo]] `info2` that agrees with
     *   `info1` on the `submitter`, `applicationId`, and `commandId` fields,
-    *   it holds that the rejection reason is
-    *   [[RejectionReason.DuplicateCommand]]. Simply put: the only reason for
-    *   a signalling a rejection of an accepted transaction is a duplicate
-    *   submission of that transaction.
+    *   a transaction will be rejected without a corresponding update being issued.
+    *   It is done so to avert potential DOS attacks and avoid ambiguity as to the
+    *   transaction status in the index database.
     *
     * - *maximum record time enforced*: for all [[Update.TransactionAccepted]]
     *   updates `u` with associated [[SubmitterInfo]] `info`, it holds that
