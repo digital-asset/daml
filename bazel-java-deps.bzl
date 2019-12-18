@@ -1,6 +1,10 @@
 # Copyright (c) 2019 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+# When adding, removing or changing a dependency in this file, update the pinned dependencies by executing
+# $ bazel run @unpinned_maven//:pin
+# See https://github.com/bazelbuild/rules_jvm_external#updating-maven_installjson
+
 load("@rules_jvm_external//:defs.bzl", "maven_install")
 
 def install_java_deps():
@@ -139,9 +143,6 @@ def install_java_deps():
             "uk.co.datumedge:hamcrest-json:0.2",
         ],
         fetch_sources = True,
-        # Update by executing
-        # $ bazel run @unpinned_maven//:pin
-        # See https://github.com/bazelbuild/rules_jvm_external#updating-maven_installjson
         maven_install_json = "@com_github_digital_asset_daml//:maven_install.json",
         override_targets = {
             # Replacements for core Scala libraries.
