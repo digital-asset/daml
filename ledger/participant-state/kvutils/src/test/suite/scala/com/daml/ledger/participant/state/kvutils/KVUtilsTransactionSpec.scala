@@ -171,7 +171,7 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
         reg
           .counter(s"kvutils.committer.transaction.rejections_${disputed.name}")
           .getCount should be >= 1L
-        reg.timer("kvutils.committer.transaction.run-timer").getCount should be >= 1L
+        reg.timer("kvutils.committer.transaction.run_timer").getCount should be >= 1L
       }
     }
 

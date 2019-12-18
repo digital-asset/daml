@@ -414,8 +414,8 @@ object ProcessTransactionSubmission {
     //TODO: Replace with metrics registry object passed in constructor
     private val registry = metrics.SharedMetricRegistries.getOrCreate("kvutils")
     private val prefix = "kvutils.committer.transaction"
-    val runTimer: Timer = registry.timer(s"$prefix.run-timer")
-    val interpretTimer: Timer = registry.timer(s"$prefix.interpret-timer")
+    val runTimer: Timer = registry.timer(s"$prefix.run_timer")
+    val interpretTimer: Timer = registry.timer(s"$prefix.interpret_timer")
     val accepts: Counter = registry.counter(s"$prefix.accepts")
     val rejections: Map[Int, Counter] =
       DamlTransactionRejectionEntry.ReasonCase.values

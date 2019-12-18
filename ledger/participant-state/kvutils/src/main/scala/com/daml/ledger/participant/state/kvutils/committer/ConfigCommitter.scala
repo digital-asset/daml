@@ -197,11 +197,11 @@ private[kvutils] case class ConfigCommitter(
     )
 
   override val steps: Iterable[(StepInfo, Step)] = Iterable(
-    "checkTTL" -> checkTtl,
-    "authorizeSubmission" -> authorizeSubmission,
-    "validateSubmission" -> validateSubmission,
-    "deduplicateSubmission" -> deduplicateSubmission,
-    "buildLogEntry" -> buildLogEntry
+    "check_ttl" -> checkTtl,
+    "authorize_submission" -> authorizeSubmission,
+    "validate_submission" -> validateSubmission,
+    "deduplicate_submission" -> deduplicateSubmission,
+    "build_log_entry" -> buildLogEntry
   )
 
   override lazy val committerName = "config"

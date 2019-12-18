@@ -85,9 +85,9 @@ class KVUtilsPartySpec extends WordSpec with Matchers {
       } yield {
         // Check that we're updating the metrics (assuming this test at least has been run)
         val reg = metrics.SharedMetricRegistries.getOrCreate("kvutils")
-        reg.counter("kvutils.committer.partyAllocation.accepts").getCount should be >= 1L
-        reg.counter("kvutils.committer.partyAllocation.rejections").getCount should be >= 1L
-        reg.timer("kvutils.committer.partyAllocation.run-timer").getCount should be >= 1L
+        reg.counter("kvutils.committer.party_allocation.accepts").getCount should be >= 1L
+        reg.counter("kvutils.committer.party_allocation.rejections").getCount should be >= 1L
+        reg.timer("kvutils.committer.party_allocation.run_timer").getCount should be >= 1L
       }
     }
   }

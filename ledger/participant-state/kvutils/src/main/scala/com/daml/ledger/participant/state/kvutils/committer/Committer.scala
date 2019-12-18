@@ -51,11 +51,11 @@ private[kvutils] trait Committer[Submission, PartialResult] {
     metrics.SharedMetricRegistries.getOrCreate("kvutils")
   def metricsName(metric: String): String =
     metrics.MetricRegistry.name("kvutils.committer", committerName, metric)
-  private val runTimer: Timer = metricsRegistry.timer(metricsName("run-timer"))
+  private val runTimer: Timer = metricsRegistry.timer(metricsName("run_timer"))
   private lazy val stepTimers: Map[StepInfo, Timer] =
     steps.map {
       case (info, _) =>
-        info -> metricsRegistry.timer(metricsName(s"step-timers.${info}"))
+        info -> metricsRegistry.timer(metricsName(s"step_timers.${info}"))
     }.toMap
 
   /** A committer can `run` a submission and produce a log entry and output states. */

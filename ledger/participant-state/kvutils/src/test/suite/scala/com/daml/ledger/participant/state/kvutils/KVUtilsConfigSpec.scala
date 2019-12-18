@@ -166,7 +166,7 @@ class KVUtilsConfigSpec extends WordSpec with Matchers {
         val reg = metrics.SharedMetricRegistries.getOrCreate("kvutils")
         reg.counter("kvutils.committer.config.accepts").getCount should be >= 1L
         reg.counter("kvutils.committer.config.rejections").getCount should be >= 1L
-        reg.timer("kvutils.committer.config.run-timer").getCount should be >= 1L
+        reg.timer("kvutils.committer.config.run_timer").getCount should be >= 1L
       }
     }
   }
