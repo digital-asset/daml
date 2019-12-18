@@ -560,10 +560,8 @@ roundCommercial d x =
   let t = roundBankers d x
       diff = x - t
       problematicDiff = (0.5 : Numeric 1) `divNumeric` (10.0 ^ d : Numeric 0) * signum x
-      offset | d == 0 = munit
-             | otherwise = (1.0 : Numeric 0) `divNumeric` (10.0 ^ d : Numeric 0)
-  in if diff == signum x * problematicDiff
-       then t + offset * signum x
+  in if diff == problematicDiff
+       then x + problematicDiff
        else t
 #else
 -- This suffers from the same issue as the Numeric implementation but given
