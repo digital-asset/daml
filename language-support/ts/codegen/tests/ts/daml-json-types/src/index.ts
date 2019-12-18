@@ -34,15 +34,17 @@ export type TemplateId = {
  */
 export interface Template<T> extends Serializable<T> {
   templateId: TemplateId;
-  Archive: Choice<T, {}>;
+  Archive: Choice<T, {}, {}>;
 }
 
 /**
  * Interface for objects representing DAML choices. It is similar to the
  * `Choice` type class in DAML.
  */
-export interface Choice<T, C> extends Serializable<C> {
+export interface Choice<T, C, R> {
   template: () => Template<T>;
+  argDecoder: () => jtv.Decoder<C>;
+  resultDecoder: () => jtv.Decoder<R>;
   choiceName: string;
 }
 

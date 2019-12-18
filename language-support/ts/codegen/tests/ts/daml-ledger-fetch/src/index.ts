@@ -184,7 +184,7 @@ class Ledger {
   /**
    * Exercise a choice on a contract.
    */
-  async exercise<T, C>(choice: Choice<T, C>, contractId: ContractId<T>, argument: C): Promise<Event<unknown>[]> {
+  async exercise<T, C, R>(choice: Choice<T, C, R>, contractId: ContractId<T>, argument: C): Promise<[R , Event<unknown>[]]> {
     const payload = {
       templateId: choice.template().templateId,
       contractId,
@@ -192,14 +192,14 @@ class Ledger {
       argument,
     };
     const json = await this.submit('command/exercise', payload);
-    return jtv.Result.withException(jtv.array(decodeEventUnknown()).run(json));
+    return jtv.Result.withException(jtv.tuple([choice.resultDecoder(), jtv.array(decodeEventUnknown())]).run(json));
   }
 
   /**
    * Mimic DAML's `exerciseByKey`. The `key` must be a formulation of the
    * contract key as a query.
    */
-  async pseudoExerciseByKey<T, C>(choice: Choice<T, C>, key: Query<T>, argument: C): Promise<Event<unknown>[]> {
+  async pseudoExerciseByKey<T, C, R>(choice: Choice<T, C, R>, key: Query<T>, argument: C): Promise<[R, Event<unknown>[]]> {
     const contract = await this.pseudoFetchByKey(choice.template(), key);
     return this.exercise(choice, contract.contractId, argument);
   }
