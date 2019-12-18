@@ -29,7 +29,7 @@ class ApiCodecCompressedSpec
   private val dar = new java.io.File(rlocation("ledger-service/lf-value-json/JsonEncodingTest.dar"))
   require(dar.exists())
 
-  val metadata: MetadataReader.LfMetadata =
+  private val metadata: MetadataReader.LfMetadata =
     MetadataReader
       .readFromDar(dar)
       .valueOr(e => fail(s"Cannot read metadata from $dar, error:" + e.shows))
@@ -236,32 +236,46 @@ class ApiCodecCompressedSpec
       import com.digitalasset.daml.lf.value.{Value => LfValue}
       import ApiCodecCompressed.JsonImplicits._
 
-      "serialize Quux" in {
-        val quuxVariant: LfValue[String] = LfValue.ValueVariant(
-          None,
-          lf.data.Ref.Name.assertFromString("Quux"),
-          LfValue.ValueRecord(None, ImmArray.empty))
+      val quuxVariant: LfValue[String] = LfValue.ValueVariant(
+        None,
+        Ref.Name.assertFromString("Quux"),
+        LfValue.ValueRecord(None, ImmArray.empty))
 
+      val bazRecord: LfValue[String] = LfValue.ValueRecord(
+        None,
+        ImmArray(Some(Ref.Name.assertFromString("baz")) -> LfValue.ValueText("text abc"))
+      )
+
+      val bazVariantMetadata = MetadataReader
+        .damlLfTypeByName(() => metadata)(
+          Ref.QualifiedName(
+            Ref.DottedName.assertFromString("JsonEncodingTest"),
+            Ref.DottedName.assertFromString("Baz")
+          )
+        )
+        .head
+
+      val bazVariant: LfValue[String] = LfValue.ValueVariant(
+        None,
+        Ref.Name.assertFromString("Baz"),
+        bazRecord
+      )
+
+      "serialize Quux to JSON" in {
         quuxVariant.toJson shouldBe JsObject(
           Map[String, JsValue]("tag" -> JsString("Quux"), "value" -> JsObject.empty))
       }
 
-      "serialize Foo.Baz" in {
-        val bazRecord: LfValue[String] = LfValue.ValueRecord(
-          None,
-          ImmArray(Some(lf.data.Ref.Name.assertFromString("baz")) -> LfValue.ValueText("text abc"))
-        )
-        val bazVariant: LfValue[String] = LfValue.ValueVariant(
-          None,
-          lf.data.Ref.Name.assertFromString("Baz"),
-          bazRecord
-        )
-
+      "serialize Foo.Baz to JSON" in {
         bazVariant.toJson shouldBe JsObject(
           Map[String, JsValue](
             "tag" -> JsString("Baz"),
             "value" -> JsObject("baz" -> JsString("text abc")))
         )
+      }
+
+      "rountrip encoding" in {
+        serializeAndParse(bazVariant, bazVariantMetadata._2) shouldBe Success(bazVariant)
       }
     }
   }

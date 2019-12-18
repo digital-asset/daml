@@ -67,4 +67,10 @@ object MetadataReader {
       iface <- metaData().get(id.packageId)
       ifaceType <- iface.typeDecls.get(id.qualifiedName)
     } yield ifaceType.`type`
+
+  def damlLfTypeByName(metaData: () => LfMetadata)(
+      name: Ref.QualifiedName): Seq[(Ref.PackageId, iface.DefDataType.FWT)] =
+    metaData()
+      .map { case (pId, iface) => iface.typeDecls.get(name).map(x => (pId, x.`type`)) }
+      .collect { case Some(x) => x }(collection.breakOut)
 }
