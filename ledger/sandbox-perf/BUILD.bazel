@@ -26,7 +26,6 @@ dependencies = [
     "//daml-lf/archive:daml_lf_dev_archive_java_proto",
     "//daml-lf/archive:daml_lf_archive_reader",
     "//daml-lf/interpreter",
-    "//ledger/ledger-api-integration-tests:ledger-api-integration-tests-lib",
     "//ledger/sandbox",
     "//ledger/sandbox:sandbox-scala-tests-lib",
     "//ledger/ledger-api-common",
@@ -46,6 +45,10 @@ da_scala_library(
     deps = [
         "//external:io_bazel_rules_scala/dependency/jmh/jmh_core",
         "//ledger/test-common",
+        "@maven//:io_grpc_grpc_core",
+        "@maven//:io_grpc_grpc_netty",
+        "@maven//:io_netty_netty_common",
+        "@maven//:io_netty_netty_transport",
     ] + dependencies,
 )
 

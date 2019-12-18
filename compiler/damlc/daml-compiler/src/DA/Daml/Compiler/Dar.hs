@@ -127,6 +127,9 @@ buildDar service pkgConf@PackageConfigFields {..} ifDir dalfInput = do
                  pkg <- case optShakeFiles opts of
                      Nothing -> mergePkgs lfVersion <$> usesE GeneratePackage files
                      Just _ -> generateSerializedPackage pName files
+
+                 MaybeT $ finalPackageCheck (toNormalizedFilePath pSrc) pkg
+
                  let pkgModuleNames = map T.unpack $ LF.packageModuleNames pkg
                  let missingExposed =
                          S.fromList (fromMaybe [] pExposedModules) S.\\

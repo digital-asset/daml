@@ -2,11 +2,11 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.LF.TypeChecker.NameCollision
-    ( checkModule
+    ( runCheckModuleDeps
+    , runCheckPackage
     ) where
 
 import DA.Daml.LF.Ast
-import DA.Daml.LF.TypeChecker.Env
 import DA.Daml.LF.TypeChecker.Error
 import Data.Maybe
 import Control.Monad.Extra
@@ -14,6 +14,7 @@ import qualified Data.NameMap as NM
 import qualified Data.Map.Strict as M
 import qualified Data.Text as T
 import qualified Control.Monad.State.Strict as S
+import Control.Monad.Except (throwError)
 
 -- | The various names we wish to track within a package.
 -- This type separates all the different kinds of names
@@ -112,6 +113,13 @@ newtype NCState = NCState (M.Map FRName [Name])
 initialState :: NCState
 initialState = NCState M.empty
 
+-- | Monad in which to run the name collision check.
+type NCMonad t = S.StateT NCState (Either Error) t
+
+-- | Run the name collision with a blank initial state.
+runNameCollision :: NCMonad t -> Either Error t
+runNameCollision = flip S.evalStateT initialState
+
 -- | Try to add a name to the NCState. Returns Error only
 -- if the name results in a forbidden name collision.
 addName :: Name -> NCState -> Either Error NCState
@@ -126,16 +134,16 @@ addName name (NCState nameMap) = do
             (displayName name)
             (map displayName badNames)
 
-checkName :: MonadGamma m => Name -> S.StateT NCState m ()
+checkName :: Name -> NCMonad ()
 checkName name = do
     oldState <- S.get
     case addName name oldState of
         Left err ->
-            throwWithContext err
+            throwError err
         Right !newState ->
             S.put newState
 
-checkDataType :: MonadGamma m => ModuleName -> DefDataType -> S.StateT NCState m ()
+checkDataType :: ModuleName -> DefDataType -> NCMonad ()
 checkDataType moduleName DefDataType{..} =
     case dataCons of
         DataRecord fields -> do
@@ -153,51 +161,69 @@ checkDataType moduleName DefDataType{..} =
             forM_ constrs $ \vconName -> do
                 checkName (NEnumCon moduleName dataTypeCon vconName)
 
-        DataSynonym _ ->
-            checkName (NTypeSynonym moduleName dataTypeCon)
-
-checkTemplate :: MonadGamma m => ModuleName -> Template -> S.StateT NCState m ()
+checkTemplate :: ModuleName -> Template -> NCMonad ()
 checkTemplate moduleName Template{..} = do
     forM_ tplChoices $ \TemplateChoice{..} ->
         checkName (NChoice moduleName tplTypeCon chcName)
 
-checkModuleName :: MonadGamma m => Module -> S.StateT NCState m ()
-checkModuleName m = checkName (NModule (moduleName m))
+checkModuleName :: Module -> NCMonad ()
+checkModuleName m =
+    checkName (NModule (moduleName m))
 
-checkModuleTypes :: MonadGamma m => Module -> S.StateT NCState m ()
-checkModuleTypes m = do
+checkModuleBody :: Module -> NCMonad ()
+checkModuleBody m = do
     forM_ (moduleDataTypes m) $ \dataType ->
-        withContext (ContextDefDataType m dataType) $
-            checkDataType (moduleName m) dataType
+        checkDataType (moduleName m) dataType
     forM_ (moduleTemplates m) $ \tpl ->
-        withContext (ContextTemplate m tpl TPWhole) $
-            checkTemplate (moduleName m) tpl
+        checkTemplate (moduleName m) tpl
 
-checkModuleFully :: MonadGamma m => Module -> S.StateT NCState m ()
-checkModuleFully m = do
+checkModule :: Module -> NCMonad ()
+checkModule m = do
     checkModuleName m
-    checkModuleTypes m
+    checkModuleBody m
 
--- | Is the first module an ascendant of the second? This check
--- is case-insensitive because name collisions are case-insensitive.
+-- | Is one module an ascendant of another? For instance
+-- module "A" is an ascendant of module "A.B" and "A.B.C".
+--
+-- Normally we wouldn't care about this in DAML, because
+-- the name of a module has no relation to its logical
+-- dependency structure. But since we're compiling to LF,
+-- module names (e.g. "A.B") may conflict with type names
+-- ("A:B"), so we need to check modules in which this conflict
+-- may arise.
+--
+-- The check here is case-insensitive because the name-collision
+-- condition in DAML-LF is case-insensitiv (in order to make
+-- codegen easier for languages that control case differently
+-- from DAML).
 isAscendant :: ModuleName -> ModuleName -> Bool
 isAscendant (ModuleName xs) (ModuleName ys) =
     (length xs < length ys) && and (zipWith sameish xs ys)
     where sameish a b = T.toLower a == T.toLower b
 
--- | Check whether a module satisfies the name collision condition.
---
--- This involves not only checking the current module, but also
--- the module's ascendants and descendants for potential collisions.
-checkModule :: MonadGamma m => Module -> m ()
-checkModule mod0 = do
-    world <- getWorld
+
+-- | Check whether a module and its dependencies satisfy the
+-- name collision condition.
+checkModuleDeps :: World -> Module -> NCMonad ()
+checkModuleDeps world mod0 = do
+    -- TODO #3616:  check for collisions with TypeSynonyms
     let package = getWorldSelf world
         modules = NM.toList (packageModules package)
         name0 = moduleName mod0
         ascendants = filter (flip isAscendant name0 . moduleName) modules
         descendants = filter (isAscendant name0 . moduleName) modules
-    flip S.evalStateT initialState $ do
-        mapM_ checkModuleTypes ascendants -- only need type names
-        mapM_ checkModuleName descendants -- only need module names
-        checkModuleFully mod0
+    mapM_ checkModuleBody ascendants -- only need type names
+    mapM_ checkModuleName descendants -- only need module names
+    checkModule mod0
+
+-- | Check a whole package for name collisions. This is used
+-- when building a DAR, which may include modules in conflict
+-- that don't depend on each other.
+checkPackage :: Package -> NCMonad ()
+checkPackage = mapM_ checkModule . packageModules
+
+runCheckModuleDeps :: World -> Module -> Either Error ()
+runCheckModuleDeps w m = runNameCollision (checkModuleDeps w m)
+
+runCheckPackage :: Package -> Either Error ()
+runCheckPackage = runNameCollision . checkPackage

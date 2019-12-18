@@ -6,7 +6,6 @@ package com.daml.ledger.participant.state.kvutils
 import java.io._
 import java.time.Clock
 import java.util.UUID
-import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{CompletableFuture, CompletionStage}
 
 import akka.NotUsed
@@ -74,10 +73,6 @@ object InMemoryKVParticipantState {
   /** A periodically emitted heartbeat that is committed to the ledger. */
   final case class CommitHeartbeat(recordTime: Timestamp) extends Commit
 
-  final case class AddPackageUploadRequest(
-      submissionId: String,
-      cf: CompletableFuture[UploadPackagesResult])
-
   final case class AddPotentialResponse(idx: Int)
 
 }
@@ -122,9 +117,6 @@ class InMemoryKVParticipantState(
   // Namespace prefix for DAML state.
   private val NS_DAML_STATE = ByteString.copyFromUtf8("DS")
 
-  // For an in-memory ledger, an atomic integer is enough to guarantee uniqueness
-  private val submissionIdSource = new AtomicInteger()
-
   /** Interval for heartbeats. Heartbeats are committed to [[State.commitLog]]
     * and sent as [[Update.Heartbeat]] to [[stateUpdates]] consumers.
     */
@@ -157,55 +149,6 @@ class InMemoryKVParticipantState(
     }
     stateRef = newState
   }
-
-  /** Akka actor that matches the requests for party allocation
-    * with asynchronous responses delivered within the log entries.
-    */
-  class ResponseMatcher extends Actor {
-    var packageRequests: Map[String, CompletableFuture[UploadPackagesResult]] = Map.empty
-
-    @SuppressWarnings(Array("org.wartremover.warts.Any"))
-    override def receive: Receive = {
-      case AddPackageUploadRequest(submissionId, cf) =>
-        packageRequests += (submissionId -> cf); ()
-
-      case AddPotentialResponse(idx) =>
-        assert(idx >= 0 && idx < stateRef.commitLog.size)
-
-        stateRef.commitLog(idx) match {
-          case CommitSubmission(entryId, _) =>
-            stateRef.store
-              .get(entryId.getEntryId)
-              .flatMap { blob =>
-                KeyValueConsumption.logEntryToAsyncResponse(
-                  entryId,
-                  Envelope.open(blob) match {
-                    case Right(Envelope.LogEntryMessage(logEntry)) =>
-                      logEntry
-                    case _ =>
-                      sys.error(s"Envolope did not contain log entry")
-                  },
-                  participantId
-                )
-              }
-              .foreach {
-                case KeyValueConsumption.PackageUploadResponse(submissionId, result) =>
-                  packageRequests
-                    .getOrElse(
-                      submissionId,
-                      sys.error(
-                        s"packageUpload response: $submissionId could not be matched with a request!"))
-                    .complete(result)
-                  packageRequests -= submissionId
-              }
-          case _ => ()
-        }
-    }
-  }
-
-  /** Instance of the [[ResponseMatcher]] to which we send messages used for request-response matching. */
-  private val matcherActorRef =
-    system.actorOf(Props(new ResponseMatcher), s"response-matcher-$ledgerId")
 
   /** Akka actor that receives submissions sequentially and
     * commits them one after another to the state, e.g. appending
@@ -286,7 +229,6 @@ class InMemoryKVParticipantState(
 
           // Wake up consumers.
           dispatcher.signalNewHead(stateRef.commitLog.size)
-          matcherActorRef ! AddPotentialResponse(stateRef.commitLog.size - 1)
         }
     }
   }
@@ -454,21 +396,29 @@ class InMemoryKVParticipantState(
   private def generateRandomParty(): Ref.Party =
     Ref.Party.assertFromString(s"party-${UUID.randomUUID().toString.take(8)}")
 
+  /*
   /** Upload DAML-LF packages to the ledger */
+
+   */
+
+  /** Upload a collection of DAML-LF packages to the ledger. */
   override def uploadPackages(
+      submissionId: SubmissionId,
       archives: List[Archive],
-      sourceDescription: Option[String]): CompletionStage[UploadPackagesResult] = {
-    val sId = submissionIdSource.getAndIncrement().toString
-    val cf = new CompletableFuture[UploadPackagesResult]
-    matcherActorRef ! AddPackageUploadRequest(sId, cf)
-    commitActorRef ! CommitSubmission(
-      allocateEntryId,
-      Envelope.enclose(
-        KeyValueSubmission
-          .archivesToSubmission(sId, archives, sourceDescription.getOrElse(""), participantId))
-    )
-    cf
-  }
+      sourceDescription: Option[String]): CompletionStage[SubmissionResult] =
+    CompletableFuture.completedFuture({
+      commitActorRef ! CommitSubmission(
+        allocateEntryId,
+        Envelope.enclose(
+          KeyValueSubmission
+            .archivesToSubmission(
+              submissionId,
+              archives,
+              sourceDescription.getOrElse(""),
+              participantId))
+      )
+      SubmissionResult.Acknowledged
+    })
 
   /** Retrieve the static initial conditions of the ledger, containing
     * the ledger identifier and the initial ledger record time.
@@ -483,21 +433,6 @@ class InMemoryKVParticipantState(
   /** Shutdown the in-memory participant state. */
   override def close(): Unit = {
     val _ = Await.ready(gracefulStop(commitActorRef, 5.seconds, PoisonPill), 6.seconds)
-  }
-
-  private def getLogEntry(state: State, entryId: Proto.DamlLogEntryId): Proto.DamlLogEntry = {
-    Envelope.open(
-      state.store
-        .getOrElse(
-          entryId.getEntryId,
-          sys.error(s"getLogEntry: Cannot find ${Pretty.prettyEntryId(entryId)}!")
-        )
-    ) match {
-      case Right(Envelope.LogEntryMessage(logEntry)) =>
-        logEntry
-      case _ =>
-        sys.error(s"getLogEntry: Envelope did not contain log entry")
-    }
   }
 
   private def getDamlState(state: State, key: Proto.DamlStateKey): Option[Proto.DamlStateValue] =

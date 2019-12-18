@@ -46,6 +46,9 @@ instance Pretty PackageId where
 instance Pretty ModuleName where
     pPrint = prettyDottedName . unModuleName
 
+instance Pretty TypeSynName where
+    pPrint = prettyDottedName . unTypeSynName
+
 instance Pretty TypeConName where
     pPrint = prettyDottedName . unTypeConName
 
@@ -155,6 +158,7 @@ prettyStruct lvl sept fields =
 instance Pretty Type where
   pPrintPrec lvl prec = \case
     TVar v -> pretty v
+    TSyn s -> pretty s
     TCon c -> pretty c
     TApp (TApp (TBuiltin BTArrow) tx) ty ->
       maybeParens (prec > precTFun)
@@ -469,11 +473,15 @@ instance Pretty Expr where
     EFromAny ty body -> prettyAppKeyword lvl prec "from_any" [TyArg ty, TmArg body]
     ETypeRep ty -> prettyAppKeyword lvl prec "type_rep" [TyArg ty]
 
+instance Pretty DefTypeSyn where
+  pPrintPrec lvl _prec (DefTypeSyn mbLoc syn params typ) =
+    withSourceLoc mbLoc $ (keyword_ "synonym" <-> lhsDoc) $$ nest 2 (pPrintPrec lvl 0 typ)
+    where
+      lhsDoc = pretty syn <-> hsep (map (prettyAndKind lvl) params) <-> "="
+
 instance Pretty DefDataType where
   pPrintPrec lvl _prec (DefDataType mbLoc tcon (IsSerializable serializable) params dataCons) =
     withSourceLoc mbLoc $ case dataCons of
-    DataSynonym typ ->
-      (keyword_ "synonym" <-> lhsDoc) $$ nest 2 (pPrintPrec lvl 0 typ)
     DataRecord fields ->
       hang (keyword_ "record" <-> lhsDoc) 2 (prettyRecord lvl prettyHasType fields)
     DataVariant variants ->
@@ -547,11 +555,12 @@ prettyFeatureFlags
       | otherwise = Nothing
 
 instance Pretty Module where
-  pPrintPrec lvl _prec (Module modName _path flags dataTypes values templates) =
+  pPrintPrec lvl _prec (Module modName _path flags synonyms dataTypes values templates) =
     vsep $ moduleHeader ++  map (nest 2) defns
     where
       defns = concat
-        [ map (pPrintPrec lvl 0) (NM.toList dataTypes)
+        [ map (pPrintPrec lvl 0) (NM.toList synonyms)
+        , map (pPrintPrec lvl 0) (NM.toList dataTypes)
         , map (pPrintPrec lvl 0) (NM.toList values)
         , map (prettyTemplate lvl modName) (NM.toList templates)
         ]

@@ -171,7 +171,7 @@ startFromExpr seen world e = case e of
 
 pattern EInternalTemplateVal :: T.Text -> LF.Expr
 pattern EInternalTemplateVal val <-
-    LF.EVal (LF.Qualified _pkg (LF.ModuleName ["DA", "Internal", "Template"]) (LF.ExprValName val))
+    LF.EVal (LF.Qualified _pkg (LF.ModuleName ["DA", "Internal", "Template", "Functions"]) (LF.ExprValName val))
 
 startFromChoice :: LF.World -> LF.TemplateChoice -> Set.Set Action
 startFromChoice world chc = startFromExpr Set.empty world (LF.chcUpdate chc)
@@ -235,7 +235,6 @@ typeConFieldsNames _ (LF.FieldName fName, _) = [fName]
 typeConFields :: LF.Qualified LF.TypeConName -> LF.World -> [T.Text]
 typeConFields qName world = case LF.lookupDataType qName world of
   Right dataType -> case LF.dataCons dataType of
-    LF.DataSynonym _ -> [""] -- TODO(NICK)
     LF.DataRecord re -> concatMap (typeConFieldsNames world) re
     LF.DataVariant _ -> [""]
     LF.DataEnum _ -> [""]

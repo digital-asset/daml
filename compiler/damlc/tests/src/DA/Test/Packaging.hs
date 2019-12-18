@@ -352,10 +352,9 @@ tests damlc = testGroup "Packaging"
         writeFileUTF8 (projDir </> "src" </> "A" </> "B.daml") $ unlines
             [ "daml 1.2"
             , "module A.B where"
-            , "import A()" -- TODO [#3252]: Remove this import, so we can catch the name collision even when there isn't a strict dependency.
             , "data C = C Int"
             ]
-        buildProjectError projDir "" "name collision between module A.B and variant A:B"
+        buildProjectError projDir "" "name collision"
 
     , testCase "Manifest name" $ withTempDir $ \projDir -> do
           createDirectoryIfMissing True (projDir </> "src")
@@ -483,7 +482,7 @@ dataDependencyTests damlc = testGroup "Data Dependencies" $
             [ "daml 1.2"
             , "module A where"
             , "import qualified \"instances-simple-dalf\" Module"
-            , "import DA.Internal.Template (toAnyTemplate, fromAnyTemplate)"
+            , "import DA.Internal.Template.Functions (toAnyTemplate, fromAnyTemplate)"
             , "newTemplate : Party -> Party -> Module.Template"
             , "newTemplate p1 p2 = Module.Template with Module.this = p1, Module.arg = p2"
             , "newChoice : Module.Choice"
@@ -527,7 +526,7 @@ dataDependencyTests damlc = testGroup "Data Dependencies" $
         withCurrentDirectory projDir $
             callProcessSilent genSimpleDalf $
             ["--with-archive-choice" | withArchiveChoice ] <> ["simple-dalf-0.0.0.dalf"]
-        withCurrentDirectory projDir $ callProcessSilent damlc ["build", "--target=1.dev", "--generated-src"]
+        withCurrentDirectory projDir $ callProcess damlc ["build", "--target=1.dev", "--generated-src"]
         let dar = projDir </> ".daml/dist/proj-0.1.0.dar"
         assertBool "proj-0.1.0.dar was not created." =<< doesFileExist dar
         callProcessSilent damlc ["test", "--target=1.dev", "--project-root", projDir, "--generated-src"]

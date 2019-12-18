@@ -915,6 +915,74 @@ case class TemplateFilterTests(dar: Dar[(PackageId, Package)], runner: TestRunne
   }
 }
 
+case class TimeTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
+
+  val triggerId: Identifier =
+    Identifier(dar.main._1, QualifiedName.assertFromString("Time:test"))
+
+  val tId = Identifier(dar.main._1, QualifiedName.assertFromString("Time:T"))
+
+  def test(name: String, triggerName: String, numMessages: NumMessages) = {
+    def assertFinalState(finalState: SExpr, commandsR: Unit) = {
+      finalState match {
+        case SEValue(SRecord(_, _, values)) =>
+          for {
+            _ <- TestRunner.assertEqual(values.size, 2, "number of tuple elements")
+            _ <- values.get(1) match {
+              case SList(items) =>
+                for {
+                  _ <- TestRunner.assertEqual(items.length, 2, "number of time values")
+                  times <- items.pop match {
+                    case Some((STimestamp(timeA), tail)) =>
+                      tail.pop match {
+                        case Some((STimestamp(timeB), _)) => Right((timeA, timeB))
+                        case _ => Left(s"Expected at least two timestamps")
+                      }
+                    case _ => Left(s"Expected at least one timestamp")
+                  }
+                  (timeA, timeB) = times
+                  _ <- runner.config.timeProviderType match {
+                    case TimeProviderType.Static =>
+                      TestRunner.assertEqual(timeA, timeB, "static times")
+                    case _ =>
+                      if (timeA <= timeB) {
+                        Left(s"Second create should have happened after first")
+                      } else {
+                        Right(())
+                      }
+                  }
+                } yield ()
+              case _ => Left(s"Expected a list but got ${values.get(1)}")
+            }
+          } yield ()
+        case _ => Left(s"Expected a tuple but got $finalState")
+      }
+    }
+    def assertFinalACS(
+        acs: Map[Identifier, Seq[(String, Lf.ValueRecord[Lf.AbsoluteContractId])]],
+        commandsR: Unit) = {
+      Right(())
+    }
+    def cmds(client: LedgerClient, party: String) = { implicit ec: ExecutionContext =>
+      { implicit mat: ActorMaterializer =>
+        Future {}
+      }
+    }
+    val triggerId =
+      Identifier(dar.main._1, QualifiedName.assertFromString(s"Time:$triggerName"))
+    runner.genericTest(name, dar, triggerId, cmds, numMessages, assertFinalState, assertFinalACS)
+  }
+
+  def runTests() = {
+    test(
+      "Time",
+      "test",
+      // 2 creates
+      NumMessages(2)
+    )
+  }
+}
+
 object TestMain {
 
   private val configParser = new scopt.OptionParser[Config]("acs_test") {
@@ -965,6 +1033,7 @@ object TestMain {
         CommandIdTests(dar, runner).runTests()
         PendingTests(dar, runner).runTests()
         TemplateFilterTests(dar, runner).runTests()
+        TimeTests(dar, runner).runTests()
     }
   }
 }

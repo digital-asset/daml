@@ -71,9 +71,6 @@ class ApiTimeService private (
 
   @SuppressWarnings(Array("org.wartremover.warts.JavaSerializable"))
   override def setTime(request: SetTimeRequest): Future[Empty] = {
-    @SuppressWarnings(Array("org.wartremover.warts.ExplicitImplicitTypes"))
-    implicit val dec = DirectExecutionContext
-
     def updateTime(
         expectedTime: Instant,
         requestedTime: Instant): Future[Either[StatusRuntimeException, Instant]] = {
@@ -87,7 +84,7 @@ class ApiTimeService private (
                 .withDescription(
                   s"current_time mismatch. Provided: $expectedTime. Actual: ${backend.getCurrentTime}"))
               with NoStackTrace
-          ))
+          ))(DirectExecutionContext)
     }
 
     val result = for {

@@ -23,6 +23,7 @@ object Tests {
   val optional: Tests = Map(
     "ActiveContractsServiceIT" -> (new ActiveContractsService(_)),
     "CommandServiceIT" -> (new CommandService(_)),
+    "CommandSubmissionCompletionIT" -> (new CommandSubmissionCompletion(_)),
     "ContractKeysIT" -> (new ContractKeys(_)),
     "ContractKeysSubmitterIsMaintainerIT" -> (new ContractKeysSubmitterIsMaintainer(_)),
     "DivulgenceIT" -> (new Divulgence(_)),
@@ -37,7 +38,8 @@ object Tests {
     "TransactionServiceIT" -> (new TransactionService(_)),
     "TransactionScaleIT" -> (new TransactionScale(_)),
     "WitnessesIT" -> (new Witnesses(_)),
-    "WronglyTypedContractIdIT" -> (new WronglyTypedContractId(_))
+    "WronglyTypedContractIdIT" -> (new WronglyTypedContractId(_)),
+    "ConfigManagementServiceIT" -> (new ConfigManagement(_)),
   )
 
   val all: Tests = default ++ optional

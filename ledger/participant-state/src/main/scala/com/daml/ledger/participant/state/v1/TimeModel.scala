@@ -48,7 +48,6 @@ case class TimeModel private (
     val lowerBound = givenLedgerEffectiveTime.minus(futureAcceptanceWindow)
     !currentTime.isBefore(lowerBound) && !currentTime.isAfter(givenMaximumRecordTime)
   }
-
 }
 
 object TimeModel {

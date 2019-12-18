@@ -71,8 +71,6 @@ plugin_scalacopts = [
     "-Xplugin-require:wartremover",
 
     # This lists all wartremover linting passes.
-    # The list of enabled ones is pretty arbitrary, please ping Francesco for
-    # info
     "-P:wartremover:traverser:org.wartremover.warts.Any",
     "-P:wartremover:traverser:org.wartremover.warts.AnyVal",
     "-P:wartremover:traverser:org.wartremover.warts.ArrayEquals",

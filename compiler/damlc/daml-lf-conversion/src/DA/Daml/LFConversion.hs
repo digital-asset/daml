@@ -1766,19 +1766,12 @@ convertExternal env stdlibRef primId lfType
                                  "fromAnyTemplate is not supported in this DAML-LF version")
                 "_templateTypeRep"
                     | envLfVersion env `supports` featureTypeRep ->
-                        let resType =
-                                TypeConApp
-                                    (Qualified
-                                         stdlibRef
-                                         (mkModName ["DA", "Internal", "LF"])
-                                         (mkTypeCon ["TemplateTypeRep"]))
-                                    []
-                            resField = mkField "getTemplateTypeRep"
-                         in ERecCon
-                                resType
-                                [ ( resField
-                                  , ETypeRep $ templateDataType tplTypeCon)
-                                ]
+                          ERecCon
+                              (templateTypeRepTyFromStdlib stdlibRef)
+                              [ ( templateTypeRepField
+                                , ETypeRep $ templateDataType tplTypeCon
+                                )
+                              ]
                     | otherwise ->
                         EBuiltin BEError `ETyApp` lfType `ETmApp`
                         EBuiltin
@@ -1837,7 +1830,7 @@ anyTemplateTyFromStdlib stdlibRef =
     TypeConApp
         (Qualified
              stdlibRef
-             (mkModName ["DA", "Internal", "LF"])
+             (mkModName ["DA", "Internal", "Template"])
              (mkTypeCon ["AnyTemplate"]))
         []
 
@@ -1849,7 +1842,7 @@ templateTypeRepTyFromStdlib stdlibRef =
     TypeConApp
         (Qualified
              stdlibRef
-             (mkModName ["DA", "Internal", "LF"])
+             (mkModName ["DA", "Internal", "Template"])
              (mkTypeCon ["TemplateTypeRep"]))
         []
 

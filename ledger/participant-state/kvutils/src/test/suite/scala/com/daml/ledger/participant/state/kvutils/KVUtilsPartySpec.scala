@@ -3,6 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils
 
+import com.codahale.metrics
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
   DamlPartyAllocationRejectionEntry
@@ -51,7 +52,7 @@ class KVUtilsPartySpec extends WordSpec with Matchers {
       }
     }
 
-    "reject on duplicate" in KVTest.runTest {
+    "reject on duplicate party" in KVTest.runTest {
       for {
         logEntry1 <- submitPartyAllocation("alice", "alice", p0)
         logEntry2 <- submitPartyAllocation("alice again", "alice", p0)
@@ -59,7 +60,34 @@ class KVUtilsPartySpec extends WordSpec with Matchers {
         logEntry1.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.PARTY_ALLOCATION_ENTRY
         logEntry2.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.PARTY_ALLOCATION_REJECTION_ENTRY
         logEntry2.getPartyAllocationRejectionEntry.getReasonCase shouldEqual DamlPartyAllocationRejectionEntry.ReasonCase.ALREADY_EXISTS
+      }
+    }
 
+    "reject duplicate submission" in KVTest.runTest {
+      for {
+        logEntry0 <- submitPartyAllocation("submission-1", "alice", p0)
+        logEntry1 <- submitPartyAllocation("submission-1", "bob", p0)
+      } yield {
+        logEntry0.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.PARTY_ALLOCATION_ENTRY
+        logEntry1.getPayloadCase shouldEqual
+          DamlLogEntry.PayloadCase.PARTY_ALLOCATION_REJECTION_ENTRY
+        logEntry1.getPartyAllocationRejectionEntry.getReasonCase shouldEqual
+          DamlPartyAllocationRejectionEntry.ReasonCase.DUPLICATE_SUBMISSION
+
+      }
+    }
+
+    "metrics get updated" in KVTest.runTestWithSimplePackage() {
+      for {
+        //Submit party twice to force one acceptance and one rejection on duplicate
+        _ <- submitPartyAllocation("submission-1", "alice", p0)
+        _ <- submitPartyAllocation("submission-1", "bob", p0)
+      } yield {
+        // Check that we're updating the metrics (assuming this test at least has been run)
+        val reg = metrics.SharedMetricRegistries.getOrCreate("kvutils")
+        reg.counter("kvutils.committer.party_allocation.accepts").getCount should be >= 1L
+        reg.counter("kvutils.committer.party_allocation.rejections").getCount should be >= 1L
+        reg.timer("kvutils.committer.party_allocation.run_timer").getCount should be >= 1L
       }
     }
   }

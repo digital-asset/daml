@@ -23,7 +23,8 @@ import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{ActiveContrac
 import com.digitalasset.platform.sandbox.stores.ledger.{
   ConfigurationEntry,
   LedgerEntry,
-  PartyLedgerEntry
+  PartyLedgerEntry,
+  PackageLedgerEntry
 }
 
 import scala.collection.immutable
@@ -100,12 +101,17 @@ private class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegi
   override def getLfArchive(packageId: PackageId): Future[Option[Archive]] =
     timedFuture(Metrics.getLfArchive, ledgerDao.getLfArchive(packageId))
 
+  override def getPackageEntries(
+      startInclusive: LedgerOffset,
+      endExclusive: LedgerOffset): Source[(LedgerOffset, PackageLedgerEntry), NotUsed] =
+    ledgerDao.getPackageEntries(startInclusive, endExclusive)
+
   override def close(): Unit = {
     ledgerDao.close()
   }
 
   /** Looks up the current ledger configuration, if it has been set. */
-  override def lookupLedgerConfiguration(): Future[Option[Configuration]] =
+  override def lookupLedgerConfiguration(): Future[Option[(Long, Configuration)]] =
     timedFuture(Metrics.lookupLedgerConfiguration, ledgerDao.lookupLedgerConfiguration())
 
   /** Get a stream of configuration entries. */
@@ -122,7 +128,7 @@ private class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: MetricRegistry)
   private object Metrics {
     val storePartyEntry: Timer = metrics.timer("LedgerDao.storePartyEntry")
     val storeInitialState: Timer = metrics.timer("LedgerDao.storeInitialState")
-    val uploadLfPackages: Timer = metrics.timer("LedgerDao.uploadLfPackages")
+    val storePackageEntry: Timer = metrics.timer("LedgerDao.storePackageEntry")
     val storeLedgerEntry: Timer = metrics.timer("LedgerDao.storeLedgerEntry")
     val storeConfigurationEntry: Timer = metrics.timer("LedgerDao.storeConfigurationEntry")
   }
@@ -185,13 +191,16 @@ private class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: MetricRegistry)
         rejectionReason)
     )
 
-  override def uploadLfPackages(
-      uploadId: String,
+  override def storePackageEntry(
+      offset: LedgerOffset,
+      newLedgerEnd: LedgerOffset,
+      externalOffset: Option[ExternalOffset],
       packages: List[(Archive, PackageDetails)],
-      externalOffset: Option[ExternalOffset]): Future[Map[PersistenceResponse, Int]] =
+      entry: Option[PackageLedgerEntry]
+  ): Future[PersistenceResponse] =
     timedFuture(
-      Metrics.uploadLfPackages,
-      ledgerDao.uploadLfPackages(uploadId, packages, externalOffset))
+      Metrics.storePackageEntry,
+      ledgerDao.storePackageEntry(offset, newLedgerEnd, externalOffset, packages, entry))
 
   override def close(): Unit = {
     ledgerDao.close()

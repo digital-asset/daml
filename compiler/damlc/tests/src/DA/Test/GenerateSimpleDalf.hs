@@ -104,17 +104,17 @@ main = do
             , tplChoices = NM.fromList ([chc,chc2] <> [arc | withArchiveChoice])
             , tplKey = Nothing
             }
-    let _syn = DefDataType -- TODO(NICK) make use of this synonym
-            { dataLocation = Nothing
-            , dataTypeCon = TypeConName ["Syn"]
-            , dataSerializable = IsSerializable True
-            , dataParams = []
-            , dataCons = DataSynonym TUnit
+    let syn = DefTypeSyn
+            { synLocation = Nothing
+            , synName = TypeSynName ["MySyn1"]
+            , synParams = []
+            , synType = TUnit
             }
     let mod = Module
             { moduleName = ModuleName ["Module"]
             , moduleSource = Nothing
             , moduleFeatureFlags = FeatureFlags{forbidPartyLiterals = True}
+            , moduleSynonyms = NM.fromList [syn]
             , moduleDataTypes = NM.fromList ([tplRec, chcArg, chcArg2] <> [emptyRec | withArchiveChoice])
             , moduleValues = NM.empty
             , moduleTemplates = NM.fromList [tpl]

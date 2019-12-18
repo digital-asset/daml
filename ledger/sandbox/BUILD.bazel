@@ -257,6 +257,7 @@ server_conformance_test(
     test_tool_args = [
         "--all-tests",
         "--exclude=LotsOfPartiesIT",
+        "--exclude=ConfigManagementServiceIT",
     ],
 )
 
@@ -282,5 +283,16 @@ server_conformance_test(
         "--all-tests",
         "--exclude=LotsOfPartiesIT",
         "--exclude=TimeIT",
+        "--exclude=ConfigManagementServiceIT",
     ],
 )
+
+server_conformance_test(
+    name = "conformance-test-config-management",
+    servers = SERVERS,
+    test_tool_args = [
+        "--include=ConfigManagementServiceIT",
+    ],
+)
+
+exports_files(["src/main/resources/logback.xml"])

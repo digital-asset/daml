@@ -26,6 +26,7 @@ freeVars e = go Set.empty e Set.empty
         TVar v
             | v `Set.member` boundVars -> acc
             | otherwise -> Set.insert v acc
+        TSyn _ -> acc
         TCon _ -> acc
         TApp s1 s2 -> go boundVars s1 $ go boundVars s2 acc
         TBuiltin _ -> acc
@@ -95,6 +96,7 @@ substitute subst = go (Map.foldl' (\acc t -> acc `Set.union` freeVars t) Set.emp
       TVar v
         | Just t <- Map.lookup v subst0 -> t
         | otherwise                     -> TVar v
+      TSyn s -> TSyn s
       TCon c -> TCon c
       TApp t1 t2 -> TApp (go0 t1) (go0 t2)
       TBuiltin b -> TBuiltin b

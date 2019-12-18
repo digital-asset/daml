@@ -6,15 +6,15 @@ package com.digitalasset.ledger.api
 import java.time.Instant
 
 import brave.propagation.TraceContext
-
+import com.daml.ledger.participant.state.v1.Configuration
+import com.digitalasset.daml.lf.command.{Commands => LfCommands}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.LedgerString.ordering
-import com.digitalasset.ledger.api.domain.Event.{CreateOrArchiveEvent, CreateOrExerciseEvent}
-import scalaz.{@@, Tag}
-import scalaz.syntax.tag._
-import com.digitalasset.daml.lf.value.{Value => Lf}
-import com.digitalasset.daml.lf.command.{Commands => LfCommands}
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ValueRecord}
+import com.digitalasset.daml.lf.value.{Value => Lf}
+import com.digitalasset.ledger.api.domain.Event.{CreateOrArchiveEvent, CreateOrExerciseEvent}
+import scalaz.syntax.tag._
+import scalaz.{@@, Tag}
 
 import scala.collection.{breakOut, immutable}
 
@@ -203,14 +203,6 @@ object domain {
       */
     final case class Disputed(description: String) extends RejectionReason
 
-    /** The participant node has already seen a command with the same commandId
-      * during its implementation specific deduplication window.
-      *
-      * TODO (SM): explain in more detail how command de-duplication should
-      * work.
-      */
-    final case class DuplicateCommandId(description: String) extends RejectionReason
-
     final case class PartyNotKnownOnLedger(description: String) extends RejectionReason
 
     final case class SubmitterCannotActViaParticipant(description: String) extends RejectionReason
@@ -306,4 +298,39 @@ object domain {
         reason: String
     ) extends PartyEntry
   }
+
+  /** Configuration entry describes a change to the current configuration. */
+  sealed abstract class ConfigurationEntry extends Product with Serializable
+  object ConfigurationEntry {
+
+    final case class Accepted(
+        submissionId: String,
+        participantId: ParticipantId,
+        configuration: Configuration,
+    ) extends ConfigurationEntry
+
+    final case class Rejected(
+        submissionId: String,
+        participantId: ParticipantId,
+        rejectionReason: String,
+        proposedConfiguration: Configuration
+    ) extends ConfigurationEntry
+  }
+
+  sealed abstract class PackageEntry() extends Product with Serializable
+
+  object PackageEntry {
+
+    final case class PackageUploadAccepted(
+        submissionId: String,
+        recordTime: Instant
+    ) extends PackageEntry
+
+    final case class PackageUploadRejected(
+        submissionId: String,
+        recordTime: Instant,
+        reason: String
+    ) extends PackageEntry
+  }
+
 }

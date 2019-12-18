@@ -64,6 +64,7 @@ data UnserializabilityReason
   | URTypeLevelNat
   | URAny -- ^ It contains a value of type Any.
   | URTypeRep -- ^ It contains a value of type TypeRep.
+  | URTypeSyn  -- ^ It contains a type synonym.
 
 data Error
   = EUnknownTypeVar        !TypeVarName
@@ -172,6 +173,7 @@ instance Pretty UnserializabilityReason where
     URTypeLevelNat -> "type-level nat"
     URAny -> "Any"
     URTypeRep -> "TypeRep"
+    URTypeSyn -> "type synonym"
 
 instance Pretty Error where
   pPrint = \case

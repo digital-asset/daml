@@ -253,11 +253,6 @@ in rec {
 
   # Set of packages that we want Hydra to build for us
   cached = bazel_dependencies // {
-    # Python packages used via 'python3.6-da'.
-    pythonPackages = {
-      inherit (pkgs.python37Packages)
-        pyyaml semver GitPython;
-    };
     # Packages used in command-line tools
     cli-tools = {
       inherit (pkgs) coreutils nix-info getopt;

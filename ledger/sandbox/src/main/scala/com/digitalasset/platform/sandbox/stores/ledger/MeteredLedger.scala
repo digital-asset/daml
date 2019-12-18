@@ -78,11 +78,14 @@ private class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegis
   override def getLfPackage(packageId: PackageId): Future[Option[Ast.Package]] =
     timedFuture(Metrics.getLfPackage, ledger.getLfPackage(packageId))
 
+  override def packageEntries(beginOffset: Long): Source[(Long, PackageLedgerEntry), NotUsed] =
+    ledger.packageEntries(beginOffset)
+
   override def close(): Unit = {
     ledger.close()
   }
 
-  override def lookupLedgerConfiguration(): Future[Option[Configuration]] =
+  override def lookupLedgerConfiguration(): Future[Option[(Long, Configuration)]] =
     timedFuture(Metrics.lookupLedgerConfiguration, ledger.lookupLedgerConfiguration())
 
   override def configurationEntries(
@@ -126,13 +129,14 @@ private class MeteredLedger(ledger: Ledger, metrics: MetricRegistry)
       Metrics.publishPartyAllocation,
       ledger.publishPartyAllocation(submissionId, party, displayName))
 
-  override def uploadPackages(
+  def uploadPackages(
+      submissionId: SubmissionId,
       knownSince: Instant,
       sourceDescription: Option[String],
-      payload: List[Archive]): Future[UploadPackagesResult] =
+      payload: List[Archive]): Future[SubmissionResult] =
     timedFuture(
       Metrics.uploadPackages,
-      ledger.uploadPackages(knownSince, sourceDescription, payload))
+      ledger.uploadPackages(submissionId, knownSince, sourceDescription, payload))
 
   override def publishConfiguration(
       maxRecordTime: Time.Timestamp,

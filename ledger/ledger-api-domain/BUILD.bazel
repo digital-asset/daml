@@ -16,6 +16,7 @@ da_scala_library(
     deps = [
         "//daml-lf/data",
         "//daml-lf/transaction",
+        "//ledger/participant-state",
         "@maven//:io_zipkin_brave_brave",
         "@maven//:org_scalaz_scalaz_core_2_12",
     ],

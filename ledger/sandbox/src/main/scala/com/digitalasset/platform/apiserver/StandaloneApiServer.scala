@@ -32,7 +32,7 @@ import scala.util.control.NonFatal
 // Main entry point to start an index server that also hosts the ledger API.
 // See v2.ReferenceServer on how it is used.
 final class StandaloneApiServer(
-    config: Config,
+    config: ApiServerConfig,
     readService: ReadService,
     writeService: WriteService,
     authService: AuthService,
@@ -103,7 +103,7 @@ final class StandaloneApiServer(
         "read" -> readService,
         "write" -> writeService,
       )
-      apiServer <- LedgerApiServer.create(
+      apiServer <- LedgerApiServer.start(
         (am: ActorMaterializer, esf: ExecutionSequencerFactory) =>
           ApiServices
             .create(
@@ -112,7 +112,7 @@ final class StandaloneApiServer(
               authorizer,
               engine,
               config.timeProvider,
-              cond.config.timeModel,
+              cond.config,
               SandboxConfig.defaultCommandConfig,
               timeServiceBackendO,
               loggerFactory,

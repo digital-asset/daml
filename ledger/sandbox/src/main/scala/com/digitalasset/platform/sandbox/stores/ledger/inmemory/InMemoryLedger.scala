@@ -48,6 +48,7 @@ sealed trait InMemoryEntry extends Product with Serializable
 final case class InMemoryLedgerEntry(entry: LedgerEntry) extends InMemoryEntry
 final case class InMemoryConfigEntry(entry: ConfigurationEntry) extends InMemoryEntry
 final case class InMemoryPartyEntry(entry: PartyLedgerEntry) extends InMemoryEntry
+final case class InMemoryPackageEntry(entry: PackageLedgerEntry) extends InMemoryEntry
 
 /** This stores all the mutable data that we need to run a ledger: the PCS, the ACS, and the deduplicator.
   *
@@ -301,19 +302,35 @@ class InMemoryLedger(
   override def getLfPackage(packageId: PackageId): Future[Option[Ast.Package]] =
     packageStoreRef.get.getLfPackage(packageId)
 
+  override def packageEntries(beginOffset: Long): Source[(Long, PackageLedgerEntry), NotUsed] =
+    entries.getSource(Some(beginOffset)).collect {
+      case (offset, InMemoryPackageEntry(entry)) => (offset, entry)
+    }
+
   override def uploadPackages(
+      submissionId: SubmissionId,
       knownSince: Instant,
       sourceDescription: Option[String],
-      payload: List[Archive]): Future[UploadPackagesResult] = {
+      payload: List[Archive]): Future[SubmissionResult] = {
+
     val oldStore = packageStoreRef.get
     oldStore
       .withPackages(knownSince, sourceDescription, payload)
       .fold(
-        err => Future.successful(UploadPackagesResult.InvalidPackage(err)),
+        err => {
+          entries.publish(
+            InMemoryPackageEntry(PackageLedgerEntry
+              .PackageUploadRejected(submissionId, timeProvider.getCurrentTime, err)))
+          Future.successful(SubmissionResult.Acknowledged)
+        },
         newStore => {
-          if (packageStoreRef.compareAndSet(oldStore, newStore))
-            Future.successful(UploadPackagesResult.Ok)
-          else uploadPackages(knownSince, sourceDescription, payload)
+          if (packageStoreRef.compareAndSet(oldStore, newStore)) {
+            entries.publish(InMemoryPackageEntry(
+              PackageLedgerEntry.PackageUploadAccepted(submissionId, timeProvider.getCurrentTime)))
+            Future.successful(SubmissionResult.Acknowledged)
+          } else {
+            uploadPackages(submissionId, knownSince, sourceDescription, payload)
+          }
         }
       )
   }
@@ -324,13 +341,27 @@ class InMemoryLedger(
       config: Configuration): Future[SubmissionResult] =
     Future.successful {
       this.synchronized {
+        val recordTime = timeProvider.getCurrentTime
+        val mrt = maxRecordTime.toInstant
         ledgerConfiguration match {
-          case Some(currentConfig) if config.generation != currentConfig.generation =>
-            entries.publish(InMemoryConfigEntry(ConfigurationEntry.Rejected(
-              submissionId,
-              participantId,
-              "Generation mismatch, expected ${currentConfig.generation}, got ${config.generation}",
-              config)))
+          case Some(currentConfig) if config.generation != currentConfig.generation + 1 =>
+            entries.publish(
+              InMemoryConfigEntry(
+                ConfigurationEntry.Rejected(
+                  submissionId,
+                  participantId,
+                  s"Generation mismatch, expected ${currentConfig.generation + 1}, got ${config.generation}",
+                  config)))
+
+          case _ if recordTime.isAfter(mrt) =>
+            entries.publish(
+              InMemoryConfigEntry(
+                ConfigurationEntry.Rejected(
+                  submissionId,
+                  participantId,
+                  s"Configuration change timed out: $mrt > $recordTime",
+                  config)))
+            ledgerConfiguration = Some(config)
 
           case _ =>
             entries.publish(
@@ -341,13 +372,15 @@ class InMemoryLedger(
       }
     }
 
-  override def lookupLedgerConfiguration(): Future[Option[Configuration]] =
-    Future.successful(this.synchronized { ledgerConfiguration })
+  override def lookupLedgerConfiguration(): Future[Option[(Long, Configuration)]] =
+    Future.successful(this.synchronized {
+      ledgerConfiguration.map(config => ledgerEnd -> config)
+    })
 
   override def configurationEntries(
-      offset: Option[Long]): Source[(Long, ConfigurationEntry), NotUsed] =
+      startInclusive: Option[Long]): Source[(Long, ConfigurationEntry), NotUsed] =
     entries
-      .getSource(offset)
+      .getSource(startInclusive)
       .collect { case (offset, InMemoryConfigEntry(entry)) => offset -> entry }
 
 }

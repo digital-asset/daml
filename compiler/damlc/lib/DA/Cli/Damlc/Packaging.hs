@@ -105,9 +105,6 @@ createProjectPackageDb opts thisSdkVer deps dataDeps = do
             Archive.decodeArchive Archive.DecodeAsMain dalf
         pure (pkgId, package, dalf, stringToUnitId (parseUnitId name pkgId))
 
-    dbPathAbs <- makeAbsolute dbPath
-    projectPackageDatabaseAbs <- makeAbsolute projectPackageDatabase
-
     let (depGraph, vertexToNode) = buildLfPackageGraph pkgs
     -- Iterate over the dependency graph in topological order.
     -- We do a topological sort on the transposed graph which ensures that
@@ -151,8 +148,8 @@ createProjectPackageDb opts thisSdkVer deps dataDeps = do
                     thisSdkVer
                     (templateInstanceSources pkgNode)
                     opts
-                    dbPathAbs
-                    projectPackageDatabaseAbs
+                    dbPath
+                    projectPackageDatabase
                     unitIdStr
                     instancesUnitIdStr
                     pkgName
@@ -184,9 +181,9 @@ generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase
     opts' <-
         mkOptions $
         opts
-            { optWriteInterface = False
+            { optIfaceDir = Nothing
+            -- We write ifaces below using writeIfacesAndHie so we don’t need to enable these options.
             , optPackageDbs = projectPackageDatabase : optPackageDbs opts
-            , optIfaceDir = Nothing
             , optIsGenerated = True
             , optDflagCheck = False
             , optMbPackageName = Just unitIdStr
@@ -202,24 +199,30 @@ generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase
 
     _ <- withDamlIdeState opts' loggerH diagnosticsLogger $ \ide ->
         runAction ide $
+        -- Setting ifDir to . means that the interface files will end up directly next to
+        -- the source files which is what we want here.
         writeIfacesAndHie
-            (toNormalizedFilePath "./")
+            (toNormalizedFilePath ".")
             [fp | (fp, _content) <- src']
     -- write the conf file and refresh the package cache
     (cfPath, cfBs) <-
             mkConfFile
                 PackageConfigFields
                     { pName = pkgName
-                    , pSrc = "" -- not used
+                    , pSrc = error "src field was used for creation of pkg conf file"
                     , pExposedModules = Nothing
                     , pVersion = mbPkgVersion
                     , pDependencies = deps
                     , pDataDependencies = []
-                    , pSdkVersion = PackageSdkVersion "unknown"
+                    , pSdkVersion = error "sdk version field was used for creation of pkg conf file"
                     }
                 (map T.unpack $ LF.packageModuleNames dalf)
                 pkgIdStr
     BS.writeFile (dbPath </> "package.conf.d" </> cfPath) cfBs
+    recachePkgDb dbPath
+
+recachePkgDb :: FilePath -> IO ()
+recachePkgDb dbPath = do
     ghcPkgPath <- getGhcPkgPath
     callProcess
         (ghcPkgPath </> exe "ghc-pkg")
@@ -240,6 +243,7 @@ baseImports =
        False
        (map (bimap GHC.mkModuleName GHC.mkModuleName)
           [ ("DA.Internal.Template", "Sdk.DA.Internal.Template")
+          , ("DA.Internal.Template.Functions", "Sdk.DA.Internal.Template.Functions")
           , ("DA.Internal.LF", "Sdk.DA.Internal.LF")
           , ("DA.Internal.Prelude", "Sdk.DA.Internal.Prelude")
           ]
@@ -259,7 +263,18 @@ generateAndInstallInstancesPkg
     -> Maybe String
     -> [String]
     -> IO ()
-generateAndInstallInstancesPkg thisSdkVer templInstSrc opts dbPathAbs projectPackageDatabaseAbs unitIdStr instancesUnitIdStr pkgName mbPkgVersion deps =
+generateAndInstallInstancesPkg thisSdkVer templInstSrc opts dbPath projectPackageDatabase unitIdStr instancesUnitIdStr pkgName mbPkgVersion deps = do
+    -- Given that the instances package generates actual code, we first build a DAR and then
+    -- install that in the package db like any other DAR in `dependencies`.
+    --
+    -- Note that this will go away once we have finished the packaging rework
+    -- since we will only generate dummy interfaces.
+
+    -- We build in a temp dir to avoid cluttering a directory with the source files and the .daml folder
+    -- created for the build. Therefore, we have to make dbPath and projectPackageDatabase absolute.
+    dbPathAbs <- makeAbsolute dbPath
+    projectPackageDatabaseAbs <- makeAbsolute projectPackageDatabase
+
     withTempDir $ \tempDir ->
         withCurrentDirectory tempDir $ do
             loggerH <- getLogger opts "generate instances package"
@@ -277,9 +292,8 @@ generateAndInstallInstancesPkg thisSdkVer templInstSrc opts dbPathAbs projectPac
             opts' <-
                 mkOptions $
                 opts
-                    { optWriteInterface = True
+                    { optIfaceDir = Nothing
                     , optPackageDbs = projectPackageDatabaseAbs : optPackageDbs opts
-                    , optIfaceDir = Just "./"
                     , optIsGenerated = True
                     , optDflagCheck = False
                     , optMbPackageName = Just instancesUnitIdStr
@@ -306,8 +320,9 @@ generateAndInstallInstancesPkg thisSdkVer templInstSrc opts dbPathAbs projectPac
                          fromMaybe ifaceDir $ optIfaceDir opts')
                         (FromDalf False)
             dar <- mbErr "ERROR: Creation of instances DAR file failed." mbDar
-          -- TODO (drsk) switch to different zip library so we don't have to write
-          -- the dar.
+            -- We have to write the DAR using the `zip` library first so we can then read it using
+            -- `zip-archive`. We should eventually get rid of `zip-archive` completely
+            -- but this particular codepath will go away soon anyway.
             let darFp = instancesUnitIdStr <.> "dar"
             Zip.createArchive darFp dar
             ExtractedDar{..} <- extractDar darFp

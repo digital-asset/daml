@@ -100,7 +100,7 @@ object Update {
     *   is informative,
     *
     * @param recordTime
-    *   The ledger-provided timestamp at which the package was uploaded.
+    *   The ledger-provided timestamp at which the party was added.
     *
     * @param rejectionReason
     *   reason for rejection of the party allocation entry
@@ -118,14 +118,43 @@ object Update {
       s"Request to add party to participant with submissionId '$submissionId' failed"
   }
 
-  final case class PublicPackageUploaded(
-      archive: DamlLf.Archive,
+  /** Signal that a set of new packages has been uploaded.
+    *
+    * @param archives:
+    *   The new packages that have been accepted.
+    * @param sourceDescription:
+    *   Description of the upload, if provided by the submitter.
+    * @param recordTime:
+    *   The ledger-provided timestamp at which the package upload was committed.
+    * @param submissionId:
+    *   The submission id of the upload. Unset if this participant was not the submitter.
+    */
+  final case class PublicPackageUpload(
+      archives: List[DamlLf.Archive],
       sourceDescription: Option[String],
-      participantId: ParticipantId,
-      recordTime: Timestamp)
+      recordTime: Timestamp,
+      submissionId: Option[SubmissionId])
       extends Update {
     override def description: String =
-      s"""Public package uploaded: ${archive.getHash}"""
+      s"Public package upload: ${archives.map(_.getHash).mkString(", ")}"
+  }
+
+  /** Signal that a package upload has been rejected.
+    *
+    * @param submissionId:
+    *   The submission id of the upload.
+    * @param recordTime:
+    *   The ledger-provided timestamp at which the package upload was committed.
+    * @param rejectionReason:
+    *   Reason why the upload was rejected.
+    */
+  final case class PublicPackageUploadRejected(
+      submissionId: SubmissionId,
+      recordTime: Timestamp,
+      rejectionReason: String)
+      extends Update {
+    override def description: String =
+      s"Public package upload rejected, correlationId=$submissionId reason='$rejectionReason'"
   }
 
   /** Signal the acceptance of a transaction.

@@ -31,7 +31,8 @@ import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{ActiveContrac
 import com.digitalasset.platform.sandbox.stores.ledger.{
   ConfigurationEntry,
   LedgerEntry,
-  PartyLedgerEntry
+  PartyLedgerEntry,
+  PackageLedgerEntry
 }
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.Transaction
 
@@ -91,7 +92,7 @@ trait LedgerReadDao extends AutoCloseable with ReportsHealth {
       forParty: Party): Future[Option[Contract]]
 
   /** Looks up the current ledger configuration, if it has been set. */
-  def lookupLedgerConfiguration(): Future[Option[Configuration]]
+  def lookupLedgerConfiguration(): Future[Option[(Long, Configuration)]]
 
   /** Returns a stream of configuration entries. */
   def getConfigurationEntries(
@@ -166,6 +167,16 @@ trait LedgerReadDao extends AutoCloseable with ReportsHealth {
 
   /** Returns the given DAML-LF archive */
   def getLfArchive(packageId: PackageId): Future[Option[Archive]]
+
+  /** Returns a stream of package upload entries.
+    * @param startInclusive starting offset inclusive
+    * @param endExclusive   ending offset exclusive
+    * @return a stream of package entries tupled with their offset
+    */
+  def getPackageEntries(
+      startInclusive: LedgerOffset,
+      endExclusive: LedgerOffset): Source[(LedgerOffset, PackageLedgerEntry), NotUsed]
+
 }
 
 trait LedgerWriteDao extends AutoCloseable with ReportsHealth {
@@ -240,20 +251,15 @@ trait LedgerWriteDao extends AutoCloseable with ReportsHealth {
   ): Future[PersistenceResponse]
 
   /**
-    * Stores a set of DAML-LF packages
-    *
-    * @param uploadId A unique identifier for this upload. Can be used to find
-    *   out which packages were uploaded together, in the case of concurrent uploads.
-    *
-    * @param packages The DAML-LF archives to upload, including their meta-data.
-    *
-    * @return Values from the PersistenceResponse enum to the number of archives that led to that result
+    * Store a DAML-LF package upload result.
     */
-  def uploadLfPackages(
-      uploadId: String,
+  def storePackageEntry(
+      offset: LedgerOffset,
+      newLedgerEnd: LedgerOffset,
+      externalOffset: Option[ExternalOffset],
       packages: List[(Archive, PackageDetails)],
-      externalOffset: Option[ExternalOffset]
-  ): Future[Map[PersistenceResponse, Int]]
+      optEntry: Option[PackageLedgerEntry]
+  ): Future[PersistenceResponse]
 
   /** Resets the platform into a state as it was never used before. Meant to be used solely for testing. */
   def reset(): Future[Unit]

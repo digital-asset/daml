@@ -297,7 +297,7 @@ jobs:
 
   - job: collect_build_data
     condition: always()
-    dependsOn: ["Linux", "macOS", "Windows", "Windows_signing", "perf", "release"]
+    dependsOn: ["Linux", "macOS", "Windows", "Windows_signing", "perf", "release", "check_standard_change_label", "write_ledger_dump"]
     pool:
       name: "linux-pool"
     variables:
@@ -325,6 +325,14 @@ jobs:
       release.machine: $[ dependencies.release.outputs['start.machine'] ]
       release.end: $[ dependencies.release.outputs['end.time'] ]
       release.status: $[ dependencies.release.result ]
+      std_change.start: $[ dependencies.check_standard_change_label.outputs['start.time'] ]
+      std_change.machine: $[ dependencies.check_standard_change_label.outputs['start.machine'] ]
+      std_change.end: $[ dependencies.check_standard_change_label.outputs['end.time'] ]
+      std_change.status: $[ dependencies.check_standard_change_label.result ]
+      dump.start: $[ dependencies.write_ledger_dump.outputs['start.time'] ]
+      dump.machine: $[ dependencies.write_ledger_dump.outputs['start.machine'] ]
+      dump.end: $[ dependencies.write_ledger_dump.outputs['end.time'] ]
+      dump.status: $[ dependencies.write_ledger_dump.result ]
       # Using expression syntax so we get an empty string if not set, rather
       # than the raw $(VarName) string. Expression syntax works on the
       # variables key, but not on the env one, so we need an extra indirection.
@@ -359,6 +367,14 @@ jobs:
                              "machine": "$(perf.machine)",
                              "end": "$(perf.end)",
                              "status": "$(perf.status)"},
+                    "check_standard_change_label": {"start": "$(std_change.start)",
+                                                    "machine": "$(std_change.machine)",
+                                                    "end": "$(std_change.end)",
+                                                    "status": "$(std_change.status)"},
+                    "write_ledger_dump": {"start": "$(dump.start)",
+                                          "machine": "$(dump.machine)",
+                                          "end": "$(dump.end)",
+                                          "status": "$(dump.status)"},
                     "release": {"start": "$(release.start)",
                                 "machine": "$(release.machine)",
                                 "end": "$(release.end)",
@@ -398,12 +414,22 @@ jobs:
               cat $REPORT
           fi
 
-          if [[ "$(Linux.status)" == "Canceled"
-              || "$(macOS.status)" == "Canceled"
-              || "$(Windows.status)" == "Canceled"
-              || "$(perf.status)" == "Canceled"
+          # Linux, macOS, perf, check_std_change_label and Windows are always
+          # required and should always succeed.
+          #
+          # windows_signing, release and write_ledger_dump only run on releases
+          # and are skipped otherwise.
+          if [[ "$(Linux.status)" != "Succeeded"
+              || "$(macOS.status)" != "Succeeded"
+              || "$(Windows.status)" != "Succeeded"
+              || "$(perf.status)" != "Succeeded"
+              || "$(std_change.status)" != "Succeeded"
+              || "$(dump.status)" == "Canceled"
+              || "$(dump.status)" == "Failed"
               || "$(Windows_signing.status)" == "Canceled"
-              || "$(release.status)" == "Canceled" ]]; then
+              || "$(Windows_signing.status)" == "Failed"
+              || "$(release.status)" == "Canceled"
+              || "$(release.status)" == "Failed" ]]; then
               exit 1
           fi
         env:

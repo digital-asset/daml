@@ -9,7 +9,7 @@ import com.digitalasset.http.{PackageService, domain}
 import com.digitalasset.ledger.api.{v1 => lav1}
 import scalaz.syntax.show._
 import scalaz.syntax.traverse._
-import scalaz.{Traverse, \/}
+import scalaz.{Traverse, \/, \/-}
 import spray.json.{JsObject, JsValue, JsonReader}
 
 import scala.language.higherKinds
@@ -87,4 +87,23 @@ class DomainJsonDecoder(
         .leftMap(e => JsonError("DomainJsonDecoder_lookupLfIdentifier " + e.shows))
     } yield lfId
   }
+
+  def decodeContractLocator(a: String)(implicit ev: JsonReader[domain.ContractLocator[JsValue]])
+    : JsonError \/ domain.ContractLocator[lav1.value.Value] =
+    for {
+      b <- SprayJson.parse(a).leftMap(e => JsonError(e.shows))
+      c <- decodeContractLocator(b)
+    } yield c
+
+  def decodeContractLocator(a: JsValue)(implicit ev: JsonReader[domain.ContractLocator[JsValue]])
+    : JsonError \/ domain.ContractLocator[lav1.value.Value] =
+    SprayJson
+      .decode[domain.ContractLocator[JsValue]](a)
+      .leftMap(e => JsonError("DomainJsonDecoder_decodeContractLocator " + e.shows))
+      .flatMap {
+        case k: domain.EnrichedContractKey[JsValue] =>
+          decodeUnderlyingValues[domain.EnrichedContractKey](k)
+        case c: domain.EnrichedContractId =>
+          \/-(c)
+      }
 }

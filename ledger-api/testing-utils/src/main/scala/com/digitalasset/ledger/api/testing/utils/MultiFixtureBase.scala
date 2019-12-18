@@ -6,16 +6,15 @@ package com.digitalasset.ledger.api.testing.utils
 import java.util.concurrent.{Executors, ScheduledExecutorService, TimeUnit}
 
 import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
+import org.scalatest._
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScaledTimeSpans}
 import org.scalatest.exceptions.TestCanceledException
 import org.scalatest.time.Span
-import org.scalatest._
 
 import scala.collection.immutable.Iterable
-import scala.concurrent.ExecutionContext.global
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Future, Promise, TimeoutException}
 import scala.util.control.{NoStackTrace, NonFatal}
-import scala.concurrent.duration.DurationInt
 
 trait MultiFixtureBase[FixtureId, TestContext]
     extends Assertions
@@ -109,8 +108,6 @@ trait MultiFixtureBase[FixtureId, TestContext]
 
   protected def forAllMatchingFixtures(
       runTest: PartialFunction[TestFixture, Future[Assertion]]): Future[Assertion] = {
-    @SuppressWarnings(Array("org.wartremover.warts.ExplicitImplicitTypes"))
-    implicit val ec = global
     if (parallelExecution) {
       val results = fixtures.map(
         fixture =>

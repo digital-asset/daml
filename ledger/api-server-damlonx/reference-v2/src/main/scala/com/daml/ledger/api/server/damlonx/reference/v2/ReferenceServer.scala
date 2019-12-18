@@ -3,19 +3,21 @@
 
 package com.daml.ledger.api.server.damlonx.reference.v2
 
+import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 
 import akka.actor.ActorSystem
 import akka.stream.{ActorMaterializer, ActorMaterializerSettings, Supervision}
 import com.codahale.metrics.SharedMetricRegistries
+import com.daml.ledger.participant.state.v1.SubmissionId
 import com.daml.ledger.api.server.damlonx.reference.v2.cli.Cli
 import com.daml.ledger.participant.state.kvutils.InMemoryKVParticipantState
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.auth.AuthServiceWildcard
-import com.digitalasset.platform.apiserver.{Config, StandaloneApiServer}
+import com.digitalasset.platform.apiserver.{ApiServerConfig, StandaloneApiServer}
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
-import com.digitalasset.platform.indexer.StandaloneIndexerServer
+import com.digitalasset.platform.indexer.{IndexerConfig, StandaloneIndexerServer}
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -29,9 +31,9 @@ object ReferenceServer extends App {
     Cli
       .parse(
         args,
-        "damlonx-reference-server",
-        "A fully compliant DAML Ledger API server backed by an in-memory store.",
-        allowExtraParticipants = true)
+        binaryName = "damlonx-reference-server",
+        description = "A fully compliant DAML Ledger API server backed by an in-memory store.",
+      )
       .getOrElse(sys.exit(1))
 
   implicit val system: ActorSystem = ActorSystem("indexed-kvutils")
@@ -50,10 +52,11 @@ object ReferenceServer extends App {
   val authService = AuthServiceWildcard
 
   config.archiveFiles.foreach { file =>
+    val submissionId = SubmissionId.assertFromString(UUID.randomUUID().toString)
     for {
       dar <- DarReader { case (_, x) => Try(Archive.parseFrom(x)) }
         .readArchiveFromFile(file)
-    } yield ledger.uploadPackages(dar.all, None)
+    } yield ledger.uploadPackages(submissionId, dar.all, None)
   }
 
   val participantF: Future[(AutoCloseable, AutoCloseable)] = for {
@@ -79,14 +82,23 @@ object ReferenceServer extends App {
   def newIndexer(config: Config) =
     StandaloneIndexerServer(
       readService,
-      config,
+      IndexerConfig(config.participantId, config.jdbcUrl, config.startupMode),
       NamedLoggerFactory.forParticipant(config.participantId),
       SharedMetricRegistries.getOrCreate(s"indexer-${config.participantId}"),
     )
 
   def newApiServer(config: Config) =
     new StandaloneApiServer(
-      config,
+      ApiServerConfig(
+        config.participantId,
+        config.archiveFiles,
+        config.port,
+        config.jdbcUrl,
+        config.tlsConfig,
+        config.timeProvider,
+        config.maxInboundMessageSize,
+        config.portFile,
+      ),
       readService,
       writeService,
       authService,

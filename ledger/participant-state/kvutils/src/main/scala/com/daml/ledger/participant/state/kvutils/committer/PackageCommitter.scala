@@ -6,7 +6,7 @@ package com.daml.ledger.participant.state.kvutils.committer
 import java.util.concurrent.Executors
 
 import com.codahale.metrics.{Counter, Gauge, Timer}
-import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
+import com.daml.ledger.participant.state.kvutils.Conversions.{buildTimestamp, packageUploadDedupKey}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref
@@ -20,12 +20,12 @@ private[kvutils] case class PackageCommitter(engine: Engine)
     extends Committer[DamlPackageUploadEntry, DamlPackageUploadEntry.Builder] {
   private object Metrics {
     // kvutils.PackageCommitter.*
-    val preloadTimer: Timer = metricsRegistry.timer(metricsName("preload-timer"))
-    val decodeTimer: Timer = metricsRegistry.timer(metricsName("decode-timer"))
+    val preloadTimer: Timer = metricsRegistry.timer(metricsName("preload_timer"))
+    val decodeTimer: Timer = metricsRegistry.timer(metricsName("decode_timer"))
     val accepts: Counter = metricsRegistry.counter(metricsName("accepts"))
     val rejections: Counter = metricsRegistry.counter(metricsName("rejections"))
     metricsRegistry.gauge(
-      metricsName("loaded-packages"),
+      metricsName("loaded_packages"),
       () =>
         new Gauge[Int] {
           override def getValue: Int = engine.compiledPackages().packageIds.size
@@ -47,12 +47,11 @@ private[kvutils] case class PackageCommitter(engine: Engine)
         s"participant id ${uploadEntry.getParticipantId} did not match authenticated participant id ${ctx.getParticipantId}"
       rejectionTraceLog(msg, uploadEntry)
       StepStop(
-        buildPackageRejectionLogEntry(
+        buildRejectionLogEntry(
           ctx,
           uploadEntry,
-          _.setParticipantNotAuthorized(
-            DamlPackageUploadRejectionEntry.ParticipantNotAuthorized.newBuilder
-              .setDetails(msg))))
+          _.setParticipantNotAuthorized(ParticipantNotAuthorized.newBuilder
+            .setDetails(msg))))
     }
   }
 
@@ -72,13 +71,29 @@ private[kvutils] case class PackageCommitter(engine: Engine)
       val msg = errors.mkString(", ")
       rejectionTraceLog(msg, uploadEntry)
       StepStop(
-        buildPackageRejectionLogEntry(
+        buildRejectionLogEntry(
           ctx,
           uploadEntry,
-          _.setInvalidPackage(DamlPackageUploadRejectionEntry.InvalidPackage.newBuilder
+          _.setInvalidPackage(Invalid.newBuilder
             .setDetails(msg))))
     }
+  }
 
+  private val deduplicateSubmission: Step = (ctx, uploadEntry) => {
+    val submissionKey = packageUploadDedupKey(ctx.getParticipantId, uploadEntry.getSubmissionId)
+    if (ctx.get(submissionKey).isEmpty)
+      StepContinue(uploadEntry)
+    else {
+      val msg = s"duplicate submission='${uploadEntry.getSubmissionId}'"
+      rejectionTraceLog(msg, uploadEntry)
+      StepStop(
+        buildRejectionLogEntry(
+          ctx,
+          uploadEntry,
+          _.setDuplicateSubmission(Duplicate.newBuilder.setDetails(msg))
+        )
+      )
+    }
   }
 
   private val filterDuplicates: Step = (ctx, uploadEntry) => {
@@ -116,6 +131,15 @@ private[kvutils] case class PackageCommitter(engine: Engine)
         DamlStateValue.newBuilder.setArchive(archive).build
       )
     }
+    ctx.set(
+      packageUploadDedupKey(ctx.getParticipantId, uploadEntry.getSubmissionId),
+      DamlStateValue.newBuilder
+        .setSubmissionDedup(
+          DamlSubmissionDedupValue.newBuilder
+            .setRecordTime(buildTimestamp(ctx.getRecordTime))
+            .build)
+        .build
+    )
     StepStop(
       DamlLogEntry.newBuilder
         .setRecordTime(buildTimestamp(ctx.getRecordTime))
@@ -130,14 +154,17 @@ private[kvutils] case class PackageCommitter(engine: Engine)
     uploadEntry.toBuilder
 
   override val steps: Iterable[(StepInfo, Step)] = Iterable(
-    "authorizeSubmission" -> authorizeSubmission,
-    "validateEntry" -> validateEntry,
-    "filterDuplicates" -> filterDuplicates,
-    "enqueuePreload" -> enqueuePreload,
-    "buildLogEntry" -> buildLogEntry
+    "authorize_submission" -> authorizeSubmission,
+    "validate_entry" -> validateEntry,
+    "deduplicate_submission" -> deduplicateSubmission,
+    "filter_duplicates" -> filterDuplicates,
+    "enqueue_preload" -> enqueuePreload,
+    "build_log_entry" -> buildLogEntry
   )
 
-  private def buildPackageRejectionLogEntry(
+  override lazy val committerName = "package_upload"
+
+  private def buildRejectionLogEntry(
       ctx: CommitContext,
       packageUploadEntry: DamlPackageUploadEntry.Builder,
       addErrorDetails: DamlPackageUploadRejectionEntry.Builder => DamlPackageUploadRejectionEntry.Builder)
