@@ -3,7 +3,7 @@
 
 package com.digitalasset.platform.common.logging
 
-import org.slf4j.{Logger, LoggerFactory}
+import org.slf4j.Logger
 
 /**
   * NamedLoggerFactory augments a regular class-based slf4j logger with one annotated with a "name" where the name provides
@@ -20,9 +20,8 @@ trait NamedLoggerFactory {
   /** Augment the name with another sub-name. Useful when transitioning from one caller to one specific named callee */
   def append(subName: String): NamedLoggerFactory
 
-  def forParticipant(id: String): NamedLoggerFactory = append(s"participant/$id")
-
-  private[logging] def getLogger(fullName: String): Logger
+  def forParticipant(id: String): NamedLoggerFactory =
+    append(s"participant/$id")
 
   /** get a loggers in factory methods
     *
@@ -36,21 +35,15 @@ trait NamedLoggerFactory {
     getLogger(fullName)
   }
 
-}
-
-// Named Logger Factory implementation
-private[logging] final class SimpleNamedLoggerFactory(val name: String) extends NamedLoggerFactory {
-  override def append(subName: String): NamedLoggerFactory =
-    if (name.isEmpty) new SimpleNamedLoggerFactory(subName)
-    else new SimpleNamedLoggerFactory(s"$name/$subName")
-
-  override private[logging] def getLogger(fullName: String) = LoggerFactory.getLogger(fullName)
+  protected def getLogger(fullName: String): Logger
 }
 
 object NamedLoggerFactory {
   def apply(name: String): NamedLoggerFactory = new SimpleNamedLoggerFactory(name)
+
   def apply(cls: Class[_]): NamedLoggerFactory = apply(cls.getSimpleName)
 
   def forParticipant(name: String): NamedLoggerFactory = root.forParticipant(name)
+
   def root: NamedLoggerFactory = NamedLoggerFactory("")
 }
