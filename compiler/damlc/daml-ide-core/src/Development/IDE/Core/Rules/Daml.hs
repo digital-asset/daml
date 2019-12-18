@@ -501,7 +501,7 @@ generateStablePackages lfVersion fp = do
             pure (fmap ((unitId, moduleName),) dalfPkgOrErr)
     -- We filter out stable packages for newer LF versions, e.g., the stable packages for wrappers around Any.
     -- It might seem tempting to make stable packages per LF version but this makes no sense at all.
-    -- Packages should remain stable as we move to newer LF versions.
+    -- Packages should remain stable as we move to newer LF versions. Changing the LF version would change the hash.
     pure (diags, Map.fromList $ filter (\(_, pkg) -> lfVersion >= LF.packageLfVersion (LF.extPackagePkg $ LF.dalfPackagePkg pkg)) pkgs)
 
 

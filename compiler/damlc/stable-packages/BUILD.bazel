@@ -38,6 +38,7 @@ genrule(
       $(location :generate-stable-package) --module GHC.Prim -o $(location daml-prim/GHC-Prim.dalf)
       $(location :generate-stable-package) --module GHC.Tuple -o $(location daml-prim/GHC-Tuple.dalf)
       $(location :generate-stable-package) --module DA.Types -o $(location daml-prim/DA-Types.dalf)
+      # These types are not serializable but they leak into typeclass methods so they need to be stable.
       $(location :generate-stable-package) --module DA.Internal.Any -o $(location daml-stdlib/DA-Internal-Any.dalf)
       $(location :generate-stable-package) --module DA.Internal.Template -o $(location daml-stdlib/DA-Internal-Template.dalf)
     """,
