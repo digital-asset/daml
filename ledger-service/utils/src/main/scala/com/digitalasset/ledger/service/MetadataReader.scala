@@ -56,7 +56,7 @@ object MetadataReader {
           if (errors.empty) {
             \/.right(out)
           } else {
-            val errorMsg = s"Errors reading LF archive, packageId: ${a._1: Ref.PackageId}:\n" + errors.toString
+            val errorMsg = s"Errors reading LF archive ${a._1: Ref.PackageId}:\n${errors.toString}"
             \/.left(Error('decodeInterfaceFromArchive, errorMsg))
           }
       }

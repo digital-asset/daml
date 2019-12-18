@@ -230,5 +230,9 @@ class ApiCodecCompressedSpec
         }
       }
     }
+
+    "variant encoding" should {
+
+    }
   }
 }
