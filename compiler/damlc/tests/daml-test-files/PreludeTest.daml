@@ -345,8 +345,6 @@ testRound = scenario do
     roundCommercial 2 (-22.105) === (-22.110 : Decimal)
     roundBankers 0 (-10.5) === (-10.0 : Decimal)
     roundBankers 2 (-22.105) === (-22.100 : Decimal)
-    roundCommercial 9 (1e10 : Numeric 17) === (1e10 : Numeric 17)
-    roundCommercial 11 (1e10 : Numeric 17) === (1e10 : Numeric 17)
 
 testNth = scenario do
     let l = [1, 5, 10]
