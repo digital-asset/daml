@@ -95,10 +95,19 @@ private[kvutils] case class ProcessTransactionSubmission(
         Commit.set(
           dedupKey ->
             DamlStateValue.newBuilder
-              .setCommandDedup(DamlCommandDedupValue.newBuilder.build)
+              .setCommandDedup(
+                DamlCommandDedupValue.newBuilder
+                  .setRecordTime(buildTimestamp(recordTime))
+                  .build)
               .build)
-      } else
-        reject(RejectionReason.DuplicateCommand)
+      } else {
+        logger.trace(
+          s"Transaction rejected, duplicate command, correlationId=${txEntry.getSubmitterInfo.getCommandId}")
+        reject(
+          DamlTransactionRejectionEntry.newBuilder
+            .setSubmitterInfo(txEntry.getSubmitterInfo)
+            .setDuplicateCommand(Duplicate.newBuilder.setDetails("")))
+      }
     }
   }
 
@@ -115,10 +124,10 @@ private[kvutils] case class ProcessTransactionSubmission(
           pass
         else
           reject(
-            RejectionReason.SubmitterCannotActViaParticipant(
-              s"Party '$submitter' not hosted by participant $participantId"))
+            buildRejectionLogEntry(RejectionReason.SubmitterCannotActViaParticipant(
+              s"Party '$submitter' not hosted by participant $participantId")))
       case None =>
-        reject(RejectionReason.PartyNotKnownOnLedger)
+        reject(buildRejectionLogEntry(RejectionReason.PartyNotKnownOnLedger))
     }
 
   /** Validate ledger effective time and the command's time-to-live. */
@@ -139,7 +148,7 @@ private[kvutils] case class ProcessTransactionSubmission(
        * && timeModelChecker.checkTtl(givenLET, givenMRT) */ )
       pass
     else
-      reject(RejectionReason.MaximumRecordTimeExceeded)
+      reject(buildRejectionLogEntry(RejectionReason.MaximumRecordTimeExceeded))
   }
 
   /** Validate the submission's conformance to the DAML model */
@@ -149,7 +158,7 @@ private[kvutils] case class ProcessTransactionSubmission(
       engine
         .validate(relTx, txLet)
         .consume(lookupContract, lookupPackage, lookupKey)
-        .fold(err => reject(RejectionReason.Disputed(err.msg)), _ => pass)
+        .fold(err => reject(buildRejectionLogEntry(RejectionReason.Disputed(err.msg))), _ => pass)
     } finally {
       val _ = ctx.stop()
     }
@@ -159,7 +168,7 @@ private[kvutils] case class ProcessTransactionSubmission(
   private def authorizeAndBlind: Commit[BlindingInfo] = delay {
     Blinding
       .checkAuthorizationAndBlind(relTx, initialAuthorizers = Set(submitter))
-      .fold(err => reject(RejectionReason.Disputed(err.msg)), pure)
+      .fold(err => reject(buildRejectionLogEntry(RejectionReason.Disputed(err.msg))), pure)
   }
 
   private def validateContractKeyUniqueness: Commit[Unit] =
@@ -197,7 +206,8 @@ private[kvutils] case class ProcessTransactionSubmission(
       r <- if (allUnique)
         pass
       else
-        reject(RejectionReason.Disputed("DuplicateKey: Contract Key not unique"))
+        reject(
+          buildRejectionLogEntry(RejectionReason.Disputed("DuplicateKey: Contract Key not unique")))
     } yield r
 
   /** All checks passed. Produce the log entry and contract state updates. */
@@ -359,41 +369,34 @@ private[kvutils] case class ProcessTransactionSubmission(
       .orElse(knownKeys.get(key))
   }
 
-  private def reject[A](reason: RejectionReason): Commit[A] = {
-
+  private def buildRejectionLogEntry(
+      reason: RejectionReason): DamlTransactionRejectionEntry.Builder = {
     logger.trace(
       s"Transaction rejected, ${reason.description}, correlationId=${txEntry.getSubmitterInfo.getCommandId}")
-    val rejectionEntry = {
-      val builder = DamlTransactionRejectionEntry.newBuilder
-      builder
-        .setSubmitterInfo(txEntry.getSubmitterInfo)
+    val builder = DamlTransactionRejectionEntry.newBuilder
+    builder
+      .setSubmitterInfo(txEntry.getSubmitterInfo)
 
-      reason match {
-        case RejectionReason.Inconsistent =>
-          builder.setInconsistent(
-            DamlTransactionRejectionEntry.Inconsistent.newBuilder.setDetails(""))
-        case RejectionReason.Disputed(disputeReason) =>
-          builder.setDisputed(
-            DamlTransactionRejectionEntry.Disputed.newBuilder.setDetails(disputeReason))
-        case RejectionReason.ResourcesExhausted =>
-          builder.setResourcesExhausted(
-            DamlTransactionRejectionEntry.ResourcesExhausted.newBuilder.setDetails(""))
-        case RejectionReason.MaximumRecordTimeExceeded =>
-          builder.setMaximumRecordTimeExceeded(
-            DamlTransactionRejectionEntry.MaximumRecordTimeExceeded.newBuilder.setDetails(""))
-        case RejectionReason.DuplicateCommand =>
-          builder.setDuplicateCommand(
-            DamlTransactionRejectionEntry.DuplicateCommand.newBuilder.setDetails(""))
-        case RejectionReason.PartyNotKnownOnLedger =>
-          builder.setPartyNotKnownOnLedger(
-            DamlTransactionRejectionEntry.PartyNotKnownOnLedger.newBuilder.setDetails(""))
-        case RejectionReason.SubmitterCannotActViaParticipant(details) =>
-          builder.setSubmitterCannotActViaParticipant(
-            DamlTransactionRejectionEntry.SubmitterCannotActViaParticipant.newBuilder
-              .setDetails(details))
-      }
-      builder
+    reason match {
+      case RejectionReason.Inconsistent =>
+        builder.setInconsistent(Inconsistent.newBuilder.setDetails(""))
+      case RejectionReason.Disputed(disputeReason) =>
+        builder.setDisputed(Disputed.newBuilder.setDetails(disputeReason))
+      case RejectionReason.ResourcesExhausted =>
+        builder.setResourcesExhausted(ResourcesExhausted.newBuilder.setDetails(""))
+      case RejectionReason.MaximumRecordTimeExceeded =>
+        builder.setMaximumRecordTimeExceeded(MaximumRecordTimeExceeded.newBuilder.setDetails(""))
+      case RejectionReason.PartyNotKnownOnLedger =>
+        builder.setPartyNotKnownOnLedger(PartyNotKnownOnLedger.newBuilder.setDetails(""))
+      case RejectionReason.SubmitterCannotActViaParticipant(details) =>
+        builder.setSubmitterCannotActViaParticipant(
+          SubmitterCannotActViaParticipant.newBuilder
+            .setDetails(details))
     }
+    builder
+  }
+
+  private def reject[A](rejectionEntry: DamlTransactionRejectionEntry.Builder): Commit[A] = {
 
     Metrics.rejections(rejectionEntry.getReasonCase.getNumber).inc()
 
@@ -408,10 +411,11 @@ private[kvutils] case class ProcessTransactionSubmission(
 
 object ProcessTransactionSubmission {
   private[committing] object Metrics {
+    //TODO: Replace with metrics registry object passed in constructor
     private val registry = metrics.SharedMetricRegistries.getOrCreate("kvutils")
-    private val prefix = "kvutils.committing.transaction"
-    val runTimer: Timer = registry.timer(s"$prefix.run-timer")
-    val interpretTimer: Timer = registry.timer(s"$prefix.interpret-timer")
+    private val prefix = "kvutils.committer.transaction"
+    val runTimer: Timer = registry.timer(s"$prefix.run_timer")
+    val interpretTimer: Timer = registry.timer(s"$prefix.interpret_timer")
     val accepts: Counter = registry.counter(s"$prefix.accepts")
     val rejections: Map[Int, Counter] =
       DamlTransactionRejectionEntry.ReasonCase.values

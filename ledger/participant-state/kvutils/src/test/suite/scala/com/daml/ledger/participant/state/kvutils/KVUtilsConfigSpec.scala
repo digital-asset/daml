@@ -5,6 +5,7 @@ package com.daml.ledger.participant.state.kvutils
 
 import java.time.Duration
 
+import com.codahale.metrics
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1.Configuration
 import com.digitalasset.daml.lf.data.Ref.LedgerString.assertFromString
@@ -80,23 +81,22 @@ class KVUtilsConfigSpec extends WordSpec with Matchers {
 
       for {
         // Set a configuration with an authorized participant id
-        logEntry0 <- submitConfig { c =>
+        logEntry0 <- submitConfig({ c =>
           c.copy(
             generation = c.generation + 1
           )
-        }
+        }, submissionId = assertFromString("submission-id-1"))
 
         //
         // A well authorized submission
         //
 
         logEntry1 <- withParticipantId(p0) {
-          submitConfig(
-            c =>
-              c.copy(
-                generation = c.generation + 1,
+          submitConfig({ c =>
+            c.copy(
+              generation = c.generation + 1,
             )
-          )
+          }, submissionId = assertFromString("submission-id-2"))
         }
 
         //
@@ -104,11 +104,11 @@ class KVUtilsConfigSpec extends WordSpec with Matchers {
         //
 
         logEntry2 <- withParticipantId(p1) {
-          submitConfig(
-            c =>
-              c.copy(
-                generation = c.generation + 1,
-            ))
+          submitConfig({ c =>
+            c.copy(
+              generation = c.generation + 1,
+            )
+          }, submissionId = assertFromString("submission-id-3"))
         }
 
       } yield {
@@ -120,6 +120,53 @@ class KVUtilsConfigSpec extends WordSpec with Matchers {
         logEntry2.getConfigurationRejectionEntry.getReasonCase shouldEqual
           DamlConfigurationRejectionEntry.ReasonCase.PARTICIPANT_NOT_AUTHORIZED
 
+      }
+    }
+
+    "reject duplicate" in KVTest.runTest {
+      for {
+        logEntry0 <- submitConfig({ c =>
+          c.copy(
+            generation = c.generation + 1
+          )
+        }, submissionId = assertFromString("submission-id-1"))
+
+        logEntry1 <- submitConfig({ c =>
+          c.copy(
+            generation = c.generation + 1,
+          )
+        }, submissionId = assertFromString("submission-id-1"))
+
+      } yield {
+        logEntry0.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.CONFIGURATION_ENTRY
+        logEntry1.getPayloadCase shouldEqual
+          DamlLogEntry.PayloadCase.CONFIGURATION_REJECTION_ENTRY
+        logEntry1.getConfigurationRejectionEntry.getReasonCase shouldEqual
+          DamlConfigurationRejectionEntry.ReasonCase.DUPLICATE_SUBMISSION
+
+      }
+    }
+
+    "metrics get updated" in KVTest.runTestWithSimplePackage() {
+      for {
+        //Submit config twice to force one acceptance and one rejection on duplicate
+        _ <- submitConfig({ c =>
+          c.copy(
+            generation = c.generation + 1
+          )
+        }, submissionId = assertFromString("submission-id-1"))
+
+        _ <- submitConfig({ c =>
+          c.copy(
+            generation = c.generation + 1,
+          )
+        }, submissionId = assertFromString("submission-id-1"))
+      } yield {
+        // Check that we're updating the metrics (assuming this test at least has been run)
+        val reg = metrics.SharedMetricRegistries.getOrCreate("kvutils")
+        reg.counter("kvutils.committer.config.accepts").getCount should be >= 1L
+        reg.counter("kvutils.committer.config.rejections").getCount should be >= 1L
+        reg.timer("kvutils.committer.config.run_timer").getCount should be >= 1L
       }
     }
   }

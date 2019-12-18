@@ -50,22 +50,6 @@ object RejectionReason {
       "The maximum record time of the command exceeded"
   }
 
-  /** The participant or ledger has already accepted a transaction with the
-    * same command-id.
-
-    * The guarantee provided by the ledger is to never store two transactions
-    * with [[SubmitterInfo]] with the same '(submitter, applicationId,
-    * commandId)' tuple.
-    *
-    * This is used to protect against duplicate submissions of transactions
-    * that do not consume any contract; e.g., a transaction creating a
-    * contract. These transactions can be sometimes submitted twice in case
-    * of faults in the submitting application.
-    */
-  final case object DuplicateCommand extends RejectionReason {
-    override def description: String = "Duplicate command"
-  }
-
   /** A party mentioned as a stakeholder or actor has not been on-boarded on
     * the ledger.
     *
