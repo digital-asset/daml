@@ -164,7 +164,7 @@ final class CommandClientIT
       client: CommandClient,
       checkpoint: LedgerOffset,
       expected: Set[String],
-      timeLimit: Span = 3.seconds): Future[(Set[String], Set[String])] =
+      timeLimit: Span = 6.seconds): Future[(Set[String], Set[String])] =
     readExpectedElements(client.completionSource(submittingPartyList, checkpoint).collect {
       case CompletionStreamElement.CompletionElement(c) => c.commandId
     }, expected, timeLimit)
