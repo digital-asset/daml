@@ -51,7 +51,7 @@ class KVUtilsPartySpec extends WordSpec with Matchers {
       }
     }
 
-    "reject on duplicate" in KVTest.runTest {
+    "reject on duplicate party" in KVTest.runTest {
       for {
         logEntry1 <- submitPartyAllocation("alice", "alice", p0)
         logEntry2 <- submitPartyAllocation("alice again", "alice", p0)
@@ -59,6 +59,19 @@ class KVUtilsPartySpec extends WordSpec with Matchers {
         logEntry1.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.PARTY_ALLOCATION_ENTRY
         logEntry2.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.PARTY_ALLOCATION_REJECTION_ENTRY
         logEntry2.getPartyAllocationRejectionEntry.getReasonCase shouldEqual DamlPartyAllocationRejectionEntry.ReasonCase.ALREADY_EXISTS
+      }
+    }
+
+    "reject duplicate submission" in KVTest.runTest {
+      for {
+        logEntry0 <- submitPartyAllocation("submission-1", "alice", p0)
+        logEntry1 <- submitPartyAllocation("submission-1", "bob", p0)
+      } yield {
+        logEntry0.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.PARTY_ALLOCATION_ENTRY
+        logEntry1.getPayloadCase shouldEqual
+          DamlLogEntry.PayloadCase.PARTY_ALLOCATION_REJECTION_ENTRY
+        logEntry1.getPartyAllocationRejectionEntry.getReasonCase shouldEqual
+          DamlPartyAllocationRejectionEntry.ReasonCase.DUPLICATE_SUBMISSION
 
       }
     }

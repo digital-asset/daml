@@ -5,7 +5,10 @@ package com.daml.ledger.participant.state.kvutils
 
 import java.io.File
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntry
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
+  DamlLogEntry,
+  DamlPackageUploadRejectionEntry
+}
 import com.digitalasset.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml_lf_dev.DamlLf
@@ -61,6 +64,20 @@ class KVUtilsPackageSpec extends WordSpec with Matchers with BazelRunfiles {
         logEntry <- submitArchives("bad-archive-submission", badArchive).map(_._2)
       } yield {
         logEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_REJECTION_ENTRY
+      }
+    }
+
+    "reject duplicate" in KVTest.runTest {
+      for {
+        logEntry0 <- submitArchives("simple-archive-submission-1", simpleArchive).map(_._2)
+        logEntry1 <- submitArchives("simple-archive-submission-1", simpleArchive).map(_._2)
+      } yield {
+        logEntry0.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_ENTRY
+        logEntry1.getPayloadCase shouldEqual
+          DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_REJECTION_ENTRY
+        logEntry1.getPackageUploadRejectionEntry.getReasonCase shouldEqual
+          DamlPackageUploadRejectionEntry.ReasonCase.DUPLICATE_SUBMISSION
+
       }
     }
 

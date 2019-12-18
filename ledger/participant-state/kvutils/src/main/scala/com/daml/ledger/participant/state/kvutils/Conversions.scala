@@ -150,6 +150,42 @@ private[kvutils] object Conversions {
       .build
   }
 
+  def submissionDedupKey(
+      participantId: String,
+      submissionId: String,
+      submissionKind: DamlSubmissionDedupKey.SubmissionKind): DamlStateKey = {
+    DamlStateKey.newBuilder
+      .setSubmissionDedup(
+        DamlSubmissionDedupKey.newBuilder
+          .setSubmissionKind(submissionKind)
+          .setParticipantId(participantId)
+          .setSubmissionId(submissionId)
+          .build
+      )
+      .build
+  }
+
+  def packageUploadDedupKey(participantId: String, submissionId: String): DamlStateKey =
+    submissionDedupKey(
+      participantId,
+      submissionId,
+      DamlSubmissionDedupKey.SubmissionKind.PACKAGE_UPLOAD
+    )
+
+  def partyAllocationDedupKey(participantId: String, submissionId: String): DamlStateKey =
+    submissionDedupKey(
+      participantId,
+      submissionId,
+      DamlSubmissionDedupKey.SubmissionKind.PARTY_ALLOCATION
+    )
+
+  def configDedupKey(participantId: String, submissionId: String): DamlStateKey =
+    submissionDedupKey(
+      participantId,
+      submissionId,
+      DamlSubmissionDedupKey.SubmissionKind.CONFIGURATION
+    )
+
   def buildSubmitterInfo(subInfo: SubmitterInfo): DamlSubmitterInfo =
     DamlSubmitterInfo.newBuilder
       .setSubmitter(subInfo.submitter)

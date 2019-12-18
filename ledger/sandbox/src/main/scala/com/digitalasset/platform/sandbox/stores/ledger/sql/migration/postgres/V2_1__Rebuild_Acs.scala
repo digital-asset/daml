@@ -475,7 +475,6 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
       case "OutOfQuota" => OutOfQuota(description)
       case "TimedOut" => TimedOut(description)
       case "Disputed" => Disputed(description)
-      case "DuplicateCommandId" => DuplicateCommandId(description)
       case typ => sys.error(s"unknown rejection reason: $typ")
     }
 

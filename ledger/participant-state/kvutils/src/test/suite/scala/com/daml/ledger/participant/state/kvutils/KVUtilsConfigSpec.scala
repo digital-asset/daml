@@ -80,23 +80,22 @@ class KVUtilsConfigSpec extends WordSpec with Matchers {
 
       for {
         // Set a configuration with an authorized participant id
-        logEntry0 <- submitConfig { c =>
+        logEntry0 <- submitConfig({ c =>
           c.copy(
             generation = c.generation + 1
           )
-        }
+        }, submissionId = assertFromString("submission-id-1"))
 
         //
         // A well authorized submission
         //
 
         logEntry1 <- withParticipantId(p0) {
-          submitConfig(
-            c =>
-              c.copy(
-                generation = c.generation + 1,
+          submitConfig({ c =>
+            c.copy(
+              generation = c.generation + 1,
             )
-          )
+          }, submissionId = assertFromString("submission-id-2"))
         }
 
         //
@@ -104,11 +103,11 @@ class KVUtilsConfigSpec extends WordSpec with Matchers {
         //
 
         logEntry2 <- withParticipantId(p1) {
-          submitConfig(
-            c =>
-              c.copy(
-                generation = c.generation + 1,
-            ))
+          submitConfig({ c =>
+            c.copy(
+              generation = c.generation + 1,
+            )
+          }, submissionId = assertFromString("submission-id-3"))
         }
 
       } yield {
@@ -119,6 +118,30 @@ class KVUtilsConfigSpec extends WordSpec with Matchers {
           DamlLogEntry.PayloadCase.CONFIGURATION_REJECTION_ENTRY
         logEntry2.getConfigurationRejectionEntry.getReasonCase shouldEqual
           DamlConfigurationRejectionEntry.ReasonCase.PARTICIPANT_NOT_AUTHORIZED
+
+      }
+    }
+
+    "reject duplicate" in KVTest.runTest {
+      for {
+        logEntry0 <- submitConfig({ c =>
+          c.copy(
+            generation = c.generation + 1
+          )
+        }, submissionId = assertFromString("submission-id-1"))
+
+        logEntry1 <- submitConfig({ c =>
+          c.copy(
+            generation = c.generation + 1,
+          )
+        }, submissionId = assertFromString("submission-id-1"))
+
+      } yield {
+        logEntry0.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.CONFIGURATION_ENTRY
+        logEntry1.getPayloadCase shouldEqual
+          DamlLogEntry.PayloadCase.CONFIGURATION_REJECTION_ENTRY
+        logEntry1.getConfigurationRejectionEntry.getReasonCase shouldEqual
+          DamlConfigurationRejectionEntry.ReasonCase.DUPLICATE_SUBMISSION
 
       }
     }

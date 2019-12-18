@@ -40,7 +40,7 @@ private[kvutils] case class ConfigCommitter(
           ctx,
           result.submission,
           _.setTimedOut(
-            DamlConfigurationRejectionEntry.TimedOut.newBuilder
+            TimedOut.newBuilder
               .setMaximumRecordTime(buildTimestamp(ctx.getMaximumRecordTime))
           )
         ))
@@ -70,7 +70,7 @@ private[kvutils] case class ConfigCommitter(
           ctx,
           result.submission,
           _.setParticipantNotAuthorized(
-            DamlConfigurationRejectionEntry.ParticipantNotAuthorized.newBuilder
+            ParticipantNotAuthorized.newBuilder
               .setDetails(msg)
           )))
     } else if (!wellFormed) {
@@ -81,7 +81,7 @@ private[kvutils] case class ConfigCommitter(
           ctx,
           result.submission,
           _.setParticipantNotAuthorized(
-            DamlConfigurationRejectionEntry.ParticipantNotAuthorized.newBuilder
+            ParticipantNotAuthorized.newBuilder
               .setDetails(msg)
           )))
     } else {
@@ -98,23 +98,38 @@ private[kvutils] case class ConfigCommitter(
             buildRejectionLogEntry(
               ctx,
               result.submission,
-              _.setInvalidConfiguration(
-                DamlConfigurationRejectionEntry.InvalidConfiguration.newBuilder
-                  .setError(err)))),
+              _.setInvalidConfiguration(Invalid.newBuilder
+                .setDetails(err)))),
         config =>
           if (config.generation != (1 + result.currentConfig._2.generation))
             StepStop(
               buildRejectionLogEntry(
                 ctx,
                 result.submission,
-                _.setGenerationMismatch(
-                  DamlConfigurationRejectionEntry.GenerationMismatch.newBuilder
-                    .setExpectedGeneration(1 + result.currentConfig._2.generation))
+                _.setGenerationMismatch(GenerationMismatch.newBuilder
+                  .setExpectedGeneration(1 + result.currentConfig._2.generation))
               )
             )
           else
             StepContinue(result)
       )
+  }
+
+  private val deduplicateSubmission: Step = (ctx, result) => {
+    val submissionKey = configDedupKey(ctx.getParticipantId, result.submission.getSubmissionId)
+    if (ctx.get(submissionKey).isEmpty) {
+      StepContinue(result)
+    } else {
+      val msg = s"duplicate submission='${result.submission.getSubmissionId}'"
+      rejectionTraceLog(msg, result.submission)
+      StepStop(
+        buildRejectionLogEntry(
+          ctx,
+          result.submission,
+          _.setDuplicateSubmission(Duplicate.newBuilder.setDetails(msg))
+        )
+      )
+    }
   }
 
   private def buildLogEntry: Step = (ctx, result) => {
@@ -133,6 +148,16 @@ private[kvutils] case class ConfigCommitter(
       configurationStateKey,
       DamlStateValue.newBuilder
         .setConfigurationEntry(configurationEntry)
+        .build
+    )
+
+    ctx.set(
+      configDedupKey(ctx.getParticipantId, result.submission.getSubmissionId),
+      DamlStateValue.newBuilder
+        .setSubmissionDedup(
+          DamlSubmissionDedupValue.newBuilder
+            .setRecordTime(buildTimestamp(ctx.getRecordTime))
+            .build)
         .build
     )
 
@@ -175,6 +200,7 @@ private[kvutils] case class ConfigCommitter(
     "checkTTL" -> checkTtl,
     "authorizeSubmission" -> authorizeSubmission,
     "validateSubmission" -> validateSubmission,
+    "deduplicateSubmission" -> deduplicateSubmission,
     "buildLogEntry" -> buildLogEntry
   )
 

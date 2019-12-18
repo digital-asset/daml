@@ -48,14 +48,12 @@ object KeyValueSubmission {
 
     val inputDamlStateFromTx = InputsAndEffects.computeInputs(tx)
     val encodedSubInfo = buildSubmitterInfo(submitterInfo)
-    val inputDamlState =
-      commandDedupKey(encodedSubInfo) ::
-        configurationStateKey ::
-        partyStateKey(submitterInfo.submitter) ::
-        inputDamlStateFromTx
 
     DamlSubmission.newBuilder
-      .addAllInputDamlState(inputDamlState.asJava)
+      .addInputDamlState(commandDedupKey(encodedSubInfo))
+      .addInputDamlState(configurationStateKey)
+      .addInputDamlState(partyStateKey(submitterInfo.submitter))
+      .addAllInputDamlState(inputDamlStateFromTx.asJava)
       .setTransactionEntry(
         DamlTransactionEntry.newBuilder
           .setTransaction(Conversions.encodeTransaction(tx))
@@ -73,14 +71,16 @@ object KeyValueSubmission {
       sourceDescription: String,
       participantId: ParticipantId): DamlSubmission = {
 
-    val inputDamlState = archives.map(
-      archive =>
-        DamlStateKey.newBuilder
-          .setPackageId(archive.getHash)
-          .build)
+    val archivetDamlState =
+      archives.map(
+        archive =>
+          DamlStateKey.newBuilder
+            .setPackageId(archive.getHash)
+            .build)
 
     DamlSubmission.newBuilder
-      .addAllInputDamlState(inputDamlState.asJava)
+      .addInputDamlState(packageUploadDedupKey(participantId, submissionId))
+      .addAllInputDamlState(archivetDamlState.asJava)
       .setPackageUploadEntry(
         DamlPackageUploadEntry.newBuilder
           .setSubmissionId(submissionId)
@@ -99,6 +99,7 @@ object KeyValueSubmission {
       participantId: ParticipantId): DamlSubmission = {
     val party = hint.getOrElse("")
     DamlSubmission.newBuilder
+      .addInputDamlState(partyAllocationDedupKey(participantId, submissionId))
       .addInputDamlState(partyStateKey(party))
       .setPartyAllocationEntry(
         DamlPartyAllocationEntry.newBuilder
@@ -117,8 +118,11 @@ object KeyValueSubmission {
       participantId: ParticipantId,
       config: Configuration): DamlSubmission = {
     val tm = config.timeModel
+    val inputDamlState =
+      configDedupKey(participantId, submissionId) ::
+        configurationStateKey :: Nil
     DamlSubmission.newBuilder
-      .addInputDamlState(configurationStateKey)
+      .addAllInputDamlState(inputDamlState.asJava)
       .setConfigurationSubmission(
         DamlConfigurationSubmission.newBuilder
           .setSubmissionId(submissionId)
