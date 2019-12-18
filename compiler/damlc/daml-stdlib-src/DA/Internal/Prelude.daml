@@ -538,11 +538,6 @@ intToDecimal = IF_NUMERIC(intToNumeric, primitive @"BEInt64ToDecimal")
 roundBankers : Int -> IF_NUMERIC(Numeric n -> Numeric n, Decimal -> Decimal)
 roundBankers = primitive @IF_NUMERIC("BERoundNumeric", "BERoundDecimal")
 
-#ifdef DAML_NUMERIC
-divNumeric : Numeric n1 -> Numeric n2 -> Numeric n3
-divNumeric = primitive @"BEDivNumeric"
-#endif
-
 -- | Commercial Rounding: `roundCommercial dp x` rounds `x` to `dp` decimal places, where a `.5` is rounded away from zero.
 #ifdef DAML_NUMERIC
 roundCommercial : forall n. NumericScale n => Int -> Numeric n -> Numeric n
@@ -556,9 +551,12 @@ roundCommercial d x =
   -- relying on `roundBankers` is a primitive.
 
   -- We first use bankers rounding and then check if the difference is exactly .5
-  -- If that is the case, we shift the result by 1.
+  -- If that is the case, we’ve rounded in the wrong directino, so we shift it the other way.
   let t = roundBankers d x
       diff = x - t
+      -- This is defined in DA.Numeric but we inline it here to avoid creating a cyclic module dependency.
+      divNumeric : Numeric n1 -> Numeric n2 -> Numeric n3
+      divNumeric = primitive @"BEDivNumeric"
       problematicDiff = (0.5 : Numeric 1) `divNumeric` (10.0 ^ d : Numeric 0) * signum x
   in if diff == problematicDiff
        then x + problematicDiff
