@@ -251,11 +251,12 @@ object KeyValueCommitting {
   }
 
   private object Metrics {
+    //TODO: Replace with metrics registry object passed in constructor
     private val registry = metrics.SharedMetricRegistries.getOrCreate("kvutils")
-    private val prefix = "kvutils.committing"
+    private val prefix = "kvutils.committer"
 
     // Timer (and count) of how fast submissions have been processed.
-    val runTimer: metrics.Timer = registry.timer(s"$prefix.run-timer")
+    val runTimer: metrics.Timer = registry.timer(s"$prefix.run_timer")
 
     // Number of exceptions seen.
     val exceptions: metrics.Counter = registry.counter(s"$prefix.exceptions")
@@ -264,13 +265,13 @@ object KeyValueCommitting {
     val processing: metrics.Counter = registry.counter(s"$prefix.processing")
 
     val lastRecordTimeGauge = new VarGauge[String]("<none>")
-    registry.register(s"$prefix.last.record-time", lastRecordTimeGauge)
+    registry.register(s"$prefix.last.record_time", lastRecordTimeGauge)
 
     val lastEntryIdGauge = new VarGauge[String]("<none>")
-    registry.register(s"$prefix.last.entry-id", lastEntryIdGauge)
+    registry.register(s"$prefix.last.entry_id", lastEntryIdGauge)
 
     val lastParticipantIdGauge = new VarGauge[String]("<none>")
-    registry.register(s"$prefix.last.participant-id", lastParticipantIdGauge)
+    registry.register(s"$prefix.last.participant_id", lastParticipantIdGauge)
 
     val lastExceptionGauge = new VarGauge[String]("<none>")
     registry.register(s"$prefix.last.exception", lastExceptionGauge)

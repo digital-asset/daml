@@ -20,12 +20,12 @@ private[kvutils] case class PackageCommitter(engine: Engine)
     extends Committer[DamlPackageUploadEntry, DamlPackageUploadEntry.Builder] {
   private object Metrics {
     // kvutils.PackageCommitter.*
-    val preloadTimer: Timer = metricsRegistry.timer(metricsName("preload-timer"))
-    val decodeTimer: Timer = metricsRegistry.timer(metricsName("decode-timer"))
+    val preloadTimer: Timer = metricsRegistry.timer(metricsName("preload_timer"))
+    val decodeTimer: Timer = metricsRegistry.timer(metricsName("decode_timer"))
     val accepts: Counter = metricsRegistry.counter(metricsName("accepts"))
     val rejections: Counter = metricsRegistry.counter(metricsName("rejections"))
     metricsRegistry.gauge(
-      metricsName("loaded-packages"),
+      metricsName("loaded_packages"),
       () =>
         new Gauge[Int] {
           override def getValue: Int = engine.compiledPackages().packageIds.size
@@ -154,13 +154,15 @@ private[kvutils] case class PackageCommitter(engine: Engine)
     uploadEntry.toBuilder
 
   override val steps: Iterable[(StepInfo, Step)] = Iterable(
-    "authorizeSubmission" -> authorizeSubmission,
-    "validateEntry" -> validateEntry,
-    "deduplicateSubmission" -> deduplicateSubmission,
-    "filterDuplicates" -> filterDuplicates,
-    "enqueuePreload" -> enqueuePreload,
-    "buildLogEntry" -> buildLogEntry
+    "authorize_submission" -> authorizeSubmission,
+    "validate_entry" -> validateEntry,
+    "deduplicate_submission" -> deduplicateSubmission,
+    "filter_duplicates" -> filterDuplicates,
+    "enqueue_preload" -> enqueuePreload,
+    "build_log_entry" -> buildLogEntry
   )
+
+  override lazy val committerName = "package_upload"
 
   private def buildRejectionLogEntry(
       ctx: CommitContext,

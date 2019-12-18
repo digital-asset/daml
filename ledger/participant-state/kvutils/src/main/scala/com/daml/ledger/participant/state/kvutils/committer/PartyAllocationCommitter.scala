@@ -154,11 +154,13 @@ private[kvutils] case object PartyAllocationCommitter
     partyAllocationEntry.toBuilder
 
   override val steps: Iterable[(StepInfo, Step)] = Iterable(
-    "authorizeSubmission" -> authorizeSubmission,
-    "validateParty" -> validateParty,
-    "deduplicateSubmission" -> deduplicateSubmission,
-    "deduplicateParty" -> deduplicateParty,
-    "buildLogEntry" -> buildLogEntry
+    "authorize_submission" -> authorizeSubmission,
+    "validate_party" -> validateParty,
+    "deduplicate_submission" -> deduplicateSubmission,
+    "deduplicate_party" -> deduplicateParty,
+    "build_log_entry" -> buildLogEntry
   )
+
+  override lazy val committerName = "party_allocation"
 
 }
