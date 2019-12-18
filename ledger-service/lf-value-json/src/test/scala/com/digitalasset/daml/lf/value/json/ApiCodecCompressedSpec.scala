@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf
 package value.json
 
 import com.digitalasset.daml.bazeltools.BazelRunfiles._
-import data.{Decimal, Ref, SortedLookupList, Time}
+import data.{Decimal, ImmArray, Ref, SortedLookupList, Time}
 import value.json.{NavigatorModelAliases => model}
 import value.TypedValueGenerators.{genAddend, genTypeAndValue, ValueAddend => VA}
 import ApiCodecCompressed.{apiValueToJsValue, jsValueToApiValue}
@@ -232,7 +232,37 @@ class ApiCodecCompressedSpec
     }
 
     "variant encoding" should {
+      import com.digitalasset.daml.lf
+      import com.digitalasset.daml.lf.value.{Value => LfValue}
+      import ApiCodecCompressed.JsonImplicits._
 
+      "serialize Quux" in {
+        val quuxVariant: LfValue[String] = LfValue.ValueVariant(
+          None,
+          lf.data.Ref.Name.assertFromString("Quux"),
+          LfValue.ValueRecord(None, ImmArray.empty))
+
+        quuxVariant.toJson shouldBe JsObject(
+          Map[String, JsValue]("tag" -> JsString("Quux"), "value" -> JsObject.empty))
+      }
+
+      "serialize Foo.Baz" in {
+        val bazRecord: LfValue[String] = LfValue.ValueRecord(
+          None,
+          ImmArray(Some(lf.data.Ref.Name.assertFromString("baz")) -> LfValue.ValueText("text abc"))
+        )
+        val bazVariant: LfValue[String] = LfValue.ValueVariant(
+          None,
+          lf.data.Ref.Name.assertFromString("Baz"),
+          bazRecord
+        )
+
+        bazVariant.toJson shouldBe JsObject(
+          Map[String, JsValue](
+            "tag" -> JsString("Baz"),
+            "value" -> JsObject("baz" -> JsString("text abc")))
+        )
+      }
     }
   }
 }
