@@ -20,8 +20,8 @@ private[kvutils] case class ConfigCommitter(
 
   private object Metrics {
     // kvutils.ConfigCommitter.*
-    val accepts = metricsRegistry.counter("accepts")
-    val rejections = metricsRegistry.counter("rejections")
+    val accepts = metricsRegistry.counter(metricsName("accepts"))
+    val rejections = metricsRegistry.counter(metricsName("rejections"))
   }
 
   private def rejectionTraceLog(msg: String, submission: DamlConfigurationSubmission): Unit =
@@ -203,5 +203,7 @@ private[kvutils] case class ConfigCommitter(
     "deduplicateSubmission" -> deduplicateSubmission,
     "buildLogEntry" -> buildLogEntry
   )
+
+  override lazy val committerName = "config"
 
 }

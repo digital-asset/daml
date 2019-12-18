@@ -161,4 +161,6 @@ private[kvutils] case object PartyAllocationCommitter
     "buildLogEntry" -> buildLogEntry
   )
 
+  override lazy val committerName = "partyAllocation"
+
 }

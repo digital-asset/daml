@@ -5,6 +5,7 @@ package com.daml.ledger.participant.state.kvutils
 
 import java.time.Duration
 
+import com.codahale.metrics
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1.Configuration
 import com.digitalasset.daml.lf.data.Ref.LedgerString.assertFromString
@@ -143,6 +144,29 @@ class KVUtilsConfigSpec extends WordSpec with Matchers {
         logEntry1.getConfigurationRejectionEntry.getReasonCase shouldEqual
           DamlConfigurationRejectionEntry.ReasonCase.DUPLICATE_SUBMISSION
 
+      }
+    }
+
+    "metrics get updated" in KVTest.runTestWithSimplePackage() {
+      for {
+        //Submit config twice to force one acceptance and one rejection on duplicate
+        _ <- submitConfig({ c =>
+          c.copy(
+            generation = c.generation + 1
+          )
+        }, submissionId = assertFromString("submission-id-1"))
+
+        _ <- submitConfig({ c =>
+          c.copy(
+            generation = c.generation + 1,
+          )
+        }, submissionId = assertFromString("submission-id-1"))
+      } yield {
+        // Check that we're updating the metrics (assuming this test at least has been run)
+        val reg = metrics.SharedMetricRegistries.getOrCreate("kvutils")
+        reg.counter("kvutils.committing.config.accepts").getCount should be >= 1L
+        reg.counter("kvutils.committing.config.rejections").getCount should be >= 1L
+        reg.timer("kvutils.committing.config.run-timer").getCount should be >= 1L
       }
     }
   }

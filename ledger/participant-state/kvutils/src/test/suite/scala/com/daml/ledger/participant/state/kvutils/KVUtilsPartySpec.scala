@@ -3,6 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils
 
+import com.codahale.metrics
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
   DamlPartyAllocationRejectionEntry
@@ -73,6 +74,20 @@ class KVUtilsPartySpec extends WordSpec with Matchers {
         logEntry1.getPartyAllocationRejectionEntry.getReasonCase shouldEqual
           DamlPartyAllocationRejectionEntry.ReasonCase.DUPLICATE_SUBMISSION
 
+      }
+    }
+
+    "metrics get updated" in KVTest.runTestWithSimplePackage() {
+      for {
+        //Submit party twice to force one acceptance and one rejection on duplicate
+        _ <- submitPartyAllocation("submission-1", "alice", p0)
+        _ <- submitPartyAllocation("submission-1", "bob", p0)
+      } yield {
+        // Check that we're updating the metrics (assuming this test at least has been run)
+        val reg = metrics.SharedMetricRegistries.getOrCreate("kvutils")
+        reg.counter("kvutils.committing.partyAllocation.accepts").getCount should be >= 1L
+        reg.counter("kvutils.committing.partyAllocation.rejections").getCount should be >= 1L
+        reg.timer("kvutils.committing.partyAllocation.run-timer").getCount should be >= 1L
       }
     }
   }

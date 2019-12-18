@@ -39,17 +39,18 @@ private[kvutils] trait Committer[Submission, PartialResult] {
   type StepInfo = String
   type Step = (CommitContext, PartialResult) => StepResult[PartialResult]
   def steps: Iterable[(StepInfo, Step)]
+  lazy val committerName: String = this.getClass.getSimpleName.toLowerCase
 
   /** The initial internal state passed to first step. */
   def init(ctx: CommitContext, subm: Submission): PartialResult
 
   val logger: Logger = LoggerFactory.getLogger(this.getClass)
 
-  /** Metrics for this committer. */
+  //TODO: Replace with metrics registry object passed in constructor
   val metricsRegistry: metrics.MetricRegistry =
     metrics.SharedMetricRegistries.getOrCreate("kvutils")
   def metricsName(metric: String): String =
-    metrics.MetricRegistry.name(this.getClass.getSimpleName, metric)
+    metrics.MetricRegistry.name("kvutils.committing", committerName, metric)
   private val runTimer: Timer = metricsRegistry.timer(metricsName("run-timer"))
   private lazy val stepTimers: Map[StepInfo, Timer] =
     steps.map {

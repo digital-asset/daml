@@ -251,6 +251,7 @@ object KeyValueCommitting {
   }
 
   private object Metrics {
+    //TODO: Replace with metrics registry object passed in constructor
     private val registry = metrics.SharedMetricRegistries.getOrCreate("kvutils")
     private val prefix = "kvutils.committing"
 

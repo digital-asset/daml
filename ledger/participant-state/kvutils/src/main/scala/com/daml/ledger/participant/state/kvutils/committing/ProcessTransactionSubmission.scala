@@ -411,6 +411,7 @@ private[kvutils] case class ProcessTransactionSubmission(
 
 object ProcessTransactionSubmission {
   private[committing] object Metrics {
+    //TODO: Replace with metrics registry object passed in constructor
     private val registry = metrics.SharedMetricRegistries.getOrCreate("kvutils")
     private val prefix = "kvutils.committing.transaction"
     val runTimer: Timer = registry.timer(s"$prefix.run-timer")

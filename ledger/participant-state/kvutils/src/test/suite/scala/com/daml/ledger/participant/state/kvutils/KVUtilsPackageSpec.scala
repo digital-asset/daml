@@ -5,6 +5,7 @@ package com.daml.ledger.participant.state.kvutils
 
 import java.io.File
 
+import com.codahale.metrics
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
   DamlPackageUploadRejectionEntry
@@ -78,6 +79,20 @@ class KVUtilsPackageSpec extends WordSpec with Matchers with BazelRunfiles {
         logEntry1.getPackageUploadRejectionEntry.getReasonCase shouldEqual
           DamlPackageUploadRejectionEntry.ReasonCase.DUPLICATE_SUBMISSION
 
+      }
+    }
+
+    "metrics get updated" in KVTest.runTestWithSimplePackage() {
+      for {
+        //Submit archive twice to force one acceptance and one rejection on duplicate
+        _ <- submitArchives("simple-archive-submission-1", simpleArchive).map(_._2)
+        _ <- submitArchives("simple-archive-submission-1", simpleArchive).map(_._2)
+      } yield {
+        // Check that we're updating the metrics (assuming this test at least has been run)
+        val reg = metrics.SharedMetricRegistries.getOrCreate("kvutils")
+        reg.counter("kvutils.committing.packageUpload.accepts").getCount should be >= 1L
+        reg.counter("kvutils.committing.packageUpload.rejections").getCount should be >= 1L
+        reg.timer("kvutils.committing.packageUpload.run-timer").getCount should be >= 1L
       }
     }
 

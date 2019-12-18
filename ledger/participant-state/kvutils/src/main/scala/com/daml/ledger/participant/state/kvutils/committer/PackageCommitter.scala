@@ -162,6 +162,8 @@ private[kvutils] case class PackageCommitter(engine: Engine)
     "buildLogEntry" -> buildLogEntry
   )
 
+  override lazy val committerName = "packageUpload"
+
   private def buildRejectionLogEntry(
       ctx: CommitContext,
       packageUploadEntry: DamlPackageUploadEntry.Builder,

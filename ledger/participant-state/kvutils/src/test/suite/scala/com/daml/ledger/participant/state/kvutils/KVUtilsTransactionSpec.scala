@@ -154,7 +154,17 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
         txEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY
         val disputed = DamlTransactionRejectionEntry.ReasonCase.DISPUTED
         txEntry.getTransactionRejectionEntry.getReasonCase shouldEqual disputed
+      }
+    }
 
+    "metrics get updated" in KVTest.runTestWithSimplePackage() {
+      for {
+        // Submit a creation of a contract with owner 'Alice', but submit it as 'Bob'.
+        createTx <- runCommand(alice, simpleCreateCmd)
+        bob <- allocateParty("bob", bob)
+        _ <- submitTransaction(submitter = bob, tx = createTx).map(_._2)
+      } yield {
+        val disputed = DamlTransactionRejectionEntry.ReasonCase.DISPUTED
         // Check that we're updating the metrics (assuming this test at least has been run)
         val reg = metrics.SharedMetricRegistries.getOrCreate("kvutils")
         reg.counter("kvutils.committing.transaction.accepts").getCount should be >= 1L
