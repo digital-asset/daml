@@ -14,6 +14,7 @@ daml 1.2
 -- | MOVE Prelude DAML-LF primitives, just templates/contracts
 module DA.Internal.Template.Functions where
 
+import DA.Internal.Any
 import DA.Internal.LF
 import DA.Internal.Prelude
 import DA.Internal.Template
@@ -194,3 +195,6 @@ fromAnyContractKey (AnyContractKey any rep)
   | otherwise = None
 #endif
 #endif
+
+deriving instance Eq Archive
+deriving instance Show Archive

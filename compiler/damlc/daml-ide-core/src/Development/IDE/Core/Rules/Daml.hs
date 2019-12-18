@@ -90,6 +90,7 @@ import qualified DA.Daml.LF.ScenarioServiceClient as SS
 import qualified DA.Daml.LF.Simplifier as LF
 import qualified DA.Daml.LF.TypeChecker as LF
 import qualified DA.Pretty as Pretty
+import SdkVersion (damlStdlib)
 
 import qualified Language.Haskell.Exts.SrcLoc as HSE
 import Language.Haskell.HLint4
@@ -485,23 +486,30 @@ generatePackageMapRule opts =
         let hash = BS.concat $ map (T.encodeUtf8 . LF.unPackageId . LF.dalfPackageId) $ Map.elems res
         return (Just hash, ([], Just res))
 
-generateStablePackages :: FilePath -> IO ([FileDiagnostic], Map.Map (UnitId, LF.ModuleName) LF.DalfPackage)
-generateStablePackages fp = do
+generateStablePackages :: LF.Version -> FilePath -> IO ([FileDiagnostic], Map.Map (UnitId, LF.ModuleName) LF.DalfPackage)
+generateStablePackages lfVersion fp = do
     (diags, pkgs) <- fmap partitionEithers $ do
         allFiles <- listFilesRecursive fp
         let dalfs = filter ((== ".dalf") . takeExtension) allFiles
         forM dalfs $ \dalf -> do
-            let unitId = stringToUnitId $ takeFileName $ takeDirectory dalf
+            let packagePath = takeFileName $ takeDirectory dalf
+            let unitId = stringToUnitId $ if packagePath == "daml-stdlib"
+                    then damlStdlib -- We patch this to add the version number
+                    else packagePath
             let moduleName = LF.ModuleName (NonEmpty.toList $ T.splitOn "-" $ T.pack $ dropExtension $ takeFileName dalf)
             dalfPkgOrErr <- readDalfPackage dalf
             pure (fmap ((unitId, moduleName),) dalfPkgOrErr)
-    pure (diags, Map.fromList pkgs)
+    -- We filter out stable packages for newer LF versions, e.g., the stable packages for wrappers around Any.
+    -- It might seem tempting to make stable packages per LF version but this makes no sense at all.
+    -- Packages should remain stable as we move to newer LF versions.
+    pure (diags, Map.fromList $ filter (\(_, pkg) -> lfVersion >= LF.packageLfVersion (LF.extPackagePkg $ LF.dalfPackagePkg pkg)) pkgs)
 
 
 generateStablePackagesRule :: Options -> Rules ()
 generateStablePackagesRule opts =
     defineEarlyCutoff $ \GenerateStablePackages _file -> assert (null $ fromNormalizedFilePath _file) $ do
-        (errs, res) <- liftIO $ maybe (pure ([], Map.empty)) generateStablePackages (optStablePackages opts)
+        lfVersion <- getDamlLfVersion
+        (errs, res) <- liftIO $ maybe (pure ([], Map.empty)) (generateStablePackages lfVersion) (optStablePackages opts)
         when (errs /= []) $ do
             logger <- actionLogger
             liftIO $ logError logger $ T.pack $
