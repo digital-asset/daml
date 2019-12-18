@@ -90,9 +90,9 @@ class KVUtilsPackageSpec extends WordSpec with Matchers with BazelRunfiles {
       } yield {
         // Check that we're updating the metrics (assuming this test at least has been run)
         val reg = metrics.SharedMetricRegistries.getOrCreate("kvutils")
-        reg.counter("kvutils.committing.packageUpload.accepts").getCount should be >= 1L
-        reg.counter("kvutils.committing.packageUpload.rejections").getCount should be >= 1L
-        reg.timer("kvutils.committing.packageUpload.run-timer").getCount should be >= 1L
+        reg.counter("kvutils.committer.packageUpload.accepts").getCount should be >= 1L
+        reg.counter("kvutils.committer.packageUpload.rejections").getCount should be >= 1L
+        reg.timer("kvutils.committer.packageUpload.run-timer").getCount should be >= 1L
       }
     }
 

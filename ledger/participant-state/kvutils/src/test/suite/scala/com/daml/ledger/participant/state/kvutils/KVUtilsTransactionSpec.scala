@@ -167,11 +167,11 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
         val disputed = DamlTransactionRejectionEntry.ReasonCase.DISPUTED
         // Check that we're updating the metrics (assuming this test at least has been run)
         val reg = metrics.SharedMetricRegistries.getOrCreate("kvutils")
-        reg.counter("kvutils.committing.transaction.accepts").getCount should be >= 1L
+        reg.counter("kvutils.committer.transaction.accepts").getCount should be >= 1L
         reg
-          .counter(s"kvutils.committing.transaction.rejections_${disputed.name}")
+          .counter(s"kvutils.committer.transaction.rejections_${disputed.name}")
           .getCount should be >= 1L
-        reg.timer("kvutils.committing.transaction.run-timer").getCount should be >= 1L
+        reg.timer("kvutils.committer.transaction.run-timer").getCount should be >= 1L
       }
     }
 

@@ -50,7 +50,7 @@ private[kvutils] trait Committer[Submission, PartialResult] {
   val metricsRegistry: metrics.MetricRegistry =
     metrics.SharedMetricRegistries.getOrCreate("kvutils")
   def metricsName(metric: String): String =
-    metrics.MetricRegistry.name("kvutils.committing", committerName, metric)
+    metrics.MetricRegistry.name("kvutils.committer", committerName, metric)
   private val runTimer: Timer = metricsRegistry.timer(metricsName("run-timer"))
   private lazy val stepTimers: Map[StepInfo, Timer] =
     steps.map {

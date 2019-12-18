@@ -253,7 +253,7 @@ object KeyValueCommitting {
   private object Metrics {
     //TODO: Replace with metrics registry object passed in constructor
     private val registry = metrics.SharedMetricRegistries.getOrCreate("kvutils")
-    private val prefix = "kvutils.committing"
+    private val prefix = "kvutils.committer"
 
     // Timer (and count) of how fast submissions have been processed.
     val runTimer: metrics.Timer = registry.timer(s"$prefix.run-timer")
