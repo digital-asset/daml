@@ -8,29 +8,13 @@ import java.util.concurrent.ConcurrentLinkedQueue
 import akka.actor.ActorSystem
 import akka.pattern.after
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
-import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
+import com.digitalasset.platform.common.util.DirectExecutionContext
+import com.digitalasset.platform.indexer.TestIndexer._
 import com.digitalasset.platform.resources.{Resource, ResourceOwner}
 import org.scalatest.{AsyncWordSpec, Matchers}
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future, Promise}
-
-case class SubscribeResult(
-    name: String,
-    subscribeDelay: FiniteDuration,
-    subscribeSucceeds: Boolean,
-    completeDelay: FiniteDuration,
-    completeSucceeds: Boolean)
-
-sealed abstract class IndexerEvent {
-  def name: String
-}
-final case class EventStreamFail(name: String) extends IndexerEvent
-final case class EventStreamComplete(name: String) extends IndexerEvent
-final case class EventStopCalled(name: String) extends IndexerEvent
-final case class EventSubscribeCalled(name: String) extends IndexerEvent
-final case class EventSubscribeSuccess(name: String) extends IndexerEvent
-final case class EventSubscribeFail(name: String) extends IndexerEvent
 
 class TestIndexer(results: Iterator[SubscribeResult]) {
   private[this] val actorSystem = ActorSystem("TestIndexer")
@@ -38,21 +22,22 @@ class TestIndexer(results: Iterator[SubscribeResult]) {
 
   val actions = new ConcurrentLinkedQueue[IndexerEvent]()
 
-  class TestIndexerFeedHandle(result: SubscribeResult) extends IndexFeedHandle {
+  class TestIndexerFeedHandle(result: SubscribeResult)(implicit executionContext: ExecutionContext)
+      extends IndexFeedHandle {
     private[this] val promise = Promise[akka.Done]()
 
-    if (result.completeSucceeds) {
+    if (result.status == SuccessfullyCompletes) {
       scheduler.scheduleOnce(result.completeDelay)({
         actions.add(EventStreamComplete(result.name))
         promise.trySuccess(akka.Done)
         ()
-      })(DEC)
+      })
     } else {
       scheduler.scheduleOnce(result.completeDelay)({
         actions.add(EventStreamFail(result.name))
         promise.tryFailure(new RuntimeException("Random simulated failure: subscribe"))
         ()
-      })(DEC)
+      })
     }
 
     def stop(): Future[akka.Done] = {
@@ -66,8 +51,8 @@ class TestIndexer(results: Iterator[SubscribeResult]) {
     }
   }
 
-  def subscribe(): Resource[IndexFeedHandle] =
-    new Subscription().acquire()(DEC)
+  def subscribe()(implicit executionContext: ExecutionContext): Resource[IndexFeedHandle] =
+    new Subscription().acquire()
 
   class Subscription extends ResourceOwner[IndexFeedHandle] {
     override def acquire()(implicit executionContext: ExecutionContext): Resource[IndexFeedHandle] =
@@ -75,7 +60,7 @@ class TestIndexer(results: Iterator[SubscribeResult]) {
         {
           val result = results.next()
           actions.add(EventSubscribeCalled(result.name))
-          if (result.subscribeSucceeds) {
+          if (result.status != SubscriptionFails) {
             after(result.subscribeDelay, scheduler)({
               actions.add(EventSubscribeSuccess(result.name))
               Future.successful(new TestIndexerFeedHandle(result))
@@ -92,9 +77,44 @@ class TestIndexer(results: Iterator[SubscribeResult]) {
   }
 }
 
+object TestIndexer {
+
+  case class SubscribeResult(
+      name: String,
+      status: SubscribeStatus,
+      subscribeDelay: FiniteDuration,
+      completeDelay: FiniteDuration,
+  )
+
+  sealed abstract class IndexerEvent {
+    def name: String
+  }
+
+  final case class EventStreamFail(name: String) extends IndexerEvent
+
+  final case class EventStreamComplete(name: String) extends IndexerEvent
+
+  final case class EventStopCalled(name: String) extends IndexerEvent
+
+  final case class EventSubscribeCalled(name: String) extends IndexerEvent
+
+  final case class EventSubscribeSuccess(name: String) extends IndexerEvent
+
+  final case class EventSubscribeFail(name: String) extends IndexerEvent
+
+  sealed trait SubscribeStatus
+
+  case object SuccessfullyCompletes extends SubscribeStatus
+
+  case object StreamFails extends SubscribeStatus
+
+  case object SubscriptionFails extends SubscribeStatus
+
+}
+
 class RecoveringIndexerIT extends AsyncWordSpec with Matchers {
 
-  private[this] implicit val ec: ExecutionContext = DEC
+  private[this] implicit val executionContext: ExecutionContext = DirectExecutionContext
   private[this] val actorSystem = ActorSystem("RecoveringIndexerIT")
   private[this] val scheduler = actorSystem.scheduler
   private[this] val loggerFactory = NamedLoggerFactory(RecoveringIndexerIT.super.getClass)
@@ -106,7 +126,7 @@ class RecoveringIndexerIT extends AsyncWordSpec with Matchers {
         new RecoveringIndexer(actorSystem.scheduler, 10.millis, 1.second, loggerFactory)
       val testIndexer = new TestIndexer(
         List(
-          SubscribeResult("A", 10.millis, true, 10.millis, true)
+          SubscribeResult("A", SuccessfullyCompletes, 10.millis, 10.millis)
         ).iterator)
 
       val end = recoveringIndexer.start(() => testIndexer.subscribe())
@@ -126,7 +146,7 @@ class RecoveringIndexerIT extends AsyncWordSpec with Matchers {
       // Stream completes after 10s, but is released before that happens
       val testIndexer = new TestIndexer(
         List(
-          SubscribeResult("A", 10.millis, true, 10.seconds, true)
+          SubscribeResult("A", SuccessfullyCompletes, 10.millis, 10.seconds)
         ).iterator)
 
       val end = recoveringIndexer.start(() => testIndexer.subscribe())
@@ -148,9 +168,9 @@ class RecoveringIndexerIT extends AsyncWordSpec with Matchers {
       // Subscribe fails, then the stream fails, then the stream completes without errors.
       val testIndexer = new TestIndexer(
         List(
-          SubscribeResult("A", 10.millis, false, 10.millis, true), // Subscribe fails
-          SubscribeResult("B", 10.millis, true, 10.millis, false), // Stream fails
-          SubscribeResult("C", 10.millis, true, 10.millis, true) // Stream completes
+          SubscribeResult("A", SubscriptionFails, 10.millis, 10.millis),
+          SubscribeResult("B", StreamFails, 10.millis, 10.millis),
+          SubscribeResult("C", SuccessfullyCompletes, 10.millis, 10.millis),
         ).iterator)
 
       val end = recoveringIndexer.start(() => testIndexer.subscribe())
@@ -176,8 +196,8 @@ class RecoveringIndexerIT extends AsyncWordSpec with Matchers {
       // Subscribe fails, then the stream completes without errors. Note the restart delay of 500ms.
       val testIndexer = new TestIndexer(
         List(
-          SubscribeResult("A", 0.millis, false, 0.millis, true), // Subscribe fails
-          SubscribeResult("B", 0.millis, true, 0.millis, true) // Stream completes
+          SubscribeResult("A", SubscriptionFails, 0.millis, 0.millis),
+          SubscribeResult("B", SuccessfullyCompletes, 0.millis, 0.millis),
         ).iterator)
 
       val t0 = System.nanoTime()
