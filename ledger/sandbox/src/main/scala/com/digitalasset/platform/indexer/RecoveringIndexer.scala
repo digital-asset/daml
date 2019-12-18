@@ -9,19 +9,11 @@ import akka.actor.Scheduler
 import akka.pattern.after
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
+import com.digitalasset.platform.resources.Resource
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.control.NonFatal
-
-object RecoveringIndexer {
-  def apply(
-      scheduler: Scheduler,
-      restartDelay: FiniteDuration,
-      asyncTolerance: FiniteDuration,
-      loggerFactory: NamedLoggerFactory): RecoveringIndexer =
-    new RecoveringIndexer(scheduler, restartDelay, asyncTolerance, loggerFactory)
-}
 
 /**
   * A helper that restarts an indexer whenever an error occurs.
@@ -38,7 +30,7 @@ class RecoveringIndexer(
   private val logger = loggerFactory.getLogger(this.getClass)
 
   val closed = new AtomicBoolean(false)
-  val lastHandle = new AtomicReference[Option[IndexFeedHandle]](None)
+  val lastHandle = new AtomicReference[Option[Resource[IndexFeedHandle]]](None)
 
   /**
     * Starts an indexer, and restarts it after the given delay whenever an error occurs.
@@ -46,15 +38,20 @@ class RecoveringIndexer(
     * @param subscribe A function that creates a new indexer and calls subscribe() on it.
     * @return A future that completes with [[akka.Done]] when the indexer finishes processing all read service updates.
     */
-  def start(subscribe: () => Future[IndexFeedHandle]): Future[akka.Done] = {
+  def start(subscribe: () => Resource[IndexFeedHandle]): Future[akka.Done] = {
     logger.info("Starting Indexer Server")
     implicit val ec: ExecutionContext = DEC
-    val completedF = for {
+
+    val subscribeResource = for {
       handle <- subscribe()
-      _ = {
-        logger.info("Started Indexer Server")
-        lastHandle.set(Some(handle))
-      }
+    } yield {
+      logger.info("Started Indexer Server")
+      handle
+    }
+
+    val completedF = for {
+      handle <- subscribeResource.asFuture
+      _ = lastHandle.set(Some(subscribeResource))
       completed <- handle.completed()
       _ = logger.info("Successfully finished processing state updates")
     } yield completed
@@ -69,7 +66,7 @@ class RecoveringIndexer(
 
   override def close(): Unit = {
     if (closed.compareAndSet(false, true)) {
-      val _ = lastHandle.get.foreach(h => Await.result(h.stop(), asyncTolerance))
+      val _ = lastHandle.get.foreach(h => Await.result(h.release(), asyncTolerance))
     }
   }
 }

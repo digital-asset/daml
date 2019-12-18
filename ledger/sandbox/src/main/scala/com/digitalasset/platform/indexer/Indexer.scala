@@ -5,6 +5,7 @@ package com.digitalasset.platform.indexer
 
 import akka.Done
 import com.daml.ledger.participant.state.v1.ReadService
+import com.digitalasset.platform.resources.ResourceOwner
 
 import scala.concurrent.Future
 
@@ -14,24 +15,17 @@ import scala.concurrent.Future
 trait Indexer {
 
   /**
-    * Subscribes to an instance of ReadService.
+    * A resource owner that, when acquired, subscribes to an instance of ReadService.
     *
     * @param readService the ReadService to subscribe to
     * @return a handle of IndexFeedHandle or a failed Future
     */
-  def subscribe(readService: ReadService): Future[IndexFeedHandle]
+  def subscription(readService: ReadService): ResourceOwner[IndexFeedHandle]
 
 }
 
 /** A handle with which one can stop a running indexing feed. */
 trait IndexFeedHandle {
-
-  /**
-    * Asynchronously stops the running index feed.
-    *
-    * @return Done if success or a failed future in case of an error.
-    */
-  def stop(): Future[Done]
 
   /**
     * A future that completes when the feed terminates.

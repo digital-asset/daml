@@ -9,6 +9,7 @@ import akka.actor.ActorSystem
 import akka.pattern.after
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
+import com.digitalasset.platform.resources.{Resource, ResourceOwner}
 import org.scalatest.{AsyncWordSpec, Matchers}
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
@@ -54,7 +55,7 @@ class TestIndexer(results: Iterator[SubscribeResult]) {
       })(DEC)
     }
 
-    override def stop(): Future[akka.Done] = {
+    def stop(): Future[akka.Done] = {
       actions.add(EventStopCalled(result.name))
       promise.trySuccess(akka.Done)
       promise.future
@@ -65,20 +66,29 @@ class TestIndexer(results: Iterator[SubscribeResult]) {
     }
   }
 
-  def subscribe(): Future[IndexFeedHandle] = {
-    val result = results.next()
-    actions.add(EventSubscribeCalled(result.name))
-    if (result.subscribeSucceeds) {
-      after(result.subscribeDelay, scheduler)({
-        actions.add(EventSubscribeSuccess(result.name))
-        Future.successful(new TestIndexerFeedHandle(result))
-      })(DEC)
-    } else {
-      after(result.subscribeDelay, scheduler)({
-        actions.add(EventSubscribeFail(result.name))
-        Future.failed(new RuntimeException("Random simulated failure: subscribe"))
-      })(DEC)
-    }
+  def subscribe(): Resource[IndexFeedHandle] =
+    new Subscription().acquire()(DEC)
+
+  class Subscription extends ResourceOwner[IndexFeedHandle] {
+    override def acquire()(implicit executionContext: ExecutionContext): Resource[IndexFeedHandle] =
+      Resource[TestIndexerFeedHandle](
+        {
+          val result = results.next()
+          actions.add(EventSubscribeCalled(result.name))
+          if (result.subscribeSucceeds) {
+            after(result.subscribeDelay, scheduler)({
+              actions.add(EventSubscribeSuccess(result.name))
+              Future.successful(new TestIndexerFeedHandle(result))
+            })
+          } else {
+            after(result.subscribeDelay, scheduler)({
+              actions.add(EventSubscribeFail(result.name))
+              Future.failed(new RuntimeException("Random simulated failure: subscribe"))
+            })
+          }
+        },
+        handle => handle.stop().map(_ => ())
+      ).vary
   }
 }
 
@@ -113,10 +123,10 @@ class RecoveringIndexerIT extends AsyncWordSpec with Matchers {
     "work when the stream is stopped" in {
       val recoveringIndexer =
         new RecoveringIndexer(actorSystem.scheduler, 10.millis, 1.second, loggerFactory)
-      // Stream completes after 10sec, but stop() is called before
+      // Stream completes after 10s, but is released before that happens
       val testIndexer = new TestIndexer(
         List(
-          SubscribeResult("A", 10.millis, true, 10000.millis, true) // Stream completes after a long delay
+          SubscribeResult("A", 10.millis, true, 10.seconds, true)
         ).iterator)
 
       val end = recoveringIndexer.start(() => testIndexer.subscribe())

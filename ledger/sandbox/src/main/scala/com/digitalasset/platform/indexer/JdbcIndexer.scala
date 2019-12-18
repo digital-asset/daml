@@ -5,10 +5,10 @@ package com.digitalasset.platform.indexer
 
 import java.time.Instant
 
+import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream._
 import akka.stream.scaladsl.{Keep, Sink}
-import akka.{Done, NotUsed}
 import com.codahale.metrics.{Gauge, MetricRegistry}
 import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.v1.Update._
@@ -22,7 +22,7 @@ import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
-import com.digitalasset.platform.resources.ResourceOwner
+import com.digitalasset.platform.resources.{Resource, ResourceOwner}
 import com.digitalasset.platform.sandbox.EventIdFormatter
 import com.digitalasset.platform.sandbox.metrics.timedFuture
 import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlLedger.defaultNumberOfShortLivedConnections
@@ -204,27 +204,8 @@ class JdbcIndexer private[indexer] (
     }
   }
 
-  /**
-    * Subscribes to an instance of ReadService.
-    *
-    * @param readService the ReadService to subscribe to
-    * @return a handle of IndexFeedHandle or a failed Future
-    */
-  override def subscribe(readService: ReadService): Future[IndexFeedHandle] = {
-    Metrics.setup()
-
-    val (killSwitch, completionFuture) = readService
-      .stateUpdates(beginAfterExternalOffset.map(Offset.assertFromString))
-      .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
-      .mapAsync(1)({
-        case (offset, update) =>
-          timedFuture(Metrics.stateUpdateProcessingTimer, handleStateUpdate(offset, update))
-      })
-      .toMat(Sink.ignore)(Keep.both)
-      .run()
-
-    Future.successful(indexHandleFromKillSwitch(killSwitch, completionFuture))
-  }
+  override def subscription(readService: ReadService): ResourceOwner[IndexFeedHandle] =
+    new SubscriptionResourceOwner(readService)
 
   private def handleStateUpdate(offset: Offset, update: Update): Future[Unit] = {
     lastReceivedOffset = offset.toLedgerString
@@ -425,20 +406,41 @@ class JdbcIndexer private[indexer] (
       domain.RejectionReason.SubmitterCannotActViaParticipant(state.description)
   }
 
-  private def indexHandleFromKillSwitch(
-      ks: KillSwitch,
-      completionFuture: Future[Done]): IndexFeedHandle = new IndexFeedHandle {
-    override def stop(): Future[akka.Done] = {
-      ks.shutdown()
-      completionFuture
-    }
-
-    override def completed(): Future[akka.Done] = {
-      completionFuture
-    }
-  }
-
   override def close(): Unit = {
     ledgerDao.close()
   }
+
+  private class SubscriptionResourceOwner(readService: ReadService)
+      extends ResourceOwner[IndexFeedHandle] {
+    override def acquire()(
+        implicit executionContext: ExecutionContext
+    ): Resource[IndexFeedHandle] =
+      Resource[SubscriptionIndexFeedHandle](
+        Future {
+          Metrics.setup()
+
+          val (killSwitch, completionFuture) = readService
+            .stateUpdates(beginAfterExternalOffset.map(Offset.assertFromString))
+            .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
+            .mapAsync(1)({
+              case (offset, update) =>
+                timedFuture(Metrics.stateUpdateProcessingTimer, handleStateUpdate(offset, update))
+            })
+            .toMat(Sink.ignore)(Keep.both)
+            .run()
+
+          new SubscriptionIndexFeedHandle(killSwitch, completionFuture)
+        },
+        handle =>
+          for {
+            _ <- Future(handle.killSwitch.shutdown())
+            _ <- handle.completed
+          } yield ()
+      ).vary
+  }
+
+  private class SubscriptionIndexFeedHandle(
+      val killSwitch: KillSwitch,
+      override val completed: Future[akka.Done],
+  ) extends IndexFeedHandle
 }

@@ -29,11 +29,12 @@ object StandaloneIndexerServer {
       "StandaloneIndexerServer-" + config.participantId.filterNot(".:#/ ".toSet))
 
     val indexerFactory = JdbcIndexerFactory(metrics, loggerFactory)
-    val indexer = RecoveringIndexer(
+    val indexer = new RecoveringIndexer(
       actorSystem.scheduler,
       asyncTolerance,
       indexerFactory.asyncTolerance,
-      loggerFactory)
+      loggerFactory,
+    )
 
     val promise = Promise[Unit]
 
@@ -43,13 +44,12 @@ object StandaloneIndexerServer {
           () =>
             initializedIndexerFactory
               .owner(config.participantId, actorSystem, readService, config.jdbcUrl)
-              .acquire()
-              .asFuture
               .flatMap { indexer =>
                 // signal when ready
                 promise.trySuccess(())
-                indexer.subscribe(readService)
-            })
+                indexer.subscription(readService)
+              }
+              .acquire())
         .map(_ => ())
 
     try {
