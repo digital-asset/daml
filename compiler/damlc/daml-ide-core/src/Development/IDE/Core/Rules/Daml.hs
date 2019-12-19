@@ -489,8 +489,15 @@ generatePackageMapRule opts =
 generateStablePackages :: LF.Version -> FilePath -> IO ([FileDiagnostic], Map.Map (UnitId, LF.ModuleName) LF.DalfPackage)
 generateStablePackages lfVersion fp = do
     (diags, pkgs) <- fmap partitionEithers $ do
-        allFiles <- listFilesRecursive fp
-        let dalfs = filter ((== ".dalf") . takeExtension) allFiles
+        -- It is very tempting to just use a listFilesRecursive here.
+        -- However, that has broken CI several times on Windows due to the lack of
+        -- sandboxing which resulted in newly added files being picked up from other PRs.
+        -- Given that this list doesn’t change too often and you will get a compile error
+        -- if you forget to update it, we hardcode it here.
+        let dalfs =
+                map (fp </>) $
+                map ("daml-prim" </>) ["DA-Types.dalf", "GHC-Prim.dalf", "GHC-Tuple.dalf", "GHC-Types.dalf"] <>
+                map ("daml-stdlib" </>) ["DA-Internal-Any.dalf", "DA-Internal-Template.dalf"]
         forM dalfs $ \dalf -> do
             let packagePath = takeFileName $ takeDirectory dalf
             let unitId = stringToUnitId $ if packagePath == "daml-stdlib"
