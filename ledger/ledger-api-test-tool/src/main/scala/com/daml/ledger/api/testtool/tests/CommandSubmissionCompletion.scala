@@ -135,29 +135,26 @@ final class CommandSubmissionCompletion(session: LedgerSession) extends LedgerTe
   }
 
   test(
-    "CSCEmitPeriodicCheckpoints",
-    "The CommandCompletionService should emit periodic checkpoints (at least 2 over 30 seconds)",
-    allocate(SingleParty)) {
-    case Participants(Participant(ledger, party)) =>
-      WithTimeout(30.seconds)(ledger.checkpoints(2)(party)).map(_ => ())
-  }
-
-  test(
     "CSCEmitExclusiveEndpoints",
-    "Checkpoint offsets should not overlap with completion offsets",
-    allocate(SingleParty)) {
+    "Checkpoint should come with record times and their offsets should not overlap with completion offsets",
+    allocate(SingleParty)
+  ) {
     case Participants(Participant(ledger, party)) =>
       for {
         first <- ledger.create(party, Dummy(party)).map(Tag.unwrap)
-        cp1 <- ledger.firstCheckpoint(party).map(_.getOffset)
+        cp1 <- ledger.firstCheckpoint(party)
         second <- ledger.create(party, Dummy(party)).map(Tag.unwrap)
-        cp2 <- ledger.nextCheckpoint(from = cp1, party).map(_.getOffset)
+        cp2 <- ledger.nextCheckpoint(from = cp1.getOffset, party)
         third <- ledger.create(party, Dummy(party)).map(Tag.unwrap)
         request = ledger.getTransactionsRequest(Seq(party))
         sinceStart <- ledger.flatTransactions(request)
-        sinceCp1 <- ledger.flatTransactions(request.update(_.begin := cp1))
-        sinceCp2 <- ledger.flatTransactions(request.update(_.begin := cp2))
+        sinceCp1 <- ledger.flatTransactions(request.update(_.begin := cp1.getOffset))
+        sinceCp2 <- ledger.flatTransactions(request.update(_.begin := cp2.getOffset))
       } yield {
+
+        assert(cp1.recordTime.isDefined, "The first checkpoint is missing the record time")
+        assert(cp2.recordTime.isDefined, "The second checkpoint is missing the record time")
+
         val contractsSinceStart = sinceStart.flatMap(createdEvents).map(_.contractId).toSet
         val expectedContractsSinceStart = Set(first, second, third)
         assert(
