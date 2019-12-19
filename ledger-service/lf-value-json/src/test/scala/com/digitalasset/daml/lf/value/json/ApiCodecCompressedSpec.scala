@@ -350,7 +350,7 @@ class ApiCodecCompressedSpec
     val bazRecordId =
       Ref.Identifier(packageId, Ref.QualifiedName.assertFromString("JsonEncodingTest:BazRecord"))
 
-    "LF Variant" should {
+    "dealing with LF Variant" should {
       "encode Foo/Baz to JSON" in {
         val writer = implicitly[spray.json.JsonWriter[LfValue[String]]]
         (writer.write(bazVariant): JsValue) shouldBe ("""{"tag":"Baz", "value":{"baz":"text abc"}}""".parseJson: JsValue)
