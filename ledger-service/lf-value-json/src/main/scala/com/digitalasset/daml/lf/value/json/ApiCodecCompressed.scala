@@ -229,7 +229,7 @@ abstract class ApiCodecCompressed[Cid](
                 s"Can't read ${value.prettyPrint} as DamlLfVariant $id, expected JsObject with 'tag' field, got $v")
           }
 
-          val nestedRecord: JsValue = v.getOrElse("value", JsObject.empty)
+          val nestedValue: JsValue = v.getOrElse("value", JsObject.empty)
 
           val (constructorName, constructorType) = cons.toList
             .find(_._1 == tag)
@@ -239,7 +239,7 @@ abstract class ApiCodecCompressed[Cid](
           V.ValueVariant(
             Some(id),
             constructorName,
-            jsValueToApiValue(nestedRecord, constructorType, defs)
+            jsValueToApiValue(nestedValue, constructorType, defs)
           )
       }
       case Model.DamlLfEnum(cons) => {

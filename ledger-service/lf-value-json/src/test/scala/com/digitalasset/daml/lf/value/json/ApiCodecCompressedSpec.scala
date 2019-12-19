@@ -32,13 +32,13 @@ class ApiCodecCompressedSpec
   private val dar = new java.io.File(rlocation("ledger-service/lf-value-json/JsonEncodingTest.dar"))
   require(dar.exists())
 
-  private val metadata: MetadataReader.LfMetadata =
+  private val darMetadata: MetadataReader.LfMetadata =
     MetadataReader
       .readFromDar(dar)
       .valueOr(e => fail(s"Cannot read metadata from $dar, error:" + e.shows))
 
-  private val typeLookup: NavigatorModelAliases.DamlLfTypeLookup =
-    MetadataReader.damlLfTypeLookup(() => metadata)
+  private val darTypeLookup: NavigatorModelAliases.DamlLfTypeLookup =
+    MetadataReader.damlLfTypeLookup(() => darMetadata)
 
   /** Serializes the API value to JSON, then parses it back to an API value */
   private def serializeAndParse(
@@ -317,7 +317,7 @@ class ApiCodecCompressedSpec
     import ApiCodecCompressed.JsonImplicits._
 
     val packageId: Ref.PackageId = MetadataReader
-      .damlLfTypeByName(() => metadata)(
+      .damlLfTypeByName(() => darMetadata)(
         Ref.QualifiedName(
           Ref.DottedName.assertFromString("JsonEncodingTest"),
           Ref.DottedName.assertFromString("Foo")
@@ -360,7 +360,7 @@ class ApiCodecCompressedSpec
         val actualValue: LfValue[String] = jsValueToApiValue(
           """{"tag":"Baz", "value":{"baz":"text abc"}}""".parseJson,
           fooId,
-          typeLookup
+          darTypeLookup
         )
 
         val expectedValueWithIds: LfValue.ValueVariant[String] =
@@ -378,7 +378,7 @@ class ApiCodecCompressedSpec
         val actualValue: LfValue[String] = jsValueToApiValue(
           """{"tag":"Qux"}""".parseJson,
           fooId,
-          typeLookup
+          darTypeLookup
         )
 
         val expectedValueWithIds: LfValue.ValueVariant[String] =
@@ -391,7 +391,7 @@ class ApiCodecCompressedSpec
         val actualValue: LfValue[String] = jsValueToApiValue(
           """{"tag":"Qux", "value":{}}""".parseJson,
           fooId,
-          typeLookup
+          darTypeLookup
         )
 
         val expectedValueWithIds: LfValue.ValueVariant[String] =
