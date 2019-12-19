@@ -14,9 +14,11 @@ private object Base64 {
       Show.shows(e => s"Base64.Error: ${e.what}, ${e.message}")
   }
 
-  private val defaultEncoder = java.util.Base64.getEncoder
+  private val defaultEncoder = java.util.Base64.getUrlEncoder
 
-  private val encoderWithoutPadding = java.util.Base64.getEncoder.withoutPadding
+  private val encoderWithoutPadding = java.util.Base64.getUrlEncoder.withoutPadding
+
+  private val defaultDecoder = java.util.Base64.getUrlDecoder
 
   def encode(bs: Array[Byte]): Error \/ Array[Byte] =
     encode(defaultEncoder, bs)
@@ -29,6 +31,6 @@ private object Base64 {
       .leftMap(e => Error('encode, "Cannot base64 encode a string. Cause: " + e.getMessage))
 
   def decode(base64str: String): Error \/ String =
-    \/.fromTryCatchNonFatal(new String(java.util.Base64.getDecoder.decode(base64str)))
+    \/.fromTryCatchNonFatal(new String(defaultDecoder.decode(base64str)))
       .leftMap(e => Error('decode, "Cannot base64 decode a string. Cause: " + e.getMessage))
 }

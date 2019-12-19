@@ -57,18 +57,18 @@ main = do
       writePackage ghcTuple optOutputPath
     ModuleName ["DA", "Types"] ->
       writePackage daTypes optOutputPath
+    ModuleName ["DA", "Internal", "Template"] ->
+      writePackage daInternalTemplate optOutputPath
+    ModuleName ["DA", "Internal", "Any"] ->
+      writePackage daInternalAny optOutputPath
     _ -> fail $ "Unknown module: " <> show optModule
 
-lfVersion :: Version
-lfVersion = version1_6
-
-writePackage :: Module -> FilePath -> IO ()
-writePackage mod path = do
-  let pkg = Package lfVersion (NM.fromList [mod])
+writePackage :: Package -> FilePath -> IO ()
+writePackage pkg path = do
   BS.writeFile path $ encodeArchive pkg
 
-ghcTypes :: Module
-ghcTypes = Module
+ghcTypes :: Package
+ghcTypes = Package version1_6 $ NM.singleton Module
   { moduleName = modName
   , moduleSource = Nothing
   , moduleFeatureFlags = daml12FeatureFlags
@@ -88,8 +88,8 @@ ghcTypes = Module
       , dataCons = DataEnum $ map mkVariantCon cons
       }
 
-ghcPrim :: Module
-ghcPrim = Module
+ghcPrim :: Package
+ghcPrim = Package version1_6 $ NM.singleton Module
   { moduleName = modName
   , moduleSource = Nothing
   , moduleFeatureFlags = daml12FeatureFlags
@@ -117,8 +117,8 @@ ghcPrim = Module
       , dvalBody = EEnumCon (qual (dataTypeCon dataVoid)) conName
       }
 
-daTypes :: Module
-daTypes = Module
+daTypes :: Package
+daTypes = Package version1_6 $ NM.singleton Module
   { moduleName = modName
   , moduleSource = Nothing
   , moduleFeatureFlags = daml12FeatureFlags
@@ -162,8 +162,8 @@ daTypes = Module
       ERecCon (tupleTyConApp n) [(mkIndexedField i, EVar $ tupleTmVar i) | i <- [1..n]]
     tupleWorkers = map tupleWorker [2..20]
 
-ghcTuple :: Module
-ghcTuple = Module
+ghcTuple :: Package
+ghcTuple = Package version1_6 $ NM.singleton Module
   { moduleName = modName
   , moduleSource = Nothing
   , moduleFeatureFlags = daml12FeatureFlags
@@ -186,4 +186,44 @@ ghcTuple = Module
     values = NM.fromList
       [ DefValue Nothing (mkWorkerName "Unit", mkTForalls tyVars (TVar tyVar :-> unitTy)) (HasNoPartyLiterals True) (IsTest False) $
           mkETyLams tyVars $ mkETmLams [(mkVar "a", TVar tyVar)] (ERecCon unitTyConApp [(mkIndexedField 1, EVar $ mkVar "a")])
+      ]
+
+daInternalTemplate :: Package
+daInternalTemplate = Package version1_6 $ NM.singleton Module
+  { moduleName = modName
+  , moduleSource = Nothing
+  , moduleFeatureFlags = daml12FeatureFlags
+  , moduleSynonyms = NM.empty
+  , moduleDataTypes = types
+  , moduleValues = NM.fromList []
+  , moduleTemplates = NM.empty
+  }
+  where
+    modName = mkModName ["DA", "Internal", "Template"]
+    types = NM.fromList
+      [ DefDataType Nothing (mkTypeCon ["Archive"]) (IsSerializable True) [] $
+          DataRecord []
+      ]
+
+daInternalAny :: Package
+daInternalAny = Package version1_7 $ NM.singleton Module
+  { moduleName = modName
+  , moduleSource = Nothing
+  , moduleFeatureFlags = daml12FeatureFlags
+  , moduleSynonyms = NM.empty
+  , moduleDataTypes = types
+  , moduleValues = NM.fromList []
+  , moduleTemplates = NM.empty
+  }
+  where
+    modName = mkModName ["DA", "Internal", "Any"]
+    types = NM.fromList
+      [ DefDataType Nothing (mkTypeCon ["AnyTemplate"]) (IsSerializable False) [] $
+          DataRecord [(mkField "getAnyTemplate", TAny)]
+      , DefDataType Nothing (mkTypeCon ["TemplateTypeRep"]) (IsSerializable False) [] $
+          DataRecord [(mkField "getTemplateTypeRep", TTypeRep)]
+      , DefDataType Nothing (mkTypeCon ["AnyChoice"]) (IsSerializable False) [] $
+          DataRecord [(mkField "getAnyChoice", TAny), (mkField "getAnyChoiceTemplateTypeRep", TCon (Qualified PRSelf modName (mkTypeCon ["TemplateTypeRep"])))]
+      , DefDataType Nothing (mkTypeCon ["AnyContractKey"]) (IsSerializable False) [] $
+          DataRecord [(mkField "getAnyContractKey", TAny), (mkField "getAnyContractKeyTemplateTypeRep", TCon (Qualified PRSelf modName (mkTypeCon ["TemplateTypeRep"])))]
       ]

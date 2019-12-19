@@ -17,6 +17,7 @@ import DA.Either
 import DA.Foldable
 import DA.Functor
 import DA.Generics
+import DA.Internal.Any
 import DA.Internal.Assert
 import DA.Internal.Compatible
 import DA.Internal.Date

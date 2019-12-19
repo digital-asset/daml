@@ -6,6 +6,79 @@ Release notes
 
 This page contains release notes for the SDK.
 
+.. _release-0-13-41:
+
+0.13.41 - 2019-12-18
+--------------------
+
+DAML Ledger Integration Kit
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Move to asyncronous package management service (#3806)
+- Fix indexer crash on duplicate submission.  See #3847
+- Standardize and cleanup metric names to use underscores that are compatible with Prometheus
+- Add FailingCommandsIT and CommandSubmissionCompletion to Ledger test tool suite. Some of the tests previously part of the CommandService Ledger API Test Tool suite have been moved to a new home in CommandSubmissionCompletion to reflect the fact that those use the submission/completion workflow instead of leveraging the submit-and-wait alternatives.
+
+DAML Triggers - Experimental
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Expose timestamp in triggers.
+  See `#3612 <https://github.com/digital-asset/daml/issues/3612>`__.
+
+JSON API - Experimental
+~~~~~~~~~~~~~~~~~~~~~~~
+
+- Fix and document ``/contracts/lookup`` endpoint. See #3755.
+- Expose exercise result. Changed the output
+  of the ``/command/exercise``. Note ``exerciseResult`` and ``contracts``
+  in ``{"status":200,"result":{"exerciseResult": ...,"contracts":[...]}``.
+  See #3314.
+
+Sandbox
+~~~~~~~
+
+- Restore 0.13.38 logging behaviour.
+
+Navigator
+~~~~~~~~~
+
+- Restore 0.13.38 logging behaviour.
+
+Extractor
+~~~~~~~~~
+
+- Restore 0.13.38 logging behaviour.
+
+Internals
+~~~~~~~~~
+
+- As of 0.13.39, we merged a number of internal JAR files in
+  the SDK tarball to reduce its size. These jars used to be standalone
+  JARs you could invoke as e.g. ``java -jar sandbox.jar <args>``. As a
+  result of merging the jars, they lost their individual ``logback.xml``
+  configuration file. Although running the jars directly was (and is
+  still) not supported, note that you can now achieve the same behaviour
+  with e.g. ``java -Dlogback.configurationFile=sandbox-logback.xml -jar
+  daml-sdk.jar sandbox <args>``.
+
+DAML Standard Library
+~~~~~~~~~~~~~~~~~~~~~
+
+- Add ``Eq`` instances for ``AnyTemplate``, ``AnyChoice`` and ``AnyContractKey``.
+
+DAML Compiler
+~~~~~~~~~~~~~
+
+- Fix an issue where transitive package dependencies
+  resulted in packages not being found, if the DAR name was changed with
+  `-o`.
+
+Documentation
+~~~~~~~~~~~~~
+
+- Added documentation for authorization claims
+
+
 .. _release-0-13-40:
 
 0.13.40 - 2019-12-10
