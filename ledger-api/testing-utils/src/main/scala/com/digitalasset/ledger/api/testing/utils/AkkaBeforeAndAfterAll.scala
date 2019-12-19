@@ -6,7 +6,7 @@ package com.digitalasset.ledger.api.testing.utils
 import java.util.concurrent.Executors
 
 import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
+import akka.stream.Materializer
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import org.scalatest.{BeforeAndAfterAll, Suite}
@@ -34,7 +34,7 @@ trait AkkaBeforeAndAfterAll extends BeforeAndAfterAll {
   protected implicit lazy val system: ActorSystem =
     ActorSystem(actorSystemName, defaultExecutionContext = Some(executionContext))
 
-  protected implicit lazy val materializer: ActorMaterializer = ActorMaterializer()
+  protected implicit lazy val materializer: Materializer = Materializer(system)
 
   protected implicit lazy val executionSequencerFactory: ExecutionSequencerFactory =
     new AkkaExecutionSequencerPool(poolName = actorSystemName, actorCount = 1)

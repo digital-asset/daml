@@ -4,7 +4,7 @@
 package com.digitalasset.platform.apiserver.services.admin
 
 import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
+import akka.stream.Materializer
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import org.scalatest.{AsyncFlatSpec, Matchers}
 
@@ -14,7 +14,7 @@ import scala.concurrent.duration._
 final class PollingUtilsSpec extends AsyncFlatSpec with Matchers {
 
   private[this] val actorSystem = ActorSystem("PollingUtilsSpec")
-  private[this] val materializer = ActorMaterializer()(actorSystem)
+  private[this] val materializer = Materializer(actorSystem)
   private[this] val scheduler = materializer.system.scheduler
   private[this] val loggerFactory = NamedLoggerFactory(this.getClass)
 

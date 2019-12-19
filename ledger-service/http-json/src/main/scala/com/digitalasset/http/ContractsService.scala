@@ -174,7 +174,7 @@ class ContractsService(
       .transact { searchDb_(fetch, dao.logHandler)(jwt, party, templateIds, queryParams) }
       .unsafeToFuture()
 
-    Source.fromFuture(fv).mapConcat(identity).map(\/.right)
+    Source.future(fv).mapConcat(identity).map(\/.right)
   }
 
   private def searchDb_(fetch: ContractsFetch, doobieLog: doobie.LogHandler)(

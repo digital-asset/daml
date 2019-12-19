@@ -66,7 +66,7 @@ object RunnerMain {
         implicit val sequencer: ExecutionSequencerFactory =
           new AkkaExecutionSequencerPool("ScriptRunnerPool")(system)
         implicit val ec: ExecutionContext = system.dispatcher
-        implicit val materializer: ActorMaterializer = ActorMaterializer()(system)
+        implicit val materializer: Materializer = Materializer(system)
 
         val inputValue = config.inputFile.map(file => {
           val source = Source.fromFile(file)

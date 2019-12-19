@@ -48,10 +48,10 @@ final case class Slf4JLog[T, U](
         super.onUpstreamFinish()
       }
 
-      override def onDownstreamFinish(): Unit = {
+      override def onDownstreamFinish(cause: Throwable): Unit = {
         logger.debug("[{}] Downstream finished.", prefix)
 
-        super.onDownstreamFinish()
+        super.onDownstreamFinish(cause)
       }
 
       setHandlers(in, out, this)

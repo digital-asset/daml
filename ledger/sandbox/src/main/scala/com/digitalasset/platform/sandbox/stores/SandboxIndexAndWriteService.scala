@@ -121,7 +121,7 @@ object SandboxIndexAndWriteService {
       override def getLedgerConfiguration(): Source[LedgerConfiguration, NotUsed] =
         Source
           .single(LedgerConfiguration(timeModel.minTtl, timeModel.maxTtl))
-          .concat(Source.fromFuture(Promise[LedgerConfiguration]().future)) // we should keep the stream open!
+          .concat(Source.future(Promise[LedgerConfiguration]().future)) // we should keep the stream open!
     }
     val writeSvc = new LedgerBackedWriteService(ledger, timeProvider)
     val heartbeats = scheduleHeartbeats(timeProvider, ledger.publishHeartbeat)
@@ -244,7 +244,7 @@ abstract class LedgerBackedIndexService(
     def toAbsolute(offset: LedgerOffset): Source[LedgerOffset.Absolute, NotUsed] = offset match {
       case LedgerOffset.LedgerBegin =>
         Source.single(LedgerOffset.Absolute(Ref.LedgerString.assertFromString("0")))
-      case LedgerOffset.LedgerEnd => Source.fromFuture(currentEndF)
+      case LedgerOffset.LedgerEnd => Source.future(currentEndF)
       case off @ LedgerOffset.Absolute(_) => Source.single(off)
     }
   }

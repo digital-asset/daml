@@ -642,7 +642,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
       pageSize: Int,
       queryPage: (Long, Long) => Source[T, NotUsed]): Source[T, NotUsed] =
     Source
-      .lazily[T, NotUsed] { () =>
+      .lazySource[T, NotUsed] { () =>
         if (endExclusive - startInclusive <= pageSize)
           queryPage(startInclusive, endExclusive)
         else
