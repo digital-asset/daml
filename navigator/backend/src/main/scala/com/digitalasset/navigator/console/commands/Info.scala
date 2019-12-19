@@ -15,7 +15,6 @@ import akka.util.Timeout
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
-import scala.io.Source
 import scala.util.Try
 
 @SuppressWarnings(Array("org.wartremover.warts.Option2Iterable"))
@@ -129,10 +128,6 @@ case object Info extends SimpleCommand {
   }
 
   def getBanner(state: State): String = {
-    val banner = Source
-      .fromResource("banner.txt")
-      .getLines
-      .toList
-    banner.mkString("\n") + s"\nVersion ${state.applicationInfo.version}"
+    s"Navigator version: ${state.applicationInfo.version}"
   }
 }
