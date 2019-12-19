@@ -13,19 +13,15 @@ import org.slf4j.Logger
   * The name can be constructed in a nested, left-to-right append manner.
   */
 trait NamedLoggerFactory {
-  val name: String
+  protected val name: String
 
-  def append(subName: String): NamedLoggerFactory
+  def getLogger(cls: Class[_]): Logger =
+    getLogger(nameOfClass(cls))
 
-  def forParticipant(id: String): NamedLoggerFactory =
-    append(s"participant/$id")
-
-  def getLogger(klass: Class[_]): Logger = {
-    val fullName = Array(klass.getName, name)
+  protected def nameOfClass(cls: Class[_]): String =
+    Array(cls.getName, name)
       .filterNot(_.isEmpty)
       .mkString(":")
-    getLogger(fullName)
-  }
 
   protected def getLogger(fullName: String): Logger
 }
@@ -35,7 +31,7 @@ object NamedLoggerFactory {
 
   def apply(cls: Class[_]): NamedLoggerFactory = apply(cls.getSimpleName)
 
-  def forParticipant(name: String): NamedLoggerFactory = root.forParticipant(name)
+  def forParticipant(id: String): NamedLoggerFactory = NamedLoggerFactory(s"participant/$id")
 
   def root: NamedLoggerFactory = NamedLoggerFactory("")
 }

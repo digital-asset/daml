@@ -19,12 +19,6 @@ class TestNamedLoggerFactory(override val name: String) extends NamedLoggerFacto
   private val loggers = mutable.Map[String, (Logger, ListAppender[ILoggingEvent])]()
   private val cleanupOperations = mutable.Buffer[() => Unit]()
 
-  override def append(subName: String): NamedLoggerFactory =
-    if (name.isEmpty)
-      new TestNamedLoggerFactory(subName)
-    else
-      new TestNamedLoggerFactory(s"$name/$subName")
-
   override protected def getLogger(fullName: String): Logger =
     loggers
       .getOrElseUpdate(
@@ -47,12 +41,8 @@ class TestNamedLoggerFactory(override val name: String) extends NamedLoggerFacto
       )
       ._1
 
-  def logs[C](klass: Class[C]): Seq[LogEvent] = {
-    val fullName = Array(klass.getName, name)
-      .filterNot(_.isEmpty)
-      .mkString(":")
-    logs(fullName)
-  }
+  def logs[C](cls: Class[C]): Seq[LogEvent] =
+    logs(nameOfClass(cls))
 
   def logs(fullName: String): Seq[LogEvent] =
     loggers
@@ -76,11 +66,6 @@ object TestNamedLoggerFactory {
   def apply(name: String): TestNamedLoggerFactory = new TestNamedLoggerFactory(name)
 
   def apply(cls: Class[_]): TestNamedLoggerFactory = apply(cls.getSimpleName)
-
-  def forParticipant(name: String): TestNamedLoggerFactory =
-    root.forParticipant(name).asInstanceOf[TestNamedLoggerFactory]
-
-  def root: NamedLoggerFactory = TestNamedLoggerFactory("")
 
   private class ListAppender[E] extends AppenderBase[E] {
     private val eventsBuffer = mutable.Buffer[E]()
