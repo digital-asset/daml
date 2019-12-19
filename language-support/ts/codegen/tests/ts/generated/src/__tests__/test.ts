@@ -5,6 +5,7 @@ import { ChildProcess, spawn } from 'child_process';
 import waitOn from 'wait-on';
 import { encode } from 'jwt-simple';
 import Ledger from '@digitalasset/daml-ledger-fetch'
+import { CreateEvent, ArchiveEvent } from  '@digitalasset/daml-ledger-fetch'
 import * as Main from '../daml/daml-tests/Main';
 
 const LEDGER_ID = 'daml2ts-tests';
@@ -65,7 +66,7 @@ afterAll(() => {
   console.log('Killed JSON API');
 });
 
-test('create + fetch', async () => {
+test('create + fetch & exercise', async () => {
   const ledger = new Ledger(ALICE_TOKEN, `http://localhost:${JSON_API_PORT}/`);
   const alice: Main.Person = {
     name: 'Alice from Wonderland',
@@ -78,6 +79,17 @@ test('create + fetch', async () => {
   const personContracts = await ledger.fetchAll(Main.Person);
   expect(personContracts).toHaveLength(1);
   expect(personContracts[0]).toEqual(aliceContract);
+
+  // Alice has a birthday.
+  const [er, es] = await ledger.exercise(Main.Person.Birthday, aliceContract.contractId, {});
+  // Resulting in her old record being archived and replaced with a new one.
+  expect(es).toHaveLength(2);
+  const aliceOldContract: ArchiveEvent<Main.Person> = (es[0] as { archived: ArchiveEvent<Main.Person> }).archived;
+  const aliceNewContract: CreateEvent<Main.Person>  = (es[1] as { created: CreateEvent<Main.Person> }).created;
+  // The result of the exercise ('er') is her new record ID.
+  expect (er).not.toEqual(aliceContract.contractId);
+  expect (aliceOldContract.contractId).toEqual(aliceContract.contractId);
+  expect (aliceNewContract.contractId).toEqual(er);
 
   const allTypes: Main.AllTypes = {
     unit: {},
