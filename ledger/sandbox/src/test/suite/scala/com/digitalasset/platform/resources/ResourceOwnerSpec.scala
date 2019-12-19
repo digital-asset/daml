@@ -15,13 +15,14 @@ import com.digitalasset.platform.resources.ResourceOwnerSpec._
 import org.scalatest.{AsyncWordSpec, Matchers}
 
 import scala.collection.mutable
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success}
 
 class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
   "a resource owner" should {
     "acquire and release a resource" in {
-      val owner = new TestResourceOwner(42)
+      val owner = TestResourceOwner(42)
       owner.hasBeenAcquired should be(false)
 
       val resource = for {
@@ -40,8 +41,8 @@ class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
     }
 
     "release all sub-resources when released" in {
-      val ownerA = new TestResourceOwner(1)
-      val ownerB = new TestResourceOwner("two")
+      val ownerA = TestResourceOwner(1)
+      val ownerB = TestResourceOwner("two")
 
       val resource = for {
         _ <- ownerA.acquire()
@@ -62,8 +63,8 @@ class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
     }
 
     "only release once" in {
-      val ownerA = new TestResourceOwner(7)
-      val ownerB = new TestResourceOwner("eight")
+      val ownerA = TestResourceOwner(7)
+      val ownerB = TestResourceOwner("eight")
 
       val resource = for {
         _ <- ownerA.acquire()
@@ -80,8 +81,34 @@ class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
       }
     }
 
+    "never complete a second release before the first one is complete" in {
+      val ownerA = TestResourceOwner("nine")
+      val ownerB = DelayedReleaseResourceOwner("ten", releaseDelay = 100.milliseconds)
+
+      val resource = for {
+        _ <- ownerA.acquire()
+        _ <- ownerB.acquire()
+      } yield ()
+
+      val releaseCapture = Promise[Unit]()
+      resource.release().onComplete(releaseCapture.complete)
+
+      val testResult = for {
+        _ <- resource.asFuture
+        _ <- resource.release()
+      } yield {
+        ownerA.hasBeenAcquired should be(false)
+        ownerB.hasBeenAcquired should be(false)
+      }
+
+      for {
+        result <- testResult
+        _ <- releaseCapture.future
+      } yield result
+    }
+
     "handles failure gracefully" in {
-      val owner = new FailingResourceOwner[String]()
+      val owner = FailingResourceOwner[String]()
 
       val resource = owner.acquire()
 
@@ -94,9 +121,9 @@ class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
     }
 
     "on failure, release any acquired sub-resources" in {
-      val ownerA = new TestResourceOwner(1)
-      val ownerB = new TestResourceOwner(2)
-      val ownerC = new FailingResourceOwner[Int]()
+      val ownerA = TestResourceOwner(1)
+      val ownerB = TestResourceOwner(2)
+      val ownerC = FailingResourceOwner[Int]()
 
       val resource = for {
         resourceA <- ownerA.acquire()
@@ -114,10 +141,10 @@ class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
     }
 
     "on failure mid-way, release any acquired sub-resources" in {
-      val ownerA = new TestResourceOwner(5)
-      val ownerB = new TestResourceOwner(6)
-      val ownerC = new FailingResourceOwner[Int]()
-      val ownerD = new TestResourceOwner(8)
+      val ownerA = TestResourceOwner(5)
+      val ownerB = TestResourceOwner(6)
+      val ownerC = FailingResourceOwner[Int]()
+      val ownerD = TestResourceOwner(8)
 
       val resource = for {
         resourceA <- ownerA.acquire()
@@ -137,8 +164,8 @@ class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
     }
 
     "on filter, release any acquired sub-resources" in {
-      val ownerA = new TestResourceOwner(99)
-      val ownerB = new TestResourceOwner(100)
+      val ownerA = TestResourceOwner(99)
+      val ownerB = TestResourceOwner(100)
 
       val resource = for {
         resourceA <- ownerA.acquire()
@@ -156,8 +183,8 @@ class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
     }
 
     "flatten nested resources" in {
-      val innerResourceOwner = new TestResourceOwner(72)
-      val outerResourceOwner = new TestResourceOwner(innerResourceOwner.acquire())
+      val innerResourceOwner = TestResourceOwner(72)
+      val outerResourceOwner = TestResourceOwner(innerResourceOwner.acquire())
       val outerResource = outerResourceOwner.acquire()
 
       val resource = for {
@@ -179,8 +206,8 @@ class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
     }
 
     "transform success into another resource" in {
-      val ownerA = new TestResourceOwner(1)
-      val ownerB = new TestResourceOwner(2)
+      val ownerA = TestResourceOwner(1)
+      val ownerB = TestResourceOwner(2)
 
       val resource = for {
         a <- ownerA.acquire()
@@ -208,8 +235,8 @@ class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
     }
 
     "transform failure into another resource" in {
-      val ownerA = new TestResourceOwner(1)
-      val ownerB = new FailingResourceOwner[Int]()
+      val ownerA = TestResourceOwner(1)
+      val ownerB = FailingResourceOwner[Int]()
 
       val resource = for {
         a <- ownerA.acquire()
@@ -234,9 +261,9 @@ class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
     }
 
     "map and flatMap just like a Resource" in {
-      val ownerA = new TestResourceOwner(1)
-      val ownerB = new TestResourceOwner(2)
-      val ownerC = new TestResourceOwner(3)
+      val ownerA = TestResourceOwner(1)
+      val ownerB = TestResourceOwner(2)
+      val ownerC = TestResourceOwner(3)
 
       val owner = for {
         resourceA <- ownerA
@@ -517,7 +544,30 @@ object ResourceOwnerSpec {
     }
   }
 
-  final class TestResourceOwner[T](value: T) extends ResourceOwner[T] {
+  object TestResourceOwner {
+    def apply[T](value: T): TestResourceOwner[T] =
+      new TestResourceOwner(Future.successful(value), _ => Future.successful(()))
+  }
+
+  object DelayedReleaseResourceOwner {
+    def apply[T](value: T, releaseDelay: FiniteDuration)(
+        implicit executionContext: ExecutionContext
+    ): TestResourceOwner[T] =
+      new TestResourceOwner(
+        Future.successful(value),
+        _ => Future(Thread.sleep(releaseDelay.toMillis))(ExecutionContext.global))
+  }
+
+  object FailingResourceOwner {
+    def apply[T](): ResourceOwner[T] =
+      new TestResourceOwner[T](
+        Future.failed(new FailingResourceFailedToOpen),
+        _ => Future.failed(new TriedToReleaseAFailedResource),
+      )
+  }
+
+  final class TestResourceOwner[T](acquire: Future[T], release: T => Future[Unit])
+      extends ResourceOwner[T] {
     private val acquired = new AtomicBoolean(false)
 
     def hasBeenAcquired: Boolean = acquired.get
@@ -527,21 +577,14 @@ object ResourceOwnerSpec {
         throw new TriedToAcquireTwice
       }
       Resource(
-        Future.successful(value),
-        _ =>
+        acquire,
+        value =>
           if (acquired.compareAndSet(true, false))
-            Future.successful(())
+            release(value)
           else
             Future.failed(new TriedToReleaseTwice)
       )
     }
-  }
-
-  final class FailingResourceOwner[T] extends ResourceOwner[T] {
-    override def acquire()(implicit executionContext: ExecutionContext): Resource[T] =
-      Resource(
-        Future.failed(new FailingResourceFailedToOpen),
-        _ => Future.failed(new TriedToReleaseAFailedResource))
   }
 
   final class TriedToAcquireTwice extends Exception("Tried to acquire twice.")

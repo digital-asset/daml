@@ -8,7 +8,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 import scala.collection.generic.CanBuildFrom
 import scala.concurrent.duration.FiniteDuration
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success, Try}
 
 trait Resource[A] {
@@ -86,6 +86,7 @@ object Resource {
   )(implicit executionContext: ExecutionContext): Resource[T] =
     new Resource[T] {
       private val released: AtomicBoolean = new AtomicBoolean(false)
+      private val releasePromise: Promise[Unit] = Promise()
 
       final lazy val asFuture: Future[T] = future.transformWith {
         case Success(value) => Future.successful(value)
@@ -94,11 +95,23 @@ object Resource {
 
       def release(): Future[Unit] =
         if (released.compareAndSet(false, true))
-          future.transformWith {
-            case Success(value) => releaseResource(value).flatMap(_ => releaseSubResources())
-            case Failure(_) => releaseSubResources()
-          } else
-          Future.successful(())
+          future
+            .transformWith {
+              case Success(value) => releaseResource(value).flatMap(_ => releaseSubResources())
+              case Failure(_) => releaseSubResources()
+            }
+            .transform(
+              value => {
+                releasePromise.success(())
+                value
+              },
+              exception => {
+                releasePromise.success(())
+                exception
+              },
+            )
+        else
+          releasePromise.future
     }
 
   def pure[T](value: T)(implicit executionContext: ExecutionContext): Resource[T] =
