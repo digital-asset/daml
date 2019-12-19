@@ -8,12 +8,12 @@ import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import akka.actor.Scheduler
 import akka.pattern.after
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
-import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
-import com.digitalasset.platform.resources.Resource
+import com.digitalasset.platform.common.util.DirectExecutionContext
+import com.digitalasset.platform.resources.{Resource, ResourceOwner}
 
 import scala.concurrent.duration.FiniteDuration
-import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.util.control.NonFatal
+import scala.concurrent.{Await, ExecutionContext, Future, Promise}
+import scala.util.{Failure, Success}
 
 /**
   * A helper that restarts an indexer whenever an error occurs.
@@ -25,8 +25,9 @@ class RecoveringIndexer(
     scheduler: Scheduler,
     restartDelay: FiniteDuration,
     asyncTolerance: FiniteDuration,
-    loggerFactory: NamedLoggerFactory)
-    extends AutoCloseable {
+    loggerFactory: NamedLoggerFactory,
+) extends AutoCloseable {
+  private implicit val executionContext: ExecutionContext = DirectExecutionContext
   private val logger = loggerFactory.getLogger(this.getClass)
 
   val closed = new AtomicBoolean(false)
@@ -38,35 +39,67 @@ class RecoveringIndexer(
     * @param subscribe A function that creates a new indexer and calls subscribe() on it.
     * @return A future that completes with [[akka.Done]] when the indexer finishes processing all read service updates.
     */
-  def start(subscribe: () => Resource[IndexFeedHandle]): Future[akka.Done] = {
-    logger.info("Starting Indexer Server")
-    implicit val ec: ExecutionContext = DEC
+  def start(subscribe: () => Resource[IndexFeedHandle]): Resource[Future[Unit]] = {
+    val complete = Promise[Unit]()
 
-    val subscribeResource = for {
+    logger.info("Starting Indexer Server")
+    var subscribeResource = for {
       handle <- subscribe()
     } yield {
       logger.info("Started Indexer Server")
       handle
     }
+    resubscribeOnFailure()
 
-    val completedF = for {
-      handle <- subscribeResource.asFuture
-      _ = lastHandle.set(Some(subscribeResource))
-      completed <- handle.completed()
-      _ = logger.info("Successfully finished processing state updates")
-    } yield completed
+    def resubscribe(): Resource[IndexFeedHandle] = {
+      logger.info("Starting Indexer Server")
+      subscribeResource = for {
+        _ <- ResourceOwner
+          .forFuture(() => after(restartDelay, scheduler)(Future.successful(())))
+          .acquire()
+        handle <- subscribe()
+      } yield {
+        logger.info("Started Indexer Server")
+        handle
+      }
+      resubscribeOnFailure()
+      subscribeResource
+    }
 
-    completedF.recoverWith {
-      case NonFatal(t) =>
-        logger.error(s"Error while running indexer, restart scheduled after $restartDelay", t)
-        lastHandle.set(None)
-        subscribeResource
-          .release()
-          .recover {
-            case _ => ()
+    def resubscribeOnFailure(): Unit = {
+      subscribeResource.asFuture.onComplete {
+        case Success(handle) =>
+          handle.completed().onComplete {
+            case Success(()) =>
+              logger.info("Successfully finished processing state updates")
+              complete.success(())
+              ()
+
+            case Failure(exception) =>
+              logger
+                .error(
+                  s"Error while running indexer, restart scheduled after $restartDelay",
+                  exception)
+              for {
+                _ <- ResourceOwner
+                  .forFuture(() => subscribeResource.release().recover { case _ => () })
+                  .acquire()
+                handle <- resubscribe()
+              } yield handle
+              ()
           }
-          .flatMap(_ => after(restartDelay, scheduler)(start(subscribe)))
-    }(DEC)
+        case Failure(exception) =>
+          logger
+            .error(s"Error while running indexer, restart scheduled after $restartDelay", exception)
+          subscribeResource = resubscribe()
+      }
+    }
+
+    Resource(
+      subscribeResource.asFuture
+        .transform(_ => Success(complete.future)),
+      _ => subscribeResource.release().flatMap(_ => complete.future),
+    )
   }
 
   override def close(): Unit = {

@@ -8,9 +8,10 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.v1.ReadService
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.DirectExecutionContext.implicitEC
+import com.digitalasset.platform.resources.{Resource, ResourceOwner}
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
-import scala.concurrent.{Await, Future, Promise}
+import scala.concurrent.{Await, Future}
 import scala.util.control.NonFatal
 
 // Main entry point to start an indexer server.
@@ -36,26 +37,21 @@ object StandaloneIndexerServer {
       loggerFactory,
     )
 
-    val promise = Promise[Unit]
-
-    def startIndexer(initializedIndexerFactory: JdbcIndexerFactory[Initialized]): Future[Unit] =
+    def startIndexer(
+        initializedIndexerFactory: JdbcIndexerFactory[Initialized]
+    ): Resource[Future[Unit]] =
       indexer
         .start(
           () =>
             initializedIndexerFactory
               .owner(config.participantId, actorSystem, readService, config.jdbcUrl)
-              .flatMap { indexer =>
-                // signal when ready
-                promise.trySuccess(())
-                indexer.subscription(readService)
-              }
+              .flatMap(_.subscription(readService))
               .acquire())
-        .map(_ => ())
 
-    try {
+    (try {
       config.startupMode match {
         case IndexerStartupMode.MigrateOnly =>
-          promise.success(())
+          Resource.pure(Future.successful(()))
         case IndexerStartupMode.MigrateAndStart =>
           startIndexer(indexerFactory.migrateSchema(config.jdbcUrl))
         case IndexerStartupMode.ValidateAndStart =>
@@ -65,17 +61,19 @@ object StandaloneIndexerServer {
       case NonFatal(e) =>
         indexer.close()
         actorSystem.terminate()
-        promise.failure(e)
-    }
-
-    promise.future.map { _ =>
-      loggerFactory.getLogger(getClass).debug("Waiting for indexer to initialize the database")
-      new AutoCloseable {
-        override def close(): Unit = {
-          indexer.close()
-          val _ = Await.result(actorSystem.terminate(), asyncTolerance)
-        }
+        Resource.failed(e)
+    }).flatMap { _ =>
+        loggerFactory.getLogger(getClass).debug("Waiting for indexer to initialize the database")
+        ResourceOwner
+          .forCloseable(() =>
+            new AutoCloseable {
+              override def close(): Unit = {
+                indexer.close()
+                val _ = Await.result(actorSystem.terminate(), asyncTolerance)
+              }
+          })
+          .acquire()
       }
-    }
+      .asFutureCloseable(asyncTolerance)
   }
 }

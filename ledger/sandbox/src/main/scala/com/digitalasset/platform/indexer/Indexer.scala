@@ -3,7 +3,6 @@
 
 package com.digitalasset.platform.indexer
 
-import akka.Done
 import com.daml.ledger.participant.state.v1.ReadService
 import com.digitalasset.platform.resources.ResourceOwner
 
@@ -30,7 +29,8 @@ trait IndexFeedHandle {
   /**
     * A future that completes when the feed terminates.
     *
-    * @return Done if the feed terminates normally or a failed future in case of an error during feed processing.
+    * @return Nothing if the feed terminates normally, or a failed future in case of an error during
+    *         feed processing.
     */
-  def completed(): Future[Done]
+  def completed(): Future[Unit]
 }

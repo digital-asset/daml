@@ -9,7 +9,7 @@ import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream._
 import akka.stream.scaladsl.{Keep, Sink}
-import com.codahale.metrics.{Gauge, MetricRegistry}
+import com.codahale.metrics.{Gauge, MetricRegistry, Timer}
 import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.v1.Update._
 import com.daml.ledger.participant.state.v1._
@@ -43,6 +43,7 @@ import scalaz.syntax.tag._
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.control.NonFatal
 
 sealed trait InitStatus
 final abstract class Initialized extends InitStatus
@@ -167,7 +168,7 @@ class JdbcIndexer private[indexer] (
   private var lastReceivedOffset: LedgerString = _
 
   object Metrics {
-    val stateUpdateProcessingTimer =
+    val stateUpdateProcessingTimer: Timer =
       metrics.timer("JdbcIndexer.processedStateUpdates")
 
     private[JdbcIndexer] def setup(): Unit = {
@@ -420,25 +421,25 @@ class JdbcIndexer private[indexer] (
           val (killSwitch, completionFuture) = readService
             .stateUpdates(beginAfterExternalOffset.map(Offset.assertFromString))
             .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
-            .mapAsync(1)({
+            .mapAsync(1) {
               case (offset, update) =>
                 timedFuture(Metrics.stateUpdateProcessingTimer, handleStateUpdate(offset, update))
-            })
+            }
             .toMat(Sink.ignore)(Keep.both)
             .run()
 
-          new SubscriptionIndexFeedHandle(killSwitch, completionFuture)
+          new SubscriptionIndexFeedHandle(killSwitch, completionFuture.map(_ => ()))
         },
         handle =>
           for {
             _ <- Future(handle.killSwitch.shutdown())
-            _ <- handle.completed
+            _ <- handle.completed.recover { case NonFatal(_) => () }
           } yield ()
       ).vary
   }
 
   private class SubscriptionIndexFeedHandle(
       val killSwitch: KillSwitch,
-      override val completed: Future[akka.Done],
+      override val completed: Future[Unit],
   ) extends IndexFeedHandle
 }
