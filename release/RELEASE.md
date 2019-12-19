@@ -1,7 +1,7 @@
 # Making a Release
 
-1. Make sure you have the latest master branch of the `daml` repository and
-   create a new local branch from that.
+1. Pull the latest master branch of the `daml` repository and create a new branch off it.
+
    Bump the version number in the `VERSION` file.
    In `docs/source/support/release-notes.rst`, add a new header and label for
    the new version. (See previous releases as examples.)
