@@ -524,12 +524,8 @@ private[testtool] final class ParticipantTestContext private[participant] (
   def submitAndWaitForTransactionTree(request: SubmitAndWaitRequest): Future[TransactionTree] =
     services.command.submitAndWaitForTransactionTree(request).map(_.getTransaction)
 
-  def completionStreamRequest(parties: Party*) =
-    new CompletionStreamRequest(
-      ledgerId,
-      applicationId,
-      parties.map(_.unwrap),
-      Some(referenceOffset))
+  def completionStreamRequest(from: LedgerOffset = referenceOffset)(parties: Party*) =
+    new CompletionStreamRequest(ledgerId, applicationId, parties.map(_.unwrap), Some(from))
 
   def firstCompletions(request: CompletionStreamRequest): Future[Vector[Completion]] =
     new StreamConsumer[CompletionStreamResponse](
@@ -538,7 +534,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
       .map(_.fold(Seq.empty[Completion])(_.completions).toVector)
 
   def firstCompletions(parties: Party*): Future[Vector[Completion]] =
-    firstCompletions(completionStreamRequest(parties: _*))
+    firstCompletions(completionStreamRequest()(parties: _*))
 
   def findCompletion(request: CompletionStreamRequest)(
       p: Completion => Boolean): Future[Option[Completion]] =
@@ -548,7 +544,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
       .map(_.flatMap(_.completions.find(p)))
 
   def findCompletion(parties: Party*)(p: Completion => Boolean): Future[Option[Completion]] =
-    findCompletion(completionStreamRequest(parties: _*))(p)
+    findCompletion(completionStreamRequest()(parties: _*))(p)
 
   def checkpoints(n: Int, request: CompletionStreamRequest): Future[Vector[Checkpoint]] =
     new StreamConsumer[CompletionStreamResponse](
@@ -556,14 +552,21 @@ private[testtool] final class ParticipantTestContext private[participant] (
       .filterTake(_.checkpoint.isDefined)(n)
       .map(_.map(_.getCheckpoint))
 
-  def checkpoints(n: Int, parties: Party*): Future[Vector[Checkpoint]] =
-    checkpoints(n, completionStreamRequest(parties: _*))
+  def checkpoints(n: Int, from: LedgerOffset = referenceOffset)(
+      parties: Party*): Future[Vector[Checkpoint]] =
+    checkpoints(n, completionStreamRequest(from)(parties: _*))
+
+  def firstCheckpoint(request: CompletionStreamRequest): Future[Checkpoint] =
+    checkpoints(1, request).map(_.head)
+
+  def firstCheckpoint(parties: Party*): Future[Checkpoint] =
+    firstCheckpoint(completionStreamRequest()(parties: _*))
 
   def nextCheckpoint(request: CompletionStreamRequest): Future[Checkpoint] =
     checkpoints(1, request).map(_.head)
 
-  def nextCheckpoint(parties: Party*): Future[Checkpoint] =
-    checkpoints(1, parties: _*).map(_.head)
+  def nextCheckpoint(from: LedgerOffset, parties: Party*): Future[Checkpoint] =
+    nextCheckpoint(completionStreamRequest(from)(parties: _*))
 
   def configuration(overrideLedgerId: Option[String] = None): Future[LedgerConfiguration] =
     new StreamConsumer[GetLedgerConfigurationResponse](

@@ -46,7 +46,7 @@ final class CommandSubmissionCompletion(session: LedgerSession) extends LedgerTe
         request <- ledger.submitRequest(party, Dummy(party).create.command)
         _ <- ledger.submit(request)
         invalidRequest = ledger
-          .completionStreamRequest(party)
+          .completionStreamRequest()(party)
           .update(_.applicationId := "invalid-application-id")
         failed <- WithTimeout(5.seconds)(ledger.firstCompletions(invalidRequest)).failed
       } yield {
@@ -139,7 +139,7 @@ final class CommandSubmissionCompletion(session: LedgerSession) extends LedgerTe
     "The CommandCompletionService should emit periodic checkpoints (at least 2 over 10 seconds)",
     allocate(SingleParty)) {
     case Participants(Participant(ledger, party)) =>
-      WithTimeout(10.seconds)(ledger.checkpoints(2, party)).map(_ => ())
+      WithTimeout(10.seconds)(ledger.checkpoints(2)(party)).map(_ => ())
   }
 
   test(
@@ -149,9 +149,9 @@ final class CommandSubmissionCompletion(session: LedgerSession) extends LedgerTe
     case Participants(Participant(ledger, party)) =>
       for {
         first <- ledger.create(party, Dummy(party)).map(Tag.unwrap)
-        cp1 <- ledger.nextCheckpoint(party).map(_.getOffset)
+        cp1 <- ledger.firstCheckpoint(party).map(_.getOffset)
         second <- ledger.create(party, Dummy(party)).map(Tag.unwrap)
-        cp2 <- ledger.nextCheckpoint(party).map(_.getOffset)
+        cp2 <- ledger.nextCheckpoint(from = cp1, party).map(_.getOffset)
         third <- ledger.create(party, Dummy(party)).map(Tag.unwrap)
         request = ledger.getTransactionsRequest(Seq(party))
         sinceStart <- ledger.flatTransactions(request)
@@ -168,14 +168,14 @@ final class CommandSubmissionCompletion(session: LedgerSession) extends LedgerTe
         val expectedContractsSinceCp1 = Set(second, third)
         assert(
           contractsSinceCp1 == expectedContractsSinceCp1,
-          s"Expected contracts since first checkpoint: $expectedContractsSinceCp1, actual result: $expectedContractsSinceCp1"
+          s"Expected contracts since first checkpoint: $expectedContractsSinceCp1, actual result: $contractsSinceCp1"
         )
 
         val contractsSinceCp2 = sinceCp2.flatMap(createdEvents).map(_.contractId).toSet
         val expectedContractsSinceCp2 = Set(third)
         assert(
           contractsSinceCp2 == expectedContractsSinceCp2,
-          s"Expected contracts since second checkpoint: $expectedContractsSinceCp2, actual result: $expectedContractsSinceCp2"
+          s"Expected contracts since second checkpoint: $expectedContractsSinceCp2, actual result: $contractsSinceCp2"
         )
       }
   }
