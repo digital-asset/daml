@@ -9,7 +9,7 @@ import java.net.ServerSocket
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpHeader, HttpMethods, HttpRequest, HttpResponse, StatusCode, Uri}
-import akka.stream.ActorMaterializer
+import akka.stream.Materializer
 import akka.util.ByteString
 import com.digitalasset.daml.lf.data.TryOps.Bracket.bracket
 import com.typesafe.scalalogging.LazyLogging
@@ -54,7 +54,7 @@ object TestUtil extends LazyLogging{
     }
 
   def getResponseDataBytes(resp: HttpResponse, debug: Boolean = false)
-                          (implicit mat: ActorMaterializer, ec: ExecutionContext): Future[String] = {
+                          (implicit mat: Materializer, ec: ExecutionContext): Future[String] = {
     val fb = resp.entity.dataBytes.runFold(ByteString.empty)((b, a) => b ++ a).map(_.utf8String)
     if (debug) fb.foreach(x => logger.info(s"---- response data: $x"))
     fb
@@ -63,7 +63,7 @@ object TestUtil extends LazyLogging{
   def postRequest(uri: Uri,
                       json: JsValue,
                       headers: List[HttpHeader] = Nil)
-                     (implicit as: ActorSystem, ec: ExecutionContext, mat: ActorMaterializer): Future[(StatusCode, JsValue)] = {
+                     (implicit as: ActorSystem, ec: ExecutionContext, mat: Materializer): Future[(StatusCode, JsValue)] = {
     Http()
       .singleRequest(
         HttpRequest(
@@ -86,7 +86,7 @@ object TestUtil extends LazyLogging{
      headers: List[HttpHeader])
      (implicit as: ActorSystem,
       ec: ExecutionContext,
-      mat: ActorMaterializer): Future[(StatusCode, JsValue)] = {
+      mat: Materializer): Future[(StatusCode, JsValue)] = {
     logger.info(s"postJson: ${uri.toString} json: ${jsonString: String}")
     Http()
       .singleRequest(
@@ -108,6 +108,6 @@ object TestUtil extends LazyLogging{
           headers: List[HttpHeader])
           (implicit as: ActorSystem,
            ec: ExecutionContext,
-           mat: ActorMaterializer): Future[(StatusCode, JsValue)] =
+           mat: Materializer): Future[(StatusCode, JsValue)] =
     postJsonStringRequest(uri, json.prettyPrint, headers)
 }

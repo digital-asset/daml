@@ -79,6 +79,26 @@ class WebsocketServiceIntegrationTest extends AbstractHttpServiceIntegrationTest
     }
   }
 
+
+  "websocket should send error msg when receiving malformed message" in withHttpService {
+    (uri, _, _) =>  {
+      val webSocketFlow = Http().webSocketClientFlow(
+        WebSocketRequest(
+          uri = uri.copy(scheme="ws").withPath(Uri.Path("/transactions")),
+          subprotocol = validSubprotorol))
+
+      val clientMsg = Source.single(TextMessage("pie"))
+        .via(webSocketFlow)
+        .runWith(Sink.fold(Seq.empty[String])(_ :+ _.toString))
+
+      val result = Await.result(clientMsg, 10.seconds)
+
+      assert(result.nonEmpty)
+      result.size shouldBe 1
+      assert(result.head.contains("error"))
+    }
+  }
+
   private def wsConnectRequest(uri: Uri, subprotocol: Option[String], flow: Flow[Message, Message, Any]) =
     Http().singleWebSocketRequest(WebSocketRequest(uri = uri, subprotocol = subprotocol), flow)
 }
