@@ -19,15 +19,13 @@ import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.health.HealthChecks
 import com.digitalasset.platform.apiserver.StandaloneApiServer._
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
-import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.resources.{Resource, ResourceOwner}
 import com.digitalasset.platform.sandbox.BuildInfo
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.sandbox.stores.InMemoryPackageStore
 import com.digitalasset.platform.server.services.testing.TimeServiceBackend
 
-import scala.concurrent.duration.DurationInt
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 // Main entry point to start an index server that also hosts the ledger API.
 // See v2.ReferenceServer on how it is used.
@@ -40,11 +38,18 @@ final class StandaloneApiServer(
     metrics: MetricRegistry,
     engine: Engine = sharedEngine, // allows sharing DAML engine with DAML-on-X participant
     timeServiceBackendO: Option[TimeServiceBackend] = None,
-) {
+) extends ResourceOwner[Unit] {
   private val logger = loggerFactory.getLogger(this.getClass)
 
   // Name of this participant,
   val participantId: ParticipantId = config.participantId
+
+  override def acquire()(implicit executionContext: ExecutionContext): Resource[Unit] = {
+    buildAndStartApiServer().map { _ =>
+      logger.info("Started Index Server")
+      ()
+    }
+  }
 
   // if requested, initialize the ledger state with the given scenario
   private def preloadPackages(packageContainer: InMemoryPackageStore): Unit = {
@@ -140,12 +145,6 @@ final class StandaloneApiServer(
       )
       _ = writePortFile(apiServer.port)
     } yield apiServer
-  }
-
-  def start(): Future[AutoCloseable] = {
-    val apiServer = buildAndStartApiServer()(DirectExecutionContext)
-    logger.info("Started Index Server")
-    apiServer.asFutureCloseable(releaseTimeout = 10.seconds)(DirectExecutionContext)
   }
 
   private def writePortFile(port: Int): Unit = {
