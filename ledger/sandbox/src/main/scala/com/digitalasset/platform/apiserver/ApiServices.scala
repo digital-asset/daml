@@ -3,7 +3,7 @@
 
 package com.digitalasset.platform.apiserver
 
-import akka.stream.ActorMaterializer
+import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.index.v2.{
   ContractStore,
@@ -86,7 +86,7 @@ object ApiServices {
       loggerFactory: NamedLoggerFactory,
       metrics: MetricRegistry,
       healthChecks: HealthChecks,
-  )(implicit mat: ActorMaterializer, esf: ExecutionSequencerFactory): Future[ApiServices] = {
+  )(implicit mat: Materializer, esf: ExecutionSequencerFactory): Future[ApiServices] = {
     implicit val ec: ExecutionContext = mat.system.dispatcher
 
     // still trying to keep it tidy in case we want to split it later

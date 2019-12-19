@@ -7,7 +7,6 @@ import java.time.Duration
 import java.util.concurrent.TimeUnit
 
 import akka.NotUsed
-import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.ledger.api.domain
@@ -82,8 +81,7 @@ final class CommandClientIT
       None
     )
 
-  private def timeProvider(ledgerId: domain.LedgerId = testLedgerId)(
-      implicit mat: Materializer): Future[TimeProvider] = {
+  private def timeProvider(ledgerId: domain.LedgerId = testLedgerId): Future[TimeProvider] = {
     StaticTime
       .updatedVia(TimeServiceGrpc.stub(channel), ledgerId.unwrap)
       .recover { case NonFatal(_) => TimeProvider.UTC }(DirectExecutionContext)
@@ -92,8 +90,8 @@ final class CommandClientIT
   private def commandClient(
       ledgerId: domain.LedgerId = testLedgerId,
       applicationId: String = MockMessages.applicationId,
-      configuration: CommandClientConfiguration = defaultCommandClientConfiguration)(
-      implicit mat: Materializer): Future[CommandClient] =
+      configuration: CommandClientConfiguration = defaultCommandClientConfiguration)
+    : Future[CommandClient] =
     timeProvider(ledgerId)
       .map(
         tp =>
@@ -144,8 +142,8 @@ final class CommandClientIT
       .runWith(Sink.seq)
       .map(_.last) // one element is guaranteed
 
-  private def submitCommand(req: SubmitRequest)(implicit mat: Materializer): Future[Completion] =
-    commandClient().flatMap(_.trackSingleCommand(req))(mat.executionContext)
+  private def submitCommand(req: SubmitRequest): Future[Completion] =
+    commandClient().flatMap(_.trackSingleCommand(req))
 
   private def assertCommandFailsWithCode(
       submitRequest: SubmitRequest,

@@ -6,7 +6,7 @@ package com.digitalasset.platform.sandbox.services
 import java.io.File
 import java.util.concurrent.Executors
 import akka.actor.ActorSystem
-import akka.stream.{ActorMaterializer, Materializer}
+import akka.stream.Materializer
 import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
@@ -52,7 +52,7 @@ trait SandboxFixture extends SuiteResource[Channel] with BeforeAndAfterAll {
   protected implicit val system: ActorSystem =
     ActorSystem(actorSystemName, defaultExecutionContext = Some(executorContext))
 
-  protected implicit val materializer: ActorMaterializer = ActorMaterializer()(system)
+  protected implicit val materializer: Materializer = Materializer(system)
 
   protected implicit val executionSequencerFactory: ExecutionSequencerFactory =
     new AkkaExecutionSequencerPool("esf-" + this.getClass.getSimpleName)(system)

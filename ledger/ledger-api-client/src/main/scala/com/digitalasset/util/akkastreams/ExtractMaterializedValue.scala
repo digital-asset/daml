@@ -61,10 +61,10 @@ class ExtractMaterializedValue[T, Mat](toMaterialized: T => Option[Mat])
         new OutHandler {
           override def onPull(): Unit = pull(inlet)
 
-          override def onDownstreamFinish(): Unit = {
+          override def onDownstreamFinish(cause: Throwable): Unit = {
             promise.tryFailure(
               new RuntimeException("Downstream completed before matching element arrived."))
-            super.onDownstreamFinish()
+            super.onDownstreamFinish(cause)
           }
         }
       )

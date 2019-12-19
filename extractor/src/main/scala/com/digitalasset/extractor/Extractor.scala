@@ -5,7 +5,7 @@ package com.digitalasset.extractor
 
 import akka.actor.ActorSystem
 import akka.stream.scaladsl.{RestartSource, Sink}
-import akka.stream.{ActorMaterializer, KillSwitches}
+import akka.stream.{Materializer, KillSwitches}
 import com.digitalasset.auth.TokenHolder
 import com.digitalasset.extractor.Types._
 import com.digitalasset.extractor.config.{ExtractorConfig, SnapshotEndSetting}
@@ -45,7 +45,7 @@ class Extractor[T](config: ExtractorConfig, target: T)(
 
   implicit val system: ActorSystem = ActorSystem()
   import system.dispatcher
-  implicit val materializer: ActorMaterializer = ActorMaterializer()
+  implicit val materializer: Materializer = Materializer(system)
   implicit val esf: ExecutionSequencerFactory =
     new AkkaExecutionSequencerPool("esf-" + this.getClass.getSimpleName)(system)
 

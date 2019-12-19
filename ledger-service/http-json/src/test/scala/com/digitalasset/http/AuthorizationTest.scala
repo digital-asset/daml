@@ -6,7 +6,7 @@ package com.digitalasset.http
 import java.nio.file.Files
 
 import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
+import akka.stream.Materializer
 import com.digitalasset.auth.TokenHolder
 import com.digitalasset.daml.bazeltools.BazelRunfiles.rlocation
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
@@ -28,7 +28,7 @@ final class AuthorizationTest extends AsyncFlatSpec with BeforeAndAfterAll with 
   private val testId: String = this.getClass.getSimpleName
 
   implicit val asys: ActorSystem = ActorSystem(testId)
-  implicit val mat: ActorMaterializer = ActorMaterializer()
+  implicit val mat: Materializer = Materializer(asys)
   implicit val aesf: ExecutionSequencerFactory = new AkkaExecutionSequencerPool(testId)(asys)
   implicit val ec: ExecutionContext = asys.dispatcher
 

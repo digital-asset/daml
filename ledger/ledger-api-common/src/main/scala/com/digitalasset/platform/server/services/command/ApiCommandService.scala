@@ -5,7 +5,7 @@ package com.digitalasset.platform.server.services.command
 
 import akka.NotUsed
 import akka.actor.Cancellable
-import akka.stream.ActorMaterializer
+import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Keep, Source}
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.domain.LedgerId
@@ -47,7 +47,7 @@ class ApiCommandService private (
     configuration: ApiCommandService.Configuration,
     loggerFactory: NamedLoggerFactory)(
     implicit grpcExecutionContext: ExecutionContext,
-    actorMaterializer: ActorMaterializer,
+    actorMaterializer: Materializer,
     esf: ExecutionSequencerFactory)
     extends CommandServiceGrpc.CommandService
     with AutoCloseable {
@@ -61,11 +61,8 @@ class ApiCommandService private (
     TrackerMap(configuration.retentionPeriod, loggerFactory)
   private val staleCheckerInterval: FiniteDuration = 30.seconds
 
-  private val trackerCleanupJob: Cancellable = actorMaterializer.system.scheduler.schedule(
-    staleCheckerInterval,
-    staleCheckerInterval,
-    submissionTracker.cleanup
-  )
+  private val trackerCleanupJob: Cancellable = actorMaterializer.system.scheduler
+    .scheduleAtFixedRate(staleCheckerInterval, staleCheckerInterval)(submissionTracker.cleanup)
 
   @volatile private var running = true
 
@@ -184,7 +181,7 @@ object ApiCommandService {
       svcAccess: LowLevelCommandServiceAccess,
       loggerFactory: NamedLoggerFactory)(
       implicit grpcExecutionContext: ExecutionContext,
-      actorMaterializer: ActorMaterializer,
+      actorMaterializer: Materializer,
       esf: ExecutionSequencerFactory
   ): CommandServiceGrpc.CommandService with GrpcApiService with CommandServiceLogging =
     new GrpcCommandService(

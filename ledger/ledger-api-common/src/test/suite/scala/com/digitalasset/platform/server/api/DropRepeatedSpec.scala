@@ -5,7 +5,7 @@ package com.digitalasset.platform.server.api
 
 import akka.actor.ActorSystem
 import akka.pattern.pipe
-import akka.stream.ActorMaterializer
+import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import akka.testkit.{TestKit, TestProbe}
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
@@ -19,7 +19,7 @@ final class DropRepeatedSpec
     with Matchers
     with BeforeAndAfterAll {
 
-  private[this] implicit val materializer: ActorMaterializer = ActorMaterializer()
+  private[this] implicit val materializer: Materializer = Materializer(system)
   private[this] implicit val executionContext: ExecutionContext = materializer.executionContext
 
   override def afterAll: Unit = {

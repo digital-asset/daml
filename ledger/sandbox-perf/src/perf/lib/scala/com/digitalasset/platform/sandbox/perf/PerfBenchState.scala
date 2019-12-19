@@ -6,7 +6,7 @@ package com.digitalasset.platform.sandbox.perf
 import java.io.File
 
 import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
+import akka.stream.Materializer
 import com.digitalasset.daml.bazeltools.BazelRunfiles
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.testing.utils.Resource
@@ -52,7 +52,7 @@ abstract class PerfBenchState extends InfiniteRetries {
 
   def ledger: LedgerContext = server.value
 
-  def mat: ActorMaterializer = akkaState.mat
+  def mat: Materializer = akkaState.mat
 
   def system: ActorSystem = akkaState.sys
 

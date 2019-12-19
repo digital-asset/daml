@@ -7,7 +7,7 @@ import java.time.Duration
 
 import akka.actor.ActorSystem
 import akka.pattern
-import akka.stream.{ActorMaterializer, Materializer}
+import akka.stream.Materializer
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.PackageId
@@ -68,7 +68,7 @@ trait LedgerContext {
   import LedgerContext._
 
   implicit protected def esf: ExecutionSequencerFactory
-  implicit protected def mat: ActorMaterializer
+  implicit protected def mat: Materializer
 
   /**
     * Convenience function to either use statically configured ledger id or fetch it from the server under test.
@@ -194,7 +194,7 @@ object LedgerContext {
       credentials: Option[CallCredentials],
       configuredLedgerId: LedgerIdMode,
       packageIds: Iterable[PackageId])(
-      implicit override protected val mat: ActorMaterializer,
+      implicit override protected val mat: Materializer,
       implicit override protected val esf: ExecutionSequencerFactory)
       extends LedgerContext {
 

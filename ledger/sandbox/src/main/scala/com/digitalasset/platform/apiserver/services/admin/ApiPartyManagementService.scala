@@ -7,7 +7,7 @@ import java.util.UUID
 
 import akka.actor.Scheduler
 import akka.stream.scaladsl.Sink
-import akka.stream.{ActorMaterializer, Materializer}
+import akka.stream.Materializer
 import com.daml.ledger.participant.state.index.v2.{
   IndexPartyManagementService,
   IndexTransactionsService
@@ -130,8 +130,7 @@ object ApiPartyManagementService {
       loggerFactory: NamedLoggerFactory)(
       implicit ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
-      mat: ActorMaterializer)
-    : PartyManagementServiceGrpc.PartyManagementService with GrpcApiService =
+      mat: Materializer): PartyManagementServiceGrpc.PartyManagementService with GrpcApiService =
     new ApiPartyManagementService(
       partyManagementServiceBackend,
       transactionsService,

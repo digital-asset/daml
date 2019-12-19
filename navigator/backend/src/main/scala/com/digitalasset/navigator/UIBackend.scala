@@ -18,7 +18,7 @@ import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.settings.RoutingSettings
 import akka.pattern.ask
-import akka.stream.ActorMaterializer
+import akka.stream.Materializer
 import akka.util.Timeout
 import com.digitalasset.grpc.GrpcException
 import com.digitalasset.navigator.SessionJsonProtocol._
@@ -213,7 +213,7 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
     banner.foreach(println)
 
     implicit val system: ActorSystem = ActorSystem("da-ui-backend")
-    implicit val materializer: ActorMaterializer = ActorMaterializer()
+    implicit val materializer: Materializer = Materializer(system)
 
     import system.dispatcher
 

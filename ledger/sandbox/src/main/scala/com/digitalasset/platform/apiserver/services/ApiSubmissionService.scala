@@ -3,7 +3,7 @@
 
 package com.digitalasset.platform.apiserver.services
 
-import akka.stream.ActorMaterializer
+import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.index.v2.ContractStore
 import com.daml.ledger.participant.state.v1.SubmissionResult.{
@@ -54,7 +54,7 @@ object ApiSubmissionService {
       timeProvider: TimeProvider,
       commandExecutor: CommandExecutor,
       loggerFactory: NamedLoggerFactory,
-      metrics: MetricRegistry)(implicit ec: ExecutionContext, mat: ActorMaterializer)
+      metrics: MetricRegistry)(implicit ec: ExecutionContext, mat: Materializer)
     : GrpcCommandSubmissionService with GrpcApiService with CommandSubmissionServiceLogging =
     new GrpcCommandSubmissionService(
       new ApiSubmissionService(
@@ -81,7 +81,7 @@ class ApiSubmissionService private (
     timeProvider: TimeProvider,
     commandExecutor: CommandExecutor,
     loggerFactory: NamedLoggerFactory,
-    metrics: MetricRegistry)(implicit ec: ExecutionContext, mat: ActorMaterializer)
+    metrics: MetricRegistry)(implicit ec: ExecutionContext, mat: Materializer)
     extends CommandSubmissionService
     with ErrorFactories
     with AutoCloseable {

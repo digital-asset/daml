@@ -82,7 +82,7 @@ class TestRunner(
     val system = ActorSystem("ScriptRunner")
     implicit val sequencer: ExecutionSequencerFactory =
       new AkkaExecutionSequencerPool("ScriptRunnerPool")(system)
-    implicit val materializer: ActorMaterializer = ActorMaterializer()(system)
+    implicit val materializer: Materializer = Materializer(system)
     implicit val ec: ExecutionContext = system.dispatcher
 
     val clientsF = Runner.connect(participantParams, clientConfig)

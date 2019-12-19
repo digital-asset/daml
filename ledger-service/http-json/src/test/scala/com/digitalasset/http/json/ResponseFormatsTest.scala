@@ -4,7 +4,7 @@
 package com.digitalasset.http.json
 
 import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
+import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
 import org.scalacheck.Gen
@@ -26,7 +26,7 @@ class ResponseFormatsTest
     with GeneratorDrivenPropertyChecks {
 
   implicit val asys: ActorSystem = ActorSystem(this.getClass.getSimpleName)
-  implicit val mat: ActorMaterializer = ActorMaterializer()
+  implicit val mat: Materializer = Materializer(asys)
   implicit val ec: ExecutionContext = asys.dispatcher
 
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =

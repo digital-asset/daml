@@ -6,7 +6,7 @@ package com.digitalasset.platform.apitesting
 import java.util.concurrent.Executors
 
 import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
+import akka.stream.Materializer
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.digitalasset.ledger.api.testing.utils.{LedgerBackend, MultiResourceBase, Resource}
 import com.digitalasset.platform.PlatformApplications
@@ -37,7 +37,7 @@ trait MultiLedgerFixture extends MultiResourceBase[LedgerBackend, LedgerContext]
   protected implicit val system: ActorSystem =
     ActorSystem(actorSystemName, defaultExecutionContext = Some(executorContext))
 
-  protected implicit val materializer: ActorMaterializer = ActorMaterializer()(system)
+  protected implicit val materializer: Materializer = Materializer(system)
 
   protected implicit val executionSequencerFactory: ExecutionSequencerFactory =
     new AkkaExecutionSequencerPool("esf-" + this.getClass.getSimpleName)(system)

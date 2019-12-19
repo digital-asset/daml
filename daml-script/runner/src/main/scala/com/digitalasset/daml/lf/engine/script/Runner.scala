@@ -3,7 +3,7 @@
 
 package com.digitalasset.daml.lf.engine.script
 
-import akka.stream.ActorMaterializer
+import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.typesafe.scalalogging.StrictLogging
 import io.grpc.StatusRuntimeException
@@ -227,7 +227,7 @@ class Runner(
       scriptId: Identifier,
       inputValue: Option[JsValue])(
       implicit ec: ExecutionContext,
-      mat: ActorMaterializer): Future[SValue] = {
+      mat: Materializer): Future[SValue] = {
     var clients = initialClients
     val scriptTy = darMap
       .get(scriptId.packageId)
