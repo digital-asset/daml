@@ -136,10 +136,10 @@ final class CommandSubmissionCompletion(session: LedgerSession) extends LedgerTe
 
   test(
     "CSCEmitPeriodicCheckpoints",
-    "The CommandCompletionService should emit periodic checkpoints (at least 2 over 10 seconds)",
+    "The CommandCompletionService should emit periodic checkpoints (at least 2 over 30 seconds)",
     allocate(SingleParty)) {
     case Participants(Participant(ledger, party)) =>
-      WithTimeout(10.seconds)(ledger.checkpoints(2)(party)).map(_ => ())
+      WithTimeout(30.seconds)(ledger.checkpoints(2)(party)).map(_ => ())
   }
 
   test(
