@@ -272,7 +272,7 @@ class ApiCodecCompressedSpec
       cn("""[["42"]]""", "[[42]]", VAs.oooi)(Some(Some(Some(42)))),
       cn("""{"fA": "foo", "fB": "100"}""", """{"fA": "foo", "fB": 100}""", C.simpleRecordT)(
         C.simpleRecordV),
-      c("""{"fA": "foo"}""", C.simpleVariantT)(C.simpleVariantV),
+      c("""{"tag": "fA", "value": "foo"}""", C.simpleVariantT)(C.simpleVariantV),
     )
 
     val failures = Table(
