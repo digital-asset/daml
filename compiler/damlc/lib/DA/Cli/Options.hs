@@ -251,7 +251,6 @@ optionsParser numProcessors enableScenarioService parsePkgName = Options
     <*> optPackageDir
     <*> pure Nothing
     <*> parsePkgName
-    <*> optWriteIface
     <*> pure Nothing
     <*> optHideAllPackages
     <*> many optPackageImport
@@ -283,12 +282,6 @@ optionsParser numProcessors enableScenarioService parsePkgName = Options
     optPackageDir = many $ strOption $ metavar "LOC-OF-PACKAGE-DB"
                       <> help "use package database in the given location"
                       <> long "package-db"
-
-    optWriteIface :: Parser Bool
-    optWriteIface =
-        switch $
-          help "Whether to write interface files during type checking, required for building a package such as daml-prim" <>
-          long "write-iface"
 
     optPackageImport :: Parser PackageImport
     optPackageImport =

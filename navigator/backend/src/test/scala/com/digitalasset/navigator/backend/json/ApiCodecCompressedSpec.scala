@@ -29,9 +29,6 @@ class ApiCodecCompressedSpec extends WordSpec with Matchers {
   "API verbose JSON codec" when {
 
     "serializing and parsing a value" should {
-      "work for EmptyRecord" in {
-        serializeAndParse(C.emptyRecordV, C.emptyRecordTC) shouldBe Success(C.emptyRecordV)
-      }
       "work for SimpleRecord" in {
         serializeAndParse(C.simpleRecordV, C.simpleRecordTC) shouldBe Success(C.simpleRecordV)
       }

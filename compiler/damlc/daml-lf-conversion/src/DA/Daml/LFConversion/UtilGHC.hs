@@ -92,12 +92,13 @@ pattern GHC_Tuple <- ModuleIn DamlPrim "GHC.Tuple"
 pattern GHC_Types <- ModuleIn DamlPrim "GHC.Types"
 
 -- daml-stdlib module patterns
-pattern DA_Action, DA_Generics, DA_Internal_LF, DA_Internal_Prelude, DA_Internal_Record :: GHC.Module
+pattern DA_Action, DA_Generics, DA_Internal_LF, DA_Internal_Prelude, DA_Internal_Record, DA_Internal_Desugar :: GHC.Module
 pattern DA_Action <- ModuleIn DamlStdlib "DA.Action"
 pattern DA_Generics <- ModuleIn DamlStdlib "DA.Generics"
 pattern DA_Internal_LF <- ModuleIn DamlStdlib "DA.Internal.LF"
 pattern DA_Internal_Prelude <- ModuleIn DamlStdlib "DA.Internal.Prelude"
 pattern DA_Internal_Record <- ModuleIn DamlStdlib "DA.Internal.Record"
+pattern DA_Internal_Desugar <- ModuleIn DamlStdlib "DA.Internal.Desugar"
 
 -- | Break down a constraint tuple projection function name
 -- into an (index, arity) pair. These names have the form

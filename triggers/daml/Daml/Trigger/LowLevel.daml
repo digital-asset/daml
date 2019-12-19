@@ -137,8 +137,8 @@ data ActiveContracts = ActiveContracts { activeContracts : [Created] }
 -- | Trigger is (approximately) a left-fold over `Message` with
 -- an accumulator of type `s`.
 data Trigger s = Trigger
-  { initialState : Party -> ActiveContracts -> (s, [Commands])
-  , update : Message -> s -> (s, [Commands])
+  { initialState : Party -> Time -> ActiveContracts -> (s, [Commands])
+  , update : Time -> Message -> s -> (s, [Commands])
   , registeredTemplates : RegisteredTemplates
   }
 

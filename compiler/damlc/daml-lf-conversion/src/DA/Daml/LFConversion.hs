@@ -382,6 +382,10 @@ convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $ if
     | NameIn DA_Internal_LF n <- t
     , n `elementOfUniqSet` internalTypes
     -> pure []
+    -- Consumption marker types used to transfer information from template desugaring to LF conversion.
+    | NameIn DA_Internal_Desugar n <- t
+    , n `elementOfUniqSet` consumingTypes
+    -> pure []
 
     -- Type synonyms get expanded out during conversion (see 'convertType').
     | isTypeSynonymTyCon t
@@ -576,8 +580,8 @@ convertBind env (name, x)
          : _)
          <- convertExpr env x
        stdlibRef <- packageNameToPkgRef env damlStdlib
-       let anyTemplateTy = anyTemplateTyFromStdlib stdlibRef
-       let templateTypeRepTy = templateTypeRepTyFromStdlib stdlibRef
+       let anyTemplateTy = anyTemplateTyFromStdlib env stdlibRef
+       let templateTypeRepTy = templateTypeRepTyFromStdlib env stdlibRef
        let create = ETmLam (this, tplTyLf) $ EUpdate $ UCreate tplTyConLf (EVar (this))
        let fetch = ETmLam (this, TContractId tplTyLf) $ EUpdate $ UFetch tplTyConLf (EVar this)
        let toAnyTemplate =
@@ -775,6 +779,9 @@ convertBind env (name, x)
 -- deliberately remove 'GHC.Types.Opaque' as well.
 internalTypes :: UniqSet FastString
 internalTypes = mkUniqSet ["Scenario","Update","ContractId","Time","Date","Party","Pair", "TextMap", "Map", "Any", "TypeRep"]
+
+consumingTypes :: UniqSet FastString
+consumingTypes = mkUniqSet ["PreConsuming", "PostConsuming", "NonConsuming"]
 
 internalFunctions :: UniqFM (UniqSet FastString)
 internalFunctions = listToUFM $ map (bimap mkModuleNameFS mkUniqSet)
@@ -1766,19 +1773,12 @@ convertExternal env stdlibRef primId lfType
                                  "fromAnyTemplate is not supported in this DAML-LF version")
                 "_templateTypeRep"
                     | envLfVersion env `supports` featureTypeRep ->
-                        let resType =
-                                TypeConApp
-                                    (Qualified
-                                         stdlibRef
-                                         (mkModName ["DA", "Internal", "LF"])
-                                         (mkTypeCon ["TemplateTypeRep"]))
-                                    []
-                            resField = mkField "getTemplateTypeRep"
-                         in ERecCon
-                                resType
-                                [ ( resField
-                                  , ETypeRep $ templateDataType tplTypeCon)
-                                ]
+                          ERecCon
+                              (templateTypeRepTyFromStdlib env stdlibRef)
+                              [ ( templateTypeRepField
+                                , ETypeRep $ templateDataType tplTypeCon
+                                )
+                              ]
                     | otherwise ->
                         EBuiltin BEError `ETyApp` lfType `ETmApp`
                         EBuiltin
@@ -1817,7 +1817,7 @@ convertExternal env stdlibRef primId lfType
     | otherwise =
         error $ "convertExternal: malformed external string" <> primId
   where
-    anyTemplateTy = anyTemplateTyFromStdlib stdlibRef
+    anyTemplateTy = anyTemplateTyFromStdlib env stdlibRef
     lookup pId modName temName = do
         mods <- MS.lookup pId pkgIdToModules
         mod <- NM.lookup (LF.ModuleName $ map T.pack $ splitOn "." modName) mods
@@ -1832,24 +1832,26 @@ convertExternal env stdlibRef primId lfType
 -----------------------------
 -- AnyTemplate constant names
 
-anyTemplateTyFromStdlib :: PackageRef -> TypeConApp
-anyTemplateTyFromStdlib stdlibRef =
+anyTemplateTyFromStdlib :: Env -> PackageRef -> TypeConApp
+anyTemplateTyFromStdlib env stdlibRef =
     TypeConApp
-        (Qualified
+        (rewriteStableQualified env $
+           Qualified
              stdlibRef
-             (mkModName ["DA", "Internal", "LF"])
+             (mkModName ["DA", "Internal", "Any"])
              (mkTypeCon ["AnyTemplate"]))
         []
 
 anyTemplateField :: FieldName
 anyTemplateField = mkField "getAnyTemplate"
 
-templateTypeRepTyFromStdlib :: PackageRef -> TypeConApp
-templateTypeRepTyFromStdlib stdlibRef =
+templateTypeRepTyFromStdlib :: Env -> PackageRef -> TypeConApp
+templateTypeRepTyFromStdlib env stdlibRef =
     TypeConApp
-        (Qualified
+        (rewriteStableQualified env $
+           Qualified
              stdlibRef
-             (mkModName ["DA", "Internal", "LF"])
+             (mkModName ["DA", "Internal", "Any"])
              (mkTypeCon ["TemplateTypeRep"]))
         []
 

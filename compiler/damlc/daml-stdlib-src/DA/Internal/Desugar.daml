@@ -8,12 +8,20 @@ daml 1.2
 -- | Automatically imported qualified in every module.
 module DA.Internal.Desugar (
     module DA.Internal.Template,
+    module DA.Internal.Template.Functions,
     Eq(..), Show(..),
     Bool(..), Text, Optional,
     concat, magic,
-    Party, ContractId, Update, Any, AnyTemplate, AnyChoice, AnyContractKey, TemplateTypeRep
+    Party, ContractId, Update, Any,
+    NonConsuming(..), PreConsuming(..), PostConsuming(..)
 ) where
 
 import DA.Internal.Prelude
 import DA.Internal.Template
+import DA.Internal.Template.Functions
 import DA.Internal.LF
+
+-- These are only used as markers by desugaring, we do not translate them to LF.
+data NonConsuming t = NonConsuming {}
+data PreConsuming t = PreConsuming {}
+data PostConsuming t = PostConsuming {}

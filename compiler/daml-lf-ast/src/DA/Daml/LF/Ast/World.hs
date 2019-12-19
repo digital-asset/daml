@@ -48,8 +48,10 @@ makeLensesFor [("_worldSelf","worldSelf")] ''World
 
 -- | A package where all references to `PRSelf` have been rewritten
 -- to `PRImport`.
-data ExternalPackage = ExternalPackage PackageId Package
-    deriving (Show, Eq, Generic)
+data ExternalPackage = ExternalPackage
+  { extPackageId :: PackageId
+  , extPackagePkg :: Package
+  } deriving (Show, Eq, Generic)
 
 instance NFData ExternalPackage
 

@@ -539,12 +539,34 @@ roundBankers : Int -> IF_NUMERIC(Numeric n -> Numeric n, Decimal -> Decimal)
 roundBankers = primitive @IF_NUMERIC("BERoundNumeric", "BERoundDecimal")
 
 -- | Commercial Rounding: `roundCommercial dp x` rounds `x` to `dp` decimal places, where a `.5` is rounded away from zero.
-roundCommercial : Int -> IF_NUMERIC(Numeric n -> Numeric n, Decimal -> Decimal)
+#ifdef DAML_NUMERIC
+roundCommercial : forall n. NumericScale n => Int -> Numeric n -> Numeric n
 roundCommercial d x =
-  let t = IF_NUMERIC(intToNumeric, intToDecimal) (10 ^ d)
+  -- We must avoid conversions to Int, otherwise this will crash in some cases.
+  -- Until we have a `roundCommercial` primitive, we use a somewhat hacky implementation
+  -- relying on `roundBankers` is a primitive.
+
+  -- We first use bankers rounding and then check if the difference is exactly .5
+  -- If that is the case, we’ve rounded in the wrong direction, so we shift it the other way.
+  let t = roundBankers d x
+      diff = x - t
+      -- This is defined in DA.Numeric but we inline it here to avoid creating a cyclic module dependency.
+      divNumeric : Numeric n1 -> Numeric n2 -> Numeric n3
+      divNumeric = primitive @"BEDivNumeric"
+      problematicDiff = (0.5 : Numeric 1) `divNumeric` (10.0 ^ d : Numeric 0) * signum x
+  in if diff == problematicDiff
+       then x + problematicDiff
+       else t
+#else
+roundCommercial : Int -> Decimal -> Decimal
+roundCommercial d x =
+  -- This suffers from the same issue as the Numeric implementation but given
+  -- that Decimal is dead for newer LF versions anyway, we don’t bother fixing it.
+  let t = intToDecimal (10 ^ d)
       v = round (x * t)
-      w = IF_NUMERIC(intToNumeric, intToDecimal) v
+      w = intToDecimal v
   in w / t
+#endif
 
 -- | Round a `Decimal` to the nearest integer, where a `.5` is rounded away from zero.
 round : IF_NUMERIC(Numeric n, Decimal) -> Int

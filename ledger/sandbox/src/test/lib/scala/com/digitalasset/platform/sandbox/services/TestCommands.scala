@@ -9,6 +9,7 @@ import java.util
 
 import com.digitalasset.api.util.TimestampConversion
 import com.digitalasset.daml.lf.archive.DarReader
+import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.testing.utils.MockMessages.{
   applicationId,
@@ -32,10 +33,9 @@ trait TestCommands {
 
   protected def darFile: File
 
-  @transient
-  protected def templateIds = {
-    new TestTemplateIdentifiers(DarReader().readArchiveFromFile(darFile).get.main._1)
-  }
+  protected def packageId: PackageId = DarReader().readArchiveFromFile(darFile).get.main._1
+
+  protected def templateIds = new TestTemplateIdentifiers(packageId)
 
   protected def buildRequest(
       ledgerId: domain.LedgerId,

@@ -5,7 +5,6 @@ package com.daml.ledger.participant.state.kvutils
 
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.daml.ledger.participant.state.v1.Update.PartyAllocationRejected
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -53,20 +52,24 @@ object KeyValueConsumption {
 
       case DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_REJECTION_ENTRY =>
         val pur = entry.getPackageUploadRejectionEntry
-        List(
-          Update.PublicPackageUploadRejected(
-            parseLedgerString("SubmissionId")(pur.getSubmissionId),
-            recordTime,
-            pur.getReasonCase match {
-              case DamlPackageUploadRejectionEntry.ReasonCase.INVALID_PACKAGE =>
-                s"Invalid package, details=${pur.getInvalidPackage.getDetails}"
-              case DamlPackageUploadRejectionEntry.ReasonCase.PARTICIPANT_NOT_AUTHORIZED =>
-                s"Participant is not authorized to upload packages"
-              case DamlPackageUploadRejectionEntry.ReasonCase.REASON_NOT_SET =>
-                sys.error("logEntryToUpdate: DamlPackageUploadRejectionEntry.REASON_NOT_SET!")
-            }
-          )
-        )
+        def wrap(reason: String) =
+          List(
+            Update.PublicPackageUploadRejected(
+              parseLedgerString("SubmissionId")(pur.getSubmissionId),
+              recordTime,
+              reason))
+
+        pur.getReasonCase match {
+          case DamlPackageUploadRejectionEntry.ReasonCase.INVALID_PACKAGE =>
+            wrap(s"Invalid package, details=${pur.getInvalidPackage.getDetails}")
+          case DamlPackageUploadRejectionEntry.ReasonCase.PARTICIPANT_NOT_AUTHORIZED =>
+            wrap(s"Participant is not authorized to upload packages")
+          // Ignore rejections due to duplicates
+          case DamlPackageUploadRejectionEntry.ReasonCase.DUPLICATE_SUBMISSION =>
+            List()
+          case DamlPackageUploadRejectionEntry.ReasonCase.REASON_NOT_SET =>
+            wrap("Unknown reason")
+        }
 
       case DamlLogEntry.PayloadCase.PARTY_ALLOCATION_ENTRY =>
         // TODO(BH): add isLocal with check:
@@ -88,26 +91,24 @@ object KeyValueConsumption {
         val rejection = entry.getPartyAllocationRejectionEntry
         val participantId = parseLedgerString("ParticipantId")(rejection.getParticipantId)
         val submissionId = parseLedgerString("SubmissionId")(rejection.getSubmissionId)
+        def wrap(reason: String) =
+          List(Update.PartyAllocationRejected(submissionId, participantId, recordTime, reason))
 
         // TODO(BH): only send for matching participant who sent request
         // if (participantId == entry.getPartyAllocationRejectionEntry.getParticipantId)
-        List(
-          PartyAllocationRejected(
-            submissionId,
-            participantId,
-            recordTime,
-            rejection.getReasonCase match {
-              case DamlPartyAllocationRejectionEntry.ReasonCase.INVALID_NAME =>
-                s"Party name is invalid, details=${rejection.getInvalidName.getDetails}"
-              case DamlPartyAllocationRejectionEntry.ReasonCase.ALREADY_EXISTS =>
-                "Party already exists"
-              case DamlPartyAllocationRejectionEntry.ReasonCase.PARTICIPANT_NOT_AUTHORIZED =>
-                "Participant is not authorized to allocate a party"
-              case DamlPartyAllocationRejectionEntry.ReasonCase.REASON_NOT_SET =>
-                "Unknown reason"
-            }
-          )
-        )
+        rejection.getReasonCase match {
+          case DamlPartyAllocationRejectionEntry.ReasonCase.INVALID_NAME =>
+            wrap(s"Party name is invalid, details=${rejection.getInvalidName.getDetails}")
+          case DamlPartyAllocationRejectionEntry.ReasonCase.ALREADY_EXISTS =>
+            wrap("Party already exists")
+          case DamlPartyAllocationRejectionEntry.ReasonCase.PARTICIPANT_NOT_AUTHORIZED =>
+            wrap("Participant is not authorized to allocate a party")
+          // Ignore rejections due to duplicates
+          case DamlPartyAllocationRejectionEntry.ReasonCase.DUPLICATE_SUBMISSION =>
+            List()
+          case DamlPartyAllocationRejectionEntry.ReasonCase.REASON_NOT_SET =>
+            wrap("Unknown reason")
+        }
 
       case DamlLogEntry.PayloadCase.TRANSACTION_ENTRY =>
         List(txEntryToUpdate(entryId, entry.getTransactionEntry, recordTime))
@@ -139,33 +140,37 @@ object KeyValueConsumption {
           parseLedgerString("ParticipantId")(rejection.getParticipantId)
         val submissionId =
           parseLedgerString("SubmissionId")(rejection.getSubmissionId)
-        List(
-          Update.ConfigurationChangeRejected(
-            recordTime = recordTime,
-            submissionId = submissionId,
-            participantId = participantId,
-            proposedConfiguration = proposedConfig,
-            rejectionReason = rejection.getReasonCase match {
-              case DamlConfigurationRejectionEntry.ReasonCase.GENERATION_MISMATCH =>
-                s"Generation mismatch: ${proposedConfig.generation} != ${rejection.getGenerationMismatch.getExpectedGeneration}"
-              case DamlConfigurationRejectionEntry.ReasonCase.INVALID_CONFIGURATION =>
-                s"Invalid configuration: ${rejection.getInvalidConfiguration.getError}"
-              case DamlConfigurationRejectionEntry.ReasonCase.PARTICIPANT_NOT_AUTHORIZED =>
-                s"Participant not authorized to modify configuration"
-              case DamlConfigurationRejectionEntry.ReasonCase.TIMED_OUT =>
-                val timedOut = rejection.getTimedOut
-                val mrt = Conversions.parseTimestamp(timedOut.getMaximumRecordTime)
-                val rt = Conversions.parseTimestamp(timedOut.getRecordTime)
-                s"Configuration change timed out: $mrt > $rt"
-              case DamlConfigurationRejectionEntry.ReasonCase.REASON_NOT_SET =>
-                "Unknown reason"
-            }
-          ))
+        def wrap(reason: String) =
+          List(
+            Update.ConfigurationChangeRejected(
+              recordTime = recordTime,
+              submissionId = submissionId,
+              participantId = participantId,
+              proposedConfiguration = proposedConfig,
+              reason))
+
+        rejection.getReasonCase match {
+          case DamlConfigurationRejectionEntry.ReasonCase.GENERATION_MISMATCH =>
+            wrap(
+              s"Generation mismatch: ${proposedConfig.generation} != ${rejection.getGenerationMismatch.getExpectedGeneration}")
+          case DamlConfigurationRejectionEntry.ReasonCase.INVALID_CONFIGURATION =>
+            wrap(s"Invalid configuration: ${rejection.getInvalidConfiguration.getDetails}")
+          case DamlConfigurationRejectionEntry.ReasonCase.PARTICIPANT_NOT_AUTHORIZED =>
+            wrap(s"Participant not authorized to modify configuration")
+          case DamlConfigurationRejectionEntry.ReasonCase.TIMED_OUT =>
+            val timedOut = rejection.getTimedOut
+            val mrt = Conversions.parseTimestamp(timedOut.getMaximumRecordTime)
+            val rt = Conversions.parseTimestamp(timedOut.getRecordTime)
+            wrap(s"Configuration change timed out: $mrt > $rt")
+          // Ignore rejections due to duplicates
+          case DamlConfigurationRejectionEntry.ReasonCase.DUPLICATE_SUBMISSION =>
+            List()
+          case DamlConfigurationRejectionEntry.ReasonCase.REASON_NOT_SET =>
+            wrap("Unknown reason")
+        }
 
       case DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY =>
-        List(
-          transactionRejectionEntryToUpdate(recordTime, entry.getTransactionRejectionEntry)
-        )
+        transactionRejectionEntryToUpdate(recordTime, entry.getTransactionRejectionEntry)
 
       case DamlLogEntry.PayloadCase.PAYLOAD_NOT_SET =>
         throw Err.InternalError("logEntryToUpdate: PAYLOAD_NOT_SET!")
@@ -174,32 +179,37 @@ object KeyValueConsumption {
 
   private def transactionRejectionEntryToUpdate(
       recordTime: Timestamp,
-      rejEntry: DamlTransactionRejectionEntry): Update.CommandRejected =
-    Update.CommandRejected(
-      recordTime = recordTime,
-      submitterInfo = parseSubmitterInfo(rejEntry.getSubmitterInfo),
-      reason = rejEntry.getReasonCase match {
-        case DamlTransactionRejectionEntry.ReasonCase.DISPUTED =>
-          RejectionReason.Disputed(rejEntry.getDisputed.getDetails)
-        case DamlTransactionRejectionEntry.ReasonCase.INCONSISTENT =>
-          RejectionReason.Inconsistent
-        case DamlTransactionRejectionEntry.ReasonCase.RESOURCES_EXHAUSTED =>
-          RejectionReason.ResourcesExhausted
-        case DamlTransactionRejectionEntry.ReasonCase.MAXIMUM_RECORD_TIME_EXCEEDED =>
-          RejectionReason.MaximumRecordTimeExceeded
-        case DamlTransactionRejectionEntry.ReasonCase.DUPLICATE_COMMAND =>
-          RejectionReason.DuplicateCommand
-        case DamlTransactionRejectionEntry.ReasonCase.PARTY_NOT_KNOWN_ON_LEDGER =>
-          RejectionReason.PartyNotKnownOnLedger
-        case DamlTransactionRejectionEntry.ReasonCase.SUBMITTER_CANNOT_ACT_VIA_PARTICIPANT =>
+      rejEntry: DamlTransactionRejectionEntry): List[Update] = {
+    def wrap(reason: RejectionReason) =
+      List(
+        Update.CommandRejected(
+          recordTime = recordTime,
+          submitterInfo = parseSubmitterInfo(rejEntry.getSubmitterInfo),
+          reason = reason))
+
+    rejEntry.getReasonCase match {
+      case DamlTransactionRejectionEntry.ReasonCase.DISPUTED =>
+        wrap(RejectionReason.Disputed(rejEntry.getDisputed.getDetails))
+      case DamlTransactionRejectionEntry.ReasonCase.INCONSISTENT =>
+        wrap(RejectionReason.Inconsistent)
+      case DamlTransactionRejectionEntry.ReasonCase.RESOURCES_EXHAUSTED =>
+        wrap(RejectionReason.ResourcesExhausted)
+      case DamlTransactionRejectionEntry.ReasonCase.MAXIMUM_RECORD_TIME_EXCEEDED =>
+        wrap(RejectionReason.MaximumRecordTimeExceeded)
+      case DamlTransactionRejectionEntry.ReasonCase.DUPLICATE_COMMAND =>
+        List()
+      case DamlTransactionRejectionEntry.ReasonCase.PARTY_NOT_KNOWN_ON_LEDGER =>
+        wrap(RejectionReason.PartyNotKnownOnLedger)
+      case DamlTransactionRejectionEntry.ReasonCase.SUBMITTER_CANNOT_ACT_VIA_PARTICIPANT =>
+        wrap(
           RejectionReason.SubmitterCannotActViaParticipant(
             rejEntry.getSubmitterCannotActViaParticipant.getDetails
-          )
-        case DamlTransactionRejectionEntry.ReasonCase.REASON_NOT_SET =>
-          //TODO: Replace with "Unknown reason" error code or something similar
-          throw Err.InternalError("transactionRejectionEntryToUpdate: REASON_NOT_SET!")
-      }
-    )
+          ))
+      case DamlTransactionRejectionEntry.ReasonCase.REASON_NOT_SET =>
+        //TODO: Replace with "Unknown reason" error code or something similar
+        throw Err.InternalError("transactionRejectionEntryToUpdate: REASON_NOT_SET!")
+    }
+  }
 
   /** Transform the transaction entry into the [[Update.TransactionAccepted]] event. */
   private def txEntryToUpdate(

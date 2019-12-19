@@ -5,17 +5,17 @@ packages:
   - archive: http://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-8.8.1.20191204.tar.gz
     sha256: "9648145ef7b3566fad7073ef63d0ef85056abe2c70c98f753306b70cbe9e0b5a"
   - github: digital-asset/hlint
-    commit: "88e96f715b5174ebfc93179ecf88dca4262f3365"
-    sha256: "c8c18979c117c4fd517939be400b60e573d41fc9c88510cac870e9d8ba28f107"
+    commit: "b934420962e1db4169fafb7f437ce95625add980"
+    sha256: "106e17ab5ab61d9ef209bcfced59fcbede6fd03c7de468121a6ea3d296c15816"
   - bytestring-nums-0.3.6
   - extra-1.6.18
   - grpc-haskell-0.0.1.0
   - grpc-haskell-core-0.0.0.0
-  - haskell-lsp-0.18.0.0
-  - haskell-lsp-types-0.18.0.0
-  - hie-bios-0.2.1
+  - haskell-lsp-0.19.0.0
+  - haskell-lsp-types-0.19.0.0
+  - hie-bios-0.3.0
   - hpp-0.6.1
-  - lsp-test-0.8.2.0
+  - lsp-test-0.9.0.0
   - proto3-suite-0.4.0.0
   - proto3-wire-1.1.0
   # Core packages, need to be listed for integer-simple flags.

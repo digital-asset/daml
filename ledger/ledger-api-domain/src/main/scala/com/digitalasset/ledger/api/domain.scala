@@ -203,14 +203,6 @@ object domain {
       */
     final case class Disputed(description: String) extends RejectionReason
 
-    /** The participant node has already seen a command with the same commandId
-      * during its implementation specific deduplication window.
-      *
-      * TODO (SM): explain in more detail how command de-duplication should
-      * work.
-      */
-    final case class DuplicateCommandId(description: String) extends RejectionReason
-
     final case class PartyNotKnownOnLedger(description: String) extends RejectionReason
 
     final case class SubmitterCannotActViaParticipant(description: String) extends RejectionReason

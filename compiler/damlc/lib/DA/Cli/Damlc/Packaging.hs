@@ -181,8 +181,7 @@ generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase
     opts' <-
         mkOptions $
         opts
-            { optWriteInterface = False
-            , optIfaceDir = Nothing
+            { optIfaceDir = Nothing
             -- We write ifaces below using writeIfacesAndHie so we don’t need to enable these options.
             , optPackageDbs = projectPackageDatabase : optPackageDbs opts
             , optIsGenerated = True
@@ -244,6 +243,7 @@ baseImports =
        False
        (map (bimap GHC.mkModuleName GHC.mkModuleName)
           [ ("DA.Internal.Template", "Sdk.DA.Internal.Template")
+          , ("DA.Internal.Template.Functions", "Sdk.DA.Internal.Template.Functions")
           , ("DA.Internal.LF", "Sdk.DA.Internal.LF")
           , ("DA.Internal.Prelude", "Sdk.DA.Internal.Prelude")
           ]
@@ -292,8 +292,7 @@ generateAndInstallInstancesPkg thisSdkVer templInstSrc opts dbPath projectPackag
             opts' <-
                 mkOptions $
                 opts
-                    { optWriteInterface = False
-                    , optIfaceDir = Nothing
+                    { optIfaceDir = Nothing
                     , optPackageDbs = projectPackageDatabaseAbs : optPackageDbs opts
                     , optIsGenerated = True
                     , optDflagCheck = False

@@ -584,8 +584,7 @@ goToDefinitionTests mbScenarioService = Tasty.testGroup "Go to definition tests"
             expectGoToDefinition (foo,2,[2..4]) Missing             -- " : "
             expectGoToDefinition (foo,2,[9])    Missing             -- "\n"
             expectGoToDefinition (foo,2,[10])   Missing             -- (out of range)
-            expectGoToDefinition (foo,3,[0..2]) (At (foo,3,0))      -- "foo"
-            expectGoToDefinition (foo,3,[3..5])  Missing             -- " = "
+            expectGoToDefinition (foo,3,[0..5]) (At (foo,3,0))      -- "foo = "
             expectGoToDefinition (foo,3,[6..8]) (At (foo,5,0))      -- "bar"
             expectGoToDefinition (foo,3,[9])    Missing             -- "\n"
             expectGoToDefinition (foo,3,[10])   Missing             -- (out of range)
@@ -645,13 +644,11 @@ goToDefinitionTests mbScenarioService = Tasty.testGroup "Go to definition tests"
                 , "baz = 10"
                 ]
             setFilesOfInterest [foo]
-            expectGoToDefinition (foo,2,[0..2]) (At (foo,2,0))
-            expectGoToDefinition (foo,2,[3..5]) Missing
+            expectGoToDefinition (foo,2,[0..5]) (At (foo,2,0))
             expectGoToDefinition (foo,2,[6..8]) (At (foo,3,0))
             expectGoToDefinition (foo,2,[9]) Missing
 
-            expectGoToDefinition (foo,3,[0..2]) (At (foo,3,0))
-            expectGoToDefinition (foo,3,[3]) Missing
+            expectGoToDefinition (foo,3,[0..3]) (At (foo,3,0))
             expectGoToDefinition (foo,3,[4..6]) (At (foo,4,0))
             expectGoToDefinition (foo,3,[7]) Missing
 

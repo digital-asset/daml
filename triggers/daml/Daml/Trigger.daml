@@ -68,7 +68,7 @@ data Trigger s = Trigger
   , updateState : ACS -> Message -> s -> s
   -- ^ Update the user-defined state based on the ACS and a transaction or
   -- completion message.
-  , rule : Party -> ACS -> Map CommandId [Command] -> s -> TriggerA ()
+  , rule : Party -> ACS -> Time -> Map CommandId [Command] -> s -> TriggerA ()
   -- ^ The rule defines the main logic of your trigger.
   -- Given the party your trigger is running as, the ACS, the commands in flight
   -- and the user-defined state, you can send commands to the ledger using
@@ -159,12 +159,12 @@ runTrigger userTrigger = LowLevel.Trigger
   , registeredTemplates = userTrigger.registeredTemplates
   }
   where
-    initialState party (ActiveContracts createdEvents) =
+    initialState party time (ActiveContracts createdEvents) =
       let acs = foldl (\acs created -> applyEvent (CreatedEvent created) acs) (ACS [] Map.empty) createdEvents
           userState = userTrigger.initialize acs
           state = TriggerState acs party userState Map.empty 0
-      in runRule userTrigger.rule state
-    update msg state =
+      in runRule userTrigger.rule time state
+    update time msg state =
       case msg of
         MCompletion completion ->
           let userState = userTrigger.updateState state.acs (MCompletion completion) state.userState
@@ -177,7 +177,7 @@ runTrigger userTrigger = LowLevel.Trigger
                 let commandsInFlight = Map.delete completion.commandId state.commandsInFlight
                     acs = state.acs { pendingContracts = Map.delete completion.commandId state.acs.pendingContracts }
                     state' = state { commandsInFlight, userState, acs }
-                in runRule userTrigger.rule state'
+                in runRule userTrigger.rule time state'
         MTransaction transaction ->
           let acs = applyTransaction transaction state.acs
               userState = userTrigger.updateState acs (MTransaction transaction) state.userState
@@ -186,7 +186,7 @@ runTrigger userTrigger = LowLevel.Trigger
                 None -> (acs, state.commandsInFlight)
                 Some commandId -> (acs { pendingContracts = Map.delete commandId acs.pendingContracts }, Map.delete commandId state.commandsInFlight)
               state' = state { acs = acs', userState, commandsInFlight }
-          in runRule userTrigger.rule state'
+          in runRule userTrigger.rule time state'
 
 -- Internal API
 
@@ -213,13 +213,14 @@ applyTransaction : Transaction -> ACS -> ACS
 applyTransaction (Transaction _ _ evs) acs = foldl (flip applyEvent) acs evs
 
 runRule
-  : (Party -> ACS -> Map CommandId [Command] -> s -> TriggerA ())
+  : (Party -> ACS -> Time -> Map CommandId [Command] -> s -> TriggerA ())
+  -> Time
   -> TriggerState s
   -> (TriggerState s, [Commands])
-runRule rule state =
+runRule rule time state =
   let (_, aState) =
         runTriggerA
-          (rule state.party state.acs state.commandsInFlight state.userState)
+          (rule state.party state.acs time state.commandsInFlight state.userState)
           (TriggerAState state.commandsInFlight [] state.acs.pendingContracts state.nextCommandId)
       commandsInFlight = foldl addCommands state.commandsInFlight aState.emittedCommands
       acs = state.acs { pendingContracts = aState.pendingContracts }
