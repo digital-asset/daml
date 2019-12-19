@@ -64,7 +64,7 @@ class PlatformSubscriber(
 
   import system.dispatcher
 
-  implicit val materializer: ActorMaterializer = ActorMaterializer()
+  implicit val materializer: Materializer = Materializer(system)
   import PlatformSubscriber._
 
   // ----------------------------------------------------------------------------------------------

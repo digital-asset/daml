@@ -7,7 +7,7 @@ import java.io.{File, FileWriter}
 import java.time.Instant
 
 import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
+import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.v1.{ParticipantId, ReadService, WriteService}
@@ -80,7 +80,7 @@ final class StandaloneApiServer(
 
   private def buildAndStartApiServer(infra: Infrastructure)(
       implicit ec: ExecutionContext): Future[ApiServerState] = {
-    implicit val mat: ActorMaterializer = infra.materializer
+    implicit val mat: Materializer = infra.materializer
 
     val packageStore = loadDamlPackages()
     preloadPackages(packageStore)
@@ -104,7 +104,7 @@ final class StandaloneApiServer(
         "write" -> writeService,
       )
       apiServer <- LedgerApiServer.start(
-        (am: ActorMaterializer, esf: ExecutionSequencerFactory) =>
+        (mat: Materializer, esf: ExecutionSequencerFactory) =>
           ApiServices
             .create(
               writeService,
@@ -118,7 +118,7 @@ final class StandaloneApiServer(
               loggerFactory,
               metrics,
               healthChecks,
-            )(am, esf),
+            )(mat, esf),
         config.port,
         config.maxInboundMessageSize,
         None,
@@ -149,7 +149,7 @@ final class StandaloneApiServer(
     val infrastructure =
       new Infrastructure(
         actorSystem,
-        ActorMaterializer()(actorSystem)
+        Materializer(actorSystem)
       )
     implicit val ec: ExecutionContext = infrastructure.executionContext
     val apiState = buildAndStartApiServer(infrastructure)
@@ -191,7 +191,7 @@ object StandaloneApiServer {
     }
   }
 
-  private final class Infrastructure(actorSystem: ActorSystem, val materializer: ActorMaterializer)
+  private final class Infrastructure(actorSystem: ActorSystem, val materializer: Materializer)
       extends AutoCloseable {
     def executionContext: ExecutionContext = materializer.executionContext
 

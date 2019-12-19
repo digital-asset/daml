@@ -48,7 +48,7 @@ class ApiActiveContractsService private (
       .fold(
         Source.failed, { filter =>
           Source
-            .fromFuture(backend.getActiveContractSetSnapshot(filter))
+            .future(backend.getActiveContractSetSnapshot(filter))
             .flatMapConcat {
               case ActiveContractSetSnapshot(offset, acsStream) =>
                 acsStream

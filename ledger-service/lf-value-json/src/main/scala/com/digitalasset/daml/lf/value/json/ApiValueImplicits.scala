@@ -6,7 +6,7 @@ package com.digitalasset.daml.lf.value.json
 import java.time.{Instant, LocalDate}
 import java.time.format.{DateTimeFormatter, DateTimeFormatterBuilder}
 
-import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
+import com.digitalasset.daml.lf.data.Time
 import com.digitalasset.daml.lf.value.{Value => V}
 
 object ApiValueImplicits {
@@ -41,18 +41,5 @@ object ApiValueImplicits {
       fromLocalDate(LocalDate.parse(t, DateTimeFormatter.ISO_LOCAL_DATE))
     def fromLocalDate(t: LocalDate): V.ValueDate =
       V.ValueDate(Time.Date.assertFromDaysSinceEpoch(t.toEpochDay.toInt))
-  }
-
-  object FullyNamedApiRecord {
-    def unapply[Cid](
-        r: V.ValueRecord[Cid]): Option[(Option[Ref.Identifier], ImmArray[(Ref.Name, V[Cid])])] = {
-      val V.ValueRecord(tycon, fields) = r
-      if (fields.toSeq.forall(_._1.isDefined))
-        Some((tycon, fields.map {
-          case (Some(n), v) => (n, v)
-          case (None, _) => sys.error("impossible None")
-        }))
-      else None
-    }
   }
 }

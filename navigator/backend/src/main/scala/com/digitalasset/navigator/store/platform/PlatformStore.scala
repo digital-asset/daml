@@ -10,7 +10,7 @@ import java.util.concurrent.atomic.AtomicLong
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props, Scheduler, Stash}
 import akka.pattern.ask
-import akka.stream.ActorMaterializer
+import akka.stream.Materializer
 import akka.util.Timeout
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.grpc.GrpcException
@@ -99,7 +99,7 @@ class PlatformStore(
 
   implicit val s: Scheduler = system.scheduler
   import scala.concurrent.ExecutionContext.Implicits.global
-  implicit val materializer: ActorMaterializer = ActorMaterializer()
+  implicit val materializer: Materializer = Materializer(system)
   implicit val esf: ExecutionSequencerFactory =
     new AkkaExecutionSequencerPool("esf-" + this.getClass.getSimpleName)(system)
 

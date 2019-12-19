@@ -8,7 +8,7 @@ import java.net.{BindException, InetSocketAddress}
 import java.util.UUID
 import java.util.concurrent.TimeUnit.{MILLISECONDS, SECONDS}
 
-import akka.stream.ActorMaterializer
+import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
@@ -36,7 +36,7 @@ trait ApiServer extends AutoCloseable {
 
 object LedgerApiServer {
   def start(
-      createApiServices: (ActorMaterializer, ExecutionSequencerFactory) => Future[ApiServices],
+      createApiServices: (Materializer, ExecutionSequencerFactory) => Future[ApiServices],
       desiredPort: Int,
       maxInboundMessageSize: Int,
       address: Option[String],
@@ -44,7 +44,7 @@ object LedgerApiServer {
       sslContext: Option[SslContext] = None,
       interceptors: List[ServerInterceptor] = List.empty,
       metrics: MetricRegistry,
-  )(implicit mat: ActorMaterializer): Future[ApiServer] = {
+  )(implicit mat: Materializer): Future[ApiServer] = {
 
     val logger = loggerFactory.getLogger(this.getClass)
 

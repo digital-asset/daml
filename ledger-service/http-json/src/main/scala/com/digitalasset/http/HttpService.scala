@@ -213,8 +213,9 @@ object HttpService extends StrictLogging {
 
   private def schedulePackageReload(packageService: PackageService, pollInterval: FiniteDuration)(
       implicit asys: ActorSystem,
-      ec: ExecutionContext): Cancellable =
-    asys.scheduler.schedule(pollInterval, pollInterval) {
+      ec: ExecutionContext): Cancellable = {
+    val packageServiceReload: Unit = {
+
       val f: Future[PackageService.Error \/ Unit] = packageService.reload
       f.onComplete {
         case scala.util.Failure(e) => logger.error("Package reload failed", e)
@@ -222,6 +223,9 @@ object HttpService extends StrictLogging {
         case scala.util.Success(\/-(_)) =>
       }
     }
+    val runnableReload = new Runnable() { def run() = packageServiceReload }
+    asys.scheduler.scheduleAtFixedRate(pollInterval, pollInterval)(runnableReload)
+  }
 
   private def client(
       ledgerHost: String,

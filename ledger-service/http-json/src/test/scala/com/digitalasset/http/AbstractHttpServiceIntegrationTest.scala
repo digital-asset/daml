@@ -7,7 +7,7 @@ import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
-import akka.stream.ActorMaterializer
+import akka.stream.Materializer
 import akka.util.ByteString
 import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
@@ -61,7 +61,7 @@ abstract class AbstractHttpServiceIntegrationTest
   private val testId: String = this.getClass.getSimpleName
 
   implicit val asys: ActorSystem = ActorSystem(testId)
-  implicit val mat: ActorMaterializer = ActorMaterializer()
+  implicit val mat: Materializer = Materializer(asys)
   implicit val aesf: ExecutionSequencerFactory = new AkkaExecutionSequencerPool(testId)(asys)
   implicit val ec: ExecutionContext = asys.dispatcher
 

@@ -83,7 +83,7 @@ class JdbcIndexerFactory[Status <: InitStatus] private (
       actorSystem: ActorSystem,
       readService: ReadService,
       jdbcUrl: String)(implicit x: Status =:= Initialized): Future[JdbcIndexer] = {
-    val materializer: ActorMaterializer = ActorMaterializer()(actorSystem)
+    val materializer: Materializer = Materializer(actorSystem)
 
     implicit val ec: ExecutionContext = DEC
 

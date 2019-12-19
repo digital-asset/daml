@@ -7,7 +7,7 @@ import java.nio.file.Paths
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http.ServerBinding
-import akka.stream.ActorMaterializer
+import akka.stream.Materializer
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.digitalasset.http.Statement.discard
 import com.digitalasset.http.dbbackend.ContractDao
@@ -53,7 +53,7 @@ object Main extends StrictLogging {
         ")")
 
     implicit val asys: ActorSystem = ActorSystem("http-json-ledger-api")
-    implicit val mat: ActorMaterializer = ActorMaterializer()
+    implicit val mat: Materializer = Materializer(asys)
     implicit val aesf: ExecutionSequencerFactory =
       new AkkaExecutionSequencerPool("clientPool")(asys)
     implicit val ec: ExecutionContext = asys.dispatcher
