@@ -1,5 +1,5 @@
 FROM openjdk:8u212-alpine
-RUN apk add curl bash
+RUN apk add --no-cache curl bash
 ARG VERSION
 RUN addgroup -S daml && adduser -S daml -G daml
 USER daml
