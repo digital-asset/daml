@@ -7,73 +7,59 @@ import akka.actor.ActorSystem
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.v1.ReadService
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
-import com.digitalasset.platform.common.util.DirectExecutionContext.implicitEC
+import com.digitalasset.platform.indexer.StandaloneIndexerServer._
 import com.digitalasset.platform.resources.{Resource, ResourceOwner}
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
-import scala.concurrent.{Await, Future}
-import scala.util.control.NonFatal
+import scala.concurrent.{ExecutionContext, Future}
 
 // Main entry point to start an indexer server.
 // See v2.ReferenceServer for the usage
-object StandaloneIndexerServer {
-  private val asyncTolerance: FiniteDuration = 10.seconds
-
-  def apply(
-      readService: ReadService,
-      config: IndexerConfig,
-      loggerFactory: NamedLoggerFactory,
-      metrics: MetricRegistry,
-  ): Future[AutoCloseable] = {
-    // ActorSystem name not allowed to contain daml-lf LedgerString characters ".:#/ "
-    val actorSystem = ActorSystem(
-      "StandaloneIndexerServer-" + config.participantId.filterNot(".:#/ ".toSet))
-
-    val indexerFactory = JdbcIndexerFactory(metrics, loggerFactory)
-    val indexer = new RecoveringIndexer(
-      actorSystem.scheduler,
-      asyncTolerance,
-      indexerFactory.asyncTolerance,
-      loggerFactory,
-    )
-
-    def startIndexer(
-        initializedIndexerFactory: JdbcIndexerFactory[Initialized]
-    ): Resource[Future[Unit]] =
-      indexer
-        .start(
-          () =>
-            initializedIndexerFactory
-              .owner(config.participantId, actorSystem, readService, config.jdbcUrl)
-              .flatMap(_.subscription(readService))
-              .acquire())
-
-    (try {
-      config.startupMode match {
+class StandaloneIndexerServer(
+    readService: ReadService,
+    config: IndexerConfig,
+    loggerFactory: NamedLoggerFactory,
+    metrics: MetricRegistry,
+) extends ResourceOwner[Unit] {
+  override def acquire()(implicit executionContext: ExecutionContext): Resource[Unit] =
+    for {
+      // ActorSystem name not allowed to contain daml-lf LedgerString characters ".:#/ "
+      actorSystem <- ResourceOwner
+        .forActorSystem(() =>
+          ActorSystem("StandaloneIndexerServer-" + config.participantId.filterNot(".:#/ ".toSet)))
+        .acquire()
+      indexerFactory = JdbcIndexerFactory(metrics, loggerFactory)
+      indexer = new RecoveringIndexer(
+        actorSystem.scheduler,
+        asyncTolerance,
+        indexerFactory.asyncTolerance,
+        loggerFactory,
+      )
+      _ <- config.startupMode match {
         case IndexerStartupMode.MigrateOnly =>
           Resource.pure(Future.successful(()))
         case IndexerStartupMode.MigrateAndStart =>
-          startIndexer(indexerFactory.migrateSchema(config.jdbcUrl))
+          startIndexer(indexer, indexerFactory.migrateSchema(config.jdbcUrl), actorSystem)
         case IndexerStartupMode.ValidateAndStart =>
-          startIndexer(indexerFactory.validateSchema(config.jdbcUrl))
+          startIndexer(indexer, indexerFactory.validateSchema(config.jdbcUrl), actorSystem)
       }
-    } catch {
-      case NonFatal(e) =>
-        indexer.close()
-        actorSystem.terminate()
-        Resource.failed(e)
-    }).flatMap { _ =>
-        loggerFactory.getLogger(getClass).debug("Waiting for indexer to initialize the database")
-        ResourceOwner
-          .forCloseable(() =>
-            new AutoCloseable {
-              override def close(): Unit = {
-                indexer.close()
-                val _ = Await.result(actorSystem.terminate(), asyncTolerance)
-              }
-          })
-          .acquire()
-      }
-      .asFutureCloseable(asyncTolerance)
-  }
+      _ = loggerFactory.getLogger(getClass).debug("Waiting for indexer to initialize the database")
+    } yield ()
+
+  def startIndexer(
+      indexer: RecoveringIndexer,
+      initializedIndexerFactory: JdbcIndexerFactory[Initialized],
+      actorSystem: ActorSystem,
+  )(implicit executionContext: ExecutionContext): Resource[Future[Unit]] =
+    indexer
+      .start(
+        () =>
+          initializedIndexerFactory
+            .owner(config.participantId, actorSystem, readService, config.jdbcUrl)
+            .flatMap(_.subscription(readService))
+            .acquire())
+}
+
+object StandaloneIndexerServer {
+  private val asyncTolerance: FiniteDuration = 10.seconds
 }

@@ -9,9 +9,9 @@ import java.util.concurrent.atomic.AtomicBoolean
 import akka.actor.ActorSystem
 import akka.stream.{ActorMaterializer, ActorMaterializerSettings, Supervision}
 import com.codahale.metrics.SharedMetricRegistries
-import com.daml.ledger.participant.state.v1.SubmissionId
 import com.daml.ledger.api.server.damlonx.reference.v2.cli.Cli
 import com.daml.ledger.participant.state.kvutils.InMemoryKVParticipantState
+import com.daml.ledger.participant.state.v1.SubmissionId
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.auth.AuthServiceWildcard
@@ -20,6 +20,7 @@ import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.indexer.{IndexerConfig, StandaloneIndexerServer}
 import org.slf4j.LoggerFactory
 
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 import scala.util.control.NonFatal
@@ -60,8 +61,8 @@ object ReferenceServer extends App {
   }
 
   val participantF: Future[(AutoCloseable, AutoCloseable)] = for {
-    indexer <- newIndexer(config)
-    apiServer <- newApiServer(config).start()
+    indexer <- startIndexerServer(config)
+    apiServer <- startApiServer(config)
   } yield (indexer, apiServer)
 
   val extraParticipants =
@@ -74,20 +75,20 @@ object ReferenceServer extends App {
         jdbcUrl = jdbcUrl,
       )
       for {
-        extraIndexer <- newIndexer(participantConfig)
-        extraLedgerApiServer <- newApiServer(participantConfig).start()
+        extraIndexer <- startIndexerServer(participantConfig)
+        extraLedgerApiServer <- startApiServer(participantConfig)
       } yield (extraIndexer, extraLedgerApiServer)
     }
 
-  def newIndexer(config: Config) =
-    StandaloneIndexerServer(
+  def startIndexerServer(config: Config): Future[AutoCloseable] =
+    new StandaloneIndexerServer(
       readService,
       IndexerConfig(config.participantId, config.jdbcUrl, config.startupMode),
       NamedLoggerFactory.forParticipant(config.participantId),
       SharedMetricRegistries.getOrCreate(s"indexer-${config.participantId}"),
-    )
+    ).acquire().asFutureCloseable(10.seconds)
 
-  def newApiServer(config: Config) =
+  def startApiServer(config: Config): Future[AutoCloseable] =
     new StandaloneApiServer(
       ApiServerConfig(
         config.participantId,
@@ -104,7 +105,7 @@ object ReferenceServer extends App {
       authService,
       NamedLoggerFactory.forParticipant(config.participantId),
       SharedMetricRegistries.getOrCreate(s"ledger-api-server-${config.participantId}"),
-    )
+    ).start()
 
   val closed = new AtomicBoolean(false)
 
