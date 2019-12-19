@@ -6,28 +6,20 @@ package com.digitalasset.platform.common.logging
 import org.slf4j.Logger
 
 /**
-  * NamedLoggerFactory augments a regular class-based slf4j logger with one annotated with a "name" where the name provides
-  * human readable context identifying a class instance, e.g. which participant in a set of participants has logged
-  * a particular message.
+  * NamedLoggerFactory augments a regular class-based slf4j logger with one annotated with a "name"
+  * where the name provides human readable context identifying a class instance, e.g. which
+  * participant in a set of participants has logged a particular message.
   *
   * The name can be constructed in a nested, left-to-right append manner.
   */
 trait NamedLoggerFactory {
-
-  /** Name for the logger. Can be empty. */
   val name: String
 
-  /** Augment the name with another sub-name. Useful when transitioning from one caller to one specific named callee */
   def append(subName: String): NamedLoggerFactory
 
   def forParticipant(id: String): NamedLoggerFactory =
     append(s"participant/$id")
 
-  /** get a loggers in factory methods
-    *
-    * Sometimes, the NamedLogging trait can not be used, e.g. in a factory method. In these
-    * cases, a logger can be created using this function.
-    */
   def getLogger(klass: Class[_]): Logger = {
     val fullName = Array(klass.getName, name)
       .filterNot(_.isEmpty)

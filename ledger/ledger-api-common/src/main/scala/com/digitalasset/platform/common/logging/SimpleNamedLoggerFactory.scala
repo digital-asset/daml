@@ -5,7 +5,6 @@ package com.digitalasset.platform.common.logging
 
 import org.slf4j.{Logger, LoggerFactory}
 
-// Named Logger Factory implementation
 private[logging] final class SimpleNamedLoggerFactory(val name: String) extends NamedLoggerFactory {
   override def append(subName: String): NamedLoggerFactory =
     if (name.isEmpty) new SimpleNamedLoggerFactory(subName)
