@@ -125,7 +125,6 @@ object HttpService extends StrictLogging {
         decoder,
       )
 
-// NOTE: Disabled websocketServices for now util @li addresses some improvements
       websocketService = new WebSocketService(
         client.transactionClient,
         packageService.resolveTemplateIds,

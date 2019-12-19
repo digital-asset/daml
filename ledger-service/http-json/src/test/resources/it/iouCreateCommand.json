@@ -1,0 +1,13 @@
+{
+  "templateId": {
+    "moduleName": "Iou",
+    "entityName": "Iou"
+  },
+  "argument": {
+    "observers": [],
+    "issuer": "Alice",
+    "amount": "999.99",
+    "currency": "USD",
+    "owner": "Alice"
+  }
+}

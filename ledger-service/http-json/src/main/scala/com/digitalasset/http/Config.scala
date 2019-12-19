@@ -5,6 +5,7 @@ package com.digitalasset.http
 
 import java.io.File
 import java.nio.file.Path
+import java.util.concurrent.TimeUnit
 
 import akka.stream.ThrottleMode
 import com.digitalasset.http.util.ExceptionOps._
@@ -33,17 +34,8 @@ private[http] final case class Config(
 private[http] object Config {
   import scala.language.postfixOps
   val Empty = Config(ledgerHost = "", ledgerPort = -1, httpPort = -1)
-  val DefaultWsConfig = WebsocketConfig(12 hours, 20, 1 second, 20, ThrottleMode.Shaping, 5 second)
+  val DefaultWsConfig = WebsocketConfig(120 minutes, 20, 1 second, 20, ThrottleMode.Shaping, 5 second)
 }
-
-private[http] final case class WebsocketConfig(
-      maxDuration: FiniteDuration,
-      throttleElem: Int,
-      throttlePer: FiniteDuration,
-      maxBurst: Int,
-      mode: ThrottleMode,
-      heartBeatPer: FiniteDuration
-)
 
 private[http] abstract class ConfigCompanion[A](name: String) {
 
@@ -65,9 +57,17 @@ private[http] abstract class ConfigCompanion[A](name: String) {
       k: String): Either[String, Option[Boolean]] =
     m.get(k).traverseU(v => parseBoolean(k)(v)).toEither
 
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
+  protected def optionalLongField(m: Map[String, String])(k: String): Either[String, Option[Long]] =
+    m.get(k).traverseU(v => parseLong(k)(v)).toEither
+
   protected def parseBoolean(k: String)(v: String): String \/ Boolean =
     \/.fromTryCatchNonFatal(v.toBoolean).leftMap(e =>
       s"$k=$v must be a boolean value: ${e.description}")
+
+  protected def parseLong(k: String)(v: String): String \/ Long =
+    \/.fromTryCatchNonFatal(v.toLong).leftMap(e =>
+      s"$k=$v must be a int value: ${e.description}")
 
   protected def requiredDirectoryField(m: Map[String, String])(k: String): Either[String, File] =
     requiredField(m)(k).flatMap(directory)
@@ -138,6 +138,42 @@ private[http] object JdbcConfig extends ConfigCompanion[JdbcConfig]("JdbcConfig"
       password: String,
       createSchema: String): String =
     s"""\"driver=$driver,url=$url,user=$user,password=$password,createSchema=$createSchema\""""
+}
+
+private[http] final case class WebsocketConfig(
+                                                maxDuration: FiniteDuration,
+                                                throttleElem: Int,
+                                                throttlePer: FiniteDuration,
+                                                maxBurst: Int,
+                                                mode: ThrottleMode,
+                                                heartBeatPer: FiniteDuration
+                                              )
+
+private[http] object WebsocketConfig extends ConfigCompanion[WebsocketConfig]("WebsocketConfig") {
+
+  implicit val showInstance: Show[WebsocketConfig] = Show.shows(c =>
+  s"WebsocketConfig(maxDuration=${c.maxDuration}, heartBeatPer=${c.heartBeatPer}.seconds)")
+
+  lazy val help: String =
+    "Contains comma-separated key-value pairs. Where:\n" +
+      "\tmaxDuration -- Maximum websocket session duration in minutes\n" +
+      "\theartBeatPer -- Server-side heartBeat interval in seconds\n" +
+      "\tExample: " + helpString("120","5")
+
+  lazy val usage: String = helpString("<Maximum websocket session duration in minutes>",
+          "Server-side heartBeat interval in seconds")
+
+  override def create(x: Map[String, String]): Either[String, WebsocketConfig] =
+    for {
+      md <- optionalLongField(x)("maxDuration")
+      hbp <- optionalLongField(x)("heartBeatPer")
+    } yield
+     Config.DefaultWsConfig
+       .copy(maxDuration = md.map(t => FiniteDuration(t,TimeUnit.MINUTES)).getOrElse(Config.DefaultWsConfig.maxDuration),
+             heartBeatPer = hbp.map(t => FiniteDuration(t,TimeUnit.SECONDS)).getOrElse(Config.DefaultWsConfig.heartBeatPer))
+
+  private def helpString(maxDuration: String, heartBeatPer: String): String =
+    s"""\"maxDuration=$maxDuration,heartBeatPer=$heartBeatPer\""""
 }
 
 private[http] final case class StaticContentConfig(

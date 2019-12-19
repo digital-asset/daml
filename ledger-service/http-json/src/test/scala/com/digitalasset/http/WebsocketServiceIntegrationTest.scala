@@ -1,9 +1,11 @@
 package com.digitalasset.http
 
 import akka.http.scaladsl.Http
+import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.http.scaladsl.model.ws.{Message, TextMessage, WebSocketRequest}
 import akka.http.scaladsl.model.{StatusCodes, Uri}
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
+import com.digitalasset.http.util.TestUtil
 import org.scalatest.BeforeAndAfterAll
 
 import scala.concurrent.Await
@@ -18,6 +20,8 @@ class WebsocketServiceIntegrationTest extends AbstractHttpServiceIntegrationTest
   override def jdbcConfig: Option[JdbcConfig] = None
 
   override def staticContentConfig: Option[StaticContentConfig] = None
+
+  private val headersWithAuth = List(Authorization(OAuth2BearerToken(jwt.value)))
 
   private val baseFlow: Flow[Message, Message, _] = Flow.fromSinkAndSourceMat(
     Sink.foreach(println), Source.single(TextMessage.Strict("{}")))(Keep.left)
@@ -54,25 +58,27 @@ class WebsocketServiceIntegrationTest extends AbstractHttpServiceIntegrationTest
     }
   }
 
-  "checking out flow" in withHttpService {
+  "websocket should publish transactions when command create is completed" in withHttpService {
     (uri, _, _) =>  {
+      val payload = TestUtil.readFile("it/iouCreateCommand.json")
+      TestUtil.postJsonStringRequest(uri.withPath(Uri.Path("/command/create")),
+        payload, headersWithAuth)
+
       val webSocketFlow = Http().webSocketClientFlow(
         WebSocketRequest(
           uri = uri.copy(scheme="ws").withPath(Uri.Path("/transactions")),
           subprotocol = validSubprotorol))
 
-      val future = Source.single(TextMessage.Strict("{}"))
+      val clientMsg = Source.single(TextMessage("{}"))
         .via(webSocketFlow)
         .runWith(Sink.fold(Seq.empty[String])(_ :+ _.toString))
 
-      val result = Await.result(future, 10.seconds)
-      println(s"current result: ${result.toString}")
-      assert(result.isEmpty)
+      val result = Await.result(clientMsg, 10.seconds)
+      assert(result.nonEmpty)
+      result.size shouldBe 1
     }
   }
 
   private def wsConnectRequest(uri: Uri, subprotocol: Option[String], flow: Flow[Message, Message, Any]) =
     Http().singleWebSocketRequest(WebSocketRequest(uri = uri, subprotocol = subprotocol), flow)
-
-
 }

@@ -18,6 +18,7 @@ import com.digitalasset.http.json.SprayJson.objectField
 import com.digitalasset.http.json._
 import com.digitalasset.http.util.ClientUtil.boxedRecord
 import com.digitalasset.http.util.FutureUtil.toFuture
+import com.digitalasset.http.util.TestUtil
 import com.digitalasset.http.util.TestUtil.requiredFile
 import com.digitalasset.jwt.JwtSigner
 import com.digitalasset.jwt.domain.{DecodedJwt, Jwt}
@@ -633,28 +634,15 @@ abstract class AbstractHttpServiceIntegrationTest
 
   private def postJsonStringRequest(
       uri: Uri,
-      jsonString: String,
-      headers: List[HttpHeader] = headersWithAuth): Future[(StatusCode, JsValue)] = {
-    logger.info(s"postJson: ${uri.toString} json: ${jsonString: String}")
-    Http()
-      .singleRequest(
-        HttpRequest(
-          method = HttpMethods.POST,
-          uri = uri,
-          headers = headers,
-          entity = HttpEntity(ContentTypes.`application/json`, jsonString))
-      )
-      .flatMap { resp =>
-        val bodyF: Future[String] = getResponseDataBytes(resp, debug = true)
-        bodyF.map(body => (resp.status, body.parseJson))
-      }
-  }
+      jsonString: String
+      ): Future[(StatusCode, JsValue)] =
+   TestUtil.postJsonStringRequest(uri, jsonString, headersWithAuth)
 
   private def postJsonRequest(
       uri: Uri,
       json: JsValue,
       headers: List[HttpHeader] = headersWithAuth): Future[(StatusCode, JsValue)] =
-    postJsonStringRequest(uri, json.prettyPrint, headers)
+    TestUtil.postJsonStringRequest(uri, json.prettyPrint, headers)
 
   private def getRequest(
       uri: Uri,
