@@ -6,7 +6,7 @@
    In `docs/source/support/release-notes.rst`, add a new header and label for
    the new version. (See previous releases as examples.)
 
-   Retrieve the new release notes using the following command:
+   Retrieve the new release notes using the command
 
       `./unreleased.sh <revision range>`
 
@@ -16,11 +16,11 @@
    (See `man gitrevisions` for the full syntax of revision ranges.)
 
    This command outputs each change individually with its appropriate section.
-   You need to group them into sections for the `release-notes.rst` file.
-   (Again, see previous releases for an example.)
+   You need to group them into sections in the `release-notes.rst` file.
+   (Again, see previous releases for examples.)
 
-   The changelog may also specify edits to existing changelog additions,
-   in which case they will be reported with the `WARNING` tag as in the following example:
+   The changelog may also specify edits to existing changelog additions.
+   These are reported with the `WARNING` tag, for example:
 
        CHANGELOG_BEGIN
 
@@ -113,8 +113,8 @@
    and click on the `Edit` button for the new release.
    Combine the release notes from `docs/source/support/release-notes.rst`
    for all releases since the last public release, convert them from RST to
-   markdown, and insert them in the textbox.
-   Uncheck the `This is a pre-release` checkbox at the bottom and finally click
+   Markdown format, and insert them in the textbox.
+   Uncheck the `This is a pre-release` checkbox at the bottom and click
    `Update release`.
 
 1. Now go back to your original release PR on Github.
@@ -126,6 +126,6 @@
    automatically.
 
 1. Documentation is published automatically once the release is public on Github,
-   however the job takes up to an hour to run.
+   however it takes up to an hour to complete.
 
 Thanks for making a release!
