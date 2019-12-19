@@ -14,6 +14,7 @@ import com.digitalasset.platform.indexer.IndexerStartupMode
 
 final case class Config(
     port: Int,
+    address: Option[String], // address for ledger-api server to bind to
     portFile: Option[Path],
     archiveFiles: List[File],
     maxInboundMessageSize: Int,
@@ -34,6 +35,7 @@ object Config {
   def default: Config =
     new Config(
       port = 0,
+      address = None,
       portFile = None,
       archiveFiles = List.empty,
       maxInboundMessageSize = DefaultMaxInboundMessageSize,
