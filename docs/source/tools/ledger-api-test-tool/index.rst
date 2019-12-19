@@ -115,7 +115,7 @@ If you wanted to test out the tool, you can run it against :doc:`DAML Sandbox
 
      $ java -jar ledger-api-test-tool.jar --extract
      $ daml sandbox -- *.dar
-     $ java -jar ledger-api-test-tool.jar localhost:6865 --all-tests
+     $ java -jar ledger-api-test-tool.jar localhost:6865
 
 This should always succeed, as the Sandbox is tested to correctly implement the
 Ledger API. This is useful if you do not have yet a custom Ledger API endpoint.
