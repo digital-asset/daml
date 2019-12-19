@@ -16,6 +16,7 @@ import org.scalatest.{AsyncWordSpec, Matchers}
 
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.util.{Failure, Success}
 
 class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
   "a resource owner" should {
@@ -151,6 +152,84 @@ class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
         throwable should be(a[ResourceAcquisitionFilterException])
         ownerA.hasBeenAcquired should be(false)
         ownerB.hasBeenAcquired should be(false)
+      }
+    }
+
+    "flatten nested resources" in {
+      val innerResourceOwner = new TestResourceOwner(72)
+      val outerResourceOwner = new TestResourceOwner(innerResourceOwner.acquire())
+      val outerResource = outerResourceOwner.acquire()
+
+      val resource = for {
+        resource <- outerResource.flatten
+      } yield {
+        resource should be(72)
+        innerResourceOwner.hasBeenAcquired should be(true)
+        outerResourceOwner.hasBeenAcquired should be(true)
+        resource
+      }
+
+      for {
+        _ <- resource.asFuture
+        _ <- resource.release()
+      } yield {
+        innerResourceOwner.hasBeenAcquired should be(false)
+        outerResourceOwner.hasBeenAcquired should be(false)
+      }
+    }
+
+    "transform success into another resource" in {
+      val ownerA = new TestResourceOwner(1)
+      val ownerB = new TestResourceOwner(2)
+
+      val resource = for {
+        a <- ownerA.acquire()
+        b <- ownerB.acquire()
+      } yield {
+        ownerA.hasBeenAcquired should be(true)
+        ownerB.hasBeenAcquired should be(true)
+        a + b
+      }
+
+      val transformedResource = resource.transformWith {
+        case Success(value) => Resource.pure(value + 1)
+        case Failure(exception) =>
+          Resource.failed[Int](new IllegalStateException("Unexpected failure.", exception))
+      }
+
+      for {
+        value <- transformedResource.asFuture
+        _ <- transformedResource.release()
+      } yield {
+        value should be(4)
+        ownerA.hasBeenAcquired should be(false)
+        ownerB.hasBeenAcquired should be(false)
+      }
+    }
+
+    "transform failure into another resource" in {
+      val ownerA = new TestResourceOwner(1)
+      val ownerB = new FailingResourceOwner[Int]()
+
+      val resource = for {
+        a <- ownerA.acquire()
+        b <- ownerB.acquire()
+      } yield {
+        ownerA.hasBeenAcquired should be(true)
+        a + b
+      }
+
+      val transformedResource = resource.transformWith {
+        case Success(_) => Resource.failed[String](new IllegalStateException("Unexpected success."))
+        case Failure(_) => Resource.pure("something")
+      }
+
+      for {
+        value <- transformedResource.asFuture
+        _ <- transformedResource.release()
+      } yield {
+        value should be("something")
+        ownerA.hasBeenAcquired should be(false)
       }
     }
 

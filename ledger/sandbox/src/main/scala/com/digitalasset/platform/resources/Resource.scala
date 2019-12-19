@@ -9,7 +9,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import scala.collection.generic.CanBuildFrom
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 trait Resource[A] {
   self =>
@@ -52,6 +52,21 @@ trait Resource[A] {
           Future.failed(new ResourceAcquisitionFilterException()))
     Resource(future, _ => Future.successful(()), release _)
   }
+
+  def flatten[B](
+      implicit nestedEvidence: <:<[A, Resource[B]],
+      executionContext: ExecutionContext,
+  ): Resource[B] =
+    flatMap(nested => nested)
+
+  def transformWith[B](f: Try[A] => Resource[B])(
+      implicit executionContext: ExecutionContext
+  ): Resource[B] =
+    Resource(
+      asFuture.transformWith(f.andThen(Future.successful)),
+      (nested: Resource[B]) => nested.release(),
+      release _,
+    ).flatten
 
   def vary[B >: A]: Resource[B] = asInstanceOf[Resource[B]]
 }
