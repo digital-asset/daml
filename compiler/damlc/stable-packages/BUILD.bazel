@@ -46,6 +46,7 @@ genrule(
     visibility = ["//visibility:public"],
 )
 
+# If you change this you also need to update generateStablePackages in Development.IDE.Core.Rules.Daml
 filegroup(
     name = "stable-packages",
     srcs = [
