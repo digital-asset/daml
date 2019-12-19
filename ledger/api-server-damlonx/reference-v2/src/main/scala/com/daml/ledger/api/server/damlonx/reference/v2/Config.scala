@@ -14,7 +14,7 @@ import com.digitalasset.platform.indexer.IndexerStartupMode
 
 final case class Config(
     port: Int,
-    address: Option[String], // address for ledger-api server to bind to
+    address: Option[String], // address for ledger-api server to bind to, defaulting to `localhost` for None
     portFile: Option[Path],
     archiveFiles: List[File],
     maxInboundMessageSize: Int,

@@ -4,7 +4,7 @@
 package com.digitalasset.platform.apiserver
 
 import java.io.IOException
-import java.net.{BindException, InetSocketAddress}
+import java.net.{BindException, InetSocketAddress, InetAddress}
 import java.util.UUID
 import java.util.concurrent.TimeUnit.{MILLISECONDS, SECONDS}
 
