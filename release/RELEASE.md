@@ -1,18 +1,26 @@
 # Making a Release
 
-1. Make a PR that bumps the version number in the `VERSION`
-   file and adds a new header and label for the new version in
-   `docs/source/support/release-notes.rst` (see previous releases as examples).
-   Release notes additions can be retrieved from commits using the following command:
+1. Make sure you have the latest master branch of the `daml` repository and
+   create a new local branch from that.
+   Bump the version number in the `VERSION` file.
+   In `docs/source/support/release-notes.rst`, add a new header and label for
+   the new version. (See previous releases as examples.)
 
-     ./unreleased.sh <revision range>
+   Retrieve the new release notes using the following command:
 
-   where `<revision range>` is the expressions (documented under `man gitrevisions`) to only read the relevant commits since the last release.
-   If, for example, the previous release is tagged as `v0.13.36` the `<revision range>` for all commits since then is `v0.13.36..`.
-   Each change outlined by the output of this command is preceded by the section to
-   which it belongs: create one entry per section and add all pertaining
-   items (without the section tag) to the release notes.
-   Note that the changelog may also specify edits to existing changelog additions, in which case they will be reported with the `WARNING` tag as in the following example:
+      `./unreleased.sh <revision range>`
+
+   where `<revision range>` refers to all commits since the last release.
+   For example, if the previous release was `v0.13.36` then use the range `v0.13.36..`
+   to refer to all commits since that release tag.
+   (See `man gitrevisions` for the full syntax of revision ranges.)
+
+   This command outputs each change individually with its appropriate section.
+   You need to group them into sections for the `release-notes.rst` file.
+   (Again, see previous releases for an example.)
+
+   The changelog may also specify edits to existing changelog additions,
+   in which case they will be reported with the `WARNING` tag as in the following example:
 
        CHANGELOG_BEGIN
 
@@ -22,16 +30,22 @@
 
        CHANGELOG_END
 
-   It is important that the PR only changes `VERSION`, `release-notes.rst`.
-   Note that `VERSION` and `release-notes.rst` must be modified even if
-   there have been no changes that have been added to the release notes so far.
-1. Merge the PR.
+   You will need to manually incorporate such edits to the changelog.
+
+   Once this is done, create a Github pull request (PR) with the above changes
+   to the `VERSION` and `release-notes.rst` files.
+   It is important that your PR changes exactly these two files.
+   Both files must be modified, even if there are no additional release notes.
+
+1. Get a review and approval on your PR and then merge it into master.
+
 1. Once CI has passed for the corresponding master build, the release should be
    available on Bintray, Maven Central and GitHub and have a Git tag. The release
    should be visible on GitHub with _prerelease_ status, meaning it's not yet ready
    for production. The release notes should not be defined yet and will be adjusted
    later on. Maven central has a slight delay of around 20 minutes until the new
    version is visible.
+
 1. Run through the following test plan on Linux or MacOS:
 
    1. Install the SDK using `curl -sSL https://get.daml.com/ | sh -s X.XX.XX`,
