@@ -127,9 +127,14 @@ To test your ledger in a CI pipeline, run it as part of your pipeline:
 
    .. code-block:: console
 
-     $ java -jar ledger-api-test-tool.jar localhost:6865 --all-tests --exclude=TimeIT
+     $ java -jar ledger-api-test-tool.jar localhost:6865 --all-tests --exclude=TimeIT,LotsOfPartiesIT,TransactionScaleIT
      $ echo $?
      0
+
+The reason for exclusion of these tests is listed below :
+TimeIT: Only relevant for a ledger implementation where time can be controlled, but not relevant for a realtime wallclock ledger implementation
+LotsOfPartiesIT: stresses the system by quickly creating a large number of parties.  It can be run explicitly if you are intending to stress test the ledger, but need not be run for baseline functional conformance
+TransactionScaleIT: a transaction scaling test only to be run if particularly focusing on scalability and stress testing
 
 The tool is tailored to be used in CI pipelines: as customary, when the tests
 succeed, it will produce minimal output and return the success exit code.
