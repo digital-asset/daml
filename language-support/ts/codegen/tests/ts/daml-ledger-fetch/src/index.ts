@@ -191,8 +191,14 @@ class Ledger {
       choice: choice.choiceName,
       argument,
     };
+
     const json = await this.submit('command/exercise', payload);
-    return jtv.Result.withException(jtv.tuple([choice.resultDecoder(), jtv.array(decodeEventUnknown())]).run(json));
+    // Decode the server response into a tuple.
+    const responseDecoder: jtv.Decoder<{_1: R; _2: Event<unknown>[]}> = jtv.object ({_1: choice.resultDecoder(), _2: jtv.array(decodeEventUnknown())});
+    const response: {_1: R; _2: Event<unknown>[]} = jtv.Result.withException(responseDecoder.run(json));
+    const result: [R, Event<unknown>[]] = [response._1, response._2]; // Unpack record fields into a tuple.
+
+    return result;
   }
 
   /**
