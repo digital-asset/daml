@@ -7,7 +7,7 @@ import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 
 import akka.actor.ActorSystem
-import akka.stream.{ActorMaterializer, ActorMaterializerSettings, Supervision}
+import akka.stream.Materializer
 import com.codahale.metrics.SharedMetricRegistries
 import com.daml.ledger.participant.state.v1.SubmissionId
 import com.daml.ledger.api.server.damlonx.reference.v2.cli.Cli
@@ -37,12 +37,7 @@ object ReferenceServer extends App {
       .getOrElse(sys.exit(1))
 
   implicit val system: ActorSystem = ActorSystem("indexed-kvutils")
-  implicit val materializer: ActorMaterializer = ActorMaterializer(
-    ActorMaterializerSettings(system)
-      .withSupervisionStrategy { e =>
-        logger.error(s"Supervision caught exception: $e")
-        Supervision.Stop
-      })
+  implicit val materializer: Materializer = Materializer(system)
   implicit val ec: ExecutionContext = system.dispatcher
 
   val ledger = new InMemoryKVParticipantState(config.participantId)

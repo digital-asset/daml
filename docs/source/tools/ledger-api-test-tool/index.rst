@@ -17,8 +17,6 @@ a DAML ledger on top of their distributed-ledger or database of choice.
 Use this tool to verify if your Ledger API endpoint conforms to the :doc:`DA
 Ledger Model </concepts/ledger-model/index>`.
 
-Please note that currently the tool is in experimental status.
-
 Downloading the tool
 ====================
 
@@ -26,7 +24,7 @@ Run the following command to fetch the tool:
 
 .. code-block:: shell
 
-     curl -L 'https://bintray.com/api/v1/content/digitalassetsdk/DigitalAssetSDK/com/daml/ledger/testtool/ledger-api-test-tool_2.12/$latest/ledger-api-test-tool_2.12-$latest.jar?bt_package=sdk-components' -o ledger-api-test-tool.jar
+     curl -L 'https://bintray.com/api/v1/content/digitalassetsdk/DigitalAssetSDK/com/daml/ledger/testtool/ledger-api-test-tool/$latest/ledger-api-test-tool-$latest.jar?bt_package=sdk-components' -o ledger-api-test-tool.jar
 
 This will create a file ``ledger-api-test-tool.jar`` in your current directory.
 
@@ -117,7 +115,7 @@ If you wanted to test out the tool, you can run it against :doc:`DAML Sandbox
 
      $ java -jar ledger-api-test-tool.jar --extract
      $ daml sandbox -- *.dar
-     $ java -jar ledger-api-test-tool.jar
+     $ java -jar ledger-api-test-tool.jar localhost:6865
 
 This should always succeed, as the Sandbox is tested to correctly implement the
 Ledger API. This is useful if you do not have yet a custom Ledger API endpoint.
@@ -129,9 +127,14 @@ To test your ledger in a CI pipeline, run it as part of your pipeline:
 
    .. code-block:: console
 
-     $ java -jar ledger-api-test-tool localhost:6865 2>&1 /dev/null
+     $ java -jar ledger-api-test-tool.jar localhost:6865 --all-tests --exclude=TimeIT,LotsOfPartiesIT,TransactionScaleIT
      $ echo $?
      0
+
+The reason for exclusion of these tests is listed below :
+TimeIT: Only relevant for a ledger implementation where time can be controlled, but not relevant for a realtime wallclock ledger implementation
+LotsOfPartiesIT: stresses the system by quickly creating a large number of parties.  It can be run explicitly if you are intending to stress test the ledger, but need not be run for baseline functional conformance
+TransactionScaleIT: a transaction scaling test only to be run if particularly focusing on scalability and stress testing
 
 The tool is tailored to be used in CI pipelines: as customary, when the tests
 succeed, it will produce minimal output and return the success exit code.
@@ -149,9 +152,6 @@ This is useful during development of a DAML ledger implementation, when tool
 needs to be used against a known-to-be-faulty implementation (e.g. in CI). It
 will still print information about failed tests.
 
-We used this flag during tool development to ensure that the tool does not
-always return success.
-
 Tuning the testing behaviour of the tool
 ========================================
 
@@ -167,3 +167,15 @@ Use the command line options ``--timeout-scale-factor`` and
   The default value is 1.0 and will be applied to the default TTL, which is the
   maximum TTL as returned by the LedgerConfigurationService. In any case,
   the used TTL value will be clipped to stay between the minimum and maximum TTL.
+
+Verbose output
+==============
+
+Use the command line option ``--verbose`` to print full stacktraces on failures
+
+Concurrent test runs
+====================
+
+To minimize parallelized runs of tests, ``--concurrent-test-runs`` can be set to 1 or 2.
+The default value is the number of processors available
+

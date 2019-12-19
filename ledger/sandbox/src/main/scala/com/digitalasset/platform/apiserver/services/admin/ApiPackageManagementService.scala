@@ -8,7 +8,7 @@ import java.util.zip.ZipInputStream
 import java.util.UUID
 
 import akka.actor.Scheduler
-import akka.stream.{ActorMaterializer, Materializer}
+import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.daml.ledger.participant.state.v1.{SubmissionId, SubmissionResult, WritePackagesService}
 import com.daml.ledger.participant.state.index.v2.{IndexPackagesService, IndexTransactionsService}
@@ -132,7 +132,7 @@ object ApiPackageManagementService {
       transactionsService: IndexTransactionsService,
       writeBackend: WritePackagesService,
       timeProvider: TimeProvider,
-      loggerFactory: NamedLoggerFactory)(implicit mat: ActorMaterializer)
+      loggerFactory: NamedLoggerFactory)(implicit mat: Materializer)
     : PackageManagementServiceGrpc.PackageManagementService with GrpcApiService =
     new ApiPackageManagementService(
       readBackend,

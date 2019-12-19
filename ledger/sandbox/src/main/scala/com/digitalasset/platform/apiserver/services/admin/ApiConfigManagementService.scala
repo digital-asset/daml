@@ -3,7 +3,7 @@
 
 package com.digitalasset.platform.apiserver.services.admin
 
-import akka.stream.ActorMaterializer
+import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.daml.ledger.participant.state.index.v2.IndexConfigManagementService
 import com.daml.ledger.participant.state.v1
@@ -35,7 +35,7 @@ class ApiConfigManagementService private (
     writeService: WriteConfigService,
     timeProvider: TimeProvider,
     defaultConfiguration: Configuration,
-    materializer: ActorMaterializer,
+    materializer: Materializer,
     loggerFactory: NamedLoggerFactory
 ) extends ConfigManagementService
     with GrpcApiService {
@@ -193,7 +193,7 @@ object ApiConfigManagementService {
       writeBackend: WriteConfigService,
       timeProvider: TimeProvider,
       defaultConfiguration: Configuration,
-      loggerFactory: NamedLoggerFactory)(implicit mat: ActorMaterializer)
+      loggerFactory: NamedLoggerFactory)(implicit mat: Materializer)
     : ConfigManagementServiceGrpc.ConfigManagementService with GrpcApiService =
     new ApiConfigManagementService(
       readBackend,

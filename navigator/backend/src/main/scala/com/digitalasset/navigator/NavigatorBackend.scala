@@ -24,10 +24,13 @@ object NavigatorBackend extends UIBackend {
   )
   override def banner: Option[String] =
     Some(
-      Source
-        .fromResource("banner.txt")
-        .getLines
-        .mkString("\n") + "\nVersion " + applicationInfo.version)
+      raw"""   _  __          _           __
+        |  / |/ /__ __  __(_)__ ____ _/ /____  ____
+        | /    / _ `/ |/ / / _ `/ _ `/ __/ _ \/ __/
+        |/_/|_/\_,_/|___/_/\_, /\_,_/\__/\___/_/
+        |                 /___/
+        |Version """.stripMargin + applicationInfo.version
+    )
 
   /** Frontend config file */
   private val frontendConfigRoute: Route = {

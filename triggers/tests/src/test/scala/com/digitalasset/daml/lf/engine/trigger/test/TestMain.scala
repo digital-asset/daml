@@ -106,7 +106,7 @@ class TestRunner(val config: Config) extends StrictLogging {
       // Identifier of the trigger value
       triggerId: Identifier,
       // Commands to interact with the trigger
-      commands: (LedgerClient, String) => ExecutionContext => ActorMaterializer => Future[A],
+      commands: (LedgerClient, String) => ExecutionContext => Materializer => Future[A],
       // the number of messages that should be delivered to the trigger
       numMessages: NumMessages,
       // assertion on final state
@@ -121,7 +121,7 @@ class TestRunner(val config: Config) extends StrictLogging {
 
     val system = ActorSystem("TriggerRunner")
     val sequencer = new AkkaExecutionSequencerPool("TriggerRunnerPool")(system)
-    implicit val materializer: ActorMaterializer = ActorMaterializer()(system)
+    implicit val materializer: Materializer = Materializer(system)
     implicit val ec: ExecutionContext = system.dispatcher
 
     val party = getNewParty()
@@ -223,7 +223,7 @@ case class AcsTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
       numMessages: NumMessages,
       numSuccCompletions: SuccessfulCompletions,
       numFailedCompletions: FailedCompletions,
-      commands: (LedgerClient, String) => ExecutionContext => ActorMaterializer => Future[
+      commands: (LedgerClient, String) => ExecutionContext => Materializer => Future[
         (Set[String], ActiveAssetMirrors)]) = {
     def assertFinalState(finalState: SExpr, commandsR: (Set[String], ActiveAssetMirrors)) = {
       finalState match {
@@ -279,7 +279,7 @@ case class AcsTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
   // Create a contract and return the contract id.
   def create(client: LedgerClient, party: String, commandId: String)(
       implicit ec: ExecutionContext,
-      materializer: ActorMaterializer): Future[String] = {
+      materializer: Materializer): Future[String] = {
     val commands = Seq(
       Command().withCreate(CreateCommand(
         templateId = Some(assetId),
@@ -313,7 +313,7 @@ case class AcsTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
   // Archive the contract with the given id.
   def archive(client: LedgerClient, party: String, commandId: String, contractId: String)(
       implicit ec: ExecutionContext,
-      materializer: ActorMaterializer): Future[Unit] = {
+      materializer: Materializer): Future[Unit] = {
     val archiveVal = Some(
       value
         .Value()
@@ -369,7 +369,7 @@ case class AcsTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
       NumMessages(6),
       SuccessfulCompletions(2),
       FailedCompletions(0),
-      (client, party) => { implicit ec: ExecutionContext => implicit mat: ActorMaterializer =>
+      (client, party) => { implicit ec: ExecutionContext => implicit mat: Materializer =>
         {
           for {
             contractId <- create(client, party, "1.0")
@@ -388,7 +388,7 @@ case class AcsTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
       NumMessages(12),
       SuccessfulCompletions(4),
       FailedCompletions(0),
-      (client, party) => { implicit ec: ExecutionContext => implicit mat: ActorMaterializer =>
+      (client, party) => { implicit ec: ExecutionContext => implicit mat: Materializer =>
         {
           for {
             contractId1 <- create(client, party, "2.0")
@@ -409,7 +409,7 @@ case class AcsTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
       NumMessages(16),
       SuccessfulCompletions(4),
       FailedCompletions(0),
-      (client, party) => { implicit ec: ExecutionContext => implicit mat: ActorMaterializer =>
+      (client, party) => { implicit ec: ExecutionContext => implicit mat: Materializer =>
         {
           for {
             contractId1 <- create(client, party, "3.0")
@@ -441,7 +441,7 @@ case class CopyTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
       numOriginals: Int,
       numSubscribers: Int,
       numCopies: Int,
-      commands: (LedgerClient, String) => ExecutionContext => ActorMaterializer => Future[Unit]) = {
+      commands: (LedgerClient, String) => ExecutionContext => Materializer => Future[Unit]) = {
     def assertFinalState(finalState: SExpr, commandsR: Unit) = Right(())
     def assertFinalACS(
         acs: Map[Identifier, Seq[(String, Lf.ValueRecord[Lf.AbsoluteContractId])]],
@@ -473,7 +473,7 @@ case class CopyTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
 
   def createOriginal(client: LedgerClient, owner: String, name: String, commandId: String)(
       implicit ec: ExecutionContext,
-      mat: ActorMaterializer): Future[Unit] = {
+      mat: Materializer): Future[Unit] = {
     val commands = Seq(
       Command().withCreate(CreateCommand(
         templateId = Some(toApiIdentifier(originalId)),
@@ -506,7 +506,7 @@ case class CopyTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
       client: LedgerClient,
       subscriber: String,
       subscribedTo: String,
-      commandId: String)(implicit ec: ExecutionContext, mat: ActorMaterializer): Future[Unit] = {
+      commandId: String)(implicit ec: ExecutionContext, mat: Materializer): Future[Unit] = {
     val commands = Seq(
       Command().withCreate(CreateCommand(
         templateId = Some(toApiIdentifier(subscriberId)),
@@ -543,7 +543,7 @@ case class CopyTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
       numOriginals = 1,
       numSubscribers = 0,
       numCopies = 0,
-      (client, party) => { implicit ec: ExecutionContext => implicit mat: ActorMaterializer =>
+      (client, party) => { implicit ec: ExecutionContext => implicit mat: Materializer =>
         {
           for {
             _ <- createOriginal(client, owner = party, name = "original0", "0.0")
@@ -562,7 +562,7 @@ case class CopyTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
       numOriginals = 1,
       numSubscribers = 1,
       numCopies = 1,
-      (client, party) => { implicit ec: ExecutionContext => implicit mat: ActorMaterializer =>
+      (client, party) => { implicit ec: ExecutionContext => implicit mat: Materializer =>
         {
           for {
             _ <- createOriginal(client, owner = party, name = "original0", "1.0")
@@ -582,7 +582,7 @@ case class CopyTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
       numOriginals = 2,
       numSubscribers = 1,
       numCopies = 2,
-      (client, party) => { implicit ec: ExecutionContext => implicit mat: ActorMaterializer =>
+      (client, party) => { implicit ec: ExecutionContext => implicit mat: Materializer =>
         {
           for {
             _ <- createOriginal(client, owner = party, name = "original0", "2.0")
@@ -618,7 +618,7 @@ case class RetryTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
       } yield ()
     }
     runner.genericTest(name, dar, triggerId, (_, _) => { implicit ec: ExecutionContext =>
-      { implicit mat: ActorMaterializer =>
+      { implicit mat: Materializer =>
         Future {}
       }
     }, numMessages, assertFinalState, assertFinalACS)
@@ -662,7 +662,7 @@ case class ExerciseByKeyTests(dar: Dar[(PackageId, Package)], runner: TestRunner
       } yield ()
     }
     runner.genericTest(name, dar, triggerId, (_, _) => { implicit ec: ExecutionContext =>
-      { implicit mat: ActorMaterializer =>
+      { implicit mat: Materializer =>
         Future {}
       }
     }, numMessages, assertFinalState, assertFinalACS)
@@ -700,7 +700,7 @@ case class NumericTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
       TestRunner.assertEqual(actualTValues, tValues, "T values")
     }
     runner.genericTest(name, dar, triggerId, (_, _) => { implicit ec: ExecutionContext =>
-      { implicit mat: ActorMaterializer =>
+      { implicit mat: Materializer =>
         Future {}
       }
     }, numMessages, assertFinalState, assertFinalACS)
@@ -737,7 +737,7 @@ case class CommandIdTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
         acs: Map[Identifier, Seq[(String, Lf.ValueRecord[Lf.AbsoluteContractId])]],
         commandsR: Unit) = Right(())
     runner.genericTest(name, dar, triggerId, (_, _) => { implicit ec: ExecutionContext =>
-      { implicit mat: ActorMaterializer =>
+      { implicit mat: Materializer =>
         Future {}
       }
     }, numMessages, assertFinalState, assertFinalACS)
@@ -778,7 +778,7 @@ case class PendingTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
       TestRunner.assertEqual(numBoo, expectedNumBoo, "active Boo")
     }
     runner.genericTest(name, dar, triggerId, (_, _) => {
-      implicit ec: ExecutionContext => implicit mat: ActorMaterializer =>
+      implicit ec: ExecutionContext => implicit mat: Materializer =>
         Future.unit
     }, numMessages, assertFinalState, assertFinalACS)
   }
@@ -836,7 +836,7 @@ case class TemplateFilterTests(dar: Dar[(PackageId, Package)], runner: TestRunne
       } yield ()
     }
     def cmds(client: LedgerClient, party: String) = { implicit ec: ExecutionContext =>
-      { implicit mat: ActorMaterializer =>
+      { implicit mat: Materializer =>
         for {
           _ <- createOne(client, party, "createOne")
           _ <- createTwo(client, party, "createTwo")
@@ -850,7 +850,7 @@ case class TemplateFilterTests(dar: Dar[(PackageId, Package)], runner: TestRunne
 
   def create(client: LedgerClient, party: String, commandId: String, templateId: value.Identifier)(
       implicit ec: ExecutionContext,
-      materializer: ActorMaterializer): Future[Unit] = {
+      materializer: Materializer): Future[Unit] = {
     val commands = Seq(
       Command().withCreate(CreateCommand(
         templateId = Some(templateId),
@@ -882,12 +882,12 @@ case class TemplateFilterTests(dar: Dar[(PackageId, Package)], runner: TestRunne
 
   def createOne(client: LedgerClient, party: String, commandId: String)(
       implicit ec: ExecutionContext,
-      materializer: ActorMaterializer): Future[Unit] =
+      materializer: Materializer): Future[Unit] =
     create(client, party, commandId, oneId)
 
   def createTwo(client: LedgerClient, party: String, commandId: String)(
       implicit ec: ExecutionContext,
-      materializer: ActorMaterializer): Future[Unit] = create(client, party, commandId, twoId)
+      materializer: Materializer): Future[Unit] = create(client, party, commandId, twoId)
 
   def runTests() = {
     test(
@@ -964,7 +964,7 @@ case class TimeTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
       Right(())
     }
     def cmds(client: LedgerClient, party: String) = { implicit ec: ExecutionContext =>
-      { implicit mat: ActorMaterializer =>
+      { implicit mat: Materializer =>
         Future {}
       }
     }

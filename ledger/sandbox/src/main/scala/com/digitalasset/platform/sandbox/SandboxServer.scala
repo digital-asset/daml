@@ -7,7 +7,7 @@ import java.io.{File, FileWriter}
 import java.time.Instant
 
 import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
+import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.participant.state.{v1 => ParticipantState}
@@ -83,7 +83,7 @@ object SandboxServer {
     }
   }
 
-  private final class Infrastructure(actorSystem: ActorSystem, val materializer: ActorMaterializer)
+  private final class Infrastructure(actorSystem: ActorSystem, val materializer: Materializer)
       extends AutoCloseable {
     def executionContext: ExecutionContext = materializer.executionContext
 
@@ -176,7 +176,7 @@ final class SandboxServer(config: => SandboxConfig) extends AutoCloseable {
       packageStore: InMemoryPackageStore,
       startMode: SqlStartMode = SqlStartMode.ContinueIfExists,
   ): ApiServerState = {
-    implicit val mat: ActorMaterializer = infra.materializer
+    implicit val mat: Materializer = infra.materializer
     implicit val ec: ExecutionContext = infra.executionContext
 
     val ledgerId = config.ledgerIdMode match {
@@ -250,7 +250,7 @@ final class SandboxServer(config: => SandboxConfig) extends AutoCloseable {
 
     val apiServer = Await.result(
       LedgerApiServer.start(
-        (am: ActorMaterializer, esf: ExecutionSequencerFactory) =>
+        (mat: Materializer, esf: ExecutionSequencerFactory) =>
           ApiServices
             .create(
               indexAndWriteService.writeService,
@@ -265,7 +265,7 @@ final class SandboxServer(config: => SandboxConfig) extends AutoCloseable {
               loggerFactory,
               metrics,
               healthChecks,
-            )(am, esf)
+            )(mat, esf)
             .map(_.withServices(List(resetService(ledgerId, authorizer, loggerFactory)))),
         // NOTE(JM): Re-use the same port after reset.
         Option(sandboxState).fold(config.port)(_.apiServerState.port),
@@ -307,7 +307,7 @@ final class SandboxServer(config: => SandboxConfig) extends AutoCloseable {
 
   private def start(): SandboxState = {
     val actorSystem = ActorSystem(ActorSystemName)
-    val infrastructure = new Infrastructure(actorSystem, ActorMaterializer()(actorSystem))
+    val infrastructure = new Infrastructure(actorSystem, Materializer(actorSystem))
     try {
       val packageStore = loadDamlPackages()
       val apiState = buildAndStartApiServer(infrastructure, packageStore)

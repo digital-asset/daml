@@ -12,32 +12,6 @@ module DA.Internal.Template where
 
 -- This module should only define stable types.
 
-import DA.Internal.LF
-import DA.Internal.Prelude
-
-data NonConsuming t = NonConsuming {}
-data PreConsuming t = PreConsuming {}
-data PostConsuming t = PostConsuming {}
-
 -- | The data type corresponding to the implicit `Archive`
 -- choice in every template.
 data Archive = Archive {}
-  deriving (Eq, Show)
-
--- | Unique textual representation of a template Id.
-newtype TemplateTypeRep = TemplateTypeRep { getTemplateTypeRep : TypeRep }
-
--- | Existential template type that can wrap an arbitrary template.
-newtype AnyTemplate = AnyTemplate { getAnyTemplate : Any }
-
--- | Existential contract key type that can wrap an arbitrary contract key.
-data AnyContractKey = AnyContractKey
-  { getAnyContractKey : Any
-  , getanyContractKeyTemplateRep : TemplateTypeRep
-  }
-
--- | Existential choice type that can wrap an arbitrary choice.
-data AnyChoice = AnyChoice
-  { getAnyChoice : Any
-  , getAnyChoiceTemplateTypRep : TemplateTypeRep
-  }

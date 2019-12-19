@@ -5,7 +5,7 @@ package com.digitalasset.platform.sandbox.perf
 
 import java.io.File
 
-import akka.stream.ActorMaterializer
+import akka.stream.Materializer
 import ch.qos.logback.classic.Level
 import com.daml.ledger.participant.state.v1.TimeModel
 import com.digitalasset.daml.lf.archive.UniversalArchiveReader
@@ -48,7 +48,7 @@ object LedgerFactories {
 
   def createSandboxResource(store: String, darFiles: List[File])(
       implicit esf: ExecutionSequencerFactory,
-      mat: ActorMaterializer): Resource[LedgerContext] = {
+      mat: Materializer): Resource[LedgerContext] = {
     def createResource(sandboxConfig: SandboxConfig): Resource[LedgerContext] =
       SandboxServerResource(sandboxConfig).map(
         new LedgerContext(_, darFiles.map(getPackageIdOrThrow)))

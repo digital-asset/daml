@@ -7,7 +7,6 @@ import java.time
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicInteger
 
-import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.api.util.TimestampConversion._
@@ -74,7 +73,7 @@ final class CommandStaticTimeIT
 
   private lazy val unwrappedLedgerId = ledgerId().unwrap
 
-  private def createCommandClient()(implicit mat: Materializer): Future[CommandClient] =
+  private def createCommandClient(): Future[CommandClient] =
     StaticTime
       .updatedVia(TimeServiceGrpc.stub(channel), unwrappedLedgerId)
       .recover { case NonFatal(_) => TimeProvider.UTC }(DirectExecutionContext)

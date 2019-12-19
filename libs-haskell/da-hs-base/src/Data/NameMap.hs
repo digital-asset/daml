@@ -45,6 +45,7 @@ module Data.NameMap
 
   -- * Conversions
   , toList
+  , singleton
   , fromList
   , fromListEither
   , toHashMap
@@ -163,6 +164,9 @@ fromListEither xs = insertManyEither xs empty
 
 fromList :: (HasCallStack, Named a) => [a] -> NameMap a
 fromList xs = errorOnDuplicate "fromList" $ fromListEither xs
+
+singleton :: (HasCallStack, Named a) => a -> NameMap a
+singleton x = fromList [x]
 
 member :: Named a => Name a -> NameMap a -> Bool
 member n = HMS.member n . toHashMap

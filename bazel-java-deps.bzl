@@ -1,6 +1,10 @@
 # Copyright (c) 2019 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+# When adding, removing or changing a dependency in this file, update the pinned dependencies by executing
+# $ bazel run @unpinned_maven//:pin
+# See https://github.com/bazelbuild/rules_jvm_external#updating-maven_installjson
+
 load("@rules_jvm_external//:defs.bzl", "maven_install")
 
 def install_java_deps():
@@ -44,14 +48,14 @@ def install_java_deps():
             "com.thesamet.scalapb:protoc-bridge_2.12:0.7.8",
             "com.thesamet.scalapb:scalapb-runtime_2.12:0.9.0",
             "com.thesamet.scalapb:scalapb-runtime-grpc_2.12:0.9.0",
-            "com.typesafe.akka:akka-actor_2.12:2.5.23",
-            "com.typesafe.akka:akka-http_2.12:10.1.9",
-            "com.typesafe.akka:akka-http-spray-json_2.12:10.1.9",
-            "com.typesafe.akka:akka-http-testkit_2.12:10.1.9",
-            "com.typesafe.akka:akka-slf4j_2.12:2.5.23",
-            "com.typesafe.akka:akka-stream_2.12:2.5.23",
-            "com.typesafe.akka:akka-stream-testkit_2.12:2.5.23",
-            "com.typesafe.akka:akka-testkit_2.12:2.5.23",
+            "com.typesafe.akka:akka-actor_2.12:2.6.1",
+            "com.typesafe.akka:akka-http_2.12:10.1.11",
+            "com.typesafe.akka:akka-http-spray-json_2.12:10.1.11",
+            "com.typesafe.akka:akka-http-testkit_2.12:10.1.11",
+            "com.typesafe.akka:akka-slf4j_2.12:2.6.1",
+            "com.typesafe.akka:akka-stream_2.12:2.6.1",
+            "com.typesafe.akka:akka-stream-testkit_2.12:2.6.1",
+            "com.typesafe.akka:akka-testkit_2.12:2.6.1",
             "com.typesafe.play:anorm_2.12:2.5.3",
             "com.typesafe.play:anorm-akka_2.12:2.5.3",
             "com.typesafe.scala-logging:scala-logging_2.12:3.9.2",
@@ -139,9 +143,6 @@ def install_java_deps():
             "uk.co.datumedge:hamcrest-json:0.2",
         ],
         fetch_sources = True,
-        # Update by executing
-        # $ bazel run @unpinned_maven//:pin
-        # See https://github.com/bazelbuild/rules_jvm_external#updating-maven_installjson
         maven_install_json = "@com_github_digital_asset_daml//:maven_install.json",
         override_targets = {
             # Replacements for core Scala libraries.

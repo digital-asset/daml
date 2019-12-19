@@ -7,13 +7,15 @@ package value.json
 import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import data.{Decimal, ImmArray, Ref, SortedLookupList, Time}
 import value.json.{NavigatorModelAliases => model}
-import value.TypedValueGenerators.{genAddend, genTypeAndValue, ValueAddend => VA}
+import value.TypedValueGenerators.{ValueAddend => VA, RNil, genAddend, genTypeAndValue}
 import ApiCodecCompressed.{apiValueToJsValue, jsValueToApiValue}
 import com.digitalasset.ledger.service.MetadataReader
 import org.scalactic.source
 import org.scalatest.{Matchers, WordSpec}
 import org.scalatest.prop.{GeneratorDrivenPropertyChecks, TableDrivenPropertyChecks}
 import org.scalacheck.{Arbitrary, Gen}
+import shapeless.{Coproduct => HSum}
+import shapeless.record.{Record => HRecord}
 import spray.json._
 import scalaz.syntax.show._
 
@@ -25,6 +27,7 @@ class ApiCodecCompressedSpec
     with Matchers
     with GeneratorDrivenPropertyChecks
     with TableDrivenPropertyChecks {
+  import C.typeLookup
 
   private val dar = new java.io.File(rlocation("ledger-service/lf-value-json/JsonEncodingTest.dar"))
   require(dar.exists())
@@ -52,6 +55,79 @@ class ApiCodecCompressedSpec
 
   private def roundtrip(va: VA)(v: va.Inj[Cid]): Option[va.Inj[Cid]] =
     va.prj(jsValueToApiValue(apiValueToJsValue(va.inj(v)), va.t, typeLookup))
+
+  private object C /* based on navigator DamlConstants */ {
+    import shapeless.syntax.singleton._
+    val packageId0 = Ref.PackageId assertFromString "hash"
+    val moduleName0 = Ref.ModuleName assertFromString "Module"
+    def defRef(name: String) =
+      Ref.Identifier(
+        packageId0,
+        Ref.QualifiedName(moduleName0, Ref.DottedName assertFromString name))
+    val emptyRecordId = defRef("EmptyRecord")
+    val (emptyRecordDDT, emptyRecordT) = VA.record(emptyRecordId, RNil)
+    val simpleRecordId = defRef("SimpleRecord")
+    val simpleRecordVariantSpec = 'fA ->> VA.text :: 'fB ->> VA.int64 :: RNil
+    val (simpleRecordDDT, simpleRecordT) =
+      VA.record(simpleRecordId, simpleRecordVariantSpec)
+    val simpleRecordV: simpleRecordT.Inj[Cid] = HRecord(fA = "foo", fB = 100L)
+
+    val simpleVariantId = defRef("SimpleVariant")
+    val (simpleVariantDDT, simpleVariantT) =
+      VA.variant(simpleVariantId, simpleRecordVariantSpec)
+    val simpleVariantV = HSum[simpleVariantT.Inj[Cid]]('fA ->> "foo")
+
+    val complexRecordId = defRef("ComplexRecord")
+    val (complexRecordDDT, complexRecordT) =
+      VA.record(
+        complexRecordId,
+        'fText ->> VA.text
+          :: 'fBool ->> VA.bool
+          :: 'fDecimal ->> VA.numeric(Decimal.scale)
+          :: 'fUnit ->> VA.unit
+          :: 'fInt64 ->> VA.int64
+          :: 'fParty ->> VA.party
+          :: 'fContractId ->> VA.contractId
+          :: 'fListOfText ->> VA.list(VA.text)
+          :: 'fListOfUnit ->> VA.list(VA.unit)
+          :: 'fDate ->> VA.date
+          :: 'fTimestamp ->> VA.timestamp
+          :: 'fOptionalText ->> VA.optional(VA.text)
+          :: 'fOptionalUnit ->> VA.optional(VA.unit)
+          :: 'fOptOptText ->> VA.optional(VA.optional(VA.text))
+          :: 'fMap ->> VA.map(VA.int64)
+          :: 'fVariant ->> simpleVariantT
+          :: 'fRecord ->> simpleRecordT
+          :: RNil
+      )
+    val complexRecordV: complexRecordT.Inj[Cid] =
+      HRecord(
+        fText = "foo",
+        fBool = true,
+        fDecimal = Decimal assertFromString "100",
+        fUnit = (),
+        fInt64 = 100L,
+        fParty = Ref.Party assertFromString "BANK1",
+        fContractId = "C0",
+        fListOfText = Vector("foo", "bar"),
+        fListOfUnit = Vector((), ()),
+        fDate = Time.Date assertFromString "2019-01-28",
+        fTimestamp = Time.Timestamp assertFromString "2019-01-28T12:44:33.22Z",
+        fOptionalText = None,
+        fOptionalUnit = Some(()),
+        fOptOptText = Some(Some("foo")),
+        fMap = SortedLookupList(Map("1" -> 1L, "2" -> 2L, "3" -> 3L)),
+        fVariant = simpleVariantV,
+        fRecord = simpleRecordV
+      )
+
+    val typeLookup: NavigatorModelAliases.DamlLfTypeLookup =
+      Map(
+        emptyRecordId -> emptyRecordDDT,
+        simpleRecordId -> simpleRecordDDT,
+        simpleVariantId -> simpleVariantDDT,
+        complexRecordId -> complexRecordDDT).lift
+  }
 
   type Cid = String
   private val genCid = Gen.zip(Gen.alphaChar, Gen.alphaStr) map { case (h, t) => h +: t }
@@ -96,19 +172,22 @@ class ApiCodecCompressedSpec
           roundtrip(va)(v) should ===(Some(v))
         }
       }
+
+      def cr(typ: VA)(v: typ.Inj[Cid]) =
+        (typ, v: Any, typ.inj(v))
+
+      val roundtrips = Table(
+        ("type", "original value", "DAML value"),
+        cr(C.emptyRecordT)(HRecord()),
+        cr(C.simpleRecordT)(C.simpleRecordV),
+        cr(C.simpleVariantT)(C.simpleVariantV),
+        cr(C.complexRecordT)(C.complexRecordV),
+      )
+      "work for records and variants" in forAll(roundtrips) { (typ, origValue, damlValue) =>
+        typ.prj(jsValueToApiValue(apiValueToJsValue(damlValue), typ.t, typeLookup)) should ===(
+          Some(origValue))
+      }
       /*
-      "work for EmptyRecord" in {
-        serializeAndParse(C.emptyRecordV, C.emptyRecordTC) shouldBe Success(C.emptyRecordV)
-      }
-      "work for SimpleRecord" in {
-        serializeAndParse(C.simpleRecordV, C.simpleRecordTC) shouldBe Success(C.simpleRecordV)
-      }
-      "work for SimpleVariant" in {
-        serializeAndParse(C.simpleVariantV, C.simpleVariantTC) shouldBe Success(C.simpleVariantV)
-      }
-      "work for ComplexRecord" in {
-        serializeAndParse(C.complexRecordV, C.complexRecordTC) shouldBe Success(C.complexRecordV)
-      }
       "work for Tree" in {
         serializeAndParse(C.treeV, C.treeTC) shouldBe Success(C.treeV)
       }
@@ -191,6 +270,9 @@ class ApiCodecCompressedSpec
       c("[]", VAs.oooi)(Some(None), "[null]"),
       c("[[]]", VAs.oooi)(Some(Some(None)), "[[null]]"),
       cn("""[["42"]]""", "[[42]]", VAs.oooi)(Some(Some(Some(42)))),
+      cn("""{"fA": "foo", "fB": "100"}""", """{"fA": "foo", "fB": 100}""", C.simpleRecordT)(
+        C.simpleRecordV),
+      c("""{"fA": "foo"}""", C.simpleVariantT)(C.simpleVariantV),
     )
 
     val failures = Table(

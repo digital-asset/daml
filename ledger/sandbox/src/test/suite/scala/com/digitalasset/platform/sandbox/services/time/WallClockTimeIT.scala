@@ -34,7 +34,7 @@ final class WallClockTimeIT
 
   override val timeLimit: Span = 15.seconds
 
-  override protected def config: SandboxConfig = SandboxConfig.default.copy(
+  override protected def config: SandboxConfig = super.config.copy(
     timeProviderType = TimeProviderType.WallClock,
   )
 

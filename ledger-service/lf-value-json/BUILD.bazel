@@ -51,6 +51,7 @@ da_scala_test(
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_java_proto",
         "//ledger-service/utils",
+        "@maven//:com_chuusai_shapeless_2_12",
         "//daml-lf/transaction-scalacheck",
         "//bazel_tools/runfiles:scala_runfiles",
     ] + lf_value_json_deps,
