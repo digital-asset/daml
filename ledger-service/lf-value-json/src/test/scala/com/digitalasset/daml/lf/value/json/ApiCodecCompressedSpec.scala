@@ -231,51 +231,91 @@ class ApiCodecCompressedSpec
       }
     }
 
-    "variant encoding" should {
-      import com.digitalasset.daml.lf
-      import com.digitalasset.daml.lf.value.{Value => LfValue}
-      import ApiCodecCompressed.JsonImplicits._
+    import com.digitalasset.daml.lf.value.{Value => LfValue}
+    import ApiCodecCompressed.JsonImplicits._
 
-      val quuxVariant: LfValue[String] = LfValue.ValueVariant(
-        None,
-        Ref.Name.assertFromString("Quux"),
-        LfValue.ValueRecord(None, ImmArray.empty))
-
-      val bazRecord: LfValue[String] = LfValue.ValueRecord(
-        None,
-        ImmArray(Some(Ref.Name.assertFromString("baz")) -> LfValue.ValueText("text abc"))
-      )
-
-      val bazVariantMetadata = MetadataReader
-        .damlLfTypeByName(() => metadata)(
-          Ref.QualifiedName(
-            Ref.DottedName.assertFromString("JsonEncodingTest"),
-            Ref.DottedName.assertFromString("Baz")
-          )
+    val packageId: Ref.PackageId = MetadataReader
+      .damlLfTypeByName(() => metadata)(
+        Ref.QualifiedName(
+          Ref.DottedName.assertFromString("JsonEncodingTest"),
+          Ref.DottedName.assertFromString("Foo")
         )
-        .head
+      ) match {
+      case Seq(x) => x._1
+      case xs @ _ => sys.error(s"Expected exactly one element, got: $xs")
+    }
 
-      val bazVariant: LfValue[String] = LfValue.ValueVariant(
-        None,
-        Ref.Name.assertFromString("Baz"),
-        bazRecord
-      )
+    val bazRecord = LfValue.ValueRecord[String](
+      None,
+      ImmArray(Some(Ref.Name.assertFromString("baz")) -> LfValue.ValueText("text abc"))
+    )
 
-      "serialize Quux to JSON" in {
-        quuxVariant.toJson shouldBe JsObject(
-          Map[String, JsValue]("tag" -> JsString("Quux"), "value" -> JsObject.empty))
+    val bazVariant = LfValue.ValueVariant[String](
+      None,
+      Ref.Name.assertFromString("Baz"),
+      bazRecord
+    )
+
+    val quxVariant = LfValue.ValueVariant[String](
+      None,
+      Ref.Name.assertFromString("Qux"),
+      LfValue.ValueUnit
+    )
+
+    val fooId =
+      Ref.Identifier(packageId, Ref.QualifiedName.assertFromString("JsonEncodingTest:Foo"))
+
+    val bazRecordId =
+      Ref.Identifier(packageId, Ref.QualifiedName.assertFromString("JsonEncodingTest:BazRecord"))
+
+    "LF Variant" should {
+      "encode Foo/Baz to JSON" in {
+        val writer = implicitly[spray.json.JsonWriter[LfValue[String]]]
+        (writer.write(bazVariant): JsValue) shouldBe ("""{"tag":"Baz", "value":{"baz":"text abc"}}""".parseJson: JsValue)
       }
 
-      "serialize Foo.Baz to JSON" in {
-        bazVariant.toJson shouldBe JsObject(
-          Map[String, JsValue](
-            "tag" -> JsString("Baz"),
-            "value" -> JsObject("baz" -> JsString("text abc")))
+      "decode Foo/Baz from JSON" in {
+        val actualValue: LfValue[String] = jsValueToApiValue(
+          """{"tag":"Baz", "value":{"baz":"text abc"}}""".parseJson,
+          fooId,
+          typeLookup
         )
+
+        val expectedValueWithIds: LfValue.ValueVariant[String] =
+          bazVariant.copy(tycon = Some(fooId), value = bazRecord.copy(tycon = Some(bazRecordId)))
+
+        actualValue shouldBe expectedValueWithIds
       }
 
-      "rountrip encoding" in {
-        serializeAndParse(bazVariant, bazVariantMetadata._2) shouldBe Success(bazVariant)
+      "encode Foo/Qux to JSON" in {
+        val writer = implicitly[spray.json.JsonWriter[LfValue[String]]]
+        (writer.write(quxVariant): JsValue) shouldBe ("""{"tag":"Qux", "value":{}}""".parseJson: JsValue)
+      }
+
+      "decode Foo/Qux (no value) from JSON" in {
+        val actualValue: LfValue[String] = jsValueToApiValue(
+          """{"tag":"Qux"}""".parseJson,
+          fooId,
+          typeLookup
+        )
+
+        val expectedValueWithIds: LfValue.ValueVariant[String] =
+          quxVariant.copy(tycon = Some(fooId))
+
+        actualValue shouldBe expectedValueWithIds
+      }
+
+      "decode Foo/Qux (empty value) from JSON" in {
+        val actualValue: LfValue[String] = jsValueToApiValue(
+          """{"tag":"Qux", "value":{}}""".parseJson,
+          fooId,
+          typeLookup
+        )
+
+        val expectedValueWithIds: LfValue.ValueVariant[String] =
+          quxVariant.copy(tycon = Some(fooId))
+
+        actualValue shouldBe expectedValueWithIds
       }
     }
   }

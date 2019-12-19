@@ -220,21 +220,24 @@ abstract class ApiCodecCompressed[Cid](
       }
       case Model.DamlLfVariant(cons) => {
         case JsObject(v) =>
-          val constructor = v.toList match {
-            case x :: Nil => x
+          val tag: String = v.get("tag") match {
+            case Some(JsString(x)) => x
             case _ =>
               deserializationError(
-                s"Can't read ${value.prettyPrint} as DamlLfVariant $id, single constructor required")
+                s"Can't read ${value.prettyPrint} as DamlLfVariant $id, expected JsObject with 'tag' field, got $v")
           }
+
+          val nestedRecord: JsValue = v.getOrElse("value", JsObject.empty)
+
           val (constructorName, constructorType) = cons.toList
-            .find(_._1 == constructor._1)
+            .find(_._1 == tag)
             .getOrElse(deserializationError(
-              s"Can't read ${value.prettyPrint} as DamlLfVariant $id, unknown constructor ${constructor._1}"))
+              s"Can't read ${value.prettyPrint} as DamlLfVariant $id, unknown constructor $tag"))
 
           V.ValueVariant(
             Some(id),
             constructorName,
-            jsValueToApiValue(constructor._2, constructorType, defs)
+            jsValueToApiValue(nestedRecord, constructorType, defs)
           )
       }
       case Model.DamlLfEnum(cons) => {
