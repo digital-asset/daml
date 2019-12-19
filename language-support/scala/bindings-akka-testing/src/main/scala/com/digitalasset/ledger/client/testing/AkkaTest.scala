@@ -9,7 +9,7 @@ import java.util.concurrent.{Executors, ScheduledExecutorService}
 import akka.NotUsed
 import akka.actor.{ActorSystem, Scheduler}
 import akka.stream.scaladsl.{Sink, Source}
-import akka.stream.{ActorAttributes, Materializer, Supervision}
+import akka.stream.Materializer
 import akka.util.ByteString
 import com.digitalasset.grpc.adapter.{ExecutionSequencerFactory, SingleThreadExecutionSequencerPool}
 import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
@@ -36,18 +36,10 @@ trait AkkaTest extends BeforeAndAfterAll with LazyLogging { self: Suite =>
   protected implicit val schedulerService: ScheduledExecutorService =
     Executors.newSingleThreadScheduledExecutor()
   protected implicit val materializer: Materializer = Materializer(system)
-  ActorAttributes.supervisionStrategy(decider(system))
   protected implicit val esf: ExecutionSequencerFactory =
     new SingleThreadExecutionSequencerPool("testSequencerPool")
   protected val timeout: FiniteDuration = 2.minutes
   protected val shortTimeout: FiniteDuration = 5.seconds
-
-  private def decider(system: ActorSystem): Supervision.Decider = {
-    case NonFatal(e) =>
-      system.log
-        .error(e, "Unexpected Exception during akka stream processing, stopping the stream")
-      Supervision.Stop
-  }
 
   protected def await[T](fun: => Future[T]): T = Await.result(fun, timeout)
 
