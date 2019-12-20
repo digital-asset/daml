@@ -26,38 +26,38 @@ export type Event<T> =
   | { created: CreateEvent<T> }
   | { archived: ArchiveEvent<T> }
 
-const decodeTemplateId = (): jtv.Decoder<TemplateId> => jtv.object({
+const decodeTemplateId: jtv.Decoder<TemplateId> = jtv.object({
   packageId: jtv.string(),
   moduleName: jtv.string(),
   entityName: jtv.string(),
 });
 
-const decodeCreateEvent = <T>(t: Template<T>): jtv.Decoder<CreateEvent<T>> => jtv.object({
-  templateId: decodeTemplateId(),
-  contractId: ContractId(t).decoder(),
+const decodeCreateEvent = <T>(template: Template<T>): jtv.Decoder<CreateEvent<T>> => jtv.object({
+  templateId: decodeTemplateId,
+  contractId: ContractId(template).decoder(),
   signatories: List(Party).decoder(),
   observers: List(Party).decoder(),
   agreementText: Text.decoder(),
   key: jtv.unknownJson(),
-  argument: t.decoder(),
+  argument: template.decoder(),
   witnessParties: List(Party).decoder(),
   workflowId: jtv.optional(jtv.string()),
 });
 
-const decodeCreateEventUnknown = (): jtv.Decoder<CreateEvent<unknown>> =>
-  jtv.valueAt(['templateId'], decodeTemplateId()).andThen((templateId) =>
+const decodeCreateEventUnknown: jtv.Decoder<CreateEvent<unknown>> =
+  jtv.valueAt(['templateId'], decodeTemplateId.andThen((templateId) =>
     decodeCreateEvent(lookupTemplate(templateId))
-  );
+  ));
 
-const decodeArchiveEventUnknown = (): jtv.Decoder<ArchiveEvent<unknown>> => jtv.object({
-  templateId: decodeTemplateId(),
+const decodeArchiveEventUnknown: jtv.Decoder<ArchiveEvent<unknown>> = jtv.object({
+  templateId: decodeTemplateId,
   contractId: ContractId({decoder: jtv.unknownJson}).decoder(),
   witnessParties: List(Party).decoder(),
 });
 
-const decodeEventUnknown = (): jtv.Decoder<Event<unknown>> => jtv.oneOf<Event<unknown>>(
-  jtv.object({created: decodeCreateEventUnknown()}),
-  jtv.object({archived: decodeArchiveEventUnknown()}),
+const decodeEventUnknown: jtv.Decoder<Event<unknown>> = jtv.oneOf<Event<unknown>>(
+  jtv.object({created: decodeCreateEventUnknown}),
+  jtv.object({archived: decodeArchiveEventUnknown}),
 );
 
 /**
@@ -83,6 +83,16 @@ type LedgerError = {
   status: number;
   errors: string[];
 }
+
+const decodeLedgerResponse: jtv.Decoder<LedgerResponse> = jtv.object({
+  status: jtv.number(),
+  result: jtv.unknownJson(),
+});
+
+const decodeLedgerError: jtv.Decoder<LedgerError> = jtv.object({
+  status: jtv.number(),
+  errors: jtv.array(jtv.string()),
+});
 
 /**
  * An object of type `Ledger` represents a handle to a DAML ledger.
@@ -117,12 +127,9 @@ class Ledger {
     const json = await httpResponse.json();
     if (!httpResponse.ok) {
       console.log(json);
-      // TODO(MH): Validate.
-      const ledgerError = json as LedgerError;
-      throw ledgerError;
+      throw jtv.Result.withException(decodeLedgerError.run(json));
     }
-    // TODO(MH): Validate.
-    const ledgerResponse = json as LedgerResponse;
+    const ledgerResponse = jtv.Result.withException(decodeLedgerResponse.run(json));
     return ledgerResponse.result;
   }
 
@@ -132,8 +139,7 @@ class Ledger {
    * for a description of the query language.
    */
   async query<T>(template: Template<T>, query: Query<T>): Promise<CreateEvent<T>[]> {
-    const payload = {"%templates": [template.templateId]};
-    Object.assign(payload, query);
+    const payload = {"%templates": [template.templateId], ...query};
     const json = await this.submit('contracts/search', payload);
     return jtv.Result.withException(jtv.array(decodeCreateEvent(template)).run(json));
   }
@@ -176,7 +182,7 @@ class Ledger {
     const payload = {
       templateId: template.templateId,
       argument,
-    }
+    };
     const json = await this.submit('command/create', payload);
     return jtv.Result.withException(decodeCreateEvent(template).run(json));
   }
@@ -195,10 +201,9 @@ class Ledger {
     // Decode the server response into a tuple.
     const responseDecoder: jtv.Decoder<{exerciseResult: R; contracts: Event<unknown>[]}> = jtv.object({
       exerciseResult: choice.resultDecoder(),
-      contracts: jtv.array(decodeEventUnknown()),
+      contracts: jtv.array(decodeEventUnknown),
     });
     const {exerciseResult, contracts} = jtv.Result.withException(responseDecoder.run(json));
-
     return [exerciseResult, contracts];
   }
 
