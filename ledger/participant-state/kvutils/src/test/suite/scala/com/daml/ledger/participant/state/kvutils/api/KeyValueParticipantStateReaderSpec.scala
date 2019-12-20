@@ -28,7 +28,7 @@ class KeyValueParticipantStateReaderSpec
     "remove index suffix when streaming from underlying reader" in {
       val reader = readerStreamingFrom(
         offset = Some(Offset(Array(1, 1))),
-        LedgerRecord(Offset(Array(1, 2)), aLogEntryId, Envelope.enclose(aLogEntry).toByteArray()))
+        LedgerRecord(Offset(Array(1, 2)), aLogEntryId, aWrappedLogEntry))
       val instance = new KeyValueParticipantStateReader(reader)
       val stream = instance.stateUpdates(Some(Offset(Array(1, 1, 0))))
       val result = offsetsFrom(stream)
@@ -40,8 +40,8 @@ class KeyValueParticipantStateReaderSpec
     "append index to internal offset" in {
       val reader = readerStreamingFrom(
         offset = None,
-        LedgerRecord(Offset(Array(1)), aLogEntryId, Envelope.enclose(aLogEntry).toByteArray()),
-        LedgerRecord(Offset(Array(2)), aLogEntryId, Envelope.enclose(aLogEntry).toByteArray())
+        LedgerRecord(Offset(Array(1)), aLogEntryId, aWrappedLogEntry),
+        LedgerRecord(Offset(Array(2)), aLogEntryId, aWrappedLogEntry)
       )
       val instance = new KeyValueParticipantStateReader(reader)
       val stream = instance.stateUpdates(None)
@@ -54,9 +54,9 @@ class KeyValueParticipantStateReaderSpec
     "skip events before specified offset" in {
       val reader = readerStreamingFrom(
         offset = None,
-        LedgerRecord(Offset(Array(1)), aLogEntryId, Envelope.enclose(aLogEntry).toByteArray()),
-        LedgerRecord(Offset(Array(2)), aLogEntryId, Envelope.enclose(aLogEntry).toByteArray()),
-        LedgerRecord(Offset(Array(3)), aLogEntryId, Envelope.enclose(aLogEntry).toByteArray())
+        LedgerRecord(Offset(Array(1)), aLogEntryId, aWrappedLogEntry),
+        LedgerRecord(Offset(Array(2)), aLogEntryId, aWrappedLogEntry),
+        LedgerRecord(Offset(Array(3)), aLogEntryId, aWrappedLogEntry)
       )
       val instance = new KeyValueParticipantStateReader(reader)
 
@@ -71,6 +71,8 @@ class KeyValueParticipantStateReaderSpec
     .setPartyAllocationEntry(
       DamlPartyAllocationEntry.newBuilder().setParty("aParty").setParticipantId("aParticipant"))
     .build()
+
+  private val aWrappedLogEntry = Envelope.enclose(aLogEntry).toByteArray()
 
   private def aLogEntryId =
     DamlLogEntryId.newBuilder

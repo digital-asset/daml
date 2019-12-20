@@ -45,10 +45,9 @@ class KeyValueParticipantStateReader(reader: LedgerReader)(implicit materializer
   private def toReturnedOffset(index: Int, offset: Offset): Offset =
     Offset(Array.concat(offset.components.toArray, Array(index.toLong)))
 
-  private def createLedgerInitialConditions(): LedgerInitialConditions = {
+  private def createLedgerInitialConditions(): LedgerInitialConditions =
     LedgerInitialConditions(
       reader.retrieveLedgerId(),
       LedgerReader.DefaultTimeModel,
       Time.Timestamp.Epoch)
-  }
 }
