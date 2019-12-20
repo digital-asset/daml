@@ -15,7 +15,7 @@ import com.digitalasset.ledger.api.v1.package_service.PackageServiceGrpc.Package
 import com.digitalasset.ledger.api.v1.package_service.{HashFunction => APIHashFunction, _}
 import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
-import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
+import com.digitalasset.dec.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.server.api.validation.PackageServiceValidation
 import io.grpc.{BindableService, ServerServiceDefinition, Status}
 

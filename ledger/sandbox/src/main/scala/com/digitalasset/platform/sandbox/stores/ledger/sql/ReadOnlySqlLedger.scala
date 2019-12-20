@@ -7,10 +7,10 @@ import akka.NotUsed
 import akka.stream._
 import akka.stream.scaladsl.{Keep, RestartSource, Sink, Source}
 import com.codahale.metrics.MetricRegistry
+import com.digitalasset.dec.{DirectExecutionContext => DEC}
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
-import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.resources.{Resource, ResourceOwner}
 import com.digitalasset.platform.sandbox.stores.ledger.ReadOnlyLedger
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{

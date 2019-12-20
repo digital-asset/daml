@@ -12,7 +12,7 @@ import com.digitalasset.api.util.{TimeProvider, TimestampConversion}
 import com.digitalasset.api.util.TimestampConversion._
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.grpc.adapter.client.akka.ClientAdapter
-import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
+import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.ledger.api.v1.testing.time_service.{GetTimeRequest, SetTimeRequest}
 import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc.{
   TimeService,

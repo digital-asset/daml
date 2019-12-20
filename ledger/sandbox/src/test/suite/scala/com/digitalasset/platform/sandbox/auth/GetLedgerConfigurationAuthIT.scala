@@ -8,7 +8,7 @@ import com.digitalasset.ledger.api.v1.ledger_configuration_service.{
   GetLedgerConfigurationResponse,
   LedgerConfigurationServiceGrpc
 }
-import com.digitalasset.platform.testing.SingleItemObserver
+import com.digitalasset.platform.testing.StreamConsumer
 
 import scala.concurrent.Future
 
@@ -17,8 +17,8 @@ final class GetLedgerConfigurationAuthIT extends PublicServiceCallAuthTests {
   override def serviceCallName: String = "LedgerConfigurationService#GetLedgerConfiguration"
 
   override def serviceCallWithToken(token: Option[String]): Future[Any] =
-    SingleItemObserver.first[GetLedgerConfigurationResponse](
+    new StreamConsumer[GetLedgerConfigurationResponse](
       stub(LedgerConfigurationServiceGrpc.stub(channel), token)
-        .getLedgerConfiguration(new GetLedgerConfigurationRequest(unwrappedLedgerId), _))
+        .getLedgerConfiguration(new GetLedgerConfigurationRequest(unwrappedLedgerId), _)).first()
 
 }

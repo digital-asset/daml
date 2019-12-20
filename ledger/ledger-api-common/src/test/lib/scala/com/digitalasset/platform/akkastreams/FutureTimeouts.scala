@@ -3,7 +3,7 @@
 
 package com.digitalasset.platform.akkastreams
 import akka.actor.ActorSystem
-import com.digitalasset.platform.common.util.DirectExecutionContext
+import com.digitalasset.dec.DirectExecutionContext
 import org.scalatest.{Assertion, AsyncWordSpec}
 
 import scala.concurrent.{Future, Promise, TimeoutException}

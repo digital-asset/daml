@@ -7,7 +7,7 @@ import java.time.Instant
 import java.util.concurrent.atomic.AtomicReference
 
 import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.platform.common.util.DirectExecutionContext
+import com.digitalasset.dec.DirectExecutionContext
 
 import scala.concurrent.Future
 

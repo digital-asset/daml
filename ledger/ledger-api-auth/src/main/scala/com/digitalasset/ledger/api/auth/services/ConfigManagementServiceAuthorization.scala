@@ -3,7 +3,7 @@
 
 package com.digitalasset.ledger.api.auth.services
 
-import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
+import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.ledger.api.auth.Authorizer
 import com.digitalasset.ledger.api.v1.admin.config_management_service.ConfigManagementServiceGrpc.ConfigManagementService
 import com.digitalasset.ledger.api.v1.admin.config_management_service._

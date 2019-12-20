@@ -3,7 +3,7 @@
 
 package com.digitalasset.platform.server.api.validation
 
-import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
+import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc.ActiveContractsService
 import com.digitalasset.ledger.api.v1.active_contracts_service.{

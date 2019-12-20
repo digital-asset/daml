@@ -53,7 +53,7 @@ import com.digitalasset.ledger.client.services.pkg.PackageClient
 import com.digitalasset.ledger.client.services.testing.time.StaticTime
 import com.digitalasset.ledger.client.services.transactions.TransactionClient
 import com.digitalasset.platform.common.LedgerIdMode
-import com.digitalasset.platform.common.util.DirectExecutionContext
+import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.platform.tests.integration.ledger.api.LedgerTestingHelpers
 import io.grpc.reflection.v1alpha.ServerReflectionGrpc
 import io.grpc.{CallCredentials, Channel, StatusRuntimeException}

@@ -8,7 +8,7 @@ import java.util.concurrent.ConcurrentLinkedQueue
 import akka.actor.ActorSystem
 import akka.pattern.after
 import ch.qos.logback.classic.Level
-import com.digitalasset.platform.common.util.DirectExecutionContext
+import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.platform.indexer.RecoveringIndexerSpec._
 import com.digitalasset.platform.indexer.TestIndexer._
 import com.digitalasset.platform.resources.{Resource, ResourceOwner}

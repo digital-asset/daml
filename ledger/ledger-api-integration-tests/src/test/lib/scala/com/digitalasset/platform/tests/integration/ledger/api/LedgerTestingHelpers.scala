@@ -3,7 +3,7 @@
 
 package com.digitalasset.platform.tests.integration.ledger.api
 
-import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
+import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.ledger.api.testing.utils.{MockMessages => M}
 import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
 import com.digitalasset.ledger.api.v1.commands.CreateCommand

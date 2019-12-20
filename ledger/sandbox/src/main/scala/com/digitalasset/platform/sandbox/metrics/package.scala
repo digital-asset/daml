@@ -4,7 +4,7 @@
 package com.digitalasset.platform.sandbox
 
 import com.codahale.metrics.Timer
-import com.digitalasset.platform.common.util.DirectExecutionContext
+import com.digitalasset.dec.DirectExecutionContext
 
 import scala.concurrent.Future
 

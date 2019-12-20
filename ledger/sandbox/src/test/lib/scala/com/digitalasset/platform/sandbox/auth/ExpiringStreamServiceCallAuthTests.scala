@@ -7,7 +7,7 @@ import java.time.Duration
 
 import com.digitalasset.grpc.{GrpcException, GrpcStatus}
 import com.digitalasset.platform.sandbox.services.SubmitAndWaitDummyCommand
-import com.digitalasset.platform.testing.SingleItemObserver
+import com.digitalasset.platform.testing.StreamConsumer
 import com.digitalasset.timer.Delayed
 import io.grpc.Status
 import io.grpc.stub.StreamObserver
@@ -61,6 +61,6 @@ trait ExpiringStreamServiceCallAuthTests[T]
   }
 
   override def serviceCallWithToken(token: Option[String]): Future[Any] =
-    submitAndWait().flatMap(_ => SingleItemObserver.first[T](stream(token)))
+    submitAndWait().flatMap(_ => new StreamConsumer[T](stream(token)).first())
 
 }

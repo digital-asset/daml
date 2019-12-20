@@ -21,7 +21,7 @@ import com.digitalasset.ledger.api.v1.transaction_service._
 import com.digitalasset.ledger.api.validation.TransactionServiceRequestValidator.Result
 import com.digitalasset.ledger.api.validation.{PartyNameChecker, TransactionServiceRequestValidator}
 import com.digitalasset.platform.api.grpc.GrpcApiService
-import com.digitalasset.platform.common.util.DirectExecutionContext
+import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.platform.participant.util.LfEngineToApi
 import com.digitalasset.platform.server.api.services.domain.TransactionService
 import com.digitalasset.platform.server.api.validation.{ErrorFactories, FieldValidations}

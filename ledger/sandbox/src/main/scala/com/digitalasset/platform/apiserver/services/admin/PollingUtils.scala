@@ -6,7 +6,7 @@ package com.digitalasset.platform.apiserver.services.admin
 import akka.actor.Scheduler
 import akka.pattern.after
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
-import com.digitalasset.platform.common.util.{DirectExecutionContext => DE}
+import com.digitalasset.dec.{DirectExecutionContext => DE}
 
 import scala.concurrent.Future
 import scala.concurrent.duration.{DurationInt, FiniteDuration}

@@ -13,7 +13,7 @@ import akka.stream.testkit.javadsl.TestSink
 import akka.stream.testkit.scaladsl.TestSource
 import akka.stream.testkit.{TestPublisher, TestSubscriber}
 import com.digitalasset.api.util.TimestampConversion._
-import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
+import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.digitalasset.ledger.api.v1.command_completion_service.Checkpoint
 import com.digitalasset.ledger.api.v1.command_submission_service._

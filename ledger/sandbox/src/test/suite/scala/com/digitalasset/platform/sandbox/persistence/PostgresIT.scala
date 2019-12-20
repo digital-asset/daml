@@ -4,8 +4,8 @@
 package com.digitalasset.platform.sandbox.persistence
 
 import com.codahale.metrics.MetricRegistry
+import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
-import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.resources.Resource
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{
   HikariJdbcConnectionProvider,

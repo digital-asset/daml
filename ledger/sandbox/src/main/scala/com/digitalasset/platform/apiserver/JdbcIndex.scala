@@ -10,9 +10,9 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.v1.{ParticipantId, ReadService}
+import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.ledger.api.domain.{ParticipantId => _, _}
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
-import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.resources.Resource
 import com.digitalasset.platform.sandbox.stores.LedgerBackedIndexService
 import com.digitalasset.platform.sandbox.stores.ledger.{
@@ -45,6 +45,6 @@ object JdbcIndex {
               v2.LedgerConfiguration(cond.config.timeModel.minTtl, cond.config.timeModel.maxTtl)
             }
         }
-      }(DEC)
+      }(DirectExecutionContext)
       .vary
 }
