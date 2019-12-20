@@ -194,7 +194,10 @@ class Ledger {
     const json = await this.submit('command/exercise', payload);
     console.log ("exercise json response" + JSON.stringify(json));
     // Decode the server response into a tuple.
-    const responseDecoder: jtv.Decoder<{exerciseResult: R; contracts: Event<unknown>[]}> = jtv.object ({exerciseResult: choice.resultDecoder(), contracts: jtv.array(decodeEventUnknown())});
+    const responseDecoder: jtv.Decoder<{exerciseResult: R; contracts: Event<unknown>[]}> = jtv.object({
+      exerciseResult: choice.resultDecoder(),
+      contracts: jtv.array(decodeEventUnknown()),
+    });
     const response: {exerciseResult: R; contracts: Event<unknown>[]} = jtv.Result.withException(responseDecoder.run(json));
     const result: [R, Event<unknown>[]] = [response.exerciseResult, response.contracts]; // Unpack record fields into a tuple.
 
