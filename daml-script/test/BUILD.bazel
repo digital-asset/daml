@@ -121,3 +121,18 @@ client_server_test(
     server_files = ["$(rootpath :script-test.dar)"],
     tags = ["exclusive"],
 )
+
+sh_test(
+    name = "test_daml_script_test_runner",
+    srcs = [":daml-script-test-runner.sh"],
+    args = [
+        "$(rootpath //daml-script/runner:test-runner)",
+        "$(rootpath :script-test.dar)",
+    ],
+    data = [
+        ":script-test.dar",
+        "//daml-script/runner:test-runner",
+    ],
+    tags = ["exclusive"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)
