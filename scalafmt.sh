@@ -5,4 +5,4 @@
 set -eu -o pipefail
 
 cd "${0%/*}"
-scalafmt --git true --config .scalafmt.conf "$@"
+scalafmt --mode=diff "$@"

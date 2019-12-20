@@ -37,7 +37,7 @@ import com.digitalasset.http.EndpointsCompanion._
 class Endpoints(
     ledgerId: lar.LedgerId,
     decodeJwt: EndpointsCompanion.ValidateJwt,
-    commandService: CommandService,
+     commandService: CommandService,
     contractsService: ContractsService,
     partiesService: PartiesService,
     encoder: DomainJsonEncoder,
