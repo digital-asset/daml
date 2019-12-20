@@ -1,10 +1,11 @@
 package com.digitalasset.http
 
+import akka.NotUsed
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.http.scaladsl.model.ws.{Message, TextMessage, WebSocketRequest}
 import akka.http.scaladsl.model.{StatusCodes, Uri}
-import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
+import akka.stream.scaladsl.{Flow, Sink, Source}
 import com.digitalasset.http.util.TestUtil
 import org.scalatest.BeforeAndAfterAll
 
@@ -23,16 +24,16 @@ class WebsocketServiceIntegrationTest extends AbstractHttpServiceIntegrationTest
 
   private val headersWithAuth = List(Authorization(OAuth2BearerToken(jwt.value)))
 
-  private val baseFlow: Flow[Message, Message, _] = Flow.fromSinkAndSourceMat(
-    Sink.foreach(println), Source.single(TextMessage.Strict("{}")))(Keep.left)
+  private val baseFlow: Flow[Message, Message, NotUsed] = Flow.fromSinkAndSource(
+    Sink.foreach(println), Source.single(TextMessage.Strict("{}")))
 
-  private val validSubprotorol = Option(s"""$tokenPrefix${jwt.value},$wsProtocol""")
+  private val validSubprotocol = Option(s"""$tokenPrefix${jwt.value},$wsProtocol""")
 
   "ws request with valid protocol token should allow client subscribe to stream" in withHttpService {
     (uri, _, _) => {
       wsConnectRequest(
         uri.copy(scheme = "ws").withPath(Uri.Path("/transactions")),
-        validSubprotorol,
+        validSubprotocol,
         baseFlow)
         ._1 flatMap (x => x.response.status shouldBe StatusCodes.SwitchingProtocols)
     }
@@ -67,7 +68,7 @@ class WebsocketServiceIntegrationTest extends AbstractHttpServiceIntegrationTest
       val webSocketFlow = Http().webSocketClientFlow(
         WebSocketRequest(
           uri = uri.copy(scheme="ws").withPath(Uri.Path("/transactions")),
-          subprotocol = validSubprotorol))
+          subprotocol = validSubprotocol))
 
       val clientMsg = Source.single(TextMessage("{}"))
         .via(webSocketFlow)
@@ -85,7 +86,7 @@ class WebsocketServiceIntegrationTest extends AbstractHttpServiceIntegrationTest
       val webSocketFlow = Http().webSocketClientFlow(
         WebSocketRequest(
           uri = uri.copy(scheme="ws").withPath(Uri.Path("/transactions")),
-          subprotocol = validSubprotorol))
+          subprotocol = validSubprotocol))
 
       val clientMsg = Source.single(TextMessage("pie"))
         .via(webSocketFlow)
@@ -99,6 +100,6 @@ class WebsocketServiceIntegrationTest extends AbstractHttpServiceIntegrationTest
     }
   }
 
-  private def wsConnectRequest(uri: Uri, subprotocol: Option[String], flow: Flow[Message, Message, Any]) =
+  private def wsConnectRequest[M](uri: Uri, subprotocol: Option[String], flow: Flow[Message, Message, M]) =
     Http().singleWebSocketRequest(WebSocketRequest(uri = uri, subprotocol = subprotocol), flow)
 }
