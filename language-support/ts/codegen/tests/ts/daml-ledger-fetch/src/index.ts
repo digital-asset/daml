@@ -191,7 +191,6 @@ class Ledger {
       choice: choice.choiceName,
       argument,
     };
-
     const json = await this.submit('command/exercise', payload);
     console.log ("exercise json response" + JSON.stringify(json));
     // Decode the server response into a tuple.
