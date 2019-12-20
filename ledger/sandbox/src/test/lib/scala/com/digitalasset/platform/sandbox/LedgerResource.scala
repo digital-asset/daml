@@ -98,7 +98,7 @@ object LedgerResource {
       }
 
       override def close(): Unit = {
-        resource.asCloseable(10.seconds).close()
+        Await.result(resource.release(), 10.seconds)
       }
     }
 }
