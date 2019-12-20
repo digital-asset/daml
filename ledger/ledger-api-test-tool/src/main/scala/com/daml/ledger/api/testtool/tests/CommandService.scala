@@ -8,6 +8,8 @@ import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
+import com.digitalasset.ledger.api.v1.commands.Command
+import com.digitalasset.ledger.api.v1.value.{Record, RecordField, Value}
 import com.digitalasset.ledger.client.binding.Primitive
 import com.digitalasset.ledger.client.binding.Value.encode
 import com.digitalasset.ledger.test_stable.Test.CallablePayout._
@@ -381,7 +383,112 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
         val exercise = assertSingleton("There should only be one exercise", exercisedEvents(tree))
         assert(exercise.contractId == factory.unwrap, "Contract identifier mismatch")
         assert(exercise.consuming, "The choice should have been consuming")
-        val _ = assertLength("Two creations should have occured", 2, createdEvents(tree))
+        val _ = assertLength("Two creations should have occurred", 2, createdEvents(tree))
       }
   }
+
+  test("CSBadNumericValues", "Reject unrepresentable numeric values", allocate(SingleParty)) {
+    case Participants(Participant(ledger, party)) =>
+      // Code generation catches bad decimals early so we have to do some work to create (possibly) invalid requests
+      def rounding(numeric: String): Command =
+        DecimalRounding(party, BigDecimal("0")).create.command.update(
+          _.create.createArguments.fields(1) := RecordField(
+            value = Some(Value(Value.Sum.Numeric(numeric)))))
+      val wouldLosePrecision = "0.00000000005"
+      val positiveOutOfBounds = "10000000000000000000000000000.0000000000"
+      val negativeOutOfBounds = "-10000000000000000000000000000.0000000000"
+      for {
+        r1 <- ledger.submitAndWaitRequest(party, rounding(wouldLosePrecision))
+        e1 <- ledger.submitAndWait(r1).failed
+        r2 <- ledger.submitAndWaitRequest(party, rounding(positiveOutOfBounds))
+        e2 <- ledger.submitAndWait(r2).failed
+        r3 <- ledger.submitAndWaitRequest(party, rounding(negativeOutOfBounds))
+        e3 <- ledger.submitAndWait(r3).failed
+      } yield {
+        assertGrpcError(e1, Status.Code.INVALID_ARGUMENT, "Cannot represent")
+        assertGrpcError(e2, Status.Code.INVALID_ARGUMENT, "Out-of-bounds (Numeric 10)")
+        assertGrpcError(e3, Status.Code.INVALID_ARGUMENT, "Out-of-bounds (Numeric 10)")
+      }
+  }
+
+  test("CSCreateAndExercise", "Implement create-and-exercise correctly", allocate(SingleParty)) {
+    case Participants(Participant(ledger, party)) =>
+      val createAndExercise = Dummy(party).createAnd.exerciseDummyChoice1(party).command
+      for {
+        request <- ledger.submitAndWaitRequest(party, createAndExercise)
+        _ <- ledger.submitAndWait(request)
+        transactions <- ledger.flatTransactions(party)
+        trees <- ledger.transactionTrees(party)
+      } yield {
+        assert(
+          transactions.flatMap(_.events).isEmpty,
+          "A create-and-exercise flat transaction should show no event")
+        assertEquals(
+          "Unexpected template identifier in create event",
+          trees.flatMap(createdEvents).map(_.getTemplateId),
+          Vector(Dummy.id.unwrap))
+        val contractId = trees.flatMap(createdEvents).head.contractId
+        assertEquals(
+          "Unexpected exercise event triple (choice, contractId, consuming)",
+          trees.flatMap(exercisedEvents).map(e => (e.choice, e.contractId, e.consuming)),
+          Vector(("DummyChoice1", contractId, true))
+        )
+      }
+  }
+
+  test(
+    "CSBadCreateAndExercise",
+    "Fail create-and-exercise on bad create arguments",
+    allocate(SingleParty)) {
+    case Participants(Participant(ledger, party)) =>
+      val createAndExercise = Dummy(party).createAnd
+        .exerciseDummyChoice1(party)
+        .command
+        .update(_.createAndExercise.createArguments := Record())
+      for {
+        request <- ledger.submitAndWaitRequest(party, createAndExercise)
+        failure <- ledger.submitAndWait(request).failed
+      } yield {
+        assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "Expecting 1 field for record")
+      }
+  }
+
+  test(
+    "CSCreateAndBadExerciseArguments",
+    "Fail create-and-exercise on bad choice arguments",
+    allocate(SingleParty)) {
+    case Participants(Participant(ledger, party)) =>
+      val createAndExercise = Dummy(party).createAnd
+        .exerciseDummyChoice1(party)
+        .command
+        .update(_.createAndExercise.choiceArgument := Value(Value.Sum.Bool(false)))
+      for {
+        request <- ledger.submitAndWaitRequest(party, createAndExercise)
+        failure <- ledger.submitAndWait(request).failed
+      } yield {
+        assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "mismatching type")
+      }
+  }
+
+  test(
+    "CSCreateAndBadExerciseChoice",
+    "Fail create-and-exercise on invalid choice",
+    allocate(SingleParty)) {
+    case Participants(Participant(ledger, party)) =>
+      val missingChoice = "DoesNotExist"
+      val createAndExercise = Dummy(party).createAnd
+        .exerciseDummyChoice1(party)
+        .command
+        .update(_.createAndExercise.choice := missingChoice)
+      for {
+        request <- ledger.submitAndWaitRequest(party, createAndExercise)
+        failure <- ledger.submitAndWait(request).failed
+      } yield {
+        assertGrpcError(
+          failure,
+          Status.Code.INVALID_ARGUMENT,
+          s"Couldn't find requested choice $missingChoice")
+      }
+  }
+
 }

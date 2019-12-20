@@ -9,7 +9,7 @@ import akka.NotUsed
 import akka.stream._
 import akka.stream.scaladsl.{Source, SourceQueueWithComplete}
 import com.digitalasset.platform.akkastreams.dispatcher.SignalDispatcher.Signal
-import com.digitalasset.platform.common.util.DirectExecutionContext
+import com.digitalasset.dec.DirectExecutionContext
 import org.slf4j.LoggerFactory
 
 /**

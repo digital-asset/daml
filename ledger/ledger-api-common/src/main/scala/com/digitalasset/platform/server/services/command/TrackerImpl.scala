@@ -13,7 +13,7 @@ import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
 import com.digitalasset.ledger.api.v1.completion.Completion
 import com.digitalasset.ledger.client.services.commands.CommandTrackerFlow.Materialized
-import com.digitalasset.platform.common.util.DirectExecutionContext
+import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.platform.server.api.ApiException
 import com.digitalasset.util.Ctx
 import com.google.rpc.code.Code

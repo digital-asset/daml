@@ -5,7 +5,7 @@ package com.digitalasset.ledger.client.services.commands
 
 import akka.NotUsed
 import akka.stream.scaladsl.Flow
-import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
+import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
 import com.digitalasset.util.Ctx
 import com.google.protobuf.empty.Empty

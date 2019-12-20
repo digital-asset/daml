@@ -121,12 +121,17 @@ class ApiCodecCompressedSpec
         fRecord = simpleRecordV
       )
 
+    val colorId = defRef("Color")
+    val (colorGD, colorGT) =
+      VA.enum(colorId, Seq("Red", "Green", "Blue") map Ref.Name.assertFromString)
+
     val typeLookup: NavigatorModelAliases.DamlLfTypeLookup =
       Map(
         emptyRecordId -> emptyRecordDDT,
         simpleRecordId -> simpleRecordDDT,
         simpleVariantId -> simpleVariantDDT,
-        complexRecordId -> complexRecordDDT).lift
+        complexRecordId -> complexRecordDDT,
+        colorId -> colorGD).lift
   }
 
   type Cid = String
@@ -273,6 +278,8 @@ class ApiCodecCompressedSpec
       cn("""{"fA": "foo", "fB": "100"}""", """{"fA": "foo", "fB": 100}""", C.simpleRecordT)(
         C.simpleRecordV),
       c("""{"tag": "fA", "value": "foo"}""", C.simpleVariantT)(C.simpleVariantV),
+      c("\"Green\"", C.colorGT)(
+        C.colorGT get Ref.Name.assertFromString("Green") getOrElse sys.error("impossible")),
     )
 
     val failures = Table(

@@ -3,12 +3,27 @@
 
 load("//rules_daml:daml.bzl", "daml_compile")
 
+# This rule builds a dar from the daml sources under the 'daml'
+# directory. It is referenced from the 'build-and-lint' test that
+# follows.
 daml_compile(
     name = "daml2ts-test",
     srcs = glob(["daml/**/*.daml"]),
     main_src = "daml/Main.daml",
 )
 
+# The 'build-and-lint' (test) target:
+#  - Causes 'daml2ts-test.dar' to be produced (from the sources under 'ts/daml');
+#  - Invokes 'daml2ts' on that dar to produce typescript bindings in' ts/generated/src/daml';
+#  - Invokes 'yarn install' in 'ts' to install dependencies;
+#  - Invokes 'yarn build' then 'yarn lint' on each of the 'daml-json-types', 'daml-ledger-fetch' and 'generated' packages;
+#  - Invokes 'yarn test' from the 'ts/generated' directory.
+# That last step causes 'ts/generated/src/tests/__tests__/test.ts' to be executed which:
+#  - Spins up a sandbox running the 'daml2ts-test.dar';
+#  - Spins up a http-json-api connected to the sandbox;
+#  - Evaluates assertions of http-json-api specified ledger operations involving contracts defined by the dar;
+#  - Gracefully tears down the processes it started when its work is done.
+# All in all, a pretty slick bit of work!
 sh_test(
     name = "build-and-lint",
     srcs = ["build-and-lint.sh"],

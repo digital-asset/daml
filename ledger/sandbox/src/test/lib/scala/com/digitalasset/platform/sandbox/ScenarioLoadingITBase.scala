@@ -26,7 +26,7 @@ import com.digitalasset.ledger.api.v1.value.Identifier
 import com.digitalasset.ledger.client.services.acs.ActiveContractSetClient
 import com.digitalasset.ledger.client.services.commands.SynchronousCommandClient
 import com.digitalasset.ledger.client.services.transactions.TransactionClient
-import com.digitalasset.platform.common.util.DirectExecutionContext
+import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.platform.sandbox.services.{SandboxFixture, TestCommands}
 import com.google.protobuf.timestamp.Timestamp
 import org.scalatest.concurrent.ScalaFutures

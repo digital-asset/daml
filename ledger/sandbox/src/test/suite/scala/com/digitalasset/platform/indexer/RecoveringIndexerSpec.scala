@@ -8,10 +8,11 @@ import java.util.concurrent.ConcurrentLinkedQueue
 import akka.actor.ActorSystem
 import akka.pattern.after
 import ch.qos.logback.classic.Level
-import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.indexer.TestIndexer._
 import com.digitalasset.platform.sandbox.logging.TestNamedLoggerFactory
-import org.scalatest.{AsyncWordSpec, BeforeAndAfterEach, Matchers}
+import org.scalatest.BeforeAndAfterEach
+import com.digitalasset.dec.DirectExecutionContext
+import org.scalatest.{AsyncWordSpec, Matchers}
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future, Promise}

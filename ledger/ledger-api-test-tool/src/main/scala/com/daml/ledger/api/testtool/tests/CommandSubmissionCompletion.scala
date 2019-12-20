@@ -3,6 +3,8 @@
 
 package com.daml.ledger.api.testtool.tests
 
+import java.util.UUID
+
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
@@ -42,7 +44,7 @@ final class CommandSubmissionCompletion(session: LedgerSession) extends LedgerTe
         request <- ledger.submitRequest(party, Dummy(party).create.command)
         _ <- ledger.submit(request)
         invalidRequest = ledger
-          .completionStreamRequest(party)
+          .completionStreamRequest()(party)
           .update(_.applicationId := "invalid-application-id")
         failed <- WithTimeout(5.seconds)(ledger.firstCompletions(invalidRequest)).failed
       } yield {
@@ -110,4 +112,24 @@ final class CommandSubmissionCompletion(session: LedgerSession) extends LedgerTe
         assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "Missing field: commands")
       }
   }
+
+  test(
+    "CSCHandleMultiPartySubscriptions",
+    "Listening for completions should support multi-party subscriptions",
+    allocate(TwoParties)) {
+    case Participants(Participant(ledger, alice, bob)) =>
+      val a = UUID.randomUUID.toString
+      val b = UUID.randomUUID.toString
+      for {
+        aliceRequest <- ledger.submitRequest(alice, Dummy(alice).create.command)
+        bobRequest <- ledger.submitRequest(bob, Dummy(bob).create.command)
+        _ <- ledger.submit(aliceRequest.update(_.commands.commandId := a))
+        _ <- ledger.submit(bobRequest.update(_.commands.commandId := b))
+        _ <- WithTimeout(5.seconds)(ledger.findCompletion(alice, bob)(_.commandId == a))
+        _ <- WithTimeout(5.seconds)(ledger.findCompletion(alice, bob)(_.commandId == b))
+      } yield {
+        // Nothing to do, if the two completions are found the test is passed
+      }
+  }
+
 }

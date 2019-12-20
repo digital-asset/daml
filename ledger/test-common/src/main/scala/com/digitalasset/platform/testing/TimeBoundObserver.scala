@@ -7,27 +7,19 @@ import com.digitalasset.timer.Delayed
 import io.grpc.Context
 import io.grpc.stub.StreamObserver
 
-import scala.collection.{immutable, mutable}
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
-object TimeBoundObserver {
-  def apply[T](duration: FiniteDuration)(attach: StreamObserver[T] => Unit)(
-      implicit executionContext: ExecutionContext): Future[Seq[T]] = {
-    val observer = new TimeBoundObserver[T](duration)
-    attach(observer)
-    observer.future
-  }
-}
-
-class TimeBoundObserver[T](duration: FiniteDuration)(implicit executionContext: ExecutionContext)
+final class TimeBoundObserver[T](duration: FiniteDuration)(
+    implicit executionContext: ExecutionContext)
     extends StreamObserver[T] {
-  private val promise: Promise[immutable.Seq[T]] = Promise()
-  private val buffer: mutable.Buffer[T] = mutable.ListBuffer()
+
+  private val promise = Promise[Vector[T]]
+  private val buffer = Vector.newBuilder[T]
 
   Delayed.by(duration)(onCompleted())
 
-  def future: Future[Seq[T]] = promise.future
+  def result: Future[Vector[T]] = promise.future
 
   override def onNext(value: T): Unit = {
     buffer += value
@@ -38,7 +30,7 @@ class TimeBoundObserver[T](duration: FiniteDuration)(implicit executionContext: 
   }
 
   override def onCompleted(): Unit = {
-    val _succeeded = promise.trySuccess(buffer.toList)
+    val _succeeded = promise.trySuccess(buffer.result())
     val _cancelled = Context.current().withCancellation().cancel(null)
   }
 }
