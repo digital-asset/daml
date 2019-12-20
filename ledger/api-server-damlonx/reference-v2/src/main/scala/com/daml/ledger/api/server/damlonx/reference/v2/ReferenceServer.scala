@@ -4,26 +4,25 @@
 package com.daml.ledger.api.server.damlonx.reference.v2
 
 import java.util.UUID
-import java.util.concurrent.atomic.AtomicBoolean
 
 import akka.actor.ActorSystem
 import akka.stream.{ActorMaterializer, ActorMaterializerSettings, Supervision}
 import com.codahale.metrics.SharedMetricRegistries
 import com.daml.ledger.api.server.damlonx.reference.v2.cli.Cli
 import com.daml.ledger.participant.state.kvutils.InMemoryKVParticipantState
-import com.daml.ledger.participant.state.v1.SubmissionId
+import com.daml.ledger.participant.state.v1.{ReadService, SubmissionId, WriteService}
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
-import com.digitalasset.ledger.api.auth.AuthServiceWildcard
+import com.digitalasset.ledger.api.auth.{AuthService, AuthServiceWildcard}
 import com.digitalasset.platform.apiserver.{ApiServerConfig, StandaloneApiServer}
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.indexer.{IndexerConfig, StandaloneIndexerServer}
+import com.digitalasset.platform.resources.{Resource, ResourceOwner}
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration.DurationInt
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{Await, ExecutionContext}
 import scala.util.Try
-import scala.util.control.NonFatal
 
 object ReferenceServer extends App {
   val logger = LoggerFactory.getLogger("indexed-kvutils")
@@ -44,51 +43,71 @@ object ReferenceServer extends App {
         logger.error(s"Supervision caught exception: $e")
         Supervision.Stop
       })
-  implicit val ec: ExecutionContext = system.dispatcher
+  implicit val executionContext: ExecutionContext = system.dispatcher
 
-  val ledger = new InMemoryKVParticipantState(config.participantId)
+  val resource = for {
+    _ <- ResourceOwner.forActorSystem(() => system).acquire()
+    _ <- ResourceOwner.forMaterializer(() => materializer).acquire()
+    ledger <- ResourceOwner
+      .forCloseable(() => new InMemoryKVParticipantState(config.participantId))
+      .acquire()
+    _ = config.archiveFiles.foreach { file =>
+      val submissionId = SubmissionId.assertFromString(UUID.randomUUID().toString)
+      for {
+        dar <- DarReader { case (_, x) => Try(Archive.parseFrom(x)) }
+          .readArchiveFromFile(file)
+      } yield ledger.uploadPackages(submissionId, dar.all, None)
+    }
+    _ <- startIndexerServer(config, readService = ledger)
+    _ <- startApiServer(
+      config,
+      readService = ledger,
+      writeService = ledger,
+      authService = AuthServiceWildcard,
+    )
+    _ <- Resource.sequence_(
+      for {
+        (extraParticipantId, port, jdbcUrl) <- config.extraParticipants
+      } yield {
+        val participantConfig = config.copy(
+          port = port,
+          participantId = extraParticipantId,
+          jdbcUrl = jdbcUrl,
+        )
+        for {
+          _ <- startIndexerServer(participantConfig, readService = ledger)
+          _ <- startApiServer(
+            participantConfig,
+            readService = ledger,
+            writeService = ledger,
+            authService = AuthServiceWildcard,
+          )
+        } yield ()
+      }
+    )
+  } yield ()
 
-  val readService = ledger
-  val writeService = ledger
-  val authService = AuthServiceWildcard
-
-  config.archiveFiles.foreach { file =>
-    val submissionId = SubmissionId.assertFromString(UUID.randomUUID().toString)
-    for {
-      dar <- DarReader { case (_, x) => Try(Archive.parseFrom(x)) }
-        .readArchiveFromFile(file)
-    } yield ledger.uploadPackages(submissionId, dar.all, None)
+  resource.asFuture.failed.foreach { exception =>
+    logger.error("Shutting down because of an initialization error.", exception)
+    System.exit(1)
   }
 
-  val participantF: Future[(AutoCloseable, AutoCloseable)] = for {
-    indexer <- startIndexerServer(config)
-    apiServer <- startApiServer(config)
-  } yield (indexer, apiServer)
+  Runtime.getRuntime.addShutdownHook(new Thread(() => Await.result(resource.release(), 10.seconds)))
 
-  val extraParticipants =
-    for {
-      (extraParticipantId, port, jdbcUrl) <- config.extraParticipants
-    } yield {
-      val participantConfig = config.copy(
-        port = port,
-        participantId = extraParticipantId,
-        jdbcUrl = jdbcUrl,
-      )
-      for {
-        extraIndexer <- startIndexerServer(participantConfig)
-        extraLedgerApiServer <- startApiServer(participantConfig)
-      } yield (extraIndexer, extraLedgerApiServer)
-    }
-
-  def startIndexerServer(config: Config): Future[AutoCloseable] =
+  private def startIndexerServer(config: Config, readService: ReadService): Resource[Unit] =
     new StandaloneIndexerServer(
       readService,
       IndexerConfig(config.participantId, config.jdbcUrl, config.startupMode),
       NamedLoggerFactory.forParticipant(config.participantId),
       SharedMetricRegistries.getOrCreate(s"indexer-${config.participantId}"),
-    ).acquire().asFutureCloseable(10.seconds)
+    ).acquire()
 
-  def startApiServer(config: Config): Future[AutoCloseable] =
+  private def startApiServer(
+      config: Config,
+      readService: ReadService,
+      writeService: WriteService,
+      authService: AuthService,
+  ): Resource[Unit] =
     new StandaloneApiServer(
       ApiServerConfig(
         config.participantId,
@@ -105,42 +124,5 @@ object ReferenceServer extends App {
       authService,
       NamedLoggerFactory.forParticipant(config.participantId),
       SharedMetricRegistries.getOrCreate(s"ledger-api-server-${config.participantId}"),
-    ).acquire().asFutureCloseable(10.seconds)
-
-  val closed = new AtomicBoolean(false)
-
-  def closeServer(): Unit = {
-    if (closed.compareAndSet(false, true)) {
-      participantF.foreach {
-        case (indexer, apiServer) =>
-          indexer.close()
-          apiServer.close()
-      }
-
-      for (extraParticipantF <- extraParticipants) {
-        extraParticipantF.foreach {
-          case (indexer, apiServer) =>
-            indexer.close()
-            apiServer.close()
-        }
-      }
-      ledger.close()
-      materializer.shutdown()
-      val _ = system.terminate()
-    }
-  }
-
-  private def startupFailed(e: Throwable): Unit = {
-    logger.error("Shutting down because of an initialization error.", e)
-    closeServer()
-  }
-
-  participantF.failed.foreach(startupFailed)
-
-  try {
-    Runtime.getRuntime.addShutdownHook(new Thread(() => closeServer()))
-  } catch {
-    case NonFatal(e) =>
-      startupFailed(e)
-  }
+    ).acquire()
 }
