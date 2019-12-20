@@ -71,6 +71,5 @@ da_scala_benchmark_jmh(
     deps = [
         ":sandbox-perf-lib",
         "//ledger/test-common",
-        "//ledger/ledger-api-integration-tests:default-it-logback-config",
     ] + dependencies,
 )
