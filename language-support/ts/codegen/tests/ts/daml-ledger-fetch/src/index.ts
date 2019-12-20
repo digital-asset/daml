@@ -197,7 +197,7 @@ class Ledger {
       exerciseResult: choice.resultDecoder(),
       contracts: jtv.array(decodeEventUnknown()),
     });
-    const response: {exerciseResult: R; contracts: Event<unknown>[]} = jtv.Result.withException(responseDecoder.run(json));
+    const {exerciseResult, contracts} = jtv.Result.withException(responseDecoder.run(json));
     const result: [R, Event<unknown>[]] = [response.exerciseResult, response.contracts]; // Unpack record fields into a tuple.
 
     return result;
