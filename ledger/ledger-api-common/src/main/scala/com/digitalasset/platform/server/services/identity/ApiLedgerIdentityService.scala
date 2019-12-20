@@ -16,7 +16,7 @@ import com.digitalasset.ledger.api.v1.ledger_identity_service.{
 import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.server.api.ApiException
-import com.digitalasset.platform.common.util.DirectExecutionContext
+import com.digitalasset.dec.DirectExecutionContext
 
 import io.grpc.{BindableService, ServerServiceDefinition, Status}
 import org.slf4j.Logger

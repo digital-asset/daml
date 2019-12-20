@@ -5,7 +5,7 @@ package com.digitalasset.platform.akkastreams.dispatcher
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.digitalasset.platform.common.util.DirectExecutionContext
+import com.digitalasset.dec.DirectExecutionContext
 
 import scala.concurrent.Future
 

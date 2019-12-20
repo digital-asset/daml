@@ -35,7 +35,7 @@ import com.digitalasset.ledger.api.domain.CompletionEvent.{
 import com.digitalasset.ledger.api.domain.{ParticipantId => _, _}
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
-import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
+import com.digitalasset.dec.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.participant.util.EventFilter
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.digitalasset.platform.sandbox.stores.ledger._

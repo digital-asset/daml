@@ -7,7 +7,7 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
+import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.ledger.api.health.HealthChecks
 import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.platform.server.api.DropRepeated

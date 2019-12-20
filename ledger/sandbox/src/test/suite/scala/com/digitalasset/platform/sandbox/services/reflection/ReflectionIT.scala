@@ -5,7 +5,7 @@ package com.digitalasset.platform.sandbox.services.reflection
 
 import com.digitalasset.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.digitalasset.platform.sandbox.services.SandboxFixture
-import com.digitalasset.platform.testing.SingleItemObserver
+import com.digitalasset.platform.testing.StreamConsumer
 import io.grpc.reflection.v1alpha.{
   ServerReflectionGrpc,
   ServerReflectionRequest,
@@ -64,12 +64,11 @@ final class ReflectionIT
     ServerReflectionRequest.newBuilder().setFileContainingSymbol(symbol).build()
 
   private def execRequest(request: ServerReflectionRequest) =
-    SingleItemObserver
-      .first[ServerReflectionResponse](
-        ServerReflectionGrpc
-          .newStub(channel)
-          .serverReflectionInfo(_)
-          .onNext(request)
-      )
-      .map(_.get)
+    new StreamConsumer[ServerReflectionResponse](
+      ServerReflectionGrpc
+        .newStub(channel)
+        .serverReflectionInfo(_)
+        .onNext(request)
+    ).first().map(_.get)
+
 }

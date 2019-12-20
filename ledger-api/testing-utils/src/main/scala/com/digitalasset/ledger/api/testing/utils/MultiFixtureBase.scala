@@ -5,7 +5,7 @@ package com.digitalasset.ledger.api.testing.utils
 
 import java.util.concurrent.{Executors, ScheduledExecutorService, TimeUnit}
 
-import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
+import com.digitalasset.dec.DirectExecutionContext
 import org.scalatest._
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScaledTimeSpans}
 import org.scalatest.exceptions.TestCanceledException

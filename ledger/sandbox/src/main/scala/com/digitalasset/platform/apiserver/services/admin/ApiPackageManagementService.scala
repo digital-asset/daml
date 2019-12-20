@@ -18,7 +18,7 @@ import com.digitalasset.ledger.api.v1.admin.package_management_service.PackageMa
 import com.digitalasset.ledger.api.v1.admin.package_management_service._
 import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
-import com.digitalasset.platform.common.util.{DirectExecutionContext => DE}
+import com.digitalasset.dec.{DirectExecutionContext => DE}
 import com.digitalasset.platform.server.api.validation.ErrorFactories
 import com.google.protobuf.timestamp.Timestamp
 import com.digitalasset.ledger.api.domain.{LedgerOffset, PackageEntry}

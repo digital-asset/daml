@@ -13,7 +13,7 @@ import com.digitalasset.ledger.api.v1.ledger_configuration_service.{
 }
 import com.digitalasset.ledger.api.v1.ledger_identity_service.GetLedgerIdentityRequest
 import com.digitalasset.ledger.api.v1.transaction_service.GetLedgerEndRequest
-import com.digitalasset.platform.testing.SingleItemObserver
+import com.digitalasset.platform.testing.StreamConsumer
 import com.digitalasset.timer.RetryStrategy
 import io.grpc.ManagedChannel
 import io.netty.channel.nio.NioEventLoopGroup
@@ -51,9 +51,9 @@ private[participant] final class ParticipantSession(
   private[this] val ttlF: Future[Duration] =
     ledgerIdF
       .flatMap { id =>
-        SingleItemObserver
-          .first[GetLedgerConfigurationResponse](services.configuration
-            .getLedgerConfiguration(new GetLedgerConfigurationRequest(id), _))
+        new StreamConsumer[GetLedgerConfigurationResponse](services.configuration
+          .getLedgerConfiguration(new GetLedgerConfigurationRequest(id), _))
+          .first()
           .map(_.get.getLedgerConfiguration)
       }
       .map { configuration =>

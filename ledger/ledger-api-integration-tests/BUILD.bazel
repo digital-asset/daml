@@ -58,6 +58,7 @@ dependencies = [
     "//ledger/test-common",
     "//ledger/participant-state",
     "//ledger-service/jwt",
+    "//libs-scala/direct-execution-context",
     "//libs-scala/grpc-utils",
 ]
 
