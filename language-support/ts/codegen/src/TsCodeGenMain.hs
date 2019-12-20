@@ -175,7 +175,7 @@ genDefDataType curModName tpls def = case unTypeConName (dataTypeCon def) of
                             [ ["  " <> x <> ": {"
                               ,"    template: () => " <> conName <> ","
                               ,"    choiceName: '" <> x <> "',"
-                              ,"    argDecoder: " <> t <> ".decoder,"
+                              ,"    argumentDecoder: " <> t <> ".decoder,"
                               -- We'd write,
                               --   "   resultDecoder: " <> rtyp <> ".decoder"
                               -- here but, consider the following scenario:
