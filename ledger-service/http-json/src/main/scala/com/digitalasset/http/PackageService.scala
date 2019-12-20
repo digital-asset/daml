@@ -25,6 +25,7 @@ private class PackageService(reloadPackageStoreIfChanged: PackageService.ReloadP
       packageIds: Set[String],
       templateIdMap: TemplateIdMap,
       choiceIdMap: ChoiceIdMap,
+      keyIdMap: KeyIdMap,
       packageStore: PackageStore) {
 
     def append(diff: PackageStore): State = {
@@ -33,12 +34,14 @@ private class PackageService(reloadPackageStoreIfChanged: PackageService.ReloadP
         newPackageStore.keySet,
         getTemplateIdMap(newPackageStore),
         getChoiceIdMap(newPackageStore),
+        getKeyIdMap(newPackageStore),
         newPackageStore)
     }
   }
 
   // volatile, reading threads don't need synchronization
-  @volatile private var state: State = State(Set.empty, TemplateIdMap.Empty, Map.empty, Map.empty)
+  @volatile private var state: State =
+    State(Set.empty, TemplateIdMap.Empty, Map.empty, Map.empty, Map.empty)
 
   // synchronized, so two threads cannot reload it concurrently
   def reload(implicit ec: ExecutionContext): Future[Error \/ Unit] = synchronized {
@@ -73,6 +76,10 @@ private class PackageService(reloadPackageStoreIfChanged: PackageService.ReloadP
   // See the above comment
   def resolveChoiceRecordId: ResolveChoiceRecordId =
     (x, y) => PackageService.resolveChoiceRecordId(state.choiceIdMap)(x, y)
+
+  // See the above comment
+  def resolveKeyId: ResolveKeyId =
+    x => PackageService.resolveKeyId(state.keyIdMap)(x)
 }
 
 object PackageService {
@@ -102,6 +109,9 @@ object PackageService {
   type ResolveChoiceRecordId =
     (TemplateId.RequiredPkg, Choice) => Error \/ Identifier
 
+  type ResolveKeyId =
+    TemplateId.RequiredPkg => Error \/ Identifier
+
   case class TemplateIdMap(
       all: Set[TemplateId.RequiredPkg],
       unique: Map[TemplateId.NoPkg, TemplateId.RequiredPkg])
@@ -111,6 +121,8 @@ object PackageService {
   }
 
   type ChoiceIdMap = Map[(TemplateId.RequiredPkg, Choice), Identifier]
+
+  type KeyIdMap = Map[TemplateId.RequiredPkg, Identifier]
 
   def getTemplateIdMap(packageStore: PackageStore): TemplateIdMap =
     buildTemplateIdMap(collectTemplateIds(packageStore))
@@ -178,6 +190,13 @@ object PackageService {
       .toRightDisjunction(InputError(s"Cannot resolve choice record ID, given: ${k.toString}"))
   }
 
+  def resolveKeyId(keyTypeMap: KeyIdMap)(templateId: TemplateId.RequiredPkg): Error \/ Identifier =
+    keyTypeMap
+      .get(templateId)
+      .toRightDisjunction(
+        InputError(s"Cannot resolve Template Key ID, given: ${templateId.toString}"))
+
+  // TODO (Leo): merge getChoiceIdMap and getKeyIdMap, so we build them in one iteration over all templates
   def getChoiceIdMap(packageStore: PackageStore): ChoiceIdMap =
     packageStore.flatMap { case (_, interface) => getChoices(interface) }(collection.breakOut)
 
@@ -198,4 +217,18 @@ object PackageService {
         (Choice(name.toString), IdentifierConverters.apiIdentifier(typeConName.identifier))
     }
   }
+
+  // TODO (Leo): merge getChoiceIdMap and getKeyIdMap, so we build them in one iteration over all templates
+  private def getKeyIdMap(packageStore: PackageStore): KeyIdMap =
+    packageStore.flatMap { case (_, interface) => getKeys(interface) }(collection.breakOut)
+
+  private def getKeys(interface: iface.Interface): Map[TemplateId.RequiredPkg, Identifier] =
+    interface.typeDecls.collect {
+      case (
+          qn,
+          iface.InterfaceType
+            .Template(_, iface.DefTemplate(_, Some(iface.TypeCon(typeConName, _))))) =>
+        val templateId = TemplateId(interface.packageId, qn.module.toString, qn.name.toString)
+        (templateId, IdentifierConverters.apiIdentifier(typeConName.identifier))
+    }
 }

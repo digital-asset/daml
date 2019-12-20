@@ -258,7 +258,8 @@ object domain {
       override def lfIdentifier(
           fa: ActiveContract[_],
           templateId: TemplateId.RequiredPkg,
-          f: PackageService.ResolveChoiceRecordId): Error \/ lf.data.Ref.Identifier =
+          f: PackageService.ResolveChoiceRecordId,
+          g: PackageService.ResolveKeyId): Error \/ lf.data.Ref.Identifier =
         \/-(IdentifierConverters.lfIdentifier(templateId))
     }
   }
@@ -337,8 +338,12 @@ object domain {
         override def lfIdentifier(
             fa: EnrichedContractKey[_],
             templateId: TemplateId.RequiredPkg,
-            f: PackageService.ResolveChoiceRecordId): Error \/ Ref.Identifier =
-          \/-(IdentifierConverters.lfIdentifier(templateId))
+            f: PackageService.ResolveChoiceRecordId,
+            g: PackageService.ResolveKeyId): Error \/ Ref.Identifier =
+          for {
+            apiId <- g(templateId)
+              .leftMap(e => Error('EnrichedContractKey_hasTemplateId_lfIdentifier, e.shows))
+          } yield IdentifierConverters.lfIdentifier(apiId)
       }
   }
 
@@ -352,7 +357,8 @@ object domain {
     def lfIdentifier(
         fa: F[_],
         templateId: TemplateId.RequiredPkg,
-        f: PackageService.ResolveChoiceRecordId): Error \/ lf.data.Ref.Identifier
+        f: PackageService.ResolveChoiceRecordId,
+        g: PackageService.ResolveKeyId): Error \/ lf.data.Ref.Identifier
   }
 
   object CreateCommand {
@@ -368,7 +374,8 @@ object domain {
       override def lfIdentifier(
           fa: CreateCommand[_],
           templateId: TemplateId.RequiredPkg,
-          f: PackageService.ResolveChoiceRecordId): Error \/ lf.data.Ref.Identifier =
+          f: PackageService.ResolveChoiceRecordId,
+          g: PackageService.ResolveKeyId): Error \/ lf.data.Ref.Identifier =
         \/-(IdentifierConverters.lfIdentifier(templateId))
     }
   }
@@ -386,7 +393,8 @@ object domain {
         override def lfIdentifier(
             fa: ExerciseCommand[_],
             templateId: TemplateId.RequiredPkg,
-            f: PackageService.ResolveChoiceRecordId): Error \/ lf.data.Ref.Identifier =
+            f: PackageService.ResolveChoiceRecordId,
+            g: PackageService.ResolveKeyId): Error \/ lf.data.Ref.Identifier =
           for {
             apiId <- f(templateId, fa.choice)
               .leftMap(e => Error('ExerciseCommand_hasTemplateId_lfIdentifier, e.shows))

@@ -136,11 +136,15 @@ class Endpoints(
 
         (jwt, jwtPayload, reqBody) = input
 
+        _ = logger.info(s"reqBody: $reqBody")
+
         cl <- either(
           decoder
             .decodeContractLocator(reqBody)
             .leftMap(e => InvalidUserInput(e.shows))
         ): ET[domain.ContractLocator[ApiValue]]
+
+        _ = logger.info(s"cl: $cl")
 
         ac <- eitherT(
           handleFutureFailure(contractsService.lookup(jwt, jwtPayload, cl))

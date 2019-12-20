@@ -17,6 +17,7 @@ import scala.language.higherKinds
 class DomainJsonDecoder(
     resolveTemplateId: PackageService.ResolveTemplateId,
     resolveChoiceRecordId: PackageService.ResolveChoiceRecordId,
+    resolveKeyId: PackageService.ResolveKeyId,
     jsObjectToApiRecord: (lf.data.Ref.Identifier, JsObject) => JsonError \/ lav1.value.Record,
     jsValueToApiValue: (lf.data.Ref.Identifier, JsValue) => JsonError \/ lav1.value.Value) {
 
@@ -83,7 +84,7 @@ class DomainJsonDecoder(
       tId <- resolveTemplateId(templateId)
         .leftMap(e => JsonError("DomainJsonDecoder_lookupLfIdentifier " + e.shows))
       lfId <- H
-        .lfIdentifier(fa, tId, resolveChoiceRecordId)
+        .lfIdentifier(fa, tId, resolveChoiceRecordId, resolveKeyId)
         .leftMap(e => JsonError("DomainJsonDecoder_lookupLfIdentifier " + e.shows))
     } yield lfId
   }
@@ -91,7 +92,9 @@ class DomainJsonDecoder(
   def decodeContractLocator(a: String)(implicit ev: JsonReader[domain.ContractLocator[JsValue]])
     : JsonError \/ domain.ContractLocator[lav1.value.Value] =
     for {
-      b <- SprayJson.parse(a).leftMap(e => JsonError(e.shows))
+      b <- SprayJson
+        .parse(a)
+        .leftMap(e => JsonError("DomainJsonDecoder_decodeContractLocator " + e.shows))
       c <- decodeContractLocator(b)
     } yield c
 
