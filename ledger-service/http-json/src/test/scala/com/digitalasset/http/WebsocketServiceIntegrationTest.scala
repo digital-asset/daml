@@ -75,8 +75,7 @@ class WebsocketServiceIntegrationTest extends AbstractHttpServiceIntegrationTest
         .runWith(Sink.fold(Seq.empty[String])(_ :+ _.toString))
 
       val result = Await.result(clientMsg, 10.seconds)
-      assert(result.nonEmpty)
-      result.size shouldBe 1
+      result should have size 1
     }
   }
 
@@ -94,9 +93,8 @@ class WebsocketServiceIntegrationTest extends AbstractHttpServiceIntegrationTest
 
       val result = Await.result(clientMsg, 10.seconds)
 
-      assert(result.nonEmpty)
-      result.size shouldBe 1
-      assert(result.head.contains("error"))
+      result should have size 1
+      result.head should include("error")
     }
   }
 
