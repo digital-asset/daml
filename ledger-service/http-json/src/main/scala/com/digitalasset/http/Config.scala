@@ -34,7 +34,8 @@ private[http] final case class Config(
 private[http] object Config {
   import scala.language.postfixOps
   val Empty = Config(ledgerHost = "", ledgerPort = -1, httpPort = -1)
-  val DefaultWsConfig = WebsocketConfig(120 minutes, 20, 1 second, 20, ThrottleMode.Shaping, 5 second)
+  val DefaultWsConfig =
+    WebsocketConfig(120 minutes, 20, 1 second, 20, ThrottleMode.Shaping, 5 second)
 }
 
 private[http] abstract class ConfigCompanion[A](name: String) {
@@ -64,12 +65,10 @@ private[http] abstract class ConfigCompanion[A](name: String) {
   import scalaz.syntax.std.string._
 
   protected def parseBoolean(k: String)(v: String): String \/ Boolean =
-    v.parseBoolean.leftMap(e =>
-      s"$k=$v must be a boolean value: ${e.description}").disjunction
+    v.parseBoolean.leftMap(e => s"$k=$v must be a boolean value: ${e.description}").disjunction
 
   protected def parseLong(k: String)(v: String): String \/ Long =
-    v.parseLong.leftMap(e =>
-      s"$k=$v must be a int value: ${e.description}").disjunction
+    v.parseLong.leftMap(e => s"$k=$v must be a int value: ${e.description}").disjunction
 
   protected def requiredDirectoryField(m: Map[String, String])(k: String): Either[String, File] =
     requiredField(m)(k).flatMap(directory)
@@ -143,36 +142,43 @@ private[http] object JdbcConfig extends ConfigCompanion[JdbcConfig]("JdbcConfig"
 }
 
 private[http] final case class WebsocketConfig(
-                                                maxDuration: FiniteDuration,
-                                                throttleElem: Int,
-                                                throttlePer: FiniteDuration,
-                                                maxBurst: Int,
-                                                mode: ThrottleMode,
-                                                heartBeatPer: FiniteDuration
-                                              )
+    maxDuration: FiniteDuration,
+    throttleElem: Int,
+    throttlePer: FiniteDuration,
+    maxBurst: Int,
+    mode: ThrottleMode,
+    heartBeatPer: FiniteDuration
+)
 
 private[http] object WebsocketConfig extends ConfigCompanion[WebsocketConfig]("WebsocketConfig") {
 
   implicit val showInstance: Show[WebsocketConfig] = Show.shows(c =>
-  s"WebsocketConfig(maxDuration=${c.maxDuration}, heartBeatPer=${c.heartBeatPer}.seconds)")
+    s"WebsocketConfig(maxDuration=${c.maxDuration}, heartBeatPer=${c.heartBeatPer}.seconds)")
 
   lazy val help: String =
     "Contains comma-separated key-value pairs. Where:\n" +
       "\tmaxDuration -- Maximum websocket session duration in minutes\n" +
       "\theartBeatPer -- Server-side heartBeat interval in seconds\n" +
-      "\tExample: " + helpString("120","5")
+      "\tExample: " + helpString("120", "5")
 
-  lazy val usage: String = helpString("<Maximum websocket session duration in minutes>",
-          "Server-side heartBeat interval in seconds")
+  lazy val usage: String = helpString(
+    "<Maximum websocket session duration in minutes>",
+    "Server-side heartBeat interval in seconds")
 
   override def create(x: Map[String, String]): Either[String, WebsocketConfig] =
     for {
       md <- optionalLongField(x)("maxDuration")
       hbp <- optionalLongField(x)("heartBeatPer")
     } yield
-     Config.DefaultWsConfig
-       .copy(maxDuration = md.map(t => FiniteDuration(t,TimeUnit.MINUTES)).getOrElse(Config.DefaultWsConfig.maxDuration),
-             heartBeatPer = hbp.map(t => FiniteDuration(t,TimeUnit.SECONDS)).getOrElse(Config.DefaultWsConfig.heartBeatPer))
+      Config.DefaultWsConfig
+        .copy(
+          maxDuration = md
+            .map(t => FiniteDuration(t, TimeUnit.MINUTES))
+            .getOrElse(Config.DefaultWsConfig.maxDuration),
+          heartBeatPer = hbp
+            .map(t => FiniteDuration(t, TimeUnit.SECONDS))
+            .getOrElse(Config.DefaultWsConfig.heartBeatPer)
+        )
 
   private def helpString(maxDuration: String, heartBeatPer: String): String =
     s"""\"maxDuration=$maxDuration,heartBeatPer=$heartBeatPer\""""

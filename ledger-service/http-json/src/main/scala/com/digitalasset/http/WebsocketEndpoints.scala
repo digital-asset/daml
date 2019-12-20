@@ -30,7 +30,7 @@ class WebsocketEndpoints(
   import WebsocketEndpoints._
 
   lazy val transactionWebSocket: PartialFunction[HttpRequest, Future[HttpResponse]] = {
-    case req@HttpRequest(GET, Uri.Path("/transactions"), _, _, _) =>
+    case req @ HttpRequest(GET, Uri.Path("/transactions"), _, _, _) =>
       req.header[UpgradeToWebSocket] match {
         case Some(upgradeReq) =>
           logger.info(s"GOT $wsProtocol")

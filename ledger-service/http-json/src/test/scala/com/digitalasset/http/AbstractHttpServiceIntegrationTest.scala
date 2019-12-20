@@ -635,8 +635,8 @@ abstract class AbstractHttpServiceIntegrationTest
   private def postJsonStringRequest(
       uri: Uri,
       jsonString: String
-      ): Future[(StatusCode, JsValue)] =
-   TestUtil.postJsonStringRequest(uri, jsonString, headersWithAuth)
+  ): Future[(StatusCode, JsValue)] =
+    TestUtil.postJsonStringRequest(uri, jsonString, headersWithAuth)
 
   private def postJsonRequest(
       uri: Uri,

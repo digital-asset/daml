@@ -8,7 +8,16 @@ import java.net.ServerSocket
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpHeader, HttpMethods, HttpRequest, HttpResponse, StatusCode, Uri}
+import akka.http.scaladsl.model.{
+  ContentTypes,
+  HttpEntity,
+  HttpHeader,
+  HttpMethods,
+  HttpRequest,
+  HttpResponse,
+  StatusCode,
+  Uri
+}
 import akka.stream.Materializer
 import akka.util.ByteString
 import com.digitalasset.daml.lf.data.TryOps.Bracket.bracket
@@ -19,7 +28,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.io.Source
 import scala.util.{Failure, Success, Try}
 
-object TestUtil extends LazyLogging{
+object TestUtil extends LazyLogging {
   def findOpenPort(): Try[Int] = Try {
     val socket = new ServerSocket(0)
     val result = socket.getLocalPort
@@ -53,17 +62,18 @@ object TestUtil extends LazyLogging{
       case Failure(ex) => throw ex
     }
 
-  def getResponseDataBytes(resp: HttpResponse, debug: Boolean = false)
-                          (implicit mat: Materializer, ec: ExecutionContext): Future[String] = {
+  def getResponseDataBytes(resp: HttpResponse, debug: Boolean = false)(
+      implicit mat: Materializer,
+      ec: ExecutionContext): Future[String] = {
     val fb = resp.entity.dataBytes.runFold(ByteString.empty)((b, a) => b ++ a).map(_.utf8String)
     if (debug) fb.foreach(x => logger.info(s"---- response data: $x"))
     fb
   }
 
-  def postRequest(uri: Uri,
-                      json: JsValue,
-                      headers: List[HttpHeader] = Nil)
-                     (implicit as: ActorSystem, ec: ExecutionContext, mat: Materializer): Future[(StatusCode, JsValue)] = {
+  def postRequest(uri: Uri, json: JsValue, headers: List[HttpHeader] = Nil)(
+      implicit as: ActorSystem,
+      ec: ExecutionContext,
+      mat: Materializer): Future[(StatusCode, JsValue)] = {
     Http()
       .singleRequest(
         HttpRequest(
@@ -80,11 +90,8 @@ object TestUtil extends LazyLogging{
       }
   }
 
-  def postJsonStringRequest(
-     uri: Uri,
-     jsonString: String,
-     headers: List[HttpHeader])
-     (implicit as: ActorSystem,
+  def postJsonStringRequest(uri: Uri, jsonString: String, headers: List[HttpHeader])(
+      implicit as: ActorSystem,
       ec: ExecutionContext,
       mat: Materializer): Future[(StatusCode, JsValue)] = {
     logger.info(s"postJson: ${uri.toString} json: ${jsonString: String}")
@@ -102,12 +109,9 @@ object TestUtil extends LazyLogging{
       }
   }
 
-  def postJsonRequest(
-          uri: Uri,
-          json: JsValue,
-          headers: List[HttpHeader])
-          (implicit as: ActorSystem,
-           ec: ExecutionContext,
-           mat: Materializer): Future[(StatusCode, JsValue)] =
+  def postJsonRequest(uri: Uri, json: JsValue, headers: List[HttpHeader])(
+      implicit as: ActorSystem,
+      ec: ExecutionContext,
+      mat: Materializer): Future[(StatusCode, JsValue)] =
     postJsonStringRequest(uri, json.prettyPrint, headers)
 }

@@ -43,30 +43,30 @@ class WebSocketService(
   import WebSocketService._
   import com.digitalasset.http.json.JsonProtocol._
 
-  @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements", "org.wartremover.warts.JavaSerializable"))
-  private[http] def transactionMessageHandler(jwt: Jwt, jwtPayload: JwtPayload): Flow[Message, Message, _] = {
+  @SuppressWarnings(
+    Array("org.wartremover.warts.NonUnitStatements", "org.wartremover.warts.JavaSerializable"))
+  private[http] def transactionMessageHandler(
+      jwt: Jwt,
+      jwtPayload: JwtPayload): Flow[Message, Message, _] = {
 
     val config = wsConfig.getOrElse(Config.DefaultWsConfig)
 
     wsMessageHandler(jwt, jwtPayload)
       .takeWithin(config.maxDuration)
-      .throttle(config.throttleElem,
-        config.throttlePer,
-        config.maxBurst,
-        config.mode)
+      .throttle(config.throttleElem, config.throttlePer, config.maxBurst, config.mode)
       .keepAlive(config.heartBeatPer, () => TextMessage.Strict(heartBeat))
-      .watchTermination() {
-        (_, future) =>
-          numConns.incrementAndGet
-          logger.info(s"New websocket client has connected, current number of clients:$numConns")
-          future onComplete {
-            case Success(_) =>
-              numConns.decrementAndGet
-              logger.info(s"Websocket client has disconnected. Current number of clients: $numConns")
-            case Failure(ex) =>
-              numConns.decrementAndGet
-              logger.info(s"Websocket client interrupted on Failure: ${ex.getMessage}. remaining number of clients: $numConns")
-          }
+      .watchTermination() { (_, future) =>
+        numConns.incrementAndGet
+        logger.info(s"New websocket client has connected, current number of clients:$numConns")
+        future onComplete {
+          case Success(_) =>
+            numConns.decrementAndGet
+            logger.info(s"Websocket client has disconnected. Current number of clients: $numConns")
+          case Failure(ex) =>
+            numConns.decrementAndGet
+            logger.info(
+              s"Websocket client interrupted on Failure: ${ex.getMessage}. remaining number of clients: $numConns")
+        }
       }
   }
 
