@@ -1,3 +1,6 @@
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.daml.ledger.participant.state.kvutils.api
 
 import java.util.UUID
@@ -79,3 +82,4 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter)(
       submission: DamlSubmission): CompletionStage[SubmissionResult] =
     FutureConverters.toJava(writer.commit(correlationId, Envelope.enclose(submission).toByteArray))
 }
+

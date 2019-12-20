@@ -1,3 +1,6 @@
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.daml.ledger.participant.state.kvutils.api
 
 import akka.NotUsed
@@ -22,3 +25,4 @@ object LedgerReader {
     timeModel = TimeModel.reasonableDefault
   )
 }
+

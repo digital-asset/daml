@@ -1,3 +1,6 @@
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.daml.ledger.participant.state.kvutils.api
 
 import akka.NotUsed
@@ -95,3 +98,4 @@ class KeyValueParticipantStateReaderSpec
   private def offsetsFrom(stream: Source[(Offset, Update), NotUsed]): Seq[Offset] =
     Await.result(stream.runWith(Sink.seq), DefaultTimeout).map(_._1)
 }
+
