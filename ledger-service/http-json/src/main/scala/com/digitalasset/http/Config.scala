@@ -61,13 +61,15 @@ private[http] abstract class ConfigCompanion[A](name: String) {
   protected def optionalLongField(m: Map[String, String])(k: String): Either[String, Option[Long]] =
     m.get(k).traverseU(v => parseLong(k)(v)).toEither
 
+  import scalaz.syntax.std.string._
+
   protected def parseBoolean(k: String)(v: String): String \/ Boolean =
-    \/.fromTryCatchNonFatal(v.toBoolean).leftMap(e =>
-      s"$k=$v must be a boolean value: ${e.description}")
+    v.parseBoolean.leftMap(e =>
+      s"$k=$v must be a boolean value: ${e.description}").disjunction
 
   protected def parseLong(k: String)(v: String): String \/ Long =
-    \/.fromTryCatchNonFatal(v.toLong).leftMap(e =>
-      s"$k=$v must be a int value: ${e.description}")
+    v.parseLong.leftMap(e =>
+      s"$k=$v must be a int value: ${e.description}").disjunction
 
   protected def requiredDirectoryField(m: Map[String, String])(k: String): Either[String, File] =
     requiredField(m)(k).flatMap(directory)
