@@ -132,7 +132,7 @@ object Ledger {
       packages: InMemoryPackageStore,
       ledgerEntries: ImmArray[LedgerEntryOrBump],
   ): ResourceOwner[Ledger] =
-    ResourceOwner.pure(
+    ResourceOwner.successful(
       new InMemoryLedger(ledgerId, participantId, timeProvider, acs, packages, ledgerEntries))
 
   /**

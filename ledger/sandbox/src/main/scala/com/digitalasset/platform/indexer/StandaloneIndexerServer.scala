@@ -37,7 +37,7 @@ class StandaloneIndexerServer(
       )
       _ <- config.startupMode match {
         case IndexerStartupMode.MigrateOnly =>
-          Resource.pure(Future.successful(()))
+          Resource.successful(Future.successful(()))
         case IndexerStartupMode.MigrateAndStart =>
           startIndexer(indexer, indexerFactory.migrateSchema(config.jdbcUrl), actorSystem)
         case IndexerStartupMode.ValidateAndStart =>

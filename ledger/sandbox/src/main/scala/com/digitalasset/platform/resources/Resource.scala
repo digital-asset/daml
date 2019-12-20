@@ -114,7 +114,7 @@ object Resource {
           releasePromise.future
     }
 
-  def pure[T](value: T)(implicit executionContext: ExecutionContext): Resource[T] =
+  def successful[T](value: T)(implicit executionContext: ExecutionContext): Resource[T] =
     Resource(Future.successful(value), _ => Future.successful(()))
 
   def failed[T](exception: Throwable)(implicit executionContext: ExecutionContext): Resource[T] =
@@ -125,7 +125,7 @@ object Resource {
       executionContext: ExecutionContext,
   ): Resource[C[T]] =
     seq
-      .foldLeft(Resource.pure(bf()))((builderResource, elementResource) =>
+      .foldLeft(Resource.successful(bf()))((builderResource, elementResource) =>
         for {
           builder <- builderResource
           element <- elementResource
@@ -136,7 +136,7 @@ object Resource {
       implicit executionContext: ExecutionContext,
   ): Resource[Unit] =
     seq
-      .foldLeft(Resource.pure(()))((builderResource, elementResource) =>
+      .foldLeft(Resource.successful(()))((builderResource, elementResource) =>
         for {
           _ <- builderResource
           _ <- elementResource

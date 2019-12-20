@@ -219,7 +219,7 @@ class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
       }
 
       val transformedResource = resource.transformWith {
-        case Success(value) => Resource.pure(value + 1)
+        case Success(value) => Resource.successful(value + 1)
         case Failure(exception) =>
           Resource.failed[Int](new IllegalStateException("Unexpected failure.", exception))
       }
@@ -248,7 +248,7 @@ class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
 
       val transformedResource = resource.transformWith {
         case Success(_) => Resource.failed[String](new IllegalStateException("Unexpected success."))
-        case Failure(_) => Resource.pure("something")
+        case Failure(_) => Resource.successful("something")
       }
 
       for {
@@ -295,7 +295,7 @@ class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
   "a pure value" should {
     "convert to a ResourceOwner" in {
       val resource = for {
-        value <- ResourceOwner.pure("Hello!").acquire()
+        value <- ResourceOwner.successful("Hello!").acquire()
       } yield {
         value should be("Hello!")
       }
@@ -442,7 +442,7 @@ class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
       val resource = for {
         actorSystem <- ResourceOwner.forActorSystem(() => ActorSystem("TestActorSystem")).acquire()
         actor <- ResourceOwner
-          .pure(actorSystem.actorOf(Props(new TestActor)))
+          .successful(actorSystem.actorOf(Props(new TestActor)))
           .acquire()
       } yield (actorSystem, actor)
 

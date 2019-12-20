@@ -35,7 +35,7 @@ trait ResourceOwner[A] {
 }
 
 object ResourceOwner {
-  def pure[T](value: T): ResourceOwner[T] =
+  def successful[T](value: T): ResourceOwner[T] =
     new FutureResourceOwner(() => Future.successful(value))
 
   def failed[T](exception: Throwable): ResourceOwner[T] =
