@@ -60,7 +60,7 @@ object ReferenceServer extends App {
       writeService = ledger,
       authService = AuthServiceWildcard,
     )
-    _ <- Resource.sequence_(
+    _ <- Resource.sequenceIgnoringValues(
       for {
         (extraParticipantId, port, jdbcUrl) <- config.extraParticipants
       } yield {

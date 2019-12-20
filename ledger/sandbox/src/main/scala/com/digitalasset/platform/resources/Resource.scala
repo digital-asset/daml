@@ -132,7 +132,7 @@ object Resource {
         } yield builder += element)
       .map(_.result())
 
-  def sequence_[T, C[X] <: TraversableOnce[X]](seq: C[Resource[T]])(
+  def sequenceIgnoringValues[T, C[X] <: TraversableOnce[X]](seq: C[Resource[T]])(
       implicit executionContext: ExecutionContext,
   ): Resource[Unit] =
     seq
