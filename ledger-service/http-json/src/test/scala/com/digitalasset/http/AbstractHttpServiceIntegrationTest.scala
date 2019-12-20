@@ -3,12 +3,15 @@
 
 package com.digitalasset.http
 
+import java.time.Instant
+
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.stream.Materializer
 import akka.util.ByteString
+import com.digitalasset.api
 import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.digitalasset.http.HttpServiceTestFixture.jsonCodecs
@@ -539,7 +542,8 @@ abstract class AbstractHttpServiceIntegrationTest
   "contracts/lookup by contractKey" in withHttpService { (uri, encoder, decoder) =>
     val owner = domain.Party("Alice")
     val accountNumber = "abc123"
-    val command: domain.CreateCommand[v.Record] = accountCreateCommand(owner, accountNumber)
+    val command: domain.CreateCommand[v.Record] =
+      accountCreateCommand(owner, accountNumber, Instant.now())
 
     postCreateCommand(command, encoder, uri).flatMap {
       case (status, output) =>
@@ -620,12 +624,17 @@ abstract class AbstractHttpServiceIntegrationTest
 
   private def accountCreateCommand(
       owner: domain.Party,
-      number: String): domain.CreateCommand[v.Record] = {
+      number: String,
+      time: Instant): domain.CreateCommand[v.Record] = {
     val templateId: OptionalPkg = domain.TemplateId(None, "Account", "Account")
+    val timeValue = v.Value(api.util.TimestampConversion.instantToMicros(time))
+    val enabledVariantValue =
+      v.Value(v.Value.Sum.Variant(v.Variant(None, "Enabled", Some(timeValue))))
     val arg: Record = v.Record(
       fields = List(
         v.RecordField("owner", Some(v.Value(v.Value.Sum.Party(owner.unwrap)))),
         v.RecordField("number", Some(v.Value(v.Value.Sum.Text(number)))),
+        v.RecordField("status", Some(enabledVariantValue))
       ))
 
     domain.CreateCommand(templateId, arg, None)
