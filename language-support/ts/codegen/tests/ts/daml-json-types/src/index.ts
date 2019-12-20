@@ -43,7 +43,7 @@ export interface Template<T> extends Serializable<T> {
  */
 export interface Choice<T, C, R> {
   template: () => Template<T>;
-  argDecoder: () => jtv.Decoder<C>;
+  argumentDecoder: () => jtv.Decoder<C>;
   resultDecoder: () => jtv.Decoder<R>;
   choiceName: string;
 }
