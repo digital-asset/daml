@@ -198,7 +198,7 @@ class Ledger {
       contracts: jtv.array(decodeEventUnknown()),
     });
     const {exerciseResult, contracts} = jtv.Result.withException(responseDecoder.run(json));
-    const result: [R, Event<unknown>[]] = [response.exerciseResult, response.contracts]; // Unpack record fields into a tuple.
+    return [exerciseResult, contracts];
 
     return result;
   }
