@@ -87,7 +87,7 @@ test('create + fetch & exercise', async () => {
   const aliceOldContract: ArchiveEvent<Main.Person> = (es[0] as { archived: ArchiveEvent<Main.Person> }).archived;
   const aliceNewContract: CreateEvent<Main.Person>  = (es[1] as { created: CreateEvent<Main.Person> }).created;
   // The result of the exercise ('er') is her new record ID.
-  expect (er).not.toEqual(aliceContract.contractId);
+  expect(er).not.toEqual(aliceContract.contractId);
   expect (aliceOldContract.contractId).toEqual(aliceContract.contractId);
   expect (aliceNewContract.contractId).toEqual(er);
 
