@@ -221,26 +221,20 @@ abstract class ApiCodecCompressed[Cid](
             )
       }
       case Model.DamlLfVariant(cons) => {
-        case JsObject(v) =>
-          val tag: String = v.get("tag") match {
-            case Some(JsString(x)) => x
-            case _ =>
-              deserializationError(
-                s"Can't read ${value.prettyPrint} as DamlLfVariant $id, expected JsObject with 'tag' field, got $v")
-          }
-
-          val nestedValue: JsValue = v.getOrElse("value", JsObject.empty)
-
+        case JsonVariant(tag, nestedValue) =>
           val (constructorName, constructorType) = cons.toList
             .find(_._1 == tag)
             .getOrElse(deserializationError(
-              s"Can't read ${value.prettyPrint} as DamlLfVariant $id, unknown constructor $tag"))
+              s"Can't read ${value.compactPrint} as DamlLfVariant $id, unknown constructor $tag"))
 
           V.ValueVariant(
             Some(id),
             constructorName,
             jsValueToApiValue(nestedValue, constructorType, defs)
           )
+        case _ =>
+          deserializationError(
+            s"Can't read ${value.prettyPrint} as DamlLfVariant $id, expected JsObject with 'tag' and 'value' fields")
       }
       case Model.DamlLfEnum(cons) => {
         case JsString(c) =>
@@ -335,6 +329,13 @@ abstract class ApiCodecCompressed[Cid](
         self.jsValueToApiContractId(value)
     }
 
+  private object JsonVariant {
+    def unapply(o: JsObject): Option[(String, JsValue)] =
+      (o.fields.size, o.fields.get("tag"), o.fields.get("value")) match {
+        case (2, Some(JsString(tag)), Some(nv)) => Some((tag, nv))
+        case _ => None
+      }
+  }
 }
 
 object ApiCodecCompressed

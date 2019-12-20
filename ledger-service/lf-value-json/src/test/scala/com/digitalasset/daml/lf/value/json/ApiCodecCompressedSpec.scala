@@ -374,17 +374,14 @@ class ApiCodecCompressedSpec
         (writer.write(quxVariant): JsValue) shouldBe ("""{"tag":"Qux", "value":{}}""".parseJson: JsValue)
       }
 
-      "decode Foo/Qux (no value) from JSON" in {
-        val actualValue: LfValue[String] = jsValueToApiValue(
-          """{"tag":"Qux"}""".parseJson,
-          fooId,
-          darTypeLookup
-        )
-
-        val expectedValueWithIds: LfValue.ValueVariant[String] =
-          quxVariant.copy(tycon = Some(fooId))
-
-        actualValue shouldBe expectedValueWithIds
+      "fail decoding Foo/Qux from JSON if 'value' filed is missing" in {
+        assertThrows[spray.json.DeserializationException] {
+          jsValueToApiValue(
+            """{"tag":"Qux"}""".parseJson,
+            fooId,
+            darTypeLookup
+          )
+        }
       }
 
       "decode Foo/Qux (empty value) from JSON" in {
