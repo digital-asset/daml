@@ -7,13 +7,11 @@ import java.util.UUID
 
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
-import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
 import com.digitalasset.ledger.test_stable.Test.Dummy
 import com.digitalasset.ledger.test_stable.Test.Dummy._
 import com.digitalasset.platform.testing.{TimeoutException, WithTimeout}
 import io.grpc.Status
-import scalaz.Tag
 
 import scala.concurrent.duration.DurationInt
 
