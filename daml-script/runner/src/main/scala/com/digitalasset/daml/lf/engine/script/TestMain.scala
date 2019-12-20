@@ -73,8 +73,8 @@ object TestMain {
         val system: ActorSystem = ActorSystem("ScriptTest")
         implicit val sequencer: ExecutionSequencerFactory =
           new AkkaExecutionSequencerPool("ScriptTestPool")(system)
+        implicit val materializer: Materializer = Materializer(system)
         implicit val ec: ExecutionContext = system.dispatcher
-        implicit val materializer: ActorMaterializer = ActorMaterializer()(system)
 
         val runner = new Runner(dar, applicationId, commandUpdater)
         val (participantParams, participantCleanup) = config.participantConfig match {
