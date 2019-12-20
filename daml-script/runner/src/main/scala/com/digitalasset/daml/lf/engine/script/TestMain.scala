@@ -24,7 +24,11 @@ import com.digitalasset.daml.lf.language.Ast.Package
 import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
-import com.digitalasset.ledger.client.configuration.{CommandClientConfiguration, LedgerClientConfiguration, LedgerIdRequirement}
+import com.digitalasset.ledger.client.configuration.{
+  CommandClientConfiguration,
+  LedgerClientConfiguration,
+  LedgerIdRequirement
+}
 import com.digitalasset.ledger.client.services.commands.CommandUpdater
 import com.digitalasset.platform.sandbox.SandboxServer
 import com.digitalasset.platform.sandbox.config.SandboxConfig
@@ -97,7 +101,8 @@ object TestMain {
                 if (sandboxClosed.compareAndSet(false, true)) sandbox.close()
               }
 
-              try Runtime.getRuntime.addShutdownHook(new Thread(() => closeSandbox())) catch {
+              try Runtime.getRuntime.addShutdownHook(new Thread(() => closeSandbox()))
+              catch {
                 case NonFatal(t) =>
                   //logger.error("Shutting down Sandbox application because of initialization error", t)
                   closeSandbox()
@@ -106,10 +111,12 @@ object TestMain {
             } else {
               (ApiParameters(config.ledgerHost.get, config.ledgerPort.get), () => ())
             }
-            (Participants(
-              default_participant = Some(apiParameters),
-              participants = Map.empty,
-              party_participants = Map.empty), cleanup)
+            (
+              Participants(
+                default_participant = Some(apiParameters),
+                participants = Map.empty,
+                party_participants = Map.empty),
+              cleanup)
         }
 
         val flow: Future[Unit] = for {
@@ -117,15 +124,20 @@ object TestMain {
           _ <- clients.getParticipant(None) match {
             case Left(err) => throw new RuntimeException(err)
             case Right(client) =>
-              client.packageManagementClient.uploadDarFile(ByteString.readFrom(new FileInputStream(config.darPath)))
+              client.packageManagementClient.uploadDarFile(
+                ByteString.readFrom(new FileInputStream(config.darPath)))
           }
           _ <- Future.sequence {
             dar.main._2.modules.flatMap {
               case (moduleName, module) =>
                 module.definitions.collect {
-                  case (name, Ast.DValue(Ast.TApp(Ast.TTyCon(tycon), _), _, _, _)) if tycon == runner.scriptTyCon =>
+                  case (name, Ast.DValue(Ast.TApp(Ast.TTyCon(tycon), _), _, _, _))
+                      if tycon == runner.scriptTyCon =>
                     val testRun: Future[Unit] = for {
-                      _ <- runner.run(clients, Identifier(dar.main._1, QualifiedName(moduleName, name)), None)
+                      _ <- runner.run(
+                        clients,
+                        Identifier(dar.main._1, QualifiedName(moduleName, name)),
+                        None)
                     } yield ()
                     testRun.onComplete {
                       case Failure(exception) =>
