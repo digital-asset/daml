@@ -41,6 +41,8 @@ object ReferenceServer extends App {
   implicit val executionContext: ExecutionContext = system.dispatcher
 
   val resource = for {
+    // Take ownership of the actor system and materializer so they're cleaned up properly.
+    // This is necessary because we can't declare them as implicits within a `for` comprehension.
     _ <- ResourceOwner.forActorSystem(() => system).acquire()
     _ <- ResourceOwner.forMaterializer(() => materializer).acquire()
     ledger <- ResourceOwner
