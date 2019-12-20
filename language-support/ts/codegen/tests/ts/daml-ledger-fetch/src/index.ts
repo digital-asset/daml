@@ -192,7 +192,6 @@ class Ledger {
       argument,
     };
     const json = await this.submit('command/exercise', payload);
-    console.log ("exercise json response" + JSON.stringify(json));
     // Decode the server response into a tuple.
     const responseDecoder: jtv.Decoder<{exerciseResult: R; contracts: Event<unknown>[]}> = jtv.object({
       exerciseResult: choice.resultDecoder(),
