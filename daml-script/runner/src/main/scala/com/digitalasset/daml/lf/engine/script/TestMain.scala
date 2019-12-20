@@ -8,6 +8,7 @@ import java.io.FileInputStream
 import akka.actor.ActorSystem
 import akka.stream._
 import java.time.Instant
+import java.util.concurrent.atomic.AtomicBoolean
 
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.Duration
@@ -25,9 +26,12 @@ import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSeque
 import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
 import com.digitalasset.ledger.client.configuration.{CommandClientConfiguration, LedgerClientConfiguration, LedgerIdRequirement}
 import com.digitalasset.ledger.client.services.commands.CommandUpdater
+import com.digitalasset.platform.sandbox.SandboxServer
+import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.services.time.TimeProviderType
 import com.google.protobuf.ByteString
 
+import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
 
 object TestMain {
@@ -69,7 +73,7 @@ object TestMain {
         implicit val materializer: ActorMaterializer = ActorMaterializer()(system)
 
         val runner = new Runner(dar, applicationId, commandUpdater)
-        val participantParams = config.participantConfig match {
+        val (participantParams, participantCleanup) = config.participantConfig match {
           case Some(file) => {
             val source = Source.fromFile(file)
             val fileContent = try {
@@ -79,14 +83,33 @@ object TestMain {
             }
             val jsVal = fileContent.parseJson
             import ParticipantsJsonProtocol._
-            jsVal.convertTo[Participants[ApiParameters]]
+            (jsVal.convertTo[Participants[ApiParameters]], () => ())
           }
           case None =>
-            Participants(
-              default_participant =
-                Some(ApiParameters(config.ledgerHost.get, config.ledgerPort.get)),
+            val (apiParameters, cleanup) = if (config.ledgerHost.isEmpty) {
+              val sandboxConfig = SandboxConfig.default.copy(
+                timeProviderType = config.timeProviderType
+              )
+              val sandbox = new SandboxServer(sandboxConfig)
+              val sandboxClosed = new AtomicBoolean(false)
+
+              def closeSandbox(): Unit = {
+                if (sandboxClosed.compareAndSet(false, true)) sandbox.close()
+              }
+
+              try Runtime.getRuntime.addShutdownHook(new Thread(() => closeSandbox())) catch {
+                case NonFatal(t) =>
+                  //logger.error("Shutting down Sandbox application because of initialization error", t)
+                  closeSandbox()
+              }
+              (ApiParameters("localhost", sandbox.port), () => closeSandbox())
+            } else {
+              (ApiParameters(config.ledgerHost.get, config.ledgerPort.get), () => ())
+            }
+            (Participants(
+              default_participant = Some(apiParameters),
               participants = Map.empty,
-              party_participants = Map.empty)
+              party_participants = Map.empty), cleanup)
         }
 
         val flow: Future[Unit] = for {
@@ -116,7 +139,10 @@ object TestMain {
           }
         } yield ()
 
-        flow.onComplete(_ => system.terminate())
+        flow.onComplete { _ =>
+          participantCleanup()
+          system.terminate()
+        }
         Await.result(flow, Duration.Inf)
       }
     }

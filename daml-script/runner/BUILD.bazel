@@ -27,6 +27,8 @@ da_scala_library(
         "//ledger-service/lf-value-json",
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
+        "//ledger/participant-state",
+        "//ledger/sandbox",
         "@maven//:com_github_scopt_scopt_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:io_spray_spray_json_2_12",
