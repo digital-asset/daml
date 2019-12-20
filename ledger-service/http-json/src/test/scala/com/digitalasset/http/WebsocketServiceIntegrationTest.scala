@@ -32,76 +32,66 @@ class WebsocketServiceIntegrationTest
 
   "ws request with valid protocol token should allow client subscribe to stream" in withHttpService {
     (uri, _, _) =>
-      {
-        wsConnectRequest(
-          uri.copy(scheme = "ws").withPath(Uri.Path("/transactions")),
-          validSubprotocol,
-          baseFlow)._1 flatMap (x => x.response.status shouldBe StatusCodes.SwitchingProtocols)
-      }
+      wsConnectRequest(
+        uri.copy(scheme = "ws").withPath(Uri.Path("/transactions")),
+        validSubprotocol,
+        baseFlow)._1 flatMap (x => x.response.status shouldBe StatusCodes.SwitchingProtocols)
   }
 
   "ws request with invalid protocol token should be denied" in withHttpService { (uri, _, _) =>
-    {
-      wsConnectRequest(
-        uri.copy(scheme = "ws").withPath(Uri.Path("/transactions")),
-        Option("foo"),
-        baseFlow
-      )._1 flatMap (x => x.response.status shouldBe StatusCodes.Unauthorized)
-    }
+    wsConnectRequest(
+      uri.copy(scheme = "ws").withPath(Uri.Path("/transactions")),
+      Option("foo"),
+      Baseflow
+    )._1 flatMap (x => x.response.status shouldBe StatusCodes.Unauthorized)
   }
 
   "ws request without protocol token should be denied" in withHttpService { (uri, _, _) =>
-    {
-      wsConnectRequest(
-        uri.copy(scheme = "ws").withPath(Uri.Path("/transactions")),
-        None,
-        baseFlow
-      )._1 flatMap (x => x.response.status shouldBe StatusCodes.Unauthorized)
-    }
+    wsConnectRequest(
+      uri.copy(scheme = "ws").withPath(Uri.Path("/transactions")),
+      None,
+      baseFlow
+    )._1 flatMap (x => x.response.status shouldBe StatusCodes.Unauthorized)
   }
 
   "websocket should publish transactions when command create is completed" in withHttpService {
     (uri, _, _) =>
-      {
-        val payload = TestUtil.readFile("it/iouCreateCommand.json")
-        TestUtil.postJsonStringRequest(
-          uri.withPath(Uri.Path("/command/create")),
-          payload,
-          headersWithAuth)
+      val payload = TestUtil.readFile("it/iouCreateCommand.json")
+      TestUtil.postJsonStringRequest(
+        uri.withPath(Uri.Path("/command/create")),
+        payload,
+        headersWithAuth)
 
-        val webSocketFlow = Http().webSocketClientFlow(
-          WebSocketRequest(
-            uri = uri.copy(scheme = "ws").withPath(Uri.Path("/transactions")),
-            subprotocol = validSubprotocol))
+      val webSocketFlow = Http().webSocketClientFlow(
+        WebSocketRequest(
+          uri = uri.copy(scheme = "ws").withPath(Uri.Path("/transactions")),
+          subprotocol = validSubprotocol))
 
-        val clientMsg = Source
-          .single(TextMessage("{}"))
-          .via(webSocketFlow)
-          .runWith(Sink.fold(Seq.empty[String])(_ :+ _.toString))
+      val clientMsg = Source
+        .single(TextMessage("{}"))
+        .via(webSocketFlow)
+        .runWith(Sink.fold(Seq.empty[String])(_ :+ _.toString))
 
-        val result = Await.result(clientMsg, 10.seconds)
-        result should have size 1
-      }
+      val result = Await.result(clientMsg, 10.seconds)
+      result should have size 1
   }
 
   "websocket should send error msg when receiving malformed message" in withHttpService {
     (uri, _, _) =>
-      {
-        val webSocketFlow = Http().webSocketClientFlow(
-          WebSocketRequest(
-            uri = uri.copy(scheme = "ws").withPath(Uri.Path("/transactions")),
-            subprotocol = validSubprotocol))
+      val webSocketFlow = Http().webSocketClientFlow(
+        WebSocketRequest(
+          uri = uri.copy(scheme = "ws").withPath(Uri.Path("/transactions")),
+          subprotocol = validSubprotocol))
 
-        val clientMsg = Source
-          .single(TextMessage("pie"))
-          .via(webSocketFlow)
-          .runWith(Sink.fold(Seq.empty[String])(_ :+ _.toString))
+      val clientMsg = Source
+        .single(TextMessage("pie"))
+        .via(webSocketFlow)
+        .runWith(Sink.fold(Seq.empty[String])(_ :+ _.toString))
 
-        val result = Await.result(clientMsg, 10.seconds)
+      val result = Await.result(clientMsg, 10.seconds)
 
-        result should have size 1
-        result.head should include("error")
-      }
+      result should have size 1
+      result.head should include("error")
   }
 
   private def wsConnectRequest[M](
