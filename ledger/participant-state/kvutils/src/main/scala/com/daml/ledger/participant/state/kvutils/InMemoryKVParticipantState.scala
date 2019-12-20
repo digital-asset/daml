@@ -244,7 +244,7 @@ class InMemoryKVParticipantState(
     val _ = Source
       .tick(HEARTBEAT_INTERVAL, HEARTBEAT_INTERVAL, ())
       .map(_ => CommitHeartbeat(getNewRecordTime))
-      .to(Sink.actorRef(actorRef, onCompleteMessage = ()))
+      .to(Sink.actorRef(actorRef, onCompleteMessage = (), onFailureMessage = (_) => ()))
       .run()
 
     actorRef

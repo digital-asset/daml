@@ -7,7 +7,7 @@ import java.time.Instant
 import java.util.UUID
 
 import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
+import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.api.util.TimestampConversion.fromInstant
@@ -72,7 +72,7 @@ class ScalaCodeGenIT
   )
 
   private val asys = ActorSystem()
-  private val amat = ActorMaterializer()(asys)
+  private val amat = Materializer(asys)
   private val aesf = new AkkaExecutionSequencerPool("clientPool")(asys)
 
   private val port: Int = findOpenPort().fold(e => throw new IllegalStateException(e), identity)

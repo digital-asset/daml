@@ -6,7 +6,7 @@ package com.digitalasset.quickstart.iou
 import java.time.Instant
 
 import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
+import akka.stream.Materializer
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.grpc.adapter.AkkaExecutionSequencerPool
 import com.digitalasset.ledger.api.refinements.ApiTypes.{ApplicationId, WorkflowId}
@@ -50,7 +50,7 @@ object IouMain extends App with StrictLogging {
   // </doc-ref:new-owner-definition>
 
   private val asys = ActorSystem()
-  private val amat = ActorMaterializer()(asys)
+  private val amat = Materializer(asys)
   private val aesf = new AkkaExecutionSequencerPool("clientPool")(asys)
 
   private def shutdown(): Unit = {

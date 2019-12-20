@@ -8,7 +8,7 @@ import java.nio.file.Files
 import java.time.Instant
 
 import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
+import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.participant.state.{v1 => ParticipantState}
@@ -89,7 +89,7 @@ object SandboxServer {
       // nested resource so we can release it independently when restarting
       apiServer: Resource[ApiServer],
       packageStore: InMemoryPackageStore,
-      materializer: ActorMaterializer,
+      materializer: Materializer,
   ) {
     val executionContext: ExecutionContext = materializer.executionContext
 
@@ -162,12 +162,13 @@ final class SandboxServer(config: => SandboxConfig) extends AutoCloseable {
   }
 
   private def buildAndStartApiServer(
-      materializer: ActorMaterializer,
+      materializer: Materializer,
       packageStore: InMemoryPackageStore,
       startMode: SqlStartMode,
       currentPort: Option[Int],
   ): Resource[ApiServer] = {
-    implicit val _materializer: ActorMaterializer = materializer
+    implicit val _materializer: Materializer = materializer
+    implicit val actorSystem: ActorSystem = materializer.system
     implicit val executionContext: ExecutionContext = materializer.executionContext
 
     val ledgerId = config.ledgerIdMode match {
@@ -233,7 +234,7 @@ final class SandboxServer(config: => SandboxConfig) extends AutoCloseable {
       )
       // NOTE: Re-use the same port after reset.
       apiServer <- new LedgerApiServer(
-        (am: ActorMaterializer, esf: ExecutionSequencerFactory) =>
+        (mat: Materializer, esf: ExecutionSequencerFactory) =>
           ApiServices
             .create(
               indexAndWriteService.writeService,
@@ -248,7 +249,7 @@ final class SandboxServer(config: => SandboxConfig) extends AutoCloseable {
               loggerFactory,
               metrics,
               healthChecks,
-            )(am, esf)
+            )(mat, esf)
             .map(_.withServices(
               List(resetService(ledgerId, authorizer, loggerFactory, executionContext)))),
         currentPort.getOrElse(config.port),
@@ -275,7 +276,6 @@ final class SandboxServer(config: => SandboxConfig) extends AutoCloseable {
         ledgerType,
         authService.getClass.getSimpleName
       )
-      writePortFile(apiServer.port)
       apiServer
     }
   }
@@ -285,7 +285,7 @@ final class SandboxServer(config: => SandboxConfig) extends AutoCloseable {
     for {
       actorSystem <- ResourceOwner.forActorSystem(() => ActorSystem(ActorSystemName)).acquire()
       materializer <- ResourceOwner
-        .forMaterializer(() => ActorMaterializer()(actorSystem))
+        .forMaterializer(() => Materializer(actorSystem))
         .acquire()
     } yield {
       val apiServerResource = buildAndStartApiServer(

@@ -9,7 +9,7 @@ import java.util.UUID
 import java.util.concurrent.TimeUnit.{MILLISECONDS, SECONDS}
 
 import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
+import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
@@ -37,7 +37,7 @@ trait ApiServer {
 }
 
 class LedgerApiServer(
-    createApiServices: (ActorMaterializer, ExecutionSequencerFactory) => Future[ApiServices],
+    createApiServices: (Materializer, ExecutionSequencerFactory) => Future[ApiServices],
     desiredPort: Int,
     maxInboundMessageSize: Int,
     address: Option[String],
@@ -45,21 +45,21 @@ class LedgerApiServer(
     sslContext: Option[SslContext] = None,
     interceptors: List[ServerInterceptor] = List.empty,
     metrics: MetricRegistry,
-)(implicit mat: ActorMaterializer)
+)(implicit actorSystem: ActorSystem, materializer: Materializer)
     extends ResourceOwner[ApiServer] {
   override def acquire()(implicit executionContext: ExecutionContext): Resource[ApiServer] = {
     val logger = loggerFactory.getLogger(this.getClass)
     val servicesClosedPromise = Promise[Unit]()
 
     for {
-      serverEsf <- new ExecutionSequencerFactoryOwner()(mat.system).acquire()
+      serverEsf <- new ExecutionSequencerFactoryOwner().acquire()
       workerEventLoopGroup <- new EventLoopGroupOwner(
-        mat.system.name + "-nio-worker",
+        actorSystem.name + "-nio-worker",
         parallelism = Runtime.getRuntime.availableProcessors).acquire()
-      bossEventLoopGroup <- new EventLoopGroupOwner(mat.system.name + "-nio-boss", parallelism = 1)
+      bossEventLoopGroup <- new EventLoopGroupOwner(actorSystem.name + "-nio-boss", parallelism = 1)
         .acquire()
       apiServicesResource = ResourceOwner
-        .forFutureCloseable(() => createApiServices(mat, serverEsf))
+        .forFutureCloseable(() => createApiServices(materializer, serverEsf))
         .acquire()
       apiServices <- apiServicesResource
       server <- new GrpcServerOwner(

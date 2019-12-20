@@ -8,7 +8,7 @@ import java.nio.file.Files
 import java.time.Instant
 
 import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
+import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.v1.{ParticipantId, ReadService, WriteService}
@@ -92,7 +92,7 @@ final class StandaloneApiServer(
     for {
       actorSystem <- ResourceOwner.forActorSystem(() => ActorSystem(actorSystemName)).acquire()
       materializer <- ResourceOwner
-        .forMaterializer(() => ActorMaterializer()(actorSystem))
+        .forMaterializer(() => Materializer(actorSystem))
         .acquire()
       initialConditions <- ResourceOwner
         .forFuture(() => readService.getLedgerInitialConditions().runWith(Sink.head)(materializer))
@@ -115,7 +115,7 @@ final class StandaloneApiServer(
         "write" -> writeService,
       )
       apiServer <- new LedgerApiServer(
-        (am: ActorMaterializer, esf: ExecutionSequencerFactory) =>
+        (mat: Materializer, esf: ExecutionSequencerFactory) =>
           ApiServices
             .create(
               writeService,
@@ -129,7 +129,7 @@ final class StandaloneApiServer(
               loggerFactory,
               metrics,
               healthChecks,
-            )(am, esf),
+            )(mat, esf),
         config.port,
         config.maxInboundMessageSize,
         None,
@@ -137,7 +137,7 @@ final class StandaloneApiServer(
         config.tlsConfig.flatMap(_.server),
         List(AuthorizationInterceptor(authService, ec)),
         metrics
-      )(materializer).acquire()
+      )(actorSystem, materializer).acquire()
       _ <- ResourceOwner.forFuture(() => writePortFile(apiServer.port)).acquire()
     } yield {
       logger.info(

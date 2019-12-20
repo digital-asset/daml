@@ -7,7 +7,7 @@ import java.util.concurrent.{ExecutionException, TimeoutException}
 import java.util.{Timer, TimerTask}
 
 import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
+import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite.SkipTestException
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuiteRunner._
@@ -105,7 +105,7 @@ final class LedgerTestSuiteRunner(
 
   private def run(completionCallback: Try[Vector[LedgerTestSummary]] => Unit): Unit = {
     val system: ActorSystem = ActorSystem(classOf[LedgerTestSuiteRunner].getSimpleName)
-    implicit val materializer: ActorMaterializer = ActorMaterializer()(system)
+    implicit val materializer: Materializer = Materializer(system)
     implicit val executionContext: ExecutionContext = materializer.executionContext
 
     val participantSessionManager = new ParticipantSessionManager

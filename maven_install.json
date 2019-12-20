@@ -382,15 +382,15 @@
                 "coord": "com.eed3si9n:gigahorse-core_2.12:0.3.0",
                 "file": "v1/https/repo1.maven.org/maven2/com/eed3si9n/gigahorse-core_2.12/0.3.0/gigahorse-core_2.12-0.3.0.jar",
                 "directDependencies": [
-                    "com.typesafe:ssl-config-core_2.12:0.3.8",
+                    "com.typesafe:ssl-config-core_2.12:0.4.1",
                     "org.reactivestreams:reactive-streams:1.0.2",
                     "org.scala-lang:scala-library:2.12.10",
                     "org.slf4j:slf4j-api:1.7.26"
                 ],
                 "dependencies": [
+                    "com.typesafe:ssl-config-core_2.12:0.4.1",
                     "org.slf4j:slf4j-api:1.7.26",
-                    "com.typesafe:ssl-config-core_2.12:0.3.8",
-                    "com.typesafe:config:1.3.3",
+                    "com.typesafe:config:1.4.0",
                     "org.scala-lang.modules:scala-parser-combinators_2.12:1.0.4",
                     "org.scala-lang:scala-library:2.12.10",
                     "org.reactivestreams:reactive-streams:1.0.2"
@@ -405,7 +405,7 @@
                 "coord": "com.eed3si9n:gigahorse-core_2.12:jar:sources:0.3.0",
                 "file": "v1/https/repo1.maven.org/maven2/com/eed3si9n/gigahorse-core_2.12/0.3.0/gigahorse-core_2.12-0.3.0-sources.jar",
                 "directDependencies": [
-                    "com.typesafe:ssl-config-core_2.12:jar:sources:0.3.8",
+                    "com.typesafe:ssl-config-core_2.12:jar:sources:0.4.1",
                     "org.reactivestreams:reactive-streams:jar:sources:1.0.2",
                     "org.scala-lang:scala-library:jar:sources:2.12.10",
                     "org.slf4j:slf4j-api:jar:sources:1.7.26"
@@ -414,9 +414,9 @@
                     "org.scala-lang:scala-library:jar:sources:2.12.10",
                     "org.reactivestreams:reactive-streams:jar:sources:1.0.2",
                     "org.scala-lang.modules:scala-parser-combinators_2.12:jar:sources:1.0.4",
-                    "com.typesafe:config:jar:sources:1.3.3",
                     "org.slf4j:slf4j-api:jar:sources:1.7.26",
-                    "com.typesafe:ssl-config-core_2.12:jar:sources:0.3.8"
+                    "com.typesafe:ssl-config-core_2.12:jar:sources:0.4.1",
+                    "com.typesafe:config:jar:sources:1.4.0"
                 ],
                 "url": "https://repo1.maven.org/maven2/com/eed3si9n/gigahorse-core_2.12/0.3.0/gigahorse-core_2.12-0.3.0-sources.jar",
                 "mirror_urls": [
@@ -434,9 +434,9 @@
                 ],
                 "dependencies": [
                     "com.squareup.okhttp3:okhttp:3.9.1",
+                    "com.typesafe:ssl-config-core_2.12:0.4.1",
                     "org.slf4j:slf4j-api:1.7.26",
-                    "com.typesafe:ssl-config-core_2.12:0.3.8",
-                    "com.typesafe:config:1.3.3",
+                    "com.typesafe:config:1.4.0",
                     "org.scala-lang.modules:scala-parser-combinators_2.12:1.0.4",
                     "com.eed3si9n:gigahorse-core_2.12:0.3.0",
                     "org.scala-lang:scala-library:2.12.10",
@@ -462,11 +462,11 @@
                     "org.scala-lang:scala-library:jar:sources:2.12.10",
                     "org.reactivestreams:reactive-streams:jar:sources:1.0.2",
                     "org.scala-lang.modules:scala-parser-combinators_2.12:jar:sources:1.0.4",
-                    "com.typesafe:config:jar:sources:1.3.3",
                     "com.squareup.okio:okio:jar:sources:1.13.0",
                     "org.slf4j:slf4j-api:jar:sources:1.7.26",
+                    "com.typesafe:ssl-config-core_2.12:jar:sources:0.4.1",
                     "com.eed3si9n:gigahorse-core_2.12:jar:sources:0.3.0",
-                    "com.typesafe:ssl-config-core_2.12:jar:sources:0.3.8"
+                    "com.typesafe:config:jar:sources:1.4.0"
                 ],
                 "url": "https://repo1.maven.org/maven2/com/eed3si9n/gigahorse-okhttp_2.12/0.3.0/gigahorse-okhttp_2.12-0.3.0-sources.jar",
                 "mirror_urls": [
@@ -1362,13 +1362,13 @@
                 "directDependencies": [
                     "com.chuusai:shapeless_2.12:2.3.2",
                     "com.github.pureconfig:pureconfig-macros_2.12:0.8.0",
-                    "com.typesafe:config:1.3.3",
+                    "com.typesafe:config:1.4.0",
                     "org.scala-lang:scala-library:2.12.10"
                 ],
                 "dependencies": [
+                    "com.typesafe:config:1.4.0",
                     "org.scala-lang:scala-compiler:2.12.7",
                     "org.typelevel:macro-compat_2.12:1.1.1",
-                    "com.typesafe:config:1.3.3",
                     "org.scala-lang:scala-reflect:2.12.7",
                     "com.github.pureconfig:pureconfig-macros_2.12:0.8.0",
                     "com.chuusai:shapeless_2.12:2.3.2",
@@ -1387,16 +1387,16 @@
                 "directDependencies": [
                     "com.chuusai:shapeless_2.12:jar:sources:2.3.2",
                     "com.github.pureconfig:pureconfig-macros_2.12:jar:sources:0.8.0",
-                    "com.typesafe:config:jar:sources:1.3.3",
+                    "com.typesafe:config:jar:sources:1.4.0",
                     "org.scala-lang:scala-library:jar:sources:2.12.10"
                 ],
                 "dependencies": [
                     "org.scala-lang:scala-library:jar:sources:2.12.10",
                     "org.scala-lang:scala-reflect:jar:sources:2.12.7",
-                    "com.typesafe:config:jar:sources:1.3.3",
                     "com.chuusai:shapeless_2.12:jar:sources:2.3.2",
                     "org.scala-lang.modules:scala-xml_2.12:jar:sources:1.0.6",
                     "com.github.pureconfig:pureconfig-macros_2.12:jar:sources:0.8.0",
+                    "com.typesafe:config:jar:sources:1.4.0",
                     "org.scala-lang:scala-compiler:jar:sources:2.12.7",
                     "org.typelevel:macro-compat_2.12:jar:sources:1.1.1"
                 ],
@@ -2753,42 +2753,42 @@
                 "sha256": "d14e202e4583e9c5b8808e090284a7bf362feab80918846f039b744d169a7ecc"
             },
             {
-                "coord": "com.typesafe.akka:akka-actor_2.12:2.5.26",
-                "file": "v1/https/repo1.maven.org/maven2/com/typesafe/akka/akka-actor_2.12/2.5.26/akka-actor_2.12-2.5.26.jar",
+                "coord": "com.typesafe.akka:akka-actor_2.12:2.6.1",
+                "file": "v1/https/repo1.maven.org/maven2/com/typesafe/akka/akka-actor_2.12/2.6.1/akka-actor_2.12-2.6.1.jar",
                 "directDependencies": [
-                    "com.typesafe:config:1.3.3",
+                    "com.typesafe:config:1.4.0",
                     "org.scala-lang:scala-library:2.12.10",
                     "org.scala-lang.modules:scala-java8-compat_2.12:0.9.0"
                 ],
                 "dependencies": [
-                    "com.typesafe:config:1.3.3",
+                    "com.typesafe:config:1.4.0",
                     "org.scala-lang:scala-library:2.12.10",
                     "org.scala-lang.modules:scala-java8-compat_2.12:0.9.0"
                 ],
-                "url": "https://repo1.maven.org/maven2/com/typesafe/akka/akka-actor_2.12/2.5.26/akka-actor_2.12-2.5.26.jar",
+                "url": "https://repo1.maven.org/maven2/com/typesafe/akka/akka-actor_2.12/2.6.1/akka-actor_2.12-2.6.1.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/com/typesafe/akka/akka-actor_2.12/2.5.26/akka-actor_2.12-2.5.26.jar"
+                    "https://repo1.maven.org/maven2/com/typesafe/akka/akka-actor_2.12/2.6.1/akka-actor_2.12-2.6.1.jar"
                 ],
-                "sha256": "51ed6589759674381ebc2e50f2b3c78a6ac73b66d91823aff36e2c31b2ade30f"
+                "sha256": "fa07e71c9db063bf2c13e8cfd123a034b091ae4690f66d3b539509c518dfccad"
             },
             {
-                "coord": "com.typesafe.akka:akka-actor_2.12:jar:sources:2.5.26",
-                "file": "v1/https/repo1.maven.org/maven2/com/typesafe/akka/akka-actor_2.12/2.5.26/akka-actor_2.12-2.5.26-sources.jar",
+                "coord": "com.typesafe.akka:akka-actor_2.12:jar:sources:2.6.1",
+                "file": "v1/https/repo1.maven.org/maven2/com/typesafe/akka/akka-actor_2.12/2.6.1/akka-actor_2.12-2.6.1-sources.jar",
                 "directDependencies": [
-                    "com.typesafe:config:jar:sources:1.3.3",
+                    "com.typesafe:config:jar:sources:1.4.0",
                     "org.scala-lang:scala-library:jar:sources:2.12.10",
                     "org.scala-lang.modules:scala-java8-compat_2.12:jar:sources:0.9.0"
                 ],
                 "dependencies": [
+                    "com.typesafe:config:jar:sources:1.4.0",
                     "org.scala-lang.modules:scala-java8-compat_2.12:jar:sources:0.9.0",
-                    "org.scala-lang:scala-library:jar:sources:2.12.10",
-                    "com.typesafe:config:jar:sources:1.3.3"
+                    "org.scala-lang:scala-library:jar:sources:2.12.10"
                 ],
-                "url": "https://repo1.maven.org/maven2/com/typesafe/akka/akka-actor_2.12/2.5.26/akka-actor_2.12-2.5.26-sources.jar",
+                "url": "https://repo1.maven.org/maven2/com/typesafe/akka/akka-actor_2.12/2.6.1/akka-actor_2.12-2.6.1-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/com/typesafe/akka/akka-actor_2.12/2.5.26/akka-actor_2.12-2.5.26-sources.jar"
+                    "https://repo1.maven.org/maven2/com/typesafe/akka/akka-actor_2.12/2.6.1/akka-actor_2.12-2.6.1-sources.jar"
                 ],
-                "sha256": "eb7e716a34f57ad9e5089bb5458a607592cc9ad8f2762ad6034484c18de02aef"
+                "sha256": "95a32e73f7b96a297f85408e6f703eca06a67a400d73a336c2a28fe977f35b62"
             },
             {
                 "coord": "com.typesafe.akka:akka-http-core_2.12:10.1.11",
@@ -2971,218 +2971,222 @@
                 "sha256": "7444e238f9e6a48b6c9e8e6ad320ff961f9c644b50a4a889eaac45d4cc25e50a"
             },
             {
-                "coord": "com.typesafe.akka:akka-protobuf_2.12:2.5.26",
-                "file": "v1/https/repo1.maven.org/maven2/com/typesafe/akka/akka-protobuf_2.12/2.5.26/akka-protobuf_2.12-2.5.26.jar",
+                "coord": "com.typesafe.akka:akka-protobuf-v3_2.12:2.6.1",
+                "file": "v1/https/repo1.maven.org/maven2/com/typesafe/akka/akka-protobuf-v3_2.12/2.6.1/akka-protobuf-v3_2.12-2.6.1.jar",
                 "directDependencies": [
-                    "org.scala-lang:scala-library:2.12.10"
+                    "com.google.protobuf:protobuf-java:3.8.0"
                 ],
                 "dependencies": [
-                    "org.scala-lang:scala-library:2.12.10"
+                    "com.google.protobuf:protobuf-java:3.8.0"
                 ],
-                "url": "https://repo1.maven.org/maven2/com/typesafe/akka/akka-protobuf_2.12/2.5.26/akka-protobuf_2.12-2.5.26.jar",
+                "url": "https://repo1.maven.org/maven2/com/typesafe/akka/akka-protobuf-v3_2.12/2.6.1/akka-protobuf-v3_2.12-2.6.1.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/com/typesafe/akka/akka-protobuf_2.12/2.5.26/akka-protobuf_2.12-2.5.26.jar"
+                    "https://repo1.maven.org/maven2/com/typesafe/akka/akka-protobuf-v3_2.12/2.6.1/akka-protobuf-v3_2.12-2.6.1.jar"
                 ],
-                "sha256": "09b7e6982bad6794bbac249b2ab3330e2b324611703496415ab5da06dd8e48e2"
+                "sha256": "a0f7bd650fe02d2f22f3c36ae48564901de00603e93bf77dce87717594dace13"
             },
             {
-                "coord": "com.typesafe.akka:akka-protobuf_2.12:jar:sources:2.5.26",
-                "file": "v1/https/repo1.maven.org/maven2/com/typesafe/akka/akka-protobuf_2.12/2.5.26/akka-protobuf_2.12-2.5.26-sources.jar",
+                "coord": "com.typesafe.akka:akka-protobuf-v3_2.12:jar:sources:2.6.1",
+                "file": "v1/https/repo1.maven.org/maven2/com/typesafe/akka/akka-protobuf-v3_2.12/2.6.1/akka-protobuf-v3_2.12-2.6.1-sources.jar",
                 "directDependencies": [
-                    "org.scala-lang:scala-library:jar:sources:2.12.10"
+                    "com.google.protobuf:protobuf-java:jar:sources:3.8.0"
                 ],
                 "dependencies": [
-                    "org.scala-lang:scala-library:jar:sources:2.12.10"
+                    "com.google.protobuf:protobuf-java:jar:sources:3.8.0"
                 ],
-                "url": "https://repo1.maven.org/maven2/com/typesafe/akka/akka-protobuf_2.12/2.5.26/akka-protobuf_2.12-2.5.26-sources.jar",
+                "url": "https://repo1.maven.org/maven2/com/typesafe/akka/akka-protobuf-v3_2.12/2.6.1/akka-protobuf-v3_2.12-2.6.1-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/com/typesafe/akka/akka-protobuf_2.12/2.5.26/akka-protobuf_2.12-2.5.26-sources.jar"
+                    "https://repo1.maven.org/maven2/com/typesafe/akka/akka-protobuf-v3_2.12/2.6.1/akka-protobuf-v3_2.12-2.6.1-sources.jar"
                 ],
-                "sha256": "c715ff479492c2f3bf360f2817f954a8a51eab4b7a8f34d801fc2a6c68f636ee"
+                "sha256": "e9cc397299da7892f72bf73f4bdcfa4d641eb9798daecedde99c28309cceaa3c"
             },
             {
-                "coord": "com.typesafe.akka:akka-slf4j_2.12:2.5.26",
-                "file": "v1/https/repo1.maven.org/maven2/com/typesafe/akka/akka-slf4j_2.12/2.5.26/akka-slf4j_2.12-2.5.26.jar",
+                "coord": "com.typesafe.akka:akka-slf4j_2.12:2.6.1",
+                "file": "v1/https/repo1.maven.org/maven2/com/typesafe/akka/akka-slf4j_2.12/2.6.1/akka-slf4j_2.12-2.6.1.jar",
                 "directDependencies": [
-                    "com.typesafe.akka:akka-actor_2.12:2.5.26",
+                    "com.typesafe.akka:akka-actor_2.12:2.6.1",
                     "org.scala-lang:scala-library:2.12.10",
                     "org.slf4j:slf4j-api:1.7.26"
                 ],
                 "dependencies": [
+                    "com.typesafe.akka:akka-actor_2.12:2.6.1",
                     "org.slf4j:slf4j-api:1.7.26",
-                    "com.typesafe:config:1.3.3",
+                    "com.typesafe:config:1.4.0",
                     "org.scala-lang.modules:scala-java8-compat_2.12:0.9.0",
-                    "org.scala-lang:scala-library:2.12.10",
-                    "com.typesafe.akka:akka-actor_2.12:2.5.26"
+                    "org.scala-lang:scala-library:2.12.10"
                 ],
-                "url": "https://repo1.maven.org/maven2/com/typesafe/akka/akka-slf4j_2.12/2.5.26/akka-slf4j_2.12-2.5.26.jar",
+                "url": "https://repo1.maven.org/maven2/com/typesafe/akka/akka-slf4j_2.12/2.6.1/akka-slf4j_2.12-2.6.1.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/com/typesafe/akka/akka-slf4j_2.12/2.5.26/akka-slf4j_2.12-2.5.26.jar"
+                    "https://repo1.maven.org/maven2/com/typesafe/akka/akka-slf4j_2.12/2.6.1/akka-slf4j_2.12-2.6.1.jar"
                 ],
-                "sha256": "35a926d2ed023dfd15655cc670438081404e40e47b30522da5db596c8bf94684"
+                "sha256": "000fce5cf6276ccbe9750d6f3a5dfaad09611fa6f3f9071f067dbb0ee842f991"
             },
             {
-                "coord": "com.typesafe.akka:akka-slf4j_2.12:jar:sources:2.5.26",
-                "file": "v1/https/repo1.maven.org/maven2/com/typesafe/akka/akka-slf4j_2.12/2.5.26/akka-slf4j_2.12-2.5.26-sources.jar",
+                "coord": "com.typesafe.akka:akka-slf4j_2.12:jar:sources:2.6.1",
+                "file": "v1/https/repo1.maven.org/maven2/com/typesafe/akka/akka-slf4j_2.12/2.6.1/akka-slf4j_2.12-2.6.1-sources.jar",
                 "directDependencies": [
-                    "com.typesafe.akka:akka-actor_2.12:jar:sources:2.5.26",
+                    "com.typesafe.akka:akka-actor_2.12:jar:sources:2.6.1",
                     "org.scala-lang:scala-library:jar:sources:2.12.10",
                     "org.slf4j:slf4j-api:jar:sources:1.7.26"
                 ],
                 "dependencies": [
                     "org.scala-lang:scala-library:jar:sources:2.12.10",
                     "org.scala-lang.modules:scala-java8-compat_2.12:jar:sources:0.9.0",
-                    "com.typesafe:config:jar:sources:1.3.3",
+                    "com.typesafe.akka:akka-actor_2.12:jar:sources:2.6.1",
                     "org.slf4j:slf4j-api:jar:sources:1.7.26",
-                    "com.typesafe.akka:akka-actor_2.12:jar:sources:2.5.26"
+                    "com.typesafe:config:jar:sources:1.4.0"
                 ],
-                "url": "https://repo1.maven.org/maven2/com/typesafe/akka/akka-slf4j_2.12/2.5.26/akka-slf4j_2.12-2.5.26-sources.jar",
+                "url": "https://repo1.maven.org/maven2/com/typesafe/akka/akka-slf4j_2.12/2.6.1/akka-slf4j_2.12-2.6.1-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/com/typesafe/akka/akka-slf4j_2.12/2.5.26/akka-slf4j_2.12-2.5.26-sources.jar"
+                    "https://repo1.maven.org/maven2/com/typesafe/akka/akka-slf4j_2.12/2.6.1/akka-slf4j_2.12-2.6.1-sources.jar"
                 ],
-                "sha256": "64b647ffff17608ce44ce31f39e889b32156ab40a0e97871368617736d9cdd2b"
+                "sha256": "3fb2b104f3480d87a5c819d5ea52cce5cfabc41ba2394bd761c8499be818fc88"
             },
             {
-                "coord": "com.typesafe.akka:akka-stream-testkit_2.12:2.5.26",
-                "file": "v1/https/repo1.maven.org/maven2/com/typesafe/akka/akka-stream-testkit_2.12/2.5.26/akka-stream-testkit_2.12-2.5.26.jar",
+                "coord": "com.typesafe.akka:akka-stream-testkit_2.12:2.6.1",
+                "file": "v1/https/repo1.maven.org/maven2/com/typesafe/akka/akka-stream-testkit_2.12/2.6.1/akka-stream-testkit_2.12-2.6.1.jar",
                 "directDependencies": [
-                    "com.typesafe.akka:akka-stream_2.12:2.5.26",
-                    "com.typesafe.akka:akka-testkit_2.12:2.5.26",
+                    "com.typesafe.akka:akka-stream_2.12:2.6.1",
+                    "com.typesafe.akka:akka-testkit_2.12:2.6.1",
                     "org.scala-lang:scala-library:2.12.10"
                 ],
                 "dependencies": [
-                    "com.typesafe.akka:akka-stream_2.12:2.5.26",
-                    "com.typesafe:ssl-config-core_2.12:0.3.8",
-                    "com.typesafe:config:1.3.3",
-                    "com.typesafe.akka:akka-testkit_2.12:2.5.26",
-                    "com.typesafe.akka:akka-protobuf_2.12:2.5.26",
+                    "com.typesafe.akka:akka-actor_2.12:2.6.1",
+                    "com.typesafe.akka:akka-testkit_2.12:2.6.1",
+                    "com.typesafe:ssl-config-core_2.12:0.4.1",
+                    "com.typesafe.akka:akka-stream_2.12:2.6.1",
+                    "com.google.protobuf:protobuf-java:3.8.0",
+                    "com.typesafe:config:1.4.0",
+                    "com.typesafe.akka:akka-protobuf-v3_2.12:2.6.1",
                     "org.scala-lang.modules:scala-parser-combinators_2.12:1.0.4",
                     "org.scala-lang.modules:scala-java8-compat_2.12:0.9.0",
                     "org.scala-lang:scala-library:2.12.10",
-                    "org.reactivestreams:reactive-streams:1.0.2",
-                    "com.typesafe.akka:akka-actor_2.12:2.5.26"
+                    "org.reactivestreams:reactive-streams:1.0.2"
                 ],
-                "url": "https://repo1.maven.org/maven2/com/typesafe/akka/akka-stream-testkit_2.12/2.5.26/akka-stream-testkit_2.12-2.5.26.jar",
+                "url": "https://repo1.maven.org/maven2/com/typesafe/akka/akka-stream-testkit_2.12/2.6.1/akka-stream-testkit_2.12-2.6.1.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/com/typesafe/akka/akka-stream-testkit_2.12/2.5.26/akka-stream-testkit_2.12-2.5.26.jar"
+                    "https://repo1.maven.org/maven2/com/typesafe/akka/akka-stream-testkit_2.12/2.6.1/akka-stream-testkit_2.12-2.6.1.jar"
                 ],
-                "sha256": "53e7dbc1565035dd87882ae206ce1466e71520612ce2603d7533c0ed80eedd45"
+                "sha256": "ce96570c721ea51e10f31a722cbf55de125669983c840377f6f3d5fd06640aaa"
             },
             {
-                "coord": "com.typesafe.akka:akka-stream-testkit_2.12:jar:sources:2.5.26",
-                "file": "v1/https/repo1.maven.org/maven2/com/typesafe/akka/akka-stream-testkit_2.12/2.5.26/akka-stream-testkit_2.12-2.5.26-sources.jar",
+                "coord": "com.typesafe.akka:akka-stream-testkit_2.12:jar:sources:2.6.1",
+                "file": "v1/https/repo1.maven.org/maven2/com/typesafe/akka/akka-stream-testkit_2.12/2.6.1/akka-stream-testkit_2.12-2.6.1-sources.jar",
                 "directDependencies": [
-                    "com.typesafe.akka:akka-stream_2.12:jar:sources:2.5.26",
-                    "com.typesafe.akka:akka-testkit_2.12:jar:sources:2.5.26",
+                    "com.typesafe.akka:akka-stream_2.12:jar:sources:2.6.1",
+                    "com.typesafe.akka:akka-testkit_2.12:jar:sources:2.6.1",
                     "org.scala-lang:scala-library:jar:sources:2.12.10"
                 ],
                 "dependencies": [
-                    "com.typesafe.akka:akka-protobuf_2.12:jar:sources:2.5.26",
-                    "com.typesafe.akka:akka-stream_2.12:jar:sources:2.5.26",
+                    "com.google.protobuf:protobuf-java:jar:sources:3.8.0",
                     "org.scala-lang:scala-library:jar:sources:2.12.10",
+                    "com.typesafe.akka:akka-testkit_2.12:jar:sources:2.6.1",
                     "org.scala-lang.modules:scala-java8-compat_2.12:jar:sources:0.9.0",
                     "org.reactivestreams:reactive-streams:jar:sources:1.0.2",
+                    "com.typesafe.akka:akka-actor_2.12:jar:sources:2.6.1",
                     "org.scala-lang.modules:scala-parser-combinators_2.12:jar:sources:1.0.4",
-                    "com.typesafe:config:jar:sources:1.3.3",
-                    "com.typesafe.akka:akka-actor_2.12:jar:sources:2.5.26",
-                    "com.typesafe.akka:akka-testkit_2.12:jar:sources:2.5.26",
-                    "com.typesafe:ssl-config-core_2.12:jar:sources:0.3.8"
+                    "com.typesafe:ssl-config-core_2.12:jar:sources:0.4.1",
+                    "com.typesafe.akka:akka-protobuf-v3_2.12:jar:sources:2.6.1",
+                    "com.typesafe:config:jar:sources:1.4.0",
+                    "com.typesafe.akka:akka-stream_2.12:jar:sources:2.6.1"
                 ],
-                "url": "https://repo1.maven.org/maven2/com/typesafe/akka/akka-stream-testkit_2.12/2.5.26/akka-stream-testkit_2.12-2.5.26-sources.jar",
+                "url": "https://repo1.maven.org/maven2/com/typesafe/akka/akka-stream-testkit_2.12/2.6.1/akka-stream-testkit_2.12-2.6.1-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/com/typesafe/akka/akka-stream-testkit_2.12/2.5.26/akka-stream-testkit_2.12-2.5.26-sources.jar"
+                    "https://repo1.maven.org/maven2/com/typesafe/akka/akka-stream-testkit_2.12/2.6.1/akka-stream-testkit_2.12-2.6.1-sources.jar"
                 ],
-                "sha256": "795b1f8eda0e8b97a2331c561acd7ae24d63e557d009009080fa73eaf92e7ace"
+                "sha256": "9a7903928d3a823d1bf9004565ea5698ef2dfe3f5288214c1967e348ee04a58e"
             },
             {
-                "coord": "com.typesafe.akka:akka-stream_2.12:2.5.26",
-                "file": "v1/https/repo1.maven.org/maven2/com/typesafe/akka/akka-stream_2.12/2.5.26/akka-stream_2.12-2.5.26.jar",
+                "coord": "com.typesafe.akka:akka-stream_2.12:2.6.1",
+                "file": "v1/https/repo1.maven.org/maven2/com/typesafe/akka/akka-stream_2.12/2.6.1/akka-stream_2.12-2.6.1.jar",
                 "directDependencies": [
-                    "com.typesafe:ssl-config-core_2.12:0.3.8",
-                    "com.typesafe.akka:akka-protobuf_2.12:2.5.26",
+                    "com.typesafe.akka:akka-actor_2.12:2.6.1",
+                    "com.typesafe:ssl-config-core_2.12:0.4.1",
+                    "com.typesafe.akka:akka-protobuf-v3_2.12:2.6.1",
                     "org.scala-lang:scala-library:2.12.10",
-                    "org.reactivestreams:reactive-streams:1.0.2",
-                    "com.typesafe.akka:akka-actor_2.12:2.5.26"
+                    "org.reactivestreams:reactive-streams:1.0.2"
                 ],
                 "dependencies": [
-                    "com.typesafe:ssl-config-core_2.12:0.3.8",
-                    "com.typesafe:config:1.3.3",
-                    "com.typesafe.akka:akka-protobuf_2.12:2.5.26",
+                    "com.typesafe.akka:akka-actor_2.12:2.6.1",
+                    "com.typesafe:ssl-config-core_2.12:0.4.1",
+                    "com.google.protobuf:protobuf-java:3.8.0",
+                    "com.typesafe:config:1.4.0",
+                    "com.typesafe.akka:akka-protobuf-v3_2.12:2.6.1",
                     "org.scala-lang.modules:scala-parser-combinators_2.12:1.0.4",
                     "org.scala-lang.modules:scala-java8-compat_2.12:0.9.0",
                     "org.scala-lang:scala-library:2.12.10",
-                    "org.reactivestreams:reactive-streams:1.0.2",
-                    "com.typesafe.akka:akka-actor_2.12:2.5.26"
+                    "org.reactivestreams:reactive-streams:1.0.2"
                 ],
-                "url": "https://repo1.maven.org/maven2/com/typesafe/akka/akka-stream_2.12/2.5.26/akka-stream_2.12-2.5.26.jar",
+                "url": "https://repo1.maven.org/maven2/com/typesafe/akka/akka-stream_2.12/2.6.1/akka-stream_2.12-2.6.1.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/com/typesafe/akka/akka-stream_2.12/2.5.26/akka-stream_2.12-2.5.26.jar"
+                    "https://repo1.maven.org/maven2/com/typesafe/akka/akka-stream_2.12/2.6.1/akka-stream_2.12-2.6.1.jar"
                 ],
-                "sha256": "9d1d3852215d155ac14869cbee4779e9642784c7a9378d0534e6a1e1efd577bd"
+                "sha256": "b31f1299936903537303fc9a0a9b948620419af3b9588b0663de56e7ce5979de"
             },
             {
-                "coord": "com.typesafe.akka:akka-stream_2.12:jar:sources:2.5.26",
-                "file": "v1/https/repo1.maven.org/maven2/com/typesafe/akka/akka-stream_2.12/2.5.26/akka-stream_2.12-2.5.26-sources.jar",
+                "coord": "com.typesafe.akka:akka-stream_2.12:jar:sources:2.6.1",
+                "file": "v1/https/repo1.maven.org/maven2/com/typesafe/akka/akka-stream_2.12/2.6.1/akka-stream_2.12-2.6.1-sources.jar",
                 "directDependencies": [
-                    "com.typesafe.akka:akka-protobuf_2.12:jar:sources:2.5.26",
                     "org.scala-lang:scala-library:jar:sources:2.12.10",
                     "org.reactivestreams:reactive-streams:jar:sources:1.0.2",
-                    "com.typesafe.akka:akka-actor_2.12:jar:sources:2.5.26",
-                    "com.typesafe:ssl-config-core_2.12:jar:sources:0.3.8"
+                    "com.typesafe.akka:akka-actor_2.12:jar:sources:2.6.1",
+                    "com.typesafe:ssl-config-core_2.12:jar:sources:0.4.1",
+                    "com.typesafe.akka:akka-protobuf-v3_2.12:jar:sources:2.6.1"
                 ],
                 "dependencies": [
-                    "com.typesafe.akka:akka-protobuf_2.12:jar:sources:2.5.26",
+                    "com.google.protobuf:protobuf-java:jar:sources:3.8.0",
                     "org.scala-lang:scala-library:jar:sources:2.12.10",
                     "org.scala-lang.modules:scala-java8-compat_2.12:jar:sources:0.9.0",
                     "org.reactivestreams:reactive-streams:jar:sources:1.0.2",
+                    "com.typesafe.akka:akka-actor_2.12:jar:sources:2.6.1",
                     "org.scala-lang.modules:scala-parser-combinators_2.12:jar:sources:1.0.4",
-                    "com.typesafe:config:jar:sources:1.3.3",
-                    "com.typesafe.akka:akka-actor_2.12:jar:sources:2.5.26",
-                    "com.typesafe:ssl-config-core_2.12:jar:sources:0.3.8"
+                    "com.typesafe:ssl-config-core_2.12:jar:sources:0.4.1",
+                    "com.typesafe.akka:akka-protobuf-v3_2.12:jar:sources:2.6.1",
+                    "com.typesafe:config:jar:sources:1.4.0"
                 ],
-                "url": "https://repo1.maven.org/maven2/com/typesafe/akka/akka-stream_2.12/2.5.26/akka-stream_2.12-2.5.26-sources.jar",
+                "url": "https://repo1.maven.org/maven2/com/typesafe/akka/akka-stream_2.12/2.6.1/akka-stream_2.12-2.6.1-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/com/typesafe/akka/akka-stream_2.12/2.5.26/akka-stream_2.12-2.5.26-sources.jar"
+                    "https://repo1.maven.org/maven2/com/typesafe/akka/akka-stream_2.12/2.6.1/akka-stream_2.12-2.6.1-sources.jar"
                 ],
-                "sha256": "7f693c2030e49ef20ef9532e3a40b5c053fb73e5a49ec4d8a690a4806b4f4f62"
+                "sha256": "f99a0220d9b0e7acd5f42293a318206acde579074893bb5fbc82939ee054db7d"
             },
             {
-                "coord": "com.typesafe.akka:akka-testkit_2.12:2.5.26",
-                "file": "v1/https/repo1.maven.org/maven2/com/typesafe/akka/akka-testkit_2.12/2.5.26/akka-testkit_2.12-2.5.26.jar",
+                "coord": "com.typesafe.akka:akka-testkit_2.12:2.6.1",
+                "file": "v1/https/repo1.maven.org/maven2/com/typesafe/akka/akka-testkit_2.12/2.6.1/akka-testkit_2.12-2.6.1.jar",
                 "directDependencies": [
-                    "com.typesafe.akka:akka-actor_2.12:2.5.26",
+                    "com.typesafe.akka:akka-actor_2.12:2.6.1",
                     "org.scala-lang:scala-library:2.12.10"
                 ],
                 "dependencies": [
-                    "com.typesafe:config:1.3.3",
+                    "com.typesafe.akka:akka-actor_2.12:2.6.1",
+                    "com.typesafe:config:1.4.0",
                     "org.scala-lang:scala-library:2.12.10",
-                    "com.typesafe.akka:akka-actor_2.12:2.5.26",
                     "org.scala-lang.modules:scala-java8-compat_2.12:0.9.0"
                 ],
-                "url": "https://repo1.maven.org/maven2/com/typesafe/akka/akka-testkit_2.12/2.5.26/akka-testkit_2.12-2.5.26.jar",
+                "url": "https://repo1.maven.org/maven2/com/typesafe/akka/akka-testkit_2.12/2.6.1/akka-testkit_2.12-2.6.1.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/com/typesafe/akka/akka-testkit_2.12/2.5.26/akka-testkit_2.12-2.5.26.jar"
+                    "https://repo1.maven.org/maven2/com/typesafe/akka/akka-testkit_2.12/2.6.1/akka-testkit_2.12-2.6.1.jar"
                 ],
-                "sha256": "48c24b0569ebbc93f053b1ac9aa464b68921f5a53b35a65de3c1a2162f9e1024"
+                "sha256": "f12f796ad7185c4b13599ac3a7b3f6b05303281efa7398253bb2ae065ed8a5f6"
             },
             {
-                "coord": "com.typesafe.akka:akka-testkit_2.12:jar:sources:2.5.26",
-                "file": "v1/https/repo1.maven.org/maven2/com/typesafe/akka/akka-testkit_2.12/2.5.26/akka-testkit_2.12-2.5.26-sources.jar",
+                "coord": "com.typesafe.akka:akka-testkit_2.12:jar:sources:2.6.1",
+                "file": "v1/https/repo1.maven.org/maven2/com/typesafe/akka/akka-testkit_2.12/2.6.1/akka-testkit_2.12-2.6.1-sources.jar",
                 "directDependencies": [
-                    "com.typesafe.akka:akka-actor_2.12:jar:sources:2.5.26",
+                    "com.typesafe.akka:akka-actor_2.12:jar:sources:2.6.1",
                     "org.scala-lang:scala-library:jar:sources:2.12.10"
                 ],
                 "dependencies": [
+                    "com.typesafe:config:jar:sources:1.4.0",
                     "org.scala-lang.modules:scala-java8-compat_2.12:jar:sources:0.9.0",
-                    "com.typesafe.akka:akka-actor_2.12:jar:sources:2.5.26",
-                    "org.scala-lang:scala-library:jar:sources:2.12.10",
-                    "com.typesafe:config:jar:sources:1.3.3"
+                    "com.typesafe.akka:akka-actor_2.12:jar:sources:2.6.1",
+                    "org.scala-lang:scala-library:jar:sources:2.12.10"
                 ],
-                "url": "https://repo1.maven.org/maven2/com/typesafe/akka/akka-testkit_2.12/2.5.26/akka-testkit_2.12-2.5.26-sources.jar",
+                "url": "https://repo1.maven.org/maven2/com/typesafe/akka/akka-testkit_2.12/2.6.1/akka-testkit_2.12-2.6.1-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/com/typesafe/akka/akka-testkit_2.12/2.5.26/akka-testkit_2.12-2.5.26-sources.jar"
+                    "https://repo1.maven.org/maven2/com/typesafe/akka/akka-testkit_2.12/2.6.1/akka-testkit_2.12-2.6.1-sources.jar"
                 ],
-                "sha256": "5702c081d156d8ac6f4ede3d01db5af7632cc8ac69b2a99c0edabe0093a25181"
+                "sha256": "a14281ee2d0c146c6df771f7e13792f913b79e5a394314dc2b137da1cde1115f"
             },
             {
                 "coord": "com.typesafe.play:anorm-akka_2.12:2.5.3",
@@ -3365,7 +3369,7 @@
                 "dependencies": [
                     "com.zaxxer:HikariCP:3.2.0",
                     "org.slf4j:slf4j-api:1.7.26",
-                    "com.typesafe:config:1.3.3",
+                    "com.typesafe:config:1.4.0",
                     "com.typesafe.slick:slick_2.12:3.3.0",
                     "org.scala-lang:scala-library:2.12.10",
                     "org.reactivestreams:reactive-streams:1.0.2"
@@ -3389,8 +3393,8 @@
                     "org.scala-lang:scala-library:jar:sources:2.12.10",
                     "org.reactivestreams:reactive-streams:jar:sources:1.0.2",
                     "com.zaxxer:HikariCP:jar:sources:3.2.0",
-                    "com.typesafe:config:jar:sources:1.3.3",
-                    "org.slf4j:slf4j-api:jar:sources:1.7.26"
+                    "org.slf4j:slf4j-api:jar:sources:1.7.26",
+                    "com.typesafe:config:jar:sources:1.4.0"
                 ],
                 "url": "https://repo1.maven.org/maven2/com/typesafe/slick/slick-hikaricp_2.12/3.3.0/slick-hikaricp_2.12-3.3.0-sources.jar",
                 "mirror_urls": [
@@ -3402,13 +3406,13 @@
                 "coord": "com.typesafe.slick:slick_2.12:3.3.0",
                 "file": "v1/https/repo1.maven.org/maven2/com/typesafe/slick/slick_2.12/3.3.0/slick_2.12-3.3.0.jar",
                 "directDependencies": [
-                    "com.typesafe:config:1.3.3",
+                    "com.typesafe:config:1.4.0",
                     "org.reactivestreams:reactive-streams:1.0.2",
                     "org.scala-lang:scala-library:2.12.10",
                     "org.slf4j:slf4j-api:1.7.26"
                 ],
                 "dependencies": [
-                    "com.typesafe:config:1.3.3",
+                    "com.typesafe:config:1.4.0",
                     "org.scala-lang:scala-library:2.12.10",
                     "org.slf4j:slf4j-api:1.7.26",
                     "org.reactivestreams:reactive-streams:1.0.2"
@@ -3423,16 +3427,16 @@
                 "coord": "com.typesafe.slick:slick_2.12:jar:sources:3.3.0",
                 "file": "v1/https/repo1.maven.org/maven2/com/typesafe/slick/slick_2.12/3.3.0/slick_2.12-3.3.0-sources.jar",
                 "directDependencies": [
-                    "com.typesafe:config:jar:sources:1.3.3",
+                    "com.typesafe:config:jar:sources:1.4.0",
                     "org.reactivestreams:reactive-streams:jar:sources:1.0.2",
                     "org.scala-lang:scala-library:jar:sources:2.12.10",
                     "org.slf4j:slf4j-api:jar:sources:1.7.26"
                 ],
                 "dependencies": [
+                    "com.typesafe:config:jar:sources:1.4.0",
                     "org.reactivestreams:reactive-streams:jar:sources:1.0.2",
                     "org.slf4j:slf4j-api:jar:sources:1.7.26",
-                    "org.scala-lang:scala-library:jar:sources:2.12.10",
-                    "com.typesafe:config:jar:sources:1.3.3"
+                    "org.scala-lang:scala-library:jar:sources:2.12.10"
                 ],
                 "url": "https://repo1.maven.org/maven2/com/typesafe/slick/slick_2.12/3.3.0/slick_2.12-3.3.0-sources.jar",
                 "mirror_urls": [
@@ -3441,64 +3445,64 @@
                 "sha256": "635ce75720e6679672c66624c31bd32225709e275a81f1a541910978686f49af"
             },
             {
-                "coord": "com.typesafe:config:1.3.3",
-                "file": "v1/https/repo1.maven.org/maven2/com/typesafe/config/1.3.3/config-1.3.3.jar",
+                "coord": "com.typesafe:config:1.4.0",
+                "file": "v1/https/repo1.maven.org/maven2/com/typesafe/config/1.4.0/config-1.4.0.jar",
                 "directDependencies": [],
                 "dependencies": [],
-                "url": "https://repo1.maven.org/maven2/com/typesafe/config/1.3.3/config-1.3.3.jar",
+                "url": "https://repo1.maven.org/maven2/com/typesafe/config/1.4.0/config-1.4.0.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/com/typesafe/config/1.3.3/config-1.3.3.jar"
+                    "https://repo1.maven.org/maven2/com/typesafe/config/1.4.0/config-1.4.0.jar"
                 ],
-                "sha256": "b5f1d6071f1548d05be82f59f9039c7d37a1787bd8e3c677e31ee275af4a4621"
+                "sha256": "aadbfd5a524551beef10d3f891d305b83bb27d54703d9a4de7aca2a12d9847e2"
             },
             {
-                "coord": "com.typesafe:config:jar:sources:1.3.3",
-                "file": "v1/https/repo1.maven.org/maven2/com/typesafe/config/1.3.3/config-1.3.3-sources.jar",
+                "coord": "com.typesafe:config:jar:sources:1.4.0",
+                "file": "v1/https/repo1.maven.org/maven2/com/typesafe/config/1.4.0/config-1.4.0-sources.jar",
                 "directDependencies": [],
                 "dependencies": [],
-                "url": "https://repo1.maven.org/maven2/com/typesafe/config/1.3.3/config-1.3.3-sources.jar",
+                "url": "https://repo1.maven.org/maven2/com/typesafe/config/1.4.0/config-1.4.0-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/com/typesafe/config/1.3.3/config-1.3.3-sources.jar"
+                    "https://repo1.maven.org/maven2/com/typesafe/config/1.4.0/config-1.4.0-sources.jar"
                 ],
-                "sha256": "fcd7c3070417c776b313cc559665c035d74e3a2b40a89bbb0e9bff6e567c9cc8"
+                "sha256": "ffaf8892dc8c61605bd7319c6cdcea022b6c9c28b62776915a809e8de93d8a6e"
             },
             {
-                "coord": "com.typesafe:ssl-config-core_2.12:0.3.8",
-                "file": "v1/https/repo1.maven.org/maven2/com/typesafe/ssl-config-core_2.12/0.3.8/ssl-config-core_2.12-0.3.8.jar",
+                "coord": "com.typesafe:ssl-config-core_2.12:0.4.1",
+                "file": "v1/https/repo1.maven.org/maven2/com/typesafe/ssl-config-core_2.12/0.4.1/ssl-config-core_2.12-0.4.1.jar",
                 "directDependencies": [
-                    "com.typesafe:config:1.3.3",
+                    "com.typesafe:config:1.4.0",
                     "org.scala-lang:scala-library:2.12.10",
                     "org.scala-lang.modules:scala-parser-combinators_2.12:1.0.4"
                 ],
                 "dependencies": [
-                    "com.typesafe:config:1.3.3",
+                    "com.typesafe:config:1.4.0",
                     "org.scala-lang:scala-library:2.12.10",
                     "org.scala-lang.modules:scala-parser-combinators_2.12:1.0.4"
                 ],
-                "url": "https://repo1.maven.org/maven2/com/typesafe/ssl-config-core_2.12/0.3.8/ssl-config-core_2.12-0.3.8.jar",
+                "url": "https://repo1.maven.org/maven2/com/typesafe/ssl-config-core_2.12/0.4.1/ssl-config-core_2.12-0.4.1.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/com/typesafe/ssl-config-core_2.12/0.3.8/ssl-config-core_2.12-0.3.8.jar"
+                    "https://repo1.maven.org/maven2/com/typesafe/ssl-config-core_2.12/0.4.1/ssl-config-core_2.12-0.4.1.jar"
                 ],
-                "sha256": "481ef324783374d8ab2e832f03754d80efa1a9a37d82ea4e0d2ed4cd61b0e221"
+                "sha256": "f5823f44c4780a080a2f0ebeaaa1c72a1002a08ab9fe9735373e10517cfc1485"
             },
             {
-                "coord": "com.typesafe:ssl-config-core_2.12:jar:sources:0.3.8",
-                "file": "v1/https/repo1.maven.org/maven2/com/typesafe/ssl-config-core_2.12/0.3.8/ssl-config-core_2.12-0.3.8-sources.jar",
+                "coord": "com.typesafe:ssl-config-core_2.12:jar:sources:0.4.1",
+                "file": "v1/https/repo1.maven.org/maven2/com/typesafe/ssl-config-core_2.12/0.4.1/ssl-config-core_2.12-0.4.1-sources.jar",
                 "directDependencies": [
-                    "com.typesafe:config:jar:sources:1.3.3",
+                    "com.typesafe:config:jar:sources:1.4.0",
                     "org.scala-lang:scala-library:jar:sources:2.12.10",
                     "org.scala-lang.modules:scala-parser-combinators_2.12:jar:sources:1.0.4"
                 ],
                 "dependencies": [
+                    "com.typesafe:config:jar:sources:1.4.0",
                     "org.scala-lang.modules:scala-parser-combinators_2.12:jar:sources:1.0.4",
-                    "org.scala-lang:scala-library:jar:sources:2.12.10",
-                    "com.typesafe:config:jar:sources:1.3.3"
+                    "org.scala-lang:scala-library:jar:sources:2.12.10"
                 ],
-                "url": "https://repo1.maven.org/maven2/com/typesafe/ssl-config-core_2.12/0.3.8/ssl-config-core_2.12-0.3.8-sources.jar",
+                "url": "https://repo1.maven.org/maven2/com/typesafe/ssl-config-core_2.12/0.4.1/ssl-config-core_2.12-0.4.1-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/com/typesafe/ssl-config-core_2.12/0.3.8/ssl-config-core_2.12-0.3.8-sources.jar"
+                    "https://repo1.maven.org/maven2/com/typesafe/ssl-config-core_2.12/0.4.1/ssl-config-core_2.12-0.4.1-sources.jar"
                 ],
-                "sha256": "a3ada946f01a3654829f6a925f61403f2ffd8baaec36f3c2f9acd798034f7369"
+                "sha256": "4423bec94e93c51a5b8c44fad3f6fbe0eefecd6919b69c38c62516c5818222b8"
             },
             {
                 "coord": "com.zaxxer:HikariCP:3.2.0",
@@ -8493,6 +8497,7 @@
                     "com.squareup.okhttp3:okhttp-urlconnection:3.7.0",
                     "net.java.dev.jna:jna-platform:4.5.0",
                     "com.lmax:disruptor:3.3.6",
+                    "com.typesafe:ssl-config-core_2.12:0.4.1",
                     "com.eed3si9n:sjson-new-murmurhash_2.12:0.8.2",
                     "org.scala-sbt:tasks_2.12:1.1.4",
                     "org.scala-sbt:util-interface:1.1.3",
@@ -8502,6 +8507,7 @@
                     "com.google.protobuf:protobuf-java:3.8.0",
                     "com.jcraft:jsch:0.1.54",
                     "org.slf4j:slf4j-api:1.7.26",
+                    "com.typesafe:config:1.4.0",
                     "org.scala-sbt:util-logging_2.12:1.1.3",
                     "org.scala-lang:scala-compiler:2.12.7",
                     "org.scala-sbt:util-control_2.12:1.1.3",
@@ -8509,9 +8515,7 @@
                     "org.scala-sbt:testing_2.12:1.1.4",
                     "com.eed3si9n:shaded-scalajson_2.12:1.0.0-M4",
                     "com.eed3si9n:gigahorse-okhttp_2.12:0.3.0",
-                    "com.typesafe:ssl-config-core_2.12:0.3.8",
                     "org.scala-sbt:util-position_2.12:1.1.3",
-                    "com.typesafe:config:1.3.3",
                     "org.scala-sbt:sbinary_2.12:0.4.4",
                     "org.scala-sbt:compiler-interface:1.1.5",
                     "org.apache.logging.log4j:log4j-api:2.8.1",
@@ -8596,7 +8600,6 @@
                     "org.scala-sbt:util-relation_2.12:jar:sources:1.1.3",
                     "org.reactivestreams:reactive-streams:jar:sources:1.0.2",
                     "org.scala-lang.modules:scala-parser-combinators_2.12:jar:sources:1.0.4",
-                    "com.typesafe:config:jar:sources:1.3.3",
                     "com.squareup.okio:okio:jar:sources:1.13.0",
                     "org.scala-sbt:completion_2.12:jar:sources:1.1.4",
                     "org.apache.logging.log4j:log4j-core:jar:sources:2.8.1",
@@ -8616,12 +8619,14 @@
                     "com.squareup.okhttp3:okhttp-urlconnection:jar:sources:3.7.0",
                     "org.scala-sbt:zinc_2.12:jar:sources:1.1.5",
                     "jline:jline:jar:sources:2.14.4",
+                    "com.typesafe:ssl-config-core_2.12:jar:sources:0.4.1",
                     "org.scala-lang.modules:scala-xml_2.12:jar:sources:1.0.6",
                     "com.eed3si9n:gigahorse-core_2.12:jar:sources:0.3.0",
                     "org.scala-sbt:zinc-classpath_2.12:jar:sources:1.1.5",
                     "net.java.dev.jna:jna:jar:sources:4.5.0",
                     "org.scala-sbt:test-interface:jar:sources:1.0",
                     "com.trueaccord.scalapb:scalapb-runtime_2.12:jar:sources:0.6.0-pre2",
+                    "com.typesafe:config:jar:sources:1.4.0",
                     "com.lmax:disruptor:jar:sources:3.3.6",
                     "com.eed3si9n:sjson-new-core_2.12:jar:sources:0.8.2",
                     "com.eed3si9n:sjson-new-murmurhash_2.12:jar:sources:0.8.2",
@@ -8631,7 +8636,6 @@
                     "org.scala-sbt:zinc-compile-core_2.12:jar:sources:1.1.5",
                     "org.scala-sbt:tasks_2.12:jar:sources:1.1.4",
                     "com.lihaoyi:sourcecode_2.12:jar:sources:0.1.7",
-                    "com.typesafe:ssl-config-core_2.12:jar:sources:0.3.8",
                     "org.scala-sbt:util-tracking_2.12:jar:sources:1.1.3",
                     "org.scala-lang:scala-compiler:jar:sources:2.12.7",
                     "net.java.dev.jna:jna-platform:jar:sources:4.5.0",
@@ -8711,21 +8715,21 @@
                     "com.squareup.okhttp3:okhttp-urlconnection:3.7.0",
                     "net.java.dev.jna:jna-platform:4.5.0",
                     "com.lmax:disruptor:3.3.6",
+                    "com.typesafe:ssl-config-core_2.12:0.4.1",
                     "com.eed3si9n:sjson-new-murmurhash_2.12:0.8.2",
                     "org.scala-sbt:util-interface:1.1.3",
                     "org.scala-sbt:launcher-interface:1.0.4",
                     "org.scala-sbt:protocol_2.12:1.1.4",
                     "com.jcraft:jsch:0.1.54",
                     "org.slf4j:slf4j-api:1.7.26",
+                    "com.typesafe:config:1.4.0",
                     "org.scala-sbt:util-logging_2.12:1.1.3",
                     "org.scala-lang:scala-compiler:2.12.7",
                     "org.scala-sbt:util-control_2.12:1.1.3",
                     "jline:jline:2.14.4",
                     "com.eed3si9n:shaded-scalajson_2.12:1.0.0-M4",
                     "com.eed3si9n:gigahorse-okhttp_2.12:0.3.0",
-                    "com.typesafe:ssl-config-core_2.12:0.3.8",
                     "org.scala-sbt:util-position_2.12:1.1.3",
-                    "com.typesafe:config:1.3.3",
                     "org.scala-sbt:compiler-interface:1.1.5",
                     "org.apache.logging.log4j:log4j-api:2.8.1",
                     "org.scala-sbt:librarymanagement-core_2.12:1.1.4",
@@ -8788,7 +8792,6 @@
                     "org.scala-sbt:collections_2.12:jar:sources:1.1.4",
                     "org.reactivestreams:reactive-streams:jar:sources:1.0.2",
                     "org.scala-lang.modules:scala-parser-combinators_2.12:jar:sources:1.0.4",
-                    "com.typesafe:config:jar:sources:1.3.3",
                     "com.squareup.okio:okio:jar:sources:1.13.0",
                     "org.scala-sbt:completion_2.12:jar:sources:1.1.4",
                     "org.apache.logging.log4j:log4j-core:jar:sources:2.8.1",
@@ -8804,15 +8807,16 @@
                     "org.scala-sbt:compiler-interface:jar:sources:1.1.5",
                     "com.squareup.okhttp3:okhttp-urlconnection:jar:sources:3.7.0",
                     "jline:jline:jar:sources:2.14.4",
+                    "com.typesafe:ssl-config-core_2.12:jar:sources:0.4.1",
                     "org.scala-lang.modules:scala-xml_2.12:jar:sources:1.0.6",
                     "com.eed3si9n:gigahorse-core_2.12:jar:sources:0.3.0",
                     "org.scala-sbt:zinc-classpath_2.12:jar:sources:1.1.5",
                     "net.java.dev.jna:jna:jar:sources:4.5.0",
+                    "com.typesafe:config:jar:sources:1.4.0",
                     "com.lmax:disruptor:jar:sources:3.3.6",
                     "com.eed3si9n:sjson-new-core_2.12:jar:sources:0.8.2",
                     "com.eed3si9n:sjson-new-murmurhash_2.12:jar:sources:0.8.2",
                     "org.scala-sbt:util-cache_2.12:jar:sources:1.1.3",
-                    "com.typesafe:ssl-config-core_2.12:jar:sources:0.3.8",
                     "org.scala-lang:scala-compiler:jar:sources:2.12.7",
                     "net.java.dev.jna:jna-platform:jar:sources:4.5.0",
                     "org.scala-sbt:util-control_2.12:jar:sources:1.1.3"
@@ -9054,19 +9058,19 @@
                     "com.squareup.okhttp3:okhttp-urlconnection:3.7.0",
                     "net.java.dev.jna:jna-platform:4.5.0",
                     "com.lmax:disruptor:3.3.6",
+                    "com.typesafe:ssl-config-core_2.12:0.4.1",
                     "com.eed3si9n:sjson-new-murmurhash_2.12:0.8.2",
                     "org.scala-sbt:util-interface:1.1.3",
                     "org.scala-sbt:launcher-interface:1.0.4",
                     "com.jcraft:jsch:0.1.54",
                     "org.slf4j:slf4j-api:1.7.26",
+                    "com.typesafe:config:1.4.0",
                     "org.scala-sbt:util-logging_2.12:1.1.3",
                     "org.scala-lang:scala-compiler:2.12.7",
                     "jline:jline:2.14.4",
                     "com.eed3si9n:shaded-scalajson_2.12:1.0.0-M4",
                     "com.eed3si9n:gigahorse-okhttp_2.12:0.3.0",
-                    "com.typesafe:ssl-config-core_2.12:0.3.8",
                     "org.scala-sbt:util-position_2.12:1.1.3",
-                    "com.typesafe:config:1.3.3",
                     "org.apache.logging.log4j:log4j-api:2.8.1",
                     "org.scala-sbt:io_2.12:1.1.6",
                     "org.scala-lang.modules:scala-parser-combinators_2.12:1.0.4",
@@ -9120,7 +9124,6 @@
                     "com.eed3si9n:gigahorse-okhttp_2.12:jar:sources:0.3.0",
                     "org.reactivestreams:reactive-streams:jar:sources:1.0.2",
                     "org.scala-lang.modules:scala-parser-combinators_2.12:jar:sources:1.0.4",
-                    "com.typesafe:config:jar:sources:1.3.3",
                     "com.squareup.okio:okio:jar:sources:1.13.0",
                     "org.apache.logging.log4j:log4j-core:jar:sources:2.8.1",
                     "com.eed3si9n:shaded-scalajson_2.12:jar:sources:1.0.0-M4",
@@ -9132,14 +9135,15 @@
                     "com.eed3si9n:sjson-new-scalajson_2.12:jar:sources:0.8.2",
                     "com.squareup.okhttp3:okhttp-urlconnection:jar:sources:3.7.0",
                     "jline:jline:jar:sources:2.14.4",
+                    "com.typesafe:ssl-config-core_2.12:jar:sources:0.4.1",
                     "org.scala-lang.modules:scala-xml_2.12:jar:sources:1.0.6",
                     "com.eed3si9n:gigahorse-core_2.12:jar:sources:0.3.0",
                     "net.java.dev.jna:jna:jar:sources:4.5.0",
+                    "com.typesafe:config:jar:sources:1.4.0",
                     "com.lmax:disruptor:jar:sources:3.3.6",
                     "com.eed3si9n:sjson-new-core_2.12:jar:sources:0.8.2",
                     "com.eed3si9n:sjson-new-murmurhash_2.12:jar:sources:0.8.2",
                     "org.scala-sbt:util-cache_2.12:jar:sources:1.1.3",
-                    "com.typesafe:ssl-config-core_2.12:jar:sources:0.3.8",
                     "org.scala-lang:scala-compiler:jar:sources:2.12.7",
                     "net.java.dev.jna:jna-platform:jar:sources:4.5.0"
                 ],
@@ -9163,19 +9167,19 @@
                     "com.squareup.okhttp3:okhttp-urlconnection:3.7.0",
                     "net.java.dev.jna:jna-platform:4.5.0",
                     "com.lmax:disruptor:3.3.6",
+                    "com.typesafe:ssl-config-core_2.12:0.4.1",
                     "com.eed3si9n:sjson-new-murmurhash_2.12:0.8.2",
                     "org.scala-sbt:util-interface:1.1.3",
                     "org.scala-sbt:launcher-interface:1.0.4",
                     "com.jcraft:jsch:0.1.54",
                     "org.slf4j:slf4j-api:1.7.26",
+                    "com.typesafe:config:1.4.0",
                     "org.scala-sbt:util-logging_2.12:1.1.3",
                     "org.scala-lang:scala-compiler:2.12.7",
                     "jline:jline:2.14.4",
                     "com.eed3si9n:shaded-scalajson_2.12:1.0.0-M4",
                     "com.eed3si9n:gigahorse-okhttp_2.12:0.3.0",
-                    "com.typesafe:ssl-config-core_2.12:0.3.8",
                     "org.scala-sbt:util-position_2.12:1.1.3",
-                    "com.typesafe:config:1.3.3",
                     "org.apache.logging.log4j:log4j-api:2.8.1",
                     "org.scala-sbt:librarymanagement-core_2.12:1.1.4",
                     "org.scala-sbt:io_2.12:1.1.6",
@@ -9222,7 +9226,6 @@
                     "com.eed3si9n:gigahorse-okhttp_2.12:jar:sources:0.3.0",
                     "org.reactivestreams:reactive-streams:jar:sources:1.0.2",
                     "org.scala-lang.modules:scala-parser-combinators_2.12:jar:sources:1.0.4",
-                    "com.typesafe:config:jar:sources:1.3.3",
                     "com.squareup.okio:okio:jar:sources:1.13.0",
                     "org.apache.logging.log4j:log4j-core:jar:sources:2.8.1",
                     "com.eed3si9n:shaded-scalajson_2.12:jar:sources:1.0.0-M4",
@@ -9235,14 +9238,15 @@
                     "com.eed3si9n:sjson-new-scalajson_2.12:jar:sources:0.8.2",
                     "com.squareup.okhttp3:okhttp-urlconnection:jar:sources:3.7.0",
                     "jline:jline:jar:sources:2.14.4",
+                    "com.typesafe:ssl-config-core_2.12:jar:sources:0.4.1",
                     "org.scala-lang.modules:scala-xml_2.12:jar:sources:1.0.6",
                     "com.eed3si9n:gigahorse-core_2.12:jar:sources:0.3.0",
                     "net.java.dev.jna:jna:jar:sources:4.5.0",
+                    "com.typesafe:config:jar:sources:1.4.0",
                     "com.lmax:disruptor:jar:sources:3.3.6",
                     "com.eed3si9n:sjson-new-core_2.12:jar:sources:0.8.2",
                     "com.eed3si9n:sjson-new-murmurhash_2.12:jar:sources:0.8.2",
                     "org.scala-sbt:util-cache_2.12:jar:sources:1.1.3",
-                    "com.typesafe:ssl-config-core_2.12:jar:sources:0.3.8",
                     "org.scala-sbt.ivy:ivy:jar:sources:2.3.0-sbt-b18f59ea3bc914a297bb6f1a4f7fb0ace399e310",
                     "org.scala-lang:scala-compiler:jar:sources:2.12.7",
                     "net.java.dev.jna:jna-platform:jar:sources:4.5.0"
@@ -9325,6 +9329,7 @@
                     "com.squareup.okhttp3:okhttp-urlconnection:3.7.0",
                     "net.java.dev.jna:jna-platform:4.5.0",
                     "com.lmax:disruptor:3.3.6",
+                    "com.typesafe:ssl-config-core_2.12:0.4.1",
                     "com.eed3si9n:sjson-new-murmurhash_2.12:0.8.2",
                     "org.scala-sbt:tasks_2.12:1.1.4",
                     "org.scala-sbt:util-interface:1.1.3",
@@ -9332,15 +9337,14 @@
                     "org.scala-sbt:protocol_2.12:1.1.4",
                     "com.jcraft:jsch:0.1.54",
                     "org.slf4j:slf4j-api:1.7.26",
+                    "com.typesafe:config:1.4.0",
                     "org.scala-sbt:util-logging_2.12:1.1.3",
                     "org.scala-lang:scala-compiler:2.12.7",
                     "org.scala-sbt:util-control_2.12:1.1.3",
                     "jline:jline:2.14.4",
                     "com.eed3si9n:shaded-scalajson_2.12:1.0.0-M4",
                     "com.eed3si9n:gigahorse-okhttp_2.12:0.3.0",
-                    "com.typesafe:ssl-config-core_2.12:0.3.8",
                     "org.scala-sbt:util-position_2.12:1.1.3",
-                    "com.typesafe:config:1.3.3",
                     "org.scala-sbt:compiler-interface:1.1.5",
                     "org.apache.logging.log4j:log4j-api:2.8.1",
                     "org.scala-sbt:librarymanagement-core_2.12:1.1.4",
@@ -9407,7 +9411,6 @@
                     "org.scala-sbt:util-relation_2.12:jar:sources:1.1.3",
                     "org.reactivestreams:reactive-streams:jar:sources:1.0.2",
                     "org.scala-lang.modules:scala-parser-combinators_2.12:jar:sources:1.0.4",
-                    "com.typesafe:config:jar:sources:1.3.3",
                     "com.squareup.okio:okio:jar:sources:1.13.0",
                     "org.scala-sbt:completion_2.12:jar:sources:1.1.4",
                     "org.apache.logging.log4j:log4j-core:jar:sources:2.8.1",
@@ -9423,10 +9426,12 @@
                     "org.scala-sbt:compiler-interface:jar:sources:1.1.5",
                     "com.squareup.okhttp3:okhttp-urlconnection:jar:sources:3.7.0",
                     "jline:jline:jar:sources:2.14.4",
+                    "com.typesafe:ssl-config-core_2.12:jar:sources:0.4.1",
                     "org.scala-lang.modules:scala-xml_2.12:jar:sources:1.0.6",
                     "com.eed3si9n:gigahorse-core_2.12:jar:sources:0.3.0",
                     "org.scala-sbt:zinc-classpath_2.12:jar:sources:1.1.5",
                     "net.java.dev.jna:jna:jar:sources:4.5.0",
+                    "com.typesafe:config:jar:sources:1.4.0",
                     "com.lmax:disruptor:jar:sources:3.3.6",
                     "com.eed3si9n:sjson-new-core_2.12:jar:sources:0.8.2",
                     "org.scala-sbt:core-macros_2.12:jar:sources:1.1.4",
@@ -9434,7 +9439,6 @@
                     "org.scala-sbt:util-cache_2.12:jar:sources:1.1.3",
                     "org.scala-sbt:task-system_2.12:jar:sources:1.1.4",
                     "org.scala-sbt:tasks_2.12:jar:sources:1.1.4",
-                    "com.typesafe:ssl-config-core_2.12:jar:sources:0.3.8",
                     "org.scala-lang:scala-compiler:jar:sources:2.12.7",
                     "net.java.dev.jna:jna-platform:jar:sources:4.5.0",
                     "org.scala-sbt:util-control_2.12:jar:sources:1.1.3"
@@ -9478,6 +9482,7 @@
                     "net.java.dev.jna:jna-platform:4.5.0",
                     "com.lmax:disruptor:3.3.6",
                     "org.scala-sbt:logic_2.12:1.1.4",
+                    "com.typesafe:ssl-config-core_2.12:0.4.1",
                     "com.eed3si9n:sjson-new-murmurhash_2.12:0.8.2",
                     "org.scala-sbt:tasks_2.12:1.1.4",
                     "org.scala-sbt:util-interface:1.1.3",
@@ -9488,6 +9493,7 @@
                     "org.scala-sbt:protocol_2.12:1.1.4",
                     "com.jcraft:jsch:0.1.54",
                     "org.slf4j:slf4j-api:1.7.26",
+                    "com.typesafe:config:1.4.0",
                     "org.scala-sbt:util-logging_2.12:1.1.3",
                     "org.scala-lang:scala-compiler:2.12.7",
                     "org.scala-sbt:util-control_2.12:1.1.3",
@@ -9496,10 +9502,8 @@
                     "org.scala-sbt:testing_2.12:1.1.4",
                     "com.eed3si9n:shaded-scalajson_2.12:1.0.0-M4",
                     "com.eed3si9n:gigahorse-okhttp_2.12:0.3.0",
-                    "com.typesafe:ssl-config-core_2.12:0.3.8",
                     "org.scala-sbt:actions_2.12:1.1.4",
                     "org.scala-sbt:util-position_2.12:1.1.3",
-                    "com.typesafe:config:1.3.3",
                     "org.scala-sbt:librarymanagement-ivy_2.12:1.1.4",
                     "org.scala-sbt:sbinary_2.12:0.4.4",
                     "org.scala-sbt:compiler-interface:1.1.5",
@@ -9601,7 +9605,6 @@
                     "org.scala-sbt:util-relation_2.12:jar:sources:1.1.3",
                     "org.reactivestreams:reactive-streams:jar:sources:1.0.2",
                     "org.scala-lang.modules:scala-parser-combinators_2.12:jar:sources:1.0.4",
-                    "com.typesafe:config:jar:sources:1.3.3",
                     "com.github.ben-manes.caffeine:caffeine:jar:sources:2.6.2",
                     "com.squareup.okio:okio:jar:sources:1.13.0",
                     "org.scala-sbt:completion_2.12:jar:sources:1.1.4",
@@ -9626,12 +9629,14 @@
                     "com.squareup.okhttp3:okhttp-urlconnection:jar:sources:3.7.0",
                     "org.scala-sbt:zinc_2.12:jar:sources:1.1.5",
                     "jline:jline:jar:sources:2.14.4",
+                    "com.typesafe:ssl-config-core_2.12:jar:sources:0.4.1",
                     "org.scala-lang.modules:scala-xml_2.12:jar:sources:1.0.6",
                     "com.eed3si9n:gigahorse-core_2.12:jar:sources:0.3.0",
                     "org.scala-sbt:zinc-classpath_2.12:jar:sources:1.1.5",
                     "net.java.dev.jna:jna:jar:sources:4.5.0",
                     "org.scala-sbt:test-interface:jar:sources:1.0",
                     "com.trueaccord.scalapb:scalapb-runtime_2.12:jar:sources:0.6.0-pre2",
+                    "com.typesafe:config:jar:sources:1.4.0",
                     "org.scala-sbt:zinc-compile_2.12:jar:sources:1.1.5",
                     "com.lmax:disruptor:jar:sources:3.3.6",
                     "com.eed3si9n:sjson-new-core_2.12:jar:sources:0.8.2",
@@ -9643,7 +9648,6 @@
                     "org.scala-sbt:zinc-compile-core_2.12:jar:sources:1.1.5",
                     "org.scala-sbt:tasks_2.12:jar:sources:1.1.4",
                     "com.lihaoyi:sourcecode_2.12:jar:sources:0.1.7",
-                    "com.typesafe:ssl-config-core_2.12:jar:sources:0.3.8",
                     "org.scala-sbt.ivy:ivy:jar:sources:2.3.0-sbt-b18f59ea3bc914a297bb6f1a4f7fb0ace399e310",
                     "org.scala-sbt:util-tracking_2.12:jar:sources:1.1.3",
                     "org.scala-sbt:actions_2.12:jar:sources:1.1.4",
@@ -9863,6 +9867,7 @@
                     "net.java.dev.jna:jna-platform:4.5.0",
                     "com.lmax:disruptor:3.3.6",
                     "org.scala-sbt:logic_2.12:1.1.4",
+                    "com.typesafe:ssl-config-core_2.12:0.4.1",
                     "com.eed3si9n:sjson-new-murmurhash_2.12:0.8.2",
                     "org.scala-sbt:tasks_2.12:1.1.4",
                     "org.scala-sbt:util-interface:1.1.3",
@@ -9873,6 +9878,7 @@
                     "org.scala-sbt:protocol_2.12:1.1.4",
                     "com.jcraft:jsch:0.1.54",
                     "org.slf4j:slf4j-api:1.7.26",
+                    "com.typesafe:config:1.4.0",
                     "org.scala-sbt:util-logging_2.12:1.1.3",
                     "org.scala-lang:scala-compiler:2.12.7",
                     "org.scala-sbt:util-control_2.12:1.1.3",
@@ -9881,11 +9887,9 @@
                     "org.scala-sbt:testing_2.12:1.1.4",
                     "com.eed3si9n:shaded-scalajson_2.12:1.0.0-M4",
                     "com.eed3si9n:gigahorse-okhttp_2.12:0.3.0",
-                    "com.typesafe:ssl-config-core_2.12:0.3.8",
                     "org.scala-sbt:main_2.12:1.1.4",
                     "org.scala-sbt:actions_2.12:1.1.4",
                     "org.scala-sbt:util-position_2.12:1.1.3",
-                    "com.typesafe:config:1.3.3",
                     "org.scala-sbt:librarymanagement-ivy_2.12:1.1.4",
                     "org.scala-sbt:sbinary_2.12:0.4.4",
                     "org.scala-sbt:compiler-interface:1.1.5",
@@ -9970,7 +9974,6 @@
                     "org.scala-sbt:util-relation_2.12:jar:sources:1.1.3",
                     "org.reactivestreams:reactive-streams:jar:sources:1.0.2",
                     "org.scala-lang.modules:scala-parser-combinators_2.12:jar:sources:1.0.4",
-                    "com.typesafe:config:jar:sources:1.3.3",
                     "com.github.ben-manes.caffeine:caffeine:jar:sources:2.6.2",
                     "com.squareup.okio:okio:jar:sources:1.13.0",
                     "org.scala-sbt:completion_2.12:jar:sources:1.1.4",
@@ -9995,12 +9998,14 @@
                     "com.squareup.okhttp3:okhttp-urlconnection:jar:sources:3.7.0",
                     "org.scala-sbt:zinc_2.12:jar:sources:1.1.5",
                     "jline:jline:jar:sources:2.14.4",
+                    "com.typesafe:ssl-config-core_2.12:jar:sources:0.4.1",
                     "org.scala-lang.modules:scala-xml_2.12:jar:sources:1.0.6",
                     "com.eed3si9n:gigahorse-core_2.12:jar:sources:0.3.0",
                     "org.scala-sbt:zinc-classpath_2.12:jar:sources:1.1.5",
                     "net.java.dev.jna:jna:jar:sources:4.5.0",
                     "org.scala-sbt:test-interface:jar:sources:1.0",
                     "com.trueaccord.scalapb:scalapb-runtime_2.12:jar:sources:0.6.0-pre2",
+                    "com.typesafe:config:jar:sources:1.4.0",
                     "org.scala-sbt:zinc-compile_2.12:jar:sources:1.1.5",
                     "org.scala-sbt:main_2.12:jar:sources:1.1.4",
                     "com.lmax:disruptor:jar:sources:3.3.6",
@@ -10013,7 +10018,6 @@
                     "org.scala-sbt:zinc-compile-core_2.12:jar:sources:1.1.5",
                     "org.scala-sbt:tasks_2.12:jar:sources:1.1.4",
                     "com.lihaoyi:sourcecode_2.12:jar:sources:0.1.7",
-                    "com.typesafe:ssl-config-core_2.12:jar:sources:0.3.8",
                     "org.scala-sbt.ivy:ivy:jar:sources:2.3.0-sbt-b18f59ea3bc914a297bb6f1a4f7fb0ace399e310",
                     "org.scala-sbt:util-tracking_2.12:jar:sources:1.1.3",
                     "org.scala-sbt:actions_2.12:jar:sources:1.1.4",
@@ -11096,20 +11100,20 @@
                     "com.squareup.okhttp3:okhttp-urlconnection:3.7.0",
                     "net.java.dev.jna:jna-platform:4.5.0",
                     "com.lmax:disruptor:3.3.6",
+                    "com.typesafe:ssl-config-core_2.12:0.4.1",
                     "com.eed3si9n:sjson-new-murmurhash_2.12:0.8.2",
                     "org.scala-sbt:util-interface:1.1.3",
                     "org.scala-sbt:launcher-interface:1.0.4",
                     "com.jcraft:jsch:0.1.54",
                     "org.slf4j:slf4j-api:1.7.26",
+                    "com.typesafe:config:1.4.0",
                     "org.scala-sbt:util-logging_2.12:1.1.3",
                     "org.scala-lang:scala-compiler:2.12.7",
                     "org.scala-sbt:util-control_2.12:1.1.3",
                     "jline:jline:2.14.4",
                     "com.eed3si9n:shaded-scalajson_2.12:1.0.0-M4",
                     "com.eed3si9n:gigahorse-okhttp_2.12:0.3.0",
-                    "com.typesafe:ssl-config-core_2.12:0.3.8",
                     "org.scala-sbt:util-position_2.12:1.1.3",
-                    "com.typesafe:config:1.3.3",
                     "org.scala-sbt:compiler-interface:1.1.5",
                     "org.apache.logging.log4j:log4j-api:2.8.1",
                     "org.scala-sbt:librarymanagement-core_2.12:1.1.4",
@@ -11159,7 +11163,6 @@
                     "com.eed3si9n:gigahorse-okhttp_2.12:jar:sources:0.3.0",
                     "org.reactivestreams:reactive-streams:jar:sources:1.0.2",
                     "org.scala-lang.modules:scala-parser-combinators_2.12:jar:sources:1.0.4",
-                    "com.typesafe:config:jar:sources:1.3.3",
                     "com.squareup.okio:okio:jar:sources:1.13.0",
                     "org.apache.logging.log4j:log4j-core:jar:sources:2.8.1",
                     "com.eed3si9n:shaded-scalajson_2.12:jar:sources:1.0.0-M4",
@@ -11173,17 +11176,18 @@
                     "org.scala-sbt:compiler-interface:jar:sources:1.1.5",
                     "com.squareup.okhttp3:okhttp-urlconnection:jar:sources:3.7.0",
                     "jline:jline:jar:sources:2.14.4",
+                    "com.typesafe:ssl-config-core_2.12:jar:sources:0.4.1",
                     "org.scala-lang.modules:scala-xml_2.12:jar:sources:1.0.6",
                     "com.eed3si9n:gigahorse-core_2.12:jar:sources:0.3.0",
                     "org.scala-sbt:zinc-classpath_2.12:jar:sources:1.1.5",
                     "net.java.dev.jna:jna:jar:sources:4.5.0",
+                    "com.typesafe:config:jar:sources:1.4.0",
                     "com.lmax:disruptor:jar:sources:3.3.6",
                     "com.eed3si9n:sjson-new-core_2.12:jar:sources:0.8.2",
                     "com.eed3si9n:sjson-new-murmurhash_2.12:jar:sources:0.8.2",
                     "org.scala-sbt:zinc-apiinfo_2.12:jar:sources:1.1.5",
                     "org.scala-sbt:util-cache_2.12:jar:sources:1.1.3",
                     "org.scala-sbt:zinc-compile-core_2.12:jar:sources:1.1.5",
-                    "com.typesafe:ssl-config-core_2.12:jar:sources:0.3.8",
                     "org.scala-lang:scala-compiler:jar:sources:2.12.7",
                     "net.java.dev.jna:jna-platform:jar:sources:4.5.0",
                     "org.scala-sbt:zinc-classfile_2.12:jar:sources:1.1.5",
@@ -11308,6 +11312,7 @@
                     "com.squareup.okhttp3:okhttp-urlconnection:3.7.0",
                     "net.java.dev.jna:jna-platform:4.5.0",
                     "com.lmax:disruptor:3.3.6",
+                    "com.typesafe:ssl-config-core_2.12:0.4.1",
                     "com.eed3si9n:sjson-new-murmurhash_2.12:0.8.2",
                     "org.scala-sbt:util-interface:1.1.3",
                     "org.scala-sbt:launcher-interface:1.0.4",
@@ -11315,15 +11320,14 @@
                     "com.google.protobuf:protobuf-java:3.8.0",
                     "com.jcraft:jsch:0.1.54",
                     "org.slf4j:slf4j-api:1.7.26",
+                    "com.typesafe:config:1.4.0",
                     "org.scala-sbt:util-logging_2.12:1.1.3",
                     "org.scala-lang:scala-compiler:2.12.7",
                     "org.scala-sbt:util-control_2.12:1.1.3",
                     "jline:jline:2.14.4",
                     "com.eed3si9n:shaded-scalajson_2.12:1.0.0-M4",
                     "com.eed3si9n:gigahorse-okhttp_2.12:0.3.0",
-                    "com.typesafe:ssl-config-core_2.12:0.3.8",
                     "org.scala-sbt:util-position_2.12:1.1.3",
-                    "com.typesafe:config:1.3.3",
                     "org.scala-sbt:sbinary_2.12:0.4.4",
                     "org.scala-sbt:compiler-interface:1.1.5",
                     "org.apache.logging.log4j:log4j-api:2.8.1",
@@ -11387,7 +11391,6 @@
                     "org.scala-sbt:util-relation_2.12:jar:sources:1.1.3",
                     "org.reactivestreams:reactive-streams:jar:sources:1.0.2",
                     "org.scala-lang.modules:scala-parser-combinators_2.12:jar:sources:1.0.4",
-                    "com.typesafe:config:jar:sources:1.3.3",
                     "com.squareup.okio:okio:jar:sources:1.13.0",
                     "org.apache.logging.log4j:log4j-core:jar:sources:2.8.1",
                     "com.eed3si9n:shaded-scalajson_2.12:jar:sources:1.0.0-M4",
@@ -11404,11 +11407,13 @@
                     "org.scala-sbt:zinc-persist_2.12:jar:sources:1.1.5",
                     "com.squareup.okhttp3:okhttp-urlconnection:jar:sources:3.7.0",
                     "jline:jline:jar:sources:2.14.4",
+                    "com.typesafe:ssl-config-core_2.12:jar:sources:0.4.1",
                     "org.scala-lang.modules:scala-xml_2.12:jar:sources:1.0.6",
                     "com.eed3si9n:gigahorse-core_2.12:jar:sources:0.3.0",
                     "org.scala-sbt:zinc-classpath_2.12:jar:sources:1.1.5",
                     "net.java.dev.jna:jna:jar:sources:4.5.0",
                     "com.trueaccord.scalapb:scalapb-runtime_2.12:jar:sources:0.6.0-pre2",
+                    "com.typesafe:config:jar:sources:1.4.0",
                     "com.lmax:disruptor:jar:sources:3.3.6",
                     "com.eed3si9n:sjson-new-core_2.12:jar:sources:0.8.2",
                     "com.eed3si9n:sjson-new-murmurhash_2.12:jar:sources:0.8.2",
@@ -11416,7 +11421,6 @@
                     "org.scala-sbt:util-cache_2.12:jar:sources:1.1.3",
                     "org.scala-sbt:zinc-compile-core_2.12:jar:sources:1.1.5",
                     "com.lihaoyi:sourcecode_2.12:jar:sources:0.1.7",
-                    "com.typesafe:ssl-config-core_2.12:jar:sources:0.3.8",
                     "org.scala-lang:scala-compiler:jar:sources:2.12.7",
                     "net.java.dev.jna:jna-platform:jar:sources:4.5.0",
                     "org.scala-sbt:zinc-ivy-integration_2.12:jar:sources:1.1.5",
@@ -14576,6 +14580,6 @@
             }
         ],
         "version": "0.1.0",
-        "__AUTOGENERATED_FILE_DO_NOT_MODIFY_THIS_FILE_MANUALLY": 218183066
+        "__AUTOGENERATED_FILE_DO_NOT_MODIFY_THIS_FILE_MANUALLY": -1661985221
     }
 }

@@ -80,7 +80,7 @@ class JdbcIndexerFactory[Status <: InitStatus] private (
       readService: ReadService,
       jdbcUrl: String,
   )(implicit x: Status =:= Initialized): ResourceOwner[JdbcIndexer] = {
-    val materializer: ActorMaterializer = ActorMaterializer()(actorSystem)
+    val materializer: Materializer = Materializer(actorSystem)
 
     implicit val ec: ExecutionContext = DEC
 

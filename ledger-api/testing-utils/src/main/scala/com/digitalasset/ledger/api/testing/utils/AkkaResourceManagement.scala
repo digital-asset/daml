@@ -4,13 +4,13 @@
 package com.digitalasset.ledger.api.testing.utils
 
 import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
+import akka.stream.Materializer
 import org.scalatest.Suite
 
-trait AkkaResourceManagement extends SuiteResource[ActorMaterializer] {
+trait AkkaResourceManagement extends SuiteResource[Materializer] {
   self: Suite =>
 
-  override protected lazy val suiteResource: Resource[ActorMaterializer] =
+  override protected lazy val suiteResource: Resource[Materializer] =
     ActorMaterializerResource(actorSystemName)
 
   protected def actorSystemName: String = {
@@ -19,5 +19,5 @@ trait AkkaResourceManagement extends SuiteResource[ActorMaterializer] {
 
   implicit protected def system: ActorSystem = suiteResource.value.system
 
-  implicit protected def materializer: ActorMaterializer = suiteResource.value
+  implicit protected def materializer: Materializer = suiteResource.value
 }

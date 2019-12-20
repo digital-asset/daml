@@ -51,7 +51,7 @@ object LedgerClientJwt {
   def getCreatesAndArchivesSince(client: LedgerClient): GetCreatesAndArchivesSince =
     (jwt, filter, offset) =>
       Source
-        .fromFuture(client.transactionClient.getLedgerEnd(bearer(jwt)))
+        .future(client.transactionClient.getLedgerEnd(bearer(jwt)))
         .flatMapConcat(end =>
           client.transactionClient
             .getTransactions(offset, end.offset, filter, verbose = true, token = bearer(jwt)))

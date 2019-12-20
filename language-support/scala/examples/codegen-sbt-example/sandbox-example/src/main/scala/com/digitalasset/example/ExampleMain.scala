@@ -6,7 +6,7 @@ import java.io.File
 import java.util.UUID
 
 import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
+import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.api.util.TimestampConversion.fromInstant
@@ -60,7 +60,7 @@ object ExampleMain extends App {
   sys.addShutdownHook(server.close())
 
   private val asys = ActorSystem()
-  private val amat = ActorMaterializer()(asys)
+  private val amat = Materializer(asys)
   private val aesf = new AkkaExecutionSequencerPool("clientPool")(asys)
 
   private implicit val ec: ExecutionContextExecutor = ExecutionContext.global

@@ -8,7 +8,7 @@ import java.util.concurrent.{Executors, RejectedExecutionException}
 import java.util.{Timer, TimerTask}
 
 import akka.actor.{Actor, ActorSystem, Props}
-import akka.stream.ActorMaterializer
+import akka.stream.Materializer
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.{Done, NotUsed}
 import com.digitalasset.platform.resources.ResourceOwnerSpec._
@@ -459,13 +459,11 @@ class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
     }
   }
 
-  "a function returning an ActorMaterializer" should {
+  "a function returning a Materializer" should {
     "convert to a ResourceOwner" in {
       val resource = for {
         actorSystem <- ResourceOwner.forActorSystem(() => ActorSystem("TestActorSystem")).acquire()
-        materializer <- ResourceOwner
-          .forMaterializer(() => ActorMaterializer()(actorSystem))
-          .acquire()
+        materializer <- ResourceOwner.forMaterializer(() => Materializer(actorSystem)).acquire()
       } yield materializer
 
       for {

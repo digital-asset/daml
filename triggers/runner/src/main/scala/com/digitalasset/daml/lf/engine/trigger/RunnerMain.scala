@@ -65,7 +65,7 @@ object RunnerMain {
           Identifier(dar.main._1, QualifiedName.assertFromString(config.triggerIdentifier))
 
         val system: ActorSystem = ActorSystem("TriggerRunner")
-        implicit val materializer: ActorMaterializer = ActorMaterializer()(system)
+        implicit val materializer: Materializer = Materializer(system)
         val sequencer = new AkkaExecutionSequencerPool("TriggerRunnerPool")(system)
         implicit val ec: ExecutionContext = system.dispatcher
 

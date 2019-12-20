@@ -7,7 +7,7 @@ import java.util.Timer
 import java.util.concurrent.ExecutorService
 
 import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
+import akka.stream.Materializer
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -59,6 +59,6 @@ object ResourceOwner {
   def forActorSystem(acquire: () => ActorSystem): ResourceOwner[ActorSystem] =
     new ActorSystemResourceOwner(acquire)
 
-  def forMaterializer(acquire: () => ActorMaterializer): ResourceOwner[ActorMaterializer] =
+  def forMaterializer(acquire: () => Materializer): ResourceOwner[Materializer] =
     new ActorMaterializerResourceOwner(acquire)
 }

@@ -5,7 +5,7 @@ package com.digitalasset.platform.sandbox.perf
 
 import akka.actor.ActorSystem
 import akka.pattern
-import akka.stream.ActorMaterializer
+import akka.stream.Materializer
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.domain
@@ -28,7 +28,7 @@ import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 
 final class LedgerContext(channel: Channel, packageIds: Iterable[PackageId])(
-    implicit protected val mat: ActorMaterializer,
+    implicit protected val mat: Materializer,
     implicit protected val esf: ExecutionSequencerFactory) {
 
   private val logger = LoggerFactory.getLogger(this.getClass)

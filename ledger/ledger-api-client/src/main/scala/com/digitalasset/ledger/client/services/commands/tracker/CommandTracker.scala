@@ -77,7 +77,7 @@ private[commands] class CommandTracker[Context]
         new OutHandler {
           override def onPull(): Unit = pull(submitRequestIn)
 
-          override def onDownstreamFinish(): Unit = {
+          override def onDownstreamFinish(cause: Throwable): Unit = {
             cancel(submitRequestIn)
             completeStageIfTerminal()
           }
