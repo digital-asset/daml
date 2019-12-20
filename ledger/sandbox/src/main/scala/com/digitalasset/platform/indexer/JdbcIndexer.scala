@@ -85,9 +85,6 @@ class JdbcIndexerFactory[Status <: InitStatus] private (
     implicit val ec: ExecutionContext = DEC
 
     for {
-      // acquire the existing actor system and materializer, so they're shut down on release
-      _ <- ResourceOwner.forActorSystem(() => actorSystem)
-      _ <- ResourceOwner.forMaterializer(() => materializer)
       ledgerDao <- ledgerDaoOwner(jdbcUrl, metrics, actorSystem.dispatcher)
       LedgerInitialConditions(ledgerIdString, _, _) <- ResourceOwner
         .forFuture(
