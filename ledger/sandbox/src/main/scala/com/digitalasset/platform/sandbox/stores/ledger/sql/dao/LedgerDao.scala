@@ -6,7 +6,6 @@ package com.digitalasset.platform.sandbox.stores.ledger.sql.dao
 import java.time.Instant
 
 import akka.NotUsed
-import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.index.v2.PackageDetails
@@ -149,11 +148,11 @@ trait LedgerReadDao extends ReportsHealth {
   /**
     * Returns a snapshot of the ledger.
     * The snapshot consists of an offset, and a stream of contracts that were active at that offset.
-    *
-    * @param mat the Akka stream materializer to be used for the contract stream.
     */
-  def getActiveContractSnapshot(untilExclusive: LedgerOffset, filter: TemplateAwareFilter)(
-      implicit mat: Materializer): Future[LedgerSnapshot]
+  def getActiveContractSnapshot(
+      untilExclusive: LedgerOffset,
+      filter: TemplateAwareFilter
+  ): Future[LedgerSnapshot]
 
   /** Returns a list of all known parties. */
   def getParties: Future[List[PartyDetails]]

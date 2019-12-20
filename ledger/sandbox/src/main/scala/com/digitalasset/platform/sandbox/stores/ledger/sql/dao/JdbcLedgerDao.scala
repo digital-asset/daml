@@ -8,7 +8,6 @@ import java.time.Instant
 import java.util.{Date, UUID}
 
 import akka.NotUsed
-import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import anorm.SqlParser._
 import anorm.ToStatement.optionToStatement
@@ -1420,8 +1419,9 @@ private class JdbcLedgerDao(
   // this query pre-filters the active contracts. this avoids loading data that anyway will be dismissed later
   private val SQL_SELECT_ACTIVE_CONTRACTS = SQL(queries.SQL_SELECT_ACTIVE_CONTRACTS)
 
-  override def getActiveContractSnapshot(endExclusive: LedgerOffset, filter: TemplateAwareFilter)(
-      implicit mat: Materializer): Future[LedgerSnapshot] = {
+  override def getActiveContractSnapshot(
+      endExclusive: LedgerOffset,
+      filter: TemplateAwareFilter): Future[LedgerSnapshot] = {
 
     def orEmptyStringList(xs: Seq[String]) = if (xs.nonEmpty) xs else List("")
 
