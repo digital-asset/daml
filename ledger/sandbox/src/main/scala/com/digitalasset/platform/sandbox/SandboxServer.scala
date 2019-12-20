@@ -311,7 +311,9 @@ final class SandboxServer(config: => SandboxConfig) extends AutoCloseable {
 
   override def close(): Unit = {
     metricsReporting.close()
-    Await.result(sandboxState.release(), AsyncTolerance)
+    Await.result(
+      sandboxState.flatMap(_.apiServer)(DirectExecutionContext).release(),
+      AsyncTolerance)
   }
 
   private def writePortFile(port: Int)(
