@@ -7,6 +7,7 @@ import java.time.Instant
 import java.util.concurrent.CompletionStage
 
 import akka.NotUsed
+import akka.actor.Cancellable
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.codahale.metrics.MetricRegistry
@@ -26,6 +27,7 @@ import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
+import com.digitalasset.dec.{DirectExecutionContext => DEC}
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.CompletionEvent.{
   Checkpoint,
@@ -35,9 +37,8 @@ import com.digitalasset.ledger.api.domain.CompletionEvent.{
 import com.digitalasset.ledger.api.domain.{ParticipantId => _, _}
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
-import com.digitalasset.dec.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.participant.util.EventFilter
-import com.digitalasset.platform.resources.ResourceOwner
+import com.digitalasset.platform.resources.{Resource, ResourceOwner}
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.digitalasset.platform.sandbox.stores.ledger._
 import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode
@@ -75,8 +76,7 @@ object SandboxIndexAndWriteService {
       templateStore: InMemoryPackageStore,
       loggerFactory: NamedLoggerFactory,
       metrics: MetricRegistry,
-  )(implicit mat: Materializer): ResourceOwner[IndexAndWriteService] = {
-    implicit val executionContext: ExecutionContext = mat.executionContext
+  )(implicit mat: Materializer): ResourceOwner[IndexAndWriteService] =
     Ledger
       .jdbcBacked(
         jdbcUrl,
@@ -93,7 +93,6 @@ object SandboxIndexAndWriteService {
       )
       .flatMap(ledger =>
         owner(Ledger.metered(ledger, metrics), participantId, timeModel, timeProvider))
-  }
 
   def inMemory(
       ledgerId: LedgerId,
@@ -104,13 +103,11 @@ object SandboxIndexAndWriteService {
       ledgerEntries: ImmArray[LedgerEntryOrBump],
       templateStore: InMemoryPackageStore,
       metrics: MetricRegistry,
-  )(implicit mat: Materializer): ResourceOwner[IndexAndWriteService] = {
-    implicit val executionContext: ExecutionContext = mat.executionContext
+  )(implicit mat: Materializer): ResourceOwner[IndexAndWriteService] =
     Ledger
       .inMemory(ledgerId, participantId, timeProvider, acs, templateStore, ledgerEntries)
       .flatMap(ledger =>
         owner(Ledger.metered(ledger, metrics), participantId, timeModel, timeProvider))
-  }
 
   private def owner(
       ledger: Ledger,
@@ -118,8 +115,6 @@ object SandboxIndexAndWriteService {
       timeModel: ParticipantState.TimeModel,
       timeProvider: TimeProvider,
   )(implicit mat: Materializer): ResourceOwner[IndexAndWriteService] = {
-    implicit val executionContext: ExecutionContext = mat.executionContext
-
     val contractStore = new SandboxContractStore(ledger)
     val indexSvc = new LedgerBackedIndexService(ledger, contractStore, participantId) {
       override def getLedgerConfiguration(): Source[LedgerConfiguration, NotUsed] =
@@ -130,8 +125,7 @@ object SandboxIndexAndWriteService {
     val writeSvc = new LedgerBackedWriteService(ledger, timeProvider)
 
     for {
-      _ <- ResourceOwner.forCloseable(() =>
-        scheduleHeartbeats(timeProvider, ledger.publishHeartbeat))
+      _ <- new HeartbeatScheduler(timeProvider, ledger.publishHeartbeat)
     } yield
       new IndexAndWriteService {
         override val indexService: IndexService = indexSvc
@@ -143,25 +137,36 @@ object SandboxIndexAndWriteService {
       }
   }
 
-  private def scheduleHeartbeats(timeProvider: TimeProvider, onTimeChange: Instant => Future[Unit])(
-      implicit mat: Materializer): AutoCloseable =
-    timeProvider match {
-      case timeProvider: TimeProvider.UTC.type =>
-        val interval = 1.seconds
-        logger.debug(s"Scheduling heartbeats in intervals of {}", interval)
-        val cancelable = Source
-          .tick(0.seconds, interval, ())
-          .mapAsync[Unit](1)(
-            _ => onTimeChange(timeProvider.getCurrentTime)
-          )
-          .to(Sink.ignore)
-          .run()
-        () =>
-          val _ = cancelable.cancel()
-      case _ =>
-        () =>
-          ()
-    }
+  private class HeartbeatScheduler(
+      timeProvider: TimeProvider,
+      onTimeChange: Instant => Future[Unit],
+  )(implicit mat: Materializer)
+      extends ResourceOwner[Unit] {
+
+    override def acquire()(implicit executionContext: ExecutionContext): Resource[Unit] =
+      timeProvider match {
+        case timeProvider: TimeProvider.UTC.type =>
+          Resource[Cancellable](
+            Future {
+              val interval = 1.seconds
+              logger.debug(s"Scheduling heartbeats in intervals of {}", interval)
+              Source
+                .tick(0.seconds, interval, ())
+                .mapAsync[Unit](1)(
+                  _ => onTimeChange(timeProvider.getCurrentTime)
+                )
+                .to(Sink.ignore)
+                .run()
+            },
+            cancellable =>
+              Future {
+                val _ = cancellable.cancel()
+            }
+          ).map(_ => ())
+        case _ =>
+          Resource.successful(())
+      }
+  }
 }
 
 abstract class LedgerBackedIndexService(
