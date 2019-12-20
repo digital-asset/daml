@@ -52,8 +52,14 @@ object Envelope {
     enclose(Proto.Envelope.MessageKind.STATE_VALUE, stateValue.toByteString, compression)
 
   def open(envelopeBytes: ByteString): Either[String, Message] =
+    openWithParser(() => Proto.Envelope.parseFrom(envelopeBytes))
+
+  def open(envelopeBytes: Array[Byte]): Either[String, Message] =
+    openWithParser(() => Proto.Envelope.parseFrom(envelopeBytes))
+
+  private def openWithParser(parseEnvelope: () => Proto.Envelope): Either[String, Message] =
     for {
-      envelope <- Try(Proto.Envelope.parseFrom(envelopeBytes)).toEither.left.map(_.getMessage)
+      envelope <- Try(parseEnvelope()).toEither.left.map(_.getMessage)
       _ <- Either.cond(
         envelope.getVersion == Version.version,
         (),
@@ -94,6 +100,12 @@ object Envelope {
     }
 
   def openSubmission(envelopeBytes: ByteString): Either[String, Proto.DamlSubmission] =
+    open(envelopeBytes).flatMap {
+      case SubmissionMessage(entry) => Right(entry)
+      case msg => Left(s"Expected submission, got ${msg.getClass}")
+    }
+
+  def openSubmission(envelopeBytes: Array[Byte]): Either[String, Proto.DamlSubmission] =
     open(envelopeBytes).flatMap {
       case SubmissionMessage(entry) => Right(entry)
       case msg => Left(s"Expected submission, got ${msg.getClass}")

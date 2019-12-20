@@ -139,7 +139,7 @@ case class InMemoryActiveLedgerState(
       transaction: GenTransaction.WithTxValue[EventId, AbsoluteContractId],
       disclosure: Relation[EventId, Party],
       localDivulgence: Relation[EventId, Party],
-      glovalDivulgence: Relation[AbsoluteContractId, Party],
+      globalDivulgence: Relation[AbsoluteContractId, Party],
       referencedContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)]
   ): Either[Set[SequencingError], InMemoryActiveLedgerState] =
     acManager.addTransaction(
@@ -149,7 +149,7 @@ case class InMemoryActiveLedgerState(
       transaction,
       disclosure,
       localDivulgence,
-      glovalDivulgence,
+      globalDivulgence,
       referencedContracts)
 
   /**
