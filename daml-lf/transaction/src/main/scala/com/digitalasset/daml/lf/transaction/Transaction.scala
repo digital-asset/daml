@@ -385,6 +385,7 @@ object Transaction {
 
   /** Transaction nodes */
   type Node = GenNode.WithTxValue[NodeId, TContractId]
+  type LeafNode = LeafOnlyNode.WithTxValue[TContractId]
 
   /** (Complete) transactions, which are the result of interpreting a
     *  ledger-update. These transactions are consumed by either the
@@ -413,15 +414,25 @@ object Transaction {
   /** Contexts of the transaction graph builder, which we use to record
     *  the sub-transaction structure due to 'exercises' statements.
     */
-  sealed abstract class Context extends Product with Serializable
+  sealed abstract class Context extends Product with Serializable {
+    def children: BackStack[NodeId]
+    def addChild(child: NodeId): Context
+  }
 
   /** The root context, which is what we use when we are not exercising
     *  a choice.
     */
-  case object ContextRoot extends Context
+  final case class ContextRoot(children: BackStack[NodeId] = BackStack.empty) extends Context {
+    override def addChild(child: NodeId): ContextRoot = copy(children = children :+ child)
+  }
 
   /** Context when creating a sub-transaction due to an exercises. */
-  final case class ContextExercises(ctx: ExercisesContext) extends Context
+  final case class ContextExercises(
+      ctx: ExercisesContext,
+      children: BackStack[NodeId] = BackStack.empty)
+      extends Context {
+    override def addChild(child: NodeId): ContextExercises = copy(children = children :+ child)
+  }
 
   /** Context information to remember when building a sub-transaction
     *  due to an 'exercises' statement.
@@ -439,11 +450,10 @@ object Transaction {
     *  @param signatories The signatories of the contract.
     *  @param stakeholders The stakeholders of the contract.
     *  @param controllers The controllers of the choice.
-    *  @param exercisesNodeId The node to be inserted once we've
+    *  @param nodeId The node to be inserted once we've
     *                         finished this sub-transaction.
-    *  @param parentContext The context in which the exercises is
+    *  @param parent The context in which the exercises is
     *                       happening.
-    *  @param parentRoots The root nodes of the parent context.
     */
   case class ExercisesContext(
       targetId: TContractId,
@@ -457,16 +467,14 @@ object Transaction {
       signatories: Set[Party],
       stakeholders: Set[Party],
       controllers: Set[Party],
-      exercisesNodeId: NodeId,
-      parentContext: Context,
-      parentRoots: BackStack[NodeId]
+      nodeId: NodeId,
+      parent: Context,
   )
 
   /** A transaction under construction
     *
     *  @param nextNodeId The next free node-id to use.
     *  @param nodes The nodes of the transaction graph being built up.
-    *  @param roots Root nodes of the current context.
     *  @param consumedBy 'ContractId's of all contracts that have
     *                    been consumed by nodes up to now.
     *  @param context The context of what sub-transaction is being
@@ -491,21 +499,11 @@ object Transaction {
   case class PartialTransaction(
       nextNodeId: NodeId,
       nodes: SortedMap[NodeId, Node],
-      roots: BackStack[NodeId],
       consumedBy: Map[TContractId, NodeId],
       context: Context,
       aborted: Option[TransactionError],
       keys: Map[GlobalKey, Option[TContractId]],
   ) {
-
-    private def computeRoots: Set[NodeId] = {
-      val allChildNodeIds: Set[NodeId] = nodes.values.flatMap {
-        case _: LeafOnlyNode[_, _] => Nil
-        case ex: NodeExercises[NodeId, _, _] => ex.children.toSeq
-      }(breakOut)
-
-      nodes.keySet diff allChildNodeIds
-    }
 
     def nodesToString: String =
       if (nodes.isEmpty) "<empty transaction>"
@@ -531,7 +529,14 @@ object Transaction {
 
         // roots field is not initialized when this method is executed on a failed transaction,
         // so we need to compute them.
-        val rootNodes = computeRoots
+        val rootNodes = {
+          val allChildNodeIds: Set[NodeId] = nodes.values.flatMap {
+            case _: LeafOnlyNode[_, _] => Nil
+            case ex: NodeExercises[NodeId, _, _] => ex.children.toSeq
+          }(breakOut)
+
+          nodes.keySet diff allChildNodeIds
+        }
         val tx = GenTransaction(nodes, ImmArray(rootNodes), None)
 
         tx.foreach(GenTransaction.TopDown, { (nid, node) =>
@@ -553,20 +558,17 @@ object Transaction {
       *  the 'PartialTransaction' is not yet complete or has been
       *  aborted.
       */
-    def finish: Either[PartialTransaction, Transaction] =
-      if (isAborted) Left(this)
-      else
-        context match {
-          case ContextExercises(_) => Left(this)
-          case ContextRoot =>
-            Right(
-              GenTransaction(
-                nodes = nodes,
-                roots = roots.toImmArray,
-                None
-              ))
-          case _ => Left(this)
-        }
+    def finish: Either[PartialTransaction, Transaction] = context match {
+      case ContextRoot(children) if !isAborted =>
+        Right(
+          GenTransaction(
+            nodes = nodes,
+            roots = children.toImmArray,
+            None
+          ))
+      case _ =>
+        Left(this)
+    }
 
     /** Lookup the contract associated to 'RelativeContractId'.
       * Return the contract instance and the node in which it was
@@ -589,7 +591,7 @@ object Transaction {
     /** Extend the 'PartialTransaction' with a node for creating a
       * contract instance.
       */
-    def create(
+    def insertCreate(
         coinst: ContractInst[Value[TContractId]],
         optLocation: Option[Location],
         signatories: Set[Party],
@@ -603,7 +605,7 @@ object Transaction {
             .mkString(",")}""")
       } else {
         val (nid, ptx) =
-          insertFreshNode(
+          insertLeafNode(
             nid =>
               NodeCreate(
                 RelativeContractId(nid),
@@ -611,8 +613,7 @@ object Transaction {
                 optLocation,
                 signatories,
                 stakeholders,
-                key),
-            None)
+                key))
         val cid = nodeIdToContractId(nid)
         // if we have a contract key being added, include it in the list of
         // active keys
@@ -629,7 +630,7 @@ object Transaction {
               }).toEither.left.map(_.getMessage)
             mbNoRels.map { noRels =>
               val gk = GlobalKey(coinst.template, noRels)
-              (cid, ptx.copy(keys = ptx.keys + (gk -> Some(cid))))
+              (cid, ptx.copy(keys = ptx.keys.updated(gk, Some(cid))))
             }
         }
       }
@@ -647,7 +648,7 @@ object Transaction {
       mustBeActive(
         coid,
         templateId,
-        insertFreshNode(
+        insertLeafNode(
           _ =>
             NodeFetch(
               coid,
@@ -655,15 +656,15 @@ object Transaction {
               optLocation,
               Some(actingParties),
               signatories,
-              stakeholders),
-          None)._2)
+              stakeholders))._2
+      )
 
     def insertLookup(
         templateId: TypeConName,
         optLocation: Option[Location],
         key: KeyWithMaintainers[Value.VersionedValue[Nothing]],
         result: Option[TContractId]): PartialTransaction =
-      insertFreshNode(_ => NodeLookupByKey(templateId, optLocation, key, result), None)._2
+      insertLeafNode(_ => NodeLookupByKey(templateId, optLocation, key, result))._2
 
     def beginExercises(
         targetId: TContractId,
@@ -688,74 +689,61 @@ object Transaction {
           mustBeActive(
             targetId,
             templateId,
-            withFreshNodeId {
-              case (nodeId, ptx) =>
-                ptx
-                  .copy(
-                    context = ContextExercises(
-                      ExercisesContext(
-                        targetId = targetId,
-                        templateId = templateId,
-                        contractKey = mbKey,
-                        choiceId = choiceId,
-                        optLocation = optLocation,
-                        consuming = consuming,
-                        actingParties = actingParties,
-                        chosenValue = chosenValue,
-                        signatories = signatories,
-                        stakeholders = stakeholders,
-                        controllers = controllers,
-                        exercisesNodeId = nodeId,
-                        parentContext = ptx.context,
-                        parentRoots = ptx.roots
-                      )),
-                    // important: the semantics of DAML dictate that contracts are immediately
-                    // inactive as soon as you exercise it. therefore, mark it as consumed now.
-                    consumedBy =
-                      if (consuming) consumedBy + (targetId -> nodeId)
-                      else consumedBy,
-                    roots = BackStack.empty,
-                    keys = mbKey match {
-                      case None => keys
-                      case Some(key) =>
-                        if (consuming) {
-                          keys + (GlobalKey(templateId, key) -> None)
-                        } else keys
-                    },
-                  )
-            }
+            copy(
+              nextNodeId = nextNodeId.next,
+              context = ContextExercises(
+                ExercisesContext(
+                  targetId = targetId,
+                  templateId = templateId,
+                  contractKey = mbKey,
+                  choiceId = choiceId,
+                  optLocation = optLocation,
+                  consuming = consuming,
+                  actingParties = actingParties,
+                  chosenValue = chosenValue,
+                  signatories = signatories,
+                  stakeholders = stakeholders,
+                  controllers = controllers,
+                  nodeId = nextNodeId,
+                  parent = context,
+                )
+              ),
+              // important: the semantics of DAML dictate that contracts are immediately
+              // inactive as soon as you exercise it. therefore, mark it as consumed now.
+              consumedBy = if (consuming) consumedBy.updated(targetId, nextNodeId) else consumedBy,
+              keys = mbKey match {
+                case Some(key) if consuming => keys.updated(GlobalKey(templateId, key), None)
+                case _ => keys
+              },
+            )
           ))
       }
     }
 
     def endExercises(value: Value[TContractId]): (Option[NodeId], PartialTransaction) = {
       context match {
-        case ContextRoot =>
+        case ContextRoot(_) =>
           (None, noteAbort(EndExerciseInRootContext))
-        case ContextExercises(ec) =>
-          val exercisesChildren = roots.toImmArray
+        case ContextExercises(ec, children) =>
           val exerciseNode: Transaction.Node = NodeExercises(
-            ec.targetId,
-            ec.templateId,
-            ec.choiceId,
-            ec.optLocation,
-            ec.consuming,
-            ec.actingParties,
-            ec.chosenValue,
-            ec.stakeholders,
-            ec.signatories,
-            ec.controllers,
-            exercisesChildren,
-            Some(value),
-            ec.contractKey
+            targetCoid = ec.targetId,
+            templateId = ec.templateId,
+            choiceId = ec.choiceId,
+            optLocation = ec.optLocation,
+            consuming = ec.consuming,
+            actingParties = ec.actingParties,
+            chosenValue = ec.chosenValue,
+            stakeholders = ec.stakeholders,
+            signatories = ec.signatories,
+            controllers = ec.controllers,
+            children = children.toImmArray,
+            exerciseResult = Some(value),
+            key = ec.contractKey
           )
-          val nodeId = ec.exercisesNodeId
+          val nodeId = ec.nodeId
           val ptx =
-            copy(
-              context = ec.parentContext,
-              roots = ec.parentRoots
-            ).insertNode(ec.exercisesNodeId, exerciseNode)
-          (Some(nodeId), ptx)
+            copy(context = ec.parent.addChild(nodeId), nodes = nodes.updated(nodeId, exerciseNode))
+          Some(nodeId) -> ptx
       }
     }
 
@@ -779,30 +767,15 @@ object Transaction {
           noteAbort(ContractNotActive(coid, templateId, nid))
       }
 
-    /** Allocate a fresh `NodeId` */
-    def withFreshNodeId[A](f: ((NodeId, PartialTransaction)) => A): A =
-      f((this.nextNodeId, this.copy(nextNodeId.next)))
-
-    /** Insert the give `Node` under the given `NodeId` */
-    def insertNode(i: NodeId, n: Node): PartialTransaction =
-      copy(
-        roots = roots :+ i,
-        nodes = nodes + (i -> n)
+    /** Insert the given `LeafNode` under a fresh node-id, and return it */
+    def insertLeafNode(n: NodeId => LeafNode): (NodeId, PartialTransaction) = {
+      val ptx = copy(
+        nextNodeId = nextNodeId.next,
+        context = context.addChild(nextNodeId),
+        nodes = nodes.updated(nextNodeId, n(nextNodeId))
       )
-
-    /** Insert the given `Node` under a fresh node-id, and return it */
-    def insertFreshNode(
-        n: NodeId => Node,
-        optConsumedBy: Option[TContractId]): (NodeId, PartialTransaction) =
-      withFreshNodeId {
-        case (nodeId, ptx) =>
-          val ptx2 = ptx.insertNode(nodeId, n(nodeId))
-          (
-            nodeId,
-            optConsumedBy
-              .map(coid => ptx2.copy(consumedBy = ptx2.consumedBy + (coid -> nodeId)))
-              .getOrElse(ptx2))
-      }
+      nextNodeId -> ptx
+    }
   }
 
   object PartialTransaction {
@@ -813,9 +786,8 @@ object Transaction {
     def initial = PartialTransaction(
       nextNodeId = NodeId.first,
       nodes = TreeMap.empty[NodeId, Node],
-      roots = BackStack.empty,
       consumedBy = Map.empty,
-      context = ContextRoot,
+      context = ContextRoot(),
       aborted = None,
       keys = Map.empty
     )

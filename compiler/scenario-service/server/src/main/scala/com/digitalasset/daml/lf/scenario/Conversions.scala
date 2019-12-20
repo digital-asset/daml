@@ -369,12 +369,12 @@ case class Conversions(homePackageId: Ref.PackageId) {
   def convertPartialTransaction(ptx: Tx.PartialTransaction): PartialTransaction = {
     val builder = PartialTransaction.newBuilder
       .addAllNodes(ptx.nodes.map(Function.tupled(convertTxNode)).asJava)
-      .addAllRoots(ptx.roots.toImmArray.toSeq.sortBy(_.index).map(convertTxNodeId).asJava)
+      .addAllRoots(
+        ptx.context.children.toImmArray.toSeq.sortBy(_.index).map(convertTxNodeId).asJava)
 
     ptx.context match {
-      case Tx.ContextRoot =>
-        Unit
-      case Tx.ContextExercises(ctx) =>
+      case Tx.ContextRoot(_) =>
+      case Tx.ContextExercises(ctx, _) =>
         val ecBuilder = ExerciseContext.newBuilder
           .setTargetId(mkContractRef(ctx.targetId, ctx.templateId))
           .setChoiceId(ctx.choiceId)
