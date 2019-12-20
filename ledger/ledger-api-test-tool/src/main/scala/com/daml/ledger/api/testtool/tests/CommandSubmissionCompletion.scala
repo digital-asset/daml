@@ -134,47 +134,4 @@ final class CommandSubmissionCompletion(session: LedgerSession) extends LedgerTe
       }
   }
 
-  test(
-    "CSCEmitExclusiveEndpoints",
-    "Checkpoint should come with record times and their offsets should not overlap with completion offsets",
-    allocate(SingleParty)
-  ) {
-    case Participants(Participant(ledger, party)) =>
-      for {
-        first <- ledger.create(party, Dummy(party)).map(Tag.unwrap)
-        cp1 <- ledger.firstCheckpoint(party)
-        second <- ledger.create(party, Dummy(party)).map(Tag.unwrap)
-        cp2 <- ledger.nextCheckpoint(from = cp1.getOffset, party)
-        third <- ledger.create(party, Dummy(party)).map(Tag.unwrap)
-        request = ledger.getTransactionsRequest(Seq(party))
-        sinceStart <- ledger.flatTransactions(request)
-        sinceCp1 <- ledger.flatTransactions(request.update(_.begin := cp1.getOffset))
-        sinceCp2 <- ledger.flatTransactions(request.update(_.begin := cp2.getOffset))
-      } yield {
-
-        assert(cp1.recordTime.isDefined, "The first checkpoint is missing the record time")
-        assert(cp2.recordTime.isDefined, "The second checkpoint is missing the record time")
-
-        val contractsSinceStart = sinceStart.flatMap(createdEvents).map(_.contractId).toSet
-        val expectedContractsSinceStart = Set(first, second, third)
-        assert(
-          contractsSinceStart == expectedContractsSinceStart,
-          s"Expected contracts since start: $expectedContractsSinceStart, actual result: $contractsSinceStart")
-
-        val contractsSinceCp1 = sinceCp1.flatMap(createdEvents).map(_.contractId).toSet
-        val expectedContractsSinceCp1 = Set(second, third)
-        assert(
-          contractsSinceCp1 == expectedContractsSinceCp1,
-          s"Expected contracts since first checkpoint: $expectedContractsSinceCp1, actual result: $contractsSinceCp1"
-        )
-
-        val contractsSinceCp2 = sinceCp2.flatMap(createdEvents).map(_.contractId).toSet
-        val expectedContractsSinceCp2 = Set(third)
-        assert(
-          contractsSinceCp2 == expectedContractsSinceCp2,
-          s"Expected contracts since second checkpoint: $expectedContractsSinceCp2, actual result: $contractsSinceCp2"
-        )
-      }
-  }
-
 }
