@@ -3,6 +3,8 @@
 
 package com.digitalasset.daml.lf.engine.script
 
+import java.io.FileInputStream
+
 import akka.actor.ActorSystem
 import akka.stream._
 import java.time.Instant
@@ -24,6 +26,7 @@ import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
 import com.digitalasset.ledger.client.configuration.{CommandClientConfiguration, LedgerClientConfiguration, LedgerIdRequirement}
 import com.digitalasset.ledger.client.services.commands.CommandUpdater
 import com.digitalasset.platform.services.time.TimeProviderType
+import com.google.protobuf.ByteString
 
 import scala.util.{Failure, Success}
 
@@ -88,6 +91,11 @@ object TestMain {
 
         val flow: Future[Unit] = for {
           clients <- Runner.connect(participantParams, clientConfig)
+          _ <- clients.getParticipant(None) match {
+            case Left(err) => throw new RuntimeException(err)
+            case Right(client) =>
+              client.packageManagementClient.uploadDarFile(ByteString.readFrom(new FileInputStream(config.darPath)))
+          }
           _ <- Future.sequence {
             dar.main._2.modules.flatMap {
               case (moduleName, module) =>
