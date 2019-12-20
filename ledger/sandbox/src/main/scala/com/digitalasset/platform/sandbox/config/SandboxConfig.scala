@@ -4,13 +4,14 @@
 package com.digitalasset.platform.sandbox.config
 
 import java.io.File
+import java.nio.file.Path
 
 import ch.qos.logback.classic.Level
+import com.daml.ledger.participant.state.v1.TimeModel
 import com.digitalasset.ledger.api.auth.AuthService
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.services.time.TimeProviderType
-import com.daml.ledger.participant.state.v1.TimeModel
 
 import scala.concurrent.duration._
 
@@ -26,7 +27,7 @@ final case class TlsServerConfiguration(
 final case class SandboxConfig(
     address: Option[String],
     port: Int,
-    portFile: Option[File],
+    portFile: Option[Path],
     damlPackages: List[File],
     timeProviderType: TimeProviderType,
     timeModel: TimeModel,

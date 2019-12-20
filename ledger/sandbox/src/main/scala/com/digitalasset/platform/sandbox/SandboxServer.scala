@@ -3,7 +3,8 @@
 
 package com.digitalasset.platform.sandbox
 
-import java.io.{File, FileWriter}
+import java.io.File
+import java.nio.file.Files
 import java.time.Instant
 
 import akka.actor.ActorSystem
@@ -41,7 +42,8 @@ import com.digitalasset.platform.server.services.testing.TimeServiceBackend
 import com.digitalasset.platform.services.time.TimeProviderType
 import org.slf4j.LoggerFactory
 
-import scala.concurrent.duration._
+import scala.collection.JavaConverters._
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
 
 object SandboxServer {
@@ -260,6 +262,7 @@ final class SandboxServer(config: => SandboxConfig) extends AutoCloseable {
         ),
         metrics
       ).acquire()
+      _ <- ResourceOwner.forFuture(() => writePortFile(apiServer.port)).acquire()
     } yield {
       Banner.show(Console.out)
       logger.info(
@@ -311,12 +314,10 @@ final class SandboxServer(config: => SandboxConfig) extends AutoCloseable {
     Await.result(sandboxState.release(), AsyncTolerance)
   }
 
-  private def writePortFile(port: Int): Unit = {
-    config.portFile.foreach { f =>
-      val w = new FileWriter(f)
-      w.write(s"$port\n")
-      w.close()
-    }
-  }
-
+  private def writePortFile(port: Int)(
+      implicit executionContext: ExecutionContext
+  ): Future[Unit] =
+    config.portFile
+      .map(path => Future(Files.write(path, Seq(port.toString).asJava)).map(_ => ()))
+      .getOrElse(Future.successful(()))
 }

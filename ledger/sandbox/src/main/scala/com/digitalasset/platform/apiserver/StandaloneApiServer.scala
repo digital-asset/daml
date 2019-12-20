@@ -3,7 +3,8 @@
 
 package com.digitalasset.platform.apiserver
 
-import java.io.{File, FileWriter}
+import java.io.File
+import java.nio.file.Files
 import java.time.Instant
 
 import akka.actor.ActorSystem
@@ -25,7 +26,8 @@ import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.sandbox.stores.InMemoryPackageStore
 import com.digitalasset.platform.server.services.testing.TimeServiceBackend
 
-import scala.concurrent.ExecutionContext
+import scala.collection.JavaConverters._
+import scala.concurrent.{ExecutionContext, Future}
 
 // Main entry point to start an index server that also hosts the ledger API.
 // See v2.ReferenceServer on how it is used.
@@ -136,25 +138,25 @@ final class StandaloneApiServer(
         List(AuthorizationInterceptor(authService, ec)),
         metrics
       )(materializer).acquire()
-      _ = logger.info(
+      _ <- ResourceOwner.forFuture(() => writePortFile(apiServer.port)).acquire()
+    } yield {
+      logger.info(
         "Initialized index server version {} with ledger-id = {}, port = {}, dar file = {}",
         BuildInfo.Version,
         initialConditions.ledgerId,
         apiServer.port.toString,
         config.archiveFiles
       )
-      _ = writePortFile(apiServer.port)
-    } yield apiServer
-  }
-
-  private def writePortFile(port: Int): Unit = {
-    config.portFile.foreach { f =>
-      val w = new FileWriter(f)
-      w.write(s"$port\n")
-      w.close()
+      apiServer
     }
   }
 
+  private def writePortFile(port: Int)(
+      implicit executionContext: ExecutionContext
+  ): Future[Unit] =
+    config.portFile
+      .map(path => Future(Files.write(path, Seq(port.toString).asJava)).map(_ => ()))
+      .getOrElse(Future.successful(()))
 }
 
 object StandaloneApiServer {

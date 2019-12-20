@@ -10,13 +10,13 @@ import ch.qos.logback.classic.Level
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.jwt.{HMAC256Verifier, JwksVerifier, RSA256Verifier}
 import com.digitalasset.ledger.api.auth.AuthServiceJWT
+import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.BuildInfo
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.services.time.TimeProviderType
 import scopt.Read
-import com.digitalasset.ledger.api.domain.LedgerId
 
 import scala.util.Try
 
@@ -49,7 +49,7 @@ object Cli {
 
     opt[File]("port-file")
       .optional()
-      .action((f, c) => c.copy(portFile = Some(f)))
+      .action((f, c) => c.copy(portFile = Some(f.toPath)))
       .text("File to write the allocated port number to. Used to inform clients in CI about the allocated port.")
 
     opt[String]('a', "address")
