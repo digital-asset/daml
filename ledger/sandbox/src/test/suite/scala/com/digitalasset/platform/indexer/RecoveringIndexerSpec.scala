@@ -10,9 +10,8 @@ import akka.pattern.after
 import ch.qos.logback.classic.Level
 import com.digitalasset.platform.indexer.TestIndexer._
 import com.digitalasset.platform.sandbox.logging.TestNamedLoggerFactory
-import org.scalatest.{AsyncWordSpec, BeforeAndAfterEach, Matchers}
-import com.digitalasset.platform.common.logging.NamedLoggerFactory
-import com.digitalasset.dec.{DirectExecutionContext => DEC}
+import org.scalatest.BeforeAndAfterEach
+import com.digitalasset.dec.DirectExecutionContext
 import org.scalatest.{AsyncWordSpec, Matchers}
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
