@@ -7,6 +7,7 @@ import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.auth.client.LedgerCallCredentials
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc
+import com.digitalasset.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc
 import com.digitalasset.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc
 import com.digitalasset.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc
 import com.digitalasset.ledger.api.v1.command_service.CommandServiceGrpc
@@ -16,6 +17,7 @@ import com.digitalasset.ledger.api.v1.package_service.PackageServiceGrpc
 import com.digitalasset.ledger.api.v1.transaction_service.TransactionServiceGrpc
 import com.digitalasset.ledger.client.configuration.LedgerClientConfiguration
 import com.digitalasset.ledger.client.services.acs.ActiveContractSetClient
+import com.digitalasset.ledger.client.services.admin.PackageManagementClient
 import com.digitalasset.ledger.client.services.admin.PartyManagementClient
 import com.digitalasset.ledger.client.services.commands.{CommandClient, SynchronousCommandClient}
 import com.digitalasset.ledger.client.services.identity.LedgerIdentityClient
@@ -52,6 +54,10 @@ final class LedgerClient private (
 
   val packageClient: PackageClient =
     new PackageClient(ledgerId, LedgerClient.stub(PackageServiceGrpc.stub(channel), config.token))
+
+  val packageManagementClient: PackageManagementClient =
+    new PackageManagementClient(
+      LedgerClient.stub(PackageManagementServiceGrpc.stub(channel), config.token))
 
   val partyManagementClient: PartyManagementClient =
     new PartyManagementClient(
