@@ -137,6 +137,7 @@ server_conformance_test(
         "--exclude=LotsOfPartiesIT",
         "--exclude=TimeIT",
         "--exclude=ConfigManagementServiceIT",
+        "--exclude=CommandSubmissionCompletionIT",
     ],
 )
 
