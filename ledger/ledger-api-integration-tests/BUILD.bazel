@@ -85,15 +85,6 @@ da_scala_test_suite(
     # test discovery mechanism in the test_suite macro working only on sources.
     srcs = glob(
         include = ["src/test/itsuite/**/*.scala"],
-        ### GS: enabling all tests again for the regular test suite until we figure out how to
-        ###     run sandbox on postgres with ledger-api-test-tool
-        # the excluded tests are run by the conformance test via the ledger-api-test-tool
-        # see //ledger/sandbox:conformance-test-*
-        # exclude = ["src/test/itsuite/**/TransactionServiceIT.scala"],
-        exclude = [
-            # XXX: Flaky tests are excluded, see below.
-            "src/test/itsuite/scala/com/digitalasset/platform/tests/integration/ledger/api/commands/CommandServiceBackPressureIT.scala",
-        ],
     ),
     data = [
         "//ledger/sandbox:Test-1.5.dar",
@@ -104,31 +95,6 @@ da_scala_test_suite(
     # the test suite already parallelizes each scala test, so we'll still be busy
     # only with this one. for the same reason we do not run it on macos -- it takes
     # up to 20 minutes on our macOS ci workers.
-    tags = [
-        "dont-run-on-darwin",
-        "exclusive",
-    ],
-    deps = [
-        ":default-it-logback-config",
-        ":ledger-api-integration-tests-lib",
-    ] + dependencies,
-)
-
-# XXX: Some tests have been found to be flaky on Windows and Linux. These are
-# excluded from the main test suite so that they can be marked flaky
-# individually.
-da_scala_test_suite(
-    name = "ledger-api-integration-tests-flaky",
-    size = "large",
-    srcs = [
-        "src/test/itsuite/scala/com/digitalasset/platform/tests/integration/ledger/api/commands/CommandServiceBackPressureIT.scala",
-    ],
-    data = [
-        "//ledger/sandbox:Test-1.5.dar",
-        "//ledger/test-common:Test-stable.dar",
-        "@postgresql_dev_env//:all",
-    ],
-    flaky = True,
     tags = [
         "dont-run-on-darwin",
         "exclusive",
