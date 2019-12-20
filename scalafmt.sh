@@ -5,4 +5,4 @@
 set -eu -o pipefail
 
 cd "${0%/*}"
-scalafmt --mode=diff "$@"
+scalafmt --mode=diff --diff-branch=origin/master "$@"
