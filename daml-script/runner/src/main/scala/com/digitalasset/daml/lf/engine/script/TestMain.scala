@@ -6,27 +6,26 @@ package com.digitalasset.daml.lf.engine.script
 import akka.actor.ActorSystem
 import akka.stream._
 import java.time.Instant
+
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.Duration
 import scala.io.Source
 import scalaz.syntax.traverse._
 import spray.json._
-
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.archive.{Dar, DarReader}
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
+import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.language.Ast.Package
 import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
-import com.digitalasset.ledger.client.configuration.{
-  CommandClientConfiguration,
-  LedgerClientConfiguration,
-  LedgerIdRequirement
-}
+import com.digitalasset.ledger.client.configuration.{CommandClientConfiguration, LedgerClientConfiguration, LedgerIdRequirement}
 import com.digitalasset.ledger.client.services.commands.CommandUpdater
 import com.digitalasset.platform.services.time.TimeProviderType
+
+import scala.util.{Failure, Success}
 
 object TestMain {
 
@@ -86,10 +85,27 @@ object TestMain {
               participants = Map.empty,
               party_participants = Map.empty)
         }
-        // XXX: Iterate over test scripts.
+
         val flow: Future[Unit] = for {
           clients <- Runner.connect(participantParams, clientConfig)
-          _ <- runner.run(clients, scriptId, None)
+          _ <- Future.sequence {
+            dar.main._2.modules.flatMap {
+              case (moduleName, module) =>
+                module.definitions.collect {
+                  case (name, Ast.DValue(Ast.TApp(Ast.TTyCon(tycon), _), _, _, _)) if tycon == runner.scriptTyCon =>
+                    val testRun: Future[Unit] = for {
+                      _ <- runner.run(clients, Identifier(dar.main._1, QualifiedName(moduleName, name)), None)
+                    } yield ()
+                    testRun.onComplete {
+                      case Failure(exception) =>
+                        println(s"$moduleName:$name FAILURE ($exception)")
+                      case Success(_) =>
+                        println(s"$moduleName:$name SUCCESS")
+                    }
+                    testRun
+                }
+            }
+          }
         } yield ()
 
         flow.onComplete(_ => system.terminate())

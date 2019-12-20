@@ -42,4 +42,11 @@ da_scala_binary(
     deps = [":script-runner-lib"],
 )
 
+da_scala_binary(
+    name = "test-runner",
+    main_class = "com.digitalasset.daml.lf.engine.script.TestMain",
+    visibility = ["//visibility:public"],
+    deps = [":script-runner-lib"],
+)
+
 exports_files(["src/main/resources/logback.xml"])
