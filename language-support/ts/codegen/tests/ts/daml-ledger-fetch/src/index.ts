@@ -198,9 +198,8 @@ class Ledger {
       contracts: jtv.array(decodeEventUnknown()),
     });
     const {exerciseResult, contracts} = jtv.Result.withException(responseDecoder.run(json));
-    return [exerciseResult, contracts];
 
-    return result;
+    return [exerciseResult, contracts];
   }
 
   /**
