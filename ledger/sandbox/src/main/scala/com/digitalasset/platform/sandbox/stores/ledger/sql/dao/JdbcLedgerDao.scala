@@ -1686,9 +1686,6 @@ private class JdbcLedgerDao(
       ()
     }
 
-  override def close(): Unit =
-    ()
-
   private def executeBatchSql(query: String, params: Iterable[Seq[NamedParameter]])(
       implicit con: Connection) = {
     require(params.nonEmpty, "batch sql statement must have at least one set of name parameters")

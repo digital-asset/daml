@@ -151,9 +151,9 @@ class JdbcIndexer private[indexer] (
     beginAfterExternalOffset: Option[LedgerString],
     participantId: ParticipantId,
     ledgerDao: LedgerDao,
-    metrics: MetricRegistry)(implicit mat: Materializer)
-    extends Indexer
-    with AutoCloseable {
+    metrics: MetricRegistry,
+)(implicit mat: Materializer)
+    extends Indexer {
 
   @volatile
   private var headRef = initialInternalOffset
@@ -400,10 +400,6 @@ class JdbcIndexer private[indexer] (
       domain.RejectionReason.PartyNotKnownOnLedger(state.description)
     case RejectionReason.SubmitterCannotActViaParticipant(details) =>
       domain.RejectionReason.SubmitterCannotActViaParticipant(state.description)
-  }
-
-  override def close(): Unit = {
-    ledgerDao.close()
   }
 
   private class SubscriptionResourceOwner(readService: ReadService)

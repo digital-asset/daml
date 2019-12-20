@@ -28,13 +28,13 @@ import com.digitalasset.ledger.api.health.ReportsHealth
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{ActiveContract, Contract}
+import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.Transaction
 import com.digitalasset.platform.sandbox.stores.ledger.{
   ConfigurationEntry,
   LedgerEntry,
-  PartyLedgerEntry,
-  PackageLedgerEntry
+  PackageLedgerEntry,
+  PartyLedgerEntry
 }
-import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.Transaction
 
 import scala.collection.immutable
 import scala.concurrent.Future
@@ -71,7 +71,7 @@ object PersistenceResponse {
 
 case class LedgerSnapshot(offset: Long, acs: Source[ActiveContract, NotUsed])
 
-trait LedgerReadDao extends AutoCloseable with ReportsHealth {
+trait LedgerReadDao extends ReportsHealth {
 
   type LedgerOffset = Long
 
@@ -179,7 +179,7 @@ trait LedgerReadDao extends AutoCloseable with ReportsHealth {
 
 }
 
-trait LedgerWriteDao extends AutoCloseable with ReportsHealth {
+trait LedgerWriteDao extends ReportsHealth {
 
   type LedgerOffset = Long
 

@@ -23,16 +23,15 @@ import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{ActiveContrac
 import com.digitalasset.platform.sandbox.stores.ledger.{
   ConfigurationEntry,
   LedgerEntry,
-  PartyLedgerEntry,
-  PackageLedgerEntry
+  PackageLedgerEntry,
+  PartyLedgerEntry
 }
 
 import scala.collection.immutable
 import scala.concurrent.Future
 
 private class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegistry)
-    extends LedgerReadDao
-    with AutoCloseable {
+    extends LedgerReadDao {
 
   private object Metrics {
     val lookupLedgerId: Timer = metrics.timer("LedgerDao.lookupLedgerId")
@@ -105,10 +104,6 @@ private class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegi
       startInclusive: LedgerOffset,
       endExclusive: LedgerOffset): Source[(LedgerOffset, PackageLedgerEntry), NotUsed] =
     ledgerDao.getPackageEntries(startInclusive, endExclusive)
-
-  override def close(): Unit = {
-    ledgerDao.close()
-  }
 
   /** Looks up the current ledger configuration, if it has been set. */
   override def lookupLedgerConfiguration(): Future[Option[(Long, Configuration)]] =
@@ -201,10 +196,6 @@ private class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: MetricRegistry)
     timedFuture(
       Metrics.storePackageEntry,
       ledgerDao.storePackageEntry(offset, newLedgerEnd, externalOffset, packages, entry))
-
-  override def close(): Unit = {
-    ledgerDao.close()
-  }
 }
 
 object MeteredLedgerDao {
