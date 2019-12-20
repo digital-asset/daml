@@ -198,7 +198,7 @@ object Main extends StrictLogging {
         .optional()
 
       opt[Map[String, String]]("websocket-config")
-        .action((x, c) => c.copy(wsConfig = WebsocketConfig.createUnsafe(x)))
+        .action((x, c) => c.copy(wsConfig = Some(WebsocketConfig.createUnsafe(x))))
         .validate(WebsocketConfig.validate)
         .optional()
         .valueName(WebsocketConfig.usage)

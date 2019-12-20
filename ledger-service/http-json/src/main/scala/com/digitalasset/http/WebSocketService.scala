@@ -37,7 +37,7 @@ class WebSocketService(
     resolveTemplateIds: PackageService.ResolveTemplateIds,
     encoder: DomainJsonEncoder,
     decoder: DomainJsonDecoder,
-    wsConfig: WebsocketConfig)(implicit mat: Materializer, ec: ExecutionContext)
+    wsConfig: Option[WebsocketConfig])(implicit mat: Materializer, ec: ExecutionContext)
     extends LazyLogging {
 
   import WebSocketService._
@@ -46,13 +46,15 @@ class WebSocketService(
   @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements", "org.wartremover.warts.JavaSerializable"))
   private[http] def transactionMessageHandler(jwt: Jwt, jwtPayload: JwtPayload): Flow[Message, Message, _] = {
 
+    val config = wsConfig.getOrElse(Config.DefaultWsConfig)
+
     wsMessageHandler(jwt, jwtPayload)
-      .takeWithin(wsConfig.maxDuration)
-      .throttle(wsConfig.throttleElem,
-                wsConfig.throttlePer,
-                wsConfig.maxBurst,
-                wsConfig.mode)
-      .keepAlive(wsConfig.heartBeatPer, () => TextMessage.Strict(heartBeat))
+      .takeWithin(config.maxDuration)
+      .throttle(config.throttleElem,
+        config.throttlePer,
+        config.maxBurst,
+        config.mode)
+      .keepAlive(config.heartBeatPer, () => TextMessage.Strict(heartBeat))
       .watchTermination() {
         (_, future) =>
           numConns.incrementAndGet

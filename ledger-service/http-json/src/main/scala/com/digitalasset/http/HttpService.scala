@@ -51,7 +51,7 @@ object HttpService extends StrictLogging {
       applicationId: ApplicationId,
       address: String,
       httpPort: Int,
-      wsConfig: WebsocketConfig,
+      wsConfig: Option[WebsocketConfig],
       accessTokenFile: Option[Path],
       contractDao: Option[ContractDao] = None,
       staticContentConfig: Option[StaticContentConfig] = None,

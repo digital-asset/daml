@@ -28,7 +28,7 @@ private[http] final case class Config(
     jdbcConfig: Option[JdbcConfig] = None,
     staticContentConfig: Option[StaticContentConfig] = None,
     accessTokenFile: Option[Path] = None,
-    wsConfig: WebsocketConfig = Config.DefaultWsConfig
+    wsConfig: Option[WebsocketConfig] = None
 )
 
 private[http] object Config {

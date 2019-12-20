@@ -33,6 +33,7 @@ class WebsocketEndpoints(
     case req@HttpRequest(GET, Uri.Path("/transactions"), _, _, _) =>
       req.header[UpgradeToWebSocket] match {
         case Some(upgradeReq) =>
+          logger.info(s"GOT $wsProtocol")
           connect(upgradeReq, Some(wsProtocol))
         case None =>
           Future.successful(
