@@ -20,7 +20,7 @@ import com.digitalasset.ledger.api.v1.admin.config_management_service.ConfigMana
 import com.digitalasset.ledger.api.v1.admin.config_management_service._
 import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
-import com.digitalasset.platform.common.util.{DirectExecutionContext => DE}
+import com.digitalasset.dec.{DirectExecutionContext => DE}
 import com.digitalasset.platform.server.api.validation
 import com.digitalasset.platform.server.api.validation.ErrorFactories
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}

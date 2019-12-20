@@ -12,7 +12,7 @@ import com.digitalasset.grpc.adapter.RunnableSequencingActor.ShutdownRequest
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
-import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
+import com.digitalasset.dec.DirectExecutionContext
 
 /**
   * Implements serial execution semantics by forwarding the Runnables it receives to an underlying actor.

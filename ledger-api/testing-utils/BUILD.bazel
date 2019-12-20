@@ -20,6 +20,7 @@ da_scala_library(
         "//ledger-api/grpc-definitions:ledger-api-scalapb",
         "//ledger-api/rs-grpc-akka",
         "//ledger-api/rs-grpc-bridge",
+        "//libs-scala/direct-execution-context",
         "//libs-scala/grpc-utils",
         "@maven//:com_google_guava_guava",
         "@maven//:com_typesafe_akka_akka_actor_2_12",

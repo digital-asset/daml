@@ -16,7 +16,7 @@ import com.digitalasset.ledger.api.v1.trace_context.TraceContext
 import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.digitalasset.ledger.api.v1.value.{Identifier, Value}
 import com.digitalasset.ledger.client.services.acs.ActiveContractSetClient
-import com.digitalasset.platform.common.util.DirectExecutionContext
+import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.platform.sandbox.perf.util.DarUtil
 import com.google.protobuf.timestamp.Timestamp
 

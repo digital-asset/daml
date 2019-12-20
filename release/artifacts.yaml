@@ -222,6 +222,9 @@
 - target: //libs-scala/auth-utils:auth-utils
   type: jar-scala
   mavenUpload: true
+- target: //libs-scala/direct-execution-context:direct-execution-context
+  type: jar-scala
+  mavenUpload: true
 - target: //libs-scala/grpc-utils:grpc-utils
   type: jar-scala
   mavenUpload: true

@@ -51,12 +51,12 @@
 
     # ORD
 
-    - warn: {lhs: not (a == b), rhs: a /= b, note: incorrect if either value is NaN}
-    - warn: {lhs: not (a /= b), rhs: a == b, note: incorrect if either value is NaN}
-    - warn: {lhs: not (a >  b), rhs: a <= b, note: incorrect if either value is NaN}
-    - warn: {lhs: not (a >= b), rhs: a <  b, note: incorrect if either value is NaN}
-    - warn: {lhs: not (a <  b), rhs: a >= b, note: incorrect if either value is NaN}
-    - warn: {lhs: not (a <= b), rhs: a >  b, note: incorrect if either value is NaN}
+    - warn: {lhs: not (a == b), rhs: a /= b}
+    - warn: {lhs: not (a /= b), rhs: a == b}
+    - warn: {lhs: not (a >  b), rhs: a <= b}
+    - warn: {lhs: not (a >= b), rhs: a < b}
+    - warn: {lhs: not (a <  b), rhs: a >= b}
+    - warn: {lhs: not (a <= b), rhs: a > b}
     - warn: {lhs: compare x y /= GT, rhs: x <= y}
     - warn: {lhs: compare x y == LT, rhs: x < y}
     - warn: {lhs: compare x y /= LT, rhs: x >= y}

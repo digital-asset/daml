@@ -8,7 +8,7 @@ import com.digitalasset.ledger.api.v1.command_service.CommandServiceGrpc.Command
 import com.digitalasset.ledger.api.v1.command_service._
 import com.digitalasset.ledger.api.validation.{CommandsValidator, SubmitAndWaitRequestValidator}
 import com.digitalasset.platform.api.grpc.GrpcApiService
-import com.digitalasset.platform.common.util.DirectExecutionContext
+import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.platform.server.api.ProxyCloseable
 import com.google.protobuf.empty.Empty
 import io.grpc.ServerServiceDefinition

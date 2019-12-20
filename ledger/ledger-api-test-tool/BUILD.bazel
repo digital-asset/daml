@@ -65,6 +65,7 @@ da_scala_library(
         "//ledger/ledger-api-common",
         "//ledger/test-common",
         "//ledger/test-common:Test-stable.scala",
+        "//libs-scala/direct-execution-context",
         "//libs-scala/grpc-utils",
         "//libs-scala/timer-utils",
         "@maven//:ai_x_diff_2_12",

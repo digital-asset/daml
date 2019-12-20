@@ -8,7 +8,7 @@ import com.digitalasset.ledger.api.v1.testing.time_service.{
   GetTimeResponse,
   TimeServiceGrpc
 }
-import com.digitalasset.platform.testing.SingleItemObserver
+import com.digitalasset.platform.testing.StreamConsumer
 
 import scala.concurrent.Future
 
@@ -17,8 +17,8 @@ final class GetTimeAuthIT extends PublicServiceCallAuthTests {
   override def serviceCallName: String = "TimeService#GetTime"
 
   override def serviceCallWithToken(token: Option[String]): Future[Any] =
-    SingleItemObserver.first[GetTimeResponse](
+    new StreamConsumer[GetTimeResponse](
       stub(TimeServiceGrpc.stub(channel), token)
-        .getTime(new GetTimeRequest(unwrappedLedgerId), _))
+        .getTime(new GetTimeRequest(unwrappedLedgerId), _)).first()
 
 }

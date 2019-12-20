@@ -8,7 +8,7 @@ import java.util.concurrent.atomic.AtomicReference
 import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.digitalasset.ledger.api.v1.completion.Completion
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
-import com.digitalasset.platform.common.util.DirectExecutionContext
+import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.platform.server.services.command.TrackerMap.{AsyncResource, Key}
 import com.github.ghik.silencer.silent
 

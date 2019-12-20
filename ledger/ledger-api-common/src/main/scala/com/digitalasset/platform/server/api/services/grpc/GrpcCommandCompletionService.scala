@@ -13,7 +13,7 @@ import com.digitalasset.ledger.api.v1.command_completion_service._
 import com.digitalasset.ledger.api.v1.completion.Completion
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.validation.{CompletionServiceRequestValidator, PartyNameChecker}
-import com.digitalasset.platform.common.util.DirectExecutionContext
+import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.platform.server.api.services.domain.CommandCompletionService
 import com.google.rpc.status.Status
 import io.grpc.Status.Code
