@@ -41,16 +41,6 @@ object Commands extends StrictLogging {
     )
   }
 
-  // TODO(Leo) #3390: choiceRecordId should be Optional, choice argument can be a primitive
-  private def setRecordId(
-      a: lav1.value.Value,
-      choiceRecordId: lav1.value.Identifier): lav1.value.Value = a match {
-    case lav1.value.Value(lav1.value.Value.Sum.Record(r)) if r.recordId.isEmpty =>
-      lav1.value.Value(lav1.value.Value.Sum.Record(r.copy(recordId = Some(choiceRecordId))))
-    case _ =>
-      a
-  }
-
   def submitAndWaitRequest(
       ledgerId: lar.LedgerId,
       applicationId: lar.ApplicationId,
