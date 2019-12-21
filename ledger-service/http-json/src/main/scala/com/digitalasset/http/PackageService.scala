@@ -6,8 +6,6 @@ package com.digitalasset.http
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.iface
 import com.digitalasset.http.domain.{Choice, TemplateId}
-import com.digitalasset.http.util.IdentifierConverters
-import com.digitalasset.ledger.api.v1.value.Identifier
 import com.digitalasset.ledger.service.LedgerReader.PackageStore
 import com.digitalasset.ledger.service.{LedgerReader, TemplateIds}
 import com.typesafe.scalalogging.StrictLogging
@@ -24,8 +22,8 @@ private class PackageService(reloadPackageStoreIfChanged: PackageService.ReloadP
   private case class State(
       packageIds: Set[String],
       templateIdMap: TemplateIdMap,
-      choiceIdMap: ChoiceIdMap,
-      keyIdMap: KeyIdMap,
+      choiceTypeMap: ChoiceTypeMap,
+      keyTypeMap: KeyTypeMap,
       packageStore: PackageStore) {
 
     def append(diff: PackageStore): State = {
@@ -74,12 +72,12 @@ private class PackageService(reloadPackageStoreIfChanged: PackageService.ReloadP
     () => state.templateIdMap.all
 
   // See the above comment
-  def resolveChoiceRecordId: ResolveChoiceRecordId =
-    (x, y) => PackageService.resolveChoiceRecordId(state.choiceIdMap)(x, y)
+  def resolveChoiceRecordType: ResolveChoiceRecordType =
+    (x, y) => PackageService.resolveChoiceRecordId(state.choiceTypeMap)(x, y)
 
   // See the above comment
-  def resolveKeyId: ResolveKeyId =
-    x => PackageService.resolveKeyId(state.keyIdMap)(x)
+  def resolveKeyType: ResolveKeyType =
+    x => PackageService.resolveKey(state.keyTypeMap)(x)
 }
 
 object PackageService {
@@ -106,11 +104,11 @@ object PackageService {
   type AllTemplateIds =
     () => Set[TemplateId.RequiredPkg]
 
-  type ResolveChoiceRecordId =
-    (TemplateId.RequiredPkg, Choice) => Error \/ Identifier
+  type ResolveChoiceRecordType =
+    (TemplateId.RequiredPkg, Choice) => Error \/ iface.Type
 
-  type ResolveKeyId =
-    TemplateId.RequiredPkg => Error \/ Identifier
+  type ResolveKeyType =
+    TemplateId.RequiredPkg => Error \/ iface.Type
 
   case class TemplateIdMap(
       all: Set[TemplateId.RequiredPkg],
@@ -120,9 +118,9 @@ object PackageService {
     val Empty: TemplateIdMap = TemplateIdMap(Set.empty, Map.empty)
   }
 
-  type ChoiceIdMap = Map[(TemplateId.RequiredPkg, Choice), Identifier]
+  type ChoiceTypeMap = Map[(TemplateId.RequiredPkg, Choice), iface.Type]
 
-  type KeyIdMap = Map[TemplateId.RequiredPkg, Identifier]
+  type KeyTypeMap = Map[TemplateId.RequiredPkg, iface.Type]
 
   def getTemplateIdMap(packageStore: PackageStore): TemplateIdMap =
     buildTemplateIdMap(collectTemplateIds(packageStore))
@@ -181,27 +179,27 @@ object PackageService {
           s"Template ID resolution error, the sizes of requested and resolved collections should match. " +
             s"requested: $requested, resolved: $resolved"))
 
-  def resolveChoiceRecordId(choiceIdMap: ChoiceIdMap)(
+  def resolveChoiceRecordId(choiceIdMap: ChoiceTypeMap)(
       templateId: TemplateId.RequiredPkg,
-      choice: Choice): Error \/ Identifier = {
+      choice: Choice): Error \/ iface.Type = {
     val k = (templateId, choice)
     choiceIdMap
       .get(k)
-      .toRightDisjunction(InputError(s"Cannot resolve choice record ID, given: ${k.toString}"))
+      .toRightDisjunction(InputError(s"Cannot resolve Choice Record type, given: ${k.toString}"))
   }
 
-  def resolveKeyId(keyTypeMap: KeyIdMap)(templateId: TemplateId.RequiredPkg): Error \/ Identifier =
+  def resolveKey(keyTypeMap: KeyTypeMap)(templateId: TemplateId.RequiredPkg): Error \/ iface.Type =
     keyTypeMap
       .get(templateId)
       .toRightDisjunction(
-        InputError(s"Cannot resolve Template Key ID, given: ${templateId.toString}"))
+        InputError(s"Cannot resolve Template Key type, given: ${templateId.toString}"))
 
   // TODO (Leo): merge getChoiceIdMap and getKeyIdMap, so we build them in one iteration over all templates
-  def getChoiceIdMap(packageStore: PackageStore): ChoiceIdMap =
+  def getChoiceIdMap(packageStore: PackageStore): ChoiceTypeMap =
     packageStore.flatMap { case (_, interface) => getChoices(interface) }(collection.breakOut)
 
   private def getChoices(
-      interface: iface.Interface): Map[(TemplateId.RequiredPkg, Choice), Identifier] =
+      interface: iface.Interface): Map[(TemplateId.RequiredPkg, Choice), iface.Type] =
     interface.typeDecls.flatMap {
       case (qn, iface.InterfaceType.Template(_, iface.DefTemplate(choices, _))) =>
         val templateId = TemplateId(interface.packageId, qn.module.toString, qn.name.toString)
@@ -210,25 +208,25 @@ object PackageService {
     }
 
   private def getChoices(
-      choices: Map[Ref.Name, iface.TemplateChoice[iface.Type]]): Seq[(Choice, Identifier)] = {
+      choices: Map[Ref.Name, iface.TemplateChoice[iface.Type]]): Seq[(Choice, iface.Type)] = {
     import iface._
     choices.toSeq.collect {
-      case (name, TemplateChoice(TypeCon(typeConName, _), _, _)) =>
-        (Choice(name.toString), IdentifierConverters.apiIdentifier(typeConName.identifier))
+      case (name, TemplateChoice(choiceType, _, _)) =>
+        (Choice(name.toString), choiceType)
     }
   }
 
   // TODO (Leo): merge getChoiceIdMap and getKeyIdMap, so we build them in one iteration over all templates
-  private def getKeyIdMap(packageStore: PackageStore): KeyIdMap =
+  private def getKeyIdMap(packageStore: PackageStore): KeyTypeMap =
     packageStore.flatMap { case (_, interface) => getKeys(interface) }(collection.breakOut)
 
-  private def getKeys(interface: iface.Interface): Map[TemplateId.RequiredPkg, Identifier] =
+  private def getKeys(interface: iface.Interface): Map[TemplateId.RequiredPkg, iface.Type] =
     interface.typeDecls.collect {
       case (
           qn,
           iface.InterfaceType
-            .Template(_, iface.DefTemplate(_, Some(iface.TypeCon(typeConName, _))))) =>
+            .Template(_, iface.DefTemplate(_, Some(keyType)))) =>
         val templateId = TemplateId(interface.packageId, qn.module.toString, qn.name.toString)
-        (templateId, IdentifierConverters.apiIdentifier(typeConName.identifier))
+        (templateId, keyType)
     }
 }

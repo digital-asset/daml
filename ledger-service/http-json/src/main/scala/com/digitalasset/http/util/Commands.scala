@@ -25,12 +25,10 @@ object Commands extends StrictLogging {
         createArguments = Some(arguments)))
   }
 
-  // TODO(Leo) #3390: choiceRecordId should be Optional, choice argument can be a primitive
   def exercise(
       templateId: lar.TemplateId,
       contractId: lar.ContractId,
       choice: lar.Choice,
-      choiceRecordId: lav1.value.Identifier,
       argument: lav1.value.Value): lav1.commands.Command.Command.Exercise = {
 
     lav1.commands.Command.Command.Exercise(
@@ -38,7 +36,7 @@ object Commands extends StrictLogging {
         templateId = Some(lar.TemplateId.unwrap(templateId)),
         contractId = lar.ContractId.unwrap(contractId),
         choice = lar.Choice.unwrap(choice),
-        choiceArgument = Some(setRecordId(argument, choiceRecordId))
+        choiceArgument = Some(argument)
       )
     )
   }

@@ -3,7 +3,6 @@
 
 package com.digitalasset.http.json
 
-import com.digitalasset.daml.lf
 import com.digitalasset.http.domain.HasTemplateId
 import com.digitalasset.http.{PackageService, domain}
 import com.digitalasset.ledger.api.{v1 => lav1}
@@ -16,10 +15,10 @@ import scala.language.higherKinds
 
 class DomainJsonDecoder(
     resolveTemplateId: PackageService.ResolveTemplateId,
-    resolveChoiceRecordId: PackageService.ResolveChoiceRecordId,
-    resolveKeyId: PackageService.ResolveKeyId,
-    jsObjectToApiRecord: (lf.data.Ref.Identifier, JsObject) => JsonError \/ lav1.value.Record,
-    jsValueToApiValue: (lf.data.Ref.Identifier, JsValue) => JsonError \/ lav1.value.Value) {
+    resolveRecordType: PackageService.ResolveChoiceRecordType,
+    resolveKey: PackageService.ResolveKeyType,
+    jsObjectToApiRecord: (domain.LfType, JsObject) => JsonError \/ lav1.value.Record,
+    jsValueToApiValue: (domain.LfType, JsValue) => JsonError \/ lav1.value.Value) {
 
   def decodeR[F[_]](a: String)(
       implicit ev1: JsonReader[F[JsObject]],
@@ -44,8 +43,8 @@ class DomainJsonDecoder(
   def decodeUnderlyingRecords[F[_]: Traverse: domain.HasTemplateId](
       fa: F[JsObject]): JsonError \/ F[lav1.value.Record] = {
     for {
-      damlLfId <- lookupLfIdentifier(fa)
-      apiValue <- fa.traverse(jsObject => jsObjectToApiRecord(damlLfId, jsObject))
+      lfType <- lookupLfType(fa)
+      apiValue <- fa.traverse(jsObject => jsObjectToApiRecord(lfType, jsObject))
     } yield apiValue
   }
 
@@ -71,22 +70,21 @@ class DomainJsonDecoder(
   def decodeUnderlyingValues[F[_]: Traverse: domain.HasTemplateId](
       fa: F[JsValue]): JsonError \/ F[lav1.value.Value] = {
     for {
-      damlLfId <- lookupLfIdentifier(fa)
+      damlLfId <- lookupLfType(fa)
       apiValue <- fa.traverse(jsValue => jsValueToApiValue(damlLfId, jsValue))
     } yield apiValue
   }
 
-  private def lookupLfIdentifier[F[_]: domain.HasTemplateId](
-      fa: F[_]): JsonError \/ lf.data.Ref.Identifier = {
+  private def lookupLfType[F[_]: domain.HasTemplateId](fa: F[_]): JsonError \/ domain.LfType = {
     val H: HasTemplateId[F] = implicitly
     val templateId: domain.TemplateId.OptionalPkg = H.templateId(fa)
     for {
       tId <- resolveTemplateId(templateId)
-        .leftMap(e => JsonError("DomainJsonDecoder_lookupLfIdentifier " + e.shows))
-      lfId <- H
-        .lfIdentifier(fa, tId, resolveChoiceRecordId, resolveKeyId)
-        .leftMap(e => JsonError("DomainJsonDecoder_lookupLfIdentifier " + e.shows))
-    } yield lfId
+        .leftMap(e => JsonError("DomainJsonDecoder_lookupLfType " + e.shows))
+      lfType <- H
+        .lfType(fa, tId, resolveRecordType, resolveKey)
+        .leftMap(e => JsonError("DomainJsonDecoder_lookupLfType " + e.shows))
+    } yield lfType
   }
 
   def decodeContractLocator(a: String)(implicit ev: JsonReader[domain.ContractLocator[JsValue]])

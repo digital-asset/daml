@@ -6,7 +6,7 @@ package com.digitalasset.http
 import java.time.Instant
 
 import com.digitalasset.daml.lf
-import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.iface
 import com.digitalasset.http.util.ClientUtil.boxedRecord
 import com.digitalasset.http.util.IdentifierConverters
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
@@ -255,12 +255,12 @@ object domain {
           fa.templateId.moduleName,
           fa.templateId.entityName)
 
-      override def lfIdentifier(
+      override def lfType(
           fa: ActiveContract[_],
           templateId: TemplateId.RequiredPkg,
-          f: PackageService.ResolveChoiceRecordId,
-          g: PackageService.ResolveKeyId): Error \/ lf.data.Ref.Identifier =
-        \/-(IdentifierConverters.lfIdentifier(templateId))
+          f: PackageService.ResolveChoiceRecordType,
+          g: PackageService.ResolveKeyType): Error \/ LfType =
+        \/-(-\/(IdentifierConverters.lfIdentifier(templateId)))
     }
   }
 
@@ -335,15 +335,14 @@ object domain {
 
         override def templateId(fa: EnrichedContractKey[_]): TemplateId.OptionalPkg = fa.templateId
 
-        override def lfIdentifier(
+        override def lfType(
             fa: EnrichedContractKey[_],
             templateId: TemplateId.RequiredPkg,
-            f: PackageService.ResolveChoiceRecordId,
-            g: PackageService.ResolveKeyId): Error \/ Ref.Identifier =
-          for {
-            apiId <- g(templateId)
-              .leftMap(e => Error('EnrichedContractKey_hasTemplateId_lfIdentifier, e.shows))
-          } yield IdentifierConverters.lfIdentifier(apiId)
+            f: PackageService.ResolveChoiceRecordType,
+            g: PackageService.ResolveKeyType): Error \/ LfType =
+          g(templateId)
+            .leftMap(e => Error('EnrichedContractKey_hasTemplateId_lfType, e.shows))
+            .map(keyType => \/-(keyType))
       }
   }
 
@@ -352,13 +351,15 @@ object domain {
       o toRightDisjunction Error('ErrorOps_required, s"Missing required field $label")
   }
 
+  type LfType = lf.data.Ref.Identifier \/ iface.Type
+
   trait HasTemplateId[F[_]] {
     def templateId(fa: F[_]): TemplateId.OptionalPkg
-    def lfIdentifier(
+    def lfType(
         fa: F[_],
         templateId: TemplateId.RequiredPkg,
-        f: PackageService.ResolveChoiceRecordId,
-        g: PackageService.ResolveKeyId): Error \/ lf.data.Ref.Identifier
+        f: PackageService.ResolveChoiceRecordType,
+        g: PackageService.ResolveKeyType): Error \/ LfType
   }
 
   object CreateCommand {
@@ -371,12 +372,12 @@ object domain {
     implicit val hasTemplateId: HasTemplateId[CreateCommand] = new HasTemplateId[CreateCommand] {
       override def templateId(fa: CreateCommand[_]): TemplateId.OptionalPkg = fa.templateId
 
-      override def lfIdentifier(
+      override def lfType(
           fa: CreateCommand[_],
           templateId: TemplateId.RequiredPkg,
-          f: PackageService.ResolveChoiceRecordId,
-          g: PackageService.ResolveKeyId): Error \/ lf.data.Ref.Identifier =
-        \/-(IdentifierConverters.lfIdentifier(templateId))
+          f: PackageService.ResolveChoiceRecordType,
+          g: PackageService.ResolveKeyType): Error \/ LfType =
+        \/-(-\/(IdentifierConverters.lfIdentifier(templateId)))
     }
   }
 
@@ -390,15 +391,14 @@ object domain {
       new HasTemplateId[ExerciseCommand] {
         override def templateId(fa: ExerciseCommand[_]): TemplateId.OptionalPkg = fa.templateId
 
-        override def lfIdentifier(
+        override def lfType(
             fa: ExerciseCommand[_],
             templateId: TemplateId.RequiredPkg,
-            f: PackageService.ResolveChoiceRecordId,
-            g: PackageService.ResolveKeyId): Error \/ lf.data.Ref.Identifier =
-          for {
-            apiId <- f(templateId, fa.choice)
-              .leftMap(e => Error('ExerciseCommand_hasTemplateId_lfIdentifier, e.shows))
-          } yield IdentifierConverters.lfIdentifier(apiId)
+            f: PackageService.ResolveChoiceRecordType,
+            g: PackageService.ResolveKeyType): Error \/ LfType =
+          f(templateId, fa.choice)
+            .leftMap(e => Error('ExerciseCommand_hasTemplateId_lfType, e.shows))
+            .map(choiceType => \/-(choiceType))
       }
   }
 

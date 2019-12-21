@@ -5,6 +5,8 @@ package com.digitalasset.http.json
 
 import JsonProtocol.LfValueCodec
 import com.digitalasset.daml.lf
+import com.digitalasset.daml.lf.iface
+import com.digitalasset.http.domain
 import com.digitalasset.http.json.JsValueToApiValueConverter.LfTypeLookup
 import com.digitalasset.ledger.api.{v1 => lav1}
 import com.digitalasset.platform.participant.util.LfEngineToApi
@@ -14,10 +16,25 @@ import spray.json.{JsObject, JsValue}
 class JsValueToApiValueConverter(lfTypeLookup: LfTypeLookup) {
 
   def jsValueToLfValue(
+      lfType: domain.LfType,
+      jsValue: JsValue): JsonError \/ lf.value.Value[lf.value.Value.AbsoluteContractId] =
+    lfType match {
+      case -\/(lfId) => jsValueToLfValue(lfId, jsValue)
+      case \/-(valueType) => jsValueToLfValue(valueType, jsValue)
+    }
+
+  def jsValueToLfValue(
       lfId: lf.data.Ref.Identifier,
       jsValue: JsValue): JsonError \/ lf.value.Value[lf.value.Value.AbsoluteContractId] =
     \/.fromTryCatchNonFatal(
       LfValueCodec.jsValueToApiValue(jsValue, lfId, lfTypeLookup)
+    ).leftMap(JsonError.toJsonError)
+
+  def jsValueToLfValue(
+      lfType: iface.Type,
+      jsValue: JsValue): JsonError \/ lf.value.Value[lf.value.Value.AbsoluteContractId] =
+    \/.fromTryCatchNonFatal(
+      LfValueCodec.jsValueToApiValue(jsValue, lfType, lfTypeLookup)
     ).leftMap(JsonError.toJsonError)
 
   def lfValueToApiValue(
@@ -25,19 +42,17 @@ class JsValueToApiValueConverter(lfTypeLookup: LfTypeLookup) {
     \/.fromEither(LfEngineToApi.lfValueToApiValue(verbose = true, lfValue))
       .leftMap(JsonError.toJsonError)
 
-  def jsValueToApiValue(
-      lfId: lf.data.Ref.Identifier,
-      jsValue: JsValue): JsonError \/ lav1.value.Value =
+  def jsValueToApiValue(lfType: domain.LfType, jsValue: JsValue): JsonError \/ lav1.value.Value =
     for {
-      lfValue <- jsValueToLfValue(lfId, jsValue)
+      lfValue <- jsValueToLfValue(lfType, jsValue)
       apiValue <- lfValueToApiValue(lfValue)
     } yield apiValue
 
   def jsObjectToApiRecord(
-      lfId: lf.data.Ref.Identifier,
+      lfType: domain.LfType,
       jsObject: JsObject): JsonError \/ lav1.value.Record =
     for {
-      a <- jsValueToApiValue(lfId, jsObject)
+      a <- jsValueToApiValue(lfType, jsObject)
       b <- mustBeApiRecord(a)
     } yield b
 

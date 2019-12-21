@@ -35,7 +35,6 @@ import scala.util.{Failure, Success}
 
 class CommandService(
     resolveTemplateId: PackageService.ResolveTemplateId,
-    resolveChoiceRecordId: PackageService.ResolveChoiceRecordId,
     submitAndWaitForTransaction: LedgerClientJwt.SubmitAndWaitForTransaction,
     submitAndWaitForTransactionTree: LedgerClientJwt.SubmitAndWaitForTransactionTree,
     timeProvider: TimeProvider,
@@ -111,14 +110,11 @@ class CommandService(
     for {
       templateId <- resolveTemplateId(input.templateId)
         .leftMap(e => Error('exerciseCommand, e.shows))
-      choiceRecordId <- resolveChoiceRecordId(templateId, input.choice)
-        .leftMap(e => Error('exerciseCommand, e.shows))
     } yield
       Commands.exercise(
         refApiIdentifier(templateId),
         input.contractId,
         input.choice,
-        choiceRecordId,
         input.argument)
 
   private def submitAndWaitRequest(
