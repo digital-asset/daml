@@ -138,6 +138,7 @@ class Endpoints(
 
         _ = logger.debug(s"/contracts/lookup reqBody: $reqBody")
 
+        // TODO(Leo): decode to domain.ContractLocator[LfValue], findByContractKey converts it to LfValue
         cl <- either(
           decoder
             .decodeContractLocator(reqBody)
