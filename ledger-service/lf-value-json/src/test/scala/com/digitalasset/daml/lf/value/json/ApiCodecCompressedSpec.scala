@@ -7,7 +7,7 @@ package value.json
 import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import data.{Decimal, ImmArray, Ref, SortedLookupList, Time}
 import value.json.{NavigatorModelAliases => model}
-import value.TypedValueGenerators.{ValueAddend => VA, RNil, genAddend, genTypeAndValue}
+import value.TypedValueGenerators.{RNil, genAddend, genTypeAndValue, ValueAddend => VA}
 import ApiCodecCompressed.{apiValueToJsValue, jsValueToApiValue}
 import com.digitalasset.ledger.service.MetadataReader
 import org.scalactic.source
@@ -38,7 +38,7 @@ class ApiCodecCompressedSpec
       .valueOr(e => fail(s"Cannot read metadata from $dar, error:" + e.shows))
 
   private val darTypeLookup: NavigatorModelAliases.DamlLfTypeLookup =
-    MetadataReader.damlLfTypeLookup(() => darMetadata)
+    MetadataReader.typeLookup(darMetadata)
 
   /** Serializes the API value to JSON, then parses it back to an API value */
   private def serializeAndParse(
@@ -323,16 +323,9 @@ class ApiCodecCompressedSpec
     import com.digitalasset.daml.lf.value.{Value => LfValue}
     import ApiCodecCompressed.JsonImplicits._
 
-    val packageId: Ref.PackageId = MetadataReader
-      .damlLfTypeByName(() => darMetadata)(
-        Ref.QualifiedName(
-          Ref.DottedName.assertFromString("JsonEncodingTest"),
-          Ref.DottedName.assertFromString("Foo")
-        )
-      ) match {
-      case Seq(x) => x._1
-      case xs @ _ => sys.error(s"Expected exactly one element, got: $xs")
-    }
+    val packageId: Ref.PackageId = mustBeOne(
+      MetadataReader.typeByName(darMetadata)(
+        Ref.QualifiedName.assertFromString("JsonEncodingTest:Foo")))._1
 
     val bazRecord = LfValue.ValueRecord[String](
       None,
@@ -404,5 +397,47 @@ class ApiCodecCompressedSpec
         actualValue shouldBe expectedValueWithIds
       }
     }
+
+    "dealing with Contract Key" should {
+
+      "decode type Key = Party from JSON" in {
+        val keyedByPartyTemplate: iface.InterfaceType.Template = mustBeOne(
+          MetadataReader.templateByName(darMetadata)(
+            Ref.QualifiedName.assertFromString("JsonEncodingTest:KeyedByParty")))._2
+
+        val keyType = keyedByPartyTemplate.template.key.getOrElse(fail("Expected a key, got None"))
+        val expectedValue: LfValue[String] = LfValue.ValueParty(Ref.Party.assertFromString("Alice"))
+
+        jsValueToApiValue(JsString("Alice"), keyType, darTypeLookup) shouldBe expectedValue
+      }
+
+      "decode type Key = (Party, Int) from JSON" in {
+        val keyedByPartyTemplate: iface.InterfaceType.Template = mustBeOne(
+          MetadataReader.templateByName(darMetadata)(
+            Ref.QualifiedName.assertFromString("JsonEncodingTest:KeyedByPartyInt")))._2
+
+        val tuple2Name = Ref.QualifiedName.assertFromString("DA.Types:Tuple2")
+        val daTypesPackageId: Ref.PackageId =
+          mustBeOne(MetadataReader.typeByName(darMetadata)(tuple2Name))._1
+
+        val keyType = keyedByPartyTemplate.template.key.getOrElse(fail("Expected a key, got None"))
+
+        val expectedValue: LfValue[String] = LfValue.ValueRecord(
+          Some(Ref.Identifier(daTypesPackageId, tuple2Name)),
+          ImmArray(
+            Some(Ref.Name.assertFromString("_1")) -> LfValue.ValueParty(
+              Ref.Party.assertFromString("Alice")),
+            Some(Ref.Name.assertFromString("_2")) -> LfValue.ValueInt64(123)
+          )
+        )
+
+        jsValueToApiValue("""["Alice", 123]""".parseJson, keyType, darTypeLookup) shouldBe expectedValue
+      }
+    }
+  }
+
+  private def mustBeOne[A](as: Seq[A]): A = as match {
+    case Seq(x) => x
+    case xs @ _ => sys.error(s"Expected exactly one element, got: $xs")
   }
 }

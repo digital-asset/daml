@@ -7,3 +7,34 @@ module JsonEncodingTest where
 data Foo = Bar Int | Baz BazRecord | Qux
 
 data BazRecord = BazRecord { baz : Text }
+
+data AccountStatus = Enabled Time | Disabled Time
+  deriving (Eq, Show)
+
+template Account with
+    owner : Party
+    number : Text
+    status : AccountStatus
+  where
+    signatory owner
+
+    key (owner, number) : (Party, Text)
+    maintainer key._1
+
+template KeyedByParty with
+    name: Text
+    party: Party
+    age: Int
+  where
+    signatory party
+    key party: Party
+    maintainer key
+
+template KeyedByPartyInt with
+    name: Text
+    party: Party
+    age: Int
+  where
+    signatory party
+    key (party, age): (Party, Int)
+    maintainer key._1

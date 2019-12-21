@@ -7,6 +7,7 @@ import java.io.File
 
 import com.digitalasset.daml.lf.archive.{Dar, DarReader}
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.iface
 import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.util.ExceptionOps._
@@ -61,16 +62,23 @@ object MetadataReader {
           }
       }
 
-  def damlLfTypeLookup(metaData: () => LfMetadata)(
-      id: Ref.Identifier): Option[iface.DefDataType.FWT] =
+  def typeLookup(metaData: LfMetadata)(id: Ref.Identifier): Option[iface.DefDataType.FWT] =
     for {
-      iface <- metaData().get(id.packageId)
+      iface <- metaData.get(id.packageId)
       ifaceType <- iface.typeDecls.get(id.qualifiedName)
     } yield ifaceType.`type`
 
-  def damlLfTypeByName(metaData: () => LfMetadata)(
+  def typeByName(metaData: LfMetadata)(
       name: Ref.QualifiedName): Seq[(Ref.PackageId, iface.DefDataType.FWT)] =
-    metaData()
-      .map { case (pId, iface) => iface.typeDecls.get(name).map(x => (pId, x.`type`)) }
+    metaData.values
+      .map(interface => interface.typeDecls.get(name).map(x => (interface.packageId, x.`type`)))
       .collect { case Some(x) => x }(collection.breakOut)
+
+  def templateByName(metaData: LfMetadata)(
+      name: Ref.QualifiedName): Seq[(PackageId, iface.InterfaceType.Template)] =
+    metaData.values
+      .map(interface => interface.typeDecls.get(name).map(x => (interface.packageId, x)))
+      .collect {
+        case Some((pId, x @ iface.InterfaceType.Template(_, _))) => (pId, x)
+      }(collection.breakOut)
 }

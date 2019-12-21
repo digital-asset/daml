@@ -7,8 +7,6 @@ module Account where
 data AccountStatus = Enabled Time | Disabled Time
   deriving (Eq, Show)
 
-type AccountKey = (Party, Text)
-
 template Account with
     owner : Party
     number : Text
@@ -16,5 +14,5 @@ template Account with
   where
     signatory owner
 
-    key (owner, number) : AccountKey
+    key (owner, number) : (Party, Text)
     maintainer key._1
