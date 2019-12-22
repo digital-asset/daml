@@ -11,7 +11,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.api.util.TimestampConversion.fromInstant
-import com.digitalasset.codegen.util.TestUtil.{TestContext, findOpenPort, requiredResource}
+import com.digitalasset.codegen.util.TestUtil.{TestContext, requiredResource}
 import com.digitalasset.grpc.adapter.AkkaExecutionSequencerPool
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.refinements.ApiTypes.{CommandId, WorkflowId}
@@ -75,10 +75,8 @@ class ScalaCodeGenIT
   private val amat = Materializer(asys)
   private val aesf = new AkkaExecutionSequencerPool("clientPool")(asys)
 
-  private val port: Int = findOpenPort().fold(e => throw new IllegalStateException(e), identity)
-
   private val serverConfig = SandboxConfig.default.copy(
-    port = port,
+    port = 0,
     damlPackages = archives,
     timeProviderType = TimeProviderType.WallClock,
     ledgerIdMode = LedgerIdMode.Static(LedgerId(ledgerId)),
@@ -115,7 +113,7 @@ class ScalaCodeGenIT
   )
 
   private val ledgerF: Future[LedgerClient] =
-    LedgerClient.singleHost("127.0.0.1", port, clientConfig)(ec, aesf)
+    LedgerClient.singleHost("127.0.0.1", sandbox.port, clientConfig)(ec, aesf)
 
   private val ledger: LedgerClient = Await.result(ledgerF, shortTimeout)
 

@@ -3,13 +3,16 @@
 
 package com.digitalasset.platform.sandbox.stores.ledger.sql.migration
 
+import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
+import com.digitalasset.platform.resources.Resource
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{DbType, HikariConnection}
+import com.zaxxer.hikari.HikariDataSource
 import org.flywaydb.core.Flyway
 import org.flywaydb.core.api.configuration.FluentConfiguration
 
-import scala.concurrent.duration._
-import scala.util.Try
+import scala.concurrent.duration.DurationInt
+import scala.concurrent.{Await, ExecutionContext}
 import scala.util.control.NonFatal
 
 class FlywayMigrations(jdbcUrl: String, loggerFactory: NamedLoggerFactory) {
@@ -18,11 +21,15 @@ class FlywayMigrations(jdbcUrl: String, loggerFactory: NamedLoggerFactory) {
   private val logger = loggerFactory.getLogger(getClass)
 
   private val dbType = DbType.jdbcType(jdbcUrl)
-  private def newDataSource =
-    HikariConnection.createDataSource(jdbcUrl, "Flyway-Pool", 2, 2, 250.millis, None)
+
+  private def newDataSource()(
+      implicit executionContext: ExecutionContext
+  ): Resource[HikariDataSource] =
+    HikariConnection.owner(jdbcUrl, "Flyway-Pool", 2, 2, 250.millis, None).acquire()
 
   def validate(): Unit = {
-    val ds = newDataSource
+    val dataSourceResource = newDataSource()(DirectExecutionContext)
+    val ds = Await.result(dataSourceResource.asFuture, 1.second)
     try {
       val flyway = configurationBase(dbType).dataSource(ds).load()
       logger.info(s"running Flyway validation..")
@@ -34,12 +41,13 @@ class FlywayMigrations(jdbcUrl: String, loggerFactory: NamedLoggerFactory) {
         //there is little point in communicating this error in a typed manner, we should rather blow up
         throw e
     } finally {
-      val _ = Try(ds.close())
+      val _ = Await.result(dataSourceResource.release(), 1.second)
     }
   }
 
   def migrate(): Unit = {
-    val ds = newDataSource
+    val dataSourceResource = newDataSource()(DirectExecutionContext)
+    val ds = Await.result(dataSourceResource.asFuture, 1.second)
     try {
       val flyway = configurationBase(dbType).dataSource(ds).load()
       logger.info(s"running Flyway migration..")
@@ -52,7 +60,7 @@ class FlywayMigrations(jdbcUrl: String, loggerFactory: NamedLoggerFactory) {
         //there is little point in communicating this error in a typed manner, we should rather blow up
         throw e
     } finally {
-      val _ = Try(ds.close())
+      val _ = Await.result(dataSourceResource.release(), 1.second)
     }
   }
 

@@ -4,6 +4,7 @@
 package com.digitalasset.platform.apiserver
 
 import java.io.File
+import java.nio.file.Path
 
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.digitalasset.api.util.TimeProvider
@@ -17,5 +18,5 @@ case class ApiServerConfig(
     tlsConfig: Option[TlsConfiguration],
     timeProvider: TimeProvider, // enables use of non-wall-clock time in tests
     maxInboundMessageSize: Int,
-    portFile: Option[File],
+    portFile: Option[Path],
 )
