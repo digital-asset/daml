@@ -115,13 +115,11 @@ final class SandboxServer(config: => SandboxConfig) extends AutoCloseable {
 
   sandboxState = start()(DirectExecutionContext)
 
-  def port: Int = {
-    Await
-      .result(
-        sandboxState.asFuture.flatMap(_.apiServer.asFuture)(DirectExecutionContext),
-        AsyncTolerance)
-      .port
-  }
+  def port: Int =
+    Await.result(portF(DirectExecutionContext), AsyncTolerance)
+
+  def portF(implicit executionContext: ExecutionContext): Future[Int] =
+    sandboxState.asFuture.flatMap(_.apiServer.asFuture).map(_.port)
 
   /** the reset service is special, since it triggers a server shutdown */
   private def resetService(
