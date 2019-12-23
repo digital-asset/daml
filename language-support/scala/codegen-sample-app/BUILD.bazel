@@ -111,12 +111,7 @@ da_scala_test(
     scalacopts = ["-Xsource:2.13"],
     deps = [
         ":daml-lf-codegen-sample-app",
-        ":daml-lf-codegen-sample-app-testing",
-        "//bazel_tools/runfiles:scala_runfiles",
         "//language-support/scala/bindings",
-        "//language-support/scala/codegen-testing",
-        "//ledger/participant-state",
-        "@maven//:io_spray_spray_json_2_12",
         "@maven//:org_scalacheck_scalacheck_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
     ],
