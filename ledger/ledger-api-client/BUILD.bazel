@@ -4,7 +4,7 @@
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
-    "da_scala_test",
+    "da_scala_test_suite",
 )
 
 da_scala_library(
@@ -32,7 +32,7 @@ da_scala_library(
     ],
 )
 
-da_scala_test(
+da_scala_test_suite(
     name = "ledger-api-client-tests",
     srcs = glob(["src/test/suite/**/*.scala"]),
     deps = [
@@ -49,7 +49,7 @@ da_scala_test(
     ],
 )
 
-da_scala_test(
+da_scala_test_suite(
     name = "ledger-api-client-integration-tests",
     srcs = glob(["src/it/**/*.scala"]),
     data = [

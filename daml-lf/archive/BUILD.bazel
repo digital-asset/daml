@@ -8,7 +8,7 @@ load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
     "da_scala_library",
-    "da_scala_test",
+    "da_scala_test_suite",
     "lf_scalacopts",
 )
 load(
@@ -148,7 +148,7 @@ da_scala_library(
     ],
 )
 
-da_scala_test(
+da_scala_test_suite(
     name = "daml_lf_archive_reader_tests",
     size = "small",
     srcs = glob(["src/test/scala/**/*.scala"]),
