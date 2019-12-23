@@ -11,7 +11,7 @@ import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.stream.Materializer
 import akka.util.ByteString
-import com.digitalasset.api
+import com.digitalasset.api.util.TimestampConversion
 import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.digitalasset.http.HttpServiceTestFixture.jsonCodecs
@@ -542,8 +542,7 @@ abstract class AbstractHttpServiceIntegrationTest
   "contracts/lookup by contractKey" in withHttpService { (uri, encoder, decoder) =>
     val owner = domain.Party("Alice")
     val accountNumber = "abc123"
-    val command: domain.CreateCommand[v.Record] =
-      accountCreateCommand(owner, accountNumber, Instant.now())
+    val command: domain.CreateCommand[v.Record] = accountCreateCommand(owner, accountNumber)
 
     postCreateCommand(command, encoder, uri).flatMap {
       case (status, output) =>
@@ -555,6 +554,38 @@ abstract class AbstractHttpServiceIntegrationTest
           JsArray(JsString(owner.unwrap), JsString(accountNumber))
         )
         lookupContractAndAssert(locator)(contractId, command, encoder, decoder, uri)
+    }: Future[Assertion]
+  }
+
+  "contracts/search by a variant field" in withHttpService { (uri, encoder, decoder) =>
+    val owner = domain.Party("Alice")
+    val accountNumber = "abc123"
+    val now = TimestampConversion.instantToMicros(Instant.now)
+    val nowStr = TimestampConversion.microsToInstant(now).toString
+    val command: domain.CreateCommand[v.Record] = accountCreateCommand(owner, accountNumber, now)
+
+    postCreateCommand(command, encoder, uri).flatMap {
+      case (status, output) =>
+        status shouldBe StatusCodes.OK
+        assertStatus(output, StatusCodes.OK)
+        val contractId: ContractId = getContractId(getResult(output))
+
+        val query = jsObject(s"""{
+             "%templates": [{"moduleName": "Account", "entityName": "Account"}],
+             "number" : "abc123",
+             "status" : {"tag": "Enabled", "value": "${nowStr: String}"}
+          }""")
+
+        postJsonRequest(uri.withPath(Uri.Path("/contracts/search")), query).map {
+          case (searchStatus, searchOutput) =>
+            searchStatus shouldBe StatusCodes.OK
+            assertStatus(searchOutput, StatusCodes.OK)
+            val acList = activeContractList(searchOutput)
+            inside(acList) {
+              case List(ac) =>
+                ac.contractId shouldBe contractId
+            }
+        }
     }: Future[Assertion]
   }
 
@@ -606,7 +637,7 @@ abstract class AbstractHttpServiceIntegrationTest
 
   private def iouExerciseTransferCommand(
       contractId: lar.ContractId): domain.ExerciseCommand[v.Value] = {
-    val templateId: OptionalPkg = domain.TemplateId(None, "Iou", "Iou")
+    val templateId = domain.TemplateId(None, "Iou", "Iou")
     val arg: Record = v.Record(
       fields = List(v.RecordField("newOwner", Some(v.Value(v.Value.Sum.Party("Alice")))))
     )
@@ -616,7 +647,7 @@ abstract class AbstractHttpServiceIntegrationTest
   }
 
   private def iouArchiveCommand(contractId: lar.ContractId): domain.ExerciseCommand[v.Value] = {
-    val templateId: OptionalPkg = domain.TemplateId(None, "Iou", "Iou")
+    val templateId = domain.TemplateId(None, "Iou", "Iou")
     val arg: Record = v.Record()
     val choice = lar.Choice("Archive")
     domain.ExerciseCommand(templateId, contractId, choice, boxedRecord(arg), None)
@@ -625,9 +656,10 @@ abstract class AbstractHttpServiceIntegrationTest
   private def accountCreateCommand(
       owner: domain.Party,
       number: String,
-      time: Instant): domain.CreateCommand[v.Record] = {
-    val templateId: OptionalPkg = domain.TemplateId(None, "Account", "Account")
-    val timeValue = v.Value(api.util.TimestampConversion.instantToMicros(time))
+      time: v.Value.Sum.Timestamp = TimestampConversion.instantToMicros(Instant.now))
+    : domain.CreateCommand[v.Record] = {
+    val templateId = domain.TemplateId(None, "Account", "Account")
+    val timeValue = v.Value(time)
     val enabledVariantValue =
       v.Value(v.Value.Sum.Variant(v.Variant(None, "Enabled", Some(timeValue))))
     val arg: Record = v.Record(

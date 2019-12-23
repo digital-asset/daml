@@ -5,16 +5,15 @@ package com.digitalasset.http
 package query
 
 import util.IdentifierConverters.lfIdentifier
-
 import com.digitalasset.daml.lf.data.{ImmArray, Numeric, Ref, SortedLookupList, Time, Utf8}
 import ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.data.ScalazEqual._
 import com.digitalasset.daml.lf.iface
+import com.digitalasset.daml.lf.value.json.JsonVariant
 import com.digitalasset.daml.lf.value.{Value => V}
 import iface.{Type => Ty}
 import dbbackend.Queries.{concatFragment, contractColumnName}
 import json.JsonProtocol.LfValueDatabaseCodec.{apiValueToJsValue => dbApiValueToJsValue}
-
 import scalaz.{OneAnd, Order, \&/, \/, \/-}
 import scalaz.Tags.Conjunction
 import scalaz.std.anyVal._
@@ -273,8 +272,11 @@ object ValuePredicate {
             fromRecord(fields, id, rec)
         }
         case iface.Variant(fieldTyps) => {
-          case JsObject(fields) =>
-            fromVariant(fields, id, fieldTyps)
+          case JsonVariant(tag, nestedValue) =>
+            fromVariant(tag, nestedValue, id, fieldTyps)
+          case invalidJsVal @ _ =>
+            predicateParseError(
+              s"Variant must be encoded as JsObject with 'tag' and 'value' fields, got: $invalidJsVal, id: $id")
         }
         case e @ iface.Enum(_) => {
           case JsString(s) => fromEnum(s, id, e)
@@ -296,21 +298,19 @@ object ValuePredicate {
     }
 
     def fromVariant(
-        fields: Map[String, JsValue],
+        tag: String,
+        nestedValue: JsValue,
         id: Ref.Identifier,
-        fieldTyps: ImmArraySeq[(Ref.Name, Ty)]): Result = fields.toSeq match {
-      case Seq((k, v)) =>
-        val name = Ref.Name.assertFromString(k)
-        val field: Option[(Ref.Name, Ty)] = fieldTyps.find(_._1 == name)
-        val fieldP: Option[(Ref.Name, ValuePredicate)] = field.map {
-          case (n, t) => (n, fromValue(v, t))
-        }
-        fieldP.fold(
-          predicateParseError(
-            s"Cannot locate Variant's (datacon, type) field, id: $id, name: $name")
-        )(VariantMatch)
+        fieldTyps: ImmArraySeq[(Ref.Name, Ty)]): Result = {
 
-      case _ => predicateParseError(s"Variant must have exactly 1 field, got: $fields, id: $id")
+      val name = Ref.Name.assertFromString(tag)
+      val field: Option[(Ref.Name, Ty)] = fieldTyps.find(_._1 == name)
+      val fieldP: Option[(Ref.Name, ValuePredicate)] = field.map {
+        case (n, t) => (n, fromValue(nestedValue, t))
+      }
+      fieldP.fold(
+        predicateParseError(s"Cannot locate Variant's (datacon, type) field, id: $id, name: $name")
+      )(VariantMatch)
     }
 
     def fromEnum(it: String, id: Ref.Identifier, typ: iface.Enum): Result =

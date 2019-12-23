@@ -328,14 +328,6 @@ abstract class ApiCodecCompressed[Cid](
       override protected[this] def jsValueToApiContractId(value: JsValue): Cid =
         self.jsValueToApiContractId(value)
     }
-
-  private object JsonVariant {
-    def unapply(o: JsObject): Option[(String, JsValue)] =
-      (o.fields.size, o.fields.get("tag"), o.fields.get("value")) match {
-        case (2, Some(JsString(tag)), Some(nv)) => Some((tag, nv))
-        case _ => None
-      }
-  }
 }
 
 object ApiCodecCompressed
