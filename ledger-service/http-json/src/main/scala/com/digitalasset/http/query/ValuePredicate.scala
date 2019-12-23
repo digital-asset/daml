@@ -142,7 +142,11 @@ sealed abstract class ValuePredicate extends Product with Serializable {
           val Rec(vraw, v_==, v_@>) = go(path ++ sql"->${dc: String}", q)
           // @> is safe because in a variant-typed context, all JsObjects
           // have exactly one key
-          Rec(vraw, v_== map (jv => JsObject((dc, jv))), v_@> map (jv => JsObject((dc, jv))))
+          Rec(
+            vraw,
+            v_== map (jv => JsObject("tag" -> JsString(dc), "value" -> jv)),
+            v_@> map (jv => JsObject("tag" -> JsString(dc), "value" -> jv))
+          )
 
         case MapMatch(qs) =>
           val cqs = qs.toImmArray.toSeq map {
