@@ -31,8 +31,8 @@ private class PackageService(reloadPackageStoreIfChanged: PackageService.ReloadP
       State(
         newPackageStore.keySet,
         getTemplateIdMap(newPackageStore),
-        getChoiceIdMap(newPackageStore),
-        getKeyIdMap(newPackageStore),
+        getChoiceTypeMap(newPackageStore),
+        getKeyTypeMap(newPackageStore),
         newPackageStore)
     }
   }
@@ -194,8 +194,8 @@ object PackageService {
       .toRightDisjunction(
         InputError(s"Cannot resolve Template Key type, given: ${templateId.toString}"))
 
-  // TODO (Leo): merge getChoiceIdMap and getKeyIdMap, so we build them in one iteration over all templates
-  def getChoiceIdMap(packageStore: PackageStore): ChoiceTypeMap =
+  // TODO (Leo): merge getChoiceTypeMap and getKeyTypeMap, so we build them in one iteration over all templates
+  def getChoiceTypeMap(packageStore: PackageStore): ChoiceTypeMap =
     packageStore.flatMap { case (_, interface) => getChoices(interface) }(collection.breakOut)
 
   private def getChoices(
@@ -216,8 +216,8 @@ object PackageService {
     }
   }
 
-  // TODO (Leo): merge getChoiceIdMap and getKeyIdMap, so we build them in one iteration over all templates
-  private def getKeyIdMap(packageStore: PackageStore): KeyTypeMap =
+  // TODO (Leo): merge getChoiceTypeMap and getKeyTypeMap, so we build them in one iteration over all templates
+  private def getKeyTypeMap(packageStore: PackageStore): KeyTypeMap =
     packageStore.flatMap { case (_, interface) => getKeys(interface) }(collection.breakOut)
 
   private def getKeys(interface: iface.Interface): Map[TemplateId.RequiredPkg, iface.Type] =
