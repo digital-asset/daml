@@ -73,13 +73,6 @@ da_java_library(
     ],
 )
 
-testDependencies = [
-    ":bindings-java",
-    "@maven//:org_scalatest_scalatest_2_12",
-    "@maven//:com_google_protobuf_protobuf_java",
-    "@maven//:org_scalacheck_scalacheck_2_12",
-]
-
 da_scala_library(
     name = "bindings-java-tests-lib",
     srcs = glob(
@@ -89,7 +82,12 @@ da_scala_library(
             "src/test/**/*Test.scala",
         ],
     ),
-    deps = testDependencies,
+    deps = [
+        ":bindings-java",
+        "@maven//:org_scalatest_scalatest_2_12",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:org_scalacheck_scalacheck_2_12",
+    ],
 )
 
 da_scala_test_suite(
@@ -100,7 +98,11 @@ da_scala_test_suite(
     ]),
     deps = [
         ":bindings-java-tests-lib",
-    ] + testDependencies,
+        ":bindings-java",
+        "@maven//:org_scalatest_scalatest_2_12",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:org_scalacheck_scalacheck_2_12",
+    ],
 )
 
 filegroup(

@@ -7,20 +7,6 @@ load(
     "da_scala_test_suite",
 )
 
-compileDependencies = [
-    "@maven//:ch_qos_logback_logback_classic",
-    "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
-    "@maven//:io_circe_circe_core_2_12",
-    "@maven//:io_circe_circe_generic_2_12",
-    "@maven//:io_circe_circe_yaml_2_12",
-    "@maven//:org_typelevel_cats_core_2_12",
-]
-
-testDependencies = [
-    ":scala-daml-project-config",
-    "@maven//:org_scalatest_scalatest_2_12",
-] + compileDependencies
-
 da_scala_library(
     name = "scala-daml-project-config",
     srcs = glob([
@@ -28,7 +14,14 @@ da_scala_library(
     ]),
     tags = ["maven_coordinates=com.daml:daml-project-config:__VERSION__"],
     visibility = ["//visibility:public"],
-    deps = compileDependencies,
+    deps = [
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
+        "@maven//:io_circe_circe_core_2_12",
+        "@maven//:io_circe_circe_generic_2_12",
+        "@maven//:io_circe_circe_yaml_2_12",
+        "@maven//:org_typelevel_cats_core_2_12",
+    ],
 )
 
 da_scala_test_suite(
@@ -38,5 +31,14 @@ da_scala_test_suite(
         "src/test/**/*Spec.scala",
         "src/test/**/*Test.scala",
     ]),
-    deps = testDependencies,
+    deps = [
+        ":scala-daml-project-config",
+        "@maven//:org_scalatest_scalatest_2_12",
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
+        "@maven//:io_circe_circe_core_2_12",
+        "@maven//:io_circe_circe_generic_2_12",
+        "@maven//:io_circe_circe_yaml_2_12",
+        "@maven//:org_typelevel_cats_core_2_12",
+    ],
 )

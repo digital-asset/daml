@@ -50,29 +50,6 @@ da_java_library(
     ],
 )
 
-testDependencies = [
-    "//daml-lf/data",
-    "@maven//:io_grpc_grpc_core",
-    "@maven//:io_grpc_grpc_netty",
-    "@maven//:io_netty_netty_handler",
-    ":bindings-rxjava",
-    "@maven//:org_slf4j_slf4j_api",
-    "//ledger-api/grpc-definitions:ledger-api-scalapb",
-    "//libs-scala/grpc-utils",
-    "//ledger-api/rs-grpc-bridge:rs-grpc-bridge",
-    "//ledger/ledger-api-auth",
-    "//ledger/ledger-api-common",
-    "@maven//:org_scalatest_scalatest_2_12",
-    "@maven//:io_reactivex_rxjava2_rxjava",
-    "@maven//:com_google_api_grpc_proto_google_common_protos",
-    "@maven//:com_google_protobuf_protobuf_java",
-    "@maven//:org_scalacheck_scalacheck_2_12",
-    "@maven//:org_reactivestreams_reactive_streams",
-    "@maven//:org_pcollections_pcollections",
-    "@maven//:org_scalactic_scalactic_2_12",
-    "//language-support/java/bindings:bindings-java",
-]
-
 da_scala_library(
     name = "bindings-java-tests-lib",
     srcs = glob(
@@ -82,7 +59,28 @@ da_scala_library(
             "src/test/**/*Test.scala",
         ],
     ),
-    deps = testDependencies,
+    deps = [
+        "//daml-lf/data",
+        "@maven//:io_grpc_grpc_core",
+        "@maven//:io_grpc_grpc_netty",
+        "@maven//:io_netty_netty_handler",
+        ":bindings-rxjava",
+        "@maven//:org_slf4j_slf4j_api",
+        "//ledger-api/grpc-definitions:ledger-api-scalapb",
+        "//libs-scala/grpc-utils",
+        "//ledger-api/rs-grpc-bridge:rs-grpc-bridge",
+        "//ledger/ledger-api-auth",
+        "//ledger/ledger-api-common",
+        "@maven//:org_scalatest_scalatest_2_12",
+        "@maven//:io_reactivex_rxjava2_rxjava",
+        "@maven//:com_google_api_grpc_proto_google_common_protos",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:org_scalacheck_scalacheck_2_12",
+        "@maven//:org_reactivestreams_reactive_streams",
+        "@maven//:org_pcollections_pcollections",
+        "@maven//:org_scalactic_scalactic_2_12",
+        "//language-support/java/bindings:bindings-java",
+    ],
 )
 
 da_scala_test_suite(
@@ -97,7 +95,27 @@ da_scala_test_suite(
     deps = [
         ":bindings-java-tests-lib",
         ":bindings-integration-tests-model-latest.jar",
-    ] + testDependencies,
+        "//daml-lf/data",
+        "@maven//:io_grpc_grpc_core",
+        "@maven//:io_grpc_grpc_netty",
+        "@maven//:io_netty_netty_handler",
+        ":bindings-rxjava",
+        "@maven//:org_slf4j_slf4j_api",
+        "//ledger-api/grpc-definitions:ledger-api-scalapb",
+        "//libs-scala/grpc-utils",
+        "//ledger-api/rs-grpc-bridge:rs-grpc-bridge",
+        "//ledger/ledger-api-auth",
+        "//ledger/ledger-api-common",
+        "@maven//:org_scalatest_scalatest_2_12",
+        "@maven//:io_reactivex_rxjava2_rxjava",
+        "@maven//:com_google_api_grpc_proto_google_common_protos",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:org_scalacheck_scalacheck_2_12",
+        "@maven//:org_reactivestreams_reactive_streams",
+        "@maven//:org_pcollections_pcollections",
+        "@maven//:org_scalactic_scalactic_2_12",
+        "//language-support/java/bindings:bindings-java",
+    ],
 )
 
 daml_compile(

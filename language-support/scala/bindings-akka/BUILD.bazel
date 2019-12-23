@@ -44,15 +44,6 @@ da_scala_library(
     deps = bindings_akka_deps,
 )
 
-bindings_akka_test_deps = [
-    ":bindings-akka",
-    "@maven//:com_typesafe_akka_akka_stream_testkit_2_12",
-    "@maven//:org_scalacheck_scalacheck_2_12",
-    "@maven//:org_scalatest_scalatest_2_12",
-    "//ledger-api/rs-grpc-bridge",
-    "//language-support/scala/bindings-akka-testing",
-] + bindings_akka_deps
-
 da_scala_test_suite(
     name = "tests",
     srcs = glob(
@@ -63,5 +54,31 @@ da_scala_test_suite(
     visibility = [
         "//visibility:public",
     ],
-    deps = bindings_akka_test_deps,
+    deps = [
+        ":bindings-akka",
+        "@maven//:com_typesafe_akka_akka_stream_testkit_2_12",
+        "@maven//:org_scalacheck_scalacheck_2_12",
+        "@maven//:org_scalatest_scalatest_2_12",
+        "//ledger-api/rs-grpc-bridge",
+        "//language-support/scala/bindings-akka-testing",
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:ch_qos_logback_logback_core",
+        "@maven//:com_chuusai_shapeless_2_12",
+        "@maven//:com_github_pureconfig_pureconfig_2_12",
+        "@maven//:com_google_api_grpc_proto_google_common_protos",
+        "@maven//:com_typesafe_akka_akka_actor_2_12",
+        "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:com_typesafe_config",
+        "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
+        "@maven//:io_grpc_grpc_netty",
+        "@maven//:io_netty_netty_handler",
+        "@maven//:io_netty_netty_tcnative_boringssl_static",
+        "@maven//:org_scalaz_scalaz_core_2_12",
+        "@maven//:org_slf4j_slf4j_api",
+        "//language-support/java/bindings:bindings-java",
+        "//language-support/scala/bindings",
+        "//ledger-api/rs-grpc-akka",
+        "//ledger/ledger-api-client",
+        "//ledger/ledger-api-domain",
+    ],
 )

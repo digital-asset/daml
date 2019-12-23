@@ -54,5 +54,10 @@ da_scala_test(
         "@maven//:com_chuusai_shapeless_2_12",
         "//daml-lf/transaction-scalacheck",
         "//bazel_tools/runfiles:scala_runfiles",
-    ] + lf_value_json_deps,
+        "@maven//:org_scalaz_scalaz_core_2_12",
+        "@maven//:io_spray_spray_json_2_12",
+        "//daml-lf/data",
+        "//daml-lf/interface",
+        "//daml-lf/transaction",
+    ],
 )
