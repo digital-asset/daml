@@ -5,7 +5,6 @@ load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
     "da_scala_library",
-    "da_scala_test",
     "da_scala_test_suite",
     "lf_scalacopts",
 )
