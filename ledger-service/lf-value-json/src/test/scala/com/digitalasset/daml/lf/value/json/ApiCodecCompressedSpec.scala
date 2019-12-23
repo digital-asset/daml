@@ -11,7 +11,7 @@ import value.TypedValueGenerators.{RNil, genAddend, genTypeAndValue, ValueAddend
 import ApiCodecCompressed.{apiValueToJsValue, jsValueToApiValue}
 import com.digitalasset.ledger.service.MetadataReader
 import org.scalactic.source
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.{Inside, Matchers, WordSpec}
 import org.scalatest.prop.{GeneratorDrivenPropertyChecks, TableDrivenPropertyChecks}
 import org.scalacheck.{Arbitrary, Gen}
 import shapeless.{Coproduct => HSum}
@@ -26,7 +26,9 @@ class ApiCodecCompressedSpec
     extends WordSpec
     with Matchers
     with GeneratorDrivenPropertyChecks
-    with TableDrivenPropertyChecks {
+    with TableDrivenPropertyChecks
+    with Inside {
+
   import C.typeLookup
 
   private val dar = new java.io.File(rlocation("ledger-service/lf-value-json/JsonEncodingTest.dar"))
@@ -401,18 +403,18 @@ class ApiCodecCompressedSpec
     "dealing with Contract Key" should {
 
       "decode type Key = Party from JSON" in {
-        val keyedByPartyTemplate: iface.InterfaceType.Template = mustBeOne(
+        val templateDef: iface.InterfaceType.Template = mustBeOne(
           MetadataReader.templateByName(darMetadata)(
             Ref.QualifiedName.assertFromString("JsonEncodingTest:KeyedByParty")))._2
 
-        val keyType = keyedByPartyTemplate.template.key.getOrElse(fail("Expected a key, got None"))
+        val keyType = templateDef.template.key.getOrElse(fail("Expected a key, got None"))
         val expectedValue: LfValue[String] = LfValue.ValueParty(Ref.Party.assertFromString("Alice"))
 
         jsValueToApiValue(JsString("Alice"), keyType, darTypeLookup) shouldBe expectedValue
       }
 
       "decode type Key = (Party, Int) from JSON" in {
-        val keyedByPartyTemplate: iface.InterfaceType.Template = mustBeOne(
+        val templateDef: iface.InterfaceType.Template = mustBeOne(
           MetadataReader.templateByName(darMetadata)(
             Ref.QualifiedName.assertFromString("JsonEncodingTest:KeyedByPartyInt")))._2
 
@@ -420,7 +422,7 @@ class ApiCodecCompressedSpec
         val daTypesPackageId: Ref.PackageId =
           mustBeOne(MetadataReader.typeByName(darMetadata)(tuple2Name))._1
 
-        val keyType = keyedByPartyTemplate.template.key.getOrElse(fail("Expected a key, got None"))
+        val keyType = templateDef.template.key.getOrElse(fail("Expected a key, got None"))
 
         val expectedValue: LfValue[String] = LfValue.ValueRecord(
           Some(Ref.Identifier(daTypesPackageId, tuple2Name)),
@@ -432,6 +434,32 @@ class ApiCodecCompressedSpec
         )
 
         jsValueToApiValue("""["Alice", 123]""".parseJson, keyType, darTypeLookup) shouldBe expectedValue
+      }
+
+      "decode type Key = (Party, (Int, Foo, BazRecord)) from JSON" in {
+        val templateDef: iface.InterfaceType.Template = mustBeOne(
+          MetadataReader.templateByName(darMetadata)(
+            Ref.QualifiedName.assertFromString("JsonEncodingTest:KeyedByVariantAndRecord")))._2
+
+        val keyType = templateDef.template.key.getOrElse(fail("Expected a key, got None"))
+
+        val actual: LfValue[String] = jsValueToApiValue(
+          """["Alice", [11, {"tag": "Bar", "value": 123}, {"baz": "baz text"}]]""".parseJson,
+          keyType,
+          darTypeLookup
+        )
+
+        inside(actual) {
+          case LfValue.ValueRecord(Some(id2), ImmArray((_, party), (_, record2))) =>
+            id2.qualifiedName.name shouldBe Ref.DottedName.assertFromString("Tuple2")
+            party shouldBe LfValue.ValueParty(Ref.Party.assertFromString("Alice"))
+
+            inside(record2) {
+              case LfValue.ValueRecord(Some(id3), ImmArray((_, age), _, _)) =>
+                id3.qualifiedName.name shouldBe Ref.DottedName.assertFromString("Tuple3")
+                age shouldBe LfValue.ValueInt64(11)
+            }
+        }
       }
     }
   }
