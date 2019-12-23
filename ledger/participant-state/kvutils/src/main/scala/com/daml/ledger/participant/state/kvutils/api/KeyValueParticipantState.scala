@@ -61,4 +61,3 @@ class KeyValueParticipantState(reader: LedgerReader, writer: LedgerWriter)(
 
   override def close(): Unit = writerAdaptor.close()
 }
-

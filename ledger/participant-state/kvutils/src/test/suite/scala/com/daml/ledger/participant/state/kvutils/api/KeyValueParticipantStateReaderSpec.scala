@@ -98,4 +98,3 @@ class KeyValueParticipantStateReaderSpec
   private def offsetsFrom(stream: Source[(Offset, Update), NotUsed]): Seq[Offset] =
     Await.result(stream.runWith(Sink.seq), DefaultTimeout).map(_._1)
 }
-

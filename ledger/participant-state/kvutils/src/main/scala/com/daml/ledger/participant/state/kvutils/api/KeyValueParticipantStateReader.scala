@@ -54,4 +54,3 @@ class KeyValueParticipantStateReader(reader: LedgerReader)(implicit materializer
       LedgerReader.DefaultTimeModel,
       Time.Timestamp.Epoch)
 }
-

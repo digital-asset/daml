@@ -15,4 +15,3 @@ trait LedgerWriter {
 
   def checkHealth(): HealthStatus = Healthy
 }
-

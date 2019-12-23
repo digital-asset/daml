@@ -82,4 +82,3 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter)(
       submission: DamlSubmission): CompletionStage[SubmissionResult] =
     FutureConverters.toJava(writer.commit(correlationId, Envelope.enclose(submission).toByteArray))
 }
-

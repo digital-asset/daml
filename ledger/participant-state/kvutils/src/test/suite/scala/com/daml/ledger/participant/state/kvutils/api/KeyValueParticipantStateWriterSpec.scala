@@ -111,4 +111,3 @@ class KeyValueParticipantStateWriterSpec extends WordSpec with MockitoSugar {
   private def newRecordTime(): Timestamp =
     Timestamp.assertFromInstant(Clock.systemUTC().instant())
 }
-

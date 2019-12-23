@@ -25,4 +25,3 @@ object LedgerReader {
     timeModel = TimeModel.reasonableDefault
   )
 }
-
