@@ -28,7 +28,5 @@ da_scala_test(
     deps = [
         ":language",
         "//daml-lf/data",
-        "@maven//:org_scalacheck_scalacheck_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
