@@ -9,13 +9,14 @@ import akka.stream.scaladsl.{
   Concat,
   Flow,
   GraphDSL,
+  Keep,
   Partition,
   RunnableGraph,
   Sink,
   SinkQueueWithCancel,
   Source
 }
-import akka.stream.{ClosedShape, FanOutShape2, Graph, Materializer}
+import akka.stream.{ClosedShape, FanOutShape2, FlowShape, Graph, Materializer}
 import com.digitalasset.http.Statement.discard
 import com.digitalasset.http.dbbackend.ContractDao.StaleOffsetException
 import com.digitalasset.http.dbbackend.{ContractDao, Queries}
@@ -141,7 +142,7 @@ private class ContractsFetch(
       GraphDSL.create(
         Sink.queue[ConnectionIO[Unit]](),
         Sink.last[OffsetBookmark[String]]
-      )((a, b) => (a, b)) { implicit builder => (acsSink, offsetSink) =>
+      )(Keep.both) { implicit builder => (acsSink, offsetSink) =>
         import GraphDSL.Implicits._
 
         val txnK = getCreatesAndArchivesSince(
@@ -259,6 +260,17 @@ private[http] object ContractsFetch {
     val as = asb.result()
     InsertDeleteStep(csb.result() filter (ce => !as.contains(ce.contractId)), as)
   }
+
+  /** Several of the graphs here have a second output guaranteed to deliver only one value.
+    * This turns such a graph into a flow with the value materialized.
+    */
+  def matSecondOut[A, Y, Z](g: Graph[FanOutShape2[A, Y, Z], NotUsed]): Flow[A, Y, Future[Z]] =
+    Flow fromGraph GraphDSL.create(Sink.head[Z]) { implicit b => zOut =>
+      import GraphDSL.Implicits._
+      val gs = b add g
+      gs.out1 ~> zOut
+      new FlowShape(gs.in, gs.out0)
+    }
 
   /** Like `acsAndBoundary`, but also include the events produced by `transactionsSince`
     * after the ACS's last offset, terminating with the last offset of the last transaction,

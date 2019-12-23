@@ -5,9 +5,9 @@ package com.digitalasset.http
 
 import akka.NotUsed
 import akka.stream.scaladsl._
-import akka.stream.{Materializer, SourceShape}
+import akka.stream.Materializer
 import com.digitalasset.daml.lf
-import com.digitalasset.http.ContractsFetch.{InsertDeleteStep, OffsetBookmark}
+import com.digitalasset.http.ContractsFetch.InsertDeleteStep
 import com.digitalasset.http.dbbackend.ContractDao
 import com.digitalasset.http.domain.{GetActiveContractsRequest, JwtPayload, TemplateId}
 import com.digitalasset.http.json.JsonProtocol.LfValueCodec
@@ -245,29 +245,23 @@ class ContractsService(
       templateId: domain.TemplateId.RequiredPkg)
     : Source[InsertDeleteStep[api.event.CreatedEvent], NotUsed] = {
 
-    val graph = GraphDSL.create() { implicit b =>
-      import GraphDSL.Implicits._
+    val source = getActiveContracts(jwt, transactionFilter(party, templateId), true)
 
-      val source = getActiveContracts(jwt, transactionFilter(party, templateId), true)
+    val transactionsSince
+      : api.ledger_offset.LedgerOffset => Source[api.transaction.Transaction, NotUsed] =
+      getCreatesAndArchivesSince(
+        jwt,
+        transactionFilter(party, templateId),
+        _: api.ledger_offset.LedgerOffset)
 
-      val transactionsSince
-        : api.ledger_offset.LedgerOffset => Source[api.transaction.Transaction, NotUsed] =
-        getCreatesAndArchivesSince(
-          jwt,
-          transactionFilter(party, templateId),
-          _: api.ledger_offset.LedgerOffset)
-
-      val contractsAndBoundary = b add ContractsFetch.acsFollowingAndBoundary(transactionsSince)
-      val offsetSink = b add Sink.foreach[OffsetBookmark[String]] { a =>
-        logger.debug(s"contracts fetch completed at: ${a.toString}")
+    import ContractsFetch.{acsFollowingAndBoundary, matSecondOut}
+    val contractsAndBoundary = matSecondOut(acsFollowingAndBoundary(transactionsSince))
+    source
+      .viaMat(contractsAndBoundary)(Keep.right)
+      .mapMaterializedValue { fob =>
+        fob.foreach(a => logger.debug(s"contracts fetch completed at: ${a.toString}"))
+        NotUsed
       }
-
-      source ~> contractsAndBoundary.in
-      contractsAndBoundary.out1 ~> offsetSink
-      new SourceShape(contractsAndBoundary.out0)
-    }
-
-    Source.fromGraph(graph)
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
