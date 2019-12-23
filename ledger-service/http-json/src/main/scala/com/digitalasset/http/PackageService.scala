@@ -73,7 +73,7 @@ private class PackageService(reloadPackageStoreIfChanged: PackageService.ReloadP
 
   // See the above comment
   def resolveChoiceRecordType: ResolveChoiceRecordType =
-    (x, y) => PackageService.resolveChoiceRecordId(state.choiceTypeMap)(x, y)
+    (x, y) => PackageService.resolveChoiceRecordType(state.choiceTypeMap)(x, y)
 
   // See the above comment
   def resolveKeyType: ResolveKeyType =
@@ -179,7 +179,7 @@ object PackageService {
           s"Template ID resolution error, the sizes of requested and resolved collections should match. " +
             s"requested: $requested, resolved: $resolved"))
 
-  def resolveChoiceRecordId(choiceIdMap: ChoiceTypeMap)(
+  def resolveChoiceRecordType(choiceIdMap: ChoiceTypeMap)(
       templateId: TemplateId.RequiredPkg,
       choice: Choice): Error \/ iface.Type = {
     val k = (templateId, choice)
