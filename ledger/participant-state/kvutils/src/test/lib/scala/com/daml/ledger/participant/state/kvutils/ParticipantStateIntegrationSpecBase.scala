@@ -39,9 +39,10 @@ abstract class ParticipantStateIntegrationSpecBase
 
   def participantStateFactory(
       participantId: ParticipantId,
-      ledgerId: LedgerString): ReadService with WriteService = ???
+      ledgerId: LedgerString,
+  ): ReadService with WriteService
 
-  def currentRecordTime(): Timestamp = ???
+  def currentRecordTime(): Timestamp
 
   override protected def beforeEach(): Unit = {
     super.beforeEach()
@@ -85,7 +86,6 @@ abstract class ParticipantStateIntegrationSpecBase
     }
 
     "provide two updates after uploadPackages with two archives" in {
-      val archive1 :: archive2 :: _ = archives
       val submissionId = randomLedgerString()
       for {
         _ <- ps.uploadPackages(submissionId, archives, sourceDescription).toScala
@@ -163,7 +163,7 @@ abstract class ParticipantStateIntegrationSpecBase
         update2 match {
           case (offset: Offset, update: PublicPackageUpload) =>
             assert(offset == Offset(Array(2L, 0L)))
-            assert(Some(submissionIds._2) == update.submissionId)
+            assert(update.submissionId.contains(submissionIds._2))
           case _ =>
             fail(
               "unexpected update message after a package upload.  Error : " + result2.description)
@@ -172,11 +172,13 @@ abstract class ParticipantStateIntegrationSpecBase
     }
 
     "provide update after allocateParty" in {
-      val hint = Some(Ref.Party.assertFromString("Alice"))
-      val displayName = Some("Alice Cooper")
+      val partyHint = Ref.Party.assertFromString("Alice")
+      val displayName = "Alice Cooper"
 
       for {
-        allocResult <- ps.allocateParty(hint, displayName, randomLedgerString()).toScala
+        allocResult <- ps
+          .allocateParty(Some(partyHint), Some(displayName), randomLedgerString())
+          .toScala
         updateTuple <- ps.stateUpdates(beginAfter = None).runWith(Sink.head)
       } yield {
         assert(
@@ -185,8 +187,8 @@ abstract class ParticipantStateIntegrationSpecBase
         updateTuple match {
           case (offset: Offset, update: PartyAddedToParticipant) =>
             assert(offset == Offset(Array(0L, 0L)))
-            assert(update.party == hint.get)
-            assert(update.displayName == displayName.get)
+            assert(update.party == partyHint)
+            assert(update.displayName == displayName)
             assert(update.participantId == participantId)
             assert(update.recordTime >= rt)
           case _ =>
@@ -241,7 +243,7 @@ abstract class ParticipantStateIntegrationSpecBase
         update2 match {
           case (offset: Offset, update: PartyAddedToParticipant) =>
             assert(offset == Offset(Array(2L, 0L)))
-            assert(Some(submissionIds._2) == update.submissionId)
+            assert(update.submissionId.contains(submissionIds._2))
           case _ =>
             fail(
               "unexpected update message after a party allocation.  Error : " + result2.description)
@@ -310,12 +312,12 @@ abstract class ParticipantStateIntegrationSpecBase
           .toScala
         updates <- ps.stateUpdates(beginAfter = None).take(3).runWith(Sink.seq)
       } yield {
-        val (offset0, update0) = updates(0)
-        assert(offset0 == Offset(Array(0L, 0L)))
-        assert(update0.isInstanceOf[Update.PartyAddedToParticipant])
+        val Seq(update0, update1, update2) = updates
+        assert(update0._1 == Offset(Array(0L, 0L)))
+        assert(update0._2.isInstanceOf[Update.PartyAddedToParticipant])
 
-        matchTransaction(updates(1), commandIds._1, Offset(Array(1L, 0L)), rt)
-        matchTransaction(updates(2), commandIds._2, Offset(Array(3L, 0L)), rt)
+        matchTransaction(update1, commandIds._1, Offset(Array(1L, 0L)), rt)
+        matchTransaction(update2, commandIds._2, Offset(Array(3L, 0L)), rt)
       }
     }
 
@@ -344,7 +346,6 @@ abstract class ParticipantStateIntegrationSpecBase
     "correctly implements tx submission authorization" in {
       val rt = currentRecordTime()
 
-      val updatesResult = ps.stateUpdates(beginAfter = None).take(4).runWith(Sink.seq)
       val unallocatedParty = Ref.Party.assertFromString("nobody")
 
       for {
@@ -537,7 +538,7 @@ object ParticipantStateIntegrationSpecBase {
       rt: Timestamp
   ): Assertion = updateTuple match {
     case (offset: Offset, update: PublicPackageUpload) =>
-      assert(update.submissionId == Some(submissionId))
+      assert(update.submissionId.contains(submissionId))
       assert(offset == givenOffset)
       assert(update.archives.map(_.getHash).toSet == expectedArchives.map(_.getHash).toSet)
       assert(update.sourceDescription == sourceDescription)
