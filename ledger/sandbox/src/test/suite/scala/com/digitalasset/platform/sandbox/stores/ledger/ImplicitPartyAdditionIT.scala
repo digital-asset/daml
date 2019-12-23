@@ -14,9 +14,9 @@ import com.daml.ledger.participant.state.v1.{
 }
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
+import com.digitalasset.daml.lf.transaction.GenTransaction
 import com.digitalasset.daml.lf.transaction.Node._
 import com.digitalasset.daml.lf.transaction.Transaction.{NodeId, TContractId, Value}
-import com.digitalasset.daml.lf.transaction.GenTransaction
 import com.digitalasset.daml.lf.value.Value.{
   AbsoluteContractId,
   ContractInst,
@@ -24,6 +24,7 @@ import com.digitalasset.daml.lf.value.Value.{
   VersionedValue
 }
 import com.digitalasset.daml.lf.value.ValueVersions
+import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
   MultiResourceBase,
@@ -34,11 +35,10 @@ import com.digitalasset.platform.sandbox.{LedgerResource, MetricsAround}
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScalaFutures}
 import org.scalatest.time.Span
 import org.scalatest.{AsyncWordSpec, Matchers}
-import com.digitalasset.ledger.api.domain.LedgerId
 
 import scala.collection.immutable.TreeMap
-import scala.concurrent.Future
 import scala.concurrent.duration._
+import scala.concurrent.{ExecutionContext, Future}
 import scala.language.implicitConversions
 
 sealed abstract class BackendType
@@ -83,13 +83,15 @@ class ImplicitPartyAdditionIT
   override protected def fixtureIdsEnabled: Set[BackendType] =
     Set(BackendType.InMemory, BackendType.Postgres)
 
-  override protected def constructResource(index: Int, fixtureId: BackendType): Resource[Ledger] =
+  override protected def constructResource(index: Int, fixtureId: BackendType): Resource[Ledger] = {
+    implicit val executionContext: ExecutionContext = system.dispatcher
     fixtureId match {
       case BackendType.InMemory =>
         LedgerResource.inMemory(ledgerId, participantId, timeProvider)
       case BackendType.Postgres =>
         LedgerResource.postgres(ledgerId, participantId, timeProvider, metrics)
     }
+  }
 
   private def publishSingleNodeTx(
       ledger: Ledger,

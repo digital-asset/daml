@@ -3,7 +3,8 @@
 
 package com.digitalasset.platform.sandbox
 
-import java.io.{File, FileWriter}
+import java.io.File
+import java.nio.file.Files
 import java.time.Instant
 
 import akka.actor.ActorSystem
@@ -14,6 +15,7 @@ import com.daml.ledger.participant.state.{v1 => ParticipantState}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.engine.Engine
+import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.digitalasset.ledger.api.auth.{AuthService, AuthServiceWildcard, Authorizer}
@@ -22,6 +24,7 @@ import com.digitalasset.ledger.api.health.HealthChecks
 import com.digitalasset.platform.apiserver.{ApiServer, ApiServices, LedgerApiServer}
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
+import com.digitalasset.platform.resources.{Resource, ResourceOwner}
 import com.digitalasset.platform.sandbox.SandboxServer._
 import com.digitalasset.platform.sandbox.banner.Banner
 import com.digitalasset.platform.sandbox.config.SandboxConfig
@@ -39,10 +42,9 @@ import com.digitalasset.platform.server.services.testing.TimeServiceBackend
 import com.digitalasset.platform.services.time.TimeProviderType
 import org.slf4j.LoggerFactory
 
-import scala.concurrent.duration._
+import scala.collection.JavaConverters._
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.util.Try
-import scala.util.control.NonFatal
 
 object SandboxServer {
   private val ActorSystemName = "sandbox"
@@ -83,39 +85,16 @@ object SandboxServer {
     }
   }
 
-  private final class Infrastructure(actorSystem: ActorSystem, val materializer: Materializer)
-      extends AutoCloseable {
-    def executionContext: ExecutionContext = materializer.executionContext
-
-    override def close(): Unit = {
-      materializer.shutdown()
-      Await.result(actorSystem.terminate(), AsyncTolerance)
-      ()
-    }
-  }
-
-  private final class ApiServerState(
-      ledgerId: LedgerId,
-      val apiServer: ApiServer,
-      indexAndWriteService: AutoCloseable,
-  ) extends AutoCloseable {
-    def port: Int = apiServer.port
-
-    override def close(): Unit = {
-      apiServer.close() //fully tear down the old server.
-      indexAndWriteService.close()
-    }
-  }
-
   private final case class SandboxState(
-      apiServerState: ApiServerState,
-      infra: Infrastructure,
+      // nested resource so we can release it independently when restarting
+      apiServer: Resource[ApiServer],
       packageStore: InMemoryPackageStore,
-  ) extends AutoCloseable {
-    override def close(): Unit = {
-      // FIXME: extra close - when closed during reset close is called on already closed service causing an exception!
-      apiServerState.close()
-      infra.close()
+      materializer: Materializer,
+  ) {
+    val executionContext: ExecutionContext = materializer.executionContext
+
+    def port: Future[Int] = {
+      apiServer.asFuture.map(_.port)(executionContext)
     }
   }
 }
@@ -132,52 +111,63 @@ final class SandboxServer(config: => SandboxConfig) extends AutoCloseable {
   private val metricsReporting =
     new MetricsReporting(metrics, "com.digitalasset.platform.sandbox")
 
-  @volatile private var sandboxState: SandboxState = _
+  @volatile private var sandboxState: Resource[SandboxState] = _
 
-  sandboxState = start()
+  sandboxState = start()(DirectExecutionContext)
 
-  def port: Int = sandboxState.apiServerState.port
+  def port: Int =
+    Await.result(portF(DirectExecutionContext), AsyncTolerance)
+
+  def portF(implicit executionContext: ExecutionContext): Future[Int] =
+    sandboxState.asFuture.flatMap(_.apiServer.asFuture).map(_.port)
 
   /** the reset service is special, since it triggers a server shutdown */
   private def resetService(
       ledgerId: LedgerId,
       authorizer: Authorizer,
-      loggerFactory: NamedLoggerFactory): SandboxResetService =
+      loggerFactory: NamedLoggerFactory,
+      executionContext: ExecutionContext,
+  ): SandboxResetService =
     new SandboxResetService(
       ledgerId,
-      () => sandboxState.infra.executionContext,
-      () => resetAndRestartServer(),
+      () => executionContext,
+      () => resetAndRestartServer()(executionContext),
       authorizer,
-      loggerFactory
+      loggerFactory,
     )
 
-  def resetAndRestartServer(): Future[Unit] = {
-    implicit val ec: ExecutionContext = sandboxState.infra.executionContext
-    val apiServicesClosed = sandboxState.apiServerState.apiServer.servicesClosed()
-    //need to run this async otherwise the callback kills the server under the in-flight reset service request!
+  def resetAndRestartServer()(implicit executionContext: ExecutionContext): Future[Unit] = {
+    val apiServicesClosed =
+      sandboxState.asFuture.flatMap(_.apiServer.asFuture).flatMap(_.servicesClosed())
 
-    Future {
-      sandboxState.apiServerState.close() // fully tear down the old server
-      //TODO: eliminate the state mutation somehow
-      //yes, it's horrible that we mutate the state here, but believe me, it's still an improvement to what we had before!
-      sandboxState = sandboxState.copy(
-        apiServerState = buildAndStartApiServer(
-          sandboxState.infra,
-          sandboxState.packageStore,
-          SqlStartMode.AlwaysReset))
-    }(sandboxState.infra.executionContext)
+    // Need to run this async otherwise the callback kills the server under the in-flight reset service request!
+    // TODO: eliminate the state mutation somehow
+    sandboxState = for {
+      state <- sandboxState
+      currentPort <- ResourceOwner.forFuture(() => state.port).acquire()
+      _ <- ResourceOwner.forFuture(() => state.apiServer.release()).acquire()
+    } yield
+      state.copy(
+        apiServer = buildAndStartApiServer(
+          state.materializer,
+          state.packageStore,
+          SqlStartMode.AlwaysReset,
+          Some(currentPort),
+        ))
 
     // waits for the services to be closed, so we can guarantee that future API calls after finishing the reset will never be handled by the old one
     apiServicesClosed
   }
 
   private def buildAndStartApiServer(
-      infra: Infrastructure,
+      materializer: Materializer,
       packageStore: InMemoryPackageStore,
-      startMode: SqlStartMode = SqlStartMode.ContinueIfExists,
-  ): ApiServerState = {
-    implicit val mat: Materializer = infra.materializer
-    implicit val ec: ExecutionContext = infra.executionContext
+      startMode: SqlStartMode,
+      currentPort: Option[Int],
+  ): Resource[ApiServer] = {
+    implicit val _materializer: Materializer = materializer
+    implicit val actorSystem: ActorSystem = materializer.system
+    implicit val executionContext: ExecutionContext = materializer.executionContext
 
     val ledgerId = config.ledgerIdMode match {
       case LedgerIdMode.Static(id) => id
@@ -200,7 +190,7 @@ final class SandboxServer(config: => SandboxConfig) extends AutoCloseable {
 
     val loggerFactory = NamedLoggerFactory.forParticipant(participantId)
 
-    val (ledgerType, indexAndWriteServiceF) = config.jdbcUrl match {
+    val (ledgerType, indexAndWriteServiceResourceOwner) = config.jdbcUrl match {
       case Some(jdbcUrl) =>
         "postgres" -> SandboxIndexAndWriteService.postgres(
           ledgerId,
@@ -218,38 +208,30 @@ final class SandboxServer(config: => SandboxConfig) extends AutoCloseable {
         )
 
       case None =>
-        "in-memory" -> Future.successful(
-          SandboxIndexAndWriteService.inMemory(
-            ledgerId,
-            participantId,
-            config.timeModel,
-            timeProvider,
-            acs,
-            ledgerEntries,
-            packageStore,
-            metrics,
-          ))
+        "in-memory" -> SandboxIndexAndWriteService.inMemory(
+          ledgerId,
+          participantId,
+          config.timeModel,
+          timeProvider,
+          acs,
+          ledgerEntries,
+          packageStore,
+          metrics,
+        )
     }
 
-    val indexAndWriteService = Try(Await.result(indexAndWriteServiceF, AsyncTolerance))
-      .fold(t => {
-        val msg = "Could not create SandboxIndexAndWriteService"
-        logger.error(msg, t)
-        sys.error(msg)
-      }, identity)
-
-    val authorizer = new Authorizer(
-      () => java.time.Clock.systemUTC.instant(),
-      LedgerId.unwrap(ledgerId),
-      participantId)
-
-    val healthChecks = new HealthChecks(
-      "index" -> indexAndWriteService.indexService,
-      "write" -> indexAndWriteService.writeService,
-    )
-
-    val apiServer = Await.result(
-      LedgerApiServer.start(
+    for {
+      indexAndWriteService <- indexAndWriteServiceResourceOwner.acquire()
+      authorizer = new Authorizer(
+        () => java.time.Clock.systemUTC.instant(),
+        LedgerId.unwrap(ledgerId),
+        participantId)
+      healthChecks = new HealthChecks(
+        "index" -> indexAndWriteService.indexService,
+        "write" -> indexAndWriteService.writeService,
+      )
+      // NOTE: Re-use the same port after reset.
+      apiServer <- new LedgerApiServer(
         (mat: Materializer, esf: ExecutionSequencerFactory) =>
           ApiServices
             .create(
@@ -266,56 +248,51 @@ final class SandboxServer(config: => SandboxConfig) extends AutoCloseable {
               metrics,
               healthChecks,
             )(mat, esf)
-            .map(_.withServices(List(resetService(ledgerId, authorizer, loggerFactory)))),
-        // NOTE(JM): Re-use the same port after reset.
-        Option(sandboxState).fold(config.port)(_.apiServerState.port),
+            .map(_.withServices(
+              List(resetService(ledgerId, authorizer, loggerFactory, executionContext)))),
+        currentPort.getOrElse(config.port),
         config.maxInboundMessageSize,
         config.address,
         loggerFactory,
         config.tlsConfig.flatMap(_.server),
         List(
-          AuthorizationInterceptor(authService, ec),
-          resetService(ledgerId, authorizer, loggerFactory)
+          AuthorizationInterceptor(authService, executionContext),
+          resetService(ledgerId, authorizer, loggerFactory, executionContext),
         ),
         metrics
-      ),
-      AsyncTolerance
-    )
-
-    val newState = new ApiServerState(
-      ledgerId,
-      apiServer,
-      indexAndWriteService
-    )
-
-    Banner.show(Console.out)
-    logger.info(
-      "Initialized sandbox version {} with ledger-id = {}, port = {}, dar file = {}, time mode = {}, ledger = {}, auth-service = {}",
-      BuildInfo.Version,
-      ledgerId,
-      newState.port.toString,
-      config.damlPackages,
-      config.timeProviderType,
-      ledgerType,
-      authService.getClass.getSimpleName
-    )
-
-    writePortFile(newState.port)
-
-    newState
+      ).acquire()
+      _ <- ResourceOwner.forFuture(() => writePortFile(apiServer.port)).acquire()
+    } yield {
+      Banner.show(Console.out)
+      logger.info(
+        "Initialized sandbox version {} with ledger-id = {}, port = {}, dar file = {}, time mode = {}, ledger = {}, auth-service = {}",
+        BuildInfo.Version,
+        ledgerId,
+        apiServer.port.toString,
+        config.damlPackages,
+        config.timeProviderType,
+        ledgerType,
+        authService.getClass.getSimpleName
+      )
+      apiServer
+    }
   }
 
-  private def start(): SandboxState = {
-    val actorSystem = ActorSystem(ActorSystemName)
-    val infrastructure = new Infrastructure(actorSystem, Materializer(actorSystem))
-    try {
-      val packageStore = loadDamlPackages()
-      val apiState = buildAndStartApiServer(infrastructure, packageStore)
-      SandboxState(apiState, infrastructure, packageStore)
-    } catch {
-      case NonFatal(e) =>
-        infrastructure.close()
-        throw e
+  private def start()(implicit executionContext: ExecutionContext): Resource[SandboxState] = {
+    val packageStore = loadDamlPackages()
+    for {
+      actorSystem <- ResourceOwner.forActorSystem(() => ActorSystem(ActorSystemName)).acquire()
+      materializer <- ResourceOwner
+        .forMaterializer(() => Materializer(actorSystem))
+        .acquire()
+    } yield {
+      val apiServerResource = buildAndStartApiServer(
+        materializer,
+        packageStore,
+        SqlStartMode.ContinueIfExists,
+        currentPort = None,
+      )
+      SandboxState(apiServerResource, packageStore, materializer)
     }
   }
 
@@ -332,15 +309,15 @@ final class SandboxServer(config: => SandboxConfig) extends AutoCloseable {
 
   override def close(): Unit = {
     metricsReporting.close()
-    sandboxState.close()
+    Await.result(
+      sandboxState.flatMap(_.apiServer)(DirectExecutionContext).release(),
+      AsyncTolerance)
   }
 
-  private def writePortFile(port: Int): Unit = {
-    config.portFile.foreach { f =>
-      val w = new FileWriter(f)
-      w.write(s"$port\n")
-      w.close()
-    }
-  }
-
+  private def writePortFile(port: Int)(
+      implicit executionContext: ExecutionContext
+  ): Future[Unit] =
+    config.portFile
+      .map(path => Future(Files.write(path, Seq(port.toString).asJava)).map(_ => ()))
+      .getOrElse(Future.successful(()))
 }

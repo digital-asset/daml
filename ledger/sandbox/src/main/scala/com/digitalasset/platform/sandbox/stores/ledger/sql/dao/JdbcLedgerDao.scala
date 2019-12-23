@@ -5,11 +5,9 @@ package com.digitalasset.platform.sandbox.stores.ledger.sql.dao
 import java.io.InputStream
 import java.sql.Connection
 import java.time.Instant
-import java.util.Date
-import java.util.UUID
+import java.util.{Date, UUID}
 
 import akka.NotUsed
-import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import anorm.SqlParser._
 import anorm.ToStatement.optionToStatement
@@ -66,8 +64,8 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.util.{
 import com.digitalasset.platform.sandbox.stores.ledger.{
   ConfigurationEntry,
   LedgerEntry,
-  PartyLedgerEntry,
   PackageLedgerEntry,
+  PartyLedgerEntry
 }
 import com.google.common.io.ByteStreams
 import scalaz.syntax.tag._
@@ -1421,8 +1419,9 @@ private class JdbcLedgerDao(
   // this query pre-filters the active contracts. this avoids loading data that anyway will be dismissed later
   private val SQL_SELECT_ACTIVE_CONTRACTS = SQL(queries.SQL_SELECT_ACTIVE_CONTRACTS)
 
-  override def getActiveContractSnapshot(endExclusive: LedgerOffset, filter: TemplateAwareFilter)(
-      implicit mat: Materializer): Future[LedgerSnapshot] = {
+  override def getActiveContractSnapshot(
+      endExclusive: LedgerOffset,
+      filter: TemplateAwareFilter): Future[LedgerSnapshot] = {
 
     def orEmptyStringList(xs: Seq[String]) = if (xs.nonEmpty) xs else List("")
 
@@ -1687,9 +1686,6 @@ private class JdbcLedgerDao(
       ()
     }
 
-  override def close(): Unit =
-    dbDispatcher.close()
-
   private def executeBatchSql(query: String, params: Iterable[Seq[NamedParameter]])(
       implicit con: Connection) = {
     require(params.nonEmpty, "batch sql statement must have at least one set of name parameters")
@@ -1701,22 +1697,20 @@ private class JdbcLedgerDao(
 object JdbcLedgerDao {
   def apply(
       dbDispatcher: DbDispatcher,
-      contractSerializer: ContractSerializer,
-      transactionSerializer: TransactionSerializer,
-      valueSerializer: ValueSerializer,
-      keyHasher: KeyHasher,
       dbType: DbType,
       loggerFactory: NamedLoggerFactory,
-      executionContext: ExecutionContext): LedgerDao =
+      executionContext: ExecutionContext,
+  ): LedgerDao =
     new JdbcLedgerDao(
       dbDispatcher,
-      contractSerializer,
-      transactionSerializer,
-      valueSerializer,
-      keyHasher,
+      ContractSerializer,
+      TransactionSerializer,
+      ValueSerializer,
+      KeyHasher,
       dbType,
       loggerFactory,
-      executionContext)
+      executionContext,
+    )
 
   private val PARTY_SEPARATOR = '%'
 

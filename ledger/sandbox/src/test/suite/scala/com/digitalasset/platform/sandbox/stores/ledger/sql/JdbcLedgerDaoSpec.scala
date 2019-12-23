@@ -42,23 +42,18 @@ import com.digitalasset.ledger.api.domain.{
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.participant.util.EventFilter
+import com.digitalasset.platform.resources.Resource
 import com.digitalasset.platform.sandbox.persistence.PostgresAroundAll
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.ActiveContract
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao._
 import com.digitalasset.platform.sandbox.stores.ledger.sql.migration.FlywayMigrations
-import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
-  ContractSerializer,
-  KeyHasher,
-  TransactionSerializer,
-  ValueSerializer
-}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
 import com.digitalasset.platform.sandbox.stores.ledger.{ConfigurationEntry, LedgerEntry}
 import org.scalatest.{AsyncWordSpec, Matchers, OptionValues}
 
 import scala.collection.immutable.TreeMap
 import scala.concurrent.duration.DurationInt
-import scala.concurrent.{Await, Future}
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.language.implicitConversions
 import scala.util.{Success, Try}
 
@@ -72,7 +67,7 @@ class JdbcLedgerDaoSpec
     with OptionValues {
 
   // `dbDispatcher` and `ledgerDao` depend on the `postgresFixture` which is in turn initialized `beforeAll`
-  private[this] var dbDispatcher: DbDispatcher = _
+  private[this] var resource: Resource[LedgerDao] = _
   private[this] var ledgerDao: LedgerDao = _
 
   private val nextOffset: () => Long = {
@@ -83,19 +78,21 @@ class JdbcLedgerDaoSpec
 
   override def beforeAll(): Unit = {
     super.beforeAll()
+    implicit val executionContext: ExecutionContext = system.dispatcher
     val loggerFactory = NamedLoggerFactory(JdbcLedgerDaoSpec.getClass)
     FlywayMigrations(postgresFixture.jdbcUrl, loggerFactory).migrate()
-    dbDispatcher = DbDispatcher.start(postgresFixture.jdbcUrl, 4, loggerFactory, new MetricRegistry)
-    ledgerDao = JdbcLedgerDao(
-      dbDispatcher,
-      ContractSerializer,
-      TransactionSerializer,
-      ValueSerializer,
-      KeyHasher,
-      DbType.Postgres,
-      loggerFactory,
-      system.dispatcher)
+    resource = for {
+      dbDispatcher <- DbDispatcher
+        .owner(postgresFixture.jdbcUrl, 4, loggerFactory, new MetricRegistry)
+        .acquire()
+    } yield JdbcLedgerDao(dbDispatcher, DbType.Postgres, loggerFactory, system.dispatcher)
+    ledgerDao = Await.result(resource.asFuture, 10.seconds)
     Await.result(ledgerDao.initializeLedger(LedgerId("test-ledger"), 0), 10.seconds)
+  }
+
+  override def afterAll(): Unit = {
+    Await.result(resource.release(), 10.seconds)
+    super.afterAll()
   }
 
   private val alice = Party.assertFromString("Alice")
@@ -812,7 +809,7 @@ object JdbcLedgerDaoSpec {
       reader.readArchiveFromFile(new File(rlocation("ledger/test-common/Test-stable.dar")))
     private val now = Instant.now()
 
-    val packages =
+    private[JdbcLedgerDaoSpec] val packages: List[(DamlLf.Archive, v2.PackageDetails)] =
       dar.all.map(dar => dar -> v2.PackageDetails(dar.getSerializedSize.toLong, now, None))
 
   }

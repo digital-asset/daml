@@ -10,6 +10,7 @@ import ImmArray.ImmArraySeq
 import data.DataArbitrary._
 import iface.{
   DefDataType,
+  Enum,
   Record,
   Type,
   TypeCon,
@@ -201,6 +202,33 @@ object TypedValueGenerators {
           Arbitrary(Gen.oneOf(spec.vararb[Cid].toSeq).flatMap(_._2))
         override def injshrink[Cid: Shrink] = spec.varshrink
       })
+
+    def enum(
+        name: Ref.Identifier,
+        members: Seq[Ref.Name]): (DefDataType.FWT, EnumAddend[members.type]) =
+      (DefDataType(ImmArraySeq.empty, Enum(members.to[ImmArraySeq])), new EnumAddend[members.type] {
+        type Member = Ref.Name
+        override val values = members
+        override val t = TypeCon(TypeConName(name), ImmArraySeq.empty)
+        override def inj[Cid] = ValueEnum(Some(name), _)
+        override def prj[Cid] = {
+          case ValueEnum(_, dc) => get(dc)
+          case _ => None
+        }
+        override def injarb[Cid: Arbitrary] = Arbitrary(Gen.oneOf(values))
+        override def injshrink[Cid: Shrink] =
+          Shrink { ev =>
+            if (!(values.headOption contains ev)) values.headOption.toStream
+            else Stream.empty
+          }
+      })
+
+    sealed abstract class EnumAddend[+Values <: Seq[Ref.Name]] extends ValueAddend {
+      type Inj[Cid] = Member
+      type Member <: Ref.Name
+      val values: Values with Seq[Member]
+      def get(m: Ref.Name): Option[Member] = values collectFirst { case v if m == v => v }
+    }
   }
 
   sealed abstract class RecVarSpec { self =>

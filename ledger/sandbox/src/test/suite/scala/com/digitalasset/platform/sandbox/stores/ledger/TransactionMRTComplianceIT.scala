@@ -29,6 +29,7 @@ import org.scalatest.time.Span
 import org.scalatest.{AsyncWordSpec, Matchers}
 
 import scala.collection.immutable.TreeMap
+import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 import scala.language.implicitConversions
 
@@ -63,13 +64,15 @@ class TransactionMRTComplianceIT
   override protected def fixtureIdsEnabled: Set[BackendType] =
     Set(BackendType.InMemory, BackendType.Postgres)
 
-  override protected def constructResource(index: Int, fixtureId: BackendType): Resource[Ledger] =
+  override protected def constructResource(index: Int, fixtureId: BackendType): Resource[Ledger] = {
+    implicit val executionContext: ExecutionContext = system.dispatcher
     fixtureId match {
       case BackendType.InMemory =>
         LedgerResource.inMemory(ledgerId, participantId, timeProvider)
       case BackendType.Postgres =>
         LedgerResource.postgres(ledgerId, participantId, timeProvider, metrics)
     }
+  }
 
   val LET = Instant.EPOCH.plusSeconds(2)
   val MRT = Instant.EPOCH.plusSeconds(5)
