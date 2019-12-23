@@ -57,8 +57,8 @@ da_scala_library(
     ),
     resources = ["src/test/resources/logback-test.xml"],
     deps = [
-        ":ledger-api-scala-logging-base",
         ":ledger-api-scala-logging",
+        ":ledger-api-scala-logging-base",
         "//ledger-api/grpc-definitions:ledger-api-scalapb",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:ch_qos_logback_logback_core",
@@ -74,9 +74,9 @@ da_scala_test_suite(
     name = "ledger-api-scala-logging-test",
     srcs = glob(["src/test/scala/**/*Test.scala"]),
     deps = [
-        ":ledger-api-scala-logging-test-lib",
-        ":ledger-api-scala-logging-base",
         ":ledger-api-scala-logging",
+        ":ledger-api-scala-logging-base",
+        ":ledger-api-scala-logging-test-lib",
         "//ledger-api/grpc-definitions:ledger-api-scalapb",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:ch_qos_logback_logback_core",
