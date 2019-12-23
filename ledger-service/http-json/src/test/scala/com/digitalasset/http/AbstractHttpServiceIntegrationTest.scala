@@ -12,7 +12,7 @@ import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.stream.Materializer
 import akka.util.ByteString
 import com.digitalasset.api.util.TimestampConversion
-import com.digitalasset.daml.bazeltools.BazelRunfiles._
+import com.digitalasset.daml.bazeltools.BazelRunfiles.requiredResource
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.digitalasset.http.HttpServiceTestFixture.jsonCodecs
 import com.digitalasset.http.domain.ContractId
@@ -21,7 +21,6 @@ import com.digitalasset.http.json.SprayJson.objectField
 import com.digitalasset.http.json._
 import com.digitalasset.http.util.ClientUtil.boxedRecord
 import com.digitalasset.http.util.FutureUtil.toFuture
-import com.digitalasset.http.util.TestUtil.requiredFile
 import com.digitalasset.jwt.JwtSigner
 import com.digitalasset.jwt.domain.{DecodedJwt, Jwt}
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
@@ -54,11 +53,9 @@ abstract class AbstractHttpServiceIntegrationTest
 
   import json.JsonProtocol._
 
-  private val dar1 = requiredFile(rlocation("docs/quickstart-model.dar"))
-    .fold(e => throw new IllegalStateException(e), identity)
+  private val dar1 = requiredResource("docs/quickstart-model.dar")
 
-  private val dar2 = requiredFile(rlocation("ledger-service/http-json/Account.dar"))
-    .fold(e => throw new IllegalStateException(e), identity)
+  private val dar2 = requiredResource("ledger-service/http-json/Account.dar")
 
   private val testId: String = this.getClass.getSimpleName
 
@@ -557,6 +554,44 @@ abstract class AbstractHttpServiceIntegrationTest
     }: Future[Assertion]
   }
 
+  "contracts/lookup by contractKey where Key contains variant and record" in withHttpService {
+    (uri, _, _) =>
+      val createCommand = jsObject("""{
+        "templateId": {
+          "moduleName": "Account",
+          "entityName": "KeyedByVariantAndRecord"
+        },
+        "argument": {
+          "name": "ABC DEF",
+          "party": "Alice",
+          "age": 123,
+          "fooVariant": {"tag": "Baz", "value": {"baz": "baz value"}},
+          "bazRecord": {"baz": "another baz value"}
+        }
+      }""")
+
+      val lookupRequest =
+        jsObject(
+          """{
+        "templateId": {"moduleName": "Account", "entityName": "KeyedByVariantAndRecord"},
+        "key": ["Alice", {"tag": "Baz", "value": {"baz": "baz value"}}, {"baz": "another baz value"}]
+      }""")
+
+      postJsonRequest(uri.withPath(Uri.Path("/command/create")), createCommand).flatMap {
+        case (status, output) =>
+          status shouldBe StatusCodes.OK
+          assertStatus(output, StatusCodes.OK)
+          val contractId: ContractId = getContractId(getResult(output))
+
+          postJsonRequest(uri.withPath(Uri.Path("/contracts/lookup")), lookupRequest).flatMap {
+            case (status, output) =>
+              status shouldBe StatusCodes.OK
+              assertStatus(output, StatusCodes.OK)
+              activeContract(output).contractId shouldBe contractId
+          }
+      }: Future[Assertion]
+  }
+
   "contracts/search by a variant field" in withHttpService { (uri, encoder, decoder) =>
     val owner = domain.Party("Alice")
     val accountNumber = "abc123"
@@ -580,8 +615,7 @@ abstract class AbstractHttpServiceIntegrationTest
           case (searchStatus, searchOutput) =>
             searchStatus shouldBe StatusCodes.OK
             assertStatus(searchOutput, StatusCodes.OK)
-            val acList = activeContractList(searchOutput)
-            inside(acList) {
+            inside(activeContractList(searchOutput)) {
               case List(ac) =>
                 ac.contractId shouldBe contractId
             }
@@ -751,6 +785,16 @@ abstract class AbstractHttpServiceIntegrationTest
 
     SprayJson
       .decode[List[domain.ActiveContract[JsValue]]](result)
+      .valueOr(e => fail(e.shows))
+  }
+
+  private def activeContract(output: JsValue): domain.ActiveContract[JsValue] = {
+    val result = SprayJson
+      .objectField(output, "result")
+      .getOrElse(fail(s"output: $output is missing result element"))
+
+    SprayJson
+      .decode[domain.ActiveContract[JsValue]](result)
       .valueOr(e => fail(e.shows))
   }
 
