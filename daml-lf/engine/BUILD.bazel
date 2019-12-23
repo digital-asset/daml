@@ -27,7 +27,7 @@ da_scala_library(
 
 # TODO(JM): It would make sense to break up the tests
 # into individual targets (so that individual tests can
-# be cached!). There's the "da_scala_test_suite"
+# be cached!). There's the "da_scala_test"
 # macro that will do that for you, but one should separate
 # the utilities from the tests.
 da_scala_test(

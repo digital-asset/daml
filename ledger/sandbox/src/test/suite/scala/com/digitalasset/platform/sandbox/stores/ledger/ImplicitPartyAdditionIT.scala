@@ -41,16 +41,6 @@ import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.implicitConversions
 
-sealed abstract class BackendType
-
-object BackendType {
-
-  case object InMemory extends BackendType
-
-  case object Postgres extends BackendType
-
-}
-
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class ImplicitPartyAdditionIT
     extends AsyncWordSpec

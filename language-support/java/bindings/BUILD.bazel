@@ -4,7 +4,7 @@
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
-    "da_scala_test_suite",
+    "da_scala_test",
 )
 load("//bazel_tools:proto.bzl", "proto_gen")
 load("//bazel_tools:java.bzl", "da_java_library")
@@ -90,7 +90,7 @@ da_scala_library(
     ],
 )
 
-da_scala_test_suite(
+da_scala_test(
     name = "bindings-java-tests",
     srcs = glob([
         "src/test/**/*Spec.scala",

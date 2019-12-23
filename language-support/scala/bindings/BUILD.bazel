@@ -4,7 +4,7 @@
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
-    "da_scala_test_suite",
+    "da_scala_test",
 )
 
 bindings_scala_deps = [
@@ -33,7 +33,7 @@ da_scala_library(
     deps = bindings_scala_deps,
 )
 
-da_scala_test_suite(
+da_scala_test(
     name = "tests",
     size = "small",
     srcs = glob(["src/test/**/*.scala"]),
