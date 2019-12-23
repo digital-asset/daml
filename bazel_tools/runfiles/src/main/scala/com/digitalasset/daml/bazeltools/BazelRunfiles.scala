@@ -34,7 +34,7 @@ trait BazelRunfiles {
       path
 
   def requiredResource(name: String): java.io.File = {
-    val file = new java.io.File(rlocation("docs/quickstart-model.dar"))
+    val file = new java.io.File(rlocation(name))
     if (file.exists()) file
     else throw new IllegalStateException(s"File doest not exist: ${file.getAbsolutePath}")
   }
