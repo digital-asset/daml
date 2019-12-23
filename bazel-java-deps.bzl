@@ -156,6 +156,7 @@ def install_java_deps():
             "org.scala-lang:scala-reflect": "@io_bazel_rules_scala_scala_reflect//:io_bazel_rules_scala_scala_reflect",
             "org.scala-lang.modules:scala-parser-combinators": "@io_bazel_rules_scala_scala_parser_combinators//:io_bazel_rules_scala_scala_parser_combinators",
             "org.scala-tools.testing:test-interface": "//:org_scala_sbt_test_interface",
+            "org.scalatest:scalatest_2.12": "@io_bazel_rules_scala//scala/scalatest:scalatest",
         },
         repositories = [
             "https://repo1.maven.org/maven2",
