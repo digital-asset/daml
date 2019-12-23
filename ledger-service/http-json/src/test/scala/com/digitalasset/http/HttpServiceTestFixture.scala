@@ -57,9 +57,9 @@ object HttpServiceTestFixture {
 
     val contractDaoF: Future[Option[ContractDao]] = jdbcConfig.map(c => initializeDb(c)).sequence
 
-    val ledgerF: Future[(SandboxServer, Int)] = for {
-      port <- toFuture(findOpenPort())
-      ledger <- Future(new SandboxServer(ledgerConfig(port, dars, ledgerId)))
+    val ledgerF = for {
+      ledger <- Future(new SandboxServer(ledgerConfig(0, dars, ledgerId)))
+      port <- ledger.portF
     } yield (ledger, port)
 
     val httpServiceF: Future[(ServerBinding, Int)] = for {
@@ -116,9 +116,9 @@ object HttpServiceTestFixture {
     val ledgerId = LedgerId(testName)
     val applicationId = ApplicationId(testName)
 
-    val ledgerF: Future[(SandboxServer, Int)] = for {
-      port <- toFuture(findOpenPort())
-      ledger <- Future(new SandboxServer(ledgerConfig(port, dars, ledgerId, authService)))
+    val ledgerF = for {
+      ledger <- Future(new SandboxServer(ledgerConfig(0, dars, ledgerId, authService)))
+      port <- ledger.portF
     } yield (ledger, port)
 
     val clientF: Future[LedgerClient] = for {

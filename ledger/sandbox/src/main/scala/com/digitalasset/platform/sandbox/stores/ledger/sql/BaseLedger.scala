@@ -4,7 +4,6 @@
 package com.digitalasset.platform.sandbox.stores.ledger.sql
 
 import akka.NotUsed
-import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.v1.Configuration
@@ -22,14 +21,13 @@ import com.digitalasset.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState
-import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.LedgerReadDao
 import com.digitalasset.platform.sandbox.stores.ledger._
+import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.LedgerReadDao
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
-class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Long, ledgerDao: LedgerReadDao)(
-    implicit mat: Materializer)
+class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Long, ledgerDao: LedgerReadDao)
     extends ReadOnlyLedger {
 
   implicit private val DEC: ExecutionContext = DirectExecutionContext
@@ -104,7 +102,5 @@ class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Long, ledgerDao: 
 
   override def close(): Unit = {
     dispatcher.close()
-    ledgerDao.close()
   }
-
 }

@@ -10,6 +10,7 @@ import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.health.{Healthy, Unhealthy}
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
+import com.digitalasset.platform.resources.Resource
 import com.digitalasset.platform.sandbox.MetricsAround
 import com.digitalasset.platform.sandbox.persistence.PostgresAroundEach
 import com.digitalasset.platform.sandbox.stores.ledger.Ledger
@@ -19,6 +20,7 @@ import org.scalatest.time.{Minute, Seconds, Span}
 import org.scalatest.{AsyncWordSpec, Matchers}
 
 import scala.collection.mutable
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, Future}
 
 class SqlLedgerSpec
@@ -42,10 +44,16 @@ class SqlLedgerSpec
 
   private val loggerFactory = NamedLoggerFactory(this.getClass)
 
-  private val createdLedgers = mutable.Buffer[Ledger]()
+  private val createdLedgers = mutable.Buffer[Resource[Ledger]]()
+
+  override protected def beforeEach(): Unit = {
+    super.beforeEach()
+    createdLedgers.clear()
+  }
 
   override protected def afterEach(): Unit = {
-    createdLedgers.foreach(_.close())
+    for (ledger <- createdLedgers)
+      Await.result(ledger.release(), 2.seconds)
     super.afterEach()
   }
 
@@ -99,14 +107,6 @@ class SqlLedgerSpec
       for {
         ledger <- createSqlLedger()
       } yield {
-        def listPackages(): Unit = {
-          Await.result(
-            ledger.listLfPackages(),
-            patienceConfig.timeout
-          )
-          ()
-        }
-
         withClue("before shutting down postgres,") {
           ledger.currentHealth() should be(Healthy)
         }
@@ -143,8 +143,8 @@ class SqlLedgerSpec
 
   private def createSqlLedger(ledgerId: Option[LedgerId]): Future[Ledger] = {
     metrics.getNames.forEach(name => { val _ = metrics.remove(name) })
-    for {
-      ledger <- SqlLedger(
+    val ledger = SqlLedger
+      .owner(
         jdbcUrl = postgresFixture.jdbcUrl,
         ledgerId = ledgerId,
         participantId = participantId,
@@ -157,9 +157,8 @@ class SqlLedgerSpec
         loggerFactory,
         metrics,
       )
-    } yield {
-      createdLedgers += ledger
-      ledger
-    }
+      .acquire()(system.dispatcher)
+    createdLedgers += ledger
+    ledger.asFuture
   }
 }

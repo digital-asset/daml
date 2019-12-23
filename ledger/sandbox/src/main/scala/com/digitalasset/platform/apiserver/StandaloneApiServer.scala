@@ -3,7 +3,8 @@
 
 package com.digitalasset.platform.apiserver
 
-import java.io.{File, FileWriter}
+import java.io.File
+import java.nio.file.Files
 import java.time.Instant
 
 import akka.actor.ActorSystem
@@ -16,18 +17,17 @@ import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.digitalasset.ledger.api.auth.{AuthService, Authorizer}
 import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.health.HealthChecks
 import com.digitalasset.platform.apiserver.StandaloneApiServer._
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
+import com.digitalasset.platform.resources.{Resource, ResourceOwner}
 import com.digitalasset.platform.sandbox.BuildInfo
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.sandbox.stores.InMemoryPackageStore
 import com.digitalasset.platform.server.services.testing.TimeServiceBackend
 
-import scala.concurrent.duration.DurationInt
-import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.util.control.NonFatal
+import scala.collection.JavaConverters._
+import scala.concurrent.{ExecutionContext, Future}
 
 // Main entry point to start an index server that also hosts the ledger API.
 // See v2.ReferenceServer on how it is used.
@@ -40,11 +40,18 @@ final class StandaloneApiServer(
     metrics: MetricRegistry,
     engine: Engine = sharedEngine, // allows sharing DAML engine with DAML-on-X participant
     timeServiceBackendO: Option[TimeServiceBackend] = None,
-) {
+) extends ResourceOwner[Unit] {
   private val logger = loggerFactory.getLogger(this.getClass)
 
   // Name of this participant,
   val participantId: ParticipantId = config.participantId
+
+  override def acquire()(implicit executionContext: ExecutionContext): Resource[Unit] = {
+    buildAndStartApiServer().map { _ =>
+      logger.info("Started Index Server")
+      ()
+    }
+  }
 
   // if requested, initialize the ledger state with the given scenario
   private def preloadPackages(packageContainer: InMemoryPackageStore): Unit = {
@@ -78,32 +85,36 @@ final class StandaloneApiServer(
       .fold({ case (err, file) => sys.error(s"Could not load package $file: $err") }, identity)
   }
 
-  private def buildAndStartApiServer(infra: Infrastructure)(
-      implicit ec: ExecutionContext): Future[ApiServerState] = {
-    implicit val mat: Materializer = infra.materializer
-
+  private def buildAndStartApiServer()(implicit ec: ExecutionContext): Resource[ApiServer] = {
     val packageStore = loadDamlPackages()
     preloadPackages(packageStore)
 
     for {
-      cond <- readService.getLedgerInitialConditions().runWith(Sink.head)
+      actorSystem <- ResourceOwner.forActorSystem(() => ActorSystem(actorSystemName)).acquire()
+      materializer <- ResourceOwner
+        .forMaterializer(() => Materializer(actorSystem))
+        .acquire()
+      initialConditions <- ResourceOwner
+        .forFuture(() => readService.getLedgerInitialConditions().runWith(Sink.head)(materializer))
+        .acquire()
       authorizer = new Authorizer(
         () => java.time.Clock.systemUTC.instant(),
-        cond.ledgerId,
+        initialConditions.ledgerId,
         participantId)
       indexService <- JdbcIndex(
         readService,
-        domain.LedgerId(cond.ledgerId),
+        domain.LedgerId(initialConditions.ledgerId),
         participantId,
         config.jdbcUrl,
         loggerFactory,
-        metrics)
+        metrics,
+      )(materializer)
       healthChecks = new HealthChecks(
         "index" -> indexService,
         "read" -> readService,
         "write" -> writeService,
       )
-      apiServer <- LedgerApiServer.start(
+      apiServer <- new LedgerApiServer(
         (mat: Materializer, esf: ExecutionSequencerFactory) =>
           ApiServices
             .create(
@@ -112,7 +123,7 @@ final class StandaloneApiServer(
               authorizer,
               engine,
               config.timeProvider,
-              cond.config,
+              initialConditions.config,
               SandboxConfig.defaultCommandConfig,
               timeServiceBackendO,
               loggerFactory,
@@ -126,87 +137,30 @@ final class StandaloneApiServer(
         config.tlsConfig.flatMap(_.server),
         List(AuthorizationInterceptor(authService, ec)),
         metrics
-      )
-      apiServerState = new ApiServerState(
-        domain.LedgerId(cond.ledgerId),
-        apiServer,
-        indexService
-      )
-      _ = logger.info(
+      )(actorSystem, materializer).acquire()
+      _ <- ResourceOwner.forFuture(() => writePortFile(apiServer.port)).acquire()
+    } yield {
+      logger.info(
         "Initialized index server version {} with ledger-id = {}, port = {}, dar file = {}",
         BuildInfo.Version,
-        cond.ledgerId,
-        apiServerState.port.toString,
+        initialConditions.ledgerId,
+        apiServer.port.toString,
         config.archiveFiles
       )
-
-      _ = writePortFile(apiServerState.port)
-    } yield apiServerState
-  }
-
-  def start(): Future[AutoCloseable] = {
-    val actorSystem = ActorSystem(actorSystemName)
-    val infrastructure =
-      new Infrastructure(
-        actorSystem,
-        Materializer(actorSystem)
-      )
-    implicit val ec: ExecutionContext = infrastructure.executionContext
-    val apiState = buildAndStartApiServer(infrastructure)
-    logger.info("Started Index Server")
-    apiState.transform(new SandboxState(_, infrastructure), {
-      case NonFatal(e) =>
-        infrastructure.close()
-        e
-    })
-  }
-
-  private def writePortFile(port: Int): Unit = {
-    config.portFile.foreach { f =>
-      val w = new FileWriter(f)
-      w.write(s"$port\n")
-      w.close()
+      apiServer
     }
   }
 
+  private def writePortFile(port: Int)(
+      implicit executionContext: ExecutionContext
+  ): Future[Unit] =
+    config.portFile
+      .map(path => Future(Files.write(path, Seq(port.toString).asJava)).map(_ => ()))
+      .getOrElse(Future.successful(()))
 }
 
 object StandaloneApiServer {
   private val actorSystemName = "index"
 
-  private val asyncTolerance = 30.seconds
-
   private val sharedEngine = Engine()
-
-  private final class ApiServerState(
-      ledgerId: LedgerId,
-      apiServer: ApiServer,
-      indexAndWriteService: AutoCloseable,
-  ) extends AutoCloseable {
-    def port: Int = apiServer.port
-
-    override def close(): Unit = {
-      apiServer.close()
-      indexAndWriteService.close()
-    }
-  }
-
-  private final class Infrastructure(actorSystem: ActorSystem, val materializer: Materializer)
-      extends AutoCloseable {
-    def executionContext: ExecutionContext = materializer.executionContext
-
-    override def close(): Unit = {
-      materializer.shutdown()
-      Await.result(actorSystem.terminate(), asyncTolerance)
-      ()
-    }
-  }
-
-  private final class SandboxState(apiServerState: ApiServerState, infra: Infrastructure)
-      extends AutoCloseable {
-    override def close(): Unit = {
-      apiServerState.close()
-      infra.close()
-    }
-  }
 }
