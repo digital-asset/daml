@@ -137,7 +137,6 @@ da_scala_test(
     deps = [
         ":daml-lf-codegen-sample-app",
         ":daml-lf-codegen-sample-app-testing",
-        "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/data",
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-akka",
@@ -148,8 +147,6 @@ da_scala_test(
         "//ledger/ledger-api-common",
         "//ledger/participant-state",
         "//ledger/sandbox",
-        "@maven//:com_typesafe_akka_akka_stream_testkit_2_12",
-        "@maven//:io_spray_spray_json_2_12",
         "@maven//:org_scalacheck_scalacheck_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
     ],
