@@ -9,59 +9,73 @@ import java.nio.file.Path
 import com.daml.ledger.participant.state.v1.ParticipantId
 import scopt.OptionParser
 
-case class Config(
+case class Config[Extra](
     participantId: ParticipantId,
     address: Option[String],
     port: Int,
     portFile: Option[Path],
     archiveFiles: Seq[Path],
+    extra: Extra,
 )
 
 object Config {
   val DefaultMaxInboundMessageSize: Int = 4 * 1024 * 1024
 
-  def default: Config =
+  def default[Extra](extra: Extra): Config[Extra] =
     Config(
       participantId = ParticipantId.assertFromString("example"),
       address = None,
       port = 6865,
       portFile = None,
       archiveFiles = Vector.empty,
+      extra = extra,
     )
 
-  def parse(name: String, args: Seq[String]): Option[Config] =
-    parser(name).parse(args, default)
+  def parse[Extra](
+      name: String,
+      extraOptions: OptionParser[Config[Extra]] => Unit,
+      defaultExtra: Extra,
+      args: Seq[String],
+  ): Option[Config[Extra]] =
+    parser(name, extraOptions).parse(args, default(defaultExtra))
 
-  private def parser(name: String): OptionParser[Config] = new scopt.OptionParser[Config](name) {
-    head(name)
+  private def parser[Extra](
+      name: String,
+      extraOptions: OptionParser[Config[Extra]] => Unit,
+  ): OptionParser[Config[Extra]] = {
+    val parser = new OptionParser[Config[Extra]](name) {
+      head(name)
 
-    opt[String](name = "participant-id")
-      .optional()
-      .text("The participant ID given to all components of the ledger API server.")
-      .action((participantId, config) =>
-        config.copy(participantId = ParticipantId.assertFromString(participantId)))
+      opt[String](name = "participant-id")
+        .optional()
+        .text("The participant ID given to all components of the ledger API server.")
+        .action((participantId, config) =>
+          config.copy(participantId = ParticipantId.assertFromString(participantId)))
 
-    opt[String]("address")
-      .optional()
-      .text("The address on which to run the ledger API server.")
-      .action((address, config) => config.copy(address = Some(address)))
+      opt[String]("address")
+        .optional()
+        .text("The address on which to run the ledger API server.")
+        .action((address, config) => config.copy(address = Some(address)))
 
-    opt[Int]("port")
-      .optional()
-      .text("The port on which to run the ledger API server.")
-      .action((port, config) => config.copy(port = port))
+      opt[Int]("port")
+        .optional()
+        .text("The port on which to run the ledger API server.")
+        .action((port, config) => config.copy(port = port))
 
-    opt[File]("port-file")
-      .optional()
-      .text("File to write the allocated port number to. Used to inform clients in CI about the allocated port.")
-      .action((file, config) => config.copy(portFile = Some(file.toPath)))
+      opt[File]("port-file")
+        .optional()
+        .text("File to write the allocated port number to. Used to inform clients in CI about the allocated port.")
+        .action((file, config) => config.copy(portFile = Some(file.toPath)))
 
-    arg[File]("<archive>...")
-      .optional()
-      .unbounded()
-      .text("DAR files to load. Scenarios are ignored. The server starts with an empty ledger by default.")
-      .action((file, config) => config.copy(archiveFiles = config.archiveFiles :+ file.toPath))
+      arg[File]("<archive>...")
+        .optional()
+        .unbounded()
+        .text("DAR files to load. Scenarios are ignored. The server starts with an empty ledger by default.")
+        .action((file, config) => config.copy(archiveFiles = config.archiveFiles :+ file.toPath))
 
-    help("help").text(s"$name as a service.")
+      help("help").text(s"$name as a service.")
+    }
+    extraOptions(parser)
+    parser
   }
 }
