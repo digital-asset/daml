@@ -278,9 +278,6 @@ object ValuePredicate {
         case iface.Variant(fieldTyps) => {
           case JsonVariant(tag, nestedValue) =>
             fromVariant(tag, nestedValue, id, fieldTyps)
-          case invalidJsVal @ _ =>
-            predicateParseError(
-              s"Variant must be encoded as JsObject with 'tag' and 'value' fields, got: $invalidJsVal, id: $id")
         }
         case e @ iface.Enum(_) => {
           case JsString(s) => fromEnum(s, id, e)
