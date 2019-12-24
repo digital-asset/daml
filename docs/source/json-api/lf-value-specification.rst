@@ -424,7 +424,7 @@ and then, from JSON
 This can be encoded and used in TypeScript, including exhaustiveness
 checking; see `a type refinement example`_.
 
-.. _a type refinement example: https://www.typescriptlang.org/play/?ssl=10&ssc=4&pln=8&pc=5#code/C4TwDgpgBAYg9nKBeAsAKCpqBvKwCGA5gFxQBEAQvgE5kA0UAbvgDYCuEpuAZgIykA7NgFsARhGoNuAJlKiELCPgFQAvmvSYAPjjxFSlfAC96TVhy5q1AbnTpubAQGNgASzgrgEAM7AAFIyk8HAAlDiaUK7cUAEAdASEyEhI5FS0YdgRmE4e3nCKsSxwhHHM7BCxfAyMsWUcldIhthhWECze0FExNQlJKYYmGVlQOQJ5BUUlNXUQTRHqbR3hLdm5wFAA+oIQjBLITM2Yqujq6EA
+.. _a type refinement example: https://www.typescriptlang.org/play/#code/C4TwDgpgBAYg9nKBeAsAKCpqBvKwCGA5gFxQBEAQvgE5kA0UAbvgDYCuEpuAZgIykA7NgFsARhGoNuAJlKiELCPgFQAvmvSYAPjjxFSlfAC96TVhy5q1AbnTpubAQGNgASzgrgEAM7AAFIyk8HAAlDiaUN4A7q7ATgAWUAEAdASEYdgRmE743tCGtMRZWE4e3nCKySxwhCnM7BDJfAyMyfUcTdIhthhYmNQQwGzUAj19OXnkVCZFveNlFY3Vta3tEN3F-YPDo8UAJhDc+GwswLN92WXAUAD6ghCMEshMYxpoqkA
 
 Enum
 ****
