@@ -48,13 +48,19 @@ object ReferenceServer extends App {
     ledger <- ResourceOwner
       .forCloseable(() => new InMemoryKVParticipantState(config.participantId))
       .acquire()
-    _ = config.archiveFiles.foreach { file =>
+    _ <- Resource.sequenceIgnoringValues(config.archiveFiles.map { file =>
       val submissionId = SubmissionId.assertFromString(UUID.randomUUID().toString)
       for {
-        dar <- DarReader { case (_, x) => Try(Archive.parseFrom(x)) }
-          .readArchiveFromFile(file)
-      } yield ledger.uploadPackages(submissionId, dar.all, None)
-    }
+        dar <- ResourceOwner
+          .forTry(() =>
+            DarReader { case (_, x) => Try(Archive.parseFrom(x)) }
+              .readArchiveFromFile(file))
+          .acquire()
+        _ <- ResourceOwner
+          .forCompletionStage(() => ledger.uploadPackages(submissionId, dar.all, None))
+          .acquire()
+      } yield ()
+    })
     _ <- startIndexerServer(config, readService = ledger)
     _ <- startApiServer(
       config,

@@ -99,13 +99,19 @@ object Main extends App {
       .forCloseable(() => new InMemoryLedgerReaderWriter(participantId = config.participantId))
       .acquire()
     ledger = new KeyValueParticipantState(readerWriter, readerWriter)
-    _ = config.archiveFiles.foreach { file =>
+    _ <- Resource.sequenceIgnoringValues(config.archiveFiles.map { file =>
       val submissionId = SubmissionId.assertFromString(UUID.randomUUID().toString)
       for {
-        dar <- DarReader { case (_, x) => Try(Archive.parseFrom(x)) }
-          .readArchiveFromFile(file.toFile)
-      } yield ledger.uploadPackages(submissionId, dar.all, None)
-    }
+        dar <- ResourceOwner
+          .forTry(() =>
+            DarReader { case (_, x) => Try(Archive.parseFrom(x)) }
+              .readArchiveFromFile(file.toFile))
+          .acquire()
+        _ <- ResourceOwner
+          .forCompletionStage(() => ledger.uploadPackages(submissionId, dar.all, None))
+          .acquire()
+      } yield ()
+    })
     _ <- startIndexerServer(config, readService = ledger)
     _ <- startApiServer(
       config,
