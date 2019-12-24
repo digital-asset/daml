@@ -144,8 +144,8 @@ sealed abstract class ValuePredicate extends Product with Serializable {
           // have exactly two keys
           Rec(
             vraw,
-            v_== map (jv => JsObject("tag" -> JsString(dc), "value" -> jv)),
-            v_@> map (jv => JsObject("tag" -> JsString(dc), "value" -> jv))
+            v_== map (jv => JsonVariant(dc, jv)),
+            v_@> map (jv => JsonVariant(dc, jv))
           )
 
         case MapMatch(qs) =>
@@ -304,13 +304,12 @@ object ValuePredicate {
         id: Ref.Identifier,
         fieldTyps: ImmArraySeq[(Ref.Name, Ty)]): Result = {
 
-      val name = Ref.Name.assertFromString(tag)
-      val field: Option[(Ref.Name, Ty)] = fieldTyps.find(_._1 == name)
+      val field: Option[(Ref.Name, Ty)] = fieldTyps.find { case (name, _) => tag == (name: String) }
       val fieldP: Option[(Ref.Name, ValuePredicate)] = field.map {
         case (n, t) => (n, fromValue(nestedValue, t))
       }
       fieldP.fold(
-        predicateParseError(s"Cannot locate Variant's (datacon, type) field, id: $id, name: $name")
+        predicateParseError(s"Cannot locate Variant's (datacon, type) field, id: $id, tag: $tag")
       )(VariantMatch)
     }
 
