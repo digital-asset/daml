@@ -42,7 +42,7 @@ class WebsocketServiceIntegrationTest
     wsConnectRequest(
       uri.copy(scheme = "ws").withPath(Uri.Path("/transactions")),
       Option("foo"),
-      Baseflow
+      baseFlow
     )._1 flatMap (x => x.response.status shouldBe StatusCodes.Unauthorized)
   }
 

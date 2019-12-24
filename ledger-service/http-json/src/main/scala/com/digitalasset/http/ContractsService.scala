@@ -257,10 +257,9 @@ class ContractsService(
     import ContractsFetch.{acsFollowingAndBoundary, matSecondOut}
     val contractsAndBoundary = matSecondOut(acsFollowingAndBoundary(transactionsSince))
     source
-      .viaMat(contractsAndBoundary)(Keep.right)
-      .mapMaterializedValue { fob =>
+      .viaMat(contractsAndBoundary) { (nu, fob) =>
         fob.foreach(a => logger.debug(s"contracts fetch completed at: ${a.toString}"))
-        NotUsed
+        nu
       }
   }
 
