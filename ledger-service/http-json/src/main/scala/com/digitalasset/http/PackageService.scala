@@ -237,7 +237,7 @@ object PackageService {
           qn,
           iface.InterfaceType
             .Template(_, iface.DefTemplate(_, Some(keyType)))) =>
-        val templateId = TemplateId(interface.packageId, qn.module.toString, qn.name.toString)
+        val templateId = TemplateId(interface.packageId, qn.module.dottedName, qn.name.dottedName)
         (templateId, keyType)
     }
 }
