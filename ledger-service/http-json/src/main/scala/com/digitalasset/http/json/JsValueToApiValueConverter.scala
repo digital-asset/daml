@@ -16,14 +16,6 @@ import spray.json.{JsObject, JsValue}
 class JsValueToApiValueConverter(lfTypeLookup: LfTypeLookup) {
 
   def jsValueToLfValue(
-      lfType: domain.LfType,
-      jsValue: JsValue): JsonError \/ lf.value.Value[lf.value.Value.AbsoluteContractId] =
-    lfType match {
-      case -\/(lfId) => jsValueToLfValue(lfId, jsValue)
-      case \/-(valueType) => jsValueToLfValue(valueType, jsValue)
-    }
-
-  def jsValueToLfValue(
       lfId: lf.data.Ref.Identifier,
       jsValue: JsValue): JsonError \/ lf.value.Value[lf.value.Value.AbsoluteContractId] =
     \/.fromTryCatchNonFatal(

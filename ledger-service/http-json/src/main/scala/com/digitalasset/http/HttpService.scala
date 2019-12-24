@@ -213,6 +213,7 @@ object HttpService extends StrictLogging {
 
     val decoder = new DomainJsonDecoder(
       packageService.resolveTemplateId,
+      packageService.resolveTemplateRecordType,
       packageService.resolveChoiceRecordType,
       packageService.resolveKeyType,
       jsValueToApiValueConverter.jsObjectToApiRecord,

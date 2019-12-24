@@ -15,6 +15,7 @@ import scala.language.higherKinds
 
 class DomainJsonDecoder(
     resolveTemplateId: PackageService.ResolveTemplateId,
+    resolveTemplateRecordType: PackageService.ResolveTemplateRecordType,
     resolveRecordType: PackageService.ResolveChoiceRecordType,
     resolveKey: PackageService.ResolveKeyType,
     jsObjectToApiRecord: (domain.LfType, JsObject) => JsonError \/ lav1.value.Record,
@@ -82,7 +83,7 @@ class DomainJsonDecoder(
       tId <- resolveTemplateId(templateId)
         .leftMap(e => JsonError("DomainJsonDecoder_lookupLfType " + e.shows))
       lfType <- H
-        .lfType(fa, tId, resolveRecordType, resolveKey)
+        .lfType(fa, tId, resolveTemplateRecordType, resolveRecordType, resolveKey)
         .leftMap(e => JsonError("DomainJsonDecoder_lookupLfType " + e.shows))
     } yield lfType
   }

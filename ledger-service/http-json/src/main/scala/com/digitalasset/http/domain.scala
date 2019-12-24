@@ -5,20 +5,19 @@ package com.digitalasset.http
 
 import java.time.Instant
 
-import com.digitalasset.daml.lf
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.iface
 import com.digitalasset.http.util.ClientUtil.boxedRecord
-import com.digitalasset.http.util.IdentifierConverters
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
+import scalaz.Isomorphism.{<~>, IsoFunctorTemplate}
 import scalaz.std.list._
-import scalaz.std.vector._
 import scalaz.std.option._
+import scalaz.std.vector._
 import scalaz.syntax.show._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
 import scalaz.{-\/, @@, Applicative, Show, Tag, Traverse, \/, \/-}
-import scalaz.Isomorphism.{<~>, IsoFunctorTemplate}
 import spray.json.JsValue
 
 import scala.annotation.tailrec
@@ -141,6 +140,11 @@ object domain {
 
     def fromLedgerApi(in: lav1.value.Identifier): TemplateId.RequiredPkg =
       TemplateId(in.packageId, in.moduleName, in.entityName)
+
+    def qualifiedName(a: TemplateId[_]): Ref.QualifiedName =
+      Ref.QualifiedName(
+        Ref.DottedName.assertFromString(a.moduleName),
+        Ref.DottedName.assertFromString(a.entityName))
   }
 
   object Contract {
@@ -258,9 +262,11 @@ object domain {
       override def lfType(
           fa: ActiveContract[_],
           templateId: TemplateId.RequiredPkg,
-          f: PackageService.ResolveChoiceRecordType,
-          g: PackageService.ResolveKeyType): Error \/ LfType =
-        \/-(-\/(IdentifierConverters.lfIdentifier(templateId)))
+          f: PackageService.ResolveTemplateRecordType,
+          g: PackageService.ResolveChoiceRecordType,
+          h: PackageService.ResolveKeyType): Error \/ LfType =
+        f(templateId)
+          .leftMap(e => Error('ActiveContract_hasTemplateId_lfType, e.shows))
     }
   }
 
@@ -338,11 +344,11 @@ object domain {
         override def lfType(
             fa: EnrichedContractKey[_],
             templateId: TemplateId.RequiredPkg,
-            f: PackageService.ResolveChoiceRecordType,
-            g: PackageService.ResolveKeyType): Error \/ LfType =
-          g(templateId)
+            f: PackageService.ResolveTemplateRecordType,
+            g: PackageService.ResolveChoiceRecordType,
+            h: PackageService.ResolveKeyType): Error \/ LfType =
+          h(templateId)
             .leftMap(e => Error('EnrichedContractKey_hasTemplateId_lfType, e.shows))
-            .map(keyType => \/-(keyType))
       }
   }
 
@@ -351,15 +357,16 @@ object domain {
       o toRightDisjunction Error('ErrorOps_required, s"Missing required field $label")
   }
 
-  type LfType = lf.data.Ref.Identifier \/ iface.Type
+  type LfType = iface.Type
 
   trait HasTemplateId[F[_]] {
     def templateId(fa: F[_]): TemplateId.OptionalPkg
     def lfType(
         fa: F[_],
         templateId: TemplateId.RequiredPkg,
-        f: PackageService.ResolveChoiceRecordType,
-        g: PackageService.ResolveKeyType): Error \/ LfType
+        f: PackageService.ResolveTemplateRecordType,
+        g: PackageService.ResolveChoiceRecordType,
+        h: PackageService.ResolveKeyType): Error \/ LfType
   }
 
   object CreateCommand {
@@ -375,9 +382,11 @@ object domain {
       override def lfType(
           fa: CreateCommand[_],
           templateId: TemplateId.RequiredPkg,
-          f: PackageService.ResolveChoiceRecordType,
-          g: PackageService.ResolveKeyType): Error \/ LfType =
-        \/-(-\/(IdentifierConverters.lfIdentifier(templateId)))
+          f: PackageService.ResolveTemplateRecordType,
+          g: PackageService.ResolveChoiceRecordType,
+          h: PackageService.ResolveKeyType): Error \/ LfType =
+        f(templateId)
+          .leftMap(e => Error('CreateCommand_hasTemplateId_lfType, e.shows))
     }
   }
 
@@ -394,11 +403,11 @@ object domain {
         override def lfType(
             fa: ExerciseCommand[_],
             templateId: TemplateId.RequiredPkg,
-            f: PackageService.ResolveChoiceRecordType,
-            g: PackageService.ResolveKeyType): Error \/ LfType =
-          f(templateId, fa.choice)
+            f: PackageService.ResolveTemplateRecordType,
+            g: PackageService.ResolveChoiceRecordType,
+            h: PackageService.ResolveKeyType): Error \/ LfType =
+          g(templateId, fa.choice)
             .leftMap(e => Error('ExerciseCommand_hasTemplateId_lfType, e.shows))
-            .map(choiceType => \/-(choiceType))
       }
   }
 

@@ -3,9 +3,11 @@
 
 package com.digitalasset.http
 
+import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.iface
 import com.digitalasset.http.domain.{Choice, TemplateId}
+import com.digitalasset.http.util.IdentifierConverters
 import com.digitalasset.ledger.service.LedgerReader.PackageStore
 import com.digitalasset.ledger.service.{LedgerReader, TemplateIds}
 import com.typesafe.scalalogging.StrictLogging
@@ -68,6 +70,12 @@ private class PackageService(reloadPackageStoreIfChanged: PackageService.ReloadP
   def resolveTemplateIds: ResolveTemplateIds =
     x => PackageService.resolveTemplateIds(state.templateIdMap)(x)
 
+  def resolveTemplateRecordType: ResolveTemplateRecordType =
+    templateId =>
+      \/-(
+        iface
+          .TypeCon(iface.TypeConName(IdentifierConverters.lfIdentifier(templateId)), ImmArraySeq()))
+
   def allTemplateIds: AllTemplateIds =
     () => state.templateIdMap.all
 
@@ -100,6 +108,9 @@ object PackageService {
 
   type ResolveTemplateId =
     TemplateId.OptionalPkg => Error \/ TemplateId.RequiredPkg
+
+  type ResolveTemplateRecordType =
+    TemplateId.RequiredPkg => Error \/ iface.Type
 
   type AllTemplateIds =
     () => Set[TemplateId.RequiredPkg]
