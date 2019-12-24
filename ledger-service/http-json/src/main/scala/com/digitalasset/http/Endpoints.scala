@@ -11,7 +11,7 @@ import com.digitalasset.daml.lf
 import com.digitalasset.http.Statement.discard
 import com.digitalasset.http.domain.JwtPayload
 import com.digitalasset.http.json.{DomainJsonDecoder, DomainJsonEncoder, ResponseFormats, SprayJson}
-import com.digitalasset.http.util.ExceptionOps._
+import com.digitalasset.util.ExceptionOps._
 import com.digitalasset.http.util.FutureUtil.{either, eitherT}
 import com.digitalasset.http.util.{ApiValueToLfValueConverter, FutureUtil}
 import com.digitalasset.jwt.domain.Jwt
@@ -136,11 +136,16 @@ class Endpoints(
 
         (jwt, jwtPayload, reqBody) = input
 
+        _ = logger.debug(s"/contracts/lookup reqBody: $reqBody")
+
+        // TODO(Leo): decode to domain.ContractLocator[LfValue], findByContractKey converts it to LfValue
         cl <- either(
           decoder
             .decodeContractLocator(reqBody)
             .leftMap(e => InvalidUserInput(e.shows))
         ): ET[domain.ContractLocator[ApiValue]]
+
+        _ = logger.debug(s"/contracts/lookup cl: $cl")
 
         ac <- eitherT(
           handleFutureFailure(contractsService.lookup(jwt, jwtPayload, cl))

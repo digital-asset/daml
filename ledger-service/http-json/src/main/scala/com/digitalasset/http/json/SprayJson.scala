@@ -3,7 +3,7 @@
 
 package com.digitalasset.http.json
 
-import com.digitalasset.http.util.ExceptionOps._
+import com.digitalasset.util.ExceptionOps._
 import scalaz.{-\/, Show, \/, \/-}
 import spray.json.{JsValue, JsonReader, _}
 

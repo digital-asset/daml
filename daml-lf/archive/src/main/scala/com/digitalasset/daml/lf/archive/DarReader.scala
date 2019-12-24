@@ -26,7 +26,7 @@ class DarReader[A](
   import DarReader._
 
   /** Reads an archive from a File. */
-  def readArchiveFromFile(darFile: File) =
+  def readArchiveFromFile(darFile: File): Try[Dar[A]] =
     readArchive(darFile.getName, new ZipInputStream(new FileInputStream(darFile)))
 
   /** Reads an archive from a ZipInputStream. The stream will be closed by this function! */

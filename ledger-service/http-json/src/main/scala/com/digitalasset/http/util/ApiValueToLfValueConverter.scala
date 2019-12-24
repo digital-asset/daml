@@ -14,7 +14,7 @@ object ApiValueToLfValueConverter {
 
   object Error {
     implicit val ErrorShow: Show[Error] = Show shows { e =>
-      import ExceptionOps._
+      import com.digitalasset.util.ExceptionOps._
       s"ApiValueToLfValueConverter.Error: ${e.cause.description}"
     }
   }
