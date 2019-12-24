@@ -1,14 +1,13 @@
 // Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.participant.state.kvutils.api.impl
+package com.daml.ledger.on.memory
 
 import java.time.Clock
 import java.util.UUID
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntryId,
   DamlStateKey,
@@ -16,6 +15,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlSubmission
 }
 import com.daml.ledger.participant.state.kvutils.api.{LedgerReader, LedgerRecord, LedgerWriter}
+import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting}
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -23,19 +23,18 @@ import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.ledger.api.health.{HealthStatus, Healthy}
 import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
 import com.digitalasset.platform.akkastreams.dispatcher.SubSource.OneAfterAnother
-
-import scala.collection.JavaConverters._
-import scala.collection.{breakOut, mutable}
-import scala.collection.mutable.ArrayBuffer
-import scala.concurrent.{ExecutionContext, Future}
 import com.google.protobuf.ByteString
 
+import scala.collection.JavaConverters._
+import scala.collection.mutable.ArrayBuffer
+import scala.collection.{breakOut, mutable}
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Random
 
 @SuppressWarnings(Array("org.wartremover.warts.ArrayEquals"))
-private[impl] case class LogEntry(entryId: DamlLogEntryId, payload: Array[Byte])
+private[memory] case class LogEntry(entryId: DamlLogEntryId, payload: Array[Byte])
 
-private[impl] case class InMemoryState(
+private[memory] case class InMemoryState(
     log: mutable.Buffer[LogEntry] = ArrayBuffer[LogEntry](),
     state: mutable.Map[ByteString, DamlStateValue] = mutable.Map.empty)
 
