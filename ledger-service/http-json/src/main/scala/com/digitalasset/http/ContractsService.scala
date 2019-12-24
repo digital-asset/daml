@@ -161,7 +161,7 @@ class ContractsService(
     }
   }
 
-  // we store create arguments as JASON in DB, that is why it is `domain.ActiveContract[JsValue]` in the result
+  // we store create arguments as JSON in DB, that is why it is `domain.ActiveContract[JsValue]` in the result
   def searchDb(dao: dbbackend.ContractDao, fetch: ContractsFetch)(
       jwt: Jwt,
       party: domain.Party,
