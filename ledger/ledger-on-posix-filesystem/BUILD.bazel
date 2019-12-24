@@ -3,9 +3,11 @@
 
 load(
     "//bazel_tools:scala.bzl",
+    "da_scala_binary",
     "da_scala_library",
     "da_scala_test",
 )
+load("//ledger/ledger-api-test-tool:conformance.bzl", "conformance_test")
 
 compile_deps = [
     "//daml-lf/data",
@@ -14,9 +16,17 @@ compile_deps = [
     "//ledger/ledger-api-health",
     "//ledger/participant-state",
     "//ledger/participant-state/kvutils",
+    "//ledger/participant-state/kvutils/app",
+    "@maven//:com_github_scopt_scopt_2_12",
     "@maven//:com_google_protobuf_protobuf_java",
     "@maven//:com_typesafe_akka_akka_actor_2_12",
     "@maven//:com_typesafe_akka_akka_stream_2_12",
+]
+
+runtime_deps = [
+    "@maven//:ch_qos_logback_logback_classic",
+    "@maven//:ch_qos_logback_logback_core",
+    "@maven//:com_h2database_h2",
 ]
 
 da_scala_library(
@@ -47,5 +57,15 @@ da_scala_test(
         "//ledger/participant-state/kvutils:kvutils-tests-lib",
         "@maven//:org_scalactic_scalactic_2_12",
         "@maven//:org_scalatest_scalatest_2_12",
+    ],
+)
+
+da_scala_binary(
+    name = "app",
+    main_class = "com.daml.ledger.on.filesystem.posix.Main",
+    visibility = ["//visibility:public"],
+    runtime_deps = runtime_deps,
+    deps = [
+        ":ledger-on-posix-filesystem",
     ],
 )

@@ -8,7 +8,7 @@ import com.daml.ledger.participant.state.kvutils.app.Runner
 import scala.concurrent.ExecutionContext.Implicits.global
 
 object Main extends App {
-  new Runner(
+  Runner(
     "In-Memory Ledger",
     participantId => new InMemoryLedgerReaderWriter(participantId = participantId),
   ).run(args)
