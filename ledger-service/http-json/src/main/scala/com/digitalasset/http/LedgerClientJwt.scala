@@ -43,16 +43,16 @@ object LedgerClientJwt {
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def getActiveContracts(client: LedgerClient): GetActiveContracts =
-    (jwt, filter, flag) =>
+    (jwt, filter, verbose) =>
       client.activeContractSetClient
-        .getActiveContracts(filter, flag, bearer(jwt))
+        .getActiveContracts(filter, verbose, bearer(jwt))
         .mapMaterializedValue(_ => NotUsed)
+
+  private val ledgerEndOffset = Some(
+    LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_END)))
 
   def getCreatesAndArchivesSince(client: LedgerClient): GetCreatesAndArchivesSince =
     (jwt, filter, offset) =>
-      Source
-        .future(client.transactionClient.getLedgerEnd(bearer(jwt)))
-        .flatMapConcat(end =>
-          client.transactionClient
-            .getTransactions(offset, end.offset, filter, verbose = true, token = bearer(jwt)))
+      client.transactionClient
+        .getTransactions(offset, ledgerEndOffset, filter, verbose = true, token = bearer(jwt))
 }
