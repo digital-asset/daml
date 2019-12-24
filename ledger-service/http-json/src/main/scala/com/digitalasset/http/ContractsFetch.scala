@@ -261,19 +261,24 @@ private[http] object ContractsFetch {
     InsertDeleteStep(csb.result() filter (ce => !as.contains(ce.contractId)), as)
   }
 
-  private def sinkSecondOut[A, Y, Z, M, N, O](g: Graph[FanOutShape2[A, Y, Z], M])(oz: Sink[Z, N])(
-      mat: (M, N) => O): Flow[A, Y, O] =
-    Flow fromGraph GraphDSL.create(g, oz)(mat) { implicit b => (gs, zOut) =>
-      import GraphDSL.Implicits._
-      gs.out1 ~> zOut
-      new FlowShape(gs.in, gs.out0)
-    }
+  object GraphExtensions {
+    implicit final class `Graph FOS2 funs`[A, Y, Z, M](
+        private val g: Graph[FanOutShape2[A, Y, Z], M])
+        extends AnyVal {
+      private def divertToMat[N, O](oz: Sink[Z, N])(mat: (M, N) => O): Flow[A, Y, O] =
+        Flow fromGraph GraphDSL.create(g, oz)(mat) { implicit b => (gs, zOut) =>
+          import GraphDSL.Implicits._
+          gs.out1 ~> zOut
+          new FlowShape(gs.in, gs.out0)
+        }
 
-  /** Several of the graphs here have a second output guaranteed to deliver only one value.
-    * This turns such a graph into a flow with the value materialized.
-    */
-  def matSecondOut[A, Y, Z](g: Graph[FanOutShape2[A, Y, Z], NotUsed]): Flow[A, Y, Future[Z]] =
-    sinkSecondOut(g)(Sink.head)(Keep.right[NotUsed, Future[Z]])
+      /** Several of the graphs here have a second output guaranteed to deliver only one value.
+        * This turns such a graph into a flow with the value materialized.
+        */
+      def divertToHead(implicit noM: M <~< NotUsed): Flow[A, Y, Future[Z]] =
+        divertToMat(Sink.head)(Keep.right[M, Future[Z]])
+    }
+  }
 
   /** Like `acsAndBoundary`, but also include the events produced by `transactionsSince`
     * after the ACS's last offset, terminating with the last offset of the last transaction,

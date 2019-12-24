@@ -254,8 +254,8 @@ class ContractsService(
         transactionFilter(party, templateId),
         _: api.ledger_offset.LedgerOffset)
 
-    import ContractsFetch.{acsFollowingAndBoundary, matSecondOut}
-    val contractsAndBoundary = matSecondOut(acsFollowingAndBoundary(transactionsSince))
+    import ContractsFetch.acsFollowingAndBoundary, ContractsFetch.GraphExtensions._
+    val contractsAndBoundary = acsFollowingAndBoundary(transactionsSince).divertToHead
     source
       .viaMat(contractsAndBoundary) { (nu, fob) =>
         fob.foreach(a => logger.debug(s"contracts fetch completed at: ${a.toString}"))
