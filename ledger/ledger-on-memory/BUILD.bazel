@@ -7,6 +7,7 @@ load(
     "da_scala_library",
     "da_scala_test",
 )
+load("//ledger/ledger-api-test-tool:conformance.bzl", "conformance_test")
 
 compile_deps = [
     "//daml-lf/archive:daml_lf_archive_reader",
@@ -79,5 +80,20 @@ da_scala_binary(
     runtime_deps = runtime_deps,
     deps = [
         ":ledger-on-memory",
+    ],
+)
+
+conformance_test(
+    name = "conformance-test",
+    ports = [6865],
+    server = ":app",
+    server_args = [
+        "--port=6865",
+    ],
+    test_tool_args = [
+        "--all-tests",
+        "--exclude=ConfigManagementServiceIT",
+        "--exclude=LotsOfPartiesIT",
+        "--exclude=TimeIT",
     ],
 )
