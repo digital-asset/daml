@@ -42,7 +42,8 @@ class InMemoryLedgerReaderWriter(
     ledgerId: LedgerId = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
     val participantId: ParticipantId)(implicit executionContext: ExecutionContext)
     extends LedgerWriter
-    with LedgerReader {
+    with LedgerReader
+    with AutoCloseable {
 
   private val engine = Engine()
 
@@ -112,6 +113,10 @@ class InMemoryLedgerReaderWriter(
   override def retrieveLedgerId(): LedgerId = ledgerId
 
   override def checkHealth(): HealthStatus = Healthy
+
+  override def close(): Unit = {
+    dispatcher.close()
+  }
 
   private val dispatcher: Dispatcher[Int] =
     Dispatcher("in-memory-key-value-participant-state", zeroIndex = 0, headAtInitialization = 0)
