@@ -27,6 +27,8 @@ final case class Config(
     allTests: Boolean,
     shuffleParticipants: Boolean,
     partyAllocation: PartyAllocationConfiguration,
+    includedTestCases: Set[String],
+    excludedTestCases: Set[String],
 )
 
 object Config {
@@ -48,5 +50,7 @@ object Config {
     allTests = false,
     shuffleParticipants = false,
     partyAllocation = PartyAllocationConfiguration.ClosedWorldWaitingForAllParticipants,
+    includedTestCases = Set.empty,
+    excludedTestCases = Set.empty,
   )
 }

@@ -107,6 +107,7 @@ object LedgerApiTestTool {
     val performanceTestsToRun =
       Tests.performanceTests(config.performanceTestsReport).filterKeys(config.performanceTests)
 
+
     if (testsToRun.isEmpty && performanceTestsToRun.isEmpty) {
       println("No tests to run.")
       sys.exit(0)
