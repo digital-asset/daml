@@ -9,7 +9,7 @@ $ bazel run //:daml2ts
 Usage: daml2ts DAR-FILE -o DIR
   Generate TypeScript bindings from a DAR
 ```
-somehere in this resository. The `DAR-FILE` is the DAR for which you want to
+somewhere in this repository. The `DAR-FILE` is the DAR for which you want to
 generate the TypeScript interface.  `daml2ts` will generate interfaces for
 all DALFs in that DAR. The output will be written into the directory `DIR`
 you specify via the `-o` option.
