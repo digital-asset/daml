@@ -32,17 +32,21 @@ import io.grpc.Metadata
 import io.reactivex.{Flowable, Observable, Single}
 import org.pcollections.{HashTreePMap, HashTreePSet}
 import org.reactivestreams.{Subscriber, Subscription}
+import org.scalatest.concurrent.Eventually
 import org.scalatest.{FlatSpec, Matchers}
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Future, Promise}
 import scala.util.Random
 import scala.util.control.NonFatal
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
-final class BotTest extends FlatSpec with Matchers {
+final class BotTest extends FlatSpec with Matchers with Eventually {
+  override implicit def patienceConfig: PatienceConfig = PatienceConfig(5.seconds, 1.second)
+
   private def ledgerServices: LedgerServices = new LedgerServices("bot-test")
 
   "Bot" should "create a flowable of WorkflowEvents from the ACS" in {
@@ -217,7 +221,9 @@ final class BotTest extends FlatSpec with Matchers {
     val createdEvent1 = create(party, templateId, id = 1)
     transactions.emit(transaction(createdEvent1))
 
-    while (!finishedWork.get) Thread.sleep(1)
+    eventually {
+      finishedWork.get shouldBe true
+    }
 
     ledgerClient.submitted should have size 3
     counter.get shouldBe 3
@@ -289,21 +295,24 @@ final class BotTest extends FlatSpec with Matchers {
     Bot.wireSimple(appId, ledgerClient, transactionFilter, bot)
 
     // when the bot is wired-up, no command should have been submitted to the server
-    Thread.sleep(100)
-    ledgerClient.submitted should have size 0
+    eventually {
+      ledgerClient.submitted should have size 0
+    }
 
     // when the bot receives a transaction, a command should be submitted to the server
     val createdEvent1 = create(party, templateId)
     transactions.emit(transaction(createdEvent1))
-    Thread.sleep(100)
-    ledgerClient.submitted should have size 1
+    eventually {
+      ledgerClient.submitted should have size 1
+    }
 
     val archivedEvent1 = archive(createdEvent1)
     val createEvent2 = create(party, templateId)
     val createEvent3 = create(party, templateId)
     transactions.emit(transaction(archivedEvent1, createEvent2, createEvent3))
-    Thread.sleep(100)
-    ledgerClient.submitted should have size 3
+    eventually {
+      ledgerClient.submitted should have size 3
+    }
 
     // we complete the first command with success and then check that the client hasn't submitted a new command
     commandCompletions.emit(
@@ -332,8 +341,9 @@ final class BotTest extends FlatSpec with Matchers {
     //         .build(),
     //     ).asJava
     //   ))
-    // Thread.sleep(100)
-    // ledgerClient.submitted should have size 4
+    // eventually {
+    //   ledgerClient.submitted should have size 4
+    // }
 
     transactions.complete()
     commandCompletions.complete()
