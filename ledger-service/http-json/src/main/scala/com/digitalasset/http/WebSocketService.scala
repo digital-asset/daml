@@ -43,18 +43,27 @@ class WebSocketService(
   import WebSocketService._
   import com.digitalasset.http.json.JsonProtocol._
 
-  @SuppressWarnings(
-    Array("org.wartremover.warts.NonUnitStatements", "org.wartremover.warts.JavaSerializable"))
   private[http] def transactionMessageHandler(
       jwt: Jwt,
       jwtPayload: JwtPayload): Flow[Message, Message, _] = {
 
-    val config = wsConfig.getOrElse(Config.DefaultWsConfig)
-
     wsMessageHandler(jwt, jwtPayload)
+      .via(applyConfig(keepAlive = TextMessage.Strict(heartBeat)))
+      .via(connCounter)
+  }
+
+  private def applyConfig[A](keepAlive: A): Flow[A, A, NotUsed] = {
+    val config = wsConfig.getOrElse(Config.DefaultWsConfig)
+    Flow[A]
       .takeWithin(config.maxDuration)
       .throttle(config.throttleElem, config.throttlePer, config.maxBurst, config.mode)
-      .keepAlive(config.heartBeatPer, () => TextMessage.Strict(heartBeat))
+      .keepAlive(config.heartBeatPer, () => keepAlive)
+  }
+
+  @SuppressWarnings(
+    Array("org.wartremover.warts.NonUnitStatements", "org.wartremover.warts.JavaSerializable"))
+  private def connCounter[A]: Flow[A, A, NotUsed] =
+    Flow[A]
       .watchTermination() { (_, future) =>
         numConns.incrementAndGet
         logger.info(s"New websocket client has connected, current number of clients:$numConns")
@@ -67,8 +76,8 @@ class WebSocketService(
             logger.info(
               s"Websocket client interrupted on Failure: ${ex.getMessage}. remaining number of clients: $numConns")
         }
+        NotUsed
       }
-  }
 
   private def wsMessageHandler(
       jwt: Jwt,
