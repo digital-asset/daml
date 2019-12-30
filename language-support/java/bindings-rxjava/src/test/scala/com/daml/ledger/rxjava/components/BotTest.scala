@@ -221,6 +221,8 @@ final class BotTest extends FlatSpec with Matchers {
 
     ledgerClient.submitted.size shouldBe 3
     counter.get shouldBe 3
+
+    transactions.complete()
   }
 
   it should "wire a bot to the ledger-client" in {
@@ -332,6 +334,9 @@ final class BotTest extends FlatSpec with Matchers {
     //   ))
     // Thread.sleep(100)
     // ledgerClient.submitted.size shouldBe 4
+
+    transactions.complete()
+    commandCompletions.complete()
   }
 
   it should "query first the ACS and then the LedgerEnd sequentially so that there is not race condition and LedgerEnd >= ACS offset" in {
@@ -478,6 +483,7 @@ object BotTest {
 
     private val buffer: mutable.Buffer[A] = mutable.Buffer.empty[A]
     private var observerMay = Option.empty[Subscriber[_ >: A]]
+    private var isComplete = false
 
     override def subscribeActual(observer: Subscriber[_ >: A]): Unit = {
       observerMay match {
@@ -494,6 +500,9 @@ object BotTest {
           })
           buffer.foreach(a => observer.onNext(a))
           buffer.clear()
+          if (isComplete) {
+            observer.onComplete()
+          }
       }
     }
 
@@ -512,6 +521,7 @@ object BotTest {
       observerMay match {
         case None =>
           logger.debug("no observer, buffering onComplete")
+          isComplete = true
         case Some(observer) =>
           logger.debug(s"calling onComplete() on subscribed $observer")
           observer.onComplete()
