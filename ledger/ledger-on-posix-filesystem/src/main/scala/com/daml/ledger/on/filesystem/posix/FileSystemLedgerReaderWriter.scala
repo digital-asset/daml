@@ -36,10 +36,7 @@ import scala.util.{Failure, Random, Success}
 class FileSystemLedgerReaderWriter private (
     ledgerId: LedgerId = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
     override val participantId: ParticipantId,
-    logDirectory: Path,
-    logIndexDirectory: Path,
-    logEntriesDirectory: Path,
-    stateDirectory: Path,
+    root: Path,
 )(implicit executionContext: ExecutionContext)
     extends LedgerReader
     with LedgerWriter
@@ -47,7 +44,11 @@ class FileSystemLedgerReaderWriter private (
 
   private val lock = new Semaphore(1)
 
-  private val logHeadPath: Path = logDirectory.resolve("head")
+  private val logDirectory = root.resolve("log")
+  private val logEntriesDirectory = logDirectory.resolve("entries")
+  private val logIndexDirectory = logDirectory.resolve("index")
+  private val logHeadPath = logDirectory.resolve("head")
+  private val stateDirectory = root.resolve("state")
 
   private val engine = Engine()
 
@@ -197,6 +198,15 @@ class FileSystemLedgerReaderWriter private (
         lock.release()
         result
       })
+
+  private def createDirectories(): Future[Unit] = Future {
+    Files.createDirectories(root)
+    Files.createDirectories(logDirectory)
+    Files.createDirectories(logEntriesDirectory)
+    Files.createDirectories(logIndexDirectory)
+    Files.createDirectories(stateDirectory)
+    ()
+  }
 }
 
 object FileSystemLedgerReaderWriter {
@@ -208,22 +218,8 @@ object FileSystemLedgerReaderWriter {
       ledgerId: LedgerId = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
       participantId: ParticipantId,
       root: Path,
-  )(implicit executionContext: ExecutionContext): Future[FileSystemLedgerReaderWriter] = Future {
-    Files.createDirectories(root)
-    val logDirectory = root.resolve("log")
-    Files.createDirectories(logDirectory)
-    val logIndexDirectory = logDirectory.resolve("index")
-    Files.createDirectories(logIndexDirectory)
-    val logEntriesDirectory = logDirectory.resolve("entries")
-    Files.createDirectories(logEntriesDirectory)
-    val stateDirectory = root.resolve("state")
-    Files.createDirectories(stateDirectory)
-    new FileSystemLedgerReaderWriter(
-      ledgerId,
-      participantId,
-      logDirectory,
-      logIndexDirectory,
-      logEntriesDirectory,
-      stateDirectory)
+  )(implicit executionContext: ExecutionContext): Future[FileSystemLedgerReaderWriter] = {
+    val ledger = new FileSystemLedgerReaderWriter(ledgerId, participantId, root)
+    ledger.createDirectories().map(_ => ledger)
   }
 }
