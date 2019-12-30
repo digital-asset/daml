@@ -141,7 +141,7 @@ class FileSystemLedgerReaderWriter private (
           Failure(new NoSuchElementException(s"No log entry at $index."))
         case Failure(exception) => Failure(exception)
       }
-      envelope <- Future(Files.readAllBytes(logEntriesDirectory.resolve(bytesToString(entryId))))
+      envelope <- Future(Files.readAllBytes(logEntriesDirectory.resolve(Bytes.toString(entryId))))
     } yield
       LedgerRecord(
         Offset(Array(index.toLong)),
@@ -159,7 +159,7 @@ class FileSystemLedgerReaderWriter private (
           Failure(exception)
       }
       newHead = currentHead + 1
-      id = bytesToString(entry.getEntryId)
+      id = Bytes.toString(entry.getEntryId)
       _ <- Future(Files.write(logEntriesDirectory.resolve(id), envelope.toByteArray))
       _ <- Future(
         Files.write(logIndexDirectory.resolve(currentHead.toString), entry.getEntryId.toByteArray))
@@ -167,8 +167,7 @@ class FileSystemLedgerReaderWriter private (
     } yield newHead
 
   private def readState(key: DamlStateKey): Future[Option[DamlStateValue]] = Future {
-    val name = bytesToString(key.toByteArray)
-    val path = stateDirectory.resolve(name)
+    val path = StateKeys.resolveStateKey(stateDirectory, key)
     try {
       val contents = Files.readAllBytes(path)
       Some(DamlStateValue.parseFrom(contents))
@@ -180,8 +179,8 @@ class FileSystemLedgerReaderWriter private (
 
   private def updateState(stateUpdates: Map[DamlStateKey, DamlStateValue]): Future[Unit] = Future {
     for ((key, value) <- stateUpdates) {
-      val name = bytesToString(key.toByteArray)
-      val path = stateDirectory.resolve(name)
+      val path = StateKeys.resolveStateKey(stateDirectory, key)
+      Files.createDirectories(path.getParent)
       Files.write(path, value.toByteArray)
     }
   }
@@ -218,10 +217,4 @@ object FileSystemLedgerReaderWriter {
       logEntriesDirectory,
       stateDirectory)
   }
-
-  private def bytesToString(bytes: ByteString): String =
-    bytesToString(bytes.toByteArray)
-
-  private def bytesToString(bytes: Array[Byte]): String =
-    bytes.map("%02x".format(_)).mkString("")
 }
