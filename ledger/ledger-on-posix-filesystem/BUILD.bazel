@@ -8,6 +8,7 @@ load(
     "da_scala_test",
 )
 load("//ledger/ledger-api-test-tool:conformance.bzl", "conformance_test")
+load("@os_info//:os_info.bzl", "is_linux", "is_windows")
 
 compile_deps = [
     "//daml-lf/data",
@@ -41,6 +42,19 @@ da_scala_library(
     deps = compile_deps,
 )
 
+da_scala_library(
+    name = "ledger-on-posix-filesystem-test-lib",
+    srcs = glob(["src/test/lib/**/*.scala"]),
+    tags = ["maven_coordinates=com.daml.ledger:on-posix-filesystem:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    runtime_deps = [],
+    deps = compile_deps + [
+        ":ledger-on-posix-filesystem",
+    ],
+)
+
 da_scala_test(
     name = "ledger-on-posix-filesystem-tests",
     size = "small",
@@ -51,6 +65,7 @@ da_scala_test(
     resources = glob(["src/test/resources/*"]),
     deps = compile_deps + [
         ":ledger-on-posix-filesystem",
+        ":ledger-on-posix-filesystem-test-lib",
         "//bazel_tools/runfiles:scala_runfiles",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
@@ -69,3 +84,28 @@ da_scala_binary(
         ":ledger-on-posix-filesystem",
     ],
 )
+
+da_scala_binary(
+    name = "app-with-ephemeral-directory",
+    main_class = "com.daml.ledger.on.filesystem.posix.MainWithEphemeralDirectory",
+    visibility = ["//visibility:public"],
+    runtime_deps = runtime_deps,
+    deps = [
+        ":ledger-on-posix-filesystem-test-lib",
+    ],
+) if not is_windows else None
+
+conformance_test(
+    name = "conformance-test",
+    ports = [6865],
+    server = ":app-with-ephemeral-directory",
+    server_args = [
+        "--port=6865",
+    ],
+    test_tool_args = [
+        "--all-tests",
+        "--exclude=ConfigManagementServiceIT",
+        "--exclude=LotsOfPartiesIT",
+        "--exclude=TimeIT",
+    ],
+) if not is_windows else None
