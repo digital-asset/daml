@@ -26,29 +26,6 @@
     - package base
     rules:
 
-    # I/O
-
-    - warn: {lhs: putStrLn (show x), rhs: print x}
-    - warn: {lhs: mapM_ putChar, rhs: putStr}
-    - warn: {lhs: hGetChar stdin, rhs: getChar}
-    - warn: {lhs: hGetLine stdin, rhs: getLine}
-    - warn: {lhs: hGetContents stdin, rhs: getContents}
-    - warn: {lhs: hPutChar stdout, rhs: putChar}
-    - warn: {lhs: hPutStr stdout, rhs: putStr}
-    - warn: {lhs: hPutStrLn stdout, rhs: putStrLn}
-    - warn: {lhs: hPrint stdout, rhs: print}
-    - warn: {lhs: hWaitForInput a 0, rhs: hReady a}
-    - warn: {lhs: hPutStrLn a (show b), rhs: hPrint a b}
-    - warn: {lhs: hIsEOF stdin, rhs: isEOF}
-    - warn: {lhs: withFile f WriteMode (\h -> hPutStr h x), rhs: writeFile f x}
-    - warn: {lhs: withFile f WriteMode (\h -> hPutStrLn h x), rhs: writeFile f (x ++ "\n")}
-    - warn: {lhs: withFile f AppendMode (\h -> hPutStr h x), rhs: appendFile f x}
-    - warn: {lhs: withFile f AppendMode (\h -> hPutStrLn h x), rhs: appendFile f (x ++ "\n")}
-
-    # EXIT
-
-    - warn: {lhs: exitWith ExitSuccess, rhs: exitSuccess}
-
     # ORD
 
     - warn: {lhs: not (a == b), rhs: a /= b}
@@ -259,15 +236,13 @@
 
     # CHAR
 
-    - warn: {lhs: a >= 'a' && a <= 'z', rhs: isAsciiLower a}
-    - warn: {lhs: a >= 'A' && a <= 'Z', rhs: isAsciiUpper a}
-    - warn: {lhs: a >= '0' && a <= '9', rhs: isDigit a}
-    - warn: {lhs: a >= '0' && a <= '7', rhs: isOctDigit a}
+    - warn: {lhs: a >= "a" && a <= "z", rhs: isLower a, name: isLower, note: Only works for single character texts}
+    - warn: {lhs: a >= "A" && a <= "Z", rhs: isUpper a, name: isUpper, note: Only works for single character texts}
+    - warn: {lhs: a >= "0" && a <= "9", rhs: isDigit a, name: isDigit, note: Only works for single character texts}
     - warn: {lhs: isLower a || isUpper a, rhs: isAlpha a}
     - warn: {lhs: isUpper a || isLower a, rhs: isAlpha a}
 
     # BOOL
-
     - warn: {lhs: x == True, rhs: x, name: Redundant ==}
     - hint: {lhs: x == False, rhs: not x, name: Redundant ==}
     - warn: {lhs: True == a, rhs: a, name: Redundant ==}
@@ -354,7 +329,6 @@
     - warn: {lhs: f =<< return a, rhs: f a, name: "Monad law, left identity"}
     - warn: {lhs: m >>= return, rhs: m, name: "Monad law, right identity"}
     - warn: {lhs: return =<< m, rhs: m, name: "Monad law, right identity"}
-    - warn: {lhs: liftM, rhs: fmap}
     - warn: {lhs: liftA, rhs: fmap}
     - hint: {lhs: m >>= return . f, rhs: f <$> m}
     - hint: {lhs: return . f =<< m, rhs: f <$> m}
@@ -362,14 +336,14 @@
     - warn: {lhs: if x then y else return (), rhs: DA.Action.when x y, side: isAtom y}
     - warn: {lhs: if x then return () else y, rhs: DA.Action.unless x $ _noParen_ y, side: isAtom y}
     - warn: {lhs: if x then return () else y, rhs: DA.Action.unless x y, side: isAtom y}
-    - warn: {lhs: sequence (map f x), rhs: mapM f x}
-    - warn: {lhs: sequence_ (map f x), rhs: mapM_ f x}
-    - warn: {lhs: sequence (fmap f x), rhs: mapM f x}
-    - warn: {lhs: sequence_ (fmap f x), rhs: mapM_ f x}
-    - hint: {lhs: flip mapM, rhs: DA.Action.forM}
-    - hint: {lhs: flip mapM_, rhs: DA.Action.forM_}
-    - hint: {lhs: flip forM, rhs: mapM}
-    - hint: {lhs: flip forM_, rhs: mapM_}
+    - warn: {lhs: sequence (map f x), rhs: mapA f x}
+    - warn: {lhs: sequence_ (map f x), rhs: mapA_ f x}
+    - warn: {lhs: sequence (fmap f x), rhs: mapA f x}
+    - warn: {lhs: sequence_ (fmap f x), rhs: mapA_ f x}
+    - hint: {lhs: flip mapA, rhs: DA.Action.forA}
+    - hint: {lhs: flip mapA_, rhs: DA.Action.forA_}
+    - hint: {lhs: flip forA, rhs: mapA}
+    - hint: {lhs: flip forA_, rhs: mapA_}
     - warn: {lhs: when (not x), rhs: unless x}
     - warn: {lhs: x >>= identity, rhs: DA.Action.join x}
     - warn: {lhs: identity =<< x, rhs: DA.Action.join x}
@@ -388,9 +362,10 @@
     - hint: {lhs: \x -> f =<< g x, rhs: f DA.Action.<=< g}
     - warn: {lhs: a >> forever a, rhs: forever a}
     - hint: {lhs: liftM2 identity, rhs: ap}
-    - warn: {lhs: mapM (uncurry f) (zip l m), rhs: zipWithM f l m}
-    - warn: {lhs: mapM_ (void . f), rhs: mapM_ f}
-    - warn: {lhs: forM_ x (void . f), rhs: forM_ x f}
+    # TODO(MH): Add `zipWithA` to the stdlib.
+    # - warn: {lhs: mapM (uncurry f) (zip l m), rhs: zipWithM f l m}
+    - warn: {lhs: mapA_ (void . f), rhs: mapA_ f}
+    - warn: {lhs: forA_ x (void . f), rhs: forA_ x f}
     - warn: {lhs: a >>= \_ -> b, rhs: a >> b}
     - warn: {lhs: m <* return x, rhs: m}
     - warn: {lhs: return x *> m, rhs: m}
@@ -404,19 +379,19 @@
 
     # MONAD LIST
 
-    - warn: {lhs: fmap unzip (mapM f x), rhs: DA.Action.mapAndUnzipM f x}
+    - warn: {lhs: fmap unzip (mapA f x), rhs: DA.Action.mapAndUnzipM f x}
     - warn: {lhs: sequence (zipWith f x y), rhs: DA.Action.zipWithM f x y}
     - warn: {lhs: sequence_ (zipWith f x y), rhs: DA.Action.zipWithM_ f x y}
     - warn: {lhs: sequence (replicate n x), rhs: DA.Action.replicateM n x}
     - warn: {lhs: sequence_ (replicate n x), rhs: DA.Action.replicateM_ n x}
-    - warn: {lhs: mapM f (replicate n x), rhs: DA.Action.replicateM n (f x)}
-    - warn: {lhs: mapM_ f (replicate n x), rhs: DA.Action.replicateM_ n (f x)}
-    - warn: {lhs: mapM f (map g x), rhs: mapM (f . g) x, name: Fuse mapM/map}
-    - warn: {lhs: mapM_ f (map g x), rhs: mapM_ (f . g) x, name: Fuse mapM_/map}
+    - warn: {lhs: mapA f (replicate n x), rhs: DA.Action.replicateM n (f x)}
+    - warn: {lhs: mapA_ f (replicate n x), rhs: DA.Action.replicateM_ n (f x)}
+    - warn: {lhs: mapA f (map g x), rhs: mapA (f . g) x, name: Fuse mapA/map}
+    - warn: {lhs: mapA_ f (map g x), rhs: mapA_ (f . g) x, name: Fuse mapA_/map}
     - warn: {lhs: traverse f (map g x), rhs: traverse (f . g) x, name: Fuse traverse/map}
     - warn: {lhs: traverse_ f (map g x), rhs: traverse_ (f . g) x, name: Fuse traverse_/map}
-    - warn: {lhs: mapM identity, rhs: sequence}
-    - warn: {lhs: mapM_ identity, rhs: sequence_}
+    - warn: {lhs: mapA identity, rhs: sequence}
+    - warn: {lhs: mapA_ identity, rhs: sequence_}
 
     # APPLICATIVE / TRAVERSABLE
 
@@ -439,16 +414,6 @@
     - hint: {lhs: "if b then [x] else []", rhs: "[x | b]", name: Use list comprehension}
     - hint: {lhs: "if b then [] else [x]", rhs: "[x | not b]", name: Use list comprehension}
     - hint: {lhs: "[x | x <- y]", rhs: "y", side: isVar x, name: Redundant list comprehension}
-
-    # SEQ
-
-    - warn: {lhs: seq x x, rhs: x, name: Redundant seq}
-    - warn: {lhs: join seq, rhs: identity, name: Redundant seq}
-    - warn: {lhs: identity $! x, rhs: x, name: Redundant $!}
-    - warn: {lhs: seq x y, rhs: "y", side: isWHNF x, name: Redundant seq}
-    - warn: {lhs: f $! x, rhs: f x, side: isWHNF x, name: Redundant $!}
-    - warn: {lhs: evaluate x, rhs: return x, side: isWHNF x, name: Redundant evaluate}
-    - warn: {lhs: seq (rnf x) (), rhs: rnf x, name: Redundant seq}
 
     # TUPLE
 
@@ -473,7 +438,7 @@
     - hint: {lhs: case x of Some a -> f a; None -> y, rhs: optional y f x, side: isAtom y && isAtom f, name: Replace case with optional}
     - warn: {lhs: if isNone x then y else f (fromSome x), rhs: optional y f x}
     - warn: {lhs: if isSome x then f (fromSome x) else y, rhs: optional y f x}
-    - warn: {lhs: optinoal None (Some . f), rhs: fmap f}
+    - warn: {lhs: optional None (Some . f), rhs: fmap f}
     - hint: {lhs: map fromSome . filter isSome , rhs:  DA.Optional.catOptionals}
     - warn: {lhs: x == None , rhs:  isNone x}
     - warn: {lhs: None == x , rhs:  isNone x}
@@ -540,55 +505,12 @@
     - hint: {lhs: x ^ 0, rhs: "1", name: Use 1}
     - hint: {lhs: round (x - 0.5), rhs: floor x}
 
-    # CONCURRENT
-
-    - hint: {lhs: mapM_ (writeChan a), rhs: writeList2Chan a}
-    - error: {lhs: atomically (readTVar x), rhs: readTVarIO x}
-
-    # TYPEABLE
-
-    # Currently broken with GHC.
-    #- hint: {lhs: "typeOf (a :: b)", rhs: "typeRep (Proxy :: Proxy b)"}
-
-    # EXCEPTION
-
-    - hint: {lhs: flip Control.Exception.catch, rhs: handle}
-    - hint: {lhs: flip handle, rhs: Control.Exception.catch}
-    - hint: {lhs: flip (catchSome p), rhs: handleSome p}
-    - hint: {lhs: flip (handleSome p), rhs: catchSome p}
-    - hint: {lhs: Control.Exception.bracket b (const a) (const t), rhs: Control.Exception.bracket_ b a t}
-    - hint: {lhs: Control.Exception.bracket (openFile x y) hClose, rhs: withFile x y}
-    - hint: {lhs: Control.Exception.bracket (openBinaryFile x y) hClose, rhs: withBinaryFile x y}
-    - hint: {lhs: throw (ErrorCall a), rhs: error a}
-    - warn: {lhs: toException NonTermination, rhs: nonTermination}
-    - warn: {lhs: toException NestedAtomically, rhs: nestedAtomically}
-
-    # IOREF
-
-    - hint: {lhs: modifyIORef r (const x), rhs: writeIORef r x}
-    - hint: {lhs: modifyIORef r (\v -> x), rhs: writeIORef r x}
-
-    # STOREABLE/PTR
-
-    - hint: {lhs: castPtr nullPtr, rhs: nullPtr}
-    - hint: {lhs: castPtr (castPtr x), rhs: castPtr x}
-    - hint: {lhs: plusPtr (castPtr x), rhs: plusPtr x}
-    - hint: {lhs: minusPtr (castPtr x), rhs: minusPtr x}
-    - hint: {lhs: minusPtr x (castPtr y), rhs: minusPtr x y}
-    - hint: {lhs: peekByteOff (castPtr x), rhs: peekByteOff x}
-    - hint: {lhs: pokeByteOff (castPtr x), rhs: pokeByteOff x}
-
-    # WEAK POINTERS
-
-    - warn: {lhs: mkWeak a a b, rhs: mkWeakPtr a b}
-    - warn: {lhs: "mkWeak a (a, b) c", rhs: mkWeakPair a b c}
-
     # FOLDABLE
 
-    - warn: {lhs: case m of None -> return (); Some x -> f x, rhs: DA.Foldable.forM_ m f}
-    - warn: {lhs: case m of Some x -> f x; None -> return (), rhs: DA.Foldable.forM_ m f}
-    - warn: {lhs: case m of Some x -> f x; _ -> return (), rhs: DA.Foldable.forM_ m f}
-    - warn: {lhs: when (isSome m) (f (fromSome m)), rhs: DA.Foldable.forM_ m f}
+    - warn: {lhs: case m of None -> return (); Some x -> f x, rhs: DA.Foldable.forA_ m f}
+    - warn: {lhs: case m of Some x -> f x; None -> return (), rhs: DA.Foldable.forA_ m f}
+    - warn: {lhs: case m of Some x -> f x; _ -> return (), rhs: DA.Foldable.forA_ m f}
+    - warn: {lhs: when (isSome m) (f (fromSome m)), rhs: DA.Foldable.forA_ m f}
 
     # STATE MONAD
 

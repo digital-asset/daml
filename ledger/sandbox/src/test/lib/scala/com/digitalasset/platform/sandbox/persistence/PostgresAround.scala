@@ -126,18 +126,25 @@ trait PostgresAround {
       throw new IllegalStateException(
         "Attempted to start PostgreSQL, but it has already been started.")
     }
-    run(
-      "start PostgreSQL",
-      Tool.pg_ctl,
-      "-o",
-      s"-F -p ${postgresFixture.port}",
-      "-w",
-      "-D",
-      postgresFixture.dataDir.toString,
-      "-l",
-      postgresFixture.logFile.toString,
-      "start",
-    )
+    try {
+      run(
+        "start PostgreSQL",
+        Tool.pg_ctl,
+        "-o",
+        s"-F -p ${postgresFixture.port}",
+        "-w",
+        "-D",
+        postgresFixture.dataDir.toString,
+        "-l",
+        postgresFixture.logFile.toString,
+        "start",
+      )
+    } catch {
+      case NonFatal(e) =>
+        logger.error("Starting PostgreSQL failed.", e)
+        started.set(false)
+        throw e
+    }
   }
 
   protected def stopPostgres(): Unit = {
@@ -153,6 +160,7 @@ trait PostgresAround {
         "immediate",
         "stop",
       )
+      logger.info("PostgreSQL has stopped.")
     }
   }
 

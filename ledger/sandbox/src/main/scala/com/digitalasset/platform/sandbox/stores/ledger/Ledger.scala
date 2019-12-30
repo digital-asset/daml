@@ -24,6 +24,7 @@ import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
 import com.digitalasset.ledger.api.health.ReportsHealth
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
+import com.digitalasset.platform.resources.{Resource, ResourceOwner}
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.Contract
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.digitalasset.platform.sandbox.stores.ledger.inmemory.InMemoryLedger
@@ -129,8 +130,10 @@ object Ledger {
       timeProvider: TimeProvider,
       acs: InMemoryActiveLedgerState,
       packages: InMemoryPackageStore,
-      ledgerEntries: ImmArray[LedgerEntryOrBump]): Ledger =
-    new InMemoryLedger(ledgerId, participantId, timeProvider, acs, packages, ledgerEntries)
+      ledgerEntries: ImmArray[LedgerEntryOrBump],
+  ): ResourceOwner[Ledger] =
+    ResourceOwner.successful(
+      new InMemoryLedger(ledgerId, participantId, timeProvider, acs, packages, ledgerEntries))
 
   /**
     * Creates a JDBC backed ledger
@@ -157,8 +160,8 @@ object Ledger {
       startMode: SqlStartMode,
       loggerFactory: NamedLoggerFactory,
       metrics: MetricRegistry
-  )(implicit mat: Materializer): Future[Ledger] =
-    SqlLedger(
+  )(implicit mat: Materializer): ResourceOwner[Ledger] =
+    SqlLedger.owner(
       jdbcUrl,
       Some(ledgerId),
       participantId,
@@ -169,7 +172,8 @@ object Ledger {
       queueDepth,
       startMode,
       loggerFactory,
-      metrics)
+      metrics,
+    )
 
   /**
     * Creates a JDBC backed read only ledger
@@ -183,7 +187,7 @@ object Ledger {
       ledgerId: LedgerId,
       loggerFactory: NamedLoggerFactory,
       metrics: MetricRegistry
-  )(implicit mat: Materializer): Future[ReadOnlyLedger] =
+  )(implicit mat: Materializer): Resource[ReadOnlyLedger] =
     ReadOnlySqlLedger(jdbcUrl, Some(ledgerId), loggerFactory, metrics)
 
   /** Wraps the given Ledger adding metrics around important calls */

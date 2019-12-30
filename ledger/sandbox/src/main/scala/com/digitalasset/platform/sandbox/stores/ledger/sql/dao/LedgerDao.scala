@@ -6,7 +6,6 @@ package com.digitalasset.platform.sandbox.stores.ledger.sql.dao
 import java.time.Instant
 
 import akka.NotUsed
-import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.index.v2.PackageDetails
@@ -28,13 +27,13 @@ import com.digitalasset.ledger.api.health.ReportsHealth
 import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{ActiveContract, Contract}
+import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.Transaction
 import com.digitalasset.platform.sandbox.stores.ledger.{
   ConfigurationEntry,
   LedgerEntry,
-  PartyLedgerEntry,
-  PackageLedgerEntry
+  PackageLedgerEntry,
+  PartyLedgerEntry
 }
-import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.Transaction
 
 import scala.collection.immutable
 import scala.concurrent.Future
@@ -71,7 +70,7 @@ object PersistenceResponse {
 
 case class LedgerSnapshot(offset: Long, acs: Source[ActiveContract, NotUsed])
 
-trait LedgerReadDao extends AutoCloseable with ReportsHealth {
+trait LedgerReadDao extends ReportsHealth {
 
   type LedgerOffset = Long
 
@@ -149,11 +148,11 @@ trait LedgerReadDao extends AutoCloseable with ReportsHealth {
   /**
     * Returns a snapshot of the ledger.
     * The snapshot consists of an offset, and a stream of contracts that were active at that offset.
-    *
-    * @param mat the Akka stream materializer to be used for the contract stream.
     */
-  def getActiveContractSnapshot(untilExclusive: LedgerOffset, filter: TemplateAwareFilter)(
-      implicit mat: Materializer): Future[LedgerSnapshot]
+  def getActiveContractSnapshot(
+      untilExclusive: LedgerOffset,
+      filter: TemplateAwareFilter
+  ): Future[LedgerSnapshot]
 
   /** Returns a list of all known parties. */
   def getParties: Future[List[PartyDetails]]
@@ -179,7 +178,7 @@ trait LedgerReadDao extends AutoCloseable with ReportsHealth {
 
 }
 
-trait LedgerWriteDao extends AutoCloseable with ReportsHealth {
+trait LedgerWriteDao extends ReportsHealth {
 
   type LedgerOffset = Long
 

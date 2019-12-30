@@ -13,6 +13,7 @@ utils_deps = [
     "//daml-lf/data",
     "//daml-lf/archive:daml_lf_dev_archive_java_proto",
     "//daml-lf/archive:daml_lf_archive_reader",
+    "//daml-lf/language",
     "//daml-lf/transaction",
     "//daml-lf/interface",
     "//language-support/scala/bindings-akka",

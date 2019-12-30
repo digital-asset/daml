@@ -8,7 +8,7 @@ import java.nio.file.Path
 import java.util.concurrent.TimeUnit
 
 import akka.stream.ThrottleMode
-import com.digitalasset.http.util.ExceptionOps._
+import com.digitalasset.util.ExceptionOps._
 import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
 import scalaz.std.option._
 import scalaz.syntax.traverse._

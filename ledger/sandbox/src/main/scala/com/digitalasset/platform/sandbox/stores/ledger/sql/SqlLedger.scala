@@ -20,10 +20,11 @@ import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
-import com.digitalasset.ledger.api.domain.{LedgerId, RejectionReason}
+import com.digitalasset.dec.{DirectExecutionContext => DEC}
+import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, RejectionReason}
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
-import com.digitalasset.dec.{DirectExecutionContext => DEC}
+import com.digitalasset.platform.resources.ResourceOwner
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode.{
   AlwaysReset,
@@ -31,18 +32,12 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode.{
 }
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao._
 import com.digitalasset.platform.sandbox.stores.ledger.sql.migration.FlywayMigrations
-import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
-  ContractSerializer,
-  KeyHasher,
-  TransactionSerializer,
-  ValueSerializer
-}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
 import com.digitalasset.platform.sandbox.stores.ledger.{
   Ledger,
   LedgerEntry,
-  PartyLedgerEntry,
-  PackageLedgerEntry
+  PackageLedgerEntry,
+  PartyLedgerEntry
 }
 import com.digitalasset.platform.sandbox.stores.{InMemoryActiveLedgerState, InMemoryPackageStore}
 import com.digitalasset.platform.sandbox.{EventIdFormatter, LedgerIdGenerator}
@@ -52,7 +47,6 @@ import scala.collection.immutable
 import scala.collection.immutable.Queue
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
-import com.digitalasset.ledger.api.domain.PartyDetails
 
 sealed abstract class SqlStartMode extends Product with Serializable
 
@@ -78,7 +72,7 @@ object SqlLedger {
   )
 
   //jdbcUrl must have the user/password encoded in form of: "jdbc:postgresql://localhost/test?user=fred&password=secret"
-  def apply(
+  def owner(
       jdbcUrl: String,
       ledgerId: Option[LedgerId],
       participantId: ParticipantId,
@@ -90,49 +84,38 @@ object SqlLedger {
       startMode: SqlStartMode = SqlStartMode.ContinueIfExists,
       loggerFactory: NamedLoggerFactory,
       metrics: MetricRegistry,
-  )(implicit mat: Materializer): Future[Ledger] = {
+  )(implicit mat: Materializer): ResourceOwner[Ledger] = {
     implicit val ec: ExecutionContext = DEC
 
     new FlywayMigrations(jdbcUrl, loggerFactory).migrate()
 
     val dbType = DbType.jdbcType(jdbcUrl)
-    val noOfShortLivedConnections =
+    val maxConnections =
       if (dbType.supportsParallelWrites) defaultNumberOfShortLivedConnections else 1
-    val dbDispatcher = DbDispatcher.start(
-      jdbcUrl,
-      noOfShortLivedConnections,
-      loggerFactory,
-      metrics,
-    )
-    val ledgerDao = LedgerDao.metered(
-      JdbcLedgerDao(
-        dbDispatcher,
-        ContractSerializer,
-        TransactionSerializer,
-        ValueSerializer,
-        KeyHasher,
-        dbType,
-        loggerFactory,
-        mat.executionContext,
-      ),
-      metrics,
-    )
-
-    val sqlLedgerFactory = SqlLedgerFactory(ledgerDao, loggerFactory)
-
-    sqlLedgerFactory.createSqlLedger(
-      ledgerId,
-      participantId,
-      timeProvider,
-      startMode,
-      acs,
-      packages,
-      initialLedgerEntries,
-      queueDepth,
-      // we use noOfShortLivedConnections for the maximum batch size, since it doesn't make sense
-      // to try to persist more ledger entries concurrently than we have SQL executor threads and SQL connections available.
-      noOfShortLivedConnections,
-    )
+    for {
+      dbDispatcher <- DbDispatcher.owner(jdbcUrl, maxConnections, loggerFactory, metrics)
+      ledgerDao = LedgerDao.metered(
+        JdbcLedgerDao(dbDispatcher, dbType, loggerFactory, mat.executionContext),
+        metrics,
+      )
+      ledger <- ResourceOwner
+        .forFutureCloseable(
+          () =>
+            SqlLedgerFactory(ledgerDao, loggerFactory).createSqlLedger(
+              ledgerId,
+              participantId,
+              timeProvider,
+              startMode,
+              acs,
+              packages,
+              initialLedgerEntries,
+              queueDepth,
+              // we use `maxConnections` for the maximum batch size, since it doesn't make sense to try to
+              // persist more ledger entries concurrently than we have SQL executor threads and SQL
+              // connections available.
+              maxConnections,
+          ))
+    } yield ledger
   }
 }
 

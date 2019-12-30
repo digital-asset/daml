@@ -31,7 +31,7 @@ object Cli {
         .text("Server port. If not set, a random port is allocated.")
       opt[File]("port-file")
         .optional()
-        .action((f, c) => c.copy(portFile = Some(f)))
+        .action((f, c) => c.copy(portFile = Some(f.toPath)))
         .text("File to write the allocated port number to. Used to inform clients in CI about the allocated port.")
       opt[String]("pem")
         .optional()

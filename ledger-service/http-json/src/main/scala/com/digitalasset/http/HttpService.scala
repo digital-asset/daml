@@ -21,7 +21,7 @@ import com.digitalasset.http.json.{
   JsValueToApiValueConverter
 }
 import com.digitalasset.http.util.ApiValueToLfValueConverter
-import com.digitalasset.http.util.ExceptionOps._
+import com.digitalasset.util.ExceptionOps._
 import com.digitalasset.http.util.FutureUtil._
 import com.digitalasset.http.util.IdentifierConverters.apiLedgerId
 import com.digitalasset.jwt.JwtDecoder
@@ -104,7 +104,6 @@ object HttpService extends StrictLogging {
 
       commandService = new CommandService(
         packageService.resolveTemplateId,
-        packageService.resolveChoiceRecordId,
         LedgerClientJwt.submitAndWaitForTransaction(client),
         LedgerClientJwt.submitAndWaitForTransactionTree(client),
         TimeProvider.UTC
@@ -214,7 +213,9 @@ object HttpService extends StrictLogging {
 
     val decoder = new DomainJsonDecoder(
       packageService.resolveTemplateId,
-      packageService.resolveChoiceRecordId,
+      packageService.resolveTemplateRecordType,
+      packageService.resolveChoiceRecordType,
+      packageService.resolveKeyType,
       jsValueToApiValueConverter.jsObjectToApiRecord,
       jsValueToApiValueConverter.jsValueToApiValue,
     )
