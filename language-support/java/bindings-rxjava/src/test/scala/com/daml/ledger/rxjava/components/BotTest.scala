@@ -210,7 +210,7 @@ final class BotTest extends FlatSpec with Matchers {
     Bot.wire(appId, ledgerClient, transactionFilter, bot, _ => counter)
 
     // when the bot is wired-up, no command should have been submitted to the server
-    ledgerClient.submitted.size shouldBe 0
+    ledgerClient.submitted should have size 0
     counter.get shouldBe 0
 
     // when the bot receives a transaction, a command should be submitted to the server
@@ -219,7 +219,7 @@ final class BotTest extends FlatSpec with Matchers {
 
     while (!finishedWork.get) Thread.sleep(1)
 
-    ledgerClient.submitted.size shouldBe 3
+    ledgerClient.submitted should have size 3
     counter.get shouldBe 3
 
     transactions.complete()
@@ -290,20 +290,20 @@ final class BotTest extends FlatSpec with Matchers {
 
     // when the bot is wired-up, no command should have been submitted to the server
     Thread.sleep(100)
-    ledgerClient.submitted.size shouldBe 0
+    ledgerClient.submitted should have size 0
 
     // when the bot receives a transaction, a command should be submitted to the server
     val createdEvent1 = create(party, templateId)
     transactions.emit(transaction(createdEvent1))
     Thread.sleep(100)
-    ledgerClient.submitted.size shouldBe 1
+    ledgerClient.submitted should have size 1
 
     val archivedEvent1 = archive(createdEvent1)
     val createEvent2 = create(party, templateId)
     val createEvent3 = create(party, templateId)
     transactions.emit(transaction(archivedEvent1, createEvent2, createEvent3))
     Thread.sleep(100)
-    ledgerClient.submitted.size shouldBe 3
+    ledgerClient.submitted should have size 3
 
     // we complete the first command with success and then check that the client hasn't submitted a new command
     commandCompletions.emit(
@@ -317,7 +317,7 @@ final class BotTest extends FlatSpec with Matchers {
             .build()).asJava
       ))
     Thread.sleep(100)
-    ledgerClient.submitted.size shouldBe 3
+    ledgerClient.submitted should have size 3
 
     // WARNING: THE FOLLOWING TEST IS NOT PASSING YET
     // // we complete the second command with failure and then check that the client has submitted a new command
@@ -333,7 +333,7 @@ final class BotTest extends FlatSpec with Matchers {
     //     ).asJava
     //   ))
     // Thread.sleep(100)
-    // ledgerClient.submitted.size shouldBe 4
+    // ledgerClient.submitted should have size 4
 
     transactions.complete()
     commandCompletions.complete()
