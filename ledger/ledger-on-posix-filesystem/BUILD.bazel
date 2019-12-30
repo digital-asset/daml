@@ -18,6 +18,7 @@ compile_deps = [
     "//ledger/participant-state",
     "//ledger/participant-state/kvutils",
     "//ledger/participant-state/kvutils/app",
+    "//libs-scala/timer-utils",
     "@maven//:com_github_scopt_scopt_2_12",
     "@maven//:com_google_protobuf_protobuf_java",
     "@maven//:com_typesafe_akka_akka_actor_2_12",
@@ -103,9 +104,11 @@ conformance_test(
         "--port=6865",
     ],
     test_tool_args = [
+        "--concurrent-test-runs=4",
         "--all-tests",
         "--exclude=ConfigManagementServiceIT",
         "--exclude=LotsOfPartiesIT",
         "--exclude=TimeIT",
+        "--exclude=TransactionScaleIT",
     ],
 ) if not is_windows else None
