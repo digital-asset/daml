@@ -6,6 +6,7 @@ package com.daml.ledger.on.filesystem.posix
 import java.nio.file.{Files, NoSuchFileException, Path}
 import java.time.Clock
 import java.util.UUID
+import java.util.concurrent.Semaphore
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
@@ -43,6 +44,8 @@ class FileSystemLedgerReaderWriter private (
     extends LedgerReader
     with LedgerWriter
     with AutoCloseable {
+
+  private val lock = new Semaphore(1)
 
   private val logHeadPath: Path = logDirectory.resolve("head")
 
@@ -163,7 +166,7 @@ class FileSystemLedgerReaderWriter private (
       _ <- Future(Files.write(logEntriesDirectory.resolve(id), envelope.toByteArray))
       _ <- Future(
         Files.write(logIndexDirectory.resolve(currentHead.toString), entry.getEntryId.toByteArray))
-      _ <- Future(Files.write(logDirectory.resolve("head"), Seq(newHead.toString).asJava))
+      _ <- Future(Files.write(logHeadPath, Seq(newHead.toString).asJava))
     } yield newHead
 
   private def readState(key: DamlStateKey): Future[Option[DamlStateValue]] = Future {
@@ -185,9 +188,15 @@ class FileSystemLedgerReaderWriter private (
     }
   }
 
-  // TODO: implement
+  // TODO: implement on the file system, not in memory
   private def locked[T](body: => Future[T]): Future[T] =
-    body
+    Future
+      .successful(lock.acquire())
+      .flatMap(_ => body)
+      .map(result => {
+        lock.release()
+        result
+      })
 }
 
 object FileSystemLedgerReaderWriter {
