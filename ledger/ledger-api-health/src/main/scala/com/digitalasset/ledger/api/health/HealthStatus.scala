@@ -3,7 +3,9 @@
 
 package com.digitalasset.ledger.api.health
 
-sealed abstract class HealthStatus extends Product with Serializable {
+sealed abstract class HealthStatus extends Product with Serializable
+
+object HealthStatus {
   val healthy: HealthStatus = Healthy
 
   val unhealthy: HealthStatus = Unhealthy
