@@ -6,7 +6,6 @@ package com.daml.ledger.on.filesystem.posix
 import java.nio.file.{Files, NoSuchFileException, Path}
 import java.time.Clock
 import java.util.UUID
-import java.util.concurrent.Semaphore
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
@@ -42,13 +41,14 @@ class FileSystemLedgerReaderWriter private (
     with LedgerWriter
     with AutoCloseable {
 
-  private val lock = new Semaphore(1)
-
+  private val lockPath = root.resolve("lock")
   private val logDirectory = root.resolve("log")
   private val logEntriesDirectory = logDirectory.resolve("entries")
-  private val logIndexDirectory = logDirectory.resolve("index")
   private val logHeadPath = logDirectory.resolve("head")
+  private val logIndexDirectory = logDirectory.resolve("index")
   private val stateDirectory = root.resolve("state")
+
+  private val lock = new FileSystemLock(lockPath)
 
   private val engine = Engine()
 
@@ -84,11 +84,11 @@ class FileSystemLedgerReaderWriter private (
         case (_, updates) => updates
       }
 
-  override def commit(correlationId: String, envelope: Array[Byte]): Future[SubmissionResult] =
-    locked {
-      val submission = Envelope
-        .openSubmission(envelope)
-        .getOrElse(throw new IllegalArgumentException("Not a valid submission in envelope"))
+  override def commit(correlationId: String, envelope: Array[Byte]): Future[SubmissionResult] = {
+    val submission = Envelope
+      .openSubmission(envelope)
+      .getOrElse(throw new IllegalArgumentException("Not a valid submission in envelope"))
+    lock.run {
       for {
         stateInputStream <- Future.sequence(
           submission.getInputDamlStateList.asScala.toVector
@@ -112,6 +112,7 @@ class FileSystemLedgerReaderWriter private (
         SubmissionResult.Acknowledged
       }
     }
+  }
 
   private def verifyStateUpdatesAgainstPreDeclaredOutputs(
       actualStateUpdates: Map[DamlStateKey, DamlStateValue],
@@ -188,16 +189,6 @@ class FileSystemLedgerReaderWriter private (
       Files.write(path, value.toByteArray)
     }
   }
-
-  // TODO: implement on the file system, not in memory
-  private def locked[T](body: => Future[T]): Future[T] =
-    Future
-      .successful(lock.acquire())
-      .flatMap(_ => body)
-      .map(result => {
-        lock.release()
-        result
-      })
 
   private def createDirectories(): Future[Unit] = Future {
     Files.createDirectories(root)
