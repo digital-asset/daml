@@ -14,7 +14,8 @@ import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref.LedgerString
 import com.digitalasset.daml.lf.data.Time.Timestamp
 
-class InMemoryLedgerReaderWriterIntegrationSpec extends ParticipantStateIntegrationSpecBase {
+class InMemoryLedgerReaderWriterIntegrationSpec
+    extends ParticipantStateIntegrationSpecBase("in-memory") {
 
   override def participantStateFactory(
       participantId: ParticipantId,

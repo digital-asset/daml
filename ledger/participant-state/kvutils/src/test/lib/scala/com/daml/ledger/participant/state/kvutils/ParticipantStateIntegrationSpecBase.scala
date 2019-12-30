@@ -28,7 +28,7 @@ import scala.compat.java8.FutureConverters._
 import scala.concurrent.duration.FiniteDuration
 import scala.util.Try
 
-abstract class ParticipantStateIntegrationSpecBase
+abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
     extends AsyncWordSpec
     with BeforeAndAfterEach
     with AkkaBeforeAndAfterAll {
@@ -58,8 +58,7 @@ abstract class ParticipantStateIntegrationSpecBase
   // TODO(BH): Many of these tests for transformation from DamlLogEntry to Update better belong as
   // a KeyValueConsumptionSpec as the heart of the logic is there
 
-  "In-memory implementation" should {
-
+  s"$implementationName ledger" should {
     "return initial conditions" in {
       for {
         conditions <- ps

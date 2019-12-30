@@ -16,7 +16,8 @@ import com.digitalasset.daml.lf.data.Time.Timestamp
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext}
 
-class FileSystemLedgerReaderWriterIntegrationSpec extends ParticipantStateIntegrationSpecBase {
+class FileSystemLedgerReaderWriterIntegrationSpec
+    extends ParticipantStateIntegrationSpecBase("file system") {
 
   var directory: Path = _
 
