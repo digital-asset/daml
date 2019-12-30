@@ -168,8 +168,6 @@ da_scala_test_suite(
         "//daml-lf/data",
         "//daml-lf/data-scalacheck",
         "//daml-lf/language",
-        "//daml-lf/parser",
-        "//daml-lf/validation",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_scalacheck_scalacheck_2_12",
         "@maven//:org_scalatest_scalatest_2_12",

@@ -3,7 +3,6 @@
 
 load(
     "//bazel_tools:scala.bzl",
-    "da_scala_binary",
     "da_scala_library",
     "da_scala_test",
 )
@@ -98,18 +97,6 @@ da_scala_library(
     ],
 )
 
-test_dependencies = [
-    "@maven//:io_spray_spray_json_2_12",
-    "@maven//:org_scalacheck_scalacheck_2_12",
-    "@maven//:org_scalaz_scalaz_core_2_12",
-    "//bazel_tools/runfiles:scala_runfiles",
-    "//language-support/scala/codegen-testing",
-    "//language-support/scala/bindings",
-    "//ledger/participant-state",
-    ":daml-lf-codegen-sample-app",
-    ":daml-lf-codegen-sample-app-testing",
-]
-
 da_scala_test(
     name = "tests",
     size = "small",
@@ -122,7 +109,12 @@ da_scala_test(
         ],
     ),
     scalacopts = ["-Xsource:2.13"],
-    deps = test_dependencies,
+    deps = [
+        ":daml-lf-codegen-sample-app",
+        "//language-support/scala/bindings",
+        "@maven//:org_scalacheck_scalacheck_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
+    ],
 )
 
 da_scala_test(
@@ -142,14 +134,20 @@ da_scala_test(
         "-Dcom.digitalasset.sandbox.jar=ledger/sandbox/sandbox-binary_deploy.jar",
     ],
     scalacopts = ["-Xsource:2.13"],
-    deps = test_dependencies + [
+    deps = [
+        ":daml-lf-codegen-sample-app",
+        ":daml-lf-codegen-sample-app-testing",
         "//daml-lf/data",
-        "@maven//:com_typesafe_akka_akka_stream_testkit_2_12",
+        "//language-support/scala/bindings",
         "//language-support/scala/bindings-akka",
-        "//ledger-api/rs-grpc-bridge:rs-grpc-bridge",
+        "//language-support/scala/codegen-testing",
         "//ledger-api/rs-grpc-akka",
+        "//ledger-api/rs-grpc-bridge",
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
+        "//ledger/participant-state",
         "//ledger/sandbox",
+        "@maven//:org_scalacheck_scalacheck_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )

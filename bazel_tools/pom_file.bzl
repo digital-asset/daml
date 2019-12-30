@@ -56,6 +56,11 @@ def _collect_maven_info_impl(_target, ctx):
     jars = getattr(ctx.rule.attr, "jars", [])
 
     if ctx.rule.kind == "scala_import":
+        if ctx.label == Label("@io_bazel_rules_scala//scala/scalatest:scalatest"):
+            # rules_scala meta package that introduces scalatest and scalactic.
+            # The scalatest and scalctic packages will be captured by the aspect,
+            # since it traverses along `exports`.
+            return []
         if len(jars) != 1:
             fail("Expected exactly one jar in a scala_import")
         jar = jars[0]
@@ -66,6 +71,8 @@ def _collect_maven_info_impl(_target, ctx):
             "io_bazel_rules_scala_scala_library": "org.scala-lang:scala-library",
             "io_bazel_rules_scala_scala_reflect": "org.scala-lang:scala-reflect",
             "io_bazel_rules_scala_scala_parser_combinators": "org.scala-lang.modules:scala-parser-combinators",
+            "io_bazel_rules_scala_scalactic": "org.scalactic:scalactic",
+            "io_bazel_rules_scala_scalatest": "org.scalatest:scalatest",
         }
         if jar.label.workspace_name in replacements:
             return [MavenInfo(

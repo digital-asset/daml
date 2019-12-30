@@ -65,28 +65,6 @@ da_scala_library(
     ],
 )
 
-test_deps = [
-    ":lib",
-    "@maven//:ch_qos_logback_logback_classic",
-    "@maven//:com_github_scopt_scopt_2_12",
-    "@maven//:com_squareup_javapoet",
-    "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
-    "@maven//:io_grpc_grpc_api",
-    "@maven//:org_scalacheck_scalacheck_2_12",
-    "@maven//:org_scalatest_scalatest_2_12",
-    "@maven//:org_scalaz_scalaz_core_2_12",
-    "@maven//:org_slf4j_slf4j_api",
-    "@maven//:com_google_protobuf_protobuf_java",
-    "//bazel_tools/runfiles:scala_runfiles",
-    "//daml-lf/archive:daml_lf_dev_archive_java_proto",
-    "//daml-lf/data",
-    "//daml-lf/interface",
-    "//language-support/java/bindings:bindings-java",
-    "//language-support/codegen-common",
-    "//ledger/participant-state",
-    "//ledger/ledger-api-domain:ledger-api-domain",
-]
-
 ########################################################
 ####  Unit Tests
 ########################################################
@@ -96,7 +74,20 @@ da_scala_test(
     data = [":test-daml.dar"],
     resource_strip_prefix = "language-support/java/codegen/src/test/resources/",
     resources = glob(["src/test/resources/**/*"]),
-    deps = test_deps,
+    deps = [
+        ":lib",
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/data",
+        "//daml-lf/interface",
+        "//language-support/codegen-common",
+        "//language-support/java/bindings:bindings-java",
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:com_squareup_javapoet",
+        "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
+        "@maven//:org_scalatest_scalatest_2_12",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
 )
 
 daml_compile(
@@ -272,15 +263,24 @@ da_scala_test(
     resource_strip_prefix = "language-support/java/codegen/src/ledger-tests/resources/",
     resources = ["src/ledger-tests/resources/logback-test.xml"],
     tags = ["exclusive"],
-    deps = test_deps + [
+    deps = [
         ":ledger-tests-model.jar",
-        "//ledger/sandbox:sandbox",
-        "//ledger/sandbox:sandbox-scala-tests-lib",
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/data",
+        "//language-support/java/bindings:bindings-java",
         "//ledger-api/testing-utils",
-        "//ledger/ledger-api-common:ledger-api-common",
-        "@maven//:io_grpc_grpc_core",
+        "//ledger/ledger-api-common",
+        "//ledger/ledger-api-domain",
+        "//ledger/participant-state",
+        "//ledger/sandbox",
+        "//ledger/sandbox:sandbox-scala-tests-lib",
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_stub",
         "@maven//:io_reactivex_rxjava2_rxjava",
+        "@maven//:org_scalatest_scalatest_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 
