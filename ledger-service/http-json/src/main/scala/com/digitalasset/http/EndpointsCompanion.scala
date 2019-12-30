@@ -80,7 +80,7 @@ object EndpointsCompanion {
 
   private[http] def decodeAndParsePayload(
       jwt: Jwt,
-      decodeJwt: ValidateJwt): Unauthorized \/ (Jwt, JwtPayload) =
+      decodeJwt: ValidateJwt): Unauthorized \/ (jwt.type, JwtPayload) =
     for {
       a <- decodeJwt(jwt): Unauthorized \/ DecodedJwt[String]
       p <- parsePayload(a)
