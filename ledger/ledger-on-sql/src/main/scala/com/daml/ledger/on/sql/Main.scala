@@ -3,7 +3,14 @@
 
 package com.daml.ledger.on.sql
 
-import com.daml.ledger.participant.state.kvutils.app.{Config, Runner}
+import akka.stream.Materializer
+import com.daml.ledger.participant.state.kvutils.app.{
+  Config,
+  KeyValueLedger,
+  LedgerConstructor,
+  Runner
+}
+import com.daml.ledger.participant.state.v1.ParticipantId
 import scopt.OptionParser
 
 import scala.concurrent.Await
@@ -11,24 +18,16 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.DurationInt
 
 object Main extends App {
-  Runner(
-    "SQL Ledger",
-    ExtraConfig.augmentParser,
-    ExtraConfig.default,
-    (participantId, config: ExtraConfig) =>
-      Await.result(
-        SqlLedgerReaderWriter(participantId = participantId, jdbcUrl = config.jdbcUrl.get),
-        10.seconds),
-  ).run(args)
+  Runner("SQL Ledger", SqlLedgerConstructor).run(args)
 
   case class ExtraConfig(jdbcUrl: Option[String])
 
-  object ExtraConfig {
-    val default: ExtraConfig = ExtraConfig(
+  object SqlLedgerConstructor extends LedgerConstructor[ExtraConfig] {
+    override val defaultExtraConfig: ExtraConfig = ExtraConfig(
       jdbcUrl = None,
     )
 
-    def augmentParser(parser: OptionParser[Config[ExtraConfig]]): Unit = {
+    override def extraConfigParser(parser: OptionParser[Config[ExtraConfig]]): Unit = {
       parser
         .opt[String]("jdbc-url")
         .required()
@@ -37,6 +36,15 @@ object Main extends App {
           (jdbcUrl, config) => config.copy(extra = config.extra.copy(jdbcUrl = Some(jdbcUrl))))
       ()
     }
-  }
 
+    override def apply(participantId: ParticipantId, config: ExtraConfig)(
+        implicit materializer: Materializer,
+    ): KeyValueLedger =
+      Await.result(
+        SqlLedgerReaderWriter(participantId = participantId, jdbcUrl = config.jdbcUrl.getOrElse {
+          throw new IllegalStateException("No root directory provided.")
+        }),
+        10.seconds,
+      )
+  }
 }

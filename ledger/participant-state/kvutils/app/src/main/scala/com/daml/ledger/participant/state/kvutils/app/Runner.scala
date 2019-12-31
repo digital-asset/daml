@@ -23,20 +23,16 @@ import com.digitalasset.platform.indexer.{
 }
 import com.digitalasset.platform.resources.{Resource, ResourceOwner}
 import org.slf4j.LoggerFactory
-import scopt.OptionParser
 
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext}
 import scala.util.Try
 
-class Runner[Extra](
-    name: String,
-    extraOptions: OptionParser[Config[Extra]] => Unit,
-    defaultExtra: Extra,
-    construct: (ParticipantId, Extra) => KeyValueLedger,
-) {
+class Runner[Extra](name: String, constructor: LedgerConstructor[Extra]) {
   def run(args: Seq[String]): Unit = {
-    val config = Config.parse(name, extraOptions, defaultExtra, args).getOrElse(sys.exit(1))
+    val config = Config
+      .parse(name, constructor.extraConfigParser, constructor.defaultExtraConfig, args)
+      .getOrElse(sys.exit(1))
 
     val logger = LoggerFactory.getLogger(getClass)
 
@@ -51,7 +47,7 @@ class Runner[Extra](
       _ <- ResourceOwner.forActorSystem(() => system).acquire()
       _ <- ResourceOwner.forMaterializer(() => materializer).acquire()
       readerWriter <- ResourceOwner
-        .forCloseable(() => construct(config.participantId, config.extra))
+        .forCloseable(() => constructor(config.participantId, config.extra))
         .acquire()
       ledger = new KeyValueParticipantState(readerWriter, readerWriter)
       _ <- Resource.sequenceIgnoringValues(config.archiveFiles.map { file =>
@@ -128,13 +124,8 @@ class Runner[Extra](
 
 object Runner {
   def apply(name: String, construct: ParticipantId => KeyValueLedger): Runner[Unit] =
-    apply[Unit](name, _ => (), (), (participantId, _: Unit) => construct(participantId))
+    apply(name, LedgerConstructor(construct))
 
-  def apply[Extra](
-      name: String,
-      extraOptions: OptionParser[Config[Extra]] => Unit,
-      defaultExtra: Extra,
-      construct: (ParticipantId, Extra) => KeyValueLedger,
-  ): Runner[Extra] =
-    new Runner[Extra](name, extraOptions, defaultExtra, construct)
+  def apply[Extra](name: String, constructor: LedgerConstructor[Extra]): Runner[Extra] =
+    new Runner[Extra](name, constructor)
 }

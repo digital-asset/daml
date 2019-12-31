@@ -35,6 +35,7 @@ da_scala_library(
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:com_typesafe_play_anorm_2_12",
+        "@maven//:com_typesafe_play_anorm_akka_2_12",
         "@maven//:com_typesafe_play_anorm_tokenizer_2_12",
     ],
 )

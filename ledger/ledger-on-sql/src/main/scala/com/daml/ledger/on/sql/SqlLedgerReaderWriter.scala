@@ -8,6 +8,7 @@ import java.time.Clock
 import java.util.UUID
 
 import akka.NotUsed
+import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import anorm.SqlParser._
 import anorm._
@@ -26,18 +27,16 @@ import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.ledger.api.health.{HealthStatus, Healthy}
 import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
-import com.digitalasset.platform.akkastreams.dispatcher.SubSource.OneAfterAnother
 import com.google.protobuf.ByteString
 
 import scala.collection.JavaConverters._
-import scala.collection.immutable
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Random
 
 class SqlLedgerReaderWriter(
     ledgerId: LedgerId = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
     val participantId: ParticipantId,
-)(implicit executionContext: ExecutionContext, connection: Connection)
+)(implicit executionContext: ExecutionContext, materializer: Materializer, connection: Connection)
     extends LedgerWriter
     with LedgerReader
     with AutoCloseable {
@@ -47,8 +46,8 @@ class SqlLedgerReaderWriter(
   private val dispatcher: Dispatcher[Index] =
     Dispatcher(
       "posix-filesystem-participant-state",
-      zeroIndex = StartOffset,
-      headAtInitialization = StartOffset,
+      zeroIndex = StartIndex,
+      headAtInitialization = StartIndex,
     )
 
   private val randomNumberGenerator = new Random()
@@ -63,20 +62,21 @@ class SqlLedgerReaderWriter(
 
   override def retrieveLedgerId(): LedgerId = ledgerId
 
-  override def events(offset: Option[Offset]): Source[LedgerRecord, NotUsed] =
-    dispatcher
-      .startingAt(
-        offset
-          .map(_.components.head.toInt)
-          .getOrElse(StartOffset),
-        OneAfterAnother[Index, immutable.Seq[LedgerRecord]](
-          (index: Index, _) => index + 1,
-          (index: Index) => retrieveLogEntry(index).map(immutable.Seq(_))
-        )
+  override def events(offset: Option[Offset]): Source[LedgerRecord, NotUsed] = {
+    val startIndex = offset.getOrElse(StartOffset).components.head
+    AkkaStream
+      .source(
+        SQL"SELECT sequence_no, entry_id, envelope FROM log WHERE sequence_no >= $startIndex",
+        (int("sequence_no") ~ byteArray("entry_id") ~ byteArray("envelope")).map {
+          case index ~ entryId ~ envelope =>
+            LedgerRecord(
+              Offset(Array(index.toLong)),
+              DamlLogEntryId.newBuilder().setEntryId(ByteString.copyFrom(entryId)).build(),
+              envelope)
+        }
       )
-      .mapConcat {
-        case (_, updates) => updates
-      }
+      .mapMaterializedValue(_ => NotUsed)
+  }
 
   override def commit(correlationId: String, envelope: Array[Byte]): Future[SubmissionResult] = {
     val submission = Envelope
@@ -129,22 +129,11 @@ class SqlLedgerReaderWriter(
       .build
   }
 
-  private def retrieveLogEntry(index: Index): Future[LedgerRecord] =
-    Future {
-      val entryId ~ envelope =
-        SQL"SELECT entry_id, envelope FROM log WHERE sequence_no = $index"
-          .as((byteArray("entry_id") ~ byteArray("envelope")).single)
-      LedgerRecord(
-        Offset(Array(index.toLong)),
-        DamlLogEntryId.newBuilder().setEntryId(ByteString.copyFrom(entryId)).build(),
-        envelope)
-    }
-
   private def appendLog(entry: DamlLogEntryId, envelope: ByteString): Future[Index] = Future {
     val maxIndex =
       SQL"SELECT MAX(sequence_no) max_sequence_no FROM log"
         .as(get[Option[Int]]("max_sequence_no").single)
-    val currentHead = maxIndex.map(_ + 1).getOrElse(StartOffset)
+    val currentHead = maxIndex.map(_ + 1).getOrElse(StartIndex)
     SQL"INSERT INTO log VALUES ($currentHead, ${entry.getEntryId.toByteArray}, ${envelope.toByteArray})"
       .executeInsert()
     currentHead + 1
@@ -210,16 +199,21 @@ class SqlLedgerReaderWriter(
 object SqlLedgerReaderWriter {
   type Index = Int
 
-  private val StartOffset: Index = 0
+  private val StartIndex: Index = 0
+
+  private val StartOffset: Offset = Offset(Array(StartIndex.toLong))
 
   def apply(
       ledgerId: LedgerId = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
       participantId: ParticipantId,
       jdbcUrl: String,
-  )(implicit executionContext: ExecutionContext): Future[SqlLedgerReaderWriter] = {
-    val connection = DriverManager.getConnection(jdbcUrl)
+  )(
+      implicit executionContext: ExecutionContext,
+      materializer: Materializer,
+  ): Future[SqlLedgerReaderWriter] = {
+    implicit val connection: Connection = DriverManager.getConnection(jdbcUrl)
     connection.setAutoCommit(false)
-    val ledger = new SqlLedgerReaderWriter(ledgerId, participantId)(executionContext, connection)
+    val ledger = new SqlLedgerReaderWriter(ledgerId, participantId)
     ledger.migrate().map(_ => ledger)
   }
 
