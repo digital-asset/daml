@@ -37,6 +37,7 @@ da_scala_library(
         "@maven//:com_typesafe_play_anorm_2_12",
         "@maven//:com_typesafe_play_anorm_akka_2_12",
         "@maven//:com_typesafe_play_anorm_tokenizer_2_12",
+        "@maven//:com_zaxxer_HikariCP",
     ],
 )
 
@@ -75,7 +76,7 @@ da_scala_binary(
 )
 
 conformance_test(
-    name = "conformance-test",
+    name = "conformance-test-h2database",
     ports = [6865],
     server = ":app",
     server_args = [
