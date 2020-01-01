@@ -35,7 +35,13 @@ private[http] object Config {
   import scala.language.postfixOps
   val Empty = Config(ledgerHost = "", ledgerPort = -1, httpPort = -1)
   val DefaultWsConfig =
-    WebsocketConfig(120 minutes, 20, 1 second, 20, ThrottleMode.Shaping, 5 second)
+    WebsocketConfig(
+      maxDuration = 120 minutes,
+      throttleElem = 20,
+      throttlePer = 1 second,
+      maxBurst = 20,
+      ThrottleMode.Shaping,
+      heartBeatPer = 5 second)
 }
 
 private[http] abstract class ConfigCompanion[A](name: String) {
@@ -56,11 +62,11 @@ private[http] abstract class ConfigCompanion[A](name: String) {
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   protected def optionalBooleanField(m: Map[String, String])(
       k: String): Either[String, Option[Boolean]] =
-    m.get(k).traverseU(v => parseBoolean(k)(v)).toEither
+    m.get(k).traverse(v => parseBoolean(k)(v)).toEither
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   protected def optionalLongField(m: Map[String, String])(k: String): Either[String, Option[Long]] =
-    m.get(k).traverseU(v => parseLong(k)(v)).toEither
+    m.get(k).traverse(v => parseLong(k)(v)).toEither
 
   import scalaz.syntax.std.string._
 
