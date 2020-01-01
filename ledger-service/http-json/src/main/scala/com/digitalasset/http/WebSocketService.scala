@@ -7,21 +7,25 @@ import akka.NotUsed
 import akka.http.scaladsl.model.ws.{Message, TextMessage}
 import akka.stream.scaladsl.{Flow, Source}
 import akka.stream.Materializer
+import com.digitalasset.daml.lf.value.{Value => LfV}
 import com.digitalasset.http.EndpointsCompanion._
 import com.digitalasset.http.domain.{GetActiveContractsRequest, JwtPayload}
-import com.digitalasset.http.json.SprayJson.JsonReaderError
 import com.digitalasset.http.json.{DomainJsonDecoder, DomainJsonEncoder, SprayJson}
+import SprayJson.JsonReaderError
+import ContractsFetch.InsertDeleteStep
+import util.ApiValueToLfValueConverter.apiValueToLfValue
+import json.JsonProtocol.LfValueCodec.{apiValueToJsValue => lfValueToJsValue}
 import com.digitalasset.jwt.domain.Jwt
-import com.digitalasset.ledger.api.v1.transaction.Transaction
 import com.digitalasset.ledger.api.{v1 => api}
-import com.digitalasset.ledger.client.binding.offset.LedgerOffsetOrdering
-import com.digitalasset.ledger.client.services.transactions.TransactionClient
+
 import com.typesafe.scalalogging.LazyLogging
 import scalaz.syntax.show._
+import scalaz.syntax.std.boolean._
 import scalaz.syntax.traverse._
-import scalaz.{-\/, \/, \/-}
+import scalaz.{-\/, \/, \/-, Show}
 import spray.json.{JsObject, JsString, JsValue}
 
+import scala.collection.SeqLike
 import scala.collection.immutable.Set
 import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success}
@@ -30,10 +34,32 @@ object WebSocketService {
   val heartBeat: String = JsObject("heartbeat" -> JsString("ping")).compactPrint
   val emptyGetActiveContractsRequest = domain.GetActiveContractsRequest(Set.empty, Map.empty)
   private val numConns = new java.util.concurrent.atomic.AtomicInteger(0)
+
+  private implicit final class `\\/ WSS extras`[L, R](private val self: L \/ R) extends AnyVal {
+    def liftErr[M](f: String => M)(implicit L: Show[L]): M \/ R =
+      self leftMap (e => f(e.shows))
+  }
+
+  private implicit final class `Seq WSS extras`[A, Self](private val self: SeqLike[A, Self])
+      extends AnyVal {
+    import collection.generic.CanBuildFrom
+    @SuppressWarnings(Array("org.wartremover.warts.Any"))
+    def partitionMap[E, B, Es, That](f: A => E \/ B)(
+        implicit es: CanBuildFrom[Self, E, Es],
+        that: CanBuildFrom[Self, B, That]): (Es, That) = {
+      val esb = es(self.repr)
+      val thatb = that(self.repr)
+      self foreach { a =>
+        f(a) fold (esb.+=, thatb.+=)
+      }
+      (esb.result, thatb.result)
+    }
+
+  }
 }
 
 class WebSocketService(
-    transactionClient: TransactionClient,
+    contractsService: ContractsService,
     resolveTemplateIds: PackageService.ResolveTemplateIds,
     encoder: DomainJsonEncoder,
     decoder: DomainJsonDecoder,
@@ -118,31 +144,56 @@ class WebSocketService(
   private def getTransactionSourceForParty(
       jwt: Jwt,
       jwtPayload: JwtPayload,
-      request: GetActiveContractsRequest): Source[Message, NotUsed] = {
-    import com.digitalasset.http.util.Transactions._
-
+      request: GetActiveContractsRequest): Source[Message, NotUsed] =
     resolveTemplateIds(request.templateIds) match {
       case \/-(ids) =>
-        val filter = transactionFilterFor(jwtPayload.party, ids)
-        transactionClient
-          .getTransactions(LedgerOffsetOrdering.ledgerBegin, None, transactionFilter = filter) // TODO: make offSet pass along with client message
-          .via(Flow[Transaction].filter(_.events.nonEmpty))
-          .map(tx => {
-            lfVToJson(tx) match {
-              case \/-(a) => TextMessage(JsObject("transaction" -> a).compactPrint)
-              case -\/(e) => wsErrorMessage(e.shows)
-            }
-          })
+        contractsService
+          .insertDeleteStepSource(jwt, jwtPayload.party, ids)
+          .via(convertFilterContracts)
+          .filter { case (errs, step) => errs.nonEmpty || step.nonEmpty }
+          .map(sae => TextMessage(renderStepAndErrors(sae).compactPrint))
       case -\/(_) =>
         Source.single(wsErrorMessage("Cannot find templateIds " + request.templateIds.toString))
     }
-  }
 
-  private[http] def wsErrorMessage(errorMsg: String): TextMessage.Strict = {
+  private[http] def wsErrorMessage(errorMsg: String): TextMessage.Strict =
     TextMessage(
       JsObject("error" -> JsString(errorMsg)).compactPrint
     )
+
+  private type StepAndErrors = (Seq[ServerError], InsertDeleteStep[domain.ActiveContract[JsValue]])
+
+  private def renderStepAndErrors(se: StepAndErrors): JsValue = {
+    import spray.json._
+    def opr[V <: Iterable[_]: JsonWriter](v: V) =
+      v.nonEmpty option v.toJson
+    JsObject(
+      Map(
+        "errors" -> opr(se._1.map(_.message)),
+        "add" -> opr(se._2.inserts),
+        "remove" -> opr(se._2.deletes)) collect { case (k, Some(v)) => (k, v) })
   }
+
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
+  private def convertFilterContracts
+    : Flow[InsertDeleteStep[api.event.CreatedEvent], StepAndErrors, NotUsed] =
+    Flow
+      .fromFunction { step: InsertDeleteStep[api.event.CreatedEvent] =>
+        import scalaz.std.tuple._, scalaz.std.vector._, scalaz.syntax.bind._
+        step.inserts
+          .partitionMap { ce =>
+            domain.ActiveContract
+              .fromLedgerApi(ce)
+              .liftErr(ServerError)
+              .flatMap(_.traverse(apiValueToLfValue).liftErr(ServerError))
+          }
+          .map { cs: Vector[domain.ActiveContract[LfV[LfV.AbsoluteContractId]]] =>
+            step copy (inserts = cs.collect {
+              case acLfv if true /* TODO search */ =>
+                acLfv map lfValueToJsValue
+            })
+          }
+      }
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def lfVToJson(tx: api.transaction.Transaction): Error \/ JsValue = {

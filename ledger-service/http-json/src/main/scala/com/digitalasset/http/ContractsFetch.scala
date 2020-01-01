@@ -414,6 +414,8 @@ private[http] object ContractsFetch {
         (if (o.deletes.isEmpty) inserts
          else inserts.filter(c => !o.deletes.contains(cid(c)))) ++ o.inserts,
         deletes union o.deletes)
+
+    def nonEmpty: Boolean = inserts.nonEmpty || deletes.nonEmpty
   }
 
   private def transactionFilter(
