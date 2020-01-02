@@ -37,6 +37,8 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
   var ps: ReadService with WriteService with AutoCloseable = _
   var rt: Timestamp = _
 
+  val firstIndex: Long = 0
+
   def participantStateFactory(
       participantId: ParticipantId,
       ledgerId: LedgerString,
@@ -57,8 +59,12 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
   }
 
   private val alice = Ref.Party.assertFromString("alice")
+
   private def randomLedgerString(): Ref.LedgerString =
     Ref.LedgerString.assertFromString(UUID.randomUUID().toString)
+
+  private def offset(first: Long, rest: Long*): Offset =
+    Offset(Array(first + firstIndex, rest: _*))
 
   // TODO(BH): Many of these tests for transformation from DamlLogEntry to Update better belong as
   // a KeyValueConsumptionSpec as the heart of the logic is there
@@ -80,12 +86,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
         _ <- ps.uploadPackages(submissionId, List(archives.head), sourceDescription).toScala
         updateTuple <- ps.stateUpdates(beginAfter = None).runWith(Sink.head)
       } yield {
-        matchPackageUpload(
-          updateTuple,
-          submissionId,
-          Offset(Array(0L, 0L)),
-          List(archives.head),
-          rt)
+        matchPackageUpload(updateTuple, submissionId, offset(0, 0), List(archives.head), rt)
       }
     }
 
@@ -95,7 +96,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
         _ <- ps.uploadPackages(submissionId, archives, sourceDescription).toScala
         update1 <- ps.stateUpdates(beginAfter = None).runWith(Sink.head)
       } yield {
-        matchPackageUpload(update1, submissionId, Offset(Array(0L, 0L)), archives, rt)
+        matchPackageUpload(update1, submissionId, offset(0, 0), archives, rt)
       }
     }
 
@@ -114,9 +115,9 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
           .runWith(Sink.seq)
       } yield {
         // first upload arrives as head update:
-        matchPackageUpload(update1, subId1, Offset(Array(0L, 0L)), List(archive1), rt)
-        matchPackageUpload(update2, subId2, Offset(Array(1L, 0L)), List(), rt)
-        matchPackageUpload(update3, subId3, Offset(Array(2L, 0L)), List(archive2), rt)
+        matchPackageUpload(update1, subId1, offset(0, 0), List(archive1), rt)
+        matchPackageUpload(update2, subId2, offset(1, 0), List(), rt)
+        matchPackageUpload(update3, subId3, offset(2, 0), List(archive2), rt)
       }
     }
 
@@ -136,8 +137,8 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
           .runWith(Sink.head)
       } yield {
         updateTuple match {
-          case (offset: Offset, update: PublicPackageUploadRejected) =>
-            assert(offset == Offset(Array(0L, 0L)))
+          case (updateOffset: Offset, update: PublicPackageUploadRejected) =>
+            assert(updateOffset == offset(0, 0))
             assert(update.submissionId == submissionId)
             assert(update.recordTime >= rt)
           case _ =>
@@ -165,12 +166,11 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
             assert(result == SubmissionResult.Acknowledged, "unexpected response to package upload")
         )
         update2 match {
-          case (offset: Offset, update: PublicPackageUpload) =>
-            assert(offset == Offset(Array(2L, 0L)))
+          case (updateOffset: Offset, update: PublicPackageUpload) =>
+            assert(updateOffset == offset(2, 0))
             assert(update.submissionId.contains(submissionIds._2))
           case _ =>
-            fail(
-              "unexpected update message after a package upload.  Error : " + result2.description)
+            fail(s"unexpected update message after a package upload. Error: ${result2.description}")
         }
       }
     }
@@ -189,8 +189,8 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
           allocResult == SubmissionResult.Acknowledged,
           s"unexpected response to party allocation: $allocResult")
         updateTuple match {
-          case (offset: Offset, update: PartyAddedToParticipant) =>
-            assert(offset == Offset(Array(0L, 0L)))
+          case (updateOffset: Offset, update: PartyAddedToParticipant) =>
+            assert(updateOffset == offset(0, 0))
             assert(update.party == partyHint)
             assert(update.displayName == displayName)
             assert(update.participantId == participantId)
@@ -210,15 +210,15 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
       } yield {
         assert(result == SubmissionResult.Acknowledged, "unexpected response to party allocation")
         updateTuple match {
-          case (offset: Offset, update: PartyAddedToParticipant) =>
-            assert(offset == Offset(Array(0L, 0L)))
+          case (updateOffset: Offset, update: PartyAddedToParticipant) =>
+            assert(updateOffset == offset(0, 0))
             assert(update.party.nonEmpty)
             assert(update.displayName == displayName.get)
             assert(update.participantId == participantId)
             assert(update.recordTime >= rt)
           case _ =>
             fail(
-              "unexpected update message after a party allocation.  Error : " + result.description)
+              s"unexpected update message after a party allocation. Error: ${result.description}")
         }
 
       }
@@ -245,12 +245,12 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
               "unexpected response to party allocation")
         )
         update2 match {
-          case (offset: Offset, update: PartyAddedToParticipant) =>
-            assert(offset == Offset(Array(2L, 0L)))
+          case (updateOffset: Offset, update: PartyAddedToParticipant) =>
+            assert(updateOffset == offset(2, 0))
             assert(update.submissionId.contains(submissionIds._2))
           case _ =>
             fail(
-              "unexpected update message after a party allocation.  Error : " + result2.description)
+              s"unexpected update message after a party allocation. Error: ${result2.description}")
         }
       }
     }
@@ -267,12 +267,12 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
         assert(result1 == SubmissionResult.Acknowledged, "unexpected response to party allocation")
         assert(result2 == SubmissionResult.Acknowledged, "unexpected response to party allocation")
         update2 match {
-          case (offset: Offset, update: PartyAllocationRejected) =>
-            assert(offset == Offset(Array(1L, 0L)))
+          case (updateOffset: Offset, update: PartyAllocationRejected) =>
+            assert(updateOffset == offset(1, 0))
             assert(update.rejectionReason equalsIgnoreCase "Party already exists")
           case _ =>
             fail(
-              "unexpected update message after a party allocation.  Error : " + result2.description)
+              s"unexpected update message after a party allocation. Error: ${result2.description}")
         }
       }
     }
@@ -286,7 +286,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
           .toScala
         update <- ps.stateUpdates(beginAfter = None).drop(1).runWith(Sink.head)
       } yield {
-        assert(update._1 == Offset(Array(1L, 0L)))
+        assert(update._1 == offset(1, 0))
       }
     }
 
@@ -317,11 +317,11 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
         updates <- ps.stateUpdates(beginAfter = None).take(3).runWith(Sink.seq)
       } yield {
         val Seq(update0, update1, update2) = updates
-        assert(update0._1 == Offset(Array(0L, 0L)))
+        assert(update0._1 == offset(0, 0))
         assert(update0._2.isInstanceOf[Update.PartyAddedToParticipant])
 
-        matchTransaction(update1, commandIds._1, Offset(Array(1L, 0L)), rt)
-        matchTransaction(update2, commandIds._2, Offset(Array(3L, 0L)), rt)
+        matchTransaction(update1, commandIds._1, offset(1, 0), rt)
+        matchTransaction(update2, commandIds._2, offset(3, 0), rt)
       }
     }
 
@@ -334,16 +334,19 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
         _ <- ps
           .submitTransaction(submitterInfo(rt, alice, "X1"), transactionMeta(rt), emptyTransaction)
           .toScala
-        _ <- ps
+        result <- ps
           .submitTransaction(submitterInfo(rt, alice, "X2"), transactionMeta(rt), emptyTransaction)
           .toScala
         offsetAndUpdate <- ps
-          .stateUpdates(beginAfter = Some(Offset(Array(1L, 0L))))
+          .stateUpdates(beginAfter = Some(offset(1, 0)))
           .runWith(Sink.head)
       } yield {
-        val (offset, update) = offsetAndUpdate
-        assert(offset == Offset(Array(2L, 0L)))
-        assert(update.isInstanceOf[Update.TransactionAccepted])
+        offsetAndUpdate match {
+          case (updateOffset: Offset, _: TransactionAccepted) =>
+            assert(updateOffset == offset(2, 0))
+          case _ =>
+            fail(s"Unexpected update after a transaction submission. Error: ${result.description}")
+        }
       }
     }
 
@@ -383,7 +386,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
         _ <- assert(allocResult.isInstanceOf[SubmissionResult])
         //get the new party off state updates
         newParty <- ps
-          .stateUpdates(beginAfter = Some(Offset(Array(1L, 0L))))
+          .stateUpdates(beginAfter = Some(offset(1, 0)))
           .runWith(Sink.head)
           .map(_._2.asInstanceOf[PartyAddedToParticipant].party)
         _ <- ps
@@ -400,16 +403,16 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
 
       } yield {
         assert(update1.isInstanceOf[Update.ConfigurationChanged])
-        assert(offset1 == Offset(Array(0L, 0L)))
+        assert(offset1 == offset(0, 0))
         assert(
           update2
             .asInstanceOf[Update.CommandRejected]
             .reason == RejectionReason.PartyNotKnownOnLedger)
-        assert(offset2 == Offset(Array(1L, 0L)))
+        assert(offset2 == offset(1, 0))
         assert(update3.isInstanceOf[Update.PartyAddedToParticipant])
-        assert(offset3 == Offset(Array(2L, 0L)))
+        assert(offset3 == offset(2, 0))
         assert(update4.isInstanceOf[Update.TransactionAccepted])
-        assert(offset4 == Offset(Array(3L, 0L)))
+        assert(offset4 == offset(3, 0))
       }
     }
 
@@ -496,12 +499,12 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
               result == SubmissionResult.Acknowledged,
               "unexpected response to configuration change"))
         update2 match {
-          case (offset: Offset, update: ConfigurationChanged) =>
-            assert(offset == Offset(Array(2L, 0L)))
+          case (updateOffset: Offset, update: ConfigurationChanged) =>
+            assert(updateOffset == offset(2, 0))
             assert(update.submissionId == submissionIds._2)
           case _ =>
             fail(
-              "unexpected update message after a party allocation.  Error : " + result2.description)
+              s"unexpected update message after a configuration change. Error: ${result2.description}")
         }
       }
     }
@@ -541,13 +544,13 @@ object ParticipantStateIntegrationSpecBase {
       expectedArchives: List[DamlLf.Archive],
       rt: Timestamp
   ): Assertion = updateTuple match {
-    case (offset: Offset, update: PublicPackageUpload) =>
+    case (updateOffset: Offset, update: PublicPackageUpload) =>
       assert(update.submissionId.contains(submissionId))
-      assert(offset == givenOffset)
+      assert(updateOffset == givenOffset)
       assert(update.archives.map(_.getHash).toSet == expectedArchives.map(_.getHash).toSet)
       assert(update.sourceDescription == sourceDescription)
       assert(update.recordTime >= rt)
-    case _ => fail("unexpected update message after a package upload: $updateTuple")
+    case _ => fail(s"unexpected update message after a package upload: $updateTuple")
   }
 
   private def matchTransaction(
@@ -555,15 +558,15 @@ object ParticipantStateIntegrationSpecBase {
       commandId: String,
       givenOffset: Offset,
       rt: Timestamp): Assertion = updateTuple match {
-    case (offset: Offset, update: TransactionAccepted) =>
+    case (updateOffset: Offset, update: TransactionAccepted) =>
       update.optSubmitterInfo match {
         case Some(info) =>
           assert(info.commandId == commandId)
         case _ =>
           fail("missing submitter info")
       }
-      assert(offset == givenOffset)
+      assert(updateOffset == givenOffset)
       assert(update.recordTime >= rt)
-    case _ => fail("unexpected update message after a transaction submission: $updateTuple")
+    case _ => fail(s"unexpected update message after a transaction submission: $updateTuple")
   }
 }

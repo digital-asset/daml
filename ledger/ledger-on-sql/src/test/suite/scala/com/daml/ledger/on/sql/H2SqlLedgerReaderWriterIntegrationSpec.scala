@@ -19,6 +19,8 @@ class H2SqlLedgerReaderWriterIntegrationSpec
     extends ParticipantStateIntegrationSpecBase("SQL implementation using H2") {
   private implicit val ec: ExecutionContext = ExecutionContext.global
 
+  override val firstIndex: Long = SqlLedgerReaderWriter.FirstIndex
+
   override def participantStateFactory(
       participantId: ParticipantId,
       ledgerId: LedgerString,

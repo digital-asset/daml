@@ -27,6 +27,7 @@ import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.ledger.api.health.{HealthStatus, Healthy}
 import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
+import com.digitalasset.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.google.protobuf.ByteString
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import javax.sql.DataSource
@@ -48,9 +49,9 @@ class SqlLedgerReaderWriter(
 
   private val dispatcher: Dispatcher[Index] =
     Dispatcher(
-      "posix-filesystem-participant-state",
-      zeroIndex = StartIndex,
-      headAtInitialization = StartIndex,
+      "sql-participant-state",
+      zeroIndex = FirstIndex,
+      headAtInitialization = FirstIndex,
     )
 
   private val randomNumberGenerator = new Random()
@@ -65,21 +66,30 @@ class SqlLedgerReaderWriter(
 
   override def retrieveLedgerId(): LedgerId = ledgerId
 
-  override def events(offset: Option[Offset]): Source[LedgerRecord, NotUsed] = withConnection {
-    implicit connection =>
-      val startIndex = offset.getOrElse(StartOffset).components.head
-      AkkaStream
-        .source(
-          SQL"SELECT sequence_no, entry_id, envelope FROM log WHERE sequence_no >= $startIndex",
-          (int("sequence_no") ~ byteArray("entry_id") ~ byteArray("envelope")).map {
-            case index ~ entryId ~ envelope =>
-              LedgerRecord(
-                Offset(Array(index.toLong)),
-                DamlLogEntryId.newBuilder().setEntryId(ByteString.copyFrom(entryId)).build(),
-                envelope)
-          }
-        )
-  }
+  override def events(offset: Option[Offset]): Source[LedgerRecord, NotUsed] =
+    dispatcher
+      .startingAt(
+        offset.getOrElse(FirstOffset).components.head,
+        RangeSource((start, end) =>
+          withConnection { implicit connection =>
+            Future(Source(
+              SQL"SELECT sequence_no, entry_id, envelope FROM log WHERE sequence_no >= $start AND sequence_no < $end"
+                .as(
+                  (long("sequence_no") ~ byteArray("entry_id") ~ byteArray("envelope")).map {
+                    case index ~ entryId ~ envelope =>
+                      index -> LedgerRecord(
+                        Offset(Array(index)),
+                        DamlLogEntryId
+                          .newBuilder()
+                          .setEntryId(ByteString.copyFrom(entryId))
+                          .build(),
+                        envelope,
+                      )
+                  }.*
+                )))
+        })
+      )
+      .map { case (_, record) => record }
 
   override def commit(correlationId: String, envelope: Array[Byte]): Future[SubmissionResult] =
     withConnection { implicit connection =>
@@ -135,13 +145,9 @@ class SqlLedgerReaderWriter(
       entry: DamlLogEntryId,
       envelope: ByteString,
   )(implicit connection: Connection): Index = {
-    val maxIndex =
-      SQL"SELECT MAX(sequence_no) max_sequence_no FROM log"
-        .as(get[Option[Int]]("max_sequence_no").single)
-    val currentHead = maxIndex.map(_ + 1).getOrElse(StartIndex)
-    SQL"INSERT INTO log VALUES ($currentHead, ${entry.getEntryId.toByteArray}, ${envelope.toByteArray})"
+    SQL"INSERT INTO log (entry_id, envelope) VALUES (${entry.getEntryId.toByteArray}, ${envelope.toByteArray})"
       .executeInsert()
-    currentHead + 1
+    SQL"CALL IDENTITY()".as(long("IDENTITY()").single) + 1
   }
 
   private def readState(
@@ -159,36 +165,19 @@ class SqlLedgerReaderWriter(
   }
 
   private def updateState(
-      stateChanges: Map[DamlStateKey, DamlStateValue],
-  )(implicit connection: Connection): Unit = {
-    val existingKeys =
-      SQL"SELECT key FROM state WHERE key IN (${stateChanges.keys.map(_.toByteArray).toSeq})"
-        .as(byteArray("key").map(DamlStateKey.parseFrom).*)
-        .toSet
-    val (stateUpdates, stateInserts) = stateChanges.partition {
-      case (key, _) => existingKeys.contains(key)
-    }
-    executeBatchSql("INSERT INTO state VALUES ({key}, {value})", asNamedParameters(stateInserts))
-    executeBatchSql(
-      "UPDATE state SET value = {value} WHERE key = {key}",
-      asNamedParameters(stateUpdates))
-  }
-
-  private def asNamedParameters(
       stateUpdates: Map[DamlStateKey, DamlStateValue],
-  ): Iterable[Seq[NamedParameter]] = {
-    stateUpdates.map {
+  )(implicit connection: Connection): Unit =
+    executeBatchSql("MERGE INTO state VALUES ({key}, {value})", stateUpdates.map {
       case (key, value) =>
         Seq[NamedParameter]("key" -> key.toByteArray, "value" -> value.toByteArray)
-    }
-  }
+    })
 
   private def migrate(): Future[Unit] = withConnection { implicit connection =>
     Future
       .sequence(
         Seq(
           Future(
-            SQL"CREATE TABLE IF NOT EXISTS log (sequence_no INT PRIMARY KEY, entry_id VARBINARY(16384), envelope BLOB)"
+            SQL"CREATE TABLE IF NOT EXISTS log (sequence_no IDENTITY PRIMARY KEY, entry_id VARBINARY(16384), envelope BLOB)"
               .execute()),
           Future(
             SQL"CREATE TABLE IF NOT EXISTS state (key VARBINARY(16384) PRIMARY KEY, value BLOB)"
@@ -214,15 +203,14 @@ class SqlLedgerReaderWriter(
   }
 
   private def withConnection[Out, Mat](
-      body: Connection => Source[Out, Future[Mat]],
+      body: Connection => Future[Source[Out, Mat]],
   ): Source[Out, NotUsed] = {
     val connection = connectionSource.getConnection()
-    body(connection).mapMaterializedValue(mat => {
-      mat.onComplete { _ =>
-        connection.close()
-      }
-      NotUsed
-    })
+    val result = body(connection)
+    result.onComplete { _ =>
+      connection.close()
+    }
+    Source.futureSource(result).mapMaterializedValue(_ => NotUsed)
   }
 
   private def executeBatchSql(
@@ -236,11 +224,11 @@ class SqlLedgerReaderWriter(
 }
 
 object SqlLedgerReaderWriter {
-  type Index = Int
+  type Index = Long
 
-  private val StartIndex: Index = 0
+  val FirstIndex: Index = 1
 
-  private val StartOffset: Offset = Offset(Array(StartIndex.toLong))
+  private val FirstOffset: Offset = Offset(Array(FirstIndex))
 
   def apply(
       ledgerId: LedgerId = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
