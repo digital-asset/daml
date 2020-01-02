@@ -19,12 +19,14 @@ da_scala_library(
     name = "codegen-main-lib",
     srcs = glob(["src/main/**/*.scala"]),
     visibility = ["//visibility:public"],
+    runtime_deps = [
+        "@maven//:ch_qos_logback_logback_classic",
+    ],
     deps = [
         "//daml-assistant/scala-daml-project-config",
         "//language-support/codegen-common",
         "//language-support/java/codegen:lib",
         "//language-support/scala/codegen:codegen-main",
-        "@maven//:ch_qos_logback_logback_classic",
         "@maven//:com_github_scopt_scopt_2_12",
         "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
     ],
