@@ -53,7 +53,6 @@ da_scala_library(
         "@maven//:com_thesamet_scalapb_scalapb_runtime_2_12",
         "@maven//:com_thesamet_scalapb_scalapb_runtime_grpc_2_12",
         "@maven//:io_grpc_grpc_api",
-        "@maven//:io_grpc_grpc_protobuf",
         "@maven//:io_grpc_grpc_stub",
         "@maven//:org_scalactic_scalactic_2_12",
         "@maven//:org_scalatest_scalatest_2_12",
