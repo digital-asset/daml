@@ -101,6 +101,12 @@ class WebsocketServiceIntegrationTest
       result.head should include("error")
   }
 
+  /* TODO SC
+  "websocket should receive deltas as contracts are archived/created" in withHttpService {
+    (uri, _, _) =>
+    }
+   */
+
   private def wsConnectRequest[M](
       uri: Uri,
       subprotocol: Option[String],
