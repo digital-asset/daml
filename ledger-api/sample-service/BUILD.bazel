@@ -24,6 +24,7 @@ proto_gen(
 scala_library(
     name = "sample-service-scalapb",
     srcs = [":sample-service-scalapb-sources"],
+    unused_dependency_checker_mode = "error",
     deps = [
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_thesamet_scalapb_lenses_2_12",

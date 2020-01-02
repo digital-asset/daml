@@ -288,6 +288,7 @@ scala_library(
     tags = [
         "maven_coordinates=com.digitalasset.ledger-api.grpc-definitions:ledger-api-scalapb:__VERSION__",
     ],
+    unused_dependency_checker_mode = "error",
     visibility = ["//visibility:public"],
     exports = [
         "@maven//:com_google_protobuf_protobuf_java",
