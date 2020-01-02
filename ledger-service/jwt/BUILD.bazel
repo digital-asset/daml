@@ -38,9 +38,7 @@ da_scala_binary(
     main_class = "com.digitalasset.jwt.Main",
     scalacopts = hj_scalacopts,
     deps = [
-        ":jwt",
         "//daml-lf/data",
-        "@maven//:ch_qos_logback_logback_classic",
         "@maven//:com_auth0_java_jwt",
         "@maven//:com_auth0_jwks_rsa",
         "@maven//:com_github_scopt_scopt_2_12",
@@ -48,6 +46,10 @@ da_scala_binary(
         "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
         "@maven//:org_slf4j_slf4j_api",
+    ],
+    runtime_deps = [
+        ":jwt",
+        "@maven//:ch_qos_logback_logback_classic",
     ],
 )
 
