@@ -7,24 +7,22 @@ load(
     "da_scala_test_suite",
 )
 
-utils_deps = [
-    "@maven//:org_scalaz_scalaz_core_2_12",
-    "//daml-lf/data",
-    "//daml-lf/archive:daml_lf_dev_archive_java_proto",
-    "//daml-lf/archive:daml_lf_archive_reader",
-    "//daml-lf/language",
-    "//daml-lf/transaction",
-    "//daml-lf/interface",
-    "//language-support/scala/bindings-akka",
-    "//ledger-api/rs-grpc-bridge",
-]
-
 da_scala_library(
     name = "utils",
     srcs = glob(["src/main/scala/**/*.scala"]),
     tags = ["maven_coordinates=com.digitalasset.ledger-service:utils:__VERSION__"],
     visibility = ["//visibility:public"],
-    deps = utils_deps,
+    deps = [
+        "@maven//:org_scalaz_scalaz_core_2_12",
+        "//daml-lf/data",
+        "//daml-lf/archive:daml_lf_dev_archive_java_proto",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/language",
+        "//daml-lf/transaction",
+        "//daml-lf/interface",
+        "//language-support/scala/bindings-akka",
+        "//ledger-api/rs-grpc-bridge",
+    ],
 )
 
 da_scala_test_suite(

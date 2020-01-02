@@ -11,14 +11,6 @@ load(
     "daml_compile",
 )
 
-lf_value_json_deps = [
-    "@maven//:org_scalaz_scalaz_core_2_12",
-    "@maven//:io_spray_spray_json_2_12",
-    "//daml-lf/data",
-    "//daml-lf/interface",
-    "//daml-lf/transaction",
-]
-
 da_scala_library(
     name = "lf-value-json",
     srcs = glob(["src/main/scala/**/*.scala"]),
@@ -27,7 +19,13 @@ da_scala_library(
     visibility = [
         "//visibility:public",
     ],
-    deps = lf_value_json_deps,
+    deps = [
+        "@maven//:org_scalaz_scalaz_core_2_12",
+        "@maven//:io_spray_spray_json_2_12",
+        "//daml-lf/data",
+        "//daml-lf/interface",
+        "//daml-lf/transaction",
+    ],
 )
 
 daml_compile(

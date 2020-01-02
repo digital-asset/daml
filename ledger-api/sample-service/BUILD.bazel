@@ -21,20 +21,18 @@ proto_gen(
     ],
 )
 
-scalapb_deps = [
-    "@maven//:com_thesamet_scalapb_scalapb_runtime_2_12",
-    "@maven//:com_thesamet_scalapb_scalapb_runtime_grpc_2_12",
-    "@maven//:com_google_protobuf_protobuf_java",
-    "@maven//:io_grpc_grpc_api",
-    "@maven//:io_grpc_grpc_stub",
-    "@maven//:io_grpc_grpc_protobuf",
-    "@maven//:com_thesamet_scalapb_lenses_2_12",
-]
-
 scala_library(
     name = "sample-service-scalapb",
     srcs = [":sample-service-scalapb-sources"],
-    deps = scalapb_deps,
+    deps = [
+        "@maven//:com_thesamet_scalapb_scalapb_runtime_2_12",
+        "@maven//:com_thesamet_scalapb_scalapb_runtime_grpc_2_12",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_stub",
+        "@maven//:io_grpc_grpc_protobuf",
+        "@maven//:com_thesamet_scalapb_lenses_2_12",
+    ],
 )
 
 da_scala_library(
@@ -51,5 +49,12 @@ da_scala_library(
         "@maven//:org_scalactic_scalactic_2_12",
         "@maven//:org_scalatest_scalatest_2_12",
         "//ledger-api/testing-utils:testing-utils",
-    ] + scalapb_deps,
+        "@maven//:com_thesamet_scalapb_scalapb_runtime_2_12",
+        "@maven//:com_thesamet_scalapb_scalapb_runtime_grpc_2_12",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_stub",
+        "@maven//:io_grpc_grpc_protobuf",
+        "@maven//:com_thesamet_scalapb_lenses_2_12",
+    ],
 )
