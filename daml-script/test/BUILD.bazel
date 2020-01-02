@@ -54,7 +54,6 @@ da_scala_library(
         "//daml-lf/data",
         "//daml-lf/interpreter",
         "//daml-lf/language",
-        "//daml-lf/transaction",
         "//daml-script/runner:script-runner-lib",
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-akka",
