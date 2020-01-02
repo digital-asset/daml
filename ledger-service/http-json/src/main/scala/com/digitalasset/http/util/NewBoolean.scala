@@ -23,6 +23,7 @@ sealed abstract class NewBoolean {
 }
 
 object NewBoolean {
+  // must not be a val
   def Instance: NewBoolean = new NewBoolean {
     type T = Boolean
     val False = false

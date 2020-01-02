@@ -12,6 +12,7 @@ import com.digitalasset.http.domain.{GetActiveContractsRequest, JwtPayload}
 import com.digitalasset.http.json.{DomainJsonDecoder, DomainJsonEncoder, SprayJson}
 import SprayJson.JsonReaderError
 import ContractsFetch.InsertDeleteStep
+import com.digitalasset.http.LedgerClientJwt.Terminates
 import util.ApiValueToLfValueConverter.apiValueToLfValue
 import json.JsonProtocol.LfValueCodec.{apiValueToJsValue => lfValueToJsValue}
 import query.ValuePredicate.LfV
@@ -178,7 +179,7 @@ class WebSocketService(
     resolveTemplateIds(request.templateIds) match {
       case \/-(ids) =>
         contractsService
-          .insertDeleteStepSource(jwt, jwtPayload.party, ids)
+          .insertDeleteStepSource(jwt, jwtPayload.party, ids, Terminates.Never)
           .via(convertFilterContracts(prepareFilters(ids, request.query)))
           .filter(_.nonEmpty)
           .map(sae => TextMessage(sae.render.compactPrint))

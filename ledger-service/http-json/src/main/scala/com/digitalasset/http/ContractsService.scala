@@ -8,6 +8,7 @@ import akka.stream.scaladsl._
 import akka.stream.Materializer
 import com.digitalasset.daml.lf
 import com.digitalasset.http.ContractsFetch.InsertDeleteStep
+import com.digitalasset.http.LedgerClientJwt.Terminates
 import com.digitalasset.http.dbbackend.ContractDao
 import com.digitalasset.http.domain.{GetActiveContractsRequest, JwtPayload, TemplateId}
 import com.digitalasset.http.json.JsonProtocol.LfValueCodec
@@ -234,7 +235,8 @@ class ContractsService(
   private[http] def insertDeleteStepSource(
       jwt: Jwt,
       party: lar.Party,
-      templateIds: List[domain.TemplateId.RequiredPkg])
+      templateIds: List[domain.TemplateId.RequiredPkg],
+      terminates: Terminates = Terminates.AtLedgerEnd)
     : Source[InsertDeleteStep[api.event.CreatedEvent], NotUsed] = {
 
     val txnFilter = util.Transactions.transactionFilterFor(party, templateIds)
@@ -242,7 +244,7 @@ class ContractsService(
 
     val transactionsSince
       : api.ledger_offset.LedgerOffset => Source[api.transaction.Transaction, NotUsed] =
-      getCreatesAndArchivesSince(jwt, txnFilter, _: api.ledger_offset.LedgerOffset)
+      getCreatesAndArchivesSince(jwt, txnFilter, _: api.ledger_offset.LedgerOffset, terminates)
 
     import ContractsFetch.acsFollowingAndBoundary, ContractsFetch.GraphExtensions._
     val contractsAndBoundary = acsFollowingAndBoundary(transactionsSince).divertToHead

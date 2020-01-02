@@ -22,6 +22,7 @@ import com.digitalasset.http.dbbackend.ContractDao.StaleOffsetException
 import com.digitalasset.http.dbbackend.{ContractDao, Queries}
 import com.digitalasset.http.dbbackend.Queries.{DBContract, SurrogateTpId}
 import com.digitalasset.http.domain.TemplateId
+import com.digitalasset.http.LedgerClientJwt.Terminates
 import com.digitalasset.http.util.ApiValueToLfValueConverter.apiValueToLfValue
 import com.digitalasset.http.json.JsonProtocol.LfValueDatabaseCodec.{
   apiValueToJsValue => lfValueToDbJsValue
@@ -148,7 +149,8 @@ private class ContractsFetch(
         val txnK = getCreatesAndArchivesSince(
           jwt,
           transactionFilter(party, List(templateId)),
-          _: lav1.ledger_offset.LedgerOffset)
+          _: lav1.ledger_offset.LedgerOffset,
+          Terminates.AtLedgerEnd)
 
         // include ACS iff starting at LedgerBegin
         val (idses, lastOff) = offset match {
