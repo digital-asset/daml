@@ -416,6 +416,9 @@ private[http] object ContractsFetch {
         deletes union o.deletes)
 
     def nonEmpty: Boolean = inserts.nonEmpty || deletes.nonEmpty
+
+    /** Results undefined if cid(d) != cid(c) */
+    def mapPreservingIds[D](f: C => D): InsertDeleteStep[D] = copy(inserts = inserts map f)
   }
 
   private def transactionFilter(

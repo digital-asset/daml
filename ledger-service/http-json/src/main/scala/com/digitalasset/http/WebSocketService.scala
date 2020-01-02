@@ -19,6 +19,7 @@ import com.digitalasset.jwt.domain.Jwt
 import com.digitalasset.ledger.api.{v1 => api}
 
 import com.typesafe.scalalogging.LazyLogging
+import scalaz.Liskov.<~<
 import scalaz.syntax.show._
 import scalaz.syntax.std.boolean._
 import scalaz.syntax.traverse._
@@ -56,6 +57,25 @@ object WebSocketService {
       (esb.result, thatb.result)
     }
 
+  }
+
+  private final case class StepAndErrors[+LfV](
+      errors: Seq[ServerError],
+      step: InsertDeleteStep[domain.ActiveContract[LfV]]) {
+    import json.JsonProtocol._, spray.json._
+    def render(implicit lfv: LfV <~< JsValue): JsValue = {
+      def opr[V <: Iterable[_]: JsonWriter](v: V) =
+        v.nonEmpty option v.toJson
+      JsObject(
+        Map(
+          "errors" -> opr(errors.map(_.message)),
+          "add" -> lfv.subst[Lambda[`-i` => Vector[domain.ActiveContract[i]] => Option[JsValue]]](
+            opr(_))(step.inserts),
+          "remove" -> opr(step.deletes)
+        ) collect { case (k, Some(v)) => (k, v) })
+    }
+
+    def nonEmpty = errors.nonEmpty || step.nonEmpty
   }
 }
 
@@ -151,8 +171,8 @@ class WebSocketService(
         contractsService
           .insertDeleteStepSource(jwt, jwtPayload.party, ids)
           .via(convertFilterContracts(prepareFilters(ids, request.query)))
-          .filter { case (errs, step) => errs.nonEmpty || step.nonEmpty }
-          .map(sae => TextMessage(renderStepAndErrors(sae).compactPrint))
+          .filter(_.nonEmpty)
+          .map(sae => TextMessage(sae.render.compactPrint))
       case -\/(_) =>
         Source.single(wsErrorMessage("Cannot find templateIds " + request.templateIds.toString))
     }
@@ -161,19 +181,6 @@ class WebSocketService(
     TextMessage(
       JsObject("error" -> JsString(errorMsg)).compactPrint
     )
-
-  private type StepAndErrors = (Seq[ServerError], InsertDeleteStep[domain.ActiveContract[JsValue]])
-
-  private def renderStepAndErrors(se: StepAndErrors): JsValue = {
-    import spray.json._
-    def opr[V <: Iterable[_]: JsonWriter](v: V) =
-      v.nonEmpty option v.toJson
-    JsObject(
-      Map(
-        "errors" -> opr(se._1.map(_.message)),
-        "add" -> opr(se._2.inserts),
-        "remove" -> opr(se._2.deletes)) collect { case (k, Some(v)) => (k, v) })
-  }
 
   private def prepareFilters(
       ids: Iterable[domain.TemplateId.RequiredPkg],
@@ -184,22 +191,22 @@ class WebSocketService(
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def convertFilterContracts(compiledQueries: CompiledQueries)
-    : Flow[InsertDeleteStep[api.event.CreatedEvent], StepAndErrors, NotUsed] =
+    : Flow[InsertDeleteStep[api.event.CreatedEvent], StepAndErrors[JsValue], NotUsed] =
     Flow
       .fromFunction { step: InsertDeleteStep[api.event.CreatedEvent] =>
-        import scalaz.std.tuple._, scalaz.std.vector._, scalaz.syntax.bind._
-        step.inserts
+        val (errors, cs) = step.inserts
           .partitionMap { ce =>
             domain.ActiveContract
               .fromLedgerApi(ce)
               .liftErr(ServerError)
               .flatMap(_.traverse(apiValueToLfValue).liftErr(ServerError))
           }
-          .map { cs: Vector[domain.ActiveContract[LfV]] =>
-            step copy (inserts = cs.collect {
+        StepAndErrors(
+          errors,
+          step copy (inserts = (cs: Vector[domain.ActiveContract[LfV]])
+            .collect {
               case acLfv if true /* TODO search */ =>
                 acLfv map lfValueToJsValue
-            })
-          }
+            }))
       }
 }
