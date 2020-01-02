@@ -22,6 +22,7 @@ import com.typesafe.scalalogging.LazyLogging
 import scalaz.Liskov.<~<
 import scalaz.syntax.show._
 import scalaz.syntax.std.boolean._
+import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 import scalaz.{-\/, \/, \/-, Show}
 import spray.json.{JsObject, JsString, JsValue}
@@ -74,6 +75,9 @@ object WebSocketService {
           "remove" -> opr(step.deletes)
         ) collect { case (k, Some(v)) => (k, v) })
     }
+
+    def append[A >: LfV](o: StepAndErrors[A]): StepAndErrors[A] =
+      StepAndErrors(errors ++ o.errors, step.appendWithCid(o.step)(_.contractId.unwrap))
 
     def nonEmpty = errors.nonEmpty || step.nonEmpty
   }
@@ -208,6 +212,13 @@ class WebSocketService(
               compiledQueries.get(acLfv.templateId).exists(_(acLfv.argument))
             }))
       }
-      // TODO SC insert conflate here
+      .via(conflation)
       .map(sae => sae copy (step = sae.step.mapPreservingIds(_ map lfValueToJsValue)))
+
+  private def conflation[A]: Flow[StepAndErrors[A], StepAndErrors[A], NotUsed] =
+    Flow[StepAndErrors[A]]
+      .batchWeighted(max = 200, costFn = {
+        case StepAndErrors(errors, InsertDeleteStep(inserts, deletes)) =>
+          errors.length.toLong + (inserts.length * 2) + deletes.size
+      }, identity)(_ append _)
 }
