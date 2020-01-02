@@ -71,12 +71,16 @@ class WebsocketServiceIntegrationTest
           subprotocol = validSubprotocol))
 
       val clientMsg = Source
-        .single(TextMessage("{}"))
+        .single(TextMessage("""{"%templates": [{"moduleName": "Iou", "entityName": "Iou"}]}"""))
         .via(webSocketFlow)
         .runWith(Sink.fold(Seq.empty[String])(_ :+ _.toString))
 
-      val result = Await.result(clientMsg, 10.seconds)
-      result should have size 1
+      clientMsg map {
+        inside(_) {
+          case Seq(result) =>
+            result should include("\"issuer\":\"Alice\"")
+        }
+      }
   }
 
   "websocket should send error msg when receiving malformed message" in withHttpService {
@@ -87,7 +91,7 @@ class WebsocketServiceIntegrationTest
           subprotocol = validSubprotocol))
 
       val clientMsg = Source
-        .single(TextMessage("pie"))
+        .single(TextMessage("{}"))
         .via(webSocketFlow)
         .runWith(Sink.fold(Seq.empty[String])(_ :+ _.toString))
 

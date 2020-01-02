@@ -28,15 +28,12 @@ import scalaz.{-\/, \/, \/-, Show}
 import spray.json.{JsObject, JsString, JsValue}
 
 import scala.collection.SeqLike
-import scala.collection.immutable.Set
 import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success}
 
 object WebSocketService {
   private type CompiledQueries = Map[domain.TemplateId.RequiredPkg, LfV => Boolean]
   val heartBeat: String = JsObject("heartbeat" -> JsString("ping")).compactPrint
-  val emptyGetActiveContractsRequest = domain.GetActiveContractsRequest(Set.empty, Map.empty)
-  private val numConns = new java.util.concurrent.atomic.AtomicInteger(0)
 
   private implicit final class `\\/ WSS extras`[L, R](private val self: L \/ R) extends AnyVal {
     def liftErr[M](f: String => M)(implicit L: Show[L]): M \/ R =
@@ -100,6 +97,8 @@ class WebSocketService(
 
   import WebSocketService._
   import com.digitalasset.http.json.JsonProtocol._
+
+  private val numConns = new java.util.concurrent.atomic.AtomicInteger(0)
 
   private[http] def transactionMessageHandler(
       jwt: Jwt,
@@ -167,7 +166,6 @@ class WebSocketService(
       incoming: Option[JsValue]
   ): SprayJson.JsonReaderError \/ GetActiveContractsRequest = {
     incoming match {
-      case Some(JsObject.empty) => \/-(emptyGetActiveContractsRequest)
       case Some(jsObj) => SprayJson.decode[GetActiveContractsRequest](jsObj)
       case None => -\/(JsonReaderError("None", "please send a valid json request"))
     }
