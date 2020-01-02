@@ -23,17 +23,11 @@ da_scala_library(
         "//daml-lf/archive:daml_lf_dev_archive_java_proto",
         "//daml-lf/data",
         "//daml-lf/transaction",
-        "//daml-lf/transaction:transaction_java_proto",
-        "//daml-lf/transaction:value_java_proto",
         "//ledger/ledger-api-health",
         "//ledger/participant-state/protobuf:ledger_configuration_java_proto",
-        "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
-        "@maven//:io_grpc_grpc_api",
-        "@maven//:io_grpc_grpc_core",
-        "@maven//:io_grpc_grpc_services",
     ],
 )
 
