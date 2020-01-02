@@ -36,14 +36,14 @@ class WebsocketServiceIntegrationTest
   "ws request with valid protocol token should allow client subscribe to stream" in withHttpService {
     (uri, _, _) =>
       wsConnectRequest(
-        uri.copy(scheme = "ws").withPath(Uri.Path("/transactions")),
+        uri.copy(scheme = "ws").withPath(Uri.Path("/contracts/searchForever")),
         validSubprotocol,
         baseFlow)._1 flatMap (x => x.response.status shouldBe StatusCodes.SwitchingProtocols)
   }
 
   "ws request with invalid protocol token should be denied" in withHttpService { (uri, _, _) =>
     wsConnectRequest(
-      uri.copy(scheme = "ws").withPath(Uri.Path("/transactions")),
+      uri.copy(scheme = "ws").withPath(Uri.Path("/contracts/searchForever")),
       Option("foo"),
       baseFlow
     )._1 flatMap (x => x.response.status shouldBe StatusCodes.Unauthorized)
@@ -51,7 +51,7 @@ class WebsocketServiceIntegrationTest
 
   "ws request without protocol token should be denied" in withHttpService { (uri, _, _) =>
     wsConnectRequest(
-      uri.copy(scheme = "ws").withPath(Uri.Path("/transactions")),
+      uri.copy(scheme = "ws").withPath(Uri.Path("/contracts/searchForever")),
       None,
       baseFlow
     )._1 flatMap (x => x.response.status shouldBe StatusCodes.Unauthorized)
@@ -67,7 +67,7 @@ class WebsocketServiceIntegrationTest
 
       val webSocketFlow = Http().webSocketClientFlow(
         WebSocketRequest(
-          uri = uri.copy(scheme = "ws").withPath(Uri.Path("/transactions")),
+          uri = uri.copy(scheme = "ws").withPath(Uri.Path("/contracts/searchForever")),
           subprotocol = validSubprotocol))
 
       val clientMsg = Source
@@ -83,7 +83,7 @@ class WebsocketServiceIntegrationTest
     (uri, _, _) =>
       val webSocketFlow = Http().webSocketClientFlow(
         WebSocketRequest(
-          uri = uri.copy(scheme = "ws").withPath(Uri.Path("/transactions")),
+          uri = uri.copy(scheme = "ws").withPath(Uri.Path("/contracts/searchForever")),
           subprotocol = validSubprotocol))
 
       val clientMsg = Source
