@@ -24,7 +24,6 @@ da_scala_binary(
         "//daml-lf/validation",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_jline_jline",
-        "@maven//:org_scala_lang_modules_scala_parser_combinators_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
         "@maven//:org_typelevel_paiges_core_2_12",
     ],
