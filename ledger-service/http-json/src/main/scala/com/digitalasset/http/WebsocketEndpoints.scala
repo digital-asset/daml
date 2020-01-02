@@ -63,8 +63,7 @@ class WebsocketEndpoints(
           payload <- preconnect(decodeJwt, upgradeReq, subprotocol)
           (jwt, jwtPayload) = payload
         } yield handleWebsocketRequest(jwt, jwtPayload, upgradeReq, subprotocol))
-          .leftMap(httpResponseError)
-          .merge)
+          .valueOr(httpResponseError))
   }
 
   private def handleWebsocketRequest(
