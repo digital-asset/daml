@@ -204,9 +204,10 @@ class WebSocketService(
         StepAndErrors(
           errors,
           step copy (inserts = (cs: Vector[domain.ActiveContract[LfV]])
-            .collect {
-              case acLfv if true /* TODO search */ =>
-                acLfv map lfValueToJsValue
+            .filter { acLfv =>
+              compiledQueries.get(acLfv.templateId).exists(_(acLfv.argument))
             }))
       }
+      // TODO SC insert conflate here
+      .map(sae => sae copy (step = sae.step.mapPreservingIds(_ map lfValueToJsValue)))
 }
