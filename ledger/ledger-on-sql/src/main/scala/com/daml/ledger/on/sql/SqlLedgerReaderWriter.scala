@@ -199,17 +199,23 @@ object SqlLedgerReaderWriter {
       materializer: Materializer,
   ): Future[SqlLedgerReaderWriter] =
     Future {
-      val queries = Queries.forDatabase(jdbcUrl)
-      val connectionPool = newConnectionPool(jdbcUrl)
-      new SqlLedgerReaderWriter(ledgerId, participantId, queries, connectionPool)
+      val database = Database(jdbcUrl)
+      val connectionPool = newConnectionPool(jdbcUrl, database)
+      new SqlLedgerReaderWriter(ledgerId, participantId, database.queries, connectionPool)
     }.flatMap { ledger =>
       ledger.migrate().map(_ => ledger)
     }
 
-  private def newConnectionPool(jdbcUrl: String): DataSource with AutoCloseable = {
+  private def newConnectionPool(
+      jdbcUrl: String,
+      database: Database,
+  ): DataSource with AutoCloseable = {
     val connectionPoolConfig = new HikariConfig
     connectionPoolConfig.setJdbcUrl(jdbcUrl)
     connectionPoolConfig.setAutoCommit(false)
+    database.maximumPoolSize.foreach { maximumPoolSize =>
+      connectionPoolConfig.setMaximumPoolSize(maximumPoolSize)
+    }
     new HikariDataSource(connectionPoolConfig)
   }
 }
