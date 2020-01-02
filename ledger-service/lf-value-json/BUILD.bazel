@@ -20,11 +20,11 @@ da_scala_library(
         "//visibility:public",
     ],
     deps = [
-        "@maven//:org_scalaz_scalaz_core_2_12",
-        "@maven//:io_spray_spray_json_2_12",
         "//daml-lf/data",
         "//daml-lf/interface",
         "//daml-lf/transaction",
+        "@maven//:io_spray_spray_json_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 

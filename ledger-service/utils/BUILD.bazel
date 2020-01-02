@@ -13,15 +13,15 @@ da_scala_library(
     tags = ["maven_coordinates=com.digitalasset.ledger-service:utils:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
-        "@maven//:org_scalaz_scalaz_core_2_12",
-        "//daml-lf/data",
-        "//daml-lf/archive:daml_lf_dev_archive_java_proto",
         "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive:daml_lf_dev_archive_java_proto",
+        "//daml-lf/data",
+        "//daml-lf/interface",
         "//daml-lf/language",
         "//daml-lf/transaction",
-        "//daml-lf/interface",
         "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
+        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 
