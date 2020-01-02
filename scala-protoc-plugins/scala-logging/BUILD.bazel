@@ -24,7 +24,6 @@ da_scala_library(
     ],
     deps = [
         "@maven//:io_grpc_grpc_api",
-        "@maven//:io_grpc_grpc_core",
         "@maven//:io_grpc_grpc_stub",
         "@maven//:org_slf4j_slf4j_api",
     ],
