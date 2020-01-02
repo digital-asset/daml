@@ -270,7 +270,7 @@ class ContractsService(
     case a @ \/-(ac) if predicate(ac.argument) => a
   }
 
-  private def valuePredicate(
+  private[http] def valuePredicate(
       templateId: domain.TemplateId.RequiredPkg,
       q: Map[String, JsValue]): query.ValuePredicate =
     ValuePredicate.fromTemplateJsObject(q, templateId, lookupType)
