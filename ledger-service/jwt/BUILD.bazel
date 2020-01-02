@@ -20,15 +20,15 @@ da_scala_library(
     tags = ["maven_coordinates=com.digitalasset.ledger-service:jwt:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
+        "//daml-lf/data",
+        "@maven//:ch_qos_logback_logback_classic",
         "@maven//:com_auth0_java_jwt",
         "@maven//:com_auth0_jwks_rsa",
+        "@maven//:com_github_scopt_scopt_2_12",
         "@maven//:com_google_guava_guava",
-        "@maven//:ch_qos_logback_logback_classic",
         "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
         "@maven//:org_slf4j_slf4j_api",
-        "@maven//:com_github_scopt_scopt_2_12",
-        "//daml-lf/data",
     ],
 )
 
@@ -39,15 +39,15 @@ da_scala_binary(
     scalacopts = hj_scalacopts,
     deps = [
         ":jwt",
+        "//daml-lf/data",
+        "@maven//:ch_qos_logback_logback_classic",
         "@maven//:com_auth0_java_jwt",
         "@maven//:com_auth0_jwks_rsa",
+        "@maven//:com_github_scopt_scopt_2_12",
         "@maven//:com_google_guava_guava",
-        "@maven//:ch_qos_logback_logback_classic",
         "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
         "@maven//:org_slf4j_slf4j_api",
-        "@maven//:com_github_scopt_scopt_2_12",
-        "//daml-lf/data",
     ],
 )
 
