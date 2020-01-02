@@ -1,4 +1,4 @@
-Copyright 2019 Digital Asset (Switzerland) GmbH and/or its affiliates.  All rights reserved.
+Copyright 2020 Digital Asset (Switzerland) GmbH and/or its affiliates.  All rights reserved.
 
 Phase: RELEASE
 Distribution: EXTERNAL
@@ -5263,7 +5263,7 @@ LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
 OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 SUCH DAMAGE.
 daml-ghc-lib-LICENSE
-Copyright Digital Asset 2018-2019.
+Copyright Digital Asset 2018-2020.
 
 Licensed under either of:
 
@@ -13975,7 +13975,7 @@ DAMAGE.
 
 -----------------------------------------------------------------------------
 ./daml-ghc-lib-LICENSE
-Copyright Digital Asset 2018-2019.
+Copyright Digital Asset 2018-2020.
 
 Licensed under either of:
 

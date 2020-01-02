@@ -1,6 +1,6 @@
 # DAML template syntax desugaring
 
-Copyright 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All Rights Reserved.
+Copyright 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: (Apache-2.0 OR BSD-3-Clause)
 
 ## Introduction
@@ -130,10 +130,10 @@ _choice_IouTransfer
        -> let
           in
             concat
-              [toParties (owner)], 
+              [toParties (owner)],
      \ self this@Iou {..} arg@Transfer {..}
        -> let
-          in do create (DA.Internal.Record.setField @"owner" newOwner this), 
+          in do create (DA.Internal.Record.setField @"owner" newOwner this),
      PreConsuming)
 ```
 

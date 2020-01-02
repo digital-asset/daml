@@ -131,8 +131,8 @@ def process_file(filename, check_only):
 
   # Process the file:
   # If we find an existing copyright header with the same starting line
-  # compare against it. If no copyright header exists or its different
-  # remove the existing one and prepand the new header to the file.
+  # compare against it. If no copyright header exists or it's different
+  # remove the existing one and prepend the new header to the file.
   state='start'
   index=0      # Current index to copyright notice text when comparing
   before_header=[] # Lines in the file before possible copyright header
@@ -140,7 +140,7 @@ def process_file(filename, check_only):
   for line in lines:
     # looking for start comment block
     if state == 'start':
-      if (line.strip(filetypes[ext]['line']).strip(filetypes[ext]['start'])[0:19] == " Copyright (c) 2019"):
+      if (line.strip(filetypes[ext]['line']).strip(filetypes[ext]['start'])[0:19] == " Copyright (c) 2020"):
         state='notice'
 
         if line != notice_lines[0]+"\n":
