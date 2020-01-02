@@ -67,7 +67,6 @@ da_scala_binary(
     deps = [
         ":reference-v2",
         "//ledger/sandbox:sandbox-scala-tests-lib",
-        "@maven//:org_slf4j_slf4j_api",
     ],
 )
 
