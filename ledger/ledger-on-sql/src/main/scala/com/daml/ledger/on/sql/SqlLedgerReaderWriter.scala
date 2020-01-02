@@ -10,9 +10,9 @@ import java.util.UUID
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import anorm.SqlParser._
-import anorm._
 import com.daml.ledger.on.sql.SqlLedgerReaderWriter._
+import com.daml.ledger.on.sql.queries.Queries
+import com.daml.ledger.on.sql.queries.Queries.Index
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntryId,
   DamlStateKey,
@@ -39,6 +39,7 @@ import scala.util.Random
 class SqlLedgerReaderWriter(
     ledgerId: LedgerId = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
     val participantId: ParticipantId,
+    queries: Queries,
     connectionSource: DataSource with AutoCloseable,
 )(implicit executionContext: ExecutionContext, materializer: Materializer)
     extends LedgerWriter
@@ -72,21 +73,7 @@ class SqlLedgerReaderWriter(
         offset.getOrElse(FirstOffset).components.head,
         RangeSource((start, end) =>
           withConnection { implicit connection =>
-            Future(Source(
-              SQL"SELECT sequence_no, entry_id, envelope FROM log WHERE sequence_no >= $start AND sequence_no < $end"
-                .as(
-                  (long("sequence_no") ~ byteArray("entry_id") ~ byteArray("envelope")).map {
-                    case index ~ entryId ~ envelope =>
-                      index -> LedgerRecord(
-                        Offset(Array(index)),
-                        DamlLogEntryId
-                          .newBuilder()
-                          .setEntryId(ByteString.copyFrom(entryId))
-                          .build(),
-                        envelope,
-                      )
-                  }.*
-                )))
+            Future(Source(queries.selectFromLog(start, end)))
         })
       )
       .map { case (_, record) => record }
@@ -111,7 +98,7 @@ class SqlLedgerReaderWriter(
         )
         verifyStateUpdatesAgainstPreDeclaredOutputs(stateUpdates, entryId, submission)
         val newHead = appendLog(entryId, Envelope.enclose(logEntry))
-        updateState(stateUpdates)
+        queries.updateState(stateUpdates)
         dispatcher.signalNewHead(newHead)
         SubmissionResult.Acknowledged
       }
@@ -145,9 +132,8 @@ class SqlLedgerReaderWriter(
       entry: DamlLogEntryId,
       envelope: ByteString,
   )(implicit connection: Connection): Index = {
-    SQL"INSERT INTO log (entry_id, envelope) VALUES (${entry.getEntryId.toByteArray}, ${envelope.toByteArray})"
-      .executeInsert()
-    SQL"CALL IDENTITY()".as(long("IDENTITY()").single) + 1
+    queries.insertIntoLog(entry, envelope)
+    queries.lastLogInsertId() + 1
   }
 
   private def readState(
@@ -155,33 +141,18 @@ class SqlLedgerReaderWriter(
   )(implicit connection: Connection): Map[DamlStateKey, Option[DamlStateValue]] = {
     val builder = Map.newBuilder[DamlStateKey, Option[DamlStateValue]]
     builder ++= stateInputKeys.map(_ -> None)
-    SQL"SELECT key, value FROM state WHERE key IN (${stateInputKeys.map(_.toByteArray)})"
-      .as((byteArray("key") ~ byteArray("value")).map {
-        case key ~ value =>
-          DamlStateKey.parseFrom(key) -> Some(DamlStateValue.parseFrom(value))
-      }.*)
+    queries
+      .selectStateByKeys(stateInputKeys)
       .foldLeft(builder)(_ += _)
       .result()
   }
-
-  private def updateState(
-      stateUpdates: Map[DamlStateKey, DamlStateValue],
-  )(implicit connection: Connection): Unit =
-    executeBatchSql("MERGE INTO state VALUES ({key}, {value})", stateUpdates.map {
-      case (key, value) =>
-        Seq[NamedParameter]("key" -> key.toByteArray, "value" -> value.toByteArray)
-    })
 
   private def migrate(): Future[Unit] = withConnection { implicit connection =>
     Future
       .sequence(
         Seq(
-          Future(
-            SQL"CREATE TABLE IF NOT EXISTS log (sequence_no IDENTITY PRIMARY KEY, entry_id VARBINARY(16384), envelope BLOB)"
-              .execute()),
-          Future(
-            SQL"CREATE TABLE IF NOT EXISTS state (key VARBINARY(16384) PRIMARY KEY, value BLOB)"
-              .execute()),
+          Future(queries.createLogTable()),
+          Future(queries.createStateTable()),
         ))
       .map(_ => ())
   }
@@ -212,20 +183,9 @@ class SqlLedgerReaderWriter(
     }
     Source.futureSource(result).mapMaterializedValue(_ => NotUsed)
   }
-
-  private def executeBatchSql(
-      query: String,
-      params: Iterable[Seq[NamedParameter]],
-  )(implicit connection: Connection): Unit = {
-    if (params.nonEmpty)
-      BatchSql(query, params.head, params.drop(1).toArray: _*).execute()
-    ()
-  }
 }
 
 object SqlLedgerReaderWriter {
-  type Index = Long
-
   val FirstIndex: Index = 1
 
   private val FirstOffset: Offset = Offset(Array(FirstIndex))
@@ -237,19 +197,19 @@ object SqlLedgerReaderWriter {
   )(
       implicit executionContext: ExecutionContext,
       materializer: Materializer,
-  ): Future[SqlLedgerReaderWriter] = {
+  ): Future[SqlLedgerReaderWriter] =
+    Future {
+      val queries = Queries.forDatabase(jdbcUrl)
+      val connectionPool = newConnectionPool(jdbcUrl)
+      new SqlLedgerReaderWriter(ledgerId, participantId, queries, connectionPool)
+    }.flatMap { ledger =>
+      ledger.migrate().map(_ => ledger)
+    }
+
+  private def newConnectionPool(jdbcUrl: String): DataSource with AutoCloseable = {
     val connectionPoolConfig = new HikariConfig
     connectionPoolConfig.setJdbcUrl(jdbcUrl)
     connectionPoolConfig.setAutoCommit(false)
-    val connectionPool = new HikariDataSource(connectionPoolConfig)
-    val ledger = new SqlLedgerReaderWriter(ledgerId, participantId, connectionPool)
-    ledger.migrate().map(_ => ledger)
-  }
-
-  class SqlException private (message: String) extends RuntimeException(message)
-
-  object SqlException {
-    def apply[T](message: String, query: SimpleSql[T]) =
-      new SqlException(s"$message\nQuery:\n$query")
+    new HikariDataSource(connectionPoolConfig)
   }
 }

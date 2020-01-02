@@ -1,12 +1,11 @@
 // Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.on.filesystem.posix
+package com.daml.ledger.on.sql
 
 import java.nio.file.{Files, Path}
 import java.time.Clock
 
-import com.daml.ledger.on.filesystem.posix.DeleteFiles.deleteFiles
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.v1._
@@ -16,23 +15,23 @@ import com.digitalasset.daml.lf.data.Time.Timestamp
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext}
 
-class FileSystemLedgerReaderWriterIntegrationSpec
-    extends ParticipantStateIntegrationSpecBase(
-      "File system-based participant state implementation") {
-
+class SqliteSqlLedgerReaderWriterIntegrationSpec
+    extends ParticipantStateIntegrationSpecBase("SQL implementation using SQLite") {
   private implicit val ec: ExecutionContext = ExecutionContext.global
 
-  private var directory: Path = _
+  private var databaseFile: Path = _
+
+  override val firstIndex: Long = SqlLedgerReaderWriter.FirstIndex
 
   override def beforeEach(): Unit = {
-    directory = Files.createTempDirectory(getClass.getSimpleName)
+    databaseFile = Files.createTempFile(getClass.getSimpleName, ".db")
     super.beforeEach()
   }
 
   override def afterEach(): Unit = {
     super.afterEach()
-    if (directory != null) {
-      deleteFiles(directory)
+    if (databaseFile != null) {
+      Files.delete(databaseFile)
     }
   }
 
@@ -40,8 +39,9 @@ class FileSystemLedgerReaderWriterIntegrationSpec
       participantId: ParticipantId,
       ledgerId: LedgerString,
   ): ReadService with WriteService with AutoCloseable = {
+    val jdbcUrl = s"jdbc:sqlite:$databaseFile"
     val readerWriter =
-      Await.result(FileSystemLedgerReaderWriter(ledgerId, participantId, directory), 1.second)
+      Await.result(SqlLedgerReaderWriter(ledgerId, participantId, jdbcUrl), 10.seconds)
     new KeyValueParticipantState(readerWriter, readerWriter)
   }
 

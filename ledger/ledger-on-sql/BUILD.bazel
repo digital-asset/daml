@@ -48,6 +48,10 @@ da_scala_test(
         "//ledger/test-common:Test-stable.dar",
     ],
     resources = glob(["src/test/resources/*"]),
+    runtime_deps = [
+        "@maven//:com_h2database_h2",
+        "@maven//:org_xerial_sqlite_jdbc",
+    ],
     deps = [
         ":ledger-on-sql",
         "//daml-lf/data",
@@ -66,9 +70,12 @@ da_scala_test(
 )
 
 da_scala_binary(
-    name = "app",
+    name = "app-h2database",
     main_class = "com.daml.ledger.on.sql.Main",
     visibility = ["//visibility:public"],
+    runtime_deps = [
+        "@maven//:com_h2database_h2",
+    ],
     deps = [
         ":ledger-on-sql",
     ],
@@ -77,7 +84,7 @@ da_scala_binary(
 conformance_test(
     name = "conformance-test-h2database",
     ports = [6865],
-    server = ":app",
+    server = ":app-h2database",
     server_args = [
         "--port=6865",
         "--jdbc-url=jdbc:h2:mem:daml-on-sql-conformance-test;db_close_delay=-1;db_close_on_exit=false",
