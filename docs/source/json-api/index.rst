@@ -210,6 +210,41 @@ output, each contract formatted according to :doc:`lf-value-specification`::
         ]
     }
 
+POST http://localhost:7575/contracts/searchForever
+==================================================
+
+List currently active contracts that match a given query.
+
+application/json body must be sent first, formatted according to the
+:doc:`search-query-language`::
+
+    {"%templates": [{"moduleName": "Iou", "entityName": "Iou"}],
+     "amount": 999.99}
+
+output a series of JSON documents, each ``argument`` formatted according
+to :doc:`lf-value-specification`::
+
+Some notes on behavior:
+
+1. Each result object means "this is what would have changed if you just
+   polled ``/contracts/search`` iteratively."  In particular, just as
+   polling search can "miss" contracts (as a create and archive can be
+   paired between polls), such contracts may or may not appear in any
+   result object.
+
+2. No ``remove`` ever contains a contract ID occurring within an ``add``
+   in the same object.  So, for example, supposing you are keeping an
+   internal map of active contracts, you can apply the ``add`` first or
+   the ``remove`` first and be guaranteed to get the same results.
+
+3. You will almost certainly receive contract IDs in the ``remove`` set
+   that you never received an ``add`` for.  These are contracts that
+   query filtered out, but for which the server no longer is aware of
+   that.  You can safely ignore these.  However, such "phantom removes"
+   *are* guaranteed to represent an actual archival *on the ledger*, so
+   if you are keeping a more global dataset outside the context of this
+   specific search, you can use that archival information as you wish.
+
 POST http://localhost:7575/command/create
 =========================================
 
