@@ -5,5 +5,5 @@
 Copyright Notice
 ---------------------------
 
-Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates. 
+Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates. 
 All rights reserved.
