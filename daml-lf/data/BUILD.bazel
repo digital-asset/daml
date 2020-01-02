@@ -20,7 +20,6 @@ da_scala_library(
         "//visibility:public",
     ],
     deps = [
-        "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
