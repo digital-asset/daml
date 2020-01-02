@@ -18,9 +18,7 @@ da_scala_library(
         "//daml-lf/data",
         "//daml-lf/interface",
         "//daml-lf/language",
-        "//daml-lf/transaction",
         "//language-support/scala/bindings-akka",
-        "//ledger-api/rs-grpc-bridge",
         "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
