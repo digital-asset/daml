@@ -128,15 +128,15 @@ da_scala_binary(
         "no_scala_version_suffix",
     ],
     visibility = ["//visibility:public"],
+    runtime_deps = [
+        "@maven//:ch_qos_logback_logback_classic",
+    ],
     deps = [
         ":ledger-api-test-tool-lib",
         ":ledger-api-test-tool-tests",
         "//ledger/ledger-api-common",
         "@maven//:com_github_scopt_scopt_2_12",
         "@maven//:org_slf4j_slf4j_api",
-    ],
-    runtime_deps = [
-        "@maven//:ch_qos_logback_logback_classic",
     ],
 )
 

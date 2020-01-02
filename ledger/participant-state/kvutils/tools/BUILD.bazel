@@ -15,6 +15,9 @@ da_scala_binary(
     visibility = [
         "//visibility:public",
     ],
+    runtime_deps = [
+        "@maven//:ch_qos_logback_logback_classic",
+    ],
     deps = [
         "//daml-lf/archive:daml_lf_dev_archive_java_proto",
         "//daml-lf/data",
@@ -25,8 +28,5 @@ da_scala_binary(
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:io_dropwizard_metrics_metrics_jvm",
-    ],
-    runtime_deps = [
-        "@maven//:ch_qos_logback_logback_classic",
     ],
 )

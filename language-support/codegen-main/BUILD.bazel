@@ -35,6 +35,9 @@ da_scala_binary(
     srcs = glob(["src/main/**/*.scala"]),
     main_class = "com.digitalasset.codegen.CodegenMain",
     visibility = ["//visibility:public"],
+    runtime_deps = [
+        "@maven//:ch_qos_logback_logback_classic",
+    ],
     deps = [
         "//daml-assistant/scala-daml-project-config",
         "//language-support/codegen-common",
@@ -42,9 +45,6 @@ da_scala_binary(
         "//language-support/scala/codegen:codegen-main",
         "@maven//:com_github_scopt_scopt_2_12",
         "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
-    ],
-    runtime_deps = [
-        "@maven//:ch_qos_logback_logback_classic",
     ],
 )
 

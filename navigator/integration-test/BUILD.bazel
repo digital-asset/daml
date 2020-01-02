@@ -14,6 +14,10 @@ da_scala_binary(
     resource_strip_prefix = "navigator/integration-test/src/main/resources/",
     resources = ["src/main/resources/Main.daml"],
     visibility = ["//visibility:public"],
+    runtime_deps = [
+        "//ledger/sandbox",
+        "@maven//:ch_qos_logback_logback_classic",
+    ],
     deps = [
         "//compiler/damlc/jar:damlc_library_jar",
         "@maven//:com_chuusai_shapeless_2_12",
@@ -29,9 +33,5 @@ da_scala_binary(
         "@maven//:org_seleniumhq_selenium_selenium_remote_driver",
         "@maven//:org_slf4j_slf4j_api",
         "@maven//:org_typelevel_cats_core_2_12",
-    ],
-    runtime_deps = [
-        "//ledger/sandbox",
-        "@maven//:ch_qos_logback_logback_classic",
     ],
 )
