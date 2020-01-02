@@ -84,12 +84,7 @@ da_scala_library(
     resources = glob(["src/test/resources/**/*"]),
     scalacopts = ["-Xsource:2.13"],
     deps = [
-        ":daml-lf-codegen-sample-app",
         "//bazel_tools/runfiles:scala_runfiles",
-        "//language-support/scala/bindings",
-        "//language-support/scala/bindings-akka",
-        "@maven//:org_scalacheck_scalacheck_2_12",
-        "@maven//:org_scalatest_scalatest_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
