@@ -78,7 +78,7 @@ da_scala_library(
     ],
 )
 
-da_scala_library(
+da_scala_library_suite(
     name = "ledger-api-test-tool-tests",
     srcs = glob(["src/main/scala/com/daml/ledger/api/testtool/tests/**/*.scala"]),
     deps = [
