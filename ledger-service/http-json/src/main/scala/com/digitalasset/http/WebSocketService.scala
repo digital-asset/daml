@@ -81,6 +81,13 @@ object WebSocketService {
 
     def nonEmpty = errors.nonEmpty || step.nonEmpty
   }
+
+  private def conflation[A]: Flow[StepAndErrors[A], StepAndErrors[A], NotUsed] =
+    Flow[StepAndErrors[A]]
+      .batchWeighted(max = 200, costFn = {
+        case StepAndErrors(errors, InsertDeleteStep(inserts, deletes)) =>
+          errors.length.toLong + (inserts.length * 2) + deletes.size
+      }, identity)(_ append _)
 }
 
 class WebSocketService(
@@ -215,10 +222,4 @@ class WebSocketService(
       .via(conflation)
       .map(sae => sae copy (step = sae.step.mapPreservingIds(_ map lfValueToJsValue)))
 
-  private def conflation[A]: Flow[StepAndErrors[A], StepAndErrors[A], NotUsed] =
-    Flow[StepAndErrors[A]]
-      .batchWeighted(max = 200, costFn = {
-        case StepAndErrors(errors, InsertDeleteStep(inserts, deletes)) =>
-          errors.length.toLong + (inserts.length * 2) + deletes.size
-      }, identity)(_ append _)
 }
