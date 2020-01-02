@@ -128,7 +128,7 @@ class WebSocketService(
       case \/-(req) => getTransactionSourceForParty(jwt, jwtPayload, req)
       case -\/(e) =>
         Source.single(
-          wsErrorMessage(s"Error happend parsing your input message to a valid Json request: $e"))
+          wsErrorMessage(s"Error parsing your input message to a valid Json request: $e"))
     }
   }
 
@@ -202,17 +202,4 @@ class WebSocketService(
             })
           }
       }
-
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  private def lfVToJson(tx: api.transaction.Transaction): Error \/ JsValue = {
-    import com.digitalasset.http.util.Commands._
-    import scalaz.std.list._
-    contracts(tx)
-      .leftMap(e => ServerError(e.shows))
-      .flatMap(
-        _.traverse(v => encoder.encodeV(v))
-          .leftMap(e => ServerError(e.shows))
-          .flatMap(as => encodeList(as))
-      )
-  }
 }
