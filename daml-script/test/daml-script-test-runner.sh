@@ -14,4 +14,47 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
 
 set -euo pipefail
 
-$(rlocation $TEST_WORKSPACE/$1) --dar=$(rlocation $TEST_WORKSPACE/$2)
+TEST_RUNNER=$(rlocation $TEST_WORKSPACE/$1)
+DAR_FILE=$(rlocation $TEST_WORKSPACE/$2)
+DIFF=$3
+GREP=$4
+SORT=$5
+
+set +e
+TEST_OUTPUT="$($TEST_RUNNER --dar=$DAR_FILE 2>&1)"
+TEST_RESULT=$?
+set -e
+
+echo "-- Runner Output -----------------------" >&2
+echo "$TEST_OUTPUT" >&2
+echo "----------------------------------------" >&2
+
+FAIL=
+
+if [[ $TEST_RESULT = 0 ]]; then
+  FAIL=1
+  echo "Expected non-zero exit-code." >&2
+fi
+
+EXPECTED="$($SORT <<'EOF'
+MultiTest:multiTest SUCCESS
+ScriptExample:test SUCCESS
+ScriptTest:failingTest FAILURE (com.digitalasset.daml.lf.speedy.SError$DamlEUserError)
+ScriptTest:test0 SUCCESS
+ScriptTest:test1 SUCCESS
+ScriptTest:test3 SUCCESS
+ScriptTest:test4 SUCCESS
+ScriptTest:testCreateAndExercise SUCCESS
+ScriptTest:testKey SUCCESS
+EOF
+)"
+
+ACTUAL="$(echo -n "$TEST_OUTPUT" | $GREP "SUCCESS\|FAILURE" | $SORT)"
+
+if ! $DIFF -du0 --label expected <(echo -n "$EXPECTED") --label actual <(echo -n "$ACTUAL") >&2; then
+  FAIL=1
+fi
+
+if [[ $FAIL = 1 ]]; then
+  exit 1
+fi

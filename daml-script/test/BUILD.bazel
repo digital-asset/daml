@@ -128,6 +128,9 @@ sh_test(
     args = [
         "$(rootpath //daml-script/runner:test-runner)",
         "$(rootpath :script-test.dar)",
+        "$(POSIX_DIFF)",
+        "$(POSIX_GREP)",
+        "$(POSIX_SORT)",
     ],
     data = [
         ":script-test.dar",
@@ -135,4 +138,5 @@ sh_test(
     ],
     tags = ["exclusive"],
     deps = ["@bazel_tools//tools/bash/runfiles"],
+    toolchains = ["@rules_sh//sh/posix:make_variables"]
 )

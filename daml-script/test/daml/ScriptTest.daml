@@ -131,3 +131,11 @@ testCreateAndExercise = do
       <*> createAndExerciseCmd (C alice 42) GetCValue
       <*> exerciseCmd cid GetCValue
   pure r
+
+-- Used in daml test-script test-case.
+failingTest : Script ()
+failingTest = do
+  alice <- allocateParty "alice"
+  cid <- submit alice $ createCmd (C alice 42)
+  submit alice $ exerciseCmd cid ShouldFail
+  pure ()
