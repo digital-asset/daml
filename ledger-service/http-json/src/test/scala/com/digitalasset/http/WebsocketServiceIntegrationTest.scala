@@ -10,14 +10,19 @@ import akka.http.scaladsl.model.ws.{Message, TextMessage, WebSocketRequest}
 import akka.http.scaladsl.model.{StatusCodes, Uri}
 import akka.stream.scaladsl.{Flow, Sink, Source}
 import com.digitalasset.http.util.TestUtil
-import org.scalatest.BeforeAndAfterAll
+import com.typesafe.scalalogging.StrictLogging
+import org.scalatest.{AsyncFreeSpec, BeforeAndAfterAll, Inside, Matchers}
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
 @SuppressWarnings(Array("org.wartremover.warts.Any", "org.wartremover.warts.NonUnitStatements"))
 class WebsocketServiceIntegrationTest
-    extends AbstractHttpServiceIntegrationTest
+    extends AsyncFreeSpec
+    with Matchers
+    with Inside
+    with StrictLogging
+    with AbstractHttpServiceIntegrationTestFuns
     with BeforeAndAfterAll {
 
   import WebsocketEndpoints._
