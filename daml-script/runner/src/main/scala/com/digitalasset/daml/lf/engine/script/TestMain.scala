@@ -7,6 +7,7 @@ import java.io.FileInputStream
 
 import akka.actor.ActorSystem
 import akka.stream._
+import com.typesafe.scalalogging.StrictLogging
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -38,7 +39,7 @@ import com.google.protobuf.ByteString
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
 
-object TestMain {
+object TestMain extends StrictLogging {
 
   def main(args: Array[String]): Unit = {
 
@@ -104,7 +105,7 @@ object TestMain {
               try Runtime.getRuntime.addShutdownHook(new Thread(() => closeSandbox()))
               catch {
                 case NonFatal(t) =>
-                  //logger.error("Shutting down Sandbox application because of initialization error", t)
+                  logger.error("Shutting down Sandbox application because of initialization error", t)
                   closeSandbox()
               }
               (ApiParameters("localhost", sandbox.port), () => closeSandbox())
