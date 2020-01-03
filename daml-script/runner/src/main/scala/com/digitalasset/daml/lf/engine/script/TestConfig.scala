@@ -54,7 +54,6 @@ object TestConfig {
       .text("TTL in seconds used for commands emitted by the trigger. Defaults to 30s.")
 
     checkConfig(c => {
-      // TODO: Start in-memory ledger automatically. See #3687.
       if (c.ledgerHost.isDefined != c.ledgerPort.isDefined) {
         failure("Must specify both --ledger-host and --ledger-port")
       } else if (c.ledgerHost.isDefined && c.participantConfig.isDefined) {
