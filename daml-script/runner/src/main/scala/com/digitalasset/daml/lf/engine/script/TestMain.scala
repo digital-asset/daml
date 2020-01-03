@@ -1,4 +1,4 @@
-// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.engine.script
@@ -105,7 +105,9 @@ object TestMain extends StrictLogging {
               try Runtime.getRuntime.addShutdownHook(new Thread(() => closeSandbox()))
               catch {
                 case NonFatal(t) =>
-                  logger.error("Shutting down Sandbox application because of initialization error", t)
+                  logger.error(
+                    "Shutting down Sandbox application because of initialization error",
+                    t)
                   closeSandbox()
               }
               (ApiParameters("localhost", sandbox.port), () => closeSandbox())
