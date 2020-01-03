@@ -3,7 +3,7 @@
 -- /usr/local/etc/bash_completion.d (on Mac) or
 -- /etc/bash_completion.d (elsewhere). These are not installed on
 -- Windows by default, and won't be reinstalled unless the user
--- asks by passing @--bash-completions=yes@ specifically.
+-- asks by passing @--bash-completions=yes@ explicitly.
 module DA.Daml.Assistant.Install.BashCompletion
     ( installBashCompletions
     ) where
@@ -29,19 +29,19 @@ shouldInstallBashCompletions options =
         BashCompletions No -> pure False
         BashCompletions Auto -> andM
             [ pure (not isWindows)
-            , doesDirectoryExist bashCompletionDir
-            , not <$> doesFileExist bashCompletionScript
+            , doesDirectoryExist bashCompletionDirPath
+            , not <$> doesFileExist bashCompletionScriptPath
             ]
 
 doInstallBashCompletions :: DamlPath -> (String -> IO ()) -> IO ()
 doInstallBashCompletions damlPath output = do
-    dirExists <- doesDirectoryExist bashCompletionDir
+    dirExists <- doesDirectoryExist bashCompletionDirPath
     if dirExists
         then do
             completionScript <- getCompletionScript damlPath
-            BSL.writeFile bashCompletionScript completionScript
+            BSL.writeFile bashCompletionScriptPath completionScript
             output "Bash completions installed for DAML assistant."
-        else output ("Bash completions not installed for DAML assistant: " <> bashCompletionDir <> " does not exist")
+        else output ("Bash completions not installed for DAML assistant: " <> bashCompletionDirPath <> " does not exist")
 
 getCompletionScript :: DamlPath -> IO BSL.ByteString
 getCompletionScript damlPath = do
@@ -51,10 +51,10 @@ getCompletionScript damlPath = do
 assistantPath :: DamlPath -> FilePath
 assistantPath (DamlPath p) = p </> "bin" </> "daml"
 
-bashCompletionDir :: FilePath
-bashCompletionDir
+bashCompletionDirPath :: FilePath
+bashCompletionDirPath
     | isMac = "/usr/local/etc/bash_completion.d"
     | otherwise = "/etc/bash_completion.d"
 
-bashCompletionScript :: FilePath
-bashCompletionScript = bashCompletionDir </> "daml"
+bashCompletionScriptPath :: FilePath
+bashCompletionScriptPath = bashCompletionDirPath </> "daml"
