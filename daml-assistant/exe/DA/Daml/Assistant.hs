@@ -56,10 +56,10 @@ main = displayErrors $ do
                     ]
                 exitFailure
 
-            versionChecks env
             sdkConfig <- readSdkConfig (fromJust envSdkPath)
             sdkCommands <- fromRightM throwIO (listSdkCommands sdkConfig)
             userCommand <- getCommand sdkCommands
+            versionChecks env
             handleCommand env userCommand
 
 -- | Perform version checks, i.e. warn user if project SDK version or assistant SDK
