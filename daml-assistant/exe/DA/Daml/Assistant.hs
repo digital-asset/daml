@@ -111,6 +111,7 @@ autoInstall env@Env{..} = do
                 , iActivate = ActivateInstall False
                 , iForce = ForceInstall False
                 , iSetPath = SetPath True
+                , iBashCompletions = BashCompletions Auto
                 }
             installEnv = InstallEnv
                 { options = options

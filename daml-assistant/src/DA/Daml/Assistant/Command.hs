@@ -89,6 +89,7 @@ installParser = InstallOptions
     <*> iflag ForceInstall "force" (short 'f') "Overwrite existing installation"
     <*> iflag QuietInstall "quiet" (short 'q') "Don't display installation messages"
     <*> fmap SetPath (flagYesNoAuto "set-path" True "Adjust PATH automatically. This option only has an effect on Windows." idm)
+    <*> fmap BashCompletions (flagYesNoAuto' "bash-completions" "Install bash completions for DAML assistant. Default is yes for linux and mac, no for windows." idm)
     where
         iflag p name opts desc = fmap p (switch (long name <> help desc <> opts))
 

@@ -88,6 +88,7 @@ data InstallOptions = InstallOptions
     , iForce :: ForceInstall -- ^ force reinstall if already installed
     , iQuiet :: QuietInstall -- ^ don't print messages
     , iSetPath :: SetPath -- ^ set the user's PATH (on Windows)
+    , iBashCompletions :: BashCompletions -- ^ install bash completions for the daml assistant
     } deriving (Eq, Show)
 
 -- | An install URL is a fully qualified HTTP[S] URL to an SDK release tarball. For example:
@@ -102,5 +103,4 @@ newtype QuietInstall = QuietInstall { unQuietInstall :: Bool } deriving (Eq, Sho
 newtype ActivateInstall = ActivateInstall { unActivateInstall :: Bool } deriving (Eq, Show)
 newtype SetPath = SetPath Bool deriving (Eq, Show)
 newtype InstallAssistant = InstallAssistant { unwrapInstallAssistant :: YesNoAuto } deriving (Eq, Show)
-
-
+newtype BashCompletions = BashCompletions { unwrapBashCompletions :: YesNoAuto } deriving (Eq, Show)
