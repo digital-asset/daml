@@ -1,3 +1,5 @@
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
 
 -- | Installation of bash completions. These are installed in
 -- /usr/local/etc/bash_completion.d (on Mac) or
