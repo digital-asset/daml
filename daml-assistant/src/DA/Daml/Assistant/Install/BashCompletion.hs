@@ -1,7 +1,9 @@
 
 -- | Installation of bash completions. These are installed in
--- /usr/local/etc/bash_completion.d (on Mac) or /etc/bash_completion.d (on Linux).
--- These are not installed on Windows by default.
+-- /usr/local/etc/bash_completion.d (on Mac) or
+-- /etc/bash_completion.d (elsewhere). These are not installed on
+-- Windows by default, and won't be reinstalled unless the user
+-- asks by passing @--bash-completions=yes@ specifically.
 module DA.Daml.Assistant.Install.BashCompletion
     ( installBashCompletions
     ) where
@@ -9,7 +11,7 @@ module DA.Daml.Assistant.Install.BashCompletion
 import DA.Daml.Assistant.Types
 
 import qualified Data.ByteString.Lazy as BSL
-import Control.Monad.Extra (when, unlessM)
+import Control.Monad.Extra (andM, whenM)
 import System.Directory (doesDirectoryExist, doesFileExist)
 import System.FilePath ((</>))
 import System.Info.Extra (isMac, isWindows)
@@ -17,26 +19,29 @@ import System.Process.Typed (proc, readProcessStdout_)
 
 installBashCompletions :: InstallOptions -> DamlPath -> (String -> IO ()) -> IO ()
 installBashCompletions options damlPath output =
-    when (shouldInstallBashCompletions options) $
+    whenM (shouldInstallBashCompletions options) $
         doInstallBashCompletions damlPath output
 
-shouldInstallBashCompletions :: InstallOptions -> Bool
+shouldInstallBashCompletions :: InstallOptions -> IO Bool
 shouldInstallBashCompletions options =
     case iBashCompletions options of
-        BashCompletions Yes -> True
-        BashCompletions No -> False
-        BashCompletions Auto -> not isWindows
+        BashCompletions Yes -> pure True
+        BashCompletions No -> pure False
+        BashCompletions Auto -> andM
+            [ pure (not isWindows)
+            , doesDirectoryExist bashCompletionDir
+            , not <$> doesFileExist bashCompletionScript
+            ]
 
 doInstallBashCompletions :: DamlPath -> (String -> IO ()) -> IO ()
 doInstallBashCompletions damlPath output = do
     dirExists <- doesDirectoryExist bashCompletionDir
     if dirExists
         then do
-            unlessM (doesFileExist bashCompletionScript) $ do
-                completionScript <- getCompletionScript damlPath
-                BSL.writeFile bashCompletionScript completionScript
-                output ("Bash completions for DAML assistant installed in " <> bashCompletionDir)
-        else output ("Bash completions for DAML assistant not installed: " <> bashCompletionDir <> " does not exist")
+            completionScript <- getCompletionScript damlPath
+            BSL.writeFile bashCompletionScript completionScript
+            output "Bash completions installed for DAML assistant."
+        else output ("Bash completions not installed for DAML assistant: " <> bashCompletionDir <> " does not exist")
 
 getCompletionScript :: DamlPath -> IO BSL.ByteString
 getCompletionScript damlPath = do
