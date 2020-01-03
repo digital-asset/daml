@@ -120,7 +120,7 @@ object TestMain extends StrictLogging {
               cleanup)
         }
 
-        val flow: Future[Unit] = for {
+        val flow: Future[Boolean] = for {
           clients <- Runner.connect(participantParams, clientConfig)
           _ <- clients.getParticipant(None) match {
             case Left(err) => throw new RuntimeException(err)
@@ -128,6 +128,7 @@ object TestMain extends StrictLogging {
               client.packageManagementClient.uploadDarFile(
                 ByteString.readFrom(new FileInputStream(config.darPath)))
           }
+          success = new AtomicBoolean(true)
           _ <- Future.sequence {
             dar.main._2.modules.flatMap {
               case (moduleName, module) =>
@@ -140,23 +141,31 @@ object TestMain extends StrictLogging {
                         Identifier(dar.main._1, QualifiedName(moduleName, name)),
                         None)
                     } yield ()
+                    // Print test result and remember failure.
                     testRun.onComplete {
                       case Failure(exception) =>
+                        success.set(false)
                         println(s"$moduleName:$name FAILURE ($exception)")
                       case Success(_) =>
                         println(s"$moduleName:$name SUCCESS")
                     }
-                    testRun
+                    // Do not abort in case of failure, but complete all test runs.
+                    testRun.recover {
+                      case _ => ()
+                    }
                 }
             }
           }
-        } yield ()
+        } yield success.get()
 
         flow.onComplete { _ =>
           participantCleanup()
           system.terminate()
         }
-        Await.result(flow, Duration.Inf)
+
+        if (!Await.result(flow, Duration.Inf)) {
+          sys.exit(1)
+        }
       }
     }
   }
