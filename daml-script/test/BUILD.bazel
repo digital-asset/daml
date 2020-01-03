@@ -136,7 +136,6 @@ sh_test(
         ":script-test.dar",
         "//daml-script/runner:test-runner",
     ],
-    tags = ["exclusive"],
     toolchains = ["@rules_sh//sh/posix:make_variables"],
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )

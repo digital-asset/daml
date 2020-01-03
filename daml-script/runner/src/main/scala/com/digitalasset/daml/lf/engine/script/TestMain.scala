@@ -93,6 +93,7 @@ object TestMain extends StrictLogging {
           case None =>
             val (apiParameters, cleanup) = if (config.ledgerHost.isEmpty) {
               val sandboxConfig = SandboxConfig.default.copy(
+                port = 0, // Automatically choose a free port.
                 timeProviderType = config.timeProviderType
               )
               val sandbox = new SandboxServer(sandboxConfig)
