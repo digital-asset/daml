@@ -124,7 +124,7 @@ import           SdkVersion
 conversionError :: String -> ConvertM e
 conversionError msg = do
   ConversionEnv{..} <- ask
-  throwError $ (convModuleFilePath,) Diagnostic
+  throwError $ (convModuleFilePath,ShowDiag,) Diagnostic
       { _range = maybe noRange sourceLocToRange convRange
       , _severity = Just DsError
       , _source = Just "Core to DAML-LF"

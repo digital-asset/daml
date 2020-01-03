@@ -54,7 +54,6 @@ import System.Directory.Extra
 import System.FilePath
 import qualified Data.Yaml as Y
 
-import GHC
 import MkIface
 import Module
 import HscTypes

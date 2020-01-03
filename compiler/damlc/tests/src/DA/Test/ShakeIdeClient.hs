@@ -836,8 +836,10 @@ onHoverTests mbScenarioService = Tasty.testGroup "On hover tests"
             , "show b = 2"
             ]
         setFilesOfInterest [f]
-        expectTextOnHover (f,3,[0..3]) $ Contains "==\n  : Text -> Bool"
-        expectTextOnHover (f,5,[0..3]) $ Contains "show\n  : Bool -> Int"
+        expectTextOnHover (f,3,[0..3]) $ Contains "```daml\n==\n```"
+        expectTextOnHover (f,3,[0..3]) $ Contains "```daml\n: Text -> Bool\n```"
+        expectTextOnHover (f,5,[0..3]) $ Contains "```daml\nshow\n```"
+        expectTextOnHover (f,5,[0..3]) $ Contains "```daml\n: Bool -> Int\n```"
 
     , testCaseFails' "Type of choice" $ do
         f <- makeModule "F"

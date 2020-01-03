@@ -17,8 +17,8 @@ load("@os_info//:os_info.bzl", "is_windows")
 load("@dadew//:dadew.bzl", "dadew_tool_home")
 load("@rules_haskell//haskell:cabal.bzl", "stack_snapshot")
 
-GHCIDE_REV = "ef8de2e7fc55c6f246a9ff322ed3637a7bb71c20"
-GHCIDE_SHA256 = "55f4ab090144428471e07e746a4688e35f32460f227c0b9e009450a354076592"
+GHCIDE_REV = "7e80629188ab9738b046a2fc83e428d3388a68e4"
+GHCIDE_SHA256 = "b166c802e4cc518c790631e771a81937b86da183170d8035c1515c0631c57864"
 GHCIDE_VERSION = "0.0.5"
 
 def daml_haskell_deps():
@@ -400,6 +400,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "filepath",
             "filepattern",
             "foldl",
+            "fuzzy",
             "ghc",
             "ghc-boot",
             "ghc-boot-th",
@@ -466,7 +467,6 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "range-set-list",
             "recursion-schemes",
             "regex-tdfa",
-            "regex-tdfa-text",
             "retry",
             "rope-utf16-splay",
             "safe",

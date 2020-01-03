@@ -13,7 +13,6 @@ import qualified Data.Foldable as Foldable
 import qualified Data.HashMap.Strict as H
 import qualified Data.List as List
 import qualified Data.List.Extra as List
-import qualified Data.List.Utils as List
 import qualified Data.List.Split as Split
 import qualified Data.Ord as Ord
 import qualified Data.Set as Set
@@ -128,7 +127,7 @@ build_docs_folder path versions = do
     -- maps, and here order matters.
     let versions_json = versions
                         & map (\s -> "\"" <> s <> "\": \"" <> s <> "\"")
-                        & List.join ", "
+                        & List.intercalate ", "
                         & \s -> "{" <> s <> "}"
     writeFile (path <> "/versions.json") versions_json
     shell_ $ "mkdir -p  " <> path <> "/" <> latest

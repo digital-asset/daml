@@ -48,7 +48,7 @@ execTest inFiles color mbJUnitOutput cliOptions = do
         let lfVersion = optDamlLfVersion cliOptions
         testRun h inFiles lfVersion color mbJUnitOutput
         diags <- getDiagnostics h
-        when (any ((Just DsError ==) . _severity . snd) diags) exitFailure
+        when (any (\(_, _, diag) -> Just DsError == _severity diag) diags) exitFailure
 
 
 testRun :: IdeState -> [NormalizedFilePath] -> LF.Version -> UseColor -> Maybe FilePath -> IO ()

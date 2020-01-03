@@ -14,7 +14,6 @@ da_haskell_binary(
         "http-client",
         "http-client-tls",
         "http-types",
-        "MissingH",
         "process",
         "split",
         "text",

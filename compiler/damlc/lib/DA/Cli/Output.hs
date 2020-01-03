@@ -57,5 +57,5 @@ printDiagnostics xs = BS.hPutStrLn stderr $ T.encodeUtf8 $ showDiagnosticsColore
 
 diagnosticsLogger :: FromServerMessage -> IO ()
 diagnosticsLogger = \case
-    EventFileDiagnostics fp diags -> printDiagnostics $ map (toNormalizedFilePath fp,) diags
+    EventFileDiagnostics fp diags -> printDiagnostics $ map (toNormalizedFilePath fp,ShowDiag,) diags
     _ -> pure ()
