@@ -78,7 +78,6 @@ da_haskell_library(
         "mtl",
         "network-uri",
         "regex-tdfa",
-        "regex-tdfa-text",
         "stm",
         "temporary",
         "text",
