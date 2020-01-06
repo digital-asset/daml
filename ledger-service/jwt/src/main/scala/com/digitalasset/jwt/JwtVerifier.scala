@@ -64,13 +64,13 @@ object HMAC256Verifier extends StrictLogging {
 object ECDA512Verifier extends StrictLogging {
   def apply(keyProvider: ECDSAKeyProvider): Error \/ JwtVerifier =
     \/.fromTryCatchNonFatal{
-      val algorithm = Algorithm.ECDSA384(keyProvider)
+      val algorithm = Algorithm.ECDSA512(keyProvider)
       val verifier = JWT.require(algorithm).build()
       new JwtVerifier(verifier)
     }.leftMap(e => Error('ECDA512, e.getMessage))
   def apply(publicKey: ECPublicKey): Error \/ JwtVerifier =
     \/.fromTryCatchNonFatal{
-      val algorithm = Algorithm.ECDSA384(publicKey, null)
+      val algorithm = Algorithm.ECDSA512(publicKey, null)
       val verifier = JWT.require(algorithm).build()
       new JwtVerifier(verifier)
     }.leftMap(e => Error('ECDA512, e.getMessage))
