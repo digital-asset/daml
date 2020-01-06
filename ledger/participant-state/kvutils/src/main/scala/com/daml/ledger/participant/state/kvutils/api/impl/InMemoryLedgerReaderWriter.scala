@@ -1,4 +1,4 @@
-// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.api.impl
@@ -60,7 +60,7 @@ class InMemoryLedgerReaderWriter(
         val stateInputs: Map[DamlStateKey, Option[DamlStateValue]] =
           submission.getInputDamlStateList.asScala
             .map(key => key -> currentState.state.get(key.toByteString))(breakOut)
-        val entryId = allocateEntryId
+        val entryId = allocateEntryId()
         val (logEntry, damlStateUpdates) =
           KeyValueCommitting.processSubmission(
             engine,
@@ -90,7 +90,7 @@ class InMemoryLedgerReaderWriter(
     if (!(actualStateUpdates.keySet subsetOf expectedStateUpdates)) {
       val unaccountedKeys = actualStateUpdates.keySet diff expectedStateUpdates
       sys.error(
-        s"CommitActor: State updates not a subset of expected updates! Keys [$unaccountedKeys] are unaccounted for!")
+        s"State updates not a subset of expected updates! Keys [$unaccountedKeys] are unaccounted for!")
     }
   }
 
@@ -102,17 +102,14 @@ class InMemoryLedgerReaderWriter(
           .getOrElse(StartOffset),
         OneAfterAnother[Int, List[LedgerRecord]](
           (index: Int, _) => index + 1,
-          (index: Int) => Future.successful(List(getLogEntry(index)))
+          (index: Int) => Future.successful(List(retrieveLogEntry(index)))
         )
       )
-      .collect {
-        case (_, updates) => updates
-      }
-      .mapConcat(identity)
+      .mapConcat { case (_, updates) => updates }
 
   override def retrieveLedgerId(): LedgerId = ledgerId
 
-  override def checkHealth(): HealthStatus = Healthy
+  override def currentHealth(): HealthStatus = Healthy
 
   private val dispatcher: Dispatcher[Int] =
     Dispatcher("in-memory-key-value-participant-state", zeroIndex = 0, headAtInitialization = 0)
@@ -121,7 +118,7 @@ class InMemoryLedgerReaderWriter(
 
   private val NamespaceLogEntries = ByteString.copyFromUtf8("L")
 
-  private def allocateEntryId: DamlLogEntryId = {
+  private def allocateEntryId(): DamlLogEntryId = {
     val nonce: Array[Byte] = Array.ofDim(8)
     randomNumberGenerator.nextBytes(nonce)
     DamlLogEntryId.newBuilder
@@ -132,7 +129,7 @@ class InMemoryLedgerReaderWriter(
   private def currentRecordTime(): Timestamp =
     Timestamp.assertFromInstant(Clock.systemUTC().instant())
 
-  private def getLogEntry(index: Int): LedgerRecord = {
+  private def retrieveLogEntry(index: Int): LedgerRecord = {
     val logEntry = currentState.log(index)
     LedgerRecord(Offset(Array(index.toLong)), logEntry.entryId, logEntry.payload)
   }
