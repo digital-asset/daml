@@ -14,6 +14,7 @@ native_test = scenario do
   let
     my_int = -123
     my_dec = 0.001 : Decimal
+    my_text = "Alice"
     my_bool = False
     my_date = date 2020 Jan 01
     my_time = time my_date 00 00 00
