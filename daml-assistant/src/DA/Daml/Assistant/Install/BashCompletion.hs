@@ -11,9 +11,9 @@ module DA.Daml.Assistant.Install.BashCompletion
 import DA.Daml.Assistant.Types
 
 import qualified Data.ByteString.Lazy as BSL
-import Control.Exception.Safe (catchIO)
+import Control.Exception.Safe (tryIO, catchIO, displayException)
 import Control.Monad.Extra (unless, andM, whenM)
-import System.Directory (getHomeDirectory, doesFileExist)
+import System.Directory (getHomeDirectory, getAppUserDataDirectory, doesFileExist, removePathForcibly)
 import System.FilePath ((</>))
 import System.Info.Extra (isWindows)
 import System.Process.Typed (proc, readProcessStdout_)
@@ -35,6 +35,7 @@ shouldInstallBashCompletions options damlPath =
         BashCompletions Auto -> andM
             [ pure (not isWindows)
             , not <$> doesFileExist (completionScriptPath damlPath)
+            , isDefaultDamlPath damlPath
             ]
 
 -- | Generate the bash completion script, and add a hook.
@@ -43,8 +44,12 @@ doInstallBashCompletions damlPath output = do
     let scriptPath = completionScriptPath damlPath
     script <- getCompletionScript damlPath
     BSL.writeFile scriptPath script
-    addCompletionHook scriptPath
-    output "Bash completions installed for DAML assistant."
+    unitE <- tryIO $ addCompletionHook scriptPath
+    case unitE of
+        Left e -> do
+            output ("Bash completions not installed: " <> displayException e)
+            catchIO (removePathForcibly scriptPath) (const $ pure ())
+        Right () -> output "Bash completions installed for DAML assistant."
 
 -- | Read the bash completion script from optparse-applicative's
 -- built-in @--bash-completion-script@ routine. Please read
@@ -66,6 +71,13 @@ addCompletionHook scriptPath = do
     hooks <- readHooks hookPath
     unless (newHook `elem` hooks) $ do
         writeHooks hookPath (hooks ++ [newHook])
+
+-- | Check the daml path is default. We don't want to install completions
+-- for non-standard paths by default.
+isDefaultDamlPath :: DamlPath -> IO Bool
+isDefaultDamlPath damlPath = do
+    rawDamlPath <- getAppUserDataDirectory "daml"
+    pure $ damlPath == DamlPath rawDamlPath
 
 newtype HookPath = HookPath FilePath
 newtype Hook = Hook { unHook :: String } deriving Eq
