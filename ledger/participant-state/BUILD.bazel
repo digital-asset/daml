@@ -1,4 +1,4 @@
-# Copyright (c) 2019 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -44,7 +44,6 @@ da_scala_test(
     resources = glob(["src/test/resources/*"]),
     deps = [
         ":participant-state",
-        "//bazel_tools/runfiles:scala_runfiles",
         "@maven//:org_scalatest_scalatest_2_12",
     ],
 )

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import { Dispatch, styled, ThunkAction } from '@da/ui-core';
@@ -160,7 +160,7 @@ class Component extends React.Component<Props, {}> {
         <div>
         <p>
           Copyright Notice
-          Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates.
+          Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates.
           All rights reserved.
         </p>
         </div>

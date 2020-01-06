@@ -1,4 +1,4 @@
--- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE GADTs #-}
@@ -373,7 +373,7 @@ searchDiagnostics expected@(severity, cursor, message) actuals =
         throwError $ ExpectedDiagnostics [expected] actuals
   where
     match :: D.FileDiagnostic -> Bool
-    match (fp, d) =
+    match (fp, _, d) =
         Just severity == D._severity d
         && cursorFilePath cursor == fp
         && cursorPosition cursor == D._start ((D._range :: D.Diagnostic -> Range) d)
@@ -463,7 +463,7 @@ expectOnlyErrors = expectOnlyDiagnostics . map (\(cursor, msg) -> (D.DsError, cu
 expectNoErrors :: ShakeTest ()
 expectNoErrors = do
     diagnostics <- getDiagnostics
-    let errors = filter (\(_,d) -> D._severity d == Just D.DsError) diagnostics
+    let errors = filter (\(_,_,d) -> D._severity d == Just D.DsError) diagnostics
     unless (null errors) $
         throwError (ExpectedNoErrors errors)
 

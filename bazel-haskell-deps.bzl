@@ -1,4 +1,4 @@
-# Copyright (c) 2019 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # Defines external Haskell dependencies.
@@ -17,8 +17,8 @@ load("@os_info//:os_info.bzl", "is_windows")
 load("@dadew//:dadew.bzl", "dadew_tool_home")
 load("@rules_haskell//haskell:cabal.bzl", "stack_snapshot")
 
-GHCIDE_REV = "ef8de2e7fc55c6f246a9ff322ed3637a7bb71c20"
-GHCIDE_SHA256 = "55f4ab090144428471e07e746a4688e35f32460f227c0b9e009450a354076592"
+GHCIDE_REV = "64693eddd8fc3659036c3b9c1ddfd88ccc7b4619"
+GHCIDE_SHA256 = "69e245ff32af6824c31b8ebd2ea067e746d0fba8b78da7c2ad5095236f78a6c1"
 GHCIDE_VERSION = "0.0.5"
 
 def daml_haskell_deps():
@@ -104,6 +104,7 @@ deps = [
     "@stackage//:directory",
     "@stackage//:extra",
     "@stackage//:filepath",
+    "@stackage//:fuzzy",
     "@stackage//:ghc",
     "@stackage//:ghc-boot",
     "@stackage//:ghc-boot-th",
@@ -114,6 +115,7 @@ deps = [
     "@stackage//:network-uri",
     "@stackage//:prettyprinter",
     "@stackage//:prettyprinter-ansi-terminal",
+    "@stackage//:regex-tdfa",
     "@stackage//:rope-utf16-splay",
     "@stackage//:safe-exceptions",
     "@stackage//:shake",
@@ -400,6 +402,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "filepath",
             "filepattern",
             "foldl",
+            "fuzzy",
             "ghc",
             "ghc-boot",
             "ghc-boot-th",
@@ -466,7 +469,6 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "range-set-list",
             "recursion-schemes",
             "regex-tdfa",
-            "regex-tdfa-text",
             "retry",
             "rope-utf16-splay",
             "safe",

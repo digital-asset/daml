@@ -1,24 +1,23 @@
-// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.http
 
 import java.time.Instant
 
-import com.digitalasset.daml.lf
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.iface
 import com.digitalasset.http.util.ClientUtil.boxedRecord
-import com.digitalasset.http.util.IdentifierConverters
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
+import scalaz.Isomorphism.{<~>, IsoFunctorTemplate}
 import scalaz.std.list._
-import scalaz.std.vector._
 import scalaz.std.option._
+import scalaz.std.vector._
 import scalaz.syntax.show._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
 import scalaz.{-\/, @@, Applicative, Show, Tag, Traverse, \/, \/-}
-import scalaz.Isomorphism.{<~>, IsoFunctorTemplate}
 import spray.json.JsValue
 
 import scala.annotation.tailrec
@@ -141,6 +140,11 @@ object domain {
 
     def fromLedgerApi(in: lav1.value.Identifier): TemplateId.RequiredPkg =
       TemplateId(in.packageId, in.moduleName, in.entityName)
+
+    def qualifiedName(a: TemplateId[_]): Ref.QualifiedName =
+      Ref.QualifiedName(
+        Ref.DottedName.assertFromString(a.moduleName),
+        Ref.DottedName.assertFromString(a.entityName))
   }
 
   object Contract {
@@ -255,11 +259,14 @@ object domain {
           fa.templateId.moduleName,
           fa.templateId.entityName)
 
-      override def lfIdentifier(
+      override def lfType(
           fa: ActiveContract[_],
           templateId: TemplateId.RequiredPkg,
-          f: PackageService.ResolveChoiceRecordId): Error \/ lf.data.Ref.Identifier =
-        \/-(IdentifierConverters.lfIdentifier(templateId))
+          f: PackageService.ResolveTemplateRecordType,
+          g: PackageService.ResolveChoiceRecordType,
+          h: PackageService.ResolveKeyType): Error \/ LfType =
+        f(templateId)
+          .leftMap(e => Error('ActiveContract_hasTemplateId_lfType, e.shows))
     }
   }
 
@@ -334,11 +341,14 @@ object domain {
 
         override def templateId(fa: EnrichedContractKey[_]): TemplateId.OptionalPkg = fa.templateId
 
-        override def lfIdentifier(
+        override def lfType(
             fa: EnrichedContractKey[_],
             templateId: TemplateId.RequiredPkg,
-            f: PackageService.ResolveChoiceRecordId): Error \/ Ref.Identifier =
-          \/-(IdentifierConverters.lfIdentifier(templateId))
+            f: PackageService.ResolveTemplateRecordType,
+            g: PackageService.ResolveChoiceRecordType,
+            h: PackageService.ResolveKeyType): Error \/ LfType =
+          h(templateId)
+            .leftMap(e => Error('EnrichedContractKey_hasTemplateId_lfType, e.shows))
       }
   }
 
@@ -347,12 +357,16 @@ object domain {
       o toRightDisjunction Error('ErrorOps_required, s"Missing required field $label")
   }
 
+  type LfType = iface.Type
+
   trait HasTemplateId[F[_]] {
     def templateId(fa: F[_]): TemplateId.OptionalPkg
-    def lfIdentifier(
+    def lfType(
         fa: F[_],
         templateId: TemplateId.RequiredPkg,
-        f: PackageService.ResolveChoiceRecordId): Error \/ lf.data.Ref.Identifier
+        f: PackageService.ResolveTemplateRecordType,
+        g: PackageService.ResolveChoiceRecordType,
+        h: PackageService.ResolveKeyType): Error \/ LfType
   }
 
   object CreateCommand {
@@ -365,11 +379,14 @@ object domain {
     implicit val hasTemplateId: HasTemplateId[CreateCommand] = new HasTemplateId[CreateCommand] {
       override def templateId(fa: CreateCommand[_]): TemplateId.OptionalPkg = fa.templateId
 
-      override def lfIdentifier(
+      override def lfType(
           fa: CreateCommand[_],
           templateId: TemplateId.RequiredPkg,
-          f: PackageService.ResolveChoiceRecordId): Error \/ lf.data.Ref.Identifier =
-        \/-(IdentifierConverters.lfIdentifier(templateId))
+          f: PackageService.ResolveTemplateRecordType,
+          g: PackageService.ResolveChoiceRecordType,
+          h: PackageService.ResolveKeyType): Error \/ LfType =
+        f(templateId)
+          .leftMap(e => Error('CreateCommand_hasTemplateId_lfType, e.shows))
     }
   }
 
@@ -383,14 +400,14 @@ object domain {
       new HasTemplateId[ExerciseCommand] {
         override def templateId(fa: ExerciseCommand[_]): TemplateId.OptionalPkg = fa.templateId
 
-        override def lfIdentifier(
+        override def lfType(
             fa: ExerciseCommand[_],
             templateId: TemplateId.RequiredPkg,
-            f: PackageService.ResolveChoiceRecordId): Error \/ lf.data.Ref.Identifier =
-          for {
-            apiId <- f(templateId, fa.choice)
-              .leftMap(e => Error('ExerciseCommand_hasTemplateId_lfIdentifier, e.shows))
-          } yield IdentifierConverters.lfIdentifier(apiId)
+            f: PackageService.ResolveTemplateRecordType,
+            g: PackageService.ResolveChoiceRecordType,
+            h: PackageService.ResolveKeyType): Error \/ LfType =
+          g(templateId, fa.choice)
+            .leftMap(e => Error('ExerciseCommand_hasTemplateId_lfType, e.shows))
       }
   }
 

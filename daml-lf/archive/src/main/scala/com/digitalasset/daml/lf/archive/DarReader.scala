@@ -1,4 +1,4 @@
-// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.archive
@@ -26,7 +26,7 @@ class DarReader[A](
   import DarReader._
 
   /** Reads an archive from a File. */
-  def readArchiveFromFile(darFile: File) =
+  def readArchiveFromFile(darFile: File): Try[Dar[A]] =
     readArchive(darFile.getName, new ZipInputStream(new FileInputStream(darFile)))
 
   /** Reads an archive from a ZipInputStream. The stream will be closed by this function! */

@@ -1,20 +1,19 @@
-// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.http
 package query
 
 import util.IdentifierConverters.lfIdentifier
-
 import com.digitalasset.daml.lf.data.{ImmArray, Numeric, Ref, SortedLookupList, Time, Utf8}
 import ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.data.ScalazEqual._
 import com.digitalasset.daml.lf.iface
+import com.digitalasset.daml.lf.value.json.JsonVariant
 import com.digitalasset.daml.lf.value.{Value => V}
 import iface.{Type => Ty}
 import dbbackend.Queries.{concatFragment, contractColumnName}
 import json.JsonProtocol.LfValueDatabaseCodec.{apiValueToJsValue => dbApiValueToJsValue}
-
 import scalaz.{OneAnd, Order, \&/, \/, \/-}
 import scalaz.Tags.Conjunction
 import scalaz.std.anyVal._
@@ -142,8 +141,12 @@ sealed abstract class ValuePredicate extends Product with Serializable {
         case VariantMatch((dc, q)) =>
           val Rec(vraw, v_==, v_@>) = go(path ++ sql"->${dc: String}", q)
           // @> is safe because in a variant-typed context, all JsObjects
-          // have exactly one key
-          Rec(vraw, v_== map (jv => JsObject((dc, jv))), v_@> map (jv => JsObject((dc, jv))))
+          // have exactly two keys
+          Rec(
+            vraw,
+            v_== map (jv => JsonVariant(dc, jv)),
+            v_@> map (jv => JsonVariant(dc, jv))
+          )
 
         case MapMatch(qs) =>
           val cqs = qs.toImmArray.toSeq map {
@@ -273,8 +276,8 @@ object ValuePredicate {
             fromRecord(fields, id, rec)
         }
         case iface.Variant(fieldTyps) => {
-          case JsObject(fields) =>
-            fromVariant(fields, id, fieldTyps)
+          case JsonVariant(tag, nestedValue) =>
+            fromVariant(tag, nestedValue, id, fieldTyps)
         }
         case e @ iface.Enum(_) => {
           case JsString(s) => fromEnum(s, id, e)
@@ -296,21 +299,20 @@ object ValuePredicate {
     }
 
     def fromVariant(
-        fields: Map[String, JsValue],
+        tag: String,
+        nestedValue: JsValue,
         id: Ref.Identifier,
-        fieldTyps: ImmArraySeq[(Ref.Name, Ty)]): Result = fields.toSeq match {
-      case Seq((k, v)) =>
-        val name = Ref.Name.assertFromString(k)
-        val field: Option[(Ref.Name, Ty)] = fieldTyps.find(_._1 == name)
-        val fieldP: Option[(Ref.Name, ValuePredicate)] = field.map {
-          case (n, t) => (n, fromValue(v, t))
-        }
-        fieldP.fold(
-          predicateParseError(
-            s"Cannot locate Variant's (datacon, type) field, id: $id, name: $name")
-        )(VariantMatch)
+        fieldTyps: ImmArraySeq[(Ref.Name, Ty)]): Result = {
 
-      case _ => predicateParseError(s"Variant must have exactly 1 field, got: $fields, id: $id")
+      val fieldP: Option[(Ref.Name, ValuePredicate)] =
+        fieldTyps.collectFirst {
+          case (n, t) if tag == (n: String) =>
+            (n, fromValue(nestedValue, t))
+        }
+
+      fieldP.fold(
+        predicateParseError(s"Cannot locate Variant's (datacon, type) field, id: $id, tag: $tag")
+      )(VariantMatch)
     }
 
     def fromEnum(it: String, id: Ref.Identifier, typ: iface.Enum): Result =

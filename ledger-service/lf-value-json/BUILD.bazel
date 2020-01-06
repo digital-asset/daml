@@ -1,10 +1,14 @@
-# Copyright (c) 2019 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
     "da_scala_test",
+)
+load(
+    "//rules_daml:daml.bzl",
+    "daml_compile",
 )
 
 lf_value_json_deps = [
@@ -26,17 +30,30 @@ da_scala_library(
     deps = lf_value_json_deps,
 )
 
+daml_compile(
+    name = "JsonEncodingTest",
+    main_src = "src/test/daml/JsonEncodingTest.daml",
+)
+
 da_scala_test(
     name = "tests",
     size = "medium",
     srcs = glob(["src/test/scala/**/*.scala"]),
-    # data = ["//docs:quickstart-model.dar"],
+    data = [
+        ":JsonEncodingTest.dar",
+    ],
     deps = [
         ":lf-value-json",
-        "@maven//:org_scalacheck_scalacheck_2_12",
-        "@maven//:org_scalaz_scalaz_scalacheck_binding_2_12",
-        "@maven//:org_scalatest_scalatest_2_12",
-        "@maven//:com_chuusai_shapeless_2_12",
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/data",
+        "//daml-lf/interface",
+        "//daml-lf/transaction",
         "//daml-lf/transaction-scalacheck",
-    ] + lf_value_json_deps,
+        "//ledger-service/utils",
+        "@maven//:com_chuusai_shapeless_2_12",
+        "@maven//:io_spray_spray_json_2_12",
+        "@maven//:org_scalacheck_scalacheck_2_12",
+        "@maven//:org_scalatest_scalatest_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
+    ],
 )

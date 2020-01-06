@@ -1,21 +1,23 @@
-// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf
 package value.json
 
-import data.{Decimal, Ref, SortedLookupList, Time}
+import com.digitalasset.daml.bazeltools.BazelRunfiles._
+import data.{Decimal, ImmArray, Ref, SortedLookupList, Time}
 import value.json.{NavigatorModelAliases => model}
-import value.TypedValueGenerators.{ValueAddend => VA, RNil, genAddend, genTypeAndValue}
+import value.TypedValueGenerators.{RNil, genAddend, genTypeAndValue, ValueAddend => VA}
 import ApiCodecCompressed.{apiValueToJsValue, jsValueToApiValue}
-
+import com.digitalasset.ledger.service.MetadataReader
 import org.scalactic.source
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.{Inside, Matchers, WordSpec}
 import org.scalatest.prop.{GeneratorDrivenPropertyChecks, TableDrivenPropertyChecks}
 import org.scalacheck.{Arbitrary, Gen}
 import shapeless.{Coproduct => HSum}
 import shapeless.record.{Record => HRecord}
 import spray.json._
+import scalaz.syntax.show._
 
 import scala.util.{Success, Try}
 
@@ -24,8 +26,21 @@ class ApiCodecCompressedSpec
     extends WordSpec
     with Matchers
     with GeneratorDrivenPropertyChecks
-    with TableDrivenPropertyChecks {
+    with TableDrivenPropertyChecks
+    with Inside {
+
   import C.typeLookup
+
+  private val dar = new java.io.File(rlocation("ledger-service/lf-value-json/JsonEncodingTest.dar"))
+  require(dar.exists())
+
+  private val darMetadata: MetadataReader.LfMetadata =
+    MetadataReader
+      .readFromDar(dar)
+      .valueOr(e => fail(s"Cannot read metadata from $dar, error:" + e.shows))
+
+  private val darTypeLookup: NavigatorModelAliases.DamlLfTypeLookup =
+    MetadataReader.typeLookup(darMetadata)
 
   /** Serializes the API value to JSON, then parses it back to an API value */
   private def serializeAndParse(
@@ -264,7 +279,7 @@ class ApiCodecCompressedSpec
       cn("""[["42"]]""", "[[42]]", VAs.oooi)(Some(Some(Some(42)))),
       cn("""{"fA": "foo", "fB": "100"}""", """{"fA": "foo", "fB": 100}""", C.simpleRecordT)(
         C.simpleRecordV),
-      c("""{"fA": "foo"}""", C.simpleVariantT)(C.simpleVariantV),
+      c("""{"tag": "fA", "value": "foo"}""", C.simpleVariantT)(C.simpleVariantV),
       c("\"Green\"", C.colorGT)(
         C.colorGT get Ref.Name.assertFromString("Green") getOrElse sys.error("impossible")),
     )
@@ -306,5 +321,151 @@ class ApiCodecCompressedSpec
         }
       }
     }
+
+    import com.digitalasset.daml.lf.value.{Value => LfValue}
+    import ApiCodecCompressed.JsonImplicits._
+
+    val packageId: Ref.PackageId = mustBeOne(
+      MetadataReader.typeByName(darMetadata)(
+        Ref.QualifiedName.assertFromString("JsonEncodingTest:Foo")))._1
+
+    val bazRecord = LfValue.ValueRecord[String](
+      None,
+      ImmArray(Some(Ref.Name.assertFromString("baz")) -> LfValue.ValueText("text abc"))
+    )
+
+    val bazVariant = LfValue.ValueVariant[String](
+      None,
+      Ref.Name.assertFromString("Baz"),
+      bazRecord
+    )
+
+    val quxVariant = LfValue.ValueVariant[String](
+      None,
+      Ref.Name.assertFromString("Qux"),
+      LfValue.ValueUnit
+    )
+
+    val fooId =
+      Ref.Identifier(packageId, Ref.QualifiedName.assertFromString("JsonEncodingTest:Foo"))
+
+    val bazRecordId =
+      Ref.Identifier(packageId, Ref.QualifiedName.assertFromString("JsonEncodingTest:BazRecord"))
+
+    "dealing with LF Variant" should {
+      "encode Foo/Baz to JSON" in {
+        val writer = implicitly[spray.json.JsonWriter[LfValue[String]]]
+        (writer.write(bazVariant): JsValue) shouldBe ("""{"tag":"Baz", "value":{"baz":"text abc"}}""".parseJson: JsValue)
+      }
+
+      "decode Foo/Baz from JSON" in {
+        val actualValue: LfValue[String] = jsValueToApiValue(
+          """{"tag":"Baz", "value":{"baz":"text abc"}}""".parseJson,
+          fooId,
+          darTypeLookup
+        )
+
+        val expectedValueWithIds: LfValue.ValueVariant[String] =
+          bazVariant.copy(tycon = Some(fooId), value = bazRecord.copy(tycon = Some(bazRecordId)))
+
+        actualValue shouldBe expectedValueWithIds
+      }
+
+      "encode Foo/Qux to JSON" in {
+        val writer = implicitly[spray.json.JsonWriter[LfValue[String]]]
+        (writer.write(quxVariant): JsValue) shouldBe ("""{"tag":"Qux", "value":{}}""".parseJson: JsValue)
+      }
+
+      "fail decoding Foo/Qux from JSON if 'value' filed is missing" in {
+        assertThrows[spray.json.DeserializationException] {
+          jsValueToApiValue(
+            """{"tag":"Qux"}""".parseJson,
+            fooId,
+            darTypeLookup
+          )
+        }
+      }
+
+      "decode Foo/Qux (empty value) from JSON" in {
+        val actualValue: LfValue[String] = jsValueToApiValue(
+          """{"tag":"Qux", "value":{}}""".parseJson,
+          fooId,
+          darTypeLookup
+        )
+
+        val expectedValueWithIds: LfValue.ValueVariant[String] =
+          quxVariant.copy(tycon = Some(fooId))
+
+        actualValue shouldBe expectedValueWithIds
+      }
+    }
+
+    "dealing with Contract Key" should {
+
+      "decode type Key = Party from JSON" in {
+        val templateDef: iface.InterfaceType.Template = mustBeOne(
+          MetadataReader.templateByName(darMetadata)(
+            Ref.QualifiedName.assertFromString("JsonEncodingTest:KeyedByParty")))._2
+
+        val keyType = templateDef.template.key.getOrElse(fail("Expected a key, got None"))
+        val expectedValue: LfValue[String] = LfValue.ValueParty(Ref.Party.assertFromString("Alice"))
+
+        jsValueToApiValue(JsString("Alice"), keyType, darTypeLookup) shouldBe expectedValue
+      }
+
+      "decode type Key = (Party, Int) from JSON" in {
+        val templateDef: iface.InterfaceType.Template = mustBeOne(
+          MetadataReader.templateByName(darMetadata)(
+            Ref.QualifiedName.assertFromString("JsonEncodingTest:KeyedByPartyInt")))._2
+
+        val tuple2Name = Ref.QualifiedName.assertFromString("DA.Types:Tuple2")
+        val daTypesPackageId: Ref.PackageId =
+          mustBeOne(MetadataReader.typeByName(darMetadata)(tuple2Name))._1
+
+        val keyType = templateDef.template.key.getOrElse(fail("Expected a key, got None"))
+
+        val expectedValue: LfValue[String] = LfValue.ValueRecord(
+          Some(Ref.Identifier(daTypesPackageId, tuple2Name)),
+          ImmArray(
+            Some(Ref.Name.assertFromString("_1")) -> LfValue.ValueParty(
+              Ref.Party.assertFromString("Alice")),
+            Some(Ref.Name.assertFromString("_2")) -> LfValue.ValueInt64(123)
+          )
+        )
+
+        jsValueToApiValue("""["Alice", 123]""".parseJson, keyType, darTypeLookup) shouldBe expectedValue
+      }
+
+      "decode type Key = (Party, (Int, Foo, BazRecord)) from JSON" in {
+        val templateDef: iface.InterfaceType.Template = mustBeOne(
+          MetadataReader.templateByName(darMetadata)(
+            Ref.QualifiedName.assertFromString("JsonEncodingTest:KeyedByVariantAndRecord")))._2
+
+        val keyType = templateDef.template.key.getOrElse(fail("Expected a key, got None"))
+
+        val actual: LfValue[String] = jsValueToApiValue(
+          """["Alice", [11, {"tag": "Bar", "value": 123}, {"baz": "baz text"}]]""".parseJson,
+          keyType,
+          darTypeLookup
+        )
+
+        inside(actual) {
+          case LfValue.ValueRecord(Some(id2), ImmArray((_, party), (_, record2))) =>
+            id2.qualifiedName.name shouldBe Ref.DottedName.assertFromString("Tuple2")
+            party shouldBe LfValue.ValueParty(Ref.Party.assertFromString("Alice"))
+
+            inside(record2) {
+              case LfValue.ValueRecord(Some(id3), ImmArray((_, age), _, _)) =>
+                id3.qualifiedName.name shouldBe Ref.DottedName.assertFromString("Tuple3")
+                age shouldBe LfValue.ValueInt64(11)
+            }
+        }
+      }
+    }
+  }
+
+  private def mustBeOne[A](as: Seq[A]): A = as match {
+    case Seq(x) => x
+    case xs @ _ => sys.error(s"Expected exactly one element, got: $xs")
   }
 }

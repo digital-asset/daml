@@ -1,4 +1,4 @@
--- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
 -- @ QUERY-LF .modules[] | .data_types[] | select(lf::get_dotted_name($pkg) == ["Unserializable"]) | has("serializable") | not

@@ -1,4 +1,4 @@
-.. Copyright (c) 2019 The DAML Authors. All rights reserved.
+.. Copyright (c) 2020 The DAML Authors. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 DAML-LF JSON Encoding
@@ -385,7 +385,7 @@ Variants are expressed as
 
 ::
 
-    { constructor: argument }
+    { tag: constructor, value: argument }
 
 For example, if we have
 
@@ -395,10 +395,10 @@ For example, if we have
 
 These are all valid JSON encodings for values of type Foo::
 
-    {"Bar": 42}
-    {"Baz": {}}
-    {"Quux": null}
-    {"Quux": 42}
+    {"tag": "Bar", "value": 42}
+    {"tag": "Baz", "value": {}}
+    {"tag": "Quux", "value": null}
+    {"tag": "Quux", "value": 42}
 
 Note that DAML data types with named fields are compiled by factoring
 out the record. So for example if we have
@@ -418,13 +418,13 @@ and then, from JSON
 
 ::
 
-    {"Bar": {"f1": 42, "f2": true}}
-    {"Baz": {}}
+    {"tag": "Bar", "value": {"f1": 42, "f2": true}}
+    {"tag": "Baz", "value": {}}
 
 This can be encoded and used in TypeScript, including exhaustiveness
-checking; see `a keyed example`_.
+checking; see `a type refinement example`_.
 
-.. _a keyed example: https://www.typescriptlang.org/play/#src=type%20Foo%20%3D%0D%0A%20%20%20%20%7B%20Bar%3A%20%7B%20f1%3A%20number%2C%20f2%3A%20boolean%20%7D%20%7D%0D%0A%20%20%7C%20%7B%20Baz%3A%20%7B%20f3%3A%20string%20%7D%20%7D%3B%0D%0A%0D%0Afunction%20test(v%3A%20Foo)%20%7B%0D%0A%20%20if%20(%22Bar%22%20in%20v)%20%7B%0D%0A%20%20%20%20console.log(v.Bar.f1%2C%20v.Bar.f2)%3B%0D%0A%20%20%7D%20else%20if%20(%22Baz%22%20in%20v)%20%7B%0D%0A%20%20%20%20console.log(v.Baz.f3)%3B%0D%0A%20%20%7D%20else%20%7B%0D%0A%20%20%20%20const%20_%3A%20never%20%3D%20v%3B%0D%0A%20%20%7D%0D%0A%7D%20%0D%0A
+.. _a type refinement example: https://www.typescriptlang.org/play/#code/C4TwDgpgBAYg9nKBeAsAKCpqBvKwCGA5gFxQBEAQvgE5kA0UAbvgDYCuEpuAZgIykA7NgFsARhGoNuAJlKiELCPgFQAvmvSYAPjjxFSlfAC96TVhy5q1AbnTpubAQGNgASzgrgEAM7AAFIyk8HAAlDiaUN4A7q7ATgAWUAEAdASEYdgRmE743tCGtMRZWE4e3nCKySxwhCnM7BDJfAyMyfUcTdIhthhYmNQQwGzUAj19OXnkVCZFveNlFY3Vta3tEN3F-YPDo8UAJhDc+GwswLN92WXAUAD6ghCMEshMYxpoqkA
 
 Enum
 ****

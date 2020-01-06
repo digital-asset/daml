@@ -1,4 +1,4 @@
-// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.extractor
@@ -50,7 +50,7 @@ class GenMapSpec
       """
         {
           "x" : [
-                  [ { "fst" : 1, "snd" : "1.0" },                            { "Left" : 0 } ]
+                  [ { "fst" : 1, "snd" : "1.0" },                            { "tag" : "Left", "value" : 0 } ]
                 ],
           "party" : "Bob"
         }
@@ -58,8 +58,8 @@ class GenMapSpec
       """
         {
           "x" : [
-                  [ { "fst" : 1, "snd" : "1.0" },                              { "Left" : 0 } ],
-                  [ { "fst" : -2, "snd" : "-2.2222222222" },                   { "Right" : "1.1111111111" } ]
+                  [ { "fst" : 1, "snd" : "1.0" },                              { "tag" : "Left", "value" : 0 } ],
+                  [ { "fst" : -2, "snd" : "-2.2222222222" },                   { "tag" : "Right", "value" : "1.1111111111" } ]
                 ],
           "party" : "Bob"
         }
@@ -67,9 +67,9 @@ class GenMapSpec
       """
         {
           "x" : [
-                  [ { "fst" : 1, "snd" : "1.0" },                               { "Left" : 0 } ],
-                  [ { "fst" : -2, "snd" : "-2.2222222222" },                    { "Right" : "1.1111111111" } ],
-                  [ { "fst" : -3, "snd" : "-3333333333333333333333333333.0" },  { "Right" : "-2.2222222222" } ]
+                  [ { "fst" : 1, "snd" : "1.0" },                               { "tag" : "Left", "value" : 0 } ],
+                  [ { "fst" : -2, "snd" : "-2.2222222222" },                    { "tag" : "Right", "value" : "1.1111111111" } ],
+                  [ { "fst" : -3, "snd" : "-3333333333333333333333333333.0" },  { "tag" : "Right", "value" : "-2.2222222222" } ]
                 ],
           "party" : "Bob"
         }

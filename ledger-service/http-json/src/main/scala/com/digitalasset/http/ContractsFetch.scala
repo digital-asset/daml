@@ -1,4 +1,4 @@
-// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.http
@@ -26,7 +26,7 @@ import com.digitalasset.http.json.JsonProtocol.LfValueDatabaseCodec.{
   apiValueToJsValue => lfValueToDbJsValue
 }
 import com.digitalasset.http.util.IdentifierConverters.apiIdentifier
-import com.digitalasset.http.util.ExceptionOps._
+import com.digitalasset.util.ExceptionOps._
 import com.digitalasset.jwt.domain.Jwt
 import com.digitalasset.ledger.api.v1.transaction.Transaction
 import com.digitalasset.ledger.api.{v1 => lav1}

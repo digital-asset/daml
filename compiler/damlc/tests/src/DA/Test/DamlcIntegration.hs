@@ -1,4 +1,4 @@
--- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE MultiWayIf #-}
@@ -233,7 +233,7 @@ checkDiagnostics log expected got = do
       | null bad -> Nothing
       | otherwise -> Just $ unlines ("Could not find matching diagnostics:" : map show bad)
     where checkField :: D.FileDiagnostic -> DiagnosticField -> Bool
-          checkField (fp, D.Diagnostic{..}) f = case f of
+          checkField (fp, _, D.Diagnostic{..}) f = case f of
             DFilePath p -> toNormalizedFilePath p == fp
             DRange r -> r == _range
             DSeverity s -> Just s == _severity

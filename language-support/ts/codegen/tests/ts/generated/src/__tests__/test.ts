@@ -1,4 +1,4 @@
-// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import { ChildProcess, spawn } from 'child_process';
@@ -106,7 +106,7 @@ test('create + fetch & exercise', async () => {
     polyRecord: {one: '10', two: 'XYZ'},
     imported: {field: {something: 'pqr'}},
     archiveX: {},
-    either: {'Right': 'really?'},
+    either: {tag: 'Right', value: 'really?'},
     tuple: {_1: '12', _2: 'mmm'},
     enum: Main.Color.Red,
     enumList: [Main.Color.Red, Main.Color.Blue, Main.Color.Yellow]

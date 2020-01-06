@@ -1,4 +1,4 @@
--- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 module Development.IDE.Core.Rules.Daml
     ( module Development.IDE.Core.Rules
@@ -154,7 +154,7 @@ uriToVirtualResource uri = do
 
 sendFileDiagnostics :: [FileDiagnostic] -> Action ()
 sendFileDiagnostics diags =
-    mapM_ (uncurry sendDiagnostics) (groupSort diags)
+    mapM_ (uncurry sendDiagnostics) (groupSort $ map (\(file, _showDiag, diag) -> (file, diag)) diags)
 
 -- TODO: Move this to ghcide, perhaps.
 sendDiagnostics :: NormalizedFilePath -> [Diagnostic] -> Action ()
@@ -667,7 +667,7 @@ runScenariosRule =
       let scenarios = map fst $ scenariosInModule m
           toDiagnostic :: LF.ValueRef -> Either SS.Error SS.ScenarioResult -> Maybe FileDiagnostic
           toDiagnostic scenario (Left err) =
-              Just $ (file,) $ Diagnostic
+              Just $ (file, ShowDiag,) $ Diagnostic
               { _range = maybe noRange sourceLocToRange mbLoc
               , _severity = Just DsError
               , _source = Just "Scenario"
@@ -952,7 +952,7 @@ getDlintDiagnosticsRule =
         }
       diagnostic :: NormalizedFilePath -> Idea -> FileDiagnostic
       diagnostic file i =
-        (file, LSP.Diagnostic {
+        (file, ShowDiag, LSP.Diagnostic {
               _range = srcSpanToRange $ ideaSpan i
             , _severity = Just LSP.DsInfo
             , _code = Nothing

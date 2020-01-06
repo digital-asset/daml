@@ -1,4 +1,4 @@
-// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.bazeltools
@@ -32,6 +32,12 @@ trait BazelRunfiles {
       Paths.get(runfilePath.getOrElse(throw new IllegalArgumentException(path.toString)))
     } else
       path
+
+  def requiredResource(name: String): java.io.File = {
+    val file = new java.io.File(rlocation(name))
+    if (file.exists()) file
+    else throw new IllegalStateException(s"File doest not exist: ${file.getAbsolutePath}")
+  }
 }
 
 object BazelRunfiles extends BazelRunfiles

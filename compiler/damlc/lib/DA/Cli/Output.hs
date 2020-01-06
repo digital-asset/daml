@@ -1,4 +1,4 @@
--- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Cli.Output
@@ -57,5 +57,5 @@ printDiagnostics xs = BS.hPutStrLn stderr $ T.encodeUtf8 $ showDiagnosticsColore
 
 diagnosticsLogger :: FromServerMessage -> IO ()
 diagnosticsLogger = \case
-    EventFileDiagnostics fp diags -> printDiagnostics $ map (toNormalizedFilePath fp,) diags
+    EventFileDiagnostics fp diags -> printDiagnostics $ map (toNormalizedFilePath fp,ShowDiag,) diags
     _ -> pure ()

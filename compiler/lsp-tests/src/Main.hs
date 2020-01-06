@@ -1,4 +1,4 @@
--- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE RankNTypes #-}
@@ -341,8 +341,12 @@ requestTests run _runScenarios = testGroup "requests"
           r <- getHover main' (Position 9 19)
           liftIO $ r @?= Just Hover
               { _contents = HoverContents $ MarkupContent MkMarkdown $ T.unlines
-                    [ "```daml\nMain.add"
-                    , "  : Int -> Int -> Int"
+                    [ "```daml"
+                    , "Main.add"
+                    , "```"
+                    , "*\t*\t*"
+                    , "```daml"
+                    , ": Int -> Int -> Int"
                     , "```"
                     , "*\t*\t*"
                     , "**Defined at " <> T.pack fp <> ":4:1**"
@@ -359,7 +363,16 @@ requestTests run _runScenarios = testGroup "requests"
               ]
           r <- getHover main' (Position 2 27)
           liftIO $ r @?= Just Hover
-              { _contents = HoverContents $ MarkupContent MkMarkdown "```daml\n: Numeric n\n```\n"
+              { _contents = HoverContents $ MarkupContent MkMarkdown $ T.unlines
+                    [ "```daml"
+                    , ""
+                    , "```"
+                    , "*\t*\t*"
+                    , "```daml"
+                    , ": Numeric n"
+                    , "```"
+                    , "*\t*\t*"
+                    ]
               , _range = Just $ Range (Position 2 27) (Position 2 30)
               }
           closeDoc main'

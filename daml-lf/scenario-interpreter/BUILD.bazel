@@ -1,9 +1,8 @@
-# Copyright (c) 2019 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
     "//bazel_tools:scala.bzl",
-    "da_scala_binary",
     "da_scala_library",
     "da_scala_test_suite",
     "lf_scalacopts",
@@ -36,6 +35,5 @@ da_scala_test_suite(
         "//daml-lf/data",
         "//daml-lf/interpreter",
         "//daml-lf/language",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )

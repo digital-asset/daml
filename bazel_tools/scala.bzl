@@ -1,4 +1,4 @@
-# Copyright (c) 2019 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -494,7 +494,7 @@ def da_scala_binary(name, **kwargs):
                 )
                 break
 
-def da_scala_test(**kwargs):
+def da_scala_test(unused_dependency_checker_mode = "error", **kwargs):
     """
     Define a Scala executable that runs the unit tests in the given source files.
 
@@ -504,6 +504,7 @@ def da_scala_test(**kwargs):
 
     [rules_scala_docs]: https://github.com/bazelbuild/rules_scala#scala_test
     """
+    kwargs["unused_dependency_checker_mode"] = unused_dependency_checker_mode
     _wrap_rule(scala_test, **kwargs)
 
 def da_scala_test_suite(**kwargs):

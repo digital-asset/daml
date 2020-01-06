@@ -1,4 +1,4 @@
-// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.value.json
@@ -77,7 +77,7 @@ abstract class ApiCodecCompressed[Cid](
     JsArray(value.values.map(apiValueToJsValue(_)).toImmArray.toSeq: _*)
 
   private[this] def apiVariantToJsValue(value: V.ValueVariant[Cid]): JsValue =
-    JsObject(Map((value.variant: String) -> apiValueToJsValue(value.value)))
+    JsonVariant(value.variant, apiValueToJsValue(value.value))
 
   private[this] def apiEnumToJsValue(value: V.ValueEnum): JsValue =
     JsString(value.value)
@@ -220,23 +220,20 @@ abstract class ApiCodecCompressed[Cid](
             )
       }
       case Model.DamlLfVariant(cons) => {
-        case JsObject(v) =>
-          val constructor = v.toList match {
-            case x :: Nil => x
-            case _ =>
-              deserializationError(
-                s"Can't read ${value.prettyPrint} as DamlLfVariant $id, single constructor required")
-          }
-          val (constructorName, constructorType) = cons
-            .find(_._1 == constructor._1)
+        case JsonVariant(tag, nestedValue) =>
+          val (constructorName, constructorType) = cons.toList
+            .find(_._1 == tag)
             .getOrElse(deserializationError(
-              s"Can't read ${value.prettyPrint} as DamlLfVariant $id, unknown constructor ${constructor._1}"))
+              s"Can't read ${value.compactPrint} as DamlLfVariant $id, unknown constructor $tag"))
 
           V.ValueVariant(
             Some(id),
             constructorName,
-            jsValueToApiValue(constructor._2, constructorType, defs)
+            jsValueToApiValue(nestedValue, constructorType, defs)
           )
+        case _ =>
+          deserializationError(
+            s"Can't read ${value.prettyPrint} as DamlLfVariant $id, expected JsObject with 'tag' and 'value' fields")
       }
       case Model.DamlLfEnum(cons) => {
         case JsString(c) =>
@@ -330,7 +327,6 @@ abstract class ApiCodecCompressed[Cid](
       override protected[this] def jsValueToApiContractId(value: JsValue): Cid =
         self.jsValueToApiContractId(value)
     }
-
 }
 
 object ApiCodecCompressed
