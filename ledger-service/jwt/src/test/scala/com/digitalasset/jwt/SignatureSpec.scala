@@ -3,7 +3,9 @@
 
 package com.digitalasset.jwt
 
-import java.security.interfaces.{RSAPrivateKey, RSAPublicKey}
+import java.security.KeyPair
+import java.security.interfaces.{ECPrivateKey, ECPublicKey, RSAPrivateKey, RSAPublicKey}
+import java.security.spec.ECGenParameterSpec
 
 import org.scalatest.{Matchers, WordSpec}
 import scalaz.syntax.show._
@@ -112,5 +114,36 @@ class SignatureSpec extends WordSpec with Matchers {
         success.isRight shouldBe true
       }
     }
+
+    "using ECDA512 signatures" should {
+      "work with a valid key" in {
+        val kpg = java.security.KeyPairGenerator.getInstance("EC")
+        val ecGenParameterSpec = new ECGenParameterSpec("secp256r1")
+        kpg.initialize(ecGenParameterSpec)
+        val keyPair: KeyPair = kpg.generateKeyPair()
+
+        val privateKey = keyPair.getPrivate.asInstanceOf[ECPrivateKey]
+        val publicKey = keyPair.getPublic.asInstanceOf[ECPublicKey]
+
+        val jwtHeader = """{"alg": "ES512", "typ": "JWT"}"""
+        val jwtPayload = """{"dummy":"dummy"}"""
+        val jwt = domain.DecodedJwt[String](jwtHeader, jwtPayload)
+        val success = for {
+          signedJwt <- JwtSigner.ECDA512
+            .sign(jwt, privateKey)
+            .leftMap(e => fail(e.shows))
+
+
+          verifier <- ECDA512Verifier(publicKey)
+            .leftMap(e => fail(e.shows))
+          verifiedJwt <- verifier
+            .verify(signedJwt)
+            .leftMap(e => fail(e.shows))
+        } yield verifiedJwt
+
+        success.isRight shouldBe true
+      }
+    }
+
   }
 }
