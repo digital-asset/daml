@@ -461,7 +461,7 @@ def da_scala_macro_library(**kwargs):
     _wrap_rule(scala_macro_library, **kwargs)
     _create_scala_source_jar(**kwargs)
 
-def da_scala_binary(name, **kwargs):
+def da_scala_binary(name, unused_dependency_checker_mode = "error", **kwargs):
     """
     Define a Scala executable.
 
@@ -471,6 +471,7 @@ def da_scala_binary(name, **kwargs):
 
     [rules_scala_docs]: https://github.com/bazelbuild/rules_scala#scala_binary
     """
+    kwargs["unused_dependency_checker_mode"] = unused_dependency_checker_mode
     _wrap_rule(scala_binary, name, **kwargs)
 
     if "tags" in kwargs:

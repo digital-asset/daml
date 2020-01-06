@@ -36,24 +36,17 @@ da_scala_binary(
         "//daml-lf/archive:daml_lf_dev_archive_java_proto",
         "//daml-lf/data",
         "//daml-lf/engine",
-        "//daml-lf/language",
-        "//daml-lf/transaction",
         "//language-support/scala/bindings",
         "//ledger/ledger-api-auth",
-        "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
-        "//ledger/ledger-api-domain",
         "//ledger/ledger-api-health",
         "//ledger/participant-state",
-        "//ledger/participant-state-index",
         "//ledger/participant-state/kvutils",
         "//ledger/sandbox",
         "@maven//:com_github_scopt_scopt_2_12",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:io_dropwizard_metrics_metrics_core",
-        "@maven//:io_netty_netty_handler",
-        "@maven//:io_netty_netty_tcnative_boringssl_static",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
@@ -74,7 +67,6 @@ da_scala_binary(
     deps = [
         ":reference-v2",
         "//ledger/sandbox:sandbox-scala-tests-lib",
-        "@maven//:org_slf4j_slf4j_api",
     ],
 )
 
