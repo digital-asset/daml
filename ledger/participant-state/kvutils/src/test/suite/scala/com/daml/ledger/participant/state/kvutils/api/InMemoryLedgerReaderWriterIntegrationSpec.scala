@@ -11,11 +11,13 @@ import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref.LedgerString
 import com.digitalasset.daml.lf.data.Time.Timestamp
 
-class InMemoryLedgerReaderWriterIntegrationSpec extends ParticipantStateIntegrationSpecBase {
+class InMemoryLedgerReaderWriterIntegrationSpec
+    extends ParticipantStateIntegrationSpecBase(
+      "In-memory participant state via simplified API implementation") {
 
   override def participantStateFactory(
       participantId: ParticipantId,
-      ledgerId: LedgerString): ReadService with WriteService = {
+      ledgerId: LedgerString): ReadService with WriteService with AutoCloseable = {
     val readerWriter = new InMemoryLedgerReaderWriter(ledgerId, participantId)
     new KeyValueParticipantState(readerWriter, readerWriter)
   }

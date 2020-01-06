@@ -9,7 +9,8 @@ import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref.LedgerString
 import com.digitalasset.daml.lf.data.Time.Timestamp
 
-class InMemoryKVParticipantStateIT extends ParticipantStateIntegrationSpecBase {
+class InMemoryKVParticipantStateIT
+    extends ParticipantStateIntegrationSpecBase("In-memory participant state implementation") {
 
   override def participantStateFactory(
       participantId: ParticipantId,
