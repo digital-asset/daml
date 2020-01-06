@@ -32,14 +32,18 @@ import com.google.protobuf.ByteString
 
 import scala.util.Random
 
-@SuppressWarnings(Array("org.wartremover.warts.ArrayEquals"))
-private[impl] case class LogEntry(entryId: DamlLogEntryId, payload: Array[Byte])
+private[impl] class LogEntry(val entryId: DamlLogEntryId, val payload: Array[Byte])
+
+private[impl] object LogEntry {
+  def apply(entryId: DamlLogEntryId, payload: Array[Byte]): LogEntry =
+    new LogEntry(entryId, payload)
+}
 
 private[impl] class InMemoryState(
     val log: mutable.Buffer[LogEntry] = ArrayBuffer[LogEntry](),
     val state: mutable.Map[ByteString, DamlStateValue] = mutable.Map.empty)
 
-class InMemoryLedgerReaderWriter(
+final class InMemoryLedgerReaderWriter(
     ledgerId: LedgerId = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
     val participantId: ParticipantId)(implicit executionContext: ExecutionContext)
     extends LedgerWriter
