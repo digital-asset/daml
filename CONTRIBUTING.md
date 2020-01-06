@@ -56,6 +56,10 @@ If you want to amend an existing changelog entry part of a PR already merged on 
 
       CHANGELOG_END
 
+If you want to verify the changelog entries as described by a range of Git revisions, you can use the `unreleased.sh` script. In most cases, to see the entries added as part of commits added since branching off of `master`, you can run:
+
+    ./unreleased.sh master..
+
 ## Working with issues
 
 We use issues and [pull requests](https://help.github.com/articles/about-pull-requests/) to collaborate and track our work. Anyone is welcome to open an issue. If you just want to ask a question, please ask away on [Stack Overflow](https://stackoverflow.com/questions/tagged/daml) using the tag `daml`.
