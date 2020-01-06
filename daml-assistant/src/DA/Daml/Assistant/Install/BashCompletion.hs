@@ -75,9 +75,9 @@ addCompletionHook scriptPath = do
 -- | Check the daml path is default. We don't want to install completions
 -- for non-standard paths by default.
 isDefaultDamlPath :: DamlPath -> IO Bool
-isDefaultDamlPath damlPath = do
-    rawDamlPath <- getAppUserDataDirectory "daml"
-    pure $ damlPath == DamlPath rawDamlPath
+isDefaultDamlPath (DamlPath damlPath) = do
+    rawDamlPath <- tryIO (getAppUserDataDirectory "daml")
+    pure $ Right damlPath == rawDamlPath
 
 newtype HookPath = HookPath FilePath
 newtype Hook = Hook { unHook :: String } deriving Eq
