@@ -443,7 +443,6 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "managed",
             "megaparsec",
             "memory",
-            "MissingH",
             "monad-control",
             "monad-logger",
             "monad-loops",
