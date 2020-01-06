@@ -413,9 +413,11 @@ object Speedy {
 
           // start evaluating the arguments
           val newArgsLimit = Math.min(missing, newArgs.length)
-          for (i <- 1 until newArgsLimit) {
+          var i = 1
+          while (i < newArgsLimit) {
             val arg = newArgs(newArgsLimit - i)
             machine.kont.add(KPushTo(args2, arg))
+            i = i + 1
           }
           machine.ctrl = CtrlExpr(newArgs(0))
 
@@ -566,6 +568,9 @@ object Speedy {
   }
 
   /** Internal exception thrown when a continuation result needs to be returned. */
-  final case class SpeedyHungry(result: SResult) extends RuntimeException(result.toString)
+  final case class SpeedyHungry(result: SResult) extends RuntimeException {
+    lazy val message: String = result.toString
+    override def getMessage: String = message
+  }
 
 }
