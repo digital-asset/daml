@@ -23,6 +23,7 @@ native_test = scenario do
   assert (alice /= bob)
   assert (-my_int == 123)
   assert (1000.0 * my_dec == 1.0)
+  assert (my_text == "Alice")
   assert (not my_bool)
   assert (addDays my_date 1 == date 2020 Jan 02)
   assert (addRelTime my_time my_rel_time == time (addDays my_date 1) 00 00 00)
