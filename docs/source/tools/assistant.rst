@@ -184,3 +184,10 @@ Rarely, you might need to install an SDK release from a downloaded SDK release t
 
   daml install path-to-tarball.tar.gz
 
+Terminal Command Completion
+***************************
+
+The ``daml`` assistant comes with support for ``bash`` completions. These will be installed automatically on Linux and Mac when you install or upgrade the DAML assistant. If you use the ``bash`` shell, and your ``bash`` supports completions, you can use the TAB key to complete many ``daml`` commands, such as ``daml install`` and ``daml version``.
+
+You can override whether bash completions are installed for ``daml`` by
+passing ``--bash-completions=yes`` or ``--bash-completions=no`` to ``daml install``.

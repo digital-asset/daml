@@ -83,12 +83,13 @@ versionParser = VersionOptions
 
 installParser :: Parser InstallOptions
 installParser = InstallOptions
-    <$> optional (RawInstallTarget <$> argument str (metavar "TARGET" <> help "The SDK version to install. Use 'latest' to download and install the latest stable SDK version available. Run 'daml install' to see the full set of options."))
+    <$> optional (RawInstallTarget <$> argument str (metavar "TARGET" <> completeWith ["latest"] <> help "The SDK version to install. Use 'latest' to download and install the latest stable SDK version available. Run 'daml install' to see the full set of options."))
     <*> (InstallAssistant <$> flagYesNoAuto' "install-assistant" "Install associated DAML assistant version. Can be set to \"yes\" (always installs), \"no\" (never installs), or \"auto\" (installs if newer). Default is \"auto\"." idm)
     <*> iflag ActivateInstall "activate" hidden "Activate installed version of daml"
     <*> iflag ForceInstall "force" (short 'f') "Overwrite existing installation"
     <*> iflag QuietInstall "quiet" (short 'q') "Don't display installation messages"
     <*> fmap SetPath (flagYesNoAuto "set-path" True "Adjust PATH automatically. This option only has an effect on Windows." idm)
+    <*> fmap BashCompletions (flagYesNoAuto' "bash-completions" "Install bash completions for DAML assistant. Default is yes for linux and mac, no for windows." idm)
     where
         iflag p name opts desc = fmap p (switch (long name <> help desc <> opts))
 
@@ -99,5 +100,3 @@ uninstallParser =
 readSdkVersion :: ReadM SdkVersion
 readSdkVersion =
     eitherReader (mapLeft displayException . parseVersion . pack)
-
-
