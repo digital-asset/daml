@@ -9,8 +9,12 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntryId
 import com.daml.ledger.participant.state.v1.{Configuration, LedgerId, Offset, TimeModel}
 import com.digitalasset.ledger.api.health.ReportsHealth
 
-@SuppressWarnings(Array("org.wartremover.warts.ArrayEquals"))
-case class LedgerRecord(offset: Offset, entryId: DamlLogEntryId, envelope: Array[Byte])
+class LedgerRecord(val offset: Offset, val entryId: DamlLogEntryId, val envelope: Array[Byte]) {}
+
+object LedgerRecord {
+  def apply(offset: Offset, entryId: DamlLogEntryId, envelope: Array[Byte]): LedgerRecord =
+    new LedgerRecord(offset, entryId, envelope)
+}
 
 trait LedgerReader extends ReportsHealth {
   def events(offset: Option[Offset]): Source[LedgerRecord, NotUsed]

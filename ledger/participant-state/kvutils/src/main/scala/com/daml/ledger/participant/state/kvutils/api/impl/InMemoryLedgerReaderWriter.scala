@@ -35,9 +35,9 @@ import scala.util.Random
 @SuppressWarnings(Array("org.wartremover.warts.ArrayEquals"))
 private[impl] case class LogEntry(entryId: DamlLogEntryId, payload: Array[Byte])
 
-private[impl] case class InMemoryState(
-    log: mutable.Buffer[LogEntry] = ArrayBuffer[LogEntry](),
-    state: mutable.Map[ByteString, DamlStateValue] = mutable.Map.empty)
+private[impl] class InMemoryState(
+    val log: mutable.Buffer[LogEntry] = ArrayBuffer[LogEntry](),
+    val state: mutable.Map[ByteString, DamlStateValue] = mutable.Map.empty)
 
 class InMemoryLedgerReaderWriter(
     ledgerId: LedgerId = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
@@ -47,7 +47,7 @@ class InMemoryLedgerReaderWriter(
 
   private val engine = Engine()
 
-  private val currentState = InMemoryState()
+  private val currentState = new InMemoryState()
 
   private val StartOffset: Int = 0
 
