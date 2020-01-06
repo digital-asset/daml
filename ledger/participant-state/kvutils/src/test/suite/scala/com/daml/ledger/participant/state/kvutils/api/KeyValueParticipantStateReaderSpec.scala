@@ -19,8 +19,7 @@ import org.mockito.Mockito.when
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{AsyncWordSpec, Matchers}
 
-import scala.concurrent.Await
-import scala.concurrent.duration.Duration
+import scala.concurrent.Future
 
 class KeyValueParticipantStateReaderSpec
     extends AsyncWordSpec
@@ -34,10 +33,10 @@ class KeyValueParticipantStateReaderSpec
         LedgerRecord(Offset(Array(1, 2)), aLogEntryId, aWrappedLogEntry))
       val instance = new KeyValueParticipantStateReader(reader)
       val stream = instance.stateUpdates(Some(Offset(Array(1, 1, 0))))
-      val result = offsetsFrom(stream)
 
-      result.size shouldBe 1
-      result.head shouldBe Offset(Array(1, 2, 0))
+      offsetsFrom(stream).map {
+        _ shouldBe Seq(Offset(Array(1, 2, 0)))
+      }
     }
 
     "append index to internal offset" in {
@@ -48,10 +47,10 @@ class KeyValueParticipantStateReaderSpec
       )
       val instance = new KeyValueParticipantStateReader(reader)
       val stream = instance.stateUpdates(None)
-      val result = offsetsFrom(stream)
 
-      result.size shouldBe 2
-      result shouldBe Seq(Offset(Array(1, 0)), Offset(Array(2, 0)))
+      offsetsFrom(stream).map {
+        _ shouldBe Seq(Offset(Array(1, 0)), Offset(Array(2, 0)))
+      }
     }
 
     "skip events before specified offset" in {
@@ -63,9 +62,20 @@ class KeyValueParticipantStateReaderSpec
       )
       val instance = new KeyValueParticipantStateReader(reader)
 
-      offsetsFrom(instance.stateUpdates(None)).size shouldBe 3
-      offsetsFrom(instance.stateUpdates(Some(Offset(Array(1, 0))))).size shouldBe 2
-      offsetsFrom(instance.stateUpdates(Some(Offset(Array(3, 0))))).isEmpty shouldBe true
+      Future
+        .sequence(
+          Seq(
+            offsetsFrom(instance.stateUpdates(None)),
+            offsetsFrom(instance.stateUpdates(Some(Offset(Array(1, 0))))),
+            offsetsFrom(instance.stateUpdates(Some(Offset(Array(3, 0)))))
+          )
+        )
+        .map {
+          case Seq(all, afterFirst, afterLast) =>
+            all should have size 3
+            afterFirst should have size 2
+            afterLast should have size 0
+        }
     }
   }
 
@@ -82,8 +92,6 @@ class KeyValueParticipantStateReaderSpec
       .setEntryId(ByteString.copyFrom("anId".getBytes))
       .build
 
-  private val DefaultTimeout = Duration(1, "minutes")
-
   private def readerStreamingFrom(offset: Option[Offset], items: LedgerRecord*): LedgerReader = {
     val reader = mock[LedgerReader]
     val stream = Source.fromIterator(() => items.toIterator)
@@ -95,6 +103,6 @@ class KeyValueParticipantStateReaderSpec
     reader
   }
 
-  private def offsetsFrom(stream: Source[(Offset, Update), NotUsed]): Seq[Offset] =
-    Await.result(stream.runWith(Sink.seq), DefaultTimeout).map(_._1)
+  private def offsetsFrom(stream: Source[(Offset, Update), NotUsed]): Future[Seq[Offset]] =
+    stream.runWith(Sink.seq).map(_.map(_._1))
 }
