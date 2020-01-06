@@ -31,11 +31,8 @@ load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 
 rules_scala_version = "0f89c210ade8f4320017daf718a61de3c1ac4773"
 
-# XXX: Update to rules_haskell master once the following PRs are merged.
-#   https://github.com/tweag/rules_haskell/pull/1153
-#   https://github.com/tweag/rules_haskell/pull/1156
-rules_haskell_version = "d35d9b94d24d96aa4d1c796360c4aa86c6661a48"
-rules_haskell_sha256 = "ea50ed748648d728e16e8fb98fa5da54c84d255a217f19b51d6942f69dd6abe8"
+rules_haskell_version = "11b9dd19f3d6e1ae38b0aaa01696d873b2ee7ef9"
+rules_haskell_sha256 = "46923657160087456a21a61184f7bdca76f8e259de1f2ab8ca57b37aeff7d0d5"
 rules_nixpkgs_version = "33c50ba64c11dddb95823d12f6b1324083cc5c43"
 rules_nixpkgs_sha256 = "91fedd5151bbd9ef89efc39e2172921bd7036c68cff54712a5df8ddf62bd6922"
 
@@ -64,6 +61,8 @@ def daml_deps():
                 # This should be made configurable in rules_haskell.
                 # Remove this patch once that's available.
                 "@com_github_digital_asset_daml//bazel_tools:haskell-opt.patch",
+                # Remove once #1200 was merged on upstream rules_haskell.
+                "@com_github_digital_asset_daml//bazel_tools:haskell-optional-cabal-haddock.patch",
             ],
             patch_args = ["-p1"],
             sha256 = rules_haskell_sha256,

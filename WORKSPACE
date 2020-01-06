@@ -25,11 +25,6 @@ load("@rules_haskell//haskell:repositories.bzl", "rules_haskell_dependencies")
 
 rules_haskell_dependencies()
 
-load("@rules_haskell//tools:repositories.bzl", "rules_haskell_worker_dependencies")
-
-# We don't use the worker mode, but this is required for bazel query to function.
-rules_haskell_worker_dependencies()
-
 register_toolchains(
     "//:c2hs-toolchain",
 )
@@ -503,6 +498,12 @@ http_archive(
 load("//:bazel-haskell-deps.bzl", "daml_haskell_deps")
 
 daml_haskell_deps()
+
+load("@rules_haskell//tools:repositories.bzl", "rules_haskell_worker_dependencies")
+
+# We don't use the worker mode, but this is required for bazel query to function.
+# Call this after `daml_haskell_deps` to ensure that the right `stack` is used.
+rules_haskell_worker_dependencies()
 
 load("//bazel_tools:java.bzl", "java_home_runtime")
 

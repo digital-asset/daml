@@ -132,6 +132,7 @@ haskell_cabal_library(
     name = "ghcide-lib",
     package_name = "ghcide",
     version = "{version}",
+    haddock = False,
     srcs = glob(["**"]),
     deps = deps,
     visibility = ["//visibility:public"],
@@ -218,6 +219,7 @@ haskell_cabal_library(
     name = "ghcide",
     version = "{version}",
     srcs = glob(["**"]),
+    haddock = False,
     flags = packages["ghcide"].flags,
     deps = packages["ghcide"].deps,
     visibility = ["//visibility:public"],
@@ -287,6 +289,7 @@ haskell_cabal_library(
     name = "grpc-haskell-core",
     version = "0.0.0.0",
     srcs = glob(["**"]),
+    haddock = False,
     compiler_flags = ["-w", "-optF=-w"],
     deps = packages["grpc-haskell-core"].deps + {deps},
     tools = ["@c2hs//:c2hs"],
@@ -327,6 +330,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
     # define this separate `stack_snapshot` to bootstrap `c2hs`.
     stack_snapshot(
         name = "c2hs_deps",
+        haddock = False,
         local_snapshot = "//:stack-snapshot.yaml",
         packages = [
             "base",
@@ -363,6 +367,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
                 "scientific": ["integer-simple"],
             } if use_integer_simple else {},
         ),
+        haddock = False,
         local_snapshot = "//:stack-snapshot.yaml",
         packages = [
             "aeson",

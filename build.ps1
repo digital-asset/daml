@@ -27,17 +27,6 @@ if (Test-Path -Path $env:appdata\stack\pantry\hackage\hackage-security-lock) {
     Remove-Item -ErrorAction Continue -Force -Recurse -Path $env:appdata\stack
 }
 
-# rules_haskell can automatically install stack if it is not in $PATH,
-# yet. However, if the index has not been updated before building. Then
-# multiple parallel invocations of `stack` will both attempt to update
-# the index during build. This will fail with the following error.
-#
-#   user error (hTryLock: lock already exists: C:\Users\VssAdministrator\AppData\Roaming\stack\pantry\hackage\hackage-security-lock)
-#
-# To avoid this issue we added stack to dadew and update the index beforehand.
-# See https://github.com/tweag/stackage-head/issues/29.
-stack update
-
 function bazel() {
     Write-Output ">> bazel $args"
     $global:lastexitcode = 0
