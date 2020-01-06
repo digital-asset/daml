@@ -143,6 +143,34 @@ class SignatureSpec extends WordSpec with Matchers {
 
         success.isRight shouldBe true
       }
+      "fail with a invalid key" in {
+        val kpg = java.security.KeyPairGenerator.getInstance("EC")
+        val ecGenParameterSpec = new ECGenParameterSpec("secp256r1")
+        kpg.initialize(ecGenParameterSpec)
+        val keyPair1: KeyPair = kpg.generateKeyPair()
+
+        val privateKey1 = keyPair1.getPrivate.asInstanceOf[ECPrivateKey]
+
+        val keyPair2: KeyPair = kpg.generateKeyPair()
+        val publicKey2 = keyPair2.getPublic.asInstanceOf[ECPublicKey]
+
+        val jwtHeader = """{"alg": "ES512", "typ": "JWT"}"""
+        val jwtPayload = """{"dummy":"dummy"}"""
+        val jwt = domain.DecodedJwt[String](jwtHeader, jwtPayload)
+        val success = for {
+          signedJwt <- JwtSigner.ECDA512
+            .sign(jwt, privateKey1)
+            .leftMap(e => fail(e.shows))
+          verifier <- ECDA512Verifier(publicKey2)
+            .leftMap(e => fail(e.shows))
+          error <- verifier
+            .verify(signedJwt)
+            .swap
+            .leftMap(jwt => fail(s"JWT $jwt was unexpectedly verified"))
+        } yield error
+
+        success.isRight shouldBe true
+      }
     }
 
   }
