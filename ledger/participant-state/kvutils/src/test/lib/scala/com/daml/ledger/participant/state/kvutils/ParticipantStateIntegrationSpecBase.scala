@@ -566,4 +566,3 @@ object ParticipantStateIntegrationSpecBase {
     case _ => fail("unexpected update message after a transaction submission: $updateTuple")
   }
 }
-

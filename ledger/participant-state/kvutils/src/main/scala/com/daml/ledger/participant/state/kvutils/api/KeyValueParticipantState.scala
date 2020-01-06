@@ -55,5 +55,11 @@ class KeyValueParticipantState(reader: LedgerReader, writer: LedgerWriter)(
 
   override def currentHealth(): HealthStatus = reader.currentHealth().and(writer.currentHealth())
 
-  override def close(): Unit = writerAdaptor.close()
+  override def close(): Unit = {
+    readerAdaptor.close()
+    // Do not close the same underlying object twice.
+    if (!reader.eq(writer)) {
+      writerAdaptor.close()
+    }
+  }
 }

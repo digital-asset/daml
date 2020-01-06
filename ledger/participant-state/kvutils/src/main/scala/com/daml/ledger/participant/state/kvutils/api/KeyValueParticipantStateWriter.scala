@@ -71,7 +71,7 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter)(
 
   override def currentHealth(): HealthStatus = writer.currentHealth()
 
-  override def close(): Unit = ()
+  override def close(): Unit = writer.close()
 
   private def generateRandomParty(): Ref.Party =
     Ref.Party.assertFromString(s"party-${UUID.randomUUID().toString.take(8)}")

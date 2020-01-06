@@ -12,7 +12,8 @@ import com.digitalasset.daml.lf.data.Time
 import com.digitalasset.ledger.api.health.HealthStatus
 
 class KeyValueParticipantStateReader(reader: LedgerReader)(implicit materializer: Materializer)
-    extends ReadService {
+    extends ReadService
+    with AutoCloseable {
   override def getLedgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
     Source.single(createLedgerInitialConditions())
 
@@ -38,6 +39,8 @@ class KeyValueParticipantStateReader(reader: LedgerReader)(implicit materializer
       }
 
   override def currentHealth(): HealthStatus = reader.currentHealth()
+
+  override def close(): Unit = reader.close()
 
   private def toReaderOffset(offset: Option[Offset]): Option[Offset] =
     offset.collect {

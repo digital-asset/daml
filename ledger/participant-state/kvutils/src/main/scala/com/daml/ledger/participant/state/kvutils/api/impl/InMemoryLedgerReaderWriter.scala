@@ -111,6 +111,8 @@ class InMemoryLedgerReaderWriter(
 
   override def currentHealth(): HealthStatus = Healthy
 
+  override def close(): Unit = ()
+
   private val dispatcher: Dispatcher[Int] =
     Dispatcher("in-memory-key-value-participant-state", zeroIndex = 0, headAtInitialization = 0)
 

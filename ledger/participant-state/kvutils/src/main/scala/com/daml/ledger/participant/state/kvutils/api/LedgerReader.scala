@@ -16,7 +16,7 @@ object LedgerRecord {
     new LedgerRecord(offset, entryId, envelope)
 }
 
-trait LedgerReader extends ReportsHealth {
+trait LedgerReader extends ReportsHealth with AutoCloseable {
   def events(offset: Option[Offset]): Source[LedgerRecord, NotUsed]
 
   def retrieveLedgerId(): LedgerId

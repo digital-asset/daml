@@ -8,7 +8,7 @@ import com.digitalasset.ledger.api.health.ReportsHealth
 
 import scala.concurrent.Future
 
-trait LedgerWriter extends ReportsHealth {
+trait LedgerWriter extends ReportsHealth with AutoCloseable {
   def commit(correlationId: String, envelope: Array[Byte]): Future[SubmissionResult]
 
   def participantId: ParticipantId
