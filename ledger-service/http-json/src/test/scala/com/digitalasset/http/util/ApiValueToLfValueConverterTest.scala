@@ -52,7 +52,7 @@ object ApiValueToLfValueConverterTest {
   }
 
   private implicit def eqImmArray[X](implicit eq: Equality[X]): Equality[ImmArray[X]] = {
-    case (x, y: ImmArray[_]) => x.length == y.length && x.indices().forall(i => x(i) === y(i))
+    case (x, y: ImmArray[_]) => x.length == y.length && x.indices.forall(i => x(i) === y(i))
     case _ => false
   }
 

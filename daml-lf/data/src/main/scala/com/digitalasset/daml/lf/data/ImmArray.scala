@@ -72,7 +72,7 @@ final class ImmArray[+A] private (
   private def uncheckedGet(idx: Int): A = array(start + idx)
 
   /** O(1) */
-  def length: Int = len
+  val length: Int = len
 
   /** O(n) */
   def copyToArray[B >: A](dst: Array[B], dstStart: Int, dstLen: Int): Unit = {
@@ -87,13 +87,13 @@ final class ImmArray[+A] private (
   }
 
   /** O(1), crashes on empty list */
-  def head: A = this(0)
+  lazy val head: A = this(0)
 
   /** O(1), crashes on empty list */
-  def last: A = this(this.length - 1)
+  lazy val last: A = this(this.length - 1)
 
   /** O(1), crashes on empty list */
-  def tail: ImmArray[A] = {
+  lazy val tail: ImmArray[A] = {
     if (len < 1) {
       throw new RuntimeException("tail on empty ImmArray")
     } else {
@@ -102,7 +102,7 @@ final class ImmArray[+A] private (
   }
 
   /** O(1), crashes on empty list */
-  def init: ImmArray[A] = {
+  lazy val init: ImmArray[A] = {
     if (len < 1) {
       throw new RuntimeException("init on empty ImmArray")
     } else {
@@ -156,12 +156,15 @@ final class ImmArray[+A] private (
   }
 
   /** O(n) */
-  def reverse: ImmArray[A] = {
-    val newArray: mutable.ArraySeq[A] = new mutable.ArraySeq(len)
-    for (i <- indices) {
-      newArray(i) = array(start + len - (i + 1))
+  lazy val reverse: ImmArray[A] = {
+    def doReverse = {
+      val newArray: mutable.ArraySeq[A] = new mutable.ArraySeq(len)
+      for (i <- indices) {
+        newArray(i) = array(start + len - (i + 1))
+      }
+      ImmArray.unsafeFromArraySeq[A](newArray)
     }
-    ImmArray.unsafeFromArraySeq[A](newArray)
+    doReverse
   }
 
   /** O(n+m)
@@ -219,10 +222,10 @@ final class ImmArray[+A] private (
   }
 
   /** O(1) */
-  def isEmpty: Boolean = len == 0
+  lazy val isEmpty: Boolean = len == 0
 
   /** O(1) */
-  def nonEmpty: Boolean = len != 0
+  lazy val nonEmpty: Boolean = len != 0
 
   /** O(n) */
   def toList: List[A] = toSeq.toList
@@ -259,10 +262,8 @@ final class ImmArray[+A] private (
     val builder = ImmArray.newBuilder[B]
     var i = 0
     while (i < len) {
-      f.lift(uncheckedGet(i)) match {
-        case None => ()
-        case Some(x) => builder += x
-      }
+      val a = uncheckedGet(i)
+      if (f.isDefinedAt(a)) builder += f(a)
       i += 1
     }
     builder.result()
@@ -289,13 +290,16 @@ final class ImmArray[+A] private (
   }
 
   /** O(n) */
-  def find(f: A => Boolean): Option[A] =
-    indices collectFirst (Function unlift { i =>
+  def find(f: A => Boolean): Option[A] = {
+    var i = 0
+    var found: Option[A] = None
+    while (i < len && found.isEmpty) {
       val el = uncheckedGet(i)
-      if (f(el))
-        Some(el)
-      else None
-    })
+      if (f(el)) found = Some(el)
+      i += 1
+    }
+    found
+  }
 
   /** O(n) */
   def indexWhere(p: A => Boolean): Int =
@@ -304,7 +308,7 @@ final class ImmArray[+A] private (
     } getOrElse -1
 
   /** O(1) */
-  def indices(): Range = 0 until len
+  lazy val indices: Range = 0 until len
 
   /** O(1) */
   def canEqual(that: Any) = that.isInstanceOf[ImmArray[_]]

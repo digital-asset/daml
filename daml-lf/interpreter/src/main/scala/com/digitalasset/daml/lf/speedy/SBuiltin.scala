@@ -1007,7 +1007,7 @@ object SBuiltin {
       val stakeholders = observers union signatories
       val contextActors = machine.ptx.context match {
         case ContextExercises(ctx) => ctx.actingParties union ctx.signatories
-        case ContextRoot => machine.committers.toList.toSet
+        case ContextRoot => machine.committers
       }
 
       machine.ptx = machine.ptx.insertFetch(
