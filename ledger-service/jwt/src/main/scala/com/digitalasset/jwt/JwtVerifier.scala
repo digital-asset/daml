@@ -4,11 +4,11 @@
 package com.digitalasset.jwt
 
 import java.io.File
-import java.security.interfaces.RSAPublicKey
+import java.security.interfaces.{ECPublicKey, RSAPublicKey}
 
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
-import com.auth0.jwt.interfaces.RSAKeyProvider
+import com.auth0.jwt.interfaces.{ECDSAKeyProvider, RSAKeyProvider}
 import com.digitalasset.jwt.JwtVerifier.Error
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.{Show, \/}
@@ -58,6 +58,22 @@ object HMAC256Verifier extends StrictLogging {
       val verifier = JWT.require(algorithm).build()
       new JwtVerifier(verifier)
     }.leftMap(e => Error('HMAC256, e.getMessage))
+}
+
+// ECDA512 validator factory
+object ECDA512Verifier extends StrictLogging {
+  def apply(keyProvider: ECDSAKeyProvider): Error \/ JwtVerifier =
+    \/.fromTryCatchNonFatal{
+      val algorithm = Algorithm.ECDSA384(keyProvider)
+      val verifier = JWT.require(algorithm).build()
+      new JwtVerifier(verifier)
+    }.leftMap(e => Error('ECDA512, e.getMessage))
+  def apply(publicKey: ECPublicKey): Error \/ JwtVerifier =
+    \/.fromTryCatchNonFatal{
+      val algorithm = Algorithm.ECDSA384(publicKey, null)
+      val verifier = JWT.require(algorithm).build()
+      new JwtVerifier(verifier)
+    }.leftMap(e => Error('ECDA512, e.getMessage))
 }
 
 // RSA256 validator factory
