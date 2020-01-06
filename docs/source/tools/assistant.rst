@@ -191,5 +191,3 @@ The ``daml`` assistant comes with support for ``bash`` completions. These will b
 
 You can override whether bash completions are installed for ``daml`` by
 passing ``--bash-completions=yes`` or ``--bash-completions=no`` to ``daml install``.
-
-In the future, ``zsh`` and ``fish`` terminal completions may be implemented.
