@@ -86,7 +86,6 @@ da_scala_library(
         ":bindings-java",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_scalacheck_scalacheck_2_12",
-        "@maven//:org_scalatest_scalatest_2_12",
     ],
 )
 

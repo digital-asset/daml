@@ -21,7 +21,6 @@ da_scala_library(
         "//ledger-api/rs-grpc-bridge",
         "//ledger/ledger-api-auth-client",
         "//ledger/ledger-api-domain",
-        "//ledger/participant-state",
         "//libs-scala/direct-execution-context",
         "//libs-scala/grpc-utils",
         "@maven//:com_typesafe_akka_akka_actor_2_12",

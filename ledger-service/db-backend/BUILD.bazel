@@ -22,21 +22,18 @@ da_scala_library(
     visibility = [
         "//visibility:public",
     ],
-    deps = [
-        "//daml-lf/data",
-        "//daml-lf/interface",
-        "//daml-lf/transaction",
+    runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:org_tpolecat_doobie_postgres_2_12",
+    ],
+    deps = [
         "@maven//:com_chuusai_shapeless_2_12",
         "@maven//:com_github_ghik_silencer_lib_2_12",
         "@maven//:com_lihaoyi_sourcecode_2_12",
-        "@maven//:com_typesafe_akka_akka_slf4j_2_12",
-        "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
         "@maven//:io_spray_spray_json_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
         "@maven//:org_tpolecat_doobie_core_2_12",
         "@maven//:org_tpolecat_doobie_free_2_12",
-        "@maven//:org_tpolecat_doobie_postgres_2_12",
         "@maven//:org_typelevel_cats_core_2_12",
         "@maven//:org_typelevel_cats_effect_2_12",
         "@maven//:org_typelevel_cats_free_2_12",
