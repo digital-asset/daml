@@ -13,14 +13,9 @@ class InMemoryKVParticipantStateIT extends ParticipantStateIntegrationSpecBase {
 
   override def participantStateFactory(
       participantId: ParticipantId,
-      ledgerId: LedgerString): ReadService with WriteService =
+      ledgerId: LedgerString): ReadService with WriteService with AutoCloseable =
     new InMemoryKVParticipantState(participantId, ledgerId)
 
   override def currentRecordTime(): Timestamp =
     Timestamp.assertFromInstant(Clock.systemUTC().instant())
-
-  override protected def afterEach(): Unit = {
-    ps.asInstanceOf[InMemoryKVParticipantState].close()
-    super.afterEach()
-  }
 }

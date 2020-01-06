@@ -37,13 +37,13 @@ abstract class ParticipantStateIntegrationSpecBase
     with AkkaBeforeAndAfterAll {
 
   var ledgerId: LedgerString = _
-  var ps: ReadService with WriteService = _
+  var ps: ReadService with WriteService with AutoCloseable = _
   var rt: Timestamp = _
 
   def participantStateFactory(
       participantId: ParticipantId,
       ledgerId: LedgerString,
-  ): ReadService with WriteService
+  ): ReadService with WriteService with AutoCloseable
 
   def currentRecordTime(): Timestamp
 
@@ -52,6 +52,11 @@ abstract class ParticipantStateIntegrationSpecBase
     ledgerId = Ref.LedgerString.assertFromString(s"ledger-${UUID.randomUUID()}")
     ps = participantStateFactory(participantId, ledgerId)
     rt = currentRecordTime()
+  }
+
+  override protected def afterEach(): Unit = {
+    ps.close()
+    super.afterEach()
   }
 
   private val alice = Ref.Party.assertFromString("alice")
