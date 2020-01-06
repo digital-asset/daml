@@ -130,7 +130,8 @@ object KeyHasher extends KeyHasher {
     // Then, write the value
     foldLeft[MessageDigest](
       value,
-      digest, { (d, token) =>
+      digest,
+      (d, token) => {
         // Append bytes:
         // - Fixed-width values are appended as-is
         // - Variable-width values are prefixed with their length
