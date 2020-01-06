@@ -1,3 +1,6 @@
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 // Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -563,3 +566,4 @@ object ParticipantStateIntegrationSpecBase {
     case _ => fail("unexpected update message after a transaction submission: $updateTuple")
   }
 }
+
