@@ -1,4 +1,4 @@
-// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.api
@@ -11,7 +11,7 @@ import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueSubmission}
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.{Ref, Time}
 import com.digitalasset.daml_lf_dev.DamlLf
-import com.digitalasset.ledger.api.health.HealthStatus
+import com.digitalasset.ledger.api.health.{HealthStatus, ReportsHealth}
 
 import scala.compat.java8.FutureConverters
 import scala.concurrent.ExecutionContext
@@ -19,6 +19,7 @@ import scala.concurrent.ExecutionContext
 class KeyValueParticipantStateWriter(writer: LedgerWriter)(
     implicit executionContext: ExecutionContext)
     extends WriteService
+    with ReportsHealth
     with AutoCloseable {
 
   override def submitTransaction(
@@ -68,7 +69,7 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter)(
     commit(submissionId, submission)
   }
 
-  override def currentHealth(): HealthStatus = writer.checkHealth()
+  override def currentHealth(): HealthStatus = writer.currentHealth()
 
   override def close(): Unit = ()
 
