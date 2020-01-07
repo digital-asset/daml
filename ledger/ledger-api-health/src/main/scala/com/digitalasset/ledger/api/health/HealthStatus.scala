@@ -9,7 +9,7 @@ sealed abstract class HealthStatus extends Product with Serializable {
   val unhealthy: HealthStatus = Unhealthy
 
   def and(other: HealthStatus): HealthStatus = (this, other) match {
-    case (Healthy, Healthy) => Healthy
+    case (_ @Healthy, _ @Healthy) => Healthy
     case _ => Unhealthy
   }
 }
