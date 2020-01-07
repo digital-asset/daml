@@ -21,9 +21,9 @@ import scala.util.Try
 case class VersionedTransaction[Nid, Cid](
     version: TransactionVersion,
     transaction: GenTransaction.WithTxValue[Nid, Cid]) {
-  def mapContractId[Cid2](f: Cid => Cid2): VersionedTransaction[Nid, Cid2] = this.copy(
-    transaction = transaction.mapContractIdAndValue(f, _.mapContractId(f))
-  )
+
+  def mapContractId[Cid2](f: Cid => Cid2): VersionedTransaction[Nid, Cid2] =
+    copy(transaction = transaction.mapContractIdAndValue(f, _.mapContractId(f)))
 
   /** Increase the `version` if appropriate for `languageVersions`.
     *
@@ -76,33 +76,29 @@ case class VersionedTransaction[Nid, Cid](
 case class GenTransaction[Nid: Ordering, Cid, +Val](
     nodes: SortedMap[Nid, GenNode[Nid, Cid, Val]],
     roots: ImmArray[Nid],
-    optUsedPackages: Option[Set[PackageId]]) {
+    optUsedPackages: Option[Set[PackageId]]
+) {
+
   import GenTransaction._
 
   def mapContractIdAndValue[Cid2, Val2](
       f: Cid => Cid2,
-      g: Val => Val2): GenTransaction[Nid, Cid2, Val2] = {
-    val nodes2: SortedMap[Nid, GenNode[Nid, Cid2, Val2]] =
-      // do NOT use `Map#mapValues`! it applies the function lazily on lookup. see #1861
-      nodes.transform { (_, value) =>
-        value.mapContractIdAndValue(f, g)
-      }
-    this.copy(nodes = nodes2)
-  }
+      g: Val => Val2
+  ): GenTransaction[Nid, Cid2, Val2] =
+    copy(
+      nodes = // do NOT use `Map#mapValues`! it applies the function lazily on lookup. see #1861
+        nodes.transform((_, value) => value.mapContractIdAndValue(f, g)))
 
   def mapContractId[Cid2](f: Cid => Cid2)(
-      implicit ev: Val <:< VersionedValue[Cid]): WithTxValue[Nid, Cid2] = {
-    def g(v: Val): VersionedValue[Cid2] = v.mapContractId(f)
-    this.mapContractIdAndValue(f, g)
-  }
+      implicit ev: Val <:< VersionedValue[Cid]
+  ): WithTxValue[Nid, Cid2] =
+    mapContractIdAndValue(f, _.mapContractId(f))
 
   /** Note: the provided function must be injective, otherwise the transaction will be corrupted. */
   def mapNodeId[Nid2: Ordering](f: Nid => Nid2): GenTransaction[Nid2, Cid, Val] =
     transaction.GenTransaction(
       roots = roots.map(f),
-      nodes = nodes.map {
-        case (nid, node) => (f(nid), node.mapNodeId(f))
-      },
+      nodes = nodes.map { case (nid, node) => (f(nid), node.mapNodeId(f)) },
       optUsedPackages = optUsedPackages
     )
 
@@ -116,7 +112,7 @@ case class GenTransaction[Nid: Ordering, Cid, +Val](
     case TopDown =>
       @tailrec
       def go(toVisit: FrontStack[Nid]): Unit = toVisit match {
-        case FrontStack() => ()
+        case FrontStack() =>
         case FrontStackCons(nodeId, toVisit) =>
           val node = nodes(nodeId)
           f(nodeId, node)
@@ -170,7 +166,7 @@ case class GenTransaction[Nid: Ordering, Cid, +Val](
     */
   def fold[A](order: TraverseOrder, z: A)(f: (A, (Nid, GenNode[Nid, Cid, Val])) => A): A = {
     var acc = z
-    foreach(order, (nodeId, node) => {
+    foreach(order, { (nodeId, node) =>
       // make sure to not tie the knot by mistake by evaluating early
       val acc2 = acc
       acc = f(acc2, (nodeId, node))
@@ -191,7 +187,7 @@ case class GenTransaction[Nid: Ordering, Cid, +Val](
 
     @tailrec
     def go(toVisit: FrontStack[(Nid, B)]): Unit = toVisit match {
-      case FrontStack() => ()
+      case FrontStack() =>
       case FrontStackCons((nodeId, pathState), toVisit) =>
         val node = nodes(nodeId)
         val (globalState1, newPathState) = op(globalState, pathState, nodeId, node)
@@ -220,7 +216,8 @@ case class GenTransaction[Nid: Ordering, Cid, +Val](
     def go(
         errors: Set[NotWellFormedError[Nid]],
         visited: Set[Nid],
-        toVisit: FrontStack[Nid]): (Set[NotWellFormedError[Nid]], Set[Nid]) = {
+        toVisit: FrontStack[Nid]
+    ): (Set[NotWellFormedError[Nid]], Set[Nid]) =
       toVisit match {
         case FrontStack() => (errors, visited)
         case FrontStackCons(nid, nids) =>
@@ -244,7 +241,6 @@ case class GenTransaction[Nid: Ordering, Cid, +Val](
               }
           }
       }
-    }
     val (errors, visited) = go(Set.empty, Set.empty, FrontStack(roots))
     val orphaned = nodes.keys.toSet.diff(visited).map(nid => NotWellFormedError(nid, OrphanedNode))
     errors ++ orphaned
@@ -268,51 +264,52 @@ case class GenTransaction[Nid: Ordering, Cid, +Val](
     * Nid is irrelevant to the content of the transaction.
     */
   final def compareForest[Nid2, Cid2, Val2](other: GenTransaction[Nid2, Cid2, Val2])(
-      compare: (GenNode[Nothing, Cid, Val], GenNode[Nothing, Cid2, Val2]) => Boolean): Boolean = {
+      compare: (GenNode[Nothing, Cid, Val], GenNode[Nothing, Cid2, Val2]) => Boolean
+  ): Boolean = {
     @tailrec
-    def go(toCompare: FrontStack[(Nid, Nid2)]): Boolean = toCompare match {
-      case FrontStack() => true
-      case FrontStackCons((nid1, nid2), rest) =>
-        val node1 = nodes(nid1)
-        val node2 = other.nodes(nid2)
-        node1 match {
-          case nf1: NodeFetch[Cid] =>
-            node2 match {
-              case nf2: NodeFetch[Cid2] => compare(nf1, nf2) && go(rest)
-              case _ => false
-            }
-          case nc1: NodeCreate[Cid, Val] =>
-            node2 match {
-              case nc2: NodeCreate[Cid2, Val2] =>
-                compare(nc1, nc2) && go(rest)
-              case _ => false
-            }
-          case ne1: NodeExercises[Nid, Cid, Val] =>
-            node2 match {
-              case ne2: NodeExercises[Nid2, Cid2, Val2] =>
-                val blankedNe1: NodeExercises[Nothing, Cid, Val] =
-                  ne1.copy(children = ImmArray.empty)
-                val blankedNe2: NodeExercises[Nothing, Cid2, Val2] =
-                  ne2.copy(children = ImmArray.empty)
-                compare(blankedNe1, blankedNe2) &&
-                ne1.children.length == ne2.children.length &&
-                go(ne1.children.zip(ne2.children) ++: rest)
-              case _ => false
-            }
-          case nl1: NodeLookupByKey[Cid, Val] =>
-            node2 match {
-              case nl2: NodeLookupByKey[Cid2, Val2] =>
-                compare(nl1, nl2) && go(rest)
-              case _ => false
-            }
-        }
-    }
+    def go(toCompare: FrontStack[(Nid, Nid2)]): Boolean =
+      toCompare match {
+        case FrontStack() => true
+        case FrontStackCons((nid1, nid2), rest) =>
+          val node1 = nodes(nid1)
+          val node2 = other.nodes(nid2)
+          node1 match {
+            case nf1: NodeFetch[Cid] =>
+              node2 match {
+                case nf2: NodeFetch[Cid2] => compare(nf1, nf2) && go(rest)
+                case _ => false
+              }
+            case nc1: NodeCreate[Cid, Val] =>
+              node2 match {
+                case nc2: NodeCreate[Cid2, Val2] =>
+                  compare(nc1, nc2) && go(rest)
+                case _ => false
+              }
+            case ne1: NodeExercises[Nid, Cid, Val] =>
+              node2 match {
+                case ne2: NodeExercises[Nid2, Cid2, Val2] =>
+                  val blankedNe1: NodeExercises[Nothing, Cid, Val] =
+                    ne1.copy(children = ImmArray.empty)
+                  val blankedNe2: NodeExercises[Nothing, Cid2, Val2] =
+                    ne2.copy(children = ImmArray.empty)
+                  compare(blankedNe1, blankedNe2) &&
+                  ne1.children.length == ne2.children.length &&
+                  go(ne1.children.zip(ne2.children) ++: rest)
+                case _ => false
+              }
+            case nl1: NodeLookupByKey[Cid, Val] =>
+              node2 match {
+                case nl2: NodeLookupByKey[Cid2, Val2] =>
+                  compare(nl1, nl2) && go(rest)
+                case _ => false
+              }
+          }
+      }
 
-    if (roots.length != other.roots.length) {
+    if (roots.length != other.roots.length)
       false
-    } else {
+    else
       go(FrontStack(roots.zip(other.roots)))
-    }
   }
 
   /** Whether `other` is the result of reinterpreting this transaction.
@@ -343,7 +340,7 @@ case class GenTransaction[Nid: Ordering, Cid, +Val](
 
   /** Visit every `Val`. */
   def foldValues[Z](z: Z)(f: (Z, Val) => Z): Z =
-    this.fold(GenTransaction.AnyOrder, z) {
+    fold(GenTransaction.AnyOrder, z) {
       case (z, (_, n)) =>
         n match {
           case c: Node.NodeCreate[_, Val] =>
@@ -429,8 +426,8 @@ object Transaction {
   /** Context when creating a sub-transaction due to an exercises. */
   final case class ContextExercises(
       ctx: ExercisesContext,
-      children: BackStack[NodeId] = BackStack.empty)
-      extends Context {
+      children: BackStack[NodeId] = BackStack.empty
+  ) extends Context {
     override def addChild(child: NodeId): ContextExercises = copy(children = children :+ child)
   }
 
@@ -548,37 +545,32 @@ object Transaction {
         sb.toString
       }
 
-    /** `True` if building the `PartialTransaction` has been aborted due
-      *  to a wrong build-step
-      */
-    def isAborted = aborted.isDefined
-
     /** Finish building a transaction; i.e., try to extract a complete
       *  transaction from the given 'PartialTransaction'. This fails if
       *  the 'PartialTransaction' is not yet complete or has been
       *  aborted.
       */
-    def finish: Either[PartialTransaction, Transaction] = context match {
-      case ContextRoot(children) if !isAborted =>
-        Right(
-          GenTransaction(
-            nodes = nodes,
-            roots = children.toImmArray,
-            None
-          ))
-      case _ =>
-        Left(this)
-    }
+    def finish: Either[PartialTransaction, Transaction] =
+      context match {
+        case ContextRoot(children) if aborted.isEmpty =>
+          Right(
+            GenTransaction(
+              nodes = nodes,
+              roots = children.toImmArray,
+              None
+            ))
+        case _ =>
+          Left(this)
+      }
 
     /** Lookup the contract associated to 'RelativeContractId'.
       * Return the contract instance and the node in which it was
       * consumed if any.
       */
     def lookupLocalContract(lcoid: RelativeContractId)
-      : Option[(ContractInst[Transaction.Value[TContractId]], Option[NodeId])] = {
-      def guard(b: Boolean): Option[Unit] = if (b) Some(()) else None
+      : Option[(ContractInst[Transaction.Value[TContractId]], Option[NodeId])] =
       for {
-        _ <- guard(0 <= lcoid.txnid.index)
+        _ <- if (0 <= lcoid.txnid.index) Some(()) else None
         node <- nodes.get(lcoid.txnid)
         coinst <- node match {
           case create: NodeCreate.WithTxValue[TContractId] =>
@@ -586,7 +578,6 @@ object Transaction {
           case _: NodeExercises[_, _, _] | _: NodeFetch[_] | _: NodeLookupByKey[_, _] => None
         }
       } yield coinst
-    }
 
     /** Extend the 'PartialTransaction' with a node for creating a
       * contract instance.
@@ -596,8 +587,8 @@ object Transaction {
         optLocation: Option[Location],
         signatories: Set[Party],
         stakeholders: Set[Party],
-        key: Option[KeyWithMaintainers[Value[TContractId]]])
-      : Either[String, (TContractId, PartialTransaction)] = {
+        key: Option[KeyWithMaintainers[Value[TContractId]]]
+    ): Either[String, (TContractId, PartialTransaction)] = {
       val serializableErrs = serializable(coinst.arg)
       if (serializableErrs.nonEmpty) {
         Left(
@@ -644,7 +635,8 @@ object Transaction {
         optLocation: Option[Location],
         actingParties: Set[Party],
         signatories: Set[Party],
-        stakeholders: Set[Party]): PartialTransaction =
+        stakeholders: Set[Party]
+    ): PartialTransaction =
       mustBeActive(
         coid,
         templateId,
@@ -663,7 +655,8 @@ object Transaction {
         templateId: TypeConName,
         optLocation: Option[Location],
         key: KeyWithMaintainers[Value.VersionedValue[Nothing]],
-        result: Option[TContractId]): PartialTransaction =
+        result: Option[TContractId]
+    ): PartialTransaction =
       insertLeafNode(_ => NodeLookupByKey(templateId, optLocation, key, result))._2
 
     def beginExercises(
@@ -720,10 +713,8 @@ object Transaction {
       }
     }
 
-    def endExercises(value: Value[TContractId]): (Option[NodeId], PartialTransaction) = {
+    def endExercises(value: Value[TContractId]): (Option[NodeId], PartialTransaction) =
       context match {
-        case ContextRoot(_) =>
-          (None, noteAbort(EndExerciseInRootContext))
         case ContextExercises(ec, children) =>
           val exerciseNode: Transaction.Node = NodeExercises(
             targetCoid = ec.targetId,
@@ -744,12 +735,12 @@ object Transaction {
           val ptx =
             copy(context = ec.parent.addChild(nodeId), nodes = nodes.updated(nodeId, exerciseNode))
           Some(nodeId) -> ptx
+        case ContextRoot(_) =>
+          None -> noteAbort(EndExerciseInRootContext)
       }
-    }
 
     /** Note that the transaction building failed due to the given error */
-    def noteAbort(err: TransactionError): PartialTransaction =
-      copy(aborted = Some(err))
+    def noteAbort(err: TransactionError): PartialTransaction = copy(aborted = Some(err))
 
     /** `True` iff the given `ContractId` has been consumed already */
     def isConsumed(coid: TContractId): Boolean = consumedBy.contains(coid)
@@ -760,11 +751,11 @@ object Transaction {
     def mustBeActive(
         coid: TContractId,
         templateId: TypeConName,
-        f: => PartialTransaction): PartialTransaction =
+        f: => PartialTransaction
+    ): PartialTransaction =
       consumedBy.get(coid) match {
         case None => f
-        case Some(nid) =>
-          noteAbort(ContractNotActive(coid, templateId, nid))
+        case Some(nid) => noteAbort(ContractNotActive(coid, templateId, nid))
       }
 
     /** Insert the given `LeafNode` under a fresh node-id, and return it */
