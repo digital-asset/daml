@@ -1,6 +1,6 @@
 On MacOS GHCi fails to load grpc fat_cbits statically due to duplicate symbols.
 diff --git a/haskell/private/path_utils.bzl b/haskell/private/path_utils.bzl
-index ece50f19..518f41b1 100644
+index 5fad361c..533615db 100644
 --- a/haskell/private/path_utils.bzl
 +++ b/haskell/private/path_utils.bzl
 @@ -112,6 +112,44 @@ def join_path_list(hs, paths):

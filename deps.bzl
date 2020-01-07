@@ -31,8 +31,8 @@ load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 
 rules_scala_version = "0f89c210ade8f4320017daf718a61de3c1ac4773"
 
-rules_haskell_version = "ce8e61c325b9bc91840c2181363ece2749de04ab"
-rules_haskell_sha256 = "92fea1ecfa252fff7184cc155073a032c08790599f37f00da23f116f9fd5af73"
+rules_haskell_version = "3be31304dac58498ed2c0d3609572c9566e70f9e"
+rules_haskell_sha256 = "564c196fc34dfef6a95079a9924170367a3920b85c994427582f06360df132f2"
 rules_nixpkgs_version = "33c50ba64c11dddb95823d12f6b1324083cc5c43"
 rules_nixpkgs_sha256 = "91fedd5151bbd9ef89efc39e2172921bd7036c68cff54712a5df8ddf62bd6922"
 
