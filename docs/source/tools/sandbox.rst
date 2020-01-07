@@ -74,6 +74,11 @@ use one of the following command line options:
   Both PEM-encoded certificates (text files starting with ``-----BEGIN CERTIFICATE-----``)
   and DER-encoded certicates (binary files) are supported.
 
+- ``--auth-jwt-ec-crt=<filename>``.
+  The sandbox will expect all tokens to be signed with ECDSA512 with the public key loaded from the given X.509 certificate file.
+  Both PEM-encoded certificates (text files starting with ``-----BEGIN CERTIFICATE-----``)
+  and DER-encoded certicates (binary files) are supported.
+
 - ``--auth-jwt-rs256-jwks=<url>``.
   The sandbox will expect all tokens to be signed with RSA256 with the public key loaded from the given `JWKS <https://tools.ietf.org/html/rfc7517>`__ URL.
 
@@ -112,10 +117,14 @@ where
 
 The ``public`` claim is implicitly held by anyone bearing a valid JWT (even without being an admin or being able to act or read on behalf of any party).
 
-Generating tokens
-=================
+Generating JWT tokens
+=====================
 
 To generate tokens for testing purposes, use the `jtw.io <https://jwt.io/>`__ web site.
+
+
+Generating RSA keys
+===================
 
 To generate RSA keys for testing purposes, use the following command
 
@@ -127,6 +136,21 @@ which generates the following files:
 
 - ``sandbox.key``: the private key in PEM/DER/PKCS#1 format
 - ``sandbox.crt``: a self-signed certificate containing the public key, in PEM/DER/X.509 Certificate format
+
+Generating EC keys
+==================
+
+To generate EC (elliptic curve) keys for testing purposes, use the following command
+
+.. code-block:: none
+
+  openssl req -x509 -nodes -days 3650 -newkey ec:<(openssl ecparam -name prime256v1) -keyout ecdsa.key -out ecdsa.crt
+
+which generates the following files:
+
+- ``ecdsa.key``: the private key in PEM/DER/PKCS#1 format
+- ``ecdsa.crt``: a self-signed certificate containing the public key, in PEM/DER/X.509 Certificate format
+
 
 Command-line reference
 **********************
