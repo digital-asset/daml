@@ -21,7 +21,7 @@ import qualified Data.Set as Set
 data TransformOptions = TransformOptions
     { to_includeModules :: Maybe [String]
     , to_excludeModules :: Maybe [String]
-    , to_excludeInterfaces :: Set.Set String
+    , to_excludeInstances :: Set.Set String
     , to_dataOnly :: Bool -- ^ do not generate docs for functions and classes
     , to_ignoreAnnotations :: Bool -- ^ ignore MOVE and HIDE annotations
     , to_omitEmpty :: Bool -- ^ omit all items that do not have documentation
@@ -31,7 +31,7 @@ defaultTransformOptions :: TransformOptions
 defaultTransformOptions = TransformOptions
     { to_includeModules = Nothing
     , to_excludeModules = Nothing
-    , to_excludeInterfaces = Set.empty
+    , to_excludeInstances = Set.empty
     , to_dataOnly = False
     , to_ignoreAnnotations = False
     , to_omitEmpty = False
@@ -58,7 +58,7 @@ filterModule TransformOptions{..} m = includeModuleFilter && excludeModuleFilter
 filterInstance :: TransformOptions -> InstanceDoc -> Bool
 filterInstance TransformOptions{..} InstanceDoc{..} =
     let nameM = T.unpack . unTypename <$> getTypeAppName id_type
-    in maybe True (not . (`Set.member` to_excludeInterfaces)) nameM
+    in maybe True (not . (`Set.member` to_excludeInstances)) nameM
 
 applyTransform :: TransformOptions -> [ModuleDoc] -> [ModuleDoc]
 applyTransform opts@TransformOptions{..}
