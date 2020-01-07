@@ -39,6 +39,14 @@ jobs:
         condition: eq(variables['Build.Reason'], 'PullRequest')
         env:
           PR: $(System.PullRequest.PullRequestNumber)
+
+  - job: check_changelog_entry
+    pool:
+      name: 'linux-pool'
+    steps:
+      - checkout: self
+      - bash: ci/check-changelog.sh
+
   - job: Linux
     timeoutInMinutes: 360
     pool:
