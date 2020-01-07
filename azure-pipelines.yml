@@ -18,6 +18,7 @@ pr:
 
 jobs:
   - job: check_standard_change_label
+    condition: eq(variables['Build.Reason'], 'PullRequest')
     pool:
       name: 'linux-pool'
     steps:
@@ -36,11 +37,11 @@ jobs:
           if has_changed_infra_folder; then
               fail_if_missing_std_change_label
           fi
-        condition: eq(variables['Build.Reason'], 'PullRequest')
         env:
           PR: $(System.PullRequest.PullRequestNumber)
 
   - job: check_changelog_entry
+    condition: eq(variables['Build.Reason'], 'PullRequest')
     pool:
       name: 'linux-pool'
     steps:
