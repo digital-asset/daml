@@ -221,7 +221,8 @@ object KeyValueConsumption {
       BaseEncoding.base16.encode(entryId.toByteArray)
     )
     Update.TransactionAccepted(
-      optSubmitterInfo = Some(parseSubmitterInfo(txEntry.getSubmitterInfo)),
+      optSubmitterInfo =
+        if (txEntry.hasSubmitterInfo) Some(parseSubmitterInfo(txEntry.getSubmitterInfo)) else None,
       transactionMeta = TransactionMeta(
         ledgerEffectiveTime = parseTimestamp(txEntry.getLedgerEffectiveTime),
         workflowId = Some(txEntry.getWorkflowId)
