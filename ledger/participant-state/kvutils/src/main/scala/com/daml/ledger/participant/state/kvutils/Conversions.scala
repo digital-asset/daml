@@ -25,10 +25,10 @@ import com.google.protobuf.{ByteString, Empty}
 
 import scala.util.Try
 
-/** Internal utilities for converting between protobuf messages and our scala
+/** Utilities for converting between protobuf messages and our scala
   * data structures.
   */
-private[kvutils] object Conversions {
+object Conversions {
 
   val configurationStateKey: DamlStateKey =
     DamlStateKey.newBuilder.setConfiguration(Empty.getDefaultInstance).build
