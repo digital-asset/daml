@@ -3,17 +3,17 @@
 
 package com.digitalasset.ledger.api.health
 
-sealed abstract class HealthStatus extends Product with Serializable
+sealed abstract class HealthStatus extends Product with Serializable {
+  def and(other: HealthStatus): HealthStatus = (this, other) match {
+    case (Healthy, Healthy) => Healthy
+    case _ => Unhealthy
+  }
+}
 
 object HealthStatus {
   val healthy: HealthStatus = Healthy
 
   val unhealthy: HealthStatus = Unhealthy
-
-  def and(other: HealthStatus): HealthStatus = (this, other) match {
-    case (_ @Healthy, _ @Healthy) => Healthy
-    case _ => Unhealthy
-  }
 }
 
 case object Healthy extends HealthStatus
