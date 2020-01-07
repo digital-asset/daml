@@ -110,6 +110,7 @@ object ReferenceServer extends App {
         config.participantId,
         config.archiveFiles,
         config.port,
+        config.address,
         config.jdbcUrl,
         config.tlsConfig,
         config.timeProvider,
