@@ -11,7 +11,7 @@ export type CreateEvent<T extends object> = {
   observers: List<Party>;
   agreementText: Text;
   key: unknown;
-  argument: T;
+  payload: T;
   witnessParties: List<Party>;
   workflowId?: string;
 }
@@ -39,7 +39,7 @@ const decodeCreateEvent = <T extends object>(template: Template<T>): jtv.Decoder
   observers: List(Party).decoder(),
   agreementText: Text.decoder(),
   key: jtv.unknownJson(),
-  argument: template.decoder(),
+  payload: template.decoder(),
   witnessParties: List(Party).decoder(),
   workflowId: jtv.optional(jtv.string()),
 });

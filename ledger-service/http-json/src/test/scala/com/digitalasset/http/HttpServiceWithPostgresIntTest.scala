@@ -67,7 +67,7 @@ class HttpServiceWithPostgresIntTest
   }
 
   private def getField(k: String)(a: domain.ActiveContract[JsValue]): JsValue =
-    a.argument.asJsObject().getFields(k) match {
+    a.payload.asJsObject().getFields(k) match {
       case Seq(x) => x
       case xs @ _ => fail(s"Expected exactly one value, got: $xs")
     }

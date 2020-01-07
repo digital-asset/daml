@@ -146,7 +146,7 @@ abstract class AbstractHttpServiceIntegrationTest
       encoder
     ).map { acl: List[domain.ActiveContract[JsValue]] =>
       acl.size shouldBe 2
-      acl.map(a => objectField(a.argument, "currency")) shouldBe List.fill(2)(Some(JsString("EUR")))
+      acl.map(a => objectField(a.payload, "currency")) shouldBe List.fill(2)(Some(JsString("EUR")))
     }
   }
 
@@ -177,7 +177,7 @@ abstract class AbstractHttpServiceIntegrationTest
                 acl1 shouldBe acl2
                 inside(acl1) {
                   case List(ac) =>
-                    objectField(ac.argument, "amount") shouldBe Some(JsString("111.11"))
+                    objectField(ac.payload, "amount") shouldBe Some(JsString("111.11"))
                 }
             }
           }
@@ -192,8 +192,8 @@ abstract class AbstractHttpServiceIntegrationTest
       uri,
       encoder).map { acl: List[domain.ActiveContract[JsValue]] =>
       acl.size shouldBe 1
-      acl.map(a => objectField(a.argument, "currency")) shouldBe List(Some(JsString("EUR")))
-      acl.map(a => objectField(a.argument, "amount")) shouldBe List(Some(JsString("111.11")))
+      acl.map(a => objectField(a.payload, "currency")) shouldBe List(Some(JsString("EUR")))
+      acl.map(a => objectField(a.payload, "amount")) shouldBe List(Some(JsString("111.11")))
     }
   }
 
@@ -419,7 +419,7 @@ abstract class AbstractHttpServiceIntegrationTest
     val active: domain.ActiveContract[v.Value] =
       decoder.decodeUnderlyingValues(actual).valueOr(e => fail(e.shows))
 
-    inside(active.argument.sum.record.map(_.fields)) {
+    inside(active.payload.sum.record.map(_.fields)) {
       case Some(
           Seq(
             v.RecordField("iou", Some(contractRecord)),
@@ -440,7 +440,7 @@ abstract class AbstractHttpServiceIntegrationTest
       case \/-(activeContract) =>
         val expectedArgument: JsValue =
           encoder.encodeUnderlyingRecord(command).map(_.argument).getOrElse(fail)
-        (activeContract.argument: JsValue) shouldBe expectedArgument
+        (activeContract.payload: JsValue) shouldBe expectedArgument
     }
   }
 
