@@ -19,6 +19,8 @@ import java.util.ArrayList
 import com.digitalasset.daml.lf.CompiledPackages
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 
+import scala.util.control.NoStackTrace
+
 object Speedy {
 
   /** The speedy CEK machine. */
@@ -568,9 +570,6 @@ object Speedy {
   }
 
   /** Internal exception thrown when a continuation result needs to be returned. */
-  final case class SpeedyHungry(result: SResult) extends RuntimeException {
-    lazy val message: String = result.toString
-    override def getMessage: String = message
-  }
+  final case class SpeedyHungry(result: SResult) extends RuntimeException with NoStackTrace
 
 }
