@@ -63,17 +63,28 @@ object HMAC256Verifier extends StrictLogging {
 // ECDA512 validator factory
 object ECDA512Verifier extends StrictLogging {
   def apply(keyProvider: ECDSAKeyProvider): Error \/ JwtVerifier =
-    \/.fromTryCatchNonFatal{
+    \/.fromTryCatchNonFatal {
       val algorithm = Algorithm.ECDSA512(keyProvider)
       val verifier = JWT.require(algorithm).build()
       new JwtVerifier(verifier)
     }.leftMap(e => Error('ECDA512, e.getMessage))
   def apply(publicKey: ECPublicKey): Error \/ JwtVerifier =
-    \/.fromTryCatchNonFatal{
+    \/.fromTryCatchNonFatal {
       val algorithm = Algorithm.ECDSA512(publicKey, null)
       val verifier = JWT.require(algorithm).build()
       new JwtVerifier(verifier)
     }.leftMap(e => Error('ECDA512, e.getMessage))
+
+  def fromCrtFile(path: String): Error \/ JwtVerifier = {
+    for {
+      key <- \/.fromEither(
+        KeyUtils
+          .readECPublicKeyFromCrt(new File(path))
+          .toEither)
+        .leftMap(e => Error('fromCrtFile, e.getMessage))
+      verifier <- ECDA512Verifier(key)
+    } yield verifier
+  }
 }
 
 // RSA256 validator factory
