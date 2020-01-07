@@ -262,6 +262,7 @@ genrule(
             --output=$(OUTS) \
             --input-format=json \
             --format=Hoogle \
+            --exclude-instances=HasField \
             --template=$(location :daml-base-hoogle-template) \
             $(location :daml-stdlib.json) $(location :daml-prim.json)
     """,
@@ -283,6 +284,7 @@ genrule(
             --output=$(OUTS) \
             --input-format=json \
             --format=Rst \
+            --exclude-instances=HasField \
             --template=$(location :daml-base-rst-template) \
             $(location :daml-stdlib.json) $(location :daml-prim.json)
     """,
