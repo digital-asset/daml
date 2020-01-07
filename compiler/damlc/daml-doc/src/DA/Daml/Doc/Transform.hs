@@ -37,8 +37,8 @@ defaultTransformOptions = TransformOptions
     , to_omitEmpty = False
     }
 
-filterModule :: TransformOptions -> ModuleDoc -> Bool
-filterModule TransformOptions{..} m = includeModuleFilter && excludeModuleFilter
+keepModule :: TransformOptions -> ModuleDoc -> Bool
+keepModule TransformOptions{..} m = includeModuleFilter && excludeModuleFilter
   where
     includeModuleFilter :: Bool
     includeModuleFilter = maybe True moduleMatchesAny to_includeModules
@@ -55,10 +55,10 @@ filterModule TransformOptions{..} m = includeModuleFilter && excludeModuleFilter
     name :: String
     name = withSlashes . T.unpack . unModulename . md_name $ m
 
-filterInstance :: TransformOptions -> InstanceDoc -> Bool
-filterInstance TransformOptions{..} InstanceDoc{..} =
+keepInstance :: TransformOptions -> InstanceDoc -> Bool
+keepInstance TransformOptions{..} InstanceDoc{..} =
     let nameM = T.unpack . unTypename <$> getTypeAppName id_type
-    in maybe True (not . (`Set.member` to_excludeInstances)) nameM
+    in maybe True (`Set.notMember` to_excludeInstances) nameM
 
 applyTransform :: TransformOptions -> [ModuleDoc] -> [ModuleDoc]
 applyTransform opts@TransformOptions{..}
@@ -66,7 +66,7 @@ applyTransform opts@TransformOptions{..}
     . (if to_omitEmpty then mapMaybe dropEmptyDocs else id)
     . (if to_ignoreAnnotations then id else applyAnnotations)
     . (if to_dataOnly then map pruneNonData else id)
-    . filter (filterModule opts)
+    . filter (keepModule opts)
   where
     -- When --data-only is chosen, remove all non-data documentation. This
     -- includes functions, classes, and instances of all data types (but not
@@ -156,7 +156,7 @@ distributeInstanceDocs opts docs =
     getModuleInstanceMap ModuleDoc{..}
         = Map.unionsWith Set.union
         . map getInstanceInstanceMap
-        . filter (filterInstance opts)
+        . filter (keepInstance opts)
         $ md_instances
 
     getInstanceInstanceMap :: InstanceDoc -> InstanceMap
