@@ -1,0 +1,33 @@
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+daml 1.2
+-- | MOVE DA.Date
+module DA.Date.Types
+  ( DayOfWeek(..)
+  , Month(..)
+  ) where
+
+data DayOfWeek
+    = Monday
+    | Tuesday
+    | Wednesday
+    | Thursday
+    | Friday
+    | Saturday
+    | Sunday
+
+-- | The `Month` type represents a month in the Gregorian calendar.
+data Month
+    = Jan
+    | Feb
+    | Mar
+    | Apr
+    | May
+    | Jun
+    | Jul
+    | Aug
+    | Sep
+    | Oct
+    | Nov
+    | Dec
