@@ -536,6 +536,25 @@ abstract class AbstractHttpServiceIntegrationTest
     }: Future[Assertion]
   }
 
+  "contracts/lookup returns {status:200, result:null} when contract is not found" in withHttpService {
+    (uri, _, _) =>
+      val owner = domain.Party("Alice")
+      val accountNumber = "abc123"
+      val locator = domain.EnrichedContractKey(
+        domain.TemplateId(None, "Account", "Account"),
+        JsArray(JsString(owner.unwrap), JsString(accountNumber))
+      )
+      postContractsLookup(locator, uri.withPath(Uri.Path("/contracts/lookup"))).flatMap {
+        case (status, output) =>
+          status shouldBe StatusCodes.OK
+          assertStatus(output, StatusCodes.OK)
+          output
+            .asJsObject(s"expected JsObject, got: $output")
+            .fields
+            .get("result") shouldBe Some(JsNull)
+      }: Future[Assertion]
+  }
+
   "contracts/lookup by contractKey" in withHttpService { (uri, encoder, decoder) =>
     val owner = domain.Party("Alice")
     val accountNumber = "abc123"
@@ -803,9 +822,8 @@ abstract class AbstractHttpServiceIntegrationTest
 
     output
       .asJsObject(errorMsg)
-      .getFields("result")
-      .headOption
-      .getOrElse(fail(errorMsg))
+      .fields
+      .getOrElse("result", fail(errorMsg))
       .asJsObject(errorMsg)
   }
 
