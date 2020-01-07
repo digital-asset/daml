@@ -16,6 +16,7 @@ import Development.IDE.Types.Options
 import Options.Applicative
 import Data.List.Extra
 import qualified Data.Text as T
+import qualified Data.Set as Set
 
 ------------------------------------------------------------
 
@@ -37,6 +38,7 @@ documentation numProcessors = Damldoc
     <*> optNoAnnot
     <*> optInclude
     <*> optExclude
+    <*> optExcludeInstances
     <*> optCombine
     <*> optExtractOptions
     <*> argMainFiles
@@ -128,6 +130,14 @@ documentation numProcessors = Damldoc
                          "Example: `DA.**.Internal'. Default: none.")
                  <> value []
 
+    optExcludeInstances :: Parser (Set.Set String)
+    optExcludeInstances = fmap Set.fromList . option (stringsSepBy ',') $
+        metavar "NAME[,NAME...]"
+        <> long "exclude-instances"
+        <> help ("Exclude instances from docs by class name. " <>
+                "Example: `HasField'. Default: none.")
+        <> value []
+
     optCombine :: Parser Bool
     optCombine = switch $
         long "combine"
@@ -180,6 +190,7 @@ data CmdArgs = Damldoc
     , cNoAnnot   :: Bool
     , cIncludeMods :: [String]
     , cExcludeMods :: [String]
+    , cExcludeInstances :: Set.Set String
     , cCombine :: Bool
     , cExtractOptions :: ExtractOptions
     , cMainFiles :: [FilePath]
@@ -204,9 +215,11 @@ exec Damldoc{..} = do
         }
 
   where
-    transformOptions =
-        [ IncludeModules cIncludeMods | not $ null cIncludeMods] <>
-        [ ExcludeModules cExcludeMods | not $ null cExcludeMods] <>
-        [ DataOnly | cDataOnly ] <>
-        [ IgnoreAnnotations | cNoAnnot ] <>
-        [ OmitEmpty | cOmitEmpty]
+    transformOptions = TransformOptions
+        { to_includeModules = if null cIncludeMods then Nothing else Just cIncludeMods
+        , to_excludeModules = if null cExcludeMods then Nothing else Just cExcludeMods
+        , to_excludeInterfaces = cExcludeInstances
+        , to_dataOnly = cDataOnly
+        , to_ignoreAnnotations = cNoAnnot
+        , to_omitEmpty = cOmitEmpty
+        }

@@ -2,9 +2,8 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.Doc.Transform
-  ( DocOption(..)
-  , DocOptions(..)
-  , compileDocOptions
+  ( TransformOptions(..)
+  , defaultTransformOptions
   , applyTransform
   ) where
 
@@ -19,43 +18,33 @@ import qualified Data.Text as T
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
--- | Documentation filtering options, applied in the order given here
-data DocOption =
-  IncludeModules [String]    -- ^ only include modules whose name matches one of the given file patterns
-  | ExcludeModules [String]  -- ^ exclude modules whose name matches one of the given file patterns
-  | ExcludeInterfaces [String]
-  | DataOnly            -- ^ do not generate doc.s for functions and classes
-  | IgnoreAnnotations   -- ^ move or hide items based on annotations in the source
-  | OmitEmpty           -- ^ omit all items that do not have documentation
-  deriving (Eq, Ord, Show, Read)
-
-getIncludeModules :: DocOption -> Maybe [String]
-getIncludeModules = \case
-    IncludeModules xs -> Just xs
-    _ -> Nothing
-
-getExcludeModules :: DocOption -> Maybe [String]
-getExcludeModules = \case
-    ExcludeModules xs -> Just xs
-    _ -> Nothing
-
-data DocOptions = DocOptions
-    { doIncludeModules :: Maybe [String]
-    , doExcludeModules :: Maybe [String]
-    , doExcludeInterfaces :: Set.Set String
-    , doDataOnly :: Bool -- ^ do not generate docs for functions and classes
-    , doIgnoreAnnotations :: Bool -- ^ ignore MOVE and HIDE annotations
-    , doOmitEmpty :: Bool -- ^ omit all items that do not have documentation
+data TransformOptions = TransformOptions
+    { to_includeModules :: Maybe [String]
+    , to_excludeModules :: Maybe [String]
+    , to_excludeInterfaces :: Set.Set String
+    , to_dataOnly :: Bool -- ^ do not generate docs for functions and classes
+    , to_ignoreAnnotations :: Bool -- ^ ignore MOVE and HIDE annotations
+    , to_omitEmpty :: Bool -- ^ omit all items that do not have documentation
     }
 
-doFilterModules :: DocOptions -> ModuleDoc -> Bool
-doFilterModules DocOptions{..} m = includeModuleFilter && excludeModuleFilter
+defaultTransformOptions :: TransformOptions
+defaultTransformOptions = TransformOptions
+    { to_includeModules = Nothing
+    , to_excludeModules = Nothing
+    , to_excludeInterfaces = Set.empty
+    , to_dataOnly = False
+    , to_ignoreAnnotations = False
+    , to_omitEmpty = False
+    }
+
+filterModule :: TransformOptions -> ModuleDoc -> Bool
+filterModule TransformOptions{..} m = includeModuleFilter && excludeModuleFilter
   where
     includeModuleFilter :: Bool
-    includeModuleFilter = maybe True moduleMatchesAny doIncludeModules
+    includeModuleFilter = maybe True moduleMatchesAny to_includeModules
 
     excludeModuleFilter :: Bool
-    excludeModuleFilter = maybe True (not . moduleMatchesAny) doExcludeModules
+    excludeModuleFilter = maybe True (not . moduleMatchesAny) to_excludeModules
 
     moduleMatchesAny :: [String] -> Bool
     moduleMatchesAny ps = any (?== name) (map withSlashes ps)
@@ -66,31 +55,18 @@ doFilterModules DocOptions{..} m = includeModuleFilter && excludeModuleFilter
     name :: String
     name = withSlashes . T.unpack . unModulename . md_name $ m
 
-doFilterInstance :: DocOptions -> InstanceDoc -> Bool
-doFilterInstance DocOptions{..} InstanceDoc{..} =
+filterInstance :: TransformOptions -> InstanceDoc -> Bool
+filterInstance TransformOptions{..} InstanceDoc{..} =
     let nameM = T.unpack . unTypename <$> getTypeAppName id_type
-    in maybe True (not . (`Set.member` doExcludeInterfaces)) nameM
+    in maybe True (not . (`Set.member` to_excludeInterfaces)) nameM
 
-compileDocOptions :: [DocOption] -> DocOptions
-compileDocOptions ds = DocOptions
-    { doIncludeModules = foldMap getIncludeModules ds
-    , doExcludeModules = foldMap getExcludeModules ds
-    , doExcludeInterfaces = Set.empty
-    , doDataOnly = DataOnly `elem` ds
-    , doIgnoreAnnotations = IgnoreAnnotations `elem` ds
-    , doOmitEmpty = OmitEmpty `elem` ds
-    }
-
-applyTransform :: [DocOption] -> [ModuleDoc] -> [ModuleDoc]
-applyTransform = applyTransform' . compileDocOptions
-
-applyTransform' :: DocOptions -> [ModuleDoc] -> [ModuleDoc]
-applyTransform' opts@DocOptions{..}
+applyTransform :: TransformOptions -> [ModuleDoc] -> [ModuleDoc]
+applyTransform opts@TransformOptions{..}
     = distributeInstanceDocs opts
-    . (if doOmitEmpty then mapMaybe dropEmptyDocs else id)
-    . (if doIgnoreAnnotations then id else applyAnnotations)
-    . (if doDataOnly then map pruneNonData else id)
-    . filter (doFilterModules opts)
+    . (if to_omitEmpty then mapMaybe dropEmptyDocs else id)
+    . (if to_ignoreAnnotations then id else applyAnnotations)
+    . (if to_dataOnly then map pruneNonData else id)
+    . filter (filterModule opts)
   where
     -- When --data-only is chosen, remove all non-data documentation. This
     -- includes functions, classes, and instances of all data types (but not
@@ -165,7 +141,7 @@ instance IsEmpty FunctionDoc
 type InstanceMap = Map.Map Anchor (Set.Set InstanceDoc)
 
 -- | Add relevant instances to every type and class.
-distributeInstanceDocs :: DocOptions -> [ModuleDoc] -> [ModuleDoc]
+distributeInstanceDocs :: TransformOptions -> [ModuleDoc] -> [ModuleDoc]
 distributeInstanceDocs opts docs =
     let instanceMap = getInstanceMap docs
     in map (addInstances instanceMap) docs
@@ -180,7 +156,7 @@ distributeInstanceDocs opts docs =
     getModuleInstanceMap ModuleDoc{..}
         = Map.unionsWith Set.union
         . map getInstanceInstanceMap
-        . filter (doFilterInstance opts)
+        . filter (filterInstance opts)
         $ md_instances
 
     getInstanceInstanceMap :: InstanceDoc -> InstanceMap
