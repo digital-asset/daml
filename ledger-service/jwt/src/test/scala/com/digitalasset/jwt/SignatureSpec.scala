@@ -133,7 +133,6 @@ class SignatureSpec extends WordSpec with Matchers {
             .sign(jwt, privateKey)
             .leftMap(e => fail(e.shows))
 
-
           verifier <- ECDA512Verifier(publicKey)
             .leftMap(e => fail(e.shows))
           verifiedJwt <- verifier

@@ -43,9 +43,9 @@ object KeyUtils {
   }
 
   /**
-   * Reads an EC public key from a X509 encoded file.
-   * These usually have the .crt file extension.
-   */
+    * Reads an EC public key from a X509 encoded file.
+    * These usually have the .crt file extension.
+    */
   def readECPublicKeyFromCrt(file: File): Try[ECPublicKey] = {
     bracket(Try(new FileInputStream(file)))(is => Try(is.close())).flatMap { istream =>
       Try(
