@@ -28,6 +28,9 @@ mkVal = ExprValName
 mkWorkerName :: T.Text -> ExprValName
 mkWorkerName name = ExprValName ("$W" <> name)
 
+mkSelectorName :: T.Text -> T.Text -> ExprValName
+mkSelectorName ty sel = ExprValName ("$sel:" <> sel <> ":" <> ty)
+
 mkTypeVar :: T.Text -> TypeVarName
 mkTypeVar = TypeVarName
 

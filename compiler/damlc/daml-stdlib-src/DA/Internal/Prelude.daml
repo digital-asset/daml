@@ -10,6 +10,7 @@ daml 1.2
 module DA.Internal.Prelude
   ( module DA.Internal.Prelude
   , module GHC
+  , Down(..)
   ) where
 
 import Control.Exception.Base ()
@@ -29,6 +30,8 @@ import GHC.Types as GHC (Bool (..), Int, Ordering (..), Text, Decimal, DamlEnum,
   , Numeric
 #endif
   )
+
+import DA.Internal.Down
 
 infixr 0 $
 -- | Take a function from `a` to `b` and a value of type `a`, and apply the
@@ -599,10 +602,9 @@ filter p = foldr (\x xs -> if p x then x :: xs else xs) []
 fixedpoint : ((a -> b) -> a -> b) -> a -> b
 fixedpoint g v = g ( fixedpoint g ) v
 
--- | The `Down` type can be used for reversing sorting order.
---   For example, `sortOn (\x -> Down x.field)` would sort by descending `field`.
-newtype Down a = Down a
-    deriving (Eq, Show, Functor)
+deriving instance Eq a => Eq (Down a)
+deriving instance Show a => Show (Down a)
+deriving instance Functor Down
 
 instance Ord a => Ord (Down a) where
     compare (Down x) (Down y) = compare y x

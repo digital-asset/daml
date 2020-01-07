@@ -3,6 +3,7 @@
 
 module GenerateStablePackage (main) where
 
+import Data.Bifunctor
 import qualified Data.ByteString as BS
 import qualified Data.NameMap as NM
 import Options.Applicative
@@ -61,6 +62,22 @@ main = do
       writePackage daInternalTemplate optOutputPath
     ModuleName ["DA", "Internal", "Any"] ->
       writePackage daInternalAny optOutputPath
+    ModuleName ["DA", "Time", "Types"] ->
+      writePackage daTimeTypes optOutputPath
+    ModuleName ["DA", "NonEmpty", "Types"] ->
+      writePackage daNonEmptyTypes optOutputPath
+    ModuleName ["DA", "Date", "Types"] ->
+      writePackage daDateTypes optOutputPath
+    ModuleName ["DA", "Semigroup", "Types"] ->
+      writePackage daSemigroupTypes optOutputPath
+    ModuleName ["DA", "Monoid", "Types"] ->
+      writePackage daMonoidTypes optOutputPath
+    ModuleName ["DA", "Logic", "Types"] ->
+      writePackage daLogicTypes optOutputPath
+    ModuleName ["DA", "Validation", "Types"] ->
+      writePackage (daValidationTypes (PackageId $ encodePackageHash daNonEmptyTypes)) optOutputPath
+    ModuleName ["DA", "Internal", "Down"] ->
+      writePackage daInternalDown optOutputPath
     _ -> fail $ "Unknown module: " <> show optModule
 
 writePackage :: Package -> FilePath -> IO ()
@@ -177,15 +194,12 @@ ghcTuple = Package version1_6 $ NM.singleton Module
     tyVar = mkTypeVar "a"
     tyVars = [(tyVar, KStar)]
     unitTyCon = mkTypeCon ["Unit"]
-    unitTyConApp = TypeConApp (Qualified PRSelf modName unitTyCon) [TVar tyVar]
-    unitTy = typeConAppToType unitTyConApp
     types = NM.fromList
       [ DefDataType Nothing unitTyCon (IsSerializable True) tyVars $
           DataRecord [(mkIndexedField 1, TVar tyVar)]
       ]
     values = NM.fromList
-      [ DefValue Nothing (mkWorkerName "Unit", mkTForalls tyVars (TVar tyVar :-> unitTy)) (HasNoPartyLiterals True) (IsTest False) $
-          mkETyLams tyVars $ mkETmLams [(mkVar "a", TVar tyVar)] (ERecCon unitTyConApp [(mkIndexedField 1, EVar $ mkVar "a")])
+      [ mkWorkerDef modName unitTyCon tyVars [(mkIndexedField 1, TVar tyVar)]
       ]
 
 daInternalTemplate :: Package
@@ -212,7 +226,7 @@ daInternalAny = Package version1_7 $ NM.singleton Module
   , moduleFeatureFlags = daml12FeatureFlags
   , moduleSynonyms = NM.empty
   , moduleDataTypes = types
-  , moduleValues = NM.fromList []
+  , moduleValues = NM.empty
   , moduleTemplates = NM.empty
   }
   where
@@ -227,3 +241,270 @@ daInternalAny = Package version1_7 $ NM.singleton Module
       , DefDataType Nothing (mkTypeCon ["AnyContractKey"]) (IsSerializable False) [] $
           DataRecord [(mkField "getAnyContractKey", TAny), (mkField "getAnyContractKeyTemplateTypeRep", TCon (Qualified PRSelf modName (mkTypeCon ["TemplateTypeRep"])))]
       ]
+
+daTimeTypes :: Package
+daTimeTypes = Package version1_7 $ NM.singleton Module
+  { moduleName = modName
+  , moduleSource = Nothing
+  , moduleFeatureFlags = daml12FeatureFlags
+  , moduleSynonyms = NM.empty
+  , moduleDataTypes = types
+  , moduleValues = values
+  , moduleTemplates = NM.empty
+  }
+  where
+    modName = mkModName ["DA", "Time", "Types"]
+    relTimeTyCon = mkTypeCon ["RelTime"]
+    types = NM.fromList
+      [ DefDataType Nothing relTimeTyCon (IsSerializable True) [] $
+          DataRecord [(usField, TInt64)]
+      ]
+    values = NM.fromList
+      [ mkSelectorDef modName relTimeTyCon [] usField TInt64
+      , mkWorkerDef modName relTimeTyCon [] [(usField, TInt64)]
+      ]
+    usField = mkField "microseconds"
+
+daNonEmptyTypes :: Package
+daNonEmptyTypes = Package version1_6 $ NM.singleton Module
+  { moduleName = modName
+  , moduleSource = Nothing
+  , moduleFeatureFlags = daml12FeatureFlags
+  , moduleSynonyms = NM.empty
+  , moduleDataTypes = types
+  , moduleValues = values
+  , moduleTemplates = NM.empty
+  }
+  where
+    modName = mkModName ["DA", "NonEmpty", "Types"]
+    hdField = mkField "hd"
+    tlField = mkField "tl"
+    tyVar = mkTypeVar "a"
+    tyVars = [(tyVar, KStar)]
+    nonEmptyTyCon = mkTypeCon ["NonEmpty"]
+    types = NM.fromList
+      [ DefDataType Nothing nonEmptyTyCon (IsSerializable True) tyVars $
+          DataRecord [(hdField, TVar tyVar), (tlField, TList (TVar tyVar))]
+      ]
+    values = NM.fromList
+      [ mkWorkerDef modName nonEmptyTyCon tyVars [(hdField, TVar tyVar), (tlField, TList (TVar tyVar))]
+      , mkSelectorDef modName nonEmptyTyCon tyVars hdField (TVar tyVar)
+      , mkSelectorDef modName nonEmptyTyCon tyVars tlField (TList (TVar tyVar))
+      ]
+
+daDateTypes :: Package
+daDateTypes = Package version1_6 $ NM.singleton Module
+  { moduleName = modName
+  , moduleSource = Nothing
+  , moduleFeatureFlags = daml12FeatureFlags
+  , moduleSynonyms = NM.empty
+  , moduleDataTypes = types
+  , moduleValues = NM.empty
+  , moduleTemplates = NM.empty
+  }
+  where
+    modName = mkModName ["DA", "Date", "Types"]
+    types = NM.fromList
+      [ DefDataType Nothing (mkTypeCon ["DayOfWeek"]) (IsSerializable True) [] $
+          DataEnum $ map mkVariantCon
+            [ "Monday"
+            , "Tuesday"
+            , "Wednesday"
+            , "Thursday"
+            , "Friday"
+            , "Saturday"
+            , "Sunday"
+            ]
+      , DefDataType Nothing (mkTypeCon ["Month"]) (IsSerializable True) [] $
+          DataEnum $ map mkVariantCon
+            [ "Jan"
+            , "Feb"
+            , "Mar"
+            , "Apr"
+            , "May"
+            , "Jun"
+            , "Jul"
+            , "Aug"
+            , "Sep"
+            , "Oct"
+            , "Nov"
+            , "Dec"
+            ]
+      ]
+
+daSemigroupTypes :: Package
+daSemigroupTypes = Package version1_6 $ NM.singleton Module
+  { moduleName = modName
+  , moduleSource = Nothing
+  , moduleFeatureFlags = daml12FeatureFlags
+  , moduleSynonyms = NM.empty
+  , moduleDataTypes = types
+  , moduleValues = values
+  , moduleTemplates = NM.empty
+  }
+  where
+    modName = mkModName ["DA", "Semigroup", "Types"]
+    unpackField = mkField "unpack"
+    minTyCon = mkTypeCon ["Min"]
+    maxTyCon = mkTypeCon ["Max"]
+    tyVar = mkTypeVar "a"
+    tyVars = [(tyVar, KStar)]
+    types = NM.fromList
+      [ DefDataType Nothing minTyCon (IsSerializable True) tyVars $ DataRecord [(unpackField, TVar tyVar)]
+      , DefDataType Nothing maxTyCon (IsSerializable True) tyVars $ DataRecord [(unpackField, TVar tyVar)]
+      ]
+    values = NM.fromList
+      [ mkWorkerDef modName minTyCon tyVars [(unpackField, TVar tyVar)]
+      , mkWorkerDef modName maxTyCon tyVars [(unpackField, TVar tyVar)]
+      ]
+
+daMonoidTypes :: Package
+daMonoidTypes = Package version1_6 $ NM.singleton Module
+  { moduleName = modName
+  , moduleSource = Nothing
+  , moduleFeatureFlags = daml12FeatureFlags
+  , moduleSynonyms = NM.empty
+  , moduleDataTypes = types
+  , moduleValues = values
+  , moduleTemplates = NM.empty
+  }
+  where
+    modName = mkModName ["DA", "Monoid", "Types"]
+    unpackField = mkField "unpack"
+    allTyCon = mkTypeCon ["All"]
+    anyTyCon = mkTypeCon ["Any"]
+    endoTyCon = mkTypeCon ["Endo"]
+    sumTyCon = mkTypeCon ["Sum"]
+    productTyCon = mkTypeCon ["Product"]
+    tyVar = mkTypeVar "a"
+    tyVars = [(tyVar, KStar)]
+    getAllField = mkField "getAll"
+    getAnyField = mkField "getAny"
+    appEndoField = mkField "appEndo"
+    types = NM.fromList
+      [ DefDataType Nothing allTyCon (IsSerializable True) [] $ DataRecord [(getAllField, TBool)]
+      , DefDataType Nothing anyTyCon (IsSerializable True) [] $ DataRecord [(getAnyField, TBool)]
+      , DefDataType Nothing endoTyCon (IsSerializable False) tyVars $ DataRecord [(appEndoField, TVar tyVar :-> TVar tyVar)]
+      , DefDataType Nothing sumTyCon (IsSerializable True) tyVars $ DataRecord [(unpackField, TVar tyVar)]
+      , DefDataType Nothing productTyCon (IsSerializable True) tyVars $ DataRecord [(unpackField, TVar tyVar)]
+      ]
+    values = NM.fromList
+      [ mkSelectorDef modName allTyCon [] getAllField TBool
+      , mkSelectorDef modName anyTyCon [] getAnyField TBool
+      , mkSelectorDef modName endoTyCon tyVars appEndoField (TVar tyVar :-> TVar tyVar)
+      , mkWorkerDef modName allTyCon [] [(getAllField, TBool)]
+      , mkWorkerDef modName anyTyCon [] [(getAnyField, TBool)]
+      , mkWorkerDef modName endoTyCon tyVars [(appEndoField, TVar tyVar :-> TVar tyVar)]
+      , mkWorkerDef modName sumTyCon tyVars [(unpackField, TVar tyVar)]
+      , mkWorkerDef modName productTyCon tyVars [(unpackField, TVar tyVar)]
+      ]
+
+daValidationTypes :: PackageId -> Package
+daValidationTypes nonEmptyPkgId = Package version1_6 $ NM.singleton Module
+  { moduleName = modName
+  , moduleSource = Nothing
+  , moduleFeatureFlags = daml12FeatureFlags
+  , moduleSynonyms = NM.empty
+  , moduleDataTypes = types
+  , moduleValues = values
+  , moduleTemplates = NM.empty
+  }
+  where
+    nonEmptyModName = mkModName ["DA", "NonEmpty", "Types"]
+    nonEmptyTCon = Qualified (PRImport nonEmptyPkgId) nonEmptyModName (mkTypeCon ["NonEmpty"])
+    modName = mkModName ["DA", "Validation", "Types"]
+    validationTyCon = mkTypeCon ["Validation"]
+    errors = mkVariantCon "Errors"
+    success = mkVariantCon "Success"
+    errsTyVar = mkTypeVar "errs"
+    tyVar = mkTypeVar "a"
+    tyVars = [(errsTyVar, KStar), (tyVar, KStar)]
+    types = NM.fromList
+      [ DefDataType Nothing validationTyCon (IsSerializable True) tyVars $ DataVariant
+          [ (errors, TApp (TCon nonEmptyTCon) (TVar errsTyVar))
+          , (success, TVar tyVar)
+          ]
+      ]
+    values = NM.fromList
+      [ mkVariantWorkerDef modName validationTyCon errors tyVars (TApp (TCon nonEmptyTCon) (TVar errsTyVar))
+      , mkVariantWorkerDef modName validationTyCon success tyVars (TVar tyVar)
+      ]
+
+daLogicTypes :: Package
+daLogicTypes = Package version1_6 $ NM.singleton Module
+  { moduleName = modName
+  , moduleSource = Nothing
+  , moduleFeatureFlags = daml12FeatureFlags
+  , moduleSynonyms = NM.empty
+  , moduleDataTypes = types
+  , moduleValues = values
+  , moduleTemplates = NM.empty
+  }
+  where
+    modName = mkModName ["DA", "Logic", "Types"]
+    formulaTyCon = mkTypeCon ["Formula"]
+    proposition = mkVariantCon "Proposition"
+    negation = mkVariantCon "Negation"
+    conjunction = mkVariantCon "Conjunction"
+    disjunction = mkVariantCon "Disjunction"
+    tyVar = mkTypeVar "a"
+    tyVars = [(tyVar, KStar)]
+    formulaTy = TApp (TCon $ Qualified PRSelf modName formulaTyCon) (TVar tyVar)
+    types = NM.fromList
+      [ DefDataType Nothing formulaTyCon (IsSerializable True) tyVars $ DataVariant
+          [ (proposition, TVar tyVar)
+          , (negation, formulaTy)
+          , (conjunction, TList formulaTy)
+          , (disjunction, TList formulaTy)
+          ]
+      ]
+    values = NM.fromList
+      [ mkVariantWorkerDef modName formulaTyCon proposition tyVars (TVar tyVar)
+      , mkVariantWorkerDef modName formulaTyCon negation tyVars formulaTy
+      , mkVariantWorkerDef modName formulaTyCon conjunction tyVars (TList formulaTy)
+      , mkVariantWorkerDef modName formulaTyCon disjunction tyVars (TList formulaTy)
+      ]
+
+daInternalDown :: Package
+daInternalDown = Package version1_6 $ NM.singleton Module
+  { moduleName = modName
+  , moduleSource = Nothing
+  , moduleFeatureFlags = daml12FeatureFlags
+  , moduleSynonyms = NM.empty
+  , moduleDataTypes = types
+  , moduleValues = values
+  , moduleTemplates = NM.empty
+  }
+  where
+    modName = mkModName ["DA", "Internal", "Down"]
+    downTyCon = mkTypeCon ["Down"]
+    tyVar = mkTypeVar "a"
+    tyVars = [(tyVar, KStar)]
+    unpackField = mkField "unpack"
+    types = NM.fromList
+      [ DefDataType Nothing downTyCon (IsSerializable True) tyVars $ DataRecord [(unpackField, TVar tyVar)]
+      ]
+    values = NM.fromList
+      [ mkWorkerDef modName downTyCon tyVars [(unpackField, TVar tyVar)]
+      ]
+
+mkSelectorDef :: ModuleName -> TypeConName -> [(TypeVarName, Kind)] -> FieldName -> Type -> DefValue
+mkSelectorDef modName tyCon tyVars fieldName fieldTy =
+    DefValue Nothing (mkSelectorName (T.intercalate "." $ unTypeConName tyCon) (unFieldName fieldName), mkTForalls tyVars (ty :-> fieldTy)) (HasNoPartyLiterals True) (IsTest False) $
+      mkETyLams tyVars $ mkETmLams [(mkVar "x", ty)] $ ERecProj tyConApp fieldName (EVar $ mkVar "x")
+  where tyConApp = TypeConApp (Qualified PRSelf modName tyCon) (map (TVar . fst) tyVars)
+        ty = typeConAppToType tyConApp
+
+mkWorkerDef :: ModuleName -> TypeConName -> [(TypeVarName, Kind)] -> [(FieldName, Type)] -> DefValue
+mkWorkerDef modName tyCon tyVars fields =
+    DefValue Nothing (mkWorkerName (T.intercalate "." $ unTypeConName tyCon), mkTForalls tyVars $ mkTFuns (map snd fields) ty) (HasNoPartyLiterals True) (IsTest False) $
+      mkETyLams tyVars $ mkETmLams (map (first (mkVar . unFieldName)) fields) $ ERecCon tyConApp (map (\(field, _) -> (field, EVar $ mkVar $ unFieldName field)) fields)
+  where tyConApp = TypeConApp (Qualified PRSelf modName tyCon) (map (TVar . fst) tyVars)
+        ty = typeConAppToType tyConApp
+
+mkVariantWorkerDef :: ModuleName -> TypeConName -> VariantConName -> [(TypeVarName, Kind)] -> Type -> DefValue
+mkVariantWorkerDef modName tyCon constr tyVars argTy =
+    DefValue Nothing (mkWorkerName (unVariantConName constr), mkTForalls tyVars $ argTy :-> ty) (HasNoPartyLiterals True) (IsTest False) $
+      mkETyLams tyVars $ mkETmLams [(mkVar "x", argTy)] $ EVariantCon tyConApp constr (EVar $ mkVar "x")
+  where tyConApp = TypeConApp (Qualified PRSelf modName tyCon) (map (TVar . fst) tyVars)
+        ty = typeConAppToType tyConApp

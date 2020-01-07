@@ -497,7 +497,18 @@ generateStablePackages lfVersion fp = do
         let dalfs =
                 map (fp </>) $
                 map ("daml-prim" </>) ["DA-Types.dalf", "GHC-Prim.dalf", "GHC-Tuple.dalf", "GHC-Types.dalf"] <>
-                map ("daml-stdlib" </>) ["DA-Internal-Any.dalf", "DA-Internal-Template.dalf"]
+                map ("daml-stdlib" </>)
+                  [ "DA-Internal-Any.dalf"
+                  , "DA-Internal-Template.dalf"
+                  , "DA-Date-Types.dalf"
+                  , "DA-NonEmpty-Types.dalf"
+                  , "DA-Time-Types.dalf"
+                  , "DA-Semigroup-Types.dalf"
+                  , "DA-Monoid-Types.dalf"
+                  , "DA-Validation-Types.dalf"
+                  , "DA-Logic-Types.dalf"
+                  , "DA-Internal-Down.dalf"
+                  ]
         forM dalfs $ \dalf -> do
             let packagePath = takeFileName $ takeDirectory dalf
             let unitId = stringToUnitId $ if packagePath == "daml-stdlib"

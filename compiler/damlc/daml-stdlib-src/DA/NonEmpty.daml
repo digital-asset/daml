@@ -12,23 +12,44 @@ daml 1.2
 -- import DA.NonEmpty (NonEmpty)
 -- import qualified DA.NonEmpty as NE
 -- ```
-module DA.NonEmpty where
+module DA.NonEmpty
+  ( NonEmpty(..)
+  , append
+  , map
+  , nonEmpty
+  , singleton
+  , toList
+  , reverse
+  , foldl1
+  , foldr1
+  , foldr
+  , foldrA
+  , foldr1A
+  , foldl
+  , foldlA
+  , foldl1A
+  ) where
 
 import Prelude hiding (reverse, foldr, foldl, one, map)
 import Prelude qualified as P
 import DA.Foldable qualified as F
+import DA.NonEmpty.Types
 import DA.Traversable qualified as T
 import DA.List qualified as L
 import DA.Action qualified as M
 
--- | `NonEmpty` is the type of non-empty lists. In other words, it is the type of lists
--- that always contain at least one element. If `x` is a non-empty list, you can obtain
--- the first element with `x.hd` and the rest of the list with `x.tl`.
-data NonEmpty a = NonEmpty
-  with
-    hd : a
-    tl : [a]
-  deriving (Show, Eq)
+deriving instance Eq a => Eq (NonEmpty a)
+deriving instance Show a => Show (NonEmpty a)
+
+-- NonEmpty is defined in a stable LF package so we need to handwrite the HasField instances here.
+
+instance DA.Internal.Record.HasField "hd" (NonEmpty a) a where
+    getField (NonEmpty x _) = x
+    setField x (NonEmpty _ xs) = NonEmpty x xs
+
+instance DA.Internal.Record.HasField "tl" (NonEmpty a) [a] where
+    getField (NonEmpty _ xs) = xs
+    setField xs (NonEmpty x _) = NonEmpty x xs
 
 instance Semigroup (NonEmpty a) where
   (<>) = append
