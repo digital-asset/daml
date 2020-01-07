@@ -17,12 +17,31 @@ import com.digitalasset.daml.lf.data.Ref.LedgerString.ordering
 import com.digitalasset.daml.lf.data.Ref.{Identifier, LedgerString, Party}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.transaction.GenTransaction
-import com.digitalasset.daml.lf.transaction.Node.{KeyWithMaintainers, NodeCreate, NodeExercises, NodeFetch}
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst, ValueRecord, ValueText, VersionedValue}
+import com.digitalasset.daml.lf.transaction.Node.{
+  KeyWithMaintainers,
+  NodeCreate,
+  NodeExercises,
+  NodeFetch,
+  NodeLookupByKey
+}
+import com.digitalasset.daml.lf.value.Value.{
+  AbsoluteContractId,
+  ContractInst,
+  ValueRecord,
+  ValueText,
+  ValueUnit,
+  VersionedValue
+}
 import com.digitalasset.daml.lf.value.ValueVersions
 import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.ledger.EventId
-import com.digitalasset.ledger.api.domain.{Filters, InclusiveFilters, LedgerId, RejectionReason, TransactionFilter}
+import com.digitalasset.ledger.api.domain.{
+  Filters,
+  InclusiveFilters,
+  LedgerId,
+  RejectionReason,
+  TransactionFilter
+}
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.participant.util.EventFilter
@@ -31,7 +50,12 @@ import com.digitalasset.platform.sandbox.persistence.PostgresAroundAll
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.ActiveContract
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao._
 import com.digitalasset.platform.sandbox.stores.ledger.sql.migration.FlywayMigrations
-import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{ContractSerializer, KeyHasher, TransactionSerializer, ValueSerializer}
+import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
+  ContractSerializer,
+  KeyHasher,
+  TransactionSerializer,
+  ValueSerializer
+}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
 import com.digitalasset.platform.sandbox.stores.ledger.{ConfigurationEntry, LedgerEntry}
 import org.scalatest.{AsyncWordSpec, Matchers, OptionValues}
@@ -89,14 +113,18 @@ class JdbcLedgerDaoSpec
     Ref.PackageId.assertFromString("packageId"),
     Ref.QualifiedName(
       Ref.ModuleName.assertFromString("moduleName"),
-      Ref.DottedName.assertFromString("someTemplate")))
+      Ref.DottedName.assertFromString("someTemplate"))
+  )
   private val someRecordId = Identifier(
     Ref.PackageId.assertFromString("packageId"),
     Ref.QualifiedName(
       Ref.ModuleName.assertFromString("moduleName"),
-      Ref.DottedName.assertFromString("someRecord")))
+      Ref.DottedName.assertFromString("someRecord"))
+  )
   private val someValueText = ValueText("some text")
-  private val someValueRecord = ValueRecord(Some(someRecordId), ImmArray(Some(Ref.Name("field")) -> someValueText))
+  private val someValueRecord = ValueRecord(
+    Some(someRecordId),
+    ImmArray(Some(Ref.Name.assertFromString("field")) -> someValueText))
   private val someContractKey = VersionedValue(ValueVersions.acceptedVersions.head, someValueText)
   private val someContractInstance = ContractInst(
     someTemplateId,
@@ -748,6 +776,330 @@ class JdbcLedgerDaoSpec
       }
     }
 
+    /** A transaction that creates the given key */
+    def txCreateContractWithKey(let: Instant, id: Long, party: Party, key: String) =
+      PersistenceEntry.Transaction(
+        LedgerEntry.Transaction(
+          Some(s"commandId$id"),
+          s"transactionId$id",
+          Some("applicationId"),
+          Some(party),
+          Some("workflowId"),
+          let,
+          let,
+          GenTransaction(
+            TreeMap(
+              (s"event$id": EventId) -> NodeCreate(
+                AbsoluteContractId(s"contractId$id"),
+                someContractInstance,
+                None,
+                Set(party),
+                Set(party),
+                Some(
+                  KeyWithMaintainers(
+                    VersionedValue(ValueVersions.acceptedVersions.head, ValueText(key)),
+                    Set(party)))
+              )),
+            ImmArray[EventId](s"event$id"),
+            None
+          ),
+          Map((s"event$id": EventId) -> Set(party))
+        ),
+        Map.empty,
+        Map.empty,
+        List.empty
+      )
+
+    /** A transaction that archives the given contract with the given key */
+    def txArchiveContract(let: Instant, id: Long, party: Party, cid: Long, key: String) =
+      PersistenceEntry.Transaction(
+        LedgerEntry.Transaction(
+          Some(s"commandId$id"),
+          s"transactionId$id",
+          Some("applicationId"),
+          Some(party),
+          Some("workflowId"),
+          let,
+          let,
+          GenTransaction(
+            TreeMap(
+              (s"event$id": EventId) -> NodeExercises(
+                targetCoid = AbsoluteContractId(s"contractId$cid"),
+                templateId = someTemplateId,
+                choiceId = Ref.ChoiceName.assertFromString("Archive"),
+                optLocation = None,
+                consuming = true,
+                actingParties = Set(party),
+                chosenValue = VersionedValue(ValueVersions.acceptedVersions.head, ValueUnit),
+                stakeholders = Set(party),
+                signatories = Set(party),
+                controllers = Set(party),
+                children = ImmArray.empty,
+                exerciseResult =
+                  Some(VersionedValue(ValueVersions.acceptedVersions.head, ValueUnit)),
+                key = Some(VersionedValue(ValueVersions.acceptedVersions.head, ValueText(key)))
+              )),
+            ImmArray[EventId](s"event$id"),
+            None
+          ),
+          Map((s"event$id": EventId) -> Set(party))
+        ),
+        Map.empty,
+        Map.empty,
+        List.empty
+      )
+
+    /** A transaction that looks up a key */
+    def txLookupByKey(let: Instant, id: Long, party: Party, key: String, result: Option[Long]) =
+      PersistenceEntry.Transaction(
+        LedgerEntry.Transaction(
+          Some(s"commandId$id"),
+          s"transactionId$id",
+          Some("applicationId"),
+          Some(party),
+          Some("workflowId"),
+          let,
+          let,
+          GenTransaction(
+            TreeMap(
+              (s"event$id": EventId) -> NodeLookupByKey(
+                someTemplateId,
+                None,
+                KeyWithMaintainers(
+                  VersionedValue(ValueVersions.acceptedVersions.head, ValueText(key)),
+                  Set(party)),
+                result.map(id => AbsoluteContractId(s"contractId$id")),
+              )),
+            ImmArray[EventId](s"event$id"),
+            None
+          ),
+          Map((s"event$id": EventId) -> Set(party))
+        ),
+        Map.empty,
+        Map.empty,
+        List.empty
+      )
+
+    /** A transaction that fetches a contract Id */
+    def txFetch(let: Instant, id: Long, party: Party, cid: Long) =
+      PersistenceEntry.Transaction(
+        LedgerEntry.Transaction(
+          Some(s"commandId$id"),
+          s"transactionId$id",
+          Some("applicationId"),
+          Some(party),
+          Some("workflowId"),
+          let,
+          let,
+          GenTransaction(
+            TreeMap(
+              (s"event$id": EventId) -> NodeFetch(
+                coid = AbsoluteContractId(s"contractId$cid"),
+                templateId = someTemplateId,
+                optLocation = None,
+                actingParties = Some(Set(party)),
+                signatories = Set(party),
+                stakeholders = Set(party),
+              )),
+            ImmArray[EventId](s"event$id"),
+            None
+          ),
+          Map((s"event$id": EventId) -> Set(party))
+        ),
+        Map.empty,
+        Map.empty,
+        List.empty
+      )
+
+    "refuse to serialize duplicate contract keys" in {
+      val let = Instant.now
+      val offset1 = nextOffset()
+      val offset2 = nextOffset()
+      val keyValue = s"key-$offset1"
+
+      // Scenario: Two concurrent commands create the same contract key.
+      // At command interpretation time, the keys do not exist yet.
+      // At serialization time, the ledger should refuse to serialize one of them.
+      for {
+        _ <- ledgerDao.storeLedgerEntry(
+          offset1,
+          offset1 + 1,
+          None,
+          txCreateContractWithKey(let, offset1, alice, keyValue)
+        )
+        _ <- ledgerDao.storeLedgerEntry(
+          offset2,
+          offset2 + 1,
+          None,
+          txCreateContractWithKey(let, offset2, alice, keyValue)
+        )
+        res1 <- ledgerDao.lookupLedgerEntryAssert(offset1)
+        res2 <- ledgerDao.lookupLedgerEntryAssert(offset2)
+      } yield {
+        res1 shouldBe a[LedgerEntry.Transaction]
+        res2 shouldBe a[LedgerEntry.Rejection]
+      }
+    }
+
+    "serialize a valid positive lookupByKey" in {
+      val let = Instant.now
+      val offset1 = nextOffset()
+      val offset2 = nextOffset()
+      val keyValue = s"key-$offset1"
+
+      for {
+        _ <- ledgerDao.storeLedgerEntry(
+          offset1,
+          offset1 + 1,
+          None,
+          txCreateContractWithKey(let, offset1, alice, keyValue)
+        )
+        _ <- ledgerDao.storeLedgerEntry(
+          offset2,
+          offset2 + 1,
+          None,
+          txLookupByKey(let, offset2, alice, keyValue, Some(offset1))
+        )
+        res1 <- ledgerDao.lookupLedgerEntryAssert(offset1)
+      } yield {
+        res1 shouldBe a[LedgerEntry.Transaction]
+      }
+    }
+
+    "refuse to serialize invalid negative lookupByKey" in {
+      val let = Instant.now
+      val offset1 = nextOffset()
+      val offset2 = nextOffset()
+      val keyValue = s"key-$offset1"
+
+      // Scenario: Two concurrent commands: one create and one lookupByKey.
+      // At command interpretation time, the lookupByKey does not find any contract.
+      // At serialization time, it should be rejected because now the key is there.
+      for {
+        _ <- ledgerDao.storeLedgerEntry(
+          offset1,
+          offset1 + 1,
+          None,
+          txCreateContractWithKey(let, offset1, alice, keyValue)
+        )
+        _ <- ledgerDao.storeLedgerEntry(
+          offset2,
+          offset2 + 1,
+          None,
+          txLookupByKey(let, offset2, alice, keyValue, None)
+        )
+        res1 <- ledgerDao.lookupLedgerEntryAssert(offset1)
+        res2 <- ledgerDao.lookupLedgerEntryAssert(offset2)
+      } yield {
+        res1 shouldBe a[LedgerEntry.Transaction]
+        res2 shouldBe a[LedgerEntry.Rejection]
+      }
+    }
+
+    "refuse to serialize invalid positive lookupByKey" in {
+      val let = Instant.now
+      val offset1 = nextOffset()
+      val offset2 = nextOffset()
+      val offset3 = nextOffset()
+      val keyValue = s"key-$offset1"
+
+      // Scenario: Two concurrent commands: one exercise and one lookupByKey.
+      // At command interpretation time, the lookupByKey finds a contract.
+      // At serialization time, it should be rejected because now the contract was archived.
+      for {
+        _ <- ledgerDao.storeLedgerEntry(
+          offset1,
+          offset1 + 1,
+          None,
+          txCreateContractWithKey(let, offset1, alice, keyValue)
+        )
+        _ <- ledgerDao.storeLedgerEntry(
+          offset2,
+          offset2 + 1,
+          None,
+          txArchiveContract(let, offset2, alice, offset1, keyValue)
+        )
+        _ <- ledgerDao.storeLedgerEntry(
+          offset3,
+          offset3 + 1,
+          None,
+          txLookupByKey(let, offset3, alice, keyValue, Some(offset1))
+        )
+        res1 <- ledgerDao.lookupLedgerEntryAssert(offset1)
+        res2 <- ledgerDao.lookupLedgerEntryAssert(offset2)
+        res3 <- ledgerDao.lookupLedgerEntryAssert(offset3)
+      } yield {
+        res1 shouldBe a[LedgerEntry.Transaction]
+        res2 shouldBe a[LedgerEntry.Transaction]
+        res3 shouldBe a[LedgerEntry.Rejection]
+      }
+    }
+
+    "serialize a valid fetch" in {
+      val let = Instant.now
+      val offset1 = nextOffset()
+      val offset2 = nextOffset()
+      val keyValue = s"key-$offset1"
+
+      for {
+        _ <- ledgerDao.storeLedgerEntry(
+          offset1,
+          offset1 + 1,
+          None,
+          txCreateContractWithKey(let, offset1, alice, keyValue)
+        )
+        _ <- ledgerDao.storeLedgerEntry(
+          offset2,
+          offset2 + 1,
+          None,
+          txFetch(let, offset2, alice, offset1)
+        )
+        res1 <- ledgerDao.lookupLedgerEntryAssert(offset1)
+        res2 <- ledgerDao.lookupLedgerEntryAssert(offset2)
+      } yield {
+        res1 shouldBe a[LedgerEntry.Transaction]
+        res2 shouldBe a[LedgerEntry.Transaction]
+      }
+    }
+
+    "refuse to serialize invalid fetch" in {
+      val let = Instant.now
+      val offset1 = nextOffset()
+      val offset2 = nextOffset()
+      val offset3 = nextOffset()
+      val keyValue = s"key-$offset1"
+
+      // Scenario: Two concurrent commands: one exercise and one fetch.
+      // At command interpretation time, the fetch finds a contract.
+      // At serialization time, it should be rejected because now the contract was archived.
+      for {
+        _ <- ledgerDao.storeLedgerEntry(
+          offset1,
+          offset1 + 1,
+          None,
+          txCreateContractWithKey(let, offset1, alice, keyValue)
+        )
+        _ <- ledgerDao.storeLedgerEntry(
+          offset2,
+          offset2 + 1,
+          None,
+          txArchiveContract(let, offset2, alice, offset1, keyValue)
+        )
+        _ <- ledgerDao.storeLedgerEntry(
+          offset3,
+          offset3 + 1,
+          None,
+          txFetch(let, offset3, alice, offset1)
+        )
+        res1 <- ledgerDao.lookupLedgerEntryAssert(offset1)
+        res2 <- ledgerDao.lookupLedgerEntryAssert(offset2)
+        res3 <- ledgerDao.lookupLedgerEntryAssert(offset3)
+      } yield {
+        res1 shouldBe a[LedgerEntry.Transaction]
+        res2 shouldBe a[LedgerEntry.Transaction]
+        res3 shouldBe a[LedgerEntry.Rejection]
+      }
+    }
   }
 
   private implicit def toParty(s: String): Ref.Party = Ref.Party.assertFromString(s)
