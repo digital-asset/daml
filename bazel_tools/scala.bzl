@@ -405,7 +405,7 @@ def _create_scaladoc_jar(**kwargs):
             generated_srcs = kwargs.get("generated_srcs", []),
         )
 
-def da_scala_library(name, **kwargs):
+def da_scala_library(name, unused_dependency_checker_mode = "error", **kwargs):
     """
     Define a Scala library.
 
@@ -415,6 +415,7 @@ def da_scala_library(name, **kwargs):
 
     [rules_scala_library_docs]: https://github.com/bazelbuild/rules_scala/blob/master/docs/scala_library.md
     """
+    kwargs["unused_dependency_checker_mode"] = unused_dependency_checker_mode
     _wrap_rule(scala_library, name, **kwargs)
     _create_scala_source_jar(name = name, **kwargs)
     _create_scaladoc_jar(name = name, **kwargs)
@@ -461,7 +462,7 @@ def da_scala_macro_library(**kwargs):
     _wrap_rule(scala_macro_library, **kwargs)
     _create_scala_source_jar(**kwargs)
 
-def da_scala_binary(name, **kwargs):
+def da_scala_binary(name, unused_dependency_checker_mode = "error", **kwargs):
     """
     Define a Scala executable.
 
@@ -471,6 +472,7 @@ def da_scala_binary(name, **kwargs):
 
     [rules_scala_docs]: https://github.com/bazelbuild/rules_scala#scala_binary
     """
+    kwargs["unused_dependency_checker_mode"] = unused_dependency_checker_mode
     _wrap_rule(scala_binary, name, **kwargs)
 
     if "tags" in kwargs:

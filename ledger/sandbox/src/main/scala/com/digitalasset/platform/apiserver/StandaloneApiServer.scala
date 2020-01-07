@@ -132,7 +132,7 @@ final class StandaloneApiServer(
             )(mat, esf),
         config.port,
         config.maxInboundMessageSize,
-        None,
+        config.address,
         loggerFactory,
         config.tlsConfig.flatMap(_.server),
         List(AuthorizationInterceptor(authService, ec)),

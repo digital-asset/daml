@@ -65,7 +65,6 @@ da_scala_binary(
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
-        "@maven//:com_typesafe_akka_akka_slf4j_2_12",
     ],
 )
 

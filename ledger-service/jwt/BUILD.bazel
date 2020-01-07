@@ -13,25 +13,25 @@ hj_scalacopts = [
     "-Xsource:2.13",
 ]
 
-jwt_deps = [
-    "@maven//:com_auth0_java_jwt",
-    "@maven//:com_auth0_jwks_rsa",
-    "@maven//:com_google_guava_guava",
-    "@maven//:ch_qos_logback_logback_classic",
-    "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
-    "@maven//:org_scalaz_scalaz_core_2_12",
-    "@maven//:org_slf4j_slf4j_api",
-    "@maven//:com_github_scopt_scopt_2_12",
-    "//daml-lf/data",
-]
-
 da_scala_library(
     name = "jwt",
     srcs = glob(["src/main/scala/**/*.scala"]),
     scalacopts = hj_scalacopts,
     tags = ["maven_coordinates=com.digitalasset.ledger-service:jwt:__VERSION__"],
     visibility = ["//visibility:public"],
-    deps = jwt_deps,
+    runtime_deps = [
+        "@maven//:ch_qos_logback_logback_classic",
+    ],
+    deps = [
+        "//daml-lf/data",
+        "@maven//:com_auth0_java_jwt",
+        "@maven//:com_auth0_jwks_rsa",
+        "@maven//:com_github_scopt_scopt_2_12",
+        "@maven//:com_google_guava_guava",
+        "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
 )
 
 da_scala_binary(
@@ -39,7 +39,20 @@ da_scala_binary(
     srcs = glob(["src/main/scala/**/*.scala"]),
     main_class = "com.digitalasset.jwt.Main",
     scalacopts = hj_scalacopts,
-    deps = [":jwt"] + jwt_deps,
+    runtime_deps = [
+        ":jwt",
+        "@maven//:ch_qos_logback_logback_classic",
+    ],
+    deps = [
+        "//daml-lf/data",
+        "@maven//:com_auth0_java_jwt",
+        "@maven//:com_auth0_jwks_rsa",
+        "@maven//:com_github_scopt_scopt_2_12",
+        "@maven//:com_google_guava_guava",
+        "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
 )
 
 da_scala_test(

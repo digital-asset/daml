@@ -4,7 +4,7 @@
 package com.digitalasset.platform.apiserver
 
 import java.io.IOException
-import java.net.{BindException, InetSocketAddress}
+import java.net.{BindException, InetSocketAddress, InetAddress}
 import java.util.UUID
 import java.util.concurrent.TimeUnit.{MILLISECONDS, SECONDS}
 
@@ -136,11 +136,12 @@ class LedgerApiServer(
       workerEventLoopGroup: EventLoopGroup,
       apiServices: ApiServices,
   ) extends ResourceOwner[Server] {
-    override def acquire()(implicit executionContext: ExecutionContext): Resource[Server] =
+    override def acquire()(implicit executionContext: ExecutionContext): Resource[Server] = {
+      val host = address.map(InetAddress.getByName).getOrElse(InetAddress.getLoopbackAddress)
       Resource(
         Future {
-          val builder = address.fold(NettyServerBuilder.forPort(desiredPort))(address =>
-            NettyServerBuilder.forAddress(new InetSocketAddress(address, desiredPort)))
+          val builder =
+            NettyServerBuilder.forAddress(new InetSocketAddress(host, desiredPort))
           builder.sslContext(sslContext.orNull)
           builder.channelType(classOf[NioServerSocketChannel])
           builder.permitKeepAliveTime(10, SECONDS)
@@ -163,6 +164,7 @@ class LedgerApiServer(
         },
         server => Future(server.shutdown().awaitTermination())
       )
+    }
   }
 
   // This is necessary because we need to signal to the ResetService that we have shut down the

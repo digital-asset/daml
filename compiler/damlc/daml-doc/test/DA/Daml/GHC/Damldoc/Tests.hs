@@ -277,7 +277,7 @@ runDamldoc testfile importPathM = do
         assertFailure $ unlines ["Parse error(s) for test file " <> testfile]
 
       Just docs -> do
-          let docs' = applyTransform [] docs
+          let docs' = applyTransform defaultTransformOptions docs
                 -- apply transforms to get instance data
               name = md_name (head docs)
                 -- first module in docs is the one we're testing,

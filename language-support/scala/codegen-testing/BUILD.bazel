@@ -22,7 +22,6 @@ da_scala_library(
     runtime_deps = [],
     deps = [
         "//language-support/scala/bindings",
-        "//ledger/ledger-api-client",
         "@maven//:org_scalacheck_scalacheck_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
         "@maven//:org_scalaz_scalaz_scalacheck_binding_2_12",
@@ -56,7 +55,6 @@ da_scala_library(
     deps = [
         ":codegen-testing",
         "//language-support/scala/bindings",
-        "//ledger/ledger-api-client",
         "@maven//:org_scalacheck_scalacheck_2_12",
         "@maven//:org_scalactic_scalactic_2_12",
         "@maven//:org_scalatest_scalatest_2_12",

@@ -15,6 +15,7 @@ import DA.Daml.Assistant.Types
 import DA.Daml.Assistant.Util
 import qualified DA.Daml.Assistant.Install.Github as Github
 import DA.Daml.Assistant.Install.Path
+import DA.Daml.Assistant.Install.BashCompletion
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Config
 import DA.Daml.Project.Util
@@ -190,6 +191,7 @@ activateDaml env@InstallEnv{..} targetPath = do
             else createSymbolicLink damlBinarySourcePath damlBinaryTargetPath
 
     updatePath options (\s -> unlessQuiet env (output s)) damlBinaryTargetDir
+    installBashCompletions options damlPath (\s -> unlessQuiet env (output s))
 
 data WalkCallbacks = WalkCallbacks
     { walkOnFile :: FilePath -> IO ()

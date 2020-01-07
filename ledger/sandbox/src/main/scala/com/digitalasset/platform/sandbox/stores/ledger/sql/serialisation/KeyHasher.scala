@@ -123,19 +123,13 @@ object KeyHasher extends KeyHasher {
     digest.update(bytes)
   }
 
-  override def hashKey(key: GlobalKey): Array[Byte] = {
-    val digest = MessageDigest.getInstance("SHA-256")
-
-    // First, write the template ID
-    putString(digest, key.templateId.packageId)
-    putString(digest, key.templateId.qualifiedName.toString())
-
-    // Note: We do not emit the value or language version, as both are
-    // implied by the template ID.
-
+  // Do not use directly. It is package visible for testing purpose.
+  private[serialisation] def putValue(
+      digest: MessageDigest,
+      value: Value[AbsoluteContractId]): MessageDigest = {
     // Then, write the value
     foldLeft[MessageDigest](
-      key.key.value,
+      value,
       digest,
       (d, token) => {
         // Append bytes:
@@ -150,11 +144,22 @@ object KeyHasher extends KeyHasher {
           case HashTokenCollectionBegin(length) => putInt(d, length)
           case HashTokenCollectionEnd() => // no-op
         }
-
-        // MessageDigest is a mutable object modified above
         d
       }
-    ).digest()
+    )
+  }
+
+  override def hashKey(key: GlobalKey): Array[Byte] = {
+    val digest = MessageDigest.getInstance("SHA-256")
+
+    // First, write the template ID
+    putString(digest, key.templateId.packageId)
+    putString(digest, key.templateId.qualifiedName.toString())
+
+    // Note: We do not emit the type as it is implied by the template ID.
+    putValue(digest, key.key.value)
+
+    digest.digest()
   }
 
 }
