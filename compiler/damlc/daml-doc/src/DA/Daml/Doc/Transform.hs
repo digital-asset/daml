@@ -3,6 +3,8 @@
 
 module DA.Daml.Doc.Transform
   ( DocOption(..)
+  , DocOptions(..)
+  , compileDocOptions
   , applyTransform
   ) where
 
@@ -21,59 +23,75 @@ import qualified Data.Set as Set
 data DocOption =
   IncludeModules [String]    -- ^ only include modules whose name matches one of the given file patterns
   | ExcludeModules [String]  -- ^ exclude modules whose name matches one of the given file patterns
+  | ExcludeInterfaces [String]
   | DataOnly            -- ^ do not generate doc.s for functions and classes
   | IgnoreAnnotations   -- ^ move or hide items based on annotations in the source
   | OmitEmpty           -- ^ omit all items that do not have documentation
   deriving (Eq, Ord, Show, Read)
 
+getIncludeModules :: DocOption -> Maybe [String]
+getIncludeModules = \case
+    IncludeModules xs -> Just xs
+    _ -> Nothing
+
+getExcludeModules :: DocOption -> Maybe [String]
+getExcludeModules = \case
+    ExcludeModules xs -> Just xs
+    _ -> Nothing
+
+data DocOptions = DocOptions
+    { doIncludeModules :: Maybe [String]
+    , doExcludeModules :: Maybe [String]
+    , doExcludeInterfaces :: Set.Set String
+    , doDataOnly :: Bool -- ^ do not generate docs for functions and classes
+    , doIgnoreAnnotations :: Bool -- ^ ignore MOVE and HIDE annotations
+    , doOmitEmpty :: Bool -- ^ omit all items that do not have documentation
+    }
+
+doFilterModules :: DocOptions -> ModuleDoc -> Bool
+doFilterModules DocOptions{..} m = includeModuleFilter && excludeModuleFilter
+  where
+    includeModuleFilter :: Bool
+    includeModuleFilter = maybe True moduleMatchesAny doIncludeModules
+
+    excludeModuleFilter :: Bool
+    excludeModuleFilter = maybe True (not . moduleMatchesAny) doExcludeModules
+
+    moduleMatchesAny :: [String] -> Bool
+    moduleMatchesAny ps = any (?== name) (map withSlashes ps)
+
+    withSlashes :: String -> String
+    withSlashes = replace "." [pathSeparator]
+
+    name :: String
+    name = withSlashes . T.unpack . unModulename . md_name $ m
+
+doFilterInstance :: DocOptions -> InstanceDoc -> Bool
+doFilterInstance DocOptions{..} InstanceDoc{..} =
+    let nameM = T.unpack . unTypename <$> getTypeAppName id_type
+    in maybe True (not . (`Set.member` doExcludeInterfaces)) nameM
+
+compileDocOptions :: [DocOption] -> DocOptions
+compileDocOptions ds = DocOptions
+    { doIncludeModules = foldMap getIncludeModules ds
+    , doExcludeModules = foldMap getExcludeModules ds
+    , doExcludeInterfaces = Set.empty
+    , doDataOnly = DataOnly `elem` ds
+    , doIgnoreAnnotations = IgnoreAnnotations `elem` ds
+    , doOmitEmpty = OmitEmpty `elem` ds
+    }
 
 applyTransform :: [DocOption] -> [ModuleDoc] -> [ModuleDoc]
-applyTransform opts = distributeInstanceDocs . maybeDoAnnotations opts'
+applyTransform = applyTransform' . compileDocOptions
+
+applyTransform' :: DocOptions -> [ModuleDoc] -> [ModuleDoc]
+applyTransform' opts@DocOptions{..}
+    = distributeInstanceDocs opts
+    . (if doOmitEmpty then mapMaybe dropEmptyDocs else id)
+    . (if doIgnoreAnnotations then id else applyAnnotations)
+    . (if doDataOnly then map pruneNonData else id)
+    . filter (doFilterModules opts)
   where
-    opts' = nubOrd $ sort opts
-
-    -- Options are processed in order, the option list is assumed to be sorted
-    -- (without duplicates).
-    processWith :: [DocOption] -> [ModuleDoc] -> [ModuleDoc]
-
-    processWith [] ms = ms
-
-    -- merge adjacent file pattern lists
-    processWith (IncludeModules rs : IncludeModules rs' : rest) ms
-      = processWith (IncludeModules (rs <> rs') : rest) ms
-    processWith (ExcludeModules rs : ExcludeModules rs' : rest) ms
-      = processWith (ExcludeModules (rs <> rs') : rest) ms
-
-    processWith (IncludeModules rs : rest) ms
-      = maybeDoAnnotations rest $ filter (moduleMatchesAny $ map withSlashes rs) ms
-    processWith (ExcludeModules rs : rest) ms
-      = maybeDoAnnotations rest $ filter (not . moduleMatchesAny (map withSlashes rs)) ms
-
-    processWith (DataOnly : rest) ms = maybeDoAnnotations rest $ map pruneNonData ms
-
-    processWith (IgnoreAnnotations : rest) ms = processWith rest ms
-
-    -- Empty items are (recursively) dropped after applying MOVE and HIDE.
-    -- If we reach OmitEmpty, it must be the single last option in the sorted list.
-    -- Guaranteed by the call with nubOrd (sort opts) above
-    processWith [OmitEmpty] ms       = mapMaybe dropEmptyDocs ms
-    processWith (OmitEmpty : rest) _ = error $ "Remainder options after OmitEmpty: "
-                                             <> show rest
-
-
-    -- Apply annotations after DataOnly to save work, unless IgnoreAnnotations
-    -- is present. Assuming sorted and deduplicated options, the
-    -- IgnoreAnnotations option must come second-last.
-    maybeDoAnnotations [] ms = applyAnnotations ms
-    maybeDoAnnotations things@(opt : rest) ms =
-      case compare opt IgnoreAnnotations of
-        LT -> processWith things ms  -- not there yet, continue processing
-        EQ -> processWith rest ms    -- found IgnoreAnnotations, so proceed
-                                     -- without applying them
-        GT -> processWith things $ applyAnnotations ms
-          -- went past it without finding IgnoreAnnotations, so apply them
-
-
     -- When --data-only is chosen, remove all non-data documentation. This
     -- includes functions, classes, and instances of all data types (but not
     -- template instances).
@@ -85,16 +103,6 @@ applyTransform opts = distributeInstanceDocs . maybeDoAnnotations opts'
                       }
     noInstances :: ADTDoc -> ADTDoc
     noInstances d = d{ ad_instances = Nothing }
-
-    -- conversions to use file pattern matcher
-
-    moduleMatchesAny :: [FilePattern] -> ModuleDoc -> Bool
-    moduleMatchesAny ps m = any (?== name) ps
-      where name = withSlashes . T.unpack . unModulename . md_name $ m
-
-    withSlashes :: String -> String
-    withSlashes = replace "." [pathSeparator]
-
 
 -- emptiness of documentation, recursing into items
 dropEmptyDocs :: ModuleDoc -> Maybe ModuleDoc
@@ -157,8 +165,8 @@ instance IsEmpty FunctionDoc
 type InstanceMap = Map.Map Anchor (Set.Set InstanceDoc)
 
 -- | Add relevant instances to every type and class.
-distributeInstanceDocs :: [ModuleDoc] -> [ModuleDoc]
-distributeInstanceDocs docs =
+distributeInstanceDocs :: DocOptions -> [ModuleDoc] -> [ModuleDoc]
+distributeInstanceDocs opts docs =
     let instanceMap = getInstanceMap docs
     in map (addInstances instanceMap) docs
 
@@ -169,8 +177,11 @@ distributeInstanceDocs docs =
         Map.unionsWith Set.union (map getModuleInstanceMap docs)
 
     getModuleInstanceMap :: ModuleDoc -> InstanceMap
-    getModuleInstanceMap ModuleDoc{..} =
-        Map.unionsWith Set.union (map getInstanceInstanceMap md_instances)
+    getModuleInstanceMap ModuleDoc{..}
+        = Map.unionsWith Set.union
+        . map getInstanceInstanceMap
+        . filter (doFilterInstance opts)
+        $ md_instances
 
     getInstanceInstanceMap :: InstanceDoc -> InstanceMap
     getInstanceInstanceMap inst = Map.fromList
