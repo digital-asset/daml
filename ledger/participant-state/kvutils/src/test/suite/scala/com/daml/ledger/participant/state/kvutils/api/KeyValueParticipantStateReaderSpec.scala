@@ -9,7 +9,9 @@ import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
   DamlLogEntryId,
-  DamlPartyAllocationEntry
+  DamlPartyAllocation,
+  DamlPartyAllocationEntry,
+  DamlStateValue
 }
 import com.daml.ledger.participant.state.kvutils.Envelope
 import com.daml.ledger.participant.state.v1.{Offset, Update}
@@ -76,6 +78,36 @@ class KeyValueParticipantStateReaderSpec
             afterFirst should have size 2
             afterLast should have size 0
         }
+    }
+
+    "throw in case of an invalid log entry received" in {
+      val anInvalidEnvelope = Array[Byte](0, 1, 2)
+      val reader = readerStreamingFrom(
+        offset = None,
+        LedgerRecord(Offset(Array(0, 0)), aLogEntryId, anInvalidEnvelope))
+      val instance = new KeyValueParticipantStateReader(reader)
+
+      offsetsFrom(instance.stateUpdates(None)).failed.map { _ =>
+        succeed
+      }
+    }
+
+    "throw in case of an envelope without a log entry received" in {
+      val aStateValue = DamlStateValue.newBuilder
+        .setParty(
+          DamlPartyAllocation.newBuilder
+            .setParticipantId("aParticipantId")
+            .setDisplayName("participant"))
+        .build
+      val anInvalidEnvelopeMessage = Envelope.enclose(aStateValue).toByteArray()
+      val reader = readerStreamingFrom(
+        offset = None,
+        LedgerRecord(Offset(Array(0, 0)), aLogEntryId, anInvalidEnvelopeMessage))
+      val instance = new KeyValueParticipantStateReader(reader)
+
+      offsetsFrom(instance.stateUpdates(None)).failed.map { _ =>
+        succeed
+      }
     }
   }
 

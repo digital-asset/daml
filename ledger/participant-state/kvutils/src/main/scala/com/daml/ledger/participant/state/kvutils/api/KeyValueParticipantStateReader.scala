@@ -21,17 +21,22 @@ class KeyValueParticipantStateReader(reader: LedgerReader)(implicit materializer
     reader
       .events(toReaderOffset(beginAfter))
       .flatMapConcat { record =>
-        val updates = Envelope.open(record.envelope) match {
-          case Right(Envelope.LogEntryMessage(logEntry)) =>
-            KeyValueConsumption
-              .logEntryToUpdate(record.entryId, logEntry)
-              .zipWithIndex
-              .map {
-                case (entry, index) =>
-                  (toReturnedOffset(index, record.offset), entry)
-              }
-          case _ => Seq.empty
-        }
+        val updates = Envelope
+          .open(record.envelope)
+          .flatMap {
+            case Envelope.LogEntryMessage(logEntry) =>
+              Right[String, Seq[(Offset, Update)]](
+                KeyValueConsumption
+                  .logEntryToUpdate(record.entryId, logEntry)
+                  .zipWithIndex
+                  .map {
+                    case (entry, index) =>
+                      (toReturnedOffset(index, record.offset), entry)
+                  })
+            case _ => Left[String, Seq[(Offset, Update)]]("Envelope does not contain a log entry")
+          }
+          .getOrElse(throw new IllegalArgumentException(
+            s"Invalid log entry received at offset ${record.offset}"))
         Source.fromIterator(() => updates.iterator)
       }
       .filter {
