@@ -76,7 +76,7 @@ final class InMemoryLedgerReaderWriter(
             stateInputs
           )
         verifyStateUpdatesAgainstPreDeclaredOutputs(damlStateUpdates, entryId, submission)
-        val stateUpdates = damlStateUpdates.toSeq.map {
+        val stateUpdates = damlStateUpdates.map {
           case (damlStateKey, value) => damlStateKey.toByteString -> value
         }
         currentState.log += LogEntry(entryId, Envelope.enclose(logEntry).toByteArray)
