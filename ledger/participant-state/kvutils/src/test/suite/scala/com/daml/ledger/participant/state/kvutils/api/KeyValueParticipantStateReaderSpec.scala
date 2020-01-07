@@ -36,8 +36,9 @@ class KeyValueParticipantStateReaderSpec
       val instance = new KeyValueParticipantStateReader(reader)
       val stream = instance.stateUpdates(Some(Offset(Array(1, 1, 0))))
 
-      offsetsFrom(stream).map {
-        _ shouldBe Seq(Offset(Array(1, 2, 0)))
+      offsetsFrom(stream).map { actual =>
+        actual should have size 1
+        actual shouldBe Seq(Offset(Array(1, 2, 0)))
       }
     }
 
@@ -50,8 +51,9 @@ class KeyValueParticipantStateReaderSpec
       val instance = new KeyValueParticipantStateReader(reader)
       val stream = instance.stateUpdates(None)
 
-      offsetsFrom(stream).map {
-        _ shouldBe Seq(Offset(Array(1, 0)), Offset(Array(2, 0)))
+      offsetsFrom(stream).map { actual =>
+        actual should have size 2
+        actual shouldBe Seq(Offset(Array(1, 0)), Offset(Array(2, 0)))
       }
     }
 
