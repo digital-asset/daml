@@ -256,7 +256,7 @@ daTimeTypes = Package version1_7 $ NM.singleton Module
     modName = mkModName ["DA", "Time", "Types"]
     relTimeTyCon = mkTypeCon ["RelTime"]
     types = NM.fromList
-      [ DefDataType Nothing relTimeTyCon (IsSerializable False) [] $
+      [ DefDataType Nothing relTimeTyCon (IsSerializable True) [] $
           DataRecord [(usField, TInt64)]
       ]
     values = NM.fromList
