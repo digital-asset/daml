@@ -70,7 +70,7 @@ final class InMemoryLedgerReaderWriter(
             engine,
             entryId,
             currentRecordTime(),
-            LedgerReader.DefaultTimeModel,
+            LedgerReader.DefaultConfiguration,
             submission,
             participantId,
             stateInputs

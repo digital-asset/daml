@@ -23,7 +23,7 @@ trait LedgerReader extends ReportsHealth with AutoCloseable {
 }
 
 object LedgerReader {
-  val DefaultTimeModel = Configuration(
+  val DefaultConfiguration = Configuration(
     generation = 0,
     timeModel = TimeModel.reasonableDefault
   )
