@@ -48,15 +48,11 @@ object domain {
       templateId: TemplateId.RequiredPkg,
       key: Option[LfV],
       payload: LfV,
-      witnessParties: Seq[Party],
       signatories: Seq[Party],
       observers: Seq[Party],
       agreementText: String)
 
-  case class ArchivedContract(
-      contractId: ContractId,
-      templateId: TemplateId.RequiredPkg,
-      witnessParties: Seq[Party])
+  case class ArchivedContract(contractId: ContractId, templateId: TemplateId.RequiredPkg)
 
   sealed abstract class ContractLocator[+LfV] extends Product with Serializable
 
@@ -232,7 +228,6 @@ object domain {
           templateId = TemplateId fromLedgerApi templateId,
           key = in.contractKey,
           payload = boxedRecord(payload),
-          witnessParties = Party.subst(in.witnessParties),
           signatories = Party.subst(in.signatories),
           observers = Party.subst(in.observers),
           agreementText = in.agreementText getOrElse ""
@@ -277,9 +272,7 @@ object domain {
       } yield
         ArchivedContract(
           contractId = ContractId(in.contractId),
-          templateId = TemplateId fromLedgerApi templateId,
-          witnessParties = Party.subst(in.witnessParties)
-        )
+          templateId = TemplateId fromLedgerApi templateId)
 
     def fromLedgerApi(in: lav1.event.ExercisedEvent): Error \/ Option[ArchivedContract] =
       if (in.consuming) {
@@ -289,9 +282,7 @@ object domain {
           Some(
             ArchivedContract(
               contractId = ContractId(in.contractId),
-              templateId = TemplateId.fromLedgerApi(templateId),
-              witnessParties = Party.subst(in.witnessParties)
-            ))
+              templateId = TemplateId.fromLedgerApi(templateId)))
       } else {
         \/-(None)
       }

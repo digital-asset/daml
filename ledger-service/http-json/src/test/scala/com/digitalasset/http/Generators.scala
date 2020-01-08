@@ -77,7 +77,6 @@ object Generators {
       templateId <- Generators.genDomainTemplateId
       key <- Gen.option(Gen.identifier.map(JsString(_)))
       argument <- Gen.identifier.map(JsString(_))
-      witnessParties <- Gen.listOf(partyGen)
       signatories <- Gen.listOf(partyGen)
       observers <- Gen.listOf(partyGen)
       agreementText <- Gen.identifier
@@ -87,7 +86,6 @@ object Generators {
         templateId = templateId,
         key = key,
         payload = argument,
-        witnessParties = witnessParties,
         signatories = signatories,
         observers = observers,
         agreementText = agreementText
@@ -97,11 +95,9 @@ object Generators {
     for {
       contractId <- contractIdGen
       templateId <- Generators.genDomainTemplateId
-      witnessParties <- Gen.listOf(partyGen)
     } yield
       domain.ArchivedContract(
         contractId = contractId,
-        templateId = templateId,
-        witnessParties = witnessParties,
+        templateId = templateId
       )
 }

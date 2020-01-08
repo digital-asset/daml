@@ -45,7 +45,9 @@ class HttpServiceWithPostgresIntTest
       selectAllDbContracts.flatMap { listFromDb =>
         discard { listFromDb should have size searchDataSet.size.toLong }
         val actualCurrencyValues: List[String] = listFromDb
-          .flatMap { case (_, args, _) => args.asJsObject().getFields("currency") }
+          .flatMap {
+            case (_, _, _, payload, _, _, _) => payload.asJsObject().getFields("currency")
+          }
           .collect { case JsString(a) => a }
         val expectedCurrencyValues = List("EUR", "EUR", "GBP", "BTC")
         // the initial create commands submitted asynchronously, we don't know the exact order, that is why sorted
@@ -54,14 +56,15 @@ class HttpServiceWithPostgresIntTest
     }
   }
 
-  private def selectAllDbContracts: Future[List[(String, JsValue, Vector[String])]] = {
+  private def selectAllDbContracts
+    : Future[List[(String, String, JsValue, JsValue, Vector[String], Vector[String], String)]] = {
     import doobie.implicits._, doobie.postgres.implicits._
     import com.digitalasset.http.dbbackend.Queries.Implicits._
     import dao.logHandler
 
     val q =
-      sql"""SELECT contract_id, create_arguments, witness_parties FROM contract"""
-        .query[(String, JsValue, Vector[String])]
+      sql"""SELECT contract_id, tpid, key, payload, signatories, observers, agreement_text FROM contract"""
+        .query[(String, String, JsValue, JsValue, Vector[String], Vector[String], String)]
 
     dao.transact(q.to[List]).unsafeToFuture()
   }
