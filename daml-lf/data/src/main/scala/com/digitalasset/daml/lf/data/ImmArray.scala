@@ -293,9 +293,8 @@ final class ImmArray[+A] private (
       if (i < len) {
         val e = uncheckedGet(i)
         if (f(e)) Some(e)
-        else go(i+1)
-      }
-      else None
+        else go(i + 1)
+      } else None
     go(0)
   }
 
