@@ -21,7 +21,7 @@ JSON API - Experimental
   - ``{"tag": "Bar", "value": 42}``
   - ``{"tag": "Baz", "value": {}}``
   See #3622
-- Fix ``/contracts/lookup` find by contract key.
+- Fix ``/contracts/lookup`` find by contract key.
 - Fix ``/command/exercise`` to support any LF type as a choice argument.
   See #3390
 
