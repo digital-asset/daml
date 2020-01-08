@@ -118,7 +118,7 @@ where
 The ``public`` claim is implicitly held by anyone bearing a valid JWT (even without being an admin or being able to act or read on behalf of any party).
 
 Generating JSON Web Tokens (JWT)
-=====================
+================================
 
 To generate tokens for testing purposes, use the `jtw.io <https://jwt.io/>`__ web site.
 
