@@ -182,32 +182,32 @@ empty output::
 output, each contract formatted according to :doc:`lf-value-specification`::
 
     {
-        "status": 200,
         "result": [
             {
                 "observers": [],
                 "agreementText": "",
-                "signatories": [
-                    "Alice"
-                ],
-                "contractId": "#489:0",
-                "templateId": {
-                    "packageId": "ac3a64908d9f6b4453329b3d7d8ddea44c83f4f5469de5f7ae19158c69bf8473",
-                    "moduleName": "Iou",
-                    "entityName": "Iou"
-                },
-                "witnessParties": [
-                    "Alice"
-                ],
-                "argument": {
+                "payload": {
                     "observers": [],
                     "issuer": "Alice",
                     "amount": "999.99",
                     "currency": "USD",
                     "owner": "Alice"
-                }
+                },
+                "signatories": [
+                    "Alice"
+                ],
+                "contractId": "#52:0",
+                "templateId": {
+                    "packageId": "b10d22d6c2f2fae41b353315cf893ed66996ecb0abe4424ea6a81576918f658a",
+                    "moduleName": "Iou",
+                    "entityName": "Iou"
+                },
+                "witnessParties": [
+                    "Alice"
+                ]
             }
-        ]
+        ],
+        "status": 200
     }
 
 POST http://localhost:7575/command/create
@@ -238,25 +238,25 @@ output::
         "result": {
             "observers": [],
             "agreementText": "",
-            "signatories": [
-                "Alice"
-            ],
-            "contractId": "#228:0",
-            "templateId": {
-                "packageId": "6c3b507f18337d64d9b72a5340f6b961c027bfe9dfc1bbf33ac73a9f11623503",
-                "moduleName": "Iou",
-                "entityName": "Iou"
-            },
-            "witnessParties": [
-                "Alice"
-            ],
-            "argument": {
+            "payload": {
                 "observers": [],
                 "issuer": "Alice",
                 "amount": "999.99",
                 "currency": "USD",
                 "owner": "Alice"
-            }
+            },
+            "signatories": [
+                "Alice"
+            ],
+            "contractId": "#52:0",
+            "templateId": {
+                "packageId": "b10d22d6c2f2fae41b353315cf893ed66996ecb0abe4424ea6a81576918f658a",
+                "moduleName": "Iou",
+                "entityName": "Iou"
+            },
+            "witnessParties": [
+                "Alice"
+            ]
         }
     }
  
@@ -265,7 +265,8 @@ POST http://localhost:7575/command/exercise
 
 Exercise a choice on a contract.
 
-``"contractId": "#228:0"`` is the value from the create output
+``"contractId": "#52:0"`` is the value from the create output.
+
 application/json body::
 
     {
@@ -273,7 +274,7 @@ application/json body::
             "moduleName": "Iou",
             "entityName": "Iou"
         },
-        "contractId": "#228:0",
+        "contractId": "#52:0",
         "choice": "Iou_Transfer",
         "argument": {
             "newOwner": "Alice"
@@ -285,13 +286,13 @@ output::
     {
         "status": 200,
         "result": {
-            "exerciseResult": "#328:1",
+            "exerciseResult": "#205:1",
             "contracts": [
                 {
                     "archived": {
-                        "contractId": "#228:0",
+                        "contractId": "#52:0",
                         "templateId": {
-                            "packageId": "6c3b507f18337d64d9b72a5340f6b961c027bfe9dfc1bbf33ac73a9f11623503",
+                            "packageId": "b10d22d6c2f2fae41b353315cf893ed66996ecb0abe4424ea6a81576918f658a",
                             "moduleName": "Iou",
                             "entityName": "Iou"
                         },
@@ -304,19 +305,7 @@ output::
                     "created": {
                         "observers": [],
                         "agreementText": "",
-                        "signatories": [
-                            "Alice"
-                        ],
-                        "contractId": "#328:1",
-                        "templateId": {
-                            "packageId": "6c3b507f18337d64d9b72a5340f6b961c027bfe9dfc1bbf33ac73a9f11623503",
-                            "moduleName": "Iou",
-                            "entityName": "IouTransfer"
-                        },
-                        "witnessParties": [
-                            "Alice"
-                        ],
-                        "argument": {
+                        "payload": {
                             "iou": {
                                 "observers": [],
                                 "issuer": "Alice",
@@ -325,7 +314,19 @@ output::
                                 "owner": "Alice"
                             },
                             "newOwner": "Alice"
-                        }
+                        },
+                        "signatories": [
+                            "Alice"
+                        ],
+                        "contractId": "#205:1",
+                        "templateId": {
+                            "packageId": "b10d22d6c2f2fae41b353315cf893ed66996ecb0abe4424ea6a81576918f658a",
+                            "moduleName": "Iou",
+                            "entityName": "IouTransfer"
+                        },
+                        "witnessParties": [
+                            "Alice"
+                        ]
                     }
                 }
             ]
@@ -361,7 +362,15 @@ Lookup by Contract ID
 application/json body::
 
     {
-      "contractId": "#1:0"
+      "contractId": "#205:1"
+    }
+
+
+contract not found output::
+
+    {
+        "status": 200,
+        "result": null
     }
 
 output::
@@ -371,25 +380,28 @@ output::
         "result": {
             "observers": [],
             "agreementText": "",
+            "payload": {
+                "iou": {
+                    "observers": [],
+                    "issuer": "Alice",
+                    "amount": "999.99",
+                    "currency": "USD",
+                    "owner": "Alice"
+                },
+                "newOwner": "Alice"
+            },
             "signatories": [
                 "Alice"
             ],
-            "contractId": "#1:0",
+            "contractId": "#205:1",
             "templateId": {
-                "packageId": "8a6f2ab52a068c78c0c325591060ccfe744a3106f345061bf09b2ccffd77c3fa",
+                "packageId": "b10d22d6c2f2fae41b353315cf893ed66996ecb0abe4424ea6a81576918f658a",
                 "moduleName": "Iou",
-                "entityName": "Iou"
+                "entityName": "IouTransfer"
             },
             "witnessParties": [
                 "Alice"
-            ],
-            "argument": {
-                "observers": [],
-                "issuer": "Alice",
-                "amount": "999.99",
-                "currency": "USD",
-                "owner": "Alice"
-            }
+            ]
         }
     }
 
@@ -409,6 +421,13 @@ application/json body::
         ]
     }
 
+contract not found output::
+
+    {
+        "status": 200,
+        "result": null
+    }
+
 output::
 
     {
@@ -416,6 +435,10 @@ output::
         "result": {
             "observers": [],
             "agreementText": "",
+            "payload": {
+                "owner": "Alice",
+                "number": "abc123"
+            },
             "signatories": [
                 "Alice"
             ],
@@ -431,10 +454,6 @@ output::
             },
             "witnessParties": [
                 "Alice"
-            ],
-            "argument": {
-                "owner": "Alice",
-                "number": "abc123"
-            }
+            ]
         }
     }

@@ -277,7 +277,7 @@ class ContractsService(
     Error \/ domain.ActiveContract[LfValue]
   ] = {
     case e @ -\/(_) => e
-    case a @ \/-(ac) if predicate(ac.argument) => a
+    case a @ \/-(ac) if predicate(ac.payload) => a
   }
 
   private def valuePredicate(

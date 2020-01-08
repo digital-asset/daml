@@ -89,7 +89,7 @@ object ContractDao {
       contractId = domain.ContractId(a.contractId),
       templateId = templateId,
       key = None,
-      argument = LfValueDatabaseCodec.asLfValueCodec(a.createArguments),
+      payload = LfValueDatabaseCodec.asLfValueCodec(a.createArguments),
       witnessParties = Seq.empty,
       signatories = Seq.empty,
       observers = Seq.empty,
