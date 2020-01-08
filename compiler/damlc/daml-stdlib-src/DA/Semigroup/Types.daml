@@ -1,0 +1,26 @@
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+daml 1.2
+-- | MOVE DA.Semigroup
+module DA.Semigroup.Types
+  ( Min(..)
+  , Max(..)
+  ) where
+
+-- | Semigroup under `min`
+--
+-- ```
+-- > Min 23 <> Min 42
+-- Min 23
+-- ```
+newtype Min a = Min a
+
+-- | Semigroup under `max`
+--
+-- ```
+-- > Max 23 <> Max 42
+-- Max 42
+-- ```
+newtype Max a = Max a
+

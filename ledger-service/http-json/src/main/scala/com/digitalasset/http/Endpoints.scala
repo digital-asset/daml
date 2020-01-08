@@ -152,7 +152,7 @@ class Endpoints(
         ): ET[Option[domain.ActiveContract[LfValue]]]
 
         jsVal <- either(
-          ac.cata(x => lfAcToJsValue(x).leftMap(e => ServerError(e.shows)), \/-(JsObject()))
+          ac.cata(x => lfAcToJsValue(x).leftMap(e => ServerError(e.shows)), \/-(JsNull))
         ): ET[JsValue]
 
       } yield jsVal
