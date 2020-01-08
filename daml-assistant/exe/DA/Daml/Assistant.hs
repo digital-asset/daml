@@ -112,6 +112,7 @@ autoInstall env@Env{..} = do
                 , iForce = ForceInstall False
                 , iSetPath = SetPath True
                 , iBashCompletions = BashCompletions Auto
+                , iZshCompletions = ZshCompletions Auto
                 }
             installEnv = InstallEnv
                 { options = options
