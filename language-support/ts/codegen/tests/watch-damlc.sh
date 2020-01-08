@@ -8,6 +8,5 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 DAML=$DIR/daml
 
 pushd $DAML
-daml init
-daml build
-fswatch -0 --exclude ".*" --include "\\.daml$" $DAML | xargs -0 -I {} daml build
+bazel run //:damlc -- build --project-root $DAML
+fswatch -0 --exclude ".*" --include "\\.daml$" $DAML | xargs -0 -I {} bazel run //:damlc -- build --project-root $DAML
