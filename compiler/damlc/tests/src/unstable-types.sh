@@ -54,7 +54,7 @@ for LF_VERSION in $PKG_DB/*; do
     if [ $(basename $LF_VERSION) != "1.6" ]; then
         stdlib=$LF_VERSION/daml-stdlib-*.dalf
         prim=$LF_VERSION/daml-prim.dalf
-        $DIFF -u <(get_serializable_types $stdlib) <(cat <<EOF
+        $DIFF -b -u <(get_serializable_types $stdlib) <(cat <<EOF
 "DA.Upgrade:MetaEquiv"
 "DA.Random:Minstd"
 "DA.Next.Set:Set"
@@ -73,7 +73,7 @@ for LF_VERSION in $PKG_DB/*; do
 "DA.Internal.Prelude:Optional"
 EOF
 )
-        $DIFF -u <(get_serializable_types $prim) <(cat <<EOF
+        $DIFF -b -u <(get_serializable_types $prim) <(cat <<EOF
 EOF
 )
     fi
