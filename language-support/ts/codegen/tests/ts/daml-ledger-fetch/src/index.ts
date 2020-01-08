@@ -145,7 +145,7 @@ class Ledger {
     return this.query(template, {} as Query<T>);
   }
 
-  async lookupByKey<T extends object, K>(template: Template<T, K>, key: K): Promise<CreateEvent<T, K> | null> {
+  async lookupByKey<T extends object, K>(template: Template<T, K>, key: K extends undefined ? never : K): Promise<CreateEvent<T, K> | null> {
     const payload = {
       templateId: template.templateId,
       key,
