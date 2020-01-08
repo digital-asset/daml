@@ -85,7 +85,7 @@ object Envelope {
           parseMessageSafe(() => Proto.DamlStateValue.parseFrom(uncompressedMessage)).right
             .map(StateValueMessage)
         case Proto.Envelope.MessageKind.UNRECOGNIZED =>
-          Left(s"Unrecognized message kind: ${envelope.getKind} ")
+          Left(s"Unrecognized message kind: ${envelope.getKind}")
       }
     } yield message
 
@@ -126,9 +126,8 @@ object Envelope {
     ByteString.readFrom(gzipIn)
   }
 
-  private def parseMessageSafe[T](callParser: () => T): Either[String, T] = {
+  private def parseMessageSafe[T](callParser: () => T): Either[String, T] =
     Try(callParser()).toEither.left
       .map(_.getMessage)
-  }
 
 }
