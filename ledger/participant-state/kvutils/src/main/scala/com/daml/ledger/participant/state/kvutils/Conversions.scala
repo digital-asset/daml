@@ -28,7 +28,7 @@ import scala.util.Try
 /** Utilities for converting between protobuf messages and our scala
   * data structures.
   */
-object Conversions {
+private[state] object Conversions {
 
   val configurationStateKey: DamlStateKey =
     DamlStateKey.newBuilder.setConfiguration(Empty.getDefaultInstance).build
