@@ -37,12 +37,7 @@ function cleanup {
   rm -rf "$GHCI_SCRIPT"
 }
 trap cleanup EXIT
-cat <<EOF > $GHCI_SCRIPT
-:m DA.Cli.Damlc
-:main --help
-:quit
-EOF
-da-ghci --data yes //compiler/damlc:damlc -ghci-script $GHCI_SCRIPT -e '()'
+da-ghci --data yes //compiler/damlc:damlc -e ':main --help'
 # Check that our IDE works on our codebase
 ./compiler/ghcide-daml.sh compiler/damlc/exe/Main.hs 2>&1 | tee ide-log
 grep -q "1 file worked, 0 files failed" ide-log
