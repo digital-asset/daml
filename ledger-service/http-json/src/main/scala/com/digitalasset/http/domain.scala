@@ -47,7 +47,7 @@ object domain {
       contractId: ContractId,
       templateId: TemplateId.RequiredPkg,
       key: Option[LfV],
-      argument: LfV,
+      payload: LfV,
       witnessParties: Seq[Party],
       signatories: Seq[Party],
       observers: Seq[Party],
@@ -225,13 +225,13 @@ object domain {
     def fromLedgerApi(in: lav1.event.CreatedEvent): Error \/ ActiveContract[lav1.value.Value] =
       for {
         templateId <- in.templateId required "templateId"
-        argument <- in.createArguments required "createArguments"
+        payload <- in.createArguments required "createArguments"
       } yield
         ActiveContract(
           contractId = ContractId(in.contractId),
           templateId = TemplateId fromLedgerApi templateId,
           key = in.contractKey,
-          argument = boxedRecord(argument),
+          payload = boxedRecord(payload),
           witnessParties = Party.subst(in.witnessParties),
           signatories = Party.subst(in.signatories),
           observers = Party.subst(in.observers),
@@ -241,14 +241,14 @@ object domain {
     implicit val covariant: Traverse[ActiveContract] = new Traverse[ActiveContract] {
 
       override def map[A, B](fa: ActiveContract[A])(f: A => B): ActiveContract[B] =
-        fa.copy(key = fa.key map f, argument = f(fa.argument))
+        fa.copy(key = fa.key map f, payload = f(fa.payload))
 
       override def traverseImpl[G[_]: Applicative, A, B](fa: ActiveContract[A])(
           f: A => G[B]): G[ActiveContract[B]] = {
         import scalaz.syntax.apply._
         val gk: G[Option[B]] = fa.key traverse f
-        val ga: G[B] = f(fa.argument)
-        ^(gk, ga)((k, a) => fa.copy(key = k, argument = a))
+        val ga: G[B] = f(fa.payload)
+        ^(gk, ga)((k, a) => fa.copy(key = k, payload = a))
       }
     }
 
