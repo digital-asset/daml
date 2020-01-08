@@ -33,20 +33,13 @@ DAML Compiler
   also changed slightly. This only matters over the Ledger API when you specify the module name
   explicitly. In DAML you should continue to use the existing module names.
 
-  - The types from ``DA.Semigroup`` are now in a separate package under
-  ``DA.Semigroup.Types``
-  - The types from ``DA.Monoid`` are now in a separate package under
-  ``DA.Monoid.Types``
-  - The types from ``DA.Time`` are now in a separate package under
-  ``DA.Time.Types``
-  - The types from ``DA.Validation` are now in a separate package
-  under ``DA.Validation.Types``
-  - The types from ``DA.Logic`` are now in a separate package under
-  ``DA.Logic.Types``
-  - The types from ``DA.Date`` are now in a separate package under
-  ``DA.Date.Types``.
-  - The ``Down`` type from ``DA.Internal.Prelude`` is now in a separate
-  package under ``DA.Internal.Down``.
+  - The types from ``DA.Semigroup`` are now in a separate package under ``DA.Semigroup.Types``.
+  - The types from ``DA.Monoid`` are now in a separate package under ``DA.Monoid.Types``.
+  - The types from ``DA.Time`` are now in a separate package under ``DA.Time.Types``.
+  - The types from ``DA.Validation`` are now in a separate package under ``DA.Validation.Types``.
+  - The types from ``DA.Logic`` are now in a separate package under ``DA.Logic.Types``.
+  - The types from ``DA.Date`` are now in a separate package under ``DA.Date.Types``.
+  - The ``Down`` type from ``DA.Internal.Prelude`` is now in a separate package under ``DA.Internal.Down``.
 
 
 DAML SDK
