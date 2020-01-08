@@ -12,14 +12,11 @@ export type CreateEvent<T extends object> = {
   agreementText: Text;
   key: unknown;
   payload: T;
-  witnessParties: List<Party>;
-  workflowId?: string;
 }
 
 export type ArchiveEvent<T extends object> = {
   templateId: TemplateId;
   contractId: ContractId<T>;
-  witnessParties: List<Party>;
 }
 
 export type Event<T extends object> =
@@ -40,8 +37,6 @@ const decodeCreateEvent = <T extends object>(template: Template<T>): jtv.Decoder
   agreementText: Text.decoder(),
   key: jtv.unknownJson(),
   payload: template.decoder(),
-  witnessParties: List(Party).decoder(),
-  workflowId: jtv.optional(jtv.string()),
 });
 
 const decodeCreateEventUnknown: jtv.Decoder<CreateEvent<object>> =
@@ -52,7 +47,6 @@ const decodeCreateEventUnknown: jtv.Decoder<CreateEvent<object>> =
 const decodeArchiveEventUnknown: jtv.Decoder<ArchiveEvent<object>> = jtv.object({
   templateId: decodeTemplateId,
   contractId: ContractId({decoder: jtv.unknownJson}).decoder(),
-  witnessParties: List(Party).decoder(),
 });
 
 const decodeEventUnknown: jtv.Decoder<Event<object>> = jtv.oneOf<Event<object>>(
