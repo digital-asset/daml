@@ -22,7 +22,7 @@ DIFF=$5
 
 get_serializable_types() {
 
-    $DAMLC inspect $1 --json | $JQ 'import "./compiler/damlc/tests/src/query-lf-interned" as lf; .Sum.daml_lf_1 as $pkg | $pkg.modules | .[] | (.name | lf::get_dotted_name($pkg) | join(".")) as $modname | .data_types | .[] | select(.serializable) | .name | lf::get_dotted_name($pkg) | $modname + ":" + join(".")'
+    $DAMLC inspect $1 --json | $JQ -L $(dirname $JQ_LF_LIB) 'import "query-lf-interned" as lf; .Sum.daml_lf_1 as $pkg | $pkg.modules | .[] | (.name | lf::get_dotted_name($pkg) | join(".")) as $modname | .data_types | .[] | select(.serializable) | .name | lf::get_dotted_name($pkg) | $modname + ":" + join(".")'
 }
 
 EXPECTED_STDLIB_TYPES=(
