@@ -167,19 +167,34 @@ POST http://localhost:7575/contracts/search
 
 List currently active contracts that match a given query.
 
-application/json body, formatted according to the :doc:`search-query-language`::
+Request
+-------
 
-    {"%templates": [{"moduleName": "Iou", "entityName": "Iou"}],
-     "amount": 999.99}
+application/json body, formatted according to the :doc:`search-query-language`:
 
-empty output::
+.. code-block:: json
+
+    {
+        "%templates": [{"moduleName": "Iou", "entityName": "Iou"}],
+        "amount": 999.99
+    }
+
+Empty Response
+--------------
+
+.. code-block:: json
 
     {
         "status": 200,
         "result": []
     }
 
-output, each contract formatted according to :doc:`lf-value-specification`::
+Nonempty Response
+-----------------
+
+Each contract formatted according to :doc:`lf-value-specification`.
+
+.. code-block:: json
 
     {
         "result": [
@@ -201,10 +216,7 @@ output, each contract formatted according to :doc:`lf-value-specification`::
                     "packageId": "b10d22d6c2f2fae41b353315cf893ed66996ecb0abe4424ea6a81576918f658a",
                     "moduleName": "Iou",
                     "entityName": "Iou"
-                },
-                "witnessParties": [
-                    "Alice"
-                ]
+                }
             }
         ],
         "status": 200
@@ -215,7 +227,12 @@ POST http://localhost:7575/command/create
 
 Create a contract.
 
-application/json body, ``argument`` formatted according to :doc:`lf-value-specification`::
+Request
+-------
+
+application/json body, ``argument`` formatted according to :doc:`lf-value-specification`:
+
+.. code-block:: json
 
     {
       "templateId": {
@@ -231,7 +248,10 @@ application/json body, ``argument`` formatted according to :doc:`lf-value-specif
       }
     }
 
-output::
+Response
+--------
+
+.. code-block:: json
 
     {
         "status": 200,
@@ -253,10 +273,7 @@ output::
                 "packageId": "b10d22d6c2f2fae41b353315cf893ed66996ecb0abe4424ea6a81576918f658a",
                 "moduleName": "Iou",
                 "entityName": "Iou"
-            },
-            "witnessParties": [
-                "Alice"
-            ]
+            }
         }
     }
  
@@ -267,7 +284,12 @@ Exercise a choice on a contract.
 
 ``"contractId": "#52:0"`` is the value from the create output.
 
-application/json body::
+Request
+-------
+
+application/json body:
+
+.. code-block:: json
 
     {
         "templateId": {
@@ -281,7 +303,10 @@ application/json body::
         }
     }
 
-output::
+Response
+--------
+
+.. code-block:: json
 
     {
         "status": 200,
@@ -295,10 +320,7 @@ output::
                             "packageId": "b10d22d6c2f2fae41b353315cf893ed66996ecb0abe4424ea6a81576918f658a",
                             "moduleName": "Iou",
                             "entityName": "Iou"
-                        },
-                        "witnessParties": [
-                            "Alice"
-                        ]
+                        }
                     }
                 },
                 {
@@ -323,10 +345,7 @@ output::
                             "packageId": "b10d22d6c2f2fae41b353315cf893ed66996ecb0abe4424ea6a81576918f658a",
                             "moduleName": "Iou",
                             "entityName": "IouTransfer"
-                        },
-                        "witnessParties": [
-                            "Alice"
-                        ]
+                        }
                     }
                 }
             ]
@@ -341,7 +360,10 @@ Where:
 GET http://localhost:7575/parties
 =================================
 
-output::
+Response
+--------
+
+.. code-block:: json
 
     {
         "status": 200,
@@ -359,21 +381,31 @@ POST http://localhost:7575/contracts/lookup
 Lookup by Contract ID
 ---------------------
 
-application/json body::
+Request
+~~~~~~~
+
+application/json body:
+
+.. code-block:: json
 
     {
       "contractId": "#205:1"
     }
 
+Contract Not Found Response
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-contract not found output::
+.. code-block:: json
 
     {
         "status": 200,
         "result": null
     }
 
-output::
+Contract Found Response
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: json
 
     {
         "status": 200,
@@ -398,17 +430,19 @@ output::
                 "packageId": "b10d22d6c2f2fae41b353315cf893ed66996ecb0abe4424ea6a81576918f658a",
                 "moduleName": "Iou",
                 "entityName": "IouTransfer"
-            },
-            "witnessParties": [
-                "Alice"
-            ]
+            }
         }
     }
 
 Lookup by Contract Key
 ----------------------
 
-application/json body::
+Request
+~~~~~~~
+
+application/json body:
+
+.. code-block:: json
 
     {
         "templateId": {
@@ -421,14 +455,20 @@ application/json body::
         ]
     }
 
-contract not found output::
+Contract Not Found Response
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: json
 
     {
         "status": 200,
         "result": null
     }
 
-output::
+Contract Found Response
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: json
 
     {
         "status": 200,
@@ -451,9 +491,6 @@ output::
                 "packageId": "d7be7966c36fb3588bee1b727cef78a7251caabe3ae4105ba62f06a7af97272b",
                 "moduleName": "Account",
                 "entityName": "Account"
-            },
-            "witnessParties": [
-                "Alice"
-            ]
+            }
         }
     }

@@ -154,10 +154,10 @@ object JsonProtocol extends DefaultJsonProtocol {
     }
 
   implicit val ActiveContractFormat: RootJsonFormat[domain.ActiveContract[JsValue]] =
-    jsonFormat8(domain.ActiveContract.apply[JsValue])
+    jsonFormat7(domain.ActiveContract.apply[JsValue])
 
   implicit val ArchivedContractFormat: RootJsonFormat[domain.ArchivedContract] =
-    jsonFormat3(domain.ArchivedContract.apply)
+    jsonFormat2(domain.ArchivedContract.apply)
 
   private val templatesKey = "%templates"
 

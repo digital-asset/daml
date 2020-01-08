@@ -23,18 +23,29 @@ object Queries {
   def dropTableIfExists(table: String): Fragment = Fragment.const(s"DROP TABLE IF EXISTS ${table}")
 
   // NB: #, order of arguments must match createContractsTable
-  final case class DBContract[+TpId, +CA, +WP](
+  final case class DBContract[+TpId, +CK, +PL, +Prt](
       contractId: String,
       templateId: TpId,
-      createArguments: CA,
-      witnessParties: WP) {
-    def mapTemplateId[B](f: TpId => B): DBContract[B, CA, WP] = copy(templateId = f(templateId))
-    def mapArgsParties[B, C](f: CA => B, g: WP => C): DBContract[TpId, B, C] =
-      copy(createArguments = f(createArguments), witnessParties = g(witnessParties))
+      key: CK,
+      payload: PL,
+      signatories: Prt,
+      observers: Prt,
+      agreementText: String) {
+    def mapTemplateId[B](f: TpId => B): DBContract[B, CK, PL, Prt] =
+      copy(templateId = f(templateId))
+    def mapKeyPayloadParties[A, B, C](
+        f: CK => A,
+        g: PL => B,
+        h: Prt => C): DBContract[TpId, A, B, C] =
+      copy(
+        key = f(key),
+        payload = g(payload),
+        signatories = h(signatories),
+        observers = h(observers))
   }
 
   /** for use when generating predicates */
-  private[http] val contractColumnName: Fragment = sql"create_arguments"
+  private[http] val contractColumnName: Fragment = sql"payload"
 
   val dropContractsTable: Fragment = dropTableIfExists("contract")
 
@@ -43,8 +54,11 @@ object Queries {
         contract
         (contract_id TEXT PRIMARY KEY NOT NULL
         ,tpid BIGINT NOT NULL REFERENCES template_id (tpid)
-        ,create_arguments JSONB NOT NULL
-        ,witness_parties TEXT ARRAY NOT NULL
+        ,key JSONB NOT NULL
+        ,payload JSONB NOT NULL
+        ,signatories TEXT ARRAY NOT NULL
+        ,observers TEXT ARRAY NOT NULL
+        ,agreement_text TEXT NOT NULL
         )
     """
 
@@ -142,17 +156,18 @@ object Queries {
     )
 
   @silent // pas is demonstrably used; try taking it out
-  def insertContracts[F[_]: cats.Foldable: Functor, CA: JsonWriter](
-      dbcs: F[DBContract[SurrogateTpId, CA, Seq[String]]])(
+  def insertContracts[F[_]: cats.Foldable: Functor, CK: JsonWriter, PL: JsonWriter](
+      dbcs: F[DBContract[SurrogateTpId, CK, PL, Seq[String]]])(
       implicit log: LogHandler,
       pas: Put[Array[String]]): ConnectionIO[Int] =
-    Update[DBContract[SurrogateTpId, JsValue, Array[String]]](
+    Update[DBContract[SurrogateTpId, JsValue, JsValue, Array[String]]](
       """
         INSERT INTO contract
-        VALUES (?, ?, ?::jsonb, ?)
+        VALUES (?, ?, ?::jsonb, ?::jsonb, ?, ?, ?)
         ON CONFLICT (contract_id) DO NOTHING
       """,
-      logHandler0 = log).updateMany(dbcs.map(_.mapArgsParties(_.toJson, _.toArray)))
+      logHandler0 = log
+    ).updateMany(dbcs.map(_.mapKeyPayloadParties(_.toJson, _.toJson, _.toArray)))
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def deleteContracts[F[_]: Foldable](cids: F[String])(
@@ -180,14 +195,24 @@ object Queries {
     hd ++ go(0, tl.size)
   }
 
+  @silent // gvs is demonstrably used; try taking it out
   private[http] def selectContracts(party: String, tpid: SurrogateTpId, predicate: Fragment)(
-      implicit log: LogHandler): Query0[DBContract[Unit, JsValue, Unit]] = {
-    val q = sql"""SELECT contract_id, create_arguments
-                  FROM contract
-                  WHERE witness_parties @> ARRAY[$party::text] AND tpid = $tpid
-                        AND (""" ++ predicate ++ sql")"
-    q.query[(String, JsValue)].map {
-      case (cid, ca) => DBContract(cid, (), ca, ())
+      implicit log: LogHandler,
+      gvs: Get[Vector[String]]): Query0[DBContract[Unit, JsValue, JsValue, Vector[String]]] = {
+    val q = sql"""SELECT contract_id, key, payload, signatories, observers, agreement_text
+                  FROM contract AS c
+                  WHERE (signatories @> ARRAY[$party::text] OR observers @> ARRAY[$party::text])
+                   AND tpid = $tpid AND (""" ++ predicate ++ sql")"
+    q.query[(String, JsValue, JsValue, Vector[String], Vector[String], String)].map {
+      case (cid, key, payload, signatories, observers, agreement) =>
+        DBContract(
+          contractId = cid,
+          templateId = (),
+          key = key,
+          payload = payload,
+          signatories = signatories,
+          observers = observers,
+          agreementText = agreement)
     }
   }
 
