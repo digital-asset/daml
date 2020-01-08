@@ -61,4 +61,9 @@ data Expr =
   | Var Text
   | Add (Expr, Expr)
 
+data Expr2 a =
+    Lit2 a
+  | Var2 Text
+  | Add2 (Expr2 a, Expr2 a)
+
 data Color = Red | Blue | Yellow deriving (Eq, Show)
