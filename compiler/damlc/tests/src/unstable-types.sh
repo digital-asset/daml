@@ -25,29 +25,6 @@ get_serializable_types() {
     $DAMLC inspect $1 --json | $JQ -L $(dirname $JQ_LF_LIB) 'import "query-lf-interned" as lf; .Sum.daml_lf_1 as $pkg | $pkg.modules | .[] | (.name | lf::get_dotted_name($pkg) | join(".")) as $modname | .data_types | .[] | select(.serializable) | .name | lf::get_dotted_name($pkg) | $modname + ":" + join(".")'
 }
 
-EXPECTED_STDLIB_TYPES=(
-    "DA.Upgrade:MetaEquiv"
-    "DA.Random:Minstd"
-    "DA.Next.Set:Set"
-    "DA.Next.Map:Map"
-    "DA.Generics:MetaSel0"
-    "DA.Generics:MetaData0"
-    "DA.Generics:DecidedStrictness"
-    "DA.Generics:SourceStrictness"
-    "DA.Generics:SourceUnpackedness"
-    "DA.Generics:Associativity"
-    "DA.Generics:Infix0"
-    "DA.Generics:Fixity"
-    "DA.Generics:K1"
-    "DA.Generics:Par1"
-    "DA.Generics:U1"
-    "DA.Internal.Prelude:Optional"
-)
-
-EXPECTED_PRIM_TYPES=()
-
-echo ${EXPECTED_STDLIB_TYPES[@]}
-
 for LF_VERSION in $PKG_DB/*; do
     # Skip 1.6 since we don’t really care about it and it removes the need to handle LF versions without
     # interning.
@@ -70,7 +47,6 @@ for LF_VERSION in $PKG_DB/*; do
 "DA.Generics:K1"
 "DA.Generics:Par1"
 "DA.Generics:U1"
-"DA.Internal.Prelude:Optional"
 EOF
 )
         $DIFF -b -u <(get_serializable_types $prim) <(cat <<EOF
