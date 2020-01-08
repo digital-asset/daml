@@ -28,7 +28,7 @@ installBashCompletions options damlPath output =
     whenM (shouldInstallBashCompletions options damlPath) $
         doInstallBashCompletions damlPath output
 
--- | Install bash completion script if we should.
+-- | Install zsh completion script if we should.
 installZshCompletions :: InstallOptions -> DamlPath -> (String -> IO ()) -> IO ()
 installZshCompletions options damlPath output =
     whenM (shouldInstallZshCompletions options damlPath) $
