@@ -80,8 +80,44 @@ object JsonProtocol extends DefaultJsonProtocol {
     }
   }
 
-  implicit def TemplateIdFormat[A: JsonFormat]: RootJsonFormat[domain.TemplateId[A]] =
-    jsonFormat3(domain.TemplateId.apply[A])
+  implicit val TemplateIdRequiredPkgFormat: RootJsonFormat[domain.TemplateId.RequiredPkg] =
+    new RootJsonFormat[domain.TemplateId.RequiredPkg] {
+      override def write(a: domain.TemplateId.RequiredPkg): JsValue =
+        JsString(s"${a.packageId: String}:${a.moduleName: String}:${a.entityName: String}")
+
+      override def read(json: JsValue): domain.TemplateId.RequiredPkg = json match {
+        case JsString(str) =>
+          str.split(':') match {
+            case Array(p, m, e) => domain.TemplateId(p, m, e)
+            case _ => error(json)
+          }
+        case _ => error(json)
+      }
+
+      private def error(json: JsValue): Nothing =
+        deserializationError(s"Expected JsString(<packageId>:<module>:<entity>), got: $json")
+    }
+
+  implicit val TemplateIdOptionalPkgFormat: RootJsonFormat[domain.TemplateId.OptionalPkg] =
+    new RootJsonFormat[domain.TemplateId.OptionalPkg] {
+      override def write(a: domain.TemplateId.OptionalPkg): JsValue = a.packageId match {
+        case Some(p) => JsString(s"${p: String}:${a.moduleName: String}:${a.entityName: String}")
+        case None => JsString(s"${a.moduleName: String}:${a.entityName: String}")
+      }
+
+      override def read(json: JsValue): domain.TemplateId.OptionalPkg = json match {
+        case JsString(str) =>
+          str.split(':') match {
+            case Array(p, m, e) => domain.TemplateId(Some(p), m, e)
+            case Array(m, e) => domain.TemplateId(None, m, e)
+            case _ => error(json)
+          }
+        case _ => error(json)
+      }
+
+      private def error(json: JsValue): Nothing =
+        deserializationError(s"Expected JsString([<packageId>:]<module>:<entity>), got: $json")
+    }
 
   private[this] def decodeContractRef(
       fields: Map[String, JsValue],
