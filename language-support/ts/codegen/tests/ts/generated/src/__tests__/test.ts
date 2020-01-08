@@ -72,12 +72,20 @@ test('create + fetch & exercise', async () => {
     party: ALICE_PARTY,
     age: '5',
   };
+  const aliceKey = {_1: alice.party, _2: alice.age};
   const aliceContract = await ledger.create(Main.Person, alice);
   expect(aliceContract.payload).toEqual(alice);
+  expect(aliceContract.key).toEqual(aliceKey);
 
   const personContracts = await ledger.fetchAll(Main.Person);
   expect(personContracts).toHaveLength(1);
   expect(personContracts[0]).toEqual(aliceContract);
+
+  const aliceContractByKey = await ledger.lookupByKey(Main.Person, aliceKey);
+  expect(aliceContractByKey).toEqual(aliceContract);
+
+  const bobByKey = await ledger.lookupByKey(Main.Person, {_1: 'Bob', _2: '4'});
+  expect(bobByKey).toBeNull();
 
   // Alice has a birthday.
   const [er, es] = await ledger.exercise(Main.Person.Birthday, aliceContract.contractId, {});
@@ -114,6 +122,7 @@ test('create + fetch & exercise', async () => {
   };
   const allTypesContract = await ledger.create(Main.AllTypes, allTypes);
   expect(allTypesContract.payload).toEqual(allTypes);
+  expect(allTypesContract.key).toBeUndefined();
 
   const allTypesContracts = await ledger.fetchAll(Main.AllTypes);
   expect(allTypesContracts).toHaveLength(1);

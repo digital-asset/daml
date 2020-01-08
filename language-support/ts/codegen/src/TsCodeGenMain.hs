@@ -168,12 +168,19 @@ genDefDataType curModName tpls def = case unTypeConName (dataTypeCon def) of
                             , let (rtyp, rser) = genType curModName rLf
                             , let argRefs = Set.setOf typeModuleRef tLf
                             ]
+                        (keyTypeTs, keySer) = case tplKey tpl of
+                            Nothing -> ("undefined", "() => jtv.constant(undefined)")
+                            Just key ->
+                                let (keyTypeTs, keySer) = genType curModName (tplKeyType key)
+                                in
+                                (keyTypeTs, "() => " <> keySer <> ".decoder()")
                         dict =
-                            ["export const " <> conName <> ": daml.Template<" <> conName <> "> & {"] ++
+                            ["export const " <> conName <> ": daml.Template<" <> conName <> ", " <> keyTypeTs <> "> & {"] ++
                             ["  " <> x <> ": daml.Choice<" <> conName <> ", " <> t <> ", " <> rtyp <> " >;" | (x, t, rtyp, _) <- chcs] ++
                             ["} = {"
                             ] ++
                             ["  templateId: templateId('" <> conName <> "'),"
+                            ,"  keyDecoder: " <> keySer <> ","
                             ] ++
                             map ("  " <>) (onHead ("decoder: " <>) serDesc) ++
                             concat

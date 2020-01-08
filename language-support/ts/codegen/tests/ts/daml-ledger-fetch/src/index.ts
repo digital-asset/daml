@@ -4,13 +4,13 @@ import { Choice, ContractId, List, Party, Template, TemplateId, Text, lookupTemp
 import * as jtv from '@mojotech/json-type-validation';
 import fetch from 'cross-fetch';
 
-export type CreateEvent<T extends object> = {
+export type CreateEvent<T extends object, K = unknown> = {
   templateId: TemplateId;
   contractId: ContractId<T>;
   signatories: List<Party>;
   observers: List<Party>;
   agreementText: Text;
-  key: unknown;
+  key: K;
   payload: T;
 }
 
@@ -19,8 +19,8 @@ export type ArchiveEvent<T extends object> = {
   contractId: ContractId<T>;
 }
 
-export type Event<T extends object> =
-  | { created: CreateEvent<T> }
+export type Event<T extends object, K = unknown> =
+  | { created: CreateEvent<T, K> }
   | { archived: ArchiveEvent<T> }
 
 const decodeTemplateId: jtv.Decoder<TemplateId> = jtv.object({
@@ -29,13 +29,13 @@ const decodeTemplateId: jtv.Decoder<TemplateId> = jtv.object({
   entityName: jtv.string(),
 });
 
-const decodeCreateEvent = <T extends object>(template: Template<T>): jtv.Decoder<CreateEvent<T>> => jtv.object({
+const decodeCreateEvent = <T extends object, K>(template: Template<T, K>): jtv.Decoder<CreateEvent<T, K>> => jtv.object({
   templateId: decodeTemplateId,
   contractId: ContractId(template).decoder(),
   signatories: List(Party).decoder(),
   observers: List(Party).decoder(),
   agreementText: Text.decoder(),
-  key: jtv.unknownJson(),
+  key: template.keyDecoder(),
   payload: template.decoder(),
 });
 
@@ -132,7 +132,7 @@ class Ledger {
    * https://github.com/digital-asset/daml/blob/master/docs/source/json-api/search-query-language.rst
    * for a description of the query language.
    */
-  async query<T extends object>(template: Template<T>, query: Query<T>): Promise<CreateEvent<T>[]> {
+  async query<T extends object, K>(template: Template<T, K>, query: Query<T>): Promise<CreateEvent<T, K>[]> {
     const payload = {"%templates": [template.templateId], ...query};
     const json = await this.submit('contracts/search', payload);
     return jtv.Result.withException(jtv.array(decodeCreateEvent(template)).run(json));
@@ -141,15 +141,24 @@ class Ledger {
   /**
    * Retrieve all contracts for a given template.
    */
-  async fetchAll<T extends object>(template: Template<T>): Promise<CreateEvent<T>[]> {
+  async fetchAll<T extends object, K>(template: Template<T, K>): Promise<CreateEvent<T, K>[]> {
     return this.query(template, {} as Query<T>);
+  }
+
+  async lookupByKey<T extends object, K>(template: Template<T, K>, key: K): Promise<CreateEvent<T, K> | null> {
+    const payload = {
+      templateId: template.templateId,
+      key,
+    };
+    const json = await this.submit('contracts/lookup', payload);
+    return jtv.Result.withException(jtv.oneOf(jtv.constant(null), decodeCreateEvent(template)).run(json));
   }
 
   /**
    * Mimic DAML's `lookupByKey`. The `key` must be a formulation of the
    * contract key as a query.
    */
-  async pseudoLookupByKey<T extends object>(template: Template<T>, key: Query<T>): Promise<CreateEvent<T> | undefined> {
+  async pseudoLookupByKey<T extends object, K>(template: Template<T, K>, key: Query<T>): Promise<CreateEvent<T, K> | undefined> {
     const contracts = await this.query(template, key);
     if (contracts.length > 1) {
       throw Error("pseudoLookupByKey: query returned multiple contracts");
@@ -161,7 +170,7 @@ class Ledger {
    * Mimic DAML's `fetchByKey`. The `key` must be a formulation of the
    * contract key as a query.
    */
-  async pseudoFetchByKey<T extends object>(template: Template<T>, key: Query<T>): Promise<CreateEvent<T>> {
+  async pseudoFetchByKey<T extends object, K>(template: Template<T, K>, key: Query<T>): Promise<CreateEvent<T, K>> {
     const contract = await this.pseudoLookupByKey(template, key);
     if (contract === undefined) {
       throw Error("pseudoFetchByKey: query returned no contract");
@@ -172,7 +181,7 @@ class Ledger {
   /**
    * Create a contract for a given template.
    */
-  async create<T extends object>(template: Template<T>, argument: T): Promise<CreateEvent<T>> {
+  async create<T extends object, K>(template: Template<T, K>, argument: T): Promise<CreateEvent<T, K>> {
     const payload = {
       templateId: template.templateId,
       argument,
