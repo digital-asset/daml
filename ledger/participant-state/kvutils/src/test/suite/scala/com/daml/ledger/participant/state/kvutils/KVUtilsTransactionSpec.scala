@@ -222,7 +222,6 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
         val txAccepted = updates.head.asInstanceOf[Update.TransactionAccepted]
         txAccepted.optSubmitterInfo should be(None)
       }
-
     }
   }
 }
