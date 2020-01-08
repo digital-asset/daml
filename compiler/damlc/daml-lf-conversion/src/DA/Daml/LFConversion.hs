@@ -382,6 +382,7 @@ convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $ if
     | NameIn DA_Internal_LF n <- t
     , n `elementOfUniqSet` internalTypes
     -> pure []
+    | NameIn DA_Internal_Prelude "Optional" <- t -> pure []
     -- Consumption marker types used to transfer information from template desugaring to LF conversion.
     | NameIn DA_Internal_Desugar n <- t
     , n `elementOfUniqSet` consumingTypes
@@ -778,7 +779,7 @@ convertBind env (name, x)
 -- during conversion to DAML-LF together with their constructors since we
 -- deliberately remove 'GHC.Types.Opaque' as well.
 internalTypes :: UniqSet FastString
-internalTypes = mkUniqSet ["Scenario","Update","ContractId","Time","Date","Party","Pair", "TextMap", "Map", "Any", "TypeRep"]
+internalTypes = mkUniqSet ["Scenario","Update","ContractId","Time","Date","Party","Pair", "TextMap", "Map", "Any", "TypeRep", "Optional"]
 
 consumingTypes :: UniqSet FastString
 consumingTypes = mkUniqSet ["PreConsuming", "PostConsuming", "NonConsuming"]
