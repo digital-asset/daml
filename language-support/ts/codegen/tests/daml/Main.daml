@@ -27,6 +27,7 @@ template AllTypes with
     tuple: (Int, Text)
     enum: Color
     enumList: [Color]
+    variant: Expr Int
   where
     signatory party
 
@@ -56,14 +57,10 @@ data Foo a b = Foo {
   z: b
 }
 
-data Expr =
-    Lit Int
+data Expr a =
+    Lit a
   | Var Text
-  | Add (Expr, Expr)
-
-data Expr2 a =
-    Lit2 a
-  | Var2 Text
-  | Add2 (Expr2 a, Expr2 a)
+  | Add (Expr a, Expr a)
+  deriving (Show, Eq)
 
 data Color = Red | Blue | Yellow deriving (Eq, Show)

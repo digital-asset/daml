@@ -7,68 +7,6 @@ import { encode } from 'jwt-simple';
 import Ledger, { CreateEvent, ArchiveEvent } from  '@digitalasset/daml-ledger-fetch'
 import * as Main from '../daml/daml-tests/Main';
 
-// -- sandbox
-
-import * as jtv from '@mojotech/json-type-validation';
-
-export interface Serializable<T> {
-  decoder: () => jtv.Decoder<T>;
-}
-
-type Int = string;
-const Int: Serializable<Int> = { decoder: jtv.string, }
-
-export type Tuple2<a2pV, a2pW> = {_1: a2pV; _2: a2pW}
-export const Tuple2 = <a2pV, a2pW>(a2pV: Serializable<a2pV>, a2pW: Serializable<a2pW>): Serializable<Tuple2<a2pV, a2pW>> => ({
-  decoder: () => jtv.object({
-    _1: a2pV.decoder(),
-    _2: a2pW.decoder(),
-  }),
-});
-
-export type Expr =
-    { tag: 'Lit'; value: Int }
-  | { tag: 'Var'; value: string }
-  | { tag: 'Add'; value: { _1: Expr; _2: Expr}}
-  ;
-
-export const Expr: Serializable<Expr> = ({
-  decoder: () => {
-    return jtv.union(
-      jtv.object({tag: jtv.constant('Lit'), value: Int.decoder()}),
-      jtv.object({tag: jtv.constant('Var'), value: jtv.string()}),
-      jtv.object({tag: jtv.constant('Add'), value: jtv.lazy(() => Tuple2(Expr, Expr).decoder())}),
-    )
-  }
-  });
-
-export type Expr2<a> =
-    { tag: 'Lit'; value: a }
-  | { tag: 'Var'; value: string }
-  | { tag: 'Add'; value: { _1: Expr2<a>; _2: Expr2<a>}}
-  ;
-
-export const Expr2 = <a>(a: Serializable<a>): Serializable<Expr2<a>> => ({
-    decoder: () => jtv.union(
-      jtv.object({tag: jtv.constant('Lit'), value: a.decoder()}),
-      jtv.object({tag: jtv.constant('Var'), value: jtv.string()}),
-      jtv.object({tag: jtv.constant('Add'), value: jtv.lazy(() => Tuple2(Expr2(a), Expr2(a)).decoder())}),
-    )
-  });
-
-test('expr', () => {
-  expect(Expr.decoder().run({"tag":"Lit","value":"1"})).toEqual({ok: true, result: {tag: "Lit", value: "1"}});
-  expect(Expr.decoder().run({"tag":"Add","value":{"_1":{"tag":"Lit","value":"1"},"_2":{"tag":"Lit","value":"2"}}}))
-    .toEqual({ok: true, result: {tag: "Add", value: {_1:{tag: "Lit", value: "1"}, _2:{tag: "Lit", value: "2"}}}});
-
-  expect(Expr2(Int).decoder().run({"tag":"Lit","value":"1"})).toEqual({ok: true, result: {tag: "Lit", value: "1"}});
-  expect(Expr2(Int).decoder().run({"tag":"Add","value":{"_1":{"tag":"Lit","value":"1"},"_2":{"tag":"Lit","value":"2"}}}))
-    .toEqual({ok: true, result: {tag: "Add", value: {_1:{tag: "Lit", value: "1"}, _2:{tag: "Lit", value: "2"}}}});
-
-});
-
-// --
-
 const LEDGER_ID = 'daml2ts-tests';
 const APPLICATION_ID = 'daml2ts-tests';
 const SECRET_KEY = 'secret';
@@ -171,7 +109,8 @@ test('create + fetch & exercise', async () => {
     either: {tag: 'Right', value: 'really?'},
     tuple: {_1: '12', _2: 'mmm'},
     enum: Main.Color.Red,
-    enumList: [Main.Color.Red, Main.Color.Blue, Main.Color.Yellow]
+    enumList: [Main.Color.Red, Main.Color.Blue, Main.Color.Yellow],
+    variant: {tag: 'Add', value: {_1:{tag: 'Lit', value: '1'}, _2:{tag: 'Lit', value: '2'}}}
   };
   const allTypesContract = await ledger.create(Main.AllTypes, allTypes);
   expect(allTypesContract.argument).toEqual(allTypes);

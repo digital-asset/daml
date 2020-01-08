@@ -90,7 +90,6 @@ genModule mod
         (defSers, refs) = unzip (map (genDefDataType curModName tpls) serDefs)
         header =
             ["// Generated from " <> T.intercalate "/" (unModuleName curModName) <> ".daml"
-            ,"/* eslint-disable @typescript-eslint/no-unused-vars */"
             ,"/* eslint-disable @typescript-eslint/camelcase */"
             ,"/* eslint-disable @typescript-eslint/no-use-before-define */"
             ,"import * as jtv from '@mojotech/json-type-validation';"
@@ -122,13 +121,13 @@ genDefDataType curModName tpls def = case unTypeConName (dataTypeCon def) of
     [] -> error "IMPOSSIBLE: empty type constructor name"
     _:_:_ -> error "TODO(MH): multi-part type constructor names"
     [conName] -> case dataCons def of
-
         DataVariant bs ->
           let
-            typeDesc = [""] ++ concatMap genBranch (zip bs [(0 :: Integer)..]) ++ ["  ;"]
-            serDesc  = ["() => { throw new Error(\"not implemented\"); },"] in
-            ((makeType typeDesc, makeSer serDesc), Set.unions $ map (Set.setOf typeModuleRef . snd) bs)
-
+            (typs, sers) = unzip $ map genBranch bs
+            typeDesc = [""] ++ typs
+            serDesc  = ["() => jtv.oneOf("] ++ sers ++ [")"]
+          in
+          ((makeType typeDesc, makeSer serDesc), Set.unions $ map (Set.setOf typeModuleRef . snd) bs)
         DataEnum enumCons ->
           let
             typeDesc =
@@ -138,7 +137,6 @@ genDefDataType curModName tpls def = case unTypeConName (dataTypeCon def) of
                 [ "}"
                 , "daml.STATIC_IMPLEMENTS_SERIALIZABLE_CHECK<" <> conName <> ">(" <> conName <> ")"
                 ]
-
             serDesc =
                 ["() => jtv.oneOf("] ++
                 ["  jtv.constant(" <> conName <> "." <> cons <> ")," | VariantConName cons <- enumCons] ++
@@ -162,17 +160,17 @@ genDefDataType curModName tpls def = case unTypeConName (dataTypeCon def) of
                 Nothing -> ((makeType typeDesc, makeSer serDesc), Set.unions fieldRefs)
                 Just tpl ->
                     let (chcs, argRefs) = unzip
-                            [((unChoiceName (chcName chc), t, r, rtyp), argRefs)
+                            [((unChoiceName (chcName chc), t, rtyp, rser), argRefs)
                             | chc <- NM.toList (tplChoices tpl)
                             , let tLf = snd (chcArgBinder chc)
                             , let rLf = chcReturnType chc
                             , let (t, _) = genType curModName tLf
-                            , let (r, rtyp) = genType curModName rLf
+                            , let (rtyp, rser) = genType curModName rLf
                             , let argRefs = Set.setOf typeModuleRef tLf
                             ]
                         dict =
                             ["export const " <> conName <> ": daml.Template<" <> conName <> "> & {"] ++
-                            ["  " <> x <> ": daml.Choice<" <> conName <> ", " <> t <> ", " <> r <> " >;" | (x, t, r, _) <- chcs] ++
+                            ["  " <> x <> ": daml.Choice<" <> conName <> ", " <> t <> ", " <> rtyp <> " >;" | (x, t, rtyp, _) <- chcs] ++
                             ["} = {"
                             ] ++
                             ["  templateId: templateId('" <> conName <> "'),"
@@ -184,7 +182,7 @@ genDefDataType curModName tpls def = case unTypeConName (dataTypeCon def) of
                               ,"    choiceName: '" <> x <> "',"
                               ,"    argumentDecoder: " <> t <> ".decoder,"
                               -- We'd write,
-                              --   "   resultDecoder: " <> rtyp <> ".decoder"
+                              --   "   resultDecoder: " <> rser <> ".decoder"
                               -- here but, consider the following scenario:
                               --   export const Person: daml.Template<Person>...
                               --    = {  ...
@@ -192,10 +190,10 @@ genDefDataType curModName tpls def = case unTypeConName (dataTypeCon def) of
                               --         ...
                               --      }
                               -- This gives rise to "error TS2454: Variable 'Person' is used before being assigned."
-                              ,"    resultDecoder: () => " <> rtyp <> ".decoder()," -- Eta-conversion provides an escape hatch.
+                              ,"    resultDecoder: () => " <> rser <> ".decoder()," -- Eta-conversion provides an escape hatch.
                               ,"  },"
                               ]
-                            | (x, t, _r, rtyp) <- chcs
+                            | (x, t, _rtyp, rser) <- chcs
                             ] ++
                             ["};"]
                         registrations =
@@ -223,8 +221,12 @@ genDefDataType curModName tpls def = case unTypeConName (dataTypeCon def) of
             ] ++
             map ("  " <>) (onHead ("export const decoder = " <>) serDesc) ++
             ["}"]
-        genBranch ((VariantConName cons, t), i) =
-          [(if i == 0 then "     " else "  |  ") <> "{ tag: '" <> cons <> "'; value: " <> fst (genType curModName t) <> " }"]
+        genBranch (VariantConName cons, t) =
+          let (typ, ser) = genType curModName t in
+          ( "  |  { tag: '" <> cons <> "'; value: " <> typ <> " }"
+          , "  jtv.object<" <> conName <> typeParams <> ">({tag: jtv.constant('" <> cons <> "'), value: jtv.lazy(() => " <> ser <> ".decoder())}),"
+          )
+
 
 genType :: ModuleName -> Type -> (T.Text, T.Text)
 genType curModName = go
