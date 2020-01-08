@@ -12,6 +12,8 @@ import akka.stream.scaladsl.{Flow, Sink, Source}
 import com.digitalasset.http.util.TestUtil
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.{AsyncFreeSpec, BeforeAndAfterAll, Inside, Matchers}
+import scalaz.std.option._
+import scalaz.syntax.apply._
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -109,6 +111,25 @@ class WebsocketServiceIntegrationTest
   /* TODO SC
   "websocket should receive deltas as contracts are archived/created" in withHttpService {
     (uri, _, _) =>
+      import spray.json._
+      def converse[M](flow: Flow[JsValue, JsValue, M]): Flow[Message, Message, M] =
+        Flow[Message].flatMapConcat{case ts: TextStream => .toStrict}
+      object CreatedContracts {
+        def unapplySeq(jsv: JsValue): Option[Vector[(String, JsValue)]] = for {
+          JsObject(fields) <- Some(jsv)
+          JsArray(adds) <- fields get "add"
+        } yield adds collect (Function unlift {
+          case JsObject(add) => (add get "contractId" collect {case JsString(v) => v}) tuple (add get "argument")
+          case _ => None
+        })
+      }
+      val query = """{"%templates": [{"moduleName": "Iou", "entityName": "Iou"}]}""".parseJson
+      val conv: Flow[JsValue, JsValue, NotUsed] =
+        Flow.fromSinkAndSourceCoupledMat(
+        Sink.foldAsync((0, None)) {
+          case ((0, _), CreatedContracts((ctid, ct))) =>
+          case ((1, _), CreatedContracts(fst, snd)) =>
+        }, Source single query
     }
    */
 
