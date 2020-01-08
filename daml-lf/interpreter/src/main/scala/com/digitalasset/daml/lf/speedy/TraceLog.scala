@@ -4,14 +4,18 @@
 package com.digitalasset.daml.lf.speedy
 
 import com.digitalasset.daml.lf.data.Ref.Location
+import org.slf4j.Logger
 
-final case class TraceLog(capacity: Int) {
+final case class TraceLog(logger: Logger, capacity: Int) {
 
   private val buffer = Array.ofDim[(String, Option[Location])](capacity)
   private var pos: Int = 0
   private var size: Int = 0
 
   def add(message: String, optLocation: Option[Location]): Unit = {
+    if (logger.isDebugEnabled) {
+      logger.debug(s"${Pretty.prettyLoc(optLocation).renderWideStream.mkString}: $message")
+    }
     buffer(pos) = (message, optLocation)
     pos = (pos + 1) % capacity
     if (size < capacity)

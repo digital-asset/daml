@@ -24,7 +24,7 @@ import com.digitalasset.daml.lf.iface
 import com.digitalasset.daml.lf.iface.EnvironmentInterface
 import com.digitalasset.daml.lf.iface.reader.InterfaceReader
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.speedy.{Compiler, Pretty, Speedy, SValue, TraceLog}
+import com.digitalasset.daml.lf.speedy.{Compiler, Pretty, Speedy, SValue}
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.SResult._
 import com.digitalasset.daml.lf.speedy.SValue._
@@ -281,16 +281,6 @@ class Runner(
             throw new RuntimeException(s"Unexpected speedy result $res")
           }
         }
-      }
-      // TODO Share this logic with the trigger runner
-      var traceEmpty = true
-      machine.traceLog.iterator.foreach {
-        case (msg, optLoc) =>
-          traceEmpty = false
-          println(s"TRACE ${Pretty.prettyLoc(optLoc).render(80)}: $msg")
-      }
-      if (!traceEmpty) {
-        machine = machine.copy(traceLog = TraceLog(machine.traceLog.capacity))
       }
     }
 

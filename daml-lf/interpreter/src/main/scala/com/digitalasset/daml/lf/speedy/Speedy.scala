@@ -18,6 +18,7 @@ import java.util.ArrayList
 
 import com.digitalasset.daml.lf.CompiledPackages
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
+import org.slf4j.LoggerFactory
 
 object Speedy {
 
@@ -229,6 +230,7 @@ object Speedy {
   }
 
   object Machine {
+    private val damlTraceLog = LoggerFactory.getLogger("daml.tracelog")
     private def initial(checkSubmitterInMaintainers: Boolean, compiledPackages: CompiledPackages) =
       Machine(
         ctrl = null,
@@ -238,7 +240,7 @@ object Speedy {
         ptx = PartialTransaction.initial,
         committers = Set.empty,
         commitLocation = None,
-        traceLog = TraceLog(100),
+        traceLog = TraceLog(damlTraceLog, 100),
         compiledPackages = compiledPackages,
         checkSubmitterInMaintainers = checkSubmitterInMaintainers,
         validating = false,

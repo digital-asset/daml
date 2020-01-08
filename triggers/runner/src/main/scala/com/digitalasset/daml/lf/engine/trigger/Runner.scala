@@ -23,7 +23,7 @@ import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.speedy.Compiler
 import com.digitalasset.daml.lf.speedy.Pretty
-import com.digitalasset.daml.lf.speedy.{SExpr, Speedy, SValue, TraceLog}
+import com.digitalasset.daml.lf.speedy.{SExpr, Speedy, SValue}
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.SResult._
 import com.digitalasset.daml.lf.speedy.SValue._
@@ -118,42 +118,21 @@ class Runner(
       }
     }
 
-  def logTraces(machine: Speedy.Machine): Speedy.Machine = {
-    var traceEmpty = true
-    machine.traceLog.iterator.foreach {
-      case (msg, optLoc) =>
-        traceEmpty = false
-        logger.info(s"TRACE ${Pretty.prettyLoc(optLoc).render(80)}: $msg")
-    }
-    // Right now there isn’t a way to reset the TraceLog so we have to manually replace it by a new empty tracelog.
-    // We might want to make this possible in the future since it would be a bit cheaper but
-    // this shouldn’t be the bottleneck in triggers.
-    if (traceEmpty) {
-      // We can avoid allocating a new TraceLog in the common case where there was no trace statement.
-      machine
-    } else {
-      machine.copy(traceLog = TraceLog(machine.traceLog.capacity))
-    }
-  }
-
-  def stepToValue(machine: Speedy.Machine): Speedy.Machine = {
+  def stepToValue(machine: Speedy.Machine): Unit = {
     while (!machine.isFinal) {
       machine.step() match {
         case SResultContinue => ()
         case SResultError(err) => {
-          logTraces(machine)
           logger.error(Pretty.prettyError(err, machine.ptx).render(80))
           throw err
         }
         case res => {
-          logTraces(machine)
           val errMsg = s"Unexpected speedy result: $res"
           logger.error(errMsg)
           throw new RuntimeException(errMsg)
         }
       }
     }
-    logTraces(machine)
   }
 
   def getTrigger(triggerId: Identifier): (Expr, TypeConApp) = {
@@ -188,7 +167,7 @@ class Runner(
     val registeredTemplates = compiler.compile(
       ERecProj(triggerTy, Name.assertFromString("registeredTemplates"), triggerExpr))
     var machine = Speedy.Machine.fromSExpr(registeredTemplates, false, compiledPackages)
-    machine = stepToValue(machine)
+    stepToValue(machine)
     val templateIds = machine.toSValue match {
       case SVariant(_, "AllInDar", _) => {
         darMap.toList.flatMap({
@@ -275,7 +254,7 @@ class Runner(
           SEValue(STimestamp(clientTime)): SExpr,
           createdExpr))
     machine.ctrl = Speedy.CtrlExpr(initialState)
-    machine = stepToValue(machine)
+    stepToValue(machine)
     val evaluatedInitialState = handleStepResult(machine.toSValue, submit)
     logger.debug(s"Initial state: $evaluatedInitialState")
     Flow[TriggerMsg]
@@ -326,7 +305,7 @@ class Runner(
           Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
         machine.ctrl = Speedy.CtrlExpr(
           SEApp(update, Array(SEValue(STimestamp(clientTime)): SExpr, SEValue(messageVal), state)))
-        machine = stepToValue(machine)
+        stepToValue(machine)
         val newState = handleStepResult(machine.toSValue, submit)
         SEValue(newState)
       }))(Keep.right[NotUsed, Future[SExpr]])
