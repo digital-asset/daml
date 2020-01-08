@@ -35,7 +35,7 @@ DAML Compiler
 
   - The types from ``DA.Semigroup` are now in a separate package under
   ``DA.Semigroup.Types``
-  - The types from ``DA.Monoid` are now in a separate package under
+  - The types from ``DA.Monoid`` are now in a separate package under
   ``DA.Monoid.Types``
   - The types from ``DA.Time` are now in a separate package under
   ``DA.Time.Types``
