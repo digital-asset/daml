@@ -90,6 +90,7 @@ genModule mod
         (defSers, refs) = unzip (map (genDefDataType curModName tpls) serDefs)
         header =
             ["// Generated from " <> T.intercalate "/" (unModuleName curModName) <> ".daml"
+            ,"/* eslint-disable @typescript-eslint/no-unused-vars */"
             ,"/* eslint-disable @typescript-eslint/camelcase */"
             ,"/* eslint-disable @typescript-eslint/no-use-before-define */"
             ,"import * as jtv from '@mojotech/json-type-validation';"
@@ -121,7 +122,13 @@ genDefDataType curModName tpls def = case unTypeConName (dataTypeCon def) of
     [] -> error "IMPOSSIBLE: empty type constructor name"
     _:_:_ -> error "TODO(MH): multi-part type constructor names"
     [conName] -> case dataCons def of
-        DataVariant{} -> ((makeType ["unknown;"], makeSer ["jtv.unknownJson,"]), Set.empty)  -- TODO(MH): make variants type safe
+
+        DataVariant bs ->
+          let
+            typeDesc = [""] ++ concatMap genBranch (zip bs [(0 :: Integer)..]) ++ ["  ;"]
+            serDesc  = ["() => { throw new Error(\"not implemented\"); },"] in
+            ((makeType typeDesc, makeSer serDesc), Set.unions $ map (Set.setOf typeModuleRef . snd) bs)
+
         DataEnum enumCons ->
           let
             typeDesc =
@@ -216,6 +223,8 @@ genDefDataType curModName tpls def = case unTypeConName (dataTypeCon def) of
             ] ++
             map ("  " <>) (onHead ("export const decoder = " <>) serDesc) ++
             ["}"]
+        genBranch ((VariantConName cons, t), i) =
+          [(if i == 0 then "     " else "  |  ") <> "{ tag: '" <> cons <> "'; value: " <> fst (genType curModName t) <> " }"]
 
 genType :: ModuleName -> Type -> (T.Text, T.Text)
 genType curModName = go

@@ -56,4 +56,9 @@ data Foo a b = Foo {
   z: b
 }
 
+data Expr =
+    Lit Int
+  | Var Text
+  | Add (Expr, Expr)
+
 data Color = Red | Blue | Yellow deriving (Eq, Show)
