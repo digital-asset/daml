@@ -13,6 +13,7 @@ import akka.stream.Materializer
 import akka.util.ByteString
 import com.digitalasset.api.util.TimestampConversion
 import com.digitalasset.daml.bazeltools.BazelRunfiles.requiredResource
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.digitalasset.http.HttpServiceTestFixture.jsonCodecs
 import com.digitalasset.http.domain.ContractId
@@ -27,6 +28,7 @@ import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.v1.value.Record
 import com.digitalasset.ledger.api.v1.{value => v}
 import com.digitalasset.ledger.client.LedgerClient
+import com.digitalasset.ledger.service.MetadataReader
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest._
 import scalaz.std.list._
@@ -56,6 +58,9 @@ abstract class AbstractHttpServiceIntegrationTest
   private val dar1 = requiredResource("docs/quickstart-model.dar")
 
   private val dar2 = requiredResource("ledger-service/http-json/Account.dar")
+
+  private val metdata2: MetadataReader.LfMetadata =
+    MetadataReader.readFromDar(dar2).valueOr(e => fail(s"Cannot read dar2 metadata: $e"))
 
   private val testId: String = this.getClass.getSimpleName
 
@@ -129,7 +134,7 @@ abstract class AbstractHttpServiceIntegrationTest
   "contracts/search POST with empty query" in withHttpService { (uri, encoder, _) =>
     searchWithQuery(
       searchDataSet,
-      jsObject("""{"%templates": [{"moduleName": "Iou", "entityName": "Iou"}]}"""),
+      jsObject("""{"%templates": ["Iou:Iou"]}"""),
       uri,
       encoder
     ).map { acl: List[domain.ActiveContract[JsValue]] =>
@@ -140,8 +145,7 @@ abstract class AbstractHttpServiceIntegrationTest
   "contracts/search with query, one field" in withHttpService { (uri, encoder, _) =>
     searchWithQuery(
       searchDataSet,
-      jsObject(
-        """{"%templates": [{"moduleName": "Iou", "entityName": "Iou"}], "currency": "EUR"}"""),
+      jsObject("""{"%templates": ["Iou:Iou"], "currency": "EUR"}"""),
       uri,
       encoder
     ).map { acl: List[domain.ActiveContract[JsValue]] =>
@@ -158,11 +162,8 @@ abstract class AbstractHttpServiceIntegrationTest
         rs: List[(StatusCode, JsValue)] =>
           rs.map(_._1) shouldBe List.fill(searchDataSet.size)(StatusCodes.OK)
 
-          val queryAmountAsString = jsObject(
-            """{"%templates": [{"moduleName": "Iou", "entityName": "Iou"}], "amount": "111.11"}""")
-
-          val queryAmountAsNumber = jsObject(
-            """{"%templates": [{"moduleName": "Iou", "entityName": "Iou"}], "amount": 111.11}""")
+          val queryAmountAsString = jsObject("""{"%templates": ["Iou:Iou"], "amount": "111.11"}""")
+          val queryAmountAsNumber = jsObject("""{"%templates": ["Iou:Iou"], "amount": 111.11}""")
 
           List(
             postJsonRequest(uri.withPath(Uri.Path("/contracts/search")), queryAmountAsString),
@@ -187,8 +188,7 @@ abstract class AbstractHttpServiceIntegrationTest
   "contracts/search with query, two fields" in withHttpService { (uri, encoder, _) =>
     searchWithQuery(
       searchDataSet,
-      jsObject(
-        """{"%templates": [{"moduleName": "Iou", "entityName": "Iou"}], "currency": "EUR", "amount": "111.11"}"""),
+      jsObject("""{"%templates": ["Iou:Iou"], "currency": "EUR", "amount": "111.11"}"""),
       uri,
       encoder).map { acl: List[domain.ActiveContract[JsValue]] =>
       acl.size shouldBe 1
@@ -200,8 +200,7 @@ abstract class AbstractHttpServiceIntegrationTest
   "contracts/search with query, no results" in withHttpService { (uri, encoder, _) =>
     searchWithQuery(
       searchDataSet,
-      jsObject(
-        """{"%templates": [{"moduleName": "Iou", "entityName": "Iou"}], "currency": "RUB", "amount": "666.66"}"""),
+      jsObject("""{"%templates": ["Iou:Iou"], "currency": "RUB", "amount": "666.66"}"""),
       uri,
       encoder
     ).map { acl: List[domain.ActiveContract[JsValue]] =>
@@ -576,10 +575,7 @@ abstract class AbstractHttpServiceIntegrationTest
   "contracts/lookup by contractKey where Key contains variant and record" in withHttpService {
     (uri, _, _) =>
       val createCommand = jsObject("""{
-        "templateId": {
-          "moduleName": "Account",
-          "entityName": "KeyedByVariantAndRecord"
-        },
+        "templateId": "Account:KeyedByVariantAndRecord",
         "argument": {
           "name": "ABC DEF",
           "party": "Alice",
@@ -592,9 +588,9 @@ abstract class AbstractHttpServiceIntegrationTest
       val lookupRequest =
         jsObject(
           """{
-        "templateId": {"moduleName": "Account", "entityName": "KeyedByVariantAndRecord"},
-        "key": ["Alice", {"tag": "Baz", "value": {"baz": "baz value"}}, {"baz": "another baz value"}]
-      }""")
+            "templateId": "Account:KeyedByVariantAndRecord",
+            "key": ["Alice", {"tag": "Baz", "value": {"baz": "baz value"}}, {"baz": "another baz value"}]
+          }""")
 
       postJsonRequest(uri.withPath(Uri.Path("/command/create")), createCommand).flatMap {
         case (status, output) =>
@@ -618,6 +614,12 @@ abstract class AbstractHttpServiceIntegrationTest
     val nowStr = TimestampConversion.microsToInstant(now).toString
     val command: domain.CreateCommand[v.Record] = accountCreateCommand(owner, accountNumber, now)
 
+    val packageId: Ref.PackageId = MetadataReader
+      .templateByName(metdata2)(Ref.QualifiedName.assertFromString("Account:Account"))
+      .headOption
+      .map(_._1)
+      .getOrElse(fail(s"Cannot retrieve packageId"))
+
     postCreateCommand(command, encoder, uri).flatMap {
       case (status, output) =>
         status shouldBe StatusCodes.OK
@@ -625,7 +627,7 @@ abstract class AbstractHttpServiceIntegrationTest
         val contractId: ContractId = getContractId(getResult(output))
 
         val query = jsObject(s"""{
-             "%templates": [{"moduleName": "Account", "entityName": "Account"}],
+             "%templates": ["$packageId:Account:Account"],
              "number" : "abc123",
              "status" : {"tag": "Enabled", "value": "${nowStr: String}"}
           }""")
