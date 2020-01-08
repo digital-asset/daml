@@ -155,7 +155,7 @@ genDefDataType curModName tpls def = case unTypeConName (dataTypeCon def) of
                 Nothing -> ((makeType typeDesc, makeSer serDesc), Set.unions fieldRefs)
                 Just tpl ->
                     let (chcs, argRefs) = unzip
-                            [((unChoiceName (chcName chc), rLf, t, r, rtyp), argRefs)
+                            [((unChoiceName (chcName chc), t, r, rtyp), argRefs)
                             | chc <- NM.toList (tplChoices tpl)
                             , let tLf = snd (chcArgBinder chc)
                             , let rLf = chcReturnType chc
@@ -165,7 +165,7 @@ genDefDataType curModName tpls def = case unTypeConName (dataTypeCon def) of
                             ]
                         dict =
                             ["export const " <> conName <> ": daml.Template<" <> conName <> "> & {"] ++
-                            ["  " <> x <> ": daml.Choice<" <> conName <> ", " <> t <> ", " <> r <> " >;" | (x, _, t, r, _) <- chcs] ++
+                            ["  " <> x <> ": daml.Choice<" <> conName <> ", " <> t <> ", " <> r <> " >;" | (x, t, r, _) <- chcs] ++
                             ["} = {"
                             ] ++
                             ["  templateId: templateId('" <> conName <> "'),"
@@ -176,12 +176,19 @@ genDefDataType curModName tpls def = case unTypeConName (dataTypeCon def) of
                               ,"    template: () => " <> conName <> ","
                               ,"    choiceName: '" <> x <> "',"
                               ,"    argumentDecoder: " <> t <> ".decoder,"
-                              ,"    resultDecoder: " <> if not $ occurs (dataTypeCon def) rLf
-                                                        then rtyp <> ".decoder,"
-                                                        else "() => " <> rtyp <> ".decoder(), /* Thunk (since recursive in '" <> conName <> "'). */"
+                              -- We'd write,
+                              --   "   resultDecoder: " <> rtyp <> ".decoder"
+                              -- here but, consider the following scenario:
+                              --   export const Person: daml.Template<Person>...
+                              --    = {  ...
+                              --         Birthday: { resultDecoder: daml.ContractId(Person).decoder, ... }
+                              --         ...
+                              --      }
+                              -- This gives rise to "error TS2454: Variable 'Person' is used before being assigned."
+                              ,"    resultDecoder: () => " <> rtyp <> ".decoder()," -- Eta-conversion provides an escape hatch.
                               ,"  },"
                               ]
-                            | (x, rLf, t, _r, rtyp) <- chcs
+                            | (x, t, _r, rtyp) <- chcs
                             ] ++
                             ["};"]
                         registrations =
@@ -283,16 +290,3 @@ onHead :: (a -> a) -> [a] -> [a]
 onHead f = \case
     [] -> []
     x:xs -> f x:xs
-
--- Does 'tc' appear in 'typ'?
-occurs :: TypeConName -> Type -> Bool
-occurs tc typ =
-  case typ of
-    TCon (Qualified _ _ c) -> tc == c
-    TApp u v -> occursChk [u, v]
-    TForall _ u -> occursChk [u]
-    TStruct flds -> occursChk (map snd flds)
-    _ -> False
-  where
-   occursChk :: [Type] -> Bool
-   occursChk ts = foldl (\r u -> r || occurs tc u) False ts

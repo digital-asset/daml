@@ -86,7 +86,7 @@ object Generators {
         contractId = contractId,
         templateId = templateId,
         key = key,
-        argument = argument,
+        payload = argument,
         witnessParties = witnessParties,
         signatories = signatories,
         observers = observers,

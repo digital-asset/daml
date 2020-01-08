@@ -111,7 +111,7 @@ private class ContractsFetch(
     for {
       ac <- domain.ActiveContract fromLedgerApi ce leftMap (de =>
         new IllegalArgumentException(s"contract ${ce.contractId}: ${de.shows}"))
-      lfArg <- apiValueToLfValue(ac.argument) leftMap (_.cause)
+      lfArg <- apiValueToLfValue(ac.payload) leftMap (_.cause)
     } yield
       DBContract(
         contractId = ac.contractId.unwrap,

@@ -73,7 +73,7 @@ test('create + fetch & exercise', async () => {
     age: '5',
   };
   const aliceContract = await ledger.create(Main.Person, alice);
-  expect(aliceContract.argument).toEqual(alice);
+  expect(aliceContract.payload).toEqual(alice);
 
   const personContracts = await ledger.fetchAll(Main.Person);
   expect(personContracts).toHaveLength(1);
@@ -112,7 +112,7 @@ test('create + fetch & exercise', async () => {
     enumList: [Main.Color.Red, Main.Color.Blue, Main.Color.Yellow]
   };
   const allTypesContract = await ledger.create(Main.AllTypes, allTypes);
-  expect(allTypesContract.argument).toEqual(allTypes);
+  expect(allTypesContract.payload).toEqual(allTypes);
 
   const allTypesContracts = await ledger.fetchAll(Main.AllTypes);
   expect(allTypesContracts).toHaveLength(1);
