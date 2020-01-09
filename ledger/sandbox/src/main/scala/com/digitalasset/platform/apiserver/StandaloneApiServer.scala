@@ -24,7 +24,6 @@ import com.digitalasset.platform.resources.{Resource, ResourceOwner}
 import com.digitalasset.platform.sandbox.BuildInfo
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.sandbox.stores.InMemoryPackageStore
-import com.digitalasset.platform.server.services.testing.TimeServiceBackend
 
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}

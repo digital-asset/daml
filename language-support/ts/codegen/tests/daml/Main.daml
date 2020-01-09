@@ -28,6 +28,7 @@ template AllTypes with
     enum: Color
     enumList: [Color]
     variant: Expr Int
+    sumProd : Quux
   where
     signatory party
 
@@ -37,6 +38,9 @@ template Person with
     age: Int
   where
     signatory party
+
+    key (party, age): (Party, Int)
+    maintainer key._1
 
     choice Birthday: ContractId Person
       controller party
@@ -64,3 +68,8 @@ data Expr a =
   deriving (Show, Eq)
 
 data Color = Red | Blue | Yellow deriving (Eq, Show)
+
+data Quux =
+    Corge { x: Int, y: Text }
+  | Grault { z: Bool }
+  deriving (Show, Eq)

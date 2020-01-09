@@ -92,7 +92,7 @@ da_scala_test(
 
 daml_compile(
     name = "test-daml",
-    main_src = "src/test/daml/test.daml",
+    main_src = "src/test/daml/Foo.daml",
 )
 
 jar_jar(

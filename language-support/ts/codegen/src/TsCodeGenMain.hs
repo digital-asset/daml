@@ -87,7 +87,7 @@ genModule mod
           where
             lenModName = length (unModuleName curModName)
         tpls = moduleTemplates mod
-        (defSers, refs) = unzip (map (genDefDataType curModName tpls) serDefs)
+        (defSers, refs) = unzip (map (genDataDef curModName tpls) serDefs)
         header =
             ["// Generated from " <> T.intercalate "/" (unModuleName curModName) <> ".daml"
             ,"/* eslint-disable @typescript-eslint/camelcase */"
@@ -116,16 +116,27 @@ genModule mod
   where
     serDefs = filter (getIsSerializable . dataSerializable) (NM.toList (moduleDataTypes mod))
 
-genDefDataType :: ModuleName -> NM.NameMap Template -> DefDataType -> (([T.Text], [T.Text]), Set.Set ModuleRef)
-genDefDataType curModName tpls def = case unTypeConName (dataTypeCon def) of
+genDataDef :: ModuleName -> NM.NameMap Template -> DefDataType -> (([T.Text], [T.Text]), Set.Set ModuleRef)
+genDataDef curModName tpls def = case unTypeConName (dataTypeCon def) of
     [] -> error "IMPOSSIBLE: empty type constructor name"
-    _:_:_ -> error "TODO(MH): multi-part type constructor names"
-    [conName] -> case dataCons def of
+    _: _: _: _ -> error "IMPOSSIBLE: multi-part type constructor of more than two names"
+    [conName] -> genDefDataType conName curModName tpls def
+    [c1, c2] -> ((makeNamespace $ map ("  " <>) typs, makeNamespace $ map ("  " <>) sers), refs)
+      where
+        ((typs, sers), refs) = genDefDataType c2 curModName tpls def
+        ns = c1 <> "_NS"
+        makeNamespace stuff =
+          [ "// eslint-disable-next-line @typescript-eslint/no-namespace"
+          , "export namespace " <> ns <> " {"] ++ stuff ++ ["} //namespace " <> ns] ++ [""]
+
+genDefDataType :: T.Text -> ModuleName -> NM.NameMap Template -> DefDataType -> (([T.Text], [T.Text]), Set.Set ModuleRef)
+genDefDataType conName curModName tpls def =
+    case dataCons def of
         DataVariant bs ->
           let
             (typs, sers) = unzip $ map genBranch bs
             typeDesc = [""] ++ typs
-            serDesc  = ["() => jtv.oneOf("] ++ sers ++ [")"]
+            serDesc  = ["() => jtv.oneOf<" <> conName <> typeParams <> ">("] ++ sers ++ [")"]
           in
           ((makeType typeDesc, makeSer serDesc), Set.unions $ map (Set.setOf typeModuleRef . snd) bs)
         DataEnum enumCons ->
@@ -168,12 +179,19 @@ genDefDataType curModName tpls def = case unTypeConName (dataTypeCon def) of
                             , let (rtyp, rser) = genType curModName rLf
                             , let argRefs = Set.setOf typeModuleRef tLf
                             ]
+                        (keyTypeTs, keySer) = case tplKey tpl of
+                            Nothing -> ("undefined", "() => jtv.constant(undefined)")
+                            Just key ->
+                                let (keyTypeTs, keySer) = genType curModName (tplKeyType key)
+                                in
+                                (keyTypeTs, "() => " <> keySer <> ".decoder()")
                         dict =
-                            ["export const " <> conName <> ": daml.Template<" <> conName <> "> & {"] ++
+                            ["export const " <> conName <> ": daml.Template<" <> conName <> ", " <> keyTypeTs <> "> & {"] ++
                             ["  " <> x <> ": daml.Choice<" <> conName <> ", " <> t <> ", " <> rtyp <> " >;" | (x, t, rtyp, _) <- chcs] ++
                             ["} = {"
                             ] ++
                             ["  templateId: templateId('" <> conName <> "'),"
+                            ,"  keyDecoder: " <> keySer <> ","
                             ] ++
                             map ("  " <>) (onHead ("decoder: " <>) serDesc) ++
                             concat
@@ -224,9 +242,8 @@ genDefDataType curModName tpls def = case unTypeConName (dataTypeCon def) of
         genBranch (VariantConName cons, t) =
           let (typ, ser) = genType curModName t in
           ( "  |  { tag: '" <> cons <> "'; value: " <> typ <> " }"
-          , "  jtv.object<" <> conName <> typeParams <> ">({tag: jtv.constant('" <> cons <> "'), value: jtv.lazy(() => " <> ser <> ".decoder())}),"
+          , "  jtv.object({tag: jtv.constant('" <> cons <> "'), value: jtv.lazy(() => " <> ser <> ".decoder())}),"
           )
-
 
 genType :: ModuleName -> Type -> (T.Text, T.Text)
 genType curModName = go
@@ -283,12 +300,16 @@ genTypeCon :: ModuleName -> Qualified TypeConName -> (T.Text, T.Text)
 genTypeCon curModName (Qualified pkgRef modName conParts) =
     case unTypeConName conParts of
         [] -> error "IMPOSSIBLE: empty type constructor name"
-        _:_:_ -> error "TODO(MH): multi-part type constructor names"
+        _: _: _: _ -> error "TODO(MH): multi-part type constructor names"
+        [c1 ,c2]
+          | modRef == (PRSelf, curModName) -> dup $ cat (c1, c2)
+          | otherwise -> dup $ genModuleRef modRef <> cat (c1, c2)
         [conName]
           | modRef == (PRSelf, curModName) -> dup conName
-          | otherwise -> dup (genModuleRef modRef <> "." <> conName)
-          where
-            modRef = (pkgRef, modName)
+          | otherwise -> dup $ genModuleRef modRef <> "." <> conName
+     where
+       cat (u, v) = u <> "_NS." <> v
+       modRef = (pkgRef, modName)
 
 genModuleRef :: ModuleRef -> T.Text
 genModuleRef (pkgRef, modName) = case pkgRef of

@@ -32,8 +32,9 @@ export type TemplateId = {
  * Interface for objects representing DAML templates. It is similar to the
  * `Template` type class in DAML.
  */
-export interface Template<T extends object> extends Serializable<T> {
+export interface Template<T extends object, K = unknown> extends Serializable<T> {
   templateId: TemplateId;
+  keyDecoder: () => jtv.Decoder<K>;
   Archive: Choice<T, {}, {}>;
 }
 
