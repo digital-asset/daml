@@ -38,6 +38,9 @@ template Person with
   where
     signatory party
 
+    key (party, age): (Party, Int)
+    maintainer key._1
+
     choice Birthday: ContractId Person
       controller party
       do
