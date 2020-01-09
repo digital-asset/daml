@@ -218,11 +218,76 @@ List currently active contracts that match a given query.
 application/json body must be sent first, formatted according to the
 :doc:`search-query-language`::
 
-    {"%templates": [{"moduleName": "Iou", "entityName": "Iou"}],
-     "amount": 999.99}
+    {"%templates": [{"moduleName": "Iou", "entityName": "Iou"}]}
 
 output a series of JSON documents, each ``argument`` formatted according
 to :doc:`lf-value-specification`::
+
+    {
+        "add": [{
+            "observers": [],
+            "agreementText": "",
+            "signatories": ["Alice"],
+            "contractId": "#1:0",
+            "templateId": {
+                "packageId": "398e67533888ab6532c3e62c2c3445182e2cdd291457732f174d2698a7d1db2d",
+                "moduleName": "Iou",
+                "entityName": "Iou"
+            },
+            "witnessParties": ["Alice"],
+            "argument": {
+                "observers": [],
+                "issuer": "Alice",
+                "amount": "999.99",
+                "currency": "USD",
+                "owner": "Alice"
+            }
+        }]
+    }
+
+After submitting an ``Iou_Split`` exercise, which creates two contracts
+and archives the one above, the same stream will eventually produce::
+
+    {
+        "add": [{
+            "observers": [],
+            "agreementText": "",
+            "signatories": ["Alice"],
+            "contractId": "#2:1",
+            "templateId": {
+                "packageId": "398e67533888ab6532c3e62c2c3445182e2cdd291457732f174d2698a7d1db2d",
+                "moduleName": "Iou",
+                "entityName": "Iou"
+            },
+            "witnessParties": ["Alice"],
+            "argument": {
+                "observers": [],
+                "issuer": "Alice",
+                "amount": "42.42",
+                "currency": "USD",
+                "owner": "Alice"
+            }
+        }, {
+            "observers": [],
+            "agreementText": "",
+            "signatories": ["Alice"],
+            "contractId": "#2:2",
+            "templateId": {
+                "packageId": "398e67533888ab6532c3e62c2c3445182e2cdd291457732f174d2698a7d1db2d",
+                "moduleName": "Iou",
+                "entityName": "Iou"
+            },
+            "witnessParties": ["Alice"],
+            "argument": {
+                "observers": [],
+                "issuer": "Alice",
+                "amount": "957.57",
+                "currency": "USD",
+                "owner": "Alice"
+            }
+        }],
+        "remove": ["#1:0"]
+    }
 
 Some notes on behavior:
 
