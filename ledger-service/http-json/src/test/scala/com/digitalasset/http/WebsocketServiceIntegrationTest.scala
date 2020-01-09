@@ -6,16 +6,16 @@ package com.digitalasset.http
 import akka.NotUsed
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
-import akka.http.scaladsl.model.ws.{Message, TextMessage, WebSocketRequest}
+import akka.http.scaladsl.model.ws.{BinaryMessage, Message, TextMessage, WebSocketRequest}
 import akka.http.scaladsl.model.{StatusCodes, Uri}
 import akka.stream.scaladsl.{Flow, Sink, Source}
 import com.digitalasset.http.util.TestUtil
 import com.typesafe.scalalogging.StrictLogging
-import org.scalatest.{AsyncFreeSpec, BeforeAndAfterAll, Inside, Matchers}
+import org.scalatest.{Assertion, AsyncFreeSpec, BeforeAndAfterAll, Inside, Matchers}
 import scalaz.std.option._
 import scalaz.syntax.apply._
 
-import scala.concurrent.Await
+import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
 
 @SuppressWarnings(Array("org.wartremover.warts.Any", "org.wartremover.warts.NonUnitStatements"))
@@ -108,30 +108,61 @@ class WebsocketServiceIntegrationTest
       result.head should include("error")
   }
 
-  /* TODO SC
   "websocket should receive deltas as contracts are archived/created" in withHttpService {
     (uri, _, _) =>
       import spray.json._
-      def converse[M](flow: Flow[JsValue, JsValue, M]): Flow[Message, Message, M] =
-        Flow[Message].flatMapConcat{case ts: TextStream => .toStrict}
-      object CreatedContracts {
-        def unapplySeq(jsv: JsValue): Option[Vector[(String, JsValue)]] = for {
-          JsObject(fields) <- Some(jsv)
-          JsArray(adds) <- fields get "add"
-        } yield adds collect (Function unlift {
-          case JsObject(add) => (add get "contractId" collect {case JsString(v) => v}) tuple (add get "argument")
-          case _ => None
-        })
+      object ContractDelta {
+        def unapply(jsv: JsValue): Option[(Vector[(String, JsValue)], Vector[String])] =
+          for {
+            JsObject(fields) <- Some(jsv)
+            JsArray(adds) <- fields get "add" orElse Some(JsArray())
+            JsArray(removes) <- fields get "remove" orElse Some(JsArray())
+          } yield
+            (adds collect (Function unlift {
+              case JsObject(add) =>
+                (add get "contractId" collect { case JsString(v) => v }) tuple (add get "argument")
+              case _ => None
+            }), removes collect { case JsString(v) => v })
       }
-      val query = """{"%templates": [{"moduleName": "Iou", "entityName": "Iou"}]}""".parseJson
-      val conv: Flow[JsValue, JsValue, NotUsed] =
-        Flow.fromSinkAndSourceCoupledMat(
-        Sink.foldAsync((0, None)) {
-          case ((0, _), CreatedContracts((ctid, ct))) =>
-          case ((1, _), CreatedContracts(fst, snd)) =>
-        }, Source single query
-    }
-   */
+
+      val webSocketFlow = Http().webSocketClientFlow(
+        WebSocketRequest(
+          uri = uri.copy(scheme = "ws").withPath(Uri.Path("/contracts/searchForever")),
+          subprotocol = validSubprotocol))
+
+      val query =
+        TextMessage.Strict("""{"%templates": [{"moduleName": "Iou", "entityName": "Iou"}]}""")
+
+      val parseResp: Flow[Message, JsValue, NotUsed] =
+        Flow[Message].mapAsync(1) {
+          case _: BinaryMessage => fail("shouldn't get BinaryMessage")
+          case tm: TextMessage => tm.toStrict(1.second).map(_.text.parseJson)
+        }
+
+      val resp: Sink[JsValue, Future[Assertion]] = Sink
+        .foldAsync[(Int, Option[String]), JsValue]((0, None)) {
+          case ((0, _), ContractDelta(Vector((ctid, ct)), _)) =>
+            (Future(sys.error("TODO submit exercise"): Unit) map { _ =>
+              (1, Some(ctid))
+            })
+          case (
+              (1, Some(consumedCtid)),
+              ContractDelta(Vector((fstId, fst), (sndId, snd)), Vector(observeConsumed))) =>
+            Future {
+              observeConsumed should ===(consumedCtid)
+              (2, None)
+            }
+        }
+        .mapMaterializedValue {
+          _ map {
+            case (count, notYetConsumed) =>
+              count should ===(2)
+              notYetConsumed should ===(None)
+          }
+        }
+
+      Source single query via webSocketFlow via parseResp runWith resp
+  }
 
   private def wsConnectRequest[M](
       uri: Uri,
