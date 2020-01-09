@@ -20,6 +20,8 @@ import com.digitalasset.daml.lf.CompiledPackages
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import org.slf4j.LoggerFactory
 
+import scala.util.control.NoStackTrace
+
 object Speedy {
 
   /** The speedy CEK machine. */
@@ -415,9 +417,11 @@ object Speedy {
 
           // start evaluating the arguments
           val newArgsLimit = Math.min(missing, newArgs.length)
-          for (i <- 1 until newArgsLimit) {
+          var i = 1
+          while (i < newArgsLimit) {
             val arg = newArgs(newArgsLimit - i)
             machine.kont.add(KPushTo(args2, arg))
+            i = i + 1
           }
           machine.ctrl = CtrlExpr(newArgs(0))
 
@@ -568,6 +572,6 @@ object Speedy {
   }
 
   /** Internal exception thrown when a continuation result needs to be returned. */
-  final case class SpeedyHungry(result: SResult) extends RuntimeException(result.toString)
+  final case class SpeedyHungry(result: SResult) extends RuntimeException with NoStackTrace
 
 }
