@@ -31,7 +31,28 @@ for LF_VERSION in $PKG_DB/*; do
     if [ $(basename $LF_VERSION) != "1.6" ]; then
         stdlib=$LF_VERSION/daml-stdlib-*.dalf
         prim=$LF_VERSION/daml-prim.dalf
-        $DIFF -b -u <(get_serializable_types $stdlib) <(cat <<EOF
+        # MetaEquiv is a typeclass without methods and is translated to a type synonym for Unit
+        # in newer LF versions.
+        if [ $(basename $LF_VERSION) == "1.dev" ]; then
+            $DIFF -b -u <(get_serializable_types $stdlib) <(cat <<EOF
+"DA.Random:Minstd"
+"DA.Next.Set:Set"
+"DA.Next.Map:Map"
+"DA.Generics:MetaSel0"
+"DA.Generics:MetaData0"
+"DA.Generics:DecidedStrictness"
+"DA.Generics:SourceStrictness"
+"DA.Generics:SourceUnpackedness"
+"DA.Generics:Associativity"
+"DA.Generics:Infix0"
+"DA.Generics:Fixity"
+"DA.Generics:K1"
+"DA.Generics:Par1"
+"DA.Generics:U1"
+EOF
+)
+        else
+            $DIFF -b -u <(get_serializable_types $stdlib) <(cat <<EOF
 "DA.Upgrade:MetaEquiv"
 "DA.Random:Minstd"
 "DA.Next.Set:Set"
@@ -49,7 +70,8 @@ for LF_VERSION in $PKG_DB/*; do
 "DA.Generics:U1"
 EOF
 )
-        $DIFF -b -u <(get_serializable_types $prim) <(cat <<EOF
+        fi
+      $DIFF -b -u <(get_serializable_types $prim) <(cat <<EOF
 EOF
 )
     fi

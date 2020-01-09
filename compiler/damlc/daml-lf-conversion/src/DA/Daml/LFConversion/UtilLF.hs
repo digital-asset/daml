@@ -52,6 +52,9 @@ mkChoiceName = ChoiceName
 mkTypeCon :: [T.Text] -> TypeConName
 mkTypeCon = TypeConName
 
+mkTypeSyn :: [T.Text] -> TypeSynName
+mkTypeSyn = TypeSynName
+
 mkIdentity :: Type -> Expr
 mkIdentity t = ETmLam (varV1, t) $ EVar varV1
 

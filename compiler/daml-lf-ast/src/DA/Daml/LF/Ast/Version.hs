@@ -88,6 +88,13 @@ featureGenMap = Feature
     , featureCppFlag = "DAML_GENMAP"
     }
 
+featureTypeSynonyms :: Feature
+featureTypeSynonyms = Feature
+    { featureName = "LF type synonyms"
+    , featureMinVersion = versionDev
+    , featureCppFlag = "DAML_TYPE_SYNONYMS"
+    }
+
 -- Unstable, experimental features. This should stay in 1.dev forever.
 -- Features implemented with this flag should be moved to a separate
 -- feature flag once the decision to add them permanently has been made.
