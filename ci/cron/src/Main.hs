@@ -4,7 +4,9 @@
 module Main (main) where
 
 import Data.Function ((&))
+import System.FilePath.Posix ((</>))
 
+import qualified Control.Exception
 import qualified Control.Monad as Control
 import qualified Data.Aeson as JSON
 import qualified Data.ByteString.UTF8 as BS
@@ -14,13 +16,13 @@ import qualified Data.HashMap.Strict as H
 import qualified Data.List as List
 import qualified Data.List.Extra as List
 import qualified Data.List.Split as Split
-import qualified Data.Ord as Ord
 import qualified Data.Set as Set
 import qualified Data.Text as Text
 import qualified Network.HTTP.Client as HTTP
 import qualified Network.HTTP.Client.TLS as TLS
 import qualified Network.HTTP.Types.Header as Header
 import qualified Network.HTTP.Types.Status as Status
+import qualified System.Directory as Directory
 import qualified System.Environment as Env
 import qualified System.Exit as Exit
 import qualified System.IO.Extra as Temp
@@ -112,34 +114,75 @@ to_v s = case map read $ Split.splitOn "." s of
     [major, minor, patch] -> Version (major, minor, patch)
     _ -> error $ "Invalid data, needs manual repair. Got this for a version string: " <> s
 
-build_docs_folder :: String -> [String] -> IO ()
-build_docs_folder path versions = do
-    out <- shell "git rev-parse HEAD"
-    let cur_sha = init out -- remove ending newline
-    shell_ $ "mkdir -p " <> path
-    let latest = head versions
-    putStrLn $ "Building latest docs: " <> latest
-    shell_ $ "git checkout v" <> latest
-    robustly_download_nix_packages
-    shell_ "bazel build //docs:docs"
-    shell_ $ "tar xzf bazel-bin/docs/html.tar.gz --strip-components=1 -C " <> path
-    -- Not going through Aeson because it represents JSON objects as unordered
-    -- maps, and here order matters.
-    let versions_json = versions
-                        & map (\s -> "\"" <> s <> "\": \"" <> s <> "\"")
-                        & List.intercalate ", "
-                        & \s -> "{" <> s <> "}"
-    writeFile (path <> "/versions.json") versions_json
-    shell_ $ "mkdir -p  " <> path <> "/" <> latest
-    shell_ $ "tar xzf bazel-bin/docs/html.tar.gz --strip-components=1 -C " <> path <> "/" <> latest
-    Foldable.for_ (tail versions) $ \version -> do
-        putStrLn $ "Building older docs: " <> version
-        shell_ $ "git checkout v" <> version
-        robustly_download_nix_packages
-        shell_ "bazel build //docs:docs"
-        shell_ $ "mkdir -p  " <> path <> "/" <> version
-        shell_ $ "tar xzf bazel-bin/docs/html.tar.gz --strip-components=1 -C" <> path <> "/" <> version
-    shell_ $ "git checkout " <> cur_sha
+build_docs_folder :: String -> [String] -> String -> IO String
+build_docs_folder path versions latest = do
+    restore_sha $ do
+        let old = path </> "old"
+        let new = path </> "new"
+        download_existing_site_from_s3 old
+        Foldable.for_ versions $ \version -> do
+            putStrLn $ "Building " <> version <> "..."
+            putStrLn "  Checking for existing folder..."
+            old_version_exists <- exists old version
+            if old_version_exists
+            then do
+                -- Note: this checks for upload errors; this is NOT in any way
+                -- a protection against tampering at the s3 level as we get the
+                -- checksums from the s3 bucket.
+                putStrLn "  Found. Checking integrity..."
+                checksums_match <- checksums old version
+                if checksums_match
+                then do
+                    putStrLn "  Checks, reusing existing."
+                    copy (old </> version) $ new </> version
+                else do
+                    putStrLn "  Check failed. Rebuilding..."
+                    build version new
+            else do
+                putStrLn "  Not found. Building..."
+                build version new
+            putStrLn $ "Done " <> version <> "."
+        putStrLn $ "Copying latest (" <> latest <> ") to top-level..."
+        copy (new </> latest </> "*") (new <> "/")
+        putStrLn "Creating versions.json..."
+        create_versions_json versions new
+        return new
+    where
+        restore_sha io =
+            Control.Exception.bracket (init <$> shell "git rev-parse HEAD")
+                                      (\cur_sha -> shell_ $ "git checkout " <> cur_sha)
+                                      (const io)
+        download_existing_site_from_s3 path = do
+            shell_ $ "mkdir -p " <> path
+            shell_ $ "aws s3 sync s3://docs-daml-com/ " <> path
+        exists dir name = do
+            dir_exists <- Directory.doesDirectoryExist $ dir </> name
+            dir_has_checksum_file <- Directory.doesFileExist $ dir </> name </> "checksum"
+            return $ dir_exists && dir_has_checksum_file
+        checksums path version = do
+            let cmd = "cd " <> path </> version <> "; sha256sum -c checksum"
+            (code, _, _) <- shell_exit_code cmd
+            case code of
+                Exit.ExitSuccess -> return True
+                _ -> return False
+        copy from to = do
+            shell_ $ "cp -r " <> from <> " " <> to
+        build version path = do
+            shell_ $ "git checkout v" <> version
+            robustly_download_nix_packages
+            shell_ "bazel build //docs:docs"
+            shell_ $ "mkdir -p  " <> path </> version
+            shell_ $ "tar xzf bazel-bin/docs/html.tar.gz --strip-components=1 -C" <> path </> version
+            checksums <- shell $ "cd " <> path </> version <> "; find . -type f -exec sha256sum {} \\;"
+            writeFile (path </> version </> "checksum") checksums
+        create_versions_json versions path = do
+            -- Not going through Aeson because it represents JSON objects as
+            -- unordered maps, and here order matters.
+            let versions_json = versions
+                                & map (\s -> "\"" <> s <> "\": \"" <> s <> "\"")
+                                & List.intercalate ", "
+                                & \s -> "{" <> s <> "}"
+            writeFile (path </> "versions.json") versions_json
 
 fetch_s3_versions :: IO (Set.Set Version)
 fetch_s3_versions = do
@@ -155,7 +198,7 @@ fetch_s3_versions = do
 push_to_s3 :: String -> IO ()
 push_to_s3 doc_folder = do
     putStrLn "Pushing new versions file first..."
-    shell_ $ "aws s3 cp " <> doc_folder <> "/versions.json s3://docs-daml-com/versions.json --acl public-read"
+    shell_ $ "aws s3 cp " <> doc_folder </> "versions.json s3://docs-daml-com/versions.json --acl public-read"
     putStrLn "Pushing to S3 bucket..."
     shell_ $ "aws s3 sync " <> doc_folder
              <> " s3://docs-daml-com/"
@@ -218,7 +261,7 @@ tell_hubspot latest = do
       Just BlogId { blog_id } -> do
           -- DEBUG
           putStrLn $ "Parsed blog ID as " <> show blog_id
-          _ <- http_post ("https://api.hubapi.com/content/api/v2/blog-posts/" <> show blog_id <> "/publish-action?hapikey=" <> token)
+          _ <- http_post ("https://api.hubapi.com/content/api/v2/blog-posts/" <> show blog_id </> "publish-action?hapikey=" <> token)
                          [("Content-Type", "application/json")]
                          (JSON.encode $ JSON.object [("action", "schedule-publish")])
           return ()
@@ -239,7 +282,7 @@ fetch_gh_versions = do
     resp <- http_get "https://api.github.com/repos/digital-asset/daml/releases"
     let releases = filter (not . prerelease) resp
     let versions = Set.fromList $ map (to_v . name) releases
-    let latest = List.maximumOn (to_v . name) resp
+    let latest = List.maximumOn (to_v . name) releases
     return (versions, latest)
 
 main :: IO ()
@@ -253,9 +296,9 @@ main = do
         putStrLn "No new version found, skipping."
         Exit.exitSuccess
     else do
-        Temp.withTempDir $ \docs_folder -> do
+        Temp.withTempDir $ \temp_dir -> do
             putStrLn "Building docs listing"
-            build_docs_folder docs_folder $ map show $ List.sortOn Ord.Down $ Set.toList gh_versions
+            docs_folder <- build_docs_folder temp_dir (map show $ Set.toList gh_versions) $ name gh_latest
             putStrLn "Done building docs bundle. Checking versions again to avoid race condition..."
             s3_versions_after <- fetch_s3_versions
             if s3_versions_after == gh_versions

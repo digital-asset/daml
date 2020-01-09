@@ -20,20 +20,12 @@ export interface Serializable<T> {
 export const STATIC_IMPLEMENTS_SERIALIZABLE_CHECK = <T>(_: Serializable<T>) => {}
 
 /**
- * Identifier of a DAML template.
- */
-export type TemplateId = {
-  packageId: string;
-  moduleName: string;
-  entityName: string;
-}
-
-/**
  * Interface for objects representing DAML templates. It is similar to the
  * `Template` type class in DAML.
  */
-export interface Template<T extends object> extends Serializable<T> {
-  templateId: TemplateId;
+export interface Template<T extends object, K = unknown> extends Serializable<T> {
+  templateId: string;
+  keyDecoder: () => jtv.Decoder<K>;
   Archive: Choice<T, {}, {}>;
 }
 
@@ -50,11 +42,8 @@ export interface Choice<T extends object, C, R> {
 
 const registeredTemplates: {[key: string]: Template<object>} = {};
 
-const templateIdToString = ({packageId, moduleName, entityName}: TemplateId) =>
-  `${packageId}:${moduleName}:${entityName}`;
-
 export const registerTemplate = <T extends object>(template: Template<T>) => {
-  const templateId = templateIdToString(template.templateId);
+  const templateId = template.templateId;
   const oldTemplate = registeredTemplates[templateId];
   if (oldTemplate === undefined) {
     registeredTemplates[templateId] = template;
@@ -64,11 +53,10 @@ export const registerTemplate = <T extends object>(template: Template<T>) => {
   }
 }
 
-export const lookupTemplate = (templateId: TemplateId): Template<object> => {
-  const templateIdStr = templateIdToString(templateId);
-  const template = registeredTemplates[templateIdStr];
+export const lookupTemplate = (templateId: string): Template<object> => {
+  const template = registeredTemplates[templateId];
   if (template === undefined) {
-    throw Error(`Trying to look up template ${templateIdStr}.`);
+    throw Error(`Trying to look up template ${templateId}.`);
   }
   return template;
 }
