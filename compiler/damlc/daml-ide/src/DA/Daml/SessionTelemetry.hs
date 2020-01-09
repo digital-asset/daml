@@ -1,3 +1,6 @@
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
 module DA.Daml.SessionTelemetry
     ( withSessionPings
     ) where
@@ -61,3 +64,4 @@ sendSessionPing :: Lgr.Handle IO -> IO ()
 sendSessionPing lgr = Lgr.logJson lgr Lgr.Telemetry $ HM.fromList @T.Text @T.Text
   [ ("type", "session_ping")
   ]
+
