@@ -31,10 +31,11 @@ case class InMemoryActiveLedgerState(
       .get(contractId)
       .exists(ac => ac.witnesses.contains(forParty) || ac.divulgences.contains(forParty))
 
-  override def lookupContractByKey(key: GlobalKey, forParty: Party): Option[AbsoluteContractId] =
+  def lookupContractByKeyFor(key: GlobalKey, forParty: Party): Option[AbsoluteContractId] =
     keys.get(key).filter(isVisibleFor(_, forParty))
 
-  override def keyExists(key: GlobalKey): Boolean = keys.contains(key)
+  override def lookupContractByKey(key: GlobalKey): Option[AbsoluteContractId] =
+    keys.get(key)
 
   def lookupContract(cid: AbsoluteContractId): Option[Contract] =
     activeContracts.get(cid).orElse[Contract](divulgedContracts.get(cid))

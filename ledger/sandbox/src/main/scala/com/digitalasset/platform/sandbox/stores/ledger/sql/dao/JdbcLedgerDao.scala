@@ -795,13 +795,8 @@ private class JdbcLedgerDao(
         disclosure) =>
       final class AcsStoreAcc extends ActiveLedgerState[AcsStoreAcc] {
 
-        override def lookupContractByKey(
-            key: GlobalKey,
-            forParty: Party): Option[AbsoluteContractId] =
-          lookupKeySync(key, forParty)
-
-        override def keyExists(key: GlobalKey): Boolean =
-          selectContractKey(key).isDefined
+        override def lookupContractByKey(key: GlobalKey): Option[AbsoluteContractId] =
+          selectContractKey(key)
 
         override def lookupContractLet(cid: AbsoluteContractId): Option[LetLookup] =
           lookupContractLetSync(cid)

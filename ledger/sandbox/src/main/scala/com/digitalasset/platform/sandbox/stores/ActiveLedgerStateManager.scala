@@ -172,7 +172,7 @@ class ActiveLedgerStateManager[ALS](initialState: => ALS)(
                       parties = parties.union(nodeParties))
                   case Some(key) =>
                     val gk = GlobalKey(activeContract.contract.template, key.key)
-                    if (acc.keyExists(gk)) {
+                    if (acc.lookupContractByKey(gk).isDefined) {
                       AddTransactionState(
                         None,
                         errs + DuplicateKey(gk),
@@ -207,8 +207,9 @@ class ActiveLedgerStateManager[ALS](initialState: => ALS)(
 
                 submitter match {
                   case Some(s) =>
-                    // If the submitter is known, look up the contract as submitter
-                    val currentResult = acc.lookupContractByKey(gk, s)
+                    // If the submitter is known, look up the contract
+                    // Submitter being know means the transaction was submitted on this participant.
+                    val currentResult = acc.lookupContractByKey(gk)
                     if (currentResult == nlkup.result) {
                       ats.copy(
                         parties = parties.union(nodeParties),
@@ -218,7 +219,10 @@ class ActiveLedgerStateManager[ALS](initialState: => ALS)(
                         errs = errs + InvalidLookup(gk, nlkup.result, currentResult)
                       )
                     }
-                  // Otherwise, trust that the lookup was valid
+                  // Otherwise, trust that the lookup was valid.
+                  // The submitter being unknown means the transaction was submitted on a different participant,
+                  // and (A) this participant may not know the authoritative answer to whether the key exists and
+                  // (B) this code is called from a Indexer and not from the sandbox ledger.
                   case None =>
                     ats.copy(
                       parties = parties.union(nodeParties),
