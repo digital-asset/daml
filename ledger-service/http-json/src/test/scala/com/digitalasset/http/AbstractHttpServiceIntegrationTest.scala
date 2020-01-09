@@ -47,7 +47,7 @@ object AbstractHttpServiceIntegrationTestFuns {
   private val dar2 = requiredResource("ledger-service/http-json/Account.dar")
 }
 
-trait AbstractHttpServiceIntegrationTestFuns extends AsyncTestSuite { this: Assertions =>
+trait AbstractHttpServiceIntegrationTestFuns { this: Assertions =>
   import AbstractHttpServiceIntegrationTestFuns._
 
   def jdbcConfig: Option[JdbcConfig]
@@ -70,7 +70,8 @@ trait AbstractHttpServiceIntegrationTestFuns extends AsyncTestSuite { this: Asse
   implicit val `AHS mat`: Materializer = Materializer(`AHS asys`)
   implicit val `AHS aesf`: ExecutionSequencerFactory =
     new AkkaExecutionSequencerPool(testId)(`AHS asys`)
-  implicit override val executionContext: ExecutionContext = `AHS asys`.dispatcher
+  import shapeless.tag, tag.@@ // used for subtyping to make `AHS ec` beat executionContext
+  implicit val `AHS ec`: ExecutionContext @@ this.type = tag[this.type](`AHS asys`.dispatcher)
 
   protected def withHttpService[A]
     : ((Uri, DomainJsonEncoder, DomainJsonDecoder) => Future[A]) => Future[A] =
