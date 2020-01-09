@@ -54,7 +54,7 @@ object Cli {
 
     opt[String]('a', "address")
       .action((x, c) => c.copy(address = Some(x)))
-      .text("Sandbox service host. Defaults to binding on all addresses.")
+      .text("Sandbox service host. Defaults to binding on localhost.")
 
     // TODO remove in next major release.
     opt[Unit]("dalf")
