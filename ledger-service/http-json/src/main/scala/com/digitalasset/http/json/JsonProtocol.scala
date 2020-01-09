@@ -5,6 +5,7 @@ package com.digitalasset.http.json
 
 import java.time.Instant
 
+import akka.http.scaladsl.model.StatusCode
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.daml.lf.value.json.ApiCodecCompressed
@@ -219,4 +220,23 @@ object JsonProtocol extends DefaultJsonProtocol {
 
   implicit val ExerciseResponseFormat: RootJsonFormat[domain.ExerciseResponse[JsValue]] =
     jsonFormat2(domain.ExerciseResponse[JsValue])
+
+  implicit val StatusCodeFormat: RootJsonFormat[StatusCode] =
+    new RootJsonFormat[StatusCode] {
+      override def read(json: JsValue): StatusCode = json match {
+        case JsNumber(x) => StatusCode.int2StatusCode(x.toIntExact)
+        case _ => deserializationError(s"Expected JsNumber, got: $json")
+      }
+
+      override def write(obj: StatusCode): JsValue = JsNumber(obj.intValue)
+    }
+
+  implicit val OkResponseFormat: RootJsonFormat[domain.OkResponse[JsValue, JsValue]] = jsonFormat3(
+    domain.OkResponse[JsValue, JsValue])
+
+  implicit val ErrorResponseFormat: RootJsonFormat[domain.ErrorResponse[JsValue]] = jsonFormat2(
+    domain.ErrorResponse[JsValue])
+
+  implicit val UnknownTemplateIdsFormat: RootJsonFormat[domain.UnknownTemplateIds] = jsonFormat1(
+    domain.UnknownTemplateIds)
 }
