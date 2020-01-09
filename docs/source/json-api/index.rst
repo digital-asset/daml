@@ -245,6 +245,11 @@ to :doc:`lf-value-specification`::
         }]
     }
 
+To keep the stream alive, you'll occasionally see messages like this,
+which can be safely ignored::
+
+    {"heartbeat": "ping"}
+
 After submitting an ``Iou_Split`` exercise, which creates two contracts
 and archives the one above, the same stream will eventually produce::
 
