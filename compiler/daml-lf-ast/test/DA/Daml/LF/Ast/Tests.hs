@@ -7,7 +7,7 @@ module DA.Daml.LF.Ast.Tests
 
 import Control.Monad (unless)
 import Data.Foldable
-import Data.List (isInfixOf,intercalate)
+import Data.List (isInfixOf)
 import Data.List.Extra (trim)
 import qualified Data.Map.Strict as Map
 import qualified Data.NameMap as NM
@@ -95,8 +95,8 @@ typeSynTests =
     , (TSynApp (q myIdentity) [TSynApp (q myInt) []], TInt64)
     , (TSynApp (q myIdentity) [TSynApp (q myIdentity) [TParty]], TParty)
     , (TSynApp (q myPairXY) [TDate,TParty], mkPair TDate TParty)
-    , (TSynApp (q myHigh) [TBuiltin BTList], (TList TInt64))
-    , (TSynApp (q myHigh2) [TBuiltin BTArrow,TParty], (TParty :-> TParty))
+    , (TSynApp (q myHigh) [TBuiltin BTList], TList TInt64)
+    , (TSynApp (q myHigh2) [TBuiltin BTArrow,TParty], TParty :-> TParty)
     ]
 
   sadExamples :: [(Type,Type,String)]
@@ -114,11 +114,11 @@ typeSynTests =
     , (TSynApp (q myPairXY) [TDate], TParty, "wrong arity in type synonym application")
     , (TSynApp (q myPairXY) [TDate], TParty, "expected: 2, found: 1")
     , (TSynApp (q myPairXX) [TDate,TParty], TParty, "wrong arity in type synonym application")
-    , (TSynApp (q myIdentity) [TBuiltin BTList], (TList TInt64),"kind mismatch")
-    , (TSynApp (q myHigh) [TBuiltin BTList], (TList TParty), "type mismatch")
-    , (TSynApp (q myHigh) [TBuiltin BTArrow], (TList TInt64),"kind mismatch")
-    , (TSynApp (q myHigh) [TInt64], (TList TInt64),"kind mismatch")
-    , (TSynApp (q myHigh2) [TBuiltin BTList,TParty], (TParty :-> TParty), "kind mismatch")
+    , (TSynApp (q myIdentity) [TBuiltin BTList], TList TInt64,"kind mismatch")
+    , (TSynApp (q myHigh) [TBuiltin BTList], TList TParty, "type mismatch")
+    , (TSynApp (q myHigh) [TBuiltin BTArrow], TList TInt64,"kind mismatch")
+    , (TSynApp (q myHigh) [TInt64], TList TInt64,"kind mismatch")
+    , (TSynApp (q myHigh2) [TBuiltin BTList,TParty], TParty :-> TParty, "kind mismatch")
     ]
 
   goodDefs :: [DefTypeSyn]
@@ -196,7 +196,7 @@ typeSynTests =
       Left s -> assertStringContains s (Fragment frag)
       Right () -> assertFailure "expected type error, but got none"
     where
-      looseNewlines = intercalate " " . map trim . lines
+      looseNewlines = unwords . map trim . lines
 
   makeModuleToTestTypeSyns :: Type -> Type -> Module
   makeModuleToTestTypeSyns ty1 ty2 = do
