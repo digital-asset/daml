@@ -107,8 +107,20 @@ object SExpr {
   final case class SEMakeClo(fv: Array[Int], arity: Int, body: SExpr)
       extends SExpr
       with SomeArrayEquals {
+
     def execute(machine: Machine): Ctrl = {
-      Ctrl.fromPrim(PClosure(body, fv.map(machine.getEnv)), arity)
+      def convertToSValues(fv: Array[Int], getEnv: Int => SValue) = {
+        val sValues = new Array[SValue](fv.length)
+        var i = 0
+        while (i < fv.length) {
+          sValues(i) = getEnv(fv(i))
+          i = i + 1
+        }
+        sValues
+      }
+
+      val sValues = convertToSValues(fv, machine.getEnv)
+      Ctrl.fromPrim(PClosure(body, sValues), arity)
     }
   }
 

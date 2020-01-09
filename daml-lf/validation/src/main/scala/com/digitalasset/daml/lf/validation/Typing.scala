@@ -621,7 +621,7 @@ private[validation] object Typing {
         val CaseAlt(patn0, rhs0) = alts(0)
         val scrutType = typeOf(scrut)
         val rhsType = introCasePattern(scrutType, patn0).typeOf(rhs0)
-        for (i <- alts.indices().drop(1)) {
+        for (i <- alts.indices.drop(1)) {
           val CaseAlt(patn, rhs) = alts(i)
           introCasePattern(scrutType, patn).checkExpr(rhs, rhsType)
         }

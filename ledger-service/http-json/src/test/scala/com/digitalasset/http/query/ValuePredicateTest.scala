@@ -151,11 +151,11 @@ class ValuePredicateTest
       import doobie.implicits._, dbbackend.Queries.Implicits._
       Table(
         ("query", "type", "sql"),
-        ("42", VA.int64, sql"create_arguments = ${s"""{"$dummyFieldName":42}""".parseJson}::jsonb"),
+        ("42", VA.int64, sql"payload = ${s"""{"$dummyFieldName":42}""".parseJson}::jsonb"),
         (
           """{"%lte": 42}""",
           VA.int64,
-          sql"create_arguments->${"foo": String} <= ${JsNumber(42): JsValue}::jsonb AND create_arguments @> ${JsObject(): JsValue}::jsonb"),
+          sql"payload->${"foo": String} <= ${JsNumber(42): JsValue}::jsonb AND payload @> ${JsObject(): JsValue}::jsonb"),
       )
     }
 
