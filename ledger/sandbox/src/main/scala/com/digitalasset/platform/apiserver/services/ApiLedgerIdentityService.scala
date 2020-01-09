@@ -1,8 +1,9 @@
 // Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.server.services.identity
+package com.digitalasset.platform.apiserver.services
 
+import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc.{
   LedgerIdentityService => GrpcLedgerIdentityService
@@ -16,8 +17,6 @@ import com.digitalasset.ledger.api.v1.ledger_identity_service.{
 import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.server.api.ApiException
-import com.digitalasset.dec.DirectExecutionContext
-
 import io.grpc.{BindableService, ServerServiceDefinition, Status}
 import org.slf4j.Logger
 import scalaz.syntax.tag._
