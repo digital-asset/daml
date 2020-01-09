@@ -433,23 +433,9 @@ jobs:
               || "$(macOS.status)" != "Succeeded"
               || "$(Windows.status)" != "Succeeded"
               || "$(perf.status)" != "Succeeded"
-              || "$(std_change.status)" != "Succeeded"
               || "$(dump.status)" == "Canceled"
-              || "$(dump.status)" == "Failed"
               || "$(Windows_signing.status)" == "Canceled"
-              || "$(Windows_signing.status)" == "Failed"
-              || "$(release.status)" == "Canceled"
-              || "$(release.status)" == "Failed" ]]; then
-              echo "Status check failed. Failing build so re-run button appears."
-              echo "Collected statuses were:"
-              echo "  Linux: $(Linux.status)"
-              echo "  macOS: $(macOS.status)"
-              echo "  Windows: $(Windows.status)"
-              echo "  perf: $(perf.status)"
-              echo "  check_standard_change_label: $(std_change.status)"
-              echo "  Windows_signing: $(Windows_signing.status)"
-              echo "  release: $(release.status)"
-              echo "  write_ledger_dump: $(dump.status)"
+              || "$(release.status)" == "Canceled" ]]; then
               exit 1
           fi
         env:
