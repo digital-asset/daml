@@ -35,8 +35,7 @@ class HttpServiceWithPostgresIntTest
   "contracts/search persists all active contracts" in withHttpService { (uri, encoder, _) =>
     searchWithQuery(
       searchDataSet,
-      jsObject(
-        """{"%templates": [{"moduleName": "Iou", "entityName": "Iou"}], "currency": "EUR"}"""),
+      jsObject("""{"%templates": ["Iou:Iou"], "currency": "EUR"}"""),
       uri,
       encoder
     ).flatMap { searchResult: List[domain.ActiveContract[JsValue]] =>
