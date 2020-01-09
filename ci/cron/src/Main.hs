@@ -282,7 +282,7 @@ fetch_gh_versions = do
     resp <- http_get "https://api.github.com/repos/digital-asset/daml/releases"
     let releases = filter (not . prerelease) resp
     let versions = Set.fromList $ map (to_v . name) releases
-    let latest = List.maximumOn (to_v . name) resp
+    let latest = List.maximumOn (to_v . name) releases
     return (versions, latest)
 
 main :: IO ()
