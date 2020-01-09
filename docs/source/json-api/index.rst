@@ -158,12 +158,15 @@ For production use, we have a tool in development for generating proper
 RSA-encrypted tokens locally, which will arrive when the service also
 supports such tokens.
 
-GET http://localhost:7575/contracts/search
-==========================================
+GET ``/contracts/search``
+=========================
+
 List all currently active contracts for all known templates. Note that the retrieved contracts do not get persisted into query store database.
 
-POST http://localhost:7575/contracts/search
-===========================================
+The response is the same as for the POST method below.
+
+POST ``/contracts/search``
+==========================
 
 List currently active contracts that match a given query.
 
@@ -218,8 +221,8 @@ Each contract formatted according to :doc:`lf-value-specification`.
         "status": 200
     }
 
-POST http://localhost:7575/command/create
-=========================================
+POST ``/command/create``
+========================
 
 Create a contract.
 
@@ -266,8 +269,8 @@ Response
         }
     }
  
-POST http://localhost:7575/command/exercise
-============================================
+POST ``/command/exercise``
+==========================
 
 Exercise a choice on a contract.
 
@@ -335,8 +338,8 @@ Where:
 - ``exerciseResult`` -- the return value of the exercised contract choice.
 - ``contracts`` -- an array containing contracts that were archived and created as part of the exercised choice. The array may contain: **zero or many** ``{"archived": {...}}`` and **zero or many** ``{"created": {...}}`` elements. The order of the contracts is the same as on the ledger.
 
-GET http://localhost:7575/parties
-=================================
+GET ``/parties``
+================
 
 Response
 --------
@@ -353,8 +356,8 @@ Response
         ]
     }
 
-POST http://localhost:7575/contracts/lookup
-============================================
+POST ``/contracts/lookup``
+==========================
 
 Lookup by Contract ID
 ---------------------
