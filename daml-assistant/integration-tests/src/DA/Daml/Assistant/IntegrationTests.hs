@@ -1,4 +1,4 @@
--- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 module DA.Daml.Assistant.IntegrationTests (main) where
 
@@ -613,7 +613,8 @@ deployTest deployDir = testCase "daml deploy" $ do
                             , ".daml/dist/proj1-0.0.1.dar"
                             ]) { std_out = UseHandle devNull }
                 let tokenFile = deployDir </> "secretToken.jwt"
-                writeFileUTF8 tokenFile ("Bearer " <> makeSignedJwt sharedSecret)
+                -- The trailing newline is not required but we want to test that it is supported.
+                writeFileUTF8 tokenFile ("Bearer " <> makeSignedJwt sharedSecret <> "\n")
                 withCreateProcess sandboxProc  $ \_ _ _ ph ->
                     race_ (waitForProcess' sandboxProc ph) $ do
                         waitForConnectionOnPort (threadDelay 100000) port

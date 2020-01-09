@@ -1,4 +1,4 @@
-// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 import * as jtv from '@mojotech/json-type-validation';
 
@@ -32,7 +32,7 @@ export type TemplateId = {
  * Interface for objects representing DAML templates. It is similar to the
  * `Template` type class in DAML.
  */
-export interface Template<T> extends Serializable<T> {
+export interface Template<T extends object> extends Serializable<T> {
   templateId: TemplateId;
   Archive: Choice<T, {}, {}>;
 }
@@ -41,7 +41,7 @@ export interface Template<T> extends Serializable<T> {
  * Interface for objects representing DAML choices. It is similar to the
  * `Choice` type class in DAML.
  */
-export interface Choice<T, C, R> {
+export interface Choice<T extends object, C, R> {
   template: () => Template<T>;
   argumentDecoder: () => jtv.Decoder<C>;
   resultDecoder: () => jtv.Decoder<R>;
@@ -53,7 +53,7 @@ const registeredTemplates: {[key: string]: Template<object>} = {};
 const templateIdToString = ({packageId, moduleName, entityName}: TemplateId) =>
   `${packageId}:${moduleName}:${entityName}`;
 
-export const registerTemplate = <T extends {}>(template: Template<T>) => {
+export const registerTemplate = <T extends object>(template: Template<T>) => {
   const templateId = templateIdToString(template.templateId);
   const oldTemplate = registeredTemplates[templateId];
   if (oldTemplate === undefined) {

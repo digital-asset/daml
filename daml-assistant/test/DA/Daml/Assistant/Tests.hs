@@ -1,4 +1,4 @@
--- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -378,6 +378,7 @@ testInstall = Tasty.testGroup "DA.Daml.Assistant.Install"
                     , iQuiet = QuietInstall True
                     , iForce = ForceInstall False
                     , iSetPath = SetPath False
+                    , iBashCompletions = BashCompletions No
                     }
 
             setCurrentDirectory base
@@ -411,6 +412,7 @@ testInstallUnix = Tasty.testGroup "unix-specific tests"
                           , iQuiet = QuietInstall True
                           , iForce = ForceInstall False
                           , iSetPath = SetPath False
+                          , iBashCompletions = BashCompletions No
                           }
 
                   setCurrentDirectory base
@@ -439,6 +441,7 @@ testInstallUnix = Tasty.testGroup "unix-specific tests"
                     , iQuiet = QuietInstall True
                     , iForce = ForceInstall False
                     , iSetPath = SetPath False
+                    , iBashCompletions = BashCompletions No
                     }
 
             setCurrentDirectory base
@@ -467,6 +470,7 @@ testInstallUnix = Tasty.testGroup "unix-specific tests"
                     , iQuiet = QuietInstall True
                     , iForce = ForceInstall False
                     , iSetPath = SetPath False
+                    , iBashCompletions = BashCompletions No
                     }
 
             setCurrentDirectory base

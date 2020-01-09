@@ -1,4 +1,4 @@
--- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module Options.Applicative.Extended
@@ -29,7 +29,7 @@ determineAuto b = \case
 -- This maps yes to "Just true", no to "Just False" and auto to "Nothing"
 flagYesNoAuto' :: String -> String -> Mod OptionFields YesNoAuto -> Parser YesNoAuto
 flagYesNoAuto' flagName helpText mods =
-    option reader (long flagName <> value Auto <> help helpText <> mods)
+    option reader (long flagName <> value Auto <> help helpText <> completeWith ["yes", "no", "auto"] <> mods)
   where reader = eitherReader $ \case
             "yes" -> Right Yes
             "no" -> Right No
@@ -43,4 +43,3 @@ flagYesNoAuto flagName defaultValue helpText mods =
     determineAuto defaultValue <$> flagYesNoAuto' flagName (helpText <> commonHelp) mods
     where
         commonHelp = " Can be set to \"yes\", \"no\" or \"auto\" to select the default (" <> show defaultValue <> ")"
-

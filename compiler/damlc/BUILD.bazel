@@ -1,4 +1,4 @@
-# Copyright (c) 2019 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_test")
@@ -262,6 +262,7 @@ genrule(
             --output=$(OUTS) \
             --input-format=json \
             --format=Hoogle \
+            --exclude-instances=HasField \
             --template=$(location :daml-base-hoogle-template) \
             $(location :daml-stdlib.json) $(location :daml-prim.json)
     """,
@@ -283,6 +284,7 @@ genrule(
             --output=$(OUTS) \
             --input-format=json \
             --format=Rst \
+            --exclude-instances=HasField \
             --template=$(location :daml-base-rst-template) \
             $(location :daml-stdlib.json) $(location :daml-prim.json)
     """,

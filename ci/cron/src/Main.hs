@@ -1,4 +1,4 @@
--- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module Main (main) where
@@ -13,7 +13,6 @@ import qualified Data.Foldable as Foldable
 import qualified Data.HashMap.Strict as H
 import qualified Data.List as List
 import qualified Data.List.Extra as List
-import qualified Data.List.Utils as List
 import qualified Data.List.Split as Split
 import qualified Data.Ord as Ord
 import qualified Data.Set as Set
@@ -102,18 +101,11 @@ http_post url headers body = do
       2 -> return $ HTTP.responseBody response
       _ -> Exit.die $ "POST " <> url <> " failed with " <> show status <> "."
 
-github_versions :: [GitHubVersion] -> Set.Set String
-github_versions vs = Set.fromList $ map name vs
-
-remove_prereleases :: [GitHubVersion] -> [GitHubVersion]
-remove_prereleases = filter (\v -> not (prerelease v))
-
-docs_versions :: H.HashMap String String -> Set.Set String
-docs_versions json =
-    Set.fromList $ H.keys json
-
 newtype Version = Version (Int, Int, Int)
   deriving (Eq, Ord)
+
+instance Show Version where
+    show (Version (a, b, c)) = show a <> "." <> show b <> "." <> show c
 
 to_v :: String -> Version
 to_v s = case map read $ Split.splitOn "." s of
@@ -135,7 +127,7 @@ build_docs_folder path versions = do
     -- maps, and here order matters.
     let versions_json = versions
                         & map (\s -> "\"" <> s <> "\": \"" <> s <> "\"")
-                        & List.join ", "
+                        & List.intercalate ", "
                         & \s -> "{" <> s <> "}"
     writeFile (path <> "/versions.json") versions_json
     shell_ $ "mkdir -p  " <> path <> "/" <> latest
@@ -149,13 +141,15 @@ build_docs_folder path versions = do
         shell_ $ "tar xzf bazel-bin/docs/html.tar.gz --strip-components=1 -C" <> path <> "/" <> version
     shell_ $ "git checkout " <> cur_sha
 
-check_s3_versions :: Set.Set String -> IO Bool
-check_s3_versions gh_versions = do
+fetch_s3_versions :: IO (Set.Set Version)
+fetch_s3_versions = do
     temp <- shell "mktemp"
     shell_ $ "aws s3 cp s3://docs-daml-com/versions.json " <> temp
     s3_raw <- shell $ "cat " <> temp
-    case JSON.decode $ LBS.fromString s3_raw of
-      Just s3_json -> return $ docs_versions s3_json == gh_versions
+    let type_annotated_value :: Maybe JSON.Object
+        type_annotated_value = JSON.decode $ LBS.fromString s3_raw
+    case type_annotated_value of
+      Just s3_json -> return $ Set.fromList $ map (to_v . Text.unpack) $ H.keys s3_json
       Nothing -> Exit.die "Failed to get versions from s3"
 
 push_to_s3 :: String -> IO ()
@@ -240,31 +234,38 @@ instance JSON.FromJSON GitHubVersion where
 name :: GitHubVersion -> String
 name gh = tail $ tag_name gh
 
+fetch_gh_versions :: IO (Set.Set Version, GitHubVersion)
+fetch_gh_versions = do
+    resp <- http_get "https://api.github.com/repos/digital-asset/daml/releases"
+    let releases = filter (not . prerelease) resp
+    let versions = Set.fromList $ map (to_v . name) releases
+    let latest = List.maximumOn (to_v . name) resp
+    return (versions, latest)
+
 main :: IO ()
 main = do
     robustly_download_nix_packages
     putStrLn "Checking for new version..."
-    gh_resp <- remove_prereleases <$> http_get "https://api.github.com/repos/digital-asset/daml/releases"
-    docs_resp <- docs_versions <$> http_get "https://docs.daml.com/versions.json"
-    if github_versions gh_resp == docs_resp
+    (gh_versions, gh_latest) <- fetch_gh_versions
+    s3_versions_before <- fetch_s3_versions
+    if s3_versions_before == gh_versions
     then do
         putStrLn "No new version found, skipping."
         Exit.exitSuccess
     else do
         Temp.withTempDir $ \docs_folder -> do
             putStrLn "Building docs listing"
-            build_docs_folder docs_folder $ List.sortOn (Ord.Down . to_v) $ map name gh_resp
+            build_docs_folder docs_folder $ map show $ List.sortOn Ord.Down $ Set.toList gh_versions
             putStrLn "Done building docs bundle. Checking versions again to avoid race condition..."
-            s3_matches <- check_s3_versions (github_versions gh_resp)
-            if s3_matches
+            s3_versions_after <- fetch_s3_versions
+            if s3_versions_after == gh_versions
             then do
                 putStrLn "No more new version, another process must have pushed already."
                 Exit.exitSuccess
             else do
                 push_to_s3 docs_folder
-                let gh_latest = List.maximumOn (to_v . name) gh_resp
-                let docs_latest = List.maximumOn to_v $ Set.toList docs_resp
-                if to_v (name gh_latest) > to_v docs_latest
+                let prev_latest = List.maximum $ Set.toList s3_versions_before
+                if to_v (name gh_latest) > prev_latest
                 then do
                     putStrLn "New version detected, telling HubSpot"
                     tell_hubspot gh_latest

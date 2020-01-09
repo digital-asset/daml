@@ -1,4 +1,4 @@
--- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.Compiler.DocTest (docTest) where
@@ -41,5 +41,4 @@ docTest ideState files = do
     -- frequent but sadly it doesn’t make them go away completely.
     runActionSync ideState (pure ())
     diags <- getDiagnostics ideState
-    when (any ((Just DsError ==) . _severity . snd) diags) exitFailure
-
+    when (any (\(_, _, diag) -> Just DsError == _severity diag) diags) exitFailure

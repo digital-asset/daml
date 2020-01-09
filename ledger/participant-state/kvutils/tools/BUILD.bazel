@@ -1,4 +1,4 @@
-# Copyright (c) 2019 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -15,24 +15,18 @@ da_scala_binary(
     visibility = [
         "//visibility:public",
     ],
+    runtime_deps = [
+        "@maven//:ch_qos_logback_logback_classic",
+    ],
     deps = [
-        "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_java_proto",
         "//daml-lf/data",
         "//daml-lf/engine",
-        "//daml-lf/language",
-        "//daml-lf/transaction",
-        "//daml-lf/transaction:transaction_java_proto",
-        "//daml-lf/transaction:value_java_proto",
-        "//ledger/ledger-api-common",
-        "//ledger/ledger-api-domain",
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils:daml_kvutils_java_proto",
-        "@maven//:ch_qos_logback_logback_classic",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:io_dropwizard_metrics_metrics_jvm",
-        "@maven//:org_slf4j_slf4j_api",
     ],
 )

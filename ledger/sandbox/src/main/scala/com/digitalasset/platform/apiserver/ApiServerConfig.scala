@@ -1,4 +1,4 @@
-// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.platform.apiserver
@@ -14,6 +14,7 @@ case class ApiServerConfig(
     participantId: ParticipantId,
     archiveFiles: List[File],
     port: Int,
+    address: Option[String], // address for ledger-api server to bind to, defaulting to `localhost` for None
     jdbcUrl: String,
     tlsConfig: Option[TlsConfiguration],
     timeProvider: TimeProvider, // enables use of non-wall-clock time in tests

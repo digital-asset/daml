@@ -1,4 +1,4 @@
--- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 module TsCodeGenMain (main) where
 
@@ -125,7 +125,7 @@ genDefDataType curModName tpls def = case unTypeConName (dataTypeCon def) of
         DataEnum enumCons ->
           let
             typeDesc =
-                [ "export enum " <> conName <> "{"] ++
+                [ "export enum " <> conName <> " {"] ++
                 [ "  " <> cons <> " = " <> "\'" <> cons <> "\'" <> ","
                 | VariantConName cons <- enumCons] ++
                 [ "}"
@@ -133,9 +133,9 @@ genDefDataType curModName tpls def = case unTypeConName (dataTypeCon def) of
                 ]
 
             serDesc =
-                ["  () => jtv.oneOf("] ++
-                ["    jtv.constant(" <> conName <> "." <> cons <> ")," | VariantConName cons <- enumCons] ++
-                ["  )"]
+                ["() => jtv.oneOf("] ++
+                ["  jtv.constant(" <> conName <> "." <> cons <> ")," | VariantConName cons <- enumCons] ++
+                [");"]
           in
           ((typeDesc, makeNameSpace serDesc), Set.empty)
         DataRecord fields ->
@@ -145,7 +145,7 @@ genDefDataType curModName tpls def = case unTypeConName (dataTypeCon def) of
                 typeDesc =
                     ["{"] ++
                     ["  " <> x <> ": " <> t <> ";" | (x, t) <- zip fieldNames fieldTypesTs] ++
-                    ["};"]
+                    ["}"]
                 serDesc =
                     ["() => jtv.object({"] ++
                     ["  " <> x <> ": " <> ser <> ".decoder()," | (x, ser) <- zip fieldNames fieldSers] ++
@@ -212,10 +212,9 @@ genDefDataType curModName tpls def = case unTypeConName (dataTypeCon def) of
             ["});"]
         makeNameSpace serDesc =
             [ "// eslint-disable-next-line @typescript-eslint/no-namespace"
-            , "export namespace " <> conName <> "{"
-            , "  export const decoder ="
+            , "export namespace " <> conName <> " {"
             ] ++
-            serDesc ++
+            map ("  " <>) (onHead ("export const decoder = " <>) serDesc) ++
             ["}"]
 
 genType :: ModuleName -> Type -> (T.Text, T.Text)

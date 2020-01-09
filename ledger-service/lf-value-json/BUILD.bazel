@@ -1,4 +1,4 @@
-# Copyright (c) 2019 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -11,14 +11,6 @@ load(
     "daml_compile",
 )
 
-lf_value_json_deps = [
-    "@maven//:org_scalaz_scalaz_core_2_12",
-    "@maven//:io_spray_spray_json_2_12",
-    "//daml-lf/data",
-    "//daml-lf/interface",
-    "//daml-lf/transaction",
-]
-
 da_scala_library(
     name = "lf-value-json",
     srcs = glob(["src/main/scala/**/*.scala"]),
@@ -27,7 +19,13 @@ da_scala_library(
     visibility = [
         "//visibility:public",
     ],
-    deps = lf_value_json_deps,
+    deps = [
+        "//daml-lf/data",
+        "//daml-lf/interface",
+        "//daml-lf/transaction",
+        "@maven//:io_spray_spray_json_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
+    ],
 )
 
 daml_compile(
@@ -44,15 +42,16 @@ da_scala_test(
     ],
     deps = [
         ":lf-value-json",
-        "@maven//:org_scalacheck_scalacheck_2_12",
-        "@maven//:org_scalaz_scalaz_scalacheck_binding_2_12",
-        "@maven//:org_scalatest_scalatest_2_12",
-        "@maven//:com_google_protobuf_protobuf_java",
-        "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/archive:daml_lf_dev_archive_java_proto",
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/data",
+        "//daml-lf/interface",
+        "//daml-lf/transaction",
+        "//daml-lf/transaction-scalacheck",
         "//ledger-service/utils",
         "@maven//:com_chuusai_shapeless_2_12",
-        "//daml-lf/transaction-scalacheck",
-        "//bazel_tools/runfiles:scala_runfiles",
-    ] + lf_value_json_deps,
+        "@maven//:io_spray_spray_json_2_12",
+        "@maven//:org_scalacheck_scalacheck_2_12",
+        "@maven//:org_scalatest_scalatest_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
+    ],
 )

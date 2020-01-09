@@ -1,4 +1,4 @@
--- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE CPP #-}
@@ -262,7 +262,7 @@ runDamldoc testfile importPathM = do
           }
 
     let diagLogger = \case
-            EventFileDiagnostics fp diags -> T.hPutStrLn stderr $ showDiagnostics $ map (toNormalizedFilePath fp,) diags
+            EventFileDiagnostics fp diags -> T.hPutStrLn stderr $ showDiagnostics $ map (toNormalizedFilePath fp,ShowDiag,) diags
             _ -> pure ()
 
     -- run the doc generator on that file
@@ -277,7 +277,7 @@ runDamldoc testfile importPathM = do
         assertFailure $ unlines ["Parse error(s) for test file " <> testfile]
 
       Just docs -> do
-          let docs' = applyTransform [] docs
+          let docs' = applyTransform defaultTransformOptions docs
                 -- apply transforms to get instance data
               name = md_name (head docs)
                 -- first module in docs is the one we're testing,

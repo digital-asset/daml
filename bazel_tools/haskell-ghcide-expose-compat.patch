@@ -1,16 +1,16 @@
 diff --git a/ghcide.cabal b/ghcide.cabal
-index d11d000..2ee2c0a 100644
+index 930b387..73f4b51 100644
 --- a/ghcide.cabal
 +++ b/ghcide.cabal
-@@ -96,6 +96,7 @@ library
+@@ -98,6 +98,7 @@ library
      include-dirs:
          include
      exposed-modules:
 +        Development.IDE.Core.Compile
+         Development.IDE.Core.Completions
+         Development.IDE.Core.CompletionsTypes
          Development.IDE.Core.FileStore
-         Development.IDE.Core.OfInterest
-         Development.IDE.Core.PositionMapping
-@@ -103,7 +104,10 @@ library
+@@ -107,7 +108,10 @@ library
          Development.IDE.Core.RuleTypes
          Development.IDE.Core.Service
          Development.IDE.Core.Shake
@@ -21,7 +21,7 @@ index d11d000..2ee2c0a 100644
          Development.IDE.Import.DependencyInformation
          Development.IDE.LSP.LanguageServer
          Development.IDE.LSP.Protocol
-@@ -114,13 +118,9 @@ library
+@@ -118,13 +122,9 @@ library
          Development.IDE.Types.Options
      other-modules:
          Development.IDE.Core.Debouncer
@@ -34,4 +34,4 @@ index d11d000..2ee2c0a 100644
 -        Development.IDE.GHC.Warnings
          Development.IDE.Import.FindImports
          Development.IDE.LSP.CodeAction
-         Development.IDE.LSP.Definition
+         Development.IDE.LSP.Completions

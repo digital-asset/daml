@@ -1,4 +1,4 @@
-// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.server.damlonx.reference.v2
@@ -110,6 +110,7 @@ object ReferenceServer extends App {
         config.participantId,
         config.archiveFiles,
         config.port,
+        config.address,
         config.jdbcUrl,
         config.tlsConfig,
         config.timeProvider,
