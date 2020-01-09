@@ -945,8 +945,9 @@ case class TimeTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
                     case TimeProviderType.Static =>
                       TestRunner.assertEqual(timeA, timeB, "static times")
                     case _ =>
-                      if (timeA <= timeB) {
-                        Left(s"Second create should have happened after first")
+                      // Given the limited resolution it can happen that timeA == timeB
+                      if (!(timeA >= timeB)) {
+                        Left(s"Second create at $timeA should have happened after first $timeB")
                       } else {
                         Right(())
                       }
@@ -977,8 +978,8 @@ case class TimeTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
     test(
       "Time",
       "test",
-      // 2 creates
-      NumMessages(2)
+      // 2 creates and 2 completions
+      NumMessages(4)
     )
   }
 }
