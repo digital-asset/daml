@@ -1,11 +1,11 @@
 // Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
-import { Choice, ContractId, List, Party, Template, TemplateId, Text, lookupTemplate } from '@digitalasset/daml-json-types';
+import { Choice, ContractId, List, Party, Template, Text, lookupTemplate } from '@digitalasset/daml-json-types';
 import * as jtv from '@mojotech/json-type-validation';
 import fetch from 'cross-fetch';
 
 export type CreateEvent<T extends object, K = unknown> = {
-  templateId: TemplateId;
+  templateId: string;
   contractId: ContractId<T>;
   signatories: List<Party>;
   observers: List<Party>;
@@ -15,7 +15,7 @@ export type CreateEvent<T extends object, K = unknown> = {
 }
 
 export type ArchiveEvent<T extends object> = {
-  templateId: TemplateId;
+  templateId: string;
   contractId: ContractId<T>;
 }
 
@@ -23,14 +23,8 @@ export type Event<T extends object, K = unknown> =
   | { created: CreateEvent<T, K> }
   | { archived: ArchiveEvent<T> }
 
-const decodeTemplateId: jtv.Decoder<TemplateId> = jtv.object({
-  packageId: jtv.string(),
-  moduleName: jtv.string(),
-  entityName: jtv.string(),
-});
-
 const decodeCreateEvent = <T extends object, K>(template: Template<T, K>): jtv.Decoder<CreateEvent<T, K>> => jtv.object({
-  templateId: decodeTemplateId,
+  templateId: jtv.string(),
   contractId: ContractId(template).decoder(),
   signatories: List(Party).decoder(),
   observers: List(Party).decoder(),
@@ -40,12 +34,12 @@ const decodeCreateEvent = <T extends object, K>(template: Template<T, K>): jtv.D
 });
 
 const decodeCreateEventUnknown: jtv.Decoder<CreateEvent<object>> =
-  jtv.valueAt(['templateId'], decodeTemplateId).andThen((templateId) =>
+  jtv.valueAt(['templateId'], jtv.string()).andThen((templateId) =>
     decodeCreateEvent(lookupTemplate(templateId))
   );
 
 const decodeArchiveEventUnknown: jtv.Decoder<ArchiveEvent<object>> = jtv.object({
-  templateId: decodeTemplateId,
+  templateId: jtv.string(),
   contractId: ContractId({decoder: jtv.unknownJson}).decoder(),
 });
 

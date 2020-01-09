@@ -67,7 +67,7 @@ daml2ts Options{..} pkgId pkg mbPkgName = do
     T.writeFileUtf8 (outputDir </> "packageId.ts") $ T.unlines
         ["export default '" <> unPackageId pkgId <> "';"]
     forM_ (packageModules pkg) $ \mod -> do
-        whenJust (genModule mod) $ \modTxt -> do
+        whenJust (genModule pkgId mod) $ \modTxt -> do
             let outputFile = outputDir </> joinPath (map T.unpack (unModuleName (moduleName mod))) <.> "ts"
             putStrLn $ "Generating " ++ outputFile
             createDirectoryIfMissing True (takeDirectory outputFile)
@@ -76,8 +76,8 @@ daml2ts Options{..} pkgId pkg mbPkgName = do
 dup :: a -> (a, a)
 dup x = (x, x)
 
-genModule :: Module -> Maybe T.Text
-genModule mod
+genModule :: PackageId -> Module -> Maybe T.Text
+genModule curPkgId mod
   | null serDefs = Nothing
   | otherwise =
     let curModName = moduleName mod
@@ -87,7 +87,7 @@ genModule mod
           where
             lenModName = length (unModuleName curModName)
         tpls = moduleTemplates mod
-        (defSers, refs) = unzip (map (genDataDef curModName tpls) serDefs)
+        (defSers, refs) = unzip (map (genDataDef curPkgId curModName tpls) serDefs)
         header =
             ["// Generated from " <> T.intercalate "/" (unModuleName curModName) <> ".daml"
             ,"/* eslint-disable @typescript-eslint/camelcase */"
@@ -103,34 +103,27 @@ genModule mod
                     PRImport pkgId -> "../" <> unPackageId pkgId <> "/"
             , let modNameStr = genModuleRef modRef
             ]
-        templateId
-          | null (moduleTemplates mod) = []
-          | otherwise =
-            ["import packageId from '" <> pkgRootPath <> "/packageId';"
-            ,"const moduleName = '" <> T.intercalate "." (unModuleName curModName) <> "';"
-            ,"const templateId = (entityName: string): daml.TemplateId => ({packageId, moduleName, entityName});"
-            ]
         defs = map (\(def, ser) -> def ++ ser) defSers
     in
-    Just $ T.unlines $ intercalate [""] $ filter (not . null) $ header : imports : templateId : defs
+    Just $ T.unlines $ intercalate [""] $ filter (not . null) $ header : imports : defs
   where
     serDefs = filter (getIsSerializable . dataSerializable) (NM.toList (moduleDataTypes mod))
 
-genDataDef :: ModuleName -> NM.NameMap Template -> DefDataType -> (([T.Text], [T.Text]), Set.Set ModuleRef)
-genDataDef curModName tpls def = case unTypeConName (dataTypeCon def) of
+genDataDef :: PackageId -> ModuleName -> NM.NameMap Template -> DefDataType -> (([T.Text], [T.Text]), Set.Set ModuleRef)
+genDataDef curPkgId curModName tpls def = case unTypeConName (dataTypeCon def) of
     [] -> error "IMPOSSIBLE: empty type constructor name"
     _: _: _: _ -> error "IMPOSSIBLE: multi-part type constructor of more than two names"
-    [conName] -> genDefDataType conName curModName tpls def
+    [conName] -> genDefDataType curPkgId conName curModName tpls def
     [c1, c2] -> ((makeNamespace $ map ("  " <>) typs, makeNamespace $ map ("  " <>) sers), refs)
       where
-        ((typs, sers), refs) = genDefDataType c2 curModName tpls def
+        ((typs, sers), refs) = genDefDataType curPkgId c2 curModName tpls def
         ns = c1 <> "_NS"
         makeNamespace stuff =
           [ "// eslint-disable-next-line @typescript-eslint/no-namespace"
           , "export namespace " <> ns <> " {"] ++ stuff ++ ["} //namespace " <> ns] ++ [""]
 
-genDefDataType :: T.Text -> ModuleName -> NM.NameMap Template -> DefDataType -> (([T.Text], [T.Text]), Set.Set ModuleRef)
-genDefDataType conName curModName tpls def =
+genDefDataType :: PackageId -> T.Text -> ModuleName -> NM.NameMap Template -> DefDataType -> (([T.Text], [T.Text]), Set.Set ModuleRef)
+genDefDataType curPkgId conName curModName tpls def =
     case dataCons def of
         DataVariant bs ->
           let
@@ -190,7 +183,7 @@ genDefDataType conName curModName tpls def =
                             ["  " <> x <> ": daml.Choice<" <> conName <> ", " <> t <> ", " <> rtyp <> " >;" | (x, t, rtyp, _) <- chcs] ++
                             ["} = {"
                             ] ++
-                            ["  templateId: templateId('" <> conName <> "'),"
+                            ["  templateId: '" <> unPackageId curPkgId <> ":" <> T.intercalate "." (unModuleName curModName) <> ":" <> conName <> "',"
                             ,"  keyDecoder: " <> keySer <> ","
                             ] ++
                             map ("  " <>) (onHead ("decoder: " <>) serDesc) ++
