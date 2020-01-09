@@ -32,12 +32,12 @@ object NewBoolean {
     override def apply(b: T) = b
   }
 
-  // technically could `extends NewBoolean` but we preserve monomorphic calls this way
+  // could almost `extends NewBoolean` but we preserve monomorphic calls this way
   abstract class Named {
     val NT: NewBoolean = Instance
     type T = NT.T
-    val False: T = NT.False
-    val True: T = NT.True
+    protected val False: T = NT.False
+    protected val True: T = NT.True
     def subst[F[_]](fa: F[Boolean]): F[T] = NT subst fa
     def apply(b: Boolean): T = NT(b)
   }
