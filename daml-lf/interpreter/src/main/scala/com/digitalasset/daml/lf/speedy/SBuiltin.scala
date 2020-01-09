@@ -1,7 +1,8 @@
 // Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.speedy
+package com.digitalasset.daml.lf
+package speedy
 
 import java.util
 
@@ -20,12 +21,13 @@ import com.digitalasset.daml.lf.speedy.Speedy.{
 }
 import com.digitalasset.daml.lf.speedy.SResult._
 import com.digitalasset.daml.lf.speedy.SValue._
-import com.digitalasset.daml.lf.transaction.Transaction._
+import com.digitalasset.daml.lf.transaction.{Transaction => Tx}
 import com.digitalasset.daml.lf.value.{Value => V}
 import com.digitalasset.daml.lf.value.ValueVersions.asVersionedValue
 import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers}
 
 import scala.collection.JavaConverters._
+import scala.collection.immutable.TreeSet
 
 /** Speedy builtin functions */
 sealed abstract class SBuiltin(val arity: Int) {
@@ -911,7 +913,6 @@ object SBuiltin {
           case Left(err) => crash(err)
           case Right(x) => x
         })
-        ._2
       machine.ctrl = CtrlValue.Unit
       checkAborted(machine.ptx)
     }
@@ -991,8 +992,10 @@ object SBuiltin {
       val observers = extractParties(args.get(2))
       val stakeholders = observers union signatories
       val contextActors = machine.ptx.context match {
-        case ContextExercises(ctx, _) => ctx.actingParties union ctx.signatories
-        case ContextRoot(_) => machine.committers
+        case Tx.PartialTransaction.ContextExercise(ctx, _) =>
+          ctx.actingParties union ctx.signatories
+        case Tx.PartialTransaction.ContextRoot(_, _) =>
+          machine.committers
       }
 
       machine.ptx = machine.ptx.insertFetch(
@@ -1152,7 +1155,7 @@ object SBuiltin {
       def clearCommit(): Unit = {
         machine.committers = Set.empty
         machine.commitLocation = None
-        machine.ptx = PartialTransaction.initial
+        machine.ptx = Tx.PartialTransaction.initial(None)
       }
 
       args.get(0) match {
@@ -1198,7 +1201,7 @@ object SBuiltin {
           callback = newValue => {
             machine.committers = Set.empty
             machine.commitLocation = None
-            machine.ptx = PartialTransaction.initial
+            machine.ptx = Tx.PartialTransaction.initial(None)
             machine.ctrl = CtrlValue(newValue)
           }
         )
@@ -1457,11 +1460,11 @@ object SBuiltin {
     * throw if so. The partial transaction abort status must be
     * checked after every operation on it.
     */
-  private def checkAborted(ptx: PartialTransaction): Unit =
+  private def checkAborted(ptx: Tx.PartialTransaction): Unit =
     ptx.aborted match {
-      case Some(ContractNotActive(coid, tid, consumedBy)) =>
+      case Some(Tx.ContractNotActive(coid, tid, consumedBy)) =>
         throw DamlELocalContractNotActive(coid, tid, consumedBy)
-      case Some(EndExerciseInRootContext) =>
+      case Some(Tx.EndExerciseInRootContext) =>
         crash("internal error: end exercise in root context")
       case None =>
         ()
@@ -1474,31 +1477,34 @@ object SBuiltin {
         crash(s"value not a token: $v")
     }
 
-  private def extractParties(v: SValue): Set[Party] =
+  private def extractParties(v: SValue): TreeSet[Party] =
     v match {
       case SList(vs) =>
-        vs.iterator.collect {
+        TreeSet.empty(Party.ordering) ++ vs.iterator.map {
           case SParty(p) => p
           case x => crash(s"non-party value in list: $x")
-        }.toSet
+        }
       case SParty(p) =>
-        Set(p)
+        TreeSet(p)(Party.ordering)
       case _ =>
         crash(s"value not a list of parties or party: $v")
     }
 
-  private def extractKeyWithMaintainers(v: SValue): KeyWithMaintainers[Value[Nothing]] = v match {
-    case SStruct(flds, vals)
-        if flds.length == 2 && flds(0) == keyFieldName && flds(1) == maintainersFieldName =>
-      asVersionedValue(vals.get(0).toValue) match {
-        case Left(err) => crash(err)
-        case Right(keyVal) =>
-          val keyWithoutContractIds =
-            keyVal.mapContractId(coid => crash(s"Unexpected contract id in key: $coid"))
-          KeyWithMaintainers(key = keyWithoutContractIds, maintainers = extractParties(vals.get(1)))
-      }
-    case _ => crash(s"Invalid key with maintainers: $v")
-  }
+  private def extractKeyWithMaintainers(v: SValue): KeyWithMaintainers[Tx.Value[Nothing]] =
+    v match {
+      case SStruct(flds, vals)
+          if flds.length == 2 && flds(0) == keyFieldName && flds(1) == maintainersFieldName =>
+        asVersionedValue(vals.get(0).toValue) match {
+          case Left(err) => crash(err)
+          case Right(keyVal) =>
+            val keyWithoutContractIds =
+              keyVal.mapContractId(coid => crash(s"Unexpected contract id in key: $coid"))
+            KeyWithMaintainers(
+              key = keyWithoutContractIds,
+              maintainers = extractParties(vals.get(1)))
+        }
+      case _ => crash(s"Invalid key with maintainers: $v")
+    }
 
   private def checkLookupMaintainers(
       templateId: Identifier,

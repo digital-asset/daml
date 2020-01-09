@@ -295,7 +295,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
           .setContractId(coid)
           .setTemplateId(convertIdentifier(templateId))
           .build
-      case V.RelativeContractId(txnid) =>
+      case V.RelativeContractId(txnid, _) =>
         ContractRef.newBuilder
           .setRelative(true)
           .setContractId(txnid.index.toString)
@@ -306,7 +306,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
   def convertContractId(coid: V.ContractId): String =
     coid match {
       case V.AbsoluteContractId(coid) => coid
-      case V.RelativeContractId(txnid) => txnid.index.toString
+      case V.RelativeContractId(txnid, _) => txnid.index.toString
     }
 
   def convertScenarioStep(
@@ -375,8 +375,8 @@ case class Conversions(homePackageId: Ref.PackageId) {
         ptx.context.children.toImmArray.toSeq.sortBy(_.index).map(convertTxNodeId).asJava)
 
     ptx.context match {
-      case Tx.ContextRoot(_) =>
-      case Tx.ContextExercises(ctx, _) =>
+      case Tx.PartialTransaction.ContextRoot(_, _) =>
+      case Tx.PartialTransaction.ContextExercise(ctx, _) =>
         val ecBuilder = ExerciseContext.newBuilder
           .setTargetId(mkContractRef(ctx.targetId, ctx.templateId))
           .setChoiceId(ctx.choiceId)
@@ -628,7 +628,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
         coid match {
           case V.AbsoluteContractId(acoid) =>
             builder.setContractId(acoid)
-          case V.RelativeContractId(txnid) =>
+          case V.RelativeContractId(txnid, _) =>
             builder.setContractId(txnid.index.toString)
         }
       case V.ValueList(values) =>

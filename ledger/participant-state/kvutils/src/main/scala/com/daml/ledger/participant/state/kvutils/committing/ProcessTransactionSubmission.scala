@@ -228,7 +228,7 @@ private[kvutils] case class ProcessTransactionSubmission(
           val cs = DamlContractState.newBuilder
           cs.setActiveAt(buildTimestamp(txLet))
           val localDisclosure =
-            blindingInfo.localDisclosure(NodeId.unsafeFromIndex(key.getContractId.getNodeId.toInt))
+            blindingInfo.localDisclosure(NodeId(key.getContractId.getNodeId.toInt))
           cs.addAllLocallyDisclosedTo((localDisclosure: Iterable[String]).asJava)
           val absCoInst =
             createNode.coinst.mapValue(_.mapContractId(Conversions.toAbsCoid(entryId, _)))

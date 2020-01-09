@@ -63,7 +63,8 @@ object Pretty {
               // exercised.
               case None =>
                 (line + text("Recursive exercise of ") + prettyTypeConName(tid)).nested(4)
-              case Some(nid) => (line + prettyTransactionNode(nid)).nested(4)
+              case Some(node) =>
+                (line + prettyTransactionNode(node)).nested(4)
             })
 
       case DamlEWronglyTypedContract(coid, expected, actual) =>
@@ -325,7 +326,7 @@ object Pretty {
   def prettyContractId(coid: ContractId): Doc =
     coid match {
       case AbsoluteContractId(acoid) => char('#') + text(acoid)
-      case RelativeContractId(rcoid) => char('#') + str(rcoid)
+      case RelativeContractId(rcoid, _) => char('#') + str(rcoid)
     }
 
   def prettyActiveContracts(c: L.LedgerData): Doc = {
@@ -401,7 +402,7 @@ object Pretty {
           text(constructor)
       case ValueText(t) => char('"') + text(t) + char('"')
       case ValueContractId(AbsoluteContractId(acoid)) => char('#') + text(acoid)
-      case ValueContractId(RelativeContractId(rcoid)) =>
+      case ValueContractId(RelativeContractId(rcoid, _)) =>
         char('~') + text(rcoid.toString)
       case ValueUnit => text("<unit>")
       case ValueBool(b) => str(b)

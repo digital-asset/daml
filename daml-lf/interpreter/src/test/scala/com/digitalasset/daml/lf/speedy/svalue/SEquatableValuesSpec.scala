@@ -66,7 +66,7 @@ class SEquatableValuesSpec extends WordSpec with Matchers with TableDrivenProper
     List("a", "b")
       .map(x => SContractId(AbsoluteContractId(Ref.ContractIdString.assertFromString(x))))
   private val relativeContractId =
-    List(0, 1).map(x => SContractId(RelativeContractId(NodeId.unsafeFromIndex(x))))
+    List(0, 1).map(x => SContractId(RelativeContractId(NodeId(x))))
   private val contractIds = absoluteContractId ++ relativeContractId
 
   private val enums = List(EnumCon1, EnumCon2).map(SEnum(EnumTypeCon, _))

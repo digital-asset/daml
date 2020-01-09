@@ -13,7 +13,7 @@ class EventIdFormatterSpec extends WordSpec with Matchers with ScalaFutures {
 
   "EventIdFormatter" should {
     val transactionId: Ref.TransactionIdString = Ref.TransactionIdString.fromInt(42)
-    val index: Transaction.NodeId = Transaction.NodeId.unsafeFromIndex(42)
+    val index: Transaction.NodeId = Transaction.NodeId(42)
     val referenceEventID = s"#$transactionId:${index.index}"
 
     "format an EventId from a TransactionId and an index" in {

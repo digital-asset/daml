@@ -31,7 +31,7 @@ object ValueGenerators {
   val defaultCidDecode: ValueCoder.DecodeCid[Tx.TContractId] = ValueCoder.DecodeCid(
     { i: String =>
       if (i.startsWith("RCOID")) {
-        Right(RelativeContractId(Tx.NodeId.unsafeFromIndex(i.split(":::")(1).toInt)))
+        Right(RelativeContractId(Tx.NodeId(i.split(":::")(1).toInt)))
       } else if (i.startsWith("ACOID")) {
         Right(AbsoluteContractId(toContractId(i.split(":::")(1))))
       } else {
@@ -40,9 +40,7 @@ object ValueGenerators {
     }, { (i, r) =>
       if (r)
         parseInt(i)
-          .bimap(
-            e => ValueCoder.DecodeError(e.getMessage),
-            n => RelativeContractId(NodeId unsafeFromIndex n))
+          .bimap(e => ValueCoder.DecodeError(e.getMessage), n => RelativeContractId(NodeId(n)))
           .toEither
       else Right(AbsoluteContractId(toContractId(i)))
     }
@@ -56,10 +54,10 @@ object ValueGenerators {
   val defaultCidEncode: ValueCoder.EncodeCid[Tx.TContractId] = ValueCoder.EncodeCid(
     {
       case AbsoluteContractId(coid) => s"ACOID:::${coid: String}"
-      case RelativeContractId(i) => s"RCOID:::${i.index: Int}"
+      case RelativeContractId(nid, _) => s"RCOID:::${nid.index: Int}"
     }, {
       case AbsoluteContractId(coid) => (coid, false)
-      case RelativeContractId(i) => ((i.index: Int).toString, true)
+      case RelativeContractId(nid, _) => ((nid.index: Int).toString, true)
     }
   )
 
@@ -68,7 +66,7 @@ object ValueGenerators {
 
   val defaultNidDecode: String => Either[ValueCoder.DecodeError, NodeId] = s => {
     try {
-      Right(NodeId.unsafeFromIndex(s.toInt))
+      Right(NodeId(s.toInt))
     } catch {
       case _: NumberFormatException =>
         Left(ValueCoder.DecodeError(s"invalid node id, not an integer: $s"))
@@ -206,7 +204,7 @@ object ValueGenerators {
 
   def coidGen: Gen[ContractId] = {
     val genRel: Gen[ContractId] =
-      Arbitrary.arbInt.arbitrary.map(i => RelativeContractId(Tx.NodeId.unsafeFromIndex(i)))
+      Arbitrary.arbInt.arbitrary.map(i => RelativeContractId(Tx.NodeId(i)))
     val genAbs: Gen[ContractId] =
       Gen.zip(Gen.alphaChar, Gen.alphaStr) map {
         case (h, t) => AbsoluteContractId(toContractId(h +: t))
@@ -332,7 +330,7 @@ object ValueGenerators {
       signatories <- genNonEmptyParties
       children <- Gen
         .listOf(Arbitrary.arbInt.arbitrary)
-        .map(_.map(Transaction.NodeId.unsafeFromIndex))
+        .map(_.map(Transaction.NodeId(_)))
         .map(ImmArray(_))
       exerciseResultValue <- versionedValueGen
       key <- versionedValueGen
@@ -363,7 +361,7 @@ object ValueGenerators {
     */
   val danglingRefGenNode: Gen[(NodeId, Tx.Node)] = {
     for {
-      id <- Arbitrary.arbInt.arbitrary.map(NodeId.unsafeFromIndex)
+      id <- Arbitrary.arbInt.arbitrary.map(NodeId(_))
       node <- Gen.oneOf(malformedCreateNodeGen, danglingRefExerciseNodeGen, fetchNodeGen)
     } yield (id, node)
   }
@@ -388,7 +386,7 @@ object ValueGenerators {
   val malformedGenTransaction: Gen[Tx.Transaction] = {
     for {
       nodes <- Gen.listOf(danglingRefGenNode)
-      roots <- Gen.listOf(Arbitrary.arbInt.arbitrary.map(NodeId.unsafeFromIndex))
+      roots <- Gen.listOf(Arbitrary.arbInt.arbitrary.map(Tx.NodeId(_)))
     } yield GenTransaction(HashMap(nodes: _*), ImmArray(roots), None)
   }
 
@@ -441,7 +439,7 @@ object ValueGenerators {
         if (size <= 0)
           Gen.const(nodeIds.toImmArray -> nodes)
         else
-          nodeGen(NodeId.unsafeFromIndex(parentNodeId.index * 10 + size)).flatMap {
+          nodeGen(Tx.NodeId(parentNodeId.index * 10 + size)).flatMap {
             case (nodeId, children) =>
               nodesGen(parentNodeId, size - 1, nodeIds :+ nodeId, nodes ++ children)
           }
@@ -449,7 +447,7 @@ object ValueGenerators {
       Gen.choose(0, 6).flatMap(nodesGen(nodeId, _))
     }
 
-    nonDanglingRefNodeGen(3, NodeId.unsafeFromIndex(0)).map {
+    nonDanglingRefNodeGen(3, Tx.NodeId(0)).map {
       case (nodeIds, nodes) =>
         GenTransaction(
           nodes,
@@ -462,7 +460,7 @@ object ValueGenerators {
   val genBlindingInfo: Gen[BlindingInfo] = {
     val nodePartiesGen = Gen.mapOf(
       arbitrary[Int]
-        .map(NodeId.unsafeFromIndex)
+        .map(NodeId(_))
         .flatMap(n => genMaybeEmptyParties.map(ps => (n, ps))))
     for {
       disclosed1 <- nodePartiesGen

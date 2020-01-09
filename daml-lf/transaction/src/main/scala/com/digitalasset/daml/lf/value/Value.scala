@@ -1,7 +1,8 @@
 // Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.value
+package com.digitalasset.daml.lf
+package value
 
 import com.digitalasset.daml.lf.data.Ref.{
   ContractIdString,
@@ -289,6 +290,8 @@ object Value {
       }
   }
 
+  type NodeIdx = Int
+
   /** Possibly relative contract identifiers.
     *
     * The contract identifiers can be either absolute, referring to a
@@ -306,7 +309,8 @@ object Value {
     */
   sealed trait ContractId extends Product with Serializable
   final case class AbsoluteContractId(coid: ContractIdString) extends ContractId
-  final case class RelativeContractId(txnid: NodeId) extends ContractId
+  final case class RelativeContractId(txnid: NodeId, discriminator: Option[crypto.Hash] = None)
+      extends ContractId
 
   object ContractId {
     implicit val equalInstance: Equal[ContractId] = Equal.equalA
@@ -315,28 +319,19 @@ object Value {
   /** The constructor is private so that we make sure that only this object constructs
     * node ids -- we don't want external code to manipulate them.
     */
-  final class NodeId private[NodeId] (val index: Int) extends Equals {
-    def next: NodeId = new NodeId(index + 1)
-
-    override def canEqual(that: Any) = that.isInstanceOf[NodeId]
-
-    override def equals(that: Any) = that match {
-      case n: NodeId => index == n.index
-      case _ => false
-    }
-
-    override def hashCode() = index.hashCode()
-
-    override def toString = "NodeId(" + index.toString + ")"
-
+  final case class NodeId(index: Int, discriminator: Option[crypto.Hash] = None) extends Equals {
     val name: LedgerString = LedgerString.assertFromString(index.toString)
 
-  }
+    override def equals(other: Any): Boolean = other match {
+      case that: NodeId if (this.discriminator == that.discriminator) =>
+        this.discriminator.isDefined || this.index == that.index
+      case _ =>
+        false
+    }
 
-  object NodeId {
-    val first = new NodeId(0)
+    override def hashCode(): Int =
+      discriminator.fold(index.hashCode)(_.hashCode())
 
-    def unsafeFromIndex(i: Int) = new NodeId(i)
   }
 
   /*** Keys cannot contain contract ids */

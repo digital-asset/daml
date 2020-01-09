@@ -1,9 +1,9 @@
 // Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine
+package com.digitalasset.daml.lf
+package engine
 
-import com.digitalasset.daml.lf.CompiledPackages
 import com.digitalasset.daml.lf.command._
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
@@ -67,11 +67,18 @@ final class Engine {
     * </li>
     * </ul>
     *
+    *
+    * [[transactionSeed]] is the master hash used to derive node and contractId discriminator.
+    * If let undefined, no discriminator will be generated.
+    *
     * This method does NOT perform authorization checks; ResultDone can contain a transaction that's not well-authorized.
     *
     * The resulting transaction is annotated with packages required to validate it.
     */
-  def submit(cmds: Commands): Result[Transaction.Transaction] = {
+  def submit(
+      cmds: Commands,
+      transactionSeed: Option[crypto.Hash] = None
+  ): Result[Transaction.Transaction] = {
     _commandTranslation
       .preprocessCommands(cmds)
       .flatMap { processedCmds =>
@@ -83,6 +90,7 @@ final class Engine {
               submitters = Set(cmds.submitter),
               commands = processedCmds,
               time = cmds.ledgerEffectiveTime,
+              transactionSeed = transactionSeed,
             ) map { tx =>
               // Annotate the transaction with the package dependencies. Since
               // all commands are actions on a contract template, with a fully typed
@@ -121,8 +129,12 @@ final class Engine {
     * In addition to the errors returned by `submit`, reinterpretation fails with a `ValidationError` whenever `nodes`
     * contain a relative contract ID, either as the target contract of a fetch, or as an argument to a
     * create or an exercise choice.
+    *
+    * [[transactionSeed]] is the master hash te be used to derive node and contractId discriminator.
+    * If let undefined, no discriminator will be generated.
     */
   def reinterpret(
+      transactionSeed: Option[crypto.Hash],
       submitters: Set[Party],
       nodes: Seq[GenNode.WithTxValue[Value.NodeId, Value.ContractId]],
       ledgerEffectiveTime: Time.Timestamp
@@ -140,7 +152,8 @@ final class Engine {
         checkSubmitterInMaintainers = checkSubmitterInMaintainers,
         submitters = submitters,
         commands = commands,
-        time = ledgerEffectiveTime
+        time = ledgerEffectiveTime,
+        transactionSeed
       )
     } yield result
   }
@@ -164,8 +177,8 @@ final class Engine {
       tx: Transaction.Transaction,
       ledgerEffectiveTime: Time.Timestamp
   ): Result[Unit] = {
-    import scalaz.syntax.traverse.ToTraverseOps
     import scalaz.std.option._
+    import scalaz.syntax.traverse.ToTraverseOps
     val commandTranslation = new CommandPreprocessor(_compiledPackages)
     //reinterpret
     for {
@@ -196,6 +209,7 @@ final class Engine {
         _compiledPackages,
         commands.map(_._2._2.templateId))
       rtx <- interpretCommands(
+        transactionSeed = tx.transactionSeed,
         validating = true,
         checkSubmitterInMaintainers = checkSubmitterInMaintainers,
         submitters = submitters,
@@ -303,6 +317,9 @@ final class Engine {
     *
     * Submitters are a set, in order to support interpreting subtransactions
     * (a subtransaction can be authorized by multiple parties).
+    *
+    * [[transactionSeed]] is the master hash used to derive node and contractId discriminator.
+    * If let undefined, no discriminator will be generated.
     */
   private[engine] def interpretCommands(
       validating: Boolean,
@@ -310,12 +327,15 @@ final class Engine {
       checkSubmitterInMaintainers: Boolean,
       submitters: Set[Party],
       commands: ImmArray[(Type, SpeedyCommand)],
-      time: Time.Timestamp): Result[Transaction.Transaction] = {
+      time: Time.Timestamp,
+      transactionSeed: Option[crypto.Hash]
+  ): Result[Transaction.Transaction] = {
     val machine = Machine
       .build(
         checkSubmitterInMaintainers = checkSubmitterInMaintainers,
         sexpr = Compiler(compiledPackages.packages).compile(commands.map(_._2)),
-        compiledPackages = _compiledPackages
+        compiledPackages = _compiledPackages,
+        transactionSeed
       )
       .copy(validating = validating, committers = submitters)
     interpretLoop(machine, time)

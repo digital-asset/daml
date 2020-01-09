@@ -87,10 +87,10 @@ class HashSpec extends WordSpec with Matchers {
   "KeyHasher" should {
 
     "be stable" in {
-      val hash = "a0a47f146a6ba1aca8865d9cc3741b766595a7810c25132fd87d92e433fa37bc"
+      val hash = "ea24627f5b014af67dbedb13d950e60be7f96a1a5bd9fb1a3b9a85b7fa9db4bc"
       val value = complexRecordT.inj(complexRecordV)
       val name = defRef("module", "name")
-      Hash(GlobalKey(name, value)).toHexa shouldBe hash
+      Hash.hashContractKey(GlobalKey(name, value)).toLedgerString shouldBe hash
     }
 
     "be deterministic and thread safe" in {
@@ -99,7 +99,7 @@ class HashSpec extends WordSpec with Matchers {
       val hashes = Vector
         .fill(1000)(GlobalKey(defRef("module", "name"), complexRecordT.inj(complexRecordV)))
         .par
-        .map(Hash(_))
+        .map(Hash.hashContractKey)
 
       hashes.toSet.size shouldBe 1
     }
@@ -108,8 +108,8 @@ class HashSpec extends WordSpec with Matchers {
       // Same value but different template ID should produce a different hash
       val value = VA.text.inj("A")
 
-      val hash1 = Hash(GlobalKey(defRef("AA", "A"), value))
-      val hash2 = Hash(GlobalKey(defRef("A", "AA"), value))
+      val hash1 = Hash.hashContractKey(GlobalKey(defRef("AA", "A"), value))
+      val hash2 = Hash.hashContractKey(GlobalKey(defRef("A", "AA"), value))
 
       hash1 should !==(hash2)
     }
@@ -122,8 +122,8 @@ class HashSpec extends WordSpec with Matchers {
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash(GlobalKey(tid, value1))
-      val hash2 = Hash(GlobalKey(tid, value2))
+      val hash1 = Hash.hashContractKey(GlobalKey(tid, value1))
+      val hash2 = Hash.hashContractKey(GlobalKey(tid, value2))
 
       hash1 should !==(hash2)
     }
@@ -137,8 +137,8 @@ class HashSpec extends WordSpec with Matchers {
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash(GlobalKey(tid, value1))
-      val hash2 = Hash(GlobalKey(tid, value2))
+      val hash1 = Hash.hashContractKey(GlobalKey(tid, value1))
+      val hash2 = Hash.hashContractKey(GlobalKey(tid, value2))
 
       hash1 should !==(hash2)
     }
@@ -151,8 +151,8 @@ class HashSpec extends WordSpec with Matchers {
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash(GlobalKey(tid, value1))
-      val hash2 = Hash(GlobalKey(tid, value2))
+      val hash1 = Hash.hashContractKey(GlobalKey(tid, value1))
+      val hash2 = Hash.hashContractKey(GlobalKey(tid, value2))
 
       hash1 should !==(hash2)
     }
@@ -165,8 +165,8 @@ class HashSpec extends WordSpec with Matchers {
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash(GlobalKey(tid, value1))
-      val hash2 = Hash(GlobalKey(tid, value2))
+      val hash1 = Hash.hashContractKey(GlobalKey(tid, value1))
+      val hash2 = Hash.hashContractKey(GlobalKey(tid, value2))
 
       hash1 should !==(hash2)
     }
@@ -178,8 +178,8 @@ class HashSpec extends WordSpec with Matchers {
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash(GlobalKey(tid, value1))
-      val hash2 = Hash(GlobalKey(tid, value2))
+      val hash1 = Hash.hashContractKey(GlobalKey(tid, value1))
+      val hash2 = Hash.hashContractKey(GlobalKey(tid, value2))
 
       hash1 should !==(hash2)
     }
@@ -192,8 +192,8 @@ class HashSpec extends WordSpec with Matchers {
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash(GlobalKey(tid, value1))
-      val hash2 = Hash(GlobalKey(tid, value2))
+      val hash1 = Hash.hashContractKey(GlobalKey(tid, value1))
+      val hash2 = Hash.hashContractKey(GlobalKey(tid, value2))
 
       hash1 should !==(hash2)
     }
@@ -206,8 +206,8 @@ class HashSpec extends WordSpec with Matchers {
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash(GlobalKey(tid, value1))
-      val hash2 = Hash(GlobalKey(tid, value2))
+      val hash1 = Hash.hashContractKey(GlobalKey(tid, value1))
+      val hash2 = Hash.hashContractKey(GlobalKey(tid, value2))
 
       hash1 should !==(hash2)
     }
@@ -218,8 +218,8 @@ class HashSpec extends WordSpec with Matchers {
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash(GlobalKey(tid, value1))
-      val hash2 = Hash(GlobalKey(tid, value2))
+      val hash1 = Hash.hashContractKey(GlobalKey(tid, value1))
+      val hash2 = Hash.hashContractKey(GlobalKey(tid, value2))
 
       hash1 should !==(hash2)
     }
@@ -230,8 +230,8 @@ class HashSpec extends WordSpec with Matchers {
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash(GlobalKey(tid, value1))
-      val hash2 = Hash(GlobalKey(tid, value2))
+      val hash1 = Hash.hashContractKey(GlobalKey(tid, value1))
+      val hash2 = Hash.hashContractKey(GlobalKey(tid, value2))
 
       hash1 should !==(hash2)
     }
@@ -242,8 +242,8 @@ class HashSpec extends WordSpec with Matchers {
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash(GlobalKey(tid, value1))
-      val hash2 = Hash(GlobalKey(tid, value2))
+      val hash1 = Hash.hashContractKey(GlobalKey(tid, value1))
+      val hash2 = Hash.hashContractKey(GlobalKey(tid, value2))
 
       hash1 should !==(hash2)
     }
@@ -254,8 +254,8 @@ class HashSpec extends WordSpec with Matchers {
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash(GlobalKey(tid, value1))
-      val hash2 = Hash(GlobalKey(tid, value2))
+      val hash1 = Hash.hashContractKey(GlobalKey(tid, value1))
+      val hash2 = Hash.hashContractKey(GlobalKey(tid, value2))
 
       hash1 should !==(hash2)
     }
@@ -266,8 +266,8 @@ class HashSpec extends WordSpec with Matchers {
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash(GlobalKey(tid, value1))
-      val hash2 = Hash(GlobalKey(tid, value2))
+      val hash1 = Hash.hashContractKey(GlobalKey(tid, value1))
+      val hash2 = Hash.hashContractKey(GlobalKey(tid, value2))
 
       hash1 should !==(hash2)
     }
@@ -278,8 +278,8 @@ class HashSpec extends WordSpec with Matchers {
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash(GlobalKey(tid, value1))
-      val hash2 = Hash(GlobalKey(tid, value2))
+      val hash1 = Hash.hashContractKey(GlobalKey(tid, value1))
+      val hash2 = Hash.hashContractKey(GlobalKey(tid, value2))
 
       hash1 should !==(hash2)
     }
@@ -292,8 +292,8 @@ class HashSpec extends WordSpec with Matchers {
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash(GlobalKey(tid, value1))
-      val hash2 = Hash(GlobalKey(tid, value2))
+      val hash1 = Hash.hashContractKey(GlobalKey(tid, value1))
+      val hash2 = Hash.hashContractKey(GlobalKey(tid, value2))
 
       hash1 should !==(hash2)
     }
@@ -420,119 +420,119 @@ class HashSpec extends WordSpec with Matchers {
 
       val expectedOut =
         """ValueUnit
-          | 47dc540c94ceb704a23875c11273e16bb0b8a87aed84de911f2133568115f254
+          | faee935763044f124d7526755a5058a33f9402a595994d59eddd4be8546ff201
           |ValueBool(true)
-          | 9dcf97a184f32623d11a73124ceb99a5709b083721e878a16d78f596718ba7b2
+          | fbb59ed10e9cd4ff45a12c5bb92cbd80df984ba1fe60f26a30febf218e2f0f5e
           |ValueBool(false)
-          | 47dc540c94ceb704a23875c11273e16bb0b8a87aed84de911f2133568115f254
+          | faee935763044f124d7526755a5058a33f9402a595994d59eddd4be8546ff201
           |ValueInt64(-1)
-          | 1272f520cf7ca5cf117a0b5a3116518371bf20fb7fac043ac1be568b8c55b96c
+          | 8c6461aec2028ecd3880ad2243b6e0fdb4033ab46ce1702f5289819fb45f8a93
           |ValueInt64(0)
-          | a536aa3cede6ea3c1f3e0357c3c60e0f216a8c89b853df13b29daa8f85065dfb
+          | 13c6a7b85fcb0443c1d31dafe22561aac714fbaa99d3b9a56474d8dda0c9aee0
           |ValueInt64(1)
-          | f52f3a746c2545658e1c6add32e5410365553ebaaa0433f5f8bd90c6f85fd6e2
+          | 36dd3485b6affcd5d59600c58aca5c1cdc2c01bb0a2956bfaa690d157bc9b2be
           |ValueNumeric(-10000.0000000000)
-          | 06688bdccaa8613e22b96e399b601884a4c7476b97647a1adcb173ab2c94ed4c
+          | 19d45e6d088423c70208cf7f87cc10429e66ef343c4c608ba69f675562d4be1e
           |ValueNumeric(0E-10)
-          | a90d4563c6a0ae0417ab3110f1ba68592833465954774201b0a69e8c457dc6ad
+          | ea87c0c1539dfbbd804c58717ecf30f5b50b946638a39fdaf6712253b952ab40
           |ValueNumeric(10000.0000000000)
-          | f704cf5962e1f9e6568d0c9bc08f9caa2b7524ac901f311911c8cb70d8a01608
+          | 1e4b9819cb11e44c0a5a826b7b81e756f3dfaf3061d9f9baa345c1a6c2d7c284
           |ValueNumeric(-10000)
-          | af020447b2978bcc3114cf0d8c832f028c75ab7713a3985d44715e37c668807e
+          | 02dfadf86a4fbb948e165e20350e472d087072695feb613f9c9562eccda56be8
           |ValueNumeric(0)
-          | a90d4563c6a0ae0417ab3110f1ba68592833465954774201b0a69e8c457dc6ad
+          | ea87c0c1539dfbbd804c58717ecf30f5b50b946638a39fdaf6712253b952ab40
           |ValueNumeric(10000)
-          | 28b2998d102b9dbc2f39cbb1781f930e80f29fa585a3920c920028f92d1e6a6c
+          | 5a97286594af94c406d9354d35bf515a12e9d46b61f6dd6d4679e85395fde5f6
           |ValueDate(1970-01-01)
-          | 957b88b12730e646e0f33d3618b77dfa579e8231e3c59c7104be7165611c8027
+          | 01cf85cfeb36d628ca2e6f583fa2331be029b6b28e877e1008fb3f862306c086
           |ValueDate(1969-07-21)
-          | aeb4c265245cd7aa582d4e9953e108b182516f279a60919795130842fab5912d
+          | f6538d4cb9a7663f9aeac6cd8b1cb5ddba62337ca3ca2b21b29297d85ec53ae5
           |ValueDate(2019-12-16)
-          | 247de9bec9f7a30173b946038ba22b7ea4f1d9c03aa2eb278c9f1c8de110e084
+          | 4a5ce4f9f37be5e93ccd1360f5e3d0b93ac4445be1532bfdbe2e0805dc0fc133
           |ValueTimestamp(1970-01-01T00:00:00Z)
-          | a536aa3cede6ea3c1f3e0357c3c60e0f216a8c89b853df13b29daa8f85065dfb
+          | 13c6a7b85fcb0443c1d31dafe22561aac714fbaa99d3b9a56474d8dda0c9aee0
           |ValueTimestamp(1969-07-21T02:56:15Z)
-          | fcaf4b00d1f94c7126299dd9fe753ec03ca5823669a79e5cef0b706bedc98d74
+          | c4f34225847a9d0d7a788df5c9f5aa3ac6e98ae7ad68d29b650411d6c95aaddb
           |ValueTimestamp(2019-12-16T11:17:54.940779Z)
-          | 79e7e25c280740fbe3ba3a9c083f5cecc5dae5ad6f4dd77858113867d504b78e
+          | 18f13afe32a31b84d8f0e24eba45e710a0dbef47282c81b0be4a361f8aacbb01
           |ValueText()
-          | 957b88b12730e646e0f33d3618b77dfa579e8231e3c59c7104be7165611c8027
+          | 01cf85cfeb36d628ca2e6f583fa2331be029b6b28e877e1008fb3f862306c086
           |ValueText(someText)
-          | 71209c3a5e05a8bb796881eaec6a498d96995ea4d212b9bf6dec8f4ab069f0ed
+          | 657c0cf2531d5219dc34b4e03f94278f78efc7c90cc0f03b48049bf66572d070
           |ValueText(a¶‱😂)
-          | a9eb3431bd82a173e23fc0897642b30ffffb35b2d9bb0d47119a124031137d02
+          | 88ee87e8038f8aa94057d5809adee8d12f9cb6657338171942695fad51fb8df1
           |ValueParty(alice)
-          | 151a185ae945526e7ba8dd89864b4f157eef8cec96ca7f00524186723e54d348
+          | 274830656c6f7de1daf729d11c57c40ef271a101a831d89e45f034ce7bd71d9d
           |ValueParty(bob)
-          | 1bc9e1ce9982ee796fac0e2542aff3f6863ecf5e64b459054b2e8928bb432c67
+          | dc1f0fc026d3200a1781f0989dd1801022e028e8afe5d953a033e6d35e8ea50b
           |ValueContractId(AbsoluteContractId(07e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5))
-          | afa1aa91da7ea6dbd74a719c98d169addf4106ce0916430656f8a2bba73ea280
+          | 399c8d4fb942204c9384a8bda062676d75a3a52080c798f98560b2914af61ad8
           |ValueContractId(AbsoluteContractId(59b59ad7a6b6066e77b91ced54b8282f0e24e7089944685cb8f22f32fcbc4e1b))
-          | d0a26432252903db999a354a5ed6b2fbd5010e53637afcf804cdb4e4c37fc315
+          | f05d36c187b003a1c1ca669579bdcf0cfce85ce634029cc533d23d24fd8382a1
           |ValueOptional(None)
-          | 957b88b12730e646e0f33d3618b77dfa579e8231e3c59c7104be7165611c8027
+          | 01cf85cfeb36d628ca2e6f583fa2331be029b6b28e877e1008fb3f862306c086
           |ValueOptional(Some(ValueBool(false)))
-          | a90d4563c6a0ae0417ab3110f1ba68592833465954774201b0a69e8c457dc6ad
+          | ea87c0c1539dfbbd804c58717ecf30f5b50b946638a39fdaf6712253b952ab40
           |ValueOptional(Some(ValueBool(true)))
-          | 71ca9703af0fda42b802aa93ef5ff20cc9d02353e1b2d514acae2ec02f2c7278
+          | 5b5ca90960b8594498cc778421a40ff2aed14d788d06ede5d4a41207933d3e13
           |ValueOptional(Some(ValueOptional(None)))
-          | c1a55026080627649a9e5f2226e3ce91f2c1b7959d429a312a0c96339108b6c9
+          | 86c779d69df35dd466459fa498249d58d0cff42d4a65f112842d0a81d93c3774
           |ValueOptional(Some(ValueOptional(Some(ValueBool(false)))))
-          | 649cc24b99273730cbfc3ad5726781e62593837e78a3d6b0b615f320c488abd6
+          | d9ef2f4d617d921548e1e01da5af2b7ff67e7ed24a0cbd2e29fd30f4cce6ac4e
           |ValueList(FrontStack())
-          | 957b88b12730e646e0f33d3618b77dfa579e8231e3c59c7104be7165611c8027
+          | 01cf85cfeb36d628ca2e6f583fa2331be029b6b28e877e1008fb3f862306c086
           |ValueList(FrontStack(ValueBool(false)))
-          | a90d4563c6a0ae0417ab3110f1ba68592833465954774201b0a69e8c457dc6ad
+          | ea87c0c1539dfbbd804c58717ecf30f5b50b946638a39fdaf6712253b952ab40
           |ValueList(FrontStack(ValueBool(true)))
-          | 71ca9703af0fda42b802aa93ef5ff20cc9d02353e1b2d514acae2ec02f2c7278
+          | 5b5ca90960b8594498cc778421a40ff2aed14d788d06ede5d4a41207933d3e13
           |ValueList(FrontStack(ValueBool(false),ValueBool(false)))
-          | 1d3e4d40ae7f934c7b67fb747ae99f9af5bfc867f52966e7c3cf6b7975dd237a
+          | 8f5dff2ff3f971b847284fb225522005587449fad2746879a0280bbd036f1abc
           |ValueList(FrontStack(ValueBool(false),ValueBool(true)))
-          | f9ce3cd0946bd8a778fa90b81a439f80a999e263fac5877fe7316170298ae139
+          | 4f6de867c24682cee05db95d48e1ea47cf5f8b6e74fe07582d3cd8cecaea84b7
           |ValueList(FrontStack(ValueBool(true),ValueBool(false)))
-          | b238496934cc67758abae39e09934168f2da4f4db828cf25dfce22e276e58b9b
+          | 768c5b90ed7ae5b727381e331fac83d7defd397d040f46ba067c80ec2af3eb33
           |ValueTextMap(SortedLookupList())
-          | 957b88b12730e646e0f33d3618b77dfa579e8231e3c59c7104be7165611c8027
+          | 01cf85cfeb36d628ca2e6f583fa2331be029b6b28e877e1008fb3f862306c086
           |ValueTextMap(SortedLookupList((a,ValueBool(false))))
-          | e8dc56307e050c735828adff3914e46cc2ca3e6508e15f0e3a9f7f56998aa3e8
+          | 4c4384399821a8ed7526d8b29dc6f76ad87014ade285386e7d05d71e61d86c7c
           |ValueTextMap(SortedLookupList((a,ValueBool(false))))
-          | e8dc56307e050c735828adff3914e46cc2ca3e6508e15f0e3a9f7f56998aa3e8
+          | 4c4384399821a8ed7526d8b29dc6f76ad87014ade285386e7d05d71e61d86c7c
           |ValueTextMap(SortedLookupList((b,ValueBool(false))))
-          | d1385328e6b074f7bef63c877357b09ab11de0035747c344fe60ed0f733caf8f
+          | b0c45256eea6bf29c0390e82ce89efe2974db7af5dad8f14d25dad6a92cf3faf
           |ValueTextMap(SortedLookupList((a,ValueBool(false)),(b,ValueBool(false))))
-          | 11f7643a5d2c1abdd28cb912a32f94cc9b145e9ea0932a423b0afd5d6da36dbb
+          | 132fba96cd6130c57d63f8eb2b9a245deaa8a618c4cb9793af32f1190624e6bd
           |ValueTextMap(SortedLookupList((a,ValueBool(true)),(b,ValueBool(false))))
-          | b3cfd3d5a67480d1a0819d0ef66a9826c7a91b8d0125cbc82e0dca1b4b68a42e
+          | 954d9283d02236a4f1cd6d1cdf8f8c8a0ced4fc18f14a8380574c4d09485ec60
           |ValueTextMap(SortedLookupList((a,ValueBool(false)),(b,ValueBool(true))))
-          | b91b20a3daf58619e432c77b6dbca0c24d105092dfc4e420c72ede6e1cef5c23
+          | da9ab333c3de358c2e5aead8a9ced5cbe5dda7fc454ade82180596120c5abdc6
           |ValueTextMap(SortedLookupList((a,ValueBool(false)),(c,ValueBool(false))))
-          | 8df4200e13434cab9917c19c2d0b764e2259fdeaaf29e9817989af83eb22e583
+          | 5ac45cbc29a66cd2f10dad87daf37dbb5fa905f5647586fc5f2eafca5d349bac
           |ValueEnum(Some(Identifier(pkgId,Mod:Color)),Red)
-          | e913123a57c91b08dde781877cba20bcedd7e67dbb4bfb9e1b2fad2ac9201f89
+          | 048b20422b487b8eeba059a219589ad477e5f11eb769c7fea658b63f1bb1d405
           |ValueEnum(Some(Identifier(pkgId,Mod:Color)),Green)
-          | 6db1b39e291c0f9af7290149adc84cb0d04fff38c40056bb8bf1caa08664315d
+          | ff89416f14a9369d7ef3f9a23057878320aa7b777c7233a79f2b0cab812a3e7a
           |ValueEnum(Some(Identifier(pkgId,Mod:ColorBis)),Green)
-          | 6db1b39e291c0f9af7290149adc84cb0d04fff38c40056bb8bf1caa08664315d
+          | ff89416f14a9369d7ef3f9a23057878320aa7b777c7233a79f2b0cab812a3e7a
           |ValueRecord(Some(Identifier(pkgId,Mod:Unit)),ImmArray())
-          | 957b88b12730e646e0f33d3618b77dfa579e8231e3c59c7104be7165611c8027
+          | 01cf85cfeb36d628ca2e6f583fa2331be029b6b28e877e1008fb3f862306c086
           |ValueRecord(Some(Identifier(pkgId,Mod:UnitBis)),ImmArray())
-          | 957b88b12730e646e0f33d3618b77dfa579e8231e3c59c7104be7165611c8027
+          | 01cf85cfeb36d628ca2e6f583fa2331be029b6b28e877e1008fb3f862306c086
           |ValueRecord(Some(Identifier(pkgId,Mod:Tuple)),ImmArray((Some(_1),ValueBool(false)),(Some(_2),ValueBool(false))))
-          | 1d3e4d40ae7f934c7b67fb747ae99f9af5bfc867f52966e7c3cf6b7975dd237a
+          | 8f5dff2ff3f971b847284fb225522005587449fad2746879a0280bbd036f1abc
           |ValueRecord(Some(Identifier(pkgId,Mod:Tuple)),ImmArray((Some(_1),ValueBool(true)),(Some(_2),ValueBool(false))))
-          | b238496934cc67758abae39e09934168f2da4f4db828cf25dfce22e276e58b9b
+          | 768c5b90ed7ae5b727381e331fac83d7defd397d040f46ba067c80ec2af3eb33
           |ValueRecord(Some(Identifier(pkgId,Mod:Tuple)),ImmArray((Some(_1),ValueBool(false)),(Some(_2),ValueBool(true))))
-          | f9ce3cd0946bd8a778fa90b81a439f80a999e263fac5877fe7316170298ae139
+          | 4f6de867c24682cee05db95d48e1ea47cf5f8b6e74fe07582d3cd8cecaea84b7
           |ValueRecord(Some(Identifier(pkgId,Mod:TupleBis)),ImmArray((Some(_1),ValueBool(false)),(Some(_2),ValueBool(false))))
-          | 1d3e4d40ae7f934c7b67fb747ae99f9af5bfc867f52966e7c3cf6b7975dd237a
+          | 8f5dff2ff3f971b847284fb225522005587449fad2746879a0280bbd036f1abc
           |ValueVariant(Some(Identifier(pkgId,Mod:Either)),Left,ValueBool(false))
-          | f94f4b19d80fd21a583399cc5d788421e624e4e433f813c236851417489d8c5a
+          | 41edeaec86ac919e3c184057b021753781bd2ac1d60b8d4329375f60df953097
           |ValueVariant(Some(Identifier(pkgId,Mod:Either)),Left,ValueBool(true))
-          | a80f8894f18978ee0d7e7c20b9b6adac521fb2274304fb2dfba9b9c8e2927ac7
+          | 31d69356947365e8a3dd9706774182e86774af1aa6550055efc56a22bb594745
           |ValueVariant(Some(Identifier(pkgId,Mod:Either)),Right,ValueBool(false))
-          | fbda4dff63596daae1be44be3eec19d25547a883a62ca4c1cca713208966983f
+          | bd89c47c2379a69e8e0d46ff634c533449e8e7e532e84def4e2b2e168bc786e7
           |ValueVariant(Some(Identifier(pkgId,Mod:EitherBis)),Left,ValueBool(false))
-          | f94f4b19d80fd21a583399cc5d788421e624e4e433f813c236851417489d8c5a
+          | 41edeaec86ac919e3c184057b021753781bd2ac1d60b8d4329375f60df953097
           |""".stripMargin
 
       val sep = System.getProperty("line.separator")
@@ -542,14 +542,19 @@ class HashSpec extends WordSpec with Matchers {
             .builder(Hash.Purpose.Testing)
             .addTypedValue(value)
             .build
-            .toByteArray
-            .map("%02x" format _)
-            .mkString
+            .toLedgerString
           s"${value.toString}$sep $hash"
         }
         .mkString("", sep, sep)
       actualOutput shouldBe expectedOut
 
+    }
+  }
+
+  "Hash.fromString" should {
+    "convert properly string" in {
+      val s = "01cf85cfeb36d628ca2e6f583fa2331be029b6b28e877e1008fb3f862306c086"
+      Hash.assertFromString(s).toLedgerString shouldBe s
     }
   }
 

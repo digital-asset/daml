@@ -189,7 +189,8 @@ class Runner(
     val (triggerExpr, triggerTy) = getTrigger(triggerId)
     val registeredTemplates = compiler.compile(
       ERecProj(triggerTy, Name.assertFromString("registeredTemplates"), triggerExpr))
-    var machine = Speedy.Machine.fromSExpr(registeredTemplates, false, compiledPackages)
+    var machine =
+      Speedy.Machine.fromSExpr(registeredTemplates, false, compiledPackages)
     stepToValue(machine)
     val templateIds = machine.toSValue match {
       case SVariant(_, "AllInDar", _) => {
