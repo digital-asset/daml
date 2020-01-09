@@ -471,13 +471,13 @@ private class JdbcLedgerDao(
   private val SQL_SELECT_CONTRACT_KEY_FOR_PARTY =
     SQL(
       """select ck.contract_id from contract_keys ck
-        |left join contract_witnesses cowi on ck.contract_id = cowi.contract_id and cowi.witness = {party}
-        |left join contract_divulgences codi on ck.contract_id = codi.contract_id and codi.party = {party}
+        |left join contract_signatories cosi on ck.contract_id = cosi.contract_id and cosi.signatory = {party}
+        |left join contract_observers coob on ck.contract_id = coob.contract_id and coob.observer = {party}
         |where
         |  ck.package_id={package_id} and
         |  ck.name={name} and
         |  ck.value_hash={value_hash} and
-        |  (cowi.witness is not null or codi.party is not null)
+        |  (cosi.signatory is not null or coob.observer is not null)
         |""".stripMargin)
 
   private val SQL_REMOVE_CONTRACT_KEY =
