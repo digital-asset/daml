@@ -125,6 +125,23 @@ class WebsocketServiceIntegrationTest
             }), removes collect { case JsString(v) => v })
       }
 
+      val payload = TestUtil.readFile("it/iouCreateCommand.json")
+      val initialCreate = TestUtil.postJsonStringRequest(
+        uri.withPath(Uri.Path("/command/create")),
+        payload,
+        headersWithAuth)
+      def exercisePayload(cid: String) = JsObject(
+        "templateId" -> JsObject(
+          "moduleName" -> JsString("Iou"),
+          "entityName" -> JsString("Iou"),
+        ),
+        "contractId" -> JsString(cid),
+        "choice" -> JsString("Iou_Split"),
+        "argument" -> JsObject(
+          "splitAmount" -> JsNumber("42.42")
+        ),
+      )
+
       val webSocketFlow = Http().webSocketClientFlow(
         WebSocketRequest(
           uri = uri.copy(scheme = "ws").withPath(Uri.Path("/contracts/searchForever")),
@@ -141,15 +158,21 @@ class WebsocketServiceIntegrationTest
 
       val resp: Sink[JsValue, Future[Assertion]] = Sink
         .foldAsync[(Int, Option[String]), JsValue]((0, None)) {
-          case ((0, _), ContractDelta(Vector((ctid, ct)), _)) =>
-            (Future(sys.error("TODO submit exercise"): Unit) map { _ =>
-              (1, Some(ctid))
-            })
+          case ((0, _), ContractDelta(Vector((ctid, ct)), Vector())) =>
+            TestUtil.postJsonRequest(
+              uri.withPath(Uri.Path("/command/exercise")),
+              exercisePayload(ctid),
+              headersWithAuth) map {
+              case (statusCode, respBody) =>
+                statusCode.isSuccess shouldBe true
+                (1, Some(ctid))
+            }
           case (
               (1, Some(consumedCtid)),
               ContractDelta(Vector((fstId, fst), (sndId, snd)), Vector(observeConsumed))) =>
             Future {
               observeConsumed should ===(consumedCtid)
+              Set(fstId, sndId, consumedCtid) should have size 3
               (2, None)
             }
         }
@@ -161,7 +184,9 @@ class WebsocketServiceIntegrationTest
           }
         }
 
-      Source single query via webSocketFlow via parseResp runWith resp
+      initialCreate flatMap { _ =>
+        Source single query via webSocketFlow via parseResp runWith resp
+      }
   }
 
   private def wsConnectRequest[M](
