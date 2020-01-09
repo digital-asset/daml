@@ -175,7 +175,7 @@ application/json body, formatted according to the :doc:`search-query-language`:
 .. code-block:: json
 
     {
-        "%templates": [{"moduleName": "Iou", "entityName": "Iou"}],
+        "%templates": ["Iou:Iou"],
         "amount": 999.99
     }
 
@@ -212,11 +212,7 @@ Each contract formatted according to :doc:`lf-value-specification`.
                     "Alice"
                 ],
                 "contractId": "#52:0",
-                "templateId": {
-                    "packageId": "b10d22d6c2f2fae41b353315cf893ed66996ecb0abe4424ea6a81576918f658a",
-                    "moduleName": "Iou",
-                    "entityName": "Iou"
-                }
+                "templateId": "b10d22d6c2f2fae41b353315cf893ed66996ecb0abe4424ea6a81576918f658a:Iou:Iou"
             }
         ],
         "status": 200
@@ -235,10 +231,7 @@ application/json body, ``argument`` formatted according to :doc:`lf-value-specif
 .. code-block:: json
 
     {
-      "templateId": {
-        "moduleName": "Iou",
-        "entityName": "Iou"
-     },
+      "templateId": "Iou:Iou",
       "argument": {
         "observers": [],
         "issuer": "Alice",
@@ -268,12 +261,8 @@ Response
             "signatories": [
                 "Alice"
             ],
-            "contractId": "#52:0",
-            "templateId": {
-                "packageId": "b10d22d6c2f2fae41b353315cf893ed66996ecb0abe4424ea6a81576918f658a",
-                "moduleName": "Iou",
-                "entityName": "Iou"
-            }
+            "contractId": "#124:0",
+            "templateId": "11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Iou:Iou"
         }
     }
  
@@ -282,7 +271,7 @@ POST http://localhost:7575/command/exercise
 
 Exercise a choice on a contract.
 
-``"contractId": "#52:0"`` is the value from the create output.
+``"contractId": "#124:0"`` is the value from the create output.
 
 Request
 -------
@@ -292,11 +281,8 @@ application/json body:
 .. code-block:: json
 
     {
-        "templateId": {
-            "moduleName": "Iou",
-            "entityName": "Iou"
-        },
-        "contractId": "#52:0",
+        "templateId": "Iou:Iou",
+        "contractId": "#124:0",
         "choice": "Iou_Transfer",
         "argument": {
             "newOwner": "Alice"
@@ -311,16 +297,12 @@ Response
     {
         "status": 200,
         "result": {
-            "exerciseResult": "#205:1",
+            "exerciseResult": "#201:1",
             "contracts": [
                 {
                     "archived": {
-                        "contractId": "#52:0",
-                        "templateId": {
-                            "packageId": "b10d22d6c2f2fae41b353315cf893ed66996ecb0abe4424ea6a81576918f658a",
-                            "moduleName": "Iou",
-                            "entityName": "Iou"
-                        }
+                        "contractId": "#124:0",
+                        "templateId": "11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Iou:Iou"
                     }
                 },
                 {
@@ -340,12 +322,8 @@ Response
                         "signatories": [
                             "Alice"
                         ],
-                        "contractId": "#205:1",
-                        "templateId": {
-                            "packageId": "b10d22d6c2f2fae41b353315cf893ed66996ecb0abe4424ea6a81576918f658a",
-                            "moduleName": "Iou",
-                            "entityName": "IouTransfer"
-                        }
+                        "contractId": "#201:1",
+                        "templateId": "11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Iou:IouTransfer"
                     }
                 }
             ]
@@ -389,7 +367,7 @@ application/json body:
 .. code-block:: json
 
     {
-      "contractId": "#205:1"
+      "contractId": "#201:1"
     }
 
 Contract Not Found Response
@@ -425,12 +403,8 @@ Contract Found Response
             "signatories": [
                 "Alice"
             ],
-            "contractId": "#205:1",
-            "templateId": {
-                "packageId": "b10d22d6c2f2fae41b353315cf893ed66996ecb0abe4424ea6a81576918f658a",
-                "moduleName": "Iou",
-                "entityName": "IouTransfer"
-            }
+            "contractId": "#201:1",
+            "templateId": "11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Iou:IouTransfer"
         }
     }
 
@@ -445,10 +419,7 @@ application/json body:
 .. code-block:: json
 
     {
-        "templateId": {
-            "moduleName": "Account",
-            "entityName": "Account"
-        },
+        "templateId": "Account:Account",
         "key": [
             "Alice",
             "abc123"
@@ -477,7 +448,11 @@ Contract Found Response
             "agreementText": "",
             "payload": {
                 "owner": "Alice",
-                "number": "abc123"
+                "number": "abc123",
+                "status": {
+                    "tag": "Enabled",
+                    "value": "2020-01-01T00:00:01Z"
+                }
             },
             "signatories": [
                 "Alice"
@@ -486,11 +461,7 @@ Contract Found Response
                 "_1": "Alice",
                 "_2": "abc123"
             },
-            "contractId": "#1:0",
-            "templateId": {
-                "packageId": "d7be7966c36fb3588bee1b727cef78a7251caabe3ae4105ba62f06a7af97272b",
-                "moduleName": "Account",
-                "entityName": "Account"
-            }
+            "contractId": "#697:0",
+            "templateId": "11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Account:Account"
         }
     }
