@@ -224,7 +224,7 @@ output a series of JSON documents, each ``argument`` formatted according
 to :doc:`lf-value-specification`::
 
     {
-        "add": [{
+        "created": [{
             "observers": [],
             "agreementText": "",
             "signatories": ["Alice"],
@@ -249,7 +249,7 @@ After submitting an ``Iou_Split`` exercise, which creates two contracts
 and archives the one above, the same stream will eventually produce::
 
     {
-        "add": [{
+        "created": [{
             "observers": [],
             "agreementText": "",
             "signatories": ["Alice"],
@@ -286,7 +286,7 @@ and archives the one above, the same stream will eventually produce::
                 "owner": "Alice"
             }
         }],
-        "remove": ["#1:0"]
+        "archived": ["#1:0"]
     }
 
 Some notes on behavior:
@@ -297,18 +297,20 @@ Some notes on behavior:
    paired between polls), such contracts may or may not appear in any
    result object.
 
-2. No ``remove`` ever contains a contract ID occurring within an ``add``
-   in the same object.  So, for example, supposing you are keeping an
-   internal map of active contracts, you can apply the ``add`` first or
-   the ``remove`` first and be guaranteed to get the same results.
+2. No ``archived`` ever contains a contract ID occurring within an
+   ``created`` in the same object.  So, for example, supposing you are
+   keeping an internal map of active contracts, you can apply the
+   ``created`` first or the ``archived`` first and be guaranteed to get
+   the same results.
 
-3. You will almost certainly receive contract IDs in the ``remove`` set
-   that you never received an ``add`` for.  These are contracts that
-   query filtered out, but for which the server no longer is aware of
-   that.  You can safely ignore these.  However, such "phantom removes"
-   *are* guaranteed to represent an actual archival *on the ledger*, so
-   if you are keeping a more global dataset outside the context of this
-   specific search, you can use that archival information as you wish.
+3. You will almost certainly receive contract IDs in the ``archived``
+   set that you never received an ``created`` for.  These are contracts
+   that query filtered out, but for which the server no longer is aware
+   of that.  You can safely ignore these.  However, such "phantom
+   archives" *are* guaranteed to represent an actual archival *on the
+   ledger*, so if you are keeping a more global dataset outside the
+   context of this specific search, you can use that archival
+   information as you wish.
 
 POST http://localhost:7575/command/create
 =========================================

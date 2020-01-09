@@ -115,8 +115,8 @@ class WebsocketServiceIntegrationTest
         def unapply(jsv: JsValue): Option[(Vector[(String, JsValue)], Vector[String])] =
           for {
             JsObject(fields) <- Some(jsv)
-            JsArray(adds) <- fields get "add" orElse Some(JsArray())
-            JsArray(removes) <- fields get "remove" orElse Some(JsArray())
+            JsArray(adds) <- fields get "created" orElse Some(JsArray())
+            JsArray(removes) <- fields get "archived" orElse Some(JsArray())
           } yield
             (adds collect (Function unlift {
               case JsObject(add) =>

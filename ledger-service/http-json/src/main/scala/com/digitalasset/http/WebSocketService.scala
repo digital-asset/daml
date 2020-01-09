@@ -68,9 +68,10 @@ object WebSocketService {
       JsObject(
         Map(
           "errors" -> opr(errors.map(_.message)),
-          "add" -> lfv.subst[Lambda[`-i` => Vector[domain.ActiveContract[i]] => Option[JsValue]]](
-            opr(_))(step.inserts),
-          "remove" -> opr(step.deletes)
+          "created" -> lfv
+            .subst[Lambda[`-i` => Vector[domain.ActiveContract[i]] => Option[JsValue]]](opr(_))(
+              step.inserts),
+          "archived" -> opr(step.deletes)
         ) collect { case (k, Some(v)) => (k, v) })
     }
 
