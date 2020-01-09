@@ -118,7 +118,8 @@ test('create + fetch & exercise', async () => {
     tuple: {_1: '12', _2: 'mmm'},
     enum: Main.Color.Red,
     enumList: [Main.Color.Red, Main.Color.Blue, Main.Color.Yellow],
-    variant: {tag: 'Add', value: {_1:{tag: 'Lit', value: '1'}, _2:{tag: 'Lit', value: '2'}}}
+    variant: {tag: 'Add', value: {_1:{tag: 'Lit', value: '1'}, _2:{tag: 'Lit', value: '2'}}},
+    sumProd: {tag: 'Corge', value: {x:'1', y:'Garlpy'}}
   };
   const allTypesContract = await ledger.create(Main.AllTypes, allTypes);
   expect(allTypesContract.payload).toEqual(allTypes);
