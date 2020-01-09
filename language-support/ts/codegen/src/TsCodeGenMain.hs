@@ -125,7 +125,7 @@ genDefDataType curModName tpls def = case unTypeConName (dataTypeCon def) of
           let
             (typs, sers) = unzip $ map genBranch bs
             typeDesc = [""] ++ typs
-            serDesc  = ["() => jtv.oneOf("] ++ sers ++ [")"]
+            serDesc  = ["() => jtv.oneOf<" <> conName <> typeParams <> ">("] ++ sers ++ [")"]
           in
           ((makeType typeDesc, makeSer serDesc), Set.unions $ map (Set.setOf typeModuleRef . snd) bs)
         DataEnum enumCons ->
@@ -224,7 +224,7 @@ genDefDataType curModName tpls def = case unTypeConName (dataTypeCon def) of
         genBranch (VariantConName cons, t) =
           let (typ, ser) = genType curModName t in
           ( "  |  { tag: '" <> cons <> "'; value: " <> typ <> " }"
-          , "  jtv.object<" <> conName <> typeParams <> ">({tag: jtv.constant('" <> cons <> "'), value: jtv.lazy(() => " <> ser <> ".decoder())}),"
+          , "  jtv.object({tag: jtv.constant('" <> cons <> "'), value: jtv.lazy(() => " <> ser <> ".decoder())}),"
           )
 
 
