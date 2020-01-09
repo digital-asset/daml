@@ -1,7 +1,8 @@
 // Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.value
+package com.digitalasset.daml.lf
+package value
 
 import com.digitalasset.daml.lf.data.Ref.{
   ContractIdString,
@@ -315,33 +316,28 @@ object Value {
   /** The constructor is private so that we make sure that only this object constructs
     * node ids -- we don't want external code to manipulate them.
     */
-  final class NodeId private[NodeId] (val index: Int) extends Equals {
-    def next: NodeId = new NodeId(index + 1)
+  final case class NodeId(index: Int, discriminator: Option[crypto.Hash]) extends Equals {
+    val name: LedgerString = LedgerString.assertFromString(index.toString)
 
-    override def canEqual(that: Any) = that.isInstanceOf[NodeId]
-
-    override def equals(that: Any) = that match {
-      case n: NodeId => index == n.index
-      case _ => false
+    override def equals(other: Any): Boolean = other match {
+      case that: NodeId if (this.discriminator == that.discriminator) =>
+        this.discriminator.isDefined || this.index == that.index
+      case _ =>
+        false
     }
 
-    override def hashCode() = index.hashCode()
-
-    override def toString = "NodeId(" + index.toString + ")"
-
-    val name: LedgerString = LedgerString.assertFromString(index.toString)
+    override def hashCode(): Int =
+      discriminator.fold(index)(_.hashCode())
 
   }
 
   object NodeId {
-    val first = new NodeId(0)
-
-    def unsafeFromIndex(i: Int) = new NodeId(i)
+    def unsafeFromIndex(i: Int) = NodeId(i, None)
   }
 
   implicit object NodeIdOrdering extends Ordering[NodeId] {
     override def compare(x: NodeId, y: NodeId): Int =
-      x.index.compare(y.index)
+      x.index compare y.index
   }
 
   /*** Keys cannot contain contract ids */

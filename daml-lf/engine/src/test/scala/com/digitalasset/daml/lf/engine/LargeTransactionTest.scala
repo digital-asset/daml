@@ -1,7 +1,8 @@
 // Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine
+package com.digitalasset.daml.lf
+package engine
 
 import java.io.File
 
@@ -23,6 +24,9 @@ import scala.language.implicitConversions
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class LargeTransactionTest extends WordSpec with Matchers with BazelRunfiles {
+
+  def hash(s: String, i: Int) =
+    Some(crypto.Hash.hashBuilder(crypto.HashPurpose.Key).add(s).add(i).build)
 
   private def loadPackage(
       resource: String): (PackageId, Ast.Package, Map[PackageId, Ast.Package]) = {
@@ -80,14 +84,23 @@ class LargeTransactionTest extends WordSpec with Matchers with BazelRunfiles {
     val rangeOfIntsTemplateId = Identifier(largeTx._1, qn("LargeTransaction:RangeOfInts"))
     val createCmd = rangeOfIntsCreateCmd(rangeOfIntsTemplateId, 0, 1, txSize)
     val createCmdTx: Transaction =
-      submitCommand(pcs, engine)(party, createCmd, "create RangeOfInts")
+      submitCommand(pcs, engine)(
+        submitter = party,
+        cmd = createCmd,
+        cmdReference = "create RangeOfInts",
+        seed = hash("testLargeTransactionOneContract:create", txSize))
     val contractId: AbsoluteContractId = firstRootNode(createCmdTx) match {
       case N.NodeCreate(x, _, _, _, _, _) => pcs.toAbsoluteContractId(pcs.transactionCounter - 1)(x)
       case n @ _ => fail(s"Expected NodeCreate, but got: $n")
     }
     val exerciseCmd = toListContainerExerciseCmd(rangeOfIntsTemplateId, contractId)
     val (exerciseCmdTx, quanity) = measureWithResult(
-      submitCommand(pcs, engine)(party, exerciseCmd, "exercise RangeOfInts.ToListContainer"))
+      submitCommand(pcs, engine)(
+        submitter = party,
+        cmd = exerciseCmd,
+        cmdReference = "exercise RangeOfInts.ToListContainer",
+        seed = hash("testLargeTransactionOneContract:exercise", txSize),
+      ))
 
     assertOneContractWithManyInts(exerciseCmdTx, List.range(0L, txSize.toLong))
     quanity
@@ -98,14 +111,23 @@ class LargeTransactionTest extends WordSpec with Matchers with BazelRunfiles {
     val rangeOfIntsTemplateId = Identifier(largeTx._1, qn("LargeTransaction:RangeOfInts"))
     val createCmd = rangeOfIntsCreateCmd(rangeOfIntsTemplateId, 0, 1, num)
     val createCmdTx: Transaction =
-      submitCommand(pcs, engine)(party, createCmd, "create RangeOfInts")
+      submitCommand(pcs, engine)(
+        submitter = party,
+        cmd = createCmd,
+        cmdReference = "create RangeOfInts",
+        seed = hash("testLargeTransactionManySmallContracts:create", num))
     val contractId: AbsoluteContractId = firstRootNode(createCmdTx) match {
       case N.NodeCreate(x, _, _, _, _, _) => pcs.toAbsoluteContractId(pcs.transactionCounter - 1)(x)
       case n @ _ => fail(s"Expected NodeCreate, but got: $n")
     }
     val exerciseCmd = toListOfIntContainers(rangeOfIntsTemplateId, contractId)
     val (exerciseCmdTx, quanity) = measureWithResult(
-      submitCommand(pcs, engine)(party, exerciseCmd, "exercise RangeOfInts.ToListContainer"))
+      submitCommand(pcs, engine)(
+        submitter = party,
+        cmd = exerciseCmd,
+        cmdReference = "exercise RangeOfInts.ToListContainer",
+        seed = hash("testLargeTransactionManySmallContracts:exercise", num)
+      ))
 
     assertManyContractsOneIntPerContract(exerciseCmdTx, num)
     quanity
@@ -116,14 +138,22 @@ class LargeTransactionTest extends WordSpec with Matchers with BazelRunfiles {
     val listUtilTemplateId = Identifier(largeTx._1, qn("LargeTransaction:ListUtil"))
     val createCmd = listUtilCreateCmd(listUtilTemplateId)
     val createCmdTx: Transaction =
-      submitCommand(pcs, engine)(party, createCmd, "create ListUtil")
+      submitCommand(pcs, engine)(
+        submitter = party,
+        cmd = createCmd,
+        cmdReference = "create ListUtil",
+        seed = hash("testLargeChoiceArgument:create", size))
     val contractId: AbsoluteContractId = firstRootNode(createCmdTx) match {
       case N.NodeCreate(x, _, _, _, _, _) => pcs.toAbsoluteContractId(pcs.transactionCounter - 1)(x)
       case n @ _ => fail(s"Expected NodeCreate, but got: $n")
     }
     val exerciseCmd = sizeExerciseCmd(listUtilTemplateId, contractId)(size)
     val (exerciseCmdTx, quantity) = measureWithResult(
-      submitCommand(pcs, engine)(party, exerciseCmd, "exercise ListUtil.Size"))
+      submitCommand(pcs, engine)(
+        submitter = party,
+        cmd = exerciseCmd,
+        cmdReference = "exercise ListUtil.Size",
+        seed = hash("testLargeTransactionManySmallContracts:exercise", size)))
 
     assertSizeExerciseTransaction(exerciseCmdTx, size.toLong)
     quantity
@@ -162,11 +192,14 @@ class LargeTransactionTest extends WordSpec with Matchers with BazelRunfiles {
     } shouldBe expectedNumberOfContracts
   }
 
-  private def submitCommand(
-      pcs: PrivateLedgerData,
-      engine: Engine)(submitter: Party, cmd: Command, cmdReference: String): Tx.Transaction = {
+  private def submitCommand(pcs: PrivateLedgerData, engine: Engine)(
+      submitter: Party,
+      cmd: Command,
+      cmdReference: String,
+      seed: Option[crypto.Hash]
+  ): Tx.Transaction = {
     engine
-      .submit(Commands(submitter, ImmArray(cmd), Time.Timestamp.now(), cmdReference))
+      .submit(Commands(submitter, ImmArray(cmd), Time.Timestamp.now(), cmdReference), seed)
       .consume(pcs.get, lookupPackage, { _ =>
         sys.error("TODO keys for LargeTransactionTest")
       }) match {

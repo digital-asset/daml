@@ -20,7 +20,8 @@ import scala.util.Try
 
 case class VersionedTransaction[Nid, Cid](
     version: TransactionVersion,
-    transaction: GenTransaction.WithTxValue[Nid, Cid]) {
+    transaction: GenTransaction.WithTxValue[Nid, Cid]
+) {
 
   def mapContractId[Cid2](f: Cid => Cid2): VersionedTransaction[Nid, Cid2] =
     copy(transaction = transaction.mapContractIdAndValue(f, _.mapContractId(f)))
@@ -76,7 +77,8 @@ case class VersionedTransaction[Nid, Cid](
 case class GenTransaction[Nid: Ordering, Cid, +Val](
     nodes: SortedMap[Nid, GenNode[Nid, Cid, Val]],
     roots: ImmArray[Nid],
-    optUsedPackages: Option[Set[PackageId]]
+    optUsedPackages: Option[Set[PackageId]],
+    seed: Option[crypto.Hash] = None
 ) {
 
   import GenTransaction._
@@ -96,10 +98,9 @@ case class GenTransaction[Nid: Ordering, Cid, +Val](
 
   /** Note: the provided function must be injective, otherwise the transaction will be corrupted. */
   def mapNodeId[Nid2: Ordering](f: Nid => Nid2): GenTransaction[Nid2, Cid, Val] =
-    transaction.GenTransaction(
+    copy(
       roots = roots.map(f),
       nodes = nodes.map { case (nid, node) => (f(nid), node.mapNodeId(f)) },
-      optUsedPackages = optUsedPackages
     )
 
   /**
@@ -412,6 +413,8 @@ object Transaction {
     *  the sub-transaction structure due to 'exercises' statements.
     */
   sealed abstract class Context extends Product with Serializable {
+    def discriminator: Option[crypto.Hash]
+    def nChildren: Int
     def children: BackStack[NodeId]
     def addChild(child: NodeId): Context
   }
@@ -419,16 +422,24 @@ object Transaction {
   /** The root context, which is what we use when we are not exercising
     *  a choice.
     */
-  final case class ContextRoot(children: BackStack[NodeId] = BackStack.empty) extends Context {
-    override def addChild(child: NodeId): ContextRoot = copy(children = children :+ child)
+  final case class ContextRoot(
+      override val discriminator: Option[crypto.Hash],
+      nChildren: Int = 0,
+      children: BackStack[NodeId] = BackStack.empty
+  ) extends Context {
+    override def addChild(child: NodeId): ContextRoot =
+      copy(nChildren = nChildren + 1, children = children :+ child)
   }
 
   /** Context when creating a sub-transaction due to an exercises. */
   final case class ContextExercises(
       ctx: ExercisesContext,
+      nChildren: Int = 0,
       children: BackStack[NodeId] = BackStack.empty
   ) extends Context {
-    override def addChild(child: NodeId): ContextExercises = copy(children = children :+ child)
+    override def addChild(child: NodeId): ContextExercises =
+      copy(nChildren = nChildren + 1, children = children :+ child)
+    override def discriminator: Option[crypto.Hash] = ctx.nodeId.discriminator
   }
 
   /** Context information to remember when building a sub-transaction
@@ -470,7 +481,7 @@ object Transaction {
 
   /** A transaction under construction
     *
-    *  @param nextNodeId The next free node-id to use.
+    *  @param nextNodeIdx The next free node index to use.
     *  @param nodes The nodes of the transaction graph being built up.
     *  @param consumedBy 'ContractId's of all contracts that have
     *                    been consumed by nodes up to now.
@@ -494,7 +505,7 @@ object Transaction {
     *              locally archived absolute contract ids will succeed wrongly.
     */
   case class PartialTransaction(
-      nextNodeId: NodeId,
+      nextNodeIdx: Int,
       nodes: SortedMap[NodeId, Node],
       consumedBy: Map[TContractId, NodeId],
       context: Context,
@@ -552,12 +563,13 @@ object Transaction {
       */
     def finish: Either[PartialTransaction, Transaction] =
       context match {
-        case ContextRoot(children) if aborted.isEmpty =>
+        case ContextRoot(seed, _, children) if aborted.isEmpty =>
           Right(
             GenTransaction(
               nodes = nodes,
               roots = children.toImmArray,
-              None
+              optUsedPackages = None,
+              seed = seed
             ))
         case _ =>
           Left(this)
@@ -678,12 +690,13 @@ object Transaction {
           s"""Trying to exercise a choice with a non-serializable value: ${serializableErrs.iterator
             .mkString(",")}""")
       } else {
+        val nodeId = NodeId(nextNodeIdx, deriveChildDiscriminator)
         Right(
           mustBeActive(
             targetId,
             templateId,
             copy(
-              nextNodeId = nextNodeId.next,
+              nextNodeIdx = nextNodeIdx + 1,
               context = ContextExercises(
                 ExercisesContext(
                   targetId = targetId,
@@ -697,13 +710,13 @@ object Transaction {
                   signatories = signatories,
                   stakeholders = stakeholders,
                   controllers = controllers,
-                  nodeId = nextNodeId,
+                  nodeId = nodeId,
                   parent = context,
-                )
+                ),
               ),
               // important: the semantics of DAML dictate that contracts are immediately
               // inactive as soon as you exercise it. therefore, mark it as consumed now.
-              consumedBy = if (consuming) consumedBy.updated(targetId, nextNodeId) else consumedBy,
+              consumedBy = if (consuming) consumedBy.updated(targetId, nodeId) else consumedBy,
               keys = mbKey match {
                 case Some(key) if consuming => keys.updated(GlobalKey(templateId, key), None)
                 case _ => keys
@@ -715,7 +728,7 @@ object Transaction {
 
     def endExercises(value: Value[TContractId]): (Option[NodeId], PartialTransaction) =
       context match {
-        case ContextExercises(ec, children) =>
+        case ContextExercises(ec, _, children) =>
           val exerciseNode: Transaction.Node = NodeExercises(
             targetCoid = ec.targetId,
             templateId = ec.templateId,
@@ -735,7 +748,7 @@ object Transaction {
           val ptx =
             copy(context = ec.parent.addChild(nodeId), nodes = nodes.updated(nodeId, exerciseNode))
           Some(nodeId) -> ptx
-        case ContextRoot(_) =>
+        case ContextRoot(_, _, _) =>
           None -> noteAbort(EndExerciseInRootContext)
       }
 
@@ -760,13 +773,18 @@ object Transaction {
 
     /** Insert the given `LeafNode` under a fresh node-id, and return it */
     def insertLeafNode(n: NodeId => LeafNode): (NodeId, PartialTransaction) = {
+      val nodeId = NodeId(nextNodeIdx, deriveChildDiscriminator)
       val ptx = copy(
-        nextNodeId = nextNodeId.next,
-        context = context.addChild(nextNodeId),
-        nodes = nodes.updated(nextNodeId, n(nextNodeId))
+        nextNodeIdx = nextNodeIdx + 1,
+        context = context.addChild(nodeId),
+        nodes = nodes.updated(nodeId, n(nodeId))
       )
-      nextNodeId -> ptx
+      nodeId -> ptx
     }
+
+    def deriveChildDiscriminator: Option[crypto.Hash] =
+      context.discriminator.map(crypto.Hash.hMacBuilder(_).add(context.nChildren).build)
+
   }
 
   object PartialTransaction {
@@ -774,11 +792,11 @@ object Transaction {
     /** The initial transaction from which we start building. It does not
       *  contain any nodes and is not marked as aborted.
       */
-    def initial = PartialTransaction(
-      nextNodeId = NodeId.first,
+    def initial(seed: Option[crypto.Hash]) = PartialTransaction(
+      nextNodeIdx = 0,
       nodes = TreeMap.empty[NodeId, Node],
       consumedBy = Map.empty,
-      context = ContextRoot(),
+      context = ContextRoot(seed),
       aborted = None,
       keys = Map.empty
     )

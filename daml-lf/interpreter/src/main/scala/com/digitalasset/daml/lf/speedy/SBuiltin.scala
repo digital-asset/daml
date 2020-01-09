@@ -1,7 +1,8 @@
 // Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.speedy
+package com.digitalasset.daml.lf
+package speedy
 
 import java.util
 
@@ -1006,8 +1007,8 @@ object SBuiltin {
       val observers = extractParties(args.get(2))
       val stakeholders = observers union signatories
       val contextActors = machine.ptx.context match {
-        case ContextExercises(ctx, _) => ctx.actingParties union ctx.signatories
-        case ContextRoot(_) => machine.committers
+        case ContextExercises(ctx, _, _) => ctx.actingParties union ctx.signatories
+        case ContextRoot(_, _, _) => machine.committers
       }
 
       machine.ptx = machine.ptx.insertFetch(
@@ -1189,7 +1190,7 @@ object SBuiltin {
       def clearCommit(): Unit = {
         machine.committers = Set.empty
         machine.commitLocation = None
-        machine.ptx = PartialTransaction.initial
+        machine.ptx = PartialTransaction.initial(None)
       }
 
       args.get(0) match {
@@ -1235,7 +1236,7 @@ object SBuiltin {
           callback = newValue => {
             machine.committers = Set.empty
             machine.commitLocation = None
-            machine.ptx = PartialTransaction.initial
+            machine.ptx = PartialTransaction.initial(None)
             machine.ctrl = CtrlValue(newValue)
           }
         )

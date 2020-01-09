@@ -1,9 +1,9 @@
 // Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine
+package com.digitalasset.daml.lf
+package engine
 
-import com.digitalasset.daml.lf.CompiledPackages
 import com.digitalasset.daml.lf.command._
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
@@ -71,7 +71,10 @@ final class Engine {
     *
     * The resulting transaction is annotated with packages required to validate it.
     */
-  def submit(cmds: Commands): Result[Transaction.Transaction] = {
+  def submit(
+      cmds: Commands,
+      seed: Option[crypto.Hash] = None
+  ): Result[Transaction.Transaction] = {
     _commandTranslation
       .preprocessCommands(cmds)
       .flatMap { processedCmds =>
@@ -83,6 +86,7 @@ final class Engine {
               submitters = Set(cmds.submitter),
               commands = processedCmds,
               time = cmds.ledgerEffectiveTime,
+              seed = seed,
             ) map { tx =>
               // Annotate the transaction with the package dependencies. Since
               // all commands are actions on a contract template, with a fully typed
@@ -123,6 +127,7 @@ final class Engine {
     * create or an exercise choice.
     */
   def reinterpret(
+      seed: Option[crypto.Hash],
       submitters: Set[Party],
       nodes: Seq[GenNode.WithTxValue[Value.NodeId, Value.ContractId]],
       ledgerEffectiveTime: Time.Timestamp
@@ -140,7 +145,8 @@ final class Engine {
         checkSubmitterInMaintainers = checkSubmitterInMaintainers,
         submitters = submitters,
         commands = commands,
-        time = ledgerEffectiveTime
+        time = ledgerEffectiveTime,
+        seed
       )
     } yield result
   }
@@ -164,8 +170,8 @@ final class Engine {
       tx: Transaction.Transaction,
       ledgerEffectiveTime: Time.Timestamp
   ): Result[Unit] = {
-    import scalaz.syntax.traverse.ToTraverseOps
     import scalaz.std.option._
+    import scalaz.syntax.traverse.ToTraverseOps
     val commandTranslation = new CommandPreprocessor(_compiledPackages)
     //reinterpret
     for {
@@ -196,6 +202,7 @@ final class Engine {
         _compiledPackages,
         commands.map(_._2._2.templateId))
       rtx <- interpretCommands(
+        seed = tx.seed,
         validating = true,
         checkSubmitterInMaintainers = checkSubmitterInMaintainers,
         submitters = submitters,
@@ -310,12 +317,14 @@ final class Engine {
       checkSubmitterInMaintainers: Boolean,
       submitters: Set[Party],
       commands: ImmArray[(Type, SpeedyCommand)],
-      time: Time.Timestamp): Result[Transaction.Transaction] = {
+      time: Time.Timestamp,
+      seed: Option[crypto.Hash]): Result[Transaction.Transaction] = {
     val machine = Machine
       .build(
         checkSubmitterInMaintainers = checkSubmitterInMaintainers,
         sexpr = Compiler(compiledPackages.packages).compile(commands.map(_._2)),
-        compiledPackages = _compiledPackages
+        compiledPackages = _compiledPackages,
+        seed
       )
       .copy(validating = validating, committers = submitters)
     interpretLoop(machine, time)

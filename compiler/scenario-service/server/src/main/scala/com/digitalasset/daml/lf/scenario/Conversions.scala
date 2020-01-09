@@ -373,8 +373,8 @@ case class Conversions(homePackageId: Ref.PackageId) {
         ptx.context.children.toImmArray.toSeq.sortBy(_.index).map(convertTxNodeId).asJava)
 
     ptx.context match {
-      case Tx.ContextRoot(_) =>
-      case Tx.ContextExercises(ctx, _) =>
+      case Tx.ContextRoot(_, _, _) =>
+      case Tx.ContextExercises(ctx, _, _) =>
         val ecBuilder = ExerciseContext.newBuilder
           .setTargetId(mkContractRef(ctx.targetId, ctx.templateId))
           .setChoiceId(ctx.choiceId)

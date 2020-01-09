@@ -1,7 +1,8 @@
 // Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.speedy
+package com.digitalasset.daml.lf
+package speedy
 
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref._
@@ -14,7 +15,7 @@ import com.digitalasset.daml.lf.transaction.Transaction._
 import com.digitalasset.daml.lf.value.{Value => V}
 
 import scala.collection.JavaConverters._
-import java.util.ArrayList
+import java.util
 
 import com.digitalasset.daml.lf.CompiledPackages
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
@@ -33,7 +34,7 @@ object Speedy {
       /* Kont, or continuation specifies what should be done next
        * once the control has been evaluated.
        */
-      var kont: ArrayList[Kont],
+      var kont: util.ArrayList[Kont],
       /* The last encountered location */
       var lastLocation: Option[Location],
       /* The current partial transaction */
@@ -97,7 +98,7 @@ object Speedy {
     /** Compute a stack trace from the locations in the continuation stack.
         The last seen location will come last. */
     def stackTrace(): ImmArray[Location] = {
-      val s = new ArrayList[Location]
+      val s = new util.ArrayList[Location]
       kont.forEach { k =>
         k match {
           case KLocation(location) => { s.add(location); () }
@@ -232,14 +233,20 @@ object Speedy {
   }
 
   object Machine {
+
     private val damlTraceLog = LoggerFactory.getLogger("daml.tracelog")
-    private def initial(checkSubmitterInMaintainers: Boolean, compiledPackages: CompiledPackages) =
+
+    private def initial(
+        checkSubmitterInMaintainers: Boolean,
+        compiledPackages: CompiledPackages,
+        seed: Option[crypto.Hash]
+    ) =
       Machine(
         ctrl = null,
         env = emptyEnv,
-        kont = new ArrayList[Kont](128),
+        kont = new util.ArrayList[Kont](128),
         lastLocation = None,
-        ptx = PartialTransaction.initial,
+        ptx = PartialTransaction.initial(seed),
         committers = Set.empty,
         commitLocation = None,
         traceLog = TraceLog(damlTraceLog, 100),
@@ -262,15 +269,22 @@ object Speedy {
     def build(
         checkSubmitterInMaintainers: Boolean,
         sexpr: SExpr,
-        compiledPackages: CompiledPackages): Machine =
-      fromSExpr(SEApp(sexpr, Array(SEValue.Token)), checkSubmitterInMaintainers, compiledPackages)
+        compiledPackages: CompiledPackages,
+        seed: Option[crypto.Hash] = None
+    ): Machine =
+      fromSExpr(
+        SEApp(sexpr, Array(SEValue.Token)),
+        checkSubmitterInMaintainers,
+        compiledPackages,
+        seed)
 
     // Used from repl.
     def fromExpr(
         expr: Expr,
         checkSubmitterInMaintainers: Boolean,
         compiledPackages: CompiledPackages,
-        scenario: Boolean): Machine = {
+        scenario: Boolean
+    ): Machine = {
       val compiler = Compiler(compiledPackages.packages)
       val sexpr =
         if (scenario)
@@ -287,8 +301,10 @@ object Speedy {
     def fromSExpr(
         sexpr: SExpr,
         checkSubmitterInMaintainers: Boolean,
-        compiledPackages: CompiledPackages): Machine =
-      initial(checkSubmitterInMaintainers, compiledPackages).copy(ctrl = CtrlExpr(sexpr))
+        compiledPackages: CompiledPackages,
+        seed: Option[crypto.Hash] = None
+    ): Machine =
+      initial(checkSubmitterInMaintainers, compiledPackages, seed).copy(ctrl = CtrlExpr(sexpr))
   }
 
   /** Control specifies the thing that the machine should be reducing.
@@ -366,7 +382,7 @@ object Speedy {
 
   object Ctrl {
     def fromPrim(prim: Prim, arity: Int): Ctrl =
-      CtrlValue(SPAP(prim, new ArrayList[SValue](), arity))
+      CtrlValue(SPAP(prim, new util.ArrayList[SValue](), arity))
   }
 
   //
@@ -374,8 +390,8 @@ object Speedy {
   //
   // NOTE(JM): We use ArrayList instead of ArrayBuffer as
   // it is significantly faster.
-  type Env = ArrayList[SValue]
-  def emptyEnv(): Env = new ArrayList[SValue](512)
+  type Env = util.ArrayList[SValue]
+  def emptyEnv(): Env = new util.ArrayList[SValue](512)
 
   //
   // Kontinuation
@@ -402,7 +418,7 @@ object Speedy {
     def execute(v: SValue, machine: Machine) = {
       v match {
         case SPAP(prim, args, arity) =>
-          val args2 = args.clone.asInstanceOf[ArrayList[SValue]]
+          val args2 = args.clone.asInstanceOf[util.ArrayList[SValue]]
           val missing = arity - args2.size
 
           // Stash away over-applied arguments, if any.
@@ -434,7 +450,7 @@ object Speedy {
   /** The function and the arguments have been evaluated. Construct a PAP from them.
     * If the PAP is fully applied the machine will push the arguments to the environment
     * and start evaluating the function body. */
-  final case class KFun(prim: Prim, args: ArrayList[SValue], var arity: Int) extends Kont {
+  final case class KFun(prim: Prim, args: util.ArrayList[SValue], var arity: Int) extends Kont {
     def execute(v: SValue, machine: Machine) = {
       args.add(v) // Add last argument
       machine.ctrl = CtrlValue(SPAP(prim, args, arity))
@@ -532,7 +548,7 @@ object Speedy {
     * the PAP that is being built, and in the case of lets the evaluated value is pushed
     * direy into the environment.
     */
-  final case class KPushTo(to: ArrayList[SValue], next: SExpr) extends Kont {
+  final case class KPushTo(to: util.ArrayList[SValue], next: SExpr) extends Kont {
     def execute(v: SValue, machine: Machine) = {
       to.add(v)
       machine.ctrl = CtrlExpr(next)
