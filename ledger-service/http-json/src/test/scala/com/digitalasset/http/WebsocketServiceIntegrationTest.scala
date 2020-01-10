@@ -11,7 +11,7 @@ import akka.http.scaladsl.model.{StatusCodes, Uri}
 import akka.stream.scaladsl.{Flow, Sink, Source}
 import com.digitalasset.http.util.TestUtil
 import com.typesafe.scalalogging.StrictLogging
-import org.scalatest.{Assertion, AsyncFreeSpec, BeforeAndAfterAll, Inside, Matchers}
+import org.scalatest.{AsyncFreeSpec, BeforeAndAfterAll, Inside, Matchers}
 import scalaz.std.option._
 import scalaz.syntax.apply._
 
@@ -166,37 +166,36 @@ class WebsocketServiceIntegrationTest
           case tm: TextMessage => tm.toStrict(1.second).map(_.text.parseJson)
         }
 
-      val resp: Sink[JsValue, Future[Assertion]] = Sink
-        .foldAsync[(Int, Option[String]), JsValue]((0, None)) {
-          case ((0, _), ContractDelta(Vector((ctid, ct)), Vector())) =>
+      sealed abstract class StreamState extends Product with Serializable
+      case object NothingYet extends StreamState
+      final case class GotAcs(firstCid: String) extends StreamState
+      final case class ShouldHaveEnded(msgCount: Int) extends StreamState
+
+      val resp: Sink[JsValue, Future[StreamState]] = Sink
+        .foldAsync(NothingYet: StreamState) {
+          case (NothingYet, ContractDelta(Vector((ctid, ct)), Vector())) =>
             TestUtil.postJsonRequest(
               uri.withPath(Uri.Path("/command/exercise")),
               exercisePayload(ctid),
               headersWithAuth) map {
               case (statusCode, respBody) =>
                 statusCode.isSuccess shouldBe true
-                (1, Some(ctid))
+                GotAcs(ctid)
             }
           case (
-              (1, Some(consumedCtid)),
+              GotAcs(consumedCtid),
               ContractDelta(Vector((fstId, fst), (sndId, snd)), Vector(observeConsumed))) =>
             Future {
               observeConsumed should ===(consumedCtid)
               Set(fstId, sndId, consumedCtid) should have size 3
-              (2, None)
+              ShouldHaveEnded(2)
             }
         }
-        .mapMaterializedValue {
-          _ map {
-            case (count, notYetConsumed) =>
-              count should ===(2)
-              notYetConsumed should ===(None)
-          }
-        }
 
-      initialCreate flatMap { _ =>
-        Source single query via webSocketFlow via parseResp runWith resp
-      }
+      for {
+        _ <- initialCreate
+        lastState <- Source single query via webSocketFlow via parseResp runWith resp
+      } yield lastState should ===(ShouldHaveEnded(2))
   }
 
   private def wsConnectRequest[M](
