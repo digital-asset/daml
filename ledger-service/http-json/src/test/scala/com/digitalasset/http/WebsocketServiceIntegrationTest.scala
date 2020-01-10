@@ -108,6 +108,17 @@ class WebsocketServiceIntegrationTest
       result.head should include("error")
   }
 
+  // NB SC #3936: the WS connection below terminates at an appropriate time for
+  // unknown reasons.  By all appearances, it should not disconnect, and
+  // fail for timeout; instead, it receives the correct # of contracts before
+  // disconnecting.  The read-write-read test further down demonstrates that this
+  // is not a matter of too-strictness; the `case (1` cannot possibly be from the
+  // ACS at the time of WS connect, if the test passes.  You can also see, structurally
+  // and observing by logging, that withHttpService is not responsible by way of
+  // disconnecting. We can see that the stream is truly continuous by testing outside
+  // this test code, e.g. in a browser with a JavaScript client, so will leave this
+  // mystery to be explored another time.
+
   "websocket should receive deltas as contracts are archived/created" in withHttpService {
     (uri, _, _) =>
       import spray.json._
