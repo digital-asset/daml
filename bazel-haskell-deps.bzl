@@ -108,6 +108,7 @@ deps = [
     "@stackage//:ghc",
     "@stackage//:ghc-boot",
     "@stackage//:ghc-boot-th",
+    "@stackage//:haddock-library",
     "@stackage//:hashable",
     "@stackage//:haskell-lsp",
     "@stackage//:haskell-lsp-types",
