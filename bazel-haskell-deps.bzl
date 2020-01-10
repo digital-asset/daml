@@ -143,6 +143,7 @@ haskell_cabal_binary(
     srcs = glob(["**"]),
     deps = deps + [
         ":ghcide-lib",
+        "@stackage//:gitrev",
         "@stackage//:ghc-paths",
         "@stackage//:hie-bios",
         "@stackage//:optparse-applicative",
