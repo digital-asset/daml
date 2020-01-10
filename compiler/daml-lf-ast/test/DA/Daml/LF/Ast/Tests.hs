@@ -141,8 +141,7 @@ typeSynTests =
     , (makeSynDef myBad [(f,KStar `KArrow` KStar)] (TVar f), "kind mismatch")
     , (makeSynDef myBad [(x,KStar)] (TApp (TVar x) TInt64), "expected higher kinded type")
     , (makeSynDef myBad [(x,KStar),(x,KStar)] (TVar x), "duplicate type parameter: x")
-    , (makeSynDef myBad [] (TSynApp (q missing) []), "")
-    -- TODO This example should be rejected
+    , (makeSynDef myBad [] (TSynApp (q missing) []), "unknown type synonym: M:Missing")
     ]
 
   x,y,f :: TypeVarName

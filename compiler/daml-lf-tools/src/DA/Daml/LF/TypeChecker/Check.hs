@@ -128,7 +128,10 @@ kindOf :: MonadGamma m => Type -> m Kind
 kindOf = \case
   TVar v -> lookupTypeVar v
   TCon tcon -> kindOfDataType <$> inWorld (lookupDataType tcon)
-  TSynApp{} -> return KStar
+  TSynApp tsyn args -> do
+    ty <- expandSynApp tsyn args
+    checkType ty KStar
+    pure KStar
   -- NOTE(MH): Types of the form `(forall f. f) a` are only relevant for
   -- impredicative polymorphism, which we don't support. Since this type
   -- cannot be encoded into a protobuf anyway, we fail here with more context
@@ -150,16 +153,7 @@ expandTypeSynonyms = expand where
   expand = \case
     TVar v -> return $ TVar v
     TCon tcon -> return $ TCon tcon
-    TSynApp tsyn args -> do
-      def@DefTypeSyn{synParams,synType} <- inWorld (lookupTypeSyn tsyn)
-      subst0 <- match _Just (ESynAppWrongArity def args) (zipExactMay synParams args)
-      for_ subst0 $ \((_, kind), typ) -> checkType typ kind
-      let subst1 = map (\((v, _kind), typ) -> (v, typ)) subst0
-      -- NOTE(NIC): Since we're assuming that the DefTypeSyn has been checked
-      -- the elements of @synParams@ are mutually distinct and
-      -- contain all type variables which are free in @synType@. Thus, it is safe
-      -- to call 'substitute'.
-      expand $ substitute (Map.fromList subst1) synType
+    TSynApp tsyn args -> expandSynApp tsyn args >>= expand
     TApp tfun targ -> do
       tfun' <- expand tfun
       targ' <- expand targ
@@ -172,6 +166,18 @@ expandTypeSynonyms = expand where
       recordType' <- mapM (\(n,t) -> do t' <- expand t; return (n,t')) recordType
       return $ TStruct recordType'
     TNat typeLevelNat -> return $ TNat typeLevelNat
+
+expandSynApp :: MonadGamma m => Qualified TypeSynName -> [Type] -> m Type
+expandSynApp tsyn args = do
+  def@DefTypeSyn{synParams,synType} <- inWorld (lookupTypeSyn tsyn)
+  subst0 <- match _Just (ESynAppWrongArity def args) (zipExactMay synParams args)
+  for_ subst0 $ \((_, kind), typ) -> checkType typ kind
+  let subst1 = map (\((v, _kind), typ) -> (v, typ)) subst0
+  -- NOTE(NIC): Since we're assuming that the DefTypeSyn has been checked
+  -- the elements of @synParams@ are mutually distinct and
+  -- contain all type variables which are free in @synType@. Thus, it is safe
+  -- to call 'substitute'.
+  return $ substitute (Map.fromList subst1) synType
 
 typeOfBuiltin :: MonadGamma m => BuiltinExpr -> m Type
 typeOfBuiltin = \case
