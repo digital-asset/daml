@@ -160,7 +160,7 @@ expandTypeSynonyms = expand where
       return $ TApp tfun' targ'
     TBuiltin btype -> return $ TBuiltin btype
     TForall (v, k) t1 -> do
-      t1' <- expand t1
+      t1' <- introTypeVar v k $ expand t1
       return $ TForall (v, k) t1'
     TStruct recordType -> do
       recordType' <- mapM (\(n,t) -> do t' <- expand t; return (n,t')) recordType
@@ -534,8 +534,8 @@ typeOfScenario = \case
     checkExpr e (TScenario typ)
     return (TScenario typ)
 
-typeOf :: MonadGamma m => Expr -> m Type
-typeOf = \case
+typeOf' :: MonadGamma m => Expr -> m Type
+typeOf' = \case
   EVar var -> lookupExprVar var
   EVal val -> dvalType <$> inWorld (lookupValue val)
   EBuiltin bexpr -> typeOfBuiltin bexpr
@@ -570,7 +570,12 @@ typeOf = \case
     pure $ TBuiltin BTTypeRep
   EUpdate upd -> typeOfUpdate upd
   EScenario scen -> typeOfScenario scen
-  ELocation _ expr -> typeOf expr
+  ELocation _ expr -> typeOf' expr
+
+typeOf :: MonadGamma m => Expr -> m Type
+typeOf expr = do
+  ty <- typeOf' expr
+  expandTypeSynonyms ty
 
 -- Check that the type contains no type variables or quantifiers
 checkGroundType' :: MonadGamma m => Type -> m ()
@@ -588,10 +593,9 @@ checkGroundType ty = do
 checkExpr' :: MonadGamma m => Expr -> Type -> m Type
 checkExpr' expr typ = do
   exprType <- typeOf expr
-  exprTypeX <- expandTypeSynonyms exprType
   typX <- expandTypeSynonyms typ
-  unless (alphaEquiv exprTypeX typX) $
-    throwWithContext ETypeMismatch{foundType = exprTypeX, expectedType = typX, expr = Just expr}
+  unless (alphaEquiv exprType typX) $
+    throwWithContext ETypeMismatch{foundType = exprType, expectedType = typX, expr = Just expr}
   pure exprType
 
 checkExpr :: MonadGamma m => Expr -> Type -> m ()
