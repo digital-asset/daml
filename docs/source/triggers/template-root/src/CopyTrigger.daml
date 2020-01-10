@@ -55,6 +55,7 @@ copyTrigger = Trigger
   , updateState = \_acs _message () -> ()
   , rule = copyRule
   , registeredTemplates = AllInDar
+  , heartbeat = None
   }
 -- TRIGGER_END
 

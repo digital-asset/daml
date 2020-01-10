@@ -105,6 +105,7 @@ To create a trigger you need to define a value of type ``Trigger s`` where ``s``
       , updateState : ACS -> Message -> s -> s
       , rule : Party -> ACS -> Time -> Map CommandId [Command] -> s -> TriggerA ()
       , registeredTemplates : RegisteredTemplates
+      , heartbeat : Optional RelTime
       }
 
 The ``initialize`` function is called on startup and allows you to
@@ -124,12 +125,16 @@ The type ``TriggerA`` allows you to emit commands that are then sent
 to the ledger. Like ``Scenario`` or ``Update``, you can use ``do``
 notation with ``TriggerA``.
 
-Finally, we can specify the templates that our trigger will operate
+We can specify the templates that our trigger will operate
 on. In our case, we will simply specify ``AllInDar`` which means that
 the trigger will receive events for all template types defined in the
 DAR. It is also possible to specify an explicit list of templates,
 e.g., ``RegisteredTemplates [registeredTemplate @Original, registeredTemplate @Subscriber, registeredTemplate @Copy]``.
 This is mainly useful for performance reasons if your DAR contains many templates that are not relevant for your trigger.
+
+Finally, you can specify an optional heartbeat interval at which the trigger
+will be sent a ``MHeartbeat`` message. This is useful if you want to ensure
+that the trigger is executed at a certain rate to issue timed commands.
 
 For our DAML trigger, the definition looks as follows:
 
