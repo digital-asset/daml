@@ -29,7 +29,7 @@ import scalaz.{-\/, \/, \/-, Show}
 import spray.json.{JsObject, JsString, JsValue}
 
 import scala.collection.SeqLike
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 object WebSocketService {
@@ -137,16 +137,20 @@ class WebSocketService(
         NotUsed
       }
 
+  private val wsReadTimeout = (wsConfig getOrElse Config.DefaultWsConfig).maxDuration
+
   private def wsMessageHandler(
       jwt: Jwt,
       jwtPayload: JwtPayload): Flow[Message, Message, NotUsed] = {
     Flow[Message]
-      .flatMapConcat {
-        case msg: TextMessage.Strict => generateOutgoingMessage(jwt, jwtPayload, msg)
+      .mapAsync(1) {
+        case msg: TextMessage => msg.toStrict(wsReadTimeout).map(\/-(_))
         case _ =>
-          Source.single(
-            wsErrorMessage("Cannot process your input, Expect a single strict JSON message"))
+          Future successful -\/(
+            Source.single(
+              wsErrorMessage("Cannot process your input, Expect a single JSON message"): Message))
       }
+      .flatMapConcat { _.map(generateOutgoingMessage(jwt, jwtPayload, _)).merge }
   }
 
   private def generateOutgoingMessage(
