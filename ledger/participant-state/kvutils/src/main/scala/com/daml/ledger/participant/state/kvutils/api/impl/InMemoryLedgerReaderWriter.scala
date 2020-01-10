@@ -5,6 +5,7 @@ package com.daml.ledger.participant.state.kvutils.api.impl
 
 import java.time.Clock
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicLong
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
@@ -29,8 +30,6 @@ import scala.collection.{breakOut, mutable}
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{ExecutionContext, Future}
 import com.google.protobuf.ByteString
-
-import scala.util.Random
 
 private[impl] class LogEntry(val entryId: DamlLogEntryId, val payload: Array[Byte])
 
@@ -64,7 +63,7 @@ final class InMemoryLedgerReaderWriter(
         val stateInputs: Map[DamlStateKey, Option[DamlStateValue]] =
           submission.getInputDamlStateList.asScala
             .map(key => key -> currentState.state.get(key.toByteString))(breakOut)
-        val entryId = allocateEntryId()
+        val entryId = nextEntryId()
         val (logEntry, damlStateUpdates) =
           KeyValueCommitting.processSubmission(
             engine,
@@ -120,15 +119,14 @@ final class InMemoryLedgerReaderWriter(
   private val dispatcher: Dispatcher[Int] =
     Dispatcher("in-memory-key-value-participant-state", zeroIndex = 0, headAtInitialization = 0)
 
-  private val randomNumberGenerator = new Random()
+  private val currentEntryId = new AtomicLong()
 
   private val NamespaceLogEntries = ByteString.copyFromUtf8("L")
 
-  private def allocateEntryId(): DamlLogEntryId = {
-    val nonce: Array[Byte] = Array.ofDim(8)
-    randomNumberGenerator.nextBytes(nonce)
+  private def nextEntryId(): DamlLogEntryId = {
+    val entryId = currentEntryId.getAndIncrement().toHexString
     DamlLogEntryId.newBuilder
-      .setEntryId(NamespaceLogEntries.concat(ByteString.copyFrom(nonce)))
+      .setEntryId(NamespaceLogEntries.concat(ByteString.copyFromUtf8(entryId)))
       .build
   }
 
