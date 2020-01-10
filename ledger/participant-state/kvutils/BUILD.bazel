@@ -16,7 +16,6 @@ da_scala_library(
         "//visibility:public",
     ],
     exports = [":daml_kvutils_java_proto"],
-    runtime_deps = [],
     deps = [
         ":daml_kvutils_java_proto",
         "//daml-lf/archive:daml_lf_archive_reader",
@@ -37,6 +36,47 @@ da_scala_library(
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:io_dropwizard_metrics_metrics_core",
+        "@maven//:org_scala_lang_modules_scala_java8_compat_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
+test_lib_deps = [
+    ":kvutils",
+    "//bazel_tools/runfiles:scala_runfiles",
+    "//ledger-api/rs-grpc-bridge",
+    "//ledger-api/testing-utils",
+    "@maven//:org_mockito_mockito_core",
+    "@maven//:org_scalactic_scalactic_2_12",
+    "@maven//:org_scalatest_scalatest_2_12",
+]
+
+da_scala_library(
+    name = "kvutils-tests-lib",
+    srcs = glob(["src/test/lib/scala/**/*.scala"]),
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [
+        ":daml_kvutils_java_proto",
+        ":kvutils",
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive:daml_lf_dev_archive_java_proto",
+        "//daml-lf/data",
+        "//daml-lf/transaction",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger-api/testing-utils",
+        "//ledger/ledger-api-common",
+        "//ledger/ledger-api-health",
+        "//ledger/participant-state",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:com_typesafe_akka_akka_actor_2_12",
+        "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:org_scala_lang_modules_scala_java8_compat_2_12",
+        "@maven//:org_scalactic_scalactic_2_12",
+        "@maven//:org_scalatest_scalatest_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
         "@maven//:org_slf4j_slf4j_api",
     ],
@@ -51,7 +91,9 @@ da_scala_test(
     ],
     resources = glob(["src/test/resources/*"]),
     deps = [
+        ":daml_kvutils_java_proto",
         ":kvutils",
+        ":kvutils-tests-lib",
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_java_proto",
@@ -73,9 +115,11 @@ da_scala_test(
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:io_dropwizard_metrics_metrics_core",
-        "@maven//:org_scala_lang_modules_scala_java8_compat_2_12",
+        "@maven//:org_mockito_mockito_core",
+        "@maven//:org_scalactic_scalactic_2_12",
         "@maven//:org_scalatest_scalatest_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
+        "@maven//:org_slf4j_slf4j_api",
     ],
 )
 

@@ -379,6 +379,7 @@ testInstall = Tasty.testGroup "DA.Daml.Assistant.Install"
                     , iForce = ForceInstall False
                     , iSetPath = SetPath False
                     , iBashCompletions = BashCompletions No
+                    , iZshCompletions = ZshCompletions No
                     }
 
             setCurrentDirectory base
@@ -413,6 +414,7 @@ testInstallUnix = Tasty.testGroup "unix-specific tests"
                           , iForce = ForceInstall False
                           , iSetPath = SetPath False
                           , iBashCompletions = BashCompletions No
+                          , iZshCompletions = ZshCompletions No
                           }
 
                   setCurrentDirectory base
@@ -442,6 +444,7 @@ testInstallUnix = Tasty.testGroup "unix-specific tests"
                     , iForce = ForceInstall False
                     , iSetPath = SetPath False
                     , iBashCompletions = BashCompletions No
+                    , iZshCompletions = ZshCompletions No
                     }
 
             setCurrentDirectory base
@@ -471,6 +474,7 @@ testInstallUnix = Tasty.testGroup "unix-specific tests"
                     , iForce = ForceInstall False
                     , iSetPath = SetPath False
                     , iBashCompletions = BashCompletions No
+                    , iZshCompletions = ZshCompletions No
                     }
 
             setCurrentDirectory base

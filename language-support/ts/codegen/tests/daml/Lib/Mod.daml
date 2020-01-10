@@ -10,3 +10,8 @@ data Field = Field {
 data Imported = Imported {
   field: Field
 } deriving (Eq, Show)
+
+template NonTopLevel with
+    party: Party
+  where
+    signatory party

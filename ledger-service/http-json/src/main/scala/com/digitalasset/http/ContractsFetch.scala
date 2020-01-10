@@ -41,7 +41,7 @@ import scalaz.syntax.tag._
 import scalaz.syntax.functor._
 import scalaz.syntax.std.option._
 import scalaz.{-\/, Liskov, \/, \/-}
-import spray.json.JsValue
+import spray.json.{JsNull, JsValue}
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.Liskov.<~<
 
@@ -108,18 +108,27 @@ private class ContractsFetch(
       _ = logger.debug(s"contractsFromOffsetIo($jwt, $party, $templateId, $ob0): $offset1")
     } yield offset1
 
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def prepareCreatedEventStorage(
-      ce: lav1.event.CreatedEvent): Exception \/ PreInsertContract =
+      ce: lav1.event.CreatedEvent): Exception \/ PreInsertContract = {
+    import scalaz.syntax.traverse._
+    import scalaz.std.option._
     for {
       ac <- domain.ActiveContract fromLedgerApi ce leftMap (de =>
         new IllegalArgumentException(s"contract ${ce.contractId}: ${de.shows}"))
-      lfArg <- apiValueToLfValue(ac.argument) leftMap (_.cause)
+      lfKey <- ac.key.traverse(apiValueToLfValue).leftMap(_.cause)
+      lfArg <- apiValueToLfValue(ac.payload) leftMap (_.cause)
     } yield
       DBContract(
         contractId = ac.contractId.unwrap,
         templateId = ac.templateId,
-        createArguments = lfValueToDbJsValue(lfArg),
-        witnessParties = ac.witnessParties)
+        key = lfKey.cata(lfValueToDbJsValue, JsNull),
+        payload = lfValueToDbJsValue(lfArg),
+        signatories = ac.signatories,
+        observers = ac.observers,
+        agreementText = ac.agreementText
+      )
+  }
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def jsonifyInsertDeleteStep(
@@ -199,7 +208,7 @@ private class ContractsFetch(
 
 private[http] object ContractsFetch {
 
-  type PreInsertContract = DBContract[TemplateId.RequiredPkg, JsValue, Seq[domain.Party]]
+  type PreInsertContract = DBContract[TemplateId.RequiredPkg, JsValue, JsValue, Seq[domain.Party]]
 
   sealed abstract class OffsetBookmark[+Off] extends Product with Serializable {
     import lav1.ledger_offset.LedgerOffset
@@ -400,16 +409,17 @@ private[http] object ContractsFetch {
         Queries.insertContracts(step.inserts map (dbc =>
           dbc copy (templateId = stidMap getOrElse (dbc.templateId, throw new IllegalStateException(
             "template ID missing from prior retrieval; impossible")),
-          witnessParties = domain.Party.unsubst(dbc.witnessParties)))))
+          signatories = domain.Party.unsubst(dbc.signatories),
+          observers = domain.Party.unsubst(dbc.observers)))))
     }.void
   }
 
   final case class InsertDeleteStep[+C](inserts: Vector[C], deletes: Set[String]) {
     @SuppressWarnings(Array("org.wartremover.warts.Any"))
     def append[CC >: C](o: InsertDeleteStep[CC])(
-        implicit cid: CC <~< DBContract[Any, Any, Any]): InsertDeleteStep[CC] =
+        implicit cid: CC <~< DBContract[Any, Any, Any, Any]): InsertDeleteStep[CC] =
       appendWithCid(o)(
-        Liskov.contra1_2[Function1, DBContract[Any, Any, Any], CC, String](cid)(_.contractId))
+        Liskov.contra1_2[Function1, DBContract[Any, Any, Any, Any], CC, String](cid)(_.contractId))
 
     def appendWithCid[CC >: C](o: InsertDeleteStep[CC])(cid: CC => String): InsertDeleteStep[CC] =
       InsertDeleteStep(

@@ -160,60 +160,71 @@ For production use, we have a tool in development for generating proper
 RSA-encrypted tokens locally, which will arrive when the service also
 supports such tokens.
 
-GET http://localhost:7575/contracts/search
-==========================================
+GET ``/contracts/search``
+=========================
+
 List all currently active contracts for all known templates. Note that the retrieved contracts do not get persisted into query store database.
 
-POST http://localhost:7575/contracts/search
-===========================================
+The response is the same as for the POST method below.
+
+POST ``/contracts/search``
+==========================
 
 List currently active contracts that match a given query.
 
-application/json body, formatted according to the :doc:`search-query-language`::
+Request
+-------
 
-    {"%templates": [{"moduleName": "Iou", "entityName": "Iou"}],
-     "amount": 999.99}
+application/json body, formatted according to the :doc:`search-query-language`:
 
-empty output::
+.. code-block:: json
+
+    {
+        "%templates": ["Iou:Iou"],
+        "amount": 999.99
+    }
+
+Empty Response
+--------------
+
+.. code-block:: json
 
     {
         "status": 200,
         "result": []
     }
 
-output, each contract formatted according to :doc:`lf-value-specification`::
+Nonempty Response
+-----------------
+
+Each contract formatted according to :doc:`lf-value-specification`.
+
+.. code-block:: json
 
     {
-        "status": 200,
         "result": [
             {
                 "observers": [],
                 "agreementText": "",
-                "signatories": [
-                    "Alice"
-                ],
-                "contractId": "#489:0",
-                "templateId": {
-                    "packageId": "ac3a64908d9f6b4453329b3d7d8ddea44c83f4f5469de5f7ae19158c69bf8473",
-                    "moduleName": "Iou",
-                    "entityName": "Iou"
-                },
-                "witnessParties": [
-                    "Alice"
-                ],
-                "argument": {
+                "payload": {
                     "observers": [],
                     "issuer": "Alice",
                     "amount": "999.99",
                     "currency": "USD",
                     "owner": "Alice"
-                }
+                },
+                "signatories": [
+                    "Alice"
+                ],
+                "contractId": "#52:0",
+                "templateId": "b10d22d6c2f2fae41b353315cf893ed66996ecb0abe4424ea6a81576918f658a:Iou:Iou"
             }
-        ]
+        ],
+        "status": 200
     }
 
-ws://localhost:7575/contracts/searchForever
-===========================================
+WebSocket ``/contracts/searchForever``
+======================================
 
 List currently active contracts that match a given query, with
 continuous updates.
@@ -323,18 +334,20 @@ Some notes on behavior:
    context of this specific search, you can use that archival
    information as you wish.
 
-POST http://localhost:7575/command/create
-=========================================
+POST ``/command/create``
+========================
 
 Create a contract.
 
-application/json body, ``argument`` formatted according to :doc:`lf-value-specification`::
+Request
+-------
+
+application/json body, ``argument`` formatted according to :doc:`lf-value-specification`:
+
+.. code-block:: json
 
     {
-      "templateId": {
-        "moduleName": "Iou",
-        "entityName": "Iou"
-     },
+      "templateId": "Iou:Iou",
       "argument": {
         "observers": [],
         "issuer": "Alice",
@@ -344,92 +357,75 @@ application/json body, ``argument`` formatted according to :doc:`lf-value-specif
       }
     }
 
-output::
+Response
+--------
+
+.. code-block:: json
 
     {
         "status": 200,
         "result": {
             "observers": [],
             "agreementText": "",
-            "signatories": [
-                "Alice"
-            ],
-            "contractId": "#228:0",
-            "templateId": {
-                "packageId": "6c3b507f18337d64d9b72a5340f6b961c027bfe9dfc1bbf33ac73a9f11623503",
-                "moduleName": "Iou",
-                "entityName": "Iou"
-            },
-            "witnessParties": [
-                "Alice"
-            ],
-            "argument": {
+            "payload": {
                 "observers": [],
                 "issuer": "Alice",
                 "amount": "999.99",
                 "currency": "USD",
                 "owner": "Alice"
-            }
+            },
+            "signatories": [
+                "Alice"
+            ],
+            "contractId": "#124:0",
+            "templateId": "11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Iou:Iou"
         }
     }
  
-POST http://localhost:7575/command/exercise
-============================================
+POST ``/command/exercise``
+==========================
 
 Exercise a choice on a contract.
 
-``"contractId": "#228:0"`` is the value from the create output
-application/json body::
+``"contractId": "#124:0"`` is the value from the create output.
+
+Request
+-------
+
+application/json body:
+
+.. code-block:: json
 
     {
-        "templateId": {
-            "moduleName": "Iou",
-            "entityName": "Iou"
-        },
-        "contractId": "#228:0",
+        "templateId": "Iou:Iou",
+        "contractId": "#124:0",
         "choice": "Iou_Transfer",
         "argument": {
             "newOwner": "Alice"
         }
     }
 
-output::
+Response
+--------
+
+.. code-block:: json
 
     {
         "status": 200,
         "result": {
-            "exerciseResult": "#328:1",
+            "exerciseResult": "#201:1",
             "contracts": [
                 {
                     "archived": {
-                        "contractId": "#228:0",
-                        "templateId": {
-                            "packageId": "6c3b507f18337d64d9b72a5340f6b961c027bfe9dfc1bbf33ac73a9f11623503",
-                            "moduleName": "Iou",
-                            "entityName": "Iou"
-                        },
-                        "witnessParties": [
-                            "Alice"
-                        ]
+                        "contractId": "#124:0",
+                        "templateId": "11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Iou:Iou"
                     }
                 },
                 {
                     "created": {
                         "observers": [],
                         "agreementText": "",
-                        "signatories": [
-                            "Alice"
-                        ],
-                        "contractId": "#328:1",
-                        "templateId": {
-                            "packageId": "6c3b507f18337d64d9b72a5340f6b961c027bfe9dfc1bbf33ac73a9f11623503",
-                            "moduleName": "Iou",
-                            "entityName": "IouTransfer"
-                        },
-                        "witnessParties": [
-                            "Alice"
-                        ],
-                        "argument": {
+                        "payload": {
                             "iou": {
                                 "observers": [],
                                 "issuer": "Alice",
@@ -438,7 +434,12 @@ output::
                                 "owner": "Alice"
                             },
                             "newOwner": "Alice"
-                        }
+                        },
+                        "signatories": [
+                            "Alice"
+                        ],
+                        "contractId": "#201:1",
+                        "templateId": "11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Iou:IouTransfer"
                     }
                 }
             ]
@@ -450,10 +451,13 @@ Where:
 - ``exerciseResult`` -- the return value of the exercised contract choice.
 - ``contracts`` -- an array containing contracts that were archived and created as part of the exercised choice. The array may contain: **zero or many** ``{"archived": {...}}`` and **zero or many** ``{"created": {...}}`` elements. The order of the contracts is the same as on the ledger.
 
-GET http://localhost:7575/parties
-=================================
+GET ``/parties``
+================
 
-output::
+Response
+--------
+
+.. code-block:: json
 
     {
         "status": 200,
@@ -465,70 +469,107 @@ output::
         ]
     }
 
-POST http://localhost:7575/contracts/lookup
-============================================
+POST ``/contracts/lookup``
+==========================
 
 Lookup by Contract ID
 ---------------------
 
-application/json body::
+Request
+~~~~~~~
+
+application/json body:
+
+.. code-block:: json
 
     {
-      "contractId": "#1:0"
+      "contractId": "#201:1"
     }
 
-output::
+Contract Not Found Response
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: json
+
+    {
+        "status": 200,
+        "result": null
+    }
+
+Contract Found Response
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: json
 
     {
         "status": 200,
         "result": {
             "observers": [],
             "agreementText": "",
+            "payload": {
+                "iou": {
+                    "observers": [],
+                    "issuer": "Alice",
+                    "amount": "999.99",
+                    "currency": "USD",
+                    "owner": "Alice"
+                },
+                "newOwner": "Alice"
+            },
             "signatories": [
                 "Alice"
             ],
-            "contractId": "#1:0",
-            "templateId": {
-                "packageId": "8a6f2ab52a068c78c0c325591060ccfe744a3106f345061bf09b2ccffd77c3fa",
-                "moduleName": "Iou",
-                "entityName": "Iou"
-            },
-            "witnessParties": [
-                "Alice"
-            ],
-            "argument": {
-                "observers": [],
-                "issuer": "Alice",
-                "amount": "999.99",
-                "currency": "USD",
-                "owner": "Alice"
-            }
+            "contractId": "#201:1",
+            "templateId": "11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Iou:IouTransfer"
         }
     }
 
 Lookup by Contract Key
 ----------------------
 
-application/json body::
+Request
+~~~~~~~
+
+application/json body:
+
+.. code-block:: json
 
     {
-        "templateId": {
-            "moduleName": "Account",
-            "entityName": "Account"
-        },
+        "templateId": "Account:Account",
         "key": [
             "Alice",
             "abc123"
         ]
     }
 
-output::
+Contract Not Found Response
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: json
+
+    {
+        "status": 200,
+        "result": null
+    }
+
+Contract Found Response
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: json
 
     {
         "status": 200,
         "result": {
             "observers": [],
             "agreementText": "",
+            "payload": {
+                "owner": "Alice",
+                "number": "abc123",
+                "status": {
+                    "tag": "Enabled",
+                    "value": "2020-01-01T00:00:01Z"
+                }
+            },
             "signatories": [
                 "Alice"
             ],
@@ -536,18 +577,7 @@ output::
                 "_1": "Alice",
                 "_2": "abc123"
             },
-            "contractId": "#1:0",
-            "templateId": {
-                "packageId": "d7be7966c36fb3588bee1b727cef78a7251caabe3ae4105ba62f06a7af97272b",
-                "moduleName": "Account",
-                "entityName": "Account"
-            },
-            "witnessParties": [
-                "Alice"
-            ],
-            "argument": {
-                "owner": "Alice",
-                "number": "abc123"
-            }
+            "contractId": "#697:0",
+            "templateId": "11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Account:Account"
         }
     }

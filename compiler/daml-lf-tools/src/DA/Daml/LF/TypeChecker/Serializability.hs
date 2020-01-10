@@ -67,7 +67,7 @@ serializabilityConditionsType world0 _version mbModNameTpls vars = go
       TVar v
         | v `HS.member` vars -> noConditions
         | otherwise -> Left (URFreeVar v)
-      TSyn _ -> Left URTypeSyn
+      TSynApp{} -> Left URTypeSyn
       TCon tcon
         | Just (modName, _) <- mbModNameTpls
         , Right tconName <- matching (_PRSelfModule modName) tcon ->

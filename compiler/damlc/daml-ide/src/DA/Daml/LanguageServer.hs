@@ -27,7 +27,9 @@ import Development.IDE.Core.Rules
 import Development.IDE.Core.Rules.Daml
 import Development.IDE.Core.Service.Daml
 
+import DA.Daml.SessionTelemetry
 import DA.Daml.LanguageServer.Visualize
+import qualified DA.Service.Logger as Lgr
 import qualified Network.URI                               as URI
 
 import Language.Haskell.LSP.Messages
@@ -101,10 +103,11 @@ withUriDaml _ _ = return ()
 ------------------------------------------------------------------------
 
 runLanguageServer
-    :: (IO LSP.LspId -> (FromServerMessage -> IO ()) -> VFSHandle -> ClientCapabilities -> IO IdeState)
+    :: Lgr.Handle IO
+    -> (IO LSP.LspId -> (FromServerMessage -> IO ()) -> VFSHandle -> ClientCapabilities -> IO IdeState)
     -> IO ()
-runLanguageServer getIdeState = do
-    let handlers = setHandlersKeepAlive <> setHandlersVirtualResource <> setHandlersCodeLens <> setIgnoreOptionalHandlers <> setCommandHandler
+runLanguageServer lgr getIdeState = withSessionPings lgr $ \setSessionHandlers -> do
+    let handlers = setHandlersKeepAlive <> setHandlersVirtualResource <> setHandlersCodeLens <> setIgnoreOptionalHandlers <> setCommandHandler <> setSessionHandlers
     LS.runLanguageServer options handlers getIdeState
 
 

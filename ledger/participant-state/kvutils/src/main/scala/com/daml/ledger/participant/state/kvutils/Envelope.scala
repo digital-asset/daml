@@ -4,7 +4,9 @@
 package com.daml.ledger.participant.state.kvutils
 
 import java.util.zip.{GZIPInputStream, GZIPOutputStream}
+
 import com.google.protobuf.ByteString
+
 import scala.util.Try
 import com.daml.ledger.participant.state.kvutils.{DamlKvutils => Proto}
 
@@ -52,15 +54,21 @@ object Envelope {
     enclose(Proto.Envelope.MessageKind.STATE_VALUE, stateValue.toByteString, compression)
 
   def open(envelopeBytes: ByteString): Either[String, Message] =
+    openWithParser(() => Proto.Envelope.parseFrom(envelopeBytes))
+
+  def open(envelopeBytes: Array[Byte]): Either[String, Message] =
+    openWithParser(() => Proto.Envelope.parseFrom(envelopeBytes))
+
+  private def openWithParser(parseEnvelope: () => Proto.Envelope): Either[String, Message] =
     for {
-      envelope <- Try(Proto.Envelope.parseFrom(envelopeBytes)).toEither.left.map(_.getMessage)
+      envelope <- Try(parseEnvelope()).toEither.left.map(_.getMessage)
       _ <- Either.cond(
         envelope.getVersion == Version.version,
         (),
         s"Unsupported version ${envelope.getVersion}")
       uncompressedMessage <- envelope.getCompression match {
         case Proto.Envelope.CompressionSchema.GZIP =>
-          Try(decompress(envelope.getMessage)).toEither.left.map(_.getMessage)
+          parseMessageSafe(() => decompress(envelope.getMessage))
         case Proto.Envelope.CompressionSchema.NONE =>
           Right(envelope.getMessage)
         case Proto.Envelope.CompressionSchema.UNRECOGNIZED =>
@@ -68,22 +76,16 @@ object Envelope {
       }
       message <- envelope.getKind match {
         case Proto.Envelope.MessageKind.LOG_ENTRY =>
-          Try(Proto.DamlLogEntry.parseFrom(uncompressedMessage)).toEither.left
-            .map(_.getMessage)
-            .right
+          parseMessageSafe(() => Proto.DamlLogEntry.parseFrom(uncompressedMessage)).right
             .map(LogEntryMessage)
         case Proto.Envelope.MessageKind.SUBMISSION =>
-          Try(Proto.DamlSubmission.parseFrom(uncompressedMessage)).toEither.left
-            .map(_.getMessage)
-            .right
+          parseMessageSafe(() => Proto.DamlSubmission.parseFrom(uncompressedMessage)).right
             .map(SubmissionMessage)
         case Proto.Envelope.MessageKind.STATE_VALUE =>
-          Try(Proto.DamlStateValue.parseFrom(uncompressedMessage)).toEither.left
-            .map(_.getMessage)
-            .right
+          parseMessageSafe(() => Proto.DamlStateValue.parseFrom(uncompressedMessage)).right
             .map(StateValueMessage)
         case Proto.Envelope.MessageKind.UNRECOGNIZED =>
-          Left(s"Unrecognized message kind: ${envelope.getKind} ")
+          Left(s"Unrecognized message kind: ${envelope.getKind}")
       }
     } yield message
 
@@ -94,6 +96,12 @@ object Envelope {
     }
 
   def openSubmission(envelopeBytes: ByteString): Either[String, Proto.DamlSubmission] =
+    open(envelopeBytes).flatMap {
+      case SubmissionMessage(entry) => Right(entry)
+      case msg => Left(s"Expected submission, got ${msg.getClass}")
+    }
+
+  def openSubmission(envelopeBytes: Array[Byte]): Either[String, Proto.DamlSubmission] =
     open(envelopeBytes).flatMap {
       case SubmissionMessage(entry) => Right(entry)
       case msg => Left(s"Expected submission, got ${msg.getClass}")
@@ -117,5 +125,9 @@ object Envelope {
     val gzipIn = new GZIPInputStream(payload.newInput)
     ByteString.readFrom(gzipIn)
   }
+
+  private def parseMessageSafe[T](callParser: () => T): Either[String, T] =
+    Try(callParser()).toEither.left
+      .map(_.getMessage)
 
 }

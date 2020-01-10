@@ -71,7 +71,7 @@ object KeyValueSubmission {
       sourceDescription: String,
       participantId: ParticipantId): DamlSubmission = {
 
-    val archivetDamlState =
+    val archivesDamlState =
       archives.map(
         archive =>
           DamlStateKey.newBuilder
@@ -80,7 +80,7 @@ object KeyValueSubmission {
 
     DamlSubmission.newBuilder
       .addInputDamlState(packageUploadDedupKey(participantId, submissionId))
-      .addAllInputDamlState(archivetDamlState.asJava)
+      .addAllInputDamlState(archivesDamlState.asJava)
       .setPackageUploadEntry(
         DamlPackageUploadEntry.newBuilder
           .setSubmissionId(submissionId)
@@ -117,7 +117,6 @@ object KeyValueSubmission {
       submissionId: SubmissionId,
       participantId: ParticipantId,
       config: Configuration): DamlSubmission = {
-    val tm = config.timeModel
     val inputDamlState =
       configDedupKey(participantId, submissionId) ::
         configurationStateKey :: Nil

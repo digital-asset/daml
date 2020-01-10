@@ -13,7 +13,7 @@ import doobie.free.{connection => fconn}
 import doobie.implicits._
 import doobie.util.log
 import scalaz.syntax.tag._
-import spray.json.JsValue
+import spray.json.{JsNull, JsValue}
 
 import scala.concurrent.ExecutionContext
 
@@ -71,7 +71,8 @@ object ContractDao {
       party: domain.Party,
       templateId: domain.TemplateId.RequiredPkg,
       predicate: doobie.Fragment)(
-      implicit log: LogHandler): ConnectionIO[Vector[domain.ActiveContract[JsValue]]] =
+      implicit log: LogHandler): ConnectionIO[Vector[domain.ActiveContract[JsValue]]] = {
+    import doobie.postgres.implicits._
     for {
       tpId <- Queries.surrogateTemplateId(
         templateId.packageId,
@@ -81,20 +82,25 @@ object ContractDao {
       dbContracts <- Queries.selectContracts(party.unwrap, tpId, predicate).to[Vector]
       domainContracts = dbContracts.map(toDomain(templateId))
     } yield domainContracts
+  }
 
-  // TODO(Leo) we should either remove fields from domain.ActiveContract or store them in DB and populate
   private def toDomain(templateId: domain.TemplateId.RequiredPkg)(
-      a: Queries.DBContract[Unit, JsValue, Unit]): domain.ActiveContract[JsValue] =
+      a: Queries.DBContract[Unit, JsValue, JsValue, Vector[String]])
+    : domain.ActiveContract[JsValue] =
     domain.ActiveContract(
       contractId = domain.ContractId(a.contractId),
       templateId = templateId,
-      key = None,
-      argument = LfValueDatabaseCodec.asLfValueCodec(a.createArguments),
-      witnessParties = Seq.empty,
-      signatories = Seq.empty,
-      observers = Seq.empty,
-      agreementText = ""
+      key = decodeOption(a.key),
+      payload = LfValueDatabaseCodec.asLfValueCodec(a.payload),
+      signatories = domain.Party.subst(a.signatories),
+      observers = domain.Party.subst(a.observers),
+      agreementText = a.agreementText
     )
+
+  private def decodeOption(a: JsValue): Option[JsValue] = a match {
+    case JsNull => None
+    case _ => Some(LfValueDatabaseCodec.asLfValueCodec(a))
+  }
 
   final case class StaleOffsetException(
       party: domain.Party,

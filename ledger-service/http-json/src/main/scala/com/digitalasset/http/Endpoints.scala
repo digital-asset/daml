@@ -152,7 +152,7 @@ class Endpoints(
         ): ET[Option[domain.ActiveContract[LfValue]]]
 
         jsVal <- either(
-          ac.cata(x => lfAcToJsValue(x).leftMap(e => ServerError(e.shows)), \/-(JsObject()))
+          ac.cata(x => lfAcToJsValue(x).leftMap(e => ServerError(e.shows)), \/-(JsNull))
         ): ET[JsValue]
 
       } yield jsVal
@@ -215,7 +215,7 @@ class Endpoints(
     Error \/ domain.ActiveContract[LfValue]
   ] = {
     case e @ -\/(_) => e
-    case a @ \/-(ac) if predicates.get(ac.templateId).forall(f => f(ac.argument)) => a
+    case a @ \/-(ac) if predicates.get(ac.templateId).forall(f => f(ac.payload)) => a
   }
 
   private def errorToJsValue(e: Error): JsValue = errorsJsObject(e)._2

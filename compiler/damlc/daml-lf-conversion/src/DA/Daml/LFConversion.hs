@@ -382,6 +382,7 @@ convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $ if
     | NameIn DA_Internal_LF n <- t
     , n `elementOfUniqSet` internalTypes
     -> pure []
+    | NameIn DA_Internal_Prelude "Optional" <- t -> pure []
     -- Consumption marker types used to transfer information from template desugaring to LF conversion.
     | NameIn DA_Internal_Desugar n <- t
     , n `elementOfUniqSet` consumingTypes

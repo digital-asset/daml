@@ -1,58 +1,46 @@
 // Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
-import { Choice, ContractId, List, Party, Template, TemplateId, Text, lookupTemplate } from '@digitalasset/daml-json-types';
+import { Choice, ContractId, List, Party, Template, Text, lookupTemplate } from '@digitalasset/daml-json-types';
 import * as jtv from '@mojotech/json-type-validation';
 import fetch from 'cross-fetch';
 
-export type CreateEvent<T extends object> = {
-  templateId: TemplateId;
+export type CreateEvent<T extends object, K = unknown> = {
+  templateId: string;
   contractId: ContractId<T>;
   signatories: List<Party>;
   observers: List<Party>;
   agreementText: Text;
-  key: unknown;
-  argument: T;
-  witnessParties: List<Party>;
-  workflowId?: string;
+  key: K;
+  payload: T;
 }
 
 export type ArchiveEvent<T extends object> = {
-  templateId: TemplateId;
+  templateId: string;
   contractId: ContractId<T>;
-  witnessParties: List<Party>;
 }
 
-export type Event<T extends object> =
-  | { created: CreateEvent<T> }
+export type Event<T extends object, K = unknown> =
+  | { created: CreateEvent<T, K> }
   | { archived: ArchiveEvent<T> }
 
-const decodeTemplateId: jtv.Decoder<TemplateId> = jtv.object({
-  packageId: jtv.string(),
-  moduleName: jtv.string(),
-  entityName: jtv.string(),
-});
-
-const decodeCreateEvent = <T extends object>(template: Template<T>): jtv.Decoder<CreateEvent<T>> => jtv.object({
-  templateId: decodeTemplateId,
+const decodeCreateEvent = <T extends object, K>(template: Template<T, K>): jtv.Decoder<CreateEvent<T, K>> => jtv.object({
+  templateId: jtv.string(),
   contractId: ContractId(template).decoder(),
   signatories: List(Party).decoder(),
   observers: List(Party).decoder(),
   agreementText: Text.decoder(),
-  key: jtv.unknownJson(),
-  argument: template.decoder(),
-  witnessParties: List(Party).decoder(),
-  workflowId: jtv.optional(jtv.string()),
+  key: template.keyDecoder(),
+  payload: template.decoder(),
 });
 
 const decodeCreateEventUnknown: jtv.Decoder<CreateEvent<object>> =
-  jtv.valueAt(['templateId'], decodeTemplateId).andThen((templateId) =>
+  jtv.valueAt(['templateId'], jtv.string()).andThen((templateId) =>
     decodeCreateEvent(lookupTemplate(templateId))
   );
 
 const decodeArchiveEventUnknown: jtv.Decoder<ArchiveEvent<object>> = jtv.object({
-  templateId: decodeTemplateId,
+  templateId: jtv.string(),
   contractId: ContractId({decoder: jtv.unknownJson}).decoder(),
-  witnessParties: List(Party).decoder(),
 });
 
 const decodeEventUnknown: jtv.Decoder<Event<object>> = jtv.oneOf<Event<object>>(
@@ -138,7 +126,7 @@ class Ledger {
    * https://github.com/digital-asset/daml/blob/master/docs/source/json-api/search-query-language.rst
    * for a description of the query language.
    */
-  async query<T extends object>(template: Template<T>, query: Query<T>): Promise<CreateEvent<T>[]> {
+  async query<T extends object, K>(template: Template<T, K>, query: Query<T>): Promise<CreateEvent<T, K>[]> {
     const payload = {"%templates": [template.templateId], ...query};
     const json = await this.submit('contracts/search', payload);
     return jtv.Result.withException(jtv.array(decodeCreateEvent(template)).run(json));
@@ -147,15 +135,24 @@ class Ledger {
   /**
    * Retrieve all contracts for a given template.
    */
-  async fetchAll<T extends object>(template: Template<T>): Promise<CreateEvent<T>[]> {
+  async fetchAll<T extends object, K>(template: Template<T, K>): Promise<CreateEvent<T, K>[]> {
     return this.query(template, {} as Query<T>);
+  }
+
+  async lookupByKey<T extends object, K>(template: Template<T, K>, key: K extends undefined ? never : K): Promise<CreateEvent<T, K> | null> {
+    const payload = {
+      templateId: template.templateId,
+      key,
+    };
+    const json = await this.submit('contracts/lookup', payload);
+    return jtv.Result.withException(jtv.oneOf(jtv.constant(null), decodeCreateEvent(template)).run(json));
   }
 
   /**
    * Mimic DAML's `lookupByKey`. The `key` must be a formulation of the
    * contract key as a query.
    */
-  async pseudoLookupByKey<T extends object>(template: Template<T>, key: Query<T>): Promise<CreateEvent<T> | undefined> {
+  async pseudoLookupByKey<T extends object, K>(template: Template<T, K>, key: Query<T>): Promise<CreateEvent<T, K> | undefined> {
     const contracts = await this.query(template, key);
     if (contracts.length > 1) {
       throw Error("pseudoLookupByKey: query returned multiple contracts");
@@ -167,7 +164,7 @@ class Ledger {
    * Mimic DAML's `fetchByKey`. The `key` must be a formulation of the
    * contract key as a query.
    */
-  async pseudoFetchByKey<T extends object>(template: Template<T>, key: Query<T>): Promise<CreateEvent<T>> {
+  async pseudoFetchByKey<T extends object, K>(template: Template<T, K>, key: Query<T>): Promise<CreateEvent<T, K>> {
     const contract = await this.pseudoLookupByKey(template, key);
     if (contract === undefined) {
       throw Error("pseudoFetchByKey: query returned no contract");
@@ -178,7 +175,7 @@ class Ledger {
   /**
    * Create a contract for a given template.
    */
-  async create<T extends object>(template: Template<T>, argument: T): Promise<CreateEvent<T>> {
+  async create<T extends object, K>(template: Template<T, K>, argument: T): Promise<CreateEvent<T, K>> {
     const payload = {
       templateId: template.templateId,
       argument,
@@ -205,6 +202,17 @@ class Ledger {
     });
     const {exerciseResult, contracts} = jtv.Result.withException(responseDecoder.run(json));
     return [exerciseResult, contracts];
+  }
+
+  /**
+   * Exercise a choice on a contract identified by its contract key.
+   */
+  async exerciseByKey<T extends object, C, R, K>(choice: Choice<T, C, R, K>, key: K extends undefined ? never : K, argument: C): Promise<[R, Event<object>[]]> {
+    const contract = await this.lookupByKey(choice.template(), key);
+    if (contract === null) {
+      throw Error(`exerciseByKey: no contract with key ${JSON.stringify(key)} for template ${choice.template().templateId}`);
+    }
+    return this.exercise(choice, contract.contractId, argument);
   }
 
   /**

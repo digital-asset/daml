@@ -47,16 +47,12 @@ object domain {
       contractId: ContractId,
       templateId: TemplateId.RequiredPkg,
       key: Option[LfV],
-      argument: LfV,
-      witnessParties: Seq[Party],
+      payload: LfV,
       signatories: Seq[Party],
       observers: Seq[Party],
       agreementText: String)
 
-  case class ArchivedContract(
-      contractId: ContractId,
-      templateId: TemplateId.RequiredPkg,
-      witnessParties: Seq[Party])
+  case class ArchivedContract(contractId: ContractId, templateId: TemplateId.RequiredPkg)
 
   sealed abstract class ContractLocator[+LfV] extends Product with Serializable
 
@@ -225,14 +221,13 @@ object domain {
     def fromLedgerApi(in: lav1.event.CreatedEvent): Error \/ ActiveContract[lav1.value.Value] =
       for {
         templateId <- in.templateId required "templateId"
-        argument <- in.createArguments required "createArguments"
+        payload <- in.createArguments required "createArguments"
       } yield
         ActiveContract(
           contractId = ContractId(in.contractId),
           templateId = TemplateId fromLedgerApi templateId,
           key = in.contractKey,
-          argument = boxedRecord(argument),
-          witnessParties = Party.subst(in.witnessParties),
+          payload = boxedRecord(payload),
           signatories = Party.subst(in.signatories),
           observers = Party.subst(in.observers),
           agreementText = in.agreementText getOrElse ""
@@ -241,14 +236,14 @@ object domain {
     implicit val covariant: Traverse[ActiveContract] = new Traverse[ActiveContract] {
 
       override def map[A, B](fa: ActiveContract[A])(f: A => B): ActiveContract[B] =
-        fa.copy(key = fa.key map f, argument = f(fa.argument))
+        fa.copy(key = fa.key map f, payload = f(fa.payload))
 
       override def traverseImpl[G[_]: Applicative, A, B](fa: ActiveContract[A])(
           f: A => G[B]): G[ActiveContract[B]] = {
         import scalaz.syntax.apply._
         val gk: G[Option[B]] = fa.key traverse f
-        val ga: G[B] = f(fa.argument)
-        ^(gk, ga)((k, a) => fa.copy(key = k, argument = a))
+        val ga: G[B] = f(fa.payload)
+        ^(gk, ga)((k, a) => fa.copy(key = k, payload = a))
       }
     }
 
@@ -277,9 +272,7 @@ object domain {
       } yield
         ArchivedContract(
           contractId = ContractId(in.contractId),
-          templateId = TemplateId fromLedgerApi templateId,
-          witnessParties = Party.subst(in.witnessParties)
-        )
+          templateId = TemplateId fromLedgerApi templateId)
 
     def fromLedgerApi(in: lav1.event.ExercisedEvent): Error \/ Option[ArchivedContract] =
       if (in.consuming) {
@@ -289,9 +282,7 @@ object domain {
           Some(
             ArchivedContract(
               contractId = ContractId(in.contractId),
-              templateId = TemplateId.fromLedgerApi(templateId),
-              witnessParties = Party.subst(in.witnessParties)
-            ))
+              templateId = TemplateId.fromLedgerApi(templateId)))
       } else {
         \/-(None)
       }

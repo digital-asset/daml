@@ -21,6 +21,7 @@ import DA.Daml.LF.Ast.Pretty
 -- | Type checking context for error reporting purposes.
 data Context
   = ContextNone
+  | ContextDefTypeSyn !Module !DefTypeSyn
   | ContextDefDataType !Module !DefDataType
   | ContextTemplate !Module !Template !TemplatePart
   | ContextDefValue !Module !DefValue
@@ -108,10 +109,12 @@ data Error
   | EKeyOperationOnTemplateWithNoKey !(Qualified TypeConName)
   | EUnsupportedFeature !Feature
   | EForbiddenNameCollision !T.Text ![T.Text]
+  | ESynAppWrongArity       !DefTypeSyn ![Type]
 
 contextLocation :: Context -> Maybe SourceLoc
 contextLocation = \case
   ContextNone            -> Nothing
+  ContextDefTypeSyn _ s  -> synLocation s
   ContextDefDataType _ d -> dataLocation d
   ContextTemplate _ t _  -> tplLocation t
   ContextDefValue _ v    -> dvalLocation v
@@ -124,6 +127,8 @@ errorLocation = \case
 instance Show Context where
   show = \case
     ContextNone -> "<none>"
+    ContextDefTypeSyn m ts ->
+      "type synonym " <> show (moduleName m) <> "." <> show (synName ts)
     ContextDefDataType m dt ->
       "data type " <> show (moduleName m) <> "." <> show (dataTypeCon dt)
     ContextTemplate m t p ->
@@ -295,11 +300,16 @@ instance Pretty Error where
       <-> "only supported in DAML-LF version" <-> pretty featureMinVersion <-> "and later"
     EForbiddenNameCollision name names ->
       "name collision between " <-> pretty name <-> " and " <-> pretty (T.intercalate ", " names)
+    ESynAppWrongArity DefTypeSyn{synName,synParams} args ->
+      vcat ["wrong arity in type synonym application: " <> pretty synName,
+            "expected: " <> pretty (length synParams) <> ", found: " <> pretty (length args)]
 
 instance Pretty Context where
   pPrint = \case
     ContextNone ->
       string "<none>"
+    ContextDefTypeSyn m ts ->
+      hsep [ "type synonym", pretty (moduleName m) <> "." <>  pretty (synName ts) ]
     ContextDefDataType m dt ->
       hsep [ "data type", pretty (moduleName m) <> "." <>  pretty (dataTypeCon dt) ]
     ContextTemplate m t p ->

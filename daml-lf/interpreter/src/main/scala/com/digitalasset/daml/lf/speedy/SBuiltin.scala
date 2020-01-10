@@ -829,7 +829,7 @@ object SBuiltin {
         case _ => crash("Bad key")
       }
       val (coid, newPtx) = machine.ptx
-        .create(
+        .insertCreate(
           coinst = V.ContractInst(template = templateId, arg = createArg, agreementText = agreement),
           optLocation = machine.lastLocation,
           signatories = sigs,
@@ -1006,8 +1006,8 @@ object SBuiltin {
       val observers = extractParties(args.get(2))
       val stakeholders = observers union signatories
       val contextActors = machine.ptx.context match {
-        case ContextExercises(ctx) => ctx.actingParties union ctx.signatories
-        case ContextRoot => machine.committers.toList.toSet
+        case ContextExercises(ctx, _) => ctx.actingParties union ctx.signatories
+        case ContextRoot(_) => machine.committers
       }
 
       machine.ptx = machine.ptx.insertFetch(

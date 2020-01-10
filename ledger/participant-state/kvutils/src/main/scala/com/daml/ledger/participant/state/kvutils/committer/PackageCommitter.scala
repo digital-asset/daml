@@ -58,16 +58,20 @@ private[kvutils] case class PackageCommitter(engine: Engine)
   private val validateEntry: Step = (ctx, uploadEntry) => {
     // NOTE(JM): Currently the proper validation is unimplemented. The package is decoded and preloaded
     // in background and we're just checking that hash and payload are set. See comment in [[preload]].
-    val errors = uploadEntry.getArchivesList.asScala.foldLeft(List.empty[String]) {
-      (errors, archive) =>
+    val archives = uploadEntry.getArchivesList.asScala
+    val errors = if (archives.nonEmpty) {
+      archives.foldLeft(List.empty[String]) { (errors, archive) =>
         if (archive.getHashBytes.size > 0 && archive.getPayload.size > 0)
           errors
         else
           s"Invalid archive ${archive.getHash}" :: errors
+      }
+    } else {
+      List("No archives in package")
     }
-    if (errors.isEmpty)
+    if (errors.isEmpty) {
       StepContinue(uploadEntry)
-    else {
+    } else {
       val msg = errors.mkString(", ")
       rejectionTraceLog(msg, uploadEntry)
       StepStop(

@@ -27,6 +27,7 @@ module Daml.Trigger
  , CompletionStatus(..)
  , RegisteredTemplates(..)
  , registeredTemplate
+ , RelTime(..)
  ) where
 
 import DA.Action
@@ -75,6 +76,8 @@ data Trigger s = Trigger
   -- `emitCommands` to change the ACS.
   , registeredTemplates : RegisteredTemplates
   -- ^ The templates the trigger will receive events for.
+  , heartbeat : Optional RelTime
+  -- ^ Send a heartbeat message at the given interval.
   }
 
 -- | TriggerA is the type used in the `rule` of a DAML trigger.
@@ -157,6 +160,7 @@ runTrigger userTrigger = LowLevel.Trigger
   { initialState = initialState
   , update = update
   , registeredTemplates = userTrigger.registeredTemplates
+  , heartbeat = userTrigger.heartbeat
   }
   where
     initialState party time (ActiveContracts createdEvents) =

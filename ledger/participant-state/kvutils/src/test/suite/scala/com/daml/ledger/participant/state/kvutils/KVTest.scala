@@ -124,6 +124,9 @@ object KVTest {
           KeyValueCommitting.submissionOutputs(entryId, submission)
       )
 
+      // Verify that we can always process the log entry
+      val _ = KeyValueConsumption.logEntryToUpdate(entryId, logEntry)
+
       entryId -> logEntry
     }
 
