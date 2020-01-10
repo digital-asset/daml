@@ -219,7 +219,7 @@ class WebSocketService(
           errors,
           step copy (inserts = (cs: Vector[domain.ActiveContract[LfV]])
             .filter { acLfv =>
-              compiledQueries.get(acLfv.templateId).exists(_(acLfv.argument))
+              compiledQueries.get(acLfv.templateId).exists(_(acLfv.payload))
             }))
       }
       .via(conflation)
