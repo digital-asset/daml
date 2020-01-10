@@ -235,15 +235,12 @@ typeSynTests =
         Right () -> return ()
 
   biggerExamples :: [(String,Module)]
-  biggerExamples = [ ("functor example", functorExample) ]
+  biggerExamples = [ ("functor/pointed example", functorPointedExample) ]
 
-  functorExample :: Module
-  functorExample = makeModule
-    [functorDef]
-    [identityDef,mapOptionalDef
-    ,optionalFunctorDef
-    ,fmapDef
-    ] where
+  functorPointedExample :: Module
+  functorPointedExample = makeModule
+    [functorDef,pointedDef]
+    [identityDef,mapOptionalDef,optionalFunctorDef,fmapDef,optionalPointedDef,pureDef] where
 
     a = TypeVarName "a"
     b = TypeVarName "b"
@@ -257,6 +254,13 @@ typeSynTests =
        TForall (b,KStar) $
        (TVar a :-> TVar b) :-> TVar f `TApp` TVar a :-> TVar f `TApp` TVar b
       )]
+
+    pointed = TypeSynName ["pointed"]
+    pointedDef =
+      makeSynDef pointed [(f,KStar `KArrow` KStar)] $ TStruct [
+      (FieldName "super", TSynApp (q functor) [TVar f]),
+      (FieldName "pure", TForall (a,KStar) $ TVar a :-> TVar f `TApp` TVar a)
+      ]
 
     dict = ExprVarName "dict"
     opt = ExprVarName "opt"
@@ -297,12 +301,23 @@ typeSynTests =
       , CaseAlternative (CPSome x) (ESome (TVar b) (EVar func `ETmApp` EVar x))
       ]
 
+    optionalFunctor = ExprValName "optionalFunctor"
     optionalFunctorDef = DefValue
       { dvalLocation = Nothing
-      , dvalBinder = (ExprValName "optionalFunctor", TSynApp (q functor) [TBuiltin BTOptional])
+      , dvalBinder = (optionalFunctor, TSynApp (q functor) [TBuiltin BTOptional])
       , dvalNoPartyLiterals = HasNoPartyLiterals True
       , dvalIsTest = IsTest False
       , dvalBody = EStructCon [(FieldName "fmap", EVal (q mapOptional))]
+      }
+
+    optionalPointedDef = DefValue
+      { dvalLocation = Nothing
+      , dvalBinder = (ExprValName "optionalPointed", TSynApp (q pointed) [TBuiltin BTOptional])
+      , dvalNoPartyLiterals = HasNoPartyLiterals True
+      , dvalIsTest = IsTest False
+      , dvalBody = EStructCon [(FieldName "super", EVal (q optionalFunctor))
+                              ,(FieldName "pure",
+                                ETyLam (a,KStar) $ ETmLam (x,TVar a) $ ESome (TVar a) (EVar x))]
       }
 
     fmapDef = DefValue
@@ -325,6 +340,25 @@ typeSynTests =
       (TVar a :-> TVar b) :->
       TVar f `TApp` TVar a :->
       TVar f `TApp` TVar b )
+
+    pureDef = DefValue
+      { dvalLocation = Nothing
+      , dvalBinder = (ExprValName "pure", pureType)
+      , dvalNoPartyLiterals = HasNoPartyLiterals True
+      , dvalIsTest = IsTest False
+      , dvalBody =
+        ETyLam (f,KStar `KArrow` KStar) $
+        ETmLam (dict,TSynApp (q pointed) [TVar f]) $
+        EStructProj (FieldName "pure") $
+        EVar dict
+      }
+
+    pureType =
+      TForall (f,KStar `KArrow` KStar) $
+      TSynApp (q pointed) [TVar f] :-> (
+      TForall (a,KStar) $
+      TVar a :->
+      TVar f `TApp` TVar a )
 
 
 typeCheck :: Module -> Either String ()
