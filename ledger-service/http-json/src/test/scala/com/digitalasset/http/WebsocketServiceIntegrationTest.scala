@@ -27,6 +27,7 @@ class WebsocketServiceIntegrationTest
     with AbstractHttpServiceIntegrationTestFuns
     with BeforeAndAfterAll {
 
+  import WebsocketServiceIntegrationTest._
   import WebsocketEndpoints._
 
   override def jdbcConfig: Option[JdbcConfig] = None
@@ -124,19 +125,6 @@ class WebsocketServiceIntegrationTest
   "websocket should receive deltas as contracts are archived/created" in withHttpService {
     (uri, _, _) =>
       import spray.json._
-      object ContractDelta {
-        def unapply(jsv: JsValue): Option[(Vector[(String, JsValue)], Vector[String])] =
-          for {
-            JsObject(fields) <- Some(jsv)
-            JsArray(adds) <- fields get "created" orElse Some(JsArray())
-            JsArray(removes) <- fields get "archived" orElse Some(JsArray())
-          } yield
-            (adds collect (Function unlift {
-              case JsObject(add) =>
-                (add get "contractId" collect { case JsString(v) => v }) tuple (add get "argument")
-              case _ => None
-            }), removes collect { case JsString(v) => v })
-      }
 
       val payload = TestUtil.readFile("it/iouCreateCommand.json")
       val initialCreate = TestUtil.postJsonStringRequest(
@@ -206,4 +194,21 @@ class WebsocketServiceIntegrationTest
       subprotocol: Option[String],
       flow: Flow[Message, Message, M]) =
     Http().singleWebSocketRequest(WebSocketRequest(uri = uri, subprotocol = subprotocol), flow)
+}
+
+object WebsocketServiceIntegrationTest {
+  private object ContractDelta {
+    import spray.json._
+    def unapply(jsv: JsValue): Option[(Vector[(String, JsValue)], Vector[String])] =
+      for {
+        JsObject(fields) <- Some(jsv)
+        JsArray(adds) <- fields get "created" orElse Some(JsArray())
+        JsArray(removes) <- fields get "archived" orElse Some(JsArray())
+      } yield
+        (adds collect (Function unlift {
+          case JsObject(add) =>
+            (add get "contractId" collect { case JsString(v) => v }) tuple (add get "argument")
+          case _ => None
+        }), removes collect { case JsString(v) => v })
+  }
 }
