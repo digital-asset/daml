@@ -172,7 +172,7 @@ data Type
   = TVar        !TypeVarName
   -- | Reference to a type constructor.
   | TCon        !(Qualified TypeConName)
-  -- | Application of a type synonym to its arguments.
+  -- | Fully-applied type synonym.
   | TSynApp     !(Qualified TypeSynName) ![Type]
   -- | Application of a type function to a type.
   | TApp        !Type !Type
