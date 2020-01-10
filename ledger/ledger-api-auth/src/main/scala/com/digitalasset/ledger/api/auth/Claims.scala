@@ -91,7 +91,8 @@ final case class Claims(
   def validForLedger(id: String): Boolean = {
     logOnFailure(
       ledgerId.forall(_ == id),
-      "ledgerId", s"${ledgerId.getOrElse("<EMPTY>")} does not match expected value $id")
+      "ledgerId",
+      s"${ledgerId.getOrElse("<EMPTY>")} does not match expected value $id")
   }
 
   def validForParticipant(id: String): Boolean =
@@ -109,37 +110,33 @@ final case class Claims(
 
   /** Returns true if the set of claims authorizes the user to use admin services, unless the claims expired */
   def isAdmin: Boolean =
-    logOnFailure(
-      claims.contains(ClaimAdmin),
-      "admin", "not authorized to use services")
+    logOnFailure(claims.contains(ClaimAdmin), "admin", "not authorized to use services")
 
   /** Returns true if the set of claims authorizes the user to use public services, unless the claims expired */
   def isPublic: Boolean =
-    logOnFailure(
-      claims.contains(ClaimPublic),
-      "public", "not authorized to use services")
+    logOnFailure(claims.contains(ClaimPublic), "public", "not authorized to use services")
 
   /** Returns true if the set of claims authorizes the user to act as the given party, unless the claims expired */
   def canActAs(party: String): Boolean = {
-    logOnFailure(
-    claims.exists {
+    logOnFailure(claims.exists {
       case ClaimActAsAnyParty => true
       case ClaimActAsParty(p) if p == party => true
       case _ => false
-    },
-      "canActAs", s"Not able to act as party $party")
+    }, "canActAs", s"Not able to act as party $party")
   }
 
   /** Returns true if the set of claims authorizes the user to read data for the given party, unless the claims expired */
   def canReadAs(party: String): Boolean = {
     logOnFailure(
       claims.exists {
-      case ClaimActAsAnyParty => true
-      case ClaimActAsParty(p) if p == party => true
-      case ClaimReadAsParty(p) if p == party => true
-      case _ => false
-    },
-      "canReadAs", s"Not able to read as party $party")
+        case ClaimActAsAnyParty => true
+        case ClaimActAsParty(p) if p == party => true
+        case ClaimReadAsParty(p) if p == party => true
+        case _ => false
+      },
+      "canReadAs",
+      s"Not able to read as party $party"
+    )
   }
 
   /** Log which assertions have failed at DEBUG level */
