@@ -1,0 +1,81 @@
+daml 1.2
+
+-- @QUERY-LF .modules[] | .templates[] | select(lf::get_template_name($pkg) == ["T"])
+module NewTemplateDesugaring where
+
+class HasSignatory t where signatory : t -> [Party]
+class HasObserver t where observer : t -> [Party]
+class HasEnsure t where ensure : t -> Bool
+class HasAgreement t where agreement : t -> Text
+class HasArchive t where archive : t -> Update ()
+class HasCreate t where create : t -> Update (ContractId t) ; create = error ""
+class HasFetch t where fetch : ContractId t -> Update t ; fetch = error ""
+class HasToAnyTemplate t where toAnyTemplate : t -> AnyTemplate ; toAnyTemplate = error ""
+class HasFromAnyTemplate t where fromAnyTemplate : AnyTemplate -> Optional t ; fromAnyTemplate = error ""
+class HasTemplateTypeRep t where templateTypeRep : t -> TypeRep ; templateTypeRep = error ""
+class HasExercise t c r where exercise : t -> c -> Update r ; exercise = error ""
+class HasToAnyChoice t c r where
+class HasFromAnyChoice t c r where
+class HasKey t k where key : t -> k
+class HasMaintainer t k where _maintainer : t -> k -> [Party]
+class HasFetchByKey t k where fetchByKey : k -> Update t ; fetchByKey = error ""
+class HasLookupByKey t k where lookupByKey : k -> Update (Optional t) ; lookupByKey = error ""
+class HasToAnyContractKey t k where toAnyContractKey : t -> k -> AnyContractKey ; toAnyContractKey = error ""
+class HasFromAnyContractKey t k where fromAnyContractKey : t -> AnyContractKey -> Optional k ; fromAnyContractKey = error ""
+
+--------------------------
+--
+-- Test new desugaring from:
+--
+--   template T
+--     with
+--       p : Party
+--     where
+--       signatory p
+--       key p : Party
+--       maintainer key
+--
+-- In the real desugaring, all of the typeclasses & types below would be
+-- qualified with DA.Internal.Desugar, except `T` and `_choice_TArchive`.
+
+data T
+  = T {p : Party}
+  deriving (Eq, Show)
+instance HasSignatory T where
+  signatory this@T {..}
+    = concat [concat [toParties (p)]]
+instance HasObserver T where
+  observer this@T {..} = concat []
+instance HasEnsure T where
+  ensure this@T {..} = True
+instance HasAgreement T where
+  agreement this@T {..} = ""
+instance HasArchive T where
+  archive cid = NewTemplateDesugaring.exercise cid Archive
+instance HasCreate T
+instance HasFetch T
+instance HasToAnyTemplate T
+instance HasFromAnyTemplate T
+instance HasTemplateTypeRep T
+instance HasExercise T Archive ()
+instance HasToAnyChoice T Archive ()
+instance HasFromAnyChoice T Archive ()
+_choice_TArchive :
+    ( T -> Archive -> [Party]
+    , ContractId T -> T -> Archive -> Update (())
+    , DA.Internal.Desugar.PreConsuming T
+    )
+_choice_TArchive
+  = ( \ this@T {..} _ -> let in NewTemplateDesugaring.signatory this
+    , \ self this@T {..} arg@Archive -> let in pure ()
+    , DA.Internal.Desugar.PreConsuming
+    )
+
+instance HasKey T Party where
+  key this@T {..} = p
+instance HasMaintainer T Party where
+  _maintainer _ key = concat [concat [toParties (key)]]
+instance HasFetchByKey T Party
+instance HasLookupByKey T Party
+instance HasToAnyContractKey T Party
+instance HasFromAnyContractKey T Party

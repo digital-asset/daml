@@ -18,6 +18,7 @@ module DA.Daml.LFConversion.UtilGHC(
 
 import "ghc-lib" GHC hiding (convertLit)
 import "ghc-lib" GhcPlugins as GHC hiding (fst3, (<>))
+import "ghc-lib-parser" Class as GHC
 
 import Data.Generics.Uniplate.Data
 import Data.Maybe
@@ -99,6 +100,109 @@ pattern DA_Internal_LF <- ModuleIn DamlStdlib "DA.Internal.LF"
 pattern DA_Internal_Prelude <- ModuleIn DamlStdlib "DA.Internal.Prelude"
 pattern DA_Internal_Record <- ModuleIn DamlStdlib "DA.Internal.Record"
 pattern DA_Internal_Desugar <- ModuleIn DamlStdlib "DA.Internal.Desugar"
+
+-- | Deconstruct a dictionary function (DFun) identifier into a tuple
+-- containing, in order:
+--   1. the foralls
+--   2. the dfun arguments (i.e. the instances it depends on)
+--   3. the type class
+--   4. the type class arguments
+splitDFunId :: GHC.Var -> Maybe ([GHC.TyCoVar], [GHC.Type], GHC.Class, [GHC.Type])
+splitDFunId v
+    | DFunId _ <- idDetails v
+    , (tyCoVars, ty1) <- splitForAllTys (varType v)
+    , (dfunArgs, ty2) <- splitFunTys ty1
+    , Just (tyCon, tyClsArgs) <- splitTyConApp_maybe ty2
+    , Just tyCls <- tyConClass_maybe tyCon
+    = Just (tyCoVars, dfunArgs, tyCls, tyClsArgs)
+
+    | otherwise
+    = Nothing
+
+-- | Restrict new template desugaring to the new test, for now.
+pattern NewTemplateDesugaring :: GHC.Module
+pattern NewTemplateDesugaring <- ModuleIn _ "NewTemplateDesugaring"
+
+-- | Pattern for template desugaring DFuns.
+pattern DesugarDFunId :: [GHC.TyCoVar] -> [GHC.Type] -> FastString -> [GHC.Type] -> GHC.Var
+pattern DesugarDFunId tyCoVars dfunArgs clsName classArgs <-
+    (splitDFunId -> Just
+        ( tyCoVars
+        , dfunArgs
+        , (GHC.className -> NameIn NewTemplateDesugaring clsName)
+        , classArgs
+        )
+    )
+
+
+pattern HasCreateDFunId, HasFetchDFunId, HasSignatoryDFunId, HasEnsureDFunId, HasAgreementDFunId, HasArchiveDFunId, HasObserverDFunId, HasToAnyTemplateDFunId, HasFromAnyTemplateDFunId :: TyCon -> GHC.Var
+
+pattern HasCreateDFunId templateTyCon <-
+    DesugarDFunId [] [] "HasCreate"
+        [(splitTyConApp_maybe -> Just (templateTyCon, []))]
+pattern HasFetchDFunId templateTyCon <-
+    DesugarDFunId [] [] "HasFetch"
+        [(splitTyConApp_maybe -> Just (templateTyCon, []))]
+pattern HasSignatoryDFunId templateTyCon <-
+    DesugarDFunId [] [] "HasSignatory"
+        [(splitTyConApp_maybe -> Just (templateTyCon, []))]
+pattern HasEnsureDFunId templateTyCon <-
+    DesugarDFunId [] [] "HasEnsure"
+        [(splitTyConApp_maybe -> Just (templateTyCon, []))]
+pattern HasAgreementDFunId templateTyCon <-
+    DesugarDFunId [] [] "HasAgreement"
+        [(splitTyConApp_maybe -> Just (templateTyCon, []))]
+pattern HasArchiveDFunId templateTyCon <-
+    DesugarDFunId [] [] "HasArchive"
+        [(splitTyConApp_maybe -> Just (templateTyCon, []))]
+pattern HasObserverDFunId templateTyCon <-
+    DesugarDFunId [] [] "HasObserver"
+        [(splitTyConApp_maybe -> Just (templateTyCon, []))]
+pattern HasToAnyTemplateDFunId templateTyCon <-
+    DesugarDFunId [] [] "HasToAnyTemplate"
+        [(splitTyConApp_maybe -> Just (templateTyCon, []))]
+pattern HasFromAnyTemplateDFunId templateTyCon <-
+    DesugarDFunId [] [] "HasFromAnyTemplate"
+        [(splitTyConApp_maybe -> Just (templateTyCon, []))]
+
+pattern HasExerciseDFunId, HasToAnyChoiceDFunId, HasFromAnyChoiceDFunId, HasKeyDFunId, HasMaintainerDFunId, HasLookupByKeyDFunId, HasFetchByKeyDFunId, HasToAnyContractKeyDFunId, HasFromAnyContractKeyDFunId :: TyCon -> TyCon -> GHC.Var
+
+pattern HasExerciseDFunId templateTyCon choiceTyCon <-
+    DesugarDFunId [] [] "HasExercise"
+        [(splitTyConApp_maybe -> Just (templateTyCon, []))
+        ,(splitTyConApp_maybe -> Just (choiceTyCon, []))]
+pattern HasToAnyChoiceDFunId templateTyCon choiceTyCon <-
+    DesugarDFunId [] [] "HasToAnyChoice"
+        [(splitTyConApp_maybe -> Just (templateTyCon, []))
+        ,(splitTyConApp_maybe -> Just (choiceTyCon, []))]
+pattern HasFromAnyChoiceDFunId templateTyCon choiceTyCon <-
+    DesugarDFunId [] [] "HasFromAnyChoice"
+        [(splitTyConApp_maybe -> Just (templateTyCon, []))
+        ,(splitTyConApp_maybe -> Just (choiceTyCon, []))]
+pattern HasKeyDFunId templateTyCon keyTyCon <-
+    DesugarDFunId [] [] "HasKey"
+        [(splitTyConApp_maybe -> Just (templateTyCon, []))
+        ,(splitTyConApp_maybe -> Just (keyTyCon, []))]
+pattern HasMaintainerDFunId templateTyCon keyTyCon <-
+    DesugarDFunId [] [] "HasMaintainer"
+        [(splitTyConApp_maybe -> Just (templateTyCon, []))
+        ,(splitTyConApp_maybe -> Just (keyTyCon, []))]
+pattern HasLookupByKeyDFunId templateTyCon keyTyCon <-
+    DesugarDFunId [] [] "HasLookupByKey"
+        [(splitTyConApp_maybe -> Just (templateTyCon, []))
+        ,(splitTyConApp_maybe -> Just (keyTyCon, []))]
+pattern HasFetchByKeyDFunId templateTyCon keyTyCon <-
+    DesugarDFunId [] [] "HasFetchByKey"
+        [(splitTyConApp_maybe -> Just (templateTyCon, []))
+        ,(splitTyConApp_maybe -> Just (keyTyCon, []))]
+pattern HasToAnyContractKeyDFunId templateTyCon keyTyCon <-
+    DesugarDFunId [] [] "HasToAnyContractKey"
+        [(splitTyConApp_maybe -> Just (templateTyCon, []))
+        ,(splitTyConApp_maybe -> Just (keyTyCon, []))]
+pattern HasFromAnyContractKeyDFunId templateTyCon keyTyCon <-
+    DesugarDFunId [] [] "HasFromAnyContractKey"
+        [(splitTyConApp_maybe -> Just (templateTyCon, []))
+        ,(splitTyConApp_maybe -> Just (keyTyCon, []))]
 
 -- | Break down a constraint tuple projection function name
 -- into an (index, arity) pair. These names have the form
