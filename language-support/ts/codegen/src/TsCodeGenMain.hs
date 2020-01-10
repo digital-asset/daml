@@ -281,8 +281,8 @@ genType curModName = go
                     ( con' <> "<" <> T.intercalate ", " ts' <> ">"
                     , ser <> "(" <> T.intercalate ", " sers <> ")"
                     )
-        TSyn _ -> error "TODO: genType, type synonym"
         TCon _ -> error "IMPOSSIBLE: lonely type constructor"
+        TSynApp{} -> error "IMPOSSIBLE: type synonym not serializable"
         t@TApp{} -> error $ "IMPOSSIBLE: type application not serializable - " <> DA.Pretty.renderPretty t
         TBuiltin t -> error $ "IMPOSSIBLE: partially applied primitive type not serializable - " <> DA.Pretty.renderPretty t
         TForall{} -> error "IMPOSSIBLE: universally quantified type not serializable"
