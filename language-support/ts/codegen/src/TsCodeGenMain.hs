@@ -144,7 +144,7 @@ genDefDataType curPkgId conName curModName tpls def =
             serDesc =
                 ["() => jtv.oneOf("] ++
                 ["  jtv.constant(" <> conName <> "." <> cons <> ")," | VariantConName cons <- enumCons] ++
-                [");"]
+                [")"]
           in
           ((typeDesc, makeNameSpace serDesc), Set.empty)
         DataRecord fields ->
@@ -158,7 +158,7 @@ genDefDataType curPkgId conName curModName tpls def =
                 serDesc =
                     ["() => jtv.object({"] ++
                     ["  " <> x <> ": " <> ser <> ".decoder()," | (x, ser) <- zip fieldNames fieldSers] ++
-                    ["}),"]
+                    ["})"]
             in
             case NM.lookup (dataTypeCon def) tpls of
                 Nothing -> ((makeType typeDesc, makeSer serDesc), Set.unions fieldRefs)
@@ -186,7 +186,7 @@ genDefDataType curPkgId conName curModName tpls def =
                             ["  templateId: '" <> unPackageId curPkgId <> ":" <> T.intercalate "." (unModuleName curModName) <> ":" <> conName <> "',"
                             ,"  keyDecoder: " <> keySer <> ","
                             ] ++
-                            map ("  " <>) (onHead ("decoder: " <>) serDesc) ++
+                            map ("  " <>) ((onHead ("decoder: " <>) . onLast (<> ", ")) serDesc) ++
                             concat
                             [ ["  " <> x <> ": {"
                               ,"    template: () => " <> conName <> ","
@@ -225,7 +225,7 @@ genDefDataType curPkgId conName curModName tpls def =
         makeSer serDesc =
             ["export const " <> conName <> serHeader <> " ({"] ++
             map ("  " <>) (onHead ("decoder: " <>) serDesc) ++
-            ["});"]
+            ["})"]
         makeNameSpace serDesc =
             [ "// eslint-disable-next-line @typescript-eslint/no-namespace"
             , "export namespace " <> conName <> " {"
@@ -315,3 +315,9 @@ onHead :: (a -> a) -> [a] -> [a]
 onHead f = \case
     [] -> []
     x:xs -> f x:xs
+
+onLast :: (a -> a) -> [a] -> [a]
+onLast f = \case
+    [] -> []
+    [l] -> [f l]
+    x : xs -> x : onLast f xs
