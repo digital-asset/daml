@@ -15,7 +15,7 @@ load(
     "client_server_build",
 )
 load(
-    "//ledger/participant-state/kvutils/tools:integrity_test.bzl",
+    "//ledger/participant-state-kvutils/tools:integrity_test.bzl",
     "integrity_test",
 )
 load("@os_info//:os_info.bzl", "is_windows")
@@ -41,7 +41,7 @@ da_scala_binary(
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-health",
         "//ledger/participant-state",
-        "//ledger/participant-state/kvutils",
+        "//ledger/participant-state-kvutils:kvutils",
         "//ledger/sandbox",
         "@maven//:com_github_scopt_scopt_2_12",
         "@maven//:com_typesafe_akka_akka_actor_2_12",

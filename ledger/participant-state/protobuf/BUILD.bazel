@@ -7,7 +7,7 @@ proto_library(
     name = "ledger_configuration_proto",
     srcs = ["com/daml/ledger/participant/state/ledger_configuration.proto"],
     strip_import_prefix = "/ledger/participant-state/protobuf",
-    visibility = ["//ledger/participant-state:__subpackages__"],
+    visibility = ["//ledger/participant-state-kvutils:__subpackages__"],
     deps = [
         "@com_google_protobuf//:duration_proto",
     ],

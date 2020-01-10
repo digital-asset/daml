@@ -32,7 +32,7 @@ integrity_test = rule(
         "_checker": attr.label(
             cfg = "host",
             executable = True,
-            default = Label("@//ledger/participant-state/kvutils/tools:integrity-check"),
+            default = Label("@//ledger/participant-state-kvutils/tools:integrity-check"),
         ),
         "dump": attr.label(allow_single_file = True),
     },

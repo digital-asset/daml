@@ -194,10 +194,10 @@
 - target: //ledger/participant-state/protobuf:ledger_configuration_java_proto
   type: jar-proto
   mavenUpload: true
-- target: //ledger/participant-state/kvutils:daml_kvutils_java_proto
+- target: //ledger/participant-state-kvutils:daml_kvutils_java_proto
   type: jar-proto
   mavenUpload: true
-- target: //ledger/participant-state/kvutils:kvutils
+- target: //ledger/participant-state-kvutils:kvutils
   type: jar-scala
   mavenUpload: true
 - target: //ledger-service/lf-value-json:lf-value-json
