@@ -276,10 +276,10 @@ abstract class AbstractHttpServiceIntegrationTest
         case (status, output) =>
           status shouldBe StatusCodes.BadRequest
           assertStatus(output, StatusCodes.BadRequest)
-          val unknownTemplateId: domain.TemplateId.NoPkg =
-            domain.TemplateId((), command.templateId.moduleName, command.templateId.entityName)
+          val unknownTemplateId: domain.TemplateId.OptionalPkg =
+            domain.TemplateId(None, command.templateId.moduleName, command.templateId.entityName)
           expectedOneErrorMessage(output) should include(
-            s"Cannot resolve template ID, given: ${unknownTemplateId: domain.TemplateId.NoPkg}")
+            s"Cannot resolve template ID, given: ${unknownTemplateId: domain.TemplateId.OptionalPkg}")
       }: Future[Assertion]
   }
 

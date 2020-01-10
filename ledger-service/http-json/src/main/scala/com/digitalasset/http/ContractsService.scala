@@ -31,7 +31,6 @@ import scala.concurrent.{ExecutionContext, Future}
 
 // TODO(Leo) split it into ContractsServiceInMemory and ContractsServiceDb
 class ContractsService(
-    resolveTemplateIds: PackageService.ResolveTemplateIds,
     resolveTemplateId: PackageService.ResolveTemplateId,
     allTemplateIds: PackageService.AllTemplateIds,
     getActiveContracts: LedgerClientJwt.GetActiveContracts,
@@ -142,7 +141,7 @@ class ContractsService(
       queryParams: Map[String, JsValue])
     : Source[Error \/ domain.ActiveContract[JsValue], NotUsed] = {
 
-    resolveTemplateIds(templateIds) match {
+    resolveRequiredTemplateIds(templateIds) match {
       case -\/(e) =>
         Source.single(-\/(Error('search, e.shows)))
       case \/-(resolvedTemplateIds) =>
@@ -304,6 +303,18 @@ class ContractsService(
   private def lfValueToJsValue(a: LfValue): Error \/ JsValue =
     \/.fromTryCatchNonFatal(LfValueCodec.apiValueToJsValue(a)).leftMap(e =>
       Error('lfValueToJsValue, e.description))
+
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
+  private def resolveRequiredTemplateIds(
+      xs: Set[domain.TemplateId.OptionalPkg]): Error \/ List[domain.TemplateId.RequiredPkg] = {
+    import scalaz.std.list._
+    xs.toList.traverse(resolveRequiredTemplateId)
+  }
+
+  private def resolveRequiredTemplateId(
+      x: domain.TemplateId.OptionalPkg): Error \/ domain.TemplateId.RequiredPkg =
+    resolveTemplateId(x).toRightDisjunction(
+      Error('resolveRequiredTemplateId, ErrorMessages.cannotResolveTemplateId(x)))
 }
 
 object ContractsService {
