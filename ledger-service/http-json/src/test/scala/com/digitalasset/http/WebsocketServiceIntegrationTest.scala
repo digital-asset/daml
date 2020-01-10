@@ -83,7 +83,7 @@ class WebsocketServiceIntegrationTest
             subprotocol = validSubprotocol))
 
         clientMsg <- Source
-          .single(TextMessage("""{"%templates": [{"moduleName": "Iou", "entityName": "Iou"}]}"""))
+          .single(TextMessage("""{"%templates": ["Iou:Iou"]}"""))
           .via(webSocketFlow)
           .runWith(collectResultsAsRawString)
       } yield
@@ -124,7 +124,7 @@ class WebsocketServiceIntegrationTest
 
   private val baseExercisePayload = {
     import spray.json._
-    """{"templateId": {"moduleName": "Iou", "entityName": "Iou"},
+    """{"templateId": "Iou:Iou",
         "choice": "Iou_Split",
         "argument": {"splitAmount": 42.42}}""".parseJson.asJsObject
   }
@@ -148,7 +148,7 @@ class WebsocketServiceIntegrationTest
           subprotocol = validSubprotocol))
 
       val query =
-        TextMessage.Strict("""{"%templates": [{"moduleName": "Iou", "entityName": "Iou"}]}""")
+        TextMessage.Strict("""{"%templates": ["Iou:Iou"]}""")
 
       val parseResp: Flow[Message, JsValue, NotUsed] =
         Flow[Message]

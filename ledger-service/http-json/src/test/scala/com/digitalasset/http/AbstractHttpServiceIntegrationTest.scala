@@ -47,9 +47,6 @@ object AbstractHttpServiceIntegrationTestFuns {
   private val dar1 = requiredResource("docs/quickstart-model.dar")
 
   private val dar2 = requiredResource("ledger-service/http-json/Account.dar")
-
-  private val metdata2: MetadataReader.LfMetadata =
-    MetadataReader.readFromDar(dar2).valueOr(e => fail(s"Cannot read dar2 metadata: $e"))
 }
 
 trait AbstractHttpServiceIntegrationTestFuns { this: Assertions =>
@@ -60,6 +57,9 @@ trait AbstractHttpServiceIntegrationTestFuns { this: Assertions =>
   def staticContentConfig: Option[StaticContentConfig]
 
   protected def testId: String = this.getClass.getSimpleName
+
+  protected val metdata2: MetadataReader.LfMetadata =
+    MetadataReader.readFromDar(dar2).valueOr(e => fail(s"Cannot read dar2 metadata: $e"))
 
   protected val jwt: Jwt = {
     val decodedJwt = DecodedJwt(

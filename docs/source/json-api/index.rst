@@ -235,7 +235,7 @@ Two subprotocols must be passed, as described in `Choosing a party
 application/json body must be sent first, formatted according to the
 :doc:`search-query-language`::
 
-    {"%templates": [{"moduleName": "Iou", "entityName": "Iou"}]}
+    {"%templates": ["Iou:Iou"]}
 
 output a series of JSON documents, each ``argument`` formatted according
 to :doc:`lf-value-specification`::
@@ -246,11 +246,7 @@ to :doc:`lf-value-specification`::
             "agreementText": "",
             "signatories": ["Alice"],
             "contractId": "#1:0",
-            "templateId": {
-                "packageId": "398e67533888ab6532c3e62c2c3445182e2cdd291457732f174d2698a7d1db2d",
-                "moduleName": "Iou",
-                "entityName": "Iou"
-            },
+            "templateId": "398e67533888ab6532c3e62c2c3445182e2cdd291457732f174d2698a7d1db2d:Iou:Iou",
             "witnessParties": ["Alice"],
             "argument": {
                 "observers": [],
@@ -276,11 +272,7 @@ and archives the one above, the same stream will eventually produce::
             "agreementText": "",
             "signatories": ["Alice"],
             "contractId": "#2:1",
-            "templateId": {
-                "packageId": "398e67533888ab6532c3e62c2c3445182e2cdd291457732f174d2698a7d1db2d",
-                "moduleName": "Iou",
-                "entityName": "Iou"
-            },
+            "templateId": "398e67533888ab6532c3e62c2c3445182e2cdd291457732f174d2698a7d1db2d:Iou:Iou",
             "witnessParties": ["Alice"],
             "argument": {
                 "observers": [],
@@ -294,11 +286,7 @@ and archives the one above, the same stream will eventually produce::
             "agreementText": "",
             "signatories": ["Alice"],
             "contractId": "#2:2",
-            "templateId": {
-                "packageId": "398e67533888ab6532c3e62c2c3445182e2cdd291457732f174d2698a7d1db2d",
-                "moduleName": "Iou",
-                "entityName": "Iou"
-            },
+            "templateId": "398e67533888ab6532c3e62c2c3445182e2cdd291457732f174d2698a7d1db2d:Iou:Iou",
             "witnessParties": ["Alice"],
             "argument": {
                 "observers": [],
