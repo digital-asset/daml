@@ -151,10 +151,15 @@ class WebsocketServiceIntegrationTest
         TextMessage.Strict("""{"%templates": [{"moduleName": "Iou", "entityName": "Iou"}]}""")
 
       val parseResp: Flow[Message, JsValue, NotUsed] =
-        Flow[Message].mapAsync(1) {
-          case _: BinaryMessage => fail("shouldn't get BinaryMessage")
-          case tm: TextMessage => tm.toStrict(1.second).map(_.text.parseJson)
-        }
+        Flow[Message]
+          .mapAsync(1) {
+            case _: BinaryMessage => fail("shouldn't get BinaryMessage")
+            case tm: TextMessage => tm.toStrict(1.second).map(_.text.parseJson)
+          }
+          .filter {
+            case JsObject(fields) => !(fields contains "heartbeat")
+            case _ => true
+          }
 
       sealed abstract class StreamState extends Product with Serializable
       case object NothingYet extends StreamState
