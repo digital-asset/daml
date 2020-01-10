@@ -122,6 +122,13 @@ class WebsocketServiceIntegrationTest
   // this test code, e.g. in a browser with a JavaScript client, so will leave this
   // mystery to be explored another time.
 
+  private val baseExercisePayload = {
+    import spray.json._
+    """{"templateId": {"moduleName": "Iou", "entityName": "Iou"},
+        "choice": "Iou_Split",
+        "argument": {"splitAmount": 42.42}}""".parseJson.asJsObject
+  }
+
   "websocket should receive deltas as contracts are archived/created" in withHttpService {
     (uri, _, _) =>
       import spray.json._
@@ -131,17 +138,9 @@ class WebsocketServiceIntegrationTest
         uri.withPath(Uri.Path("/command/create")),
         payload,
         headersWithAuth)
-      def exercisePayload(cid: String) = JsObject(
-        "templateId" -> JsObject(
-          "moduleName" -> JsString("Iou"),
-          "entityName" -> JsString("Iou"),
-        ),
-        "contractId" -> JsString(cid),
-        "choice" -> JsString("Iou_Split"),
-        "argument" -> JsObject(
-          "splitAmount" -> JsNumber("42.42")
-        ),
-      )
+      def exercisePayload(cid: String) =
+        baseExercisePayload.copy(
+          fields = baseExercisePayload.fields updated ("contractId", JsString(cid)))
 
       val webSocketFlow = Http().webSocketClientFlow(
         WebSocketRequest(
