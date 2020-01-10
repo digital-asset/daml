@@ -144,7 +144,9 @@ Under "Verify Signature", put ``secret`` as the secret (_not_ base64
 encoded); that is the hardcoded secret for testing.
 
 Then the "Encoded" box should have your token; set HTTP header
-``Authorization: Bearer copy-paste-token-here``.
+``Authorization: Bearer copy-paste-token-here`` for normal requests, and
+add the subprotocols ``jwt.token.copy-paste-token-here`` and
+``daml.ws.auth`` for WebSockets requests.
 
 Here are two tokens you can use for testing:
 
@@ -210,10 +212,14 @@ output, each contract formatted according to :doc:`lf-value-specification`::
         ]
     }
 
-POST http://localhost:7575/contracts/searchForever
-==================================================
+ws://localhost:7575/contracts/searchForever
+===========================================
 
-List currently active contracts that match a given query.
+List currently active contracts that match a given query, with
+continuous updates.
+
+Two subprotocols must be passed, as described in `Choosing a party
+<#choosing-a-party>`__.
 
 application/json body must be sent first, formatted according to the
 :doc:`search-query-language`::
