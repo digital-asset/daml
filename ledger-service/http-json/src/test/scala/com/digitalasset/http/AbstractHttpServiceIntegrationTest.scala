@@ -154,6 +154,21 @@ abstract class AbstractHttpServiceIntegrationTest
     }
   }
 
+  "contracts/search returns unknown Template IDs as warnings" in withHttpService { (uri, _, _) =>
+    val query =
+      jsObject("""{"%templates": ["Iou:Iou", "UnknownModule:UnknownEntity"], "currency": "EUR"}""")
+
+    postJsonRequest(uri.withPath(Uri.Path("/contracts/search")), query)
+      .map {
+        case (status, output) =>
+          status shouldBe StatusCodes.OK
+          assertStatus(output, StatusCodes.OK)
+          getResult(output) shouldBe JsArray.empty
+          getWarnings(output) shouldBe JsObject(
+            "unknownTemplateIds" -> JsArray(Vector(JsString("UnknownModule:UnknownEntity"))))
+      }
+  }
+
   "contracts/search with query, can use number or string for numeric field" in withHttpService {
     (uri, encoder, _) =>
       import scalaz.std.scalaFuture._
@@ -235,6 +250,8 @@ abstract class AbstractHttpServiceIntegrationTest
       postJsonRequest(uri.withPath(Uri.Path("/contracts/search")), query).map {
         case (status, output) =>
           status shouldBe StatusCodes.OK
+          assertStatus(output, StatusCodes.OK)
+          output.asJsObject.fields.get("warnings") shouldBe None
           activeContractList(output)
       }
     }
@@ -247,7 +264,7 @@ abstract class AbstractHttpServiceIntegrationTest
       case (status, output) =>
         status shouldBe StatusCodes.OK
         assertStatus(output, StatusCodes.OK)
-        val activeContract: JsObject = getResult(output)
+        val activeContract = getResult(output)
         assertActiveContract(activeContract)(command, encoder, decoder)
     }: Future[Assertion]
   }
@@ -379,7 +396,7 @@ abstract class AbstractHttpServiceIntegrationTest
               case (exerciseStatus, exerciseOutput) =>
                 exerciseStatus shouldBe StatusCodes.OK
                 assertStatus(exerciseOutput, StatusCodes.OK)
-                val exercisedResponse: JsObject = getResult(exerciseOutput)
+                val exercisedResponse: JsObject = getResult(exerciseOutput).asJsObject
                 assertExerciseResponseArchivedContract(decoder, exercisedResponse, exercise)
             }
       }: Future[Assertion]
@@ -430,12 +447,12 @@ abstract class AbstractHttpServiceIntegrationTest
     }
   }
 
-  private def assertActiveContract(jsObject: JsObject)(
+  private def assertActiveContract(jsVal: JsValue)(
       command: domain.CreateCommand[Record],
       encoder: DomainJsonEncoder,
       decoder: DomainJsonDecoder) = {
 
-    inside(SprayJson.decode[domain.ActiveContract[JsValue]](jsObject)) {
+    inside(SprayJson.decode[domain.ActiveContract[JsValue]](jsVal)) {
       case \/-(activeContract) =>
         val expectedArgument: JsValue =
           encoder.encodeUnderlyingRecord(command).map(_.argument).getOrElse(fail)
@@ -800,37 +817,33 @@ abstract class AbstractHttpServiceIntegrationTest
     } yield result
 
   private def activeContractList(output: JsValue): List[domain.ActiveContract[JsValue]] = {
-    val result = SprayJson
-      .objectField(output, "result")
-      .getOrElse(fail(s"output: $output is missing result element"))
-
+    val result = getResult(output)
     SprayJson
       .decode[List[domain.ActiveContract[JsValue]]](result)
       .valueOr(e => fail(e.shows))
   }
 
   private def activeContract(output: JsValue): domain.ActiveContract[JsValue] = {
-    val result = SprayJson
-      .objectField(output, "result")
-      .getOrElse(fail(s"output: $output is missing result element"))
-
+    val result = getResult(output)
     SprayJson
       .decode[domain.ActiveContract[JsValue]](result)
       .valueOr(e => fail(e.shows))
   }
 
-  private def getResult(output: JsValue): JsObject = {
-    def errorMsg = s"Expected JsObject with 'result' field, got: $output"
+  private def getResult(output: JsValue): JsValue = getChild(output, "result")
 
+  private def getWarnings(output: JsValue): JsValue = getChild(output, "warnings")
+
+  private def getChild(output: JsValue, field: String): JsValue = {
+    def errorMsg = s"Expected JsObject with '$field' field, got: $output"
     output
       .asJsObject(errorMsg)
       .fields
-      .getOrElse("result", fail(errorMsg))
-      .asJsObject(errorMsg)
+      .getOrElse(field, fail(errorMsg))
   }
 
-  private def getContractId(result: JsObject): domain.ContractId =
-    inside(result.fields.get("contractId")) {
+  private def getContractId(result: JsValue): domain.ContractId =
+    inside(result.asJsObject.fields.get("contractId")) {
       case Some(JsString(contractId)) => domain.ContractId(contractId)
     }
 }

@@ -13,7 +13,7 @@ import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.{FreeSpec, Inside, Matchers}
 import scalaz.syntax.show._
 import scalaz.{-\/, Show, \/, \/-}
-import spray.json.{JsArray, JsNumber, JsObject, JsString, JsValue, JsonParser}
+import spray.json._
 
 import scala.collection.breakOut
 import scala.concurrent.duration._
@@ -33,31 +33,51 @@ class ResponseFormatsTest
     PropertyCheckConfiguration(minSuccessful = 100)
 
   "resultJsObject should serialize Source of Errors and JsValues" in forAll(
-    Gen.listOf(errorOrJsNumber)) { input =>
+    Gen.listOf(errorOrJsNumber),
+    Gen.option(Gen.nonEmptyListOf(Gen.identifier))) { (input, warnings) =>
+    import spray.json.DefaultJsonProtocol._
+
+    val jsValWarnings: Option[JsValue] = warnings.map(_.toJson)
     val successes: Vector[JsValue] = input.collect { case \/-(jsValue) => jsValue }(breakOut)
     val failures: Vector[JsString] =
       input.collect { case -\/(e) => e }.map(e => JsString(e.shows))(breakOut)
 
-    val expected: JsValue =
-      if (failures.isEmpty)
-        JsObject("result" -> JsArray(successes), "status" -> JsNumber("200"))
-      else
-        JsObject(
-          "result" -> JsArray(successes),
-          "errors" -> JsArray(failures),
-          "status" -> JsNumber("501"))
-
-    val source = Source[DummyError \/ JsValue](input)
+    val jsValSource = Source[DummyError \/ JsValue](input)
 
     val responseF: Future[ByteString] =
-      ResponseFormats.resultJsObject(source).runFold(ByteString.empty)((b, a) => b ++ a)
+      ResponseFormats
+        .resultJsObject(jsValSource, jsValWarnings)
+        .runFold(ByteString.empty)((b, a) => b ++ a)
 
     val resultF: Future[Assertion] = responseF.map { str =>
-      JsonParser(str.utf8String) shouldBe expected
+      JsonParser(str.utf8String) shouldBe expectedResult(failures, successes, jsValWarnings)
     }
 
     Await.result(resultF, 10.seconds)
   }
+
+  private def expectedResult(
+      failures: Vector[JsValue],
+      successes: Vector[JsValue],
+      warnings: Option[JsValue]): JsObject = {
+
+    val map1: Map[String, JsValue] = warnings match {
+      case Some(x) => Map("warnings" -> x)
+      case None => Map.empty
+    }
+
+    val map2 =
+      if (failures.isEmpty)
+        Map[String, JsValue]("result" -> JsArray(successes), "status" -> JsNumber("200"))
+      else
+        Map[String, JsValue](
+          "result" -> JsArray(successes),
+          "errors" -> JsArray(failures),
+          "status" -> JsNumber("501"))
+
+    JsObject(map1 ++ map2)
+  }
+
   private lazy val errorOrJsNumber: Gen[DummyError \/ JsNumber] = Gen.frequency(
     1 -> dummyErrorGen.map(\/.left),
     5 -> jsNumberGen.map(\/.right)
