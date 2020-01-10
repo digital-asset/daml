@@ -591,7 +591,7 @@ checkExpr' expr typ = do
   exprTypeX <- expandTypeSynonyms exprType
   typX <- expandTypeSynonyms typ
   unless (alphaEquiv exprTypeX typX) $
-    throwWithContext ETypeMismatch{foundType = exprType, expectedType = typ, expr = Just expr}
+    throwWithContext ETypeMismatch{foundType = exprTypeX, expectedType = typX, expr = Just expr}
   pure exprType
 
 checkExpr :: MonadGamma m => Expr -> Type -> m ()
