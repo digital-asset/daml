@@ -17,9 +17,9 @@ load("@os_info//:os_info.bzl", "is_windows")
 load("@dadew//:dadew.bzl", "dadew_tool_home")
 load("@rules_haskell//haskell:cabal.bzl", "stack_snapshot")
 
-GHCIDE_REV = "64693eddd8fc3659036c3b9c1ddfd88ccc7b4619"
-GHCIDE_SHA256 = "69e245ff32af6824c31b8ebd2ea067e746d0fba8b78da7c2ad5095236f78a6c1"
-GHCIDE_VERSION = "0.0.5"
+GHCIDE_REV = "1b4cd9d8d7cf1ec12677e0e6877b8e8b3c74460f"
+GHCIDE_SHA256 = "539b90b29f7bbf375ddf771172e52b697bb1ad08e093e949527fcf07519cd2e8"
+GHCIDE_VERSION = "0.0.6"
 
 def daml_haskell_deps():
     """Load all Haskell dependencies of the DAML repository."""
@@ -417,6 +417,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "ghc-prim",
             "gitrev",
             "grpc-haskell",
+            "haddock-library",
             "hashable",
             "haskeline",
             "haskell-lsp",
