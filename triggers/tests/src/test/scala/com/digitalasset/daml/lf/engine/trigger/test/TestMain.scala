@@ -8,20 +8,16 @@ import java.time.Instant
 
 import akka.actor.ActorSystem
 import akka.stream._
-import akka.stream.scaladsl.{Sink, Flow}
+import akka.stream.scaladsl.{Flow, Sink}
 import com.typesafe.scalalogging.StrictLogging
+
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 import scala.concurrent.duration.Duration
-import scala.util.{Success, Failure}
+import scala.util.{Failure, Success}
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
-
-import com.digitalasset.ledger.api.refinements.ApiTypes.{ApplicationId}
-import com.digitalasset.ledger.client.configuration.{
-  CommandClientConfiguration,
-  LedgerClientConfiguration,
-  LedgerIdRequirement
-}
+import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
+import com.digitalasset.ledger.client.configuration.{CommandClientConfiguration, LedgerClientConfiguration, LedgerIdRequirement}
 import com.digitalasset.ledger.client.LedgerClient
 import com.digitalasset.api.util.TimestampConversion.fromInstant
 import com.digitalasset.ledger.api.v1.command_submission_service._
@@ -38,16 +34,14 @@ import com.digitalasset.daml.lf.data.Numeric
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.daml.lf.value.{Value => Lf}
-
 import com.digitalasset.grpc.adapter.AkkaExecutionSequencerPool
 import com.digitalasset.daml.lf.speedy.SExpr
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.ledger.api.validation.ValueValidator
-import com.digitalasset.platform.participant.util.LfEngineToApi.{toApiIdentifier}
-import com.digitalasset.platform.server.api.validation.FieldValidations.{validateIdentifier}
+import com.digitalasset.platform.participant.util.LfEngineToApi.toApiIdentifier
+import com.digitalasset.platform.server.api.validation.FieldValidations.validateIdentifier
 import com.digitalasset.platform.services.time.TimeProviderType
-
 import com.digitalasset.daml.lf.engine.trigger.{Runner, TriggerMsg}
 
 case class Config(
@@ -985,6 +979,42 @@ case class TimeTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
   }
 }
 
+case class HeartbeatTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
+
+  val triggerId: Identifier =
+    Identifier(dar.main._1, QualifiedName.assertFromString("Heartbeat:test"))
+
+  def test(name: String, triggerName: String, numMessages: NumMessages) = {
+    def assertFinalState(finalState: SExpr, commandsR: Unit) = {
+      finalState match {
+        case SEValue(SInt64(count)) =>
+          TestRunner.assertEqual(count, 2, "number of heartbeats")
+        case _ => Left(s"Expected Int64 but got $finalState")
+      }
+    }
+    def assertFinalACS(
+                        acs: Map[Identifier, Seq[(String, Lf.ValueRecord[Lf.AbsoluteContractId])]],
+                        commandsR: Unit) = {
+      Right(())
+    }
+    def cmds(client: LedgerClient, party: String) = { implicit ec: ExecutionContext =>
+    { implicit mat: Materializer =>
+      Future {}
+    }
+    }
+    runner.genericTest(name, dar, triggerId, cmds, numMessages, assertFinalState, assertFinalACS)
+  }
+
+  def runTests() = {
+    test(
+      "Heartbeat",
+      "test",
+      // 2 heartbeats
+      NumMessages(2)
+    )
+  }
+}
+
 object TestMain {
 
   private val configParser = new scopt.OptionParser[Config]("acs_test") {
@@ -1031,6 +1061,7 @@ object TestMain {
         CopyTests(dar, runner).runTests()
         RetryTests(dar, runner).runTests()
         ExerciseByKeyTests(dar, runner).runTests()
+        HeartbeatTests(dar, runner).runTests()
         NumericTests(dar, runner).runTests()
         CommandIdTests(dar, runner).runTests()
         PendingTests(dar, runner).runTests()
