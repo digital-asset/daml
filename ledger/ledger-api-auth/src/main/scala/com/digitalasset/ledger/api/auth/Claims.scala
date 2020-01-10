@@ -6,6 +6,7 @@ package com.daml.ledger.api.auth
 import java.time.Instant
 
 import com.daml.lf.data.Ref
+import org.slf4j.{Logger, LoggerFactory}
 
 /**
   * A claim is a single statement about what an authenticated user can do with the ledger API.
@@ -85,41 +86,66 @@ final case class Claims(
     participantId: Option[String] = None,
     expiration: Option[Instant] = None,
 ) {
-  def validForLedger(id: String): Boolean =
-    ledgerId.forall(_ == id)
+  protected val logger: Logger = LoggerFactory.getLogger(AuthServiceJWT.getClass)
+
+  def validForLedger(id: String): Boolean = {
+    logOnFailure(
+      ledgerId.forall(_ == id),
+      "ledgerId", s"${ledgerId.getOrElse("<EMPTY>")} does not match expected value $id")
+  }
 
   def validForParticipant(id: String): Boolean =
-    participantId.forall(_ == id)
+    logOnFailure(
+      participantId.forall(_ == id),
+      "participantId",
+      s"${participantId.getOrElse("<EMPTY>")} does not match expected value $id")
 
-  /** Returns false if the expiration timestamp exists and is greather than or equal to the current time */
+  /** Returns false if the expiration timestamp exists and is greater than or equal to the current time */
   def notExpired(now: Instant): Boolean =
-    expiration.forall(now.isBefore)
+    logOnFailure(
+      expiration.forall(now.isBefore),
+      "expiration timestamp",
+      s"$expiration is not greater than or equal to the current time $now")
 
   /** Returns true if the set of claims authorizes the user to use admin services, unless the claims expired */
   def isAdmin: Boolean =
-    claims.contains(ClaimAdmin)
+    logOnFailure(
+      claims.contains(ClaimAdmin),
+      "admin", "not authorized to use services")
 
   /** Returns true if the set of claims authorizes the user to use public services, unless the claims expired */
   def isPublic: Boolean =
-    claims.contains(ClaimPublic)
+    logOnFailure(
+      claims.contains(ClaimPublic),
+      "public", "not authorized to use services")
 
   /** Returns true if the set of claims authorizes the user to act as the given party, unless the claims expired */
   def canActAs(party: String): Boolean = {
+    logOnFailure(
     claims.exists {
       case ClaimActAsAnyParty => true
       case ClaimActAsParty(p) if p == party => true
       case _ => false
-    }
+    },
+      "canActAs", s"Not able to act as party $party")
   }
 
   /** Returns true if the set of claims authorizes the user to read data for the given party, unless the claims expired */
   def canReadAs(party: String): Boolean = {
-    claims.exists {
+    logOnFailure(
+      claims.exists {
       case ClaimActAsAnyParty => true
       case ClaimActAsParty(p) if p == party => true
       case ClaimReadAsParty(p) if p == party => true
       case _ => false
-    }
+    },
+      "canReadAs", s"Not able to read as party $party")
+  }
+
+  /** Log which assertions have failed at DEBUG level */
+  private def logOnFailure(assertion: Boolean, field: String, message: String): Boolean = {
+    if (!assertion) logger.debug(s"Authorization error: $field $message")
+    assertion
   }
 }
 
