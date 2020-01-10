@@ -77,6 +77,7 @@ typeSynTests =
   [ testGroup "happy" (map mkHappyTestcase happyExamples)
   , testGroup "sad" (map mkSadTestcase sadExamples)
   , testGroup "bad" (map mkBadTestcase badDefs)
+  , testGroup "bigger" (map mkBiggerTestcase biggerExamples)
   ] where
 
   happyExamples :: [(Type,Type)]
@@ -97,6 +98,9 @@ typeSynTests =
     , (TSynApp (q myPairXY) [TDate,TParty], mkPair TDate TParty)
     , (TSynApp (q myHigh) [TBuiltin BTList], TList TInt64)
     , (TSynApp (q myHigh2) [TBuiltin BTArrow,TParty], TParty :-> TParty)
+    , (TForall (x,KStar) (TVar x), TForall (y,KStar) (TVar y))
+    , (TSynApp (q myIdentity) [TForall (x,KStar) (TVar x)], TForall (y,KStar) (TVar y))
+    , (TForall (x,KStar) $ TSynApp (q myIdentity) [TVar x], TForall (y,KStar) (TVar y))
     ]
 
   sadExamples :: [(Type,Type,String)]
@@ -221,6 +225,107 @@ typeSynTests =
       , moduleValues = NM.fromList valDefs
       , moduleTemplates = NM.empty
       }
+
+  mkBiggerTestcase :: (String,Module) -> TestTree
+  mkBiggerTestcase (name,mod) = do
+    testCase name $ do
+      let _ = putStrLn (renderPretty mod <> "\n")
+      case typeCheck mod of
+        Left s -> assertFailure $ "unexpected type error: " <> s
+        Right () -> return ()
+
+  biggerExamples :: [(String,Module)]
+  biggerExamples = [ ("functor example", functorExample) ]
+
+  functorExample :: Module
+  functorExample = makeModule
+    [functorDef]
+    [identityDef,mapOptionalDef
+    ,optionalFunctorDef
+    ,fmapDef
+    ] where
+
+    a = TypeVarName "a"
+    b = TypeVarName "b"
+    f = TypeVarName "f"
+
+    functor = TypeSynName ["functor"]
+    functorDef =
+      makeSynDef functor [(f,KStar `KArrow` KStar)] $ TStruct [
+      (FieldName "fmap",
+       TForall (a,KStar) $
+       TForall (b,KStar) $
+       (TVar a :-> TVar b) :-> TVar f `TApp` TVar a :-> TVar f `TApp` TVar b
+      )]
+
+    dict = ExprVarName "dict"
+    opt = ExprVarName "opt"
+    x = ExprVarName "x"
+    func = ExprVarName "func"
+
+    identityDef = DefValue
+      { dvalLocation = Nothing
+      , dvalBinder = (ExprValName "identity", TForall (a,KStar) $ TVar a :-> TVar a)
+      , dvalNoPartyLiterals = HasNoPartyLiterals True
+      , dvalIsTest = IsTest False
+      , dvalBody = ETyLam (a,KStar) $ ETmLam (opt,TVar a) (EVar opt)
+      }
+
+    mapOptional = ExprValName "mapOptional"
+    mapOptionalDef = DefValue
+      { dvalLocation = Nothing
+      , dvalBinder = (mapOptional, mapOptionalType)
+      , dvalNoPartyLiterals = HasNoPartyLiterals True
+      , dvalIsTest = IsTest False
+      , dvalBody = mapOptionalExp
+      }
+
+    mapOptionalType =
+      TForall (a,KStar) $
+      TForall (b,KStar) $
+      (TVar a :-> TVar b) :->
+      TOptional (TVar a) :->
+      TOptional (TVar b)
+
+    mapOptionalExp =
+      ETyLam (a,KStar) $
+      ETyLam (b,KStar) $
+      ETmLam (func,TVar a :-> TVar b) $
+      ETmLam (opt,TOptional (TVar a)) $
+      ECase (EVar opt)
+      [ CaseAlternative CPNone (ENone (TVar b))
+      , CaseAlternative (CPSome x) (ESome (TVar b) (EVar func `ETmApp` EVar x))
+      ]
+
+    optionalFunctorDef = DefValue
+      { dvalLocation = Nothing
+      , dvalBinder = (ExprValName "optionalFunctor", TSynApp (q functor) [TBuiltin BTOptional])
+      , dvalNoPartyLiterals = HasNoPartyLiterals True
+      , dvalIsTest = IsTest False
+      , dvalBody = EStructCon [(FieldName "fmap", EVal (q mapOptional))]
+      }
+
+    fmapDef = DefValue
+      { dvalLocation = Nothing
+      , dvalBinder = (ExprValName "fmap", fmapType)
+      , dvalNoPartyLiterals = HasNoPartyLiterals True
+      , dvalIsTest = IsTest False
+      , dvalBody =
+        ETyLam (f,KStar `KArrow` KStar) $
+        ETmLam (dict,TSynApp (q functor) [TVar f]) $
+        EStructProj (FieldName "fmap") $
+        EVar dict
+      }
+
+    fmapType =
+      TForall (f,KStar `KArrow` KStar) $
+      TSynApp (q functor) [TVar f] :-> (
+      TForall (a,KStar) $
+      TForall (b,KStar) $
+      (TVar a :-> TVar b) :->
+      TVar f `TApp` TVar a :->
+      TVar f `TApp` TVar b )
+
 
 typeCheck :: Module -> Either String ()
 typeCheck mod = do
