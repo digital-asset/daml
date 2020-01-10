@@ -65,12 +65,11 @@ object WebSocketService {
     def render(implicit lfv: LfV <~< JsValue): JsValue = {
       def opr[V <: Iterable[_]: JsonWriter](v: V) =
         v.nonEmpty option v.toJson
+      type RF[-i] = Vector[domain.ActiveContract[i]] => Option[JsValue]
       JsObject(
         Map(
           "errors" -> opr(errors.map(_.message)),
-          "created" -> lfv
-            .subst[Lambda[`-i` => Vector[domain.ActiveContract[i]] => Option[JsValue]]](opr(_))(
-              step.inserts),
+          "created" -> lfv.subst[RF](opr(_))(step.inserts),
           "archived" -> opr(step.deletes)
         ) collect { case (k, Some(v)) => (k, v) })
     }
