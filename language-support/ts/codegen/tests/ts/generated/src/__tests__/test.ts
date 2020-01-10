@@ -95,7 +95,7 @@ test('create + fetch & exercise', async () => {
   // Alice has a birthday and turns 6. The choice returns the new contract id.
   // There are two events: the archival of the old contract and the creation of
   // the new contract.
-  const [result, events] = await ledger.exercise(Main.Person.Birthday, alice5Contract.contractId, {});
+  let [result, events] = await ledger.exercise(Main.Person.Birthday, alice5Contract.contractId, {});
   expect(result).not.toEqual(alice5Contract.contractId);
   expect(events).toHaveLength(2);
   expect(events[0]).toHaveProperty('archived');
@@ -110,6 +110,23 @@ test('create + fetch & exercise', async () => {
   personContracts = await ledger.fetchAll(Main.Person);
   expect(personContracts).toHaveLength(1);
   expect(personContracts[0]).toEqual(alice6Contract);
+
+  // Alice has another birthday and turns 7.
+  [result, events] = await ledger.exerciseByKey(Main.Person.Birthday, alice6Contract.key, {});
+  expect(result).not.toEqual(alice6Contract.contractId);
+  expect(events).toHaveLength(2);
+  expect(events[0]).toHaveProperty('archived');
+  expect(events[1]).toHaveProperty('created');
+  const alice6Archived = (events[0] as {archived: ArchiveEvent<Main.Person>}).archived;
+  const alice7Contract = (events[1] as {created: CreateEvent<Main.Person, PersonKey>}).created;
+  expect(alice6Archived.contractId).toEqual(alice6Contract.contractId);
+  expect(alice7Contract.contractId).toEqual(result);
+  expect(alice7Contract.payload).toEqual({...alice5, age: '7'});
+  expect(alice7Contract.key).toEqual({...alice5Key, _2: '7'});
+
+  personContracts = await ledger.fetchAll(Main.Person);
+  expect(personContracts).toHaveLength(1);
+  expect(personContracts[0]).toEqual(alice7Contract);
 
   const allTypes: Main.AllTypes = {
     unit: {},

@@ -205,6 +205,17 @@ class Ledger {
   }
 
   /**
+   * Exercise a choice on a contract identified by its contract key.
+   */
+  async exerciseByKey<T extends object, C, R, K>(choice: Choice<T, C, R, K>, key: K extends undefined ? never : K, argument: C): Promise<[R, Event<object>[]]> {
+    const contract = await this.lookupByKey(choice.template(), key);
+    if (contract === null) {
+      throw Error(`exerciseByKey: no contract with key ${JSON.stringify(key)} for template ${choice.template().templateId}`);
+    }
+    return this.exercise(choice, contract.contractId, argument);
+  }
+
+  /**
    * Mimic DAML's `exerciseByKey`. The `key` must be a formulation of the
    * contract key as a query.
    */
