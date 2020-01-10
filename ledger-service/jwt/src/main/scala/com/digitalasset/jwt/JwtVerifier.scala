@@ -60,20 +60,20 @@ object HMAC256Verifier extends StrictLogging {
     }.leftMap(e => Error('HMAC256, e.getMessage))
 }
 
-// ECDA512 validator factory
-object ECDA512Verifier extends StrictLogging {
+// ECDA256 validator factory
+object ECDA256Verifier extends StrictLogging {
   def apply(keyProvider: ECDSAKeyProvider): Error \/ JwtVerifier =
     \/.fromTryCatchNonFatal {
-      val algorithm = Algorithm.ECDSA512(keyProvider)
+      val algorithm = Algorithm.ECDSA256(keyProvider)
       val verifier = JWT.require(algorithm).build()
       new JwtVerifier(verifier)
-    }.leftMap(e => Error('ECDA512, e.getMessage))
+    }.leftMap(e => Error('ECDSA256, e.getMessage))
   def apply(publicKey: ECPublicKey): Error \/ JwtVerifier =
     \/.fromTryCatchNonFatal {
-      val algorithm = Algorithm.ECDSA512(publicKey, null)
+      val algorithm = Algorithm.ECDSA256(publicKey, null)
       val verifier = JWT.require(algorithm).build()
       new JwtVerifier(verifier)
-    }.leftMap(e => Error('ECDA512, e.getMessage))
+    }.leftMap(e => Error('ECDSA256, e.getMessage))
 
   def fromCrtFile(path: String): Error \/ JwtVerifier = {
     for {
@@ -82,7 +82,7 @@ object ECDA512Verifier extends StrictLogging {
           .readECPublicKeyFromCrt(new File(path))
           .toEither)
         .leftMap(e => Error('fromCrtFile, e.getMessage))
-      verifier <- ECDA512Verifier(key)
+      verifier <- ECDA256Verifier(key)
     } yield verifier
   }
 }

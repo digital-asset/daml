@@ -8,7 +8,7 @@ import java.time.Duration
 
 import ch.qos.logback.classic.Level
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.jwt.{ECDA512Verifier, HMAC256Verifier, JwksVerifier, RSA256Verifier}
+import com.digitalasset.jwt.{ECDA256Verifier, HMAC256Verifier, JwksVerifier, RSA256Verifier}
 import com.digitalasset.ledger.api.auth.AuthServiceJWT
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.tls.TlsConfiguration
@@ -171,8 +171,8 @@ object Cli {
     opt[String]("auth-jwt-ec-crt")
       .optional()
       .validate(v => Either.cond(v.length > 0, (), "Certificate file path must be a non-empty string"))
-      .text("Enables JWT-based authorization, where the JWT is signed by ECDA512 with a public key loaded from the given X509 certificate file (.crt)")
-      .action( (path, config) => config.copy(authService = Some(AuthServiceJWT(ECDA512Verifier.fromCrtFile(path).valueOr(err => sys.error(s"Failed to create ECDA512 verifier: $err"))))))
+      .text("Enables JWT-based authorization, where the JWT is signed by ECDA256 with a public key loaded from the given X509 certificate file (.crt)")
+      .action( (path, config) => config.copy(authService = Some(AuthServiceJWT(ECDA256Verifier.fromCrtFile(path).valueOr(err => sys.error(s"Failed to create ECDSA256 verifier: $err"))))))
 
     opt[String]("auth-jwt-rs256-jwks")
       .optional()

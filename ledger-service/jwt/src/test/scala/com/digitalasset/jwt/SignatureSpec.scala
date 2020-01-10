@@ -115,7 +115,7 @@ class SignatureSpec extends WordSpec with Matchers {
       }
     }
 
-    "using ECDA512 signatures" should {
+    "using ECDA256 signatures" should {
       "work with a valid key" in {
         val kpg = java.security.KeyPairGenerator.getInstance("EC")
         val ecGenParameterSpec = new ECGenParameterSpec("secp256r1")
@@ -125,15 +125,15 @@ class SignatureSpec extends WordSpec with Matchers {
         val privateKey = keyPair.getPrivate.asInstanceOf[ECPrivateKey]
         val publicKey = keyPair.getPublic.asInstanceOf[ECPublicKey]
 
-        val jwtHeader = """{"alg": "ES512", "typ": "JWT"}"""
+        val jwtHeader = """{"alg": "ES256", "typ": "JWT"}"""
         val jwtPayload = """{"dummy":"dummy"}"""
         val jwt = domain.DecodedJwt[String](jwtHeader, jwtPayload)
         val success = for {
-          signedJwt <- JwtSigner.ECDA512
+          signedJwt <- JwtSigner.ECDA256
             .sign(jwt, privateKey)
             .leftMap(e => fail(e.shows))
 
-          verifier <- ECDA512Verifier(publicKey)
+          verifier <- ECDA256Verifier(publicKey)
             .leftMap(e => fail(e.shows))
           verifiedJwt <- verifier
             .verify(signedJwt)
@@ -153,14 +153,14 @@ class SignatureSpec extends WordSpec with Matchers {
         val keyPair2: KeyPair = kpg.generateKeyPair()
         val publicKey2 = keyPair2.getPublic.asInstanceOf[ECPublicKey]
 
-        val jwtHeader = """{"alg": "ES512", "typ": "JWT"}"""
+        val jwtHeader = """{"alg": "ES256", "typ": "JWT"}"""
         val jwtPayload = """{"dummy":"dummy"}"""
         val jwt = domain.DecodedJwt[String](jwtHeader, jwtPayload)
         val success = for {
-          signedJwt <- JwtSigner.ECDA512
+          signedJwt <- JwtSigner.ECDA256
             .sign(jwt, privateKey1)
             .leftMap(e => fail(e.shows))
-          verifier <- ECDA512Verifier(publicKey2)
+          verifier <- ECDA256Verifier(publicKey2)
             .leftMap(e => fail(e.shows))
           error <- verifier
             .verify(signedJwt)
