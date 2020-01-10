@@ -136,11 +136,13 @@ class TestRunner(val config: Config) extends StrictLogging {
       client <- clientF
       runner = new Runner(client, applicationId, party, dar)
       filter = runner.getTriggerFilter(triggerId)
+      heartbeat = runner.getTriggerHeartbeat(triggerId)
       (acs, offset) <- runner.queryACS(client, filter)
       _ = acsPromise.success(())
       finalState <- runner.runWithACS(
         triggerId,
         config.timeProviderType,
+        heartbeat,
         acs,
         offset,
         filter,
