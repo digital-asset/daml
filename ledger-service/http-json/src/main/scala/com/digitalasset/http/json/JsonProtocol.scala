@@ -237,6 +237,20 @@ object JsonProtocol extends DefaultJsonProtocol {
   implicit val ErrorResponseFormat: RootJsonFormat[domain.ErrorResponse[JsValue]] = jsonFormat2(
     domain.ErrorResponse[JsValue])
 
+  implicit val ServiceWarningFormat: RootJsonFormat[domain.ServiceWarning] =
+    new RootJsonFormat[domain.ServiceWarning] {
+      override def read(json: JsValue): domain.ServiceWarning = json match {
+        case JsObject(fields) if fields.contains("unknownTemplateIds") =>
+          UnknownTemplateIdsFormat.read(json)
+        case _ =>
+          deserializationError(s"Expected JsObject(unknownTemplateIds -> JsArray(...)), got: $json")
+      }
+
+      override def write(obj: domain.ServiceWarning): JsValue = obj match {
+        case x: domain.UnknownTemplateIds => UnknownTemplateIdsFormat.write(x)
+      }
+    }
+
   implicit val UnknownTemplateIdsFormat: RootJsonFormat[domain.UnknownTemplateIds] = jsonFormat1(
     domain.UnknownTemplateIds)
 }
