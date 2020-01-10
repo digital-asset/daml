@@ -17,7 +17,11 @@ import scala.util.{Failure, Success}
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
-import com.digitalasset.ledger.client.configuration.{CommandClientConfiguration, LedgerClientConfiguration, LedgerIdRequirement}
+import com.digitalasset.ledger.client.configuration.{
+  CommandClientConfiguration,
+  LedgerClientConfiguration,
+  LedgerIdRequirement
+}
 import com.digitalasset.ledger.client.LedgerClient
 import com.digitalasset.api.util.TimestampConversion.fromInstant
 import com.digitalasset.ledger.api.v1.command_submission_service._
@@ -993,14 +997,14 @@ case class HeartbeatTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
       }
     }
     def assertFinalACS(
-                        acs: Map[Identifier, Seq[(String, Lf.ValueRecord[Lf.AbsoluteContractId])]],
-                        commandsR: Unit) = {
+        acs: Map[Identifier, Seq[(String, Lf.ValueRecord[Lf.AbsoluteContractId])]],
+        commandsR: Unit) = {
       Right(())
     }
     def cmds(client: LedgerClient, party: String) = { implicit ec: ExecutionContext =>
-    { implicit mat: Materializer =>
-      Future {}
-    }
+      { implicit mat: Materializer =>
+        Future {}
+      }
     }
     runner.genericTest(name, dar, triggerId, cmds, numMessages, assertFinalState, assertFinalACS)
   }

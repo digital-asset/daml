@@ -17,13 +17,22 @@ import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.speedy.SValue
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, RelativeContractId}
-import com.digitalasset.ledger.api.v1.commands.{Command, CreateCommand, ExerciseByKeyCommand, ExerciseCommand}
+import com.digitalasset.ledger.api.v1.commands.{
+  Command,
+  CreateCommand,
+  ExerciseByKeyCommand,
+  ExerciseCommand
+}
 import com.digitalasset.ledger.api.v1.completion.Completion
 import com.digitalasset.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event}
 import com.digitalasset.ledger.api.v1.transaction.Transaction
 import com.digitalasset.ledger.api.v1.value
 import com.digitalasset.ledger.api.validation.ValueValidator
-import com.digitalasset.platform.participant.util.LfEngineToApi.{lfValueToApiRecord, lfValueToApiValue, toApiIdentifier}
+import com.digitalasset.platform.participant.util.LfEngineToApi.{
+  lfValueToApiRecord,
+  lfValueToApiValue,
+  toApiIdentifier
+}
 
 import scala.concurrent.duration.{FiniteDuration, MICROSECONDS}
 

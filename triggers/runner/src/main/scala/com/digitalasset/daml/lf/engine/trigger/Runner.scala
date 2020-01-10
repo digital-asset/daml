@@ -38,7 +38,11 @@ import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
 import com.digitalasset.ledger.api.v1.event._
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.transaction.Transaction
-import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, TransactionFilter}
+import com.digitalasset.ledger.api.v1.transaction_filter.{
+  Filters,
+  InclusiveFilters,
+  TransactionFilter
+}
 import com.digitalasset.ledger.client.LedgerClient
 import com.digitalasset.ledger.client.services.commands.CompletionStreamElement._
 import com.digitalasset.platform.participant.util.LfEngineToApi.toApiIdentifier
@@ -172,10 +176,11 @@ class Runner(
     stepToValue(machine)
     machine.toSValue match {
       case SOptional(None) => None
-      case SOptional(Some(relTime)) => converter.toFiniteDuration(relTime) match {
-        case Left(err) => throw new ConverterException(err)
-        case Right(duration) => Some(duration)
-      }
+      case SOptional(Some(relTime)) =>
+        converter.toFiniteDuration(relTime) match {
+          case Left(err) => throw new ConverterException(err)
+          case Right(duration) => Some(duration)
+        }
       case value => throw new ConverterException(s"Expected Optional but got $value.")
     }
   }
@@ -238,7 +243,10 @@ class Runner(
         .merge(completionQueueSource)
         .map[TriggerMsg](CompletionMsg)
     val source = heartbeat match {
-      case Some(interval) => transactionSource.merge(completionSource).merge(Source.tick[TriggerMsg](interval, interval, HeartbeatMsg()))
+      case Some(interval) =>
+        transactionSource
+          .merge(completionSource)
+          .merge(Source.tick[TriggerMsg](interval, interval, HeartbeatMsg()))
       case None => transactionSource.merge(completionSource)
     }
     def postSubmitFailure(commandId: String, s: StatusRuntimeException) = {
@@ -304,7 +312,7 @@ class Runner(
             // This happens for invalid UUIDs which we might get for transactions not emitted by the trigger.
             case e: IllegalArgumentException => List(TransactionMsg(t.copy(commandId = "")))
           }
-        case x@HeartbeatMsg() => List(x)
+        case x @ HeartbeatMsg() => List(x)
       })
       .toMat(Sink.fold[SExpr, TriggerMsg](SEValue(evaluatedInitialState))((state, message) => {
         val messageVal = message match {
