@@ -67,27 +67,26 @@ class WebsocketServiceIntegrationTest
   "websocket should publish transactions when command create is completed" in withHttpService {
     (uri, _, _) =>
       val payload = TestUtil.readFile("it/iouCreateCommand.json")
-      TestUtil.postJsonStringRequest(
-        uri.withPath(Uri.Path("/command/create")),
-        payload,
-        headersWithAuth)
+      for {
+        _ <- TestUtil.postJsonStringRequest(
+          uri.withPath(Uri.Path("/command/create")),
+          payload,
+          headersWithAuth)
 
-      val webSocketFlow = Http().webSocketClientFlow(
-        WebSocketRequest(
-          uri = uri.copy(scheme = "ws").withPath(Uri.Path("/contracts/searchForever")),
-          subprotocol = validSubprotocol))
+        webSocketFlow = Http().webSocketClientFlow(
+          WebSocketRequest(
+            uri = uri.copy(scheme = "ws").withPath(Uri.Path("/contracts/searchForever")),
+            subprotocol = validSubprotocol))
 
-      val clientMsg = Source
-        .single(TextMessage("""{"%templates": [{"moduleName": "Iou", "entityName": "Iou"}]}"""))
-        .via(webSocketFlow)
-        .runWith(Sink.fold(Seq.empty[String])(_ :+ _.toString))
-
-      clientMsg map {
-        inside(_) {
+        clientMsg <- Source
+          .single(TextMessage("""{"%templates": [{"moduleName": "Iou", "entityName": "Iou"}]}"""))
+          .via(webSocketFlow)
+          .runWith(Sink.fold(Seq.empty[String])(_ :+ _.toString))
+      } yield
+        inside(clientMsg) {
           case Seq(result) =>
             result should include("\"issuer\":\"Alice\"")
         }
-      }
   }
 
   "websocket should send error msg when receiving malformed message" in withHttpService {
