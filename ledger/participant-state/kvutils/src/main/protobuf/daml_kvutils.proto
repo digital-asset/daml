@@ -72,7 +72,7 @@ message DamlSubmission {
 //
 // Please read comments in [[com.daml.ledger.participant.state.v1.package]]
 // and  [[com.daml.ledger.participant.state.kvutils.package]] for background
-// information. See example implementation in [[InMemoryKeyValueParticipant]].
+// information. See example implementation in [[InMemoryKVParticipantState]].
 message DamlLogEntry {
   // The record time at which this entry was committed.
   google.protobuf.Timestamp record_time = 1;
@@ -168,7 +168,7 @@ message DamlTransactionRejectionEntry {
 
 // A public package upload.
 // DAML-LF packages will be deduplicated based on their hashes. Only unique
-// ones will be added to the KV storage. Deduplication has no impact on the
+// ones will be added to the key-value storage. Deduplication has no impact on the
 // upload result.
 message DamlPackageUploadEntry {
   // A unique string scoped to a particular participant for matching the
