@@ -20,6 +20,7 @@ test = Trigger
       in (newState, cmds)
     _ -> ((done, ts), [])
   , registeredTemplates = AllInDar
+  , heartbeat = None
   }
 
 template T

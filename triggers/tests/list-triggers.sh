@@ -33,6 +33,7 @@ EXPECTED="\
   PendingSet:booTrigger
   CopyTrigger:copyTrigger
   ExerciseByKey:exerciseByKeyTrigger
+  Heartbeat:test
   Numeric:test
   Retry:retryTrigger
   ACS:test

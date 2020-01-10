@@ -17,6 +17,7 @@ test = Trigger
         (cmdId :: cmdIds, [])
       _ -> (s, [])
   , registeredTemplates = AllInDar
+  , heartbeat = None
   }
 
 template T

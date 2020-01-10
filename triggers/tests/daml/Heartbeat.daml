@@ -1,0 +1,25 @@
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+daml 1.2
+module Heartbeat where
+
+import DA.Time
+import Daml.Trigger.LowLevel
+
+test : Trigger Int
+test = Trigger
+  { initialState = \party _ _ -> (0, [])
+  , update = \_ msg count ->
+      case msg of
+        MHeartbeat -> (count + 1, [])
+        _ -> (count, [])
+  , registeredTemplates = AllInDar
+  , heartbeat = Some (convertMicrosecondsToRelTime 1)
+  }
+
+template T
+  with
+    p : Party
+  where
+    signatory p

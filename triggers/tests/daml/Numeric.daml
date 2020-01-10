@@ -16,6 +16,7 @@ test = Trigger
         (True, [Commands (CommandId "mycreate2") [createCmd (t { v = t.v + 1.0 })]])
       _ -> (s, [])
   , registeredTemplates = AllInDar
+  , heartbeat = None
   }
 
 template T
