@@ -8,7 +8,7 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.http.scaladsl.model.ws.{BinaryMessage, Message, TextMessage, WebSocketRequest}
 import akka.http.scaladsl.model.{StatusCodes, Uri}
-import akka.stream.scaladsl.{Flow, Sink, Source}
+import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
 import com.digitalasset.http.util.TestUtil
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.{AsyncFreeSpec, BeforeAndAfterAll, Inside, Matchers}
@@ -64,6 +64,9 @@ class WebsocketServiceIntegrationTest
     )._1 flatMap (x => x.response.status shouldBe StatusCodes.Unauthorized)
   }
 
+  private val collectResultsAsRawString: Sink[Message, Future[Seq[String]]] =
+    Flow[Message].map(_.toString).filter(v => !(v contains "heartbeat")).toMat(Sink.seq)(Keep.right)
+
   "websocket should publish transactions when command create is completed" in withHttpService {
     (uri, _, _) =>
       val payload = TestUtil.readFile("it/iouCreateCommand.json")
@@ -81,7 +84,7 @@ class WebsocketServiceIntegrationTest
         clientMsg <- Source
           .single(TextMessage("""{"%templates": [{"moduleName": "Iou", "entityName": "Iou"}]}"""))
           .via(webSocketFlow)
-          .runWith(Sink.fold(Seq.empty[String])(_ :+ _.toString))
+          .runWith(collectResultsAsRawString)
       } yield
         inside(clientMsg) {
           case Seq(result) =>
@@ -99,7 +102,7 @@ class WebsocketServiceIntegrationTest
       val clientMsg = Source
         .single(TextMessage("{}"))
         .via(webSocketFlow)
-        .runWith(Sink.fold(Seq.empty[String])(_ :+ _.toString))
+        .runWith(collectResultsAsRawString)
 
       val result = Await.result(clientMsg, 10.seconds)
 
