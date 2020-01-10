@@ -6,6 +6,7 @@ import waitOn from 'wait-on';
 import { encode } from 'jwt-simple';
 import Ledger, { CreateEvent, ArchiveEvent } from  '@digitalasset/daml-ledger-fetch'
 import * as Main from '../daml/daml-tests/Main';
+import * as LibMod from '../daml/daml-tests/Lib/Mod';
 
 const LEDGER_ID = 'daml2ts-tests';
 const APPLICATION_ID = 'daml2ts-tests';
@@ -128,4 +129,13 @@ test('create + fetch & exercise', async () => {
   const allTypesContracts = await ledger.fetchAll(Main.AllTypes);
   expect(allTypesContracts).toHaveLength(1);
   expect(allTypesContracts[0]).toEqual(allTypesContract);
+
+  const NonTopLevel: LibMod.NonTopLevel = {
+    party: ALICE_PARTY,
+  }
+  const NonTopLevelContract = await ledger.create(LibMod.NonTopLevel, NonTopLevel);
+  expect(NonTopLevelContract.payload).toEqual(NonTopLevel);
+  const NonTopLevelContracts = await ledger.fetchAll(LibMod.NonTopLevel);
+  expect(NonTopLevelContracts).toHaveLength(1);
+  expect(NonTopLevelContracts[0]).toEqual(NonTopLevelContract);
 });
