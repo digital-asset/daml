@@ -312,6 +312,7 @@ da_scala_test_suite(
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
+        "//ledger/ledger-api-common:ledger-api-common-scala-tests-lib",
         "//ledger/ledger-api-domain",
         "//ledger/ledger-api-health",
         "//ledger/participant-state",

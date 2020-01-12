@@ -61,6 +61,8 @@ class RecoveringIndexerSpec extends AsyncWordSpec with Matchers with BeforeAndAf
             Level.INFO -> "Starting Indexer Server",
             Level.INFO -> "Started Indexer Server",
             Level.INFO -> "Successfully finished processing state updates",
+            Level.INFO -> "Stopping Indexer Server",
+            Level.INFO -> "Stopped Indexer Server",
           )
           testIndexer.openSubscriptions shouldBe mutable.Set.empty
         }
@@ -90,7 +92,9 @@ class RecoveringIndexerSpec extends AsyncWordSpec with Matchers with BeforeAndAf
         readLog() should contain theSameElementsInOrderAs Seq(
           Level.INFO -> "Starting Indexer Server",
           Level.INFO -> "Started Indexer Server",
+          Level.INFO -> "Stopping Indexer Server",
           Level.INFO -> "Successfully finished processing state updates",
+          Level.INFO -> "Stopped Indexer Server",
         )
         testIndexer.openSubscriptions shouldBe mutable.Set.empty
       }
@@ -119,6 +123,8 @@ class RecoveringIndexerSpec extends AsyncWordSpec with Matchers with BeforeAndAf
             Level.INFO -> "Starting Indexer Server",
             Level.INFO -> "Started Indexer Server",
             Level.INFO -> "Successfully finished processing state updates",
+            Level.INFO -> "Stopping Indexer Server",
+            Level.INFO -> "Stopped Indexer Server",
           )
           testIndexer.openSubscriptions shouldBe mutable.Set.empty
         }
@@ -153,13 +159,15 @@ class RecoveringIndexerSpec extends AsyncWordSpec with Matchers with BeforeAndAf
           )
           readLog() should contain theSameElementsInOrderAs Seq(
             Level.INFO -> "Starting Indexer Server",
+            Level.ERROR -> "Error while starting indexer, restart scheduled after 10 milliseconds",
+            Level.INFO -> "Restarting Indexer Server",
+            Level.INFO -> "Restarted Indexer Server",
             Level.ERROR -> "Error while running indexer, restart scheduled after 10 milliseconds",
-            Level.INFO -> "Starting Indexer Server",
-            Level.INFO -> "Started Indexer Server",
-            Level.ERROR -> "Error while running indexer, restart scheduled after 10 milliseconds",
-            Level.INFO -> "Starting Indexer Server",
-            Level.INFO -> "Started Indexer Server",
+            Level.INFO -> "Restarting Indexer Server",
+            Level.INFO -> "Restarted Indexer Server",
             Level.INFO -> "Successfully finished processing state updates",
+            Level.INFO -> "Stopping Indexer Server",
+            Level.INFO -> "Stopped Indexer Server",
           )
           testIndexer.openSubscriptions shouldBe mutable.Set.empty
         }
@@ -191,10 +199,12 @@ class RecoveringIndexerSpec extends AsyncWordSpec with Matchers with BeforeAndAf
           )
           readLog() should contain theSameElementsInOrderAs Seq(
             Level.INFO -> "Starting Indexer Server",
-            Level.ERROR -> "Error while running indexer, restart scheduled after 500 milliseconds",
-            Level.INFO -> "Starting Indexer Server",
-            Level.INFO -> "Started Indexer Server",
+            Level.ERROR -> "Error while starting indexer, restart scheduled after 500 milliseconds",
+            Level.INFO -> "Restarting Indexer Server",
+            Level.INFO -> "Restarted Indexer Server",
             Level.INFO -> "Successfully finished processing state updates",
+            Level.INFO -> "Stopping Indexer Server",
+            Level.INFO -> "Stopped Indexer Server",
           )
           testIndexer.openSubscriptions shouldBe mutable.Set.empty
         }

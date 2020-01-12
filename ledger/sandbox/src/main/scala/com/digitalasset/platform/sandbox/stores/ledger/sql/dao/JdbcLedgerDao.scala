@@ -40,7 +40,7 @@ import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, RejectionReas
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
-import com.digitalasset.platform.resources.ResourceOwner
+import com.digitalasset.resources.ResourceOwner
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{
   ActiveContract,
   Contract,

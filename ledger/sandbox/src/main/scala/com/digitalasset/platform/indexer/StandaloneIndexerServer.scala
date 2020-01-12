@@ -7,11 +7,9 @@ import akka.actor.ActorSystem
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.v1.ReadService
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
-import com.digitalasset.platform.indexer.StandaloneIndexerServer._
 import com.digitalasset.resources.akka.AkkaResourceOwner
 import com.digitalasset.resources.{Resource, ResourceOwner}
 
-import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 
 // Main entry point to start an indexer server.
@@ -32,7 +30,7 @@ class StandaloneIndexerServer(
       indexerFactory = JdbcIndexerFactory(metrics, loggerFactory)
       indexer = new RecoveringIndexer(
         actorSystem.scheduler,
-        asyncTolerance,
+        config.restartDelay,
         indexerFactory.asyncTolerance,
         loggerFactory,
       )
@@ -47,7 +45,7 @@ class StandaloneIndexerServer(
       _ = loggerFactory.getLogger(getClass).debug("Waiting for indexer to initialize the database")
     } yield ()
 
-  def startIndexer(
+  private def startIndexer(
       indexer: RecoveringIndexer,
       initializedIndexerFactory: JdbcIndexerFactory[Initialized],
       actorSystem: ActorSystem,
@@ -59,8 +57,4 @@ class StandaloneIndexerServer(
             .owner(config.participantId, actorSystem, readService, config.jdbcUrl)
             .flatMap(_.subscription(readService))
             .acquire())
-}
-
-object StandaloneIndexerServer {
-  private val asyncTolerance: FiniteDuration = 10.seconds
 }
