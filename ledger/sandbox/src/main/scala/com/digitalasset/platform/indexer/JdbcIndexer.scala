@@ -24,15 +24,12 @@ import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.sandbox.EventIdFormatter
 import com.digitalasset.platform.sandbox.metrics.timedFuture
-import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlLedger.defaultNumberOfShortLivedConnections
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{
-  DbType,
   JdbcLedgerDao,
   LedgerDao,
   PersistenceEntry
 }
 import com.digitalasset.platform.sandbox.stores.ledger.sql.migration.FlywayMigrations
-import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
 import com.digitalasset.platform.sandbox.stores.ledger.{
   LedgerEntry,
   PackageLedgerEntry,
@@ -85,7 +82,7 @@ class JdbcIndexerFactory[Status <: InitStatus] private (
     implicit val ec: ExecutionContext = DEC
 
     for {
-      ledgerDao <- ledgerDaoOwner(jdbcUrl, metrics, actorSystem.dispatcher)
+      ledgerDao <- JdbcLedgerDao.owner(jdbcUrl, loggerFactory, metrics, actorSystem.dispatcher)
       LedgerInitialConditions(ledgerIdString, _, _) <- ResourceOwner
         .forFuture(
           () =>
@@ -98,22 +95,6 @@ class JdbcIndexerFactory[Status <: InitStatus] private (
       externalOffset <- ResourceOwner.forFuture(() => ledgerDao.lookupExternalLedgerEnd())
     } yield
       new JdbcIndexer(ledgerEnd, externalOffset, participantId, ledgerDao, metrics)(materializer)
-  }
-
-  private def ledgerDaoOwner(
-      jdbcUrl: String,
-      metrics: MetricRegistry,
-      executionContext: ExecutionContext,
-  ): ResourceOwner[LedgerDao] = {
-    val dbType = DbType.jdbcType(jdbcUrl)
-    val maxConnections =
-      if (dbType.supportsParallelWrites) defaultNumberOfShortLivedConnections else 1
-    for {
-      dbDispatcher <- DbDispatcher.owner(jdbcUrl, maxConnections, loggerFactory, metrics)
-    } yield
-      LedgerDao.metered(
-        JdbcLedgerDao(dbDispatcher, dbType, loggerFactory, executionContext),
-        metrics)
   }
 
   private def ledgerFound(foundLedgerId: LedgerId) = {
