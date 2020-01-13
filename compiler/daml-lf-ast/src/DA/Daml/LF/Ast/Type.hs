@@ -3,12 +3,14 @@
 
 module DA.Daml.LF.Ast.Type
   ( freeVars
+  , referencedSyns
   , alphaEquiv
   , Subst
   , substitute
   ) where
 
 import           Data.Bifunctor
+import qualified Data.HashSet as HS
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import qualified Data.Text as T
@@ -33,6 +35,20 @@ freeVars e = go Set.empty e Set.empty
         TForall (v, _k) s -> go (Set.insert v boundVars) s acc
         TStruct fs -> foldl' (\acc (_, t) -> go boundVars t acc) acc fs
         TNat _ -> Set.empty
+
+-- | Get the type synonyms referenced by a type.
+referencedSyns :: Type -> HS.HashSet (Qualified TypeSynName)
+referencedSyns = go HS.empty
+  where
+    go !acc = \case
+      TVar _ -> acc
+      TCon _ -> acc
+      TSynApp qsyn args -> foldl' go (HS.insert qsyn acc) args
+      TApp s1 s2 -> go (go acc s1) s2
+      TBuiltin _ -> acc
+      TForall _ body -> go acc body
+      TStruct fs -> foldl' go acc (map snd fs)
+      TNat _ -> acc
 
 -- | Auxiliary data structure to track bound variables in the test for alpha
 -- equivalence.

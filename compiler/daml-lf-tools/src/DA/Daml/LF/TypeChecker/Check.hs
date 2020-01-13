@@ -675,7 +675,6 @@ checkTemplateKey param tcon TemplateKey{..} = do
 -- definitions do _not_ contain free variables.
 checkModule :: MonadGamma m => Module -> m ()
 checkModule m@(Module _modName _path _flags synonyms dataTypes values templates) = do
-  -- TODO #3616: check type synonyms for cycles
   let with ctx f x = withContext (ctx x) (f x)
   traverse_ (with (ContextDefTypeSyn m) checkDefTypeSyn) synonyms
   traverse_ (with (ContextDefDataType m) checkDefDataType) dataTypes
