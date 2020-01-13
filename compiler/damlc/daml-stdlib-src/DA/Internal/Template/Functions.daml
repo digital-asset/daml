@@ -205,11 +205,11 @@ instance Eq AnyContractKey where
 
 class HasTemplateTypeRep t where
   -- | Generate a unique textual representation of the template Id.
-  _templateTypeRep : proxy t -> TemplateTypeRep
+  _templateTypeRep : proxy t -> TypeRep
 
 -- | Generate a unique textual representation of the template Id.
 templateTypeRep : forall t. HasTemplateTypeRep t => TemplateTypeRep
-templateTypeRep = _templateTypeRep ([] : [t])
+templateTypeRep = TemplateTypeRep (_templateTypeRep ([] : [t]))
 
 instance Eq TemplateTypeRep where
   TemplateTypeRep a == TemplateTypeRep b = a == b

@@ -297,6 +297,13 @@ convertPrim _ "UFetchByKey"
             , (mkIndexedField 2, EStructProj (FieldName "contract") (EVar (mkVar "res")))
             ])
 
+convertPrim version "ETemplateTypeRep"
+    ty@(TApp proxy (TCon template) :-> TTypeRep) =
+    -- TODO: restrict to known templates
+    whenRuntimeSupports version featureTypeRep ty $
+        ETmLam (mkVar "_", TApp proxy (TCon template)) $
+        ETypeRep (TCon template)
+
 convertPrim version "EFromAnyTemplate"
     ty@(TAny :-> TOptional (TCon template)) =
     -- TODO: restrict to known templates
@@ -320,14 +327,33 @@ convertPrim version "EFromAnyContractKey"
         ETmLam (mkVar "any", TAny) $
         EFromAny key (EVar $ mkVar "any")
 
--- TODO: EToAnyTemplate, EToAnyChoice, EToAnyContractKey
+convertPrim version "EToAnyTemplate"
+    ty@(TCon template :-> TAny) =
+    -- TODO: restrict to known templates
+    whenRuntimeSupports version featureAnyType ty $
+        ETmLam (mkVar "template", TCon template) $
+        EToAny (TCon template) (EVar $ mkVar "template")
+
+convertPrim version "EToAnyChoice"
+    ty@(TApp proxy (TCon template) :-> choice :-> TAny) =
+    -- TODO: restrict to known template/choice pairs
+    whenRuntimeSupports version featureAnyType ty $
+        ETmLam (mkVar "_", TApp proxy (TCon template)) $
+        ETmLam (mkVar "choice", choice) $
+        EToAny choice (EVar $ mkVar "choice")
+
+convertPrim version "EToAnyContractKey"
+    ty@(TApp proxy (TCon template) :-> key :-> TAny) =
+    -- TODO: restrict to known template/key pairs
+    whenRuntimeSupports version featureAnyType ty $
+        ETmLam (mkVar "_", TApp proxy (TCon template)) $
+        ETmLam (mkVar "key", key) $
+        EToAny key (EVar $ mkVar "key")
 
 -- Unknown primitive.
 convertPrim _ x ty = error $ "Unknown primitive " ++ show x ++ " at type " ++ renderPretty ty
 
 -- | Some builtins are only supported in specific versions of DAML-LF.
--- Since we don't have conditional compilation in daml-stdlib, we compile
--- them to calls to `error` in unsupported versions.
 whenRuntimeSupports :: Version -> Feature -> Type -> Expr -> Expr
 whenRuntimeSupports version feature t e
     | version `supports` feature = e
