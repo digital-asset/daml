@@ -100,9 +100,9 @@ data Error
   | EExpectedOptionalType  !Type
   | EEmptyCase
   | EExpectedTemplatableType !TypeConName
-  | EImportCycle           ![ModuleName] -- Never reported
+  | EImportCycle           ![ModuleName] -- TODO: implement check for this error
   | ETypeSynCycle          ![TypeSynName]
-  | EDataTypeCycle         ![TypeConName] -- Never reported
+  | EDataTypeCycle         ![TypeConName] -- TODO: implement check for this error
   | EValueCycle            ![ExprValName]
   | EImpredicativePolymorphism !Type
   | EForbiddenPartyLiterals ![PartyLiteral] ![Qualified ExprValName]
