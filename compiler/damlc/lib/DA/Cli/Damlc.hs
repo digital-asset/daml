@@ -922,8 +922,9 @@ cliArgsFromDamlYaml :: Maybe ProjectOpts -> IO [String]
 cliArgsFromDamlYaml mbProjectOpts = do
     -- This is the same logic used in withProjectRoot but we don’t need to change CWD here
     -- and this is simple enough so we inline it here.
-    envProjectPath <- fmap ProjectPath <$> getProjectPath
-    let projectPath = fromMaybe (ProjectPath ".") ((projectRoot =<< mbProjectOpts) <|> envProjectPath)
+    mbEnvProjectPath <- fmap ProjectPath <$> getProjectPath
+    let mbProjectPath = projectRoot =<< mbProjectOpts
+    let projectPath = fromMaybe (ProjectPath ".") (mbProjectPath <|> mbEnvProjectPath)
     handle (\(_ :: ConfigError) -> return []) $ do
         project <- readProjectConfig projectPath
         case queryProjectConfigRequired ["build-options"] project of
