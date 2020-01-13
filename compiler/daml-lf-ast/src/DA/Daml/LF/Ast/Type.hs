@@ -34,7 +34,7 @@ freeVars e = go Set.empty e Set.empty
         TBuiltin _ -> acc
         TForall (v, _k) s -> go (Set.insert v boundVars) s acc
         TStruct fs -> foldl' (\acc (_, t) -> go boundVars t acc) acc fs
-        TNat _ -> Set.empty
+        TNat _ -> acc
 
 -- | Get the type synonyms referenced by a type.
 referencedSyns :: Type -> HS.HashSet (Qualified TypeSynName)
