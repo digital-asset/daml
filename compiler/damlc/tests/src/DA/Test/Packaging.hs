@@ -428,6 +428,25 @@ tests damlc = testGroup "Packaging"
             ]
           withCurrentDirectory projC $ callProcessSilent damlc ["build", "-o", "baz.dar"]
 
+    , testCase "build-options + project-root" $ withTempDir $ \projDir -> do
+          createDirectoryIfMissing True (projDir </> "src")
+          writeFileUTF8 (projDir </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: a"
+            , "version: 0.0.1"
+            , "source: src"
+            , "dependencies: [daml-prim, daml-stdlib]"
+            , "build-options: [\"--ghc-option=-Werror\"]"
+            ]
+          writeFileUTF8 (projDir </> "src" </> "A.daml") $ unlines
+            [ "daml 1.2"
+            , "module A where"
+            , "f : Optional a -> a"
+            , "f (Some a) = a"
+            ]
+          (exitCode, _, stderr) <- readProcessWithExitCode damlc ["build", "--project-root", projDir] ""
+          exitCode @?= ExitFailure 1
+          assertBool ("non-exhaustive error in " <> stderr) ("non-exhaustive" `isInfixOf` stderr)
 
     , dataDependencyTests damlc
     ]

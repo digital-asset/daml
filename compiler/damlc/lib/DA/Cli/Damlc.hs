@@ -113,7 +113,7 @@ data CommandName =
   | Test
   | Visual
   deriving (Ord, Show, Eq)
-data Command = Command CommandName (IO ())
+data Command = Command CommandName (Maybe ProjectOpts) (IO ())
 
 cmdIde :: Mod CommandFields Command
 cmdIde =
@@ -189,7 +189,7 @@ cmdTest numProcessors =
     colorOutput = switch $ long "color" <> help "Colored test results"
 
 runTestsInProjectOrFiles :: ProjectOpts -> Maybe [FilePath] -> UseColor -> Maybe FilePath -> Options -> Command
-runTestsInProjectOrFiles projectOpts Nothing color mbJUnitOutput cliOptions = Command Test effect
+runTestsInProjectOrFiles projectOpts Nothing color mbJUnitOutput cliOptions = Command Test (Just projectOpts) effect
   where effect = withExpectProjectRoot (projectRoot projectOpts) "daml test" $ \pPath _ -> do
         withPackageConfig (ProjectPath pPath) $ \PackageConfigFields{..} -> do
             -- TODO: We set up one scenario service context per file that
@@ -198,7 +198,7 @@ runTestsInProjectOrFiles projectOpts Nothing color mbJUnitOutput cliOptions = Co
             -- if source points to a specific file.
             files <- getDamlRootFiles pSrc
             execTest files color mbJUnitOutput cliOptions
-runTestsInProjectOrFiles projectOpts (Just inFiles) color mbJUnitOutput cliOptions = Command Test effect
+runTestsInProjectOrFiles projectOpts (Just inFiles) color mbJUnitOutput cliOptions = Command Test (Just projectOpts) effect
   where effect = withProjectRoot' projectOpts $ \relativize -> do
         inFiles' <- mapM (fmap toNormalizedFilePath . relativize) inFiles
         execTest inFiles' color mbJUnitOutput cliOptions
@@ -220,14 +220,14 @@ cmdVisual =
     command "visual" $ info (helper <*> cmd) $ progDesc "Generate visual from dar" <> fullDesc
     where
       cmd = vis <$> inputDarOpt <*> dotFileOpt
-      vis a b = Command Visual $ execVisual a b
+      vis a b = Command Visual Nothing $ execVisual a b
 
 cmdVisualWeb :: Mod CommandFields Command
 cmdVisualWeb =
     command "visual-web" $ info (helper <*> cmd) $ progDesc "Generate D3-Web Visual from dar" <> fullDesc
     where
       cmd = vis <$> inputDarOpt <*> htmlOutFile <*> openBrowser
-      vis a b browser = Command Visual $ execVisualHtml a b browser
+      vis a b browser = Command Visual Nothing $ execVisualHtml a b browser
 
 cmdBuild :: Int -> Mod CommandFields Command
 cmdBuild numProcessors =
@@ -343,7 +343,7 @@ cmdDocTest numProcessors =
 
 execLicense :: Command
 execLicense =
-  Command License effect
+  Command License Nothing effect
   where
     effect = B.putStr licenseData
     licenseData :: B.ByteString
@@ -357,7 +357,7 @@ execIde :: Telemetry
         -> Maybe LF.Version
         -> Command
 execIde telemetry (Debug debug) enableScenarioService ghcOpts mbProfileDir (fromMaybe LF.versionDefault -> lfVersion) =
-    Command Ide effect
+    Command Ide Nothing effect
   where effect = NS.withSocketsDo $ do
           let threshold =
                   if debug
@@ -407,9 +407,10 @@ newtype WriteInterface = WriteInterface Bool
 
 execCompile :: FilePath -> FilePath -> Options -> WriteInterface -> Maybe FilePath -> Command
 execCompile inputFile outputFile opts (WriteInterface writeInterface) mbIfaceDir =
-  Command Compile effect
+  Command Compile (Just projectOpts) effect
   where
-    effect = withProjectRoot' (ProjectOpts Nothing (ProjectCheck "" False)) $ \relativize -> do
+    projectOpts = ProjectOpts Nothing (ProjectCheck "" False)
+    effect = withProjectRoot' projectOpts $ \relativize -> do
       loggerH <- getLogger opts "compile"
       inputFile <- toNormalizedFilePath <$> relativize inputFile
       opts' <- mkOptions opts { optIfaceDir = mbIfaceDir }
@@ -440,10 +441,11 @@ execCompile inputFile outputFile opts (WriteInterface writeInterface) mbIfaceDir
 
 execLint :: FilePath -> Options -> Command
 execLint inputFile opts =
-  Command Lint effect
+  Command Lint (Just projectOpts) effect
   where
+     projectOpts = ProjectOpts Nothing (ProjectCheck "" False)
      effect =
-       withProjectRoot' (ProjectOpts Nothing (ProjectCheck "" False)) $ \relativize ->
+       withProjectRoot' projectOpts $ \relativize ->
        do
          loggerH <- getLogger opts "lint"
          inputFile <- toNormalizedFilePath <$> relativize inputFile
@@ -511,7 +513,7 @@ withPackageConfig projectPath f = do
 -- database. Otherwise do nothing.
 execInit :: Options -> ProjectOpts -> Command
 execInit opts projectOpts =
-  Command Init effect
+  Command Init (Just projectOpts) effect
   where effect = withProjectRoot' projectOpts $ \_relativize ->
           initPackageDb
             opts
@@ -527,7 +529,7 @@ initPackageDb opts (InitPkgDb shouldInit) =
 
 execBuild :: ProjectOpts -> Options -> Maybe FilePath -> IncrementalBuild -> InitPkgDb -> Command
 execBuild projectOpts options mbOutFile incrementalBuild initPkgDb =
-  Command Build effect
+  Command Build (Just projectOpts) effect
   where effect = withProjectRoot' projectOpts $ \_relativize -> do
             initPackageDb options initPkgDb
             withPackageConfig defaultProjectPath $ \pkgConfig@PackageConfigFields{..} -> do
@@ -558,7 +560,7 @@ execBuild projectOpts options mbOutFile incrementalBuild initPkgDb =
 -- | Remove any build artifacts if they exist.
 execClean :: ProjectOpts -> Command
 execClean projectOpts =
-  Command Clean effect
+  Command Clean (Just projectOpts) effect
   where effect = do
             withProjectRoot' projectOpts $ \_relativize -> do
                 isProject <- doesFileExist projectConfigName
@@ -580,7 +582,7 @@ execPackage:: ProjectOpts
             -> FromDalf
             -> Command
 execPackage projectOpts filePath opts mbOutFile dalfInput =
-  Command Package effect
+  Command Package (Just projectOpts) effect
   where
     effect = withProjectRoot' projectOpts $ \relativize -> do
       loggerH <- getLogger opts "package"
@@ -627,7 +629,7 @@ execPackage projectOpts filePath opts mbOutFile dalfInput =
 
 execInspect :: FilePath -> FilePath -> Bool -> DA.Pretty.PrettyLevel -> Command
 execInspect inFile outFile jsonOutput lvl =
-  Command Inspect effect
+  Command Inspect Nothing effect
   where
     effect = do
       bytes <-
@@ -661,7 +663,7 @@ errorOnLeft desc = \case
 
 execInspectDar :: FilePath -> Command
 execInspectDar inFile =
-  Command InspectDar effect
+  Command InspectDar Nothing effect
   where
     effect = do
       bytes <- B.readFile inFile
@@ -691,7 +693,7 @@ execMigrate ::
     -> Maybe FilePath
     -> Command
 execMigrate projectOpts inFile1_ inFile2_ mbDir =
-  Command Migrate effect
+  Command Migrate (Just projectOpts) effect
   where
     effect = do
       -- See https://github.com/digital-asset/daml/issues/3704
@@ -763,7 +765,7 @@ execMigrate projectOpts inFile1_ inFile2_ mbDir =
 -- manifest from the first.
 execMergeDars :: FilePath -> FilePath -> Maybe FilePath -> Command
 execMergeDars darFp1 darFp2 mbOutFp =
-  Command MergeDars effect
+  Command MergeDars Nothing effect
   where
     effect = do
       let outFp = fromMaybe darFp1 mbOutFp
@@ -790,7 +792,7 @@ execMergeDars darFp1 darFp2 mbOutFp =
 
 -- | Generate daml source files from a dalf package.
 execGenerateSrc :: Options -> FilePath -> Maybe FilePath -> Command
-execGenerateSrc opts dalfFp mbOutDir = Command GenerateSrc effect
+execGenerateSrc opts dalfFp mbOutDir = Command GenerateSrc Nothing effect
   where
     unitId = stringToUnitId $ takeBaseName dalfFp
     effect = do
@@ -818,7 +820,7 @@ execGenerateSrc opts dalfFp mbOutDir = Command GenerateSrc effect
 
 -- | Generate daml source files containing generic instances for data types.
 execGenerateGenSrc :: FilePath -> Maybe String -> Maybe FilePath -> Command
-execGenerateGenSrc darFp mbQual outDir = Command GenerateGenerics effect
+execGenerateGenSrc darFp mbQual outDir = Command GenerateGenerics Nothing effect
   where
     effect = do
         ExtractedDar {..} <- extractDar darFp
@@ -854,7 +856,7 @@ execGenerateGenSrc darFp mbQual outDir = Command GenerateGenerics effect
 
 execDocTest :: Options -> [FilePath] -> Command
 execDocTest opts files =
-  Command DocTest effect
+  Command DocTest Nothing effect
   where
     effect = do
       let files' = map toNormalizedFilePath files
@@ -884,7 +886,7 @@ options numProcessors =
       <> cmdPackage numProcessors
       <> cmdBuild numProcessors
       <> cmdTest numProcessors
-      <> Damldoc.cmd numProcessors (\cli -> Command DamlDoc $ Damldoc.exec cli)
+      <> Damldoc.cmd numProcessors (\cli -> Command DamlDoc Nothing $ Damldoc.exec cli)
       <> cmdVisual
       <> cmdVisualWeb
       <> cmdInspectDar
@@ -916,10 +918,15 @@ parserInfo numProcessors =
         ])
     )
 
-cliArgsFromDamlYaml :: IO [String]
-cliArgsFromDamlYaml = do
+cliArgsFromDamlYaml :: Maybe ProjectOpts -> IO [String]
+cliArgsFromDamlYaml mbProjectOpts = do
+    -- This is the same logic used in withProjectRoot but we don’t need to change CWD here
+    -- and this is simple enough so we inline it here.
+    mbEnvProjectPath <- fmap ProjectPath <$> getProjectPath
+    let mbProjectPath = projectRoot =<< mbProjectOpts
+    let projectPath = fromMaybe (ProjectPath ".") (mbProjectPath <|> mbEnvProjectPath)
     handle (\(_ :: ConfigError) -> return []) $ do
-        project <- readProjectConfig $ ProjectPath "."
+        project <- readProjectConfig projectPath
         case queryProjectConfigRequired ["build-options"] project of
             Left _ -> pure []
             Right xs -> pure xs
@@ -931,16 +938,16 @@ main = do
     numProcessors <- getNumProcessors
     let parse = ParseArgs.lax (parserInfo numProcessors)
     cliArgs <- getArgs
-    damlYamlArgs <- cliArgsFromDamlYaml
     let (_, tempParseResult) = parse cliArgs
     -- Note: need to parse given args first to decide whether we need to add
     -- args from daml.yaml.
-    Command cmd _ <- handleParseResult tempParseResult
+    Command cmd mbProjectOpts _ <- handleParseResult tempParseResult
+    damlYamlArgs <- cliArgsFromDamlYaml mbProjectOpts
     let args = if cmd `elem` [Build, Compile, Ide, Test, DamlDoc]
                then cliArgs ++ damlYamlArgs
                else cliArgs
         (errMsgs, parseResult) = parse args
-    Command _ io <- handleParseResult parseResult
+    Command _ _ io <- handleParseResult parseResult
     forM_ errMsgs $ \msg -> do
         hPutStrLn stderr msg
     withProgName "damlc" io
