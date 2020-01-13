@@ -15,7 +15,7 @@ import scalaz.Equal
 import scala.annotation.tailrec
 import scala.annotation.unchecked.uncheckedVariance
 import scala.collection.breakOut
-import scala.collection.immutable.{SortedMap, TreeMap}
+import scala.collection.immutable.{HashMap, SortedMap, TreeMap}
 import scala.util.Try
 
 case class VersionedTransaction[Nid, Cid](
@@ -383,6 +383,7 @@ object Transaction {
   /** Transaction nodes */
   type Node = GenNode.WithTxValue[NodeId, TContractId]
   type LeafNode = LeafOnlyNode.WithTxValue[TContractId]
+  type CreateNode = Node.NodeCreate.WithTxValue[TContractId]
 
   /** (Complete) transactions, which are the result of interpreting a
     *  ledger-update. These transactions are consumed by either the
@@ -472,6 +473,8 @@ object Transaction {
     *
     *  @param nextNodeId The next free node-id to use.
     *  @param nodes The nodes of the transaction graph being built up.
+    *  @param createNodes The ids of the create node of the transaction
+    *                     being built up indexed by contractId
     *  @param consumedBy 'ContractId's of all contracts that have
     *                    been consumed by nodes up to now.
     *  @param context The context of what sub-transaction is being
@@ -496,6 +499,7 @@ object Transaction {
   case class PartialTransaction(
       nextNodeId: NodeId,
       nodes: SortedMap[NodeId, Node],
+      createNodes: HashMap[RelativeContractId, NodeId],
       consumedBy: Map[TContractId, NodeId],
       context: Context,
       aborted: Option[TransactionError],
@@ -570,8 +574,9 @@ object Transaction {
     def lookupLocalContract(lcoid: RelativeContractId)
       : Option[(ContractInst[Transaction.Value[TContractId]], Option[NodeId])] =
       for {
-        _ <- if (0 <= lcoid.txnid.index) Some(()) else None
-        node <- nodes.get(lcoid.txnid)
+        _ <- if (0 <= lcoid.index) Some(()) else None
+        nodeId <- createNodes.get(lcoid)
+        node <- nodes.get(nodeId)
         coinst <- node match {
           case create: NodeCreate.WithTxValue[TContractId] =>
             Some((create.coinst, consumedBy.get(lcoid)))
@@ -595,17 +600,21 @@ object Transaction {
           s"""Trying to create a contract with a non-serializable value: ${serializableErrs.iterator
             .mkString(",")}""")
       } else {
-        val (nid, ptx) =
-          insertLeafNode(
-            nid =>
-              NodeCreate(
-                RelativeContractId(nid),
-                coinst,
-                optLocation,
-                signatories,
-                stakeholders,
-                key))
-        val cid = nodeIdToContractId(nid)
+        val cid = RelativeContractId.fromNodeId(nextNodeId)
+        val node = NodeCreate(
+          cid,
+          coinst,
+          optLocation,
+          signatories,
+          stakeholders,
+          key
+        )
+        val ptx = copy(
+          nextNodeId = nextNodeId.next,
+          nodes = nodes.updated(nextNodeId, node),
+          createNodes = createNodes.updated(cid, nextNodeId),
+          context = context.addChild(nextNodeId),
+        )
         // if we have a contract key being added, include it in the list of
         // active keys
         key match {
@@ -777,15 +786,11 @@ object Transaction {
     def initial = PartialTransaction(
       nextNodeId = NodeId.first,
       nodes = TreeMap.empty[NodeId, Node],
+      createNodes = HashMap.empty,
       consumedBy = Map.empty,
       context = ContextRoot(),
       aborted = None,
       keys = Map.empty
     )
   }
-
-  // ---------------
-  // pure helpers
-  // ---------------
-  def nodeIdToContractId(nodeId: NodeId) = RelativeContractId(nodeId)
 }

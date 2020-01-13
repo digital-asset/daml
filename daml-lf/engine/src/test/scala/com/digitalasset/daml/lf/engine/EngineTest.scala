@@ -905,7 +905,10 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       val bobView = Blinding.divulgedTransaction(blindingInfo.localDisclosure, bob, tx)
       bobView.nodes.size shouldBe 2
 
-      bobView.nodes(Tx.NodeId.unsafeFromIndex(0)) match {
+      val ImmArray(rootNodeId) = tx.roots
+      val Seq(childNodeId) = (tx.nodes.keySet - rootNodeId).toSeq
+
+      bobView.nodes(rootNodeId) match {
         case NodeExercises(
             coid,
             _,
@@ -923,12 +926,12 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
           coid shouldBe AbsoluteContractId(originalCoid)
           consuming shouldBe true
           actingParties shouldBe Set(bob)
-          children shouldBe ImmArray(Tx.NodeId.unsafeFromIndex(1))
+          children shouldBe ImmArray(childNodeId)
           choice shouldBe "Transfer"
         case _ => fail("exercise expected first for Bob")
       }
 
-      bobView.nodes(Tx.NodeId.unsafeFromIndex(1)) match {
+      bobView.nodes(childNodeId) match {
         case NodeCreate(_, coins, _, _, stakeholders, _) =>
           coins.template shouldBe templateId
           stakeholders shouldBe Set(alice, clara)
@@ -939,7 +942,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       val claraView = Blinding.divulgedTransaction(blindingInfo.localDisclosure, clara, tx)
 
       claraView.nodes.size shouldBe 1
-      claraView.nodes(Tx.NodeId.unsafeFromIndex(1)) match {
+      claraView.nodes(childNodeId) match {
         case NodeCreate(_, coins, _, _, stakeholders, _) =>
           coins.template shouldBe templateId
           stakeholders shouldBe Set(alice, clara)
@@ -949,6 +952,9 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
 
     "events generated correctly" in {
       val Right(tx) = interpretResult
+      val ImmArray(rootNodeId) = tx.roots
+      val Seq(childNodeId) = (tx.nodes.keySet - rootNodeId).toSeq
+
       val Right(blindingInfo) =
         Blinding.checkAuthorizationAndBlind(tx, Set(bob))
       val events = Event.collectEvents(tx, blindingInfo.disclosure)
@@ -966,17 +972,17 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
               ImmArray((Some[Name]("newReceiver"), ValueParty(clara))))),
           actingParties = Set(bob),
           isConsuming = true,
-          children = ImmArray(Tx.NodeId.unsafeFromIndex(1)),
+          children = ImmArray(childNodeId),
           stakeholders = Set(bob, alice),
           witnesses = Set(bob, alice),
           exerciseResult = Some(
-            assertAsVersionedValue(
-              ValueContractId(RelativeContractId(Tx.NodeId.unsafeFromIndex(1)))))
+            assertAsVersionedValue(ValueContractId(RelativeContractId.fromNodeId(childNodeId))))
         )
-      val bobVisibleCreate = partyEvents.events(Tx.NodeId.unsafeFromIndex(1))
+
+      val bobVisibleCreate = partyEvents.events(childNodeId)
       bobVisibleCreate shouldBe
         CreateEvent(
-          RelativeContractId(Tx.NodeId.unsafeFromIndex(1)),
+          RelativeContractId.fromNodeId(childNodeId),
           Identifier(basicTestsPkgId, "BasicTests:CallablePayout"),
           None,
           assertAsVersionedValue(

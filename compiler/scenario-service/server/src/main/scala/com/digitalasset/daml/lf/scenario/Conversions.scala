@@ -293,10 +293,10 @@ case class Conversions(homePackageId: Ref.PackageId) {
           .setContractId(coid)
           .setTemplateId(convertIdentifier(templateId))
           .build
-      case V.RelativeContractId(txnid) =>
+      case V.RelativeContractId(index) =>
         ContractRef.newBuilder
           .setRelative(true)
-          .setContractId(txnid.index.toString)
+          .setContractId(index.toString)
           .setTemplateId(convertIdentifier(templateId))
           .build
     }
@@ -304,7 +304,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
   def convertContractId(coid: V.ContractId): String =
     coid match {
       case V.AbsoluteContractId(coid) => coid
-      case V.RelativeContractId(txnid) => txnid.index.toString
+      case V.RelativeContractId(index) => index.toString
     }
 
   def convertScenarioStep(
@@ -626,8 +626,8 @@ case class Conversions(homePackageId: Ref.PackageId) {
         coid match {
           case V.AbsoluteContractId(acoid) =>
             builder.setContractId(acoid)
-          case V.RelativeContractId(txnid) =>
-            builder.setContractId(txnid.index.toString)
+          case V.RelativeContractId(index) =>
+            builder.setContractId(index.toString)
         }
       case V.ValueList(values) =>
         builder.setList(

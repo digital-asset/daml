@@ -30,7 +30,7 @@ object ValueGenerators {
   val defaultCidDecode: ValueCoder.DecodeCid[Tx.TContractId] = ValueCoder.DecodeCid(
     { i: String =>
       if (i.startsWith("RCOID")) {
-        Right(RelativeContractId(Tx.NodeId.unsafeFromIndex(i.split(":::")(1).toInt)))
+        Right(RelativeContractId.unsafeFromIndex(i.split(":::")(1).toInt))
       } else if (i.startsWith("ACOID")) {
         Right(AbsoluteContractId(toContractId(i.split(":::")(1))))
       } else {
@@ -41,7 +41,7 @@ object ValueGenerators {
         parseInt(i)
           .bimap(
             e => ValueCoder.DecodeError(e.getMessage),
-            n => RelativeContractId(NodeId unsafeFromIndex n))
+            n => RelativeContractId.unsafeFromIndex(n))
           .toEither
       else Right(AbsoluteContractId(toContractId(i)))
     }
@@ -55,10 +55,10 @@ object ValueGenerators {
   val defaultCidEncode: ValueCoder.EncodeCid[Tx.TContractId] = ValueCoder.EncodeCid(
     {
       case AbsoluteContractId(coid) => s"ACOID:::${coid: String}"
-      case RelativeContractId(i) => s"RCOID:::${i.index: Int}"
+      case RelativeContractId(i) => s"RCOID:::${i: Int}"
     }, {
       case AbsoluteContractId(coid) => (coid, false)
-      case RelativeContractId(i) => ((i.index: Int).toString, true)
+      case RelativeContractId(i) => ((i: Int).toString, true)
     }
   )
 
@@ -205,7 +205,7 @@ object ValueGenerators {
 
   def coidGen: Gen[ContractId] = {
     val genRel: Gen[ContractId] =
-      Arbitrary.arbInt.arbitrary.map(i => RelativeContractId(Transaction.NodeId.unsafeFromIndex(i)))
+      Arbitrary.arbInt.arbitrary.map(i => RelativeContractId.unsafeFromIndex(i))
     val genAbs: Gen[ContractId] =
       Gen.zip(Gen.alphaChar, Gen.alphaStr) map {
         case (h, t) => AbsoluteContractId(toContractId(h +: t))

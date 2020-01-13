@@ -304,9 +304,28 @@ object Value {
     * to be able to use AbsoluteContractId elsewhere, so that we can
     * automatically upcast to ContractId by subtyping.
     */
-  sealed trait ContractId extends Product with Serializable
+  sealed trait ContractId
   final case class AbsoluteContractId(coid: ContractIdString) extends ContractId
-  final case class RelativeContractId(txnid: NodeId) extends ContractId
+  final class RelativeContractId private (val index: Int) extends ContractId {
+    override def equals(that: Any) = that match {
+      case that: RelativeContractId => this.index == that.index
+      case _ => false
+    }
+
+    override def hashCode() = index
+
+    override def toString = "RelativeContractId(" + index.toString + ")"
+
+    val name: LedgerString = LedgerString.assertFromString(index.toString)
+  }
+
+  object RelativeContractId {
+    def unapply(arg: RelativeContractId): Option[Int] = Some(arg.index)
+
+    def unsafeFromIndex(index: Int) = new RelativeContractId(index)
+
+    def fromNodeId(nodeId: NodeId) = new RelativeContractId(nodeId.index)
+  }
 
   object ContractId {
     implicit val equalInstance: Equal[ContractId] = Equal.equalA
@@ -330,7 +349,6 @@ object Value {
     override def toString = "NodeId(" + index.toString + ")"
 
     val name: LedgerString = LedgerString.assertFromString(index.toString)
-
   }
 
   object NodeId {

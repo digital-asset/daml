@@ -11,11 +11,13 @@ import com.digitalasset.daml.lf.transaction.Transaction
 import com.digitalasset.daml.lf.value.Value
 import Value._
 import com.digitalasset.daml.lf.data.Relation.Relation
+import com.digitalasset.daml.lf.transaction.Transaction.TContractId
 
 import scala.annotation.tailrec
 import scala.collection.generic.CanBuildFrom
 import scala.collection.breakOut
 import scala.collection.immutable
+import scala.collection.immutable.HashMap
 
 /** An in-memory representation of a ledger for scenarios */
 object Ledger {
@@ -43,9 +45,9 @@ object Ledger {
   @inline
   def relativeToAbsoluteContractId(
       commitPrefix: LedgerString,
-      i: RelativeContractId
+      rcoid: RelativeContractId
   ): AbsoluteContractId =
-    txNodeIdToAbsoluteContractId(commitPrefix, i.txnid)
+    AbsoluteContractId(ContractIdString.concat(commitPrefix, rcoid.name))
 
   @inline
   def contractIdToAbsoluteContractId(
@@ -137,6 +139,8 @@ object Ledger {
       roots: ImmArray[Transaction.NodeId],
       // All nodes of this transaction.
       nodes: immutable.SortedMap[Transaction.NodeId, Transaction.Node],
+      // A  relation between a contractId and the node that create it
+      createNodes: immutable.HashMap[TContractId, Transaction.NodeId],
       // A relation between a node id and the parties to which this node gets explicitly disclosed.
       explicitDisclosure: Relation[Transaction.NodeId, Party],
       // A relation between a node id and the parties to which this node get implictly disclosed
@@ -553,6 +557,7 @@ object Ledger {
 
   /** State to use during enriching a transaction with disclosure information. */
   private final case class EnrichState(
+      createNodes: HashMap[TContractId, Transaction.NodeId],
       disclosures: Relation[Transaction.NodeId, Party] = Relation.empty,
       localDivulgences: Relation[Transaction.NodeId, Party] = Relation.empty,
       globalDivulgences: Relation[AbsoluteContractId, Party] = Relation.empty,
@@ -571,10 +576,10 @@ object Ledger {
 
     def divulgeCoidTo(witnesses: Set[Party], coid: ContractId): EnrichState = {
       def divulgeRelativeCoidTo(ws: Set[Party], rcoid: RelativeContractId): EnrichState = {
-        val i = rcoid.txnid
+        val nid = createNodes(rcoid)
         copy(
           localDivulgences = localDivulgences
-            .updated(i, ws union localDivulgences.getOrElse(i, Set.empty)))
+            .updated(nid, ws union localDivulgences.getOrElse(nid, Set.empty)))
       }
 
       coid match {
@@ -604,7 +609,7 @@ object Ledger {
 
     def authorizeCreate(
         nodeId: Transaction.NodeId,
-        create: NodeCreate.WithTxValue[ContractId],
+        create: Transaction.CreateNode,
         signatories: Set[Party],
         authorization: Authorization,
         /** If the create has a key, these are the maintainers */
@@ -920,14 +925,23 @@ object Ledger {
       }
     }
 
+    val createContracts: HashMap[TContractId, Transaction.NodeId] = tr.nodes.collect {
+      case (nodeId, node: Transaction.CreateNode) =>
+        node.coid -> nodeId
+    }(breakOut)
+
     val finalState =
-      tr.roots.foldLeft(EnrichState()) { (s, nodeId) =>
+      tr.roots.foldLeft(EnrichState(createContracts)) { (s, nodeId) =>
         enrichNode(s, initialParentExerciseWitnesses, authorization, nodeId)
       }
+
+    val createNodes: HashMap[TContractId, Transaction.NodeId] =
+      tr.nodes.collect { case (nid, node: Transaction.CreateNode) => node.coid -> nid }(breakOut)
 
     EnrichedTransaction(
       roots = tr.roots,
       nodes = tr.nodes,
+      createNodes = createNodes,
       explicitDisclosure = finalState.disclosures,
       localImplicitDisclosure = finalState.localDivulgences,
       globalImplicitDisclosure = finalState.globalDivulgences,

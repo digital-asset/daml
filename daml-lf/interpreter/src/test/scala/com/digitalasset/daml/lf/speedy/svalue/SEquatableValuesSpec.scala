@@ -9,7 +9,7 @@ import com.digitalasset.daml.lf.data.{FrontStack, InsertOrdMap, Numeric, Ref, Ti
 import com.digitalasset.daml.lf.language.{Ast, Util => AstUtil}
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.speedy.{SBuiltin, SExpr, SValue}
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, NodeId, RelativeContractId}
+import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, RelativeContractId}
 import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor1, TableFor2}
 import org.scalatest.{Matchers, WordSpec}
 import scalaz._
@@ -66,7 +66,7 @@ class SEquatableValuesSpec extends WordSpec with Matchers with TableDrivenProper
     List("a", "b")
       .map(x => SContractId(AbsoluteContractId(Ref.ContractIdString.assertFromString(x))))
   private val relativeContractId =
-    List(0, 1).map(x => SContractId(RelativeContractId(NodeId.unsafeFromIndex(x))))
+    List(0, 1).map(x => SContractId(RelativeContractId.unsafeFromIndex(x)))
   private val contractIds = absoluteContractId ++ relativeContractId
 
   private val enums = List(EnumCon1, EnumCon2).map(SEnum(EnumTypeCon, _))
