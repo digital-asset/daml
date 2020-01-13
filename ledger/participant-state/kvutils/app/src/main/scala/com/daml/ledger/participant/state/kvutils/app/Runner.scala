@@ -106,7 +106,7 @@ class Runner(name: String, construct: ParticipantId => KeyValueLedger) {
     new StandaloneApiServer(
       ApiServerConfig(
         config.participantId,
-        config.archiveFiles.map(_.toFile).toList,
+        List.empty,
         config.port,
         config.address,
         jdbcUrl = "jdbc:h2:mem:server;db_close_delay=-1;db_close_on_exit=false",
