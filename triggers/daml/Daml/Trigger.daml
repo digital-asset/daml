@@ -191,6 +191,10 @@ runTrigger userTrigger = LowLevel.Trigger
                 Some commandId -> (acs { pendingContracts = Map.delete commandId acs.pendingContracts }, Map.delete commandId state.commandsInFlight)
               state' = state { acs = acs', userState, commandsInFlight }
           in runRule userTrigger.rule time state'
+        MHeartbeat ->
+          let userState = userTrigger.updateState state.acs MHeartbeat state.userState
+              state' = state { userState }
+          in runRule userTrigger.rule time state'
 
 -- Internal API
 

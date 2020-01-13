@@ -22,6 +22,7 @@ version: 0.0.1
 dependencies:
   - daml-stdlib
   - daml-prim
+build-options: ["--ghc-option", "-Werror"]
 EOF
       $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$(location daml-trigger.dar)
       rm -rf $$TMP_DIR
