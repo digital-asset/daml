@@ -14,7 +14,9 @@ daml 1.2
 -- | MOVE Prelude DAML-LF primitives, just templates/contracts
 module DA.Internal.Template.Functions where
 
+#ifdef DAML_ANY_TYPE
 import DA.Internal.Any
+#endif
 import DA.Internal.LF
 import DA.Internal.Prelude
 import DA.Internal.Template
@@ -23,55 +25,90 @@ import DA.Internal.Template
 import GHC.Types (primitive)
 #endif
 
-class Template t where
+-- | Constraints satisfied by template types.
+type Template t =
+  ( HasSignatory t
+  , HasObserver t
+  , HasEnsure t
+  , HasAgreement t
+  , HasCreate t
+  , HasFetch t
+  , HasArchive t
+#ifdef DAML_TYPE_REP
+  , HasTemplateTypeRep t
+#ifdef DAML_ANY_TYPE
+  , HasToAnyTemplate t
+  , HasFromAnyTemplate t
+#endif
+#endif
+  )
 
+class HasSignatory t where
   -- | The signatories of a contract.
   signatory : t -> [Party]
 
+class HasObserver t where
   -- | The observers of a contract.
   observer : t -> [Party]
 
+class HasEnsure t where
   -- | A predicate that must be true, otherwise contract creation will fail.
   ensure : t -> Bool
 
+class HasAgreement t where
   -- | The agreement text of a contract.
   agreement : t -> Text
 
+class HasCreate t where
   -- | Create a contract based on a template `t`.
   create : t -> Update (ContractId t)
 
+class HasFetch t where
   -- | Fetch the contract data associated with the given contract ID.
   -- If the `ContractId t` supplied is not the contract ID of an active
   -- contract, this fails and aborts the entire transaction.
   fetch : ContractId t -> Update t
 
+class HasArchive t where
   -- | Archive the contract with the given contract ID.
   archive : ContractId t -> Update ()
 
-  -- | Wrap the template in AnyTemplate
-  toAnyTemplate : t -> AnyTemplate
-
-  -- | Extract the underlying template from AnyTemplate if the type matches
-  -- or return `None`.
-  fromAnyTemplate : AnyTemplate -> Optional t
-
-  -- | Generate a unique textual representation of the template Id.
-  _templateTypeRep : proxy t -> TemplateTypeRep
-
 -- | The stakeholders of a contract: its signatories and observers.
-stakeholder : Template t => t -> [Party]
+stakeholder : (HasSignatory t, HasObserver t) => t -> [Party]
 stakeholder t = signatory t ++ observer t
 
-class Template t => Choice t c r | t c -> r where
+-- | Constraints satisfied by template choice types.
+type Choice t c r =
+  ( Template t
+  , HasExercise t c r
+#ifdef DAML_TYPE_REP && DAML_ANY_TYPE
+  , HasToAnyChoice t c r
+  , HasFromAnyChoice t c r
+#endif
+  )
+
+class HasExercise t c r | t c -> r where
   -- | Exercise a choice on the contract with the given contract ID.
   exercise : ContractId t -> c -> Update r
-  _toAnyChoice : proxy t -> c -> Any
-  _fromAnyChoice : proxy t -> Any -> Optional c
 
-class Template t => TemplateKey t k | t -> k where
+-- | Constrants satisfied by template key types.
+type TemplateKey t k =
+  ( Template t
+  , HasKey t k
+  , HasLookupByKey t k
+  , HasFetchByKey t k
+  , HasMaintainer t k
+#ifdef DAML_TYPE_REP && DAML_ANY_TYPE
+  , HasToAnyContractKey t k
+  , HasFromAnyContractKey t k
+#endif
+  )
+
+class HasKey t k | t -> k where
   -- | The key of a contract.
   key : t -> k
 
+class HasLookupByKey t k | t -> k where
   -- | Look up the contract ID `t` associated with a given contract key `k`.
   --
   -- You must pass the `t` using an explicit type application. For
@@ -79,6 +116,7 @@ class Template t => TemplateKey t k | t -> k where
   -- key `k`, you must call `lookupByKey @Account k`.
   lookupByKey : k -> Update (Optional (ContractId t))
 
+class HasFetchByKey t k | t -> k where
   -- | Fetch the contract ID and contract data associated with a given
   -- contract key.
   --
@@ -86,7 +124,9 @@ class Template t => TemplateKey t k | t -> k where
   -- instance, if you want to fetch a contract of template `Account` by its
   -- key `k`, you must call `fetchByKey @Account k`.
   fetchByKey : k -> Update (ContractId t, t)
-  -- NOTE(FM): the motivation for this function to return both the
+
+class HasMaintainer t k | t -> k where
+  -- NOTE(F. Mazzoli): the motivation for this function to return both the
   -- contract ID and the contract instance is that `fetchByKey` results in
   -- a fetch node in the transaction structure, and the fetch node
   -- contains the contract data, so we might as well include it here.
@@ -102,11 +142,8 @@ class Template t => TemplateKey t k | t -> k where
   -- | The list of maintainers of a contract key.
   _maintainer : proxy t -> k -> [Party]
 
-  _toAnyContractKey : proxy t -> k -> Any
-  _fromAnyContractKey : proxy t -> Any -> Optional k
-
 -- | The list of maintainers of a contract key.
-maintainer : forall t k. TemplateKey t k => k -> [Party]
+maintainer : forall t k. HasMaintainer t k => k -> [Party]
 maintainer = _maintainer ([] : [t])
 
 -- | Exercise a choice on the contract associated with the given key.
@@ -115,13 +152,13 @@ maintainer = _maintainer ([] : [t])
 -- instance, if you want to exercise a choice `Withdraw` on a contract of
 -- template `Account` given by its key `k`, you must call
 -- `exerciseByKey @Account k Withdraw`.
-exerciseByKey : forall t k c r. (TemplateKey t k, Choice t c r) => k -> c -> Update r
+exerciseByKey : forall t k c r. (HasFetchByKey t k, HasExercise t c r) => k -> c -> Update r
 exerciseByKey k c = do
     (cid, _) <- fetchByKey @t k
     exercise cid c
 
 -- | Create a contract and exercise the choice on the newly created contract.
-createAndExercise : forall t k c r. Choice t c r => t -> c -> Update r
+createAndExercise : forall t k c r. (HasCreate t, HasExercise t c r) => t -> c -> Update r
 createAndExercise t c = do
     cid <- create t
     exercise cid c
@@ -165,14 +202,46 @@ instance Eq AnyContractKey where
 #endif
 
 #ifdef DAML_TYPE_REP
+
+class HasTemplateTypeRep t where
+  -- | Generate a unique textual representation of the template Id.
+  _templateTypeRep : proxy t -> TemplateTypeRep
+
 -- | Generate a unique textual representation of the template Id.
-templateTypeRep : forall t. Template t => TemplateTypeRep
+templateTypeRep : forall t. HasTemplateTypeRep t => TemplateTypeRep
 templateTypeRep = _templateTypeRep ([] : [t])
 
 instance Eq TemplateTypeRep where
   TemplateTypeRep a == TemplateTypeRep b = a == b
 
 #ifdef DAML_ANY_TYPE
+
+class HasToAnyTemplate t where
+  _toAnyTemplate : t -> Any
+
+class HasFromAnyTemplate t where
+  _fromAnyTemplate : Any -> Optional t
+
+class HasToAnyChoice t c r | t c -> r where
+  _toAnyChoice : proxy t -> c -> Any
+
+class HasFromAnyChoice t c r | t c -> r where
+  _fromAnyChoice : proxy t -> Any -> Optional c
+
+class HasToAnyContractKey t k | t -> k where
+  _toAnyContractKey : proxy t -> k -> Any
+
+class HasFromAnyContractKey t k | t -> k where
+  _fromAnyContractKey : proxy t -> Any -> Optional k
+
+-- | Wrap the template in AnyTemplate
+toAnyTemplate : HasToAnyTemplate t => t -> AnyTemplate
+toAnyTemplate x = AnyTemplate (_toAnyTemplate x)
+
+-- | Extract the underlying template from AnyTemplate if the type matches
+-- or return `None`.
+fromAnyTemplate : HasFromAnyTemplate t => AnyTemplate -> Optional t
+fromAnyTemplate (AnyTemplate x) = _fromAnyTemplate x
 
 toAnyChoice : forall t c r. Choice t c r => c -> AnyChoice
 toAnyChoice c =
