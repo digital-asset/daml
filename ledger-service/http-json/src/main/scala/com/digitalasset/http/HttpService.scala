@@ -217,6 +217,7 @@ object HttpService extends StrictLogging {
       packageService.resolveKeyType,
       jsValueToApiValueConverter.jsObjectToApiRecord,
       jsValueToApiValueConverter.jsValueToApiValue,
+      jsValueToApiValueConverter.jsValueToLfValue,
     )
 
     (encoder, decoder)

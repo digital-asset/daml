@@ -58,12 +58,16 @@ class CommandService(
   private def liftET[A](fa: Future[A]): EitherT[Future, Error, A] = EitherT.rightT(fa)
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  def exercise(jwt: Jwt, jwtPayload: JwtPayload, input: ExerciseCommand[lav1.value.Value])
+  def exercise(
+      jwt: Jwt,
+      jwtPayload: JwtPayload,
+      input: ExerciseCommand[lav1.value.Value, (domain.TemplateId.RequiredPkg, domain.ContractId)])
     : Future[Error \/ ExerciseResponse[lav1.value.Value]] = {
 
+    val command = exerciseCommand(input)
+    val request = submitAndWaitRequest(jwtPayload, input.meta, command)
+
     val et: EitherT[Future, Error, ExerciseResponse[lav1.value.Value]] = for {
-      command <- EitherT.either(exerciseCommand(input))
-      request = submitAndWaitRequest(jwtPayload, input.meta, command)
       response <- liftET(logResult('exercise, submitAndWaitForTransactionTree(jwt, request)))
       exerciseResult <- EitherT.either(exerciseResult(response))
       contracts <- EitherT.either(contracts(response))
@@ -76,11 +80,13 @@ class CommandService(
   def exerciseWithResult(
       jwt: Jwt,
       jwtPayload: JwtPayload,
-      input: ExerciseCommand[lav1.value.Value]): Future[Error \/ lav1.value.Value] = {
+      input: ExerciseCommand[lav1.value.Value, (domain.TemplateId.RequiredPkg, domain.ContractId)])
+    : Future[Error \/ lav1.value.Value] = {
+
+    val command = exerciseCommand(input)
+    val request = submitAndWaitRequest(jwtPayload, input.meta, command)
 
     val et: EitherT[Future, Error, lav1.value.Value] = for {
-      command <- EitherT.either(exerciseCommand(input))
-      request = submitAndWaitRequest(jwtPayload, input.meta, command)
       response <- liftET(
         logResult('exerciseWithResult, submitAndWaitForTransactionTree(jwt, request)))
       result <- EitherT.either(exerciseResult(response))
@@ -106,12 +112,14 @@ class CommandService(
   }
 
   private def exerciseCommand(
-      input: ExerciseCommand[lav1.value.Value]): Error \/ lav1.commands.Command.Command.Exercise =
-    resolveTemplateId(input.templateId)
-      .toRightDisjunction(
-        Error('exerciseCommand, ErrorMessages.cannotResolveTemplateId(input.templateId)))
-      .map(tpId =>
-        Commands.exercise(refApiIdentifier(tpId), input.contractId, input.choice, input.argument))
+      input: ExerciseCommand[lav1.value.Value, (domain.TemplateId.RequiredPkg, domain.ContractId)])
+    : lav1.commands.Command.Command.Exercise = {
+    Commands.exercise(
+      templateId = refApiIdentifier(input.reference._1),
+      contractId = input.reference._2,
+      choice = input.choice,
+      argument = input.argument)
+  }
 
   private def submitAndWaitRequest(
       jwtPayload: JwtPayload,

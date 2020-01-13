@@ -13,7 +13,7 @@ import scala.language.higherKinds
 
 class DomainJsonEncoder(
     apiRecordToJsObject: lav1.value.Record => JsonError \/ JsObject,
-    apiValueToJsValue: lav1.value.Value => JsonError \/ JsValue) {
+    val apiValueToJsValue: lav1.value.Value => JsonError \/ JsValue) {
 
   def encodeR[F[_]](fa: F[lav1.value.Record])(
       implicit ev1: Traverse[F],

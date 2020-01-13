@@ -189,8 +189,10 @@ class Ledger {
    */
   async exercise<T extends object, C, R>(choice: Choice<T, C, R>, contractId: ContractId<T>, argument: C): Promise<[R , Event<object>[]]> {
     const payload = {
-      templateId: choice.template().templateId,
-      contractId,
+      reference: {
+        templateId: choice.template().templateId,
+        contractId
+      },
       choice: choice.choiceName,
       argument,
     };

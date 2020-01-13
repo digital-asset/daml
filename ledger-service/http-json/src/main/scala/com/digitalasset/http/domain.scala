@@ -6,6 +6,7 @@ package com.digitalasset.http
 import java.time.Instant
 
 import akka.http.scaladsl.model.{StatusCode, StatusCodes}
+import com.digitalasset.daml.lf
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.iface
 import com.digitalasset.http.util.ClientUtil.boxedRecord
@@ -34,6 +35,8 @@ object domain {
       s"domain.Error, ${e.id: Symbol}: ${e.message: String}"
     }
   }
+
+  type LfValue = lf.value.Value[lf.value.Value.AbsoluteContractId]
 
   case class JwtPayload(ledgerId: lar.LedgerId, applicationId: lar.ApplicationId, party: Party)
 
@@ -83,9 +86,8 @@ object domain {
       argument: LfV,
       meta: Option[CommandMeta])
 
-  final case class ExerciseCommand[+LfV](
-      templateId: TemplateId.OptionalPkg,
-      contractId: lar.ContractId,
+  final case class ExerciseCommand[+LfV, +Ref](
+      reference: Ref,
       choice: lar.Choice,
       argument: LfV,
       meta: Option[CommandMeta])
@@ -387,17 +389,33 @@ object domain {
   }
 
   object ExerciseCommand {
-    implicit val traverseInstance: Traverse[ExerciseCommand] = new Traverse[ExerciseCommand] {
-      override def traverseImpl[G[_]: Applicative, A, B](fa: ExerciseCommand[A])(
-          f: A => G[B]): G[ExerciseCommand[B]] = f(fa.argument).map(a => fa.copy(argument = a))
+    implicit val bitraverseInstance: Bitraverse[ExerciseCommand] = new Bitraverse[ExerciseCommand] {
+      override def bitraverseImpl[G[_]: Applicative, A, B, C, D](
+          fab: ExerciseCommand[A, B])(f: A => G[C], g: B => G[D]): G[ExerciseCommand[C, D]] = {
+        import scalaz.syntax.applicative._
+        ^(f(fab.argument), g(fab.reference))((c, d) => fab.copy(argument = c, reference = d))
+      }
     }
 
-    implicit val hasTemplateId: HasTemplateId[ExerciseCommand] =
-      new HasTemplateId[ExerciseCommand] {
-        override def templateId(fa: ExerciseCommand[_]): TemplateId.OptionalPkg = fa.templateId
+    implicit val leftTraverseInstance: Traverse[ExerciseCommand[+?, Nothing]] =
+      bitraverseInstance.leftTraverse
+
+    implicit val hasTemplateId =
+      new HasTemplateId[ExerciseCommand[+?, domain.ContractLocator[_]]] {
+
+        override def templateId(
+            fab: ExerciseCommand[_, domain.ContractLocator[_]]): TemplateId.OptionalPkg = {
+          fab.reference match {
+            case EnrichedContractKey(templateId, _) => templateId
+            case EnrichedContractId(Some(templateId), _) => templateId
+            case EnrichedContractId(None, _) =>
+              throw new IllegalArgumentException(
+                "Please specify templateId, optional templateId is not supported yet!")
+          }
+        }
 
         override def lfType(
-            fa: ExerciseCommand[_],
+            fa: ExerciseCommand[_, domain.ContractLocator[_]],
             templateId: TemplateId.RequiredPkg,
             f: PackageService.ResolveTemplateRecordType,
             g: PackageService.ResolveChoiceRecordType,
