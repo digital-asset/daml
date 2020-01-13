@@ -158,7 +158,8 @@ class IndexerIT extends AsyncWordSpec with Matchers with BeforeAndAfterEach {
           .toScala
         _ <- server.release()
       } yield {
-        loggerFactory.logs(classOf[RecoveringIndexer]) shouldBe Seq(
+        // stopping the server and logging the error can happen in either order
+        loggerFactory.logs(classOf[RecoveringIndexer]) should contain theSameElementsAs Seq(
           Level.INFO -> "Starting Indexer Server",
           Level.INFO -> "Started Indexer Server",
           Level.INFO -> "Stopping Indexer Server",
