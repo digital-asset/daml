@@ -18,7 +18,11 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlSubmission
 }
 import com.daml.ledger.participant.state.kvutils.api.{LedgerReader, LedgerRecord, LedgerWriter}
-import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting}
+import com.daml.ledger.participant.state.kvutils.{
+  Envelope,
+  KeyValueCommitting,
+  SequentialLogEntryId
+}
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -32,7 +36,6 @@ import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.{breakOut, mutable}
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Random
 
 private[memory] class LogEntry(val entryId: DamlLogEntryId, val payload: Array[Byte])
 
@@ -67,7 +70,7 @@ final class InMemoryLedgerReaderWriter(
         val stateInputs: Map[DamlStateKey, Option[DamlStateValue]] =
           submission.getInputDamlStateList.asScala
             .map(key => key -> currentState.state.get(key.toByteString))(breakOut)
-        val entryId = allocateEntryId()
+        val entryId = sequentialLogEntryId.next()
         val (logEntry, damlStateUpdates) =
           KeyValueCommitting.processSubmission(
             engine,
@@ -125,17 +128,9 @@ final class InMemoryLedgerReaderWriter(
   private val dispatcher: Dispatcher[Int] =
     Dispatcher("in-memory-key-value-participant-state", zeroIndex = 0, headAtInitialization = 0)
 
-  private val randomNumberGenerator = new Random()
+  private val NamespaceLogEntries = "L"
 
-  private val NamespaceLogEntries = ByteString.copyFromUtf8("L")
-
-  private def allocateEntryId(): DamlLogEntryId = {
-    val nonce: Array[Byte] = Array.ofDim(8)
-    randomNumberGenerator.nextBytes(nonce)
-    DamlLogEntryId.newBuilder
-      .setEntryId(NamespaceLogEntries.concat(ByteString.copyFrom(nonce)))
-      .build
-  }
+  private val sequentialLogEntryId = new SequentialLogEntryId(NamespaceLogEntries)
 
   private def currentRecordTime(): Timestamp =
     Timestamp.assertFromInstant(Clock.systemUTC().instant())
