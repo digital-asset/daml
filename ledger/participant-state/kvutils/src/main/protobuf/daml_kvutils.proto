@@ -72,7 +72,7 @@ message DamlSubmission {
 //
 // Please read comments in [[com.daml.ledger.participant.state.v1.package]]
 // and  [[com.daml.ledger.participant.state.kvutils.package]] for background
-// information. See example implementation in [[InMemoryKeyValueParticipant]].
+// information. See example implementation in [[InMemoryKVParticipantState]].
 message DamlLogEntry {
   // The record time at which this entry was committed.
   google.protobuf.Timestamp record_time = 1;
@@ -97,10 +97,10 @@ message DamlLogEntry {
     // A rejected configuration change.
     DamlConfigurationRejectionEntry configuration_rejection_entry = 7;
 
-    // Allocation of a new DAML party and its assignment to a participant
+    // Allocation of a new DAML party and its assignment to a participant.
     DamlPartyAllocationEntry party_allocation_entry = 8;
 
-    // A rejection of party allocation request
+    // A rejection of party allocation request.
     DamlPartyAllocationRejectionEntry party_allocation_rejection_entry = 9;
   }
 }
@@ -168,7 +168,7 @@ message DamlTransactionRejectionEntry {
 
 // A public package upload.
 // DAML-LF packages will be deduplicated based on their hashes. Only unique
-// ones will be added to the KV storage. Deduplication has no impact on the
+// ones will be added to the key-value storage. Deduplication has no impact on the
 // upload result.
 message DamlPackageUploadEntry {
   // A unique string scoped to a particular participant for matching the
@@ -299,9 +299,9 @@ message DamlPartyAllocationRejectionEntry {
 // DAML state key. [[KeyValueCommitting]] produces effects that are committed
 // to the ledger from the `DamlSubmission`: a log entry to be created, and
 // the set of DAML state updates.
+// The field numbers below must match with the corresponding entries in `DamlStateValue`.
 message DamlStateKey {
   oneof key {
-    // NOTE(JM): Match field numbers with `DamlStateValue`
     string package_id = 1;
     DamlContractId contract_id = 2;
     DamlCommandDedupKey command_dedup = 3;
@@ -313,9 +313,9 @@ message DamlStateKey {
 }
 
 // DAML state values pointed to by `DamlStateKey`.
+// The field numbers below must match with the corresponding entries in `DamlStateKey`.
 message DamlStateValue {
   oneof value {
-    // NOTE(JM): Match field numbers with `DamlStateKey`
     daml_lf_dev.Archive archive = 1;
     DamlContractState contract_state = 2;
     DamlCommandDedupValue command_dedup = 3;
@@ -389,7 +389,7 @@ message DamlContractState {
   // The contract key set by the contract. Optional.
   DamlContractKey contract_key = 6;
 
-  // The contract instance
+  // The contract instance.
   com.digitalasset.daml.lf.transaction.ContractInstance contract_instance = 7;
 }
 
@@ -447,7 +447,7 @@ message LedgerDumpEntry {
 
 // Errors
 
-// The transaction relied on contracts or keys being active that were no longer active
+// The transaction relied on contracts or keys being active that were no longer active.
 message Inconsistent {
   string details = 1;
 }
@@ -458,40 +458,40 @@ message Disputed {
   string details = 1;
 }
 
-// Committer did not have sufficient resources to process the transaction
+// Committer did not have sufficient resources to process the transaction.
 message ResourcesExhausted {
   string details = 1;
 }
 
-// The transaction submission exceeded its maximum record time
+// The transaction submission exceeded its maximum record time.
 message MaximumRecordTimeExceeded {
   string details = 1;
 }
 
 // The committer has already seen a command/submission with the same deduplication
-// key during its implementation specific deduplication window
+// key during its implementation specific deduplication window.
 message Duplicate {
   string details = 1;
 }
 
 // A party mentioned as a stakeholder or actor has not been on-boarded on
-// the ledger
+// the ledger.
 message PartyNotKnownOnLedger {
   string details = 1;
 }
 
-// The submitting party cannot act via participant given
+// The submitting party cannot act via the participant to which the request has been sent.
 message SubmitterCannotActViaParticipant {
   string details = 1;
 }
 
-// Submitted request content was not valid: a daml package, a party name
-// or a configuration
+// Submitted request content was not valid: a DAML package, a party name
+// or a configuration.
 message Invalid {
   string details = 1;
 }
 
-// Participant not authorized to submit the request
+// Participant not authorized to submit the request.
 message ParticipantNotAuthorized {
   string details = 1;
 }
