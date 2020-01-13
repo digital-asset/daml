@@ -100,8 +100,9 @@ data Error
   | EExpectedOptionalType  !Type
   | EEmptyCase
   | EExpectedTemplatableType !TypeConName
-  | EImportCycle           ![ModuleName]
-  | EDataTypeCycle         ![TypeConName]
+  | EImportCycle           ![ModuleName] -- Never reported
+  | ETypeSynCycle          ![TypeSynName]
+  | EDataTypeCycle         ![TypeConName] -- Never reported
   | EValueCycle            ![ExprValName]
   | EImpredicativePolymorphism !Type
   | EForbiddenPartyLiterals ![PartyLiteral] ![Qualified ExprValName]
@@ -261,6 +262,8 @@ instance Pretty Error where
       <-> pretty tpl
     EImportCycle mods ->
       "found import cycle:" $$ vcat (map (\m -> "*" <-> pretty m) mods)
+    ETypeSynCycle syns ->
+      "found type synonym cycle:" $$ vcat (map (\t -> "*" <-> pretty t) syns)
     EDataTypeCycle tycons ->
       "found data type cycle:" $$ vcat (map (\t -> "*" <-> pretty t) tycons)
     EValueCycle names ->
