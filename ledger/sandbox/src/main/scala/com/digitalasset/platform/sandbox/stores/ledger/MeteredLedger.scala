@@ -43,8 +43,10 @@ private class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegis
 
   override def currentHealth(): HealthStatus = ledger.currentHealth()
 
-  override def ledgerEntries(offset: Option[Long]): Source[(Long, LedgerEntry), NotUsed] =
-    ledger.ledgerEntries(offset)
+  override def ledgerEntries(
+      offset: Option[Long],
+      endOpt: Option[Long]): Source[(Long, LedgerEntry), NotUsed] =
+    ledger.ledgerEntries(offset, endOpt)
 
   override def ledgerEnd: Long = ledger.ledgerEnd
 

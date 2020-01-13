@@ -97,7 +97,7 @@ class TransactionMRTComplianceIT
         .publishTransaction(submitterInfo, transactionMeta, dummyTransaction)
         .map(_ shouldBe SubmissionResult.Acknowledged)
       ledger
-        .ledgerEntries(None)
+        .ledgerEntries(None, None)
         .runWith(Sink.head)
         .map(_._2)
         .map {

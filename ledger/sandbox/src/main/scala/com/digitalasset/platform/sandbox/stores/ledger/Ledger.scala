@@ -75,7 +75,9 @@ trait ReadOnlyLedger extends ReportsHealth with AutoCloseable {
 
   def ledgerId: LedgerId
 
-  def ledgerEntries(offset: Option[Long]): Source[(Long, LedgerEntry), NotUsed]
+  def ledgerEntries(
+      beginInclusive: Option[Long],
+      endExclusive: Option[Long]): Source[(Long, LedgerEntry), NotUsed]
 
   def ledgerEnd: Long
 

@@ -81,9 +81,11 @@ class InMemoryLedger(
 
   override def currentHealth(): HealthStatus = Healthy
 
-  override def ledgerEntries(offset: Option[Long]): Source[(Long, LedgerEntry), NotUsed] =
+  override def ledgerEntries(
+      beginInclusive: Option[Long],
+      endExclusive: Option[Long]): Source[(Long, LedgerEntry), NotUsed] =
     entries
-      .getSource(offset)
+      .getSource(beginInclusive, endExclusive)
       .collect { case (offset, InMemoryLedgerEntry(entry)) => offset -> entry }
 
   // mutable state
@@ -288,7 +290,7 @@ class InMemoryLedger(
     })
 
   override def partyEntries(beginOffset: Long): Source[(Long, PartyLedgerEntry), NotUsed] = {
-    entries.getSource(Some(beginOffset)).collect {
+    entries.getSource(Some(beginOffset), None).collect {
       case (offset, InMemoryPartyEntry(partyEntry)) => (offset, partyEntry)
     }
   }
@@ -303,7 +305,7 @@ class InMemoryLedger(
     packageStoreRef.get.getLfPackage(packageId)
 
   override def packageEntries(beginOffset: Long): Source[(Long, PackageLedgerEntry), NotUsed] =
-    entries.getSource(Some(beginOffset)).collect {
+    entries.getSource(Some(beginOffset), None).collect {
       case (offset, InMemoryPackageEntry(entry)) => (offset, entry)
     }
 
@@ -380,7 +382,7 @@ class InMemoryLedger(
   override def configurationEntries(
       startInclusive: Option[Long]): Source[(Long, ConfigurationEntry), NotUsed] =
     entries
-      .getSource(startInclusive)
+      .getSource(startInclusive, None)
       .collect { case (offset, InMemoryConfigEntry(entry)) => offset -> entry }
 
 }
