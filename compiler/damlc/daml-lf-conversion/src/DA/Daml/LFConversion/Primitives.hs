@@ -270,7 +270,7 @@ convertPrim _ "UFetch" (TContractId (TCon template) :-> TUpdate (TCon template')
 
 convertPrim _ "UExercise"
     (TContractId (TCon template) :-> TCon choice :-> TUpdate _returnTy) =
-    -- TODO: restrict template, choice, returnTy to known triples
+    -- TODO: restrict to known template/choice/returnTy triples
     ETmLam (mkVar "this", TContractId (TCon template)) $
     ETmLam (mkVar "arg", TCon choice) $
     EUpdate $ UExercise template choiceName (EVar (mkVar "this")) Nothing (EVar (mkVar "arg"))
@@ -278,14 +278,14 @@ convertPrim _ "UExercise"
     choiceName = ChoiceName (T.intercalate "." $ unTypeConName $ qualObject choice)
 
 convertPrim _ "ULookupByKey" (key :-> TUpdate (TOptional (TContractId (TCon template)))) =
-    -- TODO: restrict template and key to known template/key pairs
+    -- TODO: restrict to known template/key pairs
     ETmLam (mkVar "key", key) $ EUpdate $
         ULookupByKey $ RetrieveByKey template (EVar $ mkVar "key")
 
 convertPrim _ "UFetchByKey"
     (key :-> TUpdate ty@(TApp (TApp (TCon tuple) ty1@(TContractId (TCon template))) ty2))
     | ty2 == TCon template =
-    -- TODO: restrict template and key to known template/key types
+    -- TODO: restrict to known template/key pairs
     ETmLam (mkVar "key", key) $
     EUpdate $ UBind
         (Binding (mkVar "res", TStruct
