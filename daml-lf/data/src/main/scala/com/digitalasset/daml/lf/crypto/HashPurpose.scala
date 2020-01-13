@@ -6,5 +6,6 @@ package com.digitalasset.daml.lf.crypto
 class HashPurpose private (val id: Int)
 
 object HashPurpose {
+  val Testing = new HashPurpose(0)
   val ContractKey = new HashPurpose(1)
 }

@@ -7,13 +7,16 @@ import java.nio.ByteBuffer
 import java.security.MessageDigest
 import java.util
 
-import com.digitalasset.daml.lf.data.Utf8
+import com.digitalasset.daml.lf.data.{Ref, Utf8}
 
 class Hash private (private val bytes: Array[Byte]) {
 
   def toByteArray: Array[Byte] = bytes.clone()
 
-  override def toString: String = bytes.map("%02x" format _).mkString
+  def toHexa: Ref.LedgerString =
+    Ref.LedgerString.assertFromString(bytes.map("%02x" format _).mkString)
+
+  override def toString: String = s"Hash($toHexa)"
 
   override def equals(other: Any): Boolean =
     other match {
@@ -40,6 +43,8 @@ object Hash {
   sealed abstract class Builder private[Hash] {
 
     def add(a: Array[Byte]): Builder
+
+    def add(b: Byte): Builder
 
     def add(a: Hash): Builder = {
       if (a.bytes.isEmpty)
@@ -72,7 +77,7 @@ object Hash {
     def build: Hash
   }
 
-  def hashBuilder(purpose: HashPurpose): Builder = new Builder {
+  def builder(purpose: HashPurpose): Builder = new Builder {
 
     private val md = MessageDigest.getInstance("SHA-256")
 
@@ -81,9 +86,15 @@ object Hash {
       this
     }
 
+    override def add(b: Byte): Builder = {
+      md.update(b)
+      this
+    }
+
     add(purpose.id)
 
     override def build: Hash = new Hash(md.digest)
+
   }
 
 }

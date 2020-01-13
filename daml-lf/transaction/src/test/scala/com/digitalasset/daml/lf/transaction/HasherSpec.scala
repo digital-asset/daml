@@ -1,529 +1,638 @@
-// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.transaction
+package com.digitalasset.daml.lf
+package transaction
 
-import com.digitalasset.daml.lf
 import com.digitalasset.daml.lf.data._
+import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value._
-import com.digitalasset.daml.lf.value.ValueHasher
+import com.digitalasset.daml.lf.value.{Value, ValueVersion}
 import org.scalatest.{Matchers, WordSpec}
 
 import scala.language.implicitConversions
 
 class HasherSpec extends WordSpec with Matchers {
 
-  private type Value = lf.value.Value[AbsoluteContractId]
-
-  private val pkgId = Ref.PackageId.assertFromString("pkgId")
-
-  private implicit def toTypeConName(s: String): Ref.TypeConName =
-    Ref.TypeConName(pkgId, Ref.QualifiedName.assertFromString(s"Mod:$s"))
-
-  private implicit def toName(s: String): Ref.Name =
-    Ref.Name.assertFromString(s)
-
-  private implicit def toSortedLookupList[V](a: ImmArray[(String, V)]) =
-    SortedLookupList.fromSortedImmArray(a).right.get
-
-  private val EnumTypeCon: Ref.TypeConName = "Color"
-  private val EnumTypeConBis: Ref.TypeConName = "ColorBis"
-
-  private val EnumCon1: Ref.Name = "Red"
-  private val EnumCon2: Ref.Name = "Green"
-
-  private val Record0TypeCon: Ref.TypeConName = "Unit"
-  private val Record2TypeCon: Ref.TypeConName = "Tuple"
-  private val Record0TypeConBis: Ref.TypeConName = "UnitBis"
-  private val Record2TypeConBis: Ref.TypeConName = "TupleBis"
-  private val fstField = Ref.Name.assertFromString("_1")
-  private val sndField = Ref.Name.assertFromString("_2")
-
-  private val VariantTypeCon: Ref.TypeConName = "Either"
-  private val VariantTypeConBis: Ref.TypeConName = "EitherBis"
-  private val VariantCon1: Ref.Name = "Left"
-  private val VariantCon2: Ref.Name = "Right"
-
-  private val units =
-    List[Value](
-      ValueUnit
+  private[this] def templateId(module: String, name: String) = Ref.Identifier(
+    Ref.PackageId.assertFromString("package"),
+    Ref.QualifiedName(
+      Ref.ModuleName.assertFromString(module),
+      Ref.DottedName.assertFromString(name)
     )
-  private val bools =
-    List[Value](ValueTrue, ValueFalse)
-  private val ints =
-    List[Value](ValueInt64(-1L), ValueInt64(0L), ValueInt64(1L))
-  private val decimals =
-    List[Value](
-      ValueNumeric(Numeric.assertFromString("-10000.0000000000")),
-      ValueNumeric(Numeric.assertFromString("0.0000000000")),
-      ValueNumeric(Numeric.assertFromString("10000.0000000000")),
-    )
-  private val numeric0s =
-    List[Value](
-      ValueNumeric(Numeric.assertFromString("-10000.")),
-      ValueNumeric(Numeric.assertFromString("0.")),
-      ValueNumeric(Numeric.assertFromString("10000.")),
-    )
-
-  private val texts =
-    List[Value](
-      ValueText(""),
-      ValueText("someText"),
-      ValueText("a¶‱😂"),
-    )
-  private val dates =
-    List[Value](
-      ValueDate(Time.Date.assertFromDaysSinceEpoch(0)),
-      ValueDate(Time.Date.assertFromString("1969-07-21")),
-      ValueDate(Time.Date.assertFromString("2019-12-16")),
-    )
-  private val timestamps =
-    List[Value](
-      ValueTimestamp(Time.Timestamp.assertFromLong(0)),
-      ValueTimestamp(Time.Timestamp.assertFromString("1969-07-21T02:56:15.000000Z")),
-      ValueTimestamp(Time.Timestamp.assertFromString("2019-12-16T11:17:54.940779363Z")),
-    )
-  private val parties =
-    List[Value](
-      ValueParty(Ref.Party.assertFromString("alice")),
-      ValueParty(Ref.Party.assertFromString("bob")),
-    )
-  private val contractIds =
-    List[Value](
-      ValueContractId(
-        AbsoluteContractId(Ref.ContractIdString.assertFromString(
-          "07e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5"))),
-      ValueContractId(
-        AbsoluteContractId(Ref.ContractIdString.assertFromString(
-          "59b59ad7a6b6066e77b91ced54b8282f0e24e7089944685cb8f22f32fcbc4e1b")))
-    )
-
-  private val enums =
-    List[Value](
-      ValueEnum(Some(EnumTypeCon), EnumCon1),
-      ValueEnum(Some(EnumTypeCon), EnumCon2),
-      ValueEnum(Some(EnumTypeConBis), EnumCon2),
-    )
-
-  private val records0 =
-    List[Value](
-      ValueRecord(Some(Record0TypeCon), ImmArray.empty),
-      ValueRecord(Some(Record0TypeCon), ImmArray.empty),
-      ValueRecord(Some(Record0TypeConBis), ImmArray.empty),
-    )
-
-  private val records2 =
-    List[Value](
-      ValueRecord(
-        Some(Record2TypeCon),
-        ImmArray(Some(fstField) -> ValueFalse, Some(sndField) -> ValueFalse)),
-      ValueRecord(
-        Some(Record2TypeCon),
-        ImmArray(Some(fstField) -> ValueTrue, Some(sndField) -> ValueFalse)),
-      ValueRecord(
-        Some(Record2TypeCon),
-        ImmArray(Some(fstField) -> ValueFalse, Some(sndField) -> ValueTrue)),
-      ValueRecord(
-        Some(Record2TypeConBis),
-        ImmArray(Some(fstField) -> ValueFalse, Some(sndField) -> ValueFalse)),
-    )
-
-  private val variants = List[Value](
-    ValueVariant(Some(VariantTypeCon), VariantCon1, ValueFalse),
-    ValueVariant(Some(VariantTypeCon), VariantCon1, ValueTrue),
-    ValueVariant(Some(VariantTypeCon), VariantCon2, ValueFalse),
-    ValueVariant(Some(VariantTypeConBis), VariantCon1, ValueFalse),
   )
 
-  private val lists = List[Value](
-    ValueList(FrontStack.empty),
-    ValueList(FrontStack(ValueFalse)),
-    ValueList(FrontStack(ValueTrue)),
-    ValueList(FrontStack(ValueFalse, ValueFalse)),
-    ValueList(FrontStack(ValueFalse, ValueTrue)),
-    ValueList(FrontStack(ValueTrue, ValueFalse)),
-  )
+  private[this] def complexValue = {
+    val builder = ImmArray.newBuilder[(Option[Ref.Name], Value[AbsoluteContractId])]
+    builder += None -> ValueInt64(0)
+    builder += None -> ValueInt64(123456)
+    builder += None -> ValueInt64(-1)
+    builder += None -> ValueNumeric(decimal(0))
+    builder += None -> ValueNumeric(decimal(BigDecimal("0.3333333333")))
+    builder += None -> ValueTrue
+    builder += None -> ValueFalse
+    builder += None -> ValueDate(Time.Date.assertFromDaysSinceEpoch(0))
+    builder += None -> ValueDate(Time.Date.assertFromDaysSinceEpoch(123456))
+    builder += None -> ValueTimestamp(Time.Timestamp.assertFromLong(0))
+    builder += None -> ValueTimestamp(Time.Timestamp.assertFromLong(123456))
+    builder += None -> ValueText("")
+    builder += None -> ValueText("abcd-äöü€")
+    builder += None -> ValueParty(Ref.Party.assertFromString("Alice"))
+    builder += None -> ValueUnit
+    builder += None -> ValueNone
+    builder += None -> ValueOptional(Some(ValueText("Some")))
+    builder += None -> ValueList(FrontStack(ValueText("A"), ValueText("B"), ValueText("C")))
+    builder += None -> ValueVariant(None, Ref.Name.assertFromString("Variant"), ValueInt64(0))
+    builder += None -> ValueRecord(
+      None,
+      ImmArray(
+        None -> ValueText("field1"),
+        None -> ValueText("field2")
+      ))
+    builder += None -> ValueTextMap(
+      SortedLookupList(
+        Map(
+          "keyA" -> ValueText("valueA"),
+          "keyB" -> ValueText("valueB")
+        )))
+    val fields = builder.result()
 
-  private val textMaps = List[Value](
-    ValueTextMap(SortedLookupList.empty),
-    ValueTextMap(ImmArray("a" -> ValueFalse)),
-    ValueTextMap(ImmArray("a" -> ValueFalse)),
-    ValueTextMap(ImmArray("b" -> ValueFalse)),
-    ValueTextMap(ImmArray("a" -> ValueFalse, "b" -> ValueFalse)),
-    ValueTextMap(ImmArray("a" -> ValueTrue, "b" -> ValueFalse)),
-    ValueTextMap(ImmArray("a" -> ValueFalse, "b" -> ValueTrue)),
-    ValueTextMap(ImmArray("a" -> ValueFalse, "c" -> ValueFalse)),
-  )
+    ValueRecord(None, fields)
+  }
 
-  private val optionals = List[Value](
-    ValueOptional(None),
-    ValueOptional(Some(ValueFalse)),
-    ValueOptional(Some(ValueTrue)),
-    ValueOptional(Some(ValueOptional(None))),
-    ValueOptional(Some(ValueOptional(Some(ValueFalse)))),
-  )
-
-  "Hashing" should {
+  "KeyHasher" should {
 
     "be stable" in {
+      // Hashing function must not change
+      val value = VersionedValue(ValueVersion("4"), complexValue)
+      val hash = "db77982742e7612b0a62e858002cb9a9a895a718d2741defad3e369da271fb74"
 
-      val testCases: List[Value] =
+      Hasher.hash(GlobalKey(templateId("module", "name"), value)).toHexa shouldBe hash
+    }
+
+    "be deterministic and thread safe" in {
+      // Compute many hashes in parallel, check that they are all equal
+      // Note: intentionally does not reuse value instances
+      val hashes = Vector
+        .range(0, 1000)
+        .map(_ =>
+          GlobalKey(templateId("module", "name"), VersionedValue(ValueVersion("4"), complexValue)))
+        .par
+        .map(key => Hasher.hash(key))
+
+      hashes.toSet.size shouldBe 1
+    }
+
+    "not produce collision in template id" in {
+      // Same value but different template ID should produce a different hash
+      val value = VersionedValue(ValueVersion("4"), ValueText("A"))
+
+      val hash1 = Hasher.hash(GlobalKey(templateId("AA", "A"), value))
+      val hash2 = Hasher.hash(GlobalKey(templateId("A", "AA"), value))
+
+      hash1.equals(hash2) shouldBe false
+    }
+
+    "not produce collision in list of text" in {
+      // Testing whether strings are delimited: ["AA", "A"] vs ["A", "AA"]
+      val value1 =
+        VersionedValue(ValueVersion("4"), ValueList(FrontStack(ValueText("AA"), ValueText("A"))))
+      val value2 =
+        VersionedValue(ValueVersion("4"), ValueList(FrontStack(ValueText("A"), ValueText("AA"))))
+
+      val tid = templateId("module", "name")
+
+      val hash1 = Hasher.hash(GlobalKey(tid, value1))
+      val hash2 = Hasher.hash(GlobalKey(tid, value2))
+
+      hash1.equals(hash2) shouldBe false
+    }
+
+    "not produce collision in list of decimals" in {
+      // Testing whether decimals are delimited: [10, 10] vs [101, 0]
+      val value1 =
+        VersionedValue(
+          ValueVersion("4"),
+          ValueList(FrontStack(ValueNumeric(decimal(10)), ValueNumeric(decimal(10)))))
+      val value2 =
+        VersionedValue(
+          ValueVersion("4"),
+          ValueList(FrontStack(ValueNumeric(decimal(101)), ValueNumeric(decimal(0)))))
+
+      val tid = templateId("module", "name")
+
+      val hash1 = Hasher.hash(GlobalKey(tid, value1))
+      val hash2 = Hasher.hash(GlobalKey(tid, value2))
+
+      hash1.equals(hash2) shouldBe false
+    }
+
+    "not produce collision in list of lists" in {
+      // Testing whether lists are delimited: [[()], [(), ()]] vs [[(), ()], [()]]
+      val value1 = VersionedValue(
+        ValueVersion("4"),
+        ValueList(
+          FrontStack(
+            ValueList(FrontStack(ValueUnit)),
+            ValueList(FrontStack(ValueUnit, ValueUnit))
+          )))
+      val value2 = VersionedValue(
+        ValueVersion("4"),
+        ValueList(
+          FrontStack(
+            ValueList(FrontStack(ValueUnit, ValueUnit)),
+            ValueList(FrontStack(ValueUnit))
+          )))
+
+      val tid = templateId("module", "name")
+
+      val hash1 = Hasher.hash(GlobalKey(tid, value1))
+      val hash2 = Hasher.hash(GlobalKey(tid, value2))
+
+      hash1.equals(hash2) shouldBe false
+    }
+
+    "not produce collision in Variant constructor" in {
+      val value1 =
+        VersionedValue(
+          ValueVersion("4"),
+          ValueVariant(None, Ref.Name.assertFromString("A"), ValueUnit))
+      val value2 =
+        VersionedValue(
+          ValueVersion("4"),
+          ValueVariant(None, Ref.Name.assertFromString("B"), ValueUnit))
+
+      val tid = templateId("module", "name")
+
+      val hash1 = Hasher.hash(GlobalKey(tid, value1))
+      val hash2 = Hasher.hash(GlobalKey(tid, value2))
+
+      hash1.equals(hash2) shouldBe false
+    }
+
+    "not produce collision in Variant value" in {
+      val value1 = VersionedValue(
+        ValueVersion("4"),
+        ValueVariant(None, Ref.Name.assertFromString("A"), ValueInt64(0L)))
+      val value2 = VersionedValue(
+        ValueVersion("4"),
+        ValueVariant(None, Ref.Name.assertFromString("A"), ValueInt64(1L)))
+
+      val tid = templateId("module", "name")
+
+      val hash1 = Hasher.hash(GlobalKey(tid, value1))
+      val hash2 = Hasher.hash(GlobalKey(tid, value2))
+
+      hash1.equals(hash2) shouldBe false
+    }
+
+    "not produce collision in Map keys" in {
+      val value1 = VersionedValue(
+        ValueVersion("4"),
+        ValueTextMap(
+          SortedLookupList(
+            Map(
+              "A" -> ValueInt64(0),
+              "B" -> ValueInt64(0)
+            ))))
+      val value2 = VersionedValue(
+        ValueVersion("4"),
+        ValueTextMap(
+          SortedLookupList(
+            Map(
+              "A" -> ValueInt64(0),
+              "C" -> ValueInt64(0)
+            ))))
+
+      val tid = templateId("module", "name")
+
+      val hash1 = Hasher.hash(GlobalKey(tid, value1))
+      val hash2 = Hasher.hash(GlobalKey(tid, value2))
+
+      hash1.equals(hash2) shouldBe false
+    }
+
+    "not produce collision in Map values" in {
+      val value1 = VersionedValue(
+        ValueVersion("4"),
+        ValueTextMap(
+          SortedLookupList(
+            Map(
+              "A" -> ValueInt64(0),
+              "B" -> ValueInt64(0)
+            ))))
+      val value2 = VersionedValue(
+        ValueVersion("4"),
+        ValueTextMap(
+          SortedLookupList(
+            Map(
+              "A" -> ValueInt64(0),
+              "B" -> ValueInt64(1)
+            ))))
+
+      val tid = templateId("module", "name")
+
+      val hash1 = Hasher.hash(GlobalKey(tid, value1))
+      val hash2 = Hasher.hash(GlobalKey(tid, value2))
+
+      hash1.equals(hash2) shouldBe false
+    }
+
+    "not produce collision in Bool" in {
+      val value1 = VersionedValue(ValueVersion("4"), ValueTrue)
+      val value2 = VersionedValue(ValueVersion("4"), ValueFalse)
+
+      val tid = templateId("module", "name")
+
+      val hash1 = Hasher.hash(GlobalKey(tid, value1))
+      val hash2 = Hasher.hash(GlobalKey(tid, value2))
+
+      hash1.equals(hash2) shouldBe false
+    }
+
+    "not produce collision in Int64" in {
+      val value1 = VersionedValue(ValueVersion("4"), ValueInt64(0L))
+      val value2 = VersionedValue(ValueVersion("4"), ValueInt64(1L))
+
+      val tid = templateId("module", "name")
+
+      val hash1 = Hasher.hash(GlobalKey(tid, value1))
+      val hash2 = Hasher.hash(GlobalKey(tid, value2))
+
+      hash1.equals(hash2) shouldBe false
+    }
+
+    "not produce collision in Decimal" in {
+      val value1 = VersionedValue(ValueVersion("4"), ValueNumeric(decimal(0)))
+      val value2 = VersionedValue(ValueVersion("4"), ValueNumeric(decimal(1)))
+
+      val tid = templateId("module", "name")
+
+      val hash1 = Hasher.hash(GlobalKey(tid, value1))
+      val hash2 = Hasher.hash(GlobalKey(tid, value2))
+
+      hash1.equals(hash2) shouldBe false
+    }
+
+    "not produce collision in Date" in {
+      val value1 =
+        VersionedValue(ValueVersion("4"), ValueDate(Time.Date.assertFromDaysSinceEpoch(0)))
+      val value2 =
+        VersionedValue(ValueVersion("4"), ValueDate(Time.Date.assertFromDaysSinceEpoch(1)))
+
+      val tid = templateId("module", "name")
+
+      val hash1 = Hasher.hash(GlobalKey(tid, value1))
+      val hash2 = Hasher.hash(GlobalKey(tid, value2))
+
+      hash1.equals(hash2) shouldBe false
+    }
+
+    "not produce collision in Timestamp" in {
+      val value1 =
+        VersionedValue(ValueVersion("4"), ValueTimestamp(Time.Timestamp.assertFromLong(0)))
+      val value2 =
+        VersionedValue(ValueVersion("4"), ValueTimestamp(Time.Timestamp.assertFromLong(1)))
+
+      val tid = templateId("module", "name")
+
+      val hash1 = Hasher.hash(GlobalKey(tid, value1))
+      val hash2 = Hasher.hash(GlobalKey(tid, value2))
+
+      hash1.equals(hash2) shouldBe false
+    }
+
+    "not produce collision in Optional" in {
+      val value1 = VersionedValue(ValueVersion("4"), ValueNone)
+      val value2 = VersionedValue(ValueVersion("4"), ValueOptional(Some(ValueUnit)))
+
+      val tid = templateId("module", "name")
+
+      val hash1 = Hasher.hash(GlobalKey(tid, value1))
+      val hash2 = Hasher.hash(GlobalKey(tid, value2))
+
+      hash1.equals(hash2) shouldBe false
+    }
+
+    "not produce collision in Record" in {
+      val value1 = VersionedValue(
+        ValueVersion("4"),
+        ValueRecord(
+          None,
+          ImmArray(
+            None -> ValueText("A"),
+            None -> ValueText("B")
+          )))
+      val value2 = VersionedValue(
+        ValueVersion("4"),
+        ValueRecord(
+          None,
+          ImmArray(
+            None -> ValueText("A"),
+            None -> ValueText("C")
+          )))
+
+      val tid = templateId("module", "name")
+
+      val hash1 = Hasher.hash(GlobalKey(tid, value1))
+      val hash2 = Hasher.hash(GlobalKey(tid, value2))
+
+      hash1.equals(hash2) shouldBe false
+    }
+  }
+
+  "KeyHasher.putValue" should {
+
+    "stable " in {
+
+      type V = Value[AbsoluteContractId]
+
+      val pkgId = Ref.PackageId.assertFromString("pkgId")
+
+      implicit def toTypeConName(s: String): Ref.TypeConName =
+        Ref.TypeConName(pkgId, Ref.QualifiedName.assertFromString(s"Mod:$s"))
+
+      implicit def toName(s: String): Ref.Name =
+        Ref.Name.assertFromString(s)
+
+      implicit def toSortedLookupList[V](a: ImmArray[(String, V)]): SortedLookupList[V] =
+        SortedLookupList.fromSortedImmArray(a).right.get
+
+      val EnumTypeCon: Ref.TypeConName = "Color"
+      val EnumTypeConBis: Ref.TypeConName = "ColorBis"
+
+      val EnumCon1: Ref.Name = "Red"
+      val EnumCon2: Ref.Name = "Green"
+
+      val Record0TypeCon: Ref.TypeConName = "Unit"
+      val Record2TypeCon: Ref.TypeConName = "Tuple"
+      val Record0TypeConBis: Ref.TypeConName = "UnitBis"
+      val Record2TypeConBis: Ref.TypeConName = "TupleBis"
+      val fstField = Ref.Name.assertFromString("_1")
+      val sndField = Ref.Name.assertFromString("_2")
+
+      val VariantTypeCon: Ref.TypeConName = "Either"
+      val VariantTypeConBis: Ref.TypeConName = "EitherBis"
+      val VariantCon1: Ref.Name = "Left"
+      val VariantCon2: Ref.Name = "Right"
+
+      val units =
+        List[V](
+          ValueUnit
+        )
+      val bools =
+        List[V](ValueTrue, ValueFalse)
+      val ints =
+        List[V](ValueInt64(-1L), ValueInt64(0L), ValueInt64(1L))
+      val decimals =
+        List[V](
+          ValueNumeric(Numeric.assertFromString("-10000.0000000000")),
+          ValueNumeric(Numeric.assertFromString("0.0000000000")),
+          ValueNumeric(Numeric.assertFromString("10000.0000000000")),
+        )
+      val numeric0s =
+        List[V](
+          ValueNumeric(Numeric.assertFromString("-10000.")),
+          ValueNumeric(Numeric.assertFromString("0.")),
+          ValueNumeric(Numeric.assertFromString("10000.")),
+        )
+
+      val texts =
+        List[V](
+          ValueText(""),
+          ValueText("someText"),
+          ValueText("a¶‱😂"),
+        )
+      val dates =
+        List[V](
+          ValueDate(Time.Date.assertFromDaysSinceEpoch(0)),
+          ValueDate(Time.Date.assertFromString("1969-07-21")),
+          ValueDate(Time.Date.assertFromString("2019-12-16")),
+        )
+      val timestamps =
+        List[V](
+          ValueTimestamp(Time.Timestamp.assertFromLong(0)),
+          ValueTimestamp(Time.Timestamp.assertFromString("1969-07-21T02:56:15.000000Z")),
+          ValueTimestamp(Time.Timestamp.assertFromString("2019-12-16T11:17:54.940779363Z")),
+        )
+      val parties =
+        List[V](
+          ValueParty(Ref.Party.assertFromString("alice")),
+          ValueParty(Ref.Party.assertFromString("bob")),
+        )
+      val contractIds =
+        List[V](
+          ValueContractId(
+            AbsoluteContractId(Ref.ContractIdString.assertFromString(
+              "07e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5"))),
+          ValueContractId(
+            AbsoluteContractId(Ref.ContractIdString.assertFromString(
+              "59b59ad7a6b6066e77b91ced54b8282f0e24e7089944685cb8f22f32fcbc4e1b")))
+        )
+
+      val enums =
+        List[V](
+          ValueEnum(Some(EnumTypeCon), EnumCon1),
+          ValueEnum(Some(EnumTypeCon), EnumCon2),
+          ValueEnum(Some(EnumTypeConBis), EnumCon2),
+        )
+
+      val records0 =
+        List[V](
+          ValueRecord(Some(Record0TypeCon), ImmArray.empty),
+          ValueRecord(Some(Record0TypeConBis), ImmArray.empty),
+        )
+
+      val records2 =
+        List[V](
+          ValueRecord(
+            Some(Record2TypeCon),
+            ImmArray(Some(fstField) -> ValueFalse, Some(sndField) -> ValueFalse)),
+          ValueRecord(
+            Some(Record2TypeCon),
+            ImmArray(Some(fstField) -> ValueTrue, Some(sndField) -> ValueFalse)),
+          ValueRecord(
+            Some(Record2TypeCon),
+            ImmArray(Some(fstField) -> ValueFalse, Some(sndField) -> ValueTrue)),
+          ValueRecord(
+            Some(Record2TypeConBis),
+            ImmArray(Some(fstField) -> ValueFalse, Some(sndField) -> ValueFalse)),
+        )
+
+      val variants = List[V](
+        ValueVariant(Some(VariantTypeCon), VariantCon1, ValueFalse),
+        ValueVariant(Some(VariantTypeCon), VariantCon1, ValueTrue),
+        ValueVariant(Some(VariantTypeCon), VariantCon2, ValueFalse),
+        ValueVariant(Some(VariantTypeConBis), VariantCon1, ValueFalse),
+      )
+
+      val lists = List[V](
+        ValueList(FrontStack.empty),
+        ValueList(FrontStack(ValueFalse)),
+        ValueList(FrontStack(ValueTrue)),
+        ValueList(FrontStack(ValueFalse, ValueFalse)),
+        ValueList(FrontStack(ValueFalse, ValueTrue)),
+        ValueList(FrontStack(ValueTrue, ValueFalse)),
+      )
+
+      val textMaps = List[V](
+        ValueTextMap(SortedLookupList.empty),
+        ValueTextMap(ImmArray("a" -> ValueFalse)),
+        ValueTextMap(ImmArray("a" -> ValueFalse)),
+        ValueTextMap(ImmArray("b" -> ValueFalse)),
+        ValueTextMap(ImmArray("a" -> ValueFalse, "b" -> ValueFalse)),
+        ValueTextMap(ImmArray("a" -> ValueTrue, "b" -> ValueFalse)),
+        ValueTextMap(ImmArray("a" -> ValueFalse, "b" -> ValueTrue)),
+        ValueTextMap(ImmArray("a" -> ValueFalse, "c" -> ValueFalse)),
+      )
+
+      val optionals = List[V](
+        ValueOptional(None),
+        ValueOptional(Some(ValueFalse)),
+        ValueOptional(Some(ValueTrue)),
+        ValueOptional(Some(ValueOptional(None))),
+        ValueOptional(Some(ValueOptional(Some(ValueFalse)))),
+      )
+
+      val testCases: List[V] =
         units ++ bools ++ ints ++ decimals ++ numeric0s ++ dates ++ timestamps ++ texts ++ parties ++ contractIds ++ optionals ++ lists ++ textMaps ++ enums ++ records0 ++ records2 ++ variants
 
       val expectedOut =
         """ValueUnit
-          | 6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d
+          | 15f2f1a4339f5f2a313b95015cad8124d054a171ac2f31cf529dda7cfb6a38b4
           |ValueBool(true)
-          | 4bf5122f344554c53bde2ebb8cd2b7e3d1600ad631c385a5d7cce23c7785459a
+          | 89eefc18fa4b815bd1aded2f24eb28885993aa00b6d0171bf5005f9d39aaea10
           |ValueBool(false)
-          | 6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d
+          | 016a682d1df4f869b32c48b0a9b442a1493949fb85d951d121c1143bd3d5c1af
           |ValueInt64(-1)
-          | 12a3ae445661ce5dee78d0650d33362dec29c4f82af05e7e57fb595bbbacf0ca
+          | c6c7c4bc40424a55aa5e3bd95c327747c9af51c2e8cb82d4bd0992e2197e6b0f
           |ValueInt64(0)
-          | af5570f5a1810b7af78caf4bc70a660f0df51e42baf91d4de5b2328de0e83dfc
+          | bcd951ff7bd950aef43c9ef95db7418f4773a42ab05a78b0916d2d255e72ee8e
           |ValueInt64(1)
-          | cd2662154e6d76b2b2b92e70c0cac3ccf534f9b74eb5b89819ec509083d00a50
+          | eb07f73c38490f4cb04a1a6def3ab2dcbfb28272f89a81dcc590fe3dc6f9c273
           |ValueNumeric(-10000.0000000000)
-          | 92b92de61f21059f70dec535eb848a8275a402b520c6c8c65c29368e7181920a
+          | c4f7690ce2158103fadaac9213c165ec39c0e078f1ce6a1b1bb87968b9002e0f
           |ValueNumeric(0E-10)
-          | 7b083527a0b46146dad7ef53700e2f975266e2d212fe683b0307c3ea00e892bc
+          | e5f25e3d3d8f71e96903f66006d46fd0823e0ff3fea0325e9db191b09b6245d0
           |ValueNumeric(10000.0000000000)
-          | 44a82bcdb9f16bc015fa19d3db2a8f474c502a0c2f0d3fcf926bf1c934b8de59
+          | a8f14244b403fd3cf9db68033930cb257b6807618c94284ffba520d903459d9f
           |ValueNumeric(-10000)
-          | 92b92de61f21059f70dec535eb848a8275a402b520c6c8c65c29368e7181920a
+          | 33594221d9ad5035b57b781fc9d8a63bdcd17a76515f61346f3573268cf4e9c4
           |ValueNumeric(0)
-          | 7b083527a0b46146dad7ef53700e2f975266e2d212fe683b0307c3ea00e892bc
+          | 0c6582c1ff7eb3e7b85fd306a55245badff8c41810b4fdc666c3423657865e0f
           |ValueNumeric(10000)
-          | 44a82bcdb9f16bc015fa19d3db2a8f474c502a0c2f0d3fcf926bf1c934b8de59
+          | 21959671a9043323d76128695817fe446139886d1e1749105ecf2de7a486c04b
           |ValueDate(1970-01-01)
-          | df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119
+          | 9503e533b097397f5118a748890cd09caacfd4c95c4d13f1fd106a5b5e39e78a
           |ValueDate(1969-07-21)
-          | 434fa8eb0883d896f4bcf774541c2b0a9cadc0d0e5c6e747a40ccc8c2b1007b3
+          | be2184bbbf374335bbbe5cf898a987d017b1bca16b3ce989add0e87b5f3c0a92
           |ValueDate(2019-12-16)
-          | 198ffe57505806fdb66781e9ebd1e3bddef98140ece736496dd4e8f141bd8c8b
+          | ea6c2fccb5581d105bd3d9c2fb74e70157656ba918718b172a99bacd696078cc
           |ValueTimestamp(1970-01-01T00:00:00Z)
-          | af5570f5a1810b7af78caf4bc70a660f0df51e42baf91d4de5b2328de0e83dfc
+          | 8c8b25d714d32f493507b27547e65c10712e8179832b71b5fc442c99f369a637
           |ValueTimestamp(1969-07-21T02:56:15Z)
-          | 29915511efcac543356407a5aeec43025bb79ccce44c8248646830dc3dcf8434
+          | ed5bbec42069ea10870ce5829d58ec5ca76cccf5d75e9a0812eee07140302c18
           |ValueTimestamp(2019-12-16T11:17:54.940779Z)
-          | d138f5a129f8a66d7c0eccc99116de7dc563a9425543ba33d5401109ec4be877
+          | c15b65da18a78c5e83a31cb81a0810d8a0eff3858ff0955122c5197b1f2b6930
           |ValueText()
-          | df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119
+          | 440025f7b4bce5faa563ac26871ded6790667f1f4955d9b5b7c676d30931dcb6
           |ValueText(someText)
-          | 5d556be4585eafaf71039732a9be3821c5b960d88099a2749783762d16dcd344
+          | 53d06d97bbbb95b677bc56e5f998cb3228f1513cee7e3a8f442af325241d02a9
           |ValueText(a¶‱😂)
-          | 4f896bd4ef0468d1bef9e88eee1d7a6dc7a0e58045205df0f17345562ba78814
+          | 3929c32b3e48200e4a5e30d91a0754e0a0750672d2cdf2a1a375d0f058813ead
           |ValueParty(alice)
-          | e3e40cc57896dcdac6731f60cb1748bd34b45ac0a6e42aa517d41dfea2ff8a88
+          | 5e3e4778c3fdf7adc1a1aa6d443475a6fd2e6a4a842b415f0b8b8be4c9720869
           |ValueParty(bob)
-          | 492f3783b824fb976eac36c0623337a7fd7440b95095581eb81687c71e802943
+          | d145e694eea4408cba91f7c1136e70841e695d57e19178d131d996e37fea33c7
           |ValueContractId(AbsoluteContractId(07e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5))
-          | fa24d4f2cd646f7e6d7f4e43813e93106d52df42b4272b007d36ba7c9bf21f6b
+          | 27c3a4065fa0b0cb036069a3c691ae14fc695a4cfccbfe50df6153949508bd36
           |ValueContractId(AbsoluteContractId(59b59ad7a6b6066e77b91ced54b8282f0e24e7089944685cb8f22f32fcbc4e1b))
-          | 65b079e97a8b4804622173ef0c7c86e6bc3b4dbedef9ab7508391b8283279df7
+          | 7baf071daae9fd38312390cd5885dc090eef3644c58d76c5362a9bd670f0cdce
           |ValueOptional(None)
-          | df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119
+          | aa6d7aa607cf60ddeb2c5f584d9f206224590ffcc28f6d0640749d32a0fc42a4
           |ValueOptional(Some(ValueBool(false)))
-          | 060dc63e5595dffbd161c9ec98bc06fcf67cb22e2e75ecdf0003821388aeee4d
+          | b8a910ccd6c1c90d01678566500732cf71b7ec9354820b30e8407e4beb05cb2f
           |ValueOptional(Some(ValueBool(true)))
-          | a1f9a549ddc784959537f084c79ac5564de8080503dfc842a54616337b87d795
+          | f052f3f83fd029715b04bb7cc4b7092a47a5aacdd9ac2b8b24549cc25833c67b
           |ValueOptional(Some(ValueOptional(None)))
-          | cbbc48750debb8535093b3deaf88ac7f4cff87425576a58de2bac754acdb4616
+          | c817fde8b9263a53e4e2d486b415799c58b7a37a7d91e2dd5aef70b8bb42792d
           |ValueOptional(Some(ValueOptional(Some(ValueBool(false)))))
-          | 2209dc1ac9031cb0089fbd019a1fa065d54ddcef9487f6469d64f9106dbb0c6a
+          | e440c6091805f4ebea2b52f6cf3dadd52b99213db218dcbe0a6b7140f81867ad
           |ValueList(FrontStack())
-          | df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119
+          | 0d8ffb061b89a6e3059a2d4471a3975299a4200a782a016b31fe1c280353a4db
           |ValueList(FrontStack(ValueBool(false)))
-          | 060dc63e5595dffbd161c9ec98bc06fcf67cb22e2e75ecdf0003821388aeee4d
+          | d6164011e601839e9410a5a91ddb380b0c5e79f9ca033e1c690b4f30ad6fe249
           |ValueList(FrontStack(ValueBool(true)))
-          | a1f9a549ddc784959537f084c79ac5564de8080503dfc842a54616337b87d795
+          | 7e08f8579689515cf861204126ddd7e4c1ad359595f2a4657e0c4071c301a80f
           |ValueList(FrontStack(ValueBool(false),ValueBool(false)))
-          | e44728408fa247053c017f791d5d2fe87752119c5010006ffc4e098efbaea679
+          | cece4925bef52d965f339c55aa7646211cdc2f52b2e8b4944a2669cd232cc592
           |ValueList(FrontStack(ValueBool(false),ValueBool(true)))
-          | 4f1366f56ad5b2ebd9738248a63d9d90bbb3b4b2eac3b74713c6bfd852477802
+          | 4591fc459c81d2fb04c414a070b114959a00fcb745e3794f90e75ea371686abc
           |ValueList(FrontStack(ValueBool(true),ValueBool(false)))
-          | 06cb0843c56b268bd5fc5373f450e9ee50c49705f3d8d8e33356af5d54ab0315
+          | 336591f8c3110e33a1419b94de5115c19355e59bd622b5e223f26bf4f79987d9
           |ValueTextMap(SortedLookupList())
-          | df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119
+          | 9e8dd7513fae9788834f682bd4fab17fb4747fa2e8c5e50eafc6c7dd00f6df28
           |ValueTextMap(SortedLookupList((a,ValueBool(false))))
-          | a5da6937a2f4b9d4f58bf5091a2be8560b91d66792de3a69d8a6ca335304e640
+          | 65e1ef074f5aff120f96166e69dd3d18eadc8beb3558e8959930c86b23bac3b1
           |ValueTextMap(SortedLookupList((a,ValueBool(false))))
-          | a5da6937a2f4b9d4f58bf5091a2be8560b91d66792de3a69d8a6ca335304e640
+          | 65e1ef074f5aff120f96166e69dd3d18eadc8beb3558e8959930c86b23bac3b1
           |ValueTextMap(SortedLookupList((b,ValueBool(false))))
-          | aa1e21601e11f7ae67f57ed00fdf8a30b7b787ca454693b9ec17495192ebad8e
+          | b9fde31caf5bf186fbc34247827a96d4989564ac3abcab98bf0afcaf7cea26a8
           |ValueTextMap(SortedLookupList((a,ValueBool(false)),(b,ValueBool(false))))
-          | fc40403816a5de30f0d79bd5c7bf186a6528c58157bc4070abdcad9dcb7fa9d8
+          | 22e1410c70c183292775054a25a4aaddf0d618f73bedc7a772ef146a5d3c805a
           |ValueTextMap(SortedLookupList((a,ValueBool(true)),(b,ValueBool(false))))
-          | 336817ad8e596a47b85b0db035efa84fc72acab9f2f4bb079b93621e79a2be4c
+          | fd549d867fa394a7095e8c58cfb9557d4f2d48a0f2a369c86bb18ee1dd4ad91b
           |ValueTextMap(SortedLookupList((a,ValueBool(false)),(b,ValueBool(true))))
-          | 91e247b396cea58ab670b0767940d360cf1fd541b52444d5b1dcb4d74132d0f9
+          | da2e5c18774df1a5ff965a78dc4685c7793af98626994bd5744d0d951a795270
           |ValueTextMap(SortedLookupList((a,ValueBool(false)),(c,ValueBool(false))))
-          | 10e757f68e9e602f8780440193064fec42a7e2f85bec983d416d171079b7240e
+          | 76868f3593a2cd85ca9dcffd95af146c6fdf62249be554fa8a5a946a8a078d69
           |ValueEnum(Some(Identifier(pkgId,Mod:Color)),Red)
-          | 3bf7245f74973e912a49c95a28e77d59594f73c78ede8683663d4bf9eca5c37c
+          | 4f2d5c0395f10513675c007e25a67d8a000a4bcd064bcb69ad513f07cbf6385d
           |ValueEnum(Some(Identifier(pkgId,Mod:Color)),Green)
-          | 181bfc4e71007c1dc5406594346ae45a52c2a0bb377800b04e26ce09d8b66004
+          | 283f5ef79f3bf60aba46362fa51c762679cd762bc1817d7a56fe9e7e546cc4a8
           |ValueEnum(Some(Identifier(pkgId,Mod:ColorBis)),Green)
-          | 181bfc4e71007c1dc5406594346ae45a52c2a0bb377800b04e26ce09d8b66004
+          | 283f5ef79f3bf60aba46362fa51c762679cd762bc1817d7a56fe9e7e546cc4a8
           |ValueRecord(Some(Identifier(pkgId,Mod:Unit)),ImmArray())
-          | df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119
-          |ValueRecord(Some(Identifier(pkgId,Mod:Unit)),ImmArray())
-          | df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119
+          | be0f4c815b2fdaa3b57c5ac5f4ad3c8b19e0888cf13ae9b2791dbd7350926f7e
           |ValueRecord(Some(Identifier(pkgId,Mod:UnitBis)),ImmArray())
-          | df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119
+          | be0f4c815b2fdaa3b57c5ac5f4ad3c8b19e0888cf13ae9b2791dbd7350926f7e
           |ValueRecord(Some(Identifier(pkgId,Mod:Tuple)),ImmArray((Some(_1),ValueBool(false)),(Some(_2),ValueBool(false))))
-          | e44728408fa247053c017f791d5d2fe87752119c5010006ffc4e098efbaea679
+          | 4d0188dd59d31763de4a8054c38e4406e9cd2998d774893bf049ddc9408b6b7e
           |ValueRecord(Some(Identifier(pkgId,Mod:Tuple)),ImmArray((Some(_1),ValueBool(true)),(Some(_2),ValueBool(false))))
-          | 06cb0843c56b268bd5fc5373f450e9ee50c49705f3d8d8e33356af5d54ab0315
+          | 5ce6ef0139ff1a98d8ffd820665ff6215eae91430e94c4f738fa02fbcf4a4002
           |ValueRecord(Some(Identifier(pkgId,Mod:Tuple)),ImmArray((Some(_1),ValueBool(false)),(Some(_2),ValueBool(true))))
-          | 4f1366f56ad5b2ebd9738248a63d9d90bbb3b4b2eac3b74713c6bfd852477802
+          | 6084112443fb9127f8e0b9894e9211fb1842c633874bc75498ddea897342e6d8
           |ValueRecord(Some(Identifier(pkgId,Mod:TupleBis)),ImmArray((Some(_1),ValueBool(false)),(Some(_2),ValueBool(false))))
-          | e44728408fa247053c017f791d5d2fe87752119c5010006ffc4e098efbaea679
+          | 4d0188dd59d31763de4a8054c38e4406e9cd2998d774893bf049ddc9408b6b7e
           |ValueVariant(Some(Identifier(pkgId,Mod:Either)),Left,ValueBool(false))
-          | 7ac33585fca214756dfe4b2c4de9283d7682f5a47ae8a78acf7abe266d5f41bc
+          | 3821c0c9e0d580d49529abdf3ae0bb8c4659009813275e861fb316d4cfa3dbce
           |ValueVariant(Some(Identifier(pkgId,Mod:Either)),Left,ValueBool(true))
-          | bd43854d7f0bfe9fc246492fe783c5e1600a764195152cc240dc1750f7c5ce16
+          | 4fc1205a25e86608bacac58b77b464822b2d4e732dc6702e5c079cb259af4762
           |ValueVariant(Some(Identifier(pkgId,Mod:Either)),Right,ValueBool(false))
-          | 635185b1cff7ebfdbde5045291955d39af1d3c392b30c53d36c06615e5479b24
+          | 29c47371aaf5e867a74b5d987bb70aeb534dcb09387fd9ffa349832b119ce18e
           |ValueVariant(Some(Identifier(pkgId,Mod:EitherBis)),Left,ValueBool(false))
-          | 7ac33585fca214756dfe4b2c4de9283d7682f5a47ae8a78acf7abe266d5f41bc
-          |ValueUnit
-          | 6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d
-          |ValueBool(true)
-          | 4bf5122f344554c53bde2ebb8cd2b7e3d1600ad631c385a5d7cce23c7785459a
-          |ValueBool(false)
-          | 6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d
-          |ValueInt64(-1)
-          | 12a3ae445661ce5dee78d0650d33362dec29c4f82af05e7e57fb595bbbacf0ca
-          |ValueInt64(0)
-          | af5570f5a1810b7af78caf4bc70a660f0df51e42baf91d4de5b2328de0e83dfc
-          |ValueInt64(1)
-          | cd2662154e6d76b2b2b92e70c0cac3ccf534f9b74eb5b89819ec509083d00a50
-          |ValueNumeric(-10000.0000000000)
-          | 92b92de61f21059f70dec535eb848a8275a402b520c6c8c65c29368e7181920a
-          |ValueNumeric(0E-10)
-          | 7b083527a0b46146dad7ef53700e2f975266e2d212fe683b0307c3ea00e892bc
-          |ValueNumeric(10000.0000000000)
-          | 44a82bcdb9f16bc015fa19d3db2a8f474c502a0c2f0d3fcf926bf1c934b8de59
-          |ValueNumeric(-10000)
-          | 92b92de61f21059f70dec535eb848a8275a402b520c6c8c65c29368e7181920a
-          |ValueNumeric(0)
-          | 7b083527a0b46146dad7ef53700e2f975266e2d212fe683b0307c3ea00e892bc
-          |ValueNumeric(10000)
-          | 44a82bcdb9f16bc015fa19d3db2a8f474c502a0c2f0d3fcf926bf1c934b8de59
-          |ValueDate(1970-01-01)
-          | df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119
-          |ValueDate(1969-07-21)
-          | 434fa8eb0883d896f4bcf774541c2b0a9cadc0d0e5c6e747a40ccc8c2b1007b3
-          |ValueDate(2019-12-16)
-          | 198ffe57505806fdb66781e9ebd1e3bddef98140ece736496dd4e8f141bd8c8b
-          |ValueTimestamp(1970-01-01T00:00:00Z)
-          | af5570f5a1810b7af78caf4bc70a660f0df51e42baf91d4de5b2328de0e83dfc
-          |ValueTimestamp(1969-07-21T02:56:15Z)
-          | 29915511efcac543356407a5aeec43025bb79ccce44c8248646830dc3dcf8434
-          |ValueTimestamp(2019-12-16T11:17:54.940779Z)
-          | d138f5a129f8a66d7c0eccc99116de7dc563a9425543ba33d5401109ec4be877
-          |ValueText()
-          | df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119
-          |ValueText(someText)
-          | 5d556be4585eafaf71039732a9be3821c5b960d88099a2749783762d16dcd344
-          |ValueText(a¶‱😂)
-          | 4f896bd4ef0468d1bef9e88eee1d7a6dc7a0e58045205df0f17345562ba78814
-          |ValueParty(alice)
-          | e3e40cc57896dcdac6731f60cb1748bd34b45ac0a6e42aa517d41dfea2ff8a88
-          |ValueParty(bob)
-          | 492f3783b824fb976eac36c0623337a7fd7440b95095581eb81687c71e802943
-          |ValueContractId(AbsoluteContractId(07e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5))
-          | fa24d4f2cd646f7e6d7f4e43813e93106d52df42b4272b007d36ba7c9bf21f6b
-          |ValueContractId(AbsoluteContractId(59b59ad7a6b6066e77b91ced54b8282f0e24e7089944685cb8f22f32fcbc4e1b))
-          | 65b079e97a8b4804622173ef0c7c86e6bc3b4dbedef9ab7508391b8283279df7
-          |ValueOptional(None)
-          | df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119
-          |ValueOptional(Some(ValueBool(false)))
-          | 060dc63e5595dffbd161c9ec98bc06fcf67cb22e2e75ecdf0003821388aeee4d
-          |ValueOptional(Some(ValueBool(true)))
-          | a1f9a549ddc784959537f084c79ac5564de8080503dfc842a54616337b87d795
-          |ValueOptional(Some(ValueOptional(None)))
-          | cbbc48750debb8535093b3deaf88ac7f4cff87425576a58de2bac754acdb4616
-          |ValueOptional(Some(ValueOptional(Some(ValueBool(false)))))
-          | 2209dc1ac9031cb0089fbd019a1fa065d54ddcef9487f6469d64f9106dbb0c6a
-          |ValueList(FrontStack())
-          | df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119
-          |ValueList(FrontStack(ValueBool(false)))
-          | 060dc63e5595dffbd161c9ec98bc06fcf67cb22e2e75ecdf0003821388aeee4d
-          |ValueList(FrontStack(ValueBool(true)))
-          | a1f9a549ddc784959537f084c79ac5564de8080503dfc842a54616337b87d795
-          |ValueList(FrontStack(ValueBool(false),ValueBool(false)))
-          | e44728408fa247053c017f791d5d2fe87752119c5010006ffc4e098efbaea679
-          |ValueList(FrontStack(ValueBool(false),ValueBool(true)))
-          | 4f1366f56ad5b2ebd9738248a63d9d90bbb3b4b2eac3b74713c6bfd852477802
-          |ValueList(FrontStack(ValueBool(true),ValueBool(false)))
-          | 06cb0843c56b268bd5fc5373f450e9ee50c49705f3d8d8e33356af5d54ab0315
-          |ValueTextMap(SortedLookupList())
-          | df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119
-          |ValueTextMap(SortedLookupList((a,ValueBool(false))))
-          | a5da6937a2f4b9d4f58bf5091a2be8560b91d66792de3a69d8a6ca335304e640
-          |ValueTextMap(SortedLookupList((a,ValueBool(false))))
-          | a5da6937a2f4b9d4f58bf5091a2be8560b91d66792de3a69d8a6ca335304e640
-          |ValueTextMap(SortedLookupList((b,ValueBool(false))))
-          | aa1e21601e11f7ae67f57ed00fdf8a30b7b787ca454693b9ec17495192ebad8e
-          |ValueTextMap(SortedLookupList((a,ValueBool(false)),(b,ValueBool(false))))
-          | fc40403816a5de30f0d79bd5c7bf186a6528c58157bc4070abdcad9dcb7fa9d8
-          |ValueTextMap(SortedLookupList((a,ValueBool(true)),(b,ValueBool(false))))
-          | 336817ad8e596a47b85b0db035efa84fc72acab9f2f4bb079b93621e79a2be4c
-          |ValueTextMap(SortedLookupList((a,ValueBool(false)),(b,ValueBool(true))))
-          | 91e247b396cea58ab670b0767940d360cf1fd541b52444d5b1dcb4d74132d0f9
-          |ValueTextMap(SortedLookupList((a,ValueBool(false)),(c,ValueBool(false))))
-          | 10e757f68e9e602f8780440193064fec42a7e2f85bec983d416d171079b7240e
-          |ValueEnum(Some(Identifier(pkgId,Mod:Color)),Red)
-          | 3bf7245f74973e912a49c95a28e77d59594f73c78ede8683663d4bf9eca5c37c
-          |ValueEnum(Some(Identifier(pkgId,Mod:Color)),Green)
-          | 181bfc4e71007c1dc5406594346ae45a52c2a0bb377800b04e26ce09d8b66004
-          |ValueEnum(Some(Identifier(pkgId,Mod:ColorBis)),Green)
-          | 181bfc4e71007c1dc5406594346ae45a52c2a0bb377800b04e26ce09d8b66004
-          |ValueRecord(Some(Identifier(pkgId,Mod:Unit)),ImmArray())
-          | df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119
-          |ValueRecord(Some(Identifier(pkgId,Mod:UnitBis)),ImmArray())
-          | df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119
-          |ValueRecord(Some(Identifier(pkgId,Mod:Tuple)),ImmArray((Some(_1),ValueBool(false)),(Some(_2),ValueBool(false))))
-          | e44728408fa247053c017f791d5d2fe87752119c5010006ffc4e098efbaea679
-          |ValueRecord(Some(Identifier(pkgId,Mod:Tuple)),ImmArray((Some(_1),ValueBool(true)),(Some(_2),ValueBool(false))))
-          | 06cb0843c56b268bd5fc5373f450e9ee50c49705f3d8d8e33356af5d54ab0315
-          |ValueRecord(Some(Identifier(pkgId,Mod:Tuple)),ImmArray((Some(_1),ValueBool(false)),(Some(_2),ValueBool(true))))
-          | 4f1366f56ad5b2ebd9738248a63d9d90bbb3b4b2eac3b74713c6bfd852477802
-          |ValueRecord(Some(Identifier(pkgId,Mod:TupleBis)),ImmArray((Some(_1),ValueBool(false)),(Some(_2),ValueBool(false))))
-          | e44728408fa247053c017f791d5d2fe87752119c5010006ffc4e098efbaea679
-          |ValueVariant(Some(Identifier(pkgId,Mod:Either)),Left,ValueBool(false))
-          | 7ac33585fca214756dfe4b2c4de9283d7682f5a47ae8a78acf7abe266d5f41bc
-          |ValueVariant(Some(Identifier(pkgId,Mod:Either)),Left,ValueBool(true))
-          | bd43854d7f0bfe9fc246492fe783c5e1600a764195152cc240dc1750f7c5ce16
-          |ValueVariant(Some(Identifier(pkgId,Mod:Either)),Right,ValueBool(false))
-          | 635185b1cff7ebfdbde5045291955d39af1d3c392b30c53d36c06615e5479b24
-          |ValueVariant(Some(Identifier(pkgId,Mod:EitherBis)),Left,ValueBool(false))
-          | 7ac33585fca214756dfe4b2c4de9283d7682f5a47ae8a78acf7abe266d5f41bc
-          |ValueUnit
-          | 6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d
-          |ValueBool(true)
-          | 4bf5122f344554c53bde2ebb8cd2b7e3d1600ad631c385a5d7cce23c7785459a
-          |ValueBool(false)
-          | 6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d
-          |ValueInt64(-1)
-          | 12a3ae445661ce5dee78d0650d33362dec29c4f82af05e7e57fb595bbbacf0ca
-          |ValueInt64(0)
-          | af5570f5a1810b7af78caf4bc70a660f0df51e42baf91d4de5b2328de0e83dfc
-          |ValueInt64(1)
-          | cd2662154e6d76b2b2b92e70c0cac3ccf534f9b74eb5b89819ec509083d00a50
-          |ValueNumeric(-10000.0000000000)
-          | 92b92de61f21059f70dec535eb848a8275a402b520c6c8c65c29368e7181920a
-          |ValueNumeric(0E-10)
-          | 7b083527a0b46146dad7ef53700e2f975266e2d212fe683b0307c3ea00e892bc
-          |ValueNumeric(10000.0000000000)
-          | 44a82bcdb9f16bc015fa19d3db2a8f474c502a0c2f0d3fcf926bf1c934b8de59
-          |ValueNumeric(-10000)
-          | 92b92de61f21059f70dec535eb848a8275a402b520c6c8c65c29368e7181920a
-          |ValueNumeric(0)
-          | 7b083527a0b46146dad7ef53700e2f975266e2d212fe683b0307c3ea00e892bc
-          |ValueNumeric(10000)
-          | 44a82bcdb9f16bc015fa19d3db2a8f474c502a0c2f0d3fcf926bf1c934b8de59
-          |ValueDate(1970-01-01)
-          | df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119
-          |ValueDate(1969-07-21)
-          | 434fa8eb0883d896f4bcf774541c2b0a9cadc0d0e5c6e747a40ccc8c2b1007b3
-          |ValueDate(2019-12-16)
-          | 198ffe57505806fdb66781e9ebd1e3bddef98140ece736496dd4e8f141bd8c8b
-          |ValueTimestamp(1970-01-01T00:00:00Z)
-          | af5570f5a1810b7af78caf4bc70a660f0df51e42baf91d4de5b2328de0e83dfc
-          |ValueTimestamp(1969-07-21T02:56:15Z)
-          | 29915511efcac543356407a5aeec43025bb79ccce44c8248646830dc3dcf8434
-          |ValueTimestamp(2019-12-16T11:17:54.940779Z)
-          | d138f5a129f8a66d7c0eccc99116de7dc563a9425543ba33d5401109ec4be877
-          |ValueText()
-          | df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119
-          |ValueText(someText)
-          | 5d556be4585eafaf71039732a9be3821c5b960d88099a2749783762d16dcd344
-          |ValueText(a¶‱😂)
-          | 4f896bd4ef0468d1bef9e88eee1d7a6dc7a0e58045205df0f17345562ba78814
-          |ValueParty(alice)
-          | e3e40cc57896dcdac6731f60cb1748bd34b45ac0a6e42aa517d41dfea2ff8a88
-          |ValueParty(bob)
-          | 492f3783b824fb976eac36c0623337a7fd7440b95095581eb81687c71e802943
-          |ValueContractId(AbsoluteContractId(07e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5))
-          | fa24d4f2cd646f7e6d7f4e43813e93106d52df42b4272b007d36ba7c9bf21f6b
-          |ValueContractId(AbsoluteContractId(59b59ad7a6b6066e77b91ced54b8282f0e24e7089944685cb8f22f32fcbc4e1b))
-          | 65b079e97a8b4804622173ef0c7c86e6bc3b4dbedef9ab7508391b8283279df7
-          |ValueOptional(None)
-          | df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119
-          |ValueOptional(Some(ValueBool(false)))
-          | 060dc63e5595dffbd161c9ec98bc06fcf67cb22e2e75ecdf0003821388aeee4d
-          |ValueOptional(Some(ValueBool(true)))
-          | a1f9a549ddc784959537f084c79ac5564de8080503dfc842a54616337b87d795
-          |ValueOptional(Some(ValueOptional(None)))
-          | cbbc48750debb8535093b3deaf88ac7f4cff87425576a58de2bac754acdb4616
-          |ValueOptional(Some(ValueOptional(Some(ValueBool(false)))))
-          | 2209dc1ac9031cb0089fbd019a1fa065d54ddcef9487f6469d64f9106dbb0c6a
-          |ValueList(FrontStack())
-          | df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119
-          |ValueList(FrontStack(ValueBool(false)))
-          | 060dc63e5595dffbd161c9ec98bc06fcf67cb22e2e75ecdf0003821388aeee4d
-          |ValueList(FrontStack(ValueBool(true)))
-          | a1f9a549ddc784959537f084c79ac5564de8080503dfc842a54616337b87d795
-          |ValueList(FrontStack(ValueBool(false),ValueBool(false)))
-          | e44728408fa247053c017f791d5d2fe87752119c5010006ffc4e098efbaea679
-          |ValueList(FrontStack(ValueBool(false),ValueBool(true)))
-          | 4f1366f56ad5b2ebd9738248a63d9d90bbb3b4b2eac3b74713c6bfd852477802
-          |ValueList(FrontStack(ValueBool(true),ValueBool(false)))
-          | 06cb0843c56b268bd5fc5373f450e9ee50c49705f3d8d8e33356af5d54ab0315
-          |ValueTextMap(SortedLookupList())
-          | df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119
-          |ValueTextMap(SortedLookupList((a,ValueBool(false))))
-          | a5da6937a2f4b9d4f58bf5091a2be8560b91d66792de3a69d8a6ca335304e640
-          |ValueTextMap(SortedLookupList((a,ValueBool(false))))
-          | a5da6937a2f4b9d4f58bf5091a2be8560b91d66792de3a69d8a6ca335304e640
-          |ValueTextMap(SortedLookupList((b,ValueBool(false))))
-          | aa1e21601e11f7ae67f57ed00fdf8a30b7b787ca454693b9ec17495192ebad8e
-          |ValueTextMap(SortedLookupList((a,ValueBool(false)),(b,ValueBool(false))))
-          | fc40403816a5de30f0d79bd5c7bf186a6528c58157bc4070abdcad9dcb7fa9d8
-          |ValueTextMap(SortedLookupList((a,ValueBool(true)),(b,ValueBool(false))))
-          | 336817ad8e596a47b85b0db035efa84fc72acab9f2f4bb079b93621e79a2be4c
-          |ValueTextMap(SortedLookupList((a,ValueBool(false)),(b,ValueBool(true))))
-          | 91e247b396cea58ab670b0767940d360cf1fd541b52444d5b1dcb4d74132d0f9
-          |ValueTextMap(SortedLookupList((a,ValueBool(false)),(c,ValueBool(false))))
-          | 10e757f68e9e602f8780440193064fec42a7e2f85bec983d416d171079b7240e
-          |ValueEnum(Some(Identifier(pkgId,Mod:Color)),Red)
-          | 3bf7245f74973e912a49c95a28e77d59594f73c78ede8683663d4bf9eca5c37c
-          |ValueEnum(Some(Identifier(pkgId,Mod:Color)),Green)
-          | 181bfc4e71007c1dc5406594346ae45a52c2a0bb377800b04e26ce09d8b66004
-          |ValueEnum(Some(Identifier(pkgId,Mod:ColorBis)),Green)
-          | 181bfc4e71007c1dc5406594346ae45a52c2a0bb377800b04e26ce09d8b66004
-          |ValueRecord(Some(Identifier(pkgId,Mod:Unit)),ImmArray())
-          | df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119
-          |ValueRecord(Some(Identifier(pkgId,Mod:UnitBis)),ImmArray())
-          | df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119
-          |ValueRecord(Some(Identifier(pkgId,Mod:Tuple)),ImmArray((Some(_1),ValueBool(false)),(Some(_2),ValueBool(false))))
-          | e44728408fa247053c017f791d5d2fe87752119c5010006ffc4e098efbaea679
-          |ValueRecord(Some(Identifier(pkgId,Mod:Tuple)),ImmArray((Some(_1),ValueBool(true)),(Some(_2),ValueBool(false))))
-          | 06cb0843c56b268bd5fc5373f450e9ee50c49705f3d8d8e33356af5d54ab0315
-          |ValueRecord(Some(Identifier(pkgId,Mod:Tuple)),ImmArray((Some(_1),ValueBool(false)),(Some(_2),ValueBool(true))))
-          | 4f1366f56ad5b2ebd9738248a63d9d90bbb3b4b2eac3b74713c6bfd852477802
-          |ValueRecord(Some(Identifier(pkgId,Mod:TupleBis)),ImmArray((Some(_1),ValueBool(false)),(Some(_2),ValueBool(false))))
-          | e44728408fa247053c017f791d5d2fe87752119c5010006ffc4e098efbaea679
-          |ValueVariant(Some(Identifier(pkgId,Mod:Either)),Left,ValueBool(false))
-          | 7ac33585fca214756dfe4b2c4de9283d7682f5a47ae8a78acf7abe266d5f41bc
-          |ValueVariant(Some(Identifier(pkgId,Mod:Either)),Left,ValueBool(true))
-          | bd43854d7f0bfe9fc246492fe783c5e1600a764195152cc240dc1750f7c5ce16
-          |ValueVariant(Some(Identifier(pkgId,Mod:Either)),Right,ValueBool(false))
-          | 635185b1cff7ebfdbde5045291955d39af1d3c392b30c53d36c06615e5479b24
-          |ValueVariant(Some(Identifier(pkgId,Mod:EitherBis)),Left,ValueBool(false))
-          | 7ac33585fca214756dfe4b2c4de9283d7682f5a47ae8a78acf7abe266d5f41bc
+          | 3821c0c9e0d580d49529abdf3ae0bb8c4659009813275e861fb316d4cfa3dbce
           |""".stripMargin
 
-      remy.log(
-        testCases
-          .map(value =>
-            value.toString + "\n " + ValueHasher.hashValue(value).map("%02x" format _).mkString)
-          .mkString("\n"))
-      () shouldBe expectedOut
+      val sep = System.getProperty("line.separator")
+      val actualOutput = testCases
+        .map { value =>
+          val hash = Hasher
+            .HashBuilderOps(crypto.Hash.builder(crypto.HashPurpose.Testing))
+            .addValue(value)
+            .build
+            .toByteArray
+            .map("%02x" format _)
+            .mkString
+          s"${value.toString}$sep $hash"
+        }
+        .mkString("", sep, sep)
+      actualOutput shouldBe expectedOut
+
     }
   }
+
+  private implicit def decimal(x: BigDecimal): Numeric =
+    Numeric.assertFromBigDecimal(Decimal.scale, x)
 
 }

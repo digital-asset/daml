@@ -1,9 +1,10 @@
 package com.digitalasset.daml.lf
-package value
+package transaction
 
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.value.Value
 
-object ValueHasher {
+object Hasher {
 
   // tags are used to avoid hash collisions due to equal encoding for different objects
 
@@ -30,7 +31,10 @@ object ValueHasher {
   private val tagVariant: Byte = 0x41
   private val tagEnum: Byte = 0x42
 
-  private implicit class HashBuilderOps(val builder: crypto.Hash.Builder) extends AnyVal {
+  // package private for testing purpose.
+  // Do not call this method from outside Hasher object/
+  private[transaction] implicit class HashBuilderOps(val builder: crypto.Hash.Builder)
+      extends AnyVal {
 
     import builder._
 
@@ -46,9 +50,9 @@ object ValueHasher {
     def addValue(value: Value[Value.AbsoluteContractId]): crypto.Hash.Builder = value match {
       case Value.ValueUnit =>
         add(tagUnit)
-      case Value.ValueTrue =>
+      case Value.ValueBool(true) =>
         add(tagTrue)
-      case Value.ValueFalse =>
+      case Value.ValueBool(false) =>
         add(tagFalse)
       case Value.ValueInt64(v) =>
         add(tagInt64).add(v)
@@ -88,14 +92,11 @@ object ValueHasher {
     }
   }
 
-  def hashContractKey(
-      identifier: Ref.Identifier,
-      value: Value[Value.AbsoluteContractId]
-  ): crypto.Hash =
+  def hash(key: Node.GlobalKey): crypto.Hash =
     crypto.Hash
-      .hashBuilder(crypto.HashPurpose.ContractKey)
-      .addIdentifier(identifier)
-      .addValue(value)
+      .builder(crypto.HashPurpose.ContractKey)
+      .addIdentifier(key.templateId)
+      .addValue(key.key.value)
       .build
 
 }
