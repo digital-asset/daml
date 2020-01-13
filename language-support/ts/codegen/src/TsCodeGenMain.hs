@@ -94,6 +94,7 @@ genModule curPkgId mod
             ["// Generated from " <> T.intercalate "/" (unModuleName curModName) <> ".daml"
             ,"/* eslint-disable @typescript-eslint/camelcase */"
             ,"/* eslint-disable @typescript-eslint/no-use-before-define */"
+            ,"/* eslint-disable @typescript-eslint/no-use-before-define */"
             ,"import * as jtv from '@mojotech/json-type-validation';"
             ,"import * as daml from '@digitalasset/daml-json-types';"
             ]
@@ -153,13 +154,24 @@ genDefDataType curPkgId conName mod tpls def =
 
             in
               ((makeType typeDesc, onLast (<> "; ") (makeSer serDesc)), Set.unions $ map (Set.setOf typeModuleRef . snd) bs)
-            else
-              let
-                (typs, sers) = unzip $ map genBranch bs
-                typeDesc = [""] ++ typs
-                serDesc  = ["() => jtv.oneOf<" <> conName <> typeParams <> ">("] ++ sers ++ [")"]
-              in
-                ((makeType typeDesc, makeSer serDesc), Set.unions $ map (Set.setOf typeModuleRef . snd) bs)
+          else
+            let
+              (typs, sers) = unzip $ map genBranch bs
+              typeDesc = [""] ++ typs
+
+              assocDataDefs =
+                [ d | d <- defDataTypes mod
+                  , [c1, _] <- [unTypeConName (dataTypeCon d)]
+                  , c1 == conName
+                  ]
+
+              assocDataNames = map (\d -> (conName <> "." <> (unTypeConName (dataTypeCon d)) !! 1)) assocDataDefs
+              assocTypeSerRefs = map (\d -> (snd . fst . genDefDataType curPkgId ((conName <> "." <> (unTypeConName (dataTypeCon d)) !! 1)) mod tpls) d) assocDataDefs
+              assocTypNameSers = zip assocDataNames assocTypeSerRefs
+              assocTypSers = concatMap (\(_name, sers) -> onHead (T.replace (T.pack "export const ") (T.pack "")) (onLast (<> ";") sers)) assocTypNameSers
+              serDesc  = ["() => jtv.oneOf<" <> conName <> typeParams <> ">("] ++ sers ++ [")"]
+            in
+              ((makeType typeDesc, onLast (<> "; ") (makeSer serDesc) ++ assocTypSers), Set.unions $ map (Set.setOf typeModuleRef . snd) bs)
 
         DataEnum enumCons ->
           let
@@ -171,7 +183,7 @@ genDefDataType curPkgId conName mod tpls def =
                 , "daml.STATIC_IMPLEMENTS_SERIALIZABLE_CHECK<" <> conName <> ">(" <> conName <> ")"
                 ]
             serDesc =
-                ["() => jtv.oneOf("] ++
+                ["() => jtv.oneOf<" <> conName <> ">" <> "("] ++
                 ["  jtv.constant(" <> conName <> "." <> cons <> ")," | VariantConName cons <- enumCons] ++
                 [");"]
           in
@@ -248,7 +260,7 @@ genDefDataType curPkgId conName mod tpls def =
           | otherwise = "<" <> T.intercalate ", " paramNames <> ">"
         serParam paramName = paramName <> ": daml.Serializable<" <> paramName <> ">"
         serHeader
-          | null paramNames = " =" -- ": daml.Serializable<" <> conName <> "> ="
+          | null paramNames = ": daml.Serializable<" <> conName <> "> ="
           | otherwise = " = " <> typeParams <> "(" <> T.intercalate ", " (map serParam paramNames) <> "): daml.Serializable<" <> conName <> typeParams <> "> =>"
         makeType = onHead (\x -> "export type " <> conName <> typeParams <> " = " <> x)
         makeSer serDesc =
