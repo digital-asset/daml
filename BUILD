@@ -239,6 +239,7 @@ da_haskell_repl(
     visibility = ["//visibility:public"],
     deps = [
         ":damlc",
+        "//compiler/daml-lf-ast:tests",
         "//compiler/damlc/stable-packages:generate-stable-package",
         "//compiler/damlc/tests:generate-simple-dalf",
         "//daml-assistant:daml",

@@ -67,7 +67,7 @@ object Cli {
         .optional()
         .unbounded()
         .action((f, c) => c.copy(archiveFiles = f :: c.archiveFiles))
-        .text("DAR files to load. Scenarios are ignored. The servers starts with an empty ledger by default.")
+        .text("DAR files to load. Scenarios are ignored. The server starts with an empty ledger by default.")
     }
 
   def parse(args: Array[String], binaryName: String, description: String): Option[Config] =

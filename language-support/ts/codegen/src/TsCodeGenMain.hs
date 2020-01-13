@@ -180,7 +180,7 @@ genDefDataType curPkgId conName curModName tpls def =
                                 (keyTypeTs, "() => " <> keySer <> ".decoder()")
                         dict =
                             ["export const " <> conName <> ": daml.Template<" <> conName <> ", " <> keyTypeTs <> "> & {"] ++
-                            ["  " <> x <> ": daml.Choice<" <> conName <> ", " <> t <> ", " <> rtyp <> " >;" | (x, t, rtyp, _) <- chcs] ++
+                            ["  " <> x <> ": daml.Choice<" <> conName <> ", " <> t <> ", " <> rtyp <> ", " <> keyTypeTs <> ">;" | (x, t, rtyp, _) <- chcs] ++
                             ["} = {"
                             ] ++
                             ["  templateId: '" <> unPackageId curPkgId <> ":" <> T.intercalate "." (unModuleName curModName) <> ":" <> conName <> "',"
@@ -281,8 +281,8 @@ genType curModName = go
                     ( con' <> "<" <> T.intercalate ", " ts' <> ">"
                     , ser <> "(" <> T.intercalate ", " sers <> ")"
                     )
-        TSyn _ -> error "TODO: genType, type synonym"
         TCon _ -> error "IMPOSSIBLE: lonely type constructor"
+        TSynApp{} -> error "IMPOSSIBLE: type synonym not serializable"
         t@TApp{} -> error $ "IMPOSSIBLE: type application not serializable - " <> DA.Pretty.renderPretty t
         TBuiltin t -> error $ "IMPOSSIBLE: partially applied primitive type not serializable - " <> DA.Pretty.renderPretty t
         TForall{} -> error "IMPOSSIBLE: universally quantified type not serializable"

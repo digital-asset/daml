@@ -5,10 +5,10 @@ package com.digitalasset.daml.lf.engine.trigger
 
 import com.digitalasset.daml.lf.engine.{ResultDone, ValueTranslator}
 import java.util
+
 import scala.collection.JavaConverters._
 import scalaz.std.either._
 import scalaz.syntax.traverse._
-
 import com.digitalasset.daml.lf.CompiledPackages
 import com.digitalasset.daml.lf.archive.Dar
 import com.digitalasset.daml.lf.data.FrontStack
@@ -17,12 +17,11 @@ import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.speedy.SValue
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, RelativeContractId}
-
 import com.digitalasset.ledger.api.v1.commands.{
   Command,
   CreateCommand,
-  ExerciseCommand,
-  ExerciseByKeyCommand
+  ExerciseByKeyCommand,
+  ExerciseCommand
 }
 import com.digitalasset.ledger.api.v1.completion.Completion
 import com.digitalasset.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event}
@@ -30,16 +29,20 @@ import com.digitalasset.ledger.api.v1.transaction.Transaction
 import com.digitalasset.ledger.api.v1.value
 import com.digitalasset.ledger.api.validation.ValueValidator
 import com.digitalasset.platform.participant.util.LfEngineToApi.{
-  toApiIdentifier,
   lfValueToApiRecord,
-  lfValueToApiValue
+  lfValueToApiValue,
+  toApiIdentifier
 }
+
+import scala.concurrent.duration.{FiniteDuration, MICROSECONDS}
 
 // Convert from a Ledger API transaction to an SValue corresponding to a Message from the Daml.Trigger module
 case class Converter(
     fromTransaction: Transaction => Either[String, SValue],
     fromCompletion: Completion => Either[String, SValue],
+    fromHeartbeat: SValue,
     fromACS: Seq[CreatedEvent] => Either[String, SValue],
+    toFiniteDuration: SValue => Either[String, FiniteDuration],
     toCommands: SValue => Either[String, (String, Seq[Command])],
     toRegisteredTemplates: SValue => Either[String, Seq[Identifier]],
 )
@@ -304,6 +307,29 @@ object Converter {
       ))
   }
 
+  private def fromHeartbeat(ids: TriggerIds): SValue = {
+    val messageTy = ids.getId("Message")
+    SVariant(
+      messageTy,
+      Name.assertFromString("MHeartbeat"),
+      SUnit
+    )
+  }
+
+  private def toFiniteDuration(ids: TriggerIds, value: SValue): Either[String, FiniteDuration] = {
+    value match {
+      case SRecord(_, _, values) if values.size() == 1 =>
+        values.get(0) match {
+          case SInt64(microseconds) =>
+            Right(FiniteDuration(microseconds, MICROSECONDS))
+          case _ =>
+            Left(s"Expected RelTime but got $value.")
+        }
+      case _ =>
+        Left(s"Expected RelTime but got $value.")
+    }
+  }
+
   private def toText(v: SValue): Either[String, String] = {
     v match {
       case SText(t) => Right(t)
@@ -528,7 +554,9 @@ object Converter {
     Converter(
       fromTransaction(valueTranslator, triggerIds, _),
       fromCompletion(triggerIds, _),
+      fromHeartbeat(triggerIds),
       fromACS(valueTranslator, triggerIds, _),
+      toFiniteDuration(triggerIds, _),
       toCommands(triggerIds, _),
       toRegisteredTemplates(_),
     )

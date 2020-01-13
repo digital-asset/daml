@@ -33,8 +33,8 @@ export interface Template<T extends object, K = unknown> extends Serializable<T>
  * Interface for objects representing DAML choices. It is similar to the
  * `Choice` type class in DAML.
  */
-export interface Choice<T extends object, C, R> {
-  template: () => Template<T>;
+export interface Choice<T extends object, C, R, K = unknown> {
+  template: () => Template<T, K>;
   argumentDecoder: () => jtv.Decoder<C>;
   resultDecoder: () => jtv.Decoder<R>;
   choiceName: string;

@@ -3,6 +3,7 @@
 
 package com.digitalasset.platform.resources
 
+import java.util.concurrent.CompletableFuture.completedFuture
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.{Executors, RejectedExecutionException}
 import java.util.{Timer, TimerTask}
@@ -351,12 +352,48 @@ class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
     }
   }
 
+  "a function returning a Try" should {
+    "convert to a ResourceOwner" in {
+      val resource = for {
+        value <- ResourceOwner.forTry(() => Success(49)).acquire()
+      } yield {
+        value should be(49)
+      }
+
+      for {
+        _ <- resource.asFuture
+        _ <- resource.release()
+      } yield {
+        succeed
+      }
+    }
+  }
+
   "a function returning a Future" should {
     "convert to a ResourceOwner" in {
       val resource = for {
         value <- ResourceOwner.forFuture(() => Future.successful(54)).acquire()
       } yield {
         value should be(54)
+      }
+
+      for {
+        _ <- resource.asFuture
+        _ <- resource.release()
+      } yield {
+        succeed
+      }
+    }
+  }
+
+  "a function returning a CompletionStage" should {
+    "convert to a ResourceOwner" in {
+      val resource = for {
+        value <- ResourceOwner
+          .forCompletionStage(() => completedFuture(63))
+          .acquire()
+      } yield {
+        value should be(63)
       }
 
       for {

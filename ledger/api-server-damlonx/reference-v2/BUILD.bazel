@@ -4,6 +4,7 @@
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
+    "da_scala_test",
 )
 load(
     "//ledger/ledger-api-test-tool:conformance.bzl",
@@ -36,6 +37,7 @@ da_scala_binary(
         "//daml-lf/archive:daml_lf_dev_archive_java_proto",
         "//daml-lf/data",
         "//daml-lf/engine",
+        "//daml-lf/transaction",
         "//language-support/scala/bindings",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
@@ -51,13 +53,38 @@ da_scala_binary(
     ],
 )
 
+da_scala_test(
+    name = "reference-v2-tests",
+    size = "small",
+    srcs = glob(["src/test/suite/**/*.scala"]),
+    data = [
+        "//ledger/test-common:Test-stable.dar",
+    ],
+    resources = glob(["src/test/resources/*"]),
+    deps = [
+        ":reference-v2",
+        "//daml-lf/data",
+        "//language-support/scala/bindings",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger-api/testing-utils",
+        "//ledger/ledger-api-common",
+        "//ledger/ledger-api-health",
+        "//ledger/participant-state",
+        "//ledger/participant-state/kvutils",
+        "//ledger/participant-state/kvutils:kvutils-tests-lib",
+        "@maven//:com_typesafe_akka_akka_actor_2_12",
+        "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
 ########################################
 ### Testing the index server
 ########################################
 
 da_scala_binary(
     name = "ephemeral-postgres-reference-server",
-    srcs = glob(["src/test/scala/**/*.scala"]),
+    srcs = glob(["src/test/lib/scala/**/*.scala"]),
     data = [
         "@postgresql_dev_env//:all",
     ],

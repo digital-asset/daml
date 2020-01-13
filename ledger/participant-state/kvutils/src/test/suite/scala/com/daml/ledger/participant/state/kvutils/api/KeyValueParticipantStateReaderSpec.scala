@@ -4,7 +4,6 @@
 package com.daml.ledger.participant.state.kvutils.api
 
 import akka.NotUsed
-import com.google.protobuf.ByteString
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
@@ -16,6 +15,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
 import com.daml.ledger.participant.state.kvutils.Envelope
 import com.daml.ledger.participant.state.v1.{Offset, Update}
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.google.protobuf.ByteString
 import org.mockito.ArgumentMatchers._
 import org.mockito.Mockito.when
 import org.scalatest.mockito.MockitoSugar

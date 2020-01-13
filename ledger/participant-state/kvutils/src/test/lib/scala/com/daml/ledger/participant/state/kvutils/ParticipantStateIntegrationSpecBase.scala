@@ -64,7 +64,6 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
   // a KeyValueConsumptionSpec as the heart of the logic is there
 
   implementationName should {
-
     "return initial conditions" in {
       for {
         conditions <- ps

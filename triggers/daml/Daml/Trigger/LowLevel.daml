@@ -30,9 +30,11 @@ module Daml.Trigger.LowLevel
   , fromExerciseByKey
   , RegisteredTemplates(..)
   , registeredTemplate
+  , RelTime(..)
   ) where
 
 import DA.Next.Map (MapKey(..))
+import DA.Time (RelTime(..))
 
 -- | This type represents the contract id of an unknown template.
 -- You can use `fromAnyContractId` to check which template it corresponds to.
@@ -117,6 +119,7 @@ fromArchived Archived {eventId, contractId}
 data Message
   = MTransaction Transaction
   | MCompletion Completion
+  | MHeartbeat
 
 -- | A completion message.
 -- Note that you will only get completions for commands emitted from the trigger.
@@ -140,6 +143,7 @@ data Trigger s = Trigger
   { initialState : Party -> Time -> ActiveContracts -> (s, [Commands])
   , update : Time -> Message -> s -> (s, [Commands])
   , registeredTemplates : RegisteredTemplates
+  , heartbeat : Optional RelTime
   }
 
 -- | A template that the trigger will receive events for.

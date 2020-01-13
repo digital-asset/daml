@@ -17,6 +17,7 @@ retryTrigger = Trigger
       _ -> allowedFail
   , rule = retryRule
   , registeredTemplates = AllInDar
+  , heartbeat = None
   }
 
 -- We first create a T template, then we try to exercise C 3 times until allowedRetries is 0
