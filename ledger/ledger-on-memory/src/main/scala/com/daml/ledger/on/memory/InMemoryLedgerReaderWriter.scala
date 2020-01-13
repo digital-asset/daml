@@ -1,14 +1,16 @@
 // Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.participant.state.kvutils.api.impl
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+package com.daml.ledger.on.memory
 
 import java.time.Clock
 import java.util.UUID
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntryId,
   DamlStateKey,
@@ -16,6 +18,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlSubmission
 }
 import com.daml.ledger.participant.state.kvutils.api.{LedgerReader, LedgerRecord, LedgerWriter}
+import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting}
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -23,25 +26,25 @@ import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.ledger.api.health.{HealthStatus, Healthy}
 import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
 import com.digitalasset.platform.akkastreams.dispatcher.SubSource.OneAfterAnother
-
-import scala.collection.JavaConverters._
-import scala.collection.{breakOut, mutable}
-import scala.collection.mutable.ArrayBuffer
-import scala.concurrent.{ExecutionContext, Future}
 import com.google.protobuf.ByteString
 
+import scala.collection.JavaConverters._
+import scala.collection.mutable.ArrayBuffer
+import scala.collection.{breakOut, mutable}
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Random
 
-private[impl] class LogEntry(val entryId: DamlLogEntryId, val payload: Array[Byte])
+private[memory] class LogEntry(val entryId: DamlLogEntryId, val payload: Array[Byte])
 
-private[impl] object LogEntry {
+private[memory] object LogEntry {
   def apply(entryId: DamlLogEntryId, payload: Array[Byte]): LogEntry =
     new LogEntry(entryId, payload)
 }
 
-private[impl] class InMemoryState(
+private[memory] class InMemoryState(
     val log: mutable.Buffer[LogEntry] = ArrayBuffer[LogEntry](),
-    val state: mutable.Map[ByteString, DamlStateValue] = mutable.Map.empty)
+    val state: mutable.Map[ByteString, DamlStateValue] = mutable.Map.empty,
+)
 
 final class InMemoryLedgerReaderWriter(
     ledgerId: LedgerId = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
@@ -115,7 +118,9 @@ final class InMemoryLedgerReaderWriter(
 
   override def currentHealth(): HealthStatus = Healthy
 
-  override def close(): Unit = ()
+  override def close(): Unit = {
+    dispatcher.close()
+  }
 
   private val dispatcher: Dispatcher[Int] =
     Dispatcher("in-memory-key-value-participant-state", zeroIndex = 0, headAtInitialization = 0)
