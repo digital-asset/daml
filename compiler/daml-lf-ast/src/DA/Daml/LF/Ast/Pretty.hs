@@ -1,4 +1,4 @@
--- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -158,8 +158,9 @@ prettyStruct lvl sept fields =
 instance Pretty Type where
   pPrintPrec lvl prec = \case
     TVar v -> pretty v
-    TSyn s -> pretty s
     TCon c -> pretty c
+    TSynApp s args ->
+      pretty s <-> hsep [pPrintPrec lvl (succ precTApp) arg | arg <- args ]
     TApp (TApp (TBuiltin BTArrow) tx) ty ->
       maybeParens (prec > precTFun)
         (pPrintPrec lvl (succ precTFun) tx <-> prettyFunArrow <-> pPrintPrec lvl precTFun ty)

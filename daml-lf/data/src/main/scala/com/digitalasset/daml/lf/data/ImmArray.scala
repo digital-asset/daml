@@ -1,4 +1,4 @@
-// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.data
@@ -259,10 +259,8 @@ final class ImmArray[+A] private (
     val builder = ImmArray.newBuilder[B]
     var i = 0
     while (i < len) {
-      f.lift(uncheckedGet(i)) match {
-        case None => ()
-        case Some(x) => builder += x
-      }
+      val a = uncheckedGet(i)
+      if (f.isDefinedAt(a)) builder += f(a)
       i += 1
     }
     builder.result()
@@ -289,13 +287,16 @@ final class ImmArray[+A] private (
   }
 
   /** O(n) */
-  def find(f: A => Boolean): Option[A] =
-    indices collectFirst (Function unlift { i =>
-      val el = uncheckedGet(i)
-      if (f(el))
-        Some(el)
-      else None
-    })
+  def find(f: A => Boolean): Option[A] = {
+    @tailrec
+    def go(i: Int): Option[A] =
+      if (i < len) {
+        val e = uncheckedGet(i)
+        if (f(e)) Some(e)
+        else go(i + 1)
+      } else None
+    go(0)
+  }
 
   /** O(n) */
   def indexWhere(p: A => Boolean): Int =
@@ -304,7 +305,7 @@ final class ImmArray[+A] private (
     } getOrElse -1
 
   /** O(1) */
-  def indices(): Range = 0 until len
+  def indices: Range = 0 until len
 
   /** O(1) */
   def canEqual(that: Any) = that.isInstanceOf[ImmArray[_]]

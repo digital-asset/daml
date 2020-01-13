@@ -1,4 +1,4 @@
--- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE TemplateHaskell     #-}
@@ -398,7 +398,7 @@ execIde telemetry (Debug debug) enableScenarioService ghcOpts mbProfileDir (from
               withScenarioService' enableScenarioService loggerH scenarioServiceConfig $ \mbScenarioService -> do
                   sdkVersion <- getSdkVersion `catchIO` const (pure "Unknown (not started via the assistant)")
                   Logger.logInfo loggerH (T.pack $ "SDK version: " <> sdkVersion)
-                  runLanguageServer $ \getLspId sendMsg vfs caps ->
+                  runLanguageServer loggerH $ \getLspId sendMsg vfs caps ->
                       getDamlIdeState opts mbScenarioService loggerH getLspId sendMsg vfs (clientSupportsProgress caps)
 
 

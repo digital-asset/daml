@@ -1,4 +1,4 @@
--- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE ConstraintKinds #-}
@@ -729,7 +729,7 @@ decodeType LF1.Type{..} = mayDecode "typeSum" typeSum $ \case
   LF1.TypeSumCon (LF1.Type_Con mbCon args) ->
     decodeWithArgs args $ TCon <$> mayDecode "type_ConTycon" mbCon decodeTypeConName
   LF1.TypeSumSyn (LF1.Type_Syn mbSyn args) ->
-    decodeWithArgs args $ TSyn <$> mayDecode "type_SynTysyn" mbSyn decodeTypeSynName
+    TSynApp <$> mayDecode "type_SynTysyn" mbSyn decodeTypeSynName <*> traverse decodeType (V.toList args)
   LF1.TypeSumPrim (LF1.Type_Prim (Proto.Enumerated (Right prim)) args) -> do
     decodeWithArgs args $ TBuiltin <$> decodePrim prim
   LF1.TypeSumPrim (LF1.Type_Prim (Proto.Enumerated (Left idx)) _args) ->

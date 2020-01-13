@@ -1,4 +1,4 @@
--- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 daml 1.2
 module Main where
@@ -27,6 +27,9 @@ template AllTypes with
     tuple: (Int, Text)
     enum: Color
     enumList: [Color]
+    variant: Expr Int
+    sumProd : Quux
+    parametericSumProd : Expr2 Int
   where
     signatory party
 
@@ -36,6 +39,9 @@ template Person with
     age: Int
   where
     signatory party
+
+    key (party, age): (Party, Int)
+    maintainer key._1
 
     choice Birthday: ContractId Person
       controller party
@@ -56,4 +62,21 @@ data Foo a b = Foo {
   z: b
 }
 
+data Expr a =
+    Lit a
+  | Var Text
+  | Add (Expr a, Expr a)
+  deriving (Show, Eq)
+
+data Expr2 a =
+    Lit2 a
+  | Var2 Text
+  | Add2 {lhs : Expr2 a, rhs: Expr2 a}
+  deriving (Show, Eq)
+
 data Color = Red | Blue | Yellow deriving (Eq, Show)
+
+data Quux =
+    Corge { x: Int, y: Text }
+  | Grault { z: Bool }
+  deriving (Show, Eq)

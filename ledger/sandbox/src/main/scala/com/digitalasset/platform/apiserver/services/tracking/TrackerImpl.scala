@@ -1,7 +1,7 @@
-// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.server.services.command
+package com.digitalasset.platform.apiserver.services.tracking
 
 import java.util
 import java.util.Collections
@@ -9,11 +9,11 @@ import java.util.Collections
 import akka.NotUsed
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source, SourceQueueWithComplete}
 import akka.stream.{Materializer, OverflowStrategy}
+import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
 import com.digitalasset.ledger.api.v1.completion.Completion
 import com.digitalasset.ledger.client.services.commands.CommandTrackerFlow.Materialized
-import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.platform.server.api.ApiException
 import com.digitalasset.util.Ctx
 import com.google.rpc.code.Code
@@ -28,14 +28,14 @@ import scala.util.{Failure, Success}
 /**
   * Tracks SubmitAndWaitRequests.
   * @param queue The input queue to the tracking flow.
-  * @param historySize The number of command IDs to remember for deduplicating tracked futures and results.
+  * @param historySize The number of command IDs to remember for de-duplicating tracked futures and results.
   */
-class TrackerImpl(queue: SourceQueueWithComplete[TrackerImpl.QueueInput], historySize: Int)
+final class TrackerImpl(queue: SourceQueueWithComplete[TrackerImpl.QueueInput], historySize: Int)
     extends Tracker {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
 
-  require(historySize > 0, " History size must be a positive integer.")
+  require(historySize > 0, "History size must be a positive integer.")
 
   private val knownResults: util.Map[(String, String), Future[Completion]] =
     Collections.synchronizedMap(new SizeCappedMap(historySize / 2, historySize))

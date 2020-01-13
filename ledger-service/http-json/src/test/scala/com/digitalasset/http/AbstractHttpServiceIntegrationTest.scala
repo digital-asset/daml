@@ -1,7 +1,9 @@
-// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.http
+
+import java.time.Instant
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
@@ -9,7 +11,9 @@ import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.stream.Materializer
 import akka.util.ByteString
-import com.digitalasset.daml.bazeltools.BazelRunfiles._
+import com.digitalasset.api.util.TimestampConversion
+import com.digitalasset.daml.bazeltools.BazelRunfiles.requiredResource
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.digitalasset.http.HttpServiceTestFixture.jsonCodecs
 import com.digitalasset.http.domain.ContractId
@@ -18,13 +22,13 @@ import com.digitalasset.http.json.SprayJson.objectField
 import com.digitalasset.http.json._
 import com.digitalasset.http.util.ClientUtil.boxedRecord
 import com.digitalasset.http.util.FutureUtil.toFuture
-import com.digitalasset.http.util.TestUtil.requiredFile
 import com.digitalasset.jwt.JwtSigner
 import com.digitalasset.jwt.domain.{DecodedJwt, Jwt}
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.v1.value.Record
 import com.digitalasset.ledger.api.v1.{value => v}
 import com.digitalasset.ledger.client.LedgerClient
+import com.digitalasset.ledger.service.MetadataReader
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest._
 import scalaz.std.list._
@@ -51,11 +55,12 @@ abstract class AbstractHttpServiceIntegrationTest
 
   import json.JsonProtocol._
 
-  private val dar1 = requiredFile(rlocation("docs/quickstart-model.dar"))
-    .fold(e => throw new IllegalStateException(e), identity)
+  private val dar1 = requiredResource("docs/quickstart-model.dar")
 
-  private val dar2 = requiredFile(rlocation("ledger-service/http-json/Account.dar"))
-    .fold(e => throw new IllegalStateException(e), identity)
+  private val dar2 = requiredResource("ledger-service/http-json/Account.dar")
+
+  private val metdata2: MetadataReader.LfMetadata =
+    MetadataReader.readFromDar(dar2).valueOr(e => fail(s"Cannot read dar2 metadata: $e"))
 
   private val testId: String = this.getClass.getSimpleName
 
@@ -129,7 +134,7 @@ abstract class AbstractHttpServiceIntegrationTest
   "contracts/search POST with empty query" in withHttpService { (uri, encoder, _) =>
     searchWithQuery(
       searchDataSet,
-      jsObject("""{"%templates": [{"moduleName": "Iou", "entityName": "Iou"}]}"""),
+      jsObject("""{"%templates": ["Iou:Iou"]}"""),
       uri,
       encoder
     ).map { acl: List[domain.ActiveContract[JsValue]] =>
@@ -140,13 +145,12 @@ abstract class AbstractHttpServiceIntegrationTest
   "contracts/search with query, one field" in withHttpService { (uri, encoder, _) =>
     searchWithQuery(
       searchDataSet,
-      jsObject(
-        """{"%templates": [{"moduleName": "Iou", "entityName": "Iou"}], "currency": "EUR"}"""),
+      jsObject("""{"%templates": ["Iou:Iou"], "currency": "EUR"}"""),
       uri,
       encoder
     ).map { acl: List[domain.ActiveContract[JsValue]] =>
       acl.size shouldBe 2
-      acl.map(a => objectField(a.argument, "currency")) shouldBe List.fill(2)(Some(JsString("EUR")))
+      acl.map(a => objectField(a.payload, "currency")) shouldBe List.fill(2)(Some(JsString("EUR")))
     }
   }
 
@@ -158,11 +162,8 @@ abstract class AbstractHttpServiceIntegrationTest
         rs: List[(StatusCode, JsValue)] =>
           rs.map(_._1) shouldBe List.fill(searchDataSet.size)(StatusCodes.OK)
 
-          val queryAmountAsString = jsObject(
-            """{"%templates": [{"moduleName": "Iou", "entityName": "Iou"}], "amount": "111.11"}""")
-
-          val queryAmountAsNumber = jsObject(
-            """{"%templates": [{"moduleName": "Iou", "entityName": "Iou"}], "amount": 111.11}""")
+          val queryAmountAsString = jsObject("""{"%templates": ["Iou:Iou"], "amount": "111.11"}""")
+          val queryAmountAsNumber = jsObject("""{"%templates": ["Iou:Iou"], "amount": 111.11}""")
 
           List(
             postJsonRequest(uri.withPath(Uri.Path("/contracts/search")), queryAmountAsString),
@@ -177,7 +178,7 @@ abstract class AbstractHttpServiceIntegrationTest
                 acl1 shouldBe acl2
                 inside(acl1) {
                   case List(ac) =>
-                    objectField(ac.argument, "amount") shouldBe Some(JsString("111.11"))
+                    objectField(ac.payload, "amount") shouldBe Some(JsString("111.11"))
                 }
             }
           }
@@ -187,21 +188,19 @@ abstract class AbstractHttpServiceIntegrationTest
   "contracts/search with query, two fields" in withHttpService { (uri, encoder, _) =>
     searchWithQuery(
       searchDataSet,
-      jsObject(
-        """{"%templates": [{"moduleName": "Iou", "entityName": "Iou"}], "currency": "EUR", "amount": "111.11"}"""),
+      jsObject("""{"%templates": ["Iou:Iou"], "currency": "EUR", "amount": "111.11"}"""),
       uri,
       encoder).map { acl: List[domain.ActiveContract[JsValue]] =>
       acl.size shouldBe 1
-      acl.map(a => objectField(a.argument, "currency")) shouldBe List(Some(JsString("EUR")))
-      acl.map(a => objectField(a.argument, "amount")) shouldBe List(Some(JsString("111.11")))
+      acl.map(a => objectField(a.payload, "currency")) shouldBe List(Some(JsString("EUR")))
+      acl.map(a => objectField(a.payload, "amount")) shouldBe List(Some(JsString("111.11")))
     }
   }
 
   "contracts/search with query, no results" in withHttpService { (uri, encoder, _) =>
     searchWithQuery(
       searchDataSet,
-      jsObject(
-        """{"%templates": [{"moduleName": "Iou", "entityName": "Iou"}], "currency": "RUB", "amount": "666.66"}"""),
+      jsObject("""{"%templates": ["Iou:Iou"], "currency": "RUB", "amount": "666.66"}"""),
       uri,
       encoder
     ).map { acl: List[domain.ActiveContract[JsValue]] =>
@@ -419,7 +418,7 @@ abstract class AbstractHttpServiceIntegrationTest
     val active: domain.ActiveContract[v.Value] =
       decoder.decodeUnderlyingValues(actual).valueOr(e => fail(e.shows))
 
-    inside(active.argument.sum.record.map(_.fields)) {
+    inside(active.payload.sum.record.map(_.fields)) {
       case Some(
           Seq(
             v.RecordField("iou", Some(contractRecord)),
@@ -440,7 +439,7 @@ abstract class AbstractHttpServiceIntegrationTest
       case \/-(activeContract) =>
         val expectedArgument: JsValue =
           encoder.encodeUnderlyingRecord(command).map(_.argument).getOrElse(fail)
-        (activeContract.argument: JsValue) shouldBe expectedArgument
+        (activeContract.payload: JsValue) shouldBe expectedArgument
     }
   }
 
@@ -536,6 +535,25 @@ abstract class AbstractHttpServiceIntegrationTest
     }: Future[Assertion]
   }
 
+  "contracts/lookup returns {status:200, result:null} when contract is not found" in withHttpService {
+    (uri, _, _) =>
+      val owner = domain.Party("Alice")
+      val accountNumber = "abc123"
+      val locator = domain.EnrichedContractKey(
+        domain.TemplateId(None, "Account", "Account"),
+        JsArray(JsString(owner.unwrap), JsString(accountNumber))
+      )
+      postContractsLookup(locator, uri.withPath(Uri.Path("/contracts/lookup"))).flatMap {
+        case (status, output) =>
+          status shouldBe StatusCodes.OK
+          assertStatus(output, StatusCodes.OK)
+          output
+            .asJsObject(s"expected JsObject, got: $output")
+            .fields
+            .get("result") shouldBe Some(JsNull)
+      }: Future[Assertion]
+  }
+
   "contracts/lookup by contractKey" in withHttpService { (uri, encoder, decoder) =>
     val owner = domain.Party("Alice")
     val accountNumber = "abc123"
@@ -551,6 +569,78 @@ abstract class AbstractHttpServiceIntegrationTest
           JsArray(JsString(owner.unwrap), JsString(accountNumber))
         )
         lookupContractAndAssert(locator)(contractId, command, encoder, decoder, uri)
+    }: Future[Assertion]
+  }
+
+  "contracts/lookup by contractKey where Key contains variant and record" in withHttpService {
+    (uri, _, _) =>
+      val createCommand = jsObject("""{
+        "templateId": "Account:KeyedByVariantAndRecord",
+        "argument": {
+          "name": "ABC DEF",
+          "party": "Alice",
+          "age": 123,
+          "fooVariant": {"tag": "Baz", "value": {"baz": "baz value"}},
+          "bazRecord": {"baz": "another baz value"}
+        }
+      }""")
+
+      val lookupRequest =
+        jsObject(
+          """{
+            "templateId": "Account:KeyedByVariantAndRecord",
+            "key": ["Alice", {"tag": "Baz", "value": {"baz": "baz value"}}, {"baz": "another baz value"}]
+          }""")
+
+      postJsonRequest(uri.withPath(Uri.Path("/command/create")), createCommand).flatMap {
+        case (status, output) =>
+          status shouldBe StatusCodes.OK
+          assertStatus(output, StatusCodes.OK)
+          val contractId: ContractId = getContractId(getResult(output))
+
+          postJsonRequest(uri.withPath(Uri.Path("/contracts/lookup")), lookupRequest).flatMap {
+            case (status, output) =>
+              status shouldBe StatusCodes.OK
+              assertStatus(output, StatusCodes.OK)
+              activeContract(output).contractId shouldBe contractId
+          }
+      }: Future[Assertion]
+  }
+
+  "contracts/search by a variant field" in withHttpService { (uri, encoder, decoder) =>
+    val owner = domain.Party("Alice")
+    val accountNumber = "abc123"
+    val now = TimestampConversion.instantToMicros(Instant.now)
+    val nowStr = TimestampConversion.microsToInstant(now).toString
+    val command: domain.CreateCommand[v.Record] = accountCreateCommand(owner, accountNumber, now)
+
+    val packageId: Ref.PackageId = MetadataReader
+      .templateByName(metdata2)(Ref.QualifiedName.assertFromString("Account:Account"))
+      .headOption
+      .map(_._1)
+      .getOrElse(fail(s"Cannot retrieve packageId"))
+
+    postCreateCommand(command, encoder, uri).flatMap {
+      case (status, output) =>
+        status shouldBe StatusCodes.OK
+        assertStatus(output, StatusCodes.OK)
+        val contractId: ContractId = getContractId(getResult(output))
+
+        val query = jsObject(s"""{
+             "%templates": ["$packageId:Account:Account"],
+             "number" : "abc123",
+             "status" : {"tag": "Enabled", "value": "${nowStr: String}"}
+          }""")
+
+        postJsonRequest(uri.withPath(Uri.Path("/contracts/search")), query).map {
+          case (searchStatus, searchOutput) =>
+            searchStatus shouldBe StatusCodes.OK
+            assertStatus(searchOutput, StatusCodes.OK)
+            inside(activeContractList(searchOutput)) {
+              case List(ac) =>
+                ac.contractId shouldBe contractId
+            }
+        }
     }: Future[Assertion]
   }
 
@@ -602,7 +692,7 @@ abstract class AbstractHttpServiceIntegrationTest
 
   private def iouExerciseTransferCommand(
       contractId: lar.ContractId): domain.ExerciseCommand[v.Value] = {
-    val templateId: OptionalPkg = domain.TemplateId(None, "Iou", "Iou")
+    val templateId = domain.TemplateId(None, "Iou", "Iou")
     val arg: Record = v.Record(
       fields = List(v.RecordField("newOwner", Some(v.Value(v.Value.Sum.Party("Alice")))))
     )
@@ -612,7 +702,7 @@ abstract class AbstractHttpServiceIntegrationTest
   }
 
   private def iouArchiveCommand(contractId: lar.ContractId): domain.ExerciseCommand[v.Value] = {
-    val templateId: OptionalPkg = domain.TemplateId(None, "Iou", "Iou")
+    val templateId = domain.TemplateId(None, "Iou", "Iou")
     val arg: Record = v.Record()
     val choice = lar.Choice("Archive")
     domain.ExerciseCommand(templateId, contractId, choice, boxedRecord(arg), None)
@@ -620,12 +710,18 @@ abstract class AbstractHttpServiceIntegrationTest
 
   private def accountCreateCommand(
       owner: domain.Party,
-      number: String): domain.CreateCommand[v.Record] = {
-    val templateId: OptionalPkg = domain.TemplateId(None, "Account", "Account")
+      number: String,
+      time: v.Value.Sum.Timestamp = TimestampConversion.instantToMicros(Instant.now))
+    : domain.CreateCommand[v.Record] = {
+    val templateId = domain.TemplateId(None, "Account", "Account")
+    val timeValue = v.Value(time)
+    val enabledVariantValue =
+      v.Value(v.Value.Sum.Variant(v.Variant(None, "Enabled", Some(timeValue))))
     val arg: Record = v.Record(
       fields = List(
         v.RecordField("owner", Some(v.Value(v.Value.Sum.Party(owner.unwrap)))),
         v.RecordField("number", Some(v.Value(v.Value.Sum.Text(number)))),
+        v.RecordField("status", Some(enabledVariantValue))
       ))
 
     domain.CreateCommand(templateId, arg, None)
@@ -713,14 +809,23 @@ abstract class AbstractHttpServiceIntegrationTest
       .valueOr(e => fail(e.shows))
   }
 
+  private def activeContract(output: JsValue): domain.ActiveContract[JsValue] = {
+    val result = SprayJson
+      .objectField(output, "result")
+      .getOrElse(fail(s"output: $output is missing result element"))
+
+    SprayJson
+      .decode[domain.ActiveContract[JsValue]](result)
+      .valueOr(e => fail(e.shows))
+  }
+
   private def getResult(output: JsValue): JsObject = {
     def errorMsg = s"Expected JsObject with 'result' field, got: $output"
 
     output
       .asJsObject(errorMsg)
-      .getFields("result")
-      .headOption
-      .getOrElse(fail(errorMsg))
+      .fields
+      .getOrElse("result", fail(errorMsg))
       .asJsObject(errorMsg)
   }
 

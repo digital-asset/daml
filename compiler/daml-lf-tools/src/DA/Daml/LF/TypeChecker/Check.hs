@@ -1,4 +1,4 @@
--- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE RankNTypes #-}
@@ -127,8 +127,11 @@ kindOfBuiltin = \case
 kindOf :: MonadGamma m => Type -> m Kind
 kindOf = \case
   TVar v -> lookupTypeVar v
-  TSyn{} -> error "TODO: kindOf, expand type synonym" -- TODO #3616
   TCon tcon -> kindOfDataType <$> inWorld (lookupDataType tcon)
+  TSynApp tsyn args -> do
+    ty <- expandSynApp tsyn args
+    checkType ty KStar
+    pure KStar
   -- NOTE(MH): Types of the form `(forall f. f) a` are only relevant for
   -- impredicative polymorphism, which we don't support. Since this type
   -- cannot be encoded into a protobuf anyway, we fail here with more context
@@ -144,6 +147,37 @@ kindOf = \case
   TForall (v, k) t1 -> introTypeVar v k $ checkType t1 KStar $> KStar
   TStruct recordType -> checkRecordType recordType $> KStar
   TNat _ -> pure KNat
+
+expandTypeSynonyms :: MonadGamma m => Type -> m Type
+expandTypeSynonyms = expand where
+  expand = \case
+    TVar v -> return $ TVar v
+    TCon tcon -> return $ TCon tcon
+    TSynApp tsyn args -> expandSynApp tsyn args >>= expand
+    TApp tfun targ -> do
+      tfun' <- expand tfun
+      targ' <- expand targ
+      return $ TApp tfun' targ'
+    TBuiltin btype -> return $ TBuiltin btype
+    TForall (v, k) t1 -> do
+      t1' <- introTypeVar v k $ expand t1
+      return $ TForall (v, k) t1'
+    TStruct recordType -> do
+      recordType' <- mapM (\(n,t) -> do t' <- expand t; return (n,t')) recordType
+      return $ TStruct recordType'
+    TNat typeLevelNat -> return $ TNat typeLevelNat
+
+expandSynApp :: MonadGamma m => Qualified TypeSynName -> [Type] -> m Type
+expandSynApp tsyn args = do
+  def@DefTypeSyn{synParams,synType} <- inWorld (lookupTypeSyn tsyn)
+  subst0 <- match _Just (ESynAppWrongArity def args) (zipExactMay synParams args)
+  for_ subst0 $ \((_, kind), typ) -> checkType typ kind
+  let subst1 = map (\((v, _kind), typ) -> (v, typ)) subst0
+  -- NOTE(NIC): Since we're assuming that the DefTypeSyn has been checked
+  -- the elements of @synParams@ are mutually distinct and
+  -- contain all type variables which are free in @synType@. Thus, it is safe
+  -- to call 'substitute'.
+  return $ substitute (Map.fromList subst1) synType
 
 typeOfBuiltin :: MonadGamma m => BuiltinExpr -> m Type
 typeOfBuiltin = \case
@@ -500,8 +534,8 @@ typeOfScenario = \case
     checkExpr e (TScenario typ)
     return (TScenario typ)
 
-typeOf :: MonadGamma m => Expr -> m Type
-typeOf = \case
+typeOf' :: MonadGamma m => Expr -> m Type
+typeOf' = \case
   EVar var -> lookupExprVar var
   EVal val -> dvalType <$> inWorld (lookupValue val)
   EBuiltin bexpr -> typeOfBuiltin bexpr
@@ -536,7 +570,12 @@ typeOf = \case
     pure $ TBuiltin BTTypeRep
   EUpdate upd -> typeOfUpdate upd
   EScenario scen -> typeOfScenario scen
-  ELocation _ expr -> typeOf expr
+  ELocation _ expr -> typeOf' expr
+
+typeOf :: MonadGamma m => Expr -> m Type
+typeOf expr = do
+  ty <- typeOf' expr
+  expandTypeSynonyms ty
 
 -- Check that the type contains no type variables or quantifiers
 checkGroundType' :: MonadGamma m => Type -> m ()
@@ -554,12 +593,21 @@ checkGroundType ty = do
 checkExpr' :: MonadGamma m => Expr -> Type -> m Type
 checkExpr' expr typ = do
   exprType <- typeOf expr
-  unless (alphaEquiv exprType typ) $
-    throwWithContext ETypeMismatch{foundType = exprType, expectedType = typ, expr = Just expr}
+  typX <- expandTypeSynonyms typ
+  unless (alphaEquiv exprType typX) $
+    throwWithContext ETypeMismatch{foundType = exprType, expectedType = typX, expr = Just expr}
   pure exprType
 
 checkExpr :: MonadGamma m => Expr -> Type -> m ()
 checkExpr expr typ = void (checkExpr' expr typ)
+
+-- | Check that a type synonym definition is well-formed.
+checkDefTypeSyn :: MonadGamma m => DefTypeSyn -> m ()
+checkDefTypeSyn DefTypeSyn{synParams,synType} = do
+  checkUnique EDuplicateTypeParam $ map fst synParams
+  foldr (uncurry introTypeVar) base synParams
+  where
+    base = checkType synType KStar
 
 -- | Check that a type constructor definition is well-formed.
 checkDefDataType :: MonadGamma m => DefDataType -> m ()
@@ -626,9 +674,10 @@ checkTemplateKey param tcon TemplateKey{..} = do
 -- The type checker for expressions relies on the fact that data type
 -- definitions do _not_ contain free variables.
 checkModule :: MonadGamma m => Module -> m ()
-checkModule m@(Module _modName _path _flags _synonyms dataTypes values templates) = do
-  -- TODO #3616: check type synonyms, including for cycles
+checkModule m@(Module _modName _path _flags synonyms dataTypes values templates) = do
+  -- TODO #3616: check type synonyms for cycles
   let with ctx f x = withContext (ctx x) (f x)
+  traverse_ (with (ContextDefTypeSyn m) checkDefTypeSyn) synonyms
   traverse_ (with (ContextDefDataType m) checkDefDataType) dataTypes
   traverse_ (with (\t -> ContextTemplate m t TPWhole) $ checkTemplate m) templates
   traverse_ (with (ContextDefValue m) checkDefValue) values

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.speedy
@@ -18,6 +18,9 @@ import java.util.ArrayList
 
 import com.digitalasset.daml.lf.CompiledPackages
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
+import org.slf4j.LoggerFactory
+
+import scala.util.control.NoStackTrace
 
 object Speedy {
 
@@ -229,6 +232,7 @@ object Speedy {
   }
 
   object Machine {
+    private val damlTraceLog = LoggerFactory.getLogger("daml.tracelog")
     private def initial(checkSubmitterInMaintainers: Boolean, compiledPackages: CompiledPackages) =
       Machine(
         ctrl = null,
@@ -238,7 +242,7 @@ object Speedy {
         ptx = PartialTransaction.initial,
         committers = Set.empty,
         commitLocation = None,
-        traceLog = TraceLog(100),
+        traceLog = TraceLog(damlTraceLog, 100),
         compiledPackages = compiledPackages,
         checkSubmitterInMaintainers = checkSubmitterInMaintainers,
         validating = false,
@@ -413,9 +417,11 @@ object Speedy {
 
           // start evaluating the arguments
           val newArgsLimit = Math.min(missing, newArgs.length)
-          for (i <- 1 until newArgsLimit) {
+          var i = 1
+          while (i < newArgsLimit) {
             val arg = newArgs(newArgsLimit - i)
             machine.kont.add(KPushTo(args2, arg))
+            i = i + 1
           }
           machine.ctrl = CtrlExpr(newArgs(0))
 
@@ -566,6 +572,6 @@ object Speedy {
   }
 
   /** Internal exception thrown when a continuation result needs to be returned. */
-  final case class SpeedyHungry(result: SResult) extends RuntimeException(result.toString)
+  final case class SpeedyHungry(result: SResult) extends RuntimeException with NoStackTrace
 
 }

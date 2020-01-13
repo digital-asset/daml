@@ -1,4 +1,4 @@
--- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DuplicateRecordFields #-}
@@ -129,7 +129,7 @@ tListPackages withSandbox = testCase "listPackages" $ run withSandbox $ \pid _te
     lid <- getLedgerIdentity
     pids <- listPackages lid
     liftIO $ do
-        assertEqual "#packages" 9 (length pids)
+        assertEqual "#packages" 17 (length pids)
         assertBool "The pid is listed" (pid `elem` pids)
 
 tGetPackage :: SandboxTest

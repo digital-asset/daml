@@ -1,4 +1,4 @@
-# Copyright (c) 2019 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -78,7 +78,6 @@ da_haskell_library(
         "mtl",
         "network-uri",
         "regex-tdfa",
-        "regex-tdfa-text",
         "stm",
         "temporary",
         "text",

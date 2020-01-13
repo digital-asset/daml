@@ -1,4 +1,4 @@
--- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -294,14 +294,14 @@ encodeType' typ = fmap (P.Type . Just) $ case typ ^. _TApps of
         type_VarVar <- encodeName unTypeVarName var
         type_VarArgs <- encodeList encodeType' args
         pure $ P.TypeSumVar P.Type_Var{..}
-    (TSyn syn, args) -> do
-        type_SynTysyn <- encodeQualTypeSynName syn
-        type_SynArgs <- encodeList encodeType' args
-        pure $ P.TypeSumSyn P.Type_Syn{..}
     (TCon con, args) -> do
         type_ConTycon <- encodeQualTypeConName con
         type_ConArgs <- encodeList encodeType' args
         pure $ P.TypeSumCon P.Type_Con{..}
+    (TSynApp syn args, []) -> do
+        type_SynTysyn <- encodeQualTypeSynName syn
+        type_SynArgs <- encodeList encodeType' args
+        pure $ P.TypeSumSyn P.Type_Syn{..}
     (TBuiltin bltn, args) -> do
         let type_PrimPrim = encodeBuiltinType bltn
         type_PrimArgs <- encodeList encodeType' args
@@ -324,6 +324,7 @@ encodeType' typ = fmap (P.Type . Just) $ case typ ^. _TApps of
     -- NOTE(MH): The following case requires impredicative polymorphism,
     -- which we don't support.
     (TForall{}, _:_) -> error "Application of TForall"
+    (TSynApp{}, _:_) -> error "Application of TSynApp"
 
 encodeType :: Type -> Encode (Just P.Type)
 encodeType t = Just <$> encodeType' t

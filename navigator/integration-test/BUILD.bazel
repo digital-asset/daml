@@ -1,4 +1,4 @@
-# Copyright (c) 2019 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:scala.bzl", "da_scala_binary")
@@ -14,10 +14,12 @@ da_scala_binary(
     resource_strip_prefix = "navigator/integration-test/src/main/resources/",
     resources = ["src/main/resources/Main.daml"],
     visibility = ["//visibility:public"],
-    deps = [
-        "//compiler/damlc/jar:damlc_library_jar",
+    runtime_deps = [
         "//ledger/sandbox",
         "@maven//:ch_qos_logback_logback_classic",
+    ],
+    deps = [
+        "//compiler/damlc/jar:damlc_library_jar",
         "@maven//:com_chuusai_shapeless_2_12",
         "@maven//:com_github_scopt_scopt_2_12",
         "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
@@ -28,7 +30,6 @@ da_scala_binary(
         "@maven//:org_scalactic_scalactic_2_12",
         "@maven//:org_scalatest_scalatest_2_12",
         "@maven//:org_seleniumhq_selenium_selenium_api",
-        "@maven//:org_seleniumhq_selenium_selenium_java",
         "@maven//:org_seleniumhq_selenium_selenium_remote_driver",
         "@maven//:org_slf4j_slf4j_api",
         "@maven//:org_typelevel_cats_core_2_12",

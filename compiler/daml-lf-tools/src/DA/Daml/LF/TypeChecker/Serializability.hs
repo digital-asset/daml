@@ -1,4 +1,4 @@
--- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- | This module provides functions to perform the DAML-LF constraint checks on
@@ -67,7 +67,7 @@ serializabilityConditionsType world0 _version mbModNameTpls vars = go
       TVar v
         | v `HS.member` vars -> noConditions
         | otherwise -> Left (URFreeVar v)
-      TSyn _ -> Left URTypeSyn
+      TSynApp{} -> Left URTypeSyn
       TCon tcon
         | Just (modName, _) <- mbModNameTpls
         , Right tconName <- matching (_PRSelfModule modName) tcon ->

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.http
@@ -77,7 +77,6 @@ object Generators {
       templateId <- Generators.genDomainTemplateId
       key <- Gen.option(Gen.identifier.map(JsString(_)))
       argument <- Gen.identifier.map(JsString(_))
-      witnessParties <- Gen.listOf(partyGen)
       signatories <- Gen.listOf(partyGen)
       observers <- Gen.listOf(partyGen)
       agreementText <- Gen.identifier
@@ -86,8 +85,7 @@ object Generators {
         contractId = contractId,
         templateId = templateId,
         key = key,
-        argument = argument,
-        witnessParties = witnessParties,
+        payload = argument,
         signatories = signatories,
         observers = observers,
         agreementText = agreementText
@@ -97,11 +95,9 @@ object Generators {
     for {
       contractId <- contractIdGen
       templateId <- Generators.genDomainTemplateId
-      witnessParties <- Gen.listOf(partyGen)
     } yield
       domain.ArchivedContract(
         contractId = contractId,
-        templateId = templateId,
-        witnessParties = witnessParties,
+        templateId = templateId
       )
 }

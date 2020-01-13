@@ -1,7 +1,7 @@
-// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.server.services.testing
+package com.digitalasset.platform.apiserver
 
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicReference

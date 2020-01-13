@@ -1,4 +1,4 @@
--- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE MultiWayIf #-}
@@ -124,7 +124,7 @@ import           SdkVersion
 conversionError :: String -> ConvertM e
 conversionError msg = do
   ConversionEnv{..} <- ask
-  throwError $ (convModuleFilePath,) Diagnostic
+  throwError $ (convModuleFilePath,ShowDiag,) Diagnostic
       { _range = maybe noRange sourceLocToRange convRange
       , _severity = Just DsError
       , _source = Just "Core to DAML-LF"
@@ -382,6 +382,7 @@ convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $ if
     | NameIn DA_Internal_LF n <- t
     , n `elementOfUniqSet` internalTypes
     -> pure []
+    | NameIn DA_Internal_Prelude "Optional" <- t -> pure []
     -- Consumption marker types used to transfer information from template desugaring to LF conversion.
     | NameIn DA_Internal_Desugar n <- t
     , n `elementOfUniqSet` consumingTypes

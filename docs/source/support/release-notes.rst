@@ -1,10 +1,83 @@
-.. Copyright (c) 2019 The DAML Authors. All rights reserved.
+.. Copyright (c) 2020 The DAML Authors. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Release notes
 #############
 
 This page contains release notes for the SDK.
+
+.. _release-0-13-42:
+
+0.13.42 - 2020-01-08
+--------------------
+
+JSON API - Experimental
+~~~~~~~~~~~~~~~~~~~~~~~
+
+- Rename ``argument`` in active contract to ``payload``. See #3826.
+- Change variant JSON encoding. The new format is ``{ tag: data-constructor, value: argument }``.
+  For example, if we have: ``data Foo = Bar Int | Baz``, these are all valid JSON encodings for
+  values of type Foo:
+  - ``{"tag": "Bar", "value": 42}``
+  - ``{"tag": "Baz", "value": {}}``
+  See #3622
+- Fix ``/contracts/lookup`` find by contract key.
+- Fix ``/command/exercise`` to support any LF type as a choice argument.
+  See #3390
+
+
+DAML Compiler
+~~~~~~~~~~~~~
+
+- Move more types from daml-stdlib to standalone LF packages. The module names for the types have
+  also changed slightly. This only matters over the Ledger API when you specify the module name
+  explicitly. In DAML you should continue to use the existing module names.
+
+  - The types from ``DA.Semigroup`` are now in a separate package under ``DA.Semigroup.Types``.
+  - The types from ``DA.Monoid`` are now in a separate package under ``DA.Monoid.Types``.
+  - The types from ``DA.Time`` are now in a separate package under ``DA.Time.Types``.
+  - The types from ``DA.Validation`` are now in a separate package under ``DA.Validation.Types``.
+  - The types from ``DA.Logic`` are now in a separate package under ``DA.Logic.Types``.
+  - The types from ``DA.Date`` are now in a separate package under ``DA.Date.Types``.
+  - The ``Down`` type from ``DA.Internal.Prelude`` is now in a separate package under ``DA.Internal.Down``.
+
+
+DAML SDK
+~~~~~~~~
+
+- ``daml damlc docs`` now accepts a ``--exclude-instances`` option to exclude unwanted instance docs
+  by class name.
+
+DAML-ON-X-SERVER
+~~~~~~~~~~~~~~~~
+
+- Made ledger api server to bind to localhost by default instead to the public
+  interface for security reasons.
+
+DAML Assistant
+~~~~~~~~~~~~~~
+
+- Bash completions for the DAML assistant are now available via ``daml install``. These will be
+  installed automatically on Linux and Mac. If you use bash and have bash completions installed,
+  these bash completions let you use the tab key to autocomplete many DAML Assistant commands, such
+  as ``daml install`` and ``daml version``.
+
+- Zsh completions for the DAML Assistant are now installed as part of ``daml install``. To activate
+  them you need to add ``~/.daml/zsh`` to your ``$fpath``, e.g., by adding ``fpath=(~/.daml/zsh
+  $fpath)`` to the beginning of your ``~/.zshrc`` before you call ``compinit``.
+
+DAML Script - Experimental
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Allow running DAML scripts as test-cases.  Executing ``daml test-script --dar mydar.dar`` will
+  execute all definitions matching the type ``Script a`` as test-cases.
+  See `#3687 <https://github.com/digital-asset/daml/issues/3687>`__.
+
+Reference v2
+~~~~~~~~~~~~
+
+- On an exception, shut down everything and crash.
+  Previously, the server would stay in a half-running state.
 
 .. _release-0-13-41:
 

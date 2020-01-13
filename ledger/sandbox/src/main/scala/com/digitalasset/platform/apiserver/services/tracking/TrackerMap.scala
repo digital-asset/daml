@@ -1,7 +1,7 @@
-// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.server.services.command
+package com.digitalasset.platform.apiserver.services.tracking
 
 import java.util.concurrent.atomic.AtomicReference
 
@@ -9,8 +9,6 @@ import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.digitalasset.ledger.api.v1.completion.Completion
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.dec.DirectExecutionContext
-import com.digitalasset.platform.server.services.command.TrackerMap.{AsyncResource, Key}
-import com.github.ghik.silencer.silent
 
 import scala.collection.immutable.HashMap
 import scala.concurrent.duration.{FiniteDuration, _}
@@ -21,7 +19,7 @@ import scala.util.{Failure, Success}
   * A map for [[Tracker]]s with thread-safe tracking methods and automatic cleanup. A tracker tracker, if you will.
   * @param retentionPeriod The minimum finite duration for which to retain idle trackers.
   */
-class TrackerMap(retentionPeriod: FiniteDuration, loggerFactory: NamedLoggerFactory)
+final class TrackerMap(retentionPeriod: FiniteDuration, loggerFactory: NamedLoggerFactory)
     extends AutoCloseable {
 
   private val logger = loggerFactory.getLogger(this.getClass)
@@ -29,7 +27,7 @@ class TrackerMap(retentionPeriod: FiniteDuration, loggerFactory: NamedLoggerFact
   private val lock = new Object()
 
   @volatile private var trackerBySubmitter =
-    HashMap.empty[Key, AsyncResource[Tracker.WithLastSubmission]]
+    HashMap.empty[TrackerMap.Key, TrackerMap.AsyncResource[Tracker.WithLastSubmission]]
 
   val cleanup: Runnable = {
     require(
@@ -56,8 +54,8 @@ class TrackerMap(retentionPeriod: FiniteDuration, loggerFactory: NamedLoggerFact
     }
   }
 
-  def track(submitter: Key, request: SubmitAndWaitRequest)(newTracker: => Future[Tracker])(
-      implicit ec: ExecutionContext): Future[Completion] =
+  def track(submitter: TrackerMap.Key, request: SubmitAndWaitRequest)(
+      newTracker: => Future[Tracker])(implicit ec: ExecutionContext): Future[Completion] =
     // double-checked locking
     trackerBySubmitter
       .getOrElse(
@@ -65,7 +63,7 @@ class TrackerMap(retentionPeriod: FiniteDuration, loggerFactory: NamedLoggerFact
         lock.synchronized {
           trackerBySubmitter.getOrElse(
             submitter, {
-              val r = new AsyncResource(newTracker.map { t =>
+              val r = new TrackerMap.AsyncResource(newTracker.map { t =>
                 logger.info("Registered tracker for submitter {}", submitter)
                 Tracker.WithLastSubmission(t)
               }, loggerFactory)
@@ -79,7 +77,7 @@ class TrackerMap(retentionPeriod: FiniteDuration, loggerFactory: NamedLoggerFact
       )
       .flatMap(_.track(request))
 
-  private def remove(submitter: Key): Unit = lock.synchronized {
+  private def remove(submitter: TrackerMap.Key): Unit = lock.synchronized {
     trackerBySubmitter -= submitter
   }
 
@@ -93,24 +91,25 @@ class TrackerMap(retentionPeriod: FiniteDuration, loggerFactory: NamedLoggerFact
 }
 
 object TrackerMap {
-  case class Key(application: String, party: String)
+
+  final case class Key(application: String, party: String)
+
+  sealed trait AsyncResourceState[+T <: AutoCloseable]
+  final case object Waiting extends AsyncResourceState[Nothing]
+  final case object Closed extends AsyncResourceState[Nothing]
+  final case class Ready[T <: AutoCloseable](t: T) extends AsyncResourceState[T]
 
   /**
     * A holder for an AutoCloseable that can be opened and closed async.
     * If closed before the underlying Future completes, will close the resource on completion.
     */
-  class AsyncResource[T <: AutoCloseable](future: Future[T], loggerFactory: NamedLoggerFactory) {
+  final class AsyncResource[T <: AutoCloseable](
+      future: Future[T],
+      loggerFactory: NamedLoggerFactory) {
     private val logger = loggerFactory.getLogger(this.getClass)
-    sealed trait AsnycResourceState
-    final case object Waiting extends AsnycResourceState
-    // the following silent is due to
-    // <https://github.com/scala/bug/issues/4440>
-    @silent
-    final case class Ready(t: T) extends AsnycResourceState
-    final case object Closed extends AsnycResourceState
 
     // Must progress Waiting => Ready => Closed or Waiting => Closed.
-    val state: AtomicReference[AsnycResourceState] = new AtomicReference(Waiting)
+    val state: AtomicReference[AsyncResourceState[T]] = new AtomicReference(Waiting)
 
     future.andThen({
       case Success(t) =>
@@ -131,8 +130,8 @@ object TrackerMap {
     def flatMap[U](f: T => Future[U])(implicit ex: ExecutionContext): Future[U] = {
       state.get() match {
         case Waiting => future.flatMap(f)
-        case Ready(t) => f(t)
         case Closed => throw new IllegalStateException()
+        case Ready(t) => f(t)
       }
     }
 

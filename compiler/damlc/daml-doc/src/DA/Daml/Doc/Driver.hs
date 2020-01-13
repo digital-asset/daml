@@ -1,4 +1,4 @@
--- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -7,7 +7,7 @@ module DA.Daml.Doc.Driver
     , InputFormat(..)
     , OutputFormat(..)
     , RenderFormat(..)
-    , DocOption(..)
+    , TransformOptions(..)
     , runDamlDoc
     ) where
 
@@ -42,7 +42,7 @@ data DamldocOptions = DamldocOptions
     , do_outputPath :: FilePath
     , do_outputFormat :: OutputFormat
     , do_docTemplate :: Maybe FilePath
-    , do_transformOptions :: [DocOption]
+    , do_transformOptions :: TransformOptions
     , do_inputFiles :: [NormalizedFilePath]
     , do_docTitle :: Maybe T.Text
     , do_combine :: Bool

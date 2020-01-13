@@ -1,4 +1,4 @@
--- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 daml 1.2
@@ -21,6 +21,7 @@ test registered = Trigger
         ([_], []) | null doneOnes -> dedupCreate DoneOne with p = party
         ([], [_]) | null doneTwos -> dedupCreate DoneTwo with p = party
         _ -> pure ()
+  , heartbeat = None
   }
 
 testOne = test $ RegisteredTemplates [registeredTemplate @One, registeredTemplate @DoneOne]

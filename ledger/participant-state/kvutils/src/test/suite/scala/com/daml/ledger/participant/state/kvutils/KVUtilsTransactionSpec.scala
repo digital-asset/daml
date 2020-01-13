@@ -1,4 +1,4 @@
-// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
@@ -202,6 +202,25 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
                 succeed
             }
         }
+      }
+    }
+
+    "submitter info is optional" in KVTest.runTestWithSimplePackage(alice) {
+      for {
+        createTx <- runCommand(alice, simpleCreateCmd)
+        result <- submitTransaction(submitter = alice, tx = createTx)
+      } yield {
+        val (entryId, entry) = result
+        // Clear the submitter info from the log entry
+        val strippedEntry = entry.toBuilder
+        strippedEntry.getTransactionEntryBuilder.clearSubmitterInfo
+
+        // Process into updates and verify
+        val updates = KeyValueConsumption.logEntryToUpdate(entryId, strippedEntry.build)
+        updates should have length (1)
+        updates.head should be(a[Update.TransactionAccepted])
+        val txAccepted = updates.head.asInstanceOf[Update.TransactionAccepted]
+        txAccepted.optSubmitterInfo should be(None)
       }
     }
   }

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
@@ -56,7 +56,7 @@ class KVUtilsPackageSpec extends WordSpec with Matchers with BazelRunfiles {
         logEntry <- submitArchives("test-stable-submission", testStablePackages.all: _*).map(_._2)
       } yield {
         logEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_ENTRY
-        logEntry.getPackageUploadEntry.getArchivesCount shouldEqual 8
+        logEntry.getPackageUploadEntry.getArchivesCount shouldEqual 15
       }
     }
 

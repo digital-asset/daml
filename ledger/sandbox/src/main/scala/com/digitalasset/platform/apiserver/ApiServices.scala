@@ -1,4 +1,4 @@
-// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.platform.apiserver
@@ -10,12 +10,12 @@ import com.daml.ledger.participant.state.index.v2.{
   IdentityProvider,
   IndexActiveContractsService,
   IndexCompletionsService,
+  IndexConfigManagementService,
   IndexConfigurationService,
   IndexPackagesService,
   IndexPartyManagementService,
   IndexService,
-  IndexTransactionsService,
-  IndexConfigManagementService
+  IndexTransactionsService
 }
 import com.daml.ledger.participant.state.v1.{Configuration, WriteService}
 import com.digitalasset.api.util.TimeProvider
@@ -27,15 +27,16 @@ import com.digitalasset.ledger.api.health.HealthChecks
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionEndRequest
 import com.digitalasset.ledger.client.services.commands.CommandSubmissionFlow
 import com.digitalasset.platform.apiserver.services.admin.{
+  ApiConfigManagementService,
   ApiPackageManagementService,
-  ApiPartyManagementService,
-  ApiConfigManagementService
+  ApiPartyManagementService
 }
 import com.digitalasset.platform.apiserver.services.transaction.ApiTransactionService
 import com.digitalasset.platform.apiserver.services.{
   ApiActiveContractsService,
   ApiCommandCompletionService,
   ApiLedgerConfigurationService,
+  ApiLedgerIdentityService,
   ApiPackageService,
   ApiSubmissionService
 }
@@ -43,9 +44,8 @@ import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.sandbox.config.CommandConfiguration
 import com.digitalasset.platform.sandbox.stores.ledger.CommandExecutorImpl
 import com.digitalasset.platform.server.api.services.grpc.GrpcHealthService
-import com.digitalasset.platform.server.services.command.ApiCommandService
-import com.digitalasset.platform.server.services.identity.ApiLedgerIdentityService
-import com.digitalasset.platform.server.services.testing.{ApiTimeService, TimeServiceBackend}
+import com.digitalasset.platform.apiserver.services.ApiCommandService
+import com.digitalasset.platform.apiserver.services.ApiTimeService
 import io.grpc.BindableService
 import io.grpc.protobuf.services.ProtoReflectionService
 import scalaz.syntax.tag._

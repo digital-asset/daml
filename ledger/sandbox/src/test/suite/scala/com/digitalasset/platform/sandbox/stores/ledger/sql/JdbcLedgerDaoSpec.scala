@@ -1,4 +1,4 @@
-// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.platform.sandbox.stores.ledger.sql
@@ -437,15 +437,9 @@ class JdbcLedgerDaoSpec
       } yield {
         firstUploadResult shouldBe PersistenceResponse.Ok
         secondUploadResult shouldBe PersistenceResponse.Ok
-        loadedPackages.values.flatMap(_.sourceDescription.toList) should contain theSameElementsAs Seq(
-          firstDescription,
-          secondDescription,
-          secondDescription,
-          secondDescription,
-          secondDescription,
-          secondDescription,
-          secondDescription,
-          secondDescription)
+        loadedPackages.values.flatMap(_.sourceDescription.toList) should contain theSameElementsAs Seq
+          .fill(8)(secondDescription) ++
+          Seq(firstDescription) ++ Seq.fill(6)(secondDescription),
       }
     }
 

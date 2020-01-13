@@ -1,21 +1,25 @@
--- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 daml 1.2
 
 -- | `Validation` type and associated functions.
-module DA.Validation where
+module DA.Validation
+  ( Validation(..)
+  , invalid
+  , ok
+  , validate
+  , run
+  , run1
+  , runWithDefault
+  , (<?>)
+  ) where
 
 import DA.NonEmpty as NE
+import DA.Validation.Types
 
--- | A `Validation` represents eithor a non-empty list of errors, or a successful value.
--- This generalizes `Either` to allow more than one error to be collected.
-data Validation err a
-  = Errors (NonEmpty err)
-  | Success a
-
--- see if we need this
--- type ValidationText a = Validation Text a
+deriving instance (Eq err, Eq a) => Eq (Validation err a)
+deriving instance (Show err, Show a) => Show (Validation err a)
 
 -- | Fail for the given reason.
 invalid : err -> Validation err a

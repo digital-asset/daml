@@ -1,4 +1,4 @@
--- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 daml 1.2
@@ -36,6 +36,7 @@ test = Trigger
   { initialState = \party _time acs -> (initState party acs, [])
   , update = \_time -> update
   , registeredTemplates = AllInDar
+  , heartbeat = None
   }
   where
     update : Message -> TriggerState -> (TriggerState, [Commands])
@@ -62,6 +63,7 @@ test = Trigger
           ArchivedEvent (fromArchived @Asset -> Some (_, assetId)) ->
             (cmds, filter (/= assetId) acs)
           _ -> (cmds, acs)
+    update MHeartbeat state = (state, [])
 
 template Asset
   with

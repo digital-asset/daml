@@ -1,10 +1,12 @@
-// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
 
 import java.util.zip.{GZIPInputStream, GZIPOutputStream}
+
 import com.google.protobuf.ByteString
+
 import scala.util.Try
 import com.daml.ledger.participant.state.kvutils.{DamlKvutils => Proto}
 
@@ -66,7 +68,7 @@ object Envelope {
         s"Unsupported version ${envelope.getVersion}")
       uncompressedMessage <- envelope.getCompression match {
         case Proto.Envelope.CompressionSchema.GZIP =>
-          Try(decompress(envelope.getMessage)).toEither.left.map(_.getMessage)
+          parseMessageSafe(() => decompress(envelope.getMessage))
         case Proto.Envelope.CompressionSchema.NONE =>
           Right(envelope.getMessage)
         case Proto.Envelope.CompressionSchema.UNRECOGNIZED =>
@@ -74,22 +76,16 @@ object Envelope {
       }
       message <- envelope.getKind match {
         case Proto.Envelope.MessageKind.LOG_ENTRY =>
-          Try(Proto.DamlLogEntry.parseFrom(uncompressedMessage)).toEither.left
-            .map(_.getMessage)
-            .right
+          parseMessageSafe(() => Proto.DamlLogEntry.parseFrom(uncompressedMessage)).right
             .map(LogEntryMessage)
         case Proto.Envelope.MessageKind.SUBMISSION =>
-          Try(Proto.DamlSubmission.parseFrom(uncompressedMessage)).toEither.left
-            .map(_.getMessage)
-            .right
+          parseMessageSafe(() => Proto.DamlSubmission.parseFrom(uncompressedMessage)).right
             .map(SubmissionMessage)
         case Proto.Envelope.MessageKind.STATE_VALUE =>
-          Try(Proto.DamlStateValue.parseFrom(uncompressedMessage)).toEither.left
-            .map(_.getMessage)
-            .right
+          parseMessageSafe(() => Proto.DamlStateValue.parseFrom(uncompressedMessage)).right
             .map(StateValueMessage)
         case Proto.Envelope.MessageKind.UNRECOGNIZED =>
-          Left(s"Unrecognized message kind: ${envelope.getKind} ")
+          Left(s"Unrecognized message kind: ${envelope.getKind}")
       }
     } yield message
 
@@ -129,5 +125,9 @@ object Envelope {
     val gzipIn = new GZIPInputStream(payload.newInput)
     ByteString.readFrom(gzipIn)
   }
+
+  private def parseMessageSafe[T](callParser: () => T): Either[String, T] =
+    Try(callParser()).toEither.left
+      .map(_.getMessage)
 
 }

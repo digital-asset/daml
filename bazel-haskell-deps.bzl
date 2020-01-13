@@ -1,4 +1,4 @@
-# Copyright (c) 2019 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # Defines external Haskell dependencies.
@@ -17,9 +17,9 @@ load("@os_info//:os_info.bzl", "is_windows")
 load("@dadew//:dadew.bzl", "dadew_tool_home")
 load("@rules_haskell//haskell:cabal.bzl", "stack_snapshot")
 
-GHCIDE_REV = "ef8de2e7fc55c6f246a9ff322ed3637a7bb71c20"
-GHCIDE_SHA256 = "55f4ab090144428471e07e746a4688e35f32460f227c0b9e009450a354076592"
-GHCIDE_VERSION = "0.0.5"
+GHCIDE_REV = "1b4cd9d8d7cf1ec12677e0e6877b8e8b3c74460f"
+GHCIDE_SHA256 = "539b90b29f7bbf375ddf771172e52b697bb1ad08e093e949527fcf07519cd2e8"
+GHCIDE_VERSION = "0.0.6"
 
 def daml_haskell_deps():
     """Load all Haskell dependencies of the DAML repository."""
@@ -104,9 +104,11 @@ deps = [
     "@stackage//:directory",
     "@stackage//:extra",
     "@stackage//:filepath",
+    "@stackage//:fuzzy",
     "@stackage//:ghc",
     "@stackage//:ghc-boot",
     "@stackage//:ghc-boot-th",
+    "@stackage//:haddock-library",
     "@stackage//:hashable",
     "@stackage//:haskell-lsp",
     "@stackage//:haskell-lsp-types",
@@ -114,6 +116,7 @@ deps = [
     "@stackage//:network-uri",
     "@stackage//:prettyprinter",
     "@stackage//:prettyprinter-ansi-terminal",
+    "@stackage//:regex-tdfa",
     "@stackage//:rope-utf16-splay",
     "@stackage//:safe-exceptions",
     "@stackage//:shake",
@@ -130,6 +133,7 @@ haskell_cabal_library(
     name = "ghcide-lib",
     package_name = "ghcide",
     version = "{version}",
+    haddock = False,
     srcs = glob(["**"]),
     deps = deps,
     visibility = ["//visibility:public"],
@@ -139,6 +143,7 @@ haskell_cabal_binary(
     srcs = glob(["**"]),
     deps = deps + [
         ":ghcide-lib",
+        "@stackage//:gitrev",
         "@stackage//:ghc-paths",
         "@stackage//:hie-bios",
         "@stackage//:optparse-applicative",
@@ -216,6 +221,7 @@ haskell_cabal_library(
     name = "ghcide",
     version = "{version}",
     srcs = glob(["**"]),
+    haddock = False,
     flags = packages["ghcide"].flags,
     deps = packages["ghcide"].deps,
     visibility = ["//visibility:public"],
@@ -285,6 +291,7 @@ haskell_cabal_library(
     name = "grpc-haskell-core",
     version = "0.0.0.0",
     srcs = glob(["**"]),
+    haddock = False,
     compiler_flags = ["-w", "-optF=-w"],
     deps = packages["grpc-haskell-core"].deps + {deps},
     tools = ["@c2hs//:c2hs"],
@@ -325,6 +332,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
     # define this separate `stack_snapshot` to bootstrap `c2hs`.
     stack_snapshot(
         name = "c2hs_deps",
+        haddock = False,
         local_snapshot = "//:stack-snapshot.yaml",
         packages = [
             "base",
@@ -361,6 +369,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
                 "scientific": ["integer-simple"],
             } if use_integer_simple else {},
         ),
+        haddock = False,
         local_snapshot = "//:stack-snapshot.yaml",
         packages = [
             "aeson",
@@ -400,6 +409,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "filepath",
             "filepattern",
             "foldl",
+            "fuzzy",
             "ghc",
             "ghc-boot",
             "ghc-boot-th",
@@ -409,6 +419,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "ghc-prim",
             "gitrev",
             "grpc-haskell",
+            "haddock-library",
             "hashable",
             "haskeline",
             "haskell-lsp",
@@ -435,7 +446,6 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "managed",
             "megaparsec",
             "memory",
-            "MissingH",
             "monad-control",
             "monad-logger",
             "monad-loops",
@@ -466,7 +476,6 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "range-set-list",
             "recursion-schemes",
             "regex-tdfa",
-            "regex-tdfa-text",
             "retry",
             "rope-utf16-splay",
             "safe",

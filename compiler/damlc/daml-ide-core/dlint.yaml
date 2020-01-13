@@ -438,7 +438,7 @@
     - hint: {lhs: case x of Some a -> f a; None -> y, rhs: optional y f x, side: isAtom y && isAtom f, name: Replace case with optional}
     - warn: {lhs: if isNone x then y else f (fromSome x), rhs: optional y f x}
     - warn: {lhs: if isSome x then f (fromSome x) else y, rhs: optional y f x}
-    - warn: {lhs: optinoal None (Some . f), rhs: fmap f}
+    - warn: {lhs: optional None (Some . f), rhs: fmap f}
     - hint: {lhs: map fromSome . filter isSome , rhs:  DA.Optional.catOptionals}
     - warn: {lhs: x == None , rhs:  isNone x}
     - warn: {lhs: None == x , rhs:  isNone x}

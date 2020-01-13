@@ -1,4 +1,4 @@
-# Copyright (c) 2019 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -54,7 +54,6 @@ da_scala_library(
         "//daml-lf/data",
         "//daml-lf/interpreter",
         "//daml-lf/language",
-        "//daml-lf/transaction",
         "//daml-script/runner:script-runner-lib",
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-akka",
@@ -120,4 +119,22 @@ client_server_test(
     ],
     server_files = ["$(rootpath :script-test.dar)"],
     tags = ["exclusive"],
+)
+
+sh_test(
+    name = "test_daml_script_test_runner",
+    srcs = [":daml-script-test-runner.sh"],
+    args = [
+        "$(rootpath //daml-script/runner:test-runner)",
+        "$(rootpath :script-test.dar)",
+        "$(POSIX_DIFF)",
+        "$(POSIX_GREP)",
+        "$(POSIX_SORT)",
+    ],
+    data = [
+        ":script-test.dar",
+        "//daml-script/runner:test-runner",
+    ],
+    toolchains = ["@rules_sh//sh/posix:make_variables"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
 )

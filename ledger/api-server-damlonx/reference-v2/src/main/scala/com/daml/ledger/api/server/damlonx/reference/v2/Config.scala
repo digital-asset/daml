@@ -1,4 +1,4 @@
-// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.server.damlonx.reference.v2
@@ -14,6 +14,7 @@ import com.digitalasset.platform.indexer.IndexerStartupMode
 
 final case class Config(
     port: Int,
+    address: Option[String], // address for ledger-api server to bind to, defaulting to `localhost` for None
     portFile: Option[Path],
     archiveFiles: List[File],
     maxInboundMessageSize: Int,
@@ -34,6 +35,7 @@ object Config {
   def default: Config =
     new Config(
       port = 0,
+      address = None,
       portFile = None,
       archiveFiles = List.empty,
       maxInboundMessageSize = DefaultMaxInboundMessageSize,

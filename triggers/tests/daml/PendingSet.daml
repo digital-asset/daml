@@ -1,4 +1,4 @@
--- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 daml 1.2
@@ -40,6 +40,7 @@ booTrigger = Trigger with
   updateState = \acs _ s -> s
   rule = booRule
   registeredTemplates = AllInDar
+  heartbeat = None
 
 booRule : Party -> ACS -> Time -> Map CommandId [Command] -> () -> TriggerA ()
 booRule party acs _time _commandsInFlight _userState = do

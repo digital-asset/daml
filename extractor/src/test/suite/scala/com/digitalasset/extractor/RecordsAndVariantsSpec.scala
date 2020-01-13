@@ -1,4 +1,4 @@
-// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.extractor
@@ -45,7 +45,8 @@ class RecordsAndVariantsSpec
           "party" : "Bob",
           "reference" : "All-in-one",
           "deepNested" : {
-            "MaybeRecRecordABRight" : {
+            "tag" : "MaybeRecRecordABRight",
+            "value" : {
               "baz" : {
                 "baz" : false,
                 "foo" : "foo"
@@ -64,7 +65,8 @@ class RecordsAndVariantsSpec
             "foo" : true
           },
           "eitherVariant" : {
-            "RightM" : 7
+            "tag": "RightM",
+            "value" : 7
           },
           "recordTextInt" : {
             "baz" : 6,

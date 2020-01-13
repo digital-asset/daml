@@ -1,4 +1,4 @@
-// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.validation
@@ -621,7 +621,7 @@ private[validation] object Typing {
         val CaseAlt(patn0, rhs0) = alts(0)
         val scrutType = typeOf(scrut)
         val rhsType = introCasePattern(scrutType, patn0).typeOf(rhs0)
-        for (i <- alts.indices().drop(1)) {
+        for (i <- alts.indices.drop(1)) {
           val CaseAlt(patn, rhs) = alts(i)
           introCasePattern(scrutType, patn).checkExpr(rhs, rhsType)
         }

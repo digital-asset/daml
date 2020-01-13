@@ -1,4 +1,4 @@
--- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.LF.Ast.Type
@@ -26,8 +26,8 @@ freeVars e = go Set.empty e Set.empty
         TVar v
             | v `Set.member` boundVars -> acc
             | otherwise -> Set.insert v acc
-        TSyn _ -> acc
         TCon _ -> acc
+        TSynApp _ args -> foldl' (\acc t -> go boundVars t acc) acc args
         TApp s1 s2 -> go boundVars s1 $ go boundVars s2 acc
         TBuiltin _ -> acc
         TForall (v, _k) s -> go (Set.insert v boundVars) s acc
@@ -96,8 +96,8 @@ substitute subst = go (Map.foldl' (\acc t -> acc `Set.union` freeVars t) Set.emp
       TVar v
         | Just t <- Map.lookup v subst0 -> t
         | otherwise                     -> TVar v
-      TSyn s -> TSyn s
       TCon c -> TCon c
+      TSynApp s args -> TSynApp s (map go0 args)
       TApp t1 t2 -> TApp (go0 t1) (go0 t2)
       TBuiltin b -> TBuiltin b
       TForall (v0, k) t

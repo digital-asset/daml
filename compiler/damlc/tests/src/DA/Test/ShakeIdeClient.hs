@@ -1,4 +1,4 @@
--- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -584,7 +584,8 @@ goToDefinitionTests mbScenarioService = Tasty.testGroup "Go to definition tests"
             expectGoToDefinition (foo,2,[2..4]) Missing             -- " : "
             expectGoToDefinition (foo,2,[9])    Missing             -- "\n"
             expectGoToDefinition (foo,2,[10])   Missing             -- (out of range)
-            expectGoToDefinition (foo,3,[0..5]) (At (foo,3,0))      -- "foo = "
+            expectGoToDefinition (foo,3,[0..2]) (At (foo,3,0))      -- "foo"
+            expectGoToDefinition (foo,3,[3..5]) Missing             -- " = "
             expectGoToDefinition (foo,3,[6..8]) (At (foo,5,0))      -- "bar"
             expectGoToDefinition (foo,3,[9])    Missing             -- "\n"
             expectGoToDefinition (foo,3,[10])   Missing             -- (out of range)
@@ -644,11 +645,13 @@ goToDefinitionTests mbScenarioService = Tasty.testGroup "Go to definition tests"
                 , "baz = 10"
                 ]
             setFilesOfInterest [foo]
-            expectGoToDefinition (foo,2,[0..5]) (At (foo,2,0))
+            expectGoToDefinition (foo,2,[0..2]) (At (foo,2,0))
+            expectGoToDefinition (foo,2,[3..5]) Missing
             expectGoToDefinition (foo,2,[6..8]) (At (foo,3,0))
             expectGoToDefinition (foo,2,[9]) Missing
 
-            expectGoToDefinition (foo,3,[0..3]) (At (foo,3,0))
+            expectGoToDefinition (foo,3,[0..2]) (At (foo,3,0))
+            expectGoToDefinition (foo,3,[3]) Missing
             expectGoToDefinition (foo,3,[4..6]) (At (foo,4,0))
             expectGoToDefinition (foo,3,[7]) Missing
 
@@ -836,8 +839,10 @@ onHoverTests mbScenarioService = Tasty.testGroup "On hover tests"
             , "show b = 2"
             ]
         setFilesOfInterest [f]
-        expectTextOnHover (f,3,[0..3]) $ Contains "==\n  : Text -> Bool"
-        expectTextOnHover (f,5,[0..3]) $ Contains "show\n  : Bool -> Int"
+        expectTextOnHover (f,3,[0..3]) $ Contains "```daml\n==\n```"
+        expectTextOnHover (f,3,[0..3]) $ Contains "```daml\n: Text -> Bool\n```"
+        expectTextOnHover (f,5,[0..3]) $ Contains "```daml\nshow\n```"
+        expectTextOnHover (f,5,[0..3]) $ Contains "```daml\n: Bool -> Int\n```"
 
     , testCaseFails' "Type of choice" $ do
         f <- makeModule "F"

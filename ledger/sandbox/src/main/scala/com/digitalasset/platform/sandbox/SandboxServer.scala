@@ -1,4 +1,4 @@
-// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.platform.sandbox
@@ -21,7 +21,12 @@ import com.digitalasset.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.digitalasset.ledger.api.auth.{AuthService, AuthServiceWildcard, Authorizer}
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.health.HealthChecks
-import com.digitalasset.platform.apiserver.{ApiServer, ApiServices, LedgerApiServer}
+import com.digitalasset.platform.apiserver.{
+  ApiServer,
+  ApiServices,
+  LedgerApiServer,
+  TimeServiceBackend
+}
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.resources.{Resource, ResourceOwner}
@@ -38,7 +43,6 @@ import com.digitalasset.platform.sandbox.stores.{
   InMemoryPackageStore,
   SandboxIndexAndWriteService
 }
-import com.digitalasset.platform.server.services.testing.TimeServiceBackend
 import com.digitalasset.platform.services.time.TimeProviderType
 import org.slf4j.LoggerFactory
 

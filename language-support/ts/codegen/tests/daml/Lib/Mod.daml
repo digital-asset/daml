@@ -1,4 +1,4 @@
--- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 daml 1.2
 module Lib.Mod where
@@ -10,3 +10,8 @@ data Field = Field {
 data Imported = Imported {
   field: Field
 } deriving (Eq, Show)
+
+template NonTopLevel with
+    party: Party
+  where
+    signatory party

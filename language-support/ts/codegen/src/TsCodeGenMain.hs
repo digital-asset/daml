@@ -1,4 +1,4 @@
--- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 module TsCodeGenMain (main) where
 
@@ -67,7 +67,7 @@ daml2ts Options{..} pkgId pkg mbPkgName = do
     T.writeFileUtf8 (outputDir </> "packageId.ts") $ T.unlines
         ["export default '" <> unPackageId pkgId <> "';"]
     forM_ (packageModules pkg) $ \mod -> do
-        whenJust (genModule mod) $ \modTxt -> do
+        whenJust (genModule pkgId mod) $ \modTxt -> do
             let outputFile = outputDir </> joinPath (map T.unpack (unModuleName (moduleName mod))) <.> "ts"
             putStrLn $ "Generating " ++ outputFile
             createDirectoryIfMissing True (takeDirectory outputFile)
@@ -76,8 +76,8 @@ daml2ts Options{..} pkgId pkg mbPkgName = do
 dup :: a -> (a, a)
 dup x = (x, x)
 
-genModule :: Module -> Maybe T.Text
-genModule mod
+genModule :: PackageId -> Module -> Maybe T.Text
+genModule curPkgId mod
   | null serDefs = Nothing
   | otherwise =
     let curModName = moduleName mod
@@ -87,7 +87,7 @@ genModule mod
           where
             lenModName = length (unModuleName curModName)
         tpls = moduleTemplates mod
-        (defSers, refs) = unzip (map (genDefDataType curModName tpls) serDefs)
+        (defSers, refs) = unzip (map (genDataDef curPkgId curModName tpls) serDefs)
         header =
             ["// Generated from " <> T.intercalate "/" (unModuleName curModName) <> ".daml"
             ,"/* eslint-disable @typescript-eslint/camelcase */"
@@ -103,39 +103,48 @@ genModule mod
                     PRImport pkgId -> "../" <> unPackageId pkgId <> "/"
             , let modNameStr = genModuleRef modRef
             ]
-        templateId
-          | null (moduleTemplates mod) = []
-          | otherwise =
-            ["import packageId from '" <> pkgRootPath <> "/packageId';"
-            ,"const moduleName = '" <> T.intercalate "." (unModuleName curModName) <> "';"
-            ,"const templateId = (entityName: string): daml.TemplateId => ({packageId, moduleName, entityName});"
-            ]
         defs = map (\(def, ser) -> def ++ ser) defSers
     in
-    Just $ T.unlines $ intercalate [""] $ filter (not . null) $ header : imports : templateId : defs
+    Just $ T.unlines $ intercalate [""] $ filter (not . null) $ header : imports : defs
   where
     serDefs = filter (getIsSerializable . dataSerializable) (NM.toList (moduleDataTypes mod))
 
-genDefDataType :: ModuleName -> NM.NameMap Template -> DefDataType -> (([T.Text], [T.Text]), Set.Set ModuleRef)
-genDefDataType curModName tpls def = case unTypeConName (dataTypeCon def) of
+genDataDef :: PackageId -> ModuleName -> NM.NameMap Template -> DefDataType -> (([T.Text], [T.Text]), Set.Set ModuleRef)
+genDataDef curPkgId curModName tpls def = case unTypeConName (dataTypeCon def) of
     [] -> error "IMPOSSIBLE: empty type constructor name"
-    _:_:_ -> error "TODO(MH): multi-part type constructor names"
-    [conName] -> case dataCons def of
-        DataVariant{} -> ((makeType ["unknown;"], makeSer ["jtv.unknownJson,"]), Set.empty)  -- TODO(MH): make variants type safe
+    _: _: _: _ -> error "IMPOSSIBLE: multi-part type constructor of more than two names"
+    [conName] -> genDefDataType curPkgId conName curModName tpls def
+    [c1, c2] -> ((makeNamespace $ map ("  " <>) typs, makeNamespace $ map ("  " <>) sers), refs)
+      where
+        ((typs, sers), refs) = genDefDataType curPkgId c2 curModName tpls def
+        ns = c1 <> "_NS"
+        makeNamespace stuff =
+          [ "// eslint-disable-next-line @typescript-eslint/no-namespace"
+          , "export namespace " <> ns <> " {"] ++ stuff ++ ["} //namespace " <> ns] ++ [""]
+
+genDefDataType :: PackageId -> T.Text -> ModuleName -> NM.NameMap Template -> DefDataType -> (([T.Text], [T.Text]), Set.Set ModuleRef)
+genDefDataType curPkgId conName curModName tpls def =
+    case dataCons def of
+        DataVariant bs ->
+          let
+            (typs, sers) = unzip $ map genBranch bs
+            typeDesc = [""] ++ typs
+            serDesc  = ["() => jtv.oneOf<" <> conName <> typeParams <> ">("] ++ sers ++ [")"]
+          in
+          ((makeType typeDesc, makeSer serDesc), Set.unions $ map (Set.setOf typeModuleRef . snd) bs)
         DataEnum enumCons ->
           let
             typeDesc =
-                [ "export enum " <> conName <> "{"] ++
+                [ "export enum " <> conName <> " {"] ++
                 [ "  " <> cons <> " = " <> "\'" <> cons <> "\'" <> ","
                 | VariantConName cons <- enumCons] ++
                 [ "}"
                 , "daml.STATIC_IMPLEMENTS_SERIALIZABLE_CHECK<" <> conName <> ">(" <> conName <> ")"
                 ]
-
             serDesc =
-                ["  () => jtv.oneOf("] ++
-                ["    jtv.constant(" <> conName <> "." <> cons <> ")," | VariantConName cons <- enumCons] ++
-                ["  )"]
+                ["() => jtv.oneOf("] ++
+                ["  jtv.constant(" <> conName <> "." <> cons <> ")," | VariantConName cons <- enumCons] ++
+                [");"]
           in
           ((typeDesc, makeNameSpace serDesc), Set.empty)
         DataRecord fields ->
@@ -145,7 +154,7 @@ genDefDataType curModName tpls def = case unTypeConName (dataTypeCon def) of
                 typeDesc =
                     ["{"] ++
                     ["  " <> x <> ": " <> t <> ";" | (x, t) <- zip fieldNames fieldTypesTs] ++
-                    ["};"]
+                    ["}"]
                 serDesc =
                     ["() => jtv.object({"] ++
                     ["  " <> x <> ": " <> ser <> ".decoder()," | (x, ser) <- zip fieldNames fieldSers] ++
@@ -155,20 +164,27 @@ genDefDataType curModName tpls def = case unTypeConName (dataTypeCon def) of
                 Nothing -> ((makeType typeDesc, makeSer serDesc), Set.unions fieldRefs)
                 Just tpl ->
                     let (chcs, argRefs) = unzip
-                            [((unChoiceName (chcName chc), t, r, rtyp), argRefs)
+                            [((unChoiceName (chcName chc), t, rtyp, rser), argRefs)
                             | chc <- NM.toList (tplChoices tpl)
                             , let tLf = snd (chcArgBinder chc)
                             , let rLf = chcReturnType chc
                             , let (t, _) = genType curModName tLf
-                            , let (r, rtyp) = genType curModName rLf
+                            , let (rtyp, rser) = genType curModName rLf
                             , let argRefs = Set.setOf typeModuleRef tLf
                             ]
+                        (keyTypeTs, keySer) = case tplKey tpl of
+                            Nothing -> ("undefined", "() => jtv.constant(undefined)")
+                            Just key ->
+                                let (keyTypeTs, keySer) = genType curModName (tplKeyType key)
+                                in
+                                (keyTypeTs, "() => " <> keySer <> ".decoder()")
                         dict =
-                            ["export const " <> conName <> ": daml.Template<" <> conName <> "> & {"] ++
-                            ["  " <> x <> ": daml.Choice<" <> conName <> ", " <> t <> ", " <> r <> " >;" | (x, t, r, _) <- chcs] ++
+                            ["export const " <> conName <> ": daml.Template<" <> conName <> ", " <> keyTypeTs <> "> & {"] ++
+                            ["  " <> x <> ": daml.Choice<" <> conName <> ", " <> t <> ", " <> rtyp <> ", " <> keyTypeTs <> ">;" | (x, t, rtyp, _) <- chcs] ++
                             ["} = {"
                             ] ++
-                            ["  templateId: templateId('" <> conName <> "'),"
+                            ["  templateId: '" <> unPackageId curPkgId <> ":" <> T.intercalate "." (unModuleName curModName) <> ":" <> conName <> "',"
+                            ,"  keyDecoder: " <> keySer <> ","
                             ] ++
                             map ("  " <>) (onHead ("decoder: " <>) serDesc) ++
                             concat
@@ -177,7 +193,7 @@ genDefDataType curModName tpls def = case unTypeConName (dataTypeCon def) of
                               ,"    choiceName: '" <> x <> "',"
                               ,"    argumentDecoder: " <> t <> ".decoder,"
                               -- We'd write,
-                              --   "   resultDecoder: " <> rtyp <> ".decoder"
+                              --   "   resultDecoder: " <> rser <> ".decoder"
                               -- here but, consider the following scenario:
                               --   export const Person: daml.Template<Person>...
                               --    = {  ...
@@ -185,10 +201,10 @@ genDefDataType curModName tpls def = case unTypeConName (dataTypeCon def) of
                               --         ...
                               --      }
                               -- This gives rise to "error TS2454: Variable 'Person' is used before being assigned."
-                              ,"    resultDecoder: () => " <> rtyp <> ".decoder()," -- Eta-conversion provides an escape hatch.
+                              ,"    resultDecoder: () => " <> rser <> ".decoder()," -- Eta-conversion provides an escape hatch.
                               ,"  },"
                               ]
-                            | (x, t, _r, rtyp) <- chcs
+                            | (x, t, _rtyp, rser) <- chcs
                             ] ++
                             ["};"]
                         registrations =
@@ -212,11 +228,15 @@ genDefDataType curModName tpls def = case unTypeConName (dataTypeCon def) of
             ["});"]
         makeNameSpace serDesc =
             [ "// eslint-disable-next-line @typescript-eslint/no-namespace"
-            , "export namespace " <> conName <> "{"
-            , "  export const decoder ="
+            , "export namespace " <> conName <> " {"
             ] ++
-            serDesc ++
+            map ("  " <>) (onHead ("export const decoder = " <>) serDesc) ++
             ["}"]
+        genBranch (VariantConName cons, t) =
+          let (typ, ser) = genType curModName t in
+          ( "  |  { tag: '" <> cons <> "'; value: " <> typ <> " }"
+          , "  jtv.object({tag: jtv.constant('" <> cons <> "'), value: jtv.lazy(() => " <> ser <> ".decoder())}),"
+          )
 
 genType :: ModuleName -> Type -> (T.Text, T.Text)
 genType curModName = go
@@ -261,8 +281,8 @@ genType curModName = go
                     ( con' <> "<" <> T.intercalate ", " ts' <> ">"
                     , ser <> "(" <> T.intercalate ", " sers <> ")"
                     )
-        TSyn _ -> error "TODO: genType, type synonym"
         TCon _ -> error "IMPOSSIBLE: lonely type constructor"
+        TSynApp{} -> error "IMPOSSIBLE: type synonym not serializable"
         t@TApp{} -> error $ "IMPOSSIBLE: type application not serializable - " <> DA.Pretty.renderPretty t
         TBuiltin t -> error $ "IMPOSSIBLE: partially applied primitive type not serializable - " <> DA.Pretty.renderPretty t
         TForall{} -> error "IMPOSSIBLE: universally quantified type not serializable"
@@ -273,12 +293,16 @@ genTypeCon :: ModuleName -> Qualified TypeConName -> (T.Text, T.Text)
 genTypeCon curModName (Qualified pkgRef modName conParts) =
     case unTypeConName conParts of
         [] -> error "IMPOSSIBLE: empty type constructor name"
-        _:_:_ -> error "TODO(MH): multi-part type constructor names"
+        _: _: _: _ -> error "TODO(MH): multi-part type constructor names"
+        [c1 ,c2]
+          | modRef == (PRSelf, curModName) -> dup $ cat (c1, c2)
+          | otherwise -> dup $ genModuleRef modRef <> cat (c1, c2)
         [conName]
           | modRef == (PRSelf, curModName) -> dup conName
-          | otherwise -> dup (genModuleRef modRef <> "." <> conName)
-          where
-            modRef = (pkgRef, modName)
+          | otherwise -> dup $ genModuleRef modRef <> "." <> conName
+     where
+       cat (u, v) = u <> "_NS." <> v
+       modRef = (pkgRef, modName)
 
 genModuleRef :: ModuleRef -> T.Text
 genModuleRef (pkgRef, modName) = case pkgRef of

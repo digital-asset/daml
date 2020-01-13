@@ -1,12 +1,16 @@
--- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.LF.Ast.Tests
     ( main
     ) where
 
+import Control.Monad (unless)
 import Data.Foldable
+import Data.List (isInfixOf)
+import Data.List.Extra (trim)
 import qualified Data.Map.Strict as Map
+import qualified Data.NameMap as NM
 import Text.Read
 import Test.Tasty
 import Test.Tasty.HUnit
@@ -14,11 +18,17 @@ import Test.Tasty.HUnit
 import DA.Daml.LF.Ast.Base
 import DA.Daml.LF.Ast.Numeric
 import DA.Daml.LF.Ast.Type
+import DA.Daml.LF.Ast.Util
+import DA.Daml.LF.Ast.Version
+import DA.Daml.LF.Ast.World (initWorld)
+import DA.Daml.LF.TypeChecker (checkModule)
+import DA.Pretty (renderPretty)
 
 main :: IO ()
 main = defaultMain $ testGroup "DA.Daml.LF.Ast"
     [ numericTests
     , substitutionTests
+    , typeSynTests
     ]
 
 numericExamples :: [(String, Numeric)]
@@ -59,3 +69,306 @@ substitutionTests = testGroup "substitution"
     beta11 = TypeVarName "beta11"
     vBeta1 = TVar beta1
     vBeta11 = TVar beta11
+
+
+typeSynTests :: TestTree
+typeSynTests =
+  testGroup "type synonyms"
+  [ testGroup "happy" (map mkHappyTestcase happyExamples)
+  , testGroup "sad" (map mkSadTestcase sadExamples)
+  , testGroup "bad" (map mkBadTestcase badDefs)
+  , testGroup "bigger" (map mkBiggerTestcase biggerExamples)
+  ] where
+
+  happyExamples :: [(Type,Type)]
+  happyExamples =
+    [ (TInt64, TInt64)
+    , (TParty, TParty)
+    , (TSynApp (q myInt) [], TInt64)
+    , (TSynApp (q myMyInt) [], TInt64)
+    , (TSynApp (q myMyInt) [], TSynApp (q myMyInt) [])
+    , (TSynApp (q myPairIP) [], mkPair TInt64 TParty)
+    , (TSynApp (q myPairIP) [], mkPair (TSynApp (q myMyInt) []) TParty)
+    , (TSynApp (q myIdentity) [TDate], TDate)
+    , (TSynApp (q myPairXX) [TDate], mkPair TDate TDate)
+    , (TSynApp (q myPairXI) [TDate], mkPair TDate TInt64)
+    , (TSynApp (q myPairXI) [TInt64], TSynApp (q myPairXX) [TInt64])
+    , (TSynApp (q myIdentity) [TSynApp (q myInt) []], TInt64)
+    , (TSynApp (q myIdentity) [TSynApp (q myIdentity) [TParty]], TParty)
+    , (TSynApp (q myPairXY) [TDate,TParty], mkPair TDate TParty)
+    , (TSynApp (q myHigh) [TBuiltin BTList], TList TInt64)
+    , (TSynApp (q myHigh2) [TBuiltin BTArrow,TParty], TParty :-> TParty)
+    , (TForall (x,KStar) (TVar x), TForall (y,KStar) (TVar y))
+    , (TSynApp (q myIdentity) [TForall (x,KStar) (TVar x)], TForall (y,KStar) (TVar y))
+    , (TForall (x,KStar) $ TSynApp (q myIdentity) [TVar x], TForall (y,KStar) (TVar y))
+    ]
+
+  sadExamples :: [(Type,Type,String)]
+  sadExamples =
+    [ (TInt64, TParty, "type mismatch")
+    , (TParty, TInt64, "type mismatch")
+    , (TParty `TApp` TInt64, TParty, "expected higher kinded type")
+    , (TParty, TParty `TApp` TInt64, "expected higher kinded type")
+    , (TSynApp (q missing) [], TInt64, "unknown type synonym: M:Missing")
+    , (TSynApp (q myInt) [], TParty, "type mismatch")
+    , (TSynApp (q myPairIP) [], mkPair TParty TInt64, "type mismatch")
+    , (TSynApp (q myIdentity) [], TParty, "wrong arity in type synonym application")
+    , (TSynApp (q myIdentity) [TDate], TParty, "type mismatch")
+    , (TSynApp (q myPairXI) [TDate], TSynApp (q myPairXX) [TDate], "type mismatch")
+    , (TSynApp (q myPairXY) [TDate], TParty, "wrong arity in type synonym application")
+    , (TSynApp (q myPairXY) [TDate], TParty, "expected: 2, found: 1")
+    , (TSynApp (q myPairXX) [TDate,TParty], TParty, "wrong arity in type synonym application")
+    , (TSynApp (q myIdentity) [TBuiltin BTList], TList TInt64,"kind mismatch")
+    , (TSynApp (q myHigh) [TBuiltin BTList], TList TParty, "type mismatch")
+    , (TSynApp (q myHigh) [TBuiltin BTArrow], TList TInt64,"kind mismatch")
+    , (TSynApp (q myHigh) [TInt64], TList TInt64,"kind mismatch")
+    , (TSynApp (q myHigh2) [TBuiltin BTList,TParty], TParty :-> TParty, "kind mismatch")
+    ]
+
+  goodDefs :: [DefTypeSyn]
+  goodDefs =
+    [ makeSynDef myInt [] TInt64
+    , makeSynDef myMyInt [] (TSynApp (q myInt) [])
+    , makeSynDef myPairIP [] (mkPair TInt64 TParty)
+    , makeSynDef myIdentity [(x,KStar)] (TVar x)
+    , makeSynDef myPairXX [(x,KStar)] (mkPair (TVar x) (TVar x))
+    , makeSynDef myPairXI [(x,KStar)] (mkPair (TVar x) TInt64)
+    , makeSynDef myPairXY [(x,KStar),(y,KStar)] (mkPair (TVar x) (TVar y))
+    , makeSynDef myHigh [(f,KStar `KArrow` KStar)] (TApp (TVar f) TInt64)
+    , makeSynDef myHigh2 [(f,KStar `KArrow` KStar `KArrow` KStar),(x,KStar)] (TVar f `TApp` TVar x `TApp` TVar x)
+    ]
+
+  badDefs :: [(DefTypeSyn,String)]
+  badDefs =
+    [ (makeSynDef myBad [] (TVar x), "unknown type variable: x")
+    , (makeSynDef myBad [] (TBuiltin BTArrow), "kind mismatch")
+    , (makeSynDef myBad [(f,KStar `KArrow` KStar)] (TVar f), "kind mismatch")
+    , (makeSynDef myBad [(x,KStar)] (TApp (TVar x) TInt64), "expected higher kinded type")
+    , (makeSynDef myBad [(x,KStar),(x,KStar)] (TVar x), "duplicate type parameter: x")
+    , (makeSynDef myBad [] (TSynApp (q missing) []), "unknown type synonym: M:Missing")
+    ]
+
+  x,y,f :: TypeVarName
+  x = TypeVarName "x"
+  y = TypeVarName "y"
+  f = TypeVarName "f"
+
+  moduleName :: ModuleName
+  moduleName = ModuleName ["M"]
+
+  q :: a -> Qualified a
+  q = Qualified PRSelf moduleName
+
+  missing = TypeSynName ["Missing"]
+  myInt = TypeSynName ["MyInt"]
+  myMyInt = TypeSynName ["MyMyInt"]
+  myPairIP = TypeSynName ["MyPairIP"]
+  myIdentity = TypeSynName ["MyIdentity"]
+  myPairXX = TypeSynName ["MyPairXX"]
+  myPairXI = TypeSynName ["MyPairXI"]
+  myPairXY = TypeSynName ["MyPairXY"]
+  myHigh = TypeSynName ["MyHigh"]
+  myHigh2 = TypeSynName ["MyHigh2"]
+  myBad = TypeSynName ["MyBad"]
+
+  mkPair ty1 ty2 = TStruct [(FieldName "fst",ty1),(FieldName "snd",ty2)]
+
+  makeSynDef :: TypeSynName -> [(TypeVarName,Kind)] -> Type -> DefTypeSyn
+  makeSynDef synName synParams synType = do
+    DefTypeSyn { synLocation = Nothing, synName, synParams, synType}
+
+  mkHappyTestcase :: (Type,Type) -> TestTree
+  mkHappyTestcase (ty1,ty2) = do
+    let name = renderPretty ty1 <> " == " <> renderPretty ty2
+    let mod = makeModuleToTestTypeSyns ty1 ty2
+    testCase name $ case typeCheck mod of
+      Left s -> assertFailure $ "unexpected type error: " <> s
+      Right () -> return ()
+
+  mkSadTestcase :: (Type,Type,String) -> TestTree
+  mkSadTestcase (ty1,ty2,frag) = do
+    let name = renderPretty ty1 <> " =/= " <> renderPretty ty2
+    let mod = makeModuleToTestTypeSyns ty1 ty2
+    testCase name $ case typeCheck mod of
+      Left s -> assertStringContains s (Fragment frag)
+      Right () -> assertFailure "expected type error, but got none"
+
+  mkBadTestcase :: (DefTypeSyn,String) -> TestTree
+  mkBadTestcase (def,frag) = do
+    let name = looseNewlines $ renderPretty def
+    let mod = makeModule [def] []
+    testCase name $ case typeCheck mod of
+      Left s -> assertStringContains s (Fragment frag)
+      Right () -> assertFailure "expected type error, but got none"
+    where
+      looseNewlines = unwords . map trim . lines
+
+  makeModuleToTestTypeSyns :: Type -> Type -> Module
+  makeModuleToTestTypeSyns ty1 ty2 = do
+    let definition = DefValue
+          { dvalLocation = Nothing
+          , dvalBinder = (ExprValName "MyFun", ty1 :-> TUnit)
+          , dvalNoPartyLiterals = HasNoPartyLiterals True
+          , dvalIsTest = IsTest False
+          , dvalBody = ETmLam (ExprVarName "ignored", ty2) EUnit
+          }
+    makeModule goodDefs [definition]
+
+  makeModule :: [DefTypeSyn] -> [DefValue] -> Module
+  makeModule synDefs valDefs = do
+    Module
+      { moduleName
+      , moduleSource = Nothing
+      , moduleFeatureFlags = FeatureFlags {forbidPartyLiterals = True}
+      , moduleSynonyms = NM.fromList synDefs
+      , moduleDataTypes = NM.fromList []
+      , moduleValues = NM.fromList valDefs
+      , moduleTemplates = NM.empty
+      }
+
+  mkBiggerTestcase :: (String,Module) -> TestTree
+  mkBiggerTestcase (name,mod) = do
+    testCase name $ do
+      let _ = putStrLn (renderPretty mod <> "\n")
+      case typeCheck mod of
+        Left s -> assertFailure $ "unexpected type error: " <> s
+        Right () -> return ()
+
+  biggerExamples :: [(String,Module)]
+  biggerExamples = [ ("functor/pointed example", functorPointedExample) ]
+
+  functorPointedExample :: Module
+  functorPointedExample = makeModule
+    [functorDef,pointedDef]
+    [identityDef,mapOptionalDef,optionalFunctorDef,fmapDef,optionalPointedDef,pureDef] where
+
+    a = TypeVarName "a"
+    b = TypeVarName "b"
+    f = TypeVarName "f"
+
+    functor = TypeSynName ["functor"]
+    functorDef =
+      makeSynDef functor [(f,KStar `KArrow` KStar)] $ TStruct [
+      (FieldName "fmap",
+       TForall (a,KStar) $
+       TForall (b,KStar) $
+       (TVar a :-> TVar b) :-> TVar f `TApp` TVar a :-> TVar f `TApp` TVar b
+      )]
+
+    pointed = TypeSynName ["pointed"]
+    pointedDef =
+      makeSynDef pointed [(f,KStar `KArrow` KStar)] $ TStruct [
+      (FieldName "super", TSynApp (q functor) [TVar f]),
+      (FieldName "pure", TForall (a,KStar) $ TVar a :-> TVar f `TApp` TVar a)
+      ]
+
+    dict = ExprVarName "dict"
+    opt = ExprVarName "opt"
+    x = ExprVarName "x"
+    func = ExprVarName "func"
+
+    identityDef = DefValue
+      { dvalLocation = Nothing
+      , dvalBinder = (ExprValName "identity", TForall (a,KStar) $ TVar a :-> TVar a)
+      , dvalNoPartyLiterals = HasNoPartyLiterals True
+      , dvalIsTest = IsTest False
+      , dvalBody = ETyLam (a,KStar) $ ETmLam (opt,TVar a) (EVar opt)
+      }
+
+    mapOptional = ExprValName "mapOptional"
+    mapOptionalDef = DefValue
+      { dvalLocation = Nothing
+      , dvalBinder = (mapOptional, mapOptionalType)
+      , dvalNoPartyLiterals = HasNoPartyLiterals True
+      , dvalIsTest = IsTest False
+      , dvalBody = mapOptionalExp
+      }
+
+    mapOptionalType =
+      TForall (a,KStar) $
+      TForall (b,KStar) $
+      (TVar a :-> TVar b) :->
+      TOptional (TVar a) :->
+      TOptional (TVar b)
+
+    mapOptionalExp =
+      ETyLam (a,KStar) $
+      ETyLam (b,KStar) $
+      ETmLam (func,TVar a :-> TVar b) $
+      ETmLam (opt,TOptional (TVar a)) $
+      ECase (EVar opt)
+      [ CaseAlternative CPNone (ENone (TVar b))
+      , CaseAlternative (CPSome x) (ESome (TVar b) (EVar func `ETmApp` EVar x))
+      ]
+
+    optionalFunctor = ExprValName "optionalFunctor"
+    optionalFunctorDef = DefValue
+      { dvalLocation = Nothing
+      , dvalBinder = (optionalFunctor, TSynApp (q functor) [TBuiltin BTOptional])
+      , dvalNoPartyLiterals = HasNoPartyLiterals True
+      , dvalIsTest = IsTest False
+      , dvalBody = EStructCon [(FieldName "fmap", EVal (q mapOptional))]
+      }
+
+    optionalPointedDef = DefValue
+      { dvalLocation = Nothing
+      , dvalBinder = (ExprValName "optionalPointed", TSynApp (q pointed) [TBuiltin BTOptional])
+      , dvalNoPartyLiterals = HasNoPartyLiterals True
+      , dvalIsTest = IsTest False
+      , dvalBody = EStructCon [(FieldName "super", EVal (q optionalFunctor))
+                              ,(FieldName "pure",
+                                ETyLam (a,KStar) $ ETmLam (x,TVar a) $ ESome (TVar a) (EVar x))]
+      }
+
+    fmapDef = DefValue
+      { dvalLocation = Nothing
+      , dvalBinder = (ExprValName "fmap", fmapType)
+      , dvalNoPartyLiterals = HasNoPartyLiterals True
+      , dvalIsTest = IsTest False
+      , dvalBody =
+        ETyLam (f,KStar `KArrow` KStar) $
+        ETmLam (dict,TSynApp (q functor) [TVar f]) $
+        EStructProj (FieldName "fmap") $
+        EVar dict
+      }
+
+    fmapType =
+      TForall (f,KStar `KArrow` KStar) $
+      TSynApp (q functor) [TVar f] :-> (
+      TForall (a,KStar) $
+      TForall (b,KStar) $
+      (TVar a :-> TVar b) :->
+      TVar f `TApp` TVar a :->
+      TVar f `TApp` TVar b )
+
+    pureDef = DefValue
+      { dvalLocation = Nothing
+      , dvalBinder = (ExprValName "pure", pureType)
+      , dvalNoPartyLiterals = HasNoPartyLiterals True
+      , dvalIsTest = IsTest False
+      , dvalBody =
+        ETyLam (f,KStar `KArrow` KStar) $
+        ETmLam (dict,TSynApp (q pointed) [TVar f]) $
+        EStructProj (FieldName "pure") $
+        EVar dict
+      }
+
+    pureType =
+      TForall (f,KStar `KArrow` KStar) $
+      TSynApp (q pointed) [TVar f] :-> (
+      TForall (a,KStar) $
+      TVar a :->
+      TVar f `TApp` TVar a )
+
+
+typeCheck :: Module -> Either String ()
+typeCheck mod = do
+  let version = V1 (PointStable 7)
+  either (Left . renderPretty) Right $ checkModule (initWorld [] version) version mod
+
+assertStringContains :: String -> Fragment -> IO ()
+assertStringContains text (Fragment frag) =
+  unless (frag `isInfixOf` text) (assertFailure msg)
+  where msg = "expected frag: " ++ frag ++ "\n contained in: " ++ text
+
+newtype Fragment = Fragment String

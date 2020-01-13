@@ -1,4 +1,4 @@
--- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -56,10 +56,10 @@ main = displayErrors $ do
                     ]
                 exitFailure
 
-            versionChecks env
             sdkConfig <- readSdkConfig (fromJust envSdkPath)
             sdkCommands <- fromRightM throwIO (listSdkCommands sdkConfig)
             userCommand <- getCommand sdkCommands
+            versionChecks env
             handleCommand env userCommand
 
 -- | Perform version checks, i.e. warn user if project SDK version or assistant SDK
@@ -111,6 +111,8 @@ autoInstall env@Env{..} = do
                 , iActivate = ActivateInstall False
                 , iForce = ForceInstall False
                 , iSetPath = SetPath True
+                , iBashCompletions = BashCompletions Auto
+                , iZshCompletions = ZshCompletions Auto
                 }
             installEnv = InstallEnv
                 { options = options

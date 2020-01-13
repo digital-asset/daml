@@ -1,3 +1,6 @@
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 // Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -10,11 +13,12 @@ import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref.LedgerString
 import com.digitalasset.daml.lf.data.Time.Timestamp
 
-class InMemoryKVParticipantStateIT extends ParticipantStateIntegrationSpecBase {
+class InMemoryKVParticipantStateIT
+    extends ParticipantStateIntegrationSpecBase("In-memory participant state for Reference v2") {
 
   override def participantStateFactory(
       participantId: ParticipantId,
-      ledgerId: LedgerString): ReadService with WriteService =
+      ledgerId: LedgerString): ReadService with WriteService with AutoCloseable =
     new InMemoryKVParticipantState(participantId, ledgerId)
 
   override def currentRecordTime(): Timestamp =

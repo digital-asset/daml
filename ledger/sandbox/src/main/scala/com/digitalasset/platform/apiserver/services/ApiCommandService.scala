@@ -1,7 +1,7 @@
-// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.server.services.command
+package com.digitalasset.platform.apiserver.services
 
 import akka.NotUsed
 import akka.actor.Cancellable
@@ -26,21 +26,21 @@ import com.digitalasset.ledger.client.services.commands.{
   CommandCompletionSource,
   CommandTrackerFlow
 }
-import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.api.grpc.GrpcApiService
+import com.digitalasset.platform.apiserver.services.tracking.{TrackerImpl, TrackerMap}
+import com.digitalasset.platform.apiserver.services.ApiCommandService.LowLevelCommandServiceAccess
+import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.server.api.ApiException
 import com.digitalasset.platform.server.api.services.grpc.GrpcCommandService
-import com.digitalasset.platform.server.services.command.ApiCommandService.LowLevelCommandServiceAccess
 import com.digitalasset.util.Ctx
 import com.digitalasset.util.akkastreams.MaxInFlight
 import com.google.protobuf.empty.Empty
-
 import io.grpc._
+import scalaz.syntax.tag._
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.Try
-import scalaz.syntax.tag._
 
 class ApiCommandService private (
     lowLevelCommandServiceAccess: LowLevelCommandServiceAccess,

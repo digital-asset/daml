@@ -1,19 +1,19 @@
-// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.server.services.command
+package com.digitalasset.platform.apiserver.services.tracking
 
 import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.digitalasset.ledger.api.v1.completion.Completion
 
 import scala.concurrent.{ExecutionContext, Future}
 
-trait Tracker extends AutoCloseable {
+private[tracking] trait Tracker extends AutoCloseable {
 
   def track(request: SubmitAndWaitRequest)(implicit ec: ExecutionContext): Future[Completion]
 }
 
-object Tracker {
+private[tracking] object Tracker {
 
   class WithLastSubmission(delegate: Tracker) extends Tracker {
 

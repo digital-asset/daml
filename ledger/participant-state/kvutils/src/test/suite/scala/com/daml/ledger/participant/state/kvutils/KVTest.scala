@@ -1,4 +1,4 @@
-// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
@@ -123,6 +123,9 @@ object KVTest {
         newState.keySet subsetOf
           KeyValueCommitting.submissionOutputs(entryId, submission)
       )
+
+      // Verify that we can always process the log entry
+      val _ = KeyValueConsumption.logEntryToUpdate(entryId, logEntry)
 
       entryId -> logEntry
     }

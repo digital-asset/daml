@@ -1,6 +1,6 @@
 # Working on `ghc-lib`
 
-Copyright 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All Rights Reserved.
+Copyright 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: (Apache-2.0 OR BSD-3-Clause)
 
 If you need to build, test, deploy or develop [`ghc-lib`](https://github.com/digital-asset/ghc-lib) as used by DAML and utilizing the Digital Asset [GHC fork](https://github.com/digital-asset/ghc) these notes are for you.

@@ -1,3 +1,6 @@
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 // Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -31,23 +34,27 @@ import scala.collection.{breakOut, mutable}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Random
 
-@SuppressWarnings(Array("org.wartremover.warts.ArrayEquals"))
-private[memory] case class LogEntry(entryId: DamlLogEntryId, payload: Array[Byte])
+private[memory] class LogEntry(val entryId: DamlLogEntryId, val payload: Array[Byte])
 
-private[memory] case class InMemoryState(
-    log: mutable.Buffer[LogEntry] = ArrayBuffer[LogEntry](),
-    state: mutable.Map[ByteString, DamlStateValue] = mutable.Map.empty)
+private[memory] object LogEntry {
+  def apply(entryId: DamlLogEntryId, payload: Array[Byte]): LogEntry =
+    new LogEntry(entryId, payload)
+}
 
-class InMemoryLedgerReaderWriter(
+private[memory] class InMemoryState(
+    val log: mutable.Buffer[LogEntry] = ArrayBuffer[LogEntry](),
+    val state: mutable.Map[ByteString, DamlStateValue] = mutable.Map.empty,
+)
+
+final class InMemoryLedgerReaderWriter(
     ledgerId: LedgerId = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
     val participantId: ParticipantId)(implicit executionContext: ExecutionContext)
     extends LedgerWriter
-    with LedgerReader
-    with AutoCloseable {
+    with LedgerReader {
 
   private val engine = Engine()
 
-  private val currentState = InMemoryState()
+  private val currentState = new InMemoryState()
 
   private val StartOffset: Int = 0
 
@@ -60,19 +67,19 @@ class InMemoryLedgerReaderWriter(
         val stateInputs: Map[DamlStateKey, Option[DamlStateValue]] =
           submission.getInputDamlStateList.asScala
             .map(key => key -> currentState.state.get(key.toByteString))(breakOut)
-        val entryId = allocateEntryId
+        val entryId = allocateEntryId()
         val (logEntry, damlStateUpdates) =
           KeyValueCommitting.processSubmission(
             engine,
             entryId,
             currentRecordTime(),
-            LedgerReader.DefaultTimeModel,
+            LedgerReader.DefaultConfiguration,
             submission,
             participantId,
             stateInputs
           )
         verifyStateUpdatesAgainstPreDeclaredOutputs(damlStateUpdates, entryId, submission)
-        val stateUpdates = damlStateUpdates.toSeq.map {
+        val stateUpdates = damlStateUpdates.map {
           case (damlStateKey, value) => damlStateKey.toByteString -> value
         }
         currentState.log += LogEntry(entryId, Envelope.enclose(logEntry).toByteArray)
@@ -90,7 +97,7 @@ class InMemoryLedgerReaderWriter(
     if (!(actualStateUpdates.keySet subsetOf expectedStateUpdates)) {
       val unaccountedKeys = actualStateUpdates.keySet diff expectedStateUpdates
       sys.error(
-        s"CommitActor: State updates not a subset of expected updates! Keys [$unaccountedKeys] are unaccounted for!")
+        s"State updates not a subset of expected updates! Keys [$unaccountedKeys] are unaccounted for!")
     }
   }
 
@@ -102,17 +109,14 @@ class InMemoryLedgerReaderWriter(
           .getOrElse(StartOffset),
         OneAfterAnother[Int, List[LedgerRecord]](
           (index: Int, _) => index + 1,
-          (index: Int) => Future.successful(List(getLogEntry(index)))
+          (index: Int) => Future.successful(List(retrieveLogEntry(index)))
         )
       )
-      .collect {
-        case (_, updates) => updates
-      }
-      .mapConcat(identity)
+      .mapConcat { case (_, updates) => updates }
 
   override def retrieveLedgerId(): LedgerId = ledgerId
 
-  override def checkHealth(): HealthStatus = Healthy
+  override def currentHealth(): HealthStatus = Healthy
 
   override def close(): Unit = {
     dispatcher.close()
@@ -125,7 +129,7 @@ class InMemoryLedgerReaderWriter(
 
   private val NamespaceLogEntries = ByteString.copyFromUtf8("L")
 
-  private def allocateEntryId: DamlLogEntryId = {
+  private def allocateEntryId(): DamlLogEntryId = {
     val nonce: Array[Byte] = Array.ofDim(8)
     randomNumberGenerator.nextBytes(nonce)
     DamlLogEntryId.newBuilder
@@ -136,7 +140,7 @@ class InMemoryLedgerReaderWriter(
   private def currentRecordTime(): Timestamp =
     Timestamp.assertFromInstant(Clock.systemUTC().instant())
 
-  private def getLogEntry(index: Int): LedgerRecord = {
+  private def retrieveLogEntry(index: Int): LedgerRecord = {
     val logEntry = currentState.log(index)
     LedgerRecord(Offset(Array(index.toLong)), logEntry.entryId, logEntry.payload)
   }

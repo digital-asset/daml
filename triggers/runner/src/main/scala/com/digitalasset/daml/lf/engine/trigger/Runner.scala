@@ -1,4 +1,4 @@
-// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.engine.trigger
@@ -8,12 +8,16 @@ import akka.stream._
 import akka.stream.scaladsl._
 import com.google.rpc.status.Status
 import com.typesafe.scalalogging.StrictLogging
+
 import io.grpc.StatusRuntimeException
 import java.time.Instant
 import java.util.UUID
-import scalaz.syntax.tag._
-import scala.concurrent.{ExecutionContext, Future}
 
+import scalaz.syntax.tag._
+
+import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration._
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.PureCompiledPackages
 import com.digitalasset.daml.lf.archive.Dar
@@ -23,11 +27,11 @@ import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.speedy.Compiler
 import com.digitalasset.daml.lf.speedy.Pretty
-import com.digitalasset.daml.lf.speedy.{SExpr, Speedy, SValue, TraceLog}
+import com.digitalasset.daml.lf.speedy.{SExpr, SValue, Speedy}
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.SResult._
 import com.digitalasset.daml.lf.speedy.SValue._
-import com.digitalasset.ledger.api.refinements.ApiTypes.{ApplicationId}
+import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
 import com.digitalasset.ledger.api.v1.commands.Commands
 import com.digitalasset.ledger.api.v1.completion.Completion
 import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
@@ -47,6 +51,7 @@ import com.digitalasset.platform.services.time.TimeProviderType
 sealed trait TriggerMsg
 final case class CompletionMsg(c: Completion) extends TriggerMsg
 final case class TransactionMsg(t: Transaction) extends TriggerMsg
+final case class HeartbeatMsg() extends TriggerMsg
 
 class Runner(
     client: LedgerClient,
@@ -118,42 +123,21 @@ class Runner(
       }
     }
 
-  def logTraces(machine: Speedy.Machine): Speedy.Machine = {
-    var traceEmpty = true
-    machine.traceLog.iterator.foreach {
-      case (msg, optLoc) =>
-        traceEmpty = false
-        logger.info(s"TRACE ${Pretty.prettyLoc(optLoc).render(80)}: $msg")
-    }
-    // Right now there isn’t a way to reset the TraceLog so we have to manually replace it by a new empty tracelog.
-    // We might want to make this possible in the future since it would be a bit cheaper but
-    // this shouldn’t be the bottleneck in triggers.
-    if (traceEmpty) {
-      // We can avoid allocating a new TraceLog in the common case where there was no trace statement.
-      machine
-    } else {
-      machine.copy(traceLog = TraceLog(machine.traceLog.capacity))
-    }
-  }
-
-  def stepToValue(machine: Speedy.Machine): Speedy.Machine = {
+  def stepToValue(machine: Speedy.Machine): Unit = {
     while (!machine.isFinal) {
       machine.step() match {
         case SResultContinue => ()
         case SResultError(err) => {
-          logTraces(machine)
           logger.error(Pretty.prettyError(err, machine.ptx).render(80))
           throw err
         }
         case res => {
-          logTraces(machine)
           val errMsg = s"Unexpected speedy result: $res"
           logger.error(errMsg)
           throw new RuntimeException(errMsg)
         }
       }
     }
-    logTraces(machine)
   }
 
   def getTrigger(triggerId: Identifier): (Expr, TypeConApp) = {
@@ -183,12 +167,30 @@ class Runner(
     }
   }
 
+  def getTriggerHeartbeat(triggerId: Identifier): Option[FiniteDuration] = {
+    val (triggerExpr, triggerTy) = getTrigger(triggerId)
+    val heartbeat = compiler.compile(
+      ERecProj(triggerTy, Name.assertFromString("heartbeat"), triggerExpr)
+    )
+    var machine = Speedy.Machine.fromSExpr(heartbeat, false, compiledPackages)
+    stepToValue(machine)
+    machine.toSValue match {
+      case SOptional(None) => None
+      case SOptional(Some(relTime)) =>
+        converter.toFiniteDuration(relTime) match {
+          case Left(err) => throw new ConverterException(err)
+          case Right(duration) => Some(duration)
+        }
+      case value => throw new ConverterException(s"Expected Optional but got $value.")
+    }
+  }
+
   def getTriggerFilter(triggerId: Identifier): TransactionFilter = {
     val (triggerExpr, triggerTy) = getTrigger(triggerId)
     val registeredTemplates = compiler.compile(
       ERecProj(triggerTy, Name.assertFromString("registeredTemplates"), triggerExpr))
     var machine = Speedy.Machine.fromSExpr(registeredTemplates, false, compiledPackages)
-    machine = stepToValue(machine)
+    stepToValue(machine)
     val templateIds = machine.toSValue match {
       case SVariant(_, "AllInDar", _) => {
         darMap.toList.flatMap({
@@ -219,6 +221,7 @@ class Runner(
   def msgSource(
       client: LedgerClient,
       offset: LedgerOffset,
+      heartbeat: Option[FiniteDuration],
       party: String,
       filter: TransactionFilter)(implicit materializer: Materializer)
     : (Source[TriggerMsg, NotUsed], (String, StatusRuntimeException) => Unit) = {
@@ -239,13 +242,20 @@ class Runner(
         })
         .merge(completionQueueSource)
         .map[TriggerMsg](CompletionMsg)
+    val source = heartbeat match {
+      case Some(interval) =>
+        transactionSource
+          .merge(completionSource)
+          .merge(Source.tick[TriggerMsg](interval, interval, HeartbeatMsg()))
+      case None => transactionSource.merge(completionSource)
+    }
     def postSubmitFailure(commandId: String, s: StatusRuntimeException) = {
       val _ = completionQueue.offer(
         Completion(
           commandId,
           Some(Status(s.getStatus().getCode().value(), s.getStatus().getDescription()))))
     }
-    (transactionSource.merge(completionSource), postSubmitFailure)
+    (source, postSubmitFailure)
   }
 
   def getTriggerSink(
@@ -275,7 +285,7 @@ class Runner(
           SEValue(STimestamp(clientTime)): SExpr,
           createdExpr))
     machine.ctrl = Speedy.CtrlExpr(initialState)
-    machine = stepToValue(machine)
+    stepToValue(machine)
     val evaluatedInitialState = handleStepResult(machine.toSValue, submit)
     logger.debug(s"Initial state: $evaluatedInitialState")
     Flow[TriggerMsg]
@@ -302,6 +312,7 @@ class Runner(
             // This happens for invalid UUIDs which we might get for transactions not emitted by the trigger.
             case e: IllegalArgumentException => List(TransactionMsg(t.copy(commandId = "")))
           }
+        case x @ HeartbeatMsg() => List(x)
       })
       .toMat(Sink.fold[SExpr, TriggerMsg](SEValue(evaluatedInitialState))((state, message) => {
         val messageVal = message match {
@@ -321,12 +332,13 @@ class Runner(
               case Right(x) => x
             }
           }
+          case HeartbeatMsg() => converter.fromHeartbeat
         }
         val clientTime: Timestamp =
           Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
         machine.ctrl = Speedy.CtrlExpr(
           SEApp(update, Array(SEValue(STimestamp(clientTime)): SExpr, SEValue(messageVal), state)))
-        machine = stepToValue(machine)
+        stepToValue(machine)
         val newState = handleStepResult(machine.toSValue, submit)
         SEValue(newState)
       }))(Keep.right[NotUsed, Future[SExpr]])
@@ -348,12 +360,13 @@ class Runner(
   def runWithACS(
       triggerId: Identifier,
       timeProviderType: TimeProviderType,
+      heartbeat: Option[FiniteDuration],
       acs: Seq[CreatedEvent],
       offset: LedgerOffset,
       filter: TransactionFilter,
       msgFlow: Flow[TriggerMsg, TriggerMsg, NotUsed] = Flow[TriggerMsg],
   )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[SExpr] = {
-    val (source, postFailure) = msgSource(client, offset, party, filter)
+    val (source, postFailure) = msgSource(client, offset, heartbeat, party, filter)
     def submit(req: SubmitRequest) = {
       val f = client.commandClient
         .withTimeProvider(Some(Runner.getTimeProvider(timeProviderType)))
@@ -394,9 +407,10 @@ object Runner extends StrictLogging {
       dar
     )
     val filter = runner.getTriggerFilter(triggerId)
+    val heartbeat = runner.getTriggerHeartbeat(triggerId)
     for {
       (acs, offset) <- runner.queryACS(client, filter)
-      finalState <- runner.runWithACS(triggerId, timeProviderType, acs, offset, filter)
+      finalState <- runner.runWithACS(triggerId, timeProviderType, heartbeat, acs, offset, filter)
     } yield finalState
   }
 }

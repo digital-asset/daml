@@ -1,13 +1,41 @@
--- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 daml 1.2
-module DA.Date where
+module DA.Date
+  ( DayOfWeek(..)
+  , Month(..)
+  , addDays
+  , subDate
+  , dayOfWeek
+  , fromGregorian
+  , toGregorian
+  , date
+  , isLeapYear
+  , fromMonth
+  , monthDayCount
+  , datetime
+  , toDateUTC
+  , passToDate
+  ) where
 
+import DA.Date.Types
 import DA.Internal.Date
 import DA.Internal.Time
+
+deriving instance Eq DayOfWeek
+deriving instance Ord DayOfWeek
+deriving instance Show DayOfWeek
+deriving instance Enum DayOfWeek
+deriving instance Bounded DayOfWeek
+
+deriving instance Eq Month
+deriving instance Ord Month
+deriving instance Show Month
+deriving instance Enum Month
+deriving instance Bounded Month
 
 -- | Add the given number of days to a date.
 addDays : Date -> Int -> Date
@@ -21,17 +49,6 @@ subDate d1 d2 =
     let t1 = dateToDaysSinceEpoch d1
         t2 = dateToDaysSinceEpoch d2
     in t1 - t2
-
--- | The `DayOfWeek` type represents one the seven days of the week.
-data DayOfWeek
-    = Monday
-    | Tuesday
-    | Wednesday
-    | Thursday
-    | Friday
-    | Saturday
-    | Sunday
-  deriving (Eq, Ord, Show, Enum, Bounded)
 
 -- | Returns the day of week for the given date.
 dayOfWeek : Date -> DayOfWeek
@@ -71,22 +88,6 @@ date year month day =
 -- | Returns `True` if the given year is a leap year.
 isLeapYear : Int -> Bool
 isLeapYear year = (year % 4 == 0) && ((year % 400 == 0) || not (year % 100 == 0))
-
--- | The `Month` type represents a month in the Gregorian calendar.
-data Month
-    = Jan
-    | Feb
-    | Mar
-    | Apr
-    | May
-    | Jun
-    | Jul
-    | Aug
-    | Sep
-    | Oct
-    | Nov
-    | Dec
-  deriving (Eq, Ord, Show, Enum, Bounded)
 
 -- | Get the number corresponding to given month. For example, `Jan` corresponds
 -- to `1`, `Feb` corresponds to `2`, and so on.

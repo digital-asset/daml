@@ -1,4 +1,4 @@
-// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.http
@@ -14,7 +14,7 @@ import com.digitalasset.http.json.JsonProtocol.LfValueCodec
 import com.digitalasset.http.query.ValuePredicate
 import com.digitalasset.http.query.ValuePredicate.LfV
 import com.digitalasset.http.util.ApiValueToLfValueConverter
-import com.digitalasset.http.util.ExceptionOps._
+import com.digitalasset.util.ExceptionOps._
 import com.digitalasset.http.util.FutureUtil.toFuture
 import com.digitalasset.http.util.IdentifierConverters.apiIdentifier
 import com.digitalasset.jwt.domain.Jwt
@@ -74,7 +74,7 @@ class ContractsService(
 
       resolvedTemplateId <- toFuture(resolveTemplateId(templateId)): Future[TemplateId.RequiredPkg]
 
-      predicate = isContractKey(keyToTuple(lfKey)) _
+      predicate = isContractKey(lfKey) _
 
       errorOrAc <- searchInMemoryOneTpId(jwt, party, resolvedTemplateId, Map.empty)
         .collect {
@@ -88,14 +88,7 @@ class ContractsService(
     } yield result
 
   private def isContractKey(k: LfValue)(a: domain.ActiveContract[LfValue]): Boolean =
-    a.key.fold(false)(key => keyToTuple(key) == k)
-
-  private def keyToTuple(a: LfValue): LfValue = a match {
-    case lf.value.Value.ValueRecord(_, fields) =>
-      lf.value.Value.ValueRecord(None, fields.map(k => (None, k._2)))
-    case _ =>
-      a
-  }
+    a.key.fold(false)(_ == k)
 
   def findByContractId(
       jwt: Jwt,
@@ -284,7 +277,7 @@ class ContractsService(
     Error \/ domain.ActiveContract[LfValue]
   ] = {
     case e @ -\/(_) => e
-    case a @ \/-(ac) if predicate(ac.argument) => a
+    case a @ \/-(ac) if predicate(ac.payload) => a
   }
 
   private def valuePredicate(

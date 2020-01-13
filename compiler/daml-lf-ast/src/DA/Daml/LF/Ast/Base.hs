@@ -1,4 +1,4 @@
--- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DataKinds          #-}
@@ -171,9 +171,9 @@ data Type
   -- | Reference to a type variable.
   = TVar        !TypeVarName
   -- | Reference to a type constructor.
-  | TSyn        !(Qualified TypeSynName)
-  -- | Application of a type function to a type.
   | TCon        !(Qualified TypeConName)
+  -- | Fully-applied type synonym.
+  | TSynApp     !(Qualified TypeSynName) ![Type]
   -- | Application of a type function to a type.
   | TApp        !Type !Type
   -- | Builtin type.

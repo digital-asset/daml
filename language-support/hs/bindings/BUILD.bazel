@@ -1,4 +1,4 @@
-# Copyright (c) 2019 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_repl", "da_haskell_test")
@@ -9,7 +9,6 @@ da_haskell_library(
     name = "hs-ledger",
     srcs = glob(["src/**/*.hs"]),
     hackage_deps = [
-        "MissingH",
         "async",
         "base",
         "bytestring",

@@ -1,24 +1,23 @@
-// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.http
 
 import java.time.Instant
 
-import com.digitalasset.daml.lf
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.iface
 import com.digitalasset.http.util.ClientUtil.boxedRecord
-import com.digitalasset.http.util.IdentifierConverters
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
+import scalaz.Isomorphism.{<~>, IsoFunctorTemplate}
 import scalaz.std.list._
-import scalaz.std.vector._
 import scalaz.std.option._
+import scalaz.std.vector._
 import scalaz.syntax.show._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
 import scalaz.{-\/, @@, Applicative, Show, Tag, Traverse, \/, \/-}
-import scalaz.Isomorphism.{<~>, IsoFunctorTemplate}
 import spray.json.JsValue
 
 import scala.annotation.tailrec
@@ -48,16 +47,12 @@ object domain {
       contractId: ContractId,
       templateId: TemplateId.RequiredPkg,
       key: Option[LfV],
-      argument: LfV,
-      witnessParties: Seq[Party],
+      payload: LfV,
       signatories: Seq[Party],
       observers: Seq[Party],
       agreementText: String)
 
-  case class ArchivedContract(
-      contractId: ContractId,
-      templateId: TemplateId.RequiredPkg,
-      witnessParties: Seq[Party])
+  case class ArchivedContract(contractId: ContractId, templateId: TemplateId.RequiredPkg)
 
   sealed abstract class ContractLocator[+LfV] extends Product with Serializable
 
@@ -141,6 +136,11 @@ object domain {
 
     def fromLedgerApi(in: lav1.value.Identifier): TemplateId.RequiredPkg =
       TemplateId(in.packageId, in.moduleName, in.entityName)
+
+    def qualifiedName(a: TemplateId[_]): Ref.QualifiedName =
+      Ref.QualifiedName(
+        Ref.DottedName.assertFromString(a.moduleName),
+        Ref.DottedName.assertFromString(a.entityName))
   }
 
   object Contract {
@@ -221,14 +221,13 @@ object domain {
     def fromLedgerApi(in: lav1.event.CreatedEvent): Error \/ ActiveContract[lav1.value.Value] =
       for {
         templateId <- in.templateId required "templateId"
-        argument <- in.createArguments required "createArguments"
+        payload <- in.createArguments required "createArguments"
       } yield
         ActiveContract(
           contractId = ContractId(in.contractId),
           templateId = TemplateId fromLedgerApi templateId,
           key = in.contractKey,
-          argument = boxedRecord(argument),
-          witnessParties = Party.subst(in.witnessParties),
+          payload = boxedRecord(payload),
           signatories = Party.subst(in.signatories),
           observers = Party.subst(in.observers),
           agreementText = in.agreementText getOrElse ""
@@ -237,14 +236,14 @@ object domain {
     implicit val covariant: Traverse[ActiveContract] = new Traverse[ActiveContract] {
 
       override def map[A, B](fa: ActiveContract[A])(f: A => B): ActiveContract[B] =
-        fa.copy(key = fa.key map f, argument = f(fa.argument))
+        fa.copy(key = fa.key map f, payload = f(fa.payload))
 
       override def traverseImpl[G[_]: Applicative, A, B](fa: ActiveContract[A])(
           f: A => G[B]): G[ActiveContract[B]] = {
         import scalaz.syntax.apply._
         val gk: G[Option[B]] = fa.key traverse f
-        val ga: G[B] = f(fa.argument)
-        ^(gk, ga)((k, a) => fa.copy(key = k, argument = a))
+        val ga: G[B] = f(fa.payload)
+        ^(gk, ga)((k, a) => fa.copy(key = k, payload = a))
       }
     }
 
@@ -255,11 +254,14 @@ object domain {
           fa.templateId.moduleName,
           fa.templateId.entityName)
 
-      override def lfIdentifier(
+      override def lfType(
           fa: ActiveContract[_],
           templateId: TemplateId.RequiredPkg,
-          f: PackageService.ResolveChoiceRecordId): Error \/ lf.data.Ref.Identifier =
-        \/-(IdentifierConverters.lfIdentifier(templateId))
+          f: PackageService.ResolveTemplateRecordType,
+          g: PackageService.ResolveChoiceRecordType,
+          h: PackageService.ResolveKeyType): Error \/ LfType =
+        f(templateId)
+          .leftMap(e => Error('ActiveContract_hasTemplateId_lfType, e.shows))
     }
   }
 
@@ -270,9 +272,7 @@ object domain {
       } yield
         ArchivedContract(
           contractId = ContractId(in.contractId),
-          templateId = TemplateId fromLedgerApi templateId,
-          witnessParties = Party.subst(in.witnessParties)
-        )
+          templateId = TemplateId fromLedgerApi templateId)
 
     def fromLedgerApi(in: lav1.event.ExercisedEvent): Error \/ Option[ArchivedContract] =
       if (in.consuming) {
@@ -282,9 +282,7 @@ object domain {
           Some(
             ArchivedContract(
               contractId = ContractId(in.contractId),
-              templateId = TemplateId.fromLedgerApi(templateId),
-              witnessParties = Party.subst(in.witnessParties)
-            ))
+              templateId = TemplateId.fromLedgerApi(templateId)))
       } else {
         \/-(None)
       }
@@ -334,11 +332,14 @@ object domain {
 
         override def templateId(fa: EnrichedContractKey[_]): TemplateId.OptionalPkg = fa.templateId
 
-        override def lfIdentifier(
+        override def lfType(
             fa: EnrichedContractKey[_],
             templateId: TemplateId.RequiredPkg,
-            f: PackageService.ResolveChoiceRecordId): Error \/ Ref.Identifier =
-          \/-(IdentifierConverters.lfIdentifier(templateId))
+            f: PackageService.ResolveTemplateRecordType,
+            g: PackageService.ResolveChoiceRecordType,
+            h: PackageService.ResolveKeyType): Error \/ LfType =
+          h(templateId)
+            .leftMap(e => Error('EnrichedContractKey_hasTemplateId_lfType, e.shows))
       }
   }
 
@@ -347,12 +348,16 @@ object domain {
       o toRightDisjunction Error('ErrorOps_required, s"Missing required field $label")
   }
 
+  type LfType = iface.Type
+
   trait HasTemplateId[F[_]] {
     def templateId(fa: F[_]): TemplateId.OptionalPkg
-    def lfIdentifier(
+    def lfType(
         fa: F[_],
         templateId: TemplateId.RequiredPkg,
-        f: PackageService.ResolveChoiceRecordId): Error \/ lf.data.Ref.Identifier
+        f: PackageService.ResolveTemplateRecordType,
+        g: PackageService.ResolveChoiceRecordType,
+        h: PackageService.ResolveKeyType): Error \/ LfType
   }
 
   object CreateCommand {
@@ -365,11 +370,14 @@ object domain {
     implicit val hasTemplateId: HasTemplateId[CreateCommand] = new HasTemplateId[CreateCommand] {
       override def templateId(fa: CreateCommand[_]): TemplateId.OptionalPkg = fa.templateId
 
-      override def lfIdentifier(
+      override def lfType(
           fa: CreateCommand[_],
           templateId: TemplateId.RequiredPkg,
-          f: PackageService.ResolveChoiceRecordId): Error \/ lf.data.Ref.Identifier =
-        \/-(IdentifierConverters.lfIdentifier(templateId))
+          f: PackageService.ResolveTemplateRecordType,
+          g: PackageService.ResolveChoiceRecordType,
+          h: PackageService.ResolveKeyType): Error \/ LfType =
+        f(templateId)
+          .leftMap(e => Error('CreateCommand_hasTemplateId_lfType, e.shows))
     }
   }
 
@@ -383,14 +391,14 @@ object domain {
       new HasTemplateId[ExerciseCommand] {
         override def templateId(fa: ExerciseCommand[_]): TemplateId.OptionalPkg = fa.templateId
 
-        override def lfIdentifier(
+        override def lfType(
             fa: ExerciseCommand[_],
             templateId: TemplateId.RequiredPkg,
-            f: PackageService.ResolveChoiceRecordId): Error \/ lf.data.Ref.Identifier =
-          for {
-            apiId <- f(templateId, fa.choice)
-              .leftMap(e => Error('ExerciseCommand_hasTemplateId_lfIdentifier, e.shows))
-          } yield IdentifierConverters.lfIdentifier(apiId)
+            f: PackageService.ResolveTemplateRecordType,
+            g: PackageService.ResolveChoiceRecordType,
+            h: PackageService.ResolveKeyType): Error \/ LfType =
+          g(templateId, fa.choice)
+            .leftMap(e => Error('ExerciseCommand_hasTemplateId_lfType, e.shows))
       }
   }
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.platform.apiserver
@@ -24,7 +24,6 @@ import com.digitalasset.platform.resources.{Resource, ResourceOwner}
 import com.digitalasset.platform.sandbox.BuildInfo
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.sandbox.stores.InMemoryPackageStore
-import com.digitalasset.platform.server.services.testing.TimeServiceBackend
 
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
@@ -132,7 +131,7 @@ final class StandaloneApiServer(
             )(mat, esf),
         config.port,
         config.maxInboundMessageSize,
-        None,
+        config.address,
         loggerFactory,
         config.tlsConfig.flatMap(_.server),
         List(AuthorizationInterceptor(authService, ec)),

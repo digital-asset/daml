@@ -1,4 +1,4 @@
-# Copyright (c) 2019 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:scala.bzl", "da_scala_library", "da_scala_test_suite")
@@ -41,26 +41,15 @@ da_scala_library(
     visibility = [
         "//visibility:public",
     ],
+    runtime_deps = [
+        "//scala-protoc-plugins/scala-logging:scala-logging-lib",
+    ],
     deps = [
         ":ledger-api-scala-logging-base",
         "//ledger-api/grpc-definitions:ledger-api-scalapb",
-        "//scala-protoc-plugins/scala-logging:scala-logging-lib",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
-
-testDependencies = [
-    ":ledger-api-scala-logging-base",
-    ":ledger-api-scala-logging",
-    "//ledger-api/grpc-definitions:ledger-api-scalapb",
-    "@maven//:ch_qos_logback_logback_classic",
-    "@maven//:ch_qos_logback_logback_core",
-    "@maven//:io_grpc_grpc_core",
-    "@maven//:io_grpc_grpc_stub",
-    "@maven//:org_scalactic_scalactic_2_12",
-    "@maven//:org_scalatest_scalatest_2_12",
-    "@maven//:org_slf4j_slf4j_api",
-]
 
 da_scala_library(
     name = "ledger-api-scala-logging-test-lib",
@@ -69,11 +58,30 @@ da_scala_library(
         exclude = ["src/test/scala/**/*Test.scala"],
     ),
     resources = ["src/test/resources/logback-test.xml"],
-    deps = testDependencies,
+    deps = [
+        ":ledger-api-scala-logging",
+        ":ledger-api-scala-logging-base",
+        "//ledger-api/grpc-definitions:ledger-api-scalapb",
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:ch_qos_logback_logback_core",
+        "@maven//:io_grpc_grpc_core",
+        "@maven//:io_grpc_grpc_stub",
+        "@maven//:org_scalactic_scalactic_2_12",
+        "@maven//:org_scalatest_scalatest_2_12",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
 )
 
 da_scala_test_suite(
     name = "ledger-api-scala-logging-test",
     srcs = glob(["src/test/scala/**/*Test.scala"]),
-    deps = [":ledger-api-scala-logging-test-lib"] + testDependencies,
+    deps = [
+        ":ledger-api-scala-logging-test-lib",
+        "//ledger-api/grpc-definitions:ledger-api-scalapb",
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:ch_qos_logback_logback_core",
+        "@maven//:io_grpc_grpc_stub",
+        "@maven//:org_scalactic_scalactic_2_12",
+        "@maven//:org_scalatest_scalatest_2_12",
+    ],
 )

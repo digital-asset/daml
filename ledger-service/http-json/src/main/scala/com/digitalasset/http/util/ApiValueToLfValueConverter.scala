@@ -1,4 +1,4 @@
-// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.http.util
@@ -14,7 +14,7 @@ object ApiValueToLfValueConverter {
 
   object Error {
     implicit val ErrorShow: Show[Error] = Show shows { e =>
-      import ExceptionOps._
+      import com.digitalasset.util.ExceptionOps._
       s"ApiValueToLfValueConverter.Error: ${e.cause.description}"
     }
   }

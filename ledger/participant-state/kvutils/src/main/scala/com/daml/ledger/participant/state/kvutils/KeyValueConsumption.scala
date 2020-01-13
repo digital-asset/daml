@@ -1,4 +1,4 @@
-// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
@@ -221,7 +221,8 @@ object KeyValueConsumption {
       BaseEncoding.base16.encode(entryId.toByteArray)
     )
     Update.TransactionAccepted(
-      optSubmitterInfo = Some(parseSubmitterInfo(txEntry.getSubmitterInfo)),
+      optSubmitterInfo =
+        if (txEntry.hasSubmitterInfo) Some(parseSubmitterInfo(txEntry.getSubmitterInfo)) else None,
       transactionMeta = TransactionMeta(
         ledgerEffectiveTime = parseTimestamp(txEntry.getLedgerEffectiveTime),
         workflowId = Some(txEntry.getWorkflowId)

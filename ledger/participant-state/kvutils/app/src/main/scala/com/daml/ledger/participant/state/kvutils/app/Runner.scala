@@ -1,3 +1,6 @@
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 // Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -105,6 +108,7 @@ class Runner(name: String, construct: ParticipantId => KeyValueLedger) {
         config.participantId,
         config.archiveFiles.map(_.toFile).toList,
         config.port,
+        config.address,
         jdbcUrl = "jdbc:h2:mem:server;db_close_delay=-1;db_close_on_exit=false",
         tlsConfig = None,
         TimeProvider.UTC,

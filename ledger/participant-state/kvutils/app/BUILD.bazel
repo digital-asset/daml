@@ -1,3 +1,6 @@
+# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 # Copyright (c) 2019 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
@@ -9,32 +12,6 @@ load(
 )
 load("//ledger/ledger-api-test-tool:conformance.bzl", "conformance_test")
 
-compile_deps = [
-    "//daml-lf/archive:daml_lf_archive_reader",
-    "//daml-lf/archive:daml_lf_dev_archive_java_proto",
-    "//daml-lf/data",
-    "//daml-lf/engine",
-    "//language-support/scala/bindings",
-    "//ledger/ledger-api-auth",
-    "//ledger/ledger-api-common",
-    "//ledger/ledger-api-health",
-    "//ledger/participant-state",
-    "//ledger/participant-state/kvutils",
-    "//ledger/sandbox",
-    "@maven//:com_github_scopt_scopt_2_12",
-    "@maven//:com_google_protobuf_protobuf_java",
-    "@maven//:com_typesafe_akka_akka_actor_2_12",
-    "@maven//:com_typesafe_akka_akka_stream_2_12",
-    "@maven//:io_dropwizard_metrics_metrics_core",
-    "@maven//:org_slf4j_slf4j_api",
-]
-
-runtime_deps = [
-    "@maven//:ch_qos_logback_logback_classic",
-    "@maven//:ch_qos_logback_logback_core",
-    "@maven//:com_h2database_h2",
-]
-
 da_scala_library(
     name = "app",
     srcs = glob(["src/main/scala/**/*.scala"]),
@@ -43,5 +20,28 @@ da_scala_library(
     visibility = [
         "//visibility:public",
     ],
-    deps = compile_deps,
+    runtime_deps = [
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:ch_qos_logback_logback_core",
+        "@maven//:com_h2database_h2",
+    ],
+    deps = [
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive:daml_lf_dev_archive_java_proto",
+        "//daml-lf/data",
+        "//daml-lf/engine",
+        "//language-support/scala/bindings",
+        "//ledger/ledger-api-auth",
+        "//ledger/ledger-api-common",
+        "//ledger/ledger-api-health",
+        "//ledger/participant-state",
+        "//ledger/participant-state/kvutils",
+        "//ledger/sandbox",
+        "@maven//:com_github_scopt_scopt_2_12",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:com_typesafe_akka_akka_actor_2_12",
+        "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:io_dropwizard_metrics_metrics_core",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
 )

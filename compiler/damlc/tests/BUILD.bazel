@@ -1,4 +1,4 @@
-# Copyright (c) 2019 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_test")
@@ -336,6 +336,50 @@ sh_test(
         "//compiler/damlc",
         "//compiler/damlc/pkg-db",
         "@com_google_protobuf//:protoc",
+    ],
+    toolchains = [
+        "@rules_sh//sh/posix:make_variables",
+    ],
+    deps = [
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
+    name = "unstable-types",
+    srcs = ["src/unstable-types.sh"],
+    args = [
+        "$(location @jq_dev_env//:jq)",
+        "$(location :src/query-lf-interned.jq)",
+        "$(location //compiler/damlc/pkg-db)",
+        "$(location //compiler/damlc)",
+        "$(POSIX_DIFF)",
+    ],
+    data = [
+        ":src/query-lf-interned.jq",
+        "//compiler/damlc",
+        "//compiler/damlc/pkg-db",
+        "@jq_dev_env//:jq",
+    ],
+    toolchains = [
+        "@rules_sh//sh/posix:make_variables",
+    ],
+    deps = [
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
+    name = "stable-packages",
+    srcs = ["src/stable-packages.sh"],
+    args = [
+        "$(location //compiler/damlc)",
+        "$(location //:VERSION)",
+        "$(POSIX_DIFF)",
+    ],
+    data = [
+        "//:VERSION",
+        "//compiler/damlc",
     ],
     toolchains = [
         "@rules_sh//sh/posix:make_variables",

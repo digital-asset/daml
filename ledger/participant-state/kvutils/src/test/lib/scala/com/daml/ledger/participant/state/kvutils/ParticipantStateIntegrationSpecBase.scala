@@ -1,4 +1,4 @@
-// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
@@ -28,19 +28,19 @@ import scala.compat.java8.FutureConverters._
 import scala.concurrent.duration.FiniteDuration
 import scala.util.Try
 
-abstract class ParticipantStateIntegrationSpecBase
+abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
     extends AsyncWordSpec
     with BeforeAndAfterEach
     with AkkaBeforeAndAfterAll {
 
   var ledgerId: LedgerString = _
-  var ps: ReadService with WriteService = _
+  var ps: ReadService with WriteService with AutoCloseable = _
   var rt: Timestamp = _
 
   def participantStateFactory(
       participantId: ParticipantId,
       ledgerId: LedgerString,
-  ): ReadService with WriteService
+  ): ReadService with WriteService with AutoCloseable
 
   def currentRecordTime(): Timestamp
 
@@ -51,6 +51,11 @@ abstract class ParticipantStateIntegrationSpecBase
     rt = currentRecordTime()
   }
 
+  override protected def afterEach(): Unit = {
+    ps.close()
+    super.afterEach()
+  }
+
   private val alice = Ref.Party.assertFromString("alice")
   private def randomLedgerString(): Ref.LedgerString =
     Ref.LedgerString.assertFromString(UUID.randomUUID().toString)
@@ -58,8 +63,7 @@ abstract class ParticipantStateIntegrationSpecBase
   // TODO(BH): Many of these tests for transformation from DamlLogEntry to Update better belong as
   // a KeyValueConsumptionSpec as the heart of the logic is there
 
-  "In-memory implementation" should {
-
+  implementationName should {
     "return initial conditions" in {
       for {
         conditions <- ps

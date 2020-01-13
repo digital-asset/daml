@@ -1,4 +1,4 @@
-# Copyright (c) 2019 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -12,6 +12,7 @@ da_haskell_library(
     hackage_deps = [
         "aeson",
         "async",
+        "clock",
         "base",
         "containers",
         "data-default",
@@ -28,6 +29,7 @@ da_haskell_library(
         "tagged",
         "text",
         "uri-encode",
+        "unordered-containers",
     ],
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.speedy
@@ -15,6 +15,7 @@ import com.digitalasset.daml.lf.speedy.SResult._
 import com.digitalasset.daml.lf.testing.parser.Implicits._
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Matchers, WordSpec}
+import org.slf4j.LoggerFactory
 
 import scala.language.implicitConversions
 
@@ -153,12 +154,13 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
   }
 
   "tracelog" should {
+    val logger = LoggerFactory.getLogger("test-daml-trace-logger")
     "empty size" in {
-      val log = TraceLog(10)
+      val log = TraceLog(logger, 10)
       log.iterator.hasNext shouldBe false
     }
     "half full" in {
-      val log = TraceLog(2)
+      val log = TraceLog(logger, 2)
       log.add("test", None)
       val iter = log.iterator
       iter.hasNext shouldBe true
@@ -166,7 +168,7 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
       iter.hasNext shouldBe false
     }
     "overflow" in {
-      val log = TraceLog(2)
+      val log = TraceLog(logger, 2)
       log.add("test1", None)
       log.add("test2", None)
       log.add("test3", None) // should replace "test1"

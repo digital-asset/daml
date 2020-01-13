@@ -1,14 +1,14 @@
-// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.jwt
 
 import java.io.File
-import java.security.interfaces.RSAPublicKey
+import java.security.interfaces.{ECPublicKey, RSAPublicKey}
 
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
-import com.auth0.jwt.interfaces.RSAKeyProvider
+import com.auth0.jwt.interfaces.{ECDSAKeyProvider, RSAKeyProvider}
 import com.digitalasset.jwt.JwtVerifier.Error
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.{Show, \/}
@@ -58,6 +58,33 @@ object HMAC256Verifier extends StrictLogging {
       val verifier = JWT.require(algorithm).build()
       new JwtVerifier(verifier)
     }.leftMap(e => Error('HMAC256, e.getMessage))
+}
+
+// ECDA512 validator factory
+object ECDA512Verifier extends StrictLogging {
+  def apply(keyProvider: ECDSAKeyProvider): Error \/ JwtVerifier =
+    \/.fromTryCatchNonFatal {
+      val algorithm = Algorithm.ECDSA512(keyProvider)
+      val verifier = JWT.require(algorithm).build()
+      new JwtVerifier(verifier)
+    }.leftMap(e => Error('ECDA512, e.getMessage))
+  def apply(publicKey: ECPublicKey): Error \/ JwtVerifier =
+    \/.fromTryCatchNonFatal {
+      val algorithm = Algorithm.ECDSA512(publicKey, null)
+      val verifier = JWT.require(algorithm).build()
+      new JwtVerifier(verifier)
+    }.leftMap(e => Error('ECDA512, e.getMessage))
+
+  def fromCrtFile(path: String): Error \/ JwtVerifier = {
+    for {
+      key <- \/.fromEither(
+        KeyUtils
+          .readECPublicKeyFromCrt(new File(path))
+          .toEither)
+        .leftMap(e => Error('fromCrtFile, e.getMessage))
+      verifier <- ECDA512Verifier(key)
+    } yield verifier
+  }
 }
 
 // RSA256 validator factory

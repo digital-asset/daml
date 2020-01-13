@@ -1,27 +1,24 @@
--- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 daml 1.2
-module DA.Semigroup where
+module DA.Semigroup
+  ( Min(..)
+  , Max(..)
+  ) where
 
--- | Semigroup under `min`
---
--- ```
--- > Min 23 <> Min 42
--- Min 23
--- ```
-newtype Min a = Min a deriving (Eq, Ord, Show)
+import DA.Semigroup.Types
+
+deriving instance Eq a => Eq (Min a)
+deriving instance Ord a => Ord (Min a)
+deriving instance Show a => Show (Min a)
 
 instance Ord a => Semigroup (Min a) where
   Min a <> Min b = Min (min a b)
 
--- | Semigroup under `max`
---
--- ```
--- > Max 23 <> Max 42
--- Max 42
--- ```
-newtype Max a = Max a deriving (Eq, Ord, Show)
+deriving instance Eq a => Eq (Max a)
+deriving instance Ord a => Ord (Max a)
+deriving instance Show a => Show (Max a)
 
 instance Ord a => Semigroup (Max a) where
   Max a <> Max b = Max (max a b)

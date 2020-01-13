@@ -1,4 +1,4 @@
--- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE TemplateHaskell #-}
@@ -13,6 +13,7 @@ module DA.Daml.LF.Ast.World(
     ExternalPackage(..),
     LookupError,
     lookupTemplate,
+    lookupTypeSyn,
     lookupDataType,
     lookupChoice,
     lookupValue,
@@ -84,6 +85,7 @@ extendWorldSelf = over (worldSelf . _packageModules) . NM.insert
 data LookupError
   = LEPackage !PackageId
   | LEModule !PackageRef !ModuleName
+  | LETypeSyn !(Qualified TypeSynName)
   | LEDataType !(Qualified TypeConName)
   | LEValue !(Qualified ExprValName)
   | LETemplate !(Qualified TypeConName)
@@ -115,6 +117,9 @@ lookupDefinition selDefs mkError ref world = do
     Nothing -> Left (mkError ref)
     Just def -> pure def
 
+lookupTypeSyn :: Qualified TypeSynName -> World -> Either LookupError DefTypeSyn
+lookupTypeSyn = lookupDefinition moduleSynonyms LETypeSyn
+
 lookupDataType :: Qualified TypeConName -> World -> Either LookupError DefDataType
 lookupDataType = lookupDefinition moduleDataTypes LEDataType
 
@@ -136,6 +141,7 @@ instance Pretty LookupError where
     LEPackage pkgId -> "unknown package:" <-> pretty pkgId
     LEModule PRSelf modName -> "unknown module:" <-> pretty modName
     LEModule (PRImport pkgId) modName -> "unknown module:" <-> pretty pkgId <> ":" <> pretty modName
+    LETypeSyn synRef -> "unknown type synonym:" <-> pretty synRef
     LEDataType datRef -> "unknown data type:" <-> pretty datRef
     LEValue valRef-> "unknown value:" <-> pretty valRef
     LETemplate tplRef -> "unknown template:" <-> pretty tplRef

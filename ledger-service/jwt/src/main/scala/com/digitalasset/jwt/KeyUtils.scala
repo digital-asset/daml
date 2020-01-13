@@ -1,4 +1,4 @@
-// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.jwt
@@ -7,7 +7,7 @@ import java.io.{File, FileInputStream}
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.security.cert.CertificateFactory
-import java.security.interfaces.{RSAPrivateKey, RSAPublicKey}
+import java.security.interfaces.{ECPublicKey, RSAPrivateKey, RSAPublicKey}
 import java.security.spec.PKCS8EncodedKeySpec
 import java.security.KeyFactory
 
@@ -39,6 +39,21 @@ object KeyUtils {
           .generateCertificate(istream)
           .getPublicKey
           .asInstanceOf[RSAPublicKey])
+    }
+  }
+
+  /**
+    * Reads an EC public key from a X509 encoded file.
+    * These usually have the .crt file extension.
+    */
+  def readECPublicKeyFromCrt(file: File): Try[ECPublicKey] = {
+    bracket(Try(new FileInputStream(file)))(is => Try(is.close())).flatMap { istream =>
+      Try(
+        CertificateFactory
+          .getInstance("X.509")
+          .generateCertificate(istream)
+          .getPublicKey
+          .asInstanceOf[ECPublicKey])
     }
   }
 

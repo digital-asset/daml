@@ -1,7 +1,7 @@
-// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.server.services.command
+package com.digitalasset.platform.apiserver.services.tracking
 
 import akka.stream.QueueOfferResult
 import com.digitalasset.platform.server.api.ApiException
@@ -11,7 +11,7 @@ import io.grpc.{Status => GrpcStatus}
 import scala.concurrent.Promise
 import scala.util.{Failure, Success, Try}
 
-object HandleOfferResult {
+private[tracking] object HandleOfferResult {
   val toGrpcStatus: PartialFunction[Try[QueueOfferResult], Option[GrpcStatus]] = {
     case Failure(t) =>
       t match {

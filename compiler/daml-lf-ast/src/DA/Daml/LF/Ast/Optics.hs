@@ -1,4 +1,4 @@
--- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -97,8 +97,8 @@ builtinType :: Traversal' Type BuiltinType
 builtinType f =
     \case
         TVar n -> pure $ TVar n
-        TSyn tySyn -> pure $ TSyn tySyn
         TCon tyCon -> pure $ TCon tyCon
+        TSynApp syn args -> TSynApp syn <$> traverse (builtinType f) args
         TApp s t -> TApp <$> builtinType f s <*> builtinType f t
         TBuiltin x -> TBuiltin <$> f x
         TForall b body -> TForall b <$> builtinType f body

@@ -1,4 +1,4 @@
-# Copyright (c) 2019 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # When adding, removing or changing a dependency in this file, update the pinned dependencies by executing
@@ -66,9 +66,9 @@ def install_java_deps():
             "io.circe:circe-generic_2.12:0.10.0",
             "io.circe:circe-parser_2.12:0.10.0",
             "io.circe:circe-yaml_2.12:0.10.0",
-            "io.dropwizard.metrics:metrics-core:4.0.0",
-            "io.dropwizard.metrics:metrics-jmx:4.0.0",
-            "io.dropwizard.metrics:metrics-jvm:4.0.0",
+            "io.dropwizard.metrics:metrics-core:4.1.2",
+            "io.dropwizard.metrics:metrics-jmx:4.1.2",
+            "io.dropwizard.metrics:metrics-jvm:4.1.2",
             "io.grpc:grpc-api:1.22.1",
             "io.grpc:grpc-core:1.22.1",
             "io.grpc:grpc-netty:1.22.1",
@@ -156,6 +156,7 @@ def install_java_deps():
             "org.scala-lang:scala-reflect": "@io_bazel_rules_scala_scala_reflect//:io_bazel_rules_scala_scala_reflect",
             "org.scala-lang.modules:scala-parser-combinators": "@io_bazel_rules_scala_scala_parser_combinators//:io_bazel_rules_scala_scala_parser_combinators",
             "org.scala-tools.testing:test-interface": "//:org_scala_sbt_test_interface",
+            "org.scalatest:scalatest_2.12": "@io_bazel_rules_scala//scala/scalatest:scalatest",
         },
         repositories = [
             "https://repo1.maven.org/maven2",

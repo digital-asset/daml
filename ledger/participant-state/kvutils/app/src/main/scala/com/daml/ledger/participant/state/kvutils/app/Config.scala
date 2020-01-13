@@ -1,3 +1,6 @@
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 // Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -11,6 +14,7 @@ import scopt.OptionParser
 
 case class Config(
     participantId: ParticipantId,
+    address: Option[String],
     port: Int,
     portFile: Option[Path],
     archiveFiles: Seq[Path],
@@ -22,6 +26,7 @@ object Config {
   def default: Config =
     Config(
       participantId = ParticipantId.assertFromString("example"),
+      address = None,
       port = 6865,
       portFile = None,
       archiveFiles = Vector.empty,
@@ -39,11 +44,15 @@ object Config {
       .action((participantId, config) =>
         config.copy(participantId = ParticipantId.assertFromString(participantId)))
 
+    opt[String]("address")
+      .optional()
+      .text("The address on which to run the ledger API server.")
+      .action((address, config) => config.copy(address = Some(address)))
+
     opt[Int]("port")
       .optional()
       .text("The port on which to run the ledger API server.")
       .action((port, config) => config.copy(port = port))
-      .withFallback(() => 6865)
 
     opt[File]("port-file")
       .optional()

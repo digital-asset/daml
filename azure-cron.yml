@@ -26,7 +26,7 @@ trigger: none
 
 jobs:
   - job: docs
-    timeoutInMinutes: 50
+    timeoutInMinutes: 120
     pool:
       name: 'linux-pool'
     steps:

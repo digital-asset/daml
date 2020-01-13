@@ -1,4 +1,4 @@
-// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.http
@@ -52,7 +52,7 @@ object ApiValueToLfValueConverterTest {
   }
 
   private implicit def eqImmArray[X](implicit eq: Equality[X]): Equality[ImmArray[X]] = {
-    case (x, y: ImmArray[_]) => x.length == y.length && x.indices().forall(i => x(i) === y(i))
+    case (x, y: ImmArray[_]) => x.length == y.length && x.indices.forall(i => x(i) === y(i))
     case _ => false
   }
 

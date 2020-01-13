@@ -1,4 +1,4 @@
-// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.platform.apiserver.services.admin
@@ -11,7 +11,8 @@ import com.digitalasset.dec.{DirectExecutionContext => DE}
 import scala.concurrent.Future
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 
-object PollingUtils {
+// TODO Remove this once PartyManagement is made async
+private[admin] object PollingUtils {
 
   /**
     * Continuously polls the given service to check if the given item has been persisted.

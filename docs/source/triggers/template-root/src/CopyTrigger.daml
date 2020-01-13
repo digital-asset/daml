@@ -1,4 +1,4 @@
--- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 daml 1.2
@@ -55,6 +55,7 @@ copyTrigger = Trigger
   , updateState = \_acs _message () -> ()
   , rule = copyRule
   , registeredTemplates = AllInDar
+  , heartbeat = None
   }
 -- TRIGGER_END
 

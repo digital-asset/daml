@@ -1,4 +1,4 @@
--- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 module DA.Daml.Helper.Run
     ( runDamlStudio
@@ -804,7 +804,10 @@ getTokFromFile tokFileM = do
   case tokFileM of
     Nothing -> return Nothing
     Just tokFile -> do
-      tok <- readFileUTF8 tokFile
+      -- This postprocessing step which allows trailing newlines
+      -- matches the behavior of the Scala token reader in
+      -- com.digitalasset.auth.TokenHolder.
+      tok <- intercalate "\n" . lines <$> readFileUTF8 tokFile
       return (Just (Token tok))
 
 getHostAndPortDefaults :: LedgerFlags -> IO LedgerArgs

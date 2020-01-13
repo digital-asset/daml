@@ -1,4 +1,4 @@
-# Copyright (c) 2019 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -27,6 +27,8 @@ da_scala_library(
         "//ledger-service/lf-value-json",
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
+        "//ledger/participant-state",
+        "//ledger/sandbox",
         "@maven//:com_github_scopt_scopt_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:io_spray_spray_json_2_12",
@@ -38,6 +40,13 @@ da_scala_library(
 da_scala_binary(
     name = "script-runner",
     main_class = "com.digitalasset.daml.lf.engine.script.RunnerMain",
+    visibility = ["//visibility:public"],
+    deps = [":script-runner-lib"],
+)
+
+da_scala_binary(
+    name = "test-runner",
+    main_class = "com.digitalasset.daml.lf.engine.script.TestMain",
     visibility = ["//visibility:public"],
     deps = [":script-runner-lib"],
 )

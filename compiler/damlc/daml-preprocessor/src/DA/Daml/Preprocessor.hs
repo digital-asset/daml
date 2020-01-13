@@ -1,4 +1,4 @@
--- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -29,7 +29,13 @@ isInternal :: GHC.ModuleName -> Bool
 isInternal (GHC.moduleNameString -> x)
   = "DA.Internal." `isPrefixOf` x ||
     "GHC." `isPrefixOf` x ||
-    x `elem` ["Control.Exception.Base", "Data.String", "LibraryModules", "DA.Types"]
+    x `elem`
+      [ "Control.Exception.Base"
+      , "Data.String"
+      , "LibraryModules"
+      , "DA.Types"
+      , "DA.Time.Types"
+      ]
 
 mayImportInternal :: [GHC.ModuleName]
 mayImportInternal =
@@ -41,6 +47,10 @@ mayImportInternal =
         , "DA.TextMap"
         , "DA.Map"
         , "DA.Generics"
+
+        -- These modules are just listed to disable the record preprocessor.
+        , "DA.NonEmpty.Types"
+        , "DA.Monoid.Types"
         ]
 
 -- | Apply all necessary preprocessors
