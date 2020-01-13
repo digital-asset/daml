@@ -552,12 +552,11 @@ object Ledger {
   ) extends FailedAuthorization
 
   /** State to use during enriching a transaction with disclosure information. */
-  final case class EnrichState(
-      nodes: Map[ScenarioNodeId, Node],
-      disclosures: Relation[Transaction.NodeId, Party],
-      localDivulgences: Relation[Transaction.NodeId, Party],
-      globalDivulgences: Relation[AbsoluteContractId, Party],
-      failedAuthorizations: Map[Transaction.NodeId, FailedAuthorization]
+  private final case class EnrichState(
+      disclosures: Relation[Transaction.NodeId, Party] = Relation.empty,
+      localDivulgences: Relation[Transaction.NodeId, Party] = Relation.empty,
+      globalDivulgences: Relation[AbsoluteContractId, Party] = Relation.empty,
+      failedAuthorizations: Map[Transaction.NodeId, FailedAuthorization] = Map.empty,
   ) {
     def discloseTo(witnesses: Set[Party], i: Transaction.NodeId): EnrichState =
       copy(
@@ -786,11 +785,6 @@ object Ledger {
     }
   }
 
-  object EnrichState {
-    def empty =
-      EnrichState(Map.empty, Map.empty, Map.empty, Map.empty, Map.empty)
-  }
-
   sealed trait Authorization {
     def fold[A](ifDontAuthorize: A)(ifAuthorize: Set[Party] => A): A =
       this match {
@@ -927,7 +921,7 @@ object Ledger {
     }
 
     val finalState =
-      tr.roots.foldLeft(EnrichState.empty) { (s, nodeId) =>
+      tr.roots.foldLeft(EnrichState()) { (s, nodeId) =>
         enrichNode(s, initialParentExerciseWitnesses, authorization, nodeId)
       }
 

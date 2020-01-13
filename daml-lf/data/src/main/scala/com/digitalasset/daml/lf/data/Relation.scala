@@ -18,6 +18,8 @@ object Relation {
   type Relation[A, B] = Map[A, Set[B]]
 
   object Relation {
+    def empty[A, B]: Relation[A, B] = Map.empty
+
     def union[A, B](r1: Relation[A, B], r2: Relation[A, B]): Relation[A, B] = {
       r2.foldLeft(r1) {
         case (acc, (a, bs)) =>
