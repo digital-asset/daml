@@ -254,13 +254,82 @@ convertPrim _ "BETextReplicate" (TInt64 :-> TText :-> TText) = EBuiltin BETextRe
 convertPrim _ "BETextSplitOn" (TText :-> TText :-> TList TText) = EBuiltin BETextSplitOn
 convertPrim _ "BETextIntercalate" (TText :-> TList TText :-> TText) = EBuiltin BETextIntercalate
 
+-- Template Desugaring.
+
+convertPrim _ "UCreate" (TCon template :-> TUpdate (TContractId (TCon template')))
+    | template == template' =
+    -- TODO: restrict to known templates
+    ETmLam (mkVar "this", TCon template) $
+    EUpdate $ UCreate template (EVar (mkVar "this"))
+
+convertPrim _ "UFetch" (TContractId (TCon template) :-> TUpdate (TCon template'))
+    | template == template' =
+    -- TODO: restrict to known templates
+    ETmLam (mkVar "this", TContractId (TCon template)) $
+    EUpdate $ UFetch template (EVar (mkVar "this"))
+
+convertPrim _ "UExercise"
+    (TContractId (TCon template) :-> TCon choice :-> TUpdate _returnTy) =
+    -- TODO: restrict template, choice, returnTy to known triples
+    ETmLam (mkVar "this", TContractId (TCon template)) $
+    ETmLam (mkVar "arg", TCon choice) $
+    EUpdate $ UExercise template choiceName (EVar (mkVar "this")) Nothing (EVar (mkVar "arg"))
+  where
+    choiceName = ChoiceName (T.intercalate "." $ unTypeConName $ qualObject choice)
+
+convertPrim _ "ULookupByKey" (key :-> TUpdate (TOptional (TContractId (TCon template)))) =
+    -- TODO: restrict template and key to known template/key pairs
+    ETmLam (mkVar "key", key) $ EUpdate $
+        ULookupByKey $ RetrieveByKey template (EVar $ mkVar "key")
+
+convertPrim _ "UFetchByKey"
+    (key :-> TUpdate ty@(TApp (TApp (TCon tuple) ty1@(TContractId (TCon template))) ty2))
+    | ty2 == TCon template =
+    -- TODO: restrict template and key to known template/key types
+    ETmLam (mkVar "key", key) $
+    EUpdate $ UBind
+        (Binding (mkVar "res", TStruct
+            [ (FieldName "contractId", ty1)
+            , (FieldName "contract", ty2)])
+            (EUpdate $ UFetchByKey (RetrieveByKey template (EVar $ mkVar "key"))))
+        (EUpdate $ UPure ty $ ERecCon (TypeConApp tuple [ty1, ty2])
+            [ (mkIndexedField 1, EStructProj (FieldName "contractId") (EVar (mkVar "res")))
+            , (mkIndexedField 2, EStructProj (FieldName "contract") (EVar (mkVar "res")))
+            ])
+
+convertPrim version "EFromAnyTemplate"
+    ty@(TAny :-> TOptional (TCon template)) =
+    -- TODO: restrict to known templates
+    whenRuntimeSupports version featureAnyType ty $
+        ETmLam (mkVar "any", TAny) $
+        EFromAny (TCon template) (EVar $ mkVar "any")
+
+convertPrim version "EFromAnyChoice"
+    ty@(TApp proxy (TCon template) :-> TAny :-> TOptional choice) =
+    -- TODO: restrict to known template/choice pairs
+    whenRuntimeSupports version featureAnyType ty $
+        ETmLam (mkVar "_", TApp proxy (TCon template)) $
+        ETmLam (mkVar "any", TAny) $
+        EFromAny choice (EVar $ mkVar "any")
+
+convertPrim version "EFromAnyContractKey"
+    ty@(TApp proxy (TCon template) :-> TAny :-> TOptional key) =
+    -- TODO: restrict to known template/key pairs
+    whenRuntimeSupports version featureAnyType ty $
+        ETmLam (mkVar "_", TApp proxy (TCon template)) $
+        ETmLam (mkVar "any", TAny) $
+        EFromAny key (EVar $ mkVar "any")
+
+-- TODO: EToAnyTemplate, EToAnyChoice, EToAnyContractKey
+
+-- Unknown primitive.
 convertPrim _ x ty = error $ "Unknown primitive " ++ show x ++ " at type " ++ renderPretty ty
 
 -- | Some builtins are only supported in specific versions of DAML-LF.
 -- Since we don't have conditional compilation in daml-stdlib, we compile
 -- them to calls to `error` in unsupported versions.
-_whenRuntimeSupports :: Version -> Feature -> Type -> Expr -> Expr
-_whenRuntimeSupports version feature t e
+whenRuntimeSupports :: Version -> Feature -> Type -> Expr -> Expr
+whenRuntimeSupports version feature t e
     | version `supports` feature = e
     | otherwise = runtimeUnsupported feature t
 

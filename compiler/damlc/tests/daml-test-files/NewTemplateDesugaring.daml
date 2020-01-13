@@ -1,27 +1,58 @@
 daml 1.2
 
--- @QUERY-LF .modules[] | .templates[] | select(lf::get_template_name($pkg) == ["T"])
 module NewTemplateDesugaring where
 
+-- QUERY-LF .modules[] | .templates[] | select(lf::get_template_name($pkg) == ["T"])
+import Prelude hiding (Template)
+-- import DA.Internal.Desugar (Any) -- using specific Anys instead.
+
+class Foo1 a where
+  foo1 : Int -> a
+  foo1 = error ""
+
+class Foo2 a where
+  foo2a : Int -> a
+  foo2a = error ""
+
+  foo2b : Int -> a
+  foo2b = error ""
+
+instance Foo1 Int
+instance Foo2 Int
+
+
+template Q
+  with
+    qparty : Party
+  where
+    signatory qparty
+    key qparty : Party
+    maintainer key
+
+type Template t = (HasSignatory t, HasObserver t, HasEnsure t, HasAgreement t, HasCreate t, HasFetch t, HasArchive t, HasToAnyTemplate t, HasFromAnyTemplate t, HasTemplateTypeRep t)
 class HasSignatory t where signatory : t -> [Party]
 class HasObserver t where observer : t -> [Party]
 class HasEnsure t where ensure : t -> Bool
 class HasAgreement t where agreement : t -> Text
-class HasArchive t where archive : t -> Update ()
-class HasCreate t where create : t -> Update (ContractId t) ; create = error ""
-class HasFetch t where fetch : ContractId t -> Update t ; fetch = error ""
-class HasToAnyTemplate t where toAnyTemplate : t -> AnyTemplate ; toAnyTemplate = error ""
-class HasFromAnyTemplate t where fromAnyTemplate : AnyTemplate -> Optional t ; fromAnyTemplate = error ""
-class HasTemplateTypeRep t where templateTypeRep : t -> TypeRep ; templateTypeRep = error ""
-class HasExercise t c r where exercise : t -> c -> Update r ; exercise = error ""
-class HasToAnyChoice t c r where
-class HasFromAnyChoice t c r where
+class HasCreate t where create : t -> Update (ContractId t)
+class HasFetch t where fetch : ContractId t -> Update t
+class HasArchive t where archive : ContractId t -> Update ()
+class HasToAnyTemplate t where toAnyTemplate : t -> AnyTemplate
+class HasFromAnyTemplate t where fromAnyTemplate : AnyTemplate -> Optional t
+class HasTemplateTypeRep t where _templateTypeRep : proxy t -> TemplateTypeRep
+
+type Choice t c r = (Template t, HasExercise t c r, HasToAnyChoice t c r, HasFromAnyChoice t c r)
+class HasExercise t c r | c -> r where exercise : ContractId t -> c -> Update r
+class HasToAnyChoice t c r | c -> r where _toAnyChoice : proxy t -> c -> AnyChoice
+class HasFromAnyChoice t c r | c -> r where _fromAnyChoice : proxy t -> AnyChoice -> Optional c
+
+type Key t k = (Template t, HasKey t k, HasLookupByKey t k, HasFetchByKey t k, HasMaintainer t k, HasToAnyContractKey t k, HasFromAnyContractKey t k)
 class HasKey t k where key : t -> k
-class HasMaintainer t k where _maintainer : t -> k -> [Party]
-class HasFetchByKey t k where fetchByKey : k -> Update t ; fetchByKey = error ""
-class HasLookupByKey t k where lookupByKey : k -> Update (Optional t) ; lookupByKey = error ""
-class HasToAnyContractKey t k where toAnyContractKey : t -> k -> AnyContractKey ; toAnyContractKey = error ""
-class HasFromAnyContractKey t k where fromAnyContractKey : t -> AnyContractKey -> Optional k ; fromAnyContractKey = error ""
+class HasLookupByKey t k where lookupByKey : k -> Update (Optional (ContractId t))
+class HasFetchByKey t k where fetchByKey : k -> Update (ContractId t, t)
+class HasMaintainer t k where _maintainer : proxy t -> k -> [Party]
+class HasToAnyContractKey t k where _toAnyContractKey : proxy t -> k -> AnyContractKey
+class HasFromAnyContractKey t k where _fromAnyContractKey : proxy t -> AnyContractKey -> Optional k
 
 --------------------------
 --
@@ -52,14 +83,23 @@ instance HasAgreement T where
   agreement this@T {..} = ""
 instance HasArchive T where
   archive cid = NewTemplateDesugaring.exercise cid Archive
-instance HasCreate T
-instance HasFetch T
-instance HasToAnyTemplate T
-instance HasFromAnyTemplate T
-instance HasTemplateTypeRep T
-instance HasExercise T Archive ()
-instance HasToAnyChoice T Archive ()
-instance HasFromAnyChoice T Archive ()
+instance HasCreate T where
+  create = primitive @"UCreate"
+instance HasFetch T where
+  fetch = primitive @"UFetch"
+instance HasToAnyTemplate T where
+  toAnyTemplate = error "" -- primitive @"EToAnyTemplate"
+instance HasFromAnyTemplate T where
+  fromAnyTemplate = error "" -- primitive @"EFromAnyTemplate"
+instance HasTemplateTypeRep T where
+  _templateTypeRep = error "" -- primitive @"ETemplateTypeRep"
+instance HasExercise T Archive () where
+  exercise = primitive @"UExercise"
+instance HasToAnyChoice T Archive () where
+  _toAnyChoice =  error "" -- primitive @"EToAnyChoice"
+instance HasFromAnyChoice T Archive () where
+  _fromAnyChoice = error "" -- primitive @"EFromAnyChoice"
+
 _choice_TArchive :
     ( T -> Archive -> [Party]
     , ContractId T -> T -> Archive -> Update (())
@@ -75,7 +115,11 @@ instance HasKey T Party where
   key this@T {..} = p
 instance HasMaintainer T Party where
   _maintainer _ key = concat [concat [toParties (key)]]
-instance HasFetchByKey T Party
-instance HasLookupByKey T Party
-instance HasToAnyContractKey T Party
-instance HasFromAnyContractKey T Party
+instance HasFetchByKey T Party where
+  fetchByKey = primitive @"UFetchByKey"
+instance HasLookupByKey T Party where
+  lookupByKey = primitive @"ULookupByKey"
+instance HasToAnyContractKey T Party where
+  _toAnyContractKey = error "" -- primitive @"_toAnyContractKey"
+instance HasFromAnyContractKey T Party where
+  _fromAnyContractKey = error "" -- primitive @"_fromAnyContractKey"

@@ -166,6 +166,7 @@ data Env = Env
     -- Once data dependencies are well-supported we might want to remove this if the number of GHC
     -- packages does not cause performance issues.
     ,envLfVersion :: LF.Version
+    ,envTemplateBinds :: MS.Map TypeConName TemplateBinds
     ,envChoiceData :: MS.Map TypeConName [ChoiceData]
     ,envTemplateKeyData :: MS.Map TypeConName TemplateKeyData
     ,envIsGenerated :: Bool
@@ -317,6 +318,39 @@ convertRationalNumericMono env scale num denom
         double = (fromInteger num / fromInteger denom) :: Double
         maxPower = fromIntegral numericMaxPrecision - scale
 
+data TemplateBinds = TemplateBinds
+    { tbCreate :: Maybe (GHC.Expr Var)
+    , tbFetch :: Maybe (GHC.Expr Var)
+    , tbSignatory :: Maybe (GHC.Expr Var)
+    , tbEnsure :: Maybe (GHC.Expr Var)
+    , tbAgreement :: Maybe (GHC.Expr Var)
+    , tbArchive :: Maybe (GHC.Expr Var)
+    , tbObserver :: Maybe (GHC.Expr Var)
+    , tbToAnyTemplate :: Maybe (GHC.Expr Var)
+    , tbFromAnyTemplate :: Maybe (GHC.Expr Var)
+    }
+
+emptyTemplateBinds :: TemplateBinds
+emptyTemplateBinds = TemplateBinds
+    Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
+
+scrapeTemplateBinds :: [(Var, GHC.Expr Var)] -> MS.Map TypeConName TemplateBinds
+scrapeTemplateBinds binds = MS.map ($ emptyTemplateBinds) $ MS.fromListWith (.)
+    [ (mkTypeCon [getOccText (GHC.tyConName tpl)], fn)
+    | (name, expr) <- binds
+    , Just (tpl, fn) <- pure $ case name of
+        HasCreateDFunId tpl -> Just (tpl, \tb -> tb { tbCreate = Just expr })
+        HasFetchDFunId tpl -> Just (tpl, \tb -> tb { tbFetch = Just expr })
+        HasSignatoryDFunId tpl -> Just (tpl, \tb -> tb { tbSignatory = Just expr })
+        HasEnsureDFunId tpl -> Just (tpl, \tb -> tb { tbEnsure = Just expr })
+        HasAgreementDFunId tpl -> Just (tpl, \tb -> tb { tbAgreement = Just expr })
+        HasArchiveDFunId tpl -> Just (tpl, \tb -> tb { tbArchive = Just expr })
+        HasObserverDFunId tpl -> Just (tpl, \tb -> tb { tbObserver = Just expr })
+        HasToAnyTemplateDFunId tpl -> Just (tpl, \tb -> tb { tbToAnyTemplate = Just expr })
+        HasFromAnyTemplateDFunId tpl -> Just (tpl, \tb -> tb { tbFromAnyTemplate = Just expr })
+        _ -> Nothing
+    ]
+
 convertModule
     :: LF.Version
     -> MS.Map UnitId DalfPackage
@@ -356,6 +390,9 @@ convertModule lfVersion pkgMap stablePackages isGenerated file x = runConvertM (
             , "$fTemplateKey" `T.isPrefixOf` getOccText name
             , ty@(TypeCon _ [TypeCon tplTy _, keyTy]) <- [varType name]
             ]
+
+        templateBinds = scrapeTemplateBinds binds
+
         env = Env
           { envLFModuleName = lfModName
           , envGHCModuleName = ghcModName
@@ -364,6 +401,7 @@ convertModule lfVersion pkgMap stablePackages isGenerated file x = runConvertM (
           , envPkgMap = pkgMap
           , envStablePackages = stablePackages
           , envLfVersion = lfVersion
+          , envTemplateBinds = templateBinds
           , envChoiceData = choiceData
           , envTemplateKeyData = templateKeyData
           , envIsGenerated = isGenerated
