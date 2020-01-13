@@ -6,6 +6,7 @@ package com.digitalasset.platform.sandbox
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, TransactionIdString}
 import com.digitalasset.daml.lf.transaction.Transaction
 import com.digitalasset.daml.lf.types.Ledger
+import com.digitalasset.daml.lf.value.Value.RelativeContractId
 import com.digitalasset.daml.lf.value.{Value => Lf}
 
 import scala.util.{Failure, Success, Try}
@@ -19,18 +20,25 @@ object EventIdFormatter {
   def makeAbsCoid(transactionId: TransactionIdString)(coid: Lf.ContractId): Lf.AbsoluteContractId =
     coid match {
       case a @ Lf.AbsoluteContractId(_) => a
-      case Lf.RelativeContractId(txnid) =>
-        Lf.AbsoluteContractId(fromTransactionId(transactionId, txnid))
+      case rcoid: Lf.RelativeContractId =>
+        Lf.AbsoluteContractId(fromTransactionId(transactionId, rcoid))
     }
 
   // this method defines the EventId format used by the sandbox
   def fromTransactionId(transactionId: TransactionIdString, nid: Transaction.NodeId): LedgerString =
     fromTransactionId(transactionId, nid.name)
 
+  // this method defines the EventId format used by the sandbox
+  def fromTransactionId(
+      transactionId: TransactionIdString,
+      rcoid: RelativeContractId
+  ): LedgerString =
+    fromTransactionId(transactionId, rcoid.name)
+
   /** When loading a scenario we get already absolute nids from the ledger -- still prefix them with the transaction
     * id, just to be safe.
     */
-  def fromTransactionId(
+  private def fromTransactionId(
       transactionId: TransactionIdString,
       nid: Ledger.ScenarioNodeId,
   ): LedgerString =

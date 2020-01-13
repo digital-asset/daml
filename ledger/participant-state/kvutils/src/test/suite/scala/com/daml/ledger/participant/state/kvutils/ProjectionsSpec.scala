@@ -77,7 +77,7 @@ class ProjectionsSpec extends WordSpec with Matchers {
     "yield two projection roots for single root transaction with two parties" in {
       val nid = NodeId.unsafeFromIndex(1)
       val root = makeCreateNode(
-        RelativeContractId(nid),
+        RelativeContractId.unsafeFromIndex(2),
         Set(Party.assertFromString("Alice")),
         Set(Party.assertFromString("Alice"), Party.assertFromString("Bob")))
       val tx =
@@ -95,27 +95,31 @@ class ProjectionsSpec extends WordSpec with Matchers {
       val nid3 = NodeId.unsafeFromIndex(3)
       val nid4 = NodeId.unsafeFromIndex(4)
 
+      val rcoid1 = RelativeContractId.unsafeFromIndex(1001)
+      val rcoid2 = RelativeContractId.unsafeFromIndex(1002)
+      val rcoid3 = RelativeContractId.unsafeFromIndex(1003)
+
       // Alice creates an "offer contract" to Bob as part of her workflow.
       // Alice sees both the exercise and the create, and Bob only
       // sees the offer.
       val create = makeCreateNode(
-        RelativeContractId(nid2),
+        rcoid1,
         Set(Party.assertFromString("Alice")),
         Set(Party.assertFromString("Bob")))
       val exe = makeExeNode(
-        RelativeContractId(nid1),
+        rcoid1,
         Set(Party.assertFromString("Alice")),
         Set(Party.assertFromString("Alice")),
         Set(Party.assertFromString("Alice")),
         ImmArray(nid2)
       )
       val bobCreate = makeCreateNode(
-        RelativeContractId(nid3),
+        rcoid2,
         Set(Party.assertFromString("Bob")),
         Set(Party.assertFromString("Bob")))
 
       val charlieCreate = makeCreateNode(
-        RelativeContractId(nid4),
+        rcoid3,
         Set(Party.assertFromString("Charlie")),
         Set(Party.assertFromString("Charlie")))
 

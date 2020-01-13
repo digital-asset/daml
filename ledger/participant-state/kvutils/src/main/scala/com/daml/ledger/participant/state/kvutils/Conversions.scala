@@ -44,10 +44,10 @@ private[state] object Conversions {
       BaseEncoding.base16.encode(txId.getEntryId.toByteArray)
     coid match {
       case a @ AbsoluteContractId(_) => a
-      case RelativeContractId(txnid) =>
+      case RelativeContractId(index) =>
         // NOTE(JM): Must be in sync with [[absoluteContractIdToLogEntryId]] and
         // [[absoluteContractIdToStateKey]].
-        AbsoluteContractId(ContractIdString.assertFromString(s"$hexTxId:${txnid.index}"))
+        AbsoluteContractId(ContractIdString.assertFromString(s"$hexTxId:$index"))
     }
   }
 
@@ -89,7 +89,7 @@ private[state] object Conversions {
   def encodeRelativeContractId(entryId: DamlLogEntryId, rcoid: RelativeContractId): DamlContractId =
     DamlContractId.newBuilder
       .setEntryId(entryId)
-      .setNodeId(rcoid.txnid.index.toLong)
+      .setNodeId(rcoid.index.toLong)
       .build
 
   def decodeContractId(coid: DamlContractId): AbsoluteContractId = {
@@ -287,7 +287,7 @@ private[state] object Conversions {
   // FIXME(JM): Should we have a well-defined schema for this?
   private val cidEncoder: ValueCoder.EncodeCid[ContractId] = {
     val asStruct: ContractId => (String, Boolean) = {
-      case RelativeContractId(nid) => (s"~${nid.index}", true)
+      case RelativeContractId(index) => (s"~$index", true)
       case AbsoluteContractId(coid) => (s"$coid", false)
     }
 
@@ -300,7 +300,7 @@ private[state] object Conversions {
           case None =>
             Left(DecodeError(s"Invalid relative contract id: $x"))
           case Some(i) =>
-            Right(RelativeContractId(NodeId.unsafeFromIndex(i)))
+            Right(RelativeContractId.unsafeFromIndex(i))
         }
       } else {
         ContractIdString
