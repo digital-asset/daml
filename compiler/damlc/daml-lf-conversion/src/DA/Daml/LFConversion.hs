@@ -323,21 +323,31 @@ data TemplateBinds = TemplateBinds
     , tbEnsure :: Maybe (GHC.Expr Var)
     , tbAgreement :: Maybe (GHC.Expr Var)
     , tbObserver :: Maybe (GHC.Expr Var)
+    , tbKey :: Maybe (TyCon, GHC.Expr Var)
+    , tbMaintainer :: Maybe (TyCon, GHC.Expr Var)
     }
 
 emptyTemplateBinds :: TemplateBinds
 emptyTemplateBinds = TemplateBinds
-    Nothing Nothing Nothing Nothing
+    Nothing Nothing Nothing Nothing Nothing Nothing
 
 scrapeTemplateBinds :: [(Var, GHC.Expr Var)] -> MS.Map TypeConName TemplateBinds
 scrapeTemplateBinds binds = MS.map ($ emptyTemplateBinds) $ MS.fromListWith (.)
     [ (mkTypeCon [getOccText (GHC.tyConName tpl)], fn)
     | (name, expr) <- binds
     , Just (tpl, fn) <- pure $ case name of
-        HasSignatoryDFunId tpl -> Just (tpl, \tb -> tb { tbSignatory = Just expr })
-        HasEnsureDFunId tpl -> Just (tpl, \tb -> tb { tbEnsure = Just expr })
-        HasAgreementDFunId tpl -> Just (tpl, \tb -> tb { tbAgreement = Just expr })
-        HasObserverDFunId tpl -> Just (tpl, \tb -> tb { tbObserver = Just expr })
+        HasSignatoryDFunId tpl ->
+            Just (tpl, \tb -> tb { tbSignatory = Just expr })
+        HasEnsureDFunId tpl ->
+            Just (tpl, \tb -> tb { tbEnsure = Just expr })
+        HasAgreementDFunId tpl ->
+            Just (tpl, \tb -> tb { tbAgreement = Just expr })
+        HasObserverDFunId tpl ->
+            Just (tpl, \tb -> tb { tbObserver = Just expr })
+        HasKeyDFunId tpl key ->
+            Just (tpl, \tb -> tb { tbKey = Just (key, expr) })
+        HasMaintainerDFunId tpl key ->
+            Just (tpl, \tb -> tb { tbMaintainer = Just (key, expr) })
         _ -> Nothing
     ]
 
