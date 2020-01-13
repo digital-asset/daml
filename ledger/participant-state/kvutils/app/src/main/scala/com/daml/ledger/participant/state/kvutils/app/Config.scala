@@ -62,9 +62,9 @@ object Config {
     arg[File]("<archive>...")
       .optional()
       .unbounded()
-      .text("DAR files to load. Scenarios are ignored. The servers starts with an empty ledger by default.")
+      .text("DAR files to load. Scenarios are ignored. The server starts with an empty ledger by default.")
       .action((file, config) => config.copy(archiveFiles = config.archiveFiles :+ file.toPath))
 
-    help("help").text("Runs the in-memory ledger as a service.")
+    help("help").text(s"$name as a service.")
   }
 }
