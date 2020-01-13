@@ -66,6 +66,7 @@ substitutionTests = testGroup "substitution"
         assertBool "wrong substitution" (alphaEquiv ty1 ty2)
 
     , testCase "freeVars/TypeLevelNat" $ do
+        let -- no thank you HLint
         let x = TypeVarName "x"
         let y = TypeVarName "y"
         let yRenamed = TypeVarName "yRenamed"
