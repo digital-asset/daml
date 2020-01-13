@@ -152,8 +152,14 @@ genDefDataType curPkgId conName mod tpls def =
 
               serDesc  = ["() => jtv.oneOf<" <> conName <> typeParams <> ">("] ++ sers ++ ["),"] ++ assocTypSers
 
+              header = ": daml.Serializable<" <> conName <> "> & {" <> (T.intercalate ";" (map (\name -> name <> ": daml.Serializable<" <> conName <> "." <> name <> ">") assocDataNames)) <> "} ="
+
+              makeSer' serDesc =
+                ["export const " <> conName <> header <> " ({"] ++
+                map ("  " <>) (onHead ("decoder: " <>) serDesc) ++
+                ["})"]
             in
-              ((makeType typeDesc, onLast (<> "; ") (makeSer serDesc)), Set.unions $ map (Set.setOf typeModuleRef . snd) bs)
+              ((makeType typeDesc, onLast (<> "; ") (makeSer' serDesc)), Set.unions $ map (Set.setOf typeModuleRef . snd) bs)
           else
             let
               (typs, sers) = unzip $ map genBranch bs
