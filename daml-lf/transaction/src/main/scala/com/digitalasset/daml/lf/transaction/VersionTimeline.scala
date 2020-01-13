@@ -59,6 +59,7 @@ private[digitalasset] object VersionTimeline {
       //  * change the following line when LF 1.8 is frozen.
       //  * do not insert line after this once until 1.8 is frozen.
       This(This(ValueVersion("7"))),
+      This(That(TransactionVersion("9"))),
       // add new versions above this line (but see more notes below)
       That(LanguageVersion(LMV.V1, Dev)),
       // do *not* backfill to make more Boths, because such would

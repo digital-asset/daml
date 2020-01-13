@@ -121,7 +121,7 @@ private[state] object Conversions {
           throw Err
             .DecodeError("ContractKey", s"Cannot decode template id: ${key.getTemplateId}")
         ),
-      forceAbsoluteContractIds(
+      forceNoContractIds(
         valDecoder(key.getKey)
           .fold(
             err =>
@@ -263,6 +263,10 @@ private[state] object Conversions {
         throw Err.InternalError("Relative contract identifier encountered in contract key!")
       case acoid: AbsoluteContractId => acoid
     }
+
+  def forceNoContractIds(v: VersionedValue[ContractId]): VersionedValue[Nothing] =
+    v.mapContractId(coid =>
+      throw Err.InternalError(s"Contract identifier encountered in contract key! $coid"))
 
   def contractIdStructOrStringToStateKey(
       entryId: DamlLogEntryId,

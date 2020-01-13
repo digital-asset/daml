@@ -831,7 +831,10 @@ class JdbcLedgerDaoSpec
                 children = ImmArray.empty,
                 exerciseResult =
                   Some(VersionedValue(ValueVersions.acceptedVersions.head, ValueUnit)),
-                key = Some(VersionedValue(ValueVersions.acceptedVersions.head, ValueText(key)))
+                key = Some(
+                  KeyWithMaintainers(
+                    VersionedValue(ValueVersions.acceptedVersions.head, ValueText(key)),
+                    Set(party)))
               )),
             ImmArray[EventId](s"event$id"),
             None

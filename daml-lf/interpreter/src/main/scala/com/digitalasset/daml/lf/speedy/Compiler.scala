@@ -507,35 +507,29 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
 
           case UpdateLookupByKey(retrieveByKey) =>
             // Translates 'lookupByKey Foo <key>' into:
-            // let key = <key>
-            // let maintainers = keyMaintainers key
+            // let keyWithMaintainers = {key: <key>, maintainers: <key maintainers> <key>}
             // in \token ->
-            //    let mbContractId = $lookupKey key
-            //        _ = $insertLookup Foo key
+            //    let mbContractId = $lookupKey keyWithMaintainers
+            //        _ = $insertLookup Foo keyWithMaintainers
             //    in mbContractId
             val template = lookupTemplate(retrieveByKey.templateId)
             withEnv { _ =>
               val key = translate(retrieveByKey.key)
-              val keyMaintainers = template.key match {
-                case None =>
-                  throw CompileError(
-                    s"Expecting to find key for template ${retrieveByKey.templateId}, but couldn't")
-                case Some(tplKey) => translate(tplKey.maintainers)
-              }
-              SELet(key, SEApp(keyMaintainers, Array(SEVar(1)))) in {
-                env = env.incrPos // key
-                env = env.incrPos // keyMaintainers
+              val templateKey = template.key.getOrElse(
+                throw CompileError(
+                  s"Expecting to find key for template ${retrieveByKey.templateId}, but couldn't")
+              )
+              SELet(encodeKeyWithMaintainers(key, templateKey)) in {
+                env = env.incrPos // keyWithM
                 SEAbs(1) {
                   env = env.incrPos // token
                   SELet(
                     SBULookupKey(retrieveByKey.templateId)(
-                      SEVar(3), // key
-                      SEVar(2), // maintainers
+                      SEVar(2), // key with maintainers
                       SEVar(1) // token
                     ),
                     SBUInsertLookupNode(retrieveByKey.templateId)(
-                      SEVar(4), // key
-                      SEVar(3), // maintainers
+                      SEVar(3), // key with maintainers
                       SEVar(1), // mb contract id
                       SEVar(2) // token
                     )
@@ -546,25 +540,21 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
 
           case UpdateFetchByKey(retrieveByKey) =>
             // Translates 'fetchByKey Foo <key>' into:
-            // let key = <key>
-            // let maintainers = keyMaintainers key
+            // let keyWithMaintainers = {key: <key>, maintainers: <key maintainers> <key>}
             // in \token ->
-            //    let coid = $fetchKey key maintainers token
+            //    let coid = $fetchKey keyWithMaintainers token
             //        contract = $fetch coid token
             //        _ = $insertFetch coid <signatories> <observers>
             //    in { contractId: ContractId Foo, contract: Foo }
             val template = lookupTemplate(retrieveByKey.templateId)
             withEnv { _ =>
               val key = translate(retrieveByKey.key)
-              val keyMaintainers = template.key match {
-                case None =>
-                  throw CompileError(
-                    s"Expecting to find key for template ${retrieveByKey.templateId}, but couldn't")
-                case Some(tplKey) => translate(tplKey.maintainers)
-              }
-              SELet(key, SEApp(keyMaintainers, Array(SEVar(1)))) in {
-                env = env.incrPos // key
-                .incrPos // keyMaintainers
+              val keyTemplate = template.key.getOrElse(
+                throw CompileError(
+                  s"Expecting to find key for template ${retrieveByKey.templateId}, but couldn't")
+              )
+              SELet(encodeKeyWithMaintainers(key, keyTemplate)) in {
+                env = env.incrPos // key with maintainers
                 SEAbs(1) {
                   env = env.incrPos // token
                   env = env.addExprVar(template.param)
@@ -574,8 +564,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
                   val observers = translate(template.observers)
                   SELet(
                     SBUFetchKey(retrieveByKey.templateId)(
-                      SEVar(3), // key
-                      SEVar(2), // maintainers
+                      SEVar(2), // key with maintainers
                       SEVar(1) // token
                     ),
                     SBUFetch(retrieveByKey.templateId)(
@@ -788,12 +777,21 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
     }
   }
 
+  private def encodeKeyWithMaintainers(key: SExpr, tmplKey: TemplateKey): SExpr =
+    SELet(key) in
+      SBStructCon(Name.Array(keyFieldName, maintainersFieldName))(
+        SEVar(1), // key
+        SEApp(translate(tmplKey.maintainers), Array(SEVar(1) /* key */ )))
+
+  private def translateKeyWithMaintainers(tmplKey: TemplateKey): SExpr =
+    encodeKeyWithMaintainers(translate(tmplKey.body), tmplKey)
+
   /** Compile a choice into a top-level function for exercising that choice */
   private def compileChoice(tmplId: TypeConName, tmpl: Template, choice: TemplateChoice): SExpr =
     // Compiles a choice into:
     // SomeTemplate$SomeChoice = \actors cid arg token ->
     //   let targ = fetch cid
-    //       _ = $beginExercise[tmplId, chId] arg cid actors <sigs> <obs> <ctrls> token
+    //       _ = $beginExercise[tmplId, chId] arg cid actors <sigs> <obs> <ctrls> <mbKey> token
     //       result = <updateE>
     //       _ = $endExercise[tmplId]
     //   in result
@@ -819,11 +817,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
           val controllers = translate(choice.controllers)
           val mbKey: SExpr = tmpl.key match {
             case None => SEValue.None
-            case Some(k) =>
-              SEApp(
-                SEBuiltin(SBSome),
-                Array(translate(k.body)),
-              )
+            case Some(k) => SEApp(SEBuiltin(SBSome), Array(translateKeyWithMaintainers(k)))
           }
           env = env.incrPos // beginExercise's ()
 
@@ -1164,12 +1158,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
 
       val key = tmpl.key match {
         case None => SEValue.None
-        case Some(tmplKey) =>
-          SELet(translate(tmplKey.body)) in
-            SBSome(
-              SBStructCon(Name.Array(keyFieldName, maintainersFieldName))(
-                SEVar(1), // key
-                SEApp(translate(tmplKey.maintainers), Array(SEVar(1) /* key */ ))))
+        case Some(k) => SEApp(SEBuiltin(SBSome), Array(translateKeyWithMaintainers(k)))
       }
 
       env = env.incrPos // key
@@ -1237,18 +1226,15 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
     //    in exerciseResult
     val template = lookupTemplate(tmplId)
     withEnv { _ =>
-      val keyMaintainers = template.key match {
-        case None =>
-          throw CompileError(s"Expecting to find key for template ${tmplId}, but couldn't")
-        case Some(tplKey) => translate(tplKey.maintainers)
-      }
-      SELet(key, SEApp(keyMaintainers, Array(SEVar(1)))) in {
-        env = env.incrPos // key
-        env = env.incrPos // keyMaintainers
+      val tmplKey = template.key.getOrElse(
+        throw CompileError(s"Expecting to find key for template ${tmplId}, but couldn't")
+      )
+      SELet(encodeKeyWithMaintainers(key, tmplKey)) in {
+        env = env.incrPos // key with maintainers
         SEAbs(1) {
           env = env.incrPos // token
           SELet(
-            SBUFetchKey(tmplId)(SEVar(3), SEVar(2), SEVar(1)),
+            SBUFetchKey(tmplId)(SEVar(2), SEVar(1)),
             SEApp(compileExercise(tmplId, SEVar(1), choiceId, optActors, argument), Array(SEVar(2)))
           ) in SEVar(1)
         }

@@ -4,7 +4,7 @@
 DAML-LF Transaction Specification
 =================================
 
-**version 8, 26 June 2019**
+**version 9, 13 January 2020**
 
 This specification, in concert with the ``transaction.proto``
 machine-readable definition, defines a format for _transactions_, to be
@@ -160,6 +160,8 @@ This table lists every version of this specification in ascending order
 |                  7 |      2019-05-06 |
 +--------------------+-----------------+
 |                  8 |      2019-06-26 |
++--------------------+-----------------+
+|                  9 |      2020-01-13 |
 +--------------------+-----------------+
 
 message Transaction
@@ -501,6 +503,11 @@ Containing the result of the exercised choice.
 *since version 8*
 
 New optional field `contract_key` is now set when the exercised
+contract has a contract key defined.
+
+*since version 9*
+
+New optional field `key_maintainers` is now set when the exercised
 contract has a contract key defined.
 
 message NodeLookupByKey

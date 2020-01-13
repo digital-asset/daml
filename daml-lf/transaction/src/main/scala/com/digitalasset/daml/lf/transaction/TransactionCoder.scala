@@ -106,7 +106,8 @@ object TransactionCoder {
       minKeyOrLookupByKey,
       minNoControllers,
       minExerciseResult,
-      minContractKeyInExercise
+      minContractKeyInExercise,
+      minMaintainersInExercise
     }
     node match {
       case c: NodeCreate[Cid, Val] =>
@@ -193,13 +194,19 @@ object TransactionCoder {
                 s"Trying to encode transaction of version $transactionVersion, which requires the exercise return value, but did not get exercise return value in node."))
             case (_, true) => Right(())
           }
-          _ <- (e.key, transactionVersion precedes minContractKeyInExercise) match {
-            case (Some(k), false) =>
+          _ <- (
+            e.key,
+            transactionVersion precedes minContractKeyInExercise,
+            transactionVersion precedes minMaintainersInExercise) match {
+            case (Some(KeyWithMaintainers(_, maintainers)), _, true) if maintainers.nonEmpty =>
+              Left(EncodeError(transactionVersion, isTooOldFor = "maintainers in NodeExercises"))
+            case (Some(KeyWithMaintainers(k, maintainers)), false, _) =>
               encodeVal(k).map { encodedKey =>
                 exBuilder.setContractKey(encodedKey._2)
+                exBuilder.addAllKeyMaintainers(maintainers.toSet[String].asJava)
                 ()
               }
-            case (None, _) | (Some(_), true) =>
+            case (None, _, _) | (Some(_), true, _) =>
               Right(())
 
           }
@@ -232,9 +239,9 @@ object TransactionCoder {
       keyWithMaintainers: TransactionOuterClass.KeyWithMaintainers)
     : Either[DecodeError, KeyWithMaintainers[Val]] =
     for {
-      mainteners <- toPartySet(keyWithMaintainers.getMaintainersList)
+      maintainers <- toPartySet(keyWithMaintainers.getMaintainersList)
       key <- decodeVal(keyWithMaintainers.getKey())
-    } yield KeyWithMaintainers(key, mainteners)
+    } yield KeyWithMaintainers(key, maintainers)
 
   /**
     * read a [[GenNode[Nid, Cid]] from protobuf
@@ -258,7 +265,8 @@ object TransactionCoder {
       minKeyOrLookupByKey,
       minNoControllers,
       minExerciseResult,
-      minContractKeyInExercise
+      minContractKeyInExercise,
+      minMaintainersInExercise
     }
     protoNode.getNodeTypeCase match {
       case NodeTypeCase.CREATE =>
@@ -316,6 +324,10 @@ object TransactionCoder {
             else
               decodeVal(protoExe.getContractKey).map(Some(_))
           } else Right(None)
+          maintainers <- toPartySet(protoExe.getKeyMaintainersList)
+          _ <- if ((txVersion precedes minMaintainersInExercise) && maintainers.nonEmpty)
+            Left(DecodeError(txVersion, isTooOldFor = "NodeExercises maintainers"))
+          else Right(())
 
           ni <- nodeId
           targetCoid <- protoExe.decodeContractIdOrStruct(decodeCid, txVersion)(
@@ -354,7 +366,7 @@ object TransactionCoder {
               controllers = controllers,
               children = children,
               exerciseResult = rv,
-              key = contractKey
+              key = contractKey.map(k => KeyWithMaintainers(k, maintainers))
             ))
       case NodeTypeCase.LOOKUP_BY_KEY =>
         val protoLookupByKey = protoNode.getLookupByKey

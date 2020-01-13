@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf.transaction
 import com.digitalasset.daml.lf.data.{ImmArray, ScalazEqual}
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst, VersionedValue}
+import com.digitalasset.daml.lf.value.Value.{ContractInst, VersionedValue}
 
 import scala.language.higherKinds
 import scalaz.Equal
@@ -109,7 +109,7 @@ object Node {
       controllers: Set[Party],
       children: ImmArray[Nid],
       exerciseResult: Option[Val],
-      key: Option[Val])
+      key: Option[KeyWithMaintainers[Val]])
       extends GenNode[Nid, Cid, Val] {
     override def mapContractIdAndValue[Cid2, Val2](
         f: Cid => Cid2,
@@ -118,7 +118,7 @@ object Node {
         targetCoid = f(targetCoid),
         chosenValue = g(chosenValue),
         exerciseResult = exerciseResult.map(g),
-        key = key.map(g))
+        key = key.map(_.mapValue(g)))
 
     override def mapNodeId[Nid2](f: Nid => Nid2): NodeExercises[Nid2, Cid, Val] =
       copy(
@@ -147,7 +147,7 @@ object Node {
         signatories: Set[Party],
         children: ImmArray[Nid],
         exerciseResult: Option[Val],
-        key: Option[Val]): NodeExercises[Nid, Cid, Val] =
+        key: Option[KeyWithMaintainers[Val]]): NodeExercises[Nid, Cid, Val] =
       NodeExercises(
         targetCoid,
         templateId,
@@ -255,7 +255,7 @@ object Node {
   /** Useful in various circumstances -- basically this is what a ledger implementation must use as
     * a key.
     */
-  case class GlobalKey(templateId: Identifier, key: VersionedValue[AbsoluteContractId])
+  case class GlobalKey(templateId: Identifier, key: VersionedValue[Nothing])
 
   sealed trait WithTxValue2[F[+ _, + _]] {
     type WithTxValue[+Cid] = F[Cid, Transaction.Value[Cid]]

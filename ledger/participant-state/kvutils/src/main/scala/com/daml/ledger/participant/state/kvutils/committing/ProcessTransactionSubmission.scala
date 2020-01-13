@@ -185,7 +185,7 @@ private[kvutils] case class ProcessTransactionSubmission(
               (_nodeId, exe: NodeExercises[_, _, VersionedValue[ContractId]]))
               if exe.key.isDefined && exe.consuming =>
             val stateKey = Conversions.contractKeyToStateKey(
-              GlobalKey(exe.templateId, Conversions.forceAbsoluteContractIds(exe.key.get)))
+              GlobalKey(exe.templateId, Conversions.forceNoContractIds(exe.key.get.key)))
             (allUnique, existingKeys - stateKey)
 
           case (
@@ -193,9 +193,7 @@ private[kvutils] case class ProcessTransactionSubmission(
               (_nodeId, create: NodeCreate[_, VersionedValue[ContractId]]))
               if create.key.isDefined =>
             val stateKey = Conversions.contractKeyToStateKey(
-              GlobalKey(
-                create.coinst.template,
-                Conversions.forceAbsoluteContractIds(create.key.get.key)))
+              GlobalKey(create.coinst.template, Conversions.forceNoContractIds(create.key.get.key)))
 
             (allUnique && !existingKeys.contains(stateKey), existingKeys + stateKey)
 
@@ -242,7 +240,7 @@ private[kvutils] case class ProcessTransactionSubmission(
               Conversions.encodeContractKey(
                 GlobalKey(
                   createNode.coinst.template,
-                  Conversions.forceAbsoluteContractIds(keyWithMaintainers.key)
+                  Conversions.forceNoContractIds(keyWithMaintainers.key)
                 )
               ))
           }

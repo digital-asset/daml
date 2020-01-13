@@ -24,7 +24,6 @@ import com.digitalasset.daml.lf.transaction.Transaction._
 import com.digitalasset.daml.lf.value.{Value => V}
 import com.digitalasset.daml.lf.value.ValueVersions.asVersionedValue
 import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers}
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, RelativeContractId}
 
 import scala.collection.JavaConverters._
 
@@ -818,16 +817,10 @@ object SBuiltin {
       val sigs = extractParties(args.get(2))
       val obs = extractParties(args.get(3))
       val key = args.get(4) match {
-        case SOptional(None) => None
-        case SOptional(Some(SStruct(flds, vals)))
-            if flds.length == 2 && flds(0) == "key" && flds(1) == "maintainers" =>
-          asVersionedValue(vals.get(0).toValue) match {
-            case Left(err) => crash(err)
-            case Right(keyVal) =>
-              Some(KeyWithMaintainers(key = keyVal, maintainers = extractParties(vals.get(1))))
-          }
-        case _ => crash("Bad key")
+        case SOptional(mbKey) => mbKey.map(extractKeyWithMaintainers)
+        case v => crash(s"Expected optional key with maintainers, got: $v")
       }
+
       val (coid, newPtx) = machine.ptx
         .insertCreate(
           coinst = V.ContractInst(template = templateId, arg = createArg, agreementText = agreement),
@@ -845,13 +838,13 @@ object SBuiltin {
   }
 
   /** $beginExercise
-    *    :: arg            (choice argument)
-    *    -> ContractId arg (contract to exercise)
-    *    -> List Party     (actors)
-    *    -> List Party     (signatories)
-    *    -> List Party     (observers)
-    *    -> List Party     (choice controllers)
-    *    -> Optional key   (template key)
+    *    :: arg                                           (choice argument)
+    *    -> ContractId arg                                (contract to exercise)
+    *    -> List Party                                    (actors)
+    *    -> List Party                                    (signatories)
+    *    -> List Party                                    (observers)
+    *    -> List Party                                    (choice controllers)
+    *    -> Optional {key: key, maintainers: List Party}  (template key, if present)
     *    -> Token
     *    -> ()
     */
@@ -875,9 +868,10 @@ object SBuiltin {
       val sigs = extractParties(args.get(3))
       val obs = extractParties(args.get(4))
       val ctrls = extractParties(args.get(5))
+
       val mbKey = args.get(6) match {
-        case SOptional(mbKey) => mbKey.map(_.toValue)
-        case _ => crash("Bad key, expected optional")
+        case SOptional(mbKey) => mbKey.map(extractKeyWithMaintainers)
+        case v => crash(s"Expected optional key with maintainers, got: $v")
       }
 
       machine.ptx = machine.ptx
@@ -891,16 +885,7 @@ object SBuiltin {
           signatories = sigs,
           stakeholders = sigs union obs,
           controllers = ctrls,
-          mbKey = mbKey.map { k =>
-            asVersionedValue(k) match {
-              case Left(err) => crash(err)
-              case Right(x) =>
-                x.mapContractId {
-                  case RelativeContractId(rcoid) => crash(s"got relative contract id $rcoid in key")
-                  case coid: AbsoluteContractId => coid
-                }
-            }
-          },
+          mbKey = mbKey,
           chosenValue = asVersionedValue(arg) match {
             case Left(err) => crash(err)
             case Right(x) => x
@@ -1023,23 +1008,16 @@ object SBuiltin {
   }
 
   /** $lookupKey[T]
-    *   :: key
-    *   -> List Party (maintainers)
+    *   :: { key: key, maintainers: List Party }
     *   -> Token
     *   -> Maybe (ContractId T)
     */
-  final case class SBULookupKey(templateId: TypeConName) extends SBuiltin(3) {
+  final case class SBULookupKey(templateId: TypeConName) extends SBuiltin(2) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      checkToken(args.get(2))
-      val key = asVersionedValue(args.get(0).toValue.mapContractId[Nothing] { cid =>
-        crash(s"Unexpected contract id in key: $cid")
-      }) match {
-        case Left(err) => crash(err)
-        case Right(x) => x
-      }
-      val maintainers = extractParties(args.get(1))
-      checkLookupMaintainers(templateId, machine, maintainers)
-      val gkey = GlobalKey(templateId, key)
+      checkToken(args.get(1))
+      val keyWithMaintainers = extractKeyWithMaintainers(args.get(0))
+      checkLookupMaintainers(templateId, machine, keyWithMaintainers.maintainers)
+      val gkey = GlobalKey(templateId, keyWithMaintainers.key)
       // check if we find it locally
       machine.ptx.keys.get(gkey) match {
         case Some(mbCoid) =>
@@ -1068,26 +1046,16 @@ object SBuiltin {
   }
 
   /** $insertLookup[T]
-    *    :: key
-    *    -> List Party (maintainers)
+    *    :: { key : key, maintainers: List Party}
     *    -> Maybe (ContractId T)
     *    -> Token
     *    -> ()
     */
-  final case class SBUInsertLookupNode(templateId: TypeConName) extends SBuiltin(4) {
+  final case class SBUInsertLookupNode(templateId: TypeConName) extends SBuiltin(3) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      checkToken(args.get(3))
-      val key =
-        asVersionedValue(
-          args
-            .get(0)
-            .toValue
-            .mapContractId(coid => crash(s"Unexpected contract id in key: $coid"))) match {
-          case Left(err) => crash(err)
-          case Right(v) => v
-        }
-      val maintainers = extractParties(args.get(1))
-      val mbCoid = args.get(2) match {
+      checkToken(args.get(2))
+      val keyWithMaintainers = extractKeyWithMaintainers(args.get(0))
+      val mbCoid = args.get(1) match {
         case SOptional(mb) =>
           mb.map {
             case SContractId(coid) => coid
@@ -1098,7 +1066,9 @@ object SBuiltin {
       machine.ptx = machine.ptx.insertLookup(
         templateId,
         machine.lastLocation,
-        KeyWithMaintainers(key = key, maintainers = maintainers),
+        KeyWithMaintainers(
+          key = keyWithMaintainers.key,
+          maintainers = keyWithMaintainers.maintainers),
         mbCoid)
       machine.ctrl = CtrlValue.Unit
       checkAborted(machine.ptx)
@@ -1106,23 +1076,16 @@ object SBuiltin {
   }
 
   /** $fetchKey[T]
-    *   :: key
-    *   -> List Party (maintainers)
+    *   :: { key: key, maintainers: List Party }
     *   -> Token
     *   -> ContractId T
     */
-  final case class SBUFetchKey(templateId: TypeConName) extends SBuiltin(3) {
+  final case class SBUFetchKey(templateId: TypeConName) extends SBuiltin(2) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      checkToken(args.get(2))
-      val key = asVersionedValue(args.get(0).toValue.mapContractId[Nothing] { cid =>
-        crash(s"Unexpected contract id in key: $cid")
-      }) match {
-        case Left(err) => crash(err)
-        case Right(x) => x
-      }
-      val maintainers = extractParties(args.get(1))
-      checkLookupMaintainers(templateId, machine, maintainers)
-      val gkey = GlobalKey(templateId, key)
+      checkToken(args.get(1))
+      val keyWithMaintainers = extractKeyWithMaintainers(args.get(0))
+      checkLookupMaintainers(templateId, machine, keyWithMaintainers.maintainers)
+      val gkey = GlobalKey(templateId, keyWithMaintainers.key)
       // check if we find it locally
       machine.ptx.keys.get(gkey) match {
         case Some(None) =>
@@ -1523,6 +1486,19 @@ object SBuiltin {
       case _ =>
         crash(s"value not a list of parties or party: $v")
     }
+
+  private def extractKeyWithMaintainers(v: SValue): KeyWithMaintainers[Value[Nothing]] = v match {
+    case SStruct(flds, vals)
+        if flds.length == 2 && flds(0) == keyFieldName && flds(1) == maintainersFieldName =>
+      asVersionedValue(vals.get(0).toValue) match {
+        case Left(err) => crash(err)
+        case Right(keyVal) =>
+          val keyWithoutContractIds =
+            keyVal.mapContractId(coid => crash(s"Unexpected contract id in key: $coid"))
+          KeyWithMaintainers(key = keyWithoutContractIds, maintainers = extractParties(vals.get(1)))
+      }
+    case _ => crash(s"Invalid key with maintainers: $v")
+  }
 
   private def checkLookupMaintainers(
       templateId: Identifier,

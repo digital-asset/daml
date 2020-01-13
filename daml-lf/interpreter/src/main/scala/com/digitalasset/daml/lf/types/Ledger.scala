@@ -59,12 +59,12 @@ object Ledger {
     }
 
   @inline
-  def assertAbsoluteContractId(cid: ContractId): AbsoluteContractId =
-    cid match {
-      case acoid: AbsoluteContractId => acoid
-      case _: RelativeContractId =>
-        crash("Unexpected relative contract id '$cid'")
-    }
+  def assertNoContractId(cid: ContractId): Nothing =
+    crash(s"Not expecting to find a contract id here, but found '$cid'")
+
+  @inline
+  def assertNoAbsoluteContractId(cid: AbsoluteContractId): Nothing =
+    crash(s"Not expecting to find a contract id here, but found '$cid'")
 
   private val `:` = LedgerString.assertFromString(":")
 
@@ -220,7 +220,7 @@ object Ledger {
           controllers = nex.controllers,
           children = nex.children.map(ScenarioNodeId(commitPrefix, _)),
           exerciseResult = nex.exerciseResult.map(makeAbsolute(commitPrefix, _)),
-          key = nex.key.map(_.mapContractId(assertAbsoluteContractId))
+          key = nex.key.map(_.mapValue(_.mapContractId(assertNoContractId)))
         )
       case nlbk: NodeLookupByKey.WithTxValue[ContractId] =>
         NodeLookupByKey(
@@ -1136,7 +1136,9 @@ object Ledger {
                       val mbNewCache2 = nc.key match {
                         case None => Right(newCache1)
                         case Some(keyWithMaintainers) =>
-                          val gk = GlobalKey(nc.coinst.template, keyWithMaintainers.key)
+                          val gk = GlobalKey(
+                            nc.coinst.template,
+                            keyWithMaintainers.key.mapContractId(assertNoAbsoluteContractId))
                           newCache1.activeKeys.get(gk) match {
                             case None => Right(newCache1.addKey(gk, nc.coid))
                             case Some(_) => Left(UniqueKeyViolation(gk))
@@ -1171,7 +1173,10 @@ object Ledger {
                           nc.key match {
                             case None => newCache0_1
                             case Some(key) =>
-                              newCache0_1.removeKey(GlobalKey(ex.templateId, key.key))
+                              newCache0_1.removeKey(
+                                GlobalKey(
+                                  ex.templateId,
+                                  key.key.mapContractId(assertNoAbsoluteContractId)))
                           }
                         } else newCache0
 
