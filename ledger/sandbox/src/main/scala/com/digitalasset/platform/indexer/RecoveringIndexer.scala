@@ -3,6 +3,7 @@
 
 package com.digitalasset.platform.indexer
 
+import java.time.{Clock, Instant}
 import java.util.concurrent.atomic.AtomicReference
 
 import akka.actor.Scheduler
@@ -11,7 +12,7 @@ import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.resources.Resource
 
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success}
 
@@ -29,6 +30,7 @@ class RecoveringIndexer(
 ) {
   private implicit val executionContext: ExecutionContext = DirectExecutionContext
   private val logger = loggerFactory.getLogger(this.getClass)
+  private val clock = Clock.systemUTC()
 
   /**
     * Starts an indexer, and restarts it after the given delay whenever an error occurs.
@@ -49,24 +51,44 @@ class RecoveringIndexer(
     subscription.set(firstSubscription)
     resubscribeOnFailure(firstSubscription)
 
+    def waitForRestart(
+        delayUntil: Instant = clock.instant().plusMillis(restartDelay.toMillis)
+    ): Future[Boolean] =
+      after(1.second, scheduler) {
+        if (subscription.get() == null) {
+          logger.info("Indexer Server was stopped; cancelling the restart")
+          complete.trySuccess(())
+          complete.future.map(_ => false)
+        }
+        if (clock.instant().isAfter(delayUntil)) {
+          Future.successful(true)
+        } else {
+          waitForRestart(delayUntil)
+        }
+      }
+
     def resubscribe(oldSubscription: Resource[IndexFeedHandle]): Future[Unit] =
       for {
-        _ <- after(restartDelay, scheduler)(Future.successful(()))
+        running <- waitForRestart()
         _ <- {
-          logger.info("Restarting Indexer Server")
-          val newSubscription = subscribe()
-          if (subscription.compareAndSet(oldSubscription, newSubscription)) {
-            resubscribeOnFailure(newSubscription)
-            newSubscription.asFuture.map { _ =>
-              logger.info("Restarted Indexer Server")
+          if (running) {
+            logger.info("Restarting Indexer Server")
+            val newSubscription = subscribe()
+            if (subscription.compareAndSet(oldSubscription, newSubscription)) {
+              resubscribeOnFailure(newSubscription)
+              newSubscription.asFuture.map { _ =>
+                logger.info("Restarted Indexer Server")
+              }
+            } else { // we must have stopped the server during the restart
+              logger.info("Indexer Server was stopped; cancelling the restart")
+              newSubscription.release().flatMap { _ =>
+                logger.info("Indexer Server restart was cancelled")
+                complete.trySuccess(())
+                complete.future
+              }
             }
-          } else { // we must have stopped the server during the restart
-            logger.info("Indexer Server was stopped; cancelling the restart")
-            newSubscription.release().flatMap { _ =>
-              logger.info("Indexer Server restart was cancelled")
-              complete.trySuccess(())
-              complete.future
-            }
+          } else {
+            Future.successful(())
           }
         }
       } yield ()

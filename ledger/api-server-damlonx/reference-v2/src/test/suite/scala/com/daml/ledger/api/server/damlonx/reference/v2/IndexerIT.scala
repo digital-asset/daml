@@ -11,6 +11,7 @@ import akka.stream.scaladsl.Source
 import ch.qos.logback.classic.Level
 import com.codahale.metrics.SharedMetricRegistries
 import com.daml.ledger.api.server.damlonx.reference.v2.IndexerIT._
+import com.daml.ledger.participant.state.v1.Update.Heartbeat
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.LedgerString
@@ -168,9 +169,7 @@ class IndexerIT extends AsyncWordSpec with Matchers with BeforeAndAfterEach {
           Level.INFO -> "Started Indexer Server",
           Level.ERROR -> "Error while running indexer, restart scheduled after 10 seconds",
           Level.INFO -> "Stopping Indexer Server",
-          Level.INFO -> "Restarting Indexer Server",
           Level.INFO -> "Indexer Server was stopped; cancelling the restart",
-          Level.INFO -> "Indexer Server restart was cancelled",
           Level.INFO -> "Stopped Indexer Server",
         )
       }
@@ -214,22 +213,25 @@ class IndexerIT extends AsyncWordSpec with Matchers with BeforeAndAfterEach {
 object IndexerIT {
   private type ParticipantState = ReadService with WriteService with AutoCloseable
 
-  private val eventually = RetryStrategy.exponentialBackoff(6, 10.millis)
+  private val eventually = RetryStrategy.exponentialBackoff(10, 10.millis)
 
-  private val loggerFactory = TestNamedLoggerFactory(classOf[IndexerIT], showLogs = true)
+  private val loggerFactory = TestNamedLoggerFactory(classOf[IndexerIT])
 
-  private def logs: Seq[(Level, String)] = loggerFactory.logs(classOf[RecoveringIndexer])
+  private def logs: Seq[(Level, String)] =
+    loggerFactory.logs(classOf[RecoveringIndexer])
 
-  private def randomSubmissionId(): LedgerString = {
+  private def randomSubmissionId(): LedgerString =
     LedgerString.assertFromString(UUID.randomUUID().toString)
-  }
 
   // This spy inserts a failure after each state update to force the RecoveringIndexer to restart.
   private def failingOften(delegate: ParticipantState): ParticipantState = {
     var lastFailure: Option[Offset] = None
     val failingParticipantState = spy(delegate)
-    doAnswer(invocation =>
-      delegate.stateUpdates(invocation.getArgument[Option[Offset]](0)).flatMapConcat {
+    doAnswer(invocation => {
+      val beginAfter = invocation.getArgument[Option[Offset]](0)
+      delegate.stateUpdates(beginAfter).flatMapConcat {
+        case value @ (_, Heartbeat(_)) =>
+          Source.single(value)
         case value @ (offset, _) =>
           if (lastFailure.isEmpty || lastFailure.get < offset) {
             lastFailure = Some(offset)
@@ -237,6 +239,7 @@ object IndexerIT {
           } else {
             Source.single(value)
           }
+      }
     }).when(failingParticipantState).stateUpdates(ArgumentMatchers.any[Option[Offset]]())
     failingParticipantState
   }
