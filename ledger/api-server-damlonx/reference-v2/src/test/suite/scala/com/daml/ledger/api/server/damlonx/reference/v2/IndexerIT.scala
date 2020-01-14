@@ -9,7 +9,7 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import ch.qos.logback.classic.Level
-import com.codahale.metrics.SharedMetricRegistries
+import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.server.damlonx.reference.v2.IndexerIT._
 import com.daml.ledger.participant.state.v1.Update.Heartbeat
 import com.daml.ledger.participant.state.v1._
@@ -195,15 +195,10 @@ class IndexerIT extends AsyncWordSpec with Matchers with BeforeAndAfterEach {
         restartDelay = restartDelay,
       ),
       loggerFactory,
-      SharedMetricRegistries.getOrCreate(s"${getClass.getSimpleName}-server"),
+      new MetricRegistry,
     )
     val ledgerDaoOwner =
-      JdbcLedgerDao.owner(
-        jdbcUrl,
-        loggerFactory,
-        SharedMetricRegistries.getOrCreate(s"${getClass.getSimpleName}-ledger-dao"),
-        ExecutionContext.global,
-      )
+      JdbcLedgerDao.owner(jdbcUrl, loggerFactory, new MetricRegistry, ExecutionContext.global)
     val server = serverOwner.acquire()
     val ledgerDao = ledgerDaoOwner.acquire()
     (participantState, server, ledgerDao)
