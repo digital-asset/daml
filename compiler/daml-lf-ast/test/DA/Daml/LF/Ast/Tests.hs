@@ -18,6 +18,7 @@ import Test.Tasty.HUnit
 import DA.Daml.LF.Ast.Base
 import DA.Daml.LF.Ast.Numeric
 import DA.Daml.LF.Ast.Type
+import DA.Daml.LF.Ast.TypeLevelNat
 import DA.Daml.LF.Ast.Util
 import DA.Daml.LF.Ast.Version
 import DA.Daml.LF.Ast.World (initWorld)
@@ -63,6 +64,16 @@ substitutionTests = testGroup "substitution"
                 TBuiltin BTArrow `TApp` vBeta11 `TApp` vBeta1
             ty2 = substitute subst ty1
         assertBool "wrong substitution" (alphaEquiv ty1 ty2)
+
+    , testCase "freeVars/TypeLevelNat" $ do
+        let x = TypeVarName "x"
+        let y = TypeVarName "y"
+        let yRenamed = TypeVarName "yRenamed"
+        let typeWithNatAndFreeY = TNat TypeLevelNat10 :-> TVar y
+        let subst = Map.fromList [(x, typeWithNatAndFreeY)]
+        assertBool "bad substitution" $ alphaEquiv
+          (substitute subst (TForall (y,       KStar) $ TVar x              :-> TVar y))
+                            (TForall (yRenamed,KStar) $ typeWithNatAndFreeY :-> TVar yRenamed)
     ]
   where
     beta1 = TypeVarName "beta1"
