@@ -66,7 +66,6 @@ substitutionTests = testGroup "substitution"
         assertBool "wrong substitution" (alphaEquiv ty1 ty2)
 
     , testCase "freeVars/TypeLevelNat" $ do
-        let -- no thank you HLint
         let x = TypeVarName "x"
         let y = TypeVarName "y"
         let yRenamed = TypeVarName "yRenamed"
@@ -74,7 +73,7 @@ substitutionTests = testGroup "substitution"
         let subst = Map.fromList [(x, typeWithNatAndFreeY)]
         assertBool "bad substitution" $ alphaEquiv
           (substitute subst (TForall (y,       KStar) $ TVar x              :-> TVar y))
-          (                 (TForall (yRenamed,KStar) $ typeWithNatAndFreeY :-> TVar yRenamed))
+                            (TForall (yRenamed,KStar) $ typeWithNatAndFreeY :-> TVar yRenamed)
     ]
   where
     beta1 = TypeVarName "beta1"
