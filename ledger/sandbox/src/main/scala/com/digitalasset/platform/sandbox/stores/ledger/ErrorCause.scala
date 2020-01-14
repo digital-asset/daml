@@ -27,6 +27,8 @@ object ErrorCause {
             s"Dependency contract ${cid.coid} has higher time ($time) than current let ($let)"
           case SequencingError.DuplicateKey(gk) =>
             s"Duplicate contract key ${gk.key} for template ${gk.templateId}"
+          case SequencingError.InvalidLookup(gk, cid, currentCid) =>
+            s"Lookup by key ${gk.key} uses contract $cid instead of the current $currentCid"
         }
         .mkString("Sequencing errors: [", ", ", "]")
   }

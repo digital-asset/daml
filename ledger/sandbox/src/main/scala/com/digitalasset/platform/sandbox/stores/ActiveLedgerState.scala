@@ -45,8 +45,9 @@ trait ActiveLedgerState[+Self] { this: ActiveLedgerState[Self] =>
     * */
   def lookupContractLet(cid: AbsoluteContractId): Option[LetLookup]
 
-  /** Callback to query a contract key, used for transaction validation */
-  def keyExists(key: GlobalKey): Boolean
+  /** Callback to query a contract by key, used for validating NodeLookupByKey nodes.
+    * */
+  def lookupContractByKey(key: GlobalKey): Option[AbsoluteContractId]
 
   /** Called when a new contract is created */
   def addContract(c: ActiveContract, keyO: Option[GlobalKey]): Self

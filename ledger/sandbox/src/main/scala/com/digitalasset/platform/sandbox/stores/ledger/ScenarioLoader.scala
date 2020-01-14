@@ -254,6 +254,7 @@ object ScenarioLoader {
           time.toInstant,
           transactionId,
           workflowId,
+          Some(richTransaction.committer),
           tx,
           mappedExplicitDisclosure,
           mappedLocalImplicitDisclosure,

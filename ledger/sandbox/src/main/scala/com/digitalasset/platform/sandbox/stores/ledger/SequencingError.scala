@@ -47,4 +47,12 @@ object SequencingError {
   final case class DuplicateKey(gk: GlobalKey) extends SequencingError {
     override def isFinal: Boolean = true
   }
+
+  final case class InvalidLookup(
+      gk: GlobalKey,
+      cid: Option[AbsoluteContractId],
+      currentCid: Option[AbsoluteContractId]
+  ) extends SequencingError {
+    override def isFinal: Boolean = true
+  }
 }
