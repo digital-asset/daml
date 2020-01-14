@@ -32,7 +32,8 @@ import org.scalatest.{AsyncWordSpec, BeforeAndAfterEach, Matchers}
 
 import scala.compat.java8.FutureConverters._
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
-import scala.concurrent.{Await, ExecutionContext}
+import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.util.Try
 
 class IndexerIT extends AsyncWordSpec with Matchers with BeforeAndAfterEach {
   private[this] implicit var actorSystem: ActorSystem = _
@@ -61,7 +62,7 @@ class IndexerIT extends AsyncWordSpec with Matchers with BeforeAndAfterEach {
           .allocateParty(
             hint = Some(Ref.Party.assertFromString("alice")),
             displayName = Some("Alice"),
-            submissionId = Ref.LedgerString.assertFromString(UUID.randomUUID().toString),
+            submissionId = randomSubmissionId(),
           )
           .toScala
         _ <- eventually { (_, _) =>
@@ -73,7 +74,7 @@ class IndexerIT extends AsyncWordSpec with Matchers with BeforeAndAfterEach {
         _ <- server.release()
         _ <- ledgerDao.release()
       } yield {
-        loggerFactory.logs(classOf[RecoveringIndexer]) shouldBe Seq(
+        logs shouldBe Seq(
           Level.INFO -> "Starting Indexer Server",
           Level.INFO -> "Started Indexer Server",
           Level.INFO -> "Stopping Indexer Server",
@@ -94,21 +95,21 @@ class IndexerIT extends AsyncWordSpec with Matchers with BeforeAndAfterEach {
           .allocateParty(
             hint = Some(Ref.Party.assertFromString("alice")),
             displayName = Some("Alice"),
-            submissionId = Ref.LedgerString.assertFromString(UUID.randomUUID().toString),
+            submissionId = randomSubmissionId(),
           )
           .toScala
         _ <- participantState
           .allocateParty(
             hint = Some(Ref.Party.assertFromString("bob")),
             displayName = Some("Bob"),
-            submissionId = Ref.LedgerString.assertFromString(UUID.randomUUID().toString),
+            submissionId = randomSubmissionId(),
           )
           .toScala
         _ <- participantState
           .allocateParty(
             hint = Some(Ref.Party.assertFromString("carol")),
             displayName = Some("Carol"),
-            submissionId = Ref.LedgerString.assertFromString(UUID.randomUUID().toString),
+            submissionId = randomSubmissionId(),
           )
           .toScala
         _ <- eventually { (_, _) =>
@@ -120,7 +121,7 @@ class IndexerIT extends AsyncWordSpec with Matchers with BeforeAndAfterEach {
         _ <- server.release()
         _ <- ledgerDao.release()
       } yield {
-        loggerFactory.logs(classOf[RecoveringIndexer]) shouldBe Seq(
+        logs shouldBe Seq(
           Level.INFO -> "Starting Indexer Server",
           Level.INFO -> "Started Indexer Server",
           Level.ERROR -> "Error while running indexer, restart scheduled after 100 milliseconds",
@@ -153,18 +154,28 @@ class IndexerIT extends AsyncWordSpec with Matchers with BeforeAndAfterEach {
           .allocateParty(
             hint = Some(Ref.Party.assertFromString("alice")),
             displayName = Some("Alice"),
-            submissionId = Ref.LedgerString.assertFromString(UUID.randomUUID().toString),
+            submissionId = randomSubmissionId(),
           )
           .toScala
+        _ <- eventually { (_, _) =>
+          Future.fromTry(
+            Try(logs.take(3) shouldBe Seq(
+              Level.INFO -> "Starting Indexer Server",
+              Level.INFO -> "Started Indexer Server",
+              Level.ERROR -> "Error while running indexer, restart scheduled after 10 seconds",
+            )))
+        }
         _ <- server.release()
       } yield {
         // stopping the server and logging the error can happen in either order
-        loggerFactory.logs(classOf[RecoveringIndexer]) should contain theSameElementsAs Seq(
+        logs should contain theSameElementsAs Seq(
           Level.INFO -> "Starting Indexer Server",
           Level.INFO -> "Started Indexer Server",
-          Level.INFO -> "Stopping Indexer Server",
           Level.ERROR -> "Error while running indexer, restart scheduled after 10 seconds",
-          Level.INFO -> "The Indexer Server was stopped, so not restarting",
+          Level.INFO -> "Stopping Indexer Server",
+          Level.INFO -> "Restarting Indexer Server",
+          Level.INFO -> "Indexer Server was stopped; cancelling the restart",
+          Level.INFO -> "Indexer Server restart was cancelled",
           Level.INFO -> "Stopped Indexer Server",
         )
       }
@@ -208,9 +219,15 @@ class IndexerIT extends AsyncWordSpec with Matchers with BeforeAndAfterEach {
 object IndexerIT {
   private type ParticipantState = ReadService with WriteService with AutoCloseable
 
-  private val eventually = RetryStrategy.exponentialBackoff(10, 10.millis)
+  private val eventually = RetryStrategy.exponentialBackoff(6, 10.millis)
 
-  private val loggerFactory = TestNamedLoggerFactory(classOf[IndexerIT])
+  private val loggerFactory = TestNamedLoggerFactory(classOf[IndexerIT], showLogs = true)
+
+  private def logs: Seq[(Level, String)] = loggerFactory.logs(classOf[RecoveringIndexer])
+
+  private def randomSubmissionId(): LedgerString = {
+    LedgerString.assertFromString(UUID.randomUUID().toString)
+  }
 
   // This class inserts a failure after each state update to force the RecoveringIndexer to restart.
   private class ParticipantStateWhichFailsOften(delegate: ParticipantState)

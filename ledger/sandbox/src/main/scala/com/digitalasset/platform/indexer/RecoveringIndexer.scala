@@ -50,28 +50,26 @@ class RecoveringIndexer(
     resubscribeOnFailure(firstSubscription)
 
     def resubscribe(oldSubscription: Resource[IndexFeedHandle]): Future[Unit] =
-      if (subscription.get() == null) {
-        logger.info("The Indexer Server was stopped, so not restarting")
-        complete.trySuccess(())
-        complete.future
-      } else {
-        logger.info("Restarting Indexer Server")
-        for {
-          _ <- after(restartDelay, scheduler)(Future.successful(()))
-          _ <- {
-            val newSubscription = subscribe()
-            if (subscription.compareAndSet(oldSubscription, newSubscription)) {
-              resubscribeOnFailure(newSubscription)
-              newSubscription.asFuture.map(_ => {
-                logger.info("Restarted Indexer Server")
-              })
-            } else {
-              logger.info("Doubled up the restarts; cancelling this restart")
-              newSubscription.release()
+      for {
+        _ <- after(restartDelay, scheduler)(Future.successful(()))
+        _ <- {
+          logger.info("Restarting Indexer Server")
+          val newSubscription = subscribe()
+          if (subscription.compareAndSet(oldSubscription, newSubscription)) {
+            resubscribeOnFailure(newSubscription)
+            newSubscription.asFuture.map { _ =>
+              logger.info("Restarted Indexer Server")
+            }
+          } else { // we must have stopped the server during the restart
+            logger.info("Indexer Server was stopped; cancelling the restart")
+            newSubscription.release().flatMap { _ =>
+              logger.info("Indexer Server restart was cancelled")
+              complete.trySuccess(())
+              complete.future
             }
           }
-        } yield ()
-      }
+        }
+      } yield ()
 
     def resubscribeOnFailure(currentSubscription: Resource[IndexFeedHandle]): Unit =
       currentSubscription.asFuture.onComplete {
