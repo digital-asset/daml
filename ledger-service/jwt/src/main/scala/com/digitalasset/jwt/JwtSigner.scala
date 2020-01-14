@@ -51,16 +51,16 @@ object JwtSigner {
           s"${str(base64Jwt.header): String}.${str(base64Jwt.payload)}.${str(base64Signature): String}")
   }
 
-  object ECDA256 {
-    def sign(jwt: domain.DecodedJwt[String], privateKey: ECPrivateKey): Error \/ domain.Jwt =
+  object ECDSA {
+    def sign(jwt: domain.DecodedJwt[String], privateKey: ECPrivateKey, algorithm: ECPrivateKey => Algorithm): Error \/ domain.Jwt =
       for {
         base64Jwt <- base64Encode(jwt)
 
-        algorithm <- \/.fromTryCatchNonFatal(Algorithm.ECDSA256(null, privateKey))
-          .leftMap(e => Error(Symbol("ECDSA256.sign"), e.getMessage))
+        algorithm <- \/.fromTryCatchNonFatal(algorithm(privateKey))
+          .leftMap(e => Error(Symbol(algorithm.getClass.getTypeName), e.getMessage))
 
         signature <- \/.fromTryCatchNonFatal(algorithm.sign(base64Jwt.header, base64Jwt.payload))
-          .leftMap(e => Error(Symbol("ECDSA256.sign"), e.getMessage))
+          .leftMap(e => Error(Symbol(algorithm.getClass.getTypeName), e.getMessage))
 
         base64Signature <- base64Encode(signature)
 

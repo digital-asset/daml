@@ -8,7 +8,7 @@ import java.security.interfaces.{ECPublicKey, RSAPublicKey}
 
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
-import com.auth0.jwt.interfaces.{ECDSAKeyProvider, RSAKeyProvider}
+import com.auth0.jwt.interfaces.{RSAKeyProvider}
 import com.digitalasset.jwt.JwtVerifier.Error
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.{Show, \/}
@@ -61,28 +61,25 @@ object HMAC256Verifier extends StrictLogging {
 }
 
 // ECDA256 validator factory
-object ECDA256Verifier extends StrictLogging {
-  def apply(keyProvider: ECDSAKeyProvider): Error \/ JwtVerifier =
-    \/.fromTryCatchNonFatal {
-      val algorithm = Algorithm.ECDSA256(keyProvider)
-      val verifier = JWT.require(algorithm).build()
-      new JwtVerifier(verifier)
-    }.leftMap(e => Error('ECDSA256, e.getMessage))
-  def apply(publicKey: ECPublicKey): Error \/ JwtVerifier =
-    \/.fromTryCatchNonFatal {
-      val algorithm = Algorithm.ECDSA256(publicKey, null)
-      val verifier = JWT.require(algorithm).build()
-      new JwtVerifier(verifier)
-    }.leftMap(e => Error('ECDSA256, e.getMessage))
+object ECDSAVerifier extends StrictLogging {
+  def apply(algorithm: Algorithm): Error \/ JwtVerifier =
+    toVerifier(algorithm)
 
-  def fromCrtFile(path: String): Error \/ JwtVerifier = {
+  private def toVerifier(algorithm: Algorithm) = {
+    \/.fromTryCatchNonFatal {
+      val verifier = JWT.require(algorithm).build()
+      new JwtVerifier(verifier)
+    }.leftMap(e => Error(Symbol(algorithm.getName), e.getMessage))
+  }
+
+  def fromCrtFile(path: String, algorithmPublicKey: ECPublicKey => Algorithm): Error \/ JwtVerifier = {
     for {
       key <- \/.fromEither(
         KeyUtils
           .readECPublicKeyFromCrt(new File(path))
           .toEither)
         .leftMap(e => Error('fromCrtFile, e.getMessage))
-      verifier <- ECDA256Verifier(key)
+      verifier <- ECDSAVerifier(algorithmPublicKey(key))
     } yield verifier
   }
 }
