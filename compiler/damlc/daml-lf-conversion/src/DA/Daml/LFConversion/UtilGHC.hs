@@ -93,13 +93,14 @@ pattern GHC_Tuple <- ModuleIn DamlPrim "GHC.Tuple"
 pattern GHC_Types <- ModuleIn DamlPrim "GHC.Types"
 
 -- daml-stdlib module patterns
-pattern DA_Action, DA_Generics, DA_Internal_LF, DA_Internal_Prelude, DA_Internal_Record, DA_Internal_Desugar :: GHC.Module
+pattern DA_Action, DA_Generics, DA_Internal_LF, DA_Internal_Prelude, DA_Internal_Record, DA_Internal_Desugar, DA_Internal_Template_Functions :: GHC.Module
 pattern DA_Action <- ModuleIn DamlStdlib "DA.Action"
 pattern DA_Generics <- ModuleIn DamlStdlib "DA.Generics"
 pattern DA_Internal_LF <- ModuleIn DamlStdlib "DA.Internal.LF"
 pattern DA_Internal_Prelude <- ModuleIn DamlStdlib "DA.Internal.Prelude"
 pattern DA_Internal_Record <- ModuleIn DamlStdlib "DA.Internal.Record"
 pattern DA_Internal_Desugar <- ModuleIn DamlStdlib "DA.Internal.Desugar"
+pattern DA_Internal_Template_Functions <- ModuleIn DamlStdlib "DA.Internal.Template.Functions"
 
 -- | Deconstruct a dictionary function (DFun) identifier into a tuple
 -- containing, in order:
@@ -125,13 +126,13 @@ pattern DesugarDFunId tyCoVars dfunArgs clsName classArgs <-
     (splitDFunId -> Just
         ( tyCoVars
         , dfunArgs
-        , GHC.className -> NameIn DA_Internal_Desugar clsName
+        , GHC.className -> NameIn DA_Internal_Template_Functions clsName
         , classArgs
         )
     )
 
-pattern HasSignatoryDFunId, HasEnsureDFunId, HasAgreementDFunId, HasObserverDFunId
-    :: TyCon -> GHC.Var
+pattern HasSignatoryDFunId, HasEnsureDFunId, HasAgreementDFunId, HasObserverDFunId,
+    HasArchiveDFunId :: TyCon -> GHC.Var
 
 pattern HasSignatoryDFunId templateTyCon <-
     DesugarDFunId [] [] "HasSignatory"
@@ -145,17 +146,20 @@ pattern HasAgreementDFunId templateTyCon <-
 pattern HasObserverDFunId templateTyCon <-
     DesugarDFunId [] [] "HasObserver"
         [splitTyConApp_maybe -> Just (templateTyCon, [])]
+pattern HasArchiveDFunId templateTyCon <-
+    DesugarDFunId [] [] "HasArchive"
+        [splitTyConApp_maybe -> Just (templateTyCon, [])]
 
-pattern HasKeyDFunId, HasMaintainerDFunId :: TyCon -> TyCon -> GHC.Var
+pattern HasKeyDFunId, HasMaintainerDFunId :: TyCon -> Type -> GHC.Var
 
-pattern HasKeyDFunId templateTyCon keyTyCon <-
+pattern HasKeyDFunId templateTyCon keyTy <-
     DesugarDFunId [] [] "HasKey"
-        [splitTyConApp_maybe -> Just (templateTyCon, [])
-        ,splitTyConApp_maybe -> Just (keyTyCon, [])]
-pattern HasMaintainerDFunId templateTyCon keyTyCon <-
+        [ splitTyConApp_maybe -> Just (templateTyCon, [])
+        , keyTy ]
+pattern HasMaintainerDFunId templateTyCon keyTy <-
     DesugarDFunId [] [] "HasMaintainer"
-        [splitTyConApp_maybe -> Just (templateTyCon, [])
-        ,splitTyConApp_maybe -> Just (keyTyCon, [])]
+        [ splitTyConApp_maybe -> Just (templateTyCon, [])
+        , keyTy ]
 
 -- | Break down a constraint tuple projection function name
 -- into an (index, arity) pair. These names have the form
