@@ -23,39 +23,39 @@ class HasherSpec extends WordSpec with Matchers {
   )
 
   private[this] def complexValue = {
-    val builder = ImmArray.newBuilder[(Option[Ref.Name], Value[AbsoluteContractId])]
-    builder += None -> ValueInt64(0)
-    builder += None -> ValueInt64(123456)
-    builder += None -> ValueInt64(-1)
-    builder += None -> ValueNumeric(decimal(0))
-    builder += None -> ValueNumeric(decimal(BigDecimal("0.3333333333")))
-    builder += None -> ValueTrue
-    builder += None -> ValueFalse
-    builder += None -> ValueDate(Time.Date.assertFromDaysSinceEpoch(0))
-    builder += None -> ValueDate(Time.Date.assertFromDaysSinceEpoch(123456))
-    builder += None -> ValueTimestamp(Time.Timestamp.assertFromLong(0))
-    builder += None -> ValueTimestamp(Time.Timestamp.assertFromLong(123456))
-    builder += None -> ValueText("")
-    builder += None -> ValueText("abcd-äöü€")
-    builder += None -> ValueParty(Ref.Party.assertFromString("Alice"))
-    builder += None -> ValueUnit
-    builder += None -> ValueNone
-    builder += None -> ValueOptional(Some(ValueText("Some")))
-    builder += None -> ValueList(FrontStack(ValueText("A"), ValueText("B"), ValueText("C")))
-    builder += None -> ValueVariant(None, Ref.Name.assertFromString("Variant"), ValueInt64(0))
-    builder += None -> ValueRecord(
-      None,
-      ImmArray(
-        None -> ValueText("field1"),
-        None -> ValueText("field2")
-      ))
-    builder += None -> ValueTextMap(
-      SortedLookupList(
-        Map(
-          "keyA" -> ValueText("valueA"),
-          "keyB" -> ValueText("valueB")
-        )))
-    val fields = builder.result()
+    val fields = ImmArray(
+      None -> ValueInt64(0),
+      None -> ValueInt64(123456),
+      None -> ValueInt64(-1),
+      None -> ValueNumeric(decimal(0)),
+      None -> ValueNumeric(decimal(BigDecimal("0.3333333333"))),
+      None -> ValueTrue,
+      None -> ValueFalse,
+      None -> ValueDate(Time.Date.assertFromDaysSinceEpoch(0)),
+      None -> ValueDate(Time.Date.assertFromDaysSinceEpoch(123456)),
+      None -> ValueTimestamp(Time.Timestamp.assertFromLong(0)),
+      None -> ValueTimestamp(Time.Timestamp.assertFromLong(123456)),
+      None -> ValueText(""),
+      None -> ValueText("abcd-äöü€"),
+      None -> ValueParty(Ref.Party.assertFromString("Alice")),
+      None -> ValueUnit,
+      None -> ValueNone,
+      None -> ValueOptional(Some(ValueText("Some"))),
+      None -> ValueList(FrontStack(ValueText("A"), ValueText("B"), ValueText("C"))),
+      None -> ValueVariant(None, Ref.Name.assertFromString("Variant"), ValueInt64(0)),
+      None -> ValueRecord(
+        None,
+        ImmArray(
+          None -> ValueText("field1"),
+          None -> ValueText("field2")
+        )),
+      None -> ValueTextMap(
+        SortedLookupList(
+          Map(
+            "keyA" -> ValueText("valueA"),
+            "keyB" -> ValueText("valueB")
+          )))
+    )
 
     ValueRecord(None, fields)
   }
