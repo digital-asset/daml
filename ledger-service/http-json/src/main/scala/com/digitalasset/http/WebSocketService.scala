@@ -34,7 +34,7 @@ object WebSocketService {
 
 class WebSocketService(
     transactionClient: TransactionClient,
-    resolveTemplateIds: PackageService.ResolveTemplateIds,
+    resolveTemplateId: PackageService.ResolveTemplateId,
     encoder: DomainJsonEncoder,
     decoder: DomainJsonDecoder,
     wsConfig: WebsocketConfig)(implicit mat: Materializer, ec: ExecutionContext)
@@ -111,8 +111,8 @@ class WebSocketService(
       request: GetActiveContractsRequest): Source[Message, NotUsed] = {
     import com.digitalasset.http.util.Transactions._
 
-    resolveTemplateIds(request.templateIds) match {
-      case \/-(ids) =>
+    resolveRequiredTemplateIds(request.templateIds) match {
+      case Some(ids) =>
         val filter = transactionFilterFor(jwtPayload.party, ids)
         transactionClient
           .getTransactions(LedgerOffsetOrdering.ledgerBegin, None, transactionFilter = filter) // TODO: make offSet pass along with client message
@@ -123,8 +123,9 @@ class WebSocketService(
               case -\/(e) => wsErrorMessage(e.shows)
             }
           })
-      case -\/(_) =>
-        Source.single(wsErrorMessage("Cannot find templateIds " + request.templateIds.toString))
+      case None =>
+        Source.single(
+          wsErrorMessage("Cannot find one of templateIds " + request.templateIds.toString))
     }
   }
 
@@ -145,5 +146,12 @@ class WebSocketService(
           .leftMap(e => ServerError(e.shows))
           .flatMap(as => encodeList(as))
       )
+  }
+
+  private def resolveRequiredTemplateIds(
+      xs: Set[domain.TemplateId.OptionalPkg]): Option[List[domain.TemplateId.RequiredPkg]] = {
+    import scalaz.std.list._
+    import scalaz.std.option._
+    xs.toList.traverse(resolveTemplateId)
   }
 }

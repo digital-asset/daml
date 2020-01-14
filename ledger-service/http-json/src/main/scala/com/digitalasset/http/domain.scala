@@ -5,6 +5,7 @@ package com.digitalasset.http
 
 import java.time.Instant
 
+import akka.http.scaladsl.model.{StatusCode, StatusCodes}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.iface
 import com.digitalasset.http.util.ClientUtil.boxedRecord
@@ -17,7 +18,7 @@ import scalaz.std.vector._
 import scalaz.syntax.show._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
-import scalaz.{-\/, @@, Applicative, Show, Tag, Traverse, \/, \/-}
+import scalaz.{-\/, @@, Applicative, Bitraverse, Show, Tag, Traverse, \/, \/-}
 import spray.json.JsValue
 
 import scala.annotation.tailrec
@@ -100,7 +101,9 @@ object domain {
   }
 
   sealed trait OffsetTag
+
   type Offset = String @@ OffsetTag
+
   object Offset {
     private[http] val tag = Tag.of[OffsetTag]
 
@@ -312,6 +315,7 @@ object domain {
       new IsoFunctorTemplate[ContractLocator, InputContractRef] {
         override def from[A](ga: InputContractRef[A]) =
           ga.fold((EnrichedContractKey[A] _).tupled, EnrichedContractId.tupled)
+
         override def to[A](fa: ContractLocator[A]) = fa match {
           case EnrichedContractId(otid, cid) => \/-((otid, cid))
           case EnrichedContractKey(tid, key) => -\/((tid, key))
@@ -352,6 +356,7 @@ object domain {
 
   trait HasTemplateId[F[_]] {
     def templateId(fa: F[_]): TemplateId.OptionalPkg
+
     def lfType(
         fa: F[_],
         templateId: TemplateId.RequiredPkg,
@@ -418,4 +423,36 @@ object domain {
       }
     }
   }
+
+  sealed abstract class ServiceResponse extends Product with Serializable
+
+  final case class OkResponse[R, W](
+      result: R,
+      warnings: Option[W],
+      status: StatusCode = StatusCodes.OK)
+      extends ServiceResponse
+
+  final case class ErrorResponse[E](errors: E, status: StatusCode) extends ServiceResponse
+
+  object OkResponse {
+    implicit val covariant: Bitraverse[OkResponse] = new Bitraverse[OkResponse] {
+      override def bitraverseImpl[G[_]: Applicative, A, B, C, D](
+          fab: OkResponse[A, B])(f: A => G[C], g: B => G[D]): G[OkResponse[C, D]] = {
+        import scalaz.syntax.applicative._
+        ^(f(fab.result), fab.warnings.traverse(g))((c, d) => fab.copy(result = c, warnings = d))
+      }
+    }
+  }
+
+  object ErrorResponse {
+    implicit val traverseInstance: Traverse[ErrorResponse] = new Traverse[ErrorResponse] {
+      override def traverseImpl[G[_]: Applicative, A, B](fa: ErrorResponse[A])(
+          f: A => G[B]): G[ErrorResponse[B]] = f(fa.errors).map(b => fa.copy(errors = b))
+    }
+  }
+
+  sealed abstract class ServiceWarning extends Serializable with Product
+
+  final case class UnknownTemplateIds(unknownTemplateIds: List[TemplateId.OptionalPkg])
+      extends ServiceWarning
 }
