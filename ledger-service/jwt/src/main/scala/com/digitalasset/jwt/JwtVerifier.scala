@@ -72,7 +72,9 @@ object ECDSAVerifier extends StrictLogging {
     }.leftMap(e => Error(Symbol(algorithm.getName), e.getMessage))
   }
 
-  def fromCrtFile(path: String, algorithmPublicKey: ECPublicKey => Algorithm): Error \/ JwtVerifier = {
+  def fromCrtFile(
+      path: String,
+      algorithmPublicKey: ECPublicKey => Algorithm): Error \/ JwtVerifier = {
     for {
       key <- \/.fromEither(
         KeyUtils

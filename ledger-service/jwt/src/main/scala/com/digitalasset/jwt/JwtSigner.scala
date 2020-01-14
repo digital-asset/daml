@@ -52,7 +52,10 @@ object JwtSigner {
   }
 
   object ECDSA {
-    def sign(jwt: domain.DecodedJwt[String], privateKey: ECPrivateKey, algorithm: ECPrivateKey => Algorithm): Error \/ domain.Jwt =
+    def sign(
+        jwt: domain.DecodedJwt[String],
+        privateKey: ECPrivateKey,
+        algorithm: ECPrivateKey => Algorithm): Error \/ domain.Jwt =
       for {
         base64Jwt <- base64Encode(jwt)
 
