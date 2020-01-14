@@ -47,6 +47,8 @@ mayImportInternal =
         , "DA.TextMap"
         , "DA.Map"
         , "DA.Generics"
+        , "DA.Text"
+        , "DA.Numeric"
 
         -- These modules are just listed to disable the record preprocessor.
         , "DA.NonEmpty.Types"

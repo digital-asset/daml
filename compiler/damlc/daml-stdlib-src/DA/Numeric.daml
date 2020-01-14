@@ -7,6 +7,7 @@ daml 1.2
 module DA.Numeric where
 
 #ifdef DAML_NUMERIC
+import GHC.Types (primitive)
 
 -- | Multiply two numerics. Both inputs and the output may have
 -- different scales, unlike `(*)` which forces all numeric scales
