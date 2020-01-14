@@ -293,21 +293,24 @@ convertPrim _ "UFetchByKey"
             ])
 
 convertPrim version "ETemplateTypeRep"
-    ty@(TApp proxy (TCon template) :-> TTypeRep) =
+    ty@(TApp proxy (TCon template) :-> tTypeRep)
+    | tTypeRep `elem` [TTypeRep, TUnit] =
     -- TODO: restrict to known templates
     whenRuntimeSupports version featureTypeRep ty $
         ETmLam (mkVar "_", TApp proxy (TCon template)) $
         ETypeRep (TCon template)
 
 convertPrim version "EFromAnyTemplate"
-    ty@(TAny :-> TOptional (TCon template)) =
+    ty@(tAny :-> TOptional (TCon template))
+    | tAny `elem` [TAny, TUnit] =
     -- TODO: restrict to known templates
     whenRuntimeSupports version featureAnyType ty $
         ETmLam (mkVar "any", TAny) $
         EFromAny (TCon template) (EVar $ mkVar "any")
 
 convertPrim version "EFromAnyChoice"
-    ty@(TApp proxy (TCon template) :-> TAny :-> TOptional choice) =
+    ty@(TApp proxy (TCon template) :-> tAny :-> TOptional choice)
+    | tAny `elem` [TAny, TUnit] =
     -- TODO: restrict to known template/choice pairs
     whenRuntimeSupports version featureAnyType ty $
         ETmLam (mkVar "_", TApp proxy (TCon template)) $
@@ -315,7 +318,8 @@ convertPrim version "EFromAnyChoice"
         EFromAny choice (EVar $ mkVar "any")
 
 convertPrim version "EFromAnyContractKey"
-    ty@(TApp proxy (TCon template) :-> TAny :-> TOptional key) =
+    ty@(TApp proxy (TCon template) :-> tAny :-> TOptional key)
+    | tAny `elem` [TAny, TUnit] =
     -- TODO: restrict to known template/key pairs
     whenRuntimeSupports version featureAnyType ty $
         ETmLam (mkVar "_", TApp proxy (TCon template)) $
@@ -323,14 +327,16 @@ convertPrim version "EFromAnyContractKey"
         EFromAny key (EVar $ mkVar "any")
 
 convertPrim version "EToAnyTemplate"
-    ty@(TCon template :-> TAny) =
+    ty@(TCon template :-> tAny)
+    | tAny `elem` [TAny, TUnit] =
     -- TODO: restrict to known templates
     whenRuntimeSupports version featureAnyType ty $
         ETmLam (mkVar "template", TCon template) $
         EToAny (TCon template) (EVar $ mkVar "template")
 
 convertPrim version "EToAnyChoice"
-    ty@(TApp proxy (TCon template) :-> choice :-> TAny) =
+    ty@(TApp proxy (TCon template) :-> choice :-> tAny)
+    | tAny `elem` [TAny, TUnit] =
     -- TODO: restrict to known template/choice pairs
     whenRuntimeSupports version featureAnyType ty $
         ETmLam (mkVar "_", TApp proxy (TCon template)) $
@@ -338,7 +344,8 @@ convertPrim version "EToAnyChoice"
         EToAny choice (EVar $ mkVar "choice")
 
 convertPrim version "EToAnyContractKey"
-    ty@(TApp proxy (TCon template) :-> key :-> TAny) =
+    ty@(TApp proxy (TCon template) :-> key :-> tAny)
+    | tAny `elem` [TAny, TUnit] =
     -- TODO: restrict to known template/key pairs
     whenRuntimeSupports version featureAnyType ty $
         ETmLam (mkVar "_", TApp proxy (TCon template)) $
