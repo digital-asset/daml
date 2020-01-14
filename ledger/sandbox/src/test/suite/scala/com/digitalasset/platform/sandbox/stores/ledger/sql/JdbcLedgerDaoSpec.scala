@@ -43,7 +43,6 @@ import com.digitalasset.ledger.api.domain.{
   TransactionFilter
 }
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.participant.util.EventFilter
 import com.digitalasset.platform.resources.Resource
 import com.digitalasset.platform.sandbox.persistence.PostgresAroundAll
@@ -53,6 +52,7 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.migration.FlywayMigra
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
 import com.digitalasset.platform.sandbox.stores.ledger.{ConfigurationEntry, LedgerEntry}
 import org.scalatest.{AsyncWordSpec, Matchers, OptionValues}
+import com.digitalasset.platform.logging.LoggingContext.newLoggingContext
 
 import scala.collection.immutable.TreeMap
 import scala.concurrent.duration.DurationInt
@@ -82,13 +82,14 @@ class JdbcLedgerDaoSpec
   override def beforeAll(): Unit = {
     super.beforeAll()
     implicit val executionContext: ExecutionContext = system.dispatcher
-    val loggerFactory = NamedLoggerFactory(JdbcLedgerDaoSpec.getClass)
-    FlywayMigrations(postgresFixture.jdbcUrl, loggerFactory).migrate()
-    resource = for {
-      dbDispatcher <- DbDispatcher
-        .owner(postgresFixture.jdbcUrl, 4, loggerFactory, new MetricRegistry)
-        .acquire()
-    } yield JdbcLedgerDao(dbDispatcher, DbType.Postgres, loggerFactory, system.dispatcher)
+    resource = newLoggingContext { implicit ctx =>
+      new FlywayMigrations(postgresFixture.jdbcUrl).migrate()
+      for {
+        dbDispatcher <- DbDispatcher
+          .owner(postgresFixture.jdbcUrl, 4, new MetricRegistry)
+          .acquire()
+      } yield JdbcLedgerDao(dbDispatcher, DbType.Postgres, system.dispatcher)
+    }
     ledgerDao = Await.result(resource.asFuture, 10.seconds)
     Await.result(ledgerDao.initializeLedger(LedgerId("test-ledger"), 0), 10.seconds)
   }
@@ -455,7 +456,7 @@ class JdbcLedgerDaoSpec
         secondUploadResult shouldBe PersistenceResponse.Ok
         loadedPackages.values.flatMap(_.sourceDescription.toList) should contain theSameElementsAs Seq
           .fill(8)(secondDescription) ++
-          Seq(firstDescription) ++ Seq.fill(6)(secondDescription),
+          Seq(firstDescription) ++ Seq.fill(6)(secondDescription)
       }
     }
 

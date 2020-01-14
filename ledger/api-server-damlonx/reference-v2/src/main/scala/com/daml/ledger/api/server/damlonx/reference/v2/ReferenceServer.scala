@@ -14,8 +14,9 @@ import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.auth.{AuthService, AuthServiceWildcard}
 import com.digitalasset.platform.apiserver.{ApiServerConfig, StandaloneApiServer}
-import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.indexer.{IndexerConfig, StandaloneIndexerServer}
+import com.digitalasset.platform.logging.LoggingContext
+import com.digitalasset.platform.logging.LoggingContext.newLoggingContext
 import com.digitalasset.platform.resources.{Resource, ResourceOwner}
 import org.slf4j.LoggerFactory
 
@@ -39,55 +40,57 @@ object ReferenceServer extends App {
   implicit val materializer: Materializer = Materializer(system)
   implicit val executionContext: ExecutionContext = system.dispatcher
 
-  val resource = for {
-    // Take ownership of the actor system and materializer so they're cleaned up properly.
-    // This is necessary because we can't declare them as implicits within a `for` comprehension.
-    _ <- ResourceOwner.forActorSystem(() => system).acquire()
-    _ <- ResourceOwner.forMaterializer(() => materializer).acquire()
-    ledger <- ResourceOwner
-      .forCloseable(() => new InMemoryKVParticipantState(config.participantId))
-      .acquire()
-    _ <- Resource.sequenceIgnoringValues(config.archiveFiles.map { file =>
-      val submissionId = SubmissionId.assertFromString(UUID.randomUUID().toString)
-      for {
-        dar <- ResourceOwner
-          .forTry(() =>
-            DarReader { case (_, x) => Try(Archive.parseFrom(x)) }
-              .readArchiveFromFile(file))
-          .acquire()
-        _ <- ResourceOwner
-          .forCompletionStage(() => ledger.uploadPackages(submissionId, dar.all, None))
-          .acquire()
-      } yield ()
-    })
-    _ <- startIndexerServer(config, readService = ledger)
-    _ <- startApiServer(
-      config,
-      readService = ledger,
-      writeService = ledger,
-      authService = AuthServiceWildcard,
-    )
-    _ <- Resource.sequenceIgnoringValues(
-      for {
-        (extraParticipantId, port, jdbcUrl) <- config.extraParticipants
-      } yield {
-        val participantConfig = config.copy(
-          port = port,
-          participantId = extraParticipantId,
-          jdbcUrl = jdbcUrl,
-        )
+  val resource = newLoggingContext { implicit ctx =>
+    for {
+      // Take ownership of the actor system and materializer so they're cleaned up properly.
+      // This is necessary because we can't declare them as implicits within a `for` comprehension.
+      _ <- ResourceOwner.forActorSystem(() => system).acquire()
+      _ <- ResourceOwner.forMaterializer(() => materializer).acquire()
+      ledger <- ResourceOwner
+        .forCloseable(() => new InMemoryKVParticipantState(config.participantId))
+        .acquire()
+      _ <- Resource.sequenceIgnoringValues(config.archiveFiles.map { file =>
+        val submissionId = SubmissionId.assertFromString(UUID.randomUUID().toString)
         for {
-          _ <- startIndexerServer(participantConfig, readService = ledger)
-          _ <- startApiServer(
-            participantConfig,
-            readService = ledger,
-            writeService = ledger,
-            authService = AuthServiceWildcard,
-          )
+          dar <- ResourceOwner
+            .forTry(() =>
+              DarReader { case (_, x) => Try(Archive.parseFrom(x)) }
+                .readArchiveFromFile(file))
+            .acquire()
+          _ <- ResourceOwner
+            .forCompletionStage(() => ledger.uploadPackages(submissionId, dar.all, None))
+            .acquire()
         } yield ()
-      }
-    )
-  } yield ()
+      })
+      _ <- startIndexerServer(config, readService = ledger)
+      _ <- startApiServer(
+        config,
+        readService = ledger,
+        writeService = ledger,
+        authService = AuthServiceWildcard,
+      )
+      _ <- Resource.sequenceIgnoringValues(
+        for {
+          (extraParticipantId, port, jdbcUrl) <- config.extraParticipants
+        } yield {
+          val participantConfig = config.copy(
+            port = port,
+            participantId = extraParticipantId,
+            jdbcUrl = jdbcUrl,
+          )
+          for {
+            _ <- startIndexerServer(participantConfig, readService = ledger)
+            _ <- startApiServer(
+              participantConfig,
+              readService = ledger,
+              writeService = ledger,
+              authService = AuthServiceWildcard,
+            )
+          } yield ()
+        }
+      )
+    } yield ()
+  }
 
   resource.asFuture.failed.foreach { exception =>
     logger.error("Shutting down because of an initialization error.", exception)
@@ -96,11 +99,11 @@ object ReferenceServer extends App {
 
   Runtime.getRuntime.addShutdownHook(new Thread(() => Await.result(resource.release(), 10.seconds)))
 
-  private def startIndexerServer(config: Config, readService: ReadService): Resource[Unit] =
+  private def startIndexerServer(config: Config, readService: ReadService)(
+      implicit ctx: LoggingContext): Resource[Unit] =
     new StandaloneIndexerServer(
       readService,
       IndexerConfig(config.participantId, config.jdbcUrl, config.startupMode),
-      NamedLoggerFactory.forParticipant(config.participantId),
       SharedMetricRegistries.getOrCreate(s"indexer-${config.participantId}"),
     ).acquire()
 
@@ -109,7 +112,7 @@ object ReferenceServer extends App {
       readService: ReadService,
       writeService: WriteService,
       authService: AuthService,
-  ): Resource[Unit] =
+  )(implicit ctx: LoggingContext): Resource[Unit] =
     new StandaloneApiServer(
       ApiServerConfig(
         config.participantId,
@@ -125,7 +128,6 @@ object ReferenceServer extends App {
       readService,
       writeService,
       authService,
-      NamedLoggerFactory.forParticipant(config.participantId),
       SharedMetricRegistries.getOrCreate(s"ledger-api-server-${config.participantId}"),
     ).acquire()
 }

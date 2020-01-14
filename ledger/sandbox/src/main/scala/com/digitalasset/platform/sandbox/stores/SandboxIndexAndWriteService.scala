@@ -36,7 +36,7 @@ import com.digitalasset.ledger.api.domain.CompletionEvent.{
 }
 import com.digitalasset.ledger.api.domain.{ParticipantId => _, _}
 import com.digitalasset.ledger.api.health.HealthStatus
-import com.digitalasset.platform.common.logging.NamedLoggerFactory
+import com.digitalasset.platform.logging.LoggingContext
 import com.digitalasset.platform.participant.util.EventFilter
 import com.digitalasset.platform.resources.{Resource, ResourceOwner}
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
@@ -74,9 +74,8 @@ object SandboxIndexAndWriteService {
       startMode: SqlStartMode,
       queueDepth: Int,
       templateStore: InMemoryPackageStore,
-      loggerFactory: NamedLoggerFactory,
       metrics: MetricRegistry,
-  )(implicit mat: Materializer): ResourceOwner[IndexAndWriteService] =
+  )(implicit mat: Materializer, ctx: LoggingContext): ResourceOwner[IndexAndWriteService] =
     Ledger
       .jdbcBacked(
         jdbcUrl,
@@ -88,7 +87,6 @@ object SandboxIndexAndWriteService {
         ledgerEntries,
         queueDepth,
         startMode,
-        loggerFactory,
         metrics,
       )
       .flatMap(ledger =>

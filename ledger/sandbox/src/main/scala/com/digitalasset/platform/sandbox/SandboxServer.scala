@@ -28,7 +28,8 @@ import com.digitalasset.platform.apiserver.{
   TimeServiceBackend
 }
 import com.digitalasset.platform.common.LedgerIdMode
-import com.digitalasset.platform.common.logging.NamedLoggerFactory
+import com.digitalasset.platform.logging.{ContextualizedLogger, LoggingContext}
+import com.digitalasset.platform.logging.LoggingContext.newLoggingContext
 import com.digitalasset.platform.resources.{Resource, ResourceOwner}
 import com.digitalasset.platform.sandbox.SandboxServer._
 import com.digitalasset.platform.sandbox.banner.Banner
@@ -44,7 +45,6 @@ import com.digitalasset.platform.sandbox.stores.{
   SandboxIndexAndWriteService
 }
 import com.digitalasset.platform.services.time.TimeProviderType
-import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.DurationInt
@@ -54,7 +54,7 @@ object SandboxServer {
   private val ActorSystemName = "sandbox"
   private val AsyncTolerance = 30.seconds
 
-  private val logger = LoggerFactory.getLogger(this.getClass)
+  private val logger = ContextualizedLogger.get[SandboxServer]
 
   // We memoize the engine between resets so we avoid the expensive
   // repeated validation of the sames packages after each reset
@@ -129,15 +129,13 @@ final class SandboxServer(config: => SandboxConfig) extends AutoCloseable {
   private def resetService(
       ledgerId: LedgerId,
       authorizer: Authorizer,
-      loggerFactory: NamedLoggerFactory,
       executionContext: ExecutionContext,
-  ): SandboxResetService =
+  )(implicit ctx: LoggingContext): SandboxResetService =
     new SandboxResetService(
       ledgerId,
       () => executionContext,
       () => resetAndRestartServer()(executionContext),
       authorizer,
-      loggerFactory,
     )
 
   def resetAndRestartServer()(implicit executionContext: ExecutionContext): Future[Unit] = {
@@ -192,94 +190,92 @@ final class SandboxServer(config: => SandboxConfig) extends AutoCloseable {
           (ts, Some(ts))
       }
 
-    val loggerFactory = NamedLoggerFactory.forParticipant(participantId)
+    newLoggingContext("participantId" -> participantId) { implicit ctx =>
+      val (ledgerType, indexAndWriteServiceResourceOwner) = config.jdbcUrl match {
+        case Some(jdbcUrl) =>
+          "postgres" -> SandboxIndexAndWriteService.postgres(
+            ledgerId,
+            participantId,
+            jdbcUrl,
+            config.timeModel,
+            timeProvider,
+            acs,
+            ledgerEntries,
+            startMode,
+            config.commandConfig.maxCommandsInFlight * 2, // we can get commands directly as well on the submission service
+            packageStore,
+            metrics,
+          )
 
-    val (ledgerType, indexAndWriteServiceResourceOwner) = config.jdbcUrl match {
-      case Some(jdbcUrl) =>
-        "postgres" -> SandboxIndexAndWriteService.postgres(
-          ledgerId,
-          participantId,
-          jdbcUrl,
-          config.timeModel,
-          timeProvider,
-          acs,
-          ledgerEntries,
-          startMode,
-          config.commandConfig.maxCommandsInFlight * 2, // we can get commands directly as well on the submission service
-          packageStore,
-          loggerFactory,
-          metrics,
-        )
+        case None =>
+          "in-memory" -> SandboxIndexAndWriteService.inMemory(
+            ledgerId,
+            participantId,
+            config.timeModel,
+            timeProvider,
+            acs,
+            ledgerEntries,
+            packageStore,
+            metrics,
+          )
+      }
 
-      case None =>
-        "in-memory" -> SandboxIndexAndWriteService.inMemory(
-          ledgerId,
-          participantId,
-          config.timeModel,
-          timeProvider,
-          acs,
-          ledgerEntries,
-          packageStore,
-          metrics,
+      for {
+        indexAndWriteService <- indexAndWriteServiceResourceOwner.acquire()
+        authorizer = new Authorizer(
+          () => java.time.Clock.systemUTC.instant(),
+          LedgerId.unwrap(ledgerId),
+          participantId)
+        healthChecks = new HealthChecks(
+          "index" -> indexAndWriteService.indexService,
+          "write" -> indexAndWriteService.writeService,
         )
+        // NOTE: Re-use the same port after reset.
+        apiServer <- new LedgerApiServer(
+          (mat: Materializer, esf: ExecutionSequencerFactory) =>
+            ApiServices
+              .create(
+                indexAndWriteService.writeService,
+                indexAndWriteService.indexService,
+                authorizer,
+                SandboxServer.engine,
+                timeProvider,
+                defaultConfiguration,
+                config.commandConfig,
+                timeServiceBackendO
+                  .map(TimeServiceBackend.withObserver(_, indexAndWriteService.publishHeartbeat)),
+                metrics,
+                healthChecks,
+              )(mat, esf, ctx)
+              .map(_.withServices(List(resetService(ledgerId, authorizer, executionContext)))),
+          currentPort.getOrElse(config.port),
+          config.maxInboundMessageSize,
+          config.address,
+          config.tlsConfig.flatMap(_.server),
+          List(
+            AuthorizationInterceptor(authService, executionContext),
+            resetService(ledgerId, authorizer, executionContext),
+          ),
+          metrics
+        ).acquire()
+        _ <- ResourceOwner.forFuture(() => writePortFile(apiServer.port)).acquire()
+      } yield {
+        Banner.show(Console.out)
+        logger.withoutContext.info(
+          "Initialized sandbox version {} with ledger-id = {}, port = {}, dar file = {}, time mode = {}, ledger = {}, auth-service = {}",
+          BuildInfo.Version,
+          ledgerId,
+          apiServer.port.toString,
+          config.damlPackages,
+          config.timeProviderType,
+          ledgerType,
+          authService.getClass.getSimpleName
+        )
+        apiServer
+      }
+
     }
 
-    for {
-      indexAndWriteService <- indexAndWriteServiceResourceOwner.acquire()
-      authorizer = new Authorizer(
-        () => java.time.Clock.systemUTC.instant(),
-        LedgerId.unwrap(ledgerId),
-        participantId)
-      healthChecks = new HealthChecks(
-        "index" -> indexAndWriteService.indexService,
-        "write" -> indexAndWriteService.writeService,
-      )
-      // NOTE: Re-use the same port after reset.
-      apiServer <- new LedgerApiServer(
-        (mat: Materializer, esf: ExecutionSequencerFactory) =>
-          ApiServices
-            .create(
-              indexAndWriteService.writeService,
-              indexAndWriteService.indexService,
-              authorizer,
-              SandboxServer.engine,
-              timeProvider,
-              defaultConfiguration,
-              config.commandConfig,
-              timeServiceBackendO
-                .map(TimeServiceBackend.withObserver(_, indexAndWriteService.publishHeartbeat)),
-              loggerFactory,
-              metrics,
-              healthChecks,
-            )(mat, esf)
-            .map(_.withServices(
-              List(resetService(ledgerId, authorizer, loggerFactory, executionContext)))),
-        currentPort.getOrElse(config.port),
-        config.maxInboundMessageSize,
-        config.address,
-        loggerFactory,
-        config.tlsConfig.flatMap(_.server),
-        List(
-          AuthorizationInterceptor(authService, executionContext),
-          resetService(ledgerId, authorizer, loggerFactory, executionContext),
-        ),
-        metrics
-      ).acquire()
-      _ <- ResourceOwner.forFuture(() => writePortFile(apiServer.port)).acquire()
-    } yield {
-      Banner.show(Console.out)
-      logger.info(
-        "Initialized sandbox version {} with ledger-id = {}, port = {}, dar file = {}, time mode = {}, ledger = {}, auth-service = {}",
-        BuildInfo.Version,
-        ledgerId,
-        apiServer.port.toString,
-        config.damlPackages,
-        config.timeProviderType,
-        ledgerType,
-        authService.getClass.getSimpleName
-      )
-      apiServer
-    }
   }
 
   private def start()(implicit executionContext: ExecutionContext): Resource[SandboxState] = {

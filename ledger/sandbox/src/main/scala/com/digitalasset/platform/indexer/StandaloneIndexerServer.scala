@@ -6,8 +6,8 @@ package com.digitalasset.platform.indexer
 import akka.actor.ActorSystem
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.v1.ReadService
-import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.indexer.StandaloneIndexerServer._
+import com.digitalasset.platform.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.resources.{Resource, ResourceOwner}
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
@@ -15,12 +15,12 @@ import scala.concurrent.{ExecutionContext, Future}
 
 // Main entry point to start an indexer server.
 // See v2.ReferenceServer for the usage
-class StandaloneIndexerServer(
+final class StandaloneIndexerServer(
     readService: ReadService,
     config: IndexerConfig,
-    loggerFactory: NamedLoggerFactory,
     metrics: MetricRegistry,
-) extends ResourceOwner[Unit] {
+)(implicit ctx: LoggingContext)
+    extends ResourceOwner[Unit] {
   override def acquire()(implicit executionContext: ExecutionContext): Resource[Unit] =
     for {
       // ActorSystem name not allowed to contain daml-lf LedgerString characters ".:#/ "
@@ -28,12 +28,11 @@ class StandaloneIndexerServer(
         .forActorSystem(() =>
           ActorSystem("StandaloneIndexerServer-" + config.participantId.filterNot(".:#/ ".toSet)))
         .acquire()
-      indexerFactory = JdbcIndexerFactory(metrics, loggerFactory)
+      indexerFactory = JdbcIndexerFactory(metrics)
       indexer = new RecoveringIndexer(
         actorSystem.scheduler,
         asyncTolerance,
-        indexerFactory.asyncTolerance,
-        loggerFactory,
+        indexerFactory.asyncTolerance
       )
       _ <- config.startupMode match {
         case IndexerStartupMode.MigrateOnly =>
@@ -43,7 +42,9 @@ class StandaloneIndexerServer(
         case IndexerStartupMode.ValidateAndStart =>
           startIndexer(indexer, indexerFactory.validateSchema(config.jdbcUrl), actorSystem)
       }
-      _ = loggerFactory.getLogger(getClass).debug("Waiting for indexer to initialize the database")
+      _ = ContextualizedLogger
+        .get[StandaloneIndexerServer]
+        .debug("Waiting for indexer to initialize the database")
     } yield ()
 
   def startIndexer(

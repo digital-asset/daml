@@ -19,11 +19,11 @@ import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.v1.admin.config_management_service.ConfigManagementServiceGrpc.ConfigManagementService
 import com.digitalasset.ledger.api.v1.admin.config_management_service._
 import com.digitalasset.platform.api.grpc.GrpcApiService
-import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.dec.{DirectExecutionContext => DE}
 import com.digitalasset.platform.server.api.validation
 import com.digitalasset.platform.server.api.validation.ErrorFactories
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
+import org.slf4j.{Logger, LoggerFactory}
 
 import scala.compat.java8.FutureConverters
 import scala.concurrent.duration.{Duration, FiniteDuration}
@@ -35,12 +35,11 @@ class ApiConfigManagementService private (
     writeService: WriteConfigService,
     timeProvider: TimeProvider,
     defaultConfiguration: Configuration,
-    materializer: Materializer,
-    loggerFactory: NamedLoggerFactory
+    materializer: Materializer
 ) extends ConfigManagementService
     with GrpcApiService {
 
-  protected val logger = loggerFactory.getLogger(this.getClass)
+  protected val logger: Logger = LoggerFactory.getLogger(this.getClass)
 
   override def close(): Unit = ()
 
@@ -77,7 +76,7 @@ class ApiConfigManagementService private (
 
     for {
       // Validate and convert the request parameters
-      params <- validateParameters(request).fold(Future.failed(_), Future.successful(_))
+      params <- validateParameters(request).fold(Future.failed(_), Future.successful)
 
       // Lookup latest configuration to check generation and to extend it with the new time model.
       optConfigAndOffset <- index.lookupConfiguration()
@@ -192,14 +191,13 @@ object ApiConfigManagementService {
       readBackend: IndexConfigManagementService,
       writeBackend: WriteConfigService,
       timeProvider: TimeProvider,
-      defaultConfiguration: Configuration,
-      loggerFactory: NamedLoggerFactory)(implicit mat: Materializer)
+      defaultConfiguration: Configuration)(implicit mat: Materializer)
     : ConfigManagementServiceGrpc.ConfigManagementService with GrpcApiService =
     new ApiConfigManagementService(
       readBackend,
       writeBackend,
       timeProvider,
       defaultConfiguration,
-      mat,
-      loggerFactory) with ConfigManagementServiceLogging
+      mat) with ConfigManagementServiceLogging
+
 }

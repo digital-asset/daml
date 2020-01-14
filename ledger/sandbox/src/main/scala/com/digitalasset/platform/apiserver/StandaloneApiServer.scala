@@ -19,7 +19,7 @@ import com.digitalasset.ledger.api.auth.{AuthService, Authorizer}
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.health.HealthChecks
 import com.digitalasset.platform.apiserver.StandaloneApiServer._
-import com.digitalasset.platform.common.logging.NamedLoggerFactory
+import com.digitalasset.platform.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.resources.{Resource, ResourceOwner}
 import com.digitalasset.platform.sandbox.BuildInfo
 import com.digitalasset.platform.sandbox.config.SandboxConfig
@@ -35,12 +35,13 @@ final class StandaloneApiServer(
     readService: ReadService,
     writeService: WriteService,
     authService: AuthService,
-    loggerFactory: NamedLoggerFactory,
     metrics: MetricRegistry,
     engine: Engine = sharedEngine, // allows sharing DAML engine with DAML-on-X participant
     timeServiceBackendO: Option[TimeServiceBackend] = None,
-) extends ResourceOwner[Unit] {
-  private val logger = loggerFactory.getLogger(this.getClass)
+)(implicit ctx: LoggingContext)
+    extends ResourceOwner[Unit] {
+
+  private val logger = ContextualizedLogger.get[StandaloneApiServer]
 
   // Name of this participant,
   val participantId: ParticipantId = config.participantId
@@ -105,9 +106,8 @@ final class StandaloneApiServer(
         domain.LedgerId(initialConditions.ledgerId),
         participantId,
         config.jdbcUrl,
-        loggerFactory,
         metrics,
-      )(materializer)
+      )(materializer, ctx)
       healthChecks = new HealthChecks(
         "index" -> indexService,
         "read" -> readService,
@@ -125,27 +125,20 @@ final class StandaloneApiServer(
               initialConditions.config,
               SandboxConfig.defaultCommandConfig,
               timeServiceBackendO,
-              loggerFactory,
               metrics,
               healthChecks,
-            )(mat, esf),
+            )(mat, esf, ctx),
         config.port,
         config.maxInboundMessageSize,
         config.address,
-        loggerFactory,
         config.tlsConfig.flatMap(_.server),
         List(AuthorizationInterceptor(authService, ec)),
         metrics
-      )(actorSystem, materializer).acquire()
+      )(actorSystem, materializer, ctx).acquire()
       _ <- ResourceOwner.forFuture(() => writePortFile(apiServer.port)).acquire()
     } yield {
       logger.info(
-        "Initialized index server version {} with ledger-id = {}, port = {}, dar file = {}",
-        BuildInfo.Version,
-        initialConditions.ledgerId,
-        apiServer.port.toString,
-        config.archiveFiles
-      )
+        s"Initialized index server version ${BuildInfo.Version} with ledger-id = ${initialConditions.ledgerId}, port = ${apiServer.port}, dar file = ${config.archiveFiles}")
       apiServer
     }
   }

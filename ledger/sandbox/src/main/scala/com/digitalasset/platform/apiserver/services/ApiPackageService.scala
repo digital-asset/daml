@@ -14,10 +14,10 @@ import com.digitalasset.ledger.api.v1.package_service.HashFunction.{
 import com.digitalasset.ledger.api.v1.package_service.PackageServiceGrpc.PackageService
 import com.digitalasset.ledger.api.v1.package_service.{HashFunction => APIHashFunction, _}
 import com.digitalasset.platform.api.grpc.GrpcApiService
-import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.dec.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.server.api.validation.PackageServiceValidation
 import io.grpc.{BindableService, ServerServiceDefinition, Status}
+import org.slf4j.LoggerFactory
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -82,12 +82,11 @@ class ApiPackageService private (backend: IndexPackagesService)
 }
 
 object ApiPackageService {
-  def create(ledgerId: LedgerId, backend: IndexPackagesService, loggerFactory: NamedLoggerFactory)(
-      implicit ec: ExecutionContext)
+  def create(ledgerId: LedgerId, backend: IndexPackagesService)(implicit ec: ExecutionContext)
     : PackageService with GrpcApiService with PackageServiceLogging =
     new PackageServiceValidation(new ApiPackageService(backend), ledgerId) with BindableService
     with PackageServiceLogging {
-      override protected val logger = loggerFactory.getLogger(PackageService.getClass)
+      override protected val logger = LoggerFactory.getLogger(PackageService.getClass)
       override def bindService(): ServerServiceDefinition =
         PackageServiceGrpc.bindService(this, DEC)
     }

@@ -4,7 +4,7 @@
 package com.digitalasset.platform.apiserver
 
 import java.io.IOException
-import java.net.{BindException, InetSocketAddress, InetAddress}
+import java.net.{BindException, InetAddress, InetSocketAddress}
 import java.util.UUID
 import java.util.concurrent.TimeUnit.{MILLISECONDS, SECONDS}
 
@@ -12,7 +12,7 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.digitalasset.platform.common.logging.NamedLoggerFactory
+import com.digitalasset.platform.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.resources.{Resource, ResourceOwner}
 import io.grpc.netty.NettyServerBuilder
 import io.grpc.{Server, ServerInterceptor}
@@ -36,19 +36,19 @@ trait ApiServer {
 
 }
 
-class LedgerApiServer(
+final class LedgerApiServer(
     createApiServices: (Materializer, ExecutionSequencerFactory) => Future[ApiServices],
     desiredPort: Int,
     maxInboundMessageSize: Int,
     address: Option[String],
-    loggerFactory: NamedLoggerFactory,
     sslContext: Option[SslContext] = None,
     interceptors: List[ServerInterceptor] = List.empty,
     metrics: MetricRegistry,
-)(implicit actorSystem: ActorSystem, materializer: Materializer)
+)(implicit actorSystem: ActorSystem, materializer: Materializer, ctx: LoggingContext)
     extends ResourceOwner[ApiServer] {
+
   override def acquire()(implicit executionContext: ExecutionContext): Resource[ApiServer] = {
-    val logger = loggerFactory.getLogger(this.getClass)
+    val logger = ContextualizedLogger.get[LedgerApiServer]
     val servicesClosedPromise = Promise[Unit]()
 
     for {

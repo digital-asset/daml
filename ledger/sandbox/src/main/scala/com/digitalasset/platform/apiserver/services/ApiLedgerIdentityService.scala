@@ -15,10 +15,9 @@ import com.digitalasset.ledger.api.v1.ledger_identity_service.{
   LedgerIdentityServiceLogging
 }
 import com.digitalasset.platform.api.grpc.GrpcApiService
-import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.server.api.ApiException
 import io.grpc.{BindableService, ServerServiceDefinition, Status}
-import org.slf4j.Logger
+import org.slf4j.{Logger, LoggerFactory}
 import scalaz.syntax.tag._
 
 import scala.concurrent.Future
@@ -49,9 +48,9 @@ abstract class ApiLedgerIdentityService private (
 }
 
 object ApiLedgerIdentityService {
-  def create(getLedgerId: () => Future[LedgerId], loggerFactory: NamedLoggerFactory)
+  def create(getLedgerId: () => Future[LedgerId])
     : ApiLedgerIdentityService with BindableService with LedgerIdentityServiceLogging = {
-    val loggerOverride = loggerFactory.getLogger(GrpcLedgerIdentityService.getClass)
+    val loggerOverride = LoggerFactory.getLogger(GrpcLedgerIdentityService.getClass)
     new ApiLedgerIdentityService(getLedgerId, loggerOverride) with LedgerIdentityServiceLogging {
       override protected val logger: Logger = loggerOverride
     }

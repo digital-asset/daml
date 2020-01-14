@@ -17,11 +17,10 @@ import com.digitalasset.ledger.api.v1.testing.time_service._
 import com.digitalasset.platform.akkastreams.dispatcher.SignalDispatcher
 import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.platform.apiserver.TimeServiceBackend
-import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.server.api.validation.FieldValidations
 import com.google.protobuf.empty.Empty
 import io.grpc.{ServerServiceDefinition, Status, StatusRuntimeException}
-import org.slf4j.Logger
+import org.slf4j.{Logger, LoggerFactory}
 import scalaz.syntax.tag._
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -126,11 +125,11 @@ class ApiTimeService private (
 }
 
 object ApiTimeService {
-  def create(ledgerId: LedgerId, backend: TimeServiceBackend, loggerFactory: NamedLoggerFactory)(
+  def create(ledgerId: LedgerId, backend: TimeServiceBackend)(
       implicit grpcExecutionContext: ExecutionContext,
       mat: Materializer,
       esf: ExecutionSequencerFactory): TimeService with GrpcApiService with TimeServiceLogging = {
-    val loggerOverride = loggerFactory.getLogger(TimeServiceGrpc.TimeService.getClass)
+    val loggerOverride = LoggerFactory.getLogger(TimeServiceGrpc.TimeService.getClass)
     new ApiTimeService(ledgerId, backend, loggerOverride) with TimeServiceLogging {
       override protected val logger = loggerOverride
     }

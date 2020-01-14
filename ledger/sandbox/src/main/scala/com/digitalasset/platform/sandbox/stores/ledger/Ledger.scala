@@ -22,7 +22,7 @@ import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
 import com.digitalasset.ledger.api.health.ReportsHealth
-import com.digitalasset.platform.common.logging.NamedLoggerFactory
+import com.digitalasset.platform.logging.LoggingContext
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.resources.{Resource, ResourceOwner}
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.Contract
@@ -158,9 +158,8 @@ object Ledger {
       ledgerEntries: ImmArray[LedgerEntryOrBump],
       queueDepth: Int,
       startMode: SqlStartMode,
-      loggerFactory: NamedLoggerFactory,
       metrics: MetricRegistry
-  )(implicit mat: Materializer): ResourceOwner[Ledger] =
+  )(implicit mat: Materializer, ctx: LoggingContext): ResourceOwner[Ledger] =
     SqlLedger.owner(
       jdbcUrl,
       Some(ledgerId),
@@ -171,7 +170,6 @@ object Ledger {
       ledgerEntries,
       queueDepth,
       startMode,
-      loggerFactory,
       metrics,
     )
 
@@ -185,10 +183,9 @@ object Ledger {
   def jdbcBackedReadOnly(
       jdbcUrl: String,
       ledgerId: LedgerId,
-      loggerFactory: NamedLoggerFactory,
       metrics: MetricRegistry
-  )(implicit mat: Materializer): Resource[ReadOnlyLedger] =
-    ReadOnlySqlLedger(jdbcUrl, Some(ledgerId), loggerFactory, metrics)
+  )(implicit mat: Materializer, ctx: LoggingContext): Resource[ReadOnlyLedger] =
+    ReadOnlySqlLedger(jdbcUrl, Some(ledgerId), metrics)
 
   /** Wraps the given Ledger adding metrics around important calls */
   def metered(ledger: Ledger, metrics: MetricRegistry): Ledger = MeteredLedger(ledger, metrics)

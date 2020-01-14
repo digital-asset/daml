@@ -29,13 +29,13 @@ import com.digitalasset.ledger.client.services.commands.{
 import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.platform.apiserver.services.tracking.{TrackerImpl, TrackerMap}
 import com.digitalasset.platform.apiserver.services.ApiCommandService.LowLevelCommandServiceAccess
-import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.server.api.ApiException
 import com.digitalasset.platform.server.api.services.grpc.GrpcCommandService
 import com.digitalasset.util.Ctx
 import com.digitalasset.util.akkastreams.MaxInFlight
 import com.google.protobuf.empty.Empty
 import io.grpc._
+import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._
 
 import scala.concurrent.duration._
@@ -45,20 +45,20 @@ import scala.util.Try
 class ApiCommandService private (
     lowLevelCommandServiceAccess: LowLevelCommandServiceAccess,
     configuration: ApiCommandService.Configuration,
-    loggerFactory: NamedLoggerFactory)(
+)(
     implicit grpcExecutionContext: ExecutionContext,
     actorMaterializer: Materializer,
     esf: ExecutionSequencerFactory)
     extends CommandServiceGrpc.CommandService
     with AutoCloseable {
 
-  private val logger = loggerFactory.getLogger(this.getClass)
+  private val logger = LoggerFactory.getLogger(this.getClass)
 
   private type CommandId = String
   private type ApplicationId = String
 
   private val submissionTracker: TrackerMap =
-    TrackerMap(configuration.retentionPeriod, loggerFactory)
+    TrackerMap(configuration.retentionPeriod)
   private val staleCheckerInterval: FiniteDuration = 30.seconds
 
   private val trackerCleanupJob: Cancellable = actorMaterializer.system.scheduler
@@ -179,13 +179,13 @@ object ApiCommandService {
   def create(
       configuration: Configuration,
       svcAccess: LowLevelCommandServiceAccess,
-      loggerFactory: NamedLoggerFactory)(
+  )(
       implicit grpcExecutionContext: ExecutionContext,
       actorMaterializer: Materializer,
       esf: ExecutionSequencerFactory
   ): CommandServiceGrpc.CommandService with GrpcApiService with CommandServiceLogging =
     new GrpcCommandService(
-      new ApiCommandService(svcAccess, configuration, loggerFactory),
+      new ApiCommandService(svcAccess, configuration),
       configuration.ledgerId
     ) with CommandServiceLogging
 

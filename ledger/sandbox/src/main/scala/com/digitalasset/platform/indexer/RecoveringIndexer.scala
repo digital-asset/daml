@@ -8,7 +8,7 @@ import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import akka.actor.Scheduler
 import akka.pattern.after
 import com.digitalasset.dec.DirectExecutionContext
-import com.digitalasset.platform.common.logging.NamedLoggerFactory
+import com.digitalasset.platform.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.resources.{Resource, ResourceOwner}
 
 import scala.concurrent.duration.FiniteDuration
@@ -21,14 +21,14 @@ import scala.util.{Failure, Success}
   * @param restartDelay Time to wait before restarting the indexer after a failure
   * @param asyncTolerance Time to wait for asynchronous operations to complete
   */
-class RecoveringIndexer(
+final class RecoveringIndexer(
     scheduler: Scheduler,
     restartDelay: FiniteDuration,
     asyncTolerance: FiniteDuration,
-    loggerFactory: NamedLoggerFactory,
-) extends AutoCloseable {
+)(implicit ctx: LoggingContext)
+    extends AutoCloseable {
   private implicit val executionContext: ExecutionContext = DirectExecutionContext
-  private val logger = loggerFactory.getLogger(this.getClass)
+  private val logger = ContextualizedLogger.get[RecoveringIndexer]
 
   val closed = new AtomicBoolean(false)
   val lastHandle = new AtomicReference[Option[Resource[IndexFeedHandle]]](None)
