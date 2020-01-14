@@ -36,70 +36,73 @@ object Hasher {
 
   // package private for testing purpose.
   // Do not call this method from outside Hasher object/
-  private[transaction] implicit class HashBuilderOps(val builder: crypto.Hash.Builder)
+  private[transaction] implicit class HashBuilderOps(val builder: crypto.SHa256Hash.Builder)
       extends AnyVal {
 
     import builder._
 
-    def addDottedName(name: Ref.DottedName): crypto.Hash.Builder =
+    def addDottedName(name: Ref.DottedName): crypto.SHa256Hash.Builder =
       iterateOver(name.segments.iterator, name.segments.length)(_ add _)
 
-    def addQualifiedName(name: Ref.QualifiedName): crypto.Hash.Builder =
+    def addQualifiedName(name: Ref.QualifiedName): crypto.SHa256Hash.Builder =
       addDottedName(name.module).addDottedName(name.name)
 
-    def addIdentifier(id: Ref.Identifier): crypto.Hash.Builder =
+    def addIdentifier(id: Ref.Identifier): crypto.SHa256Hash.Builder =
       add(id.packageId).addQualifiedName(id.qualifiedName)
 
-    def addValue(value: Value[Value.AbsoluteContractId]): crypto.Hash.Builder = value match {
-      case Value.ValueUnit =>
-        add(tagUnit)
-      case Value.ValueBool(true) =>
-        add(tagTrue)
-      case Value.ValueBool(false) =>
-        add(tagFalse)
-      case Value.ValueInt64(v) =>
-        add(tagInt64).add(v)
-      case Value.ValueNumeric(v) =>
-        add(tagNumeric).add(v.scale).add(v.unscaledValue.toByteArray)
-      case Value.ValueTimestamp(v) =>
-        add(tagTimeStamp).add(v.micros)
-      case Value.ValueDate(v) =>
-        add(tagDate).add(v.days)
-      case Value.ValueParty(v) =>
-        add(tagParty).add(v)
-      case Value.ValueText(v) =>
-        add(tagText).add(v)
-      case Value.ValueContractId(v) =>
-        add(tagContractId).add(v.coid)
-      case Value.ValueOptional(None) =>
-        add(tagNone)
-      case Value.ValueOptional(Some(v)) =>
-        add(tagSome).addValue(v)
-      case Value.ValueList(xs) =>
-        add(tagList).iterateOver(xs.iterator, xs.length)(_ addValue _)
-      case Value.ValueTextMap(xs) =>
-        add(tagTextMap).iterateOver(xs.toImmArray.iterator, xs.toImmArray.length) {
-          case (acc, (k, v)) => acc.add(k).addValue(v)
-        }
-      case Value.ValueGenMap(_) =>
-        sys.error("Hashing of generic map not implemented")
-      // Struct: should never be encountered
-      case Value.ValueStruct(_) =>
-        sys.error("Hashing of struct values is not supported")
-      case Value.ValueRecord(_, fs) =>
-        add(tagRecord).iterateOver(fs.iterator, fs.length)(_ addValue _._2)
-      case Value.ValueVariant(_, variant, v) =>
-        add(tagVariant).add(variant).addValue(v)
-      case Value.ValueEnum(_, v) =>
-        add(tagEnum).add(v)
-    }
+    def addTypedValue(value: Value[Value.AbsoluteContractId]): crypto.SHa256Hash.Builder =
+      value match {
+        case Value.ValueUnit =>
+          add(tagUnit)
+        case Value.ValueBool(true) =>
+          add(tagTrue)
+        case Value.ValueBool(false) =>
+          add(tagFalse)
+        case Value.ValueInt64(v) =>
+          add(tagInt64).add(v)
+        case Value.ValueNumeric(v) =>
+          add(tagNumeric).add(v.scale).add(v.unscaledValue.toByteArray)
+        case Value.ValueTimestamp(v) =>
+          add(tagTimeStamp).add(v.micros)
+        case Value.ValueDate(v) =>
+          add(tagDate).add(v.days)
+        case Value.ValueParty(v) =>
+          add(tagParty).add(v)
+        case Value.ValueText(v) =>
+          add(tagText).add(v)
+        case Value.ValueContractId(v) =>
+          add(tagContractId).add(v.coid)
+        case Value.ValueOptional(None) =>
+          add(tagNone)
+        case Value.ValueOptional(Some(v)) =>
+          add(tagSome).addTypedValue(v)
+        case Value.ValueList(xs) =>
+          add(tagList).iterateOver(xs.iterator, xs.length)(_ addTypedValue _)
+        case Value.ValueTextMap(xs) =>
+          add(tagTextMap).iterateOver(xs.toImmArray.iterator, xs.toImmArray.length) {
+            case (acc, (k, v)) => acc.add(k).addTypedValue(v)
+          }
+        case Value.ValueGenMap(_) =>
+          sys.error("Hashing of generic map not implemented")
+        // Struct: should never be encountered
+        case Value.ValueStruct(_) =>
+          sys.error("Hashing of struct values is not supported")
+        case Value.ValueRecord(_, fs) =>
+          add(tagRecord).iterateOver(fs.iterator, fs.length)(_ addTypedValue _._2)
+        case Value.ValueVariant(_, variant, v) =>
+          add(tagVariant).add(variant).addTypedValue(v)
+        case Value.ValueEnum(_, v) =>
+          add(tagEnum).add(v)
+      }
   }
 
-  def hash(key: Node.GlobalKey): crypto.Hash =
-    crypto.Hash
+  // Assumes that key is well typed,
+  // i.e., the value of type `key.key` is a record of type `key.identifier`
+  def hash(key: Node.GlobalKey): crypto.SHa256Hash =
+    crypto.SHa256Hash
       .builder(crypto.HashPurpose.ContractKey)
       .addIdentifier(key.templateId)
-      .addValue(key.key.value)
+      .addTypedValue(key.key.value)
       .build
 
 }

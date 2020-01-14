@@ -618,8 +618,8 @@ class HasherSpec extends WordSpec with Matchers {
       val actualOutput = testCases
         .map { value =>
           val hash = Hasher
-            .HashBuilderOps(crypto.Hash.builder(crypto.HashPurpose.Testing))
-            .addValue(value)
+            .HashBuilderOps(crypto.SHa256Hash.builder(crypto.HashPurpose.Testing))
+            .addTypedValue(value)
             .build
             .toByteArray
             .map("%02x" format _)

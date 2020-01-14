@@ -9,7 +9,7 @@ import java.util
 
 import com.digitalasset.daml.lf.data.{Ref, Utf8}
 
-class Hash private (private val bytes: Array[Byte]) {
+class SHa256Hash private (private val bytes: Array[Byte]) {
 
   def toByteArray: Array[Byte] = bytes.clone()
 
@@ -20,7 +20,7 @@ class Hash private (private val bytes: Array[Byte]) {
 
   override def equals(other: Any): Boolean =
     other match {
-      case otherHash: Hash => util.Arrays.equals(bytes, otherHash.bytes)
+      case otherHash: SHa256Hash => util.Arrays.equals(bytes, otherHash.bytes)
       case _ => false
     }
 
@@ -36,32 +36,20 @@ class Hash private (private val bytes: Array[Byte]) {
 
 }
 
-object Hash {
+object SHa256Hash {
 
-  sealed abstract class Builder private[Hash] {
+  /**
+    * The methods of [[Builder]] change its internal state and return `this` for convenience.
+    */
+  sealed abstract class Builder {
 
-    protected def update(a: Array[Byte]): Unit
+    def add(a: Array[Byte]): Builder
 
-    protected def update(a: ByteBuffer): Unit
+    def add(a: ByteBuffer): Builder
 
-    protected def update(a: Byte): Unit
+    def add(a: Byte): Builder
 
-    final def add(a: Array[Byte]): Builder = {
-      update(a)
-      this
-    }
-
-    final def add(a: ByteBuffer): Builder = {
-      update(a)
-      this
-    }
-
-    final def add(a: Byte): Builder = {
-      update(a)
-      this
-    }
-
-    final def add(a: Hash): Builder =
+    final def add(a: SHa256Hash): Builder =
       add(a.bytes)
 
     final def add(s: String): Builder = {
@@ -86,22 +74,31 @@ object Hash {
     def iterateOver[T](i: Iterator[T], length: Int)(f: (Builder, T) => Builder): Builder =
       i.foldLeft(add(length))(f)
 
-    def build: Hash
+    def build: SHa256Hash
   }
 
   def builder(purpose: HashPurpose): Builder = new Builder {
 
     private val md = MessageDigest.getInstance("SHA-256")
 
-    override protected def update(a: Array[Byte]): Unit = md.update(a)
+    override def add(a: Array[Byte]): Builder = {
+      md.update(a)
+      this
+    }
 
-    override protected def update(a: ByteBuffer): Unit = md.update(a)
+    override def add(a: ByteBuffer): Builder = {
+      md.update(a)
+      this
+    }
 
-    override protected def update(a: Byte): Unit = md.update(a)
+    override def add(a: Byte): Builder = {
+      md.update(a)
+      this
+    }
 
     add(purpose.id)
 
-    override def build: Hash = new Hash(md.digest)
+    override def build: SHa256Hash = new SHa256Hash(md.digest)
 
   }
 
