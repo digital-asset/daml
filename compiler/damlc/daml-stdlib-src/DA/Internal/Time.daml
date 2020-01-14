@@ -10,6 +10,7 @@ module DA.Internal.Time where
 import DA.Internal.Prelude
 import DA.Internal.LF
 import DA.Internal.Date
+import GHC.Types (primitive)
 
 -- | HIDE Number of microseconds per day.
 microsecondsPerDay : Int
