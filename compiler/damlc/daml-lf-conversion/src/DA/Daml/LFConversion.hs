@@ -572,8 +572,8 @@ convertTemplateKey env tname TemplateBinds{..}
         let qtname = Qualified PRSelf (envLFModuleName env) tname
         tplKeyType <- convertType env keyTy
         tplKeyBody <- makeDesugarDFunProjection env fKey (`ETmApp` EVar this)
-        tplKeyMaintainers <- makeDesugarDFunProjection env fMaintainer $ \f ->
-            f `ETyApp` TBuiltin BTList `ETmApp` ENil (TCon qtname)
+        tplKeyMaintainers <- makeDesugarDFunProjection env fMaintainer
+            (\f -> f `ETyApp` TBuiltin BTList `ETmApp` ENil (TCon qtname))
         pure $ Just TemplateKey {..}
 
     | otherwise
