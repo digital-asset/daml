@@ -17,7 +17,11 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlSubmission
 }
 import com.daml.ledger.participant.state.kvutils.api.{LedgerReader, LedgerRecord, LedgerWriter}
-import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting}
+import com.daml.ledger.participant.state.kvutils.{
+  Envelope,
+  KeyValueCommitting,
+  SequentialLogEntryId
+}
 import com.daml.ledger.participant.state.v1.{LedgerId, Offset, ParticipantId, SubmissionResult}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -30,7 +34,7 @@ import com.google.protobuf.ByteString
 import scala.collection.JavaConverters._
 import scala.collection.immutable
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Random, Success}
+import scala.util.{Failure, Success}
 
 class FileSystemLedgerReaderWriter private (
     ledgerId: LedgerId = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
@@ -50,6 +54,8 @@ class FileSystemLedgerReaderWriter private (
 
   private val lock = new FileSystemLock(lockPath)
 
+  private val sequentialLogEntryId = new SequentialLogEntryId("FS")
+
   private val engine = Engine()
 
   private val dispatcher: Dispatcher[Index] =
@@ -58,8 +64,6 @@ class FileSystemLedgerReaderWriter private (
       zeroIndex = StartOffset,
       headAtInitialization = StartOffset,
     )
-
-  private val randomNumberGenerator = new Random()
 
   override def currentHealth(): HealthStatus = Healthy
 
@@ -94,7 +98,7 @@ class FileSystemLedgerReaderWriter private (
           submission.getInputDamlStateList.asScala.toVector
             .map(key => readState(key).map(key -> _)))
         stateInputs: Map[DamlStateKey, Option[DamlStateValue]] = stateInputStream.toMap
-        entryId = allocateEntryId()
+        entryId = sequentialLogEntryId.next()
         (logEntry, stateUpdates) = KeyValueCommitting.processSubmission(
           engine,
           entryId,
@@ -129,14 +133,6 @@ class FileSystemLedgerReaderWriter private (
 
   private def currentRecordTime(): Timestamp =
     Timestamp.assertFromInstant(Clock.systemUTC().instant())
-
-  private def allocateEntryId(): DamlLogEntryId = {
-    val nonce: Array[Byte] = Array.ofDim(8)
-    randomNumberGenerator.nextBytes(nonce)
-    DamlLogEntryId.newBuilder
-      .setEntryId(ByteString.copyFrom(nonce))
-      .build
-  }
 
   private def retrieveLogEntry(index: Index): Future[LedgerRecord] =
     for {
