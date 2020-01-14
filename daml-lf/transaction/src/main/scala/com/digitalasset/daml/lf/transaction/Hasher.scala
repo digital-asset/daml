@@ -48,7 +48,7 @@ object Hasher {
       addDottedName(name.module).addDottedName(name.name)
 
     def addIdentifier(id: Ref.Identifier): crypto.Hash.Builder =
-      add(id.packageId).add(id.qualifiedName.toString)
+      add(id.packageId).addQualifiedName(id.qualifiedName)
 
     def addValue(value: Value[Value.AbsoluteContractId]): crypto.Hash.Builder = value match {
       case Value.ValueUnit =>
