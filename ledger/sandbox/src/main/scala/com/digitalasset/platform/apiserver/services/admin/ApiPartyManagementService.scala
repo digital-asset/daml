@@ -65,8 +65,6 @@ class ApiPartyManagementService private (
       .map(ps => ListKnownPartiesResponse(ps.map(mapPartyDetails)))(DE)
 
   /**
-    * Wraps a call [[PollingUtils.pollUntilPersisted]] so that it can be chained on the party allocation with a `flatMap`.
-    *
     * Checks invariants and forwards the original result after the party is found to be persisted.
     *
     * @return The result of the party allocation received originally, wrapped in a [[Future]]
