@@ -8,7 +8,7 @@ import java.nio.file.Path
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlStateKey
 
 object StateKeys {
-  private val NameChunkSize: Int = 32
+  val NameChunkSize: Int = 32
 
   def resolveStateKey(root: Path, key: DamlStateKey): Path = {
     val name = Bytes.toString(key.toByteArray)
