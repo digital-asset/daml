@@ -38,21 +38,33 @@ class Hash private (private val bytes: Array[Byte]) {
 
 object Hash {
 
-  val DummyHash: Hash = new Hash(Array.fill(32)(0))
-
   sealed abstract class Builder private[Hash] {
 
-    def add(a: Array[Byte]): Builder
+    protected def update(a: Array[Byte]): Unit
 
-    def add(b: Byte): Builder
+    protected def update(a: ByteBuffer): Unit
 
-    def add(a: Hash): Builder = {
-      if (a.bytes.isEmpty)
-        throw new IllegalArgumentException("empty Hash")
-      add(a.bytes)
+    protected def update(a: Byte): Unit
+
+    final def add(a: Array[Byte]): Builder = {
+      update(a)
+      this
     }
 
-    def add(s: String): Builder = {
+    final def add(a: ByteBuffer): Builder = {
+      update(a)
+      this
+    }
+
+    final def add(a: Byte): Builder = {
+      update(a)
+      this
+    }
+
+    final def add(a: Hash): Builder =
+      add(a.bytes)
+
+    final def add(s: String): Builder = {
       val a = Utf8.getBytes(s)
       add(a.length).add(a)
     }
@@ -81,15 +93,11 @@ object Hash {
 
     private val md = MessageDigest.getInstance("SHA-256")
 
-    override def add(a: Array[Byte]): Builder = {
-      md.update(a)
-      this
-    }
+    override protected def update(a: Array[Byte]): Unit = md.update(a)
 
-    override def add(b: Byte): Builder = {
-      md.update(b)
-      this
-    }
+    override protected def update(a: ByteBuffer): Unit = md.update(a)
+
+    override protected def update(a: Byte): Unit = md.update(a)
 
     add(purpose.id)
 
