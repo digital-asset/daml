@@ -281,8 +281,7 @@ object ScenarioLoader {
             throw new RuntimeException(s"Error when augmenting acs at step $stepId: $err")
         }
       case _: L.AssertMustFail =>
-        throw new RuntimeException(
-          s"Scenario $scenarioRef contains a must fail -- you cannot use it to initialize the sandbox.")
+        (acs, time, mbOldTxId)
       case L.PassTime(dtMicros) =>
         (acs, time.addMicros(dtMicros), mbOldTxId)
     }
