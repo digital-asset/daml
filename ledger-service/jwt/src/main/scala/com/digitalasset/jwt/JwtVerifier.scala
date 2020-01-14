@@ -60,17 +60,13 @@ object HMAC256Verifier extends StrictLogging {
     }.leftMap(e => Error('HMAC256, e.getMessage))
 }
 
-// ECDA256 validator factory
+// ECDSA validator factory
 object ECDSAVerifier extends StrictLogging {
   def apply(algorithm: Algorithm): Error \/ JwtVerifier =
-    toVerifier(algorithm)
-
-  private def toVerifier(algorithm: Algorithm) = {
     \/.fromTryCatchNonFatal {
       val verifier = JWT.require(algorithm).build()
       new JwtVerifier(verifier)
     }.leftMap(e => Error(Symbol(algorithm.getName), e.getMessage))
-  }
 
   def fromCrtFile(
       path: String,
