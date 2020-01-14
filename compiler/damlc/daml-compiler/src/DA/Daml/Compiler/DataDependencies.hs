@@ -50,14 +50,9 @@ generateSrcFromLf ::
     -> ParsedSource
 generateSrcFromLf env = noLoc mod
   where
-    -- TODO (drsk) how come those '#' appear in daml-lf names?
-    sanitize = T.dropWhileEnd (== '#')
     modName = mkModuleName $ T.unpack $ LF.moduleNameString $ LF.moduleName $ envMod env
     unitId = envGetUnitId env LF.PRSelf
     thisModule = mkModule unitId modName
-    mkConRdr
-        | envQualify env = mkRdrUnqual
-        | otherwise = mkOrig thisModule
     mod =
         HsModule
             { hsmodImports = imports
@@ -67,116 +62,40 @@ generateSrcFromLf env = noLoc mod
             , hsmodHaddockModHeader = Nothing
             , hsmodExports = Nothing
             }
-    decls =
-        concat $ do
-            LF.DefDataType {..} <- NM.toList $ LF.moduleDataTypes $ envMod env
-            guard $ LF.getIsSerializable dataSerializable
-            let numberOfNameComponents = length (LF.unTypeConName dataTypeCon)
-            -- we should never encounter more than two name components in dalfs.
-            unless (numberOfNameComponents <= 2) $
-                errTooManyNameComponents $ LF.unTypeConName dataTypeCon
-            -- skip generated data types of sums of products construction in daml-lf
-            [dataTypeCon0] <- [LF.unTypeConName dataTypeCon]
-            let occName = mkOccName varName $ T.unpack $ sanitize dataTypeCon0
-            let dataDecl =
-                    noLoc $
-                    TyClD noExt $
-                    DataDecl
-                        { tcdDExt = noExt
-                        , tcdLName = noLoc $ mkConRdr occName
-                        , tcdTyVars =
-                              HsQTvs
-                                  { hsq_ext = noExt
-                                  , hsq_explicit =
-                                        [ mkUserTyVar $ LF.unTypeVarName tyVarName
-                                        | (tyVarName, _kind) <- dataParams
-                                        ]
-                                  }
-                        , tcdFixity = Prefix
-                        , tcdDataDefn =
-                              HsDataDefn
-                                  { dd_ext = noExt
-                                  , dd_ND = DataType
-                                  , dd_ctxt = noLoc []
-                                  , dd_cType = Nothing
-                                  , dd_kindSig = Nothing
-                                  , dd_cons = convDataCons dataTypeCon0 dataCons
-                                  , dd_derivs = noLoc []
-                                  }
-                        }
-            pure [dataDecl]
+    decls = do
+        LF.DefDataType {..} <- NM.toList $ LF.moduleDataTypes $ envMod env
+        guard $ LF.getIsSerializable dataSerializable
+        let numberOfNameComponents = length (LF.unTypeConName dataTypeCon)
+        -- we should never encounter more than two name components in dalfs.
+        unless (numberOfNameComponents <= 2) $
+            errTooManyNameComponents $ LF.unTypeConName dataTypeCon
+        -- skip generated data types of sums of products construction in daml-lf
+        -- the type will be inlined into the definition of the variant in
+        -- convDataCons.
+        [dataTypeCon0] <- [LF.unTypeConName dataTypeCon]
+        let occName = mkOccName varName $ T.unpack $ sanitize dataTypeCon0
+        pure $ mkDataDecl env thisModule occName dataParams (convDataCons dataTypeCon0 dataCons)
 
     convDataCons :: T.Text -> LF.DataCons -> [LConDecl GhcPs]
     convDataCons dataTypeCon0 = \case
             LF.DataRecord fields ->
-                [ noLoc $
-                  ConDeclH98
-                      { con_ext = noExt
-                      , con_name =
-                            noLoc $
-                            mkConRdr $
-                            mkOccName dataName $ T.unpack $ sanitize dataTypeCon0
-                      , con_forall = noLoc False
-                      , con_ex_tvs = []
-                      , con_mb_cxt = Nothing
-                      , con_doc = Nothing
-                      , con_args =
-                            RecCon $
-                            noLoc
-                                [ noLoc $
-                                ConDeclField
-                                    { cd_fld_ext = noExt
-                                    , cd_fld_doc = Nothing
-                                    , cd_fld_names =
-                                          [ noLoc $
-                                            FieldOcc
-                                                { extFieldOcc = noExt
-                                                , rdrNameFieldOcc =
-                                                      mkRdrName $
-                                                      LF.unFieldName fieldName
-                                                }
-                                          ]
-                                    , cd_fld_type = noLoc $ convType env ty
-                                    }
-                                | (fieldName, ty) <- fields
-                                ]
-                      }
+                [ mkConDecl env thisModule (mkOccName dataName $ T.unpack $ sanitize dataTypeCon0) $
+                      RecCon $ noLoc $ map (uncurry $ mkConDeclField env) fields
                 ]
             LF.DataVariant cons ->
-                [ noLoc $
-                ConDeclH98
-                    { con_ext = noExt
-                    , con_name =
-                          noLoc $
-                          mkConRdr $
-                          mkOccName varName $
-                          T.unpack $ sanitize $ LF.unVariantConName conName
-                    , con_forall = noLoc False
-                    , con_ex_tvs = []
-                    , con_mb_cxt = Nothing
-                    , con_doc = Nothing
-                    , con_args = let t = convType env ty
-                                 in case (t :: HsType GhcPs) of
-                                        HsRecTy _ext fs -> RecCon $ noLoc fs
-                                        _other -> PrefixCon [noLoc t]
-                    }
+                [ mkConDecl env thisModule (mkOccName varName $ T.unpack $ sanitize $ LF.unVariantConName conName)
+                    (let t = convType env ty
+                     in case (t :: HsType GhcPs) of
+                            -- In DAML we have sums of products, in DAML-LF a variant only has a single field.
+                            -- Here we combine them back into a single type.
+                            HsRecTy _ext fs -> RecCon $ noLoc fs
+                            _other -> PrefixCon [noLoc t]
+                    )
                 | (conName, ty) <- cons
                 ]
             LF.DataEnum cons ->
-                [ noLoc $
-                ConDeclH98
-                    { con_ext = noExt
-                    , con_name =
-                          noLoc $
-                          mkConRdr $
-                          mkOccName varName $
-                          T.unpack $ sanitize $ LF.unVariantConName conName
-                    , con_forall = noLoc False
-                    , con_ex_tvs = []
-                    , con_mb_cxt = Nothing
-                    , con_doc = Nothing
-                    , con_args = PrefixCon []
-                    }
+                [ mkConDecl env thisModule (mkOccName varName $ T.unpack $ sanitize $ LF.unVariantConName conName)
+                    (PrefixCon [])
                 | conName <- cons
                 ]
 
@@ -242,6 +161,61 @@ generateSrcFromLf env = noLoc mod
         LF.ModuleName .
         map T.pack . split (== '.') . moduleNameString . moduleName . nameModule . getName
 
+-- TODO (drsk) how come those '#' appear in daml-lf names?
+sanitize :: T.Text -> T.Text
+sanitize = T.dropWhileEnd (== '#')
+
+mkConRdr :: Env -> Module -> OccName -> RdrName
+mkConRdr env thisModule
+ | envQualify env = mkRdrUnqual
+ | otherwise = mkOrig thisModule
+
+mkDataDecl :: Env -> Module -> OccName -> [(LF.TypeVarName, LF.Kind)] -> [LConDecl GhcPs] -> LHsDecl GhcPs
+mkDataDecl env thisModule occName tyVars cons = noLoc $ TyClD noExt $ DataDecl
+    { tcdDExt = noExt
+    , tcdLName = noLoc $ mkConRdr env thisModule occName
+    , tcdTyVars =
+          HsQTvs
+              { hsq_ext = noExt
+              , hsq_explicit =
+                    [ mkUserTyVar $ LF.unTypeVarName tyVarName
+                    | (tyVarName, _kind) <- tyVars
+                    ]
+              }
+    , tcdFixity = Prefix
+    , tcdDataDefn =
+          HsDataDefn
+              { dd_ext = noExt
+              , dd_ND = DataType
+              , dd_ctxt = noLoc []
+              , dd_cType = Nothing
+              , dd_kindSig = Nothing
+              , dd_cons = cons
+              , dd_derivs = noLoc []
+              }
+    }
+
+
+mkConDecl :: Env -> Module -> OccName -> HsConDeclDetails GhcPs -> LConDecl GhcPs
+mkConDecl env thisModule conName details = noLoc $ ConDeclH98
+    { con_ext = noExt
+    , con_name = noLoc $ mkConRdr env thisModule conName
+    , con_forall = noLoc False -- No foralls from existentials
+    , con_ex_tvs = [] -- No existential type vars.
+    , con_mb_cxt = Nothing
+    , con_doc = Nothing
+    , con_args = details
+    }
+
+mkConDeclField :: Env -> LF.FieldName -> LF.Type -> LConDeclField GhcPs
+mkConDeclField env fieldName fieldTy = noLoc $ ConDeclField
+    { cd_fld_ext = noExt
+    , cd_fld_doc = Nothing
+    , cd_fld_names =
+      [ noLoc $ FieldOcc { extFieldOcc = noExt, rdrNameFieldOcc = mkRdrName $ LF.unFieldName fieldName } ]
+    , cd_fld_type = noLoc $ convType env fieldTy
+    }
+
 -- | Generate the source for a package containing template instances for all templates defined in a
 -- package. It _only_ contains the instance stubs. The correct implementation happens in the
 -- conversion to daml-lf, where `extenal` calls are inlined to daml-lf contained in the dalf of the
@@ -293,6 +267,7 @@ generateTemplateInstanceModule env externPkgId
     header =
         [ "{-# LANGUAGE NoDamlSyntax #-}"
         , "{-# LANGUAGE EmptyCase #-}"
+        , "{-# OPTIONS_GHC -Wno-unused-imports #-}"
         , "module " <> modName
         , "   ( module " <> modName
         , "   , module X"
@@ -486,33 +461,10 @@ convType env =
                              (mkModuleName $
                               T.unpack $ LF.moduleNameString qualModule))
                         (mkOccName varName $ T.unpack name)
-                n@[_name0, _name1] ->
-                    let fs =
-                            MS.findWithDefault
-                                (error $
-                                 "Internal error: Could not find generated record type: " <>
-                                 (T.unpack $ T.intercalate "." n))
-                                n
-                                (sumProdRecords $ envMod env)
-                     in HsRecTy
-                            noExt
-                            [ noLoc $
-                            ConDeclField
-                                { cd_fld_ext = noExt
-                                , cd_fld_names =
-                                      [ noLoc $
-                                        FieldOcc
-                                            { extFieldOcc = noExt
-                                            , rdrNameFieldOcc =
-                                                  mkRdrName $
-                                                  LF.unFieldName fieldName
-                                            }
-                                      ]
-                                , cd_fld_type = noLoc $ convType env fieldTy
-                                , cd_fld_doc = Nothing
-                                }
-                            | (fieldName, fieldTy) <- fs
-                            ]
+                n@[_name0, _name1] -> case MS.lookup n (sumProdRecords $ envMod env) of
+                    Nothing ->
+                        error $ "Internal error: Could not find generated record type: " <> T.unpack (T.intercalate "." n)
+                    Just fs -> HsRecTy noExt $ map (uncurry $ mkConDeclField env) fs
                 cs -> errTooManyNameComponents cs
         LF.TApp ty1 ty2 ->
             HsParTy noExt $
@@ -727,6 +679,7 @@ generateSrcPkgFromLf getUnitId mbSdkPrefix pkg = do
         ["{-# LANGUAGE NoDamlSyntax #-}"
         , "{-# LANGUAGE NoImplicitPrelude #-}"
         , "{-# LANGUAGE TypeOperators #-}"
+        , "{-# OPTIONS_GHC -Wno-unused-imports #-}"
         ]
 
 
@@ -801,6 +754,7 @@ generateGenInstanceModule env externPkgId qual
     header =
         [ "{-# LANGUAGE NoDamlSyntax #-}"
         , "{-# LANGUAGE EmptyCase #-}"
+        , "{-# OPTIONS_GHC -Wno-unused-imports #-}"
         , "module " <> modNameQual <> "GenInstances" <> " where"
         ]
     imports =
