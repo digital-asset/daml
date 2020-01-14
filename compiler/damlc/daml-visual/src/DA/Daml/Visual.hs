@@ -134,8 +134,9 @@ startFromUpdate seen world update = case update of
     LF.UGetTime -> Set.empty
     LF.UEmbedExpr _ upEx -> startFromExpr seen world upEx
     -- NOTE(MH): The cases below are impossible because they only appear
-    -- in dictionaries for the `Template` and `Choice` classes, which we
-    -- ignore below.
+    -- in dictionaries for the template and choice typeclasses (`HasCreate`
+    -- `HasExercise`, `HasArchive`, `HasFetch`, `HasFetchByKey`, `HasLookupByKey`)
+    -- which we ignore below.
     LF.UCreate{} -> error "IMPOSSIBLE"
     LF.UExercise{} -> error "IMPOSSIBLE"
     LF.UFetch{} -> error "IMPOSSIBLE"
@@ -150,7 +151,13 @@ startFromExpr seen world e = case e of
     -- in the graph. We instead detect calls to the `create`, `archive` and
     -- `exercise` methods from `Template` and `Choice` instances.
     LF.EVal (LF.Qualified _ _ (LF.ExprValName ref))
-        | any (`T.isPrefixOf` ref) ["$fChoice", "$fTemplate"] -> Set.empty
+        | any (`T.isPrefixOf` ref)
+            [ "$fHasCreate"
+            , "$fHasExercise"
+            , "$fHasArchive"
+            , "$fHasFetch" -- also filters out $fHasFetchByKey
+            , "$fHasLookupByKey"
+            ] -> Set.empty
     LF.EVal ref -> case LF.lookupValue ref world of
         Right LF.DefValue{..}
             | ref `Set.member` seen -> Set.empty
