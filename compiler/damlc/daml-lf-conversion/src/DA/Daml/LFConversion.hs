@@ -552,10 +552,10 @@ convertTemplate env tplTypeCon tbinds@TemplateBinds{..}
     , tplLocation <- convNameLoc (GHC.tyConName tplTyCon)
     = withRange tplLocation $ do
         let tplParam = this
-        tplSignatories <- makeDesugarDFunProjection env fSignatory (`ETmApp` EVar this)
-        tplObservers <- makeDesugarDFunProjection env fObserver (`ETmApp` EVar this)
-        tplPrecondition <- makeDesugarDFunProjection env fEnsure (`ETmApp` EVar this)
-        tplAgreement <- makeDesugarDFunProjection env fAgreement (`ETmApp` EVar this)
+        tplSignatories <- useSingleMethodDict env fSignatory (`ETmApp` EVar this)
+        tplObservers <- useSingleMethodDict env fObserver (`ETmApp` EVar this)
+        tplPrecondition <- useSingleMethodDict env fEnsure (`ETmApp` EVar this)
+        tplAgreement <- useSingleMethodDict env fAgreement (`ETmApp` EVar this)
         tplChoices <- convertChoices env tplTypeCon tbinds
         tplKey <- convertTemplateKey env tplTypeCon tbinds
         pure Template {..}
@@ -571,18 +571,23 @@ convertTemplateKey env tname TemplateBinds{..}
     = do
         let qtname = Qualified PRSelf (envLFModuleName env) tname
         tplKeyType <- convertType env keyTy
-        tplKeyBody <- makeDesugarDFunProjection env fKey (`ETmApp` EVar this)
-        tplKeyMaintainers <- makeDesugarDFunProjection env fMaintainer
+        tplKeyBody <- useSingleMethodDict env fKey (`ETmApp` EVar this)
+        tplKeyMaintainers <- useSingleMethodDict env fMaintainer
             (\f -> f `ETyApp` TBuiltin BTList `ETmApp` ENil (TCon qtname))
         pure $ Just TemplateKey {..}
 
     | otherwise
     = pure Nothing
 
-makeDesugarDFunProjection :: Env -> GHC.Expr Var -> (LF.Expr -> t) -> ConvertM t
-makeDesugarDFunProjection env (Cast ghcExpr _) f = do
+-- | Convert the method from a single method type class dictionary
+-- (such as those used in template desugaring), and then fmap over it
+-- (usually to apply some arguments).
+useSingleMethodDict :: Env -> GHC.Expr Var -> (LF.Expr -> t) -> ConvertM t
+useSingleMethodDict env (Cast ghcExpr _) f = do
     lfExpr <- convertExpr env ghcExpr
     pure (f lfExpr)
+useSingleMethodDict env x _ =
+    unhandled "useSingleMethodDict: not a single method type class dictionary" x
 
 convertChoices :: Env -> LF.TypeConName -> TemplateBinds -> ConvertM (NM.NameMap TemplateChoice)
 convertChoices env tplTypeCon tbinds =
@@ -602,7 +607,7 @@ convertChoice env tbinds (ChoiceData ty expr)
             | con == ["PostConsuming"] -> pure PostConsuming
         _ -> unhandled "choice consumption type" (show consumingTy)
     let update = action `ETmApp` EVar self `ETmApp` EVar this `ETmApp` EVar arg
-    archiveSelf <- makeDesugarDFunProjection env fArchive (`ETmApp` EVar self)
+    archiveSelf <- useSingleMethodDict env fArchive (`ETmApp` EVar self)
     update <- pure $ if consuming /= PostConsuming
         then update
         else EUpdate $ UBind (Binding (res, choiceRetTy) update) $
