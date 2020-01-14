@@ -34,13 +34,9 @@ type Template t =
   , HasCreate t
   , HasFetch t
   , HasArchive t
-#ifdef DAML_TYPE_REP
   , HasTemplateTypeRep t
-#ifdef DAML_ANY_TYPE
   , HasToAnyTemplate t
   , HasFromAnyTemplate t
-#endif
-#endif
   )
 
 class HasSignatory t where
@@ -73,6 +69,16 @@ class HasArchive t where
   -- | Archive the contract with the given contract ID.
   archive : ContractId t -> Update ()
 
+class HasTemplateTypeRep t where
+  -- | Generate a unique textual representation of the template Id.
+  _templateTypeRep : proxy t -> TypeRep
+
+class HasToAnyTemplate t where
+  _toAnyTemplate : t -> Any
+
+class HasFromAnyTemplate t where
+  _fromAnyTemplate : Any -> Optional t
+
 -- | The stakeholders of a contract: its signatories and observers.
 stakeholder : (HasSignatory t, HasObserver t) => t -> [Party]
 stakeholder t = signatory t ++ observer t
@@ -81,15 +87,19 @@ stakeholder t = signatory t ++ observer t
 type Choice t c r =
   ( Template t
   , HasExercise t c r
-#ifdef DAML_TYPE_REP && DAML_ANY_TYPE
   , HasToAnyChoice t c r
   , HasFromAnyChoice t c r
-#endif
   )
 
 class HasExercise t c r | t c -> r where
   -- | Exercise a choice on the contract with the given contract ID.
   exercise : ContractId t -> c -> Update r
+
+class HasToAnyChoice t c r | t c -> r where
+  _toAnyChoice : proxy t -> c -> Any
+
+class HasFromAnyChoice t c r | t c -> r where
+  _fromAnyChoice : proxy t -> Any -> Optional c
 
 -- | Constrants satisfied by template key types.
 type TemplateKey t k =
@@ -98,10 +108,8 @@ type TemplateKey t k =
   , HasLookupByKey t k
   , HasFetchByKey t k
   , HasMaintainer t k
-#ifdef DAML_TYPE_REP && DAML_ANY_TYPE
   , HasToAnyContractKey t k
   , HasFromAnyContractKey t k
-#endif
   )
 
 class HasKey t k | t -> k where
@@ -124,8 +132,6 @@ class HasFetchByKey t k | t -> k where
   -- instance, if you want to fetch a contract of template `Account` by its
   -- key `k`, you must call `fetchByKey @Account k`.
   fetchByKey : k -> Update (ContractId t, t)
-
-class HasMaintainer t k | t -> k where
   -- NOTE(F. Mazzoli): the motivation for this function to return both the
   -- contract ID and the contract instance is that `fetchByKey` results in
   -- a fetch node in the transaction structure, and the fetch node
@@ -139,12 +145,19 @@ class HasMaintainer t k | t -> k where
   --    stakeholders of the fetched contract are, which requires
   --    getting the contract instance.
 
+class HasMaintainer t k | t -> k where
   -- | The list of maintainers of a contract key.
   _maintainer : proxy t -> k -> [Party]
 
 -- | The list of maintainers of a contract key.
 maintainer : forall t k. HasMaintainer t k => k -> [Party]
 maintainer = _maintainer ([] : [t])
+
+class HasToAnyContractKey t k | t -> k where
+  _toAnyContractKey : proxy t -> k -> Any
+
+class HasFromAnyContractKey t k | t -> k where
+  _fromAnyContractKey : proxy t -> Any -> Optional k
 
 -- | Exercise a choice on the contract associated with the given key.
 --
@@ -203,10 +216,6 @@ instance Eq AnyContractKey where
 
 #ifdef DAML_TYPE_REP
 
-class HasTemplateTypeRep t where
-  -- | Generate a unique textual representation of the template Id.
-  _templateTypeRep : proxy t -> TypeRep
-
 -- | Generate a unique textual representation of the template Id.
 templateTypeRep : forall t. HasTemplateTypeRep t => TemplateTypeRep
 templateTypeRep = TemplateTypeRep (_templateTypeRep ([] : [t]))
@@ -215,24 +224,6 @@ instance Eq TemplateTypeRep where
   TemplateTypeRep a == TemplateTypeRep b = a == b
 
 #ifdef DAML_ANY_TYPE
-
-class HasToAnyTemplate t where
-  _toAnyTemplate : t -> Any
-
-class HasFromAnyTemplate t where
-  _fromAnyTemplate : Any -> Optional t
-
-class HasToAnyChoice t c r | t c -> r where
-  _toAnyChoice : proxy t -> c -> Any
-
-class HasFromAnyChoice t c r | t c -> r where
-  _fromAnyChoice : proxy t -> Any -> Optional c
-
-class HasToAnyContractKey t k | t -> k where
-  _toAnyContractKey : proxy t -> k -> Any
-
-class HasFromAnyContractKey t k | t -> k where
-  _fromAnyContractKey : proxy t -> Any -> Optional k
 
 -- | Wrap the template in AnyTemplate
 toAnyTemplate : HasToAnyTemplate t => t -> AnyTemplate
