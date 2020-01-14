@@ -27,7 +27,7 @@ import scalaz.syntax.traverse._
 import scalaz.{-\/, Show, \/, \/-}
 import spray.json.JsValue
 
-import scala.collection.{SeqLike, breakOut}
+import scala.collection.breakOut
 import scala.concurrent.{ExecutionContext, Future}
 
 // TODO(Leo) split it into ContractsServiceInMemory and ContractsServiceDb
@@ -309,6 +309,9 @@ class ContractsService(
 
   private def resolveTemplateIds(xs: Set[domain.TemplateId.OptionalPkg])
     : (Set[domain.TemplateId.RequiredPkg], Set[domain.TemplateId.OptionalPkg]) = {
+
+    import util.Collections.SeqOps
+
     xs.toSeq.partitionMap { x =>
       resolveTemplateId(x) toLeftDisjunction x
     }(breakOut, breakOut)
@@ -332,22 +335,4 @@ object ContractsService {
       source: Source[A, NotUsed],
       unresolvedTemplateIds: Set[domain.TemplateId.OptionalPkg]
   )
-
-  private implicit final class `Seq WSS extras`[A, Self](private val self: SeqLike[A, Self])
-      extends AnyVal {
-
-    import collection.generic.CanBuildFrom
-
-    @SuppressWarnings(Array("org.wartremover.warts.Any"))
-    def partitionMap[E, B, Es, That](f: A => E \/ B)(
-        implicit es: CanBuildFrom[Self, E, Es],
-        that: CanBuildFrom[Self, B, That]): (Es, That) = {
-      val esb = es(self.repr)
-      val thatb = that(self.repr)
-      self foreach { a =>
-        f(a) fold (esb.+=, thatb.+=)
-      }
-      (esb.result, thatb.result)
-    }
-  }
 }
