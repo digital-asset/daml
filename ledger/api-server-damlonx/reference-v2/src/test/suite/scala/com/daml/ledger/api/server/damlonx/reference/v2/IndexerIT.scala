@@ -4,9 +4,7 @@
 package com.daml.ledger.api.server.damlonx.reference.v2
 
 import java.util.UUID
-import java.util.concurrent.CompletionStage
 
-import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
@@ -14,10 +12,8 @@ import ch.qos.logback.classic.Level
 import com.codahale.metrics.SharedMetricRegistries
 import com.daml.ledger.api.server.damlonx.reference.v2.IndexerIT._
 import com.daml.ledger.participant.state.v1._
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.LedgerString
-import com.digitalasset.daml.lf.data.{Ref, Time}
-import com.digitalasset.daml_lf_dev.DamlLf
-import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.platform.common.logging.TestNamedLoggerFactory
 import com.digitalasset.platform.indexer.{
   IndexerConfig,
@@ -28,6 +24,8 @@ import com.digitalasset.platform.indexer.{
 import com.digitalasset.platform.resources.Resource
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{JdbcLedgerDao, LedgerDao}
 import com.digitalasset.timer.RetryStrategy
+import org.mockito.ArgumentMatchers
+import org.mockito.Mockito._
 import org.scalatest.{AsyncWordSpec, BeforeAndAfterEach, Matchers}
 
 import scala.compat.java8.FutureConverters._
@@ -85,10 +83,8 @@ class IndexerIT extends AsyncWordSpec with Matchers with BeforeAndAfterEach {
     }
 
     "index the participant state, even on spurious failures" in {
-      val (participantState, server, ledgerDao) = initializeEverything(
-        (participantId, ledgerId) =>
-          new ParticipantStateWhichFailsOften(
-            new InMemoryKVParticipantState(participantId, ledgerId)))
+      val (participantState, server, ledgerDao) = initializeEverything((participantId, ledgerId) =>
+        failingOften(new InMemoryKVParticipantState(participantId, ledgerId)))
 
       for {
         _ <- participantState
@@ -143,8 +139,7 @@ class IndexerIT extends AsyncWordSpec with Matchers with BeforeAndAfterEach {
     "stop when the kill switch is hit after a failure" in {
       val (participantState, server, ledgerDao) = initializeEverything(
         (participantId, ledgerId) =>
-          new ParticipantStateWhichFailsOften(
-            new InMemoryKVParticipantState(participantId, ledgerId)),
+          failingOften(new InMemoryKVParticipantState(participantId, ledgerId)),
         restartDelay = 10.seconds,
       )
 
@@ -229,68 +224,21 @@ object IndexerIT {
     LedgerString.assertFromString(UUID.randomUUID().toString)
   }
 
-  // This class inserts a failure after each state update to force the RecoveringIndexer to restart.
-  private class ParticipantStateWhichFailsOften(delegate: ParticipantState)
-      extends DelegatingParticipantState(delegate) {
-    private var lastFailure: Option[Offset] = None
-
-    override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed] =
-      super
-        .stateUpdates(beginAfter)
-        .flatMapConcat {
-          case value @ (offset, _) =>
-            if (lastFailure.isEmpty || lastFailure.get < offset) {
-              lastFailure = Some(offset)
-              Source.single(value).concat(Source.failed(new StateUpdatesFailedException))
-            } else {
-              Source.single(value)
-            }
-        }
-  }
-
-  private class DelegatingParticipantState(delegate: ParticipantState)
-      extends ReadService
-      with WriteService
-      with AutoCloseable {
-    override def close(): Unit =
-      delegate.close()
-
-    override def currentHealth(): HealthStatus =
-      delegate.currentHealth()
-
-    override def getLedgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
-      delegate.getLedgerInitialConditions()
-
-    override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed] =
-      delegate.stateUpdates(beginAfter)
-
-    override def uploadPackages(
-        submissionId: SubmissionId,
-        archives: List[DamlLf.Archive],
-        sourceDescription: Option[String],
-    ): CompletionStage[SubmissionResult] =
-      delegate.uploadPackages(submissionId, archives, sourceDescription)
-
-    override def allocateParty(
-        hint: Option[Party],
-        displayName: Option[String],
-        submissionId: SubmissionId,
-    ): CompletionStage[SubmissionResult] =
-      delegate.allocateParty(hint, displayName, submissionId)
-
-    override def submitConfiguration(
-        maxRecordTime: Time.Timestamp,
-        submissionId: SubmissionId,
-        config: Configuration,
-    ): CompletionStage[SubmissionResult] =
-      delegate.submitConfiguration(maxRecordTime, submissionId, config)
-
-    override def submitTransaction(
-        submitterInfo: SubmitterInfo,
-        transactionMeta: TransactionMeta,
-        transaction: SubmittedTransaction,
-    ): CompletionStage[SubmissionResult] =
-      delegate.submitTransaction(submitterInfo, transactionMeta, transaction)
+  // This spy inserts a failure after each state update to force the RecoveringIndexer to restart.
+  private def failingOften(delegate: ParticipantState): ParticipantState = {
+    var lastFailure: Option[Offset] = None
+    val failingParticipantState = spy(delegate)
+    doAnswer(invocation =>
+      delegate.stateUpdates(invocation.getArgument[Option[Offset]](0)).flatMapConcat {
+        case value @ (offset, _) =>
+          if (lastFailure.isEmpty || lastFailure.get < offset) {
+            lastFailure = Some(offset)
+            Source.single(value).concat(Source.failed(new StateUpdatesFailedException))
+          } else {
+            Source.single(value)
+          }
+    }).when(failingParticipantState).stateUpdates(ArgumentMatchers.any[Option[Offset]]())
+    failingParticipantState
   }
 
   private class StateUpdatesFailedException extends RuntimeException("State updates failed.")
