@@ -17,14 +17,13 @@ import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
 import com.digitalasset.ledger.api.v1.admin.package_management_service._
 import com.digitalasset.platform.api.grpc.GrpcApiService
-import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.dec.{DirectExecutionContext => DE}
 import com.digitalasset.platform.server.api.validation.ErrorFactories
 import com.google.protobuf.timestamp.Timestamp
 import com.digitalasset.ledger.api.domain.{LedgerOffset, PackageEntry}
 import com.digitalasset.api.util.TimeProvider
 import io.grpc.ServerServiceDefinition
-import org.slf4j.Logger
+import org.slf4j.{Logger, LoggerFactory}
 
 import scala.compat.java8.FutureConverters
 import scala.concurrent.{ExecutionContext, Future}
@@ -37,12 +36,11 @@ class ApiPackageManagementService(
     packagesWrite: WritePackagesService,
     timeProvider: TimeProvider,
     materializer: Materializer,
-    scheduler: Scheduler,
-    loggerFactory: NamedLoggerFactory)
+    scheduler: Scheduler)
     extends PackageManagementService
     with GrpcApiService {
 
-  protected val logger: Logger = loggerFactory.getLogger(PackageManagementService.getClass)
+  protected val logger: Logger = LoggerFactory.getLogger(PackageManagementService.getClass)
 
   override def close(): Unit = ()
 
@@ -131,8 +129,7 @@ object ApiPackageManagementService {
       readBackend: IndexPackagesService,
       transactionsService: IndexTransactionsService,
       writeBackend: WritePackagesService,
-      timeProvider: TimeProvider,
-      loggerFactory: NamedLoggerFactory)(implicit mat: Materializer)
+      timeProvider: TimeProvider)(implicit mat: Materializer)
     : PackageManagementServiceGrpc.PackageManagementService with GrpcApiService =
     new ApiPackageManagementService(
       readBackend,
@@ -140,6 +137,5 @@ object ApiPackageManagementService {
       writeBackend,
       timeProvider,
       mat,
-      mat.system.scheduler,
-      loggerFactory) with PackageManagementServiceLogging
+      mat.system.scheduler) with PackageManagementServiceLogging
 }

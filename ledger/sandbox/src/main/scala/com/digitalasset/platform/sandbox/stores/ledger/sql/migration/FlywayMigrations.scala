@@ -4,7 +4,7 @@
 package com.digitalasset.platform.sandbox.stores.ledger.sql.migration
 
 import com.digitalasset.dec.DirectExecutionContext
-import com.digitalasset.platform.common.logging.NamedLoggerFactory
+import com.digitalasset.platform.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{DbType, HikariConnection}
 import com.digitalasset.resources.Resource
 import com.zaxxer.hikari.HikariDataSource
@@ -15,10 +15,10 @@ import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext}
 import scala.util.control.NonFatal
 
-class FlywayMigrations(jdbcUrl: String, loggerFactory: NamedLoggerFactory) {
+class FlywayMigrations(jdbcUrl: String)(implicit ctx: LoggingContext) {
   import FlywayMigrations._
 
-  private val logger = loggerFactory.getLogger(getClass)
+  private val logger = ContextualizedLogger.get[FlywayMigrations]
 
   private val dbType = DbType.jdbcType(jdbcUrl)
 
@@ -71,6 +71,4 @@ object FlywayMigrations {
   def configurationBase(dbType: DbType): FluentConfiguration =
     Flyway.configure.locations("classpath:db/migration/" + dbType.name)
 
-  def apply(jdbcUrl: String, loggerFactory: NamedLoggerFactory): FlywayMigrations =
-    new FlywayMigrations(jdbcUrl, loggerFactory)
 }

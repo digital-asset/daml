@@ -8,11 +8,10 @@ import java.util.concurrent.{ExecutorService, Executors, TimeUnit}
 
 import com.codahale.metrics.{MetricRegistry, Timer}
 import com.digitalasset.ledger.api.health.{HealthStatus, ReportsHealth}
-import com.digitalasset.platform.common.logging.NamedLoggerFactory
+import com.digitalasset.platform.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.HikariJdbcConnectionProvider
 import com.digitalasset.resources.ResourceOwner
 import com.google.common.util.concurrent.ThreadFactoryBuilder
-import org.slf4j.Logger
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
@@ -21,9 +20,12 @@ final class DbDispatcher(
     val maxConnections: Int,
     connectionProvider: HikariJdbcConnectionProvider,
     sqlExecutor: ExecutorService,
-    logger: Logger,
     metrics: MetricRegistry,
-) extends ReportsHealth {
+)(implicit ctx: LoggingContext)
+    extends ReportsHealth {
+
+  private val logger = ContextualizedLogger.get[DbDispatcher]
+
   private val sqlExecution = ExecutionContext.fromExecutorService(sqlExecutor)
 
   object Metrics {
@@ -87,10 +89,9 @@ object DbDispatcher {
   def owner(
       jdbcUrl: String,
       maxConnections: Int,
-      loggerFactory: NamedLoggerFactory,
       metrics: MetricRegistry,
-  ): ResourceOwner[DbDispatcher] = {
-    val logger = loggerFactory.getLogger(classOf[DbDispatcher])
+  )(implicit ctx: LoggingContext): ResourceOwner[DbDispatcher] = {
+    val logger = ContextualizedLogger.get[DbDispatcher]
     for {
       connectionProvider <- HikariJdbcConnectionProvider.owner(jdbcUrl, maxConnections, metrics)
       sqlExecutor <- ResourceOwner.forExecutorService(
@@ -104,6 +105,6 @@ object DbDispatcher {
                 logger.error("Got an uncaught exception in SQL executor!", e))
               .build()
         ))
-    } yield new DbDispatcher(maxConnections, connectionProvider, sqlExecutor, logger, metrics)
+    } yield new DbDispatcher(maxConnections, connectionProvider, sqlExecutor, metrics)
   }
 }

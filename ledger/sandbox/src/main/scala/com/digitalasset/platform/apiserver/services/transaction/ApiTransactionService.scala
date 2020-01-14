@@ -15,7 +15,7 @@ import com.digitalasset.ledger.api.domain._
 import com.digitalasset.ledger.api.messages.transaction._
 import com.digitalasset.ledger.api.v1.transaction_service.TransactionServiceLogging
 import com.digitalasset.ledger.api.validation.PartyNameChecker
-import com.digitalasset.platform.common.logging.NamedLoggerFactory
+import com.digitalasset.platform.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.sandbox.EventIdFormatter
 import com.digitalasset.platform.sandbox.EventIdFormatter.TransactionIdWithIndex
 import com.digitalasset.platform.server.api.services.domain.TransactionService
@@ -31,48 +31,43 @@ object ApiTransactionService {
   def create(
       ledgerId: LedgerId,
       transactionsService: IndexTransactionsService,
-      loggerFactory: NamedLoggerFactory)(
+  )(
       implicit ec: ExecutionContext,
       mat: Materializer,
-      esf: ExecutionSequencerFactory)
+      esf: ExecutionSequencerFactory,
+      ctx: LoggingContext)
     : GrpcTransactionService with BindableService with TransactionServiceLogging =
     new GrpcTransactionService(
-      new ApiTransactionService(transactionsService, loggerFactory),
+      new ApiTransactionService(transactionsService),
       ledgerId,
       PartyNameChecker.AllowAllParties
     ) with TransactionServiceLogging
 }
 
-class ApiTransactionService private (
+final class ApiTransactionService private (
     transactionsService: IndexTransactionsService,
-    loggerFactory: NamedLoggerFactory,
     parallelism: Int = 4)(
     implicit executionContext: ExecutionContext,
     materializer: Materializer,
-    esf: ExecutionSequencerFactory)
+    esf: ExecutionSequencerFactory,
+    ctx: LoggingContext)
     extends TransactionService
     with ErrorFactories {
 
-  private val logger = loggerFactory.getLogger(this.getClass)
+  private val logger = ContextualizedLogger.get[ApiTransactionService]
 
   private val subscriptionIdCounter = new AtomicLong()
 
   @SuppressWarnings(Array("org.wartremover.warts.Option2Iterable"))
   override def getTransactions(request: GetTransactionsRequest): Source[Transaction, NotUsed] = {
     val subscriptionId = subscriptionIdCounter.incrementAndGet().toString
-    logger.debug(
-      "Received request for transaction subscription {}: {}",
-      subscriptionId: Any,
-      request)
-
-    transactionsService
-      .transactions(request.begin, request.end, request.filter)
-
+    logger.debug(s"Received request for transaction subscription $subscriptionId: $request")
+    transactionsService.transactions(request.begin, request.end, request.filter)
   }
 
   override def getTransactionTrees(
       request: GetTransactionTreesRequest): Source[TransactionTree, NotUsed] = {
-    logger.debug("Received {}", request)
+    logger.debug(s"Received $request")
     transactionsService
       .transactionTrees(
         request.begin,
@@ -83,7 +78,7 @@ class ApiTransactionService private (
 
   override def getTransactionByEventId(
       request: GetTransactionByEventIdRequest): Future[TransactionTree] = {
-    logger.debug("Received {}", request)
+    logger.debug(s"Received $request")
     EventIdFormatter
       .split(request.eventId.unwrap)
       .fold(
@@ -91,13 +86,13 @@ class ApiTransactionService private (
           Status.NOT_FOUND
             .withDescription(s"invalid eventId: ${request.eventId}")
             .asRuntimeException())) {
-        case TransactionIdWithIndex(transactionId, index) =>
+        case TransactionIdWithIndex(transactionId, _) =>
           lookUpTreeByTransactionId(TransactionId(transactionId), request.requestingParties)
       }
   }
 
   override def getTransactionById(request: GetTransactionByIdRequest): Future[TransactionTree] = {
-    logger.debug("Received {}", request)
+    logger.debug(s"Received $request")
     lookUpTreeByTransactionId(request.transactionId, request.requestingParties)
   }
 

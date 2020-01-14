@@ -38,7 +38,7 @@ import com.digitalasset.ledger._
 import com.digitalasset.ledger.api.domain.RejectionReason._
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, RejectionReason}
 import com.digitalasset.ledger.api.health.HealthStatus
-import com.digitalasset.platform.common.logging.NamedLoggerFactory
+import com.digitalasset.platform.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.resources.ResourceOwner
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{
@@ -85,15 +85,15 @@ private class JdbcLedgerDao(
     valueSerializer: ValueSerializer,
     keyHasher: KeyHasher,
     dbType: DbType,
-    loggerFactory: NamedLoggerFactory,
     executionContext: ExecutionContext,
-) extends LedgerDao {
+)(implicit ctx: LoggingContext)
+    extends LedgerDao {
 
   private val queries = dbType match {
     case DbType.Postgres => PostgresQueries
     case DbType.H2Database => H2DatabaseQueries
   }
-  private val logger = loggerFactory.getLogger(getClass)
+  private val logger = ContextualizedLogger.get[JdbcLedgerDao]
 
   private val SQL_SELECT_LEDGER_ID = SQL("select ledger_id from parameters")
 
@@ -1013,10 +1013,7 @@ private class JdbcLedgerDao(
           }.recover {
             case NonFatal(e) if e.getMessage.contains(queries.DUPLICATE_KEY_ERROR) =>
               logger.warn(
-                "Ignoring duplicate submission for submitter{}, applicationId {}, commandId {}",
-                tx.submittingParty,
-                tx.applicationId,
-                tx.commandId)
+                s"Ignoring duplicate submission for submitter ${tx.submittingParty}, applicationId ${tx.applicationId}, commandId ${tx.commandId}")
               conn.rollback()
               Duplicate
           }.get
@@ -1513,7 +1510,7 @@ private class JdbcLedgerDao(
       PersistenceResponse.Ok
     }.recover {
       case NonFatal(e) if e.getMessage.contains(queries.DUPLICATE_KEY_ERROR) =>
-        logger.warn("Party with ID {} already exists", party)
+        logger.warn(s"Party with ID ${party} already exists")
         conn.rollback()
         PersistenceResponse.Duplicate
     }.get
@@ -1724,9 +1721,8 @@ object JdbcLedgerDao {
   def apply(
       dbDispatcher: DbDispatcher,
       dbType: DbType,
-      loggerFactory: NamedLoggerFactory,
       executionContext: ExecutionContext,
-  ): LedgerDao =
+  )(implicit ctx: LoggingContext): LedgerDao =
     new JdbcLedgerDao(
       dbDispatcher,
       ContractSerializer,
@@ -1734,7 +1730,6 @@ object JdbcLedgerDao {
       ValueSerializer,
       KeyHasher,
       dbType,
-      loggerFactory,
       executionContext,
     )
 

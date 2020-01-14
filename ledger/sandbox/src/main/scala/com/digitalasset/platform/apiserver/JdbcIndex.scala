@@ -12,7 +12,7 @@ import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.v1.{ParticipantId, ReadService}
 import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.ledger.api.domain.{ParticipantId => _, _}
-import com.digitalasset.platform.common.logging.NamedLoggerFactory
+import com.digitalasset.platform.logging.LoggingContext
 import com.digitalasset.platform.sandbox.stores.LedgerBackedIndexService
 import com.digitalasset.platform.sandbox.stores.ledger.{
   Ledger,
@@ -27,11 +27,10 @@ object JdbcIndex {
       ledgerId: LedgerId,
       participantId: ParticipantId,
       jdbcUrl: String,
-      loggerFactory: NamedLoggerFactory,
       metrics: MetricRegistry,
-  )(implicit mat: Materializer): Resource[IndexService] =
+  )(implicit mat: Materializer, ctx: LoggingContext): Resource[IndexService] =
     Ledger
-      .jdbcBackedReadOnly(jdbcUrl, ledgerId, loggerFactory, metrics)
+      .jdbcBackedReadOnly(jdbcUrl, ledgerId, metrics)
       .map { ledger =>
         val contractStore = new SandboxContractStore(ledger)
         new LedgerBackedIndexService(

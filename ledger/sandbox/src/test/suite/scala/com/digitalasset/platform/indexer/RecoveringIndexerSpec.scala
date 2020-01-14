@@ -8,8 +8,8 @@ import java.util.concurrent.ConcurrentLinkedQueue
 import akka.actor.ActorSystem
 import akka.pattern.after
 import com.digitalasset.dec.DirectExecutionContext
-import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.indexer.RecoveringIndexerSpec._
+import com.digitalasset.platform.logging.LoggingContext.newLoggingContext
 import com.digitalasset.resources.{Resource, ResourceOwner}
 import org.mockito.ArgumentMatchersSugar._
 import org.mockito.Mockito
@@ -19,8 +19,9 @@ import org.scalatest.{AsyncWordSpec, BeforeAndAfterEach, Matchers}
 import org.slf4j.Logger
 
 import scala.collection.mutable
-import scala.concurrent.duration.{DurationInt, FiniteDuration}
-import scala.concurrent.{Await, ExecutionContext, Future, Promise}
+import scala.concurrent.Await
+import scala.concurrent.duration.{DurationInt, DurationLong, FiniteDuration}
+import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success, Try}
 
 class RecoveringIndexerSpec
@@ -31,17 +32,12 @@ class RecoveringIndexerSpec
 
   private[this] implicit val executionContext: ExecutionContext = DirectExecutionContext
   private[this] var actorSystem: ActorSystem = _
-
-  private[this] var loggerFactory: NamedLoggerFactory = _
   private[this] var logger: Logger = _
 
   override def beforeEach(): Unit = {
     super.beforeEach()
     actorSystem = ActorSystem(getClass.getSimpleName)
-
-    loggerFactory = mock[NamedLoggerFactory]
     logger = mock[Logger]
-    when(loggerFactory.getLogger(classOf[RecoveringIndexer])).thenReturn(logger)
     ()
   }
 
@@ -54,7 +50,9 @@ class RecoveringIndexerSpec
   "RecoveringIndexer" should {
     "work when the stream completes" in {
       val recoveringIndexer =
-        new RecoveringIndexer(actorSystem.scheduler, 10.millis, 1.second, loggerFactory)
+        newLoggingContext { implicit ctx =>
+          new RecoveringIndexer(actorSystem.scheduler, 10.millis, 1.second)
+        }
       val testIndexer = new TestIndexer(
         SubscribeResult("A", SuccessfullyCompletes, 10.millis, 10.millis),
       )
@@ -81,7 +79,9 @@ class RecoveringIndexerSpec
 
     "work when the stream is stopped" in {
       val recoveringIndexer =
-        new RecoveringIndexer(actorSystem.scheduler, 10.millis, 1.second, loggerFactory)
+        newLoggingContext { implicit ctx =>
+          new RecoveringIndexer(actorSystem.scheduler, 10.millis, 1.second)
+        }
       // Stream completes after 10s, but is released before that happens
       val testIndexer = new TestIndexer(
         SubscribeResult("A", SuccessfullyCompletes, 10.millis, 10.seconds),
@@ -112,7 +112,9 @@ class RecoveringIndexerSpec
 
     "wait until the subscription completes" in {
       val recoveringIndexer =
-        new RecoveringIndexer(actorSystem.scheduler, 10.millis, 1.second, loggerFactory)
+        newLoggingContext { implicit ctx =>
+          new RecoveringIndexer(actorSystem.scheduler, 10.millis, 1.second)
+        }
       val testIndexer = new TestIndexer(
         SubscribeResult("A", SuccessfullyCompletes, 100.millis, 10.millis),
       )
@@ -140,7 +142,9 @@ class RecoveringIndexerSpec
 
     "recover from failure" in {
       val recoveringIndexer =
-        new RecoveringIndexer(actorSystem.scheduler, 10.millis, 1.second, loggerFactory)
+        newLoggingContext { implicit ctx =>
+          new RecoveringIndexer(actorSystem.scheduler, 10.millis, 1.second)
+        }
       // Subscribe fails, then the stream fails, then the stream completes without errors.
       val testIndexer = new TestIndexer(
         SubscribeResult("A", SubscriptionFails, 10.millis, 10.millis),
@@ -189,8 +193,11 @@ class RecoveringIndexerSpec
     }
 
     "respect restart delay" in {
+      val delay = 500.millis
       val recoveringIndexer =
-        new RecoveringIndexer(actorSystem.scheduler, 500.millis, 1.second, loggerFactory)
+        newLoggingContext { implicit ctx =>
+          new RecoveringIndexer(actorSystem.scheduler, delay, 1.second)
+        }
       // Subscribe fails, then the stream completes without errors. Note the restart delay of 500ms.
       val testIndexer = new TestIndexer(
         SubscribeResult("A", SubscriptionFails, 0.millis, 0.millis),
@@ -203,7 +210,7 @@ class RecoveringIndexerSpec
         .transformWith(finallyRelease(resource))
         .map { _ =>
           val t1 = System.nanoTime()
-          (t1 - t0) should be >= 500.millis.toNanos
+          (t1 - t0).nanos should be >= delay
           testIndexer.actions shouldBe Seq[IndexerEvent](
             EventSubscribeCalled("A"),
             EventSubscribeFail("A"),

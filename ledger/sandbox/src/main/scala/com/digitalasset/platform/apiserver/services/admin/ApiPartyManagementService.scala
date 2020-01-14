@@ -22,10 +22,10 @@ import com.digitalasset.ledger.api.domain.{LedgerOffset, PartyEntry}
 import com.digitalasset.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
 import com.digitalasset.ledger.api.v1.admin.party_management_service._
 import com.digitalasset.platform.api.grpc.GrpcApiService
-import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.dec.{DirectExecutionContext => DE}
 import com.digitalasset.platform.server.api.validation.ErrorFactories
 import io.grpc.ServerServiceDefinition
+import org.slf4j.{Logger, LoggerFactory}
 
 import scala.compat.java8.FutureConverters
 import scala.concurrent.duration.DurationInt
@@ -37,11 +37,10 @@ class ApiPartyManagementService private (
     writeService: WritePartyService,
     materializer: Materializer,
     scheduler: Scheduler,
-    loggerFactory: NamedLoggerFactory
 ) extends PartyManagementService
     with GrpcApiService {
 
-  protected val logger = loggerFactory.getLogger(this.getClass)
+  protected val logger: Logger = LoggerFactory.getLogger(this.getClass)
 
   override def close(): Unit = ()
 
@@ -125,7 +124,7 @@ object ApiPartyManagementService {
       partyManagementServiceBackend: IndexPartyManagementService,
       transactionsService: IndexTransactionsService,
       writeBackend: WritePartyService,
-      loggerFactory: NamedLoggerFactory)(
+  )(
       implicit ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer): PartyManagementServiceGrpc.PartyManagementService with GrpcApiService =
@@ -134,7 +133,6 @@ object ApiPartyManagementService {
       transactionsService,
       writeBackend,
       mat,
-      mat.system.scheduler,
-      loggerFactory) with PartyManagementServiceLogging
+      mat.system.scheduler) with PartyManagementServiceLogging
 
 }

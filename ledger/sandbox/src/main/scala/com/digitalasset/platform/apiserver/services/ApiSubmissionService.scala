@@ -20,6 +20,7 @@ import com.daml.ledger.participant.state.v1.{
   WriteService
 }
 import com.digitalasset.api.util.TimeProvider
+import com.digitalasset.platform.logging.LoggingContext.withEnrichedLoggingContext
 import com.digitalasset.daml.lf.engine.{Error => LfError}
 import com.digitalasset.daml.lf.transaction.Transaction.Transaction
 import com.digitalasset.daml.lf.transaction.{BlindingInfo, Transaction}
@@ -28,7 +29,7 @@ import com.digitalasset.ledger.api.domain.{LedgerId, Commands => ApiCommands}
 import com.digitalasset.ledger.api.messages.command.submission.SubmitRequest
 import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissionServiceLogging
 import com.digitalasset.platform.api.grpc.GrpcApiService
-import com.digitalasset.platform.common.logging.NamedLoggerFactory
+import com.digitalasset.platform.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.sandbox.metrics.timedFuture
 import com.digitalasset.platform.sandbox.stores.ledger.{CommandExecutor, ErrorCause}
 import com.digitalasset.platform.server.api.services.domain.CommandSubmissionService
@@ -53,8 +54,10 @@ object ApiSubmissionService {
       timeModel: TimeModel,
       timeProvider: TimeProvider,
       commandExecutor: CommandExecutor,
-      loggerFactory: NamedLoggerFactory,
-      metrics: MetricRegistry)(implicit ec: ExecutionContext, mat: Materializer)
+      metrics: MetricRegistry)(
+      implicit ec: ExecutionContext,
+      mat: Materializer,
+      ctx: LoggingContext)
     : GrpcCommandSubmissionService with GrpcApiService with CommandSubmissionServiceLogging =
     new GrpcCommandSubmissionService(
       new ApiSubmissionService(
@@ -63,7 +66,6 @@ object ApiSubmissionService {
         timeModel,
         timeProvider,
         commandExecutor,
-        loggerFactory,
         metrics),
       ledgerId
     ) with CommandSubmissionServiceLogging
@@ -80,13 +82,12 @@ class ApiSubmissionService private (
     timeModel: TimeModel,
     timeProvider: TimeProvider,
     commandExecutor: CommandExecutor,
-    loggerFactory: NamedLoggerFactory,
-    metrics: MetricRegistry)(implicit ec: ExecutionContext, mat: Materializer)
+    metrics: MetricRegistry)(implicit ec: ExecutionContext, mat: Materializer, ctx: LoggingContext)
     extends CommandSubmissionService
     with ErrorFactories
     with AutoCloseable {
 
-  private val logger = loggerFactory.getLogger(this.getClass)
+  private val logger = ContextualizedLogger.get[ApiSubmissionService]
 
   // FIXME(JM): We need to query the current configuration every time we want to validate
   // a command. Will be addressed in follow-up PR.
@@ -115,36 +116,33 @@ class ApiSubmissionService private (
 
     validation.fold(
       Future.failed,
-      _ => {
-        logger.debug(
-          "Received composite command {} with let {}.",
-          if (logger.isTraceEnabled()) commands else commands.commandId.unwrap,
-          commands.ledgerEffectiveTime: Any)
-        recordOnLedger(commands).transform {
-          case Success(Acknowledged) =>
-            logger.debug(s"Submission of command {} has succeeded", commands.commandId.unwrap)
-            Success(())
+      _ =>
+        withEnrichedLoggingContext("commandId" -> commands.commandId.unwrap) { implicit ctx =>
+          logger.trace(s"Received composite commands: $commands")
+          logger.debug(s"Received composite command let ${commands.ledgerEffectiveTime}.")
+          recordOnLedger(commands).transform {
+            case Success(Acknowledged) =>
+              logger.debug(s"Submission of command succeeded")
+              Success(())
 
-          case Success(Overloaded) =>
-            logger.debug(
-              s"Submission of command {} has failed due to back pressure",
-              commands.commandId.unwrap)
-            Failure(Status.RESOURCE_EXHAUSTED.asRuntimeException)
+            case Success(Overloaded) =>
+              logger.debug(s"Submission has failed due to back pressure")
+              Failure(Status.RESOURCE_EXHAUSTED.asRuntimeException)
 
-          case Success(NotSupported) =>
-            logger.debug(s"Submission of command {} was not supported", commands.commandId.unwrap)
-            Failure(Status.INVALID_ARGUMENT.asRuntimeException)
+            case Success(NotSupported) =>
+              logger.debug(s"Submission of command was not supported")
+              Failure(Status.INVALID_ARGUMENT.asRuntimeException)
 
-          case Success(InternalError(reason)) =>
-            logger.debug(
-              s"Submission of command ${commands.commandId.unwrap} failed due to an internal error, reason=$reason ")
-            Failure(Status.INTERNAL.augmentDescription(reason).asRuntimeException)
+            case Success(InternalError(reason)) =>
+              logger.debug(
+                s"Submission of command failed due to an internal error, reason=$reason ")
+              Failure(Status.INTERNAL.augmentDescription(reason).asRuntimeException)
 
-          case Failure(error) =>
-            logger.warn(s"Submission of command ${commands.commandId.unwrap} has failed.", error)
-            Failure(error)
+            case Failure(error) =>
+              logger.warn(s"Submission of command has failed.", error)
+              Failure(error)
 
-        }(DirectExecutionContext)
+          }(DirectExecutionContext)
       }
     )
   }

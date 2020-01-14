@@ -5,7 +5,7 @@ package com.digitalasset.platform.sandbox.persistence
 
 import com.codahale.metrics.MetricRegistry
 import com.digitalasset.dec.DirectExecutionContext
-import com.digitalasset.platform.common.logging.NamedLoggerFactory
+import com.digitalasset.platform.logging.LoggingContext.newLoggingContext
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{
   HikariJdbcConnectionProvider,
   JdbcConnectionProvider
@@ -17,9 +17,10 @@ import org.scalatest._
 import scala.concurrent.Await
 import scala.concurrent.duration.DurationInt
 
-class PostgresIT extends WordSpec with Matchers with PostgresAroundAll with BeforeAndAfterAll {
+import scala.concurrent.Await
+import scala.concurrent.duration.DurationInt
 
-  private val loggerFactory = NamedLoggerFactory("PostgresIT")
+class PostgresIT extends WordSpec with Matchers with PostgresAroundAll with BeforeAndAfterAll {
 
   private var connectionProviderResource: Resource[JdbcConnectionProvider] = _
   private var connectionProvider: JdbcConnectionProvider = _
@@ -58,7 +59,9 @@ class PostgresIT extends WordSpec with Matchers with PostgresAroundAll with Befo
   "Flyway" should {
 
     "execute initialisation script" in {
-      FlywayMigrations(postgresFixture.jdbcUrl, loggerFactory).migrate()
+      newLoggingContext { implicit ctx =>
+        new FlywayMigrations(postgresFixture.jdbcUrl).migrate()
+      }
       connectionProvider.runSQL { conn =>
         def checkTableExists(table: String) = {
           val resultSet = conn.createStatement().executeQuery(s"SELECT * from $table")

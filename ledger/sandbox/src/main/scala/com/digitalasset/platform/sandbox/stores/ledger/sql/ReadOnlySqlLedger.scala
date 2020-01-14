@@ -10,7 +10,7 @@ import com.codahale.metrics.MetricRegistry
 import com.digitalasset.dec.{DirectExecutionContext => DEC}
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.health.HealthStatus
-import com.digitalasset.platform.common.logging.NamedLoggerFactory
+import com.digitalasset.platform.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.sandbox.stores.ledger.ReadOnlyLedger
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{
   DbType,
@@ -33,20 +33,19 @@ object ReadOnlySqlLedger {
   def apply(
       jdbcUrl: String,
       ledgerId: Option[LedgerId],
-      loggerFactory: NamedLoggerFactory,
       metrics: MetricRegistry,
-  )(implicit mat: Materializer): Resource[ReadOnlyLedger] = {
+  )(implicit mat: Materializer, ctx: LoggingContext): Resource[ReadOnlyLedger] = {
     implicit val ec: ExecutionContext = mat.executionContext
     val dbType = DbType.jdbcType(jdbcUrl)
     for {
       dbDispatcher <- DbDispatcher
-        .owner(jdbcUrl, maxConnections, loggerFactory, metrics)
+        .owner(jdbcUrl, maxConnections, metrics)
         .acquire()
       ledgerReadDao = LedgerDao.meteredRead(
-        JdbcLedgerDao(dbDispatcher, dbType, loggerFactory, mat.executionContext),
+        JdbcLedgerDao(dbDispatcher, dbType, mat.executionContext),
         metrics,
       )
-      factory = new ReadOnlySqlLedgerFactory(ledgerReadDao, loggerFactory)
+      factory = new ReadOnlySqlLedgerFactory(ledgerReadDao)
       ledger <- ResourceOwner
         .forFutureCloseable(() => factory.createReadOnlySqlLedger(ledgerId))
         .acquire()
@@ -85,11 +84,9 @@ private class ReadOnlySqlLedger(
   }
 }
 
-private class ReadOnlySqlLedgerFactory(
-    ledgerDao: LedgerReadDao,
-    loggerFactory: NamedLoggerFactory,
-) {
-  private val logger = loggerFactory.getLogger(getClass)
+private class ReadOnlySqlLedgerFactory(ledgerDao: LedgerReadDao)(implicit ctx: LoggingContext) {
+
+  private val logger = ContextualizedLogger.get[ReadOnlySqlLedgerFactory]
 
   /**
     * Creates a DB backed Ledger implementation.
