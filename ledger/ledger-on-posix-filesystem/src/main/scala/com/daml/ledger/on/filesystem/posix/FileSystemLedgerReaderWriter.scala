@@ -138,7 +138,7 @@ class FileSystemLedgerReaderWriter private (
     for {
       entryId <- Future(Files.readAllBytes(logIndexDirectory.resolve(index.toString))).transform {
         case Success(value) => Success(value)
-        case Failure(exception) if exception.isInstanceOf[NoSuchFileException] =>
+        case Failure(_: NoSuchFileException) =>
           Failure(new NoSuchElementException(s"No log entry at $index."))
         case Failure(exception) => Failure(exception)
       }
@@ -154,7 +154,7 @@ class FileSystemLedgerReaderWriter private (
       currentHead <- Future(Files.readAllLines(logHeadPath).get(0)).transform {
         case Success(contents) =>
           Success(contents.toInt)
-        case Failure(exception) if exception.isInstanceOf[NoSuchFileException] =>
+        case Failure(_: NoSuchFileException) =>
           Success(StartOffset)
         case Failure(exception) =>
           Failure(exception)
