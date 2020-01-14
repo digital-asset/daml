@@ -37,7 +37,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 class FileSystemLedgerReaderWriter private (
-    ledgerId: LedgerId = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
+    ledgerId: LedgerId,
     override val participantId: ParticipantId,
     root: Path,
 )(implicit executionContext: ExecutionContext)
@@ -45,11 +45,18 @@ class FileSystemLedgerReaderWriter private (
     with LedgerWriter
     with AutoCloseable {
 
+  // used as the ledger lock; when committing, only one commit owns the lock at a time
   private val lockPath = root.resolve("lock")
+  // the root of the ledger log
   private val logDirectory = root.resolve("log")
+  // stores each ledger entry
   private val logEntriesDirectory = logDirectory.resolve("entries")
+  // a counter which is incremented with each commit;
+  // always one more than the latest commit in the index
   private val logHeadPath = logDirectory.resolve("head")
+  // a directory of sequential commits, each pointing to an entry in the "entries" directory
   private val logIndexDirectory = logDirectory.resolve("index")
+  // a key-value store of the current state
   private val stateDirectory = root.resolve("state")
 
   private val lock = new FileSystemLock(lockPath)
