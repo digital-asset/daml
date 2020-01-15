@@ -330,7 +330,6 @@ object TransactionCoder {
             DecodeError(txVersion, isTooOldFor = "NodeExercises maintainers")
             ()
           )
-
           ni <- nodeId
           targetCoid <- protoExe.decodeContractIdOrStruct(decodeCid, txVersion)(
             _.getContractId,
