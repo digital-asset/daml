@@ -167,7 +167,6 @@ data Env = Env
     ,envLfVersion :: LF.Version
     ,envTemplateBinds :: MS.Map TypeConName TemplateBinds
     ,envChoiceData :: MS.Map TypeConName [ChoiceData]
-    ,envTemplateKeyData :: MS.Map TypeConName TemplateKeyData
     ,envIsGenerated :: Bool
     ,envTypeVars :: !(MS.Map Var TypeVarName)
         -- ^ Maps GHC type variables in scope to their LF type variable names
@@ -179,11 +178,6 @@ data Env = Env
 data ChoiceData = ChoiceData
   { _choiceDatTy :: GHC.Type
   , _choiceDatExpr :: GHC.Expr GHC.CoreBndr
-  }
-
-data TemplateKeyData = TemplateKeyData
-  { _templateKeyType :: GHC.Type
-  , _templateKeyDict :: GHC.Var
   }
 
 -- v is an alias for x
@@ -390,13 +384,6 @@ convertModule lfVersion pkgMap stablePackages isGenerated file x = runConvertM (
             , "_choice_" `T.isPrefixOf` getOccText name
             , ty@(TypeCon _ [_, _, TypeCon _ [TypeCon tplTy _]]) <- [varType name]
             ]
-        templateKeyData = MS.fromList
-            [ (mkTypeCon [getOccText tplTy], TemplateKeyData keyTy name)
-            | (name, _) <- binds
-            , "$fTemplateKey" `T.isPrefixOf` getOccText name
-            , ty@(TypeCon _ [TypeCon tplTy _, keyTy]) <- [varType name]
-            ]
-
         templateBinds = scrapeTemplateBinds binds
 
         env = Env
@@ -409,7 +396,6 @@ convertModule lfVersion pkgMap stablePackages isGenerated file x = runConvertM (
           , envLfVersion = lfVersion
           , envTemplateBinds = templateBinds
           , envChoiceData = choiceData
-          , envTemplateKeyData = templateKeyData
           , envIsGenerated = isGenerated
           , envTypeVars = MS.empty
           , envTypeVarNames = S.empty
