@@ -18,6 +18,9 @@ hj_scalacopts = [
 da_scala_library(
     name = "http-json",
     srcs = glob(["src/main/scala/**/*.scala"]),
+    plugins = [
+        "@maven//:org_spire_math_kind_projector_2_12",
+    ],
     scalacopts = hj_scalacopts,
     tags = ["maven_coordinates=com.digitalasset.ledger-service:http-json:__VERSION__"],
     visibility = ["//visibility:public"],

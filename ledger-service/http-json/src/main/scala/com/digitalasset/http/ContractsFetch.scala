@@ -9,18 +9,20 @@ import akka.stream.scaladsl.{
   Concat,
   Flow,
   GraphDSL,
+  Keep,
   Partition,
   RunnableGraph,
   Sink,
   SinkQueueWithCancel,
   Source
 }
-import akka.stream.{ClosedShape, FanOutShape2, Graph, Materializer}
+import akka.stream.{ClosedShape, FanOutShape2, FlowShape, Graph, Materializer}
 import com.digitalasset.http.Statement.discard
 import com.digitalasset.http.dbbackend.ContractDao.StaleOffsetException
 import com.digitalasset.http.dbbackend.{ContractDao, Queries}
 import com.digitalasset.http.dbbackend.Queries.{DBContract, SurrogateTpId}
 import com.digitalasset.http.domain.TemplateId
+import com.digitalasset.http.LedgerClientJwt.Terminates
 import com.digitalasset.http.util.ApiValueToLfValueConverter.apiValueToLfValue
 import com.digitalasset.http.json.JsonProtocol.LfValueDatabaseCodec.{
   apiValueToJsValue => lfValueToDbJsValue
@@ -150,13 +152,14 @@ private class ContractsFetch(
       GraphDSL.create(
         Sink.queue[ConnectionIO[Unit]](),
         Sink.last[OffsetBookmark[String]]
-      )((a, b) => (a, b)) { implicit builder => (acsSink, offsetSink) =>
+      )(Keep.both) { implicit builder => (acsSink, offsetSink) =>
         import GraphDSL.Implicits._
 
         val txnK = getCreatesAndArchivesSince(
           jwt,
           transactionFilter(party, List(templateId)),
-          _: lav1.ledger_offset.LedgerOffset)
+          _: lav1.ledger_offset.LedgerOffset,
+          Terminates.AtLedgerEnd)
 
         // include ACS iff starting at LedgerBegin
         val (idses, lastOff) = offset match {
@@ -267,6 +270,25 @@ private[http] object ContractsFetch {
     }
     val as = asb.result()
     InsertDeleteStep(csb.result() filter (ce => !as.contains(ce.contractId)), as)
+  }
+
+  object GraphExtensions {
+    implicit final class `Graph FOS2 funs`[A, Y, Z, M](
+        private val g: Graph[FanOutShape2[A, Y, Z], M])
+        extends AnyVal {
+      private def divertToMat[N, O](oz: Sink[Z, N])(mat: (M, N) => O): Flow[A, Y, O] =
+        Flow fromGraph GraphDSL.create(g, oz)(mat) { implicit b => (gs, zOut) =>
+          import GraphDSL.Implicits._
+          gs.out1 ~> zOut
+          new FlowShape(gs.in, gs.out0)
+        }
+
+      /** Several of the graphs here have a second output guaranteed to deliver only one value.
+        * This turns such a graph into a flow with the value materialized.
+        */
+      def divertToHead(implicit noM: M <~< NotUsed): Flow[A, Y, Future[Z]] =
+        divertToMat(Sink.head)(Keep.right[M, Future[Z]])
+    }
   }
 
   /** Like `acsAndBoundary`, but also include the events produced by `transactionsSince`
@@ -404,6 +426,11 @@ private[http] object ContractsFetch {
         (if (o.deletes.isEmpty) inserts
          else inserts.filter(c => !o.deletes.contains(cid(c)))) ++ o.inserts,
         deletes union o.deletes)
+
+    def nonEmpty: Boolean = inserts.nonEmpty || deletes.nonEmpty
+
+    /** Results undefined if cid(d) != cid(c) */
+    def mapPreservingIds[D](f: C => D): InsertDeleteStep[D] = copy(inserts = inserts map f)
   }
 
   private def transactionFilter(

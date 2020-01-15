@@ -9,51 +9,102 @@ import akka.stream.scaladsl.{Flow, Source}
 import akka.stream.Materializer
 import com.digitalasset.http.EndpointsCompanion._
 import com.digitalasset.http.domain.{GetActiveContractsRequest, JwtPayload}
-import com.digitalasset.http.json.SprayJson.JsonReaderError
 import com.digitalasset.http.json.{DomainJsonDecoder, DomainJsonEncoder, SprayJson}
+import SprayJson.JsonReaderError
+import ContractsFetch.InsertDeleteStep
+import com.digitalasset.http.LedgerClientJwt.Terminates
+import util.ApiValueToLfValueConverter.apiValueToLfValue
+import util.Collections._
+import json.JsonProtocol.LfValueCodec.{apiValueToJsValue => lfValueToJsValue}
+import query.ValuePredicate.LfV
 import com.digitalasset.jwt.domain.Jwt
-import com.digitalasset.ledger.api.v1.transaction.Transaction
 import com.digitalasset.ledger.api.{v1 => api}
-import com.digitalasset.ledger.client.binding.offset.LedgerOffsetOrdering
-import com.digitalasset.ledger.client.services.transactions.TransactionClient
+
 import com.typesafe.scalalogging.LazyLogging
+import scalaz.Liskov.<~<
 import scalaz.syntax.show._
+import scalaz.syntax.std.boolean._
+import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
-import scalaz.{-\/, \/, \/-}
+import scalaz.{-\/, \/, \/-, Show}
 import spray.json.{JsObject, JsString, JsValue}
 
-import scala.collection.immutable.Set
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 object WebSocketService {
-  val heartBeat: String = JsObject("heartbeat" -> JsString("ping")).toString
-  val emptyGetActiveContractsRequest = domain.GetActiveContractsRequest(Set.empty, Map.empty)
-  private val numConns = new java.util.concurrent.atomic.AtomicInteger(0)
+  private type CompiledQueries = Map[domain.TemplateId.RequiredPkg, LfV => Boolean]
+  val heartBeat: String = JsObject("heartbeat" -> JsString("ping")).compactPrint
+
+  private implicit final class `\\/ WSS extras`[L, R](private val self: L \/ R) extends AnyVal {
+    def liftErr[M](f: String => M)(implicit L: Show[L]): M \/ R =
+      self leftMap (e => f(e.shows))
+  }
+
+  private final case class StepAndErrors[+LfV](
+      errors: Seq[ServerError],
+      step: InsertDeleteStep[domain.ActiveContract[LfV]]) {
+    import json.JsonProtocol._, spray.json._
+    def render(implicit lfv: LfV <~< JsValue): JsValue = {
+      def opr[V <: Iterable[_]: JsonWriter](v: V) =
+        v.nonEmpty option v.toJson
+      type RF[-i] = Vector[domain.ActiveContract[i]] => Option[JsValue]
+      JsObject(
+        Map(
+          "errors" -> opr(errors.map(_.message)),
+          "created" -> lfv.subst[RF](opr(_))(step.inserts),
+          "archived" -> opr(step.deletes)
+        ) collect { case (k, Some(v)) => (k, v) })
+    }
+
+    def append[A >: LfV](o: StepAndErrors[A]): StepAndErrors[A] =
+      StepAndErrors(errors ++ o.errors, step.appendWithCid(o.step)(_.contractId.unwrap))
+
+    def nonEmpty = errors.nonEmpty || step.nonEmpty
+  }
+
+  private def conflation[A]: Flow[StepAndErrors[A], StepAndErrors[A], NotUsed] =
+    Flow[StepAndErrors[A]]
+      .batchWeighted(max = 200, costFn = {
+        case StepAndErrors(errors, InsertDeleteStep(inserts, deletes)) =>
+          errors.length.toLong + (inserts.length * 2) + deletes.size
+      }, identity)(_ append _)
 }
 
 class WebSocketService(
-    transactionClient: TransactionClient,
+    contractsService: ContractsService,
     resolveTemplateId: PackageService.ResolveTemplateId,
     encoder: DomainJsonEncoder,
     decoder: DomainJsonDecoder,
-    wsConfig: WebsocketConfig)(implicit mat: Materializer, ec: ExecutionContext)
+    wsConfig: Option[WebsocketConfig])(implicit mat: Materializer, ec: ExecutionContext)
     extends LazyLogging {
 
   import WebSocketService._
   import com.digitalasset.http.json.JsonProtocol._
 
-  @SuppressWarnings(
-    Array("org.wartremover.warts.NonUnitStatements", "org.wartremover.warts.JavaSerializable"))
+  private val numConns = new java.util.concurrent.atomic.AtomicInteger(0)
+
   private[http] def transactionMessageHandler(
       jwt: Jwt,
       jwtPayload: JwtPayload): Flow[Message, Message, _] = {
-    import scala.concurrent.duration._
 
     wsMessageHandler(jwt, jwtPayload)
-      .takeWithin(wsConfig.maxDuration)
-      .throttle(wsConfig.throttleElem, wsConfig.throttlePer, wsConfig.maxBurst, wsConfig.mode)
-      .keepAlive(5.seconds, () => TextMessage.Strict(heartBeat))
+      .via(applyConfig(keepAlive = TextMessage.Strict(heartBeat)))
+      .via(connCounter)
+  }
+
+  private def applyConfig[A](keepAlive: A): Flow[A, A, NotUsed] = {
+    val config = wsConfig.getOrElse(Config.DefaultWsConfig)
+    Flow[A]
+      .takeWithin(config.maxDuration)
+      .throttle(config.throttleElem, config.throttlePer, config.maxBurst, config.mode)
+      .keepAlive(config.heartBeatPer, () => keepAlive)
+  }
+
+  @SuppressWarnings(
+    Array("org.wartremover.warts.NonUnitStatements", "org.wartremover.warts.JavaSerializable"))
+  private def connCounter[A]: Flow[A, A, NotUsed] =
+    Flow[A]
       .watchTermination() { (_, future) =>
         numConns.incrementAndGet
         logger.info(s"New websocket client has connected, current number of clients:$numConns")
@@ -66,19 +117,23 @@ class WebSocketService(
             logger.info(
               s"Websocket client interrupted on Failure: ${ex.getMessage}. remaining number of clients: $numConns")
         }
+        NotUsed
       }
-  }
+
+  private val wsReadTimeout = (wsConfig getOrElse Config.DefaultWsConfig).maxDuration
 
   private def wsMessageHandler(
       jwt: Jwt,
       jwtPayload: JwtPayload): Flow[Message, Message, NotUsed] = {
     Flow[Message]
-      .flatMapConcat {
-        case msg: TextMessage.Strict => generateOutgoingMessage(jwt, jwtPayload, msg)
+      .mapAsync(1) {
+        case msg: TextMessage => msg.toStrict(wsReadTimeout).map(\/-(_))
         case _ =>
-          Source.single(
-            wsErrorMessage("Cannot process your input, Expect a single strict JSON message"))
+          Future successful -\/(
+            Source.single(
+              wsErrorMessage("Cannot process your input, Expect a single JSON message"): Message))
       }
+      .flatMapConcat { _.map(generateOutgoingMessage(jwt, jwtPayload, _)).merge }
   }
 
   private def generateOutgoingMessage(
@@ -91,7 +146,7 @@ class WebSocketService(
       case \/-(req) => getTransactionSourceForParty(jwt, jwtPayload, req)
       case -\/(e) =>
         Source.single(
-          wsErrorMessage(s"Error happend parsing your input message to a valid Json request: $e"))
+          wsErrorMessage(s"Error parsing your input message to a valid Json request: $e"))
     }
   }
 
@@ -99,7 +154,6 @@ class WebSocketService(
       incoming: Option[JsValue]
   ): SprayJson.JsonReaderError \/ GetActiveContractsRequest = {
     incoming match {
-      case Some(JsObject.empty) => \/-(emptyGetActiveContractsRequest)
       case Some(jsObj) => SprayJson.decode[GetActiveContractsRequest](jsObj)
       case None => -\/(JsonReaderError("None", "please send a valid json request"))
     }
@@ -108,45 +162,52 @@ class WebSocketService(
   private def getTransactionSourceForParty(
       jwt: Jwt,
       jwtPayload: JwtPayload,
-      request: GetActiveContractsRequest): Source[Message, NotUsed] = {
-    import com.digitalasset.http.util.Transactions._
-
+      request: GetActiveContractsRequest): Source[Message, NotUsed] =
     resolveRequiredTemplateIds(request.templateIds) match {
       case Some(ids) =>
-        val filter = transactionFilterFor(jwtPayload.party, ids)
-        transactionClient
-          .getTransactions(LedgerOffsetOrdering.ledgerBegin, None, transactionFilter = filter) // TODO: make offSet pass along with client message
-          .via(Flow[Transaction].filter(_.events.nonEmpty))
-          .map(tx => {
-            lfVToJson(tx) match {
-              case \/-(a) => TextMessage(JsObject("transaction" -> a).toString)
-              case -\/(e) => wsErrorMessage(e.shows)
-            }
-          })
+        contractsService
+          .insertDeleteStepSource(jwt, jwtPayload.party, ids, Terminates.Never)
+          .via(convertFilterContracts(prepareFilters(ids, request.query)))
+          .filter(_.nonEmpty)
+          .map(sae => TextMessage(sae.render.compactPrint))
       case None =>
         Source.single(
           wsErrorMessage("Cannot find one of templateIds " + request.templateIds.toString))
     }
-  }
 
-  private[http] def wsErrorMessage(errorMsg: String): TextMessage.Strict = {
+  private[http] def wsErrorMessage(errorMsg: String): TextMessage.Strict =
     TextMessage(
-      JsObject("error" -> JsString(errorMsg)).toString
+      JsObject("error" -> JsString(errorMsg)).compactPrint
     )
-  }
+
+  private def prepareFilters(
+      ids: Iterable[domain.TemplateId.RequiredPkg],
+      queryExpr: Map[String, JsValue]): CompiledQueries =
+    ids.iterator.map { tid =>
+      (tid, contractsService.valuePredicate(tid, queryExpr).toFunPredicate)
+    }.toMap
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  private def lfVToJson(tx: api.transaction.Transaction): Error \/ JsValue = {
-    import com.digitalasset.http.util.Commands._
-    import scalaz.std.list._
-    contracts(tx)
-      .leftMap(e => ServerError(e.shows))
-      .flatMap(
-        _.traverse(v => encoder.encodeV(v))
-          .leftMap(e => ServerError(e.shows))
-          .flatMap(as => encodeList(as))
-      )
-  }
+  private def convertFilterContracts(compiledQueries: CompiledQueries)
+    : Flow[InsertDeleteStep[api.event.CreatedEvent], StepAndErrors[JsValue], NotUsed] =
+    Flow
+      .fromFunction { step: InsertDeleteStep[api.event.CreatedEvent] =>
+        val (errors, cs) = step.inserts
+          .partitionMap { ce =>
+            domain.ActiveContract
+              .fromLedgerApi(ce)
+              .liftErr(ServerError)
+              .flatMap(_.traverse(apiValueToLfValue).liftErr(ServerError))
+          }
+        StepAndErrors(
+          errors,
+          step copy (inserts = (cs: Vector[domain.ActiveContract[LfV]])
+            .filter { acLfv =>
+              compiledQueries.get(acLfv.templateId).exists(_(acLfv.payload))
+            }))
+      }
+      .via(conflation)
+      .map(sae => sae copy (step = sae.step.mapPreservingIds(_ map lfValueToJsValue)))
 
   private def resolveRequiredTemplateIds(
       xs: Set[domain.TemplateId.OptionalPkg]): Option[List[domain.TemplateId.RequiredPkg]] = {

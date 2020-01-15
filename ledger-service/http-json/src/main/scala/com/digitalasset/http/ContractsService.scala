@@ -5,9 +5,10 @@ package com.digitalasset.http
 
 import akka.NotUsed
 import akka.stream.scaladsl._
-import akka.stream.{Materializer, SourceShape}
+import akka.stream.Materializer
 import com.digitalasset.daml.lf
-import com.digitalasset.http.ContractsFetch.{InsertDeleteStep, OffsetBookmark}
+import com.digitalasset.http.ContractsFetch.InsertDeleteStep
+import com.digitalasset.http.LedgerClientJwt.Terminates
 import com.digitalasset.http.dbbackend.ContractDao
 import com.digitalasset.http.domain.{GetActiveContractsRequest, JwtPayload, TemplateId}
 import com.digitalasset.http.json.JsonProtocol.LfValueCodec
@@ -15,7 +16,6 @@ import com.digitalasset.http.query.ValuePredicate
 import com.digitalasset.http.query.ValuePredicate.LfV
 import com.digitalasset.http.util.ApiValueToLfValueConverter
 import com.digitalasset.http.util.FutureUtil.toFuture
-import com.digitalasset.http.util.IdentifierConverters.apiIdentifier
 import com.digitalasset.jwt.domain.Jwt
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => api}
@@ -27,7 +27,6 @@ import scalaz.syntax.traverse._
 import scalaz.{-\/, Show, \/, \/-}
 import spray.json.JsValue
 
-import scala.collection.breakOut
 import scala.concurrent.{ExecutionContext, Future}
 
 // TODO(Leo) split it into ContractsServiceInMemory and ContractsServiceDb
@@ -156,7 +155,7 @@ class ContractsService(
     SearchResult(source, unresolvedTemplateIds)
   }
 
-  // we store create arguments as JASON in DB, that is why it is `domain.ActiveContract[JsValue]` in the result
+  // we store create arguments as JSON in DB, that is why it is `domain.ActiveContract[JsValue]` in the result
   def searchDb(dao: dbbackend.ContractDao, fetch: ContractsFetch)(
       jwt: Jwt,
       party: domain.Party,
@@ -222,7 +221,7 @@ class ContractsService(
     val predicate: ValuePredicate = valuePredicate(templateId, queryParams)
     val funPredicate: LfV => Boolean = predicate.toFunPredicate
 
-    insertDeleteStepSource(jwt, party, templateId)
+    insertDeleteStepSource(jwt, party, List(templateId))
       .fold(empty)(append)
       .mapConcat(_.inserts)
       .map { apiEvent =>
@@ -234,35 +233,27 @@ class ContractsService(
       .collect(collectActiveContracts(funPredicate))
   }
 
-  private def insertDeleteStepSource(
+  private[http] def insertDeleteStepSource(
       jwt: Jwt,
       party: lar.Party,
-      templateId: domain.TemplateId.RequiredPkg)
+      templateIds: List[domain.TemplateId.RequiredPkg],
+      terminates: Terminates = Terminates.AtLedgerEnd)
     : Source[InsertDeleteStep[api.event.CreatedEvent], NotUsed] = {
 
-    val graph = GraphDSL.create() { implicit b =>
-      import GraphDSL.Implicits._
+    val txnFilter = util.Transactions.transactionFilterFor(party, templateIds)
+    val source = getActiveContracts(jwt, txnFilter, true)
 
-      val source = getActiveContracts(jwt, transactionFilter(party, templateId), true)
+    val transactionsSince
+      : api.ledger_offset.LedgerOffset => Source[api.transaction.Transaction, NotUsed] =
+      getCreatesAndArchivesSince(jwt, txnFilter, _: api.ledger_offset.LedgerOffset, terminates)
 
-      val transactionsSince
-        : api.ledger_offset.LedgerOffset => Source[api.transaction.Transaction, NotUsed] =
-        getCreatesAndArchivesSince(
-          jwt,
-          transactionFilter(party, templateId),
-          _: api.ledger_offset.LedgerOffset)
-
-      val contractsAndBoundary = b add ContractsFetch.acsFollowingAndBoundary(transactionsSince)
-      val offsetSink = b add Sink.foreach[OffsetBookmark[String]] { a =>
-        logger.debug(s"contracts fetch completed at: ${a.toString}")
+    import ContractsFetch.acsFollowingAndBoundary, ContractsFetch.GraphExtensions._
+    val contractsAndBoundary = acsFollowingAndBoundary(transactionsSince).divertToHead
+    source
+      .viaMat(contractsAndBoundary) { (nu, fob) =>
+        fob.foreach(a => logger.debug(s"contracts fetch completed at: ${a.toString}"))
+        nu
       }
-
-      source ~> contractsAndBoundary.in
-      contractsAndBoundary.out1 ~> offsetSink
-      new SourceShape(contractsAndBoundary.out0)
-    }
-
-    Source.fromGraph(graph)
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
@@ -282,21 +273,10 @@ class ContractsService(
     case a @ \/-(ac) if predicate(ac.payload) => a
   }
 
-  private def valuePredicate(
+  private[http] def valuePredicate(
       templateId: domain.TemplateId.RequiredPkg,
       q: Map[String, JsValue]): query.ValuePredicate =
     ValuePredicate.fromTemplateJsObject(q, templateId, lookupType)
-
-  private def transactionFilter(
-      party: lar.Party,
-      templateId: TemplateId.RequiredPkg): api.transaction_filter.TransactionFilter = {
-    import api.transaction_filter._
-
-    val filters = Filters(
-      Some(api.transaction_filter.InclusiveFilters(List(apiIdentifier(templateId)))))
-
-    TransactionFilter(Map(lar.Party.unwrap(party) -> filters))
-  }
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def lfAcToJsAc(
@@ -310,11 +290,11 @@ class ContractsService(
   private def resolveTemplateIds(xs: Set[domain.TemplateId.OptionalPkg])
     : (Set[domain.TemplateId.RequiredPkg], Set[domain.TemplateId.OptionalPkg]) = {
 
-    import util.Collections.SeqOps
+    import util.Collections._
 
-    xs.toSeq.partitionMap { x =>
+    xs.partitionMap { x =>
       resolveTemplateId(x) toLeftDisjunction x
-    }(breakOut, breakOut)
+    }
   }
 }
 

@@ -22,6 +22,7 @@ import com.digitalasset.http.json.SprayJson.objectField
 import com.digitalasset.http.json._
 import com.digitalasset.http.util.ClientUtil.boxedRecord
 import com.digitalasset.http.util.FutureUtil.toFuture
+import com.digitalasset.http.util.TestUtil
 import com.digitalasset.jwt.JwtSigner
 import com.digitalasset.jwt.domain.{DecodedJwt, Jwt}
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
@@ -42,34 +43,25 @@ import spray.json._
 import scala.collection.breakOut
 import scala.concurrent.{ExecutionContext, Future}
 
-@SuppressWarnings(Array("org.wartremover.warts.Any", "org.wartremover.warts.NonUnitStatements"))
-abstract class AbstractHttpServiceIntegrationTest
-    extends AsyncFreeSpec
-    with Matchers
-    with Inside
-    with StrictLogging {
+object AbstractHttpServiceIntegrationTestFuns {
+  private val dar1 = requiredResource("docs/quickstart-model.dar")
+
+  private val dar2 = requiredResource("ledger-service/http-json/Account.dar")
+}
+
+trait AbstractHttpServiceIntegrationTestFuns { this: Assertions =>
+  import AbstractHttpServiceIntegrationTestFuns._
 
   def jdbcConfig: Option[JdbcConfig]
 
   def staticContentConfig: Option[StaticContentConfig]
 
-  import json.JsonProtocol._
+  protected def testId: String = this.getClass.getSimpleName
 
-  private val dar1 = requiredResource("docs/quickstart-model.dar")
-
-  private val dar2 = requiredResource("ledger-service/http-json/Account.dar")
-
-  private val metdata2: MetadataReader.LfMetadata =
+  protected val metdata2: MetadataReader.LfMetadata =
     MetadataReader.readFromDar(dar2).valueOr(e => fail(s"Cannot read dar2 metadata: $e"))
 
-  private val testId: String = this.getClass.getSimpleName
-
-  implicit val asys: ActorSystem = ActorSystem(testId)
-  implicit val mat: Materializer = Materializer(asys)
-  implicit val aesf: ExecutionSequencerFactory = new AkkaExecutionSequencerPool(testId)(asys)
-  implicit val ec: ExecutionContext = asys.dispatcher
-
-  private val jwt: Jwt = {
+  protected val jwt: Jwt = {
     val decodedJwt = DecodedJwt(
       """{"alg": "HS256", "typ": "JWT"}""",
       s"""{"ledgerId": "${testId: String}", "applicationId": "ledger-service-test", "party": "Alice"}"""
@@ -79,7 +71,12 @@ abstract class AbstractHttpServiceIntegrationTest
       .fold(e => fail(s"cannot sign a JWT: ${e.shows}"), identity)
   }
 
-  private val headersWithAuth = List(Authorization(OAuth2BearerToken(jwt.value)))
+  implicit val `AHS asys`: ActorSystem = ActorSystem(testId)
+  implicit val `AHS mat`: Materializer = Materializer(`AHS asys`)
+  implicit val `AHS aesf`: ExecutionSequencerFactory =
+    new AkkaExecutionSequencerPool(testId)(`AHS asys`)
+  import shapeless.tag, tag.@@ // used for subtyping to make `AHS ec` beat executionContext
+  implicit val `AHS ec`: ExecutionContext @@ this.type = tag[this.type](`AHS asys`.dispatcher)
 
   protected def withHttpService[A]
     : ((Uri, DomainJsonEncoder, DomainJsonDecoder) => Future[A]) => Future[A] =
@@ -88,6 +85,18 @@ abstract class AbstractHttpServiceIntegrationTest
 
   protected def withLedger[A]: (LedgerClient => Future[A]) => Future[A] =
     HttpServiceTestFixture.withLedger[A](List(dar1, dar2), testId)
+}
+
+@SuppressWarnings(Array("org.wartremover.warts.Any", "org.wartremover.warts.NonUnitStatements"))
+abstract class AbstractHttpServiceIntegrationTest
+    extends AsyncFreeSpec
+    with Matchers
+    with Inside
+    with StrictLogging
+    with AbstractHttpServiceIntegrationTestFuns {
+  import json.JsonProtocol._
+
+  private val headersWithAuth = List(Authorization(OAuth2BearerToken(jwt.value)))
 
   "contracts/search GET empty results" in withHttpService { (uri: Uri, _, _) =>
     getRequest(uri = uri.withPath(Uri.Path("/contracts/search")))
@@ -746,28 +755,15 @@ abstract class AbstractHttpServiceIntegrationTest
 
   private def postJsonStringRequest(
       uri: Uri,
-      jsonString: String,
-      headers: List[HttpHeader] = headersWithAuth): Future[(StatusCode, JsValue)] = {
-    logger.info(s"postJson: ${uri.toString} json: ${jsonString: String}")
-    Http()
-      .singleRequest(
-        HttpRequest(
-          method = HttpMethods.POST,
-          uri = uri,
-          headers = headers,
-          entity = HttpEntity(ContentTypes.`application/json`, jsonString))
-      )
-      .flatMap { resp =>
-        val bodyF: Future[String] = getResponseDataBytes(resp, debug = true)
-        bodyF.map(body => (resp.status, body.parseJson))
-      }
-  }
+      jsonString: String
+  ): Future[(StatusCode, JsValue)] =
+    TestUtil.postJsonStringRequest(uri, jsonString, headersWithAuth)
 
   private def postJsonRequest(
       uri: Uri,
       json: JsValue,
       headers: List[HttpHeader] = headersWithAuth): Future[(StatusCode, JsValue)] =
-    postJsonStringRequest(uri, json.prettyPrint, headers)
+    TestUtil.postJsonStringRequest(uri, json.prettyPrint, headers)
 
   private def getRequest(
       uri: Uri,
@@ -799,7 +795,7 @@ abstract class AbstractHttpServiceIntegrationTest
         }
     }
 
-  private def postCreateCommand(
+  protected def postCreateCommand(
       cmd: domain.CreateCommand[v.Record],
       encoder: DomainJsonEncoder,
       uri: Uri): Future[(StatusCode, JsValue)] =

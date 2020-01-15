@@ -144,7 +144,9 @@ Under "Verify Signature", put ``secret`` as the secret (_not_ base64
 encoded); that is the hardcoded secret for testing.
 
 Then the "Encoded" box should have your token; set HTTP header
-``Authorization: Bearer copy-paste-token-here``.
+``Authorization: Bearer copy-paste-token-here`` for normal requests, and
+add the subprotocols ``jwt.token.copy-paste-token-here`` and
+``daml.ws.auth`` for WebSockets requests.
 
 Here are two tokens you can use for testing:
 
@@ -250,6 +252,102 @@ Nonempty Response with Unknown Template IDs Warning
         ],
         "status": 200
     }
+
+WebSocket ``/contracts/searchForever``
+======================================
+
+List currently active contracts that match a given query, with
+continuous updates.
+
+Two subprotocols must be passed, as described in `Choosing a party
+<#choosing-a-party>`__.
+
+application/json body must be sent first, formatted according to the
+:doc:`search-query-language`::
+
+    {"%templates": ["Iou:Iou"]}
+
+output a series of JSON documents, each ``argument`` formatted according
+to :doc:`lf-value-specification`::
+
+    {
+        "created": [{
+            "observers": [],
+            "agreementText": "",
+            "payload": {
+                "observers": [],
+                "issuer": "Alice",
+                "amount": "999.99",
+                "currency": "USD",
+                "owner": "Alice"
+            },
+            "signatories": ["Alice"],
+            "contractId": "#1:0",
+            "templateId": "f95486336ffb3c982319625bed0c88f68799b780b26b558b1e119277614ed634:Iou:Iou"
+        }]
+    }
+
+To keep the stream alive, you'll occasionally see messages like this,
+which can be safely ignored::
+
+    {"heartbeat": "ping"}
+
+After submitting an ``Iou_Split`` exercise, which creates two contracts
+and archives the one above, the same stream will eventually produce::
+
+    {
+        "created": [{
+            "observers": [],
+            "agreementText": "",
+            "payload": {
+                "observers": [],
+                "issuer": "Alice",
+                "amount": "42.42",
+                "currency": "USD",
+                "owner": "Alice"
+            },
+            "signatories": ["Alice"],
+            "contractId": "#2:1",
+            "templateId": "f95486336ffb3c982319625bed0c88f68799b780b26b558b1e119277614ed634:Iou:Iou"
+        }, {
+            "observers": [],
+            "agreementText": "",
+            "payload": {
+                "observers": [],
+                "issuer": "Alice",
+                "amount": "957.57",
+                "currency": "USD",
+                "owner": "Alice"
+            },
+            "signatories": ["Alice"],
+            "contractId": "#2:2",
+            "templateId": "f95486336ffb3c982319625bed0c88f68799b780b26b558b1e119277614ed634:Iou:Iou"
+        }],
+        "archived": ["#1:0"]
+    }
+
+Some notes on behavior:
+
+1. Each result object means "this is what would have changed if you just
+   polled ``/contracts/search`` iteratively."  In particular, just as
+   polling search can "miss" contracts (as a create and archive can be
+   paired between polls), such contracts may or may not appear in any
+   result object.
+
+2. No ``archived`` ever contains a contract ID occurring within an
+   ``created`` in the same object.  So, for example, supposing you are
+   keeping an internal map of active contracts, you can apply the
+   ``created`` first or the ``archived`` first and be guaranteed to get
+   the same results.
+
+3. You will almost certainly receive contract IDs in the ``archived``
+   set that you never received an ``created`` for.  These are contracts
+   that query filtered out, but for which the server no longer is aware
+   of that.  You can safely ignore these.  However, such "phantom
+   archives" *are* guaranteed to represent an actual archival *on the
+   ledger*, so if you are keeping a more global dataset outside the
+   context of this specific search, you can use that archival
+   information as you wish.
 
 POST ``/command/create``
 ========================

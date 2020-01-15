@@ -5,6 +5,7 @@ package com.digitalasset.http
 
 import java.io.File
 import java.nio.file.Path
+import java.util.concurrent.TimeUnit
 
 import akka.stream.ThrottleMode
 import com.digitalasset.util.ExceptionOps._
@@ -27,22 +28,21 @@ private[http] final case class Config(
     jdbcConfig: Option[JdbcConfig] = None,
     staticContentConfig: Option[StaticContentConfig] = None,
     accessTokenFile: Option[Path] = None,
-    wsConfig: WebsocketConfig = Config.DefaultWsConfig
+    wsConfig: Option[WebsocketConfig] = None
 )
 
 private[http] object Config {
   import scala.language.postfixOps
   val Empty = Config(ledgerHost = "", ledgerPort = -1, httpPort = -1)
-  val DefaultWsConfig = WebsocketConfig(12 hours, 20, 1 second, 20, ThrottleMode.Shaping)
+  val DefaultWsConfig =
+    WebsocketConfig(
+      maxDuration = 120 minutes,
+      throttleElem = 20,
+      throttlePer = 1 second,
+      maxBurst = 20,
+      ThrottleMode.Shaping,
+      heartBeatPer = 5 second)
 }
-
-protected case class WebsocketConfig(
-    maxDuration: FiniteDuration,
-    throttleElem: Int,
-    throttlePer: FiniteDuration,
-    maxBurst: Int,
-    mode: ThrottleMode
-)
 
 private[http] abstract class ConfigCompanion[A](name: String) {
 
@@ -62,11 +62,19 @@ private[http] abstract class ConfigCompanion[A](name: String) {
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   protected def optionalBooleanField(m: Map[String, String])(
       k: String): Either[String, Option[Boolean]] =
-    m.get(k).traverseU(v => parseBoolean(k)(v)).toEither
+    m.get(k).traverse(v => parseBoolean(k)(v)).toEither
+
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
+  protected def optionalLongField(m: Map[String, String])(k: String): Either[String, Option[Long]] =
+    m.get(k).traverse(v => parseLong(k)(v)).toEither
+
+  import scalaz.syntax.std.string._
 
   protected def parseBoolean(k: String)(v: String): String \/ Boolean =
-    \/.fromTryCatchNonFatal(v.toBoolean).leftMap(e =>
-      s"$k=$v must be a boolean value: ${e.description}")
+    v.parseBoolean.leftMap(e => s"$k=$v must be a boolean value: ${e.description}").disjunction
+
+  protected def parseLong(k: String)(v: String): String \/ Long =
+    v.parseLong.leftMap(e => s"$k=$v must be a int value: ${e.description}").disjunction
 
   protected def requiredDirectoryField(m: Map[String, String])(k: String): Either[String, File] =
     requiredField(m)(k).flatMap(directory)
@@ -137,6 +145,49 @@ private[http] object JdbcConfig extends ConfigCompanion[JdbcConfig]("JdbcConfig"
       password: String,
       createSchema: String): String =
     s"""\"driver=$driver,url=$url,user=$user,password=$password,createSchema=$createSchema\""""
+}
+
+private[http] final case class WebsocketConfig(
+    maxDuration: FiniteDuration,
+    throttleElem: Int,
+    throttlePer: FiniteDuration,
+    maxBurst: Int,
+    mode: ThrottleMode,
+    heartBeatPer: FiniteDuration
+)
+
+private[http] object WebsocketConfig extends ConfigCompanion[WebsocketConfig]("WebsocketConfig") {
+
+  implicit val showInstance: Show[WebsocketConfig] = Show.shows(c =>
+    s"WebsocketConfig(maxDuration=${c.maxDuration}, heartBeatPer=${c.heartBeatPer}.seconds)")
+
+  lazy val help: String =
+    "Contains comma-separated key-value pairs. Where:\n" +
+      "\tmaxDuration -- Maximum websocket session duration in minutes\n" +
+      "\theartBeatPer -- Server-side heartBeat interval in seconds\n" +
+      "\tExample: " + helpString("120", "5")
+
+  lazy val usage: String = helpString(
+    "<Maximum websocket session duration in minutes>",
+    "Server-side heartBeat interval in seconds")
+
+  override def create(x: Map[String, String]): Either[String, WebsocketConfig] =
+    for {
+      md <- optionalLongField(x)("maxDuration")
+      hbp <- optionalLongField(x)("heartBeatPer")
+    } yield
+      Config.DefaultWsConfig
+        .copy(
+          maxDuration = md
+            .map(t => FiniteDuration(t, TimeUnit.MINUTES))
+            .getOrElse(Config.DefaultWsConfig.maxDuration),
+          heartBeatPer = hbp
+            .map(t => FiniteDuration(t, TimeUnit.SECONDS))
+            .getOrElse(Config.DefaultWsConfig.heartBeatPer)
+        )
+
+  private def helpString(maxDuration: String, heartBeatPer: String): String =
+    s"""\"maxDuration=$maxDuration,heartBeatPer=$heartBeatPer\""""
 }
 
 private[http] final case class StaticContentConfig(
