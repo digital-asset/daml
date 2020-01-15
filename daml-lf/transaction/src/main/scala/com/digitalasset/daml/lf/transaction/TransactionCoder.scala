@@ -199,15 +199,12 @@ object TransactionCoder {
             case Some(KeyWithMaintainers(_, _))
                 if transactionVersion precedes minContractKeyInExercise =>
               Right(())
-            case Some(KeyWithMaintainers(_, maintainers))
-                if maintainers.isEmpty && !(transactionVersion precedes minMaintainersInExercise) =>
-              Left(EncodeError(
-                s"Key maintainers in exercise nodes must be non-empty for transactions of version $transactionVersion"))
             case Some(KeyWithMaintainers(k, maintainers)) =>
               encodeVal(k).map { encodedKey =>
                 exBuilder.setContractKey(encodedKey._2)
               }
-              exBuilder.addAllKeyMaintainers(maintainers.toSet[String].asJava)
+              if(!(transactionVersion precedes minMaintainersInExercise))
+                exBuilder.addAllKeyMaintainers(maintainers.toSet[String].asJava)
               Right(())
           }
         } yield nodeBuilder.setExercise(exBuilder).build()
