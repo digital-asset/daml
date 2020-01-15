@@ -114,9 +114,7 @@ object Hash {
         case Value.ValueList(xs) =>
           iterateOver(xs.toImmArray)(_ addTypedValue _)
         case Value.ValueTextMap(xs) =>
-          iterateOver(xs.toImmArray) { (acc, x) =>
-            acc.add(x._1).addTypedValue(x._2)
-          }
+          iterateOver(xs.toImmArray)((acc, x) => acc.add(x._1).addTypedValue(x._2))
         case Value.ValueRecord(_, fs) =>
           iterateOver(fs)(_ addTypedValue _._2)
         case Value.ValueVariant(_, variant, v) =>
