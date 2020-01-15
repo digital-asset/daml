@@ -291,7 +291,7 @@ class ContractsService(
   private def resolveTemplateIds(xs: Set[domain.TemplateId.OptionalPkg])
     : (Set[domain.TemplateId.RequiredPkg], Set[domain.TemplateId.OptionalPkg]) = {
 
-    import util.Collections.SeqOps
+    import util.Collections._
 
     xs.toSeq.partitionMap { x =>
       resolveTemplateId(x) toLeftDisjunction x

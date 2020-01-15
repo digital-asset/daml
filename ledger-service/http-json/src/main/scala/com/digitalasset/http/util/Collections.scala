@@ -5,11 +5,12 @@ package com.digitalasset.http.util
 
 import scalaz.\/
 
-import scala.collection.SeqLike
+import scala.collection.TraversableLike
 
 object Collections {
 
-  implicit final class SeqOps[A, Self](private val self: SeqLike[A, Self]) extends AnyVal {
+  implicit final class `cdhuc TraversableOps`[A, Self](private val self: TraversableLike[A, Self])
+      extends AnyVal {
 
     import collection.generic.CanBuildFrom
 
