@@ -11,13 +11,14 @@ import com.daml.ledger.on.sql.queries.Queries.Index
 
 class SqliteQueries extends Queries with CommonQueries {
   override def createLogTable()(implicit connection: Connection): Unit = {
-    SQL"CREATE TABLE IF NOT EXISTS log (sequence_no INTEGER PRIMARY KEY AUTOINCREMENT, entry_id VARBINARY(16384), envelope BLOB)"
-    SQL"CREATE TABLE IF NOT EXISTS log (sequence_no INTEGER PRIMARY KEY AUTOINCREMENT, entry_id VARBINARY(16384), envelope BLOB)"
+    SQL"CREATE TABLE IF NOT EXISTS log (entry_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, envelope BLOB)"
       .execute()
     ()
   }
 
-  override def lastLogInsertId()(implicit connection: Connection): Index = {
+  override def nextEntryId()(implicit connection: Connection): Index = {
+    SQL"INSERT INTO log (envelope) VALUES (NULL)"
+      .executeInsert()
     SQL"SELECT LAST_INSERT_ROWID()"
       .as(long("LAST_INSERT_ROWID()").single)
   }

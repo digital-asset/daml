@@ -34,7 +34,6 @@ import javax.sql.DataSource
 
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Random
 
 class SqlLedgerReaderWriter(
     ledgerId: LedgerId = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
@@ -54,8 +53,6 @@ class SqlLedgerReaderWriter(
       zeroIndex = FirstIndex,
       headAtInitialization = FirstIndex,
     )
-
-  private val randomNumberGenerator = new Random()
 
   // TODO: implement
   override def currentHealth(): HealthStatus = Healthy
@@ -86,20 +83,25 @@ class SqlLedgerReaderWriter(
           .getOrElse(throw new IllegalArgumentException("Not a valid submission in envelope"))
         val stateInputKeys: Set[DamlStateKey] = submission.getInputDamlStateList.asScala.toSet
         val stateInputs = readState(stateInputKeys)
-        val entryId = allocateEntryId()
+        val entryId = queries.nextEntryId()
+        val logEntryId =
+          DamlLogEntryId
+            .newBuilder()
+            .setEntryId(ByteString.copyFromUtf8(entryId.toHexString))
+            .build()
         val (logEntry, stateUpdates) = KeyValueCommitting.processSubmission(
           engine,
-          entryId,
+          logEntryId,
           currentRecordTime(),
           LedgerReader.DefaultConfiguration,
           submission,
           participantId,
           stateInputs,
         )
-        verifyStateUpdatesAgainstPreDeclaredOutputs(stateUpdates, entryId, submission)
-        val newHead = appendLog(entryId, Envelope.enclose(logEntry))
+        verifyStateUpdatesAgainstPreDeclaredOutputs(stateUpdates, logEntryId, submission)
+        queries.insertIntoLog(entryId, Envelope.enclose(logEntry))
         queries.updateState(stateUpdates)
-        dispatcher.signalNewHead(newHead)
+        dispatcher.signalNewHead(entryId + 1)
         SubmissionResult.Acknowledged
       }
     }
@@ -119,22 +121,6 @@ class SqlLedgerReaderWriter(
 
   private def currentRecordTime(): Timestamp =
     Timestamp.assertFromInstant(Clock.systemUTC().instant())
-
-  private def allocateEntryId(): DamlLogEntryId = {
-    val nonce: Array[Byte] = Array.ofDim(8)
-    randomNumberGenerator.nextBytes(nonce)
-    DamlLogEntryId.newBuilder
-      .setEntryId(ByteString.copyFrom(nonce))
-      .build
-  }
-
-  private def appendLog(
-      entry: DamlLogEntryId,
-      envelope: ByteString,
-  )(implicit connection: Connection): Index = {
-    queries.insertIntoLog(entry, envelope)
-    queries.lastLogInsertId() + 1
-  }
 
   private def readState(
       stateInputKeys: Set[DamlStateKey],

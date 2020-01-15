@@ -21,7 +21,7 @@ import scala.collection.immutable
 
 trait CommonQueries extends Queries {
   override def createStateTable()(implicit connection: Connection): Unit = {
-    SQL"CREATE TABLE IF NOT EXISTS state (key VARBINARY(16384) PRIMARY KEY, value BLOB)"
+    SQL"CREATE TABLE IF NOT EXISTS state (key VARBINARY(16384) PRIMARY KEY NOT NULL, value BLOB NOT NULL)"
       .execute()
     ()
   }
@@ -30,15 +30,15 @@ trait CommonQueries extends Queries {
       start: Index,
       end: Index,
   )(implicit connection: Connection): immutable.Seq[(Index, LedgerRecord)] =
-    SQL"SELECT sequence_no, entry_id, envelope FROM log WHERE sequence_no >= $start AND sequence_no < $end"
+    SQL"SELECT entry_id, envelope FROM log WHERE entry_id >= $start AND entry_id < $end"
       .as(
-        (long("sequence_no") ~ byteArray("entry_id") ~ byteArray("envelope")).map {
-          case index ~ entryId ~ envelope =>
-            index -> LedgerRecord(
-              Offset(Array(index)),
+        (long("entry_id") ~ byteArray("envelope")).map {
+          case entryId ~ envelope =>
+            entryId -> LedgerRecord(
+              Offset(Array(entryId)),
               DamlLogEntryId
                 .newBuilder()
-                .setEntryId(ByteString.copyFrom(entryId))
+                .setEntryId(ByteString.copyFromUtf8(entryId.toHexString))
                 .build(),
               envelope,
             )
@@ -46,11 +46,11 @@ trait CommonQueries extends Queries {
       )
 
   override def insertIntoLog(
-      entry: DamlLogEntryId,
+      entryId: Index,
       envelope: ByteString,
   )(implicit connection: Connection): Unit = {
-    SQL"INSERT INTO log (entry_id, envelope) VALUES (${entry.getEntryId.toByteArray}, ${envelope.toByteArray})"
-      .executeInsert()
+    SQL"UPDATE log SET envelope = ${envelope.toByteArray} WHERE entry_id = $entryId"
+      .executeUpdate()
     ()
   }
 
