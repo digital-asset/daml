@@ -226,6 +226,7 @@ da_haskell_test(
     data = [
         "//compiler/damlc",
         "//compiler/damlc/tests:generate-simple-dalf",
+        "//daml-lf/repl",
     ],
     hackage_deps = [
         "base",

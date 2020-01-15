@@ -51,7 +51,7 @@ instance Show PackageImport where
         showString "pkgImportExposeImplicit = " .
         shows pkgImportExposeImplicit .
         showCommaSpace .
-        showString "pkgImportModRenamings" .
+        showString "pkgImportModRenamings = " .
         shows (map (bimap GHC.moduleNameString GHC.moduleNameString) pkgImportModRenamings) .
         showString "}"
      where appPrec = 10

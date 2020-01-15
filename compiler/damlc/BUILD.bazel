@@ -149,6 +149,7 @@ da_haskell_library(
         "tasty",
         "temporary",
         "text",
+        "transformers",
         "utf8-string",
         "vector",
         "xml",

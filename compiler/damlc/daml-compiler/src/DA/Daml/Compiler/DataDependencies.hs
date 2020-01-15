@@ -5,6 +5,7 @@ module DA.Daml.Compiler.DataDependencies
     ( generateSrcPkgFromLf
     , generateTemplateInstancesPkgFromLf
     , generateGenInstancesPkgFromLf
+    , splitUnitId
     ) where
 
 import Control.Lens (toListOf)
@@ -39,6 +40,7 @@ import SdkVersion
 
 data Env = Env
     { envGetUnitId :: LF.PackageRef -> UnitId
+    , envStablePackages :: MS.Map LF.PackageId (UnitId, LF.ModuleName)
     , envQualify :: Bool
     , envSdkPrefix :: Maybe String
     , envMod :: LF.Module
@@ -50,13 +52,14 @@ generateSrcFromLf ::
     -> ParsedSource
 generateSrcFromLf env = noLoc mod
   where
-    modName = mkModuleName $ T.unpack $ LF.moduleNameString $ LF.moduleName $ envMod env
+    lfModName = LF.moduleName $ envMod env
+    ghcModName = mkModuleName $ T.unpack $ LF.moduleNameString lfModName
     unitId = envGetUnitId env LF.PRSelf
-    thisModule = mkModule unitId modName
+    thisModule = mkModule unitId ghcModName
     mod =
         HsModule
             { hsmodImports = imports
-            , hsmodName = Just (noLoc modName)
+            , hsmodName = Just (noLoc ghcModName)
             , hsmodDecls = decls
             , hsmodDeprecMessage = Nothing
             , hsmodHaddockModHeader = Nothing
@@ -108,7 +111,13 @@ generateSrcFromLf env = noLoc mod
             , ideclSourceSrc = NoSourceText
             , ideclName =
                   noLoc $ mkModuleName $ T.unpack $ LF.moduleNameString modRef
-            , ideclPkgQual = Nothing
+            , ideclPkgQual =
+              if isStable
+                then Nothing -- we don’t do package qualified imports for modules that should come from the current SDK.
+                else Just $ StringLiteral NoSourceText $ mkFastString $
+                  -- Package qualified imports for the current package need to use "this" instead
+                  -- of the package id.
+                  if refUnitId == unitId then "this" else fst (splitUnitId $ unitIdString refUnitId)
             , ideclSource = False
             , ideclSafe = False
             , ideclImplicit = False
@@ -116,50 +125,51 @@ generateSrcFromLf env = noLoc mod
             , ideclAs = Nothing
             , ideclHiding = Nothing
             } :: LImportDecl GhcPs
-        | (_unitId, modRef) <- modRefs
-        , modRef `notElem` [LF.moduleName $ envMod env, LF.ModuleName ["GHC", "Prim"]]
+        | (isStable, refUnitId, modRef) <- modRefs
+         -- don’t import ourselves
+        , not (modRef == lfModName && unitId == unitId)
+        -- GHC.Prim doesn’t need to and cannot be explicitly imported (it is not exposed since the interface file is black magic
+        -- hardcoded in GHC).
+        , modRef /= LF.ModuleName ["CurrentSdk", "GHC", "Prim"]
         ]
+    isStable LF.PRSelf = False
+    isStable (LF.PRImport pkgId) = pkgId `MS.member` envStablePackages env
     modRefs =
         nubSort $
-        [ (envGetUnitId env pkg, modRef)
+        [ (isStable pkg, envGetUnitId env pkg, LF.ModuleName (["CurrentSdk" | isStable pkg] <> LF.unModuleName modRef))
         | (pkg, modRef) <- toListOf moduleModuleRef $ envMod env
         ] ++
-        (map builtinToModuleRef $
+        (map (\t -> (\(a,b) -> (True,a,b)) $ builtinToModuleRef t) $
          concat $ do
              dataTy <- NM.toList $ LF.moduleDataTypes $ envMod env
              pure $ toListOf (dataConsType . builtinType) $ LF.dataCons dataTy)
     builtinToModuleRef = \case
-            LF.BTInt64 -> (primUnitId, translateModName intTyCon)
-            LF.BTDecimal -> (primUnitId, LF.ModuleName ["GHC", "Types"])
-            LF.BTText -> (primUnitId, LF.ModuleName ["GHC", "Types"])
+            LF.BTInt64 -> (primUnitId, sdkGhcTypes)
+            LF.BTDecimal -> (primUnitId, sdkGhcTypes)
+            LF.BTText -> (primUnitId, sdkGhcTypes)
             LF.BTTimestamp -> (damlStdlibUnitId, sdkDaInternalLf)
             LF.BTDate -> (damlStdlibUnitId, sdkDaInternalLf)
             LF.BTParty -> (damlStdlibUnitId, sdkDaInternalLf)
-            LF.BTUnit -> (primUnitId, translateModName unitTyCon)
-            LF.BTBool -> (primUnitId, translateModName boolTyCon)
-            LF.BTList -> (primUnitId, translateModName listTyCon)
+            LF.BTUnit -> (primUnitId, sdkGhcTuple)
+            LF.BTBool -> (primUnitId, sdkGhcTypes)
+            LF.BTList -> (primUnitId, sdkGhcTypes)
             LF.BTUpdate -> (damlStdlibUnitId, sdkDaInternalLf)
             LF.BTScenario -> (damlStdlibUnitId, sdkDaInternalLf)
             LF.BTContractId -> (damlStdlibUnitId, sdkDaInternalLf)
             LF.BTOptional -> (damlStdlibUnitId, sdkInternalPrelude)
             LF.BTTextMap -> (damlStdlibUnitId, sdkDaInternalLf)
             LF.BTGenMap -> (damlStdlibUnitId, sdkDaInternalLf)
-            LF.BTArrow -> (primUnitId, translateModName funTyCon)
-            LF.BTNumeric -> (primUnitId, LF.ModuleName ["GHC", "Types"])
+            LF.BTArrow -> (primUnitId, sdkGhcPrim)
+            LF.BTNumeric -> (primUnitId, sdkGhcTypes)
             LF.BTAny -> (damlStdlibUnitId, sdkDaInternalLf)
             LF.BTTypeRep -> (damlStdlibUnitId, sdkDaInternalLf)
 
     sdkDaInternalLf = LF.ModuleName $  sdkPrefix ++ ["DA", "Internal", "LF"]
     sdkInternalPrelude = LF.ModuleName $ sdkPrefix ++ ["DA", "Internal", "Prelude"]
+    sdkGhcTypes = LF.ModuleName $ sdkPrefix ++ ["GHC", "Types"]
+    sdkGhcPrim = LF.ModuleName $ sdkPrefix ++ ["GHC", "Prim"]
+    sdkGhcTuple = LF.ModuleName $ sdkPrefix ++ ["GHC", "Tuple"]
     sdkPrefix = [T.pack prefix | Just prefix <- [envSdkPrefix env]]
-
-    translateModName ::
-           forall a. NamedThing a
-        => a
-        -> LF.ModuleName
-    translateModName =
-        LF.ModuleName .
-        map T.pack . split (== '.') . moduleNameString . moduleName . nameModule . getName
 
 -- TODO (drsk) how come those '#' appear in daml-lf names?
 sanitize :: T.Text -> T.Text
@@ -222,15 +232,17 @@ mkConDeclField env fieldName fieldTy = noLoc $ ConDeclField
 -- external package.
 generateTemplateInstancesPkgFromLf ::
        (LF.PackageRef -> UnitId)
+    -> MS.Map LF.PackageId (UnitId, LF.ModuleName)
     -> Maybe String
     -> LF.PackageId
     -> LF.Package
     -> [(NormalizedFilePath, String)]
-generateTemplateInstancesPkgFromLf getUnitId mbSdkPrefix pkgId pkg =
+generateTemplateInstancesPkgFromLf getUnitId stablePkgs mbSdkPrefix pkgId pkg =
     catMaybes
         [ generateTemplateInstanceModule
             Env
                 { envGetUnitId = getUnitId
+                , envStablePackages = stablePkgs
                 , envQualify = False
                 , envMod = mod
                 , envSdkPrefix = mbSdkPrefix
@@ -494,14 +506,14 @@ convType env =
 convBuiltInTy :: Env -> LF.BuiltinType -> HsType GhcPs
 convBuiltInTy env =
     \case
-        LF.BTInt64 -> mkTyConType qualify intTyCon
+        LF.BTInt64 -> mkGhcType "Int"
         LF.BTDecimal -> mkGhcType "Decimal"
         LF.BTText -> mkGhcType "Text"
         LF.BTTimestamp -> mkLfInternalType env "Time"
         LF.BTDate -> mkLfInternalType env "Date"
         LF.BTParty -> mkLfInternalType env "Party"
         LF.BTUnit -> mkTyConTypeUnqual unitTyCon
-        LF.BTBool -> mkTyConType qualify boolTyCon
+        LF.BTBool -> mkGhcType "Bool"
         LF.BTList -> mkTyConTypeUnqual listTyCon
         LF.BTUpdate -> mkLfInternalType env "Update"
         LF.BTScenario -> mkLfInternalType env "Scenario"
@@ -513,8 +525,6 @@ convBuiltInTy env =
         LF.BTNumeric -> mkGhcType "Numeric"
         LF.BTAny -> mkLfInternalType env "Any"
         LF.BTTypeRep -> mkLfInternalType env "TypeRep"
-  where
-    qualify = envQualify env
 
 errTooManyNameComponents :: [T.Text] -> a
 errTooManyNameComponents cs =
@@ -555,7 +565,7 @@ mkTyConType qualify tyCon
 mkGhcType :: String -> HsType GhcPs
 mkGhcType =
     HsTyVar noExt NotPromoted .
-    noLoc . mkOrig gHC_TYPES . mkOccName varName
+    noLoc . mkOrig (Module primUnitId (mkModuleName "CurrentSdk.GHC.Types")) . mkOccName varName
 
 mkLfInternalType :: Env -> String -> HsType GhcPs
 mkLfInternalType env =
@@ -658,12 +668,12 @@ mkLfTemplateType moduleName0 typeCon typeParams=
 -- | Generate the full source for a daml-lf package.
 generateSrcPkgFromLf ::
        (LF.PackageRef -> UnitId)
+    -> MS.Map LF.PackageId (UnitId, LF.ModuleName)
     -> Maybe String
     -> LF.Package
     -> [(NormalizedFilePath, String)]
-generateSrcPkgFromLf getUnitId mbSdkPrefix pkg = do
+generateSrcPkgFromLf getUnitId stablePkgs mbSdkPrefix pkg = do
     mod <- NM.toList $ LF.packageModules pkg
-    guard $ (LF.unModuleName $ LF.moduleName mod) /= ["GHC", "Prim"]
     let fp =
             toNormalizedFilePath $
             (joinPath $ map T.unpack $ LF.unModuleName $ LF.moduleName mod) <.>
@@ -674,7 +684,7 @@ generateSrcPkgFromLf getUnitId mbSdkPrefix pkg = do
           (showSDocForUser fakeDynFlags alwaysQualify $
            ppr $ generateSrcFromLf $ env mod))
   where
-    env m = Env getUnitId True mbSdkPrefix m
+    env m = Env getUnitId stablePkgs True mbSdkPrefix m
     header =
         ["{-# LANGUAGE NoDamlSyntax #-}"
         , "{-# LANGUAGE NoImplicitPrelude #-}"
@@ -704,16 +714,18 @@ genericInstances env externPkgId =
 
 generateGenInstancesPkgFromLf ::
        (LF.PackageRef -> UnitId)
+    -> MS.Map LF.PackageId (UnitId, LF.ModuleName)
     -> Maybe String
     -> LF.PackageId
     -> LF.Package
     -> String
     -> [(NormalizedFilePath, String)]
-generateGenInstancesPkgFromLf getUnitId mbSdkPrefix pkgId pkg qual =
+generateGenInstancesPkgFromLf getUnitId stablePkgs mbSdkPrefix pkgId pkg qual =
     catMaybes
         [ generateGenInstanceModule
             Env
                 { envGetUnitId = getUnitId
+                , envStablePackages = stablePkgs
                 , envQualify = False
                 , envMod = mod
                 , envSdkPrefix = mbSdkPrefix
@@ -761,3 +773,10 @@ generateGenInstanceModule env externPkgId qual
         [ "import qualified " <> modNameQual
         , "import qualified DA.Generics"
         ]
+
+-- | Take a string of the form daml-stdlib-"0.13.43" and split it into ("daml-stdlib", Just "0.13.43")
+splitUnitId :: String -> (String, Maybe String)
+splitUnitId unitId = fromMaybe (unitId, Nothing) $ do
+    (name, ver) <- stripInfixEnd "-" unitId
+    guard $ all (`elem` '.' : ['0' .. '9']) ver
+    pure (name, Just ver)

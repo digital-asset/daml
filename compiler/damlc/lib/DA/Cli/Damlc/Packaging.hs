@@ -15,8 +15,9 @@ module DA.Cli.Damlc.Packaging
 import qualified "zip" Codec.Archive.Zip as Zip
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
 import Control.Lens (toListOf)
-import Control.Monad
-import Data.Bifunctor
+import Control.Monad.Extra
+import Control.Monad.IO.Class
+import Control.Monad.Trans.Maybe
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.UTF8 as BSUTF8
@@ -26,6 +27,7 @@ import qualified Data.Map.Strict as MS
 import Data.Maybe
 import qualified Data.Text.Extended as T
 import Development.IDE.Core.Service (runAction)
+import Development.IDE.Core.Shake
 import Development.IDE.Types.Location
 import "ghc-lib-parser" Module (UnitId, primUnitId, stringToUnitId, unitIdString,)
 import qualified Module as GHC
@@ -47,6 +49,7 @@ import qualified DA.Daml.LF.Proto3.Archive as Archive
 import DA.Daml.LF.Reader
 import DA.Daml.Options.Types
 import qualified DA.Pretty
+import Development.IDE.Core.RuleTypes.Daml
 import SdkVersion
 
 -- | Create the project package database containing the given dar packages.
@@ -99,49 +102,74 @@ createProjectPackageDb opts thisSdkVer deps dataDeps = do
             bs <- BS.readFile fp
             pure (dropExtension $ takeFileName fp, bs)
     let allDalfs = dalfsFromDars ++ dalfsFromFps
-    pkgs <- forM allDalfs $ \(name, dalf) -> do
+    pkgs <- flip mapMaybeM allDalfs $ \(name, dalf) -> runMaybeT $ do
         (pkgId, package) <-
+            liftIO $
             either (fail . DA.Pretty.renderPretty) pure $
             Archive.decodeArchive Archive.DecodeAsMain dalf
-        pure (pkgId, package, dalf, stringToUnitId (parseUnitId name pkgId))
+        -- daml-prim and daml-stdlib are somewhat special:
+        --
+        -- We always have daml-prim and daml-stdlib from the current SDK and we
+        -- cannot control their unit id since that would require recompiling them.
+        -- However, we might also have daml-prim and daml-stdlib in a different version
+        -- in a DAR we are depending on. Luckily, we can control the unit id there.
+        -- To avoid colliding unit ids which will confuse GHC (or rather hide
+        -- one of them), we instead include the package hash in the unit id.
+        --
+        -- In principle, we can run into the same issue if you combine "dependencies"
+        -- (which have precompiled interface files with uncontrollable unit ids) and
+        -- "data-dependencies" but given that our long-term goal is to kill "dependencies"
+        -- completely, we ignore that for now.
+        let parsedUnitId = parseUnitId name pkgId
+        let unitId = stringToUnitId $ case splitUnitId parsedUnitId of
+              ("daml-prim", Nothing) -> "daml-prim-" <> T.unpack (LF.unPackageId pkgId)
+              ("daml-stdlib", _) -> "daml-stdlib-" <> T.unpack (LF.unPackageId pkgId)
+              _ -> parsedUnitId
+        pure (pkgId, package, dalf, unitId)
 
-    let (depGraph, vertexToNode) = buildLfPackageGraph pkgs
+    loggerH <- getLogger opts "generate stable packages"
+    stablePkgsOpts <- mkOptions opts
+    stablePkgs <- withDamlIdeState stablePkgsOpts loggerH diagnosticsLogger $ \ide -> do
+        runAction ide $ useNoFile_ GenerateStablePackages
+    let stablePkgIds = MS.fromList $ map (\(k, pkg) -> (LF.dalfPackageId pkg, k)) $ MS.toList stablePkgs
+
+    let (depGraph, vertexToNode) = buildLfPackageGraph pkgs stablePkgIds
     -- Iterate over the dependency graph in topological order.
     -- We do a topological sort on the transposed graph which ensures that
     -- the packages with no dependencies come first and we
     -- never process a package without first having processed its dependencies.
-    forM_ (topSort $ transposeG depGraph) $ \vertex -> do
-        let (pkgNode, pkgId) = vertexToNode vertex
+    forM_ (topSort $ transposeG depGraph) $ \vertex ->
+      let (pkgNode, pkgId) = vertexToNode vertex in
+      -- stable packages are mapped to the current version of daml-prim/daml-stdlib
+      -- so we don’t need to generate interface files for them.
+      unless (pkgId `MS.member` stablePkgIds) $ do
         let unitIdStr = unitIdString $ unitId pkgNode
-        unless (unitIdString primUnitId `isPrefixOf` unitIdStr) $ do
-            let _instancesUnitIdStr = "instances-" <> unitIdStr
-            let pkgIdStr = T.unpack $ LF.unPackageId pkgId
-            let (pkgName, mbPkgVersion) =
-                    fromMaybe (unitIdStr, Nothing) $ do
-                        (uId, ver) <- stripInfixEnd "-" unitIdStr
-                        guard $ all (`elem` '.' : ['0' .. '9']) ver
-                        Just (uId, Just ver)
-            let deps =
-                    [ unitIdString (unitId depPkgNode) <.> "dalf"
-                    | (depPkgNode, pId) <- map vertexToNode $ reachable depGraph vertex
-                    , pkgId /= pId
-                    ]
-            let workDir = dbPath </> unitIdStr <> "-" <> pkgIdStr
-            createDirectoryIfMissing True workDir
-            -- write the dalf package
-            BS.writeFile (workDir </> unitIdStr <.> "dalf") $ encodedDalf pkgNode
-            generateAndInstallIfaceFiles
-                (dalf pkgNode)
-                (stubSources pkgNode)
-                opts
-                workDir
-                dbPath
-                projectPackageDatabase
-                unitIdStr
-                pkgIdStr
-                pkgName
-                mbPkgVersion
-                deps
+        let _instancesUnitIdStr = "instances-" <> unitIdStr
+        let pkgIdStr = T.unpack $ LF.unPackageId pkgId
+        let (pkgName, mbPkgVersion) = splitUnitId unitIdStr
+        let deps =
+                [ unitIdString (unitId depPkgNode) <.> "dalf"
+                | (depPkgNode, depPkgId) <- map vertexToNode $ reachable depGraph vertex
+                , pkgId /= depPkgId
+                , not (depPkgId `MS.member` stablePkgIds)
+                ]
+        let workDir = dbPath </> unitIdStr <> "-" <> pkgIdStr
+        createDirectoryIfMissing True workDir
+        -- write the dalf package
+        BS.writeFile (workDir </> unitIdStr <.> "dalf") $ encodedDalf pkgNode
+
+        generateAndInstallIfaceFiles
+            (dalf pkgNode)
+            (stubSources pkgNode)
+            opts
+            workDir
+            dbPath
+            projectPackageDatabase
+            unitIdStr
+            pkgIdStr
+            pkgName
+            mbPkgVersion
+            deps
 
             -- Disabled since the changes to template desugaring will break this and
             -- more generally this whole code path will not be necessary as
@@ -205,7 +233,6 @@ generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase
                   baseImports ++
                   [ PackageImport (GHC.stringToUnitId $ takeBaseName dep) True []
                   | dep <- deps
-                  , not $ unitIdString primUnitId `isPrefixOf` dep
                   ]
             }
 
@@ -245,19 +272,36 @@ recachePkgDb dbPath = do
         , "--expand-pkgroot"
         ]
 
+-- TODO We should generate the list of stable packages automatically here.
 baseImports :: [PackageImport]
 baseImports =
-    [ PackageImport (GHC.stringToUnitId "daml-prim") True []
-    -- we need the standard library from the current sdk for the
-    -- definition of the template class.
+    [ PackageImport
+        (GHC.stringToUnitId "daml-prim")
+        False
+        (map (\mod -> (GHC.mkModuleName mod, GHC.mkModuleName (currentSdkPrefix <> "." <> mod)))
+           [ "GHC.Tuple"
+           , "GHC.Types"
+           , "DA.Types"
+           ]
+        )
+    -- We need the standard library from the current SDK, e.g., LF builtins like Optional are translated
+    -- to types in the current standard library.
     , PackageImport
        (GHC.stringToUnitId damlStdlib)
        False
-       (map (bimap GHC.mkModuleName GHC.mkModuleName)
-          [ ("DA.Internal.Template", "Sdk.DA.Internal.Template")
-          , ("DA.Internal.Template.Functions", "Sdk.DA.Internal.Template.Functions")
-          , ("DA.Internal.LF", "Sdk.DA.Internal.LF")
-          , ("DA.Internal.Prelude", "Sdk.DA.Internal.Prelude")
+       (map (\mod -> (GHC.mkModuleName mod, GHC.mkModuleName (currentSdkPrefix <> "." <> mod)))
+          [ "DA.Internal.Template"
+          , "DA.Internal.Template.Functions"
+          , "DA.Internal.LF"
+          , "DA.Internal.Prelude"
+          , "DA.Internal.Down"
+          , "DA.NonEmpty.Types"
+          , "DA.Semigroup.Types"
+          , "DA.Monoid.Types"
+          , "DA.Logic.Types"
+          , "DA.Validation.Types"
+          , "DA.Date.Types"
+          , "DA.Time.Types"
           ]
        )
     ]
@@ -457,10 +501,11 @@ lfVersionString = DA.Pretty.renderPretty
 -- | The graph will have an edge from package A to package B if A depends on B.
 buildLfPackageGraph
     :: [(LF.PackageId, LF.Package, BS.ByteString, UnitId)]
+    -> MS.Map LF.PackageId (UnitId, LF.ModuleName)
     -> ( Graph
        , Vertex -> (PackageNode, LF.PackageId)
        )
-buildLfPackageGraph pkgs = (depGraph,  vertexToNode')
+buildLfPackageGraph pkgs stablePkgs = (depGraph,  vertexToNode')
   where
     -- mapping from package id's to unit id's. if the same package is imported with
     -- different unit id's, we would loose a unit id here.
@@ -472,7 +517,7 @@ buildLfPackageGraph pkgs = (depGraph,  vertexToNode')
             | (pkgId, dalf, bs, unitId) <- pkgs
             , let pkgRefs = [ pid | LF.PRImport pid <- toListOf packageRefs dalf ]
             , let getUid = getUnitId unitId pkgMap
-            , let src = generateSrcPkgFromLf getUid (Just "Sdk") dalf
+            , let src = generateSrcPkgFromLf getUid stablePkgs (Just currentSdkPrefix) dalf
             ]
     vertexToNode' v = case vertexToNode v of
         -- We don’t care about outgoing edges.
@@ -486,3 +531,6 @@ data PackageNode = PackageNode
   , dalf :: LF.Package
   , encodedDalf :: BS.ByteString
   }
+
+currentSdkPrefix :: String
+currentSdkPrefix = "CurrentSdk"
