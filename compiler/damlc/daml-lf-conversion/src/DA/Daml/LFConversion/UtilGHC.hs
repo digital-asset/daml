@@ -18,6 +18,7 @@ module DA.Daml.LFConversion.UtilGHC(
 
 import "ghc-lib" GHC hiding (convertLit)
 import "ghc-lib" GhcPlugins as GHC hiding (fst3, (<>))
+import "ghc-lib-parser" Class as GHC
 
 import Data.Generics.Uniplate.Data
 import Data.Maybe
@@ -92,13 +93,73 @@ pattern GHC_Tuple <- ModuleIn DamlPrim "GHC.Tuple"
 pattern GHC_Types <- ModuleIn DamlPrim "GHC.Types"
 
 -- daml-stdlib module patterns
-pattern DA_Action, DA_Generics, DA_Internal_LF, DA_Internal_Prelude, DA_Internal_Record, DA_Internal_Desugar :: GHC.Module
+pattern DA_Action, DA_Generics, DA_Internal_LF, DA_Internal_Prelude, DA_Internal_Record, DA_Internal_Desugar, DA_Internal_Template_Functions :: GHC.Module
 pattern DA_Action <- ModuleIn DamlStdlib "DA.Action"
 pattern DA_Generics <- ModuleIn DamlStdlib "DA.Generics"
 pattern DA_Internal_LF <- ModuleIn DamlStdlib "DA.Internal.LF"
 pattern DA_Internal_Prelude <- ModuleIn DamlStdlib "DA.Internal.Prelude"
 pattern DA_Internal_Record <- ModuleIn DamlStdlib "DA.Internal.Record"
 pattern DA_Internal_Desugar <- ModuleIn DamlStdlib "DA.Internal.Desugar"
+pattern DA_Internal_Template_Functions <- ModuleIn DamlStdlib "DA.Internal.Template.Functions"
+
+-- | Deconstruct a dictionary function (DFun) identifier into a tuple
+-- containing, in order:
+--   1. the foralls
+--   2. the dfun arguments (i.e. the instances it depends on)
+--   3. the type class
+--   4. the type class arguments
+splitDFunId :: GHC.Var -> Maybe ([GHC.TyCoVar], [GHC.Type], GHC.Class, [GHC.Type])
+splitDFunId v
+    | DFunId _ <- idDetails v
+    , (tyCoVars, ty1) <- splitForAllTys (varType v)
+    , (dfunArgs, ty2) <- splitFunTys ty1
+    , Just (tyCon, tyClsArgs) <- splitTyConApp_maybe ty2
+    , Just tyCls <- tyConClass_maybe tyCon
+    = Just (tyCoVars, dfunArgs, tyCls, tyClsArgs)
+
+    | otherwise
+    = Nothing
+
+-- | Pattern for template desugaring DFuns.
+pattern DesugarDFunId :: [GHC.TyCoVar] -> [GHC.Type] -> FastString -> [GHC.Type] -> GHC.Var
+pattern DesugarDFunId tyCoVars dfunArgs clsName classArgs <-
+    (splitDFunId -> Just
+        ( tyCoVars
+        , dfunArgs
+        , GHC.className -> NameIn DA_Internal_Template_Functions clsName
+        , classArgs
+        )
+    )
+
+pattern HasSignatoryDFunId, HasEnsureDFunId, HasAgreementDFunId, HasObserverDFunId,
+    HasArchiveDFunId :: TyCon -> GHC.Var
+
+pattern HasSignatoryDFunId templateTyCon <-
+    DesugarDFunId [] [] "HasSignatory"
+        [splitTyConApp_maybe -> Just (templateTyCon, [])]
+pattern HasEnsureDFunId templateTyCon <-
+    DesugarDFunId [] [] "HasEnsure"
+        [splitTyConApp_maybe -> Just (templateTyCon, [])]
+pattern HasAgreementDFunId templateTyCon <-
+    DesugarDFunId [] [] "HasAgreement"
+        [splitTyConApp_maybe -> Just (templateTyCon, [])]
+pattern HasObserverDFunId templateTyCon <-
+    DesugarDFunId [] [] "HasObserver"
+        [splitTyConApp_maybe -> Just (templateTyCon, [])]
+pattern HasArchiveDFunId templateTyCon <-
+    DesugarDFunId [] [] "HasArchive"
+        [splitTyConApp_maybe -> Just (templateTyCon, [])]
+
+pattern HasKeyDFunId, HasMaintainerDFunId :: TyCon -> Type -> GHC.Var
+
+pattern HasKeyDFunId templateTyCon keyTy <-
+    DesugarDFunId [] [] "HasKey"
+        [ splitTyConApp_maybe -> Just (templateTyCon, [])
+        , keyTy ]
+pattern HasMaintainerDFunId templateTyCon keyTy <-
+    DesugarDFunId [] [] "HasMaintainer"
+        [ splitTyConApp_maybe -> Just (templateTyCon, [])
+        , keyTy ]
 
 -- | Break down a constraint tuple projection function name
 -- into an (index, arity) pair. These names have the form
