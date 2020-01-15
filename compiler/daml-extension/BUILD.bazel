@@ -88,6 +88,7 @@ genrule(
     # rm -rf can fail with "directory not empty" on Windows.
     # As a workaround we add `|| return`.
     cmd = """
+        export HOME=/does-not-exist
         set -euo pipefail
         TMP_DIR=$$(mktemp -d)
         cleanup () { rm -rf $$TMP_DIR || return; }

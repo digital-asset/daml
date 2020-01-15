@@ -1,8 +1,9 @@
 # Copyright (c) 2020 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("@build_bazel_rules_nodejs//:defs.bzl", "nodejs_binary")
+load("@build_bazel_rules_nodejs//:index.bzl", "nodejs_binary")
 load("@os_info//:os_info.bzl", "is_windows")
+# load ("@npm_bazel_typescript//:index.bzl", "ts_library")
 
 filegroup(
     name = "src",
@@ -48,8 +49,21 @@ nodejs_binary(
     # ],
 )
 
+# TODO (drsk) We should switch the frontend rule to use the bazel typescript rules instead of
+# webpack. Something like the following:
+# ts_library(
+# name = "frontend",
+# tsconfig = ":tsconfig.json",
+# srcs = glob(["**/*.ts"]),
+# data = [":package.json", ":tslint.json"],
+# node_modules = "@navigator_frontend_deps//:node_modules",
+# visibility = [
+# "//navigator:__subpackages__",
+# ],
+# )
+
 # Builds the frontend single page application and bundles all output files
-# (HTML + JavaScript + CSS + images) in a .tgz or .jar archive.
+#  (HTML + JavaScript + CSS + images) in a .tgz or .jar archive.
 genrule(
     name = "frontend",
     srcs = [

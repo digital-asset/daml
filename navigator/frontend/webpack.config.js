@@ -52,8 +52,13 @@ const APP_NAME = 'Navigator';
  */
 module.exports = (env) => {
   const paths_case_check = env && env.paths_case_check  || 'true';
-  const in_dir           = env && env.bazel_in_dir  || __dirname;
-  const out_dir          = env && env.bazel_out_dir || path.join(__dirname, 'dist');
+  // const in_dir           = env && env.bazel_in_dir  || __dirname;
+  // const out_dir          = env && env.bazel_out_dir || path.join(__dirname, 'dist');
+  // TODO (drsk) there seems to be a bug in the code producing the `env.bazel_in_dir,
+  // env.bazel_out_dir` that just concats directory components. We should switch back to rely on
+  // bazel_in_dir/bazel_out_dir once it's fixed.
+  const in_dir           = __dirname;
+  const out_dir          = path.join(__dirname, 'dist');
   const build_version    = env && env.bazel_version_file ? fs.readFileSync(env.bazel_version_file, 'utf8').trim() : 'HEAD';
   const build_commit     = env && env.bazel_commit_file  ? fs.readFileSync(env.bazel_commit_file, 'utf8').trim()  : 'HEAD';
   const isProduction     = env ? (!!env.prod || !!env.production) : false;

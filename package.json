@@ -6,7 +6,6 @@
   "version": "0.0.0",
   "dependencies": {
     "bower": "1.8.8",
-    "browserify": "16.2.3",
     "dockerode": "^2.5.8",
     "express": "^4.16.4",
     "express-session": "^1.15.6",
@@ -22,15 +21,17 @@
     "grunt-contrib-watch": "1.1.0",
     "grunt-exec": "3.0.0",
     "grunt-open": "0.2.4",
-    "http-proxy": "^1.17.0",
     "matchdep": "2.0.0",
+    "color-convert": "2.0.1",
+    "colors": "1.4.0",
+    "http-proxy": "^1.17.0",
     "node-cache": "^4.2.0",
     "typescript": "3.1.6",
     "url": "^0.11.0"
   },
   "devDependencies": {
-    "@bazel/bazel": "0.22.0",
-    "@bazel/hide-bazel-files": "0.32.2",
-    "@bazel/typescript": "0.32.2"
+    "@bazel/bazel": "0.29.0",
+    "@bazel/hide-bazel-files": "1.1.0",
+    "@bazel/typescript": "1.1.0"
   }
 }

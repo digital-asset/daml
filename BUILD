@@ -195,7 +195,7 @@ alias(
 
 alias(
     name = "yarn",
-    actual = "@nodejs//:bin/yarn.cmd" if is_windows else "@nodejs//:bin/yarn",
+    actual = "@nodejs//:yarn",
 )
 
 alias(
