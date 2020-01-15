@@ -1,8 +1,5 @@
 {
-  "templateId": {
-    "moduleName": "Iou",
-    "entityName": "Iou"
-  },
+  "templateId": "Iou:Iou",
   "argument": {
     "observers": [],
     "issuer": "Alice",

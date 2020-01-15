@@ -188,7 +188,8 @@ class WebsocketServiceIntegrationTest
         }
 
       for {
-        _ <- initialCreate
+        creation <- initialCreate
+        _ = creation._1 shouldBe 'success
         lastState <- Source single query via webSocketFlow via parseResp runWith resp
       } yield lastState should ===(ShouldHaveEnded(2))
   }
@@ -211,7 +212,7 @@ object WebsocketServiceIntegrationTest {
       } yield
         (adds collect (Function unlift {
           case JsObject(add) =>
-            (add get "contractId" collect { case JsString(v) => v }) tuple (add get "argument")
+            (add get "contractId" collect { case JsString(v) => v }) tuple (add get "payload")
           case _ => None
         }), removes collect { case JsString(v) => v })
   }
