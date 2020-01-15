@@ -72,11 +72,8 @@ object Hash {
       add(longBuffer.putLong(a).array())
     }
 
-    def iterateOver[T, U](a: ImmArray[T])(f: (this.type, T) => U): this.type = {
-      add(a.length)
-      a.iterator.foreach(f(this, _))
-      this
-    }
+    def iterateOver[T, U](a: ImmArray[T])(f: (this.type, T) => this.type): this.type =
+      a.foldLeft[this.type](add(a.length))(f)
 
     def addDottedName(name: Ref.DottedName): this.type =
       iterateOver(name.segments)(_ add _)
@@ -117,7 +114,9 @@ object Hash {
         case Value.ValueList(xs) =>
           iterateOver(xs.toImmArray)(_ addTypedValue _)
         case Value.ValueTextMap(xs) =>
-          iterateOver(xs.toImmArray) { case (acc, (k, v)) => acc.add(k).addTypedValue(v) }
+          iterateOver(xs.toImmArray) { (acc, x) =>
+            acc.add(x._1).addTypedValue(x._2)
+          }
         case Value.ValueRecord(_, fs) =>
           iterateOver(fs)(_ addTypedValue _._2)
         case Value.ValueVariant(_, variant, v) =>
