@@ -4,6 +4,7 @@
 package com.digitalasset.daml.lf
 package transaction
 
+import com.digitalasset.daml.lf.crypto.Hasher
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value._
@@ -618,7 +619,7 @@ class HasherSpec extends WordSpec with Matchers {
       val actualOutput = testCases
         .map { value =>
           val hash = Hasher
-            .HashBuilderOps(crypto.SHa256Hash.builder(crypto.HashPurpose.Testing))
+            .HashBuilderOps(crypto.SHA256Hash.builder(crypto.HashPurpose.Testing))
             .addTypedValue(value)
             .build
             .toByteArray

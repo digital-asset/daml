@@ -1,10 +1,8 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
-// SPDX-License-Identifier: Apache-2.0
-
 package com.digitalasset.daml.lf
-package transaction
+package crypto
 
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value
 
 object Hasher {
@@ -28,6 +26,7 @@ object Hasher {
   private val tagSome: Byte = 0x21
   private val tagList: Byte = 0x22
   private val tagTextMap: Byte = 0x23
+  // private val tagGenMap: Byte = 0x24
 
   // tag for user defined data
   private val tagRecord: Byte = 0x40
@@ -36,21 +35,23 @@ object Hasher {
 
   // package private for testing purpose.
   // Do not call this method from outside Hasher object/
-  private[transaction] implicit class HashBuilderOps(val builder: crypto.SHa256Hash.Builder)
+  private[transaction] implicit class SHA256HashBuilderOps(val builder: SHA256Hash.Builder)
       extends AnyVal {
 
     import builder._
 
-    def addDottedName(name: Ref.DottedName): crypto.SHa256Hash.Builder =
-      iterateOver(name.segments.iterator, name.segments.length)(_ add _)
+    def addDottedName(name: Ref.DottedName): builder.type =
+      iterateOver(name.segments)(_ add _)
 
-    def addQualifiedName(name: Ref.QualifiedName): crypto.SHa256Hash.Builder =
+    def addQualifiedName(name: Ref.QualifiedName): builder.type =
       addDottedName(name.module).addDottedName(name.name)
 
-    def addIdentifier(id: Ref.Identifier): crypto.SHa256Hash.Builder =
+    def addIdentifier(id: Ref.Identifier): builder.type =
       add(id.packageId).addQualifiedName(id.qualifiedName)
 
-    def addTypedValue(value: Value[Value.AbsoluteContractId]): crypto.SHa256Hash.Builder =
+    // Should be used together with an other data representing uniquely the type `value`.
+    // See for instance hash : Node.GlobalKey => SHA256Hash
+    def addTypedValue(value: Value[Value.AbsoluteContractId]): builder.type =
       value match {
         case Value.ValueUnit =>
           add(tagUnit)
@@ -77,30 +78,31 @@ object Hasher {
         case Value.ValueOptional(Some(v)) =>
           add(tagSome).addTypedValue(v)
         case Value.ValueList(xs) =>
-          add(tagList).iterateOver(xs.iterator, xs.length)(_ addTypedValue _)
+          add(tagList).iterateOver(xs)(_ addTypedValue _)
         case Value.ValueTextMap(xs) =>
-          add(tagTextMap).iterateOver(xs.toImmArray.iterator, xs.toImmArray.length) {
+          add(tagTextMap).iterateOver(xs.toImmArray) {
             case (acc, (k, v)) => acc.add(k).addTypedValue(v)
           }
+        case Value.ValueRecord(_, fs) =>
+          add(tagRecord).iterateOver(fs)(_ addTypedValue _._2)
+        case Value.ValueVariant(_, variant, v) =>
+          add(tagVariant).add(variant).addTypedValue(v)
+        case Value.ValueEnum(_, v) =>
+          add(tagEnum).add(v)
         case Value.ValueGenMap(_) =>
           sys.error("Hashing of generic map not implemented")
         // Struct: should never be encountered
         case Value.ValueStruct(_) =>
           sys.error("Hashing of struct values is not supported")
-        case Value.ValueRecord(_, fs) =>
-          add(tagRecord).iterateOver(fs.iterator, fs.length)(_ addTypedValue _._2)
-        case Value.ValueVariant(_, variant, v) =>
-          add(tagVariant).add(variant).addTypedValue(v)
-        case Value.ValueEnum(_, v) =>
-          add(tagEnum).add(v)
       }
   }
 
-  // Assumes that key is well typed,
-  // i.e., the value of type `key.key` is a record of type `key.identifier`
-  def hash(key: Node.GlobalKey): crypto.SHa256Hash =
-    crypto.SHa256Hash
-      .builder(crypto.HashPurpose.ContractKey)
+  // Assumes that key is well typed, i.e. :
+  // 1 - `key.identifier` is the identifier for a template with a key of type τ
+  // 2 - `key.key` is a value of type τ
+  def hash(key: Node.GlobalKey): SHA256Hash =
+    SHA256Hash
+      .builder(HashPurpose.ContractKey)
       .addIdentifier(key.templateId)
       .addTypedValue(key.key.value)
       .build

@@ -9,11 +9,11 @@ import scala.collection.concurrent
   * The purpose of a hash serves to avoid hash collisions due to equal encodings for different objects.
   * It is in general not possible to derive the purpose of the hash from the hash alone.
   *
-  * Whenever a hash is computed using [[SHa256Hash.Builder]], a [[HashPurpose]] must be specified that gets included in the hash.
+  * Whenever a hash is computed using [[SHA256Hash.Builder]], a [[HashPurpose]] must be specified that gets included in the hash.
   * To reliably prevent hash collisions,
   * 1 - A new, globally unique hash purpose must be defined for each type T for whose values we want to compute hashes for
   * 2 - If T is a sum type, it must define, for each variant V, a tag that is unique to V in the scope of T (i.e.,
-  *    variant tags may be reused across Ts), such that (complete the strategy)...
+  *    variant tags may be reused across Ts), such that ...
   *
   * All [[HashPurpose]] objects must be created through the [[HashPurpose$.apply]] method, which checks that the id is
   * fresh.

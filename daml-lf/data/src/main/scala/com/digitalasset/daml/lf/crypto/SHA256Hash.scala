@@ -7,9 +7,9 @@ import java.nio.ByteBuffer
 import java.security.MessageDigest
 import java.util
 
-import com.digitalasset.daml.lf.data.{Ref, Utf8}
+import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref, Utf8}
 
-class SHa256Hash private (private val bytes: Array[Byte]) {
+class SHA256Hash private (private val bytes: Array[Byte]) {
 
   def toByteArray: Array[Byte] = bytes.clone()
 
@@ -20,7 +20,7 @@ class SHa256Hash private (private val bytes: Array[Byte]) {
 
   override def equals(other: Any): Boolean =
     other match {
-      case otherHash: SHa256Hash => util.Arrays.equals(bytes, otherHash.bytes)
+      case otherHash: SHA256Hash => util.Arrays.equals(bytes, otherHash.bytes)
       case _ => false
     }
 
@@ -36,69 +36,72 @@ class SHa256Hash private (private val bytes: Array[Byte]) {
 
 }
 
-object SHa256Hash {
+object SHA256Hash {
 
   /**
     * The methods of [[Builder]] change its internal state and return `this` for convenience.
     */
   sealed abstract class Builder {
 
-    def add(a: Array[Byte]): Builder
+    def add(a: Array[Byte]): this.type
 
-    def add(a: ByteBuffer): Builder
+    def add(a: ByteBuffer): this.type
 
-    def add(a: Byte): Builder
+    def add(a: Byte): this.type
 
-    final def add(a: SHa256Hash): Builder =
+    final def add(a: SHA256Hash): this.type =
       add(a.bytes)
 
-    final def add(s: String): Builder = {
+    final def add(s: String): this.type = {
       val a = Utf8.getBytes(s)
       add(a.length).add(a)
     }
 
     private val intBuffer = ByteBuffer.allocate(java.lang.Integer.BYTES)
 
-    def add(a: Int): Builder = {
+    def add(a: Int): this.type = {
       intBuffer.rewind()
       add(intBuffer.putInt(a).array())
     }
 
     private val longBuffer = ByteBuffer.allocate(java.lang.Long.BYTES)
 
-    def add(a: Long): Builder = {
+    def add(a: Long): this.type = {
       longBuffer.rewind()
       add(longBuffer.putLong(a).array())
     }
 
-    def iterateOver[T](i: Iterator[T], length: Int)(f: (Builder, T) => Builder): Builder =
-      i.foldLeft(add(length))(f)
+    def iterateOver[T](a: ImmArray[T])(f: (this.type, T) => this.type): this.type =
+      a.foldLeft(add(a.length))(f)
 
-    def build: SHa256Hash
+    def iterateOver[T](s: FrontStack[T])(f: (this.type, T) => this.type): this.type =
+      s.iterator.foldLeft(add(s.length))(f)
+
+    def build: SHA256Hash
   }
 
   def builder(purpose: HashPurpose): Builder = new Builder {
 
     private val md = MessageDigest.getInstance("SHA-256")
 
-    override def add(a: Array[Byte]): Builder = {
+    override def add(a: Array[Byte]): this.type = {
       md.update(a)
       this
     }
 
-    override def add(a: ByteBuffer): Builder = {
+    override def add(a: ByteBuffer): this.type = {
       md.update(a)
       this
     }
 
-    override def add(a: Byte): Builder = {
+    override def add(a: Byte): this.type = {
       md.update(a)
       this
     }
 
     add(purpose.id)
 
-    override def build: SHa256Hash = new SHa256Hash(md.digest)
+    override def build: SHA256Hash = new SHA256Hash(md.digest)
 
   }
 
