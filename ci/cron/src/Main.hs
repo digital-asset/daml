@@ -123,7 +123,7 @@ build_docs_folder path versions latest = do
         Foldable.for_ versions $ \version -> do
             putStrLn $ "Building " <> version <> "..."
             putStrLn "  Checking for existing folder..."
-            old_version_exists <- exists old version
+            old_version_exists <- exists $ old </> version
             if to_v version < to_v "0.13.36"
             then do
                 -- Maven has stopped accepting http requests and now requires
@@ -141,7 +141,7 @@ build_docs_folder path versions latest = do
                 -- a protection against tampering at the s3 level as we get the
                 -- checksums from the s3 bucket.
                 putStrLn "  Found. Checking integrity..."
-                checksums_match <- checksums old version
+                checksums_match <- checksums $ old </> version
                 if checksums_match
                 then do
                     putStrLn "  Checks, reusing existing."
@@ -166,12 +166,9 @@ build_docs_folder path versions latest = do
         download_existing_site_from_s3 path = do
             shell_ $ "mkdir -p " <> path
             shell_ $ "aws s3 sync s3://docs-daml-com/ " <> path
-        exists dir name = do
-            dir_exists <- Directory.doesDirectoryExist $ dir </> name
-            dir_has_checksum_file <- Directory.doesFileExist $ dir </> name </> "checksum"
-            return $ dir_exists && dir_has_checksum_file
-        checksums path version = do
-            let cmd = "cd " <> path </> version <> "; sha256sum -c checksum"
+        exists dir = Directory.doesDirectoryExist dir
+        checksums path = do
+            let cmd = "cd " <> path <> "; sha256sum -c checksum"
             (code, _, _) <- shell_exit_code cmd
             case code of
                 Exit.ExitSuccess -> return True
@@ -185,7 +182,7 @@ build_docs_folder path versions latest = do
             -- after 0.13.43.
             if to_v version < to_v "0.13.44"
             then do
-                shell_ "git cherry-pick 0c4f9d7f92c4f2f7e2a75a0d85db02e20cbb497b"
+                shell_ "git -c user.name=CI -c user.email=CI@example.com cherry-pick 0c4f9d7f92c4f2f7e2a75a0d85db02e20cbb497b"
             else pure ()
             robustly_download_nix_packages
             shell_ "bazel build //docs:docs"
