@@ -25,11 +25,13 @@ import GHC.Real as GHC (fromRational)
 import GHC.Show as GHC
 import DA.Types as GHC (Either(..))
 import GHC.Tuple()
-import GHC.Types as GHC (Bool (..), Int, Ordering (..), Text, Decimal, DamlEnum, ifThenElse, primitive, magic
+import GHC.Types as GHC (Bool (..), Int, Ordering (..), Text, Decimal, DamlEnum, ifThenElse
 #ifdef DAML_NUMERIC
   , Numeric
 #endif
   )
+-- Not reexported
+import GHC.Types (primitive)
 
 import DA.Internal.Down
 

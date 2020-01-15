@@ -14,7 +14,6 @@ import org.scalacheck.Gen.nonEmptyListOf
 import org.scalacheck.Shrink
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.{FreeSpec, Inside, Matchers}
-import scalaz.{-\/, \/-}
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 class PackageServiceTest
@@ -91,46 +90,32 @@ class PackageServiceTest
       }
   }
 
-  "PackageService.resolveTemplateIds" - {
+  "PackageService.resolveTemplateId" - {
 
-    "should return all API Identifier by (moduleName, entityName)" in forAll(
+    "should resolve unique Template ID by (moduleName, entityName)" in forAll(
       nonEmptySet(genDomainTemplateId)) { ids =>
       val map = PackageService.buildTemplateIdMap(ids)
       val uniqueIds: Set[domain.TemplateId.RequiredPkg] = map.unique.values.toSet
-      val uniqueDomainIds: Set[domain.TemplateId.OptionalPkg] = uniqueIds.map { x =>
-        domain.TemplateId(packageId = None, moduleName = x.moduleName, entityName = x.entityName)
-      }
-
-      inside(PackageService.resolveTemplateIds(map)(uniqueDomainIds)) {
-        case \/-(actualIds) => actualIds.toSet shouldBe uniqueIds
+      uniqueIds.foreach { id =>
+        val unresolvedId: domain.TemplateId.OptionalPkg = id.copy(packageId = None)
+        PackageService.resolveTemplateId(map)(unresolvedId) shouldBe Some(id)
       }
     }
 
-    "should return all API Identifier by (packageId, moduleName, entityName)" in forAll(
-      nonEmptySet(genDomainTemplateId)) { ids =>
-      val map = PackageService.buildTemplateIdMap(ids)
-      val domainIds: Set[domain.TemplateId.OptionalPkg] =
-        ids.map { x =>
-          domain.TemplateId(Some(x.packageId), x.moduleName, x.entityName)
+    "should resolve fully qualified Template ID" in forAll(nonEmptySet(genDomainTemplateId)) {
+      ids =>
+        val map = PackageService.buildTemplateIdMap(ids)
+        ids.foreach { id =>
+          val unresolvedId: domain.TemplateId.OptionalPkg = id.copy(packageId = Some(id.packageId))
+          PackageService.resolveTemplateId(map)(unresolvedId) shouldBe Some(id)
         }
-
-      inside(PackageService.resolveTemplateIds(map)(domainIds)) {
-        case \/-(actualIds) => actualIds.toSet shouldBe ids
-      }
     }
 
-    "should return error for unmapped Template ID" in forAll(
+    "should return None for unknown Template ID" in forAll(
       Generators.genDomainTemplateIdO[Option[String]]) {
       templateId: domain.TemplateId.OptionalPkg =>
         val map = TemplateIdMap(Set.empty, Map.empty)
-        inside(PackageService.resolveTemplateId(map)(templateId)) {
-          case -\/(e) =>
-            val templateIdStr: String = templateId.packageId.fold(
-              domain.TemplateId((), templateId.moduleName, templateId.entityName).toString)(p =>
-              domain.TemplateId(p, templateId.moduleName, templateId.entityName).toString)
-            e shouldBe PackageService.InputError(
-              s"Cannot resolve template ID, given: $templateIdStr")
-        }
+        PackageService.resolveTemplateId(map)(templateId) shouldBe None
     }
   }
 

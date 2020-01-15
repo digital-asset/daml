@@ -43,8 +43,15 @@ class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Long, ledgerDao: 
   override def lookupKey(key: Node.GlobalKey, forParty: Party): Future[Option[AbsoluteContractId]] =
     ledgerDao.lookupKey(key, forParty)
 
-  override def ledgerEntries(offset: Option[Long]): Source[(Long, LedgerEntry), NotUsed] =
-    dispatcher.startingAt(offset.getOrElse(0), RangeSource(ledgerDao.getLedgerEntries(_, _)))
+  override def ledgerEntries(
+      beginInclusive: Option[Long],
+      endExclusive: Option[Long]): Source[(Long, LedgerEntry), NotUsed] = {
+    dispatcher.startingAt(
+      beginInclusive.getOrElse(0),
+      RangeSource(ledgerDao.getLedgerEntries(_, _)),
+      endExclusive
+    )
+  }
 
   override def ledgerEnd: Long = dispatcher.getHead()
 

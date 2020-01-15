@@ -29,7 +29,8 @@ private[http] object ResponseFormats {
   }
 
   def resultJsObject[E: Show](
-      jsVals: Source[E \/ JsValue, NotUsed]): Source[ByteString, NotUsed] = {
+      jsVals: Source[E \/ JsValue, NotUsed],
+      warnings: Option[JsValue]): Source[ByteString, NotUsed] = {
 
     val graph = GraphDSL.create() { implicit b =>
       import GraphDSL.Implicits._
@@ -37,8 +38,13 @@ private[http] object ResponseFormats {
       val partition: FanOutShape2[E \/ JsValue, E, JsValue] = b add ContractsFetch.partition
       val concat: UniformFanInShape[ByteString, ByteString] = b add Concat(3)
 
-      // first produce the result element
-      Source.single(ByteString("""{"result":[""")) ~> concat.in(0)
+      // first produce optional warnings and result element
+      warnings match {
+        case Some(x) =>
+          Source.single(ByteString(s"""{"warnings":${x.compactPrint},"result":[""")) ~> concat.in(0)
+        case None =>
+          Source.single(ByteString("""{"result":[""")) ~> concat.in(0)
+      }
 
       jsVals ~> partition.in
 

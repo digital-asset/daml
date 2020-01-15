@@ -27,10 +27,7 @@ trait Dispatcher[Index] extends AutoCloseable {
   def startingAt[T](
       startInclusive: Index,
       subSource: SubSource[Index, T],
-      endExclusive: Option[Index]): Source[(Index, T), NotUsed]
-
-  /** Returns a source of all values starting at the given index, in the form (successor index, value) */
-  def startingAt[T](start: Index, subSource: SubSource[Index, T]): Source[(Index, T), NotUsed]
+      endExclusive: Option[Index] = None): Source[(Index, T), NotUsed]
 }
 
 object Dispatcher {

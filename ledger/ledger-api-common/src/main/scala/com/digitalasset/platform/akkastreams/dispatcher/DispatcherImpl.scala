@@ -78,34 +78,43 @@ final class DispatcherImpl[Index: Ordering](
         logger.debug(s"$name: Failed to update Dispatcher HEAD: instance already closed.")
     }
 
-  override def startingAt[T](
-      start: Index,
-      subSource: SubSource[Index, T],
-      requestedEnd: Option[Index]): Source[(Index, T), NotUsed] =
-    requestedEnd.fold(startingAt(start, subSource))(
-      end =>
-        if (Ordering[Index].gt(start, end))
-          Source.failed(new IllegalArgumentException(
-            s"$name: Invalid index section: start '$start' is after end '$end'"))
-        else startingAt(start, subSource).takeWhile(_._1 != end, inclusive = true))
-
   // noinspection MatchToPartialFunction, ScalaUnusedSymbol
   override def startingAt[T](
       start: Index,
-      subsource: SubSource[Index, T]): Source[(Index, T), NotUsed] =
+      subsource: SubSource[Index, T],
+      requestedEnd: Option[Index] = None): Source[(Index, T), NotUsed] =
     if (indexIsBeforeZero(start))
       Source.failed(
         new IllegalArgumentException(
           s"$name: Invalid start index: '$start' before zero index '$zeroIndex'"))
+    else if (requestedEnd.exists(Ordering[Index].gt(start, _)))
+      Source.failed(
+        new IllegalArgumentException(
+          s"$name: Invalid index section: start '$start' is after end '$requestedEnd'"))
     else {
-      state.get.getSignalDispatcher.fold(Source.failed[(Index, T)](closedError))(
+      val subscription = state.get.getSignalDispatcher.fold(Source.failed[Index](closedError))(
         _.subscribe(signalOnSubscribe = true)
         // This needs to call getHead directly, otherwise this subscription might miss a Signal being emitted
-          .map(_ => getHead())
-          .statefulMapConcat(() => new ContinuousRangeEmitter(start))
-          .flatMapConcat {
-            case (previousHead, head) => subsource(previousHead, head)
-          })
+          .map(_ => getHead()))
+
+      val withOptionalEnd =
+        requestedEnd.fold(subscription)(
+          maxLedgerEnd =>
+            // If we detect that the __signal__ (i.e. new ledger end updates) goes beyond the provided max ledger end,
+            // we can complete the stream from the upstream direction and are not dependent on doing the filtering
+            // on actual ledger entries (which might not even exist, e.g. due to duplicate submissions or
+            // the ledger end having moved after a package upload or party allocation)
+            subscription
+            // accept ledger end signals until the signal exceeds the requested max ledger end.
+            // the last offset that we should emit here is maxLedgerEnd-1, but we cannot do this
+            // because here we only know that the Index type is order-able.
+              .takeWhile(Ordering[Index].lt(_, maxLedgerEnd), inclusive = true))
+
+      withOptionalEnd
+        .statefulMapConcat(() => new ContinuousRangeEmitter(start))
+        .flatMapConcat {
+          case (previousHead, head) => subsource(previousHead, head)
+        }
     }
 
   private class ContinuousRangeEmitter(private var max: Index) // var doesn't need to be synchronized, it is accessed in a GraphStage.

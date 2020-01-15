@@ -48,7 +48,7 @@ module DA.Internal.LF
   , TypeRep
   ) where
 
-import GHC.Types (Opaque, Symbol)
+import GHC.Types (Opaque, Symbol, primitive, magic)
 import DA.Internal.Prelude
 
 -- This module should not define any new types. It should only provide the DAML equivalent for LF

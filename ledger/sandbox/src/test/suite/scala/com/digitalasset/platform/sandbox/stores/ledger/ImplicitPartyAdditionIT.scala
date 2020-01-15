@@ -179,7 +179,7 @@ class ImplicitPartyAdditionIT
         )
         // Wait until both transactions have been processed
         _ <- ledger
-          .ledgerEntries(None)
+          .ledgerEntries(None, None)
           .take(2)
           .runWith(Sink.seq)
         parties <- ledger.parties

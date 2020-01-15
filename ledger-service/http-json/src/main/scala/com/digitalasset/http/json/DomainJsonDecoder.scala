@@ -3,10 +3,12 @@
 
 package com.digitalasset.http.json
 
+import com.digitalasset.http.ErrorMessages.cannotResolveTemplateId
 import com.digitalasset.http.domain.HasTemplateId
 import com.digitalasset.http.{PackageService, domain}
 import com.digitalasset.ledger.api.{v1 => lav1}
 import scalaz.syntax.show._
+import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
 import scalaz.{Traverse, \/, \/-}
 import spray.json.{JsObject, JsValue, JsonReader}
@@ -80,8 +82,8 @@ class DomainJsonDecoder(
     val H: HasTemplateId[F] = implicitly
     val templateId: domain.TemplateId.OptionalPkg = H.templateId(fa)
     for {
-      tId <- resolveTemplateId(templateId)
-        .leftMap(e => JsonError("DomainJsonDecoder_lookupLfType " + e.shows))
+      tId <- resolveTemplateId(templateId).toRightDisjunction(
+        JsonError(s"DomainJsonDecoder_lookupLfType: ${cannotResolveTemplateId(templateId)}"))
       lfType <- H
         .lfType(fa, tId, resolveTemplateRecordType, resolveRecordType, resolveKey)
         .leftMap(e => JsonError("DomainJsonDecoder_lookupLfType " + e.shows))

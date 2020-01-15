@@ -211,7 +211,10 @@ getDalfDependencies files = do
         fmap (Map.mapKeys stableUnitId) $
         useNoFileE GenerateStablePackages
     pure $ stablePackages `Map.union` actualDeps
-  where stableUnitId (unitId, modName) = stringToUnitId $ GHC.unitIdString unitId <> "-" <> T.unpack (T.intercalate "-" $ LF.unModuleName modName)
+  where stableUnitId (unitId, modName) = stringToUnitId $ stripStdlibVersion unitId <> "-" <> T.unpack (T.intercalate "-" $ LF.unModuleName modName)
+        stripStdlibVersion (GHC.unitIdString -> unitId)
+          | unitId == damlStdlib = "daml-stdlib"
+          | otherwise = unitId
 
 runScenarios :: NormalizedFilePath -> Action (Maybe [(VirtualResource, Either SS.Error SS.ScenarioResult)])
 runScenarios file = use RunScenarios file

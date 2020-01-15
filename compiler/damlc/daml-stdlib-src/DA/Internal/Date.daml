@@ -9,6 +9,7 @@ module DA.Internal.Date where
 
 import DA.Internal.Prelude
 import DA.Internal.LF
+import GHC.Types (primitive)
 
 -- | Convert from number of days since epoch (i.e. the number of days since
 -- January 1, 1970) to a date.

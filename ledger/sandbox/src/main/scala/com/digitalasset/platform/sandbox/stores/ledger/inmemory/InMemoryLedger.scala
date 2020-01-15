@@ -81,9 +81,11 @@ class InMemoryLedger(
 
   override def currentHealth(): HealthStatus = Healthy
 
-  override def ledgerEntries(offset: Option[Long]): Source[(Long, LedgerEntry), NotUsed] =
+  override def ledgerEntries(
+      beginInclusive: Option[Long],
+      endExclusive: Option[Long]): Source[(Long, LedgerEntry), NotUsed] =
     entries
-      .getSource(offset)
+      .getSource(beginInclusive, endExclusive)
       .collect { case (offset, InMemoryLedgerEntry(entry)) => offset -> entry }
 
   // mutable state
@@ -105,17 +107,12 @@ class InMemoryLedger(
       contractId: AbsoluteContractId,
       forParty: Party): Future[Option[ActiveLedgerState.Contract]] =
     Future.successful(this.synchronized {
-      acs.activeContracts.get(contractId).filter(ac => isVisibleFor(ac.id, forParty))
+      acs.activeContracts.get(contractId).filter(ac => acs.isVisibleForDivulgees(ac.id, forParty))
     })
-
-  private def isVisibleFor(contractId: AbsoluteContractId, forParty: Party): Boolean =
-    acs.activeContracts
-      .get(contractId)
-      .exists(ac => ac.witnesses.contains(forParty) || ac.divulgences.contains(forParty))
 
   override def lookupKey(key: Node.GlobalKey, forParty: Party): Future[Option[AbsoluteContractId]] =
     Future.successful(this.synchronized {
-      acs.keys.get(key).filter(isVisibleFor(_, forParty))
+      acs.keys.get(key).filter(acs.isVisibleForStakeholders(_, forParty))
     })
 
   override def publishHeartbeat(time: Instant): Future[Unit] =
@@ -184,6 +181,7 @@ class InMemoryLedger(
         transactionMeta.ledgerEffectiveTime.toInstant,
         trId,
         transactionMeta.workflowId,
+        Some(submitterInfo.submitter),
         mappedTx,
         mappedDisclosure,
         mappedLocalDivulgence,
@@ -288,7 +286,7 @@ class InMemoryLedger(
     })
 
   override def partyEntries(beginOffset: Long): Source[(Long, PartyLedgerEntry), NotUsed] = {
-    entries.getSource(Some(beginOffset)).collect {
+    entries.getSource(Some(beginOffset), None).collect {
       case (offset, InMemoryPartyEntry(partyEntry)) => (offset, partyEntry)
     }
   }
@@ -303,7 +301,7 @@ class InMemoryLedger(
     packageStoreRef.get.getLfPackage(packageId)
 
   override def packageEntries(beginOffset: Long): Source[(Long, PackageLedgerEntry), NotUsed] =
-    entries.getSource(Some(beginOffset)).collect {
+    entries.getSource(Some(beginOffset), None).collect {
       case (offset, InMemoryPackageEntry(entry)) => (offset, entry)
     }
 
@@ -380,7 +378,7 @@ class InMemoryLedger(
   override def configurationEntries(
       startInclusive: Option[Long]): Source[(Long, ConfigurationEntry), NotUsed] =
     entries
-      .getSource(startInclusive)
+      .getSource(startInclusive, None)
       .collect { case (offset, InMemoryConfigEntry(entry)) => offset -> entry }
 
 }

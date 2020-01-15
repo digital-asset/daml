@@ -47,6 +47,8 @@ mayImportInternal =
         , "DA.TextMap"
         , "DA.Map"
         , "DA.Generics"
+        , "DA.Text"
+        , "DA.Numeric"
 
         -- These modules are just listed to disable the record preprocessor.
         , "DA.NonEmpty.Types"
@@ -91,6 +93,7 @@ importDamlPreprocessor = fmap onModule
     where
         onModule y = y {
           GHC.hsmodImports =
+            newImport True "GHC.Types" :
             newImport True "DA.Internal.Desugar" :
             newImport False "DA.Internal.RebindableSyntax" : GHC.hsmodImports y
           }
