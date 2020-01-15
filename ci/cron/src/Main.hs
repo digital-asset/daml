@@ -119,6 +119,8 @@ build_docs_folder path versions latest = do
     restore_sha $ do
         let old = path </> "old"
         let new = path </> "new"
+        shell_ $ "mkdir -p " <> new
+        shell_ $ "mkdir -p " <> old
         download_existing_site_from_s3 old
         Foldable.for_ versions $ \version -> do
             putStrLn $ "Building " <> version <> "..."
