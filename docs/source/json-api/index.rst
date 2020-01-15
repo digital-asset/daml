@@ -274,17 +274,16 @@ to :doc:`lf-value-specification`::
         "created": [{
             "observers": [],
             "agreementText": "",
-            "signatories": ["Alice"],
-            "contractId": "#1:0",
-            "templateId": "398e67533888ab6532c3e62c2c3445182e2cdd291457732f174d2698a7d1db2d:Iou:Iou",
-            "witnessParties": ["Alice"],
-            "argument": {
+            "payload": {
                 "observers": [],
                 "issuer": "Alice",
                 "amount": "999.99",
                 "currency": "USD",
                 "owner": "Alice"
-            }
+            },
+            "signatories": ["Alice"],
+            "contractId": "#1:0",
+            "templateId": "f95486336ffb3c982319625bed0c88f68799b780b26b558b1e119277614ed634:Iou:Iou"
         }]
     }
 
@@ -300,31 +299,29 @@ and archives the one above, the same stream will eventually produce::
         "created": [{
             "observers": [],
             "agreementText": "",
-            "signatories": ["Alice"],
-            "contractId": "#2:1",
-            "templateId": "398e67533888ab6532c3e62c2c3445182e2cdd291457732f174d2698a7d1db2d:Iou:Iou",
-            "witnessParties": ["Alice"],
-            "argument": {
+            "payload": {
                 "observers": [],
                 "issuer": "Alice",
                 "amount": "42.42",
                 "currency": "USD",
                 "owner": "Alice"
-            }
+            },
+            "signatories": ["Alice"],
+            "contractId": "#2:1",
+            "templateId": "f95486336ffb3c982319625bed0c88f68799b780b26b558b1e119277614ed634:Iou:Iou"
         }, {
             "observers": [],
             "agreementText": "",
-            "signatories": ["Alice"],
-            "contractId": "#2:2",
-            "templateId": "398e67533888ab6532c3e62c2c3445182e2cdd291457732f174d2698a7d1db2d:Iou:Iou",
-            "witnessParties": ["Alice"],
-            "argument": {
+            "payload": {
                 "observers": [],
                 "issuer": "Alice",
                 "amount": "957.57",
                 "currency": "USD",
                 "owner": "Alice"
-            }
+            },
+            "signatories": ["Alice"],
+            "contractId": "#2:2",
+            "templateId": "f95486336ffb3c982319625bed0c88f68799b780b26b558b1e119277614ed634:Iou:Iou"
         }],
         "archived": ["#1:0"]
     }
