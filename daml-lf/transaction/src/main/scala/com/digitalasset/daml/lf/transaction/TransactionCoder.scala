@@ -194,21 +194,17 @@ object TransactionCoder {
                 s"Trying to encode transaction of version $transactionVersion, which requires the exercise return value, but did not get exercise return value in node."))
             case (_, true) => Right(())
           }
-          _ <- (
-            e.key,
-            transactionVersion precedes minContractKeyInExercise,
-            transactionVersion precedes minMaintainersInExercise) match {
-            case (Some(KeyWithMaintainers(_, maintainers)), _, true) if maintainers.nonEmpty =>
-              Left(EncodeError(transactionVersion, isTooOldFor = "maintainers in NodeExercises"))
-            case (Some(KeyWithMaintainers(k, maintainers)), false, _) =>
+          _ <- e.key match {
+            case None => Right(())
+            case Some(KeyWithMaintainers(_, _)) if transactionVersion precedes minContractKeyInExercise => Right(())
+            case Some(KeyWithMaintainers(_, maintainers)) if maintainers.isEmpty && !(transactionVersion precedes minMaintainersInExercise) =>
+              Left(EncodeError(s"Key maintainers in exercise nodes must be non-empty for transactions of version $transactionVersion"))
+            case Some(KeyWithMaintainers(k, maintainers)) =>
               encodeVal(k).map { encodedKey =>
                 exBuilder.setContractKey(encodedKey._2)
-                exBuilder.addAllKeyMaintainers(maintainers.toSet[String].asJava)
-                ()
               }
-            case (None, _, _) | (Some(_), true, _) =>
+              exBuilder.addAllKeyMaintainers(maintainers.toSet[String].asJava)
               Right(())
-
           }
         } yield nodeBuilder.setExercise(exBuilder).build()
 
@@ -326,9 +322,9 @@ object TransactionCoder {
           } else Right(None)
           maintainers <- toPartySet(protoExe.getKeyMaintainersList)
           _ <- Either.cond(
-            (txVersion precedes minMaintainersInExercise) && maintainers.nonEmpty,
+            !(txVersion precedes minMaintainersInExercise) || maintainers.isEmpty,
+            (),
             DecodeError(txVersion, isTooOldFor = "NodeExercises maintainers")
-            ()
           )
           ni <- nodeId
           targetCoid <- protoExe.decodeContractIdOrStruct(decodeCid, txVersion)(

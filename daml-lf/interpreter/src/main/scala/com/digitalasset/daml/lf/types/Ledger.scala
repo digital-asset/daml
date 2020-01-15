@@ -62,10 +62,6 @@ object Ledger {
   def assertNoContractId(cid: ContractId): Nothing =
     crash(s"Not expecting to find a contract id here, but found '$cid'")
 
-  @inline
-  def assertNoAbsoluteContractId(cid: AbsoluteContractId): Nothing =
-    crash(s"Not expecting to find a contract id here, but found '$cid'")
-
   private val `:` = LedgerString.assertFromString(":")
 
   case class ScenarioTransactionId(index: Int) extends Ordered[ScenarioTransactionId] {
