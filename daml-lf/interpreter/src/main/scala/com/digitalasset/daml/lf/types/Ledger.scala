@@ -697,17 +697,32 @@ object Ledger {
           this.authorize(
             nodeId = nodeId,
             passIf = fetch.actingParties match {
-              case Some(actors) => actors subsetOf authParties
+              case Some(actors) =>
+                actors.nonEmpty && (actors subsetOf authParties)
 
               // Fallback for legacy version when actors were not
               // yet set.
-              case None => stakeholders.intersect(authParties).nonEmpty
+              case None =>
+                stakeholders.intersect(authParties).nonEmpty
             },
-            failWith = FAFetchMissingAuthorization(
-              templateId = fetch.templateId,
-              optLocation = fetch.optLocation,
-              stakeholders = stakeholders,
-              authorizingParties = authParties)
+            failWith = fetch.actingParties match {
+              case Some(actingParties) if actingParties.nonEmpty =>
+                // We can only end up failing the authorization check with non-empty acting parties
+                // if this is a lookup by key as in the other case acting parties is
+                // set to the acting parties that are part of stakeholders.
+                FALookupByKeyMissingAuthorization(
+                  templateId = fetch.templateId,
+                  optLocation = fetch.optLocation,
+                  maintainers = actingParties,
+                  authorizingParties = authParties)
+              case _ =>
+                // We end up here in the legacy case, or in the normal fetch case.
+                FAFetchMissingAuthorization(
+                  templateId = fetch.templateId,
+                  optLocation = fetch.optLocation,
+                  stakeholders = stakeholders,
+                  authorizingParties = authParties)
+            }
         ))
     }
 
@@ -780,6 +795,11 @@ object Ledger {
       On the other hand, when making a positive statement, we can use the
       same authorization rule that we use for fetch -- that is, we check
       that `authorizers ∩ stakeholders ≠ ∅`.
+
+      NOTE(JM): The successful lookup case is now handled as a fetch
+      with acting parties set accordingly. This code is retained for
+      backwards compatibility in the successful case, and for checking
+      the negative case.
      */
     def authorizeLookupByKey(
         nodeId: Transaction.NodeId,

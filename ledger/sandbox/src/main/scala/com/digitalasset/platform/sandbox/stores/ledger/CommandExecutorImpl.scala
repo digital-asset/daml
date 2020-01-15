@@ -16,7 +16,7 @@ import com.digitalasset.daml.lf.engine.{
   ResultDone,
   ResultError,
   ResultNeedContract,
-  ResultNeedKey,
+  ResultNeedContractByKey,
   ResultNeedPackage,
   Error => DamlLfError
 }
@@ -108,8 +108,23 @@ class CommandExecutorImpl(engine: Engine, getPackage: PackageId => Future[Option
             }
 
         case ResultDone(r) => Future.successful(Right(r))
-        case ResultNeedKey(key, resume) =>
-          lookupKey(key).flatMap(mbcoid => resolveStep(resume(mbcoid)))
+        case ResultNeedContractByKey(key, resume) =>
+          // FIXME(JM): Change lookupKey to return also the contract?
+
+          lookupKey(key)
+            .flatMap {
+              case Some(coid) =>
+                getContract(coid).map { optCoinst =>
+                  optCoinst.map(coid -> _)
+                }
+              case None =>
+                // FIXME(JM): key found, but not contract?!
+                Future.successful(None)
+            }
+            .flatMap { optResult =>
+              resolveStep(resume(optResult))
+            }
+
         case ResultNeedContract(acoid, resume) =>
           getContract(acoid).flatMap(o => resolveStep(resume(o)))
         case ResultError(err) => Future.successful(Left(err))

@@ -986,11 +986,11 @@ object SBuiltin {
           ))
     }
 
-  /** $insectrtFetch[tid]
+  /** $insertFetch[tid]
     *    :: ContractId a
     *    -> List Party    (signatories)
     *    -> List Party    (observers)
-    *    -> List Party    (extra actors, e.g. if this is lookup by key)
+    *    -> List Party    (overriding actors)
     *    -> ()
     */
   final case class SBUInsertFetchNode(templateId: TypeConName) extends SBuiltin(4) {
@@ -1001,18 +1001,26 @@ object SBuiltin {
       }
       val signatories = extractParties(args.get(1))
       val observers = extractParties(args.get(2))
-      val extraActors = extractParties(args.get(3))
+      val overridingActors = extractParties(args.get(3))
       val stakeholders = observers union signatories
       val contextActors = machine.ptx.context match {
         case ContextExercises(ctx, _) => ctx.actingParties union ctx.signatories
         case ContextRoot(_) => machine.committers
       }
 
+      val actingParties =
+        if (overridingActors.nonEmpty)
+          // If the fetch is from a lookup by key we force the
+          // actors to be the key maintainers to properly authorize it.
+          overridingActors
+        else
+          contextActors intersect stakeholders
+
       machine.ptx = machine.ptx.insertFetch(
         coid,
         templateId,
         machine.lastLocation,
-        extraActors union (contextActors intersect stakeholders),
+        actingParties,
         signatories,
         stakeholders)
       machine.ctrl = CtrlValue.Unit

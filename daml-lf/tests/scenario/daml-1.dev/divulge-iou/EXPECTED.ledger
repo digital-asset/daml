@@ -21,7 +21,7 @@ TX #2 1970-01-01T00:00:00Z [Test:20]
     children:
     #2:1
     │   known to (since): AlicesBank (#2), Bob (#2)
-    └─> ensure active #0:0
+    └─> fetch #0:0
 
 active contracts:
    #0:0, #1:0
