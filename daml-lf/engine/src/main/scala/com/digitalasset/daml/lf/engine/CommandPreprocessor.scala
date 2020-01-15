@@ -225,8 +225,8 @@ private[engine] class CommandPreprocessor(compiledPackages: MutableCompiledPacka
                 resume(pkg).flatMap(processedCommand =>
                   goResume(processed :+ processedCommand, cmds))
               })
-            case ResultNeedKey(key, resume) =>
-              ResultNeedKey(key, { contract =>
+            case ResultNeedContractByKey(key, resume) =>
+              ResultNeedContractByKey(key, { contract =>
                 resume(contract).flatMap(processedCommand =>
                   goResume(processed :+ processedCommand, cmds))
               })

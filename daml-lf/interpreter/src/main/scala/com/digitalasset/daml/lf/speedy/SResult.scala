@@ -81,12 +81,13 @@ object SResult {
       callback: Party => Unit
   ) extends SResult
 
-  final case class SResultNeedKey(
+  /** Lookup of a contract by key. */
+  final case class SResultNeedContractByKey(
       key: GlobalKey,
       committers: Set[Party],
       // Callback to signal that the key was not present.
       // returns true if this was recoverable.
       cbMissing: Unit => Boolean,
-      cbPresent: AbsoluteContractId => Unit
+      cbPresent: (AbsoluteContractId, ContractInst[Value[AbsoluteContractId]]) => Unit
   ) extends SResult
 }

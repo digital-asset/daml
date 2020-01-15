@@ -24,8 +24,8 @@ sealed trait Result[+A] extends Product with Serializable {
       ResultNeedContract(acoid, mbContract => resume(mbContract).map(f))
     case ResultNeedPackage(pkgId, resume) =>
       ResultNeedPackage(pkgId, mbPkg => resume(mbPkg).map(f))
-    case ResultNeedKey(gk, resume) =>
-      ResultNeedKey(gk, mbAcoid => resume(mbAcoid).map(f))
+    case ResultNeedContractByKey(gk, resume) =>
+      ResultNeedContractByKey(gk, mbContract => resume(mbContract).map(f))
   }
 
   def flatMap[B](f: A => Result[B]): Result[B] = this match {
@@ -35,8 +35,8 @@ sealed trait Result[+A] extends Product with Serializable {
       ResultNeedContract(acoid, mbContract => resume(mbContract).flatMap(f))
     case ResultNeedPackage(pkgId, resume) =>
       ResultNeedPackage(pkgId, mbPkg => resume(mbPkg).flatMap(f))
-    case ResultNeedKey(gk, resume) =>
-      ResultNeedKey(gk, mbAcoid => resume(mbAcoid).flatMap(f))
+    case ResultNeedContractByKey(gk, resume) =>
+      ResultNeedContractByKey(gk, mbAcoid => resume(mbAcoid).flatMap(f))
   }
 
   // quick and dirty way to consume a Result
@@ -51,7 +51,14 @@ sealed trait Result[+A] extends Product with Serializable {
         case ResultError(err) => Left(err)
         case ResultNeedContract(acoid, resume) => go(resume(pcs(acoid)))
         case ResultNeedPackage(pkgId, resume) => go(resume(packages(pkgId)))
-        case ResultNeedKey(key, resume) => go(resume(keys(key)))
+        case ResultNeedContractByKey(key, resume) =>
+          go(
+            resume(
+              for {
+                coid <- keys(key)
+                coinst <- pcs(coid)
+              } yield coid -> coinst
+            ))
       }
     go(this)
   }
@@ -84,7 +91,10 @@ final case class ResultNeedContract[A](
 final case class ResultNeedPackage[A](packageId: PackageId, resume: Option[Package] => Result[A])
     extends Result[A]
 
-final case class ResultNeedKey[A](key: GlobalKey, resume: Option[AbsoluteContractId] => Result[A])
+final case class ResultNeedContractByKey[A](
+    key: GlobalKey,
+    resume: Option[(AbsoluteContractId, ContractInst[VersionedValue[AbsoluteContractId]])] => Result[
+      A])
     extends Result[A]
 
 object Result {
@@ -182,11 +192,11 @@ object Result {
                       Result
                         .sequence(results_)
                         .map(otherResults => (okResults :+ x) :++ otherResults)))
-            case ResultNeedKey(gk, resume) =>
-              ResultNeedKey(
+            case ResultNeedContractByKey(gk, resume) =>
+              ResultNeedContractByKey(
                 gk,
-                mbAcoid =>
-                  resume(mbAcoid).flatMap(
+                mbContract =>
+                  resume(mbContract).flatMap(
                     x =>
                       Result
                         .sequence(results_)

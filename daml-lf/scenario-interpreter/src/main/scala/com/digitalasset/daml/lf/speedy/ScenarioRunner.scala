@@ -83,8 +83,8 @@ final case class ScenarioRunner(
         case SResultScenarioGetParty(partyText, callback) =>
           getParty(partyText, callback)
 
-        case SResultNeedKey(gk, committers, cbMissing, cbPresent) =>
-          lookupKey(gk, committers, cbMissing, cbPresent)
+        case SResultNeedContractByKey(gk, committers, cbMissing, cbPresent) =>
+          lookupByKey(gk, committers, cbMissing, cbPresent)
       }
     }
     val endTime = System.nanoTime()
@@ -117,7 +117,7 @@ final case class ScenarioRunner(
           tr = tx,
           l = ledger)
         .isRight) {
-      throw SRunnerException(ScenarioErrorMustFailSucceeded(tx))
+      throw SRunnerException(ScenarioErrorMustFailSucceeded(tx, machine.commitLocation))
     }
     ledger = ledger.insertAssertMustFail(committer, machine.commitLocation)
   }
@@ -188,11 +188,11 @@ final case class ScenarioRunner(
     }
   }
 
-  private def lookupKey(
+  private def lookupByKey(
       gk: GlobalKey,
       committers: Set[Party],
       cbMissing: Unit => Boolean,
-      cbPresent: AbsoluteContractId => Unit) = {
+      cbPresent: (AbsoluteContractId, ContractInst[Value[AbsoluteContractId]]) => Unit) = {
     val committer =
       if (committers.size == 1) committers.head else crashTooManyCommitters(committers)
     val effectiveAt = ledger.currentTime
@@ -210,8 +210,8 @@ final case class ScenarioRunner(
           view = ParticipantView(committer),
           effectiveAt = effectiveAt,
           acoid) match {
-          case LookupOk(_, _) =>
-            cbPresent(acoid)
+          case LookupOk(coid, coinst) =>
+            cbPresent(coid, coinst)
 
           case LookupContractNotFound(coid) =>
             missingWith(SErrorCrash(s"contract $coid not found, but we found its key!"))

@@ -696,7 +696,13 @@ object Ledger {
         authParties =>
           this.authorize(
             nodeId = nodeId,
-            passIf = stakeholders.intersect(authParties).nonEmpty,
+            passIf = fetch.actingParties match {
+              case Some(actors) => actors subsetOf authParties
+
+              // Fallback for legacy version when actors were not
+              // yet set.
+              case None => stakeholders.intersect(authParties).nonEmpty
+            },
             failWith = FAFetchMissingAuthorization(
               templateId = fetch.templateId,
               optLocation = fetch.optLocation,
@@ -868,7 +874,7 @@ object Ledger {
           // ------------------------------------------------------------------
           // witnesses            : parent exercise witnesses
           // divulge              : referenced contract to witnesses of parent exercise node
-          // well-authorized by A : A `intersect` stakeholders(fetched contract id) = non-empty
+          // well-authorized by A : actingParties subsetOf A
           // ------------------------------------------------------------------
           state
             .divulgeCoidTo(parentExerciseWitnesses -- fetch.stakeholders, fetch.coid)

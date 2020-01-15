@@ -115,7 +115,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
         builder.setScenarioCommitError(
           convertCommitError(commitError)
         )
-      case SError.ScenarioErrorMustFailSucceeded(tx @ _) =>
+      case SError.ScenarioErrorMustFailSucceeded(tx @ _, _) =>
         builder.setScenarioMustfailSucceeded(empty)
 
       case SError.ScenarioErrorInvalidPartyName(party, _) =>

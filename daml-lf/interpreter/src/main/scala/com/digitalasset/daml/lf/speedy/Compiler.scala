@@ -508,11 +508,17 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
           case UpdateLookupByKey(retrieveByKey) =>
             // Translates 'lookupByKey Foo <key>' into:
             // let key = <key>
-            // let maintainers = keyMaintainers key
+            //     maintainers = keyMaintainers key
             // in \token ->
-            //    let mbContractId = $lookupKey key
-            //        _ = $insertLookup Foo key
-            //    in mbContractId
+            //    case $lookupKey key of
+            //      Some((contractId, contract)) ->
+            //        let signatories = <signatories>
+            //            observers = <observers>
+            //            _ = $insertFetchNode ...
+            //        in Some(contractId)
+            //      None ->
+            //        let _ = $insertNoSuchKey Foo key maintainers
+            //        in None
             val template = lookupTemplate(retrieveByKey.templateId)
             withEnv { _ =>
               val key = translate(retrieveByKey.key)
@@ -527,19 +533,43 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
                 env = env.incrPos // keyMaintainers
                 SEAbs(1) {
                   env = env.incrPos // token
-                  SELet(
-                    SBULookupKey(retrieveByKey.templateId)(
+                  env = env.incrPos // {contractId, contract}
+                  env = env.incrPos // contractId
+                  env = env.addExprVar(template.param) // contract
+                  val signatories = translate(template.signatories)
+                  val observers = translate(template.observers)
+
+                  // stack: <key> <maintainers> <token>
+                  SECase(
+                    SBULookupByKey(retrieveByKey.templateId)(
                       SEVar(3), // key
-                      SEVar(2), // maintainers
-                      SEVar(1) // token
+                      SEVar(2) // maintainers
                     ),
-                    SBUInsertLookupNode(retrieveByKey.templateId)(
-                      SEVar(4), // key
-                      SEVar(3), // maintainers
-                      SEVar(1), // mb contract id
-                      SEVar(2) // token
+                    Array(
+                      SCaseAlt(
+                        SCPSome,
+                        SELet(
+                          SBStructProj(contractIdFieldName)(SEVar(1)),
+                          SBStructProj(contractFieldName)(SEVar(2)),
+                          SBUInsertFetchNode(retrieveByKey.templateId)(
+                            SEVar(2), // coid
+                            signatories,
+                            observers,
+                            SEVar(5) // key maintainers
+                          )
+                        ) in SBSome(SEVar(3))
+                      ),
+                      SCaseAlt(
+                        SCPNone,
+                        SELet(
+                          SBUInsertNoSuchKey(retrieveByKey.templateId)(
+                            SEVar(3), // key
+                            SEVar(2) // maintainers
+                          )
+                        ) in SEValue.None
+                      )
                     )
-                  ) in SEVar(2) // mb contract id
+                  )
                 }
               }
             }
@@ -564,34 +594,30 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
               }
               SELet(key, SEApp(keyMaintainers, Array(SEVar(1)))) in {
                 env = env.incrPos // key
-                .incrPos // keyMaintainers
+                env = env.incrPos // keyMaintainers
                 SEAbs(1) {
                   env = env.incrPos // token
-                  env = env.addExprVar(template.param)
-                  // TODO should we evaluate this before we even construct
-                  // the update expression? this might be better for the user
+                  env = env.incrPos // (contractId, contract)
+                  env = env.incrPos // contractId
+                  env = env.addExprVar(template.param) // contract
                   val signatories = translate(template.signatories)
                   val observers = translate(template.observers)
                   SELet(
-                    SBUFetchKey(retrieveByKey.templateId)(
+                    SBUFetchByKey(retrieveByKey.templateId)(
                       SEVar(3), // key
-                      SEVar(2), // maintainers
-                      SEVar(1) // token
+                      SEVar(2) // maintainers
                     ),
-                    SBUFetch(retrieveByKey.templateId)(
-                      SEVar(1), /* coid */
-                      SEVar(2) /* token */
-                    ),
+                    // stack: token (contractId, contract)
+                    SBStructProj(contractIdFieldName)(SEVar(1)),
+                    SBStructProj(contractFieldName)(SEVar(2)),
                     SBUInsertFetchNode(retrieveByKey.templateId)(
                       SEVar(2), // coid
                       signatories,
                       observers,
-                      SEVar(3) // token
+                      SEValue(SValue.SValue.EmptyList) // no extra actors
                     )
-                  ) in SBStructCon(Name.Array(contractIdFieldName, contractFieldName))(
-                    SEVar(3), // contract id
-                    SEVar(2) // contract
-                  )
+                    // stack: token (contractId, contract) contractId contract ()
+                  ) in SEVar(4)
                 }
               }
             }
@@ -808,9 +834,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
           val choiceArgumentPos = env.position
           env = env.incrPos // choice argument
           env = env.incrPos // token
-
-          // template argument
-          env = env.addExprVar(tmpl.param)
+          env = env.addExprVar(tmpl.param) // contract argument
 
           val signatories = translate(tmpl.signatories)
           val observers = translate(tmpl.observers)
@@ -833,7 +857,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
           SEAbs(4) {
             SELet(
               // stack: <actors> <cid> <choice arg> <token>
-              SBUFetch(tmplId)(SEVar(3) /* cid */, SEVar(1) /* token */ ),
+              SBUFetch(tmplId)(SEVar(3) /* cid */ ),
               // stack: <actors> <cid> <choice arg> <token> <template arg>
               SBUBeginExercise(tmplId, choice.name, choice.consuming)(
                 SEVar(3), // choice argument
@@ -842,12 +866,11 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
                 signatories,
                 observers,
                 controllers,
-                mbKey,
-                SEVar(2)),
+                mbKey),
               // stack: <actors> <cid> <choice arg> <token> <template arg> ()
               SEApp(update, Array(SEVar(3))),
               // stack: <actors> <cid> <choice arg> <token> <template arg> () <ret value>
-              SBUEndExercise(tmplId)(SEVar(4), SEVar(1))
+              SBUEndExercise(tmplId)(SEVar(1))
             ) in
               // stack: <actors> <cid> <choice arg> <token> <template arg> () <ret value> ()
               SEVar(2)
@@ -1124,6 +1147,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
   private def compileFetch(tmplId: Identifier, coid: SExpr): SExpr = {
     val tmpl = lookupTemplate(tmplId)
     withEnv { _ =>
+      env = env.incrPos // coid
       env = env.incrPos // token
       env = env.addExprVar(tmpl.param) // argument
       val signatories = translate(tmpl.signatories)
@@ -1131,15 +1155,12 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
       SELet(coid) in
         SEAbs(1) {
           SELet(
-            SBUFetch(tmplId)(
-              SEVar(2), /* coid */
-              SEVar(1) /* token */
-            ),
+            SBUFetch(tmplId)(SEVar(2) /* coid */ ),
             SBUInsertFetchNode(tmplId)(
               SEVar(3), /* coid */
               signatories,
               observers,
-              SEVar(2) /* token */
+              SEValue(SValue.SValue.EmptyList)
             )
           ) in SEVar(2) /* fetch result */
         }
@@ -1157,7 +1178,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
     //   None
     // }
     // in \token ->
-    //   $create arg <precond> <agreement text> <signatories> <observers> <token> <key>
+    //   $create arg <precond> <agreement text> <signatories> <observers> <key>
     val tmpl = lookupTemplate(tmplId)
     withEnv { _ =>
       env = env.addExprVar(tmpl.param) // argument
@@ -1193,8 +1214,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
               agreement,
               signatories,
               observers,
-              SEVar(3), /* key */
-              SEVar(2) /* token */
+              SEVar(3) /* key */
             )
         }
     }
@@ -1247,8 +1267,10 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         env = env.incrPos // keyMaintainers
         SEAbs(1) {
           env = env.incrPos // token
+          env = env.incrPos // fetch result
           SELet(
-            SBUFetchKey(tmplId)(SEVar(3), SEVar(2), SEVar(1)),
+            SBUFetchByKey(tmplId)(SEVar(3), SEVar(2)),
+            SBStructProj(contractIdFieldName)(SEVar(1)),
             SEApp(compileExercise(tmplId, SEVar(1), choiceId, optActors, argument), Array(SEVar(2)))
           ) in SEVar(1)
         }

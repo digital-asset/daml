@@ -10,5 +10,5 @@ object NodeKind {
   case object ExerciseConsuming extends NodeKind
   case object ExerciseNonConsuming extends NodeKind
   case object Fetch extends NodeKind
-  case object LookupByKey extends NodeKind
+  case object NoSuchKey extends NodeKind
 }

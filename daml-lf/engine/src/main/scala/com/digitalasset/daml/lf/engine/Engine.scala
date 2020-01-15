@@ -362,8 +362,8 @@ final class Engine {
         case SResultNeedTime(callback) =>
           callback(time)
 
-        case SResultNeedKey(gk, _, cbMissing, cbPresent) =>
-          return ResultNeedKey(
+        case SResultNeedContractByKey(gk, _, cbMissing, cbPresent) =>
+          return ResultNeedContractByKey(
             gk, {
               case None =>
                 if (!cbMissing(())) {
@@ -371,8 +371,8 @@ final class Engine {
                 } else {
                   interpretLoop(machine, time)
                 }
-              case Some(key) =>
-                cbPresent(key)
+              case Some((coid, coinst)) =>
+                cbPresent(coid, coinst)
                 interpretLoop(machine, time)
             }
           )

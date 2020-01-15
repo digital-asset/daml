@@ -94,7 +94,7 @@ object Pretty {
           text("key") & prettyKeyWithMaintainers(lbk.key) /
           (lbk.result match {
             case None => text("not found")
-            case Some(coid) => text("found") & prettyContractId(coid)
+            case Some(result) => text("found") & prettyContractId(result)
           })
     }
 
@@ -122,9 +122,10 @@ object Pretty {
         (text("due to unique key violation for key:") & prettyVersionedValue(false)(gk.gk.key) & text(
           "for template") & prettyIdentifier(gk.gk.templateId))
 
-      case ScenarioErrorMustFailSucceeded(tx @ _) =>
+      case ScenarioErrorMustFailSucceeded(tx @ _, loc) =>
         // TODO(JM): Further info needed. Location annotations?
-        text("due to a mustfailAt that succeeded.")
+        text("due to a mustfailAt that succeeded. Commit location:") &
+          prettyLoc(loc)
 
       case ScenarioErrorInvalidPartyName(_, msg) => text(s"Invalid party: $msg")
     })
@@ -250,7 +251,7 @@ object Pretty {
           case Some(key) => d / text("key") & prettyKeyWithMaintainers(key)
         }
       case ea: NodeFetch[AbsoluteContractId] =>
-        "ensure active" &: prettyContractId(ea.coid)
+        "fetch" &: prettyContractId(ea.coid)
       case ex: NodeExercises[
             L.ScenarioNodeId,
             AbsoluteContractId,

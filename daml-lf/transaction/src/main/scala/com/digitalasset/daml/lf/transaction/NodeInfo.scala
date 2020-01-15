@@ -6,6 +6,9 @@ package com.digitalasset.daml.lf.transaction
 /** Trait for extracting information from an abstract node.
   * Used for sharing the implementation of common computations
   * over nodes and transactions.
+  *
+  * NOTE(JM): This implementation is used outside of this repository
+  * and this API should be retained.
   */
 trait NodeInfo[PartyRep] {
 
@@ -18,7 +21,8 @@ trait NodeInfo[PartyRep] {
   /** The stakeholders of the contract associated with the node. */
   def stakeholders: Set[PartyRep]
 
-  /** The actors (e.g. the controlling parties of the choice) of the node. */
+  /** The actors (for example the controlling parties of the choice)
+    * of the node. */
   def actors: Set[PartyRep]
 }
 
@@ -34,6 +38,6 @@ object NodeInfo {
       case NodeKind.Fetch => node.signatories | node.actors
       case NodeKind.ExerciseConsuming => node.stakeholders | node.actors
       case NodeKind.ExerciseNonConsuming => node.signatories | node.actors
-      case NodeKind.LookupByKey => Set.empty
+      case NodeKind.NoSuchKey => node.actors
     }
 }

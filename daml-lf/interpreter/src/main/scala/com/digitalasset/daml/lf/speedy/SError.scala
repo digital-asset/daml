@@ -109,7 +109,8 @@ object SError {
   final case class ScenarioErrorCommitError(commitError: Ledger.CommitError) extends SErrorScenario
 
   /** The transaction produced by the update expression in a 'mustFailAt' succeeded. */
-  final case class ScenarioErrorMustFailSucceeded(tx: Transaction) extends SErrorScenario
+  final case class ScenarioErrorMustFailSucceeded(tx: Transaction, loc: Option[Location])
+      extends SErrorScenario
 
   /** Invalid party name supplied to 'getParty'. */
   final case class ScenarioErrorInvalidPartyName(name: String, msg: String) extends SErrorScenario

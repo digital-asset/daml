@@ -588,7 +588,10 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
               commands = r,
               time = let)
             .consume(lookupContractWithKey, lookupPackage, lookupKey))
-    val tx = result.right.value
+    val tx = result match {
+      case Right(v) => v
+      case Left(err) => sys.error(s"ERR: $err")
+    }
 
     "be translated" in {
       val submitResult = engine

@@ -190,10 +190,21 @@ object Node {
 
     override def requiredAuthorizers(): Set[Party] = key.maintainers
 
-    override def kind = NodeKind.LookupByKey
+    override def kind =
+      if (result.isEmpty) NodeKind.NoSuchKey
+      else {
+        // NOTE(JM): We do not produce NodeLookupByKey with a result anymore,
+        // but rather produce a NodeFetch on successful lookup. The code
+        // using NodeInfo is not invoked on legacy data.
+        // FIXME(JM): Find a less messy way. Perhaps consider fully renaming
+        // this to NodeNoSuchKey and dealing with legacy data in TransactionCoder.
+        sys.error("NodeLookupByKey.kind: Unexpected non-empty result!")
+      }
+
+    // FIXME(JM): Throw instead?
     override def signatories = Set.empty
     override def stakeholders = Set.empty
-    override def actors = Set.empty
+    override def actors = key.maintainers
   }
 
   object NodeLookupByKey extends WithTxValue2[NodeLookupByKey]
@@ -263,7 +274,8 @@ object Node {
         case NodeLookupByKey(templateId2, optLocation2 @ _, key2, result2) =>
           import nl._
           templateId == templateId2 &&
-          key === key2 && result === result2
+          key === key2 &&
+          result === result2
       }
     }(recorded, isReplayedBy)
 

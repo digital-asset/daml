@@ -720,7 +720,7 @@ object SBuiltin {
       machine.ctrl = CtrlValue(args.get(0) match {
         case SRecord(id @ _, _, values) => values.get(field)
         case v =>
-          crash(s"RecProj on non-record: $v")
+          crash(s"RecProj on non-record: $v (location = ${machine.commitLocation})")
       })
     }
   }
@@ -801,12 +801,10 @@ object SBuiltin {
     *    -> List Party (signatories)
     *    -> List Party (observers)
     *    -> Optional {key: key, maintainers: List Party} (template key, if present)
-    *    -> Token
     *    -> ContractId arg
     */
-  final case class SBUCreate(templateId: TypeConName) extends SBuiltin(6) {
+  final case class SBUCreate(templateId: TypeConName) extends SBuiltin(5) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      checkToken(args.get(5))
       val createArg = asVersionedValue(args.get(0).toValue) match {
         case Left(err) => crash(err)
         case Right(x) => x
@@ -834,7 +832,7 @@ object SBuiltin {
           optLocation = machine.lastLocation,
           signatories = sigs,
           stakeholders = sigs union obs,
-          key = key,
+          key = key
         )
         .fold(err => throw DamlETransactionError(err), identity)
 
@@ -852,21 +850,19 @@ object SBuiltin {
     *    -> List Party     (observers)
     *    -> List Party     (choice controllers)
     *    -> Optional key   (template key)
-    *    -> Token
     *    -> ()
     */
   final case class SBUBeginExercise(
       templateId: TypeConName,
       choiceId: ChoiceName,
       consuming: Boolean)
-      extends SBuiltin(8) {
+      extends SBuiltin(7) {
 
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      checkToken(args.get(7))
       val arg = args.get(0).toValue
       val coid = args.get(1) match {
         case SContractId(coid) => coid
-        case v => crash(s"expected contract id, got: $v")
+        case v => crash(s"SBUBeginExercise: expected contract id, got: $v")
       }
       val optActors = args.get(2) match {
         case SOptional(optValue) => optValue.map(extractParties)
@@ -913,14 +909,12 @@ object SBuiltin {
   }
 
   /** $endExercise[T]
-    *    :: Token
-    *    -> Value   (result of the exercise)
+    *    :: Value   (result of the exercise)
     *    -> ()
     */
-  final case class SBUEndExercise(templateId: TypeConName) extends SBuiltin(2) {
+  final case class SBUEndExercise(templateId: TypeConName) extends SBuiltin(1) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      checkToken(args.get(0))
-      val exerciseResult = args.get(1).toValue
+      val exerciseResult = args.get(0).toValue
       machine.ptx = machine.ptx
         .endExercises(asVersionedValue(exerciseResult) match {
           case Left(err) => crash(err)
@@ -934,76 +928,80 @@ object SBuiltin {
 
   /** $fetch[T]
     *    :: ContractId a
-    *    -> Token
     *    -> a
     */
-  final case class SBUFetch(templateId: TypeConName) extends SBuiltin(2) {
+  final case class SBUFetch(templateId: TypeConName) extends SBuiltin(1) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      checkToken(args.get(1))
       val coid = args.get(0) match {
         case SContractId(coid) => coid
-        case v => crash(s"expected contract id, got: $v")
+        case v => crash(s"SBUFetch: expected contract id, got: $v")
       }
-      val arg = coid match {
-        case rcoid: V.RelativeContractId =>
-          machine.ptx.lookupLocalContract(rcoid) match {
-            case None =>
-              crash(s"Relative contract $rcoid ($templateId) not found from partial transaction")
-            case Some((_, Some(consumedBy))) =>
-              throw DamlELocalContractNotActive(coid, templateId, consumedBy)
-            case Some((coinst, None)) =>
-              // Here we crash hard rather than throwing a "nice" error
-              // ([[DamlEWronglyTypedContract]]) since if _relative_ contract
-              // id to be of the wrong template it means that the DAML-LF
-              // program that generated it is ill-typed.
-              //
-              // On the other hand absolute contract ids can come from outside
-              // (e.g. Ledger API) and thus we need to fail more gracefully
-              // (see below).
-              if (coinst.template != templateId) {
-                crash(s"Relative contract $rcoid ($templateId) not found from partial transaction")
-              }
-              coinst.arg
-          }
-        case acoid: V.AbsoluteContractId =>
-          throw SpeedyHungry(
-            SResultNeedContract(
-              acoid,
-              templateId,
-              machine.committers,
-              cbMissing = _ => machine.tryHandleException(),
-              cbPresent = { coinst =>
-                // Note that we cannot throw in this continuation -- instead
-                // set the control appropriately which will crash the machine
-                // correctly later.
-                if (coinst.template != templateId) {
-                  machine.ctrl = CtrlWronglyTypeContractId(acoid, templateId, coinst.template)
-                } else {
-                  machine.ctrl = CtrlValue(SValue.fromValue(coinst.arg.value))
-                }
-              }
-            ))
+
+      fetchContract(machine, templateId, coid) { value =>
+        machine.ctrl = CtrlValue(value)
       }
-      machine.ctrl = CtrlValue(SValue.fromValue(arg.value))
     }
   }
 
-  /** $insertFetch[tid]
+  private def fetchContract(machine: Machine, templateId: TypeConName, coid: V.ContractId)(
+      callback: SValue => Unit): Unit =
+    coid match {
+      case rcoid: V.RelativeContractId =>
+        machine.ptx.lookupLocalContract(rcoid) match {
+          case None =>
+            crash(s"Relative contract $rcoid ($templateId) not found from partial transaction")
+          case Some((_, Some(consumedBy))) =>
+            throw DamlELocalContractNotActive(coid, templateId, consumedBy)
+          case Some((coinst, None)) =>
+            // Here we crash hard rather than throwing a "nice" error
+            // ([[DamlEWronglyTypedContract]]) since if _relative_ contract
+            // id to be of the wrong template it means that the DAML-LF
+            // program that generated it is ill-typed.
+            //
+            // On the other hand absolute contract ids can come from outside
+            // (e.g. Ledger API) and thus we need to fail more gracefully
+            // (see below).
+            if (coinst.template != templateId) {
+              crash(s"Relative contract $rcoid ($templateId) not found from partial transaction")
+            }
+            callback(SValue.fromValue(coinst.arg.value))
+        }
+      case acoid: V.AbsoluteContractId =>
+        throw SpeedyHungry(
+          SResultNeedContract(
+            acoid,
+            templateId,
+            machine.committers,
+            cbMissing = _ => machine.tryHandleException(),
+            cbPresent = { coinst =>
+              // Note that we cannot throw in this continuation -- instead
+              // set the control appropriately which will crash the machine
+              // correctly later.
+              if (coinst.template != templateId) {
+                machine.ctrl = CtrlWronglyTypeContractId(acoid, templateId, coinst.template)
+              } else {
+                callback(SValue.fromValue(coinst.arg.value))
+              }
+            }
+          ))
+    }
+
+  /** $insectrtFetch[tid]
     *    :: ContractId a
     *    -> List Party    (signatories)
     *    -> List Party    (observers)
-    *    -> Token
+    *    -> List Party    (extra actors, e.g. if this is lookup by key)
     *    -> ()
     */
   final case class SBUInsertFetchNode(templateId: TypeConName) extends SBuiltin(4) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      checkToken(args.get(3))
       val coid = args.get(0) match {
         case SContractId(coid) => coid
-        case v => crash(s"expected contract id, got: $v")
+        case v => crash(s"SBUInsertFetchNode: expected contract id, got: $v")
       }
       val signatories = extractParties(args.get(1))
       val observers = extractParties(args.get(2))
+      val extraActors = extractParties(args.get(3))
       val stakeholders = observers union signatories
       val contextActors = machine.ptx.context match {
         case ContextExercises(ctx, _) => ctx.actingParties union ctx.signatories
@@ -1014,7 +1012,7 @@ object SBuiltin {
         coid,
         templateId,
         machine.lastLocation,
-        contextActors intersect stakeholders,
+        extraActors union (contextActors intersect stakeholders),
         signatories,
         stakeholders)
       machine.ctrl = CtrlValue.Unit
@@ -1022,15 +1020,13 @@ object SBuiltin {
     }
   }
 
-  /** $lookupKey[T]
+  /** $lookupByKey[T]
     *   :: key
     *   -> List Party (maintainers)
-    *   -> Token
-    *   -> Maybe (ContractId T)
+    *   -> Optional { contractId: ContractId T, contract: T }
     */
-  final case class SBULookupKey(templateId: TypeConName) extends SBuiltin(3) {
+  final case class SBULookupByKey(templateId: TypeConName) extends SBuiltin(2) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      checkToken(args.get(2))
       val key = asVersionedValue(args.get(0).toValue.mapContractId[Nothing] { cid =>
         crash(s"Unexpected contract id in key: $cid")
       }) match {
@@ -1042,41 +1038,52 @@ object SBuiltin {
       val gkey = GlobalKey(templateId, key)
       // check if we find it locally
       machine.ptx.keys.get(gkey) match {
-        case Some(mbCoid) =>
-          machine.ctrl = CtrlValue(SOptional(mbCoid.map { coid =>
-            SContractId(coid)
-          }))
+        case Some(None) =>
+          machine.ctrl = CtrlValue(SOptional(None))
+        case Some(Some(coid)) =>
+          fetchContract(machine, templateId, coid) { value =>
+            machine.ctrl = CtrlValue(
+              SOptional(
+                Some(
+                  SStruct(
+                    Name.Array(contractIdFieldName, contractFieldName),
+                    valueArrayList(SContractId(coid), value)))))
+          }
+
         case None =>
           // if we cannot find it here, send help, and make sure to update [[PartialTransaction.key]] after
           // that.
           throw SpeedyHungry(
-            SResultNeedKey(
+            SResultNeedContractByKey(
               gkey,
               machine.committers,
-              cbMissing = _ => {
+              cbMissing = { _ =>
                 machine.ptx = machine.ptx.copy(keys = machine.ptx.keys + (gkey -> None))
                 machine.ctrl = CtrlValue.None
-                true
+                true /* ok to continue */
               },
-              cbPresent = { contractId =>
-                machine.ptx = machine.ptx.copy(keys = machine.ptx.keys + (gkey -> Some(contractId)))
-                machine.ctrl = CtrlValue(SOptional(Some(SContractId(contractId))))
+              cbPresent = { (coid, coinst) =>
+                machine.ptx = machine.ptx.copy(keys = machine.ptx.keys + (gkey -> Some(coid)))
+                machine.ctrl = CtrlValue(
+                  SOptional(
+                    Some(
+                      SStruct(
+                        Name.Array(contractIdFieldName, contractFieldName),
+                        valueArrayList(SContractId(coid), SValue.fromValue(coinst.arg.value))
+                      ))))
               }
             ))
       }
     }
   }
 
-  /** $insertLookup[T]
+  /** $insertNoSuchKey[T]
     *    :: key
     *    -> List Party (maintainers)
-    *    -> Maybe (ContractId T)
-    *    -> Token
     *    -> ()
     */
-  final case class SBUInsertLookupNode(templateId: TypeConName) extends SBuiltin(4) {
+  final case class SBUInsertNoSuchKey(templateId: TypeConName) extends SBuiltin(2) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      checkToken(args.get(3))
       val key =
         asVersionedValue(
           args
@@ -1087,33 +1094,27 @@ object SBuiltin {
           case Right(v) => v
         }
       val maintainers = extractParties(args.get(1))
-      val mbCoid = args.get(2) match {
-        case SOptional(mb) =>
-          mb.map {
-            case SContractId(coid) => coid
-            case _ => crash(s"Non contract id value when inserting lookup node")
-          }
-        case _ => crash(s"Non option value when inserting lookup node")
-      }
+      // No contract exists with the given key, insert the "NoSuchKey" node
+      // NOTE(JM): We're still calling the node "NodeLookupByKey", but do not
+      // emit it with a successful lookup, but rather emit a fetch node, which
+      // we can authorize properly.
       machine.ptx = machine.ptx.insertLookup(
         templateId,
         machine.lastLocation,
         KeyWithMaintainers(key = key, maintainers = maintainers),
-        mbCoid)
+        None)
       machine.ctrl = CtrlValue.Unit
       checkAborted(machine.ptx)
     }
   }
 
-  /** $fetchKey[T]
+  /** $fetchByKey[T]
     *   :: key
     *   -> List Party (maintainers)
-    *   -> Token
-    *   -> ContractId T
+    *   -> { contractId: ContractId T, contract: T }
     */
-  final case class SBUFetchKey(templateId: TypeConName) extends SBuiltin(3) {
+  final case class SBUFetchByKey(templateId: TypeConName) extends SBuiltin(2) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      checkToken(args.get(2))
       val key = asVersionedValue(args.get(0).toValue.mapContractId[Nothing] { cid =>
         crash(s"Unexpected contract id in key: $cid")
       }) match {
@@ -1127,22 +1128,34 @@ object SBuiltin {
       machine.ptx.keys.get(gkey) match {
         case Some(None) =>
           crash(s"Could not find key $gkey")
+        // TODO(JM): DamlELocalContractNotActive?
         case Some(Some(coid)) =>
-          machine.ctrl = CtrlValue(SContractId(coid))
+          fetchContract(machine, templateId, coid) { value =>
+            machine.ctrl = CtrlValue(
+              SStruct(
+                Name.Array(contractIdFieldName, contractFieldName),
+                valueArrayList(SContractId(coid), value)))
+          }
         case None =>
           // if we cannot find it here, send help, and make sure to update [[PartialTransaction.key]] after
           // that.
           throw SpeedyHungry(
-            SResultNeedKey(
+            SResultNeedContractByKey(
               gkey,
               machine.committers,
-              cbMissing = _ => {
-                machine.ptx = machine.ptx.copy(keys = machine.ptx.keys + (gkey -> None))
+              cbMissing = { _ =>
+                machine.ptx = machine.ptx
+                  .copy(keys = machine.ptx.keys + (gkey -> None))
                 machine.tryHandleException()
               },
-              cbPresent = { contractId =>
-                machine.ptx = machine.ptx.copy(keys = machine.ptx.keys + (gkey -> Some(contractId)))
-                machine.ctrl = CtrlValue(SContractId(contractId))
+              cbPresent = { (coid, coinst) =>
+                machine.ptx = machine.ptx
+                  .copy(keys = machine.ptx.keys + (gkey -> Some(coid)))
+                machine.ctrl = CtrlValue(
+                  SStruct(
+                    Name.Array(contractIdFieldName, contractFieldName),
+                    valueArrayList(SContractId(coid), SValue.fromValue(coinst.arg.value))
+                  ))
               }
             ))
       }
@@ -1554,5 +1567,8 @@ object SBuiltin {
 
   private def rightOrArithmeticError[A](message: String, mb: Either[String, A]): A =
     mb.fold(_ => throw DamlEArithmeticError(s"$message"), identity)
+
+  private def valueArrayList(values: SValue*): util.ArrayList[SValue] =
+    new util.ArrayList(values.asJavaCollection)
 
 }
