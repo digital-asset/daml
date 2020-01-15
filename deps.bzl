@@ -121,6 +121,7 @@ def daml_deps():
             sha256 = "37eb013ea3e6a940da70df43fe2dd6f423d1ac0849042aa586f9ac157321018d",
             patches = [
                 "@com_github_digital_asset_daml//bazel_tools:scala-escape-jvmflags.patch",
+                "@com_github_digital_asset_daml//bazel_tools:scala-https.patch",
             ],
             patch_args = ["-p1"],
         )
