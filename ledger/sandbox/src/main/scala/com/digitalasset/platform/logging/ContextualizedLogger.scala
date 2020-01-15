@@ -10,7 +10,7 @@ import scala.reflect.ClassTag
 
 object ContextualizedLogger {
 
-  // Caches loggers to prevent them from needlessly waste memory
+  // Caches loggers to prevent them from needlessly wasting memory
   // Replicates the behavior of the underlying Slf4j logger factory
   private[this] val cache = TrieMap.empty[String, ContextualizedLogger]
 

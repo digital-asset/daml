@@ -16,7 +16,7 @@ object LoggingContext {
 
   def newLoggingContext[A](kv: (String, String), kvs: (String, String)*)(
       f: LoggingContext => A): A =
-    f(new LoggingContext(Map(kv +: kvs: _*)))
+    f(new LoggingContext((kv +: kvs).toMap))
 
   def withEnrichedLoggingContext[A](kv: (String, String), kvs: (String, String)*)(
       f: LoggingContext => A)(implicit ctx: LoggingContext): A =
