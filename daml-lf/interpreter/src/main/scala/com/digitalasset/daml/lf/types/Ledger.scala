@@ -1170,9 +1170,7 @@ object Ledger {
                             case None => newCache0_1
                             case Some(key) =>
                               newCache0_1.removeKey(
-                                GlobalKey(
-                                  ex.templateId,
-                                  key.key.mapContractId(assertNoContractId)))
+                                GlobalKey(ex.templateId, key.key.mapContractId(assertNoContractId)))
                           }
                         } else newCache0
 
