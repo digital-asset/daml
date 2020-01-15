@@ -428,6 +428,25 @@ tests damlc = testGroup "Packaging"
             ]
           withCurrentDirectory projC $ callProcessSilent damlc ["build", "-o", "baz.dar"]
 
+    , testCase "build-options + project-root" $ withTempDir $ \projDir -> do
+          createDirectoryIfMissing True (projDir </> "src")
+          writeFileUTF8 (projDir </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: a"
+            , "version: 0.0.1"
+            , "source: src"
+            , "dependencies: [daml-prim, daml-stdlib]"
+            , "build-options: [\"--ghc-option=-Werror\"]"
+            ]
+          writeFileUTF8 (projDir </> "src" </> "A.daml") $ unlines
+            [ "daml 1.2"
+            , "module A where"
+            , "f : Optional a -> a"
+            , "f (Some a) = a"
+            ]
+          (exitCode, _, stderr) <- readProcessWithExitCode damlc ["build", "--project-root", projDir] ""
+          exitCode @?= ExitFailure 1
+          assertBool ("non-exhaustive error in " <> stderr) ("non-exhaustive" `isInfixOf` stderr)
 
     , dataDependencyTests damlc
     ]
@@ -481,47 +500,37 @@ dataDependencyTests damlc = testGroup "Data Dependencies" $
         writeFileUTF8 (projDir </> "A.daml") $ unlines
             [ "daml 1.2"
             , "module A where"
-            , "import qualified \"instances-simple-dalf\" Module"
-            , "import DA.Internal.Template.Functions (toAnyTemplate, fromAnyTemplate)"
-            , "newTemplate : Party -> Party -> Module.Template"
-            , "newTemplate p1 p2 = Module.Template with Module.this = p1, Module.arg = p2"
-            , "newChoice : Module.Choice"
-            , "newChoice = Module.Choice ()"
-            , "createTemplate : Party -> Party -> Update (ContractId Module.Template)"
-            , "createTemplate p1 p2 = create $ newTemplate p1 p2"
-            , "fetchTemplate : ContractId Module.Template -> Update Module.Template"
-            , "fetchTemplate = fetch"
-            , "archiveTemplate : ContractId Module.Template -> Update ()"
-            , "archiveTemplate = archive"
-            , "signatoriesTemplate : Module.Template -> [Party]"
-            , "signatoriesTemplate = signatory"
-            , "observersTemplate : Module.Template -> [Party]"
-            , "observersTemplate = observer"
-            , "ensureTemplate : Module.Template -> Bool"
-            , "ensureTemplate = ensure"
-            , "agreementTemplate : Module.Template -> Text"
-            , "agreementTemplate = agreement"
-            , "toAnyTemplateTemplate : Module.Template -> AnyTemplate"
-            , "toAnyTemplateTemplate = toAnyTemplate"
-            , "fromAnyTemplateTemplate : AnyTemplate -> Optional Module.Template"
-            , "fromAnyTemplateTemplate = fromAnyTemplate"
+            , "import DA.Assert"
+            , "import qualified \"simple-dalf\" Module"
+            , "swapParties : Module.Template -> Module.Template"
+            , "swapParties (Module.Template a b) = Module.Template b a"
+            , "getThis : Module.Template -> Party"
+            , "getThis (Module.Template this _) = this"
+            , "getArg : Module.Template -> Party"
+            , "getArg (Module.Template _ arg) = arg"
             , "test_methods = scenario do"
             , "  alice <- getParty \"Alice\""
             , "  bob <- getParty \"Bob\""
-            , "  let t = newTemplate alice bob"
-            , "  assert $ signatory t == [alice, bob]"
-            , "  assert $ observer t == []"
-            , "  assert $ ensure t"
-            , "  assert $ agreement t == \"\""
-            , "  coid <- submit alice $ createTemplate alice alice"
-            , "  " <> (if withArchiveChoice then "submit" else "submitMustFail") <> " alice $ archive coid"
-            , "  coid1 <- submit bob $ createTemplate bob bob"
-            , "  t1 <- submit bob $ fetch coid1"
-            , "  assert $ signatory t1 == [bob, bob]"
-            , "  let anyTemplate = toAnyTemplate t1"
-            , "  let (Some t2 : Optional Module.Template) = fromAnyTemplate anyTemplate"
-            , "  submit bob $ exercise coid1 Module.Choice2 with choiceArg = ()"
-            , "  pure ()"
+            , "  let t = Module.Template alice bob"
+            , "  getThis (Module.Template alice bob) === alice"
+            , "  getArg (Module.Template alice bob) === bob"
+            , "  getThis (swapParties (Module.Template alice bob)) === bob"
+            , "  getArg (swapParties (Module.Template alice bob)) === alice"
+            -- Disabled until we support reusing old type classes
+            -- , "  let t = newTemplate alice bob"
+            -- , "  assert $ signatory t == [alice, bob]"
+            -- , "  assert $ observer t == []"
+            -- , "  assert $ ensure t"
+            -- , "  assert $ agreement t == \"\""
+            -- , "  coid <- submit alice $ createTemplate alice alice"
+            -- , "  " <> (if withArchiveChoice then "submit" else "submitMustFail") <> " alice $ archive coid"
+            -- , "  coid1 <- submit bob $ createTemplate bob bob"
+            -- , "  t1 <- submit bob $ fetch coid1"
+            -- , "  assert $ signatory t1 == [bob, bob]"
+            -- , "  let anyTemplate = toAnyTemplate t1"
+            -- , "  let (Some t2 : Optional Module.Template) = fromAnyTemplate anyTemplate"
+            -- , "  submit bob $ exercise coid1 Module.Choice2 with choiceArg = ()"
+            -- , "  pure ()"
             ]
         withCurrentDirectory projDir $
             callProcessSilent genSimpleDalf $

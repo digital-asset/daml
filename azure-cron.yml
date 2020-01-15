@@ -62,15 +62,17 @@ jobs:
           RELEASES=$(curl https://api.github.com/repos/digital-asset/daml/releases -s | jq -r '. | map(select(.prerelease == false)) | map(.tag_name)[]')
           DIR=$(pwd)
           VERSIONS=$(curl 'https://hub.docker.com/v2/repositories/digitalasset/daml-sdk/tags/?page_size=10000' -s)
-          DOCKERFILE_CHANGE_TIME=$(date -uIs -d $(git log -1 --format="%cI" -- ci/docker/daml-sdk/Dockerfile))
+          # Our docker tags should be stable. Therefore, we only build the image if it has not already
+          # been built before and we checkout the Dockerfile for the release tag.
+          # We do not update docker images for older releases so only docker images for SDK releases
+          # >= 0.13.43 are built this way.
           for version in $(echo $RELEASES | sed -e 's/ /\n/g'); do
+            git checkout "$version"
+            while ! nix-build -A tools -A cached nix; do; done
             LAST_UPDATE=$(echo $VERSIONS | jq -r '.results[] | select(.name == "'${version#v}'") | .last_updated')
-            if [[ -n "$LAST_UPDATE" &&  "$LAST_UPDATE" > "$DOCKERFILE_CHANGE_TIME" ]]; then
-              echo "${version#v} already exists and is up to date, skipping."
+            if [[ -n "$LAST_UPDATE" ]]; then
+              echo "${version#v} already exists, skipping."
             else
-              if [[ -n "$LAST_UPDATE" ]]; then
-                echo "${version#v} already exists but Dockerfile has changed; rebuilding..."
-              fi
               echo "Building version ${version#v}..."
               cd ci/docker/daml-sdk
               docker build -t digitalasset/daml-sdk:${version#v} --build-arg VERSION=${version#v} .

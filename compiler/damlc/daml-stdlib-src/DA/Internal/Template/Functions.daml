@@ -19,6 +19,10 @@ import DA.Internal.LF
 import DA.Internal.Prelude
 import DA.Internal.Template
 
+#ifdef DAML_GENMAP && DAML_ANY_TYPE
+import GHC.Types (primitive)
+#endif
+
 class Template t where
 
   -- | The signatories of a contract.

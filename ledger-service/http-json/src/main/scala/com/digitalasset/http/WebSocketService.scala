@@ -90,7 +90,7 @@ object WebSocketService {
 
 class WebSocketService(
     contractsService: ContractsService,
-    resolveTemplateIds: PackageService.ResolveTemplateIds,
+    resolveTemplateId: PackageService.ResolveTemplateId,
     encoder: DomainJsonEncoder,
     decoder: DomainJsonDecoder,
     wsConfig: Option[WebsocketConfig])(implicit mat: Materializer, ec: ExecutionContext)
@@ -180,15 +180,16 @@ class WebSocketService(
       jwt: Jwt,
       jwtPayload: JwtPayload,
       request: GetActiveContractsRequest): Source[Message, NotUsed] =
-    resolveTemplateIds(request.templateIds) match {
-      case \/-(ids) =>
+    resolveRequiredTemplateIds(request.templateIds) match {
+      case Some(ids) =>
         contractsService
           .insertDeleteStepSource(jwt, jwtPayload.party, ids, Terminates.Never)
           .via(convertFilterContracts(prepareFilters(ids, request.query)))
           .filter(_.nonEmpty)
           .map(sae => TextMessage(sae.render.compactPrint))
-      case -\/(_) =>
-        Source.single(wsErrorMessage("Cannot find templateIds " + request.templateIds.toString))
+      case None =>
+        Source.single(
+          wsErrorMessage("Cannot find one of templateIds " + request.templateIds.toString))
     }
 
   private[http] def wsErrorMessage(errorMsg: String): TextMessage.Strict =
@@ -225,4 +226,10 @@ class WebSocketService(
       .via(conflation)
       .map(sae => sae copy (step = sae.step.mapPreservingIds(_ map lfValueToJsValue)))
 
+  private def resolveRequiredTemplateIds(
+      xs: Set[domain.TemplateId.OptionalPkg]): Option[List[domain.TemplateId.RequiredPkg]] = {
+    import scalaz.std.list._
+    import scalaz.std.option._
+    xs.toList.traverse(resolveTemplateId)
+  }
 }

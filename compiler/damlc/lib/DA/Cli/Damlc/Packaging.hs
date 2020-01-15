@@ -114,7 +114,7 @@ createProjectPackageDb opts thisSdkVer deps dataDeps = do
         let (pkgNode, pkgId) = vertexToNode vertex
         let unitIdStr = unitIdString $ unitId pkgNode
         unless (unitIdString primUnitId `isPrefixOf` unitIdStr) $ do
-            let instancesUnitIdStr = "instances-" <> unitIdStr
+            let _instancesUnitIdStr = "instances-" <> unitIdStr
             let pkgIdStr = T.unpack $ LF.unPackageId pkgId
             let (pkgName, mbPkgVersion) =
                     fromMaybe (unitIdStr, Nothing) $ do
@@ -143,18 +143,30 @@ createProjectPackageDb opts thisSdkVer deps dataDeps = do
                 mbPkgVersion
                 deps
 
-            unless (null $ templateInstanceSources pkgNode) $
-                generateAndInstallInstancesPkg
-                    thisSdkVer
-                    (templateInstanceSources pkgNode)
-                    opts
-                    dbPath
-                    projectPackageDatabase
-                    unitIdStr
-                    instancesUnitIdStr
-                    pkgName
-                    mbPkgVersion
-                    deps
+            -- Disabled since the changes to template desugaring will break this and
+            -- more generally this whole code path will not be necessary as
+            -- we can reuse the Template instances from the old package.
+            --
+            -- However, we might still want/need something like this for being able to
+            -- do a whole-package upgrade from before we changed template desugaring
+            -- and/or more generally for packages that have not been built with the DAML
+            -- compiler and therefore might have templates but no instances.
+            --
+            -- Therefore we keep the code for this intact for now.
+
+            -- unless (null $ templateInstanceSources pkgNode) $
+            --     generateAndInstallInstancesPkg
+            --         thisSdkVer
+            --         (templateInstanceSources pkgNode)
+            --         opts
+            --         dbPath
+            --         projectPackageDatabase
+            --         unitIdStr
+            --         instancesUnitIdStr
+            --         pkgName
+            --         mbPkgVersion
+            --         deps
+
 
     -- finally install the dependecies
     forM_ depsExtracted $
@@ -251,7 +263,8 @@ baseImports =
     ]
 
 -- generate a package containing template instances and install it in the package database
-generateAndInstallInstancesPkg
+-- See the comment on the call site above for why this is disabled.
+_generateAndInstallInstancesPkg
     :: PackageSdkVersion
     -> [(NormalizedFilePath, String)]
     -> Options
@@ -263,7 +276,7 @@ generateAndInstallInstancesPkg
     -> Maybe String
     -> [String]
     -> IO ()
-generateAndInstallInstancesPkg thisSdkVer templInstSrc opts dbPath projectPackageDatabase unitIdStr instancesUnitIdStr pkgName mbPkgVersion deps = do
+_generateAndInstallInstancesPkg thisSdkVer templInstSrc opts dbPath projectPackageDatabase unitIdStr instancesUnitIdStr pkgName mbPkgVersion deps = do
     -- Given that the instances package generates actual code, we first build a DAR and then
     -- install that in the package db like any other DAR in `dependencies`.
     --
@@ -455,12 +468,11 @@ buildLfPackageGraph pkgs = (depGraph,  vertexToNode')
     -- order the packages in topological order
     (depGraph, vertexToNode, _keyToVertex) =
         graphFromEdges
-            [ (PackageNode src templInstSrc unitId dalf bs, pkgId, pkgRefs)
+            [ (PackageNode src unitId dalf bs, pkgId, pkgRefs)
             | (pkgId, dalf, bs, unitId) <- pkgs
             , let pkgRefs = [ pid | LF.PRImport pid <- toListOf packageRefs dalf ]
             , let getUid = getUnitId unitId pkgMap
             , let src = generateSrcPkgFromLf getUid (Just "Sdk") dalf
-            , let templInstSrc = generateTemplateInstancesPkgFromLf getUid (Just "Sdk") pkgId dalf
             ]
     vertexToNode' v = case vertexToNode v of
         -- We don’t care about outgoing edges.
@@ -469,7 +481,6 @@ buildLfPackageGraph pkgs = (depGraph,  vertexToNode')
 data PackageNode = PackageNode
   { stubSources :: [(NormalizedFilePath, String)]
   -- ^ Sources for the stub package containining data type definitions
-  , templateInstanceSources :: [(NormalizedFilePath, String)]
   -- ^ Sources for the package containing instances for Template, Choice, …
   , unitId :: UnitId
   , dalf :: LF.Package

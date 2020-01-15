@@ -15,11 +15,11 @@ import com.digitalasset.http.json.JsonProtocol.LfValueCodec
 import com.digitalasset.http.query.ValuePredicate
 import com.digitalasset.http.query.ValuePredicate.LfV
 import com.digitalasset.http.util.ApiValueToLfValueConverter
-import com.digitalasset.util.ExceptionOps._
 import com.digitalasset.http.util.FutureUtil.toFuture
 import com.digitalasset.jwt.domain.Jwt
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => api}
+import com.digitalasset.util.ExceptionOps._
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.syntax.show._
 import scalaz.syntax.std.option._
@@ -27,11 +27,11 @@ import scalaz.syntax.traverse._
 import scalaz.{-\/, Show, \/, \/-}
 import spray.json.JsValue
 
+import scala.collection.breakOut
 import scala.concurrent.{ExecutionContext, Future}
 
 // TODO(Leo) split it into ContractsServiceInMemory and ContractsServiceDb
 class ContractsService(
-    resolveTemplateIds: PackageService.ResolveTemplateIds,
     resolveTemplateId: PackageService.ResolveTemplateId,
     allTemplateIds: PackageService.AllTemplateIds,
     getActiveContracts: LedgerClientJwt.GetActiveContracts,
@@ -123,35 +123,37 @@ class ContractsService(
 
   def retrieveAll(
       jwt: Jwt,
-      jwtPayload: JwtPayload): Source[Error \/ domain.ActiveContract[LfValue], NotUsed] =
+      jwtPayload: JwtPayload): SearchResult[Error \/ domain.ActiveContract[LfValue]] =
     retrieveAll(jwt, jwtPayload.party)
 
   def retrieveAll(
       jwt: Jwt,
-      party: domain.Party): Source[Error \/ domain.ActiveContract[LfValue], NotUsed] =
-    Source(allTemplateIds()).flatMapConcat(x => searchInMemoryOneTpId(jwt, party, x, Map.empty))
+      party: domain.Party): SearchResult[Error \/ domain.ActiveContract[LfValue]] =
+    SearchResult(
+      Source(allTemplateIds()).flatMapConcat(x => searchInMemoryOneTpId(jwt, party, x, Map.empty)),
+      Set.empty)
 
-  def search(jwt: Jwt, jwtPayload: JwtPayload, request: GetActiveContractsRequest)
-    : Source[Error \/ domain.ActiveContract[JsValue], NotUsed] =
+  def search(
+      jwt: Jwt,
+      jwtPayload: JwtPayload,
+      request: GetActiveContractsRequest): SearchResult[Error \/ domain.ActiveContract[JsValue]] =
     search(jwt, jwtPayload.party, request.templateIds, request.query)
 
   def search(
       jwt: Jwt,
       party: domain.Party,
       templateIds: Set[domain.TemplateId.OptionalPkg],
-      queryParams: Map[String, JsValue])
-    : Source[Error \/ domain.ActiveContract[JsValue], NotUsed] = {
+      queryParams: Map[String, JsValue]): SearchResult[Error \/ domain.ActiveContract[JsValue]] = {
 
-    resolveTemplateIds(templateIds) match {
-      case -\/(e) =>
-        Source.single(-\/(Error('search, e.shows)))
-      case \/-(resolvedTemplateIds) =>
-        daoAndFetch.cata(
-          x => searchDb(x._1, x._2)(jwt, party, resolvedTemplateIds.toSet, queryParams),
-          searchInMemory(jwt, party, resolvedTemplateIds.toSet, queryParams)
-            .map(_.flatMap(lfAcToJsAc))
-        )
-    }
+    val (resolvedTemplateIds, unresolvedTemplateIds) = resolveTemplateIds(templateIds)
+
+    val source = daoAndFetch.cata(
+      x => searchDb(x._1, x._2)(jwt, party, resolvedTemplateIds, queryParams),
+      searchInMemory(jwt, party, resolvedTemplateIds, queryParams)
+        .map(_.flatMap(lfAcToJsAc))
+    )
+
+    SearchResult(source, unresolvedTemplateIds)
   }
 
   // we store create arguments as JSON in DB, that is why it is `domain.ActiveContract[JsValue]` in the result
@@ -285,6 +287,16 @@ class ContractsService(
   private def lfValueToJsValue(a: LfValue): Error \/ JsValue =
     \/.fromTryCatchNonFatal(LfValueCodec.apiValueToJsValue(a)).leftMap(e =>
       Error('lfValueToJsValue, e.description))
+
+  private def resolveTemplateIds(xs: Set[domain.TemplateId.OptionalPkg])
+    : (Set[domain.TemplateId.RequiredPkg], Set[domain.TemplateId.OptionalPkg]) = {
+
+    import util.Collections.SeqOps
+
+    xs.toSeq.partitionMap { x =>
+      resolveTemplateId(x) toLeftDisjunction x
+    }(breakOut, breakOut)
+  }
 }
 
 object ContractsService {
@@ -299,4 +311,9 @@ object ContractsService {
       s"ContractService Error, ${e.id: Symbol}: ${e.message: String}"
     }
   }
+
+  final case class SearchResult[A](
+      source: Source[A, NotUsed],
+      unresolvedTemplateIds: Set[domain.TemplateId.OptionalPkg]
+  )
 }

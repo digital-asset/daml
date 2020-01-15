@@ -149,7 +149,8 @@ test('create + fetch & exercise', async () => {
     enum: Main.Color.Red,
     enumList: [Main.Color.Red, Main.Color.Blue, Main.Color.Yellow],
     variant: {tag: 'Add', value: {_1:{tag: 'Lit', value: '1'}, _2:{tag: 'Lit', value: '2'}}},
-    sumProd: {tag: 'Corge', value: {x:'1', y:'Garlpy'}}
+    sumProd: {tag: 'Corge', value: {x:'1', y:'Garlpy'}},
+    parametericSumProd: {tag: 'Add2', value: {lhs:{tag: 'Lit2', value: '1'}, rhs:{tag: 'Lit2', value: '2'}}},
   };
   const allTypesContract = await ledger.create(Main.AllTypes, allTypes);
   expect(allTypesContract.payload).toEqual(allTypes);

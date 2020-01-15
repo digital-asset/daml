@@ -7,16 +7,20 @@ import akka.NotUsed
 import akka.http.scaladsl.model.HttpMethods.{GET, POST}
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
+import akka.stream.Materializer
+import akka.stream.scaladsl.{Flow, Source}
 import com.digitalasset.daml.lf
+import com.digitalasset.http.ContractsService.SearchResult
+import com.digitalasset.http.EndpointsCompanion._
 import com.digitalasset.http.Statement.discard
 import com.digitalasset.http.domain.JwtPayload
 import com.digitalasset.http.json.{DomainJsonDecoder, DomainJsonEncoder, ResponseFormats, SprayJson}
-import com.digitalasset.util.ExceptionOps._
 import com.digitalasset.http.util.FutureUtil.{either, eitherT}
 import com.digitalasset.http.util.{ApiValueToLfValueConverter, FutureUtil}
 import com.digitalasset.jwt.domain.Jwt
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
+import com.digitalasset.util.ExceptionOps._
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.std.scalaFuture._
 import scalaz.syntax.show._
@@ -28,10 +32,6 @@ import spray.json._
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
-
-import akka.stream.Materializer
-import akka.stream.scaladsl.{Source, Flow}
-import com.digitalasset.http.EndpointsCompanion._
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class Endpoints(
@@ -160,30 +160,40 @@ class Endpoints(
       httpResponse(et)
 
     case req @ HttpRequest(GET, Uri.Path("/contracts/search"), _, _, _) =>
-      val sourceF: Future[Error \/ Source[Error \/ JsValue, NotUsed]] = input(req).map {
+      val sourceF: Future[Error \/ SearchResult[Error \/ JsValue]] = input(req).map {
         _.map {
           case (jwt, jwtPayload, _) =>
-            contractsService
-              .retrieveAll(jwt, jwtPayload)
+            val result: SearchResult[ContractsService.Error \/ domain.ActiveContract[LfValue]] =
+              contractsService
+                .retrieveAll(jwt, jwtPayload)
+
+            val jsValSource = result.source
               .via(handleSourceFailure)
               .map(_.flatMap(lfAcToJsValue)): Source[Error \/ JsValue, NotUsed]
+
+            result.copy(source = jsValSource): SearchResult[Error \/ JsValue]
         }
       }
 
       httpResponse(sourceF)
 
     case req @ HttpRequest(POST, Uri.Path("/contracts/search"), _, _, _) =>
-      val sourceF: Future[Error \/ Source[Error \/ JsValue, NotUsed]] = input(req).map {
+      val sourceF: Future[Error \/ SearchResult[Error \/ JsValue]] = input(req).map {
         _.flatMap {
           case (jwt, jwtPayload, reqBody) =>
             SprayJson
               .decode[domain.GetActiveContractsRequest](reqBody)
               .leftMap(e => InvalidUserInput(e.shows))
               .map { cmd =>
-                contractsService
-                  .search(jwt, jwtPayload, cmd)
+                val result: SearchResult[ContractsService.Error \/ domain.ActiveContract[JsValue]] =
+                  contractsService
+                    .search(jwt, jwtPayload, cmd)
+
+                val jsValSource: Source[Error \/ JsValue, NotUsed] = result.source
                   .via(handleSourceFailure)
-                  .map(_.flatMap(jsAcToJsValue)): Source[Error \/ JsValue, NotUsed]
+                  .map(_.flatMap(jsAcToJsValue))
+
+                result.copy(source = jsValSource): SearchResult[Error \/ JsValue]
               }
         }
       }
@@ -242,22 +252,34 @@ class Endpoints(
   }
 
   private def httpResponse(
-      output: Future[Error \/ Source[Error \/ JsValue, NotUsed]]): Future[HttpResponse] =
+      output: Future[Error \/ SearchResult[Error \/ JsValue]]): Future[HttpResponse] =
     output
       .map {
         case -\/(e) => httpResponseError(e)
-        case \/-(source) => httpResponseFromSource(source)
+        case \/-(searchResult) => httpResponse(searchResult)
       }
       .recover {
         case NonFatal(e) => httpResponseError(ServerError(e.description))
       }
 
-  private def httpResponseFromSource(data: Source[Error \/ JsValue, NotUsed]): HttpResponse =
+  private def httpResponse(searchResult: SearchResult[Error \/ JsValue]): HttpResponse = {
+    val jsValSource: Source[Error \/ JsValue, NotUsed] = searchResult.source
+
+    val warnings: Option[domain.UnknownTemplateIds] =
+      if (searchResult.unresolvedTemplateIds.nonEmpty)
+        Some(domain.UnknownTemplateIds(searchResult.unresolvedTemplateIds.toList))
+      else None
+
+    val jsValWarnings: Option[JsValue] = warnings.map(_.toJson)
+
     HttpResponse(
       status = StatusCodes.OK,
       entity = HttpEntity
-        .CloseDelimited(ContentTypes.`application/json`, ResponseFormats.resultJsObject(data))
+        .CloseDelimited(
+          ContentTypes.`application/json`,
+          ResponseFormats.resultJsObject(jsValSource, jsValWarnings))
     )
+  }
 
   private[http] def input(req: HttpRequest): Future[Unauthorized \/ (Jwt, JwtPayload, String)] = {
     findJwt(req).flatMap(decodeAndParsePayload(_, decodeJwt)) match {

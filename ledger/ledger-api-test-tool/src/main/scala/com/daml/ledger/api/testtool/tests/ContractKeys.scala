@@ -43,18 +43,21 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
           beta.exercise(delegate, delegation.exerciseFetchDelegated(_, delegated))
         }
 
-        // fetch by key delegation is allowed
-        _ <- beta.exercise(
-          delegate,
-          delegation.exerciseFetchByKeyDelegated(_, owner, key, Some(delegated)))
+        // fetch by key should fail during interpretation
+        // Reason: Only stakeholders see the result of fetchByKey, beta is neither stakeholder nor divulgee
+        fetchFailure <- beta
+          .exercise(delegate, delegation.exerciseFetchByKeyDelegated(_, owner, key, None))
+          .failed
 
-        // lookup by key delegation is allowed
-        _ <- beta.exercise(
-          delegate,
-          delegation.exerciseLookupByKeyDelegated(_, owner, key, Some(delegated)))
+        // lookup by key delegation is should fail during validation
+        // Reason: During command interpretation, the lookup did not find anything due to privacy rules,
+        // but validation determined that this result is wrong as the contract is there.
+        lookupByKeyFailure <- beta
+          .exercise(delegate, delegation.exerciseLookupByKeyDelegated(_, owner, key, None))
+          .failed
       } yield {
-        // No assertions to make, since all exercises went through as expected
-        ()
+        assertGrpcError(fetchFailure, Status.Code.INVALID_ARGUMENT, "couldn't find key")
+        assertGrpcError(lookupByKeyFailure, Status.Code.INVALID_ARGUMENT, "InvalidLookup")
       }
   }
 
@@ -72,25 +75,30 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
         _ <- synchronize(alpha, beta)
 
         // fetch should fail
+        // Reason: contract not divulged to beta
         fetchFailure <- beta
           .exercise(delegate, delegation.exerciseFetchDelegated(_, delegated))
           .failed
 
-        // this fetch still fails even if we do not check that the submitter
-        // is in the lookup maintainer, since we have the visibility check
-        // implement as part of #753.
+        // fetch by key should fail
+        // Reason: Only stakeholders see the result of fetchByKey, beta is only a divulgee
         fetchByKeyFailure <- beta
           .exercise(delegate, delegation.exerciseFetchByKeyDelegated(_, owner, key, None))
           .failed
 
-        // lookup by key should work
-        _ <- beta.exercise(delegate, delegation.exerciseLookupByKeyDelegated(_, owner, key, None))
+        // lookup by key should fail
+        // Reason: During command interpretation, the lookup did not find anything due to privacy rules,
+        // but validation determined that this result is wrong as the contract is there.
+        lookupByKeyFailure <- beta
+          .exercise(delegate, delegation.exerciseLookupByKeyDelegated(_, owner, key, None))
+          .failed
       } yield {
         assertGrpcError(
           fetchFailure,
           Status.Code.INVALID_ARGUMENT,
           "dependency error: couldn't find contract")
         assertGrpcError(fetchByKeyFailure, Status.Code.INVALID_ARGUMENT, "couldn't find key")
+        assertGrpcError(lookupByKeyFailure, Status.Code.INVALID_ARGUMENT, "InvalidLookup")
       }
   }
 

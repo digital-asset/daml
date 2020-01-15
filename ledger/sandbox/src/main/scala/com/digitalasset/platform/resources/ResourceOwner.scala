@@ -4,12 +4,14 @@
 package com.digitalasset.platform.resources
 
 import java.util.Timer
-import java.util.concurrent.ExecutorService
+import java.util.concurrent.{CompletionStage, ExecutorService}
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 
+import scala.compat.java8.FutureConverters._
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success, Try}
 
 @FunctionalInterface
 trait ResourceOwner[A] {
@@ -36,13 +38,19 @@ trait ResourceOwner[A] {
 
 object ResourceOwner {
   def successful[T](value: T): ResourceOwner[T] =
-    new FutureResourceOwner(() => Future.successful(value))
+    forTry(() => Success(value))
 
   def failed[T](exception: Throwable): ResourceOwner[T] =
-    new FutureResourceOwner(() => Future.failed(exception))
+    forTry(() => Failure(exception))
+
+  def forTry[T](acquire: () => Try[T]): ResourceOwner[T] =
+    new FutureResourceOwner[T](() => Future.fromTry(acquire()))
 
   def forFuture[T](acquire: () => Future[T]): ResourceOwner[T] =
     new FutureResourceOwner(acquire)
+
+  def forCompletionStage[T](acquire: () => CompletionStage[T]): ResourceOwner[T] =
+    new FutureResourceOwner(() => acquire().toScala)
 
   def forCloseable[T <: AutoCloseable](acquire: () => T): ResourceOwner[T] =
     new CloseableResourceOwner(acquire)

@@ -29,6 +29,7 @@ template AllTypes with
     enumList: [Color]
     variant: Expr Int
     sumProd : Quux
+    parametericSumProd : Expr2 Int
   where
     signatory party
 
@@ -65,6 +66,12 @@ data Expr a =
     Lit a
   | Var Text
   | Add (Expr a, Expr a)
+  deriving (Show, Eq)
+
+data Expr2 a =
+    Lit2 a
+  | Var2 Text
+  | Add2 {lhs : Expr2 a, rhs: Expr2 a}
   deriving (Show, Eq)
 
 data Color = Red | Blue | Yellow deriving (Eq, Show)

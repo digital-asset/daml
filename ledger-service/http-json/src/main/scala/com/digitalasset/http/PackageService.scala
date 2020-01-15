@@ -66,10 +66,6 @@ private class PackageService(reloadPackageStoreIfChanged: PackageService.ReloadP
   def resolveTemplateId: ResolveTemplateId =
     x => PackageService.resolveTemplateId(state.templateIdMap)(x)
 
-  // See the above comment
-  def resolveTemplateIds: ResolveTemplateIds =
-    x => PackageService.resolveTemplateIds(state.templateIdMap)(x)
-
   def resolveTemplateRecordType: ResolveTemplateRecordType =
     templateId =>
       \/-(
@@ -103,11 +99,8 @@ object PackageService {
   type ReloadPackageStore =
     Set[String] => Future[PackageService.Error \/ Option[LedgerReader.PackageStore]]
 
-  type ResolveTemplateIds =
-    Set[TemplateId.OptionalPkg] => Error \/ List[TemplateId.RequiredPkg]
-
   type ResolveTemplateId =
-    TemplateId.OptionalPkg => Error \/ TemplateId.RequiredPkg
+    TemplateId.OptionalPkg => Option[TemplateId.RequiredPkg]
 
   type ResolveTemplateRecordType =
     TemplateId.RequiredPkg => Error \/ iface.Type
@@ -156,39 +149,18 @@ object PackageService {
       .groupBy(k => key2(k))
       .collect { case (k, v) if v.size == 1 => (k, v.head) }
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  def resolveTemplateIds(m: TemplateIdMap)(
-      as: Set[TemplateId.OptionalPkg]): Error \/ List[TemplateId.RequiredPkg] =
-    for {
-      bs <- as.toList.traverse(resolveTemplateId(m))
-      _ <- validate(as, bs)
-    } yield bs
-
   def resolveTemplateId(m: TemplateIdMap)(
-      a: TemplateId.OptionalPkg): Error \/ TemplateId.RequiredPkg =
+      a: TemplateId.OptionalPkg): Option[TemplateId.RequiredPkg] =
     a.packageId match {
       case Some(p) => findTemplateIdByK3(m.all)(TemplateId(p, a.moduleName, a.entityName))
       case None => findTemplateIdByK2(m.unique)(TemplateId((), a.moduleName, a.entityName))
     }
 
   private def findTemplateIdByK3(m: Set[TemplateId.RequiredPkg])(
-      k: TemplateId.RequiredPkg): Error \/ TemplateId.RequiredPkg =
-    if (m.contains(k)) \/-(k)
-    else -\/(InputError(s"Cannot resolve template ID, given: ${k.toString}"))
+      k: TemplateId.RequiredPkg): Option[TemplateId.RequiredPkg] = Some(k).filter(m.contains)
 
   private def findTemplateIdByK2(m: Map[TemplateId.NoPkg, TemplateId.RequiredPkg])(
-      k: TemplateId.NoPkg): Error \/ TemplateId.RequiredPkg =
-    m.get(k).toRightDisjunction(InputError(s"Cannot resolve template ID, given: ${k.toString}"))
-
-  private def validate(
-      requested: Set[TemplateId.OptionalPkg],
-      resolved: List[TemplateId.RequiredPkg]): Error \/ Unit =
-    if (requested.size == resolved.size) \/.right(())
-    else
-      \/.left(
-        ServerError(
-          s"Template ID resolution error, the sizes of requested and resolved collections should match. " +
-            s"requested: $requested, resolved: $resolved"))
+      k: TemplateId.NoPkg): Option[TemplateId.RequiredPkg] = m.get(k)
 
   def resolveChoiceRecordType(choiceIdMap: ChoiceTypeMap)(
       templateId: TemplateId.RequiredPkg,

@@ -223,6 +223,36 @@ Each contract formatted according to :doc:`lf-value-specification`.
         "status": 200
     }
 
+Nonempty Response with Unknown Template IDs Warning
+---------------------------------------------------
+
+.. code-block:: json
+
+    {
+        "warnings": {
+            "unknownTemplateIds": ["UnknownModule:UnknownEntity"]
+        },
+        "result": [
+            {
+                "observers": [],
+                "agreementText": "",
+                "payload": {
+                    "observers": [],
+                    "issuer": "Alice",
+                    "amount": "999.99",
+                    "currency": "USD",
+                    "owner": "Alice"
+                },
+                "signatories": [
+                    "Alice"
+                ],
+                "contractId": "#52:0",
+                "templateId": "b10d22d6c2f2fae41b353315cf893ed66996ecb0abe4424ea6a81576918f658a:Iou:Iou"
+            }
+        ],
+        "status": 200
+    }
+
 WebSocket ``/contracts/searchForever``
 ======================================
 

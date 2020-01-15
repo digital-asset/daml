@@ -18,6 +18,7 @@ import Test.Tasty.HUnit
 import DA.Daml.LF.Ast.Base
 import DA.Daml.LF.Ast.Numeric
 import DA.Daml.LF.Ast.Type
+import DA.Daml.LF.Ast.TypeLevelNat
 import DA.Daml.LF.Ast.Util
 import DA.Daml.LF.Ast.Version
 import DA.Daml.LF.Ast.World (initWorld)
@@ -63,6 +64,16 @@ substitutionTests = testGroup "substitution"
                 TBuiltin BTArrow `TApp` vBeta11 `TApp` vBeta1
             ty2 = substitute subst ty1
         assertBool "wrong substitution" (alphaEquiv ty1 ty2)
+
+    , testCase "freeVars/TypeLevelNat" $ do
+        let x = TypeVarName "x"
+        let y = TypeVarName "y"
+        let yRenamed = TypeVarName "yRenamed"
+        let typeWithNatAndFreeY = TNat TypeLevelNat10 :-> TVar y
+        let subst = Map.fromList [(x, typeWithNatAndFreeY)]
+        assertBool "bad substitution" $ alphaEquiv
+          (substitute subst (TForall (y,       KStar) $ TVar x              :-> TVar y))
+                            (TForall (yRenamed,KStar) $ typeWithNatAndFreeY :-> TVar yRenamed)
     ]
   where
     beta1 = TypeVarName "beta1"
@@ -76,7 +87,7 @@ typeSynTests =
   testGroup "type synonyms"
   [ testGroup "happy" (map mkHappyTestcase happyExamples)
   , testGroup "sad" (map mkSadTestcase sadExamples)
-  , testGroup "bad" (map mkBadTestcase badDefs)
+  , testGroup "bad" (map mkBadTestcase badDefSets)
   , testGroup "bigger" (map mkBiggerTestcase biggerExamples)
   ] where
 
@@ -146,7 +157,18 @@ typeSynTests =
     , (makeSynDef myBad [(x,KStar)] (TApp (TVar x) TInt64), "expected higher kinded type")
     , (makeSynDef myBad [(x,KStar),(x,KStar)] (TVar x), "duplicate type parameter: x")
     , (makeSynDef myBad [] (TSynApp (q missing) []), "unknown type synonym: M:Missing")
+    , (makeSynDef myBad [] (TSynApp (q myBad) []), "found type synonym cycle")
     ]
+
+  badDefSets :: [([DefTypeSyn],String)]
+  badDefSets = [ ([def],frag) | (def,frag) <- badDefs ] ++
+    [
+      ([makeSynDef myBad [] (TList (TSynApp (q myBad2) []))
+       ,makeSynDef myBad2 [] (TSynApp (q myBad) [])
+       ]
+      , "found type synonym cycle")
+    ]
+
 
   x,y,f :: TypeVarName
   x = TypeVarName "x"
@@ -170,6 +192,7 @@ typeSynTests =
   myHigh = TypeSynName ["MyHigh"]
   myHigh2 = TypeSynName ["MyHigh2"]
   myBad = TypeSynName ["MyBad"]
+  myBad2 = TypeSynName ["MyBad2"]
 
   mkPair ty1 ty2 = TStruct [(FieldName "fst",ty1),(FieldName "snd",ty2)]
 
@@ -193,10 +216,10 @@ typeSynTests =
       Left s -> assertStringContains s (Fragment frag)
       Right () -> assertFailure "expected type error, but got none"
 
-  mkBadTestcase :: (DefTypeSyn,String) -> TestTree
-  mkBadTestcase (def,frag) = do
-    let name = looseNewlines $ renderPretty def
-    let mod = makeModule [def] []
+  mkBadTestcase :: ([DefTypeSyn],String) -> TestTree
+  mkBadTestcase (defs,frag) = do
+    let name = looseNewlines $ renderPretty defs
+    let mod = makeModule defs []
     testCase name $ case typeCheck mod of
       Left s -> assertStringContains s (Fragment frag)
       Right () -> assertFailure "expected type error, but got none"
