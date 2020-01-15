@@ -1167,7 +1167,7 @@ visualDamlTests = Tasty.testGroup "Visual Tests"
             setFilesOfInterest [fetchTest]
             expectNoErrors
             expectedGraph fetchTest ( ExpectedGraph {expectedSubgraphs =
-                                        [ExpectedSubGraph {expectedNodes = ["Create","ReducedCoin","Archive"]
+                                        [ExpectedSubGraph {expectedNodes = ["Create","Archive","ReducedCoin"]
                                             , expectedTplFields = ["owner","amount"]
                                             , expectedTemplate = "Coin"}]
                               , expectedEdges = []})
@@ -1226,12 +1226,13 @@ visualDamlTests = Tasty.testGroup "Visual Tests"
             setFilesOfInterest [createTest]
             expectNoErrors
             expectedGraph createTest (ExpectedGraph
-                {expectedSubgraphs = [ExpectedSubGraph {expectedNodes = ["Create","CreateCoin","Archive"]
-                                                        , expectedTplFields = ["owner"]
-                                                        , expectedTemplate = "TT"}
-                                     ,ExpectedSubGraph {expectedNodes = ["Create","Archive"]
+                {expectedSubgraphs = [ExpectedSubGraph { expectedNodes = ["Create","Archive"]
                                                        , expectedTplFields = ["owner"]
                                                        , expectedTemplate = "Coin"}
+                                     ,ExpectedSubGraph { expectedNodes = ["Create","Archive","CreateCoin"]
+                                                       , expectedTplFields = ["owner"]
+                                                       , expectedTemplate = "TT"
+                                                       }
                                      ]
                 , expectedEdges = [(ExpectedChoiceDetails {expectedConsuming = True, expectedName = "CreateCoin"}
                                    ,ExpectedChoiceDetails {expectedConsuming = False, expectedName = "Create"})]})
