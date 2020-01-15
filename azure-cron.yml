@@ -58,6 +58,8 @@ jobs:
           set -euo pipefail
 
           eval "$(dev-env/bin/dade-assist)"
+          HEAD=$(git rev-parse HEAD)
+          while ! nix-build -A tools.sed -A tools.jq -A tools.curl nix; do :; done
           echo $DOCKER_PASSWORD | docker login --username $DOCKER_LOGIN --password-stdin
           RELEASES=$(curl https://api.github.com/repos/digital-asset/daml/releases -s | jq -r '. | map(select(.prerelease == false)) | map(.tag_name)[]')
           DIR=$(pwd)
@@ -67,17 +69,17 @@ jobs:
           # We do not update docker images for older releases so only docker images for SDK releases
           # >= 0.13.43 are built this way.
           for version in $(echo $RELEASES | sed -e 's/ /\n/g'); do
-            git checkout "$version"
-            while ! nix-build -A tools -A cached nix; do; done
             LAST_UPDATE=$(echo $VERSIONS | jq -r '.results[] | select(.name == "'${version#v}'") | .last_updated')
             if [[ -n "$LAST_UPDATE" ]]; then
               echo "${version#v} already exists, skipping."
             else
               echo "Building version ${version#v}..."
+              git checkout "$version"
               cd ci/docker/daml-sdk
               docker build -t digitalasset/daml-sdk:${version#v} --build-arg VERSION=${version#v} .
               docker push digitalasset/daml-sdk:${version#v}
               cd "$DIR"
+              git checkout $HEAD
               echo "Done."
             fi
           done
