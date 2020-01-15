@@ -176,7 +176,7 @@ Agreement
 
 An **agreement** is part of a `contract <#contract-contract-instance>`__. It is text that explains what the contract represents.
 
-It can be used to clarify the legal intent of a contract, but this text isn't evaulated programmatically. 
+It can be used to clarify the legal intent of a contract, but this text isn't evaluated programmatically. 
 
 See :doc:`/daml/reference/templates`.
 
