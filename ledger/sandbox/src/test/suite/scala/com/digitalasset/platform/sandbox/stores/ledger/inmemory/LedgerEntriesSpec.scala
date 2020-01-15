@@ -46,7 +46,7 @@ class LedgerEntriesSpec
           .take(NO_OF_MESSAGES.toLong)
           .toMat(Sink.seq)(Keep.right)
 
-      val blocksF = ledger.getSource(None).runWith(sink)
+      val blocksF = ledger.getSource(None, None).runWith(sink)
 
       blocksF.map { blocks =>
         val readTransactions = blocks.collect { case (_, transaction) => transaction }
@@ -72,7 +72,7 @@ class LedgerEntriesSpec
       def subscribe() = {
         val subscribeRate = NO_OF_MESSAGES / (Random.nextInt(100) + 1)
         ledger
-          .getSource(None)
+          .getSource(None, None)
           .runWith(
             Flow[(Long, Either[Error, Transaction])]
               .throttle(subscribeRate, 100.milliseconds, subscribeRate, ThrottleMode.shaping)
