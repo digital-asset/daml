@@ -6,6 +6,68 @@ Release notes
 
 This page contains release notes for the SDK.
 
+.. _release-0-13-43:
+
+0.13.43 - 2020-01-15
+--------------------
+
+DAML Compiler
+~~~~~~~~~~~~~
+
+- The ``build-options`` field from ``daml.yaml`` is now also respected when
+  ``--project-root`` is used.
+
+DAML SDK
+~~~~~~~~
+
+- Docker images for this release and releases in the future are built using
+  the Dockerfile of the corresponding git tag and are therefore stable.
+  Previously, they were updated whenever the Dockerfile changed.
+
+Ledger API Server
+~~~~~~~~~~~~~~~~~
+
+- **BREAKING CHANGE** ``lookupByKey`` now requires the submitter to be a
+  stakeholder on the referenced contract.
+  See `issue #2311 <https://github.com/digital-asset/daml/issues/2311>`_
+  and `issue #3543 <https://github.com/digital-asset/daml/issues/3543>`_.
+- Metrics: Update dropwizard to version 4.1.2.
+- Authorization: Support elliptic curve algorithm for JWT verification.
+
+Sandbox
+~~~~~~~
+
+- Allow ``submitMustFail`` in scenarios used for sandbox initialization.
+- Loosen database schema to allow persistence of transaction ledger entries
+  where no submitter info is present (typically when the submitter is hosted
+  by another participant node).
+- DAML trace logs (trace, traceRaw, traceId) are now logged via the regular
+  logging system (slf4j+logback) at interpretation time via the logger
+  ``daml.tracelog`` at DEBUG level.
+
+DAML Triggers - Experimental
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- You can now configure a heartbeat message to be sent at a regular time interval.
+
+JSON API - Experimental
+~~~~~~~~~~~~~~~~~~~~~~~
+- The ``/contracts/search`` endpoint reports unresolved template IDs as warnings.
+  See `issue #3771 <https://github.com/digital-asset/daml/issues/3771>`_.
+- Use JSON string to encode template IDs. Use colon (``:``) to separate parts of the ID.
+  The request format, with optional package ID:
+  - ``"<module>:<entity>"``
+  - ``"<package ID>:<module>:<entity>"``
+  The response always contains fully qualified template ID in the format:
+  - ``"<package ID>:<module>:<entity>"``
+  See `issue #3647 <https://github.com/digital-asset/daml/issues/3647>`_.
+- Align ``contract`` table with ``domain.ActiveContract`` class.
+  The database schema has changed, if using ``--query-store-jdbc-config``,
+  you must rebuild the database by adding ``,createSchema=true``.
+  See `issue #3754 <https://github.com/digital-asset/daml/issues/3754>`_.
+- The ``witnessParties`` field is removed from all JSON responses.
+
+
 .. _release-0-13-42:
 
 0.13.42 - 2020-01-08
