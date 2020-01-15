@@ -72,14 +72,14 @@ class SqlLedgerReaderWriter(
       .startingAt(
         offset.getOrElse(FirstOffset).components.head,
         RangeSource((start, end) =>
-          withConnection { implicit connection =>
+          withDatabaseStream { implicit connection =>
             Source(queries.selectFromLog(start, end))
         })
       )
       .map { case (_, record) => record }
 
   override def commit(correlationId: String, envelope: Array[Byte]): Future[SubmissionResult] =
-    withConnection { implicit connection =>
+    inDatabaseTransaction { implicit connection =>
       Future {
         val submission = Envelope
           .openSubmission(envelope)
@@ -147,17 +147,18 @@ class SqlLedgerReaderWriter(
       .result()
   }
 
-  private def migrate(): Future[Unit] = withConnection { implicit connection =>
-    Future
-      .sequence(
-        Seq(
-          Future(queries.createLogTable()),
-          Future(queries.createStateTable()),
-        ))
-      .map(_ => ())
-  }
+  private def migrate(): Future[Unit] =
+    inDatabaseTransaction { implicit connection =>
+      Future
+        .sequence(
+          Seq(
+            Future(queries.createLogTable()),
+            Future(queries.createStateTable()),
+          ))
+        .map(_ => ())
+    }
 
-  private def withConnection[T](body: Connection => Future[T]): Future[T] = {
+  private def inDatabaseTransaction[T](body: Connection => Future[T]): Future[T] = {
     val connection = connectionSource.getConnection()
     body(connection).transform(
       value => {
@@ -173,7 +174,7 @@ class SqlLedgerReaderWriter(
     )
   }
 
-  private def withConnection[Out, Mat](
+  private def withDatabaseStream[Out, Mat](
       body: Connection => Source[Out, Mat],
   ): Source[Out, NotUsed] = {
     val connection = connectionSource.getConnection()
