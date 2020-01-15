@@ -17,11 +17,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlSubmission
 }
 import com.daml.ledger.participant.state.kvutils.api.{LedgerReader, LedgerRecord, LedgerWriter}
-import com.daml.ledger.participant.state.kvutils.{
-  Envelope,
-  KeyValueCommitting,
-  SequentialLogEntryId
-}
+import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting}
 import com.daml.ledger.participant.state.v1.{LedgerId, Offset, ParticipantId, SubmissionResult}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -60,8 +56,6 @@ class FileSystemLedgerReaderWriter private (
   private val stateDirectory = root.resolve("state")
 
   private val lock = new FileSystemLock(lockPath)
-
-  private val sequentialLogEntryId = new SequentialLogEntryId("FS")
 
   private val engine = Engine()
 
@@ -105,7 +99,11 @@ class FileSystemLedgerReaderWriter private (
           submission.getInputDamlStateList.asScala.toVector
             .map(key => readState(key).map(key -> _)))
         stateInputs: Map[DamlStateKey, Option[DamlStateValue]] = stateInputStream.toMap
-        entryId = sequentialLogEntryId.next()
+        currentHead <- currentLogHead()
+        entryId = DamlLogEntryId
+          .newBuilder()
+          .setEntryId(ByteString.copyFromUtf8(currentHead.toHexString))
+          .build()
         (logEntry, stateUpdates) = KeyValueCommitting.processSubmission(
           engine,
           entryId,
@@ -116,7 +114,7 @@ class FileSystemLedgerReaderWriter private (
           stateInputs,
         )
         _ = verifyStateUpdatesAgainstPreDeclaredOutputs(stateUpdates, entryId, submission)
-        newHead <- appendLog(entryId, Envelope.enclose(logEntry))
+        newHead <- appendLog(currentHead, Envelope.enclose(logEntry))
         _ <- updateState(stateUpdates)
       } yield {
         dispatcher.signalNewHead(newHead)
@@ -141,36 +139,33 @@ class FileSystemLedgerReaderWriter private (
   private def currentRecordTime(): Timestamp =
     Timestamp.assertFromInstant(Clock.systemUTC().instant())
 
-  private def retrieveLogEntry(index: Index): Future[LedgerRecord] =
-    for {
-      entryId <- Future(Files.readAllBytes(logIndexDirectory.resolve(index.toString))).transform {
-        case Success(value) => Success(value)
-        case Failure(_: NoSuchFileException) =>
-          Failure(new NoSuchElementException(s"No log entry at $index."))
-        case Failure(exception) => Failure(exception)
-      }
-      envelope <- Future(Files.readAllBytes(logEntriesDirectory.resolve(Bytes.toString(entryId))))
-    } yield
-      LedgerRecord(
-        Offset(Array(index.toLong)),
-        DamlLogEntryId.newBuilder().setEntryId(ByteString.copyFrom(entryId)).build(),
-        envelope)
+  private def retrieveLogEntry(entryId: Index): Future[LedgerRecord] =
+    Future(Files.readAllBytes(logEntriesDirectory.resolve(entryId.toString))).map(
+      envelope =>
+        LedgerRecord(
+          Offset(Array(entryId.toLong)),
+          DamlLogEntryId
+            .newBuilder()
+            .setEntryId(ByteString.copyFromUtf8(entryId.toHexString))
+            .build(),
+          envelope,
+      ))
 
-  private def appendLog(entry: DamlLogEntryId, envelope: ByteString): Future[Index] =
+  private def currentLogHead(): Future[Index] =
+    Future(Files.readAllLines(logHeadPath).get(0)).transform {
+      case Success(contents) =>
+        Success(contents.toInt)
+      case Failure(_: NoSuchFileException) =>
+        Success(StartOffset)
+      case Failure(exception) =>
+        Failure(exception)
+    }
+
+  private def appendLog(currentHead: Index, envelope: ByteString): Future[Index] =
     for {
-      currentHead <- Future(Files.readAllLines(logHeadPath).get(0)).transform {
-        case Success(contents) =>
-          Success(contents.toInt)
-        case Failure(_: NoSuchFileException) =>
-          Success(StartOffset)
-        case Failure(exception) =>
-          Failure(exception)
-      }
-      newHead = currentHead + 1
-      id = Bytes.toString(entry.getEntryId)
-      _ <- Future(Files.write(logEntriesDirectory.resolve(id), envelope.toByteArray))
       _ <- Future(
-        Files.write(logIndexDirectory.resolve(currentHead.toString), entry.getEntryId.toByteArray))
+        Files.write(logEntriesDirectory.resolve(currentHead.toString), envelope.toByteArray))
+      newHead = currentHead + 1
       _ <- Future(Files.write(logHeadPath, Seq(newHead.toString).asJava))
     } yield newHead
 
