@@ -38,23 +38,23 @@ object Hasher {
 
   // package private for testing purpose.
   // Do not call this method from outside Hasher object/
-  private[transaction] implicit class SHA256HashBuilderOps(val builder: SHA256Hash.Builder)
+  private[crypto] implicit class SHA256HashBuilderOps[X](val builder: SHA256Hash.Builder[X])
       extends AnyVal {
 
-    import builder._
+    import builder.{This => ThisBuilder, _}
 
-    def addDottedName(name: Ref.DottedName): builder.type =
+    def addDottedName(name: Ref.DottedName): ThisBuilder =
       iterateOver(name.segments)(_ add _)
 
-    def addQualifiedName(name: Ref.QualifiedName): builder.type =
+    def addQualifiedName(name: Ref.QualifiedName): ThisBuilder =
       addDottedName(name.module).addDottedName(name.name)
 
-    def addIdentifier(id: Ref.Identifier): builder.type =
+    def addIdentifier(id: Ref.Identifier): ThisBuilder =
       add(id.packageId).addQualifiedName(id.qualifiedName)
 
     // Should be used together with an other data representing uniquely the type `value`.
     // See for instance hash : Node.GlobalKey => SHA256Hash
-    def addTypedValue(value: Value[Value.AbsoluteContractId]): builder.type =
+    def addTypedValue(value: Value[Value.AbsoluteContractId]): ThisBuilder =
       value match {
         case Value.ValueUnit =>
           add(tagUnit)
@@ -81,7 +81,7 @@ object Hasher {
         case Value.ValueOptional(Some(v)) =>
           add(tagSome).addTypedValue(v)
         case Value.ValueList(xs) =>
-          add(tagList).iterateOver(xs)(_ addTypedValue _)
+          add(tagList).iterateOver(xs.toImmArray)(_ addTypedValue _)
         case Value.ValueTextMap(xs) =>
           add(tagTextMap).iterateOver(xs.toImmArray) {
             case (acc, (k, v)) => acc.add(k).addTypedValue(v)

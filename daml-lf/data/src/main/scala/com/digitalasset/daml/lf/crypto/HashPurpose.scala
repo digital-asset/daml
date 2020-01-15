@@ -21,7 +21,7 @@ import scala.collection.concurrent
   * @param id The identifier for the [[HashPurpose]].
   *           Every [[HashPurpose]] object must have a unique [[id]].
   */
-class HashPurpose private (val id: Int, val description: String) extends AnyVal
+class HashPurpose private (val id: Int, val description: String)
 
 object HashPurpose {
 

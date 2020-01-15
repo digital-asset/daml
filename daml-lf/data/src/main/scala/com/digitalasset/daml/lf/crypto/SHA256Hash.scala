@@ -41,7 +41,12 @@ object SHA256Hash {
   /**
     * The methods of [[Builder]] change its internal state and return `this` for convenience.
     */
-  sealed abstract class Builder {
+  // Each builder must be build with a different parameter type
+  sealed abstract class Builder[X] {
+
+    // Do not use `This` in the body of this class.
+    // See bug report https://github.com/scala/bug/issues/11849
+    type This = Builder[X]
 
     def add(a: Array[Byte]): this.type
 
@@ -71,16 +76,15 @@ object SHA256Hash {
       add(longBuffer.putLong(a).array())
     }
 
-    def iterateOver[T](a: ImmArray[T])(f: (this.type, T) => this.type): this.type =
+    // Since `X` should be uniq for any instance of the builder,
+    // we are sure that `f` deals with the same builder
+    def iterateOver[T](a: ImmArray[T])(f: (Builder[X], T) => Builder[X]): Builder[X] =
       a.foldLeft(add(a.length))(f)
-
-    def iterateOver[T](s: FrontStack[T])(f: (this.type, T) => this.type): this.type =
-      s.iterator.foldLeft(add(s.length))(f)
 
     def build: SHA256Hash
   }
 
-  def builder(purpose: HashPurpose): Builder = new Builder {
+  def builder(purpose: HashPurpose): Builder[_] = new Builder[_] {
 
     private val md = MessageDigest.getInstance("SHA-256")
 
