@@ -308,26 +308,21 @@ final class CommandClientIT
         val commandIds = offset to lastCommandId
         val commandIdStrings = Set(commandIds.map(_.toString): _*)
 
-        // val for type inference
-        val resultF = for {
+        for {
           client <- commandClient()
           checkpoint <- client.getCompletionEnd()
-          result = readExpectedCommandIds(client, checkpoint.getOffset, commandIdStrings)
           _ <- Source(commandIds.map(i => Ctx(i, submitRequestWithId(i.toString))))
             .flatMapMerge(10, randomDelay)
             .via(client.submissionFlow())
             .map(_.context)
             .runWith(Sink.ignore)
+          (seenCommandIds, remainingCommandIds) <- readExpectedCommandIds(
+            client,
+            checkpoint.getOffset,
+            commandIdStrings)
         } yield {
-          result
-        }
-
-        resultF.flatten map {
-          case (seenCommandIds, remainingCommandIds) =>
-            // N.B.: completions may include already-seen elements, and may be out of order
-            seenCommandIds should contain allElementsOf commandIdStrings
-            remainingCommandIds.toList should have length 0
-            Succeeded
+          seenCommandIds should contain allElementsOf commandIdStrings
+          remainingCommandIds.toList should have length 0
         }
       }
     }
