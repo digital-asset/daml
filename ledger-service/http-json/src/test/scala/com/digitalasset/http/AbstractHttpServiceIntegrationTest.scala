@@ -398,7 +398,9 @@ abstract class AbstractHttpServiceIntegrationTest
           assertStatus(createOutput, StatusCodes.OK)
 
           val contractId = getContractId(getResult(createOutput))
-          val exercise = iouArchiveCommand(contractId)
+          val templateId = domain.TemplateId(None, "Iou", "Iou")
+          val reference = domain.EnrichedContractId(Some(templateId), contractId)
+          val exercise = archiveCommand(reference)
           val exerciseJson: JsValue = encodeExercise(encoder)(exercise)
 
           postJsonRequest(uri.withPath(Uri.Path("/command/exercise")), exerciseJson)
@@ -592,6 +594,37 @@ abstract class AbstractHttpServiceIntegrationTest
     }: Future[Assertion]
   }
 
+  "commands/exercise Archive by contractKey" in withHttpService { (uri, encoder, decoder) =>
+    val owner = domain.Party("Alice")
+    val accountNumber = "abc123"
+    val create: domain.CreateCommand[v.Record] = accountCreateCommand(owner, accountNumber)
+
+    val keyRecord = v.Record(
+      fields = Seq(
+        v.RecordField(value = Some(v.Value(v.Value.Sum.Party(owner.unwrap)))),
+        v.RecordField(value = Some(v.Value(v.Value.Sum.Text(accountNumber)))),
+      ))
+    val locator = domain.EnrichedContractKey[v.Value](
+      domain.TemplateId(None, "Account", "Account"),
+      v.Value(v.Value.Sum.Record(keyRecord))
+    )
+    val archive: domain.ExerciseCommand[v.Value, domain.EnrichedContractKey[v.Value]] =
+      archiveCommand(locator)
+    val archiveJson: JsValue = encodeExercise(encoder)(archive)
+
+    postCreateCommand(create, encoder, uri).flatMap {
+      case (status, output) =>
+        status shouldBe StatusCodes.OK
+        assertStatus(output, StatusCodes.OK)
+
+        postJsonRequest(uri.withPath(Uri.Path("/command/exercise")), archiveJson).flatMap {
+          case (exerciseStatus, exerciseOutput) =>
+            exerciseStatus shouldBe StatusCodes.OK
+            assertStatus(exerciseOutput, StatusCodes.OK)
+        }
+    }: Future[Assertion]
+  }
+
   "contracts/lookup by contractKey where Key contains variant and record" in withHttpService {
     (uri, _, _) =>
       val createCommand = jsObject("""{
@@ -722,10 +755,7 @@ abstract class AbstractHttpServiceIntegrationTest
     domain.ExerciseCommand(reference, choice, boxedRecord(arg), None)
   }
 
-  private def iouArchiveCommand(
-      contractId: lar.ContractId): domain.ExerciseCommand[v.Value, domain.EnrichedContractId] = {
-    val templateId = domain.TemplateId(None, "Iou", "Iou")
-    val reference = domain.EnrichedContractId(Some(templateId), contractId)
+  private def archiveCommand[Ref](reference: Ref): domain.ExerciseCommand[v.Value, Ref] = {
     val arg: Record = v.Record()
     val choice = lar.Choice("Archive")
     domain.ExerciseCommand(reference, choice, boxedRecord(arg), None)
@@ -841,13 +871,19 @@ abstract class AbstractHttpServiceIntegrationTest
     }
 
   private def encodeExercise(encoder: DomainJsonEncoder)(
-      exercise: domain.ExerciseCommand[v.Value, domain.EnrichedContractId]): JsValue = {
+      exercise: domain.ExerciseCommand[v.Value, domain.ContractLocator[v.Value]]): JsValue = {
     val exerciseJsVal: domain.ExerciseCommand[JsValue, JsValue] = exercise.bimap(
       x => encoder.apiValueToJsValue(x).getOrElse(fail(s"Cannot encode: $x")),
-      y => y.toJson
+      y => encodeLocator(encoder)(y)
     )
-
     exerciseJsVal.toJson
+  }
+
+  private def encodeLocator(encoder: DomainJsonEncoder)(
+      ref: domain.ContractLocator[v.Value]): JsValue = ref match {
+    case x: domain.EnrichedContractKey[v.Value] =>
+      encoder.encodeV(x).getOrElse(fail(s"Cannot encode: $x"))
+    case x: domain.EnrichedContractId => x.toJson
   }
 
   private def decodeExercise(decoder: DomainJsonDecoder)(
@@ -875,5 +911,4 @@ abstract class AbstractHttpServiceIntegrationTest
 
   private def lfToApi(lfVal: domain.LfValue): v.Value =
     LfEngineToApi.lfValueToApiValue(verbose = true, lfVal).fold(e => fail(e), identity)
-
 }
