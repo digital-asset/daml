@@ -42,7 +42,7 @@ object Main extends App {
     ): KeyValueLedger =
       Await.result(
         SqlLedgerReaderWriter(participantId = participantId, jdbcUrl = config.jdbcUrl.getOrElse {
-          throw new IllegalStateException("No root directory provided.")
+          throw new IllegalStateException("No JDBC URL provided.")
         }),
         10.seconds,
       )
