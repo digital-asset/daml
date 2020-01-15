@@ -203,7 +203,7 @@ object TransactionCoder {
               encodeVal(k).map { encodedKey =>
                 exBuilder.setContractKey(encodedKey._2)
               }
-              if(!(transactionVersion precedes minMaintainersInExercise))
+              if (!(transactionVersion precedes minMaintainersInExercise))
                 exBuilder.addAllKeyMaintainers(maintainers.toSet[String].asJava)
               Right(())
           }

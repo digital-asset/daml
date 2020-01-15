@@ -301,9 +301,11 @@ class TransactionCoderSpec
       case _ => gn
     }
 
-  def withoutMaintainersInExercise[Nid, Cid, Val](gn: GenNode[Nid, Cid, Val]): GenNode[Nid, Cid, Val] =
+  def withoutMaintainersInExercise[Nid, Cid, Val](
+      gn: GenNode[Nid, Cid, Val]): GenNode[Nid, Cid, Val] =
     gn match {
-      case ne: NodeExercises[Nid, Cid, Val] => ne copy (key = ne.key.map(_.copy(maintainers = Set.empty)))
+      case ne: NodeExercises[Nid, Cid, Val] =>
+        ne copy (key = ne.key.map(_.copy(maintainers = Set.empty)))
       case _ => gn
     }
   def transactionWithout[Nid: Ordering, Cid, Val](
