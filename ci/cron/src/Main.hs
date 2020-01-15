@@ -124,7 +124,18 @@ build_docs_folder path versions latest = do
             putStrLn $ "Building " <> version <> "..."
             putStrLn "  Checking for existing folder..."
             old_version_exists <- exists old version
-            if old_version_exists
+            if to_v version < to_v "0.13.36"
+            then do
+                -- Maven has stopped accepting http requests and now requires
+                -- https. We have a patch for 0.13.36 and above, which has been
+                -- merged between 0.13.43 and 0.13.44.
+                if old_version_exists
+                then do
+                    putStrLn "  Found. Too old to rebuild, copying over..."
+                    copy (old </> version) $ new </> version
+                else
+                    putStrLn "  Too old to rebuild and no existing version. Skipping."
+            else if old_version_exists
             then do
                 -- Note: this checks for upload errors; this is NOT in any way
                 -- a protection against tampering at the s3 level as we get the
@@ -169,6 +180,13 @@ build_docs_folder path versions latest = do
             shell_ $ "cp -r " <> from <> " " <> to
         build version path = do
             shell_ $ "git checkout v" <> version
+            -- Maven does not accept http connections anymore; this patches the
+            -- scala rules for Bazel to use https instead. This is not needed
+            -- after 0.13.43.
+            if to_v version < to_v "0.13.44"
+            then do
+                shell_ "git cherry-pick 0c4f9d7f92c4f2f7e2a75a0d85db02e20cbb497b"
+            else pure ()
             robustly_download_nix_packages
             shell_ "bazel build //docs:docs"
             shell_ $ "mkdir -p  " <> path </> version
