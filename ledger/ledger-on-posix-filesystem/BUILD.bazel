@@ -8,14 +8,20 @@ load(
     "da_scala_test",
 )
 load("//ledger/ledger-api-test-tool:conformance.bzl", "conformance_test")
+load("@os_info//:os_info.bzl", "is_linux", "is_windows")
 
 da_scala_library(
-    name = "ledger-on-memory",
+    name = "ledger-on-posix-filesystem",
     srcs = glob(["src/main/scala/**/*.scala"]),
     resources = glob(["src/main/resources/**/*"]),
-    tags = ["maven_coordinates=com.daml.ledger:on-memory:__VERSION__"],
+    tags = ["maven_coordinates=com.daml.ledger:on-posix-filesystem:__VERSION__"],
     visibility = [
         "//visibility:public",
+    ],
+    runtime_deps = [
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:ch_qos_logback_logback_core",
+        "@maven//:com_h2database_h2",
     ],
     deps = [
         "//daml-lf/data",
@@ -25,14 +31,35 @@ da_scala_library(
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils/app",
+        "//libs-scala/timer-utils",
+        "@maven//:com_github_scopt_scopt_2_12",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
     ],
 )
 
+da_scala_library(
+    name = "ledger-on-posix-filesystem-test-lib",
+    srcs = glob(["src/test/lib/**/*.scala"]),
+    tags = ["maven_coordinates=com.daml.ledger:on-posix-filesystem:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    runtime_deps = [],
+    deps = [
+        ":ledger-on-posix-filesystem",
+        "//daml-lf/data",
+        "//ledger/ledger-api-common",
+        "//ledger/ledger-api-health",
+        "//ledger/participant-state",
+        "//ledger/participant-state/kvutils",
+        "//ledger/participant-state/kvutils/app",
+    ],
+)
+
 da_scala_test(
-    name = "ledger-on-memory-tests",
+    name = "ledger-on-posix-filesystem-tests",
     size = "small",
     srcs = glob(["src/test/suite/**/*.scala"]),
     data = [
@@ -40,7 +67,7 @@ da_scala_test(
     ],
     resources = glob(["src/test/resources/*"]),
     deps = [
-        ":ledger-on-memory",
+        ":ledger-on-posix-filesystem",
         "//daml-lf/data",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
@@ -49,6 +76,7 @@ da_scala_test(
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils:kvutils-tests-lib",
+        "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:org_scalactic_scalactic_2_12",
@@ -58,29 +86,35 @@ da_scala_test(
 
 da_scala_binary(
     name = "app",
-    main_class = "com.daml.ledger.on.memory.Main",
+    main_class = "com.daml.ledger.on.filesystem.posix.Main",
     visibility = ["//visibility:public"],
-    runtime_deps = [
-        "@maven//:ch_qos_logback_logback_classic",
-        "@maven//:ch_qos_logback_logback_core",
-        "@maven//:com_h2database_h2",
-    ],
     deps = [
-        ":ledger-on-memory",
+        ":ledger-on-posix-filesystem",
     ],
 )
+
+da_scala_binary(
+    name = "app-with-ephemeral-directory",
+    main_class = "com.daml.ledger.on.filesystem.posix.MainWithEphemeralDirectory",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":ledger-on-posix-filesystem-test-lib",
+    ],
+) if not is_windows else None
 
 conformance_test(
     name = "conformance-test",
     ports = [6865],
-    server = ":app",
+    server = ":app-with-ephemeral-directory",
     server_args = [
         "--port=6865",
     ],
     test_tool_args = [
+        "--concurrent-test-runs=4",
         "--all-tests",
         "--exclude=ConfigManagementServiceIT",
         "--exclude=LotsOfPartiesIT",
         "--exclude=TimeIT",
+        "--exclude=TransactionScaleIT",
     ],
-)
+) if not is_windows else None
