@@ -14,6 +14,7 @@ import SprayJson.JsonReaderError
 import ContractsFetch.InsertDeleteStep
 import com.digitalasset.http.LedgerClientJwt.Terminates
 import util.ApiValueToLfValueConverter.apiValueToLfValue
+import util.Collections._
 import json.JsonProtocol.LfValueCodec.{apiValueToJsValue => lfValueToJsValue}
 import query.ValuePredicate.LfV
 import com.digitalasset.jwt.domain.Jwt
@@ -28,7 +29,6 @@ import scalaz.syntax.traverse._
 import scalaz.{-\/, \/, \/-, Show}
 import spray.json.{JsObject, JsString, JsValue}
 
-import scala.collection.SeqLike
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
@@ -39,23 +39,6 @@ object WebSocketService {
   private implicit final class `\\/ WSS extras`[L, R](private val self: L \/ R) extends AnyVal {
     def liftErr[M](f: String => M)(implicit L: Show[L]): M \/ R =
       self leftMap (e => f(e.shows))
-  }
-
-  private implicit final class `Seq WSS extras`[A, Self](private val self: SeqLike[A, Self])
-      extends AnyVal {
-    import collection.generic.CanBuildFrom
-    @SuppressWarnings(Array("org.wartremover.warts.Any"))
-    def partitionMap[E, B, Es, That](f: A => E \/ B)(
-        implicit es: CanBuildFrom[Self, E, Es],
-        that: CanBuildFrom[Self, B, That]): (Es, That) = {
-      val esb = es(self.repr)
-      val thatb = that(self.repr)
-      self foreach { a =>
-        f(a) fold (esb.+=, thatb.+=)
-      }
-      (esb.result, thatb.result)
-    }
-
   }
 
   private final case class StepAndErrors[+LfV](
