@@ -17,10 +17,10 @@ import scala.util.control.NonFatal
 class FileSystemLock(location: Path) {
   private val random: Random = new Random()
 
-  def run[T](body: => Future[T])(implicit executionContext: ExecutionContext): Future[T] =
+  def run[T](body: => T)(implicit executionContext: ExecutionContext): Future[T] =
     for {
       _ <- acquire()
-      result <- body
+      result = body
     } yield {
       release()
       result

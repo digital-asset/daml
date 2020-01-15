@@ -30,7 +30,6 @@ import com.google.protobuf.ByteString
 import scala.collection.JavaConverters._
 import scala.collection.immutable
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
 
 class FileSystemLedgerReaderWriter private (
     ledgerId: LedgerId,
@@ -82,7 +81,7 @@ class FileSystemLedgerReaderWriter private (
           .getOrElse(StartOffset),
         OneAfterAnother[Index, immutable.Seq[LedgerRecord]](
           (index: Index, _) => index + 1,
-          (index: Index) => retrieveLogEntry(index).map(immutable.Seq(_))
+          (index: Index) => Future.successful(immutable.Seq(retrieveLogEntry(index))),
         )
       )
       .mapConcat {
@@ -94,32 +93,29 @@ class FileSystemLedgerReaderWriter private (
       .openSubmission(envelope)
       .getOrElse(throw new IllegalArgumentException("Not a valid submission in envelope"))
     lock.run {
-      for {
-        stateInputStream <- Future.sequence(
-          submission.getInputDamlStateList.asScala.toVector
-            .map(key => readState(key).map(key -> _)))
-        stateInputs: Map[DamlStateKey, Option[DamlStateValue]] = stateInputStream.toMap
-        currentHead <- currentLogHead()
-        entryId = DamlLogEntryId
-          .newBuilder()
-          .setEntryId(ByteString.copyFromUtf8(currentHead.toHexString))
-          .build()
-        (logEntry, stateUpdates) = KeyValueCommitting.processSubmission(
-          engine,
-          entryId,
-          currentRecordTime(),
-          LedgerReader.DefaultConfiguration,
-          submission,
-          participantId,
-          stateInputs,
-        )
-        _ = verifyStateUpdatesAgainstPreDeclaredOutputs(stateUpdates, entryId, submission)
-        newHead <- appendLog(currentHead, Envelope.enclose(logEntry))
-        _ <- updateState(stateUpdates)
-      } yield {
-        dispatcher.signalNewHead(newHead)
-        SubmissionResult.Acknowledged
-      }
+      val stateInputStream =
+        submission.getInputDamlStateList.asScala.toVector
+          .map(key => key -> readState(key))
+      val stateInputs: Map[DamlStateKey, Option[DamlStateValue]] = stateInputStream.toMap
+      val currentHead = currentLogHead()
+      val entryId = DamlLogEntryId
+        .newBuilder()
+        .setEntryId(ByteString.copyFromUtf8(currentHead.toHexString))
+        .build()
+      val (logEntry, stateUpdates) = KeyValueCommitting.processSubmission(
+        engine,
+        entryId,
+        currentRecordTime(),
+        LedgerReader.DefaultConfiguration,
+        submission,
+        participantId,
+        stateInputs,
+      )
+      verifyStateUpdatesAgainstPreDeclaredOutputs(stateUpdates, entryId, submission)
+      val newHead = appendLog(currentHead, Envelope.enclose(logEntry))
+      updateState(stateUpdates)
+      dispatcher.signalNewHead(newHead)
+      SubmissionResult.Acknowledged
     }
   }
 
@@ -139,37 +135,35 @@ class FileSystemLedgerReaderWriter private (
   private def currentRecordTime(): Timestamp =
     Timestamp.assertFromInstant(Clock.systemUTC().instant())
 
-  private def retrieveLogEntry(entryId: Index): Future[LedgerRecord] =
-    Future(Files.readAllBytes(logEntriesDirectory.resolve(entryId.toString))).map(
-      envelope =>
-        LedgerRecord(
-          Offset(Array(entryId.toLong)),
-          DamlLogEntryId
-            .newBuilder()
-            .setEntryId(ByteString.copyFromUtf8(entryId.toHexString))
-            .build(),
-          envelope,
-      ))
+  private def retrieveLogEntry(entryId: Index): LedgerRecord = {
+    val envelope = Files.readAllBytes(logEntriesDirectory.resolve(entryId.toString))
+    LedgerRecord(
+      Offset(Array(entryId.toLong)),
+      DamlLogEntryId
+        .newBuilder()
+        .setEntryId(ByteString.copyFromUtf8(entryId.toHexString))
+        .build(),
+      envelope,
+    )
+  }
 
-  private def currentLogHead(): Future[Index] =
-    Future(Files.readAllLines(logHeadPath).get(0)).transform {
-      case Success(contents) =>
-        Success(contents.toInt)
-      case Failure(_: NoSuchFileException) =>
-        Success(StartOffset)
-      case Failure(exception) =>
-        Failure(exception)
+  private def currentLogHead(): Index = {
+    try {
+      Files.readAllLines(logHeadPath).get(0).toInt
+    } catch {
+      case _: NoSuchFileException =>
+        StartOffset
     }
+  }
 
-  private def appendLog(currentHead: Index, envelope: ByteString): Future[Index] =
-    for {
-      _ <- Future(
-        Files.write(logEntriesDirectory.resolve(currentHead.toString), envelope.toByteArray))
-      newHead = currentHead + 1
-      _ <- Future(Files.write(logHeadPath, Seq(newHead.toString).asJava))
-    } yield newHead
+  private def appendLog(currentHead: Index, envelope: ByteString): Index = {
+    Files.write(logEntriesDirectory.resolve(currentHead.toString), envelope.toByteArray)
+    val newHead = currentHead + 1
+    Files.write(logHeadPath, Seq(newHead.toString).asJava)
+    newHead
+  }
 
-  private def readState(key: DamlStateKey): Future[Option[DamlStateValue]] = Future {
+  private def readState(key: DamlStateKey): Option[DamlStateValue] = {
     val path = StateKeys.resolveStateKey(stateDirectory, key)
     try {
       val contents = Files.readAllBytes(path)
@@ -180,7 +174,7 @@ class FileSystemLedgerReaderWriter private (
     }
   }
 
-  private def updateState(stateUpdates: Map[DamlStateKey, DamlStateValue]): Future[Unit] = Future {
+  private def updateState(stateUpdates: Map[DamlStateKey, DamlStateValue]): Unit = {
     for ((key, value) <- stateUpdates) {
       val path = StateKeys.resolveStateKey(stateDirectory, key)
       Files.createDirectories(path.getParent)

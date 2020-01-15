@@ -47,12 +47,12 @@ class FileSystemLockSpec extends AsyncWordSpec with Matchers with BeforeAndAfter
       for {
         output <- Future.sequence((1 to operations).map { _ =>
           val lock = new FileSystemLock(lockPath)
-          lock.run(Future {
+          lock.run {
             var counter = readCounter()
             counter += 1
             writeCounter(counter)
             counter
-          })
+          }
         })
       } yield {
         readCounter() should be(operations)
