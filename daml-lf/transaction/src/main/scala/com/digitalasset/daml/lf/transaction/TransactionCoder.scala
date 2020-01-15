@@ -325,9 +325,11 @@ object TransactionCoder {
               decodeVal(protoExe.getContractKey).map(Some(_))
           } else Right(None)
           maintainers <- toPartySet(protoExe.getKeyMaintainersList)
-          _ <- if ((txVersion precedes minMaintainersInExercise) && maintainers.nonEmpty)
-            Left(DecodeError(txVersion, isTooOldFor = "NodeExercises maintainers"))
-          else Right(())
+          _ <- Either.cond(
+            (txVersion precedes minMaintainersInExercise) && maintainers.nonEmpty,
+            DecodeError(txVersion, isTooOldFor = "NodeExercises maintainers")
+            ()
+          )
 
           ni <- nodeId
           targetCoid <- protoExe.decodeContractIdOrStruct(decodeCid, txVersion)(

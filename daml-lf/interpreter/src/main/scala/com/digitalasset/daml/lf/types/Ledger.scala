@@ -1138,7 +1138,7 @@ object Ledger {
                         case Some(keyWithMaintainers) =>
                           val gk = GlobalKey(
                             nc.coinst.template,
-                            keyWithMaintainers.key.mapContractId(assertNoAbsoluteContractId))
+                            keyWithMaintainers.key.mapContractId(assertNoContractId))
                           newCache1.activeKeys.get(gk) match {
                             case None => Right(newCache1.addKey(gk, nc.coid))
                             case Some(_) => Left(UniqueKeyViolation(gk))
@@ -1176,7 +1176,7 @@ object Ledger {
                               newCache0_1.removeKey(
                                 GlobalKey(
                                   ex.templateId,
-                                  key.key.mapContractId(assertNoAbsoluteContractId)))
+                                  key.key.mapContractId(assertNoContractId)))
                           }
                         } else newCache0
 
