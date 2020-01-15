@@ -13,10 +13,12 @@ import com.digitalasset.http.Generators.{
 import com.digitalasset.http.Statement.discard
 import com.digitalasset.http.domain
 import org.scalacheck.Arbitrary.arbitrary
-import org.scalacheck.Gen.{listOf, identifier}
+import org.scalacheck.Gen
+import org.scalacheck.Gen.{identifier, listOf}
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.{FreeSpec, Inside, Matchers}
 import scalaz.syntax.std.option._
+import scalaz.syntax.tag._
 import scalaz.{\/, \/-}
 
 class JsonProtocolTest
@@ -125,4 +127,47 @@ class JsonProtocolTest
       }
     }
   }
+
+  "domain.ExerciseCommand" - {
+    "should serialize into a JSON object with flattened reference field" in forAll(genExerciseCmd) {
+      cmd =>
+        val actual: JsValue = cmd.toJson
+        val expectedFields: Map[String, JsValue] = cmd.reference.fields ++ Map[String, JsValue](
+          "choice" -> JsString(cmd.choice.unwrap),
+          "argument" -> cmd.argument)
+
+        actual shouldBe JsObject(expectedFields)
+    }
+
+    "roundtrips" in forAll(genExerciseCmd) { a: domain.ExerciseCommand[JsObject, JsObject] =>
+      val b = a.toJson.convertTo[domain.ExerciseCommand[JsObject, JsObject]]
+      b should ===(a)
+    }
+  }
+
+  private def genExerciseCmd: Gen[domain.ExerciseCommand[JsObject, JsObject]] =
+    for {
+      arg <- genJsObj
+      ref <- genJsObj
+      choice <- Gen.identifier.map(domain.Choice(_))
+    } yield
+      domain.ExerciseCommand[JsObject, JsObject](
+        reference = ref,
+        choice = choice,
+        argument = arg,
+        meta = None)
+
+  private def genJsObj: Gen[JsObject] =
+    Gen.listOf(genJsValPair).map(xs => JsObject(xs.toMap))
+
+  private def genJsValPair: Gen[(String, JsValue)] =
+    for {
+      k <- identifier
+      v <- genJsValue
+    } yield (k, v)
+
+  private def genJsValue: Gen[JsValue] = Gen.oneOf(
+    Gen.identifier.map(JsString(_): JsValue),
+    Gen.posNum[Int].map(JsNumber(_): JsValue)
+  )
 }

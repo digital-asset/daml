@@ -88,7 +88,7 @@ object domain {
 
   final case class ExerciseCommand[+LfV, +Ref](
       reference: Ref,
-      choice: lar.Choice,
+      choice: domain.Choice,
       argument: LfV,
       meta: Option[CommandMeta])
 
