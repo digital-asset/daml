@@ -27,7 +27,6 @@ import scalaz.syntax.traverse._
 import scalaz.{-\/, Show, \/, \/-}
 import spray.json.JsValue
 
-import scala.collection.breakOut
 import scala.concurrent.{ExecutionContext, Future}
 
 // TODO(Leo) split it into ContractsServiceInMemory and ContractsServiceDb
@@ -293,9 +292,9 @@ class ContractsService(
 
     import util.Collections._
 
-    xs.toSeq.partitionMap { x =>
+    xs.partitionMap { x =>
       resolveTemplateId(x) toLeftDisjunction x
-    }(breakOut, breakOut)
+    }
   }
 }
 
