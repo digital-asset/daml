@@ -627,7 +627,7 @@ execPackage projectOpts filePath opts mbOutFile dalfInput =
 
     targetFilePath = fromMaybe defaultDarFile mbOutFile
 
--- | Given a path to a .dalf or a .dar either return either the bytes of the .dalf file
+-- | Given a path to a .dalf or a .dar return the bytes of either the .dalf file
 -- or the the main dalf from the .dar
 -- In addition to the bytes, we also return the basename of the dalf file.
 getDalfBytes :: FilePath -> IO (B.ByteString, FilePath)
