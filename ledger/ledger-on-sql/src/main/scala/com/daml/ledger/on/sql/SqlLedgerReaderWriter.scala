@@ -73,7 +73,7 @@ class SqlLedgerReaderWriter(
         offset.getOrElse(FirstOffset).components.head,
         RangeSource((start, end) =>
           withConnection { implicit connection =>
-            Future(Source(queries.selectFromLog(start, end)))
+            Source(queries.selectFromLog(start, end))
         })
       )
       .map { case (_, record) => record }
@@ -174,14 +174,14 @@ class SqlLedgerReaderWriter(
   }
 
   private def withConnection[Out, Mat](
-      body: Connection => Future[Source[Out, Mat]],
+      body: Connection => Source[Out, Mat],
   ): Source[Out, NotUsed] = {
     val connection = connectionSource.getConnection()
-    val result = body(connection)
-    result.onComplete { _ =>
-      connection.close()
-    }
-    Source.futureSource(result).mapMaterializedValue(_ => NotUsed)
+    body(connection)
+      .mapMaterializedValue(_ => {
+        connection.close()
+        NotUsed
+      })
   }
 }
 
