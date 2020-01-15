@@ -15,7 +15,7 @@ index 4422756..1d27936 100644
      generated_linkable_rule_name = "linkable_org_apache_commons_commons_lang_3_5_without_file",
      jar_sha256 = "8ac96fc686512d777fca85e144f196cd7cfe0c0aec23127229497d1a38ff651c",
 -    jar_urls = ["http://central.maven.org/maven2/org/apache/commons/commons-lang3/3.5/commons-lang3-3.5.jar"],
-+    jar_urls = ["https://central.maven.org/maven2/org/apache/commons/commons-lang3/3.5/commons-lang3-3.5.jar"],
++    jar_urls = ["https://repo.maven.apache.org/maven2/org/apache/commons/commons-lang3/3.5/commons-lang3-3.5.jar"],
      licenses = ["notice"],  # Apache 2.0
      neverlink = True,
  )
@@ -28,7 +28,7 @@ index 1eb12bb..deefd58 100644
  )
  
 -def jmh_repositories(maven_servers = ["http://central.maven.org/maven2"]):
-+def jmh_repositories(maven_servers = ["https://central.maven.org/maven2"]):
++def jmh_repositories(maven_servers = ["https://repo.maven.apache.org/maven2"]):
      _scala_maven_import_external(
          name = "io_bazel_rules_scala_org_openjdk_jmh_jmh_core",
          artifact = "org.openjdk.jmh:jmh-core:1.20",
@@ -41,7 +41,7 @@ index ad97ff1..87a4ede 100644
  )
  
 -def junit_repositories(maven_servers = ["http://central.maven.org/maven2"]):
-+def junit_repositories(maven_servers = ["https://central.maven.org/maven2"]):
++def junit_repositories(maven_servers = ["https://repo.maven.apache.org/maven2"]):
      _scala_maven_import_external(
          name = "io_bazel_rules_scala_junit_junit",
          artifact = "junit:junit:4.12",
@@ -54,7 +54,7 @@ index 9266312..4e2be92 100644
              _default_scala_version_jar_shas(),
          ),
 -        maven_servers = ["http://central.maven.org/maven2"],
-+        maven_servers = ["https://central.maven.org/maven2"],
++        maven_servers = ["https://repo.maven.apache.org/maven2"],
          scala_extra_jars = _default_scala_extra_jars()):
      (scala_version, scala_version_jar_shas) = scala_version_shas
      major_version = _extract_major_version(scala_version)
@@ -67,7 +67,7 @@ index 2b95ce9..f94290a 100644
  def scala_proto_default_repositories(
          scala_version = _default_scala_version(),
 -        maven_servers = ["http://central.maven.org/maven2"]):
-+        maven_servers = ["https://central.maven.org/maven2"]):
++        maven_servers = ["https://repo.maven.apache.org/maven2"]):
      major_version = _extract_major_version(scala_version)
  
      scala_jar_shas = {
@@ -80,7 +80,7 @@ index 88a62c2..a0e22e0 100644
  def scala_proto_repositories(
          scala_version = _default_scala_version(),
 -        maven_servers = ["http://central.maven.org/maven2"]):
-+        maven_servers = ["https://central.maven.org/maven2"]):
++        maven_servers = ["https://repo.maven.apache.org/maven2"]):
      ret = scala_proto_default_repositories(scala_version, maven_servers)
      register_default_proto_dependencies()
      return ret
@@ -93,7 +93,7 @@ index 769a4d5..5b698b8 100644
  def specs2_repositories(
          scala_version = _default_scala_version(),
 -        maven_servers = ["http://central.maven.org/maven2"]):
-+        maven_servers = ["https://central.maven.org/maven2"]):
++        maven_servers = ["https://repo.maven.apache.org/maven2"]):
      major_version = _extract_major_version(scala_version)
  
      scala_jar_shas = {
@@ -106,7 +106,7 @@ index 813f329..66cf781 100644
  def specs2_junit_repositories(
          scala_version = _default_scala_version(),
 -        maven_servers = ["http://central.maven.org/maven2"]):
-+        maven_servers = ["https://central.maven.org/maven2"]):
++        maven_servers = ["https://repo.maven.apache.org/maven2"]):
      major_version = _extract_major_version(scala_version)
  
      specs2_repositories(scala_version, maven_servers)
@@ -119,7 +119,7 @@ index 79d1573..90ea005 100644
  def twitter_scrooge(
          scala_version = _default_scala_version(),
 -        maven_servers = ["http://central.maven.org/maven2"]):
-+        maven_servers = ["https://central.maven.org/maven2"]):
++        maven_servers = ["https://repo.maven.apache.org/maven2"]):
      major_version = _extract_major_version(scala_version)
  
      _scala_maven_import_external(
