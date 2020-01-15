@@ -6,6 +6,7 @@ package crypto
 
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
+import com.digitalasset.daml.lf.value.TypedValueGenerators.{ValueAddend => VA}
 import com.digitalasset.daml.lf.value.Value._
 import com.digitalasset.daml.lf.value.{Value, ValueVersion}
 import org.scalatest.{Matchers, WordSpec}
@@ -27,8 +28,8 @@ class HashSpec extends WordSpec with Matchers {
       None -> ValueInt64(0),
       None -> ValueInt64(123456),
       None -> ValueInt64(-1),
-      None -> ValueNumeric(decimal(0)),
-      None -> ValueNumeric(decimal(BigDecimal("0.3333333333"))),
+      None -> ValueNumeric(0),
+      None -> ValueNumeric(BigDecimal("0.3333333333")),
       None -> ValueTrue,
       None -> ValueFalse,
       None -> ValueDate(Time.Date.assertFromDaysSinceEpoch(0)),
@@ -41,20 +42,16 @@ class HashSpec extends WordSpec with Matchers {
       None -> ValueUnit,
       None -> ValueNone,
       None -> ValueOptional(Some(ValueText("Some"))),
-      None -> ValueList(FrontStack(ValueText("A"), ValueText("B"), ValueText("C"))),
+      None -> VA.list(VA.text).inj(Vector("A", "B", "C")),
       None -> ValueVariant(None, Ref.Name.assertFromString("Variant"), ValueInt64(0)),
-      None -> ValueRecord(
-        None,
-        ImmArray(
-          None -> ValueText("field1"),
-          None -> ValueText("field2")
-        )),
-      None -> ValueTextMap(
-        SortedLookupList(
-          Map(
-            "keyA" -> ValueText("valueA"),
-            "keyB" -> ValueText("valueB")
-          )))
+      None ->
+        ValueRecord(
+          None,
+          ImmArray(
+            None -> ValueText("field1"),
+            None -> ValueText("field2")
+          )),
+      None -> VA.map(VA.text).inj(SortedLookupList(Map("keyA" -> "valueA", "keyB" -> "valueB")))
     )
 
     ValueRecord(None, fields)
@@ -96,9 +93,9 @@ class HashSpec extends WordSpec with Matchers {
     "not produce collision in list of text" in {
       // Testing whether strings are delimited: ["AA", "A"] vs ["A", "AA"]
       val value1 =
-        VersionedValue(ValueVersion("4"), ValueList(FrontStack(ValueText("AA"), ValueText("A"))))
+        VersionedValue(ValueVersion("4"), VA.list(VA.text).inj(Vector("AA", "A")))
       val value2 =
-        VersionedValue(ValueVersion("4"), ValueList(FrontStack(ValueText("A"), ValueText("AA"))))
+        VersionedValue(ValueVersion("4"), VA.list(VA.text).inj(Vector("A", "AA")))
 
       val tid = templateId("module", "name")
 
@@ -113,11 +110,11 @@ class HashSpec extends WordSpec with Matchers {
       val value1 =
         VersionedValue(
           ValueVersion("4"),
-          ValueList(FrontStack(ValueNumeric(decimal(10)), ValueNumeric(decimal(10)))))
+          VA.list(VA.numeric(Decimal.scale)).inj(Vector[Numeric](10, 10)))
       val value2 =
         VersionedValue(
           ValueVersion("4"),
-          ValueList(FrontStack(ValueNumeric(decimal(101)), ValueNumeric(decimal(0)))))
+          VA.list(VA.numeric(Decimal.scale)).inj(Vector[Numeric](101, 0)))
 
       val tid = templateId("module", "name")
 
@@ -131,18 +128,10 @@ class HashSpec extends WordSpec with Matchers {
       // Testing whether lists are delimited: [[()], [(), ()]] vs [[(), ()], [()]]
       val value1 = VersionedValue(
         ValueVersion("4"),
-        ValueList(
-          FrontStack(
-            ValueList(FrontStack(ValueUnit)),
-            ValueList(FrontStack(ValueUnit, ValueUnit))
-          )))
+        VA.list(VA.list(VA.unit)).inj(Vector(Vector(()), Vector((), ()))))
       val value2 = VersionedValue(
         ValueVersion("4"),
-        ValueList(
-          FrontStack(
-            ValueList(FrontStack(ValueUnit, ValueUnit)),
-            ValueList(FrontStack(ValueUnit))
-          )))
+        VA.list(VA.list(VA.unit)).inj(Vector(Vector((), ()), Vector(()))))
 
       val tid = templateId("module", "name")
 
@@ -189,20 +178,10 @@ class HashSpec extends WordSpec with Matchers {
     "not produce collision in Map keys" in {
       val value1 = VersionedValue(
         ValueVersion("4"),
-        ValueTextMap(
-          SortedLookupList(
-            Map(
-              "A" -> ValueInt64(0),
-              "B" -> ValueInt64(0)
-            ))))
+        VA.map(VA.int64).inj(SortedLookupList(Map("A" -> 0, "B" -> 0))))
       val value2 = VersionedValue(
         ValueVersion("4"),
-        ValueTextMap(
-          SortedLookupList(
-            Map(
-              "A" -> ValueInt64(0),
-              "C" -> ValueInt64(0)
-            ))))
+        VA.map(VA.int64).inj(SortedLookupList(Map("A" -> 0, "C" -> 0))))
 
       val tid = templateId("module", "name")
 
@@ -215,20 +194,10 @@ class HashSpec extends WordSpec with Matchers {
     "not produce collision in Map values" in {
       val value1 = VersionedValue(
         ValueVersion("4"),
-        ValueTextMap(
-          SortedLookupList(
-            Map(
-              "A" -> ValueInt64(0),
-              "B" -> ValueInt64(0)
-            ))))
+        VA.map(VA.int64).inj(SortedLookupList(Map("A" -> 0, "B" -> 0))))
       val value2 = VersionedValue(
         ValueVersion("4"),
-        ValueTextMap(
-          SortedLookupList(
-            Map(
-              "A" -> ValueInt64(0),
-              "B" -> ValueInt64(1)
-            ))))
+        VA.map(VA.int64).inj(SortedLookupList(Map("A" -> 0, "B" -> 1))))
 
       val tid = templateId("module", "name")
 
@@ -263,8 +232,8 @@ class HashSpec extends WordSpec with Matchers {
     }
 
     "not produce collision in Decimal" in {
-      val value1 = VersionedValue(ValueVersion("4"), ValueNumeric(decimal(0)))
-      val value2 = VersionedValue(ValueVersion("4"), ValueNumeric(decimal(1)))
+      val value1 = VersionedValue(ValueVersion("4"), ValueNumeric(0))
+      val value2 = VersionedValue(ValueVersion("4"), ValueNumeric(1))
 
       val tid = templateId("module", "name")
 
@@ -632,7 +601,10 @@ class HashSpec extends WordSpec with Matchers {
     }
   }
 
-  private implicit def decimal(x: BigDecimal): Numeric =
+  private implicit def int2decimal(x: Int): Numeric =
+    BigDecimal(x)
+
+  private implicit def BigDecimal2decimal(x: BigDecimal): Numeric =
     Numeric.assertFromBigDecimal(Decimal.scale, x)
 
 }
