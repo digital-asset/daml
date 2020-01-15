@@ -303,7 +303,10 @@ genType curModName = go
         TBool -> ("boolean", "daml.Bool")
         TInt64 -> dup "daml.Int"
         TDecimal -> dup "daml.Decimal"
-        TNumeric _ -> dup "daml.Numeric"  -- TODO(MH): Figure out what to do with the scale.
+        TNumeric (TNat n) -> (
+            "daml.Numeric"
+          , "daml.Numeric(" <> T.pack (show (fromTypeLevelNat n :: Integer)) <> ")"
+          )
         TText -> ("string", "daml.Text")
         TTimestamp -> dup "daml.Time"
         TParty -> dup "daml.Party"
@@ -340,6 +343,7 @@ genType curModName = go
         TCon _ -> error "IMPOSSIBLE: lonely type constructor"
         TSynApp{} -> error "IMPOSSIBLE: type synonym not serializable"
         t@TApp{} -> error $ "IMPOSSIBLE: type application not serializable - " <> DA.Pretty.renderPretty t
+          -- The above case also handles 'TNumeric a' where 'a' is not a type level nat.
         TBuiltin t -> error $ "IMPOSSIBLE: partially applied primitive type not serializable - " <> DA.Pretty.renderPretty t
         TForall{} -> error "IMPOSSIBLE: universally quantified type not serializable"
         TStruct{} -> error "IMPOSSIBLE: structural record not serializable"

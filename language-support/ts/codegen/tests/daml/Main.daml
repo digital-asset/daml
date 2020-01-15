@@ -30,6 +30,9 @@ template AllTypes with
     variant: Expr Int
     sumProd : Quux
     parametericSumProd : Expr2 Int
+    n0 : Numeric 0
+    n5 : Numeric 5
+    n10 : Decimal
   where
     signatory party
 

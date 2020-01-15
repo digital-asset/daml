@@ -151,6 +151,9 @@ test('create + fetch & exercise', async () => {
     variant: {tag: 'Add', value: {_1:{tag: 'Lit', value: '1'}, _2:{tag: 'Lit', value: '2'}}},
     sumProd: {tag: 'Corge', value: {x:'1', y:'Garlpy'}},
     parametericSumProd: {tag: 'Add2', value: {lhs:{tag: 'Lit2', value: '1'}, rhs:{tag: 'Lit2', value: '2'}}},
+    n0:  '3.0',          // Numeric 0
+    n5:  '3.14159',      // Numeric 5
+    n10: '3.1415926536', // Numeric 10
   };
   const allTypesContract = await ledger.create(Main.AllTypes, allTypes);
   expect(allTypesContract.payload).toEqual(allTypes);
