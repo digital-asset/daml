@@ -4,12 +4,7 @@
 package com.daml.ledger.on.sql
 
 import akka.stream.Materializer
-import com.daml.ledger.participant.state.kvutils.app.{
-  Config,
-  KeyValueLedger,
-  LedgerConstructor,
-  Runner
-}
+import com.daml.ledger.participant.state.kvutils.app.{Config, KeyValueLedger, LedgerFactory, Runner}
 import com.daml.ledger.participant.state.v1.ParticipantId
 import scopt.OptionParser
 
@@ -18,11 +13,11 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.DurationInt
 
 object Main extends App {
-  Runner("SQL Ledger", SqlLedgerConstructor).run(args)
+  Runner("SQL Ledger", SqlLedgerFactory).run(args)
 
   case class ExtraConfig(jdbcUrl: Option[String])
 
-  object SqlLedgerConstructor extends LedgerConstructor[ExtraConfig] {
+  object SqlLedgerFactory extends LedgerFactory[ExtraConfig] {
     override val defaultExtraConfig: ExtraConfig = ExtraConfig(
       jdbcUrl = None,
     )

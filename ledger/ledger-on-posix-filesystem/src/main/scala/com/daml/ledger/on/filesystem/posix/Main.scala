@@ -7,12 +7,7 @@ import java.io.File
 import java.nio.file.Path
 
 import akka.stream.Materializer
-import com.daml.ledger.participant.state.kvutils.app.{
-  Config,
-  KeyValueLedger,
-  LedgerConstructor,
-  Runner
-}
+import com.daml.ledger.participant.state.kvutils.app.{Config, KeyValueLedger, LedgerFactory, Runner}
 import com.daml.ledger.participant.state.v1.ParticipantId
 import scopt.OptionParser
 
@@ -21,11 +16,11 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.DurationInt
 
 object Main extends App {
-  Runner("File System Ledger", FileSystemLedgerConstructor).run(args)
+  Runner("File System Ledger", FileSystemLedgerFactory).run(args)
 
   case class ExtraConfig(root: Option[Path])
 
-  object FileSystemLedgerConstructor extends LedgerConstructor[ExtraConfig] {
+  object FileSystemLedgerFactory extends LedgerFactory[ExtraConfig] {
     override val defaultExtraConfig: ExtraConfig = ExtraConfig(
       root = None,
     )

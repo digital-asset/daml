@@ -9,12 +9,7 @@ package com.daml.ledger.on.sql
 import java.nio.file.Files
 
 import akka.stream.Materializer
-import com.daml.ledger.participant.state.kvutils.app.{
-  Config,
-  KeyValueLedger,
-  LedgerConstructor,
-  Runner
-}
+import com.daml.ledger.participant.state.kvutils.app.{Config, KeyValueLedger, LedgerFactory, Runner}
 import com.daml.ledger.participant.state.v1.ParticipantId
 import scopt.OptionParser
 
@@ -31,7 +26,7 @@ object MainWithEphemeralSqlite extends App {
     Files.delete(databaseFile)
   }
 
-  object SqliteLedgerConstructor extends LedgerConstructor[Unit] {
+  object SqliteLedgerConstructor extends LedgerFactory[Unit] {
     override val defaultExtraConfig: Unit = ()
 
     override def extraConfigParser(parser: OptionParser[Config[Unit]]): Unit =

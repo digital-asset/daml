@@ -28,7 +28,7 @@ import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext}
 import scala.util.Try
 
-class Runner[Extra](name: String, constructor: LedgerConstructor[Extra]) {
+class Runner[Extra](name: String, constructor: LedgerFactory[Extra]) {
   def run(args: Seq[String]): Unit = {
     val config = Config
       .parse(name, constructor.extraConfigParser, constructor.defaultExtraConfig, args)
@@ -124,8 +124,8 @@ class Runner[Extra](name: String, constructor: LedgerConstructor[Extra]) {
 
 object Runner {
   def apply(name: String, construct: ParticipantId => KeyValueLedger): Runner[Unit] =
-    apply(name, LedgerConstructor(construct))
+    apply(name, LedgerFactory(construct))
 
-  def apply[Extra](name: String, constructor: LedgerConstructor[Extra]): Runner[Extra] =
+  def apply[Extra](name: String, constructor: LedgerFactory[Extra]): Runner[Extra] =
     new Runner[Extra](name, constructor)
 }

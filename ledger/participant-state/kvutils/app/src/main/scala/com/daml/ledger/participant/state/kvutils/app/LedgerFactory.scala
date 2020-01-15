@@ -7,7 +7,7 @@ import akka.stream.Materializer
 import com.daml.ledger.participant.state.v1.ParticipantId
 import scopt.OptionParser
 
-trait LedgerConstructor[ExtraConfig] {
+trait LedgerFactory[ExtraConfig] {
   val defaultExtraConfig: ExtraConfig
 
   def extraConfigParser(parser: OptionParser[Config[ExtraConfig]]): Unit
@@ -17,9 +17,9 @@ trait LedgerConstructor[ExtraConfig] {
   ): KeyValueLedger
 }
 
-object LedgerConstructor {
-  def apply(construct: ParticipantId => KeyValueLedger): LedgerConstructor[Unit] =
-    new LedgerConstructor[Unit] {
+object LedgerFactory {
+  def apply(construct: ParticipantId => KeyValueLedger): LedgerFactory[Unit] =
+    new LedgerFactory[Unit] {
       override val defaultExtraConfig: Unit = ()
 
       override def extraConfigParser(parser: OptionParser[Config[Unit]]): Unit =
