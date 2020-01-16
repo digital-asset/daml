@@ -11,8 +11,6 @@ da_scala_library(
         "//visibility:public",
     ],
     deps = [
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:org_scala_lang_modules_scala_java8_compat_2_12",
     ],
 )
@@ -34,7 +32,5 @@ da_scala_test_suite(
     deps = [
         ":resources",
         ":resources-test-lib",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
     ],
 )

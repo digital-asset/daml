@@ -23,6 +23,7 @@ import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.sandbox.BuildInfo
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.sandbox.stores.InMemoryPackageStore
+import com.digitalasset.resources.akka.AkkaResourceOwner
 import com.digitalasset.resources.{Resource, ResourceOwner}
 
 import scala.collection.JavaConverters._
@@ -89,10 +90,8 @@ final class StandaloneApiServer(
     preloadPackages(packageStore)
 
     for {
-      actorSystem <- ResourceOwner.forActorSystem(() => ActorSystem(actorSystemName)).acquire()
-      materializer <- ResourceOwner
-        .forMaterializer(() => Materializer(actorSystem))
-        .acquire()
+      actorSystem <- AkkaResourceOwner.forActorSystem(() => ActorSystem(actorSystemName)).acquire()
+      materializer <- AkkaResourceOwner.forMaterializer(() => Materializer(actorSystem)).acquire()
       initialConditions <- ResourceOwner
         .forFuture(() => readService.getLedgerInitialConditions().runWith(Sink.head)(materializer))
         .acquire()

@@ -8,6 +8,7 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.v1.ReadService
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.indexer.StandaloneIndexerServer._
+import com.digitalasset.resources.akka.AkkaResourceOwner
 import com.digitalasset.resources.{Resource, ResourceOwner}
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
@@ -24,7 +25,7 @@ class StandaloneIndexerServer(
   override def acquire()(implicit executionContext: ExecutionContext): Resource[Unit] =
     for {
       // ActorSystem name not allowed to contain daml-lf LedgerString characters ".:#/ "
-      actorSystem <- ResourceOwner
+      actorSystem <- AkkaResourceOwner
         .forActorSystem(() =>
           ActorSystem("StandaloneIndexerServer-" + config.participantId.filterNot(".:#/ ".toSet)))
         .acquire()

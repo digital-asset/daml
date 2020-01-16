@@ -21,6 +21,7 @@ import com.digitalasset.platform.indexer.{
   IndexerStartupMode,
   StandaloneIndexerServer
 }
+import com.digitalasset.resources.akka.AkkaResourceOwner
 import com.digitalasset.resources.{Resource, ResourceOwner}
 import org.slf4j.LoggerFactory
 import scopt.OptionParser
@@ -48,8 +49,8 @@ class Runner[Extra](
     val resource = for {
       // Take ownership of the actor system and materializer so they're cleaned up properly.
       // This is necessary because we can't declare them as implicits within a `for` comprehension.
-      _ <- ResourceOwner.forActorSystem(() => system).acquire()
-      _ <- ResourceOwner.forMaterializer(() => materializer).acquire()
+      _ <- AkkaResourceOwner.forActorSystem(() => system).acquire()
+      _ <- AkkaResourceOwner.forMaterializer(() => materializer).acquire()
       readerWriter <- ResourceOwner
         .forCloseable(() => construct(config.participantId, config.extra))
         .acquire()

@@ -6,9 +6,6 @@ package com.digitalasset.resources
 import java.util.Timer
 import java.util.concurrent.{CompletionStage, ExecutorService}
 
-import akka.actor.ActorSystem
-import akka.stream.Materializer
-
 import scala.compat.java8.FutureConverters._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
@@ -63,10 +60,4 @@ object ResourceOwner {
 
   def forTimer(acquire: () => Timer): ResourceOwner[Timer] =
     new TimerResourceOwner(acquire)
-
-  def forActorSystem(acquire: () => ActorSystem): ResourceOwner[ActorSystem] =
-    new ActorSystemResourceOwner(acquire)
-
-  def forMaterializer(acquire: () => Materializer): ResourceOwner[Materializer] =
-    new ActorMaterializerResourceOwner(acquire)
 }
