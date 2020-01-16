@@ -127,7 +127,7 @@ class Ledger {
    * for a description of the query language.
    */
   async query<T extends object, K>(template: Template<T, K>, query: Query<T>): Promise<CreateEvent<T, K>[]> {
-    const payload = {"%templates": [template.templateId], ...query};
+    const payload = {templateIds: [template.templateId], query};
     const json = await this.submit('contracts/search', payload);
     return jtv.Result.withException(jtv.array(decodeCreateEvent(template)).run(json));
   }
