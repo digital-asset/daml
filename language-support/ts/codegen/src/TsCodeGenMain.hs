@@ -343,7 +343,6 @@ genType curModName = go
         TCon _ -> error "IMPOSSIBLE: lonely type constructor"
         TSynApp{} -> error "IMPOSSIBLE: type synonym not serializable"
         t@TApp{} -> error $ "IMPOSSIBLE: type application not serializable - " <> DA.Pretty.renderPretty t
-          -- The above case also handles 'TNumeric a' where 'a' is not a type level nat.
         TBuiltin t -> error $ "IMPOSSIBLE: partially applied primitive type not serializable - " <> DA.Pretty.renderPretty t
         TForall{} -> error "IMPOSSIBLE: universally quantified type not serializable"
         TStruct{} -> error "IMPOSSIBLE: structural record not serializable"

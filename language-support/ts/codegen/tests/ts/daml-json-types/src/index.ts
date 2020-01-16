@@ -99,37 +99,24 @@ export const Int: Serializable<Int> = {
 }
 
 /**
- * The counterpart of DAML's `Decimal` type. We represent `Decimal`s as string
- * in order to avoid a loss of precision. The string must match the regular
- * expression `-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?`.
- */
-export type Decimal = string;
-
-/**
- * Companion object of the `Decimal` type.
- */
-export const Decimal: Serializable<Decimal> = {
-  decoder: jtv.string,
-}
-
-/**
  * The counterpart of DAML's `Numeric` type. We represent `Numeric`s as string
  * in order to avoid a loss of precision. The string must match the regular
  * expression `-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?`.
  */
 export type Numeric = string;
+export type Decimal = Numeric;
 
 /**
  * Companion function of the `Numeric` type.
  */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export const Numeric = function (_: number): Serializable<Numeric> {
-  // To-do : Write a smarter decoder to replace 'jtv.string' that
-  // performs validation on string inputs taking the scale parameter
-  // into account.
-  return ({
+export const Numeric = (_: number): Serializable<Numeric> =>
+  ({
     decoder: jtv.string,
-  });
+  })
+
+export const Decimal: Serializable<Decimal> = {
+  decoder: Numeric(10).decoder,
 }
 
 /**
