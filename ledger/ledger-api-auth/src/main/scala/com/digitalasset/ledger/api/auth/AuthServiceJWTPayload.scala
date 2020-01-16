@@ -7,6 +7,8 @@ import java.time.Instant
 
 import spray.json._
 
+import scala.util.Try
+
 /** The JWT token payload used in [[AuthServiceJWT]]
   *
   *
@@ -91,6 +93,9 @@ object AuthServiceJWTCodec {
   // ------------------------------------------------------------------------------------------------------------------
   // Encoding
   // ------------------------------------------------------------------------------------------------------------------
+  def writeToString(v: AuthServiceJWTPayload): String =
+    writePayload(v).compactPrint
+
   def writePayload(v: AuthServiceJWTPayload): JsValue = JsObject(
     oidcNamespace -> JsObject(
       propLedgerId -> writeOptionalString(v.ledgerId),
@@ -118,6 +123,14 @@ object AuthServiceJWTCodec {
   // ------------------------------------------------------------------------------------------------------------------
   // Decoding
   // ------------------------------------------------------------------------------------------------------------------
+  def readFromString(value: String): Try[AuthServiceJWTPayload] = {
+    import AuthServiceJWTCodec.JsonImplicits._
+    for {
+      json <- Try(value.parseJson)
+      parsed <- Try(json.convertTo[AuthServiceJWTPayload])
+    } yield parsed
+  }
+
   def readPayload(value: JsValue): AuthServiceJWTPayload = value match {
     case JsObject(fields) if !fields.contains(oidcNamespace) =>
       // Legacy format
