@@ -11,6 +11,7 @@ import qualified Control.Monad as Control
 import qualified Data.Aeson as JSON
 import qualified Data.ByteString.UTF8 as BS
 import qualified Data.ByteString.Lazy.UTF8 as LBS
+import qualified Data.CaseInsensitive as CI
 import qualified Data.Foldable as Foldable
 import qualified Data.HashMap.Strict as H
 import qualified Data.List as List
@@ -18,6 +19,7 @@ import qualified Data.List.Extra as List
 import qualified Data.List.Split as Split
 import qualified Data.Ord
 import qualified Data.Set as Set
+import qualified Data.HashMap.Strict as Map
 import qualified Data.Text as Text
 import qualified Network.HTTP.Client as HTTP
 import qualified Network.HTTP.Client.TLS as TLS
@@ -28,6 +30,7 @@ import qualified System.Environment as Env
 import qualified System.Exit as Exit
 import qualified System.IO.Extra as Temp
 import qualified System.Process as System
+import qualified Text.Regex.TDFA as Regex
 
 shell_exit_code :: String -> IO (Exit.ExitCode, String, String)
 shell_exit_code cmd = do
@@ -72,7 +75,7 @@ robustly_download_nix_packages = do
               _ | "unexpected end-of-file" `List.isInfixOf` err -> h (n - 1)
               _ -> die cmd exit out err
 
-http_get :: JSON.FromJSON a => String -> IO a
+http_get :: JSON.FromJSON a => String -> IO (a, Map.HashMap String String)
 http_get url = do
     manager <- HTTP.newManager TLS.tlsManagerSettings
     request' <- HTTP.parseRequest url
@@ -82,7 +85,7 @@ http_get url = do
     let body = JSON.decode $ HTTP.responseBody response
     let status = Status.statusCode $ HTTP.responseStatus response
     case (status, body) of
-      (200, Just body) -> return body
+      (200, Just body) -> return (body, response & HTTP.responseHeaders & map (\(n, v) -> (n & CI.foldedCase & BS.toString, BS.toString v)) & Map.fromList)
       _ -> Exit.die $ unlines ["GET \"" <> url <> "\" returned status code " <> show status <> ".",
                                show $ HTTP.responseBody response]
 
@@ -308,9 +311,28 @@ instance JSON.FromJSON GitHubVersion where
 name :: GitHubVersion -> String
 name gh = tail $ tag_name gh
 
+fetch_gh_paginated :: JSON.FromJSON a => String -> IO [a]
+fetch_gh_paginated url = do
+    (resp_0, headers) <- http_get url
+    case parse_next =<< Map.lookup "link" headers of
+      Nothing -> return resp_0
+      Just next -> do
+          rest <- fetch_gh_paginated next
+          return $ resp_0 ++ rest
+    where parse_next header = lookup "next" $ map parse_link $ split header
+          split h = Split.splitOn ", " h
+          link_regex = "<(.*)>; rel=\"(.*)\"" :: String
+          parse_link l =
+              let typed_regex :: (String, String, String, [String])
+                  typed_regex = l Regex.=~ link_regex
+              in
+              case typed_regex of
+                (_, _, _, [url, rel]) -> (rel, url)
+                _ -> error $ "Assumption violated: link header entry did not match regex.\nEntry: " <> l
+
 fetch_gh_versions :: IO (Set.Set Version, GitHubVersion)
 fetch_gh_versions = do
-    resp <- http_get "https://api.github.com/repos/digital-asset/daml/releases"
+    resp <- fetch_gh_paginated "https://api.github.com/repos/digital-asset/daml/releases"
     let releases = filter (not . prerelease) resp
     let versions = Set.fromList $ map (to_v . name) releases
     let latest = List.maximumOn (to_v . name) releases
