@@ -24,9 +24,44 @@ You will also need some common software tools to build and interact with the tem
 - A terminal application for command line interaction
 
 
-Setting up
-**********
+Running the app
+***************
 
 First off, open a terminal and clone the template project using
 ``git clone https://github.com/digital-asset/create-daml-app.git``
+
+We'll start by getting the app up and running, and then explain the different components which we will later extend.
+To build the app, move to the project folder
+``cd create-daml-app``
+and use Yarn to install the dependencies and build the project::
+
+    yarn install
+    yarn workspaces run build
+
+If you see ``Compiled successfully.`` in the output then everything is working as expected.
+
+.. TODO: Give instructions for possible failures.
+
+Now we can run the app in two steps.
+You'll need two terminal windows running for this.
+
+In one terminal, at the root of the ``create-daml-app`` directory, run the script::
+
+    ./daml-start.sh
+
+This compiles the DAML component of the project and starts a DAML "Sandbox" ledger for the app.
+The ledger in this case is stored in the Sandbox application memory; it is not a persistent storage but is useful for testing and development.
+We will let the Sandbox continue to run in order to serve requests from the UI, which result in changes to the in-memory ledger.
+
+In a second terminal, navigate to the ``create-daml-app/ui`` folder and run::
+
+    yarn start
+
+This runs the UI application connected to the already running Sandbox.
+The command should automatically open a window in your browser at http://localhost:3000.
+If it doesn't, just open that link in any web browser.
+
+At this point you should see the login page for the social network.
+
+.. TODO: Screenshot
 
