@@ -228,6 +228,9 @@
 - target: //libs-scala/grpc-utils:grpc-utils
   type: jar-scala
   mavenUpload: true
+- target: //libs-scala/resources:resources
+  type: jar-scala
+  mavenUpload: true
 - target: //libs-scala/timer-utils:timer-utils
   type: jar-scala
   mavenUpload: true
