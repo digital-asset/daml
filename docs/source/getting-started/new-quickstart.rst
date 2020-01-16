@@ -49,7 +49,7 @@ In one terminal, at the root of the ``create-daml-app`` directory, run the scrip
 
     ./daml-start.sh
 
-This compiles the DAML component of the project and starts a DAML "Sandbox" ledger for the app.
+This compiles the DAML component of the project and starts a DAML *Sandbox* ledger for the app.
 The ledger in this case is stored in the Sandbox application memory; it is not a persistent storage but is useful for testing and development.
 We will let the Sandbox continue to run in order to serve requests from the UI, which result in changes to the in-memory ledger.
 
@@ -101,7 +101,7 @@ Let's look at a snippet of ``User.daml``.
 
 .. TODO Relax or omit ensure clause.
 
-This is a DAML contract "template" which describes what users of our app.
+This is a DAML contract *template* which describes what users of our app.
 Since we are developing for a distributed ledger, all data are represented as immutable contracts.
 There are two main parts here:
 
@@ -120,8 +120,20 @@ These 6 lines of code are saying a lot!
 A key point is that privacy and authorization are central to the way we write code in DAML and the resulting app behaviour.
 This is a radical change to how apps are written usually - with privacy and security as an afterthought - and is key to writing secure distributed applications.
 
-The only other thing we'll say about the User template for now is that it has two operations - called "choices" - to add or remove a friend.
-As DAML contracts are immutable, exercising one of these choices in fact "archives" the existing user contract and creates a new one with the modified data.
+The only other thing we'll say about the User template for now is that it has two operations - called *choices* - to add or remove a friend.
+As DAML contracts are immutable, exercising one of these choices in fact *archives* the existing user contract and creates a new one with the modified data.
 So let's see how user contracts are controlled through the UI.
 
+The UI
+======
 
+Our UI is written using `React <https://reactjs.org/>`_ and `TypeScript <https://www.typescriptlang.org/>`_.
+React helps us write modular UI components and TypeScript is a variant of Javascript that gives us typechecking support during development.
+
+The interesting thing is how we interact with the DAML ledger from the UI, specifically through React.
+One can think of the ledger as a global state that we read and write from different components of the UI.
+Since React usually promotes all data being passed as arguments (called *props*) to different components, we use a state management feature called `Hooks <https://reactjs.org/docs/hooks-intro.html>`_.
+You can see the capabilities of the DAML ledger hooks in ``create-daml-app/ui/src/daml-react-hooks/hooks.ts``.
+For example, we can query the ledger for all visible contracts (relative to a particular user), create contracts and exercise choices on contracts.
+
+Let's see an example of using a ledger hook.
