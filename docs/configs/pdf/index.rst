@@ -13,6 +13,7 @@ Getting started
 
    Installing the SDK <getting-started/installation>
    getting-started/quickstart
+   getting-started/new-quickstart
 
 Writing DAML
 ------------

@@ -19,6 +19,7 @@ DAML SDK documentation
 
    Installing the SDK <getting-started/installation>
    getting-started/quickstart
+   getting-started/new-quickstart
 
 .. toctree::
    :titlesonly:
