@@ -1,0 +1,32 @@
+daml 1.2
+module User where
+
+import DA.List
+
+-- MAIN_TEMPLATE_BEGIN
+template User with
+    party: Party
+    friends: [Party]
+  where
+    signatory party
+    observer friends
+-- MAIN_TEMPLATE_END
+    ensure party `notElem` friends && dedupSort friends == friends
+
+    key party: Party
+    maintainer key
+
+    choice AddFriend: ContractId User with
+        friend: Party
+      controller party
+      do
+        assert $ friend `notElem` friends
+        create this with friends = sort (friend :: friends)
+
+    nonconsuming choice RemoveFriend: ContractId User with
+        friend: Party
+      controller party
+      do
+        assert $ friend `elem` friends
+        archive self
+        create this with friends = delete friend friends

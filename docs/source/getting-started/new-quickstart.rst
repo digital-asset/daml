@@ -79,3 +79,49 @@ Note that in this app, friendships can be added in one direction at a time, simi
 Add a few more friends as Bob, and play around a bit more by logging in as different users and adding/removing friends from the network.
 This should give you a idea of the app's functionality.
 
+
+Dissecting the app
+******************
+
+If you've ever used a social media app before, you're probably thinking that ours is pretty lame!
+It's definitely lacking some features, which we'll work on shortly.
+However there is already a lot going on under the hood of this basic app.
+So let's take a look at the components we have and what they do.
+
+The DAML Model
+==============
+
+Perhaps the best place to start looking is in the ``daml`` subdirectory.
+Let's look at a snippet of ``User.daml``.
+
+.. literalinclude:: quickstart/code/daml/User.daml
+  :language: daml
+  :start-after: -- MAIN_TEMPLATE_BEGIN
+  :end-before: -- MAIN_TEMPLATE_END
+
+.. TODO Relax or omit ensure clause.
+
+This is a DAML contract "template" which describes what users of our app.
+Since we are developing for a distributed ledger, all data are represented as immutable contracts.
+There are two main parts here:
+
+1. The data definition, or schema, which prescribes the data that is stored with each user contract.
+In this case it is simply the user's party identifier, and the list of the user's friends.
+
+2. The signatories and observers of the user contract.
+The signatories - the single user in this case - are the parties authorized to make changes to the contract (which we'll see next).
+The observers - in this case the user's friends - are the parties who can see the contract on the ledger.
+
+The ``observer`` clause explains something about the behaviour of our app.
+A user, say Alice, can only see another user Bob in the network if Alice is listed as Bob's friend.
+Otherwise Bob's user contract is invisible to Alice.
+
+These 6 lines of code are saying a lot!
+A key point is that privacy and authorization are central to the way we write code in DAML and the resulting app behaviour.
+This is a radical change to how apps are written usually - with privacy and security as an afterthought - and is key to writing secure distributed applications.
+
+The only other thing we'll say about the User template for now is that it has two operations - called "choices" - to add or remove a friend.
+As DAML contracts are immutable, exercising one of these choices in fact "archives" the existing user contract and creates a new one with the modified data.
+So let's see how user contracts are controlled through the UI.
+
+
