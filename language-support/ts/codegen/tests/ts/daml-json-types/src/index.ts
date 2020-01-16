@@ -9,6 +9,7 @@ import * as jtv from '@mojotech/json-type-validation';
 export interface Serializable<T> {
   // NOTE(MH): This must be a function to allow for mutually recursive decoders.
   decoder: () => jtv.Decoder<T>;
+  isOptional: boolean;
 }
 
 /**
@@ -71,6 +72,7 @@ export type Unit = {};
  */
 export const Unit: Serializable<Unit> = {
   decoder: () => jtv.object({}),
+  isOptional: false,
 }
 
 /**
@@ -83,6 +85,7 @@ export type Bool = boolean;
  */
 export const Bool: Serializable<Bool> = {
   decoder: jtv.boolean,
+  isOptional: false,
 }
 
 /**
@@ -96,6 +99,7 @@ export type Int = string;
  */
 export const Int: Serializable<Int> = {
   decoder: jtv.string,
+  isOptional: false,
 }
 
 /**
@@ -113,11 +117,10 @@ export type Decimal = Numeric;
 export const Numeric = (_: number): Serializable<Numeric> =>
   ({
     decoder: jtv.string,
+    isOptional: false,
   })
 
-export const Decimal: Serializable<Decimal> = {
-  decoder: Numeric(10).decoder,
-}
+export const Decimal: Serializable<Decimal> = Numeric(10)
 
 /**
  * The counterpart of DAML's `Text` type.
@@ -129,6 +132,7 @@ export type Text = string;
  */
 export const Text: Serializable<Text> = {
   decoder: jtv.string,
+  isOptional: false,
 }
 
 /**
@@ -142,6 +146,7 @@ export type Time = string;
  */
 export const Time: Serializable<Time> = {
   decoder: jtv.string,
+  isOptional: false,
 }
 
 /**
@@ -155,6 +160,7 @@ export type Party = string;
  */
 export const Party: Serializable<Party> = {
   decoder: jtv.string,
+  isOptional: false,
 }
 
 /**
@@ -167,6 +173,7 @@ export type List<T> = T[];
  */
 export const List = <T>(t: Serializable<T>): Serializable<T[]> => ({
   decoder: () => jtv.array(t.decoder()),
+  isOptional: false,
 });
 
 /**
@@ -180,6 +187,7 @@ export type Date = string;
  */
 export const Date: Serializable<Date> = {
   decoder: jtv.string,
+  isOptional: false,
 }
 
 /**
@@ -195,6 +203,7 @@ export type ContractId<T> = string;
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export const ContractId = <T>(_t: Serializable<T>): Serializable<ContractId<T>> => ({
   decoder: jtv.string,
+  isOptional: false,
 });
 
 /**
@@ -208,6 +217,7 @@ export type Optional<T> = T | null;
  */
 export const Optional = <T>(t: Serializable<T>): Serializable<Optional<T>> => ({
   decoder: () => jtv.oneOf(jtv.constant(null), t.decoder()),
+  isOptional: false,
 });
 
 /**
@@ -221,8 +231,7 @@ export type TextMap<T> = { [key: string]: T };
  */
 export const TextMap = <T>(t: Serializable<T>): Serializable<TextMap<T>> => ({
   decoder: () => jtv.dict(t.decoder()),
+  isOptional: false,
 });
-
-// TODO(MH): `Numeric` type.
 
 // TODO(MH): `Map` type.
