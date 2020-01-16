@@ -84,10 +84,11 @@ object TypedValueGenerators {
 
       override def t: Type = TypeNumeric(scale)
 
-      override def inj[Cid]: Numeric => Value[Cid] = ValueNumeric
+      override def inj[Cid]: Numeric => Value[Cid] =
+        x => ValueNumeric(Numeric.assertFromBigDecimal(scale, x))
 
       override def prj[Cid]: Value[Cid] => Option[Numeric] = {
-        case ValueNumeric(x) if x.scale <= scale => Some(x)
+        case ValueNumeric(x) => Numeric.fromBigDecimal(scale, x).toOption
         case _ => None
       }
 
