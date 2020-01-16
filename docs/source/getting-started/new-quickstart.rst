@@ -65,3 +65,17 @@ At this point you should see the login page for the social network.
 
 .. TODO: Screenshot
 
+Enter a user name of your choice and click the calculator icon next to the password field to generate a password token.
+(We do not have proper authentication in this app for simplicity.)
+Once you click "Sign up", you can see a screen with panels for your friends and the entire social network.
+Initially these are both empty as you don't have any friends yet!
+Go ahead and add some using the form (and remove them using the cross icons if you change your mind).
+
+Now let's grow the network. Log out and sign up using the name of one of your friends.
+Let's say your name is Alice and your friend's name is Bob.
+Bob should now see Alice in the network (since she added him as a friend) and he is able to add her back.
+Note that in this app, friendships can be added in one direction at a time, similar to how "followers" work in Twitter.
+
+Add a few more friends as Bob, and play around a bit more by logging in as different users and adding/removing friends from the network.
+This should give you a idea of the app's functionality.
+
