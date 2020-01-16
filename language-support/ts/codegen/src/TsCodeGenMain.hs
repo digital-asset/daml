@@ -303,7 +303,10 @@ genType curModName = go
         TBool -> ("boolean", "daml.Bool")
         TInt64 -> dup "daml.Int"
         TDecimal -> dup "daml.Decimal"
-        TNumeric _ -> dup "daml.Numeric"  -- TODO(MH): Figure out what to do with the scale.
+        TNumeric (TNat n) -> (
+            "daml.Numeric"
+          , "daml.Numeric(" <> T.pack (show (fromTypeLevelNat n :: Integer)) <> ")"
+          )
         TText -> ("string", "daml.Text")
         TTimestamp -> dup "daml.Time"
         TParty -> dup "daml.Party"
