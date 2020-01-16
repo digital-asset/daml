@@ -22,29 +22,6 @@ object LoggingContext {
       f: LoggingContext => A)(implicit ctx: LoggingContext): A =
     f((ctx + kv) ++ kvs)
 
-  /**
-    * Same as [[newLoggingContext]] but discards the result
-    */
-  def newLoggingContext_(f: LoggingContext => Any): Unit = {
-    val _: Any = LoggingContext.newLoggingContext[Any](f)
-  }
-
-  /**
-    * Same as [[newLoggingContext]] but discards the result
-    */
-  def newLoggingContext_(kv: (String, String), kvs: (String, String)*)(
-      f: LoggingContext => Any): Unit = {
-    val _: Any = LoggingContext.newLoggingContext[Any](kv, kvs: _*)(f)
-  }
-
-  /**
-    * Same as [[withEnrichedLoggingContext]] but discards the result
-    */
-  def withEnrichedLoggingContext_(kv: (String, String), kvs: (String, String)*)(
-      f: LoggingContext => Any)(implicit ctx: LoggingContext): Unit = {
-    val _: Any = LoggingContext.withEnrichedLoggingContext[Any](kv, kvs: _*)(f)
-  }
-
 }
 
 final class LoggingContext private (ctxMap: Map[String, String]) {

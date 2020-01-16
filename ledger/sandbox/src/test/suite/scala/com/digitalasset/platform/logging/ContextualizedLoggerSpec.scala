@@ -119,12 +119,12 @@ final class ContextualizedLoggerSpec
       verify(m).info(eqTo("b (context: {})"), toStringEqTo[AnyRef]("{id=foobar}"))
     }
 
-  def withEmptyContext(f: ContextualizedLogger => LoggingContext => Any): Unit =
-    LoggingContext.newLoggingContext_(f(ContextualizedLogger.createFor(mockLogger(Level.INFO))))
+  def withEmptyContext(f: ContextualizedLogger => LoggingContext => Unit): Unit =
+    LoggingContext.newLoggingContext(f(ContextualizedLogger.createFor(mockLogger(Level.INFO))))
 
   def withContext(kv: (String, String), kvs: (String, String)*)(
-      f: ContextualizedLogger => LoggingContext => Any): Unit =
-    LoggingContext.newLoggingContext_(kv, kvs: _*)(
+      f: ContextualizedLogger => LoggingContext => Unit): Unit =
+    LoggingContext.newLoggingContext(kv, kvs: _*)(
       f(ContextualizedLogger.createFor(mockLogger(Level.INFO))))
 
   def mockLogger(level: Level): Logger = {
