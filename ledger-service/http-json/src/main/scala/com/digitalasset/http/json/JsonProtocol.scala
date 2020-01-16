@@ -13,6 +13,7 @@ import com.digitalasset.http.domain
 import com.digitalasset.http.json.TaggedJsonFormat._
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import scalaz.{-\/, \/-}
+import scalaz.syntax.std.option._
 import spray.json._
 
 object JsonProtocol extends DefaultJsonProtocol {
@@ -218,20 +219,16 @@ object JsonProtocol extends DefaultJsonProtocol {
   implicit val ExerciseCommandFormat
     : RootJsonFormat[domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]]] =
     new RootJsonFormat[domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]]] {
-      @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
       override def write(
           obj: domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]]): JsValue = {
 
         val reference: JsObject =
           ContractLocatorFormat.write(obj.reference).asJsObject("reference must be an object")
 
-        val fields = new collection.mutable.ListBuffer[(String, JsValue)]
-        fields.sizeHint(5)
-        fields ++= reference.fields.toList
-        fields += "choice" -> obj.choice.toJson
-        fields += "argument" -> obj.argument.toJson
-        if (obj.meta.isDefined)
-          fields += "meta" -> obj.meta.toJson
+        val fields: Vector[(String, JsValue)] =
+          reference.fields.toVector ++
+            Vector("choice" -> obj.choice.toJson, "argument" -> obj.argument.toJson) ++
+            obj.meta.cata(x => Vector("meta" -> x.toJson), Vector.empty)
 
         JsObject(fields: _*)
       }
