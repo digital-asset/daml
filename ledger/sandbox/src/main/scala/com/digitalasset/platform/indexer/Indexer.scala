@@ -4,7 +4,7 @@
 package com.digitalasset.platform.indexer
 
 import com.daml.ledger.participant.state.v1.ReadService
-import com.digitalasset.platform.resources.ResourceOwner
+import com.digitalasset.resources.ResourceOwner
 
 import scala.concurrent.Future
 

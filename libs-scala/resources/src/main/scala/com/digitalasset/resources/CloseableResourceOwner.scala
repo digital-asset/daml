@@ -1,11 +1,12 @@
 // Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.resources
+package com.digitalasset.resources
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class FutureResourceOwner[T](acquireFuture: () => Future[T]) extends ResourceOwner[T] {
+class CloseableResourceOwner[T <: AutoCloseable](acquireCloseable: () => T)
+    extends ResourceOwner[T] {
   override def acquire()(implicit executionContext: ExecutionContext): Resource[T] =
-    Resource(acquireFuture(), _ => Future.successful(()))
+    Resource(Future(acquireCloseable()), closeable => Future(closeable.close()))
 }

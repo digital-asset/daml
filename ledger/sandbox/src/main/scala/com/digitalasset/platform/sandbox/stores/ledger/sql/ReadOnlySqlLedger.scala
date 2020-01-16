@@ -11,7 +11,6 @@ import com.digitalasset.dec.{DirectExecutionContext => DEC}
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
-import com.digitalasset.platform.resources.{Resource, ResourceOwner}
 import com.digitalasset.platform.sandbox.stores.ledger.ReadOnlyLedger
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{
   DbType,
@@ -20,6 +19,7 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{
   LedgerReadDao
 }
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
+import com.digitalasset.resources.{Resource, ResourceOwner}
 import scalaz.syntax.tag._
 
 import scala.concurrent.duration._

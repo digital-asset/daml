@@ -11,8 +11,8 @@ import ch.qos.logback.classic.Level
 import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.platform.indexer.RecoveringIndexerSpec._
 import com.digitalasset.platform.indexer.TestIndexer._
-import com.digitalasset.platform.resources.{Resource, ResourceOwner}
 import com.digitalasset.platform.sandbox.logging.TestNamedLoggerFactory
+import com.digitalasset.resources.{Resource, ResourceOwner}
 import org.scalatest.{AsyncWordSpec, BeforeAndAfterEach, Matchers}
 
 import scala.collection.mutable

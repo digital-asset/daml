@@ -21,7 +21,8 @@ import com.digitalasset.platform.indexer.{
   IndexerStartupMode,
   StandaloneIndexerServer
 }
-import com.digitalasset.platform.resources.{Resource, ResourceOwner}
+import com.digitalasset.resources.akka.AkkaResourceOwner
+import com.digitalasset.resources.{Resource, ResourceOwner}
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration.DurationInt
@@ -44,8 +45,8 @@ class Runner[Extra](name: String, constructor: LedgerFactory[Extra]) {
     val resource = for {
       // Take ownership of the actor system and materializer so they're cleaned up properly.
       // This is necessary because we can't declare them as implicits within a `for` comprehension.
-      _ <- ResourceOwner.forActorSystem(() => system).acquire()
-      _ <- ResourceOwner.forMaterializer(() => materializer).acquire()
+      _ <- AkkaResourceOwner.forActorSystem(() => system).acquire()
+      _ <- AkkaResourceOwner.forMaterializer(() => materializer).acquire()
       readerWriter <- ResourceOwner
         .forCloseable(() => constructor(config.participantId, config.extra))
         .acquire()
