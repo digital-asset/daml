@@ -1,7 +1,7 @@
 // Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.resources
+package com.digitalasset.resources
 
 import java.util.concurrent.CompletableFuture.completedFuture
 import java.util.concurrent.atomic.AtomicBoolean
@@ -12,7 +12,7 @@ import akka.actor.{Actor, ActorSystem, Props}
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.{Done, NotUsed}
-import com.digitalasset.platform.resources.ResourceOwnerSpec._
+import com.digitalasset.resources.ResourceOwnerSpec._
 import org.scalatest.{AsyncWordSpec, Matchers}
 
 import scala.collection.mutable

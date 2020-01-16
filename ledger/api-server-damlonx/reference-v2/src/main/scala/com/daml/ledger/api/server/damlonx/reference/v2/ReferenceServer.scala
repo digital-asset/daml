@@ -16,7 +16,7 @@ import com.digitalasset.ledger.api.auth.{AuthService, AuthServiceWildcard}
 import com.digitalasset.platform.apiserver.{ApiServerConfig, StandaloneApiServer}
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.indexer.{IndexerConfig, StandaloneIndexerServer}
-import com.digitalasset.platform.resources.{Resource, ResourceOwner}
+import com.digitalasset.resources.{Resource, ResourceOwner}
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration.DurationInt

@@ -8,7 +8,7 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.v1.ReadService
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.indexer.StandaloneIndexerServer._
-import com.digitalasset.platform.resources.{Resource, ResourceOwner}
+import com.digitalasset.resources.{Resource, ResourceOwner}
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}

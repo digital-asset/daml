@@ -13,13 +13,13 @@ import com.daml.ledger.participant.state.v1.{ParticipantId, ReadService}
 import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.ledger.api.domain.{ParticipantId => _, _}
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
-import com.digitalasset.platform.resources.Resource
 import com.digitalasset.platform.sandbox.stores.LedgerBackedIndexService
 import com.digitalasset.platform.sandbox.stores.ledger.{
   Ledger,
   MeteredReadOnlyLedger,
   SandboxContractStore
 }
+import com.digitalasset.resources.Resource
 
 object JdbcIndex {
   def apply(

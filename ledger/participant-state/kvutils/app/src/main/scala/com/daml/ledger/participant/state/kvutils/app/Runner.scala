@@ -21,7 +21,7 @@ import com.digitalasset.platform.indexer.{
   IndexerStartupMode,
   StandaloneIndexerServer
 }
-import com.digitalasset.platform.resources.{Resource, ResourceOwner}
+import com.digitalasset.resources.{Resource, ResourceOwner}
 import org.slf4j.LoggerFactory
 import scopt.OptionParser
 
