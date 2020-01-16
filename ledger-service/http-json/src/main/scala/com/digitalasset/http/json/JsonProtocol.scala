@@ -215,9 +215,41 @@ object JsonProtocol extends DefaultJsonProtocol {
   implicit val CreateCommandFormat: RootJsonFormat[domain.CreateCommand[JsObject]] = jsonFormat3(
     domain.CreateCommand[JsObject])
 
-  implicit def ExerciseCommandFormat[A: JsonFormat, B: JsonFormat]
-    : RootJsonFormat[domain.ExerciseCommand[A, B]] =
-    jsonFormat4(domain.ExerciseCommand[A, B])
+  implicit val ExerciseCommandFormat
+    : RootJsonFormat[domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]]] =
+    new RootJsonFormat[domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]]] {
+      @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
+      override def write(
+          obj: domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]]): JsValue = {
+
+        val reference: JsObject =
+          ContractLocatorFormat.write(obj.reference).asJsObject("reference must be an object")
+
+        val fields = new collection.mutable.ListBuffer[(String, JsValue)]
+        fields.sizeHint(5)
+        fields ++= reference.fields.toList
+        fields += "choice" -> obj.choice.toJson
+        fields += "argument" -> obj.argument.toJson
+        if (obj.meta.isDefined)
+          fields += "meta" -> obj.meta.toJson
+
+        JsObject(fields: _*)
+      }
+
+      override def read(
+          json: JsValue): domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]] = {
+        val reference = ContractLocatorFormat.read(json)
+        val choice = fromField[domain.Choice](json, "choice")
+        val argument = fromField[JsValue](json, "argument")
+        val meta = fromField[Option[domain.CommandMeta]](json, "meta")
+
+        domain.ExerciseCommand(
+          reference = reference,
+          choice = choice,
+          argument = argument,
+          meta = meta)
+      }
+    }
 
   implicit val ExerciseResponseFormat: RootJsonFormat[domain.ExerciseResponse[JsValue]] =
     jsonFormat2(domain.ExerciseResponse[JsValue])

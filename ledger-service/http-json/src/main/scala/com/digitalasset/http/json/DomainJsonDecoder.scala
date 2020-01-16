@@ -7,6 +7,7 @@ import com.digitalasset.http.ErrorMessages.cannotResolveTemplateId
 import com.digitalasset.http.domain.HasTemplateId
 import com.digitalasset.http.{PackageService, domain}
 import com.digitalasset.ledger.api.{v1 => lav1}
+import scalaz.syntax.bitraverse._
 import scalaz.syntax.show._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
@@ -114,16 +115,19 @@ class DomainJsonDecoder(
     SprayJson
       .decode[domain.ContractLocator[JsValue]](a)
       .leftMap(e => JsonError("DomainJsonDecoder_decodeContractLocator " + e.shows))
-      .flatMap {
-        case k: domain.EnrichedContractKey[JsValue] =>
-          decodeUnderlyingValuesToLf[domain.EnrichedContractKey](k)
-        case c: domain.EnrichedContractId =>
-          \/-(c)
-      }
+      .flatMap(decodeContractLocatorUnderlyingValue)
+
+  private def decodeContractLocatorUnderlyingValue(
+      a: domain.ContractLocator[JsValue]): JsonError \/ domain.ContractLocator[domain.LfValue] =
+    a match {
+      case k: domain.EnrichedContractKey[JsValue] =>
+        decodeUnderlyingValuesToLf[domain.EnrichedContractKey](k)
+      case c: domain.EnrichedContractId =>
+        \/-(c)
+    }
 
   def decodeExerciseCommand(a: String)(
-      implicit ev1: JsonReader[domain.ExerciseCommand[JsValue, JsValue]],
-      ev2: JsonReader[domain.ContractLocator[JsValue]])
+      implicit ev1: JsonReader[domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]]])
     : JsonError \/ domain.ExerciseCommand[domain.LfValue, domain.ContractLocator[domain.LfValue]] =
     for {
       b <- SprayJson
@@ -132,25 +136,22 @@ class DomainJsonDecoder(
       c <- decodeExerciseCommand(b)
     } yield c
 
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def decodeExerciseCommand(a: JsValue)(
-      implicit ev1: JsonReader[domain.ExerciseCommand[JsValue, JsValue]],
-      ev2: JsonReader[domain.ContractLocator[JsValue]])
+      implicit ev1: JsonReader[domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]]])
     : JsonError \/ domain.ExerciseCommand[domain.LfValue, domain.ContractLocator[domain.LfValue]] =
     for {
       cmd0 <- SprayJson
-        .decode[domain.ExerciseCommand[JsValue, JsValue]](a)
+        .decode[domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]]](a)
         .leftMap(e => JsonError("DomainJsonDecoder_decodeExerciseCommand " + e.shows))
 
-      ref <- decodeContractLocator(cmd0.reference)
-
-      cmd1 = cmd0.copy(reference = ref): domain.ExerciseCommand[
-        JsValue,
-        domain.ContractLocator[domain.LfValue]]
-
-      lfType <- lookupLfType[domain.ExerciseCommand[+?, domain.ContractLocator[_]]](cmd1)(
+      lfType <- lookupLfType[domain.ExerciseCommand[+?, domain.ContractLocator[_]]](cmd0)(
         domain.ExerciseCommand.hasTemplateId)
 
-      arg <- jsValueToLfValue(lfType, cmd1.argument)
+      cmd1 <- cmd0.bitraverse(
+        arg => jsValueToLfValue(lfType, arg),
+        ref => decodeContractLocatorUnderlyingValue(ref)
+      ): JsonError \/ domain.ExerciseCommand[domain.LfValue, domain.ContractLocator[domain.LfValue]]
 
-    } yield cmd1.copy(argument = arg)
+    } yield cmd1
 }

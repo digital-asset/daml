@@ -3,10 +3,11 @@
 
 package com.digitalasset.http
 
+import com.daml.ledger.javaapi.data.Generators.instantGen
 import com.digitalasset.ledger.api.{v1 => lav1}
 import org.scalacheck.Gen
 import scalaz.{-\/, \/, \/-}
-import spray.json.{JsString, JsValue}
+import spray.json.{JsNumber, JsObject, JsString, JsValue}
 
 object Generators {
   def genApiIdentifier: Gen[lav1.value.Identifier] =
@@ -100,4 +101,48 @@ object Generators {
         contractId = contractId,
         templateId = templateId
       )
+
+  def contractLocatorGen: Gen[domain.ContractLocator[JsObject]] =
+    Gen.oneOf(enrichedContractIdGen, enrichedContractKeyGen)
+
+  def enrichedContractKeyGen: Gen[domain.EnrichedContractKey[JsObject]] =
+    for {
+      templateId <- genDomainTemplateIdO(OptionalPackageIdGen)
+      key <- genJsObj
+    } yield domain.EnrichedContractKey(templateId, key)
+
+  def enrichedContractIdGen: Gen[domain.EnrichedContractId] =
+    for {
+      templateId <- Gen.option(genDomainTemplateIdO(OptionalPackageIdGen))
+      contractId <- contractIdGen
+    } yield domain.EnrichedContractId(templateId, contractId)
+
+  def exerciseCmdGen: Gen[domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]]] =
+    for {
+      ref <- contractLocatorGen
+      arg <- genJsObj
+      choice <- Gen.identifier.map(domain.Choice(_))
+      meta <- Gen.option(metaGen)
+    } yield domain.ExerciseCommand(reference = ref, choice = choice, argument = arg, meta = meta)
+
+  def metaGen: Gen[domain.CommandMeta] =
+    for {
+      commandId <- Gen.option(Gen.identifier.map(domain.CommandId(_)))
+      let <- Gen.option(instantGen)
+      mrt <- Gen.option(instantGen)
+    } yield domain.CommandMeta(commandId, let, mrt)
+
+  private def genJsObj: Gen[JsObject] =
+    Gen.listOf(genJsValPair).map(xs => JsObject(xs.toMap))
+
+  private def genJsValPair: Gen[(String, JsValue)] =
+    for {
+      k <- Gen.identifier
+      v <- genJsValue
+    } yield (k, v)
+
+  private def genJsValue: Gen[JsValue] = Gen.oneOf(
+    Gen.identifier.map(JsString(_): JsValue),
+    Gen.posNum[Int].map(JsNumber(_): JsValue)
+  )
 }

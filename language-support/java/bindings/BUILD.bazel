@@ -87,6 +87,9 @@ da_scala_library(
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_scalacheck_scalacheck_2_12",
     ],
+    visibility = [
+        "//ledger-service/http-json:__subpackages__",
+    ],
 )
 
 da_scala_test_suite(

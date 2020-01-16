@@ -871,31 +871,15 @@ abstract class AbstractHttpServiceIntegrationTest
     }
 
   private def encodeExercise(encoder: DomainJsonEncoder)(
-      exercise: domain.ExerciseCommand[v.Value, domain.ContractLocator[v.Value]]): JsValue = {
-    val exerciseJsVal: domain.ExerciseCommand[JsValue, JsValue] = exercise.bimap(
-      x => encoder.apiValueToJsValue(x).getOrElse(fail(s"Cannot encode: $x")),
-      y => encodeLocator(encoder)(y)
-    )
-    exerciseJsVal.toJson
-  }
-
-  private def encodeLocator(encoder: DomainJsonEncoder)(
-      ref: domain.ContractLocator[v.Value]): JsValue = ref match {
-    case x: domain.EnrichedContractKey[v.Value] =>
-      encoder.encodeV(x).getOrElse(fail(s"Cannot encode: $x"))
-    case x: domain.EnrichedContractId => x.toJson
-  }
+      exercise: domain.ExerciseCommand[v.Value, domain.ContractLocator[v.Value]]): JsValue =
+    encoder.encodeExerciseCommand(exercise).getOrElse(fail(s"Cannot encode: $exercise"))
 
   private def decodeExercise(decoder: DomainJsonDecoder)(
       jsVal: JsValue): domain.ExerciseCommand[v.Value, domain.EnrichedContractId] = {
 
     import scalaz.syntax.bifunctor._
 
-    val cmd: domain.ExerciseCommand[domain.LfValue, domain.ContractLocator[domain.LfValue]] =
-      decoder
-        .decodeExerciseCommand(jsVal)
-        .getOrElse(fail(s"Cannot decode exercise command: $jsVal"))
-
+    val cmd = decoder.decodeExerciseCommand(jsVal).getOrElse(fail(s"Cannot decode $jsVal"))
     cmd.bimap(
       lfToApi,
       enrichedContractIdOnly

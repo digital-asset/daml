@@ -77,7 +77,7 @@ object domain {
   case class PartyDetails(party: Party, displayName: Option[String], isLocal: Boolean)
 
   final case class CommandMeta(
-      commandId: Option[lar.CommandId],
+      commandId: Option[CommandId],
       ledgerEffectiveTime: Option[Instant],
       maximumRecordTime: Option[Instant])
 
@@ -129,6 +129,10 @@ object domain {
   type ContractIdTag = lar.ContractIdTag
   type ContractId = lar.ContractId
   val ContractId = lar.ContractId
+
+  type CommandIdTag = lar.CommandIdTag
+  type CommandId = lar.CommandId
+  val CommandId = lar.CommandId
 
   type PartyTag = lar.PartyTag
   type Party = lar.Party
