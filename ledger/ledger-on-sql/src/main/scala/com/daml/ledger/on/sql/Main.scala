@@ -1,10 +1,7 @@
 // Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.on.filesystem.posix
-
-import java.io.File
-import java.nio.file.Path
+package com.daml.ledger.on.sql
 
 import akka.stream.Materializer
 import com.daml.ledger.participant.state.kvutils.app.{Config, KeyValueLedger, LedgerFactory, Runner}
@@ -16,21 +13,22 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.DurationInt
 
 object Main extends App {
-  Runner("File System Ledger", FileSystemLedgerFactory).run(args)
+  Runner("SQL Ledger", SqlLedgerFactory).run(args)
 
-  case class ExtraConfig(root: Option[Path])
+  case class ExtraConfig(jdbcUrl: Option[String])
 
-  object FileSystemLedgerFactory extends LedgerFactory[ExtraConfig] {
+  object SqlLedgerFactory extends LedgerFactory[ExtraConfig] {
     override val defaultExtraConfig: ExtraConfig = ExtraConfig(
-      root = None,
+      jdbcUrl = None,
     )
 
     override def extraConfigParser(parser: OptionParser[Config[ExtraConfig]]): Unit = {
       parser
-        .opt[File]("directory")
+        .opt[String]("jdbc-url")
         .required()
-        .text("The root directory in which to store the ledger.")
-        .action((file, config) => config.copy(extra = config.extra.copy(root = Some(file.toPath))))
+        .text("The URL used to connect to the database.")
+        .action(
+          (jdbcUrl, config) => config.copy(extra = config.extra.copy(jdbcUrl = Some(jdbcUrl))))
       ()
     }
 
@@ -38,13 +36,10 @@ object Main extends App {
         implicit materializer: Materializer,
     ): KeyValueLedger =
       Await.result(
-        FileSystemLedgerReaderWriter(
-          participantId = participantId,
-          root = config.root.getOrElse {
-            throw new IllegalStateException("No root directory provided.")
-          },
-        ),
-        10.seconds
+        SqlLedgerReaderWriter(participantId = participantId, jdbcUrl = config.jdbcUrl.getOrElse {
+          throw new IllegalStateException("No JDBC URL provided.")
+        }),
+        10.seconds,
       )
   }
 }
