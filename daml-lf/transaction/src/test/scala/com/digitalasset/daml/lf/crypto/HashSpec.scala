@@ -4,309 +4,298 @@
 package com.digitalasset.daml.lf
 package crypto
 
-import com.digitalasset.daml.lf.data._
+import com.digitalasset.daml.lf.data.{Decimal, Numeric, Ref, SortedLookupList, Time}
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
-import com.digitalasset.daml.lf.value.TypedValueGenerators.{ValueAddend => VA}
+import com.digitalasset.daml.lf.value.TypedValueGenerators.{RNil, ValueAddend => VA}
 import com.digitalasset.daml.lf.value.Value._
 import com.digitalasset.daml.lf.value.{Value, ValueVersion}
 import org.scalatest.{Matchers, WordSpec}
+import shapeless.record.{Record => HRecord}
+import shapeless.syntax.singleton._
+import shapeless.{Coproduct => HSum}
 
 import scala.language.implicitConversions
 
+@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class HashSpec extends WordSpec with Matchers {
 
-  private[this] def templateId(module: String, name: String) = Ref.Identifier(
-    Ref.PackageId.assertFromString("package"),
-    Ref.QualifiedName(
-      Ref.ModuleName.assertFromString(module),
-      Ref.DottedName.assertFromString(name)
-    )
-  )
+  private val packageId0 = Ref.PackageId.assertFromString("package")
 
-  private[this] def complexValue = {
-    val fields = ImmArray(
-      None -> ValueInt64(0),
-      None -> ValueInt64(123456),
-      None -> ValueInt64(-1),
-      None -> ValueNumeric(0),
-      None -> ValueNumeric(BigDecimal("0.3333333333")),
-      None -> ValueTrue,
-      None -> ValueFalse,
-      None -> ValueDate(Time.Date.assertFromDaysSinceEpoch(0)),
-      None -> ValueDate(Time.Date.assertFromDaysSinceEpoch(123456)),
-      None -> ValueTimestamp(Time.Timestamp.assertFromLong(0)),
-      None -> ValueTimestamp(Time.Timestamp.assertFromLong(123456)),
-      None -> ValueText(""),
-      None -> ValueText("abcd-äöü€"),
-      None -> ValueParty(Ref.Party.assertFromString("Alice")),
-      None -> ValueUnit,
-      None -> ValueNone,
-      None -> ValueOptional(Some(ValueText("Some"))),
-      None -> VA.list(VA.text).inj(Vector("A", "B", "C")),
-      None -> ValueVariant(None, Ref.Name.assertFromString("Variant"), ValueInt64(0)),
-      None ->
-        ValueRecord(
-          None,
-          ImmArray(
-            None -> ValueText("field1"),
-            None -> ValueText("field2")
-          )),
-      None -> VA.map(VA.text).inj(SortedLookupList(Map("keyA" -> "valueA", "keyB" -> "valueB")))
-    )
+  private val complexRecordT =
+    VA.record(
+        defRef(name = "ComplexRecord"),
+        'fInt0 ->> VA.int64
+          :: 'fInt1 ->> VA.int64
+          :: 'fInt2 ->> VA.int64
+          :: 'fNumeric0 ->> VA.numeric(Decimal.scale)
+          :: 'fNumeric1 ->> VA.numeric(Decimal.scale)
+          :: 'fBool0 ->> VA.bool
+          :: 'fBool1 ->> VA.bool
+          :: 'fDate0 ->> VA.date
+          :: 'fDate1 ->> VA.date
+          :: 'fTime0 ->> VA.timestamp
+          :: 'fTime1 ->> VA.timestamp
+          :: 'fText0 ->> VA.text
+          :: 'fTest1 ->> VA.text
+          :: 'fPArty ->> VA.party
+          :: 'fUnit ->> VA.unit
+          :: 'fOpt0 ->> VA.optional(VA.text)
+          :: 'fOpt1 ->> VA.optional(VA.text)
+          :: 'fList ->> VA.list(VA.text)
+          :: 'fVariant ->>
+          VA.variant(
+              defRef(name = "Variant"),
+              'Variant ->> VA.int64 :: RNil
+            )
+            ._2
+          :: 'fRecord ->>
+          VA.record(
+              defRef(name = "Record"),
+              'field1 ->> VA.text :: 'field2 ->> VA.text :: RNil
+            )
+            ._2
+          :: 'fTextMap ->> VA.map(VA.text)
+          :: RNil
+      )
+      ._2
 
-    ValueRecord(None, fields)
-  }
+  private val complexRecordV: complexRecordT.Inj[Nothing] =
+    HRecord(
+      fInt0 = 0L,
+      fInt1 = 123456L,
+      fInt2 = -1L,
+      fNumeric0 = Numeric.assertFromString("0.0000000000"),
+      fNumeric1 = Numeric.assertFromString("0.3333333333"),
+      fBool0 = true,
+      fBool1 = false,
+      fDate0 = Time.Date.assertFromDaysSinceEpoch(0),
+      fDate1 = Time.Date.assertFromDaysSinceEpoch(123456),
+      fTime0 = Time.Timestamp.assertFromLong(0),
+      fTime1 = Time.Timestamp.assertFromLong(123456),
+      fText0 = "",
+      fTest1 = "abcd-äöü€",
+      fPArty = Ref.Party.assertFromString("Alice"),
+      fUnit = (),
+      fOpt0 = None,
+      fOpt1 = Some("Some"),
+      fList = Vector("A", "B", "C"),
+      fVariant = HSum('Variant ->> 0L),
+      fRecord = HRecord(field1 = "field1", field2 = "field2"),
+      fTextMap = SortedLookupList(Map("keyA" -> "valueA", "keyB" -> "valueB"))
+    )
 
   "KeyHasher" should {
 
     "be stable" in {
-      // Hashing function must not change
-      val value = VersionedValue(ValueVersion("4"), complexValue)
       val hash = "bc25286de6c5f7745e65354a8ddd18d12a339d069248fea48d14a338fadb4f22"
-
-      Hash(GlobalKey(templateId("module", "name"), value)).toHexa shouldBe hash
+      val value = complexRecordT.inj(complexRecordV)
+      val name = defRef("module", "name")
+      Hash(GlobalKey(name, value)).toHexa shouldBe hash
     }
 
     "be deterministic and thread safe" in {
       // Compute many hashes in parallel, check that they are all equal
       // Note: intentionally does not reuse value instances
       val hashes = Vector
-        .range(0, 1000)
-        .map(_ =>
-          GlobalKey(templateId("module", "name"), VersionedValue(ValueVersion("4"), complexValue)))
+        .fill(1000)(GlobalKey(defRef("module", "name"), complexRecordT.inj(complexRecordV)))
         .par
-        .map(key => Hash(key))
+        .map(Hash(_))
 
       hashes.toSet.size shouldBe 1
     }
 
     "not produce collision in template id" in {
       // Same value but different template ID should produce a different hash
-      val value = VersionedValue(ValueVersion("4"), ValueText("A"))
+      val value = VA.text.inj("A")
 
-      val hash1 = Hash(GlobalKey(templateId("AA", "A"), value))
-      val hash2 = Hash(GlobalKey(templateId("A", "AA"), value))
+      val hash1 = Hash(GlobalKey(defRef("AA", "A"), value))
+      val hash2 = Hash(GlobalKey(defRef("A", "AA"), value))
 
-      hash1.equals(hash2) shouldBe false
+      hash1 should !==(hash2)
     }
 
     "not produce collision in list of text" in {
       // Testing whether strings are delimited: ["AA", "A"] vs ["A", "AA"]
-      val value1 =
-        VersionedValue(ValueVersion("4"), VA.list(VA.text).inj(Vector("AA", "A")))
-      val value2 =
-        VersionedValue(ValueVersion("4"), VA.list(VA.text).inj(Vector("A", "AA")))
+      def list(elements: String*) = VA.list(VA.text).inj(elements.toVector)
+      val value1 = list("AA", "A")
+      val value2 = list("A", "AA")
 
-      val tid = templateId("module", "name")
+      val tid = defRef("module", "name")
 
       val hash1 = Hash(GlobalKey(tid, value1))
       val hash2 = Hash(GlobalKey(tid, value2))
 
-      hash1.equals(hash2) shouldBe false
+      hash1 should !==(hash2)
     }
 
     "not produce collision in list of decimals" in {
       // Testing whether decimals are delimited: [10, 10] vs [101, 0]
-      val value1 =
-        VersionedValue(
-          ValueVersion("4"),
-          VA.list(VA.numeric(Decimal.scale)).inj(Vector[Numeric](10, 10)))
-      val value2 =
-        VersionedValue(
-          ValueVersion("4"),
-          VA.list(VA.numeric(Decimal.scale)).inj(Vector[Numeric](101, 0)))
+      def list(elements: String*) =
+        VA.list(VA.numeric(Decimal.scale)).inj(elements.map(Numeric.assertFromString).toVector)
+      val value1 = list("10.0000000000", "10.0000000000")
+      val value2 = list("101.0000000000", "0.0000000000")
 
-      val tid = templateId("module", "name")
+      val tid = defRef("module", "name")
 
       val hash1 = Hash(GlobalKey(tid, value1))
       val hash2 = Hash(GlobalKey(tid, value2))
 
-      hash1.equals(hash2) shouldBe false
+      hash1 should !==(hash2)
     }
 
     "not produce collision in list of lists" in {
       // Testing whether lists are delimited: [[()], [(), ()]] vs [[(), ()], [()]]
-      val value1 = VersionedValue(
-        ValueVersion("4"),
-        VA.list(VA.list(VA.unit)).inj(Vector(Vector(()), Vector((), ()))))
-      val value2 = VersionedValue(
-        ValueVersion("4"),
-        VA.list(VA.list(VA.unit)).inj(Vector(Vector((), ()), Vector(()))))
+      def list(elements: Vector[Unit]*) = VA.list(VA.list(VA.unit)).inj(elements.toVector)
+      val value1 = list(Vector(()), Vector((), ()))
+      val value2 = list(Vector((), ()), Vector(()))
 
-      val tid = templateId("module", "name")
+      val tid = defRef("module", "name")
 
       val hash1 = Hash(GlobalKey(tid, value1))
       val hash2 = Hash(GlobalKey(tid, value2))
 
-      hash1.equals(hash2) shouldBe false
+      hash1 should !==(hash2)
     }
 
     "not produce collision in Variant constructor" in {
-      val value1 =
-        VersionedValue(
-          ValueVersion("4"),
-          ValueVariant(None, Ref.Name.assertFromString("A"), ValueUnit))
-      val value2 =
-        VersionedValue(
-          ValueVersion("4"),
-          ValueVariant(None, Ref.Name.assertFromString("B"), ValueUnit))
+      val variantT =
+        VA.variant(defRef(name = "Variant"), 'A ->> VA.unit :: 'B ->> VA.unit :: RNil)._2
+      val value1 = variantT.inj(HSum[variantT.Inj[Nothing]]('A ->> (())))
+      val value2 = variantT.inj(HSum[variantT.Inj[Nothing]]('B ->> (())))
 
-      val tid = templateId("module", "name")
+      val tid = defRef("module", "name")
 
       val hash1 = Hash(GlobalKey(tid, value1))
       val hash2 = Hash(GlobalKey(tid, value2))
 
-      hash1.equals(hash2) shouldBe false
+      hash1 should !==(hash2)
     }
 
     "not produce collision in Variant value" in {
-      val value1 = VersionedValue(
-        ValueVersion("4"),
-        ValueVariant(None, Ref.Name.assertFromString("A"), ValueInt64(0L)))
-      val value2 = VersionedValue(
-        ValueVersion("4"),
-        ValueVariant(None, Ref.Name.assertFromString("A"), ValueInt64(1L)))
+      val variantT = VA.variant(defRef(name = "Variant"), 'A ->> VA.int64 :: RNil)._2
+      val value1 = variantT.inj(HSum('A ->> 0L))
+      val value2 = variantT.inj(HSum('A ->> 1L))
 
-      val tid = templateId("module", "name")
+      val tid = defRef("module", "name")
 
       val hash1 = Hash(GlobalKey(tid, value1))
       val hash2 = Hash(GlobalKey(tid, value2))
 
-      hash1.equals(hash2) shouldBe false
+      hash1 should !==(hash2)
     }
 
     "not produce collision in Map keys" in {
-      val value1 = VersionedValue(
-        ValueVersion("4"),
-        VA.map(VA.int64).inj(SortedLookupList(Map("A" -> 0, "B" -> 0))))
-      val value2 = VersionedValue(
-        ValueVersion("4"),
-        VA.map(VA.int64).inj(SortedLookupList(Map("A" -> 0, "C" -> 0))))
+      def textMap(elements: (String, Long)*) =
+        VA.map(VA.int64).inj(SortedLookupList(elements.toMap))
+      val value1 = textMap("A" -> 0, "B" -> 0)
+      val value2 = textMap("A" -> 0, "C" -> 0)
 
-      val tid = templateId("module", "name")
+      val tid = defRef("module", "name")
 
       val hash1 = Hash(GlobalKey(tid, value1))
       val hash2 = Hash(GlobalKey(tid, value2))
 
-      hash1.equals(hash2) shouldBe false
+      hash1 should !==(hash2)
     }
 
     "not produce collision in Map values" in {
-      val value1 = VersionedValue(
-        ValueVersion("4"),
-        VA.map(VA.int64).inj(SortedLookupList(Map("A" -> 0, "B" -> 0))))
-      val value2 = VersionedValue(
-        ValueVersion("4"),
-        VA.map(VA.int64).inj(SortedLookupList(Map("A" -> 0, "B" -> 1))))
+      def textMap(elements: (String, Long)*) =
+        VA.map(VA.int64).inj(SortedLookupList(elements.toMap))
+      val value1 = textMap("A" -> 0, "B" -> 0)
+      val value2 = textMap("A" -> 0, "B" -> 1)
 
-      val tid = templateId("module", "name")
+      val tid = defRef("module", "name")
 
       val hash1 = Hash(GlobalKey(tid, value1))
       val hash2 = Hash(GlobalKey(tid, value2))
 
-      hash1.equals(hash2) shouldBe false
+      hash1 should !==(hash2)
     }
 
     "not produce collision in Bool" in {
-      val value1 = VersionedValue(ValueVersion("4"), ValueTrue)
-      val value2 = VersionedValue(ValueVersion("4"), ValueFalse)
+      val value1 = ValueTrue
+      val value2 = ValueFalse
 
-      val tid = templateId("module", "name")
+      val tid = defRef("module", "name")
 
       val hash1 = Hash(GlobalKey(tid, value1))
       val hash2 = Hash(GlobalKey(tid, value2))
 
-      hash1.equals(hash2) shouldBe false
+      hash1 should !==(hash2)
     }
 
     "not produce collision in Int64" in {
-      val value1 = VersionedValue(ValueVersion("4"), ValueInt64(0L))
-      val value2 = VersionedValue(ValueVersion("4"), ValueInt64(1L))
+      val value1 = ValueInt64(0L)
+      val value2 = ValueInt64(1L)
 
-      val tid = templateId("module", "name")
+      val tid = defRef("module", "name")
 
       val hash1 = Hash(GlobalKey(tid, value1))
       val hash2 = Hash(GlobalKey(tid, value2))
 
-      hash1.equals(hash2) shouldBe false
+      hash1 should !==(hash2)
     }
 
     "not produce collision in Decimal" in {
-      val value1 = VersionedValue(ValueVersion("4"), ValueNumeric(0))
-      val value2 = VersionedValue(ValueVersion("4"), ValueNumeric(1))
+      val value1 = ValueNumeric(Numeric.assertFromString("0."))
+      val value2 = ValueNumeric(Numeric.assertFromString("1."))
 
-      val tid = templateId("module", "name")
+      val tid = defRef("module", "name")
 
       val hash1 = Hash(GlobalKey(tid, value1))
       val hash2 = Hash(GlobalKey(tid, value2))
 
-      hash1.equals(hash2) shouldBe false
+      hash1 should !==(hash2)
     }
 
     "not produce collision in Date" in {
-      val value1 =
-        VersionedValue(ValueVersion("4"), ValueDate(Time.Date.assertFromDaysSinceEpoch(0)))
-      val value2 =
-        VersionedValue(ValueVersion("4"), ValueDate(Time.Date.assertFromDaysSinceEpoch(1)))
+      val value1 = ValueDate(Time.Date.assertFromDaysSinceEpoch(0))
+      val value2 = ValueDate(Time.Date.assertFromDaysSinceEpoch(1))
 
-      val tid = templateId("module", "name")
+      val tid = defRef("module", "name")
 
       val hash1 = Hash(GlobalKey(tid, value1))
       val hash2 = Hash(GlobalKey(tid, value2))
 
-      hash1.equals(hash2) shouldBe false
+      hash1 should !==(hash2)
     }
 
     "not produce collision in Timestamp" in {
-      val value1 =
-        VersionedValue(ValueVersion("4"), ValueTimestamp(Time.Timestamp.assertFromLong(0)))
-      val value2 =
-        VersionedValue(ValueVersion("4"), ValueTimestamp(Time.Timestamp.assertFromLong(1)))
+      val value1 = ValueTimestamp(Time.Timestamp.assertFromLong(0))
+      val value2 = ValueTimestamp(Time.Timestamp.assertFromLong(1))
 
-      val tid = templateId("module", "name")
+      val tid = defRef("module", "name")
 
       val hash1 = Hash(GlobalKey(tid, value1))
       val hash2 = Hash(GlobalKey(tid, value2))
 
-      hash1.equals(hash2) shouldBe false
+      hash1 should !==(hash2)
     }
 
     "not produce collision in Optional" in {
-      val value1 = VersionedValue(ValueVersion("4"), ValueNone)
-      val value2 = VersionedValue(ValueVersion("4"), ValueOptional(Some(ValueUnit)))
+      val value1 = ValueNone
+      val value2 = ValueOptional(Some(ValueUnit))
 
-      val tid = templateId("module", "name")
+      val tid = defRef("module", "name")
 
       val hash1 = Hash(GlobalKey(tid, value1))
       val hash2 = Hash(GlobalKey(tid, value2))
 
-      hash1.equals(hash2) shouldBe false
+      hash1 should !==(hash2)
     }
 
     "not produce collision in Record" in {
-      val value1 = VersionedValue(
-        ValueVersion("4"),
-        ValueRecord(
-          None,
-          ImmArray(
-            None -> ValueText("A"),
-            None -> ValueText("B")
-          )))
-      val value2 = VersionedValue(
-        ValueVersion("4"),
-        ValueRecord(
-          None,
-          ImmArray(
-            None -> ValueText("A"),
-            None -> ValueText("C")
-          )))
+      val recordT =
+        VA.record(defRef(name = "Tuple2"), '_1 ->> VA.text :: '_2 ->> VA.text :: RNil)._2
+      val value1 = recordT.inj(HRecord(_1 = "A", _2 = "B"))
+      val value2 = recordT.inj(HRecord(_1 = "A", _2 = "C"))
 
-      val tid = templateId("module", "name")
+      val tid = defRef("module", "name")
 
       val hash1 = Hash(GlobalKey(tid, value1))
       val hash2 = Hash(GlobalKey(tid, value2))
 
-      hash1.equals(hash2) shouldBe false
+      hash1 should !==(hash2)
     }
   }
 
@@ -324,144 +313,107 @@ class HashSpec extends WordSpec with Matchers {
       implicit def toName(s: String): Ref.Name =
         Ref.Name.assertFromString(s)
 
-      implicit def toSortedLookupList[V](a: ImmArray[(String, V)]): SortedLookupList[V] =
-        SortedLookupList.fromSortedImmArray(a).right.get
-
-      val EnumTypeCon: Ref.TypeConName = "Color"
-      val EnumTypeConBis: Ref.TypeConName = "ColorBis"
-
-      val EnumCon1: Ref.Name = "Red"
-      val EnumCon2: Ref.Name = "Green"
-
-      val Record0TypeCon: Ref.TypeConName = "Unit"
-      val Record2TypeCon: Ref.TypeConName = "Tuple"
-      val Record0TypeConBis: Ref.TypeConName = "UnitBis"
-      val Record2TypeConBis: Ref.TypeConName = "TupleBis"
-      val fstField = Ref.Name.assertFromString("_1")
-      val sndField = Ref.Name.assertFromString("_2")
-
-      val VariantTypeCon: Ref.TypeConName = "Either"
-      val VariantTypeConBis: Ref.TypeConName = "EitherBis"
-      val VariantCon1: Ref.Name = "Left"
-      val VariantCon2: Ref.Name = "Right"
-
-      val units =
-        List[V](
-          ValueUnit
-        )
-      val bools =
-        List[V](ValueTrue, ValueFalse)
-      val ints =
-        List[V](ValueInt64(-1L), ValueInt64(0L), ValueInt64(1L))
-      val decimals =
-        List[V](
-          ValueNumeric(Numeric.assertFromString("-10000.0000000000")),
-          ValueNumeric(Numeric.assertFromString("0.0000000000")),
-          ValueNumeric(Numeric.assertFromString("10000.0000000000")),
-        )
-      val numeric0s =
-        List[V](
-          ValueNumeric(Numeric.assertFromString("-10000.")),
-          ValueNumeric(Numeric.assertFromString("0.")),
-          ValueNumeric(Numeric.assertFromString("10000.")),
-        )
-
-      val texts =
-        List[V](
-          ValueText(""),
-          ValueText("someText"),
-          ValueText("a¶‱😂"),
-        )
+      val units = List(ValueUnit)
+      val bools = List(true, false).map(VA.bool.inj)
+      val ints = List(-1L, 0L, 1L).map(VA.int64.inj)
+      val decimals = List("-10000.0000000000", "0.0000000000", "10000.0000000000")
+        .map(Numeric.assertFromString)
+        .map(VA.numeric(Decimal.scale).inj)
+      val numeric0s = List("-10000.", "0.", "10000.")
+        .map(Numeric.assertFromString)
+        .map(VA.numeric(Numeric.Scale.MinValue).inj)
+      val texts = List("", "someText", "a¶‱😂").map(VA.text.inj)
       val dates =
-        List[V](
-          ValueDate(Time.Date.assertFromDaysSinceEpoch(0)),
-          ValueDate(Time.Date.assertFromString("1969-07-21")),
-          ValueDate(Time.Date.assertFromString("2019-12-16")),
-        )
+        List(
+          Time.Date.assertFromDaysSinceEpoch(0),
+          Time.Date.assertFromString("1969-07-21"),
+          Time.Date.assertFromString("2019-12-16"),
+        ).map(VA.date.inj)
       val timestamps =
-        List[V](
-          ValueTimestamp(Time.Timestamp.assertFromLong(0)),
-          ValueTimestamp(Time.Timestamp.assertFromString("1969-07-21T02:56:15.000000Z")),
-          ValueTimestamp(Time.Timestamp.assertFromString("2019-12-16T11:17:54.940779363Z")),
-        )
+        List(
+          Time.Timestamp.assertFromLong(0),
+          Time.Timestamp.assertFromString("1969-07-21T02:56:15.000000Z"),
+          Time.Timestamp.assertFromString("2019-12-16T11:17:54.940779363Z"),
+        ).map(VA.timestamp.inj)
       val parties =
-        List[V](
-          ValueParty(Ref.Party.assertFromString("alice")),
-          ValueParty(Ref.Party.assertFromString("bob")),
-        )
+        List(
+          Ref.Party.assertFromString("alice"),
+          Ref.Party.assertFromString("bob"),
+        ).map(VA.party.inj)
       val contractIds =
-        List[V](
-          ValueContractId(
-            AbsoluteContractId(Ref.ContractIdString.assertFromString(
-              "07e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5"))),
-          ValueContractId(
-            AbsoluteContractId(Ref.ContractIdString.assertFromString(
-              "59b59ad7a6b6066e77b91ced54b8282f0e24e7089944685cb8f22f32fcbc4e1b")))
-        )
+        List(
+          "07e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5",
+          "59b59ad7a6b6066e77b91ced54b8282f0e24e7089944685cb8f22f32fcbc4e1b"
+        ).map(x => AbsoluteContractId(Ref.ContractIdString.assertFromString(x)))
+          .map(VA.contractId.inj)
 
-      val enums =
-        List[V](
-          ValueEnum(Some(EnumTypeCon), EnumCon1),
-          ValueEnum(Some(EnumTypeCon), EnumCon2),
-          ValueEnum(Some(EnumTypeConBis), EnumCon2),
-        )
+      val enumT1 = VA.enum("Color", List("Red", "Green"))._2
+      val enumT2 = VA.enum("ColorBis", List("Red", "Green"))._2
+
+      val enums = List(
+        enumT1.inj(enumT1.get("Red").get),
+        enumT1.inj(enumT1.get("Green").get),
+        enumT2.inj(enumT2.get("Green").get)
+      )
+
+      val record0T1 = VA.record("Unit", RNil)._2
+      val record0T2 = VA.record("UnitBis", RNil)._2
 
       val records0 =
-        List[V](
-          ValueRecord(Some(Record0TypeCon), ImmArray.empty),
-          ValueRecord(Some(Record0TypeConBis), ImmArray.empty),
+        List(
+          record0T1.inj(HRecord()),
+          record0T2.inj(HRecord()),
         )
+
+      val record2T1 = VA.record("Tuple", '_1 ->> VA.bool :: '_2 ->> VA.bool :: RNil)._2
+      val record2T2 = VA.record("TupleBis", '_1 ->> VA.bool :: '_2 ->> VA.bool :: RNil)._2
 
       val records2 =
-        List[V](
-          ValueRecord(
-            Some(Record2TypeCon),
-            ImmArray(Some(fstField) -> ValueFalse, Some(sndField) -> ValueFalse)),
-          ValueRecord(
-            Some(Record2TypeCon),
-            ImmArray(Some(fstField) -> ValueTrue, Some(sndField) -> ValueFalse)),
-          ValueRecord(
-            Some(Record2TypeCon),
-            ImmArray(Some(fstField) -> ValueFalse, Some(sndField) -> ValueTrue)),
-          ValueRecord(
-            Some(Record2TypeConBis),
-            ImmArray(Some(fstField) -> ValueFalse, Some(sndField) -> ValueFalse)),
+        List(
+          record2T1.inj(HRecord(_1 = false, _2 = false)),
+          record2T1.inj(HRecord(_1 = true, _2 = false)),
+          record2T1.inj(HRecord(_1 = false, _2 = true)),
+          record2T2.inj(HRecord(_1 = false, _2 = false)),
         )
 
-      val variants = List[V](
-        ValueVariant(Some(VariantTypeCon), VariantCon1, ValueFalse),
-        ValueVariant(Some(VariantTypeCon), VariantCon1, ValueTrue),
-        ValueVariant(Some(VariantTypeCon), VariantCon2, ValueFalse),
-        ValueVariant(Some(VariantTypeConBis), VariantCon1, ValueFalse),
+      val variantT1 = VA.variant("Either", 'Left ->> VA.bool :: 'Right ->> VA.bool :: RNil)._2
+      val variantT2 = VA.variant("EitherBis", 'Left ->> VA.bool :: 'Right ->> VA.bool :: RNil)._2
+
+      val variants = List(
+        variantT1.inj(HSum[variantT1.Inj[Nothing]]('Left ->> false)),
+        variantT1.inj(HSum[variantT1.Inj[Nothing]]('Left ->> true)),
+        variantT1.inj(HSum[variantT1.Inj[Nothing]]('Right ->> false)),
+        variantT2.inj(HSum[variantT1.Inj[Nothing]]('Left ->> false)),
       )
 
-      val lists = List[V](
-        ValueList(FrontStack.empty),
-        ValueList(FrontStack(ValueFalse)),
-        ValueList(FrontStack(ValueTrue)),
-        ValueList(FrontStack(ValueFalse, ValueFalse)),
-        ValueList(FrontStack(ValueFalse, ValueTrue)),
-        ValueList(FrontStack(ValueTrue, ValueFalse)),
+      def list(elements: Boolean*) = VA.list(VA.bool).inj(elements.toVector)
+
+      val lists = List(
+        list(),
+        list(false),
+        list(true),
+        list(false, false),
+        list(false, true),
+        list(true, false)
       )
+
+      def textMap(entries: (String, Boolean)*) =
+        VA.map(VA.bool).inj(SortedLookupList(entries.toMap))
 
       val textMaps = List[V](
-        ValueTextMap(SortedLookupList.empty),
-        ValueTextMap(ImmArray("a" -> ValueFalse)),
-        ValueTextMap(ImmArray("a" -> ValueFalse)),
-        ValueTextMap(ImmArray("b" -> ValueFalse)),
-        ValueTextMap(ImmArray("a" -> ValueFalse, "b" -> ValueFalse)),
-        ValueTextMap(ImmArray("a" -> ValueTrue, "b" -> ValueFalse)),
-        ValueTextMap(ImmArray("a" -> ValueFalse, "b" -> ValueTrue)),
-        ValueTextMap(ImmArray("a" -> ValueFalse, "c" -> ValueFalse)),
+        textMap(),
+        textMap("a" -> false),
+        textMap("a" -> false),
+        textMap("b" -> false),
+        textMap("a" -> false, "b" -> false),
+        textMap("a" -> true, "b" -> false),
+        textMap("a" -> false, "b" -> true),
+        textMap("a" -> false, "c" -> false),
       )
 
-      val optionals = List[V](
-        ValueOptional(None),
-        ValueOptional(Some(ValueFalse)),
-        ValueOptional(Some(ValueTrue)),
-        ValueOptional(Some(ValueOptional(None))),
-        ValueOptional(Some(ValueOptional(Some(ValueFalse)))),
-      )
+      val optionals =
+        List(None, Some(false), Some(true)).map(VA.optional(VA.bool).inj) ++
+          List(Some(None), Some(Some(false))).map(VA.optional(VA.optional(VA.bool)).inj)
 
       val testCases: List[V] =
         units ++ bools ++ ints ++ decimals ++ numeric0s ++ dates ++ timestamps ++ texts ++ parties ++ contractIds ++ optionals ++ lists ++ textMaps ++ enums ++ records0 ++ records2 ++ variants
@@ -601,10 +553,15 @@ class HashSpec extends WordSpec with Matchers {
     }
   }
 
-  private implicit def int2decimal(x: Int): Numeric =
-    BigDecimal(x)
+  private def defRef(module: String = "Module", name: String) =
+    Ref.Identifier(
+      packageId0,
+      Ref.QualifiedName(
+        Ref.DottedName.assertFromString(module),
+        Ref.DottedName.assertFromString(name))
+    )
 
-  private implicit def BigDecimal2decimal(x: BigDecimal): Numeric =
-    Numeric.assertFromBigDecimal(Decimal.scale, x)
+  private implicit def addVersion[Cid](v: Value[Cid]): VersionedValue[Cid] =
+    VersionedValue(ValueVersion("4"), v)
 
 }
