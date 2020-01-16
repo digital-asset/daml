@@ -180,8 +180,8 @@ application/json body, formatted according to the :doc:`search-query-language`:
 .. code-block:: json
 
     {
-        "%templates": ["Iou:Iou"],
-        "amount": 999.99
+        "templateIds": ["Iou:Iou"],
+        "query": {"amount": 999.99}
     }
 
 Empty Response
@@ -265,7 +265,7 @@ Two subprotocols must be passed, as described in `Choosing a party
 application/json body must be sent first, formatted according to the
 :doc:`search-query-language`::
 
-    {"%templates": ["Iou:Iou"]}
+    {"templateIds": ["Iou:Iou"]}
 
 output a series of JSON documents, each ``argument`` formatted according
 to :doc:`lf-value-specification`::

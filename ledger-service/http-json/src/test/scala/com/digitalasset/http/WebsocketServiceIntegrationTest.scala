@@ -83,7 +83,7 @@ class WebsocketServiceIntegrationTest
             subprotocol = validSubprotocol))
 
         clientMsg <- Source
-          .single(TextMessage("""{"%templates": ["Iou:Iou"]}"""))
+          .single(TextMessage("""{"templateIds": ["Iou:Iou"]}"""))
           .via(webSocketFlow)
           .runWith(collectResultsAsRawString)
       } yield
@@ -148,7 +148,7 @@ class WebsocketServiceIntegrationTest
           subprotocol = validSubprotocol))
 
       val query =
-        TextMessage.Strict("""{"%templates": ["Iou:Iou"]}""")
+        TextMessage.Strict("""{"templateIds": ["Iou:Iou"]}""")
 
       val parseResp: Flow[Message, JsValue, NotUsed] =
         Flow[Message]

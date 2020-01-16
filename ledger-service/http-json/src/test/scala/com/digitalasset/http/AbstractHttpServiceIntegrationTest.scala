@@ -143,7 +143,7 @@ abstract class AbstractHttpServiceIntegrationTest
   "contracts/search POST with empty query" in withHttpService { (uri, encoder, _) =>
     searchWithQuery(
       searchDataSet,
-      jsObject("""{"%templates": ["Iou:Iou"]}"""),
+      jsObject("""{"templateIds": ["Iou:Iou"]}"""),
       uri,
       encoder
     ).map { acl: List[domain.ActiveContract[JsValue]] =>
@@ -154,7 +154,7 @@ abstract class AbstractHttpServiceIntegrationTest
   "contracts/search with query, one field" in withHttpService { (uri, encoder, _) =>
     searchWithQuery(
       searchDataSet,
-      jsObject("""{"%templates": ["Iou:Iou"], "currency": "EUR"}"""),
+      jsObject("""{"templateIds": ["Iou:Iou"], "query": {"currency": "EUR"}}"""),
       uri,
       encoder
     ).map { acl: List[domain.ActiveContract[JsValue]] =>
@@ -165,7 +165,8 @@ abstract class AbstractHttpServiceIntegrationTest
 
   "contracts/search returns unknown Template IDs as warnings" in withHttpService { (uri, _, _) =>
     val query =
-      jsObject("""{"%templates": ["Iou:Iou", "UnknownModule:UnknownEntity"], "currency": "EUR"}""")
+      jsObject(
+        """{"templateIds": ["Iou:Iou", "UnknownModule:UnknownEntity"], "query": {"currency": "EUR"}}""")
 
     postJsonRequest(uri.withPath(Uri.Path("/contracts/search")), query)
       .map {
@@ -186,8 +187,10 @@ abstract class AbstractHttpServiceIntegrationTest
         rs: List[(StatusCode, JsValue)] =>
           rs.map(_._1) shouldBe List.fill(searchDataSet.size)(StatusCodes.OK)
 
-          val queryAmountAsString = jsObject("""{"%templates": ["Iou:Iou"], "amount": "111.11"}""")
-          val queryAmountAsNumber = jsObject("""{"%templates": ["Iou:Iou"], "amount": 111.11}""")
+          def queryAmountAs(s: String) =
+            jsObject(s"""{"templateIds": ["Iou:Iou"], "query": {"amount": $s}}""")
+          val queryAmountAsString = queryAmountAs("\"111.11\"")
+          val queryAmountAsNumber = queryAmountAs("111.11")
 
           List(
             postJsonRequest(uri.withPath(Uri.Path("/contracts/search")), queryAmountAsString),
@@ -212,7 +215,8 @@ abstract class AbstractHttpServiceIntegrationTest
   "contracts/search with query, two fields" in withHttpService { (uri, encoder, _) =>
     searchWithQuery(
       searchDataSet,
-      jsObject("""{"%templates": ["Iou:Iou"], "currency": "EUR", "amount": "111.11"}"""),
+      jsObject(
+        """{"templateIds": ["Iou:Iou"], "query": {"currency": "EUR", "amount": "111.11"}}"""),
       uri,
       encoder).map { acl: List[domain.ActiveContract[JsValue]] =>
       acl.size shouldBe 1
@@ -224,7 +228,8 @@ abstract class AbstractHttpServiceIntegrationTest
   "contracts/search with query, no results" in withHttpService { (uri, encoder, _) =>
     searchWithQuery(
       searchDataSet,
-      jsObject("""{"%templates": ["Iou:Iou"], "currency": "RUB", "amount": "666.66"}"""),
+      jsObject(
+        """{"templateIds": ["Iou:Iou"], "query": {"currency": "RUB", "amount": "666.66"}}"""),
       uri,
       encoder
     ).map { acl: List[domain.ActiveContract[JsValue]] =>
@@ -653,9 +658,11 @@ abstract class AbstractHttpServiceIntegrationTest
         val contractId: ContractId = getContractId(getResult(output))
 
         val query = jsObject(s"""{
-             "%templates": ["$packageId:Account:Account"],
-             "number" : "abc123",
-             "status" : {"tag": "Enabled", "value": "${nowStr: String}"}
+             "templateIds": ["$packageId:Account:Account"],
+             "query": {
+                 "number" : "abc123",
+                 "status" : {"tag": "Enabled", "value": "${nowStr: String}"}
+             }
           }""")
 
         postJsonRequest(uri.withPath(Uri.Path("/contracts/search")), query).map {
