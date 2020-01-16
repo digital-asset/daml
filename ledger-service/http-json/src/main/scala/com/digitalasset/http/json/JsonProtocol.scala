@@ -133,7 +133,7 @@ object JsonProtocol extends DefaultJsonProtocol {
       case (None, Some(_), None) =>
         deserializationError(s"$what requires key to be accompanied by a templateId")
       case (_, None, None) | (_, Some(_), Some(_)) =>
-        deserializationError(s"$what requires exactly one of a key or contractId")
+        deserializationError(s"$what requires either key or contractId field")
     }
 
   // implicit val ContractLookupRequestFormat
