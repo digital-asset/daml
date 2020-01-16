@@ -38,7 +38,17 @@ case class AuthServiceJWTPayload(
     admin: Boolean,
     actAs: List[String],
     readAs: List[String]
-)
+) {
+
+  /**
+    * If this token is associated with exactly one party, returns that party name.
+    * Otherwise, returns None.
+    */
+  def party: Option[String] = {
+    val allParties = (actAs ++ readAs).toSet
+    if (allParties.size == 1) allParties.headOption else None
+  }
+}
 
 /**
   * Codec for writing and reading [[AuthServiceJWTPayload]] to and from JSON.
@@ -123,8 +133,12 @@ object AuthServiceJWTCodec {
     case JsObject(fields) =>
       // New format: OIDC compliant
       val customClaims = fields
-        .getOrElse(oidcNamespace, deserializationError(s"Can't read ${value.prettyPrint} as AuthServiceJWTPayload: namespace missing"))
-        .asJsObject(s"Can't read ${value.prettyPrint} as AuthServiceJWTPayload: namespace is not an object")
+        .getOrElse(
+          oidcNamespace,
+          deserializationError(
+            s"Can't read ${value.prettyPrint} as AuthServiceJWTPayload: namespace missing"))
+        .asJsObject(
+          s"Can't read ${value.prettyPrint} as AuthServiceJWTPayload: namespace is not an object")
         .fields
       AuthServiceJWTPayload(
         ledgerId = readOptionalString(propLedgerId, customClaims),
@@ -136,7 +150,8 @@ object AuthServiceJWTCodec {
         readAs = readOptionalStringList(propReadAs, customClaims)
       )
     case _ =>
-      deserializationError(s"Can't read ${value.prettyPrint} as AuthServiceJWTPayload: value is not an object")
+      deserializationError(
+        s"Can't read ${value.prettyPrint} as AuthServiceJWTPayload: value is not an object")
   }
 
   private[this] def readOptionalString(name: String, fields: Map[String, JsValue]): Option[String] =

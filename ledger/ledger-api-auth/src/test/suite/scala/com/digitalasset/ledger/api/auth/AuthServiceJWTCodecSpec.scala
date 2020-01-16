@@ -80,7 +80,9 @@ class AuthServiceJWTCodecSpec
           actAs = List("Alice"),
           readAs = List("Alice", "Bob")
         )
-        parse(serialized) shouldBe Success(expected)
+        val result = parse(serialized)
+        result shouldBe Success(expected)
+        result.map(_.party) shouldBe Success(None)
       }
 
       "support legacy JSON API format" in {
@@ -100,8 +102,27 @@ class AuthServiceJWTCodecSpec
           actAs = List("Alice"),
           readAs = List.empty
         )
-        parse(serialized) shouldBe Success(expected)
+        val result = parse(serialized)
+        result shouldBe Success(expected)
+        result.map(_.party) shouldBe Success(Some("Alice"))
       }
+
+      "have stable default values" in {
+        val serialized = "{}"
+        val expected = AuthServiceJWTPayload(
+          ledgerId = None,
+          participantId = None,
+          applicationId = None,
+          exp = None,
+          admin = false,
+          actAs = List.empty,
+          readAs = List.empty
+        )
+        val result = parse(serialized)
+        result shouldBe Success(expected)
+        result.map(_.party) shouldBe Success(None)
+      }
+
     }
   }
 }
