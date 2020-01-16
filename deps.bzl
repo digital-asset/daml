@@ -180,8 +180,6 @@ def daml_deps():
             name = "build_bazel_rules_nodejs",
             urls = ["https://github.com/bazelbuild/rules_nodejs/releases/download/1.1.0/rules_nodejs-1.1.0.tar.gz"],
             sha256 = "c97bf38546c220fa250ff2cc052c1a9eac977c662c1fc23eda797b0ce8e70a43",
-            # patches = ["@com_github_digital_asset_daml//bazel_tools:rules_nodejs_posix_path.patch"],
-            # patch_args = ["-p1"],
         )
 
     if "com_github_grpc_grpc" not in native.existing_rules():

@@ -25,6 +25,7 @@ genrule(
             "theme/da_theme/**",
         ],
     ) + [
+        # we need to list all the transitive dependencies here because of https://github.com/bazelbuild/rules_nodejs/issues/1553
         "@npm//acorn",
         "@npm//acorn-dynamic-import",
         "@npm//acorn-node",

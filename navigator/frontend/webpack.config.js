@@ -57,6 +57,7 @@ module.exports = (env) => {
   // TODO (drsk) there seems to be a bug in the code producing the `env.bazel_in_dir,
   // env.bazel_out_dir` that just concats directory components. We should switch back to rely on
   // bazel_in_dir/bazel_out_dir once it's fixed.
+  // The issue is reported and tracked here: https://github.com/bazelbuild/rules_nodejs/issues/1554
   const in_dir           = __dirname;
   const out_dir          = path.join(__dirname, 'dist');
   const build_version    = env && env.bazel_version_file ? fs.readFileSync(env.bazel_version_file, 'utf8').trim() : 'HEAD';
