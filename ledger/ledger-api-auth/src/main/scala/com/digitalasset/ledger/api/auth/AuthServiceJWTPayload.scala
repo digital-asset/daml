@@ -66,6 +66,9 @@ object AuthServiceJWTCodec {
   // ------------------------------------------------------------------------------------------------------------------
   // Constants used in the encoding
   // ------------------------------------------------------------------------------------------------------------------
+  // OpenID Connect (OIDC) namespace for custom JWT claims
+  final val oidcNamespace: String = "https://daml.com/ledger-api"
+
   private[this] final val propLedgerId: String = "ledgerId"
   private[this] final val propParticipantId: String = "participantId"
   private[this] final val propApplicationId: String = "applicationId"
@@ -73,18 +76,21 @@ object AuthServiceJWTCodec {
   private[this] final val propActAs: String = "actAs"
   private[this] final val propReadAs: String = "readAs"
   private[this] final val propExp: String = "exp"
+  private[this] final val propParty: String = "party" // Legacy JSON API payload
 
   // ------------------------------------------------------------------------------------------------------------------
   // Encoding
   // ------------------------------------------------------------------------------------------------------------------
   def writePayload(v: AuthServiceJWTPayload): JsValue = JsObject(
-    propLedgerId -> writeOptionalString(v.ledgerId),
-    propParticipantId -> writeOptionalString(v.participantId),
-    propApplicationId -> writeOptionalString(v.applicationId),
-    propAdmin -> JsBoolean(v.admin),
+    oidcNamespace -> JsObject(
+      propLedgerId -> writeOptionalString(v.ledgerId),
+      propParticipantId -> writeOptionalString(v.participantId),
+      propApplicationId -> writeOptionalString(v.applicationId),
+      propAdmin -> JsBoolean(v.admin),
+      propActAs -> writeStringList(v.actAs),
+      propReadAs -> writeStringList(v.readAs)
+    ),
     propExp -> writeOptionalInstant(v.exp),
-    propActAs -> writeStringList(v.actAs),
-    propReadAs -> writeStringList(v.readAs)
   )
 
   /** Writes the given payload to a compact JSON string */
@@ -103,18 +109,34 @@ object AuthServiceJWTCodec {
   // Decoding
   // ------------------------------------------------------------------------------------------------------------------
   def readPayload(value: JsValue): AuthServiceJWTPayload = value match {
-    case JsObject(fields) =>
+    case JsObject(fields) if !fields.contains(oidcNamespace) =>
+      // Legacy format
       AuthServiceJWTPayload(
         ledgerId = readOptionalString(propLedgerId, fields),
         participantId = readOptionalString(propParticipantId, fields),
         applicationId = readOptionalString(propApplicationId, fields),
         exp = readInstant(propExp, fields),
         admin = readOptionalBoolean(propAdmin, fields).getOrElse(false),
-        actAs = readOptionalStringList(propActAs, fields),
+        actAs = readOptionalStringList(propActAs, fields) ++ readOptionalString(propParty, fields).toList,
         readAs = readOptionalStringList(propReadAs, fields)
       )
+    case JsObject(fields) =>
+      // New format: OIDC compliant
+      val customClaims = fields
+        .getOrElse(oidcNamespace, deserializationError(s"Can't read ${value.prettyPrint} as AuthServiceJWTPayload: namespace missing"))
+        .asJsObject(s"Can't read ${value.prettyPrint} as AuthServiceJWTPayload: namespace is not an object")
+        .fields
+      AuthServiceJWTPayload(
+        ledgerId = readOptionalString(propLedgerId, customClaims),
+        participantId = readOptionalString(propParticipantId, customClaims),
+        applicationId = readOptionalString(propApplicationId, customClaims),
+        exp = readInstant(propExp, fields),
+        admin = readOptionalBoolean(propAdmin, customClaims).getOrElse(false),
+        actAs = readOptionalStringList(propActAs, customClaims),
+        readAs = readOptionalStringList(propReadAs, customClaims)
+      )
     case _ =>
-      deserializationError(s"Can't read ${value.prettyPrint} as AuthServiceJWTPayload")
+      deserializationError(s"Can't read ${value.prettyPrint} as AuthServiceJWTPayload: value is not an object")
   }
 
   private[this] def readOptionalString(name: String, fields: Map[String, JsValue]): Option[String] =

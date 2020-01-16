@@ -29,6 +29,16 @@ class AuthServiceJWTCodecSpec
     } yield parsed
   }
 
+  /** Parses a [[AuthServiceJWTPayload]] */
+  private def parse(serialized: String): Try[AuthServiceJWTPayload] = {
+    import AuthServiceJWTCodec.JsonImplicits._
+
+    for {
+      json <- Try(serialized.parseJson)
+      parsed <- Try(json.convertTo[AuthServiceJWTPayload])
+    } yield parsed
+  }
+
   private implicit val arbInstant: Arbitrary[Instant] = {
     Arbitrary {
       for {
@@ -48,6 +58,50 @@ class AuthServiceJWTCodecSpec
         minSuccessful(100))(
         value => serializeAndParse(value) shouldBe Success(value)
       )
+
+      "support legacy sandbox format" in {
+        val serialized =
+          """{
+            |  "ledgerId": "someLedgerId",
+            |  "participantId": "someParticipantId",
+            |  "applicationId": "someApplicationId",
+            |  "exp": 0,
+            |  "admin": true,
+            |  "actAs": ["Alice"],
+            |  "readAs": ["Alice", "Bob"]
+            |}
+          """.stripMargin
+        val expected = AuthServiceJWTPayload(
+          ledgerId = Some("someLedgerId"),
+          participantId = Some("someParticipantId"),
+          applicationId = Some("someApplicationId"),
+          exp = Some(Instant.EPOCH),
+          admin = true,
+          actAs = List("Alice"),
+          readAs = List("Alice", "Bob")
+        )
+        parse(serialized) shouldBe Success(expected)
+      }
+
+      "support legacy JSON API format" in {
+        val serialized =
+          """{
+            |  "ledgerId": "someLedgerId",
+            |  "applicationId": "someApplicationId",
+            |  "party": "Alice"
+            |}
+          """.stripMargin
+        val expected = AuthServiceJWTPayload(
+          ledgerId = Some("someLedgerId"),
+          participantId = None,
+          applicationId = Some("someApplicationId"),
+          exp = None,
+          admin = false,
+          actAs = List("Alice"),
+          readAs = List.empty
+        )
+        parse(serialized) shouldBe Success(expected)
+      }
     }
   }
 }
