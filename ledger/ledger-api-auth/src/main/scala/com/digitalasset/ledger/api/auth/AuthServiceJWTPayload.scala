@@ -5,6 +5,7 @@ package com.digitalasset.ledger.api.auth
 
 import java.time.Instant
 
+import org.slf4j.{Logger, LoggerFactory}
 import spray.json._
 
 import scala.util.Try
@@ -75,6 +76,8 @@ case class AuthServiceJWTPayload(
   */
 object AuthServiceJWTCodec {
 
+  protected val logger: Logger = LoggerFactory.getLogger(AuthServiceJWTCodec.getClass)
+
   // ------------------------------------------------------------------------------------------------------------------
   // Constants used in the encoding
   // ------------------------------------------------------------------------------------------------------------------
@@ -134,6 +137,7 @@ object AuthServiceJWTCodec {
   def readPayload(value: JsValue): AuthServiceJWTPayload = value match {
     case JsObject(fields) if !fields.contains(oidcNamespace) =>
       // Legacy format
+      logger.warn(s"Token ${value.compactPrint} is using a deprecated JWT payload format")
       AuthServiceJWTPayload(
         ledgerId = readOptionalString(propLedgerId, fields),
         participantId = readOptionalString(propParticipantId, fields),
