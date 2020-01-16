@@ -100,13 +100,15 @@ The following is an example of a valid JWT payload:
 .. code-block:: json
 
    {
-      "ledgerId": "aaaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
-      "participantId": null,
-      "applicationId": null,
+      "https://daml.com/ledger-api": {
+        "ledgerId": "aaaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+        "participantId": null,
+        "applicationId": null,
+        "admin": true,
+        "actAs": ["Alice"],
+        "readAs": ["Bob"]
+      },
       "exp": 1300819380,
-      "admin": true,
-      "actAs": ["Alice"],
-      "readAs": ["Bob"]
    }
 
 where

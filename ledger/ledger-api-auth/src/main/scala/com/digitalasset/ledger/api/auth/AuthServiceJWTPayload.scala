@@ -57,6 +57,7 @@ case class AuthServiceJWTPayload(
   * Codec for writing and reading [[AuthServiceJWTPayload]] to and from JSON.
   *
   * In general:
+  * - All custom claims are placed in a namespace field according to the OpenID Connect standard.
   * - All fields are optional in JSON for forward/backward compatibility reasons.
   * - Extra JSON fields are ignored when reading.
   * - Null values and missing JSON fields map to None or a safe default value (if there is one).
@@ -64,13 +65,15 @@ case class AuthServiceJWTPayload(
   * Example:
   * ```
   * {
-  *   "ledgerId": "aaaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
-  *   "participantId": null,
-  *   "applicationId": null,
-  *   "exp": 1300819380,
-  *   "admin": true,
-  *   "actAs": ["Alice"],
-  *   "readAs": ["Alice", "Bob"],
+  *   "https://daml.com/ledger-api": {
+  *     "ledgerId": "aaaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+  *     "participantId": null,
+  *     "applicationId": null,
+  *     "admin": true,
+  *     "actAs": ["Alice"],
+  *     "readAs": ["Alice", "Bob"]
+  *   },
+  *   "exp": 1300819380
   * }
   * ```
   */
