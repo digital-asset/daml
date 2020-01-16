@@ -52,6 +52,7 @@ main = do
         , scenarioTests runScenarios
         , stressTests run runScenarios
         , executeCommandTests run runScenarios
+        , regressionTests run runScenarios
         ]
     where
         conf = defaultConfig
@@ -605,3 +606,47 @@ stressTests run _runScenarios = testGroup "Stress tests"
     makeModule :: String -> [T.Text] -> Session TextDocumentIdentifier
     makeModule name lines = openDoc' (name ++ ".daml") damlId $
         moduleContent name lines
+
+regressionTests
+    :: (Session () -> IO ())
+    -> (Session () -> IO ())
+    -> TestTree
+regressionTests run _runScenarios = testGroup "regression"
+  [ testCase "completion on stale file" $ run $ do
+        -- This used to produce "cannot continue after interface file error"
+        -- since we used a function from GHCi in ghcide.
+        foo <- openDoc' "Foo.daml" damlId $ T.unlines
+            [ "{-# OPTIONS_GHC -Wall #-}"
+            , "daml 1.2"
+            , "module Foo where"
+            , "import DA.List"
+            , ""
+            ]
+        expectDiagnostics [("Foo.daml", [(DsWarning, (3,0), "redundant")])]
+        completions <- getCompletions foo (Position 3 1)
+        liftIO $
+            assertBool ("DA.List and DA.Internal.RebindableSyntax should be in " <> show completions) $
+            mkCompletion "DA.Internal.RebindableSyntax" `elem` completions &&
+            mkCompletion "DA.List" `elem` completions
+        changeDoc foo [TextDocumentContentChangeEvent (Just (Range (Position 3 0) (Position 3 1))) Nothing "Syntax"]
+        expectDiagnostics [("Foo.daml", [(DsError, (3,0), "Parse error")])]
+        completions <- getCompletions foo (Position 3 6)
+        liftIO $ completions @?= [mkCompletion "DA.Internal.RebindableSyntax" & detail .~ Nothing]
+  ]
+  where mkCompletion mod = CompletionItem
+          { _label = mod
+          , _kind = Just CiModule
+          , _detail = Just mod
+          , _documentation = Nothing
+          , _deprecated = Nothing
+          , _preselect = Nothing
+          , _sortText = Nothing
+          , _filterText = Nothing
+          , _insertText = Nothing
+          , _insertTextFormat = Nothing
+          , _textEdit = Nothing
+          , _additionalTextEdits = Nothing
+          , _commitCharacters = Nothing
+          , _command = Nothing
+          , _xdata = Nothing
+          }
