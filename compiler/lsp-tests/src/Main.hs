@@ -624,46 +624,10 @@ regressionTests run _runScenarios = testGroup "regression"
             ]
         expectDiagnostics [("Foo.daml", [(DsWarning, (3,0), "redundant")])]
         completions <- getCompletions foo (Position 3 1)
-        liftIO $ completions @?= map mkCompletion
-            [ "Control.Exception.Base"
-            , "DA.Action"
-            , "DA.Action.State"
-            , "DA.Bifunctor"
-            , "DA.Either"
-            , "DA.Generics"
-            , "DA.Internal.Any"
-            , "DA.Internal.Assert"
-            , "DA.Internal.Compatible"
-            , "DA.Internal.Date"
-            , "DA.Internal.Desugar"
-            , "DA.Internal.Down"
-            , "DA.Internal.LF"
-            , "DA.Internal.Prelude"
-            , "DA.Internal.RebindableSyntax"
-            , "DA.Internal.Record"
-            , "DA.Internal.Template"
-            , "DA.Internal.Template.Functions"
-            , "DA.Internal.Time"
-            , "DA.List"
-            , "DA.List.Total"
-            , "DA.Logic"
-            , "DA.Logic.Types"
-            , "DA.Monoid"
-            , "DA.Monoid.Types"
-            , "DA.Numeric"
-            , "DA.Optional"
-            , "DA.Optional.Total"
-            , "DA.Semigroup"
-            , "DA.Semigroup.Types"
-            , "DA.Time"
-            , "DA.Time.Types"
-            , "DA.Validation"
-            , "DA.Validation.Types"
-            , "Data.String"
-            , "GHC.CString"
-            , "GHC.Integer.Type"
-            , "LibraryModules"
-            ]
+        liftIO $
+            assertBool ("DA.List and DA.Internal.RebindableSyntax should be in " <> show completions) $
+            mkCompletion "DA.Internal.RebindableSyntax" `elem` completions &&
+            mkCompletion "DA.List" `elem` completions
         changeDoc foo [TextDocumentContentChangeEvent (Just (Range (Position 3 0) (Position 3 1))) Nothing "Syntax"]
         expectDiagnostics [("Foo.daml", [(DsError, (3,0), "Parse error")])]
         completions <- getCompletions foo (Position 3 6)
