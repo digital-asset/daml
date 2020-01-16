@@ -7,8 +7,9 @@ import java.io.File
 import java.time.Duration
 
 import ch.qos.logback.classic.Level
+import com.auth0.jwt.algorithms.Algorithm
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.jwt.{ECDA512Verifier, HMAC256Verifier, JwksVerifier, RSA256Verifier}
+import com.digitalasset.jwt.{ECDSAVerifier, HMAC256Verifier, JwksVerifier, RSA256Verifier}
 import com.digitalasset.ledger.api.auth.AuthServiceJWT
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.tls.TlsConfiguration
@@ -168,11 +169,22 @@ object Cli {
       .text("Enables JWT-based authorization, where the JWT is signed by RSA256 with a public key loaded from the given X509 certificate file (.crt)")
       .action( (path, config) => config.copy(authService = Some(AuthServiceJWT(RSA256Verifier.fromCrtFile(path).valueOr(err => sys.error(s"Failed to create RSA256 verifier: $err"))))))
 
-    opt[String]("auth-jwt-ec-crt")
+    opt[String]("auth-jwt-ec256-crt")
       .optional()
       .validate(v => Either.cond(v.length > 0, (), "Certificate file path must be a non-empty string"))
-      .text("Enables JWT-based authorization, where the JWT is signed by ECDA512 with a public key loaded from the given X509 certificate file (.crt)")
-      .action( (path, config) => config.copy(authService = Some(AuthServiceJWT(ECDA512Verifier.fromCrtFile(path).valueOr(err => sys.error(s"Failed to create ECDA512 verifier: $err"))))))
+      .text("Enables JWT-based authorization, where the JWT is signed by ECDSA256 with a public key loaded from the given X509 certificate file (.crt)")
+      .action( (path, config) => config.copy(
+        authService = Some(AuthServiceJWT(
+          ECDSAVerifier.fromCrtFile(path, Algorithm.ECDSA256(_, null)).valueOr(err => sys.error(s"Failed to create ECDSA256 verifier: $err"))))))
+
+    opt[String]("auth-jwt-ec512-crt")
+      .optional()
+      .validate(v => Either.cond(v.length > 0, (), "Certificate file path must be a non-empty string"))
+      .text("Enables JWT-based authorization, where the JWT is signed by ECDSA512 with a public key loaded from the given X509 certificate file (.crt)")
+      .action( (path, config) => config.copy(
+        authService = Some(AuthServiceJWT(
+          ECDSAVerifier.fromCrtFile(path, Algorithm.ECDSA512(_, null)).valueOr(err => sys.error(s"Failed to create ECDSA512 verifier: $err"))))))
+
 
     opt[String]("auth-jwt-rs256-jwks")
       .optional()

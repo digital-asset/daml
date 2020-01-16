@@ -9,8 +9,8 @@ import java.util.{Timer, TimerTask}
 
 import com.codahale.metrics.MetricRegistry
 import com.digitalasset.ledger.api.health.{HealthStatus, Healthy, ReportsHealth, Unhealthy}
-import com.digitalasset.platform.resources.ResourceOwner
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.HikariJdbcConnectionProvider._
+import com.digitalasset.resources.ResourceOwner
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}

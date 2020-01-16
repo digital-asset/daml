@@ -16,6 +16,8 @@ import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.transaction.Transaction
 import com.digitalasset.ledger.api.v1.transaction_filter.TransactionFilter
 import com.digitalasset.ledger.client.LedgerClient
+import com.digitalasset.http.util.NewBoolean
+import scalaz.syntax.std.boolean._
 
 import scala.concurrent.Future
 
@@ -31,7 +33,7 @@ object LedgerClientJwt {
     (Jwt, TransactionFilter, Boolean) => Source[GetActiveContractsResponse, NotUsed]
 
   type GetCreatesAndArchivesSince =
-    (Jwt, TransactionFilter, LedgerOffset) => Source[Transaction, NotUsed]
+    (Jwt, TransactionFilter, LedgerOffset, Terminates) => Source[Transaction, NotUsed]
 
   private def bearer(jwt: Jwt): Some[String] = Some(s"Bearer ${jwt.value: String}")
 
@@ -43,16 +45,27 @@ object LedgerClientJwt {
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def getActiveContracts(client: LedgerClient): GetActiveContracts =
-    (jwt, filter, flag) =>
+    (jwt, filter, verbose) =>
       client.activeContractSetClient
-        .getActiveContracts(filter, flag, bearer(jwt))
+        .getActiveContracts(filter, verbose, bearer(jwt))
         .mapMaterializedValue(_ => NotUsed)
 
+  object Terminates extends NewBoolean.Named {
+    final val AtLedgerEnd = True
+    final val Never = False
+  }
+  type Terminates = Terminates.T
+
+  private val ledgerEndOffset =
+    LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_END))
+
   def getCreatesAndArchivesSince(client: LedgerClient): GetCreatesAndArchivesSince =
-    (jwt, filter, offset) =>
-      Source
-        .future(client.transactionClient.getLedgerEnd(bearer(jwt)))
-        .flatMapConcat(end =>
-          client.transactionClient
-            .getTransactions(offset, end.offset, filter, verbose = true, token = bearer(jwt)))
+    (jwt, filter, offset, terminates) =>
+      client.transactionClient
+        .getTransactions(
+          offset,
+          terminates option ledgerEndOffset,
+          filter,
+          verbose = true,
+          token = bearer(jwt))
 }

@@ -627,19 +627,25 @@ execPackage projectOpts filePath opts mbOutFile dalfInput =
 
     targetFilePath = fromMaybe defaultDarFile mbOutFile
 
+-- | Given a path to a .dalf or a .dar return the bytes of either the .dalf file
+-- or the the main dalf from the .dar
+-- In addition to the bytes, we also return the basename of the dalf file.
+getDalfBytes :: FilePath -> IO (B.ByteString, FilePath)
+getDalfBytes fp
+  | "dar" `isExtensionOf` fp = do
+        dar <- B.readFile fp
+        let archive = ZipArchive.toArchive $ BSL.fromStrict dar
+        manifest <- either fail pure $ readDalfManifest archive
+        dalfs <- either fail pure $ readDalfs archive
+        pure (BSL.toStrict $ mainDalf dalfs, takeBaseName $ mainDalfPath manifest)
+  | otherwise = (, takeBaseName fp) <$> B.readFile fp
+
 execInspect :: FilePath -> FilePath -> Bool -> DA.Pretty.PrettyLevel -> Command
 execInspect inFile outFile jsonOutput lvl =
   Command Inspect Nothing effect
   where
     effect = do
-      bytes <-
-          if "dar" `isExtensionOf` inFile
-              then do
-                  dar <- B.readFile inFile
-                  dalfs <- either fail pure $ readDalfs $ ZipArchive.toArchive $ BSL.fromStrict dar
-                  pure $! BSL.toStrict $ mainDalf dalfs
-              else B.readFile inFile
-
+      (bytes, _) <- getDalfBytes inFile
       if jsonOutput
       then do
         payloadBytes <- PLF.archivePayload <$> errorOnLeft "Cannot decode archive" (PS.fromByteString bytes)
@@ -792,11 +798,11 @@ execMergeDars darFp1 darFp2 mbOutFp =
 
 -- | Generate daml source files from a dalf package.
 execGenerateSrc :: Options -> FilePath -> Maybe FilePath -> Command
-execGenerateSrc opts dalfFp mbOutDir = Command GenerateSrc Nothing effect
+execGenerateSrc opts dalfOrDar mbOutDir = Command GenerateSrc Nothing effect
   where
-    unitId = stringToUnitId $ takeBaseName dalfFp
     effect = do
-        bytes <- B.readFile dalfFp
+        (bytes, dalfPath) <- getDalfBytes dalfOrDar
+        let unitId = stringToUnitId dalfPath
         (pkgId, pkg) <- decode bytes
         opts <- mkOptions opts
         logger <- getLogger opts "generate-src"

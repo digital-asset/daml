@@ -5,8 +5,8 @@ package com.digitalasset.platform.sandbox.stores.ledger.sql.migration
 
 import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
-import com.digitalasset.platform.resources.Resource
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{DbType, HikariConnection}
+import com.digitalasset.resources.Resource
 import com.zaxxer.hikari.HikariDataSource
 import org.flywaydb.core.Flyway
 import org.flywaydb.core.api.configuration.FluentConfiguration

@@ -16,7 +16,8 @@ import com.digitalasset.ledger.api.auth.{AuthService, AuthServiceWildcard}
 import com.digitalasset.platform.apiserver.{ApiServerConfig, StandaloneApiServer}
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.indexer.{IndexerConfig, StandaloneIndexerServer}
-import com.digitalasset.platform.resources.{Resource, ResourceOwner}
+import com.digitalasset.resources.akka.AkkaResourceOwner
+import com.digitalasset.resources.{Resource, ResourceOwner}
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration.DurationInt
@@ -42,8 +43,8 @@ object ReferenceServer extends App {
   val resource = for {
     // Take ownership of the actor system and materializer so they're cleaned up properly.
     // This is necessary because we can't declare them as implicits within a `for` comprehension.
-    _ <- ResourceOwner.forActorSystem(() => system).acquire()
-    _ <- ResourceOwner.forMaterializer(() => materializer).acquire()
+    _ <- AkkaResourceOwner.forActorSystem(() => system).acquire()
+    _ <- AkkaResourceOwner.forMaterializer(() => materializer).acquire()
     ledger <- ResourceOwner
       .forCloseable(() => new InMemoryKVParticipantState(config.participantId))
       .acquire()

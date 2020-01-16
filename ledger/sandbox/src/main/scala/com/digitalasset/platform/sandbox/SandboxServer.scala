@@ -29,7 +29,6 @@ import com.digitalasset.platform.apiserver.{
 }
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
-import com.digitalasset.platform.resources.{Resource, ResourceOwner}
 import com.digitalasset.platform.sandbox.SandboxServer._
 import com.digitalasset.platform.sandbox.banner.Banner
 import com.digitalasset.platform.sandbox.config.SandboxConfig
@@ -44,6 +43,8 @@ import com.digitalasset.platform.sandbox.stores.{
   SandboxIndexAndWriteService
 }
 import com.digitalasset.platform.services.time.TimeProviderType
+import com.digitalasset.resources.akka.AkkaResourceOwner
+import com.digitalasset.resources.{Resource, ResourceOwner}
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
@@ -285,10 +286,8 @@ final class SandboxServer(config: => SandboxConfig) extends AutoCloseable {
   private def start()(implicit executionContext: ExecutionContext): Resource[SandboxState] = {
     val packageStore = loadDamlPackages()
     for {
-      actorSystem <- ResourceOwner.forActorSystem(() => ActorSystem(ActorSystemName)).acquire()
-      materializer <- ResourceOwner
-        .forMaterializer(() => Materializer(actorSystem))
-        .acquire()
+      actorSystem <- AkkaResourceOwner.forActorSystem(() => ActorSystem(ActorSystemName)).acquire()
+      materializer <- AkkaResourceOwner.forMaterializer(() => Materializer(actorSystem)).acquire()
     } yield {
       val apiServerResource = buildAndStartApiServer(
         materializer,

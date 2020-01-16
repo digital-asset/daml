@@ -29,7 +29,7 @@
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 
-rules_scala_version = "0f89c210ade8f4320017daf718a61de3c1ac4773"
+rules_scala_version = "6c16cff213b76a4126bdc850956046da5db1daaa"
 
 rules_haskell_version = "11b9dd19f3d6e1ae38b0aaa01696d873b2ee7ef9"
 rules_haskell_sha256 = "46923657160087456a21a61184f7bdca76f8e259de1f2ab8ca57b37aeff7d0d5"
@@ -118,7 +118,7 @@ def daml_deps():
             url = "https://github.com/bazelbuild/rules_scala/archive/%s.zip" % rules_scala_version,
             type = "zip",
             strip_prefix = "rules_scala-%s" % rules_scala_version,
-            sha256 = "37eb013ea3e6a940da70df43fe2dd6f423d1ac0849042aa586f9ac157321018d",
+            sha256 = "132cf8eeaab67f3142cec17152b8415901e7fa8396dd585d6334eec21bf7419d",
             patches = [
                 "@com_github_digital_asset_daml//bazel_tools:scala-escape-jvmflags.patch",
             ],
@@ -166,19 +166,20 @@ def daml_deps():
     if "io_bazel_rules_sass" not in native.existing_rules():
         http_archive(
             name = "io_bazel_rules_sass",
-            sha256 = "7f0d64061e5bac749275349a7a7918b6f5759365f289192ff791f3c1495afcf1",
-            strip_prefix = "rules_sass-1.22.3",
-            urls = ["https://github.com/bazelbuild/rules_sass/archive/1.22.3.tar.gz"],
+            sha256 = "7b9c9a88099d00dbb16be359c3b1946309d99673220c6b39c7e8bda8ecc692f8",
+            strip_prefix = "rules_sass-1.24.4",
+            urls = [
+                "https://github.com/bazelbuild/rules_sass/archive/1.24.4.zip",
+                "https://mirror.bazel.build/github.com/bazelbuild/rules_sass/archive/1.24.4.zip",
+            ],
         )
 
     # Fetch rules_nodejs so we can install our npm dependencies
     if "build_bazel_rules_nodejs" not in native.existing_rules():
         http_archive(
             name = "build_bazel_rules_nodejs",
-            urls = ["https://github.com/bazelbuild/rules_nodejs/releases/download/0.32.2/rules_nodejs-0.32.2.tar.gz"],
-            sha256 = "6d4edbf28ff6720aedf5f97f9b9a7679401bf7fca9d14a0fff80f644a99992b4",
-            patches = ["@com_github_digital_asset_daml//bazel_tools:rules_nodejs_posix_path.patch"],
-            patch_args = ["-p1"],
+            urls = ["https://github.com/bazelbuild/rules_nodejs/releases/download/1.1.0/rules_nodejs-1.1.0.tar.gz"],
+            sha256 = "c97bf38546c220fa250ff2cc052c1a9eac977c662c1fc23eda797b0ce8e70a43",
         )
 
     if "com_github_grpc_grpc" not in native.existing_rules():

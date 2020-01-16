@@ -22,7 +22,6 @@ import com.digitalasset.dec.{DirectExecutionContext => DEC}
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
-import com.digitalasset.platform.resources.{Resource, ResourceOwner}
 import com.digitalasset.platform.sandbox.EventIdFormatter
 import com.digitalasset.platform.sandbox.metrics.timedFuture
 import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlLedger.defaultNumberOfShortLivedConnections
@@ -39,6 +38,7 @@ import com.digitalasset.platform.sandbox.stores.ledger.{
   PackageLedgerEntry,
   PartyLedgerEntry
 }
+import com.digitalasset.resources.{Resource, ResourceOwner}
 import scalaz.syntax.tag._
 
 import scala.concurrent.duration._

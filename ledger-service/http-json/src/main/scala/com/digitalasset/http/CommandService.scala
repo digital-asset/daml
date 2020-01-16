@@ -100,22 +100,18 @@ class CommandService(
   private def createCommand(
       input: CreateCommand[lav1.value.Record]): Error \/ lav1.commands.Command.Command.Create = {
     resolveTemplateId(input.templateId)
-      .bimap(
-        e => Error('createCommand, e.shows),
-        x => Commands.create(refApiIdentifier(x), input.argument))
+      .toRightDisjunction(
+        Error('createCommand, ErrorMessages.cannotResolveTemplateId(input.templateId)))
+      .map(tpId => Commands.create(refApiIdentifier(tpId), input.argument))
   }
 
   private def exerciseCommand(
       input: ExerciseCommand[lav1.value.Value]): Error \/ lav1.commands.Command.Command.Exercise =
-    for {
-      templateId <- resolveTemplateId(input.templateId)
-        .leftMap(e => Error('exerciseCommand, e.shows))
-    } yield
-      Commands.exercise(
-        refApiIdentifier(templateId),
-        input.contractId,
-        input.choice,
-        input.argument)
+    resolveTemplateId(input.templateId)
+      .toRightDisjunction(
+        Error('exerciseCommand, ErrorMessages.cannotResolveTemplateId(input.templateId)))
+      .map(tpId =>
+        Commands.exercise(refApiIdentifier(tpId), input.contractId, input.choice, input.argument))
 
   private def submitAndWaitRequest(
       jwtPayload: JwtPayload,

@@ -1,9 +1,6 @@
 // Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-// Copyright (c) 2019 The DAML Authors. All rights reserved.
-// SPDX-License-Identifier: Apache-2.0
-
 package com.daml.ledger.participant.state.kvutils.app
 
 import java.util.UUID
@@ -24,16 +21,19 @@ import com.digitalasset.platform.indexer.{
   IndexerStartupMode,
   StandaloneIndexerServer
 }
-import com.digitalasset.platform.resources.{Resource, ResourceOwner}
+import com.digitalasset.resources.akka.AkkaResourceOwner
+import com.digitalasset.resources.{Resource, ResourceOwner}
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext}
 import scala.util.Try
 
-class Runner(name: String, construct: ParticipantId => KeyValueLedger) {
+class Runner[Extra](name: String, constructor: LedgerFactory[Extra]) {
   def run(args: Seq[String]): Unit = {
-    val config = Config.parse(name, args).getOrElse(sys.exit(1))
+    val config = Config
+      .parse(name, constructor.extraConfigParser, constructor.defaultExtraConfig, args)
+      .getOrElse(sys.exit(1))
 
     val logger = LoggerFactory.getLogger(getClass)
 
@@ -45,10 +45,10 @@ class Runner(name: String, construct: ParticipantId => KeyValueLedger) {
     val resource = for {
       // Take ownership of the actor system and materializer so they're cleaned up properly.
       // This is necessary because we can't declare them as implicits within a `for` comprehension.
-      _ <- ResourceOwner.forActorSystem(() => system).acquire()
-      _ <- ResourceOwner.forMaterializer(() => materializer).acquire()
+      _ <- AkkaResourceOwner.forActorSystem(() => system).acquire()
+      _ <- AkkaResourceOwner.forMaterializer(() => materializer).acquire()
       readerWriter <- ResourceOwner
-        .forCloseable(() => construct(config.participantId))
+        .forCloseable(() => constructor(config.participantId, config.extra))
         .acquire()
       ledger = new KeyValueParticipantState(readerWriter, readerWriter)
       _ <- Resource.sequenceIgnoringValues(config.archiveFiles.map { file =>
@@ -83,7 +83,7 @@ class Runner(name: String, construct: ParticipantId => KeyValueLedger) {
   }
 
   private def startIndexerServer(
-      config: Config,
+      config: Config[Extra],
       readService: ReadService,
   )(implicit executionContext: ExecutionContext): Resource[Unit] =
     new StandaloneIndexerServer(
@@ -98,7 +98,7 @@ class Runner(name: String, construct: ParticipantId => KeyValueLedger) {
     ).acquire()
 
   private def startApiServer(
-      config: Config,
+      config: Config[Extra],
       readService: ReadService,
       writeService: WriteService,
       authService: AuthService,
@@ -121,4 +121,12 @@ class Runner(name: String, construct: ParticipantId => KeyValueLedger) {
       NamedLoggerFactory.forParticipant(config.participantId),
       SharedMetricRegistries.getOrCreate(s"ledger-api-server-${config.participantId}"),
     ).acquire()
+}
+
+object Runner {
+  def apply(name: String, construct: ParticipantId => KeyValueLedger): Runner[Unit] =
+    apply(name, LedgerFactory(construct))
+
+  def apply[Extra](name: String, constructor: LedgerFactory[Extra]): Runner[Extra] =
+    new Runner[Extra](name, constructor)
 }

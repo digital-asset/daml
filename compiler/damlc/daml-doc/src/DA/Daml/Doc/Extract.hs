@@ -549,8 +549,7 @@ isTemplate ClsInstDecl{..}
   , HsAppTy _ (L _ t1) t2 <- ty
   , HsTyVar _ _ (L _ tmplClass) <- t1
   , Just (L _ tmplName) <- hsTyGetAppHead_maybe t2
-  , toText tmplClass == "DA.Internal.Desugar.Template"
-  || toText tmplClass == "Template" -- temporary for generic templates
+  , toText tmplClass == "DA.Internal.Desugar.HasCreate"
   = Just (Typename . packRdrName $ tmplName)
 
   | otherwise = Nothing
@@ -568,8 +567,7 @@ isChoice ClsInstDecl{..}
   , HsTyVar _ _ (L _ choiceClass) <- choice
   , Just (L _ choiceName) <- hsTyGetAppHead_maybe cName
   , Just (L _ tmplName) <- hsTyGetAppHead_maybe cTmpl
-  , toText choiceClass == "DA.Internal.Desugar.Choice"
-  || toText choiceClass == "Choice" -- temporary for generic templates
+  , toText choiceClass == "DA.Internal.Desugar.HasExercise"
   = Just (Typename . packRdrName $ tmplName, Typename . packRdrName $ choiceName)
 
   | otherwise = Nothing

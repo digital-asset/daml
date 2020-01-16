@@ -16,6 +16,7 @@ import qualified Data.HashMap.Strict as H
 import qualified Data.List as List
 import qualified Data.List.Extra as List
 import qualified Data.List.Split as Split
+import qualified Data.Ord
 import qualified Data.Set as Set
 import qualified Data.Text as Text
 import qualified Network.HTTP.Client as HTTP
@@ -119,18 +120,31 @@ build_docs_folder path versions latest = do
     restore_sha $ do
         let old = path </> "old"
         let new = path </> "new"
+        shell_ $ "mkdir -p " <> new
+        shell_ $ "mkdir -p " <> old
         download_existing_site_from_s3 old
         Foldable.for_ versions $ \version -> do
             putStrLn $ "Building " <> version <> "..."
             putStrLn "  Checking for existing folder..."
-            old_version_exists <- exists old version
-            if old_version_exists
+            old_version_exists <- exists $ old </> version
+            if to_v version < to_v "0.13.36"
+            then do
+                -- Maven has stopped accepting http requests and now requires
+                -- https. We have a patch for 0.13.36 and above, which has been
+                -- merged between 0.13.43 and 0.13.44.
+                if old_version_exists
+                then do
+                    putStrLn "  Found. Too old to rebuild, copying over..."
+                    copy (old </> version) $ new </> version
+                else
+                    putStrLn "  Too old to rebuild and no existing version. Skipping."
+            else if old_version_exists
             then do
                 -- Note: this checks for upload errors; this is NOT in any way
                 -- a protection against tampering at the s3 level as we get the
                 -- checksums from the s3 bucket.
                 putStrLn "  Found. Checking integrity..."
-                checksums_match <- checksums old version
+                checksums_match <- checksums $ old </> version
                 if checksums_match
                 then do
                     putStrLn "  Checks, reusing existing."
@@ -155,12 +169,9 @@ build_docs_folder path versions latest = do
         download_existing_site_from_s3 path = do
             shell_ $ "mkdir -p " <> path
             shell_ $ "aws s3 sync s3://docs-daml-com/ " <> path
-        exists dir name = do
-            dir_exists <- Directory.doesDirectoryExist $ dir </> name
-            dir_has_checksum_file <- Directory.doesFileExist $ dir </> name </> "checksum"
-            return $ dir_exists && dir_has_checksum_file
-        checksums path version = do
-            let cmd = "cd " <> path </> version <> "; sha256sum -c checksum"
+        exists dir = Directory.doesDirectoryExist dir
+        checksums path = do
+            let cmd = "cd " <> path <> "; sha256sum -c checksum"
             (code, _, _) <- shell_exit_code cmd
             case code of
                 Exit.ExitSuccess -> return True
@@ -169,6 +180,13 @@ build_docs_folder path versions latest = do
             shell_ $ "cp -r " <> from <> " " <> to
         build version path = do
             shell_ $ "git checkout v" <> version
+            -- Maven does not accept http connections anymore; this patches the
+            -- scala rules for Bazel to use https instead. This is not needed
+            -- after 0.13.43.
+            if to_v version < to_v "0.13.44"
+            then do
+                shell_ "git -c user.name=CI -c user.email=CI@example.com cherry-pick 0c4f9d7f92c4f2f7e2a75a0d85db02e20cbb497b"
+            else pure ()
             robustly_download_nix_packages
             shell_ "bazel build //docs:docs"
             shell_ $ "mkdir -p  " <> path </> version
@@ -179,6 +197,7 @@ build_docs_folder path versions latest = do
             -- Not going through Aeson because it represents JSON objects as
             -- unordered maps, and here order matters.
             let versions_json = versions
+                                & List.sortOn (Data.Ord.Down . to_v)
                                 & map (\s -> "\"" <> s <> "\": \"" <> s <> "\"")
                                 & List.intercalate ", "
                                 & \s -> "{" <> s <> "}"

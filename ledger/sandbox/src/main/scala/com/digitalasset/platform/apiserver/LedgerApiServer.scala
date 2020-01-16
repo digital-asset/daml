@@ -4,7 +4,7 @@
 package com.digitalasset.platform.apiserver
 
 import java.io.IOException
-import java.net.{BindException, InetSocketAddress, InetAddress}
+import java.net.{BindException, InetAddress, InetSocketAddress}
 import java.util.UUID
 import java.util.concurrent.TimeUnit.{MILLISECONDS, SECONDS}
 
@@ -13,7 +13,7 @@ import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
-import com.digitalasset.platform.resources.{Resource, ResourceOwner}
+import com.digitalasset.resources.{Resource, ResourceOwner}
 import io.grpc.netty.NettyServerBuilder
 import io.grpc.{Server, ServerInterceptor}
 import io.netty.channel.EventLoopGroup

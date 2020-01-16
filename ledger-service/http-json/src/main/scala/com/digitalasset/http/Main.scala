@@ -85,7 +85,7 @@ object Main extends StrictLogging {
         config.applicationId,
         config.address,
         config.httpPort,
-        Config.DefaultWsConfig,
+        config.wsConfig,
         config.accessTokenFile,
         contractDao,
         config.staticContentConfig,
@@ -196,5 +196,12 @@ object Main extends StrictLogging {
           s"provide the path from which the access token will be read, required to interact with an authenticated ledger, no default")
         .action((path, arguments) => arguments.copy(accessTokenFile = Some(Paths.get(path))))
         .optional()
+
+      opt[Map[String, String]]("websocket-config")
+        .action((x, c) => c.copy(wsConfig = Some(WebsocketConfig.createUnsafe(x))))
+        .validate(WebsocketConfig.validate)
+        .optional()
+        .valueName(WebsocketConfig.usage)
+        .text(s"Optional websocket configuration string. ${WebsocketConfig.help}")
     }
 }

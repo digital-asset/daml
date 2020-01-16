@@ -38,11 +38,11 @@ import com.digitalasset.ledger.api.domain.{ParticipantId => _, _}
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.participant.util.EventFilter
-import com.digitalasset.platform.resources.{Resource, ResourceOwner}
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.digitalasset.platform.sandbox.stores.ledger._
 import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode
 import com.digitalasset.platform.server.api.validation.ErrorFactories
+import com.digitalasset.resources.{Resource, ResourceOwner}
 import org.slf4j.LoggerFactory
 import scalaz.Tag
 import scalaz.syntax.tag._
@@ -265,7 +265,8 @@ abstract class LedgerBackedIndexService(
           .map(converter.toAbsolute(_).map(Some(_)))
           .getOrElse(Source.single(None))
           .flatMapConcat { endOpt =>
-            lazy val stream = ledger.ledgerEntries(Some(absBegin.toLong))
+            lazy val stream =
+              ledger.ledgerEntries(Some(absBegin.toLong), endOpt.map(_.value.toLong))
 
             val finalStream = endOpt match {
               case None => stream
@@ -278,16 +279,21 @@ abstract class LedgerBackedIndexService(
                   ErrorFactories.invalidArgument(s"End offset $end is before Begin offset $begin."))
 
               case Some(LedgerOffset.Absolute(end)) =>
+                val endL = end.toLong
                 stream
                   .takeWhile(
                     {
                       case (offset, _) =>
                         //note that we can have gaps in the increasing offsets!
-                        (offset + 1) < end.toLong //api offsets are +1 compared to backend offsets
+                        (offset + 1) < endL //api offsets are +1 compared to backend offsets
                     },
                     inclusive = true // we need this to be inclusive otherwise the stream will be hanging until a new element from upstream arrives
                   )
-                  .filter(_._1 < end.toLong)
+                  // after the following step, we will add +1 to the offset before we expose it on the ledger api.
+                  // when the interval is [5, 7[, then we should only emit ledger entries with _backend_ offsets 5 and 6,
+                  // which then get changed to 6 and 7 respectively. the application can then take the offset of the last received
+                  // transaction and use it as a begin offset for another transaction service request.
+                  .filter(_._1 < endL)
             }
             // we MUST do the offset comparison BEFORE collecting only the accepted transactions,
             // because currentLedgerEnd refers to the offset of the mixed set of LedgerEntries (e.g. completions, transactions, ...).
@@ -343,7 +349,7 @@ abstract class LedgerBackedIndexService(
     converter.toAbsolute(begin).flatMapConcat {
       case LedgerOffset.Absolute(absBegin) =>
         ledger
-          .ledgerEntries(Some(absBegin.toLong))
+          .ledgerEntries(Some(absBegin.toLong), endExclusive = None)
           .map {
             case (offset, entry) =>
               (offset + 1, entry) //doing the same as above with transactions. The ledger api has to return a non-inclusive offset

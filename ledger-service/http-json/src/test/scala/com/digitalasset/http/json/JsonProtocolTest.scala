@@ -10,12 +10,14 @@ import com.digitalasset.http.Generators.{
   genDomainTemplateId,
   genDomainTemplateIdO
 }
+import com.digitalasset.http.Statement.discard
 import com.digitalasset.http.domain
 import org.scalacheck.Arbitrary.arbitrary
+import org.scalacheck.Gen.{listOf, identifier}
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.{FreeSpec, Inside, Matchers}
-import scalaz.{\/, \/-}
 import scalaz.syntax.std.option._
+import scalaz.{\/, \/-}
 
 class JsonProtocolTest
     extends FreeSpec
@@ -87,6 +89,40 @@ class JsonProtocolTest
     type Loc = domain.ContractLocator[JsValue]
     "roundtrips" in forAll(contractLocatorGen(arbitrary[Int] map (JsNumber(_)))) { locator: Loc =>
       locator.toJson.convertTo[Loc] should ===(locator)
+    }
+  }
+
+  "domain.OkResponse" - {
+    import scalaz.syntax.bifunctor._
+
+    "response with warnings" in forAll(listOf(genDomainTemplateIdO(OptionalPackageIdGen))) {
+      templateIds: List[domain.TemplateId.OptionalPkg] =>
+        val response: domain.OkResponse[Int, domain.ServiceWarning] =
+          domain.OkResponse(result = 100, warnings = Some(domain.UnknownTemplateIds(templateIds)))
+
+        val responseJsVal: domain.OkResponse[JsValue, JsValue] = response.bimap(_.toJson, _.toJson)
+
+        discard {
+          responseJsVal.toJson shouldBe JsObject(
+            "result" -> JsNumber(100),
+            "warnings" -> JsObject("unknownTemplateIds" -> templateIds.toJson),
+            "status" -> JsNumber(200),
+          )
+        }
+    }
+
+    "response without warnings" in forAll(identifier) { str =>
+      val response: domain.OkResponse[String, domain.ServiceWarning] =
+        domain.OkResponse(result = str, warnings = None)
+
+      val responseJsVal: domain.OkResponse[JsValue, JsValue] = response.bimap(_.toJson, _.toJson)
+
+      discard {
+        responseJsVal.toJson shouldBe JsObject(
+          "result" -> JsString(str),
+          "status" -> JsNumber(200),
+        )
+      }
     }
   }
 }
