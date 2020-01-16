@@ -70,13 +70,15 @@ class HasArchive t where
   archive : ContractId t -> Update ()
 
 class HasTemplateTypeRep t where
-  -- | Generate a unique textual representation of the template Id.
+  -- | HIDE
   _templateTypeRep : proxy t -> TypeRep
 
 class HasToAnyTemplate t where
+  -- | HIDE
   _toAnyTemplate : t -> Any
 
 class HasFromAnyTemplate t where
+  -- | HIDE
   _fromAnyTemplate : Any -> Optional t
 
 -- | The stakeholders of a contract: its signatories and observers.
@@ -96,12 +98,14 @@ class HasExercise t c r | t c -> r where
   exercise : ContractId t -> c -> Update r
 
 class HasToAnyChoice t c r | t c -> r where
+  -- | HIDE
   _toAnyChoice : proxy t -> c -> Any
 
 class HasFromAnyChoice t c r | t c -> r where
+  -- | HIDE
   _fromAnyChoice : proxy t -> Any -> Optional c
 
--- | Constrants satisfied by template key types.
+-- | Constraints satisfied by template key types.
 type TemplateKey t k =
   ( Template t
   , HasKey t k
@@ -154,9 +158,11 @@ maintainer : forall t k. HasMaintainer t k => k -> [Party]
 maintainer = _maintainer ([] : [t])
 
 class HasToAnyContractKey t k | t -> k where
+  -- | HIDE
   _toAnyContractKey : proxy t -> k -> Any
 
 class HasFromAnyContractKey t k | t -> k where
+  -- | HIDE
   _fromAnyContractKey : proxy t -> Any -> Optional k
 
 -- | Exercise a choice on the contract associated with the given key.
@@ -216,7 +222,7 @@ instance Eq AnyContractKey where
 
 #ifdef DAML_TYPE_REP
 
--- | Generate a unique textual representation of the template Id.
+-- | Generate a unique textual representation of the template id.
 templateTypeRep : forall t. HasTemplateTypeRep t => TemplateTypeRep
 templateTypeRep = TemplateTypeRep (_templateTypeRep ([] : [t]))
 
@@ -225,33 +231,51 @@ instance Eq TemplateTypeRep where
 
 #ifdef DAML_ANY_TYPE
 
--- | Wrap the template in AnyTemplate
+-- | Wrap the template in `AnyTemplate`.
 toAnyTemplate : HasToAnyTemplate t => t -> AnyTemplate
 toAnyTemplate x = AnyTemplate (_toAnyTemplate x)
 
--- | Extract the underlying template from AnyTemplate if the type matches
+-- | Extract the underlying template from `AnyTemplate` if the type matches
 -- or return `None`.
 fromAnyTemplate : HasFromAnyTemplate t => AnyTemplate -> Optional t
 fromAnyTemplate (AnyTemplate x) = _fromAnyTemplate x
 
+-- | Wrap a choice in `AnyChoice`.
+--
+-- You must pass the template type `t` using an explicit type application.
+-- For example `toAnyChoice @Account Withdraw`.
 toAnyChoice : forall t c r. Choice t c r => c -> AnyChoice
 toAnyChoice c =
   AnyChoice
     (_toAnyChoice ([] : [t]) c)
     (templateTypeRep @t)
 
+-- | Extract the underlying choice from `AnyChoice` if the template and
+-- choice types match, or return `None`.
+--
+-- You must pass the template type `t` using an explicit type application.
+-- For example `fromAnyChoice @Account choice`.
 fromAnyChoice : forall t c r. Choice t c r => AnyChoice -> Optional c
 fromAnyChoice (AnyChoice any typeRep)
   | Some c <- _fromAnyChoice ([] : [t]) any
   , templateTypeRep @t == typeRep = Some c
   | otherwise = None
 
+-- | Wrap a contract key in `AnyContractKey`.
+--
+-- You must pass the template type `t` using an explicit type application.
+-- For example `toAnyContractKey @Proposal k`.
 toAnyContractKey : forall t k. TemplateKey t k => k -> AnyContractKey
 toAnyContractKey k =
   AnyContractKey
     (_toAnyContractKey ([] : [t]) k)
     (templateTypeRep @t)
 
+-- | Extract the underlying key from `AnyContractKey` if the template and
+-- choice types match, or return `None`.
+--
+-- You must pass the template type `t` using an explicit type application.
+-- For example `toAnyContractKey @Proposal k`.
 fromAnyContractKey : forall t k. TemplateKey t k => AnyContractKey -> Optional k
 fromAnyContractKey (AnyContractKey any rep)
   | Some k <- _fromAnyContractKey ([] : [t]) any
