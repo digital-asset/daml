@@ -21,9 +21,8 @@ import com.digitalasset.jwt.domain.Jwt
 import com.digitalasset.ledger.api.{v1 => api}
 
 import com.typesafe.scalalogging.LazyLogging
-import scalaz.Liskov.<~<
+import scalaz.Liskov, Liskov.<~<
 import scalaz.syntax.show._
-import scalaz.syntax.std.boolean._
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 import scalaz.{-\/, \/, \/-, Show}
@@ -46,15 +45,12 @@ object WebSocketService {
       step: InsertDeleteStep[domain.ActiveContract[LfV]]) {
     import json.JsonProtocol._, spray.json._
     def render(implicit lfv: LfV <~< JsValue): JsValue = {
-      def opr[V <: Iterable[_]: JsonWriter](v: V) =
-        v.nonEmpty option v.toJson
-      type RF[-i] = Vector[domain.ActiveContract[i]] => Option[JsValue]
-      JsObject(
-        Map(
-          "errors" -> opr(errors.map(_.message)),
-          "created" -> lfv.subst[RF](opr(_))(step.inserts),
-          "archived" -> opr(step.deletes)
-        ) collect { case (k, Some(v)) => (k, v) })
+      def inj[V: JsonWriter](ctor: String) = (v: V) => JsObject(ctor -> v.toJson)
+      type RF[+i] = Vector[domain.ActiveContract[i]]
+      JsArray(
+        Liskov.co[RF, LfV, JsValue](lfv)(step.inserts).map(inj("created"))
+          ++ step.deletes.map(inj("archived"))
+          ++ errors.map(inj[String]("error") compose (_.message)))
     }
 
     def append[A >: LfV](o: StepAndErrors[A]): StepAndErrors[A] =

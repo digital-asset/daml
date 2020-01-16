@@ -206,14 +206,17 @@ object WebsocketServiceIntegrationTest {
     import spray.json._
     def unapply(jsv: JsValue): Option[(Vector[(String, JsValue)], Vector[String])] =
       for {
-        JsObject(fields) <- Some(jsv)
-        JsArray(adds) <- fields get "created" orElse Some(JsArray())
-        JsArray(removes) <- fields get "archived" orElse Some(JsArray())
+        JsArray(sums) <- Some(jsv)
+        pairs = sums collect { case JsObject(fields) if fields.size == 1 => fields.head }
+        if pairs.length == sums.length
+        sets = pairs groupBy (_._1)
+        if sets.keySet subsetOf Set("created", "archived", "error")
+        creates = sets.getOrElse("created", Vector()) collect {
+          case (_, JsObject(fields)) => fields
+        }
       } yield
-        (adds collect (Function unlift {
-          case JsObject(add) =>
-            (add get "contractId" collect { case JsString(v) => v }) tuple (add get "payload")
-          case _ => None
-        }), removes collect { case JsString(v) => v })
+        (creates collect (Function unlift { add =>
+          (add get "contractId" collect { case JsString(v) => v }) tuple (add get "payload")
+        }), sets.getOrElse("archived", Vector()) collect { case (_, JsString(cid)) => cid })
   }
 }
