@@ -94,10 +94,10 @@ class ApiSubmissionService private (
 
   private object Metrics {
     val failedInterpretationsMeter =
-      metrics.meter("CommandSubmission.failedCommandInterpretations")
+      metrics.meter("daml.lapi.command_submission_service.failed_command_interpretations")
 
     val submittedTransactionsTimer =
-      metrics.timer("CommandSubmission.submittedTransactions")
+      metrics.timer("daml.lapi.command_submission_service.submitted_transactions")
   }
 
   override def submit(request: SubmitRequest): Future[Unit] = {

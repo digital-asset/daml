@@ -25,7 +25,7 @@ class FlywayMigrations(jdbcUrl: String, loggerFactory: NamedLoggerFactory) {
   private def newDataSource()(
       implicit executionContext: ExecutionContext
   ): Resource[HikariDataSource] =
-    HikariConnection.owner(jdbcUrl, "Flyway-Pool", 2, 2, 250.millis, None).acquire()
+    HikariConnection.owner(jdbcUrl, "daml.index.db.migration", 2, 2, 250.millis, None).acquire()
 
   def validate(): Unit = {
     val dataSourceResource = newDataSource()(DirectExecutionContext)

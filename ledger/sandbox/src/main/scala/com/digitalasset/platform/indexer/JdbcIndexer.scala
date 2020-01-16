@@ -146,13 +146,15 @@ class JdbcIndexer private[indexer] (
   private var lastReceivedOffset: LedgerString = _
 
   object Metrics {
-    val stateUpdateProcessingTimer: Timer =
-      metrics.timer("JdbcIndexer.processedStateUpdates")
+
+    val processedStateUpdatesName = "daml.indexer.processed_state_updates"
+    val lastReceivedRecordTimeName = "daml.indexer.last_received_record_time"
+    val lastReceivedOffsetName = "daml.indexer.last_received_offset"
+    val currentRecordTimeLagName = "daml.indexer.current_record_time_lag"
+
+    val stateUpdateProcessingTimer: Timer = metrics.timer(processedStateUpdatesName)
 
     private[JdbcIndexer] def setup(): Unit = {
-      val lastReceivedRecordTimeName = "JdbcIndexer.lastReceivedRecordTime"
-      val lastReceivedOffsetName = "JdbcIndexer.lastReceivedOffset"
-      val currentRecordTimeLagName = "JdbcIndexer.currentRecordTimeLag"
 
       metrics.remove(lastReceivedRecordTimeName)
       metrics.remove(lastReceivedOffsetName)
