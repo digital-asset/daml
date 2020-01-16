@@ -315,15 +315,17 @@ class TransactionCoderSpec
 
   def minimalistTx[Nid: Ordering, Cid, Val](
       txvMin: TransactionVersion,
-      tx: GenTransaction[Nid, Cid, Val]): GenTransaction[Nid, Cid, Val] =
-    if (txvMin precedes minExerciseResult)
-      transactionWithout(
-        tx,
-        (x: GenNode[Nid, Cid, Val]) => withoutExerciseResult(withoutContractKeyInExercise(x)))
-    else if (txvMin precedes minContractKeyInExercise)
-      transactionWithout(tx, (x: GenNode[Nid, Cid, Val]) => withoutContractKeyInExercise(x))
-    else if (txvMin precedes minMaintainersInExercise)
-      transactionWithout(tx, (x: GenNode[Nid, Cid, Val]) => withoutMaintainersInExercise(x))
-    else tx
+      tx: GenTransaction[Nid, Cid, Val]): GenTransaction[Nid, Cid, Val] = {
+    def condApply(before: TransactionVersion, f: GenNode[Nid, Cid, Val] => GenNode[Nid, Cid, Val])
+      : GenNode[Nid, Cid, Val] => GenNode[Nid, Cid, Val] =
+      if (txvMin precedes before) f else identity
+
+    transactionWithout(
+      tx,
+      condApply(minMaintainersInExercise, withoutMaintainersInExercise)
+        .compose(condApply(minContractKeyInExercise, withoutContractKeyInExercise))
+        .compose(condApply(minExerciseResult, withoutExerciseResult))
+    )
+  }
 
 }

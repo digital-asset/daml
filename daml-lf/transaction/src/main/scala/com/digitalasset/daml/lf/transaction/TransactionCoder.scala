@@ -194,19 +194,22 @@ object TransactionCoder {
                 s"Trying to encode transaction of version $transactionVersion, which requires the exercise return value, but did not get exercise return value in node."))
             case (_, true) => Right(())
           }
-          _ <- e.key match {
-            case None => Right(())
-            case Some(KeyWithMaintainers(_, _))
-                if transactionVersion precedes minContractKeyInExercise =>
-              Right(())
-            case Some(KeyWithMaintainers(k, maintainers)) =>
-              encodeVal(k).map { encodedKey =>
-                exBuilder.setContractKey(encodedKey._2)
+          _ <- Right(
+            e.key
+              .map { kWithM =>
+                if (transactionVersion precedes minContractKeyInExercise) ()
+                else if (transactionVersion precedes minMaintainersInExercise) {
+                  encodeVal(kWithM.key).map { encodedKey =>
+                    exBuilder.setContractKey(encodedKey._2)
+                  }
+                } else
+                  encodeKeyWithMaintainers(encodeVal, kWithM).map {
+                    case (_, encodedKey) =>
+                      exBuilder.setKeyWithMaintainers(encodedKey)
+                  }
+                ()
               }
-              if (!(transactionVersion precedes minMaintainersInExercise))
-                exBuilder.addAllKeyMaintainers(maintainers.toSet[String].asJava)
-              Right(())
-          }
+              .getOrElse(()))
         } yield nodeBuilder.setExercise(exBuilder).build()
 
       case nlbk: NodeLookupByKey[Cid, Val] =>
@@ -315,18 +318,25 @@ object TransactionCoder {
               Left(DecodeError(txVersion, isTooOldFor = "exercise result"))
             else Right(None)
           } else decodeVal(protoExe.getReturnValue).map(Some(_))
-          contractKey <- if (protoExe.hasContractKey) {
+          hasKeyWithMaintainersField = (protoExe.getKeyWithMaintainers != TransactionOuterClass.KeyWithMaintainers.getDefaultInstance)
+          keyWithMaintainers <- if (protoExe.hasContractKey) {
             if (txVersion precedes minContractKeyInExercise)
               Left(DecodeError(txVersion, isTooOldFor = "contract key in exercise"))
+            else if (!(txVersion precedes minMaintainersInExercise))
+              Left(DecodeError(
+                s"contract key field in exercise must not be present for transactions of version $txVersion"))
+            else if (hasKeyWithMaintainersField)
+              Left(DecodeError(
+                "an exercise may not contain both contract key and contract key with maintainers"))
             else
-              decodeVal(protoExe.getContractKey).map(Some(_))
+              decodeVal(protoExe.getContractKey).map(k => Some(KeyWithMaintainers(k, Set.empty)))
+          } else if (hasKeyWithMaintainersField) {
+            if (txVersion precedes minMaintainersInExercise)
+              Left(DecodeError(txVersion, isTooOldFor = "NodeExercises maintainers"))
+            else
+              decodeKeyWithMaintainers(decodeVal, protoExe.getKeyWithMaintainers).map(k => Some(k))
           } else Right(None)
-          maintainers <- toPartySet(protoExe.getKeyMaintainersList)
-          _ <- Either.cond(
-            !(txVersion precedes minMaintainersInExercise) || maintainers.isEmpty,
-            (),
-            DecodeError(txVersion, isTooOldFor = "NodeExercises maintainers")
-          )
+
           ni <- nodeId
           targetCoid <- protoExe.decodeContractIdOrStruct(decodeCid, txVersion)(
             _.getContractId,
@@ -364,7 +374,7 @@ object TransactionCoder {
               controllers = controllers,
               children = children,
               exerciseResult = rv,
-              key = contractKey.map(k => KeyWithMaintainers(k, maintainers))
+              key = keyWithMaintainers
             ))
       case NodeTypeCase.LOOKUP_BY_KEY =>
         val protoLookupByKey = protoNode.getLookupByKey

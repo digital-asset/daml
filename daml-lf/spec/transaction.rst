@@ -284,6 +284,12 @@ In this version, these fields are included:
 
 ``maintainers`` must be non-empty.
 
+*since version 9*
+
+The key may not contain contract IDs. This change is backwards
+incompatible; that is, transactions containing contract IDs in keys
+cannot be deserialized any more.
+
 message NodeCreate
 ^^^^^^^^^^^^^^^^^^
 
@@ -507,8 +513,10 @@ contract has a contract key defined.
 
 *since version 9*
 
-New optional field `key_maintainers` is now set when the exercised
-contract has a contract key defined.
+New optional field `key_with_maintainers` is now set when the exercised
+contract has a contract key defined. The `contract_key` field is
+not used any more.
+
 
 message NodeLookupByKey
 ^^^^^^^^^^^^^^^^^^^^^^^
