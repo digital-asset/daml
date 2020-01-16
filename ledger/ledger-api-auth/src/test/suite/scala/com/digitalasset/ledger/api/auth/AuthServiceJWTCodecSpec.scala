@@ -59,6 +59,34 @@ class AuthServiceJWTCodecSpec
         value => serializeAndParse(value) shouldBe Success(value)
       )
 
+      "support OIDC compliant sandbox format" in {
+        val serialized =
+          """{
+            |  "https://daml.com/ledger-api": {
+            |    "ledgerId": "someLedgerId",
+            |    "participantId": "someParticipantId",
+            |    "applicationId": "someApplicationId",
+            |    "admin": true,
+            |    "actAs": ["Alice"],
+            |    "readAs": ["Alice", "Bob"]
+            |  },
+            |  "exp": 0,
+            |}
+          """.stripMargin
+        val expected = AuthServiceJWTPayload(
+          ledgerId = Some("someLedgerId"),
+          participantId = Some("someParticipantId"),
+          applicationId = Some("someApplicationId"),
+          exp = Some(Instant.EPOCH),
+          admin = true,
+          actAs = List("Alice"),
+          readAs = List("Alice", "Bob")
+        )
+        val result = parse(serialized)
+        result shouldBe Success(expected)
+        result.map(_.party) shouldBe Success(None)
+      }
+
       "support legacy sandbox format" in {
         val serialized =
           """{
