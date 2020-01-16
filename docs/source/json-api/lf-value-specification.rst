@@ -375,8 +375,8 @@ you get when you have eliminated all type variables.
 Output
 ======
 
-Encoded as described above, always applying the shortcut for None record
-fields.
+Encoded as described above, never applying the shortcut for None record
+fields; e.g. ``{ foo: None }`` will always encode as ``{ foo: null }``.
 
 Variant
 *******
