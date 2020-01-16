@@ -284,11 +284,13 @@ In this version, these fields are included:
 
 ``maintainers`` must be non-empty.
 
+A backwards incompatible change was introduced on 2020-01-13, with version 9:
+the key may not contain contract IDs anymore. Transactions with such keys
+cannot be deserialized any more.
+
 *since version 9*
 
-The key may not contain contract IDs. This change is backwards
-incompatible; that is, transactions containing contract IDs in keys
-cannot be deserialized any more.
+The key may not contain contract IDs.
 
 message NodeCreate
 ^^^^^^^^^^^^^^^^^^
@@ -510,6 +512,10 @@ Containing the result of the exercised choice.
 
 New optional field `contract_key` is now set when the exercised
 contract has a contract key defined.
+
+A backwards incompatible change was introduced on 2020-01-13, with version 9:
+the key may not contain contract IDs anymore. Transactions with such keys
+cannot be deserialized any more.
 
 *since version 9*
 
