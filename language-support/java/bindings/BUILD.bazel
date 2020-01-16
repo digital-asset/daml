@@ -82,13 +82,13 @@ da_scala_library(
             "src/test/**/*Test.scala",
         ],
     ),
+    visibility = [
+        "//ledger-service/http-json:__subpackages__",
+    ],
     deps = [
         ":bindings-java",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_scalacheck_scalacheck_2_12",
-    ],
-    visibility = [
-        "//ledger-service/http-json:__subpackages__",
     ],
 )
 
