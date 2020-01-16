@@ -202,13 +202,13 @@ object KeyValueCommitting {
                 case TransactionOuterClass.Node.NodeTypeCase.EXERCISE =>
                   val exe = node.getExercise
                   val ckeyOrEmpty =
-                    if (exe.getConsuming && exe.hasContractKey)
+                    if (exe.getConsuming && exe.hasKeyWithMaintainers)
                       List(
                         DamlStateKey.newBuilder
                           .setContractKey(
                             DamlContractKey.newBuilder
                               .setTemplateId(exe.getTemplateId)
-                              .setKey(exe.getContractKey))
+                              .setKey(exe.getKeyWithMaintainers.getKey))
                           .build)
                     else
                       List.empty
