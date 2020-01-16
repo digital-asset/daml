@@ -16,6 +16,7 @@ import qualified Data.HashMap.Strict as H
 import qualified Data.List as List
 import qualified Data.List.Extra as List
 import qualified Data.List.Split as Split
+import qualified Data.Ord
 import qualified Data.Set as Set
 import qualified Data.Text as Text
 import qualified Network.HTTP.Client as HTTP
@@ -196,6 +197,7 @@ build_docs_folder path versions latest = do
             -- Not going through Aeson because it represents JSON objects as
             -- unordered maps, and here order matters.
             let versions_json = versions
+                                & List.sortOn (Data.Ord.Down . to_v)
                                 & map (\s -> "\"" <> s <> "\": \"" <> s <> "\"")
                                 & List.intercalate ", "
                                 & \s -> "{" <> s <> "}"
