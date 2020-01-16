@@ -311,7 +311,7 @@ toAnyContractKey k =
 -- choice types match, or return `None`.
 --
 -- You must pass the template type `t` using an explicit type application.
--- For example `toAnyContractKey @Proposal k`.
+-- For example `fromAnyContractKey @Proposal k`.
 --
 -- Only available for DAML-LF 1.7 or later.
 fromAnyContractKey : forall t k. (HasTemplateTypeRep t, HasFromAnyContractKey t k) => AnyContractKey -> Optional k
