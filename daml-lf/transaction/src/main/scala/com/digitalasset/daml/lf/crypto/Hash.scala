@@ -96,7 +96,8 @@ object Hash {
         case Value.ValueInt64(v) =>
           add(v)
         case Value.ValueNumeric(v) =>
-          add(v.scale()).add(v.unscaledValue().toByteArray)
+          val a = v.unscaledValue().toByteArray
+          add(a.length).add(a)
         case Value.ValueTimestamp(v) =>
           add(v.micros)
         case Value.ValueDate(v) =>

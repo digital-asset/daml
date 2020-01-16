@@ -87,7 +87,7 @@ class HashSpec extends WordSpec with Matchers {
   "KeyHasher" should {
 
     "be stable" in {
-      val hash = "bc25286de6c5f7745e65354a8ddd18d12a339d069248fea48d14a338fadb4f22"
+      val hash = "a0a47f146a6ba1aca8865d9cc3741b766595a7810c25132fd87d92e433fa37bc"
       val value = complexRecordT.inj(complexRecordV)
       val name = defRef("module", "name")
       Hash(GlobalKey(name, value)).toHexa shouldBe hash
@@ -432,17 +432,17 @@ class HashSpec extends WordSpec with Matchers {
           |ValueInt64(1)
           | f52f3a746c2545658e1c6add32e5410365553ebaaa0433f5f8bd90c6f85fd6e2
           |ValueNumeric(-10000.0000000000)
-          | cb29539512e7105f9b02fa5d2dd2e30d014adecdf642eaf41e3eb15504e4a416
+          | 06688bdccaa8613e22b96e399b601884a4c7476b97647a1adcb173ab2c94ed4c
           |ValueNumeric(0E-10)
-          | b53a15f0a7751f1a0231aded6f6727dbf740bb18fef23991043b8c8541bde644
+          | a90d4563c6a0ae0417ab3110f1ba68592833465954774201b0a69e8c457dc6ad
           |ValueNumeric(10000.0000000000)
-          | 43d41d5da60e52c692202d36221058c1910d803fd18c5e52b305a774f051fec1
+          | f704cf5962e1f9e6568d0c9bc08f9caa2b7524ac901f311911c8cb70d8a01608
           |ValueNumeric(-10000)
-          | 809c49663762af809a784b2585179a6868dcd6e93a1810957cdd0be87d553575
+          | af020447b2978bcc3114cf0d8c832f028c75ab7713a3985d44715e37c668807e
           |ValueNumeric(0)
-          | 36c159d76b52e03e496363607c5940227f62f4e048df344b050159bc97bba3d7
+          | a90d4563c6a0ae0417ab3110f1ba68592833465954774201b0a69e8c457dc6ad
           |ValueNumeric(10000)
-          | 712289c5328ad24f612ad6351bc47269a5fcbf8d363ba0a1c0fdf687bb6ad774
+          | 28b2998d102b9dbc2f39cbb1781f930e80f29fa585a3920c920028f92d1e6a6c
           |ValueDate(1970-01-01)
           | 957b88b12730e646e0f33d3618b77dfa579e8231e3c59c7104be7165611c8027
           |ValueDate(1969-07-21)
