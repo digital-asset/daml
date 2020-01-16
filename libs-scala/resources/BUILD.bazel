@@ -17,11 +17,23 @@ da_scala_library(
     ],
 )
 
+da_scala_library(
+    name = "resources-test-lib",
+    srcs = glob(["src/test/lib/scala/**/*.scala"]),
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [
+        ":resources",
+    ],
+)
+
 da_scala_test_suite(
     name = "resources-tests",
     srcs = glob(["src/test/suite/**/*.scala"]),
     deps = [
         ":resources",
+        ":resources-test-lib",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
     ],

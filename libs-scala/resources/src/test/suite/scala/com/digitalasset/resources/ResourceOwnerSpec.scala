@@ -4,7 +4,6 @@
 package com.digitalasset.resources
 
 import java.util.concurrent.CompletableFuture.completedFuture
-import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.{Executors, RejectedExecutionException}
 import java.util.{Timer, TimerTask}
 
@@ -12,11 +11,10 @@ import akka.actor.{Actor, ActorSystem, Props}
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.{Done, NotUsed}
-import com.digitalasset.resources.ResourceOwnerSpec._
 import org.scalatest.{AsyncWordSpec, Matchers}
 
 import scala.collection.mutable
-import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success}
 
@@ -128,7 +126,7 @@ class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
         throwable <- resource.asFuture.failed
         _ <- resource.release()
       } yield {
-        throwable should be(a[FailingResourceFailedToOpen])
+        throwable should be(a[FailingResourceOwner.FailingResourceFailedToOpen])
       }
     }
 
@@ -146,7 +144,7 @@ class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
       for {
         throwable <- resource.asFuture.failed
       } yield {
-        throwable should be(a[FailingResourceFailedToOpen])
+        throwable should be(a[FailingResourceOwner.FailingResourceFailedToOpen])
         ownerA.hasBeenAcquired should be(false)
         ownerB.hasBeenAcquired should be(false)
       }
@@ -168,7 +166,7 @@ class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
       for {
         throwable <- resource.asFuture.failed
       } yield {
-        throwable should be(a[FailingResourceFailedToOpen])
+        throwable should be(a[FailingResourceOwner.FailingResourceFailedToOpen])
         ownerA.hasBeenAcquired should be(false)
         ownerB.hasBeenAcquired should be(false)
         ownerD.hasBeenAcquired should be(false)
@@ -594,79 +592,4 @@ class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
       }
     }
   }
-}
-
-object ResourceOwnerSpec {
-
-  final class MockConstructor[T](construct: AtomicBoolean => T) {
-    private val acquired = new AtomicBoolean(false)
-
-    def hasBeenAcquired: Boolean = acquired.get
-
-    def apply(): T = construct(acquired)
-  }
-
-  final class TestCloseable[T](val value: T, acquired: AtomicBoolean) extends AutoCloseable {
-    if (!acquired.compareAndSet(false, true)) {
-      throw new TriedToAcquireTwice
-    }
-
-    override def close(): Unit = {
-      if (!acquired.compareAndSet(true, false)) {
-        throw new TriedToReleaseTwice
-      }
-    }
-  }
-
-  object TestResourceOwner {
-    def apply[T](value: T): TestResourceOwner[T] =
-      new TestResourceOwner(Future.successful(value), _ => Future.successful(()))
-  }
-
-  object DelayedReleaseResourceOwner {
-    def apply[T](value: T, releaseDelay: FiniteDuration)(
-        implicit executionContext: ExecutionContext
-    ): TestResourceOwner[T] =
-      new TestResourceOwner(
-        Future.successful(value),
-        _ => Future(Thread.sleep(releaseDelay.toMillis))(ExecutionContext.global))
-  }
-
-  object FailingResourceOwner {
-    def apply[T](): ResourceOwner[T] =
-      new TestResourceOwner[T](
-        Future.failed(new FailingResourceFailedToOpen),
-        _ => Future.failed(new TriedToReleaseAFailedResource),
-      )
-  }
-
-  final class TestResourceOwner[T](acquire: Future[T], release: T => Future[Unit])
-      extends ResourceOwner[T] {
-    private val acquired = new AtomicBoolean(false)
-
-    def hasBeenAcquired: Boolean = acquired.get
-
-    def acquire()(implicit executionContext: ExecutionContext): Resource[T] = {
-      if (!acquired.compareAndSet(false, true)) {
-        throw new TriedToAcquireTwice
-      }
-      Resource(
-        acquire,
-        value =>
-          if (acquired.compareAndSet(true, false))
-            release(value)
-          else
-            Future.failed(new TriedToReleaseTwice)
-      )
-    }
-  }
-
-  final class TriedToAcquireTwice extends Exception("Tried to acquire twice.")
-
-  final class TriedToReleaseTwice extends Exception("Tried to release twice.")
-
-  final class FailingResourceFailedToOpen extends Exception("Something broke!")
-
-  final class TriedToReleaseAFailedResource extends Exception("Tried to release a failed resource.")
-
 }
