@@ -52,6 +52,7 @@ main = do
         , scenarioTests runScenarios
         , stressTests run runScenarios
         , executeCommandTests run runScenarios
+        , regressionTests run runScenarios
         ]
     where
         conf = defaultConfig
@@ -605,3 +606,83 @@ stressTests run _runScenarios = testGroup "Stress tests"
     makeModule :: String -> [T.Text] -> Session TextDocumentIdentifier
     makeModule name lines = openDoc' (name ++ ".daml") damlId $
         moduleContent name lines
+
+regressionTests
+    :: (Session () -> IO ())
+    -> (Session () -> IO ())
+    -> TestTree
+regressionTests run _runScenarios = testGroup "regression"
+  [ testCase "completion on stale file" $ run $ do
+        -- This used to produce "cannot continue after interface file error"
+        -- since we used a function from GHCi in ghcide.
+        foo <- openDoc' "Foo.daml" damlId $ T.unlines
+            [ "{-# OPTIONS_GHC -Wall #-}"
+            , "daml 1.2"
+            , "module Foo where"
+            , "import DA.List"
+            , ""
+            ]
+        expectDiagnostics [("Foo.daml", [(DsWarning, (3,0), "redundant")])]
+        completions <- getCompletions foo (Position 3 1)
+        liftIO $ completions @?= map mkCompletion
+            [ "Control.Exception.Base"
+            , "DA.Action"
+            , "DA.Action.State"
+            , "DA.Bifunctor"
+            , "DA.Either"
+            , "DA.Generics"
+            , "DA.Internal.Any"
+            , "DA.Internal.Assert"
+            , "DA.Internal.Compatible"
+            , "DA.Internal.Date"
+            , "DA.Internal.Desugar"
+            , "DA.Internal.Down"
+            , "DA.Internal.LF"
+            , "DA.Internal.Prelude"
+            , "DA.Internal.RebindableSyntax"
+            , "DA.Internal.Record"
+            , "DA.Internal.Template"
+            , "DA.Internal.Template.Functions"
+            , "DA.Internal.Time"
+            , "DA.List"
+            , "DA.List.Total"
+            , "DA.Logic"
+            , "DA.Logic.Types"
+            , "DA.Monoid"
+            , "DA.Monoid.Types"
+            , "DA.Numeric"
+            , "DA.Optional"
+            , "DA.Optional.Total"
+            , "DA.Semigroup"
+            , "DA.Semigroup.Types"
+            , "DA.Time"
+            , "DA.Time.Types"
+            , "DA.Validation"
+            , "DA.Validation.Types"
+            , "Data.String"
+            , "GHC.CString"
+            , "GHC.Integer.Type"
+            , "LibraryModules"
+            ]
+        changeDoc foo [TextDocumentContentChangeEvent (Just (Range (Position 3 0) (Position 3 1))) Nothing "Syntax"]
+        expectDiagnostics [("Foo.daml", [(DsError, (3,0), "Parse error")])]
+        completions <- getCompletions foo (Position 3 6)
+        liftIO $ completions @?= [mkCompletion "DA.Internal.RebindableSyntax" & detail .~ Nothing]
+  ]
+  where mkCompletion mod = CompletionItem
+          { _label = mod
+          , _kind = Just CiModule
+          , _detail = Just mod
+          , _documentation = Nothing
+          , _deprecated = Nothing
+          , _preselect = Nothing
+          , _sortText = Nothing
+          , _filterText = Nothing
+          , _insertText = Nothing
+          , _insertTextFormat = Nothing
+          , _textEdit = Nothing
+          , _additionalTextEdits = Nothing
+          , _commitCharacters = Nothing
+          , _command = Nothing
+          , _xdata = Nothing
+          }
