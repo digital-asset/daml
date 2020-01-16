@@ -5,8 +5,8 @@ packages:
   - archive: http://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-8.8.1.20200115.tar.gz
     sha256: "b62b2853fb5b65046557dfe3163e1d4a5d271614c58331695434c6b4602d098b"
   - github: digital-asset/hlint
-    commit: "80223939639c6dceb5883c378af21a0c7e4e640a"
-    sha256: "eb434d497960177e94e5b02ebf42985c1da6798f2b7b85006243ba98ac3b80e0"
+    commit: "e9ceb5387b661c6be254dc7f05d45d98b8310329"
+    sha256: "dca638af703035aeb2b44bd72a6ee1430d5633c66d790df776151d4575d1e16a"
   - bytestring-nums-0.3.6
   - extra-1.6.18
   - grpc-haskell-0.0.1.0
