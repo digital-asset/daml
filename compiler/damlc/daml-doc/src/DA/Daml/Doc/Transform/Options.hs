@@ -1,3 +1,6 @@
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
 module DA.Daml.Doc.Transform.Options
     ( TransformOptions (..)
     , defaultTransformOptions
@@ -57,3 +60,4 @@ keepInstance :: TransformOptions -> InstanceDoc -> Bool
 keepInstance TransformOptions{..} InstanceDoc{..} =
     let nameM = T.unpack . unTypename <$> getTypeAppName id_type
     in maybe True (`Set.notMember` to_excludeInstances) nameM
+
