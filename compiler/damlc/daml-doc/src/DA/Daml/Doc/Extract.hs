@@ -726,6 +726,8 @@ typeToContext dc ty =
     let ctx = typeToConstraints dc ty
     in guard (notNull ctx) >> Just (TypeTuple ctx)
 
+-- | Is this type a constraint? Constraints are either typeclass constraints,
+-- constraint tuples, or whatever else GHC decides is a constraint.
 isConstraintType :: TyCoRep.Type -> Bool
 isConstraintType = tcIsConstraintKind . Type.typeKind
 
