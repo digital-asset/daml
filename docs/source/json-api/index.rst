@@ -348,7 +348,7 @@ Some notes on behavior:
    the same results.
 
 3. You will almost certainly receive contract IDs in ``archived`` that
-   you never received an ``created`` for.  These are contracts that
+   you never received a ``created`` for.  These are contracts that
    query filtered out, but for which the server no longer is aware of
    that.  You can safely ignore these.  However, such "phantom archives"
    *are* guaranteed to represent an actual archival *on the ledger*, so
