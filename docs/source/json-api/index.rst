@@ -131,9 +131,11 @@ environments, you can use https://jwt.io to generate your token.
 The default "header" is fine.  Under "Payload", fill in::
 
     {
-      "ledgerId": "MyLedger",
-      "applicationId": "foobar",
-      "party": "Alice"
+      "https://daml.com/ledger-api": {
+        "ledgerId": "MyLedger",
+        "applicationId": "foobar",
+        "actAs": ["Alice"]
+      }
     }
 
 Keep in mind:
