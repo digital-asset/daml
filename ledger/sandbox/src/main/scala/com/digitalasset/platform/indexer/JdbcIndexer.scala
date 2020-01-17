@@ -80,7 +80,7 @@ final class JdbcIndexerFactory[Status <: InitStatus] private (metrics: MetricReg
     implicit val ec: ExecutionContext = DEC
 
     for {
-      ledgerDao <- JdbcLedgerDao.owner(jdbcUrl, loggerFactory, metrics, actorSystem.dispatcher)
+      ledgerDao <- JdbcLedgerDao.owner(jdbcUrl, metrics, actorSystem.dispatcher)
       LedgerInitialConditions(ledgerIdString, _, _) <- ResourceOwner
         .forFuture(
           () =>

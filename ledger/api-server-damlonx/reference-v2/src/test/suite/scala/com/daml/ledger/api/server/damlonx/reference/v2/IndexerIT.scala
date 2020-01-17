@@ -9,22 +9,22 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import ch.qos.logback.classic.Level
-import ch.qos.logback.classic.spi.ILoggingEvent
-import ch.qos.logback.core.UnsynchronizedAppenderBase
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.server.damlonx.reference.v2.IndexerIT._
 import com.daml.ledger.participant.state.v1.Update.Heartbeat
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.LedgerString
-import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.indexer.{
   IndexerConfig,
   IndexerStartupMode,
+  RecoveringIndexer,
   StandaloneIndexerServer
 }
+import com.digitalasset.platform.logging.LoggingContext
 import com.digitalasset.resources.Resource
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{JdbcLedgerDao, LedgerDao}
+import com.digitalasset.platform.testing.LogCollector
 import com.digitalasset.timer.RetryStrategy
 import org.mockito.ArgumentMatchers
 import org.mockito.Mockito._
@@ -43,7 +43,7 @@ class IndexerIT extends AsyncWordSpec with Matchers with BeforeAndAfterEach {
     super.beforeEach()
     actorSystem = ActorSystem(getClass.getSimpleName)
     materializer = Materializer(actorSystem)
-    clearLog()
+    LogCollector.clear[this.type]
   }
 
   override def afterEach(): Unit = {
@@ -51,6 +51,8 @@ class IndexerIT extends AsyncWordSpec with Matchers with BeforeAndAfterEach {
     Await.result(actorSystem.terminate(), 10.seconds)
     super.afterEach()
   }
+
+  private def readLog(): Seq[(Level, String)] = LogCollector.read[this.type, RecoveringIndexer]
 
   "indexer" should {
     "index the participant state" in {
@@ -187,22 +189,23 @@ class IndexerIT extends AsyncWordSpec with Matchers with BeforeAndAfterEach {
     val participantState = newParticipantState(participantId, ledgerId)
     val jdbcUrl =
       s"jdbc:h2:mem:${getClass.getSimpleName.toLowerCase()}-$id;db_close_delay=-1;db_close_on_exit=false"
-    val serverOwner = new StandaloneIndexerServer(
-      participantState,
-      IndexerConfig(
-        participantId,
-        jdbcUrl,
-        startupMode = IndexerStartupMode.MigrateAndStart,
-        restartDelay = restartDelay,
-      ),
-      loggerFactory,
-      new MetricRegistry,
-    )
-    val ledgerDaoOwner =
-      JdbcLedgerDao.owner(jdbcUrl, loggerFactory, new MetricRegistry, ExecutionContext.global)
-    val server = serverOwner.acquire()
-    val ledgerDao = ledgerDaoOwner.acquire()
-    (participantState, server, ledgerDao)
+    LoggingContext.newLoggingContext { implicit logCtx =>
+      val serverOwner = new StandaloneIndexerServer(
+        participantState,
+        IndexerConfig(
+          participantId,
+          jdbcUrl,
+          startupMode = IndexerStartupMode.MigrateAndStart,
+          restartDelay = restartDelay,
+        ),
+        new MetricRegistry,
+      )
+      val ledgerDaoOwner =
+        JdbcLedgerDao.owner(jdbcUrl, new MetricRegistry, ExecutionContext.global)
+      val server = serverOwner.acquire()
+      val ledgerDao = ledgerDaoOwner.acquire()
+      (participantState, server, ledgerDao)
+    }
   }
 }
 
@@ -210,20 +213,6 @@ object IndexerIT {
   private type ParticipantState = ReadService with WriteService with AutoCloseable
 
   private val eventually = RetryStrategy.exponentialBackoff(10, 10.millis)
-
-  private val loggerFactory = NamedLoggerFactory(classOf[IndexerIT])
-
-  private[this] val log = Vector.newBuilder[(Level, String)]
-
-  private def readLog(): Seq[(Level, String)] = log.synchronized { log.result() }
-  private def clearLog(): Unit = log.synchronized { log.clear() }
-
-  final class Appender extends UnsynchronizedAppenderBase[ILoggingEvent] {
-    override def append(e: ILoggingEvent): Unit =
-      log.synchronized {
-        val _ = log += e.getLevel -> e.getFormattedMessage
-      }
-  }
 
   private def randomSubmissionId(): LedgerString =
     LedgerString.assertFromString(UUID.randomUUID().toString)

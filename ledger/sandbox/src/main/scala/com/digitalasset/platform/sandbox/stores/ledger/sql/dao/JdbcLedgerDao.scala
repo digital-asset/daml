@@ -1703,19 +1703,15 @@ private class JdbcLedgerDao(
 object JdbcLedgerDao {
   def owner(
       jdbcUrl: String,
-      loggerFactory: NamedLoggerFactory,
       metrics: MetricRegistry,
       executionContext: ExecutionContext,
-  ): ResourceOwner[LedgerDao] = {
+  )(implicit logCtx: LoggingContext): ResourceOwner[LedgerDao] = {
     val dbType = DbType.jdbcType(jdbcUrl)
     val maxConnections =
       if (dbType.supportsParallelWrites) defaultNumberOfShortLivedConnections else 1
     for {
-      dbDispatcher <- DbDispatcher.owner(jdbcUrl, maxConnections, loggerFactory, metrics)
-    } yield
-      LedgerDao.metered(
-        JdbcLedgerDao(dbDispatcher, dbType, loggerFactory, executionContext),
-        metrics)
+      dbDispatcher <- DbDispatcher.owner(jdbcUrl, maxConnections, metrics)
+    } yield LedgerDao.metered(JdbcLedgerDao(dbDispatcher, dbType, executionContext), metrics)
   }
 
   def apply(

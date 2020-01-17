@@ -10,7 +10,7 @@ import akka.actor.Scheduler
 import akka.pattern.after
 import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.platform.logging.{ContextualizedLogger, LoggingContext}
-import com.digitalasset.resources.{Resource, ResourceOwner}
+import com.digitalasset.resources.Resource
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future, Promise}
