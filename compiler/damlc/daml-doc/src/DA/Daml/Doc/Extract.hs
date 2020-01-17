@@ -31,18 +31,16 @@ import           "ghc-lib" GHC
 import           "ghc-lib-parser" Module
 import           "ghc-lib-parser" TyCoRep
 import           "ghc-lib-parser" TyCon
+import           "ghc-lib-parser" Type
 import           "ghc-lib-parser" ConLike
 import           "ghc-lib-parser" DataCon
 import           "ghc-lib-parser" Class
 import           "ghc-lib-parser" BasicTypes
 import           "ghc-lib-parser" InstEnv
 import           "ghc-lib-parser" CoreSyn
-import           "ghc-lib-parser" Var
 import           "ghc-lib-parser" Id
 import           "ghc-lib-parser" Name
 import           "ghc-lib-parser" RdrName
-import qualified "ghc-lib-parser" Outputable                      as Out
-import qualified "ghc-lib-parser" DynFlags                        as DF
 import           "ghc-lib-parser" Bag (bagToList)
 
 import Control.Monad
@@ -428,7 +426,7 @@ getTypeDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ decl)) doc)
 
     fieldDoc :: (DDoc.Type, LConDeclField GhcPs) -> Maybe FieldDoc
     fieldDoc (fd_type, L _ ConDeclField{..}) = do
-        let fd_name = Fieldname . T.concat . map (toText . unLoc) $ cd_fld_names
+        let fd_name = Fieldname . T.concat . map (packFieldOcc . unLoc) $ cd_fld_names
             fd_anchor = Just $ functionAnchor dc_modname fd_name
             fd_descr = fmap (docToText . unLoc) cd_fld_doc
         Just FieldDoc{..}
@@ -549,7 +547,9 @@ isTemplate ClsInstDecl{..}
   , HsAppTy _ (L _ t1) t2 <- ty
   , HsTyVar _ _ (L _ tmplClass) <- t1
   , Just (L _ tmplName) <- hsTyGetAppHead_maybe t2
-  , toText tmplClass == "DA.Internal.Desugar.HasCreate"
+  , Qual classModule classOcc <- tmplClass
+  , moduleNameString classModule == "DA.Internal.Desugar"
+  , occNameString classOcc == "HasCreate"
   = Just (Typename . packRdrName $ tmplName)
 
   | otherwise = Nothing
@@ -567,7 +567,9 @@ isChoice ClsInstDecl{..}
   , HsTyVar _ _ (L _ choiceClass) <- choice
   , Just (L _ choiceName) <- hsTyGetAppHead_maybe cName
   , Just (L _ tmplName) <- hsTyGetAppHead_maybe cTmpl
-  , toText choiceClass == "DA.Internal.Desugar.HasExercise"
+  , Qual classModule classOcc <- choiceClass
+  , moduleNameString classModule == "DA.Internal.Desugar"
+  , occNameString classOcc == "HasExercise"
   = Just (Typename . packRdrName $ tmplName, Typename . packRdrName $ choiceName)
 
   | otherwise = Nothing
@@ -642,6 +644,15 @@ packOccName = T.pack . occNameString
 -- | Turn a RdrName into Text by taking the unqualified name it represents.
 packRdrName :: RdrName -> T.Text
 packRdrName = packOccName . rdrNameOcc
+
+-- | Turn a FieldOcc into Text by taking the unqualified name it represents.
+packFieldOcc :: FieldOcc p -> T.Text
+packFieldOcc = packRdrName . unLoc . rdrNameFieldOcc
+
+-- | Turn a TyLit into a text.
+packTyLit :: TyLit -> T.Text
+packTyLit (NumTyLit x) = T.pack (show x)
+packTyLit (StrTyLit x) = T.pack (show x)
 
 -- | Turn a GHC Module into a Modulename. (Unlike the above functions,
 -- we only ever want this to be a Modulename, so no reason to return
@@ -726,10 +737,15 @@ typeToContext dc ty =
     let ctx = typeToConstraints dc ty
     in guard (notNull ctx) >> Just (TypeTuple ctx)
 
+-- | Is this type a constraint? Constraints are either typeclass constraints,
+-- constraint tuples, or whatever else GHC decides is a constraint.
+isConstraintType :: TyCoRep.Type -> Bool
+isConstraintType = tcIsConstraintKind . Type.typeKind
+
 -- | Extract constraints from GHC type, returning list of constraints.
 typeToConstraints :: DocCtx -> TyCoRep.Type -> [DDoc.Type]
 typeToConstraints dc = \case
-    FunTy a@(TyConApp tycon _) b | isClassTyCon tycon ->
+    FunTy a b | isConstraintType a ->
         typeToType dc a : typeToConstraints dc b
     FunTy _ b ->
         typeToConstraints dc b
@@ -772,7 +788,7 @@ typeToType ctx = \case
 
     -- ignore context
     ForAllTy _ b -> typeToType ctx b
-    FunTy (TyConApp tycon _) b | isClassTyCon tycon ->
+    FunTy a b | isConstraintType a ->
         typeToType ctx b
 
     FunTy a b ->
@@ -781,17 +797,9 @@ typeToType ctx = \case
             b' -> TypeFun [typeToType ctx a, b']
 
     CastTy a _ -> typeToType ctx a
-    LitTy x -> TypeLit (toText x)
+    LitTy lit -> TypeLit (packTyLit lit)
     CoercionTy _ -> unexpected "coercion" -- TODO?
 
   where
     -- | Unhandled case.
     unexpected x = error $ "typeToType: found an unexpected " <> x
-
-
----- HACK ZONE --------------------------------------------------------
-
--- Generic ppr for various things we need as text.
--- FIXME Replace by specialised functions for the particular things.
-toText :: Out.Outputable a => a -> T.Text
-toText = T.pack . Out.showSDocOneLine DF.unsafeGlobalDynFlags . Out.ppr
