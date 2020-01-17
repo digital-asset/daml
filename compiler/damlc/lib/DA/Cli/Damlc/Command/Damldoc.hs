@@ -39,6 +39,7 @@ documentation numProcessors = Damldoc
     <*> optInclude
     <*> optExclude
     <*> optExcludeInstances
+    <*> optDropOrphanInstances
     <*> optCombine
     <*> optExtractOptions
     <*> argMainFiles
@@ -138,6 +139,11 @@ documentation numProcessors = Damldoc
                 "Example: `HasField'. Default: none.")
         <> value []
 
+    optDropOrphanInstances :: Parser Bool
+    optDropOrphanInstances = switch $
+        long "drop-orphan-instances"
+        <> help "Drop orphan instance docs."
+
     optCombine :: Parser Bool
     optCombine = switch $
         long "combine"
@@ -191,6 +197,7 @@ data CmdArgs = Damldoc
     , cIncludeMods :: [String]
     , cExcludeMods :: [String]
     , cExcludeInstances :: Set.Set String
+    , cDropOrphanInstances :: Bool
     , cCombine :: Bool
     , cExtractOptions :: ExtractOptions
     , cMainFiles :: [FilePath]
@@ -219,6 +226,7 @@ exec Damldoc{..} = do
         { to_includeModules = if null cIncludeMods then Nothing else Just cIncludeMods
         , to_excludeModules = if null cExcludeMods then Nothing else Just cExcludeMods
         , to_excludeInstances = cExcludeInstances
+        , to_dropOrphanInstances = cDropOrphanInstances
         , to_dataOnly = cDataOnly
         , to_ignoreAnnotations = cNoAnnot
         , to_omitEmpty = cOmitEmpty

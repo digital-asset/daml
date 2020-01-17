@@ -263,6 +263,7 @@ genrule(
             --input-format=json \
             --format=Hoogle \
             --exclude-instances=HasField \
+            --drop-orphan-instances \
             --template=$(location :daml-base-hoogle-template) \
             $(location :daml-stdlib.json) $(location :daml-prim.json)
     """,
@@ -285,6 +286,7 @@ genrule(
             --input-format=json \
             --format=Rst \
             --exclude-instances=HasField \
+            --drop-orphan-instances \
             --template=$(location :daml-base-rst-template) \
             $(location :daml-stdlib.json) $(location :daml-prim.json)
     """,
