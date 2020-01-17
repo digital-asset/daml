@@ -55,7 +55,7 @@ object SandboxServer {
   private val ActorSystemName = "sandbox"
   private val AsyncTolerance = 30.seconds
 
-  private val logger = ContextualizedLogger.get[SandboxServer]
+  private val logger = ContextualizedLogger.get[this.type]
 
   // We memoize the engine between resets so we avoid the expensive
   // repeated validation of the sames packages after each reset

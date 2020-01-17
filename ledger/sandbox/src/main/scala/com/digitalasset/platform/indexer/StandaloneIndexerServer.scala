@@ -42,7 +42,7 @@ final class StandaloneIndexerServer(
           startIndexer(indexer, indexerFactory.validateSchema(config.jdbcUrl), actorSystem)
       }
       _ = ContextualizedLogger
-        .get[StandaloneIndexerServer]
+        .get[this.type]
         .debug("Waiting for indexer to initialize the database")
     } yield ()
 

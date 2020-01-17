@@ -48,7 +48,7 @@ final class LedgerApiServer(
     extends ResourceOwner[ApiServer] {
 
   override def acquire()(implicit executionContext: ExecutionContext): Resource[ApiServer] = {
-    val logger = ContextualizedLogger.get[LedgerApiServer]
+    val logger = ContextualizedLogger.get[this.type]
     val servicesClosedPromise = Promise[Unit]()
 
     for {

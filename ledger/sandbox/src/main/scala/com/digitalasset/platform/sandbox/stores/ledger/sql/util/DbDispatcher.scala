@@ -24,7 +24,7 @@ final class DbDispatcher(
 )(implicit logCtx: LoggingContext)
     extends ReportsHealth {
 
-  private val logger = ContextualizedLogger.get[DbDispatcher]
+  private val logger = ContextualizedLogger.get[this.type]
 
   private val sqlExecution = ExecutionContext.fromExecutorService(sqlExecutor)
 
@@ -91,7 +91,7 @@ object DbDispatcher {
       maxConnections: Int,
       metrics: MetricRegistry,
   )(implicit logCtx: LoggingContext): ResourceOwner[DbDispatcher] = {
-    val logger = ContextualizedLogger.get[DbDispatcher]
+    val logger = ContextualizedLogger.get[this.type]
     for {
       connectionProvider <- HikariJdbcConnectionProvider.owner(jdbcUrl, maxConnections, metrics)
       sqlExecutor <- ResourceOwner.forExecutorService(

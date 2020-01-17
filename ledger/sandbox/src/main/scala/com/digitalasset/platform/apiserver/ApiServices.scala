@@ -74,7 +74,7 @@ private case class ApiServicesBundle(services: immutable.Seq[BindableService]) e
 
 object ApiServices {
 
-  private val logger = ContextualizedLogger.get[ApiServices]
+  private val logger = ContextualizedLogger.get[this.type]
 
   def create(
       writeService: WriteService,

@@ -87,7 +87,7 @@ class ApiSubmissionService private (
     with ErrorFactories
     with AutoCloseable {
 
-  private val logger = ContextualizedLogger.get[ApiSubmissionService]
+  private val logger = ContextualizedLogger.get[this.type]
 
   // FIXME(JM): We need to query the current configuration every time we want to validate
   // a command. Will be addressed in follow-up PR.

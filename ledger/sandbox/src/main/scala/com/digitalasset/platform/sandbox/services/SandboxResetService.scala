@@ -26,7 +26,7 @@ class SandboxResetService(
     with BindableService
     with ServerInterceptor {
 
-  private val logger = ContextualizedLogger.get[SandboxResetService]
+  private val logger = ContextualizedLogger.get[this.type]
 
   private val resetInitialized = new AtomicBoolean(false)
 

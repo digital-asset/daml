@@ -54,7 +54,7 @@ final class ApiTransactionService private (
     extends TransactionService
     with ErrorFactories {
 
-  private val logger = ContextualizedLogger.get[ApiTransactionService]
+  private val logger = ContextualizedLogger.get[this.type]
 
   private val subscriptionIdCounter = new AtomicLong()
 
