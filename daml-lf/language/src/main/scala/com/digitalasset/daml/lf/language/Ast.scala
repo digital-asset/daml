@@ -208,6 +208,17 @@ object Ast {
       def prettyType(t0: Type, prec: Int = precTForall): String = t0 match {
         case TVar(n) => n
         case TNat(n) => n.toString
+        case TSynApp(syn, args) =>
+          maybeParens(
+            prec > precTApp,
+            syn.qualifiedName.name.toString + " " +
+              args
+                .map { t =>
+                  prettyType(t, precTApp + 1)
+                }
+                .toSeq
+                .mkString(" ")
+          )
         case TTyCon(con) => con.qualifiedName.name.toString
         case TBuiltin(BTArrow) => "(->)"
         case TBuiltin(bt) => bt.toString.stripPrefix("BT")
@@ -250,6 +261,9 @@ object Ast {
     def apply(n: Numeric.Scale): TNat = values(n)
     val Decimal: TNat = values(10)
   }
+
+  /** Fully applied type synonym. */
+  final case class TSynApp(tysyn: TypeSynName, args: ImmArray[Type]) extends Type
 
   /** Reference to a type constructor. */
   final case class TTyCon(tycon: TypeConName) extends Type
@@ -513,6 +527,7 @@ object Ast {
 
   sealed abstract class Definition extends Product with Serializable
 
+  final case class DTypeSyn(params: ImmArray[(TypeVarName, Kind)], typ: Type) extends Definition
   final case class DDataType(
       serializable: Boolean,
       params: ImmArray[(TypeVarName, Kind)],

@@ -160,6 +160,7 @@ instance Pretty Type where
     TVar v -> pretty v
     TCon c -> pretty c
     TSynApp s args ->
+      maybeParens (prec > precTApp) $
       pretty s <-> hsep [pPrintPrec lvl (succ precTApp) arg | arg <- args ]
     TApp (TApp (TBuiltin BTArrow) tx) ty ->
       maybeParens (prec > precTFun)

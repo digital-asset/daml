@@ -25,6 +25,8 @@ private[validation] object Recursion {
     val modRefsInType: Set[ModuleName] = {
 
       def modRefsInType(acc: Set[ModuleName], typ0: Type): Set[ModuleName] = typ0 match {
+        case TSynApp(typeSynName, _) if typeSynName.packageId == pkgId =>
+          ((acc + typeSynName.qualifiedName.module) /: TypeTraversable(typ0))(modRefsInType)
         case TTyCon(typeConName) if typeConName.packageId == pkgId =>
           acc + typeConName.qualifiedName.module
         case otherwise =>

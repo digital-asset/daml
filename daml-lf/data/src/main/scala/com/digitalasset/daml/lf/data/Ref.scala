@@ -174,6 +174,10 @@ object Ref {
   type TypeConName = Identifier
   val TypeConName = Identifier
 
+  /** Reference to a type synonym. */
+  type TypeSynName = Identifier
+  val TypeSynName = Identifier
+
   /**
     * Used to reference to leger objects like contractIds, ledgerIds,
     * transactionId, ... We use the same type for those ids, because we

@@ -15,9 +15,12 @@ object PackageLookup {
     for {
       defn <- lookupDefinition(pkg, identifier)
       dataTyp <- defn match {
+        case dataType: DDataType => Right(dataType)
         case _: DValue =>
           Left(Error(s"Got value definition instead of datatype when looking up $identifier"))
-        case dataType: DDataType => Right(dataType)
+        case _: DTypeSyn =>
+          Left(
+            Error(s"Got type synonym definition instead of datatype when looking up $identifier"))
       }
     } yield dataTyp
 

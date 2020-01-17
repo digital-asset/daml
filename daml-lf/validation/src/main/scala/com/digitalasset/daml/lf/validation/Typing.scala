@@ -265,6 +265,7 @@ private[validation] object Typing {
         }
       case (dfnName, dfn: DValue) =>
         Env(mod.languageVersion, world, ContextDefValue(pkgId, mod.name, dfnName)).checkDValue(dfn)
+      case (_, _: DTypeSyn) => // TODO #3616: check type synonyms
     }
 
   case class Env(
@@ -416,6 +417,10 @@ private[validation] object Typing {
       defDataType.params.reverse.foldLeft[Kind](KStar) { case (acc, (_, k)) => KArrow(k, acc) }
 
     def kindOf(typ0: Type): Kind = typ0 match {
+      case TSynApp(syn, args) =>
+        val ty = expandSynApp(syn, args)
+        checkType(ty, KStar)
+        KStar
       case TVar(v) =>
         lookupTypeVar(v)
       case TNat(_) =>
@@ -437,6 +442,36 @@ private[validation] object Typing {
       case TStruct(recordType) =>
         checkRecordType(recordType)
         KStar
+    }
+
+    private def expandTypeSynonyms(typ0: Type): Type = typ0 match {
+      case TSynApp(syn, args) =>
+        val ty = expandSynApp(syn, args)
+        expandTypeSynonyms(ty)
+      case TVar(_) =>
+        typ0
+      case TNat(_) =>
+        typ0
+      case TTyCon(_) =>
+        typ0
+      case TBuiltin(_) =>
+        typ0
+      case TApp(tFun, tArg) =>
+        TApp(expandTypeSynonyms(tFun), expandTypeSynonyms(tArg))
+      case TForall((v, k), b) =>
+        TForall((v, k), introTypeVar(v, k).expandTypeSynonyms(b))
+      case TStruct(recordType) =>
+        TStruct(recordType.transform { (_, x) =>
+          expandTypeSynonyms(x)
+        })
+    }
+
+    private def expandSynApp(syn: TypeSynName, tArgs: ImmArray[Type]): Type = {
+      val DTypeSyn(tparams, replacementTyp) = lookupTypeSyn(ctx, syn)
+      if (tparams.length != tArgs.length)
+        throw ETypeSynAppWrongArity(ctx, tparams.length, syn, tArgs)
+      (tArgs.iterator zip tparams.values).foreach((checkType _).tupled)
+      TypeSubst.substitute((tparams.keys zip tArgs.iterator).toMap, replacementTyp)
     }
 
     private def checkRecCon(typ: TypeConApp, recordExpr: ImmArray[(FieldName, Expr)]): Unit =
@@ -793,7 +828,12 @@ private[validation] object Typing {
       checkType(typ, KStar)
     }
 
-    def typeOf(expr0: Expr): Type = expr0 match {
+    def typeOf(expr: Expr): Type = {
+      val typ0 = typeOf_(expr)
+      expandTypeSynonyms(typ0)
+    }
+
+    def typeOf_(expr0: Expr): Type = expr0 match {
       case EVar(name) =>
         lookupExpVar(name)
       case EVal(ref) =>
@@ -869,8 +909,9 @@ private[validation] object Typing {
         TTypeRep
     }
 
-    def checkExpr(expr: Expr, typ: Type): Type = {
+    def checkExpr(expr: Expr, typ0: Type): Type = {
       val exprType = typeOf(expr)
+      val typ = expandTypeSynonyms(typ0)
       if (!alphaEquiv(exprType, typ))
         throw ETypeMismatch(ctx, foundType = exprType, expectedType = typ, expr = Some(expr))
       exprType

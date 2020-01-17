@@ -19,6 +19,14 @@ private[validation] class World(packages: PartialFunction[PackageId, Ast.Package
     lookupModule(ctx, name.packageId, name.qualifiedName.module).definitions
       .getOrElse(name.qualifiedName.name, throw EUnknownDefinition(ctx, LEDataType(name)))
 
+  def lookupTypeSyn(ctx: => Context, name: TypeSynName): Ast.DTypeSyn =
+    lookupDefinition(ctx, name) match {
+      case typeSyn: Ast.DTypeSyn =>
+        typeSyn
+      case _ =>
+        throw EUnknownDefinition(ctx, LETypeSyn(name))
+    }
+
   def lookupDataType(ctx: => Context, name: TypeConName): Ast.DDataType =
     lookupDefinition(ctx, name) match {
       case dataType: Ast.DDataType =>

@@ -8,7 +8,7 @@ import java.time.Instant
 import com.digitalasset.daml.lf.CompiledPackages
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.language.Ast
-import com.digitalasset.daml.lf.language.Ast.{DDataType, DValue, Definition}
+import com.digitalasset.daml.lf.language.Ast.{DTypeSyn, DDataType, DValue, Definition}
 import com.digitalasset.daml.lf.speedy.{ScenarioRunner, Speedy}
 import com.digitalasset.daml.lf.types.{Ledger => L}
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
@@ -149,6 +149,9 @@ object ScenarioLoader {
   private def getScenarioExpr(scenarioRef: Ref.DefinitionRef, scenarioDef: Definition): Ast.Expr = {
     scenarioDef match {
       case DValue(_, _, body, _) => body
+      case _: DTypeSyn =>
+        throw new RuntimeException(
+          s"Requested scenario $scenarioRef is a type synonym, not a definition")
       case _: DDataType =>
         throw new RuntimeException(
           s"Requested scenario $scenarioRef is a data type, not a definition")
