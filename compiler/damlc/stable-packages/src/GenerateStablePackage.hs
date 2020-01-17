@@ -243,7 +243,7 @@ daInternalAny = Package version1_7 $ NM.singleton Module
       ]
 
 daTimeTypes :: Package
-daTimeTypes = Package version1_7 $ NM.singleton Module
+daTimeTypes = Package version1_6 $ NM.singleton Module
   { moduleName = modName
   , moduleSource = Nothing
   , moduleFeatureFlags = daml12FeatureFlags
