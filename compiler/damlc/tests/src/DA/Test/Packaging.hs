@@ -7,7 +7,9 @@ import qualified "zip-archive" Codec.Archive.Zip as Zip
 import Control.Monad.Extra
 import Control.Exception.Safe
 import DA.Bazel.Runfiles
-import DA.Daml.LF.Reader (readDalfManifest, packageName)
+import qualified DA.Daml.LF.Ast as LF
+import DA.Daml.LF.Reader (readDalfManifest, readDalfs, packageName, Dalfs(..), DalfManifest(DalfManifest), mainDalfPath, dalfPaths)
+import qualified DA.Daml.LF.Proto3.Archive as LFArchive
 import Data.Conduit.Tar.Extra (dropDirectory1)
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSL.Char8
@@ -448,6 +450,8 @@ tests damlc = testGroup "Packaging"
           exitCode @?= ExitFailure 1
           assertBool ("non-exhaustive error in " <> stderr) ("non-exhaustive" `isInfixOf` stderr)
 
+    , lfVersionTests damlc
+
     , dataDependencyTests damlc
     ]
   where
@@ -475,6 +479,30 @@ tests damlc = testGroup "Packaging"
                   , "    stderr = " <> show err
                   ]
               exitFailure
+
+-- | Test that a package build with --target=targetVersion never has a dependency on a package with version > targetVersion
+lfVersionTests :: FilePath -> TestTree
+lfVersionTests damlc = testGroup "LF version dependencies"
+    [ testCase ("Package in " <> show version) $ withTempDir $ \projDir -> do
+          writeFileUTF8 (projDir </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "name: proj"
+              , "version: 0.1.0"
+              , "source: ."
+              , "dependencies: [daml-prim, daml-stdlib]"
+              ]
+          writeFileUTF8 (projDir </> "A.daml") $ unlines
+              [ "daml 1.2 module A where"]
+          withCurrentDirectory projDir $ callProcessSilent damlc ["build", "-o", projDir </> "proj.dar", "--target", LF.renderVersion version]
+          archive <- Zip.toArchive <$> BSL.readFile (projDir </> "proj.dar")
+          DalfManifest {mainDalfPath, dalfPaths} <- either fail pure $ readDalfManifest archive
+          Dalfs main other <- either fail pure $ readDalfs archive
+          forM_ (zip (mainDalfPath : dalfPaths) (main : other)) $ \(path, bytes) -> do
+              Right (_, pkg) <- pure $ LFArchive.decodeArchive LFArchive.DecodeAsMain $ BSL.toStrict bytes
+              assertBool ("Expected LF version <=" <> show version <> " but got " <> show (LF.packageLfVersion pkg) <> " in " <> path) $
+                  LF.packageLfVersion pkg <= version
+    | version <- LF.supportedOutputVersions
+    ]
 
 dataDependencyTests :: FilePath -> TestTree
 dataDependencyTests damlc = testGroup "Data Dependencies" $

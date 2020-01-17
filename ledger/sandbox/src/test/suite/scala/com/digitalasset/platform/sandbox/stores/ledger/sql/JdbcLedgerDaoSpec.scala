@@ -453,9 +453,8 @@ class JdbcLedgerDaoSpec
       } yield {
         firstUploadResult shouldBe PersistenceResponse.Ok
         secondUploadResult shouldBe PersistenceResponse.Ok
-        loadedPackages.values.flatMap(_.sourceDescription.toList) should contain theSameElementsAs Seq
-          .fill(8)(secondDescription) ++
-          Seq(firstDescription) ++ Seq.fill(6)(secondDescription),
+        loadedPackages.values.flatMap(_.sourceDescription.toList) should contain theSameElementsAs
+          Seq(firstDescription) ++ Seq.fill(15)(secondDescription),
       }
     }
 

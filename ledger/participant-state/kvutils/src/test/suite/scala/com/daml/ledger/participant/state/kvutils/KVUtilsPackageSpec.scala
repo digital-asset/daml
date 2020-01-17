@@ -56,7 +56,7 @@ class KVUtilsPackageSpec extends WordSpec with Matchers with BazelRunfiles {
         logEntry <- submitArchives("test-stable-submission", testStablePackages.all: _*).map(_._2)
       } yield {
         logEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_ENTRY
-        logEntry.getPackageUploadEntry.getArchivesCount shouldEqual 15
+        logEntry.getPackageUploadEntry.getArchivesCount shouldEqual 16
       }
     }
 
