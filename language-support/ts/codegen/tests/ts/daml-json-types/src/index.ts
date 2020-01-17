@@ -207,49 +207,31 @@ export const ContractId = <T>(_t: Serializable<T>): Serializable<ContractId<T>> 
 });
 
 /**
- * The counterpart of DAML's `Optional T` type. Nested optionals are not yet
- * supported.
- */
-export type Optional<T> = T | null;
-
-// --
-
-/**
  * The counterpart of DAML's `Optional T` type.
  */
-export type Optional_<T> =
+export type Optional<T> =
   | null
-  | Optional_.Inner<T>
-
-namespace Optional_ {
+  | Optional.Inner<T>
+// eslint-disable-next-line @typescript-eslint/no-namespace
+namespace Optional {
   export type Inner<T> = null extends T ? ([] | [Exclude<T, null>]) : T;
 }
 
 /**
  * Companion function of the `Optional` type.
  */
-export const Optional_ = <T>(t: Serializable<T>): Serializable<Optional_<T>> => ({
-  decoder : () => jtv.oneOf<Optional_<T>>(jtv.constant(null), Optional_.Inner(t)),
+export const Optional = <T>(t: Serializable<T>): Serializable<Optional<T>> => ({
+  decoder : () => jtv.oneOf<Optional<T>>(jtv.constant(null), Optional.Inner(t)),
   isOptional: true,
 });
-Optional_.Inner = <T>(t: Serializable<T>): jtv.Decoder<Optional_.Inner<T>> =>
+Optional.Inner = <T>(t: Serializable<T>): jtv.Decoder<Optional.Inner<T>> =>
   ! t.isOptional
-  ? t.decoder() as jtv.Decoder<Optional_.Inner<T>>
+  ? t.decoder() as jtv.Decoder<Optional.Inner<T>>
   : jtv.oneOf(
       jtv.constant([]) as jtv.Decoder<[] | [Exclude<T, null>]>,
       jtv.tuple([t.decoder()]) as jtv.Decoder<[] | [Exclude<T, null>]>
-  ) as jtv.Decoder<Optional_.Inner<T>>
+  ) as jtv.Decoder<Optional.Inner<T>>
 ;
-
-// --
-
-/**
- * Companion function of the `Optional` type.
- */
-export const Optional = <T>(t: Serializable<T>): Serializable<Optional<T>> => ({
-  decoder: () => jtv.oneOf(jtv.constant(null), t.decoder()),
-  isOptional: true,
-});
 
 /**
  * The counterpart of DAML's `TextMap T` type. We represent `TextMap`s as

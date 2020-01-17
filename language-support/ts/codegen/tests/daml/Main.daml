@@ -17,6 +17,10 @@ template AllTypes with
     party: Party
     contractId: ContractId Person
     optional: Optional Int
+    optional2: Optional Int
+    optionalOptionalInt: Optional (Optional Int)
+    optionalOptionalInt2: Optional (Optional Int)
+    optionalOptionalInt3: Optional (Optional Int)
     list: [Bool]
     textMap: TextMap Int
     monoRecord: Person
@@ -28,8 +32,11 @@ template AllTypes with
     enum: Color
     enumList: [Color]
     variant: Expr Int
+    optionalVariant: Expr Int
     sumProd : Quux
+    optionalSumProd : Optional Quux
     parametericSumProd : Expr2 Int
+    optionalOptionalParametericSumProd : Optional (Optional (Expr2 Int))
     n0 : Numeric 0
     n5 : Numeric 5
     n10 : Decimal
