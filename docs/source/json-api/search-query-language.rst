@@ -6,8 +6,8 @@
 
 The body of ``POST /contracts/search`` looks like so::
 
-  {"%templates": [...template IDs...],
-   ...other query elements...}
+  {"templateIds": [...template IDs...],
+   "query": {...query elements...}}
 
 The elements of that query are defined here.
 
@@ -108,10 +108,10 @@ For these reasons, as with LF value input via JSON, queries written in
 JSON are also always interpreted with respect to some specified LF types
 (e.g. template IDs). For example::
 
-  {"%templates": [{"moduleName": "Foo", "entityName": "A"},
-                  {"moduleName": "Foo", "entityName": "B"},
-                  {"moduleName": "Foo", "entityName": "C"}],
-   "foo": "bar"}
+  {"templateIds": [{"moduleName": "Foo", "entityName": "A"},
+                   {"moduleName": "Foo", "entityName": "B"},
+                   {"moduleName": "Foo", "entityName": "C"}],
+   "query": {"foo": "bar"}}
 
 will treat ``"foo"`` as a field equality query for A and B, and
 (supposing templates' associated data types were permitted to be
