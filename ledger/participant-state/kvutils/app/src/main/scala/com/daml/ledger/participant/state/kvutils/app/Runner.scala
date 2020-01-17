@@ -50,7 +50,7 @@ class Runner[Extra](name: String, constructor: LedgerFactory[Extra]) {
         _ <- AkkaResourceOwner.forActorSystem(() => system).acquire()
         _ <- AkkaResourceOwner.forMaterializer(() => materializer).acquire()
         readerWriter <- ResourceOwner
-          .forCloseable(() => constructor(config.participantId))
+          .forCloseable(() => constructor(config.participantId, config.extra))
           .acquire()
         ledger = new KeyValueParticipantState(readerWriter, readerWriter)
         _ <- Resource.sequenceIgnoringValues(config.archiveFiles.map { file =>
