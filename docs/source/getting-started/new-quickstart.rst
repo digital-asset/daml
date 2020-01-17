@@ -133,7 +133,21 @@ React helps us write modular UI components and TypeScript is a variant of Javasc
 The interesting thing is how we interact with the DAML ledger from the UI, specifically through React.
 One can think of the ledger as a global state that we read and write from different components of the UI.
 Since React usually promotes all data being passed as arguments (called *props*) to different components, we use a state management feature called `Hooks <https://reactjs.org/docs/hooks-intro.html>`_.
-You can see the capabilities of the DAML ledger hooks in ``create-daml-app/ui/src/daml-react-hooks/hooks.ts``.
+You can see the capabilities of the DAML React hooks in ``create-daml-app/ui/src/daml-react-hooks/hooks.ts``.
 For example, we can query the ledger for all visible contracts (relative to a particular user), create contracts and exercise choices on contracts.
 
-Let's see an example of using a ledger hook.
+Let's see some examples of DAML React hooks.
+
+.. literalinclude:: quickstart/code/ui/MainController.tsx
+  :language: ts
+  :start-after: -- HOOKS_BEGIN
+  :end-before: -- HOOKS_END
+
+This is the start of the component which provides data from the current state of the ledger to the main screen of our app.
+The three declarations within ``MainController`` all use DAML hooks to get information from the ledger.
+For instance, ``allUsers`` uses a catch-all query to get the ``User`` contracts on the ledger.
+However, the query respects the privacy guarantees of a DAML ledger: the contracts returned are only those visible to the currently logged in party.
+This explains why you cannot see *all* users in the network on the main screen, only those who have added you as a friend (making you an observer of their ``User`` contract).
+
+.. TODO You also see friends of friends; either explain or prevent this.
+
