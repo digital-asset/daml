@@ -31,10 +31,11 @@ main :: IO ()
 main = do
     setEnv "TASTY_NUM_THREADS" "1" True
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
-    defaultMain $ tests damlc
+    repl <- locateRunfiles (mainWorkspace </> "daml-lf" </> "repl" </> exe "repl")
+    defaultMain $ tests damlc repl
 
-tests :: FilePath -> TestTree
-tests damlc = testGroup "Packaging"
+tests :: FilePath -> FilePath -> TestTree
+tests damlc repl = testGroup "Packaging"
     [ testCaseSteps "Build package with dependency" $ \step -> withTempDir $ \tmpDir -> do
         let projectA = tmpDir </> "a"
         let projectB = tmpDir </> "b"
@@ -452,7 +453,7 @@ tests damlc = testGroup "Packaging"
 
     , lfVersionTests damlc
 
-    , dataDependencyTests damlc
+    , dataDependencyTests damlc repl
     ]
   where
       buildProject' :: FilePath -> FilePath -> IO ()
@@ -483,7 +484,7 @@ tests damlc = testGroup "Packaging"
 -- | Test that a package build with --target=targetVersion never has a dependency on a package with version > targetVersion
 lfVersionTests :: FilePath -> TestTree
 lfVersionTests damlc = testGroup "LF version dependencies"
-    [ testCase ("Package in " <> show version) $ withTempDir $ \projDir -> do
+    [ testCase ("Package in " <> LF.renderVersion version) $ withTempDir $ \projDir -> do
           writeFileUTF8 (projDir </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
               , "name: proj"
@@ -504,11 +505,110 @@ lfVersionTests damlc = testGroup "LF version dependencies"
     | version <- LF.supportedOutputVersions
     ]
 
-dataDependencyTests :: FilePath -> TestTree
-dataDependencyTests damlc = testGroup "Data Dependencies" $
-    (do
-      withArchiveChoice <- [False,True] -- run two variations of the test
-      return $ testCase ("Dalf imports (withArchiveChoice=" <> show withArchiveChoice <> ")") $ withTempDir $ \projDir -> do
+darPackageIds :: FilePath -> IO [LF.PackageId]
+darPackageIds fp = do
+    archive <- Zip.toArchive <$> BSL.readFile fp
+    Dalfs mainDalf dalfDeps <- either fail pure $ readDalfs archive
+    Right parsedDalfs <- pure $ mapM (LFArchive.decodeArchive LFArchive.DecodeAsMain . BSL.toStrict) $ mainDalf : dalfDeps
+    pure $ map fst parsedDalfs
+
+numStable16Packages :: Int
+numStable16Packages = 13
+
+numStable17Packages :: Int
+numStable17Packages = 14
+
+dataDependencyTests :: FilePath -> FilePath -> TestTree
+dataDependencyTests damlc repl = testGroup "Data Dependencies" $
+    [ testCaseSteps "Cross DAML-LF version" $ \step -> withTempDir $ \tmpDir -> do
+          let proja = tmpDir </> "proja"
+          let projb = tmpDir </> "projb"
+
+          step "Build proja"
+          createDirectoryIfMissing True (proja </> "src")
+          writeFileUTF8 (proja </> "src" </> "A.daml") $ unlines
+              [" daml 1.2"
+              , "module A where"
+              , "import DA.Text"
+              , "data A = A Int deriving Show"
+              -- This ensures that we have a reference to daml-stdlib and therefore daml-prim.
+              , "x : [Text]"
+              , "x = lines \"abc\\ndef\""
+              ]
+          writeFileUTF8 (proja </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "name: proja"
+              , "version: 0.0.1"
+              , "source: src"
+              , "dependencies: [daml-prim, daml-stdlib]"
+              ]
+          withCurrentDirectory proja $ callProcessSilent damlc ["build", "--target=1.6", "-o", proja </> "proja.dar"]
+          projaPkgIds <- darPackageIds (proja </> "proja.dar")
+          -- daml-stdlib, daml-prim and proja
+          length projaPkgIds @?= numStable16Packages + 2 + 1
+
+          step "Build projb"
+          createDirectoryIfMissing True (projb </> "src")
+          writeFileUTF8 (projb </> "src" </> "B.daml") $ unlines
+              [ "daml 1.2"
+              , "module B where"
+              , "import A"
+              , "data B = B A"
+              ]
+          writeFileUTF8 (projb </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "name: projb"
+              , "version: 0.0.1"
+              , "source: src"
+              , "dependencies: [daml-prim, daml-stdlib]"
+              , "data-dependencies: [" <> show (proja </> "proja.dar") <> "]"
+              ]
+          -- TODO Users should not have to pass --hide-all-packages, see https://github.com/digital-asset/daml/issues/4094
+          withCurrentDirectory projb $ callProcessSilent damlc
+            [ "build", "--target=1.7", "-o", projb </> "projb.dar"
+            , "--hide-all-packages"
+            , "--package", "(\"daml-prim\", True, [])"
+            , "--package", "(\"" <> damlStdlib <> "\", True, [])"
+            , "--package", "(\"proja-0.0.1\", True, [])"
+            ]
+          callProcessSilent repl ["validate", projb </> "projb.dar"]
+          projbPkgIds <- darPackageIds (projb </> "projb.dar")
+          -- daml-prim, daml-stdlib for 1.6, daml-prim, daml-stdlib for 1.7, proja and projb
+          length projbPkgIds @?= numStable17Packages + 2 + 2 + 1 + 1
+          -- daml-prim, daml-stdlib for 1.7, 2 stable 1.7 packages and projb
+          length (filter (`notElem` projaPkgIds) projbPkgIds) @?= 4
+    ] <>
+    [ testCaseSteps "Source generation edge cases" $ \step -> withTempDir $ \tmpDir -> do
+      writeFileUTF8 (tmpDir </> "Foo.daml") $ unlines
+        [ "daml 1.2"
+        , "module Foo where"
+        , "template Bar"
+        , "   with"
+        , "     p : Party"
+        , "     t : (Text, Int)" -- check for correct tuple type generation
+        , "   where"
+        , "     signatory p"
+        ]
+      withCurrentDirectory tmpDir $ do
+        step "Compile source to dalf ..."
+        callProcessSilent damlc ["compile", "Foo.daml", "-o", "Foo.dalf"]
+        step "Regenerate source ..."
+        callProcessSilent damlc ["generate-src", "Foo.dalf", "--srcdir=gen"]
+        step "Compile generated source ..."
+        callProcessSilent
+            damlc
+            [ "compile"
+            , "--generated-src"
+            , "gen/Foo.daml"
+            , "-o"
+            , "FooGen.dalf"
+            , "--package=(" <> show damlStdlib <>
+              ", False, [(\"DA.Internal.LF\", \"CurrentSdk.DA.Internal.LF\"), (\"DA.Internal.Prelude\", \"Sdk.DA.Internal.Prelude\"), (\"DA.Internal.Template\", \"CurrentSdk.DA.Internal.Template\")])"
+            , "--package=(\"daml-prim\", False, [(\"DA.Types\", \"CurrentSdk.DA.Types\"), (\"GHC.Types\", \"CurrentSdk.GHC.Types\")])"
+            ]
+        assertBool "FooGen.dalf was not created" =<< doesFileExist "FooGen.dalf"
+    ] <>
+    [ testCase ("Dalf imports (withArchiveChoice=" <> show withArchiveChoice <> ")") $ withTempDir $ \projDir -> do
         let genSimpleDalfExe
               | isWindows = "generate-simple-dalf.exe"
               | otherwise = "generate-simple-dalf"
@@ -567,36 +667,9 @@ dataDependencyTests damlc = testGroup "Data Dependencies" $
         let dar = projDir </> ".daml/dist/proj-0.1.0.dar"
         assertBool "proj-0.1.0.dar was not created." =<< doesFileExist dar
         callProcessSilent damlc ["test", "--target=1.dev", "--project-root", projDir, "--generated-src"]
-    ) <>
-    [ testCaseSteps "Source generation edge cases" $ \step -> withTempDir $ \tmpDir -> do
-      writeFileUTF8 (tmpDir </> "Foo.daml") $ unlines
-        [ "daml 1.2"
-        , "module Foo where"
-        , "template Bar"
-        , "   with"
-        , "     p : Party"
-        , "     t : (Text, Int)" -- check for correct tuple type generation
-        , "   where"
-        , "     signatory p"
-        ]
-      withCurrentDirectory tmpDir $ do
-        step "Compile source to dalf ..."
-        callProcessSilent damlc ["compile", "Foo.daml", "-o", "Foo.dalf"]
-        step "Regenerate source ..."
-        callProcessSilent damlc ["generate-src", "Foo.dalf", "--srcdir=gen"]
-        step "Compile generated source ..."
-        callProcessSilent
-            damlc
-            [ "compile"
-            , "--generated-src"
-            , "gen/Foo.daml"
-            , "-o"
-            , "FooGen.dalf"
-            , "--package=(" <> show damlStdlib <>
-              ", False, [(\"DA.Internal.LF\", \"Sdk.DA.Internal.LF\"), (\"DA.Internal.Prelude\", \"Sdk.DA.Internal.Prelude\")])"
-            ]
-        assertBool "FooGen.dalf was not created" =<< doesFileExist "FooGen.dalf"
+    | withArchiveChoice <- [False, True]
     ]
+
 
 -- | Only displays stdout and stderr on errors
 callProcessSilent :: FilePath -> [String] -> IO ()

@@ -806,16 +806,14 @@ execGenerateSrc opts dalfOrDar mbOutDir = Command GenerateSrc Nothing effect
         (pkgId, pkg) <- decode bytes
         opts <- mkOptions opts
         logger <- getLogger opts "generate-src"
-        pkgMap0 <- withDamlIdeState opts { optScenarioService = EnableScenarioService False } logger diagnosticsLogger $ \ideState -> runAction ideState $ do
-          stablePkgs <-
-              MS.fromList . map (\((unitId, _modName), dalfPkg) -> (LF.dalfPackageId dalfPkg, unitId)) . MS.toList <$>
-              useNoFile_ GenerateStablePackages
+        (pkgMap0, stablePkgIds) <- withDamlIdeState opts { optScenarioService = EnableScenarioService False } logger diagnosticsLogger $ \ideState -> runAction ideState $ do
           pkgs <-
               MS.fromList . map (\(unitId, dalfPkg) -> (LF.dalfPackageId dalfPkg, unitId)) . MS.toList <$>
               useNoFile_ GeneratePackageMap
-          pure $ stablePkgs `MS.union` pkgs
+          stablePkgIds <- fmap (MS.fromList . map (\(k, pkg) -> (LF.dalfPackageId pkg, k)) . MS.toList) (useNoFile_ GenerateStablePackages)
+          pure (pkgs `MS.union` MS.map fst stablePkgIds, stablePkgIds)
         let pkgMap = MS.insert pkgId unitId pkgMap0
-        let genSrcs = generateSrcPkgFromLf (getUnitId unitId pkgMap) (Just "Sdk") pkg
+        let genSrcs = generateSrcPkgFromLf (getUnitId unitId pkgMap) stablePkgIds (Just "CurrentSdk") pkg
         forM_ genSrcs $ \(path, src) -> do
             let fp = fromMaybe "" mbOutDir </> fromNormalizedFilePath path
             createDirectoryIfMissing True $ takeDirectory fp
@@ -850,7 +848,8 @@ execGenerateGenSrc darFp mbQual outDir = Command GenerateGenerics Nothing effect
         (mainPkgId, mainLfPkg) <-
             decode $ BSL.toStrict $ ZipArchive.fromEntry mainDalfEntry
         let getUid = getUnitId unitId pkgMap
-        let genSrcs = generateGenInstancesPkgFromLf getUid Nothing mainPkgId mainLfPkg (fromMaybe "" mbQual)
+        -- TODO Passing MS.empty is not right but this command is only used for debugging so for now this is fine.
+        let genSrcs = generateGenInstancesPkgFromLf getUid MS.empty Nothing mainPkgId mainLfPkg (fromMaybe "" mbQual)
         forM_ genSrcs $ \(path, src) -> do
             let fp = fromMaybe "" outDir </> fromNormalizedFilePath path
             createDirectoryIfMissing True $ takeDirectory fp

@@ -81,7 +81,7 @@ import Development.IDE.Core.RuleTypes.Daml
 import DA.Daml.DocTest
 import DA.Daml.LFConversion (convertModule, sourceLocToRange)
 import DA.Daml.LFConversion.UtilLF
-import DA.Daml.LF.Reader (stripPkgId)
+import DA.Daml.LF.Reader (parseUnitId)
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.InferSerializability as Serializability
 import qualified DA.Daml.LF.PrettyScenario as LF
@@ -457,13 +457,16 @@ generatePackageMap fps = do
       forM dalfs $ \dalf -> do
           dalfPkgOrErr <- readDalfPackage dalf
           let baseName = takeBaseName dalf
-          let getUnitId pkg =
-                  ( stringToUnitId $
-                    fromMaybe baseName $
-                    stripPkgId
-                        baseName
-                        (T.unpack $ LF.unPackageId $ LF.dalfPackageId pkg)
-                  , pkg)
+          let getUnitId pkg
+          -- If we use data-dependencies we can end up with multiple DALFs for daml-prim/daml-stdlib
+          -- one per version. The one shipped with the SDK is called daml-prim.dalf and daml-stdlib-$VERSION.dalf
+          -- and have the same unit ids, so we do not need to strip package ids.
+          -- The one coming from daml-prim will be called daml-prim-$PKGID.dalf daml-stdlib-$PKGID.dalf
+          -- To avoid collisions, we include this hash in the unit id so we also don’t want to strip
+          -- package ids here.
+                  | "daml-prim" `isPrefixOf` baseName = (stringToUnitId baseName, pkg)
+                  | "daml-stdlib" `isPrefixOf` baseName = (stringToUnitId baseName, pkg)
+                  | otherwise = ( stringToUnitId $ parseUnitId baseName $ LF.dalfPackageId pkg, pkg)
           pure (fmap getUnitId dalfPkgOrErr)
   return (diags, Map.fromList pkgs)
 
