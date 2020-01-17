@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <appender name="INDEXER" class="com.daml.ledger.api.server.damlonx.reference.v2.IndexerIT$Appender" />
+
+    <logger name="com.digitalasset.platform.indexer.RecoveringIndexer:IndexerIT" level="INFO">
+        <appender-ref ref="INDEXER" />
+    </logger>
+
+</configuration>

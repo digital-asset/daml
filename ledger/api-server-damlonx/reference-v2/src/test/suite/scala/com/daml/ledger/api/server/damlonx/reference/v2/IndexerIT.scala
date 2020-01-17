@@ -9,20 +9,21 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import ch.qos.logback.classic.Level
+import ch.qos.logback.classic.spi.ILoggingEvent
+import ch.qos.logback.core.UnsynchronizedAppenderBase
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.server.damlonx.reference.v2.IndexerIT._
 import com.daml.ledger.participant.state.v1.Update.Heartbeat
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.LedgerString
-import com.digitalasset.platform.common.logging.TestNamedLoggerFactory
+import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.indexer.{
   IndexerConfig,
   IndexerStartupMode,
-  RecoveringIndexer,
   StandaloneIndexerServer
 }
-import com.digitalasset.platform.resources.Resource
+import com.digitalasset.resources.Resource
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{JdbcLedgerDao, LedgerDao}
 import com.digitalasset.timer.RetryStrategy
 import org.mockito.ArgumentMatchers
@@ -42,10 +43,10 @@ class IndexerIT extends AsyncWordSpec with Matchers with BeforeAndAfterEach {
     super.beforeEach()
     actorSystem = ActorSystem(getClass.getSimpleName)
     materializer = Materializer(actorSystem)
+    clearLog()
   }
 
   override def afterEach(): Unit = {
-    loggerFactory.cleanup()
     materializer.shutdown()
     Await.result(actorSystem.terminate(), 10.seconds)
     super.afterEach()
@@ -73,7 +74,7 @@ class IndexerIT extends AsyncWordSpec with Matchers with BeforeAndAfterEach {
         _ <- server.release()
         _ <- ledgerDao.release()
       } yield {
-        logs shouldBe Seq(
+        readLog() should contain theSameElementsInOrderAs Seq(
           Level.INFO -> "Starting Indexer Server",
           Level.INFO -> "Started Indexer Server",
           Level.INFO -> "Stopping Indexer Server",
@@ -118,7 +119,7 @@ class IndexerIT extends AsyncWordSpec with Matchers with BeforeAndAfterEach {
         _ <- server.release()
         _ <- ledgerDao.release()
       } yield {
-        logs shouldBe Seq(
+        readLog() should contain theSameElementsInOrderAs Seq(
           Level.INFO -> "Starting Indexer Server",
           Level.INFO -> "Started Indexer Server",
           Level.ERROR -> "Error while running indexer, restart scheduled after 100 milliseconds",
@@ -155,7 +156,7 @@ class IndexerIT extends AsyncWordSpec with Matchers with BeforeAndAfterEach {
           .toScala
         _ <- eventually { (_, _) =>
           Future.fromTry(
-            Try(logs.take(3) shouldBe Seq(
+            Try(readLog().take(3) should contain theSameElementsInOrderAs Seq(
               Level.INFO -> "Starting Indexer Server",
               Level.INFO -> "Started Indexer Server",
               Level.ERROR -> "Error while running indexer, restart scheduled after 10 seconds",
@@ -164,7 +165,7 @@ class IndexerIT extends AsyncWordSpec with Matchers with BeforeAndAfterEach {
         _ <- server.release()
       } yield {
         // stopping the server and logging the error can happen in either order
-        logs should contain theSameElementsAs Seq(
+        readLog() should contain theSameElementsInOrderAs Seq(
           Level.INFO -> "Starting Indexer Server",
           Level.INFO -> "Started Indexer Server",
           Level.ERROR -> "Error while running indexer, restart scheduled after 10 seconds",
@@ -210,10 +211,19 @@ object IndexerIT {
 
   private val eventually = RetryStrategy.exponentialBackoff(10, 10.millis)
 
-  private val loggerFactory = TestNamedLoggerFactory(classOf[IndexerIT])
+  private val loggerFactory = NamedLoggerFactory(classOf[IndexerIT])
 
-  private def logs: Seq[(Level, String)] =
-    loggerFactory.logs(classOf[RecoveringIndexer])
+  private[this] val log = Vector.newBuilder[(Level, String)]
+
+  private def readLog(): Seq[(Level, String)] = log.synchronized { log.result() }
+  private def clearLog(): Unit = log.synchronized { log.clear() }
+
+  final class Appender extends UnsynchronizedAppenderBase[ILoggingEvent] {
+    override def append(e: ILoggingEvent): Unit =
+      log.synchronized {
+        val _ = log += e.getLevel -> e.getFormattedMessage
+      }
+  }
 
   private def randomSubmissionId(): LedgerString =
     LedgerString.assertFromString(UUID.randomUUID().toString)
