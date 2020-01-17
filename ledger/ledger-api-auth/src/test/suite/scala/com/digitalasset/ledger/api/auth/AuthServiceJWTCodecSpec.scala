@@ -70,7 +70,7 @@ class AuthServiceJWTCodecSpec
             |    "actAs": ["Alice"],
             |    "readAs": ["Alice", "Bob"]
             |  },
-            |  "exp": 0,
+            |  "exp": 0
             |}
           """.stripMargin
         val expected = AuthServiceJWTPayload(
