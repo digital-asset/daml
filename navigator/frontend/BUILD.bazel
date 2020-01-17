@@ -111,7 +111,7 @@ genrule(
       --env.prod \
       --env.paths_case_check="{PATHS_CASE_CHECK}" \
       --env.bazel_in_dir="$$WP_IN" \
-      --env.bazel_out_dir="$$WP_OUT/frontend"
+      --env.bazel_out_dir={WP_OUT_REF}
 
     # Package result (.TGZ)
     # To debug, change 'czf' to 'czfv'.
@@ -123,8 +123,9 @@ genrule(
     $(JAVABASE)/bin/jar c0Mf "$(@D)/frontend.jar" -C $$OUT .
     """.format(
         PATHS_CASE_CHECK = "false" if is_windows else "true",
-        WP_IN = "$$(cygpath -w $$IN)" if is_windows else "$$IN",
-        WP_OUT = "$$(cygpath -w $$OUT)" if is_windows else "$$OUT",
+        WP_IN = "`$$(cygpath -w $$IN)`" if is_windows else "$$IN",
+        WP_OUT = "'$$(cygpath -w $$OUT)'" if is_windows else "$$OUT",
+        WP_OUT_REF = "$$WP_OUT\\frontend" if is_windows else "$$WP_OUT/frontend",
     ),
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
     tools = [":webpack"],
