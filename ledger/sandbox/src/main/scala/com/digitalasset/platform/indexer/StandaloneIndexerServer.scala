@@ -20,6 +20,9 @@ final class StandaloneIndexerServer(
     metrics: MetricRegistry,
 )(implicit logCtx: LoggingContext)
     extends ResourceOwner[Unit] {
+
+  private val logger = ContextualizedLogger.get[this.type]
+
   override def acquire()(implicit executionContext: ExecutionContext): Resource[Unit] =
     for {
       // ActorSystem name not allowed to contain daml-lf LedgerString characters ".:#/ "
@@ -41,10 +44,9 @@ final class StandaloneIndexerServer(
         case IndexerStartupMode.ValidateAndStart =>
           startIndexer(indexer, indexerFactory.validateSchema(config.jdbcUrl), actorSystem)
       }
-      _ = ContextualizedLogger
-        .get[this.type]
-        .debug("Waiting for indexer to initialize the database")
-    } yield ()
+    } yield {
+      logger.debug("Waiting for indexer to initialize the database")
+    }
 
   private def startIndexer(
       indexer: RecoveringIndexer,

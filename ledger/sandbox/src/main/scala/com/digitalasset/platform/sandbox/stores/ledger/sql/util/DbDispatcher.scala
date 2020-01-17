@@ -86,12 +86,12 @@ final class DbDispatcher(
 }
 
 object DbDispatcher {
+  private val logger = ContextualizedLogger.get[this.type]
   def owner(
       jdbcUrl: String,
       maxConnections: Int,
       metrics: MetricRegistry,
   )(implicit logCtx: LoggingContext): ResourceOwner[DbDispatcher] = {
-    val logger = ContextualizedLogger.get[this.type]
     for {
       connectionProvider <- HikariJdbcConnectionProvider.owner(jdbcUrl, maxConnections, metrics)
       sqlExecutor <- ResourceOwner.forExecutorService(
