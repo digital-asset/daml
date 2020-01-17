@@ -26,10 +26,10 @@ import com.digitalasset.ledger.client.services.commands.{
   CommandCompletionSource,
   CommandTrackerFlow
 }
+import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.api.grpc.GrpcApiService
-import com.digitalasset.platform.apiserver.services.tracking.{TrackerImpl, TrackerMap}
 import com.digitalasset.platform.apiserver.services.ApiCommandService.LowLevelCommandServiceAccess
-import com.digitalasset.platform.logging.{ContextualizedLogger, LoggingContext}
+import com.digitalasset.platform.apiserver.services.tracking.{TrackerImpl, TrackerMap}
 import com.digitalasset.platform.server.api.ApiException
 import com.digitalasset.platform.server.api.services.grpc.GrpcCommandService
 import com.digitalasset.util.Ctx

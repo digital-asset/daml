@@ -5,10 +5,10 @@ package com.digitalasset.platform.apiserver.services.tracking
 
 import java.util.concurrent.atomic.AtomicReference
 
+import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.digitalasset.ledger.api.v1.completion.Completion
-import com.digitalasset.dec.DirectExecutionContext
-import com.digitalasset.platform.logging.{ContextualizedLogger, LoggingContext}
+import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import org.slf4j.LoggerFactory
 
 import scala.collection.immutable.HashMap

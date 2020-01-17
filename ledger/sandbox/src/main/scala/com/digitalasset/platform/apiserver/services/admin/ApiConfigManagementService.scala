@@ -15,12 +15,12 @@ import com.daml.ledger.participant.state.v1.{
 }
 import com.digitalasset.api.util.{DurationConversion, TimeProvider, TimestampConversion}
 import com.digitalasset.daml.lf.data.Time
+import com.digitalasset.dec.{DirectExecutionContext => DE}
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.v1.admin.config_management_service.ConfigManagementServiceGrpc.ConfigManagementService
 import com.digitalasset.ledger.api.v1.admin.config_management_service._
+import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.api.grpc.GrpcApiService
-import com.digitalasset.dec.{DirectExecutionContext => DE}
-import com.digitalasset.platform.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.server.api.validation
 import com.digitalasset.platform.server.api.validation.ErrorFactories
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}

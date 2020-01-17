@@ -43,6 +43,7 @@ import com.digitalasset.ledger.api.domain.{
   TransactionFilter
 }
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.digitalasset.logging.LoggingContext.newLoggingContext
 import com.digitalasset.platform.participant.util.EventFilter
 import com.digitalasset.platform.sandbox.persistence.PostgresAroundAll
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.ActiveContract
@@ -52,7 +53,6 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
 import com.digitalasset.platform.sandbox.stores.ledger.{ConfigurationEntry, LedgerEntry}
 import com.digitalasset.resources.Resource
 import org.scalatest.{AsyncWordSpec, Matchers, OptionValues}
-import com.digitalasset.platform.logging.LoggingContext.newLoggingContext
 
 import scala.collection.immutable.TreeMap
 import scala.concurrent.duration.DurationInt

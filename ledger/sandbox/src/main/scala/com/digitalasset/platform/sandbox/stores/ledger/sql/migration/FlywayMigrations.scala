@@ -4,7 +4,7 @@
 package com.digitalasset.platform.sandbox.stores.ledger.sql.migration
 
 import com.digitalasset.dec.DirectExecutionContext
-import com.digitalasset.platform.logging.{ContextualizedLogger, LoggingContext}
+import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{DbType, HikariConnection}
 import com.digitalasset.resources.Resource
 import com.zaxxer.hikari.HikariDataSource

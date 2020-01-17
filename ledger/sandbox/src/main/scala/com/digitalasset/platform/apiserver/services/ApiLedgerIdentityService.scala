@@ -13,8 +13,8 @@ import com.digitalasset.ledger.api.v1.ledger_identity_service.{
   GetLedgerIdentityResponse,
   LedgerIdentityServiceGrpc
 }
+import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.api.grpc.GrpcApiService
-import com.digitalasset.platform.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.server.api.ApiException
 import io.grpc.{BindableService, ServerServiceDefinition, Status}
 import scalaz.syntax.tag._

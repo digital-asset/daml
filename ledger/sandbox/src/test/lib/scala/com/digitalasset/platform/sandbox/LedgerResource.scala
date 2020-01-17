@@ -10,7 +10,7 @@ import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.testing.utils.Resource
-import com.digitalasset.platform.logging.LoggingContext
+import com.digitalasset.logging.LoggingContext
 import com.digitalasset.platform.sandbox.persistence.{PostgresFixture, PostgresResource}
 import com.digitalasset.platform.sandbox.stores.ledger.Ledger
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump

@@ -26,6 +26,7 @@ import com.digitalasset.ledger.api.auth.services._
 import com.digitalasset.ledger.api.health.HealthChecks
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionEndRequest
 import com.digitalasset.ledger.client.services.commands.CommandSubmissionFlow
+import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.apiserver.services.admin.{
   ApiConfigManagementService,
   ApiPackageManagementService,
@@ -35,17 +36,16 @@ import com.digitalasset.platform.apiserver.services.transaction.ApiTransactionSe
 import com.digitalasset.platform.apiserver.services.{
   ApiActiveContractsService,
   ApiCommandCompletionService,
+  ApiCommandService,
   ApiLedgerConfigurationService,
   ApiLedgerIdentityService,
   ApiPackageService,
-  ApiSubmissionService
+  ApiSubmissionService,
+  ApiTimeService
 }
 import com.digitalasset.platform.sandbox.config.CommandConfiguration
 import com.digitalasset.platform.sandbox.stores.ledger.CommandExecutorImpl
 import com.digitalasset.platform.server.api.services.grpc.GrpcHealthService
-import com.digitalasset.platform.apiserver.services.ApiCommandService
-import com.digitalasset.platform.apiserver.services.ApiTimeService
-import com.digitalasset.platform.logging.{ContextualizedLogger, LoggingContext}
 import io.grpc.BindableService
 import io.grpc.protobuf.services.ProtoReflectionService
 import scalaz.syntax.tag._

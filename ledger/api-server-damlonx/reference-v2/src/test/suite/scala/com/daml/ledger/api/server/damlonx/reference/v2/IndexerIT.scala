@@ -15,16 +15,16 @@ import com.daml.ledger.participant.state.v1.Update.Heartbeat
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.LedgerString
+import com.digitalasset.logging.LoggingContext
 import com.digitalasset.platform.indexer.{
   IndexerConfig,
   IndexerStartupMode,
   RecoveringIndexer,
   StandaloneIndexerServer
 }
-import com.digitalasset.platform.logging.LoggingContext
-import com.digitalasset.resources.Resource
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{JdbcLedgerDao, LedgerDao}
 import com.digitalasset.platform.testing.LogCollector
+import com.digitalasset.resources.Resource
 import com.digitalasset.timer.RetryStrategy
 import org.mockito.ArgumentMatchers
 import org.mockito.Mockito._

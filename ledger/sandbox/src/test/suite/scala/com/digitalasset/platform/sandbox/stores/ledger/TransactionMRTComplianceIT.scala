@@ -23,11 +23,11 @@ import com.digitalasset.ledger.api.testing.utils.{
   Resource,
   SuiteResourceManagementAroundEach
 }
+import com.digitalasset.logging.LoggingContext.newLoggingContext
 import com.digitalasset.platform.sandbox.{LedgerResource, MetricsAround}
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScalaFutures}
 import org.scalatest.time.Span
 import org.scalatest.{AsyncWordSpec, Matchers}
-import com.digitalasset.platform.logging.LoggingContext.newLoggingContext
 
 import scala.collection.immutable.TreeMap
 import scala.concurrent.ExecutionContext
