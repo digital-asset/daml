@@ -27,7 +27,7 @@ Functions
 .. _function-constrainttuples-eq2-12289:
 
 `eq2 <function-constrainttuples-eq2-12289_>`_
-  \: `Eq2 <type-constrainttuples-eq2-31733_>`_ a b \-\> a \-\> a \-\> b \-\> b \-\> `Bool <https://docs.daml.com/daml/reference/base.html#type-ghc-types-bool-8654>`_
+  \: `Eq2 <type-constrainttuples-eq2-31733_>`_ a b \=\> a \-\> a \-\> b \-\> b \-\> `Bool <https://docs.daml.com/daml/reference/base.html#type-ghc-types-bool-8654>`_
 
 .. _function-constrainttuples-eq2tick-62955:
 
@@ -37,7 +37,7 @@ Functions
 .. _function-constrainttuples-eq3-55736:
 
 `eq3 <function-constrainttuples-eq3-55736_>`_
-  \: `Eq3 <type-constrainttuples-eq3-75180_>`_ a b c \-\> a \-\> a \-\> b \-\> b \-\> c \-\> c \-\> `Bool <https://docs.daml.com/daml/reference/base.html#type-ghc-types-bool-8654>`_
+  \: `Eq3 <type-constrainttuples-eq3-75180_>`_ a b c \=\> a \-\> a \-\> b \-\> b \-\> c \-\> c \-\> `Bool <https://docs.daml.com/daml/reference/base.html#type-ghc-types-bool-8654>`_
 
 .. _function-constrainttuples-eq3tick-75648:
 
@@ -47,7 +47,7 @@ Functions
 .. _function-constrainttuples-eq4-56779:
 
 `eq4 <function-constrainttuples-eq4-56779_>`_
-  \: `Eq4 <type-constrainttuples-eq4-2935_>`_ a b c d \-\> a \-\> a \-\> b \-\> b \-\> c \-\> c \-\> d \-\> d \-\> `Bool <https://docs.daml.com/daml/reference/base.html#type-ghc-types-bool-8654>`_
+  \: `Eq4 <type-constrainttuples-eq4-2935_>`_ a b c d \=\> a \-\> a \-\> b \-\> b \-\> c \-\> c \-\> d \-\> d \-\> `Bool <https://docs.daml.com/daml/reference/base.html#type-ghc-types-bool-8654>`_
 
 .. _function-constrainttuples-eq4tick-50089:
 

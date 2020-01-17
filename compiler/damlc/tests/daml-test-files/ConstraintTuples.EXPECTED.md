@@ -18,7 +18,7 @@
 
 <a name="function-constrainttuples-eq2-12289"></a>[eq2](#function-constrainttuples-eq2-12289)
 
-> : [Eq2](#type-constrainttuples-eq2-31733) a b -\> a -\> a -\> b -\> b -\> [Bool](https://docs.daml.com/daml/reference/base.html#type-ghc-types-bool-8654)
+> : [Eq2](#type-constrainttuples-eq2-31733) a b =\> a -\> a -\> b -\> b -\> [Bool](https://docs.daml.com/daml/reference/base.html#type-ghc-types-bool-8654)
 
 <a name="function-constrainttuples-eq2tick-62955"></a>[eq2'](#function-constrainttuples-eq2tick-62955)
 
@@ -26,7 +26,7 @@
 
 <a name="function-constrainttuples-eq3-55736"></a>[eq3](#function-constrainttuples-eq3-55736)
 
-> : [Eq3](#type-constrainttuples-eq3-75180) a b c -\> a -\> a -\> b -\> b -\> c -\> c -\> [Bool](https://docs.daml.com/daml/reference/base.html#type-ghc-types-bool-8654)
+> : [Eq3](#type-constrainttuples-eq3-75180) a b c =\> a -\> a -\> b -\> b -\> c -\> c -\> [Bool](https://docs.daml.com/daml/reference/base.html#type-ghc-types-bool-8654)
 
 <a name="function-constrainttuples-eq3tick-75648"></a>[eq3'](#function-constrainttuples-eq3tick-75648)
 
@@ -34,7 +34,7 @@
 
 <a name="function-constrainttuples-eq4-56779"></a>[eq4](#function-constrainttuples-eq4-56779)
 
-> : [Eq4](#type-constrainttuples-eq4-2935) a b c d -\> a -\> a -\> b -\> b -\> c -\> c -\> d -\> d -\> [Bool](https://docs.daml.com/daml/reference/base.html#type-ghc-types-bool-8654)
+> : [Eq4](#type-constrainttuples-eq4-2935) a b c d =\> a -\> a -\> b -\> b -\> c -\> c -\> d -\> d -\> [Bool](https://docs.daml.com/daml/reference/base.html#type-ghc-types-bool-8654)
 
 <a name="function-constrainttuples-eq4tick-50089"></a>[eq4'](#function-constrainttuples-eq4tick-50089)
 

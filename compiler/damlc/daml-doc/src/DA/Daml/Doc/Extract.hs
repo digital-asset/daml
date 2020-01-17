@@ -31,13 +31,13 @@ import           "ghc-lib" GHC
 import           "ghc-lib-parser" Module
 import           "ghc-lib-parser" TyCoRep
 import           "ghc-lib-parser" TyCon
+import           "ghc-lib-parser" Type
 import           "ghc-lib-parser" ConLike
 import           "ghc-lib-parser" DataCon
 import           "ghc-lib-parser" Class
 import           "ghc-lib-parser" BasicTypes
 import           "ghc-lib-parser" InstEnv
 import           "ghc-lib-parser" CoreSyn
-import           "ghc-lib-parser" Var
 import           "ghc-lib-parser" Id
 import           "ghc-lib-parser" Name
 import           "ghc-lib-parser" RdrName
@@ -726,10 +726,13 @@ typeToContext dc ty =
     let ctx = typeToConstraints dc ty
     in guard (notNull ctx) >> Just (TypeTuple ctx)
 
+isConstraintType :: TyCoRep.Type -> Bool
+isConstraintType = tcIsConstraintKind . Type.typeKind
+
 -- | Extract constraints from GHC type, returning list of constraints.
 typeToConstraints :: DocCtx -> TyCoRep.Type -> [DDoc.Type]
 typeToConstraints dc = \case
-    FunTy a@(TyConApp tycon _) b | isClassTyCon tycon ->
+    FunTy a b | isConstraintType a ->
         typeToType dc a : typeToConstraints dc b
     FunTy _ b ->
         typeToConstraints dc b
@@ -772,7 +775,7 @@ typeToType ctx = \case
 
     -- ignore context
     ForAllTy _ b -> typeToType ctx b
-    FunTy (TyConApp tycon _) b | isClassTyCon tycon ->
+    FunTy a b | isConstraintType a ->
         typeToType ctx b
 
     FunTy a b ->
