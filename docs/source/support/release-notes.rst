@@ -6,6 +6,34 @@ Release notes
 
 This page contains release notes for the SDK.
 
+.. _release-0-13-44:
+
+0.13.44 - 2020-01-17
+--------------------
+
+DAML Studio
+~~~~~~~~~~~
+
+- Fix a bug introduced in 0.13.43 that caused DAML studio to stop responding after
+  code completions were requested.
+
+Ledger API Server
+~~~~~~~~~~~~~~~~~
+
+- Publish the resource management code as a library
+  under ``com.digitalasset:resources``.
+
+Ledger API Authorization
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Support EC256 algorithm for JWT rather than EC512
+
+JSON API Experimental
+~~~~~~~~~~~~~~~~~~~~~
+
+- WebSocket contract search at ``/contracts/searchForever``.
+  See `issue #3936 <https://github.com/digital-asset/daml/pull/3936>`_.
+
 .. _release-0-13-43:
 
 0.13.43 - 2020-01-15
