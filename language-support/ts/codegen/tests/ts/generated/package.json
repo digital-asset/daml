@@ -12,7 +12,7 @@
     "build": "tsc --build",
     "build:watch": "tsc --build --watch",
     "test": "jest",
-    "lint": "eslint --ext .js,.ts src/ --max-warnings 0"
+    "lint": "eslint --ext .ts src/ --max-warnings 0"
   },
   "eslintConfig": {
     "extends": [
