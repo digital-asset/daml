@@ -52,6 +52,7 @@ def has_scala_version_suffix(kind, version, tags):
 def _collect_maven_info_impl(_target, ctx):
     tags = getattr(ctx.rule.attr, "tags", [])
     deps = getattr(ctx.rule.attr, "deps", [])
+    runtime_deps = getattr(ctx.rule.attr, "runtime_deps", [])
     exports = getattr(ctx.rule.attr, "exports", [])
     jars = getattr(ctx.rule.attr, "jars", [])
 
@@ -107,7 +108,7 @@ def _collect_maven_info_impl(_target, ctx):
         if tag == "fat_jar":
             fat_jar = True
 
-    deps = depset([], transitive = [depset([d]) for d in _maven_coordinates(deps + exports + jars)])
+    deps = depset([], transitive = [depset([d]) for d in _maven_coordinates(deps + runtime_deps + exports + jars)])
     filtered_deps = [
         d
         for d in deps.to_list()
@@ -130,6 +131,7 @@ _collect_maven_info = aspect(
         "deps",
         "exports",
         "jars",
+        "runtime_deps",
     ],
     doc = """
     Collects the Maven information for targets and their dependencies.
