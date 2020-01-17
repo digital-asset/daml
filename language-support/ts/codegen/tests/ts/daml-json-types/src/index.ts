@@ -212,12 +212,43 @@ export const ContractId = <T>(_t: Serializable<T>): Serializable<ContractId<T>> 
  */
 export type Optional<T> = T | null;
 
+// --
+
 /**
- * Companion object of the `Optional` type.
+ * The counterpart of DAML's `Optional T` type.
+ */
+export type Optional_<T> =
+  | null
+  | Optional_.Inner<T>
+
+namespace Optional_ {
+  export type Inner<T> = null extends T ? ([] | [Exclude<T, null>]) : T;
+}
+
+/**
+ * Companion function of the `Optional` type.
+ */
+export const Optional_ = <T>(t: Serializable<T>): Serializable<Optional_<T>> => ({
+  decoder : () => jtv.oneOf<Optional_<T>>(jtv.constant(null), Optional_.Inner(t)),
+  isOptional: true,
+});
+Optional_.Inner = <T>(t: Serializable<T>): jtv.Decoder<Optional_.Inner<T>> =>
+  ! t.isOptional
+  ? t.decoder() as jtv.Decoder<Optional_.Inner<T>>
+  : jtv.oneOf(
+      jtv.constant([]) as jtv.Decoder<[] | [Exclude<T, null>]>,
+      jtv.tuple([t.decoder()]) as jtv.Decoder<[] | [Exclude<T, null>]>
+  ) as jtv.Decoder<Optional_.Inner<T>>
+;
+
+// --
+
+/**
+ * Companion function of the `Optional` type.
  */
 export const Optional = <T>(t: Serializable<T>): Serializable<Optional<T>> => ({
   decoder: () => jtv.oneOf(jtv.constant(null), t.decoder()),
-  isOptional: false,
+  isOptional: true,
 });
 
 /**
