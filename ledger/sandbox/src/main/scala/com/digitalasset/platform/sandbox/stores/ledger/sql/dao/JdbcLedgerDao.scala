@@ -12,6 +12,7 @@ import akka.stream.scaladsl.Source
 import anorm.SqlParser._
 import anorm.ToStatement.optionToStatement
 import anorm.{BatchSql, Macro, NamedParameter, ResultSetParser, RowParser, SQL, SqlParser}
+import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.v1.{
   AbsoluteContractInst,
@@ -39,6 +40,7 @@ import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, RejectionReas
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
+import com.digitalasset.resources.ResourceOwner
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{
   ActiveContract,
   Contract,
@@ -46,6 +48,7 @@ import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{
 }
 import com.digitalasset.platform.sandbox.stores._
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry._
+import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlLedger.defaultNumberOfShortLivedConnections
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.JdbcLedgerDao.{
   H2DatabaseQueries,
   PostgresQueries
@@ -1701,6 +1704,23 @@ private class JdbcLedgerDao(
 }
 
 object JdbcLedgerDao {
+  def owner(
+      jdbcUrl: String,
+      loggerFactory: NamedLoggerFactory,
+      metrics: MetricRegistry,
+      executionContext: ExecutionContext,
+  ): ResourceOwner[LedgerDao] = {
+    val dbType = DbType.jdbcType(jdbcUrl)
+    val maxConnections =
+      if (dbType.supportsParallelWrites) defaultNumberOfShortLivedConnections else 1
+    for {
+      dbDispatcher <- DbDispatcher.owner(jdbcUrl, maxConnections, loggerFactory, metrics)
+    } yield
+      LedgerDao.metered(
+        JdbcLedgerDao(dbDispatcher, dbType, loggerFactory, executionContext),
+        metrics)
+  }
+
   def apply(
       dbDispatcher: DbDispatcher,
       dbType: DbType,

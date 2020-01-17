@@ -3,16 +3,17 @@
 
 package com.digitalasset.platform.indexer
 
-import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
+import java.time.{Clock, Instant}
+import java.util.concurrent.atomic.AtomicReference
 
 import akka.actor.Scheduler
 import akka.pattern.after
 import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
-import com.digitalasset.resources.{Resource, ResourceOwner}
+import com.digitalasset.resources.Resource
 
-import scala.concurrent.duration.FiniteDuration
-import scala.concurrent.{Await, ExecutionContext, Future, Promise}
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success}
 
 /**
@@ -26,12 +27,10 @@ class RecoveringIndexer(
     restartDelay: FiniteDuration,
     asyncTolerance: FiniteDuration,
     loggerFactory: NamedLoggerFactory,
-) extends AutoCloseable {
+) {
   private implicit val executionContext: ExecutionContext = DirectExecutionContext
   private val logger = loggerFactory.getLogger(this.getClass)
-
-  val closed = new AtomicBoolean(false)
-  val lastHandle = new AtomicReference[Option[Resource[IndexFeedHandle]]](None)
+  private val clock = Clock.systemUTC()
 
   /**
     * Starts an indexer, and restarts it after the given delay whenever an error occurs.
@@ -43,68 +42,99 @@ class RecoveringIndexer(
     val complete = Promise[Unit]()
 
     logger.info("Starting Indexer Server")
-    var subscribeResource = for {
-      handle <- subscribe()
-    } yield {
+    val subscription = new AtomicReference[Resource[IndexFeedHandle]](null)
+
+    val firstSubscription = subscribe().map(handle => {
       logger.info("Started Indexer Server")
       handle
-    }
-    resubscribeOnFailure()
+    })
+    subscription.set(firstSubscription)
+    resubscribeOnFailure(firstSubscription)
 
-    def resubscribe(): Resource[IndexFeedHandle] = {
-      logger.info("Starting Indexer Server")
-      subscribeResource = for {
-        _ <- ResourceOwner
-          .forFuture(() => after(restartDelay, scheduler)(Future.successful(())))
-          .acquire()
-        handle <- subscribe()
-      } yield {
-        logger.info("Started Indexer Server")
-        handle
+    def waitForRestart(
+        delayUntil: Instant = clock.instant().plusMillis(restartDelay.toMillis)
+    ): Future[Boolean] =
+      after(1.second, scheduler) {
+        if (subscription.get() == null) {
+          logger.info("Indexer Server was stopped; cancelling the restart")
+          complete.trySuccess(())
+          complete.future.map(_ => false)
+        }
+        if (clock.instant().isAfter(delayUntil)) {
+          Future.successful(true)
+        } else {
+          waitForRestart(delayUntil)
+        }
       }
-      resubscribeOnFailure()
-      subscribeResource
-    }
 
-    def resubscribeOnFailure(): Unit = {
-      subscribeResource.asFuture.onComplete {
+    def resubscribe(oldSubscription: Resource[IndexFeedHandle]): Future[Unit] =
+      for {
+        running <- waitForRestart()
+        _ <- {
+          if (running) {
+            logger.info("Restarting Indexer Server")
+            val newSubscription = subscribe()
+            if (subscription.compareAndSet(oldSubscription, newSubscription)) {
+              resubscribeOnFailure(newSubscription)
+              newSubscription.asFuture.map { _ =>
+                logger.info("Restarted Indexer Server")
+              }
+            } else { // we must have stopped the server during the restart
+              logger.info("Indexer Server was stopped; cancelling the restart")
+              newSubscription.release().flatMap { _ =>
+                logger.info("Indexer Server restart was cancelled")
+                complete.trySuccess(())
+                complete.future
+              }
+            }
+          } else {
+            Future.successful(())
+          }
+        }
+      } yield ()
+
+    def resubscribeOnFailure(currentSubscription: Resource[IndexFeedHandle]): Unit =
+      currentSubscription.asFuture.onComplete {
         case Success(handle) =>
           handle.completed().onComplete {
             case Success(()) =>
               logger.info("Successfully finished processing state updates")
-              complete.success(())
-              ()
+              complete.trySuccess(())
+              complete.future
 
             case Failure(exception) =>
-              logger
-                .error(
-                  s"Error while running indexer, restart scheduled after $restartDelay",
-                  exception)
-              for {
-                _ <- ResourceOwner
-                  .forFuture(() => subscribeResource.release().recover { case _ => () })
-                  .acquire()
-                handle <- resubscribe()
-              } yield handle
-              ()
+              logger.error(
+                s"Error while running indexer, restart scheduled after $restartDelay",
+                exception)
+              currentSubscription
+                .release()
+                .recover { case _ => () } // releasing may yield the same error as above
+                .flatMap(_ => resubscribe(currentSubscription))
           }
         case Failure(exception) =>
           logger
-            .error(s"Error while running indexer, restart scheduled after $restartDelay", exception)
-          subscribeResource = resubscribe()
+            .error(
+              s"Error while starting indexer, restart scheduled after $restartDelay",
+              exception)
+          resubscribe(currentSubscription)
+          ()
       }
-    }
 
     Resource(
-      subscribeResource.asFuture
+      subscription
+        .get()
+        .asFuture
         .transform(_ => Success(complete.future)),
-      _ => subscribeResource.release().flatMap(_ => complete.future),
+      _ => {
+        logger.info("Stopping Indexer Server")
+        subscription
+          .getAndSet(null)
+          .release()
+          .flatMap(_ => complete.future)
+          .map(_ => {
+            logger.info("Stopped Indexer Server")
+          })
+      },
     )
-  }
-
-  override def close(): Unit = {
-    if (closed.compareAndSet(false, true)) {
-      val _ = lastHandle.get.foreach(h => Await.result(h.release(), asyncTolerance))
-    }
   }
 }

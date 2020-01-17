@@ -17,12 +17,8 @@
         <appender-ref ref="FILE"/>
     </appender>
 
-    <appender name="RECOVERING" class="com.digitalasset.platform.indexer.RecoveringIndexerSpec$Appender" />
-
     <root level="INFO">
         <appender-ref ref="STDOUT"/>
         <appender-ref ref="ASYNC"/>
-        <appender-ref ref="RECOVERING" />
     </root>
-
 </configuration>
