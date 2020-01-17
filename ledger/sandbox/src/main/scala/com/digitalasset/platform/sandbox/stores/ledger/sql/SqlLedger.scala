@@ -83,7 +83,7 @@ object SqlLedger {
       queueDepth: Int,
       startMode: SqlStartMode = SqlStartMode.ContinueIfExists,
       metrics: MetricRegistry,
-  )(implicit mat: Materializer, ctx: LoggingContext): ResourceOwner[Ledger] = {
+  )(implicit mat: Materializer, logCtx: LoggingContext): ResourceOwner[Ledger] = {
     implicit val ec: ExecutionContext = DEC
 
     new FlywayMigrations(jdbcUrl).migrate()
@@ -127,7 +127,7 @@ private final class SqlLedger(
     packages: InMemoryPackageStore,
     queueDepth: Int,
     maxBatchSize: Int,
-)(implicit mat: Materializer, ctx: LoggingContext)
+)(implicit mat: Materializer, logCtx: LoggingContext)
     extends BaseLedger(ledgerId, headAtInitialization, ledgerDao)
     with Ledger {
 

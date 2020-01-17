@@ -26,7 +26,7 @@ final class RecoveringIndexer(
     scheduler: Scheduler,
     restartDelay: FiniteDuration,
     asyncTolerance: FiniteDuration,
-)(implicit ctx: LoggingContext) {
+)(implicit logCtx: LoggingContext) {
   private implicit val executionContext: ExecutionContext = DirectExecutionContext
   private val logger = ContextualizedLogger.get[this.type]
 

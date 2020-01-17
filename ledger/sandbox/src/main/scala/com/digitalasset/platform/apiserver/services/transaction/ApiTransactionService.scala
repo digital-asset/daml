@@ -35,7 +35,7 @@ object ApiTransactionService {
       implicit ec: ExecutionContext,
       mat: Materializer,
       esf: ExecutionSequencerFactory,
-      ctx: LoggingContext)
+      logCtx: LoggingContext)
     : GrpcTransactionService with BindableService with TransactionServiceLogging =
     new GrpcTransactionService(
       new ApiTransactionService(transactionsService),
@@ -50,7 +50,7 @@ final class ApiTransactionService private (
     implicit executionContext: ExecutionContext,
     materializer: Materializer,
     esf: ExecutionSequencerFactory,
-    ctx: LoggingContext)
+    logCtx: LoggingContext)
     extends TransactionService
     with ErrorFactories {
 

@@ -90,7 +90,7 @@ object ApiServices {
   )(
       implicit mat: Materializer,
       esf: ExecutionSequencerFactory,
-      ctx: LoggingContext): Future[ApiServices] = {
+      logCtx: LoggingContext): Future[ApiServices] = {
     implicit val ec: ExecutionContext = mat.system.dispatcher
 
     // still trying to keep it tidy in case we want to split it later

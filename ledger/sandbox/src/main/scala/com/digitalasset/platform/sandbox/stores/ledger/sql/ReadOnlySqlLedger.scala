@@ -34,7 +34,7 @@ object ReadOnlySqlLedger {
       jdbcUrl: String,
       ledgerId: Option[LedgerId],
       metrics: MetricRegistry,
-  )(implicit mat: Materializer, ctx: LoggingContext): Resource[ReadOnlyLedger] = {
+  )(implicit mat: Materializer, logCtx: LoggingContext): Resource[ReadOnlyLedger] = {
     implicit val ec: ExecutionContext = mat.executionContext
     val dbType = DbType.jdbcType(jdbcUrl)
     for {

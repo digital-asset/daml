@@ -161,7 +161,7 @@ object Ledger {
       queueDepth: Int,
       startMode: SqlStartMode,
       metrics: MetricRegistry
-  )(implicit mat: Materializer, ctx: LoggingContext): ResourceOwner[Ledger] =
+  )(implicit mat: Materializer, logCtx: LoggingContext): ResourceOwner[Ledger] =
     SqlLedger.owner(
       jdbcUrl,
       Some(ledgerId),
@@ -186,7 +186,7 @@ object Ledger {
       jdbcUrl: String,
       ledgerId: LedgerId,
       metrics: MetricRegistry
-  )(implicit mat: Materializer, ctx: LoggingContext): Resource[ReadOnlyLedger] =
+  )(implicit mat: Materializer, logCtx: LoggingContext): Resource[ReadOnlyLedger] =
     ReadOnlySqlLedger(jdbcUrl, Some(ledgerId), metrics)
 
   /** Wraps the given Ledger adding metrics around important calls */

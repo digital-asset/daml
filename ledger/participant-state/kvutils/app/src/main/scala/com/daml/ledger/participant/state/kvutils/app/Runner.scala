@@ -88,7 +88,7 @@ class Runner[Extra](name: String, constructor: LedgerFactory[Extra]) {
   private def startIndexerServer(
       config: Config[Extra],
       readService: ReadService,
-  )(implicit executionContext: ExecutionContext, ctx: LoggingContext): Resource[Unit] =
+  )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): Resource[Unit] =
     new StandaloneIndexerServer(
       readService,
       IndexerConfig(
@@ -104,7 +104,7 @@ class Runner[Extra](name: String, constructor: LedgerFactory[Extra]) {
       readService: ReadService,
       writeService: WriteService,
       authService: AuthService,
-  )(implicit executionContext: ExecutionContext, ctx: LoggingContext): Resource[Unit] =
+  )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): Resource[Unit] =
     new StandaloneApiServer(
       ApiServerConfig(
         config.participantId,

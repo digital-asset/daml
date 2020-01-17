@@ -28,7 +28,7 @@ object JdbcIndex {
       participantId: ParticipantId,
       jdbcUrl: String,
       metrics: MetricRegistry,
-  )(implicit mat: Materializer, ctx: LoggingContext): Resource[IndexService] =
+  )(implicit mat: Materializer, logCtx: LoggingContext): Resource[IndexService] =
     Ledger
       .jdbcBackedReadOnly(jdbcUrl, ledgerId, metrics)
       .map { ledger =>

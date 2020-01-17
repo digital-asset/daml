@@ -44,7 +44,7 @@ final class LedgerApiServer(
     sslContext: Option[SslContext] = None,
     interceptors: List[ServerInterceptor] = List.empty,
     metrics: MetricRegistry,
-)(implicit actorSystem: ActorSystem, materializer: Materializer, ctx: LoggingContext)
+)(implicit actorSystem: ActorSystem, materializer: Materializer, logCtx: LoggingContext)
     extends ResourceOwner[ApiServer] {
 
   private val logger = ContextualizedLogger.get[this.type]

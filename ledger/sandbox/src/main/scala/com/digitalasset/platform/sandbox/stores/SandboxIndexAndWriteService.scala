@@ -75,7 +75,7 @@ object SandboxIndexAndWriteService {
       queueDepth: Int,
       templateStore: InMemoryPackageStore,
       metrics: MetricRegistry,
-  )(implicit mat: Materializer, ctx: LoggingContext): ResourceOwner[IndexAndWriteService] =
+  )(implicit mat: Materializer, logCtx: LoggingContext): ResourceOwner[IndexAndWriteService] =
     Ledger
       .jdbcBacked(
         jdbcUrl,

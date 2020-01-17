@@ -42,7 +42,7 @@ object LedgerResource {
   )(
       implicit executionContext: ExecutionContext,
       materializer: Materializer,
-      ctx: LoggingContext): Resource[Ledger] = {
+      logCtx: LoggingContext): Resource[Ledger] = {
     new Resource[Ledger] {
       @volatile
       private var postgres: Resource[PostgresFixture] = _
