@@ -12,15 +12,15 @@ import qualified Data.Aeson as JSON
 import qualified Data.ByteString.UTF8 as BS
 import qualified Data.ByteString.Lazy.UTF8 as LBS
 import qualified Data.CaseInsensitive as CI
-import qualified Data.Foldable as Foldable
 import qualified Data.HashMap.Strict as H
 import qualified Data.List as List
 import qualified Data.List.Extra as List
 import qualified Data.List.Split as Split
+import qualified Data.Maybe as Maybe
 import qualified Data.Ord
 import qualified Data.Set as Set
-import qualified Data.HashMap.Strict as Map
 import qualified Data.Text as Text
+import qualified Data.Traversable as Traversable
 import qualified Network.HTTP.Client as HTTP
 import qualified Network.HTTP.Client.TLS as TLS
 import qualified Network.HTTP.Types.Header as Header
@@ -75,7 +75,7 @@ robustly_download_nix_packages = do
               _ | "unexpected end-of-file" `List.isInfixOf` err -> h (n - 1)
               _ -> die cmd exit out err
 
-http_get :: JSON.FromJSON a => String -> IO (a, Map.HashMap String String)
+http_get :: JSON.FromJSON a => String -> IO (a, H.HashMap String String)
 http_get url = do
     manager <- HTTP.newManager TLS.tlsManagerSettings
     request' <- HTTP.parseRequest url
@@ -85,7 +85,7 @@ http_get url = do
     let body = JSON.decode $ HTTP.responseBody response
     let status = Status.statusCode $ HTTP.responseStatus response
     case (status, body) of
-      (200, Just body) -> return (body, response & HTTP.responseHeaders & map (\(n, v) -> (n & CI.foldedCase & BS.toString, BS.toString v)) & Map.fromList)
+      (200, Just body) -> return (body, response & HTTP.responseHeaders & map (\(n, v) -> (n & CI.foldedCase & BS.toString, BS.toString v)) & H.fromList)
       _ -> Exit.die $ unlines ["GET \"" <> url <> "\" returned status code " <> show status <> ".",
                                show $ HTTP.responseBody response]
 
@@ -126,7 +126,7 @@ build_docs_folder path versions latest = do
         shell_ $ "mkdir -p " <> new
         shell_ $ "mkdir -p " <> old
         download_existing_site_from_s3 old
-        Foldable.for_ versions $ \version -> do
+        documented_versions <- Maybe.catMaybes <$> Traversable.for versions (\version -> do
             putStrLn $ "Building " <> version <> "..."
             putStrLn "  Checking for existing folder..."
             old_version_exists <- exists $ old </> version
@@ -139,8 +139,10 @@ build_docs_folder path versions latest = do
                 then do
                     putStrLn "  Found. Too old to rebuild, copying over..."
                     copy (old </> version) $ new </> version
-                else
+                    return $ Just version
+                else do
                     putStrLn "  Too old to rebuild and no existing version. Skipping."
+                    return Nothing
             else if to_v version < to_v "0.13.45"
             then do
                 -- Versions prior to 0.13.45 do have a checksum file, and
@@ -152,9 +154,11 @@ build_docs_folder path versions latest = do
                 then do
                     putStrLn "  Found. No reliable checksum; copying over and hoping for the best..."
                     copy (old </> version) $ new </> version
+                    return $ Just version
                 else do
                     putStrLn "  Not found. Building..."
                     build version new
+                    return $ Just version
             else if old_version_exists
             then do
                 -- Note: this checks for upload errors; this is NOT in any way
@@ -166,17 +170,19 @@ build_docs_folder path versions latest = do
                 then do
                     putStrLn "  Checks, reusing existing."
                     copy (old </> version) $ new </> version
+                    return $ Just version
                 else do
                     putStrLn "  Check failed. Rebuilding..."
                     build version new
+                    return $ Just version
             else do
                 putStrLn "  Not found. Building..."
                 build version new
-            putStrLn $ "Done " <> version <> "."
+                return $ Just version)
         putStrLn $ "Copying latest (" <> latest <> ") to top-level..."
         copy (new </> latest </> "*") (new <> "/")
         putStrLn "Creating versions.json..."
-        create_versions_json versions new
+        create_versions_json documented_versions new
         return new
     where
         restore_sha io =
@@ -314,7 +320,7 @@ name gh = tail $ tag_name gh
 fetch_gh_paginated :: JSON.FromJSON a => String -> IO [a]
 fetch_gh_paginated url = do
     (resp_0, headers) <- http_get url
-    case parse_next =<< Map.lookup "link" headers of
+    case parse_next =<< H.lookup "link" headers of
       Nothing -> return resp_0
       Just next -> do
           rest <- fetch_gh_paginated next
@@ -344,7 +350,8 @@ main = do
     putStrLn "Checking for new version..."
     (gh_versions, gh_latest) <- fetch_gh_versions
     s3_versions_before <- fetch_s3_versions
-    if s3_versions_before == gh_versions
+    let prev_latest = List.maximum $ Set.toList s3_versions_before
+    if prev_latest == to_v (name gh_latest)
     then do
         putStrLn "No new version found, skipping."
         Exit.exitSuccess
@@ -360,7 +367,6 @@ main = do
                 Exit.exitSuccess
             else do
                 push_to_s3 docs_folder
-                let prev_latest = List.maximum $ Set.toList s3_versions_before
                 if to_v (name gh_latest) > prev_latest
                 then do
                     putStrLn "New version detected, telling HubSpot"
