@@ -191,7 +191,9 @@ build_docs_folder path versions latest = do
             shell_ "bazel build //docs:docs"
             shell_ $ "mkdir -p  " <> path </> version
             shell_ $ "tar xzf bazel-bin/docs/html.tar.gz --strip-components=1 -C" <> path </> version
-            checksums <- shell $ "cd " <> path </> version <> "; find . -type f -exec sha256sum {} \\;"
+            -- when syncing with s3 later on we exclude .doctrees and
+            -- .buildinfo, so we need to do the same here
+            checksums <- shell $ "cd " <> path </> version <> "; find . -type f | grep -v '\\.doctrees' | grep -v '\\.buildinfo' | xargs sha256sum"
             writeFile (path </> version </> "checksum") checksums
         create_versions_json versions path = do
             -- Not going through Aeson because it represents JSON objects as
