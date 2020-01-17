@@ -138,6 +138,20 @@ build_docs_folder path versions latest = do
                     copy (old </> version) $ new </> version
                 else
                     putStrLn "  Too old to rebuild and no existing version. Skipping."
+            else if to_v version < to_v "0.13.45"
+            then do
+                -- Versions prior to 0.13.45 do have a checksum file, and
+                -- should be buildable with the Maven cherry-pick (see `build`
+                -- function below), but their build is not reproducible
+                -- (includes date of build) and therefore the checksum file is
+                -- useless
+                if old_version_exists
+                then do
+                    putStrLn "  Found. No reliable checksum; copying over and hoping for the best..."
+                    copy (old </> version) $ new </> version
+                else do
+                    putStrLn "  Not found. Building..."
+                    build version new
             else if old_version_exists
             then do
                 -- Note: this checks for upload errors; this is NOT in any way
@@ -223,8 +237,6 @@ push_to_s3 doc_folder = do
              <> " s3://docs-daml-com/"
              <> " --delete"
              <> " --acl public-read"
-             <> " --exclude '*.doctrees/*'"
-             <> " --exclude '*.buildinfo'"
     putStrLn "Refreshing CloudFront cache..."
     shell_ $ "aws cloudfront create-invalidation"
              <> " --distribution-id E1U753I56ERH55"
