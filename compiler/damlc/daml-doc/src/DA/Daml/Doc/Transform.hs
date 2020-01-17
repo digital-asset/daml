@@ -17,8 +17,7 @@ import Data.Maybe
 
 applyTransform :: TransformOptions -> [ModuleDoc] -> [ModuleDoc]
 applyTransform opts@TransformOptions{..}
-    = (if to_dropOrphanInstances then map pruneOrphanInstances else id)
-    . distributeInstanceDocs opts
+    = distributeInstanceDocs opts
     . (if to_omitEmpty then mapMaybe dropEmptyDocs else id)
     . (if to_ignoreAnnotations then id else applyAnnotations)
     . (if to_dataOnly then map pruneNonData else id)
@@ -36,6 +35,3 @@ applyTransform opts@TransformOptions{..}
 
     noInstances :: ADTDoc -> ADTDoc
     noInstances d = d{ ad_instances = Nothing }
-
-    pruneOrphanInstances :: ModuleDoc -> ModuleDoc
-    pruneOrphanInstances m = m { md_instances = [] }

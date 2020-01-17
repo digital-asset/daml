@@ -18,26 +18,43 @@ applyAnnotations = applyMove . applyHide
 -- | Apply the MOVE annotation, which moves all the docs from one
 -- module to another.
 applyMove :: [ModuleDoc] -> [ModuleDoc]
-applyMove = map (foldr1 g) . groupSortOn (modulePriorityKey . md_name) . map f
-    where
-        f md@ModuleDoc{..}
-            | Just new <- isMove md_descr = md{md_name = new, md_descr = Nothing}
-            | otherwise = md
-
-        g m1 m2 = ModuleDoc
-            { md_anchor = md_anchor m1
-            , md_name = md_name m1
-            , md_descr = md_descr m1 <|> md_descr m2
-            , md_adts = md_adts m1 ++ md_adts m2
-            , md_functions = md_functions m1 ++ md_functions m2
-            , md_templates = md_templates m2 ++ md_templates m2
-            , md_classes = md_classes m1 ++ md_classes m2
-            , md_instances = md_instances m1 ++ md_instances m2
+applyMove
+    = map (foldr1 combineModules)
+    . groupSortOn (modulePriorityKey . md_name)
+    . map renameModule
+  where
+    -- | Rename module according to its MOVE annotation, if present.
+    -- If the module is renamed, we drop the rest of the module's
+    -- description.
+    renameModule :: ModuleDoc -> ModuleDoc
+    renameModule md@ModuleDoc{..}
+        | Just new <- isMove md_descr = md
+            { md_name = new
+            , md_descr = Nothing
+                -- ^ Drop the renamed module's description.
             }
+        | otherwise = md
 
-        -- Bring Prelude module to the front.
-        modulePriorityKey :: Modulename -> (Int,Modulename)
-        modulePriorityKey m = (if m == "Prelude" then 0 else 1, m)
+    -- | Combine two modules with the same name.
+    combineModules :: ModuleDoc -> ModuleDoc -> ModuleDoc
+    combineModules m1 m2 = ModuleDoc
+        { md_anchor = md_anchor m1
+        , md_name = md_name m1
+        , md_descr = md_descr m1 <|> md_descr m2
+            -- ^ The renamed module's description was dropped,
+            -- so in this line we always prefers the original
+            -- module description.
+        , md_adts = md_adts m1 ++ md_adts m2
+        , md_functions = md_functions m1 ++ md_functions m2
+        , md_templates = md_templates m2 ++ md_templates m2
+        , md_classes = md_classes m1 ++ md_classes m2
+        , md_instances = md_instances m1 ++ md_instances m2
+        }
+
+    -- | We sort by name, but we also bring the Prelude module
+    -- to the front so it always comes before other modules.
+    modulePriorityKey :: Modulename -> (Int,Modulename)
+    modulePriorityKey m = (if m == "Prelude" then 0 else 1, m)
 
 -- | Apply the HIDE annotation, which removes the current subtree from
 -- the docs. This can be applied to an entire module, or to a specific

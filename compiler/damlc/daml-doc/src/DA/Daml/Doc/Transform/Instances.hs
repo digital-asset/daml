@@ -18,9 +18,7 @@ distributeInstanceDocs :: TransformOptions -> [ModuleDoc] -> [ModuleDoc]
 distributeInstanceDocs opts docs =
     let instanceMap = getInstanceMap docs
     in map (addInstances instanceMap) docs
-
   where
-
     getInstanceMap :: [ModuleDoc] -> InstanceMap
     getInstanceMap docs =
         Map.unionsWith Set.union (map getModuleInstanceMap docs)
@@ -58,7 +56,10 @@ distributeInstanceDocs opts docs =
         , md_templates = md_templates
         , md_classes = map (addClassInstances imap) md_classes
         , md_adts = map (addTypeInstances imap) md_adts
-        , md_instances = md_instances
+        , md_instances =
+            if to_dropOrphanInstances opts
+                then filter (not . id_isOrphan) md_instances
+                else md_instances
         }
 
     addClassInstances :: InstanceMap -> ClassDoc -> ClassDoc
