@@ -48,12 +48,12 @@ final abstract class Uninitialized extends InitStatus
 
 object JdbcIndexerFactory {
   def apply(metrics: MetricRegistry)(
-      implicit ctx: LoggingContext): JdbcIndexerFactory[Uninitialized] =
+      implicit logCtx: LoggingContext): JdbcIndexerFactory[Uninitialized] =
     new JdbcIndexerFactory[Uninitialized](metrics)
 }
 
 final class JdbcIndexerFactory[Status <: InitStatus] private (metrics: MetricRegistry)(
-    implicit ctx: LoggingContext) {
+    implicit logCtx: LoggingContext) {
   private val logger = ContextualizedLogger.get[JdbcIndexerFactory[Status]]
   private[indexer] val asyncTolerance = 30.seconds
 

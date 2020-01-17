@@ -34,13 +34,13 @@ final class ContextualizedLoggerIT extends FlatSpec with Matchers {
   behavior of "ContextualizedLogger"
 
   def testCase(logger: ContextualizedLogger): Unit = {
-    newLoggingContext { implicit ctx =>
+    newLoggingContext { implicit logCtx =>
       logger.error("1")
-      withEnrichedLoggingContext("a" -> "1") { implicit ctx =>
+      withEnrichedLoggingContext("a" -> "1") { implicit logCtx =>
         logger.error("2")
-        withEnrichedLoggingContext("b" -> "2") { implicit ctx =>
+        withEnrichedLoggingContext("b" -> "2") { implicit logCtx =>
           logger.error("3")
-          Await.result(withEnrichedLoggingContext("c" -> "3") { implicit ctx =>
+          Await.result(withEnrichedLoggingContext("c" -> "3") { implicit logCtx =>
             Future(logger.error("4"))(concurrent.ExecutionContext.global)
           }, 10.seconds)
           logger.info("3")

@@ -141,7 +141,7 @@ class SqlLedgerSpec
 
   private def createSqlLedger(ledgerId: Option[LedgerId]): Future[Ledger] = {
     metrics.getNames.forEach(name => { val _ = metrics.remove(name) })
-    val ledger = newLoggingContext { implicit ctx =>
+    val ledger = newLoggingContext { implicit logCtx =>
       SqlLedger
         .owner(
           jdbcUrl = postgresFixture.jdbcUrl,

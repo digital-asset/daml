@@ -117,7 +117,7 @@ class ApiSubmissionService private (
     validation.fold(
       Future.failed,
       _ =>
-        withEnrichedLoggingContext("commandId" -> commands.commandId.unwrap) { implicit ctx =>
+        withEnrichedLoggingContext("commandId" -> commands.commandId.unwrap) { implicit logCtx =>
           logger.trace(s"Received composite commands: $commands")
           logger.debug(s"Received composite command let ${commands.ledgerEffectiveTime}.")
           recordOnLedger(commands).transform {

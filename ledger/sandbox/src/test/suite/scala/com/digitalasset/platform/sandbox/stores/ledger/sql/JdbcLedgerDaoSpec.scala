@@ -82,7 +82,7 @@ class JdbcLedgerDaoSpec
   override def beforeAll(): Unit = {
     super.beforeAll()
     implicit val executionContext: ExecutionContext = system.dispatcher
-    resource = newLoggingContext { implicit ctx =>
+    resource = newLoggingContext { implicit logCtx =>
       new FlywayMigrations(postgresFixture.jdbcUrl).migrate()
       for {
         dbDispatcher <- DbDispatcher

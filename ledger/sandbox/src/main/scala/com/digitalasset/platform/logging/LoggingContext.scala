@@ -19,7 +19,7 @@ object LoggingContext {
     f(new LoggingContext((kv +: kvs).toMap))
 
   def withEnrichedLoggingContext[A](kv: (String, String), kvs: (String, String)*)(
-      f: LoggingContext => A)(implicit ctx: LoggingContext): A =
+      f: LoggingContext => A)(implicit logCtx: LoggingContext): A =
     f((ctx + kv) ++ kvs)
 
 }

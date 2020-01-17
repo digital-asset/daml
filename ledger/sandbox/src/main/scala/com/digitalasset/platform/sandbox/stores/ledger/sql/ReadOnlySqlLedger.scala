@@ -84,7 +84,7 @@ private class ReadOnlySqlLedger(
   }
 }
 
-private class ReadOnlySqlLedgerFactory(ledgerDao: LedgerReadDao)(implicit ctx: LoggingContext) {
+private class ReadOnlySqlLedgerFactory(ledgerDao: LedgerReadDao)(implicit logCtx: LoggingContext) {
 
   private val logger = ContextualizedLogger.get[ReadOnlySqlLedgerFactory]
 

@@ -59,7 +59,7 @@ class PostgresIT extends WordSpec with Matchers with PostgresAroundAll with Befo
   "Flyway" should {
 
     "execute initialisation script" in {
-      newLoggingContext { implicit ctx =>
+      newLoggingContext { implicit logCtx =>
         new FlywayMigrations(postgresFixture.jdbcUrl).migrate()
       }
       connectionProvider.runSQL { conn =>

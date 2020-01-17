@@ -39,7 +39,7 @@ final class StandaloneApiServer(
     metrics: MetricRegistry,
     engine: Engine = sharedEngine, // allows sharing DAML engine with DAML-on-X participant
     timeServiceBackendO: Option[TimeServiceBackend] = None,
-)(implicit ctx: LoggingContext)
+)(implicit logCtx: LoggingContext)
     extends ResourceOwner[Unit] {
 
   private val logger = ContextualizedLogger.get[StandaloneApiServer]

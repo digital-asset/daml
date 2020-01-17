@@ -90,7 +90,7 @@ class ImplicitPartyAdditionIT
       case BackendType.InMemory =>
         LedgerResource.inMemory(ledgerId, participantId, timeProvider)
       case BackendType.Postgres =>
-        newLoggingContext { implicit ctx =>
+        newLoggingContext { implicit logCtx =>
           LedgerResource.postgres(ledgerId, participantId, timeProvider, metrics)
         }
     }

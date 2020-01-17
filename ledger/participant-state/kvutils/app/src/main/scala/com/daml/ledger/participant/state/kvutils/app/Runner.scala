@@ -43,7 +43,7 @@ class Runner[Extra](name: String, constructor: LedgerFactory[Extra]) {
     implicit val materializer: Materializer = Materializer(system)
     implicit val executionContext: ExecutionContext = system.dispatcher
 
-    val resource = newLoggingContext { implicit ctx =>
+    val resource = newLoggingContext { implicit logCtx =>
       for {
         // Take ownership of the actor system and materializer so they're cleaned up properly.
         // This is necessary because we can't declare them as implicits within a `for` comprehension.

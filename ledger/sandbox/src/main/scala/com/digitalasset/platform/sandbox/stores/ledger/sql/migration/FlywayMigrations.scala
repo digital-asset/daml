@@ -15,7 +15,7 @@ import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext}
 import scala.util.control.NonFatal
 
-class FlywayMigrations(jdbcUrl: String)(implicit ctx: LoggingContext) {
+class FlywayMigrations(jdbcUrl: String)(implicit logCtx: LoggingContext) {
   import FlywayMigrations._
 
   private val logger = ContextualizedLogger.get[FlywayMigrations]

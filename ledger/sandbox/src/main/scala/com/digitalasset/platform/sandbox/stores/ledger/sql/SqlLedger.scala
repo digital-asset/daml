@@ -398,7 +398,7 @@ private final class SqlLedger(
     }
 }
 
-private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit ctx: LoggingContext) {
+private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: LoggingContext) {
 
   private val logger = ContextualizedLogger.get[SqlLedgerFactory]
 

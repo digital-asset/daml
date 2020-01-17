@@ -131,7 +131,7 @@ final class SandboxServer(config: => SandboxConfig) extends AutoCloseable {
       ledgerId: LedgerId,
       authorizer: Authorizer,
       executionContext: ExecutionContext,
-  )(implicit ctx: LoggingContext): SandboxResetService =
+  )(implicit logCtx: LoggingContext): SandboxResetService =
     new SandboxResetService(
       ledgerId,
       () => executionContext,
@@ -191,7 +191,7 @@ final class SandboxServer(config: => SandboxConfig) extends AutoCloseable {
           (ts, Some(ts))
       }
 
-    newLoggingContext("participantId" -> participantId) { implicit ctx =>
+    newLoggingContext("participantId" -> participantId) { implicit logCtx =>
       val (ledgerType, indexAndWriteServiceResourceOwner) = config.jdbcUrl match {
         case Some(jdbcUrl) =>
           "postgres" -> SandboxIndexAndWriteService.postgres(

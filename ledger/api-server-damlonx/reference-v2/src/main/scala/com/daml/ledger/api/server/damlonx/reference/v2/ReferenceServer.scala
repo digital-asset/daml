@@ -41,7 +41,7 @@ object ReferenceServer extends App {
   implicit val materializer: Materializer = Materializer(system)
   implicit val executionContext: ExecutionContext = system.dispatcher
 
-  val resource = newLoggingContext { implicit ctx =>
+  val resource = newLoggingContext { implicit logCtx =>
     for {
       // Take ownership of the actor system and materializer so they're cleaned up properly.
       // This is necessary because we can't declare them as implicits within a `for` comprehension.
@@ -101,7 +101,7 @@ object ReferenceServer extends App {
   Runtime.getRuntime.addShutdownHook(new Thread(() => Await.result(resource.release(), 10.seconds)))
 
   private def startIndexerServer(config: Config, readService: ReadService)(
-      implicit ctx: LoggingContext): Resource[Unit] =
+      implicit logCtx: LoggingContext): Resource[Unit] =
     new StandaloneIndexerServer(
       readService,
       IndexerConfig(config.participantId, config.jdbcUrl, config.startupMode),
@@ -113,7 +113,7 @@ object ReferenceServer extends App {
       readService: ReadService,
       writeService: WriteService,
       authService: AuthService,
-  )(implicit ctx: LoggingContext): Resource[Unit] =
+  )(implicit logCtx: LoggingContext): Resource[Unit] =
     new StandaloneApiServer(
       ApiServerConfig(
         config.participantId,

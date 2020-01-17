@@ -86,7 +86,7 @@ private class JdbcLedgerDao(
     keyHasher: KeyHasher,
     dbType: DbType,
     executionContext: ExecutionContext,
-)(implicit ctx: LoggingContext)
+)(implicit logCtx: LoggingContext)
     extends LedgerDao {
 
   private val queries = dbType match {
@@ -1722,7 +1722,7 @@ object JdbcLedgerDao {
       dbDispatcher: DbDispatcher,
       dbType: DbType,
       executionContext: ExecutionContext,
-  )(implicit ctx: LoggingContext): LedgerDao =
+  )(implicit logCtx: LoggingContext): LedgerDao =
     new JdbcLedgerDao(
       dbDispatcher,
       ContractSerializer,

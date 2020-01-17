@@ -18,7 +18,7 @@ final class StandaloneIndexerServer(
     readService: ReadService,
     config: IndexerConfig,
     metrics: MetricRegistry,
-)(implicit ctx: LoggingContext)
+)(implicit logCtx: LoggingContext)
     extends ResourceOwner[Unit] {
   override def acquire()(implicit executionContext: ExecutionContext): Resource[Unit] =
     for {
