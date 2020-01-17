@@ -1,9 +1,6 @@
 // Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-// Copyright (c) 2019 The DAML Authors. All rights reserved.
-// SPDX-License-Identifier: Apache-2.0
-
 package com.daml.ledger.on.sql
 
 import java.nio.file.Files
@@ -11,6 +8,7 @@ import java.nio.file.Files
 import akka.stream.Materializer
 import com.daml.ledger.participant.state.kvutils.app.{Config, KeyValueLedger, LedgerFactory, Runner}
 import com.daml.ledger.participant.state.v1.ParticipantId
+import com.digitalasset.logging.LoggingContext.newLoggingContext
 import scopt.OptionParser
 
 import scala.concurrent.Await
@@ -36,10 +34,13 @@ object MainWithEphemeralSqlite extends App {
         implicit materializer: Materializer,
     ): KeyValueLedger =
       Await.result(
-        SqlLedgerReaderWriter(
-          participantId = participantId,
-          jdbcUrl = s"jdbc:sqlite:$databaseFile",
-        ),
-        10.seconds)
+        newLoggingContext { implicit loggingContext =>
+          SqlLedgerReaderWriter(
+            participantId = participantId,
+            jdbcUrl = s"jdbc:sqlite:$databaseFile",
+          )
+        },
+        10.seconds,
+      )
   }
 }

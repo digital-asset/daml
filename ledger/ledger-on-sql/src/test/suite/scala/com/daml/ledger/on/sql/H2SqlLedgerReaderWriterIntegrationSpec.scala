@@ -10,6 +10,7 @@ import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref.LedgerString
 import com.digitalasset.daml.lf.data.Time.Timestamp
+import com.digitalasset.logging.LoggingContext.newLoggingContext
 
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext}
@@ -27,9 +28,11 @@ class H2SqlLedgerReaderWriterIntegrationSpec
   ): ReadService with WriteService with AutoCloseable = {
     val databaseName = s"${getClass.getSimpleName.toLowerCase()}_${Random.nextInt()}"
     val jdbcUrl = s"jdbc:h2:mem:$databaseName;db_close_delay=-1;db_close_on_exit=false"
-    val readerWriter =
-      Await.result(SqlLedgerReaderWriter(ledgerId, participantId, jdbcUrl), 10.seconds)
-    new KeyValueParticipantState(readerWriter, readerWriter)
+    newLoggingContext { implicit loggingContext =>
+      val readerWriter =
+        Await.result(SqlLedgerReaderWriter(ledgerId, participantId, jdbcUrl), 10.seconds)
+      new KeyValueParticipantState(readerWriter, readerWriter)
+    }
   }
 
   override def currentRecordTime(): Timestamp =

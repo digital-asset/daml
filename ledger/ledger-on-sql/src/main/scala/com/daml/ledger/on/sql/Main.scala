@@ -6,6 +6,7 @@ package com.daml.ledger.on.sql
 import akka.stream.Materializer
 import com.daml.ledger.participant.state.kvutils.app.{Config, KeyValueLedger, LedgerFactory, Runner}
 import com.daml.ledger.participant.state.v1.ParticipantId
+import com.digitalasset.logging.LoggingContext.newLoggingContext
 import scopt.OptionParser
 
 import scala.concurrent.Await
@@ -34,12 +35,16 @@ object Main extends App {
 
     override def apply(participantId: ParticipantId, config: ExtraConfig)(
         implicit materializer: Materializer,
-    ): KeyValueLedger =
+    ): KeyValueLedger = {
+      val jdbcUrl = config.jdbcUrl.getOrElse {
+        throw new IllegalStateException("No JDBC URL provided.")
+      }
       Await.result(
-        SqlLedgerReaderWriter(participantId = participantId, jdbcUrl = config.jdbcUrl.getOrElse {
-          throw new IllegalStateException("No JDBC URL provided.")
-        }),
+        newLoggingContext { implicit loggingContext =>
+          SqlLedgerReaderWriter(participantId = participantId, jdbcUrl = jdbcUrl)
+        },
         10.seconds,
       )
+    }
   }
 }
