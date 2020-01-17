@@ -267,11 +267,11 @@ application/json body must be sent first, formatted according to the
 
     {"templateIds": ["Iou:Iou"]}
 
-output a series of JSON documents, each ``argument`` formatted according
+output a series of JSON documents, each ``payload`` formatted according
 to :doc:`lf-value-specification`::
 
-    {
-        "created": [{
+    [{
+        "created": {
             "observers": [],
             "agreementText": "",
             "payload": {
@@ -283,9 +283,9 @@ to :doc:`lf-value-specification`::
             },
             "signatories": ["Alice"],
             "contractId": "#1:0",
-            "templateId": "f95486336ffb3c982319625bed0c88f68799b780b26b558b1e119277614ed634:Iou:Iou"
-        }]
-    }
+            "templateId": "6cc82609ede6576e5092e8c89a2c7a658efe15ae1347fc38eb316f787fa132bc:Iou:Iou"
+        }
+    }]
 
 To keep the stream alive, you'll occasionally see messages like this,
 which can be safely ignored::
@@ -295,8 +295,8 @@ which can be safely ignored::
 After submitting an ``Iou_Split`` exercise, which creates two contracts
 and archives the one above, the same stream will eventually produce::
 
-    {
-        "created": [{
+    [{
+        "created": {
             "observers": [],
             "agreementText": "",
             "payload": {
@@ -308,8 +308,10 @@ and archives the one above, the same stream will eventually produce::
             },
             "signatories": ["Alice"],
             "contractId": "#2:1",
-            "templateId": "f95486336ffb3c982319625bed0c88f68799b780b26b558b1e119277614ed634:Iou:Iou"
-        }, {
+            "templateId": "6cc82609ede6576e5092e8c89a2c7a658efe15ae1347fc38eb316f787fa132bc:Iou:Iou"
+        }
+    }, {
+        "created": {
             "observers": [],
             "agreementText": "",
             "payload": {
@@ -321,33 +323,44 @@ and archives the one above, the same stream will eventually produce::
             },
             "signatories": ["Alice"],
             "contractId": "#2:2",
-            "templateId": "f95486336ffb3c982319625bed0c88f68799b780b26b558b1e119277614ed634:Iou:Iou"
-        }],
-        "archived": ["#1:0"]
-    }
+            "templateId": "6cc82609ede6576e5092e8c89a2c7a658efe15ae1347fc38eb316f787fa132bc:Iou:Iou"
+        }
+    }, {
+        "archived": "#1:0"
+    }]
+
+Aside from ``"created"`` and ``"archived"`` elements, ``"error"``
+elements may appear, which contain a string describing the error.  The
+stream will continue in these cases, rather than terminating.
 
 Some notes on behavior:
 
-1. Each result object means "this is what would have changed if you just
+1. Each result array means "this is what would have changed if you just
    polled ``/contracts/search`` iteratively."  In particular, just as
    polling search can "miss" contracts (as a create and archive can be
    paired between polls), such contracts may or may not appear in any
    result object.
 
 2. No ``archived`` ever contains a contract ID occurring within an
-   ``created`` in the same object.  So, for example, supposing you are
+   ``created`` in the same array.  So, for example, supposing you are
    keeping an internal map of active contracts, you can apply the
    ``created`` first or the ``archived`` first and be guaranteed to get
    the same results.
 
-3. You will almost certainly receive contract IDs in the ``archived``
-   set that you never received an ``created`` for.  These are contracts
-   that query filtered out, but for which the server no longer is aware
-   of that.  You can safely ignore these.  However, such "phantom
-   archives" *are* guaranteed to represent an actual archival *on the
-   ledger*, so if you are keeping a more global dataset outside the
-   context of this specific search, you can use that archival
-   information as you wish.
+3. You will almost certainly receive contract IDs in ``archived`` that
+   you never received a ``created`` for.  These are contracts that
+   query filtered out, but for which the server no longer is aware of
+   that.  You can safely ignore these.  However, such "phantom archives"
+   *are* guaranteed to represent an actual archival *on the ledger*, so
+   if you are keeping a more global dataset outside the context of this
+   specific search, you can use that archival information as you wish.
+
+4. Within a single response array, the order of ``created`` and
+   ``archived`` is undefined and does not imply that any element
+   occurred "before" or "after" any other one.  As specified in note #2,
+   order of application of changes doesn't matter; you will get the same
+   results if you walk the array forwards, backwards, or in random
+   order.
 
 POST ``/command/create``
 ========================
