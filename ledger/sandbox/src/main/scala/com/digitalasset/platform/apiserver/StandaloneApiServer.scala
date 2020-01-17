@@ -106,7 +106,7 @@ final class StandaloneApiServer(
         participantId,
         config.jdbcUrl,
         metrics,
-      )(materializer, ctx)
+      )(materializer, logCtx)
       healthChecks = new HealthChecks(
         "index" -> indexService,
         "read" -> readService,
@@ -126,14 +126,14 @@ final class StandaloneApiServer(
               timeServiceBackendO,
               metrics,
               healthChecks,
-            )(mat, esf, ctx),
+            )(mat, esf, logCtx),
         config.port,
         config.maxInboundMessageSize,
         config.address,
         config.tlsConfig.flatMap(_.server),
         List(AuthorizationInterceptor(authService, ec)),
         metrics
-      )(actorSystem, materializer, ctx).acquire()
+      )(actorSystem, materializer, logCtx).acquire()
       _ <- ResourceOwner.forFuture(() => writePortFile(apiServer.port)).acquire()
     } yield {
       logger.info(

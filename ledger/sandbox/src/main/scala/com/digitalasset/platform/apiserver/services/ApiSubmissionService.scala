@@ -57,7 +57,7 @@ object ApiSubmissionService {
       metrics: MetricRegistry)(
       implicit ec: ExecutionContext,
       mat: Materializer,
-      ctx: LoggingContext)
+      logCtx: LoggingContext)
     : GrpcCommandSubmissionService with GrpcApiService with CommandSubmissionServiceLogging =
     new GrpcCommandSubmissionService(
       new ApiSubmissionService(
@@ -82,7 +82,10 @@ class ApiSubmissionService private (
     timeModel: TimeModel,
     timeProvider: TimeProvider,
     commandExecutor: CommandExecutor,
-    metrics: MetricRegistry)(implicit ec: ExecutionContext, mat: Materializer, ctx: LoggingContext)
+    metrics: MetricRegistry)(
+    implicit ec: ExecutionContext,
+    mat: Materializer,
+    logCtx: LoggingContext)
     extends CommandSubmissionService
     with ErrorFactories
     with AutoCloseable {

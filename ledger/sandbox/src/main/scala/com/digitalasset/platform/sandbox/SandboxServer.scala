@@ -247,7 +247,7 @@ final class SandboxServer(config: => SandboxConfig) extends AutoCloseable {
                   .map(TimeServiceBackend.withObserver(_, indexAndWriteService.publishHeartbeat)),
                 metrics,
                 healthChecks,
-              )(mat, esf, ctx)
+              )(mat, esf, logCtx)
               .map(_.withServices(List(resetService(ledgerId, authorizer, executionContext)))),
           currentPort.getOrElse(config.port),
           config.maxInboundMessageSize,
