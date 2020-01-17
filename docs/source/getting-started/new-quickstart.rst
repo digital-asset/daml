@@ -151,3 +151,31 @@ This explains why you cannot see *all* users in the network on the main screen, 
 
 .. TODO You also see friends of friends; either explain or prevent this.
 
+There is one more technicality to explain before we can dive into building a new feature for our app.
+In the above example we refer to the ``User`` template in our Typescript code (the React component).
+However we wrote our template in DAML, not Typescript.
+Therefore we need a way to bridge the gap and allow us access to DAML templates (and data types they depend on) from the UI code.
+
+.. TODO How do we run daml2ts? Hopefully it will run automatically in a DAML watch command, or be shipped with the SDK and called through the assistant.
+
+Our solution to this is a simple code generation tool called ``daml2ts``.
+This is shipped with the SDK and can be run with ``daml daml2ts``.
+The tool reads a compiled DAML project and generates a Typescript file corresponding to each DAML source file.
+We won't show the generated code here as it simply contains Typescript equivalents of the data structures used in the DAML templates (it does not include equivalents for signatories, observers or other DAML-specific constructs).
+With this tool to help bridge the gap between our DAML code and the UI, we can get started on our first full-stack DAML feature!
+
+
+Your First Feature
+***********************
+
+Let's dive into implementing a feature for our social network app.
+From that we'll get a better idea of how to build DAML applications using our template.
+
+Right now our app allows us to add and remove friends, but we can't share anything with them!
+Let's fix that by adding a feature to post updates to friends.
+However, we don't want to just broadcast messages to the world: we would like to select specific groups of friends to share messages with and ensure privacy of those messages.
+We will see that DAML helps us implement this in a direct and intuitive way.
+
+There are two parts to building the posting feature: the DAML code and the UI.
+Let's start with adding to the DAML code, on which we will base our UI changes.
+
