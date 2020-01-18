@@ -24,12 +24,6 @@ class ApiValueToJsValueConverter(apiToLf: ApiValueToLfValueConverter.ApiValueToL
     a.fields.toList.traverse(convertField).map(fs => JsObject(fs.toMap))
   }
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  private def convertRecord(
-      record: List[lav1.value.RecordField]): JsonError \/ List[(String, JsValue)] = {
-    record.traverse(convertField)
-  }
-
   private def convertField(field: lav1.value.RecordField): JsonError \/ (String, JsValue) =
     field.value match {
       case None => \/-(field.label -> JsObject.empty)

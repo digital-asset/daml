@@ -53,7 +53,20 @@ class ContractsService(
       )
   }
 
-  def lookup(jwt: Jwt, jwtPayload: JwtPayload, contractLocator: domain.ContractLocator[ApiValue])
+  def resolve(jwt: Jwt, jwtPayload: JwtPayload, contractLocator: domain.ContractLocator[LfValue])
+    : Future[Option[(domain.TemplateId.RequiredPkg, domain.ContractId)]] =
+    contractLocator match {
+      case domain.EnrichedContractKey(templateId, key) =>
+        findByContractKey(jwt, jwtPayload.party, templateId, key).map(_.map(a =>
+          (a.templateId, a.contractId)))
+      case domain.EnrichedContractId(Some(templateId), contractId) =>
+        Future.successful(resolveTemplateId(templateId).map(a => (a, contractId)))
+      case domain.EnrichedContractId(None, contractId) =>
+        findByContractId(jwt, jwtPayload.party, None, contractId).map(_.map(a =>
+          (a.templateId, a.contractId)))
+    }
+
+  def lookup(jwt: Jwt, jwtPayload: JwtPayload, contractLocator: domain.ContractLocator[LfValue])
     : Future[Option[domain.ActiveContract[LfValue]]] =
     contractLocator match {
       case domain.EnrichedContractKey(templateId, contractKey) =>
@@ -66,14 +79,12 @@ class ContractsService(
       jwt: Jwt,
       party: lar.Party,
       templateId: TemplateId.OptionalPkg,
-      contractKey: api.value.Value): Future[Option[domain.ActiveContract[LfValue]]] =
+      contractKey: LfValue): Future[Option[domain.ActiveContract[LfValue]]] =
     for {
-
-      lfKey <- toFuture(apiValueToLfValue(contractKey)): Future[LfValue]
 
       resolvedTemplateId <- toFuture(resolveTemplateId(templateId)): Future[TemplateId.RequiredPkg]
 
-      predicate = isContractKey(lfKey) _
+      predicate = isContractKey(contractKey) _
 
       errorOrAc <- searchInMemoryOneTpId(jwt, party, resolvedTemplateId, Map.empty)
         .collect {

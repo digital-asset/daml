@@ -4,6 +4,9 @@
 package com.digitalasset.http
 
 object ErrorMessages {
-  def cannotResolveTemplateId[A](t: domain.TemplateId[A]): String =
+  def cannotResolveTemplateId(t: domain.TemplateId[_]): String =
     s"Cannot resolve template ID, given: ${t.toString}"
+
+  def cannotResolveTemplateId(a: domain.ContractLocator[_]): String =
+    s"Cannot resolve templateId, given: $a"
 }

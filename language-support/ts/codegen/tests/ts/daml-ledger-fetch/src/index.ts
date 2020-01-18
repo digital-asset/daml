@@ -208,11 +208,20 @@ class Ledger {
    * Exercise a choice on a contract identified by its contract key.
    */
   async exerciseByKey<T extends object, C, R, K>(choice: Choice<T, C, R, K>, key: K extends undefined ? never : K, argument: C): Promise<[R, Event<object>[]]> {
-    const contract = await this.lookupByKey(choice.template(), key);
-    if (contract === null) {
-      throw Error(`exerciseByKey: no contract with key ${JSON.stringify(key)} for template ${choice.template().templateId}`);
-    }
-    return this.exercise(choice, contract.contractId, argument);
+    const payload = {
+      templateId: choice.template().templateId,
+      key,
+      choice: choice.choiceName,
+      argument,
+    };
+    const json = await this.submit('command/exercise', payload);
+    // Decode the server response into a tuple.
+    const responseDecoder: jtv.Decoder<{exerciseResult: R; contracts: Event<object>[]}> = jtv.object({
+      exerciseResult: choice.resultDecoder(),
+      contracts: jtv.array(decodeEventUnknown),
+    });
+    const {exerciseResult, contracts} = jtv.Result.withException(responseDecoder.run(json));
+    return [exerciseResult, contracts];
   }
 
   /**

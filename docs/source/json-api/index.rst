@@ -415,10 +415,10 @@ POST ``/command/exercise``
 
 Exercise a choice on a contract.
 
-``"contractId": "#124:0"`` is the value from the create output.
+Exercise by ContractId Request
+------------------------------
 
-Request
--------
+``"contractId": "#124:0"`` is the value from the create output.
 
 application/json body:
 
@@ -432,6 +432,21 @@ application/json body:
             "newOwner": "Alice"
         }
     }
+
+Exercise by Contract Key Request
+--------------------------------
+
+application/json body:
+
+.. code-block:: json
+
+    {
+        "templateId": "Account:Account",
+        "key": ["Alice", "abc123"],
+        "choice": "Archive",
+        "argument": {}
+    }
+
 
 Response
 --------

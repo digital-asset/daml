@@ -29,15 +29,10 @@ class JsValueToApiValueConverter(lfTypeLookup: LfTypeLookup) {
       LfValueCodec.jsValueToApiValue(jsValue, lfType, lfTypeLookup)
     ).leftMap(JsonError.toJsonError)
 
-  def lfValueToApiValue(
-      lfValue: lf.value.Value[lf.value.Value.AbsoluteContractId]): JsonError \/ lav1.value.Value =
-    \/.fromEither(LfEngineToApi.lfValueToApiValue(verbose = true, lfValue))
-      .leftMap(JsonError.toJsonError)
-
   def jsValueToApiValue(lfType: domain.LfType, jsValue: JsValue): JsonError \/ lav1.value.Value =
     for {
       lfValue <- jsValueToLfValue(lfType, jsValue)
-      apiValue <- lfValueToApiValue(lfValue)
+      apiValue <- JsValueToApiValueConverter.lfValueToApiValue(lfValue)
     } yield apiValue
 
   def jsObjectToApiRecord(
@@ -56,4 +51,8 @@ class JsValueToApiValueConverter(lfTypeLookup: LfTypeLookup) {
 
 object JsValueToApiValueConverter {
   type LfTypeLookup = lf.data.Ref.Identifier => Option[lf.iface.DefDataType.FWT]
+
+  def lfValueToApiValue(lfValue: domain.LfValue): JsonError \/ lav1.value.Value =
+    \/.fromEither(LfEngineToApi.lfValueToApiValue(verbose = true, lfValue))
+      .leftMap(JsonError.toJsonError)
 }

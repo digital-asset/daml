@@ -14,8 +14,8 @@ import com.digitalasset.http.ContractsService.SearchResult
 import com.digitalasset.http.EndpointsCompanion._
 import com.digitalasset.http.Statement.discard
 import com.digitalasset.http.domain.JwtPayload
-import com.digitalasset.http.json.{DomainJsonDecoder, DomainJsonEncoder, ResponseFormats, SprayJson}
-import com.digitalasset.http.util.FutureUtil.{either, eitherT}
+import com.digitalasset.http.json._
+import com.digitalasset.http.util.FutureUtil.{either, eitherT, rightT}
 import com.digitalasset.http.util.{ApiValueToLfValueConverter, FutureUtil}
 import com.digitalasset.jwt.domain.Jwt
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
@@ -84,12 +84,20 @@ class Endpoints(
 
         cmd <- either(
           decoder
-            .decodeV[domain.ExerciseCommand](reqBody)
+            .decodeExerciseCommand(reqBody)
             .leftMap(e => InvalidUserInput(e.shows))
-        ): ET[domain.ExerciseCommand[ApiValue]]
+        ): ET[domain.ExerciseCommand[LfValue, domain.ContractLocator[LfValue]]]
+
+        resolvedRef <- eitherT(
+          resolveReference(jwt, jwtPayload, cmd.reference)
+        ): ET[(domain.TemplateId.RequiredPkg, domain.ContractId)]
+
+        apiArg <- either(lfValueToApiValue(cmd.argument)): ET[ApiValue]
+
+        resolvedCmd = cmd.copy(argument = apiArg, reference = resolvedRef)
 
         apiResp <- eitherT(
-          handleFutureFailure(commandService.exercise(jwt, jwtPayload, cmd))
+          handleFutureFailure(commandService.exercise(jwt, jwtPayload, resolvedCmd))
         ): ET[domain.ExerciseResponse[ApiValue]]
 
         lfResp <- either(apiResp.traverse(apiValueToLfValue)): ET[domain.ExerciseResponse[LfValue]]
@@ -138,12 +146,11 @@ class Endpoints(
 
         _ = logger.debug(s"/contracts/lookup reqBody: $reqBody")
 
-        // TODO(Leo): decode to domain.ContractLocator[LfValue], findByContractKey converts it to LfValue
         cl <- either(
           decoder
             .decodeContractLocator(reqBody)
             .leftMap(e => InvalidUserInput(e.shows))
-        ): ET[domain.ContractLocator[ApiValue]]
+        ): ET[domain.ContractLocator[LfValue]]
 
         _ = logger.debug(s"/contracts/lookup cl: $cl")
 
@@ -205,7 +212,7 @@ class Endpoints(
     case req @ HttpRequest(GET, Uri.Path("/parties"), _, _, _) =>
       val et: ET[JsValue] = for {
         _ <- FutureUtil.eitherT(input(req)): ET[(Jwt, JwtPayload, String)]
-        ps <- FutureUtil.rightT(partiesService.allParties()): ET[List[domain.PartyDetails]]
+        ps <- rightT(partiesService.allParties()): ET[List[domain.PartyDetails]]
         jsVal <- either(SprayJson.encode(ps)).leftMap(e => ServerError(e.shows)): ET[JsValue]
       } yield jsVal
 
@@ -218,6 +225,9 @@ class Endpoints(
   private def lfValueToJsValue(a: LfValue): Error \/ JsValue =
     \/.fromTryCatchNonFatal(LfValueCodec.apiValueToJsValue(a)).leftMap(e =>
       ServerError(e.description))
+
+  private def lfValueToApiValue(a: LfValue): Error \/ ApiValue =
+    JsValueToApiValueConverter.lfValueToApiValue(a).leftMap(e => ServerError(e.shows))
 
   private def collectActiveContracts(
       predicates: Map[domain.TemplateId.RequiredPkg, LfValue => Boolean]): PartialFunction[
@@ -300,6 +310,14 @@ class Endpoints(
       }
       .toRightDisjunction(Unauthorized("missing Authorization header with OAuth 2.0 Bearer Token"))
 
+  private def resolveReference(
+      jwt: Jwt,
+      jwtPayload: JwtPayload,
+      reference: domain.ContractLocator[LfValue])
+    : Future[Error \/ (domain.TemplateId.RequiredPkg, domain.ContractId)] =
+    contractsService
+      .resolve(jwt, jwtPayload, reference)
+      .map(_.toRightDisjunction(InvalidUserInput(ErrorMessages.cannotResolveTemplateId(reference))))
 }
 
 object Endpoints {
@@ -309,7 +327,4 @@ object Endpoints {
   private type ApiValue = lav1.value.Value
 
   private type LfValue = lf.value.Value[lf.value.Value.AbsoluteContractId]
-
-  private type ActiveContractStream[A] = Source[A, NotUsed]
-
 }

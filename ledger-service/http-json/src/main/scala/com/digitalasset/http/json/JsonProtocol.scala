@@ -13,6 +13,7 @@ import com.digitalasset.http.domain
 import com.digitalasset.http.json.TaggedJsonFormat._
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import scalaz.{-\/, \/-}
+import scalaz.syntax.std.option._
 import spray.json._
 
 object JsonProtocol extends DefaultJsonProtocol {
@@ -133,7 +134,7 @@ object JsonProtocol extends DefaultJsonProtocol {
       case (None, Some(_), None) =>
         deserializationError(s"$what requires key to be accompanied by a templateId")
       case (_, None, None) | (_, Some(_), Some(_)) =>
-        deserializationError(s"$what requires exactly one of a key or contractId")
+        deserializationError(s"$what requires either key or contractId field")
     }
 
   // implicit val ContractLookupRequestFormat
@@ -226,8 +227,37 @@ object JsonProtocol extends DefaultJsonProtocol {
   implicit val CreateCommandFormat: RootJsonFormat[domain.CreateCommand[JsObject]] = jsonFormat3(
     domain.CreateCommand[JsObject])
 
-  implicit val ExerciseCommandFormat: RootJsonFormat[domain.ExerciseCommand[JsValue]] =
-    jsonFormat5(domain.ExerciseCommand[JsValue])
+  implicit val ExerciseCommandFormat
+    : RootJsonFormat[domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]]] =
+    new RootJsonFormat[domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]]] {
+      override def write(
+          obj: domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]]): JsValue = {
+
+        val reference: JsObject =
+          ContractLocatorFormat.write(obj.reference).asJsObject("reference must be an object")
+
+        val fields: Vector[(String, JsValue)] =
+          reference.fields.toVector ++
+            Vector("choice" -> obj.choice.toJson, "argument" -> obj.argument.toJson) ++
+            obj.meta.cata(x => Vector("meta" -> x.toJson), Vector.empty)
+
+        JsObject(fields: _*)
+      }
+
+      override def read(
+          json: JsValue): domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]] = {
+        val reference = ContractLocatorFormat.read(json)
+        val choice = fromField[domain.Choice](json, "choice")
+        val argument = fromField[JsValue](json, "argument")
+        val meta = fromField[Option[domain.CommandMeta]](json, "meta")
+
+        domain.ExerciseCommand(
+          reference = reference,
+          choice = choice,
+          argument = argument,
+          meta = meta)
+      }
+    }
 
   implicit val ExerciseResponseFormat: RootJsonFormat[domain.ExerciseResponse[JsValue]] =
     jsonFormat2(domain.ExerciseResponse[JsValue])

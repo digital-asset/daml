@@ -7,16 +7,18 @@ import com.digitalasset.http.Generators.{
   OptionalPackageIdGen,
   contractGen,
   contractLocatorGen,
+  exerciseCmdGen,
   genDomainTemplateId,
   genDomainTemplateIdO
 }
 import com.digitalasset.http.Statement.discard
 import com.digitalasset.http.domain
 import org.scalacheck.Arbitrary.arbitrary
-import org.scalacheck.Gen.{listOf, identifier}
+import org.scalacheck.Gen.{identifier, listOf}
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.{FreeSpec, Inside, Matchers}
 import scalaz.syntax.std.option._
+import scalaz.syntax.tag._
 import scalaz.{\/, \/-}
 
 class JsonProtocolTest
@@ -123,6 +125,24 @@ class JsonProtocolTest
           "status" -> JsNumber(200),
         )
       }
+    }
+  }
+
+  "domain.ExerciseCommand" - {
+    "should serialize to a JSON object with flattened reference fields" in forAll(exerciseCmdGen) {
+      cmd =>
+        val actual: JsValue = cmd.toJson
+        val referenceFields: Map[String, JsValue] = cmd.reference.toJson.asJsObject.fields
+        val expectedFields: Map[String, JsValue] = referenceFields ++ Map[String, JsValue](
+          "choice" -> JsString(cmd.choice.unwrap),
+          "argument" -> cmd.argument) ++ cmd.meta.cata(x => Map("meta" -> x.toJson), Map.empty)
+
+        actual shouldBe JsObject(expectedFields)
+    }
+
+    "roundtrips" in forAll(exerciseCmdGen) { a =>
+      val b = a.toJson.convertTo[domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]]]
+      b should ===(a)
     }
   }
 }
