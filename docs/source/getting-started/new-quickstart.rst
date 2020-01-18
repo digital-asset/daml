@@ -176,6 +176,30 @@ Let's fix that by adding a feature to post updates to friends.
 However, we don't want to just broadcast messages to the world: we would like to select specific groups of friends to share messages with and ensure privacy of those messages.
 We will see that DAML helps us implement this in a direct and intuitive way.
 
-There are two parts to building the posting feature: the DAML code and the UI.
+There are two parts to building this posting feature: the DAML code and the UI.
 Let's start with adding to the DAML code, on which we will base our UI changes.
 
+The first addition is a template for a post contracts.
+This will be very simple, as it only contains the message and the parties involved.
+
+.. literalinclude:: quickstart/code/daml/Post.daml
+  :language: daml
+  :start-after: -- POST_BEGIN
+  :end-before: -- POST_END
+
+The author party is the signatory, the one who can create and archive the post.
+The author also chooses a number of parties to share the post with, the observers of the contract.
+This simple setup gives the same desirable behaviour as the ``User`` contracts discussed earlier: querying the ledger for posts will yield exactly those which have been shared with the user (or which the user has written), and it is impossible to see any other posts.
+
+With the new ``Post`` template, we need a way to create such contracts.
+We can implement this as a choice in the ``User`` template.
+We didn't talk too much about choices earlier, but these are essentially operations on contracts which can perform updates to the ledger.
+In our case, we simply want to add an operation for a user to create a ``Post`` contract on the ledger, without performing any other updates.
+
+.. literalinclude:: quickstart/code/daml/User.daml
+  :language: daml
+  :start-after: -- WRITEPOST_BEGIN
+  :end-before: -- WRITEPOST_END
+
+This is a choice on a ``User`` contract, so we have the ``user`` party in scope which can act as the *controller* of the choice (in the 4th line above).
+This encodes the rule that no one can post on behalf of a user.

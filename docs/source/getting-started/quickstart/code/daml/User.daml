@@ -3,30 +3,41 @@ module User where
 
 import DA.List
 
+import Post
+
 -- MAIN_TEMPLATE_BEGIN
 template User with
-    party: Party
+    user: Party
     friends: [Party]
   where
-    signatory party
+    signatory user
     observer friends
 -- MAIN_TEMPLATE_END
-    ensure party `notElem` friends && dedupSort friends == friends
+    ensure user `notElem` friends && dedupSort friends == friends
 
-    key party: Party
+    key user: Party
     maintainer key
 
     choice AddFriend: ContractId User with
         friend: Party
-      controller party
+      controller user
       do
         assert $ friend `notElem` friends
         create this with friends = sort (friend :: friends)
 
     nonconsuming choice RemoveFriend: ContractId User with
         friend: Party
-      controller party
+      controller user
       do
         assert $ friend `elem` friends
         archive self
         create this with friends = delete friend friends
+
+-- WRITEPOST_BEGIN
+    nonconsuming choice WritePost: ContractId Post with
+        content: Text
+        sharingWith: [Party]
+      controller user
+      do
+        create Post with author = user, content, sharingWith
+-- WRITEPOST_END
