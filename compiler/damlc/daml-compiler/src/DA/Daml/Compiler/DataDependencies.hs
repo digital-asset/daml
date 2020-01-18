@@ -9,6 +9,7 @@ module DA.Daml.Compiler.DataDependencies
     ) where
 
 import Control.Lens (toListOf)
+import Control.Lens.MonoTraversal (monoTraverse)
 import Control.Monad
 import Data.List.Extra
 import qualified Data.Map.Strict as MS
@@ -137,7 +138,11 @@ generateSrcFromLf env = noLoc mod
     modRefs =
         nubSort $
         [ (isStable pkg, envGetUnitId env pkg, LF.ModuleName (["CurrentSdk" | isStable pkg] <> LF.unModuleName modRef))
-        | (pkg, modRef) <- toListOf moduleModuleRef $ envMod env
+        | typeDef <- NM.toList $ LF.moduleDataTypes $ envMod env
+        -- We only care about references from serializable types
+        -- since those are the only ones that we reconstruct.
+        , LF.getIsSerializable (LF.dataSerializable typeDef)
+        , (pkg, modRef) <- toListOf monoTraverse typeDef
         ] ++
         (map (\t -> (\(a,b) -> (True,a,b)) $ builtinToModuleRef t) $
          concat $ do

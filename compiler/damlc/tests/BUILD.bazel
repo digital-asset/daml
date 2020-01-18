@@ -227,6 +227,7 @@ da_haskell_test(
         "//compiler/damlc",
         "//compiler/damlc/tests:generate-simple-dalf",
         "//daml-lf/repl",
+        "@davl//:released/davl-v3.dar",
     ],
     hackage_deps = [
         "base",
