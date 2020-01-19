@@ -23,6 +23,7 @@ da_haskell_library(
         "extra",
         "filepath",
         "ghc-lib-parser",
+        "ghc-lib-parser-ex",
         "ghc-lib",
         "ghcide",
         "hashable",
