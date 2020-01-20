@@ -39,9 +39,7 @@ genrule(
 
 eslint_test(
     name = "daml-json-types-lint",
-    srcs = ["index.ts"],
-    tsconfig = "tsconfig.json",
-    package_json = "package.json",
+    srcs = glob(["**/*.ts"]),
 )
 
 pkg_npm(
