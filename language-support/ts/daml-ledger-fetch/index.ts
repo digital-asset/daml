@@ -40,7 +40,7 @@ const decodeCreateEventUnknown: jtv.Decoder<CreateEvent<object>> =
 
 const decodeArchiveEventUnknown: jtv.Decoder<ArchiveEvent<object>> = jtv.object({
   templateId: jtv.string(),
-  contractId: ContractId({decoder: jtv.unknownJson, isOptional: false}).decoder(),
+  contractId: ContractId({decoder: jtv.unknownJson}).decoder(),
 });
 
 const decodeEventUnknown: jtv.Decoder<Event<object>> = jtv.oneOf<Event<object>>(
