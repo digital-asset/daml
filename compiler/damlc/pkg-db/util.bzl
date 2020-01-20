@@ -32,8 +32,7 @@ PACKAGE_CONF_TEMPLATE = """
 name: {name}
 version: __SDK_VERSION__
 id: __ID__
-key: __ID__
-copyright: 2015-2018 Digital Asset Holdings
+copyright: 2020 Digital Asset Holdings
 maintainer: Digital Asset
 exposed: True
 exposed-modules: {modules}

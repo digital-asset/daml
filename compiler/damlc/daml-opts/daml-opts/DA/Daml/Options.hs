@@ -119,8 +119,9 @@ setPackageDbs paths dflags =
 setPackageImports :: Bool -> [(UnitId, ModRenaming)] -> DynFlags -> DynFlags
 setPackageImports hideAllPkgs pkgImports dflags = dflags {
     packageFlags = packageFlags dflags ++
-        [ExposePackage ("-package " <> unitIdString pkgName) (UnitIdArg pkgName) renaming
-        -- The first string is only used in error messages.
+        [ExposePackage ("-package-id " <> unitIdString pkgName) (UnitIdArg pkgName) renaming
+        -- The first string is only used in error messages so it doesn’t really matter
+        -- but we use UnitIdArg which corresponds to GHC’s -package-id flag.
         | (pkgName, renaming) <- pkgImports
         ]
     , generalFlags = if hideAllPkgs
