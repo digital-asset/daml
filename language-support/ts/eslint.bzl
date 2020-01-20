@@ -1,6 +1,15 @@
 load("@language_support_ts_deps//eslint:index.bzl", _eslint_test = "eslint_test")
 
 def eslint_test(name, srcs, tsconfig = ":tsconfig.json", package_json = ":package.json", data = [], **kwargs):
+    """Run eslint on the given typescript source.
+
+    Args:
+      name: The name of the generated test rule.
+      srcs: The source files to lint.
+      tsconfig: The tsconfig.json file.
+      package_json: The package.json file.
+      data: Additional runtime dependencies.
+    """
     eslint_deps = [
         "@language_support_ts_deps//@typescript-eslint",
         "@language_support_ts_deps//tsutils",
