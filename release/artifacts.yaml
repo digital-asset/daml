@@ -130,12 +130,6 @@
 - target: //scala-protoc-plugins/scala-logging:scala-logging-lib
   type: jar-scala
   mavenUpload: true
-- target: //ledger/ledger-api-scala-logging:ledger-api-scala-logging
-  type: jar-scala
-  mavenUpload: true
-- target: //ledger/ledger-api-scala-logging:ledger-api-scala-logging-base
-  type: jar-scala
-  mavenUpload: true
 - target: //ledger/ledger-api-client:ledger-api-client
   type: jar-scala
   mavenUpload: true
