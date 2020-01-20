@@ -13,6 +13,7 @@ module DA.Daml.Doc.Extract.Exports
     ) where
 
 import DA.Daml.Doc.Types as DD
+import DA.Daml.Doc.Extract.Types
 
 import "ghc-lib" GHC
 import "ghc-lib-parser" RdrName
@@ -22,32 +23,6 @@ import "ghc-lib-parser" FastString
 
 import qualified Data.Set as Set
 import qualified Data.Text as T
-
--- | Set of module exports.
---
--- Unlike Haddock, we don't ask the export list to dictate the order
--- of docs; damldocs imposes its own order. So we can treat the export
--- list as a set instead.
-data ExportSet
-    = ExportEverything
-    | ExportOnly !(Set.Set ExportedItem)
-
--- | Particular exported item. We don't particularly care
--- about re-exported modules for now, but we want to know
--- if a module re-exports itself so we have a way to track
--- it here.
-data ExportedItem
-    = ExportedType !Typename
-        -- ^ type is exported
-    | ExportedTypeAll !Typename
-        -- ^ all constructors and fields for a type are exported
-    | ExportedConstr !Typename
-        -- ^ constructor is exported
-    | ExportedFunction !Fieldname
-        -- ^ function or field is exported
-    | ExportedModule !GHC.ModuleName
-        -- ^ module is reexported
-    deriving (Eq, Ord)
 
 -- | Get set of exports from parsed module.
 --
