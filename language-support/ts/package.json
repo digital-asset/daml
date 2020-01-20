@@ -1,6 +1,6 @@
 {
   "dependencies": {
-    "typescript": "3.1.6",
+    "typescript": "3.7.4",
     "@mojotech/json-type-validation": "^3.1.0",
     "cross-fetch": "^3.0.4"
   },
