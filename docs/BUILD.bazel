@@ -292,11 +292,13 @@ genrule(
         "configs/static/pygments_daml_lexer.py",
     ]) + [
         ":sources",
+        "//:VERSION",
     ],
     outs = ["DigitalAssetSDK.pdf"],
     cmd = ("""
         export LOCALE_ARCHIVE="$$PWD/$(location @glibc_locales//:locale-archive)"
     """ if is_linux else "") + """
+        VERSION=$$(cat $(location //:VERSION))
         set -euo pipefail
         # Set up tools
         export PATH="$$( cd "$$(dirname "$(location @imagemagick_nix//:bin/convert)")" ; pwd -P )":$$PATH
@@ -309,8 +311,7 @@ genrule(
         cp -rL docs/configs/static ./
 
         # Build with Sphinx
-        DATE=$$(date +"%Y-%m-%d")
-        sed -i "s,__VERSION__,"$$DATE"," source/conf.py
+        sed -i "s,__VERSION__,"$$VERSION"," source/conf.py
         export LC_ALL=en_US.UTF-8
         export LANG=en_US.UTF-8
         $(location @sphinx_nix//:bin/sphinx-build) -b latex source out
@@ -343,11 +344,13 @@ genrule(
         "//compiler/damlc:daml-base-rst-docs",
         "//compiler/damlc:daml-base-hoogle-docs",
         "//language-support/java:javadoc",
+        "//:VERSION",
     ],
     outs = ["html-only.tar.gz"],
     cmd = ("""
         export LOCALE_ARCHIVE="$$PWD/$(location @glibc_locales//:locale-archive)"
     """ if is_linux else "") + """
+        VERSION=$$(cat $(location //:VERSION))
         # Copy files into the right structure and remove symlinks
         mkdir build
         cp -rL docs build
@@ -359,8 +362,7 @@ genrule(
 
         # Build with Sphinx
         cd build
-        DATE=$$(date +"%Y-%m-%d")
-        sed -i "s,__VERSION__,"$$DATE"," docs/configs/html/conf.py
+        sed -i "s,__VERSION__,"$$VERSION"," docs/configs/html/conf.py
         export LC_ALL=en_US.UTF-8
         export LANG=en_US.UTF-8
         WARNINGS=$$(../$(location @sphinx_nix//:bin/sphinx-build) -c docs/configs/html docs/source html 2>&1 | \
@@ -373,6 +375,8 @@ genrule(
 
         # Copy Javadoc using unzip to avoid having to know the path to the 'jar' binary. Note flag to overwrite
         unzip -o ../$(locations //language-support/java:javadoc) -d html/app-dev/bindings-java/javadocs
+        # Remove JAR metadata
+        rm -r html/app-dev/bindings-java/javadocs/META-INF
 
         # Copy in hoogle DB
         mkdir -p html/hoogle_db
@@ -415,33 +419,39 @@ genrule(
         ":pdf-docs",
         ":redirects",
         "error.html",
+        "//:VERSION",
     ],
     outs = ["html.tar.gz"],
     cmd = """
+        VERSION=$$(cat $(location //:VERSION))
+        VERSION_DATE=$$(cat bazel-out/stable-status.txt | grep STABLE_VERSION_DATE | head -1 | cut -f 2 -d' ')
         tar -zxf $(location :redirects)
         tar -zxf $(location :docs-no-pdf)
         cp -rn redirects/* html
         cp -L docs/error.html html
         cd html
-        find . -name '*.html' | sed -e 's,^\\./,https://docs.daml.com/,' > sitemap
+        find . -name '*.html' | sort | sed -e 's,^\\./,https://docs.daml.com/,' > sitemap
         SMHEAD=\"{}\"
         SMITEM=\"{}\"
         SMFOOT=\"{}\"
-        DATE=$$(date +"%Y-%m-%d")
         echo $$SMHEAD > sitemap.xml
         while read item; do
-            echo $$SMITEM | sed -e "s,%DATE%,$${{DATE}}," | sed -e "s,%LOC%,$${{item}}," >> sitemap.xml
+            echo $$SMITEM | sed -e "s,%DATE%,$${{VERSION_DATE}}," | sed -e "s,%LOC%,$${{item}}," >> sitemap.xml
         done < sitemap
+        rm sitemap
         echo $$SMFOOT >> sitemap.xml
-        echo {{ \\"$$DATE\\" : \\"$$DATE\\" }} > versions.json
+        echo {{ \\"$$VERSION\\" : \\"$$VERSION\\" }} > versions.json
         cd ..
         cp -L $(location :pdf-docs) html/_downloads
+        # Remove Sphinx build products
+        rm -rf .buildinfo .doctrees objects.inv
         tar -zcf $(location html.tar.gz) html
     """.format(
         """<?xml version='1.0' encoding='UTF-8'?><urlset xmlns='http://www.sitemaps.org/schemas/sitemap/0.9' xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xsi:schemaLocation='http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd'>""",
         """<url><loc>%LOC%</loc><lastmod>%DATE%</lastmod><changefreq>daily</changefreq><priority>0.8</priority></url>""",
         """</urlset>""",
     ),
+    stamp = 1,
 ) if not is_windows else None
 
 filegroup(
