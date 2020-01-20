@@ -10,6 +10,7 @@ def eslint_test(name, srcs, tsconfig = ":tsconfig.json", package_json = ":packag
         "ts",
         "--config",
         "$(rlocation $(location %s))" % package_json,
+        '--parser-options={"tsconfigRootDir":"$(dirname $(rlocation $(location %s)))"}' % tsconfig,
     ]
     for src in srcs:
         templated_args.append("$(rlocation $(location %s))" % src)

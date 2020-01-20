@@ -24,7 +24,7 @@
     ],
     "parser": "@typescript-eslint/parser",
     "parserOptions": {
-      "project": "language-support/ts/daml-json-types/tsconfig.json"
+      "project": "./tsconfig.json"
     },
     "plugins": [
       "@typescript-eslint"
