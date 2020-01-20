@@ -2,7 +2,11 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.Doc.Extract.Templates
-    where
+    ( getTemplateDocs
+    , getTemplateData
+    , getInstanceDocs
+    , stripInstanceSuffix
+    ) where
 
 import DA.Daml.Doc.Types
 import DA.Daml.Doc.Extract.Types
