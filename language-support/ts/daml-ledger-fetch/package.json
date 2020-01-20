@@ -3,8 +3,8 @@
   "name": "@digitalasset/daml-ledger-fetch",
   "version": "0.0.1",
   "description": "Wrappers around DAML's JSON API.",
-  "main": "lib/index.js",
-  "types": "lib/index.d.ts",
+  "main": "index.js",
+  "types": "index.d.ts",
   "license": "Apache-2.0",
   "dependencies": {
     "@digitalasset/daml-json-types": "0.0.1",
@@ -15,7 +15,7 @@
     "build": "tsc --build",
     "build:watch": "tsc --build --watch",
     "test": "true",
-    "lint": "eslint --ext .js,.ts src/ --max-warnings 0"
+    "lint": "eslint --ext .ts ./ --max-warnings 0"
   },
   "eslintConfig": {
     "extends": [
@@ -41,6 +41,6 @@
     "@typescript-eslint/eslint-plugin": "^2.11.0",
     "@typescript-eslint/parser": "^2.11.0",
     "eslint": "^6.7.2",
-    "typescript": "3.7.3"
+    "typescript": "3.7.4"
   }
 }

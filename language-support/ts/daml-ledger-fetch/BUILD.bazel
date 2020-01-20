@@ -1,0 +1,31 @@
+# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("@build_bazel_rules_nodejs//:index.bzl", "pkg_npm")
+load("@npm_bazel_typescript//:index.bzl", "ts_library")
+load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+
+ts_library(
+    name = "daml-ledger-fetch",
+    srcs = glob(["**/*.ts"]),
+    data = [":package.json"],
+    module_name = "@digitalasset/daml-ledger-fetch",
+    node_modules = "@language_support_ts_deps//:node_modules",
+    tsconfig = ":tsconfig.json",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//language-support/ts/daml-json-types",
+        "@language_support_ts_deps//@mojotech/json-type-validation",
+        "@language_support_ts_deps//cross-fetch",
+    ],
+)
+
+pkg_npm(
+    name = "npm_package",
+    srcs = [
+        ":package.json",
+        ":tsconfig.json",
+    ],
+    visibility = ["//visibility:public"],
+    deps = ["daml-ledger-fetch"],
+)

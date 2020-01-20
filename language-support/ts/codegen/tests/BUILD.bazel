@@ -35,6 +35,8 @@ sh_test(
         "$(location //ledger-service/http-json:http-json-binary_deploy.jar)",
         "$(location :daml2ts-test.dar)",
         "$(location ts/package.json)",
+        "$(location //language-support/ts/daml-json-types:npm_package)",
+        "$(location //language-support/ts/daml-ledger-fetch:npm_package)",
     ],
     data = [
         "//:java",
@@ -43,6 +45,8 @@ sh_test(
         "//ledger/sandbox:sandbox-binary_deploy.jar",
         "//ledger-service/http-json:http-json-binary_deploy.jar",
         ":daml2ts-test.dar",
+        "//language-support/ts/daml-json-types:npm_package",
+        "//language-support/ts/daml-ledger-fetch:npm_package",
     ] + glob(
         ["ts/**"],
         exclude = [
