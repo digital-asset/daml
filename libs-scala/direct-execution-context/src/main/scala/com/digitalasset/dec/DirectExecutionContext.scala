@@ -7,8 +7,8 @@ import org.slf4j.LoggerFactory
 
 import scala.concurrent.ExecutionContext
 
-// TODO Use ContextualizedLogger instead of vanilla SLF4J
-class DirectExecutionContext(failureMessage: String) extends ExecutionContext {
+// Starting from Scala 2.13 this can deleted and replaced by `parasitic`
+object DirectExecutionContext extends ExecutionContext {
 
   private[this] val logger = LoggerFactory.getLogger(this.getClass)
 
@@ -16,8 +16,6 @@ class DirectExecutionContext(failureMessage: String) extends ExecutionContext {
     runnable.run()
 
   override final def reportFailure(cause: Throwable): Unit =
-    logger.error(failureMessage, cause)
+    logger.error("Unhandled exception", cause)
 
 }
-
-object DirectExecutionContext extends DirectExecutionContext("Unhandled exception")
