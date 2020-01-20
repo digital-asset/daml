@@ -14,6 +14,7 @@ case class Config[Extra](
     address: Option[String],
     port: Int,
     portFile: Option[Path],
+    serverJdbcUrl: String,
     archiveFiles: Seq[Path],
     extra: Extra,
 )
@@ -27,6 +28,7 @@ object Config {
       address = None,
       port = 6865,
       portFile = None,
+      serverJdbcUrl = "jdbc:h2:mem:server;db_close_delay=-1;db_close_on_exit=false",
       archiveFiles = Vector.empty,
       extra = extra,
     )
@@ -54,18 +56,24 @@ object Config {
 
       opt[String]("address")
         .optional()
-        .text("The address on which to run the ledger API server.")
+        .text("The address on which to run the Ledger API Server.")
         .action((address, config) => config.copy(address = Some(address)))
 
       opt[Int]("port")
         .optional()
-        .text("The port on which to run the ledger API server.")
+        .text("The port on which to run the Ledger API Server.")
         .action((port, config) => config.copy(port = port))
 
       opt[File]("port-file")
         .optional()
+        .hidden()
         .text("File to write the allocated port number to. Used to inform clients in CI about the allocated port.")
         .action((file, config) => config.copy(portFile = Some(file.toPath)))
+
+      opt[String]("server-jdbc-url")
+        .text(
+          "The JDBC URL to the database used for the Ledger API Server and the Indexer Server. Defaults to an in-memory H2 database.")
+        .action((serverJdbcUrl, config) => config.copy(serverJdbcUrl = serverJdbcUrl))
 
       arg[File]("<archive>...")
         .optional()

@@ -93,7 +93,7 @@ class Runner[Extra](name: String, constructor: LedgerFactory[Extra]) {
       readService,
       IndexerConfig(
         config.participantId,
-        jdbcUrl = "jdbc:h2:mem:server;db_close_delay=-1;db_close_on_exit=false",
+        jdbcUrl = config.serverJdbcUrl,
         startupMode = IndexerStartupMode.MigrateAndStart,
       ),
       SharedMetricRegistries.getOrCreate(s"indexer-${config.participantId}"),
@@ -111,7 +111,7 @@ class Runner[Extra](name: String, constructor: LedgerFactory[Extra]) {
         config.archiveFiles.map(_.toFile).toList,
         config.port,
         config.address,
-        jdbcUrl = "jdbc:h2:mem:server;db_close_delay=-1;db_close_on_exit=false",
+        jdbcUrl = config.serverJdbcUrl,
         tlsConfig = None,
         TimeProvider.UTC,
         Config.DefaultMaxInboundMessageSize,
