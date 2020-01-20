@@ -24,5 +24,4 @@ def _sdk_version_impl(repository_ctx):
 sdk_version = repository_rule(
     implementation = _sdk_version_impl,
     attrs = {"version": attr.label(default = "//:VERSION")},
-    local = True,
 )
