@@ -35,6 +35,8 @@ rules_haskell_version = "11b9dd19f3d6e1ae38b0aaa01696d873b2ee7ef9"
 rules_haskell_sha256 = "46923657160087456a21a61184f7bdca76f8e259de1f2ab8ca57b37aeff7d0d5"
 rules_nixpkgs_version = "33c50ba64c11dddb95823d12f6b1324083cc5c43"
 rules_nixpkgs_sha256 = "91fedd5151bbd9ef89efc39e2172921bd7036c68cff54712a5df8ddf62bd6922"
+davl_version = "625a5791458c54051adb6d1e41e720c673951b72"
+davl_sha256 = "fa300aacb00096d61f527422bbab2f98a38d7438795f80d2e6cbc365fc5256f3"
 
 def daml_deps():
     if "rules_haskell" not in native.existing_rules():
@@ -259,4 +261,16 @@ def daml_deps():
                 "https://github.com/grpc-ecosystem/grpc-health-probe/releases/download/v0.3.1/grpc_health_probe-linux-amd64",
             ],
             executable = True,
+        )
+
+    if "davl" not in native.existing_rules():
+        http_archive(
+            name = "davl",
+            strip_prefix = "davl-{}".format(davl_version),
+            urls = ["https://github.com/digital-asset/davl/archive/{}.tar.gz".format(davl_version)],
+            sha256 = davl_sha256,
+            build_file_content = """
+package(default_visibility = ["//visibility:public"])
+exports_files(["released/davl-v3.dar"])
+            """,
         )
