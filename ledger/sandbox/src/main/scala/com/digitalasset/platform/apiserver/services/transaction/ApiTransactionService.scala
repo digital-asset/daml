@@ -90,13 +90,13 @@ final class ApiTransactionService private (
         case TransactionIdWithIndex(transactionId, _) =>
           lookUpTreeByTransactionId(TransactionId(transactionId), request.requestingParties)
       }
-      .andThen(logger.logErrorsOnCall)
+      .andThen(logger.logErrorsOnCall[TransactionTree])
   }
 
   override def getTransactionById(request: GetTransactionByIdRequest): Future[TransactionTree] = {
     logger.debug(s"Received $request")
     lookUpTreeByTransactionId(request.transactionId, request.requestingParties)
-      .andThen(logger.logErrorsOnCall)
+      .andThen(logger.logErrorsOnCall[TransactionTree])
   }
 
   override def getFlatTransactionByEventId(
@@ -111,14 +111,14 @@ final class ApiTransactionService private (
         case TransactionIdWithIndex(transactionId, _) =>
           lookUpFlatByTransactionId(TransactionId(transactionId), request.requestingParties)
       }
-      .andThen(logger.logErrorsOnCall)
+      .andThen(logger.logErrorsOnCall[Transaction])
 
   override def getFlatTransactionById(request: GetTransactionByIdRequest): Future[Transaction] =
     lookUpFlatByTransactionId(request.transactionId, request.requestingParties)
-      .andThen(logger.logErrorsOnCall)
+      .andThen(logger.logErrorsOnCall[Transaction])
 
   override def getLedgerEnd(ledgerId: String): Future[LedgerOffset.Absolute] =
-    transactionsService.currentLedgerEnd().andThen(logger.logErrorsOnCall)
+    transactionsService.currentLedgerEnd().andThen(logger.logErrorsOnCall[LedgerOffset.Absolute])
 
   override lazy val offsetOrdering: Ordering[LedgerOffset.Absolute] =
     Ordering.by(abs => BigInt(abs.value))

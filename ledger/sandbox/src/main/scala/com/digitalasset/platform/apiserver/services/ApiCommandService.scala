@@ -125,7 +125,9 @@ final class ApiCommandService private (
   }
 
   override def submitAndWait(request: SubmitAndWaitRequest): Future[Empty] =
-    submitAndWaitInternal(request).map(_ => Empty.defaultInstance).andThen(logger.logErrorsOnCall)
+    submitAndWaitInternal(request)
+      .map(_ => Empty.defaultInstance)
+      .andThen(logger.logErrorsOnCall[Empty])
 
   override def submitAndWaitForTransactionId(
       request: SubmitAndWaitRequest): Future[SubmitAndWaitForTransactionIdResponse] =
@@ -133,7 +135,7 @@ final class ApiCommandService private (
       .map { compl =>
         SubmitAndWaitForTransactionIdResponse(compl.transactionId)
       }
-      .andThen(logger.logErrorsOnCall)
+      .andThen(logger.logErrorsOnCall[SubmitAndWaitForTransactionIdResponse])
 
   override def submitAndWaitForTransaction(
       request: SubmitAndWaitRequest): Future[SubmitAndWaitForTransactionResponse] =
@@ -145,7 +147,7 @@ final class ApiCommandService private (
           List(request.getCommands.party))
         flatById(txRequest).map(resp => SubmitAndWaitForTransactionResponse(resp.transaction))
       }
-      .andThen(logger.logErrorsOnCall)
+      .andThen(logger.logErrorsOnCall[SubmitAndWaitForTransactionResponse])
 
   override def submitAndWaitForTransactionTree(
       request: SubmitAndWaitRequest): Future[SubmitAndWaitForTransactionTreeResponse] =
@@ -157,7 +159,7 @@ final class ApiCommandService private (
           List(request.getCommands.party))
         treeById(txRequest).map(resp => SubmitAndWaitForTransactionTreeResponse(resp.transaction))
       }
-      .andThen(logger.logErrorsOnCall)
+      .andThen(logger.logErrorsOnCall[SubmitAndWaitForTransactionTreeResponse])
 
   override def toString: String = ApiCommandService.getClass.getSimpleName
 

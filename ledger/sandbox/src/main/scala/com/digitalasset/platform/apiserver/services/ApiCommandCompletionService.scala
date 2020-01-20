@@ -49,7 +49,7 @@ final class ApiCommandCompletionService private (completionsService: IndexComple
   }
 
   override def getLedgerEnd(ledgerId: domain.LedgerId): Future[LedgerOffset.Absolute] =
-    completionsService.currentLedgerEnd().andThen(logger.logErrorsOnCall)
+    completionsService.currentLedgerEnd().andThen(logger.logErrorsOnCall[LedgerOffset.Absolute])
 
 }
 

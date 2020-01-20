@@ -56,7 +56,7 @@ final class ApiConfigManagementService private (
         case Some((_, config)) =>
           Future.successful(configToResponse(config))
       }(DE)
-      .andThen(logger.logErrorsOnCall)(DE)
+      .andThen(logger.logErrorsOnCall[GetTimeModelResponse])(DE)
   }
 
   private def configToResponse(config: Configuration): GetTimeModelResponse = {
@@ -130,7 +130,7 @@ final class ApiConfigManagementService private (
       }
     } yield result
 
-    response.andThen(logger.logErrorsOnCall)
+    response.andThen(logger.logErrorsOnCall[SetTimeModelResponse])
   }
 
   private case class SetTimeModelParameters(

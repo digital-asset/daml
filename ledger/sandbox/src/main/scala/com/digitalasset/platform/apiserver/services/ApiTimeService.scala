@@ -69,7 +69,7 @@ final class ApiTimeService private (
   override def setTime(request: SetTimeRequest): Future[Empty] = {
     def updateTime(
         expectedTime: Instant,
-        requestedTime: Instant): Future[Either[StatusRuntimeException, Instant]] = {
+        requestedTime: Instant): Future[Either[StatusRuntimeException, Instant]] =
       backend
         .setCurrentTime(expectedTime, requestedTime)
         .map(success =>
@@ -81,8 +81,6 @@ final class ApiTimeService private (
                   s"current_time mismatch. Provided: $expectedTime. Actual: ${backend.getCurrentTime}"))
               with NoStackTrace
           ))(DirectExecutionContext)
-        .andThen(logger.logErrorsOnCall)(DirectExecutionContext)
-    }
 
     val result = for {
       _ <- matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
@@ -97,12 +95,13 @@ final class ApiTimeService private (
                 s"new_time [$requestedTime] is before current_time [$expectedTime]. Setting time backwards is not allowed."))
             with NoStackTrace)
       }
-      //_ <- updateTime(expectedTime, requestedTime)
     } yield {
-      updateTime(expectedTime, requestedTime).map { _ =>
-        dispatcher.signal()
-        Empty()
-      }
+      updateTime(expectedTime, requestedTime)
+        .map { _ =>
+          dispatcher.signal()
+          Empty()
+        }
+        .andThen(logger.logErrorsOnCall[Empty])
     }
 
     result.fold({ error =>

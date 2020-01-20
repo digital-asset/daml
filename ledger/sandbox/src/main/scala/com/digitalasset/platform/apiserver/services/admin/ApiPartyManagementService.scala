@@ -53,7 +53,7 @@ final class ApiPartyManagementService private (
     partyManagementService
       .getParticipantId()
       .map(pid => GetParticipantIdResponse(pid.toString))(DE)
-      .andThen(logger.logErrorsOnCall)(DE)
+      .andThen(logger.logErrorsOnCall[GetParticipantIdResponse])(DE)
   }
 
   private[this] def mapPartyDetails(
@@ -65,7 +65,7 @@ final class ApiPartyManagementService private (
     partyManagementService
       .listParties()
       .map(ps => ListKnownPartiesResponse(ps.map(mapPartyDetails)))(DE)
-      .andThen(logger.logErrorsOnCall)(DE)
+      .andThen(logger.logErrorsOnCall[ListKnownPartiesResponse])(DE)
   }
 
   /**
@@ -121,7 +121,7 @@ final class ApiPartyManagementService private (
               Future.failed(ErrorFactories.unimplemented(r.description))
           }(DE)
       }(DE)
-      .andThen(logger.logErrorsOnCall)(DE)
+      .andThen(logger.logErrorsOnCall[AllocatePartyResponse])(DE)
   }
 }
 

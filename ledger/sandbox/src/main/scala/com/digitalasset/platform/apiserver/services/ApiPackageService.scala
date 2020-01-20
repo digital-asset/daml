@@ -37,7 +37,7 @@ final class ApiPackageService private (backend: IndexPackagesService)(
     backend
       .listLfPackages()
       .map(p => ListPackagesResponse(p.keys.toSeq))(DEC)
-      .andThen(logger.logErrorsOnCall)(DEC)
+      .andThen(logger.logErrorsOnCall[ListPackagesResponse])(DEC)
 
   override def getPackage(request: GetPackageRequest): Future[GetPackageResponse] =
     withValidatedPackageId(
@@ -47,7 +47,7 @@ final class ApiPackageService private (backend: IndexPackagesService)(
           .getLfArchive(pId)
           .flatMap(_.fold(Future.failed[GetPackageResponse](Status.NOT_FOUND.asRuntimeException()))(
             archive => Future.successful(toGetPackageResponse(archive))))(DEC)
-          .andThen(logger.logErrorsOnCall)(DEC)
+          .andThen(logger.logErrorsOnCall[GetPackageResponse])(DEC)
     )
 
   override def getPackageStatus(
@@ -65,7 +65,7 @@ final class ApiPackageService private (backend: IndexPackagesService)(
             }
             GetPackageStatusResponse(result)
           }(DEC)
-          .andThen(logger.logErrorsOnCall)(DEC)
+          .andThen(logger.logErrorsOnCall[GetPackageStatusResponse])(DEC)
     )
 
   private def withValidatedPackageId[T](packageId: String, block: Ref.PackageId.T => Future[T]) =

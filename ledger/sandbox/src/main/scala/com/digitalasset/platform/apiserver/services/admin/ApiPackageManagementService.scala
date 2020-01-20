@@ -61,7 +61,7 @@ final class ApiPackageManagementService private (
               details.sourceDescription.getOrElse(""))
         })
       }(DE)
-      .andThen(logger.logErrorsOnCall)(DE)
+      .andThen(logger.logErrorsOnCall[ListKnownPackagesResponse])(DE)
   }
 
   override def uploadDarFile(request: UploadDarFileRequest): Future[UploadDarFileResponse] = {
@@ -108,7 +108,7 @@ final class ApiPackageManagementService private (
           Future.failed(ErrorFactories.unimplemented(r.description))
       }
     } yield result
-    response.andThen(logger.logErrorsOnCall)
+    response.andThen(logger.logErrorsOnCall[UploadDarFileResponse])
   }
 
   private def pollUntilPersisted(

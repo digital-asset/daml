@@ -147,7 +147,7 @@ final class ApiSubmissionService private (
             }(DirectExecutionContext)
         }
       )
-      .andThen(logger.logErrorsOnCall)(DirectExecutionContext)
+      .andThen(logger.logErrorsOnCall[Unit])(DirectExecutionContext)
   }
 
   private def recordOnLedger(commands: ApiCommands): Future[SubmissionResult] =

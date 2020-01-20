@@ -40,7 +40,7 @@ final class ApiLedgerIdentityService private (getLedgerId: () => Future[LedgerId
     else {
       getLedgerId()
         .map(ledgerId => GetLedgerIdentityResponse(ledgerId.unwrap))(DirectExecutionContext)
-        .andThen(logger.logErrorsOnCall)(DirectExecutionContext)
+        .andThen(logger.logErrorsOnCall[GetLedgerIdentityResponse])(DirectExecutionContext)
     }
 
   override def close(): Unit = closed = true
