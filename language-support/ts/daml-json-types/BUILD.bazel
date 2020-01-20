@@ -8,6 +8,7 @@ load("@npm_bazel_typescript//:index.bzl", "ts_library")
 load("@os_info//:os_info.bzl", "is_windows")
 load("//language-support/ts:eslint.bzl", "eslint_test")
 load("//language-support/ts:jest.bzl", "jest_test")
+load("@sdk_version//:sdk_version.bzl", "sdk_version")
 
 ts_library(
     name = "daml-json-types",
@@ -51,6 +52,7 @@ pkg_npm(
         ":package.json",
         ":tsconfig.json",
     ],
+    substitutions = {"__SDK_VERSION__": sdk_version},
     visibility = ["//visibility:public"],
     deps = [
         "daml-json-types",

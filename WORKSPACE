@@ -41,6 +41,10 @@ load("//bazel_tools:os_info.bzl", "os_info")
 
 os_info(name = "os_info")
 
+load("//bazel_tools:sdk_version.bzl", "sdk_version")
+
+sdk_version(name = "sdk_version")
+
 dadew(name = "dadew")
 
 load("@os_info//:os_info.bzl", "is_linux", "is_windows")

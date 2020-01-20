@@ -5,6 +5,7 @@ load("@build_bazel_rules_nodejs//:index.bzl", "pkg_npm")
 load("@npm_bazel_typescript//:index.bzl", "ts_library")
 load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 load("//language-support/ts:eslint.bzl", "eslint_test")
+load("@sdk_version//:sdk_version.bzl", "sdk_version")
 
 ts_library(
     name = "daml-ledger-fetch",
@@ -44,6 +45,7 @@ pkg_npm(
         ":package.json",
         ":tsconfig.json",
     ],
+    substitutions = {"__SDK_VERSION__": sdk_version},
     visibility = ["//visibility:public"],
     deps = [
         "daml-ledger-fetch",
