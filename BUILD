@@ -214,7 +214,7 @@ load("@com_github_bazelbuild_buildtools//buildifier:def.bzl", "buildifier")
 buildifier_excluded_patterns = [
     "./3rdparty/haskell/c2hs-package.bzl",
     "./3rdparty/haskell/network-package.bzl",
-    "./node_modules/*",
+    "**/node_modules/*",
 ]
 
 # Run this to check if BUILD files are well-formatted.
