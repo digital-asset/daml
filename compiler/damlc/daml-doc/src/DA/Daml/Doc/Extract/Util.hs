@@ -2,7 +2,8 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.Doc.Extract.Util
-    where
+    ( module DA.Daml.Doc.Extract.Util
+    ) where
 
 import DA.Daml.Doc.Types
 import DA.Daml.Doc.Anchor
@@ -153,4 +154,3 @@ dropCommonModulePrefix (Modulename baseMod) (Modulename targetMod) =
     aux _ [x] = [x]
     aux (x:xs) (y:ys) | x == y = aux xs ys
     aux _ p = p
-
