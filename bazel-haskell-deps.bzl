@@ -386,6 +386,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "blaze-html",
             "bytestring",
             "Cabal",
+            "case-insensitive",
             "cereal",
             "clock",
             "cmark-gfm",
