@@ -1,3 +1,6 @@
+# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 load("@language_support_ts_deps//eslint:index.bzl", _eslint_test = "eslint_test")
 
 def eslint_test(name, srcs, tsconfig = ":tsconfig.json", package_json = ":package.json", data = [], **kwargs):
