@@ -1,3 +1,6 @@
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
 module DA.Daml.Doc.Extract.TypeExpr
     ( typeToContext
     , typeToType
@@ -86,3 +89,4 @@ typeToType ctx = \case
   where
     -- | Unhandled case.
     unexpected x = error $ "typeToType: found an unexpected " <> x
+

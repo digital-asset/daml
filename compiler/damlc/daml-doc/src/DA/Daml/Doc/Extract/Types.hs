@@ -1,3 +1,6 @@
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
 module DA.Daml.Doc.Extract.Types
     ( ExtractOptions (..)
     , defaultExtractOptions
@@ -94,3 +97,4 @@ data ExportedItem
     | ExportedModule !GHC.ModuleName
         -- ^ module is reexported
     deriving (Eq, Ord)
+

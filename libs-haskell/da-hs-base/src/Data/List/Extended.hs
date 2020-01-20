@@ -1,3 +1,6 @@
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
 module Data.List.Extended
     ( spanMaybe
     ) where
@@ -15,3 +18,4 @@ spanMaybe f = go []
 
             | otherwise
             = (reverse bs, as)
+
