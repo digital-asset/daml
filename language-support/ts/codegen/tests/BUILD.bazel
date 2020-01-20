@@ -45,7 +45,11 @@ sh_test(
         ":daml2ts-test.dar",
     ] + glob(
         ["ts/**"],
-        exclude = ["ts/**/node_modules/**"],
+        exclude = [
+            "ts/**/node_modules/**",
+            "ts/**/lib/**",
+            "ts/generated/src/daml/**",
+        ],
     ),
     deps = [
         "@bazel_tools//tools/bash/runfiles",
