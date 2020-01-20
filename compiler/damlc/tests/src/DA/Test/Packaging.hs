@@ -576,9 +576,12 @@ dataDependencyTests damlc repl davlDar = testGroup "Data Dependencies" $
             ]
           callProcessSilent repl ["validate", projb </> "projb.dar"]
           projbPkgIds <- darPackageIds (projb </> "projb.dar")
-          -- daml-prim, daml-stdlib for 1.6, daml-prim, daml-stdlib for 1.7, proja and projb
-          length projbPkgIds @?= numStablePackages targetLfVer + 2 + 2 + 1 + 1
-          -- daml-prim, daml-stdlib for 1.7, 2 stable 1.7 packages and projb
+          -- daml-prim, daml-stdlib for targetLfVer, daml-prim, daml-stdlib for depLfVer if targetLfVer /= depLfVer, proja and projb
+          -- TODO We should not need nubOrd here. This is currently required since we include the daml-stdlib and daml-prim
+          -- dalfs twice. This is not a problem but wasteful and useless.
+          -- See https://github.com/digital-asset/daml/issues/4114
+          length (nubOrd projbPkgIds) @?= numStablePackages
+            targetLfVer + 2 + (if targetLfVer /= depLfVer then 2 else 0) + 1 + 1
           length (filter (`notElem` projaPkgIds) projbPkgIds) @?=
               (numStablePackages targetLfVer - numStablePackages depLfVer) + -- new stable packages
               1 + -- projb
