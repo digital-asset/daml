@@ -2418,12 +2418,26 @@ This section lists the built-in functions supported by DAML LF 1.
 The functions come with their types and a description of their
 behavior.
 
-Generic equality function
-~~~~~~~~~~~~~~~~~~~~~~~~~
+Generic equality and order functions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 * ``EQUAL : ∀ (α:*). α → α → 'Bool'``
 
   Returns ``'True'`` if the two argument are equal according ``~ᵥ``,
+  ``'False'`` otherwise.
+
+  [*Available in version >= 1.dev*]
+
+* ``LESS : ∀ (α:*). α → α → 'Bool'``
+
+  Returns ``'True'`` if the two argument are ordered according to ``<ᵥ``,
+  ``'False'`` otherwise.
+
+  [*Available in version >= 1.dev*]
+
+* ``LESS_EQ : ∀ (α:*). α → α → 'Bool'``
+
+  Returns ``'True'`` if the two argument are ordered according to ``≲ᵥ``,
   ``'False'`` otherwise.
 
   [*Available in version >= 1.dev*]
