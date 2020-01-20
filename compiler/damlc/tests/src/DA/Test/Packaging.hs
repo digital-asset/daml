@@ -513,15 +513,17 @@ darPackageIds fp = do
     Right parsedDalfs <- pure $ mapM (LFArchive.decodeArchive LFArchive.DecodeAsMain . BSL.toStrict) $ mainDalf : dalfDeps
     pure $ map fst parsedDalfs
 
-numStable16Packages :: Int
-numStable16Packages = 13
 
-numStable17Packages :: Int
-numStable17Packages = 14
+numStablePackages :: LF.Version -> Int
+numStablePackages ver
+  | ver == LF.version1_6 = 13
+  | ver == LF.version1_7 = 14
+  | ver == LF.versionDev = 14
+  | otherwise = error $ "Unsupported LF version: " <> show ver
 
 dataDependencyTests :: FilePath -> FilePath -> FilePath -> TestTree
 dataDependencyTests damlc repl davlDar = testGroup "Data Dependencies" $
-    [ testCaseSteps "Cross DAML-LF version" $ \step -> withTempDir $ \tmpDir -> do
+    [ testCaseSteps ("Cross DAML-LF version: " <> LF.renderVersion depLfVer <> " -> " <> LF.renderVersion targetLfVer)  $ \step -> withTempDir $ \tmpDir -> do
           let proja = tmpDir </> "proja"
           let projb = tmpDir </> "projb"
 
@@ -543,10 +545,10 @@ dataDependencyTests damlc repl davlDar = testGroup "Data Dependencies" $
               , "source: src"
               , "dependencies: [daml-prim, daml-stdlib]"
               ]
-          withCurrentDirectory proja $ callProcessSilent damlc ["build", "--target=1.6", "-o", proja </> "proja.dar"]
+          withCurrentDirectory proja $ callProcessSilent damlc ["build", "--target=" <> LF.renderVersion depLfVer, "-o", proja </> "proja.dar"]
           projaPkgIds <- darPackageIds (proja </> "proja.dar")
           -- daml-stdlib, daml-prim and proja
-          length projaPkgIds @?= numStable16Packages + 2 + 1
+          length projaPkgIds @?= numStablePackages depLfVer + 2 + 1
 
           step "Build projb"
           createDirectoryIfMissing True (projb </> "src")
@@ -566,7 +568,7 @@ dataDependencyTests damlc repl davlDar = testGroup "Data Dependencies" $
               ]
           -- TODO Users should not have to pass --hide-all-packages, see https://github.com/digital-asset/daml/issues/4094
           withCurrentDirectory projb $ callProcessSilent damlc
-            [ "build", "--target=1.7", "-o", projb </> "projb.dar"
+            [ "build", "--target=" <> LF.renderVersion targetLfVer, "-o", projb </> "projb.dar"
             , "--hide-all-packages"
             , "--package", "(\"daml-prim\", True, [])"
             , "--package", "(\"" <> damlStdlib <> "\", True, [])"
@@ -574,11 +576,21 @@ dataDependencyTests damlc repl davlDar = testGroup "Data Dependencies" $
             ]
           callProcessSilent repl ["validate", projb </> "projb.dar"]
           projbPkgIds <- darPackageIds (projb </> "projb.dar")
-          -- daml-prim, daml-stdlib for 1.6, daml-prim, daml-stdlib for 1.7, proja and projb
-          length projbPkgIds @?= numStable17Packages + 2 + 2 + 1 + 1
-          -- daml-prim, daml-stdlib for 1.7, 2 stable 1.7 packages and projb
-          length (filter (`notElem` projaPkgIds) projbPkgIds) @?= 4
-    , testCaseSteps "Cross-SDK dependency on DAVL" $ \step -> withTempDir $ \tmpDir -> do
+          -- daml-prim, daml-stdlib for targetLfVer, daml-prim, daml-stdlib for depLfVer if targetLfVer /= depLfVer, proja and projb
+          -- TODO We should not need nubOrd here. This is currently required since we include the daml-stdlib and daml-prim
+          -- dalfs twice. This is not a problem but wasteful and useless.
+          -- See https://github.com/digital-asset/daml/issues/4114
+          length (nubOrd projbPkgIds) @?= numStablePackages
+            targetLfVer + 2 + (if targetLfVer /= depLfVer then 2 else 0) + 1 + 1
+          length (filter (`notElem` projaPkgIds) projbPkgIds) @?=
+              (numStablePackages targetLfVer - numStablePackages depLfVer) + -- new stable packages
+              1 + -- projb
+              (if targetLfVer /= depLfVer then 2 else 0) -- different daml-stdlib/daml-prim
+    | depLfVer <- LF.supportedOutputVersions
+    , targetLfVer <- LF.supportedOutputVersions
+    , targetLfVer >= depLfVer
+    ] <>
+    [ testCaseSteps "Cross-SDK dependency on DAVL" $ \step -> withTempDir $ \tmpDir -> do
           step "Building DAR"
           writeFileUTF8 (tmpDir </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
