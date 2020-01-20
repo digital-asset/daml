@@ -137,7 +137,11 @@ test('create + fetch & exercise', async () => {
     time: '2019-12-31T12:34:56.789Z',
     party: ALICE_PARTY,
     contractId: alice5Contract.contractId,
-    optional: '5',
+    optional: '5', // Some 5
+    optional2: null,  // None
+    optionalOptionalInt: ['5'], // Some (Some 5)
+    optionalOptionalInt2: [], // Some (None)
+    optionalOptionalInt3: null, // None
     list: [true, false],
     textMap: {'alice': '2', 'bob & carl': '3'},
     monoRecord: alice5,
@@ -149,8 +153,11 @@ test('create + fetch & exercise', async () => {
     enum: Main.Color.Red,
     enumList: [Main.Color.Red, Main.Color.Blue, Main.Color.Yellow],
     variant: {tag: 'Add', value: {_1:{tag: 'Lit', value: '1'}, _2:{tag: 'Lit', value: '2'}}},
+    optionalVariant: {tag: 'Add', value: {_1:{tag: 'Lit', value: '1'}, _2:{tag: 'Lit', value: '2'}}},
     sumProd: {tag: 'Corge', value: {x:'1', y:'Garlpy'}},
+    optionalSumProd: {tag: 'Corge', value: {x:'1', y:'Garlpy'}},
     parametericSumProd: {tag: 'Add2', value: {lhs:{tag: 'Lit2', value: '1'}, rhs:{tag: 'Lit2', value: '2'}}},
+    optionalOptionalParametericSumProd: [{tag: 'Add2', value: {lhs:{tag: 'Lit2', value: '1'}, rhs:{tag: 'Lit2', value: '2'}}}],
     n0:  '3.0',          // Numeric 0
     n5:  '3.14159',      // Numeric 5
     n10: '3.1415926536', // Numeric 10

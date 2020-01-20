@@ -319,11 +319,10 @@ genType curModName = go
             let (t', ser) = go t
             in
             (t' <> "[]", "daml.List(" <> ser <> ")")
-        TOptional (TOptional _) -> error "TODO(MH): nested optionals"
         TOptional t ->
             let (t', ser) = go t
             in
-            ("(" <> t' <> " | null)", "daml.Optional(" <> ser <> ")")
+            ("daml.Optional<" <> t' <> ">", "daml.Optional(" <> ser <> ")")
         TTextMap t  ->
             let (t', ser) = go t
             in
