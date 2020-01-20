@@ -59,8 +59,7 @@ final class ApiCommandService private (
   private type CommandId = String
   private type ApplicationId = String
 
-  private val submissionTracker: TrackerMap =
-    TrackerMap(configuration.retentionPeriod)
+  private val submissionTracker: TrackerMap = TrackerMap(configuration.retentionPeriod)
   private val staleCheckerInterval: FiniteDuration = 30.seconds
 
   private val trackerCleanupJob: Cancellable = actorMaterializer.system.scheduler

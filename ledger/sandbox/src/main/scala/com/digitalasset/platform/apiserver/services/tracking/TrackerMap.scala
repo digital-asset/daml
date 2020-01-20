@@ -8,6 +8,7 @@ import java.util.concurrent.atomic.AtomicReference
 import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.digitalasset.ledger.api.v1.completion.Completion
 import com.digitalasset.dec.DirectExecutionContext
+import com.digitalasset.platform.logging.{ContextualizedLogger, LoggingContext}
 import org.slf4j.LoggerFactory
 
 import scala.collection.immutable.HashMap
@@ -19,9 +20,10 @@ import scala.util.{Failure, Success}
   * A map for [[Tracker]]s with thread-safe tracking methods and automatic cleanup. A tracker tracker, if you will.
   * @param retentionPeriod The minimum finite duration for which to retain idle trackers.
   */
-final class TrackerMap(retentionPeriod: FiniteDuration) extends AutoCloseable {
+final class TrackerMap(retentionPeriod: FiniteDuration)(implicit logCtx: LoggingContext)
+    extends AutoCloseable {
 
-  private val logger = LoggerFactory.getLogger(this.getClass)
+  private val logger = ContextualizedLogger.get[TrackerMap]
 
   private val lock = new Object()
 
@@ -44,7 +46,7 @@ final class TrackerMap(retentionPeriod: FiniteDuration) extends AutoCloseable {
             trackerResource.ifPresent(tracker =>
               if (nanoTime - tracker.getLastSubmission > retentionNanos) {
                 logger.info(
-                  s"Shutting down tracker for ${submitter.toString} after inactivity of ${retentionPeriod.toString}")
+                  s"Shutting down tracker for $submitter after inactivity of $retentionPeriod")
                 remove(submitter)
                 tracker.close()
             })
@@ -63,7 +65,7 @@ final class TrackerMap(retentionPeriod: FiniteDuration) extends AutoCloseable {
           trackerBySubmitter.getOrElse(
             submitter, {
               val r = new TrackerMap.AsyncResource(newTracker.map { t =>
-                logger.info("Registered tracker for submitter {}", submitter)
+                logger.info(s"Registered tracker for submitter $submitter")
                 Tracker.WithLastSubmission(t)
               })
 
@@ -146,6 +148,6 @@ object TrackerMap {
     }
   }
 
-  def apply(retentionPeriod: FiniteDuration): TrackerMap =
+  def apply(retentionPeriod: FiniteDuration)(implicit logCtx: LoggingContext): TrackerMap =
     new TrackerMap(retentionPeriod)
 }
