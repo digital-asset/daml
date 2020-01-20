@@ -5,7 +5,7 @@
     "cross-fetch": "^3.0.4"
   },
   "devDependencies": {
-    "@bazel/bazel": "0.29.0",
+    "@bazel/bazel": "1.1.0",
     "@bazel/hide-bazel-files": "1.1.0",
     "@bazel/typescript": "1.1.0"
   }
