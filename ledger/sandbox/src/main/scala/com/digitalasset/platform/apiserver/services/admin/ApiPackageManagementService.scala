@@ -22,7 +22,7 @@ import com.digitalasset.platform.server.api.validation.ErrorFactories
 import com.google.protobuf.timestamp.Timestamp
 import com.digitalasset.ledger.api.domain.{LedgerOffset, PackageEntry}
 import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.platform.logging.{LoggingContext, PassThroughLogger}
+import com.digitalasset.platform.logging.{ContextualizedLogger, LoggingContext}
 import io.grpc.ServerServiceDefinition
 
 import scala.compat.java8.FutureConverters
@@ -40,7 +40,7 @@ final class ApiPackageManagementService private (
     extends PackageManagementService
     with GrpcApiService {
 
-  private val logging = PassThroughLogger.get(this.getClass)
+  private val logger = ContextualizedLogger.get(this.getClass)
 
   override def close(): Unit = ()
 
@@ -48,68 +48,68 @@ final class ApiPackageManagementService private (
     PackageManagementServiceGrpc.bindService(this, DE)
 
   override def listKnownPackages(
-      request: ListKnownPackagesRequest): Future[ListKnownPackagesResponse] =
-    logging {
-      packagesIndex
-        .listLfPackages()
-        .map { pkgs =>
-          ListKnownPackagesResponse(pkgs.toSeq.map {
-            case (pkgId, details) =>
-              PackageDetails(
-                pkgId.toString,
-                details.size,
-                Some(Timestamp(details.knownSince.getEpochSecond, details.knownSince.getNano)),
-                details.sourceDescription.getOrElse(""))
-          })
-        }(DE)
-    }
+      request: ListKnownPackagesRequest): Future[ListKnownPackagesResponse] = {
+    packagesIndex
+      .listLfPackages()
+      .map { pkgs =>
+        ListKnownPackagesResponse(pkgs.toSeq.map {
+          case (pkgId, details) =>
+            PackageDetails(
+              pkgId.toString,
+              details.size,
+              Some(Timestamp(details.knownSince.getEpochSecond, details.knownSince.getNano)),
+              details.sourceDescription.getOrElse(""))
+        })
+      }(DE)
+      .andThen(logger.logErrorsOnCall)(DE)
+  }
 
-  override def uploadDarFile(request: UploadDarFileRequest): Future[UploadDarFileResponse] =
-    logging {
-      val submissionId =
-        if (request.submissionId.isEmpty)
-          SubmissionId.assertFromString(UUID.randomUUID().toString)
-        else
-          SubmissionId.assertFromString(request.submissionId)
+  override def uploadDarFile(request: UploadDarFileRequest): Future[UploadDarFileResponse] = {
+    val submissionId =
+      if (request.submissionId.isEmpty)
+        SubmissionId.assertFromString(UUID.randomUUID().toString)
+      else
+        SubmissionId.assertFromString(request.submissionId)
 
-      // Amount of time we wait for the ledger to commit the request before we
-      // give up on polling for the result.
-      // TODO(JM): This constant should be replaced by user-provided maximum record time
-      // which should be wired through the stack and verified during validation, just like
-      // with transactions. I'm leaving this for another PR.
-      val timeToLive = 30.seconds
+    // Amount of time we wait for the ledger to commit the request before we
+    // give up on polling for the result.
+    // TODO(JM): This constant should be replaced by user-provided maximum record time
+    // which should be wired through the stack and verified during validation, just like
+    // with transactions. I'm leaving this for another PR.
+    val timeToLive = 30.seconds
 
-      implicit val ec: ExecutionContext = DE
-      for {
-        dar <- DarReader { case (_, x) => Try(Archive.parseFrom(x)) }
-          .readArchive(
-            "package-upload",
-            new ZipInputStream(new ByteArrayInputStream(request.darFile.toByteArray)))
-          .fold(
-            err => Future.failed(ErrorFactories.invalidArgument(err.getMessage)),
-            Future.successful
-          )
-        ledgerEndBeforeRequest <- transactionsService.currentLedgerEnd()
-        result <- FutureConverters.toScala(
-          packagesWrite.uploadPackages(submissionId, dar.all, None)
+    implicit val ec: ExecutionContext = DE
+    val response = for {
+      dar <- DarReader { case (_, x) => Try(Archive.parseFrom(x)) }
+        .readArchive(
+          "package-upload",
+          new ZipInputStream(new ByteArrayInputStream(request.darFile.toByteArray)))
+        .fold(
+          err => Future.failed(ErrorFactories.invalidArgument(err.getMessage)),
+          Future.successful
         )
-        response <- result match {
-          case SubmissionResult.Acknowledged =>
-            pollUntilPersisted(submissionId, timeToLive, ledgerEndBeforeRequest).flatMap {
-              case _: PackageEntry.PackageUploadAccepted =>
-                Future.successful(UploadDarFileResponse())
-              case PackageEntry.PackageUploadRejected(_, _, reason) =>
-                Future.failed(ErrorFactories.invalidArgument(reason))
-            }
-          case r @ SubmissionResult.Overloaded =>
-            Future.failed(ErrorFactories.resourceExhausted(r.description))
-          case r @ SubmissionResult.InternalError(_) =>
-            Future.failed(ErrorFactories.internal(r.reason))
-          case r @ SubmissionResult.NotSupported =>
-            Future.failed(ErrorFactories.unimplemented(r.description))
-        }
-      } yield response
-    }
+      ledgerEndBeforeRequest <- transactionsService.currentLedgerEnd()
+      result <- FutureConverters.toScala(
+        packagesWrite.uploadPackages(submissionId, dar.all, None)
+      )
+      result <- result match {
+        case SubmissionResult.Acknowledged =>
+          pollUntilPersisted(submissionId, timeToLive, ledgerEndBeforeRequest).flatMap {
+            case _: PackageEntry.PackageUploadAccepted =>
+              Future.successful(UploadDarFileResponse())
+            case PackageEntry.PackageUploadRejected(_, _, reason) =>
+              Future.failed(ErrorFactories.invalidArgument(reason))
+          }
+        case r @ SubmissionResult.Overloaded =>
+          Future.failed(ErrorFactories.resourceExhausted(r.description))
+        case r @ SubmissionResult.InternalError(_) =>
+          Future.failed(ErrorFactories.internal(r.reason))
+        case r @ SubmissionResult.NotSupported =>
+          Future.failed(ErrorFactories.unimplemented(r.description))
+      }
+    } yield result
+    response.andThen(logger.logErrorsOnCall)
+  }
 
   private def pollUntilPersisted(
       submissionId: SubmissionId,

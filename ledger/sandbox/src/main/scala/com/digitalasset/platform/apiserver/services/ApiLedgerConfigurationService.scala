@@ -13,7 +13,7 @@ import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.v1.ledger_configuration_service._
 import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.dec.DirectExecutionContext
-import com.digitalasset.platform.logging.{LoggingContext, PassThroughLogger}
+import com.digitalasset.platform.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.server.api.validation.LedgerConfigurationServiceValidation
 import io.grpc.{BindableService, ServerServiceDefinition}
 
@@ -26,22 +26,21 @@ final class ApiLedgerConfigurationService private (configurationService: IndexCo
     extends LedgerConfigurationServiceAkkaGrpc
     with GrpcApiService {
 
-  private val logging = PassThroughLogger.get(this.getClass)
+  private val logger = ContextualizedLogger.get(this.getClass)
 
   override protected def getLedgerConfigurationSource(
       request: GetLedgerConfigurationRequest): Source[GetLedgerConfigurationResponse, NotUsed] =
-    logging {
-      configurationService
-        .getLedgerConfiguration()
-        .map(
-          configuration =>
-            GetLedgerConfigurationResponse(
-              Some(
-                LedgerConfiguration(
-                  Some(toProto(configuration.minTTL)),
-                  Some(toProto(configuration.maxTTL))
-                ))))
-    }
+    configurationService
+      .getLedgerConfiguration()
+      .map(
+        configuration =>
+          GetLedgerConfigurationResponse(
+            Some(
+              LedgerConfiguration(
+                Some(toProto(configuration.minTTL)),
+                Some(toProto(configuration.maxTTL))
+              ))))
+      .via(logger.logErrorsOnStream)
 
   override def bindService(): ServerServiceDefinition =
     LedgerConfigurationServiceGrpc.bindService(this, DirectExecutionContext)

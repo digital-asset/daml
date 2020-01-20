@@ -17,7 +17,7 @@ import com.digitalasset.ledger.api.v1.testing.time_service._
 import com.digitalasset.platform.akkastreams.dispatcher.SignalDispatcher
 import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.platform.apiserver.TimeServiceBackend
-import com.digitalasset.platform.logging.{ContextualizedLogger, LoggingContext, PassThroughLogger}
+import com.digitalasset.platform.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.server.api.validation.FieldValidations
 import com.google.protobuf.empty.Empty
 import io.grpc.{ServerServiceDefinition, Status, StatusRuntimeException}
@@ -39,7 +39,6 @@ final class ApiTimeService private (
     with GrpcApiService {
 
   private val logger = ContextualizedLogger.get(this.getClass)
-  private val logging = PassThroughLogger.wrap(logger)
 
   logger.debug(
     s"${getClass.getSimpleName} initialized with ledger ID ${ledgerId.unwrap}, start time ${backend.getCurrentTime}")
@@ -48,25 +47,23 @@ final class ApiTimeService private (
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   override protected def getTimeSource(request: GetTimeRequest): Source[GetTimeResponse, NotUsed] =
-    logging {
-
-      matchLedgerId(ledgerId)(LedgerId(request.ledgerId)).fold(
-        Source.failed, { ledgerId =>
-          logger.trace(s"Request for time with ledger ID $ledgerId")
-          dispatcher
-            .subscribe()
-            .map(_ => backend.getCurrentTime)
-            .scan[Option[Instant]](Some(backend.getCurrentTime)) {
-              case (Some(previousTime), currentTime) if previousTime == currentTime => None
-              case (_, currentTime) => Some(currentTime)
-            }
-            .mapConcat {
-              case None => Nil
-              case Some(t) => List(GetTimeResponse(Some(fromInstant(t))))
-            }
-        }
-      )
-    }
+    matchLedgerId(ledgerId)(LedgerId(request.ledgerId)).fold(
+      Source.failed, { ledgerId =>
+        logger.trace(s"Request for time with ledger ID $ledgerId")
+        dispatcher
+          .subscribe()
+          .map(_ => backend.getCurrentTime)
+          .scan[Option[Instant]](Some(backend.getCurrentTime)) {
+            case (Some(previousTime), currentTime) if previousTime == currentTime => None
+            case (_, currentTime) => Some(currentTime)
+          }
+          .mapConcat {
+            case None => Nil
+            case Some(t) => List(GetTimeResponse(Some(fromInstant(t))))
+          }
+          .via(logger.logErrorsOnStream)
+      }
+    )
 
   @SuppressWarnings(Array("org.wartremover.warts.JavaSerializable"))
   override def setTime(request: SetTimeRequest): Future[Empty] = {
@@ -84,6 +81,7 @@ final class ApiTimeService private (
                   s"current_time mismatch. Provided: $expectedTime. Actual: ${backend.getCurrentTime}"))
               with NoStackTrace
           ))(DirectExecutionContext)
+        .andThen(logger.logErrorsOnCall)(DirectExecutionContext)
     }
 
     val result = for {

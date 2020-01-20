@@ -3,9 +3,15 @@
 
 package com.digitalasset.platform.logging
 
+import akka.NotUsed
+import akka.stream.scaladsl.Flow
+import com.digitalasset.grpc.GrpcException
+import io.grpc.Status
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.concurrent.TrieMap
+import scala.util.{Failure, Try}
+import scala.util.control.NonFatal
 
 object ContextualizedLogger {
 
@@ -39,5 +45,32 @@ final class ContextualizedLogger private (val withoutContext: Logger) {
   val info = new LeveledLogger.Info(withoutContext)
   val warn = new LeveledLogger.Warn(withoutContext)
   val error = new LeveledLogger.Error(withoutContext)
+
+  private def internalOrUnknown(code: Status.Code): Boolean =
+    code == Status.Code.INTERNAL || code == Status.Code.UNKNOWN
+
+  private def logError(t: Throwable)(implicit logCtx: LoggingContext): Unit =
+    error("Unhandled internal error", t)
+
+  def logErrorsOnCall[Out](implicit logCtx: LoggingContext): PartialFunction[Try[Out], Unit] = {
+    case Failure(e @ GrpcException(s, _)) =>
+      if (internalOrUnknown(s.getCode)) {
+        logError(e)
+      }
+    case Failure(NonFatal(e)) =>
+      logError(e)
+  }
+
+  def logErrorsOnStream[Out](implicit logCtx: LoggingContext): Flow[Out, Out, NotUsed] =
+    Flow[Out].mapError {
+      case e @ GrpcException(s, _) =>
+        if (internalOrUnknown(s.getCode)) {
+          logError(e)
+        }
+        e
+      case NonFatal(e) =>
+        logError(e)
+        e
+    }
 
 }

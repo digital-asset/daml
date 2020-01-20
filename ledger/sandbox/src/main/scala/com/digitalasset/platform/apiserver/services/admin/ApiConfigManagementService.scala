@@ -20,7 +20,7 @@ import com.digitalasset.ledger.api.v1.admin.config_management_service.ConfigMana
 import com.digitalasset.ledger.api.v1.admin.config_management_service._
 import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.dec.{DirectExecutionContext => DE}
-import com.digitalasset.platform.logging.{LoggingContext, PassThroughLogger}
+import com.digitalasset.platform.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.server.api.validation
 import com.digitalasset.platform.server.api.validation.ErrorFactories
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
@@ -40,24 +40,24 @@ final class ApiConfigManagementService private (
     extends ConfigManagementService
     with GrpcApiService {
 
-  private val logging = PassThroughLogger.get(this.getClass)
+  private val logger = ContextualizedLogger.get(this.getClass)
 
   override def close(): Unit = ()
 
   override def bindService(): ServerServiceDefinition =
     ConfigManagementServiceGrpc.bindService(this, DE)
 
-  override def getTimeModel(request: GetTimeModelRequest): Future[GetTimeModelResponse] =
-    logging {
-      index
-        .lookupConfiguration()
-        .flatMap {
-          case None =>
-            Future.successful(configToResponse(defaultConfiguration))
-          case Some((_, config)) =>
-            Future.successful(configToResponse(config))
-        }(DE)
-    }
+  override def getTimeModel(request: GetTimeModelRequest): Future[GetTimeModelResponse] = {
+    index
+      .lookupConfiguration()
+      .flatMap {
+        case None =>
+          Future.successful(configToResponse(defaultConfiguration))
+        case Some((_, config)) =>
+          Future.successful(configToResponse(config))
+      }(DE)
+      .andThen(logger.logErrorsOnCall)(DE)
+  }
 
   private def configToResponse(config: Configuration): GetTimeModelResponse = {
     val tm = config.timeModel
@@ -72,65 +72,66 @@ final class ApiConfigManagementService private (
     )
   }
 
-  override def setTimeModel(request: SetTimeModelRequest): Future[SetTimeModelResponse] =
-    logging {
-      // Execute subsequent transforms in the thread of the previous
-      // operation.
-      implicit val ec: ExecutionContext = DE
+  override def setTimeModel(request: SetTimeModelRequest): Future[SetTimeModelResponse] = {
+    // Execute subsequent transforms in the thread of the previous
+    // operation.
+    implicit val ec: ExecutionContext = DE
 
-      for {
-        // Validate and convert the request parameters
-        params <- validateParameters(request).fold(Future.failed(_), Future.successful)
+    val response = for {
+      // Validate and convert the request parameters
+      params <- validateParameters(request).fold(Future.failed(_), Future.successful)
 
-        // Lookup latest configuration to check generation and to extend it with the new time model.
-        optConfigAndOffset <- index.lookupConfiguration()
-        pollOffset = optConfigAndOffset.map(_._1)
-        currentConfig = optConfigAndOffset.map(_._2).getOrElse(defaultConfiguration)
+      // Lookup latest configuration to check generation and to extend it with the new time model.
+      optConfigAndOffset <- index.lookupConfiguration()
+      pollOffset = optConfigAndOffset.map(_._1)
+      currentConfig = optConfigAndOffset.map(_._2).getOrElse(defaultConfiguration)
 
-        // Verify that we're modifying the current configuration.
-        _ <- if (request.configurationGeneration != currentConfig.generation) {
-          Future.failed(ErrorFactories.invalidArgument(
-            s"Mismatching configuration generation, expected ${currentConfig.generation}, received ${request.configurationGeneration}"))
-        } else {
-          Future.successful(())
-        }
+      // Verify that we're modifying the current configuration.
+      _ <- if (request.configurationGeneration != currentConfig.generation) {
+        Future.failed(ErrorFactories.invalidArgument(
+          s"Mismatching configuration generation, expected ${currentConfig.generation}, received ${request.configurationGeneration}"))
+      } else {
+        Future.successful(())
+      }
 
-        // Create the new extended configuration.
-        newConfig = currentConfig.copy(
-          generation = currentConfig.generation + 1,
-          timeModel = params.newTimeModel
-        )
+      // Create the new extended configuration.
+      newConfig = currentConfig.copy(
+        generation = currentConfig.generation + 1,
+        timeModel = params.newTimeModel
+      )
 
-        // Submit configuration to the ledger, and start polling for the result.
-        submissionResult <- FutureConverters
-          .toScala(
-            writeService.submitConfiguration(
-              params.maximumRecordTime,
-              SubmissionId.assertFromString(request.submissionId),
-              newConfig
-            ))
+      // Submit configuration to the ledger, and start polling for the result.
+      submissionResult <- FutureConverters
+        .toScala(
+          writeService.submitConfiguration(
+            params.maximumRecordTime,
+            SubmissionId.assertFromString(request.submissionId),
+            newConfig
+          ))
 
-        result <- submissionResult match {
-          case SubmissionResult.Acknowledged =>
-            // Ledger acknowledged. Start polling to wait for the result to land in the index.
-            val maxTtl = Duration.fromNanos(currentConfig.timeModel.maxTtl.toNanos)
-            val timeToLive = if (params.timeToLive < maxTtl) params.timeToLive else maxTtl
-            pollUntilPersisted(request.submissionId, pollOffset, timeToLive).flatMap {
-              case accept: domain.ConfigurationEntry.Accepted =>
-                Future.successful(SetTimeModelResponse(accept.configuration.generation))
-              case rejected: domain.ConfigurationEntry.Rejected =>
-                Future.failed(ErrorFactories.aborted(rejected.rejectionReason))
-            }
-          case SubmissionResult.Overloaded =>
-            Future.failed(ErrorFactories.resourceExhausted("Resource exhausted"))
-          case SubmissionResult.InternalError(reason) =>
-            Future.failed(ErrorFactories.internal(reason))
-          case SubmissionResult.NotSupported =>
-            Future.failed(
-              ErrorFactories.unimplemented("Setting of time model not supported by this ledger"))
-        }
-      } yield result
-    }
+      result <- submissionResult match {
+        case SubmissionResult.Acknowledged =>
+          // Ledger acknowledged. Start polling to wait for the result to land in the index.
+          val maxTtl = Duration.fromNanos(currentConfig.timeModel.maxTtl.toNanos)
+          val timeToLive = if (params.timeToLive < maxTtl) params.timeToLive else maxTtl
+          pollUntilPersisted(request.submissionId, pollOffset, timeToLive).flatMap {
+            case accept: domain.ConfigurationEntry.Accepted =>
+              Future.successful(SetTimeModelResponse(accept.configuration.generation))
+            case rejected: domain.ConfigurationEntry.Rejected =>
+              Future.failed(ErrorFactories.aborted(rejected.rejectionReason))
+          }
+        case SubmissionResult.Overloaded =>
+          Future.failed(ErrorFactories.resourceExhausted("Resource exhausted"))
+        case SubmissionResult.InternalError(reason) =>
+          Future.failed(ErrorFactories.internal(reason))
+        case SubmissionResult.NotSupported =>
+          Future.failed(
+            ErrorFactories.unimplemented("Setting of time model not supported by this ledger"))
+      }
+    } yield result
+
+    response.andThen(logger.logErrorsOnCall)
+  }
 
   private case class SetTimeModelParameters(
       newTimeModel: v1.TimeModel,

@@ -23,7 +23,7 @@ import com.digitalasset.ledger.api.v1.admin.party_management_service.PartyManage
 import com.digitalasset.ledger.api.v1.admin.party_management_service._
 import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.dec.{DirectExecutionContext => DE}
-import com.digitalasset.platform.logging.{LoggingContext, PassThroughLogger}
+import com.digitalasset.platform.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.server.api.validation.ErrorFactories
 import io.grpc.ServerServiceDefinition
 
@@ -41,7 +41,7 @@ final class ApiPartyManagementService private (
     extends PartyManagementService
     with GrpcApiService {
 
-  private val logging = PassThroughLogger.get(this.getClass)
+  private val logger = ContextualizedLogger.get(this.getClass)
 
   override def close(): Unit = ()
 
@@ -49,24 +49,24 @@ final class ApiPartyManagementService private (
     PartyManagementServiceGrpc.bindService(this, DE)
 
   override def getParticipantId(
-      request: GetParticipantIdRequest): Future[GetParticipantIdResponse] =
-    logging {
-      partyManagementService
-        .getParticipantId()
-        .map(pid => GetParticipantIdResponse(pid.toString))(DE)
-    }
+      request: GetParticipantIdRequest): Future[GetParticipantIdResponse] = {
+    partyManagementService
+      .getParticipantId()
+      .map(pid => GetParticipantIdResponse(pid.toString))(DE)
+      .andThen(logger.logErrorsOnCall)(DE)
+  }
 
   private[this] def mapPartyDetails(
       details: com.digitalasset.ledger.api.domain.PartyDetails): PartyDetails =
     PartyDetails(details.party, details.displayName.getOrElse(""), details.isLocal)
 
   override def listKnownParties(
-      request: ListKnownPartiesRequest): Future[ListKnownPartiesResponse] =
-    logging {
-      partyManagementService
-        .listParties()
-        .map(ps => ListKnownPartiesResponse(ps.map(mapPartyDetails)))(DE)
-    }
+      request: ListKnownPartiesRequest): Future[ListKnownPartiesResponse] = {
+    partyManagementService
+      .listParties()
+      .map(ps => ListKnownPartiesResponse(ps.map(mapPartyDetails)))(DE)
+      .andThen(logger.logErrorsOnCall)(DE)
+  }
 
   /**
     * Checks invariants and forwards the original result after the party is found to be persisted.
@@ -86,43 +86,43 @@ final class ApiPartyManagementService private (
       .runWith(Sink.head)(materializer)
   }
 
-  override def allocateParty(request: AllocatePartyRequest): Future[AllocatePartyResponse] =
-    logging {
-      // TODO Gerolf: this should do proper validation
-      val submissionId = v1.SubmissionId.assertFromString(UUID.randomUUID().toString)
-      val party =
-        if (request.partyIdHint.isEmpty) None
-        else Some(Ref.Party.assertFromString(request.partyIdHint))
-      val displayName = if (request.displayName.isEmpty) None else Some(request.displayName)
+  override def allocateParty(request: AllocatePartyRequest): Future[AllocatePartyResponse] = {
+    // TODO Gerolf: this should do proper validation
+    val submissionId = v1.SubmissionId.assertFromString(UUID.randomUUID().toString)
+    val party =
+      if (request.partyIdHint.isEmpty) None
+      else Some(Ref.Party.assertFromString(request.partyIdHint))
+    val displayName = if (request.displayName.isEmpty) None else Some(request.displayName)
 
-      transactionService
-        .currentLedgerEnd()
-        .flatMap { ledgerEndBeforeRequest =>
-          FutureConverters
-            .toScala(writeService
-              .allocateParty(party, displayName, submissionId))
-            .flatMap {
-              case SubmissionResult.Acknowledged =>
-                pollUntilPersisted(submissionId, ledgerEndBeforeRequest).flatMap {
-                  case domain.PartyEntry.AllocationAccepted(_, _, partyDetails) =>
-                    Future.successful(
-                      AllocatePartyResponse(
-                        Some(PartyDetails(
-                          partyDetails.party,
-                          partyDetails.displayName.getOrElse(""),
-                          partyDetails.isLocal))))
-                  case domain.PartyEntry.AllocationRejected(_, _, reason) =>
-                    Future.failed(ErrorFactories.invalidArgument(reason))
-                }(DE)
-              case r @ SubmissionResult.Overloaded =>
-                Future.failed(ErrorFactories.resourceExhausted(r.description))
-              case r @ SubmissionResult.InternalError(_) =>
-                Future.failed(ErrorFactories.internal(r.reason))
-              case r @ SubmissionResult.NotSupported =>
-                Future.failed(ErrorFactories.unimplemented(r.description))
-            }(DE)
-        }(DE)
-    }
+    transactionService
+      .currentLedgerEnd()
+      .flatMap { ledgerEndBeforeRequest =>
+        FutureConverters
+          .toScala(writeService
+            .allocateParty(party, displayName, submissionId))
+          .flatMap {
+            case SubmissionResult.Acknowledged =>
+              pollUntilPersisted(submissionId, ledgerEndBeforeRequest).flatMap {
+                case domain.PartyEntry.AllocationAccepted(_, _, partyDetails) =>
+                  Future.successful(
+                    AllocatePartyResponse(
+                      Some(PartyDetails(
+                        partyDetails.party,
+                        partyDetails.displayName.getOrElse(""),
+                        partyDetails.isLocal))))
+                case domain.PartyEntry.AllocationRejected(_, _, reason) =>
+                  Future.failed(ErrorFactories.invalidArgument(reason))
+              }(DE)
+            case r @ SubmissionResult.Overloaded =>
+              Future.failed(ErrorFactories.resourceExhausted(r.description))
+            case r @ SubmissionResult.InternalError(_) =>
+              Future.failed(ErrorFactories.internal(r.reason))
+            case r @ SubmissionResult.NotSupported =>
+              Future.failed(ErrorFactories.unimplemented(r.description))
+          }(DE)
+      }(DE)
+      .andThen(logger.logErrorsOnCall)(DE)
+  }
 }
 
 object ApiPartyManagementService {

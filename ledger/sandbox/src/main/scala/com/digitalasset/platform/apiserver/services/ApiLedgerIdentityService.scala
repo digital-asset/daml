@@ -14,7 +14,7 @@ import com.digitalasset.ledger.api.v1.ledger_identity_service.{
   LedgerIdentityServiceGrpc
 }
 import com.digitalasset.platform.api.grpc.GrpcApiService
-import com.digitalasset.platform.logging.{LoggingContext, PassThroughLogger}
+import com.digitalasset.platform.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.server.api.ApiException
 import io.grpc.{BindableService, ServerServiceDefinition, Status}
 import scalaz.syntax.tag._
@@ -28,7 +28,7 @@ final class ApiLedgerIdentityService private (getLedgerId: () => Future[LedgerId
 
   @volatile var closed = false
 
-  private val logging = PassThroughLogger.get(this.getClass)
+  private val logger = ContextualizedLogger.get(this.getClass)
 
   override def getLedgerIdentity(
       request: GetLedgerIdentityRequest): Future[GetLedgerIdentityResponse] =
@@ -37,11 +37,11 @@ final class ApiLedgerIdentityService private (getLedgerId: () => Future[LedgerId
         new ApiException(
           Status.UNAVAILABLE
             .withDescription("Ledger Identity Service closed.")))
-    else
-      logging {
-        getLedgerId()
-          .map(ledgerId => GetLedgerIdentityResponse(ledgerId.unwrap))(DirectExecutionContext)
-      }
+    else {
+      getLedgerId()
+        .map(ledgerId => GetLedgerIdentityResponse(ledgerId.unwrap))(DirectExecutionContext)
+        .andThen(logger.logErrorsOnCall)(DirectExecutionContext)
+    }
 
   override def close(): Unit = closed = true
 

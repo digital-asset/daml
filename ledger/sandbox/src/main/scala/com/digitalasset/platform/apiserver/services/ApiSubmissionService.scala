@@ -115,37 +115,39 @@ final class ApiSubmissionService private (
           commands.applicationId.unwrap)
     } yield ()
 
-    validation.fold(
-      Future.failed,
-      _ =>
-        withEnrichedLoggingContext("commandId" -> commands.commandId.unwrap) { implicit logCtx =>
-          logger.trace(s"Received composite commands: $commands")
-          logger.debug(s"Received composite command let ${commands.ledgerEffectiveTime}.")
-          recordOnLedger(commands).transform {
-            case Success(Acknowledged) =>
-              logger.debug(s"Submission of command succeeded")
-              Success(())
+    validation
+      .fold(
+        Future.failed,
+        _ =>
+          withEnrichedLoggingContext("commandId" -> commands.commandId.unwrap) { implicit logCtx =>
+            logger.trace(s"Received composite commands: $commands")
+            logger.debug(s"Received composite command let ${commands.ledgerEffectiveTime}.")
+            recordOnLedger(commands).transform {
+              case Success(Acknowledged) =>
+                logger.debug(s"Submission of command succeeded")
+                Success(())
 
-            case Success(Overloaded) =>
-              logger.debug(s"Submission has failed due to back pressure")
-              Failure(Status.RESOURCE_EXHAUSTED.asRuntimeException)
+              case Success(Overloaded) =>
+                logger.debug(s"Submission has failed due to back pressure")
+                Failure(Status.RESOURCE_EXHAUSTED.asRuntimeException)
 
-            case Success(NotSupported) =>
-              logger.debug(s"Submission of command was not supported")
-              Failure(Status.INVALID_ARGUMENT.asRuntimeException)
+              case Success(NotSupported) =>
+                logger.debug(s"Submission of command was not supported")
+                Failure(Status.INVALID_ARGUMENT.asRuntimeException)
 
-            case Success(InternalError(reason)) =>
-              logger.debug(
-                s"Submission of command failed due to an internal error, reason=$reason ")
-              Failure(Status.INTERNAL.augmentDescription(reason).asRuntimeException)
+              case Success(InternalError(reason)) =>
+                logger.debug(
+                  s"Submission of command failed due to an internal error, reason=$reason ")
+                Failure(Status.INTERNAL.augmentDescription(reason).asRuntimeException)
 
-            case Failure(error) =>
-              logger.warn(s"Submission of command has failed.", error)
-              Failure(error)
+              case Failure(error) =>
+                logger.warn(s"Submission of command has failed.", error)
+                Failure(error)
 
-          }(DirectExecutionContext)
-      }
-    )
+            }(DirectExecutionContext)
+        }
+      )
+      .andThen(logger.logErrorsOnCall)(DirectExecutionContext)
   }
 
   private def recordOnLedger(commands: ApiCommands): Future[SubmissionResult] =

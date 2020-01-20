@@ -17,12 +17,7 @@ import com.digitalasset.ledger.api.v1.command_completion_service._
 import com.digitalasset.ledger.api.validation.PartyNameChecker
 import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.dec.DirectExecutionContext
-import com.digitalasset.platform.logging.{
-  ContextualizedLogger,
-  LoggingContext,
-  PassThroughLogger,
-  ContextualizedLog
-}
+import com.digitalasset.platform.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.server.api.services.domain.CommandCompletionService
 import com.digitalasset.platform.server.api.services.grpc.GrpcCommandCompletionService
 import io.grpc.ServerServiceDefinition
@@ -37,12 +32,11 @@ final class ApiCommandCompletionService private (completionsService: IndexComple
     extends CommandCompletionService {
 
   private val logger = ContextualizedLogger.get(this.getClass)
-  private val logging = PassThroughLogger.wrap(logger)
 
   private val subscriptionIdCounter = new AtomicLong()
 
   override def completionStreamSource(
-      request: CompletionStreamRequest): Source[CompletionEvent, NotUsed] = logging {
+      request: CompletionStreamRequest): Source[CompletionEvent, NotUsed] = {
 
     val subscriptionId = subscriptionIdCounter.getAndIncrement().toString
     logger.debug(s"Received request for completion subscription $subscriptionId: $request")
@@ -51,14 +45,11 @@ final class ApiCommandCompletionService private (completionsService: IndexComple
 
     completionsService
       .getCompletions(offset, request.applicationId, request.parties)
-      .via(
-        ContextualizedLog(logger, s"Serving response for completion subscription $subscriptionId"))
+      .via(logger.logErrorsOnStream)
   }
 
   override def getLedgerEnd(ledgerId: domain.LedgerId): Future[LedgerOffset.Absolute] =
-    logging {
-      completionsService.currentLedgerEnd()
-    }
+    completionsService.currentLedgerEnd().andThen(logger.logErrorsOnCall)
 
 }
 
