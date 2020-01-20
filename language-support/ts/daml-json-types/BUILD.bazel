@@ -1,9 +1,10 @@
 # Copyright (c) 2020 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("@build_bazel_rules_nodejs//:index.bzl", "pkg_npm")
-load("@npm_bazel_typescript//:index.bzl", "ts_library")
 load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+load("@build_bazel_rules_nodejs//:index.bzl", "pkg_npm")
+load("@language_support_ts_deps//eslint:index.bzl", "eslint_test")
+load("@npm_bazel_typescript//:index.bzl", "ts_library")
 load("@os_info//:os_info.bzl", "is_windows")
 load("//language-support/ts:jest.bzl", "jest_test")
 
@@ -33,6 +34,22 @@ genrule(
     cmd = """
       cp $(location //:LICENSE) $@
     """,
+)
+
+eslint_test(
+    name = "daml-json-types-lint",
+    data = [
+        "tsconfig.json",
+        "package.json",
+        "index.ts",
+        "@language_support_ts_deps//@typescript-eslint",
+        "@language_support_ts_deps//tsutils",
+    ],
+    templated_args = [
+        "--config", "$(rlocation $(location package.json))",
+        "--ext", "ts",
+        "$(rlocation $(location index.ts))",
+    ],
 )
 
 pkg_npm(
