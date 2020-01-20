@@ -167,7 +167,6 @@ genDefDataType curPkgId conName mod tpls def =
                   body = map ("  " <>) $
                     -- The variant deserializer.
                     ["decoder: () => jtv.oneOf<" <> typ <> ">("] ++  sers ++ ["),"] ++
-                    ["isOptional: false,"] ++
                     -- Remember how we dropped the first line of each
                     -- associated serializer above? This replaces them.
                     concatMap (\(n, ser) -> n <> ": ({" : onLast (<> ",") ser) assocSers
@@ -230,7 +229,6 @@ genDefDataType curPkgId conName mod tpls def =
                             ,"  keyDecoder: " <> keySer <> ","
                             ] ++
                             map ("  " <>) (onLast (<> ",") (onHead ("decoder: " <>) serDesc)) ++
-                            ["  isOptional: false,"] ++
                             concat
                             [ ["  " <> x <> ": {"
                               ,"    template: () => " <> conName <> ","
@@ -269,14 +267,12 @@ genDefDataType curPkgId conName mod tpls def =
         makeSer serDesc =
             ["export const " <> conName <> serHeader <> " ({"] ++
             map ("  " <>) (onLast (<> ",") (onHead ("decoder: " <>) serDesc)) ++
-            ["  isOptional: false,"] ++
             ["})"]
         makeNameSpace serDesc =
             [ "// eslint-disable-next-line @typescript-eslint/no-namespace"
             , "export namespace " <> conName <> " {"
             ] ++
             map ("  " <>) (onHead ("export const decoder = " <>) serDesc) ++
-            ["  export const isOptional = false;"] ++
             ["}"]
         genBranch (VariantConName cons, t) =
           let (typ, ser) = genType (moduleName mod) t in

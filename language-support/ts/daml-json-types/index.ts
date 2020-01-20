@@ -9,7 +9,6 @@ import * as jtv from '@mojotech/json-type-validation';
 export interface Serializable<T> {
   // NOTE(MH): This must be a function to allow for mutually recursive decoders.
   decoder: () => jtv.Decoder<T>;
-  isOptional: boolean;
 }
 
 /**
@@ -72,7 +71,6 @@ export type Unit = {};
  */
 export const Unit: Serializable<Unit> = {
   decoder: () => jtv.object({}),
-  isOptional: false,
 }
 
 /**
@@ -85,7 +83,6 @@ export type Bool = boolean;
  */
 export const Bool: Serializable<Bool> = {
   decoder: jtv.boolean,
-  isOptional: false,
 }
 
 /**
@@ -99,7 +96,6 @@ export type Int = string;
  */
 export const Int: Serializable<Int> = {
   decoder: jtv.string,
-  isOptional: false,
 }
 
 /**
@@ -117,7 +113,6 @@ export type Decimal = Numeric;
 export const Numeric = (_: number): Serializable<Numeric> =>
   ({
     decoder: jtv.string,
-    isOptional: false,
   })
 
 export const Decimal: Serializable<Decimal> = Numeric(10)
@@ -132,7 +127,6 @@ export type Text = string;
  */
 export const Text: Serializable<Text> = {
   decoder: jtv.string,
-  isOptional: false,
 }
 
 /**
@@ -146,7 +140,6 @@ export type Time = string;
  */
 export const Time: Serializable<Time> = {
   decoder: jtv.string,
-  isOptional: false,
 }
 
 /**
@@ -160,7 +153,6 @@ export type Party = string;
  */
 export const Party: Serializable<Party> = {
   decoder: jtv.string,
-  isOptional: false,
 }
 
 /**
@@ -173,7 +165,6 @@ export type List<T> = T[];
  */
 export const List = <T>(t: Serializable<T>): Serializable<T[]> => ({
   decoder: () => jtv.array(t.decoder()),
-  isOptional: false,
 });
 
 /**
@@ -187,7 +178,6 @@ export type Date = string;
  */
 export const Date: Serializable<Date> = {
   decoder: jtv.string,
-  isOptional: false,
 }
 
 /**
@@ -203,35 +193,60 @@ export type ContractId<T> = string;
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export const ContractId = <T>(_t: Serializable<T>): Serializable<ContractId<T>> => ({
   decoder: jtv.string,
-  isOptional: false,
 });
 
 /**
  * The counterpart of DAML's `Optional T` type.
  */
-export type Optional<T> =
-  | null
-  | Optional.Inner<T>
-// eslint-disable-next-line @typescript-eslint/no-namespace
-namespace Optional {
-  export type Inner<T> = null extends T ? ([] | [Exclude<T, null>]) : T;
-}
+export type Optional<T> = null | OptionalInner<T>
+
+type OptionalInner<T> = null extends T ? [] | [Exclude<T, null>] : T
 
 /**
  * Companion function of the `Optional` type.
  */
-export const Optional = <T>(t: Serializable<T>): Serializable<Optional<T>> => ({
-  decoder : () => jtv.oneOf<Optional<T>>(jtv.constant(null), Optional.Inner(t)),
-  isOptional: true,
-});
-Optional.Inner = <T>(t: Serializable<T>): jtv.Decoder<Optional.Inner<T>> =>
-  ! t.isOptional
-  ? t.decoder() as jtv.Decoder<Optional.Inner<T>>
-  : jtv.oneOf(
-      jtv.constant([]) as jtv.Decoder<[] | [Exclude<T, null>]>,
-      jtv.tuple([t.decoder()]) as jtv.Decoder<[] | [Exclude<T, null>]>
-  ) as jtv.Decoder<Optional.Inner<T>>
-;
+export const Optional = <T>(t: Serializable<T>): Serializable<Optional<T>> =>
+  new OptionalWorker(t);
+
+/**
+ * This class does the actual work behind the `Optional` companion function.
+ * In addition to implementing the `Serializable` interface it also stores
+ * the `Serializable` instance of the payload of the `Optional` and uses it to
+ * provide a decoder for the `OptionalInner` type.
+ */
+class OptionalWorker<T> implements Serializable<Optional<T>> {
+  isOptional = true;
+  private payloadSerializable: Serializable<T>;
+
+  constructor(payloadSerializable: Serializable<T>) {
+    this.payloadSerializable = payloadSerializable;
+  }
+
+  decoder(): jtv.Decoder<Optional<T>> {
+    return jtv.oneOf(jtv.constant(null), this.innerDecoder());
+  }
+
+  private innerDecoder(): jtv.Decoder<OptionalInner<T>> {
+    if (this.payloadSerializable instanceof OptionalWorker) {
+      // NOTE(MH): `T` is of the form `Optional<U>` for some `U` here, that is
+      // `T = Optional<U> = null | OptionalInner<U>`. Since `null` does not
+      // extend `OptionalInner<V>` for any `V`, this implies
+      // `OptionalInner<U> = Exclude<T, null>`. This also implies
+      // `OptionalInner<T> = [] | [Exclude<T, null>]`.
+      type InnerU = Exclude<T, null>
+      const payloadInnerDecoder: jtv.Decoder<InnerU> =
+        this.payloadSerializable.innerDecoder() as jtv.Decoder<unknown> as jtv.Decoder<InnerU>;
+      return jtv.oneOf<[] | [Exclude<T, null>]>(
+        jtv.constant<[]>([]),
+        jtv.tuple([payloadInnerDecoder]),
+      ) as jtv.Decoder<OptionalInner<T>>;
+    } else {
+      // NOTE(MH): `T` is not of the form `Optional<U>` here and hence `null`
+      // does not extend `T`. Thus, `OptionalInner<T> = T`.
+      return this.payloadSerializable.decoder() as jtv.Decoder<OptionalInner<T>>;
+    }
+  }
+}
 
 /**
  * The counterpart of DAML's `TextMap T` type. We represent `TextMap`s as
@@ -244,7 +259,6 @@ export type TextMap<T> = { [key: string]: T };
  */
 export const TextMap = <T>(t: Serializable<T>): Serializable<TextMap<T>> => ({
   decoder: () => jtv.dict(t.decoder()),
-  isOptional: false,
 });
 
 // TODO(MH): `Map` type.
