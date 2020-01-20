@@ -40,7 +40,7 @@ final class ApiConfigManagementService private (
     extends ConfigManagementService
     with GrpcApiService {
 
-  private val logging = PassThroughLogger.get[this.type]
+  private val logging = PassThroughLogger.get(this.getClass)
 
   override def close(): Unit = ()
 

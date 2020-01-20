@@ -23,7 +23,7 @@ import scala.util.{Failure, Success}
 final class TrackerMap(retentionPeriod: FiniteDuration)(implicit logCtx: LoggingContext)
     extends AutoCloseable {
 
-  private val logger = ContextualizedLogger.get[TrackerMap]
+  private val logger = ContextualizedLogger.get(this.getClass)
 
   private val lock = new Object()
 

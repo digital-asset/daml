@@ -28,7 +28,7 @@ final class ApiLedgerIdentityService private (getLedgerId: () => Future[LedgerId
 
   @volatile var closed = false
 
-  private val logging = PassThroughLogger.get[this.type]
+  private val logging = PassThroughLogger.get(this.getClass)
 
   override def getLedgerIdentity(
       request: GetLedgerIdentityRequest): Future[GetLedgerIdentityResponse] =

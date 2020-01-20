@@ -26,7 +26,7 @@ final class ApiPackageService private (backend: IndexPackagesService)(
     extends PackageService
     with GrpcApiService {
 
-  private val logging = PassThroughLogger.get[this.type]
+  private val logging = PassThroughLogger.get(this.getClass)
 
   override def bindService(): ServerServiceDefinition =
     PackageServiceGrpc.bindService(this, DEC)

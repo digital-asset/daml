@@ -6,7 +6,6 @@ package com.digitalasset.platform.logging
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.concurrent.TrieMap
-import scala.reflect.ClassTag
 
 object ContextualizedLogger {
 
@@ -26,8 +25,8 @@ object ContextualizedLogger {
     * Gets from cache (or creates) a [[ContextualizedLogger]].
     * Automatically strips the `$` at the end of Scala `object`s' name.
     */
-  def get[C](implicit ct: ClassTag[C]): ContextualizedLogger = {
-    val name = ct.runtimeClass.getName.stripSuffix("$")
+  def get(clazz: Class[_]): ContextualizedLogger = {
+    val name = clazz.getName.stripSuffix("$")
     cache.getOrElseUpdate(name, createFor(name))
   }
 

@@ -54,7 +54,7 @@ object JdbcIndexerFactory {
 
 final class JdbcIndexerFactory[Status <: InitStatus] private (metrics: MetricRegistry)(
     implicit logCtx: LoggingContext) {
-  private val logger = ContextualizedLogger.get[this.type]
+  private val logger = ContextualizedLogger.get(this.getClass)
   private[indexer] val asyncTolerance = 30.seconds
 
   def validateSchema(jdbcUrl: String)(

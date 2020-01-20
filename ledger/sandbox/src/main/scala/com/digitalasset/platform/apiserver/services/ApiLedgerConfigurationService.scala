@@ -26,7 +26,7 @@ final class ApiLedgerConfigurationService private (configurationService: IndexCo
     extends LedgerConfigurationServiceAkkaGrpc
     with GrpcApiService {
 
-  private val logging = PassThroughLogger.get[this.type]
+  private val logging = PassThroughLogger.get(this.getClass)
 
   override protected def getLedgerConfigurationSource(
       request: GetLedgerConfigurationRequest): Source[GetLedgerConfigurationResponse, NotUsed] =

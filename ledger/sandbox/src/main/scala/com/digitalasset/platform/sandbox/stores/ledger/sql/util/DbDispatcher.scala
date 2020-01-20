@@ -24,7 +24,7 @@ final class DbDispatcher(
 )(implicit logCtx: LoggingContext)
     extends ReportsHealth {
 
-  private val logger = ContextualizedLogger.get[this.type]
+  private val logger = ContextualizedLogger.get(this.getClass)
 
   private val sqlExecution = ExecutionContext.fromExecutorService(sqlExecutor)
 
@@ -86,7 +86,7 @@ final class DbDispatcher(
 }
 
 object DbDispatcher {
-  private val logger = ContextualizedLogger.get[this.type]
+  private val logger = ContextualizedLogger.get(this.getClass)
   def owner(
       jdbcUrl: String,
       maxConnections: Int,

@@ -40,7 +40,7 @@ final class ApiPackageManagementService private (
     extends PackageManagementService
     with GrpcApiService {
 
-  private val logging = PassThroughLogger.get[this.type]
+  private val logging = PassThroughLogger.get(this.getClass)
 
   override def close(): Unit = ()
 

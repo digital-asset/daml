@@ -18,7 +18,7 @@ import scala.util.control.NonFatal
 class FlywayMigrations(jdbcUrl: String)(implicit logCtx: LoggingContext) {
   import FlywayMigrations._
 
-  private val logger = ContextualizedLogger.get[this.type]
+  private val logger = ContextualizedLogger.get(this.getClass)
 
   private val dbType = DbType.jdbcType(jdbcUrl)
 

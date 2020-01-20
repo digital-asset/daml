@@ -28,7 +28,7 @@ final class RecoveringIndexer(
     asyncTolerance: FiniteDuration,
 )(implicit logCtx: LoggingContext) {
   private implicit val executionContext: ExecutionContext = DirectExecutionContext
-  private val logger = ContextualizedLogger.get[this.type]
+  private val logger = ContextualizedLogger.get(this.getClass)
 
   val lastHandle = new AtomicReference[Option[Resource[IndexFeedHandle]]](None)
   private val clock = Clock.systemUTC()

@@ -16,7 +16,7 @@ import scala.util.control.NonFatal
 private[platform] object PassThroughLogger {
 
   def wrap(logger: ContextualizedLogger) = new PassThroughLogger(logger)
-  def get[Service: ClassTag] = new PassThroughLogger(ContextualizedLogger.get[Service])
+  def get(service: Class[_]) = new PassThroughLogger(ContextualizedLogger.get(service.getClass))
 
 }
 

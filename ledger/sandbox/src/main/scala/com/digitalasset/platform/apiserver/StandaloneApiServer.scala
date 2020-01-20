@@ -42,7 +42,7 @@ final class StandaloneApiServer(
 )(implicit logCtx: LoggingContext)
     extends ResourceOwner[Unit] {
 
-  private val logger = ContextualizedLogger.get[this.type]
+  private val logger = ContextualizedLogger.get(this.getClass)
 
   // Name of this participant,
   val participantId: ParticipantId = config.participantId

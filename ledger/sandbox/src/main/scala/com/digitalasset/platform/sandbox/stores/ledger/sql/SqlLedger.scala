@@ -133,7 +133,7 @@ private final class SqlLedger(
 
   import SqlLedger._
 
-  private val logger = ContextualizedLogger.get[this.type]
+  private val logger = ContextualizedLogger.get(this.getClass)
 
   // the reason for modelling persistence as a reactive pipeline is to avoid having race-conditions between the
   // moving ledger-end, the async persistence operation and the dispatcher head notification
@@ -400,7 +400,7 @@ private final class SqlLedger(
 
 private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: LoggingContext) {
 
-  private val logger = ContextualizedLogger.get[this.type]
+  private val logger = ContextualizedLogger.get(this.getClass)
 
   /** *
     * Creates a DB backed Ledger implementation.

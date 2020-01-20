@@ -38,7 +38,7 @@ final class ApiTimeService private (
     with FieldValidations
     with GrpcApiService {
 
-  private val logger = ContextualizedLogger.get[this.type]
+  private val logger = ContextualizedLogger.get(this.getClass)
   private val logging = PassThroughLogger.wrap(logger)
 
   logger.debug(

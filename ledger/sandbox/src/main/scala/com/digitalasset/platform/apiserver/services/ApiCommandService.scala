@@ -53,7 +53,7 @@ final class ApiCommandService private (
     extends CommandServiceGrpc.CommandService
     with AutoCloseable {
 
-  private val logger = ContextualizedLogger.get[this.type]
+  private val logger = ContextualizedLogger.get(this.getClass)
   private val logging = PassThroughLogger.wrap(logger)
 
   private type CommandId = String

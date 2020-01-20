@@ -93,7 +93,7 @@ private class JdbcLedgerDao(
     case DbType.Postgres => PostgresQueries
     case DbType.H2Database => H2DatabaseQueries
   }
-  private val logger = ContextualizedLogger.get[this.type]
+  private val logger = ContextualizedLogger.get(this.getClass)
 
   private val SQL_SELECT_LEDGER_ID = SQL("select ledger_id from parameters")
 

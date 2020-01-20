@@ -36,7 +36,7 @@ final class ApiCommandCompletionService private (completionsService: IndexComple
     logCtx: LoggingContext)
     extends CommandCompletionService {
 
-  private val logger = ContextualizedLogger.get[this.type]
+  private val logger = ContextualizedLogger.get(this.getClass)
   private val logging = PassThroughLogger.wrap(logger)
 
   private val subscriptionIdCounter = new AtomicLong()

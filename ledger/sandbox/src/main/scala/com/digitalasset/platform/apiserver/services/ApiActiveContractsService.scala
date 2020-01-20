@@ -36,7 +36,7 @@ final class ApiActiveContractsService private (
     extends ActiveContractsServiceAkkaGrpc
     with GrpcApiService {
 
-  private val logger = ContextualizedLogger.get[this.type]
+  private val logger = ContextualizedLogger.get(this.getClass)
   private val logging = PassThroughLogger.wrap(logger)
 
   @SuppressWarnings(Array("org.wartremover.warts.Option2Iterable"))

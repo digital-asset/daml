@@ -86,7 +86,7 @@ private class ReadOnlySqlLedger(
 
 private class ReadOnlySqlLedgerFactory(ledgerDao: LedgerReadDao)(implicit logCtx: LoggingContext) {
 
-  private val logger = ContextualizedLogger.get[this.type]
+  private val logger = ContextualizedLogger.get(this.getClass)
 
   /**
     * Creates a DB backed Ledger implementation.

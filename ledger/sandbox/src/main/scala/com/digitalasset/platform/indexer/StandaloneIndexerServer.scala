@@ -21,7 +21,7 @@ final class StandaloneIndexerServer(
 )(implicit logCtx: LoggingContext)
     extends ResourceOwner[Unit] {
 
-  private val logger = ContextualizedLogger.get[this.type]
+  private val logger = ContextualizedLogger.get(this.getClass)
 
   override def acquire()(implicit executionContext: ExecutionContext): Resource[Unit] =
     for {

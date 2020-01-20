@@ -41,7 +41,7 @@ final class ApiPartyManagementService private (
     extends PartyManagementService
     with GrpcApiService {
 
-  private val logging = PassThroughLogger.get[this.type]
+  private val logging = PassThroughLogger.get(this.getClass)
 
   override def close(): Unit = ()
 
