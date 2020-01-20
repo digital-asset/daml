@@ -19,7 +19,6 @@ describe('daml-json-types', () => {
     expect(dict.decoder().run('X').ok).toBe(false);
     expect(dict.decoder().run([['X']]).ok).toBe(false);
     expect(dict.decoder().run([[]]).ok).toBe(false);
-    // FIXME(MH): The decoder for `Optional` is slightly off in this case.
-    // expect(dict.decoder().run([null]).ok).toBe(false);
+    expect(dict.decoder().run([null]).ok).toBe(false);
   });
 });
