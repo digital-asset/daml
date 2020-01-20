@@ -14,7 +14,12 @@ module DA.Daml.Doc.Extract
 
 import DA.Daml.Doc.Types as DDoc
 import DA.Daml.Doc.Anchor as DDoc
+
+import DA.Daml.Doc.Extract.Types
+import DA.Daml.Doc.Extract.Util
 import DA.Daml.Doc.Extract.Exports
+import DA.Daml.Doc.Extract.Templates
+import DA.Daml.Doc.Extract.TypeExpr
 
 import Development.IDE.Types.Options (IdeOptions(..))
 import Development.IDE.Core.FileStore
@@ -27,53 +32,23 @@ import Development.IDE.Types.Location
 import qualified Language.Haskell.LSP.Messages as LSP
 import qualified Language.Haskell.LSP.Types as LSP
 
-import           "ghc-lib" GHC
-import           "ghc-lib-parser" Module
-import           "ghc-lib-parser" TyCoRep
-import           "ghc-lib-parser" TyCon
-import           "ghc-lib-parser" Type
-import           "ghc-lib-parser" ConLike
-import           "ghc-lib-parser" DataCon
-import           "ghc-lib-parser" Class
-import           "ghc-lib-parser" BasicTypes
-import           "ghc-lib-parser" InstEnv
-import           "ghc-lib-parser" CoreSyn
-import           "ghc-lib-parser" Id
-import           "ghc-lib-parser" Name
-import           "ghc-lib-parser" RdrName
-import           "ghc-lib-parser" Bag (bagToList)
+import "ghc-lib" GHC
+import "ghc-lib-parser" TyCon
+import "ghc-lib-parser" ConLike
+import "ghc-lib-parser" DataCon
+import "ghc-lib-parser" Class
+import "ghc-lib-parser" BasicTypes
+import "ghc-lib-parser" Bag (bagToList)
 
 import Control.Monad
 import Control.Monad.Trans.Maybe
-import           Data.Char (isSpace)
-import           Data.List.Extra
-import           Data.Maybe
+import Data.List.Extra
+import Data.List.Extended (spanMaybe)
+import Data.Maybe
 import qualified Data.Map.Strict as MS
 import qualified Data.Set as Set
-import qualified Data.Text                                 as T
-import           Data.Tuple.Extra                          (second)
+import qualified Data.Text as T
 import Data.Either
-
--- | Options that affect doc extraction.
-data ExtractOptions = ExtractOptions
-    { eo_qualifyTypes :: QualifyTypes
-        -- ^ qualify non-local types
-    , eo_simplifyQualifiedTypes :: Bool
-        -- ^ drop common module prefix when qualifying types
-    } deriving (Eq, Show, Read)
-
-data QualifyTypes
-    = QualifyTypesAlways
-    | QualifyTypesInPackage
-    | QualifyTypesNever
-    deriving (Eq, Show, Read)
-
--- | Default options for doc extraction.
-defaultExtractOptions :: ExtractOptions
-defaultExtractOptions = ExtractOptions
-    { eo_qualifyTypes = QualifyTypesNever
-    , eo_simplifyQualifiedTypes = False
-    }
 
 -- | Extract documentation in a dependency graph of modules.
 extractDocs ::
@@ -95,7 +70,8 @@ extractDocs extractOpts diagsLogger ideOpts fp = do
 
     mkModuleDocs :: Service.TcModuleResult -> ModuleDoc
     mkModuleDocs tmr =
-        let ctx@DocCtx{..} = buildDocCtx extractOpts (Service.tmrModule tmr)
+        let tcmod = Service.tmrModule tmr
+            ctx@DocCtx{..} = buildDocCtx extractOpts tcmod
             typeMap = MS.fromList $ mapMaybe (getTypeDocs ctx) dc_decls
             classDocs = mapMaybe (getClsDocs ctx) dc_decls
 
@@ -108,7 +84,7 @@ extractDocs extractOpts diagsLogger ideOpts fp = do
 
             md_name = dc_modname
             md_anchor = Just (moduleAnchor md_name)
-            md_descr = modDoc dc_tcmod
+            md_descr = modDoc tcmod
             md_templates = getTemplateDocs ctx typeMap templateInstanceClassMap
             md_functions = mapMaybe (getFctDocs ctx) dc_decls
             md_instances = map (getInstanceDocs ctx) dc_insts
@@ -119,70 +95,49 @@ extractDocs extractOpts diagsLogger ideOpts fp = do
                 = MS.elems . MS.withoutKeys typeMap . Set.unions
                 $ dc_templates : MS.elems dc_choices
 
-            md_adts = mapMaybe (filterTypeByExports ctx) adts
+            md_adts = mapMaybe (filterTypeByExports dc_exports) adts
 
         in ModuleDoc {..}
 
 -- | This is equivalent to Haddock’s Haddock.Interface.Create.collectDocs
-collectDocs :: [LHsDecl a] -> [(LHsDecl a, Maybe DocText)]
-collectDocs = go Nothing []
+collectDocs :: [LHsDecl GhcPs] -> [DeclData]
+collectDocs ds
+    | (nextDocs, decl:ds') <- spanMaybe getNextOrPrevDoc ds
+    , (prevDocs, ds'') <- spanMaybe getPrevDoc ds'
+    = DeclData decl (joinDocs nextDocs prevDocs)
+    : collectDocs ds''
+
+    | otherwise
+    = [] -- nothing to document
   where
-    go :: Maybe (LHsDecl p) -> [DocText] -> [LHsDecl p] -> [(LHsDecl p, Maybe DocText)]
-    go Nothing _ [] = []
-    go (Just prev) docs [] = finished prev docs []
-    go prev docs (L _ (DocD _ (DocCommentNext str)) : ds)
-      | Nothing <- prev = go Nothing (docToText str:docs) ds
-      | Just decl <- prev = finished decl docs (go Nothing [docToText str] ds)
-    go prev docs (L _ (DocD _ (DocCommentPrev str)) : ds) =
-      go prev (docToText str:docs) ds
-    go Nothing docs (d:ds) = go (Just d) docs ds
-    go (Just prev) docs (d:ds) = finished prev docs (go (Just d) [] ds)
 
-    finished decl docs rest = (decl, toDocText . map unDocText . reverse $ docs) : rest
+    joinDocs :: [DocText] -> [DocText] -> Maybe DocText
+    joinDocs nextDocs prevDocs =
+        let docs = map unDocText (nextDocs ++ prevDocs)
+        in if null docs
+            then Nothing
+            else Just . DocText . T.strip $ T.unlines docs
 
--- | Context in which to extract a module's docs. This is created from
--- 'TypecheckedModule' by 'buildDocCtx'.
-data DocCtx = DocCtx
-    { dc_ghcMod :: GHC.Module
-        -- ^ ghc name for current module
-    , dc_modname :: Modulename
-        -- ^ name of the current module
-    , dc_tcmod :: TypecheckedModule
-        -- ^ typechecked module
-    , dc_decls :: [DeclData]
-        -- ^ module declarations
-    , dc_insts :: [ClsInst]
-        -- ^ typeclass instances
-    , dc_tycons :: MS.Map Typename TyCon
-        -- ^ types defined in this module
-    , dc_datacons :: MS.Map Typename DataCon
-        -- ^ constructors defined in this module
-    , dc_ids :: MS.Map Fieldname Id
-        -- ^ values defined in this module
-    , dc_templates :: Set.Set Typename
-        -- ^ DAML templates defined in this module
-    , dc_choices :: MS.Map Typename (Set.Set Typename)
-        -- ^ choices per DAML template defined in this module
-    , dc_extractOptions :: ExtractOptions
-        -- ^ command line options that affect the doc extractor
-    , dc_exports :: ExportSet
-        -- ^ set of export, unless everything is exported
-    }
+    getNextOrPrevDoc :: LHsDecl a -> Maybe DocText
+    getNextOrPrevDoc = \case
+        L _ (DocD _ (DocCommentNext str)) -> Just (docToText str)
+        L _ (DocD _ (DocCommentPrev str)) -> Just (docToText str)
+            -- ^ technically this is a malformed doc, but we'll take it
+        _ -> Nothing
 
--- | Parsed declaration with associated docs.
-data DeclData = DeclData
-    { _dd_decl :: LHsDecl GhcPs
-    , _dd_docs :: Maybe DocText
-    }
+    getPrevDoc :: LHsDecl a -> Maybe DocText
+    getPrevDoc = \case
+        L _ (DocD _ (DocCommentPrev str)) -> Just (docToText str)
+        _ -> Nothing
 
 buildDocCtx :: ExtractOptions -> TypecheckedModule -> DocCtx
-buildDocCtx dc_extractOptions dc_tcmod  =
-    let parsedMod = tm_parsed_module dc_tcmod
-        checkedModInfo = tm_checked_module_info dc_tcmod
+buildDocCtx dc_extractOptions tcmod  =
+    let parsedMod = tm_parsed_module tcmod
+        checkedModInfo = tm_checked_module_info tcmod
         dc_ghcMod = ms_mod $ pm_mod_summary parsedMod
         dc_modname = getModulename dc_ghcMod
         dc_decls
-            = map (uncurry DeclData) . collectDocs . hsmodDecls . unLoc
+            = collectDocs . hsmodDecls . unLoc
             . pm_parsed_source $ parsedMod
         (dc_templates, dc_choices) = getTemplateData parsedMod
 
@@ -234,12 +189,6 @@ haddockParse diagsLogger opts f = MaybeT $ do
                 -- The DAML compiler always parses with Opt_Haddock on
 
 ------------------------------------------------------------
-
-toDocText :: [T.Text] -> Maybe DocText
-toDocText docs =
-    if null docs
-        then Nothing
-        else Just . DocText . T.strip . T.unlines $ docs
 
 -- | Extracts the documentation of a function. Comments are either
 --   adjacent to a type signature, or to the actual function definition. If
@@ -294,7 +243,7 @@ getClsDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ ClassDecl{..})) tcdocs) = do
     -- and docs to declarations, sort them by their location
     -- and then use collectDocs.
     -- This is the equivalent of Haddock’s Haddock.Interface.Create.classDecls.
-    subDecls :: [(LHsDecl GhcPs, Maybe DocText)]
+    subDecls :: [DeclData]
     subDecls = collectDocs . sortOn getLoc $ decls
     decls = docs ++ defs ++ sigs ++ ats
     docs = map (fmap (DocD noExt)) tcdDocs
@@ -317,10 +266,10 @@ getClsDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ ClassDecl{..})) tcdocs) = do
         -> Maybe Anchor
         -> Typename
         -> [T.Text]
-        -> (LHsDecl GhcPs, Maybe DocText)
+        -> DeclData
         -> [ClassMethodDoc]
     getMethodDocs opMap cl_anchor cl_name cl_args = \case
-        (L _ (SigD _ (ClassOpSig _ cm_isDefault rdrNamesL _)), cm_descr) ->
+        DeclData (L _ (SigD _ (ClassOpSig _ cm_isDefault rdrNamesL _))) cm_descr ->
             flip mapMaybe rdrNamesL $ \rdrNameL -> do
                 let cm_name = Fieldname . packRdrName . unLoc $ rdrNameL
                     cm_anchor = guard (not cm_isDefault) >>
@@ -433,373 +382,3 @@ getTypeDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ decl)) doc)
     fieldDoc (_, L _ XConDeclField{}) = Nothing
 
 getTypeDocs _ _other = Nothing
-
-filterTypeByExports :: DocCtx -> ADTDoc -> Maybe ADTDoc
-filterTypeByExports DocCtx{..} ad = do
-    guard (exportsType dc_exports (ad_name ad))
-    case ad of
-        TypeSynDoc{} -> Just ad
-        ADTDoc{..} -> Just (ad { ad_constrs = mapMaybe filterConstr ad_constrs })
-
-  where
-
-    filterConstr :: ADTConstr -> Maybe ADTConstr
-    filterConstr ac = do
-        guard (exportsConstr dc_exports (ad_name ad) (ac_name ac))
-        case ac of
-            PrefixC{} -> Just ac
-            RecordC{..} -> Just ac { ac_fields = mapMaybe filterFields ac_fields }
-
-    filterFields :: FieldDoc -> Maybe FieldDoc
-    filterFields fd@FieldDoc{..} = do
-        guard (exportsField dc_exports (ad_name ad) fd_name)
-        Just fd
-
--- | Build template docs up from ADT and class docs.
-getTemplateDocs ::
-    DocCtx
-    -> MS.Map Typename ADTDoc -- ^ maps template names to their ADT docs
-    -> MS.Map Typename ClassDoc -- ^ maps template names to their template instance class docs
-    -> [TemplateDoc]
-getTemplateDocs DocCtx{..} typeMap templateInstanceMap =
-    map mkTemplateDoc $ Set.toList dc_templates
-  where
-    -- The following functions use the type map and choice map in scope, so
-    -- defined internally, and not expected to fail on consistent arguments.
-    mkTemplateDoc :: Typename -> TemplateDoc
-    mkTemplateDoc name = TemplateDoc
-      { td_anchor = ad_anchor tmplADT
-      , td_name = ad_name tmplADT
-      , td_args = ad_args tmplADT
-      , td_super = cl_super =<< MS.lookup name templateInstanceMap
-      , td_descr = ad_descr tmplADT
-      , td_payload = getFields tmplADT
-      -- assumes exactly one record constructor (syntactic, template syntax)
-      , td_choices = map mkChoiceDoc choices
-      }
-      where
-        tmplADT = asADT name
-        choices = Set.toList . fromMaybe Set.empty $ MS.lookup name dc_choices
-
-    mkChoiceDoc :: Typename -> ChoiceDoc
-    mkChoiceDoc name = ChoiceDoc
-      { cd_name = ad_name choiceADT
-      , cd_descr = ad_descr choiceADT
-      -- assumes exactly one constructor (syntactic in the template syntax), or
-      -- uses a dummy value otherwise.
-      , cd_fields = getFields choiceADT
-      }
-          where choiceADT = asADT name
-
-    asADT n = fromMaybe dummyDT $
-              MS.lookup n typeMap
-    -- returns a dummy ADT if the choice argument is not in the local type map
-    -- (possible if choice instances are defined directly outside the template).
-    -- This wouldn't be necessary if we used the type-checked AST.
-      where dummyDT = ADTDoc { ad_anchor = Nothing
-                             , ad_name = dummyName n
-                             , ad_descr = Nothing
-                             , ad_args = []
-                             , ad_constrs = []
-                             , ad_instances = Nothing
-                             }
-
-            dummyName (Typename "Archive") = Typename "Archive"
-            dummyName (Typename t) = Typename $ "External:" <> t
-
-    -- Assuming one constructor (record or prefix), extract the fields, if any.
-    -- For choices without arguments, GHC returns a prefix constructor, so we
-    -- need to cater for this case specially.
-    getFields adt = case ad_constrs adt of
-                      [PrefixC{}] -> []
-                      [RecordC{ ac_fields = fields }] -> fields
-                      [] -> [] -- catching the dummy case here, see above
-                      _other -> error "getFields: found multiple constructors"
-
--- recognising Template and Choice instances
-
-
--- | Extracts all names of templates defined in a module,
--- and a map of template names to its set of choices
-getTemplateData :: ParsedModule ->
-    ( Set.Set Typename
-    , MS.Map Typename (Set.Set Typename) )
-getTemplateData ParsedModule{..} =
-  let
-    instDs    = mapMaybe (isInstDecl . unLoc) . hsmodDecls . unLoc $ pm_parsed_source
-    templates = mapMaybe isTemplate instDs
-    choiceMap = MS.fromListWith (<>) $
-                map (second Set.singleton) $
-                mapMaybe isChoice instDs
-  in
-    (Set.fromList templates, choiceMap)
-    where
-      isInstDecl (InstD _ (ClsInstD _ i)) = Just i
-      isInstDecl _ = Nothing
-
-
--- | If the given instance declaration is declaring a template instance, return
---   its name (IdP). Used to build the set of templates declared in a module.
-isTemplate :: ClsInstDecl GhcPs -> Maybe Typename
-isTemplate (XClsInstDecl _) = Nothing
-isTemplate ClsInstDecl{..}
-  | L _ ty <- getLHsInstDeclHead cid_poly_ty
-  , HsAppTy _ (L _ t1) t2 <- ty
-  , HsTyVar _ _ (L _ tmplClass) <- t1
-  , Just (L _ tmplName) <- hsTyGetAppHead_maybe t2
-  , Qual classModule classOcc <- tmplClass
-  , moduleNameString classModule == "DA.Internal.Desugar"
-  , occNameString classOcc == "HasCreate"
-  = Just (Typename . packRdrName $ tmplName)
-
-  | otherwise = Nothing
-
--- | If the given instance declaration is declaring a template choice instance,
---   return template and choice name (IdP). Used to build the set of choices
---   per template declared in a module.
-isChoice :: ClsInstDecl GhcPs -> Maybe (Typename, Typename)
-isChoice (XClsInstDecl _) = Nothing
-isChoice ClsInstDecl{..}
-  | L _ ty <- getLHsInstDeclHead cid_poly_ty
-  , HsAppTy _ (L _ cApp1) (L _ _cArgs) <- ty
-  , HsAppTy _ (L _ cApp2) cName <- cApp1
-  , HsAppTy _ (L _ choice) cTmpl <- cApp2
-  , HsTyVar _ _ (L _ choiceClass) <- choice
-  , Just (L _ choiceName) <- hsTyGetAppHead_maybe cName
-  , Just (L _ tmplName) <- hsTyGetAppHead_maybe cTmpl
-  , Qual classModule classOcc <- choiceClass
-  , moduleNameString classModule == "DA.Internal.Desugar"
-  , occNameString classOcc == "HasExercise"
-  = Just (Typename . packRdrName $ tmplName, Typename . packRdrName $ choiceName)
-
-  | otherwise = Nothing
-
--- | Strip the @Instance@ suffix off of a typename, if it's there.
--- Otherwise returns 'Nothing'.
-stripInstanceSuffix :: Typename -> Maybe Typename
-stripInstanceSuffix (Typename t) = Typename <$> T.stripSuffix "Instance" t
-
--- | Get (normal) typeclass instances data. TODO: Correlate with
--- instance declarations via SrcSpan (like Haddock).
-getInstanceDocs :: DocCtx -> ClsInst -> InstanceDoc
-getInstanceDocs ctx ClsInst{..} =
-    let ty = varType is_dfun
-    in InstanceDoc
-        { id_context = typeToContext ctx ty
-        , id_type = typeToType ctx ty
-        , id_isOrphan = isOrphan is_orphan
-        }
-
-------------------------------------------------------------
--- Generating doc.s from parsed modules
-
-
--- render type variables as text (ignore kind information)
-tyVarText :: HsTyVarBndr GhcPs -> T.Text
-tyVarText arg = case arg of
-                  UserTyVar _ (L _ idp)         -> packRdrName idp
-                  KindedTyVar _ (L _ idp) _kind -> packRdrName idp
-                  XTyVarBndr _
-                    -> error "unexpected X thing"
-
-
--- | Converts and trims the bytestring of a doc. decl to Text.
-docToText :: HsDocString -> DocText
-docToText = DocText . T.strip . T.unlines . go . T.lines . T.pack . unpackHDS
-  where
-    -- For a haddock comment of the form
-    --
-    -- -- | First line
-    -- --   second line
-    -- --   third line
-    --
-    -- we strip all whitespace from the first line and then on the following
-    -- lines we strip at most as much whitespace as we find on the next
-    -- non-whitespace line. In the example above, this would result
-    -- in the string "First line\nsecond line\n third line".
-    -- Trailing whitespace is always stripped.
-    go :: [T.Text] -> [T.Text]
-    go [] = []
-    go (x:xs) = case span isWhitespace xs of
-      (_, []) -> [T.strip x]
-      (allWhitespace, ls@(firstNonWhitespace : _)) ->
-        let limit = T.length (T.takeWhile isSpace firstNonWhitespace)
-        in T.strip x : map (const "") allWhitespace ++ map (stripLine limit ) ls
-    isWhitespace = T.all isSpace
-    stripLine limit = T.stripEnd . stripLeading limit
-    stripLeading limit = T.pack . map snd . dropWhile (\(i, c) -> i < limit && isSpace c) . zip [0..] . T.unpack
-
--- | Turn an Id into Text by taking the unqualified name it represents.
-packId :: Id -> T.Text
-packId = packName . idName
-
--- | Turn a Name into Text by taking the unqualified name it represents.
-packName :: Name -> T.Text
-packName = packOccName . nameOccName
-
--- | Turn an OccName into Text by taking the unqualified name it represents.
-packOccName :: OccName -> T.Text
-packOccName = T.pack . occNameString
-
--- | Turn a RdrName into Text by taking the unqualified name it represents.
-packRdrName :: RdrName -> T.Text
-packRdrName = packOccName . rdrNameOcc
-
--- | Turn a FieldOcc into Text by taking the unqualified name it represents.
-packFieldOcc :: FieldOcc p -> T.Text
-packFieldOcc = packRdrName . unLoc . rdrNameFieldOcc
-
--- | Turn a TyLit into a text.
-packTyLit :: TyLit -> T.Text
-packTyLit (NumTyLit x) = T.pack (show x)
-packTyLit (StrTyLit x) = T.pack (show x)
-
--- | Turn a GHC Module into a Modulename. (Unlike the above functions,
--- we only ever want this to be a Modulename, so no reason to return
--- Text.)
-getModulename :: Module -> Modulename
-getModulename = Modulename . T.pack . moduleNameString . moduleName
-
----------------------------------------------------------------------
-
--- | Get package name from unit id.
-modulePackage :: Module -> Maybe Packagename
-modulePackage mod =
-    case moduleUnitId mod of
-        unitId@(DefiniteUnitId _) ->
-            Just . Packagename . T.pack . unitIdString $ unitId
-        _ -> Nothing
-
--- | Create an anchor from a TyCon.
-tyConAnchor :: DocCtx -> TyCon -> Maybe Anchor
-tyConAnchor DocCtx{..} tycon = do
-    let ghcName = tyConName tycon
-        name = Typename . packName $ ghcName
-        mod = maybe dc_modname getModulename (nameModule_maybe ghcName)
-        anchorFn
-            | isClassTyCon tycon = classAnchor
-            | otherwise = typeAnchor
-    Just (anchorFn mod name)
-
--- | Create a (possibly external) reference from a TyCon.
-tyConReference :: DocCtx -> TyCon -> Maybe Reference
-tyConReference ctx@DocCtx{..} tycon = do
-    referenceAnchor <- tyConAnchor ctx tycon
-    let ghcName = tyConName tycon
-        referencePackage = do
-            guard (not (nameIsHomePackage dc_ghcMod ghcName))
-            mod <- nameModule_maybe ghcName
-            modulePackage mod
-    Just Reference {..}
-
--- | Extract a potentially qualified typename from a TyCon.
-tyConTypename :: DocCtx -> TyCon -> Typename
-tyConTypename DocCtx{..} tycon =
-    let ExtractOptions{..} = dc_extractOptions
-        ghcName = tyConName tycon
-        qualify =
-            case eo_qualifyTypes of
-                QualifyTypesAlways -> True
-                QualifyTypesInPackage -> nameIsHomePackageImport dc_ghcMod ghcName
-                QualifyTypesNever -> False
-
-        moduleM = guard qualify >> nameModule_maybe ghcName
-        modNameM = getModulename <$> moduleM
-        simplifyModName
-            | eo_simplifyQualifiedTypes = dropCommonModulePrefix dc_modname
-            | otherwise = id
-        prefix = maybe "" ((<> ".") . unModulename . simplifyModName) modNameM
-    in Typename (prefix <> packName ghcName)
-
--- | Drop common module name prefix, returning the second module name
--- sans the module prefix it has in common with the first module name.
--- This will not return an empty module name however (unless given an
--- empty module name to start).
---
--- This function respects the atomicity of the module names between
--- periods. For instance @dropCommonModulePrefix "Foo.BarBaz" "Foo.BarSpam"@
--- will evaluate to @"BarSpam"@, not @"Spam"@.
-dropCommonModulePrefix :: Modulename -> Modulename -> Modulename
-dropCommonModulePrefix (Modulename baseMod) (Modulename targetMod) =
-    Modulename . T.intercalate "." $
-        aux (T.splitOn "." baseMod) (T.splitOn "." targetMod)
-  where
-    aux :: [T.Text] -> [T.Text] -> [T.Text]
-    aux _ [x] = [x]
-    aux (x:xs) (y:ys) | x == y = aux xs ys
-    aux _ p = p
-
----------------------------------------------------------------------
-
--- | Extract context from GHC type. Returns Nothing if there are no constraints.
-typeToContext :: DocCtx -> TyCoRep.Type -> Maybe DDoc.Type
-typeToContext dc ty =
-    let ctx = typeToConstraints dc ty
-    in guard (notNull ctx) >> Just (TypeTuple ctx)
-
--- | Is this type a constraint? Constraints are either typeclass constraints,
--- constraint tuples, or whatever else GHC decides is a constraint.
-isConstraintType :: TyCoRep.Type -> Bool
-isConstraintType = tcIsConstraintKind . Type.typeKind
-
--- | Extract constraints from GHC type, returning list of constraints.
-typeToConstraints :: DocCtx -> TyCoRep.Type -> [DDoc.Type]
-typeToConstraints dc = \case
-    FunTy a b | isConstraintType a ->
-        typeToType dc a : typeToConstraints dc b
-    FunTy _ b ->
-        typeToConstraints dc b
-    ForAllTy _ b -> -- TODO: I think forall can introduce constraints?
-        typeToConstraints dc b
-    _ -> []
-
-
--- | Convert GHC Type into a damldoc type, ignoring constraints.
-typeToType :: DocCtx -> TyCoRep.Type -> DDoc.Type
-typeToType ctx = \case
-    TyVarTy var -> TypeApp Nothing (Typename $ packId var) []
-
-    TyConApp tycon bs | isTupleTyCon tycon ->
-        TypeTuple (map (typeToType ctx) bs)
-
-    TyConApp tycon [b] | "[]" == packName (tyConName tycon) ->
-        TypeList (typeToType ctx b)
-
-    -- Special case for unsaturated (->) to remove the levity arguments.
-    TyConApp tycon (_:_:bs) | isFunTyCon tycon ->
-        TypeApp
-            Nothing
-            (Typename "->")
-            (map (typeToType ctx) bs)
-
-    TyConApp tycon bs ->
-        TypeApp
-            (tyConReference ctx tycon)
-            (tyConTypename ctx tycon)
-            (map (typeToType ctx) bs)
-
-    AppTy a b ->
-        case typeToType ctx a of
-            TypeApp m f bs -> TypeApp m f (bs <> [typeToType ctx b]) -- flatten app chains
-            TypeFun _ -> unexpected "function type in a type app"
-            TypeList _ -> unexpected "list type in a type app"
-            TypeTuple _ -> unexpected "tuple type in a type app"
-            TypeLit _ -> unexpected "type-level literal in a type app"
-
-    -- ignore context
-    ForAllTy _ b -> typeToType ctx b
-    FunTy a b | isConstraintType a ->
-        typeToType ctx b
-
-    FunTy a b ->
-        case typeToType ctx b of
-            TypeFun bs -> TypeFun (typeToType ctx a : bs) -- flatten function types
-            b' -> TypeFun [typeToType ctx a, b']
-
-    CastTy a _ -> typeToType ctx a
-    LitTy lit -> TypeLit (packTyLit lit)
-    CoercionTy _ -> unexpected "coercion" -- TODO?
-
-  where
-    -- | Unhandled case.
-    unexpected x = error $ "typeToType: found an unexpected " <> x
