@@ -33,9 +33,10 @@ diff="$3"
 TMP_SRC1=$(mktemp -d)
 TMP_SRC2=$(mktemp -d)
 TMP_OUT=$(mktemp -d)
+PROJDIR=$(mktemp -d)
 
 cleanup () {
-    rm -rf "$TMP_SRC1" "$TMP_SRC2" "$TMP_OUT"
+    rm -rf "$TMP_SRC1" "$TMP_SRC2" "$TMP_OUT" "$PROJDIR"
 }
 trap cleanup EXIT
 
@@ -62,3 +63,32 @@ $protoc --decode_raw < "$TMP_OUT/out_proj_2" > "$TMP_OUT/decoded_out_proj_2"
 $diff -u "$TMP_OUT/decoded_out_proj_1" "$TMP_OUT/decoded_out_proj_2"
 $diff -u "$TMP_OUT/out_proj_1" "$TMP_OUT/out_proj_2"
 
+# Check that daml build is deterministic.
+# This includes things like the ZIP timestamps
+# in a DAR instead of just the package id.
+
+cat <<EOF > "$PROJDIR/daml.yaml"
+sdk-version: 0.0.0
+name: proj
+version: 0.0.1
+source: .
+dependencies: [daml-prim, daml-stdlib]
+EOF
+
+cat <<EOF > "$PROJDIR/A.daml"
+daml 1.2
+module A where
+EOF
+
+$damlc build --project-root "$PROJDIR" -o "$PROJDIR/out.dar"
+FIRST_SHA=$(sha256sum $PROJDIR/out.dar)
+
+$damlc build --project-root "$PROJDIR" -o "$PROJDIR/out.dar"
+SECOND_SHA=$(sha256sum $PROJDIR/out.dar)
+
+if [[ $FIRST_SHA != $SECOND_SHA ]]; then
+    echo "daml build was non-deterministic: "
+    echo "$FIRST_SHA"
+    echo "$SECOND_SHA"
+    exit 1
+fi

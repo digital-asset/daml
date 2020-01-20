@@ -23,6 +23,7 @@ import Control.Monad.Extra
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Maybe
+import Control.Monad.Trans.Resource (ResourceT)
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Proto3.Archive (encodeArchiveAndHash)
 import DA.Daml.LF.Reader (readDalfManifest, packageName)
@@ -32,6 +33,7 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSC
 import qualified Data.ByteString.Lazy.UTF8 as BSLUTF8
+import Data.Conduit (ConduitT)
 import Data.Conduit.Combinators (sourceFile, sourceLazy)
 import Data.List.Extra
 import qualified Data.Map.Strict as Map
@@ -39,6 +41,7 @@ import Data.Maybe
 import qualified Data.NameMap as NM
 import qualified Data.Set as S
 import qualified Data.Text as T
+import Data.Time
 import Development.IDE.Core.API
 import Development.IDE.Core.Service (getIdeOptions)
 import Development.IDE.Core.RuleTypes.Daml
@@ -325,6 +328,19 @@ mkConfFile PackageConfigFields {..} pkgModuleNames pkgId = do
             , "depends: " ++ unwords deps
             ]
 
+sinkEntryDeterministic
+    :: Zip.CompressionMethod
+    -> ConduitT () BS.ByteString (ResourceT IO) ()
+    -> Zip.EntrySelector
+    -> Zip.ZipArchive ()
+sinkEntryDeterministic compression sink sel = do
+    Zip.sinkEntry compression sink sel
+    Zip.setModTime fixedTime sel
+  -- The ZIP file format uses the MS-DOS timestamp format
+  -- (I didn’t even knew that existed) which starts at
+  -- 1980 rather than 1970.
+  where fixedTime = UTCTime (fromGregorian 1980 1 1) 0
+
 -- | Helper to bundle up all files into a DAR.
 createArchive ::
        PackageConfigFields
@@ -343,13 +359,13 @@ createArchive PackageConfigFields {..} pkgId dalf dalfDependencies srcRoot fileD
     -- is modified to have prefix <name-hash> instead of the original root path.
     forM_ fileDependencies $ \mPath -> do
         entry <- Zip.mkEntrySelector $ pkgName </> fromNormalizedFilePath (makeRelative' srcRoot mPath)
-        Zip.sinkEntry Zip.Deflate (sourceFile $ fromNormalizedFilePath mPath) entry
+        sinkEntryDeterministic Zip.Deflate (sourceFile $ fromNormalizedFilePath mPath) entry
     forM_ ifaces $ \mPath -> do
         let ifaceRoot =
                 toNormalizedFilePath
                     (ifaceDir </> fromNormalizedFilePath srcRoot)
         entry <- Zip.mkEntrySelector $ pkgName </> fromNormalizedFilePath (makeRelative' ifaceRoot mPath)
-        Zip.sinkEntry Zip.Deflate (sourceFile $ fromNormalizedFilePath mPath) entry
+        sinkEntryDeterministic Zip.Deflate (sourceFile $ fromNormalizedFilePath mPath) entry
     let dalfName = pkgName </> pkgNameVersion pName pVersion <> "-" <> pkgId <.> "dalf"
     let dependencies =
             [ (pkgName </> T.unpack depName <> "-" <> (T.unpack $ LF.unPackageId depPkgId) <> ".dalf", BSL.fromStrict bs)
@@ -367,7 +383,7 @@ createArchive PackageConfigFields {..} pkgId dalf dalfDependencies srcRoot fileD
             dependencies ++ dataFiles'
     forM_ allFiles $ \(file, content) -> do
         entry <- Zip.mkEntrySelector file
-        Zip.sinkEntry Zip.Deflate (sourceLazy content) entry
+        sinkEntryDeterministic Zip.Deflate (sourceLazy content) entry
   where
     pkgName = fullPkgName pName pVersion pkgId
     manifestHeader :: FilePath -> [String] -> BSL.ByteString

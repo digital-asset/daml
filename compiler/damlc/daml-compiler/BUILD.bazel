@@ -23,6 +23,7 @@ da_haskell_library(
         "haskell-lsp",
         "lens",
         "mtl",
+        "resourcet",
         "safe",
         "safe-exceptions",
         "shake",

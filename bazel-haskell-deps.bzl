@@ -476,6 +476,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "range-set-list",
             "recursion-schemes",
             "regex-tdfa",
+            "resourcet",
             "retry",
             "rope-utf16-splay",
             "safe",
