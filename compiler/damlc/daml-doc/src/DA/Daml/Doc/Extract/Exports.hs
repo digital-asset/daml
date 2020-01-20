@@ -10,6 +10,7 @@ module DA.Daml.Doc.Extract.Exports
     , exportsConstr
     , exportsFunction
     , exportsField
+    , filterTypeByExports
     ) where
 
 import DA.Daml.Doc.Types as DD
@@ -21,6 +22,8 @@ import "ghc-lib-parser" OccName
 import "ghc-lib-parser" FieldLabel
 import "ghc-lib-parser" FastString
 
+import Control.Monad (guard)
+import Data.Maybe (mapMaybe)
 import qualified Data.Set as Set
 import qualified Data.Text as T
 
@@ -114,3 +117,24 @@ exportsField ExportEverything _ _ = True
 exportsField (ExportOnly xs) ty field =
     Set.member (ExportedTypeAll ty) xs
     || Set.member (ExportedFunction field) xs
+
+filterTypeByExports :: ExportSet -> ADTDoc -> Maybe ADTDoc
+filterTypeByExports exports ad = do
+    guard (exportsType exports (ad_name ad))
+    case ad of
+        TypeSynDoc{} -> Just ad
+        ADTDoc{..} -> Just (ad { ad_constrs = mapMaybe filterConstr ad_constrs })
+
+  where
+
+    filterConstr :: ADTConstr -> Maybe ADTConstr
+    filterConstr ac = do
+        guard (exportsConstr exports (ad_name ad) (ac_name ac))
+        case ac of
+            PrefixC{} -> Just ac
+            RecordC{..} -> Just ac { ac_fields = mapMaybe filterFields ac_fields }
+
+    filterFields :: FieldDoc -> Maybe FieldDoc
+    filterFields fd@FieldDoc{..} = do
+        guard (exportsField exports (ad_name ad) fd_name)
+        Just fd

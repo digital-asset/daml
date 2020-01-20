@@ -70,7 +70,8 @@ extractDocs extractOpts diagsLogger ideOpts fp = do
 
     mkModuleDocs :: Service.TcModuleResult -> ModuleDoc
     mkModuleDocs tmr =
-        let ctx@DocCtx{..} = buildDocCtx extractOpts (Service.tmrModule tmr)
+        let tcmod = Service.tmrModule tmr
+            ctx@DocCtx{..} = buildDocCtx extractOpts tcmod
             typeMap = MS.fromList $ mapMaybe (getTypeDocs ctx) dc_decls
             classDocs = mapMaybe (getClsDocs ctx) dc_decls
 
@@ -83,7 +84,7 @@ extractDocs extractOpts diagsLogger ideOpts fp = do
 
             md_name = dc_modname
             md_anchor = Just (moduleAnchor md_name)
-            md_descr = modDoc dc_tcmod
+            md_descr = modDoc tcmod
             md_templates = getTemplateDocs ctx typeMap templateInstanceClassMap
             md_functions = mapMaybe (getFctDocs ctx) dc_decls
             md_instances = map (getInstanceDocs ctx) dc_insts
@@ -94,7 +95,7 @@ extractDocs extractOpts diagsLogger ideOpts fp = do
                 = MS.elems . MS.withoutKeys typeMap . Set.unions
                 $ dc_templates : MS.elems dc_choices
 
-            md_adts = mapMaybe (filterTypeByExports ctx) adts
+            md_adts = mapMaybe (filterTypeByExports dc_exports) adts
 
         in ModuleDoc {..}
 
@@ -111,7 +112,11 @@ collectDocs ds
   where
 
     joinDocs :: [DocText] -> [DocText] -> Maybe DocText
-    joinDocs nextDocs prevDocs = toDocText (map unDocText (nextDocs ++ prevDocs))
+    joinDocs nextDocs prevDocs =
+        let docs = map unDocText (nextDocs ++ prevDocs)
+        in if null docs
+            then Nothing
+            else Just . DocText . T.strip $ T.unlines docs
 
     getNextOrPrevDoc :: LHsDecl a -> Maybe DocText
     getNextOrPrevDoc = \case
@@ -126,9 +131,9 @@ collectDocs ds
         _ -> Nothing
 
 buildDocCtx :: ExtractOptions -> TypecheckedModule -> DocCtx
-buildDocCtx dc_extractOptions dc_tcmod  =
-    let parsedMod = tm_parsed_module dc_tcmod
-        checkedModInfo = tm_checked_module_info dc_tcmod
+buildDocCtx dc_extractOptions tcmod  =
+    let parsedMod = tm_parsed_module tcmod
+        checkedModInfo = tm_checked_module_info tcmod
         dc_ghcMod = ms_mod $ pm_mod_summary parsedMod
         dc_modname = getModulename dc_ghcMod
         dc_decls
@@ -184,12 +189,6 @@ haddockParse diagsLogger opts f = MaybeT $ do
                 -- The DAML compiler always parses with Opt_Haddock on
 
 ------------------------------------------------------------
-
-toDocText :: [T.Text] -> Maybe DocText
-toDocText docs =
-    if null docs
-        then Nothing
-        else Just . DocText . T.strip . T.unlines $ docs
 
 -- | Extracts the documentation of a function. Comments are either
 --   adjacent to a type signature, or to the actual function definition. If
@@ -383,24 +382,3 @@ getTypeDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ decl)) doc)
     fieldDoc (_, L _ XConDeclField{}) = Nothing
 
 getTypeDocs _ _other = Nothing
-
-filterTypeByExports :: DocCtx -> ADTDoc -> Maybe ADTDoc
-filterTypeByExports DocCtx{..} ad = do
-    guard (exportsType dc_exports (ad_name ad))
-    case ad of
-        TypeSynDoc{} -> Just ad
-        ADTDoc{..} -> Just (ad { ad_constrs = mapMaybe filterConstr ad_constrs })
-
-  where
-
-    filterConstr :: ADTConstr -> Maybe ADTConstr
-    filterConstr ac = do
-        guard (exportsConstr dc_exports (ad_name ad) (ac_name ac))
-        case ac of
-            PrefixC{} -> Just ac
-            RecordC{..} -> Just ac { ac_fields = mapMaybe filterFields ac_fields }
-
-    filterFields :: FieldDoc -> Maybe FieldDoc
-    filterFields fd@FieldDoc{..} = do
-        guard (exportsField dc_exports (ad_name ad) fd_name)
-        Just fd

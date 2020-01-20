@@ -42,8 +42,6 @@ data DocCtx = DocCtx
         -- ^ ghc name for current module
     , dc_modname :: Modulename
         -- ^ name of the current module
-    , dc_tcmod :: TypecheckedModule
-        -- ^ typechecked module
     , dc_decls :: [DeclData]
         -- ^ module declarations
     , dc_insts :: [ClsInst]
