@@ -84,7 +84,7 @@ private[kvutils] object InputsAndEffects {
             case create: NodeCreate[ContractId, VersionedValue[ContractId]] =>
               create.key.fold(inputs) { keyWithM =>
                 inputs + contractKeyToStateKey(
-                  GlobalKey(create.coinst.template, forceAbsoluteContractIds(keyWithM.key)))
+                  GlobalKey(create.coinst.template, forceNoContractIds(keyWithM.key)))
               } ++ partyInputs(create.signatories) ++ partyInputs(create.stakeholders)
             case exe: NodeExercises[_, ContractId, _] =>
               inputs ++ contractInputs(exe.targetCoid) ++ partyInputs(exe.stakeholders) ++ partyInputs(
@@ -93,7 +93,7 @@ private[kvutils] object InputsAndEffects {
               // We need both the contract key state and the contract state. The latter is used to verify
               // that the submitter can access the contract.
               l.result.fold(inputs)(inputs ++ contractInputs(_)) +
-                contractKeyToStateKey(GlobalKey(l.templateId, forceAbsoluteContractIds(l.key.key)))
+                contractKeyToStateKey(GlobalKey(l.templateId, forceNoContractIds(l.key.key)))
           }
       }
       .toList
@@ -120,7 +120,7 @@ private[kvutils] object InputsAndEffects {
                       (contractKeyToStateKey(
                         GlobalKey(
                           create.coinst.template,
-                          forceAbsoluteContractIds(keyWithMaintainers.key))) ->
+                          forceNoContractIds(keyWithMaintainers.key))) ->
                         DamlContractKeyState.newBuilder
                           .setContractId(encodeRelativeContractId(
                             entryId,
@@ -143,7 +143,7 @@ private[kvutils] object InputsAndEffects {
                     key =>
                       effects.updatedContractKeys +
                         (contractKeyToStateKey(
-                          GlobalKey(exe.templateId, forceAbsoluteContractIds(key))) ->
+                          GlobalKey(exe.templateId, forceNoContractIds(key.key))) ->
                           DamlContractKeyState.newBuilder.build)
                   )
               )

@@ -116,7 +116,7 @@ object ActiveLedgerState {
       contract: ContractInst[VersionedValue[AbsoluteContractId]],
       witnesses: Set[Party],
       divulgences: Map[Party, TransactionIdString], // for each party, the transaction id at which the contract was divulged
-      key: Option[KeyWithMaintainers[VersionedValue[AbsoluteContractId]]],
+      key: Option[KeyWithMaintainers[VersionedValue[Nothing]]],
       signatories: Set[Party],
       observers: Set[Party],
       agreementText: String)

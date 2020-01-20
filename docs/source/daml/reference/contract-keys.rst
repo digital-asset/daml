@@ -19,7 +19,7 @@ Here's an example of setting up a contract key for a bank account, to act as a b
 What can be a contract key
 **************************
 
-The key can be an arbitrary expression but it **must** include every party that you want to use as a ``maintainer`` (see `Specifying maintainers`_ below).
+The key can be an arbitrary expression that does **not** contain contract IDs. However, it **must** include every party that you want to use as a ``maintainer`` (see `Specifying maintainers`_ below).
 
 It's best to use simple types for your keys like ``Text`` or ``Int``, rather than a list or more complex type.
 

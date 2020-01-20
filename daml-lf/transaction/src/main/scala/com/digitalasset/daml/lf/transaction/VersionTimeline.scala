@@ -55,6 +55,7 @@ private[digitalasset] object VersionTimeline {
       This(That(TransactionVersion("8"))),
       Both(This(ValueVersion("5")), LanguageVersion(LMV.V1, "6")),
       Both(This(ValueVersion("6")), LanguageVersion(LMV.V1, "7")),
+      This(That(TransactionVersion("9"))),
       // FIXME https://github.com/digital-asset/daml/issues/2256
       //  * change the following line when LF 1.8 is frozen.
       //  * do not insert line after this once until 1.8 is frozen.

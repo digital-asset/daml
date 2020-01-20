@@ -4,7 +4,7 @@
 DAML-LF Transaction Specification
 =================================
 
-**version 8, 26 June 2019**
+**version 9, 13 January 2020**
 
 This specification, in concert with the ``transaction.proto``
 machine-readable definition, defines a format for _transactions_, to be
@@ -161,6 +161,8 @@ This table lists every version of this specification in ascending order
 +--------------------+-----------------+
 |                  8 |      2019-06-26 |
 +--------------------+-----------------+
+|                  9 |      2020-01-13 |
++--------------------+-----------------+
 
 message Transaction
 ^^^^^^^^^^^^^^^^^^^
@@ -281,6 +283,9 @@ In this version, these fields are included:
 ``key`` is required.
 
 ``maintainers`` must be non-empty.
+
+The key may not contain contract IDs.
+
 
 message NodeCreate
 ^^^^^^^^^^^^^^^^^^
@@ -501,7 +506,14 @@ Containing the result of the exercised choice.
 *since version 8*
 
 New optional field `contract_key` is now set when the exercised
-contract has a contract key defined.
+contract has a contract key defined. The key may not contain contract IDs.
+
+*since version 9*
+
+New optional field `key_with_maintainers` is now set when the exercised
+contract has a contract key defined. The `contract_key` field is
+not used any more.
+
 
 message NodeLookupByKey
 ^^^^^^^^^^^^^^^^^^^^^^^

@@ -160,7 +160,8 @@ class ActiveLedgerStateManager[ALS](initialState: => ALS)(
                     .getOrElse(nodeId, Set.empty) diff nc.stakeholders).toList
                     .map(p => p -> transactionId)
                     .toMap,
-                  key = nc.key,
+                  key = nc.key.map(_.mapValue(_.mapContractId(coid =>
+                    throw new IllegalStateException(s"Contract ID $coid found in contract key")))),
                   signatories = nc.signatories,
                   observers = nc.stakeholders.diff(nc.signatories),
                   agreementText = nc.coinst.agreementText
@@ -202,7 +203,9 @@ class ActiveLedgerStateManager[ALS](initialState: => ALS)(
                 )
               case nlkup: N.NodeLookupByKey.WithTxValue[AbsoluteContractId] =>
                 // Check that the stored lookup result matches the current result
-                val gk = GlobalKey(nlkup.templateId, nlkup.key.key)
+                val key = nlkup.key.key.mapContractId(coid =>
+                  throw new IllegalStateException(s"Contract ID $coid found in contract key"))
+                val gk = GlobalKey(nlkup.templateId, key)
                 val nodeParties = nlkup.key.maintainers
 
                 submitter match {

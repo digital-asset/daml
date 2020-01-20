@@ -1356,6 +1356,7 @@ private class JdbcLedgerDao(
             val keyValue = valueSerializer
               .deserializeValue(ByteStreams.toByteArray(keyStream))
               .getOrElse(sys.error(s"failed to deserialize key value! cid:$coid"))
+              .mapContractId(coid => sys.error(s"Found contract ID $coid in a contract key"))
             KeyWithMaintainers(keyValue, keyMaintainers)
           }),
           signatories,

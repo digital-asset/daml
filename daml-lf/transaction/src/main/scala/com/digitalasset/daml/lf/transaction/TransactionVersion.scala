@@ -4,6 +4,7 @@
 package com.digitalasset.daml.lf
 package transaction
 
+import com.digitalasset.daml.lf.transaction.Node.KeyWithMaintainers
 import com.digitalasset.daml.lf.value.Value.VersionedValue
 import com.digitalasset.daml.lf.value.ValueVersion
 
@@ -22,6 +23,7 @@ object TransactionVersions
   private[transaction] val minNoControllers = TransactionVersion("6")
   private[transaction] val minExerciseResult = TransactionVersion("7")
   private[transaction] val minContractKeyInExercise = TransactionVersion("8")
+  private[transaction] val minMaintainersInExercise = TransactionVersion("9")
 
   def assignVersion(a: GenTransaction[_, _, _ <: VersionedValue[_]]): TransactionVersion = {
     require(a != null)
@@ -59,6 +61,17 @@ object TransactionVersions
             case _ => false
           })
         minContractKeyInExercise
+      else minVersion,
+      if (a.nodes.values
+          .exists {
+            case ne: Node.NodeExercises[_, _, _] =>
+              ne.key match {
+                case Some(KeyWithMaintainers(key @ _, maintainers)) => maintainers.nonEmpty
+                case _ => false
+              }
+            case _ => false
+          })
+        minMaintainersInExercise
       else minVersion,
     )
   }

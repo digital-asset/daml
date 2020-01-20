@@ -338,6 +338,7 @@ object ValueGenerators {
         .map(ImmArray(_))
       exerciseResultValue <- versionedValueGen
       key <- versionedValueGen
+      maintainers <- genNonEmptyParties
     } yield
       NodeExercises(
         targetCoid,
@@ -352,7 +353,7 @@ object ValueGenerators {
         actingParties,
         children,
         Some(exerciseResultValue),
-        Some(key)
+        Some(KeyWithMaintainers(key, maintainers))
       )
   }
 

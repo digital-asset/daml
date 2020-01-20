@@ -16,7 +16,6 @@ import scala.annotation.tailrec
 import scala.annotation.unchecked.uncheckedVariance
 import scala.collection.breakOut
 import scala.collection.immutable.{SortedMap, TreeMap}
-import scala.util.Try
 
 case class VersionedTransaction[Nid, Cid](
     version: TransactionVersion,
@@ -455,7 +454,7 @@ object Transaction {
   case class ExercisesContext(
       targetId: TContractId,
       templateId: TypeConName,
-      contractKey: Option[Value[TContractId]],
+      contractKey: Option[KeyWithMaintainers[Value[Nothing]]],
       choiceId: ChoiceName,
       optLocation: Option[Location],
       consuming: Boolean,
@@ -587,7 +586,7 @@ object Transaction {
         optLocation: Option[Location],
         signatories: Set[Party],
         stakeholders: Set[Party],
-        key: Option[KeyWithMaintainers[Value[TContractId]]]
+        key: Option[KeyWithMaintainers[Value[Nothing]]]
     ): Either[String, (TContractId, PartialTransaction)] = {
       val serializableErrs = serializable(coinst.arg)
       if (serializableErrs.nonEmpty) {
@@ -610,19 +609,9 @@ object Transaction {
         // active keys
         key match {
           case None => Right((cid, ptx))
-          case Some(k) =>
-            // TODO is there a nicer way of doing this?
-            val mbNoRels =
-              Try(k.key.mapContractId {
-                case abs: AbsoluteContractId => abs
-                case rel: RelativeContractId =>
-                  throw new RuntimeException(
-                    s"Trying to create contract key with relative contract id $rel")
-              }).toEither.left.map(_.getMessage)
-            mbNoRels.map { noRels =>
-              val gk = GlobalKey(coinst.template, noRels)
-              (cid, ptx.copy(keys = ptx.keys.updated(gk, Some(cid))))
-            }
+          case Some(kWithM) =>
+            val ck = GlobalKey(coinst.template, kWithM.key)
+            Right((cid, ptx.copy(keys = ptx.keys.updated(ck, Some(cid)))))
         }
       }
     }
@@ -654,7 +643,7 @@ object Transaction {
     def insertLookup(
         templateId: TypeConName,
         optLocation: Option[Location],
-        key: KeyWithMaintainers[Value.VersionedValue[Nothing]],
+        key: KeyWithMaintainers[Value[Nothing]],
         result: Option[TContractId]
     ): PartialTransaction =
       insertLeafNode(_ => NodeLookupByKey(templateId, optLocation, key, result))._2
@@ -669,7 +658,7 @@ object Transaction {
         signatories: Set[Party],
         stakeholders: Set[Party],
         controllers: Set[Party],
-        mbKey: Option[Value[AbsoluteContractId]],
+        mbKey: Option[KeyWithMaintainers[Value[Nothing]]],
         chosenValue: Value[TContractId]
     ): Either[String, PartialTransaction] = {
       val serializableErrs = serializable(chosenValue)
@@ -705,7 +694,8 @@ object Transaction {
               // inactive as soon as you exercise it. therefore, mark it as consumed now.
               consumedBy = if (consuming) consumedBy.updated(targetId, nextNodeId) else consumedBy,
               keys = mbKey match {
-                case Some(key) if consuming => keys.updated(GlobalKey(templateId, key), None)
+                case Some(kWithM) if consuming =>
+                  keys.updated(GlobalKey(templateId, kWithM.key), None)
                 case _ => keys
               },
             )
