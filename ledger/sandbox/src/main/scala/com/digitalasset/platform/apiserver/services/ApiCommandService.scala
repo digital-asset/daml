@@ -29,30 +29,32 @@ import com.digitalasset.ledger.client.services.commands.{
 import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.platform.apiserver.services.tracking.{TrackerImpl, TrackerMap}
 import com.digitalasset.platform.apiserver.services.ApiCommandService.LowLevelCommandServiceAccess
+import com.digitalasset.platform.logging.{ContextualizedLogger, LoggingContext, PassThroughLogger}
 import com.digitalasset.platform.server.api.ApiException
 import com.digitalasset.platform.server.api.services.grpc.GrpcCommandService
 import com.digitalasset.util.Ctx
 import com.digitalasset.util.akkastreams.MaxInFlight
 import com.google.protobuf.empty.Empty
 import io.grpc._
-import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.Try
 
-class ApiCommandService private (
+final class ApiCommandService private (
     lowLevelCommandServiceAccess: LowLevelCommandServiceAccess,
     configuration: ApiCommandService.Configuration,
 )(
     implicit grpcExecutionContext: ExecutionContext,
     actorMaterializer: Materializer,
-    esf: ExecutionSequencerFactory)
+    esf: ExecutionSequencerFactory,
+    logCtx: LoggingContext)
     extends CommandServiceGrpc.CommandService
     with AutoCloseable {
 
-  private val logger = LoggerFactory.getLogger(this.getClass)
+  private val logger = ContextualizedLogger.get[this.type]
+  private val logging = PassThroughLogger.wrap(logger)
 
   private type CommandId = String
   private type ApplicationId = String
@@ -124,40 +126,44 @@ class ApiCommandService private (
     }
   }
 
-  override def submitAndWait(request: SubmitAndWaitRequest): Future[Empty] = {
-    submitAndWaitInternal(request).map(_ => Empty.defaultInstance)
-  }
+  override def submitAndWait(request: SubmitAndWaitRequest): Future[Empty] =
+    logging {
+      submitAndWaitInternal(request).map(_ => Empty.defaultInstance)
+    }
 
   override def submitAndWaitForTransactionId(
-      request: SubmitAndWaitRequest): Future[SubmitAndWaitForTransactionIdResponse] = {
-    submitAndWaitInternal(request).map { compl =>
-      SubmitAndWaitForTransactionIdResponse(compl.transactionId)
+      request: SubmitAndWaitRequest): Future[SubmitAndWaitForTransactionIdResponse] =
+    logging {
+      submitAndWaitInternal(request).map { compl =>
+        SubmitAndWaitForTransactionIdResponse(compl.transactionId)
+      }
     }
-  }
 
   override def submitAndWaitForTransaction(
-      request: SubmitAndWaitRequest): Future[SubmitAndWaitForTransactionResponse] = {
-    submitAndWaitInternal(request).flatMap { resp =>
-      val txRequest = GetTransactionByIdRequest(
-        request.getCommands.ledgerId,
-        resp.transactionId,
-        List(request.getCommands.party))
-      flatById(txRequest).map(resp => SubmitAndWaitForTransactionResponse(resp.transaction))
+      request: SubmitAndWaitRequest): Future[SubmitAndWaitForTransactionResponse] =
+    logging {
+      submitAndWaitInternal(request).flatMap { resp =>
+        val txRequest = GetTransactionByIdRequest(
+          request.getCommands.ledgerId,
+          resp.transactionId,
+          List(request.getCommands.party))
+        flatById(txRequest).map(resp => SubmitAndWaitForTransactionResponse(resp.transaction))
 
+      }
     }
-  }
 
   override def submitAndWaitForTransactionTree(
-      request: SubmitAndWaitRequest): Future[SubmitAndWaitForTransactionTreeResponse] = {
-    submitAndWaitInternal(request).flatMap { resp =>
-      val txRequest = GetTransactionByIdRequest(
-        request.getCommands.ledgerId,
-        resp.transactionId,
-        List(request.getCommands.party))
+      request: SubmitAndWaitRequest): Future[SubmitAndWaitForTransactionTreeResponse] =
+    logging {
+      submitAndWaitInternal(request).flatMap { resp =>
+        val txRequest = GetTransactionByIdRequest(
+          request.getCommands.ledgerId,
+          resp.transactionId,
+          List(request.getCommands.party))
 
-      treeById(txRequest).map(resp => SubmitAndWaitForTransactionTreeResponse(resp.transaction))
+        treeById(txRequest).map(resp => SubmitAndWaitForTransactionTreeResponse(resp.transaction))
+      }
     }
-  }
 
   override def toString: String = ApiCommandService.getClass.getSimpleName
 
@@ -182,12 +188,13 @@ object ApiCommandService {
   )(
       implicit grpcExecutionContext: ExecutionContext,
       actorMaterializer: Materializer,
-      esf: ExecutionSequencerFactory
-  ): CommandServiceGrpc.CommandService with GrpcApiService with CommandServiceLogging =
+      esf: ExecutionSequencerFactory,
+      logCtx: LoggingContext
+  ): CommandServiceGrpc.CommandService with GrpcApiService =
     new GrpcCommandService(
       new ApiCommandService(svcAccess, configuration),
       configuration.ledgerId
-    ) with CommandServiceLogging
+    )
 
   final case class Configuration(
       ledgerId: LedgerId,

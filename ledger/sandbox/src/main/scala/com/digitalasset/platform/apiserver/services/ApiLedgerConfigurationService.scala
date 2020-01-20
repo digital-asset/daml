@@ -13,30 +13,35 @@ import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.v1.ledger_configuration_service._
 import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.dec.DirectExecutionContext
+import com.digitalasset.platform.logging.{LoggingContext, PassThroughLogger}
 import com.digitalasset.platform.server.api.validation.LedgerConfigurationServiceValidation
 import io.grpc.{BindableService, ServerServiceDefinition}
-import org.slf4j.{Logger, LoggerFactory}
 
 import scala.concurrent.ExecutionContext
 
-class ApiLedgerConfigurationService private (configurationService: IndexConfigurationService)(
+final class ApiLedgerConfigurationService private (configurationService: IndexConfigurationService)(
     implicit protected val esf: ExecutionSequencerFactory,
-    protected val mat: Materializer)
+    protected val mat: Materializer,
+    logCtx: LoggingContext)
     extends LedgerConfigurationServiceAkkaGrpc
     with GrpcApiService {
 
+  private val logging = PassThroughLogger.get[this.type]
+
   override protected def getLedgerConfigurationSource(
       request: GetLedgerConfigurationRequest): Source[GetLedgerConfigurationResponse, NotUsed] =
-    configurationService
-      .getLedgerConfiguration()
-      .map(
-        configuration =>
-          GetLedgerConfigurationResponse(
-            Some(
-              LedgerConfiguration(
-                Some(toProto(configuration.minTTL)),
-                Some(toProto(configuration.maxTTL))
-              ))))
+    logging {
+      configurationService
+        .getLedgerConfiguration()
+        .map(
+          configuration =>
+            GetLedgerConfigurationResponse(
+              Some(
+                LedgerConfiguration(
+                  Some(toProto(configuration.minTTL)),
+                  Some(toProto(configuration.maxTTL))
+                ))))
+    }
 
   override def bindService(): ServerServiceDefinition =
     LedgerConfigurationServiceGrpc.bindService(this, DirectExecutionContext)
@@ -46,14 +51,12 @@ object ApiLedgerConfigurationService {
   def create(ledgerId: LedgerId, configurationService: IndexConfigurationService)(
       implicit ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
-      mat: Materializer): LedgerConfigurationServiceGrpc.LedgerConfigurationService
-    with GrpcApiService
-    with LedgerConfigurationServiceLogging =
+      mat: Materializer,
+      logCtx: LoggingContext)
+    : LedgerConfigurationServiceGrpc.LedgerConfigurationService with GrpcApiService =
     new LedgerConfigurationServiceValidation(
       new ApiLedgerConfigurationService(configurationService),
-      ledgerId) with BindableService with LedgerConfigurationServiceLogging {
-      override protected val logger: Logger =
-        LoggerFactory.getLogger(ApiLedgerConfigurationService.getClass)
+      ledgerId) with BindableService {
       override def bindService(): ServerServiceDefinition =
         LedgerConfigurationServiceGrpc.bindService(this, DirectExecutionContext)
     }

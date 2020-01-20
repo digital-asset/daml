@@ -27,7 +27,6 @@ import com.digitalasset.daml.lf.transaction.{BlindingInfo, Transaction}
 import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.ledger.api.domain.{LedgerId, Commands => ApiCommands}
 import com.digitalasset.ledger.api.messages.command.submission.SubmitRequest
-import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissionServiceLogging
 import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.platform.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.sandbox.metrics.timedFuture
@@ -57,8 +56,7 @@ object ApiSubmissionService {
       metrics: MetricRegistry)(
       implicit ec: ExecutionContext,
       mat: Materializer,
-      logCtx: LoggingContext)
-    : GrpcCommandSubmissionService with GrpcApiService with CommandSubmissionServiceLogging =
+      logCtx: LoggingContext): GrpcCommandSubmissionService with GrpcApiService =
     new GrpcCommandSubmissionService(
       new ApiSubmissionService(
         contractStore,
@@ -68,7 +66,7 @@ object ApiSubmissionService {
         commandExecutor,
         metrics),
       ledgerId
-    ) with CommandSubmissionServiceLogging
+    )
 
   object RecordUpdate {
     def apply(views: Either[LfError, (Transaction, BlindingInfo)]): RecordUpdate = views
@@ -76,7 +74,7 @@ object ApiSubmissionService {
 
 }
 
-class ApiSubmissionService private (
+final class ApiSubmissionService private (
     contractStore: ContractStore,
     writeService: WriteService,
     timeModel: TimeModel,

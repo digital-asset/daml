@@ -1,17 +1,16 @@
 // Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.participant.util
+package com.digitalasset.platform.logging
 
 import akka.stream._
 import akka.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
-import org.slf4j.Logger
 
-final case class Slf4JLog[T, U](
-    logger: Logger,
+final class ContextualizedLog[T, U] private (
+    logger: ContextualizedLogger,
     prefix: String,
     project: T => U,
-    logDemand: Boolean = false)
+    logDemand: Boolean = false)(implicit val logCtx: LoggingContext)
     extends GraphStage[FlowShape[T, T]] {
 
   override def toString = "Slf4JLog"
@@ -27,12 +26,12 @@ final case class Slf4JLog[T, U](
       override def onPush(): Unit = {
 
         val elem = grab(in)
-        if (logger.isDebugEnabled) logger.debug("[{}] Element: {}", prefix, project(elem))
+        logger.debug(s"[$prefix] Element: ${project(elem)}")
         push(out, elem)
       }
 
       override def onPull(): Unit = {
-        if (logDemand) logger.debug("[{}] Demand", prefix)
+        if (logDemand) logger.debug(s"[$prefix] Demand")
         pull(in)
       }
 
@@ -43,13 +42,13 @@ final case class Slf4JLog[T, U](
       }
 
       override def onUpstreamFinish(): Unit = {
-        logger.debug("[{}] Upstream finished.", prefix)
+        logger.debug(s"[$prefix] Upstream finished.")
 
         super.onUpstreamFinish()
       }
 
       override def onDownstreamFinish(cause: Throwable): Unit = {
-        logger.debug("[{}] Downstream finished.", prefix)
+        logger.debug(s"[$prefix] Downstream finished.")
 
         super.onDownstreamFinish(cause)
       }
@@ -58,9 +57,11 @@ final case class Slf4JLog[T, U](
     }
 }
 
-object Slf4JLog {
-  def apply[T](logger: Logger, prefix: String): Slf4JLog[T, T] =
-    new Slf4JLog(logger, prefix, identity)
-  def apply[T](logger: Logger, prefix: String, logDemand: Boolean): Slf4JLog[T, T] =
-    new Slf4JLog(logger, prefix, identity, logDemand)
+object ContextualizedLog {
+  def apply[T](logger: ContextualizedLogger, prefix: String)(
+      implicit logCtx: LoggingContext): ContextualizedLog[T, T] =
+    new ContextualizedLog(logger, prefix, identity)
+  def apply[T](logger: ContextualizedLogger, prefix: String, logDemand: Boolean)(
+      implicit logCtx: LoggingContext): ContextualizedLog[T, T] =
+    new ContextualizedLog(logger, prefix, identity, logDemand)
 }

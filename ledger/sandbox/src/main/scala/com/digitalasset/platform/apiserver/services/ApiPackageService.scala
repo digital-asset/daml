@@ -15,49 +15,60 @@ import com.digitalasset.ledger.api.v1.package_service.PackageServiceGrpc.Package
 import com.digitalasset.ledger.api.v1.package_service.{HashFunction => APIHashFunction, _}
 import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.dec.{DirectExecutionContext => DEC}
+import com.digitalasset.platform.logging.{LoggingContext, PassThroughLogger}
 import com.digitalasset.platform.server.api.validation.PackageServiceValidation
 import io.grpc.{BindableService, ServerServiceDefinition, Status}
-import org.slf4j.LoggerFactory
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
-class ApiPackageService private (backend: IndexPackagesService)
+final class ApiPackageService private (backend: IndexPackagesService)(
+    implicit logCtx: LoggingContext)
     extends PackageService
     with GrpcApiService {
+
+  private val logging = PassThroughLogger.get[this.type]
+
   override def bindService(): ServerServiceDefinition =
     PackageServiceGrpc.bindService(this, DEC)
 
   override def close(): Unit = ()
 
   override def listPackages(request: ListPackagesRequest): Future[ListPackagesResponse] =
-    backend.listLfPackages().map(p => ListPackagesResponse(p.keys.toSeq))(DEC)
+    logging {
+      backend.listLfPackages().map(p => ListPackagesResponse(p.keys.toSeq))(DEC)
+    }
 
   override def getPackage(request: GetPackageRequest): Future[GetPackageResponse] =
-    withValidatedPackageId(
-      request.packageId,
-      pId =>
-        backend
-          .getLfArchive(pId)
-          .flatMap(_.fold(Future.failed[GetPackageResponse](Status.NOT_FOUND.asRuntimeException()))(
-            archive => Future.successful(toGetPackageResponse(archive))))(DEC)
-    )
+    logging {
+      withValidatedPackageId(
+        request.packageId,
+        pId =>
+          backend
+            .getLfArchive(pId)
+            .flatMap(
+              _.fold(Future.failed[GetPackageResponse](Status.NOT_FOUND.asRuntimeException()))(
+                archive => Future.successful(toGetPackageResponse(archive))))(DEC)
+      )
+    }
 
   override def getPackageStatus(
       request: GetPackageStatusRequest): Future[GetPackageStatusResponse] =
-    withValidatedPackageId(
-      request.packageId,
-      pId =>
-        backend
-          .listLfPackages()
-          .map { packages =>
-            val result = if (packages.contains(pId)) {
-              PackageStatus.REGISTERED
-            } else {
-              PackageStatus.UNKNOWN
-            }
-            GetPackageStatusResponse(result)
-          }(DEC)
-    )
+    logging {
+      withValidatedPackageId(
+        request.packageId,
+        pId =>
+          backend
+            .listLfPackages()
+            .map { packages =>
+              val result = if (packages.contains(pId)) {
+                PackageStatus.REGISTERED
+              } else {
+                PackageStatus.UNKNOWN
+              }
+              GetPackageStatusResponse(result)
+            }(DEC)
+      )
+    }
 
   private def withValidatedPackageId[T](packageId: String, block: Ref.PackageId.T => Future[T]) =
     Ref.PackageId
@@ -82,11 +93,9 @@ class ApiPackageService private (backend: IndexPackagesService)
 }
 
 object ApiPackageService {
-  def create(ledgerId: LedgerId, backend: IndexPackagesService)(implicit ec: ExecutionContext)
-    : PackageService with GrpcApiService with PackageServiceLogging =
-    new PackageServiceValidation(new ApiPackageService(backend), ledgerId) with BindableService
-    with PackageServiceLogging {
-      override protected val logger = LoggerFactory.getLogger(PackageService.getClass)
+  def create(ledgerId: LedgerId, backend: IndexPackagesService)(
+      implicit logCtx: LoggingContext): PackageService with GrpcApiService =
+    new PackageServiceValidation(new ApiPackageService(backend), ledgerId) with BindableService {
       override def bindService(): ServerServiceDefinition =
         PackageServiceGrpc.bindService(this, DEC)
     }
