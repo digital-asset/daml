@@ -27,4 +27,5 @@ def eslint_test(name, srcs, tsconfig = ":tsconfig.json", package_json = ":packag
         name = name,
         data = srcs + [tsconfig, package_json] + data + eslint_deps,
         templated_args = templated_args,
+        **kwargs
     )
