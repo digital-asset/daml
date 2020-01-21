@@ -240,6 +240,14 @@ object SqlLedgerReaderWriter {
 
   private val FirstOffset: Offset = Offset(Array(FirstIndex))
 
+  // This *must* be 1 right now. We need to insert entries into the log in order; otherwise, we
+  // might end up dispatching (head + 2) before (head + 1), which will result in missing out an
+  // event when reading the log.
+  //
+  // To be able to process commits in parallel, we will need to fail reads and retry if there are
+  // entries missing.
+  private val MaximumPoolSize: Int = 1
+
   def apply(
       ledgerId: LedgerId,
       participantId: ParticipantId,
@@ -264,9 +272,7 @@ object SqlLedgerReaderWriter {
     val connectionPoolConfig = new HikariConfig
     connectionPoolConfig.setJdbcUrl(jdbcUrl)
     connectionPoolConfig.setAutoCommit(false)
-    database.maximumPoolSize.foreach { maximumPoolSize =>
-      connectionPoolConfig.setMaximumPoolSize(maximumPoolSize)
-    }
+    connectionPoolConfig.setMaximumPoolSize(MaximumPoolSize)
     new HikariDataSource(connectionPoolConfig)
   }
 }

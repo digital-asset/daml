@@ -8,8 +8,6 @@ import com.daml.ledger.on.sql.queries.{H2Queries, Queries, SqliteQueries}
 
 sealed trait Database {
   val queries: Queries
-
-  val maximumPoolSize: Option[Int]
 }
 
 object Database {
@@ -23,13 +21,9 @@ object Database {
 
   final class H2Database extends Database {
     override val queries: Queries = new H2Queries
-
-    override val maximumPoolSize: Option[Int] = None
   }
 
   final class SqliteDatabase extends Database {
     override val queries: Queries = new SqliteQueries
-
-    override val maximumPoolSize: Option[Int] = Some(1)
   }
 }
