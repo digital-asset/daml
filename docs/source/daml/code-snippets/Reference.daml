@@ -79,13 +79,21 @@ template NameOfTemplate
         do
           return () -- replace () with the actual return type
 -- start choice-first preconsuming snippet
-    preconsuming choice ExampleChoice3
+    preconsuming choice ExampleChoice5
           : () -- replace () with the actual return type
 -- end choice-first preconsuming snippet
+        with -- params
+        controller exampleParty
+          do
+            return ()
 -- start choice-first postconsuming snippet
-    postconsuming choice ExampleChoice3
+    postconsuming choice ExampleChoice6
           : () -- replace () with the actual return type
 -- end choice-first postconsuming snippet
+        with -- params
+        controller exampleParty
+          do
+            return ()
 -- start choice-first nonconsuming snippet
     nonconsuming choice ExampleChoice3
           : () -- replace () with the actual return type
@@ -109,13 +117,17 @@ template NameOfTemplate
         do
           return () -- replace () with the actual return type
 -- start controller-first preconsuming snippet
-      preconsuming ExampleChoice4
+      preconsuming ExampleChoice7
           : () -- replace () with the actual return type
 -- end controller-first preconsuming snippet
+        do
+          return () -- replace () with the actual return type
 -- start controller-first postconsuming snippet
-      postconsuming ExampleChoice4
+      postconsuming ExampleChoice8
           : () -- replace () with the actual return type
 -- end controller-first postconsuming snippet
+        do
+          return () -- replace () with the actual return type
 -- start controller-first nonconsuming snippet
       nonconsuming ExampleChoice4
           : () -- replace () with the actual return type
