@@ -172,10 +172,9 @@ class SqlLedgerReaderWriter(
 
   private def inDatabaseTransaction[T](message: String)(
       body: Connection => Future[T],
-  ): Future[T] = {
+  )(implicit loggingContext: LoggingContext): Future[T] = {
     val connection =
-      time(s"$message: acquiring connection", database.writerConnectionPool.getConnection())(
-        loggingContext)
+      time(s"$message: acquiring connection", database.writerConnectionPool.getConnection())
     timeFuture(
       message,
       body(connection).transform(
@@ -189,22 +188,21 @@ class SqlLedgerReaderWriter(
           connection.close()
           exception
         }
-      ))(loggingContext)
+      ))
   }
 
   private def withDatabaseStream[Out, Mat](message: String)(
       body: Connection => Source[Out, Mat],
-  ): Source[Out, NotUsed] = {
+  )(implicit loggingContext: LoggingContext): Source[Out, NotUsed] = {
     val connection =
-      time(s"$message: acquiring connection", database.readerConnectionPool.getConnection())(
-        loggingContext)
+      time(s"$message: acquiring connection", database.readerConnectionPool.getConnection())
     timeStream(
       message,
       body(connection)
         .mapMaterializedValue { _ =>
           connection.close()
           NotUsed
-        })(loggingContext)
+        })
   }
 
   private def time[T](message: String, body: => T)(implicit loggingContext: LoggingContext): T = {
