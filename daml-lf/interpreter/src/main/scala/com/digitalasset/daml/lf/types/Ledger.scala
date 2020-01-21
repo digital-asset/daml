@@ -4,7 +4,6 @@
 package com.digitalasset.daml.lf.types
 
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.Ref.LedgerString.ordering
 import com.digitalasset.daml.lf.data.{ImmArray, Time}
 import com.digitalasset.daml.lf.transaction.Node._
 import com.digitalasset.daml.lf.transaction.Transaction
@@ -119,7 +118,7 @@ object Ledger {
       committer: Party,
       effectiveAt: Time.Timestamp,
       roots: ImmArray[ScenarioNodeId],
-      nodes: immutable.SortedMap[ScenarioNodeId, Node],
+      nodes: immutable.HashMap[ScenarioNodeId, Node],
       explicitDisclosure: Relation[ScenarioNodeId, Party],
       localImplicitDisclosure: Relation[ScenarioNodeId, Party],
       globalImplicitDisclosure: Relation[AbsoluteContractId, Party],
@@ -132,7 +131,7 @@ object Ledger {
       // The transaction root nodes.
       roots: ImmArray[Transaction.NodeId],
       // All nodes of this transaction.
-      nodes: immutable.SortedMap[Transaction.NodeId, Transaction.Node],
+      nodes: immutable.HashMap[Transaction.NodeId, Transaction.Node],
       // A relation between a node id and the parties to which this node gets explicitly disclosed.
       explicitDisclosure: Relation[Transaction.NodeId, Party],
       // A relation between a node id and the parties to which this node get implictly disclosed

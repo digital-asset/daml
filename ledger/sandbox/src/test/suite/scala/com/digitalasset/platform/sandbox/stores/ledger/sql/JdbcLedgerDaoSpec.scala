@@ -13,7 +13,6 @@ import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.v1.{Configuration, Offset, TimeModel}
 import com.digitalasset.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.archive.DarReader
-import com.digitalasset.daml.lf.data.Ref.LedgerString.ordering
 import com.digitalasset.daml.lf.data.Ref.{Identifier, LedgerString, Party}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.transaction.GenTransaction
@@ -54,7 +53,7 @@ import com.digitalasset.platform.sandbox.stores.ledger.{ConfigurationEntry, Ledg
 import com.digitalasset.resources.Resource
 import org.scalatest.{AsyncWordSpec, Matchers, OptionValues}
 
-import scala.collection.immutable.TreeMap
+import scala.collection.immutable.HashMap
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.language.implicitConversions
@@ -173,7 +172,7 @@ class JdbcLedgerDaoSpec
         let,
         let,
         GenTransaction(
-          TreeMap(
+          HashMap(
             event1 -> NodeCreate(
               absCid,
               someContractInstance,
@@ -478,7 +477,7 @@ class JdbcLedgerDaoSpec
         let,
         let,
         GenTransaction(
-          TreeMap(
+          HashMap(
             event1 -> NodeCreate(
               absCid,
               someContractInstance,
@@ -525,7 +524,7 @@ class JdbcLedgerDaoSpec
         // normally the record time is some time after the ledger effective time
         let.plusMillis(42),
         GenTransaction(
-          TreeMap(
+          HashMap(
             event1 -> NodeCreate(
               absCid,
               someContractInstance,
@@ -579,7 +578,7 @@ class JdbcLedgerDaoSpec
           let,
           let,
           GenTransaction(
-            TreeMap(
+            HashMap(
               (s"event$id": EventId) -> NodeCreate(
                 absCid,
                 someContractInstance,
@@ -607,7 +606,7 @@ class JdbcLedgerDaoSpec
           let,
           let,
           GenTransaction(
-            TreeMap(
+            HashMap(
               (s"event$id": EventId) -> NodeExercises(
                 targetCid,
                 someTemplateId,
@@ -782,7 +781,7 @@ class JdbcLedgerDaoSpec
           let,
           let,
           GenTransaction(
-            TreeMap(
+            HashMap(
               (s"event$id": EventId) -> NodeCreate(
                 AbsoluteContractId(s"contractId$id"),
                 someContractInstance,
@@ -816,7 +815,7 @@ class JdbcLedgerDaoSpec
           let,
           let,
           GenTransaction(
-            TreeMap(
+            HashMap(
               (s"event$id": EventId) -> NodeExercises(
                 targetCoid = AbsoluteContractId(s"contractId$cid"),
                 templateId = someTemplateId,
@@ -858,7 +857,7 @@ class JdbcLedgerDaoSpec
           let,
           let,
           GenTransaction(
-            TreeMap(
+            HashMap(
               (s"event$id": EventId) -> NodeLookupByKey(
                 someTemplateId,
                 None,
@@ -889,7 +888,7 @@ class JdbcLedgerDaoSpec
           let,
           let,
           GenTransaction(
-            TreeMap(
+            HashMap(
               (s"event$id": EventId) -> NodeFetch(
                 coid = AbsoluteContractId(s"contractId$cid"),
                 templateId = someTemplateId,

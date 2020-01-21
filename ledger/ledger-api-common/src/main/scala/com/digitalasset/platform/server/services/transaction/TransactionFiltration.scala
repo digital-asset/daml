@@ -51,20 +51,18 @@ object TransactionFiltration {
       val inheritedWitnessesByNode =
         mutable.Map.empty[Nid, immutable.Set[Party]].withDefaultValue(Set.empty)
 
-      transaction.foreach(
-        GenTransaction.TopDown, { (nodeId, node) =>
-          templateId(node).foreach { tpl =>
-            val requestingParties = partiesByTemplate(tpl)
-            val inheritedWitnesses = inheritedWitnessesByNode(nodeId)
-            val explicitWitnesses = explicitWitnessesForNode(node)
-            val allWitnesses = inheritedWitnesses union explicitWitnesses
-            val requestingWitnesses = requestingParties intersect allWitnesses
+      transaction.foreach { (nodeId, node) =>
+        templateId(node).foreach { tpl =>
+          val requestingParties = partiesByTemplate(tpl)
+          val inheritedWitnesses = inheritedWitnessesByNode(nodeId)
+          val explicitWitnesses = explicitWitnessesForNode(node)
+          val allWitnesses = inheritedWitnesses union explicitWitnesses
+          val requestingWitnesses = requestingParties intersect allWitnesses
 
-            filteredPartiesByNode += ((nodeId, requestingWitnesses))
-            inheritedWitnessesByNode ++= children(node).map(_ -> allWitnesses)
-          }
+          filteredPartiesByNode += ((nodeId, requestingWitnesses))
+          inheritedWitnessesByNode ++= children(node).map(_ -> allWitnesses)
         }
-      )
+      }
 
       // We currently allow composite commands without any actual commands and
       // emit empty flat transactions. To be consistent with that behavior,

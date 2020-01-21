@@ -23,7 +23,7 @@ import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import org.scalatest.Assertions._
 import org.scalatest.{Assertion, AsyncWordSpec, BeforeAndAfterEach}
 
-import scala.collection.immutable.SortedMap
+import scala.collection.immutable.HashMap
 import scala.compat.java8.FutureConverters._
 import scala.concurrent.duration.FiniteDuration
 import scala.util.Try
@@ -514,7 +514,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
 object ParticipantStateIntegrationSpecBase {
   private val DefaultIdleTimeout = FiniteDuration(5, TimeUnit.SECONDS)
   private val emptyTransaction: SubmittedTransaction =
-    GenTransaction(SortedMap.empty, ImmArray.empty, Some(InsertOrdSet.empty))
+    GenTransaction(HashMap.empty, ImmArray.empty, Some(InsertOrdSet.empty))
 
   private val participantId: ParticipantId =
     Ref.LedgerString.assertFromString("in-memory-participant")

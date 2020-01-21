@@ -11,7 +11,7 @@ import value.ValueVersions.asVersionedValue
 import TransactionVersions.assignVersion
 import org.scalatest.{Matchers, WordSpec}
 
-import scala.collection.immutable.TreeMap
+import scala.collection.immutable.HashMap
 
 class TransactionVersionSpec extends WordSpec with Matchers {
   import TransactionVersionSpec._
@@ -52,12 +52,12 @@ object TransactionVersionSpec {
   import TransactionSpec.{dummyCreateNode, dummyExerciseNode, StringTransaction}
   private[this] val singleId = "a"
   private val dummyCreateTransaction =
-    StringTransaction(TreeMap((singleId, dummyCreateNode)), ImmArray(singleId))
+    StringTransaction(HashMap(singleId -> dummyCreateNode), ImmArray(singleId))
   private val dummyExerciseWithResultTransaction =
-    StringTransaction(TreeMap((singleId, dummyExerciseNode(ImmArray.empty))), ImmArray(singleId))
+    StringTransaction(HashMap(singleId -> dummyExerciseNode(ImmArray.empty)), ImmArray(singleId))
   private val dummyExerciseTransaction =
     StringTransaction(
-      TreeMap((singleId, dummyExerciseNode(ImmArray.empty, false))),
+      HashMap(singleId -> dummyExerciseNode(ImmArray.empty, false)),
       ImmArray(singleId))
 
 }

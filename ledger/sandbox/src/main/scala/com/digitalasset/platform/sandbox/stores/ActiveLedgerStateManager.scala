@@ -94,7 +94,7 @@ class ActiveLedgerStateManager[ALS](initialState: => ALS)(
     //   archived in this transaction.
     val st =
       transaction
-        .fold[AddTransactionState](GenTransaction.TopDown, AddTransactionState(initialState)) {
+        .fold[AddTransactionState](AddTransactionState(initialState)) {
           case (ats @ AddTransactionState(None, _, _, _), _) => ats
           case (ats @ AddTransactionState(Some(acc), errs, parties, archivedIds), (nodeId, node)) =>
             // If some node requires a contract, check that we have that contract, and check that that contract is not

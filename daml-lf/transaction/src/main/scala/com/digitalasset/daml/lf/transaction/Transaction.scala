@@ -15,7 +15,7 @@ import scalaz.Equal
 import scala.annotation.tailrec
 import scala.annotation.unchecked.uncheckedVariance
 import scala.collection.breakOut
-import scala.collection.immutable.{SortedMap, TreeMap}
+import scala.collection.immutable.HashMap
 
 case class VersionedTransaction[Nid, Cid](
     version: TransactionVersion,
@@ -72,8 +72,8 @@ case class VersionedTransaction[Nid, Cid](
   * For performance reasons, users are not required to call `isWellFormed`.
   * Therefore, it is '''forbidden''' to create ill-formed instances, i.e., instances with `!isWellFormed.isEmpty`.
   */
-case class GenTransaction[Nid: Ordering, Cid, +Val](
-    nodes: SortedMap[Nid, GenNode[Nid, Cid, Val]],
+case class GenTransaction[Nid, Cid, +Val](
+    nodes: HashMap[Nid, GenNode[Nid, Cid, Val]],
     roots: ImmArray[Nid],
     optUsedPackages: Option[Set[PackageId]]
 ) {
@@ -94,7 +94,7 @@ case class GenTransaction[Nid: Ordering, Cid, +Val](
     mapContractIdAndValue(f, _.mapContractId(f))
 
   /** Note: the provided function must be injective, otherwise the transaction will be corrupted. */
-  def mapNodeId[Nid2: Ordering](f: Nid => Nid2): GenTransaction[Nid2, Cid, Val] =
+  def mapNodeId[Nid2](f: Nid => Nid2): GenTransaction[Nid2, Cid, Val] =
     transaction.GenTransaction(
       roots = roots.map(f),
       nodes = nodes.map { case (nid, node) => (f(nid), node.mapNodeId(f)) },
@@ -102,74 +102,38 @@ case class GenTransaction[Nid: Ordering, Cid, +Val](
     )
 
   /**
-    * This function traverses the roots in order, visiting children based on the traverse order provided.
+    * This function traverses the transaction tree in pre-order traversal (i.e. exercise node are traversed before their children).
     *
     * Takes constant stack space. Crashes if the transaction is not well formed (see `isWellFormed`)
     */
-  def foreach(order: TraverseOrder, f: (Nid, GenNode[Nid, Cid, Val]) => Unit): Unit = order match {
+  def foreach(f: (Nid, GenNode[Nid, Cid, Val]) => Unit): Unit = {
 
-    case TopDown =>
-      @tailrec
-      def go(toVisit: FrontStack[Nid]): Unit = toVisit match {
-        case FrontStack() =>
-        case FrontStackCons(nodeId, toVisit) =>
-          val node = nodes(nodeId)
-          f(nodeId, node)
-          node match {
-            case _: LeafOnlyNode[Cid, Val] => go(toVisit)
-            case ne: NodeExercises[Nid, Cid, Val] => go(ne.children ++: toVisit)
-          }
-      }
-      go(FrontStack(roots))
-
-    case BottomUp =>
-      sealed trait Step
-      case object Done extends Step
-      final case class ConsumeNodes(nodes: ImmArray[Nid], next: Step) extends Step
-      final case class VisitExercise(nodeId: Nid, node: GenNode[Nid, Cid, Val], next: Step)
-          extends Step
-
-      @tailrec
-      def go(step: Step): Unit = step match {
-        case Done => ()
-        case ConsumeNodes(toVisit, next) =>
-          toVisit match {
-            case ImmArray() => go(next)
-            case ImmArrayCons(nodeId, toVisit) =>
-              val node = nodes(nodeId)
-              node match {
-                case _: LeafOnlyNode[Cid, Val] =>
-                  f(nodeId, node)
-                  go(ConsumeNodes(toVisit, next))
-                case ne: NodeExercises[Nid, Cid, Val] =>
-                  go(
-                    ConsumeNodes(
-                      ne.children,
-                      VisitExercise(nodeId, node, ConsumeNodes(toVisit, next))))
-              }
-          }
-        case VisitExercise(nodeId, node, next) =>
-          f(nodeId, node)
-          go(next)
-      }
-      go(ConsumeNodes(roots, Done))
-
-    case AnyOrder =>
-      nodes foreach f.tupled
+    @tailrec
+    def go(toVisit: FrontStack[Nid]): Unit = toVisit match {
+      case FrontStack() =>
+      case FrontStackCons(nodeId, toVisit) =>
+        val node = nodes(nodeId)
+        f(nodeId, node)
+        node match {
+          case _: LeafOnlyNode[Cid, Val] => go(toVisit)
+          case ne: NodeExercises[Nid, Cid, Val] => go(ne.children ++: toVisit)
+        }
+    }
+    go(FrontStack(roots))
   }
 
   /**
-    * Traverses in the same order as foreach.
+    * Traverses the transaction tree in pre-order traversal (i.e. exercise node are traversed before their children)
     *
     * Takes constant stack space. Crashes if the transaction is not well formed (see `isWellFormed`)
     */
-  def fold[A](order: TraverseOrder, z: A)(f: (A, (Nid, GenNode[Nid, Cid, Val])) => A): A = {
+  def fold[A](z: A)(f: (A, (Nid, GenNode[Nid, Cid, Val])) => A): A = {
     var acc = z
-    foreach(order, { (nodeId, node) =>
+    foreach { (nodeId, node) =>
       // make sure to not tie the knot by mistake by evaluating early
       val acc2 = acc
       acc = f(acc2, (nodeId, node))
-    })
+    }
     acc
   }
 
@@ -322,7 +286,7 @@ case class GenTransaction[Nid: Ordering, Cid, +Val](
 
   /** checks that all the values contained are serializable */
   def serializable(f: Val => ImmArray[String]): ImmArray[String] = {
-    fold(TopDown, BackStack.empty[String]) {
+    fold(BackStack.empty[String]) {
       case (errs, (_, node)) =>
         node match {
           case _: NodeFetch[Cid] => errs
@@ -339,7 +303,7 @@ case class GenTransaction[Nid: Ordering, Cid, +Val](
 
   /** Visit every `Val`. */
   def foldValues[Z](z: Z)(f: (Z, Val) => Z): Z =
-    fold(GenTransaction.AnyOrder, z) {
+    fold(z) {
       case (z, (_, n)) =>
         n match {
           case c: Node.NodeCreate[_, Val] =>
@@ -358,11 +322,6 @@ case class GenTransaction[Nid: Ordering, Cid, +Val](
 
 object GenTransaction {
   type WithTxValue[Nid, Cid] = GenTransaction[Nid, Cid, Transaction.Value[Cid]]
-
-  sealed trait TraverseOrder
-  case object BottomUp extends TraverseOrder // visits exercise children before the exercise node itself
-  case object TopDown extends TraverseOrder // visits exercise nodes first, then their children
-  case object AnyOrder extends TraverseOrder // arbitrary order chosen by implementation
 
   case class NotWellFormedError[Nid](nid: Nid, reason: NotWellFormedErrorReason)
   sealed trait NotWellFormedErrorReason
@@ -494,7 +453,7 @@ object Transaction {
     */
   case class PartialTransaction(
       nextNodeId: NodeId,
-      nodes: SortedMap[NodeId, Node],
+      nodes: HashMap[NodeId, Node],
       consumedBy: Map[TContractId, NodeId],
       context: Context,
       aborted: Option[TransactionError],
@@ -535,10 +494,10 @@ object Transaction {
         }
         val tx = GenTransaction(nodes, ImmArray(rootNodes), None)
 
-        tx.foreach(GenTransaction.TopDown, { (nid, node) =>
+        tx.foreach { (nid, node) =>
           val rootPrefix = if (rootNodes.contains(nid)) "root " else ""
           addToStringBuilder(nid, node, rootPrefix)
-        })
+        }
         removeTrailingComma()
 
         sb.toString
@@ -766,7 +725,7 @@ object Transaction {
       */
     def initial = PartialTransaction(
       nextNodeId = NodeId.first,
-      nodes = TreeMap.empty[NodeId, Node],
+      nodes = HashMap.empty[NodeId, Node],
       consumedBy = Map.empty,
       context = ContextRoot(),
       aborted = None,

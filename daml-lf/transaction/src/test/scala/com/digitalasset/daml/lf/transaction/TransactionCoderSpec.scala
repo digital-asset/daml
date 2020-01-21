@@ -17,7 +17,7 @@ import org.scalatest.prop.PropertyChecks
 import org.scalatest.{Inside, Matchers, WordSpec}
 
 import scala.collection.breakOut
-import scala.collection.immutable.TreeMap
+import scala.collection.immutable.HashMap
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class TransactionCoderSpec
@@ -254,7 +254,7 @@ class TransactionCoderSpec
         (nid.toString, node)
       })
       val tx = GenTransaction(
-        nodes = TreeMap(nodes.toSeq: _*),
+        nodes = HashMap(nodes.toSeq: _*),
         roots = nodes.map(_._1),
         optUsedPackages = None
       )
@@ -308,12 +308,12 @@ class TransactionCoderSpec
         ne copy (key = ne.key.map(_.copy(maintainers = Set.empty)))
       case _ => gn
     }
-  def transactionWithout[Nid: Ordering, Cid, Val](
+  def transactionWithout[Nid, Cid, Val](
       t: GenTransaction[Nid, Cid, Val],
       f: GenNode[Nid, Cid, Val] => GenNode[Nid, Cid, Val]): GenTransaction[Nid, Cid, Val] =
     t copy (nodes = t.nodes.transform((_, gn) => f(gn))(breakOut))
 
-  def minimalistTx[Nid: Ordering, Cid, Val](
+  def minimalistTx[Nid, Cid, Val](
       txvMin: TransactionVersion,
       tx: GenTransaction[Nid, Cid, Val]): GenTransaction[Nid, Cid, Val] = {
     def condApply(before: TransactionVersion, f: GenNode[Nid, Cid, Val] => GenNode[Nid, Cid, Val])
