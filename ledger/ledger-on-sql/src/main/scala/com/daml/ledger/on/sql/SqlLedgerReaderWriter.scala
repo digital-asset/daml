@@ -34,7 +34,6 @@ import com.google.protobuf.ByteString
 import scala.collection.JavaConverters._
 import scala.collection.immutable.TreeSet
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Random
 
 class SqlLedgerReaderWriter(
     ledgerId: LedgerId = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
@@ -60,8 +59,6 @@ class SqlLedgerReaderWriter(
       zeroIndex = FirstIndex,
       headAtInitialization = FirstIndex,
     )
-
-  private val randomNumberGenerator = new Random()
 
   // TODO: implement
   override def currentHealth(): HealthStatus = Healthy
@@ -138,13 +135,10 @@ class SqlLedgerReaderWriter(
   private def currentRecordTime(): Timestamp =
     Timestamp.assertFromInstant(Clock.systemUTC().instant())
 
-  private def allocateEntryId(): DamlLogEntryId = {
-    val nonce: Array[Byte] = Array.ofDim(8)
-    randomNumberGenerator.nextBytes(nonce)
+  private def allocateEntryId(): DamlLogEntryId =
     DamlLogEntryId.newBuilder
-      .setEntryId(ByteString.copyFrom(nonce))
-      .build
-  }
+      .setEntryId(ByteString.copyFromUtf8(UUID.randomUUID().toString))
+      .build()
 
   private def appendLog(
       entry: DamlLogEntryId,
