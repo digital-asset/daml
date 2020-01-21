@@ -35,6 +35,7 @@ import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import javax.sql.DataSource
 
 import scala.collection.JavaConverters._
+import scala.collection.immutable.TreeSet
 import scala.concurrent.{ExecutionContext, Future}
 
 class SqlLedgerReaderWriter(
@@ -78,7 +79,14 @@ class SqlLedgerReaderWriter(
         RangeSource((start, end) =>
           withEnrichedLoggingContext("start" -> start, "end" -> end) { implicit loggingContext =>
             withDatabaseStream("Querying events from log") { implicit connection =>
-              Source(queries.selectFromLog(start, end))
+              val result = queries.selectFromLog(start, end)
+              if (result.length < end - start) {
+                val missing = TreeSet(start until end: _*) -- result.map(_._1)
+                Source.failed(
+                  new IllegalStateException(s"Missing entries: ${missing.mkString(", ")}"))
+              } else {
+                Source(result)
+              }
             }
         })
       )
