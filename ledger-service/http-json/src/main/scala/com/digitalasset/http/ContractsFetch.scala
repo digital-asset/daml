@@ -423,14 +423,20 @@ private[http] object ContractsFetch {
 
     def appendWithCid[CC >: C](o: InsertDeleteStep[CC])(cid: CC => String): InsertDeleteStep[CC] =
       InsertDeleteStep(
-        (if (o.deletes.isEmpty) inserts
-         else inserts.filter(c => !o.deletes.contains(cid(c)))) ++ o.inserts,
+        InsertDeleteStep.appendForgettingDeletes(inserts, o)(cid),
         deletes union o.deletes)
 
     def nonEmpty: Boolean = inserts.nonEmpty || deletes.nonEmpty
 
     /** Results undefined if cid(d) != cid(c) */
     def mapPreservingIds[D](f: C => D): InsertDeleteStep[D] = copy(inserts = inserts map f)
+  }
+
+  object InsertDeleteStep {
+    def appendForgettingDeletes[C](leftInserts: Vector[C], right: InsertDeleteStep[C])(
+        cid: C => String): Vector[C] =
+      (if (right.deletes.isEmpty) leftInserts
+       else leftInserts.filter(c => !right.deletes(cid(c)))) ++ right.inserts
   }
 
   private def transactionFilter(

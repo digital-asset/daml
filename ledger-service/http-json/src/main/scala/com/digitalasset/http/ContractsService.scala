@@ -218,9 +218,8 @@ class ContractsService(
     : Source[Error \/ domain.ActiveContract[LfValue], NotUsed] = {
 
     type Ac = domain.ActiveContract[LfValue]
-    val empty = (Vector.empty[Error], InsertDeleteStep[Ac](Vector.empty, Set.empty))
-    def append(a: InsertDeleteStep[Ac], b: InsertDeleteStep[Ac]) =
-      a.appendWithCid(b)(_.contractId.unwrap)
+    val empty = (Vector.empty[Error], Vector.empty[Ac])
+    import InsertDeleteStep.appendForgettingDeletes
 
     val funPredicates: Map[domain.TemplateId.RequiredPkg, LfValue => Boolean] =
       templateIds.map(tid => (tid, valuePredicate(tid, queryParams).toFunPredicate))(breakOut)
@@ -237,10 +236,13 @@ class ContractsService(
           errors,
           step copy (inserts = inserts filter (ac => funPredicates(ac.templateId)(ac.payload))))
       }
-      .fold(empty) { case ((errL, stepL), (errR, stepR)) => (errL ++ errR, append(stepL, stepR)) }
+      .fold(empty) {
+        case ((errL, stepL), (errR, stepR)) =>
+          (errL ++ errR, appendForgettingDeletes(stepL, stepR)(_.contractId.unwrap))
+      }
       .mapConcat {
-        case (err, step) =>
-          step.inserts.map(\/-(_)) ++ err.map(-\/(_))
+        case (err, inserts) =>
+          inserts.map(\/-(_)) ++ err.map(-\/(_))
       }
   }
 
