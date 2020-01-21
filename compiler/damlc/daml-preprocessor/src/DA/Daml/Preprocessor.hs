@@ -62,7 +62,7 @@ damlPreprocessor mbPkgName x
     | otherwise = IdePreprocessedSource
         { preprocWarnings = checkModuleName x
         , preprocErrors = checkImports x ++ checkDataTypes x ++ checkModuleDefinition x
-        , preprocSource = recordDotPreprocessor $ importDamlPreprocessor $ genericsPreprocessor mbPkgName $ enumTypePreprocessor x
+        , preprocSource = recordDotPreprocessor $ importDamlPreprocessor $ genericsPreprocessor mbPkgName $ enumTypePreprocessor "GHC.Types" x
         }
     where
       name = fmap GHC.unLoc $ GHC.hsmodName $ GHC.unLoc x
@@ -73,7 +73,7 @@ generatedPreprocessor x =
     IdePreprocessedSource
       { preprocWarnings = []
       , preprocErrors = []
-      , preprocSource = enumTypePreprocessor x
+      , preprocSource = enumTypePreprocessor "CurrentSdk.GHC.Types" x
       }
 
 -- | No preprocessing.
