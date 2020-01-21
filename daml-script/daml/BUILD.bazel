@@ -17,7 +17,7 @@ genrule(
 sdk-version: $$(cat $(location //:VERSION))
 name: daml-script
 source: daml
-version: 0.0.1
+version: $$(cat $(location //:VERSION))
 dependencies:
   - daml-stdlib
   - daml-prim
