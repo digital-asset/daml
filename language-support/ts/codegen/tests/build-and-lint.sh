@@ -25,6 +25,7 @@ PACKAGE_JSON=$(rlocation "$TEST_WORKSPACE/$7")
 TS_DIR=$(dirname $PACKAGE_JSON)
 DAML_JSON_TYPES=$(rlocation "$TEST_WORKSPACE/$8")
 DAML_LEDGER_FETCH=$(rlocation "$TEST_WORKSPACE/$9")
+VERSION="${10}"
 
 TMP_DIR=$(mktemp -d)
 TMP_DAML_JSON_TYPES=$TMP_DIR/daml-json-types
@@ -45,6 +46,7 @@ cp -rL $DAML_LEDGER_FETCH/* $TMP_DAML_LEDGER_FETCH
 cd $TMP_DIR
 
 $DAML2TS -o generated/src/daml --main-package-name daml-tests $DAR
+sed -i "s/0.0.0-SDK_VERSION/${VERSION}/" generated/package.json
 $YARN install --frozen-lockfile
 $YARN workspaces run build
 cd generated

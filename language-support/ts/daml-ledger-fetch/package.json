@@ -1,13 +1,13 @@
 {
   "private": true,
   "name": "@digitalasset/daml-ledger-fetch",
-  "version": "0.0.1",
+  "version": "0.0.0-SDK_VERSION",
   "description": "Wrappers around DAML's JSON API.",
   "main": "index.js",
   "types": "index.d.ts",
   "license": "Apache-2.0",
   "dependencies": {
-    "@digitalasset/daml-json-types": "0.0.1",
+    "@digitalasset/daml-json-types": "0.0.0-SDK_VERSION",
     "@mojotech/json-type-validation": "^3.1.0",
     "cross-fetch": "^3.0.4"
   },
