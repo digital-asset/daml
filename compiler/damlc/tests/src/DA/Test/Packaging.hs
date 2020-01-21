@@ -536,6 +536,7 @@ dataDependencyTests damlc repl davlDar = testGroup "Data Dependencies" $
               -- This ensures that we have a reference to daml-stdlib and therefore daml-prim.
               , "x : [Text]"
               , "x = lines \"abc\\ndef\""
+              , "data X = X" -- This should generate a DAML-LF enum
               ]
           writeFileUTF8 (proja </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
@@ -556,6 +557,8 @@ dataDependencyTests damlc repl davlDar = testGroup "Data Dependencies" $
               , "module B where"
               , "import A"
               , "data B = B A"
+              , "f : X"
+              , "f = X"
               ]
           writeFileUTF8 (projb </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
