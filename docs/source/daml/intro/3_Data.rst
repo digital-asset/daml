@@ -31,7 +31,7 @@ Native types
 You have already encountered a few native DAML types: ``Party`` in :doc:`1_Token`, and ``Text`` and ``ContractId`` in :doc:`2_Scenario`. Here are those native types and more:
 
 - ``Party``
-  Stores the identity of an entity that is able to act on the ledger, in the sense that they can sign contracts and submit transactions. In general, ``Party`` is opaque.
+  Stores the identity of an entity that is able to act on the ledger, in the sense that they can sign contracts and submit transactions. In general ``Party`` is opaque.
 - ``Text``
   Stores a unicode character string like ``"Alice"``.
 - ``ContractId a``
