@@ -11,7 +11,6 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.ledger.on.sql.SqlLedgerReaderWriter._
-import com.daml.ledger.on.sql.queries.Queries
 import com.daml.ledger.on.sql.queries.Queries.Index
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntryId,
@@ -31,8 +30,6 @@ import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
 import com.digitalasset.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.google.protobuf.ByteString
-import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
-import javax.sql.DataSource
 
 import scala.collection.JavaConverters._
 import scala.collection.immutable.TreeSet
@@ -42,8 +39,7 @@ import scala.util.Random
 class SqlLedgerReaderWriter(
     ledgerId: LedgerId = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
     val participantId: ParticipantId,
-    queries: Queries,
-    connectionSource: DataSource with AutoCloseable,
+    database: Database,
 )(
     implicit executionContext: ExecutionContext,
     materializer: Materializer,
@@ -55,6 +51,8 @@ class SqlLedgerReaderWriter(
   private val logger = ContextualizedLogger.get(this.getClass)
 
   private val engine = Engine()
+
+  private val queries = database.queries
 
   private val dispatcher: Dispatcher[Index] =
     Dispatcher(
@@ -70,7 +68,7 @@ class SqlLedgerReaderWriter(
 
   override def close(): Unit = {
     dispatcher.close()
-    connectionSource.close()
+    database.close()
   }
 
   override def retrieveLedgerId(): LedgerId = ledgerId
@@ -115,11 +113,12 @@ class SqlLedgerReaderWriter(
             stateInputs,
           )
           verifyStateUpdatesAgainstPreDeclaredOutputs(stateUpdates, entryId, submission)
-          val newHead = appendLog(entryId, Envelope.enclose(logEntry))
           queries.updateState(stateUpdates)
-          dispatcher.signalNewHead(newHead)
-          SubmissionResult.Acknowledged
+          appendLog(entryId, Envelope.enclose(logEntry))
         }
+      }.map { newHead =>
+        dispatcher.signalNewHead(newHead)
+        SubmissionResult.Acknowledged
       }
     }
 
@@ -181,7 +180,8 @@ class SqlLedgerReaderWriter(
       body: Connection => Future[T],
   ): Future[T] = {
     val connection =
-      time(s"$message: acquiring connection", connectionSource.getConnection())(loggingContext)
+      time(s"$message: acquiring connection", database.writerConnectionPool.getConnection())(
+        loggingContext)
     timeFuture(
       message,
       body(connection).transform(
@@ -202,7 +202,8 @@ class SqlLedgerReaderWriter(
       body: Connection => Source[Out, Mat],
   ): Source[Out, NotUsed] = {
     val connection =
-      time(s"$message: acquiring connection", connectionSource.getConnection())(loggingContext)
+      time(s"$message: acquiring connection", database.readerConnectionPool.getConnection())(
+        loggingContext)
     timeStream(
       message,
       body(connection)
@@ -254,14 +255,6 @@ object SqlLedgerReaderWriter {
 
   private val FirstOffset: Offset = Offset(Array(FirstIndex))
 
-  // This *must* be 1 right now. We need to insert entries into the log in order; otherwise, we
-  // might end up dispatching (head + 2) before (head + 1), which will result in missing out an
-  // event when reading the log.
-  //
-  // To be able to process commits in parallel, we will need to fail reads and retry if there are
-  // entries missing.
-  private val MaximumPoolSize: Int = 1
-
   def apply(
       ledgerId: LedgerId,
       participantId: ParticipantId,
@@ -273,20 +266,8 @@ object SqlLedgerReaderWriter {
   ): Future[SqlLedgerReaderWriter] =
     Future {
       val database = Database(jdbcUrl)
-      val connectionPool = newConnectionPool(jdbcUrl, database)
-      new SqlLedgerReaderWriter(ledgerId, participantId, database.queries, connectionPool)
+      new SqlLedgerReaderWriter(ledgerId, participantId, database)
     }.flatMap { ledger =>
       ledger.migrate().map(_ => ledger)
     }
-
-  private def newConnectionPool(
-      jdbcUrl: String,
-      database: Database,
-  ): DataSource with AutoCloseable = {
-    val connectionPoolConfig = new HikariConfig
-    connectionPoolConfig.setJdbcUrl(jdbcUrl)
-    connectionPoolConfig.setAutoCommit(false)
-    connectionPoolConfig.setMaximumPoolSize(MaximumPoolSize)
-    new HikariDataSource(connectionPoolConfig)
-  }
 }
