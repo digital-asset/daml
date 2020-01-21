@@ -13,9 +13,9 @@ import com.digitalasset.http.dbbackend.ContractDao
 import com.digitalasset.http.domain.{GetActiveContractsRequest, JwtPayload, TemplateId}
 import com.digitalasset.http.json.JsonProtocol.LfValueCodec
 import com.digitalasset.http.query.ValuePredicate
-import com.digitalasset.http.query.ValuePredicate.LfV
 import com.digitalasset.http.util.ApiValueToLfValueConverter
 import com.digitalasset.http.util.FutureUtil.toFuture
+import util.Collections._
 import com.digitalasset.jwt.domain.Jwt
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => api}
@@ -23,10 +23,12 @@ import com.digitalasset.util.ExceptionOps._
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.syntax.show._
 import scalaz.syntax.std.option._
+import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 import scalaz.{-\/, Show, \/, \/-}
 import spray.json.JsValue
 
+import scala.collection.breakOut
 import scala.concurrent.{ExecutionContext, Future}
 
 // TODO(Leo) split it into ContractsServiceInMemory and ContractsServiceDb
@@ -208,41 +210,46 @@ class ContractsService(
       acs <- ContractDao.selectContracts(party, templateId, predicate.toSqlWhereClause)(doobieLog)
     } yield acs
 
-  def searchInMemory(
+  private def searchInMemory(
       jwt: Jwt,
       party: domain.Party,
       templateIds: Set[domain.TemplateId.RequiredPkg],
-      queryParams: Map[String, JsValue]): Source[Error \/ domain.ActiveContract[LfValue], NotUsed] =
-    Source(templateIds)
-      .flatMapConcat(x => searchInMemoryOneTpId(jwt, party, x, queryParams))
+      queryParams: Map[String, JsValue])
+    : Source[Error \/ domain.ActiveContract[LfValue], NotUsed] = {
+
+    type Ac = domain.ActiveContract[LfValue]
+    val empty = (Vector.empty[Error], InsertDeleteStep[Ac](Vector.empty, Set.empty))
+    def append(a: InsertDeleteStep[Ac], b: InsertDeleteStep[Ac]) =
+      a.appendWithCid(b)(_.contractId.unwrap)
+
+    val funPredicates: Map[domain.TemplateId.RequiredPkg, LfValue => Boolean] =
+      templateIds.map(tid => (tid, valuePredicate(tid, queryParams).toFunPredicate))(breakOut)
+
+    insertDeleteStepSource(jwt, party, templateIds.toList)
+      .map { step =>
+        val (errors, inserts) = step.inserts partitionMap { apiEvent =>
+          domain.ActiveContract
+            .fromLedgerApi(apiEvent)
+            .leftMap(e => Error('searchInMemory, e.shows))
+            .flatMap(apiAcToLfAc): Error \/ Ac
+        }
+        (
+          errors,
+          step copy (inserts = inserts filter (ac => funPredicates(ac.templateId)(ac.payload))))
+      }
+      .fold(empty) { case ((errL, stepL), (errR, stepR)) => (errL ++ errR, append(stepL, stepR)) }
+      .mapConcat {
+        case (err, step) =>
+          step.inserts.map(\/-(_)) ++ err.map(-\/(_))
+      }
+  }
 
   private def searchInMemoryOneTpId(
       jwt: Jwt,
       party: domain.Party,
       templateId: domain.TemplateId.RequiredPkg,
-      queryParams: Map[String, JsValue])
-    : Source[Error \/ domain.ActiveContract[LfValue], NotUsed] = {
-
-    val empty = InsertDeleteStep[api.event.CreatedEvent](Vector.empty, Set.empty)
-    def cid(a: api.event.CreatedEvent): String = a.contractId
-    def append(
-        a: InsertDeleteStep[api.event.CreatedEvent],
-        b: InsertDeleteStep[api.event.CreatedEvent]) = a.appendWithCid(b)(cid)
-
-    val predicate: ValuePredicate = valuePredicate(templateId, queryParams)
-    val funPredicate: LfV => Boolean = predicate.toFunPredicate
-
-    insertDeleteStepSource(jwt, party, List(templateId))
-      .fold(empty)(append)
-      .mapConcat(_.inserts)
-      .map { apiEvent =>
-        domain.ActiveContract
-          .fromLedgerApi(apiEvent)
-          .leftMap(e => Error('searchInMemory, e.shows))
-          .flatMap(apiAcToLfAc): Error \/ domain.ActiveContract[LfValue]
-      }
-      .collect(collectActiveContracts(funPredicate))
-  }
+      queryParams: Map[String, JsValue]): Source[Error \/ domain.ActiveContract[LfValue], NotUsed] =
+    searchInMemory(jwt, party, Set(templateId), queryParams)
 
   private[http] def insertDeleteStepSource(
       jwt: Jwt,
@@ -300,9 +307,6 @@ class ContractsService(
 
   private def resolveTemplateIds(xs: Set[domain.TemplateId.OptionalPkg])
     : (Set[domain.TemplateId.RequiredPkg], Set[domain.TemplateId.OptionalPkg]) = {
-
-    import util.Collections._
-
     xs.partitionMap { x =>
       resolveTemplateId(x) toLeftDisjunction x
     }
