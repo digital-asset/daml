@@ -203,12 +203,6 @@ export type Optional<T> = null | OptionalInner<T>
 type OptionalInner<T> = null extends T ? [] | [Exclude<T, null>] : T
 
 /**
- * Companion function of the `Optional` type.
- */
-export const Optional = <T>(t: Serializable<T>): Serializable<Optional<T>> =>
-  new OptionalWorker(t);
-
-/**
  * This class does the actual work behind the `Optional` companion function.
  * In addition to implementing the `Serializable` interface it also stores
  * the `Serializable` instance of the payload of the `Optional` and uses it to
@@ -242,6 +236,12 @@ class OptionalWorker<T> implements Serializable<Optional<T>> {
     }
   }
 }
+
+/**
+ * Companion function of the `Optional` type.
+ */
+export const Optional = <T>(t: Serializable<T>): Serializable<Optional<T>> =>
+  new OptionalWorker(t);
 
 /**
  * The counterpart of DAML's `TextMap T` type. We represent `TextMap`s as
