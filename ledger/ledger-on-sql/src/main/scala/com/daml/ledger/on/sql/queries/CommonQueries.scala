@@ -21,7 +21,7 @@ import scala.collection.immutable
 
 trait CommonQueries extends Queries {
   override def createStateTable()(implicit connection: Connection): Unit = {
-    SQL"CREATE TABLE IF NOT EXISTS state (key VARBINARY(16384) PRIMARY KEY, value BLOB)"
+    SQL"CREATE TABLE IF NOT EXISTS state (key VARBINARY(16384) PRIMARY KEY NOT NULL, value BLOB NOT NULL)"
       .execute()
     ()
   }

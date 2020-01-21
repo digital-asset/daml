@@ -11,7 +11,7 @@ import com.daml.ledger.on.sql.queries.Queries.Index
 
 class H2Queries extends Queries with CommonQueries {
   override def createLogTable()(implicit connection: Connection): Unit = {
-    SQL"CREATE TABLE IF NOT EXISTS log (sequence_no IDENTITY PRIMARY KEY, entry_id VARBINARY(16384), envelope BLOB)"
+    SQL"CREATE TABLE IF NOT EXISTS log (sequence_no IDENTITY PRIMARY KEY NOT NULL, entry_id VARBINARY(16384) NOT NULL, envelope BLOB NOT NULL)"
       .execute()
     ()
   }

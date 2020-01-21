@@ -11,8 +11,7 @@ import com.daml.ledger.on.sql.queries.Queries.Index
 
 class SqliteQueries extends Queries with CommonQueries {
   override def createLogTable()(implicit connection: Connection): Unit = {
-    SQL"CREATE TABLE IF NOT EXISTS log (sequence_no INTEGER PRIMARY KEY AUTOINCREMENT, entry_id VARBINARY(16384), envelope BLOB)"
-    SQL"CREATE TABLE IF NOT EXISTS log (sequence_no INTEGER PRIMARY KEY AUTOINCREMENT, entry_id VARBINARY(16384), envelope BLOB)"
+    SQL"CREATE TABLE IF NOT EXISTS log (sequence_no INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, entry_id VARBINARY(16384) NOT NULL, envelope BLOB NOT NULL)"
       .execute()
     ()
   }
