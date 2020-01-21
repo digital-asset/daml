@@ -52,7 +52,7 @@ pkg_npm(
         ":package.json",
         ":tsconfig.json",
     ],
-    substitutions = {"__SDK_VERSION__": sdk_version},
+    substitutions = {"0.0.0-SDK_VERSION": sdk_version},
     visibility = ["//visibility:public"],
     deps = [
         "daml-json-types",
