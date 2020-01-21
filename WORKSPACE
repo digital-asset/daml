@@ -378,11 +378,11 @@ nixpkgs_package(
 nixpkgs_package(
     name = "node_nix",
     attribute_path = "nodejsNested",
+    build_file_content = 'exports_files(glob(["node_nix/**"]))',
     fail_not_supported = False,
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
-    build_file_content = 'exports_files(glob(["node_nix/**"]))',
 )
 
 #sass
