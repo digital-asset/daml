@@ -12,11 +12,12 @@ load("//ledger/ledger-api-test-tool:conformance.bzl", "conformance_test")
 supported_databases = [
     {
         "name": "h2",
-        "conformance_test_tags": [
-            "manual",
-        ],
         "conformance_test_server_args": [
             "--jdbc-url=jdbc:h2:mem:daml-on-sql-conformance-test;db_close_delay=-1;db_close_on_exit=false",
+        ],
+        "conformance_test_tool_args": [
+            "--concurrent-test-runs=2",
+            "--timeout-scale-factor=4",
         ],
         "runtime_deps": [
             "@maven//:com_h2database_h2",
@@ -119,7 +120,7 @@ da_scala_test(
             server = ":conformance-test-{}-bin".format(db["name"]),
             server_args = ["--port=6865"] + db.get("conformance_test_server_args", []),
             tags = db.get("conformance_test_tags", []),
-            test_tool_args = [
+            test_tool_args = db.get("conformance_test_tool_args", []) + [
                 "--all-tests",
                 "--exclude=ConfigManagementServiceIT",
                 "--exclude=LotsOfPartiesIT",
