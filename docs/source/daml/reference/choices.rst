@@ -72,10 +72,55 @@ Controllers
 
   The conjunction of **all** the parties are required to authorize when this choice is exercised.
 
-.. _daml-ref-anytime:
+.. _daml-ref-consumability:
+
+Consumability
+=============
+
+If no qualifier is present, choices are *preconsuming*. This behavior is also usually referred to simply as *consuming*.
+
+Preconsuming choices
+*****************
+
+.. literalinclude:: ../code-snippets/Reference.daml
+   :language: daml
+   :start-after: -- start choice-first preconsuming snippet
+   :end-before: -- end choice-first preconsuming snippet
+   :caption: Option 1 for specifying choices: choice name first
+
+.. literalinclude:: ../code-snippets/Reference.daml
+   :language: daml
+   :start-after: -- start controller-first preconsuming snippet
+   :end-before: -- end controller-first preconsuming snippet
+   :caption: Option 2 for specifying choices: controller first
+
+- ``preconsuming`` keyword. Optional.
+- Makes a choice preconsuming: the contract is archived before the body of the exercise is executed.
+- Default behavior, equivalent to not specifying a consumability qualifier.
+- Contracts created in the choice body are known to the signatories and controllers of the contracts as well as to the observers of the contract on which the choice was exercised.
+
+Postconsuming choices
+*********************
+
+.. literalinclude:: ../code-snippets/Reference.daml
+   :language: daml
+   :start-after: -- start choice-first postconsuming snippet
+   :end-before: -- end choice-first postconsuming snippet
+   :caption: Option 1 for specifying choices: choice name first
+
+.. literalinclude:: ../code-snippets/Reference.daml
+   :language: daml
+   :start-after: -- start controller-first postconsuming snippet
+   :end-before: -- end controller-first postconsuming snippet
+   :caption: Option 2 for specifying choices: controller first
+
+- ``postconsuming`` keyword. Optional.
+- Makes a choice postconsuming: the contract is archived after the body of the exercise is executed.
+- The contract can still be used in the body of the exercise.
+- Contracts created in the choice body are known only to the signatories and controllers of the contracts and not made known to the observers of the contract on which the choice was exercised.
 
 Non-consuming choices
-=====================
+*********************
 
 .. literalinclude:: ../code-snippets/Reference.daml
    :language: daml
@@ -91,9 +136,11 @@ Non-consuming choices
 
 - ``nonconsuming`` keyword. Optional.
 - Makes a choice non-consuming: that is, exercising the choice does not archive the contract.
+- Contracts created in the choice body are known only to the signatories and controllers of the contracts and not made known to the observers of the contract on which the choice was exercised.
 
-  By default, choices are *consuming*: when a choice on a contract is exercised, that contract instance is *archived*. Archived means that it's permanently marked as being inactive, and no more choices can be exercised on it, though it still exists on the ledger.
-- This is useful in the many situations when you want to be able to exercise a choice more than once.
+  By default, choices are *preconsuming*: when a choice on a contract is exercised, that contract instance is *archived*. Archived means that it's permanently marked as being inactive, and no more choices can be exercised on it, though it still exists on the ledger.
+
+- Both *preconsuming* and *postconsuming* behaviors are useful in the many situations when you want to be able to exercise a choice more than once.
 
 .. _daml-ref-return-type:
 

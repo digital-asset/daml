@@ -90,10 +90,26 @@ Here's the structure of a choice inside a template. There are two ways of specif
 
     Who can exercise the choice.
 
-:ref:`consumability <daml-ref-anytime>`
-    ``nonconsuming`` keyword
+:ref:`consumability <daml-ref-consumability>`
 
-    By default, contracts are archived when a choice on them is exercised, which means that choices can no longer be exercised on them. If you include ``nonconsuming``, this choice can be exercised over and over.
+    At most one of the following:
+
+    - ``preconsuming`` keyword
+
+        Exercising this choice archives the contract before the body is executed.
+        Contracts created in the choice body are known to the signatories and controllers of the contracts as well as to the observers of the contract on which the choice was exercised.
+
+    - ``postconsuming`` keyword
+
+        Exercising this choice archives the contract after the body is executed. The contract can be used in the body of the exercise.
+        Contracts created in the choice body are known only to the signatories and controllers of the contracts and not made known to the observers of the contract on which the choice was exercised.
+
+    - ``nonconsuming`` keyword
+
+        Exercising this choice will not archive the contract.
+        Contracts created in the choice body are known only to the signatories and controllers of the contracts and not made known to the observers of the contract on which the choice was exercised.
+
+    If no qualifier is present the choice is *preconsuming*.
 
 :ref:`a name <daml-ref-choice-name>`
     Must begin with a capital letter. Must be unique - choices in different templates can't have the same name.
