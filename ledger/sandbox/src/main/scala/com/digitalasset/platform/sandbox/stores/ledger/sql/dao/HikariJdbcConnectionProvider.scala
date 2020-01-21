@@ -114,7 +114,7 @@ object HikariJdbcConnectionProvider {
       // these connections should never time out as we have the same number of threads as connections
       dataSource <- HikariConnection.owner(
         jdbcUrl,
-        "Short-Lived-Connections",
+        "daml.index.db.connection",
         maxConnections,
         maxConnections,
         250.millis,

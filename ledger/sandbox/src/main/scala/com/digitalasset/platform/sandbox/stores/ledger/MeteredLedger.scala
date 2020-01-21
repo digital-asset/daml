@@ -29,14 +29,14 @@ private class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegis
     extends ReadOnlyLedger {
 
   private object Metrics {
-    val lookupContract = metrics.timer("Ledger.lookupContract")
-    val lookupKey = metrics.timer("Ledger.lookupKey")
-    val lookupTransaction = metrics.timer("Ledger.lookupTransaction")
-    val lookupLedgerConfiguration = metrics.timer("Ledger.lookupLedgerConfiguration ")
-    val parties = metrics.timer("Ledger.parties")
-    val listLfPackages = metrics.timer("Ledger.listLfPackages")
-    val getLfArchive = metrics.timer("Ledger.getLfArchive")
-    val getLfPackage = metrics.timer("Ledger.getLfPackage")
+    val lookupContract = metrics.timer("daml.index.lookup_contract")
+    val lookupKey = metrics.timer("daml.index.lookup_key")
+    val lookupTransaction = metrics.timer("daml.index.lookup_transaction")
+    val lookupLedgerConfiguration = metrics.timer("daml.index.lookup_ledger_configuration ")
+    val parties = metrics.timer("daml.index.parties")
+    val listLfPackages = metrics.timer("daml.index.list_lf_packages")
+    val getLfArchive = metrics.timer("daml.index.get_lf_archive")
+    val getLfPackage = metrics.timer("daml.index.get_lf_package")
   }
 
   override def ledgerId: LedgerId = ledger.ledgerId
@@ -105,11 +105,11 @@ private class MeteredLedger(ledger: Ledger, metrics: MetricRegistry)
     with Ledger {
 
   private object Metrics {
-    val publishHeartbeat = metrics.timer("Ledger.publishHeartbeat")
-    val publishTransaction = metrics.timer("Ledger.publishTransaction")
-    val publishPartyAllocation = metrics.timer("Ledger.publishPartyAllocation")
-    val uploadPackages = metrics.timer("Ledger.uploadPackages")
-    val publishConfiguration = metrics.timer("Ledger.publishConfiguration ")
+    val publishHeartbeat = metrics.timer("daml.index.publish_heartbeat")
+    val publishTransaction = metrics.timer("daml.index.publish_transaction")
+    val publishPartyAllocation = metrics.timer("daml.index.publish_party_allocation")
+    val uploadPackages = metrics.timer("daml.index.upload_packages")
+    val publishConfiguration = metrics.timer("daml.index.publish_configuration")
   }
 
   override def publishHeartbeat(time: Instant): Future[Unit] =

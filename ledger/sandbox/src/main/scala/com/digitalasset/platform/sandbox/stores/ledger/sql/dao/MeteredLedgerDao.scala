@@ -33,17 +33,18 @@ private class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegi
     extends LedgerReadDao {
 
   private object Metrics {
-    val lookupLedgerId: Timer = metrics.timer("LedgerDao.lookupLedgerId")
-    val lookupLedgerEnd: Timer = metrics.timer("LedgerDao.lookupLedgerEnd")
-    val lookupExternalLedgerEnd: Timer = metrics.timer("LedgerDao.lookupExternalLedgerEnd")
-    val lookupLedgerEntry: Timer = metrics.timer("LedgerDao.lookupLedgerEntry")
-    val lookupTransaction: Timer = metrics.timer("LedgerDao.lookupTransaction")
-    val lookupLedgerConfiguration: Timer = metrics.timer("LedgerDao.lookupLedgerConfiguration")
-    val lookupKey: Timer = metrics.timer("LedgerDao.lookupKey")
-    val lookupActiveContract: Timer = metrics.timer("LedgerDao.lookupActiveContract")
-    val getParties: Timer = metrics.timer("LedgerDao.getParties")
-    val listLfPackages: Timer = metrics.timer("LedgerDao.listLfPackages")
-    val getLfArchive: Timer = metrics.timer("LedgerDao.getLfArchive")
+    val lookupLedgerId: Timer = metrics.timer("daml.index.db.lookup_ledger_id")
+    val lookupLedgerEnd: Timer = metrics.timer("daml.index.db.lookup_ledger_end")
+    val lookupExternalLedgerEnd: Timer = metrics.timer("daml.index.db.lookup_external_ledger_end")
+    val lookupLedgerEntry: Timer = metrics.timer("daml.index.db.lookup_ledger_entry")
+    val lookupTransaction: Timer = metrics.timer("daml.index.db.lookup_transaction")
+    val lookupLedgerConfiguration: Timer =
+      metrics.timer("daml.index.db.lookup_ledger_configuration")
+    val lookupKey: Timer = metrics.timer("daml.index.db.lookup_key")
+    val lookupActiveContract: Timer = metrics.timer("daml.index.db.lookup_active_contract")
+    val getParties: Timer = metrics.timer("daml.index.db.get_parties")
+    val listLfPackages: Timer = metrics.timer("daml.index.db.list_lf_packages")
+    val getLfArchive: Timer = metrics.timer("daml.index.db.get_lf_archive")
   }
 
   override def currentHealth(): HealthStatus = ledgerDao.currentHealth()
@@ -121,11 +122,11 @@ private class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: MetricRegistry)
     with LedgerDao {
 
   private object Metrics {
-    val storePartyEntry: Timer = metrics.timer("LedgerDao.storePartyEntry")
-    val storeInitialState: Timer = metrics.timer("LedgerDao.storeInitialState")
-    val storePackageEntry: Timer = metrics.timer("LedgerDao.storePackageEntry")
-    val storeLedgerEntry: Timer = metrics.timer("LedgerDao.storeLedgerEntry")
-    val storeConfigurationEntry: Timer = metrics.timer("LedgerDao.storeConfigurationEntry")
+    val storePartyEntry: Timer = metrics.timer("daml.index.db.store_party_entry")
+    val storeInitialState: Timer = metrics.timer("daml.index.db.store_initial_state")
+    val storePackageEntry: Timer = metrics.timer("daml.index.db.store_package_entry")
+    val storeLedgerEntry: Timer = metrics.timer("daml.index.db.store_ledger_entry")
+    val storeConfigurationEntry: Timer = metrics.timer("daml.index.db.store_configuration_entry")
   }
 
   override def currentHealth(): HealthStatus = ledgerDao.currentHealth()
