@@ -39,7 +39,7 @@ genrule(
 )
 
 eslint_test(
-    name = "daml-json-types-lint",
+    name = "lint",
     srcs = glob(
         ["**/*.ts"],
         exclude = ["**/*.test.ts"],
