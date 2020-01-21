@@ -233,7 +233,7 @@ object SqlLedgerReaderWriter {
   private val FirstOffset: Offset = Offset(Array(FirstIndex))
 
   def apply(
-      ledgerId: LedgerId = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
+      ledgerId: LedgerId,
       participantId: ParticipantId,
       jdbcUrl: String,
   )(

@@ -4,7 +4,7 @@
 package com.daml.ledger.participant.state.kvutils.app
 
 import akka.stream.Materializer
-import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId}
 import scopt.OptionParser
 
 trait LedgerFactory[ExtraConfig] {
@@ -12,22 +12,25 @@ trait LedgerFactory[ExtraConfig] {
 
   def extraConfigParser(parser: OptionParser[Config[ExtraConfig]]): Unit
 
-  def apply(participantId: ParticipantId, config: ExtraConfig)(
+  def apply(ledgerId: LedgerId, participantId: ParticipantId, config: ExtraConfig)(
       implicit materializer: Materializer,
   ): KeyValueLedger
 }
 
 object LedgerFactory {
-  def apply(construct: ParticipantId => KeyValueLedger): LedgerFactory[Unit] =
-    new LedgerFactory[Unit] {
-      override val defaultExtraConfig: Unit = ()
+  def apply(construct: (LedgerId, ParticipantId) => KeyValueLedger): LedgerFactory[Unit] =
+    new SimpleLedgerFactory(construct)
 
-      override def extraConfigParser(parser: OptionParser[Config[Unit]]): Unit =
-        ()
+  class SimpleLedgerFactory(construct: (LedgerId, ParticipantId) => KeyValueLedger)
+      extends LedgerFactory[Unit] {
+    override val defaultExtraConfig: Unit = ()
 
-      override def apply(participantId: ParticipantId, config: Unit)(
-          implicit materializer: Materializer,
-      ): KeyValueLedger =
-        construct(participantId)
-    }
+    override def extraConfigParser(parser: OptionParser[Config[Unit]]): Unit =
+      ()
+
+    override def apply(ledgerId: LedgerId, participantId: ParticipantId, config: Unit)(
+        implicit materializer: Materializer,
+    ): KeyValueLedger =
+      construct(ledgerId, participantId)
+  }
 }

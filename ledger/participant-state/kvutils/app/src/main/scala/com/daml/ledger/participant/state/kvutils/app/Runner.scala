@@ -9,9 +9,16 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.codahale.metrics.SharedMetricRegistries
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
-import com.daml.ledger.participant.state.v1.{ParticipantId, ReadService, SubmissionId, WriteService}
+import com.daml.ledger.participant.state.v1.{
+  LedgerId,
+  ParticipantId,
+  ReadService,
+  SubmissionId,
+  WriteService
+}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.archive.DarReader
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.auth.{AuthService, AuthServiceWildcard}
 import com.digitalasset.logging.LoggingContext
@@ -43,6 +50,9 @@ class Runner[Extra](name: String, constructor: LedgerFactory[Extra]) {
     implicit val materializer: Materializer = Materializer(system)
     implicit val executionContext: ExecutionContext = system.dispatcher
 
+    val ledgerId =
+      config.ledgerId.getOrElse(Ref.LedgerString.assertFromString(UUID.randomUUID.toString))
+
     val resource = newLoggingContext { implicit logCtx =>
       for {
         // Take ownership of the actor system and materializer so they're cleaned up properly.
@@ -50,7 +60,7 @@ class Runner[Extra](name: String, constructor: LedgerFactory[Extra]) {
         _ <- AkkaResourceOwner.forActorSystem(() => system).acquire()
         _ <- AkkaResourceOwner.forMaterializer(() => materializer).acquire()
         readerWriter <- ResourceOwner
-          .forCloseable(() => constructor(config.participantId, config.extra))
+          .forCloseable(() => constructor(ledgerId, config.participantId, config.extra))
           .acquire()
         ledger = new KeyValueParticipantState(readerWriter, readerWriter)
         _ <- Resource.sequenceIgnoringValues(config.archiveFiles.map { file =>
@@ -125,7 +135,7 @@ class Runner[Extra](name: String, constructor: LedgerFactory[Extra]) {
 }
 
 object Runner {
-  def apply(name: String, construct: ParticipantId => KeyValueLedger): Runner[Unit] =
+  def apply(name: String, construct: (LedgerId, ParticipantId) => KeyValueLedger): Runner[Unit] =
     apply(name, LedgerFactory(construct))
 
   def apply[Extra](name: String, constructor: LedgerFactory[Extra]): Runner[Extra] =

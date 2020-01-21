@@ -15,6 +15,7 @@ case class Config[Extra](
     port: Int,
     portFile: Option[Path],
     serverJdbcUrl: String,
+    ledgerId: Option[String],
     archiveFiles: Seq[Path],
     extra: Extra,
 )
@@ -29,6 +30,7 @@ object Config {
       port = 6865,
       portFile = None,
       serverJdbcUrl = "jdbc:h2:mem:server;db_close_delay=-1;db_close_on_exit=false",
+      ledgerId = None,
       archiveFiles = Vector.empty,
       extra = extra,
     )
@@ -74,6 +76,11 @@ object Config {
         .text(
           "The JDBC URL to the database used for the Ledger API Server and the Indexer Server. Defaults to an in-memory H2 database.")
         .action((serverJdbcUrl, config) => config.copy(serverJdbcUrl = serverJdbcUrl))
+
+      opt[String]("ledger-id")
+        .text(
+          "The ID of the ledger. This must be the same each time the ledger is started. Defaults to a random UUID.")
+        .action((ledgerId, config) => config.copy(ledgerId = Some(ledgerId)))
 
       arg[File]("<archive>...")
         .optional()

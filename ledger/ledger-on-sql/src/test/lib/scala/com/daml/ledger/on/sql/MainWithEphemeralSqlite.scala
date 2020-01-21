@@ -7,7 +7,7 @@ import java.nio.file.Files
 
 import akka.stream.Materializer
 import com.daml.ledger.participant.state.kvutils.app.{Config, KeyValueLedger, LedgerFactory, Runner}
-import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId}
 import com.digitalasset.logging.LoggingContext.newLoggingContext
 import scopt.OptionParser
 
@@ -17,30 +17,33 @@ import scala.concurrent.duration.DurationInt
 
 object MainWithEphemeralSqlite extends App {
   val databaseFile = Files.createTempFile("ledger-on-sql-ephemeral-sqlite", ".db")
+  val jdbcUrl = s"jdbc:sqlite:$databaseFile"
 
   try {
-    Runner("Ephemeral SQLite Ledger", SqliteLedgerConstructor).run(args)
+    Runner("Ephemeral SQLite Ledger", SqliteLedgerFactory).run(args)
   } finally {
     Files.delete(databaseFile)
   }
 
-  object SqliteLedgerConstructor extends LedgerFactory[Unit] {
+  object SqliteLedgerFactory extends LedgerFactory[Unit] {
     override val defaultExtraConfig: Unit = ()
 
     override def extraConfigParser(parser: OptionParser[Config[Unit]]): Unit =
       ()
 
-    override def apply(participantId: ParticipantId, config: Unit)(
+    override def apply(ledgerId: LedgerId, participantId: ParticipantId, config: Unit)(
         implicit materializer: Materializer,
-    ): KeyValueLedger =
+    ): KeyValueLedger = {
       Await.result(
         newLoggingContext { implicit loggingContext =>
           SqlLedgerReaderWriter(
+            ledgerId = ledgerId,
             participantId = participantId,
-            jdbcUrl = s"jdbc:sqlite:$databaseFile",
+            jdbcUrl = jdbcUrl,
           )
         },
         10.seconds,
       )
+    }
   }
 }

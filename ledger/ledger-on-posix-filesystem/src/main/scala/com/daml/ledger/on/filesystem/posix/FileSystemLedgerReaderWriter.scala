@@ -5,7 +5,6 @@ package com.daml.ledger.on.filesystem.posix
 
 import java.nio.file.{Files, NoSuchFileException, Path}
 import java.time.Clock
-import java.util.UUID
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
@@ -19,7 +18,6 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
 import com.daml.ledger.participant.state.kvutils.api.{LedgerReader, LedgerRecord, LedgerWriter}
 import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting}
 import com.daml.ledger.participant.state.v1.{LedgerId, Offset, ParticipantId, SubmissionResult}
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.ledger.api.health.{HealthStatus, Healthy}
@@ -198,7 +196,7 @@ object FileSystemLedgerReaderWriter {
   private val StartOffset: Index = 0
 
   def apply(
-      ledgerId: LedgerId = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
+      ledgerId: LedgerId,
       participantId: ParticipantId,
       root: Path,
   )(implicit executionContext: ExecutionContext): Future[FileSystemLedgerReaderWriter] = {

@@ -5,7 +5,7 @@ package com.daml.ledger.on.sql
 
 import akka.stream.Materializer
 import com.daml.ledger.participant.state.kvutils.app.{Config, KeyValueLedger, LedgerFactory, Runner}
-import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId}
 import com.digitalasset.logging.LoggingContext.newLoggingContext
 import scopt.OptionParser
 
@@ -33,7 +33,7 @@ object Main extends App {
       ()
     }
 
-    override def apply(participantId: ParticipantId, config: ExtraConfig)(
+    override def apply(ledgerId: LedgerId, participantId: ParticipantId, config: ExtraConfig)(
         implicit materializer: Materializer,
     ): KeyValueLedger = {
       val jdbcUrl = config.jdbcUrl.getOrElse {
@@ -41,7 +41,11 @@ object Main extends App {
       }
       Await.result(
         newLoggingContext { implicit loggingContext =>
-          SqlLedgerReaderWriter(participantId = participantId, jdbcUrl = jdbcUrl)
+          SqlLedgerReaderWriter(
+            ledgerId = ledgerId,
+            participantId = participantId,
+            jdbcUrl = jdbcUrl,
+          )
         },
         10.seconds,
       )

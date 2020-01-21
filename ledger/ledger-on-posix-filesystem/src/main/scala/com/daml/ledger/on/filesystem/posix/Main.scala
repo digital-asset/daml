@@ -8,7 +8,7 @@ import java.nio.file.Path
 
 import akka.stream.Materializer
 import com.daml.ledger.participant.state.kvutils.app.{Config, KeyValueLedger, LedgerFactory, Runner}
-import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId}
 import scopt.OptionParser
 
 import scala.concurrent.Await
@@ -34,17 +34,20 @@ object Main extends App {
       ()
     }
 
-    override def apply(participantId: ParticipantId, config: ExtraConfig)(
+    override def apply(ledgerId: LedgerId, participantId: ParticipantId, config: ExtraConfig)(
         implicit materializer: Materializer,
-    ): KeyValueLedger =
+    ): KeyValueLedger = {
+      val root = config.root.getOrElse {
+        throw new IllegalStateException("No root directory provided.")
+      }
       Await.result(
         FileSystemLedgerReaderWriter(
+          ledgerId = ledgerId,
           participantId = participantId,
-          root = config.root.getOrElse {
-            throw new IllegalStateException("No root directory provided.")
-          },
+          root = root,
         ),
-        10.seconds
+        10.seconds,
       )
+    }
   }
 }

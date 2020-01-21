@@ -4,7 +4,6 @@
 package com.daml.ledger.on.memory
 
 import java.time.Clock
-import java.util.UUID
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
@@ -21,7 +20,6 @@ import com.daml.ledger.participant.state.kvutils.{
   SequentialLogEntryId
 }
 import com.daml.ledger.participant.state.v1._
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.ledger.api.health.{HealthStatus, Healthy}
@@ -47,8 +45,9 @@ private[memory] class InMemoryState(
 )
 
 final class InMemoryLedgerReaderWriter(
-    ledgerId: LedgerId = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
-    val participantId: ParticipantId)(implicit executionContext: ExecutionContext)
+    ledgerId: LedgerId,
+    val participantId: ParticipantId,
+)(implicit executionContext: ExecutionContext)
     extends LedgerWriter
     with LedgerReader {
 
