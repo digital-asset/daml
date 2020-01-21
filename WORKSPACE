@@ -377,7 +377,7 @@ nixpkgs_package(
 #node & npm
 nixpkgs_package(
     name = "node_nix",
-    attribute_path = "nodejs",
+    attribute_path = "nodejsNested",
     fail_not_supported = False,
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
