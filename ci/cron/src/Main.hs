@@ -277,7 +277,11 @@ instance JSON.ToJSON SubmitBlog where
 tell_hubspot :: GitHubVersion -> IO ()
 tell_hubspot latest = do
     putStrLn $ "Publishing "<> name latest <> " to Hubspot..."
-    desc <- http_post "https://api.github.com/markdown/raw" [("Content-Type", "text/plain")] (LBS.fromString $ notes latest)
+    desc <- http_post "https://api.github.com/markdown"
+                      [("Content-Type", "application/json")]
+                      (JSON.encode $ JSON.object [("text", JSON.String $ Text.pack $ notes latest),
+                                                  ("mode", "gfm"),
+                                                  ("context", "digital-asset/daml")])
     -- DEBUG
     putStrLn $ "About to read date " <> (show $ published_at latest) <> " to epoch ms"
     date <- (read <$> (<> "000")) . init <$> (shell $ "date -d " <> published_at latest <> " +%s")
