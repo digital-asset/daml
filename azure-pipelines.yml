@@ -349,9 +349,34 @@ jobs:
       pr.num: $[ variables['System.PullRequest.PullRequestNumber'] ]
       pr.branch: $[ variables['System.PullRequest.SourceBranch'] ]
     steps:
-      - checkout: self
+      # some change in Azure configuration makes this fail recently (2020-01).
+      # Azure runs PR builds not on the PR commit, but on the GitHub-provided
+      # commit that would be the result of merging the PR. Recently, it looks
+      # like when it reaches the point of running this job (which has to run
+      # after the macOS one, which sometimes takes up to an hour), if master
+      # has changed in the meantime, Azure cannot find the commit it wants to
+      # build anymore. Therefore, we tell it not to checkout anything, and
+      # manually checkout the PR commit.
+      - checkout: none
       - bash: |
           set -euo pipefail
+          # Note: this is going to get the current master commit, not the
+          # result of the merge (i.e. this is not using the same commit as the
+          # other jobs in this build). This seems good enough here as all we
+          # really want is the dev-env, and conflicts should be pretty rare
+          # there. It _does_ mean this may fail to catch changes that would
+          # break this job, e.g. incompatible updates of jq or gcloud.
+          # Note: Azure doe snot guarantee a clean workspace and dev-env
+          # doesn't nest, so we need to handle both a clean slate and an
+          # existing, dirty workspace.
+          if [ -d .git ]; then
+              git fetch
+              git reset --hard
+              git clean -xffd
+              git checkout origin/master
+          else
+              git clone https://github.com/digital-asset/daml.git ./
+          fi
           eval "$(./dev-env/bin/dade-assist)"
 
           REPORT=$(mktemp)
