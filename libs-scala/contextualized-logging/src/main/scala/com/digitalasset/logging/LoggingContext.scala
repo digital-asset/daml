@@ -1,7 +1,7 @@
 // Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.logging
+package com.digitalasset.logging
 
 import net.logstash.logback.argument.StructuredArgument
 import net.logstash.logback.marker.MapEntriesAppendingMarker

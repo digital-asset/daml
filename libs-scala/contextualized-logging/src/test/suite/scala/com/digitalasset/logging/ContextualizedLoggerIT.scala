@@ -1,7 +1,7 @@
 // Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.logging
+package com.digitalasset.logging
 
 import java.io.{ByteArrayOutputStream, OutputStream}
 
@@ -11,10 +11,7 @@ import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.classic.{Level, LoggerContext}
 import ch.qos.logback.core.OutputStreamAppender
 import ch.qos.logback.core.encoder.Encoder
-import com.digitalasset.platform.logging.LoggingContext.{
-  newLoggingContext,
-  withEnrichedLoggingContext
-}
+import com.digitalasset.logging.LoggingContext.{newLoggingContext, withEnrichedLoggingContext}
 import net.logstash.logback.encoder.LogstashEncoder
 import org.scalatest.{FlatSpec, Matchers}
 import org.slf4j.{Logger, LoggerFactory}

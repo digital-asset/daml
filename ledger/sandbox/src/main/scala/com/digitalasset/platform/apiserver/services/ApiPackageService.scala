@@ -6,6 +6,7 @@ package com.digitalasset.platform.apiserver.services
 import com.daml.ledger.participant.state.index.v2.IndexPackagesService
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml_lf_dev.DamlLf.{Archive, HashFunction}
+import com.digitalasset.dec.{DirectExecutionContext => DEC}
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.v1.package_service.HashFunction.{
   SHA256 => APISHA256,
@@ -13,9 +14,8 @@ import com.digitalasset.ledger.api.v1.package_service.HashFunction.{
 }
 import com.digitalasset.ledger.api.v1.package_service.PackageServiceGrpc.PackageService
 import com.digitalasset.ledger.api.v1.package_service.{HashFunction => APIHashFunction, _}
+import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.api.grpc.GrpcApiService
-import com.digitalasset.dec.{DirectExecutionContext => DEC}
-import com.digitalasset.platform.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.server.api.validation.PackageServiceValidation
 import io.grpc.{BindableService, ServerServiceDefinition, Status}
 

@@ -6,7 +6,7 @@ package com.digitalasset.platform.indexer
 import akka.actor.ActorSystem
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.v1.ReadService
-import com.digitalasset.platform.logging.{ContextualizedLogger, LoggingContext}
+import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.resources.akka.AkkaResourceOwner
 import com.digitalasset.resources.{Resource, ResourceOwner}
 

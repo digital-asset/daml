@@ -4,30 +4,30 @@
 package com.digitalasset.platform.apiserver.services.admin
 
 import java.io.ByteArrayInputStream
-import java.util.zip.ZipInputStream
 import java.util.UUID
+import java.util.zip.ZipInputStream
 
 import akka.actor.Scheduler
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
-import com.daml.ledger.participant.state.v1.{SubmissionId, SubmissionResult, WritePackagesService}
 import com.daml.ledger.participant.state.index.v2.{IndexPackagesService, IndexTransactionsService}
+import com.daml.ledger.participant.state.v1.{SubmissionId, SubmissionResult, WritePackagesService}
+import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
+import com.digitalasset.dec.{DirectExecutionContext => DE}
+import com.digitalasset.ledger.api.domain.{LedgerOffset, PackageEntry}
 import com.digitalasset.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
 import com.digitalasset.ledger.api.v1.admin.package_management_service._
+import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.api.grpc.GrpcApiService
-import com.digitalasset.dec.{DirectExecutionContext => DE}
 import com.digitalasset.platform.server.api.validation.ErrorFactories
 import com.google.protobuf.timestamp.Timestamp
-import com.digitalasset.ledger.api.domain.{LedgerOffset, PackageEntry}
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.platform.logging.{ContextualizedLogger, LoggingContext}
 import io.grpc.ServerServiceDefinition
 
 import scala.compat.java8.FutureConverters
-import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
 final class ApiPackageManagementService private (

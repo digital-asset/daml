@@ -10,7 +10,7 @@ import com.codahale.metrics.MetricRegistry
 import com.digitalasset.dec.{DirectExecutionContext => DEC}
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.health.HealthStatus
-import com.digitalasset.platform.logging.{ContextualizedLogger, LoggingContext}
+import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.sandbox.stores.ledger.ReadOnlyLedger
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{
   DbType,

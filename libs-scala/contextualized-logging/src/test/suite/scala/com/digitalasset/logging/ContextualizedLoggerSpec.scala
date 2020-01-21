@@ -1,14 +1,14 @@
 // Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.logging
+package com.digitalasset.logging
 
 import org.mockito.ArgumentMatchersSugar
 import org.mockito.Mockito.{times, verify, when}
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{FlatSpec, Matchers}
-import org.slf4j.{Logger, Marker}
 import org.slf4j.event.{EventConstants, Level}
+import org.slf4j.{Logger, Marker}
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 final class ContextualizedLoggerSpec
@@ -77,9 +77,9 @@ final class ContextualizedLoggerSpec
 
   it should "pick the expected context also when executing in a future" in
     withContext("id" -> "future") { logger => implicit context =>
-      import concurrent.ExecutionContext.Implicits.global
-      import concurrent.{Await, Future}
-      import concurrent.duration.DurationInt
+      import scala.concurrent.ExecutionContext.Implicits.global
+      import scala.concurrent.duration.DurationInt
+      import scala.concurrent.{Await, Future}
 
       val f1 = Future { logger.info("a") }
       LoggingContext.withEnrichedLoggingContext("id" -> "next") { implicit context =>

@@ -12,7 +12,7 @@ import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.v1.{ParticipantId, ReadService}
 import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.ledger.api.domain.{ParticipantId => _, _}
-import com.digitalasset.platform.logging.LoggingContext
+import com.digitalasset.logging.LoggingContext
 import com.digitalasset.platform.sandbox.stores.LedgerBackedIndexService
 import com.digitalasset.platform.sandbox.stores.ledger.{
   Ledger,

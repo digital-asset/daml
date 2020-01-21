@@ -8,7 +8,7 @@ import java.util.concurrent.{ExecutorService, Executors, TimeUnit}
 
 import com.codahale.metrics.{MetricRegistry, Timer}
 import com.digitalasset.ledger.api.health.{HealthStatus, ReportsHealth}
-import com.digitalasset.platform.logging.{ContextualizedLogger, LoggingContext}
+import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.HikariJdbcConnectionProvider
 import com.digitalasset.resources.ResourceOwner
 import com.google.common.util.concurrent.ThreadFactoryBuilder

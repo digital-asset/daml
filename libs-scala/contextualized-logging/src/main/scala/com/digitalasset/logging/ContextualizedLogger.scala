@@ -1,7 +1,7 @@
 // Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.logging
+package com.digitalasset.logging
 
 import akka.NotUsed
 import akka.stream.scaladsl.Flow

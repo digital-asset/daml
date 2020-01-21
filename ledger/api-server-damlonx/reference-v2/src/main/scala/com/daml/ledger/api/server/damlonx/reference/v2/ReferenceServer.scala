@@ -13,10 +13,10 @@ import com.daml.ledger.participant.state.v1.{ReadService, SubmissionId, WriteSer
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.auth.{AuthService, AuthServiceWildcard}
+import com.digitalasset.logging.LoggingContext
+import com.digitalasset.logging.LoggingContext.newLoggingContext
 import com.digitalasset.platform.apiserver.{ApiServerConfig, StandaloneApiServer}
 import com.digitalasset.platform.indexer.{IndexerConfig, StandaloneIndexerServer}
-import com.digitalasset.platform.logging.LoggingContext
-import com.digitalasset.platform.logging.LoggingContext.newLoggingContext
 import com.digitalasset.resources.akka.AkkaResourceOwner
 import com.digitalasset.resources.{Resource, ResourceOwner}
 import org.slf4j.LoggerFactory

@@ -38,9 +38,8 @@ import com.digitalasset.ledger._
 import com.digitalasset.ledger.api.domain.RejectionReason._
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, RejectionReason}
 import com.digitalasset.ledger.api.health.HealthStatus
-import com.digitalasset.platform.logging.{ContextualizedLogger, LoggingContext}
+import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
-import com.digitalasset.resources.ResourceOwner
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{
   ActiveContract,
   Contract,
@@ -70,6 +69,7 @@ import com.digitalasset.platform.sandbox.stores.ledger.{
   PackageLedgerEntry,
   PartyLedgerEntry
 }
+import com.digitalasset.resources.ResourceOwner
 import com.google.common.io.ByteStreams
 import scalaz.syntax.tag._
 

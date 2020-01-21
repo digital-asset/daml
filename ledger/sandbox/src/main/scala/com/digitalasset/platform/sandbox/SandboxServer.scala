@@ -21,6 +21,8 @@ import com.digitalasset.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.digitalasset.ledger.api.auth.{AuthService, AuthServiceWildcard, Authorizer}
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.health.HealthChecks
+import com.digitalasset.logging.LoggingContext.newLoggingContext
+import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.apiserver.{
   ApiServer,
   ApiServices,
@@ -28,8 +30,6 @@ import com.digitalasset.platform.apiserver.{
   TimeServiceBackend
 }
 import com.digitalasset.platform.common.LedgerIdMode
-import com.digitalasset.platform.logging.{ContextualizedLogger, LoggingContext}
-import com.digitalasset.platform.logging.LoggingContext.newLoggingContext
 import com.digitalasset.platform.sandbox.SandboxServer._
 import com.digitalasset.platform.sandbox.banner.Banner
 import com.digitalasset.platform.sandbox.config.SandboxConfig

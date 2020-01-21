@@ -6,8 +6,8 @@ package com.digitalasset.platform.apiserver.services.admin
 import java.util.UUID
 
 import akka.actor.Scheduler
-import akka.stream.scaladsl.Sink
 import akka.stream.Materializer
+import akka.stream.scaladsl.Sink
 import com.daml.ledger.participant.state.index.v2.{
   IndexPartyManagementService,
   IndexTransactionsService
@@ -15,15 +15,15 @@ import com.daml.ledger.participant.state.index.v2.{
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.{SubmissionId, SubmissionResult, WritePartyService}
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.dec.{DirectExecutionContext => DE}
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.PartyEntry.{AllocationAccepted, AllocationRejected}
 import com.digitalasset.ledger.api.domain.{LedgerOffset, PartyEntry}
 import com.digitalasset.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
 import com.digitalasset.ledger.api.v1.admin.party_management_service._
+import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.api.grpc.GrpcApiService
-import com.digitalasset.dec.{DirectExecutionContext => DE}
-import com.digitalasset.platform.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.server.api.validation.ErrorFactories
 import io.grpc.ServerServiceDefinition
 

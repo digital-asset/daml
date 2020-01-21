@@ -5,7 +5,7 @@ package com.digitalasset.platform.sandbox.persistence
 
 import com.codahale.metrics.MetricRegistry
 import com.digitalasset.dec.DirectExecutionContext
-import com.digitalasset.platform.logging.LoggingContext.newLoggingContext
+import com.digitalasset.logging.LoggingContext.newLoggingContext
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{
   HikariJdbcConnectionProvider,
   JdbcConnectionProvider
@@ -13,9 +13,6 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{
 import com.digitalasset.platform.sandbox.stores.ledger.sql.migration.FlywayMigrations
 import com.digitalasset.resources.Resource
 import org.scalatest._
-
-import scala.concurrent.Await
-import scala.concurrent.duration.DurationInt
 
 import scala.concurrent.Await
 import scala.concurrent.duration.DurationInt

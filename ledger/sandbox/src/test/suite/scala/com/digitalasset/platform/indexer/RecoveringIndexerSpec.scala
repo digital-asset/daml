@@ -9,17 +9,16 @@ import akka.actor.ActorSystem
 import akka.pattern.after
 import ch.qos.logback.classic.Level
 import com.digitalasset.dec.DirectExecutionContext
+import com.digitalasset.logging.LoggingContext.newLoggingContext
 import com.digitalasset.platform.indexer.RecoveringIndexerSpec._
-import com.digitalasset.platform.logging.LoggingContext.newLoggingContext
 import com.digitalasset.platform.testing.LogCollector
 import com.digitalasset.resources.{Resource, ResourceOwner}
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{AsyncWordSpec, BeforeAndAfterEach, Matchers}
 
 import scala.collection.mutable
-import scala.concurrent.Await
 import scala.concurrent.duration.{DurationInt, DurationLong, FiniteDuration}
-import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success, Try}
 
 class RecoveringIndexerSpec
