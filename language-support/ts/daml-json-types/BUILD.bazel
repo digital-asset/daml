@@ -39,7 +39,10 @@ genrule(
 
 eslint_test(
     name = "daml-json-types-lint",
-    srcs = glob(["**/*.ts"]),
+    srcs = glob(
+        ["**/*.ts"],
+        exclude = ["**/*.test.ts"],
+    ),
 )
 
 pkg_npm(
