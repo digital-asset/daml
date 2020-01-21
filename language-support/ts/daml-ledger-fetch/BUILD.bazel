@@ -4,6 +4,7 @@
 load("@build_bazel_rules_nodejs//:index.bzl", "pkg_npm")
 load("@npm_bazel_typescript//:index.bzl", "ts_library")
 load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+load("//language-support/ts:eslint.bzl", "eslint_test")
 
 ts_library(
     name = "daml-ledger-fetch",
@@ -30,6 +31,11 @@ genrule(
     cmd = """
       cp $(location //:LICENSE) $@
     """,
+)
+
+eslint_test(
+    name = "daml-ledger-fetch-lint",
+    srcs = glob(["**/*.ts"]),
 )
 
 pkg_npm(
