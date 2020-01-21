@@ -384,14 +384,6 @@ nixpkgs_package(
     repositories = dev_env_nix_repos,
 )
 
-nixpkgs_package(
-    name = "npm_nix",
-    attribute_path = "nodejs",
-    nix_file = "//nix:bazel.nix",
-    nix_file_deps = common_nix_file_deps,
-    repositories = dev_env_nix_repos,
-)
-
 #sass
 nixpkgs_package(
     name = "sass_nix",
