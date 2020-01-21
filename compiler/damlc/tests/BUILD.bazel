@@ -222,6 +222,7 @@ da_haskell_test(
 # Tests for packaging
 da_haskell_test(
     name = "packaging",
+    timeout = "long",
     srcs = ["src/DA/Test/Packaging.hs"],
     data = [
         "//compiler/damlc",
