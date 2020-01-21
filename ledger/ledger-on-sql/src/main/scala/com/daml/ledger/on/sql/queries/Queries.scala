@@ -23,9 +23,12 @@ trait Queries {
       end: Index,
   )(implicit connection: Connection): immutable.Seq[(Index, LedgerRecord)]
 
-  def nextEntryId()(implicit connection: Connection): Index
+  def insertIntoLog(
+      entry: DamlKvutils.DamlLogEntryId,
+      envelope: ByteString,
+  )(implicit connection: Connection): Unit
 
-  def insertIntoLog(entryId: Index, envelope: ByteString)(implicit connection: Connection): Unit
+  def lastLogInsertId()(implicit connection: Connection): Index
 
   def selectStateByKeys(
       keys: Iterable[DamlKvutils.DamlStateKey],
