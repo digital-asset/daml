@@ -206,7 +206,7 @@ generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase
             , optGhcCustomOpts = []
             , optPackageImports =
                   baseImports ++
-                  [ PackageImport (GHC.stringToUnitId $ takeBaseName dep) True []
+                  [ exposePackage (GHC.stringToUnitId $ takeBaseName dep) True []
                   | dep <- deps
                   ]
             }
@@ -248,9 +248,9 @@ recachePkgDb dbPath = do
         ]
 
 -- TODO We should generate the list of stable packages automatically here.
-baseImports :: [PackageImport]
+baseImports :: [PackageFlag]
 baseImports =
-    [ PackageImport
+    [ exposePackage
         (GHC.stringToUnitId "daml-prim")
         False
         (map (\mod -> (GHC.mkModuleName mod, GHC.mkModuleName (currentSdkPrefix <> "." <> mod)))
@@ -261,7 +261,7 @@ baseImports =
         )
     -- We need the standard library from the current SDK, e.g., LF builtins like Optional are translated
     -- to types in the current standard library.
-    , PackageImport
+    , exposePackage
        (GHC.stringToUnitId damlStdlib)
        False
        (map (\mod -> (GHC.mkModuleName mod, GHC.mkModuleName (currentSdkPrefix <> "." <> mod)))
@@ -331,14 +331,14 @@ _generateAndInstallInstancesPkg thisSdkVer templInstSrc opts dbPath projectPacka
                     , optMbPackageName = Just instancesUnitIdStr
                     , optHideAllPkgs = True
                     , optPackageImports =
-                          PackageImport (stringToUnitId unitIdStr) True [] :
+                          exposePackage (stringToUnitId unitIdStr) True [] :
                           baseImports ++
                           -- the following is for the edge case, when there is no standard
                           -- library dependency, but the dalf still uses builtins or builtin
                           -- types like Party.  In this case, we use the current daml-stdlib as
                           -- their origin.
-                          [PackageImport (stringToUnitId damlStdlib) True [] | not $ any isStdlib deps] ++
-                          [ PackageImport (stringToUnitId $ takeBaseName dep) True []
+                          [exposePackage (stringToUnitId damlStdlib) True [] | not $ any isStdlib deps] ++
+                          [ exposePackage (stringToUnitId $ takeBaseName dep) True []
                           | dep <- deps
                           , not $ unitIdString primUnitId `isPrefixOf` dep
                           ]
@@ -509,3 +509,6 @@ data PackageNode = PackageNode
 
 currentSdkPrefix :: String
 currentSdkPrefix = "CurrentSdk"
+
+exposePackage :: GHC.UnitId -> Bool -> [(GHC.ModuleName, GHC.ModuleName)] -> PackageFlag
+exposePackage unitId exposeImplicit mods = ExposePackage "--package " (UnitIdArg unitId) (ModRenaming exposeImplicit mods)
