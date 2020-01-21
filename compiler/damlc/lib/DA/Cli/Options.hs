@@ -5,8 +5,7 @@ module DA.Cli.Options
   ( module DA.Cli.Options
   ) where
 
-import Data.Bifunctor
-import           Data.List.Extra     (trim, splitOn)
+import Data.List.Extra     (trim, splitOn)
 import Options.Applicative.Extended
 import Safe (lastMay)
 import Data.List
@@ -17,7 +16,7 @@ import qualified DA.Daml.LF.Ast.Version as LF
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Types
 import qualified Module as GHC
-import Text.Read
+import qualified Text.ParserCombinators.ReadP as R
 
 
 -- | Pretty-printing documents with syntax-highlighting annotations.
@@ -291,13 +290,44 @@ optionsParser numProcessors enableScenarioService parsePkgName = Options
       long "package" <>
       internal
 
-    readPackageImport = maybeReader $ \s -> do
-        (unitId, exposeImplicit, modRenamings) <- readMaybe s
-        pure PackageImport
-          { pkgImportUnitId = GHC.stringToUnitId unitId
-          , pkgImportExposeImplicit = exposeImplicit
-          , pkgImportModRenamings = map (bimap GHC.mkModuleName GHC.mkModuleName) modRenamings
-          }
+    -- This is a slightly adapted version of GHC’s @parsePackageFlag@ from DynFlags
+    -- which is sadly not exported.
+    -- We use ReadP to stick as close to GHC’s implementation as possible.
+    -- The only difference is that we fix it to parsing -package-id flags and
+    -- therefore unit ids whereas GHC’s implementation is generic.
+    --
+    -- Here are a couple of examples for the syntax:
+    --
+    --  * @--package foo@ is @PackageImport "foo" True []@
+    --  * @--package foo ()@ is @PackageImport "foo" False []@
+    --  * @--package foo (A)@ is @PackageImport "foo" False [("A", "A")]@
+    --  * @--package foo (A as B)@ is @PackageImport "foo" False [("A", "B")]@
+    --  * @--package foo with (A as B)@ is @PackageImport "foo" True [("A", "B")]@
+    readPackageImport :: ReadM PackageImport
+    readPackageImport = maybeReader $ \str ->
+        case filter ((=="").snd) (R.readP_to_S parse str) of
+            [(r, "")] -> Just r
+            _ -> Nothing
+      where parse = do
+                pkg_arg <- tok GHC.parseUnitId
+                do _ <- tok $ R.string "with"
+                   fmap (PackageImport pkg_arg True) parseRns
+                 R.<++ fmap (PackageImport pkg_arg False) parseRns
+                 R.<++ return (PackageImport pkg_arg True [])
+            parseRns :: R.ReadP [(GHC.ModuleName, GHC.ModuleName)]
+            parseRns = do
+                _ <- tok $ R.char '('
+                rns <- tok $ R.sepBy parseItem (tok $ R.char ',')
+                _ <- tok $ R.char ')'
+                return rns
+            parseItem = do
+                orig <- tok GHC.parseModuleName
+                do _ <- tok $ R.string "as"
+                   new <- tok GHC.parseModuleName
+                   return (orig, new)
+                 R.+++ return (orig, orig)
+            tok :: R.ReadP a -> R.ReadP a
+            tok m = m >>= \x -> R.skipSpaces >> return x
 
     optHideAllPackages :: Parser Bool
     optHideAllPackages =
