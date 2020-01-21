@@ -8,7 +8,10 @@ load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 ts_library(
     name = "daml-ledger-fetch",
     srcs = glob(["**/*.ts"]),
-    data = [":package.json"],
+    data = [
+        ":LICENSE",
+        ":package.json",
+    ],
     module_name = "@digitalasset/daml-ledger-fetch",
     node_modules = "@language_support_ts_deps//:node_modules",
     tsconfig = ":tsconfig.json",
@@ -20,6 +23,15 @@ ts_library(
     ],
 )
 
+genrule(
+    name = "license",
+    srcs = ["//:LICENSE"],
+    outs = ["LICENSE"],
+    cmd = """
+      cp $(location //:LICENSE) $@
+    """,
+)
+
 pkg_npm(
     name = "npm_package",
     srcs = [
@@ -27,5 +39,8 @@ pkg_npm(
         ":tsconfig.json",
     ],
     visibility = ["//visibility:public"],
-    deps = ["daml-ledger-fetch"],
+    deps = [
+        "daml-ledger-fetch",
+        ":license",
+    ],
 )
