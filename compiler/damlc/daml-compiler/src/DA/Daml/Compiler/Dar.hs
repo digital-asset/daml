@@ -315,7 +315,6 @@ mkConfFile PackageConfigFields {..} pkgModuleNames pkgId = do
         unlines $
             [ "name: " ++ pName
             , "id: " ++ pkgNameVersion pName pVersion
-            , "key: " ++ pkgNameVersion pName pVersion
             ]
             ++ ["version: " ++ v | Just v <- [pVersion] ]
             ++
