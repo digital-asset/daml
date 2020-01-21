@@ -9,7 +9,7 @@
     "noUnusedParameters": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
-    "outDir": ".",
+    "outDir": "lib/",
     "module": "commonjs",
     "declaration": true,
     "sourceMap": true
