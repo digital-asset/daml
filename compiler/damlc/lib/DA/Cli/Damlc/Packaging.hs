@@ -171,31 +171,6 @@ createProjectPackageDb opts thisSdkVer deps dataDeps = do
             mbPkgVersion
             deps
 
-            -- Disabled since the changes to template desugaring will break this and
-            -- more generally this whole code path will not be necessary as
-            -- we can reuse the Template instances from the old package.
-            --
-            -- However, we might still want/need something like this for being able to
-            -- do a whole-package upgrade from before we changed template desugaring
-            -- and/or more generally for packages that have not been built with the DAML
-            -- compiler and therefore might have templates but no instances.
-            --
-            -- Therefore we keep the code for this intact for now.
-
-            -- unless (null $ templateInstanceSources pkgNode) $
-            --     generateAndInstallInstancesPkg
-            --         thisSdkVer
-            --         (templateInstanceSources pkgNode)
-            --         opts
-            --         dbPath
-            --         projectPackageDatabase
-            --         unitIdStr
-            --         instancesUnitIdStr
-            --         pkgName
-            --         mbPkgVersion
-            --         deps
-
-
     -- finally install the dependecies
     forM_ depsExtracted $
         \ExtractedDar{..} -> installDar dbPath edConfFiles edDalfs edSrcs

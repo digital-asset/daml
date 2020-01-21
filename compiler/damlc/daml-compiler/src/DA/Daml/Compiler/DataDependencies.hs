@@ -3,7 +3,6 @@
 
 module DA.Daml.Compiler.DataDependencies
     ( generateSrcPkgFromLf
-    , generateTemplateInstancesPkgFromLf
     , generateGenInstancesPkgFromLf
     , splitUnitId
     ) where
@@ -21,7 +20,6 @@ import Development.IDE.Types.Location
 import Safe
 import System.FilePath
 
-import "ghc-lib-parser" Bag
 import "ghc-lib-parser" BasicTypes
 import "ghc-lib-parser" FastString
 import "ghc-lib" GHC
@@ -30,7 +28,6 @@ import "ghc-lib-parser" Name
 import "ghc-lib-parser" Outputable (alwaysQualify, ppr, showSDocForUser)
 import "ghc-lib-parser" PrelNames
 import "ghc-lib-parser" RdrName
-import "ghc-lib-parser" TcEvidence (HsWrapper(..))
 import "ghc-lib-parser" TysPrim
 import "ghc-lib-parser" TysWiredIn
 
@@ -231,230 +228,6 @@ mkConDeclField env fieldName fieldTy = noLoc $ ConDeclField
     , cd_fld_type = noLoc $ convType env fieldTy
     }
 
--- | Generate the source for a package containing template instances for all templates defined in a
--- package. It _only_ contains the instance stubs. The correct implementation happens in the
--- conversion to daml-lf, where `extenal` calls are inlined to daml-lf contained in the dalf of the
--- external package.
-generateTemplateInstancesPkgFromLf ::
-       (LF.PackageRef -> UnitId)
-    -> MS.Map LF.PackageId (UnitId, LF.ModuleName)
-    -> Maybe String
-    -> LF.PackageId
-    -> LF.Package
-    -> [(NormalizedFilePath, String)]
-generateTemplateInstancesPkgFromLf getUnitId stablePkgs mbSdkPrefix pkgId pkg =
-    catMaybes
-        [ generateTemplateInstanceModule
-            Env
-                { envGetUnitId = getUnitId
-                , envStablePackages = stablePkgs
-                , envQualify = False
-                , envMod = mod
-                , envSdkPrefix = mbSdkPrefix
-                }
-            pkgId
-        | mod <- NM.toList $ LF.packageModules pkg
-        ]
-
--- | Generate a module containing template/generic instances for all the contained templates.
--- Return Nothing if there are no instances, so no unnecessary modules are created.
-generateTemplateInstanceModule ::
-       Env -> LF.PackageId -> Maybe (NormalizedFilePath, String)
-generateTemplateInstanceModule env externPkgId
-    | not $ null instances =
-        Just
-            ( toNormalizedFilePath modFilePath
-            , unlines $
-              header ++
-              nubSort imports ++
-              map (showSDocForUser fakeDynFlags alwaysQualify . ppr) instances)
-    | otherwise = Nothing
-  where
-    instances = templateInstances env externPkgId ++ choiceInstances env externPkgId
-
-    mod = envMod env
-    unitIdStr = unitIdString $ envGetUnitId env LF.PRSelf
-    unitIdChunks = splitOn "-" unitIdStr
-    packageName
-        | all (`elem` '.' : ['0' .. '9']) $ lastDef "" unitIdChunks =
-            intercalate "-" $ init unitIdChunks
-        | otherwise = unitIdStr
-    modFilePath = (joinPath $ splitOn "." modName) ++ ".daml"
-    modName = T.unpack $ LF.moduleNameString $ LF.moduleName mod
-    header =
-        [ "{-# LANGUAGE NoDamlSyntax #-}"
-        , "{-# LANGUAGE EmptyCase #-}"
-        , "{-# OPTIONS_GHC -Wno-unused-imports #-}"
-        , "module " <> modName
-        , "   ( module " <> modName
-        , "   , module X"
-        , "   )  where"
-        ]
-    imports =
-        [ "import qualified \"" <> packageName <>
-          "\" " <>
-          modName <>
-          " as X"
-        , "import \"" <> packageName <> "\" " <> modName
-        , "import qualified DA.Internal.Template (Archive)" -- needed for the Archive data type
-        , "import qualified " <> prefixStdlibImport env "DA.Internal.Template"
-        , "import qualified " <> prefixStdlibImport env "DA.Internal.Template.Functions"
-        , "import qualified " <> prefixStdlibImport env "DA.Internal.LF"
-        , "import qualified GHC.Types"
-        ]
-
--- | Generate a single template instance for a given template data constructor and parameters.
-generateTemplateInstance ::
-       Env
-    -> LF.TypeConName
-    -> [(LF.TypeVarName, LF.Kind)]
-    -> LF.PackageId
-    -> HsDecl GhcPs
-generateTemplateInstance env typeCon typeParams externPkgId =
-    InstD noExt $
-    ClsInstD
-        noExt
-        ClsInstDecl
-            { cid_ext = noExt
-            , cid_poly_ty =
-                  HsIB
-                      { hsib_ext = noExt
-                      , hsib_body =
-                            noLoc $
-                            HsAppTy noExt templateTy $
-                            noLoc $
-                            convType env lfTemplateType
-                      }
-            , cid_binds = mkClassMethodStubBag mkExternalString methodNames
-            , cid_sigs = []
-            , cid_tyfam_insts = []
-            , cid_datafam_insts = []
-            , cid_overlap_mode = Nothing
-            }
-  where
-    moduleNameStr = T.unpack $ LF.moduleNameString moduleName0
-    moduleName0 = LF.moduleName $ envMod env
-    templateTy =
-        noLoc $
-        HsTyVar noExt NotPromoted $
-        noLoc $
-        mkRdrQual (mkModuleName $ prefixStdlibImport env "DA.Internal.Template.Functions") $
-        mkOccName varName "Template" :: LHsType GhcPs
-    lfTemplateType = mkLfTemplateType moduleName0 typeCon typeParams
-    mkExternalString :: T.Text -> String
-    mkExternalString funName =
-        (T.unpack $ LF.unPackageId externPkgId) <>
-        ":" <> moduleNameStr <>
-        ":" <> (T.unpack $ T.intercalate "." $ LF.unTypeConName typeCon) <>
-        ":" <> T.unpack funName
-    methodNames =
-        [ "signatory"
-        , "observer"
-        , "agreement"
-        , "fetch"
-        , "ensure"
-        , "create"
-        , "archive"
-        , "toAnyTemplate"
-        , "fromAnyTemplate"
-        , "_templateTypeRep"
-        ]
-
--- | Generate a single choice instance for a given template/choice
-generateChoiceInstance ::
-       Env
-    -> LF.PackageId
-    -> LF.Template
-    -> LF.TemplateChoice
-    -> HsDecl GhcPs
-generateChoiceInstance env externPkgId template choice =
-    InstD noExt $
-    ClsInstD
-        noExt
-        ClsInstDecl
-            { cid_ext = noExt
-            , cid_poly_ty =
-                  HsIB
-                      { hsib_ext = noExt
-                      , hsib_body = body
-                      }
-            , cid_binds = mkClassMethodStubBag mkExternalString methodNames
-            , cid_sigs = []
-            , cid_tyfam_insts = []
-            , cid_datafam_insts = []
-            , cid_overlap_mode = Nothing
-            }
-  where
-
-    body :: LHsType GhcPs =
-      choiceClass `mkHsAppTy` arg1 `mkHsAppTy` arg2 `mkHsAppTy` arg3
-
-    choiceClass :: LHsType GhcPs =
-        noLoc $
-        HsTyVar noExt NotPromoted $
-        noLoc $
-        mkRdrQual (mkModuleName $ prefixStdlibImport env "DA.Internal.Template.Functions") $
-        mkOccName varName "Choice" :: LHsType GhcPs
-
-    arg1 :: LHsType GhcPs =
-      noLoc $ convType env lfTemplateType
-
-    arg2 :: LHsType GhcPs =
-      noLoc $ convType env lfChoiceType
-
-    arg3 :: LHsType GhcPs =
-      noLoc $ convType env lfChoiceReturnType
-
-    moduleNameStr = T.unpack $ LF.moduleNameString moduleName0
-    moduleName0 = LF.moduleName $ envMod env
-    lfTemplateType = mkLfTemplateType moduleName0 dataTypeCon dataParams
-
-    tycon :: LF.TypeConName =
-      LF.tplTypeCon template
-
-    templateDT = case NM.lookup tycon (LF.moduleDataTypes (envMod env)) of
-      Just x -> x
-      Nothing -> error $ "Internal error: Could not find template definition for: " <> show tycon
-
-    LF.DefDataType{dataTypeCon,dataParams} = templateDT
-    LF.TemplateChoice { chcArgBinder = (_, lfChoiceType)
-                      , chcName
-                      , chcReturnType = lfChoiceReturnType
-                      } = choice
-
-    mkExternalString :: T.Text -> String
-    mkExternalString funName =
-      (T.unpack $ LF.unPackageId externPkgId) <>
-      ":" <> moduleNameStr <>
-      ":" <> (T.unpack $ T.intercalate "." $ LF.unTypeConName dataTypeCon) <>
-      ":" <> (T.unpack $ LF.unChoiceName chcName) <>
-      ":" <> T.unpack funName
-
-    methodNames =
-        [ "exercise"
-        , "_toAnyChoice"
-        , "_fromAnyChoice"
-        ]
-
-templateInstances :: Env -> LF.PackageId -> [HsDecl GhcPs]
-templateInstances env externPkgId =
-    [ generateTemplateInstance env dataTypeCon dataParams externPkgId
-    | dataTypeCon <- NM.names $ LF.moduleTemplates mod
-    , Just LF.DefDataType {..} <-
-          [NM.lookup dataTypeCon (LF.moduleDataTypes mod)]
-    ]
-  where
-    mod = envMod env
-
-choiceInstances :: Env -> LF.PackageId -> [HsDecl GhcPs]
-choiceInstances env externPkgId =
-    [ generateChoiceInstance env externPkgId template choice
-    | template <- NM.elems $ LF.moduleTemplates mod
-    , choice <- NM.elems $ LF.tplChoices template
-    ]
-  where
-    mod = envMod env
-
 convType :: Env -> LF.Type -> HsType GhcPs
 convType env =
     \case
@@ -591,84 +364,6 @@ mkLfInternalPrelude env =
 
 mkTyConTypeUnqual :: TyCon -> HsType GhcPs
 mkTyConTypeUnqual = mkTyConType False
-
-mkClassMethodStubBag :: (T.Text -> String) -> [T.Text] -> Bag (LHsBindLR GhcPs GhcPs)
-mkClassMethodStubBag mkExternalString methodNames = do
-  let methodMapping = map (\funName -> (funName, mkExternalString funName)) methodNames
-  listToBag $ map classMethodStub methodMapping
-
-classMethodStub :: (T.Text, String) -> LHsBindLR GhcPs GhcPs
-classMethodStub (funName, xString) =
-    noLoc $
-    FunBind
-        { fun_ext = noExt
-        , fun_id = mkRdrName funName
-        , fun_matches =
-              MG
-                  { mg_ext = noExt
-                  , mg_alts =
-                        noLoc
-                            [ noLoc $
-                              Match
-                                  { m_ext = noExt
-                                  , m_ctxt =
-                                        FunRhs
-                                            { mc_fun = mkRdrName funName
-                                            , mc_fixity = Prefix
-                                            , mc_strictness = NoSrcStrict
-                                            }
-                                  , m_pats =
-                                        [ noLoc $
-                                        VarPat noExt (mkRdrName "proxy")
-                                        | funName == "_templateTypeRep"
-                                        ] -- NOTE (drsk): we shouldn't need this pattern, but
-                                          -- somehow ghc insists on it. We want to fix this in ghc.
-                                  , m_rhs_sig = Nothing
-                                  , m_grhss =
-                                        GRHSs
-                                            { grhssExt = noExt
-                                            , grhssGRHSs =
-                                                  [ noLoc $
-                                                    GRHS
-                                                        noExt
-                                                        []
-                                                        (noLoc $
-                                                         HsAppType
-                                                             noExt
-                                                             (noLoc $
-                                                              HsVar
-                                                                  noExt
-                                                                  (noLoc $
-                                                                   mkRdrQual
-                                                                       (mkModuleName
-                                                                            "GHC.Types")
-                                                                       (mkOccName
-                                                                            varName
-                                                                            "external")))
-                                                             (HsWC
-                                                                  noExt
-                                                                  (noLoc $
-                                                                   HsTyLit noExt $
-                                                                   HsStrTy
-                                                                       NoSourceText $
-                                                                   mkFastString xString)))
-                                                  ]
-                                            , grhssLocalBinds =
-                                                  noLoc emptyLocalBinds
-                                            }
-                                  }
-                            ]
-                  , mg_origin = Generated
-                  }
-        , fun_co_fn = WpHole
-        , fun_tick = []
-        }
-
-mkLfTemplateType :: LF.ModuleName -> LF.TypeConName -> [(LF.TypeVarName, a)] -> LF.Type
-mkLfTemplateType moduleName0 typeCon typeParams=
-  LF.mkTApps
-    (LF.TCon (LF.Qualified LF.PRSelf moduleName0 typeCon))
-    (map (LF.TVar . fst) typeParams)
 
 -- | Generate the full source for a daml-lf package.
 generateSrcPkgFromLf ::
