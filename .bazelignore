@@ -1,3 +1,4 @@
 dev-env/var
 scratch/
 navigator/frontend/node_modules/
+language-support/ts/packages/node_modules/
