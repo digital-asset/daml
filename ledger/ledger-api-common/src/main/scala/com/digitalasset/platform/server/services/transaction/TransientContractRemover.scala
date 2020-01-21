@@ -31,16 +31,6 @@ object TransientContractRemover {
     resultBuilder.collect { case Some(v) if v.witnessParties.nonEmpty => v }(breakOut)
   }
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  private def failOnUnsortedInput(
-      nodes: List[CreateOrArchiveEvent],
-      prevEventIndex: Int,
-      processedEventIndex: Int): Nothing = {
-    throw new IllegalArgumentException(
-      s"This method requires all eventIds in its input to be in order. " +
-        s"This was not true for received events ${nodes.map(_.eventId)}: $prevEventIndex appeared before $processedEventIndex")
-  }
-
   /**
     * Update resultBuilder given the next event.
     * This will insert a new element and possibly update a previous one.
