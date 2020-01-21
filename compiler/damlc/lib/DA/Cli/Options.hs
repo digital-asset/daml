@@ -322,11 +322,10 @@ optionsParser numProcessors enableScenarioService parsePkgName = Options
                 return rns
             parseItem = do
                 orig <- tok GHC.parseModuleName
-                (do _ <- tok $ R.string "as"
-                    new <- tok GHC.parseModuleName
-                    return (orig, new)
-                  R.+++
-                 return (orig, orig))
+                do _ <- tok $ R.string "as"
+                   new <- tok GHC.parseModuleName
+                   return (orig, new)
+                 R.+++ return (orig, orig)
             tok :: R.ReadP a -> R.ReadP a
             tok m = m >>= \x -> R.skipSpaces >> return x
 
