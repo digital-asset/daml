@@ -47,6 +47,10 @@ let shared = rec {
     exec ${pkgs.maven}/bin/mvn ''${MVN_SETTINGS:+-s "$MVN_SETTINGS"} "$@"
   '';
 
+  # rules_nodejs expects nodejs in a subdirectory of a repository rule.
+  # We use a linkFarm to fulfill this requirement.
+  nodejsNested = pkgs.linkFarm "nodejs" [ { name = "node_nix"; path = pkgs.nodejs; }];
+
   sass = pkgs.sass;
 
   sphinx183 = pkgs.python3Packages.sphinx;

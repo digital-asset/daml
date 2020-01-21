@@ -377,16 +377,9 @@ nixpkgs_package(
 #node & npm
 nixpkgs_package(
     name = "node_nix",
-    attribute_path = "nodejs",
+    attribute_path = "nodejsNested",
+    build_file_content = 'exports_files(glob(["node_nix/**"]))',
     fail_not_supported = False,
-    nix_file = "//nix:bazel.nix",
-    nix_file_deps = common_nix_file_deps,
-    repositories = dev_env_nix_repos,
-)
-
-nixpkgs_package(
-    name = "npm_nix",
-    attribute_path = "nodejs",
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
@@ -621,6 +614,8 @@ load("@io_bazel_rules_docker//java:image.bzl", java_image_repositories = "reposi
 
 java_image_repositories()
 
+# TODO (aherrmann) This wrapper is only used on Windows.
+#   Replace by an appropriate Windows only `dadew_tool` call.
 dev_env_tool(
     name = "nodejs_dev_env",
     nix_include = [
@@ -645,7 +640,12 @@ load("@build_bazel_rules_nodejs//:index.bzl", "node_repositories", "yarn_install
 
 node_repositories(
     package_json = ["//:package.json"],
-    vendored_node = "@nodejs_dev_env",
+    # Using `dev_env_tool` introduces an additional layer of symlink
+    # indirection. Bazel doesn't track dependencies through symbolic links.
+    # Occasionally, this can cause build failures on CI if a build is not
+    # invalidated despite a change of an original source. To avoid such issues
+    # we use the `nixpkgs_package` directly.
+    vendored_node = "@nodejs_dev_env" if is_windows else "@node_nix",
 )
 
 yarn_install(
