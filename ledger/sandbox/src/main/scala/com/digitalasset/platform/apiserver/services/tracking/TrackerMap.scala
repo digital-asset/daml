@@ -7,8 +7,9 @@ import java.util.concurrent.atomic.AtomicReference
 
 import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.digitalasset.ledger.api.v1.completion.Completion
-import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.dec.DirectExecutionContext
+import com.digitalasset.platform.logging.{ContextualizedLogger, LoggingContext}
+import org.slf4j.LoggerFactory
 
 import scala.collection.immutable.HashMap
 import scala.concurrent.duration.{FiniteDuration, _}
@@ -19,10 +20,10 @@ import scala.util.{Failure, Success}
   * A map for [[Tracker]]s with thread-safe tracking methods and automatic cleanup. A tracker tracker, if you will.
   * @param retentionPeriod The minimum finite duration for which to retain idle trackers.
   */
-final class TrackerMap(retentionPeriod: FiniteDuration, loggerFactory: NamedLoggerFactory)
+final class TrackerMap(retentionPeriod: FiniteDuration)(implicit logCtx: LoggingContext)
     extends AutoCloseable {
 
-  private val logger = loggerFactory.getLogger(this.getClass)
+  private val logger = ContextualizedLogger.get(this.getClass)
 
   private val lock = new Object()
 
@@ -45,7 +46,7 @@ final class TrackerMap(retentionPeriod: FiniteDuration, loggerFactory: NamedLogg
             trackerResource.ifPresent(tracker =>
               if (nanoTime - tracker.getLastSubmission > retentionNanos) {
                 logger.info(
-                  s"Shutting down tracker for ${submitter.toString} after inactivity of ${retentionPeriod.toString}")
+                  s"Shutting down tracker for $submitter after inactivity of $retentionPeriod")
                 remove(submitter)
                 tracker.close()
             })
@@ -64,9 +65,9 @@ final class TrackerMap(retentionPeriod: FiniteDuration, loggerFactory: NamedLogg
           trackerBySubmitter.getOrElse(
             submitter, {
               val r = new TrackerMap.AsyncResource(newTracker.map { t =>
-                logger.info("Registered tracker for submitter {}", submitter)
+                logger.info(s"Registered tracker for submitter $submitter")
                 Tracker.WithLastSubmission(t)
-              }, loggerFactory)
+              })
 
               trackerBySubmitter += submitter -> r
 
@@ -103,10 +104,8 @@ object TrackerMap {
     * A holder for an AutoCloseable that can be opened and closed async.
     * If closed before the underlying Future completes, will close the resource on completion.
     */
-  final class AsyncResource[T <: AutoCloseable](
-      future: Future[T],
-      loggerFactory: NamedLoggerFactory) {
-    private val logger = loggerFactory.getLogger(this.getClass)
+  final class AsyncResource[T <: AutoCloseable](future: Future[T]) {
+    private val logger = LoggerFactory.getLogger(this.getClass)
 
     // Must progress Waiting => Ready => Closed or Waiting => Closed.
     val state: AtomicReference[AsyncResourceState[T]] = new AtomicReference(Waiting)
@@ -149,6 +148,6 @@ object TrackerMap {
     }
   }
 
-  def apply(retentionPeriod: FiniteDuration, loggerFactory: NamedLoggerFactory): TrackerMap =
-    new TrackerMap(retentionPeriod, loggerFactory)
+  def apply(retentionPeriod: FiniteDuration)(implicit logCtx: LoggingContext): TrackerMap =
+    new TrackerMap(retentionPeriod)
 }

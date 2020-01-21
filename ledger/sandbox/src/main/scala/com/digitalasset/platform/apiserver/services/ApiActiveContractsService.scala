@@ -17,8 +17,8 @@ import com.digitalasset.ledger.api.v1.active_contracts_service._
 import com.digitalasset.ledger.api.v1.event.CreatedEvent
 import com.digitalasset.ledger.api.validation.TransactionFilterValidator
 import com.digitalasset.platform.api.grpc.GrpcApiService
-import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.dec.DirectExecutionContext
+import com.digitalasset.platform.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.participant.util.LfEngineToApi
 import com.digitalasset.platform.server.api.validation.ActiveContractsServiceValidation
 import io.grpc.{BindableService, ServerServiceDefinition}
@@ -26,17 +26,17 @@ import scalaz.syntax.tag._
 
 import scala.concurrent.ExecutionContext
 
-class ApiActiveContractsService private (
+final class ApiActiveContractsService private (
     backend: ACSBackend,
-    parallelism: Int = Runtime.getRuntime.availableProcessors,
-    loggerFactory: NamedLoggerFactory)(
+    parallelism: Int = Runtime.getRuntime.availableProcessors)(
     implicit executionContext: ExecutionContext,
     protected val mat: Materializer,
-    protected val esf: ExecutionSequencerFactory)
+    protected val esf: ExecutionSequencerFactory,
+    logCtx: LoggingContext)
     extends ActiveContractsServiceAkkaGrpc
     with GrpcApiService {
 
-  private val logger = loggerFactory.getLogger(this.getClass)
+  private val logger = ContextualizedLogger.get(this.getClass)
 
   @SuppressWarnings(Array("org.wartremover.warts.Option2Iterable"))
   override protected def getActiveContractsSource(
@@ -86,6 +86,7 @@ class ApiActiveContractsService private (
             }
         }
       )
+      .via(logger.logErrorsOnStream)
   }
 
   override def bindService(): ServerServiceDefinition =
@@ -96,15 +97,13 @@ object ApiActiveContractsService {
   type TransactionId = String
   type WorkflowId = String
 
-  def create(ledgerId: LedgerId, backend: ACSBackend, loggerFactory: NamedLoggerFactory)(
+  def create(ledgerId: LedgerId, backend: ACSBackend)(
       implicit ec: ExecutionContext,
       mat: Materializer,
-      esf: ExecutionSequencerFactory)
-    : ActiveContractsService with GrpcApiService with ActiveContractsServiceLogging =
-    new ActiveContractsServiceValidation(
-      new ApiActiveContractsService(backend, loggerFactory = loggerFactory)(ec, mat, esf),
-      ledgerId
-    ) with BindableService with ActiveContractsServiceLogging {
+      esf: ExecutionSequencerFactory,
+      logCtx: LoggingContext): ActiveContractsService with GrpcApiService =
+    new ActiveContractsServiceValidation(new ApiActiveContractsService(backend), ledgerId)
+    with BindableService {
       override def bindService(): ServerServiceDefinition =
         ActiveContractsServiceGrpc.bindService(this, DirectExecutionContext)
     }

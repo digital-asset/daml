@@ -21,7 +21,7 @@ import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.dec.{DirectExecutionContext => DEC}
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
-import com.digitalasset.platform.common.logging.NamedLoggerFactory
+import com.digitalasset.platform.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.sandbox.EventIdFormatter
 import com.digitalasset.platform.sandbox.metrics.timedFuture
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{
@@ -47,27 +47,25 @@ final abstract class Initialized extends InitStatus
 final abstract class Uninitialized extends InitStatus
 
 object JdbcIndexerFactory {
-  def apply(
-      metrics: MetricRegistry,
-      loggerFactory: NamedLoggerFactory): JdbcIndexerFactory[Uninitialized] =
-    new JdbcIndexerFactory[Uninitialized](metrics, loggerFactory)
+  def apply(metrics: MetricRegistry)(
+      implicit logCtx: LoggingContext): JdbcIndexerFactory[Uninitialized] =
+    new JdbcIndexerFactory[Uninitialized](metrics)
 }
 
-class JdbcIndexerFactory[Status <: InitStatus] private (
-    metrics: MetricRegistry,
-    loggerFactory: NamedLoggerFactory) {
-  private val logger = loggerFactory.getLogger(classOf[JdbcIndexer])
+final class JdbcIndexerFactory[Status <: InitStatus] private (metrics: MetricRegistry)(
+    implicit logCtx: LoggingContext) {
+  private val logger = ContextualizedLogger.get(this.getClass)
   private[indexer] val asyncTolerance = 30.seconds
 
   def validateSchema(jdbcUrl: String)(
       implicit x: Status =:= Uninitialized): JdbcIndexerFactory[Initialized] = {
-    FlywayMigrations(jdbcUrl, loggerFactory).validate()
+    new FlywayMigrations(jdbcUrl).validate()
     this.asInstanceOf[JdbcIndexerFactory[Initialized]]
   }
 
   def migrateSchema(jdbcUrl: String)(
       implicit x: Status =:= Uninitialized): JdbcIndexerFactory[Initialized] = {
-    FlywayMigrations(jdbcUrl, loggerFactory).migrate()
+    new FlywayMigrations(jdbcUrl).migrate()
     this.asInstanceOf[JdbcIndexerFactory[Initialized]]
   }
 
@@ -82,7 +80,7 @@ class JdbcIndexerFactory[Status <: InitStatus] private (
     implicit val ec: ExecutionContext = DEC
 
     for {
-      ledgerDao <- JdbcLedgerDao.owner(jdbcUrl, loggerFactory, metrics, actorSystem.dispatcher)
+      ledgerDao <- JdbcLedgerDao.owner(jdbcUrl, metrics, actorSystem.dispatcher)
       LedgerInitialConditions(ledgerIdString, _, _) <- ResourceOwner
         .forFuture(
           () =>

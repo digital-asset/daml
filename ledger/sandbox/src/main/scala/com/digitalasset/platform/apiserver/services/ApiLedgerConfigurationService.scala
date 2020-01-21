@@ -12,19 +12,21 @@ import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.v1.ledger_configuration_service._
 import com.digitalasset.platform.api.grpc.GrpcApiService
-import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.dec.DirectExecutionContext
+import com.digitalasset.platform.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.server.api.validation.LedgerConfigurationServiceValidation
 import io.grpc.{BindableService, ServerServiceDefinition}
-import org.slf4j.Logger
 
 import scala.concurrent.ExecutionContext
 
-class ApiLedgerConfigurationService private (configurationService: IndexConfigurationService)(
+final class ApiLedgerConfigurationService private (configurationService: IndexConfigurationService)(
     implicit protected val esf: ExecutionSequencerFactory,
-    protected val mat: Materializer)
+    protected val mat: Materializer,
+    logCtx: LoggingContext)
     extends LedgerConfigurationServiceAkkaGrpc
     with GrpcApiService {
+
+  private val logger = ContextualizedLogger.get(this.getClass)
 
   override protected def getLedgerConfigurationSource(
       request: GetLedgerConfigurationRequest): Source[GetLedgerConfigurationResponse, NotUsed] =
@@ -38,26 +40,22 @@ class ApiLedgerConfigurationService private (configurationService: IndexConfigur
                 Some(toProto(configuration.minTTL)),
                 Some(toProto(configuration.maxTTL))
               ))))
+      .via(logger.logErrorsOnStream)
 
   override def bindService(): ServerServiceDefinition =
     LedgerConfigurationServiceGrpc.bindService(this, DirectExecutionContext)
 }
 
 object ApiLedgerConfigurationService {
-  def create(
-      ledgerId: LedgerId,
-      configurationService: IndexConfigurationService,
-      loggerFactory: NamedLoggerFactory)(
+  def create(ledgerId: LedgerId, configurationService: IndexConfigurationService)(
       implicit ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
-      mat: Materializer): LedgerConfigurationServiceGrpc.LedgerConfigurationService
-    with GrpcApiService
-    with LedgerConfigurationServiceLogging =
+      mat: Materializer,
+      logCtx: LoggingContext)
+    : LedgerConfigurationServiceGrpc.LedgerConfigurationService with GrpcApiService =
     new LedgerConfigurationServiceValidation(
       new ApiLedgerConfigurationService(configurationService),
-      ledgerId) with BindableService with LedgerConfigurationServiceLogging {
-      override protected val logger: Logger =
-        loggerFactory.getLogger(ApiLedgerConfigurationService.getClass)
+      ledgerId) with BindableService {
       override def bindService(): ServerServiceDefinition =
         LedgerConfigurationServiceGrpc.bindService(this, DirectExecutionContext)
     }

@@ -13,9 +13,8 @@ import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.domain._
 import com.digitalasset.ledger.api.messages.transaction._
-import com.digitalasset.ledger.api.v1.transaction_service.TransactionServiceLogging
 import com.digitalasset.ledger.api.validation.PartyNameChecker
-import com.digitalasset.platform.common.logging.NamedLoggerFactory
+import com.digitalasset.platform.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.sandbox.EventIdFormatter
 import com.digitalasset.platform.sandbox.EventIdFormatter.TransactionIdWithIndex
 import com.digitalasset.platform.server.api.services.domain.TransactionService
@@ -31,59 +30,56 @@ object ApiTransactionService {
   def create(
       ledgerId: LedgerId,
       transactionsService: IndexTransactionsService,
-      loggerFactory: NamedLoggerFactory)(
+  )(
       implicit ec: ExecutionContext,
       mat: Materializer,
-      esf: ExecutionSequencerFactory)
-    : GrpcTransactionService with BindableService with TransactionServiceLogging =
+      esf: ExecutionSequencerFactory,
+      logCtx: LoggingContext): GrpcTransactionService with BindableService =
     new GrpcTransactionService(
-      new ApiTransactionService(transactionsService, loggerFactory),
+      new ApiTransactionService(transactionsService),
       ledgerId,
       PartyNameChecker.AllowAllParties
-    ) with TransactionServiceLogging
+    )
 }
 
-class ApiTransactionService private (
+final class ApiTransactionService private (
     transactionsService: IndexTransactionsService,
-    loggerFactory: NamedLoggerFactory,
     parallelism: Int = 4)(
     implicit executionContext: ExecutionContext,
     materializer: Materializer,
-    esf: ExecutionSequencerFactory)
+    esf: ExecutionSequencerFactory,
+    logCtx: LoggingContext)
     extends TransactionService
     with ErrorFactories {
 
-  private val logger = loggerFactory.getLogger(this.getClass)
+  private val logger = ContextualizedLogger.get(this.getClass)
 
   private val subscriptionIdCounter = new AtomicLong()
 
   @SuppressWarnings(Array("org.wartremover.warts.Option2Iterable"))
   override def getTransactions(request: GetTransactionsRequest): Source[Transaction, NotUsed] = {
     val subscriptionId = subscriptionIdCounter.incrementAndGet().toString
-    logger.debug(
-      "Received request for transaction subscription {}: {}",
-      subscriptionId: Any,
-      request)
-
+    logger.debug(s"Received request for transaction subscription $subscriptionId: $request")
     transactionsService
       .transactions(request.begin, request.end, request.filter)
-
+      .via(logger.logErrorsOnStream)
   }
 
   override def getTransactionTrees(
       request: GetTransactionTreesRequest): Source[TransactionTree, NotUsed] = {
-    logger.debug("Received {}", request)
+    logger.debug(s"Received $request")
     transactionsService
       .transactionTrees(
         request.begin,
         request.end,
         TransactionFilter(request.parties.map(p => p -> Filters.noFilter).toMap)
       )
+      .via(logger.logErrorsOnStream)
   }
 
   override def getTransactionByEventId(
       request: GetTransactionByEventIdRequest): Future[TransactionTree] = {
-    logger.debug("Received {}", request)
+    logger.debug(s"Received $request")
     EventIdFormatter
       .split(request.eventId.unwrap)
       .fold(
@@ -91,14 +87,16 @@ class ApiTransactionService private (
           Status.NOT_FOUND
             .withDescription(s"invalid eventId: ${request.eventId}")
             .asRuntimeException())) {
-        case TransactionIdWithIndex(transactionId, index) =>
+        case TransactionIdWithIndex(transactionId, _) =>
           lookUpTreeByTransactionId(TransactionId(transactionId), request.requestingParties)
       }
+      .andThen(logger.logErrorsOnCall[TransactionTree])
   }
 
   override def getTransactionById(request: GetTransactionByIdRequest): Future[TransactionTree] = {
-    logger.debug("Received {}", request)
+    logger.debug(s"Received $request")
     lookUpTreeByTransactionId(request.transactionId, request.requestingParties)
+      .andThen(logger.logErrorsOnCall[TransactionTree])
   }
 
   override def getFlatTransactionByEventId(
@@ -113,12 +111,14 @@ class ApiTransactionService private (
         case TransactionIdWithIndex(transactionId, _) =>
           lookUpFlatByTransactionId(TransactionId(transactionId), request.requestingParties)
       }
+      .andThen(logger.logErrorsOnCall[Transaction])
 
   override def getFlatTransactionById(request: GetTransactionByIdRequest): Future[Transaction] =
     lookUpFlatByTransactionId(request.transactionId, request.requestingParties)
+      .andThen(logger.logErrorsOnCall[Transaction])
 
   override def getLedgerEnd(ledgerId: String): Future[LedgerOffset.Absolute] =
-    transactionsService.currentLedgerEnd()
+    transactionsService.currentLedgerEnd().andThen(logger.logErrorsOnCall[LedgerOffset.Absolute])
 
   override lazy val offsetOrdering: Ordering[LedgerOffset.Absolute] =
     Ordering.by(abs => BigInt(abs.value))
@@ -131,7 +131,6 @@ class ApiTransactionService private (
       .flatMap {
         case Some(trans) =>
           Future.successful(trans)
-
         case None =>
           Future.failed(
             Status.NOT_FOUND

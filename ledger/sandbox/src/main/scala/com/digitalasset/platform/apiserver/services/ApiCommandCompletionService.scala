@@ -16,26 +16,22 @@ import com.digitalasset.ledger.api.messages.command.completion.CompletionStreamR
 import com.digitalasset.ledger.api.v1.command_completion_service._
 import com.digitalasset.ledger.api.validation.PartyNameChecker
 import com.digitalasset.platform.api.grpc.GrpcApiService
-import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.dec.DirectExecutionContext
-import com.digitalasset.platform.participant.util.Slf4JLog
+import com.digitalasset.platform.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.server.api.services.domain.CommandCompletionService
 import com.digitalasset.platform.server.api.services.grpc.GrpcCommandCompletionService
 import io.grpc.ServerServiceDefinition
-import org.slf4j.Logger
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class ApiCommandCompletionService private (
-    completionsService: IndexCompletionsService,
-    loggerFactory: NamedLoggerFactory
-)(
+final class ApiCommandCompletionService private (completionsService: IndexCompletionsService)(
     implicit ec: ExecutionContext,
     protected val mat: Materializer,
-    protected val esf: ExecutionSequencerFactory)
+    protected val esf: ExecutionSequencerFactory,
+    logCtx: LoggingContext)
     extends CommandCompletionService {
 
-  private val logger = loggerFactory.getLogger(this.getClass)
+  private val logger = ContextualizedLogger.get(this.getClass)
 
   private val subscriptionIdCounter = new AtomicLong()
 
@@ -43,38 +39,31 @@ class ApiCommandCompletionService private (
       request: CompletionStreamRequest): Source[CompletionEvent, NotUsed] = {
 
     val subscriptionId = subscriptionIdCounter.getAndIncrement().toString
-    logger.debug(
-      "Received request for completion subscription {}: {}",
-      subscriptionId: Any,
-      request)
+    logger.debug(s"Received request for completion subscription $subscriptionId: $request")
 
     val offset = request.offset.getOrElse(LedgerOffset.LedgerEnd)
 
     completionsService
       .getCompletions(offset, request.applicationId, request.parties)
-      .via(Slf4JLog(logger, s"Serving response for completion subscription $subscriptionId"))
+      .via(logger.logErrorsOnStream)
   }
 
   override def getLedgerEnd(ledgerId: domain.LedgerId): Future[LedgerOffset.Absolute] =
-    completionsService.currentLedgerEnd
+    completionsService.currentLedgerEnd().andThen(logger.logErrorsOnCall[LedgerOffset.Absolute])
 
 }
 
 object ApiCommandCompletionService {
-  def create(
-      ledgerId: LedgerId,
-      completionsService: IndexCompletionsService,
-      loggerFactory: NamedLoggerFactory)(
+  def create(ledgerId: LedgerId, completionsService: IndexCompletionsService)(
       implicit ec: ExecutionContext,
       mat: Materializer,
-      esf: ExecutionSequencerFactory)
-    : GrpcCommandCompletionService with GrpcApiService with CommandCompletionServiceLogging = {
+      esf: ExecutionSequencerFactory,
+      logCtx: LoggingContext): GrpcCommandCompletionService with GrpcApiService = {
     val impl: CommandCompletionService =
-      new ApiCommandCompletionService(completionsService, loggerFactory)
+      new ApiCommandCompletionService(completionsService)
 
     new GrpcCommandCompletionService(ledgerId, impl, PartyNameChecker.AllowAllParties)
-    with GrpcApiService with CommandCompletionServiceLogging {
-      override val logger: Logger = loggerFactory.getLogger(impl.getClass)
+    with GrpcApiService {
       override def bindService(): ServerServiceDefinition =
         CommandCompletionServiceGrpc.bindService(this, DirectExecutionContext)
     }

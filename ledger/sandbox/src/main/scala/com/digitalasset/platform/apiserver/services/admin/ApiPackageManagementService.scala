@@ -17,32 +17,30 @@ import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
 import com.digitalasset.ledger.api.v1.admin.package_management_service._
 import com.digitalasset.platform.api.grpc.GrpcApiService
-import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.dec.{DirectExecutionContext => DE}
 import com.digitalasset.platform.server.api.validation.ErrorFactories
 import com.google.protobuf.timestamp.Timestamp
 import com.digitalasset.ledger.api.domain.{LedgerOffset, PackageEntry}
 import com.digitalasset.api.util.TimeProvider
+import com.digitalasset.platform.logging.{ContextualizedLogger, LoggingContext}
 import io.grpc.ServerServiceDefinition
-import org.slf4j.Logger
 
 import scala.compat.java8.FutureConverters
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.util.Try
 
-class ApiPackageManagementService(
+final class ApiPackageManagementService private (
     packagesIndex: IndexPackagesService,
     transactionsService: IndexTransactionsService,
     packagesWrite: WritePackagesService,
     timeProvider: TimeProvider,
     materializer: Materializer,
-    scheduler: Scheduler,
-    loggerFactory: NamedLoggerFactory)
+    scheduler: Scheduler)(implicit logCtx: LoggingContext)
     extends PackageManagementService
     with GrpcApiService {
 
-  protected val logger: Logger = loggerFactory.getLogger(PackageManagementService.getClass)
+  private val logger = ContextualizedLogger.get(this.getClass)
 
   override def close(): Unit = ()
 
@@ -63,6 +61,7 @@ class ApiPackageManagementService(
               details.sourceDescription.getOrElse(""))
         })
       }(DE)
+      .andThen(logger.logErrorsOnCall[ListKnownPackagesResponse])(DE)
   }
 
   override def uploadDarFile(request: UploadDarFileRequest): Future[UploadDarFileResponse] = {
@@ -80,7 +79,7 @@ class ApiPackageManagementService(
     val timeToLive = 30.seconds
 
     implicit val ec: ExecutionContext = DE
-    for {
+    val uploadDarFileResponse = for {
       dar <- DarReader { case (_, x) => Try(Archive.parseFrom(x)) }
         .readArchive(
           "package-upload",
@@ -90,10 +89,10 @@ class ApiPackageManagementService(
           Future.successful
         )
       ledgerEndBeforeRequest <- transactionsService.currentLedgerEnd()
-      result <- FutureConverters.toScala(
+      submissionResult <- FutureConverters.toScala(
         packagesWrite.uploadPackages(submissionId, dar.all, None)
       )
-      response <- result match {
+      response <- submissionResult match {
         case SubmissionResult.Acknowledged =>
           pollUntilPersisted(submissionId, timeToLive, ledgerEndBeforeRequest).flatMap {
             case _: PackageEntry.PackageUploadAccepted =>
@@ -109,6 +108,7 @@ class ApiPackageManagementService(
           Future.failed(ErrorFactories.unimplemented(r.description))
       }
     } yield response
+    uploadDarFileResponse.andThen(logger.logErrorsOnCall[UploadDarFileResponse])
   }
 
   private def pollUntilPersisted(
@@ -131,8 +131,7 @@ object ApiPackageManagementService {
       readBackend: IndexPackagesService,
       transactionsService: IndexTransactionsService,
       writeBackend: WritePackagesService,
-      timeProvider: TimeProvider,
-      loggerFactory: NamedLoggerFactory)(implicit mat: Materializer)
+      timeProvider: TimeProvider)(implicit mat: Materializer, logCtx: LoggingContext)
     : PackageManagementServiceGrpc.PackageManagementService with GrpcApiService =
     new ApiPackageManagementService(
       readBackend,
@@ -140,6 +139,5 @@ object ApiPackageManagementService {
       writeBackend,
       timeProvider,
       mat,
-      mat.system.scheduler,
-      loggerFactory) with PackageManagementServiceLogging
+      mat.system.scheduler)
 }

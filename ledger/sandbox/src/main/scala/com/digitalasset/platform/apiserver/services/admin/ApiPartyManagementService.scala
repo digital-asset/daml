@@ -22,8 +22,8 @@ import com.digitalasset.ledger.api.domain.{LedgerOffset, PartyEntry}
 import com.digitalasset.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
 import com.digitalasset.ledger.api.v1.admin.party_management_service._
 import com.digitalasset.platform.api.grpc.GrpcApiService
-import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.dec.{DirectExecutionContext => DE}
+import com.digitalasset.platform.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.server.api.validation.ErrorFactories
 import io.grpc.ServerServiceDefinition
 
@@ -31,17 +31,17 @@ import scala.compat.java8.FutureConverters
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 
-class ApiPartyManagementService private (
+final class ApiPartyManagementService private (
     partyManagementService: IndexPartyManagementService,
     transactionService: IndexTransactionsService,
     writeService: WritePartyService,
     materializer: Materializer,
     scheduler: Scheduler,
-    loggerFactory: NamedLoggerFactory
-) extends PartyManagementService
+)(implicit logCtx: LoggingContext)
+    extends PartyManagementService
     with GrpcApiService {
 
-  protected val logger = loggerFactory.getLogger(this.getClass)
+  private val logger = ContextualizedLogger.get(this.getClass)
 
   override def close(): Unit = ()
 
@@ -49,20 +49,24 @@ class ApiPartyManagementService private (
     PartyManagementServiceGrpc.bindService(this, DE)
 
   override def getParticipantId(
-      request: GetParticipantIdRequest): Future[GetParticipantIdResponse] =
+      request: GetParticipantIdRequest): Future[GetParticipantIdResponse] = {
     partyManagementService
       .getParticipantId()
       .map(pid => GetParticipantIdResponse(pid.toString))(DE)
+      .andThen(logger.logErrorsOnCall[GetParticipantIdResponse])(DE)
+  }
 
   private[this] def mapPartyDetails(
       details: com.digitalasset.ledger.api.domain.PartyDetails): PartyDetails =
     PartyDetails(details.party, details.displayName.getOrElse(""), details.isLocal)
 
   override def listKnownParties(
-      request: ListKnownPartiesRequest): Future[ListKnownPartiesResponse] =
+      request: ListKnownPartiesRequest): Future[ListKnownPartiesResponse] = {
     partyManagementService
       .listParties()
       .map(ps => ListKnownPartiesResponse(ps.map(mapPartyDetails)))(DE)
+      .andThen(logger.logErrorsOnCall[ListKnownPartiesResponse])(DE)
+  }
 
   /**
     * Checks invariants and forwards the original result after the party is found to be persisted.
@@ -117,6 +121,7 @@ class ApiPartyManagementService private (
               Future.failed(ErrorFactories.unimplemented(r.description))
           }(DE)
       }(DE)
+      .andThen(logger.logErrorsOnCall[AllocatePartyResponse])(DE)
   }
 }
 
@@ -125,16 +130,17 @@ object ApiPartyManagementService {
       partyManagementServiceBackend: IndexPartyManagementService,
       transactionsService: IndexTransactionsService,
       writeBackend: WritePartyService,
-      loggerFactory: NamedLoggerFactory)(
+  )(
       implicit ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
-      mat: Materializer): PartyManagementServiceGrpc.PartyManagementService with GrpcApiService =
+      mat: Materializer,
+      logCtx: LoggingContext)
+    : PartyManagementServiceGrpc.PartyManagementService with GrpcApiService =
     new ApiPartyManagementService(
       partyManagementServiceBackend,
       transactionsService,
       writeBackend,
       mat,
-      mat.system.scheduler,
-      loggerFactory) with PartyManagementServiceLogging
+      mat.system.scheduler)
 
 }

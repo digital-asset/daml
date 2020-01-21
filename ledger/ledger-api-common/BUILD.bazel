@@ -30,7 +30,6 @@ da_scala_library(
         "//ledger/ledger-api-akka",
         "//ledger/ledger-api-domain",
         "//ledger/ledger-api-health",
-        "//ledger/ledger-api-scala-logging:ledger-api-scala-logging-base",
         "//ledger/participant-state",
         "//ledger/participant-state-index",
         "//libs-scala/direct-execution-context",

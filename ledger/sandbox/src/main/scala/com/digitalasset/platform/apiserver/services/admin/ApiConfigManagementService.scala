@@ -19,8 +19,8 @@ import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.v1.admin.config_management_service.ConfigManagementServiceGrpc.ConfigManagementService
 import com.digitalasset.ledger.api.v1.admin.config_management_service._
 import com.digitalasset.platform.api.grpc.GrpcApiService
-import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.dec.{DirectExecutionContext => DE}
+import com.digitalasset.platform.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.server.api.validation
 import com.digitalasset.platform.server.api.validation.ErrorFactories
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
@@ -30,24 +30,24 @@ import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future, TimeoutException}
 import scala.util.{Failure, Success}
 
-class ApiConfigManagementService private (
+final class ApiConfigManagementService private (
     index: IndexConfigManagementService,
     writeService: WriteConfigService,
     timeProvider: TimeProvider,
     defaultConfiguration: Configuration,
-    materializer: Materializer,
-    loggerFactory: NamedLoggerFactory
-) extends ConfigManagementService
+    materializer: Materializer
+)(implicit logCtx: LoggingContext)
+    extends ConfigManagementService
     with GrpcApiService {
 
-  protected val logger = loggerFactory.getLogger(this.getClass)
+  private val logger = ContextualizedLogger.get(this.getClass)
 
   override def close(): Unit = ()
 
   override def bindService(): ServerServiceDefinition =
     ConfigManagementServiceGrpc.bindService(this, DE)
 
-  override def getTimeModel(request: GetTimeModelRequest): Future[GetTimeModelResponse] =
+  override def getTimeModel(request: GetTimeModelRequest): Future[GetTimeModelResponse] = {
     index
       .lookupConfiguration()
       .flatMap {
@@ -56,6 +56,8 @@ class ApiConfigManagementService private (
         case Some((_, config)) =>
           Future.successful(configToResponse(config))
       }(DE)
+      .andThen(logger.logErrorsOnCall[GetTimeModelResponse])(DE)
+  }
 
   private def configToResponse(config: Configuration): GetTimeModelResponse = {
     val tm = config.timeModel
@@ -75,9 +77,9 @@ class ApiConfigManagementService private (
     // operation.
     implicit val ec: ExecutionContext = DE
 
-    for {
+    val response = for {
       // Validate and convert the request parameters
-      params <- validateParameters(request).fold(Future.failed(_), Future.successful(_))
+      params <- validateParameters(request).fold(Future.failed(_), Future.successful)
 
       // Lookup latest configuration to check generation and to extend it with the new time model.
       optConfigAndOffset <- index.lookupConfiguration()
@@ -127,6 +129,8 @@ class ApiConfigManagementService private (
             ErrorFactories.unimplemented("Setting of time model not supported by this ledger"))
       }
     } yield result
+
+    response.andThen(logger.logErrorsOnCall[SetTimeModelResponse])
   }
 
   private case class SetTimeModelParameters(
@@ -192,14 +196,13 @@ object ApiConfigManagementService {
       readBackend: IndexConfigManagementService,
       writeBackend: WriteConfigService,
       timeProvider: TimeProvider,
-      defaultConfiguration: Configuration,
-      loggerFactory: NamedLoggerFactory)(implicit mat: Materializer)
+      defaultConfiguration: Configuration)(implicit mat: Materializer, logCtx: LoggingContext)
     : ConfigManagementServiceGrpc.ConfigManagementService with GrpcApiService =
     new ApiConfigManagementService(
       readBackend,
       writeBackend,
       timeProvider,
       defaultConfiguration,
-      mat,
-      loggerFactory) with ConfigManagementServiceLogging
+      mat)
+
 }

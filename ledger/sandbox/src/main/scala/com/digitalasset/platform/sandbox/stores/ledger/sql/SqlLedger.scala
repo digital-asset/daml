@@ -23,7 +23,7 @@ import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.dec.{DirectExecutionContext => DEC}
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, RejectionReason}
 import com.digitalasset.ledger.api.health.HealthStatus
-import com.digitalasset.platform.common.logging.NamedLoggerFactory
+import com.digitalasset.platform.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode.{
   AlwaysReset,
@@ -82,26 +82,25 @@ object SqlLedger {
       initialLedgerEntries: ImmArray[LedgerEntryOrBump],
       queueDepth: Int,
       startMode: SqlStartMode = SqlStartMode.ContinueIfExists,
-      loggerFactory: NamedLoggerFactory,
       metrics: MetricRegistry,
-  )(implicit mat: Materializer): ResourceOwner[Ledger] = {
+  )(implicit mat: Materializer, logCtx: LoggingContext): ResourceOwner[Ledger] = {
     implicit val ec: ExecutionContext = DEC
 
-    new FlywayMigrations(jdbcUrl, loggerFactory).migrate()
+    new FlywayMigrations(jdbcUrl).migrate()
 
     val dbType = DbType.jdbcType(jdbcUrl)
     val maxConnections =
       if (dbType.supportsParallelWrites) defaultNumberOfShortLivedConnections else 1
     for {
-      dbDispatcher <- DbDispatcher.owner(jdbcUrl, maxConnections, loggerFactory, metrics)
+      dbDispatcher <- DbDispatcher.owner(jdbcUrl, maxConnections, metrics)
       ledgerDao = LedgerDao.metered(
-        JdbcLedgerDao(dbDispatcher, dbType, loggerFactory, mat.executionContext),
+        JdbcLedgerDao(dbDispatcher, dbType, mat.executionContext),
         metrics,
       )
       ledger <- ResourceOwner
         .forFutureCloseable(
           () =>
-            SqlLedgerFactory(ledgerDao, loggerFactory).createSqlLedger(
+            new SqlLedgerFactory(ledgerDao).createSqlLedger(
               ledgerId,
               participantId,
               timeProvider,
@@ -128,14 +127,13 @@ private final class SqlLedger(
     packages: InMemoryPackageStore,
     queueDepth: Int,
     maxBatchSize: Int,
-    loggerFactory: NamedLoggerFactory,
-)(implicit mat: Materializer)
+)(implicit mat: Materializer, logCtx: LoggingContext)
     extends BaseLedger(ledgerId, headAtInitialization, ledgerDao)
     with Ledger {
 
   import SqlLedger._
 
-  private val logger = loggerFactory.getLogger(getClass)
+  private val logger = ContextualizedLogger.get(this.getClass)
 
   // the reason for modelling persistence as a reactive pipeline is to avoid having race-conditions between the
   // moving ledger-end, the async persistence operation and the dispatcher head notification
@@ -400,9 +398,9 @@ private final class SqlLedger(
     }
 }
 
-private final class SqlLedgerFactory(ledgerDao: LedgerDao, loggerFactory: NamedLoggerFactory) {
+private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: LoggingContext) {
 
-  private val logger = loggerFactory.getLogger(getClass)
+  private val logger = ContextualizedLogger.get(this.getClass)
 
   /** *
     * Creates a DB backed Ledger implementation.
@@ -456,7 +454,6 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao, loggerFactory: NamedL
         packages,
         queueDepth,
         maxBatchSize,
-        loggerFactory,
       )
   }
 
@@ -577,9 +574,4 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao, loggerFactory: NamedL
     }
   }
 
-}
-
-private object SqlLedgerFactory {
-  def apply(ledgerDao: LedgerDao, loggerFactory: NamedLoggerFactory): SqlLedgerFactory =
-    new SqlLedgerFactory(ledgerDao, loggerFactory)
 }

@@ -27,6 +27,7 @@ import com.digitalasset.platform.sandbox.{LedgerResource, MetricsAround}
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScalaFutures}
 import org.scalatest.time.Span
 import org.scalatest.{AsyncWordSpec, Matchers}
+import com.digitalasset.platform.logging.LoggingContext.newLoggingContext
 
 import scala.collection.immutable.TreeMap
 import scala.concurrent.ExecutionContext
@@ -70,7 +71,9 @@ class TransactionMRTComplianceIT
       case BackendType.InMemory =>
         LedgerResource.inMemory(ledgerId, participantId, timeProvider)
       case BackendType.Postgres =>
-        LedgerResource.postgres(ledgerId, participantId, timeProvider, metrics)
+        newLoggingContext { implicit logCtx =>
+          LedgerResource.postgres(ledgerId, participantId, timeProvider, metrics)
+        }
     }
   }
 

@@ -83,12 +83,12 @@ private[logging] sealed abstract class LeveledLogger {
   protected def log(m: Marker, msg: String, t: Throwable): Unit
   protected def log(fmt: String, arg: AnyRef): Unit
 
-  final def apply(msg: => String)(implicit ctx: LoggingContext): Unit =
+  final def apply(msg: => String)(implicit logCtx: LoggingContext): Unit =
     if (isEnabled)
-      ctx.ifEmpty(log(msg))(log(s"$msg (context: {})", _))
+      logCtx.ifEmpty(log(msg))(log(s"$msg (context: {})", _))
 
-  final def apply(msg: => String, t: Throwable)(implicit ctx: LoggingContext): Unit =
+  final def apply(msg: => String, t: Throwable)(implicit logCtx: LoggingContext): Unit =
     if (isEnabled)
-      ctx.ifEmpty(log(msg, t))(c => log(c, s"$msg (context: $c)", t))
+      logCtx.ifEmpty(log(msg, t))(c => log(c, s"$msg (context: $c)", t))
 
 }

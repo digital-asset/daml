@@ -7,20 +7,19 @@ import java.util.concurrent.ConcurrentLinkedQueue
 
 import akka.actor.ActorSystem
 import akka.pattern.after
+import ch.qos.logback.classic.Level
 import com.digitalasset.dec.DirectExecutionContext
-import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.indexer.RecoveringIndexerSpec._
+import com.digitalasset.platform.logging.LoggingContext.newLoggingContext
+import com.digitalasset.platform.testing.LogCollector
 import com.digitalasset.resources.{Resource, ResourceOwner}
-import org.mockito.ArgumentMatchersSugar._
-import org.mockito.Mockito
-import org.mockito.MockitoSugar._
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{AsyncWordSpec, BeforeAndAfterEach, Matchers}
-import org.slf4j.Logger
 
 import scala.collection.mutable
-import scala.concurrent.duration.{DurationInt, FiniteDuration}
-import scala.concurrent.{Await, ExecutionContext, Future, Promise}
+import scala.concurrent.Await
+import scala.concurrent.duration.{DurationInt, DurationLong, FiniteDuration}
+import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success, Try}
 
 class RecoveringIndexerSpec
@@ -32,29 +31,23 @@ class RecoveringIndexerSpec
   private[this] implicit val executionContext: ExecutionContext = DirectExecutionContext
   private[this] var actorSystem: ActorSystem = _
 
-  private[this] var loggerFactory: NamedLoggerFactory = _
-  private[this] var logger: Logger = _
-
   override def beforeEach(): Unit = {
     super.beforeEach()
     actorSystem = ActorSystem(getClass.getSimpleName)
-
-    loggerFactory = mock[NamedLoggerFactory]
-    logger = mock[Logger]
-    when(loggerFactory.getLogger(classOf[RecoveringIndexer])).thenReturn(logger)
-    ()
+    LogCollector.clear[this.type]
   }
 
   override def afterEach(): Unit = {
     Await.result(actorSystem.terminate(), 10.seconds)
-    verifyNoMoreInteractions(logger)
     super.afterEach()
   }
 
+  private def readLog(): Seq[(Level, String)] = LogCollector.read[this.type, RecoveringIndexer]
+
   "RecoveringIndexer" should {
-    "work when the stream completes" in {
+    "work when the stream completes" in newLoggingContext { implicit logCtx =>
       val recoveringIndexer =
-        new RecoveringIndexer(actorSystem.scheduler, 10.millis, 1.second, loggerFactory)
+        new RecoveringIndexer(actorSystem.scheduler, 10.millis, 1.second)
       val testIndexer = new TestIndexer(
         SubscribeResult("A", SuccessfullyCompletes, 10.millis, 10.millis),
       )
@@ -69,19 +62,20 @@ class RecoveringIndexerSpec
             EventStreamComplete("A"),
             EventStopCalled("A"),
           )
-          val inOrder = Mockito.inOrder(logger)
-          inOrder.verify(logger).info("Starting Indexer Server")
-          inOrder.verify(logger).info("Started Indexer Server")
-          inOrder.verify(logger).info("Successfully finished processing state updates")
-          inOrder.verify(logger).info("Stopping Indexer Server")
-          inOrder.verify(logger).info("Stopped Indexer Server")
+          readLog() should contain theSameElementsInOrderAs Seq(
+            Level.INFO -> "Starting Indexer Server",
+            Level.INFO -> "Started Indexer Server",
+            Level.INFO -> "Successfully finished processing state updates",
+            Level.INFO -> "Stopping Indexer Server",
+            Level.INFO -> "Stopped Indexer Server",
+          )
           testIndexer.openSubscriptions shouldBe mutable.Set.empty
         }
     }
 
-    "work when the stream is stopped" in {
+    "work when the stream is stopped" in newLoggingContext { implicit logCtx =>
       val recoveringIndexer =
-        new RecoveringIndexer(actorSystem.scheduler, 10.millis, 1.second, loggerFactory)
+        new RecoveringIndexer(actorSystem.scheduler, 10.millis, 1.second)
       // Stream completes after 10s, but is released before that happens
       val testIndexer = new TestIndexer(
         SubscribeResult("A", SuccessfullyCompletes, 10.millis, 10.seconds),
@@ -100,19 +94,20 @@ class RecoveringIndexerSpec
           EventSubscribeSuccess("A"),
           EventStopCalled("A"),
         )
-        val inOrder = Mockito.inOrder(logger)
-        inOrder.verify(logger).info("Starting Indexer Server")
-        inOrder.verify(logger).info("Started Indexer Server")
-        inOrder.verify(logger).info("Stopping Indexer Server")
-        inOrder.verify(logger).info("Successfully finished processing state updates")
-        inOrder.verify(logger).info("Stopped Indexer Server")
+        readLog() should contain theSameElementsInOrderAs Seq(
+          Level.INFO -> "Starting Indexer Server",
+          Level.INFO -> "Started Indexer Server",
+          Level.INFO -> "Stopping Indexer Server",
+          Level.INFO -> "Successfully finished processing state updates",
+          Level.INFO -> "Stopped Indexer Server",
+        )
         testIndexer.openSubscriptions shouldBe mutable.Set.empty
       }
     }
 
-    "wait until the subscription completes" in {
+    "wait until the subscription completes" in newLoggingContext { implicit logCtx =>
       val recoveringIndexer =
-        new RecoveringIndexer(actorSystem.scheduler, 10.millis, 1.second, loggerFactory)
+        new RecoveringIndexer(actorSystem.scheduler, 10.millis, 1.second)
       val testIndexer = new TestIndexer(
         SubscribeResult("A", SuccessfullyCompletes, 100.millis, 10.millis),
       )
@@ -120,27 +115,29 @@ class RecoveringIndexerSpec
       val resource = recoveringIndexer.start(() => testIndexer.subscribe())
       resource.asFuture
         .map { complete =>
-          val inOrder = Mockito.inOrder(logger)
-          inOrder.verify(logger).info("Starting Indexer Server")
-          inOrder.verify(logger).info("Started Indexer Server")
+          readLog() should contain theSameElementsInOrderAs Seq(
+            Level.INFO -> "Starting Indexer Server",
+            Level.INFO -> "Started Indexer Server",
+          )
           complete
         }
         .flatten
         .transformWith(finallyRelease(resource))
         .map { _ =>
-          val inOrder = Mockito.inOrder(logger)
-          inOrder.verify(logger).info("Starting Indexer Server")
-          inOrder.verify(logger).info("Started Indexer Server")
-          inOrder.verify(logger).info("Successfully finished processing state updates")
-          inOrder.verify(logger).info("Stopping Indexer Server")
-          inOrder.verify(logger).info("Stopped Indexer Server")
+          readLog() should contain theSameElementsInOrderAs Seq(
+            Level.INFO -> "Starting Indexer Server",
+            Level.INFO -> "Started Indexer Server",
+            Level.INFO -> "Successfully finished processing state updates",
+            Level.INFO -> "Stopping Indexer Server",
+            Level.INFO -> "Stopped Indexer Server",
+          )
           testIndexer.openSubscriptions shouldBe mutable.Set.empty
         }
     }
 
-    "recover from failure" in {
+    "recover from failure" in newLoggingContext { implicit logCtx =>
       val recoveringIndexer =
-        new RecoveringIndexer(actorSystem.scheduler, 10.millis, 1.second, loggerFactory)
+        new RecoveringIndexer(actorSystem.scheduler, 10.millis, 1.second)
       // Subscribe fails, then the stream fails, then the stream completes without errors.
       val testIndexer = new TestIndexer(
         SubscribeResult("A", SubscriptionFails, 10.millis, 10.millis),
@@ -165,32 +162,26 @@ class RecoveringIndexerSpec
             EventStreamComplete("C"),
             EventStopCalled("C"),
           )
-          val inOrder = Mockito.inOrder(logger)
-          inOrder.verify(logger).info("Starting Indexer Server")
-          inOrder
-            .verify(logger)
-            .error(
-              eqTo("Error while starting indexer, restart scheduled after 10 milliseconds"),
-              isA[Throwable])
-          inOrder.verify(logger).info("Restarting Indexer Server")
-          inOrder.verify(logger).info("Restarted Indexer Server")
-          inOrder
-            .verify(logger)
-            .error(
-              eqTo("Error while running indexer, restart scheduled after 10 milliseconds"),
-              isA[Throwable])
-          inOrder.verify(logger).info("Restarting Indexer Server")
-          inOrder.verify(logger).info("Restarted Indexer Server")
-          inOrder.verify(logger).info("Successfully finished processing state updates")
-          inOrder.verify(logger).info("Stopping Indexer Server")
-          inOrder.verify(logger).info("Stopped Indexer Server")
+          readLog() should contain theSameElementsInOrderAs Seq(
+            Level.INFO -> "Starting Indexer Server",
+            Level.ERROR -> "Error while starting indexer, restart scheduled after 10 milliseconds",
+            Level.INFO -> "Restarting Indexer Server",
+            Level.INFO -> "Restarted Indexer Server",
+            Level.ERROR -> "Error while running indexer, restart scheduled after 10 milliseconds",
+            Level.INFO -> "Restarting Indexer Server",
+            Level.INFO -> "Restarted Indexer Server",
+            Level.INFO -> "Successfully finished processing state updates",
+            Level.INFO -> "Stopping Indexer Server",
+            Level.INFO -> "Stopped Indexer Server",
+          )
           testIndexer.openSubscriptions shouldBe mutable.Set.empty
         }
     }
 
-    "respect restart delay" in {
+    "respect restart delay" in newLoggingContext { implicit logCtx =>
+      val delay = 500.millis
       val recoveringIndexer =
-        new RecoveringIndexer(actorSystem.scheduler, 500.millis, 1.second, loggerFactory)
+        new RecoveringIndexer(actorSystem.scheduler, delay, 1.second)
       // Subscribe fails, then the stream completes without errors. Note the restart delay of 500ms.
       val testIndexer = new TestIndexer(
         SubscribeResult("A", SubscriptionFails, 0.millis, 0.millis),
@@ -203,7 +194,7 @@ class RecoveringIndexerSpec
         .transformWith(finallyRelease(resource))
         .map { _ =>
           val t1 = System.nanoTime()
-          (t1 - t0) should be >= 500.millis.toNanos
+          (t1 - t0).nanos should be >= delay
           testIndexer.actions shouldBe Seq[IndexerEvent](
             EventSubscribeCalled("A"),
             EventSubscribeFail("A"),
@@ -212,18 +203,15 @@ class RecoveringIndexerSpec
             EventStreamComplete("B"),
             EventStopCalled("B"),
           )
-          val inOrder = Mockito.inOrder(logger)
-          inOrder.verify(logger).info("Starting Indexer Server")
-          inOrder
-            .verify(logger)
-            .error(
-              eqTo("Error while starting indexer, restart scheduled after 500 milliseconds"),
-              isA[Throwable])
-          inOrder.verify(logger).info("Restarting Indexer Server")
-          inOrder.verify(logger).info("Restarted Indexer Server")
-          inOrder.verify(logger).info("Successfully finished processing state updates")
-          inOrder.verify(logger).info("Stopping Indexer Server")
-          inOrder.verify(logger).info("Stopped Indexer Server")
+          readLog() should contain theSameElementsInOrderAs Seq(
+            Level.INFO -> "Starting Indexer Server",
+            Level.ERROR -> "Error while starting indexer, restart scheduled after 500 milliseconds",
+            Level.INFO -> "Restarting Indexer Server",
+            Level.INFO -> "Restarted Indexer Server",
+            Level.INFO -> "Successfully finished processing state updates",
+            Level.INFO -> "Stopping Indexer Server",
+            Level.INFO -> "Stopped Indexer Server",
+          )
           testIndexer.openSubscriptions shouldBe mutable.Set.empty
         }
     }

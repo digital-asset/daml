@@ -17,43 +17,39 @@ import com.digitalasset.ledger.api.v1.testing.time_service._
 import com.digitalasset.platform.akkastreams.dispatcher.SignalDispatcher
 import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.platform.apiserver.TimeServiceBackend
-import com.digitalasset.platform.common.logging.NamedLoggerFactory
+import com.digitalasset.platform.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.server.api.validation.FieldValidations
 import com.google.protobuf.empty.Empty
 import io.grpc.{ServerServiceDefinition, Status, StatusRuntimeException}
-import org.slf4j.Logger
 import scalaz.syntax.tag._
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NoStackTrace
 
-class ApiTimeService private (
+final class ApiTimeService private (
     val ledgerId: LedgerId,
     backend: TimeServiceBackend,
-    protected val logger: Logger
 )(
     implicit grpcExecutionContext: ExecutionContext,
     protected val mat: Materializer,
-    protected val esf: ExecutionSequencerFactory)
+    protected val esf: ExecutionSequencerFactory,
+    logCtx: LoggingContext)
     extends TimeServiceAkkaGrpc
     with FieldValidations
     with GrpcApiService {
 
+  private val logger = ContextualizedLogger.get(this.getClass)
+
   logger.debug(
-    "{} initialized with ledger ID {}, start time {}",
-    this.getClass.getSimpleName,
-    ledgerId.unwrap,
-    backend.getCurrentTime)
+    s"${getClass.getSimpleName} initialized with ledger ID ${ledgerId.unwrap}, start time ${backend.getCurrentTime}")
 
   private val dispatcher = SignalDispatcher[Instant]()
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  override protected def getTimeSource(
-      request: GetTimeRequest): Source[GetTimeResponse, NotUsed] = {
-
+  override protected def getTimeSource(request: GetTimeRequest): Source[GetTimeResponse, NotUsed] =
     matchLedgerId(ledgerId)(LedgerId(request.ledgerId)).fold(
       Source.failed, { ledgerId =>
-        logger.trace("Request for time with ledger ID {}", ledgerId)
+        logger.trace(s"Request for time with ledger ID $ledgerId")
         dispatcher
           .subscribe()
           .map(_ => backend.getCurrentTime)
@@ -65,15 +61,15 @@ class ApiTimeService private (
             case None => Nil
             case Some(t) => List(GetTimeResponse(Some(fromInstant(t))))
           }
+          .via(logger.logErrorsOnStream)
       }
     )
-  }
 
   @SuppressWarnings(Array("org.wartremover.warts.JavaSerializable"))
   override def setTime(request: SetTimeRequest): Future[Empty] = {
     def updateTime(
         expectedTime: Instant,
-        requestedTime: Instant): Future[Either[StatusRuntimeException, Instant]] = {
+        requestedTime: Instant): Future[Either[StatusRuntimeException, Instant]] =
       backend
         .setCurrentTime(expectedTime, requestedTime)
         .map(success =>
@@ -85,7 +81,6 @@ class ApiTimeService private (
                   s"current_time mismatch. Provided: $expectedTime. Actual: ${backend.getCurrentTime}"))
               with NoStackTrace
           ))(DirectExecutionContext)
-    }
 
     val result = for {
       _ <- matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
@@ -100,16 +95,17 @@ class ApiTimeService private (
                 s"new_time [$requestedTime] is before current_time [$expectedTime]. Setting time backwards is not allowed."))
             with NoStackTrace)
       }
-      //_ <- updateTime(expectedTime, requestedTime)
     } yield {
-      updateTime(expectedTime, requestedTime).map { _ =>
-        dispatcher.signal()
-        Empty()
-      }
+      updateTime(expectedTime, requestedTime)
+        .map { _ =>
+          dispatcher.signal()
+          Empty()
+        }
+        .andThen(logger.logErrorsOnCall[Empty])
     }
 
     result.fold({ error =>
-      logger.warn("Failed to set time for request {}: {}", Array(request, error.getMessage))
+      logger.warn(s"Failed to set time for request $request: ${error.getMessage}")
       Future.failed(error)
     }, identity)
   }
@@ -126,13 +122,10 @@ class ApiTimeService private (
 }
 
 object ApiTimeService {
-  def create(ledgerId: LedgerId, backend: TimeServiceBackend, loggerFactory: NamedLoggerFactory)(
+  def create(ledgerId: LedgerId, backend: TimeServiceBackend)(
       implicit grpcExecutionContext: ExecutionContext,
       mat: Materializer,
-      esf: ExecutionSequencerFactory): TimeService with GrpcApiService with TimeServiceLogging = {
-    val loggerOverride = loggerFactory.getLogger(TimeServiceGrpc.TimeService.getClass)
-    new ApiTimeService(ledgerId, backend, loggerOverride) with TimeServiceLogging {
-      override protected val logger = loggerOverride
-    }
-  }
+      esf: ExecutionSequencerFactory,
+      logCtx: LoggingContext): TimeService with GrpcApiService =
+    new ApiTimeService(ledgerId, backend)
 }

@@ -15,15 +15,16 @@ import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.auth.{AuthService, AuthServiceWildcard}
 import com.digitalasset.platform.apiserver.{ApiServerConfig, StandaloneApiServer}
-import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.indexer.{
   IndexerConfig,
   IndexerStartupMode,
   StandaloneIndexerServer
 }
+import com.digitalasset.platform.logging.LoggingContext
 import com.digitalasset.resources.akka.AkkaResourceOwner
 import com.digitalasset.resources.{Resource, ResourceOwner}
 import org.slf4j.LoggerFactory
+import com.digitalasset.platform.logging.LoggingContext.newLoggingContext
 
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext}
@@ -42,36 +43,38 @@ class Runner[Extra](name: String, constructor: LedgerFactory[Extra]) {
     implicit val materializer: Materializer = Materializer(system)
     implicit val executionContext: ExecutionContext = system.dispatcher
 
-    val resource = for {
-      // Take ownership of the actor system and materializer so they're cleaned up properly.
-      // This is necessary because we can't declare them as implicits within a `for` comprehension.
-      _ <- AkkaResourceOwner.forActorSystem(() => system).acquire()
-      _ <- AkkaResourceOwner.forMaterializer(() => materializer).acquire()
-      readerWriter <- ResourceOwner
-        .forCloseable(() => constructor(config.participantId, config.extra))
-        .acquire()
-      ledger = new KeyValueParticipantState(readerWriter, readerWriter)
-      _ <- Resource.sequenceIgnoringValues(config.archiveFiles.map { file =>
-        val submissionId = SubmissionId.assertFromString(UUID.randomUUID().toString)
-        for {
-          dar <- ResourceOwner
-            .forTry(() =>
-              DarReader { case (_, x) => Try(Archive.parseFrom(x)) }
-                .readArchiveFromFile(file.toFile))
-            .acquire()
-          _ <- ResourceOwner
-            .forCompletionStage(() => ledger.uploadPackages(submissionId, dar.all, None))
-            .acquire()
-        } yield ()
-      })
-      _ <- startIndexerServer(config, readService = ledger)
-      _ <- startApiServer(
-        config,
-        readService = ledger,
-        writeService = ledger,
-        authService = AuthServiceWildcard,
-      )
-    } yield ()
+    val resource = newLoggingContext { implicit logCtx =>
+      for {
+        // Take ownership of the actor system and materializer so they're cleaned up properly.
+        // This is necessary because we can't declare them as implicits within a `for` comprehension.
+        _ <- AkkaResourceOwner.forActorSystem(() => system).acquire()
+        _ <- AkkaResourceOwner.forMaterializer(() => materializer).acquire()
+        readerWriter <- ResourceOwner
+          .forCloseable(() => constructor(config.participantId, config.extra))
+          .acquire()
+        ledger = new KeyValueParticipantState(readerWriter, readerWriter)
+        _ <- Resource.sequenceIgnoringValues(config.archiveFiles.map { file =>
+          val submissionId = SubmissionId.assertFromString(UUID.randomUUID().toString)
+          for {
+            dar <- ResourceOwner
+              .forTry(() =>
+                DarReader { case (_, x) => Try(Archive.parseFrom(x)) }
+                  .readArchiveFromFile(file.toFile))
+              .acquire()
+            _ <- ResourceOwner
+              .forCompletionStage(() => ledger.uploadPackages(submissionId, dar.all, None))
+              .acquire()
+          } yield ()
+        })
+        _ <- startIndexerServer(config, readService = ledger)
+        _ <- startApiServer(
+          config,
+          readService = ledger,
+          writeService = ledger,
+          authService = AuthServiceWildcard,
+        )
+      } yield ()
+    }
 
     resource.asFuture.failed.foreach { exception =>
       logger.error("Shutting down because of an initialization error.", exception)
@@ -85,7 +88,7 @@ class Runner[Extra](name: String, constructor: LedgerFactory[Extra]) {
   private def startIndexerServer(
       config: Config[Extra],
       readService: ReadService,
-  )(implicit executionContext: ExecutionContext): Resource[Unit] =
+  )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): Resource[Unit] =
     new StandaloneIndexerServer(
       readService,
       IndexerConfig(
@@ -93,7 +96,6 @@ class Runner[Extra](name: String, constructor: LedgerFactory[Extra]) {
         jdbcUrl = "jdbc:h2:mem:server;db_close_delay=-1;db_close_on_exit=false",
         startupMode = IndexerStartupMode.MigrateAndStart,
       ),
-      NamedLoggerFactory.forParticipant(config.participantId),
       SharedMetricRegistries.getOrCreate(s"indexer-${config.participantId}"),
     ).acquire()
 
@@ -102,7 +104,7 @@ class Runner[Extra](name: String, constructor: LedgerFactory[Extra]) {
       readService: ReadService,
       writeService: WriteService,
       authService: AuthService,
-  )(implicit executionContext: ExecutionContext): Resource[Unit] =
+  )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): Resource[Unit] =
     new StandaloneApiServer(
       ApiServerConfig(
         config.participantId,
@@ -118,7 +120,6 @@ class Runner[Extra](name: String, constructor: LedgerFactory[Extra]) {
       readService,
       writeService,
       authService,
-      NamedLoggerFactory.forParticipant(config.participantId),
       SharedMetricRegistries.getOrCreate(s"ledger-api-server-${config.participantId}"),
     ).acquire()
 }

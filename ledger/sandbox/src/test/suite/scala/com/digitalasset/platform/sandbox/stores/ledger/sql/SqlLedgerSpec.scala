@@ -9,7 +9,6 @@ import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.health.{Healthy, Unhealthy}
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.sandbox.MetricsAround
 import com.digitalasset.platform.sandbox.persistence.PostgresAroundEach
 import com.digitalasset.platform.sandbox.stores.ledger.Ledger
@@ -18,6 +17,7 @@ import com.digitalasset.resources.Resource
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, Eventually, ScaledTimeSpans}
 import org.scalatest.time.{Minute, Seconds, Span}
 import org.scalatest.{AsyncWordSpec, Matchers}
+import com.digitalasset.platform.logging.LoggingContext.newLoggingContext
 
 import scala.collection.mutable
 import scala.concurrent.duration.DurationInt
@@ -41,8 +41,6 @@ class SqlLedgerSpec
 
   private val ledgerId: LedgerId = LedgerId(Ref.LedgerString.assertFromString("TheLedger"))
   private val participantId: ParticipantId = Ref.LedgerString.assertFromString("TheParticipant")
-
-  private val loggerFactory = NamedLoggerFactory(this.getClass)
 
   private val createdLedgers = mutable.Buffer[Resource[Ledger]]()
 
@@ -143,21 +141,22 @@ class SqlLedgerSpec
 
   private def createSqlLedger(ledgerId: Option[LedgerId]): Future[Ledger] = {
     metrics.getNames.forEach(name => { val _ = metrics.remove(name) })
-    val ledger = SqlLedger
-      .owner(
-        jdbcUrl = postgresFixture.jdbcUrl,
-        ledgerId = ledgerId,
-        participantId = participantId,
-        timeProvider = TimeProvider.UTC,
-        acs = InMemoryActiveLedgerState.empty,
-        packages = InMemoryPackageStore.empty,
-        initialLedgerEntries = ImmArray.empty,
-        queueDepth,
-        startMode = SqlStartMode.ContinueIfExists,
-        loggerFactory,
-        metrics,
-      )
-      .acquire()(system.dispatcher)
+    val ledger = newLoggingContext { implicit logCtx =>
+      SqlLedger
+        .owner(
+          jdbcUrl = postgresFixture.jdbcUrl,
+          ledgerId = ledgerId,
+          participantId = participantId,
+          timeProvider = TimeProvider.UTC,
+          acs = InMemoryActiveLedgerState.empty,
+          packages = InMemoryPackageStore.empty,
+          initialLedgerEntries = ImmArray.empty,
+          queueDepth,
+          startMode = SqlStartMode.ContinueIfExists,
+          metrics,
+        )
+        .acquire()(system.dispatcher)
+    }
     createdLedgers += ledger
     ledger.asFuture
   }

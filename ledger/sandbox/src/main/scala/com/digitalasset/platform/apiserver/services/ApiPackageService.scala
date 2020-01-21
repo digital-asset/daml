@@ -14,23 +14,30 @@ import com.digitalasset.ledger.api.v1.package_service.HashFunction.{
 import com.digitalasset.ledger.api.v1.package_service.PackageServiceGrpc.PackageService
 import com.digitalasset.ledger.api.v1.package_service.{HashFunction => APIHashFunction, _}
 import com.digitalasset.platform.api.grpc.GrpcApiService
-import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.dec.{DirectExecutionContext => DEC}
+import com.digitalasset.platform.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.server.api.validation.PackageServiceValidation
 import io.grpc.{BindableService, ServerServiceDefinition, Status}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
-class ApiPackageService private (backend: IndexPackagesService)
+final class ApiPackageService private (backend: IndexPackagesService)(
+    implicit logCtx: LoggingContext)
     extends PackageService
     with GrpcApiService {
+
+  private val logger = ContextualizedLogger.get(this.getClass)
+
   override def bindService(): ServerServiceDefinition =
     PackageServiceGrpc.bindService(this, DEC)
 
   override def close(): Unit = ()
 
   override def listPackages(request: ListPackagesRequest): Future[ListPackagesResponse] =
-    backend.listLfPackages().map(p => ListPackagesResponse(p.keys.toSeq))(DEC)
+    backend
+      .listLfPackages()
+      .map(p => ListPackagesResponse(p.keys.toSeq))(DEC)
+      .andThen(logger.logErrorsOnCall[ListPackagesResponse])(DEC)
 
   override def getPackage(request: GetPackageRequest): Future[GetPackageResponse] =
     withValidatedPackageId(
@@ -40,6 +47,7 @@ class ApiPackageService private (backend: IndexPackagesService)
           .getLfArchive(pId)
           .flatMap(_.fold(Future.failed[GetPackageResponse](Status.NOT_FOUND.asRuntimeException()))(
             archive => Future.successful(toGetPackageResponse(archive))))(DEC)
+          .andThen(logger.logErrorsOnCall[GetPackageResponse])(DEC)
     )
 
   override def getPackageStatus(
@@ -57,6 +65,7 @@ class ApiPackageService private (backend: IndexPackagesService)
             }
             GetPackageStatusResponse(result)
           }(DEC)
+          .andThen(logger.logErrorsOnCall[GetPackageStatusResponse])(DEC)
     )
 
   private def withValidatedPackageId[T](packageId: String, block: Ref.PackageId.T => Future[T]) =
@@ -82,12 +91,9 @@ class ApiPackageService private (backend: IndexPackagesService)
 }
 
 object ApiPackageService {
-  def create(ledgerId: LedgerId, backend: IndexPackagesService, loggerFactory: NamedLoggerFactory)(
-      implicit ec: ExecutionContext)
-    : PackageService with GrpcApiService with PackageServiceLogging =
-    new PackageServiceValidation(new ApiPackageService(backend), ledgerId) with BindableService
-    with PackageServiceLogging {
-      override protected val logger = loggerFactory.getLogger(PackageService.getClass)
+  def create(ledgerId: LedgerId, backend: IndexPackagesService)(
+      implicit logCtx: LoggingContext): PackageService with GrpcApiService =
+    new PackageServiceValidation(new ApiPackageService(backend), ledgerId) with BindableService {
       override def bindService(): ServerServiceDefinition =
         PackageServiceGrpc.bindService(this, DEC)
     }
