@@ -7,7 +7,6 @@ import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
-import com.digitalasset.daml.lf.language.Util._
 
 private[validation] object Serializability {
 
@@ -38,7 +37,7 @@ private[validation] object Serializability {
     def checkType(): Unit = checkType(typeToSerialize)
 
     def checkType(typ0: Type): Unit = typ0 match {
-      case TContractId(tArg) => {
+      case TApp(TBuiltin(BTContractId), tArg) => {
         if (supportsSerializablePolymorphicContractIds) {
           checkType(tArg)
         } else {
@@ -66,14 +65,14 @@ private[validation] object Serializability {
           case _ =>
             unserializable(URDataType(tycon))
         }
-      case TNumeric(TNat(_)) =>
-      case TList(tArg) =>
+      case TApp(TBuiltin(BTNumeric), TNat(_)) =>
+      case TApp(TBuiltin(BTList), tArg) =>
         checkType(tArg)
-      case TOptional(tArg) =>
+      case TApp(TBuiltin(BTOptional), tArg) =>
         checkType(tArg)
-      case TTextMap(tArg) =>
+      case TApp(TBuiltin(BTTextMap), tArg) =>
         checkType(tArg)
-      case TGenMap(tKeys, tValues) =>
+      case TApp(TApp(TBuiltin(BTGenMap), tKeys), tValues) =>
         checkType(tKeys)
         checkType(tValues)
       case TApp(tyfun, targ) =>
