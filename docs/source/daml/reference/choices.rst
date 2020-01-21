@@ -80,7 +80,7 @@ Consumability
 If no qualifier is present, choices are *preconsuming*. This behavior is also usually referred to simply as *consuming*.
 
 Preconsuming choices
-*****************
+********************
 
 .. literalinclude:: ../code-snippets/Reference.daml
    :language: daml
