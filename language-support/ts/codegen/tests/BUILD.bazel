@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("//rules_daml:daml.bzl", "daml_compile")
+load("@sdk_version//:sdk_version.bzl", "sdk_version")
 
 # This rule builds a dar from the daml sources under the 'daml'
 # directory. It is referenced from the 'build-and-lint' test that
@@ -37,6 +38,7 @@ sh_test(
         "$(location ts/package.json)",
         "$(location //language-support/ts/daml-json-types:npm_package)",
         "$(location //language-support/ts/daml-ledger-fetch:npm_package)",
+        sdk_version,
     ],
     data = [
         "//:java",
@@ -47,6 +49,7 @@ sh_test(
         ":daml2ts-test.dar",
         "//language-support/ts/daml-json-types:npm_package",
         "//language-support/ts/daml-ledger-fetch:npm_package",
+        "//:VERSION",
     ] + glob(
         ["ts/**"],
         exclude = [
