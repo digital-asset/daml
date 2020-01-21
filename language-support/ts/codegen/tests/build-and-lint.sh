@@ -46,7 +46,7 @@ cp -rL $DAML_LEDGER_FETCH/* $TMP_DAML_LEDGER_FETCH
 cd $TMP_DIR
 
 $DAML2TS -o generated/src/daml --main-package-name daml-tests $DAR
-sed -i "s/0.0.0-SDK_VERSION/${VERSION}/" generated/package.json
+sed -i "s/0.0.0-SDKVERSION/${VERSION}/" generated/package.json
 $YARN install --frozen-lockfile
 $YARN workspaces run build
 cd generated
