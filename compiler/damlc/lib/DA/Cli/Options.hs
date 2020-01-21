@@ -311,9 +311,9 @@ optionsParser numProcessors enableScenarioService parsePkgName = Options
       where parse = do
                 pkg_arg <- tok GHC.parseUnitId
                 do _ <- tok $ R.string "with"
-                     fmap (PackageImport pkg_arg True) parseRns
-                  R.<++ fmap (PackageImport pkg_arg False) parseRns
-                  R.<++ return (PackageImport pkg_arg True [])
+                   fmap (PackageImport pkg_arg True) parseRns
+                 R.<++ fmap (PackageImport pkg_arg False) parseRns
+                 R.<++ return (PackageImport pkg_arg True [])
             parseRns :: R.ReadP [(GHC.ModuleName, GHC.ModuleName)]
             parseRns = do
                 _ <- tok $ R.char '('
