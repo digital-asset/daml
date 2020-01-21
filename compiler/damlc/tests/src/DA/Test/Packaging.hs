@@ -91,8 +91,7 @@ tests damlc repl davlDar = testGroup "Packaging"
             , "  - daml-prim"
             , "  - daml-stdlib"
             , "  - " <> aDar
-            , "build-options:"
-            , "- '--package=(\"a-1.0\", True, [(\"A\", \"C\")])'"
+            , "build-options: ['--package', 'a-1.0 with (A as C)']"
             ]
             -- the last option checks that module aliases work and modules imported without aliases
             -- are still exposed.
@@ -570,9 +569,9 @@ dataDependencyTests damlc repl davlDar = testGroup "Data Dependencies" $
           withCurrentDirectory projb $ callProcessSilent damlc
             [ "build", "--target=" <> LF.renderVersion targetLfVer, "-o", projb </> "projb.dar"
             , "--hide-all-packages"
-            , "--package", "(\"daml-prim\", True, [])"
-            , "--package", "(\"" <> damlStdlib <> "\", True, [])"
-            , "--package", "(\"proja-0.0.1\", True, [])"
+            , "--package", "daml-prim"
+            , "--package", damlStdlib
+            , "--package", "proja-0.0.1"
             ]
           callProcessSilent repl ["validate", projb </> "projb.dar"]
           projbPkgIds <- darPackageIds (projb </> "projb.dar")
@@ -632,11 +631,11 @@ dataDependencyTests damlc repl davlDar = testGroup "Data Dependencies" $
           withCurrentDirectory tmpDir $ callProcessSilent damlc
             [ "build", "-o", tmpDir </> "foobar.dar"
             , "--hide-all-packages"
-            , "--package", "(\"daml-prim\", True, [])"
-            , "--package", "(\"" <> damlStdlib <> "\", True, [])"
+            , "--package", "daml-prim"
+            , "--package", damlStdlib
             -- We need to use the old stdlib for the Archive type
-            , "--package", "(\"daml-stdlib-cc6d52aa624250119006cd19d51c60006762bd93ca5a6d288320a703024b33da\", False, [(\"DA.Internal.Template\", \"OldStdlib.DA.Internal.Template\")])"
-            , "--package", "(\"davl-0.0.3\", True, [])"
+            , "--package", "daml-stdlib-cc6d52aa624250119006cd19d51c60006762bd93ca5a6d288320a703024b33da (DA.Internal.Template as OldStdlib.DA.Internal.Template)"
+            , "--package", "davl-0.0.3"
             ]
           step "Validating DAR"
           callProcessSilent repl ["validate", tmpDir </> "foobar.dar"]
@@ -667,9 +666,10 @@ dataDependencyTests damlc repl davlDar = testGroup "Data Dependencies" $
             , "gen/Foo.daml"
             , "-o"
             , "FooGen.dalf"
-            , "--package=(" <> show damlStdlib <>
-              ", False, [(\"DA.Internal.LF\", \"CurrentSdk.DA.Internal.LF\"), (\"DA.Internal.Prelude\", \"Sdk.DA.Internal.Prelude\"), (\"DA.Internal.Template\", \"CurrentSdk.DA.Internal.Template\")])"
-            , "--package=(\"daml-prim\", False, [(\"DA.Types\", \"CurrentSdk.DA.Types\"), (\"GHC.Types\", \"CurrentSdk.GHC.Types\")])"
+            , "--package"
+            , damlStdlib <> " (DA.Internal.LF as CurrentSdk.DA.Internal.LF, DA.Internal.Prelude as CurrentSdk.DA.Internal.Prelude, DA.Internal.Template as CurrentSdk.DA.Internal.Template)"
+            , "--package"
+            , "daml-prim (DA.Types as CurrentSdk.DA.Types, GHC.Types as CurrentSdk.GHC.Types)"
             ]
         assertBool "FooGen.dalf was not created" =<< doesFileExist "FooGen.dalf"
     ] <>
@@ -688,7 +688,7 @@ dataDependencyTests damlc repl davlDar = testGroup "Data Dependencies" $
           , "dependencies: [daml-prim, daml-stdlib]"
           , "data-dependencies: [simple-dalf-0.0.0.dalf]"
           , "build-options:"
-          , "- '--package=(\"daml-stdlib-" <> sdkVersion <> "\", True, [])'"
+          , "- '--package=" <> damlStdlib <> "'"
           ]
         writeFileUTF8 (projDir </> "A.daml") $ unlines
             [ "daml 1.2"
