@@ -382,6 +382,7 @@ nixpkgs_package(
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
+    build_file_content = 'exports_files(glob(["node_nix/**"]))',
 )
 
 #sass
@@ -613,6 +614,8 @@ load("@io_bazel_rules_docker//java:image.bzl", java_image_repositories = "reposi
 
 java_image_repositories()
 
+# TODO (aherrmann) This wrapper is only used on Windows.
+#   Replace by an appropriate Windows only `dadew_tool` call.
 dev_env_tool(
     name = "nodejs_dev_env",
     nix_include = [
@@ -637,7 +640,7 @@ load("@build_bazel_rules_nodejs//:index.bzl", "node_repositories", "yarn_install
 
 node_repositories(
     package_json = ["//:package.json"],
-    vendored_node = "@nodejs_dev_env",
+    vendored_node = "@nodejs_dev_env" if is_windows else "@node_nix",
 )
 
 yarn_install(

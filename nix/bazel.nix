@@ -19,7 +19,6 @@ let shared = rec {
     jdk8
     jq
     netcat-gnu
-    nodejs
     patchelf
     postgresql_9_6
     protobuf3_8
@@ -46,6 +45,10 @@ let shared = rec {
   mvn = pkgs.writeScriptBin "mvn" ''
     exec ${pkgs.maven}/bin/mvn ''${MVN_SETTINGS:+-s "$MVN_SETTINGS"} "$@"
   '';
+
+  # rules_nodejs expects nodejs in a subdirectory of a repository rule.
+  # We use a linkFarm to fulfill this requirement.
+  nodejs = pkgs.linkFarm "nodejs" [ { name = "node_nix"; path = pkgs.nodejs; }];
 
   sass = pkgs.sass;
 
