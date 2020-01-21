@@ -79,7 +79,7 @@ final class ApiPackageManagementService private (
     val timeToLive = 30.seconds
 
     implicit val ec: ExecutionContext = DE
-    val response = for {
+    val uploadDarFileResponse = for {
       dar <- DarReader { case (_, x) => Try(Archive.parseFrom(x)) }
         .readArchive(
           "package-upload",
@@ -89,10 +89,10 @@ final class ApiPackageManagementService private (
           Future.successful
         )
       ledgerEndBeforeRequest <- transactionsService.currentLedgerEnd()
-      result <- FutureConverters.toScala(
+      submissionResult <- FutureConverters.toScala(
         packagesWrite.uploadPackages(submissionId, dar.all, None)
       )
-      result <- result match {
+      response <- submissionResult match {
         case SubmissionResult.Acknowledged =>
           pollUntilPersisted(submissionId, timeToLive, ledgerEndBeforeRequest).flatMap {
             case _: PackageEntry.PackageUploadAccepted =>
@@ -107,8 +107,8 @@ final class ApiPackageManagementService private (
         case r @ SubmissionResult.NotSupported =>
           Future.failed(ErrorFactories.unimplemented(r.description))
       }
-    } yield result
-    response.andThen(logger.logErrorsOnCall[UploadDarFileResponse])
+    } yield response
+    uploadDarFileResponse.andThen(logger.logErrorsOnCall[UploadDarFileResponse])
   }
 
   private def pollUntilPersisted(
