@@ -13,15 +13,10 @@ import com.digitalasset.ledger.api.v1.transaction.TreeEvent.Kind.{
   Exercised => TreeExercised
 }
 import scalaz.Tag
-import scalaz.syntax.tag._
 
 object EventOps {
 
-  private val eventIndexFromIdRegex = """.*[-:](\d+)$""".r
-
   implicit class EventOps(val event: Event) extends AnyVal {
-
-    def eventIndex: Int = event.event.eventIndex
 
     def eventId: EventId = event.event.eventId
 
@@ -36,8 +31,6 @@ object EventOps {
   }
 
   implicit class EventEventOps(val event: Event.Event) extends AnyVal {
-
-    def eventIndex: Int = getEventIndex(event.event.eventId.unwrap)
 
     def eventId: EventId = event match {
       case Archived(value) => EventId(Ref.LedgerString.assertFromString(value.eventId))
@@ -74,17 +67,6 @@ object EventOps {
       case Empty => Empty
     }
 
-  }
-
-  def getEventIndex(eventId: String): Int = {
-    eventIndexFromIdRegex
-      .findFirstMatchIn(eventId)
-      .fold {
-        throw new IllegalArgumentException(
-          s"Event ID $eventId does not match regex $eventIndexFromIdRegex")
-      } {
-        _.group(1).toInt
-      }
   }
 
   implicit class TreeEventKindOps(kind: TreeEvent.Kind) {

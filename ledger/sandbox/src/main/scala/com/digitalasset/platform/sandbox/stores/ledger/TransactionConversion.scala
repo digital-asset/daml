@@ -9,14 +9,12 @@ import com.digitalasset.daml.lf.value.{Value => Lf}
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.eventIdOrdering
 import com.digitalasset.ledger.api.domain.Event.{CreateOrArchiveEvent, CreateOrExerciseEvent}
-import com.digitalasset.platform.api.v1.event.EventOps.getEventIndex
 import com.digitalasset.platform.common.{PlatformTypes => P}
 import com.digitalasset.platform.participant.util.EventFilter
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.server.services.transaction.TransactionFiltration.RichTransactionFilter
 import com.digitalasset.platform.server.services.transaction.TransientContractRemover
 import scalaz.Tag
-import scalaz.syntax.tag._
 
 import scala.annotation.tailrec
 import scala.collection.breakOut
@@ -32,7 +30,6 @@ trait TransactionConversion {
     val events = engine.Event
       .collectEvents(tx, trans.explicitDisclosure.map { case (k, v) => domain.EventId(k) -> v })
     val allEvents = events.roots.toSeq
-      .sortBy(evId => getEventIndex(evId.unwrap))
       .foldLeft(List.empty[CreateOrArchiveEvent])((l, evId) =>
         l ::: flattenEvents(events.events, evId, true))
 
@@ -78,10 +75,7 @@ trait TransactionConversion {
       }
 
       val (byId, roots) =
-        removeInvisibleRoots(
-          events,
-          allEvents.roots.toList
-            .sortBy(evid => getEventIndex(evid.unwrap)))
+        removeInvisibleRoots(events, allEvents.roots.toList)
 
       val subscriberIsSubmitter =
         trans.submittingParty.exists(TemplateAwareFilter(filter).isSubmitterSubscriber)
@@ -133,7 +127,7 @@ trait TransactionConversion {
     else (result.eventsById, result.rootEventIds)
   }
 
-  def lfCreateToDomain(
+  private def lfCreateToDomain(
       eventId: domain.EventId,
       create: P.CreateEvent[Lf.AbsoluteContractId],
       includeParentWitnesses: Boolean,
@@ -155,7 +149,7 @@ trait TransactionConversion {
     )
   }
 
-  def lfExerciseToDomain(
+  private def lfExerciseToDomain(
       eventId: domain.EventId,
       exercise: P.ExerciseEvent[domain.EventId, Lf.AbsoluteContractId],
   ): domain.Event.ExercisedEvent = {
@@ -167,13 +161,13 @@ trait TransactionConversion {
       exercise.choiceArgument.value,
       exercise.actingParties,
       exercise.isConsuming,
-      exercise.children.toList.sortBy(ev => getEventIndex(ev.unwrap)),
+      exercise.children.toList,
       exercise.witnesses,
       exercise.exerciseResult.map(_.value),
     )
   }
 
-  def lfConsumingExerciseToDomain(
+  private def lfConsumingExerciseToDomain(
       eventId: domain.EventId,
       exercise: P.ExerciseEvent[domain.EventId, Lf.AbsoluteContractId])
     : domain.Event.ArchivedEvent = {
@@ -200,7 +194,6 @@ trait TransactionConversion {
       case exercise: P.ExerciseEvent[domain.EventId, Lf.AbsoluteContractId] =>
         val children: List[domain.Event.CreateOrArchiveEvent] =
           exercise.children.toSeq
-            .sortBy(ev => getEventIndex(ev.unwrap))
             .flatMap(eventId => flattenEvents(events, eventId, verbose))(breakOut)
 
         if (exercise.isConsuming) {

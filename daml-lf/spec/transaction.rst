@@ -456,7 +456,8 @@ definition referred to by ``template_id``.
 ``children`` is constrained as described under `field node_id`_.  Every
 node referred to as one of ``children`` is another update to the ledger
 taken as part of this transaction and as a consequence of exercising
-this choice.
+this choice. Nodes in ``children`` appear in the order they were
+created during interpretation.
 
 Every element of ``actors``, ``stakeholders``, ``signatories``, and
 ``controllers`` is a party identifier.
