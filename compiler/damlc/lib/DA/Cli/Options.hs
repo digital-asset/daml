@@ -282,7 +282,7 @@ optionsParser numProcessors enableScenarioService parsePkgName = Options
                       <> help "use package database in the given location"
                       <> long "package-db"
 
-    optPackageImport :: Parser PackageImport
+    optPackageImport :: Parser PackageFlag
     optPackageImport =
       option readPackageImport $
       metavar "PACKAGE" <>
@@ -298,22 +298,23 @@ optionsParser numProcessors enableScenarioService parsePkgName = Options
     --
     -- Here are a couple of examples for the syntax:
     --
-    --  * @--package foo@ is @PackageImport "foo" True []@
-    --  * @--package foo ()@ is @PackageImport "foo" False []@
-    --  * @--package foo (A)@ is @PackageImport "foo" False [("A", "A")]@
-    --  * @--package foo (A as B)@ is @PackageImport "foo" False [("A", "B")]@
-    --  * @--package foo with (A as B)@ is @PackageImport "foo" True [("A", "B")]@
-    readPackageImport :: ReadM PackageImport
+    --  * @--package foo@ is @ModRenaming True []@
+    --  * @--package foo ()@ is @ModRenaming False []@
+    --  * @--package foo (A)@ is @ModRenaming False [("A", "A")]@
+    --  * @--package foo (A as B)@ is @ModRenaming [("A", "B")]@
+    --  * @--package foo with (A as B)@ is @ModRenaming True [("A", "B")]@
+    readPackageImport :: ReadM PackageFlag
     readPackageImport = maybeReader $ \str ->
         case filter ((=="").snd) (R.readP_to_S parse str) of
             [(r, "")] -> Just r
             _ -> Nothing
       where parse = do
                 pkg_arg <- tok GHC.parseUnitId
+                let mk_expose = ExposePackage "--package " (UnitIdArg pkg_arg)
                 do _ <- tok $ R.string "with"
-                   fmap (PackageImport pkg_arg True) parseRns
-                 R.<++ fmap (PackageImport pkg_arg False) parseRns
-                 R.<++ return (PackageImport pkg_arg True [])
+                   fmap (mk_expose . ModRenaming True) parseRns
+                 R.<++ fmap (mk_expose . ModRenaming False) parseRns
+                 R.<++ return (mk_expose ( ModRenaming True []))
             parseRns :: R.ReadP [(GHC.ModuleName, GHC.ModuleName)]
             parseRns = do
                 _ <- tok $ R.char '('
