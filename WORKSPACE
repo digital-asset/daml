@@ -651,6 +651,7 @@ node_repositories(
 
 yarn_install(
     name = "npm",
+    args = ["--frozen-lockfile"],
     package_json = "//:package.json",
     yarn_lock = "//:yarn.lock",
 )
@@ -667,6 +668,7 @@ ts_setup_workspace()
 # TODO use fine-grained managed dependency
 yarn_install(
     name = "daml_extension_deps",
+    args = ["--frozen-lockfile"],
     package_json = "//compiler/daml-extension:package.json",
     yarn_lock = "//compiler/daml-extension:yarn.lock",
 )
@@ -674,6 +676,7 @@ yarn_install(
 # TODO use fine-grained managed dependency
 yarn_install(
     name = "navigator_frontend_deps",
+    args = ["--frozen-lockfile"],
     package_json = "//navigator/frontend:package.json",
     yarn_lock = "//navigator/frontend:yarn.lock",
 )
@@ -686,6 +689,7 @@ yarn_install(
 # See #4162 for more details.
 yarn_install(
     name = "language_support_ts_deps",
+    args = ["--frozen-lockfile"],
     package_json = "//language-support/ts/packages:package.json",
     yarn_lock = "//language-support/ts/packages:yarn.lock",
 ) if not is_windows else create_workspace(
