@@ -76,13 +76,13 @@ Choices in the Ledger Model
 
 In :doc:`1_Token` you learned about the high-level structure of a DAML ledger. With choices and the `exercise` function, you have the next important ingredient to understand the structure of the ledger and transactions.
 
-A *transaction* is a list of *actions*, and there are just three kinds of action: ``create``, ``exercise`` and ``fetch``. All actions are related to a contract.
+A *transaction* is a list of *actions*, and the most common kinds of action are ``create``, ``exercise`` and ``fetch``.
 
 - A ``create`` action creates a new contract with the given arguments and sets its status to *active*.
-- A ``fetch`` action  checks the existence and activeness of a contract.
-- An ``exercise`` action contains the choice arguments and a transaction called the *consequences*. Exercises come in two kinds called ``consuming`` and ``nonconsuming``. ``consuming`` is the default kind and changes the contract's status from *active* to *archived*.
+- A ``fetch`` action checks the existence and activeness of a contract.
+- An ``exercise`` action contains a contract, the choice arguments and a transaction called the *consequences*. Exercises come in two kinds called ``consuming`` and ``nonconsuming``. ``consuming`` is the default kind and changes the contract's status from *active* to *archived*.
 
-Each action can be visualized as a tree, where the action is the root node, and its children are its consequences. Every consequence may have further consequences. Naturally, if the action is a fetch or a create, then it is a leaf (without further child). You can see the action and their consequences in the transaction view of the above scenario:
+Each action can be visualized as a tree, where the action is the root node, and its children are its consequences. Every consequence may have further consequences. Naturally, if the action is a ``fetch`` or a ``create``, then it is a leaf (without further child). You can see the action and their consequences in the transaction view of the above scenario:
 
 .. code-block:: none
 
