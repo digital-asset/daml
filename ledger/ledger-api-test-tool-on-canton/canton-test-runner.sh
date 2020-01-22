@@ -25,7 +25,7 @@ PARTICIPANTS=(
 
 TIMEOUT=60
 
-function wait_until {
+function wait_until() {
   local start
 
   start="$(date +%s)"
@@ -35,7 +35,7 @@ function wait_until {
       return 1
     fi
 
-    if "$@" >& /dev/null; then
+    if "$@" >&/dev/null; then
       return 0
     fi
 
@@ -81,7 +81,7 @@ if ! kill -0 "$pid" 2>/dev/null; then
   exit 1
 fi
 
-function stop {
+function stop() {
   local status
   status=$?
   kill "$pid" || :
@@ -95,9 +95,9 @@ wait_until curl -fsS "http://${PARTICIPANT_1_HOST}:${PARTICIPANT_1_MONITORING_PO
 
 for participant in "${PARTICIPANTS[@]}"; do
   for dar in "${dars[@]}"; do
-    base64 "$dar" \
-      | jq -R --slurp '{"darFile": .}' \
-      | grpcurl \
+    base64 "$dar" |
+      jq -R --slurp '{"darFile": .}' |
+      grpcurl \
         -plaintext \
         -d @ \
         "$participant" \
