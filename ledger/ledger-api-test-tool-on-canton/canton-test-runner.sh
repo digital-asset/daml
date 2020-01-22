@@ -69,10 +69,8 @@ if [[ -z "$port_file" ]]; then
 fi
 
 # Redirect the Canton logs to a file for now, because they're really, really noisy.
-log_file="$(mktemp -t 'canton.XXXXX.log')"
 echo >&2 'Starting Canton...'
-echo >&2 "(Logs will be written to \"${log_file}\".)"
-"${command[@]}" >&"$log_file" &
+"${command[@]}" &
 pid="$!"
 
 sleep 1
