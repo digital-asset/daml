@@ -24,7 +24,7 @@ ts_library(
         "@language_support_ts_deps//@mojotech/json-type-validation",
         "@language_support_ts_deps//cross-fetch",
     ],
-)
+) if not is_windows else None
 
 genrule(
     name = "license",
