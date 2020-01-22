@@ -2430,15 +2430,33 @@ Generic equality and order functions
 
 * ``LESS : ∀ (α:*). α → α → 'Bool'``
 
-  Returns ``'True'`` if the two argument are ordered according to ``<ᵥ``,
-  ``'False'`` otherwise.
+  Returns ``'True'`` if the two argument are ordered according to ``<ᵥ``, and
+  returns ``'False'`` if the two arguments are ordered according to ``≳ᵥ``, and
+  raises an runtime error otherwise (the arguments are incomparable).
 
   [*Available in version >= 1.dev*]
 
 * ``LESS_EQ : ∀ (α:*). α → α → 'Bool'``
 
-  Returns ``'True'`` if the two argument are ordered according to ``≲ᵥ``,
-  ``'False'`` otherwise.
+  Returns ``'True'`` if the two argument are ordered according to ``≲ᵥ``, and
+  returns ``'False'`` if the two arguments are ordered according to ``>ᵥ``, and
+  raises an runtime error otherwise (the arguments are incomparable).
+
+  [*Available in version >= 1.dev*]
+
+* ``GREATER : ∀ (α:*). α → α → 'Bool'``
+
+  Returns ``'True'`` if the two argument are ordered according to ``>ᵥ``, and
+  returns ``'False'`` if the two arguments are ordered according to ``≲ᵥ``, and
+  raises an runtime error otherwise (the arguments are incomparable).
+
+  [*Available in version >= 1.dev*]
+
+* ``GREATER_EQ : ∀ (α:*). α → α → 'Bool'``
+
+  Returns ``'True'`` if the two argument are ordered according to ``≳ᵥ``, and
+  returns ``'False'`` if the two arguments are ordered according to ``<ᵥ``, and
+  raises an runtime error otherwise (the arguments are incomparable).
 
   [*Available in version >= 1.dev*]
 
