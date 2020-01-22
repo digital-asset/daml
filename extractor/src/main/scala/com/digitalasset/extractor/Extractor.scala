@@ -5,7 +5,7 @@ package com.digitalasset.extractor
 
 import akka.actor.ActorSystem
 import akka.stream.scaladsl.{RestartSource, Sink}
-import akka.stream.{Materializer, KillSwitches}
+import akka.stream.{KillSwitches, Materializer}
 import com.digitalasset.auth.TokenHolder
 import com.digitalasset.extractor.Types._
 import com.digitalasset.extractor.config.{ExtractorConfig, SnapshotEndSetting}
@@ -120,7 +120,7 @@ class Extractor[T](config: ExtractorConfig, target: T)(
   }
 
   private def keepRetryingOnPermissionDenied[A](f: () => Future[A]): Future[A] =
-    RetryStrategy.constant(1.second) {
+    RetryStrategy.constant(waitTime = 1.second) {
       case GrpcException.PERMISSION_DENIED() => true
     } { (attempt, wait) =>
       logger.error(s"Failed to authenticate with Ledger API on attempt $attempt, next one in $wait")

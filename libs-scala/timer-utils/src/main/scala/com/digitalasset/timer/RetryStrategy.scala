@@ -30,12 +30,12 @@ object RetryStrategy {
     new RetryStrategy(Some(attempts), waitTime, waitTime, identity, { case _ => true })
 
   /**
-    * Retry indefinitely with constant wait time, but only if the exception satisfies a predicate
-    *
+    * Retry with constant wait time, but only if the exception satisfies a predicate
     */
-  def constant(waitTime: Duration)(predicate: PartialFunction[Throwable, Boolean]): RetryStrategy =
-    new RetryStrategy(None, waitTime, waitTime, identity, predicate)
-
+  def constant(attempts: Option[Int] = None, waitTime: Duration)(
+      predicate: PartialFunction[Throwable, Boolean]
+  ): RetryStrategy =
+    new RetryStrategy(attempts, waitTime, waitTime, identity, predicate)
 }
 
 final class RetryStrategy private (
