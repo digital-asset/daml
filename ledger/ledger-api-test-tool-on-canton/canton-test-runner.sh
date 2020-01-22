@@ -84,7 +84,7 @@ fi
 function stop() {
   local status
   status=$?
-  kill "$pid" || :
+  kill -INT "$pid" || :
   rm -f "$port_file" || :
   exit "$status"
 }
