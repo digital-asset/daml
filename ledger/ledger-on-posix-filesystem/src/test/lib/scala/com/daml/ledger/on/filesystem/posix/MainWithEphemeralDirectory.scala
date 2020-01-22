@@ -18,9 +18,13 @@ object MainWithEphemeralDirectory extends App {
   try {
     Runner(
       "Ephemeral File System Ledger",
-      participantId =>
+      (ledgerId, participantId) =>
         Await.result(
-          FileSystemLedgerReaderWriter(participantId = participantId, root = root),
+          FileSystemLedgerReaderWriter(
+            ledgerId = ledgerId,
+            participantId = participantId,
+            root = root,
+          ),
           10.seconds)
     ).run(args)
   } finally {

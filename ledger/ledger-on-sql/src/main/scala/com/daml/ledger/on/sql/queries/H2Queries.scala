@@ -11,17 +11,14 @@ import com.daml.ledger.on.sql.queries.Queries.Index
 
 class H2Queries extends Queries with CommonQueries {
   override def createLogTable()(implicit connection: Connection): Unit = {
-    SQL"CREATE TABLE IF NOT EXISTS log (entry_id IDENTITY PRIMARY KEY NOT NULL, envelope BLOB)"
+    SQL"CREATE TABLE IF NOT EXISTS log (sequence_no IDENTITY PRIMARY KEY NOT NULL, entry_id VARBINARY(16384) NOT NULL, envelope BLOB NOT NULL)"
       .execute()
     ()
   }
 
-  override def nextEntryId()(implicit connection: Connection): Index = {
-    SQL"INSERT INTO log (envelope) VALUES (NULL)"
-      .executeInsert()
+  override def lastLogInsertId()(implicit connection: Connection): Index =
     SQL"CALL IDENTITY()"
       .as(long("IDENTITY()").single)
-  }
 
   override protected val updateStateQuery: String =
     "MERGE INTO state VALUES ({key}, {value})"

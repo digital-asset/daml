@@ -11,20 +11,53 @@ load("//ledger/ledger-api-test-tool:conformance.bzl", "conformance_test")
 
 supported_databases = [
     {
-        "name": "h2",
+        "name": "h2-memory",
         "conformance_test_tags": [
             "manual",
         ],
         "conformance_test_server_args": [
-            "--jdbc-url=jdbc:h2:mem:daml-on-sql-conformance-test;db_close_delay=-1;db_close_on_exit=false",
+            "--jdbc-url=jdbc:h2:mem:daml-on-sql-conformance-test",
+        ],
+        "conformance_test_tool_args": [
+            "--concurrent-test-runs=2",
+            "--timeout-scale-factor=4",
         ],
         "runtime_deps": [
             "@maven//:com_h2database_h2",
         ],
     },
     {
-        "name": "sqlite",
-        "conformance_test_server_main": "com.daml.ledger.on.sql.MainWithEphemeralSqlite",
+        "name": "h2-file",
+        "conformance_test_tags": [
+            "manual",
+        ],
+        "conformance_test_server_main": "com.daml.ledger.on.sql.MainWithEphemeralDirectory",
+        "conformance_test_server_args": [
+            "--jdbc-url=jdbc:h2:%DIR/test",
+        ],
+        "conformance_test_tool_args": [
+            "--concurrent-test-runs=2",
+            "--timeout-scale-factor=4",
+        ],
+        "runtime_deps": [
+            "@maven//:com_h2database_h2",
+        ],
+    },
+    {
+        "name": "sqlite-memory",
+        "conformance_test_server_args": [
+            "--jdbc-url=jdbc:sqlite::memory:",
+        ],
+        "runtime_deps": [
+            "@maven//:org_xerial_sqlite_jdbc",
+        ],
+    },
+    {
+        "name": "sqlite-file",
+        "conformance_test_server_main": "com.daml.ledger.on.sql.MainWithEphemeralDirectory",
+        "conformance_test_server_args": [
+            "--jdbc-url=jdbc:sqlite:%DIR/test.sqlite",
+        ],
         "runtime_deps": [
             "@maven//:org_xerial_sqlite_jdbc",
         ],
@@ -52,6 +85,7 @@ da_scala_library(
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils/app",
+        "//libs-scala/contextualized-logging",
         "@maven//:com_github_scopt_scopt_2_12",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
@@ -84,6 +118,7 @@ da_scala_test(
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils:kvutils-tests-lib",
+        "//libs-scala/contextualized-logging",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:org_scalactic_scalactic_2_12",
@@ -116,7 +151,7 @@ da_scala_test(
             server = ":conformance-test-{}-bin".format(db["name"]),
             server_args = ["--port=6865"] + db.get("conformance_test_server_args", []),
             tags = db.get("conformance_test_tags", []),
-            test_tool_args = [
+            test_tool_args = db.get("conformance_test_tool_args", []) + [
                 "--all-tests",
                 "--exclude=ConfigManagementServiceIT",
                 "--exclude=LotsOfPartiesIT",

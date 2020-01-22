@@ -11,7 +11,6 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.ledger.on.sql.SqlLedgerReaderWriter._
-import com.daml.ledger.on.sql.queries.Queries
 import com.daml.ledger.on.sql.queries.Queries.Index
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntryId,
@@ -26,26 +25,36 @@ import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.ledger.api.health.{HealthStatus, Healthy}
+import com.digitalasset.logging.LoggingContext.withEnrichedLoggingContext
+import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
 import com.digitalasset.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.google.protobuf.ByteString
-import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import javax.sql.DataSource
 
 import scala.collection.JavaConverters._
+import scala.collection.immutable.TreeSet
+import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.control.NonFatal
 
 class SqlLedgerReaderWriter(
     ledgerId: LedgerId = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
     val participantId: ParticipantId,
-    queries: Queries,
-    connectionSource: DataSource with AutoCloseable,
-)(implicit executionContext: ExecutionContext, materializer: Materializer)
-    extends LedgerWriter
+    database: Database,
+)(
+    implicit executionContext: ExecutionContext,
+    materializer: Materializer,
+    logCtx: LoggingContext,
+) extends LedgerWriter
     with LedgerReader
     with AutoCloseable {
 
+  private val logger = ContextualizedLogger.get(this.getClass)
+
   private val engine = Engine()
+
+  private val queries = database.queries
 
   private val dispatcher: Dispatcher[Index] =
     Dispatcher(
@@ -59,7 +68,7 @@ class SqlLedgerReaderWriter(
 
   override def close(): Unit = {
     dispatcher.close()
-    connectionSource.close()
+    database.close()
   }
 
   override def retrieveLedgerId(): LedgerId = ledgerId
@@ -68,40 +77,45 @@ class SqlLedgerReaderWriter(
     dispatcher
       .startingAt(
         offset.getOrElse(FirstOffset).components.head,
-        RangeSource((start, end) =>
-          withDatabaseStream { implicit connection =>
-            Source(queries.selectFromLog(start, end))
+        RangeSource((start, end) => {
+          val result = inDatabaseReadTransaction(s"Querying events [$start, $end[ from log") {
+            implicit connection =>
+              queries.selectFromLog(start, end)
+          }
+          if (result.length < end - start) {
+            val missing = TreeSet(start until end: _*) -- result.map(_._1)
+            Source.failed(new IllegalStateException(s"Missing entries: ${missing.mkString(", ")}"))
+          } else {
+            Source(result)
+          }
         })
       )
       .map { case (_, record) => record }
 
   override def commit(correlationId: String, envelope: Array[Byte]): Future[SubmissionResult] =
-    inDatabaseTransaction { implicit connection =>
+    withEnrichedLoggingContext("correlationId" -> correlationId) { implicit logCtx =>
       Future {
         val submission = Envelope
           .openSubmission(envelope)
           .getOrElse(throw new IllegalArgumentException("Not a valid submission in envelope"))
-        val stateInputKeys: Set[DamlStateKey] = submission.getInputDamlStateList.asScala.toSet
-        val stateInputs = readState(stateInputKeys)
-        val entryId = queries.nextEntryId()
-        val logEntryId =
-          DamlLogEntryId
-            .newBuilder()
-            .setEntryId(ByteString.copyFromUtf8(entryId.toHexString))
-            .build()
-        val (logEntry, stateUpdates) = KeyValueCommitting.processSubmission(
-          engine,
-          logEntryId,
-          currentRecordTime(),
-          LedgerReader.DefaultConfiguration,
-          submission,
-          participantId,
-          stateInputs,
-        )
-        verifyStateUpdatesAgainstPreDeclaredOutputs(stateUpdates, logEntryId, submission)
-        queries.insertIntoLog(entryId, Envelope.enclose(logEntry))
-        queries.updateState(stateUpdates)
-        dispatcher.signalNewHead(entryId + 1)
+        val stateInputKeys = submission.getInputDamlStateList.asScala.toSet
+        val entryId = allocateEntryId()
+        val newHead = inDatabaseWriteTransaction("Committing a submission") { implicit connection =>
+          val stateInputs = readState(stateInputKeys)
+          val (logEntry, stateUpdates) = KeyValueCommitting.processSubmission(
+            engine,
+            entryId,
+            currentRecordTime(),
+            LedgerReader.DefaultConfiguration,
+            submission,
+            participantId,
+            stateInputs,
+          )
+          verifyStateUpdatesAgainstPreDeclaredOutputs(stateUpdates, entryId, submission)
+          queries.updateState(stateUpdates)
+          appendLog(entryId, Envelope.enclose(logEntry))
+        }
+        dispatcher.signalNewHead(newHead)
         SubmissionResult.Acknowledged
       }
     }
@@ -122,6 +136,19 @@ class SqlLedgerReaderWriter(
   private def currentRecordTime(): Timestamp =
     Timestamp.assertFromInstant(Clock.systemUTC().instant())
 
+  private def allocateEntryId(): DamlLogEntryId =
+    DamlLogEntryId.newBuilder
+      .setEntryId(ByteString.copyFromUtf8(UUID.randomUUID().toString))
+      .build()
+
+  private def appendLog(
+      entry: DamlLogEntryId,
+      envelope: ByteString,
+  )(implicit connection: Connection): Index = {
+    queries.insertIntoLog(entry, envelope)
+    queries.lastLogInsertId() + 1
+  }
+
   private def readState(
       stateInputKeys: Set[DamlStateKey],
   )(implicit connection: Connection): Map[DamlStateKey, Option[DamlStateValue]] = {
@@ -133,42 +160,56 @@ class SqlLedgerReaderWriter(
       .result()
   }
 
-  private def migrate(): Future[Unit] =
-    inDatabaseTransaction { implicit connection =>
-      Future
-        .sequence(
-          Seq(
-            Future(queries.createLogTable()),
-            Future(queries.createStateTable()),
-          ))
-        .map(_ => ())
+  private def migrate(): Unit = {
+    inDatabaseWriteTransaction("Migrating the database") { implicit connection =>
+      queries.createLogTable()
+      queries.createStateTable()
     }
-
-  private def inDatabaseTransaction[T](body: Connection => Future[T]): Future[T] = {
-    val connection = connectionSource.getConnection()
-    body(connection).transform(
-      value => {
-        connection.commit()
-        connection.close()
-        value
-      },
-      exception => {
-        connection.rollback()
-        connection.close()
-        exception
-      }
-    )
+    logger.info("Successfully migrated the database.")
   }
 
-  private def withDatabaseStream[Out, Mat](
-      body: Connection => Source[Out, Mat],
-  ): Source[Out, NotUsed] = {
-    val connection = connectionSource.getConnection()
-    body(connection)
-      .mapMaterializedValue(_ => {
+  private def inDatabaseReadTransaction[T](message: String)(
+      body: Connection => T,
+  )(implicit logCtx: LoggingContext): T = {
+    inDatabaseTransaction(message, database.readerConnectionPool)(body)
+  }
+
+  private def inDatabaseWriteTransaction[T](message: String)(
+      body: Connection => T,
+  )(implicit logCtx: LoggingContext): T = {
+    inDatabaseTransaction(message, database.writerConnectionPool)(body)
+  }
+
+  private def inDatabaseTransaction[T](
+      message: String,
+      connectionPool: DataSource,
+  )(
+      body: Connection => T,
+  )(implicit logCtx: LoggingContext): T = {
+    val connection =
+      time(s"$message: acquiring connection")(connectionPool.getConnection())
+    time(message) {
+      try {
+        val result = body(connection)
+        connection.commit()
+        result
+      } catch {
+        case NonFatal(exception) =>
+          connection.rollback()
+          throw exception
+      } finally {
         connection.close()
-        NotUsed
-      })
+      }
+    }
+  }
+
+  private def time[T](message: String)(body: => T)(implicit logCtx: LoggingContext): T = {
+    val startTime = System.nanoTime()
+    logger.trace(s"$message: starting")
+    val result = body
+    val endTime = System.nanoTime()
+    logger.trace(s"$message: finished in ${Duration.fromNanos(endTime - startTime).toMillis}ms")
+    result
   }
 }
 
@@ -178,31 +219,19 @@ object SqlLedgerReaderWriter {
   private val FirstOffset: Offset = Offset(Array(FirstIndex))
 
   def apply(
-      ledgerId: LedgerId = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
+      ledgerId: LedgerId,
       participantId: ParticipantId,
       jdbcUrl: String,
   )(
       implicit executionContext: ExecutionContext,
       materializer: Materializer,
+      logCtx: LoggingContext,
   ): Future[SqlLedgerReaderWriter] =
     Future {
       val database = Database(jdbcUrl)
-      val connectionPool = newConnectionPool(jdbcUrl, database)
-      new SqlLedgerReaderWriter(ledgerId, participantId, database.queries, connectionPool)
-    }.flatMap { ledger =>
-      ledger.migrate().map(_ => ledger)
+      new SqlLedgerReaderWriter(ledgerId, participantId, database)
+    }.map { ledger =>
+      ledger.migrate()
+      ledger
     }
-
-  private def newConnectionPool(
-      jdbcUrl: String,
-      database: Database,
-  ): DataSource with AutoCloseable = {
-    val connectionPoolConfig = new HikariConfig
-    connectionPoolConfig.setJdbcUrl(jdbcUrl)
-    connectionPoolConfig.setAutoCommit(false)
-    database.maximumPoolSize.foreach { maximumPoolSize =>
-      connectionPoolConfig.setMaximumPoolSize(maximumPoolSize)
-    }
-    new HikariDataSource(connectionPoolConfig)
-  }
 }

@@ -30,15 +30,15 @@ trait CommonQueries extends Queries {
       start: Index,
       end: Index,
   )(implicit connection: Connection): immutable.Seq[(Index, LedgerRecord)] =
-    SQL"SELECT entry_id, envelope FROM log WHERE entry_id >= $start AND entry_id < $end"
+    SQL"SELECT sequence_no, entry_id, envelope FROM log WHERE sequence_no >= $start AND sequence_no < $end"
       .as(
-        (long("entry_id") ~ byteArray("envelope")).map {
-          case entryId ~ envelope =>
-            entryId -> LedgerRecord(
-              Offset(Array(entryId)),
+        (long("sequence_no") ~ byteArray("entry_id") ~ byteArray("envelope")).map {
+          case index ~ entryId ~ envelope =>
+            index -> LedgerRecord(
+              Offset(Array(index)),
               DamlLogEntryId
                 .newBuilder()
-                .setEntryId(ByteString.copyFromUtf8(entryId.toHexString))
+                .setEntryId(ByteString.copyFrom(entryId))
                 .build(),
               envelope,
             )
@@ -46,11 +46,11 @@ trait CommonQueries extends Queries {
       )
 
   override def insertIntoLog(
-      entryId: Index,
+      entry: DamlLogEntryId,
       envelope: ByteString,
   )(implicit connection: Connection): Unit = {
-    SQL"UPDATE log SET envelope = ${envelope.toByteArray} WHERE entry_id = $entryId"
-      .executeUpdate()
+    SQL"INSERT INTO log (entry_id, envelope) VALUES (${entry.getEntryId.toByteArray}, ${envelope.toByteArray})"
+      .executeInsert()
     ()
   }
 

@@ -11,12 +11,13 @@ import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref.LedgerString
 import com.digitalasset.daml.lf.data.Time.Timestamp
+import com.digitalasset.logging.LoggingContext.newLoggingContext
 
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext}
 
-class SqliteSqlLedgerReaderWriterIntegrationSpec
-    extends ParticipantStateIntegrationSpecBase("SQL implementation using SQLite") {
+class H2FileSqlLedgerReaderWriterIntegrationSpec
+    extends ParticipantStateIntegrationSpecBase("SQL implementation using H2 with a file") {
   private implicit val ec: ExecutionContext = ExecutionContext.global
 
   private var databaseFile: Path = _
@@ -39,10 +40,12 @@ class SqliteSqlLedgerReaderWriterIntegrationSpec
       participantId: ParticipantId,
       ledgerId: LedgerString,
   ): ReadService with WriteService with AutoCloseable = {
-    val jdbcUrl = s"jdbc:sqlite:$databaseFile"
-    val readerWriter =
-      Await.result(SqlLedgerReaderWriter(ledgerId, participantId, jdbcUrl), 10.seconds)
-    new KeyValueParticipantState(readerWriter, readerWriter)
+    val jdbcUrl = s"jdbc:h2:file:$databaseFile"
+    newLoggingContext { implicit logCtx =>
+      val readerWriter =
+        Await.result(SqlLedgerReaderWriter(ledgerId, participantId, jdbcUrl), 10.seconds)
+      new KeyValueParticipantState(readerWriter, readerWriter)
+    }
   }
 
   override def currentRecordTime(): Timestamp =

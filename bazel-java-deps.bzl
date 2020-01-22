@@ -36,7 +36,7 @@ def install_java_deps():
             "com.google.guava:guava:24.0-jre",
             "com.google.j2objc:j2objc-annotations:1.1",
             "com.google.protobuf:protobuf-java:3.8.0",
-            "com.h2database:h2:1.4.199",
+            "com.h2database:h2:1.4.200",
             "com.lihaoyi:pprint_2.12:0.5.3",
             "commons-io:commons-io:2.5",
             "com.sparkjava:spark-core:2.7.2",
