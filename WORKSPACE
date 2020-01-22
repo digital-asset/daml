@@ -678,6 +678,12 @@ yarn_install(
     yarn_lock = "//navigator/frontend:yarn.lock",
 )
 
+# We’ve had a bunch of problems with typescript rules on Windows.
+# Therefore we’ve disabled them completely for now.
+# Since we need to @load stuff in @language_support_ts_deps
+# and load statements can’t be conditional, we create a dummy
+# workspace on Windows.
+# See #4162 for more details.
 yarn_install(
     name = "language_support_ts_deps",
     package_json = "//language-support/ts/packages:package.json",
