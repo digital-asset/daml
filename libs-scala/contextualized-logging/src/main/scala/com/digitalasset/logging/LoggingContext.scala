@@ -9,23 +9,22 @@ import org.slf4j.Marker
 
 import scala.collection.JavaConverters.mapAsJavaMapConverter
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 object LoggingContext {
 
   def newLoggingContext[A](f: LoggingContext => A): A =
     f(new LoggingContext(Map.empty))
 
-  def newLoggingContext[A](kv: (String, Any), kvs: (String, Any)*)(f: LoggingContext => A): A =
+  def newLoggingContext[A](kv: (String, String), kvs: (String, String)*)(
+      f: LoggingContext => A): A =
     f(new LoggingContext((kv +: kvs).toMap))
 
-  def withEnrichedLoggingContext[A](kv: (String, Any), kvs: (String, Any)*)(f: LoggingContext => A)(
-      implicit logCtx: LoggingContext): A =
+  def withEnrichedLoggingContext[A](kv: (String, String), kvs: (String, String)*)(
+      f: LoggingContext => A)(implicit logCtx: LoggingContext): A =
     f((logCtx + kv) ++ kvs)
 
 }
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
-final class LoggingContext private (ctxMap: Map[String, Any]) {
+final class LoggingContext private (ctxMap: Map[String, String]) {
 
   private lazy val forLogging: Marker with StructuredArgument =
     new MapEntriesAppendingMarker(ctxMap.asJava)
@@ -34,7 +33,7 @@ final class LoggingContext private (ctxMap: Map[String, Any]) {
       ifNot: Marker with StructuredArgument => Unit): Unit =
     if (ctxMap.isEmpty) doThis else ifNot(forLogging)
 
-  private def +(kv: (String, Any)): LoggingContext = new LoggingContext(ctxMap + kv)
-  private def ++(kvs: Seq[(String, Any)]): LoggingContext = new LoggingContext(ctxMap ++ kvs)
+  private def +(kv: (String, String)): LoggingContext = new LoggingContext(ctxMap + kv)
+  private def ++(kvs: Seq[(String, String)]): LoggingContext = new LoggingContext(ctxMap ++ kvs)
 
 }

@@ -34,6 +34,7 @@ import javax.sql.DataSource
 
 import scala.collection.JavaConverters._
 import scala.collection.immutable.TreeSet
+import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
@@ -76,19 +77,17 @@ class SqlLedgerReaderWriter(
     dispatcher
       .startingAt(
         offset.getOrElse(FirstOffset).components.head,
-        RangeSource((start, end) =>
-          withEnrichedLoggingContext("start" -> start, "end" -> end) { implicit logCtx =>
-            val result = inDatabaseReadTransaction("Querying events from log") {
-              implicit connection =>
-                queries.selectFromLog(start, end)
-            }
-            if (result.length < end - start) {
-              val missing = TreeSet(start until end: _*) -- result.map(_._1)
-              Source.failed(
-                new IllegalStateException(s"Missing entries: ${missing.mkString(", ")}"))
-            } else {
-              Source(result)
-            }
+        RangeSource((start, end) => {
+          val result = inDatabaseReadTransaction(s"Querying events [$start, $end[ from log") {
+            implicit connection =>
+              queries.selectFromLog(start, end)
+          }
+          if (result.length < end - start) {
+            val missing = TreeSet(start until end: _*) -- result.map(_._1)
+            Source.failed(new IllegalStateException(s"Missing entries: ${missing.mkString(", ")}"))
+          } else {
+            Source(result)
+          }
         })
       )
       .map { case (_, record) => record }
@@ -204,13 +203,11 @@ class SqlLedgerReaderWriter(
   }
 
   private def time[T](message: String)(body: => T)(implicit logCtx: LoggingContext): T = {
-    val startTime = System.currentTimeMillis()
+    val startTime = System.nanoTime()
     logger.trace(s"$message: starting")
     val result = body
-    val endTime = System.currentTimeMillis()
-    withEnrichedLoggingContext("duration" -> (endTime - startTime)) { logCtxWithTime =>
-      logger.trace(s"$message: finished")(logCtxWithTime)
-    }(logCtx)
+    val endTime = System.nanoTime()
+    logger.trace(s"$message: finished in ${Duration.fromNanos(endTime - startTime).toMillis}ms")
     result
   }
 }
