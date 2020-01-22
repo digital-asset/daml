@@ -3,7 +3,7 @@
 
 package com.daml.ledger.on.filesystem.posix
 
-import java.nio.file.{FileAlreadyExistsException, Files, Path, StandardCopyOption}
+import java.nio.file.{FileSystemException, Files, Path, StandardCopyOption}
 
 import com.daml.ledger.on.filesystem.posix.DeleteFiles.deleteFiles
 import com.daml.ledger.on.filesystem.posix.FileSystemLock._
@@ -12,7 +12,6 @@ import com.digitalasset.timer.RetryStrategy
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Random
-import scala.util.control.NonFatal
 
 class FileSystemLock(location: Path) {
   private val random: Random = new Random()
@@ -29,34 +28,18 @@ class FileSystemLock(location: Path) {
   private def acquire()(implicit executionContext: ExecutionContext): Future[Unit] = {
     val randomBytes = Array.ofDim[Byte](IdSize)
     random.nextBytes(randomBytes)
-    retryStrategy(
-      (_, _) =>
-        Future {
-          val attempt = Files.createTempDirectory(getClass.getSimpleName)
-          Files.write(attempt.resolve("id"), randomBytes)
-          try {
-            Files.move(attempt, location, StandardCopyOption.ATOMIC_MOVE)
-            Some(Files.readAllBytes(location.resolve("id")))
-          } catch {
-            case _: FileAlreadyExistsException =>
-              deleteFiles(attempt)
-              None
-            case NonFatal(exception) =>
-              deleteFiles(attempt)
-              throw exception
-          }
-        }.flatMap {
-          case None =>
-            Future.failed(new AcquisitionFailedException)
-          case Some(writtenBytes) =>
-            //noinspection CorrespondsUnsorted
-            if (writtenBytes.sameElements(randomBytes)) {
-              Future.successful(())
-            } else {
-              Future.failed(new AcquisitionFailedException)
-            }
+    val attempt = Files.createTempDirectory(getClass.getSimpleName)
+    Files.write(attempt.resolve("id"), randomBytes)
+    retry { (_, _) =>
+      Future {
+        Files.move(attempt, location, StandardCopyOption.ATOMIC_MOVE)
+        val writtenBytes = Files.readAllBytes(location.resolve("id"))
+        //noinspection CorrespondsUnsorted
+        if (!writtenBytes.sameElements(randomBytes)) {
+          throw new AcquisitionFailedException
+        }
       }
-    )
+    }
   }
 
   private def release()(implicit executionContext: ExecutionContext): Future[Unit] =
@@ -68,8 +51,11 @@ class FileSystemLock(location: Path) {
 object FileSystemLock {
   private val IdSize: Int = 16
 
-  private val retryStrategy: RetryStrategy =
-    RetryStrategy.constant(attempts = 1000, waitTime = 10.millis)
+  private val retry: RetryStrategy =
+    RetryStrategy.constant(attempts = Some(1000), waitTime = 10.millis) {
+      case _: FileSystemException => true
+      case _: AcquisitionFailedException => true
+    }
 
   class AcquisitionFailedException extends RuntimeException("File system lock acquisition failed.")
 }

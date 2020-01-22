@@ -82,7 +82,7 @@ da_scala_test(
         "@maven//:org_scalactic_scalactic_2_12",
         "@maven//:org_scalatest_scalatest_2_12",
     ],
-)
+) if not is_windows else None
 
 da_scala_binary(
     name = "app",
