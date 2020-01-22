@@ -84,8 +84,6 @@ genrule(
     # Working directories
     export IN="$$(pwd)/$(@D)/in"
     export OUT="$$(pwd)/$(@D)/out"
-    export WP_IN={WP_IN}
-    export WP_OUT={WP_OUT}
     rm -rf $$IN $$OUT
     mkdir "$$IN" "$$OUT"
 
@@ -106,12 +104,14 @@ genrule(
     # Run webpack.
     # To debug, add the following options:
     # -d --progress --display-error-details --verbose
+    WP_IN={WP_IN}
+    WP_OUT={WP_OUT}
     $(execpath :webpack) \
       --config="$$IN/webpack.config.js" \
       --env.prod \
       --env.paths_case_check="{PATHS_CASE_CHECK}" \
-      --env.bazel_in_dir="$$WP_IN" \
-      --env.bazel_out_dir={WP_OUT_REF}
+      --env.bazel_in_dir="{WP_IN_ESCAPED}" \
+      --env.bazel_out_dir="{WP_OUT_ESCAPED}"
 
     # Package result (.TGZ)
     # To debug, change 'czf' to 'czfv'.
@@ -123,9 +123,10 @@ genrule(
     $(JAVABASE)/bin/jar c0Mf "$(@D)/frontend.jar" -C $$OUT .
     """.format(
         PATHS_CASE_CHECK = "false" if is_windows else "true",
-        WP_IN = "`$$(cygpath -w $$IN)`" if is_windows else "$$IN",
-        WP_OUT = "'$$(cygpath -w $$OUT)'" if is_windows else "$$OUT",
-        WP_OUT_REF = "$$WP_OUT\\frontend" if is_windows else "$$WP_OUT/frontend",
+        WP_IN = "$$(cygpath -w $$IN)" if is_windows else "$$IN",
+        WP_IN_ESCAPED = "'$$WP_IN'" if is_windows else "$$WP_IN",
+        WP_OUT = "$$(cygpath -w $$OUT/frontend)" if is_windows else "$$OUT/frontend",
+        WP_OUT_ESCAPED = "'$$WP_OUT'" if is_windows else "$$WP_OUT",
     ),
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
     tools = [":webpack"],
