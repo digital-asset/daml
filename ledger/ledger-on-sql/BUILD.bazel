@@ -12,6 +12,9 @@ load("//ledger/ledger-api-test-tool:conformance.bzl", "conformance_test")
 supported_databases = [
     {
         "name": "h2-memory",
+        "conformance_test_tags": [
+            "manual",
+        ],
         "conformance_test_server_args": [
             "--jdbc-url=jdbc:h2:mem:daml-on-sql-conformance-test",
         ],
@@ -25,6 +28,9 @@ supported_databases = [
     },
     {
         "name": "h2-file",
+        "conformance_test_tags": [
+            "manual",
+        ],
         "conformance_test_server_main": "com.daml.ledger.on.sql.MainWithEphemeralDirectory",
         "conformance_test_server_args": [
             "--jdbc-url=jdbc:h2:%DIR/test",
