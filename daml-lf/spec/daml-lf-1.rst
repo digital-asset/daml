@@ -1866,7 +1866,6 @@ We also define the transitive relation ``≲ᵥ`` as the union of ``~ᵥ`` and
 ``<ᵥ``. This relation is transitive, and antisymmetric with respect to ``~ᵥ``.
 It is a total order when comparing serialized values of the same type.
 
-
                           ┌────────┐
   Value Order Relation    │ v <ᵥ w │
                           └────────┘
@@ -1944,7 +1943,52 @@ It is a total order when comparing serialized values of the same type.
   ——————————————————————————————————————————————————— GenLtStructCon
    ⟨ f₁ = v₁, …, fₘ = vₘ ⟩ ~ᵥ ⟨ f₁ = w₁, …, fₘ = wₘ ⟩
 
+  ——————————————————————————————————————————————————— GenLtTextMap1
+   [ ] <ᵥ [s₁ ↦ w₁, …, sₘ ↦ wₘ]
 
+   t₁ < t₂ < … < tₘ
+   s₁ < s₂ < … < sₙ
+   t₁ < s₁
+  ——————————————————————————————————————————————————— GenLtTextMap2
+   [t₁ ↦ v₁, …, tₘ ↦ vₘ] <ᵥ [s₁ ↦ w₁, …, sₙ ↦ wₙ]
+
+   t₁ < t₂ < … < tₘ
+   s₁ < s₂ < … < sₙ
+   t₁ = s₁
+   v₁ <ᵥ w₁
+  ——————————————————————————————————————————————————— GenLtTextMap3
+   [t₁ ↦ v₁, …, tₘ ↦ vₘ] <ᵥ [s₁ ↦ w₁, …, sₙ ↦ wₙ]
+
+   t₁ = s₁
+   v₁ ~ᵥ w₁
+   [t₂ ↦ v₂, …, tₘ ↦ vₘ] <ᵥ [s₂ ↦ w₂, …, sₙ ↦ wₙ]
+  ——————————————————————————————————————————————————— GenLtTextMap4
+   [t₁ ↦ v₁, …, tₘ ↦ vₘ] <ᵥ [s₁ ↦ w₁, …, sₙ ↦ wₙ]
+
+  ——————————————————————————————————————————————————— GenLtGenMap1
+   [ ] <ᵥ [s₁ ↦ w₁, …, sₘ ↦ wₘ]
+
+   t₁ <ᵥ t₂ <ᵥ … <ᵥ tₘ
+   s₁ <ᵥ s₂ <ᵥ … <ᵥ sₙ
+   t₁ <ᵥ s₁
+  ——————————————————————————————————————————————————— GenLtGenMap2
+   [t₁ ↦ v₁, …, tₘ ↦ vₘ] <ᵥ [s₁ ↦ w₁, …, sₙ ↦ wₙ]
+
+   t₁ <ᵥ t₂ <ᵥ … <ᵥ tₘ
+   s₁ <ᵥ s₂ <ᵥ … <ᵥ sₙ
+   t₁ ~ᵥ s₁
+   v₁ <ᵥ w₁
+  ——————————————————————————————————————————————————— GenLtGenMap3
+   [t₁ ↦ v₁, …, tₘ ↦ vₘ] <ᵥ [s₁ ↦ w₁, …, sₙ ↦ wₙ]
+
+   t₁ ~ᵥ s₁
+   v₁ ~ᵥ w₁
+   [t₂ ↦ v₂, …, tₘ ↦ vₘ] <ᵥ [s₂ ↦ w₂, …, sₙ ↦ wₙ]
+  ——————————————————————————————————————————————————— GenLtGenMap4
+   [t₁ ↦ v₁, …, tₘ ↦ vₘ] <ᵥ [s₁ ↦ w₁, …, sₙ ↦ wₙ]
+
+.. note: In the above rules, map entries for TextMap and GenMap are ordered
+   by key. The rules make this assumption explicit.
 
 Expression evaluation
 ~~~~~~~~~~~~~~~~~~~~~
