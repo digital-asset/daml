@@ -49,7 +49,7 @@ final class RetryStrategy private (
     def go(attempt: Int, wait: Duration): Future[A] = {
       run(attempt, wait)
         .recoverWith {
-          case NonFatal(throwable) if attempts.forall(attempt > _) =>
+          case NonFatal(throwable) if attempts.exists(attempt > _) =>
             Future.failed(throwable)
           case NonFatal(throwable) if predicate.lift(throwable).getOrElse(false) =>
             Delayed.Future.by(wait)(go(attempt + 1, clip(progression(wait))))
