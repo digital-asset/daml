@@ -7,6 +7,7 @@ import java.io.Closeable
 
 import com.daml.ledger.on.sql.queries.Queries.InvalidDatabaseException
 import com.daml.ledger.on.sql.queries.{H2Queries, Queries, SqliteQueries}
+import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.zaxxer.hikari.HikariDataSource
 import javax.sql.DataSource
 
@@ -28,7 +29,7 @@ object Database {
   // entries missing.
   private val MaximumWriterConnectionPoolSize: Int = 1
 
-  def apply(jdbcUrl: String): Database = {
+  def apply(jdbcUrl: String)(implicit loggingContext: LoggingContext): Database = {
     jdbcUrl match {
       case url if url.startsWith("jdbc:h2:") => new H2Database(jdbcUrl)
       case url if url.startsWith("jdbc:sqlite:") => new SqliteDatabase(jdbcUrl)
@@ -36,7 +37,8 @@ object Database {
     }
   }
 
-  final class H2Database(jdbcUrl: String) extends Database {
+  final class H2Database(jdbcUrl: String)(implicit loggingContext: LoggingContext)
+      extends Database {
     override val queries: Queries = new H2Queries
 
     override val readerConnectionPool: DataSource with Closeable =
@@ -45,13 +47,16 @@ object Database {
     override val writerConnectionPool: DataSource with Closeable =
       newHikariDataSource(jdbcUrl, maximumPoolSize = Some(MaximumWriterConnectionPoolSize))
 
+    ContextualizedLogger.get(this.getClass).info(s"Connected the ledger to $jdbcUrl.")
+
     override def close(): Unit = {
       readerConnectionPool.close()
       writerConnectionPool.close()
     }
   }
 
-  final class SqliteDatabase(jdbcUrl: String) extends Database {
+  final class SqliteDatabase(jdbcUrl: String)(implicit loggingContext: LoggingContext)
+      extends Database {
     private val connectionPool: DataSource with Closeable =
       newHikariDataSource(jdbcUrl, maximumPoolSize = Some(MaximumWriterConnectionPoolSize))
 
@@ -60,6 +65,8 @@ object Database {
     override val readerConnectionPool: DataSource = connectionPool
 
     override val writerConnectionPool: DataSource = connectionPool
+
+    ContextualizedLogger.get(this.getClass).info(s"Connected the ledger to $jdbcUrl.")
 
     override def close(): Unit = {
       connectionPool.close()
