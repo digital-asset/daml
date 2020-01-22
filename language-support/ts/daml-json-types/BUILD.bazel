@@ -44,7 +44,7 @@ eslint_test(
         ["**/*.ts"],
         exclude = ["**/*.test.ts"],
     ),
-)
+) if not is_windows else None
 
 pkg_npm(
     name = "npm_package",
