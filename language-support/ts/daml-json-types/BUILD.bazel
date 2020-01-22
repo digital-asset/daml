@@ -44,7 +44,7 @@ eslint_test(
         ["**/*.ts"],
         exclude = ["**/*.test.ts"],
     ),
-)
+) if not is_windows else None
 
 pkg_npm(
     name = "npm_package",
@@ -66,4 +66,4 @@ jest_test(
     deps = [
         "@language_support_ts_deps//@mojotech/json-type-validation",
     ],
-)
+) if not is_windows else None
