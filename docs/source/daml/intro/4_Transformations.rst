@@ -82,7 +82,7 @@ A *transaction* is a list of *actions*, and there are just three kinds of action
 - A ``fetch`` action  checks the existence and activeness of a contract.
 - An ``exercise`` action contains the choice arguments and a transaction called the *consequences*. Exercises come in two kinds called ``consuming`` and ``nonconsuming``. ``consuming`` is the default kind and changes the contract's status from *active* to *archived*.
 
-The consequences of exercise nodes turn each transaction into an ordered tree of (sub-) transactions, or, equivalently, a forest of actions. Actions are in one-to-one correspondence with proper sub-transactions. You can see the action and their consequences in the transaction view of the above scenario:
+Each action can be visualized as a tree, where the action is the root node, and its children are its consequences. Every consequence may have further consequences. Naturally, if the action is a fetch or a create, then it is a leaf (without further child). You can see the action and their consequences in the transaction view of the above scenario:
 
 .. code-block:: none
 
