@@ -80,7 +80,7 @@ class FileSystemLedgerReaderWriter private (
     val submission = Envelope
       .openSubmission(envelope)
       .getOrElse(throw new IllegalArgumentException("Not a valid submission in envelope"))
-    lock.run {
+    lock {
       val stateInputStream =
         submission.getInputDamlStateList.asScala.toVector
           .map(key => key -> readState(key))

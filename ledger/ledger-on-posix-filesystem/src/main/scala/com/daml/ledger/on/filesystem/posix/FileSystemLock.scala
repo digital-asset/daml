@@ -15,7 +15,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 class FileSystemLock(location: Path) {
-  def run[T](body: => T)(implicit executionContext: ExecutionContext): Future[T] = {
+  def apply[T](body: => T)(implicit executionContext: ExecutionContext): Future[T] = {
     val file = new RandomAccessFile(location.toFile, "rw")
     val channel = file.getChannel
     retry { (_, _) =>
