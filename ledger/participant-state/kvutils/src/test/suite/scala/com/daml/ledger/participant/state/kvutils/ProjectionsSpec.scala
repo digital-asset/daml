@@ -19,7 +19,7 @@ import com.digitalasset.daml.lf.value.Value.{
 import com.digitalasset.daml.lf.value.ValueVersions
 import org.scalatest.{Matchers, WordSpec}
 
-import scala.collection.immutable.TreeMap
+import scala.collection.immutable.HashMap
 
 class ProjectionsSpec extends WordSpec with Matchers {
 
@@ -70,7 +70,7 @@ class ProjectionsSpec extends WordSpec with Matchers {
   "computePerPartyProjectionRoots" should {
 
     "yield no roots with empty transaction" in {
-      val emptyTransaction: Transaction = GenTransaction(TreeMap.empty, ImmArray.empty, None)
+      val emptyTransaction: Transaction = GenTransaction(HashMap.empty, ImmArray.empty, None)
       project(emptyTransaction) shouldBe List.empty
     }
 
@@ -81,7 +81,7 @@ class ProjectionsSpec extends WordSpec with Matchers {
         Set(Party.assertFromString("Alice")),
         Set(Party.assertFromString("Alice"), Party.assertFromString("Bob")))
       val tx =
-        GenTransaction(nodes = TreeMap(nid -> root), roots = ImmArray(nid), optUsedPackages = None)
+        GenTransaction(nodes = HashMap(nid -> root), roots = ImmArray(nid), optUsedPackages = None)
 
       project(tx) shouldBe List(
         ProjectionRoots(Party.assertFromString("Alice"), BackStack(nid)),
@@ -121,7 +121,7 @@ class ProjectionsSpec extends WordSpec with Matchers {
 
       val tx =
         GenTransaction(
-          nodes = TreeMap(nid1 -> exe, nid2 -> create, nid3 -> bobCreate, nid4 -> charlieCreate),
+          nodes = HashMap(nid1 -> exe, nid2 -> create, nid3 -> bobCreate, nid4 -> charlieCreate),
           roots = ImmArray(nid1, nid3, nid4),
           optUsedPackages = None)
 

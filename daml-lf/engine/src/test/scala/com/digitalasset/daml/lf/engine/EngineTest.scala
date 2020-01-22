@@ -25,7 +25,7 @@ import org.scalatest.{EitherValues, Matchers, WordSpec}
 import scalaz.std.either._
 import scalaz.syntax.apply._
 
-import scala.collection.immutable.TreeMap
+import scala.collection.immutable.HashMap
 import scala.language.implicitConversions
 
 @SuppressWarnings(
@@ -1054,7 +1054,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     }
 
     def txFetchActors[Nid, Cid, Val](tx: GenTx[Nid, Cid, Val]): Set[Party] =
-      tx.fold(GenTx.AnyOrder, Set[Party]()) {
+      tx.fold(Set[Party]()) {
         case (actors, (_, n)) => actors union actFetchActors(n)
       }
 
@@ -1097,13 +1097,13 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     "be retained when reinterpreting single fetch nodes" in {
       val Right(tx) = runExample(fetcher1StrCid, clara)
       val fetchNodes =
-        tx.fold(GenTx.TopDown, Seq[(NodeId, GenNode.WithTxValue[NodeId, ContractId])]()) {
+        tx.fold(Seq[(NodeId, GenNode.WithTxValue[NodeId, ContractId])]()) {
           case (ns, (nid, n @ NodeFetch(_, _, _, _, _, _))) => ns :+ ((nid, n))
           case (ns, _) => ns
         }
       fetchNodes.foreach {
         case (nid, n) =>
-          val fetchTx = GenTx(TreeMap(nid -> n), ImmArray(nid), None)
+          val fetchTx = GenTx(HashMap(nid -> n), ImmArray(nid), None)
           val Right(reinterpreted) = engine
             .reinterpret(n.requiredAuthorizers, Seq(n), let)
             .consume(lookupContract, lookupPackage, lookupKey)
