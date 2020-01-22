@@ -249,11 +249,17 @@ genDefDataType curPkgId conName mod tpls def =
                             | (x, t, _rtyp, rser) <- chcs
                             ] ++
                             ["};"]
+                        associatedTypes =
+                          maybe [] (const $
+                              [ "// eslint-disable-next-line @typescript-eslint/no-namespace"
+                              , "export namespace " <> conName <> " {"] ++
+                              ["  export type Key = " <> keyTypeTs <> ""] ++
+                              ["}"]) (tplKey tpl)
                         registrations =
                             ["daml.registerTemplate(" <> conName <> ");"]
                         refs = Set.unions (fieldRefs ++ argRefs)
                     in
-                    ((makeType typeDesc, dict ++ registrations), refs)
+                    ((makeType typeDesc, dict ++ associatedTypes ++ registrations), refs)
       where
         paramNames = map (unTypeVarName . fst) (dataParams def)
         typeParams
