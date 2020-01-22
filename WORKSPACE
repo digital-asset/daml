@@ -687,7 +687,7 @@ yarn_install(
     files = {
         "eslint/BUILD.bazel": 'exports_files(["index.bzl"])',
         "eslint/index.bzl": "def eslint_test(*args, **kwargs):\n    pass",
-        "jest-cli/BUILD.bazel":  'exports_files(["index.bzl"])',
+        "jest-cli/BUILD.bazel": 'exports_files(["index.bzl"])',
         "jest-cli/index.bzl": "def jest_test(*args, **kwargs):\n    pass",
     },
 )
