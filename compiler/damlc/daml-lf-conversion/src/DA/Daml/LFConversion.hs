@@ -402,6 +402,7 @@ convertModule lfVersion pkgMap stablePackages isGenerated file x = runConvertM (
           }
 
 data Consuming = PreConsuming
+               | Consuming
                | NonConsuming
                | PostConsuming
                deriving (Eq)
@@ -590,20 +591,26 @@ convertChoice env tbinds (ChoiceData ty expr)
         TConApp (Qualified { qualObject = TypeConName con }) _
             | con == ["NonConsuming"] -> pure NonConsuming
             | con == ["PreConsuming"] -> pure PreConsuming
+            | con == ["Consuming"] -> pure Consuming
             | con == ["PostConsuming"] -> pure PostConsuming
         _ -> unhandled "choice consumption type" (show consumingTy)
     let update = action `ETmApp` EVar self `ETmApp` EVar this `ETmApp` EVar arg
     archiveSelf <- useSingleMethodDict env fArchive (`ETmApp` EVar self)
-    update <- pure $ if consuming /= PostConsuming
-        then update
-        else EUpdate $ UBind (Binding (res, choiceRetTy) update) $
-            EUpdate $ UBind (Binding (mkVar "_", TUnit) archiveSelf) $
-            EUpdate $ UPure choiceRetTy $ EVar res
-
+    update <- pure $
+      case consuming of
+        Consuming -> update
+        NonConsuming -> update
+        PreConsuming ->
+          EUpdate $ UBind (Binding (mkVar "_", TUnit) archiveSelf) $
+          update
+        PostConsuming ->
+          EUpdate $ UBind (Binding (res, choiceRetTy) update) $
+          EUpdate $ UBind (Binding (mkVar "_", TUnit) archiveSelf) $
+          EUpdate $ UPure choiceRetTy $ EVar res
     pure TemplateChoice
         { chcLocation = Nothing
         , chcName = choiceName
-        , chcConsuming = consuming == PreConsuming
+        , chcConsuming = consuming == Consuming
         , chcControllers = controllers `ETmApp` EVar this `ETmApp` EVar (arg)
         , chcSelfBinder = self
         , chcArgBinder = (arg, choiceTy)
@@ -664,7 +671,7 @@ internalTypes :: UniqSet FastString
 internalTypes = mkUniqSet ["Scenario","Update","ContractId","Time","Date","Party","Pair", "TextMap", "Map", "Any", "TypeRep"]
 
 consumingTypes :: UniqSet FastString
-consumingTypes = mkUniqSet ["PreConsuming", "PostConsuming", "NonConsuming"]
+consumingTypes = mkUniqSet ["Consuming", "PreConsuming", "PostConsuming", "NonConsuming"]
 
 internalFunctions :: UniqFM (UniqSet FastString)
 internalFunctions = listToUFM $ map (bimap mkModuleNameFS mkUniqSet)
