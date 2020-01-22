@@ -86,6 +86,10 @@ main = do
       uploadArtifacts <- concatMapM (mavenArtifactCoords optsAllArtifacts) mavenUploadArtifacts
       validateMavenArtifacts releaseDir uploadArtifacts
 
+      let npmPackages =
+            [ "//language-support/ts/daml-ledger:npm_package"
+            , "//language-support/ts/daml-types:npm_package"
+            ]
       if | getPerformUpload upload -> do
               $logInfo "Make release"
               releaseToBintray upload releaseDir (map (\(a, (_, outp)) -> (a, outp)) files)
@@ -97,6 +101,8 @@ main = do
                     uploadToMavenCentral mavenUploadConfig releaseDir uploadArtifacts
                   else
                     $logInfo "No artifacts to upload to Maven Central"
+
+              forM_ npmPackages $ \rule -> liftIO $ callCommand $ "bazel run " <> rule <> ".publish"
 
               -- set variables for next steps in Azure pipelines
               liftIO . putStrLn $ "##vso[task.setvariable variable=has_released;isOutput=true]true"
