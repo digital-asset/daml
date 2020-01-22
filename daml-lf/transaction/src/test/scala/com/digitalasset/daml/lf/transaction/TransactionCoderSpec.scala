@@ -1,7 +1,8 @@
 // Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.transaction
+package com.digitalasset.daml.lf
+package transaction
 
 import com.digitalasset.daml.lf.EitherAssertions
 import com.digitalasset.daml.lf.data.ImmArray
@@ -47,7 +48,7 @@ class TransactionCoderSpec
     "do NodeCreate" in {
       forAll(malformedCreateNodeGen, valueVersionGen()) {
         (node: NodeCreate[Tx.TContractId, Tx.Value[Tx.TContractId]], valVer: ValueVersion) =>
-          Right((Tx.NodeId.unsafeFromIndex(0), node)) shouldEqual TransactionCoder.decodeNode(
+          Right((Tx.NodeId(0), node)) shouldEqual TransactionCoder.decodeNode(
             defaultNidDecode,
             defaultCidDecode,
             defaultValDecode,
@@ -58,7 +59,7 @@ class TransactionCoderSpec
                 defaultCidEncode,
                 defaultValEncode,
                 defaultTransactionVersion,
-                Tx.NodeId.unsafeFromIndex(0),
+                Tx.NodeId(0),
                 node)
               .toOption
               .get
@@ -69,7 +70,7 @@ class TransactionCoderSpec
     "do NodeFetch" in {
       forAll(fetchNodeGen, valueVersionGen()) {
         (node: NodeFetch[ContractId], valVer: ValueVersion) =>
-          Right((Tx.NodeId.unsafeFromIndex(0), node)) shouldEqual TransactionCoder.decodeNode(
+          Right((Tx.NodeId(0), node)) shouldEqual TransactionCoder.decodeNode(
             defaultNidDecode,
             defaultCidDecode,
             defaultValDecode,
@@ -80,7 +81,7 @@ class TransactionCoderSpec
                 defaultCidEncode,
                 defaultValEncode,
                 defaultTransactionVersion,
-                Tx.NodeId.unsafeFromIndex(0),
+                Tx.NodeId(0),
                 node)
               .toOption
               .get
@@ -91,7 +92,7 @@ class TransactionCoderSpec
     "do NodeExercises" in {
       forAll(danglingRefExerciseNodeGen) {
         node: NodeExercises[Tx.NodeId, Tx.TContractId, Tx.Value[Tx.TContractId]] =>
-          Right((Tx.NodeId.unsafeFromIndex(0), node)) shouldEqual TransactionCoder.decodeNode(
+          Right((Tx.NodeId(0), node)) shouldEqual TransactionCoder.decodeNode(
             defaultNidDecode,
             defaultCidDecode,
             defaultValDecode,
@@ -102,7 +103,7 @@ class TransactionCoderSpec
                 defaultCidEncode,
                 defaultValEncode,
                 defaultTransactionVersion,
-                Tx.NodeId.unsafeFromIndex(0),
+                Tx.NodeId(0),
                 node)
               .toOption
               .get

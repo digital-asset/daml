@@ -101,7 +101,7 @@ class ImplicitPartyAdditionIT
       submitter: String,
       commandId: String,
       node: GenNode[NodeId, TContractId, Value[TContractId]]): Future[SubmissionResult] = {
-    val event1: NodeId = NodeId.unsafeFromIndex(0)
+    val event1: NodeId = NodeId(0)
 
     val transaction = GenTransaction[NodeId, TContractId, Value[TContractId]](
       HashMap(event1 -> node),

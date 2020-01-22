@@ -25,7 +25,7 @@ object Ledger {
     def apply(acoid: AbsoluteContractId): ScenarioNodeId = acoid.coid
 
     def apply(commitPrefix: LedgerString, txnid: Transaction.NodeId): ScenarioNodeId =
-      apply(txNodeIdToAbsoluteContractId(commitPrefix, txnid))
+      apply(txNodeIdToAbsoluteContractId(commitPrefix, txnid.index))
   }
 
   /** This is the function that we use to turn relative contract ids (which are made of
@@ -35,16 +35,16 @@ object Ledger {
   @inline
   def txNodeIdToAbsoluteContractId(
       commitPrefix: LedgerString,
-      txnid: Transaction.NodeId
+      txnidx: Int
   ): AbsoluteContractId =
-    AbsoluteContractId(ContractIdString.concat(commitPrefix, txnid.name))
+    AbsoluteContractId(ContractIdString.concat(commitPrefix, LedgerString.fromInt(txnidx)))
 
   @inline
   def relativeToAbsoluteContractId(
       commitPrefix: LedgerString,
-      i: RelativeContractId
+      cid: RelativeContractId
   ): AbsoluteContractId =
-    txNodeIdToAbsoluteContractId(commitPrefix, i.txnid)
+    txNodeIdToAbsoluteContractId(commitPrefix, cid.txnid.index)
 
   @inline
   def contractIdToAbsoluteContractId(
@@ -567,10 +567,10 @@ object Ledger {
 
     def divulgeCoidTo(witnesses: Set[Party], coid: ContractId): EnrichState = {
       def divulgeRelativeCoidTo(ws: Set[Party], rcoid: RelativeContractId): EnrichState = {
-        val i = rcoid.txnid
+        val nid = rcoid.txnid
         copy(
           localDivulgences = localDivulgences
-            .updated(i, ws union localDivulgences.getOrElse(i, Set.empty)))
+            .updated(nid, ws union localDivulgences.getOrElse(nid, Set.empty)))
       }
 
       coid match {
