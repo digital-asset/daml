@@ -681,7 +681,7 @@ yarn_install(
     name = "language_support_ts_deps",
     package_json = "//language-support/ts/packages:package.json",
     yarn_lock = "//language-support/ts/packages:yarn.lock",
-)
+) if not is_windows else None
 
 # Bazel Skydoc - Build rule documentation generator
 load("@io_bazel_rules_sass//:package.bzl", "rules_sass_dependencies")

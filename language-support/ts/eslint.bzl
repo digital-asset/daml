@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("@language_support_ts_deps//eslint:index.bzl", _eslint_test = "eslint_test")
+load("@os_info//:os_info.bzl", "is_windows")
 
 def eslint_test(name, srcs, tsconfig = ":tsconfig.json", package_json = ":package.json", data = [], **kwargs):
     """Run eslint on the given typescript source.
@@ -31,4 +32,4 @@ def eslint_test(name, srcs, tsconfig = ":tsconfig.json", package_json = ":packag
         data = srcs + [tsconfig, package_json] + data + eslint_deps,
         templated_args = templated_args,
         **kwargs
-    )
+    ) if not is_windows else None

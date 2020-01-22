@@ -46,6 +46,8 @@ function bazel() {
 # which is a workaround for this problem.
 bazel shutdown
 
+# Hoping that this fixes the ELOOP errors on Windows
+# See #4162
 bazel clean --expunge
 
 # Prefetch nodejs_dev_env to avoid permission denied errors on external/nodejs_dev_env/nodejs_dev_env/node.exe

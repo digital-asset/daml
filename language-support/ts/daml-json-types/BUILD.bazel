@@ -27,7 +27,7 @@ ts_library(
     deps = [
         "@language_support_ts_deps//@mojotech/json-type-validation",
     ],
-)
+) if not is_windows else None
 
 genrule(
     name = "license",
@@ -44,7 +44,7 @@ eslint_test(
         ["**/*.ts"],
         exclude = ["**/*.test.ts"],
     ),
-) if not is_windows else None
+)
 
 pkg_npm(
     name = "npm_package",
@@ -58,7 +58,7 @@ pkg_npm(
         "daml-json-types",
         ":license",
     ],
-)
+) if not is_windows else None
 
 jest_test(
     name = "test",
@@ -66,4 +66,4 @@ jest_test(
     deps = [
         "@language_support_ts_deps//@mojotech/json-type-validation",
     ],
-) if not is_windows else None
+)
