@@ -282,17 +282,6 @@ class ContractsService(
     ac.traverse(ApiValueToLfValueConverter.apiValueToLfValue)
       .leftMap(e => Error('apiAcToLfAc, e.shows))
 
-  private def apiValueToLfValue(a: ApiValue): Error \/ LfValue =
-    ApiValueToLfValueConverter.apiValueToLfValue(a).leftMap(e => Error('apiValueToLfValue, e.shows))
-
-  private def collectActiveContracts(predicate: LfValue => Boolean): PartialFunction[
-    Error \/ domain.ActiveContract[LfValue],
-    Error \/ domain.ActiveContract[LfValue]
-  ] = {
-    case e @ -\/(_) => e
-    case a @ \/-(ac) if predicate(ac.payload) => a
-  }
-
   private[http] def valuePredicate(
       templateId: domain.TemplateId.RequiredPkg,
       q: Map[String, JsValue]): query.ValuePredicate =
