@@ -359,6 +359,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             {
                 "ghcide": ["ghc-lib"],
                 "hlint": ["ghc-lib"],
+                "ghc-lib-parser-ex": ["ghc-lib"],
             },
             {
                 "blaze-textual": ["integer-simple"],
@@ -416,6 +417,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "ghc-boot-th",
             "ghc-lib",
             "ghc-lib-parser",
+            "ghc-lib-parser-ex",
             "ghc-paths",
             "ghc-prim",
             "gitrev",
