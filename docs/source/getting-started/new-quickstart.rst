@@ -166,7 +166,7 @@ With this tool to help bridge the gap between our DAML code and the UI, we can g
 
 
 Your First Feature
-***********************
+******************
 
 Let's dive into implementing a feature for our social network app.
 From that we'll get a better idea of how to build DAML applications using our template.
@@ -178,6 +178,9 @@ We will see that DAML helps us implement this in a direct and intuitive way.
 
 There are two parts to building this posting feature: the DAML code and the UI.
 Let's start with adding to the DAML code, on which we will base our UI changes.
+
+DAML Changes
+============
 
 The first addition is a template for a post contracts.
 This will be very simple, as it only contains the message and the parties involved.
@@ -203,3 +206,42 @@ In our case, we simply want to add an operation for a user to create a ``Post`` 
 
 This is a choice on a ``User`` contract, so we have the ``user`` party in scope which can act as the *controller* of the choice (in the 4th line above).
 This encodes the rule that no one can post on behalf of a user.
+
+TypeScript Code Generation
+==========================
+
+Remember that we interface with our DAML code from the UI components using generated TypeScript classes.
+Since we have changed our DAML code, we also need to rerun the TypeScript code generator.
+Let's do this now by running::
+
+  daml build
+  daml daml2ts
+
+in the ``create-daml-app/daml`` directory.
+
+.. TODO Fiddle with daml2ts arguments later.
+
+We should now have the updated TypeScript classes with equivalents of the ``WritePost`` choice and ``Post`` template.
+Let's implement our posting feature in the UI!
+
+Posts UI
+========
+
+Our posting feature should consist of two parts: a form with text inputs to post a message to some friends, and a "feed" of messages that have been shared with you.
+Both of these parts will be implemented as React components that fit into the main screen.
+
+The feed component is fairly straight-forward: it simply needs to query all ``Post`` contracts.
+For a particular user, this will show all posts that have been shared with them.
+This shows one of the beauties of working with DAML: we do not need to talk (or really think) about privacy when building the ledger client.
+The privacy requirement have already been encoded in the DAML code, and we simply need to query and filter the data to suit our application.
+In other words, if we wrote the DAML correctly, we do not risk a privacy breach at the client level.
+Of course, we can sort and categorize the posts (the ``Post`` contract data) as we please for a better user experience; but for our purposes we will just display the raw posts in the order that the contracts were created.
+
+While the feed component needs to query the ``Post`` contracts, the post entry component needs to perform actions on the current user's ``User`` contract.
+Specifically, the form inputs - the post content and parties to share it with - will be used as arguments to the ``WritePost`` choice.
+This choice is what creates the ``Post`` contract, updating the ledger state and clearing the form.
+
+Both these components will use the DAML React hooks to query and act on the ledger.
+Let's see how it looks now.
+
+.. TODO Should we show the code for each component as we go?
