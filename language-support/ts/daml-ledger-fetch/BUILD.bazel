@@ -1,6 +1,7 @@
 # Copyright (c) 2020 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("@os_info//:os_info.bzl", "is_windows")
 load("@build_bazel_rules_nodejs//:index.bzl", "pkg_npm")
 load("@npm_bazel_typescript//:index.bzl", "ts_library")
 load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
@@ -37,7 +38,7 @@ genrule(
 eslint_test(
     name = "lint",
     srcs = glob(["**/*.ts"]),
-)
+) if not is_windows else None
 
 pkg_npm(
     name = "npm_package",
