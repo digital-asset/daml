@@ -37,6 +37,7 @@ load(
     "nixpkgs_local_repository",
     "nixpkgs_package",
 )
+load("//bazel_tools:create_workspace.bzl", "create_workspace")
 load("//bazel_tools:os_info.bzl", "os_info")
 
 os_info(name = "os_info")
@@ -681,6 +682,14 @@ yarn_install(
     name = "language_support_ts_deps",
     package_json = "//language-support/ts/packages:package.json",
     yarn_lock = "//language-support/ts/packages:yarn.lock",
+) if not is_windows else create_workspace(
+    name = "language_support_ts_deps",
+    files = {
+        "eslint/BUILD.bazel": 'exports_files(["index.bzl"])',
+        "eslint/index.bzl": "def eslint_test(*args, **kwargs):\n    pass",
+        "jest-cli/BUILD.bazel": 'exports_files(["index.bzl"])',
+        "jest-cli/index.bzl": "def jest_test(*args, **kwargs):\n    pass",
+    },
 )
 
 # Bazel Skydoc - Build rule documentation generator
