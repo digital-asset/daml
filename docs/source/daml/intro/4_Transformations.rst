@@ -76,9 +76,9 @@ Choices in the Ledger Model
 
 In :doc:`1_Token` you learned about the high-level structure of a DAML ledger. With choices and the `exercise` function, you have the next important ingredient to understand the structure of the ledger and transactions.
 
-A *transaction* is a list of *actions*, and there are just three kinds of action: ``create``, ``exercise`` and ``fetch``. All actions are performed on a contract.
+A *transaction* is a list of *actions*, and there are just three kinds of action: ``create``, ``exercise`` and ``fetch``. All actions are related to a contract.
 
-- A ``create`` action contains the contract arguments and changes the contract's status from *non-existent* to *active*.
+- A ``create`` action creates a new contract with the given arguments and sets its status to *active*.
 - A ``fetch`` action  checks the existence and activeness of a contract.
 - An ``exercise`` action contains the choice arguments and a transaction called the *consequences*. Exercises come in two kinds called ``consuming`` and ``nonconsuming``. ``consuming`` is the default kind and changes the contract's status from *active* to *archived*.
 
