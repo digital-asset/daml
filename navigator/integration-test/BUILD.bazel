@@ -3,6 +3,8 @@
 
 load("//bazel_tools:scala.bzl", "da_scala_binary")
 
+# Note that this whole library is currently an unused and
+# we do not have integration tests for navigator right now.
 da_scala_binary(
     name = "navigatortest-jar",
     srcs = glob(
@@ -19,7 +21,6 @@ da_scala_binary(
         "@maven//:ch_qos_logback_logback_classic",
     ],
     deps = [
-        "//compiler/damlc/jar:damlc_library_jar",
         "@maven//:com_chuusai_shapeless_2_12",
         "@maven//:com_github_scopt_scopt_2_12",
         "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
