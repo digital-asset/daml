@@ -469,8 +469,8 @@ The literals represent actual DAML-LF values:
 Number-like literals (``LitNatTyp``, ``LitInt64``, ``LitNumeric``,
 ``LitDate``, ``LitTimestamp``) are ordered by natural
 ordering. Text-like literals (``LitText`` and ``LitParty``) are ordered
-lexicographically.  Contract Ids are ordered as determined by the
-ledger.
+lexicographically.  Contract Ids are ordered as determined by their
+internal representation.
 
 Identifiers
 ~~~~~~~~~~~
@@ -1898,8 +1898,8 @@ It is a total order when comparing serialized values of the same type.
   ——————————————————————————————————————————————————— GenLtLitParty
    LitParty₁ <ᵥ LitParty₂
 
-   cid₁ is ordered strictly before cid₂ according
-   to the ledger's rules
+   cid₁ is ordered before cid₂ according to
+   their internal representations
   ——————————————————————————————————————————————————— GenLtLitContractId
    cid₁ <ᵥ cid₂
 
