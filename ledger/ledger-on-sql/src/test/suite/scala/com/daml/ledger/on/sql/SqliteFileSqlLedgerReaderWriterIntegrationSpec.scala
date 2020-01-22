@@ -3,6 +3,7 @@
 
 package com.daml.ledger.on.sql
 
+import java.nio.file.{Files, Path}
 import java.time.Clock
 
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase
@@ -14,20 +15,32 @@ import com.digitalasset.logging.LoggingContext.newLoggingContext
 
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext}
-import scala.util.Random
 
-class H2SqlLedgerReaderWriterIntegrationSpec
-    extends ParticipantStateIntegrationSpecBase("SQL implementation using H2") {
+class SqliteFileSqlLedgerReaderWriterIntegrationSpec
+    extends ParticipantStateIntegrationSpecBase("SQL implementation using SQLite with a file") {
   private implicit val ec: ExecutionContext = ExecutionContext.global
 
+  private var databaseFile: Path = _
+
   override val firstIndex: Long = SqlLedgerReaderWriter.FirstIndex
+
+  override def beforeEach(): Unit = {
+    databaseFile = Files.createTempFile(getClass.getSimpleName, ".db")
+    super.beforeEach()
+  }
+
+  override def afterEach(): Unit = {
+    super.afterEach()
+    if (databaseFile != null) {
+      Files.delete(databaseFile)
+    }
+  }
 
   override def participantStateFactory(
       participantId: ParticipantId,
       ledgerId: LedgerString,
   ): ReadService with WriteService with AutoCloseable = {
-    val databaseName = s"${getClass.getSimpleName.toLowerCase()}_${Random.nextInt()}"
-    val jdbcUrl = s"jdbc:h2:mem:$databaseName;db_close_delay=-1;db_close_on_exit=false"
+    val jdbcUrl = s"jdbc:sqlite:$databaseFile"
     newLoggingContext { implicit logCtx =>
       val readerWriter =
         Await.result(SqlLedgerReaderWriter(ledgerId, participantId, jdbcUrl), 10.seconds)

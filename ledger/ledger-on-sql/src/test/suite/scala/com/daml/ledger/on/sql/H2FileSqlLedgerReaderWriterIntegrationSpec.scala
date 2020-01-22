@@ -16,8 +16,8 @@ import com.digitalasset.logging.LoggingContext.newLoggingContext
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext}
 
-class SqliteSqlLedgerReaderWriterIntegrationSpec
-    extends ParticipantStateIntegrationSpecBase("SQL implementation using SQLite") {
+class H2FileSqlLedgerReaderWriterIntegrationSpec
+    extends ParticipantStateIntegrationSpecBase("SQL implementation using H2 with a file") {
   private implicit val ec: ExecutionContext = ExecutionContext.global
 
   private var databaseFile: Path = _
@@ -40,7 +40,7 @@ class SqliteSqlLedgerReaderWriterIntegrationSpec
       participantId: ParticipantId,
       ledgerId: LedgerString,
   ): ReadService with WriteService with AutoCloseable = {
-    val jdbcUrl = s"jdbc:sqlite:$databaseFile"
+    val jdbcUrl = s"jdbc:h2:file:$databaseFile"
     newLoggingContext { implicit logCtx =>
       val readerWriter =
         Await.result(SqlLedgerReaderWriter(ledgerId, participantId, jdbcUrl), 10.seconds)

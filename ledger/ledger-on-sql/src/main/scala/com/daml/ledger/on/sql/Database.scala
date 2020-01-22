@@ -20,6 +20,7 @@ sealed trait Database extends Closeable {
 }
 
 object Database {
+  private val logger = ContextualizedLogger.get(classOf[Database])
 
   // This *must* be 1 right now. We need to insert entries into the log in order; otherwise, we
   // might end up dispatching (head + 2) before (head + 1), which will result in missing out an
@@ -30,16 +31,16 @@ object Database {
   private val MaximumWriterConnectionPoolSize: Int = 1
 
   def apply(jdbcUrl: String)(implicit logCtx: LoggingContext): Database = {
-    jdbcUrl match {
-      case url if url.startsWith("jdbc:h2:") => new H2Database(jdbcUrl)
-      case url if url.startsWith("jdbc:sqlite:") => new SqliteDatabase(jdbcUrl)
+    val database = jdbcUrl match {
+      case url if url.startsWith("jdbc:h2:") => new MultipleReaderSingleWriterDatabase(jdbcUrl)
+      case url if url.startsWith("jdbc:sqlite:") => new SingleConnectionDatabase(jdbcUrl)
       case _ => throw new InvalidDatabaseException(jdbcUrl)
     }
+    logger.info(s"Connected to the ledger over JDBC: $jdbcUrl")
+    database
   }
 
-  final class H2Database(jdbcUrl: String)(implicit logCtx: LoggingContext) extends Database {
-    private val logger = ContextualizedLogger.get(this.getClass)
-
+  final class MultipleReaderSingleWriterDatabase(jdbcUrl: String) extends Database {
     override val queries: Queries = new H2Queries
 
     override val readerConnectionPool: DataSource with Closeable =
@@ -48,17 +49,13 @@ object Database {
     override val writerConnectionPool: DataSource with Closeable =
       newHikariDataSource(jdbcUrl, maximumPoolSize = Some(MaximumWriterConnectionPoolSize))
 
-    logger.info(s"Connected to the ledger over JDBC: $jdbcUrl")
-
     override def close(): Unit = {
       readerConnectionPool.close()
       writerConnectionPool.close()
     }
   }
 
-  final class SqliteDatabase(jdbcUrl: String)(implicit logCtx: LoggingContext) extends Database {
-    private val logger = ContextualizedLogger.get(this.getClass)
-
+  final class SingleConnectionDatabase(jdbcUrl: String) extends Database {
     private val connectionPool: DataSource with Closeable =
       newHikariDataSource(jdbcUrl, maximumPoolSize = Some(MaximumWriterConnectionPoolSize))
 
@@ -67,8 +64,6 @@ object Database {
     override val readerConnectionPool: DataSource = connectionPool
 
     override val writerConnectionPool: DataSource = connectionPool
-
-    logger.info(s"Connected to the ledger over JDBC: $jdbcUrl")
 
     override def close(): Unit = {
       connectionPool.close()

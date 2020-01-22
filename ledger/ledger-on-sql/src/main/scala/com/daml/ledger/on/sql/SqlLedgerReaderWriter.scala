@@ -165,6 +165,7 @@ class SqlLedgerReaderWriter(
       queries.createLogTable()
       queries.createStateTable()
     }
+    logger.info("Successfully migrated the database.")
   }
 
   private def inDatabaseReadTransaction[T](message: String)(
