@@ -15,7 +15,7 @@ Sandbox
 ~~~~~~~
 
 - Metrics are now namespaced by ``"daml"`` and their names have been
-  standardize to snake_case.
+  standardized to snake_case.
 
 DAML-LF
 ~~~~~~~
