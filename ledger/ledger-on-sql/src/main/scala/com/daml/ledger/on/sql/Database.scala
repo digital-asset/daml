@@ -38,6 +38,8 @@ object Database {
   }
 
   final class H2Database(jdbcUrl: String)(implicit logCtx: LoggingContext) extends Database {
+    private val logger = ContextualizedLogger.get(this.getClass)
+
     override val queries: Queries = new H2Queries
 
     override val readerConnectionPool: DataSource with Closeable =
@@ -46,7 +48,7 @@ object Database {
     override val writerConnectionPool: DataSource with Closeable =
       newHikariDataSource(jdbcUrl, maximumPoolSize = Some(MaximumWriterConnectionPoolSize))
 
-    ContextualizedLogger.get(this.getClass).info(s"Connected the ledger to $jdbcUrl.")
+    logger.info(s"Connected to the ledger over JDBC: $jdbcUrl")
 
     override def close(): Unit = {
       readerConnectionPool.close()
@@ -55,6 +57,8 @@ object Database {
   }
 
   final class SqliteDatabase(jdbcUrl: String)(implicit logCtx: LoggingContext) extends Database {
+    private val logger = ContextualizedLogger.get(this.getClass)
+
     private val connectionPool: DataSource with Closeable =
       newHikariDataSource(jdbcUrl, maximumPoolSize = Some(MaximumWriterConnectionPoolSize))
 
@@ -64,7 +68,7 @@ object Database {
 
     override val writerConnectionPool: DataSource = connectionPool
 
-    ContextualizedLogger.get(this.getClass).info(s"Connected the ledger to $jdbcUrl.")
+    logger.info(s"Connected to the ledger over JDBC: $jdbcUrl")
 
     override def close(): Unit = {
       connectionPool.close()
