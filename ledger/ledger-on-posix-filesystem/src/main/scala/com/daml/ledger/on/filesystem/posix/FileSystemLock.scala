@@ -12,7 +12,6 @@ import com.digitalasset.timer.RetryStrategy
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Random
-import scala.util.control.NonFatal
 
 class FileSystemLock(location: Path) {
   private val random: Random = new Random()
@@ -29,21 +28,15 @@ class FileSystemLock(location: Path) {
   private def acquire()(implicit executionContext: ExecutionContext): Future[Unit] = {
     val randomBytes = Array.ofDim[Byte](IdSize)
     random.nextBytes(randomBytes)
+    val attempt = Files.createTempDirectory(getClass.getSimpleName)
+    Files.write(attempt.resolve("id"), randomBytes)
     retry { (_, _) =>
       Future {
-        val attempt = Files.createTempDirectory(getClass.getSimpleName)
-        Files.write(attempt.resolve("id"), randomBytes)
-        try {
-          Files.move(attempt, location, StandardCopyOption.ATOMIC_MOVE)
-          val writtenBytes = Files.readAllBytes(location.resolve("id"))
-          //noinspection CorrespondsUnsorted
-          if (!writtenBytes.sameElements(randomBytes)) {
-            throw new AcquisitionFailedException
-          }
-        } catch {
-          case NonFatal(exception) =>
-            deleteFiles(attempt)
-            throw exception
+        Files.move(attempt, location, StandardCopyOption.ATOMIC_MOVE)
+        val writtenBytes = Files.readAllBytes(location.resolve("id"))
+        //noinspection CorrespondsUnsorted
+        if (!writtenBytes.sameElements(randomBytes)) {
+          throw new AcquisitionFailedException
         }
       }
     }
