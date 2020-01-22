@@ -29,7 +29,7 @@ object Database {
   // entries missing.
   private val MaximumWriterConnectionPoolSize: Int = 1
 
-  def apply(jdbcUrl: String)(implicit loggingContext: LoggingContext): Database = {
+  def apply(jdbcUrl: String)(implicit logCtx: LoggingContext): Database = {
     jdbcUrl match {
       case url if url.startsWith("jdbc:h2:") => new H2Database(jdbcUrl)
       case url if url.startsWith("jdbc:sqlite:") => new SqliteDatabase(jdbcUrl)
@@ -37,8 +37,7 @@ object Database {
     }
   }
 
-  final class H2Database(jdbcUrl: String)(implicit loggingContext: LoggingContext)
-      extends Database {
+  final class H2Database(jdbcUrl: String)(implicit logCtx: LoggingContext) extends Database {
     override val queries: Queries = new H2Queries
 
     override val readerConnectionPool: DataSource with Closeable =
@@ -55,8 +54,7 @@ object Database {
     }
   }
 
-  final class SqliteDatabase(jdbcUrl: String)(implicit loggingContext: LoggingContext)
-      extends Database {
+  final class SqliteDatabase(jdbcUrl: String)(implicit logCtx: LoggingContext) extends Database {
     private val connectionPool: DataSource with Closeable =
       newHikariDataSource(jdbcUrl, maximumPoolSize = Some(MaximumWriterConnectionPoolSize))
 

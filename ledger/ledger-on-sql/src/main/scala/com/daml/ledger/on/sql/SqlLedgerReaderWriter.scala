@@ -44,7 +44,7 @@ class SqlLedgerReaderWriter(
 )(
     implicit executionContext: ExecutionContext,
     materializer: Materializer,
-    loggingContext: LoggingContext,
+    logCtx: LoggingContext,
 ) extends LedgerWriter
     with LedgerReader
     with AutoCloseable {
@@ -77,7 +77,7 @@ class SqlLedgerReaderWriter(
       .startingAt(
         offset.getOrElse(FirstOffset).components.head,
         RangeSource((start, end) =>
-          withEnrichedLoggingContext("start" -> start, "end" -> end) { implicit loggingContext =>
+          withEnrichedLoggingContext("start" -> start, "end" -> end) { implicit logCtx =>
             val result = inDatabaseReadTransaction("Querying events from log") {
               implicit connection =>
                 queries.selectFromLog(start, end)
@@ -94,7 +94,7 @@ class SqlLedgerReaderWriter(
       .map { case (_, record) => record }
 
   override def commit(correlationId: String, envelope: Array[Byte]): Future[SubmissionResult] =
-    withEnrichedLoggingContext("correlationId" -> correlationId) { implicit loggingContext =>
+    withEnrichedLoggingContext("correlationId" -> correlationId) { implicit logCtx =>
       Future {
         val submission = Envelope
           .openSubmission(envelope)
@@ -170,13 +170,13 @@ class SqlLedgerReaderWriter(
 
   private def inDatabaseReadTransaction[T](message: String)(
       body: Connection => T,
-  )(implicit loggingContext: LoggingContext): T = {
+  )(implicit logCtx: LoggingContext): T = {
     inDatabaseTransaction(message, database.readerConnectionPool)(body)
   }
 
   private def inDatabaseWriteTransaction[T](message: String)(
       body: Connection => T,
-  )(implicit loggingContext: LoggingContext): T = {
+  )(implicit logCtx: LoggingContext): T = {
     inDatabaseTransaction(message, database.writerConnectionPool)(body)
   }
 
@@ -185,7 +185,7 @@ class SqlLedgerReaderWriter(
       connectionPool: DataSource,
   )(
       body: Connection => T,
-  )(implicit loggingContext: LoggingContext): T = {
+  )(implicit logCtx: LoggingContext): T = {
     val connection =
       time(s"$message: acquiring connection")(connectionPool.getConnection())
     time(message) {
@@ -203,14 +203,14 @@ class SqlLedgerReaderWriter(
     }
   }
 
-  private def time[T](message: String)(body: => T)(implicit loggingContext: LoggingContext): T = {
+  private def time[T](message: String)(body: => T)(implicit logCtx: LoggingContext): T = {
     val startTime = System.currentTimeMillis()
     logger.trace(s"$message: starting")
     val result = body
     val endTime = System.currentTimeMillis()
-    withEnrichedLoggingContext("duration" -> (endTime - startTime)) { loggingContextWithTime =>
-      logger.trace(s"$message: finished")(loggingContextWithTime)
-    }(loggingContext)
+    withEnrichedLoggingContext("duration" -> (endTime - startTime)) { logCtxWithTime =>
+      logger.trace(s"$message: finished")(logCtxWithTime)
+    }(logCtx)
     result
   }
 }
@@ -227,7 +227,7 @@ object SqlLedgerReaderWriter {
   )(
       implicit executionContext: ExecutionContext,
       materializer: Materializer,
-      loggingContext: LoggingContext,
+      logCtx: LoggingContext,
   ): Future[SqlLedgerReaderWriter] =
     Future {
       val database = Database(jdbcUrl)

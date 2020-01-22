@@ -28,7 +28,7 @@ class H2SqlLedgerReaderWriterIntegrationSpec
   ): ReadService with WriteService with AutoCloseable = {
     val databaseName = s"${getClass.getSimpleName.toLowerCase()}_${Random.nextInt()}"
     val jdbcUrl = s"jdbc:h2:mem:$databaseName;db_close_delay=-1;db_close_on_exit=false"
-    newLoggingContext { implicit loggingContext =>
+    newLoggingContext { implicit logCtx =>
       val readerWriter =
         Await.result(SqlLedgerReaderWriter(ledgerId, participantId, jdbcUrl), 10.seconds)
       new KeyValueParticipantState(readerWriter, readerWriter)

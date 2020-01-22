@@ -40,7 +40,7 @@ object Main extends App {
         throw new IllegalStateException("No JDBC URL provided.")
       }
       Await.result(
-        newLoggingContext { implicit loggingContext =>
+        newLoggingContext { implicit logCtx =>
           SqlLedgerReaderWriter(
             ledgerId = ledgerId,
             participantId = participantId,

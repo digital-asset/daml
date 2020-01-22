@@ -41,7 +41,7 @@ class SqliteSqlLedgerReaderWriterIntegrationSpec
       ledgerId: LedgerString,
   ): ReadService with WriteService with AutoCloseable = {
     val jdbcUrl = s"jdbc:sqlite:$databaseFile"
-    newLoggingContext { implicit loggingContext =>
+    newLoggingContext { implicit logCtx =>
       val readerWriter =
         Await.result(SqlLedgerReaderWriter(ledgerId, participantId, jdbcUrl), 10.seconds)
       new KeyValueParticipantState(readerWriter, readerWriter)
