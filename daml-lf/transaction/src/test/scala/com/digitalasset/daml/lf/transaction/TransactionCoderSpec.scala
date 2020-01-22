@@ -111,7 +111,7 @@ class TransactionCoderSpec
     }
 
     "do transactions with default versions" in {
-      forAll(malformedGenTransaction) { t =>
+      forAll(noDanglingRefGenTransaction, minSuccessful(50)) { t =>
         val encodedTx: proto.Transaction =
           assertRight(
             TransactionCoder
@@ -127,103 +127,107 @@ class TransactionCoderSpec
       }
     }
 
-    "do transactions with version override" in forAll(
-      malformedGenTransaction,
-      transactionVersionGen) { (tx: Tx.Transaction, txVer: TransactionVersion) =>
-      inside(
-        TransactionCoder
-          .encodeTransactionWithCustomVersion(
-            defaultNidEncode,
-            defaultCidEncode,
-            VersionedTransaction(txVer, tx))) {
-        case Left(EncodeError(msg)) =>
-          // fuzzy sort of "failed because of the version override" test
-          msg should include(txVer.toString)
-        case Right(encodedTx) =>
-          val decodedVersionedTx = assertRight(
+    "do transactions with version override" in
+      forAll(noDanglingRefGenTransaction, minSuccessful(50)) { tx =>
+        forAll(transactionVersionGen, minSuccessful(5)) { txVer =>
+          inside(
             TransactionCoder
-              .decodeVersionedTransaction(defaultNidDecode, defaultCidDecode, encodedTx))
-          decodedVersionedTx.transaction shouldBe minimalistTx(txVer, tx)
-      }
-    }
-
-    "succeed with encoding under later version if succeeded under earlier version" in forAll(
-      malformedGenTransaction,
-      transactionVersionGen,
-      transactionVersionGen) { (tx, txVer1, txVer2) =>
-      import VersionTimeline.Implicits._
-      import scalaz.std.tuple._
-      import scalaz.syntax.bifunctor._
-      whenever(txVer1 != txVer2) {
-        val orderedVers @ (txvMin, txvMax) =
-          if (txVer2 precedes txVer1) (txVer2, txVer1) else (txVer1, txVer2)
-        inside(
-          orderedVers umap (
-              txVer =>
+              .encodeTransactionWithCustomVersion(
+                defaultNidEncode,
+                defaultCidEncode,
+                VersionedTransaction(txVer, tx))) {
+            case Left(EncodeError(msg)) =>
+              // fuzzy sort of "failed because of the version override" test
+              msg should include(txVer.toString)
+            case Right(encodedTx) =>
+              val decodedVersionedTx = assertRight(
                 TransactionCoder
-                  .encodeTransactionWithCustomVersion(
-                    defaultNidEncode,
-                    defaultCidEncode,
-                    VersionedTransaction(txVer, tx)))) {
-          case (Left(EncodeError(minMsg)), maxEnc) =>
-            // fuzzy sort of "failed because of the version override" test
-            minMsg should include(txvMin.toString)
-            maxEnc.left foreach (_.errorMessage should include(txvMax.toString))
-          case (Right(encWithMin), Right(encWithMax)) =>
-            inside((encWithMin, encWithMax) umap (TransactionCoder
-              .decodeVersionedTransaction(defaultNidDecode, defaultCidDecode, _))) {
-              case (Right(decWithMin), Right(decWithMax)) =>
-                decWithMin.transaction shouldBe minimalistTx(txvMin, tx)
-                decWithMin.transaction shouldBe
-                  minimalistTx(txvMin, decWithMax.transaction)
+                  .decodeVersionedTransaction(defaultNidDecode, defaultCidDecode, encodedTx))
+              decodedVersionedTx.transaction shouldBe minimalistTx(txVer, tx)
+          }
+        }
+      }
+
+    "succeed with encoding under later version if succeeded under earlier version" in
+      forAll(noDanglingRefGenTransaction, minSuccessful(50)) { tx =>
+        forAll(transactionVersionGen, transactionVersionGen, minSuccessful(20)) {
+          (txVer1, txVer2) =>
+            import VersionTimeline.Implicits._
+            import scalaz.std.tuple._
+            import scalaz.syntax.bifunctor._
+            whenever(txVer1 != txVer2) {
+              val orderedVers @ (txvMin, txvMax) =
+                if (txVer2 precedes txVer1) (txVer2, txVer1) else (txVer1, txVer2)
+              inside(
+                orderedVers umap (
+                    txVer =>
+                      TransactionCoder
+                        .encodeTransactionWithCustomVersion(
+                          defaultNidEncode,
+                          defaultCidEncode,
+                          VersionedTransaction(txVer, tx)))) {
+                case (Left(EncodeError(minMsg)), maxEnc) =>
+                  // fuzzy sort of "failed because of the version override" test
+                  minMsg should include(txvMin.toString)
+                  maxEnc.left foreach (_.errorMessage should include(txvMax.toString))
+                case (Right(encWithMin), Right(encWithMax)) =>
+                  inside((encWithMin, encWithMax) umap (TransactionCoder
+                    .decodeVersionedTransaction(defaultNidDecode, defaultCidDecode, _))) {
+                    case (Right(decWithMin), Right(decWithMax)) =>
+                      decWithMin.transaction shouldBe minimalistTx(txvMin, tx)
+                      decWithMin.transaction shouldBe
+                        minimalistTx(txvMin, decWithMax.transaction)
+                  }
+              }
             }
         }
       }
-    }
 
-    "transactions decoding should fail when unsupported value version received" in forAll(
-      malformedGenTransaction,
-      unsupportedValueVersionGen) { (tx: Tx.Transaction, badValVer: ValueVersion) =>
-      whenever(isTransactionWithAtLeastOneVersionedValue(tx)) {
+    "transactions decoding should fail when unsupported value version received" in
+      forAll(noDanglingRefGenTransaction, minSuccessful(50)) { tx =>
+        whenever(isTransactionWithAtLeastOneVersionedValue(tx)) {
+          forAll(unsupportedValueVersionGen, minSuccessful(20)) { badValVer =>
+            ValueVersions.acceptedVersions.contains(badValVer) shouldEqual false
 
-        ValueVersions.acceptedVersions.contains(badValVer) shouldEqual false
+            val txWithBadValVersion: Tx.Transaction = changeAllValueVersions(tx, badValVer)
+            val encodedTxWithBadValVersion: proto.Transaction = assertRight(
+              TransactionCoder
+                .encodeTransactionWithCustomVersion(
+                  defaultNidEncode,
+                  defaultCidEncode,
+                  VersionedTransaction(defaultTransactionVersion, txWithBadValVersion)))
 
-        val txWithBadValVersion: Tx.Transaction = changeAllValueVersions(tx, badValVer)
-        val encodedTxWithBadValVersion: proto.Transaction = assertRight(
-          TransactionCoder
-            .encodeTransactionWithCustomVersion(
-              defaultNidEncode,
-              defaultCidEncode,
-              VersionedTransaction(defaultTransactionVersion, txWithBadValVersion)))
-
-        TransactionCoder.decodeVersionedTransaction(
-          defaultNidDecode,
-          defaultCidDecode,
-          encodedTxWithBadValVersion) shouldEqual Left(
-          DecodeError(s"Unsupported value version ${badValVer.protoValue}"))
+            TransactionCoder.decodeVersionedTransaction(
+              defaultNidDecode,
+              defaultCidDecode,
+              encodedTxWithBadValVersion) shouldEqual Left(
+              DecodeError(s"Unsupported value version ${badValVer.protoValue}"))
+          }
+        }
       }
-    }
 
-    "transactions decoding should fail when unsupported transaction version received" in forAll(
-      malformedGenTransaction,
-      unsupportedTransactionVersionGen) { (tx: Tx.Transaction, badTxVer: TransactionVersion) =>
-      TransactionVersions.acceptedVersions.contains(badTxVer) shouldEqual false
+    "transactions decoding should fail when unsupported transaction version received" in
+      forAll(noDanglingRefGenTransaction, minSuccessful(50)) { tx =>
+        forAll(unsupportedTransactionVersionGen, minSuccessful(20)) {
+          badTxVer: TransactionVersion =>
+            TransactionVersions.acceptedVersions.contains(badTxVer) shouldEqual false
 
-      val encodedTxWithBadTxVer: proto.Transaction = assertRight(
-        TransactionCoder
-          .encodeTransactionWithCustomVersion(
-            defaultNidEncode,
-            defaultCidEncode,
-            VersionedTransaction(badTxVer, tx)))
+            val encodedTxWithBadTxVer: proto.Transaction = assertRight(
+              TransactionCoder
+                .encodeTransactionWithCustomVersion(
+                  defaultNidEncode,
+                  defaultCidEncode,
+                  VersionedTransaction(badTxVer, tx)))
 
-      encodedTxWithBadTxVer.getVersion shouldEqual badTxVer.protoValue
+            encodedTxWithBadTxVer.getVersion shouldEqual badTxVer.protoValue
 
-      TransactionCoder.decodeVersionedTransaction(
-        defaultNidDecode,
-        defaultCidDecode,
-        encodedTxWithBadTxVer) shouldEqual Left(
-        DecodeError(s"Unsupported transaction version ${badTxVer.protoValue}"))
-    }
+            TransactionCoder.decodeVersionedTransaction(
+              defaultNidDecode,
+              defaultCidDecode,
+              encodedTxWithBadTxVer) shouldEqual Left(
+              DecodeError(s"Unsupported transaction version ${badTxVer.protoValue}"))
+        }
+      }
 
     "do transaction blinding" in {
       forAll(genBlindingInfo) { bi: BlindingInfo =>
