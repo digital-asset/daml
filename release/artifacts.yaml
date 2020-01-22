@@ -46,9 +46,6 @@
 - target: //daml-lf/archive:daml_lf_archive_reader
   type: jar-scala
   mavenUpload: true
-- target: //compiler/damlc/jar:damlc_jar
-  type: jar-deploy
-  platformDependent: true
 - target: //daml-lf/transaction:value_java_proto
   type: jar-proto
   mavenUpload: true
