@@ -3,7 +3,7 @@
 
 package com.daml.ledger.on.filesystem.posix
 
-import java.nio.file.{Files, NoSuchFileException, Path}
+import java.nio.file.{FileAlreadyExistsException, Files, NoSuchFileException, Path}
 import java.time.Clock
 
 import akka.NotUsed
@@ -171,12 +171,18 @@ class FileSystemLedgerReaderWriter private (
     }
   }
 
-  private def createDirectories(): Unit = {
+  private def initialize(): Unit = {
     Files.createDirectories(root)
     Files.createDirectories(logDirectory)
     Files.createDirectories(logEntriesDirectory)
     Files.createDirectories(logIndexDirectory)
     Files.createDirectories(stateDirectory)
+    try {
+      Files.createFile(lockPath)
+    } catch {
+      // this is fine.
+      case _: FileAlreadyExistsException =>
+    }
     ()
   }
 }
@@ -201,7 +207,7 @@ object FileSystemLedgerReaderWriter {
       )
     } yield {
       val participant = new FileSystemLedgerReaderWriter(ledgerId, participantId, root, dispatcher)
-      participant.createDirectories()
+      participant.initialize()
       participant
     }
 }
