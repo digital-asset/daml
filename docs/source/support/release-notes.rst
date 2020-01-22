@@ -6,6 +6,28 @@ Release notes
 
 This page contains release notes for the SDK.
 
+.. _release-0-13-46:
+
+0.13.46 - 2020-01-22
+--------------------
+
+Sandbox
+~~~~~~~
+
+- The sandbox uses a new payload format for authentication tokens (JWTs). The old format is
+  deprecated, but still works.
+
+JSON API
+~~~~~~~~
+
+- The HTTP JSON API now uses the same payload format for authentication tokens as the sandbox. The
+  old format is deprecated, but still works.
+
+DAML Studio
+~~~~~~~~~~~
+
+- Scenarios with unserializable result types no longer crash the scenario service.
+
 .. _release-0-13-45:
 
 0.13.45 - 2020-01-22
