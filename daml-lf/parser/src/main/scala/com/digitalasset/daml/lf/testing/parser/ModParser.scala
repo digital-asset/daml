@@ -42,7 +42,7 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
     }
 
   private lazy val definition: Parser[Def] =
-    recDefinition | variantDefinition | enumDefinition | valDefinition | templateDefinition
+    synDefinition | recDefinition | variantDefinition | enumDefinition | valDefinition | templateDefinition
 
   private def tags(allowed: Set[String]): Parser[Set[String]] =
     rep(`@` ~> id) ^^ { tags =>
@@ -55,6 +55,13 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
 
   private lazy val binder: Parser[(Name, Type)] =
     id ~ `:` ~ typ ^^ { case id ~ _ ~ typ => id -> typ }
+
+  private lazy val synDefinition: Parser[DataDef] =
+    Id("synonym") ~>! dottedName ~ rep(typeBinder) ~
+      (`=` ~> typ) ^^ {
+      case id ~ params ~ typ =>
+        DataDef(id, DTypeSyn(ImmArray(params), typ))
+    }
 
   private lazy val recDefinition: Parser[DataDef] =
     Id("record") ~>! tags(dataDefTags) ~ dottedName ~ rep(typeBinder) ~
