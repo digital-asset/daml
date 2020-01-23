@@ -103,10 +103,10 @@ private[http] object JdbcConfig extends ConfigCompanion[JdbcConfig]("JdbcConfig"
 
   lazy val help: String =
     "Contains comma-separated key-value pairs. Where:\n" +
-      "\tdriver -- JDBC driver class name,\n" +
-      "\turl -- JDBC connection URL,\n" +
+      "\tdriver -- JDBC driver class name, only org.postgresql.Driver supported right now,\n" +
+      "\turl -- JDBC connection URL, only jdbc:postgresql supported right now,\n" +
       "\tuser -- database user name,\n" +
-      "\tpassword -- database user password\n" +
+      "\tpassword -- database user password,\n" +
       "\tcreateSchema -- boolean flag, if set to true, the process will re-create database schema and terminate immediately.\n" +
       "\tExample: " + helpString(
       "org.postgresql.Driver",

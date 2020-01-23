@@ -26,7 +26,7 @@ To edit those docs, edit the content inside the code source.
 
 ### Previewing
 
-To preview the full docs, as deployed to docs.daml.com,run `scripts/preview.sh`.
+To preview the full docs, as deployed to docs.daml.com, run `scripts/preview.sh`.
 
 To live-preview the docs, run `scripts/live-preview.sh`. The script accepts two flags:
 

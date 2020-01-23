@@ -12,22 +12,21 @@ tracker
 <https://github.com/digital-asset/daml/issues/new?milestone=HTTP+JSON+API+Maintenance>`_
 or `on Slack <https://hub.daml.com/slack/>`_.
 
-The JSON API provides a significantly simpler way than :doc:`the Ledger
-API </app-dev/index>` to access *basic active contract set
-functionality*:
+The **JSON API** provides a significantly simpler way than :doc:`the Ledger
+API </app-dev/index>` to interact with a ledger by providing *basic active contract set functionality*:
 
 - creating contracts,
-- exercising choices on contracts, and
-- querying the current active contract set.
+- exercising choices on contracts,
+- querying the current active contract set, and
+- retrieving all known parties.
 
-The goal is to get you up and running writing effective
-ledger-integrated applications quickly, so we have deliberately excluded
-complicating concerns, including but not limited to
+The goal of this API is to get you up and running distributed ledger applications quickly, so we have deliberately excluded
+complicating concerns, including but not limited to:
 
 - inspecting transactions,
 - asynchronous submit/completion workflows,
 - temporal queries (e.g. active contracts *as of a certain time*), and
-- ledger metaprogramming (e.g. packages and templates).
+- ledger metaprogramming (e.g. retrieving packages and templates).
 
 For these and other features, use :doc:`the Ledger API </app-dev/index>`
 instead.
@@ -41,24 +40,30 @@ instead.
 How to start
 ************
 
-Start sandbox from a DAML project directory
-===========================================
+Start sandbox
+=============
 
-::
+From a DAML project directory:
+
+.. code-block:: shell
 
     $ daml sandbox --wall-clock-time --ledgerid MyLedger ./.daml/dist/quickstart-0.0.1.dar
 
-Start HTTP service from a DAML project directory
-================================================
+.. _start-http-service:
 
-::
+Start HTTP service
+==================
+
+From a DAML project directory:
+
+.. code-block:: shell
 
     $ daml json-api --ledger-host localhost --ledger-port 6865 \
         --http-port 7575 --max-inbound-message-size 4194304 --package-reload-interval 5s \
         --application-id HTTP-JSON-API-Gateway --static-content "prefix=static,directory=./static-content" \
         --query-store-jdbc-config "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password,createSchema=false"
 
-::
+.. code-block:: none
 
     $ daml json-api --help
     HTTP JSON API daemon
@@ -81,20 +86,25 @@ Start HTTP service from a DAML project directory
       --max-inbound-message-size <value>
             Optional max inbound message size in bytes. Defaults to 4194304
       --query-store-jdbc-config "driver=<JDBC driver class name>,url=<JDBC connection url>,user=<user>,password=<password>,createSchema=<true|false>"
-            Optional query store JDBC configuration string. Contains comma-separated key-value pairs. Where:
-            driver -- JDBC driver class name,
-            url -- JDBC connection URL,
+            Optional query store JDBC configuration string. Query store is a search index, use it if you need to query large active contract sets. Contains comma-separated key-value pairs. Where:
+            driver -- JDBC driver class name, only org.postgresql.Driver supported right now,
+            url -- JDBC connection URL, only jdbc:postgresql supported right now,
             user -- database user name,
-            password -- database user password
+            password -- database user password,
             createSchema -- boolean flag, if set to true, the process will re-create database schema and terminate immediately.
-            Example: "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password,createSchema=false"
+        Example: "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password,createSchema=false"
       --static-content "prefix=<URL prefix>,directory=<directory>"
             DEV MODE ONLY (not recommended for production). Optional static content configuration string. Contains comma-separated key-value pairs. Where:
             prefix -- URL prefix,
             directory -- local directory that will be mapped to the URL prefix.
             Example: "prefix=static,directory=./static-content"
       --access-token-file <value>
-        provide the path from which the access token will be read, required to interact with an authenticated ledger, no default
+            provide the path from which the access token will be read, required to interact with an authenticated ledger, no default
+      --websocket-config "maxDuration=<Maximum websocket session duration in minutes>,heartBeatPer=Server-side heartBeat interval in seconds"
+            Optional websocket configuration string. Contains comma-separated key-value pairs. Where:
+            maxDuration -- Maximum websocket session duration in minutes
+            heartBeatPer -- Server-side heartBeat interval in seconds
+            Example: "maxDuration=120,heartBeatPer=5"
 
 With Authentication
 ===================
@@ -114,7 +124,7 @@ If the token cannot be read from the provided path or the Ledger API reports an 
 Example session
 ***************
 
-::
+.. code-block:: shell
 
     $ daml new iou-quickstart-java quickstart-java
     $ cd iou-quickstart-java/
@@ -128,7 +138,9 @@ Choosing a party
 You specify your party and other settings with JWT.  In testing
 environments, you can use https://jwt.io to generate your token.
 
-The default "header" is fine.  Under "Payload", fill in::
+The default "header" is fine.  Under "Payload", fill in:
+
+.. code-block:: json
 
     {
       "https://daml.com/ledger-api": {
@@ -152,32 +164,519 @@ add the subprotocols ``jwt.token.copy-paste-token-here`` and
 
 Here are two tokens you can use for testing:
 
-- ``{"ledgerId": "MyLedger", "applicationId": "foobar", "party": "Alice"}``
-  ``eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJsZWRnZXJJZCI6Ik15TGVkZ2VyIiwiYXBwbGljYXRpb25JZCI6ImZvb2JhciIsInBhcnR5IjoiQWxpY2UifQ.4HYfzjlYr1ApUDot0a6a4zB49zS_jrwRUOCkAiPMqo0``
+- ``{"https://daml.com/ledger-api": {"ledgerId": "MyLedger", "applicationId": "foobar", "actAs": ["Alice"]}}``
+  ``eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJmb29iYXIiLCJhY3RBcyI6WyJBbGljZSJdfX0.VdDI96mw5hrfM5ZNxLyetSVwcD7XtLT4dIdHIOa9lcU``
 
-- ``{"ledgerId": "MyLedger", "applicationId": "foobar", "party": "Bob"}``
-  ``eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJsZWRnZXJJZCI6Ik15TGVkZ2VyIiwiYXBwbGljYXRpb25JZCI6ImZvb2JhciIsInBhcnR5IjoiQm9iIn0.2LE3fAvUzLx495JWpuSzHye9YaH3Ddt4d2Pj0L1jSjA``
+- ``{"https://daml.com/ledger-api": {"ledgerId": "MyLedger", "applicationId": "foobar", "actAs": ["Bob"]}}``
+  ``eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJmb29iYXIiLCJhY3RBcyI6WyJCb2IiXX19.zU-iMSFG90na8IHacrS25xho3u6AKnSlTKbvpkaSyYw``
   
 For production use, we have a tool in development for generating proper
 RSA-encrypted tokens locally, which will arrive when the service also
 supports such tokens.
 
-GET ``/contracts/search``
-=========================
+Error Reporting
+===============
 
-List all currently active contracts for all known templates. Note that the retrieved contracts do not get persisted into query store database.
+The **JSON API** reports errors using standard HTTP status codes. It divides HTTP status codes in 3 groups indicating:
+
+1. success (200)
+2. failure due to a client-side problem (400, 401, 404)
+3. failure due to a server-side problem (500)
+
+The **JSON API** can return one of the following HTTP status codes:
+
+- 200 - OK
+- 400 - Bad Request (Client Error)
+- 401 - Unauthorized, authentication required
+- 404 - Not Found
+- 500 - Internal Server Error
+
+If client's HTTP GET or POST request reaches an API endpoint, the corresponding response will always contain a JSON object with ``status`` field, either ``errors`` or ``result`` and optional ``warnings``:
+
+.. code-block:: none
+
+    {
+        "status": <400 | 401 | 404 | 500>
+        ,"errors": <JSON array of strings> | ,"result": <JSON object>
+        [ ,"warnings": <JSON object> ]
+    }
+
+Where:
+
+- ``status`` -- a JSON number which matches the HTTP response status code returned in the HTTP header,
+- ``errors`` -- a JSON array of strings, each string represents one error,
+- ``result`` -- a JSON object or JSON array, representing one or many results,
+- ``warnings`` -- optional field, a JSON object, representing one ore many warnings.
+
+See the following blog post for more details about error handling best practices: `REST API Error Codes 101 <https://blog.restcase.com/rest-api-error-codes-101/>`_.
+
+Successful response, HTTP status: 200 OK
+----------------------------------------
+
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: none
+
+    {
+        "status": 200,
+        "result": <JSON object>
+    }
+
+Successful response with a warning, HTTP status: 200 OK
+-------------------------------------------------------
+
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: none
+
+    {
+        "status": 200,
+        "result": <JSON object>,
+        "warnings": <JSON object>
+    }
+
+Failure, HTTP status: 400 | 401 | 404 | 500
+-------------------------------------------
+
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: none
+
+    {
+        "status": <400 | 401 | 404 | 500>,
+        "errors": <JSON array of strings>
+    }
+
+Examples
+--------
+
+.. code-block:: none
+
+    {"status": 200, result = [{"templateId": "....", "moduleName" : "...", …}, … {....}]}
+
+.. code-block:: none
+
+    {"status": 200, result = [...], "warnings": {"unknownTemplateIds": ["UnknownModule:UnknownEntity"]}}
+
+.. code-block:: json
+
+    {"status": 401, "errors": ["Authentication Required"]}
+
+.. code-block:: json
+
+    {"status": 400, "errors": ["JSON parser error: Unexpected character 'f' at input index 27 (line 1, position 28)"]}
+
+.. code-block:: json
+
+    {"status": 500, "errors": ["Cannot initialize Ledger API"]}
+
+Create a new Contract
+=====================
+
+See the request documentation below on how to create an instance of ``Iou`` contract from the :doc:`Quickstart guide </getting-started/quickstart>`:
+
+.. literalinclude:: ../getting-started/quickstart/template-root/daml/Iou.daml
+  :language: daml
+  :lines: 9-15
+
+.. _create-request:
+
+HTTP Request
+------------
+
+- URL: ``/command/create``
+- Method: ``POST``
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+      "templateId": "Iou:Iou",
+      "argument": {
+        "issuer": "Alice",
+        "owner": "Alice",
+        "currency": "USD",
+        "amount": "999.99",
+        "observers": []
+      }
+    }
+
+Where:
+
+- ``templateId`` is the contract template identifier, which can be formatted as either:
+
+  + ``"<package ID>:<module>:<entity>"`` or
+  + ``"<module>:<entity>"`` if contract template can be uniquely identified by it's module and entity name.
+
+- ``argument`` field contains contract fields as defined in the DAML template and formatted according to :doc:`lf-value-specification`.
+
+.. _create-response:
+
+HTTP Response
+-------------
+
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+        "status": 200,
+        "result": {
+            "observers": [],
+            "agreementText": "",
+            "payload": {
+                "observers": [],
+                "issuer": "Alice",
+                "amount": "999.99",
+                "currency": "USD",
+                "owner": "Alice"
+            },
+            "signatories": [
+                "Alice"
+            ],
+            "contractId": "#124:0",
+            "templateId": "11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Iou:Iou"
+        }
+    }
+
+Where:
+
+- ``status`` field matches the HTTP response status code returned in the HTTP header,
+- ``result`` field contains created contract details. Keep in mind that ``templateId`` in the **JSON API** response is always fully qualified (always contains package ID).
+
+.. _create-request-with-meta:
+
+Create a new Contract with optional meta field
+==============================================
+
+When creating a new contract, client may specify an optional ``meta`` field:
+
+.. code-block:: json
+
+    {
+      "templateId": "Iou:Iou",
+      "argument": {
+        "observers": [],
+        "issuer": "Alice",
+        "amount": "999.99",
+        "currency": "USD",
+        "owner": "Alice"
+      },
+      "meta": {
+      	"commandId": "a unique ID",
+      	"ledgerEffectiveTime": 1579730994499,
+      	"maximumRecordTime": 1579731004499
+      }
+    }
+
+Where:
+
+- ``commandId`` -- optional field, a unique string identifying the command;
+- ``ledgerEffectiveTime`` -- optional field, the number of milliseconds from the epoch of ``1970-01-01T00:00:00Z``, an approximation of the wall clock time on the ledger server;
+- ``maximumRecordTime`` -- optional field, the number of milliseconds from the epoch of ``1970-01-01T00:00:00Z``, a deadline for observing this command in the completion stream before it can be considered to have timed out.
+ 
+Exercise by Contract ID
+=======================
+
+The JSON command below, demonstrates how to exercise ``Iou_Transfer`` choice on ``Iou`` contract:
+
+.. literalinclude:: ../getting-started/quickstart/template-root/daml/Iou.daml
+  :language: daml
+  :lines: 23, 52-55
+
+HTTP Request
+------------
+
+- URL: ``/command/exercise``
+- Method: ``POST``
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+        "templateId": "Iou:Iou",
+        "contractId": "#124:0",
+        "choice": "Iou_Transfer",
+        "argument": {
+            "newOwner": "Alice"
+        }
+    }
+
+Where:
+
+- ``templateId`` -- contract template identifier, same as in :ref:`create request <create-request>`,
+- ``contractId`` -- contract identifier, the value from the  :ref:`create response <create-response>`,
+- ``choice`` -- DAML contract choice, that is being exercised,
+- ``argument`` -- contract choice argument(s).
+
+.. _exercise-response:
+
+HTTP Response
+-------------
+
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+        "status": 200,
+        "result": {
+            "exerciseResult": "#201:1",
+            "contracts": [
+                {
+                    "archived": {
+                        "contractId": "#124:0",
+                        "templateId": "11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Iou:Iou"
+                    }
+                },
+                {
+                    "created": {
+                        "observers": [],
+                        "agreementText": "",
+                        "payload": {
+                            "iou": {
+                                "observers": [],
+                                "issuer": "Alice",
+                                "amount": "999.99",
+                                "currency": "USD",
+                                "owner": "Alice"
+                            },
+                            "newOwner": "Alice"
+                        },
+                        "signatories": [
+                            "Alice"
+                        ],
+                        "contractId": "#201:1",
+                        "templateId": "11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Iou:IouTransfer"
+                    }
+                }
+            ]
+        }
+    }
+
+Where:
+
+- ``status`` field matches the HTTP response status code returned in the HTTP header,
+
+- ``result`` field contains contract choice execution details:
+
+    + ``exerciseResult`` field contains the return value of the exercised contract choice,
+    + ``contracts`` contains an array of contracts that were archived and created as part of the choice execution. The array may contain: **zero or many** ``{"archived": {...}}`` and **zero or many** ``{"created": {...}}`` elements. The order of the contracts is the same as on the ledger.
+
+
+Exercise by Contract Key
+========================
+
+The JSON command below, demonstrates how to exercise ``Archive`` choice on ``Account`` contract with a ``(Party, Text)`` key defined like this:
+
+.. code-block:: daml
+
+    template Account with
+        owner : Party
+        number : Text
+        status : AccountStatus
+      where
+        signatory owner
+        key (owner, number) : (Party, Text)
+        maintainer key._1
+
+
+HTT Request
+-----------
+
+- URL: ``/command/exercise``
+- Method: ``POST``
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+        "templateId": "Account:Account",
+        "key": ["Alice", "abc123"],
+        "choice": "Archive",
+        "argument": {}
+    }
+
+Where:
+
+- ``templateId`` -- contract template identifier, same as in :ref:`create request <create-request>`,
+- ``key`` -- contract key, formatted according to the :doc:`lf-value-specification`,
+- ``choice`` -- DAML contract choice, that is being exercised,
+- ``argument`` -- contract choice argument(s), empty, because ``Archive`` does not take any.
+
+HTTP Response
+-------------
+
+Formatted similar to :ref:`Exercise by Contract ID response <exercise-response>`.
+
+
+Fetch Contract by Contract ID
+==============================
+
+HTTP Request
+------------
+
+- URL: ``/contracts/lookup``
+- Method: ``POST``
+- Content-Type: ``application/json``
+- Content:
+
+application/json body:
+
+.. code-block:: json
+
+    {
+      "contractId": "#201:1"
+    }
+
+Contract Not Found HTTP Response
+--------------------------------
+
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+        "status": 200,
+        "result": null
+    }
+
+Contract Found HTTP Response
+----------------------------
+
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+        "status": 200,
+        "result": {
+            "observers": [],
+            "agreementText": "",
+            "payload": {
+                "iou": {
+                    "observers": [],
+                    "issuer": "Alice",
+                    "amount": "999.99",
+                    "currency": "USD",
+                    "owner": "Alice"
+                },
+                "newOwner": "Alice"
+            },
+            "signatories": [
+                "Alice"
+            ],
+            "contractId": "#201:1",
+            "templateId": "11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Iou:IouTransfer"
+        }
+    }
+
+Fetch Contract by Key
+==============================
+
+HTTP Request
+------------
+
+- URL: ``/contracts/lookup``
+- Method: ``POST``
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+        "templateId": "Account:Account",
+        "key": ["Alice", "abc123"]
+    }
+
+Contract Not Found HTTP Response
+--------------------------------
+
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+        "status": 200,
+        "result": null
+    }
+
+Contract Found HTTP Response
+----------------------------
+
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+        "status": 200,
+        "result": {
+            "observers": [],
+            "agreementText": "",
+            "payload": {
+                "owner": "Alice",
+                "number": "abc123",
+                "status": {
+                    "tag": "Enabled",
+                    "value": "2020-01-01T00:00:01Z"
+                }
+            },
+            "signatories": [
+                "Alice"
+            ],
+            "key": {
+                "_1": "Alice",
+                "_2": "abc123"
+            },
+            "contractId": "#697:0",
+            "templateId": "11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Account:Account"
+        }
+    }
+
+
+Contract Search, All Templates
+==============================
+
+List all currently active contracts for all known templates.
+
+Note that the retrieved contracts do not get persisted into query store database. Query store is a search index and can be used to optimize search latency. See :ref:`Start HTTP service <start-http-service>` for information on how to start JSON API service with query store enabled.
+
+HTTP Request
+------------
+
+- URL: ``/contracts/search``
+- Method: ``GET``
+- Content: <EMPTY>
+
+HTTP Response
+-------------
 
 The response is the same as for the POST method below.
 
-POST ``/contracts/search``
-==========================
+Contract Search
+===============
 
 List currently active contracts that match a given query.
 
-Request
--------
+HTTP Request
+------------
 
-application/json body, formatted according to the :doc:`search-query-language`:
+- URL: ``/contracts/search``
+- Method: ``POST``
+- Content-Type: ``application/json``
+- Content:
 
 .. code-block:: json
 
@@ -186,8 +685,16 @@ application/json body, formatted according to the :doc:`search-query-language`:
         "query": {"amount": 999.99}
     }
 
-Empty Response
---------------
+Where:
+
+- ``templateIds`` --  an array of contract template identifiers to search through,
+- ``query`` -- search criteria to apply to the specified ``templateIds``, formatted according to the :doc:`search-query-language`:
+
+Empty HTTP Response
+-------------------
+
+- Content-Type: ``application/json``
+- Content:
 
 .. code-block:: json
 
@@ -196,10 +703,11 @@ Empty Response
         "result": []
     }
 
-Nonempty Response
------------------
+Nonempty HTTP Response
+-----------------------
 
-Each contract formatted according to :doc:`lf-value-specification`.
+- Content-Type: ``application/json``
+- Content:
 
 .. code-block:: json
 
@@ -225,8 +733,16 @@ Each contract formatted according to :doc:`lf-value-specification`.
         "status": 200
     }
 
-Nonempty Response with Unknown Template IDs Warning
----------------------------------------------------
+Where
+
+- ``result`` contains an array of contracts, each contract formatted according to :doc:`lf-value-specification`,
+- ``status`` matches the HTTP status code returned in the HTTP header,
+
+Nonempty HTTP Response with Unknown Template IDs Warning
+--------------------------------------------------------
+
+- Content-Type: ``application/json``
+- Content:
 
 .. code-block:: json
 
@@ -364,143 +880,18 @@ Some notes on behavior:
    results if you walk the array forwards, backwards, or in random
    order.
 
-POST ``/command/create``
-========================
+Fetch All Known Parties
+=======================
 
-Create a contract.
+- URL: ``/parties``
+- Method: ``GET``
+- Content: <EMPTY>
 
-Request
--------
+HTTP Response
+-------------
 
-application/json body, ``argument`` formatted according to :doc:`lf-value-specification`:
-
-.. code-block:: json
-
-    {
-      "templateId": "Iou:Iou",
-      "argument": {
-        "observers": [],
-        "issuer": "Alice",
-        "amount": "999.99",
-        "currency": "USD",
-        "owner": "Alice"
-      }
-    }
-
-Response
---------
-
-.. code-block:: json
-
-    {
-        "status": 200,
-        "result": {
-            "observers": [],
-            "agreementText": "",
-            "payload": {
-                "observers": [],
-                "issuer": "Alice",
-                "amount": "999.99",
-                "currency": "USD",
-                "owner": "Alice"
-            },
-            "signatories": [
-                "Alice"
-            ],
-            "contractId": "#124:0",
-            "templateId": "11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Iou:Iou"
-        }
-    }
- 
-POST ``/command/exercise``
-==========================
-
-Exercise a choice on a contract.
-
-Exercise by ContractId Request
-------------------------------
-
-``"contractId": "#124:0"`` is the value from the create output.
-
-application/json body:
-
-.. code-block:: json
-
-    {
-        "templateId": "Iou:Iou",
-        "contractId": "#124:0",
-        "choice": "Iou_Transfer",
-        "argument": {
-            "newOwner": "Alice"
-        }
-    }
-
-Exercise by Contract Key Request
---------------------------------
-
-application/json body:
-
-.. code-block:: json
-
-    {
-        "templateId": "Account:Account",
-        "key": ["Alice", "abc123"],
-        "choice": "Archive",
-        "argument": {}
-    }
-
-
-Response
---------
-
-.. code-block:: json
-
-    {
-        "status": 200,
-        "result": {
-            "exerciseResult": "#201:1",
-            "contracts": [
-                {
-                    "archived": {
-                        "contractId": "#124:0",
-                        "templateId": "11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Iou:Iou"
-                    }
-                },
-                {
-                    "created": {
-                        "observers": [],
-                        "agreementText": "",
-                        "payload": {
-                            "iou": {
-                                "observers": [],
-                                "issuer": "Alice",
-                                "amount": "999.99",
-                                "currency": "USD",
-                                "owner": "Alice"
-                            },
-                            "newOwner": "Alice"
-                        },
-                        "signatories": [
-                            "Alice"
-                        ],
-                        "contractId": "#201:1",
-                        "templateId": "11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Iou:IouTransfer"
-                    }
-                }
-            ]
-        }
-    }
-
-Where:
-
-- ``exerciseResult`` -- the return value of the exercised contract choice.
-- ``contracts`` -- an array containing contracts that were archived and created as part of the exercised choice. The array may contain: **zero or many** ``{"archived": {...}}`` and **zero or many** ``{"created": {...}}`` elements. The order of the contracts is the same as on the ledger.
-
-GET ``/parties``
-================
-
-Response
---------
+- Content-Type: ``application/json``
+- Content:
 
 .. code-block:: json
 
@@ -512,117 +903,4 @@ Response
                 "isLocal": true
             }
         ]
-    }
-
-POST ``/contracts/lookup``
-==========================
-
-Lookup by Contract ID
----------------------
-
-Request
-~~~~~~~
-
-application/json body:
-
-.. code-block:: json
-
-    {
-      "contractId": "#201:1"
-    }
-
-Contract Not Found Response
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. code-block:: json
-
-    {
-        "status": 200,
-        "result": null
-    }
-
-Contract Found Response
-~~~~~~~~~~~~~~~~~~~~~~~
-
-.. code-block:: json
-
-    {
-        "status": 200,
-        "result": {
-            "observers": [],
-            "agreementText": "",
-            "payload": {
-                "iou": {
-                    "observers": [],
-                    "issuer": "Alice",
-                    "amount": "999.99",
-                    "currency": "USD",
-                    "owner": "Alice"
-                },
-                "newOwner": "Alice"
-            },
-            "signatories": [
-                "Alice"
-            ],
-            "contractId": "#201:1",
-            "templateId": "11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Iou:IouTransfer"
-        }
-    }
-
-Lookup by Contract Key
-----------------------
-
-Request
-~~~~~~~
-
-application/json body:
-
-.. code-block:: json
-
-    {
-        "templateId": "Account:Account",
-        "key": [
-            "Alice",
-            "abc123"
-        ]
-    }
-
-Contract Not Found Response
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. code-block:: json
-
-    {
-        "status": 200,
-        "result": null
-    }
-
-Contract Found Response
-~~~~~~~~~~~~~~~~~~~~~~~
-
-.. code-block:: json
-
-    {
-        "status": 200,
-        "result": {
-            "observers": [],
-            "agreementText": "",
-            "payload": {
-                "owner": "Alice",
-                "number": "abc123",
-                "status": {
-                    "tag": "Enabled",
-                    "value": "2020-01-01T00:00:01Z"
-                }
-            },
-            "signatories": [
-                "Alice"
-            ],
-            "key": {
-                "_1": "Alice",
-                "_2": "abc123"
-            },
-            "contractId": "#697:0",
-            "templateId": "11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Account:Account"
-        }
     }
