@@ -77,9 +77,9 @@ Controllers
 Consumability
 =============
 
-If no qualifier is present, choices are *consuming*. This means that, just like in *preconsuming* choices, the contract is archived before the evaluation of the choice body.
+If no qualifier is present, choices are *consuming*: the contract is archived before the evaluation of the choice body.
 
-Unlike *preconsuming* choices, though, the contracts created in the choice body are divulged to the signatories and controllers of the contracts as well as to the observers of the contract on which the choice was exercised.
+Note that the contracts created in the choice body are divulged to the signatories and controllers of the contracts as well as to the observers of the contract on which the choice was exercised. This behavior differs from the one made of *preconsuming* and *postconsuming* choices.
 
 Preconsuming choices
 ********************
@@ -97,8 +97,9 @@ Preconsuming choices
    :caption: Option 2 for specifying choices: controller first
 
 - ``preconsuming`` keyword. Optional.
-- Makes a choice preconsuming: the contract is archived before the body of the exercise is executed.
-- Contracts created in the choice body are divulged to the signatories and controllers of the contracts as well as to the observers of the contract on which the choice was exercised.
+- Makes a choice pre-consuming: the contract is archived before the body of the exercise is executed.
+- The archival behavior is analogous to the *consuming* default behavior.
+- Unlike what happens the in *consuming* default behavior, though, contracts created in the choice body are divulged only to their respective signatories and controllers and not to the observers of the contract on which the choice was exercised.
 
 Postconsuming choices
 *********************
@@ -116,9 +117,9 @@ Postconsuming choices
    :caption: Option 2 for specifying choices: controller first
 
 - ``postconsuming`` keyword. Optional.
-- Makes a choice postconsuming: the contract is archived after the body of the exercise is executed.
+- Makes a choice post-consuming: the contract is archived after the body of the exercise is executed.
 - The contract can still be used in the body of the exercise.
-- Contracts created in the choice body are known only to the signatories and controllers of these contracts and are divulged to the observers of the contract on which the choice was exercised.
+- Contracts created in the choice body are divulged only to their respective signatories and controllers and not to the observers of the contract on which the choice was exercised.
 
 Non-consuming choices
 *********************
@@ -139,8 +140,6 @@ Non-consuming choices
 - Makes a choice non-consuming: that is, exercising the choice does not archive the contract.
 - Contracts created in the choice body are known only to the signatories and controllers of the contracts and not made known to the observers of the contract on which the choice was exercised.
 - Useful in the many situations when you want to be able to exercise a choice more than once.
-
-  By default, choices are *consuming*: when a choice on a contract is exercised, that contract instance is *archived*. Archived means that it's permanently marked as being inactive, and no more choices can be exercised on it, though it still exists on the ledger.
 
 .. _daml-ref-return-type:
 
