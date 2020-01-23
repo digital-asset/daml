@@ -89,8 +89,8 @@ main = do
 
       -- npm packages we want to publish.
       let npmPackages =
-            [ "//language-support/ts/daml-ledger"
-            , "//language-support/ts/daml-types"
+            [ "//language-support/ts/daml-types"
+            , "//language-support/ts/daml-ledger"
             ]
       -- make sure the npm packages can be build.
       $logDebug "Building language-support typescript packages"
