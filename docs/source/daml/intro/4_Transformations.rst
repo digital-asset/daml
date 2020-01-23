@@ -81,7 +81,7 @@ A *transaction* is a list of *actions*, and there are just four kinds of action:
 - A ``create`` action creates a new contract with the given arguments and sets its status to *active*.
 - A ``fetch`` action checks the existence and activeness of a contract.
 - An ``exercise`` action exercises a choice on a contract resulting in a transaction (list of sub-actions) called the *consequences*. Exercises come in two kinds called ``consuming`` and ``nonconsuming``. ``consuming`` is the default kind and changes the contract's status from *active* to *archived*.
-- A ``key assertion`` records the assertion that the given contract key (see :ref:`contract_keys`) is not assigned to any unconsumed contract on the ledger.
+- A ``key assertion`` records the assertion that the given contract key (see :ref:`contract_keys`) is not assigned to any active contract on the ledger.
 
 Each action can be visualized as a tree, where the action is the root node, and its children are its consequences. Every consequence may have further consequences. As ``fetch``, ``create`` and ``key assertion`` actions have no consequences, they are leaf nodes. You can see the actions and their consequences in the transaction view of the above scenario:
 
