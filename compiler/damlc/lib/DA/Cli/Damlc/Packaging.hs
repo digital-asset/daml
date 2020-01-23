@@ -482,9 +482,13 @@ buildLfPackageGraph
        )
 buildLfPackageGraph pkgs stablePkgs = (depGraph,  vertexToNode')
   where
+    -- mapping unit ids to packages
+    unitIdToPkgMap = MS.fromList [(unitId, pkg) | (_pkgId, pkg, _bs, unitId) <- pkgs]
+
     -- mapping from package id's to unit id's. if the same package is imported with
     -- different unit id's, we would loose a unit id here.
     pkgMap = MS.fromList [(pkgId, unitId) | (pkgId, _pkg, _bs, unitId) <- pkgs]
+
     -- order the packages in topological order
     (depGraph, vertexToNode, _keyToVertex) =
         graphFromEdges
@@ -492,7 +496,7 @@ buildLfPackageGraph pkgs stablePkgs = (depGraph,  vertexToNode')
             | (pkgId, dalf, bs, unitId) <- pkgs
             , let pkgRefs = [ pid | LF.PRImport pid <- toListOf packageRefs dalf ]
             , let getUid = getUnitId unitId pkgMap
-            , let src = generateSrcPkgFromLf getUid stablePkgs (Just currentSdkPrefix) dalf
+            , let src = generateSrcPkgFromLf unitIdToPkgMap getUid stablePkgs (Just currentSdkPrefix) dalf
             ]
     vertexToNode' v = case vertexToNode v of
         -- We don’t care about outgoing edges.

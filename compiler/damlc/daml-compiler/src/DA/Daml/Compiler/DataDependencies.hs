@@ -28,6 +28,7 @@ import "ghc-lib-parser" Name
 import "ghc-lib-parser" Outputable (alwaysQualify, ppr, showSDocForUser)
 import "ghc-lib-parser" PrelNames
 import "ghc-lib-parser" RdrName
+import "ghc-lib-parser" TcEvidence (HsWrapper (WpHole))
 import "ghc-lib-parser" TysPrim
 import "ghc-lib-parser" TysWiredIn
 
@@ -37,7 +38,8 @@ import DA.Daml.Preprocessor.Generics
 import SdkVersion
 
 data Env = Env
-    { envGetUnitId :: LF.PackageRef -> UnitId
+    { envPkgs :: MS.Map UnitId LF.Package
+    , envGetUnitId :: LF.PackageRef -> UnitId
     , envStablePackages :: MS.Map LF.PackageId (UnitId, LF.ModuleName)
     , envQualify :: Bool
     , envSdkPrefix :: Maybe String
@@ -63,7 +65,10 @@ generateSrcFromLf env = noLoc mod
             , hsmodHaddockModHeader = Nothing
             , hsmodExports = Nothing
             }
-    decls = do
+
+    decls = dataTypeDecls ++ valueDecls
+
+    dataTypeDecls = do
         LF.DefDataType {..} <- NM.toList $ LF.moduleDataTypes $ envMod env
         guard $ LF.getIsSerializable dataSerializable
         let numberOfNameComponents = length (LF.unTypeConName dataTypeCon)
@@ -76,6 +81,26 @@ generateSrcFromLf env = noLoc mod
         [dataTypeCon0] <- [LF.unTypeConName dataTypeCon]
         let occName = mkOccName varName $ T.unpack $ sanitize dataTypeCon0
         pure $ mkDataDecl env thisModule occName dataParams (convDataCons dataTypeCon0 dataCons)
+
+    valueDecls = do
+        LF.DefValue {..} <- NM.toList $ LF.moduleValues $ envMod env
+        let (lfName, lfType) = dvalBinder
+        guard . not $ LF.getIsTest dvalIsTest
+            || ("$" `T.isPrefixOf` LF.unExprValName lfName)
+            || typeHasOldTypeclass env lfType
+        let ltype = noLoc $ convType env lfType :: LHsType GhcPs
+            lname = mkRdrName (LF.unExprValName lfName) :: Located RdrName
+            sig = TypeSig noExt [lname] (HsWC noExt $ HsIB noExt ltype)
+            lsigD = noLoc $ SigD noExt sig :: LHsDecl GhcPs
+            lexpr = mkError ("Called stub definition for " <> LF.unExprValName lfName)
+            lgrhs = noLoc $ GRHS noExt [] lexpr :: LGRHS GhcPs (LHsExpr GhcPs)
+            grhss = GRHSs noExt [lgrhs] (noLoc $ EmptyLocalBinds noExt)
+            matchContext = FunRhs lname Prefix NoSrcStrict
+            lmatch = noLoc $ Match noExt matchContext [] Nothing grhss
+            lalts = noLoc [lmatch]
+            bind = FunBind noExt lname (MG noExt lalts Generated) WpHole []
+            lvalD = noLoc $ ValD noExt bind :: LHsDecl GhcPs
+        [ lsigD, lvalD ]
 
     convDataCons :: T.Text -> LF.DataCons -> [LConDecl GhcPs]
     convDataCons dataTypeCon0 = \case
@@ -318,6 +343,15 @@ mkUserTyVar =
 mkRdrName :: T.Text -> Located RdrName
 mkRdrName = noLoc . mkRdrUnqual . mkOccName varName . T.unpack
 
+mkError :: T.Text -> LHsExpr GhcPs
+mkError msg = noLoc $ HsApp noExt
+    (noLoc $ HsVar noExt (mkRdrName "error"))
+    (mkStringLit msg)
+
+mkStringLit :: T.Text -> LHsExpr GhcPs
+mkStringLit = noLoc . HsLit noExt
+    . HsString NoSourceText . mkFastString . T.unpack
+
 damlStdlibUnitId :: UnitId
 damlStdlibUnitId = stringToUnitId damlStdlib
 
@@ -367,12 +401,13 @@ mkTyConTypeUnqual = mkTyConType False
 
 -- | Generate the full source for a daml-lf package.
 generateSrcPkgFromLf ::
-       (LF.PackageRef -> UnitId)
+       MS.Map UnitId LF.Package
+    -> (LF.PackageRef -> UnitId)
     -> MS.Map LF.PackageId (UnitId, LF.ModuleName)
     -> Maybe String
     -> LF.Package
     -> [(NormalizedFilePath, String)]
-generateSrcPkgFromLf getUnitId stablePkgs mbSdkPrefix pkg = do
+generateSrcPkgFromLf pkgs getUnitId stablePkgs mbSdkPrefix pkg = do
     mod <- NM.toList $ LF.packageModules pkg
     let fp =
             toNormalizedFilePath $
@@ -384,7 +419,7 @@ generateSrcPkgFromLf getUnitId stablePkgs mbSdkPrefix pkg = do
           (showSDocForUser fakeDynFlags alwaysQualify $
            ppr $ generateSrcFromLf $ env mod))
   where
-    env m = Env getUnitId stablePkgs True mbSdkPrefix m
+    env m = Env pkgs getUnitId stablePkgs True mbSdkPrefix m
     header =
         ["{-# LANGUAGE NoDamlSyntax #-}"
         , "{-# LANGUAGE NoImplicitPrelude #-}"
@@ -424,7 +459,8 @@ generateGenInstancesPkgFromLf getUnitId stablePkgs mbSdkPrefix pkgId pkg qual =
     catMaybes
         [ generateGenInstanceModule
             Env
-                { envGetUnitId = getUnitId
+                { envPkgs = MS.empty -- for now at least, since this doesn't care about type definitions in other packages like generateSrcFromLf does
+                , envGetUnitId = getUnitId
                 , envStablePackages = stablePkgs
                 , envQualify = False
                 , envMod = mod
@@ -480,3 +516,70 @@ splitUnitId unitId = fromMaybe (unitId, Nothing) $ do
     (name, ver) <- stripInfixEnd "-" unitId
     guard $ all (`elem` '.' : ['0' .. '9']) ver
     pure (name, Just ver)
+
+-- | Returns 'True' if an LF type contains a reference to an
+-- old-style typeclass. See 'tconIsOldTypeclass' for more details.
+typeHasOldTypeclass :: Env -> LF.Type -> Bool
+typeHasOldTypeclass env = \case
+    LF.TVar _ -> False
+    LF.TCon tcon -> tconIsOldTypeclass env tcon
+    LF.TSynApp _ _ -> False
+        -- Type synonyms came after the switch to new-style
+        -- typeclasses, so let's assume there are no old-style
+        -- typeclasses being referenced.
+    LF.TApp a b -> typeHasOldTypeclass env a || typeHasOldTypeclass env b
+    LF.TBuiltin _ -> False
+    LF.TForall _ b -> typeHasOldTypeclass env b
+    LF.TStruct fields -> any (typeHasOldTypeclass env . snd) fields
+    LF.TNat _ -> False
+
+-- | Determine whether a typecon refers to an old-style
+-- typeclass. By "old-style" I mean a typeclass based on
+-- nominal LF record types. There's no foolproof way of
+-- determining this, but we can approximate it by taking
+-- advantage of the typeclass sanitization that is introduced
+-- during LF conversion: every field in a typeclass dictionary
+-- is represented by a type @() -> _@ due to sanitization.
+-- Thus, if a type is given by a record, and the record has
+-- at least one field, and every field in the record is a
+-- function from unit, then there's a good chance this
+-- record represents an old-style typeclass.
+--
+-- The caveat here is that if a user creates a record that
+-- matches these criteria, it will be treated as an old-style
+-- typeclass and therefore any functions that use this type
+-- will not be exposed via the data-dependency mechanism,
+-- (see 'generateSrcFromLf').
+tconIsOldTypeclass :: Env -> LF.Qualified LF.TypeConName -> Bool
+tconIsOldTypeclass env tcon =
+    case envLookupDataType tcon env of
+        Nothing -> error ("Unknown reference to type " <> show tcon)
+        Just LF.DefDataType{..}
+            | LF.DataRecord fields <- dataCons
+            -> notNull fields && all isDesugarField fields
+
+            | otherwise
+            -> False
+
+    where
+        isDesugarField :: (LF.FieldName, LF.Type) -> Bool
+        isDesugarField (_fieldName, fieldType) =
+            case fieldType of
+                LF.TUnit LF.:-> _ -> True
+                _ -> False
+
+envLookupDataType :: LF.Qualified LF.TypeConName -> Env -> Maybe LF.DefDataType
+envLookupDataType tcon env = do
+    mod <- envLookupModuleOf tcon env
+    NM.lookup (LF.qualObject tcon) (LF.moduleDataTypes mod)
+
+envLookupModuleOf :: LF.Qualified a -> Env -> Maybe LF.Module
+envLookupModuleOf qual = envLookupModule (LF.qualPackage qual) (LF.qualModule qual)
+
+envLookupModule :: LF.PackageRef -> LF.ModuleName -> Env -> Maybe LF.Module
+envLookupModule pkgRef modName env = do
+    pkg <- envLookupPackage pkgRef env
+    NM.lookup modName (LF.packageModules pkg)
+
+envLookupPackage :: LF.PackageRef -> Env -> Maybe LF.Package
+envLookupPackage ref env = MS.lookup (envGetUnitId env ref) (envPkgs env)

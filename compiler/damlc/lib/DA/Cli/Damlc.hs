@@ -806,14 +806,28 @@ execGenerateSrc opts dalfOrDar mbOutDir = Command GenerateSrc Nothing effect
         (pkgId, pkg) <- decode bytes
         opts <- mkOptions opts
         logger <- getLogger opts "generate-src"
-        (pkgMap0, stablePkgIds) <- withDamlIdeState opts { optScenarioService = EnableScenarioService False } logger diagnosticsLogger $ \ideState -> runAction ideState $ do
-          pkgs <-
-              MS.fromList . map (\(unitId, dalfPkg) -> (LF.dalfPackageId dalfPkg, unitId)) . MS.toList <$>
-              useNoFile_ GeneratePackageMap
-          stablePkgIds <- fmap (MS.fromList . map (\(k, pkg) -> (LF.dalfPackageId pkg, k)) . MS.toList) (useNoFile_ GenerateStablePackages)
-          pure (pkgs `MS.union` MS.map fst stablePkgIds, stablePkgIds)
-        let pkgMap = MS.insert pkgId unitId pkgMap0
-        let genSrcs = generateSrcPkgFromLf (getUnitId unitId pkgMap) stablePkgIds (Just "CurrentSdk") pkg
+
+        (dalfPkgMap, stableDalfPkgMap) <- withDamlIdeState opts { optScenarioService = EnableScenarioService False } logger diagnosticsLogger $ \ideState -> runAction ideState $ do
+            dalfPkgMap <- useNoFile_ GeneratePackageMap
+            stableDalfPkgMap <- useNoFile_ GenerateStablePackages
+            pure (dalfPkgMap, stableDalfPkgMap)
+
+        let allDalfPkgs = MS.toList dalfPkgMap ++
+                [ (unitId, dalfPkg)
+                | ((unitId, _modName), dalfPkg) <- MS.toList stableDalfPkgMap ]
+            pkgMap = MS.fromList
+                $ (unitId, pkg)
+                : [ (unitId, LF.extPackagePkg (LF.dalfPackagePkg dalfPkg))
+                  | (unitId, dalfPkg) <- allDalfPkgs ]
+            unitIdMap = MS.fromList
+                $ (pkgId, unitId)
+                : [ (LF.dalfPackageId dalfPkg, unitId)
+                  | (unitId, dalfPkg) <- allDalfPkgs ]
+            stablePkgIds = MS.fromList
+                [ (LF.dalfPackageId dalfPkg, k)
+                | (k, dalfPkg) <- MS.toList stableDalfPkgMap ]
+            genSrcs = generateSrcPkgFromLf pkgMap (getUnitId unitId unitIdMap) stablePkgIds (Just "CurrentSdk") pkg
+
         forM_ genSrcs $ \(path, src) -> do
             let fp = fromMaybe "" mbOutDir </> fromNormalizedFilePath path
             createDirectoryIfMissing True $ takeDirectory fp
