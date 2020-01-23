@@ -28,6 +28,7 @@ module Daml.Trigger
  , RegisteredTemplates(..)
  , registeredTemplate
  , RelTime(..)
+ , testRule
  ) where
 
 import DA.Action
@@ -260,3 +261,26 @@ data TriggerState s = TriggerState
   , commandsInFlight : Map CommandId [Command]
   , nextCommandId : Int
   }
+
+testRule
+  : Trigger s
+  -> Party
+  -> [(AnyContractId, AnyTemplate)]
+  -> Map CommandId [Command]
+  -> s
+  -> Scenario [Commands]
+testRule trigger party activeContracts commandsInFlight s = do
+  time <- getTime
+  let acs = ACS
+        { activeContracts = activeContracts
+        , pendingContracts = Map.empty
+        }
+  let state = TriggerState
+        { acs = acs
+        , party = party
+        , userState = s
+        , commandsInFlight = commandsInFlight
+        , nextCommandId = 0 -- XXX: succ (maxIdIn commandsInFlight)
+        }
+  let (_, commands) = runRule trigger.rule time state
+  pure commands

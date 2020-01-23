@@ -24,4 +24,7 @@ EOF
 cp -L $DAML_TRIGGERS_DAR $TMP_DIR/
 cp -L $DAML_SOURCE $TMP_DIR/daml/
 
+# We need to run build to create the package database.
+# See https://github.com/digital-asset/daml/issues/3436
+$DAMLC build --project-root=$TMP_DIR
 $DAMLC test --project-root=$TMP_DIR

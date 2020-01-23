@@ -4,8 +4,33 @@
 daml 1.2
 module Rule where
 
---import Daml.Trigger
+import DA.Action
 import DA.Assert
+import qualified DA.Next.Map as Map
+import Daml.Trigger
+
+template T
+  with
+    party : Party
+  where
+    signatory party
+
+trigger : Trigger Int
+trigger = Trigger with
+  initialize = const 0
+  updateState = \acs _msg count -> length (getContracts @T acs)
+  rule = \party _acs _time _commandsInFlight count -> do
+    when (count == 1) do
+      dedupCreate T with party
+  registeredTemplates = RegisteredTemplates [registeredTemplate @T]
+  heartbeat = None
 
 test = scenario do
-  assertEq 0 0
+  alice <- getParty "Alice"
+  tId <- submit alice do create T with party = alice
+  tVal <- submit alice do fetch tId
+  let activeContracts = [(toAnyContractId tId, toAnyTemplate tVal)]
+      commandsInFlight = Map.empty
+  commands <- testRule trigger alice activeContracts commandsInFlight 1
+  assertEq 1 (length commands)
+  pure ()
