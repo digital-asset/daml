@@ -154,12 +154,12 @@ class Ledger {
   /**
    * Create a contract for a given template.
    */
-  async create<T extends object, K>(template: Template<T, K>, argument: T): Promise<CreateEvent<T, K>> {
-    const payload = {
+  async create<T extends object, K>(template: Template<T, K>, contractPayload: T): Promise<CreateEvent<T, K>> {
+    const command = {
       templateId: template.templateId,
-      argument,
+      payload: contractPayload,
     };
-    const json = await this.submit('command/create', payload);
+    const json = await this.submit('command/create', command);
     return jtv.Result.withException(decodeCreateEvent(template).run(json));
   }
 

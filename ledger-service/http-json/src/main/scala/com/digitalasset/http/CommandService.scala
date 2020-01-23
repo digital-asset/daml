@@ -108,7 +108,7 @@ class CommandService(
     resolveTemplateId(input.templateId)
       .toRightDisjunction(
         Error('createCommand, ErrorMessages.cannotResolveTemplateId(input.templateId)))
-      .map(tpId => Commands.create(refApiIdentifier(tpId), input.argument))
+      .map(tpId => Commands.create(refApiIdentifier(tpId), input.payload))
   }
 
   private def exerciseCommand(

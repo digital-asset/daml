@@ -17,12 +17,12 @@ import scalaz.syntax.show._
 object Commands extends StrictLogging {
   def create(
       templateId: lar.TemplateId,
-      arguments: lav1.value.Record): lav1.commands.Command.Command.Create = {
+      payload: lav1.value.Record): lav1.commands.Command.Command.Create = {
 
     lav1.commands.Command.Command.Create(
       lav1.commands.CreateCommand(
         templateId = Some(lar.TemplateId.unwrap(templateId)),
-        createArguments = Some(arguments)))
+        createArguments = Some(payload)))
   }
 
   def exercise(
