@@ -47,6 +47,7 @@ jobs:
                --data "{\"text\":\"<!here> *FAILED* Daily Docs: <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|$MESSAGE>\n\"}" \
                $(Slack.URL)
         condition: and(failed(), eq(variables['Build.SourceBranchName'], 'master'))
+      - template: ci/tell-slack-failed.yml
 
   - job: docker_image
     timeoutInMinutes: 60
@@ -86,6 +87,7 @@ jobs:
         env:
           DOCKER_LOGIN: $(DOCKER_LOGIN)
           DOCKER_PASSWORD: $(DOCKER_PASSWORD)
+      - template: ci/tell-slack-failed.yml
 
   - job: vscode_marketplace
     timeoutInMinutes: 10
@@ -122,6 +124,7 @@ jobs:
           fi
         env:
           MARKETPLACE_TOKEN: $(VSCODE_MARKETPLACE_TOKEN)
+      - template: ci/tell-slack-failed.yml
 
   - job: download_stats
     timeoutInMinutes: 10
@@ -147,3 +150,4 @@ jobs:
           BOTO_CONFIG=/dev/null gsutil cp $STATS gs://daml-data/downloads/$(date -u +%Y%m%d_%H%M%SZ).json.gz
         env:
           GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+      - template: ci/tell-slack-failed.yml
