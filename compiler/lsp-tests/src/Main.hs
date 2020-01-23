@@ -344,13 +344,10 @@ requestTests run _runScenarios = testGroup "requests"
               { _contents = HoverContents $ MarkupContent MkMarkdown $ T.unlines
                     [ "```daml"
                     , "Main.add"
-                    , "```"
-                    , "*\t*\t*"
-                    , "```daml"
                     , ": Int -> Int -> Int"
                     , "```"
                     , "*\t*\t*"
-                    , "**Defined at " <> T.pack fp <> ":4:1**"
+                    , "*Defined at " <> T.pack fp <> ":4:1*"
                     ]
               , _range = Just $ Range (Position 9 17) (Position 9 20)
               }
@@ -366,11 +363,9 @@ requestTests run _runScenarios = testGroup "requests"
           liftIO $ r @?= Just Hover
               { _contents = HoverContents $ MarkupContent MkMarkdown $ T.unlines
                     [ "```daml"
-                    , ""
-                    , "```"
-                    , "*\t*\t*"
-                    , "```daml"
-                    , ": Numeric n"
+                    , "1.0"
+                    , ": NumericScale n"
+                    , "=> Numeric n"
                     , "```"
                     , "*\t*\t*"
                     ]

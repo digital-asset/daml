@@ -35,6 +35,7 @@ import Development.IDE.Core.OfInterest
 import Development.IDE.Core.Shake
 import Development.IDE.Types.Location
 import Development.IDE.Types.Options
+import qualified Language.Haskell.LSP.Types.Capabilities as LSP
 import qualified Language.Haskell.LSP.Messages as LSP
 import qualified Language.Haskell.LSP.Types as LSP
 
@@ -102,7 +103,8 @@ modifyOpenVirtualResources state f = do
     void $ shakeRun state []
 
 initialise
-    :: Rules ()
+    :: LSP.ClientCapabilities
+    -> Rules ()
     -> IO LSP.LspId
     -> (LSP.FromServerMessage -> IO ())
     -> Logger
@@ -110,8 +112,9 @@ initialise
     -> IdeOptions
     -> VFSHandle
     -> IO IdeState
-initialise mainRule getLspId toDiags logger damlEnv options vfs =
+initialise caps mainRule getLspId toDiags logger damlEnv options vfs =
     IDE.initialise
+        caps
         (do addIdeGlobal damlEnv
             mainRule)
         getLspId

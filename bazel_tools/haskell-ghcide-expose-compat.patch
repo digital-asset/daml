@@ -21,12 +21,13 @@ index 930b387..73f4b51 100644
          Development.IDE.Import.DependencyInformation
          Development.IDE.LSP.LanguageServer
          Development.IDE.LSP.Protocol
-@@ -118,13 +122,9 @@ library
+@@ -118,14 +122,10 @@ library
          Development.IDE.Types.Options
      other-modules:
          Development.IDE.Core.Debouncer
 -        Development.IDE.Core.Compile
          Development.IDE.Core.Preprocessor
+         Development.IDE.Core.FileExists
 -        Development.IDE.GHC.Compat
          Development.IDE.GHC.CPP
 -        Development.IDE.GHC.Error

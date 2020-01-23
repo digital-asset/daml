@@ -66,6 +66,7 @@ import qualified DA.Daml.LF.Ast as LF
 import Control.Concurrent.STM
 import Control.Exception.Extra
 import qualified Control.Monad.Reader   as Reader
+import Data.Default
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import qualified Data.Aeson as Aeson
@@ -179,7 +180,7 @@ runShakeTest mbScenarioService (ShakeTest m) = do
         eventLogger _ = pure ()
     vfs <- API.makeVFSHandle
     damlEnv <- mkDamlEnv options mbScenarioService
-    service <- API.initialise (mainRule options) (pure $ IdInt 0) (atomically . eventLogger) noLogging damlEnv (toCompileOpts options (IdeReportProgress False)) vfs
+    service <- API.initialise def (mainRule options) (pure $ IdInt 0) (atomically . eventLogger) noLogging damlEnv (toCompileOpts options (IdeReportProgress False)) vfs
     result <- withSystemTempDirectory "shake-api-test" $ \testDirPath -> do
         let ste = ShakeTestEnv
                 { steService = service
