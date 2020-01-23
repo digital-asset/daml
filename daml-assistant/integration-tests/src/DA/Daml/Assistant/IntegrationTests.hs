@@ -503,6 +503,25 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart"
                   (\s -> connect s (addrAddress addr))
               -- waitForProcess' will block on Windows so we explicitly kill the process.
               terminateProcess ph
+    , testCase "Navigator startup" $
+    -- This test just checks that navigator starts up and returns a 200 response.
+    -- Nevertheless this would have caught a few issues on rules_nodejs upgrades
+    -- where we got a 404 instead.
+      withCurrentDirectory quickstartDir $
+      withDevNull $ \devNull1 -> do
+      withDevNull $ \devNull2 -> do
+          sandboxPort :: Int <- fromIntegral <$> getFreePort
+          let sandboxProc = (shell $ unwords ["daml", "sandbox", "--port", show sandboxPort, ".daml/dist/quickstart-0.0.1.dar"]) { std_out = UseHandle devNull1 }
+          withCreateProcess sandboxProc  $ \_ _ _ sandboxPh -> race_ (waitForProcess' sandboxProc sandboxPh) $ do
+              waitForConnectionOnPort (threadDelay 100000) sandboxPort
+              navigatorPort :: Int <- fromIntegral <$> getFreePort
+              let navigatorProc = (shell $ unwords ["daml", "navigator", "server", "localhost", show sandboxPort, "--port", show navigatorPort]) { std_out = UseHandle devNull2 }
+              withCreateProcess navigatorProc $ \_ _ _ navigatorPh -> race_ (waitForProcess' navigatorProc navigatorPh) $ do
+                  -- waitForHttpServer will only return once we get a 200 response so we don’t need to do anything else.
+                  waitForHttpServer (threadDelay 100000) ("http://localhost:" <> show navigatorPort) []
+                  -- waitForProcess' will block on Windows so we explicitly kill the process.
+                  terminateProcess navigatorPh
+              terminateProcess sandboxPh
     , testCase "JSON API startup" $
       withCurrentDirectory quickstartDir $
       withDevNull $ \devNull1 -> do
