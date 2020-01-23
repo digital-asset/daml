@@ -216,10 +216,7 @@ genDefDataType curPkgId conName mod tpls def =
                             ]
                         (keyTypeTs, keySer) = case tplKey tpl of
                             Nothing -> ("undefined", "() => jtv.constant(undefined)")
-                            Just key ->
-                                let (keyTypeTs, keySer) = genType (moduleName mod) (tplKeyType key)
-                                in
-                                (keyTypeTs, "() => " <> keySer <> ".decoder()")
+                            Just key -> (conName <.> "Key", "() => " <> snd (genType (moduleName mod) (tplKeyType key)) <> ".decoder()")
                         dict =
                             ["export const " <> conName <> ": daml.Template<" <> conName <> ", " <> keyTypeTs <> "> & {"] ++
                             ["  " <> x <> ": daml.Choice<" <> conName <> ", " <> t <> ", " <> rtyp <> ", " <> keyTypeTs <> ">;" | (x, t, rtyp, _) <- chcs] ++
@@ -250,10 +247,10 @@ genDefDataType curPkgId conName mod tpls def =
                             ] ++
                             ["};"]
                         associatedTypes =
-                          maybe [] (const $
+                          maybe [] (\key ->
                               [ "// eslint-disable-next-line @typescript-eslint/no-namespace"
                               , "export namespace " <> conName <> " {"] ++
-                              ["  export type Key = " <> keyTypeTs <> ""] ++
+                              ["  export type Key = " <> fst (genType (moduleName mod) (tplKeyType key)) <> ""] ++
                               ["}"]) (tplKey tpl)
                         registrations =
                             ["daml.registerTemplate(" <> conName <> ");"]
