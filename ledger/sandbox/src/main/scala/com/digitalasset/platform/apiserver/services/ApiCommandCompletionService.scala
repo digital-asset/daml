@@ -16,6 +16,7 @@ import com.digitalasset.ledger.api.domain.{CompletionEvent, LedgerId, LedgerOffs
 import com.digitalasset.ledger.api.messages.command.completion.CompletionStreamRequest
 import com.digitalasset.ledger.api.v1.command_completion_service._
 import com.digitalasset.ledger.api.validation.PartyNameChecker
+import com.digitalasset.logging.LoggingContext.withEnrichedLoggingContext
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.platform.server.api.services.domain.CommandCompletionService
@@ -36,17 +37,18 @@ final class ApiCommandCompletionService private (completionsService: IndexComple
   private val subscriptionIdCounter = new AtomicLong()
 
   override def completionStreamSource(
-      request: CompletionStreamRequest): Source[CompletionEvent, NotUsed] = {
+      request: CompletionStreamRequest): Source[CompletionEvent, NotUsed] =
+    withEnrichedLoggingContext(logging.parties(request.parties), logging.offset(request.offset)) {
+      implicit logCtx =>
+        val subscriptionId = subscriptionIdCounter.getAndIncrement().toString
+        logger.debug(s"Received request for completion subscription $subscriptionId: $request")
 
-    val subscriptionId = subscriptionIdCounter.getAndIncrement().toString
-    logger.debug(s"Received request for completion subscription $subscriptionId: $request")
+        val offset = request.offset.getOrElse(LedgerOffset.LedgerEnd)
 
-    val offset = request.offset.getOrElse(LedgerOffset.LedgerEnd)
-
-    completionsService
-      .getCompletions(offset, request.applicationId, request.parties)
-      .via(logger.logErrorsOnStream)
-  }
+        completionsService
+          .getCompletions(offset, request.applicationId, request.parties)
+          .via(logger.logErrorsOnStream)
+    }
 
   override def getLedgerEnd(ledgerId: domain.LedgerId): Future[LedgerOffset.Absolute] =
     completionsService.currentLedgerEnd().andThen(logger.logErrorsOnCall[LedgerOffset.Absolute])
@@ -54,6 +56,7 @@ final class ApiCommandCompletionService private (completionsService: IndexComple
 }
 
 object ApiCommandCompletionService {
+
   def create(ledgerId: LedgerId, completionsService: IndexCompletionsService)(
       implicit ec: ExecutionContext,
       mat: Materializer,

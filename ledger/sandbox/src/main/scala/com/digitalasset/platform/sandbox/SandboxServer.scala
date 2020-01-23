@@ -191,7 +191,7 @@ final class SandboxServer(config: => SandboxConfig) extends AutoCloseable {
           (ts, Some(ts))
       }
 
-    newLoggingContext("participantId" -> participantId) { implicit logCtx =>
+    newLoggingContext(logging.participantId(participantId)) { implicit logCtx =>
       val (ledgerType, indexAndWriteServiceResourceOwner) = config.jdbcUrl match {
         case Some(jdbcUrl) =>
           "postgres" -> SandboxIndexAndWriteService.postgres(
