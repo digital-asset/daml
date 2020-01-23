@@ -79,7 +79,7 @@ Consumability
 
 If no qualifier is present, choices are *consuming*: the contract is archived before the evaluation of the choice body.
 
-Note that the contracts created in the choice body are divulged to the signatories and controllers of the contracts as well as to the observers of the contract on which the choice was exercised. This behavior differs from the one made of *preconsuming* and *postconsuming* choices.
+Note that the contracts created in the choice body are divulged to the signatories and controllers of the contracts as well as to the observers of the contract on which the choice was exercised. This behavior differs from that of *preconsuming* and *postconsuming* choices.
 
 Preconsuming choices
 ********************
