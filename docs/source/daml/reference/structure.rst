@@ -97,19 +97,19 @@ Here's the structure of a choice inside a template. There are two ways of specif
     - ``preconsuming`` keyword
 
         Exercising this choice archives the contract before the body is executed.
-        Contracts created in the choice body are known to the signatories and controllers of the contracts as well as to the observers of the contract on which the choice was exercised.
+        Contracts created in the choice body are divulged exclusively to the respective signatories and controllers and not to the observers of the contract on which the choice was exercised.
 
     - ``postconsuming`` keyword
 
         Exercising this choice archives the contract after the body is executed. The contract can be used in the body of the exercise.
-        Contracts created in the choice body are known only to the signatories and controllers of the contracts and not made known to the observers of the contract on which the choice was exercised.
+        Contracts created in the choice body are divulged exclusively to the respective signatories and controllers and not to the observers of the contract on which the choice was exercised.
 
     - ``nonconsuming`` keyword
 
         Exercising this choice will not archive the contract.
-        Contracts created in the choice body are known only to the signatories and controllers of the contracts and not made known to the observers of the contract on which the choice was exercised.
+        Contracts created in the choice body are divulged exclusively to the respective signatories and controllers and not to the observers of the contract on which the choice was exercised.
 
-    If no qualifier is present the choice is *preconsuming*.
+    If no qualifier is present the choice is *consuming*. The archival behavior is the same as with ``preconsuming`` (the contract is archived immediately and it's not available in the choice body) but contracts created in the choice body are divulged to the respective signatories and controllers as well as to the observers of the contract on which the choice was exercised.
 
 :ref:`a name <daml-ref-choice-name>`
     Must begin with a capital letter. Must be unique - choices in different templates can't have the same name.
