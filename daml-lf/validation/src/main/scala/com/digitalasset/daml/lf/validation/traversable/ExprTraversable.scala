@@ -118,6 +118,7 @@ private[validation] object ExprTraversable {
 
   private[traversable] def foreach[U](x: Definition, f: Expr => U): Unit =
     x match {
+      case DTypeSyn(params @ _, typ @ _) =>
       case DDataType(serializable @ _, params @ _, DataRecord(fields @ _, template)) =>
         template.foreach(foreach(_, f))
       case DDataType(serializable @ _, params @ _, DataVariant(variants @ _)) =>

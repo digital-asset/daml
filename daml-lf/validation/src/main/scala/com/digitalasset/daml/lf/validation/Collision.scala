@@ -68,6 +68,10 @@ private[validation] object Collision {
         // ignore values
         // List(NValDef(module, defName, vDef))
         List.empty
+
+      case _: Ast.DTypeSyn =>
+        List.empty // TODO #3616: check type synonyms
+
     }
 
 }

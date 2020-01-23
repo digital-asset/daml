@@ -58,6 +58,7 @@ private[validation] object Serializability {
         if (!vars(name)) unserializable(URFreeVar(name))
       case TNat(_) =>
         unserializable(URNat)
+      case TSynApp(syn, _) => unserializable(URTypeSyn(syn))
       case TTyCon(tycon) =>
         lookupDefinition(ctx, tycon) match {
           case DDataType(true, _, _) =>

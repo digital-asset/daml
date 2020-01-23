@@ -789,6 +789,39 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
     Typing.checkModule(world, defaultPackageId, mod)
   }
 
+  "expand type synonyms correctly" in {
+    val testCases = Table(
+      "expression" ->
+        "expected type",
+      E"(( λ (e : |Mod:SynInt|) → () )) " ->
+        T"(( Int64 → Unit ))",
+      E"(( λ (e : |Mod:SynSynInt|) → () )) " ->
+        T"(( Int64 → Unit ))",
+      E"(( λ (e : |Mod:SynIdentity Int64|) → () )) " ->
+        T"(( Int64 → Unit ))",
+      E"(( λ (e : |Mod:SynIdentity |Mod:SynIdentity Int64||) → () )) " ->
+        T"(( Int64 → Unit ))",
+      E"(( λ (e : |Mod:SynList Date|) → () )) " ->
+        T"(( List Date → Unit ))",
+      E"(( λ (e : |Mod:SynSelfFunc Text|) → () )) " ->
+        T"(( (Text → Text) → Unit ))",
+      E"(( λ (e : |Mod:SynFunc Text Date|) → () )) " ->
+        T"(( (Text → Date) → Unit ))",
+      E"(( λ (e : |Mod:SynPair Text Date|) → () )) " ->
+        T"(( <one:Text, two: Date> → Unit ))",
+      E"(( λ (e : forall (a:*) . a) → () )) " ->
+        T"(( (forall (a:*) . a) → Unit ))",
+      E"(( λ (e : |Mod:SynIdentity (forall (a:*) . a)|) → () )) " ->
+        T"(( (forall (a:*) . a) → Unit ))",
+      E"(( λ (e : forall (a:*) . |Mod:SynIdentity a|) → () )) " ->
+        T"(( (forall (a:*) . a) → Unit ))",
+    )
+
+    forEvery(testCases) { (exp: Expr, expectedType: Type) =>
+      env.typeOf(exp) shouldBe expectedType
+    }
+  }
+
   private val pkg =
     p"""
        module Mod {
@@ -797,6 +830,14 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
          variant Tree (a: *) =  Node : < left: Mod:Tree a, right: Mod:Tree a > | Leaf : a ;
 
          enum Color = Red | Green | Blue ;
+
+         synonym SynInt = Int64 ;
+         synonym SynSynInt = |Mod:SynInt| ;
+         synonym SynIdentity (a: *) = a ;
+         synonym SynList (a: *) = List a ;
+         synonym SynSelfFunc (a: *) = a -> a ;
+         synonym SynFunc (a: *) (b: *) = a -> b ;
+         synonym SynPair (a: *) (b: *) = <one: a, two: b>;
 
          record T = {person: Party, name: Text };
          template (this : T) =  {

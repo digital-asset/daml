@@ -65,6 +65,9 @@ private[engine] class ValueTranslator(compiledPackages: CompiledPackages) {
           case struct: TStruct =>
             fail(
               s"Unexpected struct when replacing parameters in command translation -- all types should be serializable, and structs are not: $struct")
+          case syn: TSynApp =>
+            fail(
+              s"Unexpected type synonym application when replacing parameters in command translation -- all types should be serializable, and synonyms are not: $syn")
         }
 
       go(typ0)

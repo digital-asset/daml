@@ -233,6 +233,8 @@ class Runner(
       .get(scriptId.packageId)
       .flatMap(_.lookupIdentifier(scriptId.qualifiedName).toOption) match {
       case Some(DValue(ty, _, _, _)) => ty
+      case Some(d @ DTypeSyn(_, _)) =>
+        throw new RuntimeException(s"Expected DAML script but got synonym $d")
       case Some(d @ DDataType(_, _, _)) =>
         throw new RuntimeException(s"Expected DAML script but got datatype $d")
       case None => throw new RuntimeException(s"Could not find DAML script $scriptId")
