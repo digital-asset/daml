@@ -138,10 +138,9 @@ Non-consuming choices
 - ``nonconsuming`` keyword. Optional.
 - Makes a choice non-consuming: that is, exercising the choice does not archive the contract.
 - Contracts created in the choice body are known only to the signatories and controllers of the contracts and not made known to the observers of the contract on which the choice was exercised.
+- Useful in the many situations when you want to be able to exercise a choice more than once.
 
-  By default, choices are *preconsuming*: when a choice on a contract is exercised, that contract instance is *archived*. Archived means that it's permanently marked as being inactive, and no more choices can be exercised on it, though it still exists on the ledger.
-
-- Both *preconsuming* and *postconsuming* behaviors are useful in the many situations when you want to be able to exercise a choice more than once.
+  By default, choices are *consuming*: when a choice on a contract is exercised, that contract instance is *archived*. Archived means that it's permanently marked as being inactive, and no more choices can be exercised on it, though it still exists on the ledger.
 
 .. _daml-ref-return-type:
 
