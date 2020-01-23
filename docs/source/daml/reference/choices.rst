@@ -77,7 +77,9 @@ Controllers
 Consumability
 =============
 
-If no qualifier is present, choices are *preconsuming*. This behavior is also usually referred to simply as *consuming*.
+If no qualifier is present, choices are *consuming*. This means that, just like in *preconsuming* choices, the contract is archived before the evaluation of the choice body.
+
+Unlike *preconsuming* choices, though, the contracts created in the choice body are disclosed to the signatories and controllers of the contracts as well as to the observers of the contract on which the choice was exercised.
 
 Preconsuming choices
 ********************
