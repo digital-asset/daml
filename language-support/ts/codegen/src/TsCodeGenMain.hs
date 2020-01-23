@@ -98,7 +98,7 @@ genModule curPkgId mod
             ,"/* eslint-disable @typescript-eslint/camelcase */"
             ,"/* eslint-disable @typescript-eslint/no-use-before-define */"
             ,"import * as jtv from '@mojotech/json-type-validation';"
-            ,"import * as daml from '@digitalasset/daml-json-types';"
+            ,"import * as daml from '@daml/types';"
             ]
         imports =
             ["import * as " <> modNameStr <> " from '" <> pkgRootPath <> "/" <> pkgRefStr <> T.intercalate "/" (unModuleName modName) <> "';"

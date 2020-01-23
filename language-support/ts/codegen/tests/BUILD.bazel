@@ -18,7 +18,7 @@ daml_compile(
 #  - Causes 'daml2ts-test.dar' to be produced (from the sources under 'ts/daml');
 #  - Invokes 'daml2ts' on that dar to produce typescript bindings in' ts/generated/src/daml';
 #  - Invokes 'yarn install' in 'ts' to install dependencies;
-#  - Invokes 'yarn build' then 'yarn lint' on each of the 'daml-json-types', 'daml-ledger-fetch' and 'generated' packages;
+#  - Invokes 'yarn build' then 'yarn lint' on each of the '@daml/types', '@daml/ledger' and 'generated' packages;
 #  - Invokes 'yarn test' from the 'ts/generated' directory.
 # That last step causes 'ts/generated/src/tests/__tests__/test.ts' to be executed which:
 #  - Spins up a sandbox running the 'daml2ts-test.dar';
@@ -37,8 +37,8 @@ sh_test(
         "$(location //ledger-service/http-json:http-json-binary_deploy.jar)",
         "$(location :daml2ts-test.dar)",
         "$(location ts/package.json)",
-        "$(location //language-support/ts/daml-json-types:npm_package)",
-        "$(location //language-support/ts/daml-ledger-fetch:npm_package)",
+        "$(location //language-support/ts/daml-types:npm_package)",
+        "$(location //language-support/ts/daml-ledger:npm_package)",
         sdk_version,
     ],
     data = [
@@ -48,8 +48,8 @@ sh_test(
         "//ledger/sandbox:sandbox-binary_deploy.jar",
         "//ledger-service/http-json:http-json-binary_deploy.jar",
         ":daml2ts-test.dar",
-        "//language-support/ts/daml-json-types:npm_package",
-        "//language-support/ts/daml-ledger-fetch:npm_package",
+        "//language-support/ts/daml-types:npm_package",
+        "//language-support/ts/daml-ledger:npm_package",
         "//:VERSION",
     ] + glob(
         ["ts/**"],

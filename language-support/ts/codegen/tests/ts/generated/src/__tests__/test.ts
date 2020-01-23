@@ -4,7 +4,7 @@
 import { ChildProcess, spawn } from 'child_process';
 import waitOn from 'wait-on';
 import { encode } from 'jwt-simple';
-import Ledger, { CreateEvent, ArchiveEvent } from  '@digitalasset/daml-ledger-fetch';
+import Ledger, { CreateEvent, ArchiveEvent } from  '@daml/ledger';
 import * as Main from '../daml/daml-tests/Main';
 import * as LibMod from '../daml/daml-tests/Lib/Mod';
 

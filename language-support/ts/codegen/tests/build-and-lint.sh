@@ -23,25 +23,25 @@ JSON_API=$(rlocation "$TEST_WORKSPACE/$5")
 DAR=$(rlocation "$TEST_WORKSPACE/$6")
 PACKAGE_JSON=$(rlocation "$TEST_WORKSPACE/$7")
 TS_DIR=$(dirname $PACKAGE_JSON)
-DAML_JSON_TYPES=$(rlocation "$TEST_WORKSPACE/$8")
-DAML_LEDGER_FETCH=$(rlocation "$TEST_WORKSPACE/$9")
+DAML_TYPES=$(rlocation "$TEST_WORKSPACE/$8")
+DAML_LEDGER=$(rlocation "$TEST_WORKSPACE/$9")
 VERSION="${10}"
 
 TMP_DIR=$(mktemp -d)
-TMP_DAML_JSON_TYPES=$TMP_DIR/daml-json-types
-TMP_DAML_LEDGER_FETCH=$TMP_DIR/daml-ledger-fetch
+TMP_DAML_TYPES=$TMP_DIR/daml-types
+TMP_DAML_LEDGER=$TMP_DIR/daml-ledger
 cleanup() {
   cd /
   rm -rf $TMP_DIR
 }
 trap cleanup EXIT
 echo "TMP_DIR = $TMP_DIR"
-mkdir -p $TMP_DAML_JSON_TYPES
-mkdir -p  $TMP_DAML_LEDGER_FETCH
+mkdir -p $TMP_DAML_TYPES
+mkdir -p $TMP_DAML_LEDGER
 
 cp -rL $TS_DIR/* $TMP_DIR
-cp -rL $DAML_JSON_TYPES/* $TMP_DAML_JSON_TYPES
-cp -rL $DAML_LEDGER_FETCH/* $TMP_DAML_LEDGER_FETCH
+cp -rL $DAML_TYPES/* $TMP_DAML_TYPES
+cp -rL $DAML_LEDGER/* $TMP_DAML_LEDGER
 
 cd $TMP_DIR
 

@@ -11,7 +11,7 @@ load("//language-support/ts:jest.bzl", "jest_test")
 load("@sdk_version//:sdk_version.bzl", "sdk_version")
 
 ts_library(
-    name = "daml-json-types",
+    name = "daml-types",
     srcs = glob(
         ["**/*.ts"],
         exclude = ["**/*.test.ts"],
@@ -20,7 +20,7 @@ ts_library(
         ":LICENSE",
         ":package.json",
     ],
-    module_name = "@digitalasset/daml-json-types",
+    module_name = "@daml/types",
     node_modules = "@language_support_ts_deps//:node_modules",
     tsconfig = ":tsconfig.json",
     visibility = ["//visibility:public"],
@@ -55,7 +55,7 @@ pkg_npm(
     substitutions = {"0.0.0-SDKVERSION": sdk_version},
     visibility = ["//visibility:public"],
     deps = [
-        "daml-json-types",
+        "daml-types",
         ":license",
     ],
 ) if not is_windows else None
