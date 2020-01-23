@@ -277,6 +277,8 @@ Version: 1.dev
 
   + **Add** generic equality builtin.
 
+  + **Add** generic order builtin.
+
   + **Add** generic map type ``GenMap``.
 
   + **Add** type synonyms.
@@ -466,9 +468,9 @@ The literals represent actual DAML-LF values:
 
 Number-like literals (``LitNatTyp``, ``LitInt64``, ``LitNumeric``,
 ``LitDate``, ``LitTimestamp``) are ordered by natural
-ordering. Text-like literals (``LitText`` and ``LitParty`` are ordered
-lexicographically.  Contract Ids are not ordered.
-
+ordering. Text-like literals (``LitText`` and ``LitParty``) are ordered
+lexicographically.  Contract Ids are ordered as determined by their
+internal representation.
 
 Identifiers
 ~~~~~~~~~~~
@@ -1854,6 +1856,139 @@ will always be used to compare values of same types::
 .. note:: the equality of generic map is not sensitive to the order of
           its entries. See rules ``'GenEqNonEmptyGenMap'``.
 
+Value order
+~~~~~~~~~~~
+
+In this section, we define a strict partial order relation ``<ᵥ`` on values.
+This is a strict order when comparing serialized values of the same type.
+
+We also define the transitive relation ``≲ᵥ`` as the union of ``~ᵥ`` and
+``<ᵥ``. This relation is transitive, and antisymmetric with respect to ``~ᵥ``.
+It is a total order when comparing serialized values of the same type.
+
+                          ┌────────┐
+  Value Order Relation    │ v <ᵥ w │
+                          └────────┘
+
+  ——————————————————————————————————————————————————— GenLtTrueFalse
+   'False' <ᵥ 'True'
+
+   LitNumeric₁ is less than LitNumeric₂ as numbers.
+  ——————————————————————————————————————————————————— GenLtLitNumeric
+   LitNumeric₁ <ᵥ LitNumeric₂
+
+   t₁ comes lexicographically strictly before t₂,
+   when viewed as sequences of Unicode code points
+  ——————————————————————————————————————————————————— GenLtLitText
+   t₁ <ᵥ t₂
+
+   LitDate₁ is strictly before LitDate₂ as dates
+  ——————————————————————————————————————————————————— GenLtLitDate
+   LitDate₁ <ᵥ LitDate₂
+
+   LitTimestamp₁ is strictly before LitTimestamp₂ as
+   timestamps
+  ——————————————————————————————————————————————————— GenLtLitTimestamp
+   LitTimestamp₁ <ᵥ LitTimestamp₂
+
+   LitParty₁ comes lexicographically before
+   LitParty₂ when viewed as sequences of Unicode
+   code points
+  ——————————————————————————————————————————————————— GenLtLitParty
+   LitParty₁ <ᵥ LitParty₂
+
+   cid₁ is ordered before cid₂ according to
+   their internal representations
+  ——————————————————————————————————————————————————— GenLtLitContractId
+   cid₁ <ᵥ cid₂
+
+  ——————————————————————————————————————————————————— GenLtListNil
+   'Nil' @τ <ᵥ 'Cons' @σ wₜ wₜ
+
+   vₕ <ᵥ wₕ
+  ——————————————————————————————————————————————————— GenLtListConsHead
+   'Cons' @τ vₕ vₜ  <ᵥ 'Cons' @σ wₜ wₜ
+
+   vₕ ~ᵥ wₕ    vₜ <ᵥ wₜ
+  ——————————————————————————————————————————————————— GenLtListConsTail
+   'Cons' @τ vₕ vₜ  <ᵥ 'Cons' @σ wₜ wₜ
+
+  ——————————————————————————————————————————————————— GenLtOptionalNone
+   'None' @τ <ᵥ 'Some' @σ w
+
+   v <ᵥ w
+  ——————————————————————————————————————————————————— GenLtOptionalSome
+   'Some' @τ v <ᵥ 'Some' @σ w
+
+   v₁ ~ᵥ v₁   ⋯   vᵢ₋₁ ~ᵥ wᵢ₋₁     vᵢ <ᵥ wᵢ    i <= n
+  ——————————————————————————————————————————————————— GenLtRecCon
+  Mod:T @τ1 … @τₙ { f₁ = v₁, …, fₙ = wₘ }
+    <ᵥ Mod:T @σ₁ … @σₙ { f₁ = w₁, …, fₙ = wₘ }
+
+   Mod:T:V₁ comes before Mod:T:V₂ in the list of
+   constructors for variant type Mod:T
+  ——————————————————————————————————————————————————— GenLtVariantCon1
+   Mod:T:V₁ @τ₁ … @τₙ v <ᵥ Mod:T:V₂ @σ₁ … @σₙ w
+
+   v <ᵥ w
+  ——————————————————————————————————————————————————— GenLtVariantCon2
+   Mod:T:V @τ₁ … @τₙ v <ᵥ Mod:T:V @σ₁ … @σₙ w
+
+   Mod:T:E₁ comes before Mod:T:E₂ in the list of
+   constructors for enum type Mod:T
+  ——————————————————————————————————————————————————— GenLtEnumCon
+   Mod:T:E₁ <ᵥ Mod:T:E₂
+
+   v₁ ~ᵥ v₁   ⋯   vᵢ₋₁ ~ᵥ wᵢ₋₁     vᵢ <ᵥ wᵢ    i <= n
+  ——————————————————————————————————————————————————— GenLtStructCon
+   ⟨ f₁ = v₁, …, fₘ = vₘ ⟩ ~ᵥ ⟨ f₁ = w₁, …, fₘ = wₘ ⟩
+
+  ——————————————————————————————————————————————————— GenLtTextMap1
+   [ ] <ᵥ [s₁ ↦ w₁, …, sₘ ↦ wₘ]
+
+   t₁ < t₂ < … < tₘ
+   s₁ < s₂ < … < sₙ
+   t₁ < s₁
+  ——————————————————————————————————————————————————— GenLtTextMap2
+   [t₁ ↦ v₁, …, tₘ ↦ vₘ] <ᵥ [s₁ ↦ w₁, …, sₙ ↦ wₙ]
+
+   t₁ < t₂ < … < tₘ
+   s₁ < s₂ < … < sₙ
+   t₁ = s₁
+   v₁ <ᵥ w₁
+  ——————————————————————————————————————————————————— GenLtTextMap3
+   [t₁ ↦ v₁, …, tₘ ↦ vₘ] <ᵥ [s₁ ↦ w₁, …, sₙ ↦ wₙ]
+
+   t₁ = s₁
+   v₁ ~ᵥ w₁
+   [t₂ ↦ v₂, …, tₘ ↦ vₘ] <ᵥ [s₂ ↦ w₂, …, sₙ ↦ wₙ]
+  ——————————————————————————————————————————————————— GenLtTextMap4
+   [t₁ ↦ v₁, …, tₘ ↦ vₘ] <ᵥ [s₁ ↦ w₁, …, sₙ ↦ wₙ]
+
+  ——————————————————————————————————————————————————— GenLtGenMap1
+   [ ] <ᵥ [s₁ ↦ w₁, …, sₘ ↦ wₘ]
+
+   t₁ <ᵥ t₂ <ᵥ … <ᵥ tₘ
+   s₁ <ᵥ s₂ <ᵥ … <ᵥ sₙ
+   t₁ <ᵥ s₁
+  ——————————————————————————————————————————————————— GenLtGenMap2
+   [t₁ ↦ v₁, …, tₘ ↦ vₘ] <ᵥ [s₁ ↦ w₁, …, sₙ ↦ wₙ]
+
+   t₁ <ᵥ t₂ <ᵥ … <ᵥ tₘ
+   s₁ <ᵥ s₂ <ᵥ … <ᵥ sₙ
+   t₁ ~ᵥ s₁
+   v₁ <ᵥ w₁
+  ——————————————————————————————————————————————————— GenLtGenMap3
+   [t₁ ↦ v₁, …, tₘ ↦ vₘ] <ᵥ [s₁ ↦ w₁, …, sₙ ↦ wₙ]
+
+   t₁ ~ᵥ s₁
+   v₁ ~ᵥ w₁
+   [t₂ ↦ v₂, …, tₘ ↦ vₘ] <ᵥ [s₂ ↦ w₂, …, sₙ ↦ wₙ]
+  ——————————————————————————————————————————————————— GenLtGenMap4
+   [t₁ ↦ v₁, …, tₘ ↦ vₘ] <ᵥ [s₁ ↦ w₁, …, sₙ ↦ wₙ]
+
+.. note: In the above rules, map entries for TextMap and GenMap are ordered
+   by key. The rules make this assumption explicit.
 
 Expression evaluation
 ~~~~~~~~~~~~~~~~~~~~~
@@ -2327,13 +2462,45 @@ This section lists the built-in functions supported by DAML LF 1.
 The functions come with their types and a description of their
 behavior.
 
-Generic equality function
-~~~~~~~~~~~~~~~~~~~~~~~~~
+Generic equality and order functions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 * ``EQUAL : ∀ (α:*). α → α → 'Bool'``
 
   Returns ``'True'`` if the two argument are equal according ``~ᵥ``,
   ``'False'`` otherwise.
+
+  [*Available in version >= 1.dev*]
+
+* ``LESS : ∀ (α:*). α → α → 'Bool'``
+
+  Returns ``'True'`` if the two argument are ordered according to ``<ᵥ``, and
+  returns ``'False'`` if the two arguments are ordered according to ``≳ᵥ``, and
+  raises an runtime error otherwise (the arguments are incomparable).
+
+  [*Available in version >= 1.dev*]
+
+* ``LESS_EQ : ∀ (α:*). α → α → 'Bool'``
+
+  Returns ``'True'`` if the two argument are ordered according to ``≲ᵥ``, and
+  returns ``'False'`` if the two arguments are ordered according to ``>ᵥ``, and
+  raises an runtime error otherwise (the arguments are incomparable).
+
+  [*Available in version >= 1.dev*]
+
+* ``GREATER : ∀ (α:*). α → α → 'Bool'``
+
+  Returns ``'True'`` if the two argument are ordered according to ``>ᵥ``, and
+  returns ``'False'`` if the two arguments are ordered according to ``≲ᵥ``, and
+  raises an runtime error otherwise (the arguments are incomparable).
+
+  [*Available in version >= 1.dev*]
+
+* ``GREATER_EQ : ∀ (α:*). α → α → 'Bool'``
+
+  Returns ``'True'`` if the two argument are ordered according to ``≳ᵥ``, and
+  returns ``'False'`` if the two arguments are ordered according to ``<ᵥ``, and
+  raises an runtime error otherwise (the arguments are incomparable).
 
   [*Available in version >= 1.dev*]
 
