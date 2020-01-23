@@ -21,27 +21,20 @@ class SqliteFileSqlLedgerReaderWriterIntegrationSpec
     extends ParticipantStateIntegrationSpecBase("SQL implementation using SQLite with a file") {
   private implicit val ec: ExecutionContext = ExecutionContext.global
 
-  private var databaseFile: Path = _
-
   override val startIndex: Long = SqlLedgerReaderWriter.StartIndex
 
-  override def beforeEach(): Unit = {
-    databaseFile = Files.createTempFile(getClass.getSimpleName, ".db")
-    super.beforeEach()
-  }
+  private var directory: Path = _
 
-  override def afterEach(): Unit = {
-    super.afterEach()
-    if (databaseFile != null) {
-      Files.delete(databaseFile)
-    }
+  override def beforeEach(): Unit = {
+    directory = Files.createTempDirectory(getClass.getSimpleName)
+    super.beforeEach()
   }
 
   override def participantStateFactory(
       participantId: ParticipantId,
       ledgerId: LedgerString,
   ): ResourceOwner[ParticipantState] = {
-    val jdbcUrl = s"jdbc:sqlite:$databaseFile"
+    val jdbcUrl = s"jdbc:sqlite:$directory/test.sqlite"
     newLoggingContext { implicit logCtx =>
       SqlLedgerReaderWriter
         .owner(ledgerId, participantId, jdbcUrl)
