@@ -850,7 +850,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
     val testCases = Table(
       "module"
         -> "reject",
-      //Goood
+      //Good
       m"""module Mod { synonym S = Int64 ; }""" -> false,
       m"""module Mod { synonym S a = a ; }""" -> false,
       m"""module Mod { synonym S a b = a ; }""" -> false,
