@@ -846,6 +846,37 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
     }
   }
 
+  "reject ill formed type synonym definitions" in {
+    val testCases = Table(
+      "module"
+        -> "reject",
+      //Goood
+      m"""module Mod { synonym S = Int64 ; }""" -> false,
+      m"""module Mod { synonym S a = a ; }""" -> false,
+      m"""module Mod { synonym S a b = a ; }""" -> false,
+      m"""module Mod { synonym S (f: *) = f ; }""" -> false,
+      m"""module Mod { synonym S (f: * -> *) = f Int64; }""" -> false,
+      //Bad
+      m"""module Mod { synonym S = a ; }""" -> true,
+      m"""module Mod { synonym S a = b ; }""" -> true,
+      m"""module Mod { synonym S a a = a ; }""" -> true,
+      m"""module Mod { synonym S = List ; }""" -> true,
+      m"""module Mod { synonym S (f: * -> *) = f ; }""" -> true,
+      m"""module Mod { synonym S (f: *) = f Int64; }""" -> true,
+    )
+
+    forEvery(testCases) { (mod: Module, rejected: Boolean) =>
+      val world = new World(Map())
+
+      if (rejected)
+        a[ValidationError] should be thrownBy
+          Typing.checkModule(world, defaultPackageId, mod)
+      else
+        Typing.checkModule(world, defaultPackageId, mod)
+      ()
+    }
+  }
+
   private val pkg =
     p"""
        module Mod {

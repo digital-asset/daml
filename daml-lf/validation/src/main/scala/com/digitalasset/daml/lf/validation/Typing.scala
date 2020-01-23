@@ -265,7 +265,11 @@ private[validation] object Typing {
         }
       case (dfnName, dfn: DValue) =>
         Env(mod.languageVersion, world, ContextDefValue(pkgId, mod.name, dfnName)).checkDValue(dfn)
-      case (_, _: DTypeSyn) => // TODO #3616: check type synonyms
+      case (dfnName, DTypeSyn(params, replacementTyp)) =>
+        val env =
+          Env(mod.languageVersion, world, ContextTemplate(pkgId, mod.name, dfnName), params.toMap)
+        checkUniq[TypeVarName](params.keys, EDuplicateTypeParam(env.ctx, _))
+        env.checkType(replacementTyp, KStar)
     }
 
   case class Env(
