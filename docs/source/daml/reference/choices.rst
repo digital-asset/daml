@@ -98,7 +98,6 @@ Preconsuming choices
 
 - ``preconsuming`` keyword. Optional.
 - Makes a choice preconsuming: the contract is archived before the body of the exercise is executed.
-- Default behavior, equivalent to not specifying a consumability qualifier.
 - Contracts created in the choice body are known to the signatories and controllers of the contracts as well as to the observers of the contract on which the choice was exercised.
 
 Postconsuming choices
