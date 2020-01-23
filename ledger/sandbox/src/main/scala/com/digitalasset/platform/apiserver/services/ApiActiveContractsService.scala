@@ -16,8 +16,10 @@ import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc.ActiveContractsService
 import com.digitalasset.ledger.api.v1.active_contracts_service._
 import com.digitalasset.ledger.api.v1.event.CreatedEvent
+import com.digitalasset.ledger.api.v1.transaction_filter.TransactionFilter
 import com.digitalasset.ledger.api.validation.TransactionFilterValidator
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
+import com.digitalasset.logging.LoggingContext._
 import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.platform.participant.util.LfEngineToApi
 import com.digitalasset.platform.server.api.validation.ActiveContractsServiceValidation
@@ -38,56 +40,59 @@ final class ApiActiveContractsService private (
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
-  @SuppressWarnings(Array("org.wartremover.warts.Option2Iterable"))
-  override protected def getActiveContractsSource(
-      request: GetActiveContractsRequest): Source[GetActiveContractsResponse, NotUsed] = {
-    logger.trace("Serving an Active Contracts request...")
+  private def partiesIn(filter: Option[TransactionFilter]): Array[String] =
+    filter.fold(Array.empty[String])(_.filtersByParty.keysIterator.toArray)
 
-    TransactionFilterValidator
-      .validate(request.getFilter, "filter")
-      .fold(
-        Source.failed, { filter =>
-          Source
-            .future(backend.getActiveContractSetSnapshot(filter))
-            .flatMapConcat {
-              case ActiveContractSetSnapshot(offset, acsStream) =>
-                acsStream
-                  .map {
-                    case (wfId, create) =>
-                      GetActiveContractsResponse(
-                        workflowId = wfId.map(_.unwrap).getOrElse(""),
-                        activeContracts = List(
-                          CreatedEvent(
-                            create.eventId.unwrap,
-                            create.contractId.coid,
-                            Some(LfEngineToApi.toApiIdentifier(create.templateId)),
-                            create.contractKey.map(
-                              ck =>
+  override protected def getActiveContractsSource(
+      request: GetActiveContractsRequest): Source[GetActiveContractsResponse, NotUsed] =
+    withEnrichedLoggingContext("parties" -> partiesIn(request.filter)) { implicit logCtx =>
+      logger.trace("Serving an Active Contracts request...")
+
+      TransactionFilterValidator
+        .validate(request.getFilter, "filter")
+        .fold(
+          Source.failed, { filter =>
+            Source
+              .future(backend.getActiveContractSetSnapshot(filter))
+              .flatMapConcat {
+                case ActiveContractSetSnapshot(offset, acsStream) =>
+                  acsStream
+                    .map {
+                      case (wfId, create) =>
+                        GetActiveContractsResponse(
+                          workflowId = wfId.map(_.unwrap).getOrElse(""),
+                          activeContracts = List(
+                            CreatedEvent(
+                              create.eventId.unwrap,
+                              create.contractId.coid,
+                              Some(LfEngineToApi.toApiIdentifier(create.templateId)),
+                              create.contractKey.map(
+                                ck =>
+                                  LfEngineToApi.assertOrRuntimeEx(
+                                    "converting stored contract",
+                                    LfEngineToApi
+                                      .lfVersionedValueToApiValue(verbose = request.verbose, ck))),
+                              Some(
                                 LfEngineToApi.assertOrRuntimeEx(
                                   "converting stored contract",
                                   LfEngineToApi
-                                    .lfVersionedValueToApiValue(verbose = request.verbose, ck))),
-                            Some(
-                              LfEngineToApi.assertOrRuntimeEx(
-                                "converting stored contract",
-                                LfEngineToApi
-                                  .lfValueToApiRecord(
-                                    verbose = request.verbose,
-                                    create.argument.value))),
-                            create.stakeholders.toSeq,
-                            signatories = create.signatories.map(_.toString)(collection.breakOut),
-                            observers = create.observers.map(_.toString)(collection.breakOut),
-                            agreementText = Some(create.agreementText)
+                                    .lfValueToApiRecord(
+                                      verbose = request.verbose,
+                                      create.argument.value))),
+                              create.stakeholders.toSeq,
+                              signatories = create.signatories.map(_.toString)(collection.breakOut),
+                              observers = create.observers.map(_.toString)(collection.breakOut),
+                              agreementText = Some(create.agreementText)
+                            )
                           )
                         )
-                      )
-                  }
-                  .concat(Source.single(GetActiveContractsResponse(offset = offset.value)))
-            }
-        }
-      )
-      .via(logger.logErrorsOnStream)
-  }
+                    }
+                    .concat(Source.single(GetActiveContractsResponse(offset = offset.value)))
+              }
+          }
+        )
+        .via(logger.logErrorsOnStream)
+    }
 
   override def bindService(): ServerServiceDefinition =
     ActiveContractsServiceGrpc.bindService(this, DirectExecutionContext)
