@@ -26,7 +26,7 @@ import com.digitalasset.daml.lf.transaction.{BlindingInfo, Transaction}
 import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.ledger.api.domain.{LedgerId, Commands => ApiCommands}
 import com.digitalasset.ledger.api.messages.command.submission.SubmitRequest
-import com.digitalasset.logging.LoggingContext.withEnrichedLoggingContext
+import com.digitalasset.logging.LoggingContext._
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.platform.sandbox.metrics.timedFuture
