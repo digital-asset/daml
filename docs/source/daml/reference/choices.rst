@@ -118,7 +118,7 @@ Postconsuming choices
 - ``postconsuming`` keyword. Optional.
 - Makes a choice postconsuming: the contract is archived after the body of the exercise is executed.
 - The contract can still be used in the body of the exercise.
-- Contracts created in the choice body are known only to the signatories and controllers of the contracts and not made known to the observers of the contract on which the choice was exercised.
+- Contracts created in the choice body are known only to the signatories and controllers of these contracts and are divulged to the observers of the contract on which the choice was exercised.
 
 Non-consuming choices
 *********************
