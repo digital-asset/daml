@@ -37,10 +37,10 @@ import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext}
 import scala.util.Try
 
-class Runner[Extra](name: String, constructor: LedgerFactory[Extra]) {
-  def run(args: Seq[String]): Unit = {
+class Runner[T <: KeyValueLedger, Extra](name: String, factory: LedgerFactory[T, Extra]) {
+  def run(args: Seq[String]): Resource[Unit] = {
     val config = Config
-      .parse(name, constructor.extraConfigParser, constructor.defaultExtraConfig, args)
+      .parse(name, factory.extraConfigParser, factory.defaultExtraConfig, args)
       .getOrElse(sys.exit(1))
 
     val logger = LoggerFactory.getLogger(getClass)
@@ -59,8 +59,8 @@ class Runner[Extra](name: String, constructor: LedgerFactory[Extra]) {
         // This is necessary because we can't declare them as implicits within a `for` comprehension.
         _ <- AkkaResourceOwner.forActorSystem(() => system).acquire()
         _ <- AkkaResourceOwner.forMaterializer(() => materializer).acquire()
-        readerWriter <- ResourceOwner
-          .forCloseable(() => constructor(ledgerId, config.participantId, config.extra))
+        readerWriter <- factory
+          .owner(ledgerId, config.participantId, config.extra)
           .acquire()
         ledger = new KeyValueParticipantState(readerWriter, readerWriter)
         _ <- Resource.sequenceIgnoringValues(config.archiveFiles.map { file =>
@@ -93,6 +93,8 @@ class Runner[Extra](name: String, constructor: LedgerFactory[Extra]) {
 
     Runtime.getRuntime
       .addShutdownHook(new Thread(() => Await.result(resource.release(), 10.seconds)))
+
+    resource
   }
 
   private def startIndexerServer(
@@ -135,9 +137,15 @@ class Runner[Extra](name: String, constructor: LedgerFactory[Extra]) {
 }
 
 object Runner {
-  def apply(name: String, construct: (LedgerId, ParticipantId) => KeyValueLedger): Runner[Unit] =
-    apply(name, LedgerFactory(construct))
+  def apply[T <: KeyValueLedger](
+      name: String,
+      newOwner: (LedgerId, ParticipantId) => ResourceOwner[T],
+  ): Runner[T, Unit] =
+    apply(name, LedgerFactory(newOwner))
 
-  def apply[Extra](name: String, constructor: LedgerFactory[Extra]): Runner[Extra] =
-    new Runner[Extra](name, constructor)
+  def apply[T <: KeyValueLedger, Extra](
+      name: String,
+      factory: LedgerFactory[T, Extra],
+  ): Runner[T, Extra] =
+    new Runner(name, factory)
 }

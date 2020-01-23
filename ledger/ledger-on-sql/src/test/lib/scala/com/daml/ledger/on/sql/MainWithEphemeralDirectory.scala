@@ -7,8 +7,9 @@ import java.nio.file.Files
 
 import akka.stream.Materializer
 import com.daml.ledger.on.sql.Main.{ExtraConfig, SqlLedgerFactory}
-import com.daml.ledger.participant.state.kvutils.app.{Config, KeyValueLedger, LedgerFactory, Runner}
+import com.daml.ledger.participant.state.kvutils.app.{Config, LedgerFactory, Runner}
 import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId}
+import com.digitalasset.resources.ResourceOwner
 import scopt.OptionParser
 
 object MainWithEphemeralDirectory extends App {
@@ -18,17 +19,19 @@ object MainWithEphemeralDirectory extends App {
 
   Runner("SQL Ledger", TestLedgerFactory).run(args)
 
-  object TestLedgerFactory extends LedgerFactory[ExtraConfig] {
+  object TestLedgerFactory extends LedgerFactory[SqlLedgerReaderWriter, ExtraConfig] {
     override val defaultExtraConfig: ExtraConfig = SqlLedgerFactory.defaultExtraConfig
 
     override def extraConfigParser(parser: OptionParser[Config[ExtraConfig]]): Unit =
       SqlLedgerFactory.extraConfigParser(parser)
 
-    override def apply(ledgerId: LedgerId, participantId: ParticipantId, config: ExtraConfig)(
-        implicit materializer: Materializer,
-    ): KeyValueLedger = {
+    override def owner(
+        ledgerId: LedgerId,
+        participantId: ParticipantId,
+        config: ExtraConfig,
+    )(implicit materializer: Materializer): ResourceOwner[SqlLedgerReaderWriter] = {
       val jdbcUrl = config.jdbcUrl.map(_.replace(DirectoryPattern, directory.toString))
-      SqlLedgerFactory(ledgerId, participantId, config.copy(jdbcUrl = jdbcUrl))
+      SqlLedgerFactory.owner(ledgerId, participantId, config.copy(jdbcUrl = jdbcUrl))
     }
   }
 }

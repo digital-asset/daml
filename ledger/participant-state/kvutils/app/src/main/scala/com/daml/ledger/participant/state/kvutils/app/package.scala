@@ -6,5 +6,5 @@ package com.daml.ledger.participant.state.kvutils
 import com.daml.ledger.participant.state.kvutils.api.{LedgerReader, LedgerWriter}
 
 package object app {
-  type KeyValueLedger = LedgerReader with LedgerWriter with AutoCloseable
+  type KeyValueLedger = LedgerReader with LedgerWriter
 }

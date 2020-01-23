@@ -8,13 +8,14 @@ import java.time.Clock
 
 import com.daml.ledger.on.filesystem.posix.DeleteFiles.deleteFiles
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase
+import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase.ParticipantState
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref.LedgerString
 import com.digitalasset.daml.lf.data.Time.Timestamp
+import com.digitalasset.resources.ResourceOwner
 
-import scala.concurrent.duration.DurationInt
-import scala.concurrent.{Await, ExecutionContext}
+import scala.concurrent.ExecutionContext
 
 class FileSystemLedgerReaderWriterIntegrationSpec
     extends ParticipantStateIntegrationSpecBase(
@@ -39,10 +40,10 @@ class FileSystemLedgerReaderWriterIntegrationSpec
   override def participantStateFactory(
       participantId: ParticipantId,
       ledgerId: LedgerString,
-  ): ReadService with WriteService with AutoCloseable = {
-    val readerWriter =
-      Await.result(FileSystemLedgerReaderWriter(ledgerId, participantId, directory), 1.second)
-    new KeyValueParticipantState(readerWriter, readerWriter)
+  ): ResourceOwner[ParticipantState] = {
+    FileSystemLedgerReaderWriter
+      .owner(ledgerId, participantId, directory)
+      .map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter))
   }
 
   override def currentRecordTime(): Timestamp =

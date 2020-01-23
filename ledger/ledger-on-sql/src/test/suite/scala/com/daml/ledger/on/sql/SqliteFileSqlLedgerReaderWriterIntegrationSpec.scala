@@ -7,14 +7,15 @@ import java.nio.file.{Files, Path}
 import java.time.Clock
 
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase
+import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase.ParticipantState
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref.LedgerString
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.logging.LoggingContext.newLoggingContext
+import com.digitalasset.resources.ResourceOwner
 
-import scala.concurrent.duration.DurationInt
-import scala.concurrent.{Await, ExecutionContext}
+import scala.concurrent.ExecutionContext
 
 class SqliteFileSqlLedgerReaderWriterIntegrationSpec
     extends ParticipantStateIntegrationSpecBase("SQL implementation using SQLite with a file") {
@@ -22,7 +23,7 @@ class SqliteFileSqlLedgerReaderWriterIntegrationSpec
 
   private var databaseFile: Path = _
 
-  override val firstIndex: Long = SqlLedgerReaderWriter.FirstIndex
+  override val startIndex: Long = SqlLedgerReaderWriter.StartIndex
 
   override def beforeEach(): Unit = {
     databaseFile = Files.createTempFile(getClass.getSimpleName, ".db")
@@ -39,12 +40,12 @@ class SqliteFileSqlLedgerReaderWriterIntegrationSpec
   override def participantStateFactory(
       participantId: ParticipantId,
       ledgerId: LedgerString,
-  ): ReadService with WriteService with AutoCloseable = {
+  ): ResourceOwner[ParticipantState] = {
     val jdbcUrl = s"jdbc:sqlite:$databaseFile"
     newLoggingContext { implicit logCtx =>
-      val readerWriter =
-        Await.result(SqlLedgerReaderWriter(ledgerId, participantId, jdbcUrl), 10.seconds)
-      new KeyValueParticipantState(readerWriter, readerWriter)
+      SqlLedgerReaderWriter
+        .owner(ledgerId, participantId, jdbcUrl)
+        .map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter))
     }
   }
 

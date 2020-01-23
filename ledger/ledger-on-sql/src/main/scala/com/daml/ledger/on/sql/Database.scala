@@ -3,15 +3,14 @@
 
 package com.daml.ledger.on.sql
 
-import java.io.Closeable
-
 import com.daml.ledger.on.sql.queries.Queries.InvalidDatabaseException
 import com.daml.ledger.on.sql.queries.{H2Queries, Queries, SqliteQueries}
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
+import com.digitalasset.resources.ResourceOwner
 import com.zaxxer.hikari.HikariDataSource
 import javax.sql.DataSource
 
-sealed trait Database extends Closeable {
+sealed trait Database {
   val queries: Queries
 
   val readerConnectionPool: DataSource
@@ -30,44 +29,47 @@ object Database {
   // entries missing.
   private val MaximumWriterConnectionPoolSize: Int = 1
 
-  def apply(jdbcUrl: String)(implicit logCtx: LoggingContext): Database = {
-    val database = jdbcUrl match {
-      case url if url.startsWith("jdbc:h2:") => new MultipleReaderSingleWriterDatabase(jdbcUrl)
-      case url if url.startsWith("jdbc:sqlite:") => new SingleConnectionDatabase(jdbcUrl)
+  def owner(jdbcUrl: String)(implicit logCtx: LoggingContext): ResourceOwner[Database] =
+    (jdbcUrl match {
+      case url if url.startsWith("jdbc:h2:") => MultipleReaderSingleWriterDatabase.owner(jdbcUrl)
+      case url if url.startsWith("jdbc:sqlite:") => SingleConnectionDatabase.owner(jdbcUrl)
       case _ => throw new InvalidDatabaseException(jdbcUrl)
+    }).map { database =>
+      logger.info(s"Connected to the ledger over JDBC: $jdbcUrl")
+      database
     }
-    logger.info(s"Connected to the ledger over JDBC: $jdbcUrl")
-    database
-  }
 
-  final class MultipleReaderSingleWriterDatabase(jdbcUrl: String) extends Database {
+  final class MultipleReaderSingleWriterDatabase(
+      override val readerConnectionPool: DataSource,
+      override val writerConnectionPool: DataSource,
+  ) extends Database {
     override val queries: Queries = new H2Queries
-
-    override val readerConnectionPool: DataSource with Closeable =
-      newHikariDataSource(jdbcUrl, maximumPoolSize = None)
-
-    override val writerConnectionPool: DataSource with Closeable =
-      newHikariDataSource(jdbcUrl, maximumPoolSize = Some(MaximumWriterConnectionPoolSize))
-
-    override def close(): Unit = {
-      readerConnectionPool.close()
-      writerConnectionPool.close()
-    }
   }
 
-  final class SingleConnectionDatabase(jdbcUrl: String) extends Database {
-    private val connectionPool: DataSource with Closeable =
-      newHikariDataSource(jdbcUrl, maximumPoolSize = Some(MaximumWriterConnectionPoolSize))
+  object MultipleReaderSingleWriterDatabase {
+    def owner(jdbcUrl: String): ResourceOwner[MultipleReaderSingleWriterDatabase] =
+      for {
+        readerConnectionPool <- ResourceOwner.forCloseable(() =>
+          newHikariDataSource(jdbcUrl, maximumPoolSize = None))
+        writerConnectionPool <- ResourceOwner.forCloseable(() =>
+          newHikariDataSource(jdbcUrl, maximumPoolSize = Some(MaximumWriterConnectionPoolSize)))
+      } yield new MultipleReaderSingleWriterDatabase(readerConnectionPool, writerConnectionPool)
+  }
 
+  final class SingleConnectionDatabase(connectionPool: DataSource) extends Database {
     override val queries: Queries = new SqliteQueries
 
     override val readerConnectionPool: DataSource = connectionPool
 
     override val writerConnectionPool: DataSource = connectionPool
+  }
 
-    override def close(): Unit = {
-      connectionPool.close()
-    }
+  object SingleConnectionDatabase {
+    def owner(jdbcUrl: String): ResourceOwner[SingleConnectionDatabase] =
+      for {
+        connectionPool <- ResourceOwner.forCloseable(() =>
+          newHikariDataSource(jdbcUrl, maximumPoolSize = Some(MaximumWriterConnectionPoolSize)))
+      } yield new SingleConnectionDatabase(connectionPool)
   }
 
   private def newHikariDataSource(
