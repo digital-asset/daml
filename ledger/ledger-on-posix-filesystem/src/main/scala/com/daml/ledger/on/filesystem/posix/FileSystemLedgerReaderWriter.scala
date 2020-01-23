@@ -198,9 +198,6 @@ object FileSystemLedgerReaderWriter {
             zeroIndex = StartIndex,
             headAtInitialization = StartIndex,
         ))
-      participant <- ResourceOwner.successful(
-        new FileSystemLedgerReaderWriter(ledgerId, participantId, root, dispatcher))
-      _ = participant.createDirectories()
     } yield {
       val participant = new FileSystemLedgerReaderWriter(ledgerId, participantId, root, dispatcher)
       participant.createDirectories()
