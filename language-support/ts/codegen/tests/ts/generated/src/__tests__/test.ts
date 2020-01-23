@@ -5,7 +5,6 @@ import { ChildProcess, spawn } from 'child_process';
 import waitOn from 'wait-on';
 import { encode } from 'jwt-simple';
 import Ledger, { CreateEvent, ArchiveEvent } from  '@digitalasset/daml-ledger-fetch';
-import * as daml from '@digitalasset/daml-json-types';
 import * as Main from '../daml/daml-tests/Main';
 import * as LibMod from '../daml/daml-tests/Lib/Mod';
 
@@ -67,9 +66,6 @@ afterAll(() => {
   console.log('Killed JSON API');
 });
 
-// TODO(MH, #3518): `daml2ts` should generate this type as `Main.Person.Key`.
-type PersonKey = {_1: daml.Party; _2: daml.Int}
-
 test('create + fetch & exercise', async () => {
   const ledger = new Ledger(ALICE_TOKEN, `http://localhost:${JSON_API_PORT}/`);
   const alice5: Main.Person = {
@@ -101,7 +97,7 @@ test('create + fetch & exercise', async () => {
   expect(events[0]).toHaveProperty('archived');
   expect(events[1]).toHaveProperty('created');
   const alice5Archived = (events[0] as {archived: ArchiveEvent<Main.Person>}).archived;
-  const alice6Contract = (events[1] as {created: CreateEvent<Main.Person, PersonKey>}).created;
+  const alice6Contract = (events[1] as {created: CreateEvent<Main.Person, Main.Person.Key>}).created;
   expect(alice5Archived.contractId).toEqual(alice5Contract.contractId);
   expect(alice6Contract.contractId).toEqual(result);
   expect(alice6Contract.payload).toEqual({...alice5, age: '6'});
@@ -118,7 +114,7 @@ test('create + fetch & exercise', async () => {
   expect(events[0]).toHaveProperty('archived');
   expect(events[1]).toHaveProperty('created');
   const alice6Archived = (events[0] as {archived: ArchiveEvent<Main.Person>}).archived;
-  const alice7Contract = (events[1] as {created: CreateEvent<Main.Person, PersonKey>}).created;
+  const alice7Contract = (events[1] as {created: CreateEvent<Main.Person, Main.Person.Key>}).created;
   expect(alice6Archived.contractId).toEqual(alice6Contract.contractId);
   expect(alice7Contract.contractId).toEqual(result);
   expect(alice7Contract.payload).toEqual({...alice5, age: '7'});
