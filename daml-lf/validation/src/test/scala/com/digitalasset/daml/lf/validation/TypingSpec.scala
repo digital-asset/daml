@@ -815,10 +815,34 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         T"(( (forall (a:*) . a) → Unit ))",
       E"(( λ (e : forall (a:*) . |Mod:SynIdentity a|) → () )) " ->
         T"(( (forall (a:*) . a) → Unit ))",
+      E"(( λ (e : |Mod:SynHigh List|) → () )) " ->
+        T"(( List Int64 → Unit ))",
+      E"(( λ (e : |Mod:SynHigh2 GenMap Party|) → () )) " ->
+        T"(( (GenMap Party Party) → Unit ))",
     )
 
     forEvery(testCases) { (exp: Expr, expectedType: Type) =>
       env.typeOf(exp) shouldBe expectedType
+    }
+  }
+
+  "reject ill formed type synonym application" in {
+    val testCases = Table(
+      "badly formed type synonym application",
+      E"(( λ (e : |Mod:MissingSyn|) → () )) ",
+      E"(( λ (e : |Mod:SynInt Text|) → () )) ",
+      E"(( λ (e : |Mod:SynIdentity|) → () )) ",
+      E"(( λ (e : |Mod:SynIdentity Text Text|) → () )) ",
+      E"(( λ (e : |Mod:SynPair Text|) → () )) ",
+      E"(( λ (e : |Mod:SynPair Text Text Text|) → () )) ",
+      E"(( λ (e : |Mod:SynIdentity List|) → () )) ",
+      E"(( λ (e : |Mod:SynHigh Text|) → () )) ",
+      E"(( λ (e : |Mod:SynHigh GenMap|) → () )) ",
+      E"(( λ (e : |Mod:SynHigh2 List Party|) → () )) ",
+    )
+
+    forEvery(testCases) { exp =>
+      a[ValidationError] should be thrownBy env.typeOf(exp)
     }
   }
 
@@ -838,6 +862,8 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
          synonym SynSelfFunc (a: *) = a -> a ;
          synonym SynFunc (a: *) (b: *) = a -> b ;
          synonym SynPair (a: *) (b: *) = <one: a, two: b>;
+         synonym SynHigh (f: * -> *) = f Int64 ;
+         synonym SynHigh2 (f: * -> * -> *) (a: *) = f a a ;
 
          record T = {person: Party, name: Text };
          template (this : T) =  {
