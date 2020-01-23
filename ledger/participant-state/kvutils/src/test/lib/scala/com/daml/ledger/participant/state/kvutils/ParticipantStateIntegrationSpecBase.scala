@@ -20,12 +20,14 @@ import com.digitalasset.daml.lf.data.{ImmArray, InsertOrdSet, Ref}
 import com.digitalasset.daml.lf.transaction.GenTransaction
 import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.digitalasset.resources.{Resource, ResourceOwner}
 import org.scalatest.Assertions._
 import org.scalatest.{Assertion, AsyncWordSpec, BeforeAndAfterEach}
 
 import scala.collection.immutable.HashMap
 import scala.compat.java8.FutureConverters._
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.concurrent.{Await, ExecutionContext}
 import scala.util.Try
 
 abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
@@ -34,27 +36,32 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
     with AkkaBeforeAndAfterAll {
 
   var ledgerId: LedgerString = _
-  var ps: ReadService with WriteService with AutoCloseable = _
+  var participantStateResource: Resource[ParticipantState] = _
+  var ps: ParticipantState = _
   var rt: Timestamp = _
 
-  val firstIndex: Long = 0
+  val startIndex: Long = 0
 
   def participantStateFactory(
       participantId: ParticipantId,
       ledgerId: LedgerString,
-  ): ReadService with WriteService with AutoCloseable
+  ): ResourceOwner[ParticipantState]
 
   def currentRecordTime(): Timestamp
 
   override protected def beforeEach(): Unit = {
     super.beforeEach()
     ledgerId = Ref.LedgerString.assertFromString(s"ledger-${UUID.randomUUID()}")
-    ps = participantStateFactory(participantId, ledgerId)
+    participantStateResource =
+      participantStateFactory(participantId, ledgerId).acquire()(ExecutionContext.global)
+    ps = Await.result(participantStateResource.asFuture, 10.seconds)
     rt = currentRecordTime()
   }
 
   override protected def afterEach(): Unit = {
-    ps.close()
+    if (participantStateResource != null) {
+      Await.result(participantStateResource.release(), 10.seconds)
+    }
     super.afterEach()
   }
 
@@ -64,7 +71,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
     Ref.LedgerString.assertFromString(UUID.randomUUID().toString)
 
   private def offset(first: Long, rest: Long*): Offset =
-    Offset(Array(first + firstIndex, rest: _*))
+    Offset(Array(first + startIndex, rest: _*))
 
   // TODO(BH): Many of these tests for transformation from DamlLogEntry to Update better belong as
   // a KeyValueConsumptionSpec as the heart of the logic is there
@@ -512,6 +519,8 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
 }
 
 object ParticipantStateIntegrationSpecBase {
+  type ParticipantState = ReadService with WriteService
+
   private val DefaultIdleTimeout = FiniteDuration(5, TimeUnit.SECONDS)
   private val emptyTransaction: SubmittedTransaction =
     GenTransaction(HashMap.empty, ImmArray.empty, Some(InsertOrdSet.empty))

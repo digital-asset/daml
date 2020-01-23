@@ -29,6 +29,7 @@ import com.digitalasset.logging.LoggingContext.withEnrichedLoggingContext
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
 import com.digitalasset.platform.akkastreams.dispatcher.SubSource.RangeSource
+import com.digitalasset.resources.ResourceOwner
 import com.google.protobuf.ByteString
 import javax.sql.DataSource
 
@@ -42,13 +43,13 @@ class SqlLedgerReaderWriter(
     ledgerId: LedgerId = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
     val participantId: ParticipantId,
     database: Database,
+    dispatcher: Dispatcher[Index],
 )(
     implicit executionContext: ExecutionContext,
     materializer: Materializer,
     logCtx: LoggingContext,
 ) extends LedgerWriter
-    with LedgerReader
-    with AutoCloseable {
+    with LedgerReader {
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
@@ -56,27 +57,15 @@ class SqlLedgerReaderWriter(
 
   private val queries = database.queries
 
-  private val dispatcher: Dispatcher[Index] =
-    Dispatcher(
-      "sql-participant-state",
-      zeroIndex = FirstIndex,
-      headAtInitialization = FirstIndex,
-    )
-
   // TODO: implement
   override def currentHealth(): HealthStatus = Healthy
-
-  override def close(): Unit = {
-    dispatcher.close()
-    database.close()
-  }
 
   override def retrieveLedgerId(): LedgerId = ledgerId
 
   override def events(offset: Option[Offset]): Source[LedgerRecord, NotUsed] =
     dispatcher
       .startingAt(
-        offset.getOrElse(FirstOffset).components.head,
+        offset.getOrElse(StartOffset).components.head,
         RangeSource((start, end) => {
           val result = inDatabaseReadTransaction(s"Querying events [$start, $end[ from log") {
             implicit connection =>
@@ -214,11 +203,11 @@ class SqlLedgerReaderWriter(
 }
 
 object SqlLedgerReaderWriter {
-  val FirstIndex: Index = 1
+  val StartIndex: Index = 1
 
-  private val FirstOffset: Offset = Offset(Array(FirstIndex))
+  private val StartOffset: Offset = Offset(Array(StartIndex))
 
-  def apply(
+  def owner(
       ledgerId: LedgerId,
       participantId: ParticipantId,
       jdbcUrl: String,
@@ -226,12 +215,20 @@ object SqlLedgerReaderWriter {
       implicit executionContext: ExecutionContext,
       materializer: Materializer,
       logCtx: LoggingContext,
-  ): Future[SqlLedgerReaderWriter] =
-    Future {
-      val database = Database(jdbcUrl)
-      new SqlLedgerReaderWriter(ledgerId, participantId, database)
-    }.map { ledger =>
-      ledger.migrate()
-      ledger
+  ): ResourceOwner[SqlLedgerReaderWriter] =
+    for {
+      dispatcher <- ResourceOwner.forCloseable(
+        () =>
+          Dispatcher(
+            "sql-participant-state",
+            zeroIndex = StartIndex,
+            headAtInitialization = StartIndex,
+        ))
+      database <- Database.owner(jdbcUrl)
+    } yield {
+      val participant =
+        new SqlLedgerReaderWriter(ledgerId, participantId, database, dispatcher)
+      participant.migrate()
+      participant
     }
 }
