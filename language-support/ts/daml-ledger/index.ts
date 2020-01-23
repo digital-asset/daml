@@ -1,6 +1,6 @@
 // Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
-import { Choice, ContractId, List, Party, Template, Text, lookupTemplate } from '@digitalasset/daml-json-types';
+import { Choice, ContractId, List, Party, Template, Text, lookupTemplate } from '@daml/types';
 import * as jtv from '@mojotech/json-type-validation';
 import fetch from 'cross-fetch';
 

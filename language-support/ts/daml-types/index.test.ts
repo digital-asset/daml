@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { Optional, Text } from './index';
 
-describe('daml-json-types', () => {
+describe('@daml/types', () => {
   it('optional', () => {
     const dict = Optional(Text);
     expect(dict.decoder().run(null).ok).toBe(true);

@@ -1,7 +1,7 @@
 {
   "private": true,
   "workspaces": [
-    "daml-json-types",
-    "daml-ledger-fetch"
+    "daml-types",
+    "daml-fetch"
   ]
 }

@@ -9,18 +9,18 @@ load("//language-support/ts:eslint.bzl", "eslint_test")
 load("@sdk_version//:sdk_version.bzl", "sdk_version")
 
 ts_library(
-    name = "daml-ledger-fetch",
+    name = "daml-ledger",
     srcs = glob(["**/*.ts"]),
     data = [
         ":LICENSE",
         ":package.json",
     ],
-    module_name = "@digitalasset/daml-ledger-fetch",
+    module_name = "@daml/ledger",
     node_modules = "@language_support_ts_deps//:node_modules",
     tsconfig = ":tsconfig.json",
     visibility = ["//visibility:public"],
     deps = [
-        "//language-support/ts/daml-json-types",
+        "//language-support/ts/daml-types",
         "@language_support_ts_deps//@mojotech/json-type-validation",
         "@language_support_ts_deps//cross-fetch",
     ],
@@ -49,7 +49,7 @@ pkg_npm(
     substitutions = {"0.0.0-SDKVERSION": sdk_version},
     visibility = ["//visibility:public"],
     deps = [
-        "daml-ledger-fetch",
+        "daml-ledger",
         ":license",
     ],
 ) if not is_windows else None

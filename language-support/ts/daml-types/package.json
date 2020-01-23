@@ -1,6 +1,6 @@
 {
   "private": true,
-  "name": "@digitalasset/daml-json-types",
+  "name": "@daml/types",
   "version": "0.0.0-SDKVERSION",
   "description": "Types used by the DAML JSON API.",
   "main": "index.js",
