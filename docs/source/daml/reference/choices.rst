@@ -100,6 +100,7 @@ Preconsuming choices
 - Makes a choice pre-consuming: the contract is archived before the body of the exercise is executed.
 - The archival behavior is analogous to the *consuming* default behavior.
 - Unlike what happens the in *consuming* default behavior, though, contracts created in the choice body are divulged only to their respective signatories and controllers and not to the observers of the contract on which the choice was exercised.
+- Can be thought as a non-consuming choice that implicitly archives the contract before anything else happens
 
 Postconsuming choices
 *********************
@@ -120,6 +121,7 @@ Postconsuming choices
 - Makes a choice post-consuming: the contract is archived after the body of the exercise is executed.
 - The contract can still be used in the body of the exercise.
 - Contracts created in the choice body are divulged only to their respective signatories and controllers and not to the observers of the contract on which the choice was exercised.
+- Can be thought as a non-consuming choice that implicitly archives the contract after the choice has been exercised
 
 Non-consuming choices
 *********************
