@@ -93,6 +93,7 @@ main = do
             , "//language-support/ts/daml-types"
             ]
       -- make sure the npm packages can be build.
+      $logDebug "Building language-support typescript packages"
       forM_ npmPackages $ \rule -> liftIO $ callCommand $ "bazel build " <> rule
 
       if | getPerformUpload upload -> do
@@ -111,6 +112,7 @@ main = do
               -- We can't put an .npmrc file in the root of the directory because other bazel npm
               -- code picks it up and looks for the token which is not yet set before the release
               -- phase.
+              $logDebug "Uploading npm packages"
               liftIO $ bracket
                 (writeFile npmrcPath "//registry.npmjs.org/:_authToken=${NPM_TOKEN}")
                 (\() -> Dir.removeFile npmrcPath)
