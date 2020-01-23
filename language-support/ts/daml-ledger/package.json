@@ -1,5 +1,5 @@
 {
-  "private": true,
+  "private": false,
   "name": "@daml/ledger",
   "version": "0.0.0-SDKVERSION",
   "description": "Wrappers around DAML's JSON API.",
