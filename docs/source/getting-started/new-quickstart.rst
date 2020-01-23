@@ -165,47 +165,54 @@ We won't show the generated code here as it simply contains Typescript equivalen
 With this tool to help bridge the gap between our DAML code and the UI, we can get started on our first full-stack DAML feature!
 
 
-Your First Feature
-******************
+Your First Feature: Private Messaging
+*************************************
 
 Let's dive into implementing a feature for our social network app.
 From that we'll get a better idea of how to build DAML applications using our template.
 
-Right now our app allows us to add and remove friends, but we can't share anything with them!
-Let's fix that by adding a feature to post updates to friends.
-However, we don't want to just broadcast messages to the world: we would like to select specific groups of friends to share messages with and ensure privacy of those messages.
-We will see that DAML helps us implement this in a direct and intuitive way.
+Right now our app allows us to add and remove friends, but we can't communicate with them!
+Let's fix that by adding a private messaging feature.
+We will allow a user to send messages to a number of friends at once, and see all the messages that have been sent to them.
+Of course we must make sure that no one can see messages that were not sent to them.
+We will see that DAML lets us implement this in a direct and intuitive way.
 
-There are two parts to building this posting feature: the DAML code and the UI.
+There are two parts to building the messaging feature: the DAML code and the UI.
 Let's start with adding to the DAML code, on which we will base our UI changes.
 
 DAML Changes
 ============
 
-The first addition is a template for a post contracts.
-This will be very simple, as it only contains the message and the parties involved.
+The first addition we make is a template for a message contracts.
+This is very simple, containing only the message content as well as the sending and receiving parties.
 
-.. literalinclude:: quickstart/code/daml/Post.daml
+.. literalinclude:: quickstart/code/daml/Message.daml
   :language: daml
-  :start-after: -- POST_BEGIN
-  :end-before: -- POST_END
+  :start-after: -- MESSAGE_BEGIN
+  :end-before: -- MESSAGE_END
 
-The author party is the signatory, the one who can create and archive the post.
-The author also chooses a number of parties to share the post with, the observers of the contract.
-This simple setup gives the same desirable behaviour as the ``User`` contracts discussed earlier: querying the ledger for posts will yield exactly those which have been shared with the user (or which the user has written), and it is impossible to see any other posts.
+The sender is the signatory, the one who can create and archive the post, and the receivers are listed as observers of the contract.
+This simple setup gives the same desirable behaviour as the ``User`` contracts discussed earlier: querying the ledger for messages will yield exactly those which have been sent to the current user (or which that user has written), and it is impossible to see any other messages.
 
-With the new ``Post`` template, we need a way to create such contracts.
-We can implement this as a choice in the ``User`` template.
-We didn't talk too much about choices earlier, but these are essentially operations on contracts which can perform updates to the ledger.
-In our case, we simply want to add an operation for a user to create a ``Post`` contract on the ledger, without performing any other updates.
+Now we have defined what messages look like, we need a way to create them.
+We implement this with a choice in the ``User`` template.
+We didn't talk much about choices earlier, but these are essentially operations on contracts which can perform updates to the ledger.
+In our case, we simply want to add an operation for a user to create a ``Message`` contract on the ledger, without performing any other updates.
 
 .. literalinclude:: quickstart/code/daml/User.daml
   :language: daml
-  :start-after: -- WRITEPOST_BEGIN
-  :end-before: -- WRITEPOST_END
+  :start-after: -- SENDMESSAGE_BEGIN
+  :end-before: -- SENDMESSAGE_END
 
-This is a choice on a ``User`` contract, so we have the ``user`` party in scope which can act as the *controller* of the choice (in the 4th line above).
-This encodes the rule that no one can post on behalf of a user.
+There are a few things to note in these few lines of code.
+Firstly the ``nonconsuming`` keyword means that the ``SendMessage`` choice can be performed any number of times without affecting the ``User`` contract it is exercised on.
+Second, we can see that the choice takes the content and receivers as arguments and returns the ``ContractId`` of the message that is created (see section on contract IDs).
+Here the ``user`` party (defined in the ``User`` template data) is the *controller* of the choice, meaning that no one can send a message on behalf of a user.
+The last line of the choice is the actual action that creates the ``Message`` contract.
+
+.. TODO Refer to relevant sections to explain the concepts above.
+
+Now let's see how to integrate this new functionality, which we've written in DAML, into the rest of our application code.
 
 TypeScript Code Generation
 ==========================
@@ -221,27 +228,23 @@ in the ``create-daml-app/daml`` directory.
 
 .. TODO Fiddle with daml2ts arguments later.
 
-We should now have the updated TypeScript classes with equivalents of the ``WritePost`` choice and ``Post`` template.
-Let's implement our posting feature in the UI!
+We should now have the updated TypeScript classes with equivalents of the ``SendMessage`` choice and ``Message`` template.
+Let's implement our messaging feature in the UI!
 
-Posts UI
-========
+Messaging UI
+============
 
-Our posting feature should consist of two parts: a form with text inputs to post a message to some friends, and a "feed" of messages that have been shared with you.
-Both of these parts will be implemented as React components that fit into the main screen.
+Our messaging feature has two parts: a form with inputs for selecting friends and composing the message text, and a "feed" of messages that have been sent to you.
+Both parts will be implemented as React components that render on the main screen.
 
-The feed component is fairly straight-forward: it simply needs to query all ``Post`` contracts.
-For a particular user, this will show all posts that have been shared with them.
-This shows one of the beauties of working with DAML: we do not need to talk (or really think) about privacy when building the ledger client.
-The privacy requirement have already been encoded in the DAML code, and we simply need to query and filter the data to suit our application.
-In other words, if we wrote the DAML correctly, we do not risk a privacy breach at the client level.
-Of course, we can sort and categorize the posts (the ``Post`` contract data) as we please for a better user experience; but for our purposes we will just display the raw posts in the order that the contracts were created.
+The feed component is fairly straight-forward: it simply needs to query all ``Message`` contracts, possibly sorting or organizing the data afterwards.
+The key point here is that for a particular user, the query will yield exactly the messages that have been either written by or sent to that user.
+This is a guaranteed by DAML's privacy model because of how we modelled our contract templates.
+In other words, if we wrote the DAML correctly, we do not risk a privacy breach coming from the application code.
 
-While the feed component needs to query the ``Post`` contracts, the post entry component needs to perform actions on the current user's ``User`` contract.
-Specifically, the form inputs - the post content and parties to share it with - will be used as arguments to the ``WritePost`` choice.
-This choice is what creates the ``Post`` contract, updating the ledger state and clearing the form.
+In addition to the feed component, we need a component that allows composing a message and exercising the correct choice on the user's ``User`` contract.
+Specifically, the message content and receivers in the form inputs will be used as arguments to the ``SendMessage`` choice exercised by the current user.
+This creates a new ``Message`` contract, updates the ledger state in the feed and clears the form.
 
-Both these components will use the DAML React hooks to query and act on the ledger.
-Let's see how it looks now.
-
-.. TODO Should we show the code for each component as we go?
+With this feature design, let's go into the details of how to implement the changes.
+The new components will use DAML React hooks to query and operate on the ledger.
