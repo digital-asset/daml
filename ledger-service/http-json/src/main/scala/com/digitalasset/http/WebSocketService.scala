@@ -33,6 +33,7 @@ import scala.util.{Failure, Success}
 
 object WebSocketService {
   private type CompiledQueries = Map[domain.TemplateId.RequiredPkg, LfV => Boolean]
+  private type FetchByKeyRequests = Map[domain.TemplateId.RequiredPkg, LfV]
   val heartBeat: String = JsObject("heartbeat" -> JsString("ping")).compactPrint
 
   private implicit final class `\\/ WSS extras`[L, R](private val self: L \/ R) extends AnyVal {
@@ -203,6 +204,32 @@ class WebSocketService(
             }))
       }
       .via(conflation)
+      .map(sae => sae copy (step = sae.step.mapPreservingIds(_ map lfValueToJsValue)))
+
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
+  private def convertFilterContractsByKey(requests: FetchByKeyRequests)
+    : Flow[InsertDeleteStep[api.event.CreatedEvent], StepAndErrors[JsValue], NotUsed] =
+    Flow
+      .fromFunction { step: InsertDeleteStep[api.event.CreatedEvent] =>
+        val (errors, cs) = step.inserts
+          .partitionMap { ce =>
+            domain.ActiveContract
+              .fromLedgerApi(ce)
+              .liftErr(ServerError)
+              .flatMap(_.traverse(apiValueToLfValue).liftErr(ServerError))
+          }
+        // TODO(Leo): remove deletes, don't need them in this case
+        StepAndErrors(
+          errors,
+          step copy (inserts = (cs: Vector[domain.ActiveContract[LfV]])
+            .filter { acLfv =>
+              requests
+                .get(acLfv.templateId)
+                .exists(k => domain.ActiveContract.matchesKey(k)(acLfv))
+            })
+        )
+      }
+//      .via(conflation)
       .map(sae => sae copy (step = sae.step.mapPreservingIds(_ map lfValueToJsValue)))
 
   private def resolveRequiredTemplateIds(

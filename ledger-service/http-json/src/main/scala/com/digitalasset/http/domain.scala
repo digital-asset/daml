@@ -225,6 +225,10 @@ object domain {
   }
 
   object ActiveContract {
+
+    def matchesKey(k: LfValue)(a: domain.ActiveContract[LfValue]): Boolean =
+      a.key.fold(false)(_ == k)
+
     def fromLedgerApi(gacr: lav1.active_contracts_service.GetActiveContractsResponse)
       : Error \/ List[ActiveContract[lav1.value.Value]] = {
       gacr.activeContracts.toList.traverse(fromLedgerApi(_))
