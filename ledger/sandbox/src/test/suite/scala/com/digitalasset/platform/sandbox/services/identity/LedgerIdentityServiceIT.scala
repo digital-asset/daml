@@ -10,8 +10,8 @@ import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.testing.utils.SuiteResourceManagementAroundEach
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.config.SandboxConfig
-import com.digitalasset.platform.sandbox.persistence.{PostgresAroundAll, PostgresAroundEach}
 import com.digitalasset.platform.sandbox.services.SandboxFixture
+import com.digitalasset.testing.postgresql.{PostgresAroundAll, PostgresAroundEach}
 import org.scalatest.{Matchers, WordSpec}
 import scalaz.syntax.tag._
 

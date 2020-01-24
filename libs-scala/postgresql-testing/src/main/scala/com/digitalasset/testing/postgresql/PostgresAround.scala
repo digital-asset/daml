@@ -1,89 +1,22 @@
 // Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.persistence
+package com.digitalasset.testing.postgresql
 
 import java.io.StringWriter
-import java.net.ServerSocket
+import java.net.{InetAddress, ServerSocket}
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
 import java.util.concurrent.atomic.AtomicBoolean
 
-import com.digitalasset.daml.bazeltools.BazelRunfiles.rlocation
-import com.digitalasset.ledger.api.testing.utils.Resource
+import com.digitalasset.testing.postgresql.PostgresAround._
 import org.apache.commons.io.{FileUtils, IOUtils}
-import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters.asScalaBufferConverter
 import scala.util.control.NonFatal
 
-trait PostgresAroundAll extends PostgresAround with BeforeAndAfterAll {
-  self: org.scalatest.Suite =>
-
-  override protected def beforeAll(): Unit = {
-    // we start pg before running the rest because _generally_ the database
-    // needs to be up before everything else. this is relevant for
-    // ScenarioLoadingITPostgres at least. we could much with the mixin
-    // order but this was easier...
-    startEphemeralPostgres()
-    super.beforeAll()
-  }
-
-  override protected def afterAll(): Unit = {
-    super.afterAll()
-    stopAndCleanUpPostgres()
-  }
-}
-
-trait PostgresAroundEach extends PostgresAround with BeforeAndAfterEach {
-  self: org.scalatest.Suite =>
-
-  override protected def beforeEach(): Unit = {
-    // we start pg before running the rest because _generally_ the database
-    // needs to be up before everything else. this is relevant for
-    // ScenarioLoadingITPostgres at least. we could much with the mixin
-    // order but this was easier...
-    startEphemeralPostgres()
-    super.beforeEach()
-  }
-
-  override protected def afterEach(): Unit = {
-    super.afterEach()
-    stopAndCleanUpPostgres()
-  }
-}
-
-case class PostgresFixture(
-    jdbcUrl: String,
-    port: Int,
-    tempDir: Path,
-    dataDir: Path,
-    confFile: Path,
-    logFile: Path,
-)
-
-private class PostgresResource extends Resource[PostgresFixture] with PostgresAround {
-
-  override def value: PostgresFixture = postgresFixture
-
-  override def setup(): Unit = {
-    startEphemeralPostgres()
-  }
-
-  override def close(): Unit = {
-    stopAndCleanUpPostgres()
-  }
-}
-
-object PostgresResource {
-  def apply(): Resource[PostgresFixture] = new PostgresResource
-}
-
 trait PostgresAround {
-
-  import PostgresAround._
-
   @volatile
   protected var postgresFixture: PostgresFixture = _
 
@@ -95,7 +28,7 @@ trait PostgresAround {
     val dataDir = tempDir.resolve("data")
     val confFile = Paths.get(dataDir.toString, "postgresql.conf")
     val port = findFreePort()
-    val jdbcUrl = s"jdbc:postgresql://localhost:$port/test?user=$testUser"
+    val jdbcUrl = s"jdbc:postgresql://$hostName:$port/$databaseName?user=$userName"
     val logFile = Files.createFile(tempDir.resolve("postgresql.log"))
     postgresFixture = PostgresFixture(jdbcUrl, port, tempDir, dataDir, confFile, logFile)
 
@@ -167,7 +100,7 @@ trait PostgresAround {
   private def initializeDatabase(): Unit = run(
     "initialize the PostgreSQL database",
     Tool.initdb,
-    s"--username=$testUser",
+    s"--username=$userName",
     if (isWindows) "--locale=English_United States" else "--locale=en_US.UTF-8",
     "-E",
     "UNICODE",
@@ -185,14 +118,14 @@ trait PostgresAround {
     // this option is ignored.
     val configText =
       s"""|unix_socket_directories = '/tmp'
-        |shared_buffers = 12MB
-        |fsync = off
-        |synchronous_commit = off
-        |full_page_writes = off
-        |log_min_duration_statement = 0
-        |log_connections = on
-        |listen_addresses = 'localhost'
-        |port = ${postgresFixture.port}
+          |shared_buffers = 12MB
+          |fsync = off
+          |synchronous_commit = off
+          |full_page_writes = off
+          |log_min_duration_statement = 0
+          |log_connections = on
+          |listen_addresses = '$hostName'
+          |port = ${postgresFixture.port}
         """.stripMargin
     Files.write(postgresFixture.confFile, configText.getBytes(StandardCharsets.UTF_8))
     ()
@@ -202,12 +135,12 @@ trait PostgresAround {
     "create the database",
     Tool.createdb,
     "-h",
-    "localhost",
+    hostName,
     "-U",
-    testUser,
+    userName,
     "-p",
     postgresFixture.port.toString,
-    "test",
+    databaseName,
   )
 
   private def run(description: String, tool: Tool, args: String*): Unit = {
@@ -245,9 +178,9 @@ trait PostgresAround {
 object PostgresAround {
   private val logger = LoggerFactory.getLogger(getClass)
 
-  private val testUser = "test"
-
-  private val isWindows = sys.props("os.name").toLowerCase contains "windows"
+  private val hostName = InetAddress.getLoopbackAddress.getHostName
+  private val userName = "test"
+  private val databaseName = "test"
 
   private def findFreePort(): Int = {
     val s = new ServerSocket(0)
@@ -257,21 +190,6 @@ object PostgresAround {
     // turns out to be an issue, we need to find an atomic way of doing that.
     s.close()
     port
-  }
-
-  private case class Tool private[Tool] (name: String) {
-    import Tool._
-
-    def path: Path = rlocation(binPath.resolve(name + binExtension))
-  }
-
-  private object Tool {
-    private[Tool] val binPath = Paths.get("external", "postgresql_dev_env", "bin")
-    private[Tool] val binExtension = if (isWindows) ".exe" else ""
-
-    val createdb = Tool("createdb")
-    val initdb = Tool("initdb")
-    val pg_ctl = Tool("pg_ctl")
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.Option2Iterable"))

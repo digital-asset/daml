@@ -3,28 +3,27 @@
 
 package com.digitalasset.extractor
 
+import java.io.File
+
 import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.value.ValueGenerators.{party => partyGen}
-import config.ExtractorConfig
-import config.CustomScoptReaders._
-import services.ExtractorFixtureAroundAll
+import com.digitalasset.extractor.config.CustomScoptReaders._
+import com.digitalasset.extractor.config.ExtractorConfig
+import com.digitalasset.extractor.services.ExtractorFixtureAroundAll
 import com.digitalasset.ledger.api.testing.utils.SuiteResourceManagementAroundAll
-import com.digitalasset.platform.sandbox.persistence.PostgresAroundAll
-
+import com.digitalasset.testing.postgresql.PostgresAroundAll
 import org.scalacheck.Arbitrary
 import org.scalatest._
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
-import java.io.File
-import scopt.Read
-
 import scalaz._
+import scalaz.scalacheck.ScalazArbitrary._
 import scalaz.std.list._
 import scalaz.std.option._
 import scalaz.std.string._
 import scalaz.syntax.foldable._
 import scalaz.syntax.functor._
-import scalaz.scalacheck.ScalazArbitrary._
+import scopt.Read
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class MultiPartySpec

@@ -11,7 +11,7 @@ import cats.implicits._
 import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.extractor.services.{CustomMatchers, ExtractorFixtureAroundAll}
 import com.digitalasset.ledger.api.testing.utils.SuiteResourceManagementAroundAll
-import com.digitalasset.platform.sandbox.persistence.PostgresAroundAll
+import com.digitalasset.testing.postgresql.PostgresAroundAll
 import io.circe.syntax._
 import org.scalatest._
 

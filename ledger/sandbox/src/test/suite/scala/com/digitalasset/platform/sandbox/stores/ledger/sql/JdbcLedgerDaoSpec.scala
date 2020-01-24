@@ -44,13 +44,13 @@ import com.digitalasset.ledger.api.domain.{
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.digitalasset.logging.LoggingContext.newLoggingContext
 import com.digitalasset.platform.participant.util.EventFilter
-import com.digitalasset.platform.sandbox.persistence.PostgresAroundAll
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.ActiveContract
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao._
 import com.digitalasset.platform.sandbox.stores.ledger.sql.migration.FlywayMigrations
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
 import com.digitalasset.platform.sandbox.stores.ledger.{ConfigurationEntry, LedgerEntry}
 import com.digitalasset.resources.Resource
+import com.digitalasset.testing.postgresql.PostgresAroundAll
 import org.scalatest.{AsyncWordSpec, Matchers, OptionValues}
 
 import scala.collection.immutable.HashMap

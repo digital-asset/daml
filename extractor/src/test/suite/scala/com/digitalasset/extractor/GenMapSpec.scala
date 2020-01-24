@@ -8,11 +8,10 @@ import java.io.File
 import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.extractor.services.{CustomMatchers, ExtractorFixtureAroundAll}
 import com.digitalasset.ledger.api.testing.utils.SuiteResourceManagementAroundAll
-import com.digitalasset.platform.sandbox.persistence.PostgresAroundAll
+import com.digitalasset.testing.postgresql.PostgresAroundAll
 import io.circe.parser._
 import org.scalatest._
 import scalaz.Scalaz._
-//import scalaz._
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class GenMapSpec

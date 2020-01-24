@@ -15,8 +15,8 @@ import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.testing.utils.Resource
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.config.SandboxConfig
-import com.digitalasset.platform.sandbox.persistence.{PostgresFixture, PostgresResource}
 import com.digitalasset.platform.services.time.TimeProviderType
+import com.digitalasset.testing.postgresql.{PostgresFixture, PostgresResource}
 
 object LedgerFactories {
 

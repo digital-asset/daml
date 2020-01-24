@@ -3,9 +3,9 @@
 
 package com.digitalasset.http
 
-import com.digitalasset.platform.sandbox.persistence.PostgresAroundAll
-import spray.json.{JsString, JsValue}
 import com.digitalasset.http.Statement.discard
+import com.digitalasset.testing.postgresql.PostgresAroundAll
+import spray.json.{JsString, JsValue}
 
 import scala.concurrent.Future
 
@@ -57,9 +57,10 @@ class HttpServiceWithPostgresIntTest
 
   private def selectAllDbContracts
     : Future[List[(String, String, JsValue, JsValue, Vector[String], Vector[String], String)]] = {
-    import doobie.implicits._, doobie.postgres.implicits._
     import com.digitalasset.http.dbbackend.Queries.Implicits._
     import dao.logHandler
+    import doobie.implicits._
+    import doobie.postgres.implicits._
 
     val q =
       sql"""SELECT contract_id, tpid, key, payload, signatories, observers, agreement_text FROM contract"""
