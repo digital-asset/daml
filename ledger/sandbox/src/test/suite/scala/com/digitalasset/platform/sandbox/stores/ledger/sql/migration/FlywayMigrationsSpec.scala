@@ -35,23 +35,22 @@ class FlywayMigrationsSpec extends WordSpec with Matchers {
       DbType.H2Database)
   }
 
-  private def assertFlywayMigrationFileHashes(dbType: DbType) = {
+  private def assertFlywayMigrationFileHashes(dbType: DbType): Unit = {
     val resourceScanner = scannerOfDbType(dbType)
+    val resources = resourceScanner.getResources("", ".sql").asScala.toSeq
+    resources.size should be > 10
 
-    resourceScanner
-      .getResources("", ".sql")
-      .asScala
-      .map { res =>
-        val fileName = res.getFilename
-        val expectedDigest =
-          getExpectedDigest(fileName, fileName.dropRight(4) + ".sha256", resourceScanner)
-        val currentDigest = getCurrentDigest(res)
+    resources.foreach { res =>
+      val fileName = res.getFilename
+      val expectedDigest =
+        getExpectedDigest(fileName, fileName.dropRight(4) + ".sha256", resourceScanner)
+      val currentDigest = getCurrentDigest(res)
 
-        assert(
-          currentDigest == expectedDigest,
-          s"Digest of migration file $fileName has changed! It is NOT allowed to change neither existing sql migrations files nor their digests!"
-        )
-      }
+      assert(
+        currentDigest == expectedDigest,
+        s"Digest of migration file $fileName has changed! It is NOT allowed to change neither existing sql migrations files nor their digests!"
+      )
+    }
   }
 
   private def getExpectedDigest(sourceFile: String, digestFile: String, resourceScanner: Scanner) =
