@@ -10,7 +10,6 @@ module DA.Daml.Compiler.DataDependencies
 import Control.Lens (toListOf)
 import Control.Lens.MonoTraversal (monoTraverse)
 import Control.Monad
-import Data.Char (isAlpha)
 import Data.List.Extra
 import qualified Data.Map.Strict as MS
 import Data.Maybe
@@ -102,22 +101,16 @@ generateSrcFromLf env = noLoc mod
         [ lsigD, lvalD ]
 
     shouldExposeDefDataType :: LF.DefDataType -> Bool
-    shouldExposeDefDataType LF.DefDataType{..}
-        = LF.getIsSerializable dataSerializable
-        || not (LF.moduleNameString lfModName == "GHC.Prim")
+    shouldExposeDefDataType LF.DefDataType{..} = True
 
     shouldExposeDefValue :: LF.DefValue -> Bool
     shouldExposeDefValue LF.DefValue{..}
         | (lfName, lfType) <- dvalBinder
         , lfNameText <- LF.unExprValName lfName
         = not (LF.getIsTest dvalIsTest)
-        && not (T.null lfNameText)
-        && isAlpha (T.head lfNameText)
-            -- ^ Filtering out any generated stuff like `$w`,
-            -- and any infix operators as well. This is a
-            -- bit broad but it's ok for now.
+        && not ("$" `T.isPrefixOf` lfNameText)
         && not (typeHasOldTypeclass env lfType)
-        && not (LF.moduleNameString lfModName == "GHC.Prim")
+        && (LF.moduleNameString lfModName /= "GHC.Prim")
 
     convDataCons :: T.Text -> LF.DataCons -> [LConDecl GhcPs]
     convDataCons dataTypeCon0 = \case

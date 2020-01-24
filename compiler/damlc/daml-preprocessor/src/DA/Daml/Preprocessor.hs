@@ -69,12 +69,16 @@ damlPreprocessor mbPkgName x
 
 -- | Preprocessor for generated code.
 generatedPreprocessor :: GHC.ParsedSource -> IdePreprocessedSource
-generatedPreprocessor x =
-    IdePreprocessedSource
-      { preprocWarnings = []
-      , preprocErrors = []
-      , preprocSource = enumTypePreprocessor "CurrentSdk.GHC.Types" x
-      }
+generatedPreprocessor x
+    | Just (GHC.moduleNameString -> "GHC.Prim") <- name = noPreprocessor x
+    | otherwise =
+        IdePreprocessedSource
+          { preprocWarnings = []
+          , preprocErrors = []
+          , preprocSource = enumTypePreprocessor "CurrentSdk.GHC.Types" x
+          }
+    where
+      name = fmap GHC.unLoc $ GHC.hsmodName $ GHC.unLoc x
 
 -- | No preprocessing.
 noPreprocessor :: GHC.ParsedSource -> IdePreprocessedSource
