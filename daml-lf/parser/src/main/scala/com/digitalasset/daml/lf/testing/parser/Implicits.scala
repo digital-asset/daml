@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf.testing
 package parser
 
 import com.digitalasset.daml.lf.data.{Numeric, Ref}
-import com.digitalasset.daml.lf.language.Ast.{Expr, Kind, Package, Type}
+import com.digitalasset.daml.lf.language.Ast.{Expr, Kind, Module, Package, Type}
 
 object Implicits {
 
@@ -25,6 +25,9 @@ object Implicits {
 
     def p[P](args: Any*)(implicit parserParameters: ParserParameters[P]): Package =
       interpolate(new ModParser[P](parserParameters).pkg)(args)
+
+    def m[P](args: Any*)(implicit parserParameters: ParserParameters[P]): Module =
+      interpolate(new ModParser[P](parserParameters).mod)(args)
 
     @SuppressWarnings(Array("org.wartremover.warts.Any"))
     def n(args: Any*): Ref.Name =
