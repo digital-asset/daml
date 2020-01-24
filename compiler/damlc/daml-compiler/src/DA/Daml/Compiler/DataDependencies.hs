@@ -546,10 +546,12 @@ typeHasOldTypeclass :: Env -> LF.Type -> Bool
 typeHasOldTypeclass env = \case
     LF.TVar _ -> False
     LF.TCon tcon -> tconIsOldTypeclass env tcon
-    LF.TSynApp _ _ -> False
+    LF.TSynApp _ _ -> True
         -- Type synonyms came after the switch to new-style
-        -- typeclasses, so let's assume there are no old-style
-        -- typeclasses being referenced.
+        -- typeclasses, so we can assume there are no old-style
+        -- typeclasses being referenced. HOWEVER, we don't support
+        -- type synonyms here yet. TODO: Fix this, and change
+        -- the above to False.
     LF.TApp a b -> typeHasOldTypeclass env a || typeHasOldTypeclass env b
     LF.TBuiltin _ -> False
     LF.TForall _ b -> typeHasOldTypeclass env b
