@@ -44,6 +44,13 @@ supported_databases = [
         ],
     },
     {
+        "name": "postgresql",
+        "conformance_test_server_main": "com.daml.ledger.on.sql.MainWithEphemeralPostgresql",
+        "runtime_deps": [
+            "@maven//:org_postgresql_postgresql",
+        ],
+    },
+    {
         "name": "sqlite-memory",
         "conformance_test_server_args": [
             "--jdbc-url=jdbc:sqlite::memory:",
@@ -110,6 +117,7 @@ da_scala_library(
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils/app",
+        "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
         "@maven//:com_github_scopt_scopt_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
