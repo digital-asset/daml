@@ -4,7 +4,7 @@
 package com.digitalasset.platform.apiserver.services
 
 import akka.stream.Materializer
-import com.codahale.metrics.MetricRegistry
+import com.codahale.metrics.{Meter, MetricRegistry, Timer}
 import com.daml.ledger.participant.state.index.v2.ContractStore
 import com.daml.ledger.participant.state.v1.SubmissionResult.{
   Acknowledged,
@@ -26,7 +26,7 @@ import com.digitalasset.daml.lf.transaction.{BlindingInfo, Transaction}
 import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.ledger.api.domain.{LedgerId, Commands => ApiCommands}
 import com.digitalasset.ledger.api.messages.command.submission.SubmitRequest
-import com.digitalasset.logging.LoggingContext._
+import com.digitalasset.logging.LoggingContext.withEnrichedLoggingContext
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.platform.sandbox.metrics.timedFuture
@@ -95,31 +95,33 @@ final class ApiSubmissionService private (
   private val validator = TimeModelValidator(timeModel)
 
   private object Metrics {
-    val failedInterpretationsMeter =
+    val failedInterpretationsMeter: Meter =
       metrics.meter("daml.lapi.command_submission_service.failed_command_interpretations")
 
-    val submittedTransactionsTimer =
+    val submittedTransactionsTimer: Timer =
       metrics.timer("daml.lapi.command_submission_service.submitted_transactions")
   }
 
-  override def submit(request: SubmitRequest): Future[Unit] = {
-    val commands = request.commands
-    val validation = for {
-      _ <- validator.checkTtl(commands.ledgerEffectiveTime, commands.maximumRecordTime)
-      _ <- validator
-        .checkLet(
-          timeProvider.getCurrentTime,
-          commands.ledgerEffectiveTime,
-          commands.maximumRecordTime,
-          commands.commandId.unwrap,
-          commands.applicationId.unwrap)
-    } yield ()
+  override def submit(request: SubmitRequest): Future[Unit] =
+    withEnrichedLoggingContext(
+      logging.commandId(request.commands.commandId),
+      logging.party(request.commands.submitter)) { implicit logCtx =>
+      val commands = request.commands
+      val validation = for {
+        _ <- validator.checkTtl(commands.ledgerEffectiveTime, commands.maximumRecordTime)
+        _ <- validator
+          .checkLet(
+            timeProvider.getCurrentTime,
+            commands.ledgerEffectiveTime,
+            commands.maximumRecordTime,
+            commands.commandId.unwrap,
+            commands.applicationId.unwrap)
+      } yield ()
 
-    validation
-      .fold(
-        Future.failed,
-        _ =>
-          withEnrichedLoggingContext("commandId" -> commands.commandId.unwrap) { implicit logCtx =>
+      validation
+        .fold(
+          Future.failed,
+          _ => {
             logger.trace(s"Received composite commands: $commands")
             logger.debug(s"Received composite command let ${commands.ledgerEffectiveTime}.")
             recordOnLedger(commands).transform {
@@ -145,10 +147,10 @@ final class ApiSubmissionService private (
                 Failure(error)
 
             }(DirectExecutionContext)
-        }
-      )
-      .andThen(logger.logErrorsOnCall[Unit])(DirectExecutionContext)
-  }
+          }
+        )
+        .andThen(logger.logErrorsOnCall[Unit])(DirectExecutionContext)
+    }
 
   private def recordOnLedger(commands: ApiCommands): Future[SubmissionResult] =
     for {
