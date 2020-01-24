@@ -142,7 +142,10 @@ class Ledger {
   /**
    * Fetch a contract by its key.
    */
-  async lookupByKey<T extends object, K>(template: Template<T, K>, key: K extends undefined ? never : K): Promise<CreateEvent<T, K> | null> {
+  async lookupByKey<T extends object, K>(template: Template<T, K>, key: K): Promise<CreateEvent<T, K> | null> {
+    if (key === undefined) {
+      throw Error(`Cannot lookup by key on template ${template.templateId} because it does not define a key.`);
+    }
     const payload = {
       templateId: template.templateId,
       key,
@@ -186,7 +189,10 @@ class Ledger {
   /**
    * Exercise a choice on a contract identified by its contract key.
    */
-  async exerciseByKey<T extends object, C, R, K>(choice: Choice<T, C, R, K>, key: K extends undefined ? never : K, argument: C): Promise<[R, Event<object>[]]> {
+  async exerciseByKey<T extends object, C, R, K>(choice: Choice<T, C, R, K>, key: K, argument: C): Promise<[R, Event<object>[]]> {
+    if (key === undefined) {
+      throw Error(`Cannot exercise by key on template ${choice.template().templateId} because it does not define a key.`);
+    }
     const payload = {
       templateId: choice.template().templateId,
       key,

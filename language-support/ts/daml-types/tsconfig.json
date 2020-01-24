@@ -16,5 +16,8 @@
     "sourceMap": true
   },
   "include": ["**/*.ts"],
-  "exclude": ["**/*.test.ts"]
+  "exclude": [
+    "**/*.test.ts",
+    "lib/**/*"
+  ]
 }
