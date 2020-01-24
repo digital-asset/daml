@@ -101,7 +101,8 @@ generateSrcFromLf env = noLoc mod
         [ lsigD, lvalD ]
 
     shouldExposeDefDataType :: LF.DefDataType -> Bool
-    shouldExposeDefDataType LF.DefDataType{..} = True
+    shouldExposeDefDataType typeDef
+        = not (defDataTypeIsOldTypeClass typeDef)
 
     shouldExposeDefValue :: LF.DefValue -> Bool
     shouldExposeDefValue LF.DefValue{..}
@@ -576,19 +577,22 @@ tconIsOldTypeclass :: Env -> LF.Qualified LF.TypeConName -> Bool
 tconIsOldTypeclass env tcon =
     case envLookupDataType tcon env of
         Nothing -> error ("Unknown reference to type " <> show tcon)
-        Just LF.DefDataType{..}
-            | LF.DataRecord fields <- dataCons
-            -> notNull fields && all isDesugarField fields
+        Just dtype -> defDataTypeIsOldTypeClass dtype
 
-            | otherwise
-            -> False
+defDataTypeIsOldTypeClass :: LF.DefDataType -> Bool
+defDataTypeIsOldTypeClass LF.DefDataType{..}
+    | LF.DataRecord fields <- dataCons
+    = notNull fields && all isDesugarField fields
 
-    where
-        isDesugarField :: (LF.FieldName, LF.Type) -> Bool
-        isDesugarField (_fieldName, fieldType) =
-            case fieldType of
-                LF.TUnit LF.:-> _ -> True
-                _ -> False
+    | otherwise
+    = False
+  where
+    isDesugarField :: (LF.FieldName, LF.Type) -> Bool
+    isDesugarField (_fieldName, fieldType) =
+        case fieldType of
+            LF.TUnit LF.:-> _ -> True
+            _ -> False
+
 
 envLookupDataType :: LF.Qualified LF.TypeConName -> Env -> Maybe LF.DefDataType
 envLookupDataType tcon env = do
