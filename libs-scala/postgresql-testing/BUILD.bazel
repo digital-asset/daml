@@ -9,7 +9,6 @@ load(
 da_scala_library(
     name = "postgresql-testing",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    tags = ["maven_coordinates=com.digitalasset:postgresql-testing:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
