@@ -74,8 +74,8 @@ Controllers
 
 .. _daml-ref-consumability:
 
-Consumability
-=============
+Contract consumption
+====================
 
 If no qualifier is present, choices are *consuming*: the contract is archived before the evaluation of the choice body.
 
