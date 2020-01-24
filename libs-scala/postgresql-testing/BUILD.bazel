@@ -9,6 +9,9 @@ load(
 da_scala_library(
     name = "postgresql-testing",
     srcs = glob(["src/main/scala/**/*.scala"]),
+    data = [
+        "@postgresql_dev_env//:all",
+    ],
     visibility = [
         "//visibility:public",
     ],

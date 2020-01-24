@@ -114,7 +114,6 @@ da_scala_test(
     data = [
         ":Account.dar",
         "//docs:quickstart-model.dar",
-        "@postgresql_dev_env//:all",
     ],
     resources = glob(["src/test/resources/**/*"]),
     scalacopts = hj_scalacopts,
