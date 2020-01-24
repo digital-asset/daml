@@ -5,7 +5,7 @@ load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
     "da_scala_library",
-    "da_scala_test",
+    "da_scala_test_suite",
 )
 load("//ledger/ledger-api-test-tool:conformance.bzl", "conformance_test")
 
@@ -124,7 +124,7 @@ da_scala_library(
     ],
 )
 
-da_scala_test(
+da_scala_test_suite(
     name = "ledger-on-sql-tests",
     size = "small",
     srcs = glob(["src/test/suite/**/*.scala"]),
