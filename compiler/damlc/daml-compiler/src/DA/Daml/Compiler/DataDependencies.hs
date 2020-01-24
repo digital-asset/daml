@@ -70,7 +70,7 @@ generateSrcFromLf env = noLoc mod
 
     dataTypeDecls = do
         LF.DefDataType {..} <- NM.toList $ LF.moduleDataTypes $ envMod env
-        guard $ LF.getIsSerializable dataSerializable
+        --guard $ LF.getIsSerializable dataSerializable
         let numberOfNameComponents = length (LF.unTypeConName dataTypeCon)
         -- we should never encounter more than two name components in dalfs.
         unless (numberOfNameComponents <= 2) $
@@ -157,19 +157,39 @@ generateSrcFromLf env = noLoc mod
         ]
     isStable LF.PRSelf = False
     isStable (LF.PRImport pkgId) = pkgId `MS.member` envStablePackages env
-    modRefs =
-        nubSort $
-        [ (isStable pkg, envGetUnitId env pkg, LF.ModuleName (["CurrentSdk" | isStable pkg] <> LF.unModuleName modRef))
-        | typeDef <- NM.toList $ LF.moduleDataTypes $ envMod env
-        -- We only care about references from serializable types
-        -- since those are the only ones that we reconstruct.
-        , LF.getIsSerializable (LF.dataSerializable typeDef)
-        , (pkg, modRef) <- toListOf monoTraverse typeDef
-        ] ++
-        (map (\t -> (\(a,b) -> (True,a,b)) $ builtinToModuleRef t) $
-         concat $ do
-             dataTy <- NM.toList $ LF.moduleDataTypes $ envMod env
-             pure $ toListOf (dataConsType . builtinType) $ LF.dataCons dataTy)
+
+    modRefs :: [(Bool, GHC.UnitId, LF.ModuleName)]
+    modRefs = nubSort . concat . concat $
+        [ [ modRefsFromDefDataType typeDef
+          | typeDef <- NM.toList (LF.moduleDataTypes (envMod env)) ]
+
+        , [ modRefsFromDefValue valueDef
+          | valueDef <- NM.toList (LF.moduleValues (envMod env))
+          , (lfName, lfType) <- [LF.dvalBinder valueDef]
+          , not (LF.getIsTest (LF.dvalIsTest valueDef))
+          , not ("$" `T.isPrefixOf` LF.unExprValName lfName)
+          , not (typeHasOldTypeclass env lfType) ]
+        ]
+
+    modRefsFromDefDataType :: LF.DefDataType -> [(Bool, GHC.UnitId, LF.ModuleName)]
+    modRefsFromDefDataType typeDef = concat
+        [ [ (isStable pkg, envGetUnitId env pkg, modRef)
+          | (pkg, modRef) <- toListOf monoTraverse typeDef ]
+        , [ (True, pkg, modRef)
+          | b <- toListOf (dataConsType . builtinType) (LF.dataCons typeDef)
+          , (pkg, modRef) <- [builtinToModuleRef b] ]
+        ]
+
+    modRefsFromDefValue :: LF.DefValue -> [(Bool, GHC.UnitId, LF.ModuleName)]
+    modRefsFromDefValue LF.DefValue{..} | (_, dvalType) <- dvalBinder = concat
+        [ [ (isStable pkg, envGetUnitId env pkg, modRef)
+          | (pkg, modRef) <- toListOf monoTraverse dvalType ]
+        , [ (True, pkg, modRef)
+          | b <- toListOf builtinType dvalType
+          , (pkg, modRef) <- [builtinToModuleRef b] ]
+        ]
+
+    builtinToModuleRef :: LF.BuiltinType -> (GHC.UnitId, LF.ModuleName)
     builtinToModuleRef = \case
             LF.BTInt64 -> (primUnitId, sdkGhcTypes)
             LF.BTDecimal -> (primUnitId, sdkGhcTypes)
