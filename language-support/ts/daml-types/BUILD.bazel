@@ -12,10 +12,7 @@ load("@sdk_version//:sdk_version.bzl", "sdk_version")
 
 ts_library(
     name = "daml-types",
-    srcs = glob(
-        ["**/*.ts"],
-        exclude = ["**/*.test.ts"],
-    ),
+    srcs = glob(["**/*.ts"]),
     data = [
         ":LICENSE",
         ":package.json",
@@ -42,8 +39,10 @@ eslint_test(
     name = "lint",
     srcs = glob(
         ["**/*.ts"],
-        exclude = ["**/*.test.ts"],
+        exclude = ["lib/**/*"],
     ),
+    tsconfig = "tsconfig.eslint.json",
+    data = ["tsconfig.json"],
 )
 
 pkg_npm(
