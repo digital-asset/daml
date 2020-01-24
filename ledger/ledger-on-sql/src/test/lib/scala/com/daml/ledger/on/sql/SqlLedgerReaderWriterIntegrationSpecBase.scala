@@ -28,10 +28,13 @@ abstract class SqlLedgerReaderWriterIntegrationSpecBase(implementationName: Stri
       participantId: ParticipantId,
       ledgerId: LedgerString,
   ): ResourceOwner[ParticipantState] = {
+    val currentJdbcUrl = jdbcUrl
     newLoggingContext { implicit logCtx =>
-      SqlLedgerReaderWriter
-        .owner(ledgerId, participantId, jdbcUrl)
-        .map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter))
+      for {
+        database <- Database.owner(currentJdbcUrl)
+        _ = database.clear()
+        readerWriter <- SqlLedgerReaderWriter.owner(ledgerId, participantId, currentJdbcUrl)
+      } yield new KeyValueParticipantState(readerWriter, readerWriter)
     }
   }
 

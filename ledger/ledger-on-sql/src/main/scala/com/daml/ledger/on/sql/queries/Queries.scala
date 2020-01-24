@@ -14,10 +14,6 @@ import com.google.protobuf.ByteString
 import scala.collection.immutable
 
 trait Queries {
-  def createLogTable()(implicit connection: Connection): Unit
-
-  def createStateTable()(implicit connection: Connection): Unit
-
   def selectFromLog(
       start: Index,
       end: Index,

@@ -9,6 +9,7 @@ import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.resources.ResourceOwner
 import com.zaxxer.hikari.HikariDataSource
 import javax.sql.DataSource
+import org.flywaydb.core.Flyway
 
 case class Database(
     queries: Queries,
@@ -27,50 +28,99 @@ object Database {
   // entries missing.
   private val MaximumWriterConnectionPoolSize: Int = 1
 
-  def owner(jdbcUrl: String)(implicit logCtx: LoggingContext): ResourceOwner[Database] =
+  def owner(jdbcUrl: String)(
+      implicit logCtx: LoggingContext
+  ): ResourceOwner[UninitializedDatabase] =
     (jdbcUrl match {
       case url if url.startsWith("jdbc:h2:") =>
-        MultipleReaderSingleWriterDatabase.owner(jdbcUrl, new H2Queries)
+        MultipleConnectionDatabase.owner(RDBMS.H2, new H2Queries, jdbcUrl)
       case url if url.startsWith("jdbc:postgresql:") =>
-        MultipleReaderSingleWriterDatabase.owner(jdbcUrl, new PostgresqlQueries)
+        MultipleConnectionDatabase.owner(RDBMS.PostgreSQL, new PostgresqlQueries, jdbcUrl)
       case url if url.startsWith("jdbc:sqlite:") =>
-        SingleConnectionDatabase.owner(jdbcUrl, new SqliteQueries)
+        SingleConnectionDatabase.owner(RDBMS.SQLite, new SqliteQueries, jdbcUrl)
       case _ => throw new InvalidDatabaseException(jdbcUrl)
     }).map { database =>
       logger.info(s"Connected to the ledger over JDBC: $jdbcUrl")
       database
     }
 
-  object MultipleReaderSingleWriterDatabase {
-    def owner(jdbcUrl: String, queries: Queries): ResourceOwner[Database] =
+  object MultipleConnectionDatabase {
+    def owner(
+        system: RDBMS,
+        queries: Queries,
+        jdbcUrl: String,
+    ): ResourceOwner[UninitializedDatabase] =
       for {
         readerConnectionPool <- ResourceOwner.forCloseable(() =>
           newHikariDataSource(jdbcUrl, readOnly = true))
-        writerConnectionPool <- ResourceOwner.forCloseable(() =>
-          newHikariDataSource(jdbcUrl, maximumPoolSize = Some(MaximumWriterConnectionPoolSize)))
-      } yield new Database(queries, readerConnectionPool, writerConnectionPool)
+        writerConnectionPool <- ResourceOwner.forCloseable(() => newHikariDataSource(jdbcUrl))
+      } yield new UninitializedDatabase(system, queries, readerConnectionPool, writerConnectionPool)
   }
 
   object SingleConnectionDatabase {
-    def owner(jdbcUrl: String, queries: Queries): ResourceOwner[Database] =
+    def owner(
+        system: RDBMS,
+        queries: Queries,
+        jdbcUrl: String,
+    ): ResourceOwner[UninitializedDatabase] =
       for {
-        connectionPool <- ResourceOwner.forCloseable(() =>
-          newHikariDataSource(jdbcUrl, maximumPoolSize = Some(MaximumWriterConnectionPoolSize)))
-      } yield new Database(queries, connectionPool, connectionPool)
+        connectionPool <- ResourceOwner.forCloseable(() => newHikariDataSource(jdbcUrl))
+      } yield new UninitializedDatabase(system, queries, connectionPool, connectionPool)
   }
 
   private def newHikariDataSource(
       jdbcUrl: String,
-      maximumPoolSize: Option[Int] = None,
       readOnly: Boolean = false,
   ): HikariDataSource = {
     val pool = new HikariDataSource()
     pool.setAutoCommit(false)
     pool.setJdbcUrl(jdbcUrl)
     pool.setReadOnly(readOnly)
-    maximumPoolSize.foreach { maximumPoolSize =>
-      pool.setMaximumPoolSize(maximumPoolSize)
-    }
     pool
+  }
+
+  sealed trait RDBMS {
+    val name: String
+  }
+
+  object RDBMS {
+
+    object H2 extends RDBMS {
+      override val name: String = "h2"
+    }
+
+    object PostgreSQL extends RDBMS {
+      override val name: String = "postgresql"
+    }
+
+    object SQLite extends RDBMS {
+      override val name: String = "sqlite"
+    }
+
+  }
+
+  class UninitializedDatabase(
+      system: RDBMS,
+      val queries: Queries,
+      val readerConnectionPool: HikariDataSource,
+      val writerConnectionPool: HikariDataSource,
+  ) {
+    private val flyway: Flyway =
+      Flyway
+        .configure()
+        .dataSource(writerConnectionPool)
+        .locations(s"classpath:/com/daml/ledger/on/sql/migrations/${system.name}")
+        .load()
+
+    def migrate(): Database = {
+      flyway.migrate()
+      writerConnectionPool.setMaximumPoolSize(MaximumWriterConnectionPoolSize)
+      Database(queries, readerConnectionPool, writerConnectionPool)
+    }
+
+    def clear(): this.type = {
+      flyway.clean()
+      this
+    }
   }
 }

@@ -37,7 +37,7 @@ trait PostgresAround {
       createConfigFile()
       startPostgres()
       createTestDatabase()
-      logger.info("PostgreSQL has started.")
+      logger.info(s"PostgreSQL has started on port $port.")
     } catch {
       case NonFatal(e) =>
         stopPostgres()

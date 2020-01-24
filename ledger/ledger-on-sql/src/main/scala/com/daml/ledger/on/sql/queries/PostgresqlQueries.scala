@@ -12,18 +12,6 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntryId
 import com.google.protobuf.ByteString
 
 class PostgresqlQueries extends Queries with CommonQueries {
-  override def createLogTable()(implicit connection: Connection): Unit = {
-    SQL"CREATE TABLE IF NOT EXISTS log (sequence_no SERIAL PRIMARY KEY, entry_id BYTEA NOT NULL, envelope BYTEA NOT NULL)"
-      .execute()
-    ()
-  }
-
-  override def createStateTable()(implicit connection: Connection): Unit = {
-    SQL"CREATE TABLE IF NOT EXISTS state (key BYTEA PRIMARY KEY NOT NULL, value BYTEA NOT NULL)"
-      .execute()
-    ()
-  }
-
   override def insertIntoLog(
       entry: DamlLogEntryId,
       envelope: ByteString,

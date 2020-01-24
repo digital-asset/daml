@@ -142,14 +142,6 @@ class SqlLedgerReaderWriter(
       .result()
   }
 
-  private def migrate(): Unit = {
-    inDatabaseWriteTransaction("Migrating the database") { implicit connection =>
-      queries.createLogTable()
-      queries.createStateTable()
-    }
-    logger.info("Successfully migrated the database.")
-  }
-
   private def inDatabaseReadTransaction[T](message: String)(
       body: Connection => T,
   )(implicit logCtx: LoggingContext): T = {
@@ -217,11 +209,9 @@ object SqlLedgerReaderWriter {
             zeroIndex = StartIndex,
             headAtInitialization = StartIndex,
         ))
-      database <- Database.owner(jdbcUrl)
+      uninitializedDatabase <- Database.owner(jdbcUrl)
     } yield {
-      val participant =
-        new SqlLedgerReaderWriter(ledgerId, participantId, database, dispatcher)
-      participant.migrate()
-      participant
+      val database = uninitializedDatabase.migrate()
+      new SqlLedgerReaderWriter(ledgerId, participantId, database, dispatcher)
     }
 }
