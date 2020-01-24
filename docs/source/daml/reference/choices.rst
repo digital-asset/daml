@@ -77,9 +77,7 @@ Controllers
 Contract consumption
 ====================
 
-If no qualifier is present, choices are *consuming*: the contract is archived before the evaluation of the choice body.
-
-Note that the contracts created in the choice body are divulged to the signatories and controllers of the contracts as well as to the observers of the contract on which the choice was exercised. This behavior differs from that of *preconsuming* and *postconsuming* choices.
+If no qualifier is present, choices are *consuming*: the contract is archived before the evaluation of the choice body and both the controllers and all contract stakeholders see all consequences of the action.
 
 Preconsuming choices
 ********************
@@ -99,7 +97,7 @@ Preconsuming choices
 - ``preconsuming`` keyword. Optional.
 - Makes a choice pre-consuming: the contract is archived before the body of the exercise is executed.
 - The archival behavior is analogous to the *consuming* default behavior.
-- Unlike what happens the in *consuming* default behavior, though, contracts created in the choice body are divulged only to their respective signatories and controllers and not to the observers of the contract on which the choice was exercised.
+- Unlike what happens the in *consuming* behavior, though, only the controllers and signatories of the contract see all consequences of the action. If the choice archives the contract, other stakeholders merely see an archive action.
 - Can be thought as a non-consuming choice that implicitly archives the contract before anything else happens
 
 Postconsuming choices
@@ -120,7 +118,7 @@ Postconsuming choices
 - ``postconsuming`` keyword. Optional.
 - Makes a choice post-consuming: the contract is archived after the body of the exercise is executed.
 - The contract can still be used in the body of the exercise.
-- Contracts created in the choice body are divulged only to their respective signatories and controllers and not to the observers of the contract on which the choice was exercised.
+- Only the controllers and signatories of the contract see all consequences of the action. If the choice archives the contract, other stakeholders merely see an archive action.
 - Can be thought as a non-consuming choice that implicitly archives the contract after the choice has been exercised
 
 Non-consuming choices
@@ -140,7 +138,7 @@ Non-consuming choices
 
 - ``nonconsuming`` keyword. Optional.
 - Makes a choice non-consuming: that is, exercising the choice does not archive the contract.
-- Contracts created in the choice body are known only to the signatories and controllers of the contracts and not made known to the observers of the contract on which the choice was exercised.
+- Only the controllers and signatories of the contract see all consequences of the action. If the choice archives the contract, other stakeholders merely see an archive action.
 - Useful in the many situations when you want to be able to exercise a choice more than once.
 
 .. _daml-ref-return-type:

@@ -90,26 +90,9 @@ Here's the structure of a choice inside a template. There are two ways of specif
 
     Who can exercise the choice.
 
-:ref:`consumability <daml-ref-consumability>`
-
-    At most one of the following:
-
-    - ``preconsuming`` keyword
-
-        Exercising this choice archives the contract before the body is executed.
-        Contracts created in the choice body are divulged exclusively to the respective signatories and controllers and not to the observers of the contract on which the choice was exercised.
-
-    - ``postconsuming`` keyword
-
-        Exercising this choice archives the contract after the body is executed. The contract can be used in the body of the exercise.
-        Contracts created in the choice body are divulged exclusively to the respective signatories and controllers and not to the observers of the contract on which the choice was exercised.
-
-    - ``nonconsuming`` keyword
-
-        Exercising this choice will not archive the contract.
-        Contracts created in the choice body are divulged exclusively to the respective signatories and controllers and not to the observers of the contract on which the choice was exercised.
-
-    If no qualifier is present the choice is *consuming*. The archival behavior is the same as with ``preconsuming`` (the contract is archived immediately and it's not available in the choice body) but contracts created in the choice body are divulged to the respective signatories and controllers as well as to the observers of the contract on which the choice was exercised.
+:ref:`consumption annotation <daml-ref-consumability>`
+    Optionally one of ``preconsuming``, ``postconsuming``, ``nonconsuming``, which changes the behavior of the choice with respect to privacy and if and when the contract is archived.
+    See :ref:`contract consumption in choices <daml-ref-consumability>` for more details.
 
 :ref:`a name <daml-ref-choice-name>`
     Must begin with a capital letter. Must be unique - choices in different templates can't have the same name.
