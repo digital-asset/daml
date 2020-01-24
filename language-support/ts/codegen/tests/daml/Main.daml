@@ -6,6 +6,7 @@ module Main where
 import DA.TextMap
 import Lib.Mod
 
+import T
 
 template AllTypes with
     unit: ()
@@ -90,3 +91,16 @@ data Quux =
     Corge { x: Int, y: Text }
   | Grault { z: Bool }
   deriving (Show, Eq)
+
+-- This template is interesting in that the 'T' it mentions is
+-- external to this module and only mentioned as a choice return
+-- type. Thus, for the resulting Main.ts to compile, we are testing
+-- that we have correctly generated import directives for this case.
+template U with
+    party: Party
+  where
+    signatory party
+    controller party can
+      C: ContractId T with
+        do
+          create T with party
