@@ -165,8 +165,8 @@ generateSrcFromLf env = noLoc mod
 
         , [ modRefsFromDefValue valueDef
           | valueDef <- NM.toList (LF.moduleValues (envMod env))
-          , (lfName, lfType) <- [LF.dvalBinder valueDef]
           , not (LF.getIsTest (LF.dvalIsTest valueDef))
+          , (lfName, lfType) <- [LF.dvalBinder valueDef]
           , not ("$" `T.isPrefixOf` LF.unExprValName lfName)
           , not (typeHasOldTypeclass env lfType) ]
         ]
