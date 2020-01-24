@@ -5,13 +5,16 @@ load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
     "da_scala_library",
-    "da_scala_test",
+    "da_scala_test_suite",
 )
 load("//ledger/ledger-api-test-tool:conformance.bzl", "conformance_test")
 
 supported_databases = [
     {
         "name": "h2-memory",
+        "runtime_deps": [
+            "@maven//:com_h2database_h2",
+        ],
         "conformance_test_tags": [
             "manual",
         ],
@@ -22,12 +25,12 @@ supported_databases = [
             "--concurrent-test-runs=2",
             "--timeout-scale-factor=4",
         ],
-        "runtime_deps": [
-            "@maven//:com_h2database_h2",
-        ],
     },
     {
         "name": "h2-file",
+        "runtime_deps": [
+            "@maven//:com_h2database_h2",
+        ],
         "conformance_test_tags": [
             "manual",
         ],
@@ -39,27 +42,31 @@ supported_databases = [
             "--concurrent-test-runs=2",
             "--timeout-scale-factor=4",
         ],
+    },
+    {
+        "name": "postgresql",
         "runtime_deps": [
-            "@maven//:com_h2database_h2",
+            "@maven//:org_postgresql_postgresql",
         ],
+        "conformance_test_server_main": "com.daml.ledger.on.sql.MainWithEphemeralPostgresql",
     },
     {
         "name": "sqlite-memory",
-        "conformance_test_server_args": [
-            "--jdbc-url=jdbc:sqlite::memory:",
-        ],
         "runtime_deps": [
             "@maven//:org_xerial_sqlite_jdbc",
+        ],
+        "conformance_test_server_args": [
+            "--jdbc-url=jdbc:sqlite::memory:",
         ],
     },
     {
         "name": "sqlite-file",
+        "runtime_deps": [
+            "@maven//:org_xerial_sqlite_jdbc",
+        ],
         "conformance_test_server_main": "com.daml.ledger.on.sql.MainWithEphemeralDirectory",
         "conformance_test_server_args": [
             "--jdbc-url=jdbc:sqlite:%DIR/test.sqlite",
-        ],
-        "runtime_deps": [
-            "@maven//:org_xerial_sqlite_jdbc",
         ],
     },
 ]
@@ -97,7 +104,27 @@ da_scala_library(
     ],
 )
 
-da_scala_test(
+da_scala_library(
+    name = "ledger-on-sql-test-lib",
+    srcs = glob(["src/test/lib/scala/**/*.scala"]),
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [
+        ":ledger-on-sql",
+        "//daml-lf/data",
+        "//ledger/ledger-api-health",
+        "//ledger/participant-state",
+        "//ledger/participant-state/kvutils",
+        "//ledger/participant-state/kvutils/app",
+        "//libs-scala/postgresql-testing",
+        "//libs-scala/resources",
+        "@maven//:com_github_scopt_scopt_2_12",
+        "@maven//:com_typesafe_akka_akka_stream_2_12",
+    ],
+)
+
+da_scala_test_suite(
     name = "ledger-on-sql-tests",
     size = "small",
     srcs = glob(["src/test/suite/**/*.scala"]),
@@ -107,6 +134,7 @@ da_scala_test(
     resources = glob(["src/test/resources/*"]),
     runtime_deps = [
         "@maven//:com_h2database_h2",
+        "@maven//:org_postgresql_postgresql",
         "@maven//:org_xerial_sqlite_jdbc",
     ],
     deps = [
@@ -120,6 +148,7 @@ da_scala_test(
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils:kvutils-tests-lib",
         "//libs-scala/contextualized-logging",
+        "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
@@ -132,20 +161,12 @@ da_scala_test(
     (
         da_scala_binary(
             name = "conformance-test-{}-bin".format(db["name"]),
-            srcs = glob(["src/test/lib/**/*.scala"]),
             main_class = db.get("conformance_test_server_main", "com.daml.ledger.on.sql.Main"),
             visibility = ["//visibility:public"],
             runtime_deps = db.get("runtime_deps", []),
             deps = [
                 ":ledger-on-sql",
-                "//daml-lf/data",
-                "//ledger/ledger-api-health",
-                "//ledger/participant-state",
-                "//ledger/participant-state/kvutils",
-                "//ledger/participant-state/kvutils/app",
-                "//libs-scala/resources",
-                "@maven//:com_github_scopt_scopt_2_12",
-                "@maven//:com_typesafe_akka_akka_stream_2_12",
+                ":ledger-on-sql-test-lib",
             ],
         ),
         conformance_test(
@@ -157,7 +178,6 @@ da_scala_test(
             test_tool_args = db.get("conformance_test_tool_args", []) + [
                 "--all-tests",
                 "--exclude=ConfigManagementServiceIT",
-                "--exclude=LotsOfPartiesIT",
                 "--exclude=TimeIT",
                 "--exclude=TransactionScaleIT",
             ],

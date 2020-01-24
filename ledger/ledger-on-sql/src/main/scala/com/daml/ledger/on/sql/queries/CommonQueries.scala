@@ -20,12 +20,6 @@ import com.google.protobuf.ByteString
 import scala.collection.immutable
 
 trait CommonQueries extends Queries {
-  override def createStateTable()(implicit connection: Connection): Unit = {
-    SQL"CREATE TABLE IF NOT EXISTS state (key VARBINARY(16384) PRIMARY KEY NOT NULL, value BLOB NOT NULL)"
-      .execute()
-    ()
-  }
-
   override def selectFromLog(
       start: Index,
       end: Index,
@@ -44,15 +38,6 @@ trait CommonQueries extends Queries {
             )
         }.*
       )
-
-  override def insertIntoLog(
-      entry: DamlLogEntryId,
-      envelope: ByteString,
-  )(implicit connection: Connection): Unit = {
-    SQL"INSERT INTO log (entry_id, envelope) VALUES (${entry.getEntryId.toByteArray}, ${envelope.toByteArray})"
-      .executeInsert()
-    ()
-  }
 
   override def selectStateByKeys(
       keys: Iterable[DamlStateKey],

@@ -102,7 +102,8 @@ class SqlLedgerReaderWriter(
           )
           verifyStateUpdatesAgainstPreDeclaredOutputs(stateUpdates, entryId, submission)
           queries.updateState(stateUpdates)
-          appendLog(entryId, Envelope.enclose(logEntry))
+          val latestSequenceNo = queries.insertIntoLog(entryId, Envelope.enclose(logEntry))
+          latestSequenceNo + 1
         }
         dispatcher.signalNewHead(newHead)
         SubmissionResult.Acknowledged
@@ -129,14 +130,6 @@ class SqlLedgerReaderWriter(
     DamlLogEntryId.newBuilder
       .setEntryId(ByteString.copyFromUtf8(UUID.randomUUID().toString))
       .build()
-
-  private def appendLog(
-      entry: DamlLogEntryId,
-      envelope: ByteString,
-  )(implicit connection: Connection): Index = {
-    queries.insertIntoLog(entry, envelope)
-    queries.lastLogInsertId() + 1
-  }
 
   private def readState(
       stateInputKeys: Set[DamlStateKey],

@@ -3,7 +3,7 @@
 
 package com.daml.ledger.on.sql
 
-import java.nio.file.{Files, Path}
+import java.sql.DriverManager
 import java.time.Clock
 
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase
@@ -14,31 +14,37 @@ import com.digitalasset.daml.lf.data.Ref.LedgerString
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.logging.LoggingContext.newLoggingContext
 import com.digitalasset.resources.ResourceOwner
+import com.digitalasset.testing.postgresql.PostgresAroundAll
 
 import scala.concurrent.ExecutionContext
 
-class SqliteFileSqlLedgerReaderWriterIntegrationSpec
-    extends ParticipantStateIntegrationSpecBase("SQL implementation using SQLite with a file") {
+class PostgresqlSqlLedgerReaderWriterIntegrationSpec
+    extends ParticipantStateIntegrationSpecBase("SQL implementation using PostgreSQL")
+    with PostgresAroundAll {
   private implicit val ec: ExecutionContext = ExecutionContext.global
 
   override val startIndex: Long = SqlLedgerReaderWriter.StartIndex
-
-  private var directory: Path = _
-
-  override def beforeEach(): Unit = {
-    directory = Files.createTempDirectory(getClass.getSimpleName)
-    super.beforeEach()
-  }
 
   override def participantStateFactory(
       participantId: ParticipantId,
       ledgerId: LedgerString,
   ): ResourceOwner[ParticipantState] = {
-    val jdbcUrl = s"jdbc:sqlite:$directory/test.sqlite"
     newLoggingContext { implicit logCtx =>
       SqlLedgerReaderWriter
-        .owner(ledgerId, participantId, jdbcUrl)
+        .owner(ledgerId, participantId, postgresFixture.jdbcUrl)
         .map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter))
+    }
+  }
+
+  override protected def beforeEach(): Unit = {
+    super.beforeEach()
+    val connection = DriverManager.getConnection(postgresFixture.jdbcUrl)
+    try {
+      connection.prepareStatement("TRUNCATE log RESTART IDENTITY").execute()
+      connection.prepareStatement("TRUNCATE state RESTART IDENTITY").execute()
+      ()
+    } finally {
+      connection.close()
     }
   }
 
