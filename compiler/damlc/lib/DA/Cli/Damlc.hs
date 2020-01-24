@@ -812,17 +812,16 @@ execGenerateSrc opts dalfOrDar mbOutDir = Command GenerateSrc Nothing effect
             stableDalfPkgMap <- useNoFile_ GenerateStablePackages
             pure (dalfPkgMap, stableDalfPkgMap)
 
-        let allDalfPkgs = MS.toList dalfPkgMap ++
+        let allDalfPkgs =
                 [ (unitId, dalfPkg)
                 | ((unitId, _modName), dalfPkg) <- MS.toList stableDalfPkgMap ]
-            pkgMap = MS.fromList
-                $ (unitId, pkg)
-                : [ (unitId, LF.extPackagePkg (LF.dalfPackagePkg dalfPkg))
-                  | (unitId, dalfPkg) <- allDalfPkgs ]
-            unitIdMap = MS.fromList
-                $ (pkgId, unitId)
-                : [ (LF.dalfPackageId dalfPkg, unitId)
-                  | (unitId, dalfPkg) <- allDalfPkgs ]
+                ++ MS.toList dalfPkgMap
+            pkgMap = MS.insert unitId pkg $ MS.fromList
+                [ (unitId, LF.extPackagePkg (LF.dalfPackagePkg dalfPkg))
+                | (unitId, dalfPkg) <- allDalfPkgs ]
+            unitIdMap = MS.insert pkgId unitId $ MS.fromList
+                [ (LF.dalfPackageId dalfPkg, unitId)
+                | (unitId, dalfPkg) <- allDalfPkgs ]
             stablePkgIds = MS.fromList
                 [ (LF.dalfPackageId dalfPkg, k)
                 | (k, dalfPkg) <- MS.toList stableDalfPkgMap ]
