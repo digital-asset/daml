@@ -443,7 +443,7 @@ abstract class AbstractHttpServiceIntegrationTest
       create: domain.CreateCommand[v.Record],
       exercise: domain.ExerciseCommand[v.Value, _]): Assertion = {
 
-    val expectedContractFields: Seq[v.RecordField] = create.argument.fields
+    val expectedContractFields: Seq[v.RecordField] = create.payload.fields
     val expectedNewOwner: v.Value = exercise.argument.sum.record
       .flatMap(_.fields.headOption)
       .flatMap(_.value)
@@ -471,9 +471,9 @@ abstract class AbstractHttpServiceIntegrationTest
 
     inside(SprayJson.decode[domain.ActiveContract[JsValue]](jsVal)) {
       case \/-(activeContract) =>
-        val expectedArgument: JsValue =
-          encoder.encodeUnderlyingRecord(command).map(_.argument).getOrElse(fail)
-        (activeContract.payload: JsValue) shouldBe expectedArgument
+        val expectedPayload: JsValue =
+          encoder.encodeUnderlyingRecord(command).map(_.payload).getOrElse(fail)
+        (activeContract.payload: JsValue) shouldBe expectedPayload
     }
   }
 
@@ -634,7 +634,7 @@ abstract class AbstractHttpServiceIntegrationTest
     (uri, _, _) =>
       val createCommand = jsObject("""{
         "templateId": "Account:KeyedByVariantAndRecord",
-        "argument": {
+        "payload": {
           "name": "ABC DEF",
           "party": "Alice",
           "age": 123,

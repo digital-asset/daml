@@ -296,7 +296,7 @@ HTTP Request
 
     {
       "templateId": "Iou:Iou",
-      "argument": {
+      "payload": {
         "issuer": "Alice",
         "owner": "Alice",
         "currency": "USD",
@@ -312,7 +312,7 @@ Where:
   + ``"<package ID>:<module>:<entity>"`` or
   + ``"<module>:<entity>"`` if contract template can be uniquely identified by it's module and entity name.
 
-- ``argument`` field contains contract fields as defined in the DAML template and formatted according to :doc:`lf-value-specification`.
+- ``payload`` field contains contract fields as defined in the DAML template and formatted according to :doc:`lf-value-specification`.
 
 .. _create-response:
 
@@ -360,7 +360,7 @@ When creating a new contract, client may specify an optional ``meta`` field:
 
     {
       "templateId": "Iou:Iou",
-      "argument": {
+      "payload": {
         "observers": [],
         "issuer": "Alice",
         "amount": "999.99",
