@@ -4,39 +4,47 @@
 package com.digitalasset.platform.sandbox.stores.ledger.sql.migration
 
 import java.math.BigInteger
+import java.nio.charset.Charset
 import java.security.MessageDigest
 
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.DbType
 import com.digitalasset.platform.sandbox.stores.ledger.sql.migration.FlywayMigrations.configurationBase
+import com.digitalasset.platform.sandbox.stores.ledger.sql.migration.FlywayMigrationsSpec._
+import org.apache.commons.io.IOUtils
+import org.flywaydb.core.api.configuration.FluentConfiguration
+import org.flywaydb.core.api.migration.JavaMigration
 import org.flywaydb.core.internal.resource.LoadableResource
-import org.flywaydb.core.internal.scanner.Scanner
-import org.scalatest.{Matchers, WordSpec}
+import org.flywaydb.core.internal.scanner.{ResourceNameCache, Scanner}
+import org.scalatest.Matchers._
+import org.scalatest.WordSpec
 
 import scala.collection.JavaConverters._
 
 // SQL MIGRATION AND THEIR DIGEST FILES SHOULD BE CREATED ONLY ONCE AND NEVER CHANGED AGAIN,
 // OTHERWISE MIGRATIONS BREAK ON EXISTING DEPLOYMENTS!
-@SuppressWarnings(Array("org.wartremover.warts.Any", "org.wartremover.warts.StringPlusAny"))
-class FlywayMigrationsSpec extends WordSpec with Matchers {
-
-  private val digester = MessageDigest.getInstance("SHA-256")
-  private def scannerOfDbType(dbType: DbType) = {
-    val config = configurationBase(dbType)
-    new Scanner(config.getLocations.toList.asJava, getClass.getClassLoader, config.getEncoding)
-  }
+class FlywayMigrationsSpec extends WordSpec {
 
   "Postgres flyway migration files" should {
-    "always have a valid SHA-256 digest file accompanied" in assertFlywayMigrationFileHashes(
-      DbType.Postgres)
+    "always have a valid SHA-256 digest file accompanied" in {
+      assertFlywayMigrationFileHashes(DbType.Postgres)
+    }
   }
 
   "H2 database flyway migration files" should {
-    "always have a valid SHA-256 digest file accompanied" in assertFlywayMigrationFileHashes(
-      DbType.H2Database)
+    "always have a valid SHA-256 digest file accompanied" in {
+      assertFlywayMigrationFileHashes(DbType.H2Database)
+    }
   }
 
+}
+
+object FlywayMigrationsSpec {
+
+  private val digester = MessageDigest.getInstance("SHA-256")
+
   private def assertFlywayMigrationFileHashes(dbType: DbType): Unit = {
-    val resourceScanner = scannerOfDbType(dbType)
+    val config = configurationBase(dbType)
+    val resourceScanner = scanner(config)
     val resources = resourceScanner.getResources("", ".sql").asScala.toSeq
     resources.size should be > 10
 
@@ -44,7 +52,7 @@ class FlywayMigrationsSpec extends WordSpec with Matchers {
       val fileName = res.getFilename
       val expectedDigest =
         getExpectedDigest(fileName, fileName.dropRight(4) + ".sha256", resourceScanner)
-      val currentDigest = getCurrentDigest(res)
+      val currentDigest = getCurrentDigest(res, config.getEncoding)
 
       assert(
         currentDigest == expectedDigest,
@@ -53,15 +61,27 @@ class FlywayMigrationsSpec extends WordSpec with Matchers {
     }
   }
 
-  private def getExpectedDigest(sourceFile: String, digestFile: String, resourceScanner: Scanner) =
-    new String(Option(resourceScanner.getResource(digestFile))
+  private def scanner(config: FluentConfiguration) =
+    new Scanner(
+      classOf[JavaMigration],
+      config.getLocations.toList.asJava,
+      getClass.getClassLoader,
+      config.getEncoding,
+      new ResourceNameCache,
+    )
+
+  private def getExpectedDigest(
+      sourceFile: String,
+      digestFile: String,
+      resourceScanner: Scanner[_],
+  ) =
+    IOUtils.toString(Option(resourceScanner.getResource(digestFile))
       .getOrElse(sys.error(
         s"Missing sha-256 file $digestFile! Are you introducing a new Flyway migration step? You need to create a sha-256 digest file by running this under the db/migration folder: shasum -a 256 $sourceFile | awk '{print $$1}' > $digestFile"))
-      .loadAsBytes())
+      .read())
 
-  private def getCurrentDigest(res: LoadableResource) = {
-    val digest = digester.digest(res.loadAsBytes())
-    val bi = new BigInteger(1, digest)
-    (String.format("%0" + (digest.length << 1) + "X", bi) + "\n").toLowerCase
+  private def getCurrentDigest(res: LoadableResource, encoding: Charset) = {
+    val digest = digester.digest(IOUtils.toByteArray(res.read(), encoding))
+    String.format(s"%0${digest.length * 2}x\n", new BigInteger(1, digest))
   }
 }
