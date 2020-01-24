@@ -45,7 +45,7 @@ object Database {
     def owner(jdbcUrl: String, queries: Queries): ResourceOwner[Database] =
       for {
         readerConnectionPool <- ResourceOwner.forCloseable(() =>
-          newHikariDataSource(jdbcUrl, maximumPoolSize = None))
+          newHikariDataSource(jdbcUrl, readOnly = true))
         writerConnectionPool <- ResourceOwner.forCloseable(() =>
           newHikariDataSource(jdbcUrl, maximumPoolSize = Some(MaximumWriterConnectionPoolSize)))
       } yield new Database(queries, readerConnectionPool, writerConnectionPool)
@@ -61,11 +61,13 @@ object Database {
 
   private def newHikariDataSource(
       jdbcUrl: String,
-      maximumPoolSize: Option[Int],
+      maximumPoolSize: Option[Int] = None,
+      readOnly: Boolean = false,
   ): HikariDataSource = {
     val pool = new HikariDataSource()
     pool.setAutoCommit(false)
     pool.setJdbcUrl(jdbcUrl)
+    pool.setReadOnly(readOnly)
     maximumPoolSize.foreach { maximumPoolSize =>
       pool.setMaximumPoolSize(maximumPoolSize)
     }
