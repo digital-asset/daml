@@ -92,7 +92,7 @@ generateSrcFromLf env = noLoc mod
             lname = mkRdrName (LF.unExprValName lfName) :: Located RdrName
             sig = TypeSig noExt [lname] (HsWC noExt $ HsIB noExt ltype)
             lsigD = noLoc $ SigD noExt sig :: LHsDecl GhcPs
-            lexpr = mkError ("Called stub definition for " <> LF.unExprValName lfName)
+            lexpr = noLoc $ HsVar noExt lname :: LHsExpr GhcPs
             lgrhs = noLoc $ GRHS noExt [] lexpr :: LGRHS GhcPs (LHsExpr GhcPs)
             grhss = GRHSs noExt [lgrhs] (noLoc $ EmptyLocalBinds noExt)
             matchContext = FunRhs lname Prefix NoSrcStrict
@@ -342,15 +342,6 @@ mkUserTyVar =
 
 mkRdrName :: T.Text -> Located RdrName
 mkRdrName = noLoc . mkRdrUnqual . mkOccName varName . T.unpack
-
-mkError :: T.Text -> LHsExpr GhcPs
-mkError msg = noLoc $ HsApp noExt
-    (noLoc $ HsVar noExt (mkRdrName "error"))
-    (mkStringLit msg)
-
-mkStringLit :: T.Text -> LHsExpr GhcPs
-mkStringLit = noLoc . HsLit noExt
-    . HsString NoSourceText . mkFastString . T.unpack
 
 damlStdlibUnitId :: UnitId
 damlStdlibUnitId = stringToUnitId damlStdlib
