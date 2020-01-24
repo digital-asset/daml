@@ -3,7 +3,7 @@
 
 package com.daml.ledger.api.server.damlonx.reference.v2
 
-import com.digitalasset.platform.sandbox.persistence.PostgresAround
+import com.digitalasset.testing.postgresql.PostgresAround
 
 object EphemeralPostgresReferenceServerMain extends App with PostgresAround {
   startEphemeralPostgres()

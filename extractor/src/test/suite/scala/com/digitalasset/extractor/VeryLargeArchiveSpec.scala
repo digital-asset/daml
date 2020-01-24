@@ -3,16 +3,17 @@
 
 package com.digitalasset.extractor
 
+import java.io.File
+
 import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.extractor.services.ExtractorFixture
 import com.digitalasset.ledger.api.testing.utils.SuiteResourceManagementAroundAll
-import com.digitalasset.platform.sandbox.persistence.PostgresAroundEach
+import com.digitalasset.testing.postgresql.PostgresAroundEach
+import io.grpc.StatusRuntimeException
+import org.scalatest._
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
-import io.grpc.StatusRuntimeException
-import org.scalatest._
-import java.io.File
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class VeryLargeArchiveSpec

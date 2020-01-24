@@ -108,7 +108,7 @@ da_scala_binary(
     visibility = ["//visibility:public"],
     deps = [
         ":reference-v2",
-        "//ledger/sandbox:sandbox-scala-tests-lib",
+        "//libs-scala/postgresql-testing",
     ],
 )
 

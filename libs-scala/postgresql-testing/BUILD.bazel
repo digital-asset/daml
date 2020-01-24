@@ -1,0 +1,23 @@
+# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
+)
+
+da_scala_library(
+    name = "postgresql-testing",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    tags = ["maven_coordinates=com.digitalasset:postgresql-testing:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//ledger-api/testing-utils",
+        "@maven//:commons_io_commons_io",
+        "@maven//:org_scalactic_scalactic_2_12",
+        "@maven//:org_scalatest_scalatest_2_12",
+    ],
+)

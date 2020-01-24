@@ -8,7 +8,7 @@ import java.io.File
 import com.digitalasset.daml.bazeltools.BazelRunfiles.rlocation
 import com.digitalasset.extractor.services.{CustomMatchers, ExtractorFixtureAroundAll}
 import com.digitalasset.ledger.api.testing.utils.SuiteResourceManagementAroundAll
-import com.digitalasset.platform.sandbox.persistence.PostgresAroundAll
+import com.digitalasset.testing.postgresql.PostgresAroundAll
 import io.circe.parser._
 import org.scalatest.{FlatSpec, Inside, Matchers, Suite}
 import scalaz.Scalaz._
