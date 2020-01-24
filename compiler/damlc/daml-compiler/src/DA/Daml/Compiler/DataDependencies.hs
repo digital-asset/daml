@@ -10,6 +10,7 @@ module DA.Daml.Compiler.DataDependencies
 import Control.Lens (toListOf)
 import Control.Lens.MonoTraversal (monoTraverse)
 import Control.Monad
+import Data.Char (isAlpha)
 import Data.List.Extra
 import qualified Data.Map.Strict as MS
 import Data.Maybe
@@ -69,8 +70,8 @@ generateSrcFromLf env = noLoc mod
     decls = dataTypeDecls ++ valueDecls
 
     dataTypeDecls = do
-        LF.DefDataType {..} <- NM.toList $ LF.moduleDataTypes $ envMod env
-        --guard $ LF.getIsSerializable dataSerializable
+        dtype@LF.DefDataType {..} <- NM.toList $ LF.moduleDataTypes $ envMod env
+        guard $ shouldExposeDefDataType dtype
         let numberOfNameComponents = length (LF.unTypeConName dataTypeCon)
         -- we should never encounter more than two name components in dalfs.
         unless (numberOfNameComponents <= 2) $
@@ -83,16 +84,14 @@ generateSrcFromLf env = noLoc mod
         pure $ mkDataDecl env thisModule occName dataParams (convDataCons dataTypeCon0 dataCons)
 
     valueDecls = do
-        LF.DefValue {..} <- NM.toList $ LF.moduleValues $ envMod env
+        dval@LF.DefValue {..} <- NM.toList $ LF.moduleValues $ envMod env
+        guard $ shouldExposeDefValue dval
         let (lfName, lfType) = dvalBinder
-        guard . not $ LF.getIsTest dvalIsTest
-            || ("$" `T.isPrefixOf` LF.unExprValName lfName)
-            || typeHasOldTypeclass env lfType
-        let ltype = noLoc $ convType env lfType :: LHsType GhcPs
+            ltype = noLoc $ convType env lfType :: LHsType GhcPs
             lname = mkRdrName (LF.unExprValName lfName) :: Located RdrName
             sig = TypeSig noExt [lname] (HsWC noExt $ HsIB noExt ltype)
             lsigD = noLoc $ SigD noExt sig :: LHsDecl GhcPs
-            lexpr = noLoc $ HsVar noExt lname :: LHsExpr GhcPs
+            lexpr = noLoc $ HsPar noExt $ noLoc $ HsVar noExt lname :: LHsExpr GhcPs
             lgrhs = noLoc $ GRHS noExt [] lexpr :: LGRHS GhcPs (LHsExpr GhcPs)
             grhss = GRHSs noExt [lgrhs] (noLoc $ EmptyLocalBinds noExt)
             matchContext = FunRhs lname Prefix NoSrcStrict
@@ -101,6 +100,24 @@ generateSrcFromLf env = noLoc mod
             bind = FunBind noExt lname (MG noExt lalts Generated) WpHole []
             lvalD = noLoc $ ValD noExt bind :: LHsDecl GhcPs
         [ lsigD, lvalD ]
+
+    shouldExposeDefDataType :: LF.DefDataType -> Bool
+    shouldExposeDefDataType LF.DefDataType{..}
+        = LF.getIsSerializable dataSerializable
+        || not (LF.moduleNameString lfModName == "GHC.Prim")
+
+    shouldExposeDefValue :: LF.DefValue -> Bool
+    shouldExposeDefValue LF.DefValue{..}
+        | (lfName, lfType) <- dvalBinder
+        , lfNameText <- LF.unExprValName lfName
+        = not (LF.getIsTest dvalIsTest)
+        && not (T.null lfNameText)
+        && isAlpha (T.head lfNameText)
+            -- ^ Filtering out any generated stuff like `$w`,
+            -- and any infix operators as well. This is a
+            -- bit broad but it's ok for now.
+        && not (typeHasOldTypeclass env lfType)
+        && not (LF.moduleNameString lfModName == "GHC.Prim")
 
     convDataCons :: T.Text -> LF.DataCons -> [LConDecl GhcPs]
     convDataCons dataTypeCon0 = \case
@@ -161,14 +178,11 @@ generateSrcFromLf env = noLoc mod
     modRefs :: [(Bool, GHC.UnitId, LF.ModuleName)]
     modRefs = nubSort . concat . concat $
         [ [ modRefsFromDefDataType typeDef
-          | typeDef <- NM.toList (LF.moduleDataTypes (envMod env)) ]
-
+          | typeDef <- NM.toList (LF.moduleDataTypes (envMod env))
+          , shouldExposeDefDataType typeDef ]
         , [ modRefsFromDefValue valueDef
           | valueDef <- NM.toList (LF.moduleValues (envMod env))
-          , not (LF.getIsTest (LF.dvalIsTest valueDef))
-          , (lfName, lfType) <- [LF.dvalBinder valueDef]
-          , not ("$" `T.isPrefixOf` LF.unExprValName lfName)
-          , not (typeHasOldTypeclass env lfType) ]
+          , shouldExposeDefValue valueDef ]
         ]
 
     modRefsFromDefDataType :: LF.DefDataType -> [(Bool, GHC.UnitId, LF.ModuleName)]
