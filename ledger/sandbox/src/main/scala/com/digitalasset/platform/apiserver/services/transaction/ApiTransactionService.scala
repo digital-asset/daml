@@ -63,7 +63,8 @@ final class ApiTransactionService private (
     withEnrichedLoggingContext(
       logging.begin(request.begin),
       logging.end(request.end),
-      logging.parties(request.filter.filtersByParty.keys)) { implicit logCtx =>
+      logging.parties(request.filter.filtersByParty.keys),
+    ) { implicit logCtx =>
       val subscriptionId = subscriptionIdCounter.incrementAndGet().toString
       logger.debug(s"Received request for transaction subscription $subscriptionId: $request")
       transactionsService
@@ -76,7 +77,8 @@ final class ApiTransactionService private (
     withEnrichedLoggingContext(
       logging.begin(request.begin),
       logging.end(request.end),
-      logging.parties(request.parties)) { implicit logCtx =>
+      logging.parties(request.parties),
+    ) { implicit logCtx =>
       logger.debug(s"Received $request")
       transactionsService
         .transactionTrees(
@@ -91,7 +93,8 @@ final class ApiTransactionService private (
       request: GetTransactionByEventIdRequest): Future[TransactionTree] =
     withEnrichedLoggingContext(
       logging.eventId(request.eventId),
-      logging.parties(request.requestingParties)) { implicit logCtx =>
+      logging.parties(request.requestingParties),
+    ) { implicit logCtx =>
       logger.debug(s"Received $request")
       EventIdFormatter
         .split(request.eventId.unwrap)
@@ -108,7 +111,8 @@ final class ApiTransactionService private (
   override def getTransactionById(request: GetTransactionByIdRequest): Future[TransactionTree] =
     withEnrichedLoggingContext(
       logging.transactionId(request.transactionId),
-      logging.parties(request.requestingParties)) { implicit logCtx =>
+      logging.parties(request.requestingParties),
+    ) { implicit logCtx =>
       logger.debug(s"Received $request")
       lookUpTreeByTransactionId(request.transactionId, request.requestingParties)
         .andThen(logger.logErrorsOnCall[TransactionTree])
@@ -118,7 +122,8 @@ final class ApiTransactionService private (
       request: GetTransactionByEventIdRequest): Future[Transaction] =
     withEnrichedLoggingContext(
       logging.eventId(request.eventId),
-      logging.parties(request.requestingParties)) { implicit logCtx =>
+      logging.parties(request.requestingParties),
+    ) { implicit logCtx =>
       EventIdFormatter
         .split(request.eventId.unwrap)
         .fold(
