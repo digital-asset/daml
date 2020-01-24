@@ -8,6 +8,8 @@ import java.sql.Connection
 import anorm.SqlParser._
 import anorm._
 import com.daml.ledger.on.sql.queries.Queries.Index
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntryId
+import com.google.protobuf.ByteString
 
 class PostgresqlQueries extends Queries with CommonQueries {
   override def createLogTable()(implicit connection: Connection): Unit = {
@@ -22,9 +24,12 @@ class PostgresqlQueries extends Queries with CommonQueries {
     ()
   }
 
-  override def lastLogInsertId()(implicit connection: Connection): Index = {
-    SQL"SELECT last_value FROM log_sequence_no_seq"
-      .as(long("last_value").single)
+  override def insertIntoLog(
+      entry: DamlLogEntryId,
+      envelope: ByteString,
+  )(implicit connection: Connection): Index = {
+    SQL"INSERT INTO log (entry_id, envelope) VALUES (${entry.getEntryId.toByteArray}, ${envelope.toByteArray}) RETURNING sequence_no"
+      .as(long("sequence_no").single)
   }
 
   override protected val updateStateQuery: String =

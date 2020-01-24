@@ -39,15 +39,6 @@ trait CommonQueries extends Queries {
         }.*
       )
 
-  override def insertIntoLog(
-      entry: DamlLogEntryId,
-      envelope: ByteString,
-  )(implicit connection: Connection): Unit = {
-    SQL"INSERT INTO log (entry_id, envelope) VALUES (${entry.getEntryId.toByteArray}, ${envelope.toByteArray})"
-      .executeInsert()
-    ()
-  }
-
   override def selectStateByKeys(
       keys: Iterable[DamlStateKey],
   )(implicit connection: Connection): immutable.Seq[(DamlStateKey, Option[DamlStateValue])] =
