@@ -106,9 +106,8 @@ generateSrcFromLf env = noLoc mod
     shouldExposeDefValue :: LF.DefValue -> Bool
     shouldExposeDefValue LF.DefValue{..}
         | (lfName, lfType) <- dvalBinder
-        , lfNameText <- LF.unExprValName lfName
         = not (LF.getIsTest dvalIsTest)
-        && not ("$" `T.isPrefixOf` lfNameText)
+        && not ("$" `T.isPrefixOf` LF.unExprValName lfName)
         && not (typeHasOldTypeclass env lfType)
         && (LF.moduleNameString lfModName /= "GHC.Prim")
 
@@ -185,6 +184,10 @@ generateSrcFromLf env = noLoc mod
         , [ (True, pkg, modRef)
           | b <- toListOf (dataConsType . builtinType) (LF.dataCons typeDef)
           , (pkg, modRef) <- [builtinToModuleRef b] ]
+        , [ (True, primUnitId, sdkGhcTypes)
+          | LF.DataEnum [_] <- [LF.dataCons typeDef]
+          ] -- ^ single constructor enums spawn a reference to
+            -- CurrentSdk.GHC.Types.DamlEnum in the daml-preprocessor.
         ]
 
     modRefsFromDefValue :: LF.DefValue -> [(Bool, GHC.UnitId, LF.ModuleName)]
