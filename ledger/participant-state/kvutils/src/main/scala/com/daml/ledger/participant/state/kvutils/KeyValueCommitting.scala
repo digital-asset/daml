@@ -85,61 +85,16 @@ object KeyValueCommitting {
     Metrics.lastParticipantIdGauge.updateValue(participantId)
     val ctx = Metrics.runTimer.time()
     try {
-      val (logEntry, outputState) = submission.getPayloadCase match {
-        case DamlSubmission.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
-          val (logEntry, outputs) = PackageCommitter(engine).run(
-            entryId,
-            //TODO replace this call with an explicit maxRecordTime from the request once available
-            estimateMaximumRecordTime(recordTime),
-            recordTime,
-            submission.getPackageUploadEntry,
-            participantId,
-            inputState
-          )
-          logEntry -> outputs.toMap
-
-        case DamlSubmission.PayloadCase.PARTY_ALLOCATION_ENTRY =>
-          val (logEntry, outputs) = PartyAllocationCommitter.run(
-            entryId,
-            //TODO replace this call with an explicit maxRecordTime from the request once available
-            estimateMaximumRecordTime(recordTime),
-            recordTime,
-            submission.getPartyAllocationEntry,
-            participantId,
-            inputState
-          )
-          logEntry -> outputs.toMap
-
-        case DamlSubmission.PayloadCase.CONFIGURATION_SUBMISSION =>
-          val (logEntry, outputs) =
-            ConfigCommitter(defaultConfig).run(
-              entryId,
-              parseTimestamp(submission.getConfigurationSubmission.getMaximumRecordTime),
-              recordTime,
-              submission.getConfigurationSubmission,
-              participantId,
-              inputState
-            )
-          logEntry -> outputs.toMap
-
-        case DamlSubmission.PayloadCase.TRANSACTION_ENTRY =>
-          ProcessTransactionSubmission(
-            engine,
-            entryId,
-            recordTime,
-            defaultConfig,
-            participantId,
-            submission.getTransactionEntry,
-            inputState
-          ).run
-
-        case DamlSubmission.PayloadCase.PAYLOAD_NOT_SET =>
-          throw Err.InvalidSubmission("DamlSubmission payload not set")
-      }
-
+      val (logEntry, outputState) = processPayload(
+        engine,
+        entryId,
+        recordTime,
+        defaultConfig,
+        submission,
+        participantId,
+        inputState)
       // Dump ledger entry to disk if ledger dumping is enabled.
       Debug.dumpLedgerEntry(submission, participantId, entryId, logEntry, outputState)
-
       (logEntry, outputState)
     } catch {
       case scala.util.control.NonFatal(e) =>
@@ -153,6 +108,67 @@ object KeyValueCommitting {
       Metrics.processing.dec()
     }
   }
+
+  private def processPayload(
+      engine: Engine,
+      entryId: DamlLogEntryId,
+      recordTime: Timestamp,
+      defaultConfig: Configuration,
+      submission: DamlSubmission,
+      participantId: ParticipantId,
+      inputState: Map[DamlStateKey, Option[DamlStateValue]])
+    : (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) =
+    submission.getPayloadCase match {
+      case DamlSubmission.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
+        val (logEntry, outputs) = PackageCommitter(engine).run(
+          entryId,
+          //TODO replace this call with an explicit maxRecordTime from the request once available
+          estimateMaximumRecordTime(recordTime),
+          recordTime,
+          submission.getPackageUploadEntry,
+          participantId,
+          inputState
+        )
+        logEntry -> outputs.toMap
+
+      case DamlSubmission.PayloadCase.PARTY_ALLOCATION_ENTRY =>
+        val (logEntry, outputs) = PartyAllocationCommitter.run(
+          entryId,
+          //TODO replace this call with an explicit maxRecordTime from the request once available
+          estimateMaximumRecordTime(recordTime),
+          recordTime,
+          submission.getPartyAllocationEntry,
+          participantId,
+          inputState
+        )
+        logEntry -> outputs.toMap
+
+      case DamlSubmission.PayloadCase.CONFIGURATION_SUBMISSION =>
+        val (logEntry, outputs) =
+          ConfigCommitter(defaultConfig).run(
+            entryId,
+            parseTimestamp(submission.getConfigurationSubmission.getMaximumRecordTime),
+            recordTime,
+            submission.getConfigurationSubmission,
+            participantId,
+            inputState
+          )
+        logEntry -> outputs.toMap
+
+      case DamlSubmission.PayloadCase.TRANSACTION_ENTRY =>
+        ProcessTransactionSubmission(
+          engine,
+          entryId,
+          recordTime,
+          defaultConfig,
+          participantId,
+          submission.getTransactionEntry,
+          inputState
+        ).run
+
+      case DamlSubmission.PayloadCase.PAYLOAD_NOT_SET =>
+        throw Err.InvalidSubmission("DamlSubmission payload not set")
+    }
 
   /** Compute the submission outputs, that is the DAML State Keys created or updated by
     * the processing of the submission.
