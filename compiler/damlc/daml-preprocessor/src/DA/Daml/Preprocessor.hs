@@ -70,11 +70,11 @@ damlPreprocessor mbPkgName x
 -- | Preprocessor for generated code.
 generatedPreprocessor :: GHC.ParsedSource -> IdePreprocessedSource
 generatedPreprocessor x =
-        IdePreprocessedSource
-          { preprocWarnings = []
-          , preprocErrors = []
-          , preprocSource = enumTypePreprocessor "CurrentSdk.GHC.Types" x
-          }
+    IdePreprocessedSource
+      { preprocWarnings = []
+      , preprocErrors = []
+      , preprocSource = enumTypePreprocessor "CurrentSdk.GHC.Types" x
+      }
 
 -- | No preprocessing.
 noPreprocessor :: GHC.ParsedSource -> IdePreprocessedSource
