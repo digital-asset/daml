@@ -10,13 +10,11 @@ import com.digitalasset.resources.ResourceOwner
 import com.zaxxer.hikari.HikariDataSource
 import javax.sql.DataSource
 
-sealed trait Database {
-  val queries: Queries
-
-  val readerConnectionPool: DataSource
-
-  val writerConnectionPool: DataSource
-}
+case class Database(
+    queries: Queries,
+    readerConnectionPool: DataSource,
+    writerConnectionPool: DataSource,
+)
 
 object Database {
   private val logger = ContextualizedLogger.get(classOf[Database])
@@ -31,45 +29,32 @@ object Database {
 
   def owner(jdbcUrl: String)(implicit logCtx: LoggingContext): ResourceOwner[Database] =
     (jdbcUrl match {
-      case url if url.startsWith("jdbc:h2:") => MultipleReaderSingleWriterDatabase.owner(jdbcUrl)
-      case url if url.startsWith("jdbc:sqlite:") => SingleConnectionDatabase.owner(jdbcUrl)
+      case url if url.startsWith("jdbc:h2:") =>
+        MultipleReaderSingleWriterDatabase.owner(jdbcUrl, new H2Queries)
+      case url if url.startsWith("jdbc:sqlite:") =>
+        SingleConnectionDatabase.owner(jdbcUrl, new SqliteQueries)
       case _ => throw new InvalidDatabaseException(jdbcUrl)
     }).map { database =>
       logger.info(s"Connected to the ledger over JDBC: $jdbcUrl")
       database
     }
 
-  final class MultipleReaderSingleWriterDatabase(
-      override val readerConnectionPool: DataSource,
-      override val writerConnectionPool: DataSource,
-  ) extends Database {
-    override val queries: Queries = new H2Queries
-  }
-
   object MultipleReaderSingleWriterDatabase {
-    def owner(jdbcUrl: String): ResourceOwner[MultipleReaderSingleWriterDatabase] =
+    def owner(jdbcUrl: String, queries: Queries): ResourceOwner[Database] =
       for {
         readerConnectionPool <- ResourceOwner.forCloseable(() =>
           newHikariDataSource(jdbcUrl, maximumPoolSize = None))
         writerConnectionPool <- ResourceOwner.forCloseable(() =>
           newHikariDataSource(jdbcUrl, maximumPoolSize = Some(MaximumWriterConnectionPoolSize)))
-      } yield new MultipleReaderSingleWriterDatabase(readerConnectionPool, writerConnectionPool)
-  }
-
-  final class SingleConnectionDatabase(connectionPool: DataSource) extends Database {
-    override val queries: Queries = new SqliteQueries
-
-    override val readerConnectionPool: DataSource = connectionPool
-
-    override val writerConnectionPool: DataSource = connectionPool
+      } yield new Database(queries, readerConnectionPool, writerConnectionPool)
   }
 
   object SingleConnectionDatabase {
-    def owner(jdbcUrl: String): ResourceOwner[SingleConnectionDatabase] =
+    def owner(jdbcUrl: String, queries: Queries): ResourceOwner[Database] =
       for {
         connectionPool <- ResourceOwner.forCloseable(() =>
           newHikariDataSource(jdbcUrl, maximumPoolSize = Some(MaximumWriterConnectionPoolSize)))
-      } yield new SingleConnectionDatabase(connectionPool)
+      } yield new Database(queries, connectionPool, connectionPool)
   }
 
   private def newHikariDataSource(
