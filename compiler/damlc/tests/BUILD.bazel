@@ -102,6 +102,7 @@ da_haskell_test(
     data = ["//compiler/damlc/pkg-db"],
     hackage_deps = [
         "base",
+        "data-default",
         "extra",
         "ghcide",
         "haskell-lsp-types",

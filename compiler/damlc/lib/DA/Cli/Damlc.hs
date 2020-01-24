@@ -399,7 +399,7 @@ execIde telemetry (Debug debug) enableScenarioService ghcOpts mbProfileDir (from
                   sdkVersion <- getSdkVersion `catchIO` const (pure "Unknown (not started via the assistant)")
                   Logger.logInfo loggerH (T.pack $ "SDK version: " <> sdkVersion)
                   runLanguageServer loggerH $ \getLspId sendMsg vfs caps ->
-                      getDamlIdeState opts mbScenarioService loggerH getLspId sendMsg vfs (clientSupportsProgress caps)
+                      getDamlIdeState opts mbScenarioService loggerH caps getLspId sendMsg vfs (clientSupportsProgress caps)
 
 
 -- | Whether we should write interface files during `damlc compile`.

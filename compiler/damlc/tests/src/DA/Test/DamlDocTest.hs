@@ -3,6 +3,7 @@
 
 module DA.Test.DamlDocTest (main) where
 
+import Data.Default
 import qualified Data.Text.Extended as T
 import System.IO.Extra
 import Test.Tasty
@@ -108,6 +109,6 @@ shouldGenerate input expected = withTempFile $ \tmpFile -> do
     T.writeFileUtf8 tmpFile $ T.unlines $ testModuleHeader <> input
     opts <- fmap (\opts -> opts{optHaddock=Haddock True}) $ defaultOptionsIO Nothing
     vfs <- makeVFSHandle
-    ideState <- initialise mainRule (pure $ LSP.IdInt 0) (const $ pure ()) noLogging (toCompileOpts opts (IdeReportProgress False)) vfs
+    ideState <- initialise def mainRule (pure $ LSP.IdInt 0) (const $ pure ()) noLogging (toCompileOpts opts (IdeReportProgress False)) vfs
     Just pm <- runAction ideState $ use GetParsedModule $ toNormalizedFilePath tmpFile
     genModuleContent (getDocTestModule pm) @?= T.unlines (doctestHeader <> expected)

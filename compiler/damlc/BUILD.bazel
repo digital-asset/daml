@@ -114,6 +114,7 @@ da_haskell_library(
         "//compiler/daml-licenses/licenses:licensing.md",
     ],
     hackage_deps = [
+        "data-default",
         "aeson-pretty",
         "aeson",
         "ansi-wl-pprint",

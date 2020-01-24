@@ -19,6 +19,7 @@ da_haskell_library(
         "bytestring",
         "cmark-gfm",
         "containers",
+        "data-default",
         "directory",
         "extra",
         "filepath",
