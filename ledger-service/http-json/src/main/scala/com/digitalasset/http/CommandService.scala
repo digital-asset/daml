@@ -7,7 +7,7 @@ import java.time.Instant
 
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-import com.digitalasset.http.CommandService.Error
+import com.digitalasset.http.CommandService.{ExerciseCommandRef, Error}
 import com.digitalasset.http.domain.{
   ActiveContract,
   Contract,
@@ -61,7 +61,7 @@ class CommandService(
   def exercise(
       jwt: Jwt,
       jwtPayload: JwtPayload,
-      input: ExerciseCommand[lav1.value.Value, (domain.TemplateId.RequiredPkg, domain.ContractId)])
+      input: ExerciseCommand[lav1.value.Value, ExerciseCommandRef])
     : Future[Error \/ ExerciseResponse[lav1.value.Value]] = {
 
     val command = exerciseCommand(input)
@@ -72,25 +72,6 @@ class CommandService(
       exerciseResult <- EitherT.either(exerciseResult(response))
       contracts <- EitherT.either(contracts(response))
     } yield ExerciseResponse(exerciseResult, contracts)
-
-    et.run
-  }
-
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  def exerciseWithResult(
-      jwt: Jwt,
-      jwtPayload: JwtPayload,
-      input: ExerciseCommand[lav1.value.Value, (domain.TemplateId.RequiredPkg, domain.ContractId)])
-    : Future[Error \/ lav1.value.Value] = {
-
-    val command = exerciseCommand(input)
-    val request = submitAndWaitRequest(jwtPayload, input.meta, command)
-
-    val et: EitherT[Future, Error, lav1.value.Value] = for {
-      response <- liftET(
-        logResult('exerciseWithResult, submitAndWaitForTransactionTree(jwt, request)))
-      result <- EitherT.either(exerciseResult(response))
-    } yield result
 
     et.run
   }
@@ -112,14 +93,21 @@ class CommandService(
   }
 
   private def exerciseCommand(
-      input: ExerciseCommand[lav1.value.Value, (domain.TemplateId.RequiredPkg, domain.ContractId)])
-    : lav1.commands.Command.Command.Exercise = {
-    Commands.exercise(
-      templateId = refApiIdentifier(input.reference._1),
-      contractId = input.reference._2,
-      choice = input.choice,
-      argument = input.argument)
-  }
+      input: ExerciseCommand[lav1.value.Value, ExerciseCommandRef]): lav1.commands.Command.Command =
+    input.reference match {
+      case -\/((templateId, contractKey)) =>
+        Commands.exerciseByKey(
+          templateId = refApiIdentifier(templateId),
+          contractKey = contractKey,
+          choice = input.choice,
+          argument = input.argument)
+      case \/-((templateId, contractId)) =>
+        Commands.exercise(
+          templateId = refApiIdentifier(templateId),
+          contractId = contractId,
+          choice = input.choice,
+          argument = input.argument)
+    }
 
   private def submitAndWaitRequest(
       jwtPayload: JwtPayload,
@@ -210,4 +198,6 @@ object CommandService {
       s"CommandService Error, ${e.id: Symbol}: ${e.message: String}"
     }
   }
+
+  type ExerciseCommandRef = domain.ResolvedContractRef[lav1.value.Value]
 }

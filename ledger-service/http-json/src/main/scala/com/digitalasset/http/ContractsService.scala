@@ -53,17 +53,19 @@ class ContractsService(
       )
   }
 
-  def resolve(jwt: Jwt, jwtPayload: JwtPayload, contractLocator: domain.ContractLocator[LfValue])
-    : Future[Option[(domain.TemplateId.RequiredPkg, domain.ContractId)]] =
+  def resolveContractReference(
+      jwt: Jwt,
+      jwtPayload: JwtPayload,
+      contractLocator: domain.ContractLocator[LfValue])
+    : Future[Option[domain.ResolvedContractRef[LfValue]]] =
     contractLocator match {
       case domain.EnrichedContractKey(templateId, key) =>
-        findByContractKey(jwt, jwtPayload.party, templateId, key).map(_.map(a =>
-          (a.templateId, a.contractId)))
+        Future.successful(resolveTemplateId(templateId).map(x => -\/(x -> key)))
       case domain.EnrichedContractId(Some(templateId), contractId) =>
-        Future.successful(resolveTemplateId(templateId).map(a => (a, contractId)))
+        Future.successful(resolveTemplateId(templateId).map(x => \/-(x -> contractId)))
       case domain.EnrichedContractId(None, contractId) =>
-        findByContractId(jwt, jwtPayload.party, None, contractId).map(_.map(a =>
-          (a.templateId, a.contractId)))
+        findByContractId(jwt, jwtPayload.party, None, contractId)
+          .map(_.map(a => \/-(a.templateId -> a.contractId)))
     }
 
   def lookup(jwt: Jwt, jwtPayload: JwtPayload, contractLocator: domain.ContractLocator[LfValue])

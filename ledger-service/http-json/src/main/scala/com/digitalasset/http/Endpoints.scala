@@ -90,7 +90,7 @@ class Endpoints(
 
         resolvedRef <- eitherT(
           resolveReference(jwt, jwtPayload, cmd.reference)
-        ): ET[(domain.TemplateId.RequiredPkg, domain.ContractId)]
+        ): ET[domain.ResolvedContractRef[ApiValue]]
 
         apiArg <- either(lfValueToApiValue(cmd.argument)): ET[ApiValue]
 
@@ -314,10 +314,17 @@ class Endpoints(
       jwt: Jwt,
       jwtPayload: JwtPayload,
       reference: domain.ContractLocator[LfValue])
-    : Future[Error \/ (domain.TemplateId.RequiredPkg, domain.ContractId)] =
+    : Future[Error \/ domain.ResolvedContractRef[ApiValue]] =
     contractsService
-      .resolve(jwt, jwtPayload, reference)
-      .map(_.toRightDisjunction(InvalidUserInput(ErrorMessages.cannotResolveTemplateId(reference))))
+      .resolveContractReference(jwt, jwtPayload, reference)
+      .map { o: Option[domain.ResolvedContractRef[LfValue]] =>
+        val a: Error \/ domain.ResolvedContractRef[LfValue] =
+          o.toRightDisjunction(InvalidUserInput(ErrorMessages.cannotResolveTemplateId(reference)))
+        a.flatMap {
+          case -\/((tpId, key)) => lfValueToApiValue(key).map(k => -\/((tpId, k)))
+          case a @ \/-((_, _)) => \/-(a)
+        }
+      }
 }
 
 object Endpoints {
