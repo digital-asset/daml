@@ -16,7 +16,6 @@ import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc.ActiveContractsService
 import com.digitalasset.ledger.api.v1.active_contracts_service._
 import com.digitalasset.ledger.api.v1.event.CreatedEvent
-import com.digitalasset.ledger.api.v1.transaction_filter.TransactionFilter
 import com.digitalasset.ledger.api.validation.TransactionFilterValidator
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.logging.LoggingContext.withEnrichedLoggingContext
