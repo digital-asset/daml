@@ -126,6 +126,7 @@ da_scala_test(
     resources = glob(["src/test/resources/*"]),
     runtime_deps = [
         "@maven//:com_h2database_h2",
+        "@maven//:org_postgresql_postgresql",
         "@maven//:org_xerial_sqlite_jdbc",
     ],
     deps = [
@@ -139,6 +140,7 @@ da_scala_test(
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils:kvutils-tests-lib",
         "//libs-scala/contextualized-logging",
+        "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",

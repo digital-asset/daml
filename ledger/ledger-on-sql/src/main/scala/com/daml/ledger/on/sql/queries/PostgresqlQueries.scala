@@ -9,22 +9,22 @@ import anorm.SqlParser._
 import anorm._
 import com.daml.ledger.on.sql.queries.Queries.Index
 
-class SqliteQueries extends Queries with CommonQueries {
+class PostgresqlQueries extends Queries with CommonQueries {
   override def createLogTable()(implicit connection: Connection): Unit = {
-    SQL"CREATE TABLE IF NOT EXISTS log (sequence_no INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, entry_id VARBINARY(16384) NOT NULL, envelope BLOB NOT NULL)"
+    SQL"CREATE TABLE IF NOT EXISTS log (sequence_no SERIAL PRIMARY KEY, entry_id BYTEA NOT NULL, envelope BYTEA NOT NULL)"
       .execute()
     ()
   }
 
   override def createStateTable()(implicit connection: Connection): Unit = {
-    SQL"CREATE TABLE IF NOT EXISTS state (key VARBINARY(16384) PRIMARY KEY NOT NULL, value BLOB NOT NULL)"
+    SQL"CREATE TABLE IF NOT EXISTS state (key BYTEA PRIMARY KEY NOT NULL, value BYTEA NOT NULL)"
       .execute()
     ()
   }
 
   override def lastLogInsertId()(implicit connection: Connection): Index = {
-    SQL"SELECT LAST_INSERT_ROWID()"
-      .as(long("LAST_INSERT_ROWID()").single)
+    SQL"SELECT last_value FROM log_sequence_no_seq"
+      .as(long("last_value").single)
   }
 
   override protected val updateStateQuery: String =

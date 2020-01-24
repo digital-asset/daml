@@ -16,6 +16,12 @@ class H2Queries extends Queries with CommonQueries {
     ()
   }
 
+  override def createStateTable()(implicit connection: Connection): Unit = {
+    SQL"CREATE TABLE IF NOT EXISTS state (key VARBINARY(16384) PRIMARY KEY NOT NULL, value BLOB NOT NULL)"
+      .execute()
+    ()
+  }
+
   override def lastLogInsertId()(implicit connection: Connection): Index =
     SQL"CALL IDENTITY()"
       .as(long("IDENTITY()").single)

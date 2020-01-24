@@ -4,7 +4,7 @@
 package com.daml.ledger.on.sql
 
 import com.daml.ledger.on.sql.queries.Queries.InvalidDatabaseException
-import com.daml.ledger.on.sql.queries.{H2Queries, Queries, SqliteQueries}
+import com.daml.ledger.on.sql.queries.{H2Queries, PostgresqlQueries, Queries, SqliteQueries}
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.resources.ResourceOwner
 import com.zaxxer.hikari.HikariDataSource
@@ -31,6 +31,8 @@ object Database {
     (jdbcUrl match {
       case url if url.startsWith("jdbc:h2:") =>
         MultipleReaderSingleWriterDatabase.owner(jdbcUrl, new H2Queries)
+      case url if url.startsWith("jdbc:postgresql:") =>
+        MultipleReaderSingleWriterDatabase.owner(jdbcUrl, new PostgresqlQueries)
       case url if url.startsWith("jdbc:sqlite:") =>
         SingleConnectionDatabase.owner(jdbcUrl, new SqliteQueries)
       case _ => throw new InvalidDatabaseException(jdbcUrl)
