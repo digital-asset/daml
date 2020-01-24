@@ -28,7 +28,7 @@ class PostgresqlQueries extends Queries with CommonQueries {
       entry: DamlLogEntryId,
       envelope: ByteString,
   )(implicit connection: Connection): Index = {
-    SQL"INSERT INTO log (entry_id, envelope) VALUES (${entry.getEntryId.toByteArray}, ${envelope.toByteArray}) RETURNING sequence_no"
+    SQL"INSERT INTO log (entry_id, envelope) VALUES (${entry.getEntryId.newInput()}, ${envelope.newInput()}) RETURNING sequence_no"
       .as(long("sequence_no").single)
   }
 

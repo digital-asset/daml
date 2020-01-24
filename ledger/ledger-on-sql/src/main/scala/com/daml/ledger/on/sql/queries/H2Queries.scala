@@ -28,7 +28,7 @@ class H2Queries extends Queries with CommonQueries {
       entry: DamlLogEntryId,
       envelope: ByteString,
   )(implicit connection: Connection): Index = {
-    SQL"INSERT INTO log (entry_id, envelope) VALUES (${entry.getEntryId.toByteArray}, ${envelope.toByteArray})"
+    SQL"INSERT INTO log (entry_id, envelope) VALUES (${entry.getEntryId.newInput()}, ${envelope.newInput()})"
       .executeInsert()
     SQL"CALL IDENTITY()"
       .as(long("IDENTITY()").single)
