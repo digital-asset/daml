@@ -4,37 +4,14 @@
 package com.daml.ledger.on.sql
 
 import java.sql.DriverManager
-import java.time.Clock
 
-import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase
-import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase.ParticipantState
-import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
-import com.daml.ledger.participant.state.v1._
-import com.digitalasset.daml.lf.data.Ref.LedgerString
-import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.logging.LoggingContext.newLoggingContext
-import com.digitalasset.resources.ResourceOwner
 import com.digitalasset.testing.postgresql.PostgresAroundAll
 
-import scala.concurrent.ExecutionContext
-
 class PostgresqlSqlLedgerReaderWriterIntegrationSpec
-    extends ParticipantStateIntegrationSpecBase("SQL implementation using PostgreSQL")
+    extends SqlLedgerReaderWriterIntegrationSpecBase("SQL implementation using PostgreSQL")
     with PostgresAroundAll {
-  private implicit val ec: ExecutionContext = ExecutionContext.global
 
-  override val startIndex: Long = SqlLedgerReaderWriter.StartIndex
-
-  override def participantStateFactory(
-      participantId: ParticipantId,
-      ledgerId: LedgerString,
-  ): ResourceOwner[ParticipantState] = {
-    newLoggingContext { implicit logCtx =>
-      SqlLedgerReaderWriter
-        .owner(ledgerId, participantId, postgresFixture.jdbcUrl)
-        .map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter))
-    }
-  }
+  override protected def jdbcUrl: String = postgresFixture.jdbcUrl
 
   override protected def beforeEach(): Unit = {
     super.beforeEach()
@@ -47,7 +24,4 @@ class PostgresqlSqlLedgerReaderWriterIntegrationSpec
       connection.close()
     }
   }
-
-  override def currentRecordTime(): Timestamp =
-    Timestamp.assertFromInstant(Clock.systemUTC().instant())
 }
