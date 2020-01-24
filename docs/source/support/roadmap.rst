@@ -33,10 +33,3 @@ We plan to update this roadmap roughly every three months.
 - **Deployment Options**
 
   - ALPHA version of DAML on Corda
-
-- **Canton**
-
-  - Public release of Canton ledger synchronization protocol 
-  - Two new DAML integrations leveraging Canton ledger synchronisation protocol on Ethereum and Hyperledger Fabric
-  - Finalising Canton protocol’s distinguished features, i.e., pruning for GDPR and contract transfer
-  - See `canton.io <https://canton.io/>`_
