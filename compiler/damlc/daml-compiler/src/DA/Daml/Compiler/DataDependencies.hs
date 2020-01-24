@@ -421,8 +421,9 @@ generateSrcPkgFromLf pkgs getUnitId stablePkgs mbSdkPrefix pkg = do
   where
     env m = Env pkgs getUnitId stablePkgs True mbSdkPrefix m
     header =
-        ["{-# LANGUAGE NoDamlSyntax #-}"
+        [ "{-# LANGUAGE NoDamlSyntax #-}"
         , "{-# LANGUAGE NoImplicitPrelude #-}"
+        , "{-# LANGUAGE NoOverloadedStrings #-}"
         , "{-# LANGUAGE TypeOperators #-}"
         , "{-# OPTIONS_GHC -Wno-unused-imports #-}"
         ]
