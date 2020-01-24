@@ -29,13 +29,17 @@ module Daml.Trigger
  , registeredTemplate
  , RelTime(..)
  , testRule
+ , unpackCommands
+ , assertCreateCmd
  ) where
 
 import DA.Action
 import DA.Action.State
+import qualified DA.List as List
 import DA.Next.Map (Map)
 import qualified DA.Next.Map as Map
 import DA.Optional
+import qualified DA.Text as Text
 
 import Daml.Trigger.LowLevel hiding (Trigger)
 import qualified Daml.Trigger.LowLevel as LowLevel
@@ -284,3 +288,56 @@ testRule trigger party activeContracts commandsInFlight s = do
         }
   let (_, commands) = runRule trigger.rule time state
   pure commands
+
+unpackCommands : [Commands] -> [Command]
+unpackCommands = concatMap commands
+
+expectCommand
+  : [Command]
+  -> (Command -> Optional a)
+  -> (a -> Either Text ())
+  -> Either [Text] ()
+expectCommand commands fromCommand assertion = foldl step (Left []) commands
+  where
+    step : Either [Text] () -> Command -> Either [Text] ()
+    step (Right ()) _ = Right ()
+    step (Left msgs) command =
+      case assertion <$> fromCommand command of
+        None -> Left msgs
+        Some (Left msg) -> Left (msg :: msgs)
+        Some (Right ()) -> Right ()
+
+assertCreateCmd
+  : (Eq t, Show t, Template t)
+  => [Command]
+  -> (t -> Either Text ())
+  -> Scenario ()
+assertCreateCmd commands assertion =
+  case expectCommand commands fromCreate assertion of
+    Right () -> pure ()
+    Left msgs ->
+      abort $ "Failure, found no matching create command." <> collectMessages msgs
+
+collectMessages : [Text] -> Text
+collectMessages [] = ""
+collectMessages msgs = "\n" <> Text.unlines (map (bullet . nest) msgs)
+  where
+    bullet txt = "  * " <> txt
+    nest = Text.intercalate "\n" . List.intersperse "    " . Text.lines
+--assertCreateCmd commands tpl = go commands []
+--  where
+--    go : [Command] -> [Text] -> Scenario ()
+--    go [] insteads = abort $
+--      "Failure, expected create of "
+--        <> show tpl
+--        <> " but found "
+--        <> insteadMsg insteads
+--    go (command :: commands) insteads
+--      | Some createTpl <- fromCreate command
+--      = unless (createTpl == tpl) $
+--          go commands (show createTpl :: insteads)
+--      | otherwise
+--      = go commands insteads
+--    insteadMsg : [Text] -> Text
+--    insteadMsg [] = "none"
+--    insteadMsg insteads = Text.intercalate ", " insteads
