@@ -37,7 +37,10 @@ genrule(
 
 eslint_test(
     name = "lint",
-    srcs = glob(["**/*.ts"]),
+    srcs = glob(
+        ["**/*.ts"],
+        exclude = ["lib/**/*"],
+    ),
 )
 
 pkg_npm(
