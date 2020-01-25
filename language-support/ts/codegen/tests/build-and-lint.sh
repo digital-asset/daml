@@ -48,7 +48,7 @@ cd $TMP_DIR
 $DAML2TS -o generated/src/daml --main-package-name daml-tests $DAR
 sed -i "s/0.0.0-SDKVERSION/${VERSION}/" generated/package.json
 $YARN install --frozen-lockfile
-$YARN workspaces run build
 cd generated
+$YARN build
 $YARN lint
 JAVA=$JAVA SANDBOX=$SANDBOX JSON_API=$JSON_API DAR=$DAR $YARN test
