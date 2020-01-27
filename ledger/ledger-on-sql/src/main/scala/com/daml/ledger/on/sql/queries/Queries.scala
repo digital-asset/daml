@@ -37,6 +37,10 @@ trait Queries {
 object Queries {
   type Index = Long
 
+  val TablePrefix = "ledger"
+  val LogTable = s"${TablePrefix}_log"
+  val StateTable = s"${TablePrefix}_state"
+
   def executeBatchSql(
       query: String,
       params: Iterable[immutable.Seq[NamedParameter]],

@@ -7,7 +7,7 @@ import java.sql.Connection
 
 import anorm.SqlParser._
 import anorm._
-import com.daml.ledger.on.sql.queries.Queries.Index
+import com.daml.ledger.on.sql.queries.Queries._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntryId
 import com.google.protobuf.ByteString
 
@@ -16,12 +16,14 @@ class H2Queries extends Queries with CommonQueries {
       entry: DamlLogEntryId,
       envelope: ByteString,
   )(implicit connection: Connection): Index = {
-    SQL"INSERT INTO log (entry_id, envelope) VALUES (${entry.getEntryId.newInput()}, ${envelope.newInput()})"
+    val entryIdStream = entry.getEntryId.newInput()
+    val envelopeStream = envelope.newInput()
+    SQL"INSERT INTO #$LogTable (entry_id, envelope) VALUES ($entryIdStream, $envelopeStream)"
       .executeInsert()
     SQL"CALL IDENTITY()"
       .as(long("IDENTITY()").single)
   }
 
   override protected val updateStateQuery: String =
-    "MERGE INTO state VALUES ({key}, {value})"
+    s"MERGE INTO $StateTable VALUES ({key}, {value})"
 }
