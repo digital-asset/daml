@@ -15,15 +15,30 @@ template T
     count : Int
   where
     signatory party
+    key (party, count) : (Party, Int)
+    maintainer key._1
+
+    nonconsuming choice Poke : ()
+      with
+        n : Int
+      controller party
+        do
+          pure ()
 
 trigger : Trigger Int
 trigger = Trigger with
   initialize = const 0
   updateState = \acs _msg count -> length (getContracts @T acs)
-  rule = \party _acs _time _commandsInFlight count -> do
+  rule = \party acs _time _commandsInFlight count -> do
     when (count == 1) do
+      -- Create two additional T.
       dedupCreate T with party, count
       dedupCreate T with party, count = succ count
+      -- Exercise a choice
+      let [(tId, _)] = getContracts @T acs
+      dedupExercise tId Poke with n = 0
+      -- Exercise a choice by key
+      dedupExerciseByKey @T (party, 0) Poke with n = 1
   registeredTemplates = RegisteredTemplates [registeredTemplate @T]
   heartbeat = None
 
@@ -33,7 +48,14 @@ test = scenario do
   let activeContracts = toACS tId
       commandsInFlight = Map.empty
   commands <- testRule trigger alice activeContracts commandsInFlight 1
-  assertCreateCmd (unpackCommands commands) $ \T { party, count } -> do
+  let flatCommands = unpackCommands commands
+  assertCreateCmd flatCommands $ \T { party, count } -> do
     assertEq party alice
     assertEq count 1
+  assertExerciseCmd flatCommands $ \(cid, choiceArg) -> do
+    assertEq cid tId
+    assertEq choiceArg (Poke 0)
+  assertExerciseByKeyCmd @T flatCommands $ \(k, choiceArg) -> do
+    assertEq k (alice, 0)
+    assertEq choiceArg (Poke 1)
   pure ()
