@@ -30,7 +30,7 @@ module Daml.Trigger
  , RelTime(..)
  , toACS
  , testRule
- , unpackCommands
+ , flattenCommands
  , assertCreateCmd
  , assertExerciseCmd
  , assertExerciseByKeyCmd
@@ -309,8 +309,8 @@ testRule trigger party acsBuilder commandsInFlight s = do
   let (_, commands) = runRule trigger.rule time state
   pure commands
 
-unpackCommands : [Commands] -> [Command]
-unpackCommands = concatMap commands
+flattenCommands : [Commands] -> [Command]
+flattenCommands = concatMap commands
 
 expectCommand
   : [Command]

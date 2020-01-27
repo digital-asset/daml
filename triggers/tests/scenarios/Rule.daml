@@ -48,7 +48,7 @@ test = scenario do
   let activeContracts = toACS tId
       commandsInFlight = Map.empty
   commands <- testRule trigger alice activeContracts commandsInFlight 1
-  let flatCommands = unpackCommands commands
+  let flatCommands = flattenCommands commands
   assertCreateCmd flatCommands $ \T { party, count } -> do
     assertEq party alice
     assertEq count 1
