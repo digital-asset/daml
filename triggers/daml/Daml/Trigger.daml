@@ -32,6 +32,8 @@ module Daml.Trigger
  , testRule
  , unpackCommands
  , assertCreateCmd
+ , assertExerciseCmd
+ , assertExerciseByKeyCmd
  ) where
 
 import DA.Action
@@ -326,7 +328,7 @@ expectCommand commands fromCommand assertion = foldl step (Left []) commands
         Some (Right ()) -> Right ()
 
 assertCreateCmd
-  : (Eq t, Show t, Template t)
+  : Template t
   => [Command]
   -> (t -> Either Text ())
   -> Scenario ()
@@ -335,6 +337,29 @@ assertCreateCmd commands assertion =
     Right () -> pure ()
     Left msgs ->
       abort $ "Failure, found no matching create command." <> collectMessages msgs
+
+assertExerciseCmd
+  : (Template t, Choice t c r)
+  => [Command]
+  -> ((ContractId t, c) -> Either Text ())
+  -> Scenario ()
+assertExerciseCmd commands assertion =
+  case expectCommand commands fromExercise assertion of
+    Right () -> pure ()
+    Left msgs ->
+      abort $ "Failure, found no matching exercise command." <> collectMessages msgs
+
+assertExerciseByKeyCmd
+  : forall t c r k
+  . (TemplateKey t k, Choice t c r)
+  => [Command]
+  -> ((k, c) -> Either Text ())
+  -> Scenario ()
+assertExerciseByKeyCmd commands assertion =
+  case expectCommand commands (fromExerciseByKey @t) assertion of
+    Right () -> pure ()
+    Left msgs ->
+      abort $ "Failure, found no matching exercise command." <> collectMessages msgs
 
 collectMessages : [Text] -> Text
 collectMessages [] = ""
