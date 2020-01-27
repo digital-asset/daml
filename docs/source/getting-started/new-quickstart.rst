@@ -138,7 +138,7 @@ For example, we can query the ledger for all visible contracts (relative to a pa
 
 Let's see some examples of DAML React hooks.
 
-.. literalinclude:: quickstart/code/ui/MainController.tsx
+.. literalinclude:: quickstart/code/ui-before/MainController.tsx
   :language: ts
   :start-after: -- HOOKS_BEGIN
   :end-before: -- HOOKS_END
@@ -237,9 +237,45 @@ Messaging UI
 Our messaging feature has two parts: a form with inputs for selecting friends and composing the message text, and a "feed" of messages that have been sent to you.
 Both parts will be implemented as React components that render on the main screen.
 
+Controller Component
+--------------------
+
+To implement these components, we will need DAML React hooks for querying ``Message`` contracts and exercising the ``SendMessage`` choice on our ``User`` contract.
+This is how they look in the ``MainController`` component.
+
+First we need to import the generated Typescript code for the ``Message`` contract template.
+
+.. literalinclude:: quickstart/code/ui-after/MainController.tsx
+  :language: ts
+  :start-after: -- IMPORT_BEGIN
+  :end-before: -- IMPORT_END
+
+Then we declare the hooks themselves at the start of the component.
+
+.. literalinclude:: quickstart/code/ui-after/MainController.tsx
+  :language: ts
+  :start-after: -- HOOKS_BEGIN
+  :end-before: -- HOOKS_END
+
+The ``messages`` hook allows keeps track of the the state of ``Message`` contracts on the ledger, where we specify no restrictions on the query.
+The ``exerciseSendMessage`` hook gives us a function to exercise the appropriate choice on our ``User``.
+We wrap this in another ``sendMessage``function which splits an input string into a list of parties and then exercises the choice, reporting to the user in the case of an error.
+
+.. literalinclude:: quickstart/code/ui-after/MainController.tsx
+  :language: ts
+  :start-after: -- SENDMESSAGE_BEGIN
+  :end-before: -- SENDMESSAGE_END
+
+Finally we make sure to pass our hooks (or data obtained from them) as *props* to the ``MainView`` component, which actually constructs the UI on the screen.
+
+.. literalinclude:: quickstart/code/ui-after/MainController.tsx
+  :language: ts
+  :start-after: -- PROPS_BEGIN
+  :end-before: -- PROPS_END
+
 The feed component is fairly straight-forward: it simply needs to query all ``Message`` contracts, possibly sorting or organizing the data afterwards.
 The key point here is that for a particular user, the query will yield exactly the messages that have been either written by or sent to that user.
-This is a guaranteed by DAML's privacy model because of how we modelled our contract templates.
+This is guaranteed by DAML's privacy model because of how we modelled our contract templates.
 In other words, if we wrote the DAML correctly, we do not risk a privacy breach coming from the application code.
 
 In addition to the feed component, we need a component that allows composing a message and exercising the correct choice on the user's ``User`` contract.
