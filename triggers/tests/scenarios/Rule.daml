@@ -30,8 +30,7 @@ trigger = Trigger with
 test = scenario do
   alice <- getParty "Alice"
   tId <- submit alice do create T with party = alice, count = 1
-  tVal <- submit alice do fetch tId
-  let activeContracts = [(toAnyContractId tId, toAnyTemplate tVal)]
+  let activeContracts = toACS tId
       commandsInFlight = Map.empty
   commands <- testRule trigger alice activeContracts commandsInFlight 1
   assertCreateCmd (unpackCommands commands) $ \T { party, count } -> do

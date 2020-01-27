@@ -28,6 +28,7 @@ module Daml.Trigger
  , RegisteredTemplates(..)
  , registeredTemplate
  , RelTime(..)
+ , toACS
  , testRule
  , unpackCommands
  , assertCreateCmd
@@ -266,19 +267,36 @@ data TriggerState s = TriggerState
   , nextCommandId : Int
   }
 
+newtype ACSBuilder = ACSBuilder [Update (AnyContractId, AnyTemplate)]
+
+instance Semigroup ACSBuilder where
+  ACSBuilder l <> ACSBuilder r = ACSBuilder (l <> r)
+
+instance Monoid ACSBuilder where
+  mempty = ACSBuilder mempty
+
+buildACS : Party -> ACSBuilder -> Scenario ACS
+buildACS party (ACSBuilder fetches) = do
+  activeContracts <- submit party $ sequence fetches
+  pure ACS
+    { activeContracts = activeContracts
+    , pendingContracts = Map.empty
+    }
+
+toACS : Template t => ContractId t -> ACSBuilder
+toACS cid = ACSBuilder
+  [fetch cid >>= \tpl -> pure (toAnyContractId cid, toAnyTemplate tpl)]
+
 testRule
   : Trigger s
   -> Party
-  -> [(AnyContractId, AnyTemplate)]
+  -> ACSBuilder
   -> Map CommandId [Command]
   -> s
   -> Scenario [Commands]
-testRule trigger party activeContracts commandsInFlight s = do
+testRule trigger party acsBuilder commandsInFlight s = do
   time <- getTime
-  let acs = ACS
-        { activeContracts = activeContracts
-        , pendingContracts = Map.empty
-        }
+  acs <- buildACS party acsBuilder
   let state = TriggerState
         { acs = acs
         , party = party
@@ -324,20 +342,3 @@ collectMessages msgs = "\n" <> Text.unlines (map (bullet . nest) msgs)
   where
     bullet txt = "  * " <> txt
     nest = Text.intercalate "\n" . List.intersperse "    " . Text.lines
---assertCreateCmd commands tpl = go commands []
---  where
---    go : [Command] -> [Text] -> Scenario ()
---    go [] insteads = abort $
---      "Failure, expected create of "
---        <> show tpl
---        <> " but found "
---        <> insteadMsg insteads
---    go (command :: commands) insteads
---      | Some createTpl <- fromCreate command
---      = unless (createTpl == tpl) $
---          go commands (show createTpl :: insteads)
---      | otherwise
---      = go commands insteads
---    insteadMsg : [Text] -> Text
---    insteadMsg [] = "none"
---    insteadMsg insteads = Text.intercalate ", " insteads
