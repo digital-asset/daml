@@ -1599,7 +1599,7 @@ ctorLabels con =
     = map mkSuperClassField [1 .. length (classSCTheta tycls)]
     ++ map (mkClassMethodField . getOccText) (classMethods tycls)
 
-    | flv `elem` [TupleFlavour Boxed] || isTupleDataCon con
+    | flv == TupleFlavour Boxed || isTupleDataCon con
       -- NOTE(MH): The line below is a workaround for ghc issue
       -- https://github.com/ghc/ghc/blob/ae4f1033cfe131fca9416e2993bda081e1f8c152/compiler/types/TyCon.hs#L2030
       -- If we omit this workaround, `GHC.Tuple.Unit` gets translated into a
