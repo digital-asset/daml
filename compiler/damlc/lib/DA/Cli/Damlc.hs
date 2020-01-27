@@ -828,10 +828,8 @@ execGenerateSrc opts dalfOrDar mbOutDir = Command GenerateSrc Nothing effect
                 [ (LF.dalfPackageId dalfPkg, unitId)
                 | (unitId, dalfPkg) <- allDalfPkgs ]
 
-            stablePkgIds :: MS.Map LF.PackageId (UnitId, LF.ModuleName)
-            stablePkgIds = MS.fromList
-                [ (LF.dalfPackageId dalfPkg, k)
-                | (k, dalfPkg) <- MS.toList stableDalfPkgMap ]
+            stablePkgIds :: Set.Set LF.PackageId
+            stablePkgIds = Set.fromList $ map LF.dalfPackageId $ MS.elems stableDalfPkgMap
 
             genSrcs = generateSrcPkgFromLf pkgMap (getUnitId unitId unitIdMap) stablePkgIds (Just "CurrentSdk") pkg
 
@@ -870,7 +868,7 @@ execGenerateGenSrc darFp mbQual outDir = Command GenerateGenerics Nothing effect
             decode $ BSL.toStrict $ ZipArchive.fromEntry mainDalfEntry
         let getUid = getUnitId unitId pkgMap
         -- TODO Passing MS.empty is not right but this command is only used for debugging so for now this is fine.
-        let genSrcs = generateGenInstancesPkgFromLf getUid MS.empty Nothing mainPkgId mainLfPkg (fromMaybe "" mbQual)
+        let genSrcs = generateGenInstancesPkgFromLf getUid Set.empty Nothing mainPkgId mainLfPkg (fromMaybe "" mbQual)
         forM_ genSrcs $ \(path, src) -> do
             let fp = fromMaybe "" outDir </> fromNormalizedFilePath path
             createDirectoryIfMissing True $ takeDirectory fp
