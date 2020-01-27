@@ -317,6 +317,10 @@ final case class EExpectedTemplatableType(context: Context, conName: TypeConName
 final case class EImportCycle(context: Context, modName: List[ModuleName]) extends ValidationError {
   protected def prettyInternal: String = s"cycle in module dependency ${modName.mkString(" -> ")}"
 }
+final case class ETypeSynCycle(context: Context, names: List[TypeSynName]) extends ValidationError {
+  protected def prettyInternal: String =
+    s"cycle in type synonym definitions ${names.mkString(" -> ")}"
+}
 final case class EImpredicativePolymorphism(context: Context, typ: Type) extends ValidationError {
   protected def prettyInternal: String =
     s"impredicative polymorphism is not supported: ${typ.pretty}"
