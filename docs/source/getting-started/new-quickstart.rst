@@ -262,9 +262,6 @@ You can see these used in the ``submitMessage`` function, called when the "Send"
 The ``isSubmitting`` state is used to ensure that message requests are processed one at a time.
 The result of each send is a new ``Message`` contract created, after which the form is cleared.
 
-View Component
---------------
-
 Controller Component
 --------------------
 
@@ -300,3 +297,26 @@ Finally we make sure to pass our hooks (or data obtained from them) as *props* t
   :language: ts
   :start-after: -- PROPS_BEGIN
   :end-before: -- PROPS_END
+
+View Component
+--------------
+
+We will now see how our two new components can be integrated into the main screen.
+This is rendered in the ``MainView`` component.
+
+The first change is just reformatting the main screen to have a new messages panel in the right column.
+
+.. literalinclude:: quickstart/code/ui-after/MainView.tsx
+  :language: ts
+  :start-after: -- FORMATTING_BEGIN
+  :end-before: -- FORMATTING_END
+
+In the new column we add the panel including our two new components: the ``MessageEdit`` above and ``Feed`` below.
+
+.. literalinclude:: quickstart/code/ui-after/MainView.tsx
+  :language: ts
+  :start-after: -- MESSAGEPANEL_BEGIN
+  :end-before: -- MESSAGEPANEL_END
+
+With this, we have implemented everything for our new feature and can give the new functionality a spin!
+Follow the instructions in "Running the app" again and let's see the new messaging UI.
