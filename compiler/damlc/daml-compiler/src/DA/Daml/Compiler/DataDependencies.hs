@@ -11,6 +11,8 @@ import Control.Lens (toListOf)
 import Control.Lens.MonoTraversal (monoTraverse)
 import Control.Monad
 import Data.List.Extra
+import Data.Set (Set)
+import qualified Data.Set as Set
 import qualified Data.Map.Strict as MS
 import Data.Maybe
 import qualified Data.NameMap as NM
@@ -40,7 +42,7 @@ import SdkVersion
 data Env = Env
     { envPkgs :: MS.Map UnitId LF.Package
     , envGetUnitId :: LF.PackageRef -> UnitId
-    , envStablePackages :: MS.Map LF.PackageId (UnitId, LF.ModuleName)
+    , envStablePackages :: Set LF.PackageId
     , envQualify :: Bool
     , envSdkPrefix :: Maybe String
     , envMod :: LF.Module
@@ -165,7 +167,7 @@ generateSrcFromLf env = noLoc mod
         , modRef /= LF.ModuleName ["CurrentSdk", "GHC", "Prim"]
         ]
     isStable LF.PRSelf = False
-    isStable (LF.PRImport pkgId) = pkgId `MS.member` envStablePackages env
+    isStable (LF.PRImport pkgId) = pkgId `Set.member` envStablePackages env
 
     modRefs :: [(Bool, GHC.UnitId, LF.ModuleName)]
     modRefs = nubSort . concat . concat $
@@ -340,7 +342,7 @@ convType env =
 addSdkPrefixIfStable :: Env -> LF.PackageRef -> LF.ModuleName -> LF.ModuleName
 addSdkPrefixIfStable _ LF.PRSelf mod = mod
 addSdkPrefixIfStable env (LF.PRImport pkgId) m@(LF.ModuleName n)
-    | pkgId `MS.member` envStablePackages env
+    | pkgId `Set.member` envStablePackages env
     = LF.ModuleName (sdkPrefix ++ n)
 
     | otherwise
@@ -438,7 +440,7 @@ mkTyConTypeUnqual = mkTyConType False
 generateSrcPkgFromLf ::
        MS.Map UnitId LF.Package
     -> (LF.PackageRef -> UnitId)
-    -> MS.Map LF.PackageId (UnitId, LF.ModuleName)
+    -> Set LF.PackageId
     -> Maybe String
     -> LF.Package
     -> [(NormalizedFilePath, String)]
@@ -485,7 +487,7 @@ genericInstances env externPkgId =
 
 generateGenInstancesPkgFromLf ::
        (LF.PackageRef -> UnitId)
-    -> MS.Map LF.PackageId (UnitId, LF.ModuleName)
+    -> Set LF.PackageId
     -> Maybe String
     -> LF.PackageId
     -> LF.Package
