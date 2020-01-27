@@ -107,8 +107,7 @@ generateSrcFromLf env = noLoc mod
     shouldExposeDefValue :: LF.DefValue -> Bool
     shouldExposeDefValue LF.DefValue{..}
         | (lfName, lfType) <- dvalBinder
-        = not (LF.getIsTest dvalIsTest)
-        && not ("$" `T.isPrefixOf` LF.unExprValName lfName)
+        = not ("$" `T.isPrefixOf` LF.unExprValName lfName)
         && not (typeHasOldTypeclass env lfType)
         && (LF.moduleNameString lfModName /= "GHC.Prim")
 
@@ -180,7 +179,7 @@ generateSrcFromLf env = noLoc mod
 
     modRefsFromDefDataType :: LF.DefDataType -> [(Bool, GHC.UnitId, LF.ModuleName)]
     modRefsFromDefDataType typeDef = concat
-        [ [ (isStable pkg, envGetUnitId env pkg, modRef)
+        [ [ (isStable pkg, envGetUnitId env pkg, addSdkPrefixIfStable env pkg modRef)
           | (pkg, modRef) <- toListOf monoTraverse typeDef ]
         , [ (True, pkg, modRef)
           | b <- toListOf (dataConsType . builtinType) (LF.dataCons typeDef)
@@ -193,7 +192,7 @@ generateSrcFromLf env = noLoc mod
 
     modRefsFromDefValue :: LF.DefValue -> [(Bool, GHC.UnitId, LF.ModuleName)]
     modRefsFromDefValue LF.DefValue{..} | (_, dvalType) <- dvalBinder = concat
-        [ [ (isStable pkg, envGetUnitId env pkg, modRef)
+        [ [ ( isStable pkg, envGetUnitId env pkg, addSdkPrefixIfStable env pkg modRef)
           | (pkg, modRef) <- toListOf monoTraverse dvalType ]
         , [ (True, pkg, modRef)
           | b <- toListOf builtinType dvalType
@@ -304,8 +303,8 @@ convType env =
                     mkOrig
                         (mkModule
                              (envGetUnitId env qualPackage)
-                             (mkModuleName $
-                              T.unpack $ LF.moduleNameString qualModule))
+                             (mkModuleName $ T.unpack $ LF.moduleNameString
+                                (addSdkPrefixIfStable env qualPackage qualModule)))
                         (mkOccName varName $ T.unpack name)
                 n@[_name0, _name1] -> case MS.lookup n (sumProdRecords $ envMod env) of
                     Nothing ->
@@ -336,6 +335,20 @@ convType env =
     mkTuple i =
         HsTyVar noExt NotPromoted $
         noLoc $ mkRdrUnqual $ occName $ tupleTyConName BoxedTuple i
+
+
+addSdkPrefixIfStable :: Env -> LF.PackageRef -> LF.ModuleName -> LF.ModuleName
+addSdkPrefixIfStable _ LF.PRSelf mod = mod
+addSdkPrefixIfStable env (LF.PRImport pkgId) m@(LF.ModuleName n)
+    | pkgId `MS.member` envStablePackages env
+    = LF.ModuleName (sdkPrefix ++ n)
+
+    | otherwise
+    = m
+  where
+    sdkPrefix = case envSdkPrefix env of
+        Nothing -> []
+        Just p -> [T.pack p]
 
 convBuiltInTy :: Env -> LF.BuiltinType -> HsType GhcPs
 convBuiltInTy env =
