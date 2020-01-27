@@ -69,4 +69,41 @@ class RecursionSpec extends WordSpec with TableDrivenPropertyChecks with Matcher
 
   }
 
+  "Recursion validation should detect type synonym cycles" in {
+
+    val negativeCase =
+      // module without a type-syn cycle
+      p"""
+         module Mod {
+           synonym SynInt = Int64 ;
+           synonym SynSynInt = |Mod:SynInt| ;
+         }
+       """
+
+    val positiveCase1 =
+      // module with a direct type-syn cycle
+      p"""
+         module Mod {
+           synonym SynCycle = |Mod:SynCycle| ;
+         }
+       """
+
+    val positiveCase2 =
+      // module with a mutual type-syn cycle
+      p"""
+         module Mod {
+           synonym SynInt = Int64 ;
+           synonym SynBad1 = |Mod:SynBad2| ;
+           synonym SynBad2 = List |Mod:SynBad1| ;
+         }
+       """
+
+    Recursion.checkPackage(defaultPackageId, negativeCase.modules)
+    an[ETypeSynCycle] should be thrownBy
+      Recursion.checkPackage(defaultPackageId, positiveCase1.modules)
+    an[ETypeSynCycle] should be thrownBy
+      Recursion.checkPackage(defaultPackageId, positiveCase2.modules)
+
+  }
+
 }
