@@ -29,7 +29,7 @@ import Safe
 
 -- | Run the assistant and exit.
 main :: IO ()
-main = displayErrors $ do
+main = displayErrors $ withCloseOnStdin $ do
     installSignalHandlers
     builtinCommandM <- tryBuiltinCommand
     case builtinCommandM of

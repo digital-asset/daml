@@ -21,6 +21,16 @@ main =
         exitFailure
   where
     parserPrefs = prefs showHelpOnError
+    -- Note that we do not close on stdin here.
+    -- The reason for this is that this would result in us terminating the child
+    -- process, e.g., daml-helper using TerminateProcess on Windows which does
+    -- not give it a chance to cleanup. Therefore, we only do this in daml-helper
+    -- which starts long-running server processes like sandbox via run-jar.
+    -- This means that closing stdin won’t work for things like daml test
+    -- but that seems acceptable for now.
+    -- In theory, process groups or job control might provide a solution
+    -- but as Ben Gamari noticed, this is horribly unreliable https://gitlab.haskell.org/ghc/ghc/issues/17777
+    -- so we are likely to make things worse rather than better.
     go = do
          installSignalHandlers
          command <- customExecParser parserPrefs (info (commandParser <**> helper) idm)

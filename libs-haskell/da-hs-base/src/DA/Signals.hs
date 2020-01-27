@@ -6,13 +6,17 @@
 -- | Module that turns SIGTERM into a UserInterrupt exception in Unix.
 module DA.Signals
     ( installSignalHandlers
+    , withCloseOnStdin
     ) where
 
-#ifndef mingw32_HOST_OS
-import System.Posix.Signals
 import Control.Exception
+import Control.Concurrent.Async
+import System.IO
 import Control.Concurrent
+
+#ifndef mingw32_HOST_OS
 import Control.Monad
+import System.Posix.Signals
 #endif
 
 -- | Turn SIGTERM into a UserInterrput exception in Unix. Does nothing on Windows.
@@ -25,3 +29,15 @@ installSignalHandlers = do
     mainThread <- myThreadId
     void $ installHandler sigTERM (Catch $ throwTo mainThread UserInterrupt) Nothing
 #endif
+
+withCloseOnStdin :: IO a -> IO a
+withCloseOnStdin a = do
+    mainThread <- myThreadId
+    -- We close stdin at the end to avoid potential issues
+    -- with isEOF blocking on Windows.
+    withAsync (go mainThread) (const $ a `finally` hClose stdin)
+  where go mainThread = do
+            b <- isEOF
+            if b
+                then throwTo mainThread UserInterrupt
+                else go mainThread
