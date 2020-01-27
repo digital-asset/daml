@@ -333,10 +333,10 @@ expectCommand commands fromCommand assertion = foldl step (Left []) commands
 
 -- | Check that at least one command fulfills the given assertions.
 assertCreateCmd
-  : Template t
+  : (Template t, CanAbort m)
   => [Command]  -- ^ Check these commands.
   -> (t -> Either Text ())  -- ^ Perform these assertions.
-  -> Scenario ()
+  -> m ()
 assertCreateCmd commands assertion =
   case expectCommand commands fromCreate assertion of
     Right () -> pure ()
@@ -345,10 +345,10 @@ assertCreateCmd commands assertion =
 
 -- | Check that at least one command fulfills the given assertions.
 assertExerciseCmd
-  : (Template t, Choice t c r)
+  : (Template t, Choice t c r, CanAbort m)
   => [Command]  -- ^ Check these commands.
   -> ((ContractId t, c) -> Either Text ())  -- ^ Perform these assertions.
-  -> Scenario ()
+  -> m ()
 assertExerciseCmd commands assertion =
   case expectCommand commands fromExercise assertion of
     Right () -> pure ()
@@ -357,11 +357,11 @@ assertExerciseCmd commands assertion =
 
 -- | Check that at least one command fulfills the given assertions.
 assertExerciseByKeyCmd
-  : forall t c r k
-  . (TemplateKey t k, Choice t c r)
+  : forall t c r k m
+  . (TemplateKey t k, Choice t c r, CanAbort m)
   => [Command]  -- ^ Check these commands.
   -> ((k, c) -> Either Text ())  -- ^ Perform these assertions.
-  -> Scenario ()
+  -> m ()
 assertExerciseByKeyCmd commands assertion =
   case expectCommand commands (fromExerciseByKey @t) assertion of
     Right () -> pure ()
