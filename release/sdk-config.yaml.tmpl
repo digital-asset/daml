@@ -50,6 +50,10 @@ commands:
   path: daml-helper/daml-helper
   desc: "Interact with a DAML ledger (experimental)"
   args: ["ledger"]
+- name: codegen
+  path: daml-helper/daml-helper
+  desc: "Run a language bindings code generation tool"
+  args: ["codegen"]
 - name: deploy
   path: daml-helper/daml-helper
   desc: "Deploy DAML project to a ledger (experimental)"
@@ -61,10 +65,6 @@ commands:
   path: daml-helper/daml-helper
   desc: "Launch the HTTP JSON API (experimental)"
   args: ["run-jar", "--logback-config=daml-sdk/json-api-logback.xml", "daml-sdk/daml-sdk.jar", "json-api"]
-- name: codegen
-  path: daml-helper/daml-helper
-  desc: "Run the DAML codegen"
-  args: ["run-jar", "--logback-config=daml-sdk/codegen-logback.xml", "daml-sdk/daml-sdk.jar", "codegen"]
 - name: trigger
   path: daml-helper/daml-helper
   args: ["run-jar", "--logback-config=daml-sdk/trigger-logback.xml", "daml-sdk/daml-sdk.jar", "trigger"]
