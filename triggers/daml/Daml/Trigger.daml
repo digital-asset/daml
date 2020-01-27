@@ -359,7 +359,7 @@ assertExerciseByKeyCmd commands assertion =
   case expectCommand commands (fromExerciseByKey @t) assertion of
     Right () -> pure ()
     Left msgs ->
-      abort $ "Failure, found no matching exercise command." <> collectMessages msgs
+      abort $ "Failure, found no matching exerciseByKey command." <> collectMessages msgs
 
 collectMessages : [Text] -> Text
 collectMessages [] = ""
