@@ -14,6 +14,7 @@ module DA.Cli.Damlc.Packaging
 
 import qualified "zip" Codec.Archive.Zip as Zip
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
+import Control.Exception.Extra
 import Control.Lens (toListOf)
 import Control.Monad.Extra
 import Control.Monad.IO.Class
@@ -211,13 +212,15 @@ generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase
                   ]
             }
 
-    _ <- withDamlIdeState opts' loggerH diagnosticsLogger $ \ide ->
+    res <- withDamlIdeState opts' loggerH diagnosticsLogger $ \ide ->
         runAction ide $
         -- Setting ifDir to . means that the interface files will end up directly next to
         -- the source files which is what we want here.
         writeIfacesAndHie
             (toNormalizedFilePath ".")
             [fp | (fp, _content) <- src']
+    when (isNothing res) $
+      errorIO $ "Failed to compile interface for data-dependency: " <> unitIdStr
     -- write the conf file and refresh the package cache
     (cfPath, cfBs) <-
             mkConfFile
