@@ -237,6 +237,34 @@ Messaging UI
 Our messaging feature has two parts: a form with inputs for selecting friends and composing the message text, and a "feed" of messages that have been sent to you.
 Both parts will be implemented as React components that render on the main screen.
 
+Feed Component
+--------------
+
+The feed component is fairly straight-forward: it queries all ``Message`` contracts and displays their contents as a list.
+Here is the code for the entire component.
+
+.. literalinclude:: quickstart/code/ui-after/Feed.tsx
+  :language: ts
+
+The key point here is that for any particular user, the ``Message`` query yields exactly the messages that have been either written by or sent to that user.
+This is due to how we modelled the signatories and observers in the ``Message`` template, and means we do not risk a privacy breach coming from the application code.
+
+Message Edit Component
+----------------------
+
+In addition to the feed component, we need a component for composing messages and sending them using the appropriate choice on the ``User`` contract.
+
+.. literalinclude:: quickstart/code/ui-after/MessageEdit.tsx
+  :language: ts
+
+In this component we use React hooks for the message content and receivers.
+You can see these used in the ``submitMessage`` function, called when the "Send" button is clicked.
+The ``isSubmitting`` state is used to ensure that message requests are processed one at a time.
+The result of each send is a new ``Message`` contract created, after which the form is cleared.
+
+View Component
+--------------
+
 Controller Component
 --------------------
 
@@ -272,15 +300,3 @@ Finally we make sure to pass our hooks (or data obtained from them) as *props* t
   :language: ts
   :start-after: -- PROPS_BEGIN
   :end-before: -- PROPS_END
-
-The feed component is fairly straight-forward: it simply needs to query all ``Message`` contracts, possibly sorting or organizing the data afterwards.
-The key point here is that for a particular user, the query will yield exactly the messages that have been either written by or sent to that user.
-This is guaranteed by DAML's privacy model because of how we modelled our contract templates.
-In other words, if we wrote the DAML correctly, we do not risk a privacy breach coming from the application code.
-
-In addition to the feed component, we need a component that allows composing a message and exercising the correct choice on the user's ``User`` contract.
-Specifically, the message content and receivers in the form inputs will be used as arguments to the ``SendMessage`` choice exercised by the current user.
-This creates a new ``Message`` contract, updates the ledger state in the feed and clears the form.
-
-With this feature design, let's go into the details of how to implement the changes.
-The new components will use DAML React hooks to query and operate on the ledger.
