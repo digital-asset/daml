@@ -15,8 +15,5 @@
     "declaration": true,
     "sourceMap": true
     },
-  "include": [
-    "**/*.ts",
-    "lib/**/*"
-  ]
+  "files": ["index.ts"]
 }
