@@ -298,7 +298,7 @@ testRule
   -> ACSBuilder  -- ^ List these contracts in the 'ACS'.
   -> Map CommandId [Command]  -- ^ The commands in flight.
   -> s  -- ^ The trigger state.
-  -> Scenario [Commands]  -- ^ The 'Commands' emitted by the rule.
+  -> Scenario [Commands]  -- ^ The 'Commands' emitted by the rule. The 'CommandId's will start from @"0"@.
 testRule trigger party acsBuilder commandsInFlight s = do
   time <- getTime
   acs <- buildACS party acsBuilder
@@ -307,7 +307,7 @@ testRule trigger party acsBuilder commandsInFlight s = do
         , party = party
         , userState = s
         , commandsInFlight = commandsInFlight
-        , nextCommandId = 0 -- XXX: succ (maxIdIn commandsInFlight)
+        , nextCommandId = 0
         }
   let (_, commands) = runRule trigger.rule time state
   pure commands
