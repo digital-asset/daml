@@ -101,9 +101,9 @@ object Database {
 
   class UninitializedDatabase(
       system: RDBMS,
-      val queries: Queries,
-      val readerConnectionPool: HikariDataSource,
-      val writerConnectionPool: HikariDataSource,
+      queries: Queries,
+      readerConnectionPool: HikariDataSource,
+      writerConnectionPool: HikariDataSource,
   ) {
     private val flyway: Flyway =
       Flyway
@@ -114,6 +114,10 @@ object Database {
 
     def migrate(): Database = {
       flyway.migrate()
+      // Flyway needs 2 database connections: one for locking its own table, and then one for doing
+      // the migration. We allow it to do this, then drop the connection pool cap to 1 afterwards.
+      // We can't use a separate connection pool because if we use SQLite in-memory, it will create
+      // a new in-memory database for each connection (and therefore each connection pool).
       writerConnectionPool.setMaximumPoolSize(MaximumWriterConnectionPoolSize)
       Database(queries, readerConnectionPool, writerConnectionPool)
     }
