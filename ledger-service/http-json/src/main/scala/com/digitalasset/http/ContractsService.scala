@@ -284,7 +284,7 @@ class ContractsService(
     val source = getActiveContracts(jwt, txnFilter, true)
 
     val transactionsSince
-      : api.ledger_offset.LedgerOffset => Source[api.transaction.Transaction, NotUsed] =
+        : api.ledger_offset.LedgerOffset => Source[api.transaction.Transaction, NotUsed] =
       getCreatesAndArchivesSince(jwt, txnFilter, _: api.ledger_offset.LedgerOffset, terminates)
 
     import ContractsFetch.acsFollowingAndBoundary, ContractsFetch.GraphExtensions._
@@ -317,7 +317,8 @@ class ContractsService(
 
   private def lfValueToJsValue(a: LfValue): Error \/ JsValue =
     \/.fromTryCatchNonFatal(LfValueCodec.apiValueToJsValue(a)).leftMap(e =>
-      Error('lfValueToJsValue, e.description))
+      Error('lfValueToJsValue, e.description),
+    )
 
   private def resolveTemplateIds(
       xs: Set[domain.TemplateId.OptionalPkg],

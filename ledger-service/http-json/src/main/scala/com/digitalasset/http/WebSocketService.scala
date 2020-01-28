@@ -43,7 +43,8 @@ object WebSocketService {
 
   private final case class StepAndErrors[+LfV](
       errors: Seq[ServerError],
-      step: InsertDeleteStep[domain.ActiveContract[LfV]]) {
+      step: InsertDeleteStep[domain.ActiveContract[LfV]],
+  ) {
     import json.JsonProtocol._, spray.json._
     def render(implicit lfv: LfV <~< JsValue): JsValue = {
       def inj[V: JsonWriter](ctor: String) = (v: V) => JsObject(ctor -> v.toJson)
@@ -51,7 +52,8 @@ object WebSocketService {
       JsArray(
         Liskov.co[RF, LfV, JsValue](lfv)(step.inserts).map(inj("created"))
           ++ step.deletes.map(inj("archived"))
-          ++ errors.map(inj[String]("error") compose (_.message)))
+          ++ errors.map(inj[String]("error") compose (_.message)),
+      )
     }
 
     def append[A >: LfV](o: StepAndErrors[A]): StepAndErrors[A] =
@@ -73,7 +75,8 @@ class WebSocketService(
     resolveTemplateId: PackageService.ResolveTemplateId,
     encoder: DomainJsonEncoder,
     decoder: DomainJsonDecoder,
-    wsConfig: Option[WebsocketConfig])(implicit mat: Materializer, ec: ExecutionContext)
+    wsConfig: Option[WebsocketConfig],
+)(implicit mat: Materializer, ec: ExecutionContext)
     extends LazyLogging {
 
   import WebSocketService._
@@ -83,7 +86,8 @@ class WebSocketService(
 
   private[http] def transactionMessageHandler(
       jwt: Jwt,
-      jwtPayload: JwtPayload): Flow[Message, Message, _] = {
+      jwtPayload: JwtPayload,
+  ): Flow[Message, Message, _] = {
 
     wsMessageHandler(jwt, jwtPayload)
       .via(applyConfig(keepAlive = TextMessage.Strict(heartBeat)))
@@ -99,7 +103,8 @@ class WebSocketService(
   }
 
   @SuppressWarnings(
-    Array("org.wartremover.warts.NonUnitStatements", "org.wartremover.warts.JavaSerializable"))
+    Array("org.wartremover.warts.NonUnitStatements", "org.wartremover.warts.JavaSerializable"),
+  )
   private def connCounter[A]: Flow[A, A, NotUsed] =
     Flow[A]
       .watchTermination() { (_, future) =>
@@ -112,7 +117,8 @@ class WebSocketService(
           case Failure(ex) =>
             numConns.decrementAndGet
             logger.info(
-              s"Websocket client interrupted on Failure: ${ex.getMessage}. remaining number of clients: $numConns")
+              s"Websocket client interrupted on Failure: ${ex.getMessage}. remaining number of clients: $numConns",
+            )
         }
         NotUsed
       }
@@ -121,14 +127,17 @@ class WebSocketService(
 
   private def wsMessageHandler(
       jwt: Jwt,
-      jwtPayload: JwtPayload): Flow[Message, Message, NotUsed] = {
+      jwtPayload: JwtPayload,
+  ): Flow[Message, Message, NotUsed] = {
     Flow[Message]
       .mapAsync(1) {
         case msg: TextMessage => msg.toStrict(wsReadTimeout).map(\/-(_))
         case _ =>
           Future successful -\/(
             Source.single(
-              wsErrorMessage("Cannot process your input, Expect a single JSON message"): Message))
+              wsErrorMessage("Cannot process your input, Expect a single JSON message"): Message,
+            ),
+          )
       }
       .flatMapConcat { _.map(generateOutgoingMessage(jwt, jwtPayload, _)).merge }
   }
@@ -136,19 +145,21 @@ class WebSocketService(
   private def generateOutgoingMessage(
       jwt: Jwt,
       jwtPayload: JwtPayload,
-      incoming: TextMessage.Strict): Source[Message, NotUsed] = {
+      incoming: TextMessage.Strict,
+  ): Source[Message, NotUsed] = {
     val maybeIncomingJs = SprayJson.parse(incoming.text).toOption
     parseActiveContractsRequest(maybeIncomingJs)
       .leftMap(e => InvalidUserInput(e.shows)) match {
       case \/-(req) => getTransactionSourceForParty(jwt, jwtPayload, req)
       case -\/(e) =>
         Source.single(
-          wsErrorMessage(s"Error parsing your input message to a valid Json request: $e"))
+          wsErrorMessage(s"Error parsing your input message to a valid Json request: $e"),
+        )
     }
   }
 
   private def parseActiveContractsRequest(
-      incoming: Option[JsValue]
+      incoming: Option[JsValue],
   ): SprayJson.JsonReaderError \/ GetActiveContractsRequest = {
     incoming match {
       case Some(jsObj) => SprayJson.decode[GetActiveContractsRequest](jsObj)
@@ -159,7 +170,8 @@ class WebSocketService(
   private def getTransactionSourceForParty(
       jwt: Jwt,
       jwtPayload: JwtPayload,
-      request: GetActiveContractsRequest): Source[Message, NotUsed] =
+      request: GetActiveContractsRequest,
+  ): Source[Message, NotUsed] =
     resolveRequiredTemplateIds(request.templateIds) match {
       case Some(ids) =>
         contractsService
@@ -169,24 +181,27 @@ class WebSocketService(
           .map(sae => TextMessage(sae.render.compactPrint))
       case None =>
         Source.single(
-          wsErrorMessage("Cannot find one of templateIds " + request.templateIds.toString))
+          wsErrorMessage("Cannot find one of templateIds " + request.templateIds.toString),
+        )
     }
 
   private[http] def wsErrorMessage(errorMsg: String): TextMessage.Strict =
     TextMessage(
-      JsObject("error" -> JsString(errorMsg)).compactPrint
+      JsObject("error" -> JsString(errorMsg)).compactPrint,
     )
 
   private def prepareFilters(
       ids: Iterable[domain.TemplateId.RequiredPkg],
-      queryExpr: Map[String, JsValue]): CompiledQueries =
+      queryExpr: Map[String, JsValue],
+  ): CompiledQueries =
     ids.iterator.map { tid =>
       (tid, contractsService.valuePredicate(tid, queryExpr).toFunPredicate)
     }.toMap
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  private def convertFilterContracts(fn: domain.ActiveContract[LfV] => Boolean)
-    : Flow[InsertDeleteStep[api.event.CreatedEvent], StepAndErrors[JsValue], NotUsed] =
+  private def convertFilterContracts(
+      fn: domain.ActiveContract[LfV] => Boolean,
+  ): Flow[InsertDeleteStep[api.event.CreatedEvent], StepAndErrors[JsValue], NotUsed] =
     Flow
       .fromFunction { step: InsertDeleteStep[api.event.CreatedEvent] =>
         val (errors, cs) = step.inserts
@@ -198,7 +213,7 @@ class WebSocketService(
           }
         StepAndErrors(
           errors,
-          step copy (inserts = (cs: Vector[domain.ActiveContract[LfV]]).filter(fn))
+          step copy (inserts = (cs: Vector[domain.ActiveContract[LfV]]).filter(fn)),
         )
       }
       .via(conflation)
@@ -212,7 +227,8 @@ class WebSocketService(
 //      .exists(k => domain.ActiveContract.matchesKey(k)(a))
 
   private def resolveRequiredTemplateIds(
-      xs: Set[domain.TemplateId.OptionalPkg]): Option[List[domain.TemplateId.RequiredPkg]] = {
+      xs: Set[domain.TemplateId.OptionalPkg],
+  ): Option[List[domain.TemplateId.RequiredPkg]] = {
     import scalaz.std.list._
     import scalaz.std.option._
     xs.toList.traverse(resolveTemplateId)

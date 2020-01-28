@@ -57,7 +57,8 @@ object domain {
       payload: LfV,
       signatories: Seq[Party],
       observers: Seq[Party],
-      agreementText: String)
+      agreementText: String,
+  )
 
   case class ArchivedContract(contractId: ContractId, templateId: TemplateId.RequiredPkg)
 
@@ -65,39 +66,43 @@ object domain {
 
   final case class EnrichedContractKey[+LfV](
       templateId: TemplateId.OptionalPkg,
-      key: LfV
+      key: LfV,
   ) extends ContractLocator[LfV]
 
   final case class EnrichedContractId(
       templateId: Option[TemplateId.OptionalPkg],
-      contractId: domain.ContractId
+      contractId: domain.ContractId,
   ) extends ContractLocator[Nothing]
 
   case class GetActiveContractsRequest(
       templateIds: Set[TemplateId.OptionalPkg],
-      query: Map[String, JsValue])
+      query: Map[String, JsValue],
+  )
 
   case class PartyDetails(party: Party, displayName: Option[String], isLocal: Boolean)
 
   final case class CommandMeta(
       commandId: Option[CommandId],
       ledgerEffectiveTime: Option[Instant],
-      maximumRecordTime: Option[Instant])
+      maximumRecordTime: Option[Instant],
+  )
 
   final case class CreateCommand[+LfV](
       templateId: TemplateId.OptionalPkg,
       payload: LfV,
-      meta: Option[CommandMeta])
+      meta: Option[CommandMeta],
+  )
 
   final case class ExerciseCommand[+LfV, +Ref](
       reference: Ref,
       choice: domain.Choice,
       argument: LfV,
-      meta: Option[CommandMeta])
+      meta: Option[CommandMeta],
+  )
 
   final case class ExerciseResponse[+LfV](
       exerciseResult: LfV,
-      contracts: List[Contract[LfV]]
+      contracts: List[Contract[LfV]],
   )
 
   object PartyDetails {
@@ -117,7 +122,8 @@ object domain {
     def unwrap(x: Offset): String = tag.unwrap(x)
 
     def fromLedgerApi(
-        gacr: lav1.active_contracts_service.GetActiveContractsResponse): Option[Offset] =
+        gacr: lav1.active_contracts_service.GetActiveContractsResponse,
+    ): Option[Offset] =
       Option(gacr.offset).filter(_.nonEmpty).map(x => Offset(x))
 
     def fromLedgerApi(tx: lav1.transaction.Transaction): Offset = Offset(tx.offset)
@@ -152,18 +158,21 @@ object domain {
     def qualifiedName(a: TemplateId[_]): Ref.QualifiedName =
       Ref.QualifiedName(
         Ref.DottedName.assertFromString(a.moduleName),
-        Ref.DottedName.assertFromString(a.entityName))
+        Ref.DottedName.assertFromString(a.entityName),
+      )
   }
 
   object Contract {
 
     def fromTransaction(
-        tx: lav1.transaction.Transaction): Error \/ List[Contract[lav1.value.Value]] = {
+        tx: lav1.transaction.Transaction,
+    ): Error \/ List[Contract[lav1.value.Value]] = {
       tx.events.toList.traverse(fromEvent(_))
     }
 
     def fromTransactionTree(
-        tx: lav1.transaction.TransactionTree): Error \/ Vector[Contract[lav1.value.Value]] = {
+        tx: lav1.transaction.TransactionTree,
+    ): Error \/ Vector[Contract[lav1.value.Value]] = {
       tx.rootEventIds.toVector
         .map(fromTreeEvent(tx.eventsById))
         .sequence
@@ -181,13 +190,16 @@ object domain {
           -\/(Error('Contract_fromLedgerApi, errorMsg))
       }
 
-    def fromTreeEvent(eventsById: Map[String, lav1.transaction.TreeEvent])(
-        eventId: String): Error \/ Vector[Contract[lav1.value.Value]] = {
+    def fromTreeEvent(
+        eventsById: Map[String, lav1.transaction.TreeEvent],
+    )(eventId: String): Error \/ Vector[Contract[lav1.value.Value]] = {
       import scalaz.syntax.applicative._
 
       @tailrec
-      def loop(es: Vector[String], acc: Error \/ Vector[Contract[lav1.value.Value]])
-        : Error \/ Vector[Contract[lav1.value.Value]] = es match {
+      def loop(
+          es: Vector[String],
+          acc: Error \/ Vector[Contract[lav1.value.Value]],
+      ): Error \/ Vector[Contract[lav1.value.Value]] = es match {
         case Vector() =>
           acc
         case head +: tail =>
@@ -216,8 +228,9 @@ object domain {
         Contract(valueB)
       }
 
-      override def traverseImpl[G[_]: Applicative, A, B](fa: Contract[A])(
-          f: A => G[B]): G[Contract[B]] = {
+      override def traverseImpl[G[_]: Applicative, A, B](
+          fa: Contract[A],
+      )(f: A => G[B]): G[Contract[B]] = {
         val valueB: G[ArchivedContract \/ ActiveContract[B]] = fa.value.traverse(a => a.traverse(f))
         valueB.map(x => Contract[B](x))
       }
@@ -229,8 +242,9 @@ object domain {
     def matchesKey(k: LfValue)(a: domain.ActiveContract[LfValue]): Boolean =
       a.key.fold(false)(_ == k)
 
-    def fromLedgerApi(gacr: lav1.active_contracts_service.GetActiveContractsResponse)
-      : Error \/ List[ActiveContract[lav1.value.Value]] = {
+    def fromLedgerApi(
+        gacr: lav1.active_contracts_service.GetActiveContractsResponse,
+    ): Error \/ List[ActiveContract[lav1.value.Value]] = {
       gacr.activeContracts.toList.traverse(fromLedgerApi(_))
     }
 
@@ -238,24 +252,24 @@ object domain {
       for {
         templateId <- in.templateId required "templateId"
         payload <- in.createArguments required "createArguments"
-      } yield
-        ActiveContract(
-          contractId = ContractId(in.contractId),
-          templateId = TemplateId fromLedgerApi templateId,
-          key = in.contractKey,
-          payload = boxedRecord(payload),
-          signatories = Party.subst(in.signatories),
-          observers = Party.subst(in.observers),
-          agreementText = in.agreementText getOrElse ""
-        )
+      } yield ActiveContract(
+        contractId = ContractId(in.contractId),
+        templateId = TemplateId fromLedgerApi templateId,
+        key = in.contractKey,
+        payload = boxedRecord(payload),
+        signatories = Party.subst(in.signatories),
+        observers = Party.subst(in.observers),
+        agreementText = in.agreementText getOrElse "",
+      )
 
     implicit val covariant: Traverse[ActiveContract] = new Traverse[ActiveContract] {
 
       override def map[A, B](fa: ActiveContract[A])(f: A => B): ActiveContract[B] =
         fa.copy(key = fa.key map f, payload = f(fa.payload))
 
-      override def traverseImpl[G[_]: Applicative, A, B](fa: ActiveContract[A])(
-          f: A => G[B]): G[ActiveContract[B]] = {
+      override def traverseImpl[G[_]: Applicative, A, B](
+          fa: ActiveContract[A],
+      )(f: A => G[B]): G[ActiveContract[B]] = {
         import scalaz.syntax.apply._
         val gk: G[Option[B]] = fa.key traverse f
         val ga: G[B] = f(fa.payload)
@@ -268,14 +282,16 @@ object domain {
         TemplateId(
           Some(fa.templateId.packageId),
           fa.templateId.moduleName,
-          fa.templateId.entityName)
+          fa.templateId.entityName,
+        )
 
       override def lfType(
           fa: ActiveContract[_],
           templateId: TemplateId.RequiredPkg,
           f: PackageService.ResolveTemplateRecordType,
           g: PackageService.ResolveChoiceRecordType,
-          h: PackageService.ResolveKeyType): Error \/ LfType =
+          h: PackageService.ResolveKeyType,
+      ): Error \/ LfType =
         f(templateId)
           .leftMap(e => Error('ActiveContract_hasTemplateId_lfType, e.shows))
     }
@@ -285,20 +301,21 @@ object domain {
     def fromLedgerApi(in: lav1.event.ArchivedEvent): Error \/ ArchivedContract =
       for {
         templateId <- in.templateId required "templateId"
-      } yield
-        ArchivedContract(
-          contractId = ContractId(in.contractId),
-          templateId = TemplateId fromLedgerApi templateId)
+      } yield ArchivedContract(
+        contractId = ContractId(in.contractId),
+        templateId = TemplateId fromLedgerApi templateId,
+      )
 
     def fromLedgerApi(in: lav1.event.ExercisedEvent): Error \/ Option[ArchivedContract] =
       if (in.consuming) {
         for {
           templateId <- in.templateId.required("templateId")
-        } yield
-          Some(
-            ArchivedContract(
-              contractId = ContractId(in.contractId),
-              templateId = TemplateId.fromLedgerApi(templateId)))
+        } yield Some(
+          ArchivedContract(
+            contractId = ContractId(in.contractId),
+            templateId = TemplateId.fromLedgerApi(templateId),
+          ),
+        )
       } else {
         \/-(None)
       }
@@ -312,8 +329,9 @@ object domain {
         case c: EnrichedContractId => c
       }
 
-      override def traverseImpl[G[_]: Applicative, A, B](fa: ContractLocator[A])(
-          f: A => G[B]): G[ContractLocator[B]] = {
+      override def traverseImpl[G[_]: Applicative, A, B](
+          fa: ContractLocator[A],
+      )(f: A => G[B]): G[ContractLocator[B]] = {
         fa match {
           case ka: EnrichedContractKey[A] =>
             f(ka.key).map(b => EnrichedContractKey(ka.templateId, b))
@@ -338,8 +356,9 @@ object domain {
 
   object EnrichedContractKey {
     implicit val covariant: Traverse[EnrichedContractKey] = new Traverse[EnrichedContractKey] {
-      override def traverseImpl[G[_]: Applicative, A, B](fa: EnrichedContractKey[A])(
-          f: A => G[B]): G[EnrichedContractKey[B]] = {
+      override def traverseImpl[G[_]: Applicative, A, B](
+          fa: EnrichedContractKey[A],
+      )(f: A => G[B]): G[EnrichedContractKey[B]] = {
         f(fa.key).map(b => EnrichedContractKey(fa.templateId, b))
       }
     }
@@ -354,7 +373,8 @@ object domain {
             templateId: TemplateId.RequiredPkg,
             f: PackageService.ResolveTemplateRecordType,
             g: PackageService.ResolveChoiceRecordType,
-            h: PackageService.ResolveKeyType): Error \/ LfType =
+            h: PackageService.ResolveKeyType,
+        ): Error \/ LfType =
           h(templateId)
             .leftMap(e => Error('EnrichedContractKey_hasTemplateId_lfType, e.shows))
       }
@@ -375,13 +395,15 @@ object domain {
         templateId: TemplateId.RequiredPkg,
         f: PackageService.ResolveTemplateRecordType,
         g: PackageService.ResolveChoiceRecordType,
-        h: PackageService.ResolveKeyType): Error \/ LfType
+        h: PackageService.ResolveKeyType,
+    ): Error \/ LfType
   }
 
   object CreateCommand {
     implicit val traverseInstance: Traverse[CreateCommand] = new Traverse[CreateCommand] {
-      override def traverseImpl[G[_]: Applicative, A, B](fa: CreateCommand[A])(
-          f: A => G[B]): G[CreateCommand[B]] =
+      override def traverseImpl[G[_]: Applicative, A, B](
+          fa: CreateCommand[A],
+      )(f: A => G[B]): G[CreateCommand[B]] =
         f(fa.payload).map(a => fa.copy(payload = a))
     }
 
@@ -393,7 +415,8 @@ object domain {
           templateId: TemplateId.RequiredPkg,
           f: PackageService.ResolveTemplateRecordType,
           g: PackageService.ResolveChoiceRecordType,
-          h: PackageService.ResolveKeyType): Error \/ LfType =
+          h: PackageService.ResolveKeyType,
+      ): Error \/ LfType =
         f(templateId)
           .leftMap(e => Error('CreateCommand_hasTemplateId_lfType, e.shows))
     }
@@ -402,7 +425,8 @@ object domain {
   object ExerciseCommand {
     implicit val bitraverseInstance: Bitraverse[ExerciseCommand] = new Bitraverse[ExerciseCommand] {
       override def bitraverseImpl[G[_]: Applicative, A, B, C, D](
-          fab: ExerciseCommand[A, B])(f: A => G[C], g: B => G[D]): G[ExerciseCommand[C, D]] = {
+          fab: ExerciseCommand[A, B],
+      )(f: A => G[C], g: B => G[D]): G[ExerciseCommand[C, D]] = {
         import scalaz.syntax.applicative._
         ^(f(fab.argument), g(fab.reference))((c, d) => fab.copy(argument = c, reference = d))
       }
@@ -415,13 +439,15 @@ object domain {
       new HasTemplateId[ExerciseCommand[+?, domain.ContractLocator[_]]] {
 
         override def templateId(
-            fab: ExerciseCommand[_, domain.ContractLocator[_]]): TemplateId.OptionalPkg = {
+            fab: ExerciseCommand[_, domain.ContractLocator[_]],
+        ): TemplateId.OptionalPkg = {
           fab.reference match {
             case EnrichedContractKey(templateId, _) => templateId
             case EnrichedContractId(Some(templateId), _) => templateId
             case EnrichedContractId(None, _) =>
               throw new IllegalArgumentException(
-                "Please specify templateId, optional templateId is not supported yet!")
+                "Please specify templateId, optional templateId is not supported yet!",
+              )
           }
         }
 
@@ -430,7 +456,8 @@ object domain {
             templateId: TemplateId.RequiredPkg,
             f: PackageService.ResolveTemplateRecordType,
             g: PackageService.ResolveChoiceRecordType,
-            h: PackageService.ResolveKeyType): Error \/ LfType =
+            h: PackageService.ResolveKeyType,
+        ): Error \/ LfType =
           g(templateId, fa.choice)
             .leftMap(e => Error('ExerciseCommand_hasTemplateId_lfType, e.shows))
       }
@@ -438,15 +465,16 @@ object domain {
 
   object ExerciseResponse {
     implicit val traverseInstance: Traverse[ExerciseResponse] = new Traverse[ExerciseResponse] {
-      override def traverseImpl[G[_]: Applicative, A, B](fa: ExerciseResponse[A])(
-          f: A => G[B]): G[ExerciseResponse[B]] = {
+      override def traverseImpl[G[_]: Applicative, A, B](
+          fa: ExerciseResponse[A],
+      )(f: A => G[B]): G[ExerciseResponse[B]] = {
         import scalaz.syntax.applicative._
         val gb: G[B] = f(fa.exerciseResult)
         val gbs: G[List[Contract[B]]] = fa.contracts.traverse(_.traverse(f))
         ^(gb, gbs) { (exerciseResult, contracts) =>
           ExerciseResponse(
             exerciseResult = exerciseResult,
-            contracts = contracts
+            contracts = contracts,
           )
         }
       }
@@ -458,15 +486,16 @@ object domain {
   final case class OkResponse[R, W](
       result: R,
       warnings: Option[W],
-      status: StatusCode = StatusCodes.OK)
-      extends ServiceResponse
+      status: StatusCode = StatusCodes.OK,
+  ) extends ServiceResponse
 
   final case class ErrorResponse[E](errors: E, status: StatusCode) extends ServiceResponse
 
   object OkResponse {
     implicit val covariant: Bitraverse[OkResponse] = new Bitraverse[OkResponse] {
       override def bitraverseImpl[G[_]: Applicative, A, B, C, D](
-          fab: OkResponse[A, B])(f: A => G[C], g: B => G[D]): G[OkResponse[C, D]] = {
+          fab: OkResponse[A, B],
+      )(f: A => G[C], g: B => G[D]): G[OkResponse[C, D]] = {
         import scalaz.syntax.applicative._
         ^(f(fab.result), fab.warnings.traverse(g))((c, d) => fab.copy(result = c, warnings = d))
       }
@@ -476,7 +505,8 @@ object domain {
   object ErrorResponse {
     implicit val traverseInstance: Traverse[ErrorResponse] = new Traverse[ErrorResponse] {
       override def traverseImpl[G[_]: Applicative, A, B](fa: ErrorResponse[A])(
-          f: A => G[B]): G[ErrorResponse[B]] = f(fa.errors).map(b => fa.copy(errors = b))
+          f: A => G[B],
+      ): G[ErrorResponse[B]] = f(fa.errors).map(b => fa.copy(errors = b))
     }
   }
 
