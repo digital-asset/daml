@@ -220,7 +220,9 @@ generateSrcFromLf env = noLoc mod
 
     modRefs :: [(Bool, GHC.UnitId, LF.ModuleName)]
     modRefs = nubSort . concat . concat $
-        [ [ modRefsFromDefDataType typeDef
+        [ [ modRefsFromDefTypeSyn synDef
+          | synDef <- NM.toList (LF.moduleSynonyms (envMod env)) ]
+        , [ modRefsFromDefDataType typeDef
           | typeDef <- NM.toList (LF.moduleDataTypes (envMod env))
           , shouldExposeDefDataType typeDef ]
         , [ modRefsFromDefValue valueDef
@@ -241,12 +243,20 @@ generateSrcFromLf env = noLoc mod
             -- CurrentSdk.GHC.Types.DamlEnum in the daml-preprocessor.
         ]
 
+    modRefsFromDefTypeSyn :: LF.DefTypeSyn ->  [(Bool, GHC.UnitId, LF.ModuleName)]
+    modRefsFromDefTypeSyn LF.DefTypeSyn{..} =
+        modRefsFromType synType
+
     modRefsFromDefValue :: LF.DefValue -> [(Bool, GHC.UnitId, LF.ModuleName)]
-    modRefsFromDefValue LF.DefValue{..} | (_, dvalType) <- dvalBinder = concat
+    modRefsFromDefValue LF.DefValue{..} | (_, dvalType) <- dvalBinder =
+        modRefsFromType dvalType
+
+    modRefsFromType :: LF.Type -> [(Bool, GHC.UnitId, LF.ModuleName)]
+    modRefsFromType ty = concat
         [ [ ( isStable pkg, envGetUnitId env pkg, addSdkPrefixIfStable env pkg modRef)
-          | (pkg, modRef) <- toListOf monoTraverse dvalType ]
+          | (pkg, modRef) <- toListOf monoTraverse ty ]
         , [ (True, pkg, modRef)
-          | b <- toListOf builtinType dvalType
+          | b <- toListOf builtinType ty
           , (pkg, modRef) <- [builtinToModuleRef b] ]
         ]
 
