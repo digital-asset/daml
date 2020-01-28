@@ -46,7 +46,7 @@ test = scenario do
   alice <- getParty "Alice"
   tId <- submit alice do create T with party = alice, count = 1
   let activeContracts = toACS tId
-      commandsInFlight = Map.empty
+  let commandsInFlight = Map.empty
   commands <- testRule trigger alice activeContracts commandsInFlight 1
   let flatCommands = flattenCommands commands
   assertCreateCmd flatCommands $ \T { party, count } -> do
