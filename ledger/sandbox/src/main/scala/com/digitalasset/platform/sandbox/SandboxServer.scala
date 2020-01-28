@@ -113,12 +113,26 @@ final class SandboxServer(config: => SandboxConfig) extends AutoCloseable {
   private val authService: AuthService = config.authService.getOrElse(AuthServiceWildcard)
 
   private val metrics = new MetricRegistry
-  private val metricsReporting =
-    new MetricsReporting(metrics, "com.digitalasset.platform.sandbox")
 
   @volatile private var sandboxState: Resource[SandboxState] = _
 
-  sandboxState = start()(DirectExecutionContext)
+  sandboxState = {
+    implicit val executionContext: ExecutionContext = DirectExecutionContext
+    for {
+      _ <- ResourceOwner
+        .forCloseable(() => new MetricsReporting(metrics, getClass.getPackage.getName))
+        .acquire()
+      state <- start()
+    } yield state
+  }
+
+  def failure: Option[Throwable] =
+    Await
+      .result(
+        sandboxState.asFuture.transformWith(Future.successful)(DirectExecutionContext),
+        AsyncTolerance)
+      .failed
+      .toOption
 
   def port: Int =
     Await.result(portF(DirectExecutionContext), AsyncTolerance)
@@ -307,7 +321,6 @@ final class SandboxServer(config: => SandboxConfig) extends AutoCloseable {
   }
 
   override def close(): Unit = {
-    metricsReporting.close()
     Await.result(
       sandboxState.flatMap(_.apiServer)(DirectExecutionContext).release(),
       AsyncTolerance)

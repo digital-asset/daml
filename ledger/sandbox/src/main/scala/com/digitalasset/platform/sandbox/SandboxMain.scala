@@ -26,12 +26,19 @@ object SandboxMain extends App {
       if (closed.compareAndSet(false, true)) server.close()
     }
 
+    server.failure.foreach { exception =>
+      logger.error(
+        s"Shutting down Sandbox application due to an initialization error:\n${exception.getMessage}")
+      sys.exit(1)
+    }
+
     try {
       Runtime.getRuntime.addShutdownHook(new Thread(() => closeServer()))
     } catch {
-      case NonFatal(t) =>
-        logger.error("Shutting down Sandbox application because of initialization error", t)
+      case NonFatal(exception) =>
+        logger.error("Shutting down Sandbox application due to an initialization error.", exception)
         closeServer()
+        sys.exit(1)
     }
   }
 
