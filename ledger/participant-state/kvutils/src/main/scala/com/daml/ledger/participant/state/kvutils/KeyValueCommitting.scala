@@ -120,7 +120,7 @@ object KeyValueCommitting {
     : (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) =
     submission.getPayloadCase match {
       case DamlSubmission.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
-        val (logEntry, outputs) = PackageCommitter(engine).run(
+        PackageCommitter(engine).run(
           entryId,
           //TODO replace this call with an explicit maxRecordTime from the request once available
           estimateMaximumRecordTime(recordTime),
@@ -129,10 +129,9 @@ object KeyValueCommitting {
           participantId,
           inputState
         )
-        logEntry -> outputs.toMap
 
       case DamlSubmission.PayloadCase.PARTY_ALLOCATION_ENTRY =>
-        val (logEntry, outputs) = PartyAllocationCommitter.run(
+        PartyAllocationCommitter.run(
           entryId,
           //TODO replace this call with an explicit maxRecordTime from the request once available
           estimateMaximumRecordTime(recordTime),
@@ -141,19 +140,16 @@ object KeyValueCommitting {
           participantId,
           inputState
         )
-        logEntry -> outputs.toMap
 
       case DamlSubmission.PayloadCase.CONFIGURATION_SUBMISSION =>
-        val (logEntry, outputs) =
-          ConfigCommitter(defaultConfig).run(
-            entryId,
-            parseTimestamp(submission.getConfigurationSubmission.getMaximumRecordTime),
-            recordTime,
-            submission.getConfigurationSubmission,
-            participantId,
-            inputState
-          )
-        logEntry -> outputs.toMap
+        ConfigCommitter(defaultConfig).run(
+          entryId,
+          parseTimestamp(submission.getConfigurationSubmission.getMaximumRecordTime),
+          recordTime,
+          submission.getConfigurationSubmission,
+          participantId,
+          inputState
+        )
 
       case DamlSubmission.PayloadCase.TRANSACTION_ENTRY =>
         ProcessTransactionSubmission(
