@@ -17,7 +17,7 @@ import com.digitalasset.ledger.api.v1.transaction.Transaction
 import com.digitalasset.ledger.api.v1.transaction_filter.TransactionFilter
 import com.digitalasset.ledger.client.LedgerClient
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 object LedgerClientJwt {
 
@@ -26,6 +26,9 @@ object LedgerClientJwt {
 
   type SubmitAndWaitForTransactionTree =
     (Jwt, SubmitAndWaitRequest) => Future[SubmitAndWaitForTransactionTreeResponse]
+
+  type GetTermination =
+    Jwt => Future[Option[Terminates.AtAbsolute]]
 
   type GetActiveContracts =
     (Jwt, TransactionFilter, Boolean) => Source[GetActiveContractsResponse, NotUsed]
@@ -40,6 +43,17 @@ object LedgerClientJwt {
 
   def submitAndWaitForTransactionTree(client: LedgerClient): SubmitAndWaitForTransactionTree =
     (jwt, req) => client.commandServiceClient.submitAndWaitForTransactionTree(req, bearer(jwt))
+
+  def getTermination(client: LedgerClient)(implicit ec: ExecutionContext): GetTermination =
+    jwt =>
+      client.transactionClient.getLedgerEnd(bearer(jwt)).map {
+        _.offset flatMap {
+          _.value match {
+            case off @ LedgerOffset.Value.Absolute(_) => Some(Terminates.AtAbsolute(off))
+            case LedgerOffset.Value.Boundary(_) | LedgerOffset.Value.Empty => None // at beginning
+          }
+        }
+      }
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def getActiveContracts(client: LedgerClient): GetActiveContracts =
