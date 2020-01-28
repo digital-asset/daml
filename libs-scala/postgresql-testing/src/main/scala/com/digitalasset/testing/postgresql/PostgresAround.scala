@@ -14,6 +14,7 @@ import org.apache.commons.io.{FileUtils, IOUtils}
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters.asScalaBufferConverter
+import scala.util.Random
 import scala.util.control.NonFatal
 
 trait PostgresAround {
@@ -36,8 +37,8 @@ trait PostgresAround {
       initializeDatabase()
       createConfigFile()
       startPostgres()
-      createTestDatabase()
-      logger.info("PostgreSQL has started.")
+      createTestDatabase(databaseName)
+      logger.info(s"PostgreSQL has started on port $port.")
     } catch {
       case NonFatal(e) =>
         stopPostgres()
@@ -57,7 +58,8 @@ trait PostgresAround {
   protected def startPostgres(): Unit = {
     if (!started.compareAndSet(false, true)) {
       throw new IllegalStateException(
-        "Attempted to start PostgreSQL, but it has already been started.")
+        "Attempted to start PostgreSQL, but it has already been started.",
+      )
     }
     try {
       run(
@@ -97,6 +99,14 @@ trait PostgresAround {
     }
   }
 
+  protected def createNewDatabase(prefix: String = "test_"): PostgresFixture = {
+    val newDatabaseName = s"$prefix${Random.nextInt(Int.MaxValue)}"
+    createTestDatabase(newDatabaseName)
+    val jdbcUrl =
+      s"jdbc:postgresql://$hostName:${postgresFixture.port}/$newDatabaseName?user=$userName"
+    postgresFixture.copy(jdbcUrl = jdbcUrl)
+  }
+
   private def initializeDatabase(): Unit = run(
     "initialize the PostgreSQL database",
     Tool.initdb,
@@ -106,7 +116,7 @@ trait PostgresAround {
     "UNICODE",
     "-A",
     "trust",
-    postgresFixture.dataDir.toString.replaceAllLiterally("\\", "/")
+    postgresFixture.dataDir.toString.replaceAllLiterally("\\", "/"),
   )
 
   private def createConfigFile(): Unit = {
@@ -131,7 +141,7 @@ trait PostgresAround {
     ()
   }
 
-  private def createTestDatabase(): Unit = run(
+  private def createTestDatabase(name: String): Unit = run(
     "create the database",
     Tool.createdb,
     "-h",
@@ -140,7 +150,7 @@ trait PostgresAround {
     userName,
     "-p",
     postgresFixture.port.toString,
-    databaseName,
+    name,
   )
 
   private def run(description: String, tool: Tool, args: String*): Unit = {
@@ -209,7 +219,7 @@ object PostgresAround {
           stderr.map(output => s"\nSTDERR:\n$output"),
           Some(logs).filter(_.nonEmpty).map(lines => s"\nLogs:\n${lines.mkString("\n")}"),
         ).flatten.mkString("\n"),
-        cause
+        cause,
       ) {
     def this(
         description: String,

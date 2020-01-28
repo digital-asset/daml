@@ -212,6 +212,7 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
     "SemanticPrivacyProjections",
     "Test visibility via contract fetches for the paint-offer flow",
     allocate(TwoParties, SingleParty),
+    timeoutScale = 2.0,
   ) {
     case Participants(Participant(alpha, bank, houseOwner), Participant(beta, painter)) =>
       for {

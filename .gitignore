@@ -58,7 +58,6 @@ da-daml-equities-library.txt
 .flattened-pom.xml
 *~
 *.orig
-sqlite
 venv
 trace.*.dat
 node_modules/

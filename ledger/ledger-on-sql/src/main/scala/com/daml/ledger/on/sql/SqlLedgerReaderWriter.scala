@@ -16,7 +16,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntryId,
   DamlStateKey,
   DamlStateValue,
-  DamlSubmission
+  DamlSubmission,
 }
 import com.daml.ledger.participant.state.kvutils.api.{LedgerReader, LedgerRecord, LedgerWriter}
 import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting}
@@ -77,7 +77,7 @@ class SqlLedgerReaderWriter(
           } else {
             Source(result)
           }
-        })
+        }),
       )
       .map { case (_, record) => record }
 
@@ -119,7 +119,8 @@ class SqlLedgerReaderWriter(
     if (!(actualStateUpdates.keySet subsetOf expectedStateUpdates)) {
       val unaccountedKeys = actualStateUpdates.keySet diff expectedStateUpdates
       sys.error(
-        s"CommitActor: State updates not a subset of expected updates! Keys [$unaccountedKeys] are unaccounted for!")
+        s"CommitActor: State updates not a subset of expected updates! Keys [$unaccountedKeys] are unaccounted for!",
+      )
     }
   }
 
@@ -140,14 +141,6 @@ class SqlLedgerReaderWriter(
       .selectStateByKeys(stateInputKeys)
       .foldLeft(builder)(_ += _)
       .result()
-  }
-
-  private def migrate(): Unit = {
-    inDatabaseWriteTransaction("Migrating the database") { implicit connection =>
-      queries.createLogTable()
-      queries.createStateTable()
-    }
-    logger.info("Successfully migrated the database.")
   }
 
   private def inDatabaseReadTransaction[T](message: String)(
@@ -210,18 +203,16 @@ object SqlLedgerReaderWriter {
       logCtx: LoggingContext,
   ): ResourceOwner[SqlLedgerReaderWriter] =
     for {
-      dispatcher <- ResourceOwner.forCloseable(
-        () =>
-          Dispatcher(
-            "sql-participant-state",
-            zeroIndex = StartIndex,
-            headAtInitialization = StartIndex,
-        ))
-      database <- Database.owner(jdbcUrl)
+      dispatcher <- ResourceOwner.forCloseable(() =>
+        Dispatcher(
+          "sql-participant-state",
+          zeroIndex = StartIndex,
+          headAtInitialization = StartIndex,
+        ),
+      )
+      uninitializedDatabase <- Database.owner(jdbcUrl)
     } yield {
-      val participant =
-        new SqlLedgerReaderWriter(ledgerId, participantId, database, dispatcher)
-      participant.migrate()
-      participant
+      val database = uninitializedDatabase.migrate()
+      new SqlLedgerReaderWriter(ledgerId, participantId, database, dispatcher)
     }
 }

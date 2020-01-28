@@ -13,7 +13,6 @@ import com.digitalasset.ledger.client.binding.Primitive.{ContractId, Party}
 import com.digitalasset.ledger.test_stable.Test.WithObservers
 
 import scala.concurrent.Future
-import scala.concurrent.duration.DurationInt
 
 final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(session) {
   type Parties = Set[Party]
@@ -27,13 +26,13 @@ final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(sessio
     allocate(Parties(partyCount / 2), Parties(partyCount / 2))
 
   // allocating parties seems to be really slow on a real database
-  private val timeout = 120.seconds
+  private val timeoutScale = 4.0
 
   test(
     "LOPseeTransactionsInMultipleSinglePartySubscriptions",
     "Observers should see transactions in multiple single-party subscriptions",
     allocation,
-    timeout,
+    timeoutScale,
   ) {
     case TestParticipants(t) =>
       for {
@@ -58,7 +57,7 @@ final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(sessio
     "LOPseeTransactionsInSingleMultiPartySubscription",
     "Observers should see transactions in a single multi-party subscription",
     allocation,
-    timeout,
+    timeoutScale,
   ) {
     case TestParticipants(t) =>
       for {
@@ -83,7 +82,7 @@ final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(sessio
     "LOPseeActiveContractsInMultipleSinglePartySubscriptions",
     "Observers should see active contracts in multiple single-party subscriptions",
     allocation,
-    timeout,
+    timeoutScale,
   ) {
     case TestParticipants(t) =>
       for {
@@ -108,7 +107,7 @@ final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(sessio
     "LOPseeActiveContractsInSingleMultiPartySubscription",
     "Observers should see active contracts in a single multi-party subscription",
     allocation,
-    timeout,
+    timeoutScale,
   ) {
     case TestParticipants(t) =>
       for {
