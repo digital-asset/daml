@@ -22,6 +22,7 @@ import Development.IDE.Types.Location
 import Safe
 import System.FilePath
 
+import "ghc-lib-parser" Bag
 import "ghc-lib-parser" BasicTypes
 import "ghc-lib-parser" FastString
 import "ghc-lib" GHC
@@ -68,7 +69,54 @@ generateSrcFromLf env = noLoc mod
             , hsmodExports = Nothing
             }
 
-    decls = dataTypeDecls ++ valueDecls
+    decls = classDecls ++ dataTypeDecls ++ valueDecls
+
+    classMethodNames :: Set T.Text
+    classMethodNames = Set.fromList
+        [ methodName
+        | LF.DefTypeSyn{..} <- NM.toList . LF.moduleSynonyms $ envMod env
+        , LF.TStruct fields <- [synType]
+        , (fieldName, _) <- fields
+        , Just methodName <- [getClassMethodName fieldName]
+        ]
+
+    classDecls :: [LHsDecl GhcPs]
+    classDecls = do
+        LF.DefTypeSyn{..} <- NM.toList . LF.moduleSynonyms $ envMod env
+        LF.TStruct fields <- [synType]
+        LF.TypeSynName [name] <- [synName]
+
+        let supers =
+                [ convType env fieldType
+                | (fieldName, fieldType) <- fields
+                , isSuperClassField fieldName
+                ]
+
+            methods =
+                [ (methodName, convType env fieldType)
+                | (fieldName, fieldType) <- fields
+                , Just methodName <- [getClassMethodName fieldName]
+                ]
+            occName = mkOccName clsName . T.unpack $ sanitize name
+
+        [ noLoc . TyClD noExt $ ClassDecl
+            { tcdCExt = noExt
+            , tcdCtxt = noLoc (map noLoc supers)
+            , tcdLName = noLoc $ mkRdrUnqual occName
+            , tcdTyVars = HsQTvs noExt (map (convTyVarBinder env) synParams)
+            , tcdFixity = Prefix
+            , tcdFDs = [] -- can't reconstruct fundeps without LF annotations
+            , tcdSigs =
+                [ noLoc $ ClassOpSig noExt False
+                    [mkRdrName methodName]
+                    (HsIB noExt (noLoc methodType))
+                | (methodName, methodType) <- methods
+                ]
+            , tcdMeths = emptyBag -- can't reconstruct default methods yet
+            , tcdATs = [] -- associated types not supported
+            , tcdATDefs = []
+            , tcdDocs = []
+            } ]
 
     dataTypeDecls = do
         dtype@LF.DefDataType {..} <- NM.toList $ LF.moduleDataTypes $ envMod env
@@ -112,6 +160,7 @@ generateSrcFromLf env = noLoc mod
         = not ("$" `T.isPrefixOf` LF.unExprValName lfName)
         && not (typeHasOldTypeclass env lfType)
         && (LF.moduleNameString lfModName /= "GHC.Prim")
+        && not (LF.unExprValName lfName `Set.member` classMethodNames)
 
     convDataCons :: T.Text -> LF.DataCons -> [LConDecl GhcPs]
     convDataCons dataTypeCon0 = \case
@@ -246,10 +295,7 @@ mkDataDecl env thisModule occName tyVars cons = noLoc $ TyClD noExt $ DataDecl
     , tcdTyVars =
           HsQTvs
               { hsq_ext = noExt
-              , hsq_explicit =
-                    [ mkUserTyVar $ LF.unTypeVarName tyVarName
-                    | (tyVarName, _kind) <- tyVars
-                    ]
+              , hsq_explicit = map (convTyVarBinder env) tyVars
               }
     , tcdFixity = Prefix
     , tcdDataDefn =
@@ -263,7 +309,6 @@ mkDataDecl env thisModule occName tyVars cons = noLoc $ TyClD noExt $ DataDecl
               , dd_derivs = noLoc []
               }
     }
-
 
 mkConDecl :: Env -> Module -> OccName -> HsConDeclDetails GhcPs -> LConDecl GhcPs
 mkConDecl env thisModule conName details = noLoc $ ConDeclH98
@@ -322,7 +367,7 @@ convType env =
             noLoc $
             HsForAllTy
                 noExt
-                [mkUserTyVar $ LF.unTypeVarName $ fst forallBinder]
+                [convTyVarBinder env forallBinder]
                 (noLoc $ convType env forallBody)
         -- TODO (drsk): Is this the correct tuple type? What about the field names?
         LF.TStruct fls ->
@@ -381,10 +426,28 @@ errTooManyNameComponents cs =
     "Internal error: Dalf contains type constructors with more than two name components: " <>
     (T.unpack $ T.intercalate "." cs)
 
+convKind :: Env -> LF.Kind -> LHsKind GhcPs
+convKind env = \case
+    LF.KStar -> noLoc $ HsStarTy noExt False
+    LF.KNat -> noLoc $ mkGhcType "Nat"
+    LF.KArrow k1 k2 -> noLoc $ HsFunTy noExt (convKind env k1) (convKind env k2)
+
+convTyVarBinder :: Env -> (LF.TypeVarName, LF.Kind) -> LHsTyVarBndr GhcPs
+convTyVarBinder env = \case
+    (LF.TypeVarName tyVar, LF.KStar) ->
+        mkUserTyVar tyVar
+    (LF.TypeVarName tyVar, kind) ->
+        mkKindedTyVar tyVar (convKind env kind)
+
 mkUserTyVar :: T.Text -> LHsTyVarBndr GhcPs
 mkUserTyVar =
     noLoc .
     UserTyVar noExt . noLoc . mkRdrUnqual . mkOccName tvName . T.unpack
+
+mkKindedTyVar :: T.Text -> LHsKind GhcPs -> LHsTyVarBndr GhcPs
+mkKindedTyVar name = noLoc .
+    (KindedTyVar noExt . noLoc . mkRdrUnqual . mkOccName tvName $ T.unpack name)
+
 
 mkRdrName :: T.Text -> Located RdrName
 mkRdrName = noLoc . mkRdrUnqual . mkOccName varName . T.unpack
@@ -626,3 +689,11 @@ envLookupModule pkgRef modName env = do
 
 envLookupPackage :: LF.PackageRef -> Env -> Maybe LF.Package
 envLookupPackage ref env = MS.lookup (envGetUnitId env ref) (envPkgs env)
+
+getClassMethodName :: LF.FieldName -> Maybe T.Text
+getClassMethodName (LF.FieldName fieldName) =
+    T.stripPrefix "m_" fieldName
+
+isSuperClassField :: LF.FieldName -> Bool
+isSuperClassField (LF.FieldName fieldName) =
+    "s_" `T.isPrefixOf` fieldName
