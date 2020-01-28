@@ -53,6 +53,9 @@ data Command
     | LedgerAllocateParties { flags :: LedgerFlags, parties :: [String] }
     | LedgerUploadDar { flags :: LedgerFlags, darPathM :: Maybe FilePath }
     | LedgerNavigator { flags :: LedgerFlags, remainingArguments :: [String] }
+    | Codegen { lang :: Lang, remainingArguments :: [String] }
+
+data Lang = Java | Scala | TypeScript
 
 commandParser :: Parser Command
 commandParser = subparser $ fold
@@ -64,6 +67,7 @@ commandParser = subparser $ fold
     , command "deploy" (info (deployCmd <**> helper) deployCmdInfo)
     , command "ledger" (info (ledgerCmd <**> helper) ledgerCmdInfo)
     , command "run-jar" (info runJarCmd forwardOptions)
+    , command "codegen" (info (codegenCmd <**> helper) forwardOptions)
     ]
   where
 
@@ -147,6 +151,18 @@ commandParser = subparser $ fold
             (Right . Just . JsonApiPort)
             (readMaybe s)
 
+    codegenCmd = asum
+        [ subparser $ fold
+            [  command "java" $ info codegenJavaCmd forwardOptions
+            ,  command "scala" $ info codegenScalaCmd forwardOptions
+            ,  command "ts" $ info codegenTypeScriptCmd forwardOptions
+            ]
+        ]
+
+    codegenJavaCmd = Codegen Java <$> many (argument str (metavar "ARG"))
+    codegenScalaCmd = Codegen Scala <$> many (argument str (metavar "ARG"))
+    codegenTypeScriptCmd = Codegen TypeScript <$> many (argument str (metavar "ARG"))
+
     ledgerCmdInfo = mconcat
         [ forwardOptions
         , progDesc $ concat
@@ -228,25 +244,40 @@ commandParser = subparser $ fold
         <> help "Path to the token-file for ledger authorization"
 
 runCommand :: Command -> IO ()
-runCommand DamlStudio {..} = runDamlStudio replaceExtension remainingArguments
-runCommand RunJar {..} = runJar jarPath mbLogbackConfig remainingArguments
-runCommand New {..} = runNew targetFolder templateNameM [] []
-runCommand Migrate {..} = runMigrate targetFolder pkgPathFrom pkgPathTo
-runCommand Init {..} = runInit targetFolderM
-runCommand ListTemplates = runListTemplates
-runCommand Start {..} =
-    runStart
-        sandboxPortM
-        startNavigator
-        jsonApiCfg
-        openBrowser
-        onStartM
-        waitForSignal
-        sandboxOptions
-        navigatorOptions
-        jsonApiOptions
-runCommand Deploy {..} = runDeploy flags
-runCommand LedgerListParties {..} = runLedgerListParties flags json
-runCommand LedgerAllocateParties {..} = runLedgerAllocateParties flags parties
-runCommand LedgerUploadDar {..} = runLedgerUploadDar flags darPathM
-runCommand LedgerNavigator {..} = runLedgerNavigator flags remainingArguments
+runCommand = \case
+    DamlStudio {..} -> runDamlStudio replaceExtension remainingArguments
+    RunJar {..} -> runJar jarPath mbLogbackConfig remainingArguments
+    New {..} -> runNew targetFolder templateNameM [] []
+    Migrate {..} -> runMigrate targetFolder pkgPathFrom pkgPathTo
+    Init {..} -> runInit targetFolderM
+    ListTemplates -> runListTemplates
+    Start {..} ->
+        runStart
+            sandboxPortM
+            startNavigator
+            jsonApiCfg
+            openBrowser
+            onStartM
+            waitForSignal
+            sandboxOptions
+            navigatorOptions
+            jsonApiOptions
+    Deploy {..} -> runDeploy flags
+    LedgerListParties {..} -> runLedgerListParties flags json
+    LedgerAllocateParties {..} -> runLedgerAllocateParties flags parties
+    LedgerUploadDar {..} -> runLedgerUploadDar flags darPathM
+    LedgerNavigator {..} -> runLedgerNavigator flags remainingArguments
+    Codegen {..} ->
+        case lang of
+            TypeScript ->
+                runDaml2ts remainingArguments
+            Java ->
+                runJar
+                    "daml-sdk/daml-sdk.jar"
+                    (Just "daml-sdk/codegen-logback.xml")
+                    (["codegen", "java"] ++ remainingArguments)
+            Scala ->
+                runJar
+                    "daml-sdk/daml-sdk.jar"
+                    (Just "daml-sdk/codegen-logback.xml")
+                    (["codegen", "scala"] ++ remainingArguments)

@@ -76,12 +76,14 @@ tests damlDir tmpDir = testGroup "Integration tests"
     , quickstartTests quickstartDir mvnDir
     , cleanTests cleanDir
     , deployTest deployDir
+    , codegenTests codegenDir
     ]
     where quickstartDir = tmpDir </> "q-u-i-c-k-s-t-a-r-t"
           cleanDir = tmpDir </> "clean"
           mvnDir = tmpDir </> "m2"
           tarballDir = tmpDir </> "tarball"
           deployDir = tmpDir </> "deploy"
+          codegenDir = tmpDir </> "codegen"
 
 throwError :: MonadFail m => T.Text -> T.Text -> m ()
 throwError msg e = fail (T.unpack $ msg <> " " <> e)
@@ -612,6 +614,32 @@ cleanTests baseDir = testGroup "daml clean"
                                 , "    files at end:"
                                 , unlines (map ("       "++) filesAtEnd)
                                 ]
+
+-- | Check we can generate language bindings.
+codegenTests :: FilePath -> TestTree
+codegenTests codegenDir = testGroup "daml codegen"
+    [ codegenTestFor "ts" Nothing
+    , codegenTestFor "java" Nothing
+    , codegenTestFor "scala" (Just "com.cookiemonster.nomnomnom")
+    ]
+    where
+        codegenTestFor :: String -> Maybe String -> TestTree
+        codegenTestFor lang namespace =
+            testCase lang $ do
+                createDirectoryIfMissing True codegenDir
+                withCurrentDirectory codegenDir $ do
+                    let projectDir = codegenDir </> ("proj-" ++ lang)
+                    callCommandQuiet $ unwords ["daml new", projectDir, "skeleton"]
+                    withCurrentDirectory projectDir $ do
+                        callCommandQuiet "daml build"
+                        let darFile = projectDir</> ".daml/dist/proj-" ++ lang ++ "-0.0.1.dar"
+                            outDir  = projectDir</> "generated" </> lang
+                        callCommandQuiet $
+                          unwords [ "daml", "codegen", lang
+                                  , darFile ++ maybe "" ("=" ++) namespace
+                                  , "-o", outDir]
+                        contents <- listDirectory outDir
+                        assertBool "bindings were written" (not $ null contents)
 
 deployTest :: FilePath -> TestTree
 deployTest deployDir = testCase "daml deploy" $ do
