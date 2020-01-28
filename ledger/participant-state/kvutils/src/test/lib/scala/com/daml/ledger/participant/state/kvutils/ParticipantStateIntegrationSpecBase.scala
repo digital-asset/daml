@@ -27,7 +27,7 @@ import org.scalatest.{Assertion, AsyncWordSpec, BeforeAndAfterEach}
 import scala.collection.immutable.HashMap
 import scala.compat.java8.FutureConverters._
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
-import scala.concurrent.{Await, ExecutionContext}
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.Try
 
 abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
@@ -35,10 +35,12 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
     with BeforeAndAfterEach
     with AkkaBeforeAndAfterAll {
 
-  var ledgerId: LedgerString = _
-  var participantStateResource: Resource[ParticipantState] = _
-  var ps: ParticipantState = _
-  var rt: Timestamp = _
+  private implicit val ec: ExecutionContext = ExecutionContext.global
+
+  private var ledgerId: LedgerString = _
+  private var participantStateResource: Resource[ParticipantState] = _
+  private var ps: ParticipantState = _
+  private var rt: Timestamp = _
 
   val startIndex: Long = 0
 
@@ -52,8 +54,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
   override protected def beforeEach(): Unit = {
     super.beforeEach()
     ledgerId = Ref.LedgerString.assertFromString(s"ledger-${UUID.randomUUID()}")
-    participantStateResource =
-      participantStateFactory(participantId, ledgerId).acquire()(ExecutionContext.global)
+    participantStateResource = participantStateFactory(participantId, ledgerId).acquire()
     ps = Await.result(participantStateResource.asFuture, 10.seconds)
     rt = currentRecordTime()
   }
@@ -513,6 +514,34 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
             fail(
               s"unexpected update message after a configuration change. Error: ${result2.description}")
         }
+      }
+    }
+
+    "process commits serially" in {
+      val partyCount = 1000L
+      val partyIds = 1L to partyCount
+      val partyIdDigits = partyCount.toString.length
+      val partyNames =
+        partyIds
+          .map(i => Ref.Party.assertFromString(s"party-%0${partyIdDigits}d".format(i)))
+          .toVector
+
+      val updatesF = ps.stateUpdates(beginAfter = None).take(partyCount).runWith(Sink.seq)
+      for {
+        actualAllocations <- Future.sequence(partyNames.map(name =>
+          ps.allocateParty(Some(name), Some(name), randomLedgerString()).toScala))
+        updates <- updatesF
+      } yield {
+        val expectedAllocations = partyIds.map(_ => SubmissionResult.Acknowledged).toVector
+        assert(actualAllocations == expectedAllocations)
+
+        val expectedOffsets = partyIds.map(i => offset(i - 1, 0)).toVector
+        val actualOffsets = updates.map(_._1).sorted.toVector
+        assert(actualOffsets == expectedOffsets)
+
+        val actualNames =
+          updates.map(_._2.asInstanceOf[PartyAddedToParticipant].displayName).sorted.toVector
+        assert(actualNames == partyNames)
       }
     }
   }

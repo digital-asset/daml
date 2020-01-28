@@ -53,8 +53,17 @@ object Database {
       for {
         readerConnectionPool <- ResourceOwner.forCloseable(() =>
           newHikariDataSource(jdbcUrl, readOnly = true))
-        writerConnectionPool <- ResourceOwner.forCloseable(() => newHikariDataSource(jdbcUrl))
-      } yield new UninitializedDatabase(system, queries, readerConnectionPool, writerConnectionPool)
+        writerConnectionPool <- ResourceOwner.forCloseable(() =>
+          newHikariDataSource(jdbcUrl, maxPoolSize = Some(MaximumWriterConnectionPoolSize)))
+        adminConnectionPool <- ResourceOwner.forCloseable(() => newHikariDataSource(jdbcUrl))
+      } yield
+        new UninitializedDatabase(
+          system,
+          queries,
+          readerConnectionPool,
+          writerConnectionPool,
+          adminConnectionPool,
+        )
   }
 
   object SingleConnectionDatabase {
@@ -65,17 +74,34 @@ object Database {
     ): ResourceOwner[UninitializedDatabase] =
       for {
         connectionPool <- ResourceOwner.forCloseable(() => newHikariDataSource(jdbcUrl))
-      } yield new UninitializedDatabase(system, queries, connectionPool, connectionPool)
+      } yield
+        new UninitializedDatabase(
+          system,
+          queries,
+          readerConnectionPool = connectionPool,
+          writerConnectionPool = connectionPool,
+          adminConnectionPool = connectionPool,
+          afterMigration = () => {
+            // Flyway needs 2 database connections: one for locking its own table, and then one for
+            // performing the migration. We allow it to do this, then drop the connection pool cap
+            // to 1 afterwards. With SQLite in-memory, we can't use a separate connection pool, it
+            // will create a new in-memory database for each connection (and therefore each
+            // connection pool).
+            connectionPool.setMaximumPoolSize(MaximumWriterConnectionPoolSize)
+          }
+        )
   }
 
   private def newHikariDataSource(
       jdbcUrl: String,
       readOnly: Boolean = false,
+      maxPoolSize: Option[Int] = None,
   ): HikariDataSource = {
     val pool = new HikariDataSource()
     pool.setAutoCommit(false)
     pool.setJdbcUrl(jdbcUrl)
     pool.setReadOnly(readOnly)
+    maxPoolSize.foreach(pool.setMaximumPoolSize)
     pool
   }
 
@@ -84,7 +110,6 @@ object Database {
   }
 
   object RDBMS {
-
     object H2 extends RDBMS {
       override val name: String = "h2"
     }
@@ -96,29 +121,26 @@ object Database {
     object SQLite extends RDBMS {
       override val name: String = "sqlite"
     }
-
   }
 
   class UninitializedDatabase(
       system: RDBMS,
       queries: Queries,
-      readerConnectionPool: HikariDataSource,
-      writerConnectionPool: HikariDataSource,
+      readerConnectionPool: DataSource,
+      writerConnectionPool: DataSource,
+      adminConnectionPool: DataSource,
+      afterMigration: () => Unit = () => (),
   ) {
     private val flyway: Flyway =
       Flyway
         .configure()
-        .dataSource(writerConnectionPool)
+        .dataSource(adminConnectionPool)
         .locations(s"classpath:/com/daml/ledger/on/sql/migrations/${system.name}")
         .load()
 
     def migrate(): Database = {
       flyway.migrate()
-      // Flyway needs 2 database connections: one for locking its own table, and then one for doing
-      // the migration. We allow it to do this, then drop the connection pool cap to 1 afterwards.
-      // We can't use a separate connection pool because if we use SQLite in-memory, it will create
-      // a new in-memory database for each connection (and therefore each connection pool).
-      writerConnectionPool.setMaximumPoolSize(MaximumWriterConnectionPoolSize)
+      afterMigration()
       Database(queries, readerConnectionPool, writerConnectionPool)
     }
 
