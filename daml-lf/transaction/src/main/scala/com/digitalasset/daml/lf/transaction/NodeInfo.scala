@@ -24,7 +24,7 @@ object NodeInfo {
 
   final case class Create[PartyRep](
       signatories: Set[PartyRep],
-      stakeholders: Set[PartyRep]
+      stakeholders: Set[PartyRep],
   ) extends NodeInfo[PartyRep] {
     def informeesOfNode: Set[PartyRep] = stakeholders
   }
@@ -32,7 +32,7 @@ object NodeInfo {
   final case class Fetch[PartyRep](
       signatories: Set[PartyRep],
       stakeholders: Set[PartyRep],
-      actors: Set[PartyRep]
+      actors: Set[PartyRep],
   ) extends NodeInfo[PartyRep] {
     def informeesOfNode: Set[PartyRep] = signatories | actors
   }
@@ -52,7 +52,7 @@ object NodeInfo {
 
   final case class LookupByKey[PartyRep](
       keyMaintainers: Set[PartyRep],
-      hasResult: Boolean
+      hasResult: Boolean,
   ) extends NodeInfo[PartyRep] {
     def informeesOfNode: Set[PartyRep] =
       // TODO(JM): In the successful case the informees should be the

@@ -589,12 +589,14 @@ object Ledger {
     def discloseNode(
         parentWitnesses: Set[Party],
         nid: Transaction.NodeId,
-        node: Transaction.Node): (Set[Party], EnrichState) = {
+        node: Transaction.Node,
+    ): (Set[Party], EnrichState) = {
       val witnesses = parentWitnesses union node.info.informeesOfNode
       witnesses ->
         copy(
           disclosures = disclosures
-            .updated(nid, witnesses union disclosures.getOrElse(nid, Set.empty))
+            .updated(nid,
+                     witnesses union disclosures.getOrElse(nid, Set.empty)),
         )
     }
 
@@ -728,8 +730,7 @@ object Ledger {
                 authorizingParties = authParties,
                 requiredParties = actingParties,
               ),
-          ),
-      )
+          ), )
     }
 
     def authorizeFetch(
@@ -909,11 +910,13 @@ object Ledger {
           // well-authorized by A : signatories subsetOf A && non-empty signatories
           // ------------------------------------------------------------------
           state
-            .authorizeCreate(nodeId,
-                             create,
-                             signatories = create.signatories,
-                             authorization = authorization,
-                             mbMaintainers = create.key.map(_.maintainers))
+            .authorizeCreate(
+              nodeId,
+              create,
+              signatories = create.signatories,
+              authorization = authorization,
+              mbMaintainers = create.key.map(_.maintainers),
+            )
             .discloseNode(parentExerciseWitnesses, nodeId, create)
             ._2
 
@@ -928,10 +931,12 @@ object Ledger {
                            fetch.coid)
             .discloseNode(parentExerciseWitnesses, nodeId, fetch)
             ._2
-            .authorizeFetch(nodeId,
-                            fetch,
-                            stakeholders = fetch.stakeholders,
-                            authorization = authorization)
+            .authorizeFetch(
+              nodeId,
+              fetch,
+              stakeholders = fetch.stakeholders,
+              authorization = authorization,
+            )
 
         case ex: NodeExercises.WithTxValue[Transaction.NodeId, ContractId] =>
           // ------------------------------------------------------------------
@@ -1130,12 +1135,14 @@ object Ledger {
     def nodeInfoByCoid(coid: AbsoluteContractId): LedgerNodeInfo =
       nodeInfos(coidToNodeId(coid))
 
-    def updateLedgerNodeInfo(coid: AbsoluteContractId)(
-        f: (LedgerNodeInfo) => LedgerNodeInfo): LedgerData =
+    def updateLedgerNodeInfo(
+        coid: AbsoluteContractId,
+    )(f: (LedgerNodeInfo) => LedgerNodeInfo): LedgerData =
       coidToNodeId.get(coid).map(updateLedgerNodeInfo(_)(f)).getOrElse(this)
 
-    def updateLedgerNodeInfo(nodeId: ScenarioNodeId)(
-        f: (LedgerNodeInfo) => LedgerNodeInfo): LedgerData =
+    def updateLedgerNodeInfo(
+        nodeId: ScenarioNodeId,
+    )(f: (LedgerNodeInfo) => LedgerNodeInfo): LedgerData =
       copy(
         nodeInfos = nodeInfos
           .get(nodeId)
@@ -1229,7 +1236,8 @@ object Ledger {
                                    _) =>
                       val newCacheP =
                         newCache.updateLedgerNodeInfo(referencedCoid)(info =>
-                          info.copy(referencedBy = info.referencedBy + nodeId))
+                          info.copy(referencedBy = info.referencedBy + nodeId),
+                        )
 
                       processNodes(Right(newCacheP), idsToProcess)
 
@@ -1242,8 +1250,8 @@ object Ledger {
                               referencedBy = info.referencedBy + nodeId,
                               consumedBy =
                                 if (ex.consuming) Some(nodeId)
-                                else info.consumedBy
-                          ))
+                                else info.consumedBy,
+                          ), )
                       val newCache1 =
                         if (ex.consuming) {
                           val newCache0_1 =
@@ -1281,7 +1289,7 @@ object Ledger {
                             newCache.updateLedgerNodeInfo(referencedCoid)(
                               info =>
                                 info.copy(
-                                  referencedBy = info.referencedBy + nodeId))
+                                  referencedBy = info.referencedBy + nodeId), )
 
                           processNodes(Right(newCacheP), idsToProcess)
                       }
