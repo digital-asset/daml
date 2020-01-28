@@ -255,11 +255,11 @@ Examples
 
 .. code-block:: none
 
-    {"status": 200, result = [{"templateId": "....", "moduleName" : "...", …}, … {....}]}
+    {"status": 200, "result": {...}}
 
 .. code-block:: none
 
-    {"status": 200, result = [...], "warnings": {"unknownTemplateIds": ["UnknownModule:UnknownEntity"]}}
+    {"status": 200, "result": [...], "warnings": {"unknownTemplateIds": ["UnknownModule:UnknownEntity"]}}
 
 .. code-block:: json
 
