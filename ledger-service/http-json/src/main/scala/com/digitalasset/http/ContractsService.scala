@@ -214,22 +214,22 @@ class ContractsService(
     import cats.instances.vector._
     import cats.syntax.traverse._
     import doobie.implicits._
-    templateIds.toVector
-      .traverse(tpId => searchDbOneTpId_(fetch, doobieLog)(jwt, party, tpId, queryParams))
-      .map(_.flatten)
+    for {
+      _ <- fetch.fetchAndPersist(jwt, party, templateIds.toList)
+      cts <- templateIds.toVector
+        .traverse(tpId => searchDbOneTpId_(fetch, doobieLog)(jwt, party, tpId, queryParams))
+    } yield cts.flatten
   }
 
-  private def searchDbOneTpId_(fetch: ContractsFetch, doobieLog: doobie.LogHandler)(
+  private[this] def searchDbOneTpId_(fetch: ContractsFetch, doobieLog: doobie.LogHandler)(
       jwt: Jwt,
       party: domain.Party,
       templateId: domain.TemplateId.RequiredPkg,
       queryParams: Map[String, JsValue],
-  ): doobie.ConnectionIO[Vector[domain.ActiveContract[JsValue]]] =
-    for {
-      _ <- fetch.fetchAndPersist(jwt, party, templateId)
-      predicate = valuePredicate(templateId, queryParams)
-      acs <- ContractDao.selectContracts(party, templateId, predicate.toSqlWhereClause)(doobieLog)
-    } yield acs
+  ): doobie.ConnectionIO[Vector[domain.ActiveContract[JsValue]]] = {
+    val predicate = valuePredicate(templateId, queryParams)
+    ContractDao.selectContracts(party, templateId, predicate.toSqlWhereClause)(doobieLog)
+  }
 
   private def searchInMemory(
       jwt: Jwt,

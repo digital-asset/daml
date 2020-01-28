@@ -77,7 +77,11 @@ private class ContractsFetch(
     }
   }
 
-  def fetchAndPersist(jwt: Jwt, party: domain.Party, templateId: domain.TemplateId.RequiredPkg)(
+  private[this] def fetchAndPersist(
+      jwt: Jwt,
+      party: domain.Party,
+      templateId: domain.TemplateId.RequiredPkg,
+  )(
       implicit ec: ExecutionContext,
       mat: Materializer,
   ): ConnectionIO[BeginBookmark[domain.Offset]] = {
