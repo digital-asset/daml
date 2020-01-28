@@ -914,6 +914,73 @@ dataDependencyTests damlc repl davlDar = testGroup "Data Dependencies" $
     | depLfVer <- LF.supportedOutputVersions
     , targetLfVer <- LF.supportedOutputVersions
     , targetLfVer >= depLfVer
+    ] <>
+    [ testCaseSteps ("Typeclass imports from DAML-LF " <> LF.renderVersion depLfVer <> " to " <> LF.renderVersion targetLfVer) $ \step -> withTempDir $ \tmpDir -> do
+          let proja = tmpDir </> "proja"
+          let projb = tmpDir </> "projb"
+
+          step "Build proja"
+          createDirectoryIfMissing True (proja </> "src")
+          writeFileUTF8 (proja </> "src" </> "A.daml") $ unlines
+              [ "daml 1.2"
+              , "module A where"
+              , ""
+              , "class Foo t where"
+              , "  foo : Int -> t"
+              , ""
+              , "class Foo t => Bar t where"
+              , "  bar : Int -> t"
+              , ""
+              , "usingFoo : Foo t => t"
+              , "usingFoo = foo 0"
+              ]
+          writeFileUTF8 (proja </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "name: proja"
+              , "version: 0.0.1"
+              , "source: src"
+              , "dependencies: [daml-prim, daml-stdlib]"
+              ]
+          withCurrentDirectory proja $ callProcessSilent damlc ["build", "--target=" <> LF.renderVersion depLfVer, "-o", proja </> "proja.dar"]
+
+          step "Build projb"
+          createDirectoryIfMissing True (projb </> "src")
+          writeFileUTF8 (projb </> "src" </> "B.daml") $ unlines
+              [ "daml 1.2"
+              , "module B where"
+              , "import A ( Foo (foo), Bar (..), usingFoo )"
+              , ""
+              , "data T = T Int"
+              , "instance Foo T where"
+              , "    foo = T"
+              , ""
+              , "instance Bar T where"
+              , "    bar = T"
+              , ""
+              , "usingFooIndirectly : T"
+              , "usingFooIndirectly = usingFoo"
+              ]
+          writeFileUTF8 (projb </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "name: projb"
+              , "version: 0.0.1"
+              , "source: src"
+              , "dependencies: [daml-prim, daml-stdlib]"
+              , "data-dependencies: [" <> show (proja </> "proja.dar") <> "]"
+              ]
+          withCurrentDirectory projb $ callProcessSilent damlc
+            [ "build", "--target=" <> LF.renderVersion targetLfVer, "-o", projb </> "projb.dar"
+            , "--hide-all-packages"
+            , "--package", "daml-prim"
+            , "--package", damlStdlib
+            , "--package", "proja-0.0.1"
+            ]
+          callProcessSilent repl ["validate", projb </> "projb.dar"]
+
+    | depLfVer <- LF.supportedOutputVersions
+    , targetLfVer <- LF.supportedOutputVersions
+    , targetLfVer >= depLfVer
+    , LF.supports depLfVer LF.featureTypeSynonyms -- only test for new-style typeclasses
     ]
 
 
