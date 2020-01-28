@@ -23,8 +23,8 @@ export const STATIC_IMPLEMENTS_SERIALIZABLE_CHECK = <T>(_: Serializable<T>) => {
  * Interface for objects representing DAML templates. It is similar to the
  * `Template` type class in DAML.
  */
-export interface Template<T extends object, K = unknown> extends Serializable<T> {
-  templateId: string;
+export interface Template<T extends object, K = unknown, I extends string = string> extends Serializable<T> {
+  templateId: I;
   keyDecoder: () => jtv.Decoder<K>;
   Archive: Choice<T, {}, {}>;
 }
