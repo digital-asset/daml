@@ -137,15 +137,17 @@ class TestRunner(val config: Config) extends StrictLogging {
       heartbeat = runner.getTriggerHeartbeat(triggerId)
       (acs, offset) <- runner.queryACS(client, filter)
       _ = acsPromise.success(())
-      finalState <- runner.runWithACS(
-        triggerId,
-        config.timeProviderType,
-        heartbeat,
-        acs,
-        offset,
-        filter,
-        msgFlow = Flow[TriggerMsg].take(numMessages.num)
-      )
+      finalState <- runner
+        .runWithACS(
+          triggerId,
+          config.timeProviderType,
+          heartbeat,
+          acs,
+          offset,
+          filter,
+          msgFlow = Flow[TriggerMsg].take(numMessages.num)
+        )
+        ._2
     } yield finalState
     val commandsFlow: Future[A] = for {
       _ <- acsPromise.future
