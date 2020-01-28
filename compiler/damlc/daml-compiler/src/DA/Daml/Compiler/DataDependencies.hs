@@ -49,6 +49,12 @@ data Env = Env
     , envMod :: LF.Module
     }
 
+data ModRef = ModRef
+    { modRefIsStable :: Bool
+    , modRefUnitId :: UnitId
+    , modRefModule :: LF.ModuleName
+    } deriving (Eq, Ord)
+
 -- | Extract all data defintions from a daml-lf module and generate a haskell source file from it.
 generateSrcFromLf ::
        Env
@@ -193,14 +199,16 @@ generateSrcFromLf env = noLoc mod
             { ideclExt = noExt
             , ideclSourceSrc = NoSourceText
             , ideclName =
-                  noLoc $ mkModuleName $ T.unpack $ LF.moduleNameString modRef
-            , ideclPkgQual =
-              if isStable
-                then Nothing -- we don’t do package qualified imports for modules that should come from the current SDK.
-                else Just $ StringLiteral NoSourceText $ mkFastString $
-                  -- Package qualified imports for the current package need to use "this" instead
-                  -- of the package id.
-                  if refUnitId == unitId then "this" else fst (splitUnitId $ unitIdString refUnitId)
+                  noLoc $ mkModuleName $ T.unpack $ LF.moduleNameString modRefModule
+            , ideclPkgQual = do
+                guard modRefIsStable -- we don’t do package qualified imports
+                    -- for modules that should come from the current SDK.
+                Just $ StringLiteral NoSourceText $ mkFastString $
+                    -- Package qualified imports for the current package
+                    -- need to use "this" instead of the package id.
+                    if modRefUnitId == unitId
+                        then "this"
+                        else fst (splitUnitId $ unitIdString modRefUnitId)
             , ideclSource = False
             , ideclSafe = False
             , ideclImplicit = False
@@ -208,79 +216,77 @@ generateSrcFromLf env = noLoc mod
             , ideclAs = Nothing
             , ideclHiding = Nothing
             } :: LImportDecl GhcPs
-        | (isStable, refUnitId, modRef) <- modRefs
+        | ModRef{..} <- Set.toList modRefs
          -- don’t import ourselves
-        , not (modRef == lfModName && unitId == unitId)
+        , not (modRefModule == lfModName && modRefUnitId == unitId)
         -- GHC.Prim doesn’t need to and cannot be explicitly imported (it is not exposed since the interface file is black magic
         -- hardcoded in GHC).
-        , modRef /= LF.ModuleName ["CurrentSdk", "GHC", "Prim"]
+        , modRefModule /= LF.ModuleName ["CurrentSdk", "GHC", "Prim"]
         ]
     isStable LF.PRSelf = False
     isStable (LF.PRImport pkgId) = pkgId `Set.member` envStablePackages env
 
-    modRefs :: [(Bool, GHC.UnitId, LF.ModuleName)]
-    modRefs = nubSort . concat . concat $
-        [ [ modRefsFromDefTypeSyn synDef
-          | synDef <- NM.toList (LF.moduleSynonyms (envMod env)) ]
-        , [ modRefsFromDefDataType typeDef
-          | typeDef <- NM.toList (LF.moduleDataTypes (envMod env))
-          , shouldExposeDefDataType typeDef ]
-        , [ modRefsFromDefValue valueDef
-          | valueDef <- NM.toList (LF.moduleValues (envMod env))
-          , shouldExposeDefValue valueDef ]
+    modRefs :: Set ModRef
+    modRefs = Set.unions
+        [ foldMap modRefsFromDefTypeSyn (LF.moduleSynonyms (envMod env))
+        , foldMap modRefsFromDefDataType (LF.moduleDataTypes (envMod env))
+        , foldMap modRefsFromDefValue (LF.moduleValues (envMod env))
         ]
 
-    modRefsFromDefDataType :: LF.DefDataType -> [(Bool, GHC.UnitId, LF.ModuleName)]
-    modRefsFromDefDataType typeDef = concat
-        [ [ (isStable pkg, envGetUnitId env pkg, addSdkPrefixIfStable env pkg modRef)
-          | (pkg, modRef) <- toListOf monoTraverse typeDef ]
-        , [ (True, pkg, modRef)
-          | b <- toListOf (dataConsType . builtinType) (LF.dataCons typeDef)
-          , (pkg, modRef) <- [builtinToModuleRef b] ]
-        , [ (True, primUnitId, sdkGhcTypes)
-          | LF.DataEnum [_] <- [LF.dataCons typeDef]
-          ] -- ^ single constructor enums spawn a reference to
-            -- CurrentSdk.GHC.Types.DamlEnum in the daml-preprocessor.
-        ]
+    mkModRef :: LF.PackageRef -> LF.ModuleName -> ModRef
+    mkModRef pkg mod = ModRef (isStable pkg) (envGetUnitId env pkg)
+        (addSdkPrefixIfStable env pkg mod)
 
-    modRefsFromDefTypeSyn :: LF.DefTypeSyn ->  [(Bool, GHC.UnitId, LF.ModuleName)]
+    modRefsFromDefDataType :: LF.DefDataType -> Set ModRef
+    modRefsFromDefDataType typeDef@LF.DefDataType{..} =
+        if shouldExposeDefDataType typeDef
+            then Set.fromList $ concat
+                [ map (uncurry mkModRef) (toListOf monoTraverse typeDef)
+                , map builtinTypeToModRef (toListOf (dataConsType . builtinType) dataCons)
+                , [ ModRef True primUnitId sdkGhcTypes
+                    | LF.DataEnum [_] <- [dataCons]
+                    ] -- ^ single constructor enums spawn a reference to
+                      -- CurrentSdk.GHC.Types.DamlEnum in the daml-preprocessor.
+                ]
+            else Set.empty
+
+    modRefsFromDefTypeSyn :: LF.DefTypeSyn -> Set ModRef
     modRefsFromDefTypeSyn LF.DefTypeSyn{..} =
         modRefsFromType synType
 
-    modRefsFromDefValue :: LF.DefValue -> [(Bool, GHC.UnitId, LF.ModuleName)]
-    modRefsFromDefValue LF.DefValue{..} | (_, dvalType) <- dvalBinder =
-        modRefsFromType dvalType
+    modRefsFromDefValue :: LF.DefValue -> Set ModRef
+    modRefsFromDefValue dval@LF.DefValue{..} | (_, dvalType) <- dvalBinder =
+        if shouldExposeDefValue dval
+            then modRefsFromType dvalType
+            else Set.empty
 
-    modRefsFromType :: LF.Type -> [(Bool, GHC.UnitId, LF.ModuleName)]
-    modRefsFromType ty = concat
-        [ [ ( isStable pkg, envGetUnitId env pkg, addSdkPrefixIfStable env pkg modRef)
-          | (pkg, modRef) <- toListOf monoTraverse ty ]
-        , [ (True, pkg, modRef)
-          | b <- toListOf builtinType ty
-          , (pkg, modRef) <- [builtinToModuleRef b] ]
+    modRefsFromType :: LF.Type -> Set ModRef
+    modRefsFromType ty = Set.fromList $ concat
+        [ map (uncurry mkModRef) (toListOf monoTraverse ty)
+        , map builtinTypeToModRef (toListOf builtinType ty)
         ]
 
-    builtinToModuleRef :: LF.BuiltinType -> (GHC.UnitId, LF.ModuleName)
-    builtinToModuleRef = \case
-            LF.BTInt64 -> (primUnitId, sdkGhcTypes)
-            LF.BTDecimal -> (primUnitId, sdkGhcTypes)
-            LF.BTText -> (primUnitId, sdkGhcTypes)
-            LF.BTTimestamp -> (damlStdlibUnitId, sdkDaInternalLf)
-            LF.BTDate -> (damlStdlibUnitId, sdkDaInternalLf)
-            LF.BTParty -> (damlStdlibUnitId, sdkDaInternalLf)
-            LF.BTUnit -> (primUnitId, sdkGhcTuple)
-            LF.BTBool -> (primUnitId, sdkGhcTypes)
-            LF.BTList -> (primUnitId, sdkGhcTypes)
-            LF.BTUpdate -> (damlStdlibUnitId, sdkDaInternalLf)
-            LF.BTScenario -> (damlStdlibUnitId, sdkDaInternalLf)
-            LF.BTContractId -> (damlStdlibUnitId, sdkDaInternalLf)
-            LF.BTOptional -> (damlStdlibUnitId, sdkInternalPrelude)
-            LF.BTTextMap -> (damlStdlibUnitId, sdkDaInternalLf)
-            LF.BTGenMap -> (damlStdlibUnitId, sdkDaInternalLf)
-            LF.BTArrow -> (primUnitId, sdkGhcPrim)
-            LF.BTNumeric -> (primUnitId, sdkGhcTypes)
-            LF.BTAny -> (damlStdlibUnitId, sdkDaInternalLf)
-            LF.BTTypeRep -> (damlStdlibUnitId, sdkDaInternalLf)
+    builtinTypeToModRef :: LF.BuiltinType -> ModRef
+    builtinTypeToModRef = uncurry (ModRef True) . \case
+        LF.BTInt64 -> (primUnitId, sdkGhcTypes)
+        LF.BTDecimal -> (primUnitId, sdkGhcTypes)
+        LF.BTText -> (primUnitId, sdkGhcTypes)
+        LF.BTTimestamp -> (damlStdlibUnitId, sdkDaInternalLf)
+        LF.BTDate -> (damlStdlibUnitId, sdkDaInternalLf)
+        LF.BTParty -> (damlStdlibUnitId, sdkDaInternalLf)
+        LF.BTUnit -> (primUnitId, sdkGhcTuple)
+        LF.BTBool -> (primUnitId, sdkGhcTypes)
+        LF.BTList -> (primUnitId, sdkGhcTypes)
+        LF.BTUpdate -> (damlStdlibUnitId, sdkDaInternalLf)
+        LF.BTScenario -> (damlStdlibUnitId, sdkDaInternalLf)
+        LF.BTContractId -> (damlStdlibUnitId, sdkDaInternalLf)
+        LF.BTOptional -> (damlStdlibUnitId, sdkInternalPrelude)
+        LF.BTTextMap -> (damlStdlibUnitId, sdkDaInternalLf)
+        LF.BTGenMap -> (damlStdlibUnitId, sdkDaInternalLf)
+        LF.BTArrow -> (primUnitId, sdkGhcPrim)
+        LF.BTNumeric -> (primUnitId, sdkGhcTypes)
+        LF.BTAny -> (damlStdlibUnitId, sdkDaInternalLf)
+        LF.BTTypeRep -> (damlStdlibUnitId, sdkDaInternalLf)
 
     sdkDaInternalLf = LF.ModuleName $  sdkPrefix ++ ["DA", "Internal", "LF"]
     sdkInternalPrelude = LF.ModuleName $ sdkPrefix ++ ["DA", "Internal", "Prelude"]
