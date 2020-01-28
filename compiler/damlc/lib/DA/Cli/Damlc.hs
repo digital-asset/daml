@@ -115,8 +115,8 @@ data CommandName =
   deriving (Ord, Show, Eq)
 data Command = Command CommandName (Maybe ProjectOpts) (IO ())
 
-cmdIde :: Mod CommandFields Command
-cmdIde =
+cmdIde :: Int -> Mod CommandFields Command
+cmdIde numProcessors =
     command "ide" $ info (helper <*> cmd) $
        progDesc
         "Start the DAML language server on standard input/output."
@@ -126,9 +126,7 @@ cmdIde =
         <$> telemetryOpt
         <*> debugOpt
         <*> enableScenarioOpt
-        <*> optGhcCustomOptions
-        <*> shakeProfilingOpt
-        <*> optional lfVersionOpt
+        <*> optionsParser numProcessors (EnableScenarioService True) (pure Nothing)
 
 cmdLicense :: Mod CommandFields Command
 cmdLicense =
@@ -355,11 +353,9 @@ execLicense =
 execIde :: Telemetry
         -> Debug
         -> EnableScenarioService
-        -> [String]
-        -> Maybe FilePath
-        -> Maybe LF.Version
+        -> Options
         -> Command
-execIde telemetry (Debug debug) enableScenarioService ghcOpts mbProfileDir (fromMaybe LF.versionDefault -> lfVersion) =
+execIde telemetry (Debug debug) enableScenarioService options =
     Command Ide Nothing effect
   where effect = NS.withSocketsDo $ do
           let threshold =
@@ -385,24 +381,24 @@ execIde telemetry (Debug debug) enableScenarioService ghcOpts mbProfileDir (from
                       Logger.GCP.logOptOut gcpState
                       f loggerH
                   Undecided -> f loggerH
-          opts <- defaultOptionsIO (Just lfVersion)
-          initPackageDb opts (InitPkgDb True)
-          dlintDataDir <-locateRunfiles $ mainWorkspace </> "compiler/damlc/daml-ide-core"
-          opts <- pure $ opts
+          dlintDataDir <- locateRunfiles $ mainWorkspace </> "compiler/damlc/daml-ide-core"
+          options <- mkOptions options
               { optScenarioService = enableScenarioService
               , optSkipScenarioValidation = SkipScenarioValidation True
-              , optShakeProfiling = mbProfileDir
+              -- TODO(MH): The `optionsParser` does not provide a way to skip
+              -- individual options. As a stopgap we ignore the argument to
+              -- --jobs and the dlint config.
               , optThreads = 0
               , optDlintUsage = DlintEnabled dlintDataDir True
-              , optGhcCustomOpts = ghcOpts
               }
+          initPackageDb options (InitPkgDb True)
           scenarioServiceConfig <- readScenarioServiceConfig
           withLogger $ \loggerH ->
               withScenarioService' enableScenarioService loggerH scenarioServiceConfig $ \mbScenarioService -> do
                   sdkVersion <- getSdkVersion `catchIO` const (pure "Unknown (not started via the assistant)")
                   Logger.logInfo loggerH (T.pack $ "SDK version: " <> sdkVersion)
                   runLanguageServer loggerH $ \getLspId sendMsg vfs caps ->
-                      getDamlIdeState opts mbScenarioService loggerH caps getLspId sendMsg vfs (clientSupportsProgress caps)
+                      getDamlIdeState options mbScenarioService loggerH caps getLspId sendMsg vfs (clientSupportsProgress caps)
 
 
 -- | Whether we should write interface files during `damlc compile`.
@@ -907,7 +903,7 @@ execDocTest opts files =
 options :: Int -> Parser Command
 options numProcessors =
     subparser
-      (  cmdIde
+      (  cmdIde numProcessors
       <> cmdLicense
       -- cmdPackage can go away once we kill the old assistant.
       <> cmdPackage numProcessors

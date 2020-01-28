@@ -9,6 +9,7 @@ import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.resources.ResourceOwner
 import com.zaxxer.hikari.HikariDataSource
 import javax.sql.DataSource
+import org.flywaydb.core.Flyway
 
 case class Database(
     queries: Queries,
@@ -27,50 +28,156 @@ object Database {
   // entries missing.
   private val MaximumWriterConnectionPoolSize: Int = 1
 
-  def owner(jdbcUrl: String)(implicit logCtx: LoggingContext): ResourceOwner[Database] =
+  def owner(jdbcUrl: String)(
+      implicit logCtx: LoggingContext,
+  ): ResourceOwner[UninitializedDatabase] =
     (jdbcUrl match {
       case url if url.startsWith("jdbc:h2:") =>
-        MultipleReaderSingleWriterDatabase.owner(jdbcUrl, new H2Queries)
+        MultipleConnectionDatabase.owner(RDBMS.H2, jdbcUrl)
       case url if url.startsWith("jdbc:postgresql:") =>
-        MultipleReaderSingleWriterDatabase.owner(jdbcUrl, new PostgresqlQueries)
+        MultipleConnectionDatabase.owner(RDBMS.PostgreSQL, jdbcUrl)
+      case url if url.startsWith("jdbc:sqlite::memory:") =>
+        SingleConnectionDatabase.owner(RDBMS.SQLite, jdbcUrl)
       case url if url.startsWith("jdbc:sqlite:") =>
-        SingleConnectionDatabase.owner(jdbcUrl, new SqliteQueries)
+        SingleConnectionExceptAdminDatabase.owner(RDBMS.SQLite, jdbcUrl)
       case _ => throw new InvalidDatabaseException(jdbcUrl)
     }).map { database =>
       logger.info(s"Connected to the ledger over JDBC: $jdbcUrl")
       database
     }
 
-  object MultipleReaderSingleWriterDatabase {
-    def owner(jdbcUrl: String, queries: Queries): ResourceOwner[Database] =
+  object MultipleConnectionDatabase {
+    def owner(
+        system: RDBMS,
+        jdbcUrl: String,
+    ): ResourceOwner[UninitializedDatabase] =
       for {
         readerConnectionPool <- ResourceOwner.forCloseable(() =>
-          newHikariDataSource(jdbcUrl, readOnly = true))
+          newHikariDataSource(jdbcUrl, readOnly = true),
+        )
         writerConnectionPool <- ResourceOwner.forCloseable(() =>
-          newHikariDataSource(jdbcUrl, maximumPoolSize = Some(MaximumWriterConnectionPoolSize)))
-      } yield new Database(queries, readerConnectionPool, writerConnectionPool)
+          newHikariDataSource(jdbcUrl, maxPoolSize = Some(MaximumWriterConnectionPoolSize)),
+        )
+        adminConnectionPool <- ResourceOwner.forCloseable(() => newHikariDataSource(jdbcUrl))
+      } yield new UninitializedDatabase(
+        system,
+        readerConnectionPool,
+        writerConnectionPool,
+        adminConnectionPool,
+      )
   }
 
-  object SingleConnectionDatabase {
-    def owner(jdbcUrl: String, queries: Queries): ResourceOwner[Database] =
+  object SingleConnectionExceptAdminDatabase {
+    def owner(
+        system: RDBMS,
+        jdbcUrl: String,
+    ): ResourceOwner[UninitializedDatabase] =
       for {
-        connectionPool <- ResourceOwner.forCloseable(() =>
-          newHikariDataSource(jdbcUrl, maximumPoolSize = Some(MaximumWriterConnectionPoolSize)))
-      } yield new Database(queries, connectionPool, connectionPool)
+        readerWriterConnectionPool <- ResourceOwner.forCloseable(() =>
+          newHikariDataSource(jdbcUrl, maxPoolSize = Some(MaximumWriterConnectionPoolSize)),
+        )
+        adminConnectionPool <- ResourceOwner.forCloseable(() => newHikariDataSource(jdbcUrl))
+      } yield new UninitializedDatabase(
+        system,
+        readerWriterConnectionPool,
+        readerWriterConnectionPool,
+        adminConnectionPool,
+      )
+  }
+
+  // This is used when connecting to SQLite in-memory. Unlike file storage or H2 in-memory, each
+  // connection established will create a new, separate database. This means we can't create more
+  // than one connection pool, as each pool will create a new connection and therefore a new
+  // database.
+  //
+  // Because of this, Flyway needs to share the connection pool. However, Flyway _also_ requires
+  // a connection pool that allows for two concurrent connections. It uses one to lock the
+  // migrations table (to ensure we don't run migrations in parallel), and then the second to
+  // actually run the migrations. This is actually unnecessary in this case because it's impossible
+  // to have two connections, but it doesn't know that.
+  //
+  // To make Flyway happy, we create an unbounded connection pool and then drop it to 1 connection
+  // after migration.
+  object SingleConnectionDatabase {
+    def owner(
+        system: RDBMS,
+        jdbcUrl: String,
+    ): ResourceOwner[UninitializedDatabase] =
+      for {
+        connectionPool <- ResourceOwner.forCloseable(() => newHikariDataSource(jdbcUrl))
+      } yield new UninitializedDatabase(
+        system,
+        readerConnectionPool = connectionPool,
+        writerConnectionPool = connectionPool,
+        adminConnectionPool = connectionPool,
+        afterMigration = () => {
+          connectionPool.setMaximumPoolSize(MaximumWriterConnectionPoolSize)
+        },
+      )
   }
 
   private def newHikariDataSource(
       jdbcUrl: String,
-      maximumPoolSize: Option[Int] = None,
       readOnly: Boolean = false,
+      maxPoolSize: Option[Int] = None,
   ): HikariDataSource = {
     val pool = new HikariDataSource()
     pool.setAutoCommit(false)
     pool.setJdbcUrl(jdbcUrl)
     pool.setReadOnly(readOnly)
-    maximumPoolSize.foreach { maximumPoolSize =>
-      pool.setMaximumPoolSize(maximumPoolSize)
-    }
+    maxPoolSize.foreach(pool.setMaximumPoolSize)
     pool
+  }
+
+  sealed trait RDBMS {
+    val name: String
+
+    val queries: Queries
+  }
+
+  object RDBMS {
+    object H2 extends RDBMS {
+      override val name: String = "h2"
+
+      override val queries: Queries = new H2Queries
+    }
+
+    object PostgreSQL extends RDBMS {
+      override val name: String = "postgresql"
+
+      override val queries: Queries = new PostgresqlQueries
+    }
+
+    object SQLite extends RDBMS {
+      override val name: String = "sqlite"
+
+      override val queries: Queries = new SqliteQueries
+    }
+  }
+
+  class UninitializedDatabase(
+      system: RDBMS,
+      readerConnectionPool: DataSource,
+      writerConnectionPool: DataSource,
+      adminConnectionPool: DataSource,
+      afterMigration: () => Unit = () => (),
+  ) {
+    private val flyway: Flyway =
+      Flyway
+        .configure()
+        .dataSource(adminConnectionPool)
+        .locations(s"classpath:/com/daml/ledger/on/sql/migrations/${system.name}")
+        .load()
+
+    def migrate(): Database = {
+      flyway.migrate()
+      afterMigration()
+      Database(system.queries, readerConnectionPool, writerConnectionPool)
+    }
+
+    def clear(): this.type = {
+      flyway.clean()
+      this
+    }
   }
 }
