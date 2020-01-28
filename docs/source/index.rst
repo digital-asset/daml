@@ -17,9 +17,11 @@ DAML SDK documentation
    :hidden:
    :caption: Getting started
 
-   Installing the SDK <getting-started/installation>
-   getting-started/quickstart
-   getting-started/new-quickstart
+   getting-started/installation
+   getting-started/full-stack-daml
+   getting-started/app-architecture
+   getting-started/first-feature
+   Old Quickstart Guide <getting-started/quickstart>
 
 .. toctree::
    :titlesonly:

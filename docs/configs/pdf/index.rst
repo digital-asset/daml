@@ -11,9 +11,11 @@ Getting started
    :titlesonly:
    :maxdepth: 2
 
-   Installing the SDK <getting-started/installation>
-   getting-started/quickstart
-   getting-started/new-quickstart
+   getting-started/installation
+   getting-started/full-stack-daml
+   getting-started/app-architecture
+   getting-started/first-feature
+   Old Quickstart Guide <getting-started/quickstart>
 
 Writing DAML
 ------------
