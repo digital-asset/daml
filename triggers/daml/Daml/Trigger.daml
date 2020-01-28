@@ -28,13 +28,22 @@ module Daml.Trigger
  , RegisteredTemplates(..)
  , registeredTemplate
  , RelTime(..)
+ , ACSBuilder
+ , toACS
+ , testRule
+ , flattenCommands
+ , assertCreateCmd
+ , assertExerciseCmd
+ , assertExerciseByKeyCmd
  ) where
 
 import DA.Action
 import DA.Action.State
+import qualified DA.List as List
 import DA.Next.Map (Map)
 import qualified DA.Next.Map as Map
 import DA.Optional
+import qualified DA.Text as Text
 
 import Daml.Trigger.LowLevel hiding (Trigger)
 import qualified Daml.Trigger.LowLevel as LowLevel
@@ -260,3 +269,109 @@ data TriggerState s = TriggerState
   , commandsInFlight : Map CommandId [Command]
   , nextCommandId : Int
   }
+
+-- | Used to construct an 'ACS' for 'testRule'.
+newtype ACSBuilder = ACSBuilder [Update (AnyContractId, AnyTemplate)]
+
+instance Semigroup ACSBuilder where
+  ACSBuilder l <> ACSBuilder r = ACSBuilder (l <> r)
+
+instance Monoid ACSBuilder where
+  mempty = ACSBuilder mempty
+
+buildACS : Party -> ACSBuilder -> Scenario ACS
+buildACS party (ACSBuilder fetches) = do
+  activeContracts <- submit party $ sequence fetches
+  pure ACS
+    { activeContracts = activeContracts
+    , pendingContracts = Map.empty
+    }
+
+-- | Include the given contract in the 'ACS'.
+toACS : Template t => ContractId t -> ACSBuilder
+toACS cid = ACSBuilder
+  [fetch cid >>= \tpl -> pure (toAnyContractId cid, toAnyTemplate tpl)]
+
+-- | Execute a trigger's rule once in a scenario.
+testRule
+  : Trigger s  -- ^ Test this trigger's 'Trigger.rule'.
+  -> Party  -- ^ Execute the rule as this 'Party'.
+  -> ACSBuilder  -- ^ List these contracts in the 'ACS'.
+  -> Map CommandId [Command]  -- ^ The commands in flight.
+  -> s  -- ^ The trigger state.
+  -> Scenario [Commands]  -- ^ The 'Commands' emitted by the rule. The 'CommandId's will start from @"0"@.
+testRule trigger party acsBuilder commandsInFlight s = do
+  time <- getTime
+  acs <- buildACS party acsBuilder
+  let state = TriggerState
+        { acs = acs
+        , party = party
+        , userState = s
+        , commandsInFlight = commandsInFlight
+        , nextCommandId = 0
+        }
+  let (_, commands) = runRule trigger.rule time state
+  pure commands
+
+-- | Drop 'CommandId's and extract all 'Command's.
+flattenCommands : [Commands] -> [Command]
+flattenCommands = concatMap commands
+
+expectCommand
+  : [Command]
+  -> (Command -> Optional a)
+  -> (a -> Either Text ())
+  -> Either [Text] ()
+expectCommand commands fromCommand assertion = foldl step (Left []) commands
+  where
+    step : Either [Text] () -> Command -> Either [Text] ()
+    step (Right ()) _ = Right ()
+    step (Left msgs) command =
+      case assertion <$> fromCommand command of
+        None -> Left msgs
+        Some (Left msg) -> Left (msg :: msgs)
+        Some (Right ()) -> Right ()
+
+-- | Check that at least one command is a create command whose payload fulfills the given assertions.
+assertCreateCmd
+  : (Template t, CanAbort m)
+  => [Command]  -- ^ Check these commands.
+  -> (t -> Either Text ())  -- ^ Perform these assertions.
+  -> m ()
+assertCreateCmd commands assertion =
+  case expectCommand commands fromCreate assertion of
+    Right () -> pure ()
+    Left msgs ->
+      abort $ "Failure, found no matching create command." <> collectMessages msgs
+
+-- | Check that at least one command is an exercise command whose contract id and choice argument fulfill the given assertions.
+assertExerciseCmd
+  : (Template t, Choice t c r, CanAbort m)
+  => [Command]  -- ^ Check these commands.
+  -> ((ContractId t, c) -> Either Text ())  -- ^ Perform these assertions.
+  -> m ()
+assertExerciseCmd commands assertion =
+  case expectCommand commands fromExercise assertion of
+    Right () -> pure ()
+    Left msgs ->
+      abort $ "Failure, found no matching exercise command." <> collectMessages msgs
+
+-- | Check that at least one command is an exercise by key command whose key and choice argument fulfill the given assertions.
+assertExerciseByKeyCmd
+  : forall t c r k m
+  . (TemplateKey t k, Choice t c r, CanAbort m)
+  => [Command]  -- ^ Check these commands.
+  -> ((k, c) -> Either Text ())  -- ^ Perform these assertions.
+  -> m ()
+assertExerciseByKeyCmd commands assertion =
+  case expectCommand commands (fromExerciseByKey @t) assertion of
+    Right () -> pure ()
+    Left msgs ->
+      abort $ "Failure, found no matching exerciseByKey command." <> collectMessages msgs
+
+collectMessages : [Text] -> Text
+collectMessages [] = ""
+collectMessages msgs = "\n" <> Text.unlines (map (bullet . nest) msgs)
+  where
+    bullet txt = "  * " <> txt
+    nest = Text.intercalate "\n" . List.intersperse "    " . Text.lines
