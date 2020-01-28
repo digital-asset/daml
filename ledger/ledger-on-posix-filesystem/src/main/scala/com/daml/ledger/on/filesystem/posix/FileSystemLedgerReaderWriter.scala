@@ -3,6 +3,7 @@
 
 package com.daml.ledger.on.filesystem.posix
 
+import java.io.RandomAccessFile
 import java.nio.file.{FileAlreadyExistsException, Files, NoSuchFileException, Path}
 import java.time.Clock
 
@@ -29,6 +30,7 @@ import com.google.protobuf.ByteString
 import scala.collection.JavaConverters._
 import scala.collection.immutable
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 class FileSystemLedgerReaderWriter private (
     ledgerId: LedgerId,
@@ -39,8 +41,8 @@ class FileSystemLedgerReaderWriter private (
     extends LedgerReader
     with LedgerWriter {
 
-  // used as the ledger lock; when committing, only one commit owns the lock at a time
-  private val lockPath = root.resolve("lock")
+  // used as the commit lock; when committing, only one commit owns the lock at a time
+  private val commitLockPath = root.resolve("commit-lock")
   // the root of the ledger log
   private val logDirectory = root.resolve("log")
   // stores each ledger entry
@@ -53,7 +55,7 @@ class FileSystemLedgerReaderWriter private (
   // a key-value store of the current state
   private val stateDirectory = root.resolve("state")
 
-  private val lock = new FileSystemLock(lockPath)
+  private val lock = new FileSystemLock(commitLockPath)
 
   private val engine = Engine()
 
@@ -177,12 +179,7 @@ class FileSystemLedgerReaderWriter private (
     Files.createDirectories(logEntriesDirectory)
     Files.createDirectories(logIndexDirectory)
     Files.createDirectories(stateDirectory)
-    try {
-      Files.createFile(lockPath)
-    } catch {
-      // this is fine.
-      case _: FileAlreadyExistsException =>
-    }
+    ensureFileExists(commitLockPath)
     ()
   }
 }
@@ -196,8 +193,16 @@ object FileSystemLedgerReaderWriter {
       ledgerId: LedgerId,
       participantId: ParticipantId,
       root: Path,
-  )(implicit executionContext: ExecutionContext): ResourceOwner[FileSystemLedgerReaderWriter] =
+  )(implicit executionContext: ExecutionContext): ResourceOwner[FileSystemLedgerReaderWriter] = {
+    val ledgerLock = root.resolve("ledger-lock")
+    ensureFileExists(ledgerLock)
     for {
+      _ <- ResourceOwner.forTryCloseable(() =>
+        Option(new RandomAccessFile(ledgerLock.toFile, "rw").getChannel.tryLock()) match {
+          case None => Failure(new LedgerLockAcquisitionFailedException(ledgerLock))
+          case Some(lock) => Success(lock)
+        },
+      )
       dispatcher <- ResourceOwner.forCloseable(() =>
         Dispatcher(
           "posix-filesystem-participant-state",
@@ -210,4 +215,19 @@ object FileSystemLedgerReaderWriter {
       participant.initialize()
       participant
     }
+  }
+
+  private def ensureFileExists(path: Path): Unit = {
+    Files.createDirectories(path.getParent)
+    try {
+      Files.createFile(path)
+      ()
+    } catch {
+      // this is fine.
+      case _: FileAlreadyExistsException =>
+    }
+  }
+
+  class LedgerLockAcquisitionFailedException(lockPath: Path)
+      extends RuntimeException(s"Could not acquire the ledger lock at $lockPath.")
 }

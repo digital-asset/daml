@@ -54,6 +54,9 @@ object ResourceOwner {
   def forCloseable[T <: AutoCloseable](acquire: () => T): ResourceOwner[T] =
     new CloseableResourceOwner(acquire)
 
+  def forTryCloseable[T <: AutoCloseable](acquire: () => Try[T]): ResourceOwner[T] =
+    new FutureCloseableResourceOwner[T](() => Future.fromTry(acquire()))
+
   def forFutureCloseable[T <: AutoCloseable](acquire: () => Future[T]): ResourceOwner[T] =
     new FutureCloseableResourceOwner(acquire)
 
