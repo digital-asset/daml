@@ -54,6 +54,7 @@ object KeyValueCommitting {
     * existing entries in the key-value store. The concrete key for DAML state entry is obtained by applying
     * [[packDamlStateKey]] to [[DamlStateKey]].
     *
+    * @param engine: Engine instance to use for interpreting submission.
     * @param entryId: Log entry id to which this submission is committed.
     * @param recordTime: Record time at which this log entry is committed.
     * @param defaultConfig: The default configuration that is to be used if no configuration has been committed to state.
@@ -93,7 +94,6 @@ object KeyValueCommitting {
         submission,
         participantId,
         inputState)
-      // Dump ledger entry to disk if ledger dumping is enabled.
       Debug.dumpLedgerEntry(submission, participantId, entryId, logEntry, outputState)
       verifyStateUpdatesAgainstPreDeclaredOutputs(outputState, entryId, submission)
       (logEntry, outputState)
@@ -175,7 +175,7 @@ object KeyValueCommitting {
       case DamlSubmission.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
         val pkgEntry = submission.getPackageUploadEntry
         submission.getPackageUploadEntry.getArchivesList.asScala.toSet.map {
-          (archive: DamlLf.Archive) =>
+          archive: DamlLf.Archive =>
             DamlStateKey.newBuilder.setPackageId(archive.getHash).build
         } + packageUploadDedupKey(pkgEntry.getParticipantId, pkgEntry.getSubmissionId)
 
@@ -189,64 +189,63 @@ object KeyValueCommitting {
       case DamlSubmission.PayloadCase.TRANSACTION_ENTRY =>
         val txEntry = submission.getTransactionEntry
         val txOutputs =
-          txEntry.getTransaction.getNodesList.asScala.flatMap {
-            (node: TransactionOuterClass.Node) =>
-              node.getNodeTypeCase match {
-                case TransactionOuterClass.Node.NodeTypeCase.CREATE =>
-                  val create = node.getCreate
-                  val ckeyOrEmpty =
-                    if (create.hasKeyWithMaintainers)
-                      List(
-                        DamlStateKey.newBuilder
-                          .setContractKey(
-                            DamlContractKey.newBuilder
-                              .setTemplateId(create.getContractInstance.getTemplateId)
-                              .setKey(create.getKeyWithMaintainers.getKey))
-                          .build)
-                    else
-                      List.empty
+          txEntry.getTransaction.getNodesList.asScala.flatMap { node: TransactionOuterClass.Node =>
+            node.getNodeTypeCase match {
+              case TransactionOuterClass.Node.NodeTypeCase.CREATE =>
+                val create = node.getCreate
+                val ckeyOrEmpty =
+                  if (create.hasKeyWithMaintainers)
+                    List(
+                      DamlStateKey.newBuilder
+                        .setContractKey(
+                          DamlContractKey.newBuilder
+                            .setTemplateId(create.getContractInstance.getTemplateId)
+                            .setKey(create.getKeyWithMaintainers.getKey))
+                        .build)
+                  else
+                    List.empty
 
+                Conversions
+                  .contractIdStructOrStringToStateKey(
+                    entryId,
+                    create.getContractId,
+                    create.getContractIdStruct) :: ckeyOrEmpty
+
+              case TransactionOuterClass.Node.NodeTypeCase.EXERCISE =>
+                val exe = node.getExercise
+                val ckeyOrEmpty =
+                  if (exe.getConsuming && exe.hasKeyWithMaintainers)
+                    List(
+                      DamlStateKey.newBuilder
+                        .setContractKey(
+                          DamlContractKey.newBuilder
+                            .setTemplateId(exe.getTemplateId)
+                            .setKey(exe.getKeyWithMaintainers.getKey))
+                        .build)
+                  else
+                    List.empty
+
+                Conversions
+                  .contractIdStructOrStringToStateKey(
+                    entryId,
+                    exe.getContractId,
+                    exe.getContractIdStruct) :: ckeyOrEmpty
+
+              case TransactionOuterClass.Node.NodeTypeCase.FETCH =>
+                // A fetch may cause a divulgence, which is why it is a potential output.
+                List(
                   Conversions
                     .contractIdStructOrStringToStateKey(
                       entryId,
-                      create.getContractId,
-                      create.getContractIdStruct) :: ckeyOrEmpty
-
-                case TransactionOuterClass.Node.NodeTypeCase.EXERCISE =>
-                  val exe = node.getExercise
-                  val ckeyOrEmpty =
-                    if (exe.getConsuming && exe.hasKeyWithMaintainers)
-                      List(
-                        DamlStateKey.newBuilder
-                          .setContractKey(
-                            DamlContractKey.newBuilder
-                              .setTemplateId(exe.getTemplateId)
-                              .setKey(exe.getKeyWithMaintainers.getKey))
-                          .build)
-                    else
-                      List.empty
-
-                  Conversions
-                    .contractIdStructOrStringToStateKey(
-                      entryId,
-                      exe.getContractId,
-                      exe.getContractIdStruct) :: ckeyOrEmpty
-
-                case TransactionOuterClass.Node.NodeTypeCase.FETCH =>
-                  // A fetch may cause a divulgence, which is why it is a potential output.
-                  List(
-                    Conversions
-                      .contractIdStructOrStringToStateKey(
-                        entryId,
-                        node.getFetch.getContractId,
-                        node.getFetch.getContractIdStruct))
-                case TransactionOuterClass.Node.NodeTypeCase.LOOKUP_BY_KEY =>
-                  // Contract state only modified on divulgence, in which case we'll have a fetch node,
-                  // so no outputs from lookup node.
-                  List.empty
-                case TransactionOuterClass.Node.NodeTypeCase.NODETYPE_NOT_SET =>
-                  throw Err.InvalidSubmission(s"submissionOutputs: NODETYPE_NOT_SET")
-              }
+                      node.getFetch.getContractId,
+                      node.getFetch.getContractIdStruct))
+              case TransactionOuterClass.Node.NodeTypeCase.LOOKUP_BY_KEY =>
+                // Contract state only modified on divulgence, in which case we'll have a fetch node,
+                // so no outputs from lookup node.
+                List.empty
+              case TransactionOuterClass.Node.NodeTypeCase.NODETYPE_NOT_SET =>
+                throw Err.InvalidSubmission("submissionOutputs: NODETYPE_NOT_SET")
+            }
           }
         txOutputs.toSet + commandDedupKey(txEntry.getSubmitterInfo)
 
@@ -267,7 +266,7 @@ object KeyValueCommitting {
       actualStateUpdates: Map[DamlStateKey, DamlStateValue],
       entryId: DamlLogEntryId,
       submission: DamlSubmission): Unit = {
-    val expectedStateUpdates = KeyValueCommitting.submissionOutputs(entryId, submission)
+    val expectedStateUpdates = submissionOutputs(entryId, submission)
     if (!(actualStateUpdates.keySet subsetOf expectedStateUpdates)) {
       val unaccountedKeys = actualStateUpdates.keySet diff expectedStateUpdates
       sys.error(
