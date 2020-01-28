@@ -39,7 +39,8 @@ class ContractsService(
     getCreatesAndArchivesSince: LedgerClientJwt.GetCreatesAndArchivesSince,
     lookupType: query.ValuePredicate.TypeLookup,
     contractDao: Option[dbbackend.ContractDao],
-    parallelism: Int = 8)(implicit ec: ExecutionContext, mat: Materializer)
+    parallelism: Int = 8,
+)(implicit ec: ExecutionContext, mat: Materializer)
     extends StrictLogging {
 
   import ContractsService._
@@ -51,15 +52,16 @@ class ContractsService(
       (
         dao,
         new ContractsFetch(getActiveContracts, getCreatesAndArchivesSince, lookupType)(
-          dao.logHandler)
+          dao.logHandler,
+        ),
       )
   }
 
   def resolveContractReference(
       jwt: Jwt,
       jwtPayload: JwtPayload,
-      contractLocator: domain.ContractLocator[LfValue])
-    : Future[Option[domain.ResolvedContractRef[LfValue]]] =
+      contractLocator: domain.ContractLocator[LfValue],
+  ): Future[Option[domain.ResolvedContractRef[LfValue]]] =
     contractLocator match {
       case domain.EnrichedContractKey(templateId, key) =>
         Future.successful(resolveTemplateId(templateId).map(x => -\/(x -> key)))
@@ -70,8 +72,11 @@ class ContractsService(
           .map(_.map(a => \/-(a.templateId -> a.contractId)))
     }
 
-  def lookup(jwt: Jwt, jwtPayload: JwtPayload, contractLocator: domain.ContractLocator[LfValue])
-    : Future[Option[domain.ActiveContract[LfValue]]] =
+  def lookup(
+      jwt: Jwt,
+      jwtPayload: JwtPayload,
+      contractLocator: domain.ContractLocator[LfValue],
+  ): Future[Option[domain.ActiveContract[LfValue]]] =
     contractLocator match {
       case domain.EnrichedContractKey(templateId, contractKey) =>
         findByContractKey(jwt, jwtPayload.party, templateId, contractKey)
@@ -83,7 +88,8 @@ class ContractsService(
       jwt: Jwt,
       party: lar.Party,
       templateId: TemplateId.OptionalPkg,
-      contractKey: LfValue): Future[Option[domain.ActiveContract[LfValue]]] =
+      contractKey: LfValue,
+  ): Future[Option[domain.ActiveContract[LfValue]]] =
     for {
 
       resolvedTemplateId <- toFuture(resolveTemplateId(templateId)): Future[TemplateId.RequiredPkg]
@@ -108,12 +114,13 @@ class ContractsService(
       jwt: Jwt,
       party: lar.Party,
       templateId: Option[domain.TemplateId.OptionalPkg],
-      contractId: domain.ContractId): Future[Option[domain.ActiveContract[LfValue]]] =
+      contractId: domain.ContractId,
+  ): Future[Option[domain.ActiveContract[LfValue]]] =
     for {
 
       resolvedTemplateIds <- templateId.cata(
         x => toFuture(resolveTemplateId(x).map(Set(_))),
-        Future.successful(allTemplateIds())
+        Future.successful(allTemplateIds()),
       ): Future[Set[domain.TemplateId.RequiredPkg]]
 
       errorOrAc <- searchInMemory(jwt, party, resolvedTemplateIds, Map.empty)
@@ -127,8 +134,9 @@ class ContractsService(
 
     } yield result
 
-  private def lookupResult(errorOrAc: Option[Error \/ domain.ActiveContract[LfValue]])
-    : Future[Option[domain.ActiveContract[LfValue]]] = {
+  private def lookupResult(
+      errorOrAc: Option[Error \/ domain.ActiveContract[LfValue]],
+  ): Future[Option[domain.ActiveContract[LfValue]]] = {
     errorOrAc.cata(x => toFuture(x).map(Some(_)), Future.successful(None))
   }
 
@@ -137,34 +145,39 @@ class ContractsService(
 
   def retrieveAll(
       jwt: Jwt,
-      jwtPayload: JwtPayload): SearchResult[Error \/ domain.ActiveContract[LfValue]] =
+      jwtPayload: JwtPayload,
+  ): SearchResult[Error \/ domain.ActiveContract[LfValue]] =
     retrieveAll(jwt, jwtPayload.party)
 
   def retrieveAll(
       jwt: Jwt,
-      party: domain.Party): SearchResult[Error \/ domain.ActiveContract[LfValue]] =
+      party: domain.Party,
+  ): SearchResult[Error \/ domain.ActiveContract[LfValue]] =
     SearchResult(
       Source(allTemplateIds()).flatMapConcat(x => searchInMemoryOneTpId(jwt, party, x, Map.empty)),
-      Set.empty)
+      Set.empty,
+    )
 
   def search(
       jwt: Jwt,
       jwtPayload: JwtPayload,
-      request: GetActiveContractsRequest): SearchResult[Error \/ domain.ActiveContract[JsValue]] =
+      request: GetActiveContractsRequest,
+  ): SearchResult[Error \/ domain.ActiveContract[JsValue]] =
     search(jwt, jwtPayload.party, request.templateIds, request.query)
 
   def search(
       jwt: Jwt,
       party: domain.Party,
       templateIds: Set[domain.TemplateId.OptionalPkg],
-      queryParams: Map[String, JsValue]): SearchResult[Error \/ domain.ActiveContract[JsValue]] = {
+      queryParams: Map[String, JsValue],
+  ): SearchResult[Error \/ domain.ActiveContract[JsValue]] = {
 
     val (resolvedTemplateIds, unresolvedTemplateIds) = resolveTemplateIds(templateIds)
 
     val source = daoAndFetch.cata(
       x => searchDb(x._1, x._2)(jwt, party, resolvedTemplateIds, queryParams),
       searchInMemory(jwt, party, resolvedTemplateIds, queryParams)
-        .map(_.flatMap(lfAcToJsAc))
+        .map(_.flatMap(lfAcToJsAc)),
     )
 
     SearchResult(source, unresolvedTemplateIds)
@@ -175,8 +188,8 @@ class ContractsService(
       jwt: Jwt,
       party: domain.Party,
       templateIds: Set[domain.TemplateId.RequiredPkg],
-      queryParams: Map[String, JsValue])
-    : Source[Error \/ domain.ActiveContract[JsValue], NotUsed] = {
+      queryParams: Map[String, JsValue],
+  ): Source[Error \/ domain.ActiveContract[JsValue], NotUsed] = {
 
     // TODO use `stream` when materializing DBContracts, so we could stream ActiveContracts
     val fv: Future[Vector[domain.ActiveContract[JsValue]]] = dao
@@ -190,8 +203,8 @@ class ContractsService(
       jwt: Jwt,
       party: domain.Party,
       templateIds: Set[domain.TemplateId.RequiredPkg],
-      queryParams: Map[String, JsValue])
-    : doobie.ConnectionIO[Vector[domain.ActiveContract[JsValue]]] = {
+      queryParams: Map[String, JsValue],
+  ): doobie.ConnectionIO[Vector[domain.ActiveContract[JsValue]]] = {
     import cats.instances.vector._
     import cats.syntax.traverse._
     import doobie.implicits._
@@ -204,8 +217,8 @@ class ContractsService(
       jwt: Jwt,
       party: domain.Party,
       templateId: domain.TemplateId.RequiredPkg,
-      queryParams: Map[String, JsValue])
-    : doobie.ConnectionIO[Vector[domain.ActiveContract[JsValue]]] =
+      queryParams: Map[String, JsValue],
+  ): doobie.ConnectionIO[Vector[domain.ActiveContract[JsValue]]] =
     for {
       _ <- fetch.fetchAndPersist(jwt, party, templateId)
       predicate = valuePredicate(templateId, queryParams)
@@ -216,8 +229,8 @@ class ContractsService(
       jwt: Jwt,
       party: domain.Party,
       templateIds: Set[domain.TemplateId.RequiredPkg],
-      queryParams: Map[String, JsValue])
-    : Source[Error \/ domain.ActiveContract[LfValue], NotUsed] = {
+      queryParams: Map[String, JsValue],
+  ): Source[Error \/ domain.ActiveContract[LfValue], NotUsed] = {
 
     type Ac = domain.ActiveContract[LfValue]
     val empty = (Vector.empty[Error], Vector.empty[Ac])
@@ -236,7 +249,8 @@ class ContractsService(
         }
         (
           errors,
-          step copy (inserts = inserts filter (ac => funPredicates(ac.templateId)(ac.payload))))
+          step copy (inserts = inserts filter (ac => funPredicates(ac.templateId)(ac.payload))),
+        )
       }
       .fold(empty) {
         case ((errL, stepL), (errR, stepR)) =>
@@ -252,21 +266,22 @@ class ContractsService(
       jwt: Jwt,
       party: domain.Party,
       templateId: domain.TemplateId.RequiredPkg,
-      queryParams: Map[String, JsValue]): Source[Error \/ domain.ActiveContract[LfValue], NotUsed] =
+      queryParams: Map[String, JsValue],
+  ): Source[Error \/ domain.ActiveContract[LfValue], NotUsed] =
     searchInMemory(jwt, party, Set(templateId), queryParams)
 
   private[http] def insertDeleteStepSource(
       jwt: Jwt,
       party: lar.Party,
       templateIds: List[domain.TemplateId.RequiredPkg],
-      terminates: Terminates = Terminates.AtLedgerEnd)
-    : Source[InsertDeleteStep[api.event.CreatedEvent], NotUsed] = {
+      terminates: Terminates = Terminates.AtLedgerEnd,
+  ): Source[InsertDeleteStep[api.event.CreatedEvent], NotUsed] = {
 
     val txnFilter = util.Transactions.transactionFilterFor(party, templateIds)
     val source = getActiveContracts(jwt, txnFilter, true)
 
     val transactionsSince
-      : api.ledger_offset.LedgerOffset => Source[api.transaction.Transaction, NotUsed] =
+        : api.ledger_offset.LedgerOffset => Source[api.transaction.Transaction, NotUsed] =
       getCreatesAndArchivesSince(jwt, txnFilter, _: api.ledger_offset.LedgerOffset, terminates)
 
     import ContractsFetch.acsFollowingAndBoundary, ContractsFetch.GraphExtensions._
@@ -280,26 +295,31 @@ class ContractsService(
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def apiAcToLfAc(
-      ac: domain.ActiveContract[ApiValue]): Error \/ domain.ActiveContract[LfValue] =
+      ac: domain.ActiveContract[ApiValue],
+  ): Error \/ domain.ActiveContract[LfValue] =
     ac.traverse(ApiValueToLfValueConverter.apiValueToLfValue)
       .leftMap(e => Error('apiAcToLfAc, e.shows))
 
   private[http] def valuePredicate(
       templateId: domain.TemplateId.RequiredPkg,
-      q: Map[String, JsValue]): query.ValuePredicate =
+      q: Map[String, JsValue],
+  ): query.ValuePredicate =
     ValuePredicate.fromTemplateJsObject(q, templateId, lookupType)
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def lfAcToJsAc(
-      a: domain.ActiveContract[LfValue]): Error \/ domain.ActiveContract[JsValue] =
+      a: domain.ActiveContract[LfValue],
+  ): Error \/ domain.ActiveContract[JsValue] =
     a.traverse(lfValueToJsValue)
 
   private def lfValueToJsValue(a: LfValue): Error \/ JsValue =
     \/.fromTryCatchNonFatal(LfValueCodec.apiValueToJsValue(a)).leftMap(e =>
-      Error('lfValueToJsValue, e.description))
+      Error('lfValueToJsValue, e.description),
+    )
 
-  private def resolveTemplateIds(xs: Set[domain.TemplateId.OptionalPkg])
-    : (Set[domain.TemplateId.RequiredPkg], Set[domain.TemplateId.OptionalPkg]) = {
+  private def resolveTemplateIds(
+      xs: Set[domain.TemplateId.OptionalPkg],
+  ): (Set[domain.TemplateId.RequiredPkg], Set[domain.TemplateId.OptionalPkg]) = {
     xs.partitionMap { x =>
       resolveTemplateId(x) toLeftDisjunction x
     }
@@ -321,6 +341,6 @@ object ContractsService {
 
   final case class SearchResult[A](
       source: Source[A, NotUsed],
-      unresolvedTemplateIds: Set[domain.TemplateId.OptionalPkg]
+      unresolvedTemplateIds: Set[domain.TemplateId.OptionalPkg],
   )
 }
