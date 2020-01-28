@@ -332,7 +332,7 @@ expectCommand commands fromCommand assertion = foldl step (Left []) commands
         Some (Left msg) -> Left (msg :: msgs)
         Some (Right ()) -> Right ()
 
--- | Check that at least one command fulfills the given assertions.
+-- | Check that at least one command is a create command whose payload fulfills the given assertions.
 assertCreateCmd
   : (Template t, CanAbort m)
   => [Command]  -- ^ Check these commands.
@@ -344,7 +344,7 @@ assertCreateCmd commands assertion =
     Left msgs ->
       abort $ "Failure, found no matching create command." <> collectMessages msgs
 
--- | Check that at least one command fulfills the given assertions.
+-- | Check that at least one command is an exercise command whose contract id and choice argument fulfill the given assertions.
 assertExerciseCmd
   : (Template t, Choice t c r, CanAbort m)
   => [Command]  -- ^ Check these commands.
@@ -356,7 +356,7 @@ assertExerciseCmd commands assertion =
     Left msgs ->
       abort $ "Failure, found no matching exercise command." <> collectMessages msgs
 
--- | Check that at least one command fulfills the given assertions.
+-- | Check that at least one command is an exercise by key command whose key and choice argument fulfill the given assertions.
 assertExerciseByKeyCmd
   : forall t c r k m
   . (TemplateKey t k, Choice t c r, CanAbort m)
