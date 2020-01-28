@@ -14,12 +14,14 @@ import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuiteRunner._
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantSessionManager
 import org.slf4j.LoggerFactory
 
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration.{Duration, DurationInt}
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.control.NonFatal
 import scala.util.{Failure, Try}
 
 object LedgerTestSuiteRunner {
+  private val DefaultTimeout = 30.seconds
+
   private val timer = new Timer("ledger-test-suite-runner-timer", true)
 
   private val logger = LoggerFactory.getLogger(classOf[LedgerTestSuiteRunner])
@@ -35,18 +37,19 @@ final class LedgerTestSuiteRunner(
     config: LedgerSessionConfiguration,
     suiteConstructors: Vector[LedgerSession => LedgerTestSuite],
     identifierSuffix: String,
-    timeoutScaleFactor: Double,
-    concurrentTestRuns: Int) {
+    suiteTimeoutScale: Double,
+    concurrentTestRuns: Int,
+) {
   private[this] val verifyRequirements: Try[Unit] =
     Try {
-      require(timeoutScaleFactor > 0, "The timeout scale factor must be strictly positive")
+      require(suiteTimeoutScale > 0, "The timeout scale factor must be strictly positive")
       require(identifierSuffix.nonEmpty, "The identifier suffix cannot be an empty string")
     }
 
   private def start(test: LedgerTestCase, session: LedgerSession)(
       implicit ec: ExecutionContext): Future[Duration] = {
     val execution = Promise[Duration]
-    val scaledTimeout = test.timeout * timeoutScaleFactor
+    val scaledTimeout = DefaultTimeout * suiteTimeoutScale * test.timeoutScale
 
     val startedTest =
       session
