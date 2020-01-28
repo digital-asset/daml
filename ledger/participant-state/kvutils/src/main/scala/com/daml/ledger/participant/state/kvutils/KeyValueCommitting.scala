@@ -95,6 +95,7 @@ object KeyValueCommitting {
         inputState)
       // Dump ledger entry to disk if ledger dumping is enabled.
       Debug.dumpLedgerEntry(submission, participantId, entryId, logEntry, outputState)
+      verifyStateUpdatesAgainstPreDeclaredOutputs(outputState, entryId, submission)
       (logEntry, outputState)
     } catch {
       case scala.util.control.NonFatal(e) =>
@@ -259,6 +260,18 @@ object KeyValueCommitting {
       case DamlSubmission.PayloadCase.PAYLOAD_NOT_SET =>
         throw Err.InvalidSubmission("DamlSubmission payload not set")
 
+    }
+  }
+
+  private def verifyStateUpdatesAgainstPreDeclaredOutputs(
+      actualStateUpdates: Map[DamlStateKey, DamlStateValue],
+      entryId: DamlLogEntryId,
+      submission: DamlSubmission): Unit = {
+    val expectedStateUpdates = KeyValueCommitting.submissionOutputs(entryId, submission)
+    if (!(actualStateUpdates.keySet subsetOf expectedStateUpdates)) {
+      val unaccountedKeys = actualStateUpdates.keySet diff expectedStateUpdates
+      sys.error(
+        s"State updates not a subset of expected updates! Keys [$unaccountedKeys] are unaccounted for!")
     }
   }
 
