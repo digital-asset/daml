@@ -22,6 +22,7 @@ import Development.IDE.Types.Location
 import Safe
 import System.FilePath
 
+import "ghc-lib-parser" Bag
 import "ghc-lib-parser" BasicTypes
 import "ghc-lib-parser" FastString
 import "ghc-lib" GHC
@@ -68,7 +69,54 @@ generateSrcFromLf env = noLoc mod
             , hsmodExports = Nothing
             }
 
-    decls = dataTypeDecls ++ valueDecls
+    decls = classDecls ++ dataTypeDecls ++ valueDecls
+
+    classMethodNames :: Set T.Text
+    classMethodNames = Set.fromList
+        [ methodName
+        | LF.DefTypeSyn{..} <- NM.toList . LF.moduleSynonyms $ envMod env
+        , LF.TStruct fields <- [synType]
+        , (fieldName, _) <- fields
+        , Just methodName <- [getClassMethodName fieldName]
+        ]
+
+    classDecls :: [LHsDecl GhcPs]
+    classDecls = do
+        LF.DefTypeSyn{..} <- NM.toList . LF.moduleSynonyms $ envMod env
+        LF.TStruct fields <- [synType]
+        LF.TypeSynName [name] <- [synName]
+
+        let supers =
+                [ convType env fieldType
+                | (fieldName, LF.TUnit LF.:-> fieldType) <- fields
+                , isSuperClassField fieldName
+                ]
+
+            methods =
+                [ (methodName, convType env fieldType)
+                | (fieldName, LF.TUnit LF.:-> fieldType) <- fields
+                , Just methodName <- [getClassMethodName fieldName]
+                ]
+            occName = mkOccName clsName . T.unpack $ sanitize name
+
+        [ noLoc . TyClD noExt $ ClassDecl
+            { tcdCExt = noExt
+            , tcdCtxt = noLoc (map noLoc supers)
+            , tcdLName = noLoc $ mkRdrUnqual occName
+            , tcdTyVars = HsQTvs noExt (map (convTyVarBinder env) synParams)
+            , tcdFixity = Prefix
+            , tcdFDs = [] -- can't reconstruct fundeps without LF annotations
+            , tcdSigs =
+                [ noLoc $ ClassOpSig noExt False
+                    [mkRdrName methodName]
+                    (HsIB noExt (noLoc methodType))
+                | (methodName, methodType) <- methods
+                ]
+            , tcdMeths = emptyBag -- can't reconstruct default methods yet
+            , tcdATs = [] -- associated types not supported
+            , tcdATDefs = []
+            , tcdDocs = []
+            } ]
 
     dataTypeDecls = do
         dtype@LF.DefDataType {..} <- NM.toList $ LF.moduleDataTypes $ envMod env
@@ -112,6 +160,7 @@ generateSrcFromLf env = noLoc mod
         = not ("$" `T.isPrefixOf` LF.unExprValName lfName)
         && not (typeHasOldTypeclass env lfType)
         && (LF.moduleNameString lfModName /= "GHC.Prim")
+        && not (LF.unExprValName lfName `Set.member` classMethodNames)
 
     convDataCons :: T.Text -> LF.DataCons -> [LConDecl GhcPs]
     convDataCons dataTypeCon0 = \case
@@ -171,7 +220,9 @@ generateSrcFromLf env = noLoc mod
 
     modRefs :: [(Bool, GHC.UnitId, LF.ModuleName)]
     modRefs = nubSort . concat . concat $
-        [ [ modRefsFromDefDataType typeDef
+        [ [ modRefsFromDefTypeSyn synDef
+          | synDef <- NM.toList (LF.moduleSynonyms (envMod env)) ]
+        , [ modRefsFromDefDataType typeDef
           | typeDef <- NM.toList (LF.moduleDataTypes (envMod env))
           , shouldExposeDefDataType typeDef ]
         , [ modRefsFromDefValue valueDef
@@ -192,12 +243,20 @@ generateSrcFromLf env = noLoc mod
             -- CurrentSdk.GHC.Types.DamlEnum in the daml-preprocessor.
         ]
 
+    modRefsFromDefTypeSyn :: LF.DefTypeSyn ->  [(Bool, GHC.UnitId, LF.ModuleName)]
+    modRefsFromDefTypeSyn LF.DefTypeSyn{..} =
+        modRefsFromType synType
+
     modRefsFromDefValue :: LF.DefValue -> [(Bool, GHC.UnitId, LF.ModuleName)]
-    modRefsFromDefValue LF.DefValue{..} | (_, dvalType) <- dvalBinder = concat
+    modRefsFromDefValue LF.DefValue{..} | (_, dvalType) <- dvalBinder =
+        modRefsFromType dvalType
+
+    modRefsFromType :: LF.Type -> [(Bool, GHC.UnitId, LF.ModuleName)]
+    modRefsFromType ty = concat
         [ [ ( isStable pkg, envGetUnitId env pkg, addSdkPrefixIfStable env pkg modRef)
-          | (pkg, modRef) <- toListOf monoTraverse dvalType ]
+          | (pkg, modRef) <- toListOf monoTraverse ty ]
         , [ (True, pkg, modRef)
-          | b <- toListOf builtinType dvalType
+          | b <- toListOf builtinType ty
           , (pkg, modRef) <- [builtinToModuleRef b] ]
         ]
 
@@ -246,10 +305,7 @@ mkDataDecl env thisModule occName tyVars cons = noLoc $ TyClD noExt $ DataDecl
     , tcdTyVars =
           HsQTvs
               { hsq_ext = noExt
-              , hsq_explicit =
-                    [ mkUserTyVar $ LF.unTypeVarName tyVarName
-                    | (tyVarName, _kind) <- tyVars
-                    ]
+              , hsq_explicit = map (convTyVarBinder env) tyVars
               }
     , tcdFixity = Prefix
     , tcdDataDefn =
@@ -263,7 +319,6 @@ mkDataDecl env thisModule occName tyVars cons = noLoc $ TyClD noExt $ DataDecl
               , dd_derivs = noLoc []
               }
     }
-
 
 mkConDecl :: Env -> Module -> OccName -> HsConDeclDetails GhcPs -> LConDecl GhcPs
 mkConDecl env thisModule conName details = noLoc $ ConDeclH98
@@ -285,12 +340,39 @@ mkConDeclField env fieldName fieldTy = noLoc $ ConDeclField
     , cd_fld_type = noLoc $ convType env fieldTy
     }
 
+isConstraint :: LF.Type -> Bool
+isConstraint = \case
+    LF.TSynApp _ _ -> True
+    LF.TStruct fields -> and
+        [ isSuperClassField fieldName && isConstraint fieldType
+        | (fieldName, fieldType) <- fields
+        ]
+    _ -> False
+
 convType :: Env -> LF.Type -> HsType GhcPs
 convType env =
     \case
         LF.TVar tyVarName ->
             HsTyVar noExt NotPromoted $ mkRdrName $ LF.unTypeVarName tyVarName
-        LF.TSynApp tySyn _ -> error $ "TODO: DataDependencies, convType, type synonym application: " <> show tySyn
+
+        ty1 LF.:-> ty2
+            | isConstraint ty1 ->
+                HsQualTy noExt (noLoc [noLoc $ convType env ty1]) (noLoc $ convType env ty2)
+            | otherwise ->
+                HsFunTy noExt (noLoc $ convType env ty1) (noLoc $ convType env ty2)
+
+        LF.TSynApp LF.Qualified{..} args ->
+            let tycls = case LF.unTypeSynName qualObject of
+                    [name] ->
+                        HsTyVar noExt NotPromoted $ noLoc $ mkOrig
+                            (mkModule
+                                (envGetUnitId env qualPackage)
+                                (mkModuleName $ T.unpack $ LF.moduleNameString
+                                (addSdkPrefixIfStable env qualPackage qualModule)))
+                        (mkOccName clsName $ T.unpack name)
+                    ns -> error ("DamlDependencies: unexpected typeclass name " <> show ns)
+            in foldl (HsAppTy noExt . noLoc) tycls $ map (noLoc . convType env) args
+
         LF.TCon LF.Qualified {..}
           | qualModule == LF.ModuleName ["DA", "Types"]
           , [name] <- LF.unTypeConName qualObject
@@ -322,13 +404,12 @@ convType env =
             noLoc $
             HsForAllTy
                 noExt
-                [mkUserTyVar $ LF.unTypeVarName $ fst forallBinder]
+                [convTyVarBinder env forallBinder]
                 (noLoc $ convType env forallBody)
-        -- TODO (drsk): Is this the correct tuple type? What about the field names?
-        LF.TStruct fls ->
+        ty@(LF.TStruct fls) ->
             HsTupleTy
                 noExt
-                HsBoxedTuple
+                (if isConstraint ty then HsConstraintTuple else HsBoxedTuple)
                 [noLoc $ convType env ty | (_fldName, ty) <- fls]
         LF.TNat n ->
             HsTyLit noExt (HsNumTy NoSourceText (LF.fromTypeLevelNat n))
@@ -381,10 +462,28 @@ errTooManyNameComponents cs =
     "Internal error: Dalf contains type constructors with more than two name components: " <>
     (T.unpack $ T.intercalate "." cs)
 
+convKind :: Env -> LF.Kind -> LHsKind GhcPs
+convKind env = \case
+    LF.KStar -> noLoc $ HsStarTy noExt False
+    LF.KNat -> noLoc $ mkGhcType "Nat"
+    LF.KArrow k1 k2 -> noLoc $ HsFunTy noExt (convKind env k1) (convKind env k2)
+
+convTyVarBinder :: Env -> (LF.TypeVarName, LF.Kind) -> LHsTyVarBndr GhcPs
+convTyVarBinder env = \case
+    (LF.TypeVarName tyVar, LF.KStar) ->
+        mkUserTyVar tyVar
+    (LF.TypeVarName tyVar, kind) ->
+        mkKindedTyVar tyVar (convKind env kind)
+
 mkUserTyVar :: T.Text -> LHsTyVarBndr GhcPs
 mkUserTyVar =
     noLoc .
     UserTyVar noExt . noLoc . mkRdrUnqual . mkOccName tvName . T.unpack
+
+mkKindedTyVar :: T.Text -> LHsKind GhcPs -> LHsTyVarBndr GhcPs
+mkKindedTyVar name = noLoc .
+    (KindedTyVar noExt . noLoc . mkRdrUnqual . mkOccName tvName $ T.unpack name)
+
 
 mkRdrName :: T.Text -> Located RdrName
 mkRdrName = noLoc . mkRdrUnqual . mkOccName varName . T.unpack
@@ -561,12 +660,10 @@ typeHasOldTypeclass :: Env -> LF.Type -> Bool
 typeHasOldTypeclass env = \case
     LF.TVar _ -> False
     LF.TCon tcon -> tconIsOldTypeclass env tcon
-    LF.TSynApp _ _ -> True
+    LF.TSynApp _ _ -> False
         -- Type synonyms came after the switch to new-style
         -- typeclasses, so we can assume there are no old-style
-        -- typeclasses being referenced. HOWEVER, we don't support
-        -- type synonyms here yet. TODO: Fix this, and change
-        -- the above to False.
+        -- typeclasses being referenced.
     LF.TApp a b -> typeHasOldTypeclass env a || typeHasOldTypeclass env b
     LF.TBuiltin _ -> False
     LF.TForall _ b -> typeHasOldTypeclass env b
@@ -626,3 +723,11 @@ envLookupModule pkgRef modName env = do
 
 envLookupPackage :: LF.PackageRef -> Env -> Maybe LF.Package
 envLookupPackage ref env = MS.lookup (envGetUnitId env ref) (envPkgs env)
+
+getClassMethodName :: LF.FieldName -> Maybe T.Text
+getClassMethodName (LF.FieldName fieldName) =
+    T.stripPrefix "m_" fieldName
+
+isSuperClassField :: LF.FieldName -> Bool
+isSuperClassField (LF.FieldName fieldName) =
+    "s_" `T.isPrefixOf` fieldName
