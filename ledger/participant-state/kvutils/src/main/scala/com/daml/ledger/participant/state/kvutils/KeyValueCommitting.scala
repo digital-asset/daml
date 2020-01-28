@@ -99,14 +99,8 @@ object KeyValueCommitting {
         participantId,
         inputState,
       )
-      Debug.dumpLedgerEntry(submission,
-                            participantId,
-                            entryId,
-                            logEntry,
-                            outputState)
-      verifyStateUpdatesAgainstPreDeclaredOutputs(outputState,
-                                                  entryId,
-                                                  submission)
+      Debug.dumpLedgerEntry(submission, participantId, entryId, logEntry, outputState)
+      verifyStateUpdatesAgainstPreDeclaredOutputs(outputState, entryId, submission)
       (logEntry, outputState)
     } catch {
       case scala.util.control.NonFatal(e) =>
@@ -157,8 +151,7 @@ object KeyValueCommitting {
       case DamlSubmission.PayloadCase.CONFIGURATION_SUBMISSION =>
         ConfigCommitter(defaultConfig).run(
           entryId,
-          parseTimestamp(
-            submission.getConfigurationSubmission.getMaximumRecordTime),
+          parseTimestamp(submission.getConfigurationSubmission.getMaximumRecordTime),
           recordTime,
           submission.getConfigurationSubmission,
           participantId,
@@ -183,16 +176,14 @@ object KeyValueCommitting {
   /** Compute the submission outputs, that is the DAML State Keys created or updated by
     * the processing of the submission.
     */
-  def submissionOutputs(entryId: DamlLogEntryId,
-                        submission: DamlSubmission): Set[DamlStateKey] = {
+  def submissionOutputs(entryId: DamlLogEntryId, submission: DamlSubmission): Set[DamlStateKey] = {
     submission.getPayloadCase match {
       case DamlSubmission.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
         val packageEntry = submission.getPackageUploadEntry
         submission.getPackageUploadEntry.getArchivesList.asScala.toSet.map {
           archive: DamlLf.Archive =>
             DamlStateKey.newBuilder.setPackageId(archive.getHash).build
-        } + packageUploadDedupKey(packageEntry.getParticipantId,
-                                  packageEntry.getSubmissionId)
+        } + packageUploadDedupKey(packageEntry.getParticipantId, packageEntry.getSubmissionId)
 
       case DamlSubmission.PayloadCase.PARTY_ALLOCATION_ENTRY =>
         val partyEntry = submission.getPartyAllocationEntry
@@ -200,8 +191,7 @@ object KeyValueCommitting {
           DamlStateKey.newBuilder
             .setParty(submission.getPartyAllocationEntry.getParty)
             .build,
-          partyAllocationDedupKey(partyEntry.getParticipantId,
-                                  partyEntry.getSubmissionId),
+          partyAllocationDedupKey(partyEntry.getParticipantId, partyEntry.getSubmissionId),
         )
 
       case DamlSubmission.PayloadCase.TRANSACTION_ENTRY =>
@@ -214,8 +204,7 @@ object KeyValueCommitting {
         val configEntry = submission.getConfigurationSubmission
         Set(
           configurationStateKey,
-          configDedupKey(configEntry.getParticipantId,
-                         configEntry.getSubmissionId),
+          configDedupKey(configEntry.getParticipantId, configEntry.getSubmissionId),
         )
 
       case DamlSubmission.PayloadCase.PAYLOAD_NOT_SET =>
