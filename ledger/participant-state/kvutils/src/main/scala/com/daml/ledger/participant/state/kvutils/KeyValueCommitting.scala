@@ -173,11 +173,11 @@ object KeyValueCommitting {
   def submissionOutputs(entryId: DamlLogEntryId, submission: DamlSubmission): Set[DamlStateKey] = {
     submission.getPayloadCase match {
       case DamlSubmission.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
-        val pkgEntry = submission.getPackageUploadEntry
+        val packageEntry = submission.getPackageUploadEntry
         submission.getPackageUploadEntry.getArchivesList.asScala.toSet.map {
           archive: DamlLf.Archive =>
             DamlStateKey.newBuilder.setPackageId(archive.getHash).build
-        } + packageUploadDedupKey(pkgEntry.getParticipantId, pkgEntry.getSubmissionId)
+        } + packageUploadDedupKey(packageEntry.getParticipantId, packageEntry.getSubmissionId)
 
       case DamlSubmission.PayloadCase.PARTY_ALLOCATION_ENTRY =>
         val partyEntry = submission.getPartyAllocationEntry
