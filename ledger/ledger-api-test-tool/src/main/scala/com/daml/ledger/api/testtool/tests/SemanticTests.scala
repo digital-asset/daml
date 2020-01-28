@@ -44,10 +44,12 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
   test(
     "SemanticDoubleSpend",
     "Cannot double spend across transactions",
-    allocate(TwoParties, TwoParties)) {
+    allocate(TwoParties, TwoParties),
+  ) {
     case Participants(
         Participant(alpha, payer, owner),
-        Participant(_, newOwner, leftWithNothing)) =>
+        Participant(_, newOwner, leftWithNothing),
+        ) =>
       for {
         iou <- alpha.create(payer, Iou(payer, owner, onePound))
         _ <- alpha.exercise(owner, iou.exerciseTransfer(_, newOwner))
@@ -60,27 +62,31 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
   test(
     "SemanticDoubleSpendSameTx",
     "Cannot double spend within a transaction",
-    allocate(TwoParties, TwoParties)) {
+    allocate(TwoParties, TwoParties),
+  ) {
     case Participants(Participant(alpha, payer, owner), Participant(_, newOwner1, newOwner2)) =>
       for {
         iou <- alpha.create(payer, Iou(payer, owner, onePound))
         doubleSpend <- alpha.submitAndWaitRequest(
           owner,
           iou.exerciseTransfer(owner, newOwner1).command,
-          iou.exerciseTransfer(owner, newOwner2).command)
+          iou.exerciseTransfer(owner, newOwner2).command,
+        )
         failure <- alpha.submitAndWait(doubleSpend).failed
       } yield {
         assertGrpcError(
           failure,
           Status.Code.INVALID_ARGUMENT,
-          "Update failed due to fetch of an inactive contract")
+          "Update failed due to fetch of an inactive contract",
+        )
       }
   }
 
   test(
     "SemanticDoubleSpendShared",
     "Different parties cannot spend the same contract",
-    allocate(TwoParties, SingleParty)) {
+    allocate(TwoParties, SingleParty),
+  ) {
     case Participants(Participant(alpha, payer, owner1), Participant(beta, owner2)) =>
       for {
         shared <- alpha.create(payer, SharedContract(payer, owner1, owner2))
@@ -105,7 +111,8 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
   test(
     "SemanticPaintOffer",
     "Conduct the paint offer workflow successfully",
-    allocate(TwoParties, SingleParty)) {
+    allocate(TwoParties, SingleParty),
+  ) {
     case Participants(Participant(alpha, bank, houseOwner), Participant(beta, painter)) =>
       for {
         iou <- alpha.create(bank, Iou(bank, houseOwner, onePound))
@@ -114,7 +121,8 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
       } yield {
         val agreement = assertSingleton(
           "SemanticPaintOffer",
-          createdEvents(tree).filter(_.getTemplateId == Tag.unwrap(PaintAgree.id)))
+          createdEvents(tree).filter(_.getTemplateId == Tag.unwrap(PaintAgree.id)),
+        )
         assertEquals(
           "Paint agreement parameters",
           agreement.getCreateArguments,
@@ -122,9 +130,9 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
             recordId = Some(Tag.unwrap(PaintAgree.id)),
             fields = Seq(
               RecordField("painter", Some(Value(Value.Sum.Party(Tag.unwrap(painter))))),
-              RecordField("houseOwner", Some(Value(Value.Sum.Party(Tag.unwrap(houseOwner)))))
-            )
-          )
+              RecordField("houseOwner", Some(Value(Value.Sum.Party(Tag.unwrap(houseOwner))))),
+            ),
+          ),
         )
       }
   }
@@ -132,7 +140,8 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
   test(
     "SemanticPaintCounterOffer",
     "Conduct the paint counter-offer worflow successfully",
-    allocate(TwoParties, SingleParty)) {
+    allocate(TwoParties, SingleParty),
+  ) {
     case Participants(Participant(alpha, bank, houseOwner), Participant(beta, painter)) =>
       for {
         iou <- alpha.create(bank, Iou(bank, houseOwner, onePound))
@@ -140,13 +149,15 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
         counter <- eventually {
           alpha.exerciseAndGetContract[PaintCounterOffer](
             houseOwner,
-            offer.exercisePaintOffer_Counter(_, iou))
+            offer.exercisePaintOffer_Counter(_, iou),
+          )
         }
         tree <- eventually { beta.exercise(painter, counter.exercisePaintCounterOffer_Accept) }
       } yield {
         val agreement = assertSingleton(
           "SemanticPaintCounterOffer",
-          createdEvents(tree).filter(_.getTemplateId == Tag.unwrap(PaintAgree.id)))
+          createdEvents(tree).filter(_.getTemplateId == Tag.unwrap(PaintAgree.id)),
+        )
         assertEquals(
           "Paint agreement parameters",
           agreement.getCreateArguments,
@@ -154,9 +165,9 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
             recordId = Some(Tag.unwrap(PaintAgree.id)),
             fields = Seq(
               RecordField("painter", Some(Value(Value.Sum.Party(Tag.unwrap(painter))))),
-              RecordField("houseOwner", Some(Value(Value.Sum.Party(Tag.unwrap(houseOwner)))))
-            )
-          )
+              RecordField("houseOwner", Some(Value(Value.Sum.Party(Tag.unwrap(houseOwner))))),
+            ),
+          ),
         )
       }
   }
@@ -164,7 +175,8 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
   test(
     "SemanticPartialSignatories",
     "A signatory should not be able to create a contract on behalf of two parties",
-    allocate(SingleParty, SingleParty)) {
+    allocate(SingleParty, SingleParty),
+  ) {
     case Participants(Participant(alpha, houseOwner), Participant(_, painter)) =>
       for {
         failure <- alpha.create(houseOwner, PaintAgree(painter, houseOwner)).failed
@@ -176,7 +188,8 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
   test(
     "SemanticAcceptOnBehalf",
     "It should not be possible to exercise a choice without the consent of the controller",
-    allocate(TwoParties, SingleParty)) {
+    allocate(TwoParties, SingleParty),
+  ) {
     case Participants(Participant(alpha, bank, houseOwner), Participant(beta, painter)) =>
       for {
         iou <- beta.create(painter, Iou(painter, houseOwner, onePound))
@@ -198,7 +211,8 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
   test(
     "SemanticPrivacyProjections",
     "Test visibility via contract fetches for the paint-offer flow",
-    allocate(TwoParties, SingleParty)) {
+    allocate(TwoParties, SingleParty),
+  ) {
     case Participants(Participant(alpha, bank, houseOwner), Participant(beta, painter)) =>
       for {
         iou <- alpha.create(bank, Iou(bank, houseOwner, onePound))
@@ -219,7 +233,8 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
 
         tree <- alpha.exercise(houseOwner, offer.exercisePaintOffer_Accept(_, iou))
         (newIouEvent +: _, agreementEvent +: _) = createdEvents(tree).partition(
-          _.getTemplateId == Tag.unwrap(Iou.id))
+          _.getTemplateId == Tag.unwrap(Iou.id),
+        )
         newIou = Primitive.ContractId[Iou](newIouEvent.contractId)
         agreement = Primitive.ContractId[PaintAgree](agreementEvent.contractId)
         _ <- synchronize(alpha, beta)
@@ -241,22 +256,26 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
         assertGrpcError(
           paintOfferFetchFailure,
           Status.Code.INVALID_ARGUMENT,
-          "couldn't find contract")
+          "couldn't find contract",
+        )
         assertGrpcError(
           paintAgreeFetchFailure,
           Status.Code.INVALID_ARGUMENT,
-          "couldn't find contract")
+          "couldn't find contract",
+        )
         assertGrpcError(
           secondIouFetchFailure,
           Status.Code.INVALID_ARGUMENT,
-          "requires one of the stakeholders")
+          "requires one of the stakeholders",
+        )
       }
   }
 
   private def fetchIou(
       ledger: ParticipantTestContext,
       party: Primitive.Party,
-      iou: Primitive.ContractId[Iou]): Future[Unit] =
+      iou: Primitive.ContractId[Iou],
+  ): Future[Unit] =
     for {
       fetch <- ledger.create(party, FetchIou(party, iou))
       _ <- ledger.exercise(party, fetch.exerciseFetchIou_Fetch)
@@ -265,7 +284,7 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
   private def fetchPaintOffer(
       ledger: ParticipantTestContext,
       party: Primitive.Party,
-      paintOffer: Primitive.ContractId[PaintOffer]
+      paintOffer: Primitive.ContractId[PaintOffer],
   ): Future[Unit] =
     for {
       fetch <- ledger.create(party, FetchPaintOffer(party, paintOffer))
@@ -275,7 +294,7 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
   private def fetchPaintAgree(
       ledger: ParticipantTestContext,
       party: Primitive.Party,
-      agreement: Primitive.ContractId[PaintAgree]
+      agreement: Primitive.ContractId[PaintAgree],
   ): Future[Unit] =
     for {
       fetch <- ledger.create(party, FetchPaintAgree(party, agreement))

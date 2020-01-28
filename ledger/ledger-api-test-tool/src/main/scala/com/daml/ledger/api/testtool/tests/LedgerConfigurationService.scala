@@ -37,8 +37,11 @@ class LedgerConfigurationService(session: LedgerSession) extends LedgerTestSuite
   private def setTtl(request: SubmitRequest, ttl: java.time.Duration): SubmitRequest =
     request.update(
       _.commands.modify(commands =>
-        commands.copy(
-          maximumRecordTime = commands.ledgerEffectiveTime.map(_.asJava.plus(ttl).asProtobuf))))
+        commands
+          .copy(maximumRecordTime = commands.ledgerEffectiveTime.map(_.asJava.plus(ttl).asProtobuf),
+          ),
+      ),
+    )
 
   test("ConfigJustMinTtl", "LET+minTTL should be an acceptable MRT", allocate(SingleParty)) {
     case Participants(Participant(ledger, party)) =>
@@ -54,7 +57,8 @@ class LedgerConfigurationService(session: LedgerSession) extends LedgerTestSuite
   test(
     "ConfigUnderflowMinTtl",
     "LET+minTTL-1 should NOT be an acceptable MRT",
-    allocate(SingleParty)) {
+    allocate(SingleParty),
+  ) {
     case Participants(Participant(ledger, party)) =>
       for {
         LedgerConfiguration(Some(minTtl), _) <- ledger.configuration()
@@ -79,7 +83,8 @@ class LedgerConfigurationService(session: LedgerSession) extends LedgerTestSuite
   test(
     "ConfigOverflowMaxTtl",
     "LET+maxTTL+1 should NOT be an acceptable MRT",
-    allocate(SingleParty)) {
+    allocate(SingleParty),
+  ) {
     case Participants(Participant(ledger, party)) =>
       for {
         LedgerConfiguration(_, Some(maxTtl)) <- ledger.configuration()
@@ -93,7 +98,8 @@ class LedgerConfigurationService(session: LedgerSession) extends LedgerTestSuite
   test(
     "CSLSuccessIfLetRight",
     "Submission returns OK if LET is within the accepted interval",
-    allocate(SingleParty)) {
+    allocate(SingleParty),
+  ) {
     case Participants(Participant(ledger, party)) =>
       // The maximum accepted clock skew depends on the ledger and is not exposed through the LedgerConfigurationService,
       // and there might be an actual clock skew between the devices running the test and the ledger.
@@ -140,11 +146,13 @@ class LedgerConfigurationService(session: LedgerSession) extends LedgerTestSuite
       }
   }
 
-  private def overflow(ttl: protobuf.duration.Duration)(
-      t: protobuf.timestamp.Timestamp): protobuf.timestamp.Timestamp =
+  private def overflow(
+      ttl: protobuf.duration.Duration,
+  )(t: protobuf.timestamp.Timestamp): protobuf.timestamp.Timestamp =
     t.asJava.plus(ttl.asJava).plusSeconds(1).asProtobuf
 
-  private def underflow(ttl: protobuf.duration.Duration)(
-      t: protobuf.timestamp.Timestamp): protobuf.timestamp.Timestamp =
+  private def underflow(
+      ttl: protobuf.duration.Duration,
+  )(t: protobuf.timestamp.Timestamp): protobuf.timestamp.Timestamp =
     t.asJava.minus(ttl.asJava).minusSeconds(1).asProtobuf
 }

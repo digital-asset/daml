@@ -16,9 +16,9 @@ final class Time(session: LedgerSession) extends LedgerTestSuite(session) {
         _ <- ledger.passTime(Duration.ofSeconds(1))
         t2 <- ledger.time()
         travel = Duration.between(t1, t2)
-      } yield
-        assert(
-          travel == Duration.ofSeconds(1),
-          s"Time travel was expected to be 1 second but was instead $travel")
+      } yield assert(
+        travel == Duration.ofSeconds(1),
+        s"Time travel was expected to be 1 second but was instead $travel",
+      )
   }
 }

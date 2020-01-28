@@ -13,7 +13,8 @@ final class Divulgence(session: LedgerSession) extends LedgerTestSuite(session) 
   test(
     "DivulgenceTx",
     "Divulged contracts should not be exposed by the transaction service",
-    allocate(TwoParties)) {
+    allocate(TwoParties),
+  ) {
     case Participants(Participant(ledger, alice, bob)) =>
       for {
         divulgence1 <- ledger.create(alice, Divulgence1(alice))
@@ -32,22 +33,25 @@ final class Divulgence(session: LedgerSession) extends LedgerTestSuite(session) 
 
         assert(
           bobTransactions.size == 1,
-          s"$bob should see exactly one transaction but sees ${bobTransactions.size} instead")
+          s"$bob should see exactly one transaction but sees ${bobTransactions.size} instead",
+        )
 
         val events = bobTransactions.head.events
         assert(
           events.size == 1,
-          s"The transaction should contain exactly one event but contains ${events.size} instead")
+          s"The transaction should contain exactly one event but contains ${events.size} instead",
+        )
 
         val event = events.head.event
         assert(
           event.isCreated,
-          s"The only event in the transaction was expected to be a created event")
+          s"The only event in the transaction was expected to be a created event",
+        )
 
         val contractId = event.created.get.contractId
         assert(
           contractId == divulgence2,
-          s"The only visible event should be the creation of the second contract (expected $divulgence2, got $contractId instead)"
+          s"The only visible event should be the creation of the second contract (expected $divulgence2, got $contractId instead)",
         )
 
         // Inspecting the transaction trees as seen by Bob
@@ -60,38 +64,40 @@ final class Divulgence(session: LedgerSession) extends LedgerTestSuite(session) 
 
         assert(
           bobTrees.size == 2,
-          s"$bob should see exactly two transaction trees but sees ${bobTrees.size} instead")
+          s"$bob should see exactly two transaction trees but sees ${bobTrees.size} instead",
+        )
 
         val createDivulgence2Transaction = bobTrees(0)
         assert(
           createDivulgence2Transaction.rootEventIds.size == 1,
-          s"The transaction that creates Divulgence2 should contain exactly one root event, but it contains ${createDivulgence2Transaction.rootEventIds.size} instead"
+          s"The transaction that creates Divulgence2 should contain exactly one root event, but it contains ${createDivulgence2Transaction.rootEventIds.size} instead",
         )
 
         val createDivulgence2 =
           createDivulgence2Transaction.eventsById(createDivulgence2Transaction.rootEventIds(0))
         assert(
           createDivulgence2.kind.isCreated,
-          s"Event expected to be a create"
+          s"Event expected to be a create",
         )
 
         val createDivulgence2ContractId = createDivulgence2.getCreated.contractId
         assert(
           createDivulgence2ContractId == divulgence2,
-          s"The event where Divulgence2 is created should have the same contract identifier as the created contract (expected $divulgence2, got $createDivulgence2ContractId instead)"
+          s"The event where Divulgence2 is created should have the same contract identifier as the created contract (expected $divulgence2, got $createDivulgence2ContractId instead)",
         )
 
         val exerciseOnDivulgence2Transaction = bobTrees(1)
         assert(
           exerciseOnDivulgence2Transaction.rootEventIds.size == 1,
-          s"The transaction where a choice is exercised on Divulgence2 should contain exactly one root event contains ${exerciseOnDivulgence2Transaction.rootEventIds.size} instead"
+          s"The transaction where a choice is exercised on Divulgence2 should contain exactly one root event contains ${exerciseOnDivulgence2Transaction.rootEventIds.size} instead",
         )
 
         val exerciseOnDivulgence2 = exerciseOnDivulgence2Transaction.eventsById(
-          exerciseOnDivulgence2Transaction.rootEventIds(0))
+          exerciseOnDivulgence2Transaction.rootEventIds(0),
+        )
         assert(
           exerciseOnDivulgence2.kind.isExercised,
-          s"Expected event to be an exercise"
+          s"Expected event to be an exercise",
         )
 
         assert(exerciseOnDivulgence2.getExercised.contractId == divulgence2)
@@ -100,7 +106,8 @@ final class Divulgence(session: LedgerSession) extends LedgerTestSuite(session) 
 
         val exerciseOnDivulgence1 =
           exerciseOnDivulgence2Transaction.eventsById(
-            exerciseOnDivulgence2.getExercised.childEventIds(0))
+            exerciseOnDivulgence2.getExercised.childEventIds(0),
+          )
 
         assert(exerciseOnDivulgence1.kind.isExercised)
 
@@ -116,29 +123,30 @@ final class Divulgence(session: LedgerSession) extends LedgerTestSuite(session) 
 
         assert(
           transactionsForBoth.size == 3,
-          s"Filtering for both $alice and $bob should result in three transactions seen but ${transactionsForBoth.size} are seen instead"
+          s"Filtering for both $alice and $bob should result in three transactions seen but ${transactionsForBoth.size} are seen instead",
         )
 
         val firstTransactionForBoth = transactionsForBoth.head
         assert(
           firstTransactionForBoth.events.size == 1,
-          s"The first transaction seen by filtering for both $alice and $bob should contain exactly one event but it contains ${firstTransactionForBoth.events.size} events instead"
+          s"The first transaction seen by filtering for both $alice and $bob should contain exactly one event but it contains ${firstTransactionForBoth.events.size} events instead",
         )
 
         val firstEventForBoth = transactionsForBoth.head.events.head.event
         assert(
           firstEventForBoth.isCreated,
-          s"The first event seen by filtering for both $alice and $bob was expected to be a creation")
+          s"The first event seen by filtering for both $alice and $bob was expected to be a creation",
+        )
 
         val firstCreationForBoth = firstEventForBoth.created.get
         assert(
           firstCreationForBoth.contractId == divulgence1,
-          s"The creation seen by filtering for both $alice and $bob was expected to be $divulgence1 but is ${firstCreationForBoth.contractId} instead"
+          s"The creation seen by filtering for both $alice and $bob was expected to be $divulgence1 but is ${firstCreationForBoth.contractId} instead",
         )
 
         assert(
           firstCreationForBoth.witnessParties == Seq(alice),
-          s"The creation seen by filtering for both $alice and $bob was expected to be witnessed by $alice but is instead ${firstCreationForBoth.witnessParties}"
+          s"The creation seen by filtering for both $alice and $bob was expected to be witnessed by $alice but is instead ${firstCreationForBoth.witnessParties}",
         )
       }
   }
@@ -146,7 +154,8 @@ final class Divulgence(session: LedgerSession) extends LedgerTestSuite(session) 
   test(
     "DivulgenceAcs",
     "Divulged contracts should not be exposed by the active contract service",
-    allocate(TwoParties)) {
+    allocate(TwoParties),
+  ) {
     case Participants(Participant(ledger, alice, bob)) =>
       for {
         divulgence1 <- ledger.create(alice, Divulgence1(alice))
@@ -159,29 +168,31 @@ final class Divulgence(session: LedgerSession) extends LedgerTestSuite(session) 
         // Bob only sees Divulgence2
         assert(
           activeForBobOnly.size == 1,
-          s"$bob should see only one active contract but sees ${activeForBobOnly.size} instead")
+          s"$bob should see only one active contract but sees ${activeForBobOnly.size} instead",
+        )
         assert(
           activeForBobOnly.head.contractId == divulgence2,
-          s"$bob should see $divulgence2 but sees ${activeForBobOnly.head.contractId} instead"
+          s"$bob should see $divulgence2 but sees ${activeForBobOnly.head.contractId} instead",
         )
 
         // Since we're filtering for Bob only Bob will be the only reported witness even if Alice sees the contract
         assert(
           activeForBobOnly.head.witnessParties == Seq(bob),
-          s"The witness parties as seen by $bob should only include him but it is instead ${activeForBobOnly.head.witnessParties}"
+          s"The witness parties as seen by $bob should only include him but it is instead ${activeForBobOnly.head.witnessParties}",
         )
 
         // Alice sees both
         assert(
           activeForBoth.size == 2,
-          s"The active contracts as seen by $alice and $bob should be two but are ${activeForBoth.size} instead")
+          s"The active contracts as seen by $alice and $bob should be two but are ${activeForBoth.size} instead",
+        )
         val divulgence1ContractId = Tag.unwrap(divulgence1)
         val divulgence2ContractId = Tag.unwrap(divulgence2)
         val activeForBothContractIds = activeForBoth.map(_.contractId).sorted
         val expectedContractIds = Seq(divulgence1ContractId, divulgence2ContractId).sorted
         assert(
           activeForBothContractIds == expectedContractIds,
-          s"$divulgence1 and $divulgence2 are expected to be seen when filtering for $alice and $bob but instead the following contract identifiers are seen: $activeForBothContractIds"
+          s"$divulgence1 and $divulgence2 are expected to be seen when filtering for $alice and $bob but instead the following contract identifiers are seen: $activeForBothContractIds",
         )
         val divulgence1Witnesses =
           activeForBoth.find(_.contractId == divulgence1ContractId).get.witnessParties.sorted
@@ -189,11 +200,11 @@ final class Divulgence(session: LedgerSession) extends LedgerTestSuite(session) 
           activeForBoth.find(_.contractId == divulgence2ContractId).get.witnessParties.sorted
         assert(
           divulgence1Witnesses == Seq(alice),
-          s"The witness parties of the first contract should only include $alice but it is instead $divulgence1Witnesses ($bob)"
+          s"The witness parties of the first contract should only include $alice but it is instead $divulgence1Witnesses ($bob)",
         )
         assert(
           divulgence2Witnesses == Tag.unsubst(Seq(alice, bob)).sorted,
-          s"The witness parties of the second contract should include $alice and $bob but it is instead $divulgence2Witnesses"
+          s"The witness parties of the second contract should include $alice and $bob but it is instead $divulgence2Witnesses",
         )
       }
   }
