@@ -9,7 +9,5 @@ class PostgresqlSqlLedgerReaderWriterIntegrationSpec
     extends SqlLedgerReaderWriterIntegrationSpecBase("SQL implementation using PostgreSQL")
     with PostgresAroundAll {
 
-  override protected def jdbcUrl: String = postgresFixture.jdbcUrl
-
-  override protected def databaseIsReused: Boolean = true
+  override protected def jdbcUrl: String = createNewDatabase().jdbcUrl
 }
