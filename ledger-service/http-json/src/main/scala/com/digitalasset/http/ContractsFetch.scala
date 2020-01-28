@@ -70,16 +70,25 @@ private class ContractsFetch(
       implicit ec: ExecutionContext,
       mat: Materializer,
   ): ConnectionIO[List[BeginBookmark[domain.Offset]]] = {
-    import cats.instances.list._, cats.syntax.traverse._, doobie.implicits._
-    // TODO(Leo/Stephen): can we run this traverse concurrently?
-    templateIds.traverse { templateId =>
-      fetchAndPersist(jwt, party, templateId)
+    import cats.instances.list._, cats.syntax.traverse._, doobie.implicits._, doobie.free.{
+      connection => fc,
     }
+    // we can fetch for all templateIds on a single acsFollowingAndBoundary
+    // by comparing begin offsets; however this is trickier so we don't do it
+    // right now -- Stephen / Leo
+    connectionIOFuture(getTermination(jwt)) flatMap {
+      _ cata (absEnd =>
+        templateIds.traverse {
+          fetchAndPersist(jwt, party, absEnd, _)
+        }, fc.pure(templateIds map (_ => LedgerBegin)))
+    }
+
   }
 
   private[this] def fetchAndPersist(
       jwt: Jwt,
       party: domain.Party,
+      absEnd: Terminates.AtAbsolute,
       templateId: domain.TemplateId.RequiredPkg,
   )(
       implicit ec: ExecutionContext,
@@ -90,7 +99,7 @@ private class ContractsFetch(
 
     def loop(maxAttempts: Int): ConnectionIO[BeginBookmark[domain.Offset]] = {
       logger.debug(s"contractsIo, maxAttempts: $maxAttempts")
-      contractsIo_(jwt, party, templateId).exceptSql {
+      contractsIo_(jwt, party, absEnd, templateId).exceptSql {
         case e if maxAttempts > 0 && retrySqlStates(e.getSQLState) =>
           logger.debug(s"contractsIo, exception: ${e.description}, state: ${e.getSQLState}")
           connection.rollback flatMap (_ => loop(maxAttempts - 1))
@@ -106,12 +115,13 @@ private class ContractsFetch(
   private def contractsIo_(
       jwt: Jwt,
       party: domain.Party,
+      absEnd: Terminates.AtAbsolute,
       templateId: domain.TemplateId.RequiredPkg,
   )(implicit ec: ExecutionContext, mat: Materializer): ConnectionIO[BeginBookmark[domain.Offset]] =
     for {
       offset0 <- ContractDao.lastOffset(party, templateId)
       ob0 = offset0.cata(AbsoluteBookmark(_), LedgerBegin)
-      offset1 <- contractsFromOffsetIo(jwt, party, templateId, ob0)
+      offset1 <- contractsFromOffsetIo(jwt, party, templateId, ob0, absEnd)
       _ = logger.debug(s"contractsFromOffsetIo($jwt, $party, $templateId, $ob0): $offset1")
     } yield offset1
 
@@ -155,6 +165,7 @@ private class ContractsFetch(
       party: domain.Party,
       templateId: domain.TemplateId.RequiredPkg,
       offset: BeginBookmark[domain.Offset],
+      absEnd: Terminates.AtAbsolute,
   )(
       implicit ec: ExecutionContext,
       mat: Materializer,
@@ -171,7 +182,7 @@ private class ContractsFetch(
           jwt,
           transactionFilter(party, List(templateId)),
           _: lav1.ledger_offset.LedgerOffset,
-          Terminates.AtLedgerEnd,
+          absEnd,
         )
 
         // include ACS iff starting at LedgerBegin
