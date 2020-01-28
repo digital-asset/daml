@@ -13,7 +13,8 @@ final class PartyManagement(session: LedgerSession) extends LedgerTestSuite(sess
   test(
     "PMNonEmptyParticipantID",
     "Asking for the participant identifier should return a non-empty string",
-    allocate(NoParties)) {
+    allocate(NoParties),
+  ) {
     case Participants(Participant(ledger)) =>
       for {
         participantId <- ledger.participantId()
@@ -26,46 +27,58 @@ final class PartyManagement(session: LedgerSession) extends LedgerTestSuite(sess
   test(
     pMAllocateWithHint,
     "It should be possible to provide a hint when allocating a party",
-    allocate(NoParties)) {
+    allocate(NoParties),
+  ) {
     case Participants(Participant(ledger)) =>
       for {
         party <- ledger.allocateParty(
           partyHintId = Some(pMAllocateWithHint + "_" + Random.alphanumeric.take(10).mkString),
-          displayName = Some("Bob Ross"))
-      } yield
-        assert(Tag.unwrap(party).nonEmpty, "The allocated party identifier is an empty string")
+          displayName = Some("Bob Ross"),
+        )
+      } yield assert(
+        Tag.unwrap(party).nonEmpty,
+        "The allocated party identifier is an empty string",
+      )
   }
 
   test(
     "PMAllocateWithoutHint",
     "It should be possible to not provide a hint when allocating a party",
-    allocate(NoParties)) {
+    allocate(NoParties),
+  ) {
     case Participants(Participant(ledger)) =>
       for {
         party <- ledger.allocateParty(partyHintId = None, displayName = Some("Jebediah Kerman"))
-      } yield
-        assert(Tag.unwrap(party).nonEmpty, "The allocated party identifier is an empty string")
+      } yield assert(
+        Tag.unwrap(party).nonEmpty,
+        "The allocated party identifier is an empty string",
+      )
   }
 
   private val pMAllocateWithoutDisplayName = "PMAllocateWithoutDisplayName"
   test(
     pMAllocateWithoutDisplayName,
     "It should be possible to not provide a display name when allocating a party",
-    allocate(NoParties)) {
+    allocate(NoParties),
+  ) {
     case Participants(Participant(ledger)) =>
       for {
         party <- ledger.allocateParty(
           partyHintId =
             Some(pMAllocateWithoutDisplayName + "_" + Random.alphanumeric.take(10).mkString),
-          displayName = None)
-      } yield
-        assert(Tag.unwrap(party).nonEmpty, "The allocated party identifier is an empty string")
+          displayName = None,
+        )
+      } yield assert(
+        Tag.unwrap(party).nonEmpty,
+        "The allocated party identifier is an empty string",
+      )
   }
 
   test(
     "PMAllocateDuplicateDisplayName",
     "It should be possible to allocate parties with the same display names",
-    allocate(NoParties)) {
+    allocate(NoParties),
+  ) {
     case Participants(Participant(ledger)) =>
       for {
         p1 <- ledger.allocateParty(partyHintId = None, displayName = Some("Ononym McOmonymface"))
@@ -80,7 +93,8 @@ final class PartyManagement(session: LedgerSession) extends LedgerTestSuite(sess
   test(
     "PMAllocateOneHundred",
     "It should create unique party names when allocating many parties",
-    allocate(NoParties)) {
+    allocate(NoParties),
+  ) {
     case Participants(Participant(ledger)) =>
       for {
         parties <- ledger.allocateParties(100)

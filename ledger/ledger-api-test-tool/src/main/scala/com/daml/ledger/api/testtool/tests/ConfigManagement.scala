@@ -14,13 +14,14 @@ final class ConfigManagement(session: LedgerSession) extends LedgerTestSuite(ses
   test(
     "CMSetAndGetTimeModel",
     "It should be able to get, set and restore the time model",
-    allocate(NoParties)) {
+    allocate(NoParties),
+  ) {
 
     case Participants(Participant(ledger)) =>
       val newTimeModel = TimeModel(
         minTransactionLatency = Some(Duration(0, 1)),
         maxClockSkew = Some(Duration(60, 0)),
-        maxTtl = Some(Duration(120, 0))
+        maxTtl = Some(Duration(120, 0)),
       )
       for {
         // Get the current time model
@@ -35,7 +36,7 @@ final class ConfigManagement(session: LedgerSession) extends LedgerTestSuite(ses
         _ <- ledger.setTimeModel(
           mrt = t1.plusSeconds(30),
           generation = response1.configurationGeneration,
-          newTimeModel = newTimeModel
+          newTimeModel = newTimeModel,
         )
 
         // Retrieve the new model
@@ -46,7 +47,7 @@ final class ConfigManagement(session: LedgerSession) extends LedgerTestSuite(ses
         _ <- ledger.setTimeModel(
           mrt = t2.plusSeconds(30),
           generation = response2.configurationGeneration,
-          newTimeModel = oldTimeModel
+          newTimeModel = oldTimeModel,
         )
 
         // Verify that we've restored the original time model
@@ -58,22 +59,23 @@ final class ConfigManagement(session: LedgerSession) extends LedgerTestSuite(ses
           .setTimeModel(
             mrt = t3.minusSeconds(10),
             generation = response3.configurationGeneration,
-            newTimeModel = oldTimeModel
+            newTimeModel = oldTimeModel,
           )
           .failed
       } yield {
         assert(
           response1.configurationGeneration < response2.configurationGeneration,
-          "Expected configuration generation to have increased after setting time model"
+          "Expected configuration generation to have increased after setting time model",
         )
         assert(
           response2.configurationGeneration < response3.configurationGeneration,
-          "Expected configuration generation to have increased after setting time model the second time"
+          "Expected configuration generation to have increased after setting time model the second time",
         )
         assert(response2.timeModel.equals(Some(newTimeModel)), "Setting the new time model failed")
         assert(
           response3.timeModel.equals(response1.timeModel),
-          "Restoring the original time model failed")
+          "Restoring the original time model failed",
+        )
 
         assertGrpcError(expiredMRTFailure, Status.Code.ABORTED, "")
       }

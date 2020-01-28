@@ -24,7 +24,8 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
   test(
     "CSsubmitAndWait",
     "SubmitAndWait creates a contract of the expected template",
-    allocate(SingleParty)) {
+    allocate(SingleParty),
+  ) {
     case Participants(Participant(ledger, party)) =>
       for {
         request <- ledger.submitAndWaitRequest(party, Dummy(party).create.command)
@@ -40,7 +41,8 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
   test(
     "CSsubmitAndWaitForTransactionId",
     "SubmitAndWaitForTransactionId returns a valid transaction identifier",
-    allocate(SingleParty)) {
+    allocate(SingleParty),
+  ) {
     case Participants(Participant(ledger, party)) =>
       for {
         request <- ledger.submitAndWaitRequest(party, Dummy(party).create.command)
@@ -52,31 +54,34 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
         assert(transactionId.nonEmpty, "The transaction identifier was empty but shouldn't.")
         assert(
           transactions.size == 1,
-          s"$party should see only one transaction but sees ${transactions.size}")
+          s"$party should see only one transaction but sees ${transactions.size}",
+        )
         val events = transactions.head.events
 
         assert(events.size == 1, s"$party should see only one event but sees ${events.size}")
         assert(
           events.head.event.isCreated,
-          s"$party should see only one create but sees ${events.head.event}")
+          s"$party should see only one create but sees ${events.head.event}",
+        )
         val created = transactions.head.events.head.getCreated
 
         assert(
           retrievedTransaction.transactionId == transactionId,
-          s"$party should see the transaction for the created contract $transactionId but sees ${retrievedTransaction.transactionId}"
+          s"$party should see the transaction for the created contract $transactionId but sees ${retrievedTransaction.transactionId}",
         )
         assert(
           retrievedTransaction.rootEventIds.size == 1,
-          s"The retrieved transaction should contain a single event but contains ${retrievedTransaction.rootEventIds.size}"
+          s"The retrieved transaction should contain a single event but contains ${retrievedTransaction.rootEventIds.size}",
         )
         val retrievedEvent = retrievedTransaction.eventsById(retrievedTransaction.rootEventIds.head)
 
         assert(
           retrievedEvent.kind.isCreated,
-          s"The only event seen should be a created but instead it's $retrievedEvent")
+          s"The only event seen should be a created but instead it's $retrievedEvent",
+        )
         assert(
           retrievedEvent.getCreated == created,
-          s"The retrieved created event does not match the one in the flat transactions: event=$created retrieved=$retrievedEvent"
+          s"The retrieved created event does not match the one in the flat transactions: event=$created retrieved=$retrievedEvent",
         )
 
       }
@@ -85,7 +90,8 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
   test(
     "CSsubmitAndWaitForTransaction",
     "SubmitAndWaitForTransaction returns a transaction",
-    allocate(SingleParty)) {
+    allocate(SingleParty),
+  ) {
     case Participants(Participant(ledger, party)) =>
       for {
         request <- ledger.submitAndWaitRequest(party, Dummy(party).create.command)
@@ -93,18 +99,20 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
       } yield {
         assert(
           transaction.transactionId.nonEmpty,
-          "The transaction identifier was empty but shouldn't.")
+          "The transaction identifier was empty but shouldn't.",
+        )
         assert(
           transaction.events.size == 1,
-          s"The returned transaction should contain 1 event, but contained ${transaction.events.size}")
+          s"The returned transaction should contain 1 event, but contained ${transaction.events.size}",
+        )
         val event = transaction.events.head
         assert(
           event.event.isCreated,
-          s"The returned transaction should contain a created-event, but was ${event.event}"
+          s"The returned transaction should contain a created-event, but was ${event.event}",
         )
         assert(
           event.getCreated.getTemplateId == Dummy.id.unwrap,
-          s"The template ID of the created-event should by ${Dummy.id.unwrap}, but was ${event.getCreated.getTemplateId}"
+          s"The template ID of the created-event should by ${Dummy.id.unwrap}, but was ${event.getCreated.getTemplateId}",
         )
       }
   }
@@ -112,7 +120,8 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
   test(
     "CSsubmitAndWaitForTransactionTree",
     "SubmitAndWaitForTransactionTree returns a transaction tree",
-    allocate(SingleParty)) {
+    allocate(SingleParty),
+  ) {
     case Participants(Participant(ledger, party)) =>
       for {
         request <- ledger.submitAndWaitRequest(party, Dummy(party).create.command)
@@ -120,17 +129,20 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
       } yield {
         assert(
           transactionTree.transactionId.nonEmpty,
-          "The transaction identifier was empty but shouldn't.")
+          "The transaction identifier was empty but shouldn't.",
+        )
         assert(
           transactionTree.eventsById.size == 1,
-          s"The returned transaction tree should contain 1 event, but contained ${transactionTree.eventsById.size}")
+          s"The returned transaction tree should contain 1 event, but contained ${transactionTree.eventsById.size}",
+        )
         val event = transactionTree.eventsById.head._2
         assert(
           event.kind.isCreated,
-          s"The returned transaction tree should contain a created-event, but was ${event.kind}")
+          s"The returned transaction tree should contain a created-event, but was ${event.kind}",
+        )
         assert(
           event.getCreated.getTemplateId == Dummy.id.unwrap,
-          s"The template ID of the created-event should by ${Dummy.id.unwrap}, but was ${event.getCreated.getTemplateId}"
+          s"The template ID of the created-event should by ${Dummy.id.unwrap}, but was ${event.getCreated.getTemplateId}",
         )
       }
   }
@@ -138,7 +150,8 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
   test(
     "CSduplicateSubmitAndWait",
     "SubmitAndWait should be idempotent when reusing the same command identifier",
-    allocate(SingleParty)) {
+    allocate(SingleParty),
+  ) {
     case Participants(Participant(ledger, party)) =>
       for {
         request <- ledger.submitAndWaitRequest(party, Dummy(party).create.command)
@@ -148,7 +161,8 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
       } yield {
         assert(
           transactions.size == 1,
-          s"Expected only 1 transaction, but received ${transactions.size}")
+          s"Expected only 1 transaction, but received ${transactions.size}",
+        )
 
       }
   }
@@ -156,7 +170,7 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
   test(
     "CSduplicateSubmitAndWaitForTransactionId",
     "SubmitAndWaitForTransactionId should be idempotent when reusing the same command identifier",
-    allocate(SingleParty)
+    allocate(SingleParty),
   ) {
     case Participants(Participant(ledger, party)) =>
       for {
@@ -166,14 +180,15 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
       } yield {
         assert(
           transactionId1 == transactionId2,
-          s"The transaction identifiers did not match: transactionId1=$transactionId1, transactionId2=$transactionId2")
+          s"The transaction identifiers did not match: transactionId1=$transactionId1, transactionId2=$transactionId2",
+        )
       }
   }
 
   test(
     "CSduplicateSubmitAndWaitForTransaction",
     "SubmitAndWaitForTransaction should be idempotent when reusing the same command identifier",
-    allocate(SingleParty)
+    allocate(SingleParty),
   ) {
     case Participants(Participant(ledger, party)) =>
       for {
@@ -183,14 +198,15 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
       } yield {
         assert(
           transaction1 == transaction2,
-          s"The transactions did not match: transaction1=$transaction1, transaction2=$transaction2")
+          s"The transactions did not match: transaction1=$transaction1, transaction2=$transaction2",
+        )
       }
   }
 
   test(
     "CSduplicateSubmitAndWaitForTransactionTree",
     "SubmitAndWaitForTransactionTree should be idempotent when reusing the same command identifier",
-    allocate(SingleParty)
+    allocate(SingleParty),
   ) {
     case Participants(Participant(ledger, party)) =>
       for {
@@ -200,56 +216,70 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
       } yield {
         assert(
           transactionTree1 == transactionTree2,
-          s"The transaction trees did not match: transactionTree1=$transactionTree1, transactionTree2=$transactionTree2")
+          s"The transaction trees did not match: transactionTree1=$transactionTree1, transactionTree2=$transactionTree2",
+        )
       }
   }
 
   test(
     "CSsubmitAndWaitForTransactionIdInvalidLedgerId",
     "SubmitAndWaitForTransactionId should fail for invalid ledger ids",
-    allocate(SingleParty)) {
+    allocate(SingleParty),
+  ) {
     case Participants(Participant(ledger, party)) =>
       val invalidLedgerId = "CSsubmitAndWaitForTransactionIdInvalidLedgerId"
       for {
         request <- ledger.submitAndWaitRequest(party, Dummy(party).create.command)
         badLedgerId = request.update(_.commands.ledgerId := invalidLedgerId)
         failure <- ledger.submitAndWaitForTransactionId(badLedgerId).failed
-      } yield
-        assertGrpcError(failure, Status.Code.NOT_FOUND, s"Ledger ID '$invalidLedgerId' not found.")
+      } yield assertGrpcError(
+        failure,
+        Status.Code.NOT_FOUND,
+        s"Ledger ID '$invalidLedgerId' not found.",
+      )
   }
 
   test(
     "CSsubmitAndWaitForTransactionInvalidLedgerId",
     "SubmitAndWaitForTransaction should fail for invalid ledger ids",
-    allocate(SingleParty)) {
+    allocate(SingleParty),
+  ) {
     case Participants(Participant(ledger, party)) =>
       val invalidLedgerId = "CSsubmitAndWaitForTransactionInvalidLedgerId"
       for {
         request <- ledger.submitAndWaitRequest(party, Dummy(party).create.command)
         badLedgerId = request.update(_.commands.ledgerId := invalidLedgerId)
         failure <- ledger.submitAndWaitForTransaction(badLedgerId).failed
-      } yield
-        assertGrpcError(failure, Status.Code.NOT_FOUND, s"Ledger ID '$invalidLedgerId' not found.")
+      } yield assertGrpcError(
+        failure,
+        Status.Code.NOT_FOUND,
+        s"Ledger ID '$invalidLedgerId' not found.",
+      )
   }
 
   test(
     "CSsubmitAndWaitForTransactionTreeInvalidLedgerId",
     "SubmitAndWaitForTransactionTree should fail for invalid ledger ids",
-    allocate(SingleParty)) {
+    allocate(SingleParty),
+  ) {
     case Participants(Participant(ledger, party)) =>
       val invalidLedgerId = "CSsubmitAndWaitForTransactionTreeInvalidLedgerId"
       for {
         request <- ledger.submitAndWaitRequest(party, Dummy(party).create.command)
         badLedgerId = request.update(_.commands.ledgerId := invalidLedgerId)
         failure <- ledger.submitAndWaitForTransactionTree(badLedgerId).failed
-      } yield
-        assertGrpcError(failure, Status.Code.NOT_FOUND, s"Ledger ID '$invalidLedgerId' not found.")
+      } yield assertGrpcError(
+        failure,
+        Status.Code.NOT_FOUND,
+        s"Ledger ID '$invalidLedgerId' not found.",
+      )
   }
 
   test(
     "CSRefuseBadParameter",
     "The submission of a creation that contains a bad parameter label should result in an INVALID_ARGUMENT",
-    allocate(SingleParty)) {
+    allocate(SingleParty),
+  ) {
     case Participants(Participant(ledger, party)) =>
       val createWithBadArgument = Dummy(party).create.command
         .update(_.create.createArguments.fields.foreach(_.label := "INVALID_PARAM"))
@@ -264,7 +294,8 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
   test(
     "CSReturnStackTrace",
     "A submission resulting in an interpretation error should return the stack trace",
-    allocate(SingleParty)) {
+    allocate(SingleParty),
+  ) {
     case Participants(Participant(ledger, party)) =>
       for {
         dummy <- ledger.create(party, Dummy(party))
@@ -273,7 +304,7 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
         assertGrpcError(
           failure,
           Status.Code.INVALID_ARGUMENT,
-          "Command interpretation error in LF-DAMLe: Interpretation error: Error: User abort: Assertion failed. Details: Last location: [DA.Internal.Assert:20], partial transaction: root node"
+          "Command interpretation error in LF-DAMLe: Interpretation error: Error: User abort: Assertion failed. Details: Last location: [DA.Internal.Assert:20], partial transaction: root node",
         )
       }
   }
@@ -281,7 +312,8 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
   test(
     "CSDiscloseCreateToObservers",
     "Disclose create to observers",
-    allocate(TwoParties, SingleParty)) {
+    allocate(TwoParties, SingleParty),
+  ) {
     case Participants(Participant(alpha, giver, observer1), Participant(beta, observer2)) =>
       val template = WithObservers(giver, Primitive.List(observer1, observer2))
       for {
@@ -292,18 +324,21 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
       } yield {
         val observer1Created = assertSingleton(
           "The first observer should see exactly one creation",
-          observer1View.flatMap(createdEvents))
+          observer1View.flatMap(createdEvents),
+        )
         val observer2Created = assertSingleton(
           "The second observer should see exactly one creation",
-          observer2View.flatMap(createdEvents))
+          observer2View.flatMap(createdEvents),
+        )
         assertEquals(
           "The two observers should see the same creation",
           observer1Created.getCreateArguments.fields,
-          observer2Created.getCreateArguments.fields)
+          observer2Created.getCreateArguments.fields,
+        )
         assertEquals(
           "The observers should see the created contract",
           observer1Created.getCreateArguments.fields,
-          encode(template).getRecord.fields
+          encode(template).getRecord.fields,
         )
       }
   }
@@ -311,7 +346,8 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
   test(
     "CSDiscloseExerciseToObservers",
     "Disclose exercise to observers",
-    allocate(TwoParties, SingleParty)) {
+    allocate(TwoParties, SingleParty),
+  ) {
     case Participants(Participant(alpha, giver, observer1), Participant(beta, observer2)) =>
       val template = WithObservers(giver, Primitive.List(observer1, observer2))
       for {
@@ -323,23 +359,28 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
       } yield {
         val observer1Exercise = assertSingleton(
           "The first observer should see exactly one exercise",
-          observer1View.flatMap(exercisedEvents))
+          observer1View.flatMap(exercisedEvents),
+        )
         val observer2Exercise = assertSingleton(
           "The second observer should see exactly one exercise",
-          observer2View.flatMap(exercisedEvents))
+          observer2View.flatMap(exercisedEvents),
+        )
         assert(
           observer1Exercise.contractId == observer2Exercise.contractId,
-          "The two observers should see the same exercise")
+          "The two observers should see the same exercise",
+        )
         assert(
           observer1Exercise.contractId == withObservers.unwrap,
-          "The observers shouls see the exercised contract")
+          "The observers shouls see the exercised contract",
+        )
       }
   }
 
   test(
     "CSHugeCommandSubmission",
     "The server should accept a submission with 15 commands",
-    allocate(SingleParty)) {
+    allocate(SingleParty),
+  ) {
     case Participants(Participant(ledger, party)) =>
       val target = 15
       val commands = Vector.fill(target)(Dummy(party).create.command)
@@ -350,14 +391,16 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
       } yield {
         assert(
           acs.size == target,
-          s"Expected $target contracts to be created, got ${acs.size} instead")
+          s"Expected $target contracts to be created, got ${acs.size} instead",
+        )
       }
   }
 
   test(
     "CSCallablePayout",
     "Run CallablePayout and return the right events",
-    allocate(TwoParties, SingleParty)) {
+    allocate(TwoParties, SingleParty),
+  ) {
     case Participants(Participant(alpha, giver, newReceiver), Participant(beta, receiver)) =>
       for {
         callablePayout <- alpha.create(giver, CallablePayout(giver, receiver))
@@ -367,14 +410,16 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
         assertEquals(
           "The created event should be the expected one",
           created.getCreateArguments.fields,
-          encode(CallablePayout(giver, newReceiver)).getRecord.fields)
+          encode(CallablePayout(giver, newReceiver)).getRecord.fields,
+        )
       }
   }
 
   test(
     "CSReadyForExercise",
     "It should be possible to exercise a choice on a created contract",
-    allocate(SingleParty)) {
+    allocate(SingleParty),
+  ) {
     case Participants(Participant(ledger, party)) =>
       for {
         factory <- ledger.create(party, DummyFactory(party))
@@ -392,8 +437,9 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
       // Code generation catches bad decimals early so we have to do some work to create (possibly) invalid requests
       def rounding(numeric: String): Command =
         DecimalRounding(party, BigDecimal("0")).create.command.update(
-          _.create.createArguments.fields(1) := RecordField(
-            value = Some(Value(Value.Sum.Numeric(numeric)))))
+          _.create.createArguments
+            .fields(1) := RecordField(value = Some(Value(Value.Sum.Numeric(numeric)))),
+        )
       val wouldLosePrecision = "0.00000000005"
       val positiveOutOfBounds = "10000000000000000000000000000.0000000000"
       val negativeOutOfBounds = "-10000000000000000000000000000.0000000000"
@@ -422,16 +468,18 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
       } yield {
         assert(
           transactions.flatMap(_.events).isEmpty,
-          "A create-and-exercise flat transaction should show no event")
+          "A create-and-exercise flat transaction should show no event",
+        )
         assertEquals(
           "Unexpected template identifier in create event",
           trees.flatMap(createdEvents).map(_.getTemplateId),
-          Vector(Dummy.id.unwrap))
+          Vector(Dummy.id.unwrap),
+        )
         val contractId = trees.flatMap(createdEvents).head.contractId
         assertEquals(
           "Unexpected exercise event triple (choice, contractId, consuming)",
           trees.flatMap(exercisedEvents).map(e => (e.choice, e.contractId, e.consuming)),
-          Vector(("DummyChoice1", contractId, true))
+          Vector(("DummyChoice1", contractId, true)),
         )
       }
   }
@@ -439,7 +487,8 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
   test(
     "CSBadCreateAndExercise",
     "Fail create-and-exercise on bad create arguments",
-    allocate(SingleParty)) {
+    allocate(SingleParty),
+  ) {
     case Participants(Participant(ledger, party)) =>
       val createAndExercise = Dummy(party).createAnd
         .exerciseDummyChoice1(party)
@@ -456,7 +505,8 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
   test(
     "CSCreateAndBadExerciseArguments",
     "Fail create-and-exercise on bad choice arguments",
-    allocate(SingleParty)) {
+    allocate(SingleParty),
+  ) {
     case Participants(Participant(ledger, party)) =>
       val createAndExercise = Dummy(party).createAnd
         .exerciseDummyChoice1(party)
@@ -473,7 +523,8 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
   test(
     "CSCreateAndBadExerciseChoice",
     "Fail create-and-exercise on invalid choice",
-    allocate(SingleParty)) {
+    allocate(SingleParty),
+  ) {
     case Participants(Participant(ledger, party)) =>
       val missingChoice = "DoesNotExist"
       val createAndExercise = Dummy(party).createAnd
@@ -487,7 +538,8 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
         assertGrpcError(
           failure,
           Status.Code.INVALID_ARGUMENT,
-          s"Couldn't find requested choice $missingChoice")
+          s"Couldn't find requested choice $missingChoice",
+        )
       }
   }
 

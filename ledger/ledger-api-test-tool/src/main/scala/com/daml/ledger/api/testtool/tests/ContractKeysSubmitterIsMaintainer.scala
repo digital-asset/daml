@@ -23,7 +23,8 @@ final class ContractKeysSubmitterIsMaintainer(session: LedgerSession)
   test(
     "CKNoFetchOrLookup",
     "Divulged contracts cannot be fetched or looked up by key",
-    allocate(SingleParty, SingleParty)) {
+    allocate(SingleParty, SingleParty),
+  ) {
     case Participants(Participant(alpha, owner), Participant(beta, delegate)) =>
       val key = s"${UUID.randomUUID.toString}-key"
       for {
@@ -44,7 +45,8 @@ final class ContractKeysSubmitterIsMaintainer(session: LedgerSession)
           .exercise(
             delegate,
             delegation
-              .exerciseFetchByKeyDelegated(_, owner, key, Some(delegated)))
+              .exerciseFetchByKeyDelegated(_, owner, key, Some(delegated)),
+          )
           .failed
 
         // lookup by key delegation is not allowed
@@ -52,24 +54,28 @@ final class ContractKeysSubmitterIsMaintainer(session: LedgerSession)
           .exercise(
             delegate,
             delegation
-              .exerciseLookupByKeyDelegated(_, owner, key, Some(delegated)))
+              .exerciseLookupByKeyDelegated(_, owner, key, Some(delegated)),
+          )
           .failed
       } yield {
         assertGrpcError(
           fetchByKeyFailure,
           Status.Code.INVALID_ARGUMENT,
-          s"Expected the submitter '$delegate' to be in maintainers '$owner'")
+          s"Expected the submitter '$delegate' to be in maintainers '$owner'",
+        )
         assertGrpcError(
           lookupByKeyFailure,
           Status.Code.INVALID_ARGUMENT,
-          s"Expected the submitter '$delegate' to be in maintainers '$owner'")
+          s"Expected the submitter '$delegate' to be in maintainers '$owner'",
+        )
       }
   }
 
   test(
     "CKSubmitterIsMaintainerNoFetchUndisclosed",
     "Contract Keys should reject fetching an undisclosed contract",
-    allocate(SingleParty, SingleParty)) {
+    allocate(SingleParty, SingleParty),
+  ) {
     case Participants(Participant(alpha, owner), Participant(beta, delegate)) =>
       val key = s"${UUID.randomUUID.toString}-key"
       for {
@@ -84,7 +90,8 @@ final class ContractKeysSubmitterIsMaintainer(session: LedgerSession)
           .exercise(
             delegate,
             delegation
-              .exerciseFetchDelegated(_, delegated))
+              .exerciseFetchDelegated(_, delegated),
+          )
           .failed
 
         // fetch by key should fail
@@ -92,7 +99,8 @@ final class ContractKeysSubmitterIsMaintainer(session: LedgerSession)
           .exercise(
             delegate,
             delegation
-              .exerciseFetchByKeyDelegated(_, owner, key, None))
+              .exerciseFetchByKeyDelegated(_, owner, key, None),
+          )
           .failed
 
         // lookup by key should fail
@@ -100,28 +108,33 @@ final class ContractKeysSubmitterIsMaintainer(session: LedgerSession)
           .exercise(
             delegate,
             delegation
-              .exerciseLookupByKeyDelegated(_, owner, key, None))
+              .exerciseLookupByKeyDelegated(_, owner, key, None),
+          )
           .failed
       } yield {
         assertGrpcError(
           fetchFailure,
           Status.Code.INVALID_ARGUMENT,
-          "dependency error: couldn't find contract")
+          "dependency error: couldn't find contract",
+        )
         assertGrpcError(
           fetchByKeyFailure,
           Status.Code.INVALID_ARGUMENT,
-          s"Expected the submitter '$delegate' to be in maintainers '$owner'")
+          s"Expected the submitter '$delegate' to be in maintainers '$owner'",
+        )
         assertGrpcError(
           lookupByKeyFailure,
           Status.Code.INVALID_ARGUMENT,
-          s"Expected the submitter '$delegate' to be in maintainers '$owner'")
+          s"Expected the submitter '$delegate' to be in maintainers '$owner'",
+        )
       }
   }
 
   test(
     "CKSubmitterIsMaintainerMaintainerScoped",
     "Contract keys should be scoped by maintainer",
-    allocate(SingleParty, SingleParty)) {
+    allocate(SingleParty, SingleParty),
+  ) {
     case Participants(Participant(alpha, alice), Participant(beta, bob)) =>
       val keyPrefix = UUID.randomUUID.toString
       val key1 = s"$keyPrefix-some-key"
@@ -145,7 +158,8 @@ final class ContractKeysSubmitterIsMaintainer(session: LedgerSession)
           .exercise(
             bob,
             bobTKO
-              .exerciseTKOLookup(_, DamlTuple2(alice, key1), Some(tk1)))
+              .exerciseTKOLookup(_, DamlTuple2(alice, key1), Some(tk1)),
+          )
           .failed
 
         // trying to lookup an unauthorized non-existing key should fail
@@ -157,7 +171,8 @@ final class ContractKeysSubmitterIsMaintainer(session: LedgerSession)
         _ <- alpha.exercise(
           alice,
           aliceTKO
-            .exerciseTKOLookup(_, DamlTuple2(alice, key1), Some(tk1)))
+            .exerciseTKOLookup(_, DamlTuple2(alice, key1), Some(tk1)),
+        )
 
         // successful fetch
         _ <- alpha.exercise(alice, aliceTKO.exerciseTKOFetch(_, DamlTuple2(alice, key1), tk1))
@@ -165,14 +180,16 @@ final class ContractKeysSubmitterIsMaintainer(session: LedgerSession)
         // successful, authorized lookup of non-existing key
         _ <- alpha.exercise(
           alice,
-          aliceTKO.exerciseTKOLookup(_, DamlTuple2(alice, unknownKey), None))
+          aliceTKO.exerciseTKOLookup(_, DamlTuple2(alice, unknownKey), None),
+        )
 
         // failing fetch
         aliceFailedFetch <- alpha
           .exercise(
             alice,
             aliceTKO
-              .exerciseTKOFetch(_, DamlTuple2(alice, unknownKey), tk1))
+              .exerciseTKOFetch(_, DamlTuple2(alice, unknownKey), tk1),
+          )
           .failed
 
         // now we exercise the contract, thus archiving it, and then verify
@@ -183,7 +200,8 @@ final class ContractKeysSubmitterIsMaintainer(session: LedgerSession)
         // lookup the key, consume it, then verify we cannot look it up anymore
         _ <- alpha.exercise(
           alice,
-          aliceTKO.exerciseTKOConsumeAndLookup(_, tk2, DamlTuple2(alice, key2)))
+          aliceTKO.exerciseTKOConsumeAndLookup(_, tk2, DamlTuple2(alice, key2)),
+        )
 
         // failing create when a maintainer is not a signatory
         maintainerNotSignatoryFailed <- alpha
@@ -194,16 +212,19 @@ final class ContractKeysSubmitterIsMaintainer(session: LedgerSession)
         assertGrpcError(
           bobLooksUpTextKeyFailure,
           Status.Code.INVALID_ARGUMENT,
-          s"Expected the submitter '$bob' to be in maintainers '$alice'")
+          s"Expected the submitter '$bob' to be in maintainers '$alice'",
+        )
         assertGrpcError(
           bobLooksUpBogusTextKeyFailure,
           Status.Code.INVALID_ARGUMENT,
-          s"Expected the submitter '$bob' to be in maintainers '$alice'")
+          s"Expected the submitter '$bob' to be in maintainers '$alice'",
+        )
         assertGrpcError(aliceFailedFetch, Status.Code.INVALID_ARGUMENT, "couldn't find key")
         assertGrpcError(
           maintainerNotSignatoryFailed,
           Status.Code.INVALID_ARGUMENT,
-          "are not a subset of the signatories")
+          "are not a subset of the signatories",
+        )
       }
   }
 }

@@ -12,7 +12,8 @@ final class Identity(session: LedgerSession) extends LedgerTestSuite(session) {
   test(
     "IdNotEmpty",
     "A ledger should return a non-empty string as its identity",
-    allocate(NoParties)) {
+    allocate(NoParties),
+  ) {
     case Participants(Participant(ledger)) =>
       Future {
         assert(ledger.ledgerId.nonEmpty, "The returned ledger identifier was empty")

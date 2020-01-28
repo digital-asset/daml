@@ -31,7 +31,8 @@ final class PackageManagement(session: LedgerSession) extends LedgerTestSuite(se
   test(
     "PackageManagementEmptyUpload",
     "An attempt at uploading an empty payload should fail",
-    allocate(NoParties)) {
+    allocate(NoParties),
+  ) {
     case Participants(Participant(ledger)) =>
       for {
         failure <- ledger.uploadDarFile(ByteString.EMPTY).failed
@@ -39,14 +40,15 @@ final class PackageManagement(session: LedgerSession) extends LedgerTestSuite(se
         assertGrpcError(
           failure,
           Status.Code.INVALID_ARGUMENT,
-          "Invalid argument: Invalid DAR: package-upload")
+          "Invalid argument: Invalid DAR: package-upload",
+        )
       }
   }
 
   test(
     "PackageManagementLoad",
     "Concurrent uploads of the same package should be idempotent and result in the package being available for use",
-    allocate(SingleParty)
+    allocate(SingleParty),
   ) {
     case Participants(Participant(ledger, party)) =>
       for {
@@ -64,13 +66,16 @@ final class PackageManagement(session: LedgerSession) extends LedgerTestSuite(se
           duplicatePackageIds.isEmpty,
           s"There are duplicate package identifiers: ${duplicatePackageIds map {
             case (name, count) => s"$name ($count)"
-          } mkString (", ")}")
+          } mkString (", ")}",
+        )
         assert(
           acsBefore.size == 1,
-          s"After the contract has been created there should be one active contract but there's none")
+          s"After the contract has been created there should be one active contract but there's none",
+        )
         assert(
           acsAfter.isEmpty,
-          s"There should be no active package after the contract has been consumed: ${acsAfter.map(_.contractId).mkString(", ")}")
+          s"There should be no active package after the contract has been consumed: ${acsAfter.map(_.contractId).mkString(", ")}",
+        )
       }
   }
 }

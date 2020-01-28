@@ -6,14 +6,15 @@ package com.daml.ledger.api.testtool.infrastructure
 import com.daml.ledger.api.testtool.infrastructure.Allocation.{
   Participant,
   ParticipantAllocation,
-  Participants
+  Participants,
 }
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 
 import scala.concurrent.{ExecutionContext, Future}
 
 private[testtool] final class LedgerTestContext private[infrastructure] (
-    participants: Vector[ParticipantTestContext])(implicit ec: ExecutionContext) {
+    participants: Vector[ParticipantTestContext],
+)(implicit ec: ExecutionContext) {
 
   require(participants.nonEmpty, "At least one participant must be provided.")
 

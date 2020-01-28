@@ -26,7 +26,8 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
   test(
     "CKFetchOrLookup",
     "Divulged contracts can be fetched or looked up by key",
-    allocate(SingleParty, SingleParty)) {
+    allocate(SingleParty, SingleParty),
+  ) {
     case Participants(Participant(alpha, owner), Participant(beta, delegate)) =>
       val key = s"${UUID.randomUUID.toString}-key"
       for {
@@ -64,7 +65,8 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
   test(
     "CKNoFetchUndisclosed",
     "Contract Keys should reject fetching an undisclosed contract",
-    allocate(SingleParty, SingleParty)) {
+    allocate(SingleParty, SingleParty),
+  ) {
     case Participants(Participant(alpha, owner), Participant(beta, delegate)) =>
       val key = s"${UUID.randomUUID.toString}-key"
       for {
@@ -96,7 +98,8 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
         assertGrpcError(
           fetchFailure,
           Status.Code.INVALID_ARGUMENT,
-          "dependency error: couldn't find contract")
+          "dependency error: couldn't find contract",
+        )
         assertGrpcError(fetchByKeyFailure, Status.Code.INVALID_ARGUMENT, "couldn't find key")
         assertGrpcError(lookupByKeyFailure, Status.Code.INVALID_ARGUMENT, "InvalidLookup")
       }
@@ -105,7 +108,8 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
   test(
     "CKMaintainerScoped",
     "Contract keys should be scoped by maintainer",
-    allocate(SingleParty, SingleParty)) {
+    allocate(SingleParty, SingleParty),
+  ) {
     case Participants(Participant(alpha, alice), Participant(beta, bob)) =>
       val keyPrefix = UUID.randomUUID.toString
       val key1 = s"$keyPrefix-some-key"
@@ -156,7 +160,8 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
         // lookup the key, consume it, then verify we cannot look it up anymore
         _ <- alpha.exercise(
           alice,
-          aliceTKO.exerciseTKOConsumeAndLookup(_, tk2, Tuple2(alice, key2)))
+          aliceTKO.exerciseTKOConsumeAndLookup(_, tk2, Tuple2(alice, key2)),
+        )
 
         // failing create when a maintainer is not a signatory
         maintainerNotSignatoryFailed <- alpha
@@ -167,16 +172,19 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
         assertGrpcError(
           bobLooksUpTextKeyFailure,
           Status.Code.INVALID_ARGUMENT,
-          "requires authorizers")
+          "requires authorizers",
+        )
         assertGrpcError(
           bobLooksUpBogusTextKeyFailure,
           Status.Code.INVALID_ARGUMENT,
-          "requires authorizers")
+          "requires authorizers",
+        )
         assertGrpcError(aliceFailedFetch, Status.Code.INVALID_ARGUMENT, "couldn't find key")
         assertGrpcError(
           maintainerNotSignatoryFailed,
           Status.Code.INVALID_ARGUMENT,
-          "are not a subset of the signatories")
+          "are not a subset of the signatories",
+        )
       }
   }
 
@@ -196,10 +204,12 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
         val event = delegated2TxTree.eventsById.filter(_._2.kind.isCreated).head._2
         assert(
           Tag.unwrap(delegated1Id) != event.getCreated.contractId,
-          "New contract was not created")
+          "New contract was not created",
+        )
         assert(
           event.getCreated.contractKey == delegated1TxTree.eventsById.head._2.getCreated.contractKey,
-          "Contract keys did not match")
+          "Contract keys did not match",
+        )
 
       }
   }
@@ -207,7 +217,8 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
   test(
     "CKTransients",
     "Contract keys created by transient contracts are properly archived",
-    allocate(SingleParty)) {
+    allocate(SingleParty),
+  ) {
     case Participants(Participant(ledger, owner)) =>
       val key = s"${UUID.randomUUID.toString}-key"
       val key2 = s"${UUID.randomUUID.toString}-key"
@@ -234,7 +245,8 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
   test(
     "CKExposedByTemplate",
     "The contract key should be exposed if the template specifies one",
-    allocate(SingleParty)) {
+    allocate(SingleParty),
+  ) {
     case Participants(Participant(ledger, party)) =>
       val expectedKey = "some-fancy-key"
       for {
@@ -247,8 +259,8 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
           contract.getContractKey.getRecord.fields,
           Seq(
             RecordField("_1", Some(Value(Value.Sum.Party(Tag.unwrap(party))))),
-            RecordField("_2", Some(Value(Value.Sum.Text(expectedKey))))
-          )
+            RecordField("_2", Some(Value(Value.Sum.Text(expectedKey)))),
+          ),
         )
       }
   }
@@ -256,7 +268,8 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
   test(
     "CKExerciseByKey",
     "Exercising by key should be possible only when the corresponding contract is available",
-    allocate(SingleParty)) {
+    allocate(SingleParty),
+  ) {
     case Participants(Participant(ledger, party)) =>
       val keyString = UUID.randomUUID.toString
       val expectedKey = Value(
@@ -264,8 +277,11 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
           Record(
             fields = Seq(
               RecordField("_1", Some(Value(Value.Sum.Party(Tag.unwrap(party))))),
-              RecordField("_2", Some(Value(Value.Sum.Text(keyString))))
-            ))))
+              RecordField("_2", Some(Value(Value.Sum.Text(keyString)))),
+            ),
+          ),
+        ),
+      )
       for {
         failureBeforeCreation <- ledger
           .exerciseByKey(
@@ -273,7 +289,8 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
             TextKey.id,
             expectedKey,
             "TextKeyChoice",
-            Value(Value.Sum.Record(Record())))
+            Value(Value.Sum.Record(Record())),
+          )
           .failed
         _ <- ledger.create(party, TextKey(party, keyString, List.empty))
         _ <- ledger.exerciseByKey(
@@ -281,25 +298,27 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
           TextKey.id,
           expectedKey,
           "TextKeyChoice",
-          Value(Value.Sum.Record(Record())))
+          Value(Value.Sum.Record(Record())),
+        )
         failureAfterConsuming <- ledger
           .exerciseByKey(
             party,
             TextKey.id,
             expectedKey,
             "TextKeyChoice",
-            Value(Value.Sum.Record(Record())))
+            Value(Value.Sum.Record(Record())),
+          )
           .failed
       } yield {
         assertGrpcError(
           failureBeforeCreation,
           Status.Code.INVALID_ARGUMENT,
-          "dependency error: couldn't find key"
+          "dependency error: couldn't find key",
         )
         assertGrpcError(
           failureAfterConsuming,
           Status.Code.INVALID_ARGUMENT,
-          "dependency error: couldn't find key"
+          "dependency error: couldn't find key",
         )
       }
   }

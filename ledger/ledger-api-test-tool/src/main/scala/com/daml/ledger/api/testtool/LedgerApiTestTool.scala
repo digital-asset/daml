@@ -10,7 +10,7 @@ import com.daml.ledger.api.testtool.infrastructure.Reporter.ColorizedPrintStream
 import com.daml.ledger.api.testtool.infrastructure.{
   LedgerSessionConfiguration,
   LedgerTestSuiteRunner,
-  LedgerTestSummary
+  LedgerTestSummary,
 }
 import org.slf4j.LoggerFactory
 
@@ -68,7 +68,7 @@ object LedgerApiTestTool {
       extractResources(
         "/ledger/test-common/SemanticTests.dar",
         "/ledger/test-common/Test-stable.dar",
-        "/ledger/test-common/Test-dev.dar"
+        "/ledger/test-common/Test-dev.dar",
       )
       sys.exit(0)
     }

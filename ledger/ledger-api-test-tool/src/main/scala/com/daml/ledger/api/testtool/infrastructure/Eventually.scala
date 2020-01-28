@@ -12,7 +12,8 @@ object Eventually {
   def eventually[A](
       runAssertion: => Future[A],
       attempts: Int = 10,
-      firstWaitTime: Duration = 10.millis)(implicit ec: ExecutionContext): Future[A] =
+      firstWaitTime: Duration = 10.millis,
+  )(implicit ec: ExecutionContext): Future[A] =
     RetryStrategy.exponentialBackoff(attempts, firstWaitTime) { (_, _) =>
       runAssertion
     }

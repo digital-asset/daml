@@ -9,7 +9,7 @@ import com.daml.ledger.api.testtool.infrastructure.LedgerServices
 import com.daml.ledger.api.testtool.infrastructure.ProtobufConverters._
 import com.digitalasset.ledger.api.v1.ledger_configuration_service.{
   GetLedgerConfigurationRequest,
-  GetLedgerConfigurationResponse
+  GetLedgerConfigurationResponse,
 }
 import com.digitalasset.ledger.api.v1.ledger_identity_service.GetLedgerIdentityRequest
 import com.digitalasset.ledger.api.v1.transaction_service.GetLedgerEndRequest
@@ -25,7 +25,8 @@ import scala.concurrent.{ExecutionContext, Future}
 private[participant] final class ParticipantSession(
     val config: ParticipantSessionConfiguration,
     channel: ManagedChannel,
-    eventLoopGroup: NioEventLoopGroup)(implicit val executionContext: ExecutionContext) {
+    eventLoopGroup: NioEventLoopGroup,
+)(implicit val executionContext: ExecutionContext) {
 
   private[this] val logger = LoggerFactory.getLogger(classOf[ParticipantSession])
 
@@ -51,9 +52,10 @@ private[participant] final class ParticipantSession(
   private[this] val ttlF: Future[Duration] =
     ledgerIdF
       .flatMap { id =>
-        new StreamConsumer[GetLedgerConfigurationResponse](services.configuration
-          .getLedgerConfiguration(new GetLedgerConfigurationRequest(id), _))
-          .first()
+        new StreamConsumer[GetLedgerConfigurationResponse](
+          services.configuration
+            .getLedgerConfiguration(new GetLedgerConfigurationRequest(id), _),
+        ).first()
           .map(_.get.getLedgerConfiguration)
       }
       .map { configuration =>
@@ -68,20 +70,21 @@ private[participant] final class ParticipantSession(
   private[testtool] def createTestContext(
       endpointId: String,
       applicationId: String,
-      identifierSuffix: String): Future[ParticipantTestContext] =
+      identifierSuffix: String,
+  ): Future[ParticipantTestContext] =
     for {
       ledgerId <- ledgerIdF
       ttl <- ttlF
       end <- services.transaction.getLedgerEnd(new GetLedgerEndRequest(ledgerId)).map(_.getOffset)
-    } yield
-      new ParticipantTestContext(
-        ledgerId,
-        endpointId,
-        applicationId,
-        identifierSuffix,
-        end,
-        services,
-        ttl)
+    } yield new ParticipantTestContext(
+      ledgerId,
+      endpointId,
+      applicationId,
+      identifierSuffix,
+      end,
+      services,
+      ttl,
+    )
 
   private[testtool] def close(): Unit = {
     logger.info(s"Disconnecting from participant at ${config.host}:${config.port}...")
