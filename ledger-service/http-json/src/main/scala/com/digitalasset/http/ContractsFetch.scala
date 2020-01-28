@@ -68,7 +68,7 @@ private class ContractsFetch(
   )(
       implicit ec: ExecutionContext,
       mat: Materializer,
-  ): ConnectionIO[List[OffsetBookmark[domain.Offset]]] = {
+  ): ConnectionIO[List[BeginBookmark[domain.Offset]]] = {
     import cats.instances.list._, cats.syntax.traverse._, doobie.implicits._
     // TODO(Leo/Stephen): can we run this traverse concurrently?
     templateIds.traverse { templateId =>
@@ -79,11 +79,11 @@ private class ContractsFetch(
   def fetchAndPersist(jwt: Jwt, party: domain.Party, templateId: domain.TemplateId.RequiredPkg)(
       implicit ec: ExecutionContext,
       mat: Materializer,
-  ): ConnectionIO[OffsetBookmark[domain.Offset]] = {
+  ): ConnectionIO[BeginBookmark[domain.Offset]] = {
 
     import doobie.implicits._
 
-    def loop(maxAttempts: Int): ConnectionIO[OffsetBookmark[domain.Offset]] = {
+    def loop(maxAttempts: Int): ConnectionIO[BeginBookmark[domain.Offset]] = {
       logger.debug(s"contractsIo, maxAttempts: $maxAttempts")
       contractsIo_(jwt, party, templateId).exceptSql {
         case e if maxAttempts > 0 && retrySqlStates(e.getSQLState) =>
@@ -102,7 +102,7 @@ private class ContractsFetch(
       jwt: Jwt,
       party: domain.Party,
       templateId: domain.TemplateId.RequiredPkg,
-  )(implicit ec: ExecutionContext, mat: Materializer): ConnectionIO[OffsetBookmark[domain.Offset]] =
+  )(implicit ec: ExecutionContext, mat: Materializer): ConnectionIO[BeginBookmark[domain.Offset]] =
     for {
       offset0 <- ContractDao.lastOffset(party, templateId)
       ob0 = offset0.cata(AbsoluteBookmark(_), LedgerBegin)
@@ -148,16 +148,16 @@ private class ContractsFetch(
       jwt: Jwt,
       party: domain.Party,
       templateId: domain.TemplateId.RequiredPkg,
-      offset: OffsetBookmark[domain.Offset],
+      offset: BeginBookmark[domain.Offset],
   )(
       implicit ec: ExecutionContext,
       mat: Materializer,
-  ): ConnectionIO[OffsetBookmark[domain.Offset]] = {
+  ): ConnectionIO[BeginBookmark[domain.Offset]] = {
 
     val graph = RunnableGraph.fromGraph(
       GraphDSL.create(
         Sink.queue[ConnectionIO[Unit]](),
-        Sink.last[OffsetBookmark[String]],
+        Sink.last[BeginBookmark[String]],
       )(Keep.both) { implicit builder => (acsSink, offsetSink) =>
         import GraphDSL.Implicits._
 
@@ -219,7 +219,7 @@ private[http] object ContractsFetch {
 
   type PreInsertContract = DBContract[TemplateId.RequiredPkg, JsValue, JsValue, Seq[domain.Party]]
 
-  sealed abstract class OffsetBookmark[+Off] extends Product with Serializable {
+  sealed abstract class BeginBookmark[+Off] extends Product with Serializable {
     import lav1.ledger_offset.LedgerOffset
     import LedgerOffset.{LedgerBoundary, Value}
     import Value.Boundary
@@ -234,8 +234,8 @@ private[http] object ContractsFetch {
       case LedgerBegin => None
     }
   }
-  final case class AbsoluteBookmark[+Off](offset: Off) extends OffsetBookmark[Off]
-  case object LedgerBegin extends OffsetBookmark[Nothing]
+  final case class AbsoluteBookmark[+Off](offset: Off) extends BeginBookmark[Off]
+  case object LedgerBegin extends BeginBookmark[Nothing]
 
   def partition[A, B]: Graph[FanOutShape2[A \/ B, A, B], NotUsed] =
     GraphDSL.create() { implicit b =>
@@ -309,7 +309,7 @@ private[http] object ContractsFetch {
       transactionsSince: lav1.ledger_offset.LedgerOffset => Source[Transaction, NotUsed],
   ): Graph[FanOutShape2[lav1.active_contracts_service.GetActiveContractsResponse, InsertDeleteStep[
     lav1.event.CreatedEvent,
-  ], OffsetBookmark[String]], NotUsed] =
+  ], BeginBookmark[String]], NotUsed] =
     GraphDSL.create() { implicit b =>
       import GraphDSL.Implicits._
       val acs = b add acsAndBoundary
@@ -328,13 +328,13 @@ private[http] object ContractsFetch {
   private def transactionsFollowingBoundary(
       transactionsSince: lav1.ledger_offset.LedgerOffset => Source[Transaction, NotUsed],
   ): Graph[FanOutShape2[
-    OffsetBookmark[String],
+    BeginBookmark[String],
     InsertDeleteStep[lav1.event.CreatedEvent],
-    OffsetBookmark[String],
+    BeginBookmark[String],
   ], NotUsed] =
     GraphDSL.create() { implicit b =>
       import GraphDSL.Implicits._
-      type Off = OffsetBookmark[String]
+      type Off = BeginBookmark[String]
       val dupOff = b add Broadcast[Off](2)
       val mergeOff = b add Concat[Off](2)
       val txns = Flow[Off]
@@ -354,7 +354,7 @@ private[http] object ContractsFetch {
   private[this] def acsAndBoundary
       : Graph[FanOutShape2[lav1.active_contracts_service.GetActiveContractsResponse, Seq[
         lav1.event.CreatedEvent,
-      ], OffsetBookmark[String]], NotUsed] =
+      ], BeginBookmark[String]], NotUsed] =
     GraphDSL.create() { implicit b =>
       import GraphDSL.Implicits._
       import lav1.active_contracts_service.{GetActiveContractsResponse => GACR}
@@ -362,7 +362,7 @@ private[http] object ContractsFetch {
       val acs = b add (Flow fromFunction ((_: GACR).activeContracts))
       val off = b add Flow[GACR]
         .collect { case gacr if gacr.offset.nonEmpty => AbsoluteBookmark(gacr.offset) }
-        .via(last(LedgerBegin: OffsetBookmark[String]))
+        .via(last(LedgerBegin: BeginBookmark[String]))
       discard { dup ~> acs }
       discard { dup ~> off }
       new FanOutShape2(dup.in, acs.out, off.out)
