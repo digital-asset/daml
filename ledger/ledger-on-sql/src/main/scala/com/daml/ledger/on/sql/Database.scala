@@ -85,6 +85,19 @@ object Database {
       )
   }
 
+  // This is used when connecting to SQLite in-memory. Unlike file storage or H2 in-memory, each
+  // connection established will create a new, separate database. This means we can't create more
+  // than one connection pool, as each pool will create a new connection and therefore a new
+  // database.
+  //
+  // Because of this, Flyway needs to share the connection pool. However, Flyway _also_ requires
+  // a connection pool that allows for two concurrent connections. It uses one to lock the
+  // migrations table (to ensure we don't run migrations in parallel), and then the second to
+  // actually run the migrations. This is actually unnecessary in this case because it's impossible
+  // to have two connections, but it doesn't know that.
+  //
+  // To make Flyway happy, we create an unbounded connection pool and then drop it to 1 connection
+  // after migration.
   object SingleConnectionDatabase {
     def owner(
         system: RDBMS,
@@ -98,11 +111,6 @@ object Database {
         writerConnectionPool = connectionPool,
         adminConnectionPool = connectionPool,
         afterMigration = () => {
-          // Flyway needs 2 database connections: one for locking its own table, and then one for
-          // performing the migration. We allow it to do this, then drop the connection pool cap
-          // to 1 afterwards. With SQLite in-memory, we can't use a separate connection pool, it
-          // will create a new in-memory database for each connection (and therefore each
-          // connection pool).
           connectionPool.setMaximumPoolSize(MaximumWriterConnectionPoolSize)
         },
       )
