@@ -73,7 +73,7 @@ class Context(val contextId: Context.ContextId) {
   private def decodeModule(
       major: LanguageVersion.Major,
       minor: String,
-      bytes: ByteString
+      bytes: ByteString,
   ): Ast.Module = {
     val lfVer = LanguageVersion(major, LanguageVersion.Minor fromProtoIdentifier minor)
     val dop: Decode.OfPackage[_] = Decode.decoders
@@ -86,7 +86,7 @@ class Context(val contextId: Context.ContextId) {
 
   private def validate(pkgIds: Traversable[PackageId]): Unit =
     pkgIds.foreach(
-      Validation.checkPackage(allPackages, _).left.foreach(e => throw ParseError(e.pretty))
+      Validation.checkPackage(allPackages, _).left.foreach(e => throw ParseError(e.pretty)),
     )
 
   @throws[ParseError]
@@ -95,7 +95,7 @@ class Context(val contextId: Context.ContextId) {
       loadModules: Seq[ProtoScenarioModule],
       unloadPackages: Seq[String],
       loadPackages: Seq[ByteString],
-      forScenarioService: Boolean
+      forScenarioService: Boolean,
   ): Unit = this.synchronized {
 
     // First we unload modules and packages
@@ -123,7 +123,8 @@ class Context(val contextId: Context.ContextId) {
 
     // And now the new modules can be loaded.
     val lfModules = loadModules.map(module =>
-      decodeModule(LanguageVersion.Major.V1, module.getMinor, module.getDamlLf1))
+      decodeModule(LanguageVersion.Major.V1, module.getMinor, module.getDamlLf1),
+    )
 
     modules ++= lfModules.map(m => m.name -> m)
     if (!forScenarioService)
@@ -132,18 +133,17 @@ class Context(val contextId: Context.ContextId) {
     // At this point 'allPackages' is consistent and we can
     // compile the new modules.
     val compiler = Compiler(allPackages)
-    defns = lfModules.foldLeft(defns)(
-      (newDefns, m) =>
-        newDefns.filterKeys(ref => ref.packageId != homePackageId || ref.modName != m.name)
-          ++ m.definitions.flatMap {
-            case (defName, defn) =>
-              compiler
-                .compileDefn(Identifier(homePackageId, QualifiedName(m.name, defName)), defn)
-                .map {
-                  case (defRef, compiledDefn) => (defRef, (m.languageVersion, compiledDefn))
-                }
+    defns = lfModules.foldLeft(defns)((newDefns, m) =>
+      newDefns.filterKeys(ref => ref.packageId != homePackageId || ref.modName != m.name)
+        ++ m.definitions.flatMap {
+          case (defName, defn) =>
+            compiler
+              .compileDefn(Identifier(homePackageId, QualifiedName(m.name, defName)), defn)
+              .map {
+                case (defRef, compiledDefn) => (defRef, (m.languageVersion, compiledDefn))
+              }
 
-        }
+        },
     )
   }
 
@@ -161,23 +161,23 @@ class Context(val contextId: Context.ContextId) {
       .build(
         checkSubmitterInMaintainers = VersionTimeline.checkSubmitterInMaintainers(lfVer),
         sexpr = defn,
-        compiledPackages = PureCompiledPackages(allPackages, defns.mapValues(_._2)).right.get
+        compiledPackages = PureCompiledPackages(allPackages, defns.mapValues(_._2)).right.get,
       )
   }
 
   def interpretScenario(
       pkgId: String,
-      name: String
+      name: String,
   ): Option[(Ledger, Speedy.Machine, Either[SError, SValue])] =
     buildMachine(
-      Identifier(assert(PackageId.fromString(pkgId)), assert(QualifiedName.fromString(name))))
-      .map { machine =>
-        ScenarioRunner(machine).run() match {
-          case Right((diff @ _, steps @ _, ledger)) =>
-            (ledger, machine, Right(machine.toSValue))
-          case Left((err, ledger)) =>
-            (ledger, machine, Left(err))
-        }
+      Identifier(assert(PackageId.fromString(pkgId)), assert(QualifiedName.fromString(name))),
+    ).map { machine =>
+      ScenarioRunner(machine).run() match {
+        case Right((diff @ _, steps @ _, ledger)) =>
+          (ledger, machine, Right(machine.toSValue))
+        case Left((err, ledger)) =>
+          (ledger, machine, Left(err))
       }
+    }
 
 }

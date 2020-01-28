@@ -43,19 +43,19 @@ class HashSpec extends WordSpec with Matchers {
           :: 'fOpt1 ->> VA.optional(VA.text)
           :: 'fList ->> VA.list(VA.text)
           :: 'fVariant ->>
-          VA.variant(
-              defRef(name = "Variant"),
-              'Variant ->> VA.int64 :: RNil
-            )
-            ._2
+            VA.variant(
+                defRef(name = "Variant"),
+                'Variant ->> VA.int64 :: RNil,
+              )
+              ._2
           :: 'fRecord ->>
-          VA.record(
-              defRef(name = "Record"),
-              'field1 ->> VA.text :: 'field2 ->> VA.text :: RNil
-            )
-            ._2
+            VA.record(
+                defRef(name = "Record"),
+                'field1 ->> VA.text :: 'field2 ->> VA.text :: RNil,
+              )
+              ._2
           :: 'fTextMap ->> VA.map(VA.text)
-          :: RNil
+          :: RNil,
       )
       ._2
 
@@ -81,7 +81,7 @@ class HashSpec extends WordSpec with Matchers {
       fList = Vector("A", "B", "C"),
       fVariant = HSum('Variant ->> 0L),
       fRecord = HRecord(field1 = "field1", field2 = "field2"),
-      fTextMap = SortedLookupList(Map("keyA" -> "valueA", "keyB" -> "valueB"))
+      fTextMap = SortedLookupList(Map("keyA" -> "valueA", "keyB" -> "valueB")),
     )
 
   "KeyHasher" should {
@@ -343,7 +343,7 @@ class HashSpec extends WordSpec with Matchers {
       val contractIds =
         List(
           "07e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5",
-          "59b59ad7a6b6066e77b91ced54b8282f0e24e7089944685cb8f22f32fcbc4e1b"
+          "59b59ad7a6b6066e77b91ced54b8282f0e24e7089944685cb8f22f32fcbc4e1b",
         ).map(x => AbsoluteContractId(Ref.ContractIdString.assertFromString(x)))
           .map(VA.contractId.inj)
 
@@ -353,7 +353,7 @@ class HashSpec extends WordSpec with Matchers {
       val enums = List(
         enumT1.inj(enumT1.get("Red").get),
         enumT1.inj(enumT1.get("Green").get),
-        enumT2.inj(enumT2.get("Green").get)
+        enumT2.inj(enumT2.get("Green").get),
       )
 
       val record0T1 = VA.record("Unit", RNil)._2
@@ -394,7 +394,7 @@ class HashSpec extends WordSpec with Matchers {
         list(true),
         list(false, false),
         list(false, true),
-        list(true, false)
+        list(true, false),
       )
 
       def textMap(entries: (String, Boolean)*) =
@@ -563,7 +563,8 @@ class HashSpec extends WordSpec with Matchers {
       packageId0,
       Ref.QualifiedName(
         Ref.DottedName.assertFromString(module),
-        Ref.DottedName.assertFromString(name))
+        Ref.DottedName.assertFromString(name),
+      ),
     )
 
   private implicit def addVersion[Cid](v: Value[Cid]): VersionedValue[Cid] =

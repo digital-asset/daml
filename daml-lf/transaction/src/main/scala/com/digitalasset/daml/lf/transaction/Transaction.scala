@@ -19,7 +19,7 @@ import scala.collection.immutable.HashMap
 
 case class VersionedTransaction[Nid, Cid](
     version: TransactionVersion,
-    transaction: GenTransaction.WithTxValue[Nid, Cid]
+    transaction: GenTransaction.WithTxValue[Nid, Cid],
 ) {
 
   def mapContractId[Cid2](f: Cid => Cid2): VersionedTransaction[Nid, Cid2] =
@@ -47,7 +47,8 @@ case class VersionedTransaction[Nid, Cid](
     import VersionTimeline._
     import Implicits._
     copy(
-      version = latestWhenAllPresent(version, languageVersions map (a => a: SpecifiedVersion): _*))
+      version = latestWhenAllPresent(version, languageVersions map (a => a: SpecifiedVersion): _*),
+    )
   }
 }
 
@@ -81,21 +82,22 @@ case class GenTransaction[Nid, Cid, +Val](
     nodes: HashMap[Nid, GenNode[Nid, Cid, Val]],
     roots: ImmArray[Nid],
     optUsedPackages: Option[Set[PackageId]],
-    transactionSeed: Option[crypto.Hash] = None
+    transactionSeed: Option[crypto.Hash] = None,
 ) {
 
   import GenTransaction._
 
   def mapContractIdAndValue[Cid2, Val2](
       f: Cid => Cid2,
-      g: Val => Val2
+      g: Val => Val2,
   ): GenTransaction[Nid, Cid2, Val2] =
     copy(
       nodes = // do NOT use `Map#mapValues`! it applies the function lazily on lookup. see #1861
-        nodes.transform((_, value) => value.mapContractIdAndValue(f, g)))
+        nodes.transform((_, value) => value.mapContractIdAndValue(f, g)),
+    )
 
   def mapContractId[Cid2](f: Cid => Cid2)(
-      implicit ev: Val <:< VersionedValue[Cid]
+      implicit ev: Val <:< VersionedValue[Cid],
   ): WithTxValue[Nid, Cid2] =
     mapContractIdAndValue(f, _.mapContractId(f))
 
@@ -150,7 +152,8 @@ case class GenTransaction[Nid, Cid, +Val](
     * transaction.
     */
   final def foldWithPathState[A, B](globalState0: A, pathState0: B)(
-      op: (A, B, Nid, GenNode[Nid, Cid, Val]) => (A, B)): A = {
+      op: (A, B, Nid, GenNode[Nid, Cid, Val]) => (A, B),
+  ): A = {
     var globalState = globalState0
 
     @tailrec
@@ -184,7 +187,7 @@ case class GenTransaction[Nid, Cid, +Val](
     def go(
         errors: Set[NotWellFormedError[Nid]],
         visited: Set[Nid],
-        toVisit: FrontStack[Nid]
+        toVisit: FrontStack[Nid],
     ): (Set[NotWellFormedError[Nid]], Set[Nid]) =
       toVisit match {
         case FrontStack() => (errors, visited)
@@ -203,7 +206,9 @@ case class GenTransaction[Nid, Cid, +Val](
               node match {
                 case _: LeafOnlyNode[Cid, Val] => go(newErrors, newVisited, nids)
                 case ne: NodeExercises[Nid, Cid, Val] =>
-                  go(newErrors, newVisited, if (alreadyVisited) { nids } else {
+                  go(newErrors, newVisited, if (alreadyVisited) {
+                    nids
+                  } else {
                     ne.children ++: nids
                   })
               }
@@ -232,7 +237,7 @@ case class GenTransaction[Nid, Cid, +Val](
     * Nid is irrelevant to the content of the transaction.
     */
   final def compareForest[Nid2, Cid2, Val2](other: GenTransaction[Nid2, Cid2, Val2])(
-      compare: (GenNode[Nothing, Cid, Val], GenNode[Nothing, Cid2, Val2]) => Boolean
+      compare: (GenNode[Nothing, Cid, Val], GenNode[Nothing, Cid2, Val2]) => Boolean,
   ): Boolean = {
     @tailrec
     def go(toCompare: FrontStack[(Nid, Nid2)]): Boolean =
@@ -284,9 +289,9 @@ case class GenTransaction[Nid, Cid, +Val](
     *
     * @note This function is asymmetric.
     */
-  final def isReplayedBy[Nid2, Val2 >: Val](other: GenTransaction[Nid2, Cid, Val2])(
-      implicit ECid: Equal[Cid],
-      EVal: Equal[Val2]): Boolean =
+  final def isReplayedBy[Nid2, Val2 >: Val](
+      other: GenTransaction[Nid2, Cid, Val2],
+  )(implicit ECid: Equal[Cid], EVal: Equal[Val2]): Boolean =
     compareForest(other)(Node.isReplayedBy(_, _))
 
   /** checks that all the values contained are serializable */
@@ -392,7 +397,7 @@ object Transaction {
       */
     final case class ContextRoot(
         override val discriminator: Option[crypto.Hash],
-        children: BackStack[NodeId] = BackStack.empty
+        children: BackStack[NodeId] = BackStack.empty,
     ) extends Context {
       override def addChild(child: NodeId): ContextRoot = copy(children = children :+ child)
     }
@@ -400,7 +405,7 @@ object Transaction {
     /** Context when creating a sub-transaction due to an exercises. */
     final case class ContextExercise(
         ctx: ExercisesContext,
-        children: BackStack[NodeId] = BackStack.empty
+        children: BackStack[NodeId] = BackStack.empty,
     ) extends Context {
       override def addChild(child: NodeId): ContextExercise =
         copy(children = children :+ child)
@@ -457,7 +462,7 @@ object Transaction {
       consumedBy = Map.empty,
       context = ContextRoot(transactionSeed),
       aborted = None,
-      keys = Map.empty
+      keys = Map.empty,
     )
 
   }
@@ -505,7 +510,8 @@ object Transaction {
         def addToStringBuilder(
             nid: NodeId,
             node: GenNode.WithTxValue[NodeId, TContractId],
-            rootPrefix: String): Unit = {
+            rootPrefix: String,
+        ): Unit = {
           sb.append(rootPrefix)
             .append("node ")
             .append(nid.index)
@@ -553,8 +559,9 @@ object Transaction {
               nodes = nodes,
               roots = children.toImmArray,
               optUsedPackages = None,
-              transactionSeed = transactionSeed
-            ))
+              transactionSeed = transactionSeed,
+            ),
+          )
         case _ =>
           Left(this)
       }
@@ -563,8 +570,9 @@ object Transaction {
       * Return the contract instance and the node in which it was
       * consumed if any.
       */
-    def lookupLocalContract(lcoid: RelativeContractId)
-      : Option[(ContractInst[Transaction.Value[TContractId]], Option[NodeId])] =
+    def lookupLocalContract(
+        lcoid: RelativeContractId,
+    ): Option[(ContractInst[Transaction.Value[TContractId]], Option[NodeId])] =
       for {
         node <- nodes.get(lcoid.txnid)
         coinst <- node match {
@@ -582,13 +590,14 @@ object Transaction {
         optLocation: Option[Location],
         signatories: Set[Party],
         stakeholders: Set[Party],
-        key: Option[KeyWithMaintainers[Value[Nothing]]]
+        key: Option[KeyWithMaintainers[Value[Nothing]]],
     ): Either[String, (TContractId, PartialTransaction)] = {
       val serializableErrs = serializable(coinst.arg)
       if (serializableErrs.nonEmpty) {
         Left(
           s"""Trying to create a contract with a non-serializable value: ${serializableErrs.iterator
-            .mkString(",")}""")
+            .mkString(",")}""",
+        )
       } else {
         val nodeDiscriminator = deriveChildDiscriminator
         val nodeId = NodeId(nextNodeIdx, nodeDiscriminator)
@@ -601,12 +610,12 @@ object Transaction {
           optLocation,
           signatories,
           stakeholders,
-          key
+          key,
         )
         val ptx = copy(
           nextNodeIdx = nextNodeIdx + 1,
           context = context.addChild(nodeId),
-          nodes = nodes.updated(nodeId, createNode)
+          nodes = nodes.updated(nodeId, createNode),
         )
 
         // if we have a contract key being added, include it in the list of
@@ -628,20 +637,21 @@ object Transaction {
         optLocation: Option[Location],
         actingParties: Set[Party],
         signatories: Set[Party],
-        stakeholders: Set[Party]
+        stakeholders: Set[Party],
     ): PartialTransaction =
       mustBeActive(
         coid,
         templateId,
         insertLeafNode(
-          NodeFetch(coid, templateId, optLocation, Some(actingParties), signatories, stakeholders))
+          NodeFetch(coid, templateId, optLocation, Some(actingParties), signatories, stakeholders),
+        ),
       )
 
     def insertLookup(
         templateId: TypeConName,
         optLocation: Option[Location],
         key: KeyWithMaintainers[Value[Nothing]],
-        result: Option[TContractId]
+        result: Option[TContractId],
     ): PartialTransaction =
       insertLeafNode(NodeLookupByKey(templateId, optLocation, key, result))
 
@@ -656,13 +666,14 @@ object Transaction {
         stakeholders: Set[Party],
         controllers: Set[Party],
         mbKey: Option[KeyWithMaintainers[Value[Nothing]]],
-        chosenValue: Value[TContractId]
+        chosenValue: Value[TContractId],
     ): Either[String, PartialTransaction] = {
       val serializableErrs = serializable(chosenValue)
       if (serializableErrs.nonEmpty) {
         Left(
           s"""Trying to exercise a choice with a non-serializable value: ${serializableErrs.iterator
-            .mkString(",")}""")
+            .mkString(",")}""",
+        )
       } else {
         val nodeId = NodeId(nextNodeIdx, deriveChildDiscriminator)
         Right(
@@ -696,8 +707,9 @@ object Transaction {
                   keys.updated(GlobalKey(templateId, kWithM.key), None)
                 case _ => keys
               },
-            )
-          ))
+            ),
+          ),
+        )
       }
     }
 
@@ -717,7 +729,7 @@ object Transaction {
             controllers = ec.controllers,
             children = children.toImmArray,
             exerciseResult = Some(value),
-            key = ec.contractKey
+            key = ec.contractKey,
           )
           val nodeId = ec.nodeId
           copy(context = ec.parent.addChild(nodeId), nodes = nodes.updated(nodeId, exerciseNode))
@@ -737,7 +749,7 @@ object Transaction {
     def mustBeActive(
         coid: TContractId,
         templateId: TypeConName,
-        f: => PartialTransaction
+        f: => PartialTransaction,
     ): PartialTransaction =
       consumedBy.get(coid) match {
         case None => f
@@ -750,7 +762,7 @@ object Transaction {
       copy(
         nextNodeIdx = nextNodeIdx + 1,
         context = context.addChild(nodeId),
-        nodes = nodes.updated(nodeId, node)
+        nodes = nodes.updated(nodeId, node),
       )
     }
 

@@ -62,7 +62,8 @@ class ScenarioService extends ScenarioServiceGrpc.ScenarioServiceImplBase {
 
   override def runScenario(
       req: RunScenarioRequest,
-      respObs: StreamObserver[RunScenarioResponse]): Unit = {
+      respObs: StreamObserver[RunScenarioResponse],
+  ): Unit = {
     val scenarioId = req.getScenarioId
     val contextId = req.getContextId
     //log(s"runScenario[$contextId]: $scenarioId")
@@ -77,7 +78,8 @@ class ScenarioService extends ScenarioServiceGrpc.ScenarioServiceImplBase {
               scenarioId.getPackage.getPackageId
             case PackageIdentifier.SumCase.SUM_NOT_SET =>
               throw new RuntimeException(
-                s"Package id not set when running scenario, context id $contextId")
+                s"Package id not set when running scenario, context id $contextId",
+              )
           }
           context
             .interpretScenario(packageId, scenarioId.getName)
@@ -88,7 +90,7 @@ class ScenarioService extends ScenarioServiceGrpc.ScenarioServiceImplBase {
                   case Left(err) =>
                     builder.setError(
                       Conversions(context.homePackageId)
-                        .convertScenarioError(ledger, machine, err)
+                        .convertScenarioError(ledger, machine, err),
                     )
                   case Right(value) =>
                     val conv = Conversions(context.homePackageId)
@@ -110,7 +112,8 @@ class ScenarioService extends ScenarioServiceGrpc.ScenarioServiceImplBase {
 
   override def newContext(
       req: NewContextRequest,
-      respObs: StreamObserver[NewContextResponse]): Unit = {
+      respObs: StreamObserver[NewContextResponse],
+  ): Unit = {
     val ctx = Context.newContext()
     contexts = contexts + (ctx.contextId -> ctx)
     val response = NewContextResponse.newBuilder.setContextId(ctx.contextId).build
@@ -120,7 +123,8 @@ class ScenarioService extends ScenarioServiceGrpc.ScenarioServiceImplBase {
 
   override def cloneContext(
       req: CloneContextRequest,
-      respObs: StreamObserver[CloneContextResponse]): Unit = {
+      respObs: StreamObserver[CloneContextResponse],
+  ): Unit = {
     val ctxId = req.getContextId
     contexts.get(ctxId) match {
       case None =>
@@ -137,7 +141,8 @@ class ScenarioService extends ScenarioServiceGrpc.ScenarioServiceImplBase {
 
   override def deleteContext(
       req: DeleteContextRequest,
-      respObs: StreamObserver[DeleteContextResponse]): Unit = {
+      respObs: StreamObserver[DeleteContextResponse],
+  ): Unit = {
     val ctxId = req.getContextId
     if (contexts.contains(ctxId)) {
       contexts = contexts - ctxId
@@ -150,7 +155,8 @@ class ScenarioService extends ScenarioServiceGrpc.ScenarioServiceImplBase {
 
   override def gCContexts(
       req: GCContextsRequest,
-      respObs: StreamObserver[GCContextsResponse]): Unit = {
+      respObs: StreamObserver[GCContextsResponse],
+  ): Unit = {
     val ctxIds = req.getContextIdsList.asScala.toSet
     contexts = contexts.filterKeys(ctxId => ctxIds.contains(ctxId));
     respObs.onNext(GCContextsResponse.newBuilder.build)
@@ -159,7 +165,8 @@ class ScenarioService extends ScenarioServiceGrpc.ScenarioServiceImplBase {
 
   override def updateContext(
       req: UpdateContextRequest,
-      respObs: StreamObserver[UpdateContextResponse]): Unit = {
+      respObs: StreamObserver[UpdateContextResponse],
+  ): Unit = {
 
     val ctxId = req.getContextId
     val resp = UpdateContextResponse.newBuilder
@@ -201,7 +208,7 @@ class ScenarioService extends ScenarioServiceGrpc.ScenarioServiceImplBase {
             loadModules,
             unloadPackages,
             loadPackages,
-            req.getNoValidation
+            req.getNoValidation,
           )
 
           resp.addAllLoadedModules(ctx.loadedModules().map(_.toString).asJava)

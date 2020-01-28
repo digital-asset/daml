@@ -49,7 +49,7 @@ object SExpr {
     */
   final case class SEVal(
       ref: SDefinitionRef,
-      var cached: Option[(SValue, List[Location])]
+      var cached: Option[(SValue, List[Location])],
   ) extends SExpr {
     def execute(machine: Machine): Ctrl = {
       machine.lookupVal(this)
@@ -306,12 +306,14 @@ object SExpr {
                   SEVar(5),
                   Array(
                     SEVar(4) /* z */,
-                    SEVar(2) /* y */
-                  )),
-                SEVar(1) /* ys */
-              ))
+                    SEVar(2), /* y */
+                  ),
+                ),
+                SEVar(1), /* ys */
+              ),
+            ),
           )
-        )
+        ),
       )
 
     private val foldRBody: SExpr =
@@ -337,10 +339,12 @@ object SExpr {
                   /* foldr f z ys */
                   SEVar(5), /* f */
                   SEVar(4), /* z */
-                  SEVar(1) /* ys */
-                ))
-            ))
-        ))
+                  SEVar(1), /* ys */
+                ),
+              ),
+            ),
+          ),
+        )),
       )
 
     private val equalListBody: SExpr =
@@ -357,7 +361,8 @@ object SExpr {
             //   nil -> True
             //   default -> False
             SECase(SEVar(1)) of (SCaseAlt(SCPNil, SEValue.True),
-            SCaseAlt(SCPDefault, SEValue.False))),
+            SCaseAlt(SCPDefault, SEValue.False)),
+          ),
           // cons x xss ->
           SCaseAlt(
             SCPCons,
@@ -374,13 +379,14 @@ object SExpr {
                 SECase(SEApp(SEVar(7), Array(SEVar(4), SEVar(2)))) of (
                   SCaseAlt(
                     SCPPrimCon(PCTrue),
-                    SEApp(EqualList, Array(SEVar(7), SEVar(1), SEVar(3)))),
+                    SEApp(EqualList, Array(SEVar(7), SEVar(1), SEVar(3))),
+                  ),
                   SCaseAlt(SCPPrimCon(PCFalse), SEValue.False)
-                )
+                ),
               )
-            )
+            ),
           )
-        )
+        ),
       )
   }
 

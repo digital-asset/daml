@@ -169,7 +169,7 @@ class SEquatableValuesSpec extends WordSpec with Matchers with TableDrivenProper
     Table("textMap_2", mkTextMaps(optLists(ints)): _*),
     Table("genMap_2", mkGenMaps(mkOptionals(ints), optLists(ints)): _*),
     // any
-    Table("any", anys: _*)
+    Table("any", anys: _*),
   )
 
   private val lfFunction = SPAP(PBuiltin(SBuiltin.SBAddInt64), ArrayList(SInt64(1)), 2)
@@ -212,7 +212,7 @@ class SEquatableValuesSpec extends WordSpec with Matchers with TableDrivenProper
       Table("nonEquatable textMap", mkTextMaps(nonEquatableLists(funs)): _*),
       Table("nonEquatable genMap", mkGenMaps(ints, nonEquatableLists(funs)): _*),
       Table("nonEquatable variant", mkVariant(funs, funs): _*),
-      Table("nonEquatable any", nonEquatableAnys: _*)
+      Table("nonEquatable any", nonEquatableAnys: _*),
     )
 
   private val nonEquatableWithEquatableValues: TableFor2[SValue, SValue] =
@@ -228,7 +228,7 @@ class SEquatableValuesSpec extends WordSpec with Matchers with TableDrivenProper
       SVariant(VariantTypeCon, VariantCon1, SInt64(0)) ->
         SVariant(VariantTypeCon, VariantCon2, lfFunction),
       SAny(AstUtil.TInt64, SInt64(1)) ->
-        SAny(AstUtil.TFun(AstUtil.TInt64, AstUtil.TInt64), lfFunction)
+        SAny(AstUtil.TFun(AstUtil.TInt64, AstUtil.TInt64), lfFunction),
     )
 
   "Equality.areEqual" should {
@@ -245,7 +245,8 @@ class SEquatableValuesSpec extends WordSpec with Matchers with TableDrivenProper
           (x, i) <- atoms.zipWithIndex
           (y, j) <- atoms.zipWithIndex
           if i != j
-        } assert(!Equality.areEqual(x, y)))
+        } assert(!Equality.areEqual(x, y)),
+      )
     }
 
     "be irreflexive on non-equatable values" in {
@@ -258,7 +259,8 @@ class SEquatableValuesSpec extends WordSpec with Matchers with TableDrivenProper
           (x, i) <- atoms.zipWithIndex
           (y, j) <- atoms.zipWithIndex
           if i != j
-        } assert(!Equality.areEqual(x, y)))
+        } assert(!Equality.areEqual(x, y)),
+      )
     }
 
     "return false when applied on an equatable and a nonEquatable values" in {
@@ -278,7 +280,8 @@ class SEquatableValuesSpec extends WordSpec with Matchers with TableDrivenProper
 
     "fail on non-equatable values" in {
       forEvery(nonEquatableValues)(atoms =>
-        forEvery(atoms)(x => a[Hasher.NonHashableSValue] should be thrownBy Hasher.hash(x)))
+        forEvery(atoms)(x => a[Hasher.NonHashableSValue] should be thrownBy Hasher.hash(x)),
+      )
     }
 
   }

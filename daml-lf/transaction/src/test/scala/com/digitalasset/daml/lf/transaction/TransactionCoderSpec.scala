@@ -41,7 +41,8 @@ class TransactionCoderSpec
       forAll(contractInstanceGen) { coinst: ContractInst[Tx.Value[Tx.TContractId]] =>
         Right(coinst) shouldEqual TransactionCoder.decodeContractInstance(
           defaultValDecode,
-          TransactionCoder.encodeContractInstance(defaultValEncode, coinst).toOption.get)
+          TransactionCoder.encodeContractInstance(defaultValEncode, coinst).toOption.get,
+        )
       }
     }
 
@@ -60,9 +61,10 @@ class TransactionCoderSpec
                 defaultValEncode,
                 defaultTransactionVersion,
                 Tx.NodeId(0),
-                node)
+                node,
+              )
               .toOption
-              .get
+              .get,
           )
       }
     }
@@ -82,9 +84,10 @@ class TransactionCoderSpec
                 defaultValEncode,
                 defaultTransactionVersion,
                 Tx.NodeId(0),
-                node)
+                node,
+              )
               .toOption
-              .get
+              .get,
           )
       }
     }
@@ -104,9 +107,10 @@ class TransactionCoderSpec
                 defaultValEncode,
                 defaultTransactionVersion,
                 Tx.NodeId(0),
-                node)
+                node,
+              )
               .toOption
-              .get
+              .get,
           )
       }
     }
@@ -116,12 +120,14 @@ class TransactionCoderSpec
         val encodedTx: proto.Transaction =
           assertRight(
             TransactionCoder
-              .encodeTransaction(defaultNidEncode, defaultCidEncode, t))
+              .encodeTransaction(defaultNidEncode, defaultCidEncode, t),
+          )
 
         val decodedVersionedTx: VersionedTransaction[Tx.NodeId, Tx.TContractId] =
           assertRight(
             TransactionCoder
-              .decodeVersionedTransaction(defaultNidDecode, defaultCidDecode, encodedTx))
+              .decodeVersionedTransaction(defaultNidDecode, defaultCidDecode, encodedTx),
+          )
 
         decodedVersionedTx.version shouldEqual TransactionVersions.assignVersion(t)
         decodedVersionedTx.transaction shouldEqual t
@@ -136,14 +142,17 @@ class TransactionCoderSpec
               .encodeTransactionWithCustomVersion(
                 defaultNidEncode,
                 defaultCidEncode,
-                VersionedTransaction(txVer, tx))) {
+                VersionedTransaction(txVer, tx),
+              ),
+          ) {
             case Left(EncodeError(msg)) =>
               // fuzzy sort of "failed because of the version override" test
               msg should include(txVer.toString)
             case Right(encodedTx) =>
               val decodedVersionedTx = assertRight(
                 TransactionCoder
-                  .decodeVersionedTransaction(defaultNidDecode, defaultCidDecode, encodedTx))
+                  .decodeVersionedTransaction(defaultNidDecode, defaultCidDecode, encodedTx),
+              )
               decodedVersionedTx.transaction shouldBe minimalistTx(txVer, tx)
           }
         }
@@ -166,14 +175,19 @@ class TransactionCoderSpec
                         .encodeTransactionWithCustomVersion(
                           defaultNidEncode,
                           defaultCidEncode,
-                          VersionedTransaction(txVer, tx)))) {
+                          VersionedTransaction(txVer, tx),
+                        ),
+                  ),
+              ) {
                 case (Left(EncodeError(minMsg)), maxEnc) =>
                   // fuzzy sort of "failed because of the version override" test
                   minMsg should include(txvMin.toString)
                   maxEnc.left foreach (_.errorMessage should include(txvMax.toString))
                 case (Right(encWithMin), Right(encWithMax)) =>
-                  inside((encWithMin, encWithMax) umap (TransactionCoder
-                    .decodeVersionedTransaction(defaultNidDecode, defaultCidDecode, _))) {
+                  inside(
+                    (encWithMin, encWithMax) umap (TransactionCoder
+                      .decodeVersionedTransaction(defaultNidDecode, defaultCidDecode, _)),
+                  ) {
                     case (Right(decWithMin), Right(decWithMax)) =>
                       decWithMin.transaction shouldBe minimalistTx(txvMin, tx)
                       decWithMin.transaction shouldBe
@@ -196,13 +210,15 @@ class TransactionCoderSpec
                 .encodeTransactionWithCustomVersion(
                   defaultNidEncode,
                   defaultCidEncode,
-                  VersionedTransaction(defaultTransactionVersion, txWithBadValVersion)))
+                  VersionedTransaction(defaultTransactionVersion, txWithBadValVersion),
+                ),
+            )
 
             TransactionCoder.decodeVersionedTransaction(
               defaultNidDecode,
               defaultCidDecode,
-              encodedTxWithBadValVersion) shouldEqual Left(
-              DecodeError(s"Unsupported value version ${badValVer.protoValue}"))
+              encodedTxWithBadValVersion,
+            ) shouldEqual Left(DecodeError(s"Unsupported value version ${badValVer.protoValue}"))
           }
         }
       }
@@ -218,15 +234,19 @@ class TransactionCoderSpec
                 .encodeTransactionWithCustomVersion(
                   defaultNidEncode,
                   defaultCidEncode,
-                  VersionedTransaction(badTxVer, tx)))
+                  VersionedTransaction(badTxVer, tx),
+                ),
+            )
 
             encodedTxWithBadTxVer.getVersion shouldEqual badTxVer.protoValue
 
             TransactionCoder.decodeVersionedTransaction(
               defaultNidDecode,
               defaultCidDecode,
-              encodedTxWithBadTxVer) shouldEqual Left(
-              DecodeError(s"Unsupported transaction version ${badTxVer.protoValue}"))
+              encodedTxWithBadTxVer,
+            ) shouldEqual Left(
+              DecodeError(s"Unsupported transaction version ${badTxVer.protoValue}"),
+            )
         }
       }
 
@@ -234,7 +254,8 @@ class TransactionCoderSpec
       forAll(genBlindingInfo) { bi: BlindingInfo =>
         Right(bi) shouldEqual BlindingCoder.decode(
           BlindingCoder.encode(bi, defaultNidEncode),
-          defaultNidDecode)
+          defaultNidDecode,
+        )
       }
     }
 
@@ -244,11 +265,13 @@ class TransactionCoderSpec
         ContractInst(
           Identifier(
             PackageId.assertFromString("pkg-id"),
-            QualifiedName.assertFromString("Test:Name")),
+            QualifiedName.assertFromString("Test:Name"),
+          ),
           VersionedValue(
             ValueVersions.acceptedVersions.last,
-            ValueParty(Party.assertFromString("francesco"))),
-          ("agreement")
+            ValueParty(Party.assertFromString("francesco")),
+          ),
+          ("agreement"),
         ),
         None,
         Set(Party.assertFromString("alice")),
@@ -261,7 +284,7 @@ class TransactionCoderSpec
       val tx = GenTransaction(
         nodes = HashMap(nodes.toSeq: _*),
         roots = nodes.map(_._1),
-        optUsedPackages = None
+        optUsedPackages = None,
       )
       tx shouldEqual TransactionCoder
         .decodeVersionedTransaction(
@@ -274,7 +297,7 @@ class TransactionCoderSpec
               tx,
             )
             .right
-            .get
+            .get,
         )
         .right
         .get
@@ -300,14 +323,16 @@ class TransactionCoderSpec
       case _ => gn
     }
   def withoutContractKeyInExercise[Nid, Cid, Val](
-      gn: GenNode[Nid, Cid, Val]): GenNode[Nid, Cid, Val] =
+      gn: GenNode[Nid, Cid, Val],
+  ): GenNode[Nid, Cid, Val] =
     gn match {
       case ne: NodeExercises[Nid, Cid, Val] => ne copy (key = None)
       case _ => gn
     }
 
   def withoutMaintainersInExercise[Nid, Cid, Val](
-      gn: GenNode[Nid, Cid, Val]): GenNode[Nid, Cid, Val] =
+      gn: GenNode[Nid, Cid, Val],
+  ): GenNode[Nid, Cid, Val] =
     gn match {
       case ne: NodeExercises[Nid, Cid, Val] =>
         ne copy (key = ne.key.map(_.copy(maintainers = Set.empty)))
@@ -315,21 +340,25 @@ class TransactionCoderSpec
     }
   def transactionWithout[Nid, Cid, Val](
       t: GenTransaction[Nid, Cid, Val],
-      f: GenNode[Nid, Cid, Val] => GenNode[Nid, Cid, Val]): GenTransaction[Nid, Cid, Val] =
+      f: GenNode[Nid, Cid, Val] => GenNode[Nid, Cid, Val],
+  ): GenTransaction[Nid, Cid, Val] =
     t copy (nodes = t.nodes.transform((_, gn) => f(gn))(breakOut))
 
   def minimalistTx[Nid, Cid, Val](
       txvMin: TransactionVersion,
-      tx: GenTransaction[Nid, Cid, Val]): GenTransaction[Nid, Cid, Val] = {
-    def condApply(before: TransactionVersion, f: GenNode[Nid, Cid, Val] => GenNode[Nid, Cid, Val])
-      : GenNode[Nid, Cid, Val] => GenNode[Nid, Cid, Val] =
+      tx: GenTransaction[Nid, Cid, Val],
+  ): GenTransaction[Nid, Cid, Val] = {
+    def condApply(
+        before: TransactionVersion,
+        f: GenNode[Nid, Cid, Val] => GenNode[Nid, Cid, Val],
+    ): GenNode[Nid, Cid, Val] => GenNode[Nid, Cid, Val] =
       if (txvMin precedes before) f else identity
 
     transactionWithout(
       tx,
       condApply(minMaintainersInExercise, withoutMaintainersInExercise)
         .compose(condApply(minContractKeyInExercise, withoutContractKeyInExercise))
-        .compose(condApply(minExerciseResult, withoutExerciseResult))
+        .compose(condApply(minExerciseResult, withoutExerciseResult)),
     )
   }
 

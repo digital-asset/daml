@@ -69,9 +69,14 @@ class SpeedyTest extends WordSpec with Matchers {
       eval(e"Matcher:list @Int64 ${intList()}", pkgs) shouldEqual Right(SOptional(None))
       eval(e"Matcher:list @Int64 ${intList(7, 11, 13)}", pkgs) shouldEqual Right(
         SOptional(
-          Some(SStruct(
-            Ref.Name.Array(n"x1", n"x2"),
-            ArrayList(SInt64(7), SList(FrontStack(SInt64(11), SInt64(13))))))))
+          Some(
+            SStruct(
+              Ref.Name.Array(n"x1", n"x2"),
+              ArrayList(SInt64(7), SList(FrontStack(SInt64(11), SInt64(13)))),
+            ),
+          ),
+        ),
+      )
     }
 
     "works as expected on Optionals" in {
@@ -81,10 +86,12 @@ class SpeedyTest extends WordSpec with Matchers {
 
     "works as expected on Variants" in {
       eval(e"""Matcher:variant @Int64 (Mod:Tree:Leaf @Int64 23)""", pkgs) shouldEqual Right(
-        SInt64(23))
+        SInt64(23),
+      )
       eval(
         e"""Matcher:variant @Int64 (Mod:Tree:Node @Int64 (Mod:Tree.Node @Int64 {left = Mod:Tree:Leaf @Int64 27, right = Mod:Tree:Leaf @Int64 29 }))""",
-        pkgs) shouldEqual Right(SInt64(27))
+        pkgs,
+      ) shouldEqual Right(SInt64(27))
     }
 
     "works as expected on Enums" in {
@@ -135,9 +142,10 @@ class SpeedyTest extends WordSpec with Matchers {
             SRecord(
               Identifier(pkgId, QualifiedName.assertFromString("Test:T1")),
               Name.Array(Name.assertFromString("party")),
-              ArrayList(SParty(Party.assertFromString("Alice")))
-            )
-          ))
+              ArrayList(SParty(Party.assertFromString("Alice"))),
+            ),
+          ),
+        )
     }
     "succeed on record type with parameters" in {
       eval(e"""to_any @(Test:T3 Int64) (Test:T3 @Int64 {party = 'Alice'})""", anyPkgs) shouldEqual
@@ -145,25 +153,29 @@ class SpeedyTest extends WordSpec with Matchers {
           SAny(
             TApp(
               TTyCon(Identifier(pkgId, QualifiedName.assertFromString("Test:T3"))),
-              TBuiltin(BTInt64)),
+              TBuiltin(BTInt64),
+            ),
             SRecord(
               Identifier(pkgId, QualifiedName.assertFromString("Test:T3")),
               Name.Array(Name.assertFromString("party")),
-              ArrayList(SParty(Party.assertFromString("Alice")))
-            )
-          ))
+              ArrayList(SParty(Party.assertFromString("Alice"))),
+            ),
+          ),
+        )
       eval(e"""to_any @(Test:T3 Text) (Test:T3 @Text {party = 'Alice'})""", anyPkgs) shouldEqual
         Right(
           SAny(
             TApp(
               TTyCon(Identifier(pkgId, QualifiedName.assertFromString("Test:T3"))),
-              TBuiltin(BTText)),
+              TBuiltin(BTText),
+            ),
             SRecord(
               Identifier(pkgId, QualifiedName.assertFromString("Test:T3")),
               Name.Array(Name.assertFromString("party")),
-              ArrayList(SParty(Party.assertFromString("Alice")))
-            )
-          ))
+              ArrayList(SParty(Party.assertFromString("Alice"))),
+            ),
+          ),
+        )
     }
   }
 
@@ -176,31 +188,44 @@ class SpeedyTest extends WordSpec with Matchers {
     "return Some(tpl) if template type matches" in {
       eval(e"""from_any @Test:T1 (to_any @Test:T1 (Test:T1 {party = 'Alice'}))""", anyPkgs) shouldEqual
         Right(
-          SOptional(Some(SRecord(
-            Identifier(pkgId, QualifiedName.assertFromString("Test:T1")),
-            Name.Array(Name.assertFromString("party")),
-            ArrayList(SParty(Party.assertFromString("Alice")))
-          ))))
+          SOptional(
+            Some(
+              SRecord(
+                Identifier(pkgId, QualifiedName.assertFromString("Test:T1")),
+                Name.Array(Name.assertFromString("party")),
+                ArrayList(SParty(Party.assertFromString("Alice"))),
+              ),
+            ),
+          ),
+        )
     }
 
     "return None if template type does not match" in {
       eval(e"""from_any @Test:T2 (to_any @Test:T1 (Test:T1 {party = 'Alice'}))""", anyPkgs) shouldEqual Right(
-        SOptional(None))
+        SOptional(None),
+      )
     }
     "return Some(v) if type parameter is the same" in {
       eval(
         e"""from_any @(Test:T3 Int64) (to_any @(Test:T3 Int64) (Test:T3 @Int64 {party = 'Alice'}))""",
-        anyPkgs) shouldEqual Right(
-        SOptional(Some(SRecord(
-          Identifier(pkgId, QualifiedName.assertFromString("Test:T3")),
-          Name.Array(Name.assertFromString("party")),
-          ArrayList(SParty(Party.assertFromString("Alice")))
-        ))))
+        anyPkgs,
+      ) shouldEqual Right(
+        SOptional(
+          Some(
+            SRecord(
+              Identifier(pkgId, QualifiedName.assertFromString("Test:T3")),
+              Name.Array(Name.assertFromString("party")),
+              ArrayList(SParty(Party.assertFromString("Alice"))),
+            ),
+          ),
+        ),
+      )
     }
     "return None if type parameter is different" in {
       eval(
         e"""from_any @(Test:T3 Int64) (to_any @(Test:T3 Text) (Test:T3 @Int64 {party = 'Alice'}))""",
-        anyPkgs) shouldEqual Right(SOptional(None))
+        anyPkgs,
+      ) shouldEqual Right(SOptional(None))
     }
   }
 
@@ -210,9 +235,11 @@ class SpeedyTest extends WordSpec with Matchers {
       eval(e"""type_rep @Test:T1""", anyPkgs) shouldEqual Right(STypeRep(t"Test:T1"))
       eval(e"""type_rep @Test2:T2""", anyPkgs) shouldEqual Right(STypeRep(t"Test2:T2"))
       eval(e"""type_rep @(Mod:Tree (List Text))""", anyPkgs) shouldEqual Right(
-        STypeRep(t"Mod:Tree (List Text)"))
+        STypeRep(t"Mod:Tree (List Text)"),
+      )
       eval(e"""type_rep @((ContractId Mod:T) -> Mod:Color)""", anyPkgs) shouldEqual Right(
-        STypeRep(t"(ContractId Mod:T) -> Mod:Color"))
+        STypeRep(t"(ContractId Mod:T) -> Mod:Color"),
+      )
     }
 
   }
@@ -225,7 +252,8 @@ object SpeedyTest {
       expr = e,
       checkSubmitterInMaintainers = true,
       compiledPackages = packages,
-      scenario = false)
+      scenario = false,
+    )
     final case class Goodbye(e: SError) extends RuntimeException("", null, false, false)
     try {
       while (!machine.isFinal) machine.step() match {

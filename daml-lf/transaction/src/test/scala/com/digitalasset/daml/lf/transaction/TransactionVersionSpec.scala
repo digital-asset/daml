@@ -42,7 +42,8 @@ class TransactionVersionSpec extends WordSpec with Matchers {
   }
 
   private[this] def assignValueVersions[Nid, Cid, Cid2](
-      t: GenTransaction[Nid, Cid, Value[Cid2]]): GenTransaction[Nid, Cid, VersionedValue[Cid2]] =
+      t: GenTransaction[Nid, Cid, Value[Cid2]],
+  ): GenTransaction[Nid, Cid, VersionedValue[Cid2]] =
     t mapContractIdAndValue (identity, v =>
       asVersionedValue(v) fold (e =>
         fail(s"We didn't write traverse for GenTransaction: $e"), identity))
@@ -58,6 +59,7 @@ object TransactionVersionSpec {
   private val dummyExerciseTransaction =
     StringTransaction(
       HashMap(singleId -> dummyExerciseNode(ImmArray.empty, false)),
-      ImmArray(singleId))
+      ImmArray(singleId),
+    )
 
 }

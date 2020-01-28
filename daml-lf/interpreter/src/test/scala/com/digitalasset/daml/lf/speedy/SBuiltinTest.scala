@@ -67,7 +67,9 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
         eval(e"SUB_INT64 $MinInt64 1") shouldBe 'left
         eval(e"SUB_INT64 -$aBigOddInt64 $aBigOddInt64") shouldEqual Left(
           DamlEArithmeticError(
-            s"Int64 overflow when subtracting $aBigOddInt64 from -$aBigOddInt64."))
+            s"Int64 overflow when subtracting $aBigOddInt64 from -$aBigOddInt64.",
+          ),
+        )
       }
     }
 
@@ -107,7 +109,8 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
         eval(e"EXP_INT64 10 -1") shouldBe 'left
         eval(e"EXP_INT64 10 -20") shouldBe 'left
         eval(e"EXP_INT64 $aBigOddInt64 -42") shouldEqual Left(
-          DamlEArithmeticError(s"Attempt to raise $aBigOddInt64 to the negative exponent -42."))
+          DamlEArithmeticError(s"Attempt to raise $aBigOddInt64 to the negative exponent -42."),
+        )
       }
 
       "throws an exception if it overflows" in {
@@ -116,7 +119,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
         eval(e"EXP_INT64 ${-(1L << 7)} 9") shouldEqual Right(SInt64(1L << 63))
         eval(e"EXP_INT64 ${-(1L << 7)} 10") shouldBe 'left
         eval(e"EXP_INT64 3 $aBigOddInt64") shouldEqual Left(
-          DamlEArithmeticError(s"Int64 overflow when raising 3 to the exponent $aBigOddInt64.")
+          DamlEArithmeticError(s"Int64 overflow when raising 3 to the exponent $aBigOddInt64."),
         )
       }
 
@@ -235,12 +238,16 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
         eval(e"$builtin @37 9.${"9" * 37} -0.${"0" * 36}1") shouldBe 'right
         eval(e"$builtin @37 9.${"9" * 37} 0.${"0" * 36}1") shouldBe 'left
         eval(e"$builtin @10 ${s(10, bigBigDecimal)} ${s(10, two)}") shouldEqual Right(
-          SNumeric(n(10, bigBigDecimal + 2)))
+          SNumeric(n(10, bigBigDecimal + 2)),
+        )
         eval(e"$builtin @10 ${s(10, maxDecimal)} ${s(10, minPosDecimal)}") shouldBe 'left
         eval(e"$builtin @10 ${s(10, maxDecimal.negate)} ${s(10, -minPosDecimal)}") shouldBe 'left
         eval(e"$builtin @10 ${s(10, bigBigDecimal)} ${s(10, bigBigDecimal - 1)}") shouldEqual
-          Left(DamlEArithmeticError(
-            s"(Numeric 10) overflow when adding ${s(10, bigBigDecimal - 1)} to ${s(10, bigBigDecimal)}."))
+          Left(
+            DamlEArithmeticError(
+              s"(Numeric 10) overflow when adding ${s(10, bigBigDecimal - 1)} to ${s(10, bigBigDecimal)}.",
+            ),
+          )
       }
     }
 
@@ -253,12 +260,16 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
         eval(e"$builtin @37 -9.${"9" * 37} -0.${"0" * 36}1") shouldBe 'right
         eval(e"$builtin @37 -9.${"9" * 37} 0.${"0" * 36}1") shouldBe 'left
         eval(e"$builtin @10 $bigBigDecimal ${s(10, two)}") shouldEqual Right(
-          SNumeric(n(10, bigBigDecimal - 2)))
+          SNumeric(n(10, bigBigDecimal - 2)),
+        )
         eval(e"$builtin @10 ${s(10, maxDecimal)} -$minPosDecimal") shouldBe 'left
         eval(e"$builtin @10 ${maxDecimal.negate} ${s(10, minPosDecimal)}") shouldBe 'left
         eval(e"$builtin @10 ${-bigBigDecimal} ${s(10, bigBigDecimal)}") shouldBe
-          Left(DamlEArithmeticError(
-            s"(Numeric 10) overflow when subtracting ${s(10, bigBigDecimal)} from ${s(10, -bigBigDecimal)}."))
+          Left(
+            DamlEArithmeticError(
+              s"(Numeric 10) overflow when subtracting ${s(10, bigBigDecimal)} from ${s(10, -bigBigDecimal)}.",
+            ),
+          )
       }
     }
 
@@ -273,13 +284,16 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
         eval(e"$builtin @37 @37 @37 $underSqrtOfTen $underSqrtOfTen") shouldBe 'right
         eval(e"$builtin @37 @37 @37 $overSqrtOfTen $underSqrtOfTen") shouldBe 'left
         eval(e"$builtin @10 @10 @10 1.1000000000 2.2000000000") shouldEqual Right(
-          SNumeric(n(10, 2.42)))
+          SNumeric(n(10, 2.42)),
+        )
         eval(e"$builtin @10 @10 @10 ${tenPowerOf(13)} ${tenPowerOf(14)}") shouldEqual Right(
-          SNumeric(n(10, "1E27")))
+          SNumeric(n(10, "1E27")),
+        )
         eval(e"$builtin @10 @10 @10 ${tenPowerOf(14)} ${tenPowerOf(14)}") shouldBe 'left
         eval(e"$builtin @10 @10 @10 ${s(10, bigBigDecimal)} ${bigBigDecimal - 1}") shouldEqual Left(
           DamlEArithmeticError(
-            s"(Numeric 10) overflow when multiplying ${s(10, bigBigDecimal)} by ${s(10, bigBigDecimal - 1)}.")
+            s"(Numeric 10) overflow when multiplying ${s(10, bigBigDecimal)} by ${s(10, bigBigDecimal - 1)}.",
+          ),
         )
       }
     }
@@ -293,22 +307,26 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
         eval(e"$builtin @1 @1 @1 ${s(1, "1E36")} 0.2") shouldBe 'right
         eval(e"$builtin @1 @1 @1 ${s(1, "1E36")} 0.1") shouldBe 'left
         eval(e"$builtin @10 @10 @10 1.1000000000 2.2000000000") shouldEqual Right(
-          SNumeric(n(10, 0.5)))
+          SNumeric(n(10, 0.5)),
+        )
         eval(e"$builtin @10 @10 @10 ${s(10, bigBigDecimal)} ${tenPowerOf(-10)}") shouldBe 'left
         eval(e"$builtin @10 @10 @10 ${tenPowerOf(17)} ${tenPowerOf(-10)}") shouldEqual Right(
-          SNumeric(n(10, "1E27")))
+          SNumeric(n(10, "1E27")),
+        )
         eval(e"$builtin @10 @10 @10 ${tenPowerOf(18)} ${tenPowerOf(-10)}") shouldEqual Left(
           DamlEArithmeticError(
-            s"(Numeric 10) overflow when dividing ${tenPowerOf(18)} by ${tenPowerOf(-10)}.")
+            s"(Numeric 10) overflow when dividing ${tenPowerOf(18)} by ${tenPowerOf(-10)}.",
+          ),
         )
       }
 
       "throws an exception when divided by 0" in {
         eval(e"$builtin @10 @10 @10 ${s(10, one)} ${tenPowerOf(-10)}") shouldEqual Right(
-          SNumeric(n(10, tenPowerOf(10))))
+          SNumeric(n(10, tenPowerOf(10))),
+        )
         eval(e"$builtin @10 @10 @10 ${s(10, one)} ${s(10, zero)}") shouldBe 'left
         eval(e"$builtin @10 @10 @10 ${s(10, bigBigDecimal)} ${s(10, zero)}") shouldEqual Left(
-          DamlEArithmeticError(s"Attempt to divide ${s(10, bigBigDecimal)} by 0.0000000000.")
+          DamlEArithmeticError(s"Attempt to divide ${s(10, bigBigDecimal)} by 0.0000000000."),
         )
 
       }
@@ -332,12 +350,13 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
           (-27, d, "9000000000000000000000000000.0000000000"),
           (-1, "45.0", "40.0"),
           (-1, "55.0", "60.0"),
-          (10, d, d)
+          (10, d, d),
         )
 
         forEvery(testCases) { (rounding, input, result) =>
           eval(e"ROUND_NUMERIC @10 $rounding ${n(10, input)}") shouldEqual Right(
-            SNumeric(n(10, result)))
+            SNumeric(n(10, result)),
+          )
         }
       }
     }
@@ -354,7 +373,8 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
         (
           "DIV_NUMERIC @10 @10 @10",
           (a, b) =>
-            if (b.signum != 0) Some(SNumeric(round(BigDecimal(a) / BigDecimal(b)))) else None),
+            if (b.signum != 0) Some(SNumeric(round(BigDecimal(a) / BigDecimal(b)))) else None,
+        ),
         ("LESS_EQ_NUMERIC @10", (a, b) => Some(SBool(BigDecimal(a) <= BigDecimal(b)))),
         ("GREATER_EQ_NUMERIC @10", (a, b) => Some(SBool(BigDecimal(a) >= BigDecimal(b)))),
         ("LESS_NUMERIC @10", (a, b) => Some(SBool(BigDecimal(a) < BigDecimal(b)))),
@@ -421,7 +441,8 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
         )
         forEvery(testCases) { (inputScale, outputScale, x) =>
           eval(e"CAST_NUMERIC @$inputScale @$outputScale $x") shouldEqual Right(
-            SNumeric(n(outputScale, x)))
+            SNumeric(n(outputScale, x)),
+          )
         }
       }
     }
@@ -442,7 +463,8 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
         )
         forEvery(testCases) { (inputScale, outputScale, input, output) =>
           eval(e"SHIFT_NUMERIC @$inputScale @$outputScale $input") shouldEqual Right(
-            SNumeric(n(outputScale, output)))
+            SNumeric(n(outputScale, output)),
+          )
         }
       }
     }
@@ -463,18 +485,22 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
               SText("¶"),
               SText("‱"),
               SText("😂"),
-            )))
+            ),
+          ),
+        )
       }
     }
 
     "IMPLODE_TEXT" - {
       "works properly" in {
         eval(e"""IMPLODE_TEXT (Cons @Text ["", "", ""] (Nil @Text)) """) shouldEqual Right(
-          SText(""))
+          SText(""),
+        )
         eval(e"""IMPLODE_TEXT (Cons @Text ["a", "¶", "‱", "😂"] (Nil @Text)) """) shouldBe
           Right(SText("a¶‱😂"))
         eval(
-          e"""IMPLODE_TEXT Cons @Text ["IMPLODE_TEXT", " ", "works", " ", "properly"] Nil @Text """) shouldBe
+          e"""IMPLODE_TEXT Cons @Text ["IMPLODE_TEXT", " ", "works", " ", "properly"] Nil @Text """,
+        ) shouldBe
           Right(SText("IMPLODE_TEXT works properly"))
       }
     }
@@ -498,7 +524,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
             .stripMargin ->
             "c045064089460b634bb47e71d2457cd0e8dbc1327aaf9439c275c9796c073620",
           "a¶‱😂" ->
-            "8f1cc14a85321115abcd2854e34f9ca004f4f199d367c3c9a84a355f287cec2e"
+            "8f1cc14a85321115abcd2854e34f9ca004f4f199d367c3c9a84a355f287cec2e",
         )
         forEvery(testCases) { (input, output) =>
           eval(e"""SHA256_TEXT "$input"""") shouldEqual Right(SText(output))
@@ -575,12 +601,14 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
           0x0EFFFF, // biggest code point of the Supplementary Plan 14
           0x0F0000, // smallest code point of the Supplementary Plans 15-16
           0x10AE2D,
-          0x10FFFF // biggest code point of the Supplementary Plans 15-16
+          0x10FFFF, // biggest code point of the Supplementary Plans 15-16
         )
 
         forEvery(testCases)(cp =>
           eval(e"""TEXT_FROM_CODE_POINTS ${intList('\''.toLong, cp.toLong, '\''.toLong)}""") shouldEqual Right(
-            SText("'" + new String(Character.toChars(cp)) + "'")))
+            SText("'" + new String(Character.toChars(cp)) + "'"),
+          ),
+        )
       }
 
       "rejects surrogate code points " in {
@@ -591,11 +619,12 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
           0x00DBFF, // biggest high surrogate
           0x00DC00, // smallest low surrogate
           0x00DDE0,
-          0x00DFFF // biggest surrogate
+          0x00DFFF, // biggest surrogate
         )
 
         forEvery(testCases)(cp =>
-          eval(e"""TEXT_FROM_CODE_POINTS ${intList('\''.toLong, cp.toLong, '\''.toLong)}""") shouldBe 'left)
+          eval(e"""TEXT_FROM_CODE_POINTS ${intList('\''.toLong, cp.toLong, '\''.toLong)}""") shouldBe 'left,
+        )
       }
 
       "rejects to small or to big code points" in {
@@ -610,11 +639,12 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
           Character.MAX_CODE_POINT + 2L,
           0x345678L,
           Int.MaxValue,
-          Long.MaxValue
+          Long.MaxValue,
         )
 
         forEvery(testCases)(cp =>
-          eval(e"""TEXT_FROM_CODE_POINTS ${intList('\''.toLong, cp, '\''.toLong)}""") shouldBe 'left)
+          eval(e"""TEXT_FROM_CODE_POINTS ${intList('\''.toLong, cp, '\''.toLong)}""") shouldBe 'left,
+        )
 
       }
     }
@@ -630,7 +660,8 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
         "timestamp",
         "1969-07-21T02:56:15.000000Z",
         "1970-01-01T00:00:00.000000Z",
-        "2000-12-31T23:00:00.000000Z")
+        "2000-12-31T23:00:00.000000Z",
+      )
 
       val testCases = Table[String, (String, String) => Either[SError, SValue]](
         ("builtin", "reference"),
@@ -740,15 +771,20 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
           """(\ (x:Int64) (y:Int64) -> EQUAL @Int64 (MOD_INT64 x 2) (MOD_INT64 y 2))"""
 
         eval(e"EQUAL_LIST @Int64 $sameParity ${intList()} ${intList()}") shouldEqual Right(
-          SBool(true))
+          SBool(true),
+        )
         eval(e"EQUAL_LIST @Int64 $sameParity ${intList(1, 2, 3)} ${intList(5, 6, 7)}") shouldEqual Right(
-          SBool(true))
+          SBool(true),
+        )
         eval(e"EQUAL_LIST @Int64 $sameParity ${intList()} ${intList(1)}") shouldEqual Right(
-          SBool(false))
+          SBool(false),
+        )
         eval(e"EQUAL_LIST @Int64 $sameParity ${intList(1)} ${intList(1, 2)}") shouldEqual Right(
-          SBool(false))
+          SBool(false),
+        )
         eval(e"EQUAL_LIST @Int64 $sameParity ${intList(1, 2, 3)} ${intList(5, 6, 4)}") shouldEqual Right(
-          SBool(false))
+          SBool(false),
+        )
       }
     }
   }
@@ -779,7 +815,8 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
         eval(e"$map") shouldBe
           Right(STextMap(HashMap("a" -> SInt64(1), "b" -> SInt64(2), "c" -> SInt64(3))))
         eval(e"""TEXTMAP_INSERT @Int64 "b" 4 $map""") shouldEqual Right(
-          STextMap(HashMap("a" -> SInt64(1), "b" -> SInt64(4), "c" -> SInt64(3))))
+          STextMap(HashMap("a" -> SInt64(1), "b" -> SInt64(4), "c" -> SInt64(3))),
+        )
       }
     }
 
@@ -802,13 +839,16 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
 
       "deletes existing key" in {
         eval(e"""TEXTMAP_DELETE @Int64 "a" $map""") shouldEqual Right(
-          STextMap(HashMap("b" -> SInt64(2), "c" -> SInt64(3))))
+          STextMap(HashMap("b" -> SInt64(2), "c" -> SInt64(3))),
+        )
         eval(e"""TEXTMAP_DELETE @Int64 "b" $map""") shouldEqual Right(
-          STextMap(HashMap("a" -> SInt64(1), "c" -> SInt64(3))))
+          STextMap(HashMap("a" -> SInt64(1), "c" -> SInt64(3))),
+        )
       }
       "does nothing with non-existing key" in {
         eval(e"""TEXTMAP_DELETE @Int64 "d" $map""") shouldEqual Right(
-          STextMap(HashMap("a" -> SInt64(1), "b" -> SInt64(2), "c" -> SInt64(3))))
+          STextMap(HashMap("a" -> SInt64(1), "b" -> SInt64(2), "c" -> SInt64(3))),
+        )
       }
     }
 
@@ -830,18 +870,21 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
 
         eval(e"TEXTMAP_TO_LIST @Int64 ${buildMap("Int64", words: _*)}") shouldEqual
           Right(
-            SList(FrontStack(
-              mapEntry("cover", SInt64(8)),
-              mapEntry("enter", SInt64(7)),
-              mapEntry("favor", SInt64(9)),
-              mapEntry("first", SInt64(3)),
-              mapEntry("patch", SInt64(4)),
-              mapEntry("ranch", SInt64(2)),
-              mapEntry("slant", SInt64(0)),
-              mapEntry("sweat", SInt64(6)),
-              mapEntry("trend", SInt64(5)),
-              mapEntry("visit", SInt64(1))
-            )))
+            SList(
+              FrontStack(
+                mapEntry("cover", SInt64(8)),
+                mapEntry("enter", SInt64(7)),
+                mapEntry("favor", SInt64(9)),
+                mapEntry("first", SInt64(3)),
+                mapEntry("patch", SInt64(4)),
+                mapEntry("ranch", SInt64(2)),
+                mapEntry("slant", SInt64(0)),
+                mapEntry("sweat", SInt64(6)),
+                mapEntry("trend", SInt64(5)),
+                mapEntry("visit", SInt64(1)),
+              ),
+            ),
+          )
       }
     }
 
@@ -887,7 +930,11 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
               ImmArray(
                 ValueText("a") -> ValueInt64(1),
                 ValueText("b") -> ValueInt64(2),
-                ValueText("c") -> ValueInt64(3)))))
+                ValueText("c") -> ValueInt64(3),
+              ),
+            ),
+          ),
+        )
       }
 
       "replaces already present key" in {
@@ -897,7 +944,11 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
               ImmArray(
                 ValueText("a") -> ValueInt64(1),
                 ValueText("b") -> ValueInt64(4),
-                ValueText("c") -> ValueInt64(3)))))
+                ValueText("c") -> ValueInt64(3),
+              ),
+            ),
+          ),
+        )
       }
 
       "crash on non Hashable key" in {
@@ -935,10 +986,16 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
       val map = buildMap("Int64", "a" -> 1, "b" -> 2, "c" -> 3)
 
       "deletes existing key" in {
-        eval(e"""$builtin @Text @Int64 "a" $map""") shouldEqual Right(SValue.fromValue(
-          ValueGenMap(ImmArray(ValueText("b") -> ValueInt64(2), ValueText("c") -> ValueInt64(3)))))
-        eval(e"""$builtin @Text @Int64 "b" $map""") shouldEqual Right(SValue.fromValue(
-          ValueGenMap(ImmArray(ValueText("a") -> ValueInt64(1), ValueText("c") -> ValueInt64(3)))))
+        eval(e"""$builtin @Text @Int64 "a" $map""") shouldEqual Right(
+          SValue.fromValue(
+            ValueGenMap(ImmArray(ValueText("b") -> ValueInt64(2), ValueText("c") -> ValueInt64(3))),
+          ),
+        )
+        eval(e"""$builtin @Text @Int64 "b" $map""") shouldEqual Right(
+          SValue.fromValue(
+            ValueGenMap(ImmArray(ValueText("a") -> ValueInt64(1), ValueText("c") -> ValueInt64(3))),
+          ),
+        )
       }
 
       "does nothing with non-existing key" in {
@@ -948,7 +1005,11 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
               ImmArray(
                 ValueText("a") -> ValueInt64(1),
                 ValueText("b") -> ValueInt64(2),
-                ValueText("c") -> ValueInt64(3)))))
+                ValueText("c") -> ValueInt64(3),
+              ),
+            ),
+          ),
+        )
       }
 
       "crash on non Hashable key" in {
@@ -1021,13 +1082,17 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
       "throws exception in case of overflow" in {
         eval(e"NUMERIC_TO_INT64 @0 ${s(0, -BigDecimal(2).pow(63) - 1)}") shouldBe 'left
         eval(e"NUMERIC_TO_INT64 @3 ${s(3, -BigDecimal(2).pow(63) - 1 + almostZero(3))}") shouldEqual Right(
-          SInt64(Long.MinValue))
+          SInt64(Long.MinValue),
+        )
         eval(e"NUMERIC_TO_INT64 @7 ${s(7, -BigDecimal(2).pow(63))}") shouldEqual Right(
-          SInt64(Long.MinValue))
+          SInt64(Long.MinValue),
+        )
         eval(e"NUMERIC_TO_INT64 @11 ${s(11, BigDecimal(2).pow(63) - 1)}") shouldEqual Right(
-          SInt64(Long.MaxValue))
+          SInt64(Long.MaxValue),
+        )
         eval(e"NUMERIC_TO_INT64 @13 ${s(13, BigDecimal(2).pow(63) - almostZero(13))}") shouldEqual Right(
-          SInt64(Long.MaxValue))
+          SInt64(Long.MaxValue),
+        )
         eval(e"NUMERIC_TO_INT64 @17 ${s(17, BigDecimal(2).pow(63))}") shouldBe 'left
         eval(e"NUMERIC_TO_INT64 @13 ${s(13, "1E22")}") shouldBe 'left
       }
@@ -1040,7 +1105,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
           (8, "1.00000000", 1),
           (10, "1.0000000001", 1),
           (37, "1." + "9" * 37, 1),
-          (20, "123456789.12345678912345678912", 123456789)
+          (20, "123456789.12345678912345678912", 123456789),
         )
 
         forEvery(testCases) { (scale, decimal, int64) =>
@@ -1094,9 +1159,11 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
         forEvery(testCases) { (timestamp, int64) =>
           eval(e"TIMESTAMP_TO_UNIX_MICROSECONDS $timestamp") shouldEqual Right(SInt64(int64))
           eval(e"UNIX_MICROSECONDS_TO_TIMESTAMP $int64") shouldEqual Right(
-            STimestamp(Time.Timestamp.assertFromLong(int64)))
+            STimestamp(Time.Timestamp.assertFromLong(int64)),
+          )
           eval(e"EQUAL @Timestamp (UNIX_MICROSECONDS_TO_TIMESTAMP $int64) $timestamp") shouldEqual Right(
-            SBool(true))
+            SBool(true),
+          )
         }
       }
     }
@@ -1129,7 +1196,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
           "Date" -> "Int64",
           "1969-07-21" -> -164,
           "1970-01-01" -> 0,
-          "2001-01-01" -> 11323
+          "2001-01-01" -> 11323,
         )
 
         forEvery(testCases) { (date, int) =>
@@ -1153,7 +1220,8 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
 
       "FROM_TEXT_PARTY" in {
         eval(e"""FROM_TEXT_PARTY "alice" """) shouldEqual Right(
-          SOptional(Some(SParty(Ref.Party.assertFromString("alice")))))
+          SOptional(Some(SParty(Ref.Party.assertFromString("alice")))),
+        )
         eval(e"""FROM_TEXT_PARTY "bad%char" """) shouldEqual Right(SOptional(None))
       }
 
@@ -1186,7 +1254,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
             "9223372036854775809",
             "-9223372036854775809",
             "-9223372036854775810",
-            "1" * 20
+            "1" * 20,
           )
 
         forEvery(positiveTestCases) { s =>
@@ -1208,7 +1276,8 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
 
         forEvery(testCases) { (input, output) =>
           eval(Ast.EApp(builtin, Ast.EPrimLit(PLText(input())))) shouldEqual Right(
-            SOptional(output))
+            SOptional(output),
+          )
         }
 
       }
@@ -1279,7 +1348,8 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
 
       forEvery(testCases) { (input, output) =>
         eval(Ast.EApp(builtin, Ast.EPrimLit(Ast.PLText(input())))) shouldEqual Right(
-          SOptional(output))
+          SOptional(output),
+        )
       }
 
     }
@@ -1306,7 +1376,8 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
 
     "works as expected" in {
       forEvery(values)(v1 =>
-        forEvery(values)(v2 => eval(e"EQUAL @TypeRep $v1 $v2") shouldEqual Right(SBool(v1 == v2))))
+        forEvery(values)(v2 => eval(e"EQUAL @TypeRep $v1 $v2") shouldEqual Right(SBool(v1 == v2))),
+      )
     }
   }
 
@@ -1324,7 +1395,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
           " 'party' " -> SParty(Ref.Party.assertFromString("party")),
           intList(1, 2, 3) -> SList(FrontStack(SInt64(1), SInt64(2), SInt64(3))),
           " UNIX_DAYS_TO_DATE 1 " -> SDate(Time.Date.assertFromDaysSinceEpoch(1)),
-          """ TRACE "another message" (ADD_INT64 1 1)""" -> SInt64(2)
+          """ TRACE "another message" (ADD_INT64 1 1)""" -> SInt64(2),
         )
 
         forEvery(testCases) { (exp, result) =>
@@ -1359,7 +1430,8 @@ object SBuiltinTest {
       expr = e,
       checkSubmitterInMaintainers = true,
       compiledPackages = PureCompiledPackages(Map.empty).right.get,
-      scenario = false)
+      scenario = false,
+    )
     final case class Goodbye(e: SError) extends RuntimeException("", null, false, false)
     try {
       while (!machine.isFinal) machine.step() match {

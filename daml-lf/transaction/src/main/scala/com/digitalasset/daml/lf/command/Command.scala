@@ -33,8 +33,8 @@ final case class ExerciseCommand(
     templateId: Identifier,
     contractId: ContractIdString,
     choiceId: ChoiceName,
-    argument: Value[Value.AbsoluteContractId])
-    extends Command
+    argument: Value[Value.AbsoluteContractId],
+) extends Command
 
 /** Command for exercising a choice on an existing contract specified by its key
   *
@@ -47,8 +47,8 @@ final case class ExerciseByKeyCommand(
     templateId: Identifier,
     contractKey: Value[Value.AbsoluteContractId],
     choiceId: ChoiceName,
-    argument: Value[Value.AbsoluteContractId])
-    extends Command
+    argument: Value[Value.AbsoluteContractId],
+) extends Command
 
 /** Command for creating a contract and exercising a choice
   * on that existing contract within the same transaction
@@ -62,8 +62,8 @@ final case class CreateAndExerciseCommand(
     templateId: Identifier,
     createArgument: Value[Value.AbsoluteContractId],
     choiceId: ChoiceName,
-    choiceArgument: Value[Value.AbsoluteContractId])
-    extends Command
+    choiceArgument: Value[Value.AbsoluteContractId],
+) extends Command
 
 /** Commands input adapted from ledger-api
   *
@@ -77,5 +77,5 @@ case class Commands(
     submitter: Party,
     commands: ImmArray[Command],
     ledgerEffectiveTime: Time.Timestamp,
-    commandsReference: String
+    commandsReference: String,
 )
