@@ -164,7 +164,7 @@ class WebSocketService(
       case Some(ids) =>
         contractsService
           .insertDeleteStepSource(jwt, jwtPayload.party, ids, Terminates.Never)
-          .via(convertFilterContracts(prepareFilters(ids, request.query)))
+          .via(convertFilterContracts(queryPredicate(prepareFilters(ids, request.query))))
           .filter(_.nonEmpty)
           .map(sae => TextMessage(sae.render.compactPrint))
       case None =>
@@ -185,7 +185,7 @@ class WebSocketService(
     }.toMap
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  private def convertFilterContracts(compiledQueries: CompiledQueries)
+  private def convertFilterContracts(fn: domain.ActiveContract[LfV] => Boolean)
     : Flow[InsertDeleteStep[api.event.CreatedEvent], StepAndErrors[JsValue], NotUsed] =
     Flow
       .fromFunction { step: InsertDeleteStep[api.event.CreatedEvent] =>
@@ -198,39 +198,18 @@ class WebSocketService(
           }
         StepAndErrors(
           errors,
-          step copy (inserts = (cs: Vector[domain.ActiveContract[LfV]])
-            .filter { acLfv =>
-              compiledQueries.get(acLfv.templateId).exists(_(acLfv.payload))
-            }))
+          step copy (inserts = (cs: Vector[domain.ActiveContract[LfV]]).filter(fn))
+        )
       }
       .via(conflation)
       .map(sae => sae copy (step = sae.step.mapPreservingIds(_ map lfValueToJsValue)))
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  private def convertFilterContractsByKey(requests: FetchByKeyRequests)
-    : Flow[InsertDeleteStep[api.event.CreatedEvent], StepAndErrors[JsValue], NotUsed] =
-    Flow
-      .fromFunction { step: InsertDeleteStep[api.event.CreatedEvent] =>
-        val (errors, cs) = step.inserts
-          .partitionMap { ce =>
-            domain.ActiveContract
-              .fromLedgerApi(ce)
-              .liftErr(ServerError)
-              .flatMap(_.traverse(apiValueToLfValue).liftErr(ServerError))
-          }
-        // TODO(Leo): remove deletes, don't need them in this case
-        StepAndErrors(
-          errors,
-          step copy (inserts = (cs: Vector[domain.ActiveContract[LfV]])
-            .filter { acLfv =>
-              requests
-                .get(acLfv.templateId)
-                .exists(k => domain.ActiveContract.matchesKey(k)(acLfv))
-            })
-        )
-      }
-//      .via(conflation)
-      .map(sae => sae copy (step = sae.step.mapPreservingIds(_ map lfValueToJsValue)))
+  private def queryPredicate(q: CompiledQueries)(a: domain.ActiveContract[LfV]): Boolean =
+    q.get(a.templateId).exists(_(a.payload))
+
+//  private def keyPredicate(r: FetchByKeyRequests)(a: domain.ActiveContract[LfV]): Boolean =
+//    r.get(a.templateId)
+//      .exists(k => domain.ActiveContract.matchesKey(k)(a))
 
   private def resolveRequiredTemplateIds(
       xs: Set[domain.TemplateId.OptionalPkg]): Option[List[domain.TemplateId.RequiredPkg]] = {
