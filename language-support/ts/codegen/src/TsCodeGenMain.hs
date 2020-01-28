@@ -218,12 +218,13 @@ genDefDataType curPkgId conName mod tpls def =
                         (keyTypeTs, keySer) = case tplKey tpl of
                             Nothing -> ("undefined", "() => jtv.constant(undefined)")
                             Just key -> (conName <.> "Key", "() => " <> snd (genType (moduleName mod) (tplKeyType key)) <> ".decoder()")
+                        templateId =unPackageId curPkgId <> ":" <> T.intercalate "." (unModuleName (moduleName mod)) <> ":" <> conName 
                         dict =
-                            ["export const " <> conName <> ": daml.Template<" <> conName <> ", " <> keyTypeTs <> "> & {"] ++
+                            ["export const " <> conName <> ": daml.Template<" <> conName <> ", " <> keyTypeTs <> ", '" <> templateId <> "'> & {"] ++
                             ["  " <> x <> ": daml.Choice<" <> conName <> ", " <> t <> ", " <> rtyp <> ", " <> keyTypeTs <> ">;" | (x, t, rtyp, _) <- chcs] ++
                             ["} = {"
                             ] ++
-                            ["  templateId: '" <> unPackageId curPkgId <> ":" <> T.intercalate "." (unModuleName (moduleName mod)) <> ":" <> conName <> "',"
+                            ["  templateId: '" <> templateId <> "',"
                             ,"  keyDecoder: " <> keySer <> ","
                             ] ++
                             map ("  " <>) (onLast (<> ",") (onHead ("decoder: " <>) serDesc)) ++
