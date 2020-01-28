@@ -124,20 +124,6 @@ object Ast {
   /** Scenario expression */
   final case class EScenario(scenario: Scenario) extends Expr
 
-  /** Contract ids. Note that:
-    *
-    * * The only reason why we have these here is that we want to translate Ledger API commands
-    *   to update expressions. Serialized DAML-LF programs never have these.
-    * * Since we only care about Ledger API commands we only allow absolute contract ids, here
-    *   represented as strings.
-    *
-    * Why not just parametrize the whole of Expr with ContractId, like we do to other structures?
-    * It is too annoying to do so, what pushed me over the edge is that ImmArray[T] is invariant
-    * in T, and thus it's not the case that `ImmArray[Expr[Nothing]] <: ImmArray[Expr[String]]`. We
-    * Might want to revisit this in the future.
-    */
-  final case class EContractId(coId: ContractIdString, tmplId: TypeConName) extends Expr
-
   /** Location annotations */
   final case class ELocation(loc: Location, expr: Expr) extends Expr
 

@@ -11,6 +11,8 @@ import Control.Lens (toListOf)
 import Control.Lens.MonoTraversal (monoTraverse)
 import Control.Monad
 import Data.List.Extra
+import Data.Set (Set)
+import qualified Data.Set as Set
 import qualified Data.Map.Strict as MS
 import Data.Maybe
 import qualified Data.NameMap as NM
@@ -40,7 +42,7 @@ import SdkVersion
 data Env = Env
     { envPkgs :: MS.Map UnitId LF.Package
     , envGetUnitId :: LF.PackageRef -> UnitId
-    , envStablePackages :: MS.Map LF.PackageId (UnitId, LF.ModuleName)
+    , envStablePackages :: Set LF.PackageId
     , envQualify :: Bool
     , envSdkPrefix :: Maybe String
     , envMod :: LF.Module
@@ -107,8 +109,7 @@ generateSrcFromLf env = noLoc mod
     shouldExposeDefValue :: LF.DefValue -> Bool
     shouldExposeDefValue LF.DefValue{..}
         | (lfName, lfType) <- dvalBinder
-        = not (LF.getIsTest dvalIsTest)
-        && not ("$" `T.isPrefixOf` LF.unExprValName lfName)
+        = not ("$" `T.isPrefixOf` LF.unExprValName lfName)
         && not (typeHasOldTypeclass env lfType)
         && (LF.moduleNameString lfModName /= "GHC.Prim")
 
@@ -166,7 +167,7 @@ generateSrcFromLf env = noLoc mod
         , modRef /= LF.ModuleName ["CurrentSdk", "GHC", "Prim"]
         ]
     isStable LF.PRSelf = False
-    isStable (LF.PRImport pkgId) = pkgId `MS.member` envStablePackages env
+    isStable (LF.PRImport pkgId) = pkgId `Set.member` envStablePackages env
 
     modRefs :: [(Bool, GHC.UnitId, LF.ModuleName)]
     modRefs = nubSort . concat . concat $
@@ -180,7 +181,7 @@ generateSrcFromLf env = noLoc mod
 
     modRefsFromDefDataType :: LF.DefDataType -> [(Bool, GHC.UnitId, LF.ModuleName)]
     modRefsFromDefDataType typeDef = concat
-        [ [ (isStable pkg, envGetUnitId env pkg, modRef)
+        [ [ (isStable pkg, envGetUnitId env pkg, addSdkPrefixIfStable env pkg modRef)
           | (pkg, modRef) <- toListOf monoTraverse typeDef ]
         , [ (True, pkg, modRef)
           | b <- toListOf (dataConsType . builtinType) (LF.dataCons typeDef)
@@ -193,7 +194,7 @@ generateSrcFromLf env = noLoc mod
 
     modRefsFromDefValue :: LF.DefValue -> [(Bool, GHC.UnitId, LF.ModuleName)]
     modRefsFromDefValue LF.DefValue{..} | (_, dvalType) <- dvalBinder = concat
-        [ [ (isStable pkg, envGetUnitId env pkg, modRef)
+        [ [ ( isStable pkg, envGetUnitId env pkg, addSdkPrefixIfStable env pkg modRef)
           | (pkg, modRef) <- toListOf monoTraverse dvalType ]
         , [ (True, pkg, modRef)
           | b <- toListOf builtinType dvalType
@@ -304,8 +305,8 @@ convType env =
                     mkOrig
                         (mkModule
                              (envGetUnitId env qualPackage)
-                             (mkModuleName $
-                              T.unpack $ LF.moduleNameString qualModule))
+                             (mkModuleName $ T.unpack $ LF.moduleNameString
+                                (addSdkPrefixIfStable env qualPackage qualModule)))
                         (mkOccName varName $ T.unpack name)
                 n@[_name0, _name1] -> case MS.lookup n (sumProdRecords $ envMod env) of
                     Nothing ->
@@ -336,6 +337,20 @@ convType env =
     mkTuple i =
         HsTyVar noExt NotPromoted $
         noLoc $ mkRdrUnqual $ occName $ tupleTyConName BoxedTuple i
+
+
+addSdkPrefixIfStable :: Env -> LF.PackageRef -> LF.ModuleName -> LF.ModuleName
+addSdkPrefixIfStable _ LF.PRSelf mod = mod
+addSdkPrefixIfStable env (LF.PRImport pkgId) m@(LF.ModuleName n)
+    | pkgId `Set.member` envStablePackages env
+    = LF.ModuleName (sdkPrefix ++ n)
+
+    | otherwise
+    = m
+  where
+    sdkPrefix = case envSdkPrefix env of
+        Nothing -> []
+        Just p -> [T.pack p]
 
 convBuiltInTy :: Env -> LF.BuiltinType -> HsType GhcPs
 convBuiltInTy env =
@@ -425,7 +440,7 @@ mkTyConTypeUnqual = mkTyConType False
 generateSrcPkgFromLf ::
        MS.Map UnitId LF.Package
     -> (LF.PackageRef -> UnitId)
-    -> MS.Map LF.PackageId (UnitId, LF.ModuleName)
+    -> Set LF.PackageId
     -> Maybe String
     -> LF.Package
     -> [(NormalizedFilePath, String)]
@@ -472,7 +487,7 @@ genericInstances env externPkgId =
 
 generateGenInstancesPkgFromLf ::
        (LF.PackageRef -> UnitId)
-    -> MS.Map LF.PackageId (UnitId, LF.ModuleName)
+    -> Set LF.PackageId
     -> Maybe String
     -> LF.PackageId
     -> LF.Package

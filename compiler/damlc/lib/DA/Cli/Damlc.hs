@@ -812,19 +812,25 @@ execGenerateSrc opts dalfOrDar mbOutDir = Command GenerateSrc Nothing effect
             stableDalfPkgMap <- useNoFile_ GenerateStablePackages
             pure (dalfPkgMap, stableDalfPkgMap)
 
-        let allDalfPkgs =
+        let allDalfPkgs :: [(UnitId, LF.DalfPackage)]
+            allDalfPkgs =
                 [ (unitId, dalfPkg)
                 | ((unitId, _modName), dalfPkg) <- MS.toList stableDalfPkgMap ]
                 ++ MS.toList dalfPkgMap
+
+            pkgMap :: MS.Map UnitId LF.Package
             pkgMap = MS.insert unitId pkg $ MS.fromList
                 [ (unitId, LF.extPackagePkg (LF.dalfPackagePkg dalfPkg))
                 | (unitId, dalfPkg) <- allDalfPkgs ]
+
+            unitIdMap :: MS.Map LF.PackageId UnitId
             unitIdMap = MS.insert pkgId unitId $ MS.fromList
                 [ (LF.dalfPackageId dalfPkg, unitId)
                 | (unitId, dalfPkg) <- allDalfPkgs ]
-            stablePkgIds = MS.fromList
-                [ (LF.dalfPackageId dalfPkg, k)
-                | (k, dalfPkg) <- MS.toList stableDalfPkgMap ]
+
+            stablePkgIds :: Set.Set LF.PackageId
+            stablePkgIds = Set.fromList $ map LF.dalfPackageId $ MS.elems stableDalfPkgMap
+
             genSrcs = generateSrcPkgFromLf pkgMap (getUnitId unitId unitIdMap) stablePkgIds (Just "CurrentSdk") pkg
 
         forM_ genSrcs $ \(path, src) -> do
@@ -862,7 +868,7 @@ execGenerateGenSrc darFp mbQual outDir = Command GenerateGenerics Nothing effect
             decode $ BSL.toStrict $ ZipArchive.fromEntry mainDalfEntry
         let getUid = getUnitId unitId pkgMap
         -- TODO Passing MS.empty is not right but this command is only used for debugging so for now this is fine.
-        let genSrcs = generateGenInstancesPkgFromLf getUid MS.empty Nothing mainPkgId mainLfPkg (fromMaybe "" mbQual)
+        let genSrcs = generateGenInstancesPkgFromLf getUid Set.empty Nothing mainPkgId mainLfPkg (fromMaybe "" mbQual)
         forM_ genSrcs $ \(path, src) -> do
             let fp = fromMaybe "" outDir </> fromNormalizedFilePath path
             createDirectoryIfMissing True $ takeDirectory fp

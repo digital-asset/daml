@@ -889,8 +889,6 @@ private[validation] object Typing {
         typeOfUpdate(update)
       case EScenario(scenario) =>
         typeOfScenario(scenario)
-      case EContractId(coId @ _, tmplId) =>
-        TContractId(TTyCon(tmplId))
       case ELocation(_, expr) =>
         typeOf(expr)
       case ENone(typ) =>

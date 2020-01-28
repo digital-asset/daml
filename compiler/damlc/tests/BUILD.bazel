@@ -175,27 +175,6 @@ da_haskell_test(
     ],
 )
 
-da_haskell_test(
-    name = "position-mapping",
-    srcs = ["src/DA/Test/PositionMapping.hs"],
-    hackage_deps = [
-        "base",
-        "ghcide",
-        "haskell-lsp",
-        "haskell-lsp-types",
-        "QuickCheck",
-        "quickcheck-instances",
-        "rope-utf16-splay",
-        "tasty",
-        "tasty-hunit",
-        "tasty-quickcheck",
-        "text",
-    ],
-    main_function = "DA.Test.PositionMapping.main",
-    src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
-)
-
 # Tests for incremental builds
 da_haskell_test(
     name = "incremental",
