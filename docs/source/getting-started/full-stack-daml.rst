@@ -78,5 +78,3 @@ Note that in this app, friendships can be added in one direction at a time, simi
 
 Add a few more friends as Bob, and play around a bit more by logging in as different users and adding/removing friends from the network.
 This should give you a idea of the app's functionality.
-
-

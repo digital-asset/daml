@@ -4,16 +4,16 @@
 App Architecture
 ****************
 
-If you've ever used a social media app before, you're probably thinking that ours is pretty lame!
-It's definitely lacking some features, which we'll work on shortly.
-However there is already a lot going on under the hood of this basic app.
-So let's take a look at the components we have and what they do.
+As you saw from playing around with our social network app, we have a basic interface and backend (the Sandbox) for adding and removing friends.
+In this section we'll walk through the components of this system, positioning us to extend these components with added functionality in the next section.
 
 The DAML Model
 ==============
 
-Perhaps the best place to start looking is in the ``daml`` subdirectory.
-Let's look at a snippet of ``User.daml``.
+The first thing to look at is the DAML code, located in the ``daml`` subdirectory.
+There is only one short DAML module for this whole project, the user model in
+``User.daml``.
+Here is the first part of it.
 
 .. literalinclude:: quickstart/code/daml/User.daml
   :language: daml
@@ -22,7 +22,7 @@ Let's look at a snippet of ``User.daml``.
 
 .. TODO Relax or omit ensure clause.
 
-This is a DAML contract *template* which describes what users of our app.
+This is a DAML contract *template* describing the data for users of our app.
 Since we are developing for a distributed ledger, all data are represented as immutable contracts.
 There are two main parts here:
 
