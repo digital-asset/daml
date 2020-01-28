@@ -88,13 +88,13 @@ generateSrcFromLf env = noLoc mod
 
         let supers =
                 [ convType env fieldType
-                | (fieldName, fieldType) <- fields
+                | (fieldName, LF.TUnit LF.:-> fieldType) <- fields
                 , isSuperClassField fieldName
                 ]
 
             methods =
                 [ (methodName, convType env fieldType)
-                | (fieldName, fieldType) <- fields
+                | (fieldName, LF.TUnit LF.:-> fieldType) <- fields
                 , Just methodName <- [getClassMethodName fieldName]
                 ]
             occName = mkOccName clsName . T.unpack $ sanitize name
@@ -340,12 +340,39 @@ mkConDeclField env fieldName fieldTy = noLoc $ ConDeclField
     , cd_fld_type = noLoc $ convType env fieldTy
     }
 
+isConstraint :: LF.Type -> Bool
+isConstraint = \case
+    LF.TSynApp _ _ -> True
+    LF.TStruct fields -> and
+        [ isSuperClassField fieldName && isConstraint fieldType
+        | (fieldName, fieldType) <- fields
+        ]
+    _ -> False
+
 convType :: Env -> LF.Type -> HsType GhcPs
 convType env =
     \case
         LF.TVar tyVarName ->
             HsTyVar noExt NotPromoted $ mkRdrName $ LF.unTypeVarName tyVarName
-        LF.TSynApp tySyn _ -> error $ "TODO: DataDependencies, convType, type synonym application: " <> show tySyn
+
+        ty1 LF.:-> ty2
+            | isConstraint ty1 ->
+                HsQualTy noExt (noLoc [noLoc $ convType env ty1]) (noLoc $ convType env ty2)
+            | otherwise ->
+                HsFunTy noExt (noLoc $ convType env ty1) (noLoc $ convType env ty2)
+
+        LF.TSynApp LF.Qualified{..} args ->
+            let tycls = case LF.unTypeSynName qualObject of
+                    [name] ->
+                        HsTyVar noExt NotPromoted $ noLoc $ mkOrig
+                            (mkModule
+                                (envGetUnitId env qualPackage)
+                                (mkModuleName $ T.unpack $ LF.moduleNameString
+                                (addSdkPrefixIfStable env qualPackage qualModule)))
+                        (mkOccName clsName $ T.unpack name)
+                    ns -> error ("DamlDependencies: unexpected typeclass name " <> show ns)
+            in foldl (HsAppTy noExt . noLoc) tycls $ map (noLoc . convType env) args
+
         LF.TCon LF.Qualified {..}
           | qualModule == LF.ModuleName ["DA", "Types"]
           , [name] <- LF.unTypeConName qualObject
@@ -379,11 +406,10 @@ convType env =
                 noExt
                 [convTyVarBinder env forallBinder]
                 (noLoc $ convType env forallBody)
-        -- TODO (drsk): Is this the correct tuple type? What about the field names?
-        LF.TStruct fls ->
+        ty@(LF.TStruct fls) ->
             HsTupleTy
                 noExt
-                HsBoxedTuple
+                (if isConstraint ty then HsConstraintTuple else HsBoxedTuple)
                 [noLoc $ convType env ty | (_fldName, ty) <- fls]
         LF.TNat n ->
             HsTyLit noExt (HsNumTy NoSourceText (LF.fromTypeLevelNat n))
@@ -634,12 +660,10 @@ typeHasOldTypeclass :: Env -> LF.Type -> Bool
 typeHasOldTypeclass env = \case
     LF.TVar _ -> False
     LF.TCon tcon -> tconIsOldTypeclass env tcon
-    LF.TSynApp _ _ -> True
+    LF.TSynApp _ _ -> False
         -- Type synonyms came after the switch to new-style
         -- typeclasses, so we can assume there are no old-style
-        -- typeclasses being referenced. HOWEVER, we don't support
-        -- type synonyms here yet. TODO: Fix this, and change
-        -- the above to False.
+        -- typeclasses being referenced.
     LF.TApp a b -> typeHasOldTypeclass env a || typeHasOldTypeclass env b
     LF.TBuiltin _ -> False
     LF.TForall _ b -> typeHasOldTypeclass env b
