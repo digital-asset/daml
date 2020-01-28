@@ -138,13 +138,13 @@ For example, we can query the ledger for all visible contracts (relative to a pa
 
 Let's see some examples of DAML React hooks.
 
-.. literalinclude:: quickstart/code/ui-before/MainController.tsx
+.. literalinclude:: quickstart/code/ui-before/MainView.tsx
   :language: ts
   :start-after: -- HOOKS_BEGIN
   :end-before: -- HOOKS_END
 
 This is the start of the component which provides data from the current state of the ledger to the main screen of our app.
-The three declarations within ``MainController`` all use DAML hooks to get information from the ledger.
+The three declarations within ``MainView`` all use DAML hooks to get information from the ledger.
 For instance, ``allUsers`` uses a catch-all query to get the ``User`` contracts on the ledger.
 However, the query respects the privacy guarantees of a DAML ledger: the contracts returned are only those visible to the currently logged in party.
 This explains why you cannot see *all* users in the network on the main screen, only those who have added you as a friend (making you an observer of their ``User`` contract).
@@ -262,48 +262,37 @@ You can see these used in the ``submitMessage`` function, called when the "Send"
 The ``isSubmitting`` state is used to ensure that message requests are processed one at a time.
 The result of each send is a new ``Message`` contract created, after which the form is cleared.
 
-Controller Component
+View Component
 --------------------
 
-To implement these components, we will need DAML React hooks for querying ``Message`` contracts and exercising the ``SendMessage`` choice on our ``User`` contract.
-This is how they look in the ``MainController`` component.
+The ``MainView`` component is the workhorse of this application which queries the ledger for data and houses the different subcomponents (e.g. friends, the network and our messaging components above).
+To support the messaging components, we will need DAML React hooks for querying ``Message`` contracts and exercising the ``SendMessage`` choice on our ``User`` contract.
 
-First we need to import the generated Typescript code for the ``Message`` contract template.
+First import the generated Typescript code for the ``Message`` contract template, as well as our two new components.
 
-.. literalinclude:: quickstart/code/ui-after/MainController.tsx
+.. literalinclude:: quickstart/code/ui-after/MainView.tsx
   :language: ts
   :start-after: -- IMPORT_BEGIN
   :end-before: -- IMPORT_END
 
 Then we declare the hooks themselves at the start of the component.
 
-.. literalinclude:: quickstart/code/ui-after/MainController.tsx
+.. literalinclude:: quickstart/code/ui-after/MainView.tsx
   :language: ts
   :start-after: -- HOOKS_BEGIN
   :end-before: -- HOOKS_END
 
-The ``messages`` hook allows keeps track of the the state of ``Message`` contracts on the ledger, where we specify no restrictions on the query.
+The ``messageHook`` tracks the state of ``Message`` contracts on the ledger, where we specify no restrictions on the query.
+We extract the actual message data in ``messages``.
 The ``exerciseSendMessage`` hook gives us a function to exercise the appropriate choice on our ``User``.
 We wrap this in another ``sendMessage``function which splits an input string into a list of parties and then exercises the choice, reporting to the user in the case of an error.
 
-.. literalinclude:: quickstart/code/ui-after/MainController.tsx
+.. literalinclude:: quickstart/code/ui-after/MainView.tsx
   :language: ts
   :start-after: -- SENDMESSAGE_BEGIN
   :end-before: -- SENDMESSAGE_END
 
-Finally we make sure to pass our hooks (or data obtained from them) as *props* to the ``MainView`` component, which actually constructs the UI on the screen.
-
-.. literalinclude:: quickstart/code/ui-after/MainController.tsx
-  :language: ts
-  :start-after: -- PROPS_BEGIN
-  :end-before: -- PROPS_END
-
-View Component
---------------
-
-We will now see how our two new components can be integrated into the main screen.
-This is rendered in the ``MainView`` component.
-
+Finally we can integrate our new messaging components into the main screen view.
 The first change is just reformatting the main screen to have a new messages panel in the right column.
 
 .. literalinclude:: quickstart/code/ui-after/MainView.tsx
@@ -318,5 +307,6 @@ In the new column we add the panel including our two new components: the ``Messa
   :start-after: -- MESSAGEPANEL_BEGIN
   :end-before: -- MESSAGEPANEL_END
 
-With this, we have implemented everything for our new feature and can give the new functionality a spin!
-Follow the instructions in "Running the app" again and let's see the new messaging UI.
+You have now finished implementing your first end-to-end DAML feature!
+Let's give the new functionality a spin.
+We follow the instructions in "Running the app" to start up the new app.
