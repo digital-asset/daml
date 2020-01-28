@@ -120,3 +120,15 @@ conformance_test(
         "--exclude=TimeIT",
     ],
 ) if not is_windows else None
+
+conformance_test(
+    name = "conformance-test-config-management",
+    ports = [6865],
+    server = ":app-with-ephemeral-directory",
+    server_args = [
+        "--port=6865",
+    ],
+    test_tool_args = [
+        "--include=ConfigManagementServiceIT",
+    ],
+) if not is_windows else None
