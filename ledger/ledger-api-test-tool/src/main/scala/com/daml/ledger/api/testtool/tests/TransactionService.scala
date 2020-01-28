@@ -9,6 +9,10 @@ import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
 import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
+import com.daml.ledger.api.testtool.tests.TransactionService.{
+  comparableTransactionTrees,
+  comparableTransactions
+}
 import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree}
 import com.digitalasset.ledger.client.binding.Primitive
 import com.digitalasset.ledger.client.binding.Value.encode
@@ -21,8 +25,6 @@ import com.digitalasset.ledger.test_stable.Test.DummyFactory._
 import com.digitalasset.ledger.test_stable.Test.ParameterShowcase._
 import com.digitalasset.ledger.test_stable.Test.TriProposal._
 import com.digitalasset.ledger.test_stable.Test._
-import TransactionService.{comparableTransactions, comparableTransactionTrees}
-
 import io.grpc.Status
 import scalaz.Tag
 
@@ -1317,7 +1319,9 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
   test(
     "TXSingleSubscriptionInOrder",
     "Archives should always come after creations when subscribing as a single party",
-    allocate(SingleParty)) {
+    allocate(SingleParty),
+    timeoutScale = 2.0,
+  ) {
     case Participants(Participant(ledger, party)) =>
       val contracts = 50
       for {
@@ -1335,7 +1339,9 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
   test(
     "TXMultiSubscriptionInOrder",
     "Archives should always come after creations when subscribing as more than on party",
-    allocate(TwoParties)) {
+    allocate(TwoParties),
+    timeoutScale = 2.0,
+  ) {
     case Participants(Participant(ledger, alice, bob)) =>
       val contracts = 50
       for {
@@ -1354,7 +1360,9 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
   test(
     "TXFlatSubsetOfTrees",
     "The event identifiers in the flat stream should be a subset of those in the trees stream",
-    allocate(SingleParty)) {
+    allocate(SingleParty),
+    timeoutScale = 2.0,
+  ) {
     case Participants(Participant(ledger, party)) =>
       val contracts = 50
       for {
@@ -1378,7 +1386,9 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
   test(
     "TXFlatWitnessesSubsetOfTrees",
     "The witnesses in the flat stream should be a subset of those in the trees stream",
-    allocate(SingleParty)) {
+    allocate(SingleParty),
+    timeoutScale = 2.0,
+  ) {
     case Participants(Participant(ledger, party)) =>
       val contracts = 50
       for {
