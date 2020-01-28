@@ -284,7 +284,7 @@ case class GenTransaction[Nid, Cid, +Val](
     *
     * @note This function is asymmetric.
     */
-  private[lf] def isReplayedBy[Nid2, Val2 >: Val](other: GenTransaction[Nid2, Cid, Val2])(
+  final def isReplayedBy[Nid2, Val2 >: Val](other: GenTransaction[Nid2, Cid, Val2])(
       implicit ECid: Equal[Cid],
       EVal: Equal[Val2]): Boolean =
     compareForest(other)(Node.isReplayedBy(_, _))

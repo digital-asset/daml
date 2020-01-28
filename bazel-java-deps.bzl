@@ -94,7 +94,7 @@ def install_java_deps():
             "org.apache.commons:commons-text:1.4",
             "org.awaitility:awaitility:3.1.6",
             "org.checkerframework:checker:2.5.4",
-            "org.flywaydb:flyway-core:5.2.4",
+            "org.flywaydb:flyway-core:6.2.0",
             "org.freemarker:freemarker-gae:2.3.28",
             "org.gnieh:diffson-spray-json_2.12:3.1.0",
             "org.hamcrest:hamcrest-all:1.3",

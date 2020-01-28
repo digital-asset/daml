@@ -27,6 +27,13 @@ step "set up temporary location"
 release_dir="$(mktemp -d)"
 step "temporary release directory is ${release_dir}"
 
+EXTRA_ARGS=""
+
+if [[ "$(uname)" == "Darwin" ]]; then
+    EXTRA_ARGS="--ignore-missing-deps"
+fi
+
+
 if [[ "${BUILD_SOURCEBRANCHNAME:-}" == "master" ]]; then
     # set up bintray credentials
     mkdir -p ~/.jfrog
@@ -34,9 +41,9 @@ if [[ "${BUILD_SOURCEBRANCHNAME:-}" == "master" ]]; then
     unset JFROG_CONFIG_CONTENT
 
     step "run release script (with --upload)"
-    ./bazel-bin/release/release --artifacts release/artifacts.yaml --upload --log-level debug --release-dir "${release_dir}"
+    ./bazel-bin/release/release --artifacts release/artifacts.yaml --upload --log-level debug --release-dir "${release_dir}" $EXTRA_ARGS
 else
     step "run release script (dry run)"
-    ./bazel-bin/release/release --artifacts release/artifacts.yaml --log-level debug --release-dir "${release_dir}"
+    ./bazel-bin/release/release --artifacts release/artifacts.yaml --log-level debug --release-dir "${release_dir}" $EXTRA_ARGS
     step "release artifacts got stored in ${release_dir}"
 fi

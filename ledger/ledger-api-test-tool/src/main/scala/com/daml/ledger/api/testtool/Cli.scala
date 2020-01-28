@@ -30,20 +30,23 @@ object Cli {
   private val pemConfig = (path: String, config: Config) =>
     config.copy(
       tlsConfig = config.tlsConfig.fold(
-        Some(TlsConfiguration(enabled = true, None, Some(new File(path)), None)))(c =>
-        Some(c.copy(keyFile = Some(new File(path))))))
+        Some(TlsConfiguration(enabled = true, None, Some(new File(path)), None)),
+      )(c => Some(c.copy(keyFile = Some(new File(path))))),
+    )
 
   private val crtConfig = (path: String, config: Config) =>
     config.copy(
       tlsConfig = config.tlsConfig.fold(
-        Some(TlsConfiguration(enabled = true, Some(new File(path)), None, None)))(c =>
-        Some(c.copy(keyCertChainFile = Some(new File(path))))))
+        Some(TlsConfiguration(enabled = true, Some(new File(path)), None, None)),
+      )(c => Some(c.copy(keyCertChainFile = Some(new File(path))))),
+    )
 
   private val cacrtConfig = (path: String, config: Config) =>
     config.copy(
       tlsConfig = config.tlsConfig.fold(
-        Some(TlsConfiguration(enabled = true, None, None, Some(new File(path)))))(c =>
-        Some(c.copy(trustCertCollectionFile = Some(new File(path))))))
+        Some(TlsConfiguration(enabled = true, None, None, Some(new File(path)))),
+      )(c => Some(c.copy(trustCertCollectionFile = Some(new File(path))))),
+    )
 
   private val argParser = new scopt.OptionParser[Config]("ledger-api-test-tool") {
     head("""The Ledger API Test Tool is a command line tool for testing the correctness of
@@ -67,7 +70,9 @@ object Cli {
 
     opt[String]("crt")
       .optional()
-      .text("TLS: The crt file to be used as the cert chain. Required if any other TLS parameters are set. Applied to all endpoints.")
+      .text(
+        "TLS: The crt file to be used as the cert chain. Required if any other TLS parameters are set. Applied to all endpoints.",
+      )
       .action(crtConfig)
 
     opt[String]("cacrt")
@@ -121,13 +126,17 @@ object Cli {
 
     opt[Unit]('x', "extract")
       .action((_, c) => c.copy(extract = true))
-      .text("""Extract a DAR necessary to test a DAML ledger and exit without running tests.
-              |The DAR needs to be manually loaded into a DAML ledger for the tool to work.""".stripMargin)
+      .text(
+        """Extract a DAR necessary to test a DAML ledger and exit without running tests.
+              |The DAR needs to be manually loaded into a DAML ledger for the tool to work.""".stripMargin,
+      )
 
     opt[Seq[String]]("exclude")
       .action((ex, c) => c.copy(excluded = c.excluded ++ ex))
       .unbounded()
-      .text("""A comma-separated list of tests that should NOT be run. By default, no tests are excluded.""")
+      .text(
+        """A comma-separated list of tests that should NOT be run. By default, no tests are excluded.""",
+      )
 
     opt[Seq[String]]("include")
       .action((inc, c) => c.copy(included = c.included ++ inc))

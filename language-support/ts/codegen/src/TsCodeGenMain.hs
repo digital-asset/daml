@@ -206,13 +206,14 @@ genDefDataType curPkgId conName mod tpls def =
                 Nothing -> ((makeType typeDesc, makeSer serDesc), Set.unions fieldRefs)
                 Just tpl ->
                     let (chcs, argRefs) = unzip
-                            [((unChoiceName (chcName chc), t, rtyp, rser), argRefs)
+                            [((unChoiceName (chcName chc), t, rtyp, rser), Set.union argRefs retRefs)
                             | chc <- NM.toList (tplChoices tpl)
                             , let tLf = snd (chcArgBinder chc)
                             , let rLf = chcReturnType chc
                             , let (t, _) = genType (moduleName mod) tLf
                             , let (rtyp, rser) = genType (moduleName mod) rLf
                             , let argRefs = Set.setOf typeModuleRef tLf
+                            , let retRefs = Set.setOf typeModuleRef rLf
                             ]
                         (keyTypeTs, keySer) = case tplKey tpl of
                             Nothing -> ("undefined", "() => jtv.constant(undefined)")

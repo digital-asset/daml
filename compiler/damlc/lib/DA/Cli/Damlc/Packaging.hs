@@ -14,6 +14,7 @@ module DA.Cli.Damlc.Packaging
 
 import qualified "zip" Codec.Archive.Zip as Zip
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
+import Control.Exception.Extra
 import Control.Lens (toListOf)
 import Control.Monad.Extra
 import Control.Monad.IO.Class
@@ -25,6 +26,8 @@ import Data.Graph
 import Data.List.Extra
 import qualified Data.Map.Strict as MS
 import Data.Maybe
+import Data.Set (Set)
+import qualified Data.Set as Set
 import qualified Data.Text.Extended as T
 import Development.IDE.Core.Service (runAction)
 import Development.IDE.Core.Shake
@@ -79,6 +82,7 @@ createProjectPackageDb opts thisSdkVer deps dataDeps = do
 
     deps <- expandSdkPackages (filter (`notElem` basePackages) deps)
     depsExtracted <- mapM extractDar deps
+
     let uniqSdkVersions = nubSort $ unPackageSdkVersion thisSdkVer : map edSdkVersions depsExtracted
     let depsSdkVersions = map edSdkVersions depsExtracted
     unless (all (== unPackageSdkVersion thisSdkVer) depsSdkVersions) $
@@ -86,7 +90,28 @@ createProjectPackageDb opts thisSdkVer deps dataDeps = do
            "Package dependencies from different SDK versions: " ++
            intercalate ", " uniqSdkVersions
 
-    -- deal with data imports first
+    -- Register deps at the very beginning. This allows data-dependencies to
+    -- depend on dependencies which is necessary so that we can reconstruct typeclass
+    -- instances for a typeclass defined in a library.
+    -- It does mean that we can’t have a dependency from a dependency on a
+    -- data-dependency but that seems acceptable.
+    -- See https://github.com/digital-asset/daml/issues/4218 for more details.
+    -- TODO Enforce this with useful error messages
+    forM_ depsExtracted $
+        \ExtractedDar{..} -> installDar dbPath edConfFiles edDalfs edSrcs
+
+    loggerH <- getLogger opts "generate package maps"
+    -- mkOptions is necessary to pick up the proper packagedb paths.
+    stablePkgsOpts <- mkOptions opts
+    (stablePkgs, dependencies) <- withDamlIdeState stablePkgsOpts loggerH diagnosticsLogger $ \ide -> runAction ide $
+        (,) <$> useNoFile_ GenerateStablePackages <*> useNoFile_ GeneratePackageMap
+    let stablePkgIds :: Set LF.PackageId
+        stablePkgIds = Set.fromList $ map LF.dalfPackageId $ MS.elems stablePkgs
+    -- This includes both SDK dependencies like daml-prim and daml-stdlib but also DARs specified
+    -- in the dependencies field.
+    let dependencyPkgIds = Set.fromList $ map LF.dalfPackageId $ MS.elems dependencies
+
+    -- Now handle data imports.
     let (fpDars, fpDalfs) = partition ((== ".dar") . takeExtension) dataDeps
     dars <- mapM extractDar fpDars
     -- These are the dalfs that are in a DAR that has been passed in via data-dependencies.
@@ -117,21 +142,20 @@ createProjectPackageDb opts thisSdkVer deps dataDeps = do
         -- one of them), we instead include the package hash in the unit id.
         --
         -- In principle, we can run into the same issue if you combine "dependencies"
-        -- (which have precompiled interface files with uncontrollable unit ids) and
-        -- "data-dependencies" but given that our long-term goal is to kill "dependencies"
-        -- completely, we ignore that for now.
+        -- (which have precompiled interface files) and
+        -- "data-dependencies". However, there you can get away with changing the
+        -- package name and version to change the unit id which is not possible for
+        -- daml-prim.
+        --
+        -- If the version of daml-prim/daml-stdlib in a data-dependency is the same
+        -- as the one we are currently compiling against, we don’t need to apply this
+        -- hack.
         let parsedUnitId = parseUnitId name pkgId
         let unitId = stringToUnitId $ case splitUnitId parsedUnitId of
-              ("daml-prim", Nothing) -> "daml-prim-" <> T.unpack (LF.unPackageId pkgId)
-              ("daml-stdlib", _) -> "daml-stdlib-" <> T.unpack (LF.unPackageId pkgId)
+              ("daml-prim", Nothing) | pkgId `Set.notMember` dependencyPkgIds -> "daml-prim-" <> T.unpack (LF.unPackageId pkgId)
+              ("daml-stdlib", _) | pkgId `Set.notMember` dependencyPkgIds -> "daml-stdlib-" <> T.unpack (LF.unPackageId pkgId)
               _ -> parsedUnitId
         pure (pkgId, package, dalf, unitId)
-
-    loggerH <- getLogger opts "generate stable packages"
-    stablePkgsOpts <- mkOptions opts
-    stablePkgs <- withDamlIdeState stablePkgsOpts loggerH diagnosticsLogger $ \ide -> do
-        runAction ide $ useNoFile_ GenerateStablePackages
-    let stablePkgIds = MS.fromList $ map (\(k, pkg) -> (LF.dalfPackageId pkg, k)) $ MS.toList stablePkgs
 
     let (depGraph, vertexToNode) = buildLfPackageGraph pkgs stablePkgIds
     -- Iterate over the dependency graph in topological order.
@@ -142,7 +166,7 @@ createProjectPackageDb opts thisSdkVer deps dataDeps = do
       let (pkgNode, pkgId) = vertexToNode vertex in
       -- stable packages are mapped to the current version of daml-prim/daml-stdlib
       -- so we don’t need to generate interface files for them.
-      unless (pkgId `MS.member` stablePkgIds) $ do
+      unless (pkgId `Set.member` stablePkgIds || pkgId `Set.member` dependencyPkgIds) $ do
         let unitIdStr = unitIdString $ unitId pkgNode
         let _instancesUnitIdStr = "instances-" <> unitIdStr
         let pkgIdStr = T.unpack $ LF.unPackageId pkgId
@@ -151,7 +175,7 @@ createProjectPackageDb opts thisSdkVer deps dataDeps = do
                 [ unitIdString (unitId depPkgNode) <.> "dalf"
                 | (depPkgNode, depPkgId) <- map vertexToNode $ reachable depGraph vertex
                 , pkgId /= depPkgId
-                , not (depPkgId `MS.member` stablePkgIds)
+                , not (depPkgId `Set.member` stablePkgIds)
                 ]
         let workDir = dbPath </> unitIdStr <> "-" <> pkgIdStr
         createDirectoryIfMissing True workDir
@@ -170,10 +194,6 @@ createProjectPackageDb opts thisSdkVer deps dataDeps = do
             pkgName
             mbPkgVersion
             deps
-
-    -- finally install the dependecies
-    forM_ depsExtracted $
-        \ExtractedDar{..} -> installDar dbPath edConfFiles edDalfs edSrcs
 
 -- generate interface files and install them in the package database
 generateAndInstallIfaceFiles ::
@@ -211,13 +231,15 @@ generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase
                   ]
             }
 
-    _ <- withDamlIdeState opts' loggerH diagnosticsLogger $ \ide ->
+    res <- withDamlIdeState opts' loggerH diagnosticsLogger $ \ide ->
         runAction ide $
         -- Setting ifDir to . means that the interface files will end up directly next to
         -- the source files which is what we want here.
         writeIfacesAndHie
             (toNormalizedFilePath ".")
             [fp | (fp, _content) <- src']
+    when (isNothing res) $
+      errorIO $ "Failed to compile interface for data-dependency: " <> unitIdStr
     -- write the conf file and refresh the package cache
     (cfPath, cfBs) <-
             mkConfFile
@@ -476,15 +498,19 @@ lfVersionString = DA.Pretty.renderPretty
 -- | The graph will have an edge from package A to package B if A depends on B.
 buildLfPackageGraph
     :: [(LF.PackageId, LF.Package, BS.ByteString, UnitId)]
-    -> MS.Map LF.PackageId (UnitId, LF.ModuleName)
+    -> Set LF.PackageId
     -> ( Graph
        , Vertex -> (PackageNode, LF.PackageId)
        )
 buildLfPackageGraph pkgs stablePkgs = (depGraph,  vertexToNode')
   where
+    -- mapping unit ids to packages
+    unitIdToPkgMap = MS.fromList [(unitId, pkg) | (_pkgId, pkg, _bs, unitId) <- pkgs]
+
     -- mapping from package id's to unit id's. if the same package is imported with
     -- different unit id's, we would loose a unit id here.
     pkgMap = MS.fromList [(pkgId, unitId) | (pkgId, _pkg, _bs, unitId) <- pkgs]
+
     -- order the packages in topological order
     (depGraph, vertexToNode, _keyToVertex) =
         graphFromEdges
@@ -492,7 +518,7 @@ buildLfPackageGraph pkgs stablePkgs = (depGraph,  vertexToNode')
             | (pkgId, dalf, bs, unitId) <- pkgs
             , let pkgRefs = [ pid | LF.PRImport pid <- toListOf packageRefs dalf ]
             , let getUid = getUnitId unitId pkgMap
-            , let src = generateSrcPkgFromLf getUid stablePkgs (Just currentSdkPrefix) dalf
+            , let src = generateSrcPkgFromLf unitIdToPkgMap getUid stablePkgs (Just currentSdkPrefix) dalf
             ]
     vertexToNode' v = case vertexToNode v of
         -- We don’t care about outgoing edges.

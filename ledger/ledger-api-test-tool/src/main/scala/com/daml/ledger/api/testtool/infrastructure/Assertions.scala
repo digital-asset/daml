@@ -30,7 +30,8 @@ object Assertions extends DiffExtensions {
     if (!diff.isIdentical)
       throw AssertionErrorWithPreformattedMessage(
         diff.string,
-        s"$context: two objects are supposed to be equal but they are not")
+        s"$context: two objects are supposed to be equal but they are not",
+      )
   }
 
   def assertGrpcError(t: Throwable, expectedCode: Status.Code, pattern: String): Unit =

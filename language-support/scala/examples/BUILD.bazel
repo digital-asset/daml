@@ -68,55 +68,6 @@ da_scala_binary(
     ],
 )
 
-daml_compile(
-    name = "codegen-sbt-example-Main",
-    main_src = "codegen-sbt-example/daml-model/src/Main.daml",
-)
-
-dar_to_scala(
-    name = "codegen-sbt-example-Main-codegen",
-    srcs = [":codegen-sbt-example-Main.dar"],
-    package_prefix = "com.digitalasset.example.daml",
-    srcjar_out = "codegen-sbt-example-Main.srcjar",
-    verbosity = 2,
-)
-
-da_scala_library(
-    name = "codegen-sbt-example-scala-codegen-lib",
-    srcs = [":codegen-sbt-example-Main-codegen"],
-    deps = ["//language-support/scala/bindings"],
-)
-
-da_scala_binary(
-    name = "codegen-sbt-example-mock-bin",
-    srcs = glob(["codegen-sbt-example/mock-example/src/main/scala/**/*.scala"]),
-    main_class = "com.digitalasset.example.ExampleMain",
-    resources = glob(["codegen-sbt-example/mock-example/src/main/resources/**/*"]),
-    scalacopts = ["-Xsource:2.13"],
-    deps = [
-        ":codegen-sbt-example-scala-codegen-lib",
-        "//language-support/scala/bindings",
-    ],
-)
-
-da_scala_binary(
-    name = "codegen-sbt-example-sandbox-bin",
-    srcs = glob(["codegen-sbt-example/sandbox-example/src/main/scala/**/*.scala"]),
-    main_class = "com.digitalasset.example.ExampleMain",
-    resources = glob(["codegen-sbt-example/sandbox-example/src/main/resources/**/*"]),
-    scalacopts = ["-Xsource:2.13"],
-    deps = [
-        ":codegen-sbt-example-scala-codegen-lib",
-        "//daml-lf/data",
-        "//language-support/scala/bindings",
-        "//language-support/scala/bindings-akka",
-        "//ledger-api/rs-grpc-bridge",
-        "//ledger/ledger-api-common",
-        "//ledger/participant-state",
-        "//ledger/sandbox",
-    ],
-)
-
 da_scala_binary(
     name = "iou-no-codegen-bin",
     srcs = glob(["iou-no-codegen/application/src/main/scala/**/*.scala"]),

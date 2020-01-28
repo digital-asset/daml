@@ -29,12 +29,12 @@ object Reporter {
 
     private def extractRelevantLineNumber(t: Throwable): Option[Int] =
       t.getStackTrace
-        .find(
-          stackTraceElement =>
-            Try(Class.forName(stackTraceElement.getClassName))
-              .filter(_ != classOf[LedgerTestSuite])
-              .filter(classOf[LedgerTestSuite].isAssignableFrom)
-              .isSuccess)
+        .find(stackTraceElement =>
+          Try(Class.forName(stackTraceElement.getClassName))
+            .filter(_ != classOf[LedgerTestSuite])
+            .filter(classOf[LedgerTestSuite].isAssignableFrom)
+            .isSuccess,
+        )
         .map(_.getLineNumber)
   }
 

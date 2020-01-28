@@ -36,7 +36,7 @@ main = do
     defaultMain $ tests damlc repl davlDar
 
 tests :: FilePath -> FilePath -> FilePath -> TestTree
-tests damlc repl davlDar = testGroup "Packaging"
+tests damlc repl davlDar = testGroup "Packaging" $
     [ testCaseSteps "Build package with dependency" $ \step -> withTempDir $ \tmpDir -> do
         let projectA = tmpDir </> "a"
         let projectB = tmpDir </> "b"
@@ -450,9 +450,9 @@ tests damlc repl davlDar = testGroup "Packaging"
           (exitCode, _, stderr) <- readProcessWithExitCode damlc ["build", "--project-root", projDir] ""
           exitCode @?= ExitFailure 1
           assertBool ("non-exhaustive error in " <> stderr) ("non-exhaustive" `isInfixOf` stderr)
-
+    ] <>
+    [ damlcTestTests damlc
     , lfVersionTests damlc
-
     , dataDependencyTests damlc repl davlDar
     ]
   where
@@ -503,6 +503,56 @@ lfVersionTests damlc = testGroup "LF version dependencies"
               assertBool ("Expected LF version <=" <> show version <> " but got " <> show (LF.packageLfVersion pkg) <> " in " <> path) $
                   LF.packageLfVersion pkg <= version
     | version <- LF.supportedOutputVersions
+    ]
+
+damlcTestTests :: FilePath -> TestTree
+damlcTestTests damlc = testGroup "damlc test" $
+    [ testCase "damlc test --files outside of project" $ withTempDir $ \projDir -> do
+          writeFileUTF8 (projDir </> "Main.daml") $ unlines
+            [ "daml 1.2"
+            , "module Main where"
+            , "test = scenario do"
+            , "  assert True"
+            ]
+          (exitCode, stdout, stderr) <- readProcessWithExitCode damlc ["test", "--files", projDir </> "Main.daml"] ""
+          exitCode @?= ExitSuccess
+          assertBool ("Succeeding scenario in " <> stdout) ("Main.daml:test: ok" `isInfixOf` stdout)
+          stderr @?= ""
+    ] <>
+    [ testCase ("damlc test " <> unwords (args "") <> " in project") $ withTempDir $ \projDir -> do
+          createDirectoryIfMissing True (projDir </> "a")
+          writeFileUTF8 (projDir </> "a" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: a"
+            , "version: 0.0.1"
+            , "source: ."
+            , "dependencies: [daml-prim, daml-stdlib]"
+            ]
+          writeFileUTF8 (projDir </> "a" </> "A.daml") $ unlines
+            [ "daml 1.2 module A where"
+            , "a = 1"
+            ]
+          callProcessSilent damlc ["build", "--project-root", projDir </> "a"]
+          createDirectoryIfMissing True (projDir </> "b")
+          writeFileUTF8 (projDir </> "b" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: b"
+            , "version: 0.0.1"
+            , "source: ."
+            , "dependencies: [daml-prim, daml-stdlib, " <> show (projDir </> "a/.daml/dist/a-0.0.1.dar") <> "]"
+            ]
+          writeFileUTF8 (projDir </> "b" </> "B.daml") $ unlines
+            [ "daml 1.2 module B where"
+            , "import A"
+            , "b = a"
+            , "test = scenario do"
+            , "  assert True"
+            ]
+          (exitCode, stdout, stderr) <- readProcessWithExitCode damlc ("test" : "--project-root" : (projDir </> "b") : args projDir) ""
+          stderr @?= ""
+          assertBool ("Succeeding scenario in " <> stdout) ("B.daml:test: ok" `isInfixOf` stdout)
+          exitCode @?= ExitSuccess
+    | args <- [\projDir -> ["--files", projDir </> "b" </> "B.daml"], const []]
     ]
 
 darPackageIds :: FilePath -> IO [LF.PackageId]
@@ -579,10 +629,7 @@ dataDependencyTests damlc repl davlDar = testGroup "Data Dependencies" $
           callProcessSilent repl ["validate", projb </> "projb.dar"]
           projbPkgIds <- darPackageIds (projb </> "projb.dar")
           -- daml-prim, daml-stdlib for targetLfVer, daml-prim, daml-stdlib for depLfVer if targetLfVer /= depLfVer, proja and projb
-          -- TODO We should not need nubOrd here. This is currently required since we include the daml-stdlib and daml-prim
-          -- dalfs twice. This is not a problem but wasteful and useless.
-          -- See https://github.com/digital-asset/daml/issues/4114
-          length (nubOrd projbPkgIds) @?= numStablePackages
+          length projbPkgIds @?= numStablePackages
             targetLfVer + 2 + (if targetLfVer /= depLfVer then 2 else 0) + 1 + 1
           length (filter (`notElem` projaPkgIds) projbPkgIds) @?=
               (numStablePackages targetLfVer - numStablePackages depLfVer) + -- new stable packages
@@ -644,6 +691,72 @@ dataDependencyTests damlc repl davlDar = testGroup "Data Dependencies" $
           callProcessSilent repl ["validate", tmpDir </> "foobar.dar"]
           step "Testing scenario"
           callProcessSilent repl ["test", "Main:test", tmpDir </> "foobar.dar"]
+    , testCaseSteps "Mixed dependencies and data-dependencies" $ \step -> withTempDir $ \tmpDir -> do
+          step "Building 'lib'"
+          createDirectoryIfMissing True (tmpDir </> "lib")
+          writeFileUTF8 (tmpDir </> "lib" </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "version: 0.0.1"
+              , "name: lib"
+              , "source: ."
+              , "dependencies: [daml-prim, daml-stdlib]"
+              ]
+          writeFileUTF8 (tmpDir </> "lib" </> "Lib.daml") $ unlines
+              [ "daml 1.2 module Lib where"
+              , "inc : Int -> Int"
+              , "inc = (+ 1)"
+              ]
+          withCurrentDirectory (tmpDir </> "lib") $ callProcessSilent damlc ["build", "-o", tmpDir </> "lib" </> "lib.dar"]
+          libPackageIds <- darPackageIds (tmpDir </> "lib" </> "lib.dar")
+
+          step "Building 'a'"
+          createDirectoryIfMissing True (tmpDir </> "a")
+          writeFileUTF8 (tmpDir </> "a" </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "version: 0.0.1"
+              , "name: a"
+              , "source: ."
+              , "dependencies:"
+              , "  - daml-prim"
+              , "  - daml-stdlib"
+              , "  - " <> show (tmpDir </> "lib" </> "lib.dar")
+              ]
+          writeFileUTF8 (tmpDir </> "a" </> "A.daml") $ unlines
+              [ "daml 1.2 module A where"
+              , "import Lib"
+              , "two : Int"
+              , "two = inc 1"
+              ]
+          withCurrentDirectory (tmpDir </> "a") $ callProcessSilent damlc ["build", "-o", tmpDir </> "a" </> "a.dar"]
+          aPackageIds <- darPackageIds (tmpDir </> "a" </> "a.dar")
+          length aPackageIds @?= length libPackageIds + 1
+
+          step "Building 'b'"
+          createDirectoryIfMissing True (tmpDir </> "b")
+          writeFileUTF8 (tmpDir </> "b" </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "version: 0.0.1"
+              , "name: b"
+              , "source: ."
+              , "dependencies:"
+              , "  - daml-prim"
+              , "  - daml-stdlib"
+              , "  - " <> show (tmpDir </> "lib" </> "lib.dar")
+              , "data-dependencies: [" <> show (tmpDir </> "a" </> "a.dar") <> "]"
+              ]
+          writeFileUTF8 (tmpDir </> "b" </> "B.daml") $ unlines
+              [ "daml 1.2 module B where"
+              , "import Lib"
+              , "import A"
+              , "three : Int"
+              , "three = inc two"
+              ]
+          withCurrentDirectory (tmpDir </> "b") $ callProcessSilent damlc ["build", "-o", tmpDir </> "b" </> "b.dar"]
+          projbPackageIds <- darPackageIds (tmpDir </> "b" </> "b.dar")
+          length projbPackageIds @?= length libPackageIds + 2
+
+          step "Validating DAR"
+          callProcessSilent repl ["validate", tmpDir </> "b" </> "b.dar"]
     ] <>
     [ testCaseSteps "Source generation edge cases" $ \step -> withTempDir $ \tmpDir -> do
       writeFileUTF8 (tmpDir </> "Foo.daml") $ unlines
@@ -736,6 +849,71 @@ dataDependencyTests damlc repl davlDar = testGroup "Data Dependencies" $
         assertBool "proj-0.1.0.dar was not created." =<< doesFileExist dar
         callProcessSilent damlc ["test", "--target=1.dev", "--project-root", projDir, "--generated-src"]
     | withArchiveChoice <- [False, True]
+    ] <>
+    [ testCaseSteps ("Importing toplevel monomorphic template functions from DAML-LF " <> LF.renderVersion depLfVer <> " to " <> LF.renderVersion targetLfVer) $ \step -> withTempDir $ \tmpDir -> do
+          let proja = tmpDir </> "proja"
+          let projb = tmpDir </> "projb"
+
+          step "Build proja"
+          createDirectoryIfMissing True (proja </> "src")
+          writeFileUTF8 (proja </> "src" </> "A.daml") $ unlines
+              [ "daml 1.2"
+              , "module A where"
+              , ""
+              , "template T"
+              , "  with"
+              , "    p : Party"
+              , "  where"
+              , "    signatory p"
+              , ""
+              , "createT = create @T"
+              , "signatoryT = signatory @T"
+              , "archiveT = archive @T"
+              ]
+          writeFileUTF8 (proja </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "name: proja"
+              , "version: 0.0.1"
+              , "source: src"
+              , "dependencies: [daml-prim, daml-stdlib]"
+              ]
+          withCurrentDirectory proja $ callProcessSilent damlc ["build", "--target=" <> LF.renderVersion depLfVer, "-o", proja </> "proja.dar"]
+
+          step "Build projb"
+          createDirectoryIfMissing True (projb </> "src")
+          writeFileUTF8 (projb </> "src" </> "B.daml") $ unlines
+              [ "daml 1.2"
+              , "module B where"
+              , "import A"
+              , "import DA.Assert"
+              , ""
+              , "test = scenario do"
+              , "  alice <- getParty \"Alice\""
+              , "  let t = T alice"
+              , "  signatoryT t === [alice]"
+              , "  cid <- submit alice $ createT t"
+              , "  submit alice $ archiveT cid"
+              ]
+          writeFileUTF8 (projb </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "name: projb"
+              , "version: 0.0.1"
+              , "source: src"
+              , "dependencies: [daml-prim, daml-stdlib]"
+              , "data-dependencies: [" <> show (proja </> "proja.dar") <> "]"
+              ]
+          withCurrentDirectory projb $ callProcessSilent damlc
+            [ "build", "--target=" <> LF.renderVersion targetLfVer, "-o", projb </> "projb.dar"
+            , "--hide-all-packages"
+            , "--package", "daml-prim"
+            , "--package", damlStdlib
+            , "--package", "proja-0.0.1"
+            ]
+          callProcessSilent repl ["validate", projb </> "projb.dar"]
+
+    | depLfVer <- LF.supportedOutputVersions
+    , targetLfVer <- LF.supportedOutputVersions
+    , targetLfVer >= depLfVer
     ]
 
 

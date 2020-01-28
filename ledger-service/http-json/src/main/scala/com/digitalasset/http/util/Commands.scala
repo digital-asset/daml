@@ -41,6 +41,23 @@ object Commands extends StrictLogging {
     )
   }
 
+  def exerciseByKey(
+      templateId: lar.TemplateId,
+      contractKey: lav1.value.Value,
+      choice: lar.Choice,
+      argument: lav1.value.Value
+  ): lav1.commands.Command.Command.ExerciseByKey = {
+
+    lav1.commands.Command.Command.ExerciseByKey(
+      lav1.commands.ExerciseByKeyCommand(
+        templateId = Some(lar.TemplateId.unwrap(templateId)),
+        contractKey = Some(contractKey),
+        choice = lar.Choice.unwrap(choice),
+        choiceArgument = Some(argument)
+      )
+    )
+  }
+
   def submitAndWaitRequest(
       ledgerId: lar.LedgerId,
       applicationId: lar.ApplicationId,

@@ -183,14 +183,16 @@ cmdTest numProcessors =
       <*> fmap UseColor colorOutput
       <*> junitOutput
       <*> optionsParser numProcessors (EnableScenarioService True) optPackageName
+      <*> initPkgDbOpt
     filesOpt = optional (flag' () (long "files" <> help filesDoc) *> many inputFileOpt)
     filesDoc = "Only run test declarations in the specified files."
     junitOutput = optional $ strOption $ long "junit" <> metavar "FILENAME" <> help "Filename of JUnit output file"
     colorOutput = switch $ long "color" <> help "Colored test results"
 
-runTestsInProjectOrFiles :: ProjectOpts -> Maybe [FilePath] -> UseColor -> Maybe FilePath -> Options -> Command
-runTestsInProjectOrFiles projectOpts Nothing color mbJUnitOutput cliOptions = Command Test (Just projectOpts) effect
+runTestsInProjectOrFiles :: ProjectOpts -> Maybe [FilePath] -> UseColor -> Maybe FilePath -> Options -> InitPkgDb -> Command
+runTestsInProjectOrFiles projectOpts Nothing color mbJUnitOutput cliOptions initPkgDb = Command Test (Just projectOpts) effect
   where effect = withExpectProjectRoot (projectRoot projectOpts) "daml test" $ \pPath _ -> do
+        initPackageDb cliOptions initPkgDb
         withPackageConfig (ProjectPath pPath) $ \PackageConfigFields{..} -> do
             -- TODO: We set up one scenario service context per file that
             -- we pass to execTest and scenario cnotexts are quite expensive.
@@ -198,8 +200,9 @@ runTestsInProjectOrFiles projectOpts Nothing color mbJUnitOutput cliOptions = Co
             -- if source points to a specific file.
             files <- getDamlRootFiles pSrc
             execTest files color mbJUnitOutput cliOptions
-runTestsInProjectOrFiles projectOpts (Just inFiles) color mbJUnitOutput cliOptions = Command Test (Just projectOpts) effect
+runTestsInProjectOrFiles projectOpts (Just inFiles) color mbJUnitOutput cliOptions initPkgDb = Command Test (Just projectOpts) effect
   where effect = withProjectRoot' projectOpts $ \relativize -> do
+        initPackageDb cliOptions initPkgDb
         inFiles' <- mapM (fmap toNormalizedFilePath . relativize) inFiles
         execTest inFiles' color mbJUnitOutput cliOptions
 
@@ -806,14 +809,33 @@ execGenerateSrc opts dalfOrDar mbOutDir = Command GenerateSrc Nothing effect
         (pkgId, pkg) <- decode bytes
         opts <- mkOptions opts
         logger <- getLogger opts "generate-src"
-        (pkgMap0, stablePkgIds) <- withDamlIdeState opts { optScenarioService = EnableScenarioService False } logger diagnosticsLogger $ \ideState -> runAction ideState $ do
-          pkgs <-
-              MS.fromList . map (\(unitId, dalfPkg) -> (LF.dalfPackageId dalfPkg, unitId)) . MS.toList <$>
-              useNoFile_ GeneratePackageMap
-          stablePkgIds <- fmap (MS.fromList . map (\(k, pkg) -> (LF.dalfPackageId pkg, k)) . MS.toList) (useNoFile_ GenerateStablePackages)
-          pure (pkgs `MS.union` MS.map fst stablePkgIds, stablePkgIds)
-        let pkgMap = MS.insert pkgId unitId pkgMap0
-        let genSrcs = generateSrcPkgFromLf (getUnitId unitId pkgMap) stablePkgIds (Just "CurrentSdk") pkg
+
+        (dalfPkgMap, stableDalfPkgMap) <- withDamlIdeState opts { optScenarioService = EnableScenarioService False } logger diagnosticsLogger $ \ideState -> runAction ideState $ do
+            dalfPkgMap <- useNoFile_ GeneratePackageMap
+            stableDalfPkgMap <- useNoFile_ GenerateStablePackages
+            pure (dalfPkgMap, stableDalfPkgMap)
+
+        let allDalfPkgs :: [(UnitId, LF.DalfPackage)]
+            allDalfPkgs =
+                [ (unitId, dalfPkg)
+                | ((unitId, _modName), dalfPkg) <- MS.toList stableDalfPkgMap ]
+                ++ MS.toList dalfPkgMap
+
+            pkgMap :: MS.Map UnitId LF.Package
+            pkgMap = MS.insert unitId pkg $ MS.fromList
+                [ (unitId, LF.extPackagePkg (LF.dalfPackagePkg dalfPkg))
+                | (unitId, dalfPkg) <- allDalfPkgs ]
+
+            unitIdMap :: MS.Map LF.PackageId UnitId
+            unitIdMap = MS.insert pkgId unitId $ MS.fromList
+                [ (LF.dalfPackageId dalfPkg, unitId)
+                | (unitId, dalfPkg) <- allDalfPkgs ]
+
+            stablePkgIds :: Set.Set LF.PackageId
+            stablePkgIds = Set.fromList $ map LF.dalfPackageId $ MS.elems stableDalfPkgMap
+
+            genSrcs = generateSrcPkgFromLf pkgMap (getUnitId unitId unitIdMap) stablePkgIds (Just "CurrentSdk") pkg
+
         forM_ genSrcs $ \(path, src) -> do
             let fp = fromMaybe "" mbOutDir </> fromNormalizedFilePath path
             createDirectoryIfMissing True $ takeDirectory fp
@@ -849,7 +871,7 @@ execGenerateGenSrc darFp mbQual outDir = Command GenerateGenerics Nothing effect
             decode $ BSL.toStrict $ ZipArchive.fromEntry mainDalfEntry
         let getUid = getUnitId unitId pkgMap
         -- TODO Passing MS.empty is not right but this command is only used for debugging so for now this is fine.
-        let genSrcs = generateGenInstancesPkgFromLf getUid MS.empty Nothing mainPkgId mainLfPkg (fromMaybe "" mbQual)
+        let genSrcs = generateGenInstancesPkgFromLf getUid Set.empty Nothing mainPkgId mainLfPkg (fromMaybe "" mbQual)
         forM_ genSrcs $ \(path, src) -> do
             let fp = fromMaybe "" outDir </> fromNormalizedFilePath path
             createDirectoryIfMissing True $ takeDirectory fp

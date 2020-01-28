@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary")
+load("//bazel_tools/packaging:packaging.bzl", "package_app")
 
 da_haskell_binary(
     name = "daml2ts",
@@ -27,4 +28,10 @@ da_haskell_binary(
         "//compiler/daml-lf-reader",
         "//libs-haskell/da-hs-base",
     ],
+)
+
+package_app(
+    name = "daml2ts-dist",
+    binary = ":daml2ts",
+    visibility = ["//visibility:public"],
 )

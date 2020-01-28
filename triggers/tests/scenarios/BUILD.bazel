@@ -1,0 +1,20 @@
+# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+sh_test(
+    name = "test-rule",
+    srcs = ["test-scenarios.sh"],
+    args = [
+        "$(rootpath //:VERSION)",
+        "$(rootpath //compiler/damlc)",
+        "$(rootpath //triggers/daml:daml-trigger.dar)",
+        "$(rootpath Rule.daml)",
+    ],
+    data = [
+        "Rule.daml",
+        "//:VERSION",
+        "//compiler/damlc",
+        "//triggers/daml:daml-trigger.dar",
+    ],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)

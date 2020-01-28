@@ -18,6 +18,8 @@ private[validation] object Recursion {
     }
 
     cycle(g).foreach(c => throw EImportCycle(NoContext, c))
+
+    modules.foreach { case (modName, mod) => checkModule(pkgId, modName, mod) }
   }
 
   def modRefs(pkgId: PackageId, definition: Definition): Set[ModuleName] = {
@@ -54,6 +56,25 @@ private[validation] object Recursion {
 
     modRefsInType | modRefsInVal
 
+  }
+
+  /* Check there are no cycles in the type synonym definitions of a module */
+
+  private def checkModule(pkgId: PackageId, modName: ModuleName, mod: Module): Unit = {
+    val g =
+      mod.definitions.collect {
+        case (dottedName, DTypeSyn(_, replacementTyp)) =>
+          val name = Identifier(pkgId, QualifiedName(modName, dottedName))
+          (name, synRefsOfType(Set.empty, replacementTyp))
+      }
+    cycle(g).foreach(c => throw ETypeSynCycle(NoContext, c))
+  }
+
+  private def synRefsOfType(acc: Set[TypeSynName], typ: Type): Set[TypeSynName] = typ match {
+    case TSynApp(typeSynName, _) =>
+      ((acc + typeSynName) /: TypeTraversable(typ))(synRefsOfType)
+    case otherwise =>
+      (acc /: TypeTraversable(otherwise))(synRefsOfType)
   }
 
   private def cycle[X](graph: Map[X, Set[X]]): Option[List[X]] = {

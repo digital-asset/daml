@@ -19,20 +19,23 @@ private[infrastructure] final class ParticipantSessionManager {
   private[this] val channels = TrieMap.empty[ParticipantSessionConfiguration, ParticipantSession]
 
   @throws[RuntimeException]
-  private def create(config: ParticipantSessionConfiguration)(
-      implicit ec: ExecutionContext): ParticipantSession = {
+  private def create(
+      config: ParticipantSessionConfiguration,
+  )(implicit ec: ExecutionContext): ParticipantSession = {
     logger.info(s"Connecting to participant at ${config.host}:${config.port}...")
     val threadFactoryPoolName = s"grpc-event-loop-${config.host}-${config.port}"
     val daemonThreads = false
     val threadFactory: DefaultThreadFactory =
       new DefaultThreadFactory(threadFactoryPoolName, daemonThreads)
     logger.info(
-      s"gRPC thread factory instantiated with pool '$threadFactoryPoolName' (daemon threads: $daemonThreads)")
+      s"gRPC thread factory instantiated with pool '$threadFactoryPoolName' (daemon threads: $daemonThreads)",
+    )
     val threadCount = Runtime.getRuntime.availableProcessors
     val eventLoopGroup: NioEventLoopGroup =
       new NioEventLoopGroup(threadCount, threadFactory)
     logger.info(
-      s"gRPC event loop thread group instantiated with $threadCount threads using pool '$threadFactoryPoolName'")
+      s"gRPC event loop thread group instantiated with $threadCount threads using pool '$threadFactoryPoolName'",
+    )
     val managedChannelBuilder = NettyChannelBuilder
       .forAddress(config.host, config.port)
       .eventLoopGroup(eventLoopGroup)
@@ -52,8 +55,9 @@ private[infrastructure] final class ParticipantSessionManager {
     new ParticipantSession(config, managedChannel, eventLoopGroup)
   }
 
-  def getOrCreate(configuration: ParticipantSessionConfiguration)(
-      implicit ec: ExecutionContext): Future[ParticipantSession] =
+  def getOrCreate(
+      configuration: ParticipantSessionConfiguration,
+  )(implicit ec: ExecutionContext): Future[ParticipantSession] =
     Future(channels.getOrElseUpdate(configuration, create(configuration)))
 
   def close(configuration: ParticipantSessionConfiguration): Unit =

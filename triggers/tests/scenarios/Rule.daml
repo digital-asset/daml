@@ -1,0 +1,61 @@
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+daml 1.2
+module Rule where
+
+import DA.Action
+import DA.Assert
+import qualified DA.Next.Map as Map
+import Daml.Trigger
+
+template T
+  with
+    party : Party
+    count : Int
+  where
+    signatory party
+    key (party, count) : (Party, Int)
+    maintainer key._1
+
+    nonconsuming choice Poke : ()
+      with
+        n : Int
+      controller party
+        do
+          pure ()
+
+trigger : Trigger Int
+trigger = Trigger with
+  initialize = const 0
+  updateState = \acs _msg count -> length (getContracts @T acs)
+  rule = \party acs _time _commandsInFlight count -> do
+    when (count == 1) do
+      -- Create two additional T.
+      dedupCreate T with party, count
+      dedupCreate T with party, count = succ count
+      -- Exercise a choice
+      let [(tId, _)] = getContracts @T acs
+      dedupExercise tId Poke with n = 0
+      -- Exercise a choice by key
+      dedupExerciseByKey @T (party, 0) Poke with n = 1
+  registeredTemplates = RegisteredTemplates [registeredTemplate @T]
+  heartbeat = None
+
+test = scenario do
+  alice <- getParty "Alice"
+  tId <- submit alice do create T with party = alice, count = 1
+  let activeContracts = toACS tId
+  let commandsInFlight = Map.empty
+  commands <- testRule trigger alice activeContracts commandsInFlight 1
+  let flatCommands = flattenCommands commands
+  assertCreateCmd flatCommands $ \T { party, count } -> do
+    assertEq party alice
+    assertEq count 1
+  assertExerciseCmd flatCommands $ \(cid, choiceArg) -> do
+    assertEq cid tId
+    assertEq choiceArg (Poke 0)
+  assertExerciseByKeyCmd @T flatCommands $ \(k, choiceArg) -> do
+    assertEq k (alice, 0)
+    assertEq choiceArg (Poke 1)
+  pure ()

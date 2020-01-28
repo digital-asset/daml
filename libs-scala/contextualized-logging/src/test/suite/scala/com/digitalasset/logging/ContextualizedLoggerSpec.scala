@@ -3,7 +3,6 @@
 
 package com.digitalasset.logging
 
-import com.digitalasset.logging.LoggingContext.AllowedValue
 import org.mockito.ArgumentMatchersSugar
 import org.mockito.Mockito.{times, verify, when}
 import org.scalatest.mockito.MockitoSugar
@@ -120,18 +119,10 @@ final class ContextualizedLoggerSpec
       verify(m).info(eqTo("b (context: {})"), toStringEqTo[AnyRef]("{id=foobar}"))
     }
 
-  it should "log arrays in the expected format" in withContext("array" -> Array(1, 2, 3)) {
-    logger => implicit logCtx =>
-      logger.info("a")
-      verify(logger.withoutContext)
-        .info(eqTo("a (context: {})"), toStringEqTo[AnyRef]("{array=[1, 2, 3]}"))
-  }
-
   def withEmptyContext(f: ContextualizedLogger => LoggingContext => Unit): Unit =
     LoggingContext.newLoggingContext(f(ContextualizedLogger.createFor(mockLogger(Level.INFO))))
 
-  def withContext[V: AllowedValue](kv: (String, V))(
-      f: ContextualizedLogger => LoggingContext => Unit): Unit =
+  def withContext(kv: (String, String))(f: ContextualizedLogger => LoggingContext => Unit): Unit =
     LoggingContext.newLoggingContext(kv)(f(ContextualizedLogger.createFor(mockLogger(Level.INFO))))
 
   def mockLogger(level: Level): Logger = {
