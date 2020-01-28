@@ -64,12 +64,15 @@ object ImmutableMigrationsSpec {
       resourceScanner: Scanner[_],
   ): String = {
     val resource = Option(resourceScanner.getResource(digestFile))
-      .getOrElse(throw new FileNotFoundException(
-        s""""$digestFile" is missing. If you are introducing a new Flyway migration step, you need to create an SHA-256 digest file by running:
+      .getOrElse(
+        throw new FileNotFoundException(
+          s""""$digestFile" is missing. If you are introducing a new Flyway migration step, you need to create an SHA-256 digest file by running:
            |shasum -a 256 '${migrationsDirectoryPath.resolve(sourceFile)}' \\
            |  | awk '{print $$1}' \\
            |  > '${migrationsDirectoryPath.resolve(digestFile)}'
-           |""".stripMargin))
+           |""".stripMargin,
+        ),
+      )
     new BufferedReader(resource.read()).readLine()
   }
 

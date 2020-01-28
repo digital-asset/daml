@@ -34,7 +34,8 @@ trait DiffExtensions {
 
         assert(
           removed.isEmpty || added.isEmpty,
-          "Diff[Seq[_]] thinks that both sequences are longer than each other.")
+          "Diff[Seq[_]] thinks that both sequences are longer than each other.",
+        )
 
         if (changed.isEmpty && removed.isEmpty && added.isEmpty) {
           Identical(left)

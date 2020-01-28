@@ -29,7 +29,7 @@ object Database {
   private val MaximumWriterConnectionPoolSize: Int = 1
 
   def owner(jdbcUrl: String)(
-      implicit logCtx: LoggingContext
+      implicit logCtx: LoggingContext,
   ): ResourceOwner[UninitializedDatabase] =
     (jdbcUrl match {
       case url if url.startsWith("jdbc:h2:") =>
@@ -54,18 +54,19 @@ object Database {
     ): ResourceOwner[UninitializedDatabase] =
       for {
         readerConnectionPool <- ResourceOwner.forCloseable(() =>
-          newHikariDataSource(jdbcUrl, readOnly = true))
-        writerConnectionPool <- ResourceOwner.forCloseable(() =>
-          newHikariDataSource(jdbcUrl, maxPoolSize = Some(MaximumWriterConnectionPoolSize)))
-        adminConnectionPool <- ResourceOwner.forCloseable(() => newHikariDataSource(jdbcUrl))
-      } yield
-        new UninitializedDatabase(
-          system,
-          queries,
-          readerConnectionPool,
-          writerConnectionPool,
-          adminConnectionPool,
+          newHikariDataSource(jdbcUrl, readOnly = true),
         )
+        writerConnectionPool <- ResourceOwner.forCloseable(() =>
+          newHikariDataSource(jdbcUrl, maxPoolSize = Some(MaximumWriterConnectionPoolSize)),
+        )
+        adminConnectionPool <- ResourceOwner.forCloseable(() => newHikariDataSource(jdbcUrl))
+      } yield new UninitializedDatabase(
+        system,
+        queries,
+        readerConnectionPool,
+        writerConnectionPool,
+        adminConnectionPool,
+      )
   }
 
   object SingleConnectionExceptAdminDatabase {
@@ -76,16 +77,16 @@ object Database {
     ): ResourceOwner[UninitializedDatabase] =
       for {
         readerWriterConnectionPool <- ResourceOwner.forCloseable(() =>
-          newHikariDataSource(jdbcUrl, maxPoolSize = Some(MaximumWriterConnectionPoolSize)))
-        adminConnectionPool <- ResourceOwner.forCloseable(() => newHikariDataSource(jdbcUrl))
-      } yield
-        new UninitializedDatabase(
-          system,
-          queries,
-          readerWriterConnectionPool,
-          readerWriterConnectionPool,
-          adminConnectionPool,
+          newHikariDataSource(jdbcUrl, maxPoolSize = Some(MaximumWriterConnectionPoolSize)),
         )
+        adminConnectionPool <- ResourceOwner.forCloseable(() => newHikariDataSource(jdbcUrl))
+      } yield new UninitializedDatabase(
+        system,
+        queries,
+        readerWriterConnectionPool,
+        readerWriterConnectionPool,
+        adminConnectionPool,
+      )
   }
 
   object SingleConnectionDatabase {
@@ -96,22 +97,21 @@ object Database {
     ): ResourceOwner[UninitializedDatabase] =
       for {
         connectionPool <- ResourceOwner.forCloseable(() => newHikariDataSource(jdbcUrl))
-      } yield
-        new UninitializedDatabase(
-          system,
-          queries,
-          readerConnectionPool = connectionPool,
-          writerConnectionPool = connectionPool,
-          adminConnectionPool = connectionPool,
-          afterMigration = () => {
-            // Flyway needs 2 database connections: one for locking its own table, and then one for
-            // performing the migration. We allow it to do this, then drop the connection pool cap
-            // to 1 afterwards. With SQLite in-memory, we can't use a separate connection pool, it
-            // will create a new in-memory database for each connection (and therefore each
-            // connection pool).
-            connectionPool.setMaximumPoolSize(MaximumWriterConnectionPoolSize)
-          }
-        )
+      } yield new UninitializedDatabase(
+        system,
+        queries,
+        readerConnectionPool = connectionPool,
+        writerConnectionPool = connectionPool,
+        adminConnectionPool = connectionPool,
+        afterMigration = () => {
+          // Flyway needs 2 database connections: one for locking its own table, and then one for
+          // performing the migration. We allow it to do this, then drop the connection pool cap
+          // to 1 afterwards. With SQLite in-memory, we can't use a separate connection pool, it
+          // will create a new in-memory database for each connection (and therefore each
+          // connection pool).
+          connectionPool.setMaximumPoolSize(MaximumWriterConnectionPoolSize)
+        },
+      )
   }
 
   private def newHikariDataSource(

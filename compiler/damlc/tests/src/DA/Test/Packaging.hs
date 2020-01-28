@@ -36,7 +36,7 @@ main = do
     defaultMain $ tests damlc repl davlDar
 
 tests :: FilePath -> FilePath -> FilePath -> TestTree
-tests damlc repl davlDar = testGroup "Packaging"
+tests damlc repl davlDar = testGroup "Packaging" $
     [ testCaseSteps "Build package with dependency" $ \step -> withTempDir $ \tmpDir -> do
         let projectA = tmpDir </> "a"
         let projectB = tmpDir </> "b"
@@ -450,9 +450,9 @@ tests damlc repl davlDar = testGroup "Packaging"
           (exitCode, _, stderr) <- readProcessWithExitCode damlc ["build", "--project-root", projDir] ""
           exitCode @?= ExitFailure 1
           assertBool ("non-exhaustive error in " <> stderr) ("non-exhaustive" `isInfixOf` stderr)
-
+    ] <>
+    [ damlcTestTests damlc
     , lfVersionTests damlc
-
     , dataDependencyTests damlc repl davlDar
     ]
   where
@@ -503,6 +503,56 @@ lfVersionTests damlc = testGroup "LF version dependencies"
               assertBool ("Expected LF version <=" <> show version <> " but got " <> show (LF.packageLfVersion pkg) <> " in " <> path) $
                   LF.packageLfVersion pkg <= version
     | version <- LF.supportedOutputVersions
+    ]
+
+damlcTestTests :: FilePath -> TestTree
+damlcTestTests damlc = testGroup "damlc test" $
+    [ testCase "damlc test --files outside of project" $ withTempDir $ \projDir -> do
+          writeFileUTF8 (projDir </> "Main.daml") $ unlines
+            [ "daml 1.2"
+            , "module Main where"
+            , "test = scenario do"
+            , "  assert True"
+            ]
+          (exitCode, stdout, stderr) <- readProcessWithExitCode damlc ["test", "--files", projDir </> "Main.daml"] ""
+          exitCode @?= ExitSuccess
+          assertBool ("Succeeding scenario in " <> stdout) ("Main.daml:test: ok" `isInfixOf` stdout)
+          stderr @?= ""
+    ] <>
+    [ testCase ("damlc test " <> unwords (args "") <> " in project") $ withTempDir $ \projDir -> do
+          createDirectoryIfMissing True (projDir </> "a")
+          writeFileUTF8 (projDir </> "a" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: a"
+            , "version: 0.0.1"
+            , "source: ."
+            , "dependencies: [daml-prim, daml-stdlib]"
+            ]
+          writeFileUTF8 (projDir </> "a" </> "A.daml") $ unlines
+            [ "daml 1.2 module A where"
+            , "a = 1"
+            ]
+          callProcessSilent damlc ["build", "--project-root", projDir </> "a"]
+          createDirectoryIfMissing True (projDir </> "b")
+          writeFileUTF8 (projDir </> "b" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: b"
+            , "version: 0.0.1"
+            , "source: ."
+            , "dependencies: [daml-prim, daml-stdlib, " <> show (projDir </> "a/.daml/dist/a-0.0.1.dar") <> "]"
+            ]
+          writeFileUTF8 (projDir </> "b" </> "B.daml") $ unlines
+            [ "daml 1.2 module B where"
+            , "import A"
+            , "b = a"
+            , "test = scenario do"
+            , "  assert True"
+            ]
+          (exitCode, stdout, stderr) <- readProcessWithExitCode damlc ("test" : "--project-root" : (projDir </> "b") : args projDir) ""
+          stderr @?= ""
+          assertBool ("Succeeding scenario in " <> stdout) ("B.daml:test: ok" `isInfixOf` stdout)
+          exitCode @?= ExitSuccess
+    | args <- [\projDir -> ["--files", projDir </> "b" </> "B.daml"], const []]
     ]
 
 darPackageIds :: FilePath -> IO [LF.PackageId]

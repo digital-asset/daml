@@ -11,7 +11,7 @@ import com.daml.ledger.on.sql.queries.Queries._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntryId,
   DamlStateKey,
-  DamlStateValue
+  DamlStateValue,
 }
 import com.daml.ledger.participant.state.kvutils.api.LedgerRecord
 import com.daml.ledger.participant.state.v1.Offset
@@ -36,7 +36,7 @@ trait CommonQueries extends Queries {
                 .build(),
               envelope,
             )
-        }.*
+        }.*,
       )
 
   override def selectStateByKeys(
@@ -56,7 +56,7 @@ trait CommonQueries extends Queries {
       stateUpdates.map {
         case (key, value) =>
           immutable.Seq[NamedParameter]("key" -> key.toByteArray, "value" -> value.toByteArray)
-      }
+      },
     )
 
   protected val updateStateQuery: String

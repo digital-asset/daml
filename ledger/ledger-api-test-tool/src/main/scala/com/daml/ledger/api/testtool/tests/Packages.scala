@@ -17,10 +17,10 @@ final class Packages(session: LedgerSession) extends LedgerTestSuite(session) {
     case Participants(Participant(ledger)) =>
       for {
         knownPackages <- ledger.listPackages()
-      } yield
-        assert(
-          knownPackages.size >= 3,
-          s"List of packages was expected to contain at least 3 packages, got ${knownPackages.size} instead.")
+      } yield assert(
+        knownPackages.size >= 3,
+        s"List of packages was expected to contain at least 3 packages, got ${knownPackages.size} instead.",
+      )
   }
 
   test("PackagesGet", "Getting package content should return a valid result", allocate(NoParties)) {
@@ -32,7 +32,8 @@ final class Packages(session: LedgerSession) extends LedgerTestSuite(session) {
         assert(somePackage.hash.length > 0, s"Package $somePackageId has an empty hash.")
         assert(
           somePackage.hash == somePackageId,
-          s"Package $somePackageId has hash ${somePackage.hash}, expected hash to be equal to the package ID.")
+          s"Package $somePackageId has hash ${somePackage.hash}, expected hash to be equal to the package ID.",
+        )
         assert(somePackage.archivePayload.size() >= 0, s"Package $somePackageId has zero size.")
       }
   }
@@ -40,7 +41,8 @@ final class Packages(session: LedgerSession) extends LedgerTestSuite(session) {
   test(
     "PackagesGetUnknown",
     "Getting package content for an unknown package should fail",
-    allocate(NoParties)) {
+    allocate(NoParties),
+  ) {
     case Participants(Participant(ledger)) =>
       for {
         failure <- ledger.getPackage(unknownPackageId).failed
@@ -62,7 +64,8 @@ final class Packages(session: LedgerSession) extends LedgerTestSuite(session) {
   test(
     "PackagesStatusUnknown",
     "Getting package status for an unknown package should fail",
-    allocate(NoParties)) {
+    allocate(NoParties),
+  ) {
     case Participants(Participant(ledger)) =>
       for {
         status <- ledger.getPackageStatus(unknownPackageId)

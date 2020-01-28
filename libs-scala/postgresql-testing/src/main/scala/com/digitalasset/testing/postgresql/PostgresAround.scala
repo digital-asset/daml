@@ -57,7 +57,8 @@ trait PostgresAround {
   protected def startPostgres(): Unit = {
     if (!started.compareAndSet(false, true)) {
       throw new IllegalStateException(
-        "Attempted to start PostgreSQL, but it has already been started.")
+        "Attempted to start PostgreSQL, but it has already been started.",
+      )
     }
     try {
       run(
@@ -106,7 +107,7 @@ trait PostgresAround {
     "UNICODE",
     "-A",
     "trust",
-    postgresFixture.dataDir.toString.replaceAllLiterally("\\", "/")
+    postgresFixture.dataDir.toString.replaceAllLiterally("\\", "/"),
   )
 
   private def createConfigFile(): Unit = {
@@ -209,7 +210,7 @@ object PostgresAround {
           stderr.map(output => s"\nSTDERR:\n$output"),
           Some(logs).filter(_.nonEmpty).map(lines => s"\nLogs:\n${lines.mkString("\n")}"),
         ).flatten.mkString("\n"),
-        cause
+        cause,
       ) {
     def this(
         description: String,

@@ -16,12 +16,14 @@ final class Witnesses(session: LedgerSession) extends LedgerTestSuite(session) {
         // Create the Witnesses contract as Alice and get the resulting transaction as seen by all parties
         (witnessesTransactionId, witnesses) <- ledger.createAndGetTransactionId(
           alice,
-          WitnessesTemplate(alice, bob, charlie))
+          WitnessesTemplate(alice, bob, charlie),
+        )
         witnessesTransaction <- ledger.transactionTreeById(
           witnessesTransactionId,
           alice,
           bob,
-          charlie)
+          charlie,
+        )
 
         // Charlie is not a stakeholder of Witnesses and thus cannot see any such contract unless divulged.
         // Such contract is divulged by creating a DivulgeWitness with Charlie as a signatory and exercising
@@ -38,7 +40,8 @@ final class Witnesses(session: LedgerSession) extends LedgerTestSuite(session) {
           nonConsuming.transactionId,
           alice,
           bob,
-          charlie)
+          charlie,
+        )
 
         // A consuming choice is exercised with the expectation
         // that Charlie is now able to exercise a choice on the divulged contract
@@ -49,47 +52,48 @@ final class Witnesses(session: LedgerSession) extends LedgerTestSuite(session) {
 
         assert(
           witnessesTransaction.eventsById.size == 1,
-          s"The transaction for creating the Witness contract should only contain a single event, but has ${witnessesTransaction.eventsById.size}"
+          s"The transaction for creating the Witness contract should only contain a single event, but has ${witnessesTransaction.eventsById.size}",
         )
         val (_, creationEvent) = witnessesTransaction.eventsById.head
         assert(
           creationEvent.kind.isCreated,
-          s"The event in the transaction for creating the Witness should be a CreatedEvent, but was ${creationEvent.kind}")
+          s"The event in the transaction for creating the Witness should be a CreatedEvent, but was ${creationEvent.kind}",
+        )
 
         val expectedWitnessesOfCreation = Tag.unsubst(Seq(alice, bob)).sorted
         assert(
           creationEvent.getCreated.witnessParties.sorted == expectedWitnessesOfCreation,
-          s"The parties for witnessing the CreatedEvent should be ${expectedWitnessesOfCreation}, but were ${creationEvent.getCreated.witnessParties}"
+          s"The parties for witnessing the CreatedEvent should be ${expectedWitnessesOfCreation}, but were ${creationEvent.getCreated.witnessParties}",
         )
         assert(
           nonConsumingTree.eventsById.size == 1,
-          s"The transaction for exercising the non-consuming choice should only contain a single event, but has ${nonConsumingTree.eventsById.size}"
+          s"The transaction for exercising the non-consuming choice should only contain a single event, but has ${nonConsumingTree.eventsById.size}",
         )
         val (_, nonConsumingEvent) = nonConsumingTree.eventsById.head
         assert(
           nonConsumingEvent.kind.isExercised,
-          s"The event in the transaction for exercising the non-consuming choice should be an ExercisedEvent, but was ${nonConsumingEvent.kind}"
+          s"The event in the transaction for exercising the non-consuming choice should be an ExercisedEvent, but was ${nonConsumingEvent.kind}",
         )
 
         val expectedWitnessesOfNonConsumingChoice = Tag.unsubst(Seq(alice, charlie)).sorted
         assert(
           nonConsumingEvent.getExercised.witnessParties.sorted == expectedWitnessesOfNonConsumingChoice,
-          s"The parties for witnessing the non-consuming ExercisedEvent should be ${expectedWitnessesOfNonConsumingChoice}, but were ${nonConsumingEvent.getCreated.witnessParties}"
+          s"The parties for witnessing the non-consuming ExercisedEvent should be ${expectedWitnessesOfNonConsumingChoice}, but were ${nonConsumingEvent.getCreated.witnessParties}",
         )
         assert(
           consumingTree.eventsById.size == 1,
-          s"The transaction for exercising the consuming choice should only contain a single event, but has ${consumingTree.eventsById.size}"
+          s"The transaction for exercising the consuming choice should only contain a single event, but has ${consumingTree.eventsById.size}",
         )
 
         val (_, consumingEvent) = consumingTree.eventsById.head
         assert(
           consumingEvent.kind.isExercised,
-          s"The event in the transaction for exercising the consuming choice should be an ExercisedEvent, but was ${consumingEvent.kind}"
+          s"The event in the transaction for exercising the consuming choice should be an ExercisedEvent, but was ${consumingEvent.kind}",
         )
         val expectedWitnessesOfConsumingChoice = Tag.unsubst(Seq(alice, bob, charlie)).sorted
         assert(
           consumingEvent.getExercised.witnessParties.sorted == expectedWitnessesOfConsumingChoice,
-          s"The parties for witnessing the consuming ExercisedEvent should be ${expectedWitnessesOfConsumingChoice}, but were ${consumingEvent.getCreated.witnessParties}"
+          s"The parties for witnessing the consuming ExercisedEvent should be ${expectedWitnessesOfConsumingChoice}, but were ${consumingEvent.getCreated.witnessParties}",
         )
 
       }

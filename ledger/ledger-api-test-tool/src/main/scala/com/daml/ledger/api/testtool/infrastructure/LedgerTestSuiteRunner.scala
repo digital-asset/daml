@@ -47,7 +47,8 @@ final class LedgerTestSuiteRunner(
     }
 
   private def start(test: LedgerTestCase, session: LedgerSession)(
-      implicit ec: ExecutionContext): Future[Duration] = {
+      implicit ec: ExecutionContext,
+  ): Future[Duration] = {
     val execution = Promise[Duration]
     val scaledTimeout = DefaultTimeout * suiteTimeoutScale * test.timeoutScale
 
@@ -99,11 +100,13 @@ final class LedgerTestSuiteRunner(
       }
 
   private def summarize(suite: LedgerTestSuite, test: LedgerTestCase, result: Result)(
-      implicit ec: ExecutionContext): LedgerTestSummary =
+      implicit ec: ExecutionContext,
+  ): LedgerTestSummary =
     LedgerTestSummary(suite.name, test.description, suite.session.config, result)
 
   private def run(test: LedgerTestCase, session: LedgerSession)(
-      implicit ec: ExecutionContext): Future[Result] =
+      implicit ec: ExecutionContext,
+  ): Future[Result] =
     result(start(test, session))
 
   private def run(completionCallback: Try[Vector[LedgerTestSummary]] => Unit): Unit = {
@@ -145,7 +148,7 @@ final class LedgerTestSuiteRunner(
   def verifyRequirementsAndRun(completionCallback: Try[Vector[LedgerTestSummary]] => Unit): Unit = {
     verifyRequirements.fold(
       throwable => completionCallback(Failure(throwable)),
-      _ => run(completionCallback)
+      _ => run(completionCallback),
     )
   }
 }

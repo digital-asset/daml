@@ -43,6 +43,12 @@ mkField = FieldName
 mkIndexedField :: Int -> FieldName
 mkIndexedField i = mkField ("_" <> T.pack (show i))
 
+mkSuperClassField :: Int -> FieldName
+mkSuperClassField i = mkField ("s_" <> T.pack (show i))
+
+mkClassMethodField :: T.Text -> FieldName
+mkClassMethodField t = mkField ("m_" <> t)
+
 mkVariantCon :: T.Text -> VariantConName
 mkVariantCon = VariantConName
 

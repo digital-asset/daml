@@ -27,7 +27,8 @@ private[testtool] abstract class LedgerTestSuite(val session: LedgerSession) {
   )(testCase: Participants => Future[Unit]): Unit = {
     val shortIdentifierRef = Ref.LedgerString.assertFromString(shortIdentifier)
     testCaseBuffer.append(
-      new LedgerTestCase(shortIdentifierRef, description, timeoutScale, participants, testCase))
+      new LedgerTestCase(shortIdentifierRef, description, timeoutScale, participants, testCase),
+    )
   }
 
   protected final def skip(reason: String): Future[Unit] = Future.failed(SkipTestException(reason))

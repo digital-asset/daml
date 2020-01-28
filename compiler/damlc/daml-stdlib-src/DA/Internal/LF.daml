@@ -179,6 +179,9 @@ instance CanAbort Update where
 instance CanAbort Scenario where
     abort = fail
 
+instance CanAbort (Either Text) where
+    abort = fail
+
 -- | The `Scenario` type is for simulating ledger interactions.
 -- The type `Scenario a` describes a set of actions taken by various parties during
 -- the simulated scenario, before returning a value of type `a`.

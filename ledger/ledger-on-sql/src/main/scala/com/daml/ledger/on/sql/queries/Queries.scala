@@ -26,8 +26,9 @@ trait Queries {
 
   def selectStateByKeys(
       keys: Iterable[DamlKvutils.DamlStateKey],
-  )(implicit connection: Connection)
-    : immutable.Seq[(DamlKvutils.DamlStateKey, Option[DamlKvutils.DamlStateValue])]
+  )(
+      implicit connection: Connection,
+  ): immutable.Seq[(DamlKvutils.DamlStateKey, Option[DamlKvutils.DamlStateValue])]
 
   def updateState(
       stateUpdates: Map[DamlKvutils.DamlStateKey, DamlKvutils.DamlStateValue],

@@ -795,7 +795,7 @@ convertExpr env0 e = do
     go env (ConstraintTupleProjection index arity) args
         | (LExpr x : args') <- drop arity args -- drop the type arguments
         = fmap (, args') $ do
-            let fieldName = mkIndexedField index
+            let fieldName = mkSuperClassField index
             x' <- convertExpr env x
             pure $ EStructProj fieldName x'
 
@@ -1489,7 +1489,7 @@ convertType env = go env
             go env (expandTypeSynonyms o)
         | isConstraintTupleTyCon t = do
             fieldTys <- mapM (go env) ts
-            let fieldNames = map mkIndexedField [1..]
+            let fieldNames = map mkSuperClassField [1..]
             pure $ TStruct (zip fieldNames fieldTys)
          | tyConFlavour t == ClassFlavour && envLfVersion env `supports` featureTypeSynonyms = do
            tySyn <- convertQualifiedTySyn env t
@@ -1574,11 +1574,12 @@ defValue loc binder@(name, lftype) body =
 ---------------------------------------------------------------------
 -- UNPACK CONSTRUCTORS
 
--- NOTE(MH):
+-- NOTE:
 --
--- * Dictionary types contain multiple unnamed fields in general. Thus, it is
---   necessary to give them synthetic names. This is not a problem at all
---   since they don't show up in user interfaces.
+-- * Dictionary types are converted into LF structs with one field
+--   "s_1", "s_2", "s_3" ... per superclass, and one field
+--   "m_foo", "m_bar", .... per method. This also applies to
+--   constraint tuples, which only have superclasses.
 --
 -- * We treat all newtypes like records. First of all, not doing
 --   this would considerably complicate converting coercions. Second, it makes
@@ -1592,7 +1593,13 @@ ctorLabels con =
   where
   thetas = dataConTheta con
   conFields
-    | flv `elem` [ClassFlavour, TupleFlavour Boxed] || isTupleDataCon con
+    | flv == ClassFlavour
+    , tycon <- dataConTyCon con
+    , Just tycls <- tyConClass_maybe tycon
+    = map mkSuperClassField [1 .. length (classSCTheta tycls)]
+    ++ map (mkClassMethodField . getOccText) (classMethods tycls)
+
+    | flv == TupleFlavour Boxed || isTupleDataCon con
       -- NOTE(MH): The line below is a workaround for ghc issue
       -- https://github.com/ghc/ghc/blob/ae4f1033cfe131fca9416e2993bda081e1f8c152/compiler/types/TyCon.hs#L2030
       -- If we omit this workaround, `GHC.Tuple.Unit` gets translated into a

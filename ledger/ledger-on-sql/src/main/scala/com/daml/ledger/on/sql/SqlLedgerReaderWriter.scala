@@ -16,7 +16,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntryId,
   DamlStateKey,
   DamlStateValue,
-  DamlSubmission
+  DamlSubmission,
 }
 import com.daml.ledger.participant.state.kvutils.api.{LedgerReader, LedgerRecord, LedgerWriter}
 import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting}
@@ -77,7 +77,7 @@ class SqlLedgerReaderWriter(
           } else {
             Source(result)
           }
-        })
+        }),
       )
       .map { case (_, record) => record }
 
@@ -119,7 +119,8 @@ class SqlLedgerReaderWriter(
     if (!(actualStateUpdates.keySet subsetOf expectedStateUpdates)) {
       val unaccountedKeys = actualStateUpdates.keySet diff expectedStateUpdates
       sys.error(
-        s"CommitActor: State updates not a subset of expected updates! Keys [$unaccountedKeys] are unaccounted for!")
+        s"CommitActor: State updates not a subset of expected updates! Keys [$unaccountedKeys] are unaccounted for!",
+      )
     }
   }
 
@@ -202,13 +203,13 @@ object SqlLedgerReaderWriter {
       logCtx: LoggingContext,
   ): ResourceOwner[SqlLedgerReaderWriter] =
     for {
-      dispatcher <- ResourceOwner.forCloseable(
-        () =>
-          Dispatcher(
-            "sql-participant-state",
-            zeroIndex = StartIndex,
-            headAtInitialization = StartIndex,
-        ))
+      dispatcher <- ResourceOwner.forCloseable(() =>
+        Dispatcher(
+          "sql-participant-state",
+          zeroIndex = StartIndex,
+          headAtInitialization = StartIndex,
+        ),
+      )
       uninitializedDatabase <- Database.owner(jdbcUrl)
     } yield {
       val database = uninitializedDatabase.migrate()
