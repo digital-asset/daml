@@ -18,7 +18,7 @@ import scalaz.syntax.equal._
 object Node {
 
   /** Transaction nodes parametrized over identifier type */
-  sealed trait GenNode[+Nid, +Cid, +Val] extends Product with Serializable with NodeInfo[Party] {
+  sealed trait GenNode[+Nid, +Cid, +Val] extends Product with Serializable {
     def mapContractIdAndValue[Cid2, Val2](f: Cid => Cid2, g: Val => Val2): GenNode[Nid, Cid2, Val2]
     def mapNodeId[Nid2](f: Nid => Nid2): GenNode[Nid2, Cid, Val]
 
@@ -33,6 +33,11 @@ object Node {
       *
       */
     def requiredAuthorizers: Set[Party]
+
+    /** Construct the [[NodeInfo]] object for the node. Used for e.g. computing
+      * transaction witnesses.
+      */
+    def info: NodeInfo[Party]
   }
 
   object GenNode extends WithTxValue3[GenNode]
@@ -61,8 +66,8 @@ object Node {
 
     override def requiredAuthorizers(): Set[Party] = signatories
 
-    override def kind = NodeKind.Create
-    override def actors = Set.empty
+    override def info: NodeInfo[Party] = NodeInfo.Create(signatories, stakeholders)
+
   }
 
   object NodeCreate extends WithTxValue2[NodeCreate]
@@ -89,9 +94,9 @@ object Node {
       */
     override def requiredAuthorizers: Set[Party] = actingParties.get
 
-    override def kind = NodeKind.Fetch
-    override def actors =
-      actingParties.getOrElse(Set.empty)
+    override def info: NodeInfo[Party] =
+      NodeInfo.Fetch(signatories, stakeholders, actingParties.getOrElse(Set.empty))
+
   }
 
   /** Denotes a transaction node for an exercise.
@@ -137,11 +142,8 @@ object Node {
 
     override def requiredAuthorizers(): Set[Party] = actingParties
 
-    override def kind =
-      if (consuming) NodeKind.ExerciseConsuming
-      else NodeKind.ExerciseNonConsuming
-
-    override def actors = actingParties
+    override def info: NodeInfo[Party] =
+      NodeInfo.Exercise(consuming, signatories, stakeholders, actingParties)
   }
 
   object NodeExercises extends WithTxValue3[NodeExercises] {
@@ -197,10 +199,8 @@ object Node {
 
     override def requiredAuthorizers(): Set[Party] = key.maintainers
 
-    override def kind = NodeKind.LookupByKey
-    override def signatories = Set.empty
-    override def stakeholders = Set.empty
-    override def actors = Set.empty
+    override def info: NodeInfo[Party] =
+      NodeInfo.LookupByKey(key.maintainers, result.isDefined)
   }
 
   object NodeLookupByKey extends WithTxValue2[NodeLookupByKey]
