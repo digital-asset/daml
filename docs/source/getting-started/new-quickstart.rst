@@ -272,8 +272,8 @@ First import the generated Typescript code for the ``Message`` contract template
 
 .. literalinclude:: quickstart/code/ui-after/MainView.tsx
   :language: ts
-  :start-after: -- IMPORT_BEGIN
-  :end-before: -- IMPORT_END
+  :start-after: -- IMPORTS_BEGIN
+  :end-before: -- IMPORTS_END
 
 Then we declare the hooks themselves at the start of the component.
 
@@ -296,14 +296,14 @@ Finally we can integrate our new messaging components into the main screen view.
 The first change is just reformatting the main screen to have a new messages panel in the right column.
 
 .. literalinclude:: quickstart/code/ui-after/MainView.tsx
-  :language: ts
+  :language: html
   :start-after: -- FORMATTING_BEGIN
   :end-before: -- FORMATTING_END
 
 In the new column we add the panel including our two new components: the ``MessageEdit`` above and ``Feed`` below.
 
 .. literalinclude:: quickstart/code/ui-after/MainView.tsx
-  :language: ts
+  :language: html
   :start-after: -- MESSAGEPANEL_BEGIN
   :end-before: -- MESSAGEPANEL_END
 
