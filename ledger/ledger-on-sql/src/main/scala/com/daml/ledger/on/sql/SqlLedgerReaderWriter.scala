@@ -15,7 +15,7 @@ import com.daml.ledger.on.sql.queries.Queries.Index
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntryId,
   DamlStateKey,
-  DamlStateValue
+  DamlStateValue,
 }
 import com.daml.ledger.participant.state.kvutils.api.{LedgerReader, LedgerRecord, LedgerWriter}
 import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting}
@@ -76,7 +76,7 @@ class SqlLedgerReaderWriter(
           } else {
             Source(result)
           }
-        })
+        }),
       )
       .map { case (_, record) => record }
 
@@ -195,13 +195,13 @@ object SqlLedgerReaderWriter {
       logCtx: LoggingContext,
   ): ResourceOwner[SqlLedgerReaderWriter] =
     for {
-      dispatcher <- ResourceOwner.forCloseable(
-        () =>
-          Dispatcher(
-            "sql-participant-state",
-            zeroIndex = StartIndex,
-            headAtInitialization = StartIndex,
-        ))
+      dispatcher <- ResourceOwner.forCloseable(() =>
+        Dispatcher(
+          "sql-participant-state",
+          zeroIndex = StartIndex,
+          headAtInitialization = StartIndex,
+        ),
+      )
       database <- Database.owner(jdbcUrl)
     } yield {
       val participant =

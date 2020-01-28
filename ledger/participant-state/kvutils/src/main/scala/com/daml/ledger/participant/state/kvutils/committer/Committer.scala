@@ -10,7 +10,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
   DamlLogEntryId,
   DamlStateKey,
-  DamlStateValue
+  DamlStateValue,
 }
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.digitalasset.daml.lf.data.Time
@@ -66,7 +66,8 @@ private[kvutils] trait Committer[Submission, PartialResult] {
       recordTime: Time.Timestamp,
       submission: Submission,
       participantId: ParticipantId,
-      inputState: DamlStateMap): (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) =
+      inputState: DamlStateMap,
+  ): (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) =
     runTimer.time { () =>
       val ctx = new CommitContext {
         override def getEntryId: DamlLogEntryId = entryId

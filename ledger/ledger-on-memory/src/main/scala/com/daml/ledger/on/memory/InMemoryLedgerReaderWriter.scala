@@ -11,13 +11,13 @@ import com.daml.ledger.on.memory.InMemoryLedgerReaderWriter._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntryId,
   DamlStateKey,
-  DamlStateValue
+  DamlStateValue,
 }
 import com.daml.ledger.participant.state.kvutils.api.{LedgerReader, LedgerRecord, LedgerWriter}
 import com.daml.ledger.participant.state.kvutils.{
   Envelope,
   KeyValueCommitting,
-  SequentialLogEntryId
+  SequentialLogEntryId,
 }
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -75,7 +75,7 @@ final class InMemoryLedgerReaderWriter(
             LedgerReader.DefaultConfiguration,
             submission,
             participantId,
-            stateInputs
+            stateInputs,
           )
         val stateUpdates = damlStateUpdates.map {
           case (damlStateKey, value) => damlStateKey.toByteString -> value
@@ -95,8 +95,8 @@ final class InMemoryLedgerReaderWriter(
           .getOrElse(StartIndex),
         OneAfterAnother[Int, List[LedgerRecord]](
           (index: Int, _) => index + 1,
-          (index: Int) => Future.successful(List(retrieveLogEntry(index)))
-        )
+          (index: Int) => Future.successful(List(retrieveLogEntry(index))),
+        ),
       )
       .mapConcat { case (_, updates) => updates }
 
@@ -127,12 +127,12 @@ object InMemoryLedgerReaderWriter {
       participantId: ParticipantId,
   )(implicit executionContext: ExecutionContext): ResourceOwner[InMemoryLedgerReaderWriter] =
     for {
-      dispatcher <- ResourceOwner.forCloseable(
-        () =>
-          Dispatcher(
-            "in-memory-key-value-participant-state",
-            zeroIndex = StartIndex,
-            headAtInitialization = StartIndex,
-        ))
+      dispatcher <- ResourceOwner.forCloseable(() =>
+        Dispatcher(
+          "in-memory-key-value-participant-state",
+          zeroIndex = StartIndex,
+          headAtInitialization = StartIndex,
+        ),
+      )
     } yield new InMemoryLedgerReaderWriter(ledgerId, participantId, dispatcher)
 }

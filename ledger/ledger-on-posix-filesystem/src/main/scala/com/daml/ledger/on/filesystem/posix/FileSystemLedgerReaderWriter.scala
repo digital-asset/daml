@@ -12,7 +12,7 @@ import com.daml.ledger.on.filesystem.posix.FileSystemLedgerReaderWriter._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntryId,
   DamlStateKey,
-  DamlStateValue
+  DamlStateValue,
 }
 import com.daml.ledger.participant.state.kvutils.api.{LedgerReader, LedgerRecord, LedgerWriter}
 import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting}
@@ -69,7 +69,7 @@ class FileSystemLedgerReaderWriter private (
         OneAfterAnother[Index, immutable.Seq[LedgerRecord]](
           (index: Index, _) => index + 1,
           (index: Index) => Future.successful(immutable.Seq(retrieveLogEntry(index))),
-        )
+        ),
       )
       .mapConcat {
         case (_, updates) => updates
@@ -176,13 +176,13 @@ object FileSystemLedgerReaderWriter {
       root: Path,
   )(implicit executionContext: ExecutionContext): ResourceOwner[FileSystemLedgerReaderWriter] =
     for {
-      dispatcher <- ResourceOwner.forCloseable(
-        () =>
-          Dispatcher(
-            "posix-filesystem-participant-state",
-            zeroIndex = StartIndex,
-            headAtInitialization = StartIndex,
-        ))
+      dispatcher <- ResourceOwner.forCloseable(() =>
+        Dispatcher(
+          "posix-filesystem-participant-state",
+          zeroIndex = StartIndex,
+          headAtInitialization = StartIndex,
+        ),
+      )
     } yield {
       val participant = new FileSystemLedgerReaderWriter(ledgerId, participantId, root, dispatcher)
       participant.createDirectories()
