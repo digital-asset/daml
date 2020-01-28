@@ -16,4 +16,5 @@ sh_test(
         "//compiler/damlc",
         "//triggers/daml:daml-trigger.dar",
     ],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
 )
