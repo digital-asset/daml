@@ -16,8 +16,6 @@ import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.transaction.Transaction
 import com.digitalasset.ledger.api.v1.transaction_filter.TransactionFilter
 import com.digitalasset.ledger.client.LedgerClient
-import com.digitalasset.http.util.NewBoolean
-import scalaz.syntax.std.boolean._
 
 import scala.concurrent.Future
 
@@ -50,11 +48,19 @@ object LedgerClientJwt {
         .getActiveContracts(filter, verbose, bearer(jwt))
         .mapMaterializedValue(_ => NotUsed)
 
-  object Terminates extends NewBoolean.Named {
-    final val AtLedgerEnd = True
-    final val Never = False
+  sealed abstract class Terminates extends Product with Serializable {
+    import Terminates._
+    def toOffset: Option[LedgerOffset] = this match {
+      case AtLedgerEnd => Some(ledgerEndOffset)
+      case Never => None
+      case AtAbsolute(off) => Some(LedgerOffset(off))
+    }
   }
-  type Terminates = Terminates.T
+  object Terminates {
+    case object AtLedgerEnd extends Terminates
+    case object Never extends Terminates
+    final case class AtAbsolute(off: LedgerOffset.Value.Absolute) extends Terminates
+  }
 
   private val ledgerEndOffset =
     LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_END))
@@ -62,10 +68,5 @@ object LedgerClientJwt {
   def getCreatesAndArchivesSince(client: LedgerClient): GetCreatesAndArchivesSince =
     (jwt, filter, offset, terminates) =>
       client.transactionClient
-        .getTransactions(
-          offset,
-          terminates option ledgerEndOffset,
-          filter,
-          verbose = true,
-          token = bearer(jwt))
+        .getTransactions(offset, terminates.toOffset, filter, verbose = true, token = bearer(jwt))
 }
