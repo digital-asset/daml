@@ -28,6 +28,7 @@ module Daml.Trigger
  , RegisteredTemplates(..)
  , registeredTemplate
  , RelTime(..)
+ , ACSBuilder
  , toACS
  , testRule
  , flattenCommands
