@@ -33,13 +33,13 @@ object Database {
   ): ResourceOwner[UninitializedDatabase] =
     (jdbcUrl match {
       case url if url.startsWith("jdbc:h2:") =>
-        MultipleConnectionDatabase.owner(RDBMS.H2, new H2Queries, jdbcUrl)
+        MultipleConnectionDatabase.owner(RDBMS.H2, jdbcUrl)
       case url if url.startsWith("jdbc:postgresql:") =>
-        MultipleConnectionDatabase.owner(RDBMS.PostgreSQL, new PostgresqlQueries, jdbcUrl)
+        MultipleConnectionDatabase.owner(RDBMS.PostgreSQL, jdbcUrl)
       case url if url.startsWith("jdbc:sqlite::memory:") =>
-        SingleConnectionDatabase.owner(RDBMS.SQLite, new SqliteQueries, jdbcUrl)
+        SingleConnectionDatabase.owner(RDBMS.SQLite, jdbcUrl)
       case url if url.startsWith("jdbc:sqlite:") =>
-        SingleConnectionExceptAdminDatabase.owner(RDBMS.SQLite, new SqliteQueries, jdbcUrl)
+        SingleConnectionExceptAdminDatabase.owner(RDBMS.SQLite, jdbcUrl)
       case _ => throw new InvalidDatabaseException(jdbcUrl)
     }).map { database =>
       logger.info(s"Connected to the ledger over JDBC: $jdbcUrl")
@@ -49,7 +49,6 @@ object Database {
   object MultipleConnectionDatabase {
     def owner(
         system: RDBMS,
-        queries: Queries,
         jdbcUrl: String,
     ): ResourceOwner[UninitializedDatabase] =
       for {
@@ -62,7 +61,6 @@ object Database {
         adminConnectionPool <- ResourceOwner.forCloseable(() => newHikariDataSource(jdbcUrl))
       } yield new UninitializedDatabase(
         system,
-        queries,
         readerConnectionPool,
         writerConnectionPool,
         adminConnectionPool,
@@ -72,7 +70,6 @@ object Database {
   object SingleConnectionExceptAdminDatabase {
     def owner(
         system: RDBMS,
-        queries: Queries,
         jdbcUrl: String,
     ): ResourceOwner[UninitializedDatabase] =
       for {
@@ -82,7 +79,6 @@ object Database {
         adminConnectionPool <- ResourceOwner.forCloseable(() => newHikariDataSource(jdbcUrl))
       } yield new UninitializedDatabase(
         system,
-        queries,
         readerWriterConnectionPool,
         readerWriterConnectionPool,
         adminConnectionPool,
@@ -92,14 +88,12 @@ object Database {
   object SingleConnectionDatabase {
     def owner(
         system: RDBMS,
-        queries: Queries,
         jdbcUrl: String,
     ): ResourceOwner[UninitializedDatabase] =
       for {
         connectionPool <- ResourceOwner.forCloseable(() => newHikariDataSource(jdbcUrl))
       } yield new UninitializedDatabase(
         system,
-        queries,
         readerConnectionPool = connectionPool,
         writerConnectionPool = connectionPool,
         adminConnectionPool = connectionPool,
@@ -129,25 +123,32 @@ object Database {
 
   sealed trait RDBMS {
     val name: String
+
+    val queries: Queries
   }
 
   object RDBMS {
     object H2 extends RDBMS {
       override val name: String = "h2"
+
+      override val queries: Queries = new H2Queries
     }
 
     object PostgreSQL extends RDBMS {
       override val name: String = "postgresql"
+
+      override val queries: Queries = new PostgresqlQueries
     }
 
     object SQLite extends RDBMS {
       override val name: String = "sqlite"
+
+      override val queries: Queries = new SqliteQueries
     }
   }
 
   class UninitializedDatabase(
       system: RDBMS,
-      queries: Queries,
       readerConnectionPool: DataSource,
       writerConnectionPool: DataSource,
       adminConnectionPool: DataSource,
@@ -163,7 +164,7 @@ object Database {
     def migrate(): Database = {
       flyway.migrate()
       afterMigration()
-      Database(queries, readerConnectionPool, writerConnectionPool)
+      Database(system.queries, readerConnectionPool, writerConnectionPool)
     }
 
     def clear(): this.type = {
