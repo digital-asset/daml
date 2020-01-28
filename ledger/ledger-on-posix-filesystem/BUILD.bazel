@@ -117,8 +117,6 @@ conformance_test(
         "--concurrent-test-runs=4",
         "--all-tests",
         "--exclude=ConfigManagementServiceIT",
-        "--exclude=LotsOfPartiesIT",
         "--exclude=TimeIT",
-        "--exclude=TransactionScaleIT",
     ],
 ) if not is_windows else None
