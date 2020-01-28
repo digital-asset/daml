@@ -31,8 +31,6 @@ private[validation] object TypeTraversable {
 
   private[validation] def foreach[U](expr0: Expr, f: Type => U): Unit = {
     expr0 match {
-      case EContractId(_, typeConName) =>
-        f(TTyCon(typeConName))
       case ERecCon(tycon, fields @ _) =>
         f(toType(tycon))
         fields.values.foreach(foreach(_, f))

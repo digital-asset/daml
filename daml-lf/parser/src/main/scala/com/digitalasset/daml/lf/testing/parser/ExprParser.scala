@@ -35,7 +35,6 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       eToAny |
       eFromAny |
       eToTextTypeConName |
-      contractId |
       fullIdentifier ^^ EVal |
       (id ^? builtinFunctions) ^^ EBuiltin |
       (id ^? builtinFunctions) ^^ EBuiltin |
@@ -62,11 +61,6 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     Id("True") ^^^ PCTrue |
       Id("False") ^^^ PCFalse |
       `(` ~ `)` ^^^ PCUnit
-
-  private lazy val contractId =
-    accept("ContractId", { case ContractId(cid) => cid }) ~ (`@` ~> fullIdentifier) ^^ {
-      case cid ~ t => EContractId(Ref.ContractIdString.assertFromString(cid), t)
-    }
 
   private lazy val eAppAgr: Parser[EAppAgr] =
     argTyp ^^ EAppTypArg |
