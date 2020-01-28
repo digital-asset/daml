@@ -15,8 +15,7 @@ import com.daml.ledger.on.sql.queries.Queries.Index
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntryId,
   DamlStateKey,
-  DamlStateValue,
-  DamlSubmission
+  DamlStateValue
 }
 import com.daml.ledger.participant.state.kvutils.api.{LedgerReader, LedgerRecord, LedgerWriter}
 import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting}
@@ -100,7 +99,6 @@ class SqlLedgerReaderWriter(
             participantId,
             stateInputs,
           )
-          verifyStateUpdatesAgainstPreDeclaredOutputs(stateUpdates, entryId, submission)
           queries.updateState(stateUpdates)
           val latestSequenceNo = queries.insertIntoLog(entryId, Envelope.enclose(logEntry))
           latestSequenceNo + 1
@@ -109,19 +107,6 @@ class SqlLedgerReaderWriter(
         SubmissionResult.Acknowledged
       }
     }
-
-  private def verifyStateUpdatesAgainstPreDeclaredOutputs(
-      actualStateUpdates: Map[DamlStateKey, DamlStateValue],
-      entryId: DamlLogEntryId,
-      submission: DamlSubmission,
-  ): Unit = {
-    val expectedStateUpdates = KeyValueCommitting.submissionOutputs(entryId, submission)
-    if (!(actualStateUpdates.keySet subsetOf expectedStateUpdates)) {
-      val unaccountedKeys = actualStateUpdates.keySet diff expectedStateUpdates
-      sys.error(
-        s"CommitActor: State updates not a subset of expected updates! Keys [$unaccountedKeys] are unaccounted for!")
-    }
-  }
 
   private def currentRecordTime(): Timestamp =
     Timestamp.assertFromInstant(Clock.systemUTC().instant())

@@ -11,8 +11,7 @@ import com.daml.ledger.on.memory.InMemoryLedgerReaderWriter._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntryId,
   DamlStateKey,
-  DamlStateValue,
-  DamlSubmission
+  DamlStateValue
 }
 import com.daml.ledger.participant.state.kvutils.api.{LedgerReader, LedgerRecord, LedgerWriter}
 import com.daml.ledger.participant.state.kvutils.{
@@ -78,7 +77,6 @@ final class InMemoryLedgerReaderWriter(
             participantId,
             stateInputs
           )
-        verifyStateUpdatesAgainstPreDeclaredOutputs(damlStateUpdates, entryId, submission)
         val stateUpdates = damlStateUpdates.map {
           case (damlStateKey, value) => damlStateKey.toByteString -> value
         }
@@ -88,18 +86,6 @@ final class InMemoryLedgerReaderWriter(
       }
       SubmissionResult.Acknowledged
     }
-
-  private def verifyStateUpdatesAgainstPreDeclaredOutputs(
-      actualStateUpdates: Map[DamlStateKey, DamlStateValue],
-      entryId: DamlLogEntryId,
-      submission: DamlSubmission): Unit = {
-    val expectedStateUpdates = KeyValueCommitting.submissionOutputs(entryId, submission)
-    if (!(actualStateUpdates.keySet subsetOf expectedStateUpdates)) {
-      val unaccountedKeys = actualStateUpdates.keySet diff expectedStateUpdates
-      sys.error(
-        s"State updates not a subset of expected updates! Keys [$unaccountedKeys] are unaccounted for!")
-    }
-  }
 
   override def events(offset: Option[Offset]): Source[LedgerRecord, NotUsed] =
     dispatcher

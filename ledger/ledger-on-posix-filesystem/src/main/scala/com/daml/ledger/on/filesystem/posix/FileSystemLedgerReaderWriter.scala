@@ -12,8 +12,7 @@ import com.daml.ledger.on.filesystem.posix.FileSystemLedgerReaderWriter._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntryId,
   DamlStateKey,
-  DamlStateValue,
-  DamlSubmission
+  DamlStateValue
 }
 import com.daml.ledger.participant.state.kvutils.api.{LedgerReader, LedgerRecord, LedgerWriter}
 import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting}
@@ -99,24 +98,10 @@ class FileSystemLedgerReaderWriter private (
         participantId,
         stateInputs,
       )
-      verifyStateUpdatesAgainstPreDeclaredOutputs(stateUpdates, entryId, submission)
       val newHead = appendLog(currentHead, Envelope.enclose(logEntry))
       updateState(stateUpdates)
       dispatcher.signalNewHead(newHead)
       SubmissionResult.Acknowledged
-    }
-  }
-
-  private def verifyStateUpdatesAgainstPreDeclaredOutputs(
-      actualStateUpdates: Map[DamlStateKey, DamlStateValue],
-      entryId: DamlLogEntryId,
-      submission: DamlSubmission
-  ): Unit = {
-    val expectedStateUpdates = KeyValueCommitting.submissionOutputs(entryId, submission)
-    if (!(actualStateUpdates.keySet subsetOf expectedStateUpdates)) {
-      val unaccountedKeys = actualStateUpdates.keySet diff expectedStateUpdates
-      sys.error(
-        s"CommitActor: State updates not a subset of expected updates! Keys [$unaccountedKeys] are unaccounted for!")
     }
   }
 
