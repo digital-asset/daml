@@ -10,7 +10,6 @@ import akka.stream.Materializer
 import com.digitalasset.http.EndpointsCompanion._
 import com.digitalasset.http.domain.{GetActiveContractsRequest, JwtPayload}
 import com.digitalasset.http.json.{DomainJsonDecoder, DomainJsonEncoder, SprayJson}
-import SprayJson.JsonReaderError
 import ContractsFetch.InsertDeleteStep
 import com.digitalasset.http.LedgerClientJwt.Terminates
 import util.ApiValueToLfValueConverter.apiValueToLfValue
@@ -24,6 +23,7 @@ import com.typesafe.scalalogging.LazyLogging
 import scalaz.Liskov, Liskov.<~<
 import scalaz.syntax.show._
 import scalaz.syntax.tag._
+import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
 import scalaz.{-\/, \/, \/-, Show}
 import spray.json.{JsObject, JsString, JsValue}
@@ -147,43 +147,36 @@ class WebSocketService(
       jwtPayload: JwtPayload,
       incoming: TextMessage.Strict,
   ): Source[Message, NotUsed] = {
-    val maybeIncomingJs = SprayJson.parse(incoming.text).toOption
-    parseActiveContractsRequest(maybeIncomingJs)
-      .leftMap(e => InvalidUserInput(e.shows)) match {
-      case \/-(req) => getTransactionSourceForParty(jwt, jwtPayload, req)
-      case -\/(e) =>
-        Source.single(
-          wsErrorMessage(s"Error parsing your input message to a valid Json request: $e"),
-        )
-    }
-  }
-
-  private def parseActiveContractsRequest(
-      incoming: Option[JsValue],
-  ): SprayJson.JsonReaderError \/ GetActiveContractsRequest = {
-    incoming match {
-      case Some(jsObj) => SprayJson.decode[GetActiveContractsRequest](jsObj)
-      case None => -\/(JsonReaderError("None", "please send a valid json request"))
-    }
+    (for {
+      req <- SprayJson.decode[GetActiveContractsRequest](incoming.text).liftErr(InvalidUserInput)
+      resolvedTemplateIds <- resolveRequiredTemplateIds(req.templateIds).toRightDisjunction(
+        ServerError(s"Cannot resolve one of templateIds: ${req.templateIds.toString}"),
+      )
+      fn = queryPredicate(prepareFilters(resolvedTemplateIds, req.query)) _
+    } yield (resolvedTemplateIds, fn))
+      .fold(
+        e => Source.single(wsErrorMessage(s"Error handling request: ${incoming.text: String}: $e")),
+        idsAndPredicate =>
+          getTransactionSourceForParty(
+            jwt,
+            jwtPayload.party,
+            idsAndPredicate._1,
+            idsAndPredicate._2,
+          ),
+      )
   }
 
   private def getTransactionSourceForParty(
       jwt: Jwt,
-      jwtPayload: JwtPayload,
-      request: GetActiveContractsRequest,
+      party: domain.Party,
+      templateIds: List[domain.TemplateId.RequiredPkg],
+      filterPredicate: domain.ActiveContract[LfV] => Boolean,
   ): Source[Message, NotUsed] =
-    resolveRequiredTemplateIds(request.templateIds) match {
-      case Some(ids) =>
-        contractsService
-          .insertDeleteStepSource(jwt, jwtPayload.party, ids, Terminates.Never)
-          .via(convertFilterContracts(queryPredicate(prepareFilters(ids, request.query))))
-          .filter(_.nonEmpty)
-          .map(sae => TextMessage(sae.render.compactPrint))
-      case None =>
-        Source.single(
-          wsErrorMessage("Cannot find one of templateIds " + request.templateIds.toString),
-        )
-    }
+    contractsService
+      .insertDeleteStepSource(jwt, party, templateIds, Terminates.Never)
+      .via(convertFilterContracts(filterPredicate))
+      .filter(_.nonEmpty)
+      .map(sae => TextMessage(sae.render.compactPrint))
 
   private[http] def wsErrorMessage(errorMsg: String): TextMessage.Strict =
     TextMessage(
