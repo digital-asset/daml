@@ -10,7 +10,7 @@ import com.digitalasset.ledger.api.v1.active_contracts_service.GetActiveContract
 import com.digitalasset.ledger.api.v1.command_service.{
   SubmitAndWaitForTransactionResponse,
   SubmitAndWaitForTransactionTreeResponse,
-  SubmitAndWaitRequest
+  SubmitAndWaitRequest,
 }
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.transaction.Transaction
