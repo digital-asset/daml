@@ -36,8 +36,10 @@ object Database {
         MultipleConnectionDatabase.owner(RDBMS.H2, new H2Queries, jdbcUrl)
       case url if url.startsWith("jdbc:postgresql:") =>
         MultipleConnectionDatabase.owner(RDBMS.PostgreSQL, new PostgresqlQueries, jdbcUrl)
-      case url if url.startsWith("jdbc:sqlite:") =>
+      case url if url.startsWith("jdbc:sqlite::memory:") =>
         SingleConnectionDatabase.owner(RDBMS.SQLite, new SqliteQueries, jdbcUrl)
+      case url if url.startsWith("jdbc:sqlite:") =>
+        SingleConnectionExceptAdminDatabase.owner(RDBMS.SQLite, new SqliteQueries, jdbcUrl)
       case _ => throw new InvalidDatabaseException(jdbcUrl)
     }).map { database =>
       logger.info(s"Connected to the ledger over JDBC: $jdbcUrl")
@@ -62,6 +64,26 @@ object Database {
           queries,
           readerConnectionPool,
           writerConnectionPool,
+          adminConnectionPool,
+        )
+  }
+
+  object SingleConnectionExceptAdminDatabase {
+    def owner(
+        system: RDBMS,
+        queries: Queries,
+        jdbcUrl: String,
+    ): ResourceOwner[UninitializedDatabase] =
+      for {
+        readerWriterConnectionPool <- ResourceOwner.forCloseable(() =>
+          newHikariDataSource(jdbcUrl, maxPoolSize = Some(MaximumWriterConnectionPoolSize)))
+        adminConnectionPool <- ResourceOwner.forCloseable(() => newHikariDataSource(jdbcUrl))
+      } yield
+        new UninitializedDatabase(
+          system,
+          queries,
+          readerWriterConnectionPool,
+          readerWriterConnectionPool,
           adminConnectionPool,
         )
   }
