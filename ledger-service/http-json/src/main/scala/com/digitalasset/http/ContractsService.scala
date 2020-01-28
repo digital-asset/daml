@@ -37,6 +37,7 @@ class ContractsService(
     allTemplateIds: PackageService.AllTemplateIds,
     getActiveContracts: LedgerClientJwt.GetActiveContracts,
     getCreatesAndArchivesSince: LedgerClientJwt.GetCreatesAndArchivesSince,
+    getTermination: LedgerClientJwt.GetTermination,
     lookupType: query.ValuePredicate.TypeLookup,
     contractDao: Option[dbbackend.ContractDao],
     parallelism: Int = 8,
@@ -51,7 +52,12 @@ class ContractsService(
     dao =>
       (
         dao,
-        new ContractsFetch(getActiveContracts, getCreatesAndArchivesSince, lookupType)(
+        new ContractsFetch(
+          getActiveContracts,
+          getCreatesAndArchivesSince,
+          getTermination,
+          lookupType,
+        )(
           dao.logHandler,
         ),
       )

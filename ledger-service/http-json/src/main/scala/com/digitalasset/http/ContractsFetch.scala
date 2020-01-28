@@ -50,6 +50,7 @@ import scala.concurrent.{ExecutionContext, Future}
 private class ContractsFetch(
     getActiveContracts: LedgerClientJwt.GetActiveContracts,
     getCreatesAndArchivesSince: LedgerClientJwt.GetCreatesAndArchivesSince,
+    getTermination: LedgerClientJwt.GetTermination,
     lookupType: query.ValuePredicate.TypeLookup,
 )(implicit dblog: doobie.LogHandler)
     extends StrictLogging {
