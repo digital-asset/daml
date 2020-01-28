@@ -29,7 +29,7 @@ object MainWithEphemeralDirectory extends App {
           ledgerId = ledgerId,
           participantId = participantId,
           root = root,
-      )
+        ),
     ).run(args)
   } yield ()
 }

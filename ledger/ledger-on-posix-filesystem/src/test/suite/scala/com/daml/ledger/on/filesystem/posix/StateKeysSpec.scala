@@ -9,7 +9,7 @@ import com.daml.ledger.on.filesystem.posix.StateKeysSpec._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlContractId,
   DamlLogEntryId,
-  DamlStateKey
+  DamlStateKey,
 }
 import com.google.protobuf.ByteString
 import org.scalatest.{Matchers, WordSpec}
@@ -30,14 +30,17 @@ class StateKeysSpec extends WordSpec with Matchers {
           "the",
           "root",
           "12090a070a0548656c6c6f",
-        ))
+        ),
+      )
     }
 
     "resolve a long key in multiple chunks" in {
       val resolved = StateKeys.resolveStateKey(
         root,
         stateKey(contractEntryId =
-          "It was the best of times, it was the worst of times, it was the age of wisdom, it was the age of foolishness"))
+          "It was the best of times, it was the worst of times, it was the age of wisdom, it was the age of foolishness",
+        ),
+      )
 
       resolved should be(
         Paths.get(
@@ -53,7 +56,8 @@ class StateKeysSpec extends WordSpec with Matchers {
           "646f6d2c206974207761732074686520",
           "616765206f6620666f6f6c6973686e65",
           "7373",
-        ))
+        ),
+      )
     }
 
     "does not generate paths causing collisions due to one being a prefix of the other" in {
@@ -62,7 +66,8 @@ class StateKeysSpec extends WordSpec with Matchers {
       val aSegments = StateKeys
         .resolveStateKey(
           root,
-          stateKey(contractEntryId = "It was the best of times, it was the worst"))
+          stateKey(contractEntryId = "It was the best of times, it was the worst"),
+        )
         .iterator()
         .asScala
         .toVector
@@ -70,7 +75,9 @@ class StateKeysSpec extends WordSpec with Matchers {
         .resolveStateKey(
           root,
           stateKey(contractEntryId =
-            "It was the best of times, it was the worst of times, it was the age of wisdom, it was the age of foolishness"))
+            "It was the best of times, it was the worst of times, it was the age of wisdom, it was the age of foolishness",
+          ),
+        )
         .iterator()
         .asScala
         .toVector
@@ -89,6 +96,8 @@ object StateKeysSpec {
         DamlContractId
           .newBuilder()
           .setEntryId(
-            DamlLogEntryId.newBuilder().setEntryId(ByteString.copyFromUtf8(contractEntryId))))
+            DamlLogEntryId.newBuilder().setEntryId(ByteString.copyFromUtf8(contractEntryId)),
+          ),
+      )
       .build()
 }
