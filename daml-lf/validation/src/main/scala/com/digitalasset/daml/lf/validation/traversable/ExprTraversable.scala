@@ -12,8 +12,8 @@ private[validation] object ExprTraversable {
 
   private[traversable] def foreach[U](x: Expr, f: Expr => U): Unit = {
     x match {
-      case EVar(_) | EBuiltin(_) | EPrimCon(_) | EPrimLit(_) | EVal(_) | EContractId(_, _) |
-          EEnumCon(_, _) | ETypeRep(_) =>
+      case EVar(_) | EBuiltin(_) | EPrimCon(_) | EPrimLit(_) | EVal(_) | EEnumCon(_, _) | ETypeRep(
+            _) =>
       case ELocation(_, expr) =>
         f(expr)
       case ERecCon(tycon @ _, fields) =>
@@ -118,6 +118,7 @@ private[validation] object ExprTraversable {
 
   private[traversable] def foreach[U](x: Definition, f: Expr => U): Unit =
     x match {
+      case DTypeSyn(params @ _, typ @ _) =>
       case DDataType(serializable @ _, params @ _, DataRecord(fields @ _, template)) =>
         template.foreach(foreach(_, f))
       case DDataType(serializable @ _, params @ _, DataVariant(variants @ _)) =>

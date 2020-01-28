@@ -102,6 +102,7 @@ da_haskell_test(
     data = ["//compiler/damlc/pkg-db"],
     hackage_deps = [
         "base",
+        "data-default",
         "extra",
         "ghcide",
         "haskell-lsp-types",
@@ -172,27 +173,6 @@ da_haskell_test(
         "//compiler/damlc/daml-visual",
         "//libs-haskell/da-hs-base",
     ],
-)
-
-da_haskell_test(
-    name = "position-mapping",
-    srcs = ["src/DA/Test/PositionMapping.hs"],
-    hackage_deps = [
-        "base",
-        "ghcide",
-        "haskell-lsp",
-        "haskell-lsp-types",
-        "QuickCheck",
-        "quickcheck-instances",
-        "rope-utf16-splay",
-        "tasty",
-        "tasty-hunit",
-        "tasty-quickcheck",
-        "text",
-    ],
-    main_function = "DA.Test.PositionMapping.main",
-    src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
 )
 
 # Tests for incremental builds

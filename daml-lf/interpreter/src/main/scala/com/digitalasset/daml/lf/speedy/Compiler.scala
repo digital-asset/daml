@@ -17,7 +17,6 @@ import com.digitalasset.daml.lf.validation.{
   Validation,
   ValidationError
 }
-import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import org.slf4j.LoggerFactory
 
 import scala.annotation.tailrec
@@ -445,9 +444,6 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
 
       case EVariantCon(tapp, variant, arg) =>
         SBVariantCon(tapp.tycon, variant)(translate(arg))
-
-      case EContractId(coid, _) =>
-        SEValue(SContractId(AbsoluteContractId(coid)))
 
       case let: ELet =>
         val (bindings, body) = collectLets(let)

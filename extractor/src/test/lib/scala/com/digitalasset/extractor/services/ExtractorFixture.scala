@@ -3,22 +3,22 @@
 
 package com.digitalasset.extractor.services
 
+import cats.effect.{ContextShift, IO}
+import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.extractor.Extractor
 import com.digitalasset.extractor.config.{ExtractorConfig, SnapshotEndSetting}
 import com.digitalasset.extractor.targets.PostgreSQLTarget
-import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.tls.TlsConfiguration
-import com.digitalasset.platform.sandbox.persistence.PostgresAround
+import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.platform.sandbox.services.SandboxFixture
-import scalaz.OneAnd
-import cats.effect.{ContextShift, IO}
+import com.digitalasset.testing.postgresql.PostgresAround
 import doobie._
 import doobie.implicits._
 import org.scalatest._
+import scalaz.OneAnd
 
-import scala.concurrent.{Await, ExecutionContext}
 import scala.concurrent.duration._
+import scala.concurrent.{Await, ExecutionContext}
 
 trait ExtractorFixture extends SandboxFixture with PostgresAround with Types {
   self: Suite =>

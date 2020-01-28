@@ -4,10 +4,10 @@
 package com.daml.ledger.on.memory
 
 import java.time.Clock
-import java.util.UUID
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
+import com.daml.ledger.on.memory.InMemoryLedgerReaderWriter._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntryId,
   DamlStateKey,
@@ -21,12 +21,12 @@ import com.daml.ledger.participant.state.kvutils.{
   SequentialLogEntryId
 }
 import com.daml.ledger.participant.state.v1._
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.ledger.api.health.{HealthStatus, Healthy}
 import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
 import com.digitalasset.platform.akkastreams.dispatcher.SubSource.OneAfterAnother
+import com.digitalasset.resources.ResourceOwner
 import com.google.protobuf.ByteString
 
 import scala.collection.JavaConverters._
@@ -47,16 +47,16 @@ private[memory] class InMemoryState(
 )
 
 final class InMemoryLedgerReaderWriter(
-    ledgerId: LedgerId = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
-    val participantId: ParticipantId)(implicit executionContext: ExecutionContext)
+    ledgerId: LedgerId,
+    override val participantId: ParticipantId,
+    dispatcher: Dispatcher[Index],
+)(implicit executionContext: ExecutionContext)
     extends LedgerWriter
     with LedgerReader {
 
   private val engine = Engine()
 
   private val currentState = new InMemoryState()
-
-  private val StartOffset: Int = 0
 
   override def commit(correlationId: String, envelope: Array[Byte]): Future[SubmissionResult] =
     Future {
@@ -106,7 +106,7 @@ final class InMemoryLedgerReaderWriter(
       .startingAt(
         offset
           .map(_.components.head.toInt)
-          .getOrElse(StartOffset),
+          .getOrElse(StartIndex),
         OneAfterAnother[Int, List[LedgerRecord]](
           (index: Int, _) => index + 1,
           (index: Int) => Future.successful(List(retrieveLogEntry(index)))
@@ -118,17 +118,6 @@ final class InMemoryLedgerReaderWriter(
 
   override def currentHealth(): HealthStatus = Healthy
 
-  override def close(): Unit = {
-    dispatcher.close()
-  }
-
-  private val dispatcher: Dispatcher[Int] =
-    Dispatcher("in-memory-key-value-participant-state", zeroIndex = 0, headAtInitialization = 0)
-
-  private val NamespaceLogEntries = "L"
-
-  private val sequentialLogEntryId = new SequentialLogEntryId(NamespaceLogEntries)
-
   private def currentRecordTime(): Timestamp =
     Timestamp.assertFromInstant(Clock.systemUTC().instant())
 
@@ -136,4 +125,28 @@ final class InMemoryLedgerReaderWriter(
     val logEntry = currentState.log(index)
     LedgerRecord(Offset(Array(index.toLong)), logEntry.entryId, logEntry.payload)
   }
+}
+
+object InMemoryLedgerReaderWriter {
+  type Index = Int
+
+  private val StartIndex: Index = 0
+
+  private val NamespaceLogEntries = "L"
+
+  private val sequentialLogEntryId = new SequentialLogEntryId(NamespaceLogEntries)
+
+  def owner(
+      ledgerId: LedgerId,
+      participantId: ParticipantId,
+  )(implicit executionContext: ExecutionContext): ResourceOwner[InMemoryLedgerReaderWriter] =
+    for {
+      dispatcher <- ResourceOwner.forCloseable(
+        () =>
+          Dispatcher(
+            "in-memory-key-value-participant-state",
+            zeroIndex = StartIndex,
+            headAtInitialization = StartIndex,
+        ))
+    } yield new InMemoryLedgerReaderWriter(ledgerId, participantId, dispatcher)
 }

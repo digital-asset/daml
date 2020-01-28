@@ -59,6 +59,7 @@ object Node {
     override def mapNodeId[Nid2](f: Nothing => Nid2): NodeCreate[Cid, Val] = this
 
     override def requiredAuthorizers(): Set[Party] = signatories
+
   }
 
   object NodeCreate extends WithTxValue2[NodeCreate]
@@ -196,7 +197,7 @@ object Node {
       }
   }
 
-  private[transaction] def isReplayedBy[Cid: Equal, Val: Equal](
+  final def isReplayedBy[Cid: Equal, Val: Equal](
       recorded: GenNode[Nothing, Cid, Val],
       isReplayedBy: GenNode[Nothing, Cid, Val]): Boolean =
     ScalazEqual.match2[recorded.type, isReplayedBy.type, Boolean](fallback = false) {

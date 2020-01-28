@@ -17,7 +17,8 @@ import com.digitalasset.daml.lf.transaction._
 import com.digitalasset.daml.lf.value.Value._
 import org.scalacheck.{Arbitrary, Gen}
 import Arbitrary.arbitrary
-import scala.collection.immutable.TreeMap
+
+import scala.collection.immutable.HashMap
 import scalaz.syntax.apply._
 import scalaz.scalacheck.ScalaCheckBinding._
 import scalaz.std.string.parseInt
@@ -30,7 +31,7 @@ object ValueGenerators {
   val defaultCidDecode: ValueCoder.DecodeCid[Tx.TContractId] = ValueCoder.DecodeCid(
     { i: String =>
       if (i.startsWith("RCOID")) {
-        Right(RelativeContractId(Tx.NodeId.unsafeFromIndex(i.split(":::")(1).toInt)))
+        Right(RelativeContractId(Tx.NodeId(i.split(":::")(1).toInt)))
       } else if (i.startsWith("ACOID")) {
         Right(AbsoluteContractId(toContractId(i.split(":::")(1))))
       } else {
@@ -39,9 +40,7 @@ object ValueGenerators {
     }, { (i, r) =>
       if (r)
         parseInt(i)
-          .bimap(
-            e => ValueCoder.DecodeError(e.getMessage),
-            n => RelativeContractId(NodeId unsafeFromIndex n))
+          .bimap(e => ValueCoder.DecodeError(e.getMessage), n => RelativeContractId(NodeId(n)))
           .toEither
       else Right(AbsoluteContractId(toContractId(i)))
     }
@@ -55,10 +54,10 @@ object ValueGenerators {
   val defaultCidEncode: ValueCoder.EncodeCid[Tx.TContractId] = ValueCoder.EncodeCid(
     {
       case AbsoluteContractId(coid) => s"ACOID:::${coid: String}"
-      case RelativeContractId(i) => s"RCOID:::${i.index: Int}"
+      case RelativeContractId(nid, _) => s"RCOID:::${nid.index: Int}"
     }, {
       case AbsoluteContractId(coid) => (coid, false)
-      case RelativeContractId(i) => ((i.index: Int).toString, true)
+      case RelativeContractId(nid, _) => ((nid.index: Int).toString, true)
     }
   )
 
@@ -67,7 +66,7 @@ object ValueGenerators {
 
   val defaultNidDecode: String => Either[ValueCoder.DecodeError, NodeId] = s => {
     try {
-      Right(NodeId.unsafeFromIndex(s.toInt))
+      Right(NodeId(s.toInt))
     } catch {
       case _: NumberFormatException =>
         Left(ValueCoder.DecodeError(s"invalid node id, not an integer: $s"))
@@ -205,7 +204,7 @@ object ValueGenerators {
 
   def coidGen: Gen[ContractId] = {
     val genRel: Gen[ContractId] =
-      Arbitrary.arbInt.arbitrary.map(i => RelativeContractId(Transaction.NodeId.unsafeFromIndex(i)))
+      Arbitrary.arbInt.arbitrary.map(i => RelativeContractId(Tx.NodeId(i)))
     val genAbs: Gen[ContractId] =
       Gen.zip(Gen.alphaChar, Gen.alphaStr) map {
         case (h, t) => AbsoluteContractId(toContractId(h +: t))
@@ -307,9 +306,6 @@ object ValueGenerators {
     } yield NodeCreate(coid, coinst, None, signatories, stakeholders, key)
   }
 
-  @deprecated("use malformedCreateNodeGen instead", since = "100.11.17")
-  private[lf] def createNodeGen = malformedCreateNodeGen
-
   val fetchNodeGen: Gen[NodeFetch[ContractId]] = {
     for {
       coid <- coidGen
@@ -334,7 +330,7 @@ object ValueGenerators {
       signatories <- genNonEmptyParties
       children <- Gen
         .listOf(Arbitrary.arbInt.arbitrary)
-        .map(_.map(Transaction.NodeId.unsafeFromIndex))
+        .map(_.map(Transaction.NodeId(_)))
         .map(ImmArray(_))
       exerciseResultValue <- versionedValueGen
       key <- versionedValueGen
@@ -363,9 +359,9 @@ object ValueGenerators {
   /** Makes nodes with the problems listed under `malformedCreateNodeGen`, and
     * `malformedGenTransaction` should they be incorporated into a transaction.
     */
-  val danglingRefGenNode: Gen[(NodeId, Transaction.Node)] = {
+  val danglingRefGenNode: Gen[(NodeId, Tx.Node)] = {
     for {
-      id <- Arbitrary.arbInt.arbitrary.map(NodeId.unsafeFromIndex)
+      id <- Arbitrary.arbInt.arbitrary.map(NodeId(_))
       node <- Gen.oneOf(malformedCreateNodeGen, danglingRefExerciseNodeGen, fetchNodeGen)
     } yield (id, node)
   }
@@ -387,20 +383,84 @@ object ValueGenerators {
     *
     * This list is complete as of transaction version 5. -SC
     */
-  val malformedGenTransaction: Gen[Transaction.Transaction] = {
+  val malformedGenTransaction: Gen[Tx.Transaction] = {
     for {
       nodes <- Gen.listOf(danglingRefGenNode)
-      roots <- Gen.listOf(Arbitrary.arbInt.arbitrary.map(NodeId.unsafeFromIndex))
-    } yield GenTransaction(TreeMap(nodes: _*), ImmArray(roots), None)
+      roots <- Gen.listOf(Arbitrary.arbInt.arbitrary.map(Tx.NodeId(_)))
+    } yield GenTransaction(HashMap(nodes: _*), ImmArray(roots), None)
   }
 
-  @deprecated("use malformedGenTransaction instead", since = "100.11.17")
-  private[lf] def genTransaction = malformedGenTransaction
+  /*
+   * Create a transaction without no dangling nodeId.
+   *
+   *  Data expect nodeId are still generated completely randomly so for
+   *  fetch and exercise nodes, if the contract_id is relative, the
+   *  associated invariants will probably fail; a create node with that ID
+   *  may not exist, and even if it does, the stakeholders and signatories
+   *  may not match up.
+   *
+   */
+
+  val noDanglingRefGenTransaction: Gen[Tx.Transaction] = {
+
+    def nonDanglingRefNodeGen(
+        maxDepth: Int,
+        nodeId: NodeId
+    ): Gen[(ImmArray[NodeId], HashMap[NodeId, Tx.Node])] = {
+
+      val exerciseFreq = if (maxDepth <= 0) 0 else 1
+
+      def nodeGen(nodeId: NodeId): Gen[(NodeId, HashMap[NodeId, Tx.Node])] =
+        for {
+          node <- Gen.frequency(
+            exerciseFreq -> danglingRefExerciseNodeGen,
+            1 -> malformedCreateNodeGen,
+            2 -> fetchNodeGen
+          )
+          nodeWithChildren <- node match {
+            case node: NodeExercises.WithTxValue[Tx.NodeId, Tx.TContractId] =>
+              for {
+                depth <- Gen.choose(0, maxDepth - 1)
+                nodeWithChildren <- nonDanglingRefNodeGen(depth, nodeId)
+                (children, nodes) = nodeWithChildren
+              } yield node.copy(children = children) -> nodes
+            case node =>
+              Gen.const(node -> HashMap.empty[NodeId, Tx.Node])
+          }
+          (node, nodes) = nodeWithChildren
+        } yield nodeId -> nodes.updated(nodeId, node)
+
+      def nodesGen(
+          parentNodeId: NodeId,
+          size: Int,
+          nodeIds: BackStack[NodeId] = BackStack.empty,
+          nodes: HashMap[NodeId, Tx.Node] = HashMap.empty
+      ): Gen[(ImmArray[NodeId], HashMap[NodeId, Tx.Node])] =
+        if (size <= 0)
+          Gen.const(nodeIds.toImmArray -> nodes)
+        else
+          nodeGen(Tx.NodeId(parentNodeId.index * 10 + size)).flatMap {
+            case (nodeId, children) =>
+              nodesGen(parentNodeId, size - 1, nodeIds :+ nodeId, nodes ++ children)
+          }
+
+      Gen.choose(0, 6).flatMap(nodesGen(nodeId, _))
+    }
+
+    nonDanglingRefNodeGen(3, Tx.NodeId(0)).map {
+      case (nodeIds, nodes) =>
+        GenTransaction(
+          nodes,
+          nodeIds,
+          None
+        )
+    }
+  }
 
   val genBlindingInfo: Gen[BlindingInfo] = {
     val nodePartiesGen = Gen.mapOf(
       arbitrary[Int]
-        .map(NodeId.unsafeFromIndex)
+        .map(NodeId(_))
         .flatMap(n => genMaybeEmptyParties.map(ps => (n, ps))))
     for {
       disclosed1 <- nodePartiesGen

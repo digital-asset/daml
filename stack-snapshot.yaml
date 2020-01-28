@@ -1,12 +1,13 @@
 resolver: lts-14.1
 packages:
-  - archive: http://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-parser-8.8.1.20200115.tar.gz
-    sha256: "36644a5d2bb672b1c2c887e0df129b4152631dfb5c672d835e826b0886c63b1e"
-  - archive: http://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-8.8.1.20200115.tar.gz
-    sha256: "b62b2853fb5b65046557dfe3163e1d4a5d271614c58331695434c6b4602d098b"
+  - archive: http://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-parser-8.8.1.20200122.tar.gz
+    sha256: "7b77b8c6a9528e8e3856d783685dddc253c1e17d2b4bd52f7fd4363b65ce5adf"
+  - archive: http://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-8.8.1.20200122.tar.gz
+    sha256: "50d6942d35cef80a8159b4f593bca467e9186c7efcdbe010dfd2e654d90888bd"
   - github: digital-asset/hlint
-    commit: "e9ceb5387b661c6be254dc7f05d45d98b8310329"
-    sha256: "dca638af703035aeb2b44bd72a6ee1430d5633c66d790df776151d4575d1e16a"
+    commit: "2de70183ba81d71faa67a339fc72f8fe86a2f6d1"
+    sha256: "3dff215c25e1e4afdd949930c483b5e56394a8091784da18766ae85492c7b370"
+  - ghc-lib-parser-ex-8.8.2
   - bytestring-nums-0.3.6
   - extra-1.6.18
   - grpc-haskell-0.0.1.0

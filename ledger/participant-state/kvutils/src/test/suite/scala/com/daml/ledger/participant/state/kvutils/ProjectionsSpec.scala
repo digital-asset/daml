@@ -19,7 +19,7 @@ import com.digitalasset.daml.lf.value.Value.{
 import com.digitalasset.daml.lf.value.ValueVersions
 import org.scalatest.{Matchers, WordSpec}
 
-import scala.collection.immutable.TreeMap
+import scala.collection.immutable.HashMap
 
 class ProjectionsSpec extends WordSpec with Matchers {
 
@@ -70,18 +70,18 @@ class ProjectionsSpec extends WordSpec with Matchers {
   "computePerPartyProjectionRoots" should {
 
     "yield no roots with empty transaction" in {
-      val emptyTransaction: Transaction = GenTransaction(TreeMap.empty, ImmArray.empty, None)
+      val emptyTransaction: Transaction = GenTransaction(HashMap.empty, ImmArray.empty, None)
       project(emptyTransaction) shouldBe List.empty
     }
 
     "yield two projection roots for single root transaction with two parties" in {
-      val nid = NodeId.unsafeFromIndex(1)
+      val nid = NodeId(1)
       val root = makeCreateNode(
         RelativeContractId(nid),
         Set(Party.assertFromString("Alice")),
         Set(Party.assertFromString("Alice"), Party.assertFromString("Bob")))
       val tx =
-        GenTransaction(nodes = TreeMap(nid -> root), roots = ImmArray(nid), optUsedPackages = None)
+        GenTransaction(nodes = HashMap(nid -> root), roots = ImmArray(nid), optUsedPackages = None)
 
       project(tx) shouldBe List(
         ProjectionRoots(Party.assertFromString("Alice"), BackStack(nid)),
@@ -90,10 +90,10 @@ class ProjectionsSpec extends WordSpec with Matchers {
     }
 
     "yield proper projection roots in complex transaction" in {
-      val nid1 = NodeId.unsafeFromIndex(1)
-      val nid2 = NodeId.unsafeFromIndex(2)
-      val nid3 = NodeId.unsafeFromIndex(3)
-      val nid4 = NodeId.unsafeFromIndex(4)
+      val nid1 = NodeId(1)
+      val nid2 = NodeId(2)
+      val nid3 = NodeId(3)
+      val nid4 = NodeId(4)
 
       // Alice creates an "offer contract" to Bob as part of her workflow.
       // Alice sees both the exercise and the create, and Bob only
@@ -121,7 +121,7 @@ class ProjectionsSpec extends WordSpec with Matchers {
 
       val tx =
         GenTransaction(
-          nodes = TreeMap(nid1 -> exe, nid2 -> create, nid3 -> bobCreate, nid4 -> charlieCreate),
+          nodes = HashMap(nid1 -> exe, nid2 -> create, nid3 -> bobCreate, nid4 -> charlieCreate),
           roots = ImmArray(nid1, nid3, nid4),
           optUsedPackages = None)
 

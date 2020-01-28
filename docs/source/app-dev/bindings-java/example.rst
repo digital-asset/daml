@@ -25,13 +25,13 @@ To set up the example projects, clone the public GitHub repository at `github.co
 
 This project contains three examples of the PingPong application, built with gRPC (non-reactive), Reactive and Reactive Component bindings respectively.
 
-Example project -- Ping Pong without reactive components
+Example project
 ********************************************************
 
 PingPongMain.java
 =================
 
-The entry point for the Java code is the main class ``src/main/java/examples/pingpong/PingPongMain.java``. Look at this class to see:
+The entry point for the Java code is the main class ``src/main/java/examples/pingpong/grpc/PingPongMain.java``. Look at this class to see:
 
 - how to connect to and interact with the DAML Ledger via the Java bindings
 - how to use the Reactive layer to build an automation for both parties.
@@ -72,28 +72,3 @@ The first line shows that:
 
 The second line is analogous to the first one.
 
-Example project -- Ping Pong with reactive components
-*****************************************************
-
-PingPongMain.java
-=================
-
-The entry point for the Java code is the main class ``src/main/java/examples/pingpong/PingPongMain.java``. Look at this class to see:
-
-- how to connect to and interact with the DAML Ledger via the Java bindings 
-- how to use the Reactive Components to build an automation for both parties
-
-PingPongBot
-===========
-
-At high level, this application follows the same steps as the one without Reactive Components except for the ``PingPongProcessor``. In this application, the ``PingPongProcessor`` is replaced by the ``PingPongBot``.
-
-The ``PingPongBot`` has two important methods:
-
-- ``getContractInfo(Record record, TransactionContext context)`` which is used to get the information useful to the application from a created contract and the context
-- ``process(LedgerView<ContractInfo> ledgerView)`` which implements the logic of the application by converting the local view of the Ledger into a stream of ``Commands``
-
-Output
-======
-
-The application prints statements similar to the ones seen in the section above.

@@ -100,15 +100,12 @@ da_scala_test(
 da_scala_binary(
     name = "ephemeral-postgres-reference-server",
     srcs = glob(["src/test/lib/scala/**/*.scala"]),
-    data = [
-        "@postgresql_dev_env//:all",
-    ],
     main_class = "com.daml.ledger.api.server.damlonx.reference.v2.EphemeralPostgresReferenceServerMain",
     resources = ["src/main/resources/logback.xml"],
     visibility = ["//visibility:public"],
     deps = [
         ":reference-v2",
-        "//ledger/sandbox:sandbox-scala-tests-lib",
+        "//libs-scala/postgresql-testing",
     ],
 )
 

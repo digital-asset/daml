@@ -12,6 +12,7 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{
 }
 import com.digitalasset.platform.sandbox.stores.ledger.sql.migration.FlywayMigrations
 import com.digitalasset.resources.Resource
+import com.digitalasset.testing.postgresql.PostgresAroundAll
 import org.scalatest._
 
 import scala.concurrent.Await

@@ -1,6 +1,8 @@
 -- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# OPTIONS_GHC -Wno-orphans #-}
+
 module DA.Daml.Options.Types
     ( Options(..)
     , EnableScenarioService(..)
@@ -8,7 +10,9 @@ module DA.Daml.Options.Types
     , DlintUsage(..)
     , Haddock(..)
     , IncrementalBuild(..)
-    , PackageImport(..)
+    , PackageFlag(..)
+    , ModRenaming(..)
+    , PackageArg(..)
     , defaultOptionsIO
     , defaultOptions
     , mkOptions
@@ -25,36 +29,16 @@ import Control.Monad.Reader
 import DA.Bazel.Runfiles
 import qualified DA.Daml.LF.Ast as LF
 import DA.Pretty (renderPretty)
-import Data.Bifunctor
 import Data.Maybe
-import GHC.Show
-import qualified Module as GHC
+import Development.IDE.GHC.Util (prettyPrint)
+import DynFlags (ModRenaming(..), PackageFlag(..), PackageArg(..))
 import qualified System.Directory as Dir
 import System.Environment
 import System.FilePath
 
-data PackageImport = PackageImport
-  { pkgImportUnitId :: GHC.UnitId
-  , pkgImportExposeImplicit :: Bool
-  -- ^ Expose modules that do not have explicit explicit renamings.
-  , pkgImportModRenamings :: [(GHC.ModuleName, GHC.ModuleName)]
-  -- ^ Expose module m under name n
-  }
-
--- We handwrite the orphan instance to avoid introducing an orphan for GHC.ModuleName
-instance Show PackageImport where
-    showsPrec prec PackageImport{..} = showParen (prec > appPrec) $
-        showString "PackageImport {" .
-        showString "pkgImportUnitId = " .
-        shows pkgImportUnitId .
-        showCommaSpace .
-        showString "pkgImportExposeImplicit = " .
-        shows pkgImportExposeImplicit .
-        showCommaSpace .
-        showString "pkgImportModRenamings = " .
-        shows (map (bimap GHC.moduleNameString GHC.moduleNameString) pkgImportModRenamings) .
-        showString "}"
-     where appPrec = 10
+-- | Orphan instances for debugging
+instance Show PackageFlag where
+    show = prettyPrint
 
 -- | Compiler run configuration for DAML-GHC.
 data Options = Options
@@ -70,7 +54,7 @@ data Options = Options
     -- ^ directory to write interface files to. If set to `Nothing` we default to <current working dir>.daml/interfaces.
   , optHideAllPkgs :: Bool
     -- ^ hide all imported packages
-  , optPackageImports :: [PackageImport]
+  , optPackageImports :: [PackageFlag]
     -- ^ list of explicit package imports and modules with aliases. The boolean flag controls
     -- whether modules without given alias are visible.
   , optShakeProfiling :: Maybe FilePath

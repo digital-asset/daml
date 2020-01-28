@@ -272,6 +272,7 @@ object Repl {
 
   def prettyDefinitionType(defn: Definition, pkgId: PackageId, modId: ModuleName): String =
     defn match {
+      case DTypeSyn(_, _) => "<type synonym>" // FIXME: pp this
       case DDataType(_, _, _) => "<data type>" // FIXME(JM): pp this
       case DValue(typ, _, _, _) => prettyType(typ, pkgId, modId)
     }
@@ -295,6 +296,12 @@ object Repl {
       if (needParens) s"($s)" else s
 
     def prettyType(t0: Type, prec: Int = precTForall): String = t0 match {
+      case TSynApp(syn, args) =>
+        maybeParens(
+          prec > precTApp,
+          prettyQualified(pkgId, modId, syn)
+            + " " + args.map(t => prettyType(t, precTApp + 1)).toSeq.mkString(" ")
+        )
       case TVar(n) => n
       case TNat(n) => n.toString
       case TTyCon(con) =>

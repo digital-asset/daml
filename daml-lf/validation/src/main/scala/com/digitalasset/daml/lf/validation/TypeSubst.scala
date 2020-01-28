@@ -15,6 +15,7 @@ private[validation] object TypeSubst {
 
   private def go(fv0: Set[TypeVarName], subst0: Map[TypeVarName, Type], typ0: Type): Type =
     typ0 match {
+      case TSynApp(syn, args) => TSynApp(syn, args.map(go(fv0, subst0, _)))
       case TVar(name) => subst0.getOrElse(name, typ0)
       case TTyCon(_) | TBuiltin(_) | TNat(_) => typ0
       case TApp(t1, t2) => TApp(go(fv0, subst0, t1), go(fv0, subst0, t2))

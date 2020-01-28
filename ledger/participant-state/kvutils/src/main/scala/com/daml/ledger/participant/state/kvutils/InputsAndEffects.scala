@@ -9,7 +9,7 @@ import com.daml.ledger.participant.state.v1.SubmittedTransaction
 import com.digitalasset.daml.lf.data.InsertOrdSet
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.transaction.Node._
-import com.digitalasset.daml.lf.transaction.{GenTransaction, Transaction}
+import com.digitalasset.daml.lf.transaction.Transaction
 import com.digitalasset.daml.lf.value.Value.{
   AbsoluteContractId,
   ContractId,
@@ -75,7 +75,7 @@ private[kvutils] object InputsAndEffects {
       InsertOrdSet.fromSeq(parties.toList.sorted.map(partyStateKey))
     }
 
-    tx.fold(GenTransaction.TopDown, packageInputs: Set[DamlStateKey]) {
+    tx.fold(packageInputs: Set[DamlStateKey]) {
         case (inputs, (nodeId, node)) =>
           node match {
             case fetch: NodeFetch[ContractId] =>
@@ -103,7 +103,7 @@ private[kvutils] object InputsAndEffects {
   def computeEffects(entryId: DamlLogEntryId, tx: SubmittedTransaction): Effects = {
     // TODO(JM): Skip transient contracts in createdContracts/updateContractKeys. E.g. rewrite this to
     // fold bottom up (with reversed roots!) and skip creates of archived contracts.
-    tx.fold(GenTransaction.TopDown, Effects.empty) {
+    tx.fold(Effects.empty) {
       case (effects, (nodeId, node)) =>
         node match {
           case fetch: NodeFetch[ContractId] =>

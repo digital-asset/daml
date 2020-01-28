@@ -31,7 +31,7 @@ source "\$${RUNFILES_DIR:-/dev/null}/\$$f" 2>/dev/null || \
   source "\$$(grep -sm1 "^\$$f " "\$$0.exe.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
   { echo>&2 "ERROR: cannot find \$$f"; exit 1; }; f=; set -e
 
-PATH="\$$(rlocation coreutils_nix/bin):\$$(rlocation jq_nix/bin):\$$(rlocation grpcurl_nix/bin):\$$(rlocation jq_dev_env/bin):\$$(rlocation netcat_dev_env/bin):\$$PATH"
+PATH="\$$(rlocation coreutils_nix/bin):\$$(rlocation curl_nix/bin):\$$(rlocation grpcurl_nix/bin):\$$(rlocation jq_dev_env/bin):\$$PATH"
 export PATH
 
 EOF
@@ -55,9 +55,9 @@ conformance_test(
         ":canton",
         ":canton.conf",
         "@coreutils_nix//:bin/base64",
+        "@curl_nix//:bin/curl",
         "@grpcurl_nix//:bin/grpcurl",
         "@jq_dev_env//:jq",
-        "@netcat_dev_env//:nc",
     ],
     ports = [
         5011,

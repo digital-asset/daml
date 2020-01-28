@@ -52,6 +52,7 @@ private[digitalasset] class AstRewriter(
     if (typeRule.isDefinedAt(x)) typeRule(x)
     else
       x match {
+        case TSynApp(_, _) => throw new RuntimeException("TODO #3616,AstRewriter,TSynApp")
         case TVar(_) | TNat(_) | TBuiltin(_) => x
         case TTyCon(typeCon) =>
           TTyCon(apply(typeCon))
@@ -72,7 +73,7 @@ private[digitalasset] class AstRewriter(
       exprRule(x)
     else
       x match {
-        case EVar(_) | EBuiltin(_) | EPrimCon(_) | EPrimLit(_) | EContractId(_, _) | ETypeRep(_) =>
+        case EVar(_) | EBuiltin(_) | EPrimCon(_) | EPrimLit(_) | ETypeRep(_) =>
           x
         case EVal(ref) =>
           EVal(apply(ref))
@@ -205,6 +206,9 @@ private[digitalasset] class AstRewriter(
         x
       case DValue(typ, noPartyLiterals, body, isTest) =>
         DValue(apply(typ), noPartyLiterals, apply(body), isTest)
+
+      case DTypeSyn(params @ _, typ @ _) =>
+        throw new RuntimeException("TODO #3616,AstRewriter,DTypeSyn")
     }
 
   def apply(x: Template): Template =

@@ -14,23 +14,21 @@ import com.google.protobuf.ByteString
 import scala.collection.immutable
 
 trait Queries {
-  def createLogTable()(implicit connection: Connection): Unit
-
-  def createStateTable()(implicit connection: Connection): Unit
-
   def selectFromLog(
       start: Index,
       end: Index,
   )(implicit connection: Connection): immutable.Seq[(Index, LedgerRecord)]
 
-  def nextEntryId()(implicit connection: Connection): Index
-
-  def insertIntoLog(entryId: Index, envelope: ByteString)(implicit connection: Connection): Unit
+  def insertIntoLog(
+      entry: DamlKvutils.DamlLogEntryId,
+      envelope: ByteString,
+  )(implicit connection: Connection): Index
 
   def selectStateByKeys(
       keys: Iterable[DamlKvutils.DamlStateKey],
-  )(implicit connection: Connection)
-    : immutable.Seq[(DamlKvutils.DamlStateKey, Option[DamlKvutils.DamlStateValue])]
+  )(
+      implicit connection: Connection,
+  ): immutable.Seq[(DamlKvutils.DamlStateKey, Option[DamlKvutils.DamlStateValue])]
 
   def updateState(
       stateUpdates: Map[DamlKvutils.DamlStateKey, DamlKvutils.DamlStateValue],
@@ -39,6 +37,10 @@ trait Queries {
 
 object Queries {
   type Index = Long
+
+  val TablePrefix = "ledger"
+  val LogTable = s"${TablePrefix}_log"
+  val StateTable = s"${TablePrefix}_state"
 
   def executeBatchSql(
       query: String,

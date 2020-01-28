@@ -191,6 +191,8 @@ versions.
 
 ``roots`` is constrained as described under `field node_id`_.
 
+The node of the tree appears in pre-order traversal in ``nodes``
+
 message ContractInstance
 ^^^^^^^^^^^^^^^^^^^^^^^^
 

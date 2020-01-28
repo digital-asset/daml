@@ -15,7 +15,7 @@ import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.{Blinding, Engine}
 import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, NodeCreate, NodeExercises}
-import com.digitalasset.daml.lf.transaction.{BlindingInfo, GenTransaction}
+import com.digitalasset.daml.lf.transaction.BlindingInfo
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId, NodeId, VersionedValue}
 import org.slf4j.LoggerFactory
 
@@ -179,7 +179,7 @@ private[kvutils] case class ProcessTransactionSubmission(
       }.toSet
 
       allUnique = relTx
-        .fold(GenTransaction.TopDown, (true, startingKeys)) {
+        .fold((true, startingKeys)) {
           case (
               (allUnique, existingKeys),
               (_nodeId, exe: NodeExercises[_, _, VersionedValue[ContractId]]))
@@ -228,7 +228,7 @@ private[kvutils] case class ProcessTransactionSubmission(
           val cs = DamlContractState.newBuilder
           cs.setActiveAt(buildTimestamp(txLet))
           val localDisclosure =
-            blindingInfo.localDisclosure(NodeId.unsafeFromIndex(key.getContractId.getNodeId.toInt))
+            blindingInfo.localDisclosure(NodeId(key.getContractId.getNodeId.toInt))
           cs.addAllLocallyDisclosedTo((localDisclosure: Iterable[String]).asJava)
           val absCoInst =
             createNode.coinst.mapValue(_.mapContractId(Conversions.toAbsCoid(entryId, _)))

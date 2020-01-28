@@ -30,12 +30,12 @@ object RetryStrategy {
     new RetryStrategy(Some(attempts), waitTime, waitTime, identity, { case _ => true })
 
   /**
-    * Retry indefinitely with constant wait time, but only if the exception satisfies a predicate
-    *
+    * Retry with constant wait time, but only if the exception satisfies a predicate
     */
-  def constant(waitTime: Duration)(predicate: PartialFunction[Throwable, Boolean]): RetryStrategy =
-    new RetryStrategy(None, waitTime, waitTime, identity, predicate)
-
+  def constant(attempts: Option[Int] = None, waitTime: Duration)(
+      predicate: PartialFunction[Throwable, Boolean]
+  ): RetryStrategy =
+    new RetryStrategy(attempts, waitTime, waitTime, identity, predicate)
 }
 
 final class RetryStrategy private (
@@ -49,7 +49,7 @@ final class RetryStrategy private (
     def go(attempt: Int, wait: Duration): Future[A] = {
       run(attempt, wait)
         .recoverWith {
-          case NonFatal(throwable) if attempts.forall(attempt > _) =>
+          case NonFatal(throwable) if attempts.exists(attempt > _) =>
             Future.failed(throwable)
           case NonFatal(throwable) if predicate.lift(throwable).getOrElse(false) =>
             Delayed.Future.by(wait)(go(attempt + 1, clip(progression(wait))))

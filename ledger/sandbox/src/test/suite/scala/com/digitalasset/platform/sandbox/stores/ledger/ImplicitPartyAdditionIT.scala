@@ -37,7 +37,7 @@ import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScalaFutures}
 import org.scalatest.time.Span
 import org.scalatest.{AsyncWordSpec, Matchers}
 
-import scala.collection.immutable.TreeMap
+import scala.collection.immutable.HashMap
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.implicitConversions
@@ -101,10 +101,10 @@ class ImplicitPartyAdditionIT
       submitter: String,
       commandId: String,
       node: GenNode[NodeId, TContractId, Value[TContractId]]): Future[SubmissionResult] = {
-    val event1: NodeId = NodeId.unsafeFromIndex(0)
+    val event1: NodeId = NodeId(0)
 
     val transaction = GenTransaction[NodeId, TContractId, Value[TContractId]](
-      TreeMap(event1 -> node),
+      HashMap(event1 -> node),
       ImmArray(event1),
       None
     )

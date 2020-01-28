@@ -13,7 +13,6 @@ import com.digitalasset.ledger.client.binding.Primitive.{ContractId, Party}
 import com.digitalasset.ledger.test_stable.Test.WithObservers
 
 import scala.concurrent.Future
-import scala.concurrent.duration.DurationInt
 
 final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(session) {
   type Parties = Set[Party]
@@ -27,13 +26,13 @@ final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(sessio
     allocate(Parties(partyCount / 2), Parties(partyCount / 2))
 
   // allocating parties seems to be really slow on a real database
-  private val timeout = 120.seconds
+  private val timeoutScale = 4.0
 
   test(
     "LOPseeTransactionsInMultipleSinglePartySubscriptions",
     "Observers should see transactions in multiple single-party subscriptions",
     allocation,
-    timeout,
+    timeoutScale,
   ) {
     case TestParticipants(t) =>
       for {
@@ -44,11 +43,13 @@ final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(sessio
         assertWitnessesOfSinglePartySubscriptions(
           t.alphaParties.toSet,
           contractId,
-          activeContractsFrom(alphaTransactionsByParty))
+          activeContractsFrom(alphaTransactionsByParty),
+        )
         assertWitnessesOfSinglePartySubscriptions(
           t.betaParties.toSet,
           contractId,
-          activeContractsFrom(betaTransactionsByParty))
+          activeContractsFrom(betaTransactionsByParty),
+        )
       }
   }
 
@@ -56,7 +57,7 @@ final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(sessio
     "LOPseeTransactionsInSingleMultiPartySubscription",
     "Observers should see transactions in a single multi-party subscription",
     allocation,
-    timeout,
+    timeoutScale,
   ) {
     case TestParticipants(t) =>
       for {
@@ -67,11 +68,13 @@ final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(sessio
         assertWitnessesOfAMultiPartySubscription(
           t.alphaParties.toSet,
           contractId,
-          activeContractsFrom(alphaTransactions))
+          activeContractsFrom(alphaTransactions),
+        )
         assertWitnessesOfAMultiPartySubscription(
           t.betaParties.toSet,
           contractId,
-          activeContractsFrom(betaTransactions))
+          activeContractsFrom(betaTransactions),
+        )
       }
   }
 
@@ -79,7 +82,7 @@ final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(sessio
     "LOPseeActiveContractsInMultipleSinglePartySubscriptions",
     "Observers should see active contracts in multiple single-party subscriptions",
     allocation,
-    timeout,
+    timeoutScale,
   ) {
     case TestParticipants(t) =>
       for {
@@ -90,11 +93,13 @@ final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(sessio
         assertWitnessesOfSinglePartySubscriptions(
           t.alphaParties.toSet,
           contractId,
-          alphaContractsByParty)
+          alphaContractsByParty,
+        )
         assertWitnessesOfSinglePartySubscriptions(
           t.betaParties.toSet,
           contractId,
-          betaContractsByParty)
+          betaContractsByParty,
+        )
       }
   }
 
@@ -102,7 +107,7 @@ final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(sessio
     "LOPseeActiveContractsInSingleMultiPartySubscription",
     "Observers should see active contracts in a single multi-party subscription",
     allocation,
-    timeout,
+    timeoutScale,
   ) {
     case TestParticipants(t) =>
       for {
@@ -117,7 +122,8 @@ final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(sessio
 
   private def transactionsForEachParty(
       ledger: ParticipantTestContext,
-      observers: Vector[Party]): Future[PartyMap[Vector[Transaction]]] = {
+      observers: Vector[Party],
+  ): Future[PartyMap[Vector[Transaction]]] = {
     Future
       .sequence(observers.map(observer => ledger.flatTransactions(observer).map(observer -> _)))
       .map(_.toMap)
@@ -125,14 +131,16 @@ final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(sessio
 
   private def activeContractsForEachParty(
       ledger: ParticipantTestContext,
-      observers: Vector[Party]): Future[PartyMap[Vector[CreatedEvent]]] = {
+      observers: Vector[Party],
+  ): Future[PartyMap[Vector[CreatedEvent]]] = {
     Future
       .sequence(observers.map(observer => ledger.activeContracts(observer).map(observer -> _)))
       .map(_.toMap)
   }
 
   private def activeContractsFrom(
-      transactionsByParty: PartyMap[Vector[Transaction]]): PartyMap[Vector[CreatedEvent]] = {
+      transactionsByParty: PartyMap[Vector[Transaction]],
+  ): PartyMap[Vector[CreatedEvent]] = {
     transactionsByParty.mapValues(transactions => activeContractsFrom(transactions))
   }
 
@@ -146,7 +154,7 @@ final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(sessio
   private def assertWitnessesOfSinglePartySubscriptions(
       observers: Set[Party],
       contractId: ContractId[WithObservers],
-      activeContracts: PartyMap[Seq[CreatedEvent]]
+      activeContracts: PartyMap[Seq[CreatedEvent]],
   ): Unit = {
     val expectedContractIds: PartyMap[Seq[ContractId[WithObservers]]] =
       observers.map(observer => observer -> Seq(contractId)).toMap
@@ -164,7 +172,7 @@ final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(sessio
   private def assertWitnessesOfAMultiPartySubscription(
       observers: Set[Party],
       contractId: ContractId[WithObservers],
-      activeContracts: Seq[CreatedEvent]
+      activeContracts: Seq[CreatedEvent],
   ): Unit = {
     val expectedContractIds: Seq[ContractId[WithObservers]] =
       Seq(contractId)
@@ -184,7 +192,8 @@ final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(sessio
       beta: ParticipantTestContext,
       giver: Party,
       alphaObservers: Vector[Party],
-      betaObservers: Vector[Party]) {
+      betaObservers: Vector[Party],
+  ) {
     val observers: Vector[Party] = alphaObservers ++ betaObservers
     val alphaParties: Vector[Party] = giver +: alphaObservers
     val betaParties: Vector[Party] = betaObservers
@@ -194,14 +203,17 @@ final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(sessio
     def unapply(participants: Participants): Option[TestParticipants] = participants match {
       case Participants(
           Participant(alpha, giver, alphaObserversSeq @ _*),
-          Participant(beta, betaObserversSeq @ _*)) =>
+          Participant(beta, betaObserversSeq @ _*),
+          ) =>
         Some(
           TestParticipants(
             alpha,
             beta,
             giver,
             alphaObserversSeq.toVector,
-            betaObserversSeq.toVector))
+            betaObserversSeq.toVector,
+          ),
+        )
       case _ => None
     }
   }

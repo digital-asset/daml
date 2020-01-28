@@ -19,7 +19,7 @@ object EventIdFormatter {
   def makeAbsCoid(transactionId: TransactionIdString)(coid: Lf.ContractId): Lf.AbsoluteContractId =
     coid match {
       case a @ Lf.AbsoluteContractId(_) => a
-      case Lf.RelativeContractId(txnid) =>
+      case Lf.RelativeContractId(txnid, _) =>
         Lf.AbsoluteContractId(fromTransactionId(transactionId, txnid))
     }
 
@@ -47,8 +47,7 @@ object EventIdFormatter {
                 .fromString(transIdString)
                 .fold(err => Failure(new IllegalArgumentException(err)), Success(_))
               _ <- Try(transId)
-            } yield
-              TransactionIdWithIndex(transId, Transaction.NodeId.unsafeFromIndex(ix))).toOption
+            } yield TransactionIdWithIndex(transId, Transaction.NodeId(ix))).toOption
           case _ => None
         }
       case _ => None

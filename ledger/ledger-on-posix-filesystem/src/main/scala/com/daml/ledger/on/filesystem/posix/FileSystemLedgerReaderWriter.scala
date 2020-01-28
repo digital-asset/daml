@@ -5,7 +5,6 @@ package com.daml.ledger.on.filesystem.posix
 
 import java.nio.file.{Files, NoSuchFileException, Path}
 import java.time.Clock
-import java.util.UUID
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
@@ -19,12 +18,12 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
 import com.daml.ledger.participant.state.kvutils.api.{LedgerReader, LedgerRecord, LedgerWriter}
 import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting}
 import com.daml.ledger.participant.state.v1.{LedgerId, Offset, ParticipantId, SubmissionResult}
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.ledger.api.health.{HealthStatus, Healthy}
 import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
 import com.digitalasset.platform.akkastreams.dispatcher.SubSource.OneAfterAnother
+import com.digitalasset.resources.ResourceOwner
 import com.google.protobuf.ByteString
 
 import scala.collection.JavaConverters._
@@ -35,10 +34,10 @@ class FileSystemLedgerReaderWriter private (
     ledgerId: LedgerId,
     override val participantId: ParticipantId,
     root: Path,
+    dispatcher: Dispatcher[Index],
 )(implicit executionContext: ExecutionContext)
     extends LedgerReader
-    with LedgerWriter
-    with AutoCloseable {
+    with LedgerWriter {
 
   // used as the ledger lock; when committing, only one commit owns the lock at a time
   private val lockPath = root.resolve("lock")
@@ -58,18 +57,7 @@ class FileSystemLedgerReaderWriter private (
 
   private val engine = Engine()
 
-  private val dispatcher: Dispatcher[Index] =
-    Dispatcher(
-      "posix-filesystem-participant-state",
-      zeroIndex = StartOffset,
-      headAtInitialization = StartOffset,
-    )
-
   override def currentHealth(): HealthStatus = Healthy
-
-  override def close(): Unit = {
-    dispatcher.close()
-  }
 
   override def retrieveLedgerId(): LedgerId = ledgerId
 
@@ -78,7 +66,7 @@ class FileSystemLedgerReaderWriter private (
       .startingAt(
         offset
           .map(_.components.head.toInt)
-          .getOrElse(StartOffset),
+          .getOrElse(StartIndex),
         OneAfterAnother[Index, immutable.Seq[LedgerRecord]](
           (index: Index, _) => index + 1,
           (index: Index) => Future.successful(immutable.Seq(retrieveLogEntry(index))),
@@ -152,7 +140,7 @@ class FileSystemLedgerReaderWriter private (
       Files.readAllLines(logHeadPath).get(0).toInt
     } catch {
       case _: NoSuchFileException =>
-        StartOffset
+        StartIndex
     }
   }
 
@@ -182,7 +170,7 @@ class FileSystemLedgerReaderWriter private (
     }
   }
 
-  private def createDirectories(): Future[Unit] = Future {
+  private def createDirectories(): Unit = {
     Files.createDirectories(root)
     Files.createDirectories(logDirectory)
     Files.createDirectories(logEntriesDirectory)
@@ -195,14 +183,24 @@ class FileSystemLedgerReaderWriter private (
 object FileSystemLedgerReaderWriter {
   type Index = Int
 
-  private val StartOffset: Index = 0
+  private val StartIndex: Index = 0
 
-  def apply(
-      ledgerId: LedgerId = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
+  def owner(
+      ledgerId: LedgerId,
       participantId: ParticipantId,
       root: Path,
-  )(implicit executionContext: ExecutionContext): Future[FileSystemLedgerReaderWriter] = {
-    val ledger = new FileSystemLedgerReaderWriter(ledgerId, participantId, root)
-    ledger.createDirectories().map(_ => ledger)
-  }
+  )(implicit executionContext: ExecutionContext): ResourceOwner[FileSystemLedgerReaderWriter] =
+    for {
+      dispatcher <- ResourceOwner.forCloseable(
+        () =>
+          Dispatcher(
+            "posix-filesystem-participant-state",
+            zeroIndex = StartIndex,
+            headAtInitialization = StartIndex,
+        ))
+    } yield {
+      val participant = new FileSystemLedgerReaderWriter(ledgerId, participantId, root, dispatcher)
+      participant.createDirectories()
+      participant
+    }
 }

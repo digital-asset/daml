@@ -4,7 +4,7 @@
 package com.digitalasset.platform.sandbox
 
 import com.digitalasset.platform.sandbox.config.SandboxConfig
-import com.digitalasset.platform.sandbox.persistence.PostgresAroundEach
+import com.digitalasset.testing.postgresql.PostgresAroundEach
 
 class ScenarioLoadingITPostgres extends ScenarioLoadingITBase with PostgresAroundEach {
   override def config: SandboxConfig = super.config.copy(jdbcUrl = Some(postgresFixture.jdbcUrl))

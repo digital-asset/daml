@@ -7,20 +7,19 @@ import java.io.File
 import java.nio.file.Path
 
 import akka.stream.Materializer
-import com.daml.ledger.participant.state.kvutils.app.{Config, KeyValueLedger, LedgerFactory, Runner}
-import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.ledger.participant.state.kvutils.app.{Config, LedgerFactory, Runner}
+import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId}
+import com.digitalasset.resources.ResourceOwner
 import scopt.OptionParser
 
-import scala.concurrent.Await
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration.DurationInt
 
 object Main extends App {
   Runner("File System Ledger", FileSystemLedgerFactory).run(args)
 
   case class ExtraConfig(root: Option[Path])
 
-  object FileSystemLedgerFactory extends LedgerFactory[ExtraConfig] {
+  object FileSystemLedgerFactory extends LedgerFactory[FileSystemLedgerReaderWriter, ExtraConfig] {
     override val defaultExtraConfig: ExtraConfig = ExtraConfig(
       root = None,
     )
@@ -34,17 +33,19 @@ object Main extends App {
       ()
     }
 
-    override def apply(participantId: ParticipantId, config: ExtraConfig)(
-        implicit materializer: Materializer,
-    ): KeyValueLedger =
-      Await.result(
-        FileSystemLedgerReaderWriter(
-          participantId = participantId,
-          root = config.root.getOrElse {
-            throw new IllegalStateException("No root directory provided.")
-          },
-        ),
-        10.seconds
+    override def owner(
+        ledgerId: LedgerId,
+        participantId: ParticipantId,
+        config: ExtraConfig,
+    )(implicit materializer: Materializer): ResourceOwner[FileSystemLedgerReaderWriter] = {
+      val root = config.root.getOrElse {
+        throw new IllegalStateException("No root directory provided.")
+      }
+      FileSystemLedgerReaderWriter.owner(
+        ledgerId = ledgerId,
+        participantId = participantId,
+        root = root,
       )
+    }
   }
 }

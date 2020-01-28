@@ -31,6 +31,8 @@ trait ResourceOwner[A] {
       override def acquire()(implicit executionContext: ExecutionContext): Resource[A] =
         self.acquire().withFilter(p)
     }
+
+  def vary[B >: A]: ResourceOwner[B] = asInstanceOf[ResourceOwner[B]]
 }
 
 object ResourceOwner {

@@ -36,6 +36,7 @@ import Development.IDE.Types.Options(IdeReportProgress(..))
 import qualified Data.Aeson.Encode.Pretty as A
 import qualified Data.ByteString.Lazy.Char8 as BSL
 import           Data.Char
+import Data.Default
 import qualified Data.DList as DList
 import Data.Foldable
 import           Data.List.Extra
@@ -138,10 +139,10 @@ getIntegrationTests registerTODO scenarioService version = do
     -- We use a separate service for generated files so that we can test files containing internal imports.
     pure $
           withResource
-          (initialise (mainRule opts) (pure $ LSP.IdInt 0) (const $ pure ()) IdeLogger.noLogging damlEnv (toCompileOpts opts (IdeReportProgress False)) vfs)
+          (initialise def (mainRule opts) (pure $ LSP.IdInt 0) (const $ pure ()) IdeLogger.noLogging damlEnv (toCompileOpts opts (IdeReportProgress False)) vfs)
           shutdown $ \service ->
           withResource
-          (initialise (mainRule opts) (pure $ LSP.IdInt 0) (const $ pure ()) IdeLogger.noLogging damlEnv (toCompileOpts opts { optIsGenerated = True } (IdeReportProgress False)) vfs)
+          (initialise def (mainRule opts) (pure $ LSP.IdInt 0) (const $ pure ()) IdeLogger.noLogging damlEnv (toCompileOpts opts { optIsGenerated = True } (IdeReportProgress False)) vfs)
           shutdown $ \serviceGenerated ->
           withTestArguments $ \args -> testGroup ("Tests for DAML-LF " ++ renderPretty version) $
             map (testCase args version service outdir registerTODO) nongeneratedFiles <>

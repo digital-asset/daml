@@ -16,11 +16,11 @@ object LoggingContext {
 
   def newLoggingContext[A](kv: (String, String), kvs: (String, String)*)(
       f: LoggingContext => A): A =
-    f(new LoggingContext((kv +: kvs).toMap))
+    newLoggingContext(withEnrichedLoggingContext(kv, kvs: _*)(f)(_))
 
   def withEnrichedLoggingContext[A](kv: (String, String), kvs: (String, String)*)(
       f: LoggingContext => A)(implicit logCtx: LoggingContext): A =
-    f((logCtx + kv) ++ kvs)
+    f(logCtx ++ (kv +: kvs))
 
 }
 
@@ -33,7 +33,6 @@ final class LoggingContext private (ctxMap: Map[String, String]) {
       ifNot: Marker with StructuredArgument => Unit): Unit =
     if (ctxMap.isEmpty) doThis else ifNot(forLogging)
 
-  private def +(kv: (String, String)): LoggingContext = new LoggingContext(ctxMap + kv)
-  private def ++(kvs: Seq[(String, String)]): LoggingContext = new LoggingContext(ctxMap ++ kvs)
+  private def ++[V](kvs: Seq[(String, String)]): LoggingContext = new LoggingContext(ctxMap ++ kvs)
 
 }

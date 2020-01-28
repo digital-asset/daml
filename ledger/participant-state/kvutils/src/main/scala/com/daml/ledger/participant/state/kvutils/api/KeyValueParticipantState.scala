@@ -11,15 +11,14 @@ import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Time
 import com.digitalasset.daml_lf_dev.DamlLf
-import com.digitalasset.ledger.api.health.{HealthStatus, ReportsHealth}
+import com.digitalasset.ledger.api.health.HealthStatus
 
 class KeyValueParticipantState(reader: LedgerReader, writer: LedgerWriter)(
     implicit materializer: Materializer)
     extends ReadService
-    with WriteService
-    with ReportsHealth
-    with AutoCloseable {
-  private val readerAdapter = new KeyValueParticipantStateReader(reader)
+    with WriteService {
+  private val readerAdapter =
+    new KeyValueParticipantStateReader(reader)
   private val writerAdapter =
     new KeyValueParticipantStateWriter(writer)(materializer.executionContext)
 
@@ -53,13 +52,6 @@ class KeyValueParticipantState(reader: LedgerReader, writer: LedgerWriter)(
       submissionId: SubmissionId): CompletionStage[SubmissionResult] =
     writerAdapter.allocateParty(hint, displayName, submissionId)
 
-  override def currentHealth(): HealthStatus = reader.currentHealth().and(writer.currentHealth())
-
-  override def close(): Unit = {
-    readerAdapter.close()
-    // Do not close the same underlying object twice.
-    if (!reader.eq(writer)) {
-      writerAdapter.close()
-    }
-  }
+  override def currentHealth(): HealthStatus =
+    reader.currentHealth() and writer.currentHealth()
 }

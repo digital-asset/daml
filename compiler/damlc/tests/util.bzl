@@ -92,6 +92,7 @@ def damlc_integration_test(name, main_function):
             "base",
             "bytestring",
             "containers",
+            "data-default",
             "deepseq",
             "directory",
             "dlist",

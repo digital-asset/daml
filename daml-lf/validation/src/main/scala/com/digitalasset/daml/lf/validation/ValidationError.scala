@@ -16,6 +16,9 @@ final case class LEPackage(packageId: PackageId) extends LookupError {
 final case class LEModule(packageId: PackageId, moduleRef: ModuleName) extends LookupError {
   def pretty: String = s"unknown module: $moduleRef"
 }
+final case class LETypeSyn(syn: TypeSynName) extends LookupError {
+  def pretty: String = s"unknown type synonym: ${syn.qualifiedName}"
+}
 final case class LEDataType(conName: TypeConName) extends LookupError {
   def pretty: String = s"unknown data type: ${conName.qualifiedName}"
 }
@@ -135,6 +138,9 @@ case object URContractId extends UnserializabilityReason {
 final case class URDataType(conName: TypeConName) extends UnserializabilityReason {
   def pretty: String = s"unserializable data type ${conName.qualifiedName}"
 }
+final case class URTypeSyn(synName: TypeSynName) extends UnserializabilityReason {
+  def pretty: String = s"type synonym ${synName.qualifiedName}"
+}
 final case class URHigherKinded(varName: TypeVarName, kind: Kind) extends UnserializabilityReason {
   def pretty: String = s"higher-kinded type variable $varName : ${kind.pretty}"
 }
@@ -168,6 +174,15 @@ final case class EUnknownExprVar(context: Context, varName: ExprVarName) extends
 final case class EUnknownDefinition(context: Context, lookupError: LookupError)
     extends ValidationError {
   protected def prettyInternal: String = lookupError.pretty
+}
+final case class ETypeSynAppWrongArity(
+    context: Context,
+    expectedArity: Int,
+    syn: TypeSynName,
+    args: ImmArray[Type])
+    extends ValidationError {
+  protected def prettyInternal: String =
+    s"wrong arity in type synonym application: ${syn.qualifiedName} ${args.toSeq.map(_.pretty).mkString(" ")}"
 }
 final case class ETypeConAppWrongArity(context: Context, expectedArity: Int, conApp: TypeConApp)
     extends ValidationError {
@@ -301,6 +316,10 @@ final case class EExpectedTemplatableType(context: Context, conName: TypeConName
 }
 final case class EImportCycle(context: Context, modName: List[ModuleName]) extends ValidationError {
   protected def prettyInternal: String = s"cycle in module dependency ${modName.mkString(" -> ")}"
+}
+final case class ETypeSynCycle(context: Context, names: List[TypeSynName]) extends ValidationError {
+  protected def prettyInternal: String =
+    s"cycle in type synonym definitions ${names.mkString(" -> ")}"
 }
 final case class EImpredicativePolymorphism(context: Context, typ: Type) extends ValidationError {
   protected def prettyInternal: String =

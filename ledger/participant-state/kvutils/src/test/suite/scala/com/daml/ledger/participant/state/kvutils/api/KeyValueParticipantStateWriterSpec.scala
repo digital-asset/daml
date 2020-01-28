@@ -19,7 +19,7 @@ import org.mockito.Mockito._
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{Assertion, WordSpec}
 
-import scala.collection.immutable.SortedMap
+import scala.collection.immutable.HashMap
 import scala.concurrent.{ExecutionContext, Future}
 
 class KeyValueParticipantStateWriterSpec extends WordSpec with MockitoSugar {
@@ -81,7 +81,7 @@ class KeyValueParticipantStateWriterSpec extends WordSpec with MockitoSugar {
   private val aParty = Ref.Party.assertFromString("aParty")
 
   private val anEmptyTransaction: SubmittedTransaction =
-    GenTransaction(SortedMap.empty, ImmArray.empty, Some(InsertOrdSet.empty))
+    GenTransaction(HashMap.empty, ImmArray.empty, Some(InsertOrdSet.empty))
 
   private val aSubmissionId: SubmissionId =
     Ref.LedgerString.assertFromString(UUID.randomUUID().toString)

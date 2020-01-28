@@ -17,8 +17,8 @@ import com.digitalasset.ledger.api.v1.commands.CreateCommand
 import com.digitalasset.ledger.api.v1.value.{Record, RecordField, Value}
 import com.digitalasset.platform.participant.util.ValueConversions._
 import com.digitalasset.platform.sandbox.config.SandboxConfig
-import com.digitalasset.platform.sandbox.persistence.PostgresAroundAll
 import com.digitalasset.platform.sandbox.services.{SandboxFixture, TestCommands}
+import com.digitalasset.testing.postgresql.PostgresAroundAll
 import io.grpc.Status
 import org.scalatest.{Assertion, AsyncWordSpec, Inspectors, Matchers}
 import scalaz.syntax.tag._

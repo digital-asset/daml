@@ -157,16 +157,18 @@ case class Conversions(homePackageId: Ref.PackageId) {
   def convertSValue(svalue: SValue): Value = {
     def unserializable(what: String): Value =
       Value.newBuilder.setUnserializable(what).build
-    svalue match {
-      case SValue.SPAP(prim, _, _) =>
-        prim match {
-          case SValue.PBuiltin(e) =>
-            unserializable(s"<BUILTIN#${e.getClass.getName}>")
-          case _: SValue.PClosure =>
-            unserializable("<CLOSURE>")
-        }
-      case _ =>
-        convertValue(svalue.toValue)
+    try {
+      convertValue(svalue.toValue)
+    } catch {
+      case _: SError.SErrorCrash => {
+        // We cannot rely on serializability information since we do not have that available in the IDE.
+        // We also cannot simply pattern match on SValue since the unserializable values can be nested, e.g.,
+        // a function ina record.
+        // We could recurse on SValue to produce slightly better error messages if we
+        // encounter an unserializable type but that doesn’t seem worth the effort, especially
+        // given that the error would still be on speedy expressions.
+        unserializable("Unserializable scenario result")
+      }
     }
   }
 
@@ -293,7 +295,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
           .setContractId(coid)
           .setTemplateId(convertIdentifier(templateId))
           .build
-      case V.RelativeContractId(txnid) =>
+      case V.RelativeContractId(txnid, _) =>
         ContractRef.newBuilder
           .setRelative(true)
           .setContractId(txnid.index.toString)
@@ -304,7 +306,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
   def convertContractId(coid: V.ContractId): String =
     coid match {
       case V.AbsoluteContractId(coid) => coid
-      case V.RelativeContractId(txnid) => txnid.index.toString
+      case V.RelativeContractId(txnid, _) => txnid.index.toString
     }
 
   def convertScenarioStep(
@@ -373,8 +375,8 @@ case class Conversions(homePackageId: Ref.PackageId) {
         ptx.context.children.toImmArray.toSeq.sortBy(_.index).map(convertTxNodeId).asJava)
 
     ptx.context match {
-      case Tx.ContextRoot(_) =>
-      case Tx.ContextExercises(ctx, _) =>
+      case Tx.PartialTransaction.ContextRoot(_, _) =>
+      case Tx.PartialTransaction.ContextExercise(ctx, _) =>
         val ecBuilder = ExerciseContext.newBuilder
           .setTargetId(mkContractRef(ctx.targetId, ctx.templateId))
           .setChoiceId(ctx.choiceId)
@@ -626,7 +628,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
         coid match {
           case V.AbsoluteContractId(acoid) =>
             builder.setContractId(acoid)
-          case V.RelativeContractId(txnid) =>
+          case V.RelativeContractId(txnid, _) =>
             builder.setContractId(txnid.index.toString)
         }
       case V.ValueList(values) =>

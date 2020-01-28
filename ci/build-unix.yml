@@ -56,6 +56,8 @@ steps:
       MAVEN_USERNAME: $(MAVEN_USERNAME)
       MAVEN_PASSWORD: $(MAVEN_PASSWORD)
       MAVEN_URL: "https://oss.sonatype.org"
+      # For uploading npm packages to npm registry.
+      NPM_TOKEN:  $(NPM_TOKEN)
     name: release
   - bash: |
       set -euo pipefail

@@ -10,6 +10,6 @@ import scala.concurrent.ExecutionContext.Implicits.global
 object Main extends App {
   Runner(
     "In-Memory Ledger",
-    participantId => new InMemoryLedgerReaderWriter(participantId = participantId),
+    (ledgerId, participantId) => InMemoryLedgerReaderWriter.owner(ledgerId, participantId),
   ).run(args)
 }

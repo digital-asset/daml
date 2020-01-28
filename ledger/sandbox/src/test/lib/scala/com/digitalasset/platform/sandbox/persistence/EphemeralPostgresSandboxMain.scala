@@ -4,6 +4,7 @@
 package com.digitalasset.platform.sandbox.persistence
 
 import com.digitalasset.platform.sandbox.SandboxMain
+import com.digitalasset.testing.postgresql.PostgresAround
 
 object EphemeralPostgresSandboxMain extends App with PostgresAround {
   startEphemeralPostgres()

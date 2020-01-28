@@ -4,7 +4,7 @@ workspace(
         "@npm": ["node_modules"],
         "@daml_extension_deps": ["compiler/daml-extension/node_modules"],
         "@navigator_frontend_deps": ["navigator/frontend/node_modules"],
-        "@language_support_ts_deps": ["language-support/ts/node_modules"],
+        "@language_support_ts_deps": ["language-support/ts/packages/node_modules"],
     },
 )
 
@@ -37,6 +37,7 @@ load(
     "nixpkgs_local_repository",
     "nixpkgs_package",
 )
+load("//bazel_tools:create_workspace.bzl", "create_workspace")
 load("//bazel_tools:os_info.bzl", "os_info")
 
 os_info(name = "os_info")
@@ -650,6 +651,7 @@ node_repositories(
 
 yarn_install(
     name = "npm",
+    args = ["--frozen-lockfile"],
     package_json = "//:package.json",
     yarn_lock = "//:yarn.lock",
 )
@@ -666,6 +668,7 @@ ts_setup_workspace()
 # TODO use fine-grained managed dependency
 yarn_install(
     name = "daml_extension_deps",
+    args = ["--frozen-lockfile"],
     package_json = "//compiler/daml-extension:package.json",
     yarn_lock = "//compiler/daml-extension:yarn.lock",
 )
@@ -673,15 +676,30 @@ yarn_install(
 # TODO use fine-grained managed dependency
 yarn_install(
     name = "navigator_frontend_deps",
+    args = ["--frozen-lockfile"],
     package_json = "//navigator/frontend:package.json",
     yarn_lock = "//navigator/frontend:yarn.lock",
 )
 
+# We’ve had a bunch of problems with typescript rules on Windows.
+# Therefore we’ve disabled them completely for now.
+# Since we need to @load stuff in @language_support_ts_deps
+# and load statements can’t be conditional, we create a dummy
+# workspace on Windows.
+# See #4162 for more details.
 yarn_install(
     name = "language_support_ts_deps",
-    package_json = "//language-support/ts:package.json",
-    symlink_node_modules = True,
-    yarn_lock = "//language-support/ts:yarn.lock",
+    args = ["--frozen-lockfile"],
+    package_json = "//language-support/ts/packages:package.json",
+    yarn_lock = "//language-support/ts/packages:yarn.lock",
+) if not is_windows else create_workspace(
+    name = "language_support_ts_deps",
+    files = {
+        "eslint/BUILD.bazel": 'exports_files(["index.bzl"])',
+        "eslint/index.bzl": "def eslint_test(*args, **kwargs):\n    pass",
+        "jest-cli/BUILD.bazel": 'exports_files(["index.bzl"])',
+        "jest-cli/index.bzl": "def jest_test(*args, **kwargs):\n    pass",
+    },
 )
 
 # Bazel Skydoc - Build rule documentation generator
@@ -818,7 +836,7 @@ java_import(
     jars = glob(["lib/**"]),
 )
 """,
-    sha256 = "2ac6fb16cc020dad77a014cc8bf7b828150ed1efa7255b156f6da2e89af20284",
-    strip_prefix = "canton-0.6.0",
-    urls = ["https://www.canton.io/releases/canton-0.6.0.tar.gz"],
+    sha256 = "a4f1692ca4a8ab1c41fe482825e844b55dc388687b9ef1013abe3d4a73a22eed",
+    strip_prefix = "canton-0.8.0",
+    urls = ["https://www.canton.io/releases/canton-0.8.0.tar.gz"],
 )

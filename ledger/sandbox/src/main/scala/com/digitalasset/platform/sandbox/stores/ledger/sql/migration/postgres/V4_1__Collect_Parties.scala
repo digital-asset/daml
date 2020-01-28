@@ -102,7 +102,7 @@ class V4_1__Collect_Parties extends BaseJavaMigration {
 
   private def getParties(transaction: Transaction): Set[Ref.Party] = {
     transaction
-      .fold[Set[Ref.Party]](GenTransaction.TopDown, Set.empty) {
+      .fold[Set[Ref.Party]](Set.empty) {
         case (parties, (_, node)) =>
           node match {
             case nf: NodeFetch[AbsoluteContractId] =>

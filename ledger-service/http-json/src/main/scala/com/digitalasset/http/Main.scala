@@ -181,7 +181,9 @@ object Main extends StrictLogging {
         .validate(JdbcConfig.validate)
         .optional()
         .valueName(JdbcConfig.usage)
-        .text(s"Optional query store JDBC configuration string. " + JdbcConfig.help)
+        .text(s"Optional query store JDBC configuration string." +
+          " Query store is a search index, use it if you need to query large active contract sets. " +
+          JdbcConfig.help)
 
       opt[Map[String, String]]("static-content")
         .action((x, c) => c.copy(staticContentConfig = Some(StaticContentConfig.createUnsafe(x))))

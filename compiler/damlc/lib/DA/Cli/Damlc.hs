@@ -115,8 +115,8 @@ data CommandName =
   deriving (Ord, Show, Eq)
 data Command = Command CommandName (Maybe ProjectOpts) (IO ())
 
-cmdIde :: Mod CommandFields Command
-cmdIde =
+cmdIde :: Int -> Mod CommandFields Command
+cmdIde numProcessors =
     command "ide" $ info (helper <*> cmd) $
        progDesc
         "Start the DAML language server on standard input/output."
@@ -126,9 +126,7 @@ cmdIde =
         <$> telemetryOpt
         <*> debugOpt
         <*> enableScenarioOpt
-        <*> optGhcCustomOptions
-        <*> shakeProfilingOpt
-        <*> optional lfVersionOpt
+        <*> optionsParser numProcessors (EnableScenarioService True) (pure Nothing)
 
 cmdLicense :: Mod CommandFields Command
 cmdLicense =
@@ -183,14 +181,16 @@ cmdTest numProcessors =
       <*> fmap UseColor colorOutput
       <*> junitOutput
       <*> optionsParser numProcessors (EnableScenarioService True) optPackageName
+      <*> initPkgDbOpt
     filesOpt = optional (flag' () (long "files" <> help filesDoc) *> many inputFileOpt)
     filesDoc = "Only run test declarations in the specified files."
     junitOutput = optional $ strOption $ long "junit" <> metavar "FILENAME" <> help "Filename of JUnit output file"
     colorOutput = switch $ long "color" <> help "Colored test results"
 
-runTestsInProjectOrFiles :: ProjectOpts -> Maybe [FilePath] -> UseColor -> Maybe FilePath -> Options -> Command
-runTestsInProjectOrFiles projectOpts Nothing color mbJUnitOutput cliOptions = Command Test (Just projectOpts) effect
+runTestsInProjectOrFiles :: ProjectOpts -> Maybe [FilePath] -> UseColor -> Maybe FilePath -> Options -> InitPkgDb -> Command
+runTestsInProjectOrFiles projectOpts Nothing color mbJUnitOutput cliOptions initPkgDb = Command Test (Just projectOpts) effect
   where effect = withExpectProjectRoot (projectRoot projectOpts) "daml test" $ \pPath _ -> do
+        initPackageDb cliOptions initPkgDb
         withPackageConfig (ProjectPath pPath) $ \PackageConfigFields{..} -> do
             -- TODO: We set up one scenario service context per file that
             -- we pass to execTest and scenario cnotexts are quite expensive.
@@ -198,8 +198,9 @@ runTestsInProjectOrFiles projectOpts Nothing color mbJUnitOutput cliOptions = Co
             -- if source points to a specific file.
             files <- getDamlRootFiles pSrc
             execTest files color mbJUnitOutput cliOptions
-runTestsInProjectOrFiles projectOpts (Just inFiles) color mbJUnitOutput cliOptions = Command Test (Just projectOpts) effect
+runTestsInProjectOrFiles projectOpts (Just inFiles) color mbJUnitOutput cliOptions initPkgDb = Command Test (Just projectOpts) effect
   where effect = withProjectRoot' projectOpts $ \relativize -> do
+        initPackageDb cliOptions initPkgDb
         inFiles' <- mapM (fmap toNormalizedFilePath . relativize) inFiles
         execTest inFiles' color mbJUnitOutput cliOptions
 
@@ -352,11 +353,9 @@ execLicense =
 execIde :: Telemetry
         -> Debug
         -> EnableScenarioService
-        -> [String]
-        -> Maybe FilePath
-        -> Maybe LF.Version
+        -> Options
         -> Command
-execIde telemetry (Debug debug) enableScenarioService ghcOpts mbProfileDir (fromMaybe LF.versionDefault -> lfVersion) =
+execIde telemetry (Debug debug) enableScenarioService options =
     Command Ide Nothing effect
   where effect = NS.withSocketsDo $ do
           let threshold =
@@ -382,24 +381,24 @@ execIde telemetry (Debug debug) enableScenarioService ghcOpts mbProfileDir (from
                       Logger.GCP.logOptOut gcpState
                       f loggerH
                   Undecided -> f loggerH
-          opts <- defaultOptionsIO (Just lfVersion)
-          initPackageDb opts (InitPkgDb True)
-          dlintDataDir <-locateRunfiles $ mainWorkspace </> "compiler/damlc/daml-ide-core"
-          opts <- pure $ opts
+          dlintDataDir <- locateRunfiles $ mainWorkspace </> "compiler/damlc/daml-ide-core"
+          options <- mkOptions options
               { optScenarioService = enableScenarioService
               , optSkipScenarioValidation = SkipScenarioValidation True
-              , optShakeProfiling = mbProfileDir
+              -- TODO(MH): The `optionsParser` does not provide a way to skip
+              -- individual options. As a stopgap we ignore the argument to
+              -- --jobs and the dlint config.
               , optThreads = 0
               , optDlintUsage = DlintEnabled dlintDataDir True
-              , optGhcCustomOpts = ghcOpts
               }
+          initPackageDb options (InitPkgDb True)
           scenarioServiceConfig <- readScenarioServiceConfig
           withLogger $ \loggerH ->
               withScenarioService' enableScenarioService loggerH scenarioServiceConfig $ \mbScenarioService -> do
                   sdkVersion <- getSdkVersion `catchIO` const (pure "Unknown (not started via the assistant)")
                   Logger.logInfo loggerH (T.pack $ "SDK version: " <> sdkVersion)
                   runLanguageServer loggerH $ \getLspId sendMsg vfs caps ->
-                      getDamlIdeState opts mbScenarioService loggerH getLspId sendMsg vfs (clientSupportsProgress caps)
+                      getDamlIdeState options mbScenarioService loggerH caps getLspId sendMsg vfs (clientSupportsProgress caps)
 
 
 -- | Whether we should write interface files during `damlc compile`.
@@ -806,14 +805,33 @@ execGenerateSrc opts dalfOrDar mbOutDir = Command GenerateSrc Nothing effect
         (pkgId, pkg) <- decode bytes
         opts <- mkOptions opts
         logger <- getLogger opts "generate-src"
-        (pkgMap0, stablePkgIds) <- withDamlIdeState opts { optScenarioService = EnableScenarioService False } logger diagnosticsLogger $ \ideState -> runAction ideState $ do
-          pkgs <-
-              MS.fromList . map (\(unitId, dalfPkg) -> (LF.dalfPackageId dalfPkg, unitId)) . MS.toList <$>
-              useNoFile_ GeneratePackageMap
-          stablePkgIds <- fmap (MS.fromList . map (\(k, pkg) -> (LF.dalfPackageId pkg, k)) . MS.toList) (useNoFile_ GenerateStablePackages)
-          pure (pkgs `MS.union` MS.map fst stablePkgIds, stablePkgIds)
-        let pkgMap = MS.insert pkgId unitId pkgMap0
-        let genSrcs = generateSrcPkgFromLf (getUnitId unitId pkgMap) stablePkgIds (Just "CurrentSdk") pkg
+
+        (dalfPkgMap, stableDalfPkgMap) <- withDamlIdeState opts { optScenarioService = EnableScenarioService False } logger diagnosticsLogger $ \ideState -> runAction ideState $ do
+            dalfPkgMap <- useNoFile_ GeneratePackageMap
+            stableDalfPkgMap <- useNoFile_ GenerateStablePackages
+            pure (dalfPkgMap, stableDalfPkgMap)
+
+        let allDalfPkgs :: [(UnitId, LF.DalfPackage)]
+            allDalfPkgs =
+                [ (unitId, dalfPkg)
+                | ((unitId, _modName), dalfPkg) <- MS.toList stableDalfPkgMap ]
+                ++ MS.toList dalfPkgMap
+
+            pkgMap :: MS.Map UnitId LF.Package
+            pkgMap = MS.insert unitId pkg $ MS.fromList
+                [ (unitId, LF.extPackagePkg (LF.dalfPackagePkg dalfPkg))
+                | (unitId, dalfPkg) <- allDalfPkgs ]
+
+            unitIdMap :: MS.Map LF.PackageId UnitId
+            unitIdMap = MS.insert pkgId unitId $ MS.fromList
+                [ (LF.dalfPackageId dalfPkg, unitId)
+                | (unitId, dalfPkg) <- allDalfPkgs ]
+
+            stablePkgIds :: Set.Set LF.PackageId
+            stablePkgIds = Set.fromList $ map LF.dalfPackageId $ MS.elems stableDalfPkgMap
+
+            genSrcs = generateSrcPkgFromLf pkgMap (getUnitId unitId unitIdMap) stablePkgIds (Just "CurrentSdk") pkg
+
         forM_ genSrcs $ \(path, src) -> do
             let fp = fromMaybe "" mbOutDir </> fromNormalizedFilePath path
             createDirectoryIfMissing True $ takeDirectory fp
@@ -849,7 +867,7 @@ execGenerateGenSrc darFp mbQual outDir = Command GenerateGenerics Nothing effect
             decode $ BSL.toStrict $ ZipArchive.fromEntry mainDalfEntry
         let getUid = getUnitId unitId pkgMap
         -- TODO Passing MS.empty is not right but this command is only used for debugging so for now this is fine.
-        let genSrcs = generateGenInstancesPkgFromLf getUid MS.empty Nothing mainPkgId mainLfPkg (fromMaybe "" mbQual)
+        let genSrcs = generateGenInstancesPkgFromLf getUid Set.empty Nothing mainPkgId mainLfPkg (fromMaybe "" mbQual)
         forM_ genSrcs $ \(path, src) -> do
             let fp = fromMaybe "" outDir </> fromNormalizedFilePath path
             createDirectoryIfMissing True $ takeDirectory fp
@@ -885,7 +903,7 @@ execDocTest opts files =
 options :: Int -> Parser Command
 options numProcessors =
     subparser
-      (  cmdIde
+      (  cmdIde numProcessors
       <> cmdLicense
       -- cmdPackage can go away once we kill the old assistant.
       <> cmdPackage numProcessors

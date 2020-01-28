@@ -29,7 +29,7 @@ object Identification {
     "phi",
     "chi",
     "psi",
-    "omega"
+    "omega",
   )
 
   val latinAlphabet = Vector('a'.to('z'): _*).map(_.toString)

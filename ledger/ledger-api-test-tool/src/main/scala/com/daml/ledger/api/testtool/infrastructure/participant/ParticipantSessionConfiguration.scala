@@ -9,4 +9,5 @@ private[testtool] final case class ParticipantSessionConfiguration(
     host: String,
     port: Int,
     ssl: Option[TlsConfiguration],
-    commandTtlFactor: Double)
+    commandTtlFactor: Double,
+)

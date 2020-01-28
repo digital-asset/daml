@@ -402,6 +402,7 @@ convertModule lfVersion pkgMap stablePackages isGenerated file x = runConvertM (
           }
 
 data Consuming = PreConsuming
+               | Consuming
                | NonConsuming
                | PostConsuming
                deriving (Eq)
@@ -431,7 +432,11 @@ convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $ if
     | isEnumTyCon t
     -> convertEnumDef env t
 
-    -- Simple record types. This includes newtypes, typeclasses, and
+    -- Type classes
+    | isClassTyCon t
+    -> convertClassDef env t
+
+    -- Simple record types. This includes newtypes, and
     -- single constructor algebraic types with no fields or with
     -- labelled fields.
     | isSimpleRecordTyCon t
@@ -458,9 +463,23 @@ convertSimpleRecordDef :: Env -> TyCon -> ConvertM [Definition]
 convertSimpleRecordDef env tycon = do
     let con = tyConSingleDataCon tycon
         flavour = tyConFlavour tycon
-        sanitize -- DICTIONARY SANITIZATION step (1)
-            | flavour == ClassFlavour = (TUnit :->)
-            | otherwise = id
+        labels = ctorLabels con
+        (_, theta, args, _) = dataConSig con
+
+    (env', tyVars) <- bindTypeVars env (tyConTyVars tycon)
+    fieldTypes <- mapM (convertType env') (theta ++ args)
+
+    let fields = zipExact labels fieldTypes
+        tconName = mkTypeCon [getOccText tycon]
+        typeDef = defDataType tconName tyVars (DataRecord fields)
+        workerDef = defNewtypeWorker (envLFModuleName env) tycon tconName con tyVars fields
+
+    pure $ typeDef : [workerDef | flavour == NewtypeFlavour]
+
+convertClassDef :: Env -> TyCon -> ConvertM [Definition]
+convertClassDef env tycon = do
+    let con = tyConSingleDataCon tycon
+        sanitize = (TUnit :->) -- DICTIONARY SANITIZATION step (1)
         labels = ctorLabels con
         (_, theta, args, _) = dataConSig con
 
@@ -469,9 +488,15 @@ convertSimpleRecordDef env tycon = do
 
     let fields = zipExact labels (map sanitize fieldTypes)
         tconName = mkTypeCon [getOccText tycon]
-        typeDef = defDataType tconName tyVars (DataRecord fields)
-        workerDef = defNewtypeWorker (envLFModuleName env) tycon tconName con tyVars fields
-    pure $ typeDef : [workerDef | flavour == NewtypeFlavour]
+        tsynName = mkTypeSyn [getOccText tycon]
+        typeDef
+            | envLfVersion env `supports` featureTypeSynonyms =
+              -- Structs must have > 0 fields, therefore we simply make a typeclass a synonym for Unit
+              -- if it has no fields
+              defTypeSyn tsynName tyVars (if null fields then TUnit else TStruct fields)
+            | otherwise = defDataType tconName tyVars (DataRecord fields)
+
+    pure [typeDef]
 
 defNewtypeWorker :: NamedThing a => LF.ModuleName -> a -> TypeConName -> DataCon
     -> [(TypeVarName, LF.Kind)] -> [(FieldName, LF.Type)] -> Definition
@@ -590,20 +615,26 @@ convertChoice env tbinds (ChoiceData ty expr)
         TConApp (Qualified { qualObject = TypeConName con }) _
             | con == ["NonConsuming"] -> pure NonConsuming
             | con == ["PreConsuming"] -> pure PreConsuming
+            | con == ["Consuming"] -> pure Consuming
             | con == ["PostConsuming"] -> pure PostConsuming
         _ -> unhandled "choice consumption type" (show consumingTy)
     let update = action `ETmApp` EVar self `ETmApp` EVar this `ETmApp` EVar arg
     archiveSelf <- useSingleMethodDict env fArchive (`ETmApp` EVar self)
-    update <- pure $ if consuming /= PostConsuming
-        then update
-        else EUpdate $ UBind (Binding (res, choiceRetTy) update) $
-            EUpdate $ UBind (Binding (mkVar "_", TUnit) archiveSelf) $
-            EUpdate $ UPure choiceRetTy $ EVar res
-
+    update <- pure $
+      case consuming of
+        Consuming -> update
+        NonConsuming -> update
+        PreConsuming ->
+          EUpdate $ UBind (Binding (mkVar "_", TUnit) archiveSelf) $
+          update
+        PostConsuming ->
+          EUpdate $ UBind (Binding (res, choiceRetTy) update) $
+          EUpdate $ UBind (Binding (mkVar "_", TUnit) archiveSelf) $
+          EUpdate $ UPure choiceRetTy $ EVar res
     pure TemplateChoice
         { chcLocation = Nothing
         , chcName = choiceName
-        , chcConsuming = consuming == PreConsuming
+        , chcConsuming = consuming == Consuming
         , chcControllers = controllers `ETmApp` EVar this `ETmApp` EVar (arg)
         , chcSelfBinder = self
         , chcArgBinder = (arg, choiceTy)
@@ -650,7 +681,10 @@ convertBind env (name, x)
           -- NOTE (drsk): We only want to do the sanitization for non-newtypes. The sanitization
           -- step 3 for newtypes is done in the convertCoercion function.
           DFunId False ->
-            over (_ETyLams . _2 . _ETmLams . _2 . _ERecCon . _2 . each . _2) (ETmLam (mkVar "_", TUnit))
+              let fieldsPrism
+                    | envLfVersion env `supports` featureTypeSynonyms = _EStructCon
+                    | otherwise = _ERecCon . _2
+              in over (_ETyLams . _2 . _ETmLams . _2 . fieldsPrism . each . _2) (ETmLam (mkVar "_", TUnit))
           _ -> id
     name' <- convValWithType env name
     pure [defValue name name' (sanitize x')]
@@ -664,7 +698,7 @@ internalTypes :: UniqSet FastString
 internalTypes = mkUniqSet ["Scenario","Update","ContractId","Time","Date","Party","Pair", "TextMap", "Map", "Any", "TypeRep"]
 
 consumingTypes :: UniqSet FastString
-consumingTypes = mkUniqSet ["PreConsuming", "PostConsuming", "NonConsuming"]
+consumingTypes = mkUniqSet ["Consuming", "PreConsuming", "PostConsuming", "NonConsuming"]
 
 internalFunctions :: UniqFM (UniqSet FastString)
 internalFunctions = listToUFM $ map (bimap mkModuleNameFS mkUniqSet)
@@ -761,14 +795,14 @@ convertExpr env0 e = do
     go env (ConstraintTupleProjection index arity) args
         | (LExpr x : args') <- drop arity args -- drop the type arguments
         = fmap (, args') $ do
-            let fieldName = mkIndexedField index
+            let fieldName = mkSuperClassField index
             x' <- convertExpr env x
             pure $ EStructProj fieldName x'
 
     -- conversion of bodies of $con2tag functions
     go env (VarIn GHC_Base "getTag") (LType (TypeCon t _) : LExpr x : args) = fmap (, args) $ do
         x' <- convertExpr env x
-        t' <- convertQualified env t
+        t' <- convertQualifiedTyCon env t
         let mkCasePattern con
                 -- Note that tagToEnum# can also be used on non-enum types, i.e.,
                 -- types where not all constructors are nullary.
@@ -937,7 +971,7 @@ convertExpr env0 e = do
             let fldIndex = fromJust (elemIndex x vs)
             let fldName = fldNames !! fldIndex
             recTyp <- convertType env (varType bind)
-            pure $ ERecProj (fromTCon recTyp) fldName scrutinee' `ETmApp` EUnit
+            pure $ mkDictProj env (fromTCon recTyp) fldName scrutinee' `ETmApp` EUnit
     go env o@(Case scrutinee bind _ [alt@(DataAlt con, vs, x)]) args = fmap (, args) $ do
         convertType env (varType bind) >>= \case
             TText -> asLet
@@ -950,7 +984,7 @@ convertExpr env0 e = do
             TUpdate{} -> asLet
             TScenario{} -> asLet
             TAny{} -> asLet
-            tcon | isSimpleRecordCon con -> do
+            tcon | isSimpleRecordCon con || isClassCon con -> do
                 let fields = ctorLabels con
                 case zipExactMay vs fields of
                     Nothing -> unsupported "Pattern match with existential type" alt
@@ -1028,12 +1062,16 @@ isEnumCon = isEnumTyCon . dataConTyCon
 isConstraintTupleCon :: DataCon -> Bool
 isConstraintTupleCon = isConstraintTupleTyCon . dataConTyCon
 
+isClassCon :: DataCon -> Bool
+isClassCon = isClassTyCon . dataConTyCon
+
 isSimpleRecordCon :: DataCon -> Bool
 isSimpleRecordCon con =
     (conHasLabels con || conHasNoArgs con)
     && conIsSingle con
     && not (isEnumCon con)
     && not (isConstraintTupleCon con)
+    && not (isClassCon con)
 
 isVariantRecordCon :: DataCon -> Bool
 isVariantRecordCon con = conHasLabels con && not (conIsSingle con)
@@ -1042,6 +1080,7 @@ isVariantRecordCon con = conHasLabels con && not (conIsSingle con)
 data DataConClass
     = EnumCon -- ^ constructor for an enum type
     | SimpleRecordCon -- ^ constructor for a record type
+    | ClassCon -- ^ constructor for a type class
     | SimpleVariantCon -- ^ constructor for a variant type with no synthetic record type
     | VariantRecordCon -- ^ constructor for a variant type with a synthetic record type
     | ConstraintTupleCon -- ^ constructor for a constraint tuple
@@ -1051,6 +1090,7 @@ classifyDataCon :: DataCon -> DataConClass
 classifyDataCon con
     | isEnumCon con = EnumCon
     | isConstraintTupleCon con = ConstraintTupleCon
+    | isClassCon con = ClassCon
     | isSimpleRecordCon con = SimpleRecordCon
     | isVariantRecordCon con = VariantRecordCon
     | otherwise = SimpleVariantCon
@@ -1101,8 +1141,9 @@ convertDataCon env m con args
                     [tmArg] -> pure tmArg
                     _ -> unhandled "constructor with more than two unnamed arguments" xargs
 
-            SimpleRecordCon ->
-                pure $ ERecCon tcon (zipExact fldNames tmArgs)
+            ClassCon -> pure $ mkDictCon env tcon (zipExact fldNames tmArgs)
+
+            SimpleRecordCon -> pure $ ERecCon tcon (zipExact fldNames tmArgs)
 
             VariantRecordCon -> do
                 let recTCon = fmap (synthesizeVariantRecord ctorName) qTCon
@@ -1218,6 +1259,20 @@ mkProjBindings env recExpr recTyp vsFlds e =
     , not (isDeadOcc (occInfo (idInfo v)))
     ]
 
+mkDictCon :: Env -> TypeConApp -> [(LF.FieldName, LF.Expr)] -> LF.Expr
+mkDictCon env tcon fields
+-- Structs must have > 0 fields, therefore we simply make a typeclass a synonym for Unit
+-- if it has no fields.
+    | envLfVersion env `supports` featureTypeSynonyms && null fields = EUnit
+    | envLfVersion env `supports` featureTypeSynonyms = EStructCon fields
+    | otherwise = ERecCon tcon fields
+
+mkDictProj :: Env -> TypeConApp -> LF.FieldName -> LF.Expr -> LF.Expr
+mkDictProj env tcon =
+    if envLfVersion env `supports` featureTypeSynonyms
+      then EStructProj
+      else ERecProj tcon
+
 -- Convert a coercion @S ~ T@ to a pair of lambdas
 -- @(to :: S -> T, from :: T -> S)@ in higher-order abstract syntax style.
 --
@@ -1272,19 +1327,20 @@ convertCoercion env co = evalStateT (go env co) 0
 
     newtypeCoercion tCon ts field flv = do
         ts' <- lift $ mapM (convertType env) ts
-        t' <- lift $ convertQualified env tCon
+        t' <- lift $ convertQualifiedTyCon env tCon
         let tcon = TypeConApp t' ts'
-        let sanitizeTo x
-                -- NOTE(MH): This is DICTIONARY SANITIZATION step (3).
-                | flv == ClassFlavour = ETmLam (mkVar "_", TUnit) x
-                | otherwise = x
-            sanitizeFrom x
-                -- NOTE(MH): This is DICTIONARY SANITIZATION step (2).
-                | flv == ClassFlavour = x `ETmApp` EUnit
-                | otherwise = x
-        let to expr = ERecCon tcon [(field, sanitizeTo expr)]
-        let from expr = sanitizeFrom $ ERecProj tcon field expr
-        pure (to, from)
+        pure $ if flv == ClassFlavour
+           then (\expr -> mkDictCon env tcon [(field, sanitizeTo expr)], sanitizeFrom . mkDictProj env tcon field)
+           else (\expr -> ERecCon tcon [(field, expr)], ERecProj tcon field)
+      where
+          sanitizeTo x
+              -- NOTE(MH): This is DICTIONARY SANITIZATION step (3).
+              | flv == ClassFlavour = ETmLam (mkVar "_", TUnit) x
+              | otherwise = x
+          sanitizeFrom x
+              -- NOTE(MH): This is DICTIONARY SANITIZATION step (2).
+              | flv == ClassFlavour = x `ETmApp` EUnit
+              | otherwise = x
 
     mkLamBinder = do
         n <- state (dupe . succ)
@@ -1328,14 +1384,20 @@ rewriteStableQualified env q@(Qualified pkgRef modName obj) =
       Nothing -> q
       Just pkgId -> Qualified (PRImport pkgId) modName obj
 
-convertQualified :: NamedThing a => Env -> a -> ConvertM (Qualified TypeConName)
-convertQualified env x = do
+convertQualified :: NamedThing a => (T.Text -> t) -> Env -> a -> ConvertM (Qualified t)
+convertQualified toT env x = do
   pkgRef <- nameToPkgRef env x
   let modName = convertModuleName $ GHC.moduleName $ nameModule $ getName x
   pure $ rewriteStableQualified env $ Qualified
     pkgRef
     modName
-    (mkTypeCon [getOccText x])
+    (toT $ getOccText x)
+
+convertQualifiedTySyn :: NamedThing a => Env -> a -> ConvertM (Qualified TypeSynName)
+convertQualifiedTySyn = convertQualified (\t -> mkTypeSyn [t])
+
+convertQualifiedTyCon :: NamedThing a => Env -> a -> ConvertM (Qualified TypeConName)
+convertQualifiedTyCon = convertQualified (\t -> mkTypeCon [t])
 
 nameToPkgRef :: NamedThing a => Env -> a -> ConvertM LF.PackageRef
 nameToPkgRef env x =
@@ -1398,7 +1460,7 @@ convertTyCon env t
     | otherwise = defaultTyCon
     where
         arity = tyConArity t
-        defaultTyCon = TCon <$> convertQualified env t
+        defaultTyCon = TCon <$> convertQualifiedTyCon env t
 
 metadataTys :: UniqSet FastString
 metadataTys = mkUniqSet ["MetaData", "MetaCons", "MetaSel"]
@@ -1427,8 +1489,11 @@ convertType env = go env
             go env (expandTypeSynonyms o)
         | isConstraintTupleTyCon t = do
             fieldTys <- mapM (go env) ts
-            let fieldNames = map mkIndexedField [1..]
+            let fieldNames = map mkSuperClassField [1..]
             pure $ TStruct (zip fieldNames fieldTys)
+         | tyConFlavour t == ClassFlavour && envLfVersion env `supports` featureTypeSynonyms = do
+           tySyn <- convertQualifiedTySyn env t
+           TSynApp tySyn <$> mapM (go env) ts
         | otherwise =
             mkTApps <$> convertTyCon env t <*> mapM (go env) ts
 
@@ -1494,6 +1559,10 @@ defDataType :: TypeConName -> [(TypeVarName, LF.Kind)] -> DataCons -> Definition
 defDataType name params constrs =
   DDataType $ DefDataType Nothing name (IsSerializable False) params constrs
 
+defTypeSyn :: TypeSynName -> [(TypeVarName, LF.Kind)] -> LF.Type -> Definition
+defTypeSyn name params ty =
+  DTypeSyn $ DefTypeSyn Nothing name params ty
+
 defValue :: NamedThing a => a -> (ExprValName, LF.Type) -> LF.Expr -> Definition
 defValue loc binder@(name, lftype) body =
   DValue $ DefValue (convNameLoc loc) binder (HasNoPartyLiterals True) (IsTest isTest) body
@@ -1505,11 +1574,12 @@ defValue loc binder@(name, lftype) body =
 ---------------------------------------------------------------------
 -- UNPACK CONSTRUCTORS
 
--- NOTE(MH):
+-- NOTE:
 --
--- * Dictionary types contain multiple unnamed fields in general. Thus, it is
---   necessary to give them synthetic names. This is not a problem at all
---   since they don't show up in user interfaces.
+-- * Dictionary types are converted into LF structs with one field
+--   "s_1", "s_2", "s_3" ... per superclass, and one field
+--   "m_foo", "m_bar", .... per method. This also applies to
+--   constraint tuples, which only have superclasses.
 --
 -- * We treat all newtypes like records. First of all, not doing
 --   this would considerably complicate converting coercions. Second, it makes
@@ -1523,7 +1593,13 @@ ctorLabels con =
   where
   thetas = dataConTheta con
   conFields
-    | flv `elem` [ClassFlavour, TupleFlavour Boxed] || isTupleDataCon con
+    | flv == ClassFlavour
+    , tycon <- dataConTyCon con
+    , Just tycls <- tyConClass_maybe tycon
+    = map mkSuperClassField [1 .. length (classSCTheta tycls)]
+    ++ map (mkClassMethodField . getOccText) (classMethods tycls)
+
+    | flv == TupleFlavour Boxed || isTupleDataCon con
       -- NOTE(MH): The line below is a workaround for ghc issue
       -- https://github.com/ghc/ghc/blob/ae4f1033cfe131fca9416e2993bda081e1f8c152/compiler/types/TyCon.hs#L2030
       -- If we omit this workaround, `GHC.Tuple.Unit` gets translated into a

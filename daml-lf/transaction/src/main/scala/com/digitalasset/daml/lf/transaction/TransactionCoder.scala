@@ -3,7 +3,7 @@
 
 package com.digitalasset.daml.lf.transaction
 
-import com.digitalasset.daml.lf.data.{BackStack, ImmArray}
+import com.digitalasset.daml.lf.data.BackStack
 import com.digitalasset.daml.lf.transaction.TransactionOuterClass.Node.NodeTypeCase
 import com.digitalasset.daml.lf.data.Ref.{Name, Party}
 import com.digitalasset.daml.lf.transaction.Node._
@@ -19,7 +19,7 @@ import scalaz.syntax.traverse.ToTraverseOps
 import scalaz.std.either.eitherMonad
 import scalaz.std.option._
 
-import scala.collection.immutable.TreeMap
+import scala.collection.immutable.HashMap
 
 object TransactionCoder {
 
@@ -404,7 +404,7 @@ object TransactionCoder {
     * @tparam Cid contract id type
     * @return protobuf encoded transaction
     */
-  private[transaction] def encodeTransaction[Nid: Ordering, Cid](
+  private[transaction] def encodeTransaction[Nid, Cid](
       encodeNid: EncodeNid[Nid],
       encodeCid: EncodeCid[Cid],
       tx: GenTransaction[Nid, Cid, VersionedValue[Cid]])
@@ -424,7 +424,7 @@ object TransactionCoder {
     * @tparam Cid contract id type
     * @return protobuf encoded transaction
     */
-  def encodeTransactionWithCustomVersion[Nid: Ordering, Cid](
+  def encodeTransactionWithCustomVersion[Nid, Cid](
       encodeNid: EncodeNid[Nid],
       encodeCid: EncodeCid[Cid],
       transaction: VersionedTransaction[Nid, Cid])
@@ -432,19 +432,25 @@ object TransactionCoder {
     val tx = transaction.transaction
     val txVersion: TransactionVersion = transaction.version
     val roots = tx.roots.map(encodeNid)
-    // use `ImmArray` rather than `toStream` or similar since `traverseU` for `ImmArray` is stack safe.
-    // TODO(FM) it would be nice to have a streaming data structure with a stack-safe `Traversable`.
-    val mbNodes = ImmArray(tx.nodes).traverseU {
-      case (id, node) =>
-        encodeNode(
-          encodeNid,
-          encodeCid,
-          (v: VersionedValue[Cid]) =>
-            ValueCoder.encodeVersionedValueWithCustomVersion(encodeCid, v).map((v.version, _)),
-          txVersion,
-          id,
-          node)
-    }
+    // fold traverses the transaction in deterministic order
+    val mbNodes = tx
+      .fold[Either[EncodeError, BackStack[TransactionOuterClass.Node]]](
+        Right(BackStack.empty)
+      ) {
+        case (acc, (id, node)) =>
+          for {
+            stack <- acc
+            encodedNode <- encodeNode(
+              encodeNid,
+              encodeCid,
+              (v: VersionedValue[Cid]) =>
+                ValueCoder.encodeVersionedValueWithCustomVersion(encodeCid, v).map((v.version, _)),
+              txVersion,
+              id,
+              node)
+          } yield stack :+ encodedNode
+      }
+      .map(_.toImmArray)
     mbNodes.map(nodes => {
       TransactionOuterClass.Transaction
         .newBuilder()
@@ -474,7 +480,7 @@ object TransactionCoder {
     * @tparam Cid contract id type
     * @return  decoded transaction
     */
-  def decodeVersionedTransaction[Nid: Ordering, Cid, Val](
+  def decodeVersionedTransaction[Nid, Cid, Val](
       decodeNid: String => Either[DecodeError, Nid],
       decodeCid: DecodeCid[Cid],
       protoTx: TransactionOuterClass.Transaction)
@@ -503,7 +509,7 @@ object TransactionCoder {
     * @tparam Val value type
     * @return  decoded transaction
     */
-  private def decodeTransaction[Nid: Ordering, Cid, Val](
+  private def decodeTransaction[Nid, Cid, Val](
       decodeNid: String => Either[DecodeError, Nid],
       decodeCid: DecodeCid[Cid],
       decodeVal: ValueOuterClass.VersionedValue => Either[DecodeError, Val],
@@ -518,7 +524,7 @@ object TransactionCoder {
       .map(_.toImmArray)
 
     val nodes = protoTx.getNodesList.asScala
-      .foldLeft[Either[DecodeError, TreeMap[Nid, GenNode[Nid, Cid, Val]]]](Right(TreeMap.empty)) {
+      .foldLeft[Either[DecodeError, HashMap[Nid, GenNode[Nid, Cid, Val]]]](Right(HashMap.empty)) {
         case (Left(e), _) => Left(e)
         case (Right(acc), s) =>
           decodeNode(decodeNid, decodeCid, decodeVal, txVersion, s).map(acc + _)

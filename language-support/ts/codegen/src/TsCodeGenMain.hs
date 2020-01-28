@@ -98,7 +98,7 @@ genModule curPkgId mod
             ,"/* eslint-disable @typescript-eslint/camelcase */"
             ,"/* eslint-disable @typescript-eslint/no-use-before-define */"
             ,"import * as jtv from '@mojotech/json-type-validation';"
-            ,"import * as daml from '@digitalasset/daml-json-types';"
+            ,"import * as daml from '@daml/types';"
             ]
         imports =
             ["import * as " <> modNameStr <> " from '" <> pkgRootPath <> "/" <> pkgRefStr <> T.intercalate "/" (unModuleName modName) <> "';"
@@ -206,20 +206,18 @@ genDefDataType curPkgId conName mod tpls def =
                 Nothing -> ((makeType typeDesc, makeSer serDesc), Set.unions fieldRefs)
                 Just tpl ->
                     let (chcs, argRefs) = unzip
-                            [((unChoiceName (chcName chc), t, rtyp, rser), argRefs)
+                            [((unChoiceName (chcName chc), t, rtyp, rser), Set.union argRefs retRefs)
                             | chc <- NM.toList (tplChoices tpl)
                             , let tLf = snd (chcArgBinder chc)
                             , let rLf = chcReturnType chc
                             , let (t, _) = genType (moduleName mod) tLf
                             , let (rtyp, rser) = genType (moduleName mod) rLf
                             , let argRefs = Set.setOf typeModuleRef tLf
+                            , let retRefs = Set.setOf typeModuleRef rLf
                             ]
                         (keyTypeTs, keySer) = case tplKey tpl of
                             Nothing -> ("undefined", "() => jtv.constant(undefined)")
-                            Just key ->
-                                let (keyTypeTs, keySer) = genType (moduleName mod) (tplKeyType key)
-                                in
-                                (keyTypeTs, "() => " <> keySer <> ".decoder()")
+                            Just key -> (conName <.> "Key", "() => " <> snd (genType (moduleName mod) (tplKeyType key)) <> ".decoder()")
                         dict =
                             ["export const " <> conName <> ": daml.Template<" <> conName <> ", " <> keyTypeTs <> "> & {"] ++
                             ["  " <> x <> ": daml.Choice<" <> conName <> ", " <> t <> ", " <> rtyp <> ", " <> keyTypeTs <> ">;" | (x, t, rtyp, _) <- chcs] ++
@@ -249,11 +247,17 @@ genDefDataType curPkgId conName mod tpls def =
                             | (x, t, _rtyp, rser) <- chcs
                             ] ++
                             ["};"]
+                        associatedTypes =
+                          maybe [] (\key ->
+                              [ "// eslint-disable-next-line @typescript-eslint/no-namespace"
+                              , "export namespace " <> conName <> " {"] ++
+                              ["  export type Key = " <> fst (genType (moduleName mod) (tplKeyType key)) <> ""] ++
+                              ["}"]) (tplKey tpl)
                         registrations =
                             ["daml.registerTemplate(" <> conName <> ");"]
                         refs = Set.unions (fieldRefs ++ argRefs)
                     in
-                    ((makeType typeDesc, dict ++ registrations), refs)
+                    ((makeType typeDesc, dict ++ associatedTypes ++ registrations), refs)
       where
         paramNames = map (unTypeVarName . fst) (dataParams def)
         typeParams

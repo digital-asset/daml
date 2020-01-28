@@ -11,29 +11,29 @@ import com.daml.ledger.api.testtool.infrastructure.{Identification, LedgerServic
 import com.digitalasset.ledger.api.refinements.ApiTypes.TemplateId
 import com.digitalasset.ledger.api.v1.active_contracts_service.{
   GetActiveContractsRequest,
-  GetActiveContractsResponse
+  GetActiveContractsResponse,
 }
 import com.digitalasset.ledger.api.v1.admin.config_management_service.{
   GetTimeModelRequest,
   GetTimeModelResponse,
   SetTimeModelRequest,
   SetTimeModelResponse,
-  TimeModel
+  TimeModel,
 }
 import com.digitalasset.ledger.api.v1.admin.package_management_service.{
   ListKnownPackagesRequest,
   PackageDetails,
-  UploadDarFileRequest
+  UploadDarFileRequest,
 }
 import com.digitalasset.ledger.api.v1.admin.party_management_service.{
   AllocatePartyRequest,
   GetParticipantIdRequest,
-  ListKnownPartiesRequest
+  ListKnownPartiesRequest,
 }
 import com.digitalasset.ledger.api.v1.command_completion_service.{
   Checkpoint,
   CompletionStreamRequest,
-  CompletionStreamResponse
+  CompletionStreamResponse,
 }
 import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
@@ -44,26 +44,26 @@ import com.digitalasset.ledger.api.v1.event.{CreatedEvent, Event}
 import com.digitalasset.ledger.api.v1.ledger_configuration_service.{
   GetLedgerConfigurationRequest,
   GetLedgerConfigurationResponse,
-  LedgerConfiguration
+  LedgerConfiguration,
 }
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.package_service._
 import com.digitalasset.ledger.api.v1.testing.time_service.{
   GetTimeRequest,
   GetTimeResponse,
-  SetTimeRequest
+  SetTimeRequest,
 }
 import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree}
 import com.digitalasset.ledger.api.v1.transaction_filter.{
   Filters,
   InclusiveFilters,
-  TransactionFilter
+  TransactionFilter,
 }
 import com.digitalasset.ledger.api.v1.transaction_service.{
   GetLedgerEndRequest,
   GetTransactionByEventIdRequest,
   GetTransactionByIdRequest,
-  GetTransactionsRequest
+  GetTransactionsRequest,
 }
 import com.digitalasset.ledger.api.v1.value.{Identifier, Value}
 import com.digitalasset.ledger.client.binding.Primitive.Party
@@ -86,7 +86,8 @@ private[testtool] object ParticipantTestContext {
 
   private def transactionFilter(
       parties: Seq[String],
-      templateIds: Seq[Identifier]): Some[TransactionFilter] =
+      templateIds: Seq[Identifier],
+  ): Some[TransactionFilter] =
     Some(new TransactionFilter(Map(parties.map(_ -> filter(templateIds)): _*)))
 
 }
@@ -98,7 +99,8 @@ private[testtool] final class ParticipantTestContext private[participant] (
     val identifierSuffix: String,
     referenceOffset: LedgerOffset,
     services: LedgerServices,
-    ttl: Duration)(implicit ec: ExecutionContext) {
+    ttl: Duration,
+)(implicit ec: ExecutionContext) {
 
   import ParticipantTestContext._
 
@@ -192,7 +194,9 @@ private[testtool] final class ParticipantTestContext private[participant] (
       .allocateParty(
         new AllocatePartyRequest(
           partyIdHint = partyHintId.getOrElse(""),
-          displayName = displayName.getOrElse("")))
+          displayName = displayName.getOrElse(""),
+        ),
+      )
       .map(r => Party(r.partyDetails.get.party))
 
   def allocateParties(n: Int): Future[Vector[Party]] =
@@ -205,7 +209,8 @@ private[testtool] final class ParticipantTestContext private[participant] (
 
   def waitForParties(
       otherParticipants: Iterable[ParticipantTestContext],
-      expectedParties: Set[Party]): Future[Unit] = eventually {
+      expectedParties: Set[Party],
+  ): Future[Unit] = eventually {
     val participants = otherParticipants.toSet + this
     Future
       .sequence(participants.map(otherParticipant => {
@@ -214,21 +219,22 @@ private[testtool] final class ParticipantTestContext private[participant] (
           .map(actualParties => {
             assert(
               expectedParties.subsetOf(actualParties),
-              s"Parties from $this never appeared on $otherParticipant.")
+              s"Parties from $this never appeared on $otherParticipant.",
+            )
           })
       }))
       .map(_ => ())
   }
 
   def activeContracts(
-      request: GetActiveContractsRequest): Future[(Option[LedgerOffset], Vector[CreatedEvent])] =
+      request: GetActiveContractsRequest,
+  ): Future[(Option[LedgerOffset], Vector[CreatedEvent])] =
     for {
       contracts <- new StreamConsumer[GetActiveContractsResponse](
-        services.activeContracts.getActiveContracts(request, _)
+        services.activeContracts.getActiveContracts(request, _),
       ).all()
-    } yield
-      contracts.lastOption.map(c => LedgerOffset(LedgerOffset.Value.Absolute(c.offset))) -> contracts
-        .flatMap(_.activeContracts)
+    } yield contracts.lastOption.map(c => LedgerOffset(LedgerOffset.Value.Absolute(c.offset))) -> contracts
+      .flatMap(_.activeContracts)
 
   def activeContractsRequest(
       parties: Seq[Party],
@@ -237,7 +243,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
     new GetActiveContractsRequest(
       ledgerId = ledgerId,
       filter = transactionFilter(Tag.unsubst(parties), templateIds),
-      verbose = true
+      verbose = true,
     )
 
   def activeContracts(parties: Party*): Future[Vector[CreatedEvent]] =
@@ -245,7 +251,8 @@ private[testtool] final class ParticipantTestContext private[participant] (
 
   def activeContractsByTemplateId(
       templateIds: Seq[Identifier],
-      parties: Party*): Future[Vector[CreatedEvent]] =
+      parties: Party*,
+  ): Future[Vector[CreatedEvent]] =
     activeContracts(activeContractsRequest(parties, templateIds)).map(_._2)
 
   /**
@@ -256,29 +263,33 @@ private[testtool] final class ParticipantTestContext private[participant] (
     */
   def getTransactionsRequest(
       parties: Seq[Party],
-      templateIds: Seq[TemplateId] = Seq.empty): GetTransactionsRequest =
+      templateIds: Seq[TemplateId] = Seq.empty,
+  ): GetTransactionsRequest =
     new GetTransactionsRequest(
       ledgerId = ledgerId,
       begin = Some(referenceOffset),
       end = Some(end),
       filter = transactionFilter(Tag.unsubst(parties), Tag.unsubst(templateIds)),
-      verbose = true
+      verbose = true,
     )
 
   private def transactions[Res](
       n: Int,
       request: GetTransactionsRequest,
-      service: (GetTransactionsRequest, StreamObserver[Res]) => Unit): Future[Vector[Res]] =
+      service: (GetTransactionsRequest, StreamObserver[Res]) => Unit,
+  ): Future[Vector[Res]] =
     new StreamConsumer[Res](service(request, _)).take(n)
 
   private def transactions[Res](
       request: GetTransactionsRequest,
-      service: (GetTransactionsRequest, StreamObserver[Res]) => Unit): Future[Vector[Res]] =
+      service: (GetTransactionsRequest, StreamObserver[Res]) => Unit,
+  ): Future[Vector[Res]] =
     new StreamConsumer[Res](service(request, _)).all()
 
   def flatTransactionsByTemplateId(
       templateId: TemplateId,
-      parties: Party*): Future[Vector[Transaction]] =
+      parties: Party*,
+  ): Future[Vector[Transaction]] =
     flatTransactions(getTransactionsRequest(parties, Seq(templateId)))
 
   /**
@@ -307,7 +318,8 @@ private[testtool] final class ParticipantTestContext private[participant] (
 
   def transactionTreesByTemplateId(
       templateId: TemplateId,
-      parties: Party*): Future[Vector[TransactionTree]] =
+      parties: Party*,
+  ): Future[Vector[TransactionTree]] =
     transactionTrees(getTransactionsRequest(parties, Seq(templateId)))
 
   /**
@@ -327,7 +339,8 @@ private[testtool] final class ParticipantTestContext private[participant] (
     */
   def transactionTrees(
       take: Int,
-      request: GetTransactionsRequest): Future[Vector[TransactionTree]] =
+      request: GetTransactionsRequest,
+  ): Future[Vector[TransactionTree]] =
     transactions(take, request, services.transaction.getTransactionTrees)
       .map(_.flatMap(_.transactions))
 
@@ -345,7 +358,8 @@ private[testtool] final class ParticipantTestContext private[participant] (
     */
   def getTransactionByIdRequest(
       transactionId: String,
-      parties: Seq[Party]): GetTransactionByIdRequest =
+      parties: Seq[Party],
+  ): GetTransactionByIdRequest =
     new GetTransactionByIdRequest(ledgerId, transactionId, Tag.unsubst(parties))
 
   /**
@@ -380,7 +394,8 @@ private[testtool] final class ParticipantTestContext private[participant] (
     */
   def getTransactionByEventIdRequest(
       eventId: String,
-      parties: Seq[Party]): GetTransactionByEventIdRequest =
+      parties: Seq[Party],
+  ): GetTransactionByEventIdRequest =
     new GetTransactionByEventIdRequest(ledgerId, eventId, Tag.unsubst(parties))
 
   /**
@@ -423,30 +438,31 @@ private[testtool] final class ParticipantTestContext private[participant] (
 
   def createAndGetTransactionId[T](
       party: Party,
-      template: Template[T]
+      template: Template[T],
   ): Future[(String, Primitive.ContractId[T])] =
     submitAndWaitRequest(party, template.create.command)
       .flatMap(submitAndWaitForTransaction)
       .map(tx =>
         tx.transactionId -> tx.events.collect {
           case Event(Created(e)) => Primitive.ContractId(e.contractId)
-        }.head)
+        }.head,
+      )
 
   def exercise[T](
       party: Party,
-      exercise: Party => Primitive.Update[T]
+      exercise: Party => Primitive.Update[T],
   ): Future[TransactionTree] =
     submitAndWaitRequest(party, exercise(party).command).flatMap(submitAndWaitForTransactionTree)
 
   def exerciseForFlatTransaction[T](
       party: Party,
-      exercise: Party => Primitive.Update[T]
+      exercise: Party => Primitive.Update[T],
   ): Future[Transaction] =
     submitAndWaitRequest(party, exercise(party).command).flatMap(submitAndWaitForTransaction)
 
   def exerciseAndGetContract[T](
       party: Party,
-      exercise: Party => Primitive.Update[_]
+      exercise: Party => Primitive.Update[_],
   ): Future[Primitive.ContractId[T]] =
     submitAndWaitRequest(party, exercise(party).command)
       .flatMap(submitAndWaitForTransaction)
@@ -455,7 +471,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
 
   def exerciseAndGetContracts[T](
       party: Party,
-      exercise: Party => Primitive.Update[T]
+      exercise: Party => Primitive.Update[T],
   ): Future[Seq[Primitive.ContractId[_]]] =
     submitAndWaitRequest(party, exercise(party).command)
       .flatMap(submitAndWaitForTransaction)
@@ -466,7 +482,8 @@ private[testtool] final class ParticipantTestContext private[participant] (
       template: Primitive.TemplateId[T],
       key: Value,
       choice: String,
-      argument: Value): Future[TransactionTree] =
+      argument: Value,
+  ): Future[TransactionTree] =
     submitAndWaitRequest(
       party,
       Command(
@@ -475,39 +492,45 @@ private[testtool] final class ParticipantTestContext private[participant] (
             Some(template.unwrap),
             Option(key),
             choice,
-            Option(argument)
-          )
-        )
-      )
+            Option(argument),
+          ),
+        ),
+      ),
     ).flatMap(submitAndWaitForTransactionTree)
 
   def submitRequest(party: Party, commands: Command*): Future[SubmitRequest] =
-    time().map(
-      let =>
-        new SubmitRequest(
-          Some(new Commands(
+    time().map(let =>
+      new SubmitRequest(
+        Some(
+          new Commands(
             ledgerId = ledgerId,
             applicationId = applicationId,
             commandId = nextCommandId(),
             party = party.unwrap,
             ledgerEffectiveTime = Some(let.asProtobuf),
             maximumRecordTime = Some(let.plus(ttl).asProtobuf),
-            commands = commands
-          ))))
+            commands = commands,
+          ),
+        ),
+      ),
+    )
 
   def submitAndWaitRequest(party: Party, commands: Command*): Future[SubmitAndWaitRequest] =
-    time().map(
-      let =>
-        new SubmitAndWaitRequest(
-          Some(new Commands(
+    time().map(let =>
+      new SubmitAndWaitRequest(
+        Some(
+          new Commands(
             ledgerId = ledgerId,
             applicationId = applicationId,
             commandId = nextCommandId(),
             party = party.unwrap,
             ledgerEffectiveTime = Some(let.asProtobuf),
             maximumRecordTime = Some(let.plus(ttl).asProtobuf),
-            commands = commands
-          ))))
+            commands = commands,
+          ),
+        ),
+      ),
+    )
 
   def submit(request: SubmitRequest): Future[Unit] =
     services.commandSubmission.submit(request).map(_ => ())
@@ -529,18 +552,19 @@ private[testtool] final class ParticipantTestContext private[participant] (
 
   def firstCompletions(request: CompletionStreamRequest): Future[Vector[Completion]] =
     new StreamConsumer[CompletionStreamResponse](
-      services.commandCompletion.completionStream(request, _))
-      .find(_.completions.nonEmpty)
+      services.commandCompletion.completionStream(request, _),
+    ).find(_.completions.nonEmpty)
       .map(_.fold(Seq.empty[Completion])(_.completions).toVector)
 
   def firstCompletions(parties: Party*): Future[Vector[Completion]] =
     firstCompletions(completionStreamRequest()(parties: _*))
 
-  def findCompletion(request: CompletionStreamRequest)(
-      p: Completion => Boolean): Future[Option[Completion]] =
+  def findCompletion(
+      request: CompletionStreamRequest,
+  )(p: Completion => Boolean): Future[Option[Completion]] =
     new StreamConsumer[CompletionStreamResponse](
-      services.commandCompletion.completionStream(request, _))
-      .find(_.completions.exists(p))
+      services.commandCompletion.completionStream(request, _),
+    ).find(_.completions.exists(p))
       .map(_.flatMap(_.completions.find(p)))
 
   def findCompletion(parties: Party*)(p: Completion => Boolean): Future[Option[Completion]] =
@@ -548,12 +572,13 @@ private[testtool] final class ParticipantTestContext private[participant] (
 
   def checkpoints(n: Int, request: CompletionStreamRequest): Future[Vector[Checkpoint]] =
     new StreamConsumer[CompletionStreamResponse](
-      services.commandCompletion.completionStream(request, _))
-      .filterTake(_.checkpoint.isDefined)(n)
+      services.commandCompletion.completionStream(request, _),
+    ).filterTake(_.checkpoint.isDefined)(n)
       .map(_.map(_.getCheckpoint))
 
   def checkpoints(n: Int, from: LedgerOffset = referenceOffset)(
-      parties: Party*): Future[Vector[Checkpoint]] =
+      parties: Party*,
+  ): Future[Vector[Checkpoint]] =
     checkpoints(n, completionStreamRequest(from)(parties: _*))
 
   def firstCheckpoint(request: CompletionStreamRequest): Future[Checkpoint] =
@@ -573,8 +598,9 @@ private[testtool] final class ParticipantTestContext private[participant] (
       services.configuration
         .getLedgerConfiguration(
           new GetLedgerConfigurationRequest(overrideLedgerId.getOrElse(ledgerId)),
-          _))
-      .first()
+          _,
+        ),
+    ).first()
       .map(_.fold(sys.error("No ledger configuration available."))(_.getLedgerConfiguration))
 
   def checkHealth(): Future[HealthCheckResponse] =
@@ -590,8 +616,9 @@ private[testtool] final class ParticipantTestContext private[participant] (
   def setTimeModel(
       mrt: Instant,
       generation: Long,
-      newTimeModel: TimeModel): Future[SetTimeModelResponse] =
+      newTimeModel: TimeModel,
+  ): Future[SetTimeModelResponse] =
     services.configManagement.setTimeModel(
-      SetTimeModelRequest(nextSubmissionId(), Some(mrt.asProtobuf), generation, Some(newTimeModel))
+      SetTimeModelRequest(nextSubmissionId(), Some(mrt.asProtobuf), generation, Some(newTimeModel)),
     )
 }

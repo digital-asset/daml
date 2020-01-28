@@ -6,6 +6,75 @@ Release notes
 
 This page contains release notes for the SDK.
 
+.. _release-0-13-46:
+
+0.13.46 - 2020-01-22
+--------------------
+
+Sandbox
+~~~~~~~
+
+- The sandbox uses a new payload format for authentication tokens (JWTs). The old format is
+  deprecated, but still works.
+
+JSON API
+~~~~~~~~
+
+- The HTTP JSON API now uses the same payload format for authentication tokens as the sandbox. The
+  old format is deprecated, but still works.
+
+DAML Studio
+~~~~~~~~~~~
+
+- Scenarios with unserializable result types no longer crash the scenario service.
+
+.. _release-0-13-45:
+
+0.13.45 - 2020-01-22
+--------------------
+
+Sandbox
+~~~~~~~
+
+- Metrics are now namespaced by ``"daml"`` and their names have been
+  standardized to snake_case.
+
+DAML-LF
+~~~~~~~
+
+- Prohibit contract IDs in contract keys completely. Previously, creating keys containing absolute (but not relative) contract IDs was allowed, but ``lookupByKey`` on such a key would crash.
+
+DAML Compiler
+~~~~~~~~~~~~~
+
+- Added a ``--drop-orphan-instances`` flag in ``daml damlc docs``.
+- The modification times in a DAR are now fixed to a
+  given value which makes the output of ``daml build`` deterministic
+  in single-threaded mode (which is the default).
+
+JSON API - Experimental
+~~~~~~~~~~~~~~~~~~~~~~~
+
+- Support Exercise by Key. See `issue #4099 <https://github.com/digital-asset/daml/issues/4099>`__.
+- Response format in ``searchForever`` changed to be more like ``exercise``.
+  See `issue #4072 <https://github.com/digital-asset/daml/issues/4072>`__.
+- In 'search' endpoint arguments, %templates is now templateIds.
+  Additionally, all contract query fields must occur under 'query'.
+  See `issue #3450 <https://github.com/digital-asset/daml/issues/3450>`__.
+
+Indexer
+~~~~~~~
+
+- Potentially fix a bug when recovering from failure.
+
+DAML Standard Library
+~~~~~~~~~~~~~~~~~~~~~
+
+- The ``Template``, ``Choice``, and
+  ``TemplateKey`` typeclasses have been split up into many small typeclasses
+  to improve forward compatibility of DAML models. ``Template``,
+  ``Choice`` and ``TemplateKey`` constraints can still be used as before.
+
 .. _release-0-13-44:
 
 0.13.44 - 2020-01-17

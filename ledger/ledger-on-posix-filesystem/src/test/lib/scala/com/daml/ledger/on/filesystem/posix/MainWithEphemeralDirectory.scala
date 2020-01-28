@@ -3,27 +3,33 @@
 
 package com.daml.ledger.on.filesystem.posix
 
-import java.nio.file.Files
+import java.nio.file.{Files, Path}
 
 import com.daml.ledger.on.filesystem.posix.DeleteFiles.deleteFiles
 import com.daml.ledger.participant.state.kvutils.app.Runner
+import com.digitalasset.dec.DirectExecutionContext
+import com.digitalasset.resources.Resource
 
-import scala.concurrent.Await
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration.DurationInt
+import scala.concurrent.{ExecutionContext, Future}
 
 object MainWithEphemeralDirectory extends App {
-  val root = Files.createTempDirectory("ledger-on-posix-filesystem-ephemeral")
+  implicit val executionContext: ExecutionContext = DirectExecutionContext
 
-  try {
-    Runner(
+  val root = Files.createTempDirectory("ledger-on-posix-filesystem-ephemeral-")
+
+  for {
+    root <- Resource[Path](
+      Future.successful(root),
+      directory => Future.successful(deleteFiles(directory)),
+    )
+    _ <- Runner(
       "Ephemeral File System Ledger",
-      participantId =>
-        Await.result(
-          FileSystemLedgerReaderWriter(participantId = participantId, root = root),
-          10.seconds)
+      (ledgerId, participantId) =>
+        FileSystemLedgerReaderWriter.owner(
+          ledgerId = ledgerId,
+          participantId = participantId,
+          root = root,
+      )
     ).run(args)
-  } finally {
-    deleteFiles(root)
-  }
+  } yield ()
 }

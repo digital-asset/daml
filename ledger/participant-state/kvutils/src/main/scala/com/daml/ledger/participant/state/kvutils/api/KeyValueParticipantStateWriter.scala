@@ -11,16 +11,14 @@ import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueSubmission}
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.{Ref, Time}
 import com.digitalasset.daml_lf_dev.DamlLf
-import com.digitalasset.ledger.api.health.{HealthStatus, ReportsHealth}
+import com.digitalasset.ledger.api.health.HealthStatus
 
 import scala.compat.java8.FutureConverters
 import scala.concurrent.ExecutionContext
 
 class KeyValueParticipantStateWriter(writer: LedgerWriter)(
     implicit executionContext: ExecutionContext)
-    extends WriteService
-    with ReportsHealth
-    with AutoCloseable {
+    extends WriteService {
 
   override def submitTransaction(
       submitterInfo: SubmitterInfo,
@@ -70,8 +68,6 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter)(
   }
 
   override def currentHealth(): HealthStatus = writer.currentHealth()
-
-  override def close(): Unit = writer.close()
 
   private def generateRandomParty(): Ref.Party =
     Ref.Party.assertFromString(s"party-${UUID.randomUUID().toString.take(8)}")

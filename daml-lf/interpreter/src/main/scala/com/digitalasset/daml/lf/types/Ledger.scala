@@ -4,7 +4,6 @@
 package com.digitalasset.daml.lf.types
 
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.Ref.LedgerString.ordering
 import com.digitalasset.daml.lf.data.{ImmArray, Time}
 import com.digitalasset.daml.lf.transaction.Node._
 import com.digitalasset.daml.lf.transaction.Transaction
@@ -26,7 +25,7 @@ object Ledger {
     def apply(acoid: AbsoluteContractId): ScenarioNodeId = acoid.coid
 
     def apply(commitPrefix: LedgerString, txnid: Transaction.NodeId): ScenarioNodeId =
-      apply(txNodeIdToAbsoluteContractId(commitPrefix, txnid))
+      apply(txNodeIdToAbsoluteContractId(commitPrefix, txnid.index))
   }
 
   /** This is the function that we use to turn relative contract ids (which are made of
@@ -36,16 +35,16 @@ object Ledger {
   @inline
   def txNodeIdToAbsoluteContractId(
       commitPrefix: LedgerString,
-      txnid: Transaction.NodeId
+      txnidx: Int
   ): AbsoluteContractId =
-    AbsoluteContractId(ContractIdString.concat(commitPrefix, txnid.name))
+    AbsoluteContractId(ContractIdString.concat(commitPrefix, LedgerString.fromInt(txnidx)))
 
   @inline
   def relativeToAbsoluteContractId(
       commitPrefix: LedgerString,
-      i: RelativeContractId
+      cid: RelativeContractId
   ): AbsoluteContractId =
-    txNodeIdToAbsoluteContractId(commitPrefix, i.txnid)
+    txNodeIdToAbsoluteContractId(commitPrefix, cid.txnid.index)
 
   @inline
   def contractIdToAbsoluteContractId(
@@ -119,7 +118,7 @@ object Ledger {
       committer: Party,
       effectiveAt: Time.Timestamp,
       roots: ImmArray[ScenarioNodeId],
-      nodes: immutable.SortedMap[ScenarioNodeId, Node],
+      nodes: immutable.HashMap[ScenarioNodeId, Node],
       explicitDisclosure: Relation[ScenarioNodeId, Party],
       localImplicitDisclosure: Relation[ScenarioNodeId, Party],
       globalImplicitDisclosure: Relation[AbsoluteContractId, Party],
@@ -132,7 +131,7 @@ object Ledger {
       // The transaction root nodes.
       roots: ImmArray[Transaction.NodeId],
       // All nodes of this transaction.
-      nodes: immutable.SortedMap[Transaction.NodeId, Transaction.Node],
+      nodes: immutable.HashMap[Transaction.NodeId, Transaction.Node],
       // A relation between a node id and the parties to which this node gets explicitly disclosed.
       explicitDisclosure: Relation[Transaction.NodeId, Party],
       // A relation between a node id and the parties to which this node get implictly disclosed
@@ -568,10 +567,10 @@ object Ledger {
 
     def divulgeCoidTo(witnesses: Set[Party], coid: ContractId): EnrichState = {
       def divulgeRelativeCoidTo(ws: Set[Party], rcoid: RelativeContractId): EnrichState = {
-        val i = rcoid.txnid
+        val nid = rcoid.txnid
         copy(
           localDivulgences = localDivulgences
-            .updated(i, ws union localDivulgences.getOrElse(i, Set.empty)))
+            .updated(nid, ws union localDivulgences.getOrElse(nid, Set.empty)))
       }
 
       coid match {

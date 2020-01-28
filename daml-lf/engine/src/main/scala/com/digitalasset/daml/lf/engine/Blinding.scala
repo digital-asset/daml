@@ -109,7 +109,7 @@ object Blinding {
     * transaction has Nid references that are not present in its nodes. Use `isWellFormed`
     * if you are getting the transaction from a third party.
     */
-  def divulgedTransaction[Nid: Ordering, Cid, Val](
+  def divulgedTransaction[Nid, Cid, Val](
       divulgences: Relation[Nid, Party],
       party: Party,
       tx: GenTransaction[Nid, Cid, Val]): GenTransaction[Nid, Cid, Val] = {
@@ -117,7 +117,7 @@ object Blinding {
     // Note that this relies on the local divulgence to be well-formed:
     // if an exercise node is divulged to A but some of its descendants
     // aren't the resulting transaction will not be well formed.
-    val filteredNodes = tx.nodes.filterKeys(partyDivulgences.contains)
+    val filteredNodes = tx.nodes.filter { case (k, _) => partyDivulgences.contains(k) }
 
     @tailrec
     def go(filteredRoots: BackStack[Nid], remainingRoots: FrontStack[Nid]): ImmArray[Nid] = {

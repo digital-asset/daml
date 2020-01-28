@@ -104,17 +104,11 @@ main = do
             , tplChoices = NM.fromList ([chc,chc2] <> [arc | withArchiveChoice])
             , tplKey = Nothing
             }
-    let syn = DefTypeSyn
-            { synLocation = Nothing
-            , synName = TypeSynName ["MySyn1"]
-            , synParams = []
-            , synType = TUnit
-            }
     let mod = Module
             { moduleName = ModuleName ["Module"]
             , moduleSource = Nothing
             , moduleFeatureFlags = FeatureFlags{forbidPartyLiterals = True}
-            , moduleSynonyms = NM.fromList [syn]
+            , moduleSynonyms = NM.fromList []
             , moduleDataTypes = NM.fromList ([tplRec, chcArg, chcArg2] <> [emptyRec | withArchiveChoice])
             , moduleValues = NM.empty
             , moduleTemplates = NM.fromList [tpl]

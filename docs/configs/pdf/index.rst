@@ -96,6 +96,7 @@ Experimental features
    triggers/index
    daml-script/index
    tools/visual
+   daml2ts/index
 
 Support and updates
 -------------------

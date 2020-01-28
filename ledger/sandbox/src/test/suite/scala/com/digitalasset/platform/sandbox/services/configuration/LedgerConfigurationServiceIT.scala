@@ -14,8 +14,8 @@ import com.digitalasset.ledger.api.v1.ledger_configuration_service.{
 }
 import com.digitalasset.platform.api.grpc.GrpcApiUtil
 import com.digitalasset.platform.sandbox.config.SandboxConfig
-import com.digitalasset.platform.sandbox.persistence.PostgresAroundAll
 import com.digitalasset.platform.sandbox.services.SandboxFixture
+import com.digitalasset.testing.postgresql.PostgresAroundAll
 import org.scalatest.{Matchers, WordSpec}
 import scalaz.syntax.tag._
 

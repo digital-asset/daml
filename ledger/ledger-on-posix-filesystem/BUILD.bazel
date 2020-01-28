@@ -31,6 +31,7 @@ da_scala_library(
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils/app",
+        "//libs-scala/resources",
         "//libs-scala/timer-utils",
         "@maven//:com_github_scopt_scopt_2_12",
         "@maven//:com_google_protobuf_protobuf_java",
@@ -55,6 +56,8 @@ da_scala_library(
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils/app",
+        "//libs-scala/direct-execution-context",
+        "//libs-scala/resources",
     ],
 )
 
@@ -76,13 +79,14 @@ da_scala_test(
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils:kvutils-tests-lib",
+        "//libs-scala/resources",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:org_scalactic_scalactic_2_12",
         "@maven//:org_scalatest_scalatest_2_12",
     ],
-)
+) if not is_windows else None
 
 da_scala_binary(
     name = "app",

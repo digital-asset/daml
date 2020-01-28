@@ -26,7 +26,8 @@ object Synchronize {
     * FIXME This will _NOT_ work with distributed committers
     */
   final def synchronize(alpha: ParticipantTestContext, beta: ParticipantTestContext)(
-      implicit ec: ExecutionContext): Future[Unit] = {
+      implicit ec: ExecutionContext,
+  ): Future[Unit] = {
     for {
       alice <- alpha.allocateParty()
       bob <- beta.allocateParty()

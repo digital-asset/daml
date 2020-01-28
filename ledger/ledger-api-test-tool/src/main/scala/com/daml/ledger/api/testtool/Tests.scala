@@ -10,7 +10,7 @@ object Tests {
   type Tests = Map[String, LedgerSession => LedgerTestSuite]
 
   val default: Tests = Map(
-    "SemanticTests" -> (new SemanticTests(_))
+    "SemanticTests" -> (new SemanticTests(_)),
   )
 
   /*

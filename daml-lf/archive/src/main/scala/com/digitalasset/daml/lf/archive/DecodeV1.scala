@@ -145,6 +145,27 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
       val defs = mutable.ArrayBuffer[(DottedName, Definition)]()
       val templates = mutable.ArrayBuffer[(DottedName, Template)]()
 
+      if (versionIsOlderThan(LV.Features.typeSynonyms)) {
+        assertEmpty(lfModule.getSynonymsList, "Module.synonyms")
+      } else if (!onlySerializableDataDefs) {
+        // collect type synonyms
+        lfModule.getSynonymsList.asScala
+          .foreach { defn =>
+            val defName = handleDottedName(
+              defn.getNameCase,
+              PLF.DefTypeSyn.NameCase.NAME_DNAME,
+              defn.getNameDname,
+              PLF.DefTypeSyn.NameCase.NAME_INTERNED_DNAME,
+              defn.getNameInternedDname,
+              "DefTypeSyn.name.name"
+            )
+            currentDefinitionRef =
+              Some(DefinitionRef(packageId, QualifiedName(moduleName, defName)))
+            val d = decodeDefTypeSyn(defn)
+            defs += (defName -> d)
+          }
+      }
+
       // collect data types
       lfModule.getDataTypesList.asScala
         .filter(!onlySerializableDataDefs || _.getSerializable)
@@ -275,6 +296,14 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
             throw ParseError("DefDataType.DATACONS_NOT_SET")
 
         }
+      )
+    }
+
+    private[this] def decodeDefTypeSyn(lfTypeSyn: PLF.DefTypeSyn): DTypeSyn = {
+      val params = lfTypeSyn.getParamsList.asScala
+      DTypeSyn(
+        ImmArray(params).map(decodeTypeVarWithKind),
+        decodeType(lfTypeSyn.getType)
       )
     }
 
@@ -548,8 +577,11 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           (TTyCon(decodeTypeConName(tcon.getTycon)) /: [Type] tcon.getArgsList.asScala)(
             (typ, arg) => TApp(typ, decodeType(arg)))
         case PLF.Type.SumCase.SYN =>
-          // FIXME https://github.com/digital-asset/daml/issues/3616
-          throw ParseError("PLF.Type.SumCase.SYN") //TODO
+          val tsyn = lfType.getSyn
+          TSynApp(
+            decodeTypeSynName(tsyn.getTysyn),
+            ImmArray(tsyn.getArgsList.asScala.map(decodeType))
+          )
         case PLF.Type.SumCase.PRIM =>
           val prim = lfType.getPrim
           val baseType =
@@ -625,6 +657,19 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         PLF.TypeConName.NameCase.NAME_INTERNED_DNAME,
         lfTyConName.getNameInternedDname,
         "TypeConName.name.name"
+      )
+      Identifier(packageId, QualifiedName(module, name))
+    }
+
+    private[this] def decodeTypeSynName(lfTySynName: PLF.TypeSynName): TypeSynName = {
+      val (packageId, module) = decodeModuleRef(lfTySynName.getModule)
+      val name = handleDottedName(
+        lfTySynName.getNameCase,
+        PLF.TypeSynName.NameCase.NAME_DNAME,
+        lfTySynName.getNameDname,
+        PLF.TypeSynName.NameCase.NAME_INTERNED_DNAME,
+        lfTySynName.getNameInternedDname,
+        "TypeSynName.name.name"
       )
       Identifier(packageId, QualifiedName(module, name))
     }

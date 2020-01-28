@@ -42,6 +42,7 @@ import "ghc-lib-parser" Bag (bagToList)
 
 import Control.Monad
 import Control.Monad.Trans.Maybe
+import Data.Default
 import Data.List.Extra
 import Data.List.Extended (spanMaybe)
 import Data.Maybe
@@ -180,7 +181,7 @@ haddockParse :: (LSP.FromServerMessage -> IO ()) ->
                 MaybeT IO [Service.TcModuleResult]
 haddockParse diagsLogger opts f = MaybeT $ do
   vfs <- makeVFSHandle
-  service <- Service.initialise Service.mainRule (pure $ LSP.IdInt 0) diagsLogger noLogging opts vfs
+  service <- Service.initialise def Service.mainRule (pure $ LSP.IdInt 0) diagsLogger noLogging opts vfs
   Service.setFilesOfInterest service (Set.fromList f)
   Service.runAction service $
              runMaybeT $

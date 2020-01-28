@@ -45,7 +45,7 @@ toCompileOpts options@Options{..} reportProgress =
             env <- runGhcFast $ do
                 setupDamlGHC options
                 GHC.getSession
-            pkg <- generatePackageState optPackageDbs optHideAllPkgs $ map toRenaming optPackageImports
+            pkg <- generatePackageState optPackageDbs optHideAllPkgs optPackageImports
             dflags <- checkDFlags options $ setPackageDynFlags pkg $ hsc_dflags env
             hscenv <- newHscEnvEq env{hsc_dflags = dflags}
             return $ const $ return hscenv
@@ -63,7 +63,6 @@ toCompileOpts options@Options{..} reportProgress =
       , optDefer = Ghcide.IdeDefer False
       }
   where
-    toRenaming PackageImport{..} = (pkgImportUnitId, ModRenaming pkgImportExposeImplicit pkgImportModRenamings)
     locateInPkgDb :: String -> PackageConfig -> GHC.Module -> IO (Maybe FilePath)
     locateInPkgDb ext pkgConfig mod
       | (importDir : _) <- importDirs pkgConfig = do
@@ -96,7 +95,7 @@ getPackageDynFlags DynFlags{..} = PackageDynFlags
     , pdfThisUnitIdInsts = thisUnitIdInsts_
     }
 
-generatePackageState :: [FilePath] -> Bool -> [(UnitId, ModRenaming)] -> IO PackageDynFlags
+generatePackageState :: [FilePath] -> Bool -> [PackageFlag] -> IO PackageDynFlags
 generatePackageState paths hideAllPkgs pkgImports = do
   let dflags = setPackageImports hideAllPkgs pkgImports $ setPackageDbs paths fakeDynFlags
   (newDynFlags, _) <- initPackages dflags
@@ -116,15 +115,9 @@ setPackageDbs paths dflags =
         }
     }
 
-setPackageImports :: Bool -> [(UnitId, ModRenaming)] -> DynFlags -> DynFlags
+setPackageImports :: Bool -> [PackageFlag] -> DynFlags -> DynFlags
 setPackageImports hideAllPkgs pkgImports dflags = dflags {
-    packageFlags = packageFlags dflags ++
-        [ExposePackage ("--package " <> unitIdString pkgName) (UnitIdArg pkgName) renaming
-        -- The first string is only used in error messages so it doesn’t really matter.
-        -- Our --package flag corresponds to GHC’s -package-id but it makes more sense
-        -- to mention the flag name used in DAML in error messages.
-        | (pkgName, renaming) <- pkgImports
-        ]
+    packageFlags = packageFlags dflags ++ pkgImports
     , generalFlags = if hideAllPkgs
                       then Opt_HideAllPackages `EnumSet.insert` generalFlags dflags
                       else generalFlags dflags

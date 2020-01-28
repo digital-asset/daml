@@ -13,6 +13,9 @@ import scala.collection.mutable
 final class BackStack[+A] private (fq: BQ[A], len: Int) {
 
   /** O(1) */
+  def length: Int = len
+
+  /** O(1) */
   def :+[B >: A](x: B): BackStack[B] = new BackStack(BQSnoc(fq, x), len + 1)
 
   /** O(1) */

@@ -1,5 +1,4 @@
 {-# LANGUAGE ConstrainedClassMethods #-}
-
 daml 1.2
 -- | This module tests the case where a class method contains a constraint
 -- not present in the class itself.
@@ -9,5 +8,8 @@ class A t where
     foo : t -> t
     bar : Eq t => t -> t
 
-class B t where
-    baz : B b => b -> t
+-- This would create a recursive type synonym.
+-- For now, we do not support this. As a workaround
+-- you can do manual dictionary passing.
+-- class B t where
+--    baz : B b => b -> t

@@ -1,0 +1,48 @@
+{
+  "private": false,
+  "name": "@daml/ledger",
+  "version": "0.0.0-SDKVERSION",
+  "description": "Client side API implementation for a DAML based ledger. This library implements the JSON based API for a DAML ledger documented in https://docs.daml.com/json-api/index.html.",
+  "keywords": ["daml", "API", "client"],
+  "homepage": "https://daml.com",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@daml/types": "0.0.0-SDKVERSION",
+    "@mojotech/json-type-validation": "^3.1.0",
+    "cross-fetch": "^3.0.4"
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "build:watch": "tsc --build --watch",
+    "test": "true",
+    "lint": "eslint --ext .ts ./ --max-warnings 0"
+  },
+  "eslintConfig": {
+    "extends": [
+      "eslint:recommended",
+      "plugin:@typescript-eslint/eslint-recommended",
+      "plugin:@typescript-eslint/recommended",
+      "plugin:@typescript-eslint/recommended-requiring-type-checking"
+    ],
+    "parser": "@typescript-eslint/parser",
+    "parserOptions": {
+      "project": "./tsconfig.json"
+    },
+    "plugins": [
+      "@typescript-eslint"
+    ],
+    "rules": {
+      "@typescript-eslint/no-floating-promises": "error",
+      "@typescript-eslint/explicit-function-return-type": "off",
+      "@typescript-eslint/no-inferrable-types": "off"
+    }
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^2.16.0",
+    "@typescript-eslint/parser": "^2.16.0",
+    "eslint": "^6.8.0",
+    "typescript": "3.7.4"
+  }
+}

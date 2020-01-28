@@ -74,6 +74,10 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
             }
           case value @ DValue(_, _, _, _) =>
             builder.addValues(name -> value)
+
+          case DTypeSyn(params @ _, typ @ _) =>
+            throw new RuntimeException("TODO #3616, EncodeV1, DTypeSyn")
+
         }
         builder
       }
@@ -205,6 +209,9 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
           case _ => typ0 -> ImmArray.empty
         }
       val builder = PLF.Type.newBuilder()
+      // Be warned: Both the use of the unapply pattern TForalls and the pattern
+      //    case TBuiltin(BTArrow) if versionIsOlderThan(LV.Features.arrowType) =>
+      // cause scala's exhaustivty checking to be disabled in the following match.
       typ match {
         case TVar(varName) =>
           val b = PLF.Type.Var.newBuilder()
@@ -242,6 +249,8 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
         case TStruct(fields) =>
           expect(args.isEmpty)
           builder.setStruct(PLF.Type.Struct.newBuilder().accumulateLeft(fields)(_ addFields _))
+        case TSynApp(_, _) =>
+          throw new RuntimeException("TODO #3616,encodeTypeBuilder")
       }
     }
 

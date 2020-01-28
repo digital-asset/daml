@@ -157,6 +157,7 @@ da_scala_library(
         "//ledger/sandbox",
         "//ledger/sandbox:sandbox-scala-tests-lib",
         "//libs-scala/auth-utils",
+        "//libs-scala/postgresql-testing",
         "@maven//:com_chuusai_shapeless_2_12",
         "@maven//:com_lihaoyi_sourcecode_2_12",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
@@ -191,7 +192,6 @@ da_scala_test_suite(
         "//extractor:TransactionExample.dar",
         "//extractor:VeryLargeArchive.dar",
         "//ledger/test-common:Test-stable.dar",
-        "@postgresql_dev_env//:all",
     ],
     resources = glob(["src/test/resources/**/*"]),
     deps = [
@@ -217,6 +217,7 @@ da_scala_test_suite(
         "//ledger/test-common",
         "//libs-scala/auth-utils",
         "//libs-scala/grpc-utils",
+        "//libs-scala/postgresql-testing",
         "//libs-scala/timer-utils",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:com_chuusai_shapeless_2_12",

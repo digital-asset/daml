@@ -1,6 +1,6 @@
 {
   "templateId": "Iou:Iou",
-  "argument": {
+  "payload": {
     "observers": [],
     "issuer": "Alice",
     "amount": "999.99",

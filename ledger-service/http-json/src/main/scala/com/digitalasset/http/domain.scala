@@ -47,6 +47,9 @@ object domain {
   type InputContractRef[+LfV] =
     (TemplateId.OptionalPkg, LfV) \/ (Option[TemplateId.OptionalPkg], ContractId)
 
+  type ResolvedContractRef[+LfV] =
+    (TemplateId.RequiredPkg, LfV) \/ (TemplateId.RequiredPkg, ContractId)
+
   case class ActiveContract[+LfV](
       contractId: ContractId,
       templateId: TemplateId.RequiredPkg,
@@ -83,7 +86,7 @@ object domain {
 
   final case class CreateCommand[+LfV](
       templateId: TemplateId.OptionalPkg,
-      argument: LfV,
+      payload: LfV,
       meta: Option[CommandMeta])
 
   final case class ExerciseCommand[+LfV, +Ref](
@@ -375,7 +378,7 @@ object domain {
     implicit val traverseInstance: Traverse[CreateCommand] = new Traverse[CreateCommand] {
       override def traverseImpl[G[_]: Applicative, A, B](fa: CreateCommand[A])(
           f: A => G[B]): G[CreateCommand[B]] =
-        f(fa.argument).map(a => fa.copy(argument = a))
+        f(fa.payload).map(a => fa.copy(payload = a))
     }
 
     implicit val hasTemplateId: HasTemplateId[CreateCommand] = new HasTemplateId[CreateCommand] {

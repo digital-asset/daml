@@ -1,19 +1,7 @@
 {
-  "dependencies": {
-    "@mojotech/json-type-validation": "^3.1.0",
-    "cross-fetch": "^3.0.4",
-    "typescript": "3.7.4"
-  },
-  "devDependencies": {
-    "@bazel/bazel": "1.1.0",
-    "@bazel/hide-bazel-files": "1.1.0",
-    "@bazel/typescript": "1.1.0",
-    "@typescript-eslint/eslint-plugin": "^2.16.0",
-    "@typescript-eslint/parser": "^2.16.0",
-    "@types/jest": "^24.9.0",
-    "eslint": "^6.8.0",
-    "jest": "^24.9.0",
-    "jest-cli": "^24.9.0",
-    "ts-jest": "^24.3.0"
-  }
+  "private": true,
+  "workspaces": [
+    "daml-types",
+    "daml-ledger"
+  ]
 }

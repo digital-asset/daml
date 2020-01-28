@@ -34,5 +34,6 @@ private[testtool] object Allocation {
 
   final case class Participant private[infrastructure] (
       ledger: ParticipantTestContext,
-      parties: Party*)
+      parties: Party*,
+  )
 }

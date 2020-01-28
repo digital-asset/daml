@@ -7,11 +7,12 @@ module Main (main) where
 import Control.Monad.Extra
 import Control.Monad.IO.Class
 import Control.Monad.Logger
+import Control.Exception
 import Data.Yaml
 import qualified Data.Set as Set
 import qualified Data.List as List
 import Path
-import Path.IO
+import Path.IO hiding (removeFile)
 
 import qualified Data.Text as T
 import qualified Data.Maybe as Maybe
@@ -63,11 +64,14 @@ main = do
           -- originating from genrules that use damlc. This is a bit hacky but
           -- given that it’s fairly unlikely to accidentally introduce a dependency on the scenario
           -- service it doesn’t seem worth fixing properly.
-          let bazelQueryCommand = shell $ "bazel query 'kind(\"(scala|java)_library\", deps(" ++ (T.unpack . getBazelTarget . artTarget) a ++ ")) intersect //... except //compiler/scenario-service/protos:scenario_service_java_proto'"
-          internalDeps <- liftIO $ lines <$> readCreateProcess bazelQueryCommand ""
-          -- check if a dependency is not already a maven target from artifacts.yaml
-          let missingDeps = filter (`Set.notMember` allMavenTargets) internalDeps
-          return (a, missingDeps)
+          if getIgnoreMissingDeps optsIgnoreMissingDeps
+              then pure (a, [])
+              else do
+                let bazelQueryCommand = shell $ "bazel query 'kind(\"(scala|java)_library\", deps(" ++ (T.unpack . getBazelTarget . artTarget) a ++ ")) intersect //... except //compiler/scenario-service/protos:scenario_service_java_proto'"
+                internalDeps <- liftIO $ lines <$> readCreateProcess bazelQueryCommand ""
+                -- check if a dependency is not already a maven target from artifacts.yaml
+                let missingDeps = filter (`Set.notMember` allMavenTargets) internalDeps
+                return (a, missingDeps)
 
       let onlyMissing = filter (not . null . snd) missingDepsForAllArtifacts
       -- now we can report all the missing dependencies per artifact
@@ -86,6 +90,15 @@ main = do
       uploadArtifacts <- concatMapM (mavenArtifactCoords optsAllArtifacts) mavenUploadArtifacts
       validateMavenArtifacts releaseDir uploadArtifacts
 
+      -- npm packages we want to publish.
+      let npmPackages =
+            [ "//language-support/ts/daml-types"
+            , "//language-support/ts/daml-ledger"
+            ]
+      -- make sure the npm packages can be build.
+      $logDebug "Building language-support typescript packages"
+      forM_ npmPackages $ \rule -> liftIO $ callCommand $ "bazel build " <> rule
+
       if | getPerformUpload upload -> do
               $logInfo "Make release"
               releaseToBintray upload releaseDir (map (\(a, (_, outp)) -> (a, outp)) files)
@@ -97,6 +110,17 @@ main = do
                     uploadToMavenCentral mavenUploadConfig releaseDir uploadArtifacts
                   else
                     $logInfo "No artifacts to upload to Maven Central"
+
+              let npmrcPath = ".npmrc"
+              -- We can't put an .npmrc file in the root of the directory because other bazel npm
+              -- code picks it up and looks for the token which is not yet set before the release
+              -- phase.
+              $logDebug "Uploading npm packages"
+              liftIO $ bracket
+                (writeFile npmrcPath "//registry.npmjs.org/:_authToken=${NPM_TOKEN}")
+                (\() -> Dir.removeFile npmrcPath)
+                (\() -> forM_ npmPackages
+                  $ \rule -> liftIO $ callCommand $ "bazel run " <> rule <> ":npm_package.publish")
 
               -- set variables for next steps in Azure pipelines
               liftIO . putStrLn $ "##vso[task.setvariable variable=has_released;isOutput=true]true"

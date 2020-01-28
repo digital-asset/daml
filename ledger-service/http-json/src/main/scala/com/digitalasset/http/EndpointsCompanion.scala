@@ -16,11 +16,14 @@ import akka.http.scaladsl.model.{
 import akka.util.ByteString
 import com.digitalasset.http.domain.JwtPayload
 import com.digitalasset.http.json.{ResponseFormats, SprayJson}
+import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.jwt.domain.{DecodedJwt, Jwt}
 import spray.json.{JsObject, JsValue}
-import scalaz.{Show, \/}
+import scalaz.{-\/, Show, \/}
+import scalaz.syntax.std.option._
 import scalaz.syntax.show._
 import com.digitalasset.http.json.JsonProtocol._
+import com.digitalasset.ledger.api.auth.AuthServiceJWTCodec
 
 import scala.concurrent.Future
 
@@ -86,8 +89,29 @@ object EndpointsCompanion {
       p <- parsePayload(a)
     } yield (jwt, p)
 
-  private[http] def parsePayload(jwt: DecodedJwt[String]): Unauthorized \/ JwtPayload =
-    SprayJson.decode[JwtPayload](jwt.payload).leftMap(e => Unauthorized(e.shows))
+  private[http] def parsePayload(jwt: DecodedJwt[String]): Unauthorized \/ JwtPayload = {
+    // AuthServiceJWTCodec is the JWT reader used by the sandbox and some DAML-on-X ledgers.
+    // Most JWT fields are optional for the sandbox, but not for the JSON API.
+    AuthServiceJWTCodec
+      .readFromString(jwt.payload)
+      .fold(
+        e => -\/(Unauthorized(e.getMessage)),
+        payload =>
+          for {
+            ledgerId <- payload.ledgerId.toRightDisjunction(
+              Unauthorized("ledgerId missing in access token"))
+            applicationId <- payload.applicationId.toRightDisjunction(
+              Unauthorized("applicationId missing in access token"))
+            party <- payload.party.toRightDisjunction(
+              Unauthorized("party missing or not unique in access token"))
+          } yield
+            JwtPayload(
+              lar.LedgerId(ledgerId),
+              lar.ApplicationId(applicationId),
+              lar.Party(party)
+          )
+      )
+  }
 
   private[http] def encodeList(as: Seq[JsValue]): ServerError \/ JsValue =
     SprayJson.encode(as).leftMap(e => ServerError(e.shows))

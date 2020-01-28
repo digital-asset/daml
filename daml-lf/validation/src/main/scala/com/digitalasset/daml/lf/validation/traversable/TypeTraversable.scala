@@ -15,6 +15,8 @@ private[validation] object TypeTraversable {
 
   private[validation] def foreach[U](typ: Type, f: Type => U): Unit =
     typ match {
+      case TSynApp(_, args) =>
+        args.iterator.foreach(f)
       case TVar(_) | TTyCon(_) | TBuiltin(_) | TNat(_) =>
       case TApp(tyfun, arg) =>
         f(tyfun)
@@ -29,8 +31,6 @@ private[validation] object TypeTraversable {
 
   private[validation] def foreach[U](expr0: Expr, f: Type => U): Unit = {
     expr0 match {
-      case EContractId(_, typeConName) =>
-        f(TTyCon(typeConName))
       case ERecCon(tycon, fields @ _) =>
         f(toType(tycon))
         fields.values.foreach(foreach(_, f))
@@ -146,6 +146,9 @@ private[validation] object TypeTraversable {
 
   private[validation] def foreach[U](defn: Definition, f: Type => U): Unit =
     defn match {
+      case DTypeSyn(params @ _, typ) =>
+        f(typ)
+        ()
       case DDataType(serializable @ _, params @ _, DataRecord(fields, template)) =>
         fields.values.foreach(f)
         template.foreach(foreach(_, f))
