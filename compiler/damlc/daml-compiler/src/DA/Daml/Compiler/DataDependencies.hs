@@ -201,7 +201,7 @@ generateSrcFromLf env = noLoc mod
             , ideclName =
                   noLoc $ mkModuleName $ T.unpack $ LF.moduleNameString modRefModule
             , ideclPkgQual = do
-                guard modRefIsStable -- we don’t do package qualified imports
+                guard $ not modRefIsStable -- we don’t do package qualified imports
                     -- for modules that should come from the current SDK.
                 Just $ StringLiteral NoSourceText $ mkFastString $
                     -- Package qualified imports for the current package
