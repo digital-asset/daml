@@ -22,6 +22,8 @@ abstract class SqlLedgerReaderWriterIntegrationSpecBase(implementationName: Stri
 
   protected def jdbcUrl: String
 
+  protected def databaseIsReused: Boolean = false
+
   override final val startIndex: Long = SqlLedgerReaderWriter.StartIndex
 
   override final def participantStateFactory(
@@ -31,8 +33,10 @@ abstract class SqlLedgerReaderWriterIntegrationSpecBase(implementationName: Stri
     val currentJdbcUrl = jdbcUrl
     newLoggingContext { implicit logCtx =>
       for {
-        database <- Database.owner(currentJdbcUrl)
-        _ = database.clear()
+        _ <- if (databaseIsReused)
+          Database.owner(currentJdbcUrl).map(_.clear()).map(_ => ())
+        else
+          ResourceOwner.successful(())
         readerWriter <- SqlLedgerReaderWriter.owner(ledgerId, participantId, currentJdbcUrl)
       } yield new KeyValueParticipantState(readerWriter, readerWriter)
     }

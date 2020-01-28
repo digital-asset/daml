@@ -10,4 +10,6 @@ class PostgresqlSqlLedgerReaderWriterIntegrationSpec
     with PostgresAroundAll {
 
   override protected def jdbcUrl: String = postgresFixture.jdbcUrl
+
+  override protected def databaseIsReused: Boolean = true
 }
