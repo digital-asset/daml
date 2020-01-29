@@ -6,6 +6,52 @@ Release notes
 
 This page contains release notes for the SDK.
 
+.. _release-0-13-47:
+
+0.13.47 - 2020-01-29
+--------------------
+
+DAML Compiler
+~~~~~~~~~~~~~
+
+- ``damlc test`` now initializes the packagedb automatically which means that
+  it will work on projects that declare custom ``dependencies`` in
+  ``daml.yaml`` without having to call ``damlc init`` first.
+- Choices marked explicitly as ``preconsuming`` are now equivalent to a
+  ``nonconsuming`` choice that calls ``archive self`` at the beginning.
+
+DAML Integration Kit
+~~~~~~~~~~~~~~~~~~~~
+
+- The simplified kvutils API now uses ``com.digitalasset.resources`` to manage
+  acquiring and releasing resources instead of ``Closeable``.
+
+DAML Standard Library
+~~~~~~~~~~~~~~~~~~~~~
+
+- Add ``CanAbort`` instance for ``Either Text``.
+
+DAML Studio
+~~~~~~~~~~~
+
+- Support all ``build-options`` supported by ``daml build``.
+
+Sandbox
+~~~~~~~
+
+- On initialization error, report the error correctly and exit with a status
+  code of 1. Previously, the program would hang indefinitely. (This regression
+  was introduced in v0.13.41.)
+- Upgrade the Flyway database migrations library from v5 to v6.
+
+DAML Triggers - Experimental
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- DAML triggers can now be tested in scenarios. Specifically, a trigger's
+  ``rule`` can be executed in a scenario and assertions performed on the
+  emitted commands.
+
+
 .. _release-0-13-46:
 
 0.13.46 - 2020-01-22
