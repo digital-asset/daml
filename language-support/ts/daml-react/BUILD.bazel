@@ -1,0 +1,74 @@
+# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("@os_info//:os_info.bzl", "is_windows")
+load("@build_bazel_rules_nodejs//:index.bzl", "pkg_npm")
+load("@npm_bazel_typescript//:index.bzl", "ts_library")
+load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+load("//language-support/ts:eslint.bzl", "eslint_test")
+load("//language-support/ts:jest.bzl", "jest_test")
+load("@sdk_version//:sdk_version.bzl", "sdk_version")
+
+ts_library(
+    name = "daml-react",
+    srcs = glob([
+        "**/*.ts",
+        "**/*.tsx",
+    ]),
+    data = [
+        ":LICENSE",
+        ":package.json",
+    ],
+    module_name = "@daml/react",
+    node_modules = "@language_support_ts_deps//:node_modules",
+    tsconfig = ":tsconfig.json",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//language-support/ts/daml-ledger",
+        "//language-support/ts/daml-types",
+        "@language_support_ts_deps//:node_modules",
+    ],
+) if not is_windows else None
+
+# We can't reference any files outside of the directory, hence this rule.
+genrule(
+    name = "license",
+    srcs = ["//:LICENSE"],
+    outs = ["LICENSE"],
+    cmd = """
+      cp $(location //:LICENSE) $@
+    """,
+)
+
+eslint_test(
+    name = "lint",
+    srcs = glob([
+        "**/*.ts",
+        "**/*.tsx",
+    ]),
+)
+
+pkg_npm(
+    name = "npm_package",
+    srcs = [
+        ":package.json",
+        ":tsconfig.json",
+    ],
+    substitutions = {"0.0.0-SDKVERSION": sdk_version},
+    visibility = ["//visibility:public"],
+    deps = [
+        "daml-react",
+        ":license",
+    ],
+) if not is_windows else None
+
+# This doesn't work currently because imports of local packages aren't resolved correctly.
+# jest_test(
+# name = "test",
+# srcs = glob(["**/*.ts", "**/*.tsx"]),
+# jest_config = ":jest.config.js",
+# deps = [
+# "//language-support/ts/daml-types",
+# "//language-support/ts/daml-ledger",
+# ],
+# )
