@@ -8,6 +8,6 @@ import java.nio.file.Files
 class H2FileSqlLedgerReaderWriterIntegrationSpec
     extends SqlLedgerReaderWriterIntegrationSpecBase("SQL implementation using H2 with a file") {
 
-  override def jdbcUrl: String =
+  override protected def newJdbcUrl(): String =
     s"jdbc:h2:file:${Files.createTempDirectory(getClass.getSimpleName)}/test"
 }

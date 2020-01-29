@@ -56,7 +56,7 @@ supported_databases = [
             "@maven//:org_xerial_sqlite_jdbc",
         ],
         "conformance_test_server_args": [
-            "--jdbc-url=jdbc:sqlite::memory:",
+            "--jdbc-url=jdbc:sqlite:file:daml-on-sql-conformance-test?mode=memory&cache=shared",
         ],
     },
     {
@@ -164,6 +164,7 @@ da_scala_test_suite(
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils:kvutils-tests-lib",
+        "//libs-scala/contextualized-logging",
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
         "@maven//:com_typesafe_akka_akka_actor_2_12",

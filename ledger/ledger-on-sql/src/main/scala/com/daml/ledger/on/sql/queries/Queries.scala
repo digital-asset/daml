@@ -50,7 +50,4 @@ object Queries {
       BatchSql(query, params.head, params.drop(1).toArray: _*).execute()
     ()
   }
-
-  class InvalidDatabaseException(jdbcUrl: String)
-      extends RuntimeException(s"Unknown database: $jdbcUrl")
 }

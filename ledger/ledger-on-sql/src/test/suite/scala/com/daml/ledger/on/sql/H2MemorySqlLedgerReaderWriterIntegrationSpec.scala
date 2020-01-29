@@ -8,6 +8,6 @@ import scala.util.Random
 class H2MemorySqlLedgerReaderWriterIntegrationSpec
     extends SqlLedgerReaderWriterIntegrationSpecBase("SQL implementation using H2 in memory") {
 
-  override protected def jdbcUrl: String =
+  override protected def newJdbcUrl(): String =
     s"jdbc:h2:mem:${getClass.getSimpleName.toLowerCase()}_${Random.nextInt()}"
 }
