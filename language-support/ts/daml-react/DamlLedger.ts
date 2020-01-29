@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import React, { useReducer, useMemo } from 'react';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { DamlLedgerContext } from './context';
 import Credentials from './credentials';
 import * as LedgerStore from './ledgerStore';
@@ -21,11 +20,7 @@ const DamlLedger: React.FC<Props> = (props) => {
     party: props.credentials.party,
     ledger: new Ledger(props.credentials.token),
   }), [props.credentials, store, dispatch])
-  return (
-    <DamlLedgerContext.Provider value={state}>
-      {props.children}
-    </DamlLedgerContext.Provider>
-  );
+  return React.createElement(DamlLedgerContext.Provider, {value: state}, props.children);
 }
 
 export default DamlLedger;
