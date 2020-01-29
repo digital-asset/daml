@@ -20,7 +20,7 @@ abstract class SqlLedgerReaderWriterIntegrationSpecBase(implementationName: Stri
     extends ParticipantStateIntegrationSpecBase(implementationName) {
   protected final implicit val ec: ExecutionContext = ExecutionContext.global
 
-  protected def jdbcUrl: String
+  protected def newJdbcUrl(): String
 
   override final val startIndex: Long = SqlLedgerReaderWriter.StartIndex
 
@@ -30,7 +30,7 @@ abstract class SqlLedgerReaderWriterIntegrationSpecBase(implementationName: Stri
   ): ResourceOwner[ParticipantState] =
     newLoggingContext { implicit logCtx =>
       SqlLedgerReaderWriter
-        .owner(ledgerId, participantId, jdbcUrl)
+        .owner(ledgerId, participantId, newJdbcUrl())
         .map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter))
     }
 

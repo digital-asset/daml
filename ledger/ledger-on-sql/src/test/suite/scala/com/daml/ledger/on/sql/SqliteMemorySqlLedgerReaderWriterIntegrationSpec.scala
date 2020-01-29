@@ -8,6 +8,6 @@ import scala.util.Random
 class SqliteMemorySqlLedgerReaderWriterIntegrationSpec
     extends SqlLedgerReaderWriterIntegrationSpecBase("SQL implementation using SQLite in memory") {
 
-  override protected val jdbcUrl =
+  override protected def newJdbcUrl() =
     s"jdbc:sqlite:file:${getClass.getSimpleName.toLowerCase()}_${Random.nextInt()}?mode=memory&cache=shared"
 }
