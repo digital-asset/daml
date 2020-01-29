@@ -7,9 +7,8 @@ module DA.Daml.Compiler.DataDependencies
     , splitUnitId
     ) where
 
-import Control.Lens (toListOf)
-import Control.Lens.MonoTraversal (monoTraverse)
 import Control.Monad
+import Control.Monad.Writer
 import Data.List.Extra
 import Data.Set (Set)
 import qualified Data.Set as Set
@@ -34,9 +33,9 @@ import "ghc-lib-parser" RdrName
 import "ghc-lib-parser" TcEvidence (HsWrapper (WpHole))
 import "ghc-lib-parser" TysPrim
 import "ghc-lib-parser" TysWiredIn
+import "ghc-lib-parser" Util (secondM)
 
 import qualified DA.Daml.LF.Ast as LF
-import DA.Daml.LF.Ast.Optics
 import DA.Daml.Preprocessor.Generics
 import SdkVersion
 
@@ -49,11 +48,19 @@ data Env = Env
     , envMod :: LF.Module
     }
 
+-- | A module reference coming from DAML-LF.
 data ModRef = ModRef
     { modRefIsStable :: Bool
     , modRefUnitId :: UnitId
     , modRefModule :: LF.ModuleName
     } deriving (Eq, Ord)
+
+-- | Monad for generating a value together with its module references.
+newtype Gen t = Gen (Writer (Set ModRef) t)
+    deriving (Functor, Applicative, Monad, MonadWriter (Set ModRef))
+
+runGen :: Gen t -> (t, Set ModRef)
+runGen (Gen m) = runWriter m
 
 -- | Extract all data defintions from a daml-lf module and generate a haskell source file from it.
 generateSrcFromLf ::
@@ -75,7 +82,11 @@ generateSrcFromLf env = noLoc mod
             , hsmodExports = Nothing
             }
 
-    decls = classDecls ++ dataTypeDecls ++ valueDecls
+    (decls, modRefs) = runGen . sequence . concat $
+        [ classDecls
+        , dataTypeDecls
+        , valueDecls
+        ]
 
     classMethodNames :: Set T.Text
     classMethodNames = Set.fromList
@@ -86,44 +97,45 @@ generateSrcFromLf env = noLoc mod
         , Just methodName <- [getClassMethodName fieldName]
         ]
 
-    classDecls :: [LHsDecl GhcPs]
+    classDecls :: [Gen (LHsDecl GhcPs)]
     classDecls = do
         LF.DefTypeSyn{..} <- NM.toList . LF.moduleSynonyms $ envMod env
         LF.TStruct fields <- [synType]
         LF.TypeSynName [name] <- [synName]
 
-        let supers =
-                [ convType env fieldType
+        let occName = mkOccName clsName . T.unpack $ sanitize name
+        pure $ do
+            supers <- mapM (convType env)
+                [ fieldType
                 | (fieldName, LF.TUnit LF.:-> fieldType) <- fields
                 , isSuperClassField fieldName
                 ]
-
-            methods =
-                [ (methodName, convType env fieldType)
+            methods <- mapM (secondM (convType env))
+                [ (methodName,fieldType)
                 | (fieldName, LF.TUnit LF.:-> fieldType) <- fields
                 , Just methodName <- [getClassMethodName fieldName]
                 ]
-            occName = mkOccName clsName . T.unpack $ sanitize name
+            params <- mapM (convTyVarBinder env) synParams
+            pure . noLoc . TyClD noExt $ ClassDecl
+                { tcdCExt = noExt
+                , tcdCtxt = noLoc (map noLoc supers)
+                , tcdLName = noLoc $ mkRdrUnqual occName
+                , tcdTyVars = HsQTvs noExt params
+                , tcdFixity = Prefix
+                , tcdFDs = [] -- can't reconstruct fundeps without LF annotations
+                , tcdSigs =
+                    [ noLoc $ ClassOpSig noExt False
+                        [mkRdrName methodName]
+                        (HsIB noExt (noLoc methodType))
+                    | (methodName, methodType) <- methods
+                    ]
+                , tcdMeths = emptyBag -- can't reconstruct default methods yet
+                , tcdATs = [] -- associated types not supported
+                , tcdATDefs = []
+                , tcdDocs = []
+                }
 
-        [ noLoc . TyClD noExt $ ClassDecl
-            { tcdCExt = noExt
-            , tcdCtxt = noLoc (map noLoc supers)
-            , tcdLName = noLoc $ mkRdrUnqual occName
-            , tcdTyVars = HsQTvs noExt (map (convTyVarBinder env) synParams)
-            , tcdFixity = Prefix
-            , tcdFDs = [] -- can't reconstruct fundeps without LF annotations
-            , tcdSigs =
-                [ noLoc $ ClassOpSig noExt False
-                    [mkRdrName methodName]
-                    (HsIB noExt (noLoc methodType))
-                | (methodName, methodType) <- methods
-                ]
-            , tcdMeths = emptyBag -- can't reconstruct default methods yet
-            , tcdATs = [] -- associated types not supported
-            , tcdATDefs = []
-            , tcdDocs = []
-            } ]
-
+    dataTypeDecls :: [Gen (LHsDecl GhcPs)]
     dataTypeDecls = do
         dtype@LF.DefDataType {..} <- NM.toList $ LF.moduleDataTypes $ envMod env
         guard $ shouldExposeDefDataType dtype
@@ -136,16 +148,18 @@ generateSrcFromLf env = noLoc mod
         -- convDataCons.
         [dataTypeCon0] <- [LF.unTypeConName dataTypeCon]
         let occName = mkOccName varName $ T.unpack $ sanitize dataTypeCon0
-        pure $ mkDataDecl env thisModule occName dataParams (convDataCons dataTypeCon0 dataCons)
+        [ mkDataDecl env thisModule occName dataParams =<<
+            convDataCons dataTypeCon0 dataCons ]
 
+    valueDecls :: [Gen (LHsDecl GhcPs)]
     valueDecls = do
         dval@LF.DefValue {..} <- NM.toList $ LF.moduleValues $ envMod env
         guard $ shouldExposeDefValue dval
         let (lfName, lfType) = dvalBinder
-            ltype = noLoc $ convType env lfType :: LHsType GhcPs
+            ltype = noLoc <$> convType env lfType :: Gen (LHsType GhcPs)
             lname = mkRdrName (LF.unExprValName lfName) :: Located RdrName
-            sig = TypeSig noExt [lname] (HsWC noExt $ HsIB noExt ltype)
-            lsigD = noLoc $ SigD noExt sig :: LHsDecl GhcPs
+            sig = TypeSig noExt [lname] . HsWC noExt . HsIB noExt <$> ltype
+            lsigD = noLoc . SigD noExt <$> sig :: Gen (LHsDecl GhcPs)
             lexpr = noLoc $ HsPar noExt $ noLoc $ HsVar noExt lname :: LHsExpr GhcPs
             lgrhs = noLoc $ GRHS noExt [] lexpr :: LGRHS GhcPs (LHsExpr GhcPs)
             grhss = GRHSs noExt [lgrhs] (noLoc $ EmptyLocalBinds noExt)
@@ -154,7 +168,7 @@ generateSrcFromLf env = noLoc mod
             lalts = noLoc [lmatch]
             bind = FunBind noExt lname (MG noExt lalts Generated) WpHole []
             lvalD = noLoc $ ValD noExt bind :: LHsDecl GhcPs
-        [ lsigD, lvalD ]
+        [ lsigD, pure lvalD ]
 
     shouldExposeDefDataType :: LF.DefDataType -> Bool
     shouldExposeDefDataType typeDef
@@ -168,28 +182,36 @@ generateSrcFromLf env = noLoc mod
         && (LF.moduleNameString lfModName /= "GHC.Prim")
         && not (LF.unExprValName lfName `Set.member` classMethodNames)
 
-    convDataCons :: T.Text -> LF.DataCons -> [LConDecl GhcPs]
+    convDataCons :: T.Text -> LF.DataCons -> Gen [LConDecl GhcPs]
     convDataCons dataTypeCon0 = \case
-            LF.DataRecord fields ->
-                [ mkConDecl env thisModule (mkOccName dataName $ T.unpack $ sanitize dataTypeCon0) $
-                      RecCon $ noLoc $ map (uncurry $ mkConDeclField env) fields
+        LF.DataRecord fields -> do
+            fields' <- mapM (uncurry (mkConDeclField env)) fields
+            pure [mkConDecl env thisModule occName $ RecCon (noLoc fields')]
+        LF.DataVariant cons -> do
+            cons' <- mapM (secondM (convType env)) cons
+            pure $
+                [ mkConDecl env thisModule (occNameFor conName) (details ty)
+                | (conName, ty) <- cons'
                 ]
-            LF.DataVariant cons ->
-                [ mkConDecl env thisModule (mkOccName varName $ T.unpack $ sanitize $ LF.unVariantConName conName)
-                    (let t = convType env ty
-                     in case (t :: HsType GhcPs) of
-                            -- In DAML we have sums of products, in DAML-LF a variant only has a single field.
-                            -- Here we combine them back into a single type.
-                            HsRecTy _ext fs -> RecCon $ noLoc fs
-                            _other -> PrefixCon [noLoc t]
-                    )
-                | (conName, ty) <- cons
-                ]
-            LF.DataEnum cons ->
-                [ mkConDecl env thisModule (mkOccName varName $ T.unpack $ sanitize $ LF.unVariantConName conName)
-                    (PrefixCon [])
+        LF.DataEnum cons -> do
+            when (length cons == 1) (void $ mkGhcType env "DamlEnum")
+                -- ^ Single constructor enums spawn a reference to
+                -- GHC.Types.DamlEnum in the daml-preprocessor.
+            pure $
+                [ mkConDecl env thisModule (occNameFor conName) (PrefixCon [])
                 | conName <- cons
                 ]
+      where
+        occName = mkOccName varName $ T.unpack $ sanitize dataTypeCon0
+        occNameFor c = mkOccName varName $ T.unpack $ sanitize $ LF.unVariantConName c
+
+        -- In DAML we have sums of products, in DAML-LF a variant only has
+        -- a single field. Here we combine them back into a single type.
+        details :: HsType GhcPs -> HsConDeclDetails GhcPs
+        details = \case
+            HsRecTy _ext fs -> RecCon $ noLoc fs
+            ty -> PrefixCon [noLoc ty]
+
 
     -- imports needed by the module declarations
     imports
@@ -223,77 +245,6 @@ generateSrcFromLf env = noLoc mod
         -- hardcoded in GHC).
         , modRefModule /= LF.ModuleName ["CurrentSdk", "GHC", "Prim"]
         ]
-    isStable LF.PRSelf = False
-    isStable (LF.PRImport pkgId) = pkgId `Set.member` envStablePackages env
-
-    modRefs :: Set ModRef
-    modRefs = Set.unions
-        [ foldMap modRefsFromDefTypeSyn (LF.moduleSynonyms (envMod env))
-        , foldMap modRefsFromDefDataType (LF.moduleDataTypes (envMod env))
-        , foldMap modRefsFromDefValue (LF.moduleValues (envMod env))
-        ]
-
-    mkModRef :: LF.PackageRef -> LF.ModuleName -> ModRef
-    mkModRef pkg mod = ModRef (isStable pkg) (envGetUnitId env pkg)
-        (addSdkPrefixIfStable env pkg mod)
-
-    modRefsFromDefDataType :: LF.DefDataType -> Set ModRef
-    modRefsFromDefDataType typeDef@LF.DefDataType{..} =
-        if shouldExposeDefDataType typeDef
-            then Set.fromList $ concat
-                [ map (uncurry mkModRef) (toListOf monoTraverse typeDef)
-                , map builtinTypeToModRef (toListOf (dataConsType . builtinType) dataCons)
-                , [ ModRef True primUnitId sdkGhcTypes
-                    | LF.DataEnum [_] <- [dataCons]
-                    ] -- ^ single constructor enums spawn a reference to
-                      -- CurrentSdk.GHC.Types.DamlEnum in the daml-preprocessor.
-                ]
-            else Set.empty
-
-    modRefsFromDefTypeSyn :: LF.DefTypeSyn -> Set ModRef
-    modRefsFromDefTypeSyn LF.DefTypeSyn{..} =
-        modRefsFromType synType
-
-    modRefsFromDefValue :: LF.DefValue -> Set ModRef
-    modRefsFromDefValue dval@LF.DefValue{..} | (_, dvalType) <- dvalBinder =
-        if shouldExposeDefValue dval
-            then modRefsFromType dvalType
-            else Set.empty
-
-    modRefsFromType :: LF.Type -> Set ModRef
-    modRefsFromType ty = Set.fromList $ concat
-        [ map (uncurry mkModRef) (toListOf monoTraverse ty)
-        , map builtinTypeToModRef (toListOf builtinType ty)
-        ]
-
-    builtinTypeToModRef :: LF.BuiltinType -> ModRef
-    builtinTypeToModRef = uncurry (ModRef True) . \case
-        LF.BTInt64 -> (primUnitId, sdkGhcTypes)
-        LF.BTDecimal -> (primUnitId, sdkGhcTypes)
-        LF.BTText -> (primUnitId, sdkGhcTypes)
-        LF.BTTimestamp -> (damlStdlibUnitId, sdkDaInternalLf)
-        LF.BTDate -> (damlStdlibUnitId, sdkDaInternalLf)
-        LF.BTParty -> (damlStdlibUnitId, sdkDaInternalLf)
-        LF.BTUnit -> (primUnitId, sdkGhcTuple)
-        LF.BTBool -> (primUnitId, sdkGhcTypes)
-        LF.BTList -> (primUnitId, sdkGhcTypes)
-        LF.BTUpdate -> (damlStdlibUnitId, sdkDaInternalLf)
-        LF.BTScenario -> (damlStdlibUnitId, sdkDaInternalLf)
-        LF.BTContractId -> (damlStdlibUnitId, sdkDaInternalLf)
-        LF.BTOptional -> (damlStdlibUnitId, sdkInternalPrelude)
-        LF.BTTextMap -> (damlStdlibUnitId, sdkDaInternalLf)
-        LF.BTGenMap -> (damlStdlibUnitId, sdkDaInternalLf)
-        LF.BTArrow -> (primUnitId, sdkGhcPrim)
-        LF.BTNumeric -> (primUnitId, sdkGhcTypes)
-        LF.BTAny -> (damlStdlibUnitId, sdkDaInternalLf)
-        LF.BTTypeRep -> (damlStdlibUnitId, sdkDaInternalLf)
-
-    sdkDaInternalLf = LF.ModuleName $  sdkPrefix ++ ["DA", "Internal", "LF"]
-    sdkInternalPrelude = LF.ModuleName $ sdkPrefix ++ ["DA", "Internal", "Prelude"]
-    sdkGhcTypes = LF.ModuleName $ sdkPrefix ++ ["GHC", "Types"]
-    sdkGhcPrim = LF.ModuleName $ sdkPrefix ++ ["GHC", "Prim"]
-    sdkGhcTuple = LF.ModuleName $ sdkPrefix ++ ["GHC", "Tuple"]
-    sdkPrefix = [T.pack prefix | Just prefix <- [envSdkPrefix env]]
 
 -- TODO (drsk) how come those '#' appear in daml-lf names?
 sanitize :: T.Text -> T.Text
@@ -304,27 +255,25 @@ mkConRdr env thisModule
  | envQualify env = mkRdrUnqual
  | otherwise = mkOrig thisModule
 
-mkDataDecl :: Env -> Module -> OccName -> [(LF.TypeVarName, LF.Kind)] -> [LConDecl GhcPs] -> LHsDecl GhcPs
-mkDataDecl env thisModule occName tyVars cons = noLoc $ TyClD noExt $ DataDecl
-    { tcdDExt = noExt
-    , tcdLName = noLoc $ mkConRdr env thisModule occName
-    , tcdTyVars =
-          HsQTvs
-              { hsq_ext = noExt
-              , hsq_explicit = map (convTyVarBinder env) tyVars
-              }
-    , tcdFixity = Prefix
-    , tcdDataDefn =
-          HsDataDefn
-              { dd_ext = noExt
-              , dd_ND = DataType
-              , dd_ctxt = noLoc []
-              , dd_cType = Nothing
-              , dd_kindSig = Nothing
-              , dd_cons = cons
-              , dd_derivs = noLoc []
-              }
-    }
+mkDataDecl :: Env -> Module -> OccName -> [(LF.TypeVarName, LF.Kind)] -> [LConDecl GhcPs] -> Gen (LHsDecl GhcPs)
+mkDataDecl env thisModule occName tyVars cons = do
+    tyVars' <- mapM (convTyVarBinder env) tyVars
+    pure . noLoc . TyClD noExt $ DataDecl
+        { tcdDExt = noExt
+        , tcdLName = noLoc $ mkConRdr env thisModule occName
+        , tcdTyVars = HsQTvs noExt tyVars'
+        , tcdFixity = Prefix
+        , tcdDataDefn =
+            HsDataDefn
+                { dd_ext = noExt
+                , dd_ND = DataType
+                , dd_ctxt = noLoc []
+                , dd_cType = Nothing
+                , dd_kindSig = Nothing
+                , dd_cons = cons
+                , dd_derivs = noLoc []
+                }
+        }
 
 mkConDecl :: Env -> Module -> OccName -> HsConDeclDetails GhcPs -> LConDecl GhcPs
 mkConDecl env thisModule conName details = noLoc $ ConDeclH98
@@ -337,14 +286,16 @@ mkConDecl env thisModule conName details = noLoc $ ConDeclH98
     , con_args = details
     }
 
-mkConDeclField :: Env -> LF.FieldName -> LF.Type -> LConDeclField GhcPs
-mkConDeclField env fieldName fieldTy = noLoc $ ConDeclField
-    { cd_fld_ext = noExt
-    , cd_fld_doc = Nothing
-    , cd_fld_names =
-      [ noLoc $ FieldOcc { extFieldOcc = noExt, rdrNameFieldOcc = mkRdrName $ LF.unFieldName fieldName } ]
-    , cd_fld_type = noLoc $ convType env fieldTy
-    }
+mkConDeclField :: Env -> LF.FieldName -> LF.Type -> Gen (LConDeclField GhcPs)
+mkConDeclField env fieldName fieldTy = do
+    fieldTy' <- convType env fieldTy
+    pure . noLoc $ ConDeclField
+        { cd_fld_ext = noExt
+        , cd_fld_doc = Nothing
+        , cd_fld_names =
+            [ noLoc $ FieldOcc { extFieldOcc = noExt, rdrNameFieldOcc = mkRdrName $ LF.unFieldName fieldName } ]
+        , cd_fld_type = noLoc fieldTy'
+        }
 
 isConstraint :: LF.Type -> Bool
 isConstraint = \case
@@ -355,29 +306,53 @@ isConstraint = \case
         ]
     _ -> False
 
-convType :: Env -> LF.Type -> HsType GhcPs
+genModule :: Env -> LF.PackageRef -> LF.ModuleName -> Gen Module
+genModule env pkgRef modName = do
+    let isStable
+            | LF.PRSelf <- pkgRef = False
+            | LF.PRImport pkgId <- pkgRef =
+                pkgId `Set.member` envStablePackages env
+        unitId = envGetUnitId env pkgRef
+    genModuleAux env isStable unitId modName
+
+genStableModule :: Env -> UnitId -> LF.ModuleName -> Gen Module
+genStableModule env = genModuleAux env True
+
+genModuleAux :: Env -> Bool -> UnitId -> LF.ModuleName -> Gen Module
+genModuleAux env isStable unitId modName = do
+    let sdkPrefix = case envSdkPrefix env of
+            Nothing -> []
+            Just p -> [T.pack p]
+        newModName
+            | isStable = LF.ModuleName (sdkPrefix ++ LF.unModuleName modName)
+            | otherwise = modName
+        ghcModName = mkModuleName . T.unpack $ LF.moduleNameString newModName
+        modRef = ModRef isStable unitId newModName
+    tell $ Set.singleton modRef
+    pure $ mkModule unitId ghcModName
+
+convType :: Env -> LF.Type -> Gen (HsType GhcPs)
 convType env =
     \case
-        LF.TVar tyVarName ->
+        LF.TVar tyVarName -> pure $
             HsTyVar noExt NotPromoted $ mkRdrName $ LF.unTypeVarName tyVarName
 
-        ty1 LF.:-> ty2
-            | isConstraint ty1 ->
-                HsQualTy noExt (noLoc [noLoc $ convType env ty1]) (noLoc $ convType env ty2)
-            | otherwise ->
-                HsFunTy noExt (noLoc $ convType env ty1) (noLoc $ convType env ty2)
+        ty1 LF.:-> ty2 -> do
+            ty1' <- convType env ty1
+            ty2' <- convType env ty2
+            pure $ if isConstraint ty1
+                then HsQualTy noExt (noLoc [noLoc ty1']) (noLoc ty2')
+                else HsFunTy noExt (noLoc ty1') (noLoc ty2')
 
-        LF.TSynApp LF.Qualified{..} args ->
-            let tycls = case LF.unTypeSynName qualObject of
-                    [name] ->
-                        HsTyVar noExt NotPromoted $ noLoc $ mkOrig
-                            (mkModule
-                                (envGetUnitId env qualPackage)
-                                (mkModuleName $ T.unpack $ LF.moduleNameString
-                                (addSdkPrefixIfStable env qualPackage qualModule)))
-                        (mkOccName clsName $ T.unpack name)
+        LF.TSynApp LF.Qualified{..} lfArgs -> do
+            ghcMod <- genModule env qualPackage qualModule
+            let tyname = case LF.unTypeSynName qualObject of
+                    [n] -> n
                     ns -> error ("DamlDependencies: unexpected typeclass name " <> show ns)
-            in foldl (HsAppTy noExt . noLoc) tycls $ map (noLoc . convType env) args
+                tyvar = HsTyVar noExt NotPromoted . noLoc
+                    . mkOrig ghcMod . mkOccName clsName $ T.unpack tyname
+            args <- mapM (convType env) lfArgs
+            pure $ foldl (HsAppTy noExt . noLoc) tyvar (map noLoc args)
 
         LF.TCon LF.Qualified {..}
           | qualModule == LF.ModuleName ["DA", "Types"]
@@ -386,79 +361,60 @@ convType env =
           , Just i <- readMay n
           , 2 <= i && i <= 20 -> mkTuple i
         LF.TCon LF.Qualified {..} ->
-          case LF.unTypeConName qualObject of
-                [name] ->
-                    HsTyVar noExt NotPromoted $
-                    noLoc $
-                    mkOrig
-                        (mkModule
-                             (envGetUnitId env qualPackage)
-                             (mkModuleName $ T.unpack $ LF.moduleNameString
-                                (addSdkPrefixIfStable env qualPackage qualModule)))
-                        (mkOccName varName $ T.unpack name)
+            case LF.unTypeConName qualObject of
+                [name] -> do
+                    ghcMod <- genModule env qualPackage qualModule
+                    pure . HsTyVar noExt NotPromoted . noLoc
+                        . mkOrig ghcMod . mkOccName varName $ T.unpack name
                 n@[_name0, _name1] -> case MS.lookup n (sumProdRecords $ envMod env) of
                     Nothing ->
                         error $ "Internal error: Could not find generated record type: " <> T.unpack (T.intercalate "." n)
-                    Just fs -> HsRecTy noExt $ map (uncurry $ mkConDeclField env) fs
+                    Just fs ->
+                        HsRecTy noExt <$> mapM (uncurry (mkConDeclField env)) fs
                 cs -> errTooManyNameComponents cs
-        LF.TApp ty1 ty2 ->
-            HsParTy noExt $
-            noLoc $ HsAppTy noExt (noLoc $ convType env ty1) (noLoc $ convType env ty2)
+        LF.TApp ty1 ty2 -> do
+            ty1' <- convType env ty1
+            ty2' <- convType env ty2
+            pure . HsParTy noExt . noLoc $ HsAppTy noExt (noLoc ty1') (noLoc ty2')
         LF.TBuiltin builtinTy -> convBuiltInTy env builtinTy
-        LF.TForall {..} ->
-            HsParTy noExt $
-            noLoc $
-            HsForAllTy
-                noExt
-                [convTyVarBinder env forallBinder]
-                (noLoc $ convType env forallBody)
-        ty@(LF.TStruct fls) ->
-            HsTupleTy
-                noExt
+        LF.TForall {..} -> do
+            binder <- convTyVarBinder env forallBinder
+            body <- convType env forallBody
+            pure . HsParTy noExt . noLoc $ HsForAllTy noExt [binder] (noLoc body)
+        ty@(LF.TStruct fls) -> do
+            tys <- mapM (convType env . snd) fls
+            pure $ HsTupleTy noExt
                 (if isConstraint ty then HsConstraintTuple else HsBoxedTuple)
-                [noLoc $ convType env ty | (_fldName, ty) <- fls]
-        LF.TNat n ->
+                (map noLoc tys)
+
+        LF.TNat n -> pure $
             HsTyLit noExt (HsNumTy NoSourceText (LF.fromTypeLevelNat n))
   where
-    mkTuple :: Int -> HsType GhcPs
+    mkTuple :: Int -> Gen (HsType GhcPs)
     mkTuple i =
-        HsTyVar noExt NotPromoted $
+        pure $ HsTyVar noExt NotPromoted $
         noLoc $ mkRdrUnqual $ occName $ tupleTyConName BoxedTuple i
 
-
-addSdkPrefixIfStable :: Env -> LF.PackageRef -> LF.ModuleName -> LF.ModuleName
-addSdkPrefixIfStable _ LF.PRSelf mod = mod
-addSdkPrefixIfStable env (LF.PRImport pkgId) m@(LF.ModuleName n)
-    | pkgId `Set.member` envStablePackages env
-    = LF.ModuleName (sdkPrefix ++ n)
-
-    | otherwise
-    = m
-  where
-    sdkPrefix = case envSdkPrefix env of
-        Nothing -> []
-        Just p -> [T.pack p]
-
-convBuiltInTy :: Env -> LF.BuiltinType -> HsType GhcPs
+convBuiltInTy :: Env -> LF.BuiltinType -> Gen (HsType GhcPs)
 convBuiltInTy env =
     \case
-        LF.BTInt64 -> mkGhcType "Int"
-        LF.BTDecimal -> mkGhcType "Decimal"
-        LF.BTText -> mkGhcType "Text"
+        LF.BTInt64 -> mkGhcType env "Int"
+        LF.BTDecimal -> mkGhcType env "Decimal"
+        LF.BTText -> mkGhcType env "Text"
         LF.BTTimestamp -> mkLfInternalType env "Time"
         LF.BTDate -> mkLfInternalType env "Date"
         LF.BTParty -> mkLfInternalType env "Party"
-        LF.BTUnit -> mkTyConTypeUnqual unitTyCon
-        LF.BTBool -> mkGhcType "Bool"
-        LF.BTList -> mkTyConTypeUnqual listTyCon
+        LF.BTUnit -> pure $ mkTyConTypeUnqual unitTyCon
+        LF.BTBool -> mkGhcType env "Bool"
+        LF.BTList -> pure $ mkTyConTypeUnqual listTyCon
         LF.BTUpdate -> mkLfInternalType env "Update"
         LF.BTScenario -> mkLfInternalType env "Scenario"
         LF.BTContractId -> mkLfInternalType env "ContractId"
         LF.BTOptional -> mkLfInternalPrelude env "Optional"
         LF.BTTextMap -> mkLfInternalType env "TextMap"
         LF.BTGenMap -> mkLfInternalType env "Map"
-        LF.BTArrow -> mkTyConTypeUnqual funTyCon
-        LF.BTNumeric -> mkGhcType "Numeric"
+        LF.BTArrow -> pure $ mkTyConTypeUnqual funTyCon
+        LF.BTNumeric -> mkGhcType env "Numeric"
         LF.BTAny -> mkLfInternalType env "Any"
         LF.BTTypeRep -> mkLfInternalType env "TypeRep"
 
@@ -468,18 +424,21 @@ errTooManyNameComponents cs =
     "Internal error: Dalf contains type constructors with more than two name components: " <>
     (T.unpack $ T.intercalate "." cs)
 
-convKind :: Env -> LF.Kind -> LHsKind GhcPs
+convKind :: Env -> LF.Kind -> Gen (LHsKind GhcPs)
 convKind env = \case
-    LF.KStar -> noLoc $ HsStarTy noExt False
-    LF.KNat -> noLoc $ mkGhcType "Nat"
-    LF.KArrow k1 k2 -> noLoc $ HsFunTy noExt (convKind env k1) (convKind env k2)
+    LF.KStar -> pure . noLoc $ HsStarTy noExt False
+    LF.KNat -> noLoc <$> mkGhcType env "Nat"
+    LF.KArrow k1 k2 -> do
+        k1' <- convKind env k1
+        k2' <- convKind env k2
+        pure . noLoc $ HsFunTy noExt k1' k2'
 
-convTyVarBinder :: Env -> (LF.TypeVarName, LF.Kind) -> LHsTyVarBndr GhcPs
+convTyVarBinder :: Env -> (LF.TypeVarName, LF.Kind) -> Gen (LHsTyVarBndr GhcPs)
 convTyVarBinder env = \case
     (LF.TypeVarName tyVar, LF.KStar) ->
-        mkUserTyVar tyVar
+        pure $ mkUserTyVar tyVar
     (LF.TypeVarName tyVar, kind) ->
-        mkKindedTyVar tyVar (convKind env kind)
+        mkKindedTyVar tyVar <$> convKind env kind
 
 mkUserTyVar :: T.Text -> LHsTyVarBndr GhcPs
 mkUserTyVar =
@@ -489,7 +448,6 @@ mkUserTyVar =
 mkKindedTyVar :: T.Text -> LHsKind GhcPs -> LHsTyVarBndr GhcPs
 mkKindedTyVar name = noLoc .
     (KindedTyVar noExt . noLoc . mkRdrUnqual . mkOccName tvName $ T.unpack name)
-
 
 mkRdrName :: T.Text -> Located RdrName
 mkRdrName = noLoc . mkRdrUnqual . mkOccName varName . T.unpack
@@ -507,39 +465,27 @@ sumProdRecords m =
         , LF.DataRecord fs <- [dataCons]
         ]
 
-mkTyConType :: Bool -> TyCon -> HsType GhcPs
-mkTyConType qualify tyCon
-    | qualify =
-        HsTyVar noExt NotPromoted . noLoc $
-        mkRdrQual (moduleName $ nameModule name) (occName name)
-    | otherwise = HsTyVar noExt NotPromoted . noLoc $ mkRdrUnqual (occName name)
-  where
-    name = getName tyCon
+mkStableType :: Env -> UnitId -> LF.ModuleName -> String -> Gen (HsType GhcPs)
+mkStableType env unitId modName tyName = do
+    ghcMod <- genStableModule env unitId modName
+    pure . HsTyVar noExt NotPromoted . noLoc
+        . mkOrig ghcMod $ mkOccName varName tyName
 
-mkGhcType :: String -> HsType GhcPs
-mkGhcType =
-    HsTyVar noExt NotPromoted .
-    noLoc . mkOrig (Module primUnitId (mkModuleName "CurrentSdk.GHC.Types")) . mkOccName varName
+mkGhcType :: Env -> String -> Gen (HsType GhcPs)
+mkGhcType env = mkStableType env primUnitId
+    (LF.ModuleName ["GHC", "Types"])
 
-mkLfInternalType :: Env -> String -> HsType GhcPs
-mkLfInternalType env =
-    HsTyVar noExt NotPromoted .
-    noLoc .
-    mkOrig (mkModule damlStdlibUnitId $ mkModuleName $ prefixStdlibImport env "DA.Internal.LF") .
-    mkOccName varName
+mkLfInternalType :: Env -> String -> Gen (HsType GhcPs)
+mkLfInternalType env = mkStableType env damlStdlibUnitId
+    (LF.ModuleName ["DA", "Internal", "LF"])
 
-prefixStdlibImport :: Env -> String -> String
-prefixStdlibImport env impString = (maybe "" (<> ".") $ envSdkPrefix env) <> impString
-
-mkLfInternalPrelude :: Env -> String -> HsType GhcPs
-mkLfInternalPrelude env =
-    HsTyVar noExt NotPromoted .
-    noLoc .
-    mkOrig (mkModule damlStdlibUnitId $ mkModuleName $ prefixStdlibImport env "DA.Internal.Prelude") .
-    mkOccName varName
+mkLfInternalPrelude :: Env -> String -> Gen (HsType GhcPs)
+mkLfInternalPrelude env = mkStableType env damlStdlibUnitId
+    (LF.ModuleName ["DA", "Internal", "Prelude"])
 
 mkTyConTypeUnqual :: TyCon -> HsType GhcPs
-mkTyConTypeUnqual = mkTyConType False
+mkTyConTypeUnqual tyCon = HsTyVar noExt NotPromoted . noLoc $ mkRdrUnqual (occName name)
+    where name = getName tyCon
 
 -- | Generate the full source for a daml-lf package.
 generateSrcPkgFromLf ::
@@ -712,7 +658,6 @@ defDataTypeIsOldTypeClass LF.DefDataType{..}
         case fieldType of
             LF.TUnit LF.:-> _ -> True
             _ -> False
-
 
 envLookupDataType :: LF.Qualified LF.TypeConName -> Env -> Maybe LF.DefDataType
 envLookupDataType tcon env = do
