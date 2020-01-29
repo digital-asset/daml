@@ -82,7 +82,18 @@ conformance_test(
     test_tool_args = [
         "--all-tests",
         "--exclude=ConfigManagementServiceIT",
-        "--exclude=LotsOfPartiesIT",
         "--exclude=TimeIT",
+    ],
+)
+
+conformance_test(
+    name = "conformance-test-config-management",
+    ports = [6865],
+    server = ":app",
+    server_args = [
+        "--port=6865",
+    ],
+    test_tool_args = [
+        "--include=ConfigManagementServiceIT",
     ],
 )
