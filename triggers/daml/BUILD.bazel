@@ -48,6 +48,7 @@ genrule(
             --format=Rst \
             --template=$(location :daml-trigger-rst-template.rst) \
             $(location Daml/Trigger.daml) \
+            $(location Daml/Trigger/Assert.daml) \
             $(location Daml/Trigger/LowLevel.daml)
     """,
     tools = ["//compiler/damlc"],
