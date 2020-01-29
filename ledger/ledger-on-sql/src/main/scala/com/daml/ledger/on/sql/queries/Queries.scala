@@ -14,6 +14,8 @@ import com.google.protobuf.ByteString
 import scala.collection.immutable
 
 trait Queries {
+  def selectLatestLogEntryId()(implicit connection: Connection): Option[Index]
+
   def selectFromLog(
       start: Index,
       end: Index,

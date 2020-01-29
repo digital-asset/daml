@@ -141,16 +141,17 @@ object SqlLedgerReaderWriter {
       logCtx: LoggingContext,
   ): ResourceOwner[SqlLedgerReaderWriter] =
     for {
+      uninitializedDatabase <- Database.owner(jdbcUrl)
+      database = uninitializedDatabase.migrate()
+      head = database.inReadTransaction("Reading head at startup") { implicit connection =>
+        database.queries.selectLatestLogEntryId().map(_ + 1).getOrElse(StartIndex)
+      }
       dispatcher <- ResourceOwner.forCloseable(
         () =>
           Dispatcher(
             "sql-participant-state",
             zeroIndex = StartIndex,
-            headAtInitialization = StartIndex,
+            headAtInitialization = head,
         ))
-      uninitializedDatabase <- Database.owner(jdbcUrl)
-    } yield {
-      val database = uninitializedDatabase.migrate()
-      new SqlLedgerReaderWriter(ledgerId, participantId, database, dispatcher)
-    }
+    } yield new SqlLedgerReaderWriter(ledgerId, participantId, database, dispatcher)
 }
