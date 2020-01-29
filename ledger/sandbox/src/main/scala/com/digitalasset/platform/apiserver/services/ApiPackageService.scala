@@ -68,7 +68,7 @@ final class ApiPackageService private (backend: IndexPackagesService)(
           .andThen(logger.logErrorsOnCall[GetPackageStatusResponse])(DEC)
     )
 
-  private def withValidatedPackageId[T](packageId: String, block: Ref.PackageId.T => Future[T]) =
+  private def withValidatedPackageId[T](packageId: String, block: Ref.PackageId => Future[T]) =
     Ref.PackageId
       .fromString(packageId)
       .fold(
