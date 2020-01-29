@@ -84,4 +84,3 @@ This is shipped with the SDK and can be run with ``daml daml2ts``.
 The tool reads a compiled DAML project and generates a Typescript file corresponding to each DAML source file.
 We won't show the generated code here as it simply contains Typescript equivalents of the data structures used in the DAML templates (it does not include equivalents for signatories, observers or other DAML-specific constructs).
 With this tool to help bridge the gap between our DAML code and the UI, we can get started on our first full-stack DAML feature!
-
