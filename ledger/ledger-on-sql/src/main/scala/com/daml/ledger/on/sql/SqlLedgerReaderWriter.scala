@@ -16,7 +16,6 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntryId,
   DamlStateKey,
   DamlStateValue,
-  DamlSubmission,
 }
 import com.daml.ledger.participant.state.kvutils.api.{LedgerReader, LedgerRecord, LedgerWriter}
 import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting}
@@ -91,38 +90,25 @@ class SqlLedgerReaderWriter(
         val entryId = allocateEntryId()
         val newHead = inDatabaseWriteTransaction("Committing a submission") { implicit connection =>
           val stateInputs = readState(stateInputKeys)
-          val (logEntry, stateUpdates) = KeyValueCommitting.processSubmission(
-            engine,
-            entryId,
-            currentRecordTime(),
-            LedgerReader.DefaultConfiguration,
-            submission,
-            participantId,
-            stateInputs,
-          )
-          verifyStateUpdatesAgainstPreDeclaredOutputs(stateUpdates, entryId, submission)
+          val (logEntry, stateUpdates) =
+            KeyValueCommitting.processSubmission(
+              engine,
+              entryId,
+              currentRecordTime(),
+              LedgerReader.DefaultConfiguration,
+              submission,
+              participantId,
+              stateInputs,
+            )
           queries.updateState(stateUpdates)
-          val latestSequenceNo = queries.insertIntoLog(entryId, Envelope.enclose(logEntry))
+          val latestSequenceNo =
+            queries.insertIntoLog(entryId, Envelope.enclose(logEntry))
           latestSequenceNo + 1
         }
         dispatcher.signalNewHead(newHead)
         SubmissionResult.Acknowledged
       }
     }
-
-  private def verifyStateUpdatesAgainstPreDeclaredOutputs(
-      actualStateUpdates: Map[DamlStateKey, DamlStateValue],
-      entryId: DamlLogEntryId,
-      submission: DamlSubmission,
-  ): Unit = {
-    val expectedStateUpdates = KeyValueCommitting.submissionOutputs(entryId, submission)
-    if (!(actualStateUpdates.keySet subsetOf expectedStateUpdates)) {
-      val unaccountedKeys = actualStateUpdates.keySet diff expectedStateUpdates
-      sys.error(
-        s"CommitActor: State updates not a subset of expected updates! Keys [$unaccountedKeys] are unaccounted for!",
-      )
-    }
-  }
 
   private def currentRecordTime(): Timestamp =
     Timestamp.assertFromInstant(Clock.systemUTC().instant())

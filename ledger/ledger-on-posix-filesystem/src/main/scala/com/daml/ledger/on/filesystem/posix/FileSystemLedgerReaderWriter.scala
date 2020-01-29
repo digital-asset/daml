@@ -13,7 +13,6 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntryId,
   DamlStateKey,
   DamlStateValue,
-  DamlSubmission
 }
 import com.daml.ledger.participant.state.kvutils.api.{LedgerReader, LedgerRecord, LedgerWriter}
 import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting}
@@ -70,7 +69,7 @@ class FileSystemLedgerReaderWriter private (
         OneAfterAnother[Index, immutable.Seq[LedgerRecord]](
           (index: Index, _) => index + 1,
           (index: Index) => Future.successful(immutable.Seq(retrieveLogEntry(index))),
-        )
+        ),
       )
       .mapConcat {
         case (_, updates) => updates
@@ -99,24 +98,10 @@ class FileSystemLedgerReaderWriter private (
         participantId,
         stateInputs,
       )
-      verifyStateUpdatesAgainstPreDeclaredOutputs(stateUpdates, entryId, submission)
       val newHead = appendLog(currentHead, Envelope.enclose(logEntry))
       updateState(stateUpdates)
       dispatcher.signalNewHead(newHead)
       SubmissionResult.Acknowledged
-    }
-  }
-
-  private def verifyStateUpdatesAgainstPreDeclaredOutputs(
-      actualStateUpdates: Map[DamlStateKey, DamlStateValue],
-      entryId: DamlLogEntryId,
-      submission: DamlSubmission
-  ): Unit = {
-    val expectedStateUpdates = KeyValueCommitting.submissionOutputs(entryId, submission)
-    if (!(actualStateUpdates.keySet subsetOf expectedStateUpdates)) {
-      val unaccountedKeys = actualStateUpdates.keySet diff expectedStateUpdates
-      sys.error(
-        s"CommitActor: State updates not a subset of expected updates! Keys [$unaccountedKeys] are unaccounted for!")
     }
   }
 
@@ -191,13 +176,13 @@ object FileSystemLedgerReaderWriter {
       root: Path,
   )(implicit executionContext: ExecutionContext): ResourceOwner[FileSystemLedgerReaderWriter] =
     for {
-      dispatcher <- ResourceOwner.forCloseable(
-        () =>
-          Dispatcher(
-            "posix-filesystem-participant-state",
-            zeroIndex = StartIndex,
-            headAtInitialization = StartIndex,
-        ))
+      dispatcher <- ResourceOwner.forCloseable(() =>
+        Dispatcher(
+          "posix-filesystem-participant-state",
+          zeroIndex = StartIndex,
+          headAtInitialization = StartIndex,
+        ),
+      )
     } yield {
       val participant = new FileSystemLedgerReaderWriter(ledgerId, participantId, root, dispatcher)
       participant.createDirectories()
