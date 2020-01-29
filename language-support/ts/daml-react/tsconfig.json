@@ -15,5 +15,5 @@
     "module": "CommonJS",
     "declaration": true,
     "sourceMap": true
-    }
+  }
 }
