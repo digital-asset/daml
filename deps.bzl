@@ -123,6 +123,7 @@ def daml_deps():
             sha256 = "132cf8eeaab67f3142cec17152b8415901e7fa8396dd585d6334eec21bf7419d",
             patches = [
                 "@com_github_digital_asset_daml//bazel_tools:scala-escape-jvmflags.patch",
+                "@com_github_digital_asset_daml//bazel_tools:scala-fail-jmh-build-on-error.patch",
             ],
             patch_args = ["-p1"],
         )
