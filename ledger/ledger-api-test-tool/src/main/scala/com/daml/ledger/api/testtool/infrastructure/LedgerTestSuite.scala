@@ -8,7 +8,6 @@ import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite._
 import com.digitalasset.daml.lf.data.Ref
 
 import scala.collection.mutable.ListBuffer
-import scala.concurrent.duration.{Duration, DurationLong}
 import scala.concurrent.{ExecutionContext, Future}
 
 private[testtool] abstract class LedgerTestSuite(val session: LedgerSession) {
@@ -24,11 +23,11 @@ private[testtool] abstract class LedgerTestSuite(val session: LedgerSession) {
       shortIdentifier: String,
       description: String,
       participants: ParticipantAllocation,
-      timeout: Duration = 30.seconds,
+      timeoutScale: Double = 1.0,
   )(testCase: Participants => Future[Unit]): Unit = {
     val shortIdentifierRef = Ref.LedgerString.assertFromString(shortIdentifier)
     testCaseBuffer.append(
-      new LedgerTestCase(shortIdentifierRef, description, timeout, participants, testCase),
+      new LedgerTestCase(shortIdentifierRef, description, timeoutScale, participants, testCase),
     )
   }
 

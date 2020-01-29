@@ -17,33 +17,33 @@ object Command {
 
   final case class Create(
       templateId: Identifier,
-      argument: SValue
+      argument: SValue,
   ) extends Command
 
   final case class Exercise(
       templateId: Identifier,
       contractId: SContractId,
       choiceId: ChoiceName,
-      argument: SValue
+      argument: SValue,
   ) extends Command
 
   final case class ExerciseByKey(
       templateId: Identifier,
       contractKey: SValue,
       choiceId: ChoiceName,
-      argument: SValue
+      argument: SValue,
   ) extends Command
 
   final case class Fetch(
       templateId: Identifier,
-      coid: SContractId
+      coid: SContractId,
   ) extends Command
 
   final case class CreateAndExercise(
       templateId: Identifier,
       createArgument: SValue,
       choiceId: ChoiceName,
-      choiceArgument: SValue
+      choiceArgument: SValue,
   ) extends Command
 
 }

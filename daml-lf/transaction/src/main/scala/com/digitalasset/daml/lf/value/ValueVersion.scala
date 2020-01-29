@@ -17,7 +17,8 @@ final case class ValueVersion(protoValue: String)
   */
 object ValueVersions
     extends LfVersions(versionsAscending = VersionTimeline.ascendingVersions[ValueVersion])(
-      _.protoValue) {
+      _.protoValue,
+    ) {
 
   private[value] val minVersion = ValueVersion("1")
   private[value] val minOptional = ValueVersion("2")
@@ -33,7 +34,8 @@ object ValueVersions
     @tailrec
     def go(
         currentVersion: ValueVersion,
-        values0: FrontStack[Value[Cid]]): Either[String, ValueVersion] = {
+        values0: FrontStack[Value[Cid]],
+    ): Either[String, ValueVersion] = {
       if (currentVersion == maxVersion) {
         Right(currentVersion)
       } else {

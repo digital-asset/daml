@@ -3,12 +3,12 @@
 
 package com.daml.ledger.on.sql
 
-import com.daml.ledger.on.sql.queries.Queries.InvalidDatabaseException
 import com.daml.ledger.on.sql.queries.{H2Queries, PostgresqlQueries, Queries, SqliteQueries}
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.resources.ResourceOwner
 import com.zaxxer.hikari.HikariDataSource
 import javax.sql.DataSource
+import org.flywaydb.core.Flyway
 
 case class Database(
     queries: Queries,
@@ -27,50 +27,136 @@ object Database {
   // entries missing.
   private val MaximumWriterConnectionPoolSize: Int = 1
 
-  def owner(jdbcUrl: String)(implicit logCtx: LoggingContext): ResourceOwner[Database] =
+  def owner(jdbcUrl: String)(
+      implicit logCtx: LoggingContext,
+  ): ResourceOwner[UninitializedDatabase] =
     (jdbcUrl match {
+      case "jdbc:h2:mem:" =>
+        throw new InvalidDatabaseException(
+          "Unnamed in-memory H2 databases are not supported. Please name the database using the format \"jdbc:h2:mem:NAME\".",
+        )
+      case url if url.startsWith("jdbc:h2:mem:") =>
+        SingleConnectionDatabase.owner(RDBMS.H2, jdbcUrl)
       case url if url.startsWith("jdbc:h2:") =>
-        MultipleReaderSingleWriterDatabase.owner(jdbcUrl, new H2Queries)
+        MultipleConnectionDatabase.owner(RDBMS.H2, jdbcUrl)
       case url if url.startsWith("jdbc:postgresql:") =>
-        MultipleReaderSingleWriterDatabase.owner(jdbcUrl, new PostgresqlQueries)
+        MultipleConnectionDatabase.owner(RDBMS.PostgreSQL, jdbcUrl)
+      case url if url.startsWith("jdbc:sqlite::memory:") =>
+        throw new InvalidDatabaseException(
+          "Unnamed in-memory SQLite databases are not supported. Please name the database using the format \"jdbc:sqlite:file:NAME?mode=memory&cache=shared\".",
+        )
       case url if url.startsWith("jdbc:sqlite:") =>
-        SingleConnectionDatabase.owner(jdbcUrl, new SqliteQueries)
-      case _ => throw new InvalidDatabaseException(jdbcUrl)
+        SingleConnectionDatabase.owner(RDBMS.SQLite, jdbcUrl)
+      case _ =>
+        throw new InvalidDatabaseException(s"Unknown database: $jdbcUrl")
     }).map { database =>
       logger.info(s"Connected to the ledger over JDBC: $jdbcUrl")
       database
     }
 
-  object MultipleReaderSingleWriterDatabase {
-    def owner(jdbcUrl: String, queries: Queries): ResourceOwner[Database] =
+  object MultipleConnectionDatabase {
+    def owner(
+        system: RDBMS,
+        jdbcUrl: String,
+    ): ResourceOwner[UninitializedDatabase] =
       for {
         readerConnectionPool <- ResourceOwner.forCloseable(() =>
-          newHikariDataSource(jdbcUrl, readOnly = true))
+          newHikariDataSource(jdbcUrl, readOnly = true),
+        )
         writerConnectionPool <- ResourceOwner.forCloseable(() =>
-          newHikariDataSource(jdbcUrl, maximumPoolSize = Some(MaximumWriterConnectionPoolSize)))
-      } yield new Database(queries, readerConnectionPool, writerConnectionPool)
+          newHikariDataSource(jdbcUrl, maxPoolSize = Some(MaximumWriterConnectionPoolSize)),
+        )
+        adminConnectionPool <- ResourceOwner.forCloseable(() => newHikariDataSource(jdbcUrl))
+      } yield new UninitializedDatabase(
+        system,
+        readerConnectionPool,
+        writerConnectionPool,
+        adminConnectionPool,
+      )
   }
 
   object SingleConnectionDatabase {
-    def owner(jdbcUrl: String, queries: Queries): ResourceOwner[Database] =
+    def owner(
+        system: RDBMS,
+        jdbcUrl: String,
+    ): ResourceOwner[UninitializedDatabase] =
       for {
-        connectionPool <- ResourceOwner.forCloseable(() =>
-          newHikariDataSource(jdbcUrl, maximumPoolSize = Some(MaximumWriterConnectionPoolSize)))
-      } yield new Database(queries, connectionPool, connectionPool)
+        readerWriterConnectionPool <- ResourceOwner.forCloseable(() =>
+          newHikariDataSource(jdbcUrl, maxPoolSize = Some(MaximumWriterConnectionPoolSize)),
+        )
+        adminConnectionPool <- ResourceOwner.forCloseable(() => newHikariDataSource(jdbcUrl))
+      } yield new UninitializedDatabase(
+        system,
+        readerWriterConnectionPool,
+        readerWriterConnectionPool,
+        adminConnectionPool,
+      )
   }
 
   private def newHikariDataSource(
       jdbcUrl: String,
-      maximumPoolSize: Option[Int] = None,
       readOnly: Boolean = false,
+      maxPoolSize: Option[Int] = None,
   ): HikariDataSource = {
     val pool = new HikariDataSource()
     pool.setAutoCommit(false)
     pool.setJdbcUrl(jdbcUrl)
     pool.setReadOnly(readOnly)
-    maximumPoolSize.foreach { maximumPoolSize =>
-      pool.setMaximumPoolSize(maximumPoolSize)
-    }
+    maxPoolSize.foreach(pool.setMaximumPoolSize)
     pool
   }
+
+  sealed trait RDBMS {
+    val name: String
+
+    val queries: Queries
+  }
+
+  object RDBMS {
+    object H2 extends RDBMS {
+      override val name: String = "h2"
+
+      override val queries: Queries = new H2Queries
+    }
+
+    object PostgreSQL extends RDBMS {
+      override val name: String = "postgresql"
+
+      override val queries: Queries = new PostgresqlQueries
+    }
+
+    object SQLite extends RDBMS {
+      override val name: String = "sqlite"
+
+      override val queries: Queries = new SqliteQueries
+    }
+  }
+
+  class UninitializedDatabase(
+      system: RDBMS,
+      readerConnectionPool: DataSource,
+      writerConnectionPool: DataSource,
+      adminConnectionPool: DataSource,
+      afterMigration: () => Unit = () => (),
+  ) {
+    private val flyway: Flyway =
+      Flyway
+        .configure()
+        .dataSource(adminConnectionPool)
+        .locations(s"classpath:/com/daml/ledger/on/sql/migrations/${system.name}")
+        .load()
+
+    def migrate(): Database = {
+      flyway.migrate()
+      afterMigration()
+      Database(system.queries, readerConnectionPool, writerConnectionPool)
+    }
+
+    def clear(): this.type = {
+      flyway.clean()
+      this
+    }
+  }
+
+  class InvalidDatabaseException(message: String) extends RuntimeException(message)
 }

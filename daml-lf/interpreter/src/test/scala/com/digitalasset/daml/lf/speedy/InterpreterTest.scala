@@ -66,27 +66,29 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
                           EAbs(
                             ("accInner", int64List),
                             ECons(int64, ImmArray(EVar("x")), EVar("accInner")),
-                            None),
-                          None
-                        )
+                            None,
+                          ),
+                          None,
+                        ),
                       ),
-                      EVar("acc")
+                      EVar("acc"),
                     ),
-                    EVar("xs")
+                    EVar("xs"),
                   ),
-                  None
+                  None,
                 ),
-                None
-              )
+                None,
+              ),
             ),
-            EApp(EApp(EApp(EBuiltin(BFoldl), EVar("work")), ENil(int64)), EVar("xss"))
+            EApp(EApp(EApp(EBuiltin(BFoldl), EVar("work")), ENil(int64)), EVar("xss")),
           ),
-          None
+          None,
         )
       val xss1 = ECons(
         int64List,
         ImmArray(int64Cons(ImmArray(2, 5), int64Nil), int64Cons(ImmArray[Long](7), int64Nil)),
-        ENil(int64List))
+        ENil(int64List),
+      )
       val xss2 = ECons(int64List, ImmArray(int64Cons(ImmArray(2, 5, 7), int64Nil)), ENil(int64List))
       runExpr(EApp(concat, xss1)) shouldBe runExpr(EApp(concat, xss2))
     }
@@ -118,7 +120,8 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
     }
 
     a[Compiler.CompileError] shouldBe thrownBy(
-      runExpr(e"""(/\ (n: nat). /\ (n: *). FROM_TEXT_NUMERIC @n n) @4 @Text"""))
+      runExpr(e"""(/\ (n: nat). /\ (n: *). FROM_TEXT_NUMERIC @n n) @4 @Text"""),
+    )
   }
 
   "large lists" should {
@@ -127,7 +130,7 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
     val list = ECons(
       t_int64List,
       ImmArray((1 to 100000).map(i => EPrimLit(PLInt64(i.toLong)))),
-      ENil(t_int64List)
+      ENil(t_int64List),
     )
     var machine: Speedy.Machine = null
     "compile" in {
@@ -195,18 +198,24 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
               List(
                 Module(
                   modName,
-                  Map(DottedName.assertFromString("bar") ->
-                    DValue(TBuiltin(BTBool), true, ETrue, false)),
+                  Map(
+                    DottedName.assertFromString("bar") ->
+                      DValue(TBuiltin(BTBool), true, ETrue, false),
+                  ),
                   LanguageVersion.default,
-                  FeatureFlags.default)),
-              Set.empty[PackageId]
-            ))).right.get
+                  FeatureFlags.default,
+                ),
+              ),
+              Set.empty[PackageId],
+            ),
+        ),
+      ).right.get
     "succeeds" in {
       val machine = Speedy.Machine.fromExpr(
         EVal(ref),
         true,
         pkgs1,
-        false
+        false,
       )
       var result: SResult = SResultContinue
       def run() = {
@@ -232,7 +241,7 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
         EVal(ref),
         true,
         pkgs1,
-        false
+        false,
       )
       var result: SResult = SResultContinue
       def run() = {

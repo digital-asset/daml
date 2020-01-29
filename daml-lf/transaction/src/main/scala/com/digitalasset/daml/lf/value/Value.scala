@@ -9,7 +9,7 @@ import com.digitalasset.daml.lf.data.Ref.{
   Identifier,
   LedgerString,
   Name,
-  `Name equal instance`
+  `Name equal instance`,
 }
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.language.LanguageVersion
@@ -58,7 +58,8 @@ sealed abstract class Value[+Cid] extends Product with Serializable {
     def go(
         exceededNesting: Boolean,
         errs: BackStack[String],
-        vs0: FrontStack[(Value[Cid], Int)]): BackStack[String] = vs0 match {
+        vs0: FrontStack[(Value[Cid], Int)],
+    ): BackStack[String] = vs0 match {
       case FrontStack() => errs
 
       case FrontStackCons((v, nesting), vs) =>
@@ -170,7 +171,8 @@ object Value {
     def typedBy(languageVersions: LanguageVersion*): VersionedValue[Cid] = {
       import com.digitalasset.daml.lf.transaction.VersionTimeline, VersionTimeline._, Implicits._
       copy(version =
-        latestWhenAllPresent(version, languageVersions map (a => a: SpecifiedVersion): _*))
+        latestWhenAllPresent(version, languageVersions map (a => a: SpecifiedVersion): _*),
+      )
     }
   }
 
@@ -191,8 +193,8 @@ object Value {
 
   final case class ValueRecord[+Cid](
       tycon: Option[Identifier],
-      fields: ImmArray[(Option[Name], Value[Cid])])
-      extends Value[Cid]
+      fields: ImmArray[(Option[Name], Value[Cid])],
+  ) extends Value[Cid]
   final case class ValueVariant[+Cid](tycon: Option[Identifier], variant: Name, value: Value[Cid])
       extends Value[Cid]
   final case class ValueEnum(tycon: Option[Identifier], value: Name) extends ValueCidlessLeaf

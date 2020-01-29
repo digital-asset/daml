@@ -47,20 +47,20 @@ object SError {
   final case class DamlETemplatePreconditionViolated(
       templateId: TypeConName,
       optLocation: Option[Location],
-      arg: Transaction.Value[ContractId])
-      extends SErrorDamlException
+      arg: Transaction.Value[ContractId],
+  ) extends SErrorDamlException
 
   /** A fetch or an exercise on a transaction-local contract that has already
     * been consumed. */
   final case class DamlELocalContractNotActive(
       coid: ContractId,
       templateId: TypeConName,
-      consumedBy: Transaction.NodeId)
-      extends SErrorDamlException
+      consumedBy: Transaction.NodeId,
+  ) extends SErrorDamlException
 
   /** Error during an operation on the update transaction. */
   final case class DamlETransactionError(
-      reason: String
+      reason: String,
   ) extends SErrorDamlException
 
   /** The submitter was not in the key maintainers on lookup.
@@ -69,8 +69,8 @@ object SError {
   final case class DamlESubmitterNotInMaintainers(
       templateId: TypeConName,
       submitter: Party,
-      maintainers: Set[Party])
-      extends SErrorDamlException
+      maintainers: Set[Party],
+  ) extends SErrorDamlException
 
   /** Errors from scenario interpretation. */
   sealed trait SErrorScenario extends SError
@@ -78,14 +78,14 @@ object SError {
   final case class ScenarioErrorContractNotEffective(
       coid: AbsoluteContractId,
       templateId: Identifier,
-      effectiveAt: Time.Timestamp)
-      extends SErrorScenario
+      effectiveAt: Time.Timestamp,
+  ) extends SErrorScenario
 
   final case class ScenarioErrorContractNotActive(
       coid: AbsoluteContractId,
       templateId: Identifier,
-      consumedBy: Ledger.ScenarioNodeId)
-      extends SErrorScenario
+      consumedBy: Ledger.ScenarioNodeId,
+  ) extends SErrorScenario
 
   /** We tried to fetch / exercise a contract of the wrong type --
     * see <https://github.com/digital-asset/daml/issues/1005>.
@@ -93,8 +93,8 @@ object SError {
   final case class DamlEWronglyTypedContract(
       coid: ContractId,
       expected: TypeConName,
-      actual: TypeConName)
-      extends SErrorDamlException
+      actual: TypeConName,
+  ) extends SErrorDamlException
 
   /** A fetch or exercise was being made against a contract that has not
     * been disclosed to 'committer'. */
@@ -102,8 +102,8 @@ object SError {
       coid: AbsoluteContractId,
       templateId: Identifier,
       committer: Party,
-      observers: Set[Party])
-      extends SErrorScenario
+      observers: Set[Party],
+  ) extends SErrorScenario
 
   /** The commit of the transaction failed due to authorization errors. */
   final case class ScenarioErrorCommitError(commitError: Ledger.CommitError) extends SErrorScenario

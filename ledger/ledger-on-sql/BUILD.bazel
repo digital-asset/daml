@@ -56,7 +56,7 @@ supported_databases = [
             "@maven//:org_xerial_sqlite_jdbc",
         ],
         "conformance_test_server_args": [
-            "--jdbc-url=jdbc:sqlite::memory:",
+            "--jdbc-url=jdbc:sqlite:file:daml-on-sql-conformance-test?mode=memory&cache=shared",
         ],
     },
     {
@@ -70,6 +70,8 @@ supported_databases = [
         ],
     },
 ]
+
+all_database_runtime_deps = {dep: None for db in supported_databases for dep in db["runtime_deps"]}.keys()
 
 da_scala_library(
     name = "ledger-on-sql",
@@ -101,6 +103,17 @@ da_scala_library(
         "@maven//:com_typesafe_play_anorm_2_12",
         "@maven//:com_typesafe_play_anorm_tokenizer_2_12",
         "@maven//:com_zaxxer_HikariCP",
+        "@maven//:org_flywaydb_flyway_core",
+    ],
+)
+
+da_scala_binary(
+    name = "app",
+    main_class = "com.daml.ledger.on.sql.Main",
+    visibility = ["//visibility:public"],
+    runtime_deps = all_database_runtime_deps,
+    deps = [
+        ":ledger-on-sql",
     ],
 )
 
@@ -113,14 +126,21 @@ da_scala_library(
     deps = [
         ":ledger-on-sql",
         "//daml-lf/data",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger-api/testing-utils",
         "//ledger/ledger-api-health",
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
+        "//ledger/participant-state/kvutils:kvutils-tests-lib",
         "//ledger/participant-state/kvutils/app",
+        "//libs-scala/contextualized-logging",
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
         "@maven//:com_github_scopt_scopt_2_12",
+        "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:org_scalactic_scalactic_2_12",
+        "@maven//:org_scalatest_scalatest_2_12",
     ],
 )
 
@@ -132,13 +152,10 @@ da_scala_test_suite(
         "//ledger/test-common:Test-stable.dar",
     ],
     resources = glob(["src/test/resources/*"]),
-    runtime_deps = [
-        "@maven//:com_h2database_h2",
-        "@maven//:org_postgresql_postgresql",
-        "@maven//:org_xerial_sqlite_jdbc",
-    ],
+    runtime_deps = all_database_runtime_deps,
     deps = [
         ":ledger-on-sql",
+        ":ledger-on-sql-test-lib",
         "//daml-lf/data",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
@@ -152,6 +169,7 @@ da_scala_test_suite(
         "//libs-scala/resources",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:org_flywaydb_flyway_core",
         "@maven//:org_scalactic_scalactic_2_12",
         "@maven//:org_scalatest_scalatest_2_12",
     ],
@@ -179,7 +197,16 @@ da_scala_test_suite(
                 "--all-tests",
                 "--exclude=ConfigManagementServiceIT",
                 "--exclude=TimeIT",
-                "--exclude=TransactionScaleIT",
+            ],
+        ),
+        conformance_test(
+            name = "conformance-test-config-management-{}".format(db["name"]),
+            ports = [6865],
+            server = ":conformance-test-{}-bin".format(db["name"]),
+            server_args = ["--port=6865"] + db.get("conformance_test_server_args", []),
+            tags = db.get("conformance_test_tags", []),
+            test_tool_args = db.get("conformance_test_tool_args", []) + [
+                "--include=ConfigManagementServiceIT",
             ],
         ),
     )

@@ -20,7 +20,8 @@ case class Conversions(homePackageId: Ref.PackageId) {
   def convertScenarioResult(
       ledger: Ledger.Ledger,
       machine: Speedy.Machine,
-      svalue: SValue): ScenarioResult = {
+      svalue: SValue,
+  ): ScenarioResult = {
 
     val (nodes, steps) = convertLedger(ledger)
     val builder = ScenarioResult.newBuilder
@@ -37,7 +38,8 @@ case class Conversions(homePackageId: Ref.PackageId) {
   def convertScenarioError(
       ledger: Ledger.Ledger,
       machine: Speedy.Machine,
-      err: SError.SError): ScenarioError = {
+      err: SError.SError,
+  ): ScenarioError = {
     val (nodes, steps) = convertLedger(ledger)
     val builder = ScenarioError.newBuilder
       .addAllNodes(nodes.asJava)
@@ -57,7 +59,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
     builder.addAllStackTrace(machine.stackTrace().map(convertLocation).toSeq.asJava)
 
     builder.setPartialTransaction(
-      convertPartialTransaction(machine.ptx)
+      convertPartialTransaction(machine.ptx),
     )
 
     err match {
@@ -80,20 +82,21 @@ case class Conversions(homePackageId: Ref.PackageId) {
           uepvBuilder
             .setTemplateId(convertIdentifier(tid))
             .setArg(convertValue(arg.value))
-            .build
+            .build,
         )
       case SError.DamlELocalContractNotActive(coid, tid, consumedBy) =>
         builder.setUpdateLocalContractNotActive(
           ScenarioError.ContractNotActive.newBuilder
             .setContractRef(mkContractRef(coid, tid))
             .setConsumedBy(NodeId.newBuilder.setId(consumedBy.toString).build)
-            .build)
+            .build,
+        )
       case SError.ScenarioErrorContractNotEffective(coid, tid, effectiveAt) =>
         builder.setScenarioContractNotEffective(
           ScenarioError.ContractNotEffective.newBuilder
             .setEffectiveAt(effectiveAt.micros)
             .setContractRef(mkContractRef(coid, tid))
-            .build
+            .build,
         )
 
       case SError.ScenarioErrorContractNotActive(coid, tid, consumedBy) =>
@@ -101,7 +104,8 @@ case class Conversions(homePackageId: Ref.PackageId) {
           ScenarioError.ContractNotActive.newBuilder
             .setContractRef(mkContractRef(coid, tid))
             .setConsumedBy(convertNodeId(consumedBy))
-            .build)
+            .build,
+        )
 
       case SError.ScenarioErrorContractNotVisible(coid, tid, committer, observers) =>
         builder.setScenarioContractNotVisible(
@@ -109,11 +113,12 @@ case class Conversions(homePackageId: Ref.PackageId) {
             .setContractRef(mkContractRef(coid, tid))
             .setCommitter(convertParty(committer))
             .addAllObservers(observers.map(convertParty).asJava)
-            .build)
+            .build,
+        )
 
       case SError.ScenarioErrorCommitError(commitError) =>
         builder.setScenarioCommitError(
-          convertCommitError(commitError)
+          convertCommitError(commitError),
         )
       case SError.ScenarioErrorMustFailSucceeded(tx @ _) =>
         builder.setScenarioMustfailSucceeded(empty)
@@ -123,7 +128,8 @@ case class Conversions(homePackageId: Ref.PackageId) {
 
       case wtc: SError.DamlEWronglyTypedContract =>
         sys.error(
-          s"Got unexpected DamlEWronglyTypedContract error in scenario service: $wtc. Note that in the scenario service this error should never surface since contract fetches are all type checked.")
+          s"Got unexpected DamlEWronglyTypedContract error in scenario service: $wtc. Note that in the scenario service this error should never surface since contract fetches are all type checked.",
+        )
 
       case SError.DamlESubmitterNotInMaintainers(templateId, submitter, maintainers) =>
         builder.setSubmitterNotInMaintainers(
@@ -131,7 +137,8 @@ case class Conversions(homePackageId: Ref.PackageId) {
             .setTemplateId(convertIdentifier(templateId))
             .setSubmitter(convertParty(submitter))
             .addAllMaintainers(maintainers.map(convertParty).asJava)
-            .build)
+            .build,
+        )
     }
     builder.build
   }
@@ -185,7 +192,8 @@ case class Conversions(homePackageId: Ref.PackageId) {
       ,
       ledger.scenarioSteps.map {
         case (idx, step) => convertScenarioStep(idx.toInt, step, ledger.ledgerData.coidToNodeId)
-      })
+      },
+    )
 
   def convertFailedAuthorizations(fas: Ledger.FailedAuthorizations): FailedAuthorizations = {
     val builder = FailedAuthorizations.newBuilder
@@ -199,7 +207,8 @@ case class Conversions(homePackageId: Ref.PackageId) {
                 templateId,
                 optLocation,
                 authParties,
-                reqParties) =>
+                reqParties,
+                ) =>
               val cmaBuilder =
                 FailedAuthorization.CreateMissingAuthorization.newBuilder
                   .setTemplateId(convertIdentifier(templateId))
@@ -212,7 +221,8 @@ case class Conversions(homePackageId: Ref.PackageId) {
                 templateId,
                 optLocation,
                 signatories,
-                maintainers) =>
+                maintainers,
+                ) =>
               val maintNotSignBuilder =
                 FailedAuthorization.MaintainersNotSubsetOfSignatories.newBuilder
                   .setTemplateId(convertIdentifier(templateId))
@@ -235,7 +245,8 @@ case class Conversions(homePackageId: Ref.PackageId) {
                 choiceId,
                 optLocation,
                 authParties,
-                reqParties) =>
+                reqParties,
+                ) =>
               val emaBuilder =
                 FailedAuthorization.ExerciseMissingAuthorization.newBuilder
                   .setTemplateId(convertIdentifier(templateId))
@@ -272,7 +283,8 @@ case class Conversions(homePackageId: Ref.PackageId) {
                 templateId,
                 optLocation,
                 maintainers,
-                authorizers) =>
+                authorizers,
+                ) =>
               val lbkmaBuilder =
                 FailedAuthorization.LookupByKeyMissingAuthorization.newBuilder
                   .setTemplateId(convertIdentifier(templateId))
@@ -312,7 +324,8 @@ case class Conversions(homePackageId: Ref.PackageId) {
   def convertScenarioStep(
       stepId: Int,
       step: Ledger.ScenarioStep,
-      coidToNodeId: AbsoluteContractId => ScenarioNodeId): ScenarioStep = {
+      coidToNodeId: AbsoluteContractId => ScenarioNodeId,
+  ): ScenarioStep = {
     val builder = ScenarioStep.newBuilder
     builder.setStepId(stepId)
     step match {
@@ -325,7 +338,8 @@ case class Conversions(homePackageId: Ref.PackageId) {
           commitBuilder
             .setTxId(txId.index)
             .setTx(convertTransaction(rtx, coidToNodeId))
-            .build)
+            .build,
+        )
       case Ledger.PassTime(dt) =>
         builder.setPassTime(dt)
       case Ledger.AssertMustFail(actor, optLocation, time, txId) =>
@@ -339,14 +353,16 @@ case class Conversions(homePackageId: Ref.PackageId) {
               .setActor(convertParty(actor))
               .setTime(time.micros)
               .setTxId(txId.index)
-              .build)
+              .build,
+          )
     }
     builder.build
   }
 
   def convertTransaction(
       rtx: Ledger.RichTransaction,
-      coidToNodeId: AbsoluteContractId => ScenarioNodeId): Transaction = {
+      coidToNodeId: AbsoluteContractId => ScenarioNodeId,
+  ): Transaction = {
     val convertedGlobalImplicitDisclosure = rtx.globalImplicitDisclosure.map {
       case (coid, parties) => coidToNodeId(coid) -> parties
     }
@@ -372,7 +388,8 @@ case class Conversions(homePackageId: Ref.PackageId) {
     val builder = PartialTransaction.newBuilder
       .addAllNodes(ptx.nodes.map(Function.tupled(convertTxNode)).asJava)
       .addAllRoots(
-        ptx.context.children.toImmArray.toSeq.sortBy(_.index).map(convertTxNodeId).asJava)
+        ptx.context.children.toImmArray.toSeq.sortBy(_.index).map(convertTxNodeId).asJava,
+      )
 
     ptx.context match {
       case Tx.PartialTransaction.ContextRoot(_, _) =>
@@ -420,7 +437,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
               ContractInstance.newBuilder
                 .setTemplateId(convertIdentifier(create.coinst.template))
                 .setValue(convertValue(create.coinst.arg.value))
-                .build
+                .build,
             )
             .addAllSignatories(create.signatories.map(convertParty).asJava)
             .addAllStakeholders(create.stakeholders.map(convertParty).asJava)
@@ -434,12 +451,11 @@ case class Conversions(homePackageId: Ref.PackageId) {
             .setTemplateId(convertIdentifier(fetch.templateId))
             .addAllSignatories(fetch.signatories.map(convertParty).asJava)
             .addAllStakeholders(fetch.stakeholders.map(convertParty).asJava)
-            .build
+            .build,
         )
-      case ex: N.NodeExercises[
-            Ledger.ScenarioNodeId,
+      case ex: N.NodeExercises[Ledger.ScenarioNodeId, V.AbsoluteContractId, Tx.Value[
             V.AbsoluteContractId,
-            Tx.Value[V.AbsoluteContractId]] =>
+          ]] =>
         ex.optLocation.map(loc => builder.setLocation(convertLocation(loc)))
         builder.setExercise(
           Node.Exercise.newBuilder
@@ -452,11 +468,13 @@ case class Conversions(homePackageId: Ref.PackageId) {
             .addAllSignatories(ex.signatories.map(convertParty).asJava)
             .addAllStakeholders(ex.stakeholders.map(convertParty).asJava)
             .addAllControllers(ex.controllers.map(convertParty).asJava)
-            .addAllChildren(ex.children
-              .map(nid => NodeId.newBuilder.setId(nid).build)
-              .toSeq
-              .asJava)
-            .build
+            .addAllChildren(
+              ex.children
+                .map(nid => NodeId.newBuilder.setId(nid).build)
+                .toSeq
+                .asJava,
+            )
+            .build,
         )
 
       case lbk: N.NodeLookupByKey[V.AbsoluteContractId, Tx.Value[V.AbsoluteContractId]] =>
@@ -472,7 +490,8 @@ case class Conversions(homePackageId: Ref.PackageId) {
   }
 
   def convertKeyWithMaintainers(
-      key: N.KeyWithMaintainers[V.VersionedValue[V.ContractId]]): KeyWithMaintainers = {
+      key: N.KeyWithMaintainers[V.VersionedValue[V.ContractId]],
+  ): KeyWithMaintainers = {
     KeyWithMaintainers
       .newBuilder()
       .setKey(convertValue(key.key.value))
@@ -493,12 +512,13 @@ case class Conversions(homePackageId: Ref.PackageId) {
               ContractInstance.newBuilder
                 .setTemplateId(convertIdentifier(create.coinst.template))
                 .setValue(convertValue(create.coinst.arg.value))
-                .build
+                .build,
             )
             .addAllSignatories(create.signatories.map(convertParty).asJava)
             .addAllStakeholders(create.stakeholders.map(convertParty).asJava)
         create.key.foreach(key =>
-          createBuilder.setKeyWithMaintainers(convertKeyWithMaintainers(key)))
+          createBuilder.setKeyWithMaintainers(convertKeyWithMaintainers(key)),
+        )
         create.optLocation.map(loc => builder.setLocation(convertLocation(loc)))
         builder.setCreate(createBuilder.build)
       case fetch: N.NodeFetch[V.ContractId] =>
@@ -508,7 +528,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
             .setTemplateId(convertIdentifier(fetch.templateId))
             .addAllSignatories(fetch.signatories.map(convertParty).asJava)
             .addAllStakeholders(fetch.stakeholders.map(convertParty).asJava)
-            .build
+            .build,
         )
       case ex: N.NodeExercises.WithTxValue[Tx.NodeId, V.ContractId] =>
         ex.optLocation.map(loc => builder.setLocation(convertLocation(loc)))
@@ -527,9 +547,9 @@ case class Conversions(homePackageId: Ref.PackageId) {
               ex.children
                 .map(nid => NodeId.newBuilder.setId(nid.index.toString).build)
                 .toSeq
-                .asJava
+                .asJava,
             )
-            .build
+            .build,
         )
 
       case lookup: N.NodeLookupByKey.WithTxValue[V.ContractId] =>
@@ -594,9 +614,9 @@ case class Conversions(homePackageId: Ref.PackageId) {
                   builder
                     .setValue(convertValue(fieldValue))
                     .build
-              }.asJava
+              }.asJava,
             )
-            .build
+            .build,
         )
       case V.ValueStruct(fields) =>
         builder.setTuple(
@@ -607,9 +627,9 @@ case class Conversions(homePackageId: Ref.PackageId) {
                   .setLabel(field._1)
                   .setValue(convertValue(field._2))
                   .build
-              }.asJava
+              }.asJava,
             )
-            .build
+            .build,
         )
       case V.ValueVariant(tycon, variant, value) =>
         val vbuilder = Variant.newBuilder
@@ -618,7 +638,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
           vbuilder
             .setConstructor(variant)
             .setValue(convertValue(value))
-            .build
+            .build,
         )
       case V.ValueEnum(tycon, constructor) =>
         val eBuilder = Enum.newBuilder.setConstructor(constructor)
@@ -639,8 +659,9 @@ case class Conversions(homePackageId: Ref.PackageId) {
                 .map(convertValue)
                 .toImmArray
                 .toSeq
-                .asJava)
-            .build
+                .asJava,
+            )
+            .build,
         )
       case V.ValueInt64(v) => builder.setInt64(v)
       case V.ValueNumeric(d) => builder.setDecimal(Numeric.toString(d))
@@ -670,7 +691,8 @@ case class Conversions(homePackageId: Ref.PackageId) {
         entries.foreach {
           case (k, v) =>
             mapBuilder.addEntries(
-              v1.GenMap.Entry.newBuilder().setKey(convertValue(k)).setValue(convertValue(v)))
+              v1.GenMap.Entry.newBuilder().setKey(convertValue(k)).setValue(convertValue(v)),
+            )
             ()
         }
         builder.setGenMap(mapBuilder)

@@ -33,7 +33,7 @@ object SResult {
       // Callback to signal that the contract was not present
       // or visible. Returns true if this was recoverable.
       cbMissing: Unit => Boolean,
-      cbPresent: ContractInst[Value[AbsoluteContractId]] => Unit
+      cbPresent: ContractInst[Value[AbsoluteContractId]] => Unit,
   ) extends SResult
 
   /** Machine needs a definition that was not present when the machine was
@@ -52,12 +52,12 @@ object SResult {
       value: SValue,
       tx: Transaction,
       committers: Set[Party],
-      callback: SValue => Unit
+      callback: SValue => Unit,
   ) extends SResult
 
   final case class SResultScenarioInsertMustFail(
       committers: Set[Party],
-      optLocation: Option[Location]
+      optLocation: Option[Location],
   ) extends SResult
 
   /** A "must fail" update resulted in a partial transaction, try and
@@ -66,19 +66,19 @@ object SResult {
   final case class SResultScenarioMustFail(
       ptx: Transaction,
       committers: Set[Party],
-      callback: Unit => Unit
+      callback: Unit => Unit,
   ) extends SResult
 
   /** Pass the ledger time and return back the new ledger time. */
   final case class SResultScenarioPassTime(
       relTime: Long,
-      callback: Time.Timestamp => Unit
+      callback: Time.Timestamp => Unit,
   ) extends SResult
 
   /** A conversion of a string into a party is requested. */
   final case class SResultScenarioGetParty(
       partyText: String,
-      callback: Party => Unit
+      callback: Party => Unit,
   ) extends SResult
 
   final case class SResultNeedKey(
@@ -87,6 +87,6 @@ object SResult {
       // Callback to signal that the key was not present.
       // returns true if this was recoverable.
       cbMissing: Unit => Boolean,
-      cbPresent: AbsoluteContractId => Unit
+      cbPresent: AbsoluteContractId => Unit,
   ) extends SResult
 }

@@ -12,13 +12,12 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntryId,
   DamlStateKey,
   DamlStateValue,
-  DamlSubmission
 }
 import com.daml.ledger.participant.state.kvutils.api.{LedgerReader, LedgerRecord, LedgerWriter}
 import com.daml.ledger.participant.state.kvutils.{
   Envelope,
   KeyValueCommitting,
-  SequentialLogEntryId
+  SequentialLogEntryId,
 }
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -76,9 +75,8 @@ final class InMemoryLedgerReaderWriter(
             LedgerReader.DefaultConfiguration,
             submission,
             participantId,
-            stateInputs
+            stateInputs,
           )
-        verifyStateUpdatesAgainstPreDeclaredOutputs(damlStateUpdates, entryId, submission)
         val stateUpdates = damlStateUpdates.map {
           case (damlStateKey, value) => damlStateKey.toByteString -> value
         }
@@ -89,18 +87,6 @@ final class InMemoryLedgerReaderWriter(
       SubmissionResult.Acknowledged
     }
 
-  private def verifyStateUpdatesAgainstPreDeclaredOutputs(
-      actualStateUpdates: Map[DamlStateKey, DamlStateValue],
-      entryId: DamlLogEntryId,
-      submission: DamlSubmission): Unit = {
-    val expectedStateUpdates = KeyValueCommitting.submissionOutputs(entryId, submission)
-    if (!(actualStateUpdates.keySet subsetOf expectedStateUpdates)) {
-      val unaccountedKeys = actualStateUpdates.keySet diff expectedStateUpdates
-      sys.error(
-        s"State updates not a subset of expected updates! Keys [$unaccountedKeys] are unaccounted for!")
-    }
-  }
-
   override def events(offset: Option[Offset]): Source[LedgerRecord, NotUsed] =
     dispatcher
       .startingAt(
@@ -109,8 +95,8 @@ final class InMemoryLedgerReaderWriter(
           .getOrElse(StartIndex),
         OneAfterAnother[Int, List[LedgerRecord]](
           (index: Int, _) => index + 1,
-          (index: Int) => Future.successful(List(retrieveLogEntry(index)))
-        )
+          (index: Int) => Future.successful(List(retrieveLogEntry(index))),
+        ),
       )
       .mapConcat { case (_, updates) => updates }
 
@@ -141,12 +127,12 @@ object InMemoryLedgerReaderWriter {
       participantId: ParticipantId,
   )(implicit executionContext: ExecutionContext): ResourceOwner[InMemoryLedgerReaderWriter] =
     for {
-      dispatcher <- ResourceOwner.forCloseable(
-        () =>
-          Dispatcher(
-            "in-memory-key-value-participant-state",
-            zeroIndex = StartIndex,
-            headAtInitialization = StartIndex,
-        ))
+      dispatcher <- ResourceOwner.forCloseable(() =>
+        Dispatcher(
+          "in-memory-key-value-participant-state",
+          zeroIndex = StartIndex,
+          headAtInitialization = StartIndex,
+        ),
+      )
     } yield new InMemoryLedgerReaderWriter(ledgerId, participantId, dispatcher)
 }

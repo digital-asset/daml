@@ -4,8 +4,8 @@ import { Choice, ContractId, List, Party, Template, Text, lookupTemplate } from 
 import * as jtv from '@mojotech/json-type-validation';
 import fetch from 'cross-fetch';
 
-export type CreateEvent<T extends object, K = unknown> = {
-  templateId: string;
+export type CreateEvent<T extends object, K = unknown, I extends string = string> = {
+  templateId: I;
   contractId: ContractId<T>;
   signatories: List<Party>;
   observers: List<Party>;
@@ -14,17 +14,17 @@ export type CreateEvent<T extends object, K = unknown> = {
   payload: T;
 }
 
-export type ArchiveEvent<T extends object> = {
-  templateId: string;
+export type ArchiveEvent<T extends object, I extends string = string> = {
+  templateId: I;
   contractId: ContractId<T>;
 }
 
-export type Event<T extends object, K = unknown> =
-  | { created: CreateEvent<T, K> }
-  | { archived: ArchiveEvent<T> }
+export type Event<T extends object, K = unknown, I extends string = string> =
+  | { created: CreateEvent<T, K, I> }
+  | { archived: ArchiveEvent<T, I> }
 
-const decodeCreateEvent = <T extends object, K>(template: Template<T, K>): jtv.Decoder<CreateEvent<T, K>> => jtv.object({
-  templateId: jtv.string(),
+const decodeCreateEvent = <T extends object, K, I extends string>(template: Template<T, K, I>): jtv.Decoder<CreateEvent<T, K, I>> => jtv.object({
+  templateId: jtv.constant(template.templateId),
   contractId: ContractId(template).decoder(),
   signatories: List(Party).decoder(),
   observers: List(Party).decoder(),
@@ -126,7 +126,7 @@ class Ledger {
    * https://github.com/digital-asset/daml/blob/master/docs/source/json-api/search-query-language.rst
    * for a description of the query language.
    */
-  async query<T extends object, K>(template: Template<T, K>, query: Query<T>): Promise<CreateEvent<T, K>[]> {
+  async query<T extends object, K, I extends string>(template: Template<T, K, I>, query: Query<T>): Promise<CreateEvent<T, K, I>[]> {
     const payload = {templateIds: [template.templateId], query};
     const json = await this.submit('contracts/search', payload);
     return jtv.Result.withException(jtv.array(decodeCreateEvent(template)).run(json));
@@ -135,14 +135,14 @@ class Ledger {
   /**
    * Retrieve all contracts for a given template.
    */
-  async fetchAll<T extends object, K>(template: Template<T, K>): Promise<CreateEvent<T, K>[]> {
+  async fetchAll<T extends object, K, I extends string>(template: Template<T, K, I>): Promise<CreateEvent<T, K, I>[]> {
     return this.query(template, {} as Query<T>);
   }
 
   /**
    * Fetch a contract by its key.
    */
-  async lookupByKey<T extends object, K>(template: Template<T, K>, key: K): Promise<CreateEvent<T, K> | null> {
+  async lookupByKey<T extends object, K, I extends string>(template: Template<T, K, I>, key: K): Promise<CreateEvent<T, K, I> | null> {
     if (key === undefined) {
       throw Error(`Cannot lookup by key on template ${template.templateId} because it does not define a key.`);
     }
@@ -157,7 +157,7 @@ class Ledger {
   /**
    * Create a contract for a given template.
    */
-  async create<T extends object, K>(template: Template<T, K>, payload: T): Promise<CreateEvent<T, K>> {
+  async create<T extends object, K, I extends string>(template: Template<T, K, I>, payload: T): Promise<CreateEvent<T, K, I>> {
     const command = {
       templateId: template.templateId,
       payload,

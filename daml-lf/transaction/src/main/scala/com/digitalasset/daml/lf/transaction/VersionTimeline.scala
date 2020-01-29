@@ -75,7 +75,8 @@ private[digitalasset] object VersionTimeline {
     )
 
   def foldRelease[Z: Semigroup](
-      av: Release)(v: ValueVersion => Z, t: TransactionVersion => Z, l: LanguageVersion => Z): Z =
+      av: Release,
+  )(v: ValueVersion => Z, t: TransactionVersion => Z, l: LanguageVersion => Z): Z =
     av.bifoldMap(_.bifoldMap(v)(t))(l)
 
   final case class SubVersion[A](inject: A => SpecifiedVersion, extract: Release => Option[A])
@@ -100,7 +101,8 @@ private[digitalasset] object VersionTimeline {
       def foldVersion[Z](
           v: ValueVersion => Z,
           t: TransactionVersion => Z,
-          l: LanguageVersion => Z): Z =
+          l: LanguageVersion => Z,
+      ): Z =
         sv fold (_ fold (v, t), l)
 
       def showsVersion: String = foldVersion(_.toString, _.toString, _.toString)
@@ -123,7 +125,8 @@ private[digitalasset] object VersionTimeline {
         foldRelease(avb)(
           vv => Map((SpecifiedVersion(vv), ix)),
           tv => Map((SpecifiedVersion(tv), ix)),
-          lv => Map((SpecifiedVersion(lv), ix)))
+          lv => Map((SpecifiedVersion(lv), ix)),
+        )
     }
   }
 
@@ -168,7 +171,8 @@ private[digitalasset] object VersionTimeline {
       .toOption
     latestIndex
       .flatMap(li =>
-        inAscendingOrder.list.take(li + 1).reverse collectFirst (Function unlift A.extract))
+        inAscendingOrder.list.take(li + 1).reverse collectFirst (Function unlift A.extract),
+      )
       .getOrElse(minimum)
   }
 

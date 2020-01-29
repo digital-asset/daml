@@ -7,9 +7,9 @@ import com.codahale.metrics
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committer.{
+  ConfigCommitter,
   PackageCommitter,
   PartyAllocationCommitter,
-  ConfigCommitter
 }
 import com.daml.ledger.participant.state.kvutils.committing._
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId}
@@ -27,16 +27,20 @@ object KeyValueCommitting {
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   def packDamlStateKey(key: DamlStateKey): ByteString = key.toByteString
-  def unpackDamlStateKey(bytes: ByteString): DamlStateKey = DamlStateKey.parseFrom(bytes)
+  def unpackDamlStateKey(bytes: ByteString): DamlStateKey =
+    DamlStateKey.parseFrom(bytes)
 
   def packDamlStateValue(value: DamlStateValue): ByteString = value.toByteString
-  def unpackDamlStateValue(bytes: ByteString): DamlStateValue = DamlStateValue.parseFrom(bytes)
+  def unpackDamlStateValue(bytes: ByteString): DamlStateValue =
+    DamlStateValue.parseFrom(bytes)
 
   def packDamlLogEntry(entry: DamlLogEntry): ByteString = entry.toByteString
-  def unpackDamlLogEntry(bytes: ByteString): DamlLogEntry = DamlLogEntry.parseFrom(bytes)
+  def unpackDamlLogEntry(bytes: ByteString): DamlLogEntry =
+    DamlLogEntry.parseFrom(bytes)
 
   def packDamlLogEntryId(entry: DamlLogEntryId): ByteString = entry.toByteString
-  def unpackDamlLogEntryId(bytes: ByteString): DamlLogEntryId = DamlLogEntryId.parseFrom(bytes)
+  def unpackDamlLogEntryId(bytes: ByteString): DamlLogEntryId =
+    DamlLogEntryId.parseFrom(bytes)
 
   // A stop-gap measure, to be used while maximum record time is not yet available on every request
   private def estimateMaximumRecordTime(recordTime: Timestamp): Timestamp =
@@ -54,6 +58,7 @@ object KeyValueCommitting {
     * existing entries in the key-value store. The concrete key for DAML state entry is obtained by applying
     * [[packDamlStateKey]] to [[DamlStateKey]].
     *
+    * @param engine: Engine instance to use for interpreting submission.
     * @param entryId: Log entry id to which this submission is committed.
     * @param recordTime: Record time at which this log entry is committed.
     * @param defaultConfig: The default configuration that is to be used if no configuration has been committed to state.
@@ -85,67 +90,24 @@ object KeyValueCommitting {
     Metrics.lastParticipantIdGauge.updateValue(participantId)
     val ctx = Metrics.runTimer.time()
     try {
-      val (logEntry, outputState) = submission.getPayloadCase match {
-        case DamlSubmission.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
-          val (logEntry, outputs) = PackageCommitter(engine).run(
-            entryId,
-            //TODO replace this call with an explicit maxRecordTime from the request once available
-            estimateMaximumRecordTime(recordTime),
-            recordTime,
-            submission.getPackageUploadEntry,
-            participantId,
-            inputState
-          )
-          logEntry -> outputs.toMap
-
-        case DamlSubmission.PayloadCase.PARTY_ALLOCATION_ENTRY =>
-          val (logEntry, outputs) = PartyAllocationCommitter.run(
-            entryId,
-            //TODO replace this call with an explicit maxRecordTime from the request once available
-            estimateMaximumRecordTime(recordTime),
-            recordTime,
-            submission.getPartyAllocationEntry,
-            participantId,
-            inputState
-          )
-          logEntry -> outputs.toMap
-
-        case DamlSubmission.PayloadCase.CONFIGURATION_SUBMISSION =>
-          val (logEntry, outputs) =
-            ConfigCommitter(defaultConfig).run(
-              entryId,
-              parseTimestamp(submission.getConfigurationSubmission.getMaximumRecordTime),
-              recordTime,
-              submission.getConfigurationSubmission,
-              participantId,
-              inputState
-            )
-          logEntry -> outputs.toMap
-
-        case DamlSubmission.PayloadCase.TRANSACTION_ENTRY =>
-          ProcessTransactionSubmission(
-            engine,
-            entryId,
-            recordTime,
-            defaultConfig,
-            participantId,
-            submission.getTransactionEntry,
-            inputState
-          ).run
-
-        case DamlSubmission.PayloadCase.PAYLOAD_NOT_SET =>
-          throw Err.InvalidSubmission("DamlSubmission payload not set")
-      }
-
-      // Dump ledger entry to disk if ledger dumping is enabled.
+      val (logEntry, outputState) = processPayload(
+        engine,
+        entryId,
+        recordTime,
+        defaultConfig,
+        submission,
+        participantId,
+        inputState,
+      )
       Debug.dumpLedgerEntry(submission, participantId, entryId, logEntry, outputState)
-
+      verifyStateUpdatesAgainstPreDeclaredOutputs(outputState, entryId, submission)
       (logEntry, outputState)
     } catch {
       case scala.util.control.NonFatal(e) =>
         logger.warn(s"Exception while processing submission, error='$e'")
         Metrics.lastExceptionGauge.updateValue(
-          Pretty.prettyEntryId(entryId) + s"[${submission.getPayloadCase}]: " + e.toString
+          Pretty
+            .prettyEntryId(entryId) + s"[${submission.getPayloadCase}]: " + e.toString,
         )
         throw e
     } finally {
@@ -154,99 +116,185 @@ object KeyValueCommitting {
     }
   }
 
+  private def processPayload(
+      engine: Engine,
+      entryId: DamlLogEntryId,
+      recordTime: Timestamp,
+      defaultConfig: Configuration,
+      submission: DamlSubmission,
+      participantId: ParticipantId,
+      inputState: Map[DamlStateKey, Option[DamlStateValue]],
+  ): (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) =
+    submission.getPayloadCase match {
+      case DamlSubmission.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
+        PackageCommitter(engine).run(
+          entryId,
+          //TODO replace this call with an explicit maxRecordTime from the request once available
+          estimateMaximumRecordTime(recordTime),
+          recordTime,
+          submission.getPackageUploadEntry,
+          participantId,
+          inputState,
+        )
+
+      case DamlSubmission.PayloadCase.PARTY_ALLOCATION_ENTRY =>
+        PartyAllocationCommitter.run(
+          entryId,
+          //TODO replace this call with an explicit maxRecordTime from the request once available
+          estimateMaximumRecordTime(recordTime),
+          recordTime,
+          submission.getPartyAllocationEntry,
+          participantId,
+          inputState,
+        )
+
+      case DamlSubmission.PayloadCase.CONFIGURATION_SUBMISSION =>
+        ConfigCommitter(defaultConfig).run(
+          entryId,
+          parseTimestamp(submission.getConfigurationSubmission.getMaximumRecordTime),
+          recordTime,
+          submission.getConfigurationSubmission,
+          participantId,
+          inputState,
+        )
+
+      case DamlSubmission.PayloadCase.TRANSACTION_ENTRY =>
+        ProcessTransactionSubmission(
+          engine,
+          entryId,
+          recordTime,
+          defaultConfig,
+          participantId,
+          submission.getTransactionEntry,
+          inputState,
+        ).run
+
+      case DamlSubmission.PayloadCase.PAYLOAD_NOT_SET =>
+        throw Err.InvalidSubmission("DamlSubmission payload not set")
+    }
+
   /** Compute the submission outputs, that is the DAML State Keys created or updated by
     * the processing of the submission.
     */
   def submissionOutputs(entryId: DamlLogEntryId, submission: DamlSubmission): Set[DamlStateKey] = {
     submission.getPayloadCase match {
       case DamlSubmission.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
-        val pkgEntry = submission.getPackageUploadEntry
+        val packageEntry = submission.getPackageUploadEntry
         submission.getPackageUploadEntry.getArchivesList.asScala.toSet.map {
-          (archive: DamlLf.Archive) =>
+          archive: DamlLf.Archive =>
             DamlStateKey.newBuilder.setPackageId(archive.getHash).build
-        } + packageUploadDedupKey(pkgEntry.getParticipantId, pkgEntry.getSubmissionId)
+        } + packageUploadDedupKey(packageEntry.getParticipantId, packageEntry.getSubmissionId)
 
       case DamlSubmission.PayloadCase.PARTY_ALLOCATION_ENTRY =>
         val partyEntry = submission.getPartyAllocationEntry
         Set(
-          DamlStateKey.newBuilder.setParty(submission.getPartyAllocationEntry.getParty).build,
-          partyAllocationDedupKey(partyEntry.getParticipantId, partyEntry.getSubmissionId)
+          DamlStateKey.newBuilder
+            .setParty(submission.getPartyAllocationEntry.getParty)
+            .build,
+          partyAllocationDedupKey(partyEntry.getParticipantId, partyEntry.getSubmissionId),
         )
 
       case DamlSubmission.PayloadCase.TRANSACTION_ENTRY =>
-        val txEntry = submission.getTransactionEntry
-        val txOutputs =
-          txEntry.getTransaction.getNodesList.asScala.flatMap {
-            (node: TransactionOuterClass.Node) =>
-              node.getNodeTypeCase match {
-                case TransactionOuterClass.Node.NodeTypeCase.CREATE =>
-                  val create = node.getCreate
-                  val ckeyOrEmpty =
-                    if (create.hasKeyWithMaintainers)
-                      List(
-                        DamlStateKey.newBuilder
-                          .setContractKey(
-                            DamlContractKey.newBuilder
-                              .setTemplateId(create.getContractInstance.getTemplateId)
-                              .setKey(create.getKeyWithMaintainers.getKey))
-                          .build)
-                    else
-                      List.empty
-
-                  Conversions
-                    .contractIdStructOrStringToStateKey(
-                      entryId,
-                      create.getContractId,
-                      create.getContractIdStruct) :: ckeyOrEmpty
-
-                case TransactionOuterClass.Node.NodeTypeCase.EXERCISE =>
-                  val exe = node.getExercise
-                  val ckeyOrEmpty =
-                    if (exe.getConsuming && exe.hasKeyWithMaintainers)
-                      List(
-                        DamlStateKey.newBuilder
-                          .setContractKey(
-                            DamlContractKey.newBuilder
-                              .setTemplateId(exe.getTemplateId)
-                              .setKey(exe.getKeyWithMaintainers.getKey))
-                          .build)
-                    else
-                      List.empty
-
-                  Conversions
-                    .contractIdStructOrStringToStateKey(
-                      entryId,
-                      exe.getContractId,
-                      exe.getContractIdStruct) :: ckeyOrEmpty
-
-                case TransactionOuterClass.Node.NodeTypeCase.FETCH =>
-                  // A fetch may cause a divulgence, which is why it is a potential output.
-                  List(
-                    Conversions
-                      .contractIdStructOrStringToStateKey(
-                        entryId,
-                        node.getFetch.getContractId,
-                        node.getFetch.getContractIdStruct))
-                case TransactionOuterClass.Node.NodeTypeCase.LOOKUP_BY_KEY =>
-                  // Contract state only modified on divulgence, in which case we'll have a fetch node,
-                  // so no outputs from lookup node.
-                  List.empty
-                case TransactionOuterClass.Node.NodeTypeCase.NODETYPE_NOT_SET =>
-                  throw Err.InvalidSubmission(s"submissionOutputs: NODETYPE_NOT_SET")
-              }
-          }
-        txOutputs.toSet + commandDedupKey(txEntry.getSubmitterInfo)
+        val transactionEntry = submission.getTransactionEntry
+        transactionOutputs(transactionEntry, entryId) + commandDedupKey(
+          transactionEntry.getSubmitterInfo,
+        )
 
       case DamlSubmission.PayloadCase.CONFIGURATION_SUBMISSION =>
         val configEntry = submission.getConfigurationSubmission
         Set(
           configurationStateKey,
-          configDedupKey(configEntry.getParticipantId, configEntry.getSubmissionId)
+          configDedupKey(configEntry.getParticipantId, configEntry.getSubmissionId),
         )
 
       case DamlSubmission.PayloadCase.PAYLOAD_NOT_SET =>
         throw Err.InvalidSubmission("DamlSubmission payload not set")
+    }
+  }
 
+  private def transactionOutputs(
+      transactionEntry: DamlTransactionEntry,
+      entryId: DamlLogEntryId,
+  ): Set[DamlStateKey] =
+    transactionEntry.getTransaction.getNodesList.asScala.flatMap {
+      node: TransactionOuterClass.Node =>
+        node.getNodeTypeCase match {
+          case TransactionOuterClass.Node.NodeTypeCase.CREATE =>
+            val create = node.getCreate
+            val ckeyOrEmpty =
+              if (create.hasKeyWithMaintainers)
+                List(
+                  DamlStateKey.newBuilder
+                    .setContractKey(
+                      DamlContractKey.newBuilder
+                        .setTemplateId(create.getContractInstance.getTemplateId)
+                        .setKey(create.getKeyWithMaintainers.getKey),
+                    )
+                    .build,
+                )
+              else
+                List.empty
+
+            Conversions
+              .contractIdStructOrStringToStateKey(
+                entryId,
+                create.getContractId,
+                create.getContractIdStruct,
+              ) :: ckeyOrEmpty
+
+          case TransactionOuterClass.Node.NodeTypeCase.EXERCISE =>
+            val exe = node.getExercise
+            val ckeyOrEmpty =
+              if (exe.getConsuming && exe.hasKeyWithMaintainers)
+                List(
+                  DamlStateKey.newBuilder
+                    .setContractKey(
+                      DamlContractKey.newBuilder
+                        .setTemplateId(exe.getTemplateId)
+                        .setKey(exe.getKeyWithMaintainers.getKey),
+                    )
+                    .build,
+                )
+              else
+                List.empty
+
+            Conversions
+              .contractIdStructOrStringToStateKey(
+                entryId,
+                exe.getContractId,
+                exe.getContractIdStruct,
+              ) :: ckeyOrEmpty
+
+          case TransactionOuterClass.Node.NodeTypeCase.FETCH =>
+            // A fetch may cause a divulgence, which is why it is a potential output.
+            List(
+              Conversions
+                .contractIdStructOrStringToStateKey(
+                  entryId,
+                  node.getFetch.getContractId,
+                  node.getFetch.getContractIdStruct,
+                ),
+            )
+          case TransactionOuterClass.Node.NodeTypeCase.LOOKUP_BY_KEY =>
+            // Contract state only modified on divulgence, in which case we'll have a fetch node,
+            // so no outputs from lookup node.
+            List.empty
+          case TransactionOuterClass.Node.NodeTypeCase.NODETYPE_NOT_SET =>
+            throw Err.InvalidSubmission("submissionOutputs: NODETYPE_NOT_SET")
+        }
+    }.toSet
+
+  private def verifyStateUpdatesAgainstPreDeclaredOutputs(
+      actualStateUpdates: Map[DamlStateKey, DamlStateValue],
+      entryId: DamlLogEntryId,
+      submission: DamlSubmission,
+  ): Unit = {
+    val expectedStateUpdates = submissionOutputs(entryId, submission)
+    if (!(actualStateUpdates.keySet subsetOf expectedStateUpdates)) {
+      val unaccountedKeys = actualStateUpdates.keySet diff expectedStateUpdates
+      sys.error(
+        s"State updates not a subset of expected updates! Keys [$unaccountedKeys] are unaccounted for!",
+      )
     }
   }
 

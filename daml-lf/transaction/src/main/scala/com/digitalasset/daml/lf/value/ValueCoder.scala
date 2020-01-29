@@ -52,7 +52,8 @@ object ValueCoder {
 
   final case class DecodeCid[+Cid](
       fromString: String => Either[DecodeError, Cid],
-      fromStruct: (String, Boolean) => Either[DecodeError, Cid]) {
+      fromStruct: (String, Boolean) => Either[DecodeError, Cid],
+  ) {
     def map[Cid2](f: Cid => Cid2): DecodeCid[Cid2] =
       DecodeCid(fromString andThen (_ map f), (s, b) => fromStruct(s, b) map f)
   }
@@ -78,7 +79,8 @@ object ValueCoder {
     */
   def encodeIdentifier(
       id: Identifier,
-      requireVersion: Option[ValueVersion]): (ValueVersion, proto.Identifier) =
+      requireVersion: Option[ValueVersion],
+  ): (ValueVersion, proto.Identifier) =
     // NB SC: if ValueVersion("1") is no longer a good default in *every* case,
     // you must fold over NodeFetches' identifiers in TransactionVersions.assignVersion
     // because transaction version 1 only permits value-version-1 identifiers in
@@ -118,13 +120,15 @@ object ValueCoder {
     def setContractIdOrStruct[Cid, Z](
         encodeCid: EncodeCid[Cid],
         version: SpecifiedVersion,
-        contractId: Cid)(stringly: (A, String) => Z, structly: (A, proto.ContractId) => Z): Z =
+        contractId: Cid,
+    )(stringly: (A, String) => Z, structly: (A, proto.ContractId) => Z): Z =
       if (useOldStringField(version)) stringly(self, encodeCid.asString(contractId))
       else {
         val (encCid, encRel) = encodeCid.asStruct(contractId)
         structly(
           self,
-          proto.ContractId.newBuilder().setContractId(encCid).setRelative(encRel).build())
+          proto.ContractId.newBuilder().setContractId(encCid).setRelative(encRel).build(),
+        )
       }
 
     import proto.ContractId.{getDefaultInstance => placeholderContractId}
@@ -135,47 +139,59 @@ object ValueCoder {
 
     private[this] def requireUnset(
         v: SpecifiedVersion,
-        c: proto.ContractId): Either[DecodeError, Unit] =
+        c: proto.ContractId,
+    ): Either[DecodeError, Unit] =
       if (c == null || c == placeholderContractId) Right(())
       else Left(DecodeError(v, isTooOldFor = "message ContractId"))
 
     private[this] def decodeContractIdStruct(
-        p: proto.ContractId): Either[DecodeError, (String, Boolean)] =
+        p: proto.ContractId,
+    ): Either[DecodeError, (String, Boolean)] =
       for {
         cid <- if (p.getContractId.isEmpty) Left(DecodeError("Missing required field contract_id"))
         else Right(p.getContractId)
       } yield (cid, p.getRelative)
 
-    def decodeContractIdOrStruct[Cid, Z](decodeCid: DecodeCid[Cid], version: SpecifiedVersion)(
-        stringly: A => String,
-        structly: A => proto.ContractId): Either[DecodeError, Cid] = {
+    def decodeContractIdOrStruct[Cid, Z](
+        decodeCid: DecodeCid[Cid],
+        version: SpecifiedVersion,
+    )(stringly: A => String, structly: A => proto.ContractId): Either[DecodeError, Cid] = {
       val stringForm = stringly(self)
       val structForm = structly(self)
       if (useOldStringField(version))
-        requireUnset(version, structForm) flatMap (_ =>
-          if (stringForm == "")
-            Left(DecodeError("Missing required field contract_id"))
-          else decodeCid.fromString(stringForm))
+        requireUnset(version, structForm) flatMap (
+            _ =>
+              if (stringForm == "")
+                Left(DecodeError("Missing required field contract_id"))
+              else decodeCid.fromString(stringForm),
+          )
       else
-        requireUnset(version, stringForm) flatMap (_ =>
-          decodeContractIdStruct(structForm) flatMap decodeCid.fromStruct.tupled)
+        requireUnset(version, stringForm) flatMap (
+            _ =>
+              decodeContractIdStruct(structForm) flatMap decodeCid.fromStruct.tupled,
+          )
     }
 
     def decodeOptionalContractIdOrStruct[Cid, Z](
         decodeCid: DecodeCid[Cid],
-        version: SpecifiedVersion)(
-        stringly: A => String,
-        structly: A => proto.ContractId): Either[DecodeError, Option[Cid]] = {
+        version: SpecifiedVersion,
+    )(stringly: A => String, structly: A => proto.ContractId): Either[DecodeError, Option[Cid]] = {
       val stringForm = stringly(self)
       val structForm = structly(self)
       if (useOldStringField(version))
-        requireUnset(version, structForm) flatMap (_ =>
-          if (stringForm == "") Right(None)
-          else decodeCid.fromString(stringForm) map (Some(_)))
+        requireUnset(version, structForm) flatMap (
+            _ =>
+              if (stringForm == "") Right(None)
+              else decodeCid.fromString(stringForm) map (Some(_)),
+          )
       else
-        requireUnset(version, stringForm) flatMap (_ =>
-          Option(structForm) filter (_ != placeholderContractId) traverseU (sf =>
-            decodeContractIdStruct(sf) flatMap decodeCid.fromStruct.tupled))
+        requireUnset(version, stringForm) flatMap (
+            _ =>
+              Option(structForm) filter (_ != placeholderContractId) traverseU (
+                  sf =>
+                    decodeContractIdStruct(sf) flatMap decodeCid.fromStruct.tupled,
+                ),
+          )
     }
   }
 
@@ -183,7 +199,8 @@ object ValueCoder {
     ValueVersions
       .isAcceptedVersion(vs)
       .fold[Either[DecodeError, ValueVersion]](Left(DecodeError(s"Unsupported value version $vs")))(
-        v => Right(v))
+        v => Right(v),
+      )
 
   /**
     * Reads a serialized protobuf versioned value,
@@ -200,7 +217,8 @@ object ValueCoder {
     */
   def decodeVersionedValue[Cid](
       decodeCid: DecodeCid[Cid],
-      protoValue0: proto.VersionedValue): Either[DecodeError, VersionedValue[Cid]] =
+      protoValue0: proto.VersionedValue,
+  ): Either[DecodeError, VersionedValue[Cid]] =
     for {
       version <- decodeVersion(protoValue0.getVersion)
       value <- decodeValue(decodeCid, version, protoValue0.getValue)
@@ -208,7 +226,8 @@ object ValueCoder {
 
   def decodeValue[Cid](
       decodeCid: DecodeCid[Cid],
-      protoValue0: proto.VersionedValue): Either[DecodeError, Value[Cid]] =
+      protoValue0: proto.VersionedValue,
+  ): Either[DecodeError, Value[Cid]] =
     decodeVersionedValue(decodeCid, protoValue0) map (_.value)
 
   /**
@@ -223,12 +242,13 @@ object ValueCoder {
     */
   def encodeVersionedValue[Cid](
       encodeCid: EncodeCid[Cid],
-      value: Value[Cid]): Either[EncodeError, proto.VersionedValue] =
+      value: Value[Cid],
+  ): Either[EncodeError, proto.VersionedValue] =
     ValueVersions
       .assignVersion(value)
       .fold(
         err => Left(EncodeError(err)),
-        version => encodeVersionedValueWithCustomVersion(encodeCid, VersionedValue(version, value))
+        version => encodeVersionedValueWithCustomVersion(encodeCid, VersionedValue(version, value)),
       )
 
   /**
@@ -242,7 +262,8 @@ object ValueCoder {
     */
   def encodeVersionedValueWithCustomVersion[Cid](
       encodeCid: EncodeCid[Cid],
-      versionedValue: VersionedValue[Cid]): Either[EncodeError, proto.VersionedValue] =
+      versionedValue: VersionedValue[Cid],
+  ): Either[EncodeError, proto.VersionedValue] =
     for {
       value <- encodeValue(encodeCid, versionedValue.version, versionedValue.value)
     } yield {
@@ -263,7 +284,8 @@ object ValueCoder {
   def decodeValue[Cid](
       decodeCid: DecodeCid[Cid],
       valueVersion: ValueVersion,
-      protoValue0: proto.Value): Either[DecodeError, Value[Cid]] = {
+      protoValue0: proto.Value,
+  ): Either[DecodeError, Value[Cid]] = {
     case class Err(msg: String) extends Throwable(null, null, true, false)
 
     def identifier(s: String): Name =
@@ -271,7 +293,7 @@ object ValueCoder {
         .fromString(s)
         .fold(
           err => throw Err(s"error decoding variant constructor: $err"),
-          identity
+          identity,
         )
 
     def assertSince(minVersion: ValueVersion, description: => String) =
@@ -281,7 +303,8 @@ object ValueCoder {
     def go(nesting: Int, protoValue: proto.Value): Value[Cid] = {
       if (nesting > MAXIMUM_NESTING) {
         throw Err(
-          s"Provided proto value to decode exceeds maximum nesting level of $MAXIMUM_NESTING")
+          s"Provided proto value to decode exceeds maximum nesting level of $MAXIMUM_NESTING",
+        )
       } else {
         val newNesting = nesting + 1
 
@@ -313,12 +336,15 @@ object ValueCoder {
           case proto.Value.SumCase.CONTRACT_ID | proto.Value.SumCase.CONTRACT_ID_STRUCT =>
             val cid = protoValue.decodeContractIdOrStruct(decodeCid, valueVersion)(
               _.getContractId,
-              _.getContractIdStruct)
+              _.getContractIdStruct,
+            )
             cid.fold(err => throw Err(err.errorMessage), ValueContractId(_))
           case proto.Value.SumCase.LIST =>
             ValueList(
               FrontStack(
-                ImmArray(protoValue.getList.getElementsList.asScala.map(go(newNesting, _)))))
+                ImmArray(protoValue.getList.getElementsList.asScala.map(go(newNesting, _))),
+              ),
+            )
 
           case proto.Value.SumCase.VARIANT =>
             val variant = protoValue.getVariant
@@ -330,7 +356,7 @@ object ValueCoder {
                     throw Err(err.errorMessage)
                   }, { id =>
                     Some(id)
-                  }
+                  },
                 )
             ValueVariant(id, identifier(variant.getConstructor), go(newNesting, variant.getValue))
 
@@ -345,7 +371,7 @@ object ValueCoder {
                     throw Err(err.errorMessage)
                   }, { id =>
                     Some(id)
-                  }
+                  },
                 )
             ValueEnum(id, identifier(enum.getValue))
 
@@ -359,14 +385,14 @@ object ValueCoder {
                     throw Err(err.errorMessage)
                   }, { id =>
                     Some(id)
-                  }
+                  },
                 )
             ValueRecord(
               id,
               ImmArray(protoValue.getRecord.getFieldsList.asScala.map(fld => {
                 val lbl = if (fld.getLabel.isEmpty) None else Option(identifier(fld.getLabel))
                 (lbl, go(newNesting, fld.getValue))
-              }))
+              })),
             )
 
           case proto.Value.SumCase.OPTIONAL =>
@@ -379,21 +405,25 @@ object ValueCoder {
 
           case proto.Value.SumCase.MAP =>
             assertSince(ValueVersions.minMap, "Value.SumCase.MAP")
-            val entries = ImmArray(protoValue.getMap.getEntriesList.asScala.map(entry =>
-              entry.getKey -> go(newNesting, entry.getValue)))
+            val entries = ImmArray(
+              protoValue.getMap.getEntriesList.asScala.map(entry =>
+                entry.getKey -> go(newNesting, entry.getValue),
+              ),
+            )
 
             val map = SortedLookupList
               .fromImmArray(entries)
               .fold(
                 err => throw Err(err),
-                identity
+                identity,
               )
             ValueTextMap(map)
 
           case proto.Value.SumCase.GEN_MAP =>
             assertSince(ValueVersions.minGenMap, "Value.SumCase.MAP")
             val genMap = protoValue.getGenMap.getEntriesList.asScala.map(entry =>
-              go(newNesting, entry.getKey) -> go(newNesting, entry.getValue))
+              go(newNesting, entry.getKey) -> go(newNesting, entry.getValue),
+            )
             ValueGenMap(ImmArray(genMap))
 
           case proto.Value.SumCase.SUM_NOT_SET =>
@@ -422,13 +452,15 @@ object ValueCoder {
   def encodeValue[Cid](
       encodeCid: EncodeCid[Cid],
       valueVersion: ValueVersion,
-      v0: Value[Cid]): Either[EncodeError, proto.Value] = {
+      v0: Value[Cid],
+  ): Either[EncodeError, proto.Value] = {
     case class Err(msg: String) extends Throwable(null, null, true, false)
 
     def go(nesting: Int, v: Value[Cid]): proto.Value = {
       if (nesting > MAXIMUM_NESTING) {
         throw Err(
-          s"Provided DAML-LF value to encode exceeds maximum nesting level of $MAXIMUM_NESTING")
+          s"Provided DAML-LF value to encode exceeds maximum nesting level of $MAXIMUM_NESTING",
+        )
       } else {
         val newNesting = nesting + 1
 
@@ -457,7 +489,8 @@ object ValueCoder {
             builder
               .setContractIdOrStruct(encodeCid, valueVersion, coid)(
                 _.setContractId(_),
-                _.setContractIdStruct(_))
+                _.setContractIdStruct(_),
+              )
               .build()
 
           case ValueList(elems) =>
@@ -470,15 +503,13 @@ object ValueCoder {
 
           case ValueRecord(id, fields) =>
             val protoFields = fields
-              .map(
-                f => {
-                  val b = proto.RecordField
-                    .newBuilder()
-                    .setValue(go(newNesting, f._2))
-                  f._1.map(b.setLabel)
-                  b.build()
-                }
-              )
+              .map(f => {
+                val b = proto.RecordField
+                  .newBuilder()
+                  .setValue(go(newNesting, f._2))
+                f._1.map(b.setLabel)
+                b.build()
+              })
               .toSeq
               .asJava
             val recordBuilder = proto.Record.newBuilder().addAllFields(protoFields)
@@ -515,7 +546,7 @@ object ValueCoder {
                   proto.Map.Entry
                     .newBuilder()
                     .setKey(key)
-                    .setValue(go(newNesting, value))
+                    .setValue(go(newNesting, value)),
                 )
                 ()
             }
@@ -529,7 +560,7 @@ object ValueCoder {
                   proto.GenMap.Entry
                     .newBuilder()
                     .setKey(go(newNesting, key))
-                    .setValue(go(newNesting, value))
+                    .setValue(go(newNesting, value)),
                 )
                 ()
             }
@@ -555,13 +586,15 @@ object ValueCoder {
 
   private[value] def valueToBytes[Cid](
       encodeCid: EncodeCid[Cid],
-      v: Value[Cid]): Either[EncodeError, Array[Byte]] = {
+      v: Value[Cid],
+  ): Either[EncodeError, Array[Byte]] = {
     encodeVersionedValue(encodeCid, v).map(_.toByteArray)
   }
 
   private[value] def valueFromBytes[Cid](
       decodeCid: DecodeCid[Cid],
-      bytes: Array[Byte]): Either[DecodeError, Value[Cid]] = {
+      bytes: Array[Byte],
+  ): Either[DecodeError, Value[Cid]] = {
     decodeValue(decodeCid, proto.VersionedValue.parseFrom(bytes))
   }
 
