@@ -17,10 +17,11 @@ final class Packages(session: LedgerSession) extends LedgerTestSuite(session) {
     case Participants(Participant(ledger)) =>
       for {
         knownPackages <- ledger.listPackages()
-      } yield assert(
-        knownPackages.size >= 3,
-        s"List of packages was expected to contain at least 3 packages, got ${knownPackages.size} instead.",
-      )
+      } yield
+        assert(
+          knownPackages.size >= 3,
+          s"List of packages was expected to contain at least 3 packages, got ${knownPackages.size} instead.",
+        )
   }
 
   test("PackagesGet", "Getting package content should return a valid result", allocate(NoParties)) {

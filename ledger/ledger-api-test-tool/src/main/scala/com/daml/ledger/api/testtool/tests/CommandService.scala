@@ -232,11 +232,12 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
         request <- ledger.submitAndWaitRequest(party, Dummy(party).create.command)
         badLedgerId = request.update(_.commands.ledgerId := invalidLedgerId)
         failure <- ledger.submitAndWaitForTransactionId(badLedgerId).failed
-      } yield assertGrpcError(
-        failure,
-        Status.Code.NOT_FOUND,
-        s"Ledger ID '$invalidLedgerId' not found.",
-      )
+      } yield
+        assertGrpcError(
+          failure,
+          Status.Code.NOT_FOUND,
+          s"Ledger ID '$invalidLedgerId' not found.",
+        )
   }
 
   test(
@@ -250,11 +251,12 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
         request <- ledger.submitAndWaitRequest(party, Dummy(party).create.command)
         badLedgerId = request.update(_.commands.ledgerId := invalidLedgerId)
         failure <- ledger.submitAndWaitForTransaction(badLedgerId).failed
-      } yield assertGrpcError(
-        failure,
-        Status.Code.NOT_FOUND,
-        s"Ledger ID '$invalidLedgerId' not found.",
-      )
+      } yield
+        assertGrpcError(
+          failure,
+          Status.Code.NOT_FOUND,
+          s"Ledger ID '$invalidLedgerId' not found.",
+        )
   }
 
   test(
@@ -268,11 +270,12 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
         request <- ledger.submitAndWaitRequest(party, Dummy(party).create.command)
         badLedgerId = request.update(_.commands.ledgerId := invalidLedgerId)
         failure <- ledger.submitAndWaitForTransactionTree(badLedgerId).failed
-      } yield assertGrpcError(
-        failure,
-        Status.Code.NOT_FOUND,
-        s"Ledger ID '$invalidLedgerId' not found.",
-      )
+      } yield
+        assertGrpcError(
+          failure,
+          Status.Code.NOT_FOUND,
+          s"Ledger ID '$invalidLedgerId' not found.",
+        )
   }
 
   test(

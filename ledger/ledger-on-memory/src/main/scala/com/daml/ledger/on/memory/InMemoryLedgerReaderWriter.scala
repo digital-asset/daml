@@ -127,12 +127,12 @@ object InMemoryLedgerReaderWriter {
       participantId: ParticipantId,
   )(implicit executionContext: ExecutionContext): ResourceOwner[InMemoryLedgerReaderWriter] =
     for {
-      dispatcher <- ResourceOwner.forCloseable(() =>
-        Dispatcher(
-          "in-memory-key-value-participant-state",
-          zeroIndex = StartIndex,
-          headAtInitialization = StartIndex,
-        ),
-      )
+      dispatcher <- ResourceOwner.forCloseable(
+        () =>
+          Dispatcher(
+            "in-memory-key-value-participant-state",
+            zeroIndex = StartIndex,
+            headAtInitialization = StartIndex,
+        ))
     } yield new InMemoryLedgerReaderWriter(ledgerId, participantId, dispatcher)
 }

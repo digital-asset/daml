@@ -53,7 +53,7 @@ object LedgerClientJwt {
             case LedgerOffset.Value.Boundary(_) | LedgerOffset.Value.Empty => None // at beginning
           }
         }
-      }
+    }
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def getActiveContracts(client: LedgerClient): GetActiveContracts =

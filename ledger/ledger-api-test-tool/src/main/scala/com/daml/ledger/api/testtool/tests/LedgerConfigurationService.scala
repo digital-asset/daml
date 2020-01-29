@@ -36,11 +36,12 @@ class LedgerConfigurationService(session: LedgerSession) extends LedgerTestSuite
 
   private def setTtl(request: SubmitRequest, ttl: java.time.Duration): SubmitRequest =
     request.update(
-      _.commands.modify(commands =>
-        commands
-          .copy(maximumRecordTime = commands.ledgerEffectiveTime.map(_.asJava.plus(ttl).asProtobuf),
-          ),
-      ),
+      _.commands.modify(
+        commands =>
+          commands
+            .copy(
+              maximumRecordTime = commands.ledgerEffectiveTime.map(_.asJava.plus(ttl).asProtobuf),
+          )),
     )
 
   test("ConfigJustMinTtl", "LET+minTTL should be an acceptable MRT", allocate(SingleParty)) {

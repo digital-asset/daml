@@ -176,13 +176,13 @@ object FileSystemLedgerReaderWriter {
       root: Path,
   )(implicit executionContext: ExecutionContext): ResourceOwner[FileSystemLedgerReaderWriter] =
     for {
-      dispatcher <- ResourceOwner.forCloseable(() =>
-        Dispatcher(
-          "posix-filesystem-participant-state",
-          zeroIndex = StartIndex,
-          headAtInitialization = StartIndex,
-        ),
-      )
+      dispatcher <- ResourceOwner.forCloseable(
+        () =>
+          Dispatcher(
+            "posix-filesystem-participant-state",
+            zeroIndex = StartIndex,
+            headAtInitialization = StartIndex,
+        ))
     } yield {
       val participant = new FileSystemLedgerReaderWriter(ledgerId, participantId, root, dispatcher)
       participant.createDirectories()

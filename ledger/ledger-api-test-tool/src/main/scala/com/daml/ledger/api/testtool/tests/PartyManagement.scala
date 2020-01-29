@@ -35,10 +35,11 @@ final class PartyManagement(session: LedgerSession) extends LedgerTestSuite(sess
           partyHintId = Some(pMAllocateWithHint + "_" + Random.alphanumeric.take(10).mkString),
           displayName = Some("Bob Ross"),
         )
-      } yield assert(
-        Tag.unwrap(party).nonEmpty,
-        "The allocated party identifier is an empty string",
-      )
+      } yield
+        assert(
+          Tag.unwrap(party).nonEmpty,
+          "The allocated party identifier is an empty string",
+        )
   }
 
   test(
@@ -49,10 +50,11 @@ final class PartyManagement(session: LedgerSession) extends LedgerTestSuite(sess
     case Participants(Participant(ledger)) =>
       for {
         party <- ledger.allocateParty(partyHintId = None, displayName = Some("Jebediah Kerman"))
-      } yield assert(
-        Tag.unwrap(party).nonEmpty,
-        "The allocated party identifier is an empty string",
-      )
+      } yield
+        assert(
+          Tag.unwrap(party).nonEmpty,
+          "The allocated party identifier is an empty string",
+        )
   }
 
   private val pMAllocateWithoutDisplayName = "PMAllocateWithoutDisplayName"
@@ -68,10 +70,11 @@ final class PartyManagement(session: LedgerSession) extends LedgerTestSuite(sess
             Some(pMAllocateWithoutDisplayName + "_" + Random.alphanumeric.take(10).mkString),
           displayName = None,
         )
-      } yield assert(
-        Tag.unwrap(party).nonEmpty,
-        "The allocated party identifier is an empty string",
-      )
+      } yield
+        assert(
+          Tag.unwrap(party).nonEmpty,
+          "The allocated party identifier is an empty string",
+        )
   }
 
   test(

@@ -189,13 +189,13 @@ object SqlLedgerReaderWriter {
       logCtx: LoggingContext,
   ): ResourceOwner[SqlLedgerReaderWriter] =
     for {
-      dispatcher <- ResourceOwner.forCloseable(() =>
-        Dispatcher(
-          "sql-participant-state",
-          zeroIndex = StartIndex,
-          headAtInitialization = StartIndex,
-        ),
-      )
+      dispatcher <- ResourceOwner.forCloseable(
+        () =>
+          Dispatcher(
+            "sql-participant-state",
+            zeroIndex = StartIndex,
+            headAtInitialization = StartIndex,
+        ))
       uninitializedDatabase <- Database.owner(jdbcUrl)
     } yield {
       val database = uninitializedDatabase.migrate()
