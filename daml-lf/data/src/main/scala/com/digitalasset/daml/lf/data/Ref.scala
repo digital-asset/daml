@@ -1,12 +1,43 @@
 // Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.data
+package com.digitalasset.daml.lf
+package data
 
-import com.digitalasset.daml.lf.data
 import scalaz.Equal
 
 object Ref {
+
+  val IdString: IdString = new IdStringImpl
+
+  type Name = IdString.Name
+  val Name: IdString.Name.type = IdString.Name
+  implicit def `Name equal instance`: Equal[Name] = Name.equalInstance
+
+  /** Party identifiers are non-empty US-ASCII strings built from letters, digits, space, colon, minus and,
+      underscore. We use them to represent [Party] literals. In this way, we avoid
+      empty identifiers, escaping problems, and other similar pitfalls.
+    */
+  type Party = IdString.Party
+  val Party: IdString.Party.type = IdString.Party
+
+  /** Reference to a package via a package identifier. The identifier is the ascii7
+    * lowercase hex-encoded hash of the package contents found in the DAML LF Archive. */
+  type PackageId = IdString.PackageId
+  val PackageId: IdString.PackageId.type = IdString.PackageId
+
+  type ContractIdString = IdString.ContractIdString
+  val ContractIdString: IdString.ContractIdString.type = IdString.ContractIdString
+
+  /** Identifier for a contractId */
+  type ContractIdStringV0 = IdString.ContractIdStringV0
+  val ContractIdStringV0: IdString.ContractIdStringV0.type = IdString.ContractIdStringV0
+
+  type ContractIdStringV1 = IdString.ContractIdStringV1
+  val ContractIdStringV1: IdString.ContractIdStringV1.type = IdString.ContractIdStringV1
+
+  type LedgerString = IdString.LedgerString
+  val LedgerString: IdString.LedgerString.type = IdString.LedgerString
 
   /* Location annotation */
   case class Location(
@@ -14,7 +45,8 @@ object Ref {
       module: ModuleName,
       definition: String,
       start: (Int, Int),
-      end: (Int, Int))
+      end: (Int, Int),
+  )
 
   // we do not use String.split because `":foo".split(":")`
   // results in `List("foo")` rather than `List("", "foo")`
@@ -35,15 +67,6 @@ object Ref {
     segments.result()
   }
 
-  // We are very restrictive with regards to identifiers, taking inspiration
-  // from the lexical structure of Java:
-  // <https://docs.oracle.com/javase/specs/jls/se10/html/jls-3.html#jls-3.8>.
-  //
-  // In a language like C# you'll need to use some other unicode char for `$`.
-  val Name = MatchingStringModule("""[A-Za-z\$_][A-Za-z0-9\$_]*""")
-  type Name = Name.T
-  implicit def `Name equal instance`: Equal[Name] = Name.equalInstance
-
   final class DottedName private (val segments: ImmArray[Name])
       extends Equals
       with Ordered[DottedName] {
@@ -61,7 +84,7 @@ object Ref {
 
     override def toString: String = dottedName
 
-    override def compare(that: data.Ref.DottedName): Int = {
+    override def compare(that: DottedName): Int = {
       import scala.math.Ordering.Implicits._
       import Name.ordering
 
@@ -144,23 +167,11 @@ object Ref {
   case class Identifier(packageId: PackageId, qualifiedName: QualifiedName)
 
   /* Choice name in a template. */
-  val ChoiceName: Name.type = Name
-  type ChoiceName = ChoiceName.T
+  type ChoiceName = Name
+  val ChoiceName = Name
 
   type ModuleName = DottedName
   val ModuleName = DottedName
-
-  /** Party identifiers are non-empty US-ASCII strings built from letters, digits, space, colon, minus and,
-      underscore. We use them to represent [Party] literals. In this way, we avoid
-      empty identifiers, escaping problems, and other similar pitfalls.
-    */
-  val Party = ConcatenableMatchingStringModule(":-_ ".contains(_))
-  type Party = Party.T
-
-  /** Reference to a package via a package identifier. The identifier is the ascii7
-    * lowercase hex-encoded hash of the package contents found in the DAML LF Archive. */
-  val PackageId = ConcatenableMatchingStringModule("-_ ".contains(_))
-  type PackageId = PackageId.T
 
   /** Reference to a value defined in the specified module. */
   type ValueRef = Identifier
@@ -177,18 +188,5 @@ object Ref {
   /** Reference to a type synonym. */
   type TypeSynName = Identifier
   val TypeSynName = Identifier
-
-  /**
-    * Used to reference to leger objects like contractIds, ledgerIds,
-    * transactionId, ... We use the same type for those ids, because we
-    * construct some by concatenating the others.
-    */
-  // We allow space because the navigator's applicationId used it.
-  val LedgerString = ConcatenableMatchingStringModule("._:-#/ ".contains(_), 255)
-  type LedgerString = LedgerString.T
-
-  /** Identifier for a contractId */
-  val ContractIdString: LedgerString.type = LedgerString
-  type ContractIdString = ContractIdString.T
 
 }

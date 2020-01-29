@@ -4,13 +4,7 @@
 package com.digitalasset.daml.lf
 package value
 
-import com.digitalasset.daml.lf.data.Ref.{
-  ContractIdString,
-  Identifier,
-  LedgerString,
-  Name,
-  `Name equal instance`,
-}
+import com.digitalasset.daml.lf.data.Ref.{ContractIdString, Identifier, LedgerString, Name}
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.language.LanguageVersion
 
@@ -174,6 +168,8 @@ object Value {
         latestWhenAllPresent(version, languageVersions map (a => a: SpecifiedVersion): _*))
     }
   }
+
+  import Name.equalInstance
 
   object VersionedValue {
     implicit def `VersionedValue Equal instance`[Cid: Equal]: Equal[VersionedValue[Cid]] =

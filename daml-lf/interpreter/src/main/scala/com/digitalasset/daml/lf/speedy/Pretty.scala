@@ -268,7 +268,7 @@ object Pretty {
             L.ScenarioNodeId,
             AbsoluteContractId,
             Transaction.Value[
-              AbsoluteContractId,
+              AbsoluteContractId
             ]] =>
         val children =
           if (ex.children.nonEmpty)
@@ -354,7 +354,7 @@ object Pretty {
       comma + space,
       c.activeContracts.toList
         .sortWith(ltNodeId)
-        .map((acoid: AbsoluteContractId) => prettyLedgerNodeId(L.ScenarioNodeId(acoid))),
+        .map(prettyContractId)
     )
   }
 

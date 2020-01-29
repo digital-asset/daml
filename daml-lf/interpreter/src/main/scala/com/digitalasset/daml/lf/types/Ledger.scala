@@ -3,7 +3,7 @@
 
 package com.digitalasset.daml.lf.types
 
-import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.{ImmArray, Time}
 import com.digitalasset.daml.lf.transaction.Node._
 import com.digitalasset.daml.lf.transaction.Transaction
@@ -19,13 +19,13 @@ import scala.collection.immutable
 /** An in-memory representation of a ledger for scenarios */
 object Ledger {
 
+  import Ref.{ContractIdString => _, _}
+
   type ScenarioNodeId = LedgerString
 
   object ScenarioNodeId {
-    def apply(acoid: AbsoluteContractId): ScenarioNodeId = acoid.coid
-
     def apply(commitPrefix: LedgerString, txnid: Transaction.NodeId): ScenarioNodeId =
-      apply(txNodeIdToAbsoluteContractId(commitPrefix, txnid.index))
+      txNodeIdToScenarioNodeId(commitPrefix, txnid.index)
   }
 
   /** This is the function that we use to turn relative contract ids (which are made of
@@ -33,18 +33,18 @@ object Ledger {
     * to be committed transaction into absolute contract ids in the ledger.
     */
   @inline
-  def txNodeIdToAbsoluteContractId(
+  def txNodeIdToScenarioNodeId(
       commitPrefix: LedgerString,
       txnidx: Int,
-  ): AbsoluteContractId =
-    AbsoluteContractId(ContractIdString.concat(commitPrefix, LedgerString.fromInt(txnidx)))
+  ): ScenarioNodeId =
+    LedgerString.concat(commitPrefix, LedgerString.fromInt(txnidx))
 
   @inline
-  def relativeToAbsoluteContractId(
+  def relativeToScenarioNodeId(
       commitPrefix: LedgerString,
       cid: RelativeContractId,
-  ): AbsoluteContractId =
-    txNodeIdToAbsoluteContractId(commitPrefix, cid.txnid.index)
+  ): ScenarioNodeId =
+    txNodeIdToScenarioNodeId(commitPrefix, cid.txnid.index)
 
   @inline
   def contractIdToAbsoluteContractId(
@@ -54,7 +54,7 @@ object Ledger {
     cid match {
       case acoid: AbsoluteContractId => acoid
       case rcoid: RelativeContractId =>
-        relativeToAbsoluteContractId(commitPrefix, rcoid)
+        AbsoluteContractId(relativeToScenarioNodeId(commitPrefix, rcoid))
     }
 
   @inline
@@ -707,7 +707,7 @@ object Ledger {
               optLocation = fetch.optLocation,
               stakeholders = stakeholders,
               authorizingParties = authParties,
-            ),
+            )
         ))
     }
 
@@ -1197,7 +1197,7 @@ object Ledger {
                             .asInstanceOf[NodeCreate[
                               AbsoluteContractId,
                               Transaction.Value[
-                                AbsoluteContractId,
+                                AbsoluteContractId
                               ]]]
                           nc.key match {
                             case None => newCache0_1
