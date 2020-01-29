@@ -61,18 +61,17 @@ object Database {
     ): ResourceOwner[UninitializedDatabase] =
       for {
         readerConnectionPool <- ResourceOwner.forCloseable(() =>
-          newHikariDataSource(jdbcUrl, readOnly = true),
-        )
+          newHikariDataSource(jdbcUrl, readOnly = true))
         writerConnectionPool <- ResourceOwner.forCloseable(() =>
-          newHikariDataSource(jdbcUrl, maxPoolSize = Some(MaximumWriterConnectionPoolSize)),
-        )
+          newHikariDataSource(jdbcUrl, maxPoolSize = Some(MaximumWriterConnectionPoolSize)))
         adminConnectionPool <- ResourceOwner.forCloseable(() => newHikariDataSource(jdbcUrl))
-      } yield new UninitializedDatabase(
-        system,
-        readerConnectionPool,
-        writerConnectionPool,
-        adminConnectionPool,
-      )
+      } yield
+        new UninitializedDatabase(
+          system,
+          readerConnectionPool,
+          writerConnectionPool,
+          adminConnectionPool,
+        )
   }
 
   object SingleConnectionDatabase {
@@ -82,15 +81,15 @@ object Database {
     ): ResourceOwner[UninitializedDatabase] =
       for {
         readerWriterConnectionPool <- ResourceOwner.forCloseable(() =>
-          newHikariDataSource(jdbcUrl, maxPoolSize = Some(MaximumWriterConnectionPoolSize)),
-        )
+          newHikariDataSource(jdbcUrl, maxPoolSize = Some(MaximumWriterConnectionPoolSize)))
         adminConnectionPool <- ResourceOwner.forCloseable(() => newHikariDataSource(jdbcUrl))
-      } yield new UninitializedDatabase(
-        system,
-        readerWriterConnectionPool,
-        readerWriterConnectionPool,
-        adminConnectionPool,
-      )
+      } yield
+        new UninitializedDatabase(
+          system,
+          readerWriterConnectionPool,
+          readerWriterConnectionPool,
+          adminConnectionPool,
+        )
   }
 
   private def newHikariDataSource(

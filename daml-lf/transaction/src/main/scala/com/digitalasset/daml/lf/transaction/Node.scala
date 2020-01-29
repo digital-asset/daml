@@ -268,11 +268,11 @@ object Node {
     */
   case class GlobalKey(templateId: Identifier, key: VersionedValue[Nothing])
 
-  sealed trait WithTxValue2[F[+_, +_]] {
+  sealed trait WithTxValue2[F[+ _, + _]] {
     type WithTxValue[+Cid] = F[Cid, Transaction.Value[Cid]]
   }
 
-  sealed trait WithTxValue3[F[+_, +_, +_]] {
+  sealed trait WithTxValue3[F[+ _, + _, + _]] {
     type WithTxValue[+Nid, +Cid] = F[Nid, Cid, Transaction.Value[Cid]]
   }
 }

@@ -226,11 +226,11 @@ object Pretty {
 
   def prettyLoc(optLoc: Option[Location]): Doc =
     optLoc
-      .map(l =>
-        text("[" + l.module.toString + ":")
-          + str(l.start._1 + 1 /* 0-indexed */ )
-          + text("]"),
-      )
+      .map(
+        l =>
+          text("[" + l.module.toString + ":")
+            + str(l.start._1 + 1 /* 0-indexed */ )
+            + text("]"))
       .getOrElse(text("[unknown source]"))
 
   def prettyScenarioStep(l: L.Ledger)(step: L.ScenarioStep): Doc =
@@ -264,9 +264,12 @@ object Pretty {
         }
       case ea: NodeFetch[AbsoluteContractId] =>
         "ensure active" &: prettyContractId(ea.coid)
-      case ex: NodeExercises[L.ScenarioNodeId, AbsoluteContractId, Transaction.Value[
+      case ex: NodeExercises[
+            L.ScenarioNodeId,
             AbsoluteContractId,
-          ]] =>
+            Transaction.Value[
+              AbsoluteContractId,
+            ]] =>
         val children =
           if (ex.children.nonEmpty)
             text("children:") / stack(ex.children.toList.map(prettyNodeInfo(l)))

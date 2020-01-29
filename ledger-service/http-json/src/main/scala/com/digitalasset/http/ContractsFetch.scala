@@ -80,7 +80,7 @@ private class ContractsFetch(
       _ cata (absEnd =>
         templateIds.traverse {
           fetchAndPersist(jwt, party, absEnd, _)
-        }, fc.pure(templateIds map (_ => LedgerBegin)))
+      }, fc.pure(templateIds map (_ => LedgerBegin)))
     }
 
   }
@@ -135,18 +135,19 @@ private class ContractsFetch(
       ac <- domain.ActiveContract fromLedgerApi ce leftMap (
           de =>
             new IllegalArgumentException(s"contract ${ce.contractId}: ${de.shows}"),
-        )
+      )
       lfKey <- ac.key.traverse(apiValueToLfValue).leftMap(_.cause)
       lfArg <- apiValueToLfValue(ac.payload) leftMap (_.cause)
-    } yield DBContract(
-      contractId = ac.contractId.unwrap,
-      templateId = ac.templateId,
-      key = lfKey.cata(lfValueToDbJsValue, JsNull),
-      payload = lfValueToDbJsValue(lfArg),
-      signatories = ac.signatories,
-      observers = ac.observers,
-      agreementText = ac.agreementText,
-    )
+    } yield
+      DBContract(
+        contractId = ac.contractId.unwrap,
+        templateId = ac.templateId,
+        key = lfKey.cata(lfValueToDbJsValue, JsNull),
+        payload = lfValueToDbJsValue(lfArg),
+        signatories = ac.signatories,
+        observers = ac.observers,
+        agreementText = ac.agreementText,
+      )
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
@@ -324,9 +325,14 @@ private[http] object ContractsFetch {
     */
   private[http] def acsFollowingAndBoundary(
       transactionsSince: lav1.ledger_offset.LedgerOffset => Source[Transaction, NotUsed],
-  ): Graph[FanOutShape2[lav1.active_contracts_service.GetActiveContractsResponse, InsertDeleteStep[
-    lav1.event.CreatedEvent,
-  ], BeginBookmark[String]], NotUsed] =
+  ): Graph[
+    FanOutShape2[
+      lav1.active_contracts_service.GetActiveContractsResponse,
+      InsertDeleteStep[
+        lav1.event.CreatedEvent,
+      ],
+      BeginBookmark[String]],
+    NotUsed] =
     GraphDSL.create() { implicit b =>
       import GraphDSL.Implicits._
       val acs = b add acsAndBoundary
@@ -344,11 +350,13 @@ private[http] object ContractsFetch {
     */
   private def transactionsFollowingBoundary(
       transactionsSince: lav1.ledger_offset.LedgerOffset => Source[Transaction, NotUsed],
-  ): Graph[FanOutShape2[
-    BeginBookmark[String],
-    InsertDeleteStep[lav1.event.CreatedEvent],
-    BeginBookmark[String],
-  ], NotUsed] =
+  ): Graph[
+    FanOutShape2[
+      BeginBookmark[String],
+      InsertDeleteStep[lav1.event.CreatedEvent],
+      BeginBookmark[String],
+    ],
+    NotUsed] =
     GraphDSL.create() { implicit b =>
       import GraphDSL.Implicits._
       type Off = BeginBookmark[String]
@@ -368,10 +376,14 @@ private[http] object ContractsFetch {
   /** Split a series of ACS responses into two channels: one with contracts, the
     * other with a single result, the last offset.
     */
-  private[this] def acsAndBoundary
-      : Graph[FanOutShape2[lav1.active_contracts_service.GetActiveContractsResponse, Seq[
+  private[this] def acsAndBoundary: Graph[
+    FanOutShape2[
+      lav1.active_contracts_service.GetActiveContractsResponse,
+      Seq[
         lav1.event.CreatedEvent,
-      ], BeginBookmark[String]], NotUsed] =
+      ],
+      BeginBookmark[String]],
+    NotUsed] =
     GraphDSL.create() { implicit b =>
       import GraphDSL.Implicits._
       import lav1.active_contracts_service.{GetActiveContractsResponse => GACR}
@@ -399,8 +411,7 @@ private[http] object ContractsFetch {
     cats.syntax.traverse._
     ids.toVector
       .traverse(k =>
-        Queries.surrogateTemplateId(k.packageId, k.moduleName, k.entityName) tupleLeft k,
-      )
+        Queries.surrogateTemplateId(k.packageId, k.moduleName, k.entityName) tupleLeft k)
       .map(_.toMap)
   }
 
@@ -443,7 +454,7 @@ private[http] object ContractsFetch {
                 )),
                 signatories = domain.Party.unsubst(dbc.signatories),
                 observers = domain.Party.unsubst(dbc.observers)),
-            ),
+          )
         ))
     }.void
   }

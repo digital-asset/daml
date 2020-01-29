@@ -76,15 +76,16 @@ private[participant] final class ParticipantSession(
       ledgerId <- ledgerIdF
       ttl <- ttlF
       end <- services.transaction.getLedgerEnd(new GetLedgerEndRequest(ledgerId)).map(_.getOffset)
-    } yield new ParticipantTestContext(
-      ledgerId,
-      endpointId,
-      applicationId,
-      identifierSuffix,
-      end,
-      services,
-      ttl,
-    )
+    } yield
+      new ParticipantTestContext(
+        ledgerId,
+        endpointId,
+        applicationId,
+        identifierSuffix,
+        end,
+        services,
+        ttl,
+      )
 
   private[testtool] def close(): Unit = {
     logger.info(s"Disconnecting from participant at ${config.host}:${config.port}...")

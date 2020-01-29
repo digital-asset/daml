@@ -247,12 +247,12 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
         // second submission is a duplicate, it fails silently
         Seq(_, update2) <- ps.stateUpdates(beginAfter = None).take(2).runWith(Sink.seq)
       } yield {
-        List(result1, result2, result3).map(result =>
-          assert(
-            result == SubmissionResult.Acknowledged,
-            "unexpected response to party allocation",
-          ),
-        )
+        List(result1, result2, result3).map(
+          result =>
+            assert(
+              result == SubmissionResult.Acknowledged,
+              "unexpected response to party allocation",
+          ))
         update2 match {
           case (updateOffset: Offset, update: PartyAddedToParticipant) =>
             assert(updateOffset == offset(2, 0))
@@ -516,12 +516,12 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
         // second submission is a duplicate, it fails silently
         Seq(_, update2) <- ps.stateUpdates(beginAfter = None).take(2).runWith(Sink.seq)
       } yield {
-        List(result1, result2, result3).map(result =>
-          assert(
-            result == SubmissionResult.Acknowledged,
-            "unexpected response to configuration change",
-          ),
-        )
+        List(result1, result2, result3).map(
+          result =>
+            assert(
+              result == SubmissionResult.Acknowledged,
+              "unexpected response to configuration change",
+          ))
         update2 match {
           case (updateOffset: Offset, update: ConfigurationChanged) =>
             assert(updateOffset == offset(2, 0))
@@ -547,8 +547,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
       for {
         actualAllocations <- Future.sequence(
           partyNames.map(name =>
-            ps.allocateParty(Some(name), Some(name), randomLedgerString()).toScala,
-          ),
+            ps.allocateParty(Some(name), Some(name), randomLedgerString()).toScala),
         )
         updates <- updatesF
       } yield {

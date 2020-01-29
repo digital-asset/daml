@@ -177,7 +177,7 @@ class TransactionCoderSpec
                           defaultCidEncode,
                           VersionedTransaction(txVer, tx),
                         ),
-                  ),
+                ),
               ) {
                 case (Left(EncodeError(minMsg)), maxEnc) =>
                   // fuzzy sort of "failed because of the version override" test

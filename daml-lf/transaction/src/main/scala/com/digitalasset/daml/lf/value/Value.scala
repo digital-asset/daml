@@ -171,8 +171,7 @@ object Value {
     def typedBy(languageVersions: LanguageVersion*): VersionedValue[Cid] = {
       import com.digitalasset.daml.lf.transaction.VersionTimeline, VersionTimeline._, Implicits._
       copy(version =
-        latestWhenAllPresent(version, languageVersions map (a => a: SpecifiedVersion): _*),
-      )
+        latestWhenAllPresent(version, languageVersions map (a => a: SpecifiedVersion): _*))
     }
   }
 

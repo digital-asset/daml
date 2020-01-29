@@ -103,11 +103,12 @@ final class CommandSubmissionCompletion(session: LedgerSession) extends LedgerTe
         request <- ledger.submitRequest(party, Dummy(party).create.command)
         badLedgerId = request.update(_.commands.ledgerId := invalidLedgerId)
         failure <- ledger.submit(badLedgerId).failed
-      } yield assertGrpcError(
-        failure,
-        Status.Code.NOT_FOUND,
-        s"Ledger ID '$invalidLedgerId' not found.",
-      )
+      } yield
+        assertGrpcError(
+          failure,
+          Status.Code.NOT_FOUND,
+          s"Ledger ID '$invalidLedgerId' not found.",
+        )
   }
 
   test(
