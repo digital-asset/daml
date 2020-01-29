@@ -11,7 +11,6 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.ledger.on.sql.SqlLedgerReaderWriter._
-import com.daml.ledger.on.sql.queries.Queries.Index
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntryId,
   DamlStateKey,
@@ -127,8 +126,6 @@ class SqlLedgerReaderWriter(
 }
 
 object SqlLedgerReaderWriter {
-  val StartIndex: Index = 1
-
   private val StartOffset: Offset = Offset(Array(StartIndex))
 
   def owner(

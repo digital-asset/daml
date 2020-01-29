@@ -22,7 +22,7 @@ abstract class SqlLedgerReaderWriterIntegrationSpecBase(implementationName: Stri
 
   protected def newJdbcUrl(): String
 
-  override final val startIndex: Long = SqlLedgerReaderWriter.StartIndex
+  override final val startIndex: Long = StartIndex
 
   override final def participantStateFactory(
       participantId: ParticipantId,
