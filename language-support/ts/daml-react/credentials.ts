@@ -16,7 +16,7 @@ export type Credentials = {
 export const preCheckCredentials = ({party, token, ledgerId}: Credentials): string | null => {
   const decoded = decode(token, '', true);
   if (!decoded.ledgerId || decoded.ledgerId !== ledgerId) {
-    return 'The password is not valid for DAVL.';
+    return 'The password is not valid for the given ledger id.';
   }
   if (!decoded.party || decoded.party !== party) {
     return 'The password is not valid for this user.';
