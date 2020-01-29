@@ -10,8 +10,9 @@ package object transaction {
   /** This traversal fails the identity law so is unsuitable for [[scalaz.Traverse]].
     * It is, nevertheless, what is meant sometimes.
     */
-  private[transaction] def sequence[A, B, This, That](seq: TraversableLike[Either[A, B], This])(
-      implicit cbf: CanBuildFrom[This, B, That]): Either[A, That] =
+  private[transaction] def sequence[A, B, This, That](
+      seq: TraversableLike[Either[A, B], This],
+  )(implicit cbf: CanBuildFrom[This, B, That]): Either[A, That] =
     seq collectFirst {
       case Left(e) => Left(e)
     } getOrElse {

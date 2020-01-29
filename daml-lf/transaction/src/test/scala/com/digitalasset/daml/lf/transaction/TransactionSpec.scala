@@ -10,7 +10,7 @@ import com.digitalasset.daml.lf.transaction.GenTransaction.{
   AliasedNode,
   DanglingNodeId,
   NotWellFormedError,
-  OrphanedNode
+  OrphanedNode,
 }
 import com.digitalasset.daml.lf.transaction.Node.{GenNode, NodeCreate, NodeExercises}
 import com.digitalasset.daml.lf.value.{Value => V}
@@ -47,8 +47,10 @@ class TransactionSpec extends FreeSpec with Matchers with GeneratorDrivenPropert
         HashMap(
           "0" -> dummyExerciseNode(ImmArray("1")),
           "1" -> dummyExerciseNode(ImmArray("2")),
-          "2" -> dummyCreateNode),
-        ImmArray("0", "2"))
+          "2" -> dummyCreateNode,
+        ),
+        ImmArray("0", "2"),
+      )
       tx.isWellFormed shouldBe Set(NotWellFormedError("2", AliasedNode))
     }
 
@@ -81,7 +83,7 @@ class TransactionSpec extends FreeSpec with Matchers with GeneratorDrivenPropert
     import Node.isReplayedBy
     type CidVal[F[_, _]] = F[V.ContractId, V.VersionedValue[V.ContractId]]
     val genEmptyNode
-      : Gen[Node.GenNode.WithTxValue[Nothing, V.ContractId]] = danglingRefGenNode map {
+        : Gen[Node.GenNode.WithTxValue[Nothing, V.ContractId]] = danglingRefGenNode map {
       case (_, n: CidVal[Node.LeafOnlyNode]) => n
       case (_, ne: Node.NodeExercises.WithTxValue[_, V.ContractId]) =>
         ne copy (children = ImmArray.empty)
@@ -116,16 +118,19 @@ object TransactionSpec {
   type StringTransaction = GenTransaction[String, String, Value[String]]
   def StringTransaction(
       nodes: HashMap[String, GenNode[String, String, Value[String]]],
-      roots: ImmArray[String]): StringTransaction = GenTransaction(nodes, roots, None)
+      roots: ImmArray[String],
+  ): StringTransaction = GenTransaction(nodes, roots, None)
 
   def dummyExerciseNode(
       children: ImmArray[String],
-      hasExerciseResult: Boolean = true): NodeExercises[String, String, Value[String]] =
+      hasExerciseResult: Boolean = true,
+  ): NodeExercises[String, String, Value[String]] =
     NodeExercises(
       "dummyCoid",
       Ref.Identifier(
         PackageId.assertFromString("-dummyPkg-"),
-        QualifiedName.assertFromString("DummyModule:dummyName")),
+        QualifiedName.assertFromString("DummyModule:dummyName"),
+      ),
       "dummyChoice",
       None,
       true,
@@ -136,7 +141,7 @@ object TransactionSpec {
       Set.empty,
       children,
       if (hasExerciseResult) Some(V.ValueUnit) else None,
-      None
+      None,
     )
 
   val dummyCreateNode: NodeCreate[String, Value[String]] =
@@ -145,14 +150,15 @@ object TransactionSpec {
       ContractInst(
         Ref.Identifier(
           PackageId.assertFromString("-dummyPkg-"),
-          QualifiedName.assertFromString("DummyModule:dummyName")),
+          QualifiedName.assertFromString("DummyModule:dummyName"),
+        ),
         V.ValueUnit,
-        ("dummyAgreement")
+        ("dummyAgreement"),
       ),
       None,
       Set.empty,
       Set.empty,
-      None
+      None,
     )
 
   private implicit def toChoiceName(s: String): Ref.Name = Ref.Name.assertFromString(s)

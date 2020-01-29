@@ -17,7 +17,7 @@ import com.digitalasset.daml.lf.speedy.Speedy.{
   CtrlValue,
   CtrlWronglyTypeContractId,
   Machine,
-  SpeedyHungry
+  SpeedyHungry,
 }
 import com.digitalasset.daml.lf.speedy.SResult._
 import com.digitalasset.daml.lf.speedy.SValue._
@@ -107,7 +107,8 @@ object SBuiltin {
       } catch {
         case _: ArithmeticException =>
           throw DamlEArithmeticError(
-            s"Int64 overflow when raising $base to the exponent $exponent.")
+            s"Int64 overflow when raising $base to the exponent $exponent.",
+          )
       }
 
   sealed abstract class SBBinaryOpInt64(op: (Long, Long) => Long) extends SBuiltin(2) {
@@ -116,7 +117,7 @@ object SBuiltin {
         (args.get(0), args.get(1)) match {
           case (SInt64(a), SInt64(b)) => SInt64(op(a, b))
           case _ => crash(s"type mismatch add: $args")
-        }
+        },
       )
   }
 
@@ -132,29 +133,30 @@ object SBuiltin {
   private def add(x: Numeric, y: Numeric): Numeric =
     rightOrArithmeticError(
       s"(Numeric ${x.scale}) overflow when adding ${Numeric.toString(y)} to ${Numeric.toString(x)}.",
-      Numeric.add(x, y)
+      Numeric.add(x, y),
     )
 
   private def subtract(x: Numeric, y: Numeric): Numeric =
     rightOrArithmeticError(
       s"(Numeric ${x.scale}) overflow when subtracting ${Numeric.toString(y)} from ${Numeric.toString(x)}.",
-      Numeric.subtract(x, y)
+      Numeric.subtract(x, y),
     )
 
   private def multiply(scale: Scale, x: Numeric, y: Numeric): Numeric =
     rightOrArithmeticError(
       s"(Numeric $scale) overflow when multiplying ${Numeric.toString(x)} by ${Numeric.toString(y)}.",
-      Numeric.multiply(scale, x, y)
+      Numeric.multiply(scale, x, y),
     )
 
   private def divide(scale: Scale, x: Numeric, y: Numeric): Numeric =
     if (y.signum() == 0)
       throw DamlEArithmeticError(
-        s"Attempt to divide ${Numeric.toString(x)} by ${Numeric.toString(y)}.")
+        s"Attempt to divide ${Numeric.toString(x)} by ${Numeric.toString(y)}.",
+      )
     else
       rightOrArithmeticError(
         s"(Numeric $scale) overflow when dividing ${Numeric.toString(x)} by ${Numeric.toString(y)}.",
-        Numeric.divide(scale, x, y)
+        Numeric.divide(scale, x, y),
       )
 
   sealed abstract class SBBinaryOpNumeric(op: (Numeric, Numeric) => Numeric) extends SBuiltin(3) {
@@ -192,7 +194,8 @@ object SBuiltin {
       val x = args.get(2).asInstanceOf[SNumeric].value
       machine.ctrl = CtrlValue(
         SNumeric(
-          rightOrArithmeticError(s"Error while rounding (Numeric $scale)", Numeric.round(prec, x)))
+          rightOrArithmeticError(s"Error while rounding (Numeric $scale)", Numeric.round(prec, x)),
+        ),
       )
     }
   }
@@ -206,7 +209,10 @@ object SBuiltin {
         SNumeric(
           rightOrArithmeticError(
             s"Error while casting (Numeric $inputScale) to (Numeric $outputScale)",
-            Numeric.fromBigDecimal(outputScale, x))))
+            Numeric.fromBigDecimal(outputScale, x),
+          ),
+        ),
+      )
     }
   }
 
@@ -219,8 +225,10 @@ object SBuiltin {
         SNumeric(
           rightOrArithmeticError(
             s"Error while shifting (Numeric $inputScale) to (Numeric $outputScale)",
-            Numeric.fromBigDecimal(outputScale, x.scaleByPowerOfTen(inputScale - outputScale))
-          )))
+            Numeric.fromBigDecimal(outputScale, x.scaleByPowerOfTen(inputScale - outputScale)),
+          ),
+        ),
+      )
     }
   }
 
@@ -235,7 +243,7 @@ object SBuiltin {
             SList(FrontStack(Utf8.explode(t).map(SText)))
           case _ =>
             throw SErrorCrash(s"type mismatch explodeText: $args")
-        }
+        },
       )
     }
   }
@@ -253,7 +261,7 @@ object SBuiltin {
             SText(Utf8.implode(ts.toImmArray))
           case _ =>
             throw SErrorCrash(s"type mismatch implodeText: $args")
-        }
+        },
       )
     }
   }
@@ -266,7 +274,7 @@ object SBuiltin {
             SText(head + tail)
           case _ =>
             throw SErrorCrash(s"type mismatch appendText: $args")
-        }
+        },
       )
     }
   }
@@ -334,7 +342,8 @@ object SBuiltin {
           } catch {
             case _: NumberFormatException =>
               CtrlValue.None
-          } else
+          }
+        else
           CtrlValue.None
     }
   }
@@ -363,7 +372,8 @@ object SBuiltin {
             // "1." followed by millions of '0's
             val newString = s"$signPart$intPart.${Option(decPartOrNull).getOrElse("")}"
             CtrlValue(
-              SOptional(Some(SNumeric(Numeric.assertFromBigDecimal(scale, BigDecimal(newString))))))
+              SOptional(Some(SNumeric(Numeric.assertFromBigDecimal(scale, BigDecimal(newString))))),
+            )
           } else {
             CtrlValue.None
           }
@@ -557,7 +567,9 @@ object SBuiltin {
         SNumeric(
           rightOrArithmeticError(
             s"overflow when converting $x to (Numeric $scale)",
-            Numeric.fromLong(scale, x)))
+            Numeric.fromLong(scale, x),
+          ),
+        ),
       )
     }
   }
@@ -569,7 +581,10 @@ object SBuiltin {
         SInt64(
           rightOrArithmeticError(
             s"Int64 overflow when converting ${Numeric.toString(x)} to Int64",
-            Numeric.toLong(x))))
+            Numeric.toLong(x),
+          ),
+        ),
+      )
     }
   }
 
@@ -591,10 +606,12 @@ object SBuiltin {
             SDate(
               rightOrArithmeticError(
                 s"Could not convert Int64 $days to Date.",
-                Time.Date.asInt(days) flatMap Time.Date.fromDaysSinceEpoch))
+                Time.Date.asInt(days) flatMap Time.Date.fromDaysSinceEpoch,
+              ),
+            )
           case _ =>
             throw SErrorCrash(s"type mismatch unixDaysToDate: $args")
-        }
+        },
       )
     }
   }
@@ -606,7 +623,7 @@ object SBuiltin {
           case STimestamp(t) => SInt64(t.micros)
           case _ =>
             throw SErrorCrash(s"type mismatch timestampToUnixMicroseconds: $args")
-        }
+        },
       )
     }
   }
@@ -619,10 +636,12 @@ object SBuiltin {
             STimestamp(
               rightOrArithmeticError(
                 s"Could not convert Int64 $t to Timestamp.",
-                Time.Timestamp.fromLong(t)))
+                Time.Timestamp.fromLong(t),
+              ),
+            )
           case _ =>
             throw SErrorCrash(s"type mismatch unixMicrosecondsToTimestamp: $args")
-        }
+        },
       )
     }
   }
@@ -787,7 +806,8 @@ object SBuiltin {
               throw DamlETemplatePreconditionViolated(
                 templateId = templateId,
                 optLocation = None,
-                arg = createArg)
+                arg = createArg,
+              )
           }
         case v =>
           crash(s"PrecondCheck on non-boolean: $v")
@@ -853,8 +873,8 @@ object SBuiltin {
   final case class SBUBeginExercise(
       templateId: TypeConName,
       choiceId: ChoiceName,
-      consuming: Boolean)
-      extends SBuiltin(8) {
+      consuming: Boolean,
+  ) extends SBuiltin(8) {
 
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       checkToken(args.get(7))
@@ -891,7 +911,7 @@ object SBuiltin {
           chosenValue = asVersionedValue(arg) match {
             case Left(err) => crash(err)
             case Right(x) => x
-          }
+          },
         )
         .fold(err => throw DamlETransactionError(err), identity)
       checkAborted(machine.ptx)
@@ -967,8 +987,9 @@ object SBuiltin {
                 } else {
                   machine.ctrl = CtrlValue(SValue.fromValue(coinst.arg.value))
                 }
-              }
-            ))
+              },
+            ),
+          )
       }
       machine.ctrl = CtrlValue(SValue.fromValue(arg.value))
     }
@@ -1004,7 +1025,8 @@ object SBuiltin {
         machine.lastLocation,
         contextActors intersect stakeholders,
         signatories,
-        stakeholders)
+        stakeholders,
+      )
       machine.ctrl = CtrlValue.Unit
       checkAborted(machine.ptx)
     }
@@ -1042,8 +1064,9 @@ object SBuiltin {
               cbPresent = { contractId =>
                 machine.ptx = machine.ptx.copy(keys = machine.ptx.keys + (gkey -> Some(contractId)))
                 machine.ctrl = CtrlValue(SOptional(Some(SContractId(contractId))))
-              }
-            ))
+              },
+            ),
+          )
       }
     }
   }
@@ -1071,8 +1094,10 @@ object SBuiltin {
         machine.lastLocation,
         KeyWithMaintainers(
           key = keyWithMaintainers.key,
-          maintainers = keyWithMaintainers.maintainers),
-        mbCoid)
+          maintainers = keyWithMaintainers.maintainers,
+        ),
+        mbCoid,
+      )
       machine.ctrl = CtrlValue.Unit
       checkAborted(machine.ptx)
     }
@@ -1109,8 +1134,9 @@ object SBuiltin {
               cbPresent = { contractId =>
                 machine.ptx = machine.ptx.copy(keys = machine.ptx.keys + (gkey -> Some(contractId)))
                 machine.ctrl = CtrlValue(SContractId(contractId))
-              }
-            ))
+              },
+            ),
+          )
       }
     }
   }
@@ -1121,7 +1147,8 @@ object SBuiltin {
       checkToken(args.get(0))
       // $ugettime :: Token -> Timestamp
       throw SpeedyHungry(
-        SResultNeedTime(timestamp => machine.ctrl = CtrlValue(STimestamp(timestamp))))
+        SResultNeedTime(timestamp => machine.ctrl = CtrlValue(STimestamp(timestamp))),
+      )
     }
   }
 
@@ -1190,7 +1217,7 @@ object SBuiltin {
             checkAborted(ptx)
             crash("IMPOSSIBLE: PartialTransaction.finish failed, but transaction was not aborted")
           },
-          identity
+          identity,
         )
 
       throw SpeedyHungry(
@@ -1203,8 +1230,8 @@ object SBuiltin {
             machine.commitLocation = None
             machine.ptx = Tx.PartialTransaction.initial(None)
             machine.ctrl = CtrlValue(newValue)
-          }
-        )
+          },
+        ),
       )
     }
   }
@@ -1221,7 +1248,9 @@ object SBuiltin {
       throw SpeedyHungry(
         SResultScenarioPassTime(
           relTime,
-          timestamp => machine.ctrl = CtrlValue(STimestamp(timestamp))))
+          timestamp => machine.ctrl = CtrlValue(STimestamp(timestamp)),
+        ),
+      )
     }
   }
 
@@ -1232,7 +1261,8 @@ object SBuiltin {
       args.get(0) match {
         case SText(name) =>
           throw SpeedyHungry(
-            SResultScenarioGetParty(name, party => machine.ctrl = CtrlValue(SParty(party))))
+            SResultScenarioGetParty(name, party => machine.ctrl = CtrlValue(SParty(party))),
+          )
         case v =>
           crash(s"invalid argument to GetParty: $v")
       }
@@ -1440,7 +1470,8 @@ object SBuiltin {
                   case SText(t) => t
                   case x =>
                     throw SErrorCrash(
-                      s"type mismatch SBTextIntercalate, expected Text in list, got $x")
+                      s"type mismatch SBTextIntercalate, expected Text in list, got $x",
+                    )
                 }
               }
               machine.ctrl = CtrlValue(SText(xs.iterator.mkString(sep)))
@@ -1501,7 +1532,8 @@ object SBuiltin {
               keyVal.mapContractId(coid => crash(s"Unexpected contract id in key: $coid"))
             KeyWithMaintainers(
               key = keyWithoutContractIds,
-              maintainers = extractParties(vals.get(1)))
+              maintainers = extractParties(vals.get(1)),
+            )
         }
       case _ => crash(s"Invalid key with maintainers: $v")
     }
@@ -1509,7 +1541,8 @@ object SBuiltin {
   private def checkLookupMaintainers(
       templateId: Identifier,
       machine: Machine,
-      maintainers: Set[Party]): Unit = {
+      maintainers: Set[Party],
+  ): Unit = {
     // This check is dependent on whether we are submitting or validating the transaction.
     // See <https://github.com/digital-asset/daml/issues/1866#issuecomment-506315152>,
     // specifically "Consequently it suffices to implement this check
@@ -1522,7 +1555,8 @@ object SBuiltin {
     if (!machine.validating) {
       val submitter = if (machine.committers.size != 1) {
         crash(
-          s"expecting exactly one committer since we're not validating, but got ${machine.committers}")
+          s"expecting exactly one committer since we're not validating, but got ${machine.committers}",
+        )
       } else {
         machine.committers.toSeq.head
       }

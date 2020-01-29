@@ -15,7 +15,8 @@ final case class TransactionVersion(protoValue: String)
   */
 object TransactionVersions
     extends LfVersions(versionsAscending = VersionTimeline.ascendingVersions[TransactionVersion])(
-      _.protoValue) {
+      _.protoValue,
+    ) {
 
   private[this] val minVersion = TransactionVersion("1")
   private[transaction] val minKeyOrLookupByKey = TransactionVersion("3")

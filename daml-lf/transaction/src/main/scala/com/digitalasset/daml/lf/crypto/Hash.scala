@@ -211,7 +211,7 @@ object Hash {
       Either.cond(
         bytes.length == underlyingHashLength,
         new Hash(bytes),
-        error
+        error,
       )
     } catch {
       case NonFatal(_) => Left(error)
@@ -249,13 +249,13 @@ object Hash {
 
   def deriveNodeDiscriminator(
       parentDiscriminator: Hash,
-      childIdx: Int
+      childIdx: Int,
   ): Hash =
     hMacBuilder(parentDiscriminator).add(childIdx).build
 
   def deriveContractDiscriminator(
       nodeDiscriminator: Hash,
-      parties: Set[Ref.Party]
+      parties: Set[Ref.Party],
   ) =
     hMacBuilder(nodeDiscriminator)
       .iterateOver(parties.toSeq.sorted[String].iterator, parties.size)(_ add _)

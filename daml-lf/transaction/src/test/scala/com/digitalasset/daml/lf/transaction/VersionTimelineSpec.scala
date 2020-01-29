@@ -37,7 +37,7 @@ class VersionTimelineSpec extends WordSpec with Matchers with PropertyChecks wit
     val languageMajorSeries =
       Table(
         "major version",
-        LanguageMajorVersion.All: _*
+        LanguageMajorVersion.All: _*,
       )
 
     "match each language major series in order" in forEvery(languageMajorSeries) { major =>
@@ -57,11 +57,13 @@ class VersionTimelineSpec extends WordSpec with Matchers with PropertyChecks wit
       val versions = Table(
         "language version",
         LanguageMajorVersion.All.flatMap(major =>
-          major.acceptedVersions.map(LanguageVersion(major, _))): _*
+          major.acceptedVersions.map(LanguageVersion(major, _)),
+        ): _*,
       )
 
       forEvery(versions)(v1 =>
-        forEvery(versions)(v2 => LanguageVersion.ordering.lt(v1, v2) shouldBe (v1 precedes v2)))
+        forEvery(versions)(v2 => LanguageVersion.ordering.lt(v1, v2) shouldBe (v1 precedes v2)),
+      )
     }
 
     "end with a dev version" in {
@@ -104,7 +106,8 @@ class VersionTimelineSpec extends WordSpec with Matchers with PropertyChecks wit
     "given many versions" should {
       "give back one less-or-equal to some arg" in forAll(
         genLatestInput,
-        Gen.listOf(genSpecifiedVersion)) { (easva, svs) =>
+        Gen.listOf(genSpecifiedVersion),
+      ) { (easva, svs) =>
         val sv = easva.run._1
         implicit val ev: SubVersion[easva.T] = easva.run._2
         val result = latestWhenAllPresent(sv, svs: _*)
@@ -121,12 +124,14 @@ class VersionTimelineSpec extends WordSpec with Matchers with PropertyChecks wit
 
       "produce the first argument at minimum" in forAll(
         genLatestInput,
-        Gen.listOf(genSpecifiedVersion)) { (easva, svs) =>
+        Gen.listOf(genSpecifiedVersion),
+      ) { (easva, svs) =>
         val sv = easva.run._1
         implicit val ev: SubVersion[easva.T] = easva.run._2
         import scalaz.Ordering._, Implicits._
         compareReleaseTime(sv, latestWhenAllPresent(sv, svs: _*)) should (be(Some(LT)) or be(
-          Some(EQ)))
+          Some(EQ),
+        ))
       }
     }
 
@@ -134,23 +139,27 @@ class VersionTimelineSpec extends WordSpec with Matchers with PropertyChecks wit
       "be distributive" in forAll(
         genLatestInput,
         Gen.listOf(genSpecifiedVersion),
-        Gen.listOf(genSpecifiedVersion)) { (easva, svs1, svs2) =>
+        Gen.listOf(genSpecifiedVersion),
+      ) { (easva, svs1, svs2) =>
         val sv = easva.run._1
         implicit val ev: SubVersion[easva.T] = easva.run._2
         latestWhenAllPresent(latestWhenAllPresent(sv, svs1: _*), svs2: _*) shouldBe latestWhenAllPresent(
           sv,
-          svs1 ++ svs2: _*)
+          svs1 ++ svs2: _*,
+        )
       }
 
       "be symmetric" in forAll(
         genLatestInput,
         Gen.listOf(genSpecifiedVersion),
-        Gen.listOf(genSpecifiedVersion)) { (easva, svs1, svs2) =>
+        Gen.listOf(genSpecifiedVersion),
+      ) { (easva, svs1, svs2) =>
         val sv = easva.run._1
         implicit val ev: SubVersion[easva.T] = easva.run._2
         latestWhenAllPresent(latestWhenAllPresent(sv, svs1: _*), svs2: _*) shouldBe latestWhenAllPresent(
           latestWhenAllPresent(sv, svs2: _*),
-          svs1: _*)
+          svs1: _*,
+        )
       }
     }
   }
