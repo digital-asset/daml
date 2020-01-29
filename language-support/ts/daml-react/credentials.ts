@@ -3,20 +3,19 @@
 
 import { decode } from 'jwt-simple';
 
-const LEDGER_ID: string = 'DAVL';
-
 export type Credentials = {
   party: string;
   token: string;
+  ledgerId: string;
 }
 
 /**
  * Check that the party in the token matches the party of the credentials and
- * that the ledger ID in the token matches `LEDGER_ID`.
+ * that the ledger ID in the token matches the given ledger id.
  */
-export const preCheckCredentials = ({party, token}: Credentials): string | null => {
+export const preCheckCredentials = ({party, token, ledgerId}: Credentials): string | null => {
   const decoded = decode(token, '', true);
-  if (!decoded.ledgerId || decoded.ledgerId !== LEDGER_ID) {
+  if (!decoded.ledgerId || decoded.ledgerId !== ledgerId) {
     return 'The password is not valid for DAVL.';
   }
   if (!decoded.party || decoded.party !== party) {

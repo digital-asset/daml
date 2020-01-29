@@ -30,6 +30,7 @@ ts_library(
     ],
 ) if not is_windows else None
 
+# We can't reference any files outside of the directory, hence this rule.
 genrule(
     name = "license",
     srcs = ["//:LICENSE"],
