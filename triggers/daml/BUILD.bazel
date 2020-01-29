@@ -21,6 +21,10 @@ sdk-version: $$(cat $(location //:VERSION))
 name: daml-trigger
 source: daml
 version: $$(cat $(location //:VERSION))
+exposed-modules:
+  - Daml.Trigger
+  - Daml.Trigger.Assert
+  - Daml.Trigger.LowLevel
 dependencies:
   - daml-stdlib
   - daml-prim
