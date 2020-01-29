@@ -189,7 +189,7 @@ generateSrcFromLf env = noLoc mod
             pure [mkConDecl env thisModule occName $ RecCon (noLoc fields')]
         LF.DataVariant cons -> do
             cons' <- mapM (secondM (convType env)) cons
-            pure $
+            pure
                 [ mkConDecl env thisModule (occNameFor conName) (details ty)
                 | (conName, ty) <- cons'
                 ]
@@ -197,7 +197,7 @@ generateSrcFromLf env = noLoc mod
             when (length cons == 1) (void $ mkGhcType env "DamlEnum")
                 -- ^ Single constructor enums spawn a reference to
                 -- GHC.Types.DamlEnum in the daml-preprocessor.
-            pure $
+            pure
                 [ mkConDecl env thisModule (occNameFor conName) (PrefixCon [])
                 | conName <- cons
                 ]
