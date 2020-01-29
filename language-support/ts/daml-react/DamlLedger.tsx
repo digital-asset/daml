@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import React, { useReducer, useMemo } from 'react';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { DamlLedgerContext } from './context';
 import Credentials from './credentials';
 import * as LedgerStore from './ledgerStore';

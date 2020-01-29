@@ -15,6 +15,5 @@
     "module": "CommonJS",
     "declaration": true,
     "sourceMap": true
-    },
-  "files": ["index.ts"]
+    }
 }
