@@ -6,6 +6,15 @@ Release notes
 
 This page contains release notes for the SDK.
 
+.. _release-0-13-48:
+
+0.13.48 - 2020-01-29
+
+Repository maintenance
+~~~~~~~~~~~~~~~~~~~~~~
+
+- Fixed a bug in the release script where publishing packages to the npm registry failed.
+
 .. _release-0-13-47:
 
 0.13.47 - 2020-01-29
