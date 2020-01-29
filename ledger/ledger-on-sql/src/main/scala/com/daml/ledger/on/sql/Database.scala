@@ -3,7 +3,6 @@
 
 package com.daml.ledger.on.sql
 
-import com.daml.ledger.on.sql.queries.Queries.InvalidDatabaseException
 import com.daml.ledger.on.sql.queries.{H2Queries, PostgresqlQueries, Queries, SqliteQueries}
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.resources.ResourceOwner
@@ -32,15 +31,24 @@ object Database {
       implicit logCtx: LoggingContext,
   ): ResourceOwner[UninitializedDatabase] =
     (jdbcUrl match {
+      case "jdbc:h2:mem:" =>
+        throw new InvalidDatabaseException(
+          "Unnamed in-memory H2 databases are not supported. Please name the database using the format \"jdbc:h2:mem:NAME\".",
+        )
+      case url if url.startsWith("jdbc:h2:mem:") =>
+        SingleConnectionDatabase.owner(RDBMS.H2, jdbcUrl)
       case url if url.startsWith("jdbc:h2:") =>
         MultipleConnectionDatabase.owner(RDBMS.H2, jdbcUrl)
       case url if url.startsWith("jdbc:postgresql:") =>
         MultipleConnectionDatabase.owner(RDBMS.PostgreSQL, jdbcUrl)
       case url if url.startsWith("jdbc:sqlite::memory:") =>
-        SingleConnectionDatabase.owner(RDBMS.SQLite, jdbcUrl)
+        throw new InvalidDatabaseException(
+          "Unnamed in-memory SQLite databases are not supported. Please name the database using the format \"jdbc:sqlite:file:NAME?mode=memory&cache=shared\".",
+        )
       case url if url.startsWith("jdbc:sqlite:") =>
-        SingleConnectionExceptAdminDatabase.owner(RDBMS.SQLite, jdbcUrl)
-      case _ => throw new InvalidDatabaseException(jdbcUrl)
+        SingleConnectionDatabase.owner(RDBMS.SQLite, jdbcUrl)
+      case _ =>
+        throw new InvalidDatabaseException(s"Unknown database: $jdbcUrl")
     }).map { database =>
       logger.info(s"Connected to the ledger over JDBC: $jdbcUrl")
       database
@@ -67,7 +75,7 @@ object Database {
       )
   }
 
-  object SingleConnectionExceptAdminDatabase {
+  object SingleConnectionDatabase {
     def owner(
         system: RDBMS,
         jdbcUrl: String,
@@ -82,37 +90,6 @@ object Database {
         readerWriterConnectionPool,
         readerWriterConnectionPool,
         adminConnectionPool,
-      )
-  }
-
-  // This is used when connecting to SQLite in-memory. Unlike file storage or H2 in-memory, each
-  // connection established will create a new, separate database. This means we can't create more
-  // than one connection pool, as each pool will create a new connection and therefore a new
-  // database.
-  //
-  // Because of this, Flyway needs to share the connection pool. However, Flyway _also_ requires
-  // a connection pool that allows for two concurrent connections. It uses one to lock the
-  // migrations table (to ensure we don't run migrations in parallel), and then the second to
-  // actually run the migrations. This is actually unnecessary in this case because it's impossible
-  // to have two connections, but it doesn't know that.
-  //
-  // To make Flyway happy, we create an unbounded connection pool and then drop it to 1 connection
-  // after migration.
-  object SingleConnectionDatabase {
-    def owner(
-        system: RDBMS,
-        jdbcUrl: String,
-    ): ResourceOwner[UninitializedDatabase] =
-      for {
-        connectionPool <- ResourceOwner.forCloseable(() => newHikariDataSource(jdbcUrl))
-      } yield new UninitializedDatabase(
-        system,
-        readerConnectionPool = connectionPool,
-        writerConnectionPool = connectionPool,
-        adminConnectionPool = connectionPool,
-        afterMigration = () => {
-          connectionPool.setMaximumPoolSize(MaximumWriterConnectionPoolSize)
-        },
       )
   }
 
@@ -180,4 +157,6 @@ object Database {
       this
     }
   }
+
+  class InvalidDatabaseException(message: String) extends RuntimeException(message)
 }

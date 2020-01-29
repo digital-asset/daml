@@ -27,14 +27,12 @@ abstract class SqlLedgerReaderWriterIntegrationSpecBase(implementationName: Stri
   override final def participantStateFactory(
       participantId: ParticipantId,
       ledgerId: LedgerString,
-  ): ResourceOwner[ParticipantState] = {
-    val currentJdbcUrl = jdbcUrl
+  ): ResourceOwner[ParticipantState] =
     newLoggingContext { implicit logCtx =>
       SqlLedgerReaderWriter
-        .owner(ledgerId, participantId, currentJdbcUrl)
+        .owner(ledgerId, participantId, jdbcUrl)
         .map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter))
     }
-  }
 
   override final def currentRecordTime(): Timestamp =
     Timestamp.assertFromInstant(Clock.systemUTC().instant())

@@ -3,8 +3,11 @@
 
 package com.daml.ledger.on.sql
 
+import scala.util.Random
+
 class SqliteMemorySqlLedgerReaderWriterIntegrationSpec
     extends SqlLedgerReaderWriterIntegrationSpecBase("SQL implementation using SQLite in memory") {
 
-  override protected val jdbcUrl = s"jdbc:sqlite::memory:"
+  override protected val jdbcUrl =
+    s"jdbc:sqlite:file:${getClass.getSimpleName.toLowerCase()}_${Random.nextInt()}?mode=memory&cache=shared"
 }
