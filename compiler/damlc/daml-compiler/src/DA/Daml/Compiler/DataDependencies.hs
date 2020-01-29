@@ -472,16 +472,16 @@ mkStableType env unitId modName tyName = do
         . mkOrig ghcMod $ mkOccName varName tyName
 
 mkGhcType :: Env -> String -> Gen (HsType GhcPs)
-mkGhcType env = mkStableType env primUnitId
-    (LF.ModuleName ["GHC", "Types"])
+mkGhcType env = mkStableType env primUnitId $
+    LF.ModuleName ["GHC", "Types"]
 
 mkLfInternalType :: Env -> String -> Gen (HsType GhcPs)
-mkLfInternalType env = mkStableType env damlStdlibUnitId
-    (LF.ModuleName ["DA", "Internal", "LF"])
+mkLfInternalType env = mkStableType env damlStdlibUnitId $
+    LF.ModuleName ["DA", "Internal", "LF"]
 
 mkLfInternalPrelude :: Env -> String -> Gen (HsType GhcPs)
-mkLfInternalPrelude env = mkStableType env damlStdlibUnitId
-    (LF.ModuleName ["DA", "Internal", "Prelude"])
+mkLfInternalPrelude env = mkStableType env damlStdlibUnitId $
+    LF.ModuleName ["DA", "Internal", "Prelude"]
 
 mkTyConTypeUnqual :: TyCon -> HsType GhcPs
 mkTyConTypeUnqual tyCon = HsTyVar noExt NotPromoted . noLoc $ mkRdrUnqual (occName name)
