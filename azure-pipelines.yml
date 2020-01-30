@@ -17,6 +17,17 @@ pr:
       - master
 
 jobs:
+  - job: git_sha
+    pool:
+      name: 'linux-pool'
+    steps:
+      - bash: |
+          set -euo pipefail
+          echo "##vso[task.setvariable variable=branch;isOutput=true]$(git rev-parse 'HEAD^2')"
+          echo "##vso[task.setvariable variable=master;isOutput=true]$(git rev-parse 'HEAD^1')"
+          echo "##vso[task.setvariable variable=fork_point;isOutput=true]$(git merge-base --fork-point 'HEAD^1' 'HEAD^2')"
+        name: out
+
   - job: check_standard_change_label
     condition: eq(variables['Build.Reason'], 'PullRequest')
     pool:
@@ -306,7 +317,16 @@ jobs:
 
   - job: collect_build_data
     condition: always()
-    dependsOn: ["Linux", "macOS", "Windows", "Windows_signing", "perf", "release", "check_standard_change_label", "write_ledger_dump"]
+    dependsOn:
+      - Linux
+      - macOS
+      - Windows
+      - Windows_signing
+      - perf
+      - release
+      - check_standard_change_label
+      - write_ledger_dump
+      - git_sha
     pool:
       name: "linux-pool"
     variables:
@@ -342,6 +362,11 @@ jobs:
       dump.machine: $[ dependencies.write_ledger_dump.outputs['start.machine'] ]
       dump.end: $[ dependencies.write_ledger_dump.outputs['end.time'] ]
       dump.status: $[ dependencies.write_ledger_dump.result ]
+
+      branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
+      master_sha: $[ dependencies.git_sha.outputs['out.master'] ]
+      fork_sha: $[ dependencies.git_sha.outputs['out.fork_point'] ]
+
       # Using expression syntax so we get an empty string if not set, rather
       # than the raw $(VarName) string. Expression syntax works on the
       # variables key, but not on the env one, so we need an extra indirection.
@@ -360,23 +385,12 @@ jobs:
       - checkout: none
       - bash: |
           set -euo pipefail
-          # Note: this is going to get the current master commit, not the
+          # Note: this is going to get the PR branch commit, not the
           # result of the merge (i.e. this is not using the same commit as the
-          # other jobs in this build). This seems good enough here as all we
-          # really want is the dev-env, and conflicts should be pretty rare
-          # there. It _does_ mean this may fail to catch changes that would
-          # break this job, e.g. incompatible updates of jq or gcloud.
-          # Note: Azure doe snot guarantee a clean workspace and dev-env
-          # doesn't nest, so we need to handle both a clean slate and an
-          # existing, dirty workspace.
-          if [ -d .git ]; then
-              git fetch
-              git reset --hard
-              git clean -xffd
-              git checkout origin/master
-          else
-              git clone https://github.com/digital-asset/daml.git ./
-          fi
+          # other jobs in this build).
+          git fetch origin $(branch_sha)
+          git checkout $(branch_sha)
+
           eval "$(./dev-env/bin/dade-assist)"
 
           REPORT=$(mktemp)
@@ -420,7 +434,10 @@ jobs:
            "queued_by": "$(Build.QueuedBy)",
            "reason": "$(Build.Reason)",
            "branch": "$(Build.SourceBranch)",
-           "commit_sha": "$(Build.SourceVersion)",
+           "merge_commit": "$(Build.SourceVersion)",
+           "branch_commit": "$(branch_sha)",
+           "master_commit": "$(master_sha)",
+           "fork_point_commit": "$(fork_sha)",
            "commit_message": $(echo -n "$COMMIT_MSG" | jq -sR),
            "is_fork": "$(System.PullRequest.IsFork)",
            "pr": "$PR_NUM",
@@ -472,3 +489,47 @@ jobs:
           # value or empty string, but not $(Azure.Variable.Name)).
           PR_NUM: $(pr.num)
           PR_BRANCH: $(pr.branch)
+
+  - job: notify_user
+    condition: always()
+    dependsOn:
+      - git_sha
+      - collect_build_data
+    pool:
+      name: 'linux-pool'
+    variables:
+      pr.num: $[ variables['System.PullRequest.PullRequestNumber'] ]
+      branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
+    steps:
+      - checkout: none
+      - bash: |
+          set -euo pipefail
+
+          git fetch origin $(branch_sha)
+          git checkout $(branch_sha)
+
+
+          tell_slack() {
+              local MESSAGE=$1
+              local USER_ID=$2
+              curl -XPOST \
+                   -i \
+                   -H 'Content-Type: application/json' \
+                   --data "{\"text\":\"<@${USER_ID}> <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|Build $(Build.BuildId)> for <https://github.com/digital-asset/daml/pulls/$(pr.num)|PR $(pr.num)> has completed with status ${MESSAGE}.\"}" \
+                   $(Slack.team-daml-ci)
+          }
+
+          EMAIL=$(git log -n 1 --format=%ae)
+          user_registered() {
+              cat ci/slack_user_ids | grep $EMAIL
+          }
+
+          user_id() {
+              echo $(cat ci/slack_user_ids | grep $EMAIL | awk '{print $2}')
+          }
+
+          if user_registered; then
+              tell_slack "$(Agent.JobStatus)" "$(user_id)"
+          else
+              echo "User $(user_id) did not opt in for notifications."
+          fi
