@@ -8,11 +8,12 @@ import scalaz.{-\/, \/, \/-}
 
 object LedgerOffsetUtil {
 
-  private val LongEitherLongLongOrdering: Ordering[Long \/ (Long, Long)] =
-    Ordering.by[Long \/ (Long, Long), (Long, Long)] {
-      case -\/(a) => (0, a)
-      case \/-(x) => x
-    }
+  private val LongEitherLongLongOrdering: Ordering[Long \/ (Long, Long)] = {
+    import scalaz.std.tuple._
+    import scalaz.std.anyVal._
+    val O = implicitly[scalaz.Order[Long \/ (Long, Long)]]
+    O.toScalaOrdering
+  }
 
   implicit val AbsoluteOffsetOrdering: Ordering[LedgerOffset.Value.Absolute] =
     Ordering.by(parseOffset)(LongEitherLongLongOrdering)
