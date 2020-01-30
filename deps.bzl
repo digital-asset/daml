@@ -31,8 +31,8 @@ load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 
 rules_scala_version = "6c16cff213b76a4126bdc850956046da5db1daaa"
 
-rules_haskell_version = "11b9dd19f3d6e1ae38b0aaa01696d873b2ee7ef9"
-rules_haskell_sha256 = "46923657160087456a21a61184f7bdca76f8e259de1f2ab8ca57b37aeff7d0d5"
+rules_haskell_version = "107ab5ccf0cdf884e19c1b3a37b9b8064c4e4e03"
+rules_haskell_sha256 = "758f8190a9dd6e5e6fd7c9fb38a1bb4c5743a6e314d6678761e2cc070d8e465b"
 rules_nixpkgs_version = "33c50ba64c11dddb95823d12f6b1324083cc5c43"
 rules_nixpkgs_sha256 = "91fedd5151bbd9ef89efc39e2172921bd7036c68cff54712a5df8ddf62bd6922"
 davl_version = "625a5791458c54051adb6d1e41e720c673951b72"
@@ -50,8 +50,6 @@ def daml_deps():
                 "@com_github_digital_asset_daml//bazel_tools:haskell-windows-remove-fake-libs.patch",
                 # This is a daml specific patch and not upstreamable.
                 "@com_github_digital_asset_daml//bazel_tools:haskell-windows-extra-libraries.patch",
-                # Upstream to rules_haskell and remove this patach.
-                "@com_github_digital_asset_daml//bazel_tools:haskell-cc-wrapper-darwin-rpath-library-dirs.patch",
                 # This is a daml specific patch and not upstreamable.
                 "@com_github_digital_asset_daml//bazel_tools:haskell-ghci-grpc.patch",
                 # rules_haskell should have builtin support for hie-bios.
@@ -63,8 +61,6 @@ def daml_deps():
                 # This should be made configurable in rules_haskell.
                 # Remove this patch once that's available.
                 "@com_github_digital_asset_daml//bazel_tools:haskell-opt.patch",
-                # Remove once #1200 was merged on upstream rules_haskell.
-                "@com_github_digital_asset_daml//bazel_tools:haskell-optional-cabal-haddock.patch",
             ],
             patch_args = ["-p1"],
             sha256 = rules_haskell_sha256,
