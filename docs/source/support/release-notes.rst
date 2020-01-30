@@ -6,18 +6,9 @@ Release notes
 
 This page contains release notes for the SDK.
 
-.. _release-0-13-48:
+.. _release-0-13-49:
 
-0.13.48 - 2020-01-29
-
-Repository maintenance
-~~~~~~~~~~~~~~~~~~~~~~
-
-- Fixed a bug in the release script where publishing packages to the npm registry failed.
-
-.. _release-0-13-47:
-
-0.13.47 - 2020-01-29
+0.13.49 - 2020-01-30
 --------------------
 
 DAML Compiler
@@ -59,6 +50,18 @@ DAML Triggers - Experimental
 - DAML triggers can now be tested in scenarios. Specifically, a trigger's
   ``rule`` can be executed in a scenario and assertions performed on the
   emitted commands.
+
+
+.. _release-0-13-48:
+
+0.13.48 - This version was skipped
+----------------------------------
+
+
+.. _release-0-13-47:
+
+0.13.47 - This version was skipped
+----------------------------------
 
 
 .. _release-0-13-46:
