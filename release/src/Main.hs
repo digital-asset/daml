@@ -121,7 +121,7 @@ main = do
                 $logDebug "Uploading npm packages"
                 liftIO $ bracket_
                   (writeFile npmrcPath "//registry.npmjs.org/:_authToken=${NPM_TOKEN}")
-                  (\() -> Dir.removeFile npmrcPath)
+                  (Dir.removeFile npmrcPath)
                   (\() -> forM_ npmPackages
                     $ \rule -> liftIO $ callCommand $ "bazel run " <> rule <> ":npm_package.publish -- --access public")
 
