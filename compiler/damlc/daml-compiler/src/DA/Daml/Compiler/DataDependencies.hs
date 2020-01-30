@@ -8,7 +8,7 @@ module DA.Daml.Compiler.DataDependencies
     ) where
 
 import Control.Monad
-import Control.Monad.Writer
+import Control.Monad.Trans.Writer.CPS
 import Data.List.Extra
 import Data.Set (Set)
 import qualified Data.Set as Set
@@ -56,10 +56,13 @@ data ModRef = ModRef
 
 -- | Monad for generating a value together with its module references.
 newtype Gen t = Gen (Writer (Set ModRef) t)
-    deriving (Functor, Applicative, Monad, MonadWriter (Set ModRef))
+    deriving (Functor, Applicative, Monad)
 
 runGen :: Gen t -> (t, Set ModRef)
 runGen (Gen m) = runWriter m
+
+emitModRef :: ModRef -> Gen ()
+emitModRef = Gen . tell . Set.singleton
 
 -- | Extract all data defintions from a daml-lf module and generate a haskell source file from it.
 generateSrcFromLf ::
@@ -326,7 +329,7 @@ genModuleAux env isStable unitId modName = do
             | otherwise = modName
         ghcModName = mkModuleName . T.unpack $ LF.moduleNameString newModName
         modRef = ModRef isStable unitId newModName
-    tell $ Set.singleton modRef
+    emitModRef modRef
     pure $ mkModule unitId ghcModName
 
 convType :: Env -> LF.Type -> Gen (HsType GhcPs)
