@@ -9,23 +9,27 @@ import akka.stream.scaladsl.{Flow, Source}
 import akka.stream.Materializer
 import com.digitalasset.http.EndpointsCompanion._
 import com.digitalasset.http.domain.{GetActiveContractsRequest, JwtPayload}
-import com.digitalasset.http.json.{DomainJsonDecoder, DomainJsonEncoder, SprayJson}
+import com.digitalasset.http.json.{DomainJsonDecoder, DomainJsonEncoder, JsonProtocol, SprayJson}
 import ContractsFetch.InsertDeleteStep
 import com.digitalasset.http.LedgerClientJwt.Terminates
 import util.ApiValueToLfValueConverter.apiValueToLfValue
 import util.Collections._
 import json.JsonProtocol.LfValueCodec.{apiValueToJsValue => lfValueToJsValue}
-import query.ValuePredicate.LfV
+import query.ValuePredicate.{LfV, TypeLookup}
 import com.digitalasset.jwt.domain.Jwt
 import com.digitalasset.ledger.api.{v1 => api}
-
 import com.typesafe.scalalogging.LazyLogging
-import scalaz.Liskov, Liskov.<~<
+import scalaz.Liskov
+import Liskov.<~<
+import com.digitalasset.http.PackageService.ResolveTemplateId
+import com.digitalasset.http.query.ValuePredicate
 import scalaz.syntax.show._
 import scalaz.syntax.tag._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
-import scalaz.{-\/, \/, \/-, Show}
+import scalaz.std.list._
+import scalaz.std.option._
+import scalaz.{-\/, Show, \/, \/-}
 import spray.json.{JsObject, JsString, JsValue}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -34,6 +38,10 @@ import scala.util.{Failure, Success}
 object WebSocketService {
   private type CompiledQueries = Map[domain.TemplateId.RequiredPkg, LfV => Boolean]
   private type FetchByKeyRequests = Map[domain.TemplateId.RequiredPkg, LfV]
+  // TODO(Leo): need a better name, this is more than just a predicate
+  private type AcPredicate =
+    (List[domain.TemplateId.RequiredPkg], domain.ActiveContract[LfV] => Boolean)
+
   val heartBeat: String = JsObject("heartbeat" -> JsString("ping")).compactPrint
 
   private implicit final class `\\/ WSS extras`[L, R](private val self: L \/ R) extends AnyVal {
@@ -68,6 +76,98 @@ object WebSocketService {
         case StepAndErrors(errors, InsertDeleteStep(inserts, deletes)) =>
           errors.length.toLong + (inserts.length * 2) + deletes.size
       }, identity)(_ append _)
+
+  trait StreamQuery[A] {
+    def parse(decoder: DomainJsonDecoder, str: String): Error \/ A
+
+    def predicate(
+        request: A,
+        resolveTemplateId: PackageService.ResolveTemplateId,
+        lookupType: ValuePredicate.TypeLookup): Error \/ AcPredicate
+  }
+
+  implicit val GetActiveContractsRequestWithStreamQuery
+    : StreamQuery[domain.GetActiveContractsRequest] =
+    new StreamQuery[domain.GetActiveContractsRequest] {
+
+      override def parse(
+          decoder: DomainJsonDecoder,
+          str: String): Error \/ GetActiveContractsRequest = {
+        import JsonProtocol._
+        SprayJson
+          .decode[GetActiveContractsRequest](str)
+          .liftErr(InvalidUserInput)
+      }
+
+      override def predicate(
+          request: GetActiveContractsRequest,
+          resolveTemplateId: PackageService.ResolveTemplateId,
+          lookupType: ValuePredicate.TypeLookup): Error \/ AcPredicate = {
+
+        request.templateIds.toList
+          .traverse(resolveTemplateId)
+          .toRightDisjunction(
+            ServerError(s"Cannot resolve one of templateIds: ${request.templateIds.toString}"),
+          )
+          .map { tpIds: List[domain.TemplateId.RequiredPkg] =>
+            val q: CompiledQueries = prepareFilters(tpIds, request.query, lookupType)
+            val fn: domain.ActiveContract[LfV] => Boolean = { a =>
+              q.get(a.templateId).exists(_(a.payload))
+            }
+            (tpIds, fn)
+          }
+      }
+
+      private def prepareFilters(
+          ids: List[domain.TemplateId.RequiredPkg],
+          queryExpr: Map[String, JsValue],
+          lookupType: ValuePredicate.TypeLookup
+      ): CompiledQueries =
+        ids.iterator.map { tid =>
+          (tid, ValuePredicate.fromTemplateJsObject(queryExpr, tid, lookupType).toFunPredicate)
+        }.toMap
+    }
+
+  implicit val EnrichedContractKeyWithStreamQuery
+    : StreamQuery[List[domain.EnrichedContractKey[LfV]]] =
+    new StreamQuery[List[domain.EnrichedContractKey[LfV]]] {
+      import JsonProtocol._
+
+      @SuppressWarnings(Array("org.wartremover.warts.Any"))
+      override def parse(
+          decoder: DomainJsonDecoder,
+          str: String): Error \/ List[domain.EnrichedContractKey[LfV]] = {
+        SprayJson
+          .decode[List[domain.EnrichedContractKey[JsValue]]](str)
+          .liftErr(InvalidUserInput)
+          .flatMap { as: List[domain.EnrichedContractKey[JsValue]] =>
+            as.traverse(a => decode(decoder)(a))
+          }
+      }
+
+      private def decode(decoder: DomainJsonDecoder)(
+          a: domain.EnrichedContractKey[JsValue]): Error \/ domain.EnrichedContractKey[LfV] =
+        decoder.decodeUnderlyingValuesToLf(a).liftErr(InvalidUserInput)
+
+      override def predicate(
+          request: List[domain.EnrichedContractKey[LfV]],
+          resolveTemplateId: ResolveTemplateId,
+          lookupType: TypeLookup): Error \/ AcPredicate = {
+
+        request
+          .traverse(r => resolveTemplateId(r.templateId).map(tpId => tpId -> r.key))
+          .toRightDisjunction(
+            ServerError(s"Cannot resolve one of templateIds in the request: ${request.toString}"),
+          )
+          .map { tpIds: List[(domain.TemplateId.RequiredPkg, LfV)] =>
+            val q: FetchByKeyRequests = tpIds.toMap
+            val fn: domain.ActiveContract[LfV] => Boolean = { a =>
+              q.get(a.templateId).exists(k => domain.ActiveContract.matchesKey(k)(a))
+            }
+            (q.keys.toList, fn)
+          }
+      }
+    }
 }
 
 class WebSocketService(
@@ -75,12 +175,12 @@ class WebSocketService(
     resolveTemplateId: PackageService.ResolveTemplateId,
     encoder: DomainJsonEncoder,
     decoder: DomainJsonDecoder,
+    lookupType: query.ValuePredicate.TypeLookup,
     wsConfig: Option[WebsocketConfig],
 )(implicit mat: Materializer, ec: ExecutionContext)
     extends LazyLogging {
 
   import WebSocketService._
-  import com.digitalasset.http.json.JsonProtocol._
 
   private val numConns = new java.util.concurrent.atomic.AtomicInteger(0)
 
@@ -89,7 +189,7 @@ class WebSocketService(
       jwtPayload: JwtPayload,
   ): Flow[Message, Message, _] = {
 
-    wsMessageHandler(jwt, jwtPayload)
+    wsMessageHandler[domain.GetActiveContractsRequest](jwt, jwtPayload)
       .via(applyConfig(keepAlive = TextMessage.Strict(heartBeat)))
       .via(connCounter)
   }
@@ -125,44 +225,41 @@ class WebSocketService(
 
   private val wsReadTimeout = (wsConfig getOrElse Config.DefaultWsConfig).maxDuration
 
-  private def wsMessageHandler(
+  private def wsMessageHandler[A: StreamQuery](
       jwt: Jwt,
       jwtPayload: JwtPayload,
   ): Flow[Message, Message, NotUsed] = {
+    val Q = implicitly[StreamQuery[A]]
     Flow[Message]
       .mapAsync(1) {
-        case msg: TextMessage => msg.toStrict(wsReadTimeout).map(\/-(_))
+        case msg: TextMessage =>
+          msg.toStrict(wsReadTimeout).map(m => Q.parse(decoder, m.text))
         case _ =>
           Future successful -\/(
-            Source.single(
-              wsErrorMessage("Cannot process your input, Expect a single JSON message"): Message,
-            ),
-          )
+            InvalidUserInput("Cannot process your input, Expect a single JSON message"))
       }
-      .flatMapConcat { _.map(generateOutgoingMessage(jwt, jwtPayload, _)).merge }
+      .flatMapConcat {
+        case \/-(a) => generateOutgoingMessage(jwt, jwtPayload, a)
+        case -\/(e) => Source.single(wsErrorMessage(e.shows))
+      }
   }
 
-  private def generateOutgoingMessage(
+  private def generateOutgoingMessage[A: StreamQuery](
       jwt: Jwt,
       jwtPayload: JwtPayload,
-      incoming: TextMessage.Strict,
+      req: A,
   ): Source[Message, NotUsed] = {
-    (for {
-      req <- SprayJson.decode[GetActiveContractsRequest](incoming.text).liftErr(InvalidUserInput)
-      resolvedTemplateIds <- resolveRequiredTemplateIds(req.templateIds).toRightDisjunction(
-        ServerError(s"Cannot resolve one of templateIds: ${req.templateIds.toString}"),
-      )
-      fn = queryPredicate(prepareFilters(resolvedTemplateIds, req.query)) _
-    } yield (resolvedTemplateIds, fn))
+    val Q = implicitly[StreamQuery[A]]
+    Q.predicate(req, resolveTemplateId, lookupType)
       .fold(
-        e => Source.single(wsErrorMessage(s"Error handling request: ${incoming.text: String}: $e")),
-        idsAndPredicate =>
+        e => Source.single(wsErrorMessage(s"Error handling request: ${req.toString: String}: $e")),
+        predicate =>
           getTransactionSourceForParty(
             jwt,
             jwtPayload.party,
-            idsAndPredicate._1,
-            idsAndPredicate._2,
-          ),
+            predicate._1,
+            predicate._2,
+        )
       )
   }
 
@@ -211,9 +308,9 @@ class WebSocketService(
       }
       .via(conflation)
       .map(sae => sae copy (step = sae.step.mapPreservingIds(_ map lfValueToJsValue)))
-
-  private def queryPredicate(q: CompiledQueries)(a: domain.ActiveContract[LfV]): Boolean =
-    q.get(a.templateId).exists(_(a.payload))
+//
+//  private def queryPredicate(q: CompiledQueries)(a: domain.ActiveContract[LfV]): Boolean =
+//    q.get(a.templateId).exists(_(a.payload))
 
 //  private def keyPredicate(r: FetchByKeyRequests)(a: domain.ActiveContract[LfV]): Boolean =
 //    r.get(a.templateId)

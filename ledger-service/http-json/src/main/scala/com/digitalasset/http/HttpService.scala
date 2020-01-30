@@ -141,6 +141,7 @@ object HttpService extends StrictLogging {
         packageService.resolveTemplateId,
         encoder,
         decoder,
+        LedgerReader.damlLfTypeLookup(packageService.packageStore _),
         wsConfig,
       )
 
