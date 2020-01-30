@@ -100,6 +100,8 @@
     - warn: {lhs: concatMap identity, rhs: concat}
     - warn: {lhs: or (map p x), rhs: any p x}
     - warn: {lhs: and (map p x), rhs: all p x}
+    - warn: {lhs: any f (map g x), rhs: any (f . g) x}
+    - warn: {lhs: all f (map g x), rhs: all (f . g) x}
     - warn: {lhs: "zipWith (,)", rhs: zip}
     - warn: {lhs: "zipWith3 (,,)", rhs: zip3}
     - hint: {lhs: length x == 0, rhs: null x}
@@ -126,6 +128,8 @@
     - warn: {lhs: "filter f x /= []", rhs: any f x}
     - warn: {lhs: any identity, rhs: or}
     - warn: {lhs: all identity, rhs: and}
+    - warn: {lhs: any (not . f) x, rhs: not (all f x), name: Hoist not}
+    - warn: {lhs: all (not . f) x, rhs: not (any f x), name: Hoist not}
     - warn: {lhs: any ((==) a), rhs: elem a, note: ValidInstance Eq a}
     - warn: {lhs: any (== a), rhs: elem a}
     - warn: {lhs: any (a ==), rhs: elem a, note: ValidInstance Eq a}
@@ -174,6 +178,10 @@
     - warn: {lhs: sequenceA_ (map f x), rhs: traverse_ f x}
     - warn: {lhs: sequenceA_ (fmap f x), rhs: traverse_ f x}
     - warn: {lhs: foldMap identiy, rhs: fold}
+    - warn: {lhs: fold (fmap f x), rhs: foldMap f x}
+    - warn: {lhs: fold (map f x), rhs: foldMap f x}
+    - warn: {lhs: foldMap f (fmap g x), rhs: foldMap (f . g) x}
+    - warn: {lhs: foldMap f (map g x), rhs: foldMap (f . g) x}
 
     # BY
 

@@ -13,7 +13,6 @@ ts_library(
     name = "daml-react",
     srcs = glob([
         "**/*.ts",
-        "**/*.tsx",
     ]),
     data = [
         ":LICENSE",
@@ -44,7 +43,6 @@ eslint_test(
     name = "lint",
     srcs = glob([
         "**/*.ts",
-        "**/*.tsx",
     ]),
 )
 
@@ -65,7 +63,7 @@ pkg_npm(
 # This doesn't work currently because imports of local packages aren't resolved correctly.
 # jest_test(
 # name = "test",
-# srcs = glob(["**/*.ts", "**/*.tsx"]),
+# srcs = glob(["**/*.ts"]),
 # jest_config = ":jest.config.js",
 # deps = [
 # "//language-support/ts/daml-types",

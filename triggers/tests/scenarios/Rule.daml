@@ -8,6 +8,7 @@ import DA.Action
 import DA.Assert
 import qualified DA.Next.Map as Map
 import Daml.Trigger
+import Daml.Trigger.Assert
 
 template T
   with
