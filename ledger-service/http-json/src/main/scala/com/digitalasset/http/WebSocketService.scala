@@ -239,7 +239,7 @@ class WebSocketService(
             InvalidUserInput("Cannot process your input, Expect a single JSON message"))
       }
       .flatMapConcat {
-        case \/-(a) => generateOutgoingMessage(jwt, jwtPayload, a)
+        case \/-(a) => generateOutgoingMessage[A](jwt, jwtPayload, a)
         case -\/(e) => Source.single(wsErrorMessage(e.shows))
       }
   }
