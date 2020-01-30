@@ -78,6 +78,7 @@ object WebSocketService {
       }, identity)(_ append _)
 
   trait StreamQuery[A] {
+
     def parse(decoder: DomainJsonDecoder, str: String): Error \/ A
 
     def predicate(
@@ -187,12 +188,10 @@ class WebSocketService(
   private[http] def transactionMessageHandler[A: StreamQuery](
       jwt: Jwt,
       jwtPayload: JwtPayload,
-  ): Flow[Message, Message, _] = {
-
+  ): Flow[Message, Message, _] =
     wsMessageHandler[A](jwt, jwtPayload)
       .via(applyConfig(keepAlive = TextMessage.Strict(heartBeat)))
       .via(connCounter)
-  }
 
   private def applyConfig[A](keepAlive: A): Flow[A, A, NotUsed] = {
     val config = wsConfig.getOrElse(Config.DefaultWsConfig)
@@ -280,14 +279,6 @@ class WebSocketService(
       JsObject("error" -> JsString(errorMsg)).compactPrint,
     )
 
-  private def prepareFilters(
-      ids: Iterable[domain.TemplateId.RequiredPkg],
-      queryExpr: Map[String, JsValue],
-  ): CompiledQueries =
-    ids.iterator.map { tid =>
-      (tid, contractsService.valuePredicate(tid, queryExpr).toFunPredicate)
-    }.toMap
-
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def convertFilterContracts(
       fn: domain.ActiveContract[LfV] => Boolean,
@@ -308,12 +299,4 @@ class WebSocketService(
       }
       .via(conflation)
       .map(sae => sae copy (step = sae.step.mapPreservingIds(_ map lfValueToJsValue)))
-
-  private def resolveRequiredTemplateIds(
-      xs: Set[domain.TemplateId.OptionalPkg],
-  ): Option[List[domain.TemplateId.RequiredPkg]] = {
-    import scalaz.std.list._
-    import scalaz.std.option._
-    xs.toList.traverse(resolveTemplateId)
-  }
 }
