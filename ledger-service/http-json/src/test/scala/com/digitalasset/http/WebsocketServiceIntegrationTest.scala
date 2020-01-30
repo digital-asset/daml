@@ -78,14 +78,18 @@ class WebsocketServiceIntegrationTest
       .via(webSocketFlow)
   }
 
+  private def initialIouCreate(serviceUri: Uri) = {
+    val payload = TestUtil.readFile("it/iouCreateCommand.json")
+    TestUtil.postJsonStringRequest(
+      serviceUri.withPath(Uri.Path("/command/create")),
+      payload,
+      headersWithAuth)
+  }
+
   "websocket should publish transactions when command create is completed" in withHttpService {
     (uri, _, _) =>
-      val payload = TestUtil.readFile("it/iouCreateCommand.json")
       for {
-        _ <- TestUtil.postJsonStringRequest(
-          uri.withPath(Uri.Path("/command/create")),
-          payload,
-          headersWithAuth)
+        _ <- initialIouCreate(uri)
 
         clientMsg <- singleClientStream(uri, """{"templateIds": ["Iou:Iou"]}""")
           .runWith(collectResultsAsRawString)
@@ -129,11 +133,7 @@ class WebsocketServiceIntegrationTest
     (uri, _, _) =>
       import spray.json._
 
-      val payload = TestUtil.readFile("it/iouCreateCommand.json")
-      val initialCreate = TestUtil.postJsonStringRequest(
-        uri.withPath(Uri.Path("/command/create")),
-        payload,
-        headersWithAuth)
+      val initialCreate = initialIouCreate(uri)
       def exercisePayload(cid: String) =
         baseExercisePayload.copy(
           fields = baseExercisePayload.fields updated ("contractId", JsString(cid)))
