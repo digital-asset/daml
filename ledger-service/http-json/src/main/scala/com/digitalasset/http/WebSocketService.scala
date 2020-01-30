@@ -184,12 +184,12 @@ class WebSocketService(
 
   private val numConns = new java.util.concurrent.atomic.AtomicInteger(0)
 
-  private[http] def transactionMessageHandler(
+  private[http] def transactionMessageHandler[A: StreamQuery](
       jwt: Jwt,
       jwtPayload: JwtPayload,
   ): Flow[Message, Message, _] = {
 
-    wsMessageHandler[domain.GetActiveContractsRequest](jwt, jwtPayload)
+    wsMessageHandler[A](jwt, jwtPayload)
       .via(applyConfig(keepAlive = TextMessage.Strict(heartBeat)))
       .via(connCounter)
   }
@@ -308,13 +308,6 @@ class WebSocketService(
       }
       .via(conflation)
       .map(sae => sae copy (step = sae.step.mapPreservingIds(_ map lfValueToJsValue)))
-//
-//  private def queryPredicate(q: CompiledQueries)(a: domain.ActiveContract[LfV]): Boolean =
-//    q.get(a.templateId).exists(_(a.payload))
-
-//  private def keyPredicate(r: FetchByKeyRequests)(a: domain.ActiveContract[LfV]): Boolean =
-//    r.get(a.templateId)
-//      .exists(k => domain.ActiveContract.matchesKey(k)(a))
 
   private def resolveRequiredTemplateIds(
       xs: Set[domain.TemplateId.OptionalPkg],

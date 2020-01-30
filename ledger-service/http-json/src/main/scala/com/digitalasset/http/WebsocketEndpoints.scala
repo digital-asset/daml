@@ -67,7 +67,12 @@ class WebsocketEndpoints(
 
           payload <- preconnect(decodeJwt, upgradeReq, wsProtocol)
           (jwt, jwtPayload) = payload
-        } yield handleWebsocketRequest(jwt, jwtPayload, upgradeReq, wsProtocol))
+        } yield
+          handleWebsocketRequest[domain.GetActiveContractsRequest](
+            jwt,
+            jwtPayload,
+            upgradeReq,
+            wsProtocol))
           .valueOr(httpResponseError),
       )
 
@@ -80,19 +85,24 @@ class WebsocketEndpoints(
           _ = logger.info(s"GOT $wsProtocol")
           payload <- preconnect(decodeJwt, upgradeReq, wsProtocol)
           (jwt, jwtPayload) = payload
-        } yield handleWebsocketRequest(jwt, jwtPayload, upgradeReq, wsProtocol))
+        } yield
+          handleWebsocketRequest[List[domain.EnrichedContractKey[domain.LfValue]]](
+            jwt,
+            jwtPayload,
+            upgradeReq,
+            wsProtocol))
           .valueOr(httpResponseError),
       )
   }
 
-  private def handleWebsocketRequest(
+  private def handleWebsocketRequest[A: WebSocketService.StreamQuery](
       jwt: Jwt,
       jwtPayload: domain.JwtPayload,
       req: UpgradeToWebSocket,
       protocol: String,
   ): HttpResponse = {
     val handler: Flow[Message, Message, _] =
-      webSocketService.transactionMessageHandler(jwt, jwtPayload)
+      webSocketService.transactionMessageHandler[A](jwt, jwtPayload)
     req.handleMessages(handler, Some(protocol))
   }
 
