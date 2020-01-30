@@ -28,16 +28,18 @@ const loadQuery = async <T extends object>(state: DamlLedgerState, template: Tem
   state.dispatch(setQueryResult(template, query, contracts));
 }
 
-const emptyQueryFactory = <T extends object>(): Query<T> => ({} as Query<T>);
-
 export type QueryResult<T extends object, K> = {
   contracts: CreateEvent<T, K>[];
   loading: boolean;
 }
 
+// NOTE(MH): Since `{} !== {}`, we need a stable reference to `{}` for `useMemo`
+// to work in `useQuery` when using the default value for `queryFactory`.
+const emptyQuery = {};
+
 /// React Hook for a query against the `/contracts/search` endpoint of the JSON API.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const useQuery = <T extends object, K>(template: Template<T, K>, queryFactory: () => Query<T> = emptyQueryFactory, queryDeps?: readonly any[]): QueryResult<T, K> => {
+export const useQuery = <T extends object, K>(template: Template<T, K>, queryFactory: () => Query<T> = () => emptyQuery as Query<T>, queryDeps?: readonly any[]): QueryResult<T, K> => {
   const state = useDamlState();
   const query = useMemo(queryFactory, queryDeps);
   const contracts = LedgerStore.getQueryResult(state.store, template, query);
