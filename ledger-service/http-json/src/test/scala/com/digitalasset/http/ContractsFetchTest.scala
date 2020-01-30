@@ -33,8 +33,13 @@ class ContractsFetchTest
 
   it should "preserve every left delete" in forAll { (x: IDS, y: IDS) =>
     val xy = x |+| y
-    // preservation of right deletes is an accident, not an invariant
     xy.deletes should contain allElementsOf x.deletes
+  }
+
+  it should "preserve at least right deletes absent in left inserts" in forAll { (x: IDS, y: IDS) =>
+    val xy = x |+| y
+    // xy.deletes _may_ contain x.inserts; it is semantically irrelevant
+    xy.deletes should contain allElementsOf (y.deletes -- x.inserts)
   }
 
   it should "preserve append absent deletes" in forAll { (x: Vector[Cid], y: Vector[Cid]) =>
