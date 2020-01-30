@@ -658,36 +658,36 @@ object Ledger {
       //                        && childrenActions well-authorized by
       //                           (signatories(c) union controllers(c))
 
-      authorization.fold(this)(authParties =>
-        this
-          .authorize(
-            nodeId = nodeId,
-            passIf = controllers.nonEmpty,
-            failWith = FANoControllers(ex.templateId, ex.choiceId, ex.optLocation),
-          )
-          .authorize(
-            nodeId = nodeId,
-            passIf = actingParties == controllers,
-            failWith = FAActorMismatch(
-              templateId = ex.templateId,
-              choiceId = ex.choiceId,
-              optLocation = ex.optLocation,
-              controllers = controllers,
-              givenActors = actingParties,
-            ),
-          )
-          .authorize(
-            nodeId = nodeId,
-            passIf = actingParties subsetOf authParties,
-            failWith = FAExerciseMissingAuthorization(
-              templateId = ex.templateId,
-              choiceId = ex.choiceId,
-              optLocation = ex.optLocation,
-              authorizingParties = authParties,
-              requiredParties = actingParties,
-            ),
-          ),
-      )
+      authorization.fold(this)(
+        authParties =>
+          this
+            .authorize(
+              nodeId = nodeId,
+              passIf = controllers.nonEmpty,
+              failWith = FANoControllers(ex.templateId, ex.choiceId, ex.optLocation),
+            )
+            .authorize(
+              nodeId = nodeId,
+              passIf = actingParties == controllers,
+              failWith = FAActorMismatch(
+                templateId = ex.templateId,
+                choiceId = ex.choiceId,
+                optLocation = ex.optLocation,
+                controllers = controllers,
+                givenActors = actingParties,
+              ),
+            )
+            .authorize(
+              nodeId = nodeId,
+              passIf = actingParties subsetOf authParties,
+              failWith = FAExerciseMissingAuthorization(
+                templateId = ex.templateId,
+                choiceId = ex.choiceId,
+                optLocation = ex.optLocation,
+                authorizingParties = authParties,
+                requiredParties = actingParties,
+              ),
+          ))
     }
 
     def authorizeFetch(
@@ -696,18 +696,18 @@ object Ledger {
         stakeholders: Set[Party],
         authorization: Authorization,
     ): EnrichState = {
-      authorization.fold(this)(authParties =>
-        this.authorize(
-          nodeId = nodeId,
-          passIf = stakeholders.intersect(authParties).nonEmpty,
-          failWith = FAFetchMissingAuthorization(
-            templateId = fetch.templateId,
-            optLocation = fetch.optLocation,
-            stakeholders = stakeholders,
-            authorizingParties = authParties,
-          ),
-        ),
-      )
+      authorization.fold(this)(
+        authParties =>
+          this.authorize(
+            nodeId = nodeId,
+            passIf = stakeholders.intersect(authParties).nonEmpty,
+            failWith = FAFetchMissingAuthorization(
+              templateId = fetch.templateId,
+              optLocation = fetch.optLocation,
+              stakeholders = stakeholders,
+              authorizingParties = authParties,
+            ),
+        ))
     }
 
     /*
@@ -1175,28 +1175,29 @@ object Ledger {
                     case NodeFetch(referencedCoid, templateId @ _, optLoc @ _, _, _, _) =>
                       val newCacheP =
                         newCache.updateNodeInfo(referencedCoid)(info =>
-                          info.copy(referencedBy = info.referencedBy + nodeId),
-                        )
+                          info.copy(referencedBy = info.referencedBy + nodeId))
 
                       processNodes(Right(newCacheP), idsToProcess)
 
                     case ex: NodeExercises.WithTxValue[ScenarioNodeId, AbsoluteContractId] =>
                       val newCache0 =
-                        newCache.updateNodeInfo(ex.targetCoid)(info =>
-                          info.copy(
-                            referencedBy = info.referencedBy + nodeId,
-                            consumedBy = if (ex.consuming) Some(nodeId) else info.consumedBy,
-                          ),
-                        )
+                        newCache.updateNodeInfo(ex.targetCoid)(
+                          info =>
+                            info.copy(
+                              referencedBy = info.referencedBy + nodeId,
+                              consumedBy = if (ex.consuming) Some(nodeId) else info.consumedBy,
+                          ))
                       val newCache1 =
                         if (ex.consuming) {
                           val newCache0_1 = newCache0.markAsInactive(ex.targetCoid)
                           val nc = newCache0_1
                             .nodeInfoByCoid(ex.targetCoid)
                             .node
-                            .asInstanceOf[NodeCreate[AbsoluteContractId, Transaction.Value[
+                            .asInstanceOf[NodeCreate[
                               AbsoluteContractId,
-                            ]]]
+                              Transaction.Value[
+                                AbsoluteContractId,
+                              ]]]
                           nc.key match {
                             case None => newCache0_1
                             case Some(key) =>
@@ -1218,8 +1219,7 @@ object Ledger {
                         case Some(referencedCoid) =>
                           val newCacheP =
                             newCache.updateNodeInfo(referencedCoid)(info =>
-                              info.copy(referencedBy = info.referencedBy + nodeId),
-                            )
+                              info.copy(referencedBy = info.referencedBy + nodeId))
 
                           processNodes(Right(newCacheP), idsToProcess)
                       }

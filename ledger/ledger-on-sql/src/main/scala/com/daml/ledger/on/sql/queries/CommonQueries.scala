@@ -7,11 +7,12 @@ import java.sql.Connection
 
 import anorm.SqlParser._
 import anorm._
+import com.daml.ledger.on.sql.Index
 import com.daml.ledger.on.sql.queries.Queries._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntryId,
   DamlStateKey,
-  DamlStateValue,
+  DamlStateValue
 }
 import com.daml.ledger.participant.state.kvutils.api.LedgerRecord
 import com.daml.ledger.participant.state.v1.Offset
@@ -20,6 +21,11 @@ import com.google.protobuf.ByteString
 import scala.collection.immutable
 
 trait CommonQueries extends Queries {
+  override def selectLatestLogEntryId()(implicit connection: Connection): Option[Index] =
+    SQL"SELECT MAX(sequence_no) max_sequence_no FROM #$LogTable"
+      .as(get[Option[Long]]("max_sequence_no").singleOpt)
+      .flatten
+
   override def selectFromLog(
       start: Index,
       end: Index,

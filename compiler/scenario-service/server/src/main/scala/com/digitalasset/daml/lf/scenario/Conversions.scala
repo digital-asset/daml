@@ -453,9 +453,12 @@ case class Conversions(homePackageId: Ref.PackageId) {
             .addAllStakeholders(fetch.stakeholders.map(convertParty).asJava)
             .build,
         )
-      case ex: N.NodeExercises[Ledger.ScenarioNodeId, V.AbsoluteContractId, Tx.Value[
+      case ex: N.NodeExercises[
+            Ledger.ScenarioNodeId,
             V.AbsoluteContractId,
-          ]] =>
+            Tx.Value[
+              V.AbsoluteContractId,
+            ]] =>
         ex.optLocation.map(loc => builder.setLocation(convertLocation(loc)))
         builder.setExercise(
           Node.Exercise.newBuilder
@@ -517,8 +520,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
             .addAllSignatories(create.signatories.map(convertParty).asJava)
             .addAllStakeholders(create.stakeholders.map(convertParty).asJava)
         create.key.foreach(key =>
-          createBuilder.setKeyWithMaintainers(convertKeyWithMaintainers(key)),
-        )
+          createBuilder.setKeyWithMaintainers(convertKeyWithMaintainers(key)))
         create.optLocation.map(loc => builder.setLocation(convertLocation(loc)))
         builder.setCreate(createBuilder.build)
       case fetch: N.NodeFetch[V.ContractId] =>

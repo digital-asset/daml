@@ -123,8 +123,7 @@ class Context(val contextId: Context.ContextId) {
 
     // And now the new modules can be loaded.
     val lfModules = loadModules.map(module =>
-      decodeModule(LanguageVersion.Major.V1, module.getMinor, module.getDamlLf1),
-    )
+      decodeModule(LanguageVersion.Major.V1, module.getMinor, module.getDamlLf1))
 
     modules ++= lfModules.map(m => m.name -> m)
     if (!forScenarioService)
@@ -133,18 +132,18 @@ class Context(val contextId: Context.ContextId) {
     // At this point 'allPackages' is consistent and we can
     // compile the new modules.
     val compiler = Compiler(allPackages)
-    defns = lfModules.foldLeft(defns)((newDefns, m) =>
-      newDefns.filterKeys(ref => ref.packageId != homePackageId || ref.modName != m.name)
-        ++ m.definitions.flatMap {
-          case (defName, defn) =>
-            compiler
-              .compileDefn(Identifier(homePackageId, QualifiedName(m.name, defName)), defn)
-              .map {
-                case (defRef, compiledDefn) => (defRef, (m.languageVersion, compiledDefn))
-              }
+    defns = lfModules.foldLeft(defns)(
+      (newDefns, m) =>
+        newDefns.filterKeys(ref => ref.packageId != homePackageId || ref.modName != m.name)
+          ++ m.definitions.flatMap {
+            case (defName, defn) =>
+              compiler
+                .compileDefn(Identifier(homePackageId, QualifiedName(m.name, defName)), defn)
+                .map {
+                  case (defRef, compiledDefn) => (defRef, (m.languageVersion, compiledDefn))
+                }
 
-        },
-    )
+        })
   }
 
   def allPackages: Map[PackageId, Ast.Package] =

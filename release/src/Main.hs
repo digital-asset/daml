@@ -94,6 +94,7 @@ main = do
       let npmPackages =
             [ "//language-support/ts/daml-types"
             , "//language-support/ts/daml-ledger"
+            , "//language-support/ts/daml-react"
             ]
       -- make sure the npm packages can be build.
       $logDebug "Building language-support typescript packages"
@@ -115,12 +116,14 @@ main = do
               -- We can't put an .npmrc file in the root of the directory because other bazel npm
               -- code picks it up and looks for the token which is not yet set before the release
               -- phase.
-              $logDebug "Uploading npm packages"
-              liftIO $ bracket
-                (writeFile npmrcPath "//registry.npmjs.org/:_authToken=${NPM_TOKEN}")
-                (\() -> Dir.removeFile npmrcPath)
-                (\() -> forM_ npmPackages
-                  $ \rule -> liftIO $ callCommand $ "bazel run " <> rule <> ":npm_package.publish")
+              -- Only upload from the linux machine.
+              when (osName == "linux") $ do
+                $logDebug "Uploading npm packages"
+                liftIO $ bracket_
+                  (writeFile npmrcPath "//registry.npmjs.org/:_authToken=${NPM_TOKEN}")
+                  (Dir.removeFile npmrcPath)
+                  (forM_ npmPackages
+                    $ \rule -> liftIO $ callCommand $ "bazel run " <> rule <> ":npm_package.publish -- --access public")
 
               -- set variables for next steps in Azure pipelines
               liftIO . putStrLn $ "##vso[task.setvariable variable=has_released;isOutput=true]true"

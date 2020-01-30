@@ -164,12 +164,12 @@ object ValueCoder {
               if (stringForm == "")
                 Left(DecodeError("Missing required field contract_id"))
               else decodeCid.fromString(stringForm),
-          )
+        )
       else
         requireUnset(version, stringForm) flatMap (
             _ =>
               decodeContractIdStruct(structForm) flatMap decodeCid.fromStruct.tupled,
-          )
+        )
     }
 
     def decodeOptionalContractIdOrStruct[Cid, Z](
@@ -183,15 +183,15 @@ object ValueCoder {
             _ =>
               if (stringForm == "") Right(None)
               else decodeCid.fromString(stringForm) map (Some(_)),
-          )
+        )
       else
         requireUnset(version, stringForm) flatMap (
             _ =>
               Option(structForm) filter (_ != placeholderContractId) traverseU (
                   sf =>
                     decodeContractIdStruct(sf) flatMap decodeCid.fromStruct.tupled,
-                ),
-          )
+              ),
+        )
     }
   }
 
@@ -407,8 +407,7 @@ object ValueCoder {
             assertSince(ValueVersions.minMap, "Value.SumCase.MAP")
             val entries = ImmArray(
               protoValue.getMap.getEntriesList.asScala.map(entry =>
-                entry.getKey -> go(newNesting, entry.getValue),
-              ),
+                entry.getKey -> go(newNesting, entry.getValue)),
             )
 
             val map = SortedLookupList
@@ -422,8 +421,7 @@ object ValueCoder {
           case proto.Value.SumCase.GEN_MAP =>
             assertSince(ValueVersions.minGenMap, "Value.SumCase.MAP")
             val genMap = protoValue.getGenMap.getEntriesList.asScala.map(entry =>
-              go(newNesting, entry.getKey) -> go(newNesting, entry.getValue),
-            )
+              go(newNesting, entry.getKey) -> go(newNesting, entry.getValue))
             ValueGenMap(ImmArray(genMap))
 
           case proto.Value.SumCase.SUM_NOT_SET =>

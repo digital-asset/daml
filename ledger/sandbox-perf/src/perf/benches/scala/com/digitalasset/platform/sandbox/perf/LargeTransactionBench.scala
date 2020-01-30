@@ -11,6 +11,7 @@ import org.openjdk.jmh.annotations._
 
 import scala.concurrent.Await
 
+@State(Scope.Benchmark)
 abstract class CreatedStateBase extends PerfBenchState {
 
   override def darFile: File = TestHelper.darFile
@@ -18,7 +19,7 @@ abstract class CreatedStateBase extends PerfBenchState {
   @Param(Array("10", "100", "1000", "100000"))
   var n: Int = _
 
-  var workflowId: String = null
+  var workflowId: String = _
 
   @Setup(Level.Invocation)
   def init(): Unit = {
@@ -29,17 +30,19 @@ abstract class CreatedStateBase extends PerfBenchState {
   def sendCreates(): Unit
 }
 
-final class RangeOfIntsCreatedState extends CreatedStateBase {
+class RangeOfIntsCreatedState extends CreatedStateBase {
+
   override def sendCreates(): Unit =
     Await.result(rangeOfIntsCreateCommand(this, workflowId, n), setupTimeout)
 }
 
-final class ListOfNIntsCreatedState extends CreatedStateBase {
+class ListOfNIntsCreatedState extends CreatedStateBase {
+
   override def sendCreates(): Unit =
     Await.result(listUtilCreateCommand(this, workflowId), setupTimeout)
 }
 
-final class LargeTransactionBench {
+class LargeTransactionBench {
 
   @Benchmark
   def singleHugeContract(state: RangeOfIntsCreatedState): Unit =

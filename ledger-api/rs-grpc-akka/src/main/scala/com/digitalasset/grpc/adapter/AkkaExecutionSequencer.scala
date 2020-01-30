@@ -4,7 +4,7 @@
 package com.digitalasset.grpc.adapter
 
 import akka.Done
-import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
+import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, ExtendedActorSystem, Props}
 import akka.pattern.{AskTimeoutException, ask}
 import akka.util.Timeout
 import com.digitalasset.grpc.adapter.RunnableSequencingActor.ShutdownRequest
@@ -46,8 +46,16 @@ class AkkaExecutionSequencer private (private val actorRef: ActorRef)(
 object AkkaExecutionSequencer {
   def apply(name: String, terminationTimeout: FiniteDuration)(
       implicit system: ActorSystem): AkkaExecutionSequencer = {
-    new AkkaExecutionSequencer(system.actorOf(Props[RunnableSequencingActor], name))(
-      Timeout.durationToTimeout(terminationTimeout))
+    system match {
+      case extendedSystem: ExtendedActorSystem =>
+        new AkkaExecutionSequencer(
+          extendedSystem.systemActorOf(Props[RunnableSequencingActor], name))(
+          Timeout.durationToTimeout(terminationTimeout))
+      case _ =>
+        new AkkaExecutionSequencer(system.actorOf(Props[RunnableSequencingActor], name))(
+          Timeout.durationToTimeout(terminationTimeout))
+
+    }
   }
 
   private val actorTerminatedRegex = """Recipient\[.*]\] had already been terminated.""".r

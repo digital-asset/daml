@@ -7,6 +7,7 @@ import java.sql.Connection
 
 import anorm.SqlParser._
 import anorm._
+import com.daml.ledger.on.sql.Index
 import com.daml.ledger.on.sql.queries.Queries._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntryId
 import com.google.protobuf.ByteString

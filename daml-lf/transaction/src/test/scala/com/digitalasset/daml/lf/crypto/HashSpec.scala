@@ -43,17 +43,17 @@ class HashSpec extends WordSpec with Matchers {
           :: 'fOpt1 ->> VA.optional(VA.text)
           :: 'fList ->> VA.list(VA.text)
           :: 'fVariant ->>
-            VA.variant(
-                defRef(name = "Variant"),
-                'Variant ->> VA.int64 :: RNil,
-              )
-              ._2
+          VA.variant(
+              defRef(name = "Variant"),
+              'Variant ->> VA.int64 :: RNil,
+            )
+            ._2
           :: 'fRecord ->>
-            VA.record(
-                defRef(name = "Record"),
-                'field1 ->> VA.text :: 'field2 ->> VA.text :: RNil,
-              )
-              ._2
+          VA.record(
+              defRef(name = "Record"),
+              'field1 ->> VA.text :: 'field2 ->> VA.text :: RNil,
+            )
+            ._2
           :: 'fTextMap ->> VA.map(VA.text)
           :: RNil,
       )

@@ -1473,8 +1473,7 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
           transactions
             .flatMap(
               _.events.map(e =>
-                e.event.archived.map(_.eventId).orElse(e.event.created.map(_.eventId)).get,
-              ),
+                e.event.archived.map(_.eventId).orElse(e.event.created.map(_.eventId)).get),
             )
             .toSet
             .subsetOf(trees.flatMap(_.eventsById.keys).toSet),
@@ -1515,12 +1514,12 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
         val witnessesByEventIdInFlatStream =
           transactions
             .flatMap(
-              _.events.map(e =>
-                e.event.archived
-                  .map(a => a.eventId -> a.witnessParties.toSet)
-                  .orElse(e.event.created.map(c => c.eventId -> c.witnessParties.toSet))
-                  .get,
-              ),
+              _.events.map(
+                e =>
+                  e.event.archived
+                    .map(a => a.eventId -> a.witnessParties.toSet)
+                    .orElse(e.event.created.map(c => c.eventId -> c.witnessParties.toSet))
+                    .get),
             )
         for ((event, witnesses) <- witnessesByEventIdInFlatStream) {
           assert(witnesses.subsetOf(witnessesByEventIdInTreesStream(event)))

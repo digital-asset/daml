@@ -27,9 +27,8 @@ object Main extends App {
         .opt[String]("jdbc-url")
         .required()
         .text("The URL used to connect to the database.")
-        .action((jdbcUrl, config) =>
-          config.copy(extra = config.extra.copy(jdbcUrl = Some(jdbcUrl))),
-        )
+        .action(
+          (jdbcUrl, config) => config.copy(extra = config.extra.copy(jdbcUrl = Some(jdbcUrl))))
       ()
     }
 
