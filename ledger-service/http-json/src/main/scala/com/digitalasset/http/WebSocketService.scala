@@ -37,7 +37,6 @@ import scala.util.{Failure, Success}
 
 object WebSocketService {
   private type CompiledQueries = Map[domain.TemplateId.RequiredPkg, LfV => Boolean]
-  private type FetchByKeyRequests = Map[domain.TemplateId.RequiredPkg, LfV]
   // TODO(Leo): need a better name, this is more than just a predicate
   private type AcPredicate =
     (List[domain.TemplateId.RequiredPkg], domain.ActiveContract[LfV] => Boolean)
@@ -161,7 +160,7 @@ object WebSocketService {
             ServerError(s"Cannot resolve one of templateIds in the request: ${request.toString}"),
           )
           .map { tpIds: List[(domain.TemplateId.RequiredPkg, LfV)] =>
-            val q: FetchByKeyRequests = tpIds.toMap
+            val q: Map[domain.TemplateId.RequiredPkg, LfV] = tpIds.toMap
             val fn: domain.ActiveContract[LfV] => Boolean = { a =>
               q.get(a.templateId).exists(k => domain.ActiveContract.matchesKey(k)(a))
             }
