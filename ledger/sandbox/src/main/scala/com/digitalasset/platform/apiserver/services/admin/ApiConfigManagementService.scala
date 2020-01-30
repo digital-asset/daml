@@ -42,22 +42,18 @@ final class ApiConfigManagementService private (
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
+  private val defaultConfigResponse = configToResponse(defaultConfiguration)
+
   override def close(): Unit = ()
 
   override def bindService(): ServerServiceDefinition =
     ConfigManagementServiceGrpc.bindService(this, DE)
 
-  override def getTimeModel(request: GetTimeModelRequest): Future[GetTimeModelResponse] = {
+  override def getTimeModel(request: GetTimeModelRequest): Future[GetTimeModelResponse] =
     index
       .lookupConfiguration()
-      .flatMap {
-        case None =>
-          Future.successful(configToResponse(defaultConfiguration))
-        case Some((_, config)) =>
-          Future.successful(configToResponse(config))
-      }(DE)
+      .map(_.fold(defaultConfigResponse) { case (_, conf) => configToResponse(conf) })(DE)
       .andThen(logger.logErrorsOnCall[GetTimeModelResponse])(DE)
-  }
 
   private def configToResponse(config: Configuration): GetTimeModelResponse = {
     val tm = config.timeModel

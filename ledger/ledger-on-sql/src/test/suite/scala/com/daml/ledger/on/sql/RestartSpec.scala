@@ -14,7 +14,7 @@ import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, Party}
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.digitalasset.logging.LoggingContext.newLoggingContext
-import com.digitalasset.resources.Resource
+import com.digitalasset.resources.ResourceOwner
 import org.scalatest.{AsyncWordSpec, BeforeAndAfterEach, Matchers}
 
 import scala.compat.java8.FutureConverters._
@@ -29,7 +29,7 @@ class RestartSpec
 
   private val root = Files.createTempDirectory(getClass.getSimpleName)
 
-  private def start(id: String): Resource[KeyValueParticipantState] = {
+  private def start(id: String): ResourceOwner[KeyValueParticipantState] = {
     newLoggingContext { implicit logCtx =>
       val ledgerId: LedgerString = LedgerString.assertFromString(s"ledger-${UUID.randomUUID()}")
       val participantId: ParticipantId = LedgerString.assertFromString("participant")
@@ -38,7 +38,6 @@ class RestartSpec
       SqlLedgerReaderWriter
         .owner(ledgerId, participantId, jdbcUrl)
         .map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter))
-        .acquire()
     }
   }
 

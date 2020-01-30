@@ -59,14 +59,6 @@ trait Resource[A] {
     ).flatten
 
   def vary[B >: A]: Resource[B] = asInstanceOf[Resource[B]]
-
-  def use[T](behavior: A => Future[T])(implicit executionContext: ExecutionContext): Future[T] =
-    asFuture
-      .flatMap(behavior)
-      .transformWith {
-        case Success(value) => release().map(_ => value)
-        case Failure(exception) => release().flatMap(_ => Future.failed(exception))
-      }
 }
 
 object Resource {

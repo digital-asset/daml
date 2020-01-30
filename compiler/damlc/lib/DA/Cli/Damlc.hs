@@ -382,6 +382,11 @@ execIde telemetry (Debug debug) enableScenarioService options =
                       f loggerH
                   Undecided -> f loggerH
           dlintDataDir <- locateRunfiles $ mainWorkspace </> "compiler/damlc/daml-ide-core"
+          initPackageDb options (InitPkgDb True)
+          -- initPackageDb assumes that options does not call mkOptions.
+          -- TODO Burn mkOptions with lots of fire. It is impossible to use
+          -- it correctly since calling it twice will break everything
+          -- and there is no indicator of whether it has already been called.
           options <- mkOptions options
               { optScenarioService = enableScenarioService
               , optSkipScenarioValidation = SkipScenarioValidation True
@@ -391,7 +396,6 @@ execIde telemetry (Debug debug) enableScenarioService options =
               , optThreads = 0
               , optDlintUsage = DlintEnabled dlintDataDir True
               }
-          initPackageDb options (InitPkgDb True)
           scenarioServiceConfig <- readScenarioServiceConfig
           withLogger $ \loggerH ->
               withScenarioService' enableScenarioService loggerH scenarioServiceConfig $ \mbScenarioService -> do
