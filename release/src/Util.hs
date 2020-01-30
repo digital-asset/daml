@@ -26,6 +26,8 @@ module Util (
     resolvePomData,
     loggedProcess_,
     isDeployJar,
+
+    osName
   ) where
 
 
