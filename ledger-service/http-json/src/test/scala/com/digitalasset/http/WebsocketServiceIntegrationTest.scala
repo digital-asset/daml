@@ -100,6 +100,20 @@ class WebsocketServiceIntegrationTest
         }
   }
 
+  "websocket should warn on unknown template IDs" in withHttpService { (uri, _, _) =>
+    for {
+      _ <- initialIouCreate(uri)
+
+      clientMsg <- singleClientStream(uri, """{"templateIds": ["Iou:Iou", "Unknown:Template"]}""")
+        .runWith(collectResultsAsRawString)
+    } yield
+      inside(clientMsg) {
+        case Seq(warning, result) =>
+          warning should include("\"warnings\":{\"unknownTemplateIds\":[\"Unk")
+          result should include("\"issuer\":\"Alice\"")
+      }
+  }
+
   "websocket should send error msg when receiving malformed message" in withHttpService {
     (uri, _, _) =>
       val clientMsg = singleClientStream(uri, "{}")
