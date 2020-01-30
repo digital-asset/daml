@@ -252,15 +252,16 @@ object domain {
       for {
         templateId <- in.templateId required "templateId"
         payload <- in.createArguments required "createArguments"
-      } yield ActiveContract(
-        contractId = ContractId(in.contractId),
-        templateId = TemplateId fromLedgerApi templateId,
-        key = in.contractKey,
-        payload = boxedRecord(payload),
-        signatories = Party.subst(in.signatories),
-        observers = Party.subst(in.observers),
-        agreementText = in.agreementText getOrElse "",
-      )
+      } yield
+        ActiveContract(
+          contractId = ContractId(in.contractId),
+          templateId = TemplateId fromLedgerApi templateId,
+          key = in.contractKey,
+          payload = boxedRecord(payload),
+          signatories = Party.subst(in.signatories),
+          observers = Party.subst(in.observers),
+          agreementText = in.agreementText getOrElse "",
+        )
 
     implicit val covariant: Traverse[ActiveContract] = new Traverse[ActiveContract] {
 
@@ -301,21 +302,23 @@ object domain {
     def fromLedgerApi(in: lav1.event.ArchivedEvent): Error \/ ArchivedContract =
       for {
         templateId <- in.templateId required "templateId"
-      } yield ArchivedContract(
-        contractId = ContractId(in.contractId),
-        templateId = TemplateId fromLedgerApi templateId,
-      )
+      } yield
+        ArchivedContract(
+          contractId = ContractId(in.contractId),
+          templateId = TemplateId fromLedgerApi templateId,
+        )
 
     def fromLedgerApi(in: lav1.event.ExercisedEvent): Error \/ Option[ArchivedContract] =
       if (in.consuming) {
         for {
           templateId <- in.templateId.required("templateId")
-        } yield Some(
-          ArchivedContract(
-            contractId = ContractId(in.contractId),
-            templateId = TemplateId.fromLedgerApi(templateId),
-          ),
-        )
+        } yield
+          Some(
+            ArchivedContract(
+              contractId = ContractId(in.contractId),
+              templateId = TemplateId.fromLedgerApi(templateId),
+            ),
+          )
       } else {
         \/-(None)
       }
