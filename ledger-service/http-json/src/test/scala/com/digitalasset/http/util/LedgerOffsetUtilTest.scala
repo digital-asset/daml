@@ -3,7 +3,6 @@
 
 package com.digitalasset.http.util
 
-import com.digitalasset.daml.lf.data.FlatSpecCheckLaws
 import org.scalatest.{FlatSpec, Matchers}
 
-class LedgerOffsetUtilTest extends FlatSpec with Matchers with FlatSpecCheckLaws {}
+class LedgerOffsetUtilTest extends FlatSpec with Matchers {}
