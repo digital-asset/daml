@@ -14,9 +14,12 @@ azure-pipelines.yml @garyverhaegen-da
 azure-cron.yml      @garyverhaegen-da
 
 # Language
-/compiler/          @hurryabit
-/libs-haskell/      @hurryabit
-/daml-assistant/    @associahedron
+/compiler/          @hurryabit @cocreature
+/libs-haskell/      @hurryabit @cocreature
+/daml-assistant/    @associahedron @hurryabit @associahedron
+/daml-script/       @cocreature @hurryabit @aherrmann-da
+/triggers/          @cocreature @hurryabit @aherrmann-da
+/ghc-lib/           @shayne-fletcher @cocreature
 
 # Runtime
 /daml-lf/               @leo-da @S11001001
@@ -34,10 +37,11 @@ azure-cron.yml      @garyverhaegen-da
 /language-support/hs/       @nickchapman-da
 /language-support/java/     @gerolf-da @stefanobaghino-da
 /language-support/scala/    @leo-da @S11001001
+/language-support/ts/       @hurryabit @shayne-fletcher @robin-da
 
 # Tools
 /extractor/         @leo-da @S11001001
 /navigator/         @rautenrieth-da
 
 # Misc
-/docs/              @bame-da @nemanja-da
+/docs/              @bame-da @nemanja-da @hurryabit
