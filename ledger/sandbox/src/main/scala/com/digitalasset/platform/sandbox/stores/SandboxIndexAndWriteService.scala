@@ -37,10 +37,14 @@ import com.digitalasset.ledger.api.domain.CompletionEvent.{
 import com.digitalasset.ledger.api.domain.{ParticipantId => _, _}
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.logging.LoggingContext
+import com.digitalasset.platform.index.store.Contract.ActiveContract
+import com.digitalasset.platform.index.store.entries.{LedgerEntry, PartyLedgerEntry}
+import com.digitalasset.platform.index.store.{LedgerSnapshot, ReadOnlyLedger}
 import com.digitalasset.platform.participant.util.EventFilter
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.digitalasset.platform.sandbox.stores.ledger._
-import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode
+import com.digitalasset.platform.sandbox.stores.ledger.inmemory.InMemoryLedger
+import com.digitalasset.platform.sandbox.stores.ledger.sql.{SqlLedger, SqlStartMode}
 import com.digitalasset.platform.server.api.validation.ErrorFactories
 import com.digitalasset.resources.{Resource, ResourceOwner}
 import org.slf4j.LoggerFactory
@@ -76,10 +80,10 @@ object SandboxIndexAndWriteService {
       templateStore: InMemoryPackageStore,
       metrics: MetricRegistry,
   )(implicit mat: Materializer, logCtx: LoggingContext): ResourceOwner[IndexAndWriteService] =
-    Ledger
-      .jdbcBacked(
+    SqlLedger
+      .owner(
         jdbcUrl,
-        ledgerId,
+        Some(ledgerId),
         participantId,
         timeProvider,
         acs,
@@ -90,7 +94,7 @@ object SandboxIndexAndWriteService {
         metrics,
       )
       .flatMap(ledger =>
-        owner(Ledger.metered(ledger, metrics), participantId, timeModel, timeProvider))
+        owner(MeteredLedger(ledger, metrics), participantId, timeModel, timeProvider))
 
   def inMemory(
       ledgerId: LedgerId,
@@ -101,11 +105,11 @@ object SandboxIndexAndWriteService {
       ledgerEntries: ImmArray[LedgerEntryOrBump],
       templateStore: InMemoryPackageStore,
       metrics: MetricRegistry,
-  )(implicit mat: Materializer): ResourceOwner[IndexAndWriteService] =
-    Ledger
-      .inMemory(ledgerId, participantId, timeProvider, acs, templateStore, ledgerEntries)
-      .flatMap(ledger =>
-        owner(Ledger.metered(ledger, metrics), participantId, timeModel, timeProvider))
+  )(implicit mat: Materializer): ResourceOwner[IndexAndWriteService] = {
+    val ledger =
+      new InMemoryLedger(ledgerId, participantId, timeProvider, acs, templateStore, ledgerEntries)
+    owner(MeteredLedger(ledger, metrics), participantId, timeModel, timeProvider)
+  }
 
   private def owner(
       ledger: Ledger,
@@ -200,7 +204,8 @@ abstract class LedgerBackedIndexService(
 
   private def toUpdateEvent(
       cId: Value.AbsoluteContractId,
-      ac: ActiveLedgerState.ActiveContract): AcsUpdateEvent.Create =
+      ac: ActiveContract
+  ): AcsUpdateEvent.Create =
     AcsUpdateEvent.Create(
       // we use absolute contract ids as event ids throughout the sandbox
       domain.TransactionId(ac.transactionId),

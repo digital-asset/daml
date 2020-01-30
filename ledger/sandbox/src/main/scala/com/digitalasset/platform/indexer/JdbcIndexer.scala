@@ -21,19 +21,15 @@ import com.digitalasset.dec.{DirectExecutionContext => DEC}
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
-import com.digitalasset.platform.sandbox.EventIdFormatter
-import com.digitalasset.platform.sandbox.metrics.timedFuture
-import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{
-  JdbcLedgerDao,
-  LedgerDao,
-  PersistenceEntry
-}
-import com.digitalasset.platform.sandbox.stores.ledger.sql.migration.FlywayMigrations
-import com.digitalasset.platform.sandbox.stores.ledger.{
+import com.digitalasset.platform.events.EventIdFormatter
+import com.digitalasset.platform.index.store.dao.{JdbcLedgerDao, LedgerDao}
+import com.digitalasset.platform.index.store.entries.{
   LedgerEntry,
   PackageLedgerEntry,
   PartyLedgerEntry
 }
+import com.digitalasset.platform.index.store.{FlywayMigrations, PersistenceEntry}
+import com.digitalasset.platform.metrics.timedFuture
 import com.digitalasset.resources.{Resource, ResourceOwner}
 import scalaz.syntax.tag._
 
@@ -372,13 +368,13 @@ class JdbcIndexer private[indexer] (
       state: RejectionReason): domain.RejectionReason = state match {
     case RejectionReason.Inconsistent =>
       domain.RejectionReason.Inconsistent(RejectionReason.Inconsistent.description)
-    case RejectionReason.Disputed(reason @ _) => domain.RejectionReason.Disputed(state.description)
+    case RejectionReason.Disputed(_) => domain.RejectionReason.Disputed(state.description)
     case RejectionReason.MaximumRecordTimeExceeded =>
       domain.RejectionReason.TimedOut(state.description)
     case RejectionReason.ResourcesExhausted => domain.RejectionReason.OutOfQuota(state.description)
     case RejectionReason.PartyNotKnownOnLedger =>
       domain.RejectionReason.PartyNotKnownOnLedger(state.description)
-    case RejectionReason.SubmitterCannotActViaParticipant(details) =>
+    case RejectionReason.SubmitterCannotActViaParticipant(_) =>
       domain.RejectionReason.SubmitterCannotActViaParticipant(state.description)
   }
 

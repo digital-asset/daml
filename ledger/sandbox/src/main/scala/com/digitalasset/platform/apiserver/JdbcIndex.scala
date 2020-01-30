@@ -14,11 +14,7 @@ import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.ledger.api.domain.{ParticipantId => _, _}
 import com.digitalasset.logging.LoggingContext
 import com.digitalasset.platform.sandbox.stores.LedgerBackedIndexService
-import com.digitalasset.platform.sandbox.stores.ledger.{
-  Ledger,
-  MeteredReadOnlyLedger,
-  SandboxContractStore
-}
+import com.digitalasset.platform.sandbox.stores.ledger.{MeteredReadOnlyLedger, SandboxContractStore}
 import com.digitalasset.resources.Resource
 
 object JdbcIndex {
@@ -29,21 +25,18 @@ object JdbcIndex {
       jdbcUrl: String,
       metrics: MetricRegistry,
   )(implicit mat: Materializer, logCtx: LoggingContext): Resource[IndexService] =
-    Ledger
-      .jdbcBackedReadOnly(jdbcUrl, ledgerId, metrics)
-      .map { ledger =>
-        val contractStore = new SandboxContractStore(ledger)
-        new LedgerBackedIndexService(
-          MeteredReadOnlyLedger(ledger, metrics),
-          contractStore,
-          participantId) {
-          override def getLedgerConfiguration(): Source[v2.LedgerConfiguration, NotUsed] =
-            // FIXME(JM): This is broken. We should not use ReadService in Ledger API Server,
-            // The indexer should on start set the default configuration.
-            readService.getLedgerInitialConditions().map { cond =>
-              v2.LedgerConfiguration(cond.config.timeModel.minTtl, cond.config.timeModel.maxTtl)
-            }
-        }
-      }(DirectExecutionContext)
-      .vary
+    ReadOnlySqlLedger(jdbcUrl, Some(ledgerId), metrics).map { ledger =>
+      val contractStore = new SandboxContractStore(ledger)
+      new LedgerBackedIndexService(
+        MeteredReadOnlyLedger(ledger, metrics),
+        contractStore,
+        participantId) {
+        override def getLedgerConfiguration(): Source[v2.LedgerConfiguration, NotUsed] =
+          // FIXME(JM): This is broken. We should not use ReadService in Ledger API Server,
+          // The indexer should on start set the default configuration.
+          readService.getLedgerInitialConditions().map { cond =>
+            v2.LedgerConfiguration(cond.config.timeModel.minTtl, cond.config.timeModel.maxTtl)
+          }
+      }
+    }(DirectExecutionContext).vary
 }

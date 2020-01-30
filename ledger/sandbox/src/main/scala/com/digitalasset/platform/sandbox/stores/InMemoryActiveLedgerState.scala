@@ -8,14 +8,22 @@ import java.time.Instant
 import com.daml.ledger.participant.state.v1.AbsoluteContractInst
 import com.digitalasset.daml.lf.data.Ref.{Party, TransactionIdString}
 import com.digitalasset.daml.lf.data.Relation.Relation
-import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.transaction.GenTransaction
+import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
-import com.digitalasset.ledger.{EventId, WorkflowId}
 import com.digitalasset.ledger.api.domain.PartyDetails
-import com.digitalasset.platform.sandbox.stores.ActiveLedgerState._
-import com.digitalasset.platform.sandbox.stores.ledger.SequencingError
+import com.digitalasset.ledger.{EventId, WorkflowId}
+import com.digitalasset.platform.index.store.Contract.{ActiveContract, DivulgedContract}
+import com.digitalasset.platform.index.store.{
+  ActiveLedgerState,
+  ActiveLedgerStateManager,
+  Contract,
+  Let,
+  LetLookup,
+  LetUnknown,
+  SequencingError
+}
 import scalaz.syntax.std.map._
 
 case class InMemoryActiveLedgerState(

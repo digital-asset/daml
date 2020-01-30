@@ -7,23 +7,20 @@ import java.time.Instant
 
 import com.digitalasset.daml.lf.CompiledPackages
 import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.language.Ast
-import com.digitalasset.daml.lf.language.Ast.{DTypeSyn, DDataType, DValue, Definition}
+import com.digitalasset.daml.lf.language.Ast.{DDataType, DTypeSyn, DValue, Definition}
+import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
 import com.digitalasset.daml.lf.speedy.{ScenarioRunner, Speedy}
+import com.digitalasset.daml.lf.transaction.{GenTransaction, VersionTimeline}
+import com.digitalasset.daml.lf.types.Ledger.ScenarioTransactionId
 import com.digitalasset.daml.lf.types.{Ledger => L}
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
+import com.digitalasset.platform.index.store.entries.LedgerEntry
 import com.digitalasset.platform.sandbox.stores.{InMemoryActiveLedgerState, InMemoryPackageStore}
 import org.slf4j.LoggerFactory
-import com.digitalasset.daml.lf.transaction.GenTransaction
-import com.digitalasset.daml.lf.types.Ledger.ScenarioTransactionId
-import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.Transaction
-import com.digitalasset.daml.lf.language.LanguageVersion
-import com.digitalasset.daml.lf.transaction.VersionTimeline
-
-import scala.collection.breakOut
-import scala.collection.mutable.ArrayBuffer
 
 import scala.annotation.tailrec
+import scala.collection.breakOut
+import scala.collection.mutable.ArrayBuffer
 
 object ScenarioLoader {
   private val logger = LoggerFactory.getLogger(this.getClass)
@@ -268,7 +265,7 @@ object ScenarioLoader {
               (
                 (
                   txId,
-                  Transaction(
+                  LedgerEntry.Transaction(
                     Some(transactionId),
                     transactionId,
                     Some(scenarioLoader),

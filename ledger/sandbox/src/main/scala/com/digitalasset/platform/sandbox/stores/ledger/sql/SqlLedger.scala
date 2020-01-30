@@ -23,22 +23,24 @@ import com.digitalasset.dec.{DirectExecutionContext => DEC}
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, RejectionReason}
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
-import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
-import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode.{
-  AlwaysReset,
-  ContinueIfExists
-}
-import com.digitalasset.platform.sandbox.stores.ledger.sql.dao._
-import com.digitalasset.platform.sandbox.stores.ledger.sql.migration.FlywayMigrations
-import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
-import com.digitalasset.platform.sandbox.stores.ledger.{
-  Ledger,
+import com.digitalasset.platform.events.EventIdFormatter
+import com.digitalasset.platform.index.store.dao.JdbcLedgerDao.defaultNumberOfShortLivedConnections
+import com.digitalasset.platform.index.store.dao.{DbDispatcher, _}
+import com.digitalasset.platform.index.store.entries.{
   LedgerEntry,
   PackageLedgerEntry,
   PartyLedgerEntry
 }
+import com.digitalasset.platform.index.store.{
+  BaseLedger,
+  DbType,
+  FlywayMigrations,
+  PersistenceEntry
+}
+import com.digitalasset.platform.sandbox.LedgerIdGenerator
+import com.digitalasset.platform.sandbox.stores.ledger.Ledger
+import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.digitalasset.platform.sandbox.stores.{InMemoryActiveLedgerState, InMemoryPackageStore}
-import com.digitalasset.platform.sandbox.{EventIdFormatter, LedgerIdGenerator}
 import com.digitalasset.resources.ResourceOwner
 import scalaz.syntax.tag._
 
@@ -47,21 +49,7 @@ import scala.collection.immutable.Queue
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
-sealed abstract class SqlStartMode extends Product with Serializable
-
-object SqlStartMode {
-
-  /** Will continue using an initialised ledger, otherwise initialize a new one */
-  final case object ContinueIfExists extends SqlStartMode
-
-  /** Will always reset and initialize the ledger, even if it has data.  */
-  final case object AlwaysReset extends SqlStartMode
-
-}
-
 object SqlLedger {
-
-  val defaultNumberOfShortLivedConnections = 16
 
   private case class Offsets(offset: Long, nextOffset: Long)
 
@@ -92,7 +80,7 @@ object SqlLedger {
       if (dbType.supportsParallelWrites) defaultNumberOfShortLivedConnections else 1
     for {
       dbDispatcher <- DbDispatcher.owner(jdbcUrl, maxConnections, metrics)
-      ledgerDao = LedgerDao.metered(
+      ledgerDao = new MeteredLedgerDao(
         JdbcLedgerDao(dbDispatcher, dbType, mat.executionContext),
         metrics,
       )
@@ -431,12 +419,12 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
     implicit val ec: ExecutionContext = DEC
 
     def init(): Future[LedgerId] = startMode match {
-      case AlwaysReset =>
+      case SqlStartMode.AlwaysReset =>
         for {
           _ <- reset()
           ledgerId <- initialize(initialLedgerId, timeProvider, acs, packages, initialLedgerEntries)
         } yield ledgerId
-      case ContinueIfExists =>
+      case SqlStartMode.ContinueIfExists =>
         initialize(initialLedgerId, timeProvider, acs, packages, initialLedgerEntries)
     }
 

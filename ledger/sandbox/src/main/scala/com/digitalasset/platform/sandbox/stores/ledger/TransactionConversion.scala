@@ -9,6 +9,7 @@ import com.digitalasset.daml.lf.value.{Value => Lf}
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.Event.{CreateOrArchiveEvent, CreateOrExerciseEvent}
 import com.digitalasset.platform.common.{PlatformTypes => P}
+import com.digitalasset.platform.index.store.entries.LedgerEntry
 import com.digitalasset.platform.participant.util.EventFilter
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.server.services.transaction.TransactionFiltration.RichTransactionFilter

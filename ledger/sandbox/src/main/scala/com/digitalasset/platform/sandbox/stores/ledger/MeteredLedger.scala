@@ -7,7 +7,7 @@ import java.time.Instant
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.codahale.metrics.MetricRegistry
+import com.codahale.metrics.{MetricRegistry, Timer}
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party, TransactionIdString}
@@ -19,9 +19,15 @@ import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
 import com.digitalasset.ledger.api.health.HealthStatus
+import com.digitalasset.platform.index.store.entries.{
+  ConfigurationEntry,
+  LedgerEntry,
+  PackageLedgerEntry,
+  PartyLedgerEntry
+}
+import com.digitalasset.platform.index.store.{Contract, LedgerSnapshot, ReadOnlyLedger}
+import com.digitalasset.platform.metrics.timedFuture
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
-import com.digitalasset.platform.sandbox.metrics.timedFuture
-import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.Contract
 
 import scala.concurrent.Future
 
@@ -29,14 +35,14 @@ private class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegis
     extends ReadOnlyLedger {
 
   private object Metrics {
-    val lookupContract = metrics.timer("daml.index.lookup_contract")
-    val lookupKey = metrics.timer("daml.index.lookup_key")
-    val lookupTransaction = metrics.timer("daml.index.lookup_transaction")
-    val lookupLedgerConfiguration = metrics.timer("daml.index.lookup_ledger_configuration ")
-    val parties = metrics.timer("daml.index.parties")
-    val listLfPackages = metrics.timer("daml.index.list_lf_packages")
-    val getLfArchive = metrics.timer("daml.index.get_lf_archive")
-    val getLfPackage = metrics.timer("daml.index.get_lf_package")
+    val lookupContract: Timer = metrics.timer("daml.index.lookup_contract")
+    val lookupKey: Timer = metrics.timer("daml.index.lookup_key")
+    val lookupTransaction: Timer = metrics.timer("daml.index.lookup_transaction")
+    val lookupLedgerConfiguration: Timer = metrics.timer("daml.index.lookup_ledger_configuration ")
+    val parties: Timer = metrics.timer("daml.index.parties")
+    val listLfPackages: Timer = metrics.timer("daml.index.list_lf_packages")
+    val getLfArchive: Timer = metrics.timer("daml.index.get_lf_archive")
+    val getLfPackage: Timer = metrics.timer("daml.index.get_lf_package")
   }
 
   override def ledgerId: LedgerId = ledger.ledgerId
@@ -105,11 +111,11 @@ private class MeteredLedger(ledger: Ledger, metrics: MetricRegistry)
     with Ledger {
 
   private object Metrics {
-    val publishHeartbeat = metrics.timer("daml.index.publish_heartbeat")
-    val publishTransaction = metrics.timer("daml.index.publish_transaction")
-    val publishPartyAllocation = metrics.timer("daml.index.publish_party_allocation")
-    val uploadPackages = metrics.timer("daml.index.upload_packages")
-    val publishConfiguration = metrics.timer("daml.index.publish_configuration")
+    val publishHeartbeat: Timer = metrics.timer("daml.index.publish_heartbeat")
+    val publishTransaction: Timer = metrics.timer("daml.index.publish_transaction")
+    val publishPartyAllocation: Timer = metrics.timer("daml.index.publish_party_allocation")
+    val uploadPackages: Timer = metrics.timer("daml.index.upload_packages")
+    val publishConfiguration: Timer = metrics.timer("daml.index.publish_configuration")
   }
 
   override def publishHeartbeat(time: Instant): Future[Unit] =

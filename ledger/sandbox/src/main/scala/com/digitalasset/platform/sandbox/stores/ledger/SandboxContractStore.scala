@@ -9,6 +9,7 @@ import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.transaction.Transaction.{Value => TxValue}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.dec.{DirectExecutionContext => DEC}
+import com.digitalasset.platform.index.store.ReadOnlyLedger
 
 import scala.concurrent.{ExecutionContext, Future}
 
