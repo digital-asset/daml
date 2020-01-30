@@ -342,8 +342,7 @@ object SBuiltin {
           } catch {
             case _: NumberFormatException =>
               CtrlValue.None
-          }
-        else
+          } else
           CtrlValue.None
     }
   }

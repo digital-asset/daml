@@ -245,8 +245,7 @@ class SEquatableValuesSpec extends WordSpec with Matchers with TableDrivenProper
           (x, i) <- atoms.zipWithIndex
           (y, j) <- atoms.zipWithIndex
           if i != j
-        } assert(!Equality.areEqual(x, y)),
-      )
+        } assert(!Equality.areEqual(x, y)))
     }
 
     "be irreflexive on non-equatable values" in {
@@ -259,8 +258,7 @@ class SEquatableValuesSpec extends WordSpec with Matchers with TableDrivenProper
           (x, i) <- atoms.zipWithIndex
           (y, j) <- atoms.zipWithIndex
           if i != j
-        } assert(!Equality.areEqual(x, y)),
-      )
+        } assert(!Equality.areEqual(x, y)))
     }
 
     "return false when applied on an equatable and a nonEquatable values" in {
@@ -280,8 +278,7 @@ class SEquatableValuesSpec extends WordSpec with Matchers with TableDrivenProper
 
     "fail on non-equatable values" in {
       forEvery(nonEquatableValues)(atoms =>
-        forEvery(atoms)(x => a[Hasher.NonHashableSValue] should be thrownBy Hasher.hash(x)),
-      )
+        forEvery(atoms)(x => a[Hasher.NonHashableSValue] should be thrownBy Hasher.hash(x)))
     }
 
   }

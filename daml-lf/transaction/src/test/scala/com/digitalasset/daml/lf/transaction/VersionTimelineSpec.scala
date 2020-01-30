@@ -57,13 +57,11 @@ class VersionTimelineSpec extends WordSpec with Matchers with PropertyChecks wit
       val versions = Table(
         "language version",
         LanguageMajorVersion.All.flatMap(major =>
-          major.acceptedVersions.map(LanguageVersion(major, _)),
-        ): _*,
+          major.acceptedVersions.map(LanguageVersion(major, _))): _*,
       )
 
       forEvery(versions)(v1 =>
-        forEvery(versions)(v2 => LanguageVersion.ordering.lt(v1, v2) shouldBe (v1 precedes v2)),
-      )
+        forEvery(versions)(v2 => LanguageVersion.ordering.lt(v1, v2) shouldBe (v1 precedes v2)))
     }
 
     "end with a dev version" in {

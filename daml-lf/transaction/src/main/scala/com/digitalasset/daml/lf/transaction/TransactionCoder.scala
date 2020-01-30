@@ -385,24 +385,25 @@ object TransactionCoder {
           signatories <- toPartySet(protoExe.getSignatoriesList)
           stakeholders <- toPartySet(protoExe.getStakeholdersList)
           choiceName <- toIdentifier(protoExe.getChoice)
-        } yield (
-          ni,
-          NodeExercises[Nid, Cid, Val](
-            targetCoid = targetCoid,
-            templateId = templateId,
-            choiceId = choiceName,
-            optLocation = None,
-            consuming = protoExe.getConsuming,
-            actingParties = actingParties,
-            chosenValue = cv,
-            stakeholders = stakeholders,
-            signatories = signatories,
-            controllers = controllers,
-            children = children,
-            exerciseResult = rv,
-            key = keyWithMaintainers,
-          ),
-        )
+        } yield
+          (
+            ni,
+            NodeExercises[Nid, Cid, Val](
+              targetCoid = targetCoid,
+              templateId = templateId,
+              choiceId = choiceName,
+              optLocation = None,
+              consuming = protoExe.getConsuming,
+              actingParties = actingParties,
+              chosenValue = cv,
+              stakeholders = stakeholders,
+              signatories = signatories,
+              controllers = controllers,
+              children = children,
+              exerciseResult = rv,
+              key = keyWithMaintainers,
+            ),
+          )
       case NodeTypeCase.LOOKUP_BY_KEY =>
         val protoLookupByKey = protoNode.getLookupByKey
         for {

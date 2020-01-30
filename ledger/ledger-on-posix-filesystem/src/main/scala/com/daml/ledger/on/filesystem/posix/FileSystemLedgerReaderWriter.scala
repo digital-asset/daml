@@ -185,15 +185,14 @@ object FileSystemLedgerReaderWriter {
         Option(new RandomAccessFile(ledgerLock.toFile, "rw").getChannel.tryLock()) match {
           case None => Failure(new LedgerLockAcquisitionFailedException(ledgerLock))
           case Some(lock) => Success(lock)
-        },
-      )
-      dispatcher <- ResourceOwner.forCloseable(() =>
-        Dispatcher(
-          "posix-filesystem-participant-state",
-          zeroIndex = StartIndex,
-          headAtInitialization = StartIndex,
-        ),
-      )
+      })
+      dispatcher <- ResourceOwner.forCloseable(
+        () =>
+          Dispatcher(
+            "posix-filesystem-participant-state",
+            zeroIndex = StartIndex,
+            headAtInitialization = StartIndex,
+        ))
     } yield {
       val participant = new FileSystemLedgerReaderWriter(ledgerId, participantId, root, dispatcher)
       participant.initialize()

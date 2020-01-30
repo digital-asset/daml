@@ -25,7 +25,7 @@ import scalaz.Tag
 final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session) {
   test(
     "CKFetchOrLookup",
-    "Divulged contracts can be fetched or looked up by key",
+    "Divulged contracts cannot be fetched or looked up by key by non-stakeholders",
     allocate(SingleParty, SingleParty),
   ) {
     case Participants(Participant(alpha, owner), Participant(beta, delegate)) =>

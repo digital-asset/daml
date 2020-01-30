@@ -171,8 +171,7 @@ private[digitalasset] object VersionTimeline {
       .toOption
     latestIndex
       .flatMap(li =>
-        inAscendingOrder.list.take(li + 1).reverse collectFirst (Function unlift A.extract),
-      )
+        inAscendingOrder.list.take(li + 1).reverse collectFirst (Function unlift A.extract))
       .getOrElse(minimum)
   }
 

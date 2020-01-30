@@ -3,6 +3,8 @@
 
 package com.daml.ledger.on.sql
 
+import java.sql.Connection
+
 import com.daml.ledger.on.sql.queries.{H2Queries, PostgresqlQueries, Queries, SqliteQueries}
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.resources.ResourceOwner
@@ -10,11 +12,57 @@ import com.zaxxer.hikari.HikariDataSource
 import javax.sql.DataSource
 import org.flywaydb.core.Flyway
 
-case class Database(
-    queries: Queries,
+import scala.concurrent.duration.Duration
+import scala.util.control.NonFatal
+
+class Database(
+    val queries: Queries,
     readerConnectionPool: DataSource,
     writerConnectionPool: DataSource,
-)
+) {
+  private val logger = ContextualizedLogger.get(this.getClass)
+
+  def inReadTransaction[T](message: String)(
+      body: Connection => T,
+  )(implicit logCtx: LoggingContext): T = {
+    inTransaction(message, readerConnectionPool)(body)
+  }
+
+  def inWriteTransaction[T](message: String)(
+      body: Connection => T,
+  )(implicit logCtx: LoggingContext): T = {
+    inTransaction(message, writerConnectionPool)(body)
+  }
+
+  private def inTransaction[T](message: String, connectionPool: DataSource)(
+      body: Connection => T,
+  )(implicit logCtx: LoggingContext): T = {
+    val connection =
+      time(s"$message: acquiring connection")(connectionPool.getConnection())
+    time(message) {
+      try {
+        val result = body(connection)
+        connection.commit()
+        result
+      } catch {
+        case NonFatal(exception) =>
+          connection.rollback()
+          throw exception
+      } finally {
+        connection.close()
+      }
+    }
+  }
+
+  private def time[T](message: String)(body: => T)(implicit logCtx: LoggingContext): T = {
+    val startTime = System.nanoTime()
+    logger.trace(s"$message: starting")
+    val result = body
+    val endTime = System.nanoTime()
+    logger.trace(s"$message: finished in ${Duration.fromNanos(endTime - startTime).toMillis}ms")
+    result
+  }
+}
 
 object Database {
   private val logger = ContextualizedLogger.get(classOf[Database])
@@ -61,18 +109,17 @@ object Database {
     ): ResourceOwner[UninitializedDatabase] =
       for {
         readerConnectionPool <- ResourceOwner.forCloseable(() =>
-          newHikariDataSource(jdbcUrl, readOnly = true),
-        )
+          newHikariDataSource(jdbcUrl, readOnly = true))
         writerConnectionPool <- ResourceOwner.forCloseable(() =>
-          newHikariDataSource(jdbcUrl, maxPoolSize = Some(MaximumWriterConnectionPoolSize)),
-        )
+          newHikariDataSource(jdbcUrl, maxPoolSize = Some(MaximumWriterConnectionPoolSize)))
         adminConnectionPool <- ResourceOwner.forCloseable(() => newHikariDataSource(jdbcUrl))
-      } yield new UninitializedDatabase(
-        system,
-        readerConnectionPool,
-        writerConnectionPool,
-        adminConnectionPool,
-      )
+      } yield
+        new UninitializedDatabase(
+          system,
+          readerConnectionPool,
+          writerConnectionPool,
+          adminConnectionPool,
+        )
   }
 
   object SingleConnectionDatabase {
@@ -82,15 +129,15 @@ object Database {
     ): ResourceOwner[UninitializedDatabase] =
       for {
         readerWriterConnectionPool <- ResourceOwner.forCloseable(() =>
-          newHikariDataSource(jdbcUrl, maxPoolSize = Some(MaximumWriterConnectionPoolSize)),
-        )
+          newHikariDataSource(jdbcUrl, maxPoolSize = Some(MaximumWriterConnectionPoolSize)))
         adminConnectionPool <- ResourceOwner.forCloseable(() => newHikariDataSource(jdbcUrl))
-      } yield new UninitializedDatabase(
-        system,
-        readerWriterConnectionPool,
-        readerWriterConnectionPool,
-        adminConnectionPool,
-      )
+      } yield
+        new UninitializedDatabase(
+          system,
+          readerWriterConnectionPool,
+          readerWriterConnectionPool,
+          adminConnectionPool,
+        )
   }
 
   private def newHikariDataSource(
@@ -149,7 +196,7 @@ object Database {
     def migrate(): Database = {
       flyway.migrate()
       afterMigration()
-      Database(system.queries, readerConnectionPool, writerConnectionPool)
+      new Database(system.queries, readerConnectionPool, writerConnectionPool)
     }
 
     def clear(): this.type = {

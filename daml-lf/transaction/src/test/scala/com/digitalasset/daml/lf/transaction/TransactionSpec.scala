@@ -83,7 +83,7 @@ class TransactionSpec extends FreeSpec with Matchers with GeneratorDrivenPropert
     import Node.isReplayedBy
     type CidVal[F[_, _]] = F[V.ContractId, V.VersionedValue[V.ContractId]]
     val genEmptyNode
-        : Gen[Node.GenNode.WithTxValue[Nothing, V.ContractId]] = danglingRefGenNode map {
+      : Gen[Node.GenNode.WithTxValue[Nothing, V.ContractId]] = danglingRefGenNode map {
       case (_, n: CidVal[Node.LeafOnlyNode]) => n
       case (_, ne: Node.NodeExercises.WithTxValue[_, V.ContractId]) =>
         ne copy (children = ImmArray.empty)
