@@ -11,8 +11,7 @@ object LedgerOffsetUtil {
   private val LongEitherLongLongOrdering: Ordering[Long \/ (Long, Long)] = {
     import scalaz.std.tuple._
     import scalaz.std.anyVal._
-    val O = implicitly[scalaz.Order[Long \/ (Long, Long)]]
-    O.toScalaOrdering
+    scalaz.Order[Long \/ (Long, Long)].toScalaOrdering
   }
 
   implicit val AbsoluteOffsetOrdering: Ordering[LedgerOffset.Value.Absolute] =
