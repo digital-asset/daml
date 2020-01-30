@@ -317,7 +317,7 @@ class ContractsService(
 
   private def lfValueToJsValue(a: LfValue): Error \/ JsValue =
     \/.fromTryCatchNonFatal(LfValueCodec.apiValueToJsValue(a)).leftMap(e =>
-      Error('lfValueToJsValue, e.description), )
+      Error('lfValueToJsValue, e.description))
 
   private def resolveTemplateIds(
       xs: Set[domain.TemplateId.OptionalPkg],
