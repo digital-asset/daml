@@ -33,7 +33,6 @@ import "ghc-lib-parser" RdrName
 import "ghc-lib-parser" TcEvidence (HsWrapper (WpHole))
 import "ghc-lib-parser" TysPrim
 import "ghc-lib-parser" TysWiredIn
-import "ghc-lib-parser" Util (secondM)
 
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.Preprocessor.Generics
@@ -105,13 +104,13 @@ generateSrcFromLf env = noLoc mod
 
         let occName = mkOccName clsName . T.unpack $ sanitize name
         pure $ do
-            supers <- mapM (convType env)
-                [ fieldType
+            supers <- sequence
+                [ convType env fieldType
                 | (fieldName, LF.TUnit LF.:-> fieldType) <- fields
                 , isSuperClassField fieldName
                 ]
-            methods <- mapM (secondM (convType env))
-                [ (methodName,fieldType)
+            methods <- sequence
+                [ (methodName,) <$> convType env fieldType
                 | (fieldName, LF.TUnit LF.:-> fieldType) <- fields
                 , Just methodName <- [getClassMethodName fieldName]
                 ]
@@ -186,24 +185,34 @@ generateSrcFromLf env = noLoc mod
     convDataCons dataTypeCon0 = \case
         LF.DataRecord fields -> do
             fields' <- mapM (uncurry (mkConDeclField env)) fields
-            pure [mkConDecl env thisModule occName $ RecCon (noLoc fields')]
+            pure [ mkConDecl occName (RecCon (noLoc fields')) ]
         LF.DataVariant cons -> do
-            cons' <- mapM (secondM (convType env)) cons
-            pure
-                [ mkConDecl env thisModule (occNameFor conName) (details ty)
-                | (conName, ty) <- cons'
+            sequence
+                [ mkConDecl (occNameFor conName) . details <$> convType env ty
+                | (conName, ty) <- cons
                 ]
         LF.DataEnum cons -> do
             when (length cons == 1) (void $ mkGhcType env "DamlEnum")
                 -- ^ Single constructor enums spawn a reference to
                 -- GHC.Types.DamlEnum in the daml-preprocessor.
             pure
-                [ mkConDecl env thisModule (occNameFor conName) (PrefixCon [])
+                [ mkConDecl (occNameFor conName) (PrefixCon [])
                 | conName <- cons
                 ]
       where
-        occName = mkOccName varName $ T.unpack $ sanitize dataTypeCon0
-        occNameFor c = mkOccName varName $ T.unpack $ sanitize $ LF.unVariantConName c
+        occName = mkOccName varName $ T.unpack (sanitize dataTypeCon0)
+        occNameFor (LF.VariantConName c) = mkOccName varName $ T.unpack (sanitize c)
+
+        mkConDecl :: OccName -> HsConDeclDetails GhcPs -> LConDecl GhcPs
+        mkConDecl conName details = noLoc $ ConDeclH98
+            { con_ext = noExt
+            , con_name = noLoc $ mkConRdr env thisModule conName
+            , con_forall = noLoc False -- No foralls from existentials
+            , con_ex_tvs = [] -- No existential type vars.
+            , con_mb_cxt = Nothing
+            , con_doc = Nothing
+            , con_args = details
+            }
 
         -- In DAML we have sums of products, in DAML-LF a variant only has
         -- a single field. Here we combine them back into a single type.
@@ -274,17 +283,6 @@ mkDataDecl env thisModule occName tyVars cons = do
                 , dd_derivs = noLoc []
                 }
         }
-
-mkConDecl :: Env -> Module -> OccName -> HsConDeclDetails GhcPs -> LConDecl GhcPs
-mkConDecl env thisModule conName details = noLoc $ ConDeclH98
-    { con_ext = noExt
-    , con_name = noLoc $ mkConRdr env thisModule conName
-    , con_forall = noLoc False -- No foralls from existentials
-    , con_ex_tvs = [] -- No existential type vars.
-    , con_mb_cxt = Nothing
-    , con_doc = Nothing
-    , con_args = details
-    }
 
 mkConDeclField :: Env -> LF.FieldName -> LF.Type -> Gen (LConDeclField GhcPs)
 mkConDeclField env fieldName fieldTy = do
