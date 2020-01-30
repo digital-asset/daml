@@ -50,7 +50,7 @@ trait Resource[A] {
     flatMap(nested => nested)
 
   def transformWith[B](f: Try[A] => Resource[B])(
-      implicit executionContext: ExecutionContext
+      implicit executionContext: ExecutionContext,
   ): Resource[B] =
     Resource(
       asFuture.transformWith(f.andThen(Future.successful)),
@@ -59,6 +59,14 @@ trait Resource[A] {
     ).flatten
 
   def vary[B >: A]: Resource[B] = asInstanceOf[Resource[B]]
+
+  def use[T](behavior: A => Future[T])(implicit executionContext: ExecutionContext): Future[T] =
+    asFuture
+      .flatMap(behavior)
+      .transformWith {
+        case Success(value) => release().map(_ => value)
+        case Failure(exception) => release().flatMap(_ => Future.failed(exception))
+      }
 }
 
 object Resource {
