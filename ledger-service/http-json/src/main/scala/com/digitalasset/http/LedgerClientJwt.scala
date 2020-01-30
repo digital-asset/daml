@@ -89,12 +89,12 @@ object LedgerClientJwt {
           .getTransactions(offset, terminates.toOffset, filter, verbose = true, token = bearer(jwt))
     }
 
-  private def skipRequest(start: LedgerOffset, end: Option[LedgerOffset]): Boolean =
+  private def skipRequest(start: LedgerOffset, end: Option[LedgerOffset]): Boolean = {
+    import com.digitalasset.http.util.LedgerOffsetUtil.AbsoluteOffsetOrdering
     (start.value, end.map(_.value)) match {
-      case (LedgerOffset.Value.Absolute(s), Some(LedgerOffset.Value.Absolute(e))) =>
-        // the same comparision as in here
-        // https://github.com/digital-asset/daml/blob/e2a5b264750dd9d96a50c8fd180a08d6f2eb0860/ledger/sandbox/src/main/scala/com/digitalasset/platform/sandbox/stores/SandboxIndexAndWriteService.scala#L275
-        s.toLong >= e.toLong
+      case (s: LedgerOffset.Value.Absolute, Some(e: LedgerOffset.Value.Absolute)) =>
+        AbsoluteOffsetOrdering.gteq(s, e)
       case _ => false
     }
+  }
 }
