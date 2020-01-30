@@ -139,7 +139,6 @@ object HttpService extends StrictLogging {
 
       websocketService = new WebSocketService(
         contractsService,
-        packageService.resolveTemplateId,
         encoder,
         decoder,
         wsConfig,
