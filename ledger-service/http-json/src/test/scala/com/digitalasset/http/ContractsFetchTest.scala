@@ -51,7 +51,7 @@ object ContractsFetchTest {
   type Cid = String
 
   private implicit val `IDS monoid`
-      : Monoid[IDS] = Monoid instance (_.appendWithCid(_)(identity), InsertDeleteStep(
+    : Monoid[IDS] = Monoid instance (_.appendWithCid(_)(identity), InsertDeleteStep(
     Vector.empty,
     Set.empty,
   ))
