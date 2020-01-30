@@ -19,7 +19,7 @@ class FileSystemLock(location: Path) {
     val file = new RandomAccessFile(location.toFile, "rw")
     val channel = file.getChannel
     val lock = ResourceOwner.forCloseable(() => channel.lock())
-    retry((_, _) => lock.acquire().use(_ => Future(body)))
+    retry((_, _) => lock.use(_ => Future(body)))
   }
 }
 

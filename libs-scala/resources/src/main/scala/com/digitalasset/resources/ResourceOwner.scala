@@ -32,6 +32,16 @@ trait ResourceOwner[A] {
         self.acquire().withFilter(p)
     }
 
+  def use[T](behavior: A => Future[T])(implicit executionContext: ExecutionContext): Future[T] = {
+    val resource = acquire()
+    resource.asFuture
+      .flatMap(behavior)
+      .transformWith {
+        case Success(value) => resource.release().map(_ => value)
+        case Failure(exception) => resource.release().flatMap(_ => Future.failed(exception))
+      }
+  }
+
   def vary[B >: A]: ResourceOwner[B] = asInstanceOf[ResourceOwner[B]]
 }
 
