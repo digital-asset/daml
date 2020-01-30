@@ -80,7 +80,21 @@ object LedgerClientJwt {
     LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_END))
 
   def getCreatesAndArchivesSince(client: LedgerClient): GetCreatesAndArchivesSince =
-    (jwt, filter, offset, terminates) =>
-      client.transactionClient
-        .getTransactions(offset, terminates.toOffset, filter, verbose = true, token = bearer(jwt))
+    (jwt, filter, offset, terminates) => {
+      val end = terminates.toOffset
+      if (skipRequest(offset, end))
+        Source.empty[Transaction]
+      else
+        client.transactionClient
+          .getTransactions(offset, terminates.toOffset, filter, verbose = true, token = bearer(jwt))
+    }
+
+  private def skipRequest(start: LedgerOffset, end: Option[LedgerOffset]): Boolean =
+    (start.value, end.map(_.value)) match {
+      case (LedgerOffset.Value.Absolute(s), Some(LedgerOffset.Value.Absolute(e))) =>
+        // the same comparision as in here
+        // https://github.com/digital-asset/daml/blob/e2a5b264750dd9d96a50c8fd180a08d6f2eb0860/ledger/sandbox/src/main/scala/com/digitalasset/platform/sandbox/stores/SandboxIndexAndWriteService.scala#L275
+        s.toLong >= e.toLong
+      case _ => false
+    }
 }

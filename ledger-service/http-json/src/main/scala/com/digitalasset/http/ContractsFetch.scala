@@ -197,20 +197,10 @@ private class ContractsFetch(
             )
             (stepsAndOffset.out0, stepsAndOffset.out1)
 
-          case AbsoluteBookmark(x) =>
-            // TODO(Leo/Stephen): figure out why it happens, can't reproduce it locally
-            // https://github.com/digital-asset/daml/blob/e2a5b264750dd9d96a50c8fd180a08d6f2eb0860/ledger/sandbox/src/main/scala/com/digitalasset/platform/sandbox/stores/SandboxIndexAndWriteService.scala#L275
-            if (x.unwrap.toLong > absEnd.off.value.toLong) {
-              logger.warn(
-                s"Trying to fetch transactions with LedgerBegin($x) > LedgerEnd($absEnd). Returning empty stream.")
-              val stepsAndOffset = builder add transactionsFollowingBoundary(_ => Source.empty)
-              stepsAndOffset.in <~ Source.single(domain.Offset.tag.unsubst(offset))
-              (stepsAndOffset.out0, stepsAndOffset.out1)
-            } else {
-              val stepsAndOffset = builder add transactionsFollowingBoundary(txnK)
-              stepsAndOffset.in <~ Source.single(domain.Offset.tag.unsubst(offset))
-              (stepsAndOffset.out0, stepsAndOffset.out1)
-            }
+          case AbsoluteBookmark(_) =>
+            val stepsAndOffset = builder add transactionsFollowingBoundary(txnK)
+            stepsAndOffset.in <~ Source.single(domain.Offset.tag.unsubst(offset))
+            (stepsAndOffset.out0, stepsAndOffset.out1)
         }
 
         val transactInsertsDeletes = Flow
