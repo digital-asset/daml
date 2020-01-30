@@ -23,6 +23,7 @@ import com.digitalasset.dec.{DirectExecutionContext => DEC}
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, RejectionReason}
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
+import com.digitalasset.platform.apiserver.InMemoryPackageStore
 import com.digitalasset.platform.events.EventIdFormatter
 import com.digitalasset.platform.index.store.dao.JdbcLedgerDao.defaultNumberOfShortLivedConnections
 import com.digitalasset.platform.index.store.dao.{DbDispatcher, _}
@@ -38,9 +39,9 @@ import com.digitalasset.platform.index.store.{
   PersistenceEntry
 }
 import com.digitalasset.platform.sandbox.LedgerIdGenerator
+import com.digitalasset.platform.sandbox.stores.InMemoryActiveLedgerState
 import com.digitalasset.platform.sandbox.stores.ledger.Ledger
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
-import com.digitalasset.platform.sandbox.stores.{InMemoryActiveLedgerState, InMemoryPackageStore}
 import com.digitalasset.resources.ResourceOwner
 import scalaz.syntax.tag._
 

@@ -3,7 +3,7 @@
 
 package com.digitalasset.platform.sandbox.cli
 
-import java.io.{File}
+import java.io.File
 
 import com.digitalasset.daml.bazeltools.BazelRunfiles.rlocation
 import com.digitalasset.daml.lf.data.Ref

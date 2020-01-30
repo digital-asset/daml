@@ -1,12 +1,12 @@
 // Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox
+package com.digitalasset.platform.configuration
 
 import java.io.{BufferedReader, InputStreamReader}
 
 object BuildInfo {
-  val Version = {
+  val Version: String =
     Option(this.getClass.getClassLoader.getResourceAsStream("COMPONENT-VERSION")).fold {
       "{component version not found on classpath}"
     } { is =>
@@ -18,5 +18,4 @@ object BuildInfo {
         is.close()
       }
     }
-  }
 }

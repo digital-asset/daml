@@ -5,106 +5,15 @@ package com.digitalasset.platform.sandbox.stores.ledger
 
 import java.time.Instant
 
-import akka.NotUsed
-import akka.stream.scaladsl.Source
 import com.codahale.metrics.{MetricRegistry, Timer}
-import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.v1._
-import com.digitalasset.daml.lf.data.Ref.{PackageId, Party, TransactionIdString}
+import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data.Time
-import com.digitalasset.daml.lf.language.Ast
-import com.digitalasset.daml.lf.transaction.Node.GlobalKey
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
-import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
-import com.digitalasset.ledger.api.health.HealthStatus
-import com.digitalasset.platform.index.store.entries.{
-  ConfigurationEntry,
-  LedgerEntry,
-  PackageLedgerEntry,
-  PartyLedgerEntry
-}
-import com.digitalasset.platform.index.store.{Contract, LedgerSnapshot, ReadOnlyLedger}
+import com.digitalasset.platform.apiserver.MeteredReadOnlyLedger
 import com.digitalasset.platform.metrics.timedFuture
-import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 
 import scala.concurrent.Future
-
-private class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegistry)
-    extends ReadOnlyLedger {
-
-  private object Metrics {
-    val lookupContract: Timer = metrics.timer("daml.index.lookup_contract")
-    val lookupKey: Timer = metrics.timer("daml.index.lookup_key")
-    val lookupTransaction: Timer = metrics.timer("daml.index.lookup_transaction")
-    val lookupLedgerConfiguration: Timer = metrics.timer("daml.index.lookup_ledger_configuration ")
-    val parties: Timer = metrics.timer("daml.index.parties")
-    val listLfPackages: Timer = metrics.timer("daml.index.list_lf_packages")
-    val getLfArchive: Timer = metrics.timer("daml.index.get_lf_archive")
-    val getLfPackage: Timer = metrics.timer("daml.index.get_lf_package")
-  }
-
-  override def ledgerId: LedgerId = ledger.ledgerId
-
-  override def currentHealth(): HealthStatus = ledger.currentHealth()
-
-  override def ledgerEntries(
-      offset: Option[Long],
-      endOpt: Option[Long]): Source[(Long, LedgerEntry), NotUsed] =
-    ledger.ledgerEntries(offset, endOpt)
-
-  override def ledgerEnd: Long = ledger.ledgerEnd
-
-  override def snapshot(filter: TemplateAwareFilter): Future[LedgerSnapshot] =
-    ledger.snapshot(filter)
-
-  override def lookupContract(
-      contractId: Value.AbsoluteContractId,
-      forParty: Party): Future[Option[Contract]] =
-    timedFuture(Metrics.lookupContract, ledger.lookupContract(contractId, forParty))
-
-  override def lookupKey(key: GlobalKey, forParty: Party): Future[Option[AbsoluteContractId]] =
-    timedFuture(Metrics.lookupKey, ledger.lookupKey(key, forParty))
-
-  override def lookupTransaction(
-      transactionId: TransactionIdString): Future[Option[(Long, LedgerEntry.Transaction)]] =
-    timedFuture(Metrics.lookupTransaction, ledger.lookupTransaction(transactionId))
-
-  override def parties: Future[List[PartyDetails]] =
-    timedFuture(Metrics.parties, ledger.parties)
-
-  override def partyEntries(beginOffset: Long): Source[(Long, PartyLedgerEntry), NotUsed] =
-    ledger.partyEntries(beginOffset)
-
-  override def listLfPackages(): Future[Map[PackageId, PackageDetails]] =
-    timedFuture(Metrics.listLfPackages, ledger.listLfPackages())
-
-  override def getLfArchive(packageId: PackageId): Future[Option[Archive]] =
-    timedFuture(Metrics.getLfArchive, ledger.getLfArchive(packageId))
-
-  override def getLfPackage(packageId: PackageId): Future[Option[Ast.Package]] =
-    timedFuture(Metrics.getLfPackage, ledger.getLfPackage(packageId))
-
-  override def packageEntries(beginOffset: Long): Source[(Long, PackageLedgerEntry), NotUsed] =
-    ledger.packageEntries(beginOffset)
-
-  override def close(): Unit = {
-    ledger.close()
-  }
-
-  override def lookupLedgerConfiguration(): Future[Option[(Long, Configuration)]] =
-    timedFuture(Metrics.lookupLedgerConfiguration, ledger.lookupLedgerConfiguration())
-
-  override def configurationEntries(
-      offset: Option[Long]): Source[(Long, ConfigurationEntry), NotUsed] =
-    ledger.configurationEntries(offset)
-}
-
-object MeteredReadOnlyLedger {
-  def apply(ledger: ReadOnlyLedger, metrics: MetricRegistry): ReadOnlyLedger =
-    new MeteredReadOnlyLedger(ledger, metrics)
-}
 
 private class MeteredLedger(ledger: Ledger, metrics: MetricRegistry)
     extends MeteredReadOnlyLedger(ledger, metrics)

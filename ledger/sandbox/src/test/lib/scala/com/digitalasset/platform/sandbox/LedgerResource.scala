@@ -11,11 +11,12 @@ import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.testing.utils.Resource
 import com.digitalasset.logging.LoggingContext
+import com.digitalasset.platform.apiserver.InMemoryPackageStore
+import com.digitalasset.platform.sandbox.stores.InMemoryActiveLedgerState
 import com.digitalasset.platform.sandbox.stores.ledger.Ledger
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.digitalasset.platform.sandbox.stores.ledger.inmemory.InMemoryLedger
 import com.digitalasset.platform.sandbox.stores.ledger.sql.{SqlLedger, SqlStartMode}
-import com.digitalasset.platform.sandbox.stores.{InMemoryActiveLedgerState, InMemoryPackageStore}
 import com.digitalasset.resources
 import com.digitalasset.resources.ResourceOwner
 import com.digitalasset.testing.postgresql.{PostgresFixture, PostgresResource}

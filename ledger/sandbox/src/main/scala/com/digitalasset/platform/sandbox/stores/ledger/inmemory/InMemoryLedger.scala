@@ -26,6 +26,7 @@ import com.digitalasset.ledger.api.domain.{
   RejectionReason
 }
 import com.digitalasset.ledger.api.health.{HealthStatus, Healthy}
+import com.digitalasset.platform.apiserver.InMemoryPackageStore
 import com.digitalasset.platform.events.EventIdFormatter
 import com.digitalasset.platform.index.store.Contract.ActiveContract
 import com.digitalasset.platform.index.store.entries.{
@@ -36,10 +37,10 @@ import com.digitalasset.platform.index.store.entries.{
 }
 import com.digitalasset.platform.index.store.{Contract, LedgerSnapshot}
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
+import com.digitalasset.platform.sandbox.stores.InMemoryActiveLedgerState
 import com.digitalasset.platform.sandbox.stores.deduplicator.Deduplicator
 import com.digitalasset.platform.sandbox.stores.ledger.Ledger
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
-import com.digitalasset.platform.sandbox.stores.{InMemoryActiveLedgerState, InMemoryPackageStore}
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.Future

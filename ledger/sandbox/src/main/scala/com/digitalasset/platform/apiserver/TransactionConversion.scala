@@ -1,14 +1,14 @@
 // Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.stores.ledger
+package com.digitalasset.platform.apiserver
 
 import com.digitalasset.daml.lf.engine
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, VersionedValue}
 import com.digitalasset.daml.lf.value.{Value => Lf}
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.Event.{CreateOrArchiveEvent, CreateOrExerciseEvent}
-import com.digitalasset.platform.common.{PlatformTypes => P}
+import com.digitalasset.platform.common.PlatformTypes.{CreateEvent, ExerciseEvent}
 import com.digitalasset.platform.index.store.entries.LedgerEntry
 import com.digitalasset.platform.participant.util.EventFilter
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
@@ -67,9 +67,9 @@ trait TransactionConversion {
       val events = allEvents.events.map {
         case (nodeId, value) =>
           (nodeId, value match {
-            case e: P.ExerciseEvent[domain.EventId, AbsoluteContractId] =>
+            case e: ExerciseEvent[domain.EventId, AbsoluteContractId] =>
               lfExerciseToDomain(nodeId, e)
-            case c: P.CreateEvent[AbsoluteContractId] =>
+            case c: CreateEvent[AbsoluteContractId] =>
               lfCreateToDomain(nodeId, c, true)
           })
       }
@@ -129,7 +129,7 @@ trait TransactionConversion {
 
   private def lfCreateToDomain(
       eventId: domain.EventId,
-      create: P.CreateEvent[Lf.AbsoluteContractId],
+      create: CreateEvent[Lf.AbsoluteContractId],
       includeParentWitnesses: Boolean,
   ): domain.Event.CreatedEvent = {
     domain.Event.CreatedEvent(
@@ -151,7 +151,7 @@ trait TransactionConversion {
 
   private def lfExerciseToDomain(
       eventId: domain.EventId,
-      exercise: P.ExerciseEvent[domain.EventId, Lf.AbsoluteContractId],
+      exercise: ExerciseEvent[domain.EventId, Lf.AbsoluteContractId],
   ): domain.Event.ExercisedEvent = {
     domain.Event.ExercisedEvent(
       eventId,
@@ -169,8 +169,8 @@ trait TransactionConversion {
 
   private def lfConsumingExerciseToDomain(
       eventId: domain.EventId,
-      exercise: P.ExerciseEvent[domain.EventId, Lf.AbsoluteContractId])
-    : domain.Event.ArchivedEvent = {
+      exercise: ExerciseEvent[domain.EventId, Lf.AbsoluteContractId]
+  ): domain.Event.ArchivedEvent = {
     domain.Event.ArchivedEvent(
       eventId = eventId,
       contractId = domain.ContractId(exercise.contractId.coid),
@@ -188,10 +188,10 @@ trait TransactionConversion {
       verbose: Boolean): List[domain.Event.CreateOrArchiveEvent] = {
     val event = events(root)
     event match {
-      case create: P.CreateEvent[Lf.AbsoluteContractId @unchecked] =>
+      case create: CreateEvent[Lf.AbsoluteContractId @unchecked] =>
         List(lfCreateToDomain(root, create, includeParentWitnesses = false))
 
-      case exercise: P.ExerciseEvent[domain.EventId, Lf.AbsoluteContractId] =>
+      case exercise: ExerciseEvent[domain.EventId, Lf.AbsoluteContractId] =>
         val children: List[domain.Event.CreateOrArchiveEvent] =
           exercise.children.toSeq
             .flatMap(eventId => flattenEvents(events, eventId, verbose))(breakOut)

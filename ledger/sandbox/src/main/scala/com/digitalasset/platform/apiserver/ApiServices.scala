@@ -32,7 +32,7 @@ import com.digitalasset.platform.apiserver.services.{
   ApiSubmissionService,
   ApiTimeService
 }
-import com.digitalasset.platform.sandbox.config.CommandConfiguration
+import com.digitalasset.platform.configuration.CommandConfiguration
 import com.digitalasset.platform.server.api.services.grpc.GrpcHealthService
 import io.grpc.BindableService
 import io.grpc.protobuf.services.ProtoReflectionService
