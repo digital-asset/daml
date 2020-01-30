@@ -71,7 +71,6 @@ object WebSocketService {
 
 class WebSocketService(
     contractsService: ContractsService,
-    resolveTemplateId: PackageService.ResolveTemplateId,
     encoder: DomainJsonEncoder,
     decoder: DomainJsonDecoder,
     wsConfig: Option[WebsocketConfig])(implicit mat: Materializer, ec: ExecutionContext)
