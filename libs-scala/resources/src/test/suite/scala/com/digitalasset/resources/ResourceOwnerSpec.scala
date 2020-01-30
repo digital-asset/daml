@@ -7,6 +7,7 @@ import java.util.concurrent.CompletableFuture.completedFuture
 import java.util.concurrent.{Executors, RejectedExecutionException}
 import java.util.{Timer, TimerTask}
 
+import com.digitalasset.resources.FailingResourceOwner.FailingResourceFailedToOpen
 import org.scalatest.{AsyncWordSpec, Matchers}
 
 import scala.collection.mutable
@@ -311,6 +312,52 @@ class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
           ownerC.hasBeenAcquired should be(false)
         }
       }
+    }
+  }
+  "using a resource" should {
+    "perform the given behavior" in {
+      val owner = ResourceOwner.successful(42)
+      owner.use { value =>
+        value should be(42)
+      }
+    }
+
+    "clean up afterwards" in {
+      val owner = TestResourceOwner(42)
+      owner
+        .use { value =>
+          owner.hasBeenAcquired should be(true)
+          value should be(42)
+        }
+        .map { _ =>
+          owner.hasBeenAcquired should be(false)
+        }
+    }
+
+    "report errors in acquisition, even after usage" in {
+      val owner = FailingResourceOwner[Int]()
+      owner
+        .use { _ =>
+          fail("Can't use a failed resource.")
+        }
+        .failed
+        .map { exception =>
+          exception should be(a[FailingResourceFailedToOpen])
+        }
+    }
+
+    "report errors in usage" in {
+      val owner = TestResourceOwner(54)
+      owner
+        .use { _ =>
+          owner.hasBeenAcquired should be(true)
+          sys.error("Uh oh.")
+        }
+        .failed
+        .map { exception =>
+          owner.hasBeenAcquired should be(false)
+          exception.getMessage should be("Uh oh.")
+        }
     }
   }
 
