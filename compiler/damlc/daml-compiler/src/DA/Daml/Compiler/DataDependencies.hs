@@ -64,7 +64,8 @@ runGen (Gen m) = runWriter m
 emitModRef :: ModRef -> Gen ()
 emitModRef = Gen . tell . Set.singleton
 
--- | Extract all data defintions from a daml-lf module and generate a haskell source file from it.
+-- | Extract all data definitions from a daml-lf module and generate
+-- a haskell source file from it.
 generateSrcFromLf ::
        Env
     -> ParsedSource
