@@ -4,33 +4,31 @@
 package com.digitalasset.http.util
 
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.Value
+import scalaz.{-\/, \/, \/-}
 
 object LedgerOffsetUtil {
-  implicit val AbsoluteOffsetOrdering: Ordering[LedgerOffset.Value.Absolute] =
-    new Ordering[LedgerOffset.Value.Absolute] {
-      override def compare(x: Value.Absolute, y: Value.Absolute): Int =
-        if (isCompositeOffsetFormat(x)) CompositeAbsoluteOffsetIntOrdering.compare(x, y)
-        else IntAbsoluteOffsetOrdering.compare(x, y)
+
+  private val LongEitherLongLongOrdering: Ordering[Long \/ (Long, Long)] =
+    Ordering.by[Long \/ (Long, Long), (Long, Long)] {
+      case -\/(a) => (0, a)
+      case \/-(x) => x
     }
 
-  private val IntAbsoluteOffsetOrdering: Ordering[LedgerOffset.Value.Absolute] =
-    Ordering.by[LedgerOffset.Value.Absolute, Long](_.value.toLong)
+  implicit val AbsoluteOffsetOrdering: Ordering[LedgerOffset.Value.Absolute] =
+    Ordering.by(parseOffset)(LongEitherLongLongOrdering)
 
-  private val CompositeAbsoluteOffsetIntOrdering: Ordering[LedgerOffset.Value.Absolute] =
-    Ordering.by[LedgerOffset.Value.Absolute, (Long, Long)](parseCompositeOffset)
-
-  private def isCompositeOffsetFormat(a: LedgerOffset.Value.Absolute): Boolean =
-    a.value.contains('-')
-
-  private def parseCompositeOffset(a: LedgerOffset.Value.Absolute): (Long, Long) = {
+  private def parseOffset(a: LedgerOffset.Value.Absolute): Long \/ (Long, Long) = {
     val offset: String = a.value
     offset.split('-') match {
       case Array(_, a2, a3) =>
-        (a2.toLong, a3.toLong)
+        \/-((a2.toLong, a3.toLong))
+      case Array(a1) =>
+        -\/(a1.toLong)
       case _ =>
         throw new IllegalArgumentException(
-          s"Expected composite offset in the format: '<block-hash>-<block-height>-<event-id>', got: ${offset: String}")
+          "Expected either numeric or composite offset in the format: '<block-hash>-<block-height>-<event-id>'," +
+            s" got: ${offset: String}"
+        )
     }
   }
 }
