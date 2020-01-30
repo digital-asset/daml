@@ -13,7 +13,7 @@ def jest_test(name, srcs, deps, jest_config = ":jest.config.js", tsconfig = ":ts
     ]
     args.extend(["--config", "$(location %s)" % jest_config])
     for src in srcs:
-        args.extend(["--runTestsByPath", "$(location %s)" % src])
+        args.extend(["--runTestsByPath", "$(locations %s)" % src])
     jest_deps = [
         "@language_support_ts_deps//@types/jest",
         "@language_support_ts_deps//jest",

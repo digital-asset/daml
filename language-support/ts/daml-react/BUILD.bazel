@@ -60,13 +60,22 @@ pkg_npm(
     ],
 ) if not is_windows else None
 
-# This doesn't work currently because imports of local packages aren't resolved correctly.
-# jest_test(
-# name = "test",
-# srcs = glob(["**/*.ts"]),
-# jest_config = ":jest.config.js",
-# deps = [
-# "//language-support/ts/daml-types",
-# "//language-support/ts/daml-ledger",
-# ],
-# )
+# we use the output js files for the jest test below.
+filegroup(
+    name = "daml-react.js",
+    srcs = [":daml-react"],
+    output_group = "es5_sources",
+)
+
+jest_test(
+    name = "test",
+    # Use the js outputs because jest cannot resolve imports in the ts_library
+    # despite moduleNameMapper.
+    srcs = [":daml-react.js"],
+    jest_config = ":jest.config.js",
+    deps = [
+        "//language-support/ts/daml-ledger",
+        "//language-support/ts/daml-types",
+        "@language_support_ts_deps//immutable",
+    ],
+)

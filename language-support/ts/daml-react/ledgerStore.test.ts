@@ -51,7 +51,7 @@ const archivedEvent = (cid: ContractId<T>): Event<T> => {
 
 const emptyLedgerStore = () => LedgerStore.setQueryResult(LedgerStore.empty(), template, query, []);
 
-describe('daml-react-hooks', () => {
+describe('daml-react', () => {
   registerTemplate(template)
 
   it("no events result in unchanged state", () => {
