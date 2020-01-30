@@ -122,7 +122,7 @@ main = do
                 liftIO $ bracket_
                   (writeFile npmrcPath "//registry.npmjs.org/:_authToken=${NPM_TOKEN}")
                   (Dir.removeFile npmrcPath)
-                  (\() -> forM_ npmPackages
+                  (forM_ npmPackages
                     $ \rule -> liftIO $ callCommand $ "bazel run " <> rule <> ":npm_package.publish -- --access public")
 
               -- set variables for next steps in Azure pipelines
