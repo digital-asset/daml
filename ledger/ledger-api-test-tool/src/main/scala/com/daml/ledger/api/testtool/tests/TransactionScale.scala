@@ -42,8 +42,7 @@ class TransactionScale(session: LedgerSession) extends LedgerTestSuite(session) 
       for {
         contractIds <- Future.sequence(
           (1 to targetNumberOfCommands).map(_ =>
-            ledger.create(party, TextContainer(party, oneKbOfText)),
-          ),
+            ledger.create(party, TextContainer(party, oneKbOfText))),
         )
       } yield {
         val _ = assertLength("ManyCommands", targetNumberOfCommands, contractIds)

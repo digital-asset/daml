@@ -30,7 +30,8 @@ case class BlindingInfo(
       * containing only absolute contract ids, this map may also
       * contain contracts produced in the same transaction.
       */
-    globalDivulgence: Relation[AbsoluteContractId, Party]) {
+    globalDivulgence: Relation[AbsoluteContractId, Party],
+) {
   def localDisclosure: Relation[Transaction.NodeId, Party] =
     Relation.union(disclosure, localDivulgence)
 }

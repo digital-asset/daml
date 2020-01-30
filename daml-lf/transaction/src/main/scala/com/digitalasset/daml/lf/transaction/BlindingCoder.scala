@@ -15,8 +15,8 @@ object BlindingCoder {
 
   def decode(
       p: proto.Blindinginfo.BlindingInfo,
-      nodeIdReader: String => Either[DecodeError, Transaction.NodeId])
-    : Either[DecodeError, BlindingInfo] = {
+      nodeIdReader: String => Either[DecodeError, Transaction.NodeId],
+  ): Either[DecodeError, BlindingInfo] = {
 
     val explicitDisclosure =
       p.getExplicitDisclosureList.asScala.map(n =>
@@ -49,7 +49,8 @@ object BlindingCoder {
 
   def encode(
       blindingInfo: BlindingInfo,
-      nodeIdWriter: Transaction.NodeId => String): proto.Blindinginfo.BlindingInfo = {
+      nodeIdWriter: Transaction.NodeId => String,
+  ): proto.Blindinginfo.BlindingInfo = {
     val builder = proto.Blindinginfo.BlindingInfo.newBuilder()
 
     val localImplicit = blindingInfo.localDivulgence.map(nodeParties => {

@@ -21,7 +21,7 @@ private[lf] object Equality {
   private[this] def zipAndPush[X, Y](
       h1: Iterator[X],
       h2: Iterator[Y],
-      stack: FrontStack[(X, Y)]
+      stack: FrontStack[(X, Y)],
   ): FrontStack[(X, Y)] =
     (stack /: (h1 zip h2))(_.+:(_))
 
@@ -58,7 +58,8 @@ private[lf] object Equality {
             }
           case (SStruct(fields1, args1), SStruct(fields2, args2)) =>
             (fields1 sameElements fields2) && equality(
-              zipAndPush(args1.iterator().asScala, args2.iterator().asScala, stack))
+              zipAndPush(args1.iterator().asScala, args2.iterator().asScala, stack),
+            )
           case (SAny(t1, v1), SAny(t2, v2)) =>
             t1 == t2 && equality((v1, v2) +: stack)
           case (STypeRep(t1), STypeRep(t2)) =>

@@ -13,6 +13,7 @@ import akka.stream.Materializer
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.auth.TokenHolder
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
+import com.digitalasset.http.Statement.discard
 import com.digitalasset.http.dbbackend.ContractDao
 import com.digitalasset.http.json.{
   ApiValueToJsValueConverter,
@@ -42,7 +43,7 @@ import scalaz.Scalaz._
 import scalaz._
 
 import scala.concurrent.duration.FiniteDuration
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.control.NonFatal
 
 object HttpService extends StrictLogging {
@@ -238,17 +239,27 @@ object HttpService extends StrictLogging {
       packageService: PackageService,
       pollInterval: FiniteDuration,
   )(implicit asys: ActorSystem, ec: ExecutionContext): Cancellable = {
-    val packageServiceReload: Unit = {
+    val maxWait = pollInterval * 10
+
+    // scheduleWithFixedDelay will wait for the previous task to complete before triggering the next one
+    // that is exactly why the task calls Await.result on the Future
+    asys.scheduler.scheduleWithFixedDelay(pollInterval, pollInterval)(() => {
 
       val f: Future[PackageService.Error \/ Unit] = packageService.reload
+
       f.onComplete {
         case scala.util.Failure(e) => logger.error("Package reload failed", e)
         case scala.util.Success(-\/(e)) => logger.error("Package reload failed: " + e.shows)
         case scala.util.Success(\/-(_)) =>
       }
-    }
-    val runnableReload = new Runnable() { def run() = packageServiceReload }
-    asys.scheduler.scheduleAtFixedRate(pollInterval, pollInterval)(runnableReload)
+
+      try {
+        discard { Await.result(f, maxWait) }
+      } catch {
+        case e: scala.concurrent.TimeoutException =>
+          logger.error(s"Package reload timed out after: $maxWait", e)
+      }
+    })
   }
 
   private def client(

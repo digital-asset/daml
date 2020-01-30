@@ -15,7 +15,7 @@ import com.digitalasset.daml.lf.validation.{
   EUnknownDefinition,
   LEPackage,
   Validation,
-  ValidationError
+  ValidationError,
 }
 import org.slf4j.LoggerFactory
 
@@ -96,7 +96,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
 
   def compileDefn(
       identifier: Identifier,
-      defn: Definition
+      defn: Definition,
   ): List[(SDefinitionRef, SExpr)] =
     defn match {
       case DValue(_, _, body, _) =>
@@ -147,7 +147,8 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
     val t2 = Time.Timestamp.now()
 
     logger.trace(
-      s"compilePackage: $pkgId ready, typecheck=${(t1.micros - t0.micros) / 1000}ms, compile=${(t2.micros - t1.micros) / 1000}ms")
+      s"compilePackage: $pkgId ready, typecheck=${(t1.micros - t0.micros) / 1000}ms, compile=${(t2.micros - t1.micros) / 1000}ms",
+    )
 
     defns
   }
@@ -357,19 +358,19 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         else {
           SEApp(
             SEBuiltin(SBRecCon(tApp.tycon, Name.Array(fields.map(_._1).toSeq: _*))),
-            fields.iterator.map(f => translate(f._2)).toArray
+            fields.iterator.map(f => translate(f._2)).toArray,
           )
         }
 
       case ERecProj(tapp, field, record) =>
         SBRecProj(tapp.tycon, lookupRecordIndex(tapp, field))(
-          translate(record)
+          translate(record),
         )
 
       case ERecUpd(tapp, field, record, update) =>
         SBRecUpd(tapp.tycon, lookupRecordIndex(tapp, field))(
           translate(record),
-          translate(update)
+          translate(update),
         )
 
       case EStructCon(fields) =>
@@ -419,7 +420,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
                 case CPDefault =>
                   SCaseAlt(SCPDefault, translate(expr))
               }
-          }.toArray
+          }.toArray,
         )
 
       case ENil(_) => SEValue.EmptyList
@@ -455,7 +456,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
                 env = env.addExprVar(optBinder)
                 bound2
             }.toArray,
-            translate(body)
+            translate(body),
           )
         }
 
@@ -513,7 +514,8 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
               val key = translate(retrieveByKey.key)
               val templateKey = template.key.getOrElse(
                 throw CompileError(
-                  s"Expecting to find key for template ${retrieveByKey.templateId}, but couldn't")
+                  s"Expecting to find key for template ${retrieveByKey.templateId}, but couldn't",
+                ),
               )
               SELet(encodeKeyWithMaintainers(key, templateKey)) in {
                 env = env.incrPos // keyWithM
@@ -522,13 +524,13 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
                   SELet(
                     SBULookupKey(retrieveByKey.templateId)(
                       SEVar(2), // key with maintainers
-                      SEVar(1) // token
+                      SEVar(1), // token
                     ),
                     SBUInsertLookupNode(retrieveByKey.templateId)(
                       SEVar(3), // key with maintainers
                       SEVar(1), // mb contract id
-                      SEVar(2) // token
-                    )
+                      SEVar(2), // token
+                    ),
                   ) in SEVar(2) // mb contract id
                 }
               }
@@ -547,7 +549,8 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
               val key = translate(retrieveByKey.key)
               val keyTemplate = template.key.getOrElse(
                 throw CompileError(
-                  s"Expecting to find key for template ${retrieveByKey.templateId}, but couldn't")
+                  s"Expecting to find key for template ${retrieveByKey.templateId}, but couldn't",
+                ),
               )
               SELet(encodeKeyWithMaintainers(key, keyTemplate)) in {
                 env = env.incrPos // key with maintainers
@@ -561,21 +564,21 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
                   SELet(
                     SBUFetchKey(retrieveByKey.templateId)(
                       SEVar(2), // key with maintainers
-                      SEVar(1) // token
+                      SEVar(1), // token
                     ),
                     SBUFetch(retrieveByKey.templateId)(
                       SEVar(1), /* coid */
-                      SEVar(2) /* token */
+                      SEVar(2), /* token */
                     ),
                     SBUInsertFetchNode(retrieveByKey.templateId)(
                       SEVar(2), // coid
                       signatories,
                       observers,
-                      SEVar(3) // token
-                    )
+                      SEVar(3), // token
+                    ),
                   ) in SBStructCon(Name.Array(contractIdFieldName, contractFieldName))(
                     SEVar(3), // contract id
-                    SEVar(2) // contract
+                    SEVar(2), // contract
                   )
                 }
               }
@@ -686,7 +689,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
           SEAbs(1) {
             SELet(
               SBSBeginCommit(optLoc)(party, SEVar(1)),
-              SECatch(SEApp(update, Array(SEVar(2))), SEValue.True, SEValue.False)
+              SECatch(SEApp(update, Array(SEVar(2))), SEValue.True, SEValue.False),
             ) in SBSEndCommit(true)(SEVar(1), SEVar(3))
           }
         }
@@ -777,7 +780,8 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
     SELet(key) in
       SBStructCon(Name.Array(keyFieldName, maintainersFieldName))(
         SEVar(1), // key
-        SEApp(translate(tmplKey.maintainers), Array(SEVar(1) /* key */ )))
+        SEApp(translate(tmplKey.maintainers), Array(SEVar(1) /* key */ )),
+      )
 
   private def translateKeyWithMaintainers(tmplKey: TemplateKey): SExpr =
     encodeKeyWithMaintainers(translate(tmplKey.body), tmplKey)
@@ -833,17 +837,19 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
                 observers,
                 controllers,
                 mbKey,
-                SEVar(2)),
+                SEVar(2),
+              ),
               // stack: <actors> <cid> <choice arg> <token> <template arg> ()
               SEApp(update, Array(SEVar(3))),
               // stack: <actors> <cid> <choice arg> <token> <template arg> () <ret value>
-              SBUEndExercise(tmplId)(SEVar(4), SEVar(1))
+              SBUEndExercise(tmplId)(SEVar(4), SEVar(1)),
             ) in
               // stack: <actors> <cid> <choice arg> <token> <template arg> () <ret value> ()
               SEVar(2)
           }
-        }
-      ))
+        },
+      ),
+    )
 
   // ELet(a, ELet(b, body)) => ([a, b], body)
   private def collectLets(expr: Expr): (List[Binding], Expr) =
@@ -967,9 +973,9 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
             case SCaseAlt(pat, body) =>
               SCaseAlt(
                 pat,
-                closureConvert(remaps, bound + patternNArgs(pat), body)
+                closureConvert(remaps, bound + patternNArgs(pat), body),
               )
-          }
+          },
         )
 
       case SELet(bounds, body) =>
@@ -982,7 +988,8 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         SECatch(
           closureConvert(remaps, bound, body),
           closureConvert(remaps, bound, handler),
-          closureConvert(remaps, bound, fin))
+          closureConvert(remaps, bound, fin),
+        )
     }
   }
 
@@ -1123,14 +1130,14 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
           SELet(
             SBUFetch(tmplId)(
               SEVar(2), /* coid */
-              SEVar(1) /* token */
+              SEVar(1), /* token */
             ),
             SBUInsertFetchNode(tmplId)(
               SEVar(3), /* coid */
               signatories,
               observers,
-              SEVar(2) /* token */
-            )
+              SEVar(2), /* token */
+            ),
           ) in SEVar(2) /* fetch result */
         }
     }
@@ -1179,7 +1186,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
               signatories,
               observers,
               SEVar(3), /* key */
-              SEVar(2) /* token */
+              SEVar(2), /* token */
             )
         }
     }
@@ -1192,7 +1199,8 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
       // actors are only present when compiling old LF update expressions;
       // they are computed from the controllers in newer versions
       optActors: Option[SExpr],
-      argument: SExpr): SExpr =
+      argument: SExpr,
+  ): SExpr =
     // Translates 'A does exercise cid Choice with <params>'
     // into:
     // SomeTemplate$SomeChoice <actorsE> <cidE> <argE>
@@ -1212,7 +1220,8 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
       // or the acting parties of an exercise node
       // of a transaction under reconstruction for validation
       optActors: Option[SExpr],
-      argument: SExpr): SExpr = {
+      argument: SExpr,
+  ): SExpr = {
     // Translates 'exerciseByKey Foo <key> <choiceName> <optActors> <argument>' into:
     // let key = <key>
     // let maintainers = keyMaintainers key
@@ -1223,7 +1232,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
     val template = lookupTemplate(tmplId)
     withEnv { _ =>
       val tmplKey = template.key.getOrElse(
-        throw CompileError(s"Expecting to find key for template ${tmplId}, but couldn't")
+        throw CompileError(s"Expecting to find key for template ${tmplId}, but couldn't"),
       )
       SELet(encodeKeyWithMaintainers(key, tmplKey)) in {
         env = env.incrPos // key with maintainers
@@ -1231,7 +1240,10 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
           env = env.incrPos // token
           SELet(
             SBUFetchKey(tmplId)(SEVar(2), SEVar(1)),
-            SEApp(compileExercise(tmplId, SEVar(1), choiceId, optActors, argument), Array(SEVar(2)))
+            SEApp(
+              compileExercise(tmplId, SEVar(1), choiceId, optActors, argument),
+              Array(SEVar(2)),
+            ),
           ) in SEVar(1)
         }
       }
@@ -1242,7 +1254,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
       tmplId: Identifier,
       createArg: SValue,
       choiceId: ChoiceName,
-      choiceArg: SValue
+      choiceArg: SValue,
   ): SExpr = {
 
     withEnv { _ =>
@@ -1252,7 +1264,8 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
           SEApp(compileCreate(tmplId, SEValue(createArg)), Array(SEVar(1))),
           SEApp(
             compileExercise(tmplId, SEVar(1), choiceId, None, SEValue(choiceArg)),
-            Array(SEVar(2)))
+            Array(SEVar(2)),
+          ),
         ) in SEVar(1)
       }
     }
@@ -1272,7 +1285,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         templateId,
         createArg,
         choice,
-        choiceArg
+        choiceArg,
       )
   }
 

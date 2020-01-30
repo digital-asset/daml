@@ -50,7 +50,7 @@ trait Resource[A] {
     flatMap(nested => nested)
 
   def transformWith[B](f: Try[A] => Resource[B])(
-      implicit executionContext: ExecutionContext
+      implicit executionContext: ExecutionContext,
   ): Resource[B] =
     Resource(
       asFuture.transformWith(f.andThen(Future.successful)),

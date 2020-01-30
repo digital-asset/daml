@@ -73,7 +73,7 @@ class Context(val contextId: Context.ContextId) {
   private def decodeModule(
       major: LanguageVersion.Major,
       minor: String,
-      bytes: ByteString
+      bytes: ByteString,
   ): Ast.Module = {
     val lfVer = LanguageVersion(major, LanguageVersion.Minor fromProtoIdentifier minor)
     val dop: Decode.OfPackage[_] = Decode.decoders
@@ -86,7 +86,7 @@ class Context(val contextId: Context.ContextId) {
 
   private def validate(pkgIds: Traversable[PackageId]): Unit =
     pkgIds.foreach(
-      Validation.checkPackage(allPackages, _).left.foreach(e => throw ParseError(e.pretty))
+      Validation.checkPackage(allPackages, _).left.foreach(e => throw ParseError(e.pretty)),
     )
 
   @throws[ParseError]
@@ -95,7 +95,7 @@ class Context(val contextId: Context.ContextId) {
       loadModules: Seq[ProtoScenarioModule],
       unloadPackages: Seq[String],
       loadPackages: Seq[ByteString],
-      forScenarioService: Boolean
+      forScenarioService: Boolean,
   ): Unit = this.synchronized {
 
     // First we unload modules and packages
@@ -143,8 +143,7 @@ class Context(val contextId: Context.ContextId) {
                   case (defRef, compiledDefn) => (defRef, (m.languageVersion, compiledDefn))
                 }
 
-        }
-    )
+        })
   }
 
   def allPackages: Map[PackageId, Ast.Package] =
@@ -161,23 +160,23 @@ class Context(val contextId: Context.ContextId) {
       .build(
         checkSubmitterInMaintainers = VersionTimeline.checkSubmitterInMaintainers(lfVer),
         sexpr = defn,
-        compiledPackages = PureCompiledPackages(allPackages, defns.mapValues(_._2)).right.get
+        compiledPackages = PureCompiledPackages(allPackages, defns.mapValues(_._2)).right.get,
       )
   }
 
   def interpretScenario(
       pkgId: String,
-      name: String
+      name: String,
   ): Option[(Ledger, Speedy.Machine, Either[SError, SValue])] =
     buildMachine(
-      Identifier(assert(PackageId.fromString(pkgId)), assert(QualifiedName.fromString(name))))
-      .map { machine =>
-        ScenarioRunner(machine).run() match {
-          case Right((diff @ _, steps @ _, ledger)) =>
-            (ledger, machine, Right(machine.toSValue))
-          case Left((err, ledger)) =>
-            (ledger, machine, Left(err))
-        }
+      Identifier(assert(PackageId.fromString(pkgId)), assert(QualifiedName.fromString(name))),
+    ).map { machine =>
+      ScenarioRunner(machine).run() match {
+        case Right((diff @ _, steps @ _, ledger)) =>
+          (ledger, machine, Right(machine.toSValue))
+        case Left((err, ledger)) =>
+          (ledger, machine, Left(err))
       }
+    }
 
 }

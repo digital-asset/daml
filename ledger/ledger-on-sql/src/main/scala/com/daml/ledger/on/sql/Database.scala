@@ -3,7 +3,8 @@
 
 package com.daml.ledger.on.sql
 
-import com.daml.ledger.on.sql.queries.Queries.InvalidDatabaseException
+import java.sql.Connection
+
 import com.daml.ledger.on.sql.queries.{H2Queries, PostgresqlQueries, Queries, SqliteQueries}
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.resources.ResourceOwner
@@ -11,11 +12,57 @@ import com.zaxxer.hikari.HikariDataSource
 import javax.sql.DataSource
 import org.flywaydb.core.Flyway
 
-case class Database(
-    queries: Queries,
+import scala.concurrent.duration.Duration
+import scala.util.control.NonFatal
+
+class Database(
+    val queries: Queries,
     readerConnectionPool: DataSource,
     writerConnectionPool: DataSource,
-)
+) {
+  private val logger = ContextualizedLogger.get(this.getClass)
+
+  def inReadTransaction[T](message: String)(
+      body: Connection => T,
+  )(implicit logCtx: LoggingContext): T = {
+    inTransaction(message, readerConnectionPool)(body)
+  }
+
+  def inWriteTransaction[T](message: String)(
+      body: Connection => T,
+  )(implicit logCtx: LoggingContext): T = {
+    inTransaction(message, writerConnectionPool)(body)
+  }
+
+  private def inTransaction[T](message: String, connectionPool: DataSource)(
+      body: Connection => T,
+  )(implicit logCtx: LoggingContext): T = {
+    val connection =
+      time(s"$message: acquiring connection")(connectionPool.getConnection())
+    time(message) {
+      try {
+        val result = body(connection)
+        connection.commit()
+        result
+      } catch {
+        case NonFatal(exception) =>
+          connection.rollback()
+          throw exception
+      } finally {
+        connection.close()
+      }
+    }
+  }
+
+  private def time[T](message: String)(body: => T)(implicit logCtx: LoggingContext): T = {
+    val startTime = System.nanoTime()
+    logger.trace(s"$message: starting")
+    val result = body
+    val endTime = System.nanoTime()
+    logger.trace(s"$message: finished in ${Duration.fromNanos(endTime - startTime).toMillis}ms")
+    result
+  }
+}
 
 object Database {
   private val logger = ContextualizedLogger.get(classOf[Database])
@@ -32,15 +79,24 @@ object Database {
       implicit logCtx: LoggingContext,
   ): ResourceOwner[UninitializedDatabase] =
     (jdbcUrl match {
+      case "jdbc:h2:mem:" =>
+        throw new InvalidDatabaseException(
+          "Unnamed in-memory H2 databases are not supported. Please name the database using the format \"jdbc:h2:mem:NAME\".",
+        )
+      case url if url.startsWith("jdbc:h2:mem:") =>
+        SingleConnectionDatabase.owner(RDBMS.H2, jdbcUrl)
       case url if url.startsWith("jdbc:h2:") =>
         MultipleConnectionDatabase.owner(RDBMS.H2, jdbcUrl)
       case url if url.startsWith("jdbc:postgresql:") =>
         MultipleConnectionDatabase.owner(RDBMS.PostgreSQL, jdbcUrl)
       case url if url.startsWith("jdbc:sqlite::memory:") =>
-        SingleConnectionDatabase.owner(RDBMS.SQLite, jdbcUrl)
+        throw new InvalidDatabaseException(
+          "Unnamed in-memory SQLite databases are not supported. Please name the database using the format \"jdbc:sqlite:file:NAME?mode=memory&cache=shared\".",
+        )
       case url if url.startsWith("jdbc:sqlite:") =>
-        SingleConnectionExceptAdminDatabase.owner(RDBMS.SQLite, jdbcUrl)
-      case _ => throw new InvalidDatabaseException(jdbcUrl)
+        SingleConnectionDatabase.owner(RDBMS.SQLite, jdbcUrl)
+      case _ =>
+        throw new InvalidDatabaseException(s"Unknown database: $jdbcUrl")
     }).map { database =>
       logger.info(s"Connected to the ledger over JDBC: $jdbcUrl")
       database
@@ -53,67 +109,35 @@ object Database {
     ): ResourceOwner[UninitializedDatabase] =
       for {
         readerConnectionPool <- ResourceOwner.forCloseable(() =>
-          newHikariDataSource(jdbcUrl, readOnly = true),
-        )
+          newHikariDataSource(jdbcUrl, readOnly = true))
         writerConnectionPool <- ResourceOwner.forCloseable(() =>
-          newHikariDataSource(jdbcUrl, maxPoolSize = Some(MaximumWriterConnectionPoolSize)),
-        )
+          newHikariDataSource(jdbcUrl, maxPoolSize = Some(MaximumWriterConnectionPoolSize)))
         adminConnectionPool <- ResourceOwner.forCloseable(() => newHikariDataSource(jdbcUrl))
-      } yield new UninitializedDatabase(
-        system,
-        readerConnectionPool,
-        writerConnectionPool,
-        adminConnectionPool,
-      )
+      } yield
+        new UninitializedDatabase(
+          system,
+          readerConnectionPool,
+          writerConnectionPool,
+          adminConnectionPool,
+        )
   }
 
-  object SingleConnectionExceptAdminDatabase {
-    def owner(
-        system: RDBMS,
-        jdbcUrl: String,
-    ): ResourceOwner[UninitializedDatabase] =
-      for {
-        readerWriterConnectionPool <- ResourceOwner.forCloseable(() =>
-          newHikariDataSource(jdbcUrl, maxPoolSize = Some(MaximumWriterConnectionPoolSize)),
-        )
-        adminConnectionPool <- ResourceOwner.forCloseable(() => newHikariDataSource(jdbcUrl))
-      } yield new UninitializedDatabase(
-        system,
-        readerWriterConnectionPool,
-        readerWriterConnectionPool,
-        adminConnectionPool,
-      )
-  }
-
-  // This is used when connecting to SQLite in-memory. Unlike file storage or H2 in-memory, each
-  // connection established will create a new, separate database. This means we can't create more
-  // than one connection pool, as each pool will create a new connection and therefore a new
-  // database.
-  //
-  // Because of this, Flyway needs to share the connection pool. However, Flyway _also_ requires
-  // a connection pool that allows for two concurrent connections. It uses one to lock the
-  // migrations table (to ensure we don't run migrations in parallel), and then the second to
-  // actually run the migrations. This is actually unnecessary in this case because it's impossible
-  // to have two connections, but it doesn't know that.
-  //
-  // To make Flyway happy, we create an unbounded connection pool and then drop it to 1 connection
-  // after migration.
   object SingleConnectionDatabase {
     def owner(
         system: RDBMS,
         jdbcUrl: String,
     ): ResourceOwner[UninitializedDatabase] =
       for {
-        connectionPool <- ResourceOwner.forCloseable(() => newHikariDataSource(jdbcUrl))
-      } yield new UninitializedDatabase(
-        system,
-        readerConnectionPool = connectionPool,
-        writerConnectionPool = connectionPool,
-        adminConnectionPool = connectionPool,
-        afterMigration = () => {
-          connectionPool.setMaximumPoolSize(MaximumWriterConnectionPoolSize)
-        },
-      )
+        readerWriterConnectionPool <- ResourceOwner.forCloseable(() =>
+          newHikariDataSource(jdbcUrl, maxPoolSize = Some(MaximumWriterConnectionPoolSize)))
+        adminConnectionPool <- ResourceOwner.forCloseable(() => newHikariDataSource(jdbcUrl))
+      } yield
+        new UninitializedDatabase(
+          system,
+          readerWriterConnectionPool,
+          readerWriterConnectionPool,
+          adminConnectionPool,
+        )
   }
 
   private def newHikariDataSource(
@@ -172,7 +196,7 @@ object Database {
     def migrate(): Database = {
       flyway.migrate()
       afterMigration()
-      Database(system.queries, readerConnectionPool, writerConnectionPool)
+      new Database(system.queries, readerConnectionPool, writerConnectionPool)
     }
 
     def clear(): this.type = {
@@ -180,4 +204,6 @@ object Database {
       this
     }
   }
+
+  class InvalidDatabaseException(message: String) extends RuntimeException(message)
 }

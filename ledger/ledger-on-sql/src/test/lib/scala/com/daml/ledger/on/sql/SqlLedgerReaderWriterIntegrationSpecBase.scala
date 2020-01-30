@@ -20,21 +20,19 @@ abstract class SqlLedgerReaderWriterIntegrationSpecBase(implementationName: Stri
     extends ParticipantStateIntegrationSpecBase(implementationName) {
   protected final implicit val ec: ExecutionContext = ExecutionContext.global
 
-  protected def jdbcUrl: String
+  protected def newJdbcUrl(): String
 
-  override final val startIndex: Long = SqlLedgerReaderWriter.StartIndex
+  override final val startIndex: Long = StartIndex
 
   override final def participantStateFactory(
       participantId: ParticipantId,
       ledgerId: LedgerString,
-  ): ResourceOwner[ParticipantState] = {
-    val currentJdbcUrl = jdbcUrl
+  ): ResourceOwner[ParticipantState] =
     newLoggingContext { implicit logCtx =>
       SqlLedgerReaderWriter
-        .owner(ledgerId, participantId, currentJdbcUrl)
+        .owner(ledgerId, participantId, newJdbcUrl())
         .map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter))
     }
-  }
 
   override final def currentRecordTime(): Timestamp =
     Timestamp.assertFromInstant(Clock.systemUTC().instant())

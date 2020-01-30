@@ -3,7 +3,8 @@
 
 package com.daml.ledger.on.filesystem.posix
 
-import java.nio.file.{Files, NoSuchFileException, Path}
+import java.io.RandomAccessFile
+import java.nio.file.{FileAlreadyExistsException, Files, NoSuchFileException, Path}
 import java.time.Clock
 
 import akka.NotUsed
@@ -13,7 +14,6 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntryId,
   DamlStateKey,
   DamlStateValue,
-  DamlSubmission
 }
 import com.daml.ledger.participant.state.kvutils.api.{LedgerReader, LedgerRecord, LedgerWriter}
 import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting}
@@ -29,6 +29,7 @@ import com.google.protobuf.ByteString
 import scala.collection.JavaConverters._
 import scala.collection.immutable
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 class FileSystemLedgerReaderWriter private (
     ledgerId: LedgerId,
@@ -39,8 +40,8 @@ class FileSystemLedgerReaderWriter private (
     extends LedgerReader
     with LedgerWriter {
 
-  // used as the ledger lock; when committing, only one commit owns the lock at a time
-  private val lockPath = root.resolve("lock")
+  // used as the commit lock; when committing, only one commit owns the lock at a time
+  private val commitLockPath = root.resolve("commit-lock")
   // the root of the ledger log
   private val logDirectory = root.resolve("log")
   // stores each ledger entry
@@ -53,7 +54,7 @@ class FileSystemLedgerReaderWriter private (
   // a key-value store of the current state
   private val stateDirectory = root.resolve("state")
 
-  private val lock = new FileSystemLock(lockPath)
+  private val lock = new FileSystemLock(commitLockPath)
 
   private val engine = Engine()
 
@@ -70,7 +71,7 @@ class FileSystemLedgerReaderWriter private (
         OneAfterAnother[Index, immutable.Seq[LedgerRecord]](
           (index: Index, _) => index + 1,
           (index: Index) => Future.successful(immutable.Seq(retrieveLogEntry(index))),
-        )
+        ),
       )
       .mapConcat {
         case (_, updates) => updates
@@ -80,7 +81,7 @@ class FileSystemLedgerReaderWriter private (
     val submission = Envelope
       .openSubmission(envelope)
       .getOrElse(throw new IllegalArgumentException("Not a valid submission in envelope"))
-    lock.run {
+    lock {
       val stateInputStream =
         submission.getInputDamlStateList.asScala.toVector
           .map(key => key -> readState(key))
@@ -99,24 +100,10 @@ class FileSystemLedgerReaderWriter private (
         participantId,
         stateInputs,
       )
-      verifyStateUpdatesAgainstPreDeclaredOutputs(stateUpdates, entryId, submission)
       val newHead = appendLog(currentHead, Envelope.enclose(logEntry))
       updateState(stateUpdates)
       dispatcher.signalNewHead(newHead)
       SubmissionResult.Acknowledged
-    }
-  }
-
-  private def verifyStateUpdatesAgainstPreDeclaredOutputs(
-      actualStateUpdates: Map[DamlStateKey, DamlStateValue],
-      entryId: DamlLogEntryId,
-      submission: DamlSubmission
-  ): Unit = {
-    val expectedStateUpdates = KeyValueCommitting.submissionOutputs(entryId, submission)
-    if (!(actualStateUpdates.keySet subsetOf expectedStateUpdates)) {
-      val unaccountedKeys = actualStateUpdates.keySet diff expectedStateUpdates
-      sys.error(
-        s"CommitActor: State updates not a subset of expected updates! Keys [$unaccountedKeys] are unaccounted for!")
     }
   }
 
@@ -170,12 +157,13 @@ class FileSystemLedgerReaderWriter private (
     }
   }
 
-  private def createDirectories(): Unit = {
+  private def initialize(): Unit = {
     Files.createDirectories(root)
     Files.createDirectories(logDirectory)
     Files.createDirectories(logEntriesDirectory)
     Files.createDirectories(logIndexDirectory)
     Files.createDirectories(stateDirectory)
+    ensureFileExists(commitLockPath)
     ()
   }
 }
@@ -189,8 +177,15 @@ object FileSystemLedgerReaderWriter {
       ledgerId: LedgerId,
       participantId: ParticipantId,
       root: Path,
-  )(implicit executionContext: ExecutionContext): ResourceOwner[FileSystemLedgerReaderWriter] =
+  )(implicit executionContext: ExecutionContext): ResourceOwner[FileSystemLedgerReaderWriter] = {
+    val ledgerLock = root.resolve("ledger-lock")
+    ensureFileExists(ledgerLock)
     for {
+      _ <- ResourceOwner.forTryCloseable(() =>
+        Option(new RandomAccessFile(ledgerLock.toFile, "rw").getChannel.tryLock()) match {
+          case None => Failure(new LedgerLockAcquisitionFailedException(ledgerLock))
+          case Some(lock) => Success(lock)
+      })
       dispatcher <- ResourceOwner.forCloseable(
         () =>
           Dispatcher(
@@ -200,7 +195,22 @@ object FileSystemLedgerReaderWriter {
         ))
     } yield {
       val participant = new FileSystemLedgerReaderWriter(ledgerId, participantId, root, dispatcher)
-      participant.createDirectories()
+      participant.initialize()
       participant
     }
+  }
+
+  private def ensureFileExists(path: Path): Unit = {
+    Files.createDirectories(path.getParent)
+    try {
+      Files.createFile(path)
+      ()
+    } catch {
+      // this is fine.
+      case _: FileAlreadyExistsException =>
+    }
+  }
+
+  class LedgerLockAcquisitionFailedException(lockPath: Path)
+      extends RuntimeException(s"Could not acquire the ledger lock at $lockPath.")
 }

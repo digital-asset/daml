@@ -173,10 +173,12 @@ object Speedy {
                         this.ctrl = CtrlExpr(body)
                       case None =>
                         crash(
-                          s"definition $ref not found even after caller provided new set of packages")
+                          s"definition $ref not found even after caller provided new set of packages",
+                        )
                     }
-                  }
-                ))
+                  },
+                ),
+              )
           }
       }
 
@@ -239,7 +241,7 @@ object Speedy {
     private def initial(
         checkSubmitterInMaintainers: Boolean,
         compiledPackages: CompiledPackages,
-        seed: Option[crypto.Hash]
+        seed: Option[crypto.Hash],
     ) =
       Machine(
         ctrl = null,
@@ -256,13 +258,15 @@ object Speedy {
       )
 
     def newBuilder(
-        compiledPackages: CompiledPackages): Either[SError, (Boolean, Expr) => Machine] = {
+        compiledPackages: CompiledPackages,
+    ): Either[SError, (Boolean, Expr) => Machine] = {
       val compiler = Compiler(compiledPackages.packages)
       Right({ (checkSubmitterInMaintainers: Boolean, expr: Expr) =>
         fromSExpr(
           SEApp(compiler.compile(expr), Array(SEValue.Token)),
           checkSubmitterInMaintainers,
-          compiledPackages)
+          compiledPackages,
+        )
       })
     }
 
@@ -270,20 +274,21 @@ object Speedy {
         checkSubmitterInMaintainers: Boolean,
         sexpr: SExpr,
         compiledPackages: CompiledPackages,
-        seed: Option[crypto.Hash] = None
+        seed: Option[crypto.Hash] = None,
     ): Machine =
       fromSExpr(
         SEApp(sexpr, Array(SEValue.Token)),
         checkSubmitterInMaintainers,
         compiledPackages,
-        seed)
+        seed,
+      )
 
     // Used from repl.
     def fromExpr(
         expr: Expr,
         checkSubmitterInMaintainers: Boolean,
         compiledPackages: CompiledPackages,
-        scenario: Boolean
+        scenario: Boolean,
     ): Machine = {
       val compiler = Compiler(compiledPackages.packages)
       val sexpr =
@@ -302,7 +307,7 @@ object Speedy {
         sexpr: SExpr,
         checkSubmitterInMaintainers: Boolean,
         compiledPackages: CompiledPackages,
-        seed: Option[crypto.Hash] = None
+        seed: Option[crypto.Hash] = None,
     ): Machine =
       initial(checkSubmitterInMaintainers, compiledPackages, seed).copy(ctrl = CtrlExpr(sexpr))
   }
@@ -373,8 +378,8 @@ object Speedy {
   final case class CtrlWronglyTypeContractId(
       acoid: AbsoluteContractId,
       expected: TypeConName,
-      actual: TypeConName)
-      extends Ctrl {
+      actual: TypeConName,
+  ) extends Ctrl {
     override def execute(machine: Machine): Unit = {
       throw DamlEWronglyTypedContract(acoid, expected, actual)
     }
@@ -537,7 +542,7 @@ object Speedy {
       machine.ctrl = CtrlExpr(
         altOpt
           .getOrElse(throw DamlEMatchError(s"No match for $v in ${alts.toList}"))
-          .body
+          .body,
       )
     }
   }

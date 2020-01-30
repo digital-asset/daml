@@ -21,8 +21,9 @@ import scala.collection.immutable.HashMap
 
 @SuppressWarnings(
   Array(
-    "org.wartremover.warts.Any"
-  ))
+    "org.wartremover.warts.Any",
+  ),
+)
 sealed trait SValue {
 
   import SValue._
@@ -42,8 +43,8 @@ sealed trait SValue {
           ImmArray(
             fields.toSeq
               .zip(svalues.asScala)
-              .map { case (fld, sv) => (fld, sv.toValue) }
-          )
+              .map { case (fld, sv) => (fld, sv.toValue) },
+          ),
         )
       case SRecord(id, fields, svalues) =>
         V.ValueRecord(
@@ -51,8 +52,8 @@ sealed trait SValue {
           ImmArray(
             fields.toSeq
               .zip(svalues.asScala)
-              .map({ case (fld, sv) => (Some(fld), sv.toValue) })
-          )
+              .map({ case (fld, sv) => (Some(fld), sv.toValue) }),
+          ),
         )
       case SVariant(id, variant, sv) =>
         V.ValueVariant(Some(id), variant, sv.toValue)
@@ -288,7 +289,8 @@ object SValue {
 
   private def mapArrayList(
       as: util.ArrayList[SValue],
-      f: SValue => SValue): util.ArrayList[SValue] = {
+      f: SValue => SValue,
+  ): util.ArrayList[SValue] = {
     val bs = new util.ArrayList[SValue](as.size)
     as.forEach { a =>
       val _ = bs.add(f(a))

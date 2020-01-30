@@ -6,7 +6,7 @@ package com.daml.ledger.on.sql.queries
 import java.sql.Connection
 
 import anorm.{BatchSql, NamedParameter}
-import com.daml.ledger.on.sql.queries.Queries._
+import com.daml.ledger.on.sql.Index
 import com.daml.ledger.participant.state.kvutils.DamlKvutils
 import com.daml.ledger.participant.state.kvutils.api.LedgerRecord
 import com.google.protobuf.ByteString
@@ -14,6 +14,8 @@ import com.google.protobuf.ByteString
 import scala.collection.immutable
 
 trait Queries {
+  def selectLatestLogEntryId()(implicit connection: Connection): Option[Index]
+
   def selectFromLog(
       start: Index,
       end: Index,
@@ -36,8 +38,6 @@ trait Queries {
 }
 
 object Queries {
-  type Index = Long
-
   val TablePrefix = "ledger"
   val LogTable = s"${TablePrefix}_log"
   val StateTable = s"${TablePrefix}_state"
@@ -50,7 +50,4 @@ object Queries {
       BatchSql(query, params.head, params.drop(1).toArray: _*).execute()
     ()
   }
-
-  class InvalidDatabaseException(jdbcUrl: String)
-      extends RuntimeException(s"Unknown database: $jdbcUrl")
 }

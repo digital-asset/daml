@@ -56,7 +56,7 @@ supported_databases = [
             "@maven//:org_xerial_sqlite_jdbc",
         ],
         "conformance_test_server_args": [
-            "--jdbc-url=jdbc:sqlite::memory:",
+            "--jdbc-url=jdbc:sqlite:file:daml-on-sql-conformance-test?mode=memory&cache=shared",
         ],
     },
     {
@@ -164,11 +164,13 @@ da_scala_test_suite(
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils:kvutils-tests-lib",
+        "//libs-scala/contextualized-logging",
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:org_flywaydb_flyway_core",
+        "@maven//:org_scala_lang_modules_scala_java8_compat_2_12",
         "@maven//:org_scalactic_scalactic_2_12",
         "@maven//:org_scalatest_scalatest_2_12",
     ],
@@ -196,7 +198,16 @@ da_scala_test_suite(
                 "--all-tests",
                 "--exclude=ConfigManagementServiceIT",
                 "--exclude=TimeIT",
-                "--exclude=TransactionScaleIT",
+            ],
+        ),
+        conformance_test(
+            name = "conformance-test-config-management-{}".format(db["name"]),
+            ports = [6865],
+            server = ":conformance-test-{}-bin".format(db["name"]),
+            server_args = ["--port=6865"] + db.get("conformance_test_server_args", []),
+            tags = db.get("conformance_test_tags", []),
+            test_tool_args = db.get("conformance_test_tool_args", []) + [
+                "--include=ConfigManagementServiceIT",
             ],
         ),
     )

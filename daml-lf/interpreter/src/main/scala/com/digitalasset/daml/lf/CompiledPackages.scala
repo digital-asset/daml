@@ -23,8 +23,8 @@ trait CompiledPackages {
 
 final class PureCompiledPackages private (
     packages: Map[PackageId, Package],
-    defns: Map[SDefinitionRef, SExpr])
-    extends CompiledPackages {
+    defns: Map[SDefinitionRef, SExpr],
+) extends CompiledPackages {
   override def packageIds = packages.keySet
   override def getPackage(pkgId: PackageId): Option[Package] = packages.get(pkgId)
   override def getDefinition(dref: SDefinitionRef): Option[SExpr] = defns.get(dref)
@@ -37,7 +37,8 @@ object PureCompiledPackages {
     */
   def apply(
       packages: Map[PackageId, Package],
-      defns: Map[SDefinitionRef, SExpr]): Either[String, PureCompiledPackages] = {
+      defns: Map[SDefinitionRef, SExpr],
+  ): Either[String, PureCompiledPackages] = {
     Right(new PureCompiledPackages(packages, defns))
   }
 
