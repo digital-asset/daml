@@ -119,7 +119,7 @@ main = do
               -- Only upload from the linux machine.
               when (osName == "linux") $ do
                 $logDebug "Uploading npm packages"
-                liftIO $ bracket
+                liftIO $ bracket_
                   (writeFile npmrcPath "//registry.npmjs.org/:_authToken=${NPM_TOKEN}")
                   (\() -> Dir.removeFile npmrcPath)
                   (\() -> forM_ npmPackages
