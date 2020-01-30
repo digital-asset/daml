@@ -250,7 +250,9 @@ class WebSocketService(
     val Q = implicitly[StreamQuery[A]]
     Q.predicate(req, resolveTemplateId, lookupType)
       .fold(
-        e => Source.single(wsErrorMessage(s"Error handling request: ${req.toString: String}: $e")),
+        e =>
+          Source.single(
+            wsErrorMessage(s"Error handling request: ${req.toString: String}: ${e.shows}")),
         predicate =>
           getTransactionSourceForParty(
             jwt,
