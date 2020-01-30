@@ -445,6 +445,16 @@ span p xs@(x::xs')
          | p x          =  let (ys,zs) = span p xs' in (x::ys,zs)
          | otherwise    =  ([],xs)
 
+-- | Splits the given list into a pair of lists. All elements of the first list
+-- satisfy the given predicate, and all elements of the second list do not.
+partition : (a -> Bool) -> [a] -> ([a], [a])
+partition p xs =
+  foldr insert ([], []) xs
+  where
+    insert x (ps, nonPs)
+      | p x = (x :: ps, nonPs)
+      | otherwise = (ps, x :: nonPs)
+
 -- | Break a list into two, just before the first element where the predicate holds.
 -- `break p xs` is equivalent to `span (not . p) xs`.
 break : (a -> Bool) -> [a] -> ([a], [a])
