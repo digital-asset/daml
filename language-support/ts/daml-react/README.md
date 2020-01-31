@@ -1,6 +1,6 @@
 # @daml/react
 
-> React framework to interact with a DAML ledger.
+> Library to interact with a DAML ledger from a React application.
 
 ## Install
 
