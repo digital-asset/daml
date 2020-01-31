@@ -166,7 +166,7 @@ generateSrcFromLf env = noLoc mod
             lname = mkRdrName (LF.unExprValName lfName) :: Located RdrName
             sig = TypeSig noExt [lname] . HsWC noExt . HsIB noExt <$> ltype
             lsigD = noLoc . SigD noExt <$> sig :: Gen (LHsDecl GhcPs)
-            bind = mkTrivialBind lname
+            bind = mkStubBind lname
             lvalD = noLoc $ ValD noExt bind :: LHsDecl GhcPs
         [ lsigD, pure lvalD ]
 
@@ -175,16 +175,14 @@ generateSrcFromLf env = noLoc mod
     instanceDecls = do
         LF.DefValue {..} <- NM.toList $ LF.moduleValues $ envMod env
         let dvalType = snd dvalBinder
-        Just qname@LF.Qualified{..} <- [getDFunClassName dvalType]
-        Just fieldNames <- [getDFunFieldNames dvalBody]
-        guard (not (isHasField qname))
+        Just qname <- [getDFunClassName dvalType]
+        guard (isDFunBody dvalBody && not (isHasField qname))
         pure $ do
             polyTy <- HsIB noExt . noLoc <$> convType env dvalType
-            ghcMod <- genModule env qualPackage qualModule
             pure . noLoc . InstD noExt . ClsInstD noExt $ ClsInstDecl
                 { cid_ext = noExt
                 , cid_poly_ty = polyTy
-                , cid_binds = listToBag (mapMaybe (mkBind ghcMod) fieldNames)
+                , cid_binds = emptyBag
                 , cid_sigs = []
                 , cid_tyfam_insts = []
                 , cid_datafam_insts = []
@@ -193,7 +191,12 @@ generateSrcFromLf env = noLoc mod
 
       where
 
-        -- | Filter out HasField instances, since they are generated separately.
+        -- | Filter out HasField instances for now. These need
+        -- special support since we can't reconstruct the field
+        -- name directly, as type level strings get stripped out
+        -- during LF conversion. (TODO: Figure out how to
+        -- reconstruct the original field name from the HasField
+        -- instance.)
         isHasField :: LF.Qualified LF.TypeSynName -> Bool
         isHasField LF.Qualified{..} =
             qualModule == LF.ModuleName ["DA", "Internal", "Record"]
@@ -210,22 +213,14 @@ generateSrcFromLf env = noLoc mod
             LF.TSynApp name _ -> Just name
             _ -> Nothing
 
-        -- | Get the field names associated with a dictionary function body.
-        getDFunFieldNames :: LF.Expr -> Maybe [LF.FieldName]
-        getDFunFieldNames = \case
-            LF.ETyLam _ body -> getDFunFieldNames body
-            LF.ETmLam _ body -> getDFunFieldNames body
-            LF.EStructCon fields -> Just (map fst fields)
-            _ -> Nothing
-
-        -- | Make the binding associated with a field.
-        mkBind :: Module -> LF.FieldName -> Maybe (LHsBind GhcPs)
-        mkBind ghcMod fieldName = do
-            methodName <- getClassMethodName fieldName
-            let occName = mkOccName varName (T.unpack methodName)
-                rdrName = mkOrig ghcMod occName
-                bind = mkTrivialBind (noLoc rdrName)
-            Just (noLoc bind)
+        -- | Check that the body matches that of a dictionary function,
+        -- as opposed to a superclass projection function.
+        isDFunBody :: LF.Expr -> Bool
+        isDFunBody = \case
+            LF.ETyLam _ body -> isDFunBody body
+            LF.ETmLam _ body -> isDFunBody body
+            LF.EStructCon _ -> True
+            _ -> False
 
     shouldExposeDefDataType :: LF.DefDataType -> Bool
     shouldExposeDefDataType typeDef
@@ -345,8 +340,8 @@ mkDataDecl env thisModule occName tyVars cons = do
 -- | Make a binding of the form "x = x". If a qualified name is passed,
 -- we turn the left-hand side into the unqualified form of that name (LHS
 -- must always be unqualified), and the right-hand side remains qualified.
-mkTrivialBind :: Located RdrName -> HsBind GhcPs
-mkTrivialBind lname =
+mkStubBind :: Located RdrName -> HsBind GhcPs
+mkStubBind lname =
     let lexpr = noLoc $ HsPar noExt $ noLoc $ HsVar noExt lname :: LHsExpr GhcPs
         lgrhs = noLoc $ GRHS noExt [] lexpr :: LGRHS GhcPs (LHsExpr GhcPs)
         grhss = GRHSs noExt [lgrhs] (noLoc $ EmptyLocalBinds noExt)
@@ -584,7 +579,7 @@ generateSrcPkgFromLf pkgs getUnitId stablePkgs mbSdkPrefix pkg = do
         , "{-# LANGUAGE NoImplicitPrelude #-}"
         , "{-# LANGUAGE NoOverloadedStrings #-}"
         , "{-# LANGUAGE TypeOperators #-}"
-        , "{-# OPTIONS_GHC -Wno-unused-imports #-}"
+        , "{-# OPTIONS_GHC -Wno-unused-imports -Wno-missing-methods #-}"
         ]
 
 
