@@ -873,21 +873,24 @@ dataDependencyTests damlc repl davlDar = testGroup "Data Dependencies" $
           writeFileUTF8 (proja </> "src" </> "A.daml") $ unlines
               [ "daml 1.2"
               , "module A where"
-              , ""
+              -- test typeclass export
               , "class Foo t where"
               , "  foo : Int -> t"
-              , ""
               , "class Foo t => Bar t where"
               , "  bar : Int -> t"
-              , ""
+              -- test constrainted function export
               , "usingFoo : Foo t => t"
               , "usingFoo = foo 0"
-              , ""
+              -- test instance export
               , "instance Foo Int where"
               , "  foo x = x"
-              , ""
               , "instance Bar Int where"
               , "  bar x = x"
+              -- test instance export where typeclass is from stdlib
+              , "data Q = Q1 | Q2 deriving (Eq, Ord, Show)"
+              -- test constrained function export where typeclass is from stdlib
+              , "usingEq : Eq t => t -> t -> Bool"
+              , "usingEq = (==)"
               ]
           writeFileUTF8 (proja </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
@@ -903,22 +906,27 @@ dataDependencyTests damlc repl davlDar = testGroup "Data Dependencies" $
           writeFileUTF8 (projb </> "src" </> "B.daml") $ unlines
               [ "daml 1.2"
               , "module B where"
-              , "import A ( Foo (foo), Bar (..), usingFoo )"
+              , "import A ( Foo (foo), Bar (..), usingFoo, Q (..), usingEq )"
               , "import DA.Assert"
               , ""
               , "data T = T Int"
+              -- test instances for imported typeclass
               , "instance Foo T where"
               , "    foo = T"
-              , ""
               , "instance Bar T where"
               , "    bar = T"
-              , ""
+              -- test constrained function import
               , "usingFooIndirectly : T"
               , "usingFooIndirectly = usingFoo"
-              , ""
+              -- test imported function constrained by newer Eq class
+              , "testConstrainedFn = scenario do"
+              , "  usingEq 10 10 === True"
+              -- test instance imports
               , "testInstanceImport = scenario do"
-              , "  foo 10 === 10"
-              , "  bar 20 === 20"
+              , "  foo 10 === 10" -- Foo Int
+              , "  bar 20 === 20" -- Bar Int
+              , "  Q1 === Q1" -- (Eq Q, Show Q)
+              , "  (Q1 <= Q2) === True" -- Ord Q
               ]
           writeFileUTF8 (projb </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
