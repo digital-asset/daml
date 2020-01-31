@@ -30,6 +30,8 @@ import com.digitalasset.platform.apiserver.{
   TimeServiceBackend
 }
 import com.digitalasset.platform.common.LedgerIdMode
+import com.digitalasset.platform.configuration.BuildInfo
+import com.digitalasset.platform.packages.InMemoryPackageStore
 import com.digitalasset.platform.sandbox.SandboxServer._
 import com.digitalasset.platform.sandbox.banner.Banner
 import com.digitalasset.platform.sandbox.config.SandboxConfig
@@ -40,7 +42,6 @@ import com.digitalasset.platform.sandbox.stores.ledger._
 import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode
 import com.digitalasset.platform.sandbox.stores.{
   InMemoryActiveLedgerState,
-  InMemoryPackageStore,
   SandboxIndexAndWriteService
 }
 import com.digitalasset.platform.services.time.TimeProviderType

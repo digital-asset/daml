@@ -11,11 +11,14 @@ import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.testing.utils.Resource
 import com.digitalasset.logging.LoggingContext
+import com.digitalasset.platform.packages.InMemoryPackageStore
+import com.digitalasset.platform.sandbox.stores.InMemoryActiveLedgerState
 import com.digitalasset.platform.sandbox.stores.ledger.Ledger
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
-import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode
-import com.digitalasset.platform.sandbox.stores.{InMemoryActiveLedgerState, InMemoryPackageStore}
+import com.digitalasset.platform.sandbox.stores.ledger.inmemory.InMemoryLedger
+import com.digitalasset.platform.sandbox.stores.ledger.sql.{SqlLedger, SqlStartMode}
 import com.digitalasset.resources
+import com.digitalasset.resources.ResourceOwner
 import com.digitalasset.testing.postgresql.{PostgresFixture, PostgresResource}
 
 import scala.concurrent.duration.DurationInt
@@ -31,7 +34,8 @@ object LedgerResource {
       entries: ImmArray[LedgerEntryOrBump] = ImmArray.empty,
   )(implicit executionContext: ExecutionContext): Resource[Ledger] =
     fromResourceOwner(
-      Ledger.inMemory(ledgerId, participantId, timeProvider, acs, packages, entries))
+      ResourceOwner.successful(
+        new InMemoryLedger(ledgerId, participantId, timeProvider, acs, packages, entries)))
 
   def postgres(
       ledgerId: LedgerId,
@@ -57,9 +61,9 @@ object LedgerResource {
         postgres.setup()
 
         ledger = fromResourceOwner(
-          Ledger.jdbcBacked(
+          SqlLedger.owner(
             postgres.value.jdbcUrl,
-            ledgerId,
+            Some(ledgerId),
             participantId,
             timeProvider,
             InMemoryActiveLedgerState.empty,

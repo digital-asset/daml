@@ -5,13 +5,16 @@ package com.digitalasset.platform.sandbox.services
 
 import java.io.File
 import java.util.concurrent.Executors
+
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import com.digitalasset.daml.bazeltools.BazelRunfiles._
+import com.daml.ledger.participant.state.v1.TimeModel
 import com.digitalasset.api.util.TimeProvider
+import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.digitalasset.ledger.api.auth.client.LedgerCallCredentials
 import com.digitalasset.ledger.api.domain
+import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.testing.utils.{Resource, SuiteResource}
 import com.digitalasset.ledger.api.v1.ledger_identity_service.{
   GetLedgerIdentityRequest,
@@ -22,16 +25,15 @@ import com.digitalasset.ledger.client.services.testing.time.StaticTime
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.services.time.TimeProviderType
+import com.google.common.util.concurrent.ThreadFactoryBuilder
 import io.grpc.Channel
 import org.scalatest.{BeforeAndAfterAll, Suite}
-import scalaz.syntax.tag._
-import scala.concurrent.{Await, ExecutionContext}
-import scala.concurrent.duration._
-import scala.util.Try
-import com.digitalasset.ledger.api.domain.LedgerId
-import com.google.common.util.concurrent.ThreadFactoryBuilder
-import com.daml.ledger.participant.state.v1.TimeModel
 import org.slf4j.LoggerFactory
+import scalaz.syntax.tag._
+
+import scala.concurrent.duration._
+import scala.concurrent.{Await, ExecutionContext}
+import scala.util.Try
 
 trait SandboxFixture extends SuiteResource[Channel] with BeforeAndAfterAll {
   self: Suite =>

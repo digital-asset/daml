@@ -11,15 +11,8 @@ import com.daml.ledger.participant.state.v1.TimeModel
 import com.digitalasset.ledger.api.auth.AuthService
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.platform.common.LedgerIdMode
+import com.digitalasset.platform.configuration.CommandConfiguration
 import com.digitalasset.platform.services.time.TimeProviderType
-
-import scala.concurrent.duration._
-
-final case class TlsServerConfiguration(
-    enabled: Boolean,
-    keyCertChainFile: File,
-    keyFile: File,
-    trustCertCollectionFile: File)
 
 /**
   * Defines the basic configuration for running sandbox
@@ -39,24 +32,15 @@ final case class SandboxConfig(
     jdbcUrl: Option[String],
     eagerPackageLoading: Boolean,
     logLevel: Level,
-    authService: Option[AuthService]
+    authService: Option[AuthService],
 )
 
-final case class CommandConfiguration(
-    inputBufferSize: Int,
-    maxParallelSubmissions: Int,
-    maxCommandsInFlight: Int,
-    limitMaxCommandsInFlight: Boolean,
-    historySize: Int,
-    retentionPeriod: FiniteDuration,
-    commandTtl: FiniteDuration)
-
 object SandboxConfig {
-
   val DefaultPort = 6865
+
   val DefaultMaxInboundMessageSize = 4194304
 
-  def default: SandboxConfig =
+  lazy val default =
     SandboxConfig(
       None,
       DefaultPort,
@@ -64,7 +48,7 @@ object SandboxConfig {
       Nil,
       TimeProviderType.Static,
       TimeModel.reasonableDefault,
-      defaultCommandConfig,
+      CommandConfiguration.default,
       tlsConfig = None,
       scenario = None,
       ledgerIdMode = LedgerIdMode.Dynamic(),
@@ -73,16 +57,5 @@ object SandboxConfig {
       eagerPackageLoading = false,
       logLevel = Level.INFO,
       authService = None,
-    )
-
-  lazy val defaultCommandConfig =
-    CommandConfiguration(
-      inputBufferSize = 512,
-      maxParallelSubmissions = 128,
-      maxCommandsInFlight = 256,
-      limitMaxCommandsInFlight = true,
-      historySize = 5000,
-      retentionPeriod = 24.hours,
-      commandTtl = 20.seconds
     )
 }

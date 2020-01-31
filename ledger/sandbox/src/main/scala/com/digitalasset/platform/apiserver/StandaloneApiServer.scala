@@ -20,9 +20,9 @@ import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.health.HealthChecks
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.apiserver.StandaloneApiServer._
-import com.digitalasset.platform.sandbox.BuildInfo
-import com.digitalasset.platform.sandbox.config.SandboxConfig
-import com.digitalasset.platform.sandbox.stores.InMemoryPackageStore
+import com.digitalasset.platform.configuration.{BuildInfo, CommandConfiguration}
+import com.digitalasset.platform.index.JdbcIndex
+import com.digitalasset.platform.packages.InMemoryPackageStore
 import com.digitalasset.resources.akka.AkkaResourceOwner
 import com.digitalasset.resources.{Resource, ResourceOwner}
 
@@ -122,7 +122,7 @@ final class StandaloneApiServer(
               engine,
               config.timeProvider,
               initialConditions.config,
-              SandboxConfig.defaultCommandConfig,
+              CommandConfiguration.default,
               timeServiceBackendO,
               metrics,
               healthChecks,

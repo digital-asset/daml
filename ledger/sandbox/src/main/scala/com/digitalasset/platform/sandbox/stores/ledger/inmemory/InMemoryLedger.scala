@@ -26,18 +26,21 @@ import com.digitalasset.ledger.api.domain.{
   RejectionReason
 }
 import com.digitalasset.ledger.api.health.{HealthStatus, Healthy}
+import com.digitalasset.platform.events.EventIdFormatter
+import com.digitalasset.platform.packages.InMemoryPackageStore
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
-import com.digitalasset.platform.sandbox.EventIdFormatter
-import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.ActiveContract
+import com.digitalasset.platform.sandbox.stores.InMemoryActiveLedgerState
 import com.digitalasset.platform.sandbox.stores.deduplicator.Deduplicator
-import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.{Checkpoint, Rejection}
+import com.digitalasset.platform.sandbox.stores.ledger.Ledger
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
-import com.digitalasset.platform.sandbox.stores.ledger._
-import com.digitalasset.platform.sandbox.stores.{
-  ActiveLedgerState,
-  InMemoryActiveLedgerState,
-  InMemoryPackageStore
+import com.digitalasset.platform.store.Contract.ActiveContract
+import com.digitalasset.platform.store.entries.{
+  ConfigurationEntry,
+  LedgerEntry,
+  PackageLedgerEntry,
+  PartyLedgerEntry
 }
+import com.digitalasset.platform.store.{Contract, LedgerSnapshot}
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.Future
@@ -104,7 +107,8 @@ class InMemoryLedger(
 
   override def lookupContract(
       contractId: AbsoluteContractId,
-      forParty: Party): Future[Option[ActiveLedgerState.Contract]] =
+      forParty: Party
+  ): Future[Option[Contract]] =
     Future.successful(this.synchronized {
       acs.activeContracts.get(contractId).filter(ac => acs.isVisibleForDivulgees(ac.id, forParty))
     })
@@ -116,7 +120,7 @@ class InMemoryLedger(
 
   override def publishHeartbeat(time: Instant): Future[Unit] =
     Future.successful(this.synchronized[Unit] {
-      entries.publish(InMemoryLedgerEntry(Checkpoint(time)))
+      entries.publish(InMemoryLedgerEntry(LedgerEntry.Checkpoint(time)))
       ()
     })
 
@@ -222,7 +226,7 @@ class InMemoryLedger(
     logger.warn(s"Publishing error to ledger: ${reason.description}")
     entries.publish(
       InMemoryLedgerEntry(
-        Rejection(
+        LedgerEntry.Rejection(
           timeProvider.getCurrentTime,
           submitterInfo.commandId,
           submitterInfo.applicationId,
@@ -272,7 +276,7 @@ class InMemoryLedger(
               timeProvider.getCurrentTime,
               "Party already exists")))
       } else {
-        acs = acs.addParty(PartyDetails(party, displayName, true))
+        acs = acs.addParty(PartyDetails(party, displayName, isLocal = true))
         entries.publish(
           InMemoryPartyEntry(
             PartyLedgerEntry.AllocationAccepted(

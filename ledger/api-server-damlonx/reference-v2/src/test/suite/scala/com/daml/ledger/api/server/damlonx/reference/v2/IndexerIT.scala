@@ -22,7 +22,7 @@ import com.digitalasset.platform.indexer.{
   RecoveringIndexer,
   StandaloneIndexerServer
 }
-import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{JdbcLedgerDao, LedgerDao}
+import com.digitalasset.platform.store.dao.{JdbcLedgerDao, LedgerDao}
 import com.digitalasset.platform.testing.LogCollector
 import com.digitalasset.resources.Resource
 import com.digitalasset.timer.RetryStrategy

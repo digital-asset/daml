@@ -17,8 +17,8 @@ import com.digitalasset.ledger.api.validation.PartyNameChecker
 import com.digitalasset.logging.LoggingContext.withEnrichedLoggingContext
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.apiserver.services.logging
-import com.digitalasset.platform.sandbox.EventIdFormatter
-import com.digitalasset.platform.sandbox.EventIdFormatter.TransactionIdWithIndex
+import com.digitalasset.platform.events.EventIdFormatter
+import com.digitalasset.platform.events.EventIdFormatter.TransactionIdWithIndex
 import com.digitalasset.platform.server.api.services.domain.TransactionService
 import com.digitalasset.platform.server.api.services.grpc.GrpcTransactionService
 import com.digitalasset.platform.server.api.validation.ErrorFactories

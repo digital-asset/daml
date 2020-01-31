@@ -5,18 +5,7 @@ package com.digitalasset.platform.apiserver
 
 import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.participant.state.index.v2.{
-  ContractStore,
-  IdentityProvider,
-  IndexActiveContractsService,
-  IndexCompletionsService,
-  IndexConfigManagementService,
-  IndexConfigurationService,
-  IndexPackagesService,
-  IndexPartyManagementService,
-  IndexService,
-  IndexTransactionsService
-}
+import com.daml.ledger.participant.state.index.v2._
 import com.daml.ledger.participant.state.v1.{Configuration, WriteService}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.engine._
@@ -43,8 +32,7 @@ import com.digitalasset.platform.apiserver.services.{
   ApiSubmissionService,
   ApiTimeService
 }
-import com.digitalasset.platform.sandbox.config.CommandConfiguration
-import com.digitalasset.platform.sandbox.stores.ledger.CommandExecutorImpl
+import com.digitalasset.platform.configuration.CommandConfiguration
 import com.digitalasset.platform.server.api.services.grpc.GrpcHealthService
 import io.grpc.BindableService
 import io.grpc.protobuf.services.ProtoReflectionService

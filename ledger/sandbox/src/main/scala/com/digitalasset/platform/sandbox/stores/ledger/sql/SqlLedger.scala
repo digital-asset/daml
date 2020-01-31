@@ -4,7 +4,6 @@
 package com.digitalasset.platform.sandbox.stores.ledger.sql
 
 import java.time.Instant
-import java.util.UUID
 
 import akka.Done
 import akka.stream.QueueOfferResult.{Dropped, Enqueued, QueueClosed}
@@ -23,22 +22,21 @@ import com.digitalasset.dec.{DirectExecutionContext => DEC}
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, RejectionReason}
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
+import com.digitalasset.platform.events.EventIdFormatter
+import com.digitalasset.platform.packages.InMemoryPackageStore
+import com.digitalasset.platform.sandbox.LedgerIdGenerator
+import com.digitalasset.platform.sandbox.stores.InMemoryActiveLedgerState
+import com.digitalasset.platform.sandbox.stores.ledger.Ledger
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
-import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode.{
-  AlwaysReset,
-  ContinueIfExists
+import com.digitalasset.platform.store.dao.JdbcLedgerDao.defaultNumberOfShortLivedConnections
+import com.digitalasset.platform.store.dao.{
+  DbDispatcher,
+  JdbcLedgerDao,
+  LedgerDao,
+  MeteredLedgerDao
 }
-import com.digitalasset.platform.sandbox.stores.ledger.sql.dao._
-import com.digitalasset.platform.sandbox.stores.ledger.sql.migration.FlywayMigrations
-import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
-import com.digitalasset.platform.sandbox.stores.ledger.{
-  Ledger,
-  LedgerEntry,
-  PackageLedgerEntry,
-  PartyLedgerEntry
-}
-import com.digitalasset.platform.sandbox.stores.{InMemoryActiveLedgerState, InMemoryPackageStore}
-import com.digitalasset.platform.sandbox.{EventIdFormatter, LedgerIdGenerator}
+import com.digitalasset.platform.store.entries.{LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
+import com.digitalasset.platform.store.{BaseLedger, DbType, FlywayMigrations, PersistenceEntry}
 import com.digitalasset.resources.ResourceOwner
 import scalaz.syntax.tag._
 
@@ -47,21 +45,7 @@ import scala.collection.immutable.Queue
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
-sealed abstract class SqlStartMode extends Product with Serializable
-
-object SqlStartMode {
-
-  /** Will continue using an initialised ledger, otherwise initialize a new one */
-  final case object ContinueIfExists extends SqlStartMode
-
-  /** Will always reset and initialize the ledger, even if it has data.  */
-  final case object AlwaysReset extends SqlStartMode
-
-}
-
 object SqlLedger {
-
-  val defaultNumberOfShortLivedConnections = 16
 
   private case class Offsets(offset: Long, nextOffset: Long)
 
@@ -92,7 +76,7 @@ object SqlLedger {
       if (dbType.supportsParallelWrites) defaultNumberOfShortLivedConnections else 1
     for {
       dbDispatcher <- DbDispatcher.owner(jdbcUrl, maxConnections, metrics)
-      ledgerDao = LedgerDao.metered(
+      ledgerDao = new MeteredLedgerDao(
         JdbcLedgerDao(dbDispatcher, dbType, mat.executionContext),
         metrics,
       )
@@ -309,7 +293,7 @@ private final class SqlLedger(
             Some(submissionId),
             participantId,
             timeProvider.getCurrentTime,
-            PartyDetails(party, displayName, true))
+            PartyDetails(party, displayName, isLocal = true))
         )
         .map(_ => ())(DEC)
         .recover {
@@ -431,12 +415,12 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
     implicit val ec: ExecutionContext = DEC
 
     def init(): Future[LedgerId] = startMode match {
-      case AlwaysReset =>
+      case SqlStartMode.AlwaysReset =>
         for {
           _ <- reset()
           ledgerId <- initialize(initialLedgerId, timeProvider, acs, packages, initialLedgerEntries)
         } yield ledgerId
-      case ContinueIfExists =>
+      case SqlStartMode.ContinueIfExists =>
         initialize(initialLedgerId, timeProvider, acs, packages, initialLedgerEntries)
     }
 
@@ -474,7 +458,7 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
         ledgerDao
           .lookupLedgerId()
           .flatMap {
-            case Some(foundLedgerId) if (foundLedgerId == initialId) =>
+            case Some(foundLedgerId) if foundLedgerId == initialId =>
               if (initialLedgerEntries.nonEmpty) {
                 logger.warn(
                   s"Initial ledger entries provided, presumably from scenario, but I'm picking up from an existing database, and thus they will not be used")
@@ -553,7 +537,6 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
     val packageDetails = store.listLfPackagesSync()
     if (packageDetails.nonEmpty) {
       logger.info(s"Copying initial packages ${packageDetails.keys.mkString(",")}")
-      val submissionId = UUID.randomUUID().toString
       val packages = packageDetails.toList.map(pkg => {
         val archive =
           store.getLfArchiveSync(pkg._1).getOrElse(sys.error(s"Package ${pkg._1} not found"))
