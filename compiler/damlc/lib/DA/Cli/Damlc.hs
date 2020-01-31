@@ -382,12 +382,7 @@ execIde telemetry (Debug debug) enableScenarioService options =
                       f loggerH
                   Undecided -> f loggerH
           dlintDataDir <- locateRunfiles $ mainWorkspace </> "compiler/damlc/daml-ide-core"
-          initPackageDb options (InitPkgDb True)
-          -- initPackageDb assumes that options does not call mkOptions.
-          -- TODO Burn mkOptions with lots of fire. It is impossible to use
-          -- it correctly since calling it twice will break everything
-          -- and there is no indicator of whether it has already been called.
-          options <- mkOptions options
+          options <- pure options
               { optScenarioService = enableScenarioService
               , optSkipScenarioValidation = SkipScenarioValidation True
               -- TODO(MH): The `optionsParser` does not provide a way to skip
@@ -396,6 +391,7 @@ execIde telemetry (Debug debug) enableScenarioService options =
               , optThreads = 0
               , optDlintUsage = DlintEnabled dlintDataDir True
               }
+          initPackageDb options (InitPkgDb True)
           scenarioServiceConfig <- readScenarioServiceConfig
           withLogger $ \loggerH ->
               withScenarioService' enableScenarioService loggerH scenarioServiceConfig $ \mbScenarioService -> do
@@ -416,8 +412,8 @@ execCompile inputFile outputFile opts (WriteInterface writeInterface) mbIfaceDir
     effect = withProjectRoot' projectOpts $ \relativize -> do
       loggerH <- getLogger opts "compile"
       inputFile <- toNormalizedFilePath <$> relativize inputFile
-      opts' <- mkOptions opts { optIfaceDir = mbIfaceDir }
-      withDamlIdeState opts' loggerH diagnosticsLogger $ \ide -> do
+      opts <- pure opts { optIfaceDir = mbIfaceDir }
+      withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> do
           setFilesOfInterest ide (Set.singleton inputFile)
           runAction ide $ do
             -- Support for '-ddump-parsed', '-ddump-parsed-ast', '-dsource-stats'.
@@ -430,7 +426,7 @@ execCompile inputFile outputFile opts (WriteInterface writeInterface) mbIfaceDir
 
             when writeInterface $ do
                 files <- nubSort . concatMap transitiveModuleDeps <$> use GetDependencies inputFile
-                mbIfaces <- writeIfacesAndHie (toNormalizedFilePath $ fromMaybe ifaceDir $ optIfaceDir opts') files
+                mbIfaces <- writeIfacesAndHie (toNormalizedFilePath $ fromMaybe ifaceDir $ optIfaceDir opts) files
                 void $ liftIO $ mbErr "ERROR: Compilation failed." mbIfaces
 
             mbDalf <- getDalf inputFile
@@ -452,7 +448,7 @@ execLint inputFile opts =
        do
          loggerH <- getLogger opts "lint"
          inputFile <- toNormalizedFilePath <$> relativize inputFile
-         opts <- (setDlintDataDir <=< mkOptions) opts
+         opts <- setDlintDataDir opts
          withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> do
              setFilesOfInterest ide (Set.singleton inputFile)
              runAction ide $ getDlintIdeas inputFile
@@ -531,13 +527,12 @@ initPackageDb opts (InitPkgDb shouldInit) =
                 createProjectPackageDb opts pSdkVersion pDependencies pDataDependencies
 
 execBuild :: ProjectOpts -> Options -> Maybe FilePath -> IncrementalBuild -> InitPkgDb -> Command
-execBuild projectOpts options mbOutFile incrementalBuild initPkgDb =
+execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb =
   Command Build (Just projectOpts) effect
   where effect = withProjectRoot' projectOpts $ \_relativize -> do
-            initPackageDb options initPkgDb
+            initPackageDb opts initPkgDb
             withPackageConfig defaultProjectPath $ \pkgConfig@PackageConfigFields{..} -> do
                 putStrLn $ "Compiling " <> pName <> " to a DAR."
-                opts <- mkOptions options
                 loggerH <- getLogger opts "package"
                 withDamlIdeState
                     opts
@@ -590,8 +585,7 @@ execPackage projectOpts filePath opts mbOutFile dalfInput =
     effect = withProjectRoot' projectOpts $ \relativize -> do
       loggerH <- getLogger opts "package"
       filePath <- relativize filePath
-      opts' <- mkOptions opts
-      withDamlIdeState opts' loggerH diagnosticsLogger $ \ide -> do
+      withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> do
           -- We leave the sdk version blank and the list of exposed modules empty.
           -- This command is being removed anytime now and not present
           -- in the new daml assistant.
@@ -605,7 +599,7 @@ execPackage projectOpts filePath opts mbOutFile dalfInput =
                               , pDataDependencies = []
                               , pSdkVersion = PackageSdkVersion ""
                               }
-                            (toNormalizedFilePath $ fromMaybe ifaceDir $ optIfaceDir opts')
+                            (toNormalizedFilePath $ fromMaybe ifaceDir $ optIfaceDir opts)
                             dalfInput
           case mbDar of
             Nothing -> do
@@ -807,7 +801,6 @@ execGenerateSrc opts dalfOrDar mbOutDir = Command GenerateSrc Nothing effect
         (bytes, dalfPath) <- getDalfBytes dalfOrDar
         let unitId = stringToUnitId dalfPath
         (pkgId, pkg) <- decode bytes
-        opts <- mkOptions opts
         logger <- getLogger opts "generate-src"
 
         (dalfPkgMap, stableDalfPkgMap) <- withDamlIdeState opts { optScenarioService = EnableScenarioService False } logger diagnosticsLogger $ \ideState -> runAction ideState $ do
@@ -896,7 +889,7 @@ execDocTest opts files =
           -- This is horrible but we do not have a way to change the import paths in a running
           -- IdeState at the moment.
           pure $ nubOrd $ mapMaybe (uncurry moduleImportPath) (zip files' pmS)
-      opts <- mkOptions opts { optImportPath = importPaths <> optImportPath opts, optHaddock = Haddock True }
+      opts <- pure opts { optImportPath = importPaths <> optImportPath opts, optHaddock = Haddock True }
       withDamlIdeState opts logger diagnosticsLogger $ \ideState ->
           docTest ideState files'
 

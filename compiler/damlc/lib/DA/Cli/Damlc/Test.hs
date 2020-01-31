@@ -41,12 +41,10 @@ newtype UseColor = UseColor {getUseColor :: Bool}
 
 -- | Test a DAML file.
 execTest :: [NormalizedFilePath] -> UseColor -> Maybe FilePath -> Options -> IO ()
-execTest inFiles color mbJUnitOutput cliOptions = do
-    loggerH <- getLogger cliOptions "test"
-    opts <- mkOptions cliOptions
+execTest inFiles color mbJUnitOutput opts = do
+    loggerH <- getLogger opts "test"
     withDamlIdeState opts loggerH diagnosticsLogger $ \h -> do
-        let lfVersion = optDamlLfVersion cliOptions
-        testRun h inFiles lfVersion color mbJUnitOutput
+        testRun h inFiles (optDamlLfVersion opts) color mbJUnitOutput
         diags <- getDiagnostics h
         when (any (\(_, _, diag) -> Just DsError == _severity diag) diags) exitFailure
 

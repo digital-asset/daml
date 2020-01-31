@@ -253,12 +253,9 @@ damldocExpect importPathM testname input check =
 -- | Generate the docs for a given input file and optional import directory.
 runDamldoc :: FilePath -> Maybe FilePath -> IO ModuleDoc
 runDamldoc testfile importPathM = do
-    opts <- fmap (\opt -> opt {optHaddock=Haddock True}) $ defaultOptionsIO Nothing
-
-    let opts' = opts
-          { optImportPath =
-              maybe id (:) importPathM $
-                  optImportPath opts
+    let opts = (defaultOptions Nothing)
+          { optHaddock = Haddock True
+          , optImportPath = maybeToList importPathM
           }
 
     let diagLogger = \case
@@ -269,7 +266,7 @@ runDamldoc testfile importPathM = do
     mbResult <- runMaybeT $ extractDocs
         defaultExtractOptions
         diagLogger
-        (toCompileOpts opts' (IdeReportProgress False))
+        (toCompileOpts opts (IdeReportProgress False))
         [toNormalizedFilePath testfile]
 
     case mbResult of

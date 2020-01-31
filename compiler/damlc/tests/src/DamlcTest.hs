@@ -21,10 +21,6 @@ main = do
     setEnv "TASTY_NUM_THREADS" "1" True
     defaultMain tests
 
--- execTest will call mkOptions internally. Since each call to mkOptions
--- appends the LF version to the package db paths, it is important that we use
--- defaultOptions instead of defaultOptionsIO since the version suffix is otherwise
--- appended twice.
 opts :: Options
 opts = defaultOptions Nothing
 
