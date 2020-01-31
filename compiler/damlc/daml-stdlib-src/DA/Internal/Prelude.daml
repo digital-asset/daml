@@ -445,8 +445,16 @@ span p xs@(x::xs')
          | p x          =  let (ys,zs) = span p xs' in (x::ys,zs)
          | otherwise    =  ([],xs)
 
--- | Splits the given list into a pair of lists. All elements of the first list
--- satisfy the given predicate, and all elements of the second list do not.
+-- | The `partition` function takes a predicate, a list and returns
+-- the pair of lists of elements which do and do not satisfy the
+-- predicate, respectively; i.e.,
+--
+-- > partition p xs == (filter p xs, filter (not . p) xs)
+--
+-- ```
+-- >>> partition (`elem` "aeiou") "Hello World!"
+-- ("eoo","Hll Wrld!")
+-- ```
 partition : (a -> Bool) -> [a] -> ([a], [a])
 partition p xs =
   foldr insert ([], []) xs
