@@ -46,13 +46,14 @@ da_haskell_test(
     name = "damlc-test",
     srcs = ["src/DamlcTest.hs"],
     data = [
-        "//compiler/damlc/pkg-db",
-        "//compiler/scenario-service/server:scenario_service_jar",
+        "//compiler/damlc",
     ],
     hackage_deps = [
         "base",
+        "directory",
         "extra",
-        "ghcide",
+        "filepath",
+        "process",
         "tasty",
         "tasty-hunit",
     ],
@@ -60,8 +61,10 @@ da_haskell_test(
     src_strip_prefix = "tests",
     visibility = ["//visibility:private"],
     deps = [
+        "//:sdk-version-hs-lib",
         "//compiler/damlc:damlc-lib",
         "//compiler/damlc/daml-opts:daml-opts-types",
+        "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
     ],
 )
