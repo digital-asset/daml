@@ -93,34 +93,6 @@ safeToReexport syn1 syn2 = fromMaybe False $ do
     pure $ length (LF.synParams syn1) == length (LF.synParams syn2)
         && map fst fields1 == map fst fields2
 
--- | Generate the full source for a daml-lf package.
-generateSrcPkgFromLf :: Config -> LF.Package -> [(NormalizedFilePath, String)]
-generateSrcPkgFromLf config pkg = do
-    mod <- NM.toList $ LF.packageModules pkg
-    let fp =
-            toNormalizedFilePath $
-            (joinPath $ map T.unpack $ LF.unModuleName $ LF.moduleName mod) <.>
-            ".daml"
-    pure
-        ( fp
-        , unlines header ++
-          (showSDocForUser fakeDynFlags alwaysQualify $
-           ppr $ generateSrcFromLf $ env mod))
-  where
-    env m = Env
-        { envConfig = config
-        , envQualify = True
-        , envDepClassMap = buildDepClassMap config
-        , envMod = m
-        }
-    header =
-        [ "{-# LANGUAGE NoDamlSyntax #-}"
-        , "{-# LANGUAGE NoImplicitPrelude #-}"
-        , "{-# LANGUAGE NoOverloadedStrings #-}"
-        , "{-# LANGUAGE TypeOperators #-}"
-        , "{-# OPTIONS_GHC -Wno-unused-imports -Wno-missing-methods #-}"
-        ]
-
 -- | A module reference coming from DAML-LF.
 data ModRef = ModRef
     { modRefIsStable :: Bool
@@ -655,6 +627,34 @@ mkLfInternalPrelude env = mkStableType env damlStdlibUnitId $
 mkTyConTypeUnqual :: TyCon -> HsType GhcPs
 mkTyConTypeUnqual tyCon = HsTyVar noExt NotPromoted . noLoc $ mkRdrUnqual (occName name)
     where name = getName tyCon
+
+-- | Generate the full source for a daml-lf package.
+generateSrcPkgFromLf :: Config -> LF.Package -> [(NormalizedFilePath, String)]
+generateSrcPkgFromLf config pkg = do
+    mod <- NM.toList $ LF.packageModules pkg
+    let fp =
+            toNormalizedFilePath $
+            (joinPath $ map T.unpack $ LF.unModuleName $ LF.moduleName mod) <.>
+            ".daml"
+    pure
+        ( fp
+        , unlines header ++
+          (showSDocForUser fakeDynFlags alwaysQualify $
+           ppr $ generateSrcFromLf $ env mod))
+  where
+    env m = Env
+        { envConfig = config
+        , envQualify = True
+        , envDepClassMap = buildDepClassMap config
+        , envMod = m
+        }
+    header =
+        [ "{-# LANGUAGE NoDamlSyntax #-}"
+        , "{-# LANGUAGE NoImplicitPrelude #-}"
+        , "{-# LANGUAGE NoOverloadedStrings #-}"
+        , "{-# LANGUAGE TypeOperators #-}"
+        , "{-# OPTIONS_GHC -Wno-unused-imports -Wno-missing-methods #-}"
+        ]
 
 genericInstances :: Env -> LF.PackageId -> ([ImportDecl GhcPs], [HsDecl GhcPs])
 genericInstances env externPkgId =
