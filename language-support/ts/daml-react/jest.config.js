@@ -8,7 +8,13 @@ module.exports = {
     "**/?(*.)+(spec|test).+(ts|tsx|js)"
   ],
   transform: {
-    "^.+\\.(ts|tsx)$": "ts-jest"
+    "^.+\\.(ts|tsx)$": "ts-jest",
+    "^.+\\.(js|jsx)$": "babel-jest"
+  },
+  moduleNameMapper: {
+    '^@daml/types$': '../daml-types',
+    // $1 used for @daml/react/ledgerStore
+    '^@daml/react(.*)$': '../daml-react$1'
   }
 }
 
