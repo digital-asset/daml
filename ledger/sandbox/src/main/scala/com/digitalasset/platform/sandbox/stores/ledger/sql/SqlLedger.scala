@@ -4,7 +4,6 @@
 package com.digitalasset.platform.sandbox.stores.ledger.sql
 
 import java.time.Instant
-import java.util.UUID
 
 import akka.Done
 import akka.stream.QueueOfferResult.{Dropped, Enqueued, QueueClosed}
@@ -294,7 +293,7 @@ private final class SqlLedger(
             Some(submissionId),
             participantId,
             timeProvider.getCurrentTime,
-            PartyDetails(party, displayName, true))
+            PartyDetails(party, displayName, isLocal = true))
         )
         .map(_ => ())(DEC)
         .recover {
@@ -459,7 +458,7 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
         ledgerDao
           .lookupLedgerId()
           .flatMap {
-            case Some(foundLedgerId) if (foundLedgerId == initialId) =>
+            case Some(foundLedgerId) if foundLedgerId == initialId =>
               if (initialLedgerEntries.nonEmpty) {
                 logger.warn(
                   s"Initial ledger entries provided, presumably from scenario, but I'm picking up from an existing database, and thus they will not be used")
@@ -538,7 +537,6 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
     val packageDetails = store.listLfPackagesSync()
     if (packageDetails.nonEmpty) {
       logger.info(s"Copying initial packages ${packageDetails.keys.mkString(",")}")
-      val submissionId = UUID.randomUUID().toString
       val packages = packageDetails.toList.map(pkg => {
         val archive =
           store.getLfArchiveSync(pkg._1).getOrElse(sys.error(s"Package ${pkg._1} not found"))

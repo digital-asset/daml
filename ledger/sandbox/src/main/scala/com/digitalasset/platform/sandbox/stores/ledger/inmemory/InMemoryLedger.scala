@@ -276,7 +276,7 @@ class InMemoryLedger(
               timeProvider.getCurrentTime,
               "Party already exists")))
       } else {
-        acs = acs.addParty(PartyDetails(party, displayName, true))
+        acs = acs.addParty(PartyDetails(party, displayName, isLocal = true))
         entries.publish(
           InMemoryPartyEntry(
             PartyLedgerEntry.AllocationAccepted(
