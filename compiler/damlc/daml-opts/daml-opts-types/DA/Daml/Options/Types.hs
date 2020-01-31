@@ -129,35 +129,53 @@ distDir = damlArtifactDir </> "dist"
 basePackages :: [String]
 basePackages = ["daml-prim", "daml-stdlib"]
 
+-- | Find the builtin package dbs if the exist.
+locateBuiltinPackageDbs :: LF.Version -> IO [FilePath]
+locateBuiltinPackageDbs ver = do
+    -- package db for daml-stdlib and daml-prim
+    internalPackageDb <- fmap (</> "pkg-db_dir") $ locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "pkg-db")
+    -- If these directories do not exist, we just discard them.
+    filterM Dir.doesDirectoryExist $ map (</> versionSuffix) [internalPackageDb, projectPackageDatabase]
+  where
+    versionSuffix = renderPretty ver
+
+-- | Find the directory containing the stable packages if it exists.
+locateStablePackages :: IO (Maybe FilePath)
+locateStablePackages = do
+    -- On Windows, looking up mainWorkspace/compiler/damlc and then appeanding stable-packages doesn’t work.
+    -- On the other hand, looking up the full path directly breaks our resources logic for dist tarballs.
+    -- Therefore we first try stable-packages and then fall back to resources if that does not exist
+    execPath <- getExecutablePath
+    let jarResources = takeDirectory execPath </> "resources"
+    hasJarResources <- Dir.doesDirectoryExist jarResources
+    stablePackages <- do
+        if hasJarResources
+           then pure (jarResources </> "stable-packages")
+           else locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "stable-packages")
+    stablePackagesExist <- Dir.doesDirectoryExist stablePackages
+    pure $ stablePackages <$ guard stablePackagesExist
+
+locateGhcVersionHeader :: IO FilePath
+locateGhcVersionHeader = locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "ghcversion.h")
+
+
 -- | Check that import paths and package db directories exist and add
 -- the default package db if it exists
 mkOptions :: Options -> IO Options
 mkOptions opts@Options {..} = do
     mapM_ checkDirExists $ optImportPath <> optPackageDbs
-    defaultPkgDb <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "pkg-db")
-    let defaultPkgDbDir = defaultPkgDb </> "pkg-db_dir"
-    pkgDbs <- filterM Dir.doesDirectoryExist [defaultPkgDbDir, projectPackageDatabase]
+
+    pkgDbs <- locateBuiltinPackageDbs optDamlLfVersion
+    mbStablePackages <- locateStablePackages
+
     case optDlintUsage of
       DlintEnabled dir _ -> checkDirExists dir
       DlintDisabled -> return ()
-    -- On Windows, looking up mainWorkspace/compiler/damlc and then appeanding stable-packages doesn’t work.
-    -- On the other hand, looking up the full path directly breaks our resources logic for dist tarballs.
-    -- Therefore we first try stable-packages and then fall back to resources if that does not exist
-    stablePackages <- do
-        execPath <- getExecutablePath
-        let jarResources = takeDirectory execPath </> "resources"
-        hasJarResources <- Dir.doesDirectoryExist jarResources
-        if hasJarResources
-           then pure (jarResources </> "stable-packages")
-           else locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "stable-packages")
-    stablePackagesExist <- Dir.doesDirectoryExist stablePackages
-    let mbStablePackages = do
-            guard stablePackagesExist
-            pure stablePackages
-    ghcVersionFile <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "ghcversion.h")
+
+    ghcVersionFile <- locateGhcVersionHeader
 
     pure opts {
-        optPackageDbs = map (</> versionSuffix) $ pkgDbs ++ optPackageDbs,
+        optPackageDbs = pkgDbs ++ map (</> versionSuffix) optPackageDbs,
         optStablePackages = mbStablePackages,
         optGhcVersionFile = Just ghcVersionFile
     }
