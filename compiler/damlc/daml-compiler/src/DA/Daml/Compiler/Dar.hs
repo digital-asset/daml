@@ -121,7 +121,10 @@ buildDar service pkgConf@PackageConfigFields {..} ifDir dalfInput = do
             bytes <- BSL.readFile pSrc
             -- in the dalfInput case we interpret pSrc as the filepath pointing to the dalf.
             pure $ Just $ createArchive pkgConf "" bytes [] (toNormalizedFilePath ".") [] [] []
-        else runAction service $
+        -- We need runActionSync here to ensure that diagnostics are printed to the terminal.
+        -- Otherwise runAction can return before the diagnostics have been printed and we might die
+        -- without ever seeing diagnostics.
+        else runActionSync service $
              runMaybeT $ do
                  files <- getDamlFiles pSrc
                  opts <- lift getIdeOptions

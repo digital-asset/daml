@@ -449,7 +449,7 @@ tests damlc repl davlDar = testGroup "Packaging" $
             ]
           (exitCode, _, stderr) <- readProcessWithExitCode damlc ["build", "--project-root", projDir] ""
           exitCode @?= ExitFailure 1
-          assertBool ("non-exhaustive error in " <> stderr) ("non-exhaustive" `isInfixOf` stderr)
+          assertBool ("Expected \"non-exhaustive\" error in stderr but got: " <> show stderr) ("non-exhaustive" `isInfixOf` stderr)
     ] <>
     [ damlcTestTests damlc
     , lfVersionTests damlc
