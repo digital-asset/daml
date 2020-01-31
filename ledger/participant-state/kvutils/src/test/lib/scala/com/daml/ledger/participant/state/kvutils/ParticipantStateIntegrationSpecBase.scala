@@ -14,7 +14,6 @@ import com.daml.ledger.participant.state.v1.Update._
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.daml.lf.archive.DarReader
-import com.digitalasset.daml.lf.data.Ref.{LedgerString, Party}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{ImmArray, InsertOrdSet, Ref}
 import com.digitalasset.daml.lf.transaction.GenTransaction
@@ -49,7 +48,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
 
   protected def participantStateFactory(
       participantId: ParticipantId,
-      ledgerId: LedgerString,
+      ledgerId: Ref.LedgerString,
   ): ResourceOwner[ParticipantState]
 
   protected def currentRecordTime(): Timestamp
@@ -82,7 +81,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
     }
 
     "provide update after uploadPackages" in participantState.use { ps =>
-      val submissionId = randomLedgerString()
+      val submissionId = newSubmissionId()
       for {
         result <- ps.uploadPackages(submissionId, List(archives.head), sourceDescription).toScala
         (offset, update) <- ps.stateUpdates(beginAfter = None).runWith(Sink.head)
@@ -95,7 +94,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
     }
 
     "provide two updates after uploadPackages with two archives" in participantState.use { ps =>
-      val submissionId = randomLedgerString()
+      val submissionId = newSubmissionId()
       for {
         result <- ps.uploadPackages(submissionId, archives, sourceDescription).toScala
         (offset, update) <- ps.stateUpdates(beginAfter = None).runWith(Sink.head)
@@ -110,7 +109,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
     "remove duplicate package from update after uploadPackages" in participantState.use { ps =>
       val archive1 :: archive2 :: _ = archives
       val (subId1, subId2, subId3) =
-        (randomLedgerString(), randomLedgerString(), randomLedgerString())
+        (newSubmissionId(), newSubmissionId(), newSubmissionId())
 
       for {
         result1 <- ps.uploadPackages(subId1, List(archive1), sourceDescription).toScala
@@ -140,7 +139,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
         .setHash("asdf")
         .build
 
-      val submissionId = randomLedgerString()
+      val submissionId = newSubmissionId()
 
       for {
         result <- ps.uploadPackages(submissionId, List(badArchive), sourceDescription).toScala
@@ -160,7 +159,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
     }
 
     "reject duplicate submission in uploadPackage" in participantState.use { ps =>
-      val submissionIds = (randomLedgerString(), randomLedgerString())
+      val submissionIds = (newSubmissionId(), newSubmissionId())
       val archive1 :: archive2 :: _ = archives
 
       for {
@@ -190,7 +189,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
 
       for {
         result <- ps
-          .allocateParty(Some(partyHint), Some(displayName), randomLedgerString())
+          .allocateParty(Some(partyHint), Some(displayName), newSubmissionId())
           .toScala
         (offset, update) <- ps.stateUpdates(beginAfter = None).runWith(Sink.head)
       } yield {
@@ -210,7 +209,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
       val displayName = "Alice Cooper"
 
       for {
-        result <- ps.allocateParty(hint = None, Some(displayName), randomLedgerString()).toScala
+        result <- ps.allocateParty(hint = None, Some(displayName), newSubmissionId()).toScala
         (offset, update) <- ps.stateUpdates(beginAfter = None).runWith(Sink.head)
       } yield {
         result should be(SubmissionResult.Acknowledged)
@@ -230,7 +229,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
         (Some(Ref.Party.assertFromString("Alice")), Some(Ref.Party.assertFromString("Bob")))
       val displayNames = ("Alice Cooper", "Bob de Boumaa")
 
-      val submissionIds = (randomLedgerString(), randomLedgerString())
+      val submissionIds = (newSubmissionId(), newSubmissionId())
 
       for {
         result1 <- ps.allocateParty(hints._1, Some(displayNames._1), submissionIds._1).toScala
@@ -259,8 +258,8 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
       val displayName = Some("Alice Cooper")
 
       for {
-        result1 <- ps.allocateParty(hint, displayName, randomLedgerString()).toScala
-        result2 <- ps.allocateParty(hint, displayName, randomLedgerString()).toScala
+        result1 <- ps.allocateParty(hint, displayName, newSubmissionId()).toScala
+        result2 <- ps.allocateParty(hint, displayName, newSubmissionId()).toScala
         results = Seq(result1, result2)
         Seq(_, (offset2, update2)) <- ps
           .stateUpdates(beginAfter = None)
@@ -279,7 +278,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
 
     "provide update after transaction submission" in participantState.use { ps =>
       for {
-        _ <- ps.allocateParty(hint = Some(alice), None, randomLedgerString()).toScala
+        _ <- ps.allocateParty(hint = Some(alice), None, newSubmissionId()).toScala
         _ <- ps
           .submitTransaction(submitterInfo(rt, alice), transactionMeta(rt), emptyTransaction)
           .toScala
@@ -293,7 +292,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
       val commandIds = ("X1", "X2")
 
       for {
-        result1 <- ps.allocateParty(hint = Some(alice), None, randomLedgerString()).toScala
+        result1 <- ps.allocateParty(hint = Some(alice), None, newSubmissionId()).toScala
         result2 <- ps
           .submitTransaction(
             submitterInfo(rt, alice, commandIds._1),
@@ -339,7 +338,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
     "return second update with beginAfter=0" in participantState.use { ps =>
       for {
         result1 <- ps
-          .allocateParty(hint = Some(alice), None, randomLedgerString())
+          .allocateParty(hint = Some(alice), None, newSubmissionId())
           .toScala // offset now at [1,0]
         result2 <- ps
           .submitTransaction(submitterInfo(rt, alice, "X1"), transactionMeta(rt), emptyTransaction)
@@ -366,7 +365,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
         _ <- ps
           .submitConfiguration(
             maxRecordTime = rt.addMicros(1000000),
-            submissionId = randomLedgerString(),
+            submissionId = newSubmissionId(),
             config = lic.config.copy(
               generation = lic.config.generation + 1,
             ),
@@ -387,7 +386,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
           .allocateParty(
             None /* no name hint, implementation decides party name */,
             Some("Somebody"),
-            randomLedgerString(),
+            newSubmissionId(),
           )
           .toScala
         _ = result should be(a[SubmissionResult])
@@ -438,7 +437,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
         _ <- ps
           .submitConfiguration(
             maxRecordTime = rt.addMicros(1000000),
-            submissionId = randomLedgerString(),
+            submissionId = newSubmissionId(),
             config = lic.config.copy(
               generation = lic.config.generation + 1,
             ),
@@ -449,7 +448,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
         _ <- ps
           .submitConfiguration(
             maxRecordTime = rt.addMicros(1000000),
-            submissionId = randomLedgerString(),
+            submissionId = newSubmissionId(),
             config = lic.config.copy(
               generation = lic.config.generation + 1,
               timeModel = TimeModel(
@@ -475,7 +474,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
     }
 
     "reject duplicate submission in new configuration" in participantState.use { ps =>
-      val submissionIds = (randomLedgerString(), randomLedgerString())
+      val submissionIds = (newSubmissionId(), newSubmissionId())
       for {
         lic <- ps.getLedgerInitialConditions().runWith(Sink.head)
 
@@ -536,7 +535,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
       for {
         results <- Future.sequence(
           partyNames.map(name =>
-            ps.allocateParty(Some(name), Some(name), randomLedgerString()).toScala),
+            ps.allocateParty(Some(name), Some(name), newSubmissionId()).toScala),
         )
         updates <- updatesF
       } yield {
@@ -559,14 +558,14 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
           _ <- participantStateFactory(participantId, ledgerId).use { ps =>
             for {
               _ <- ps
-                .allocateParty(None, Some(Party.assertFromString("party-1")), randomLedgerString())
+                .allocateParty(None, Some("party-1"), newSubmissionId())
                 .toScala
             } yield ()
           }
           updates <- participantStateFactory(participantId, ledgerId).use { ps =>
             for {
               _ <- ps
-                .allocateParty(None, Some(Party.assertFromString("party-2")), randomLedgerString())
+                .allocateParty(None, Some("party-2"), newSubmissionId())
                 .toScala
               updates <- ps
                 .stateUpdates(beginAfter = None)
@@ -605,11 +604,11 @@ object ParticipantStateIntegrationSpecBase {
 
   private val alice = Ref.Party.assertFromString("alice")
 
-  private def newLedgerId() =
+  private def newLedgerId(): Ref.LedgerString =
     Ref.LedgerString.assertFromString(s"ledger-${UUID.randomUUID()}")
 
-  private def randomLedgerString(): Ref.LedgerString =
-    Ref.LedgerString.assertFromString(UUID.randomUUID().toString)
+  private def newSubmissionId(): Ref.LedgerString =
+    Ref.LedgerString.assertFromString(s"submission-${UUID.randomUUID()}")
 
   private def submitterInfo(rt: Timestamp, party: Ref.Party, commandId: String = "X") =
     SubmitterInfo(
