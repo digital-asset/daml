@@ -24,8 +24,8 @@ import com.digitalasset.ledger.api.testing.utils.{
   SuiteResourceManagementAroundEach
 }
 import com.digitalasset.logging.LoggingContext.newLoggingContext
-import com.digitalasset.platform.index.store.entries.LedgerEntry
 import com.digitalasset.platform.sandbox.{LedgerResource, MetricsAround}
+import com.digitalasset.platform.store.entries.LedgerEntry
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScalaFutures}
 import org.scalatest.time.Span
 import org.scalatest.{AsyncWordSpec, Matchers}

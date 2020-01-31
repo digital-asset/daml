@@ -24,21 +24,16 @@ import com.digitalasset.ledger.api.domain.RejectionReason
 import com.digitalasset.ledger.api.domain.RejectionReason._
 import com.digitalasset.ledger.{ApplicationId, CommandId, EventId, WorkflowId}
 import com.digitalasset.platform.events.EventIdFormatter
-import com.digitalasset.platform.index.store.Contract.ActiveContract
-import com.digitalasset.platform.index.store.Conversions._
-import com.digitalasset.platform.index.store.entries.LedgerEntry
-import com.digitalasset.platform.index.store.serialization.{
+import com.digitalasset.platform.store.Contract.ActiveContract
+import com.digitalasset.platform.store.Conversions._
+import com.digitalasset.platform.store.entries.LedgerEntry
+import com.digitalasset.platform.store.serialization.{
   ContractSerializer,
   KeyHasher,
   TransactionSerializer,
   ValueSerializer
 }
-import com.digitalasset.platform.index.store.{
-  ActiveLedgerState,
-  ActiveLedgerStateManager,
-  Let,
-  LetLookup
-}
+import com.digitalasset.platform.store.{ActiveLedgerState, ActiveLedgerStateManager, Let, LetLookup}
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 import org.slf4j.LoggerFactory
 

@@ -9,7 +9,7 @@ import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
-import com.digitalasset.platform.index.store.ReadOnlyLedger
+import com.digitalasset.platform.store.ReadOnlyLedger
 
 import scala.concurrent.Future
 

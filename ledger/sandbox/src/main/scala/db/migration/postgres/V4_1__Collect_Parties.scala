@@ -18,8 +18,8 @@ import com.digitalasset.daml.lf.transaction.Node.{
 }
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.ledger.EventId
-import com.digitalasset.platform.index.store.Conversions._
-import com.digitalasset.platform.index.store.serialization.TransactionSerializer
+import com.digitalasset.platform.store.Conversions._
+import com.digitalasset.platform.store.serialization.TransactionSerializer
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 
 class V4_1__Collect_Parties extends BaseJavaMigration {

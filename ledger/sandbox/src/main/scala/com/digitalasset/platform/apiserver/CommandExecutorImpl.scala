@@ -27,7 +27,7 @@ import com.digitalasset.daml.lf.transaction.Transaction.{Value => TxValue}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.ledger.api.domain.{Commands => ApiCommands}
-import com.digitalasset.platform.index.store.ErrorCause
+import com.digitalasset.platform.store.ErrorCause
 import scalaz.syntax.tag._
 
 import scala.concurrent.{ExecutionContext, Future, Promise}

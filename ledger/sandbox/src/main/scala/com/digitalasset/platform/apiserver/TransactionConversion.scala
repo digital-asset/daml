@@ -9,11 +9,11 @@ import com.digitalasset.daml.lf.value.{Value => Lf}
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.Event.{CreateOrArchiveEvent, CreateOrExerciseEvent}
 import com.digitalasset.platform.common.PlatformTypes.{CreateEvent, ExerciseEvent}
-import com.digitalasset.platform.index.store.entries.LedgerEntry
 import com.digitalasset.platform.participant.util.EventFilter
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.server.services.transaction.TransactionFiltration.RichTransactionFilter
 import com.digitalasset.platform.server.services.transaction.TransientContractRemover
+import com.digitalasset.platform.store.entries.LedgerEntry
 import scalaz.Tag
 
 import scala.annotation.tailrec

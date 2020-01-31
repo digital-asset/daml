@@ -14,8 +14,8 @@ import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.ledger.api.domain.PartyDetails
 import com.digitalasset.ledger.{EventId, WorkflowId}
-import com.digitalasset.platform.index.store.Contract.{ActiveContract, DivulgedContract}
-import com.digitalasset.platform.index.store.{
+import com.digitalasset.platform.store.Contract.{ActiveContract, DivulgedContract}
+import com.digitalasset.platform.store.{
   ActiveLedgerState,
   ActiveLedgerStateManager,
   Contract,

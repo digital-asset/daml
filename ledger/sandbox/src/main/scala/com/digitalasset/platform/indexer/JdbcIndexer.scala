@@ -22,14 +22,10 @@ import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.events.EventIdFormatter
-import com.digitalasset.platform.index.store.dao.{JdbcLedgerDao, LedgerDao}
-import com.digitalasset.platform.index.store.entries.{
-  LedgerEntry,
-  PackageLedgerEntry,
-  PartyLedgerEntry
-}
-import com.digitalasset.platform.index.store.{FlywayMigrations, PersistenceEntry}
 import com.digitalasset.platform.metrics.timedFuture
+import com.digitalasset.platform.store.dao.{JdbcLedgerDao, LedgerDao}
+import com.digitalasset.platform.store.entries.{LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
+import com.digitalasset.platform.store.{FlywayMigrations, PersistenceEntry}
 import com.digitalasset.resources.{Resource, ResourceOwner}
 import scalaz.syntax.tag._
 

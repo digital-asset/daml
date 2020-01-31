@@ -25,23 +25,19 @@ import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.apiserver.InMemoryPackageStore
 import com.digitalasset.platform.events.EventIdFormatter
-import com.digitalasset.platform.index.store.dao.JdbcLedgerDao.defaultNumberOfShortLivedConnections
-import com.digitalasset.platform.index.store.dao.{DbDispatcher, _}
-import com.digitalasset.platform.index.store.entries.{
-  LedgerEntry,
-  PackageLedgerEntry,
-  PartyLedgerEntry
-}
-import com.digitalasset.platform.index.store.{
-  BaseLedger,
-  DbType,
-  FlywayMigrations,
-  PersistenceEntry
-}
 import com.digitalasset.platform.sandbox.LedgerIdGenerator
 import com.digitalasset.platform.sandbox.stores.InMemoryActiveLedgerState
 import com.digitalasset.platform.sandbox.stores.ledger.Ledger
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
+import com.digitalasset.platform.store.dao.JdbcLedgerDao.defaultNumberOfShortLivedConnections
+import com.digitalasset.platform.store.dao.{
+  DbDispatcher,
+  JdbcLedgerDao,
+  LedgerDao,
+  MeteredLedgerDao
+}
+import com.digitalasset.platform.store.entries.{LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
+import com.digitalasset.platform.store.{BaseLedger, DbType, FlywayMigrations, PersistenceEntry}
 import com.digitalasset.resources.ResourceOwner
 import scalaz.syntax.tag._
 

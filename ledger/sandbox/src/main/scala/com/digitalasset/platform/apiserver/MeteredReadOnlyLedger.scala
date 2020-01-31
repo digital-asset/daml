@@ -16,15 +16,15 @@ import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
 import com.digitalasset.ledger.api.health.HealthStatus
-import com.digitalasset.platform.index.store.entries.{
+import com.digitalasset.platform.metrics.timedFuture
+import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
+import com.digitalasset.platform.store.entries.{
   ConfigurationEntry,
   LedgerEntry,
   PackageLedgerEntry,
   PartyLedgerEntry
 }
-import com.digitalasset.platform.index.store.{Contract, LedgerSnapshot, ReadOnlyLedger}
-import com.digitalasset.platform.metrics.timedFuture
-import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
+import com.digitalasset.platform.store.{Contract, LedgerSnapshot, ReadOnlyLedger}
 
 import scala.concurrent.Future
 

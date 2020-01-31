@@ -11,13 +11,13 @@ import com.digitalasset.dec.{DirectExecutionContext => DEC}
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
-import com.digitalasset.platform.index.store.dao.{
+import com.digitalasset.platform.store.dao.{
   DbDispatcher,
   JdbcLedgerDao,
   LedgerReadDao,
   MeteredLedgerReadDao
 }
-import com.digitalasset.platform.index.store.{BaseLedger, DbType, ReadOnlyLedger}
+import com.digitalasset.platform.store.{BaseLedger, DbType, ReadOnlyLedger}
 import com.digitalasset.resources.{Resource, ResourceOwner}
 import scalaz.syntax.tag._
 

@@ -40,11 +40,11 @@ import com.digitalasset.ledger.api.domain.{
   TransactionId
 }
 import com.digitalasset.ledger.api.health.HealthStatus
-import com.digitalasset.platform.index.store.Contract.ActiveContract
-import com.digitalasset.platform.index.store.entries.{LedgerEntry, PartyLedgerEntry}
-import com.digitalasset.platform.index.store.{LedgerSnapshot, ReadOnlyLedger}
 import com.digitalasset.platform.participant.util.EventFilter
 import com.digitalasset.platform.server.api.validation.ErrorFactories
+import com.digitalasset.platform.store.Contract.ActiveContract
+import com.digitalasset.platform.store.entries.{LedgerEntry, PartyLedgerEntry}
+import com.digitalasset.platform.store.{LedgerSnapshot, ReadOnlyLedger}
 import scalaz.Tag
 import scalaz.syntax.tag._
 

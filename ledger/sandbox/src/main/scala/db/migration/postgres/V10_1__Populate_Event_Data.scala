@@ -12,8 +12,8 @@ import com.digitalasset.daml.lf.transaction.GenTransaction
 import com.digitalasset.daml.lf.transaction.Node.NodeCreate
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.ledger.EventId
-import com.digitalasset.platform.index.store.Conversions._
-import com.digitalasset.platform.index.store.serialization.TransactionSerializer
+import com.digitalasset.platform.store.Conversions._
+import com.digitalasset.platform.store.serialization.TransactionSerializer
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 
 class V10_1__Populate_Event_Data extends BaseJavaMigration {

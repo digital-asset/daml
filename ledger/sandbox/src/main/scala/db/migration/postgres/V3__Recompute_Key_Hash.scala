@@ -11,8 +11,8 @@ import anorm.{BatchSql, NamedParameter}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
-import com.digitalasset.platform.index.store.Conversions._
-import com.digitalasset.platform.index.store.serialization.{KeyHasher, ValueSerializer}
+import com.digitalasset.platform.store.Conversions._
+import com.digitalasset.platform.store.serialization.{KeyHasher, ValueSerializer}
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 
 class V3__Recompute_Key_Hash extends BaseJavaMigration {

@@ -30,12 +30,12 @@ import com.digitalasset.logging.LoggingContext.withEnrichedLoggingContext
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.platform.apiserver.CommandExecutor
-import com.digitalasset.platform.index.store.ErrorCause
 import com.digitalasset.platform.metrics.timedFuture
 import com.digitalasset.platform.server.api.services.domain.CommandSubmissionService
 import com.digitalasset.platform.server.api.services.grpc.GrpcCommandSubmissionService
 import com.digitalasset.platform.server.api.validation.ErrorFactories
 import com.digitalasset.platform.server.services.command.time.TimeModelValidator
+import com.digitalasset.platform.store.ErrorCause
 import io.grpc.Status
 import scalaz.syntax.tag._
 
