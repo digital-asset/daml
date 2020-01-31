@@ -76,7 +76,7 @@ class WebsocketEndpoints(
           .valueOr(httpResponseError),
       )
 
-    case req @ HttpRequest(GET, Uri.Path("/contracts/lookupForever"), _, _, _) =>
+    case req @ HttpRequest(GET, Uri.Path("/stream/fetch"), _, _, _) =>
       Future.successful(
         (for {
           upgradeReq <- req.header[UpgradeToWebSocket] \/> InvalidUserInput(
