@@ -358,15 +358,15 @@ class Runner(
     } yield (acsResponses.flatMap(x => x.activeContracts), offset)
   }
 
-  def runWithACS(
+  def runWithACS[T](
       triggerId: Identifier,
       timeProviderType: TimeProviderType,
       heartbeat: Option[FiniteDuration],
       acs: Seq[CreatedEvent],
       offset: LedgerOffset,
       filter: TransactionFilter,
-      msgFlow: Flow[TriggerMsg, TriggerMsg, NotUsed] = Flow[TriggerMsg],
-  )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[SExpr] = {
+      msgFlow: Graph[FlowShape[TriggerMsg, TriggerMsg], T] = Flow[TriggerMsg],
+  )(implicit materializer: Materializer, executionContext: ExecutionContext): (T, Future[SExpr]) = {
     val (source, postFailure) = msgSource(client, offset, heartbeat, party, filter)
     def submit(req: SubmitRequest) = {
       val f = client.commandClient
@@ -379,8 +379,9 @@ class Runner(
       })
     }
     source
-      .via(msgFlow)
-      .runWith(getTriggerSink(triggerId, timeProviderType, acs, submit))
+      .viaMat(msgFlow)(Keep.right[NotUsed, T])
+      .toMat(getTriggerSink(triggerId, timeProviderType, acs, submit))(Keep.both)
+      .run()
   }
 }
 
@@ -398,8 +399,7 @@ object Runner extends StrictLogging {
       client: LedgerClient,
       timeProviderType: TimeProviderType,
       applicationId: ApplicationId,
-      party: String,
-      msgFlow: Flow[TriggerMsg, TriggerMsg, NotUsed] = Flow[TriggerMsg],
+      party: String
   )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[SExpr] = {
     val runner = new Runner(
       client,
@@ -411,7 +411,9 @@ object Runner extends StrictLogging {
     val heartbeat = runner.getTriggerHeartbeat(triggerId)
     for {
       (acs, offset) <- runner.queryACS(client, filter)
-      finalState <- runner.runWithACS(triggerId, timeProviderType, heartbeat, acs, offset, filter)
+      finalState <- runner
+        .runWithACS(triggerId, timeProviderType, heartbeat, acs, offset, filter)
+        ._2
     } yield finalState
   }
 }

@@ -49,6 +49,7 @@ def install_java_deps():
             "com.thesamet.scalapb:scalapb-runtime_2.12:0.9.0",
             "com.thesamet.scalapb:scalapb-runtime-grpc_2.12:0.9.0",
             "com.typesafe.akka:akka-actor_2.12:2.6.1",
+            "com.typesafe.akka:akka-actor-typed_2.12:2.6.1",
             "com.typesafe.akka:akka-http_2.12:10.1.11",
             "com.typesafe.akka:akka-http-spray-json_2.12:10.1.11",
             "com.typesafe.akka:akka-http-testkit_2.12:10.1.11",
