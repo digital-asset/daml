@@ -195,7 +195,6 @@ object Server {
         // Returns a UUID for the newly started trigger.
         path("start") {
           entity(as[TriggerParams]) { params =>
-            println(params)
             val uuid = UUID.randomUUID
             val ref = ctx.spawn(
               TriggerActor(TriggerActor.Config(ledgerConfig, dar, params.identifier, params.party)),

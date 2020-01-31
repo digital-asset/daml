@@ -29,10 +29,6 @@ import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.SandboxServer
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.services.time.TimeProviderType
-// import scalaz._
-// import scalaz.std.option._
-// import scalaz.std.scalaFuture._
-// import scalaz.syntax.traverse._
 
 import scala.concurrent.{ExecutionContext, Future}
 
