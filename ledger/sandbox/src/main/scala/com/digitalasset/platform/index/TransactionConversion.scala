@@ -31,7 +31,7 @@ trait TransactionConversion {
       .collectEvents(tx, trans.explicitDisclosure.map { case (k, v) => domain.EventId(k) -> v })
     val allEvents = events.roots.toSeq
       .foldLeft(List.empty[CreateOrArchiveEvent])((l, evId) =>
-        l ::: flattenEvents(events.events, evId, true))
+        l ::: flattenEvents(events.events, evId, verbose = true))
 
     val eventFilter = TemplateAwareFilter(filter)
     val filteredEvents = TransientContractRemover
@@ -70,7 +70,7 @@ trait TransactionConversion {
             case e: ExerciseEvent[domain.EventId, AbsoluteContractId] =>
               lfExerciseToDomain(nodeId, e)
             case c: CreateEvent[AbsoluteContractId] =>
-              lfCreateToDomain(nodeId, c, true)
+              lfCreateToDomain(nodeId, c, includeParentWitnesses = true)
           })
       }
 
@@ -120,7 +120,7 @@ trait TransactionConversion {
             InvisibleRootRemovalState(
               rootsWereReplaced = true,
               filteredEvents - eventId,
-              event.children ++: newRoots)
+              event.children ::: newRoots)
       }
     if (result.rootsWereReplaced)
       removeInvisibleRoots(result.eventsById, result.rootEventIds)
@@ -137,7 +137,7 @@ trait TransactionConversion {
       domain.ContractId(create.contractId.coid),
       create.templateId,
       create.argument.value match {
-        case rec @ Lf.ValueRecord(tycon, fields) => rec
+        case rec @ Lf.ValueRecord(_, _) => rec
         case _ => throw new RuntimeException(s"Value is not an record.")
       },
       if (includeParentWitnesses) create.witnesses
