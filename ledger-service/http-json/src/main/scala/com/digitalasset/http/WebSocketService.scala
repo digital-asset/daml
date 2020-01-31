@@ -22,6 +22,8 @@ import com.digitalasset.ledger.api.{v1 => api}
 
 import com.typesafe.scalalogging.LazyLogging
 import scalaz.Liskov, Liskov.<~<
+import scalaz.std.tuple._
+import scalaz.syntax.bifunctor._
 import scalaz.syntax.show._
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
@@ -69,7 +71,6 @@ object WebSocketService {
 
 class WebSocketService(
     contractsService: ContractsService,
-    resolveTemplateId: PackageService.ResolveTemplateId,
     encoder: DomainJsonEncoder,
     decoder: DomainJsonDecoder,
     wsConfig: Option[WebsocketConfig])(implicit mat: Materializer, ec: ExecutionContext)
@@ -159,16 +160,18 @@ class WebSocketService(
       jwt: Jwt,
       jwtPayload: JwtPayload,
       request: GetActiveContractsRequest): Source[Message, NotUsed] =
-    resolveRequiredTemplateIds(request.templateIds) match {
-      case Some(ids) =>
+    contractsService.resolveTemplateIds(request.templateIds).leftMap(_.toList) match {
+      case (ids @ (_ +: _), unresolved) =>
         contractsService
           .insertDeleteStepSource(jwt, jwtPayload.party, ids, Terminates.Never)
           .via(convertFilterContracts(prepareFilters(ids, request.query)))
           .filter(_.nonEmpty)
-          .map(sae => TextMessage(sae.render.compactPrint))
-      case None =>
+          .map(_.render)
+          .prepend(reportUnresolvedTemplateIds(unresolved))
+          .map(jsv => TextMessage(jsv.compactPrint))
+      case _ =>
         Source.single(
-          wsErrorMessage("Cannot find one of templateIds " + request.templateIds.toString))
+          wsErrorMessage("Cannot find any of templateIds " + request.templateIds.toString))
     }
 
   private[http] def wsErrorMessage(errorMsg: String): TextMessage.Strict =
@@ -205,10 +208,12 @@ class WebSocketService(
       .via(conflation)
       .map(sae => sae copy (step = sae.step.mapPreservingIds(_ map lfValueToJsValue)))
 
-  private def resolveRequiredTemplateIds(
-      xs: Set[domain.TemplateId.OptionalPkg]): Option[List[domain.TemplateId.RequiredPkg]] = {
-    import scalaz.std.list._
-    import scalaz.std.option._
-    xs.toList.traverse(resolveTemplateId)
-  }
+  private def reportUnresolvedTemplateIds(
+      unresolved: Set[domain.TemplateId.OptionalPkg]): Source[JsValue, NotUsed] =
+    if (unresolved.isEmpty) Source.empty
+    else
+      Source.single {
+        import spray.json._
+        Map("warnings" -> domain.UnknownTemplateIds(unresolved.toList)).toJson
+      }
 }
