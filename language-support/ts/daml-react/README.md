@@ -44,8 +44,8 @@ DAML Ledger API | Code
 ----------------|-----
 Get the logged in party | `const party = useParty();` <br> `...` <br> `<h1> You're logged in as {party} </h1>`
 Exercise a choice on a contract | `const [exerciseChoice] = useExercise(ContractTemplate.ChoiceName)` <br> `...` <br> `onClick={() => exerciseChoice(contractId, arguments)}`
-Query the ledger | `const {loading: isLoading, contracts: queryResult} = useQuery(ContractTemplate, () => ({field: value}), [party]) ` 
-Query for contract keys | `const contracts = useFetchByKey(ContractTemplate, () => key, [party])` 
+Query the ledger | `const {loading: isLoading, contracts: queryResult} = useQuery(ContractTemplate, () => ({field: value}), [dependency1, dependency2, ... ]) ` 
+Query for contract keys | `const contracts = useFetchByKey(ContractTemplate, () => key, [dependency1, dependency2, ...])` 
 Reload the query results | `reload = useReload();` <br> `...` <br> `onClick={() => reload()}`
 
 ## Source
