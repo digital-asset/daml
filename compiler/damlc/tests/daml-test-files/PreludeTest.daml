@@ -249,6 +249,14 @@ testSpan = scenario do
   ([], [1, 2, 3, 2, 1]) === span (const False) [1, 2, 3, 2, 1]
   ([0, 0], [1, 1, 0, 0]) === span (==0) [0, 0, 1, 1, 0, 0]
 
+testPartition: Scenario ()
+testPartition = scenario do
+  ([], []) === partition (const True) ([] : [Text])
+  ([], []) === partition (const False) ([] : [Text])
+  ([1, 2], []) === partition (const True) [1,2]
+  ([], [1, 2]) === partition (const False) [1,2]
+  ([-2, -3, -5], [1, 4, 6]) === partition (<0) [1, -2, -3, 4, -5, 6]
+
 testBreak = scenario do
   ([1,2], [3, 2, 1]) === break (>=3) [1, 2, 3, 2, 1]
   ([], []) === break (const False) ([] : [Text])

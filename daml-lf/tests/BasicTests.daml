@@ -86,15 +86,6 @@ tupeq a b =
 tupeqtest : () -> Bool
 tupeqtest _tok = tupeq (1, 1) (1, 2)
 
-partition : (a -> Bool) -> [a] -> ([a], [a])
-partition f xs =
-  let work x acc =
-        if f x
-          then ((x :: (fst acc)), (snd acc))
-          else ((fst acc), (x :: (snd acc)))
-  in
-  foldr work (([], [])) xs
-
 pt : [a] -> ([a], [a])
 pt xs =
   let true x = True
