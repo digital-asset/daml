@@ -3,7 +3,6 @@
 
 package com.digitalasset.daml.lf.engine.trigger
 
-// import akka.{ NotUsed }
 import akka.actor.typed.{ActorRef, ActorSystem, Behavior, PostStop, Scheduler}
 import akka.actor.typed.scaladsl.AskPattern._
 import akka.actor.typed.scaladsl.{Behaviors}
@@ -182,11 +181,9 @@ object Server {
       ledgerConfig: LedgerConfig,
       dar: Dar[(PackageId, Package)],
   ): Behavior[Message] = Behaviors.setup { ctx =>
-    // implicit val system: ActorSystem = ctx.system
     // http doesn't know about akka typed so provide untyped system
     implicit val untypedSystem: akka.actor.ActorSystem = ctx.system.toClassic
     implicit val materializer: Materializer = Materializer(untypedSystem)
-    // implicit val ec: ExecutionContext = ctx.system.executionContext
     implicit val esf: ExecutionSequencerFactory =
       new AkkaExecutionSequencerPool("TriggerService")(untypedSystem)
 
