@@ -12,7 +12,7 @@ import org.scalatest.{AsyncWordSpec, Matchers}
 
 import scala.collection.mutable
 import scala.concurrent.duration.DurationInt
-import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService, Future, Promise}
 import scala.util.{Failure, Success}
 
 class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
@@ -512,6 +512,35 @@ class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
         executor <- resource.asFuture
       } yield {
         an[RejectedExecutionException] should be thrownBy executor.submit(() => 7)
+      }
+    }
+
+    "cause an exception if the result is the execution context, to avoid deadlock upon release" in {
+      implicit val executionContext: ExecutionContextExecutorService =
+        ExecutionContext.fromExecutorService(Executors.newCachedThreadPool())
+
+      val resource = ResourceOwner.forExecutorService(() => executionContext).acquire()
+
+      for {
+        throwable <- resource.asFuture.failed
+        _ <- resource.release()
+      } yield {
+        throwable should be(a[ExecutorServiceResourceOwner.CannotAcquireExecutionContext])
+      }
+    }
+
+    "cause an exception if the result is wrapping the execution context, to avoid deadlock upon release" in {
+      val executorService = Executors.newCachedThreadPool()
+      implicit val executionContext: ExecutionContext =
+        ExecutionContext.fromExecutorService(executorService)
+
+      val resource = ResourceOwner.forExecutorService(() => executorService).acquire()
+
+      for {
+        throwable <- resource.asFuture.failed
+        _ <- resource.release()
+      } yield {
+        throwable should be(a[ExecutorServiceResourceOwner.CannotAcquireExecutionContext])
       }
     }
   }
