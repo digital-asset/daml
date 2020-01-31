@@ -4,7 +4,6 @@
 package com.digitalasset.daml.lf.engine.trigger
 
 import com.digitalasset.daml.lf.archive.{DarReader, Decode}
-// import com.digitalasset.daml_lf_dev.DamlLf
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
