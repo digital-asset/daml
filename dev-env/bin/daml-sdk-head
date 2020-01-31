@@ -115,7 +115,7 @@ if [ "$SKIP_JARS" -eq "0" ]; then
 
     bazel build //release:release
     tmp=$(mktemp -d)
-    "$REPO_ROOT/bazel-bin/release/release" --artifacts "$REPO_ROOT/release/artifacts.yaml" --release-dir $tmp --all-artifacts --install-head-jars
+    "$REPO_ROOT/bazel-bin/release/release" --artifacts "$REPO_ROOT/release/artifacts.yaml" --release-dir $tmp --install-head-jars
 
     mv "$REPO_ROOT/VERSION.head-build-in-progress" "$REPO_ROOT/VERSION"
     trap - EXIT
