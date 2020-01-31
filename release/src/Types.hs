@@ -3,7 +3,6 @@
 
 {-# LANGUAGE ConstraintKinds  #-}
 module Types (
-    AllArtifacts(..),
     ArtifactId,
     ArtifactType,
     CIException(..),
@@ -11,7 +10,6 @@ module Types (
     BintrayPackage(..),
     GitRev,
     GroupId,
-    IgnoreMissingDeps(..),
     MavenAllowUnsecureTls(..),
     MavenCoords(..),
     MavenUpload(..),
@@ -19,7 +17,6 @@ module Types (
     MonadCI,
     OS(..),
     PerformUpload(..),
-    PlatformDependent(..),
     TextVersion,
     Version(..),
     VersionChange(..),
@@ -79,22 +76,8 @@ data MavenCoords = MavenCoords
     , artifactType :: !ArtifactType
     } deriving Show
 
-newtype PlatformDependent = PlatformDependent{getPlatformDependent :: Bool}
-    deriving (Eq, Show, FromJSON)
-
 newtype MavenUpload = MavenUpload { getMavenUpload :: Bool }
     deriving (Eq, Show, FromJSON)
-
--- | If this is True, we produce all artifacts even platform independent artifacts on MacOS.
--- This is useful for testing purposes.
-newtype AllArtifacts = AllArtifacts Bool
-    deriving (Eq, Show)
-
--- | If True, we do not check for missing deps.
--- This is significantly faster and deps checking is platform independent
--- so we only run it on Linux which is usually faster than the MacOS build.
-newtype IgnoreMissingDeps = IgnoreMissingDeps { getIgnoreMissingDeps :: Bool }
-    deriving (Eq, Show)
 
 -- execution
 type MonadCI m = (MonadIO m, MonadMask m, MonadLogger m,

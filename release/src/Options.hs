@@ -24,9 +24,7 @@ data Options = Options
   , optsSlackReleaseMessageFile :: Maybe FilePath
   , optsFullLogging :: Bool
   , optsLogLevel :: LogLevel
-  , optsAllArtifacts :: AllArtifacts
   , optsLocallyInstallJars :: Bool
-  , optsIgnoreMissingDeps :: IgnoreMissingDeps
   } deriving (Eq, Show)
 
 optsParser :: Parser Options
@@ -37,9 +35,7 @@ optsParser = Options
   <*> option (Just <$> str) (long "slack-release-message" <> help "if present will write out what to write in slack. if there are no releases the file will be empty" <> value Nothing)
   <*> switch (long "full-logging" <> help "full logging detail")
   <*> option readLogLevel (long "log-level" <> metavar "debug|info|warn|error (default: info)" <> help "Specify log level during release run" <> value LevelInfo )
-  <*> (AllArtifacts <$> switch (long "all-artifacts" <> help "Produce all artifacts including platform-independent artifacts on MacOS"))
   <*> switch (long "install-head-jars" <> help "install jars to ~/.m2")
-  <*> (IgnoreMissingDeps <$> switch (long "ignore-missing-deps" <> help "Do not check for missing Maven dependencies"))
 
   where
     readLogLevel :: ReadM LogLevel

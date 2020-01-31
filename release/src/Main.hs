@@ -64,14 +64,11 @@ main = do
           -- originating from genrules that use damlc. This is a bit hacky but
           -- given that it’s fairly unlikely to accidentally introduce a dependency on the scenario
           -- service it doesn’t seem worth fixing properly.
-          if getIgnoreMissingDeps optsIgnoreMissingDeps
-              then pure (a, [])
-              else do
-                let bazelQueryCommand = shell $ "bazel query 'kind(\"(scala|java)_library\", deps(" ++ (T.unpack . getBazelTarget . artTarget) a ++ ")) intersect //... except //compiler/scenario-service/protos:scenario_service_java_proto'"
-                internalDeps <- liftIO $ lines <$> readCreateProcess bazelQueryCommand ""
-                -- check if a dependency is not already a maven target from artifacts.yaml
-                let missingDeps = filter (`Set.notMember` allMavenTargets) internalDeps
-                return (a, missingDeps)
+          let bazelQueryCommand = shell $ "bazel query 'kind(\"(scala|java)_library\", deps(" ++ (T.unpack . getBazelTarget . artTarget) a ++ ")) intersect //... except //compiler/scenario-service/protos:scenario_service_java_proto'"
+          internalDeps <- liftIO $ lines <$> readCreateProcess bazelQueryCommand ""
+          -- check if a dependency is not already a maven target from artifacts.yaml
+          let missingDeps = filter (`Set.notMember` allMavenTargets) internalDeps
+          return (a, missingDeps)
 
       let onlyMissing = filter (not . null . snd) missingDepsForAllArtifacts
       -- now we can report all the missing dependencies per artifact
@@ -83,11 +80,11 @@ main = do
                   liftIO exitFailure
 
       files <- fmap concat $ forM artifacts $ \a -> do
-          fs <- artifactFiles optsAllArtifacts a
+          fs <- artifactFiles a
           pure $ map (a,) fs
       mapM_ (\(_, (inp, outp)) -> copyToReleaseDir bazelLocations releaseDir inp outp) files
 
-      uploadArtifacts <- concatMapM (mavenArtifactCoords optsAllArtifacts) mavenUploadArtifacts
+      uploadArtifacts <- concatMapM mavenArtifactCoords mavenUploadArtifacts
       validateMavenArtifacts releaseDir uploadArtifacts
 
       -- npm packages we want to publish.

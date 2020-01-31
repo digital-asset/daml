@@ -14,6 +14,14 @@ step() {
 
 cd "$(dirname "$0")"/..
 
+if [[ "$(uname)" == "Darwin" ]]; then
+    echo "Simulating release step..."
+    echo "##vso[task.setvariable variable=has_released;isOutput=true]true"
+    echo "##vso[task.setvariable variable=release_tag]$(cat VERSION)"
+    exit 0
+fi
+
+
 step "loading dev-env"
 
 eval "$(dev-env/bin/dade assist)"
@@ -27,13 +35,6 @@ step "set up temporary location"
 release_dir="$(mktemp -d)"
 step "temporary release directory is ${release_dir}"
 
-EXTRA_ARGS=""
-
-if [[ "$(uname)" == "Darwin" ]]; then
-    EXTRA_ARGS="--ignore-missing-deps"
-fi
-
-
 if [[ "${BUILD_SOURCEBRANCHNAME:-}" == "master" ]]; then
     # set up bintray credentials
     mkdir -p ~/.jfrog
@@ -41,9 +42,9 @@ if [[ "${BUILD_SOURCEBRANCHNAME:-}" == "master" ]]; then
     unset JFROG_CONFIG_CONTENT
 
     step "run release script (with --upload)"
-    ./bazel-bin/release/release --artifacts release/artifacts.yaml --upload --log-level debug --release-dir "${release_dir}" $EXTRA_ARGS
+    ./bazel-bin/release/release --artifacts release/artifacts.yaml --upload --log-level debug --release-dir "${release_dir}"
 else
     step "run release script (dry run)"
-    ./bazel-bin/release/release --artifacts release/artifacts.yaml --log-level debug --release-dir "${release_dir}" $EXTRA_ARGS
+    ./bazel-bin/release/release --artifacts release/artifacts.yaml --log-level debug --release-dir "${release_dir}"
     step "release artifacts got stored in ${release_dir}"
 fi
