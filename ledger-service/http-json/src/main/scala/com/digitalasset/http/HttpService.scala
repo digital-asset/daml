@@ -139,6 +139,7 @@ object HttpService extends StrictLogging {
 
       websocketService = new WebSocketService(
         contractsService,
+        packageService.resolveTemplateId,
         encoder,
         decoder,
         LedgerReader.damlLfTypeLookup(packageService.packageStore _),
