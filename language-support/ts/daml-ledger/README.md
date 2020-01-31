@@ -22,7 +22,7 @@ The best place to get you started is [Create DAML App](https://github.com/digita
 and the [Quickstart Guide](https://docs.daml.com/getting-started/quickstart.html).
 
 ## Source
-https://github.com/digital-asset/daml.
+https://github.com/digital-asset/daml/tree/master/language-support/ts/daml-ledger
 
 ## License
 [Apache-2.0](https://github.com/digital-asset/daml/blob/master/LICENSE)
