@@ -13,6 +13,7 @@ ts_library(
     srcs = glob(["**/*.ts"]),
     data = [
         ":LICENSE",
+        ":README.md",
         ":package.json",
     ],
     module_name = "@daml/ledger",
