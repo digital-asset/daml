@@ -25,4 +25,4 @@ and the [Quickstart Guide](https://docs.daml.com/getting-started/quickstart.html
 https://github.com/digital-asset/daml.
 
 ## License
-[Apache-2.0]
+[Apache-2.0](https://github.com/digital-asset/daml/blob/master/LICENSE)
