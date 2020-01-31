@@ -16,6 +16,7 @@ ts_library(
     ]),
     data = [
         ":LICENSE",
+        ":README.md",
         ":package.json",
     ],
     module_name = "@daml/react",
