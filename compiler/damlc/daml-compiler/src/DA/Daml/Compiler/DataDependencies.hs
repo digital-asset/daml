@@ -85,10 +85,13 @@ generateSrcFromLf env = noLoc mod
             , hsmodExports = Nothing
             }
 
+    decls :: [LHsDecl GhcPs]
+    modRefs :: Set ModRef
     (decls, modRefs) = runGen . sequence . concat $
         [ classDecls
         , dataTypeDecls
         , valueDecls
+        , instanceDecls
         ]
 
     classMethodNames :: Set T.Text
@@ -163,15 +166,66 @@ generateSrcFromLf env = noLoc mod
             lname = mkRdrName (LF.unExprValName lfName) :: Located RdrName
             sig = TypeSig noExt [lname] . HsWC noExt . HsIB noExt <$> ltype
             lsigD = noLoc . SigD noExt <$> sig :: Gen (LHsDecl GhcPs)
-            lexpr = noLoc $ HsPar noExt $ noLoc $ HsVar noExt lname :: LHsExpr GhcPs
-            lgrhs = noLoc $ GRHS noExt [] lexpr :: LGRHS GhcPs (LHsExpr GhcPs)
-            grhss = GRHSs noExt [lgrhs] (noLoc $ EmptyLocalBinds noExt)
-            matchContext = FunRhs lname Prefix NoSrcStrict
-            lmatch = noLoc $ Match noExt matchContext [] Nothing grhss
-            lalts = noLoc [lmatch]
-            bind = FunBind noExt lname (MG noExt lalts Generated) WpHole []
+            bind = mkTrivialBind lname
             lvalD = noLoc $ ValD noExt bind :: LHsDecl GhcPs
         [ lsigD, pure lvalD ]
+
+    -- | Generate instance declarations from dictionary functions.
+    instanceDecls :: [Gen (LHsDecl GhcPs)]
+    instanceDecls = do
+        LF.DefValue {..} <- NM.toList $ LF.moduleValues $ envMod env
+        let dvalType = snd dvalBinder
+        Just qname@LF.Qualified{..} <- [getDFunClassName dvalType]
+        Just fieldNames <- [getDFunFieldNames dvalBody]
+        guard (not (isHasField qname))
+        pure $ do
+            polyTy <- HsIB noExt . noLoc <$> convType env dvalType
+            ghcMod <- genModule env qualPackage qualModule
+            pure . noLoc . InstD noExt . ClsInstD noExt $ ClsInstDecl
+                { cid_ext = noExt
+                , cid_poly_ty = polyTy
+                , cid_binds = listToBag (mapMaybe (mkBind ghcMod) fieldNames)
+                , cid_sigs = []
+                , cid_tyfam_insts = []
+                , cid_datafam_insts = []
+                , cid_overlap_mode = Nothing
+                }
+
+      where
+
+        -- | Filter out HasField instances, since they are generated separately.
+        isHasField :: LF.Qualified LF.TypeSynName -> Bool
+        isHasField LF.Qualified{..} =
+            qualModule == LF.ModuleName ["DA", "Internal", "Record"]
+            && qualObject == LF.TypeSynName ["HasField"]
+
+        -- | Verify that this is the type for a dictionary function,
+        -- and get the class name associated with it.
+        getDFunClassName :: LF.Type -> Maybe (LF.Qualified LF.TypeSynName)
+        getDFunClassName = \case
+            LF.TForall _ rest -> getDFunClassName rest
+            (LF.:->) c rest -> do
+                guard (isConstraint c)
+                getDFunClassName rest
+            LF.TSynApp name _ -> Just name
+            _ -> Nothing
+
+        -- | Get the field names associated with a dictionary function body.
+        getDFunFieldNames :: LF.Expr -> Maybe [LF.FieldName]
+        getDFunFieldNames = \case
+            LF.ETyLam _ body -> getDFunFieldNames body
+            LF.ETmLam _ body -> getDFunFieldNames body
+            LF.EStructCon fields -> Just (map fst fields)
+            _ -> Nothing
+
+        -- | Make the binding associated with a field.
+        mkBind :: Module -> LF.FieldName -> Maybe (LHsBind GhcPs)
+        mkBind ghcMod fieldName = do
+            methodName <- getClassMethodName fieldName
+            let occName = mkOccName varName (T.unpack methodName)
+                rdrName = mkOrig ghcMod occName
+                bind = mkTrivialBind (noLoc rdrName)
+            Just (noLoc bind)
 
     shouldExposeDefDataType :: LF.DefDataType -> Bool
     shouldExposeDefDataType typeDef
@@ -287,6 +341,21 @@ mkDataDecl env thisModule occName tyVars cons = do
                 , dd_derivs = noLoc []
                 }
         }
+
+-- | Make a binding of the form "x = x". If a qualified name is passed,
+-- we turn the left-hand side into the unqualified form of that name (LHS
+-- must always be unqualified), and the right-hand side remains qualified.
+mkTrivialBind :: Located RdrName -> HsBind GhcPs
+mkTrivialBind lname =
+    let lexpr = noLoc $ HsPar noExt $ noLoc $ HsVar noExt lname :: LHsExpr GhcPs
+        lgrhs = noLoc $ GRHS noExt [] lexpr :: LGRHS GhcPs (LHsExpr GhcPs)
+        grhss = GRHSs noExt [lgrhs] (noLoc $ EmptyLocalBinds noExt)
+        lnameUnqual = noLoc . mkRdrUnqual . rdrNameOcc $ unLoc lname
+        matchContext = FunRhs lnameUnqual Prefix NoSrcStrict
+        lmatch = noLoc $ Match noExt matchContext [] Nothing grhss
+        lalts = noLoc [lmatch]
+        bind = FunBind noExt lnameUnqual (MG noExt lalts Generated) WpHole []
+    in bind
 
 mkConDeclField :: Env -> LF.FieldName -> LF.Type -> Gen (LConDeclField GhcPs)
 mkConDeclField env fieldName fieldTy = do
