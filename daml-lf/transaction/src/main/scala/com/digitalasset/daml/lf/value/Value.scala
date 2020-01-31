@@ -15,31 +15,16 @@ import scalaz.std.tuple._
 import scalaz.syntax.equal._
 
 /** Values   */
-sealed abstract class Value[+Cid] extends Product with Serializable {
+sealed abstract class Value[+Cid] extends CidContainer[Value[Cid]] with Product with Serializable {
   import Value._
-  // TODO (FM) make this tail recursive
-  def mapContractId[Cid2](f: Cid => Cid2): Value[Cid2] =
-    // TODO (FM) make this tail recursive
-    this match {
-      case ValueContractId(coid) => ValueContractId(f(coid))
-      case ValueRecord(id, fs) =>
-        ValueRecord(id, fs.map({
-          case (lbl, value) => (lbl, value.mapContractId(f))
-        }))
-      case ValueStruct(fs) =>
-        ValueStruct(fs.map[(Name, Value[Cid2])] {
-          case (lbl, value) => (lbl, value.mapContractId(f))
-        })
-      case ValueVariant(id, variant, value) =>
-        ValueVariant(id, variant, value.mapContractId(f))
-      case x: ValueCidlessLeaf => x
-      case ValueList(vs) =>
-        ValueList(vs.map(_.mapContractId(f)))
-      case ValueOptional(x) => ValueOptional(x.map(_.mapContractId(f)))
-      case ValueTextMap(x) => ValueTextMap(x.mapValue(_.mapContractId(f)))
-      case ValueGenMap(entries) =>
-        ValueGenMap(entries.map { case (k, v) => k.mapContractId(f) -> v.mapContractId(f) })
-    }
+
+  final override protected val self: this.type = this
+
+  final def mapContractId[Cid2](f: Cid => Cid2): Value[Cid2] =
+    map1(f)
+
+  private[lf] final def map1[Cid2](f: Cid => Cid2): Value[Cid2] =
+    Value.map1(f)(this)
 
   /** returns a list of validation errors: if the result is non-empty the value is
     * _not_ serializable.
@@ -143,9 +128,38 @@ sealed abstract class Value[+Cid] extends Product with Serializable {
 
     go(false, BackStack.empty, FrontStack((this, 0))).toImmArray
   }
+
 }
 
-object Value {
+object Value extends CidContainer1[Value] {
+
+  // TODO (FM) make this tail recursive
+  private[lf] override def map1[Cid, Cid2](f: Cid => Cid2): Value[Cid] => Value[Cid2] = {
+    def go(v0: Value[Cid]): Value[Cid2] =
+      // TODO (FM) make this tail recursive
+      v0 match {
+        case ValueContractId(coid) => ValueContractId(f(coid))
+        case ValueRecord(id, fs) =>
+          ValueRecord(id, fs.map({
+            case (lbl, value) => (lbl, go(value))
+          }))
+        case ValueStruct(fs) =>
+          ValueStruct(fs.map[(Name, Value[Cid2])] {
+            case (lbl, value) => (lbl, go(value))
+          })
+        case ValueVariant(id, variant, value) =>
+          ValueVariant(id, variant, go(value))
+        case x: ValueCidlessLeaf => x
+        case ValueList(vs) =>
+          ValueList(vs.map(go))
+        case ValueOptional(x) => ValueOptional(x.map(go))
+        case ValueTextMap(x) => ValueTextMap(x.mapValue(go))
+        case ValueGenMap(entries) =>
+          ValueGenMap(entries.map { case (k, v) => go(k) -> go(v) })
+      }
+
+    go
+  }
 
   /** the maximum nesting level for DAML-LF serializable values. we put this
     * limitation to be able to reliably implement stack safe programs with it.
@@ -157,9 +171,19 @@ object Value {
     */
   val MAXIMUM_NESTING: Int = 100
 
-  final case class VersionedValue[+Cid](version: ValueVersion, value: Value[Cid]) {
+  import Name.equalInstance
+
+  final case class VersionedValue[+Cid](version: ValueVersion, value: Value[Cid])
+      extends CidContainer[VersionedValue[Cid]] {
+
+    override protected val self: this.type = this
+
+    @deprecated("use resolveRelCid/ensureNoCid/ensureNoRelCidd", since = "0.13.52")
     def mapContractId[Cid2](f: Cid => Cid2): VersionedValue[Cid2] =
-      this.copy(value = value.mapContractId(f))
+      map1(f)
+
+    private[lf] def map1[Cid2](f: Cid => Cid2): VersionedValue[Cid2] =
+      VersionedValue.map1(f)(this)
 
     /** Increase the `version` if appropriate for `languageVersions`. */
     def typedBy(languageVersions: LanguageVersion*): VersionedValue[Cid] = {
@@ -171,13 +195,17 @@ object Value {
 
   import Name.equalInstance
 
-  object VersionedValue {
+  object VersionedValue extends CidContainer1[VersionedValue] {
     implicit def `VersionedValue Equal instance`[Cid: Equal]: Equal[VersionedValue[Cid]] =
       ScalazEqual.withNatural(Equal[Cid].equalIsNatural) { (a, b) =>
         import a._
         val VersionedValue(bVersion, bValue) = b
         version == bVersion && value === bValue
       }
+
+    override private[lf] def map1[A, B](f: A => B): VersionedValue[A] => VersionedValue[B] =
+      x => x.copy(value = Value.map1(f)(x.value))
+
   }
 
   /** The parent of all [[Value]] cases that cannot possibly have a Cid.
@@ -273,18 +301,28 @@ object Value {
     }
 
   /** A contract instance is a value plus the template that originated it. */
-  final case class ContractInst[+Val](template: Identifier, arg: Val, agreementText: String) {
+  final case class ContractInst[+Val](template: Identifier, arg: Val, agreementText: String)
+      extends value.CidContainer[ContractInst[Val]] {
+
+    override protected val self: ContractInst[Val] = this
+
+    @deprecated("use resolveRelCid/ensureNoCid/ensureNoRelCid", since = "0.13.52")
     def mapValue[Val2](f: Val => Val2): ContractInst[Val2] =
-      this.copy(arg = f(arg))
+      ContractInst.map1(f)(this)
+
   }
 
-  object ContractInst {
+  object ContractInst extends CidContainer1[ContractInst] {
     implicit def equalInstance[Val: Equal]: Equal[ContractInst[Val]] =
       ScalazEqual.withNatural(Equal[Val].equalIsNatural) { (a, b) =>
         import a._
         val ContractInst(bTemplate, bArg, bAgreementText) = b
         template == bTemplate && arg === bArg && agreementText == bAgreementText
       }
+
+    override private[lf] def map1[A, B](f: A => B): ContractInst[A] => ContractInst[B] =
+      x => x.copy(arg = f(x.arg))
+
   }
 
   type NodeIdx = Int
@@ -311,12 +349,21 @@ object Value {
 
   object ContractId {
     implicit val equalInstance: Equal[ContractId] = Equal.equalA
+
+    implicit val noCidMapper: CidMapper.NoCidMapper[ContractId, Nothing] =
+      CidMapper.basicInstance[ContractId, Nothing]
+    implicit val noRelCidMapper: CidMapper.NoRelCidMapper[ContractId, AbsoluteContractId] =
+      CidMapper.basicInstance[ContractId, AbsoluteContractId]
   }
 
   /** The constructor is private so that we make sure that only this object constructs
     * node ids -- we don't want external code to manipulate them.
     */
   final case class NodeId(index: Int)
+
+  object NodeId {
+    implicit def cidMapperInstance[Fun]: CidMapper[NodeId, NodeId, Fun] = CidMapper.trivialMapper
+  }
 
   /*** Keys cannot contain contract ids */
   type Key = Value[Nothing]

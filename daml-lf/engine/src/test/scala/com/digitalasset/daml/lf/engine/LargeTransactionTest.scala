@@ -90,8 +90,9 @@ class LargeTransactionTest extends WordSpec with Matchers with BazelRunfiles {
         cmdReference = "create RangeOfInts",
         seed = hash("testLargeTransactionOneContract:create", txSize))
     val contractId: AbsoluteContractId = firstRootNode(createCmdTx) match {
-      case N.NodeCreate(_, x, _, _, _, _, _) =>
-        pcs.toAbsoluteContractId(pcs.transactionCounter - 1)(x)
+      case N.NodeCreate(_, x: RelativeContractId, _, _, _, _, _) =>
+        AbsoluteContractId(pcs.toContractIdString(pcs.transactionCounter - 1)(x))
+      case N.NodeCreate(_, x: AbsoluteContractId, _, _, _, _, _) => x
       case n @ _ => fail(s"Expected NodeCreate, but got: $n")
     }
     val exerciseCmd = toListContainerExerciseCmd(rangeOfIntsTemplateId, contractId)
@@ -118,8 +119,9 @@ class LargeTransactionTest extends WordSpec with Matchers with BazelRunfiles {
         cmdReference = "create RangeOfInts",
         seed = hash("testLargeTransactionManySmallContracts:create", num))
     val contractId: AbsoluteContractId = firstRootNode(createCmdTx) match {
-      case N.NodeCreate(_, x, _, _, _, _, _) =>
-        pcs.toAbsoluteContractId(pcs.transactionCounter - 1)(x)
+      case N.NodeCreate(_, x: RelativeContractId, _, _, _, _, _) =>
+        AbsoluteContractId(pcs.toContractIdString(pcs.transactionCounter - 1)(x))
+      case N.NodeCreate(_, x: AbsoluteContractId, _, _, _, _, _) => x
       case n @ _ => fail(s"Expected NodeCreate, but got: $n")
     }
     val exerciseCmd = toListOfIntContainers(rangeOfIntsTemplateId, contractId)
@@ -146,8 +148,9 @@ class LargeTransactionTest extends WordSpec with Matchers with BazelRunfiles {
         cmdReference = "create ListUtil",
         seed = hash("testLargeChoiceArgument:create", size))
     val contractId: AbsoluteContractId = firstRootNode(createCmdTx) match {
-      case N.NodeCreate(_, x, _, _, _, _, _) =>
-        pcs.toAbsoluteContractId(pcs.transactionCounter - 1)(x)
+      case N.NodeCreate(_, x: RelativeContractId, _, _, _, _, _) =>
+        AbsoluteContractId(pcs.toContractIdString(pcs.transactionCounter - 1)(x))
+      case N.NodeCreate(_, x: AbsoluteContractId, _, _, _, _, _) => x
       case n @ _ => fail(s"Expected NodeCreate, but got: $n")
     }
     val exerciseCmd = sizeExerciseCmd(listUtilTemplateId, contractId)(size)
