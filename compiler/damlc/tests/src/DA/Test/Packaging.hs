@@ -933,6 +933,12 @@ dataDependencyTests damlc repl davlDar = testGroup "Data Dependencies" $
               , ""
               , "usingFoo : Foo t => t"
               , "usingFoo = foo 0"
+              , ""
+              , "instance Foo Int where"
+              , "  foo x = x"
+              , ""
+              , "instance Bar Int where"
+              , "  bar x = x"
               ]
           writeFileUTF8 (proja </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
@@ -949,6 +955,7 @@ dataDependencyTests damlc repl davlDar = testGroup "Data Dependencies" $
               [ "daml 1.2"
               , "module B where"
               , "import A ( Foo (foo), Bar (..), usingFoo )"
+              , "import DA.Assert"
               , ""
               , "data T = T Int"
               , "instance Foo T where"
@@ -959,6 +966,10 @@ dataDependencyTests damlc repl davlDar = testGroup "Data Dependencies" $
               , ""
               , "usingFooIndirectly : T"
               , "usingFooIndirectly = usingFoo"
+              , ""
+              , "testInstanceImport = scenario do"
+              , "  foo 10 === 10"
+              , "  bar 20 === 20"
               ]
           writeFileUTF8 (projb </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
