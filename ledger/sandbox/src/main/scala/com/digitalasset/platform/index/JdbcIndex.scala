@@ -1,7 +1,7 @@
 // Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.apiserver
+package com.digitalasset.platform.index
 
 import akka.NotUsed
 import akka.stream.Materializer
@@ -11,7 +11,7 @@ import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.v1.{ParticipantId, ReadService}
 import com.digitalasset.dec.DirectExecutionContext
-import com.digitalasset.ledger.api.domain.{ParticipantId => _, _}
+import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.logging.LoggingContext
 import com.digitalasset.resources.Resource
 
