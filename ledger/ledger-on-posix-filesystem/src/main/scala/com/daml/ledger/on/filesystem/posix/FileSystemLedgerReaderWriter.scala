@@ -9,7 +9,6 @@ import java.time.Clock
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.daml.ledger.on.filesystem.posix.FileSystemLedgerReaderWriter._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntryId,
   DamlStateKey,
@@ -108,14 +107,8 @@ class FileSystemLedgerReaderWriter private (
     )
   }
 
-  private def currentLogHead(): Index = {
-    try {
-      Files.readAllLines(paths.logHead).get(0).toInt
-    } catch {
-      case _: NoSuchFileException =>
-        StartIndex
-    }
-  }
+  private def currentLogHead(): Index =
+    Files.lines(paths.logHead).findFirst().get().toInt
 
   private def appendLog(currentHead: Index, envelope: ByteString): Index = {
     Files.write(paths.logEntriesDirectory.resolve(currentHead.toString), envelope.toByteArray)
@@ -145,10 +138,6 @@ class FileSystemLedgerReaderWriter private (
 }
 
 object FileSystemLedgerReaderWriter {
-  type Index = Int
-
-  private val StartIndex: Index = 0
-
   def owner(
       ledgerId: LedgerId,
       participantId: ParticipantId,
@@ -167,7 +156,7 @@ object FileSystemLedgerReaderWriter {
           Dispatcher(
             "posix-filesystem-participant-state",
             zeroIndex = StartIndex,
-            headAtInitialization = StartIndex,
+            headAtInitialization = Files.lines(paths.logHead).findFirst().get().toInt,
         ))
     } yield new FileSystemLedgerReaderWriter(ledgerId, participantId, paths, dispatcher)
   }

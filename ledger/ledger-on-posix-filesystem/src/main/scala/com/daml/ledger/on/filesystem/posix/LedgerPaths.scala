@@ -5,6 +5,8 @@ package com.daml.ledger.on.filesystem.posix
 
 import java.nio.file.{FileAlreadyExistsException, Files, Path}
 
+import scala.collection.JavaConverters._
+
 class LedgerPaths(root: Path) {
 
   /** Used as the ledger lock; only one participant can work with the ledger at a time. */
@@ -38,6 +40,9 @@ class LedgerPaths(root: Path) {
     Files.createDirectories(logEntriesDirectory)
     Files.createDirectories(logIndexDirectory)
     Files.createDirectories(stateDirectory)
+    if (Files.notExists(logHead)) {
+      Files.write(logHead, Seq(StartIndex.toString).asJava)
+    }
     ()
   }
 
