@@ -14,7 +14,7 @@ import com.digitalasset.daml.lf.transaction.{GenTransaction, VersionTimeline}
 import com.digitalasset.daml.lf.types.Ledger.ScenarioTransactionId
 import com.digitalasset.daml.lf.types.{Ledger => L}
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
-import com.digitalasset.platform.apiserver.InMemoryPackageStore
+import com.digitalasset.platform.packages.InMemoryPackageStore
 import com.digitalasset.platform.sandbox.stores.InMemoryActiveLedgerState
 import com.digitalasset.platform.store.entries.LedgerEntry
 import org.slf4j.LoggerFactory

@@ -26,8 +26,8 @@ import com.digitalasset.ledger.api.domain.{
   RejectionReason
 }
 import com.digitalasset.ledger.api.health.{HealthStatus, Healthy}
-import com.digitalasset.platform.apiserver.InMemoryPackageStore
 import com.digitalasset.platform.events.EventIdFormatter
+import com.digitalasset.platform.packages.InMemoryPackageStore
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.sandbox.stores.InMemoryActiveLedgerState
 import com.digitalasset.platform.sandbox.stores.deduplicator.Deduplicator

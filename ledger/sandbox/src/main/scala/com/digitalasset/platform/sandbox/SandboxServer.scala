@@ -26,12 +26,12 @@ import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.apiserver.{
   ApiServer,
   ApiServices,
-  InMemoryPackageStore,
   LedgerApiServer,
   TimeServiceBackend
 }
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.configuration.BuildInfo
+import com.digitalasset.platform.packages.InMemoryPackageStore
 import com.digitalasset.platform.sandbox.SandboxServer._
 import com.digitalasset.platform.sandbox.banner.Banner
 import com.digitalasset.platform.sandbox.config.SandboxConfig

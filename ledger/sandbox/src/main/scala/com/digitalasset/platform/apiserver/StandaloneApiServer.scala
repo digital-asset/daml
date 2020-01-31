@@ -22,6 +22,7 @@ import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.apiserver.StandaloneApiServer._
 import com.digitalasset.platform.configuration.{BuildInfo, CommandConfiguration}
 import com.digitalasset.platform.index.JdbcIndex
+import com.digitalasset.platform.packages.InMemoryPackageStore
 import com.digitalasset.resources.akka.AkkaResourceOwner
 import com.digitalasset.resources.{Resource, ResourceOwner}
 

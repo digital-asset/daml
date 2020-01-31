@@ -26,8 +26,8 @@ import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.domain.{ParticipantId => _, _}
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.logging.LoggingContext
-import com.digitalasset.platform.apiserver.InMemoryPackageStore
 import com.digitalasset.platform.index.{LedgerBackedIndexService, SandboxContractStore}
+import com.digitalasset.platform.packages.InMemoryPackageStore
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.digitalasset.platform.sandbox.stores.ledger._
 import com.digitalasset.platform.sandbox.stores.ledger.inmemory.InMemoryLedger
