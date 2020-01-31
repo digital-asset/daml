@@ -26,7 +26,7 @@ import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.domain.{ParticipantId => _, _}
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.logging.LoggingContext
-import com.digitalasset.platform.index.{LedgerBackedIndexService, SandboxContractStore}
+import com.digitalasset.platform.index.LedgerBackedIndexService
 import com.digitalasset.platform.packages.InMemoryPackageStore
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.digitalasset.platform.sandbox.stores.ledger._
@@ -101,8 +101,7 @@ object SandboxIndexAndWriteService {
       timeModel: ParticipantState.TimeModel,
       timeProvider: TimeProvider,
   )(implicit mat: Materializer): ResourceOwner[IndexAndWriteService] = {
-    val contractStore = new SandboxContractStore(ledger)
-    val indexSvc = new LedgerBackedIndexService(ledger, contractStore, participantId) {
+    val indexSvc = new LedgerBackedIndexService(ledger, participantId) {
       override def getLedgerConfiguration(): Source[LedgerConfiguration, NotUsed] =
         Source
           .single(LedgerConfiguration(timeModel.minTtl, timeModel.maxTtl))

@@ -9,7 +9,6 @@ import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2.{
   AcsUpdateEvent,
   ActiveContractSetSnapshot,
-  ContractStore,
   IndexService,
   PackageDetails
 }
@@ -52,8 +51,7 @@ import scala.concurrent.Future
 
 abstract class LedgerBackedIndexService(
     ledger: ReadOnlyLedger,
-    contractStore: ContractStore,
-    participantId: ParticipantId
+    participantId: ParticipantId,
 )(implicit mat: Materializer)
     extends IndexService {
   override def getLedgerId(): Future[LedgerId] = Future.successful(ledger.ledgerId)
@@ -282,14 +280,17 @@ abstract class LedgerBackedIndexService(
   // ContractStore
   override def lookupActiveContract(
       submitter: Ref.Party,
-      contractId: AbsoluteContractId
+      contractId: AbsoluteContractId,
   ): Future[Option[ContractInst[Value.VersionedValue[AbsoluteContractId]]]] =
-    contractStore.lookupActiveContract(submitter, contractId)
+    ledger
+      .lookupContract(contractId, submitter)
+      .map(_.map(_.contract))(DEC)
 
   override def lookupContractKey(
       submitter: Party,
-      key: GlobalKey): Future[Option[AbsoluteContractId]] =
-    contractStore.lookupContractKey(submitter, key)
+      key: GlobalKey,
+  ): Future[Option[AbsoluteContractId]] =
+    ledger.lookupKey(key, submitter)
 
   // PartyManagementService
   override def getParticipantId(): Future[ParticipantId] =

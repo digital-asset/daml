@@ -24,11 +24,7 @@ object JdbcIndex {
       metrics: MetricRegistry,
   )(implicit mat: Materializer, logCtx: LoggingContext): Resource[IndexService] =
     ReadOnlySqlLedger(jdbcUrl, Some(ledgerId), metrics).map { ledger =>
-      val contractStore = new SandboxContractStore(ledger)
-      new LedgerBackedIndexService(
-        MeteredReadOnlyLedger(ledger, metrics),
-        contractStore,
-        participantId) {
+      new LedgerBackedIndexService(MeteredReadOnlyLedger(ledger, metrics), participantId) {
         override def getLedgerConfiguration(): Source[v2.LedgerConfiguration, NotUsed] =
           // FIXME(JM): This is broken. We should not use ReadService in Ledger API Server,
           // The indexer should on start set the default configuration.
