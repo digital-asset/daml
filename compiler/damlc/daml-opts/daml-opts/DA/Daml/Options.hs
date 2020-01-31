@@ -205,9 +205,10 @@ wOptsUnset =
   , Opt_WarnOverflowedLiterals -- this does not play well with -ticky and the error message is misleading
   ]
 
+newtype GhcVersionHeader = GhcVersionHeader FilePath
 
-adjustDynFlags :: Options -> FilePath -> FilePath -> DynFlags -> DynFlags
-adjustDynFlags options@Options{..} versionHeader tmpDir dflags
+adjustDynFlags :: Options -> GhcVersionHeader -> FilePath -> DynFlags -> DynFlags
+adjustDynFlags options@Options{..} (GhcVersionHeader versionHeader) tmpDir dflags
   =
   -- Generally, the lexer's "haddock mode" is disabled (`Haddock
   -- False` is the default option. In this case, we run the lexer in
@@ -282,8 +283,8 @@ setThisInstalledUnitId unitId dflags =
 setImports :: [FilePath] -> DynFlags -> DynFlags
 setImports paths dflags = dflags { importPaths = paths }
 
-locateGhcVersionHeader :: IO FilePath
-locateGhcVersionHeader = locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "ghcversion.h")
+locateGhcVersionHeader :: IO GhcVersionHeader
+locateGhcVersionHeader = GhcVersionHeader <$> locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "ghcversion.h")
 
 -- | Configures the @DynFlags@ for this session to DAML-1.2
 --  compilation:
