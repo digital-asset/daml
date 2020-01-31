@@ -100,7 +100,7 @@ class ContractsService(
 
       resolvedTemplateId <- toFuture(resolveTemplateId(templateId)): Future[TemplateId.RequiredPkg]
 
-      predicate = isContractKey(contractKey) _
+      predicate = domain.ActiveContract.matchesKey(contractKey) _
 
       errorOrAc <- searchInMemoryOneTpId(jwt, party, resolvedTemplateId, Map.empty)
         .collect {
@@ -112,9 +112,6 @@ class ContractsService(
       result <- lookupResult(errorOrAc)
 
     } yield result
-
-  private def isContractKey(k: LfValue)(a: domain.ActiveContract[LfValue]): Boolean =
-    a.key.fold(false)(_ == k)
 
   def findByContractId(
       jwt: Jwt,

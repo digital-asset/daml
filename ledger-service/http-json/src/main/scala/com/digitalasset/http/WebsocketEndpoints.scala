@@ -24,7 +24,8 @@ object WebsocketEndpoints {
     (Jwt, domain.JwtPayload, UpgradeToWebSocket, Option[String]) => HttpResponse
 
   private def findJwtFromSubProtocol(
-      upgradeToWebSocket: UpgradeToWebSocket): Unauthorized \/ Jwt = {
+      upgradeToWebSocket: UpgradeToWebSocket,
+  ): Unauthorized \/ Jwt = {
     upgradeToWebSocket.requestedProtocols
       .collectFirst {
         case p if p startsWith tokenPrefix => Jwt(p drop tokenPrefix.length)
@@ -35,10 +36,12 @@ object WebsocketEndpoints {
   private def preconnect(
       decodeJwt: ValidateJwt,
       req: UpgradeToWebSocket,
-      subprotocol: Option[String]) =
+      subprotocol: String,
+  ) =
     for {
-      _ <- subprotocol.exists(req.requestedProtocols.contains(_)) either (()) or Unauthorized(
-        s"Missing required $tokenPrefix.[token] or $wsProtocol subprotocol")
+      _ <- req.requestedProtocols.contains(subprotocol) either (()) or Unauthorized(
+        s"Missing required $tokenPrefix.[token] or $wsProtocol subprotocol",
+      )
       jwt0 <- findJwtFromSubProtocol(req)
       payload <- decodeAndParsePayload(jwt0, decodeJwt)
     } yield payload
@@ -47,7 +50,8 @@ object WebsocketEndpoints {
 class WebsocketEndpoints(
     ledgerId: lar.LedgerId,
     decodeJwt: ValidateJwt,
-    webSocketService: WebSocketService)(implicit mat: Materializer, ec: ExecutionContext)
+    webSocketService: WebSocketService,
+)(implicit mat: Materializer, ec: ExecutionContext)
     extends StrictLogging {
 
   import WebsocketEndpoints._
@@ -57,23 +61,49 @@ class WebsocketEndpoints(
       Future.successful(
         (for {
           upgradeReq <- req.header[UpgradeToWebSocket] \/> InvalidUserInput(
-            s"Cannot upgrade client's connection to websocket")
+            s"Cannot upgrade client's connection to websocket",
+          )
           _ = logger.info(s"GOT $wsProtocol")
-          subprotocol = Some(wsProtocol)
-          payload <- preconnect(decodeJwt, upgradeReq, subprotocol)
+
+          payload <- preconnect(decodeJwt, upgradeReq, wsProtocol)
           (jwt, jwtPayload) = payload
-        } yield handleWebsocketRequest(jwt, jwtPayload, upgradeReq, subprotocol))
-          .valueOr(httpResponseError))
+        } yield
+          handleWebsocketRequest[domain.GetActiveContractsRequest](
+            jwt,
+            jwtPayload,
+            upgradeReq,
+            wsProtocol))
+          .valueOr(httpResponseError),
+      )
+
+    case req @ HttpRequest(GET, Uri.Path("/stream/fetch"), _, _, _) =>
+      Future.successful(
+        (for {
+          upgradeReq <- req.header[UpgradeToWebSocket] \/> InvalidUserInput(
+            s"Cannot upgrade client's connection to websocket",
+          )
+          _ = logger.info(s"GOT $wsProtocol")
+          payload <- preconnect(decodeJwt, upgradeReq, wsProtocol)
+          (jwt, jwtPayload) = payload
+        } yield
+          handleWebsocketRequest[List[domain.EnrichedContractKey[domain.LfValue]]](
+            jwt,
+            jwtPayload,
+            upgradeReq,
+            wsProtocol))
+          .valueOr(httpResponseError),
+      )
   }
 
-  private def handleWebsocketRequest(
+  private def handleWebsocketRequest[A: WebSocketService.StreamQuery](
       jwt: Jwt,
       jwtPayload: domain.JwtPayload,
       req: UpgradeToWebSocket,
-      protocol: Option[String]): HttpResponse = {
+      protocol: String,
+  ): HttpResponse = {
     val handler: Flow[Message, Message, _] =
-      webSocketService.transactionMessageHandler(jwt, jwtPayload)
-    req.handleMessages(handler, protocol)
+      webSocketService.transactionMessageHandler[A](jwt, jwtPayload)
+    req.handleMessages(handler, Some(protocol))
   }
 
 }
