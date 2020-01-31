@@ -18,11 +18,11 @@ import json.JsonProtocol.LfValueCodec.{apiValueToJsValue => lfValueToJsValue}
 import query.ValuePredicate.{LfV, TypeLookup}
 import com.digitalasset.jwt.domain.Jwt
 import com.digitalasset.ledger.api.{v1 => api}
+
 import com.typesafe.scalalogging.LazyLogging
-import scalaz.Liskov
-import Liskov.<~<
-import com.digitalasset.http.PackageService.ResolveTemplateId
-import com.digitalasset.http.query.ValuePredicate
+import scalaz.Liskov, Liskov.<~<
+import scalaz.std.tuple._
+import scalaz.syntax.bifunctor._
 import scalaz.syntax.show._
 import scalaz.syntax.tag._
 import scalaz.syntax.std.option._
@@ -50,8 +50,7 @@ object WebSocketService {
 
   private final case class StepAndErrors[+LfV](
       errors: Seq[ServerError],
-      step: InsertDeleteStep[domain.ActiveContract[LfV]],
-  ) {
+      step: InsertDeleteStep[domain.ActiveContract[LfV]]) {
     import json.JsonProtocol._, spray.json._
     def render(implicit lfv: LfV <~< JsValue): JsValue = {
       def inj[V: JsonWriter](ctor: String) = (v: V) => JsObject(ctor -> v.toJson)
@@ -59,8 +58,7 @@ object WebSocketService {
       JsArray(
         Liskov.co[RF, LfV, JsValue](lfv)(step.inserts).map(inj("created"))
           ++ step.deletes.map(inj("archived"))
-          ++ errors.map(inj[String]("error") compose (_.message)),
-      )
+          ++ errors.map(inj[String]("error") compose (_.message)))
     }
 
     def append[A >: LfV](o: StepAndErrors[A]): StepAndErrors[A] =
@@ -172,25 +170,24 @@ object WebSocketService {
 
 class WebSocketService(
     contractsService: ContractsService,
-    resolveTemplateId: PackageService.ResolveTemplateId,
     encoder: DomainJsonEncoder,
     decoder: DomainJsonDecoder,
-    lookupType: query.ValuePredicate.TypeLookup,
-    wsConfig: Option[WebsocketConfig],
-)(implicit mat: Materializer, ec: ExecutionContext)
+    wsConfig: Option[WebsocketConfig])(implicit mat: Materializer, ec: ExecutionContext)
     extends LazyLogging {
 
   import WebSocketService._
+  import com.digitalasset.http.json.JsonProtocol._
 
   private val numConns = new java.util.concurrent.atomic.AtomicInteger(0)
 
-  private[http] def transactionMessageHandler[A: StreamQuery](
+  private[http] def transactionMessageHandler(
       jwt: Jwt,
-      jwtPayload: JwtPayload,
-  ): Flow[Message, Message, _] =
-    wsMessageHandler[A](jwt, jwtPayload)
+      jwtPayload: JwtPayload): Flow[Message, Message, _] = {
+
+    wsMessageHandler(jwt, jwtPayload)
       .via(applyConfig(keepAlive = TextMessage.Strict(heartBeat)))
       .via(connCounter)
+  }
 
   private def applyConfig[A](keepAlive: A): Flow[A, A, NotUsed] = {
     val config = wsConfig.getOrElse(Config.DefaultWsConfig)
@@ -201,8 +198,7 @@ class WebSocketService(
   }
 
   @SuppressWarnings(
-    Array("org.wartremover.warts.NonUnitStatements", "org.wartremover.warts.JavaSerializable"),
-  )
+    Array("org.wartremover.warts.NonUnitStatements", "org.wartremover.warts.JavaSerializable"))
   private def connCounter[A]: Flow[A, A, NotUsed] =
     Flow[A]
       .watchTermination() { (_, future) =>
@@ -215,73 +211,83 @@ class WebSocketService(
           case Failure(ex) =>
             numConns.decrementAndGet
             logger.info(
-              s"Websocket client interrupted on Failure: ${ex.getMessage}. remaining number of clients: $numConns",
-            )
+              s"Websocket client interrupted on Failure: ${ex.getMessage}. remaining number of clients: $numConns")
         }
         NotUsed
       }
 
   private val wsReadTimeout = (wsConfig getOrElse Config.DefaultWsConfig).maxDuration
 
-  private def wsMessageHandler[A: StreamQuery](
+  private def wsMessageHandler(
       jwt: Jwt,
-      jwtPayload: JwtPayload,
-  ): Flow[Message, Message, NotUsed] = {
-    val Q = implicitly[StreamQuery[A]]
+      jwtPayload: JwtPayload): Flow[Message, Message, NotUsed] = {
     Flow[Message]
       .mapAsync(1) {
-        case msg: TextMessage =>
-          msg.toStrict(wsReadTimeout).map(m => Q.parse(decoder, m.text))
+        case msg: TextMessage => msg.toStrict(wsReadTimeout).map(\/-(_))
         case _ =>
           Future successful -\/(
-            InvalidUserInput("Cannot process your input, Expect a single JSON message"))
+            Source.single(
+              wsErrorMessage("Cannot process your input, Expect a single JSON message"): Message))
       }
-      .flatMapConcat {
-        case \/-(a) => generateOutgoingMessage[A](jwt, jwtPayload, a)
-        case -\/(e) => Source.single(wsErrorMessage(e.shows))
-      }
+      .flatMapConcat { _.map(generateOutgoingMessage(jwt, jwtPayload, _)).merge }
   }
 
-  private def generateOutgoingMessage[A: StreamQuery](
+  private def generateOutgoingMessage(
       jwt: Jwt,
       jwtPayload: JwtPayload,
-      req: A,
-  ): Source[Message, NotUsed] = {
-    val Q = implicitly[StreamQuery[A]]
-    Q.predicate(req, resolveTemplateId, lookupType)
-      .fold(
-        e => Source.single(wsErrorMessage(s"Error handling request: ${req.toString}: ${e.shows}")),
-        predicate =>
-          getTransactionSourceForParty(
-            jwt,
-            jwtPayload.party,
-            predicate._1,
-            predicate._2,
-        )
-      )
+      incoming: TextMessage.Strict): Source[Message, NotUsed] = {
+    val maybeIncomingJs = SprayJson.parse(incoming.text).toOption
+    parseActiveContractsRequest(maybeIncomingJs)
+      .leftMap(e => InvalidUserInput(e.shows)) match {
+      case \/-(req) => getTransactionSourceForParty(jwt, jwtPayload, req)
+      case -\/(e) =>
+        Source.single(
+          wsErrorMessage(s"Error parsing your input message to a valid Json request: $e"))
+    }
+  }
+
+  private def parseActiveContractsRequest(
+      incoming: Option[JsValue]
+  ): SprayJson.JsonReaderError \/ GetActiveContractsRequest = {
+    incoming match {
+      case Some(jsObj) => SprayJson.decode[GetActiveContractsRequest](jsObj)
+      case None => -\/(JsonReaderError("None", "please send a valid json request"))
+    }
   }
 
   private def getTransactionSourceForParty(
       jwt: Jwt,
-      party: domain.Party,
-      templateIds: List[domain.TemplateId.RequiredPkg],
-      filterPredicate: domain.ActiveContract[LfV] => Boolean,
-  ): Source[Message, NotUsed] =
-    contractsService
-      .insertDeleteStepSource(jwt, party, templateIds, Terminates.Never)
-      .via(convertFilterContracts(filterPredicate))
-      .filter(_.nonEmpty)
-      .map(sae => TextMessage(sae.render.compactPrint))
+      jwtPayload: JwtPayload,
+      request: GetActiveContractsRequest): Source[Message, NotUsed] =
+    contractsService.resolveTemplateIds(request.templateIds).leftMap(_.toList) match {
+      case (ids @ (_ +: _), unresolved) =>
+        contractsService
+          .insertDeleteStepSource(jwt, jwtPayload.party, ids, Terminates.Never)
+          .via(convertFilterContracts(prepareFilters(ids, request.query)))
+          .filter(_.nonEmpty)
+          .map(_.render)
+          .prepend(reportUnresolvedTemplateIds(unresolved))
+          .map(jsv => TextMessage(jsv.compactPrint))
+      case _ =>
+        Source.single(
+          wsErrorMessage("Cannot find any of templateIds " + request.templateIds.toString))
+    }
 
   private[http] def wsErrorMessage(errorMsg: String): TextMessage.Strict =
     TextMessage(
-      JsObject("error" -> JsString(errorMsg)).compactPrint,
+      JsObject("error" -> JsString(errorMsg)).compactPrint
     )
 
+  private def prepareFilters(
+      ids: Iterable[domain.TemplateId.RequiredPkg],
+      queryExpr: Map[String, JsValue]): CompiledQueries =
+    ids.iterator.map { tid =>
+      (tid, contractsService.valuePredicate(tid, queryExpr).toFunPredicate)
+    }.toMap
+
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  private def convertFilterContracts(
-      fn: domain.ActiveContract[LfV] => Boolean,
-  ): Flow[InsertDeleteStep[api.event.CreatedEvent], StepAndErrors[JsValue], NotUsed] =
+  private def convertFilterContracts(compiledQueries: CompiledQueries)
+    : Flow[InsertDeleteStep[api.event.CreatedEvent], StepAndErrors[JsValue], NotUsed] =
     Flow
       .fromFunction { step: InsertDeleteStep[api.event.CreatedEvent] =>
         val (errors, cs) = step.inserts
@@ -293,9 +299,20 @@ class WebSocketService(
           }
         StepAndErrors(
           errors,
-          step copy (inserts = (cs: Vector[domain.ActiveContract[LfV]]).filter(fn)),
-        )
+          step copy (inserts = (cs: Vector[domain.ActiveContract[LfV]])
+            .filter { acLfv =>
+              compiledQueries.get(acLfv.templateId).exists(_(acLfv.payload))
+            }))
       }
       .via(conflation)
       .map(sae => sae copy (step = sae.step.mapPreservingIds(_ map lfValueToJsValue)))
+
+  private def reportUnresolvedTemplateIds(
+      unresolved: Set[domain.TemplateId.OptionalPkg]): Source[JsValue, NotUsed] =
+    if (unresolved.isEmpty) Source.empty
+    else
+      Source.single {
+        import spray.json._
+        Map("warnings" -> domain.UnknownTemplateIds(unresolved.toList)).toJson
+      }
 }

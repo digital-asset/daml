@@ -19,7 +19,8 @@ import scala.concurrent.ExecutionContext
 
 class FileSystemLedgerReaderWriterIntegrationSpec
     extends ParticipantStateIntegrationSpecBase(
-      "File system-based participant state implementation") {
+      "File system-based participant state implementation",
+    ) {
 
   private implicit val ec: ExecutionContext = ExecutionContext.global
 

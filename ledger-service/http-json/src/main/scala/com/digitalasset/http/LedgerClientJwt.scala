@@ -80,7 +80,21 @@ object LedgerClientJwt {
     LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_END))
 
   def getCreatesAndArchivesSince(client: LedgerClient): GetCreatesAndArchivesSince =
-    (jwt, filter, offset, terminates) =>
-      client.transactionClient
-        .getTransactions(offset, terminates.toOffset, filter, verbose = true, token = bearer(jwt))
+    (jwt, filter, offset, terminates) => {
+      val end = terminates.toOffset
+      if (skipRequest(offset, end))
+        Source.empty[Transaction]
+      else
+        client.transactionClient
+          .getTransactions(offset, terminates.toOffset, filter, verbose = true, token = bearer(jwt))
+    }
+
+  private def skipRequest(start: LedgerOffset, end: Option[LedgerOffset]): Boolean = {
+    import com.digitalasset.http.util.LedgerOffsetUtil.AbsoluteOffsetOrdering
+    (start.value, end.map(_.value)) match {
+      case (s: LedgerOffset.Value.Absolute, Some(e: LedgerOffset.Value.Absolute)) =>
+        AbsoluteOffsetOrdering.gteq(s, e)
+      case _ => false
+    }
+  }
 }

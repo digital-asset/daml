@@ -319,9 +319,9 @@ class ContractsService(
     \/.fromTryCatchNonFatal(LfValueCodec.apiValueToJsValue(a)).leftMap(e =>
       Error('lfValueToJsValue, e.description))
 
-  private def resolveTemplateIds(
-      xs: Set[domain.TemplateId.OptionalPkg],
-  ): (Set[domain.TemplateId.RequiredPkg], Set[domain.TemplateId.OptionalPkg]) = {
+  private[http] def resolveTemplateIds[Tid <: domain.TemplateId.OptionalPkg](
+      xs: Set[Tid],
+  ): (Set[domain.TemplateId.RequiredPkg], Set[Tid]) = {
     xs.partitionMap { x =>
       resolveTemplateId(x) toLeftDisjunction x
     }

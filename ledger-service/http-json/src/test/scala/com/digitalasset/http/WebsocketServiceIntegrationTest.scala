@@ -68,23 +68,30 @@ class WebsocketServiceIntegrationTest
   private val collectResultsAsRawString: Sink[Message, Future[Seq[String]]] =
     Flow[Message].map(_.toString).filter(v => !(v contains "heartbeat")).toMat(Sink.seq)(Keep.right)
 
+  private def singleClientStream(serviceUri: Uri, query: String) = {
+    val webSocketFlow = Http().webSocketClientFlow(
+      WebSocketRequest(
+        uri = serviceUri.copy(scheme = "ws").withPath(Uri.Path("/contracts/searchForever")),
+        subprotocol = validSubprotocol))
+    Source
+      .single(TextMessage(query))
+      .via(webSocketFlow)
+  }
+
+  private def initialIouCreate(serviceUri: Uri) = {
+    val payload = TestUtil.readFile("it/iouCreateCommand.json")
+    TestUtil.postJsonStringRequest(
+      serviceUri.withPath(Uri.Path("/command/create")),
+      payload,
+      headersWithAuth)
+  }
+
   "websocket should publish transactions when command create is completed" in withHttpService {
     (uri, _, _) =>
-      val payload = TestUtil.readFile("it/iouCreateCommand.json")
       for {
-        _ <- TestUtil.postJsonStringRequest(
-          uri.withPath(Uri.Path("/command/create")),
-          payload,
-          headersWithAuth)
+        _ <- initialIouCreate(uri)
 
-        webSocketFlow = Http().webSocketClientFlow(
-          WebSocketRequest(
-            uri = uri.copy(scheme = "ws").withPath(Uri.Path("/contracts/searchForever")),
-            subprotocol = validSubprotocol))
-
-        clientMsg <- Source
-          .single(TextMessage("""{"templateIds": ["Iou:Iou"]}"""))
-          .via(webSocketFlow)
+        clientMsg <- singleClientStream(uri, """{"templateIds": ["Iou:Iou"]}""")
           .runWith(collectResultsAsRawString)
       } yield
         inside(clientMsg) {
@@ -93,16 +100,23 @@ class WebsocketServiceIntegrationTest
         }
   }
 
+  "websocket should warn on unknown template IDs" in withHttpService { (uri, _, _) =>
+    for {
+      _ <- initialIouCreate(uri)
+
+      clientMsg <- singleClientStream(uri, """{"templateIds": ["Iou:Iou", "Unknown:Template"]}""")
+        .runWith(collectResultsAsRawString)
+    } yield
+      inside(clientMsg) {
+        case Seq(warning, result) =>
+          warning should include("\"warnings\":{\"unknownTemplateIds\":[\"Unk")
+          result should include("\"issuer\":\"Alice\"")
+      }
+  }
+
   "websocket should send error msg when receiving malformed message" in withHttpService {
     (uri, _, _) =>
-      val webSocketFlow = Http().webSocketClientFlow(
-        WebSocketRequest(
-          uri = uri.copy(scheme = "ws").withPath(Uri.Path("/contracts/searchForever")),
-          subprotocol = validSubprotocol))
-
-      val clientMsg = Source
-        .single(TextMessage("{}"))
-        .via(webSocketFlow)
+      val clientMsg = singleClientStream(uri, "{}")
         .runWith(collectResultsAsRawString)
 
       val result = Await.result(clientMsg, 10.seconds)
@@ -133,22 +147,12 @@ class WebsocketServiceIntegrationTest
     (uri, _, _) =>
       import spray.json._
 
-      val payload = TestUtil.readFile("it/iouCreateCommand.json")
-      val initialCreate = TestUtil.postJsonStringRequest(
-        uri.withPath(Uri.Path("/command/create")),
-        payload,
-        headersWithAuth)
+      val initialCreate = initialIouCreate(uri)
       def exercisePayload(cid: String) =
         baseExercisePayload.copy(
           fields = baseExercisePayload.fields updated ("contractId", JsString(cid)))
 
-      val webSocketFlow = Http().webSocketClientFlow(
-        WebSocketRequest(
-          uri = uri.copy(scheme = "ws").withPath(Uri.Path("/contracts/searchForever")),
-          subprotocol = validSubprotocol))
-
-      val query =
-        TextMessage.Strict("""{"templateIds": ["Iou:Iou"]}""")
+      val query = """{"templateIds": ["Iou:Iou"]}"""
 
       val parseResp: Flow[Message, JsValue, NotUsed] =
         Flow[Message]
@@ -190,7 +194,7 @@ class WebsocketServiceIntegrationTest
       for {
         creation <- initialCreate
         _ = creation._1 shouldBe 'success
-        lastState <- Source single query via webSocketFlow via parseResp runWith resp
+        lastState <- singleClientStream(uri, query) via parseResp runWith resp
       } yield lastState should ===(ShouldHaveEnded(2))
   }
 

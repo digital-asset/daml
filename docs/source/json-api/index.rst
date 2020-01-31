@@ -847,6 +847,14 @@ and archives the one above, the same stream will eventually produce::
         "archived": "#1:0"
     }]
 
+If any template IDs are found not to resolve, the first non-heartbeat
+element of the stream will report them::
+
+    {"warnings": {"unknownTemplateIds": ["UnknownModule:UnknownEntity"]}}
+
+and the stream will continue, provided that at least one template ID
+resolved properly.
+
 Aside from ``"created"`` and ``"archived"`` elements, ``"error"``
 elements may appear, which contain a string describing the error.  The
 stream will continue in these cases, rather than terminating.

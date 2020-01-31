@@ -170,6 +170,7 @@ da_scala_test_suite(
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:org_flywaydb_flyway_core",
+        "@maven//:org_scala_lang_modules_scala_java8_compat_2_12",
         "@maven//:org_scalactic_scalactic_2_12",
         "@maven//:org_scalatest_scalatest_2_12",
     ],

@@ -148,17 +148,6 @@ private class JdbcLedgerDao(
     ()
   }
 
-  private val SQL_UPDATE_EXTERNAL_LEDGER_END = SQL(
-    "update parameters set external_ledger_end = {ExternalLedgerEnd}")
-
-  private def updateExternalLedgerEnd(externalLedgerEnd: LedgerString)(
-      implicit conn: Connection): Unit = {
-    SQL_UPDATE_EXTERNAL_LEDGER_END
-      .on("ExternalLedgerEnd" -> externalLedgerEnd)
-      .execute()
-    ()
-  }
-
   private val SQL_UPDATE_CURRENT_CONFIGURATION = SQL(
     "update parameters set configuration={configuration}"
   )
@@ -284,7 +273,7 @@ private class JdbcLedgerDao(
               // we store a rejection. This code path is only expected to be taken in sandbox. This follows the same
               // pattern as with transactions.
               Some(
-                s"Generation mismatch: expected=${expGeneration}, actual=${configuration.generation}")
+                s"Generation mismatch: expected=$expGeneration, actual=${configuration.generation}")
 
             case _ =>
               // Rejection reason was set, or we have no previous configuration generation, in which case we accept any
@@ -1511,7 +1500,7 @@ private class JdbcLedgerDao(
       PersistenceResponse.Ok
     }.recover {
       case NonFatal(e) if e.getMessage.contains(queries.DUPLICATE_KEY_ERROR) =>
-        logger.warn(s"Party with ID ${party} already exists")
+        logger.warn(s"Party with ID $party already exists")
         conn.rollback()
         PersistenceResponse.Duplicate
     }.get
@@ -1565,12 +1554,12 @@ private class JdbcLedgerDao(
         .map(data => Archive.parseFrom(Decode.damlLfCodedInputStreamFromBytes(data)))
     }
 
-  protected[JdbcLedgerDao] val SQL_INSERT_PACKAGE_ENTRY_ACCEPT =
+  private val SQL_INSERT_PACKAGE_ENTRY_ACCEPT =
     SQL("""insert into package_entries(ledger_offset, recorded_at, submission_id, typ)
       |values ({ledger_offset}, {recorded_at}, {submission_id}, 'accept')
       |""".stripMargin)
 
-  protected[JdbcLedgerDao] val SQL_INSERT_PACKAGE_ENTRY_REJECT =
+  private val SQL_INSERT_PACKAGE_ENTRY_REJECT =
     SQL(
       """insert into package_entries(ledger_offset, recorded_at, submission_id, typ, rejection_reason)
       |values ({ledger_offset}, {recorded_at}, {submission_id}, 'reject', {rejection_reason})
