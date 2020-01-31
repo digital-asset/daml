@@ -5,10 +5,19 @@ package com.daml.ledger.on.sql
 
 import com.digitalasset.testing.postgresql.PostgresAroundAll
 
+import scala.collection.mutable
+
 class PostgresqlSqlLedgerReaderWriterIntegrationSpec
     extends SqlLedgerReaderWriterIntegrationSpecBase("SQL implementation using PostgreSQL")
     with PostgresAroundAll {
 
-  override protected def newJdbcUrl(): String =
-    createNewDatabase().jdbcUrl
+  private val databases: mutable.Map[String, String] = mutable.Map.empty
+
+  override protected def jdbcUrl(id: String): String = {
+    if (!databases.contains(id)) {
+      val jdbcUrl = createNewDatabase(id).jdbcUrl
+      databases += id -> jdbcUrl
+    }
+    databases(id)
+  }
 }

@@ -14,7 +14,6 @@ import org.apache.commons.io.{FileUtils, IOUtils}
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters.asScalaBufferConverter
-import scala.util.Random
 import scala.util.control.NonFatal
 
 trait PostgresAround {
@@ -99,11 +98,9 @@ trait PostgresAround {
     }
   }
 
-  protected def createNewDatabase(prefix: String = "test_"): PostgresFixture = {
-    val newDatabaseName = s"$prefix${Random.nextInt(Int.MaxValue)}"
-    createTestDatabase(newDatabaseName)
-    val jdbcUrl =
-      s"jdbc:postgresql://$hostName:${postgresFixture.port}/$newDatabaseName?user=$userName"
+  protected def createNewDatabase(name: String): PostgresFixture = {
+    createTestDatabase(name)
+    val jdbcUrl = s"jdbc:postgresql://$hostName:${postgresFixture.port}/$name?user=$userName"
     postgresFixture.copy(jdbcUrl = jdbcUrl)
   }
 

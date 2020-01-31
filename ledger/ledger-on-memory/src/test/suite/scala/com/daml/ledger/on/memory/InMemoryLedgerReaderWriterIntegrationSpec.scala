@@ -17,6 +17,8 @@ class InMemoryLedgerReaderWriterIntegrationSpec
     extends ParticipantStateIntegrationSpecBase(
       "In-memory participant state via simplified API implementation") {
 
+  override val isPersistent: Boolean = false
+
   override def participantStateFactory(
       participantId: ParticipantId,
       ledgerId: LedgerString,

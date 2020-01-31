@@ -14,7 +14,7 @@ import com.daml.ledger.participant.state.v1.Update._
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.daml.lf.archive.DarReader
-import com.digitalasset.daml.lf.data.Ref.LedgerString
+import com.digitalasset.daml.lf.data.Ref.{LedgerString, Party}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{ImmArray, InsertOrdSet, Ref}
 import com.digitalasset.daml.lf.transaction.GenTransaction
@@ -27,7 +27,7 @@ import org.scalatest.{Assertion, AsyncWordSpec, BeforeAndAfterEach}
 
 import scala.collection.immutable.HashMap
 import scala.compat.java8.FutureConverters._
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
@@ -42,7 +42,10 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
   private var rt: Timestamp = _
 
   // This can be overriden by tests for ledgers that don't start at 0.
-  val startIndex: Long = 0
+  protected val startIndex: Long = 0
+
+  // This can be overriden by tests for in-memory or otherwise ephemeral ledgers.
+  protected val isPersistent: Boolean = true
 
   protected def participantStateFactory(
       participantId: ParticipantId,
@@ -52,7 +55,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
   protected def currentRecordTime(): Timestamp
 
   private def participantState: ResourceOwner[ParticipantState] = {
-    val ledgerId = Ref.LedgerString.assertFromString(s"ledger-${UUID.randomUUID()}")
+    val ledgerId = newLedgerId()
     participantStateFactory(participantId, ledgerId)
   }
 
@@ -66,7 +69,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
 
   implementationName should {
     "return initial conditions" in {
-      val ledgerId = Ref.LedgerString.assertFromString(s"ledger-${UUID.randomUUID()}")
+      val ledgerId = newLedgerId()
       participantStateFactory(participantId, ledgerId).use { ps =>
         for {
           conditions <- ps
@@ -548,6 +551,37 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
         actualNames should be(partyNames)
       }
     }
+
+    if (isPersistent) {
+      "resume where it left off on restart" in {
+        val ledgerId = newLedgerId()
+        for {
+          _ <- participantStateFactory(participantId, ledgerId).use { ps =>
+            for {
+              _ <- ps
+                .allocateParty(None, Some(Party.assertFromString("party-1")), randomLedgerString())
+                .toScala
+            } yield ()
+          }
+          updates <- participantStateFactory(participantId, ledgerId).use { ps =>
+            for {
+              _ <- ps
+                .allocateParty(None, Some(Party.assertFromString("party-2")), randomLedgerString())
+                .toScala
+              updates <- ps
+                .stateUpdates(beginAfter = None)
+                .take(2)
+                .completionTimeout(10.seconds)
+                .runWith(Sink.seq)
+            } yield updates.map(_._2)
+          }
+        } yield {
+          all(updates) should be(a[PartyAddedToParticipant])
+          val displayNames = updates.map(_.asInstanceOf[PartyAddedToParticipant].displayName)
+          displayNames should be(Seq("party-1", "party-2"))
+        }
+      }
+    }
   }
 
   private def theOffset(first: Long, rest: Long*): Offset =
@@ -570,6 +604,9 @@ object ParticipantStateIntegrationSpecBase {
     darReader.readArchiveFromFile(new File(rlocation("ledger/test-common/Test-stable.dar"))).get.all
 
   private val alice = Ref.Party.assertFromString("alice")
+
+  private def newLedgerId() =
+    Ref.LedgerString.assertFromString(s"ledger-${UUID.randomUUID()}")
 
   private def randomLedgerString(): Ref.LedgerString =
     Ref.LedgerString.assertFromString(UUID.randomUUID().toString)
