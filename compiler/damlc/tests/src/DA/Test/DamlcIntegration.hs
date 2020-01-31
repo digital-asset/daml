@@ -126,12 +126,12 @@ getIntegrationTests registerTODO scenarioService version = do
     let outdir = "compiler/damlc/output"
     createDirectoryIfMissing True outdir
 
-    opts <- defaultOptionsIO (Just version)
-    opts <- pure $ opts
-        { optThreads = 0
-        , optSkipScenarioValidation = SkipScenarioValidation False
-        , optCoreLinting = True
-        }
+    dlintDataDir <- locateRunfiles $ mainWorkspace </> "compiler/damlc/daml-ide-core"
+    let opts = (defaultOptions (Just version))
+          { optThreads = 0
+          , optCoreLinting = True
+          , optDlintUsage = DlintEnabled dlintDataDir False
+          }
 
     -- initialise the compiler service
     vfs <- makeVFSHandle

@@ -101,9 +101,7 @@ createProjectPackageDb opts thisSdkVer deps dataDeps = do
         \ExtractedDar{..} -> installDar dbPath edConfFiles edDalfs edSrcs
 
     loggerH <- getLogger opts "generate package maps"
-    -- mkOptions is necessary to pick up the proper packagedb paths.
-    stablePkgsOpts <- mkOptions opts
-    (stablePkgs, dependencies) <- withDamlIdeState stablePkgsOpts loggerH diagnosticsLogger $ \ide -> runAction ide $
+    (stablePkgs, dependencies) <- withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> runAction ide $
         (,) <$> useNoFile_ GenerateStablePackages <*> useNoFile_ GeneratePackageMap
     let stablePkgIds :: Set LF.PackageId
         stablePkgIds = Set.fromList $ map LF.dalfPackageId $ MS.elems stablePkgs
@@ -213,9 +211,8 @@ generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase
     loggerH <- getLogger opts "generate interface files"
     let src' = [ (toNormalizedFilePath $ workDir </> fromNormalizedFilePath nfp, str) | (nfp, str) <- src]
     mapM_ writeSrc src'
-    opts' <-
-        mkOptions $
-        opts
+    opts <-
+        pure $ opts
             { optIfaceDir = Nothing
             -- We write ifaces below using writeIfacesAndHie so we don’t need to enable these options.
             , optPackageDbs = projectPackageDatabase : optPackageDbs opts
@@ -231,7 +228,7 @@ generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase
                   ]
             }
 
-    res <- withDamlIdeState opts' loggerH diagnosticsLogger $ \ide ->
+    res <- withDamlIdeState opts loggerH diagnosticsLogger $ \ide ->
         runAction ide $
         -- Setting ifDir to . means that the interface files will end up directly next to
         -- the source files which is what we want here.
@@ -343,8 +340,8 @@ _generateAndInstallInstancesPkg thisSdkVer templInstSrc opts dbPath projectPacka
                         , pDataDependencies = []
                         , pSdkVersion = thisSdkVer
                         }
-            opts' <-
-                mkOptions $
+            opts <-
+                pure $
                 opts
                     { optIfaceDir = Nothing
                     , optPackageDbs = projectPackageDatabaseAbs : optPackageDbs opts
@@ -366,12 +363,12 @@ _generateAndInstallInstancesPkg thisSdkVer templInstSrc opts dbPath projectPacka
                           ]
                     }
             mbDar <-
-                withDamlIdeState opts' loggerH diagnosticsLogger $ \ide ->
+                withDamlIdeState opts loggerH diagnosticsLogger $ \ide ->
                     buildDar
                         ide
                         pkgConfig
                         (toNormalizedFilePath $
-                         fromMaybe ifaceDir $ optIfaceDir opts')
+                         fromMaybe ifaceDir $ optIfaceDir opts)
                         (FromDalf False)
             dar <- mbErr "ERROR: Creation of instances DAR file failed." mbDar
             -- We have to write the DAR using the `zip` library first so we can then read it using

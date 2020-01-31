@@ -31,6 +31,7 @@ import System.Directory
 import System.FilePath
 import qualified DA.Daml.LF.Ast.Version as LF
 
+import DA.Bazel.Runfiles
 import DA.Daml.Options.Types
 import DA.Daml.Preprocessor
 import Development.IDE.GHC.Util
@@ -45,7 +46,7 @@ toCompileOpts options@Options{..} reportProgress =
             env <- runGhcFast $ do
                 setupDamlGHC options
                 GHC.getSession
-            pkg <- generatePackageState optPackageDbs optHideAllPkgs optPackageImports
+            pkg <- generatePackageState optDamlLfVersion optPackageDbs optHideAllPkgs optPackageImports
             dflags <- checkDFlags options $ setPackageDynFlags pkg $ hsc_dflags env
             hscenv <- newHscEnvEq env{hsc_dflags = dflags}
             return $ const $ return hscenv
@@ -95,12 +96,12 @@ getPackageDynFlags DynFlags{..} = PackageDynFlags
     , pdfThisUnitIdInsts = thisUnitIdInsts_
     }
 
-generatePackageState :: [FilePath] -> Bool -> [PackageFlag] -> IO PackageDynFlags
-generatePackageState paths hideAllPkgs pkgImports = do
-  let dflags = setPackageImports hideAllPkgs pkgImports $ setPackageDbs paths fakeDynFlags
+generatePackageState :: LF.Version -> [FilePath] -> Bool -> [PackageFlag] -> IO PackageDynFlags
+generatePackageState lfVersion paths hideAllPkgs pkgImports = do
+  versionedPaths <- getPackageDbs lfVersion paths
+  let dflags = setPackageImports hideAllPkgs pkgImports $ setPackageDbs versionedPaths fakeDynFlags
   (newDynFlags, _) <- initPackages dflags
   pure $ getPackageDynFlags newDynFlags
-
 
 setPackageDbs :: [FilePath] -> DynFlags -> DynFlags
 setPackageDbs paths dflags =
@@ -204,9 +205,10 @@ wOptsUnset =
   , Opt_WarnOverflowedLiterals -- this does not play well with -ticky and the error message is misleading
   ]
 
+newtype GhcVersionHeader = GhcVersionHeader FilePath
 
-adjustDynFlags :: Options -> FilePath -> DynFlags -> DynFlags
-adjustDynFlags options@Options{..} tmpDir dflags
+adjustDynFlags :: Options -> GhcVersionHeader -> FilePath -> DynFlags -> DynFlags
+adjustDynFlags options@Options{..} (GhcVersionHeader versionHeader) tmpDir dflags
   =
   -- Generally, the lexer's "haddock mode" is disabled (`Haddock
   -- False` is the default option. In this case, we run the lexer in
@@ -234,7 +236,7 @@ adjustDynFlags options@Options{..} tmpDir dflags
     debugLevel = 1,
     ghcLink = NoLink, hscTarget = HscNothing, -- avoid generating .o or .hi files
     {-, dumpFlags = Opt_D_ppr_debug `EnumSet.insert` dumpFlags dflags -- turn on debug output from GHC-}
-    ghcVersionFile = optGhcVersionFile
+    ghcVersionFile = Just versionHeader
   }
   where
     apply f xs d = foldl' f d xs
@@ -281,7 +283,8 @@ setThisInstalledUnitId unitId dflags =
 setImports :: [FilePath] -> DynFlags -> DynFlags
 setImports paths dflags = dflags { importPaths = paths }
 
-
+locateGhcVersionHeader :: IO GhcVersionHeader
+locateGhcVersionHeader = GhcVersionHeader <$> locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "ghcversion.h")
 
 -- | Configures the @DynFlags@ for this session to DAML-1.2
 --  compilation:
@@ -293,7 +296,8 @@ setImports paths dflags = dflags { importPaths = paths }
 setupDamlGHC :: GhcMonad m => Options -> m ()
 setupDamlGHC options@Options{..} = do
   tmpDir <- liftIO getTemporaryDirectory
-  modifyDynFlags $ adjustDynFlags options tmpDir
+  versionHeader <- liftIO locateGhcVersionHeader
+  modifyDynFlags $ adjustDynFlags options versionHeader tmpDir
 
   unless (null optGhcCustomOpts) $ do
     damlDFlags <- getSessionDynFlags

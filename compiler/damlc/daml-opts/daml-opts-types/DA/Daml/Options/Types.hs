@@ -13,9 +13,7 @@ module DA.Daml.Options.Types
     , PackageFlag(..)
     , ModRenaming(..)
     , PackageArg(..)
-    , defaultOptionsIO
     , defaultOptions
-    , mkOptions
     , getBaseDir
     , damlArtifactDir
     , projectPackageDatabase
@@ -23,17 +21,17 @@ module DA.Daml.Options.Types
     , distDir
     , genDir
     , basePackages
+    , getPackageDbs
     ) where
 
 import Control.Monad.Reader
 import DA.Bazel.Runfiles
 import qualified DA.Daml.LF.Ast as LF
-import DA.Pretty (renderPretty)
+import DA.Pretty
 import Data.Maybe
 import Development.IDE.GHC.Util (prettyPrint)
 import DynFlags (ModRenaming(..), PackageFlag(..), PackageArg(..))
 import qualified System.Directory as Dir
-import System.Environment
 import System.FilePath
 
 -- | Orphan instances for debugging
@@ -45,7 +43,8 @@ data Options = Options
   { optImportPath :: [FilePath]
     -- ^ import path for both user modules and standard library
   , optPackageDbs :: [FilePath]
-    -- ^ package databases that will be loaded
+    -- ^ User-specified package databases that will be loaded.
+    -- This should not contain the LF version suffix. We will append this at the usesite.
   , optStablePackages :: Maybe FilePath
     -- ^ The directory in which stable DALF packages are located.
   , optMbPackageName :: Maybe String
@@ -85,9 +84,6 @@ data Options = Options
     -- ^ Whether to enable lexer option `Opt_Haddock` (default is `Haddock False`).
   , optCppPath :: Maybe FilePath
     -- ^ Enable CPP, by giving filepath to the executable.
-  , optGhcVersionFile :: Maybe FilePath
-    -- ^ Path to "ghcversion.h". Needed for running CPP. We ship this
-    -- as part of our runfiles. This is set by 'mkOptions'.
   , optIncrementalBuild :: IncrementalBuild
   -- ^ Whether to do an incremental on-disk build as opposed to keeping everything in memory.
   } deriving Show
@@ -130,68 +126,19 @@ basePackages :: [String]
 basePackages = ["daml-prim", "daml-stdlib"]
 
 -- | Find the builtin package dbs if the exist.
-locateBuiltinPackageDbs :: LF.Version -> IO [FilePath]
-locateBuiltinPackageDbs ver = do
+locateBuiltinPackageDbs :: IO [FilePath]
+locateBuiltinPackageDbs = do
     -- package db for daml-stdlib and daml-prim
     internalPackageDb <- fmap (</> "pkg-db_dir") $ locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "pkg-db")
     -- If these directories do not exist, we just discard them.
-    filterM Dir.doesDirectoryExist $ map (</> versionSuffix) [internalPackageDb, projectPackageDatabase]
-  where
-    versionSuffix = renderPretty ver
+    filterM Dir.doesDirectoryExist [internalPackageDb, projectPackageDatabase]
 
--- | Find the directory containing the stable packages if it exists.
-locateStablePackages :: IO (Maybe FilePath)
-locateStablePackages = do
-    -- On Windows, looking up mainWorkspace/compiler/damlc and then appeanding stable-packages doesn’t work.
-    -- On the other hand, looking up the full path directly breaks our resources logic for dist tarballs.
-    -- Therefore we first try stable-packages and then fall back to resources if that does not exist
-    execPath <- getExecutablePath
-    let jarResources = takeDirectory execPath </> "resources"
-    hasJarResources <- Dir.doesDirectoryExist jarResources
-    stablePackages <- do
-        if hasJarResources
-           then pure (jarResources </> "stable-packages")
-           else locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "stable-packages")
-    stablePackagesExist <- Dir.doesDirectoryExist stablePackages
-    pure $ stablePackages <$ guard stablePackagesExist
-
-locateGhcVersionHeader :: IO FilePath
-locateGhcVersionHeader = locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "ghcversion.h")
-
-
--- | Check that import paths and package db directories exist and add
--- the default package db if it exists
-mkOptions :: Options -> IO Options
-mkOptions opts@Options {..} = do
-    mapM_ checkDirExists $ optImportPath <> optPackageDbs
-
-    pkgDbs <- locateBuiltinPackageDbs optDamlLfVersion
-    mbStablePackages <- locateStablePackages
-
-    case optDlintUsage of
-      DlintEnabled dir _ -> checkDirExists dir
-      DlintDisabled -> return ()
-
-    ghcVersionFile <- locateGhcVersionHeader
-
-    pure opts {
-        optPackageDbs = pkgDbs ++ map (</> versionSuffix) optPackageDbs,
-        optStablePackages = mbStablePackages,
-        optGhcVersionFile = Just ghcVersionFile
-    }
-  where checkDirExists f =
-          Dir.doesDirectoryExist f >>= \ok ->
-          unless ok $ fail $ "Required directory does not exist: " <> f
-        versionSuffix = renderPretty optDamlLfVersion
-
--- | Default configuration for the compiler with package database set
--- according to daml-lf version and located runfiles. If the version
--- argument is Nothing it is set to the default daml-lf
--- version. Linting is enabled but not '.dlint.yaml' overrides.
-defaultOptionsIO :: Maybe LF.Version -> IO Options
-defaultOptionsIO mbVersion = do
-  dlintDataDir <-locateRunfiles $ mainWorkspace </> "compiler/damlc/daml-ide-core"
-  mkOptions $ (defaultOptions mbVersion){optDlintUsage=DlintEnabled dlintDataDir False}
+-- Given the target LF version and the package dbs specified by the user, return the versioned package dbs
+-- including builtin package dbs.
+getPackageDbs :: LF.Version -> [FilePath] -> IO [FilePath]
+getPackageDbs version userPkgDbs = do
+    builtinPkgDbs <- locateBuiltinPackageDbs
+    pure $ map (</> renderPretty version) (builtinPkgDbs ++ userPkgDbs)
 
 defaultOptions :: Maybe LF.Version -> Options
 defaultOptions mbVersion =
@@ -216,7 +163,6 @@ defaultOptions mbVersion =
         , optCoreLinting = False
         , optHaddock = Haddock False
         , optCppPath = Nothing
-        , optGhcVersionFile = Nothing
         , optIncrementalBuild = IncrementalBuild False
         }
 

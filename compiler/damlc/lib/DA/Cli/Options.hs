@@ -266,7 +266,6 @@ optionsParser numProcessors enableScenarioService parsePkgName = Options
     <*> pure False
     <*> pure (Haddock False)
     <*> optCppPath
-    <*> pure Nothing
     <*> pure (IncrementalBuild False)
   where
     optImportPath :: Parser [FilePath]

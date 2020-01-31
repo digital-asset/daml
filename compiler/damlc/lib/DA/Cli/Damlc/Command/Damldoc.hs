@@ -205,9 +205,8 @@ data CmdArgs = Damldoc
 
 exec :: CmdArgs -> IO ()
 exec Damldoc{..} = do
-    opts <- mkOptions cOptions
     runDamlDoc DamldocOptions
-        { do_ideOptions = toCompileOpts opts { optHaddock=Haddock True}
+        { do_ideOptions = toCompileOpts cOptions { optHaddock=Haddock True}
             (IdeReportProgress False)
         , do_diagsLogger = diagnosticsLogger
         , do_outputPath = cOutputPath
@@ -216,7 +215,7 @@ exec Damldoc{..} = do
         , do_inputFiles = map toNormalizedFilePath cMainFiles
         , do_docTemplate = cTemplate
         , do_transformOptions = transformOptions
-        , do_docTitle = T.pack <$> optMbPackageName opts
+        , do_docTitle = T.pack <$> optMbPackageName cOptions
         , do_combine = cCombine
         , do_extractOptions = cExtractOptions
         }

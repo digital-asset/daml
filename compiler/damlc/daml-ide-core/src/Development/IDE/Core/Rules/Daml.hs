@@ -22,8 +22,6 @@ import MkIface
 import Maybes (MaybeErr(..))
 import TcRnMonad (initIfaceLoad)
 
-import System.IO
-
 import Control.Concurrent.Extra
 import Control.Exception
 import Control.Monad.Except
@@ -60,8 +58,10 @@ import Development.Shake hiding (Diagnostic, Env, doesFileExist)
 import "ghc-lib" GHC hiding (typecheckModule, Succeeded)
 import "ghc-lib-parser" Module (stringToUnitId, UnitId(..), DefUnitId(..))
 import Safe
+import System.Environment
+import System.IO
 import System.IO.Error
-import System.Directory.Extra
+import System.Directory.Extra as Dir
 import System.FilePath
 
 import qualified Network.HTTP.Types as HTTP.Types
@@ -78,6 +78,7 @@ import qualified Language.Haskell.LSP.Types as LSP
 
 import Development.IDE.Core.RuleTypes.Daml
 
+import DA.Bazel.Runfiles
 import DA.Daml.DocTest
 import DA.Daml.LFConversion (convertModule, sourceLocToRange)
 import DA.Daml.LFConversion.UtilLF
@@ -356,7 +357,7 @@ generateSerializedDalfRule options =
     defineOnDisk $ \GenerateSerializedDalf file ->
       OnDiskRule
         { getHash = do
-              exists <- liftIO $ doesFileExist (fromNormalizedFilePath $ hiFileName file)
+              exists <- liftIO $ Dir.doesFileExist (fromNormalizedFilePath $ hiFileName file)
               if exists
                   then do
                     hsc <- hscEnv <$> use_ GhcSession file
@@ -447,12 +448,13 @@ generateDocTestModuleRule =
 -- filename to match the package name.
 -- TODO (drsk): We might want to change this to load only needed packages in the future.
 generatePackageMap ::
-     [FilePath] -> IO ([FileDiagnostic], Map.Map UnitId LF.DalfPackage)
-generatePackageMap fps = do
+     LF.Version -> [FilePath] -> IO ([FileDiagnostic], Map.Map UnitId LF.DalfPackage)
+generatePackageMap version userPkgDbs = do
+  versionedPackageDbs <- getPackageDbs version userPkgDbs
   (diags, pkgs) <-
     fmap (partitionEithers . concat) $
-    forM fps $ \fp -> do
-      allFiles <- listFilesRecursive fp
+    forM versionedPackageDbs $ \pkgDb -> do
+      allFiles <- listFilesRecursive pkgDb
       let dalfs = filter ((== ".dalf") . takeExtension) allFiles
       forM dalfs $ \dalf -> do
           dalfPkgOrErr <- readDalfPackage dalf
@@ -482,7 +484,7 @@ generatePackageMapRule :: Options -> Rules ()
 generatePackageMapRule opts =
     defineEarlyCutoff $ \GeneratePackageMap _file -> assert (null $ fromNormalizedFilePath _file) $ do
         (errs, res) <-
-            liftIO $ generatePackageMap (optPackageDbs opts)
+            liftIO $ generatePackageMap (optDamlLfVersion opts) (optPackageDbs opts)
         when (errs /= []) $ do
             logger <- actionLogger
             liftIO $ logError logger $ T.pack $
@@ -529,11 +531,25 @@ generateStablePackages lfVersion fp = do
     pure (diags, Map.fromList $ filter (\(_, pkg) -> lfVersion >= LF.packageLfVersion (LF.extPackagePkg $ LF.dalfPackagePkg pkg)) pkgs)
 
 
+-- | Find the directory containing the stable packages if it exists.
+locateStablePackages :: IO FilePath
+locateStablePackages = do
+    -- On Windows, looking up mainWorkspace/compiler/damlc and then appeanding stable-packages doesn’t work.
+    -- On the other hand, looking up the full path directly breaks our resources logic for dist tarballs.
+    -- Therefore we first try stable-packages and then fall back to resources if that does not exist
+    execPath <- getExecutablePath
+    let jarResources = takeDirectory execPath </> "resources"
+    hasJarResources <- Dir.doesDirectoryExist jarResources
+    if hasJarResources
+        then pure (jarResources </> "stable-packages")
+        else locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "stable-packages")
+
 generateStablePackagesRule :: Options -> Rules ()
 generateStablePackagesRule opts =
     defineEarlyCutoff $ \GenerateStablePackages _file -> assert (null $ fromNormalizedFilePath _file) $ do
         lfVersion <- getDamlLfVersion
-        (errs, res) <- liftIO $ maybe (pure ([], Map.empty)) (generateStablePackages lfVersion) (optStablePackages opts)
+        stablePackagesDir <- liftIO locateStablePackages
+        (errs, res) <- liftIO $ generateStablePackages lfVersion stablePackagesDir
         when (errs /= []) $ do
             logger <- actionLogger
             liftIO $ logError logger $ T.pack $
@@ -921,7 +937,7 @@ dlintSettings dlintDataDir enableOverrides = do
     home <- ((:[]) <$> getHomeDirectory) `catchIOError` (const $ return [])
     dlintYaml <- if enableOverrides
         then
-          findM System.Directory.Extra.doesFileExist $
+          findM Dir.doesFileExist $
           map (</> ".dlint.yaml") (ancestors curdir ++ home)
       else
         return Nothing

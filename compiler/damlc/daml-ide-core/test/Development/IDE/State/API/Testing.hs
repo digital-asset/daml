@@ -49,6 +49,7 @@ import qualified Development.IDE.Core.API         as API
 import qualified Development.IDE.Core.Rules.Daml  as API
 import qualified Development.IDE.Types.Diagnostics as D
 import qualified Development.IDE.Types.Location as D
+import DA.Bazel.Runfiles
 import DA.Daml.Compiler.Scenario as SS
 import Development.IDE.Core.Rules.Daml
 import Development.IDE.Types.Logger
@@ -170,7 +171,8 @@ pattern EventVirtualResourceNoteSet vr note <-
 -- | Run shake test on freshly initialised shake service.
 runShakeTest :: Maybe SS.Handle -> ShakeTest () -> IO (Either ShakeTestError ShakeTestResults)
 runShakeTest mbScenarioService (ShakeTest m) = do
-    options <- defaultOptionsIO Nothing
+    dlintDataDir <-locateRunfiles $ mainWorkspace </> "compiler/damlc/daml-ide-core"
+    let options = (defaultOptions Nothing) { optDlintUsage = DlintEnabled dlintDataDir False }
     virtualResources <- newTVarIO Map.empty
     virtualResourcesNotes <- newTVarIO Map.empty
     let eventLogger (EventVirtualResourceChanged vr doc) = do
