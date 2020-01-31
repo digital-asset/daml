@@ -85,22 +85,26 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
     "provide update after uploadPackages" in {
       val submissionId = randomLedgerString()
       for {
-        _ <- ps.uploadPackages(submissionId, List(archives.head), sourceDescription).toScala
+        result <- ps.uploadPackages(submissionId, List(archives.head), sourceDescription).toScala
         (offset, update) <- ps.stateUpdates(beginAfter = None).runWith(Sink.head)
       } yield {
+        result should be(SubmissionResult.Acknowledged)
         offset should be(theOffset(0, 0))
-        matchPackageUpload(update, rt, submissionId, List(archives.head))
+        update.recordTime should be >= rt
+        matchPackageUpload(update, submissionId, List(archives.head))
       }
     }
 
     "provide two updates after uploadPackages with two archives" in {
       val submissionId = randomLedgerString()
       for {
-        _ <- ps.uploadPackages(submissionId, archives, sourceDescription).toScala
+        result <- ps.uploadPackages(submissionId, archives, sourceDescription).toScala
         (offset, update) <- ps.stateUpdates(beginAfter = None).runWith(Sink.head)
       } yield {
+        result should be(SubmissionResult.Acknowledged)
         offset should be(theOffset(0, 0))
-        matchPackageUpload(update, rt, submissionId, archives)
+        update.recordTime should be >= rt
+        matchPackageUpload(update, submissionId, archives)
       }
     }
 
@@ -110,21 +114,25 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
         (randomLedgerString(), randomLedgerString(), randomLedgerString())
 
       for {
-        _ <- ps.uploadPackages(subId1, List(archive1), sourceDescription).toScala
-        _ <- ps.uploadPackages(subId2, List(archive1), sourceDescription).toScala
-        _ <- ps.uploadPackages(subId3, List(archive2), sourceDescription).toScala
+        result1 <- ps.uploadPackages(subId1, List(archive1), sourceDescription).toScala
+        result2 <- ps.uploadPackages(subId2, List(archive1), sourceDescription).toScala
+        result3 <- ps.uploadPackages(subId3, List(archive2), sourceDescription).toScala
+        results = Seq(result1, result2, result3)
         Seq((offset1, update1), (offset2, update2), (offset3, update3)) <- ps
           .stateUpdates(beginAfter = None)
           .take(3)
           .runWith(Sink.seq)
+        updates = Seq(update1, update2, update3)
       } yield {
+        all(results) should be(SubmissionResult.Acknowledged)
+        all(updates.map(_.recordTime)) should be >= rt
         // first upload arrives as head update:
         offset1 should be(theOffset(0, 0))
-        matchPackageUpload(update1, rt, subId1, List(archive1))
+        matchPackageUpload(update1, subId1, List(archive1))
         offset2 should be(theOffset(1, 0))
-        matchPackageUpload(update2, rt, subId2, List())
+        matchPackageUpload(update2, subId2, List())
         offset3 should be(theOffset(2, 0))
-        matchPackageUpload(update3, rt, subId3, List(archive2))
+        matchPackageUpload(update3, subId3, List(archive2))
       }
     }
 
@@ -137,17 +145,18 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
       val submissionId = randomLedgerString()
 
       for {
-        _ <- ps.uploadPackages(submissionId, List(badArchive), sourceDescription).toScala
+        result <- ps.uploadPackages(submissionId, List(badArchive), sourceDescription).toScala
         (offset, update) <- ps
           .stateUpdates(beginAfter = None)
           .idleTimeout(DefaultIdleTimeout)
           .runWith(Sink.head)
       } yield {
+        result should be(SubmissionResult.Acknowledged)
         offset should be(theOffset(0, 0))
+        update.recordTime should be >= rt
         inside(update) {
-          case PublicPackageUploadRejected(actualSubmissionId, recordTime, _) =>
+          case PublicPackageUploadRejected(actualSubmissionId, _, _) =>
             actualSubmissionId should be(submissionId)
-            recordTime should be >= rt
         }
       }
     }
@@ -169,6 +178,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
       } yield {
         all(results) should be(SubmissionResult.Acknowledged)
         offset2 should be(theOffset(2, 0))
+        update2.recordTime should be >= rt
         inside(update2) {
           case PublicPackageUpload(_, _, _, Some(submissionId)) =>
             submissionId should be(submissionIds._2)
@@ -188,18 +198,12 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
       } yield {
         result should be(SubmissionResult.Acknowledged)
         offset should be(theOffset(0, 0))
+        update.recordTime should be >= rt
         inside(update) {
-          case PartyAddedToParticipant(
-              party,
-              actualDisplayName,
-              actualParticipantId,
-              recordTime,
-              _,
-              ) =>
+          case PartyAddedToParticipant(party, actualDisplayName, actualParticipantId, _, _) =>
             party should be(partyHint)
             actualDisplayName should be(displayName)
             actualParticipantId should be(participantId)
-            recordTime should be >= rt
         }
       }
     }
@@ -213,18 +217,12 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
       } yield {
         result should be(SubmissionResult.Acknowledged)
         offset should be(theOffset(0, 0))
+        update.recordTime should be >= rt
         inside(update) {
-          case PartyAddedToParticipant(
-              party,
-              actualDisplayName,
-              actualParticipantId,
-              recordTime,
-              _,
-              ) =>
+          case PartyAddedToParticipant(party, actualDisplayName, actualParticipantId, _, _) =>
             party should not be empty
             actualDisplayName should be(displayName)
             actualParticipantId should be(participantId)
-            recordTime should be >= rt
         }
       }
     }
@@ -249,6 +247,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
       } yield {
         all(results) should be(SubmissionResult.Acknowledged)
         offset2 should be(theOffset(2, 0))
+        update2.recordTime should be >= rt
         inside(update2) {
           case PartyAddedToParticipant(_, displayName, _, _, Some(submissionId)) =>
             displayName should be(displayNames._2)
@@ -272,6 +271,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
       } yield {
         all(results) should be(SubmissionResult.Acknowledged)
         offset2 should be(theOffset(1, 0))
+        update2.recordTime should be >= rt
         inside(update2) {
           case PartyAllocationRejected(_, _, _, rejectionReason) =>
             rejectionReason should be("Party already exists")
@@ -295,69 +295,76 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
       val commandIds = ("X1", "X2")
 
       for {
-        _ <- ps.allocateParty(hint = Some(alice), None, randomLedgerString()).toScala
-        _ <- ps
+        result1 <- ps.allocateParty(hint = Some(alice), None, randomLedgerString()).toScala
+        result2 <- ps
           .submitTransaction(
             submitterInfo(rt, alice, commandIds._1),
             transactionMeta(rt),
             emptyTransaction,
           )
           .toScala
-        _ <- ps
+        result3 <- ps
           .submitTransaction(
             submitterInfo(rt, alice, commandIds._1),
             transactionMeta(rt),
             emptyTransaction,
           )
           .toScala
-        _ <- ps
+        result4 <- ps
           .submitTransaction(
             submitterInfo(rt, alice, commandIds._2),
             transactionMeta(rt),
             emptyTransaction,
           )
           .toScala
+        results = Seq(result1, result2, result3, result4)
         Seq((offset1, update1), (offset2, update2), (offset3, update3)) <- ps
           .stateUpdates(beginAfter = None)
           .take(3)
           .runWith(Sink.seq)
+        updates = Seq(update1, update2, update3)
       } yield {
+        all(results) should be(SubmissionResult.Acknowledged)
+        all(updates.map(_.recordTime)) should be >= rt
+
         offset1 should be(theOffset(0, 0))
         update1 should be(a[PartyAddedToParticipant])
+
         offset2 should be(theOffset(1, 0))
-        matchTransaction(update2, rt, commandIds._1)
+        matchTransaction(update2, commandIds._1)
+
         offset3 should be(theOffset(3, 0))
-        matchTransaction(update3, rt, commandIds._2)
+        matchTransaction(update3, commandIds._2)
       }
     }
 
     "return second update with beginAfter=0" in {
       for {
-        _ <- ps
+        result1 <- ps
           .allocateParty(hint = Some(alice), None, randomLedgerString())
           .toScala // offset now at [1,0]
-        _ <- ps
+        result2 <- ps
           .submitTransaction(submitterInfo(rt, alice, "X1"), transactionMeta(rt), emptyTransaction)
           .toScala
-        _ <- ps
+        result3 <- ps
           .submitTransaction(submitterInfo(rt, alice, "X2"), transactionMeta(rt), emptyTransaction)
           .toScala
+        results = Seq(result1, result2, result3)
         (offset, update) <- ps
           .stateUpdates(beginAfter = Some(theOffset(1, 0)))
           .runWith(Sink.head)
       } yield {
+        all(results) should be(SubmissionResult.Acknowledged)
         offset should be(theOffset(2, 0))
+        update.recordTime should be >= rt
         update should be(a[TransactionAccepted])
       }
     }
 
     "correctly implements tx submission authorization" in {
-
       val unallocatedParty = Ref.Party.assertFromString("nobody")
-
       for {
         lic <- ps.getLedgerInitialConditions().runWith(Sink.head)
-
         _ <- ps
           .submitConfiguration(
             maxRecordTime = rt.addMicros(1000000),
@@ -404,8 +411,10 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
           .stateUpdates(beginAfter = None)
           .take(4)
           .runWith(Sink.seq)
-
+        updates = Seq(update1, update2, update3, update4)
       } yield {
+        all(updates.map(_.recordTime)) should be >= rt
+
         offset1 should be(theOffset(0, 0))
         update1 should be(a[ConfigurationChanged])
 
@@ -469,9 +478,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
 
     "reject duplicate submission in new configuration" in {
       val submissionIds = (randomLedgerString(), randomLedgerString())
-
       for {
-
         lic <- ps.getLedgerInitialConditions().runWith(Sink.head)
 
         // Submit an initial configuration change
@@ -484,6 +491,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
             ),
           )
           .toScala
+        // this is a duplicate, which fails silently
         result2 <- ps
           .submitConfiguration(
             maxRecordTime = rt.addMicros(2000000),
@@ -503,11 +511,13 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
           )
           .toScala
         results = Seq(result1, result2, result3)
-        // second submission is a duplicate, it fails silently
+
+        // second submission is a duplicate, and is therefore dropped
         Seq(_, (offset2, update2)) <- ps.stateUpdates(beginAfter = None).take(2).runWith(Sink.seq)
       } yield {
         all(results) should be(SubmissionResult.Acknowledged)
         offset2 should be(theOffset(2, 0))
+        update2.recordTime should be >= rt
         inside(update2) {
           case ConfigurationChanged(_, submissionId, _, _) =>
             submissionId should be(submissionIds._2)
@@ -584,7 +594,6 @@ object ParticipantStateIntegrationSpecBase {
 
   private def matchPackageUpload(
       update: Update,
-      expectedRecordTime: Timestamp,
       expectedSubmissionId: SubmissionId,
       expectedArchives: List[DamlLf.Archive],
   ): Assertion =
@@ -592,30 +601,17 @@ object ParticipantStateIntegrationSpecBase {
       case PublicPackageUpload(
           actualArchives,
           actualSourceDescription,
-          actualRecordTime,
+          _,
           Some(actualSubmissionId),
           ) =>
-        actualRecordTime should be >= expectedRecordTime
         actualArchives.map(_.getHash).toSet should be(expectedArchives.map(_.getHash).toSet)
         actualSourceDescription should be(sourceDescription)
         actualSubmissionId should be(expectedSubmissionId)
     }
 
-  private def matchTransaction(
-      update: Update,
-      expectedRecordTime: Timestamp,
-      expectedCommandId: String,
-  ): Assertion =
+  private def matchTransaction(update: Update, expectedCommandId: String): Assertion =
     inside(update) {
-      case TransactionAccepted(
-          Some(SubmitterInfo(_, _, actualCommandId, _)),
-          _,
-          _,
-          _,
-          actualRecordTime,
-          _,
-          ) =>
+      case TransactionAccepted(Some(SubmitterInfo(_, _, actualCommandId, _)), _, _, _, _, _) =>
         actualCommandId should be(expectedCommandId)
-        actualRecordTime should be >= expectedRecordTime
     }
 }
