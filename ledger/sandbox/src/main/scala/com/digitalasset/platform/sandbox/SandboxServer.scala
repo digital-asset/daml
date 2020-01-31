@@ -129,7 +129,9 @@ final class SandboxServer(config: => SandboxConfig) extends AutoCloseable {
   def failure: Option[Throwable] =
     Await
       .result(
-        sandboxState.asFuture.transformWith(Future.successful)(DirectExecutionContext),
+        sandboxState.asFuture
+          .flatMap(_.apiServer.asFuture)(DirectExecutionContext)
+          .transformWith(Future.successful)(DirectExecutionContext),
         AsyncTolerance)
       .failed
       .toOption

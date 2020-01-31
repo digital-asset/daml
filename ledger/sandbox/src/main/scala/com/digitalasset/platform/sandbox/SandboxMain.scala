@@ -29,6 +29,7 @@ object SandboxMain extends App {
     server.failure.foreach { exception =>
       logger.error(
         s"Shutting down Sandbox application due to an initialization error:\n${exception.getMessage}")
+      closeServer()
       sys.exit(1)
     }
 
