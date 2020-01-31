@@ -3,11 +3,11 @@
 
 package com.daml.ledger.on.sql
 
-import scala.util.Random
-
 class H2MemorySqlLedgerReaderWriterIntegrationSpec
     extends SqlLedgerReaderWriterIntegrationSpecBase("SQL implementation using H2 in memory") {
 
-  override protected def newJdbcUrl(): String =
-    s"jdbc:h2:mem:${getClass.getSimpleName.toLowerCase()}_${Random.nextInt()}"
+  override protected val isPersistent: Boolean = false
+
+  override protected def jdbcUrl(id: String): String =
+    s"jdbc:h2:mem:$id"
 }

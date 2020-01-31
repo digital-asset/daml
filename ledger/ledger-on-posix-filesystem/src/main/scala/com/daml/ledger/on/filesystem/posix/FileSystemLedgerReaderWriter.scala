@@ -4,16 +4,15 @@
 package com.daml.ledger.on.filesystem.posix
 
 import java.io.RandomAccessFile
-import java.nio.file.{FileAlreadyExistsException, Files, NoSuchFileException, Path}
+import java.nio.file.{Files, NoSuchFileException, Path}
 import java.time.Clock
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.daml.ledger.on.filesystem.posix.FileSystemLedgerReaderWriter._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntryId,
   DamlStateKey,
-  DamlStateValue,
+  DamlStateValue
 }
 import com.daml.ledger.participant.state.kvutils.api.{LedgerReader, LedgerRecord, LedgerWriter}
 import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting}
@@ -34,27 +33,13 @@ import scala.util.{Failure, Success}
 class FileSystemLedgerReaderWriter private (
     ledgerId: LedgerId,
     override val participantId: ParticipantId,
-    root: Path,
+    paths: LedgerPaths,
     dispatcher: Dispatcher[Index],
 )(implicit executionContext: ExecutionContext)
     extends LedgerReader
     with LedgerWriter {
 
-  // used as the commit lock; when committing, only one commit owns the lock at a time
-  private val commitLockPath = root.resolve("commit-lock")
-  // the root of the ledger log
-  private val logDirectory = root.resolve("log")
-  // stores each ledger entry
-  private val logEntriesDirectory = logDirectory.resolve("entries")
-  // a counter which is incremented with each commit;
-  // always one more than the latest commit in the index
-  private val logHeadPath = logDirectory.resolve("head")
-  // a directory of sequential commits, each pointing to an entry in the "entries" directory
-  private val logIndexDirectory = logDirectory.resolve("index")
-  // a key-value store of the current state
-  private val stateDirectory = root.resolve("state")
-
-  private val lock = new FileSystemLock(commitLockPath)
+  private val lock = new FileSystemLock(paths.commitLock)
 
   private val engine = Engine()
 
@@ -111,7 +96,7 @@ class FileSystemLedgerReaderWriter private (
     Timestamp.assertFromInstant(Clock.systemUTC().instant())
 
   private def retrieveLogEntry(entryId: Index): LedgerRecord = {
-    val envelope = Files.readAllBytes(logEntriesDirectory.resolve(entryId.toString))
+    val envelope = Files.readAllBytes(paths.logEntriesDirectory.resolve(entryId.toString))
     LedgerRecord(
       Offset(Array(entryId.toLong)),
       DamlLogEntryId
@@ -122,24 +107,18 @@ class FileSystemLedgerReaderWriter private (
     )
   }
 
-  private def currentLogHead(): Index = {
-    try {
-      Files.readAllLines(logHeadPath).get(0).toInt
-    } catch {
-      case _: NoSuchFileException =>
-        StartIndex
-    }
-  }
+  private def currentLogHead(): Index =
+    Files.lines(paths.logHead).findFirst().get().toInt
 
   private def appendLog(currentHead: Index, envelope: ByteString): Index = {
-    Files.write(logEntriesDirectory.resolve(currentHead.toString), envelope.toByteArray)
+    Files.write(paths.logEntriesDirectory.resolve(currentHead.toString), envelope.toByteArray)
     val newHead = currentHead + 1
-    Files.write(logHeadPath, Seq(newHead.toString).asJava)
+    Files.write(paths.logHead, Seq(newHead.toString).asJava)
     newHead
   }
 
   private def readState(key: DamlStateKey): Option[DamlStateValue] = {
-    val path = StateKeys.resolveStateKey(stateDirectory, key)
+    val path = StateKeys.resolveStateKey(paths.stateDirectory, key)
     try {
       val contents = Files.readAllBytes(path)
       Some(DamlStateValue.parseFrom(contents))
@@ -151,39 +130,25 @@ class FileSystemLedgerReaderWriter private (
 
   private def updateState(stateUpdates: Map[DamlStateKey, DamlStateValue]): Unit = {
     for ((key, value) <- stateUpdates) {
-      val path = StateKeys.resolveStateKey(stateDirectory, key)
+      val path = StateKeys.resolveStateKey(paths.stateDirectory, key)
       Files.createDirectories(path.getParent)
       Files.write(path, value.toByteArray)
     }
   }
-
-  private def initialize(): Unit = {
-    Files.createDirectories(root)
-    Files.createDirectories(logDirectory)
-    Files.createDirectories(logEntriesDirectory)
-    Files.createDirectories(logIndexDirectory)
-    Files.createDirectories(stateDirectory)
-    ensureFileExists(commitLockPath)
-    ()
-  }
 }
 
 object FileSystemLedgerReaderWriter {
-  type Index = Int
-
-  private val StartIndex: Index = 0
-
   def owner(
       ledgerId: LedgerId,
       participantId: ParticipantId,
       root: Path,
   )(implicit executionContext: ExecutionContext): ResourceOwner[FileSystemLedgerReaderWriter] = {
-    val ledgerLock = root.resolve("ledger-lock")
-    ensureFileExists(ledgerLock)
+    val paths = new LedgerPaths(root)
+    paths.initialize()
     for {
       _ <- ResourceOwner.forTryCloseable(() =>
-        Option(new RandomAccessFile(ledgerLock.toFile, "rw").getChannel.tryLock()) match {
-          case None => Failure(new LedgerLockAcquisitionFailedException(ledgerLock))
+        Option(new RandomAccessFile(paths.ledgerLock.toFile, "rw").getChannel.tryLock()) match {
+          case None => Failure(new LedgerLockAcquisitionFailedException(paths.ledgerLock))
           case Some(lock) => Success(lock)
       })
       dispatcher <- ResourceOwner.forCloseable(
@@ -191,24 +156,9 @@ object FileSystemLedgerReaderWriter {
           Dispatcher(
             "posix-filesystem-participant-state",
             zeroIndex = StartIndex,
-            headAtInitialization = StartIndex,
+            headAtInitialization = Files.lines(paths.logHead).findFirst().get().toInt,
         ))
-    } yield {
-      val participant = new FileSystemLedgerReaderWriter(ledgerId, participantId, root, dispatcher)
-      participant.initialize()
-      participant
-    }
-  }
-
-  private def ensureFileExists(path: Path): Unit = {
-    Files.createDirectories(path.getParent)
-    try {
-      Files.createFile(path)
-      ()
-    } catch {
-      // this is fine.
-      case _: FileAlreadyExistsException =>
-    }
+    } yield new FileSystemLedgerReaderWriter(ledgerId, participantId, paths, dispatcher)
   }
 
   class LedgerLockAcquisitionFailedException(lockPath: Path)

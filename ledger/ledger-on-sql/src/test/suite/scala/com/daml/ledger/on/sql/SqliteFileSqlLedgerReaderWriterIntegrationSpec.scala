@@ -8,6 +8,8 @@ import java.nio.file.Files
 class SqliteFileSqlLedgerReaderWriterIntegrationSpec
     extends SqlLedgerReaderWriterIntegrationSpecBase("SQL implementation using SQLite with a file") {
 
-  override protected def newJdbcUrl(): String =
-    s"jdbc:sqlite:${Files.createTempDirectory(getClass.getSimpleName)}/test.sqlite"
+  private val root = Files.createTempDirectory(getClass.getSimpleName)
+
+  override protected def jdbcUrl(id: String): String =
+    s"jdbc:sqlite:$root/$id.sqlite"
 }

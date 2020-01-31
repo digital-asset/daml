@@ -14,13 +14,12 @@ import com.daml.ledger.participant.state.v1.Update._
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.daml.lf.archive.DarReader
-import com.digitalasset.daml.lf.data.Ref.LedgerString
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{ImmArray, InsertOrdSet, Ref}
 import com.digitalasset.daml.lf.transaction.GenTransaction
 import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.digitalasset.resources.{Resource, ResourceOwner}
+import com.digitalasset.resources.ResourceOwner
 import org.scalatest.Inside._
 import org.scalatest.Matchers._
 import org.scalatest.{Assertion, AsyncWordSpec, BeforeAndAfterEach}
@@ -28,7 +27,7 @@ import org.scalatest.{Assertion, AsyncWordSpec, BeforeAndAfterEach}
 import scala.collection.immutable.HashMap
 import scala.compat.java8.FutureConverters._
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
 //noinspection DuplicatedCode
@@ -39,33 +38,29 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
 
   private implicit val ec: ExecutionContext = ExecutionContext.global
 
-  private var ledgerId: LedgerString = _
-  private var participantStateResource: Resource[ParticipantState] = _
-  private var ps: ParticipantState = _
   private var rt: Timestamp = _
 
-  val startIndex: Long = 0
+  // This can be overriden by tests for ledgers that don't start at 0.
+  protected val startIndex: Long = 0
 
-  def participantStateFactory(
+  // This can be overriden by tests for in-memory or otherwise ephemeral ledgers.
+  protected val isPersistent: Boolean = true
+
+  protected def participantStateFactory(
       participantId: ParticipantId,
-      ledgerId: LedgerString,
+      ledgerId: Ref.LedgerString,
   ): ResourceOwner[ParticipantState]
 
-  def currentRecordTime(): Timestamp
+  protected def currentRecordTime(): Timestamp
+
+  private def participantState: ResourceOwner[ParticipantState] = {
+    val ledgerId = newLedgerId()
+    participantStateFactory(participantId, ledgerId)
+  }
 
   override protected def beforeEach(): Unit = {
     super.beforeEach()
-    ledgerId = Ref.LedgerString.assertFromString(s"ledger-${UUID.randomUUID()}")
-    participantStateResource = participantStateFactory(participantId, ledgerId).acquire()
-    ps = Await.result(participantStateResource.asFuture, 10.seconds)
     rt = currentRecordTime()
-  }
-
-  override protected def afterEach(): Unit = {
-    if (participantStateResource != null) {
-      Await.result(participantStateResource.release(), 10.seconds)
-    }
-    super.afterEach()
   }
 
   // TODO(BH): Many of these tests for transformation from DamlLogEntry to Update better belong as
@@ -73,17 +68,20 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
 
   implementationName should {
     "return initial conditions" in {
-      for {
-        conditions <- ps
-          .getLedgerInitialConditions()
-          .runWith(Sink.head)
-      } yield {
-        conditions.ledgerId should be(ledgerId)
+      val ledgerId = newLedgerId()
+      participantStateFactory(participantId, ledgerId).use { ps =>
+        for {
+          conditions <- ps
+            .getLedgerInitialConditions()
+            .runWith(Sink.head)
+        } yield {
+          conditions.ledgerId should be(ledgerId)
+        }
       }
     }
 
-    "provide update after uploadPackages" in {
-      val submissionId = randomLedgerString()
+    "provide update after uploadPackages" in participantState.use { ps =>
+      val submissionId = newSubmissionId()
       for {
         result <- ps.uploadPackages(submissionId, List(archives.head), sourceDescription).toScala
         (offset, update) <- ps.stateUpdates(beginAfter = None).runWith(Sink.head)
@@ -95,8 +93,8 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
       }
     }
 
-    "provide two updates after uploadPackages with two archives" in {
-      val submissionId = randomLedgerString()
+    "provide two updates after uploadPackages with two archives" in participantState.use { ps =>
+      val submissionId = newSubmissionId()
       for {
         result <- ps.uploadPackages(submissionId, archives, sourceDescription).toScala
         (offset, update) <- ps.stateUpdates(beginAfter = None).runWith(Sink.head)
@@ -108,10 +106,10 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
       }
     }
 
-    "remove duplicate package from update after uploadPackages" in {
+    "remove duplicate package from update after uploadPackages" in participantState.use { ps =>
       val archive1 :: archive2 :: _ = archives
       val (subId1, subId2, subId3) =
-        (randomLedgerString(), randomLedgerString(), randomLedgerString())
+        (newSubmissionId(), newSubmissionId(), newSubmissionId())
 
       for {
         result1 <- ps.uploadPackages(subId1, List(archive1), sourceDescription).toScala
@@ -136,13 +134,12 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
       }
     }
 
-    "reject uploadPackages when archive is empty" in {
-
+    "reject uploadPackages when archive is empty" in participantState.use { ps =>
       val badArchive = DamlLf.Archive.newBuilder
         .setHash("asdf")
         .build
 
-      val submissionId = randomLedgerString()
+      val submissionId = newSubmissionId()
 
       for {
         result <- ps.uploadPackages(submissionId, List(badArchive), sourceDescription).toScala
@@ -161,8 +158,8 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
       }
     }
 
-    "reject duplicate submission in uploadPackage" in {
-      val submissionIds = (randomLedgerString(), randomLedgerString())
+    "reject duplicate submission in uploadPackage" in participantState.use { ps =>
+      val submissionIds = (newSubmissionId(), newSubmissionId())
       val archive1 :: archive2 :: _ = archives
 
       for {
@@ -186,13 +183,13 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
       }
     }
 
-    "provide update after allocateParty" in {
+    "provide update after allocateParty" in participantState.use { ps =>
       val partyHint = Ref.Party.assertFromString("Alice")
       val displayName = "Alice Cooper"
 
       for {
         result <- ps
-          .allocateParty(Some(partyHint), Some(displayName), randomLedgerString())
+          .allocateParty(Some(partyHint), Some(displayName), newSubmissionId())
           .toScala
         (offset, update) <- ps.stateUpdates(beginAfter = None).runWith(Sink.head)
       } yield {
@@ -208,11 +205,11 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
       }
     }
 
-    "accept allocateParty when hint is empty" in {
+    "accept allocateParty when hint is empty" in participantState.use { ps =>
       val displayName = "Alice Cooper"
 
       for {
-        result <- ps.allocateParty(hint = None, Some(displayName), randomLedgerString()).toScala
+        result <- ps.allocateParty(hint = None, Some(displayName), newSubmissionId()).toScala
         (offset, update) <- ps.stateUpdates(beginAfter = None).runWith(Sink.head)
       } yield {
         result should be(SubmissionResult.Acknowledged)
@@ -227,12 +224,12 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
       }
     }
 
-    "reject duplicate submission in allocateParty" in {
+    "reject duplicate submission in allocateParty" in participantState.use { ps =>
       val hints =
         (Some(Ref.Party.assertFromString("Alice")), Some(Ref.Party.assertFromString("Bob")))
       val displayNames = ("Alice Cooper", "Bob de Boumaa")
 
-      val submissionIds = (randomLedgerString(), randomLedgerString())
+      val submissionIds = (newSubmissionId(), newSubmissionId())
 
       for {
         result1 <- ps.allocateParty(hints._1, Some(displayNames._1), submissionIds._1).toScala
@@ -256,13 +253,13 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
       }
     }
 
-    "reject duplicate party in allocateParty" in {
+    "reject duplicate party in allocateParty" in participantState.use { ps =>
       val hint = Some(Ref.Party.assertFromString("Alice"))
       val displayName = Some("Alice Cooper")
 
       for {
-        result1 <- ps.allocateParty(hint, displayName, randomLedgerString()).toScala
-        result2 <- ps.allocateParty(hint, displayName, randomLedgerString()).toScala
+        result1 <- ps.allocateParty(hint, displayName, newSubmissionId()).toScala
+        result2 <- ps.allocateParty(hint, displayName, newSubmissionId()).toScala
         results = Seq(result1, result2)
         Seq(_, (offset2, update2)) <- ps
           .stateUpdates(beginAfter = None)
@@ -279,9 +276,9 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
       }
     }
 
-    "provide update after transaction submission" in {
+    "provide update after transaction submission" in participantState.use { ps =>
       for {
-        _ <- ps.allocateParty(hint = Some(alice), None, randomLedgerString()).toScala
+        _ <- ps.allocateParty(hint = Some(alice), None, newSubmissionId()).toScala
         _ <- ps
           .submitTransaction(submitterInfo(rt, alice), transactionMeta(rt), emptyTransaction)
           .toScala
@@ -291,11 +288,11 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
       }
     }
 
-    "reject duplicate commands" in {
+    "reject duplicate commands" in participantState.use { ps =>
       val commandIds = ("X1", "X2")
 
       for {
-        result1 <- ps.allocateParty(hint = Some(alice), None, randomLedgerString()).toScala
+        result1 <- ps.allocateParty(hint = Some(alice), None, newSubmissionId()).toScala
         result2 <- ps
           .submitTransaction(
             submitterInfo(rt, alice, commandIds._1),
@@ -338,10 +335,10 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
       }
     }
 
-    "return second update with beginAfter=0" in {
+    "return second update with beginAfter=0" in participantState.use { ps =>
       for {
         result1 <- ps
-          .allocateParty(hint = Some(alice), None, randomLedgerString())
+          .allocateParty(hint = Some(alice), None, newSubmissionId())
           .toScala // offset now at [1,0]
         result2 <- ps
           .submitTransaction(submitterInfo(rt, alice, "X1"), transactionMeta(rt), emptyTransaction)
@@ -361,14 +358,14 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
       }
     }
 
-    "correctly implements tx submission authorization" in {
+    "correctly implements tx submission authorization" in participantState.use { ps =>
       val unallocatedParty = Ref.Party.assertFromString("nobody")
       for {
         lic <- ps.getLedgerInitialConditions().runWith(Sink.head)
         _ <- ps
           .submitConfiguration(
             maxRecordTime = rt.addMicros(1000000),
-            submissionId = randomLedgerString(),
+            submissionId = newSubmissionId(),
             config = lic.config.copy(
               generation = lic.config.generation + 1,
             ),
@@ -389,7 +386,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
           .allocateParty(
             None /* no name hint, implementation decides party name */,
             Some("Somebody"),
-            randomLedgerString(),
+            newSubmissionId(),
           )
           .toScala
         _ = result should be(a[SubmissionResult])
@@ -432,7 +429,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
       }
     }
 
-    "allow an administrator to submit new configuration" in {
+    "allow an administrator to submit new configuration" in participantState.use { ps =>
       for {
         lic <- ps.getLedgerInitialConditions().runWith(Sink.head)
 
@@ -440,7 +437,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
         _ <- ps
           .submitConfiguration(
             maxRecordTime = rt.addMicros(1000000),
-            submissionId = randomLedgerString(),
+            submissionId = newSubmissionId(),
             config = lic.config.copy(
               generation = lic.config.generation + 1,
             ),
@@ -451,7 +448,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
         _ <- ps
           .submitConfiguration(
             maxRecordTime = rt.addMicros(1000000),
-            submissionId = randomLedgerString(),
+            submissionId = newSubmissionId(),
             config = lic.config.copy(
               generation = lic.config.generation + 1,
               timeModel = TimeModel(
@@ -476,8 +473,8 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
       }
     }
 
-    "reject duplicate submission in new configuration" in {
-      val submissionIds = (randomLedgerString(), randomLedgerString())
+    "reject duplicate submission in new configuration" in participantState.use { ps =>
+      val submissionIds = (newSubmissionId(), newSubmissionId())
       for {
         lic <- ps.getLedgerInitialConditions().runWith(Sink.head)
 
@@ -525,7 +522,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
       }
     }
 
-    "process commits serially" in {
+    "process commits serially" in participantState.use { ps =>
       val partyCount = 1000L
       val partyIds = 1L to partyCount
       val partyIdDigits = partyCount.toString.length
@@ -538,7 +535,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
       for {
         results <- Future.sequence(
           partyNames.map(name =>
-            ps.allocateParty(Some(name), Some(name), randomLedgerString()).toScala),
+            ps.allocateParty(Some(name), Some(name), newSubmissionId()).toScala),
         )
         updates <- updatesF
       } yield {
@@ -551,6 +548,37 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
         val actualNames =
           updates.map(_._2.asInstanceOf[PartyAddedToParticipant].displayName).sorted.toVector
         actualNames should be(partyNames)
+      }
+    }
+
+    if (isPersistent) {
+      "resume where it left off on restart" in {
+        val ledgerId = newLedgerId()
+        for {
+          _ <- participantStateFactory(participantId, ledgerId).use { ps =>
+            for {
+              _ <- ps
+                .allocateParty(None, Some("party-1"), newSubmissionId())
+                .toScala
+            } yield ()
+          }
+          updates <- participantStateFactory(participantId, ledgerId).use { ps =>
+            for {
+              _ <- ps
+                .allocateParty(None, Some("party-2"), newSubmissionId())
+                .toScala
+              updates <- ps
+                .stateUpdates(beginAfter = None)
+                .take(2)
+                .completionTimeout(10.seconds)
+                .runWith(Sink.seq)
+            } yield updates.map(_._2)
+          }
+        } yield {
+          all(updates) should be(a[PartyAddedToParticipant])
+          val displayNames = updates.map(_.asInstanceOf[PartyAddedToParticipant].displayName)
+          displayNames should be(Seq("party-1", "party-2"))
+        }
       }
     }
   }
@@ -576,8 +604,11 @@ object ParticipantStateIntegrationSpecBase {
 
   private val alice = Ref.Party.assertFromString("alice")
 
-  private def randomLedgerString(): Ref.LedgerString =
-    Ref.LedgerString.assertFromString(UUID.randomUUID().toString)
+  private def newLedgerId(): Ref.LedgerString =
+    Ref.LedgerString.assertFromString(s"ledger-${UUID.randomUUID()}")
+
+  private def newSubmissionId(): Ref.LedgerString =
+    Ref.LedgerString.assertFromString(s"submission-${UUID.randomUUID()}")
 
   private def submitterInfo(rt: Timestamp, party: Ref.Party, commandId: String = "X") =
     SubmitterInfo(

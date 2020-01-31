@@ -15,6 +15,8 @@ import com.digitalasset.resources.ResourceOwner
 class InMemoryKVParticipantStateIT
     extends ParticipantStateIntegrationSpecBase("In-memory participant state for Reference v2") {
 
+  override val isPersistent: Boolean = false
+
   override def participantStateFactory(
       participantId: ParticipantId,
       ledgerId: LedgerString,
