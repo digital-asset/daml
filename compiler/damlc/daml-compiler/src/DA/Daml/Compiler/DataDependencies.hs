@@ -2,7 +2,8 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.Compiler.DataDependencies
-    ( generateSrcPkgFromLf
+    ( Config (..)
+    , generateSrcPkgFromLf
     , generateGenInstancesPkgFromLf
     , splitUnitId
     ) where
@@ -38,14 +39,87 @@ import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.Preprocessor.Generics
 import SdkVersion
 
+data Config = Config
+    { configPackages :: MS.Map UnitId LF.Package
+    , configGetUnitId :: LF.PackageRef -> UnitId
+    , configStablePackages :: Set LF.PackageId
+    , configDependencyPackages :: Set LF.PackageId
+    , configSdkPrefix :: [T.Text]
+    }
+
 data Env = Env
-    { envPkgs :: MS.Map UnitId LF.Package
-    , envGetUnitId :: LF.PackageRef -> UnitId
-    , envStablePackages :: Set LF.PackageId
+    { envConfig :: Config
     , envQualify :: Bool
-    , envSdkPrefix :: Maybe String
+    , envDepClassMap :: DepClassMap
     , envMod :: LF.Module
     }
+
+-- | Type classes coming from dependencies. This maps a (module, synonym)
+-- name pair to a corresponding dependency package id and list of fields.
+newtype DepClassMap = DepClassMap
+    { unDepClassMap :: MS.Map
+        (LF.ModuleName, LF.TypeSynName)
+        (LF.PackageId, LF.DefTypeSyn)
+    }
+
+buildDepClassMap :: Config -> DepClassMap
+buildDepClassMap Config{..} = DepClassMap $ MS.fromList
+    [ ((moduleName, synName), (packageId, dsyn))
+    | packageId <- Set.toList configDependencyPackages
+    , let unitId = configGetUnitId (LF.PRImport packageId)
+    , Just LF.Package{..} <- [MS.lookup unitId configPackages]
+    , LF.Module{..} <- NM.toList packageModules
+    , dsyn@LF.DefTypeSyn{..} <- NM.toList moduleSynonyms
+    ]
+
+envLookupDepClass :: LF.TypeSynName -> Env -> Maybe (LF.PackageId, LF.DefTypeSyn)
+envLookupDepClass synName env =
+    let modName = LF.moduleName (envMod env)
+        classMap = unDepClassMap (envDepClassMap env)
+    in MS.lookup (modName, synName) classMap
+
+-- | Determine whether two type synonym definitions are similar enough to
+-- reexport one as the other. Theoretically what is needed here is alpha
+-- equivalence after expanding all type synonyms. This is quite involved,
+-- so for now we're going to assume that if the list of parameters is the
+-- same length, and the list of field names is the same, then it's safe to
+-- re-export. This is an over-approximation, so this may cause re-exports
+-- that aren't actually safe. (TODO: Move to type-synonym expanding alpha
+-- equivalence).
+safeToReexport :: LF.DefTypeSyn -> LF.DefTypeSyn -> Bool
+safeToReexport syn1 syn2 = fromMaybe False $ do
+    LF.TStruct fields1 <- pure (LF.synType syn1)
+    LF.TStruct fields2 <- pure (LF.synType syn2)
+    pure $ length (LF.synParams syn1) == length (LF.synParams syn2)
+        && map fst fields1 == map fst fields2
+
+-- | Generate the full source for a daml-lf package.
+generateSrcPkgFromLf :: Config -> LF.Package -> [(NormalizedFilePath, String)]
+generateSrcPkgFromLf config pkg = do
+    mod <- NM.toList $ LF.packageModules pkg
+    let fp =
+            toNormalizedFilePath $
+            (joinPath $ map T.unpack $ LF.unModuleName $ LF.moduleName mod) <.>
+            ".daml"
+    pure
+        ( fp
+        , unlines header ++
+          (showSDocForUser fakeDynFlags alwaysQualify $
+           ppr $ generateSrcFromLf $ env mod))
+  where
+    env m = Env
+        { envConfig = config
+        , envQualify = True
+        , envDepClassMap = buildDepClassMap config
+        , envMod = m
+        }
+    header =
+        [ "{-# LANGUAGE NoDamlSyntax #-}"
+        , "{-# LANGUAGE NoImplicitPrelude #-}"
+        , "{-# LANGUAGE NoOverloadedStrings #-}"
+        , "{-# LANGUAGE TypeOperators #-}"
+        , "{-# OPTIONS_GHC -Wno-unused-imports -Wno-missing-methods #-}"
+        ]
 
 -- | A module reference coming from DAML-LF.
 data ModRef = ModRef
@@ -71,9 +145,10 @@ generateSrcFromLf ::
     -> ParsedSource
 generateSrcFromLf env = noLoc mod
   where
+    config = envConfig env
     lfModName = LF.moduleName $ envMod env
     ghcModName = mkModuleName $ T.unpack $ LF.moduleNameString lfModName
-    unitId = envGetUnitId env LF.PRSelf
+    unitId = configGetUnitId config LF.PRSelf
     thisModule = mkModule unitId ghcModName
     mod =
         HsModule
@@ -82,12 +157,20 @@ generateSrcFromLf env = noLoc mod
             , hsmodDecls = decls
             , hsmodDeprecMessage = Nothing
             , hsmodHaddockModHeader = Nothing
-            , hsmodExports = Nothing
+            , hsmodExports = Just (noLoc exports)
             }
 
     decls :: [LHsDecl GhcPs]
+    exports :: [LIE GhcPs]
     modRefs :: Set ModRef
-    (decls, modRefs) = runGen . sequence . concat $
+    ((exports, decls), modRefs) = runGen
+        ((,) <$> genExports <*> genDecls)
+
+    genExports :: Gen [LIE GhcPs]
+    genExports = sequence $ selfReexport : classReexports
+
+    genDecls :: Gen [LHsDecl GhcPs]
+    genDecls = sequence . concat $
         [ classDecls
         , dataTypeDecls
         , valueDecls
@@ -103,12 +186,33 @@ generateSrcFromLf env = noLoc mod
         , Just methodName <- [getClassMethodName fieldName]
         ]
 
+    selfReexport :: Gen (LIE GhcPs)
+    selfReexport = pure . noLoc $
+        IEModuleContents noExt (noLoc ghcModName)
+
+    classReexports :: [Gen (LIE GhcPs)]
+    classReexports = map snd (MS.toList classReexportMap)
+
+    classReexportMap :: MS.Map LF.TypeSynName (Gen (LIE GhcPs))
+    classReexportMap = MS.fromList $ do
+        synDef@LF.DefTypeSyn{..} <- NM.toList . LF.moduleSynonyms $ envMod env
+        LF.TStruct _ <- [synType]
+        LF.TypeSynName [name] <- [synName]
+        Just (pkgId, depDef) <- [envLookupDepClass synName env]
+        guard (safeToReexport synDef depDef)
+        let occName = mkOccName clsName . T.unpack $ sanitize name
+        pure . (synName,) $ do
+            ghcMod <- genModule env (LF.PRImport pkgId) (LF.moduleName (envMod env))
+            pure . noLoc . IEThingAll noExt
+                . noLoc . IEName . noLoc
+                $ mkOrig ghcMod occName
+
     classDecls :: [Gen (LHsDecl GhcPs)]
     classDecls = do
         LF.DefTypeSyn{..} <- NM.toList . LF.moduleSynonyms $ envMod env
         LF.TStruct fields <- [synType]
         LF.TypeSynName [name] <- [synName]
-
+        guard (synName `MS.notMember` classReexportMap)
         let occName = mkOccName clsName . T.unpack $ sanitize name
         pure $ do
             supers <- sequence
@@ -374,11 +478,12 @@ isConstraint = \case
 
 genModule :: Env -> LF.PackageRef -> LF.ModuleName -> Gen Module
 genModule env pkgRef modName = do
-    let isStable
+    let Config{..} = envConfig env
+        isStable
             | LF.PRSelf <- pkgRef = False
             | LF.PRImport pkgId <- pkgRef =
-                pkgId `Set.member` envStablePackages env
-        unitId = envGetUnitId env pkgRef
+                pkgId `Set.member` configStablePackages
+        unitId = configGetUnitId pkgRef
     genModuleAux env isStable unitId modName
 
 genStableModule :: Env -> UnitId -> LF.ModuleName -> Gen Module
@@ -386,9 +491,7 @@ genStableModule env = genModuleAux env True
 
 genModuleAux :: Env -> Bool -> UnitId -> LF.ModuleName -> Gen Module
 genModuleAux env isStable unitId modName = do
-    let sdkPrefix = case envSdkPrefix env of
-            Nothing -> []
-            Just p -> [T.pack p]
+    let sdkPrefix = configSdkPrefix (envConfig env)
         newModName
             | isStable = LF.ModuleName (sdkPrefix ++ LF.unModuleName modName)
             | otherwise = modName
@@ -553,36 +656,6 @@ mkTyConTypeUnqual :: TyCon -> HsType GhcPs
 mkTyConTypeUnqual tyCon = HsTyVar noExt NotPromoted . noLoc $ mkRdrUnqual (occName name)
     where name = getName tyCon
 
--- | Generate the full source for a daml-lf package.
-generateSrcPkgFromLf ::
-       MS.Map UnitId LF.Package
-    -> (LF.PackageRef -> UnitId)
-    -> Set LF.PackageId
-    -> Maybe String
-    -> LF.Package
-    -> [(NormalizedFilePath, String)]
-generateSrcPkgFromLf pkgs getUnitId stablePkgs mbSdkPrefix pkg = do
-    mod <- NM.toList $ LF.packageModules pkg
-    let fp =
-            toNormalizedFilePath $
-            (joinPath $ map T.unpack $ LF.unModuleName $ LF.moduleName mod) <.>
-            ".daml"
-    pure
-        ( fp
-        , unlines header ++
-          (showSDocForUser fakeDynFlags alwaysQualify $
-           ppr $ generateSrcFromLf $ env mod))
-  where
-    env m = Env pkgs getUnitId stablePkgs True mbSdkPrefix m
-    header =
-        [ "{-# LANGUAGE NoDamlSyntax #-}"
-        , "{-# LANGUAGE NoImplicitPrelude #-}"
-        , "{-# LANGUAGE NoOverloadedStrings #-}"
-        , "{-# LANGUAGE TypeOperators #-}"
-        , "{-# OPTIONS_GHC -Wno-unused-imports -Wno-missing-methods #-}"
-        ]
-
-
 genericInstances :: Env -> LF.PackageId -> ([ImportDecl GhcPs], [HsDecl GhcPs])
 genericInstances env externPkgId =
     ( [unLoc imp | imp <- hsmodImports src]
@@ -603,23 +676,19 @@ genericInstances env externPkgId =
 
 
 generateGenInstancesPkgFromLf ::
-       (LF.PackageRef -> UnitId)
-    -> Set LF.PackageId
-    -> Maybe String
+       Config
     -> LF.PackageId
     -> LF.Package
     -> String
     -> [(NormalizedFilePath, String)]
-generateGenInstancesPkgFromLf getUnitId stablePkgs mbSdkPrefix pkgId pkg qual =
+generateGenInstancesPkgFromLf config pkgId pkg qual =
     catMaybes
         [ generateGenInstanceModule
             Env
-                { envPkgs = MS.empty -- for now at least, since this doesn't care about type definitions in other packages like generateSrcFromLf does
-                , envGetUnitId = getUnitId
-                , envStablePackages = stablePkgs
+                { envConfig = config
                 , envQualify = False
                 , envMod = mod
-                , envSdkPrefix = mbSdkPrefix
+                , envDepClassMap = buildDepClassMap config
                 }
             pkgId
             qual
@@ -739,7 +808,8 @@ envLookupModule pkgRef modName env = do
     NM.lookup modName (LF.packageModules pkg)
 
 envLookupPackage :: LF.PackageRef -> Env -> Maybe LF.Package
-envLookupPackage ref env = MS.lookup (envGetUnitId env ref) (envPkgs env)
+envLookupPackage ref env = MS.lookup (configGetUnitId ref) configPackages
+    where Config{..} = envConfig env
 
 getClassMethodName :: LF.FieldName -> Maybe T.Text
 getClassMethodName (LF.FieldName fieldName) =

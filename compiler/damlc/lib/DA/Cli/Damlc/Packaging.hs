@@ -45,7 +45,7 @@ import DA.Bazel.Runfiles
 import DA.Cli.Damlc.Base
 import DA.Cli.Damlc.IdeState
 import DA.Daml.Compiler.Dar
-import DA.Daml.Compiler.DataDependencies
+import DA.Daml.Compiler.DataDependencies as DataDeps
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Ast.Optics (packageRefs)
 import qualified DA.Daml.LF.Proto3.Archive as Archive
@@ -155,7 +155,7 @@ createProjectPackageDb opts thisSdkVer deps dataDeps = do
               _ -> parsedUnitId
         pure (pkgId, package, dalf, unitId)
 
-    let (depGraph, vertexToNode) = buildLfPackageGraph pkgs stablePkgIds
+    let (depGraph, vertexToNode) = buildLfPackageGraph pkgs stablePkgIds dependencyPkgIds
     -- Iterate over the dependency graph in topological order.
     -- We do a topological sort on the transposed graph which ensures that
     -- the packages with no dependencies come first and we
@@ -496,10 +496,11 @@ lfVersionString = DA.Pretty.renderPretty
 buildLfPackageGraph
     :: [(LF.PackageId, LF.Package, BS.ByteString, UnitId)]
     -> Set LF.PackageId
+    -> Set LF.PackageId
     -> ( Graph
        , Vertex -> (PackageNode, LF.PackageId)
        )
-buildLfPackageGraph pkgs stablePkgs = (depGraph,  vertexToNode')
+buildLfPackageGraph pkgs stablePkgs dependencyPkgs = (depGraph, vertexToNode')
   where
     -- mapping unit ids to packages
     unitIdToPkgMap = MS.fromList [(unitId, pkg) | (_pkgId, pkg, _bs, unitId) <- pkgs]
@@ -514,12 +515,19 @@ buildLfPackageGraph pkgs stablePkgs = (depGraph,  vertexToNode')
             [ (PackageNode src unitId dalf bs, pkgId, pkgRefs)
             | (pkgId, dalf, bs, unitId) <- pkgs
             , let pkgRefs = [ pid | LF.PRImport pid <- toListOf packageRefs dalf ]
-            , let getUid = getUnitId unitId pkgMap
-            , let src = generateSrcPkgFromLf unitIdToPkgMap getUid stablePkgs (Just currentSdkPrefix) dalf
+            , let src = generateSrcPkgFromLf (config unitId) dalf
             ]
     vertexToNode' v = case vertexToNode v of
         -- We don’t care about outgoing edges.
         (node, key, _keys) -> (node, key)
+
+    config unitId = DataDeps.Config
+        { configPackages = unitIdToPkgMap
+        , configGetUnitId = getUnitId unitId pkgMap
+        , configStablePackages = stablePkgs
+        , configDependencyPackages = dependencyPkgs
+        , configSdkPrefix = [T.pack currentSdkPrefix]
+        }
 
 data PackageNode = PackageNode
   { stubSources :: [(NormalizedFilePath, String)]
