@@ -182,7 +182,7 @@ The following ledger violates key uniqueness for the key `(P, P123)`.
 Key assertions can be used in workflows to evidence the inexistence of a certain kind of contract.
 For example, suppose that the painter `P` is a member of the union of painters `U`.
 This union maintains a blacklist of potential customers that its members must not do business with.
-A customer `C` is considered to be on the blacklist if there is an active contract `Blacklist @U &A`.
+A customer `A` is considered to be on the blacklist if there is an active contract `Blacklist @U &A`.
 To make sure that the painter `P` does not make a paint offer if `A` is blacklisted,
 the painter combines its commit with a **NoSuchKey** assertion on the key `(U, A)`.
 The following ledger shows the transaction, where `UnionMember U P` represents `P`'s membership in the union `U`.
@@ -389,7 +389,7 @@ In the graphical representation below, signatories of a contract are indicated
 with a dollar sign (as a mnemonic for an obligation) and use a bold
 font. 
 Maintainers are marked with `@` (as a mnemonic who enforces uniqueness).
-Since they are always signatories, parties marked with `@` are implicitly signatories.
+Since maintainers are always signatories, parties marked with `@` are implicitly signatories.
 For example, annotating the paint offer acceptance action with
 signatories yields the image below.
 
@@ -512,7 +512,7 @@ to him. However, the actor of this exercise is Alice, who has not
 authorized the exercise. Thus, this ledger is not
 well-authorized.
 
-The rationale for making the maintainers as required authorizers for a **NoSuchKey** assertion
+The rationale for making the maintainers required authorizers for a **NoSuchKey** assertion
 is discussed in the next section about :ref:`privacy <da-model-privacy-authorization>`.
 
 Valid Ledgers, Obligations, Offers and Rights
