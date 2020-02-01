@@ -1,45 +1,36 @@
 .. Copyright (c) 2020 The DAML Authors. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-DAML roadmap (as of September 2019)
+DAML roadmap (as of January 2020)
 ===================================
 
 This page specifies the major features we're planning to add next to the DAML Ecosystem. Plans and timelines are subject to change. If you need any of these features or want to request others, see the :doc:`/support/support` page for how to get in touch.
 
-We plan to update this roadmap roughly every three months.
+We aim to land the following changes in the coming three months.
 
-- **DAML Triggers**
+- **Developer Experience (DX)**
 
-  Support for non-transactional automation written directly in DAML. See `discusison on GitHub <https://github.com/digital-asset/daml/issues/1615>`_
+  - Improved version of the “Getting Started Guide” (former “Quickstart”) that will include instructions on how to build an end-to-end application with a UI
+  - An end-to-end skeleton application that can be installed via the DAML Assistant
+  - Improved compatibility between different DAML SDK versions
 
-- **Developer tooling**
 
-  Improved developer experience and functionality on
+- **Front-end support**
 
-  - Package Management
-  - Party Allocation and Management
-  - Application Deployment
-  - Application Upgrading
+  - A front-end JavaScript/TypeScript framework including supporting libraries and tools that facilitate interaction with data on a DAML ledger
+  - A React library built on top of the above-mentioned framework that binds ledger data to React components
 
-- **API Authentication**
+- **New “how-tos” in the docs**
 
-  Addition of JWT based authentication to the Ledger API
+  - How to deploy DAML models to existing Ledgers
+  - How to deploy DAML full-stack DAML applications 
+  - How to migrate a DAML model to a new version
 
-- **High Level API**
+- **Ledger model improvements**
 
-  A HTTP/JSON-based high-level API with querying capabilities
-
-- **Ledger Ops Tooling**
-
-  Tooling for monitoring, logging and health checking ledgers
-
-- **Canton**
-
-  Public release of a pre-alpha reference distributed DAML Ledger implementation with a public test-net, strong privacy, regulatory compliance, and composabilty
-
-  See `canton.io <https://canton.io/>`_
+  - Improved Ledger Time model that works seamlessly in a distributed setting, and contains optional safeguards against duplicate command submission
+  - Better privacy controls by separating the disclosure mechanisms for business and validation purposes and adding new mechanisms to share single contracts and delegate read rights 
 
 - **Deployment Options**
 
-  - DAML-on-Aurora publicly available on AWS Marketplace
-  - DAML-on-Sawtooth publicly available on `Sextant by Blockchain Technology Partners <https://blockchaintp.com/sextant/>`_
+  - ALPHA version of DAML on Corda available through partners
