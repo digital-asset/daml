@@ -93,9 +93,8 @@ final class StandaloneApiServer(
     for {
       actorSystem <- AkkaResourceOwner.forActorSystem(() => ActorSystem(actorSystemName)).acquire()
       materializer <- AkkaResourceOwner.forMaterializer(() => Materializer(actorSystem)).acquire()
-      initialConditions <- ResourceOwner
-        .forFuture(() => readService.getLedgerInitialConditions().runWith(Sink.head)(materializer))
-        .acquire()
+      initialConditions <- Resource.unreleasable(
+        readService.getLedgerInitialConditions().runWith(Sink.head)(materializer))
       authorizer = new Authorizer(
         () => java.time.Clock.systemUTC.instant(),
         initialConditions.ledgerId,
@@ -134,7 +133,7 @@ final class StandaloneApiServer(
         List(AuthorizationInterceptor(authService, ec)),
         metrics
       )(actorSystem, materializer, logCtx).acquire()
-      _ <- ResourceOwner.forFuture(() => writePortFile(apiServer.port)).acquire()
+      _ <- Resource.unreleasable(writePortFile(apiServer.port))
     } yield {
       logger.info(
         s"Initialized index server version ${BuildInfo.Version} with ledger-id = ${initialConditions.ledgerId}, port = ${apiServer.port}, dar file = ${config.archiveFiles}")

@@ -70,18 +70,20 @@ final class JdbcIndexerFactory[Status <: InitStatus] private (metrics: MetricReg
 
     implicit val ec: ExecutionContext = DEC
 
+    def fetchInitialState(dao: LedgerDao): Future[(dao.LedgerOffset, Option[LedgerString])] =
+      for {
+        initialConditions <- readService
+          .getLedgerInitialConditions()
+          .runWith(Sink.head)(materializer)
+        ledgerId = domain.LedgerId(initialConditions.ledgerId)
+        _ <- initializeLedger(ledgerId, dao)
+        ledgerEnd <- dao.lookupLedgerEnd()
+        externalOffset <- dao.lookupExternalLedgerEnd()
+      } yield (ledgerEnd, externalOffset)
+
     for {
       ledgerDao <- JdbcLedgerDao.owner(jdbcUrl, metrics, actorSystem.dispatcher)
-      LedgerInitialConditions(ledgerIdString, _, _) <- ResourceOwner
-        .forFuture(
-          () =>
-            readService
-              .getLedgerInitialConditions()
-              .runWith(Sink.head)(materializer))
-      ledgerId = domain.LedgerId(ledgerIdString)
-      _ <- ResourceOwner.forFuture(() => initializeLedger(ledgerId, ledgerDao))
-      ledgerEnd <- ResourceOwner.forFuture(() => ledgerDao.lookupLedgerEnd())
-      externalOffset <- ResourceOwner.forFuture(() => ledgerDao.lookupExternalLedgerEnd())
+      (ledgerEnd, externalOffset) <- ResourceOwner.forFuture(() => fetchInitialState(ledgerDao))
     } yield
       new JdbcIndexer(ledgerEnd, externalOffset, participantId, ledgerDao, metrics)(materializer)
   }
