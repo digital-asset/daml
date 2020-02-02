@@ -18,4 +18,3 @@ export type DamlLedgerState = {
 }
 
 export const DamlLedgerContext = React.createContext(null as DamlLedgerState | null);
-
