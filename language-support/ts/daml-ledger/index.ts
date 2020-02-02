@@ -137,27 +137,42 @@ class Ledger {
   }
 
   /**
-   * Retrieve all contracts for a given template which match a query. See
-   * https://github.com/digital-asset/daml/blob/master/docs/source/json-api/search-query-language.rst
+   * Retrieve contracts for a given template. When no `query` argument is
+   * given, all contracts visible to the submitting party are returned. When a
+   * `query` argument is given, only those contracts matching the query are
+   * returned. See https://docs.daml.com/json-api/search-query-language.html
    * for a description of the query language.
    */
-  async query<T extends object, K, I extends string>(template: Template<T, K, I>, query: Query<T>): Promise<CreateEvent<T, K, I>[]> {
+  async query<T extends object, K, I extends string>(template: Template<T, K, I>, query?: Query<T>): Promise<CreateEvent<T, K, I>[]> {
     const payload = {templateIds: [template.templateId], query};
     const json = await this.submit('contracts/search', payload);
     return jtv.Result.withException(jtv.array(decodeCreateEvent(template)).run(json));
   }
 
   /**
-   * Retrieve all contracts for a given template.
+   * @deprecated since version 0.13.51. Use `Ledger.query` wihtout a `query`
+   * argument instead.
    */
   async fetchAll<T extends object, K, I extends string>(template: Template<T, K, I>): Promise<CreateEvent<T, K, I>[]> {
     return this.query(template, {} as Query<T>);
   }
 
   /**
-   * Fetch a contract by its key.
+   * Fetch a contract identified by its contract ID.
    */
-  async lookupByKey<T extends object, K, I extends string>(template: Template<T, K, I>, key: K): Promise<CreateEvent<T, K, I> | null> {
+  async fetch<T extends object, K, I extends string>(template: Template<T, K, I>, contractId: ContractId<T>): Promise<CreateEvent<T, K, I> | null> {
+    const payload = {
+      templateId: template.templateId,
+      contractId,
+    };
+    const json = await this.submit('contracts/lookup', payload);
+    return jtv.Result.withException(jtv.oneOf(jtv.constant(null), decodeCreateEvent(template)).run(json));
+  }
+
+  /**
+   * Fetch a contract identified by its contract key.
+   */
+  async fetchByKey<T extends object, K, I extends string>(template: Template<T, K, I>, key: K): Promise<CreateEvent<T, K, I> | null> {
     if (key === undefined) {
       throw Error(`Cannot lookup by key on template ${template.templateId} because it does not define a key.`);
     }
@@ -167,6 +182,13 @@ class Ledger {
     };
     const json = await this.submit('contracts/lookup', payload);
     return jtv.Result.withException(jtv.oneOf(jtv.constant(null), decodeCreateEvent(template)).run(json));
+  }
+
+  /**
+   * @deprecated since version 0.13.51. Use `Ledger.fetchByKey` instead.
+   */
+  async lookupByKey<T extends object, K, I extends string>(template: Template<T, K, I>, key: K): Promise<CreateEvent<T, K, I> | null> {
+    return this.fetchByKey(template, key);
   }
 
   /**
@@ -182,7 +204,7 @@ class Ledger {
   }
 
   /**
-   * Exercise a choice on a contract.
+   * Exercise a choice on a contract identified by its contract ID.
    */
   async exercise<T extends object, C, R>(choice: Choice<T, C, R>, contractId: ContractId<T>, argument: C): Promise<[R , Event<object>[]]> {
     const payload = {
@@ -225,14 +247,14 @@ class Ledger {
   }
 
   /**
-   * Archive a contract.
+   * Archive a contract identified by its contract ID.
    */
   async archive<T extends object, K, I extends string>(template: Template<T, K, I>, contractId: ContractId<T>): Promise<ArchiveEvent<T, I>> {
     return decodeArchiveResponse(template, 'archive', () => this.exercise(template.Archive, contractId, {}));
   }
 
   /**
-   * Archive a contract identified by its key.
+   * Archive a contract identified by its contract key.
    */
   async archiveByKey<T extends object, K, I extends string>(template: Template<T, K, I>, key: K): Promise<ArchiveEvent<T, I>> {
     return decodeArchiveResponse(template, 'archiveByKey', () => this.exerciseByKey(template.Archive, key, {}));
