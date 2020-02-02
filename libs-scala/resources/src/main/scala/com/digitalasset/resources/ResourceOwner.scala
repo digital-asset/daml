@@ -49,10 +49,10 @@ trait ResourceOwner[A] {
 
 object ResourceOwner {
   def successful[T](value: T): ResourceOwner[T] =
-    forTry(() => Success(value))
+    new FutureResourceOwner[T](() => Future.successful(value))
 
-  def failed[T](exception: Throwable): ResourceOwner[T] =
-    forTry(() => Failure(exception))
+  def failed(throwable: Throwable): ResourceOwner[Nothing] =
+    new FutureResourceOwner[Nothing](() => Future.failed(throwable))
 
   def forTry[T](acquire: () => Try[T]): ResourceOwner[T] =
     new FutureResourceOwner[T](() => Future.fromTry(acquire()))
