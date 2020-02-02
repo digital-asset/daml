@@ -381,28 +381,27 @@ class JdbcIndexer private[indexer] (
     override def acquire()(
         implicit executionContext: ExecutionContext
     ): Resource[IndexFeedHandle] =
-      Resource[SubscriptionIndexFeedHandle](
-        Future {
-          Metrics.setup()
+      Resource(Future {
+        Metrics.setup()
 
-          val (killSwitch, completionFuture) = readService
-            .stateUpdates(beginAfterExternalOffset.map(Offset.assertFromString))
-            .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
-            .mapAsync(1) {
-              case (offset, update) =>
-                timedFuture(Metrics.stateUpdateProcessingTimer, handleStateUpdate(offset, update))
-            }
-            .toMat(Sink.ignore)(Keep.both)
-            .run()
+        val (killSwitch, completionFuture) = readService
+          .stateUpdates(beginAfterExternalOffset.map(Offset.assertFromString))
+          .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
+          .mapAsync(1) {
+            case (offset, update) =>
+              timedFuture(Metrics.stateUpdateProcessingTimer, handleStateUpdate(offset, update))
+          }
+          .toMat(Sink.ignore)(Keep.both)
+          .run()
 
-          new SubscriptionIndexFeedHandle(killSwitch, completionFuture.map(_ => ()))
-        },
+        new SubscriptionIndexFeedHandle(killSwitch, completionFuture.map(_ => ()))
+      })(
         handle =>
           for {
             _ <- Future(handle.killSwitch.shutdown())
             _ <- handle.completed.recover { case NonFatal(_) => () }
           } yield ()
-      ).vary
+      )
   }
 
   private class SubscriptionIndexFeedHandle(

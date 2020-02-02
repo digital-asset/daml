@@ -276,7 +276,7 @@ final class SandboxServer(config: SandboxConfig) extends AutoCloseable {
           ),
           metrics
         ).acquire()
-        _ <- Resource.unreleasable(writePortFile(apiServer.port)
+        _ <- Resource.unreleasable(writePortFile(apiServer.port))
       } yield {
         Banner.show(Console.out)
         logger.withoutContext.info(

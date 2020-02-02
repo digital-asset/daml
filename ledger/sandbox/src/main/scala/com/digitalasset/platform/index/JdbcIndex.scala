@@ -32,5 +32,5 @@ object JdbcIndex {
             v2.LedgerConfiguration(cond.config.timeModel.minTtl, cond.config.timeModel.maxTtl)
           }
       }
-    }(DirectExecutionContext).vary
+    }(DirectExecutionContext)
 }
