@@ -48,6 +48,20 @@ const decodeEventUnknown: jtv.Decoder<Event<object>> = jtv.oneOf<Event<object>>(
   jtv.object({archived: decodeArchiveEventUnknown}),
 );
 
+async function decodeArchiveResponse<T extends object, K, I extends string>(
+  template: Template<T, K, I>,
+  archiveCommand: Promise<[{}, Event<object>[]]>,
+): Promise<ArchiveEvent<T, I>> {
+  // eslint-disable-next-line no-empty-pattern
+  const [{}, events] = await archiveCommand;
+  if (events.length === 1 && 'archived' in events[0] && events[0].archived.templateId === template.templateId) {
+    return events[0].archived as ArchiveEvent<T, I>;
+  } else {
+    throw Error(`Archive is expected to cause one archive event for template ${template.templateId} \
+      but caused ${JSON.stringify(events)}.`);
+  }
+}
+
 /**
  * Type for queries against the `/contract/search` endpoint of the JSON API.
  * `Query<T>` is the type of queries that are valid when searching for
@@ -212,15 +226,15 @@ class Ledger {
   /**
    * Archive a contract.
    */
-  async archive<T extends object>(template: Template<T>, contractId: ContractId<T>): Promise<unknown> {
-    return this.exercise(template.Archive, contractId, {});
+  async archive<T extends object, K, I extends string>(template: Template<T, K, I>, contractId: ContractId<T>): Promise<ArchiveEvent<T, I>> {
+    return decodeArchiveResponse(template, this.exercise(template.Archive, contractId, {}));
   }
 
   /**
    * Archive a contract identified by its key.
    */
-  async archiveByKey<T extends object>(template: Template<T>, key: Query<T>): Promise<unknown> {
-    return this.exerciseByKey(template.Archive, key, {});
+  async archiveByKey<T extends object, K, I extends string>(template: Template<T, K, I>, key: K): Promise<ArchiveEvent<T, I>> {
+    return decodeArchiveResponse(template, this.exerciseByKey(template.Archive, key, {}));
   }
 }
 

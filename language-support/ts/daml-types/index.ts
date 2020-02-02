@@ -26,7 +26,7 @@ export const STATIC_IMPLEMENTS_SERIALIZABLE_CHECK = <T>(_: Serializable<T>) => {
 export interface Template<T extends object, K = unknown, I extends string = string> extends Serializable<T> {
   templateId: I;
   keyDecoder: () => jtv.Decoder<K>;
-  Archive: Choice<T, {}, {}>;
+  Archive: Choice<T, {}, {}, K>;
 }
 
 /**

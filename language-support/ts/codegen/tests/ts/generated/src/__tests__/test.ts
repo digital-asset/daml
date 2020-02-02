@@ -124,6 +124,13 @@ test('create + fetch & exercise', async () => {
   expect(personContracts).toHaveLength(1);
   expect(personContracts[0]).toEqual(alice7Contract);
 
+  // Alice gets archived.
+  const archiveEvent = await ledger.archiveByKey(Main.Person, alice7Contract.key);
+  expect(archiveEvent.contractId).toEqual(alice7Contract.contractId);
+
+  personContracts = await ledger.fetchAll(Main.Person);
+  expect(personContracts).toHaveLength(0);
+
   const allTypes: Main.AllTypes = {
     unit: {},
     bool: true,
