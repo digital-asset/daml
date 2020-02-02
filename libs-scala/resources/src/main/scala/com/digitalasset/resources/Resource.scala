@@ -64,11 +64,6 @@ trait Resource[A] {
 object Resource {
   import scala.language.higherKinds
 
-  def apply[T](future: Future[T], releaseResource: T => Future[Unit])(
-      implicit executionContext: ExecutionContext
-  ): Resource[T] =
-    apply(future, releaseResource, () => Future.successful(()))
-
   private def apply[T](
       future: Future[T],
       releaseResource: T => Future[Unit],
@@ -104,11 +99,22 @@ object Resource {
           releasePromise.future
     }
 
+  def apply[T](future: Future[T], releaseResource: T => Future[Unit])(
+      implicit executionContext: ExecutionContext
+  ): Resource[T] =
+    apply(future, releaseResource, () => Future.successful(()))
+
+  /**
+    * Useful to wrap a simple [[Future]] that doesn't need releasing in a [[Resource]]
+    */
+  def unreleasable[T](future: Future[T])(implicit executionContext: ExecutionContext): Resource[T] =
+    apply(future, _ => Future.successful(()))
+
   def successful[T](value: T)(implicit executionContext: ExecutionContext): Resource[T] =
-    Resource(Future.successful(value), _ => Future.successful(()))
+    Resource.unreleasable(Future.successful(value))
 
   def failed[T](exception: Throwable)(implicit executionContext: ExecutionContext): Resource[T] =
-    Resource(Future.failed(exception), _ => Future.successful(()))
+    Resource.unreleasable(Future.failed(exception))
 
   def sequence[T, C[X] <: TraversableOnce[X]](seq: C[Resource[T]])(
       implicit bf: CanBuildFrom[C[Resource[T]], T, C[T]],
