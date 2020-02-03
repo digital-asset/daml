@@ -25,5 +25,18 @@ object Collections {
       }
       (esb.result, thatb.result)
     }
+
+    /*
+    def unzipMap[B, C, Bs, Cs](f: A => (B, C))(implicit bs: CanBuildFrom[Self, B, Bs], cs: CanBuildFrom[Self, C, Cs]) = {
+      val bsb = bs(self.repr)
+      val csb = cs(self.repr)
+      self foreach { a =>
+        val (b, c) = f(a)
+        bsb += b
+        csb += c
+      }
+      (bsb.result, csb.result)
+    }
+   */
   }
 }
