@@ -131,7 +131,7 @@ safeToReexport env syn1 syn2 =
   where
     -- | Turn a type synonym definition into a closed type.
     closedType :: LF.DefTypeSyn -> LF.Type
-    closedType LF.DefTypeSyn{..} = foldr LF.TForall synType synParams
+    closedType LF.DefTypeSyn{..} = LF.mkTForalls synParams synType
 
 -- | A module reference coming from DAML-LF.
 data ModRef = ModRef
