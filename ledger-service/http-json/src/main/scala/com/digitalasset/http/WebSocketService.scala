@@ -8,7 +8,7 @@ import akka.http.scaladsl.model.ws.{Message, TextMessage}
 import akka.stream.scaladsl.{Flow, Source}
 import akka.stream.Materializer
 import com.digitalasset.http.EndpointsCompanion._
-import com.digitalasset.http.domain.{GetActiveContractsRequest, JwtPayload}
+import com.digitalasset.http.domain.{JwtPayload, SearchForeverRequest}
 import com.digitalasset.http.json.{DomainJsonDecoder, DomainJsonEncoder, JsonProtocol, SprayJson}
 import ContractsFetch.InsertDeleteStep
 import com.digitalasset.http.LedgerClientJwt.Terminates
@@ -22,11 +22,15 @@ import com.typesafe.scalalogging.LazyLogging
 import scalaz.Liskov
 import Liskov.<~<
 import com.digitalasset.http.query.ValuePredicate
+import scalaz.syntax.bifunctor._
 import scalaz.syntax.show._
 import scalaz.syntax.tag._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
+import scalaz.syntax.unzip._
 import scalaz.std.list._
+import scalaz.std.set._
+import scalaz.std.tuple._
 import scalaz.{-\/, Show, \/, \/-}
 import spray.json.{JsObject, JsString, JsValue}
 
@@ -86,34 +90,37 @@ object WebSocketService {
         lookupType: ValuePredicate.TypeLookup): AcPredicate
   }
 
-  implicit val GetActiveContractsRequestWithStreamQuery
-    : StreamQuery[domain.GetActiveContractsRequest] =
-    new StreamQuery[domain.GetActiveContractsRequest] {
+  implicit val SearchForeverRequestWithStreamQuery: StreamQuery[domain.SearchForeverRequest] =
+    new StreamQuery[domain.SearchForeverRequest] {
 
-      override def parse(
-          decoder: DomainJsonDecoder,
-          str: String): Error \/ GetActiveContractsRequest = {
+      override def parse(decoder: DomainJsonDecoder, str: String): Error \/ SearchForeverRequest = {
         import JsonProtocol._
         SprayJson
-          .decode[GetActiveContractsRequest](str)
+          .decode[SearchForeverRequest](str)
           .liftErr(InvalidUserInput)
       }
 
       override def predicate(
-          request: GetActiveContractsRequest,
+          request: SearchForeverRequest,
           resolveTemplateId: PackageService.ResolveTemplateId,
           lookupType: ValuePredicate.TypeLookup): AcPredicate = {
 
         import util.Collections._
 
-        val (resolved, unresolved) =
-          request.templateIds.partitionMap(x => resolveTemplateId(x) toLeftDisjunction x)
-        val q: CompiledQueries = prepareFilters(resolved, request.query, lookupType)
-        val fn: domain.ActiveContract[LfV] => Boolean = { a =>
-          q.get(a.templateId).exists(_(a.payload))
-        }
+        val ((resolveds, unresolveds), fns) = request.queries
+          .map { gacr =>
+            val (resolved, unresolved) =
+              gacr.templateIds.partitionMap(x => resolveTemplateId(x) toLeftDisjunction x)
+            val q: CompiledQueries = prepareFilters(resolved, gacr.query, lookupType)
+            val fn: domain.ActiveContract[LfV] => Boolean = { a =>
+              q.get(a.templateId).exists(_(a.payload))
+            }
+            ((resolved, unresolved), fn)
+          }
+          .unfzip
+          .leftMap(_.unfzip)
 
-        (resolved, unresolved, fn)
+        (resolveds.fold, unresolveds.fold, lfv => fns.any(_(lfv)))
       }
 
       private def prepareFilters(
