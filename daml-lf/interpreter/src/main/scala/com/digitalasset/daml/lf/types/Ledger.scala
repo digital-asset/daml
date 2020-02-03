@@ -80,7 +80,7 @@ object Ledger {
     // The resulting LedgerString is at most 11 chars long
     val id: LedgerString = LedgerString.fromLong(index.toLong)
     override def compare(that: ScenarioTransactionId): Int = index compare that.index
-    // The resulting LedgerString is at most 12 chars long
+    // The resulting LedgerString is at most 13 chars long
     def makeCommitPrefix: LedgerString = LedgerString.assertConcat(`#`, id, `:`)
   }
 

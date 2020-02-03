@@ -88,15 +88,13 @@ sealed abstract class IdString {
     */
   type LedgerString <: ContractIdStringV0
 
-  /** Identifiers for a contractId */
+  /** Identifiers for contracts */
   type ContractIdString <: String
 
-  /** Legacy Identifiers for a contractId */
+  /** Legacy Identifiers for contracts */
   type ContractIdStringV0 <: ContractIdString
 
-  /**
-    * New contractId ordered with relative contractIds.
-    */
+  /** New contractId ordered with relative contractIds */
   type ContractIdStringV1 <: ContractIdString
 
   val Name: StringModule[Name]
