@@ -21,13 +21,7 @@ import com.daml.ledger.participant.state.v1.{
   TransactionId
 }
 import com.digitalasset.daml.lf.archive.Decode
-import com.digitalasset.daml.lf.data.Ref.{
-  ContractIdString,
-  LedgerString,
-  PackageId,
-  Party,
-  TransactionIdString
-}
+import com.digitalasset.daml.lf.data.Ref.{ContractIdString, LedgerString, PackageId, Party}
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers}
@@ -818,7 +812,7 @@ private class JdbcLedgerDao(
         }
 
         override def divulgeAlreadyCommittedContracts(
-            transactionId: TransactionIdString,
+            transactionId: TransactionId,
             global: Relation[AbsoluteContractId, Party],
             divulgedContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)])
           : AcsStoreAcc = {
@@ -1094,7 +1088,7 @@ private class JdbcLedgerDao(
 
   case class ParsedEntry(
       typ: String,
-      transactionId: Option[TransactionIdString],
+      transactionId: Option[TransactionId],
       commandId: Option[CommandId],
       applicationId: Option[ApplicationId],
       submitter: Option[Party],
@@ -1282,7 +1276,7 @@ private class JdbcLedgerDao(
   private def mapContractDetails(
       contractResult: (
           ContractIdString,
-          Option[TransactionIdString],
+          Option[LedgerString],
           Option[EventId],
           Option[WorkflowId],
           Option[Date],
@@ -1360,7 +1354,7 @@ private class JdbcLedgerDao(
       .toSet
 
   private def lookupDivulgences(coid: String)(
-      implicit conn: Connection): Map[Party, TransactionIdString] =
+      implicit conn: Connection): Map[Party, TransactionId] =
     SQL_SELECT_DIVULGENCE
       .on("contract_id" -> coid)
       .as(DivulgenceParser.*)

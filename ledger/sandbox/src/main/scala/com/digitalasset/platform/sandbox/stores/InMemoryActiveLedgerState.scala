@@ -6,14 +6,14 @@ package com.digitalasset.platform.sandbox.stores
 import java.time.Instant
 
 import com.daml.ledger.participant.state.v1.AbsoluteContractInst
-import com.digitalasset.daml.lf.data.Ref.{Party, TransactionIdString}
+import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.GenTransaction
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.ledger.api.domain.PartyDetails
-import com.digitalasset.ledger.{EventId, WorkflowId}
+import com.digitalasset.ledger.{EventId, TransactionId, WorkflowId}
 import com.digitalasset.platform.store.Contract.{ActiveContract, DivulgedContract}
 import com.digitalasset.platform.store.{
   ActiveLedgerState,
@@ -107,7 +107,7 @@ case class InMemoryActiveLedgerState(
     copy(parties = newParties.map(p => p -> PartyDetails(p, None, isLocal = true)).toMap ++ parties)
 
   override def divulgeAlreadyCommittedContracts(
-      transactionId: TransactionIdString,
+      transactionId: TransactionId,
       global: Relation[AbsoluteContractId, Party],
       referencedContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)])
     : InMemoryActiveLedgerState =
@@ -156,7 +156,7 @@ case class InMemoryActiveLedgerState(
     */
   def addTransaction(
       let: Instant,
-      transactionId: TransactionIdString,
+      transactionId: TransactionId,
       workflowId: Option[WorkflowId],
       submitter: Option[Party],
       transaction: GenTransaction.WithTxValue[EventId, AbsoluteContractId],

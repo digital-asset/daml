@@ -12,8 +12,8 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import anorm.SqlParser._
 import anorm.{BatchSql, Macro, NamedParameter, RowParser, SQL, SqlParser}
-import com.daml.ledger.participant.state.v1.AbsoluteContractInst
-import com.digitalasset.daml.lf.data.Ref.{Party, TransactionIdString}
+import com.daml.ledger.participant.state.v1.{AbsoluteContractInst, TransactionId}
+import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
@@ -367,7 +367,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
         }
 
         override def divulgeAlreadyCommittedContracts(
-            transactionId: TransactionIdString,
+            transactionId: TransactionId,
             global: Relation[AbsoluteContractId, Party],
             referencedContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)]) = {
           val divulgenceParams = global
@@ -488,7 +488,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
 
   case class ParsedEntry(
       typ: String,
-      transactionId: Option[TransactionIdString],
+      transactionId: Option[TransactionId],
       commandId: Option[CommandId],
       applicationId: Option[ApplicationId],
       submitter: Option[Party],

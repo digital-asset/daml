@@ -64,8 +64,8 @@ package object v1 {
   type ParticipantId = Ref.LedgerString
 
   /** Identifiers for transactions. */
-  val TransactionIdString: Ref.TransactionIdString.type = Ref.TransactionIdString
-  type TransactionId = Ref.TransactionIdString
+  val TransactionId: Ref.LedgerString.type = Ref.LedgerString
+  type TransactionId = Ref.LedgerString
 
   /** Identifiers used to correlate submission with results. */
   val CommandId: Ref.LedgerString.type = Ref.LedgerString

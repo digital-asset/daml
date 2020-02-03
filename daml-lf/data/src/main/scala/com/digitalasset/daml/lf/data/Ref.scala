@@ -191,8 +191,4 @@ object Ref {
   val ContractIdString: LedgerString.type = LedgerString
   type ContractIdString = ContractIdString.T
 
-  /** Identifiers for transactions. */
-  val TransactionIdString: LedgerString.type = LedgerString
-  type TransactionIdString = TransactionIdString.T
-
 }

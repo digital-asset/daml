@@ -6,11 +6,12 @@ package com.digitalasset.platform.store
 import java.time.Instant
 
 import com.daml.ledger.participant.state.v1.AbsoluteContractInst
-import com.digitalasset.daml.lf.data.Ref.{Party, TransactionIdString}
+import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
+import com.digitalasset.ledger.TransactionId
 import com.digitalasset.platform.store.Contract.ActiveContract
 
 sealed abstract class LetLookup
@@ -66,7 +67,7 @@ trait ActiveLedgerState[+Self] { this: ActiveLedgerState[Self] =>
     * method.
     */
   def divulgeAlreadyCommittedContracts(
-      transactionId: TransactionIdString,
+      transactionId: TransactionId,
       global: Relation[AbsoluteContractId, Party],
       referencedContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)]): Self
 }

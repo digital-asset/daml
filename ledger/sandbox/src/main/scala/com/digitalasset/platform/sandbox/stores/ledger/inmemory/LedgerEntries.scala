@@ -7,7 +7,7 @@ import java.util.concurrent.atomic.AtomicReference
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.digitalasset.daml.lf.data.Ref.TransactionIdString
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
 import com.digitalasset.platform.akkastreams.dispatcher.SubSource.RangeSource
 import org.slf4j.LoggerFactory
@@ -69,8 +69,8 @@ private[ledger] class LedgerEntries[T](identify: T => String) {
 
   def ledgerEnd: Long = state.get().ledgerEnd
 
-  def toTransactionId: TransactionIdString =
-    TransactionIdString.assertFromString(ledgerEnd.toString)
+  def toLedgerString: Ref.LedgerString =
+    Ref.LedgerString.fromLong(ledgerEnd)
 
   def getEntryAt(offset: Long): Option[T] =
     state.get.items.get(offset)

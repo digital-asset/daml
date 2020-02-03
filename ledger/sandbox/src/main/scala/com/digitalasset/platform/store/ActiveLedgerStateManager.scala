@@ -6,13 +6,13 @@ package com.digitalasset.platform.store
 import java.time.Instant
 
 import com.daml.ledger.participant.state.v1.AbsoluteContractInst
-import com.digitalasset.daml.lf.data.Ref.{Party, TransactionIdString}
+import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.transaction.{GenTransaction, Node => N}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
-import com.digitalasset.ledger.{EventId, WorkflowId}
+import com.digitalasset.ledger.{EventId, TransactionId, WorkflowId}
 import com.digitalasset.platform.events.EventIdFormatter
 import com.digitalasset.platform.store.Contract.ActiveContract
 import com.digitalasset.platform.store.SequencingError.PredicateType.{Exercise, Fetch}
@@ -68,7 +68,7 @@ class ActiveLedgerStateManager[ALS](initialState: => ALS)(
     */
   def addTransaction(
       let: Instant,
-      transactionId: TransactionIdString,
+      transactionId: TransactionId,
       workflowId: Option[WorkflowId],
       submitter: Option[Party],
       transaction: GenTransaction.WithTxValue[EventId, AbsoluteContractId],

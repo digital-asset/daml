@@ -235,7 +235,7 @@ object domain {
 
   sealed trait TransactionIdTag
 
-  type TransactionId = Ref.TransactionIdString @@ TransactionIdTag
+  type TransactionId = Ref.LedgerString @@ TransactionIdTag
   val TransactionId: Tag.TagOf[TransactionIdTag] = Tag.of[TransactionIdTag]
 
   sealed trait ContractIdTag
