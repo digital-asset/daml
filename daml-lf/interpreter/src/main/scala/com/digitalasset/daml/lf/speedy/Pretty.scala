@@ -328,7 +328,7 @@ object Pretty {
   }
 
   def prettyLedgerNodeId(n: L.ScenarioNodeId): Doc =
-    char('#') + text(n)
+    text(n)
 
   def prettyContractInst(coinst: ContractInst[Transaction.Value[ContractId]]): Doc =
     (prettyIdentifier(coinst.template) / text("with:") &
@@ -339,14 +339,14 @@ object Pretty {
 
   def prettyContractId(coid: ContractId): Doc =
     coid match {
-      case AbsoluteContractId(acoid) => char('#') + text(acoid)
-      case RelativeContractId(rcoid, _) => char('#') + str(rcoid)
+      case AbsoluteContractId(acoid) => text(acoid)
+      case RelativeContractId(rcoid, _) => str(rcoid)
     }
 
   def prettyActiveContracts(c: L.LedgerData): Doc = {
     def ltNodeId(a: AbsoluteContractId, b: AbsoluteContractId): Boolean = {
-      val ap = a.coid.split(':')
-      val bp = b.coid.split(':')
+      val ap = a.coid.drop(1).split(':')
+      val bp = b.coid.drop(1).split(':')
       Try(ap(0).toInt < bp(0).toInt || (ap(0).toInt == bp(0).toInt && ap(1).toInt < bp(1).toInt))
         .getOrElse(false)
     }
@@ -416,7 +416,7 @@ object Pretty {
         }) +
           text(constructor)
       case ValueText(t) => char('"') + text(t) + char('"')
-      case ValueContractId(AbsoluteContractId(acoid)) => char('#') + text(acoid)
+      case ValueContractId(AbsoluteContractId(acoid)) => text(acoid)
       case ValueContractId(RelativeContractId(rcoid, _)) =>
         char('~') + text(rcoid.toString)
       case ValueUnit => text("<unit>")
