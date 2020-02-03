@@ -27,8 +27,9 @@
 -- * FIXME(MH): The @actor@ parameter of a 'UFetch' is /not/ checked. This is a
 --   temporary measure to circumvent some issues with the translation from the
 --   Renamer AST.
-module DA.Daml.LF.TypeChecker.Check(
-    checkModule
+module DA.Daml.LF.TypeChecker.Check
+    ( checkModule
+    , expandTypeSynonyms
     ) where
 
 import Data.Hashable

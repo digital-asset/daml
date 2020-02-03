@@ -15,6 +15,7 @@ import Data.Set (Set)
 import qualified Data.Set as Set
 import qualified Data.Map.Strict as MS
 import Data.Maybe
+import Data.Either
 import qualified Data.NameMap as NM
 import qualified Data.Text as T
 import Development.IDE.GHC.Util
@@ -36,6 +37,10 @@ import "ghc-lib-parser" TysPrim
 import "ghc-lib-parser" TysWiredIn
 
 import qualified DA.Daml.LF.Ast as LF
+import qualified DA.Daml.LF.Ast.Type as LF
+import qualified DA.Daml.LF.TypeChecker.Check as LF
+import qualified DA.Daml.LF.TypeChecker.Env as LF
+
 import DA.Daml.Preprocessor.Generics
 import SdkVersion
 
@@ -45,6 +50,8 @@ data Config = Config
         -- including stable packages and data dependencies.
     , configGetUnitId :: LF.PackageRef -> UnitId
         -- ^ maps a package reference to a unit id
+    , configSelfPkgId :: LF.PackageId
+        -- ^ package id for this package, we need it to build a closed LF.World
     , configStablePackages :: Set LF.PackageId
         -- ^ set of package ids for stable packages
     , configDependencyPackages :: Set LF.PackageId
@@ -57,11 +64,34 @@ data Env = Env
     { envConfig :: Config
     , envQualifyThisModule :: Bool
         -- ^ True if refences to this module should be qualified
+    , envWorld :: LF.World
+        -- ^ World built from dependencies, stable packages, and current package.
     , envDepClassMap :: DepClassMap
         -- ^ Map of typeclasses from dependencies.
     , envMod :: LF.Module
         -- ^ The module under consideration.
     }
+
+-- | Build an LF world up from the Config data.
+buildWorld :: Config -> LF.World
+buildWorld Config{..} =
+    fromMaybe (error "Failed to build LF World for data-dependencies") $ do
+        let packageIds = concat
+                [ [configSelfPkgId] -- We need to add this here,
+                    -- instead of relying on the self argument below,
+                    -- because package references in the current
+                    -- package have also been rewritten during decoding.
+                , Set.toList configStablePackages
+                , Set.toList configDependencyPackages ]
+            mkExtPackage pkgId = do
+                pkg <- MS.lookup (configGetUnitId (LF.PRImport pkgId)) configPackages
+                Just (LF.ExternalPackage pkgId pkg)
+        extPackages <- mapM mkExtPackage packageIds
+        self <- MS.lookup (configGetUnitId LF.PRSelf) configPackages
+        Just (LF.initWorldSelf extPackages self)
+
+envLfVersion :: Env -> LF.Version
+envLfVersion = LF.packageLfVersion . LF.getWorldSelf . envWorld
 
 -- | Type classes coming from dependencies. This maps a (module, synonym)
 -- name pair to a corresponding dependency package id and synonym definition.
@@ -88,19 +118,20 @@ envLookupDepClass synName env =
     in MS.lookup (modName, synName) classMap
 
 -- | Determine whether two type synonym definitions are similar enough to
--- reexport one as the other. Theoretically what is needed here is alpha
--- equivalence after expanding all type synonyms. This is quite involved,
--- so for now we're going to assume that if the list of parameters is the
--- same length, and the list of field names is the same, then it's safe to
--- re-export. This is an over-approximation, so this may cause re-exports
--- that aren't actually safe. (TODO: Move to type-synonym expanding alpha
--- equivalence).
-safeToReexport :: LF.DefTypeSyn -> LF.DefTypeSyn -> Bool
-safeToReexport syn1 syn2 = fromMaybe False $ do
-    LF.TStruct fields1 <- pure (LF.synType syn1)
-    LF.TStruct fields2 <- pure (LF.synType syn2)
-    pure $ length (LF.synParams syn1) == length (LF.synParams syn2)
-        && map fst fields1 == map fst fields2
+-- reexport one as the other. This is done by computing alpha equivalence
+-- after expanding all type synonyms.
+safeToReexport :: Env -> LF.DefTypeSyn -> LF.DefTypeSyn -> Bool
+safeToReexport env syn1 syn2 =
+    fromRight False $ do
+        LF.runGamma (envWorld env) (envLfVersion env) $ do
+            esyn1 <- LF.expandTypeSynonyms (closedType syn1)
+            esyn2 <- LF.expandTypeSynonyms (closedType syn2)
+            pure (LF.alphaEquiv esyn1 esyn2)
+
+  where
+    -- | Turn a type synonym definition into a closed type.
+    closedType :: LF.DefTypeSyn -> LF.Type
+    closedType LF.DefTypeSyn{..} = LF.mkTForalls synParams synType
 
 -- | A module reference coming from DAML-LF.
 data ModRef = ModRef
@@ -180,7 +211,7 @@ generateSrcFromLf env = noLoc mod
         LF.TStruct _ <- [synType]
         LF.TypeSynName [name] <- [synName]
         Just (pkgId, depDef) <- [envLookupDepClass synName env]
-        guard (safeToReexport synDef depDef)
+        guard (safeToReexport env synDef depDef)
         let occName = mkOccName clsName . T.unpack $ sanitize name
         pure . (synName,) $ do
             ghcMod <- genModule env (LF.PRImport pkgId) (LF.moduleName (envMod env))
@@ -655,6 +686,7 @@ generateSrcPkgFromLf config pkg = do
         { envConfig = config
         , envQualifyThisModule = False
         , envDepClassMap = buildDepClassMap config
+        , envWorld = buildWorld config
         , envMod = m
         }
     header =
@@ -698,6 +730,7 @@ generateGenInstancesPkgFromLf config pkgId pkg qual =
                 , envQualifyThisModule = True
                 , envMod = mod
                 , envDepClassMap = buildDepClassMap config
+                , envWorld = buildWorld config
                 }
             pkgId
             qual

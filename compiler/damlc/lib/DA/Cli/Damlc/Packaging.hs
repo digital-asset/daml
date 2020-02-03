@@ -515,15 +515,16 @@ buildLfPackageGraph pkgs stablePkgs dependencyPkgs = (depGraph, vertexToNode')
             [ (PackageNode src unitId dalf bs, pkgId, pkgRefs)
             | (pkgId, dalf, bs, unitId) <- pkgs
             , let pkgRefs = [ pid | LF.PRImport pid <- toListOf packageRefs dalf ]
-            , let src = generateSrcPkgFromLf (config unitId) dalf
+            , let src = generateSrcPkgFromLf (config pkgId unitId) dalf
             ]
     vertexToNode' v = case vertexToNode v of
         -- We don’t care about outgoing edges.
         (node, key, _keys) -> (node, key)
 
-    config unitId = DataDeps.Config
+    config pkgId unitId = DataDeps.Config
         { configPackages = unitIdToPkgMap
         , configGetUnitId = getUnitId unitId pkgMap
+        , configSelfPkgId = pkgId
         , configStablePackages = stablePkgs
         , configDependencyPackages = dependencyPkgs
         , configSdkPrefix = [T.pack currentSdkPrefix]
