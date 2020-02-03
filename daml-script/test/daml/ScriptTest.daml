@@ -1,0 +1,141 @@
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE ApplicativeDo #-}
+daml 1.2
+module ScriptTest where
+
+import Prelude hiding (getParty, submit, submitMustFail)
+
+import Daml.Script
+
+template T
+  with
+    p1 : Party
+    p2 : Party
+  where
+    signatory p1, p2
+
+template TProposal
+  with
+    p1 : Party
+    p2 : Party
+  where
+    signatory p1
+    observer p2
+    choice Accept : (ContractId T, Int)
+      controller p2
+      do cid <- create T { p1, p2 }
+         pure (cid, 42)
+
+template C
+  with
+    p : Party
+    v : Int
+  where
+    signatory p
+
+    choice ShouldFail : ()
+      controller p
+      do assert False
+
+    choice GetCValue : Int
+      controller p
+      do pure v
+
+template NumericTpl
+  with
+    p : Party
+    v : Numeric 11
+  where
+    signatory p
+
+    nonconsuming choice GetV : Numeric 11
+      controller p
+      do pure v
+
+template WithKey
+  with
+    p : Party
+  where
+    signatory p
+    key p : Party
+    maintainer key
+
+    nonconsuming choice GetCid : ContractId WithKey
+      controller p
+      do pure self
+
+test0 : Script (Party, Party, [T], [TProposal], [C])
+test0 = do
+  alice <- allocateParty "alice"
+  bob <- allocateParty "bob"
+  (cId1, cId2) <- submit alice $ do
+    cid1 <- createCmd (TProposal alice bob)
+    cid2 <- createCmd (TProposal alice bob)
+    pure (cid1, cid2)
+  r <- submit bob $ do
+    ~(_, r) <- exerciseCmd cId1 Accept
+    exerciseCmd cId2 Accept
+    pure r
+  _ <- submit alice $ createCmd (C alice r)
+  ts <- query @T alice
+  tProposals <- query @TProposal alice
+  cs <- query @C alice
+  pure (alice, bob, map snd ts, map snd tProposals, map snd cs)
+
+test1 : Script (Numeric 11)
+test1 = do
+  alice <- allocateParty "alice"
+  cid <- submit alice $ createCmd (NumericTpl alice 1.06)
+  ts <- query @NumericTpl alice
+  let v = case ts of
+        [(_cid, NumericTpl _ v)] -> v
+        _ -> error $ "Expected exactly one NumericTpl but got " <> show ts
+  v' <- submit alice $ exerciseCmd cid GetV
+  pure (v + v')
+
+test2 : C -> Script Int
+test2 (C _ i) = pure i
+
+test3 : Script ()
+test3 = do
+  alice <- allocateParty "alice"
+  cid <- submit alice $ createCmd (C alice 42)
+  submitMustFail alice $ exerciseCmd cid ShouldFail
+  pure ()
+
+test4 : Script (ContractId C, ContractId C)
+test4 = do
+  alice <- allocateParty "alice"
+  cid <- submit alice $ createCmd (C alice 42)
+  [(cid', _)] <- query @C alice
+  pure (cid, cid')
+
+testKey : Script (ContractId WithKey, ContractId WithKey)
+testKey = do
+  alice <- allocateParty "alice"
+  cid <- submit alice $ createCmd (WithKey alice)
+  cid' <- submit alice $ exerciseByKeyCmd @WithKey alice GetCid
+  pure (cid, cid')
+
+testCreateAndExercise : Script Int
+testCreateAndExercise = do
+  alice <- allocateParty "alice"
+  cid <- submit alice $ createCmd (C alice 41)
+  -- We send a couple of commands to make sure that we properly handle the fact that
+  -- we get two event results from a CreateAndExercise
+  (_, r, _) <- submit alice $
+    (,,)
+      <$> createCmd (C alice 42)
+      <*> createAndExerciseCmd (C alice 42) GetCValue
+      <*> exerciseCmd cid GetCValue
+  pure r
+
+-- Used in daml test-script test-case.
+failingTest : Script ()
+failingTest = do
+  alice <- allocateParty "alice"
+  cid <- submit alice $ createCmd (C alice 42)
+  submit alice $ exerciseCmd cid ShouldFail
+  pure ()

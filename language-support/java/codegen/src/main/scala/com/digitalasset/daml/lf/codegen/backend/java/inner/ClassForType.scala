@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.codegen.backend.java.inner
@@ -48,8 +48,6 @@ object ClassForType extends StrictLogging {
           constructors.map(cons => javaFile(typeWithContext, subPackage, cons))
 
       case Some(Normal(DefDataType(_, enum: Enum))) =>
-        val subPackage = className.packageName() + "." + JavaEscaper.escapeString(
-          className.simpleName().toLowerCase)
         List(
           JavaFile
             .builder(javaPackage, EnumClass.generate(className, typeWithContext.identifier, enum))

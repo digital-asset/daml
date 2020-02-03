@@ -1,27 +1,21 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
-  DamlConfigurationEntry,
-  DamlPackageUploadEntry,
-  DamlPartyAllocationEntry,
-  DamlSubmission,
-  DamlTimeModel,
-  DamlTransactionEntry,
-  DamlStateKey,
-  DamlLogEntryId
-}
+import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1.{
   Configuration,
+  ParticipantId,
+  SubmissionId,
   SubmittedTransaction,
   SubmitterInfo,
   TransactionMeta
 }
-import com.digitalasset.daml_lf.DamlLf.Archive
+import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.google.protobuf.ByteString
 import Conversions._
+import com.digitalasset.daml.lf.data.Time.Timestamp
 
 import scala.collection.JavaConverters._
 
@@ -38,98 +32,102 @@ object KeyValueSubmission {
     * from committing the given transaction.
     *
     * Useful for implementations that require outputs to be known up-front.
+    *
+    * @deprecated Use [[KeyValueCommitting.submissionOutputs]] instead. This function will be removed in later version.
     */
   def transactionOutputs(entryId: DamlLogEntryId, tx: SubmittedTransaction): List[DamlStateKey] = {
     val effects = InputsAndEffects.computeEffects(entryId, tx)
-    effects.createdContracts ++ effects.consumedContracts
+    effects.createdContracts.map(_._1) ++ effects.consumedContracts
   }
 
-  /** Convert a transaction into a submission. */
+  /** Prepare a transaction submission. */
   def transactionToSubmission(
       submitterInfo: SubmitterInfo,
       meta: TransactionMeta,
       tx: SubmittedTransaction): DamlSubmission = {
 
-    val (inputLogEntries, inputDamlStateFromTx) = InputsAndEffects.computeInputs(tx)
+    val inputDamlStateFromTx = InputsAndEffects.computeInputs(tx)
     val encodedSubInfo = buildSubmitterInfo(submitterInfo)
-    val inputDamlState = commandDedupKey(encodedSubInfo) :: inputDamlStateFromTx
 
     DamlSubmission.newBuilder
-      .addAllInputLogEntries(inputLogEntries.asJava)
-      .addAllInputDamlState(inputDamlState.asJava)
+      .addInputDamlState(commandDedupKey(encodedSubInfo))
+      .addInputDamlState(configurationStateKey)
+      .addInputDamlState(partyStateKey(submitterInfo.submitter))
+      .addAllInputDamlState(inputDamlStateFromTx.asJava)
       .setTransactionEntry(
         DamlTransactionEntry.newBuilder
           .setTransaction(Conversions.encodeTransaction(tx))
           .setSubmitterInfo(encodedSubInfo)
           .setLedgerEffectiveTime(buildTimestamp(meta.ledgerEffectiveTime))
           .setWorkflowId(meta.workflowId.getOrElse(""))
-          .build
       )
       .build
   }
 
-  /** Convert an archive into a submission message. */
+  /** Prepare a package upload submission. */
   def archivesToSubmission(
       submissionId: String,
       archives: List[Archive],
       sourceDescription: String,
-      participantId: String): DamlSubmission = {
+      participantId: ParticipantId): DamlSubmission = {
 
-    val inputDamlState = archives.map(
-      archive =>
-        DamlStateKey.newBuilder
-          .setPackageId(archive.getHash)
-          .build)
+    val archivesDamlState =
+      archives.map(
+        archive =>
+          DamlStateKey.newBuilder
+            .setPackageId(archive.getHash)
+            .build)
 
     DamlSubmission.newBuilder
-      .addAllInputDamlState(inputDamlState.asJava)
+      .addInputDamlState(packageUploadDedupKey(participantId, submissionId))
+      .addAllInputDamlState(archivesDamlState.asJava)
       .setPackageUploadEntry(
         DamlPackageUploadEntry.newBuilder
           .setSubmissionId(submissionId)
           .addAllArchives(archives.asJava)
           .setSourceDescription(sourceDescription)
           .setParticipantId(participantId)
-          .build
       )
       .build
   }
 
-  /** Convert an archive into a submission message. */
+  /** Prepare a party allocation submission. */
   def partyToSubmission(
-      submissionId: String,
+      submissionId: SubmissionId,
       hint: Option[String],
       displayName: Option[String],
-      participantId: String): DamlSubmission = {
+      participantId: ParticipantId): DamlSubmission = {
     val party = hint.getOrElse("")
-    val inputDamlState = List(
-      DamlStateKey.newBuilder
-        .setParty(party)
-        .build)
     DamlSubmission.newBuilder
-      .addAllInputDamlState(inputDamlState.asJava)
+      .addInputDamlState(partyAllocationDedupKey(participantId, submissionId))
+      .addInputDamlState(partyStateKey(party))
       .setPartyAllocationEntry(
         DamlPartyAllocationEntry.newBuilder
           .setSubmissionId(submissionId)
           .setParty(party)
           .setParticipantId(participantId)
           .setDisplayName(displayName.getOrElse(""))
-          .build
       )
       .build
   }
 
-  /** Convert ledger configuratino into a submission message. */
-  def configurationToSubmission(config: Configuration): DamlSubmission = {
-    val tm = config.timeModel
+  /** Prepare a ledger configuration change submission. */
+  def configurationToSubmission(
+      maxRecordTime: Timestamp,
+      submissionId: SubmissionId,
+      participantId: ParticipantId,
+      config: Configuration): DamlSubmission = {
+    val inputDamlState =
+      configDedupKey(participantId, submissionId) ::
+        configurationStateKey :: Nil
     DamlSubmission.newBuilder
-      .setConfigurationEntry(
-        DamlConfigurationEntry.newBuilder
-          .setTimeModel(
-            DamlTimeModel.newBuilder
-              .setMaxClockSkew(buildDuration(tm.maxClockSkew))
-              .setMinTransactionLatency(buildDuration(tm.minTransactionLatency))
-              .setMaxTtl(buildDuration(tm.maxTtl))
-          )
+      .addAllInputDamlState(inputDamlState.asJava)
+      .setConfigurationSubmission(
+        DamlConfigurationSubmission.newBuilder
+          .setSubmissionId(submissionId)
+          .setParticipantId(participantId)
+          .setMaximumRecordTime(buildTimestamp(maxRecordTime))
+          .setConfiguration(Configuration.encode(config))
       )
       .build
   }

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.extractor
@@ -14,11 +14,12 @@ import scalaz._
 object Types {
 
   /**
-    * Like [[iface.Type]], without `TypeVar`s
+    * Like `iface.Type`, without `TypeVar`s
     */
   sealed abstract class FullyAppliedType extends Product with Serializable
 
   object FullyAppliedType {
+    final case class TypeNumeric(scale: Int) extends FullyAppliedType
     final case class TypePrim(typ: iface.PrimType, typArgs: List[FullyAppliedType])
         extends FullyAppliedType
     final case class TypeCon(
@@ -48,6 +49,8 @@ object Types {
               tyConName,
               typArgs.toList.map(_.fat(packageStore)),
               isEnum(tyConName, packageStore))
+          case iface.TypeNumeric(scale) =>
+            TypeNumeric(scale)
           case iface.TypeVar(_) =>
             throw new IllegalArgumentException(
               s"A `TypeVar` ($genType) cannot be converted to a `FullyAppliedType`"

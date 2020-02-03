@@ -1,11 +1,11 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.grpc.adapter.utils.implementations
 
 import java.util.concurrent.atomic.AtomicInteger
 
-import akka.stream.ActorMaterializer
+import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Source}
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.grpc.adapter.server.akka.ServerAdapter
@@ -20,7 +20,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 
 class AkkaImplementation(
     implicit executionSequencerFactory: ExecutionSequencerFactory,
-    actorMaterializer: ActorMaterializer)
+    actorMaterializer: Materializer)
     extends HelloService
     with Responding
     with BindableService {

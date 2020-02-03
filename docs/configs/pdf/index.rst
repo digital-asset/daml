@@ -1,4 +1,4 @@
-.. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2020 The DAML Authors. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 DAML SDK Documentation
@@ -42,6 +42,7 @@ Building applications
    app-dev/grpc/index
    app-dev/bindings-x-lang/index
    app-dev/app-arch
+   app-dev/authentication
 
 SDK tools
 ---------
@@ -64,6 +65,15 @@ Background concepts
    concepts/glossary
    concepts/ledger-model/index
 
+Deploying
+---------
+
+.. toctree::
+   :titlesonly:
+   :maxdepth: 2
+
+   deploy/index
+
 Examples
 --------
 
@@ -82,6 +92,11 @@ Experimental features
 
    experimental/warning
    daml-integration-kit/index
+   json-api/index
+   triggers/index
+   daml-script/index
+   tools/visual
+   daml2ts/index
 
 Support and updates
 -------------------

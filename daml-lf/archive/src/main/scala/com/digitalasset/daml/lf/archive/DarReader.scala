@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.archive
@@ -11,7 +11,7 @@ import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.TryOps.Bracket.bracket
 import com.digitalasset.daml.lf.data.TryOps.sequence
 import com.digitalasset.daml.lf.language.LanguageMajorVersion
-import com.digitalasset.daml_lf.DamlLf
+import com.digitalasset.daml_lf_dev.DamlLf
 import org.apache.commons.io.IOUtils
 
 import scala.annotation.tailrec
@@ -26,7 +26,7 @@ class DarReader[A](
   import DarReader._
 
   /** Reads an archive from a File. */
-  def readArchiveFromFile(darFile: File) =
+  def readArchiveFromFile(darFile: File): Try[Dar[A]] =
     readArchive(darFile.getName, new ZipInputStream(new FileInputStream(darFile)))
 
   /** Reads an archive from a ZipInputStream. The stream will be closed by this function! */

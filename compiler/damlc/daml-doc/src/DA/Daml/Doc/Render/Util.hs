@@ -1,15 +1,16 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE OverloadedStrings #-}
 
 module DA.Daml.Doc.Render.Util
   ( adjust
   , prefix
   , indent
   , enclosedIn
+  , bold
   , inParens
   , wrapOp
+  , escapeText
   ) where
 
 import qualified Data.Text as T
@@ -21,6 +22,10 @@ inParens t = "(" <> t <> ")"
 -- | Surrounds text in 2nd argument by text in the 1st
 enclosedIn :: T.Text -> T.Text -> T.Text
 enclosedIn c t = T.concat [c, t, c]
+
+-- | A bold function that works for both Rst and Markdown.
+bold :: T.Text -> T.Text
+bold = enclosedIn "**"
 
 -- | Indents all lines in Text by n spaces
 indent :: Int -> T.Text -> T.Text
@@ -48,3 +53,11 @@ wrapOp t =
     isIdChar c = ('A' <= c && c <= 'Z')
               || ('a' <= c && c <= 'z')
               || ('_' == c)
+
+-- | Add backslashes before each character that passes the predicate.
+escapeText :: (Char -> Bool) -> T.Text -> T.Text
+escapeText p = T.pack . concatMap escapeChar . T.unpack
+  where
+    escapeChar c
+      | p c = ['\\', c]
+      | otherwise = [c]

@@ -1,19 +1,21 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE OverloadedStrings #-}
 
 -- | Utilities for working with DAML-LF protobuf archives
 module DA.Daml.LF.Proto3.Archive
   ( decodeArchive
   , encodeArchive
   , encodeArchiveLazy
+  , encodeArchiveAndHash
+  , encodePackageHash
   , ArchiveError(..)
+  , DecodingMode(..)
   ) where
 
 import           Control.Lens             (over, _Left)
 import qualified "cryptonite" Crypto.Hash as Crypto
-import qualified Da.DamlLf                as ProtoLF
+import qualified Com.Digitalasset.DamlLfDev.DamlLf as ProtoLF
 import Control.Monad
 import Data.List
 import           DA.Pretty
@@ -23,6 +25,7 @@ import qualified DA.Daml.LF.Proto3.Encode as Encode
 import qualified Data.ByteArray           as BA
 import qualified Data.ByteString          as BS
 import qualified Data.ByteString.Lazy     as BSL
+import Data.Int
 import qualified Data.Text                as T
 import qualified Data.Text.Lazy           as TL
 import qualified Numeric
@@ -30,13 +33,24 @@ import qualified Proto3.Suite             as Proto
 
 data ArchiveError
     = ProtobufError !String
-    | UnknownHashFunction !Int
+    | UnknownHashFunction !Int32
     | HashMismatch !T.Text !T.Text
   deriving (Eq, Show)
 
+-- | Mode in which to decode the DALF. Currently, this only decides whether
+-- to rewrite occurrences of `PRSelf` with `PRImport packageId`.
+data DecodingMode
+    = DecodeAsMain
+      -- ^ Keep occurrences of `PRSelf` as is.
+    | DecodeAsDependency
+      -- ^ Replace `PRSelf` with `PRImport packageId`, where `packageId` is
+      -- the id of the package being decoded.
+    deriving (Eq, Show)
+
+
 -- | Decode a LF archive header, returing the hash and the payload
-decodeArchive :: BS.ByteString -> Either ArchiveError (LF.PackageId, LF.Package)
-decodeArchive bytes = do
+decodeArchive :: DecodingMode -> BS.ByteString -> Either ArchiveError (LF.PackageId, LF.Package)
+decodeArchive mode bytes = do
     archive <- over _Left (ProtobufError . show) $ Proto.fromByteString bytes
     let payloadBytes = ProtoLF.archivePayload archive
     let archiveHash = TL.toStrict (ProtoLF.archiveHash archive)
@@ -49,16 +63,26 @@ decodeArchive bytes = do
 
     when (computedHash /= archiveHash) $
       Left (HashMismatch archiveHash computedHash)
+    let packageId = LF.PackageId archiveHash
+    let selfPackageRef = case mode of
+            DecodeAsMain -> LF.PRSelf
+            DecodeAsDependency -> LF.PRImport packageId
 
     payload <- over _Left (ProtobufError . show) $ Proto.fromByteString payloadBytes
-    package <- over _Left (ProtobufError. show) $ Decode.decodePayload payload
-    return (LF.PackageId archiveHash, package)
+    package <- over _Left (ProtobufError. show) $ Decode.decodePayload selfPackageRef payload
+    return (packageId, package)
 
 
 -- | Encode a LFv1 package payload into a DAML-LF archive using the default
 -- hash function.
 encodeArchiveLazy :: LF.Package -> BSL.ByteString
-encodeArchiveLazy package =
+encodeArchiveLazy = fst . encodeArchiveAndHash
+
+encodePackageHash :: LF.Package -> T.Text
+encodePackageHash = snd . encodeArchiveAndHash
+
+encodeArchiveAndHash :: LF.Package -> (BSL.ByteString, T.Text)
+encodeArchiveAndHash package =
     let payload = BSL.toStrict $ Proto.toLazyByteString $ Encode.encodePayload package
         hash = encodeHash (BA.convert (Crypto.hash @_ @Crypto.SHA256 payload) :: BS.ByteString)
         archive =
@@ -67,7 +91,7 @@ encodeArchiveLazy package =
           , ProtoLF.archiveHash    = TL.fromStrict hash
           , ProtoLF.archiveHashFunction = Proto.Enumerated (Right ProtoLF.HashFunctionSHA256)
           }
-    in Proto.toLazyByteString archive
+    in (Proto.toLazyByteString archive, hash)
 
 encodeArchive :: LF.Package -> BS.ByteString
 encodeArchive = BSL.toStrict . encodeArchiveLazy

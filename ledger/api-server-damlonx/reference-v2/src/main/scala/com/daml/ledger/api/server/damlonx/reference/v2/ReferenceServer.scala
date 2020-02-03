@@ -1,75 +1,134 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.server.damlonx.reference.v2
 
-import java.util.concurrent.atomic.AtomicBoolean
+import java.util.UUID
 
 import akka.actor.ActorSystem
-import akka.stream.{ActorMaterializer, ActorMaterializerSettings, Supervision}
-import com.daml.ledger.participant.state.kvutils.InMemoryKVParticipantState
-import com.daml.ledger.participant.state.v2.ParticipantId
+import akka.stream.Materializer
+import com.codahale.metrics.SharedMetricRegistries
+import com.daml.ledger.api.server.damlonx.reference.v2.cli.Cli
+import com.daml.ledger.participant.state.v1.{ReadService, SubmissionId, WriteService}
 import com.digitalasset.daml.lf.archive.DarReader
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml_lf.DamlLf.Archive
-import com.digitalasset.platform.index.cli.Cli
-import com.digitalasset.platform.index.{StandaloneIndexServer, StandaloneIndexerServer}
+import com.digitalasset.daml_lf_dev.DamlLf.Archive
+import com.digitalasset.ledger.api.auth.{AuthService, AuthServiceWildcard}
+import com.digitalasset.logging.LoggingContext
+import com.digitalasset.logging.LoggingContext.newLoggingContext
+import com.digitalasset.platform.apiserver.{ApiServerConfig, StandaloneApiServer}
+import com.digitalasset.platform.indexer.{IndexerConfig, StandaloneIndexerServer}
+import com.digitalasset.resources.akka.AkkaResourceOwner
+import com.digitalasset.resources.{Resource, ResourceOwner}
 import org.slf4j.LoggerFactory
 
+import scala.concurrent.duration.DurationInt
+import scala.concurrent.{Await, ExecutionContext}
 import scala.util.Try
-import scala.util.control.NonFatal
 
 object ReferenceServer extends App {
-
   val logger = LoggerFactory.getLogger("indexed-kvutils")
 
-  val config = Cli.parse(args).getOrElse(sys.exit(1))
-
-  // Name of this participant
-  // TODO: Pass this info in command-line (See issue #2025)
-  val participantId: ParticipantId = Ref.LedgerString.assertFromString("in-memory-participant")
+  val config =
+    Cli
+      .parse(
+        args,
+        binaryName = "damlonx-reference-server",
+        description = "A fully compliant DAML Ledger API server backed by an in-memory store.",
+      )
+      .getOrElse(sys.exit(1))
 
   implicit val system: ActorSystem = ActorSystem("indexed-kvutils")
-  implicit val materializer: ActorMaterializer = ActorMaterializer(
-    ActorMaterializerSettings(system)
-      .withSupervisionStrategy { e =>
-        logger.error(s"Supervision caught exception: $e")
-        Supervision.Stop
+  implicit val materializer: Materializer = Materializer(system)
+  implicit val executionContext: ExecutionContext = system.dispatcher
+
+  val resource = newLoggingContext { implicit logCtx =>
+    for {
+      // Take ownership of the actor system and materializer so they're cleaned up properly.
+      // This is necessary because we can't declare them as implicits within a `for` comprehension.
+      _ <- AkkaResourceOwner.forActorSystem(() => system).acquire()
+      _ <- AkkaResourceOwner.forMaterializer(() => materializer).acquire()
+      ledger <- ResourceOwner
+        .forCloseable(() => new InMemoryKVParticipantState(config.participantId))
+        .acquire()
+      _ <- Resource.sequenceIgnoringValues(config.archiveFiles.map { file =>
+        val submissionId = SubmissionId.assertFromString(UUID.randomUUID().toString)
+        for {
+          dar <- ResourceOwner
+            .forTry(() =>
+              DarReader { case (_, x) => Try(Archive.parseFrom(x)) }
+                .readArchiveFromFile(file))
+            .acquire()
+          _ <- ResourceOwner
+            .forCompletionStage(() => ledger.uploadPackages(submissionId, dar.all, None))
+            .acquire()
+        } yield ()
       })
-
-  val ledger = new InMemoryKVParticipantState(participantId)
-
-  val readService = ParticipantStateConversion.V1ToV2Rread(ledger)
-  val writeService = ParticipantStateConversion.V1ToV2Write(ledger)
-
-  config.archiveFiles.foreach { file =>
-    val archivesTry = for {
-      dar <- DarReader { case (_, x) => Try(Archive.parseFrom(x)) }
-        .readArchiveFromFile(file)
-    } yield ledger.uploadPackages(dar.all, None)
+      _ <- startIndexerServer(config, readService = ledger)
+      _ <- startApiServer(
+        config,
+        readService = ledger,
+        writeService = ledger,
+        authService = AuthServiceWildcard,
+      )
+      _ <- Resource.sequenceIgnoringValues(
+        for {
+          (extraParticipantId, port, jdbcUrl) <- config.extraParticipants
+        } yield {
+          val participantConfig = config.copy(
+            port = port,
+            participantId = extraParticipantId,
+            jdbcUrl = jdbcUrl,
+          )
+          for {
+            _ <- startIndexerServer(participantConfig, readService = ledger)
+            _ <- startApiServer(
+              participantConfig,
+              readService = ledger,
+              writeService = ledger,
+              authService = AuthServiceWildcard,
+            )
+          } yield ()
+        }
+      )
+    } yield ()
   }
 
-  val indexerServer = StandaloneIndexerServer(readService, config.jdbcUrl)
-  val indexServer = StandaloneIndexServer(config, readService, writeService).start()
-
-  val closed = new AtomicBoolean(false)
-
-  def closeServer(): Unit = {
-    if (closed.compareAndSet(false, true)) {
-      indexServer.close()
-      indexerServer.close()
-      ledger.close()
-      materializer.shutdown()
-      val _ = system.terminate()
-    }
+  resource.asFuture.failed.foreach { exception =>
+    logger.error("Shutting down because of an initialization error.", exception)
+    System.exit(1)
   }
 
-  try {
-    Runtime.getRuntime.addShutdownHook(new Thread(() => closeServer()))
-  } catch {
-    case NonFatal(t) => {
-      logger.error("Shutting down Sandbox application because of initialization error", t)
-      closeServer()
-    }
-  }
+  Runtime.getRuntime.addShutdownHook(new Thread(() => Await.result(resource.release(), 10.seconds)))
+
+  private def startIndexerServer(config: Config, readService: ReadService)(
+      implicit logCtx: LoggingContext): Resource[Unit] =
+    new StandaloneIndexerServer(
+      readService,
+      IndexerConfig(config.participantId, config.jdbcUrl, config.startupMode),
+      SharedMetricRegistries.getOrCreate(s"indexer-${config.participantId}"),
+    ).acquire()
+
+  private def startApiServer(
+      config: Config,
+      readService: ReadService,
+      writeService: WriteService,
+      authService: AuthService,
+  )(implicit logCtx: LoggingContext): Resource[Unit] =
+    new StandaloneApiServer(
+      ApiServerConfig(
+        config.participantId,
+        config.archiveFiles,
+        config.port,
+        config.address,
+        config.jdbcUrl,
+        config.tlsConfig,
+        config.timeProvider,
+        config.maxInboundMessageSize,
+        config.portFile,
+      ),
+      readService,
+      writeService,
+      authService,
+      SharedMetricRegistries.getOrCreate(s"ledger-api-server-${config.participantId}"),
+    ).acquire()
 }

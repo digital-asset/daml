@@ -1,8 +1,7 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE RankNTypes #-}
 
 module DA.Daml.LanguageServer
@@ -10,6 +9,7 @@ module DA.Daml.LanguageServer
     ) where
 
 import           Language.Haskell.LSP.Types
+import           Language.Haskell.LSP.Types.Capabilities
 import           Development.IDE.LSP.Server
 import qualified Development.IDE.LSP.LanguageServer as LS
 import Control.Monad.Extra
@@ -27,10 +27,14 @@ import Development.IDE.Core.Rules
 import Development.IDE.Core.Rules.Daml
 import Development.IDE.Core.Service.Daml
 
+import DA.Daml.SessionTelemetry
+import DA.Daml.LanguageServer.Visualize
+import qualified DA.Service.Logger as Lgr
 import qualified Network.URI                               as URI
 
 import Language.Haskell.LSP.Messages
 import qualified Language.Haskell.LSP.Core as LSP
+import qualified Language.Haskell.LSP.Types as LSP
 
 
 textShow :: Show a => a -> T.Text
@@ -50,12 +54,31 @@ setHandlersKeepAlive = PartialHandlers $ \WithMessage{..} x -> return x
             _ -> whenJust (LSP.customRequestHandler x) ($ msg)
     }
 
+setIgnoreOptionalHandlers :: PartialHandlers
+setIgnoreOptionalHandlers = PartialHandlers $ \WithMessage{..} x -> return x
+    {LSP.customRequestHandler = Just $ \msg@RequestMessage{_method} ->
+         case _method of
+             CustomClientMethod s
+               | optionalPrefix `T.isPrefixOf` s -> pure ()
+             _ -> whenJust (LSP.customRequestHandler x) ($ msg)
+    ,LSP.customNotificationHandler = Just $ \msg@NotificationMessage{_method} ->
+         case _method of
+             CustomClientMethod s
+               | optionalPrefix `T.isPrefixOf` s -> pure ()
+             _ -> whenJust (LSP.customNotificationHandler x) ($ msg)
+    }
+    -- | According to the LSP spec methods starting with $/ are optional
+    -- and can be ignored. In particular, VSCode sometimes seems to send
+    -- $/setTraceNotification which we want to ignore.
+    where optionalPrefix = "$/"
+
 setHandlersVirtualResource :: PartialHandlers
 setHandlersVirtualResource = PartialHandlers $ \WithMessage{..} x -> return x
     {LSP.didOpenTextDocumentNotificationHandler = withNotification (LSP.didOpenTextDocumentNotificationHandler x) $
         \_ ide (DidOpenTextDocumentParams TextDocumentItem{_uri}) ->
             withUriDaml _uri $ \vr -> do
                 logInfo (ideLogger ide) $ "Opened virtual resource: " <> textShow vr
+                logTelemetry (ideLogger ide) "Viewed scenario results"
                 modifyOpenVirtualResources ide (S.insert vr)
 
     ,LSP.didCloseTextDocumentNotificationHandler = withNotification (LSP.didCloseTextDocumentNotificationHandler x) $
@@ -80,14 +103,13 @@ withUriDaml _ _ = return ()
 ------------------------------------------------------------------------
 
 runLanguageServer
-    :: ((FromServerMessage -> IO ()) -> VFSHandle -> IO IdeState)
+    :: Lgr.Handle IO
+    -> (IO LSP.LspId -> (FromServerMessage -> IO ()) -> VFSHandle -> ClientCapabilities -> IO IdeState)
     -> IO ()
-runLanguageServer getIdeState = do
-    let handlers = setHandlersKeepAlive <> setHandlersVirtualResource <> setHandlersCodeLens
+runLanguageServer lgr getIdeState = withSessionPings lgr $ \setSessionHandlers -> do
+    let handlers = setHandlersKeepAlive <> setHandlersVirtualResource <> setHandlersCodeLens <> setIgnoreOptionalHandlers <> setCommandHandler <> setSessionHandlers
     LS.runLanguageServer options handlers getIdeState
 
 
 options :: LSP.Options
-options = def
-    { LSP.codeLensProvider = Just $ CodeLensOptions $ Just False
-    }
+options = def { LSP.executeCommandCommands = Just ["daml/damlVisualize"] }

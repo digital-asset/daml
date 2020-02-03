@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf
@@ -9,7 +9,7 @@ import java.util.zip.ZipInputStream
 
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.language.LanguageMajorVersion
-import com.digitalasset.daml_lf.DamlLf
+import com.digitalasset.daml_lf_dev.DamlLf
 
 import scala.util.{Failure, Success, Try}
 
@@ -88,7 +88,7 @@ object UniversalArchiveReaderWithVersion {
   private def parseDalf(is: InputStream) = Try(Reader.readArchiveAndVersion(is))
 }
 
-private[lf] object SupportedFileType {
+object SupportedFileType {
   def supportedFileType(f: File): Try[SupportedFileType] =
     if (DarFile.matchesFileExtension(f)) Success(DarFile)
     else if (DalfFile.matchesFileExtension(f)) Success(DalfFile)

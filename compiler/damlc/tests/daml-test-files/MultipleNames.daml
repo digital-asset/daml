@@ -1,0 +1,8 @@
+daml 1.2
+
+-- | Test multiple names sharing the same type signature.
+module MultipleNames where
+
+class Foo t where
+    -- | This documentation is duplicated.
+    foo1, foo2 : t

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.ledger.client.binding.encoding
@@ -25,27 +25,29 @@ abstract class ShowEncoding extends LfTypeEncoding {
 
   type VariantCases[A] = Show[A]
 
-  override def record[A](recordId: Identifier, fi: RecordFields[A]): Out[A] = {
-    val P.LegacyIdentifier(_, recName) = recordId
+  private def name(id: Identifier) =
+    s"${id.moduleName}.${id.entityName}"
+
+  override def record[A](recordId: Identifier, fi: RecordFields[A]): Out[A] =
     show { a: A =>
-      Cord(recName, "(", fi.show(a), ")")
+      Cord(name(recordId), "(", fi.show(a), ")")
     }
-  }
 
   override def emptyRecord[A](recordId: Identifier, element: () => A): Out[A] = {
-    val P.LegacyIdentifier(_, recName) = recordId
-    val shown = Cord(recName, "()")
+    val shown = Cord(name(recordId), "()")
     show { _: A =>
       shown
     }
   }
 
-  override def field[A](fieldName: String, o: Out[A]): Field[A] = show { a: A =>
-    Cord(fieldName, " = ", o.show(a))
-  }
+  override def field[A](fieldName: String, o: Out[A]): Field[A] =
+    show { a: A =>
+      Cord(fieldName, " = ", o.show(a))
+    }
 
   override def fields[A](fi: Field[A]): RecordFields[A] = fi
 
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   override def enumAll[A](
       enumId: Identifier,
       index: A => Int,
@@ -96,7 +98,7 @@ object ShowEncoding extends ShowEncoding {
 
     override def valueInt64: Show[P.Int64] = longInstance
 
-    override def valueDecimal: Show[P.Decimal] = bigDecimalInstance
+    override def valueNumeric: Show[P.Numeric] = bigDecimalInstance
 
     override def valueParty: Show[P.Party] =
       P.Party.subst(show(p => Cord("P@", ShowUnicodeEscapedString.show(p))))
@@ -118,7 +120,10 @@ object ShowEncoding extends ShowEncoding {
 
     override def valueOptional[A: Show]: Show[P.Optional[A]] = optionShow
 
-    override def valueMap[A: Show]: Show[P.Map[A]] = mapShow
+    override def valueTextMap[A: Show]: Show[P.TextMap[A]] = P.TextMap.leibniz[A].subst(mapShow)
+
+    override def valueGenMap[K: Show, V: Show]: Show[P.GenMap[K, V]] = P.GenMap.insertMapShow
+
   }
 
   object Implicits {

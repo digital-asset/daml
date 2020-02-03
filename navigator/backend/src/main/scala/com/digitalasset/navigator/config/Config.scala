@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.navigator.config
@@ -39,33 +39,42 @@ final case class ConfigNotFound(reason: String) extends ConfigReadError
 final case class ConfigInvalid(reason: String) extends ConfigReadError
 final case class ConfigParseFailed(reason: String) extends ConfigReadError
 
-@SuppressWarnings(
-  Array(
-    "org.wartremover.warts.Any",
-    "org.wartremover.warts.Option2Iterable",
-    "org.wartremover.warts.ExplicitImplicitTypes"))
+sealed abstract class ConfigOption {
+  def path: Path
+}
+final case class DefaultConfig(path: Path) extends ConfigOption
+final case class ExplicitConfig(path: Path) extends ConfigOption
+
+@SuppressWarnings(Array("org.wartremover.warts.Any", "org.wartremover.warts.Option2Iterable"))
 object Config {
 
-  private[this] def logger = LoggerFactory.getLogger(this.getClass)
+  private[this] val logger = LoggerFactory.getLogger(this.getClass)
 
-  def load(configFile: Path, useDatabase: Boolean): Either[ConfigReadError, Config] = {
-    loadSdkConfig(useDatabase).left
-      .flatMap {
-        case ConfigNotFound(_) =>
-          logger.warn("SDK config does not exist. Falling back to Navigator config file.")
-          loadNavigatorConfig(configFile, useDatabase)
-        case e: ConfigReadError =>
-          logger.warn(s"SDK config exists, but is not usable: ${e.reason}")
-          Left(e)
-      }
+  def load(configOpt: ConfigOption, useDatabase: Boolean): Either[ConfigReadError, Config] = {
+    configOpt match {
+      case ExplicitConfig(configFile) =>
+        // If users specified a config file explicitly, we ignore the SDK config.
+        loadNavigatorConfig(configFile, useDatabase)
+      case DefaultConfig(configFile) =>
+        loadSdkConfig(useDatabase).left
+          .flatMap {
+            case ConfigNotFound(_) =>
+              logger.warn("SDK config does not exist. Falling back to Navigator config file.")
+              loadNavigatorConfig(configFile, useDatabase)
+            case e: ConfigReadError =>
+              logger.warn(s"SDK config exists, but is not usable: ${e.reason}")
+              Left(e)
+          }
+    }
   }
 
   def loadNavigatorConfig(
       configFile: Path,
       useDatabase: Boolean): Either[ConfigReadError, Config] = {
-    implicit val partyConfigConvert = ConfigConvert.viaNonEmptyString[PartyState](
-      str => _ => Right(new PartyState(ApiTypes.Party(str), useDatabase)),
-      t => Tag.unwrap(t.name))
+    implicit val partyConfigConvert: ConfigConvert[PartyState] =
+      ConfigConvert.viaNonEmptyString[PartyState](
+        str => _ => Right(new PartyState(ApiTypes.Party(str), useDatabase)),
+        t => Tag.unwrap(t.name))
     if (Files.exists(configFile)) {
       logger.info(s"Loading Navigator config file from $configFile")
       val config = ConfigFactory.parseFileAnySyntax(configFile.toAbsolutePath.toFile)
@@ -118,9 +127,10 @@ object Config {
       ))
 
   def writeTemplateToPath(configFile: Path, useDatabase: Boolean): Unit = {
-    implicit val partyConfigConvert = ConfigConvert.viaNonEmptyString[PartyState](
-      str => _ => Right(new PartyState(ApiTypes.Party(str), useDatabase)),
-      t => Tag.unwrap(t.name))
+    implicit val partyConfigConvert: ConfigConvert[PartyState] =
+      ConfigConvert.viaNonEmptyString[PartyState](
+        str => _ => Right(new PartyState(ApiTypes.Party(str), useDatabase)),
+        t => Tag.unwrap(t.name))
     val config = ConfigWriter[Config].to(template(useDatabase))
     val cro = ConfigRenderOptions
       .defaults()

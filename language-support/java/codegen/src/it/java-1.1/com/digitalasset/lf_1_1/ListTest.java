@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.lf_1_1;
@@ -13,7 +13,6 @@ import tests.listtest.*;
 import tests.listtest.color.Green;
 import tests.listtest.color.Red;
 import tests.listtest.listitem.Node;
-import tests.varianttest.variantitem.ParameterizedRecordVariant;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -219,8 +218,7 @@ public class ListTest {
         ));
 
         assertEquals(fromValue, fromConstructor);
-        assertEquals(fromConstructor.toValue(f -> new DamlList(f.stream().map(Text::new).collect(Collectors.<Value>toList()))), dataRecord);
-
+        assertEquals(fromConstructor.toValue(f -> f.stream().collect(DamlCollectors.toDamlList(Text::new))), dataRecord);
     }
 
 }

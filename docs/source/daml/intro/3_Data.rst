@@ -1,4 +1,4 @@
-.. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2020 The DAML Authors. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 3 Data types
@@ -31,7 +31,7 @@ Native types
 You have already encountered a few native DAML types: ``Party`` in :doc:`1_Token`, and ``Text`` and ``ContractId`` in :doc:`2_Scenario`. Here are those native types and more:
 
 - ``Party``
-  Stores the identity of an entity that is able to act on the ledger, in the sense that they can sign contracts and submit transactions. In general, ``Party`` is Oblique.
+  Stores the identity of an entity that is able to act on the ledger, in the sense that they can sign contracts and submit transactions. In general, ``Party`` is opaque.
 - ``Text``
   Stores a unicode character string like ``"Alice"``.
 - ``ContractId a``
@@ -226,7 +226,7 @@ You can define *stable* keys for contracts using the ``key`` and ``maintainer`` 
   :start-after: -- KEY_TEST_BEGIN
   :end-before: -- KEY_TEST_END
 
-Since DAML is designed to run on distributed systems, you have to assume that there is no global entity that can guarantee uniqueness, which is why each ``key`` expression must come with a ``maintainer`` expression. ``maintainer`` takes one or several parties, all of which have to be signatories of the contract and be part of the key. That way the index can be partitioned amongst sets of maintainers, and each set of maintainers can independently ensure the uniqueness constraint on their piece of the index. The constraint that maintainters are part of the key is ensured by only having the variable `key`
+Since DAML is designed to run on distributed systems, you have to assume that there is no global entity that can guarantee uniqueness, which is why each ``key`` expression must come with a ``maintainer`` expression. ``maintainer`` takes one or several parties, all of which have to be signatories of the contract and be part of the key. That way the index can be partitioned amongst sets of maintainers, and each set of maintainers can independently ensure the uniqueness constraint on their piece of the index. The constraint that maintainers are part of the key is ensured by only having the variable `key` in each maintainer expression.
 
 Note how the ``fetch`` in the final ``submit`` block has become a ``fetchByKey @Account``. ``fetchByKey @Account`` takes a value of type ``AccountKey`` and returns a tuple ``(ContractId Account, Account)`` if the lookup was successful or fails the transaction otherwise.
 

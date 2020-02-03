@@ -1,0 +1,12 @@
+sdk-version: 0.0.0
+name: foo
+source: daml
+parties:
+  - Alice
+  - Bob
+version: 2.0.0
+exposed-modules:
+  - Foo
+dependencies:
+  - daml-prim
+  - daml-stdlib

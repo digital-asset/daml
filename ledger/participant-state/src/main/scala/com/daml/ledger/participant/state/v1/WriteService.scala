@@ -1,9 +1,11 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.v1
 
 import java.util.concurrent.CompletionStage
+
+import com.digitalasset.ledger.api.health.ReportsHealth
 
 /** An interface to change a ledger via a participant.
   *
@@ -25,7 +27,11 @@ import java.util.concurrent.CompletionStage
   * - uploading a new package using [[WritePackagesService!.uploadPackages]]
   *
   */
-trait WriteService extends WritePackagesService with WritePartyService {
+trait WriteService
+    extends WritePackagesService
+    with WritePartyService
+    with WriteConfigService
+    with ReportsHealth {
 
   /** Submit a transaction for acceptance to the ledger.
     *

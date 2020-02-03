@@ -1,4 +1,4 @@
-Copyright 2019 Digital Asset (Switzerland) GmbH and/or its affiliates.  All rights reserved.
+Copyright 2020 Digital Asset (Switzerland) GmbH and/or its affiliates.  All rights reserved.
 
 Phase: RELEASE
 Distribution: EXTERNAL
@@ -5263,7 +5263,7 @@ LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
 OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 SUCH DAMAGE.
 daml-ghc-lib-LICENSE
-Copyright Digital Asset 2018-2019.
+Copyright Digital Asset 2018-2020.
 
 Licensed under either of:
 
@@ -13975,7 +13975,7 @@ DAMAGE.
 
 -----------------------------------------------------------------------------
 ./daml-ghc-lib-LICENSE
-Copyright Digital Asset 2018-2019.
+Copyright Digital Asset 2018-2020.
 
 Licensed under either of:
 
@@ -16030,79 +16030,6 @@ HsOpenSSL <http://hackage.haskell.org/package/HsOpenSSL>:
       this CC0 or use of the Work.
   
 
-MissingH <http://hackage.haskell.org/package/MissingH>:
-
-  Copyright (c) 2004 - 2011 John Goerzen
-  All rights reserved.
-  
-  Redistribution and use in source and binary forms, with or without
-  modification, are permitted provided that the following conditions are met:
-  
-  * Redistributions of source code must retain the above copyright notice, this
-    list of conditions and the following disclaimer.
-  
-  * Redistributions in binary form must reproduce the above copyright notice, this
-    list of conditions and the following disclaimer in the documentation and/or
-    other materials provided with the distribution.
-  
-  * Neither the name of John Goerzen nor the names of its
-    contributors may be used to endorse or promote products derived from this
-    software without specific prior written permission.
-  
-  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-  WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-  DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-  FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-  DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-  SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-  OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-  
-  ============================================================================
-  Special Notes for Included Code
-  ============================================================================
-  
-  If you split out the parts originally from other authors, and use them
-  completely independently of the rest of the library, you may treat them
-  under the licenses shown below.
-  
-  ----------------------------------------------------
-  Portions of System.Path come from Volker Wysk's HsShellScript
-  library, version 2.1.0.  That code is Copyright (c) 2004 Volker Wysk
-  and was originally licensed under the GNU LGPL 2.1.  Volker gave permission
-  on Aug. 10, 2011, to John Goerzen to relicense it under the same 3-clause
-  BSD license as MissingH itself.
-  
-  ----------------------------------------------------
-  Data.Compression.Inflate is
-  Copyright 2004 Ian Lynagh <igloo@earth.li>
-  Licence: 3 clause BSD.
-  
-  Debian GNU/Linux users may find the 3-clause BSD license at
-  /usr/share/common-licenses/BSD.  Alternatively, you may find it at
-  3rd-party-licenses/BSD.  Please note that the University of California
-  has no claim on this code; simply substitute Ian Lynagh for the
-  University wherever it may occur in that file.
-  
-  The code was obtained from
-  http://urchin.earth.li/darcs/ian/inflate/Inflate.lhs
-  ----------------------------------------------------
-  Data.Hash.MD5* is
-  Copyright 2001 Ian Lynagh <igloo@earth.li>
-  Licence: GPL or 3 clause BSD
-  
-  Debian GNU/Linux users may find the 3-clause BSD license at
-  /usr/share/common-licenses/BSD.  Alternatively, you may find it at
-  3rd-party-licenses/BSD.  Please note that the University of California
-  has no claim on this code; simply substitute Ian Lynagh for the
-  University wherever it may occur in that file.
-  
-  The code was obtained from
-  http://web.comlab.ox.ac.uk/oucl/work/ian.lynagh/md5/
-  
-  
 
 Only <http://hackage.haskell.org/package/Only>:
 

@@ -1,10 +1,8 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE ConstraintKinds  #-}
-{-# LANGUAGE OverloadedStrings #-}
 module Types (
-    AllArtifacts(..),
     ArtifactId,
     ArtifactType,
     CIException(..),
@@ -19,7 +17,6 @@ module Types (
     MonadCI,
     OS(..),
     PerformUpload(..),
-    PlatformDependent(..),
     TextVersion,
     Version(..),
     VersionChange(..),
@@ -79,16 +76,8 @@ data MavenCoords = MavenCoords
     , artifactType :: !ArtifactType
     } deriving Show
 
-newtype PlatformDependent = PlatformDependent{getPlatformDependent :: Bool}
-    deriving (Eq, Show, FromJSON)
-
 newtype MavenUpload = MavenUpload { getMavenUpload :: Bool }
     deriving (Eq, Show, FromJSON)
-
--- | If this is True, we produce all artifacts even platform independent artifacts on MacOS.
--- This is useful for testing purposes.
-newtype AllArtifacts = AllArtifacts Bool
-    deriving (Eq, Show)
 
 -- execution
 type MonadCI m = (MonadIO m, MonadMask m, MonadLogger m,

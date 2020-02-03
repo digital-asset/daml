@@ -1,0 +1,8 @@
+sdk-version: 0.13.44
+name: trigger-scenarios
+source: .
+version: 0.0.1
+dependencies:
+  - daml-stdlib
+  - daml-prim
+  - daml-trigger.dar

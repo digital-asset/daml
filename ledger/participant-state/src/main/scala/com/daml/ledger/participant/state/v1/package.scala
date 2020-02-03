@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state
@@ -36,7 +36,7 @@ import com.digitalasset.daml.lf.value.Value
   * [[v1.Update]]s.
   *
   * We provide a reference implementation of a participant state in
-  * [[com.daml.ledger.api.server.damlonx.reference.ReferenceServer]]. There we
+  * [[com.daml.ledger.api.server.damlonx.reference.v2.ReferenceServer]]. There we
   * model an in-memory ledger, which has by construction a single participant,
   * which hosts all parties. See its comments for details on how that is done,
   * and how its implementation can be used as a blueprint for implementing
@@ -53,7 +53,6 @@ import com.digitalasset.daml.lf.value.Value
   * possible. There can therefore potentially be multiple versions of
   * participant state APIs at the same time. We plan to deprecate and drop old
   * versions on separate and appropriate timelines.
-  *
   */
 package object v1 {
 
@@ -61,23 +60,28 @@ package object v1 {
   type LedgerId = String
 
   /** Identifier for the participant, MUST match regexp [a-zA-Z0-9-]. */
+  val ParticipantId: Ref.LedgerString.type = Ref.LedgerString
   type ParticipantId = Ref.LedgerString
 
-  /** Identifiers for transactions.
-    * Currently unrestricted unicode (See issue #398). */
+  /** Identifiers for transactions. */
+  val TransactionIdString: Ref.TransactionIdString.type = Ref.TransactionIdString
   type TransactionId = Ref.TransactionIdString
 
-  /** Identifiers used to correlate submission with results.
-    * Currently unrestricted unicode (See issue #398). */
+  /** Identifiers used to correlate submission with results. */
+  val CommandId: Ref.LedgerString.type = Ref.LedgerString
   type CommandId = Ref.LedgerString
 
-  /** Identifiers used for correlating submission with a workflow.
-    * Currently unrestricted unicode (See issue #398).  */
+  /** Identifiers used for correlating submission with a workflow. */
+  val WorkflowId: Ref.LedgerString.type = Ref.LedgerString
   type WorkflowId = Ref.LedgerString
 
-  /** Identifiers for submitting client applications.
-    * Currently unrestricted unicode (See issue #398). */
+  /** Identifiers for submitting client applications. */
+  val ApplicationId: Ref.LedgerString.type = Ref.LedgerString
   type ApplicationId = Ref.LedgerString
+
+  /** Identifiers used to correlate admin submission with results. */
+  val SubmissionId: Ref.LedgerString.type = Ref.LedgerString
+  type SubmissionId = Ref.LedgerString
 
   /** Identifiers for nodes in a transaction. */
   type NodeId = Transaction.NodeId

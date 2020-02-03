@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava;
@@ -13,8 +13,11 @@ import io.reactivex.Single;
  */
 public interface PackageClient {
     Flowable<String> listPackages();
+    Flowable<String> listPackages(String accessToken);
 
     Single<GetPackageResponse> getPackage(String packageId);
+    Single<GetPackageResponse> getPackage(String packageId, String accessToken);
 
     Single<GetPackageStatusResponse> getPackageStatus(String packageId);
+    Single<GetPackageStatusResponse> getPackageStatus(String packageId, String accessToken);
 }

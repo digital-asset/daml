@@ -1,7 +1,7 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE CPP #-}
 
 module DA.Daml.Doc.Tests(mkTestTree)
   where
@@ -10,27 +10,31 @@ import           DA.Bazel.Runfiles
 import           DA.Daml.Options
 import           DA.Daml.Options.Types
 
-import DA.Daml.Doc.HaddockParse
+import DA.Daml.Doc.Extract
 import DA.Daml.Doc.Render
 import DA.Daml.Doc.Types
+import DA.Daml.Doc.Transform
 import DA.Daml.Doc.Anchor
 
-import           DA.Test.Util
+import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
+import Development.IDE.Types.Options (IdeReportProgress(..))
+import Development.IDE.LSP.Protocol
 
-import           Control.Monad.Except
+import Control.Monad
+import           Control.Monad.Trans.Maybe
 import qualified Data.Aeson.Encode.Pretty as AP
-import           Data.Algorithm.Diff (getGroupedDiff)
-import           Data.Algorithm.DiffOutput (ppDiff)
-import qualified Data.ByteString.Lazy.Char8 as BS
 import           Data.List.Extra
 import qualified Data.Text          as T
+import qualified Data.Text.IO as T
 import qualified Data.Text.Extended as T
-import qualified Data.Text.Encoding as T
+import qualified Data.Text.Lazy as TL
+import qualified Data.Text.Lazy.Encoding as TL
 import           System.Directory
 import           System.FilePath
 import           System.IO.Extra
 import qualified Test.Tasty.Extended as Tasty
+import           Test.Tasty.Golden
 import           Test.Tasty.HUnit
 import Data.Maybe
 
@@ -51,11 +55,13 @@ mkTestTree = do
 unitTests :: [Tasty.TestTree]
 unitTests =
     [ damldocExpect
+           Nothing
            "Empty module is OK"
            [testModHdr]
            (assertBool "Expected empty docs" . (== emptyDocs testModule))
 
          , damldocExpect
+           Nothing
            "Module header doc"
            [ "daml 1.2"
            , "-- | This is a module header"
@@ -65,6 +71,7 @@ unitTests =
                               md_descr == Just "This is a module header" )
 
          , damldocExpect
+           Nothing
            "Type synonym doc"
            [ testModHdr
            , "-- | Foo doc"
@@ -76,6 +83,7 @@ unitTests =
                                 check $ ad_descr adt == Just "Foo doc"))
 
          , damldocExpect
+           Nothing
            "Data type doc"
            [ testModHdr
            , "-- | Foo doc"
@@ -87,6 +95,7 @@ unitTests =
                                 check $ ad_descr adt == Just "Foo doc"))
 
          , damldocExpect
+           Nothing
            "Prefix data constructor doc"
            [ testModHdr
            , "data Foo = Foo {}"
@@ -99,6 +108,7 @@ unitTests =
                                 check $ ac_descr con == Just "Constructor"))
 
          , damldocExpect
+           Nothing
            "Record data docs"
            [ testModHdr
            , "data Foo = Foo with"
@@ -113,6 +123,7 @@ unitTests =
                                 check $ fd_descr f1 == Just "Field1"))
 
          , damldocExpect
+           Nothing
            "Template docs"
            [ testModHdr
            , "-- | Template doc"
@@ -129,6 +140,7 @@ unitTests =
                                 check $ fd_descr f1 == Just "Field1"))
 
          , damldocExpect
+           Nothing
            "Choice field docs"
            [ testModHdr
            , "template Foo with"
@@ -146,11 +158,12 @@ unitTests =
                                 check $ isNothing $ td_descr t
                                 f1 <- getSingle $ td_payload t
                                 check $ isNothing $ fd_descr f1
-                                ch <- getSingle $ td_choices t
+                                ch <- getSingle $ td_choicesWithoutArchive t
                                 f2 <- getSingle $ cd_fields ch
                                 check $ Just "field" == fd_descr f2))
 
          , damldocExpect
+           Nothing
            "Several Choices"
            [ testModHdr
            , "template Foo with"
@@ -169,11 +182,12 @@ unitTests =
                    ("Expected two choices in doc, got " <> show md)
                    (isJust $ do t  <- getSingle $ md_templates md
                                 check $ isNothing $ td_descr t
-                                cs <- Just $ td_choices t
+                                cs <- Just $ td_choicesWithoutArchive t
                                 check $ length cs == 2
                                 check $ ["DoMore", "DoSomething"] == sort (map cd_name cs)))
 
          , damldocExpect
+           Nothing
            "Class doc"
            [ testModHdr
            , "-- | Class description"
@@ -185,8 +199,8 @@ unitTests =
                    ("Expected a class description and a function description, got " <> show md)
                    (isJust $ do cls <- getSingle $ md_classes md
                                 check (Just "Class description" == cl_descr cls)
-                                member <- getSingle $ cl_functions cls
-                                check (Just "Member description" == fct_descr member)))
+                                member <- getSingle $ cl_methods cls
+                                check (Just "Member description" == cm_descr member)))
          ]
 
 
@@ -198,6 +212,9 @@ unitTests =
         check :: Bool -> Maybe ()
         check True = Just ()
         check False = Nothing
+
+        td_choicesWithoutArchive :: TemplateDoc -> [ChoiceDoc]
+        td_choicesWithoutArchive = filter (\ch -> cd_name ch /= "Archive") . td_choices
 
 
 testModule :: String
@@ -217,31 +234,54 @@ emptyDocs name =
         md_adts = []
         md_functions = []
         md_classes = []
+        md_instances = []
     in ModuleDoc {..}
 
 -- | Compiles the given input string (in a tmp file) and checks generated doc.s
 -- using the predicate provided.
-damldocExpect :: String -> [T.Text] -> (ModuleDoc -> Assertion) -> Tasty.TestTree
-damldocExpect testname input check =
+damldocExpect :: Maybe FilePath -> String -> [T.Text] -> (ModuleDoc -> Assertion) -> Tasty.TestTree
+damldocExpect importPathM testname input check =
   testCase testname $
   withTempDir $ \dir -> do
 
     let testfile = dir </> testModule <.> "daml"
     -- write input to a file
     T.writeFileUtf8 testfile (T.unlines input)
+    doc <- runDamldoc testfile importPathM
+    check doc
 
-    opts <- defaultOptionsIO Nothing
+-- | Generate the docs for a given input file and optional import directory.
+runDamldoc :: FilePath -> Maybe FilePath -> IO ModuleDoc
+runDamldoc testfile importPathM = do
+    let opts = (defaultOptions Nothing)
+          { optHaddock = Haddock True
+          , optImportPath = maybeToList importPathM
+          }
+
+    let diagLogger = \case
+            EventFileDiagnostics fp diags -> T.hPutStrLn stderr $ showDiagnostics $ map (toNormalizedFilePath fp,ShowDiag,) diags
+            _ -> pure ()
 
     -- run the doc generator on that file
-    mbResult <- runExceptT $ mkDocs (toCompileOpts opts) [toNormalizedFilePath testfile]
+    mbResult <- runMaybeT $ extractDocs
+        defaultExtractOptions
+        diagLogger
+        (toCompileOpts opts (IdeReportProgress False))
+        [toNormalizedFilePath testfile]
 
     case mbResult of
-      Left err -> assertFailure $ unlines
-                  ["Parse error(s) for test file " <> testname, show err]
+      Nothing ->
+        assertFailure $ unlines ["Parse error(s) for test file " <> testfile]
 
-      -- first module is the root we started from, so is the one that must satisfy the invariants
-      Right ms -> check $ head ms
-
+      Just docs -> do
+          let docs' = applyTransform defaultTransformOptions docs
+                -- apply transforms to get instance data
+              name = md_name (head docs)
+                -- first module in docs is the one we're testing,
+                -- we need to find it in docs' because applyTransform
+                -- will reorder the docs
+              docM = find ((== name) . md_name) docs'
+          pure $ fromJust docM
 
 -- | For the given file <name>.daml (assumed), this test checks if any
 -- <name>.EXPECTED.<suffix> exists, and produces output according to <suffix>
@@ -258,35 +298,14 @@ fileTest damlFile = do
 
   if null expectations
     then pure []
-    else do input <- T.readFileUtf8 damlFile
-            mapM (goldenTest input) expectations
-
-  where goldenTest :: T.Text -> FilePath -> IO Tasty.TestTree
-        goldenTest input expectation =
-          let check docs = do
-                let extension = takeExtension expectation
-                ref <- T.readFileUtf8 expectation
-                case extension of
-                  ".rst"  -> expectEqual extension ref $ renderFinish $ renderSimpleRst docs
-                  ".md"   -> expectEqual extension ref $ renderSimpleMD docs
-                  ".json" -> expectEqual extension ref
-                             (T.decodeUtf8 . BS.toStrict $
-                               AP.encodePretty' jsonConf docs)
-                  other  -> error $ "Unsupported file extension " <> other
-
-              expectEqual :: String -> T.Text -> T.Text -> Assertion
-              expectEqual extension ref actual
-                | standardizeEoL ref == standardizeEoL actual = pure ()
-                | otherwise = do
-                    let actualFile = replaceExtensions expectation ("ACTUAL" <> extension)
-                        asLines = lines . T.unpack
-                        diff = ppDiff $ getGroupedDiff (asLines ref) (asLines actual)
-
-                    T.writeFileUtf8 actualFile actual
-                    assertFailure $
-                      "Unexpected difference between " <> expectation <>
-                      " and actual output.\n" <>
-                      "Unexpected output has been written to " <> actualFile <> "\n" <>
-                      "Differences:\n" <> diff
-
-          in pure $  damldocExpect ("File: " <> expectation) [input] check
+    else do
+      doc <- runDamldoc damlFile (Just $ takeDirectory damlFile)
+      pure $ flip map expectations $ \expectation ->
+        goldenVsStringDiff ("File: " <> expectation) diff expectation $ pure $
+          case takeExtension expectation of
+            ".rst" -> TL.encodeUtf8 $ TL.fromStrict $ renderPage renderRst $ renderModule doc
+            ".md" -> TL.encodeUtf8 $ TL.fromStrict $ renderPage renderMd $ renderModule doc
+            ".json" -> AP.encodePretty' jsonConf doc
+            other -> error $ "Unsupported file extension " <> other
+  where
+    diff ref new = [POSIX_DIFF, "--strip-trailing-cr", ref, new]

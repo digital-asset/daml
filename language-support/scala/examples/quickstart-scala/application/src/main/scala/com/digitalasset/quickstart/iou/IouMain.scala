@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.quickstart.iou
@@ -6,7 +6,7 @@ package com.digitalasset.quickstart.iou
 import java.time.Instant
 
 import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
+import akka.stream.Materializer
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.grpc.adapter.AkkaExecutionSequencerPool
 import com.digitalasset.ledger.api.refinements.ApiTypes.{ApplicationId, WorkflowId}
@@ -50,7 +50,7 @@ object IouMain extends App with StrictLogging {
   // </doc-ref:new-owner-definition>
 
   private val asys = ActorSystem()
-  private val amat = ActorMaterializer()(asys)
+  private val amat = Materializer(asys)
   private val aesf = new AkkaExecutionSequencerPool("clientPool")(asys)
 
   private def shutdown(): Unit = {
@@ -65,12 +65,15 @@ object IouMain extends App with StrictLogging {
 
   private val timeProvider = TimeProvider.Constant(Instant.EPOCH)
 
+  // <doc-ref:ledger-client-configuration>
   private val clientConfig = LedgerClientConfiguration(
     applicationId = ApplicationId.unwrap(applicationId),
     ledgerIdRequirement = LedgerIdRequirement("", enabled = false),
     commandClient = CommandClientConfiguration.default,
-    sslContext = None
+    sslContext = None,
+    token = None
   )
+  // </doc-ref:ledger-client-configuration>
 
   private val clientF: Future[LedgerClient] =
     LedgerClient.singleHost(ledgerHost, ledgerPort, clientConfig)(ec, aesf)

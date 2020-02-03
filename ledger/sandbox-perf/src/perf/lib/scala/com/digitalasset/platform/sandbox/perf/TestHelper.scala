@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.platform.sandbox.perf
@@ -16,11 +16,11 @@ import com.digitalasset.ledger.api.v1.trace_context.TraceContext
 import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.digitalasset.ledger.api.v1.value.{Identifier, Value}
 import com.digitalasset.ledger.client.services.acs.ActiveContractSetClient
-import com.digitalasset.platform.common.util.DirectExecutionContext
+import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.platform.sandbox.perf.util.DarUtil
 import com.google.protobuf.timestamp.Timestamp
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
 
 trait TestHelper {
@@ -39,13 +39,11 @@ trait TestHelper {
   val rangeOfIntsTemplateId =
     Identifier(
       packageId = largeTxPackageId,
-      name = "LargeTransaction.RangeOfInts",
       moduleName = "LargeTransaction",
       entityName = "RangeOfInts")
 
   val listUtilTemplateId = Identifier(
     packageId = largeTxPackageId,
-    name = "LargeTransaction.ListUtil",
     moduleName = "LargeTransaction",
     entityName = "ListUtil")
 
@@ -92,8 +90,7 @@ trait TestHelper {
       workflowId: String,
       choice: String,
       args: Option[Value]): Future[Unit] = {
-    @SuppressWarnings(Array("org.wartremover.warts.ExplicitImplicitTypes"))
-    implicit val ec = state.mat.executionContext
+    implicit val ec: ExecutionContext = state.mat.executionContext
     for {
       contractId <- firstActiveContractId(state, rangeOfIntsTemplateId, workflowId)
       exerciseCmd = LargeTransactionCommands.exerciseCommand(
@@ -147,8 +144,7 @@ trait TestHelper {
       templateId: Identifier,
       workflowId: String,
       n: Int): Future[Unit] = {
-    @SuppressWarnings(Array("org.wartremover.warts.ExplicitImplicitTypes"))
-    implicit val ec = state.mat.executionContext
+    implicit val ec: ExecutionContext = state.mat.executionContext
     for {
       contractId <- firstActiveContractId(state, templateId, workflowId)
       exerciseCmd = LargeTransactionCommands.exerciseSizeCommand(templateId, contractId, n)

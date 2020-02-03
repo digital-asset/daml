@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.extractor
@@ -8,7 +8,7 @@ import java.io.File
 import com.digitalasset.daml.bazeltools.BazelRunfiles.rlocation
 import com.digitalasset.extractor.services.{CustomMatchers, ExtractorFixtureAroundAll}
 import com.digitalasset.ledger.api.testing.utils.SuiteResourceManagementAroundAll
-import com.digitalasset.platform.sandbox.persistence.PostgresAroundAll
+import com.digitalasset.testing.postgresql.PostgresAroundAll
 import io.circe.parser._
 import org.scalatest.{FlatSpec, Inside, Matchers, Suite}
 import scalaz.Scalaz._
@@ -23,9 +23,9 @@ class EnumSpec
     with Matchers
     with CustomMatchers {
 
-  override protected def darFile = new File(rlocation("daml-lf/encoder/test-1.6.dar"))
+  override protected def darFile = new File(rlocation("daml-lf/encoder/test-1.7.dar"))
 
-  override def scenario: Option[String] = Some("Enum:createContracts")
+  override def scenario: Option[String] = Some("EnumMod:createContracts")
 
   "Enum" should "be extracted" in {
     getContracts should have length 3

@@ -1,8 +1,11 @@
--- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
 -- Check that default implementations for type class methods can be translated
 -- even in corner cases.
+
+-- @INFO Use identity
+
 daml 1.2
 module DefaultMethods where
 
@@ -31,3 +34,11 @@ class Id a where
   id = \x -> x
 
 instance Id Int where
+
+-- | Default implementation with a separate type signature for the default method.
+class MyShow t where
+  -- | Doc for method.
+  myShow : t -> Text
+  -- | Doc for default.
+  default myShow : Show t => t -> Text
+  myShow = show

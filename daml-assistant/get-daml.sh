@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2020 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 #
@@ -17,13 +17,16 @@
 #
 
 set -eu
-cleanup() {
-  echo "$(tput setaf 3)FAILED TO INSTALL!$(tput sgr 0)"
-}
-trap cleanup EXIT
-
+readonly SWD="$PWD"
 readonly TMPDIR="$(mktemp -d)"
 cd $TMPDIR
+
+cleanup() {
+  echo "$(tput setaf 3)FAILED TO INSTALL!$(tput sgr 0)"
+  cd $SWD
+  rm -rf $TMPDIR
+}
+trap cleanup EXIT
 
 #
 # Check if curl and tar are available.
@@ -113,4 +116,5 @@ fi
 #
 trap - EXIT
 echo "$(tput setaf 3)Successfully installed DAML.$(tput sgr 0)"
-
+cd $SWD
+rm -rf $TMPDIR

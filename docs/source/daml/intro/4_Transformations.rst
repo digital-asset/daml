@@ -1,4 +1,4 @@
-.. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2020 The DAML Authors. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 4 Transforming data using choices
@@ -26,7 +26,7 @@ The above defines a *choice* called ``UpdateTelephone``. Choices are part of a c
 
 Let's unpack the code snippet above:
 
-- The first line, ``controller owner can`` says that the following choices are *controlled* by ``owner``, meaning ``owner`` is the only party that is allowed *exercise* them. The line starts a new block in which multiple choices can be defined.
+- The first line, ``controller owner can`` says that the following choices are *controlled* by ``owner``, meaning ``owner`` is the only party that is allowed to *exercise* them. The line starts a new block in which multiple choices can be defined.
 - ``UpdateTelephone`` is the name of a choice. It starts a new block in which that choice is defined.
 - ``: ContractId Contact`` is the return type of the choice.
 
@@ -37,7 +37,7 @@ Let's unpack the code snippet above:
 
 There is nothing here explicitly saying that the current ``Contact`` should be archived. That's because choices are *consuming* by default. That means when the above choice is exercised on a contract, that contract is archived.
 
-If you paid a lot of attention in :doc:`3_Data`, you may have noticed that the ``create`` statement returns an ``Update (ContractId Contact)``, not a ``ContractId Contact``. As a ``do`` block always returns the value of the last statement within it, the whole ``do`` block returns an ``Update``, but the return type on the choice is just a ``ContractId Contact``. This is a conveneience. Choices *always* return an ``Update`` so for readability it's omitted on the type declaration of a choice.
+If you paid a lot of attention in :doc:`3_Data`, you may have noticed that the ``create`` statement returns an ``Update (ContractId Contact)``, not a ``ContractId Contact``. As a ``do`` block always returns the value of the last statement within it, the whole ``do`` block returns an ``Update``, but the return type on the choice is just a ``ContractId Contact``. This is a convenience. Choices *always* return an ``Update`` so for readability it's omitted on the type declaration of a choice.
 
 Now to exercise the new choice in a scenario:
 
@@ -76,13 +76,14 @@ Choices in the Ledger Model
 
 In :doc:`1_Token` you learned about the high-level structure of a DAML ledger. With choices and the `exercise` function, you have the next important ingredient to understand the structure of the ledger and transactions.
 
-A *transaction* is a list of *actions*, and there are just three kinds of action: ``create``, ``exercise`` and ``fetch``. All actions are performed on a contract.
+A *transaction* is a list of *actions*, and there are just four kinds of action: ``create``, ``exercise``, ``fetch`` and ``key assertion``.
 
-- A ``create`` action contains the contract arguments and changes the contract's status from *non-existent* to *active*.
-- A ``fetch`` action  checks the existence and activeness of a contract.
-- An ``exercise`` action contains the choice arguments and a transaction called the *consequences*. Exercises come in two kinds called ``consuming`` and ``nonconsuming``. ``consuming`` is the default kind and changes the contract's status from *active* to *archived*.
+- A ``create`` action creates a new contract with the given arguments and sets its status to *active*.
+- A ``fetch`` action checks the existence and activeness of a contract.
+- An ``exercise`` action exercises a choice on a contract resulting in a transaction (list of sub-actions) called the *consequences*. Exercises come in two kinds called ``consuming`` and ``nonconsuming``. ``consuming`` is the default kind and changes the contract's status from *active* to *archived*.
+- A ``key assertion`` records the assertion that the given contract key (see :ref:`contract_keys`) is not assigned to any active contract on the ledger.
 
-The consequences of exercise nodes turn each transaction into an ordered tree of (sub-) transactions, or, equivalently, a forest of actions. Actions are in one-to-one correspondence with proper sub-transactions. You can see the action and their consequences in the transaction view of the above scenario:
+Each action can be visualized as a tree, where the action is the root node, and its children are its consequences. Every consequence may have further consequences. As ``fetch``, ``create`` and ``key assertion`` actions have no consequences, they are always leaf nodes. You can see the actions and their consequences in the transaction view of the above scenario:
 
 .. code-block:: none
 
@@ -145,7 +146,7 @@ The consequences of exercise nodes turn each transaction into an ordered tree of
 
 There are four commits corresponding to the four ``submit`` statements in the scenario. Within each commit, we see that it's actually actions that have IDs of the form ``#commit_number:action_number``. Contract IDs are just the ID of their ``create`` action.
 
-So commits ``#2`` and ``#4`` contain ``exercise`` actions with ids ``#2:1`` and ``#4:1``. The ``create`` actions of the updated, ``Contact`` contracts,  ``#2:2`` and ``#4:2``, are indented and found below a line reading ``children:``, making the tree structure apparent.
+So commits ``#2`` and ``#4`` contain ``exercise`` actions with IDs ``#2:0`` and ``#4:0``. The ``create`` actions of the updated, ``Contact`` contracts,  ``#2:1`` and ``#4:1``, are indented and found below a line reading ``children:``, making the tree structure apparent.
 
 The Archive choice
 ~~~~~~~~~~~~~~~~~~

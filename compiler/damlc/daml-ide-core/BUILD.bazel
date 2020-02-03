@@ -1,4 +1,4 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2020 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -6,13 +6,13 @@ load(
     "da_haskell_library",
 )
 
-exports_files(["hlint.yaml"])
+exports_files(["dlint.yaml"])
 
 da_haskell_library(
     name = "daml-ide-core",
     srcs = glob(["src/**/*.hs"]),
-    data = [":hlint.yaml"],
-    hazel_deps = [
+    data = [":dlint.yaml"],
+    hackage_deps = [
         "aeson",
         "base",
         "binary",
@@ -23,7 +23,9 @@ da_haskell_library(
         "extra",
         "filepath",
         "ghc-lib-parser",
+        "ghc-lib-parser-ex",
         "ghc-lib",
+        "ghcide",
         "hashable",
         "haskell-lsp",
         "haskell-lsp-types",
@@ -42,17 +44,22 @@ da_haskell_library(
         "transformers",
         "utf8-string",
         "vector",
+        "proto3-suite",
     ],
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
+        "//:sdk-version-hs-lib",
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto",
+        "//compiler/daml-lf-reader",
         "//compiler/daml-lf-tools",
+        "//compiler/damlc/daml-doctest",
         "//compiler/damlc/daml-lf-conversion",
         "//compiler/damlc/daml-opts:daml-opts-types",
-        "//compiler/hie-core",
+        "//compiler/damlc/daml-visual",
         "//compiler/scenario-service/client",
+        "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
     ],
 )
@@ -60,17 +67,20 @@ da_haskell_library(
 da_haskell_library(
     name = "ide-testing",
     srcs = glob(["test/**/*.hs"]),
-    hazel_deps = [
+    hackage_deps = [
         "aeson",
         "base",
         "containers",
+        "data-default",
         "directory",
         "extra",
         "filepath",
+        "ghcide",
         "haskell-lsp",
         "haskell-lsp-types",
         "mtl",
         "network-uri",
+        "regex-tdfa",
         "stm",
         "temporary",
         "text",
@@ -81,11 +91,14 @@ da_haskell_library(
     visibility = ["//visibility:public"],
     deps = [
         ":daml-ide-core",
+        "//compiler/daml-lf-ast",
+        "//compiler/damlc:damlc-lib",
         "//compiler/damlc/daml-compiler",
         "//compiler/damlc/daml-opts",
         "//compiler/damlc/daml-opts:daml-opts-types",
-        "//compiler/hie-core",
+        "//compiler/damlc/daml-visual",
         "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
     ],
 )

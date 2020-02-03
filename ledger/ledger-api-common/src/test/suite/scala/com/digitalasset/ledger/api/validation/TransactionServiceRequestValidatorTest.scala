@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.ledger.api.validation
@@ -19,11 +19,8 @@ import com.digitalasset.ledger.api.v1.transaction_service.{
   GetTransactionsRequest
 }
 import com.digitalasset.ledger.api.v1.value.Identifier
-import com.digitalasset.platform.server.api.validation.IdentifierResolver
 import io.grpc.Status.Code._
 import org.scalatest.WordSpec
-
-import scala.concurrent.Future
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class TransactionServiceRequestValidatorTest extends WordSpec with ValidatorTestUtils {
@@ -60,8 +57,8 @@ class TransactionServiceRequestValidatorTest extends WordSpec with ValidatorTest
 
   val sut = new TransactionServiceRequestValidator(
     domain.LedgerId(expectedLedgerId),
-    PartyNameChecker.AllowAllParties,
-    new IdentifierResolver(_ => Future.successful(None)))
+    PartyNameChecker.AllowAllParties
+  )
 
   "TransactionRequestValidation" when {
 
@@ -414,8 +411,7 @@ class TransactionServiceRequestValidatorTest extends WordSpec with ValidatorTest
       val knowsPartyOnly =
         new TransactionServiceRequestValidator(
           domain.LedgerId(expectedLedgerId),
-          PartyNameChecker.AllowPartySet(Set(party)),
-          new IdentifierResolver(_ => Future.successful(None)))
+          PartyNameChecker.AllowPartySet(Set(party)))
 
       val partyWithUnknowns = List("party", "Alice", "Bob")
       val filterWithUnknown =

@@ -1,42 +1,43 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.platform.sandbox.perf
 
+import java.io.File
 import java.util.concurrent.TimeUnit
 
-import com.digitalasset.platform.PlatformApplications
 import com.digitalasset.platform.sandbox.perf.TestHelper._
 import org.openjdk.jmh.annotations._
 
 import scala.concurrent.Await
 
+@State(Scope.Benchmark)
 abstract class CreatedStateBase extends PerfBenchState {
-  override def config: PlatformApplications.Config =
-    PlatformApplications.Config.default
-      .withDarFile(darFile.toPath)
+
+  override def darFile: File = TestHelper.darFile
 
   @Param(Array("10", "100", "1000", "100000"))
   var n: Int = _
 
-  var workflowId: String = null
+  var workflowId: String = _
 
   @Setup(Level.Invocation)
   def init(): Unit = {
     workflowId = uniqueId()
     sendCreates()
-
   }
 
   def sendCreates(): Unit
 }
 
 class RangeOfIntsCreatedState extends CreatedStateBase {
+
   override def sendCreates(): Unit =
     Await.result(rangeOfIntsCreateCommand(this, workflowId, n), setupTimeout)
 }
 
 class ListOfNIntsCreatedState extends CreatedStateBase {
+
   override def sendCreates(): Unit =
     Await.result(listUtilCreateCommand(this, workflowId), setupTimeout)
 }

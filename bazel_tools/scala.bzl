@@ -1,10 +1,11 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2020 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
     "@io_bazel_rules_scala//scala:scala.bzl",
     "scala_binary",
     "scala_library",
+    "scala_library_suite",
     "scala_macro_library",
     "scala_test",
     "scala_test_suite",
@@ -15,6 +16,7 @@ load(
 )
 load("//bazel_tools:pom_file.bzl", "pom_file")
 load("@os_info//:os_info.bzl", "is_windows")
+load("//bazel_tools:pkg.bzl", "pkg_empty_zip")
 
 # This file defines common Scala compiler flags and plugins used throughout
 # this repository. The initial set of flags is taken from the ledger-client
@@ -56,11 +58,11 @@ common_scalacopts = [
 ]
 
 plugin_deps = [
-    "//3rdparty/jvm/org/wartremover:wartremover",
+    "@maven//:org_wartremover_wartremover_2_12",
 ]
 
 common_plugins = [
-    "//external:jar/org/wartremover/wartremover_2_12",
+    "@maven//:org_wartremover_wartremover_2_12",
 ]
 
 plugin_scalacopts = [
@@ -69,8 +71,6 @@ plugin_scalacopts = [
     "-Xplugin-require:wartremover",
 
     # This lists all wartremover linting passes.
-    # The list of enabled ones is pretty arbitrary, please ping Francesco for
-    # info
     "-P:wartremover:traverser:org.wartremover.warts.Any",
     "-P:wartremover:traverser:org.wartremover.warts.AnyVal",
     "-P:wartremover:traverser:org.wartremover.warts.ArrayEquals",
@@ -119,7 +119,7 @@ lf_scalacopts = [
     "-Ywarn-unused",
 ]
 
-def _wrap_rule(rule, name = "", scalacopts = [], plugins = [], **kwargs):
+def _wrap_rule(rule, name = "", scalacopts = [], plugins = [], generated_srcs = [], **kwargs):
     rule(
         name = name,
         scalacopts = common_scalacopts + plugin_scalacopts + scalacopts,
@@ -169,22 +169,29 @@ def _scala_source_jar_impl(ctx):
             for new_path in _strip_path_upto(src.path, ctx.attr.strip_upto):
                 zipper_args.append("%s=%s" % (new_path, src.path))
 
+    posix = ctx.toolchains["@rules_sh//sh/posix:toolchain_type"]
     if len(tmpsrcdirs) > 0:
         tmpsrc_cmds = [
-            "(find -L {tmpsrc_path} -type f | sed -E 's#^{tmpsrc_path}/(.*)$#\\1={tmpsrc_path}/\\1#')".format(tmpsrc_path = tmpsrcdir.path)
+            "({find} -L {tmpsrc_path} -type f | {sed} -E 's#^{tmpsrc_path}/(.*)$#\\1={tmpsrc_path}/\\1#')".format(
+                find = posix.commands["find"],
+                sed = posix.commands["sed"],
+                tmpsrc_path = tmpsrcdir.path,
+            )
             for tmpsrcdir in tmpsrcdirs
         ]
 
-        cmd = "(echo -e \"{src_paths}\" && {joined_tmpsrc_cmds}) | sort > {args_file}".format(
+        cmd = "(echo -e \"{src_paths}\" && {joined_tmpsrc_cmds}) | {sort} > {args_file}".format(
             src_paths = "\\n".join(zipper_args),
             joined_tmpsrc_cmds = " && ".join(tmpsrc_cmds),
             args_file = zipper_args_file.path,
+            sort = posix.commands["sort"],
         )
         inputs = tmpsrcdirs + [manifest_file] + ctx.files.srcs
     else:
-        cmd = "echo -e \"{src_paths}\" | sort > {args_file}".format(
+        cmd = "echo -e \"{src_paths}\" | {sort} > {args_file}".format(
             src_paths = "\\n".join(zipper_args),
             args_file = zipper_args_file.path,
+            sort = posix.commands["sort"],
         )
         inputs = [manifest_file] + ctx.files.srcs
 
@@ -194,7 +201,6 @@ def _scala_source_jar_impl(ctx):
         inputs = inputs,
         command = cmd,
         progress_message = "find_scala_source_files %s" % zipper_args_file.path,
-        use_default_shell_env = True,
     )
 
     ctx.actions.run(
@@ -227,6 +233,7 @@ scala_source_jar = rule(
     outputs = {
         "out": "%{name}.jar",
     },
+    toolchains = ["@rules_sh//sh/posix:toolchain_type"],
 )
 
 def _create_scala_source_jar(**kwargs):
@@ -275,7 +282,7 @@ def _scaladoc_jar_impl(ctx):
     srcFiles = [
         src.path
         for src in ctx.files.srcs
-        if src.is_source
+        if src.is_source or src in ctx.files.generated_srcs
     ]
 
     if srcFiles != []:
@@ -306,6 +313,7 @@ def _scaladoc_jar_impl(ctx):
         args.add_joined(classpath, join_with = ":")
         args.add_joined(pluginPaths, join_with = ",", format_joined = "-Xplugin:%s")
         args.add_all(common_scalacopts)
+        args.add_all(ctx.attr.scalacopts)
         args.add_all(srcFiles)
 
         ctx.actions.run(
@@ -319,16 +327,19 @@ def _scaladoc_jar_impl(ctx):
         # since we only have the output directory of the scaladoc generation we need to find
         # all the files below sources_out and add them to the zipper args file
         zipper_args_file = ctx.actions.declare_file(ctx.label.name + ".zipper_args")
+        posix = ctx.toolchains["@rules_sh//sh/posix:toolchain_type"]
         ctx.actions.run_shell(
             mnemonic = "ScaladocFindOutputFiles",
             outputs = [zipper_args_file],
             inputs = [outdir],
-            command = "find -L {src_path} -type f | sed -E 's#^{src_path}/(.*)$#\\1={src_path}/\\1#' | sort > {args_file}".format(
+            command = "{find} -L {src_path} -type f | {sed} -E 's#^{src_path}/(.*)$#\\1={src_path}/\\1#' | {sort} > {args_file}".format(
+                find = posix.commands["find"],
+                sed = posix.commands["sed"],
+                sort = posix.commands["sort"],
                 src_path = outdir.path,
                 args_file = zipper_args_file.path,
             ),
             progress_message = "find_scaladoc_output_files %s" % zipper_args_file.path,
-            use_default_shell_env = True,
         )
 
         ctx.actions.run(
@@ -348,6 +359,9 @@ scaladoc_jar = rule(
         "doctitle": attr.string(default = ""),
         "plugins": attr.label_list(default = []),
         "srcs": attr.label_list(allow_files = True),
+        # generated source files that should still be included.
+        "generated_srcs": attr.label_list(allow_files = True),
+        "scalacopts": attr.string_list(),
         "_zipper": attr.label(
             default = Label("@bazel_tools//tools/zip:zipper"),
             cfg = "host",
@@ -364,6 +378,7 @@ scaladoc_jar = rule(
     outputs = {
         "out": "%{name}.jar",
     },
+    toolchains = ["@rules_sh//sh/posix:toolchain_type"],
 )
 """
 Generates a Scaladoc jar path/to/target/<name>.jar.
@@ -386,18 +401,21 @@ def _create_scaladoc_jar(**kwargs):
             deps = kwargs["deps"],
             plugins = plugins,
             srcs = kwargs["srcs"],
+            scalacopts = kwargs.get("scalacopts", []),
+            generated_srcs = kwargs.get("generated_srcs", []),
         )
 
-def da_scala_library(name, **kwargs):
+def da_scala_library(name, unused_dependency_checker_mode = "error", **kwargs):
     """
     Define a Scala library.
 
     Applies common Scala options defined in `bazel_tools/scala.bzl`.
     And forwards to `scala_library` from `rules_scala`.
-    Refer to the [`rules_scala` documentation][rules_scala_docs].
+    Refer to the [`rules_scala` documentation][rules_scala_library_docs].
 
-    [rules_scala_docs]: https://github.com/bazelbuild/rules_scala#scala_library
+    [rules_scala_library_docs]: https://github.com/bazelbuild/rules_scala/blob/master/docs/scala_library.md
     """
+    kwargs["unused_dependency_checker_mode"] = unused_dependency_checker_mode
     _wrap_rule(scala_library, name, **kwargs)
     _create_scala_source_jar(name = name, **kwargs)
     _create_scaladoc_jar(name = name, **kwargs)
@@ -409,6 +427,26 @@ def da_scala_library(name, **kwargs):
                     name = name + "_pom",
                     target = ":" + name,
                 )
+                break
+
+def da_scala_library_suite(name, **kwargs):
+    """
+    Define a suite of Scala libraries as a single target.
+
+    Applies common Scala options defined in `bazel_tools/scala.bzl`.
+    And forwards to `scala_library_suite` from `rules_scala`.
+    Refer to the [`rules_scala` documentation][rules_scala_library_suite_docs].
+
+    [rules_scala_library_suite_docs]: https://github.com/bazelbuild/rules_scala/blob/master/docs/scala_library_suite.md
+    """
+    _wrap_rule(scala_library_suite, name, **kwargs)
+    _create_scala_source_jar(name = name, **kwargs)
+    _create_scaladoc_jar(name = name, **kwargs)
+
+    if "tags" in kwargs:
+        for tag in kwargs["tags"]:
+            if tag.startswith("maven_coordinates="):
+                fail("Usage of maven_coordinates in da_scala_library_suite is NOT supported", "tags")
                 break
 
 def da_scala_macro_library(**kwargs):
@@ -424,7 +462,7 @@ def da_scala_macro_library(**kwargs):
     _wrap_rule(scala_macro_library, **kwargs)
     _create_scala_source_jar(**kwargs)
 
-def da_scala_binary(name, **kwargs):
+def da_scala_binary(name, unused_dependency_checker_mode = "error", **kwargs):
     """
     Define a Scala executable.
 
@@ -434,6 +472,7 @@ def da_scala_binary(name, **kwargs):
 
     [rules_scala_docs]: https://github.com/bazelbuild/rules_scala#scala_binary
     """
+    kwargs["unused_dependency_checker_mode"] = unused_dependency_checker_mode
     _wrap_rule(scala_binary, name, **kwargs)
 
     if "tags" in kwargs:
@@ -443,9 +482,21 @@ def da_scala_binary(name, **kwargs):
                     name = name + "_pom",
                     target = ":" + name,
                 )
+
+                # Create empty Sources JAR for uploading to Maven Central
+                pkg_empty_zip(
+                    name = name + "_src",
+                    out = name + "_src.jar",
+                )
+
+                # Create empty javadoc JAR for uploading deploy jars to Maven Central
+                pkg_empty_zip(
+                    name = name + "_javadoc",
+                    out = name + "_javadoc.jar",
+                )
                 break
 
-def da_scala_test(**kwargs):
+def da_scala_test(unused_dependency_checker_mode = "error", **kwargs):
     """
     Define a Scala executable that runs the unit tests in the given source files.
 
@@ -455,6 +506,7 @@ def da_scala_test(**kwargs):
 
     [rules_scala_docs]: https://github.com/bazelbuild/rules_scala#scala_test
     """
+    kwargs["unused_dependency_checker_mode"] = unused_dependency_checker_mode
     _wrap_rule(scala_test, **kwargs)
 
 def da_scala_test_suite(**kwargs):

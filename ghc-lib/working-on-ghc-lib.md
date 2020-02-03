@@ -1,6 +1,6 @@
 # Working on `ghc-lib`
 
-Copyright 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All Rights Reserved.
+Copyright 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: (Apache-2.0 OR BSD-3-Clause)
 
 If you need to build, test, deploy or develop [`ghc-lib`](https://github.com/digital-asset/ghc-lib) as used by DAML and utilizing the Digital Asset [GHC fork](https://github.com/digital-asset/ghc) these notes are for you.
@@ -57,7 +57,7 @@ The equivalent commands to build the `8.8.1` compatible branch are:
 git clone https://gitlab.haskell.org/ghc/ghc.git
 cd ghc
 git fetch --tags
-git checkout ghc-8.8.1-alpha1
+git checkout ghc-8.8.1-rc1
 git remote add upstream git@github.com:digital-asset/ghc.git
 git fetch upstream
 git merge --no-edit upstream/da-master-8.8.1
@@ -65,6 +65,33 @@ git submodule update --init --recursive
 stack build --stack-yaml=hadrian/stack.yaml --only-dependencies
 hadrian/build.stack.sh --configure --flavour=quickest -j
 ```
+
+## Iterating on Template Desugaring
+
+Modifying GHC, building `ghc-lib` and then building `damlc` is quite time
+intensive and makes mistakes very costly. Therefore it is usually preferable to
+first take a look at the new output from template desugaring before building `ghc-lib`.
+The fastest option for that is to build GHC with
+
+```
+./hadrian/build.sh -j --flavour=quickest --freeze1
+```
+
+You can then run GHC on a DAML file as follows
+
+```
+./_build/stage1/bin/ghc  ~/tmp/Test.hs -ddump-parsed
+```
+
+Note that the file should end with `.hs`, otherwise GHC will think that it is an additional input
+for the linking phase and your DAML file should start with:
+
+```
+{-# LANGUAGE DamlSyntax #-}
+```
+
+You will get compile errors after the parse tree has been emitted since the standard library is missing
+but if you just want to see the output from template desugaring, this is sufficient.
 
 ## How to build `ghc-lib` from the DA GHC fork
 (You don't need to follow the previous step in order to do this.)
@@ -93,10 +120,12 @@ The equivalent 8.8.1 commands are:
 ```
 mkdir -p ~/tmp && cd ~/tmp
 git clone git@github.com:digital-asset/ghc-lib.git
-cd ghc-lib && git clone https://gitlab.haskell.org/ghc/ghc.git
+cd ghc-lib
+git checkout ghc-8.8.1-rc1
+git clone https://gitlab.haskell.org/ghc/ghc.git
 cd ghc
 git fetch --tags
-git checkout ghc-8.8.1-alpha1
+git checkout ghc-8.8.1-rc1
 git remote add upstream git@github.com:digital-asset/ghc.git
 git fetch upstream
 git merge --no-edit upstream/da-master-8.8.1 upstream/da-unit-ids-8.8.1
@@ -118,6 +147,7 @@ This creates `~tmp/ghc-lib/ghc-lib-parser-xxx.tar.gz` where `xxx` is the version
 
 3. Generate `ghc-lib.cabal` by running:
 ```bash
+git checkout stack.yaml
 (cd ghc && git clean -xf && git checkout .)
 stack exec -- ghc-lib-gen ghc --ghc-lib
 ```
@@ -206,10 +236,6 @@ bazel run //compiler/damlc:daml-ghc-test -- --pattern=
 ```
 5. When the tests pass, push your branch to origin and raise a PR.
 
-## `ghc-lib` in CI
-
-At this time we have a pipeline in Jenkins [here](https://ci2.da-int.net/job/daml/job/ghc-lib/). It is run on a cron and can be run on demand.
-
 ## How to rebase `ghc-lib` on upstream master
 
 To keep `ghc-lib` consistent with changes to upstream GHC source code, it is neccessary to rebase our branches on the upstream `master` from time to time. The procedure for doing this is as follows:
@@ -270,39 +296,3 @@ hadrian/build.stack.sh --configure --flavour=quickest -j
 As usual, the compiler is built to `_build/stage1/bin/ghc`.
 
 When you are ready to publish your feature branch, push to `upstream` and raise your PR with base `da-master`.
-
-## Temporary build instructions
-
-At the current time, there are bugs with `stack`/`happy`/`cabal` and the `--configure` hadrian option. While these get worked out we are using the following procedure for building `ghc-lib` for DAML.
-```
-git clone git@github.com:digital-asset/ghc-lib.git ghc-lib.git
-cd ghc-lib.git
-git checkout ghc-8.8.1-alpha2
-git clone https://gitlab.haskell.org/ghc/ghc.git ghc
-cd ghc
-git checkout ghc-8.8.1-alpha2
-git submodule update --init --recursive
-git remote add upstream git@github.com:digital-asset/ghc.git
-git fetch upstream
-git merge --no-edit upstream/da-master-8.8.1 upstream/da-unit-ids-8.8.1
-cd .. # ghc-lib directory
-cabal build
-cabal run -- ghc --ghc-lib-parser
-cd ghc
-# *** Edit ghc/ghc-lib-parser.cabal. Change version number etc as
-#     per the documention. ***
-cabal sdist
-cp dist/ghc-lib-parser-8.8.0.20190620.tar.gz ..
-git clean -xf && git checkout . # Reset for next run
-cd ..
-cabal run -- ghc --ghc-lib
-cd ghc
-# *** Edit ghc/ghc-lib.cabal. Change version number etc as per
-#     the documention. ***
-cabal sdist
-cp dist/ghc-lib-8.8.0.20190620.tar.gz ..
-cd ..
-ls *.tar.gz
-# There are now ghc-lib-parser and ghc-lib sdists in your ghc-lib
-#  directory. Proceed to deployment.
-```

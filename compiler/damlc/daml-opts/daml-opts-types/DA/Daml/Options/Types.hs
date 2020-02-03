@@ -1,14 +1,19 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
+
+{-# OPTIONS_GHC -Wno-orphans #-}
 
 module DA.Daml.Options.Types
     ( Options(..)
     , EnableScenarioService(..)
-    , ScenarioValidation(..)
-    , HlintUsage(..)
-    , defaultOptionsIO
+    , SkipScenarioValidation(..)
+    , DlintUsage(..)
+    , Haddock(..)
+    , IncrementalBuild(..)
+    , PackageFlag(..)
+    , ModRenaming(..)
+    , PackageArg(..)
     , defaultOptions
-    , mkOptions
     , getBaseDir
     , damlArtifactDir
     , projectPackageDatabase
@@ -16,33 +21,41 @@ module DA.Daml.Options.Types
     , distDir
     , genDir
     , basePackages
+    , getPackageDbs
     ) where
 
 import Control.Monad.Reader
 import DA.Bazel.Runfiles
 import qualified DA.Daml.LF.Ast as LF
-import DA.Pretty (renderPretty)
-import Data.Foldable (toList)
+import DA.Pretty
 import Data.Maybe
+import Development.IDE.GHC.Util (prettyPrint)
+import DynFlags (ModRenaming(..), PackageFlag(..), PackageArg(..))
 import qualified System.Directory as Dir
 import System.FilePath
+
+-- | Orphan instances for debugging
+instance Show PackageFlag where
+    show = prettyPrint
 
 -- | Compiler run configuration for DAML-GHC.
 data Options = Options
   { optImportPath :: [FilePath]
     -- ^ import path for both user modules and standard library
   , optPackageDbs :: [FilePath]
-    -- ^ package databases that will be loaded
+    -- ^ User-specified package databases that will be loaded.
+    -- This should not contain the LF version suffix. We will append this at the usesite.
+  , optStablePackages :: Maybe FilePath
+    -- ^ The directory in which stable DALF packages are located.
   , optMbPackageName :: Maybe String
     -- ^ compile in the context of the given package name and create interface files
-  , optWriteInterface :: Bool
-    -- ^ whether to write interface files or not.
   , optIfaceDir :: Maybe FilePath
-    -- ^ alternative directory to write interface files to. Default is <current working dir>.daml/interfaces.
+    -- ^ directory to write interface files to. If set to `Nothing` we default to <current working dir>.daml/interfaces.
   , optHideAllPkgs :: Bool
     -- ^ hide all imported packages
-  , optPackageImports :: [(String, [(String, String)])]
-    -- ^ list of explicit package imports and modules with aliases
+  , optPackageImports :: [PackageFlag]
+    -- ^ list of explicit package imports and modules with aliases. The boolean flag controls
+    -- whether modules without given alias are visible.
   , optShakeProfiling :: Maybe FilePath
     -- ^ enable shake profiling
   , optThreads :: Int
@@ -55,25 +68,39 @@ data Options = Options
     -- ^ custom options, parsed by GHC option parser, overriding DynFlags
   , optScenarioService :: EnableScenarioService
     -- ^ Controls whether the scenario service is started.
-  , optScenarioValidation :: ScenarioValidation
-    -- ^ Controls whether the scenario service server runs all checks
-    -- or only a subset of them. This is mostly used to run additional
-    -- checks on CI while keeping the IDE fast.
-  , optHlintUsage :: HlintUsage
-  -- ^ Information about hlint usage.
+  , optSkipScenarioValidation :: SkipScenarioValidation
+    -- ^ Controls whether the scenario service server run package validations.
+    -- This is mostly used to run additional checks on CI while keeping the IDE fast.
+  , optDlintUsage :: DlintUsage
+  -- ^ Information about dlint usage.
   , optIsGenerated :: Bool
     -- ^ Whether we're compiling generated code. Then we allow internal imports.
+  , optDflagCheck :: Bool
+    -- ^ Whether to check dflags. In some cases we want to turn this check of. For example when
+    -- migrating or running the daml doc test.
+  , optCoreLinting :: Bool
+    -- ^ Whether to enable linting of the generated GHC Core. (Used in testing.)
+  , optHaddock :: Haddock
+    -- ^ Whether to enable lexer option `Opt_Haddock` (default is `Haddock False`).
+  , optCppPath :: Maybe FilePath
+    -- ^ Enable CPP, by giving filepath to the executable.
+  , optIncrementalBuild :: IncrementalBuild
+  -- ^ Whether to do an incremental on-disk build as opposed to keeping everything in memory.
   } deriving Show
 
-data HlintUsage
-  = HlintEnabled { hlintUseDataDir::FilePath }
-  | HlintDisabled
+newtype IncrementalBuild = IncrementalBuild { getIncrementalBuild :: Bool }
   deriving Show
 
-data ScenarioValidation
-    = ScenarioValidationLight
-    | ScenarioValidationFull
-    deriving Show
+newtype Haddock = Haddock Bool
+  deriving Show
+
+data DlintUsage
+  = DlintEnabled { dlintUseDataDir :: FilePath, dlintAllowOverrides :: Bool }
+  | DlintDisabled
+  deriving Show
+
+newtype SkipScenarioValidation = SkipScenarioValidation { getSkipScenarioValidation :: Bool }
+  deriving Show
 
 newtype EnableScenarioService = EnableScenarioService { getEnableScenarioService :: Bool }
     deriving Show
@@ -98,36 +125,28 @@ distDir = damlArtifactDir </> "dist"
 basePackages :: [String]
 basePackages = ["daml-prim", "daml-stdlib"]
 
--- | Check that import paths and package db directories exist and add
--- the default package db if it exists
-mkOptions :: Options -> IO Options
-mkOptions opts@Options {..} = do
-    mapM_ checkDirExists $ optImportPath <> optPackageDbs
-    mbDefaultPkgDb <- locateRunfilesMb (mainWorkspace </> "compiler" </> "damlc" </> "pkg-db")
-    let mbDefaultPkgDbDir = fmap (</> "pkg-db_dir") mbDefaultPkgDb
-    pkgDbs <- filterM Dir.doesDirectoryExist (toList mbDefaultPkgDbDir ++ [projectPackageDatabase])
-    case optHlintUsage of
-      HlintEnabled dir -> checkDirExists dir
-      HlintDisabled -> return ()
-    pure opts {optPackageDbs = map (</> versionSuffix) $ pkgDbs ++ optPackageDbs}
-  where checkDirExists f =
-          Dir.doesDirectoryExist f >>= \ok ->
-          unless ok $ fail $ "Required directory does not exist: " <> f
-        versionSuffix = renderPretty optDamlLfVersion
+-- | Find the builtin package dbs if the exist.
+locateBuiltinPackageDbs :: IO [FilePath]
+locateBuiltinPackageDbs = do
+    -- package db for daml-stdlib and daml-prim
+    internalPackageDb <- fmap (</> "pkg-db_dir") $ locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "pkg-db")
+    -- If these directories do not exist, we just discard them.
+    filterM Dir.doesDirectoryExist [internalPackageDb, projectPackageDatabase]
 
--- | Default configuration for the compiler with package database set according to daml-lf version
--- and located runfiles. If the version argument is Nothing it is set to the default daml-lf
--- version.
-defaultOptionsIO :: Maybe LF.Version -> IO Options
-defaultOptionsIO mbVersion = mkOptions $ defaultOptions mbVersion
+-- Given the target LF version and the package dbs specified by the user, return the versioned package dbs
+-- including builtin package dbs.
+getPackageDbs :: LF.Version -> [FilePath] -> IO [FilePath]
+getPackageDbs version userPkgDbs = do
+    builtinPkgDbs <- locateBuiltinPackageDbs
+    pure $ map (</> renderPretty version) (builtinPkgDbs ++ userPkgDbs)
 
 defaultOptions :: Maybe LF.Version -> Options
 defaultOptions mbVersion =
     Options
         { optImportPath = []
         , optPackageDbs = []
+        , optStablePackages = Nothing
         , optMbPackageName = Nothing
-        , optWriteInterface = False
         , optIfaceDir = Nothing
         , optHideAllPkgs = False
         , optPackageImports = []
@@ -137,9 +156,14 @@ defaultOptions mbVersion =
         , optDebug = False
         , optGhcCustomOpts = []
         , optScenarioService = EnableScenarioService True
-        , optScenarioValidation = ScenarioValidationFull
-        , optHlintUsage = HlintDisabled
+        , optSkipScenarioValidation = SkipScenarioValidation False
+        , optDlintUsage = DlintDisabled
         , optIsGenerated = False
+        , optDflagCheck = True
+        , optCoreLinting = False
+        , optHaddock = Haddock False
+        , optCppPath = Nothing
+        , optIncrementalBuild = IncrementalBuild False
         }
 
 getBaseDir :: IO FilePath

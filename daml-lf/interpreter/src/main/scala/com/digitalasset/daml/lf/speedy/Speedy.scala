@@ -1,8 +1,10 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.speedy
+package com.digitalasset.daml.lf
+package speedy
 
+import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.speedy.SError._
@@ -13,10 +15,13 @@ import com.digitalasset.daml.lf.transaction.Transaction._
 import com.digitalasset.daml.lf.value.{Value => V}
 
 import scala.collection.JavaConverters._
-import java.util.ArrayList
+import java.util
 
 import com.digitalasset.daml.lf.CompiledPackages
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
+import org.slf4j.LoggerFactory
+
+import scala.util.control.NoStackTrace
 
 object Speedy {
 
@@ -29,7 +34,7 @@ object Speedy {
       /* Kont, or continuation specifies what should be done next
        * once the control has been evaluated.
        */
-      var kont: ArrayList[Kont],
+      var kont: util.ArrayList[Kont],
       /* The last encountered location */
       var lastLocation: Option[Location],
       /* The current partial transaction */
@@ -63,6 +68,45 @@ object Speedy {
     def getEnv(i: Int): SValue = env.get(env.size - i)
     def popEnv(count: Int): Unit =
       env.subList(env.size - count, env.size).clear
+
+    /** Push a single location to the continuation stack for the sake of
+        maintaining a stack trace. */
+    def pushLocation(loc: Location): Unit = {
+      lastLocation = Some(loc)
+      val last_index = kont.size() - 1
+      val last_kont = if (last_index >= 0) Some(kont.get(last_index)) else None
+      last_kont match {
+        // NOTE(MH): If the top of the continuation stack is the monadic token,
+        // we push location information under it to account for the implicit
+        // lambda binding the token.
+        case Some(KArg(Array(SEValue.Token))) => kont.add(last_index, KLocation(loc))
+        // NOTE(MH): When we use a cached top level value, we need to put the
+        // stack trace it produced back on the continuation stack to get
+        // complete stack trace at the use site. Thus, we store the stack traces
+        // of top level values separately during their execution.
+        case Some(KCacheVal(v, stack_trace)) =>
+          kont.set(last_index, KCacheVal(v, loc :: stack_trace)); ()
+        case _ => kont.add(KLocation(loc)); ()
+      }
+    }
+
+    /** Push an entire stack trace to the continuation stack. The first
+        element of the list will be pushed last. */
+    def pushStackTrace(locs: List[Location]): Unit =
+      locs.reverse.foreach(pushLocation)
+
+    /** Compute a stack trace from the locations in the continuation stack.
+        The last seen location will come last. */
+    def stackTrace(): ImmArray[Location] = {
+      val s = new util.ArrayList[Location]
+      kont.forEach { k =>
+        k match {
+          case KLocation(location) => { s.add(location); () }
+          case _ => ()
+        }
+      }
+      ImmArray(s.asScala)
+    }
 
     /** Perform a single step of the machine execution. */
     def step(): SResult =
@@ -108,13 +152,14 @@ object Speedy {
     }
 
     def lookupVal(eval: SEVal): Ctrl = {
-      ptx = ptx.markPackage(eval.ref.packageId)
       eval.cached match {
-        case Some(v) =>
-          CtrlValue(v.asInstanceOf[SValue])
+        case Some((v, stack_trace)) => {
+          pushStackTrace(stack_trace)
+          CtrlValue(v)
+        }
         case None =>
           val ref = eval.ref
-          kont.add(KCacheVal(eval))
+          kont.add(KCacheVal(eval, Nil))
           compiledPackages.getDefinition(ref) match {
             case Some(body) =>
               CtrlExpr(body)
@@ -128,10 +173,12 @@ object Speedy {
                         this.ctrl = CtrlExpr(body)
                       case None =>
                         crash(
-                          s"definition $ref not found even after caller provided new set of packages")
+                          s"definition $ref not found even after caller provided new set of packages",
+                        )
                     }
-                  }
-                ))
+                  },
+                ),
+              )
           }
       }
 
@@ -188,37 +235,52 @@ object Speedy {
   }
 
   object Machine {
-    private def initial(checkSubmitterInMaintainers: Boolean, compiledPackages: CompiledPackages) =
+
+    private val damlTraceLog = LoggerFactory.getLogger("daml.tracelog")
+
+    private def initial(
+        checkSubmitterInMaintainers: Boolean,
+        compiledPackages: CompiledPackages,
+        seed: Option[crypto.Hash],
+    ) =
       Machine(
         ctrl = null,
         env = emptyEnv,
-        kont = new ArrayList[Kont](128),
+        kont = new util.ArrayList[Kont](128),
         lastLocation = None,
-        ptx = PartialTransaction.initial,
+        ptx = PartialTransaction.initial(seed),
         committers = Set.empty,
         commitLocation = None,
-        traceLog = TraceLog(100),
+        traceLog = TraceLog(damlTraceLog, 100),
         compiledPackages = compiledPackages,
         checkSubmitterInMaintainers = checkSubmitterInMaintainers,
         validating = false,
       )
 
     def newBuilder(
-        compiledPackages: CompiledPackages): Either[SError, (Boolean, Expr) => Machine] = {
+        compiledPackages: CompiledPackages,
+    ): Either[SError, (Boolean, Expr) => Machine] = {
       val compiler = Compiler(compiledPackages.packages)
       Right({ (checkSubmitterInMaintainers: Boolean, expr: Expr) =>
-        initial(checkSubmitterInMaintainers, compiledPackages).copy(
-          ctrl = CtrlExpr(compiler.compile(expr)(SEValue(SToken))))
+        fromSExpr(
+          SEApp(compiler.compile(expr), Array(SEValue.Token)),
+          checkSubmitterInMaintainers,
+          compiledPackages,
+        )
       })
     }
 
     def build(
         checkSubmitterInMaintainers: Boolean,
         sexpr: SExpr,
-        compiledPackages: CompiledPackages): Machine =
-      initial(checkSubmitterInMaintainers, compiledPackages).copy(
-        // apply token
-        ctrl = CtrlExpr(sexpr(SEValue(SToken))),
+        compiledPackages: CompiledPackages,
+        seed: Option[crypto.Hash] = None,
+    ): Machine =
+      fromSExpr(
+        SEApp(sexpr, Array(SEValue.Token)),
+        checkSubmitterInMaintainers,
+        compiledPackages,
+        seed,
       )
 
     // Used from repl.
@@ -226,18 +288,28 @@ object Speedy {
         expr: Expr,
         checkSubmitterInMaintainers: Boolean,
         compiledPackages: CompiledPackages,
-        scenario: Boolean): Machine = {
+        scenario: Boolean,
+    ): Machine = {
       val compiler = Compiler(compiledPackages.packages)
       val sexpr =
         if (scenario)
-          compiler.compile(expr)(SEValue(SToken))
+          SEApp(compiler.compile(expr), Array(SEValue.Token))
         else
           compiler.compile(expr)
 
-      initial(checkSubmitterInMaintainers, compiledPackages).copy(
-        ctrl = CtrlExpr(sexpr),
-      )
+      fromSExpr(sexpr, checkSubmitterInMaintainers, compiledPackages)
     }
+
+    // Construct a machine from an SExpr. This is useful when you don’t have
+    // an update expression and build’s behavior of applying the expression to
+    // a token is not appropriate.
+    def fromSExpr(
+        sexpr: SExpr,
+        checkSubmitterInMaintainers: Boolean,
+        compiledPackages: CompiledPackages,
+        seed: Option[crypto.Hash] = None,
+    ): Machine =
+      initial(checkSubmitterInMaintainers, compiledPackages, seed).copy(ctrl = CtrlExpr(sexpr))
   }
 
   /** Control specifies the thing that the machine should be reducing.
@@ -297,6 +369,8 @@ object Speedy {
     }
   }
 
+  object CtrlValue extends SValueContainer[CtrlValue]
+
   /** When we fetch a contract id from upstream we cannot crash in the
     * that upstream calls. Rather, we set the control to this and then crash
     * when executing.
@@ -304,8 +378,8 @@ object Speedy {
   final case class CtrlWronglyTypeContractId(
       acoid: AbsoluteContractId,
       expected: TypeConName,
-      actual: TypeConName)
-      extends Ctrl {
+      actual: TypeConName,
+  ) extends Ctrl {
     override def execute(machine: Machine): Unit = {
       throw DamlEWronglyTypedContract(acoid, expected, actual)
     }
@@ -313,7 +387,7 @@ object Speedy {
 
   object Ctrl {
     def fromPrim(prim: Prim, arity: Int): Ctrl =
-      CtrlValue(SPAP(prim, new ArrayList[SValue](), arity))
+      CtrlValue(SPAP(prim, new util.ArrayList[SValue](), arity))
   }
 
   //
@@ -321,8 +395,8 @@ object Speedy {
   //
   // NOTE(JM): We use ArrayList instead of ArrayBuffer as
   // it is significantly faster.
-  type Env = ArrayList[SValue]
-  def emptyEnv(): Env = new ArrayList[SValue](512)
+  type Env = util.ArrayList[SValue]
+  def emptyEnv(): Env = new util.ArrayList[SValue](512)
 
   //
   // Kontinuation
@@ -349,7 +423,7 @@ object Speedy {
     def execute(v: SValue, machine: Machine) = {
       v match {
         case SPAP(prim, args, arity) =>
-          val args2 = args.clone.asInstanceOf[ArrayList[SValue]]
+          val args2 = args.clone.asInstanceOf[util.ArrayList[SValue]]
           val missing = arity - args2.size
 
           // Stash away over-applied arguments, if any.
@@ -364,9 +438,11 @@ object Speedy {
 
           // start evaluating the arguments
           val newArgsLimit = Math.min(missing, newArgs.length)
-          for (i <- 1 until newArgsLimit) {
+          var i = 1
+          while (i < newArgsLimit) {
             val arg = newArgs(newArgsLimit - i)
             machine.kont.add(KPushTo(args2, arg))
+            i = i + 1
           }
           machine.ctrl = CtrlExpr(newArgs(0))
 
@@ -379,7 +455,7 @@ object Speedy {
   /** The function and the arguments have been evaluated. Construct a PAP from them.
     * If the PAP is fully applied the machine will push the arguments to the environment
     * and start evaluating the function body. */
-  final case class KFun(prim: Prim, args: ArrayList[SValue], var arity: Int) extends Kont {
+  final case class KFun(prim: Prim, args: util.ArrayList[SValue], var arity: Int) extends Kont {
     def execute(v: SValue, machine: Machine) = {
       args.add(v) // Add last argument
       machine.ctrl = CtrlValue(SPAP(prim, args, arity))
@@ -433,7 +509,7 @@ object Speedy {
               case _ => false
             }
           }
-        case _: SUnit =>
+        case SUnit =>
           alts.find { alt =>
             alt.pattern match {
               case SCPPrimCon(PCUnit) => true
@@ -457,15 +533,16 @@ object Speedy {
               case _ => false
             }
           }
-        case _: SContractId | _: SDate | _: SDecimal | _: SInt64 | _: SParty | _: SText |
-            _: STimestamp | _: STuple | _: SMap | _: SRecord | _: SPAP | SToken =>
+        case SContractId(_) | SDate(_) | SNumeric(_) | SInt64(_) | SParty(_) | SText(_) |
+            STimestamp(_) | SStruct(_, _) | STextMap(_) | SGenMap(_) | SRecord(_, _, _) |
+            SAny(_, _) | STypeRep(_) | STNat(_) | _: SPAP | SToken =>
           crash("Match on non-matchable value")
       }
 
       machine.ctrl = CtrlExpr(
         altOpt
           .getOrElse(throw DamlEMatchError(s"No match for $v in ${alts.toList}"))
-          .body
+          .body,
       )
     }
   }
@@ -476,7 +553,7 @@ object Speedy {
     * the PAP that is being built, and in the case of lets the evaluated value is pushed
     * direy into the environment.
     */
-  final case class KPushTo(to: ArrayList[SValue], next: SExpr) extends Kont {
+  final case class KPushTo(to: util.ArrayList[SValue], next: SExpr) extends Kont {
     def execute(v: SValue, machine: Machine) = {
       to.add(v)
       machine.ctrl = CtrlExpr(next)
@@ -486,12 +563,13 @@ object Speedy {
   /** Store the evaluated value in the 'SEVal' from which the expression came from.
     * This in principle makes top-level values lazy. It is a useful optimization to
     * allow creation of large constants (for example records) that are repeatedly
-    * accessed. In older compilers which did not use the builtin record and tuple
+    * accessed. In older compilers which did not use the builtin record and struct
     * updates this solves the blow-up which would happen when a large record is
     * updated multiple times. */
-  final case class KCacheVal(v: SEVal) extends Kont {
+  final case class KCacheVal(v: SEVal, stack_trace: List[Location]) extends Kont {
     def execute(sv: SValue, machine: Machine) = {
-      v.cached = Some(sv)
+      machine.pushStackTrace(stack_trace)
+      v.cached = Some((sv, stack_trace))
     }
   }
 
@@ -507,7 +585,14 @@ object Speedy {
     }
   }
 
+  /** A location frame stores a location annotation found in the AST. */
+  final case class KLocation(location: Location) extends Kont {
+    def execute(v: SValue, machine: Machine) = {
+      machine.ctrl = CtrlValue(v)
+    }
+  }
+
   /** Internal exception thrown when a continuation result needs to be returned. */
-  final case class SpeedyHungry(result: SResult) extends RuntimeException(result.toString)
+  final case class SpeedyHungry(result: SResult) extends RuntimeException with NoStackTrace
 
 }

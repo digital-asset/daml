@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.validation
@@ -68,6 +68,10 @@ private[validation] object Collision {
         // ignore values
         // List(NValDef(module, defName, vDef))
         List.empty
+
+      case _: Ast.DTypeSyn =>
+        List.empty // TODO #3616: check type synonyms
+
     }
 
 }

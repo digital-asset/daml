@@ -1,4 +1,4 @@
-.. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2020 The DAML Authors. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Glossary of concepts
@@ -78,6 +78,9 @@ Disjunction choice, flexible controllers
 A **disjunction choice** has more than one `controller <#controller>`__.
 
 If a contract uses **flexible controllers**, this means you don't specify the controller of the `choice <#choice>`__ at `creation <#create>`__ time of the `contract <#contract-contract-instance>`__, but at `exercise <#exercise>`__ time.
+
+
+.. _glossary-party:
 
 Party
 =====
@@ -173,14 +176,14 @@ Agreement
 
 An **agreement** is part of a `contract <#contract-contract-instance>`__. It is text that explains what the contract represents.
 
-It can be used to clarify the legal intent of a contract, but this text isn't evaulated programmatically. 
+It can be used to clarify the legal intent of a contract, but this text isn't evaluated programmatically. 
 
 See :doc:`/daml/reference/templates`.
 
 Create
 ======
 
-A **create** is an update that creates a `contract instance <#contract-contract-instance>`__ on it the `ledger <#ledger-daml-ledger>`__.
+A **create** is an update that creates a `contract instance <#contract-contract-instance>`__ on the `ledger <#ledger-daml-ledger>`__.
 
 Contract creation requires `authorization <#authorization-signing>`__ from all its `signatories <#signatory>`__, or the create will fail. For how to get authorization, see the :doc:`propose-accept </daml/patterns/initaccept>` and :doc:`multi-party agreement </daml/patterns/multiparty-agreement>` patterns.
 
@@ -207,8 +210,8 @@ A **scenario** is a way of testing DAML code during development. You can run sce
 They're useful for:
 
 - expressing clearly the intended workflow of your `contracts <#contract-contract-instance>`__
-- for making sure that parties can create contracts, observe contracts, and exercise choices (and that they CANNOT create contracts, observe contracts, or exercise choices that they should not be able to)
-- acting as DAML unit tests to confirm that everything keeps working correctly
+- ensuring that parties can exclusively create contracts, observe contracts, and exercise choices that they are meant to
+- acting as regression tests to confirm that everything keeps working correctly
 
 Scenarios emulate a real ledger. You specify a linear sequence of actions that various parties take, and these are evaluated in order, according to the same consistency, authorization, and privacy rules as they would be on a DAML ledger. DAML Studio shows you the resulting `transaction <#transactions>`__ graph, and (if a scenario fails) what caused it to fail.
 
@@ -233,11 +236,11 @@ See :doc:`/daml/reference/contract-keys`.
 DAR file, DALF file
 ===================
 
-A ``.dar`` file is the result of compiling DAML using the `Assistant <#assistant>`__. Its underlying format is `DAML-LF <#daml-lf>`__.
+A ``.dar`` file is the result of compiling DAML using the `Assistant <#assistant>`__.
 
 You upload ``.dar`` files to a `ledger <#ledger-daml-ledger>`__ in order to be able to create contracts from the templates in that file.
 
-A ``.dar`` contains multiple ``.dalf`` files. A ``.dalf`` file is the output of a compiled DAML package or library.
+A ``.dar`` contains multiple ``.dalf`` files. A ``.dalf`` file is the output of a compiled DAML package or library. Its underlying format is `DAML-LF <#daml-lf>`__.
 
 .. Package, module, library
 .. ========================
@@ -361,15 +364,10 @@ Java bindings
 
 An idiomatic Java library for writing `ledger applications <#application-ledger-client-integration>`__. See :doc:`/app-dev/bindings-java/index`.
 
-Node.js bindings
-----------------
-
-An idiomatic JavaScript library for writing `ledger applications <#application-ledger-client-integration>`__. See :doc:`/app-dev/bindings-js`.
-
 Scala bindings
 --------------
 
-An idiomatic Scala library for writing `ledger applications <#application-ledger-client-integration>`__. See :doc:`/app-dev/bindings-java/index`.
+An idiomatic Scala library for writing `ledger applications <#application-ledger-client-integration>`__. See :doc:`/app-dev/bindings-scala/index`.
 
 gRPC API
 --------
@@ -400,6 +398,8 @@ A **command** is an instruction to add a transaction to the `ledger <#ledger-dam
 
 .. TODO.
 
+.. _daml-lf:
+
 DAML-LF
 =======
 
@@ -423,7 +423,15 @@ DAML ledgers provide various guarantees about what you can expect from it, all l
 
 When you're developing, you'll use `Sandbox <#sandbox>`__ as your ledger.
 
-If you want to run DAML on a storage mechanism of your choice, you can use the :doc:`/daml-integration-kit/index` to help you do that.
+If you would like to integrate DAML with a storage infrastructure not already in development (see `daml.com <https://daml.com>`__), please get in touch on `Slack <https://damldriven.slack.com/sso/saml/start>`__ in the channel ``#daml-contributors``.
+
+.. _trust-domain:
+
+Trust domain
+============
+
+A **trust domain** encompasses a part of the system (in particular, a DAML ledger) operated by a single real-world entity. This subsystem may consist of one or more physical nodes. A single physical machine is always assumed to be controlled by exactly one real-world entity.
+
 
 .. Transaction
 .. ===========

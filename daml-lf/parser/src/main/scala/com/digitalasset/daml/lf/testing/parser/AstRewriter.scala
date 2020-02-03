@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.testing.parser
@@ -24,7 +24,8 @@ private[digitalasset] class AstRewriter(
           apply(x)
         }
         .toSeq
-        .toMap)
+        .toMap,
+      Set.empty[PackageId])
 
   def apply(module: Module): Module =
     module match {
@@ -51,15 +52,16 @@ private[digitalasset] class AstRewriter(
     if (typeRule.isDefinedAt(x)) typeRule(x)
     else
       x match {
-        case TVar(_) | TBuiltin(_) => x
+        case TSynApp(_, _) => throw new RuntimeException("TODO #3616,AstRewriter,TSynApp")
+        case TVar(_) | TNat(_) | TBuiltin(_) => x
         case TTyCon(typeCon) =>
           TTyCon(apply(typeCon))
         case TApp(tyfun, arg) =>
           TApp(apply(tyfun), apply(arg))
         case TForall(binder, body) =>
           TForall(binder, apply(body))
-        case TTuple(fields) =>
-          TTuple(fields.map(apply))
+        case TStruct(fields) =>
+          TStruct(fields.map(apply))
       }
 
   def apply(nameWithType: (Name, Type)): (Name, Type) = nameWithType match {
@@ -71,7 +73,7 @@ private[digitalasset] class AstRewriter(
       exprRule(x)
     else
       x match {
-        case EVar(_) | EBuiltin(_) | EPrimCon(_) | EPrimLit(_) | EContractId(_, _) =>
+        case EVar(_) | EBuiltin(_) | EPrimCon(_) | EPrimLit(_) | ETypeRep(_) =>
           x
         case EVal(ref) =>
           EVal(apply(ref))
@@ -89,14 +91,14 @@ private[digitalasset] class AstRewriter(
           EVariantCon(apply(tycon), variant, apply(arg))
         case EEnumCon(tyCon, cons) =>
           EEnumCon(apply(tyCon), cons)
-        case ETupleCon(fields) =>
-          ETupleCon(fields.transform { (_, x) =>
+        case EStructCon(fields) =>
+          EStructCon(fields.transform { (_, x) =>
             apply(x)
           })
-        case ETupleProj(field, tuple) =>
-          ETupleProj(field, apply(tuple))
-        case ETupleUpd(field, tuple, update) =>
-          ETupleUpd(field, apply(tuple), apply(update))
+        case EStructProj(field, struct) =>
+          EStructProj(field, apply(struct))
+        case EStructUpd(field, struct, update) =>
+          EStructUpd(field, apply(struct), apply(update))
         case EApp(fun, arg) =>
           EApp(apply(fun), apply(arg))
         case ETyApp(expr, typ) =>
@@ -121,6 +123,10 @@ private[digitalasset] class AstRewriter(
           ENone(apply(typ))
         case ESome(typ, body) =>
           ESome(apply(typ), apply(body))
+        case EToAny(ty, body) =>
+          EToAny(ty, apply(body))
+        case EFromAny(ty, body) =>
+          EFromAny(ty, apply(body))
       }
 
   def apply(x: TypeConApp): TypeConApp = x match {
@@ -200,6 +206,9 @@ private[digitalasset] class AstRewriter(
         x
       case DValue(typ, noPartyLiterals, body, isTest) =>
         DValue(apply(typ), noPartyLiterals, apply(body), isTest)
+
+      case DTypeSyn(params @ _, typ @ _) =>
+        throw new RuntimeException("TODO #3616,AstRewriter,DTypeSyn")
     }
 
   def apply(x: Template): Template =

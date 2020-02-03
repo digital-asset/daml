@@ -1,4 +1,4 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2020 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_test")
@@ -67,30 +67,32 @@ def damlc_integration_test(name, main_function):
         main_function = main_function,
         data = [
             "//compiler/damlc/pkg-db",
+            "//compiler/damlc/stable-packages",
             "//compiler/scenario-service/server:scenario_service_jar",
             "@jq_dev_env//:jq",
             ":daml-test-files",
             ":bond-trading",
+            ":query-lf-lib",
         ],
         deps = [
             "//compiler/daml-lf-ast",
             "//compiler/daml-lf-proto",
-            "//compiler/hie-core",
             "//compiler/damlc/daml-compiler",
             "//compiler/damlc/daml-ide-core",
             "//compiler/damlc/daml-lf-conversion",
             "//compiler/damlc/daml-opts:daml-opts-types",
             "//compiler/damlc/daml-opts",
-            "//daml-lf/archive:daml_lf_haskell_proto",
+            "//daml-lf/archive:daml_lf_dev_archive_haskell_proto",
             "//libs-haskell/bazel-runfiles",
             "//libs-haskell/da-hs-base",
             "//libs-haskell/test-utils",
         ],
-        hazel_deps = [
-            "aeson",
+        hackage_deps = [
+            "aeson-pretty",
             "base",
             "bytestring",
             "containers",
+            "data-default",
             "deepseq",
             "directory",
             "dlist",
@@ -98,8 +100,8 @@ def damlc_integration_test(name, main_function):
             "filepath",
             "ghc-lib",
             "ghc-lib-parser",
-            "lens",
-            "lens-aeson",
+            "ghcide",
+            "haskell-lsp-types",
             "optparse-applicative",
             "process",
             "proto3-suite",

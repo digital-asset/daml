@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 daml 1.2
@@ -13,7 +13,7 @@ native_test = scenario do
   bob <- getParty "Bob"
   let
     my_int = -123
-    my_dec = 0.001
+    my_dec = 0.001 : Decimal
     my_text = "Alice"
     my_bool = False
     my_date = date 2020 Jan 01
@@ -23,6 +23,7 @@ native_test = scenario do
   assert (alice /= bob)
   assert (-my_int == 123)
   assert (1000.0 * my_dec == 1.0)
+  assert (my_text == "Alice")
   assert (not my_bool)
   assert (addDays my_date 1 == date 2020 Jan 02)
   assert (addRelTime my_time my_rel_time == time (addDays my_date 1) 00 00 00)

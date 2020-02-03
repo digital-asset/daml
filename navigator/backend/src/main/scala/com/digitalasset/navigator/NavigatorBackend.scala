@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.navigator
@@ -21,14 +21,16 @@ object NavigatorBackend extends UIBackend {
     id = s"Navigator-${UUID.randomUUID().toString}",
     name = "Navigator",
     version = Source.fromResource("COMPONENT-VERSION").mkString("").trim(),
-    revision = Source.fromResource(".git-revision").mkString("").trim()
   )
   override def banner: Option[String] =
     Some(
-      Source
-        .fromResource("banner.txt")
-        .getLines
-        .mkString("\n") + "\nVersion " + applicationInfo.version)
+      raw"""   _  __          _           __
+        |  / |/ /__ __  __(_)__ ____ _/ /____  ____
+        | /    / _ `/ |/ / / _ `/ _ `/ __/ _ \/ __/
+        |/_/|_/\_,_/|___/_/\_, /\_,_/\__/\___/_/
+        |                 /___/
+        |Version """.stripMargin + applicationInfo.version
+    )
 
   /** Frontend config file */
   private val frontendConfigRoute: Route = {

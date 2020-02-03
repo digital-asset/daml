@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.codegen.backend.java.inner
@@ -24,7 +24,7 @@ private[inner] object EnumClass extends StrictLogging {
       val enumType = TypeSpec.enumBuilder(className).addModifiers(Modifier.PUBLIC)
       enum.constructors.foreach(c => enumType.addEnumConstant(c.toUpperCase()))
       enumType.addField(generateValuesArray(enum))
-      enumType.addMethod(generateEnumsMapBuilder(enum))
+      enumType.addMethod(generateEnumsMapBuilder(className, enum))
       enumType.addField(generateEnumsMap(className))
       enumType.addMethod(generateFromValue(className, enum))
       enumType.addMethod(generateToValue(className))
@@ -43,21 +43,29 @@ private[inner] object EnumClass extends StrictLogging {
     fieldSpec.build()
   }
 
+  private def mapType(className: ClassName) =
+    ParameterizedTypeName.get(
+      ClassName.get(classOf[java.util.Map[Any, Any]]),
+      ClassName.get(classOf[String]),
+      className)
+  private def hashMapType(className: ClassName) =
+    ParameterizedTypeName.get(
+      ClassName.get(classOf[java.util.HashMap[Any, Any]]),
+      ClassName.get(classOf[String]),
+      className)
+
   private def generateEnumsMap(className: ClassName): FieldSpec =
     FieldSpec
-      .builder(classOf[java.util.Map[Any, Any]], "__enums$")
+      .builder(mapType(className), "__enums$")
       .addModifiers(Modifier.PRIVATE, Modifier.STATIC, Modifier.FINAL)
       .initializer("$T.__buildEnumsMap$$()", className)
       .build()
 
-  private def generateEnumsMapBuilder(enum: iface.Enum): MethodSpec = {
+  private def generateEnumsMapBuilder(className: ClassName, enum: iface.Enum): MethodSpec = {
     val builder = MethodSpec.methodBuilder("__buildEnumsMap$")
     builder.addModifiers(Modifier.PRIVATE, Modifier.STATIC, Modifier.FINAL)
-    builder.returns(classOf[java.util.Map[Any, Any]])
-    builder.addStatement(
-      "$T m = new $T()",
-      classOf[java.util.Map[Any, Any]],
-      classOf[java.util.HashMap[Any, Any]])
+    builder.returns(mapType(className))
+    builder.addStatement("$T m = new $T()", mapType(className), hashMapType(className))
     enum.constructors.foreach(c => builder.addStatement(s"""m.put("$c", ${c.toUpperCase()})"""))
     builder.addStatement("return m")
     builder.build()

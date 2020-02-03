@@ -1,4 +1,4 @@
-.. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2020 The DAML Authors. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Java bindings
@@ -169,15 +169,34 @@ Connecting to the ledger
 
 Before any ledger services can be accessed, a connection to the ledger must be established. This is done by creating a instance of a ``DamlLedgerClient`` using one of the factory methods ``DamlLedgerClient.forLedgerIdAndHost`` and ``DamlLedgerClient.forHostWithLedgerIdDiscovery``. This instance can then be used to access service clients directly, or passed to a call to ``Bot.wire`` to connect a ``Bot`` instance to the ledger.
 
+.. _ledger-api-java-bindings-authentication:
+
+Authenticating
+==============
+
+Some ledgers will require you to send an access token along with each request.
+
+To learn more about authentication, read the :doc:`Authentication </app-dev/authentication>` overview.
+
+To use the same token for all Ledger API requests, the ``DamlLedgerClient`` builders expose a ``withAccessToken`` method. This will allow you to not pass a token explicitly for every call.
+
+If your application is long-lived and your tokens are bound to expire, you can reload the necessary token when needed and pass it explicitly for every call. Every client method has an overload that allows a token to be passed, as in the following example:
+
+.. code-block:: java
+
+   transactionClient.getLedgerEnd(); // Uses the token specified when constructing the client
+   transactionClient.getLedgerEnd(accessToken); // Override the token for this call exclusively
+
+If you're communicating with a ledger protected by authentication it's very important to secure the communication channel to prevent your tokens to be exposed to man-in-the-middle attacks. The next chapter describes how to enable TLS.
+
 .. _ledger-api-java-binding-connecting-securely:
 
 Connecting securely
 ===================
 
-The Java bindings library lets you connect to a DAML Ledger via a secure connection. The factory methods
-``DamlLedgerClient.forLedgerIdAndHost`` and ``DamlLedgerClient.forHostWithLedgerIdDiscovery`` accept a parameter of type ``Optional<SslContext>``.
-If the value of that optional parameter is not present (i.e. by passing ``Optional.empty()``), a plain text / insecure connection will be established.
-This is useful when connecting to a locally running Sandbox.
+The Java bindings library lets you connect to a DAML Ledger via a secure connection. The builders created by
+``DamlLedgerClient.newBuilder`` default to a plaintext connection, but you can invoke ``withSslContext` to pass an ``SslContext``.
+Using the default plaintext connection is useful only when connecting to a locally running Sandbox for development purposes.
 
 Secure connections to a DAML Ledger must be configured to use client authentication certificates, which can be provided by a Ledger Operator.
 
@@ -188,7 +207,7 @@ For information on how to set up an ``SslContext`` with the provided certificate
 Advanced connection settings
 ============================
 
-Sometimes the default settings for gRPC connections/channels are not suitable for a given situation. These usecases are supported by creating a a custom `ManagedChannel <https://grpc.io/grpc-java/javadoc/io/grpc/ManagedChannel.html>`_ object via `ManagedChannelBuilder <https://grpc.io/grpc-java/javadoc/io/grpc/ManagedChannelBuilder.html>`_  or `NettyChannelBuilder <https://grpc.io/grpc-java/javadoc/io/grpc/netty/NettyChannelBuilder.html>`_ and passing the channel instance to the constructor of `DamlLedgerClient <javadocs/com/daml/ledger/rxjava/DamlLedgerClient.html>`_.
+Sometimes the default settings for gRPC connections/channels are not suitable for a given situation. These use cases are supported by creating a a custom `NettyChannelBuilder <https://grpc.github.io/grpc-java/javadoc/io/grpc/netty/NettyChannelBuilder.html>`_ object and passing the it to the ``newBuilder`` static method defined over `DamlLedgerClient <javadocs/com/daml/ledger/rxjava/DamlLedgerClient.html>`_.
 
 Example project
 ***************

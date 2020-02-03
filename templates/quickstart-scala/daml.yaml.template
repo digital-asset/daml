@@ -1,15 +1,20 @@
 sdk-version: __VERSION__
-name: __PROJECT_NAME__
-source: daml/Main.daml
+name: quickstart
+source: daml
 scenario: Main:setup
 parties:
   - Alice
   - Bob
   - USD_Bank
   - EUR_Bank
-version: 1.0.0
+version: 0.0.1
 exposed-modules:
   - Main
 dependencies:
   - daml-prim
   - daml-stdlib
+codegen:
+  scala:
+    package-prefix: com.digitalasset.quickstart.iou.model
+    output-directory: scala-codegen/src/main/scala
+    verbosity: 2

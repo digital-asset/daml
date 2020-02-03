@@ -1,16 +1,19 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.data
 
-import scalaz.Equal
+import scala.language.higherKinds
+
+import scalaz.{Applicative, Equal, Traverse}
 import scalaz.std.tuple._
 import scalaz.std.string._
 import scalaz.syntax.equal._
+import scalaz.syntax.traverse._
 
 import scala.collection.immutable.HashMap
 
-/** We use this container to pass around DAML-LF maps as flat lists in various parts of the codebase. */
+/** We use this container to pass around DAML-LF text maps as flat lists in various parts of the codebase. */
 // Note that keys are ordered using Utf8 ordering
 final class SortedLookupList[+X] private (entries: ImmArray[(String, X)]) extends Equals {
 
@@ -69,6 +72,13 @@ object SortedLookupList {
   implicit def `SLL Equal instance`[X: Equal]: Equal[SortedLookupList[X]] =
     ScalazEqual.withNatural(Equal[X].equalIsNatural) { (self, other) =>
       self.toImmArray === other.toImmArray
+    }
+
+  implicit val `SLL covariant instance`: Traverse[SortedLookupList] =
+    new Traverse[SortedLookupList] {
+      override def traverseImpl[G[_]: Applicative, A, B](fa: SortedLookupList[A])(
+          f: A => G[B]): G[SortedLookupList[B]] =
+        fa.toImmArray traverse (_ traverse f) map (new SortedLookupList(_))
     }
 
 }

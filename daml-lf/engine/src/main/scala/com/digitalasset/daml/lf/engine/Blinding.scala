@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.engine
@@ -117,7 +117,7 @@ object Blinding {
     // Note that this relies on the local divulgence to be well-formed:
     // if an exercise node is divulged to A but some of its descendants
     // aren't the resulting transaction will not be well formed.
-    val filteredNodes = tx.nodes.filterKeys(partyDivulgences.contains)
+    val filteredNodes = tx.nodes.filter { case (k, _) => partyDivulgences.contains(k) }
 
     @tailrec
     def go(filteredRoots: BackStack[Nid], remainingRoots: FrontStack[Nid]): ImmArray[Nid] = {
@@ -140,7 +140,7 @@ object Blinding {
     GenTransaction(
       roots = go(BackStack.empty, FrontStack(tx.roots)),
       nodes = filteredNodes,
-      usedPackages = tx.usedPackages
+      optUsedPackages = tx.optUsedPackages
     )
   }
 }

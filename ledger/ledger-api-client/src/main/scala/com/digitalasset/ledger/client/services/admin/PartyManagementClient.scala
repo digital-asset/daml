@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.ledger.client.services.admin
@@ -6,39 +6,53 @@ package com.digitalasset.ledger.client.services.admin
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.ledger.api.domain.{ParticipantId, PartyDetails}
+import com.digitalasset.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementServiceStub
 import com.digitalasset.ledger.api.v1.admin.party_management_service.{
   AllocatePartyRequest,
   GetParticipantIdRequest,
   ListKnownPartiesRequest,
   PartyDetails => ApiPartyDetails
 }
-import com.digitalasset.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
+import com.digitalasset.ledger.client.LedgerClient
 
 import scala.concurrent.{ExecutionContext, Future}
 
-final class PartyManagementClient(partyManagementService: PartyManagementService)(
+object PartyManagementClient {
+
+  private def details(d: ApiPartyDetails): PartyDetails =
+    PartyDetails(
+      Party.assertFromString(d.party),
+      if (d.displayName.isEmpty) None else Some(d.displayName),
+      d.isLocal)
+
+  private val getParticipantIdRequest = GetParticipantIdRequest()
+
+  private val listKnownPartiesRequest = ListKnownPartiesRequest()
+
+}
+
+final class PartyManagementClient(service: PartyManagementServiceStub)(
     implicit ec: ExecutionContext) {
 
-  private[this] def mapPartyDetails(details: ApiPartyDetails): PartyDetails = {
-    PartyDetails(
-      Party.assertFromString(details.party),
-      if (details.displayName.isEmpty) None else Some(details.displayName),
-      details.isLocal)
-  }
-
-  def getParticipantId(): Future[ParticipantId] =
-    partyManagementService
-      .getParticipantId(new GetParticipantIdRequest())
+  def getParticipantId(token: Option[String] = None): Future[ParticipantId] =
+    LedgerClient
+      .stub(service, token)
+      .getParticipantId(PartyManagementClient.getParticipantIdRequest)
       .map(r => ParticipantId(Ref.LedgerString.assertFromString(r.participantId)))
 
-  def listKnownParties(): Future[List[PartyDetails]] =
-    partyManagementService
-      .listKnownParties(new ListKnownPartiesRequest())
-      .map(_.partyDetails.map(mapPartyDetails).toList)
+  def listKnownParties(token: Option[String] = None): Future[List[PartyDetails]] =
+    LedgerClient
+      .stub(service, token)
+      .listKnownParties(PartyManagementClient.listKnownPartiesRequest)
+      .map(_.partyDetails.map(PartyManagementClient.details)(collection.breakOut))
 
-  def allocateParty(hint: Option[String], displayName: Option[String]): Future[PartyDetails] =
-    partyManagementService
+  def allocateParty(
+      hint: Option[String],
+      displayName: Option[String],
+      token: Option[String] = None): Future[PartyDetails] =
+    LedgerClient
+      .stub(service, token)
       .allocateParty(new AllocatePartyRequest(hint.getOrElse(""), displayName.getOrElse("")))
       .map(_.partyDetails.getOrElse(sys.error("No PartyDetails in response.")))
-      .map(mapPartyDetails)
+      .map(PartyManagementClient.details)
 }

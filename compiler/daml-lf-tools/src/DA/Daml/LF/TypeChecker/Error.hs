@@ -1,7 +1,6 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE OverloadedStrings #-}
 module DA.Daml.LF.TypeChecker.Error(
     Context(..),
     Error(..),
@@ -13,6 +12,7 @@ module DA.Daml.LF.TypeChecker.Error(
 
 import DA.Pretty
 import qualified Data.Text as T
+import Numeric.Natural
 
 import DA.Daml.LF.Ast
 import DA.Daml.LF.Ast.Pretty
@@ -21,6 +21,7 @@ import DA.Daml.LF.Ast.Pretty
 -- | Type checking context for error reporting purposes.
 data Context
   = ContextNone
+  | ContextDefTypeSyn !Module !DefTypeSyn
   | ContextDefDataType !Module !DefDataType
   | ContextTemplate !Module !Template !TemplatePart
   | ContextDefValue !Module !DefValue
@@ -49,14 +50,22 @@ data UnserializabilityReason
   | URForall  -- ^ It has higher rank.
   | URUpdate  -- ^ It contains an update action.
   | URScenario  -- ^ It contains a scenario action.
-  | URTuple  -- ^ It contains a structural record.
+  | URStruct  -- ^ It contains a structural record.
   | URList  -- ^ It contains an unapplied list type constructor.
   | UROptional  -- ^ It contains an unapplied optional type constructor.
   | URMap  -- ^ It contains an unapplied map type constructor.
+  | URGenMap  -- ^ It contains an unapplied GenMap type constructor.
   | URContractId  -- ^ It contains a ContractId which is not applied to a template type.
   | URDataType !(Qualified TypeConName)  -- ^ It uses a data type which is not serializable.
   | URHigherKinded !TypeVarName !Kind  -- ^ A data type has a higher kinded parameter.
   | URUninhabitatedType  -- ^ A type without values, e.g., a variant with no constructors.
+  | URNumeric -- ^ It contains an unapplied Numeric type constructor.
+  | URNumericNotFixed
+  | URNumericOutOfRange !Natural
+  | URTypeLevelNat
+  | URAny -- ^ It contains a value of type Any.
+  | URTypeRep -- ^ It contains a value of type TypeRep.
+  | URTypeSyn  -- ^ It contains a type synonym.
 
 data Error
   = EUnknownTypeVar        !TypeVarName
@@ -75,7 +84,7 @@ data Error
   | EExpectedEnumType      !(Qualified TypeConName)
   | EUnknownDataCon        !VariantConName
   | EUnknownField          !FieldName
-  | EExpectedTupleType     !Type
+  | EExpectedStructType    !Type
   | EKindMismatch          {foundKind :: !Kind, expectedKind :: !Kind}
   | ETypeMismatch          {foundType :: !Type, expectedType :: !Type, expr :: !(Maybe Expr)}
   | EExpectedHigherKind    !Kind
@@ -84,24 +93,29 @@ data Error
   | EExpectedUpdateType    !Type
   | EExpectedScenarioType  !Type
   | EExpectedSerializableType !SerializabilityRequirement !Type !UnserializabilityReason
+  | EExpectedAnyType !Type
   | ETypeConMismatch       !(Qualified TypeConName) !(Qualified TypeConName)
   | EExpectedDataType      !Type
   | EExpectedListType      !Type
   | EExpectedOptionalType  !Type
   | EEmptyCase
   | EExpectedTemplatableType !TypeConName
-  | EImportCycle           ![ModuleName]
-  | EDataTypeCycle         ![TypeConName]
+  | EImportCycle           ![ModuleName] -- TODO: implement check for this error
+  | ETypeSynCycle          ![TypeSynName]
+  | EDataTypeCycle         ![TypeConName] -- TODO: implement check for this error
   | EValueCycle            ![ExprValName]
   | EImpredicativePolymorphism !Type
   | EForbiddenPartyLiterals ![PartyLiteral] ![Qualified ExprValName]
   | EContext               !Context !Error
   | EKeyOperationOnTemplateWithNoKey !(Qualified TypeConName)
   | EUnsupportedFeature !Feature
+  | EForbiddenNameCollision !T.Text ![T.Text]
+  | ESynAppWrongArity       !DefTypeSyn ![Type]
 
 contextLocation :: Context -> Maybe SourceLoc
 contextLocation = \case
   ContextNone            -> Nothing
+  ContextDefTypeSyn _ s  -> synLocation s
   ContextDefDataType _ d -> dataLocation d
   ContextTemplate _ t _  -> tplLocation t
   ContextDefValue _ v    -> dvalLocation v
@@ -114,6 +128,8 @@ errorLocation = \case
 instance Show Context where
   show = \case
     ContextNone -> "<none>"
+    ContextDefTypeSyn m ts ->
+      "type synonym " <> show (moduleName m) <> "." <> show (synName ts)
     ContextDefDataType m dt ->
       "data type " <> show (moduleName m) <> "." <> show (dataTypeCon dt)
     ContextTemplate m t p ->
@@ -147,15 +163,23 @@ instance Pretty UnserializabilityReason where
     URForall -> "higher-ranked type"
     URUpdate -> "Update"
     URScenario -> "Scenario"
-    URTuple -> "structual record"
+    URStruct -> "structual record"
     URList -> "unapplied List"
     UROptional -> "unapplied Optional"
     URMap -> "unapplied Map"
+    URGenMap -> "unapplied GenMap"
     URContractId -> "ContractId not applied to a template type"
     URDataType tcon ->
       "unserializable data type" <-> pretty tcon
     URHigherKinded v k -> "higher-kinded type variable" <-> pretty v <:> pretty k
     URUninhabitatedType -> "variant type without constructors"
+    URNumeric -> "unapplied Numeric"
+    URNumericNotFixed -> "Numeric scale is not fixed"
+    URNumericOutOfRange n -> "Numeric scale " <> integer (fromIntegral n) <> " is out of range (needs to be between 0 and 38)"
+    URTypeLevelNat -> "type-level nat"
+    URAny -> "Any"
+    URTypeRep -> "TypeRep"
+    URTypeSyn -> "type synonym"
 
 instance Pretty Error where
   pPrint = \case
@@ -189,8 +213,8 @@ instance Pretty Error where
     EExpectedEnumType qname -> "expected enum type: " <> pretty qname
     EUnknownDataCon name -> "unknown data constructor: " <> pretty name
     EUnknownField name -> "unknown field: " <> pretty name
-    EExpectedTupleType foundType ->
-      "expected tuple type, but found: " <> pretty foundType
+    EExpectedStructType foundType ->
+      "expected struct type, but found: " <> pretty foundType
 
     ETypeMismatch{foundType, expectedType, expr} ->
       vcat $
@@ -238,6 +262,8 @@ instance Pretty Error where
       <-> pretty tpl
     EImportCycle mods ->
       "found import cycle:" $$ vcat (map (\m -> "*" <-> pretty m) mods)
+    ETypeSynCycle syns ->
+      "found type synonym cycle:" $$ vcat (map (\t -> "*" <-> pretty t) syns)
     EDataTypeCycle tycons ->
       "found data type cycle:" $$ vcat (map (\t -> "*" <-> pretty t) tycons)
     EValueCycle names ->
@@ -250,6 +276,8 @@ instance Pretty Error where
       , "* problem:"
       , nest 4 (pretty info)
       ]
+    EExpectedAnyType foundType ->
+      "expected a type containing neither type variables nor quantifiers, but found: " <> pretty foundType
     EImpredicativePolymorphism typ ->
       vcat
       [ "impredicative polymorphism is not supported:"
@@ -273,11 +301,18 @@ instance Pretty Error where
     EUnsupportedFeature Feature{..} ->
       "unsupported feature:" <-> pretty featureName
       <-> "only supported in DAML-LF version" <-> pretty featureMinVersion <-> "and later"
+    EForbiddenNameCollision name names ->
+      "name collision between " <-> pretty name <-> " and " <-> pretty (T.intercalate ", " names)
+    ESynAppWrongArity DefTypeSyn{synName,synParams} args ->
+      vcat ["wrong arity in type synonym application: " <> pretty synName,
+            "expected: " <> pretty (length synParams) <> ", found: " <> pretty (length args)]
 
 instance Pretty Context where
   pPrint = \case
     ContextNone ->
       string "<none>"
+    ContextDefTypeSyn m ts ->
+      hsep [ "type synonym", pretty (moduleName m) <> "." <>  pretty (synName ts) ]
     ContextDefDataType m dt ->
       hsep [ "data type", pretty (moduleName m) <> "." <>  pretty (dataTypeCon dt) ]
     ContextTemplate m t p ->

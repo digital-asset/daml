@@ -1,9 +1,9 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2020 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("@build_bazel_rules_nodejs//:defs.bzl", "nodejs_binary")
+load("@build_bazel_rules_nodejs//:index.bzl", "nodejs_binary")
 load("@os_info//:os_info.bzl", "is_linux", "is_windows")
-load("//rules_daml:daml.bzl", "daml_test")
+load("//rules_daml:daml.bzl", "daml_compile", "daml_test")
 load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 
 nodejs_binary(
@@ -25,7 +25,84 @@ genrule(
             "theme/da_theme/**",
         ],
     ) + [
+        # we need to list all the transitive dependencies here because of https://github.com/bazelbuild/rules_nodejs/issues/1553
+        "@npm//acorn",
+        "@npm//acorn-dynamic-import",
+        "@npm//acorn-node",
+        "@npm//acorn-walk",
+        "@npm//ansi-regex",
+        "@npm//ansi-styles",
+        "@npm//anymatch",
+        "@npm//assert",
+        "@npm//async",
+        "@npm//async-each",
+        "@npm//balanced-match",
+        "@npm//basic-auth",
+        "@npm//batch",
+        "@npm//binary-extensions",
+        "@npm//body",
+        "@npm//brace-expansion",
         "@npm//browserify",
+        "@npm//browserify-cache-api",
+        "@npm//browserify-incremental",
+        "@npm//browserify-zlib",
+        "@npm//browser-pack",
+        "@npm//browser-resolve",
+        "@npm//buffer",
+        "@npm//buffer-from",
+        "@npm//cached-path-relative",
+        "@npm//chalk",
+        "@npm//chokidar",
+        "@npm//coffeescript",
+        "@npm//color-convert",
+        "@npm//colors",
+        "@npm//combine-source-map",
+        "@npm//concat-map",
+        "@npm//concat-stream",
+        "@npm//connect",
+        "@npm//connect-livereload",
+        "@npm//console-browserify",
+        "@npm//constants-browserify",
+        "@npm//continuable-cache",
+        "@npm//convert-source-map",
+        "@npm//core-util-is",
+        "@npm//cross-spawn",
+        "@npm//crypto-browserify",
+        "@npm//dargs",
+        "@npm//dash-ast",
+        "@npm//dateformat",
+        "@npm//defined",
+        "@npm//depd",
+        "@npm//deps-sort",
+        "@npm//destroy",
+        "@npm//detective",
+        "@npm//domain-browser",
+        "@npm//duplexer",
+        "@npm//duplexer2",
+        "@npm//ee-first",
+        "@npm//encodeurl",
+        "@npm//error",
+        "@npm//escape-html",
+        "@npm//escape-string-regexp",
+        "@npm//etag",
+        "@npm//eventemitter2",
+        "@npm//events",
+        "@npm//exit",
+        "@npm//faye-websocket",
+        "@npm//figures",
+        "@npm//file-sync-cmp",
+        "@npm//findup-sync",
+        "@npm//fresh",
+        "@npm//fs.realpath",
+        "@npm//function-bind",
+        "@npm//gaze",
+        "@npm//get-assigned-identifiers",
+        "@npm//getobject",
+        "@npm//glob",
+        "@npm//glob-parent",
+        "@npm//globule",
+        "@npm//graceful-fs",
+        "@npm//grunt",
         "@npm//grunt-banner",
         "@npm//grunt-browserify",
         "@npm//grunt-contrib-clean",
@@ -35,8 +112,107 @@ genrule(
         "@npm//grunt-contrib-uglify",
         "@npm//grunt-contrib-watch",
         "@npm//grunt-exec",
+        "@npm//grunt-legacy-log",
+        "@npm//grunt-legacy-log-utils",
+        "@npm//grunt-legacy-util",
         "@npm//grunt-open",
+        "@npm//gzip-size",
+        "@npm//has",
+        "@npm//has-ansi",
+        "@npm//has-flag",
+        "@npm//hooker",
+        "@npm//htmlescape",
+        "@npm//http-parser-js",
+        "@npm//https-browserify",
+        "@npm//iconv-lite",
+        "@npm//inflight",
+        "@npm//inherits",
+        "@npm//inline-source-map",
+        "@npm//insert-module-globals",
+        "@npm//is-binary-path",
+        "@npm//is-number-like",
+        "@npm//is-wsl",
+        "@npm//jsonparse",
+        "@npm//json-stable-stringify",
+        "@npm//JSONStream",
+        "@npm//js-yaml",
+        "@npm//labeled-stream-splicer",
+        "@npm//lodash",
+        "@npm//lodash.isfinite",
+        "@npm//lodash.memoize",
+        "@npm//lru-cache",
         "@npm//matchdep",
+        "@npm//maxmin",
+        "@npm//mime-db",
+        "@npm//mime-types",
+        "@npm//minimatch",
+        "@npm//mkdirp",
+        "@npm//module-deps",
+        "@npm//morgan",
+        "@npm//node-http2",
+        "@npm//nopt",
+        "@npm//normalize-path",
+        "@npm//number-is-nan",
+        "@npm//object-assign",
+        "@npm//once",
+        "@npm//on-finished",
+        "@npm//on-headers",
+        "@npm//opn",
+        "@npm//os-browserify",
+        "@npm//parents",
+        "@npm//parseurl",
+        "@npm//path-browserify",
+        "@npm//path-dirname",
+        "@npm//path-is-absolute",
+        "@npm//path-platform",
+        "@npm//portscanner",
+        "@npm//pretty-bytes",
+        "@npm//process",
+        "@npm//process-nextick-args",
+        "@npm//querystring-es3",
+        "@npm//readable-stream",
+        "@npm//readdirp",
+        "@npm//read-only-stream",
+        "@npm//remove-trailing-separator",
+        "@npm//rimraf",
+        "@npm//safe-buffer",
+        "@npm//safe-json-parse",
+        "@npm//safer-buffer",
+        "@npm//serve-index",
+        "@npm//shasum",
+        "@npm//sprintf-js",
+        "@npm//statuses",
+        "@npm//stream-browserify",
+        "@npm//stream-combiner2",
+        "@npm//stream-http",
+        "@npm//stream-splicer",
+        "@npm//string_decoder",
+        "@npm//string-template",
+        "@npm//strip-ansi",
+        "@npm//supports-color",
+        "@npm//syntax-error",
+        "@npm//through",
+        "@npm//through2",
+        "@npm//timers-browserify",
+        "@npm//tiny-lr",
+        "@npm//tty-browserify",
+        "@npm//uglify-js",
+        "@npm//umd",
+        "@npm//undeclared-identifiers",
+        "@npm//underscore.string",
+        "@npm//unpipe",
+        "@npm//upath",
+        "@npm//uri-path",
+        "@npm//url",
+        "@npm//util",
+        "@npm//util-deprecate",
+        "@npm//utils-merge",
+        "@npm//vm-browserify",
+        "@npm//watchify",
+        "@npm//websocket-driver",
+        "@npm//websocket-extensions",
+        "@npm//wrappy",
+        "@npm//xtend",
     ],
     outs = ["da_theme.tar.gz"],
     cmd = """
@@ -79,6 +255,8 @@ genrule(
     name = "sources",
     srcs = glob(["source/**"]) + [
         "//compiler/damlc:daml-base-rst-docs",
+        "//triggers/daml:daml-trigger-rst-docs",
+        "//daml-script/daml:daml-script-rst-docs",
         "//ledger-api/grpc-definitions:docs",
         "//:LICENSE",
         "//:NOTICES",
@@ -89,6 +267,12 @@ genrule(
 
         # Copy in Stdlib
         cp -rL $(location //compiler/damlc:daml-base-rst-docs) source/daml/reference/base.rst
+
+        # Copy in daml-trigger documentation
+        cp -rL $(location //triggers/daml:daml-trigger-rst-docs) source/triggers/trigger-docs.rst
+
+        # Copy in daml-script documentation
+        cp -rL $(location //daml-script/daml:daml-script-rst-docs) source/daml-script/daml-script-docs.rst
 
         # Copy in Protobufs
         cp -rL $(location //ledger-api/grpc-definitions:docs) source/app-dev/grpc/proto-docs.rst
@@ -108,11 +292,13 @@ genrule(
         "configs/static/pygments_daml_lexer.py",
     ]) + [
         ":sources",
+        "//:VERSION",
     ],
     outs = ["DigitalAssetSDK.pdf"],
     cmd = ("""
         export LOCALE_ARCHIVE="$$PWD/$(location @glibc_locales//:locale-archive)"
     """ if is_linux else "") + """
+        VERSION=$$(cat $(location //:VERSION))
         set -euo pipefail
         # Set up tools
         export PATH="$$( cd "$$(dirname "$(location @imagemagick_nix//:bin/convert)")" ; pwd -P )":$$PATH
@@ -125,8 +311,7 @@ genrule(
         cp -rL docs/configs/static ./
 
         # Build with Sphinx
-        DATE=$$(date +"%Y-%m-%d")
-        sed -i "s,__VERSION__,"$$DATE"," source/conf.py
+        sed -i "s,__VERSION__,"$$VERSION"," source/conf.py
         export LC_ALL=en_US.UTF-8
         export LANG=en_US.UTF-8
         $(location @sphinx_nix//:bin/sphinx-build) -b latex source out
@@ -159,11 +344,13 @@ genrule(
         "//compiler/damlc:daml-base-rst-docs",
         "//compiler/damlc:daml-base-hoogle-docs",
         "//language-support/java:javadoc",
+        "//:VERSION",
     ],
     outs = ["html-only.tar.gz"],
     cmd = ("""
         export LOCALE_ARCHIVE="$$PWD/$(location @glibc_locales//:locale-archive)"
     """ if is_linux else "") + """
+        VERSION=$$(cat $(location //:VERSION))
         # Copy files into the right structure and remove symlinks
         mkdir build
         cp -rL docs build
@@ -175,8 +362,7 @@ genrule(
 
         # Build with Sphinx
         cd build
-        DATE=$$(date +"%Y-%m-%d")
-        sed -i "s,__VERSION__,"$$DATE"," docs/configs/html/conf.py
+        sed -i "s,__VERSION__,"$$VERSION"," docs/configs/html/conf.py
         export LC_ALL=en_US.UTF-8
         export LANG=en_US.UTF-8
         WARNINGS=$$(../$(location @sphinx_nix//:bin/sphinx-build) -c docs/configs/html docs/source html 2>&1 | \
@@ -189,6 +375,8 @@ genrule(
 
         # Copy Javadoc using unzip to avoid having to know the path to the 'jar' binary. Note flag to overwrite
         unzip -o ../$(locations //language-support/java:javadoc) -d html/app-dev/bindings-java/javadocs
+        # Remove JAR metadata
+        rm -r html/app-dev/bindings-java/javadocs/META-INF
 
         # Copy in hoogle DB
         mkdir -p html/hoogle_db
@@ -231,33 +419,39 @@ genrule(
         ":pdf-docs",
         ":redirects",
         "error.html",
+        "//:VERSION",
     ],
     outs = ["html.tar.gz"],
     cmd = """
+        VERSION=$$(cat $(location //:VERSION))
+        VERSION_DATE=$$(cat bazel-out/stable-status.txt | grep STABLE_VERSION_DATE | head -1 | cut -f 2 -d' ')
         tar -zxf $(location :redirects)
         tar -zxf $(location :docs-no-pdf)
         cp -rn redirects/* html
         cp -L docs/error.html html
         cd html
-        find . -name '*.html' | sed -e 's,^\\./,https://docs.daml.com/,' > sitemap
+        find . -name '*.html' | sort | sed -e 's,^\\./,https://docs.daml.com/,' > sitemap
         SMHEAD=\"{}\"
         SMITEM=\"{}\"
         SMFOOT=\"{}\"
-        DATE=$$(date +"%Y-%m-%d")
         echo $$SMHEAD > sitemap.xml
         while read item; do
-            echo $$SMITEM | sed -e "s,%DATE%,$${{DATE}}," | sed -e "s,%LOC%,$${{item}}," >> sitemap.xml
+            echo $$SMITEM | sed -e "s,%DATE%,$${{VERSION_DATE}}," | sed -e "s,%LOC%,$${{item}}," >> sitemap.xml
         done < sitemap
+        rm sitemap
         echo $$SMFOOT >> sitemap.xml
-        echo {{ \\"$$DATE\\" : \\"$$DATE\\" }} > versions.json
+        echo {{ \\"$$VERSION\\" : \\"$$VERSION\\" }} > versions.json
         cd ..
         cp -L $(location :pdf-docs) html/_downloads
+        # Remove Sphinx build products
+        rm -rf .buildinfo .doctrees objects.inv
         tar -zcf $(location html.tar.gz) html
     """.format(
         """<?xml version='1.0' encoding='UTF-8'?><urlset xmlns='http://www.sitemaps.org/schemas/sitemap/0.9' xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xsi:schemaLocation='http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd'>""",
         """<url><loc>%LOC%</loc><lastmod>%DATE%</lastmod><changefreq>daily</changefreq><priority>0.8</priority></url>""",
         """</urlset>""",
     ),
+    stamp = 1,
 ) if not is_windows else None
 
 filegroup(
@@ -289,14 +483,16 @@ genrule(
     visibility = ["//visibility:public"],
 )
 
-load("//rules_daml:daml.bzl", "daml_compile")
 load("//language-support/java/codegen:codegen.bzl", "dar_to_java")
 
 daml_compile(
     name = "quickstart-model",
     srcs = glob(["source/getting-started/quickstart/template-root/**/*.daml"]),
     main_src = "source/getting-started/quickstart/template-root/daml/Main.daml",
-    visibility = ["//language-support/scala/examples:__subpackages__"],
+    visibility = [
+        "//language-support/scala/examples:__subpackages__",
+        "//ledger-service:__subpackages__",
+    ],
 )
 
 dar_to_java(
@@ -310,77 +506,68 @@ java_binary(
     srcs = glob(["source/getting-started/quickstart/template-root/src/main/java/**/*.java"]) + [":quickstart-model-srcjar"],
     main_class = "com.digitalasset.quickstart.iou.IouMain",
     deps = [
-        "//3rdparty/jvm/ch/qos/logback:logback_classic",
-        "//3rdparty/jvm/com/google/code/gson",
-        "//3rdparty/jvm/com/google/guava",
-        "//3rdparty/jvm/com/google/protobuf:protobuf_java",
-        "//3rdparty/jvm/com/sparkjava:spark_core",
-        "//3rdparty/jvm/io/reactivex/rxjava2:rxjava",
-        "//daml-lf/archive:daml_lf_java_proto",
+        "//daml-lf/archive:daml_lf_dev_archive_java_proto",
         "//language-support/java/bindings:bindings-java",
         "//language-support/java/bindings-rxjava",
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:com_google_code_gson_gson",
+        "@maven//:com_google_guava_guava",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:com_sparkjava_spark_core",
+        "@maven//:io_reactivex_rxjava2_rxjava",
+        "@maven//:org_slf4j_slf4j_api",
     ],
 )
 
 daml_test(
     name = "ledger-api-daml-test",
     srcs = glob(["source/app-dev/code-snippets/**/*.daml"]),
-    flaky = is_windows,  # https://github.com/digital-asset/daml/issues/1907
 )
 
 daml_test(
     name = "bindings-java-daml-test",
     srcs = glob(["source/app-dev/bindings-java/code-snippets/**/*.daml"]),
-    flaky = is_windows,  # https://github.com/digital-asset/daml/issues/1907
 )
 
 daml_test(
     name = "patterns-daml-test",
     srcs = glob(["source/daml/patterns/daml/**/*.daml"]),
-    flaky = is_windows,  # https://github.com/digital-asset/daml/issues/1907
 )
 
 daml_test(
     name = "daml-studio-daml-test",
     srcs = glob(["source/daml/daml-studio/daml/**/*.daml"]),
-    flaky = is_windows,  # https://github.com/digital-asset/daml/issues/1907
 )
 
 daml_test(
     name = "daml-ref-daml-test",
     timeout = "long",
     srcs = glob(["source/daml/code-snippets/**/*.daml"]),
-    flaky = is_windows,  # https://github.com/digital-asset/daml/issues/1907
 )
 
 daml_test(
     name = "introduction-daml-test",
     srcs = glob(["source/getting-started/introduction/code/**/*.daml"]),
-    flaky = is_windows,  # https://github.com/digital-asset/daml/issues/1907
 )
 
 daml_test(
     name = "quickstart-daml-test",
     srcs = glob(["source/getting-started/quickstart/template-root/daml/**/*.daml"]),
-    flaky = is_windows,  # https://github.com/digital-asset/daml/issues/1907
 )
 
 daml_test(
     name = "ledger-model-daml-test",
     srcs = glob(["source/concepts/ledger-model/daml/**/*.daml"]),
-    flaky = is_windows,  # https://github.com/digital-asset/daml/issues/1907
 )
 
 daml_test(
     name = "java-bindings-docs-daml-test",
     srcs = glob(["source/app-dev/bindings-java/daml/**/*.daml"]),
-    flaky = is_windows,  # https://github.com/digital-asset/daml/issues/1907
 )
 
 daml_test(
     name = "daml-intro-daml-test",
     srcs = glob(["source/daml/intro/daml/**/*.daml"]),
-    flaky = is_windows,  # https://github.com/digital-asset/daml/issues/1907
 )
 
 filegroup(
@@ -404,3 +591,28 @@ pkg_tar(
     strip_prefix = "source/daml/intro/daml",
     visibility = ["//visibility:public"],
 )
+
+pkg_tar(
+    name = "copy-trigger-template",
+    srcs = glob(
+        ["source/triggers/template-root/**"],
+        exclude = ["**/*~"],
+    ),
+    strip_prefix = "source/triggers/template-root",
+    visibility = ["//visibility:public"],
+)
+
+pkg_tar(
+    name = "script-example-template",
+    srcs = glob(
+        ["source/daml-script/template-root/**"],
+        exclude = ["**/*~"],
+    ),
+    strip_prefix = "source/daml-script/template-root",
+    visibility = ["//visibility:public"],
+)
+
+exports_files([
+    "source/triggers/template-root/src/CopyTrigger.daml",
+    "source/daml-script/template-root/src/ScriptExample.daml",
+])

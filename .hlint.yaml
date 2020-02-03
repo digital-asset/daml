@@ -69,6 +69,7 @@
   - {name: GeneralizedNewtypeDeriving, within: []}
   - {name: LambdaCase, within: []}
   - {name: NamedFieldPuns, within: []}
+  - {name: OverloadedStrings, within: []}
   - {name: PackageImports, within: []}
   - {name: RecordWildCards, within: []}
   - {name: ScopedTypeVariables, within: []}
@@ -78,20 +79,26 @@
   - {name: ViewPatterns, within: []}
 
   # Shady extensions
+  - {name: ImplicitParams, within: []}
   - name: CPP
     within:
+    - Development.IDE.Core.FileStore
+    - DA.Cli.Damlc
     - DA.Sdk.Cli.System
     - DA.Sdk.Cli.Version
-    - DAML.Assistant.Install.Path
+    - DA.Daml.Assistant.Install.Path
+    - DA.Daml.Doc.Tests
     - DA.Signals
     - Development.IDE.Core.Compile
     - Development.IDE.GHC.Compat
-  - {name: ImplicitParams, within: []}
+    - Development.IDE.GHC.Util
+    - Development.IDE.Import.FindImports
+    - Development.IDE.Spans.Calculate
 
 - flags:
   - default: false
   - {name: [-Wno-missing-signatures, -Wno-orphans, -Wno-overlapping-patterns, -Wno-incomplete-patterns, -Wno-missing-fields, -Wno-unused-matches]}
-
+  - {name: [-Wno-dodgy-imports], within: Main}
 # - modules:
 #   - {name: [Data.Set, Data.HashSet], as: Set} # if you import Data.Set qualified, it must be as 'Set'
 #   - {name: Control.Arrow, within: []} # Certain modules are banned entirely
@@ -100,7 +107,7 @@
   - {name: unsafePerformIO, within: [DA.Daml.LFConversion.UtilGHC]}
   - {name: unsafeInterleaveIO, within: []}
   - {name: unsafeDupablePerformIO, within: []}
-  - {name: setCurrentDirectory, within: [DAML.Assistant.Tests, Main]}
+  - {name: setCurrentDirectory, within: [DA.Daml.Assistant.Tests, Main]}
   - {name: unsafeCoerce, within: []}
 
 # Add custom hints for this project

@@ -1,7 +1,6 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 module Main (main) where
 
@@ -11,45 +10,55 @@ import Control.Monad
 import Control.Monad.IO.Class
 import DA.Bazel.Runfiles
 import Data.Aeson (toJSON)
+import Data.Char (toLower)
 import Data.Foldable (toList)
 import Data.List.Extra
 import qualified Data.Text as T
+import qualified Language.Haskell.LSP.Test as LspTest
 import Language.Haskell.LSP.Types
+import Language.Haskell.LSP.Types.Capabilities
 import Language.Haskell.LSP.Types.Lens
 import Network.URI
+import System.Directory
 import System.Environment.Blank
 import System.FilePath
 import System.Info.Extra
 import System.IO.Extra
 import Test.Tasty
 import Test.Tasty.HUnit
-
-import Daml.Lsp.Test.Util
+import qualified Data.Aeson as Aeson
+import DA.Daml.Lsp.Test.Util
 import qualified Language.Haskell.LSP.Test as LSP
+
+fullCaps' :: ClientCapabilities
+fullCaps' = fullCaps { _window = Just $ WindowClientCapabilities $ Just True }
 
 main :: IO ()
 main = do
     setEnv "TASTY_NUM_THREADS" "1" True
     damlcPath <- locateRunfiles $
-        mainWorkspace </> "compiler" </> "damlc" </> "damlc"
-    let run s = withTempDir $ \dir -> runSessionWithConfig conf (damlcPath <> " ide --scenarios=no") fullCaps dir s
+        mainWorkspace </> "compiler" </> "damlc" </> exe "damlc"
+    let run s = withTempDir $ \dir -> runSessionWithConfig conf (damlcPath <> " ide --scenarios=no") fullCaps' dir s
         runScenarios s
             -- We are currently seeing issues with GRPC FFI calls which make everything
             -- that uses the scenario service extremely flaky and forces us to disable it on
             -- CI. Once https://github.com/digital-asset/daml/issues/1354 is fixed we can
             -- also run scenario tests on Windows.
             | isWindows = pure ()
-            | otherwise = withTempDir $ \dir -> runSessionWithConfig conf (damlcPath <> " ide --scenarios=yes") fullCaps dir s
+            | otherwise = withTempDir $ \dir -> runSessionWithConfig conf (damlcPath <> " ide --scenarios=yes") fullCaps' dir s
     defaultMain $ testGroup "LSP"
         [ diagnosticTests run runScenarios
         , requestTests run runScenarios
         , scenarioTests runScenarios
         , stressTests run runScenarios
+        , executeCommandTests run runScenarios
+        , regressionTests run runScenarios
         ]
     where
         conf = defaultConfig
             -- If you uncomment this you can see all messages
             -- which can be quite useful for debugging.
+            { logStdErr = True }
             -- { logMessages = True, logColor = False, logStdErr = True }
 
 diagnosticTests
@@ -71,6 +80,41 @@ diagnosticTests run runScenarios = testGroup "diagnostics"
               ]
           expectDiagnostics [("Test.daml", [])]
           closeDoc test
+    , testCase "lower-case drive" $ run $ do
+          let aContent = T.unlines
+                [ "daml 1.2"
+                , "module A.A where"
+                , "import A.B ()"
+                ]
+              bContent = T.unlines
+                [ "daml 1.2"
+                , "module A.B where"
+                , "import DA.List"
+                ]
+          uriB <- getDocUri "A/B.daml"
+          Just pathB <- pure $ uriToFilePath uriB
+          uriB <- pure $
+              let (drive, suffix) = splitDrive pathB
+              in filePathToUri (joinDrive (map toLower drive ) suffix)
+          liftIO $ createDirectoryIfMissing True (takeDirectory pathB)
+          liftIO $ writeFileUTF8 pathB $ T.unpack bContent
+          uriA <- getDocUri "A/A.daml"
+          Just pathA <- pure $ uriToFilePath uriA
+          uriA <- pure $
+              let (drive, suffix) = splitDrive pathA
+              in filePathToUri (joinDrive (map toLower drive ) suffix)
+          let itemA = TextDocumentItem uriA "daml" 0 aContent
+          let a = TextDocumentIdentifier uriA
+          sendNotification TextDocumentDidOpen (DidOpenTextDocumentParams itemA)
+          diagsNot <- skipManyTill anyMessage LspTest.message :: Session PublishDiagnosticsNotification
+          let fileUri = diagsNot ^. params . uri
+          -- Check that if we put a lower-case drive in for A.A
+          -- the diagnostics for A.B will also be lower-case.
+          liftIO $ fileUri @?= uriB
+          let msg = diagsNot ^?! params . diagnostics . to (\(List xs) -> xs) . _head . message
+          liftIO $ unless ("redundant" `T.isInfixOf` msg) $
+              assertFailure ("Expected redundant import but got " <> T.unpack msg)
+          closeDoc a
     , testCase "diagnostics appear after introducing an error" $ run $ do
           test <- openDoc' "Test.daml" damlId $ T.unlines
               [ "daml 1.2"
@@ -249,6 +293,38 @@ requestTests run _runScenarios = testGroup "requests"
               ]
 
           closeDoc main'
+    , testCase "stale code-lenses" $ run $ do
+          main' <- openDoc' "Main.daml" damlId $ T.unlines
+              [ "daml 1.2"
+              , "module Main where"
+              , "single = scenario do"
+              , "  assert (True == True)"
+              ]
+          lenses <- getCodeLenses main'
+          Just escapedFp <- pure $ escapeURIString isUnescapedInURIComponent <$> uriToFilePath (main' ^. uri)
+          let codeLens range =
+                  CodeLens
+                    { _range = range
+                    , _command = Just $ Command
+                          { _title = "Scenario results"
+                          , _command = "daml.showResource"
+                          , _arguments = Just $ List
+                              [ "Scenario: single"
+                              ,  toJSON $ "daml://compiler?file=" <> escapedFp <> "&top-level-decl=single"
+                              ]
+                          }
+                    , _xdata = Nothing
+                    }
+          liftIO $ lenses @?= [codeLens (Range (Position 2 0) (Position 2 6))]
+          changeDoc main' [TextDocumentContentChangeEvent (Just (Range (Position 3 23) (Position 3 23))) Nothing "+"]
+          expectDiagnostics [("Main.daml", [(DsError, (4, 0), "Parse error")])]
+          lenses <- getCodeLenses main'
+          liftIO $ lenses @?= [codeLens (Range (Position 2 0) (Position 2 6))]
+          -- Shift code lenses down
+          changeDoc main' [TextDocumentContentChangeEvent (Just (Range (Position 1 0) (Position 1 0))) Nothing "\n\n"]
+          lenses <- getCodeLenses main'
+          liftIO $ lenses @?= [codeLens (Range (Position 4 0) (Position 4 6))]
+          closeDoc main'
     , testCase "type on hover: name" $ run $ do
           main' <- openDoc' "Main.daml" damlId $ T.unlines
               [ "daml 1.2"
@@ -266,11 +342,12 @@ requestTests run _runScenarios = testGroup "requests"
           r <- getHover main' (Position 9 19)
           liftIO $ r @?= Just Hover
               { _contents = HoverContents $ MarkupContent MkMarkdown $ T.unlines
-                    [ "```daml\nMain.add"
-                    , "  : Int -> Int -> Int"
+                    [ "```daml"
+                    , "Main.add"
+                    , ": Int -> Int -> Int"
                     , "```"
                     , "*\t*\t*"
-                    , "**Defined at " <> T.pack fp <> ":4:1**"
+                    , "*Defined at " <> T.pack fp <> ":4:1*"
                     ]
               , _range = Just $ Range (Position 9 17) (Position 9 20)
               }
@@ -284,7 +361,14 @@ requestTests run _runScenarios = testGroup "requests"
               ]
           r <- getHover main' (Position 2 27)
           liftIO $ r @?= Just Hover
-              { _contents = HoverContents $ MarkupContent MkMarkdown "```daml\n: Decimal\n```\n"
+              { _contents = HoverContents $ MarkupContent MkMarkdown $ T.unlines
+                    [ "```daml"
+                    , "1.0"
+                    , ": NumericScale n"
+                    , "=> Numeric n"
+                    , "```"
+                    , "*\t*\t*"
+                    ]
               , _range = Just $ Range (Position 2 27) (Position 2 30)
               }
           closeDoc main'
@@ -380,6 +464,44 @@ scenarioTests run = testGroup "scenarios"
           closeDoc main'
     ]
 
+executeCommandTests :: (forall a. Session a -> IO a) -> (Session () -> IO ()) -> TestTree
+executeCommandTests run _ = testGroup "execute command"
+    [ testCase "execute commands" $ run $ do
+        main' <- openDoc' "Main.daml" damlId $ T.unlines
+            [ "daml 1.2"
+            , "module Coin where"
+            , "template Coin"
+            , "  with"
+            , "    owner : Party"
+            , "  where"
+            , "    signatory owner"
+            , "    controller owner can"
+            , "      Delete : ()"
+            , "        do return ()"
+            ]
+        Just escapedFp <- pure $ uriToFilePath (main' ^. uri)
+        actualDotString :: ExecuteCommandResponse <- LSP.request WorkspaceExecuteCommand $ ExecuteCommandParams
+           "daml/damlVisualize"  (Just (List [Aeson.String $ T.pack escapedFp])) Nothing
+        let expectedDotString = "digraph G {\ncompound=true;\nrankdir=LR;\nsubgraph cluster_Coin{\nn0[label=Create][color=green]; \nn1[label=Archive][color=red]; \nn2[label=Delete][color=red]; \nlabel=<<table align = \"left\" border=\"0\" cellborder=\"0\" cellspacing=\"1\">\n<tr><td align=\"center\"><b>Coin</b></td></tr><tr><td align=\"left\">owner</td></tr> \n</table>>;color=blue\n}\n}\n"
+        liftIO $ assertEqual "Visulization command" (Just expectedDotString) (_result actualDotString)
+        closeDoc main'
+    , testCase "Invalid commands result in empty response"  $ run $ do
+        main' <- openDoc' "Main.daml" damlId $ T.unlines
+            [ "daml 1.2"
+            , "module Empty where"
+            ]
+        Just escapedFp <- pure $ uriToFilePath (main' ^. uri)
+        actualDotString :: ExecuteCommandResponse <- LSP.request WorkspaceExecuteCommand $ ExecuteCommandParams
+           "daml/NoCommand"  (Just (List [Aeson.String $ T.pack escapedFp])) Nothing
+        let expectedNull = Just Aeson.Null
+        liftIO $ assertEqual "Invlalid command" expectedNull (_result actualDotString)
+        closeDoc main'
+    , testCase "Visualization command with no arguments" $ run $ do
+        actualDotString :: ExecuteCommandResponse <- LSP.request WorkspaceExecuteCommand $ ExecuteCommandParams
+           "daml/damlVisualize"  Nothing Nothing
+        let expectedNull = Just Aeson.Null
+        liftIO $ assertEqual "Invlalid command" expectedNull (_result actualDotString)
+    ]
 
 -- | Do extreme things to the compiler service.
 stressTests
@@ -444,21 +566,23 @@ stressTests run _runScenarios = testGroup "Stress tests"
         -- Each FooN has a definition fooN that depends on fooN+1, except Foo100.
         -- But the type of foo0 doesn't match the type of foo100. So we expect a type error.
         -- Then we modify the type of foo0 to clear the type error.
+        -- To avoid race conditions we send the modules in order 100, 99, … 0 to the
+        -- server to make sure that all previous modules are already known.
+        foo100 <- makeModule "Foo100"
+            [ "foo100 : Bool"
+            , "foo100 = False"
+            ]
+        foos <- forM [99, 98 .. 1 :: Int] $ \i ->
+            makeModule ("Foo" ++ show i)
+                [ "import Foo" <> T.pack (show (i+1))
+                , "foo" <> T.pack (show i) <> " = foo" <> T.pack (show (i+1))
+                ]
         foo0 <- makeModule "Foo0"
             [ "import Foo1"
             , "foo0 : Int"
             , "foo0 = foo1"
             ]
-        foos <- forM [1 .. 99 :: Int] $ \i ->
-            makeModule ("Foo" ++ show i)
-                [ "import Foo" <> T.pack (show (i+1))
-                , "foo" <> T.pack (show i) <> " = foo" <> T.pack (show (i+1))
-                ]
-        foo100 <- makeModule "Foo100"
-            [ "foo100 : Bool"
-            , "foo100 = False"
-            ]
-        withTimeout 30 $ do
+        withTimeout 90 $ do
             expectDiagnostics [("Foo0.daml", [(DsError, (4, 7), "Couldn't match expected type")])]
             void $ replaceDoc foo0 $ moduleContent "Foo0"
                 [ "import Foo1"
@@ -466,7 +590,7 @@ stressTests run _runScenarios = testGroup "Stress tests"
                 , "foo0 = foo1"
                 ]
             expectDiagnostics [("Foo0.daml", [])]
-        mapM_ closeDoc $ foo0:foo100:foos
+        mapM_ closeDoc $ (foo0 : foos) ++ [foo100]
   ]
   where
     moduleContent :: String -> [T.Text] -> T.Text
@@ -477,3 +601,47 @@ stressTests run _runScenarios = testGroup "Stress tests"
     makeModule :: String -> [T.Text] -> Session TextDocumentIdentifier
     makeModule name lines = openDoc' (name ++ ".daml") damlId $
         moduleContent name lines
+
+regressionTests
+    :: (Session () -> IO ())
+    -> (Session () -> IO ())
+    -> TestTree
+regressionTests run _runScenarios = testGroup "regression"
+  [ testCase "completion on stale file" $ run $ do
+        -- This used to produce "cannot continue after interface file error"
+        -- since we used a function from GHCi in ghcide.
+        foo <- openDoc' "Foo.daml" damlId $ T.unlines
+            [ "{-# OPTIONS_GHC -Wall #-}"
+            , "daml 1.2"
+            , "module Foo where"
+            , "import DA.List"
+            , ""
+            ]
+        expectDiagnostics [("Foo.daml", [(DsWarning, (3,0), "redundant")])]
+        completions <- getCompletions foo (Position 3 1)
+        liftIO $
+            assertBool ("DA.List and DA.Internal.RebindableSyntax should be in " <> show completions) $
+            mkCompletion "DA.Internal.RebindableSyntax" `elem` completions &&
+            mkCompletion "DA.List" `elem` completions
+        changeDoc foo [TextDocumentContentChangeEvent (Just (Range (Position 3 0) (Position 3 1))) Nothing "Syntax"]
+        expectDiagnostics [("Foo.daml", [(DsError, (3,0), "Parse error")])]
+        completions <- getCompletions foo (Position 3 6)
+        liftIO $ completions @?= [mkCompletion "DA.Internal.RebindableSyntax" & detail .~ Nothing]
+  ]
+  where mkCompletion mod = CompletionItem
+          { _label = mod
+          , _kind = Just CiModule
+          , _detail = Just mod
+          , _documentation = Nothing
+          , _deprecated = Nothing
+          , _preselect = Nothing
+          , _sortText = Nothing
+          , _filterText = Nothing
+          , _insertText = Nothing
+          , _insertTextFormat = Nothing
+          , _textEdit = Nothing
+          , _additionalTextEdits = Nothing
+          , _commitCharacters = Nothing
+          , _command = Nothing
+          , _xdata = Nothing
+          }

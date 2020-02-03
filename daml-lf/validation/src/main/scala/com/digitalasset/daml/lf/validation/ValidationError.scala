@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.validation
@@ -15,6 +15,9 @@ final case class LEPackage(packageId: PackageId) extends LookupError {
 }
 final case class LEModule(packageId: PackageId, moduleRef: ModuleName) extends LookupError {
   def pretty: String = s"unknown module: $moduleRef"
+}
+final case class LETypeSyn(syn: TypeSynName) extends LookupError {
+  def pretty: String = s"unknown type synonym: ${syn.qualifiedName}"
 }
 final case class LEDataType(conName: TypeConName) extends LookupError {
   def pretty: String = s"unknown data type: ${conName.qualifiedName}"
@@ -108,8 +111,14 @@ case object URUpdate extends UnserializabilityReason {
 case object URScenario extends UnserializabilityReason {
   def pretty: String = "Scenario"
 }
-case object URTuple extends UnserializabilityReason {
+case object URStruct extends UnserializabilityReason {
   def pretty: String = "structural record"
+}
+case object URNumeric extends UnserializabilityReason {
+  def pretty: String = "unapplied Numeric"
+}
+case object URNat extends UnserializabilityReason {
+  def pretty: String = "Nat"
 }
 case object URList extends UnserializabilityReason {
   def pretty: String = "unapplied List"
@@ -117,8 +126,11 @@ case object URList extends UnserializabilityReason {
 case object UROptional extends UnserializabilityReason {
   def pretty: String = "unapplied Option"
 }
-case object URMap extends UnserializabilityReason {
-  def pretty: String = "unapplied Map"
+case object URTextMap extends UnserializabilityReason {
+  def pretty: String = "unapplied TextMap"
+}
+case object URGenMap extends UnserializabilityReason {
+  def pretty: String = "unapplied GenMap"
 }
 case object URContractId extends UnserializabilityReason {
   def pretty: String = "ContractId not applied to a template type"
@@ -126,11 +138,20 @@ case object URContractId extends UnserializabilityReason {
 final case class URDataType(conName: TypeConName) extends UnserializabilityReason {
   def pretty: String = s"unserializable data type ${conName.qualifiedName}"
 }
+final case class URTypeSyn(synName: TypeSynName) extends UnserializabilityReason {
+  def pretty: String = s"type synonym ${synName.qualifiedName}"
+}
 final case class URHigherKinded(varName: TypeVarName, kind: Kind) extends UnserializabilityReason {
   def pretty: String = s"higher-kinded type variable $varName : ${kind.pretty}"
 }
 case object URUninhabitatedType extends UnserializabilityReason {
   def pretty: String = "variant type without constructors"
+}
+case object URAny extends UnserializabilityReason {
+  def pretty: String = "Any"
+}
+case object URTypeRep extends UnserializabilityReason {
+  def pretty: String = "TypeRep"
 }
 
 abstract class ValidationError extends java.lang.RuntimeException with Product with Serializable {
@@ -153,6 +174,15 @@ final case class EUnknownExprVar(context: Context, varName: ExprVarName) extends
 final case class EUnknownDefinition(context: Context, lookupError: LookupError)
     extends ValidationError {
   protected def prettyInternal: String = lookupError.pretty
+}
+final case class ETypeSynAppWrongArity(
+    context: Context,
+    expectedArity: Int,
+    syn: TypeSynName,
+    args: ImmArray[Type])
+    extends ValidationError {
+  protected def prettyInternal: String =
+    s"wrong arity in type synonym application: ${syn.qualifiedName} ${args.toSeq.map(_.pretty).mkString(" ")}"
 }
 final case class ETypeConAppWrongArity(context: Context, expectedArity: Int, conApp: TypeConApp)
     extends ValidationError {
@@ -203,8 +233,8 @@ final case class EUnknownEnumCon(context: Context, conName: EnumConName) extends
 final case class EUnknownField(context: Context, fieldName: FieldName) extends ValidationError {
   protected def prettyInternal: String = s"unknown field: $fieldName"
 }
-final case class EExpectedTupleType(context: Context, typ: Type) extends ValidationError {
-  protected def prettyInternal: String = s"expected tuple type, but found: ${typ.pretty}"
+final case class EExpectedStructType(context: Context, typ: Type) extends ValidationError {
+  protected def prettyInternal: String = s"expected struct type, but found: ${typ.pretty}"
 }
 final case class EKindMismatch(context: Context, foundKind: Kind, expectedKind: Kind)
     extends ValidationError {
@@ -223,6 +253,10 @@ final case class ETypeMismatch(
     s"""type mismatch:
        | * expected type: ${expectedType.pretty}
        | * found type: ${foundType.pretty}""".stripMargin
+}
+final case class EExpectedAnyType(context: Context, typ: Type) extends ValidationError {
+  protected def prettyInternal: String =
+    s"expected a type containing neither type variables nor quantifiers, but found: ${typ.pretty}"
 }
 final case class EExpectedHigherKind(context: Context, kind: Kind) extends ValidationError {
   protected def prettyInternal: String = s"expected higher kinded type, but found: ${kind.pretty}"
@@ -282,6 +316,10 @@ final case class EExpectedTemplatableType(context: Context, conName: TypeConName
 }
 final case class EImportCycle(context: Context, modName: List[ModuleName]) extends ValidationError {
   protected def prettyInternal: String = s"cycle in module dependency ${modName.mkString(" -> ")}"
+}
+final case class ETypeSynCycle(context: Context, names: List[TypeSynName]) extends ValidationError {
+  protected def prettyInternal: String =
+    s"cycle in type synonym definitions ${names.mkString(" -> ")}"
 }
 final case class EImpredicativePolymorphism(context: Context, typ: Type) extends ValidationError {
   protected def prettyInternal: String =

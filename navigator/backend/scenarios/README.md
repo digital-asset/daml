@@ -25,3 +25,19 @@ As an example, assuming your current working directory is the project root, you 
 1. open a browser
 1. go to `localhost:4000`
 1. play around
+
+#### Usage with TLS
+
+If you want to use a secure channel (e.g.: to test against an authenticated sandbox), certificates are provided in the `tls` directory.
+
+To use them, run the sandbox as follows:
+
+       bazel run --run_under="cd $PWD && " \
+       //ledger/sandbox:sandbox-binary -- --scenario Main:example dist/rental.dar
+       --pem tls/server.pem --crt tls/server.crt --cacrt tls/ca.crt
+
+And run navigator as follows:
+
+       bazel run --run_under="cd $PWD && " \
+       //navigator/backend:navigator-binary -- server \
+       --pem tls/client.pem --crt tls/client.crt --cacrt tls/ca.crt

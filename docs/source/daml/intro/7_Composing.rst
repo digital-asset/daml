@@ -1,4 +1,4 @@
-.. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2020 The DAML Authors. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 7 Composing choices
@@ -90,7 +90,7 @@ The project both changes and adds to the ``Iou`` model presented in :doc:`6_Part
 Composed choices and scenarios
 ------------------------------
 
-This project showcases how you can put the ``Update`` and ``Scenario`` actions you learnt about in in :doc:`6_Parties` to good use. For example, the ``Merge`` and ``Split`` choices each perform several actions in their consequences.
+This project showcases how you can put the ``Update`` and ``Scenario`` actions you learnt about in :doc:`6_Parties` to good use. For example, the ``Merge`` and ``Split`` choices each perform several actions in their consequences.
 
 - Two create actions in case of ``Split``
 - One create and one archive action in case of ``Merge``
@@ -181,7 +181,7 @@ Similar to choices, you can see how the scenarios in this project are built up f
 
 In the above, the ``test_issuance`` scenario in ``Test.Intro.Asset.Role`` uses the output of the ``setupRoles`` scenario in the same module.
 
-The same line shows a new kind of pattern matching. Rather than writing ``setupResults <- setupRoles`` and then accessing the components of ``setupResults`` using ``_1``, ``_2``, etc., you can give them names. It's equivelent to writing
+The same line shows a new kind of pattern matching. Rather than writing ``setupResults <- setupRoles`` and then accessing the components of ``setupResults`` using ``_1``, ``_2``, etc., you can give them names. It's equivalent to writing
 
 .. code-block:: daml
 
@@ -199,7 +199,7 @@ DAML's execution model
 DAML's execution model is fairly easy to understand, but has some important consequences. You can imagine the life of a transaction as follows:
 
 1. A party submits a transaction. Remember, a transaction is just a list of actions.
-2. The transaction is interpreted, meaning the ``Update`` corresponding to each action is evaluated in the context of the ledger to calculate all consequeces, including transitive ones (consequences of consequences, etc).
+2. The transaction is interpreted, meaning the ``Update`` corresponding to each action is evaluated in the context of the ledger to calculate all consequences, including transitive ones (consequences of consequences, etc.).
 3. The views of the transaction that parties get to see (see :ref:`privacy`) are calculated in a process called *blinding*, or *projecting*.
 4. The blinded views are distributed to the parties.
 5. The transaction is *validated* based on the blinded views and a consensus protocol depending on the underlying infrastructure.
@@ -211,7 +211,7 @@ That's important in the context of the ``Trade_Settle`` choice shown above. The 
 
 The second consequence, due to 2., is that the submitter of a transaction knows all consequences of their submitted transaction -- there are no surprises in DAML. However, it also means that the submitter must have all the information to interpret the transaction.
 
-That's also imprtant in the context of ``Trade``. In order to allow Bob to interpret a transaction that transfers Alice's cash to Bob, Bob needs to know both about Alice's ``Asset`` contract, as well as about some way for ``Alice`` to accept a transfer -- remember, accepting a transfer needs the authority of ``issuer`` in this example.
+That's also important in the context of ``Trade``. In order to allow Bob to interpret a transaction that transfers Alice's cash to Bob, Bob needs to know both about Alice's ``Asset`` contract, as well as about some way for ``Alice`` to accept a transfer -- remember, accepting a transfer needs the authority of ``issuer`` in this example.
 
 Observers
 ---------
@@ -223,7 +223,7 @@ Observers
   :start-after: -- ASSET_BEGIN
   :end-before: -- ASSET_END
 
-The ``Asset`` template also gives the ``owner`` a choice to set the observers, and you can see how Alice uses it to show her ``Asset`` to Bob just before proposeing the trade. You can try out what happens if she didn't do that by removing that transaction.
+The ``Asset`` template also gives the ``owner`` a choice to set the observers, and you can see how Alice uses it to show her ``Asset`` to Bob just before proposing the trade. You can try out what happens if she didn't do that by removing that transaction.
 
 .. literalinclude:: daml/daml-intro-7/daml/Test/Intro/Asset/Trade.daml
   :language: daml
@@ -232,7 +232,7 @@ The ``Asset`` template also gives the ``owner`` a choice to set the observers, a
 
 Observers have guarantees in DAML. In particular, they are guaranteed to see actions that create and archive the contract on which they are an observer.
 
-Since observers are calculated from the arguments of the contract, they always know about each other. That's why, rather than adding Bob as an observer on Alice's ``AssetHolder`` contract, and using that to authorize the transfer in ``Trade_Settle``, Alice creates a one-time authorization in the form of a ``TransferAuthorization``. If Alice had lots of couterparties, she would otherwise end up leaking them to each other.
+Since observers are calculated from the arguments of the contract, they always know about each other. That's why, rather than adding Bob as an observer on Alice's ``AssetHolder`` contract, and using that to authorize the transfer in ``Trade_Settle``, Alice creates a one-time authorization in the form of a ``TransferAuthorization``. If Alice had lots of counterparties, she would otherwise end up leaking them to each other.
 
 Controllers declared via the ``controller cs can`` syntax are automatically made observers. Controllers declared in the ``choice`` syntax are not, as they can only be calculated at the point in time when the choice arguments are known.
 
@@ -251,7 +251,7 @@ Item 2. is necessary to ensure that every party can independently verify the val
 A party has a stake in an action if
 
 - they are a required authorizer of it
-- they are a signatory of on the contract on which the action is performed
+- they are a signatory of the contract on which the action is performed
 - they are an observer on the contract, and the action creates or archives it
 
 What does that mean for the ``exercise tradeCid Trade_Settle`` action from ``test_trade``?
@@ -273,4 +273,4 @@ Note that principle 2. of the privacy model means that sometimes parties see con
 
 .. figure:: images/7_Composing/divulgence.png
 
-This is because the ``create`` action of these contracts are in the transitive consequences of the ``Trade_Settle`` action both of them have a stake in. This kind of disclosues is often called "divulgence" and needs to be considered when designing DAML models for privacy sensitive applications.
+This is because the ``create`` action of these contracts are in the transitive consequences of the ``Trade_Settle`` action both of them have a stake in. This kind of disclosure is often called "divulgence" and needs to be considered when designing DAML models for privacy sensitive applications.

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.extractor.writers
@@ -174,7 +174,7 @@ class PostgreSQLWriter(config: ExtractorConfig, target: PostgreSQLTarget, ledger
     }(scala.collection.breakOut)
 
     val exercisedEvents: List[ExercisedEvent] = transaction.events.values.collect {
-      case e @ ExercisedEvent(_, _, _, _, _, _, _, _, _, _) => e
+      case e @ ExercisedEvent(_, _, _, _, _, _, _, _, _) => e
     }(scala.collection.breakOut)
 
     logger.trace(s"Create events: ${com.digitalasset.extractor.pformat(createdEvents)}")

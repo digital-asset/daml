@@ -1,42 +1,36 @@
-.. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2020 The DAML Authors. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-DAML SDK roadmap (as of June 2019)
-==================================
+DAML roadmap (as of January 2020)
+===================================
 
-This page specifies the major features we’re planning to add next to the DAML SDK. Plans and timelines are subject to change. If you need any of these features or want to request others, see the :doc:`/support/support` page for how to get in touch.
+This page specifies the major features we're planning to add next to the DAML Ecosystem. Plans and timelines are subject to change. If you need any of these features or want to request others, see the :doc:`/support/support` page for how to get in touch.
 
-We plan to update this roadmap roughly every three months.
+We aim to land the following changes in the coming three months.
 
-- **Generic templates**
+- **Developer Experience (DX)**
 
-  Support for writing generic templates - for example, a generic ``Proposal`` workflow that could be instantiated as a ``Proposal Iou`` to propose an ``Iou``.
+  - Improved version of the “Getting Started Guide” (former “Quickstart”) that will include instructions on how to build an end-to-end application with a UI
+  - An end-to-end skeleton application that can be installed via the DAML Assistant
+  - Improved compatibility between different DAML SDK versions
 
-  `Read more on GitHub <https://github.com/digital-asset/daml/issues/1387>`__.
-- **Tools to suggest improvements to DAML code**
-- **Upgrading contracts**
 
-  Improved support for the workflows of upgrading contracts that already exist on the ledger.
-- **Tools for visualisation**
+- **Front-end support**
 
-  Tools that allow users to visualise the static workflow and lifecycle of contracts.
-- **Improve app portability between DAML ledgers**
+  - A front-end JavaScript/TypeScript framework including supporting libraries and tools that facilitate interaction with data on a DAML ledger
+  - A React library built on top of the above-mentioned framework that binds ledger data to React components
 
-  Add a DAML-on-X certification tool that tests that DAML ledgers implement all DAML functionality, and document a portable approach to DAML application testing.
+- **New “how-tos” in the docs**
 
-  `Read more on GitHub <https://github.com/digital-asset/TODO>`__.
-- **Ledger API authentication**
+  - How to deploy DAML models to existing Ledgers
+  - How to deploy DAML full-stack DAML applications 
+  - How to migrate a DAML model to a new version
 
-  Add Ledger API authentication for all DAML ledgers.
+- **Ledger model improvements**
 
-  `Read more on GitHub <https://github.com/digital-asset/TODO>`__.
-- **JavaScript ecosystem**
+  - Improved Ledger Time model that works seamlessly in a distributed setting, and contains optional safeguards against duplicate command submission
+  - Better privacy controls by separating the disclosure mechanisms for business and validation purposes and adding new mechanisms to share single contracts and delegate read rights 
 
-  Improve the currently experimental Node.js bindings so they are stable, and add higher-level abstractions to capture recurring usage patterns.
+- **Deployment Options**
 
-  `Read more on GitHub <https://github.com/digital-asset/daml-js>`__.
-- **DAML-on-X self-service package: Beta release**
-
-  Make it easier for external developers to integrate DAML with other ledgers.
-
-  You can read about the release stages on the :doc:`/daml-integration-kit/index` page. 
+  - ALPHA version of DAML on Corda available through partners

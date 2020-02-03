@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf
@@ -9,8 +9,9 @@ import value.Value
 import Value.{ValueOptional, VersionedValue}
 import value.ValueVersions.asVersionedValue
 import TransactionVersions.assignVersion
-
 import org.scalatest.{Matchers, WordSpec}
+
+import scala.collection.immutable.HashMap
 
 class TransactionVersionSpec extends WordSpec with Matchers {
   import TransactionVersionSpec._
@@ -41,7 +42,8 @@ class TransactionVersionSpec extends WordSpec with Matchers {
   }
 
   private[this] def assignValueVersions[Nid, Cid, Cid2](
-      t: GenTransaction[Nid, Cid, Value[Cid2]]): GenTransaction[Nid, Cid, VersionedValue[Cid2]] =
+      t: GenTransaction[Nid, Cid, Value[Cid2]],
+  ): GenTransaction[Nid, Cid, VersionedValue[Cid2]] =
     t mapContractIdAndValue (identity, v =>
       asVersionedValue(v) fold (e =>
         fail(s"We didn't write traverse for GenTransaction: $e"), identity))
@@ -51,10 +53,13 @@ object TransactionVersionSpec {
   import TransactionSpec.{dummyCreateNode, dummyExerciseNode, StringTransaction}
   private[this] val singleId = "a"
   private val dummyCreateTransaction =
-    StringTransaction(Map((singleId, dummyCreateNode)), ImmArray(singleId))
+    StringTransaction(HashMap(singleId -> dummyCreateNode), ImmArray(singleId))
   private val dummyExerciseWithResultTransaction =
-    StringTransaction(Map((singleId, dummyExerciseNode(ImmArray.empty))), ImmArray(singleId))
+    StringTransaction(HashMap(singleId -> dummyExerciseNode(ImmArray.empty)), ImmArray(singleId))
   private val dummyExerciseTransaction =
-    StringTransaction(Map((singleId, dummyExerciseNode(ImmArray.empty, false))), ImmArray(singleId))
+    StringTransaction(
+      HashMap(singleId -> dummyExerciseNode(ImmArray.empty, false)),
+      ImmArray(singleId),
+    )
 
 }

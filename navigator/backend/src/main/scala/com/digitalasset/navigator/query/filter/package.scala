@@ -1,10 +1,12 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.navigator.query
 
 import com.digitalasset.navigator.dotnot._
 import com.digitalasset.navigator.model._
+import com.digitalasset.daml.lf.value.{Value => V}
+import com.digitalasset.daml.lf.value.json.ApiValueImplicits._
 import scalaz.Tag
 import scalaz.syntax.tag._
 
@@ -67,8 +69,7 @@ package object filter {
 
         case DamlLfTypeVar(name) => Right(checkContained(name, expectedValue))
         case DamlLfTypePrim(DamlLfPrimType.Bool, _) => Right(checkContained("bool", expectedValue))
-        case DamlLfTypePrim(DamlLfPrimType.Decimal, _) =>
-          Right(checkContained("decimal", expectedValue))
+        case DamlLfTypeNumeric(_) => Right(checkContained("decimal", expectedValue))
         case DamlLfTypePrim(DamlLfPrimType.Int64, _) =>
           Right(checkContained("int64", expectedValue))
         case DamlLfTypePrim(DamlLfPrimType.Date, _) => Right(checkContained("date", expectedValue))
@@ -83,8 +84,11 @@ package object filter {
           Right(checkContained("contractid", expectedValue))
         case DamlLfTypePrim(DamlLfPrimType.Optional, _) =>
           Right(checkContained("optional", expectedValue))
-        case DamlLfTypePrim(DamlLfPrimType.Map, _) =>
-          Right(checkContained("map", expectedValue))
+        case DamlLfTypePrim(DamlLfPrimType.TextMap, _) =>
+          Right(checkContained("textmap", expectedValue))
+        case DamlLfTypePrim(DamlLfPrimType.GenMap, _) =>
+          Right(checkContained("genmap", expectedValue))
+
       }
 
     loop(rootParam, cursor.prev.get)
@@ -107,16 +111,31 @@ package object filter {
     @annotation.tailrec
     def loop(argument: ApiValue, cursor: PropertyCursor): Either[DotNotFailure, Boolean] =
       argument match {
-        case ApiRecord(_, fields) =>
+        case V.ValueContractId(value) if cursor.isLast =>
+          Right(checkContained(value, expectedValue))
+        case V.ValueInt64(value) if cursor.isLast =>
+          Right(checkContained(value.toString, expectedValue))
+        case V.ValueNumeric(value) if cursor.isLast =>
+          Right(checkContained(value.toUnscaledString, expectedValue))
+        case V.ValueText(value) if cursor.isLast => Right(checkContained(value, expectedValue))
+        case V.ValueParty(value) if cursor.isLast => Right(checkContained(value, expectedValue))
+        case V.ValueBool(value) if cursor.isLast =>
+          Right(checkContained(value.toString, expectedValue))
+        case V.ValueUnit if cursor.isLast => Right(expectedValue == "")
+        case t: V.ValueTimestamp if cursor.isLast =>
+          Right(checkContained(t.toIso8601, expectedValue))
+        case t: V.ValueDate if cursor.isLast => Right(checkContained(t.toIso8601, expectedValue))
+        case V.ValueRecord(_, fields) =>
           cursor.next match {
             case None => Right(false)
             case Some(nextCursor) =>
-              fields.find(f => f.label == nextCursor.current) match {
-                case Some(nextField) => loop(nextField.value, nextCursor)
+              val current: String = nextCursor.current
+              fields.toSeq.collectFirst { case (Some(`current`), value) => value } match {
+                case Some(nextField) => loop(nextField, nextCursor)
                 case None => Right(false)
               }
           }
-        case ApiVariant(_, constructor, value) =>
+        case V.ValueVariant(_, constructor, value) =>
           cursor.next match {
             case None => Right(false)
             case Some(nextCursor) =>
@@ -127,7 +146,7 @@ package object filter {
                 case _ => Right(false)
               }
           }
-        case ApiEnum(_, constructor) =>
+        case V.ValueEnum(_, constructor) =>
           cursor.next match {
             case None => Right(false)
             case Some(nextCursor) =>
@@ -136,25 +155,18 @@ package object filter {
                 case _ => Right(false)
               }
           }
-        case ApiList(elements) =>
+        case V.ValueList(elements) =>
           cursor.next match {
             case None => Right(false)
             case Some(nextCursor) =>
               Try(nextCursor.current.toInt) match {
-                case Success(index) => loop(elements(index), nextCursor)
+                case Success(index) => loop(elements.slowApply(index), nextCursor)
                 case Failure(e) =>
                   Left(TypeCoercionFailure("list index", "int", cursor, cursor.current))
               }
           }
-        case ApiContractId(value) if cursor.isLast => Right(checkContained(value, expectedValue))
-        case ApiInt64(value) if cursor.isLast =>
-          Right(checkContained(value.toString, expectedValue))
-        case ApiDecimal(value) if cursor.isLast => Right(checkContained(value, expectedValue))
-        case ApiText(value) if cursor.isLast => Right(checkContained(value, expectedValue))
-        case ApiParty(value) if cursor.isLast => Right(checkContained(value, expectedValue))
-        case ApiBool(value) if cursor.isLast => Right(checkContained(value.toString, expectedValue))
-        case ApiUnit() if cursor.isLast => Right(expectedValue == "")
-        case ApiOptional(optValue) =>
+
+        case V.ValueOptional(optValue) =>
           (cursor.next, optValue) match {
             case (None, None) => Right(expectedValue == "None")
             case (None, Some(_)) => Right(expectedValue == "Some")
@@ -163,9 +175,39 @@ package object filter {
             case (Some(nextCursor), None) if nextCursor.current == "None" => Right(true)
             case (Some(_), _) => Right(false)
           }
-        case t: ApiTimestamp if cursor.isLast => Right(checkContained(t.toIso8601, expectedValue))
-        case t: ApiDate if cursor.isLast => Right(checkContained(t.toIso8601, expectedValue))
+        case V.ValueTextMap(textMap) =>
+          cursor.next match {
+            case None => Right(false)
+            case Some(nextCursor) =>
+              textMap.toImmArray.toSeq.collectFirst {
+                case (k, v) if k == nextCursor.current => v
+              } match {
+                case None => Right(false)
+                case Some(v) => loop(v, nextCursor)
+              }
+          }
+        case V.ValueGenMap(entries) =>
+          cursor.next match {
+            case None =>
+              Right(false)
+            case Some(nextCursor) =>
+              Try(nextCursor.current.toInt) match {
+                case Success(index) =>
+                  nextCursor.next match {
+                    case Some(nextNextCursor) if nextNextCursor.current == "key" =>
+                      loop(entries(index)._1, nextNextCursor)
+                    case Some(nextNextCursor) if nextNextCursor.current == "value" =>
+                      loop(entries(index)._2, nextNextCursor)
+                    case None =>
+                      Right(false)
+                  }
+                case Failure(_) =>
+                  Left(TypeCoercionFailure("GenMap index", "int", cursor, cursor.current))
+              }
+
+          }
       }
+
     loop(rootArgument, cursor.prev.get)
   }
 

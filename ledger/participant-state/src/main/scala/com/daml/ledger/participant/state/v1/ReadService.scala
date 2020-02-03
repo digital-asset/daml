@@ -1,10 +1,11 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.v1
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
+import com.digitalasset.ledger.api.health.ReportsHealth
 
 /** An interface for reading the state of a ledger participant.
   *
@@ -19,7 +20,7 @@ import akka.stream.scaladsl.Source
   * communicated by [[ReadService!.stateUpdates]].
   *
   */
-trait ReadService {
+trait ReadService extends ReportsHealth {
 
   /** Retrieve the static initial conditions of the ledger, containing
     * the ledger identifier and the initial the ledger record time.
@@ -52,7 +53,7 @@ trait ReadService {
     *
     * - *initialize before transaction acceptance*: before any
     *   [[Update.TransactionAccepted]], there is a [[Update.ConfigurationChanged]] update
-    *   and [[Update.PublicPackageUploaded]] updates for all packages referenced by
+    *   and [[Update.PublicPackageUpload]] updates for all packages referenced by
     *   the [[Update.TransactionAccepted]].
     *
     * - *monotonic record time*: for any update `u1` with an associated record
@@ -83,12 +84,11 @@ trait ReadService {
     *
     * - *acceptance finality*: if there is a [[Update.TransactionAccepted]] with
     *   an associated [[SubmitterInfo]] `info1`, then for every later
-    *   [[Update.CommandRejected]] with [[SubmitterInfo]] `info2` that agrees with
+    *   transaction with [[SubmitterInfo]] `info2` that agrees with
     *   `info1` on the `submitter`, `applicationId`, and `commandId` fields,
-    *   it holds that the rejection reason is
-    *   [[RejectionReason.DuplicateCommand]]. Simply put: the only reason for
-    *   a signalling a rejection of an accepted transaction is a duplicate
-    *   submission of that transaction.
+    *   a transaction will be rejected without a corresponding update being issued.
+    *   It is done so to avert potential DOS attacks and avoid ambiguity as to the
+    *   transaction status in the index database.
     *
     * - *maximum record time enforced*: for all [[Update.TransactionAccepted]]
     *   updates `u` with associated [[SubmitterInfo]] `info`, it holds that

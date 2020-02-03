@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.extractor.services
@@ -47,7 +47,6 @@ trait Types {
       contract_id: String,
       package_id: String,
       template: String,
-      contract_creating_event_id: String,
       choice: String,
       choice_argument: Json,
       acting_parties: Json,

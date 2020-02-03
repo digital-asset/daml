@@ -1,13 +1,13 @@
 Some packages, network in particular, require to link additional libraries to
 avoid missing symbol errors when linking on Windows.
 diff --git a/haskell/private/actions/package.bzl b/haskell/private/actions/package.bzl
-index 2b56388..0c5c37c 100644
+index 7497d7b..38c8529 100644
 --- a/haskell/private/actions/package.bzl
 +++ b/haskell/private/actions/package.bzl
-@@ -107,7 +107,12 @@ def package(
+@@ -108,7 +108,12 @@ def package(
          "library-dirs": ["${pkgroot}"] + extra_lib_dirs,
          "dynamic-library-dirs": ["${pkgroot}"] + extra_lib_dirs,
-         "hs-libraries": [pkg_id.library_name(hs, my_pkg_id)],
+         "hs-libraries": [pkg_id.library_name(hs, my_pkg_id)] if has_hs_library else [],
 -        "extra-libraries": extra_libs,
 +        "extra-libraries": extra_libs + ([
 +            "stdc++",
@@ -17,3 +17,4 @@ index 2b56388..0c5c37c 100644
 +        ] if hs.toolchain.is_windows else []),
          "depends": hs.package_ids,
      })
+ 

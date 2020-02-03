@@ -2,14 +2,14 @@
 <configuration>
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>%d{HH:mm:ss.SSS} %highlight(%-5level) %cyan(%logger{5}) - %msg%n</pattern>
+            <pattern>%d{HH:mm:ss.SSS} %-5level %logger{5} - %msg%n</pattern>
         </encoder>
     </appender>
 
     <appender name="STDERR" class="ch.qos.logback.core.ConsoleAppender">
         <target>System.err</target>
         <encoder>
-          <pattern>%d{HH:mm:ss.SSS} %highlight(%-5level) %cyan(%logger{5}) - %msg%n</pattern>
+          <pattern>%d{HH:mm:ss.SSS} %-5level %logger{5} - %msg%n</pattern>
         </encoder>
     </appender>
 
@@ -30,7 +30,7 @@
     <logger name="io.grpc.netty" level="WARN">
             <appender-ref ref="STDERR"/>
     </logger>
-    <logger name="com.digitalasset.platform.sandbox.services" level="INFO">
+    <logger name="com.digitalasset.platform.sandbox.services" level="INFO" additivity="false">
             <appender-ref ref="STDERR"/>
     </logger>
 

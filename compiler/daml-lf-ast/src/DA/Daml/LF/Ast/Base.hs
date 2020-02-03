@@ -1,10 +1,9 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DataKinds          #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE TemplateHaskell    #-}
 {-# LANGUAGE TypeFamilies #-}
 -- | Types and pretty-printer for the AST of the DAML Ledger Fragment.
@@ -24,7 +23,9 @@ import Data.Fixed
 import qualified "template-haskell" Language.Haskell.TH as TH
 import qualified Control.Lens.TH as Lens.TH
 
-import           DA.Daml.LF.Ast.Version
+import DA.Daml.LF.Ast.Version
+import DA.Daml.LF.Ast.Numeric
+import DA.Daml.LF.Ast.TypeLevelNat
 
 infixr 1 `KArrow`
 
@@ -40,6 +41,13 @@ newtype PackageId = PackageId{unPackageId :: T.Text}
 --
 -- > ([A-Z][a-zA-Z0-9_]*)(\.[A-Z][a-zA-Z0-9_]*)*
 newtype ModuleName = ModuleName{unModuleName :: [T.Text]}
+    deriving stock (Eq, Data, Generic, Ord, Show)
+    deriving newtype (Hashable, NFData)
+
+-- | Name for a type synonym. Must match the regex
+--
+-- > ([A-Z][a-zA-Z0-9_]*)(\.[A-Z][a-zA-Z0-9_]*)*
+newtype TypeSynName = TypeSynName{unTypeSynName :: [T.Text]}
     deriving stock (Eq, Data, Generic, Ord, Show)
     deriving newtype (Hashable, NFData)
 
@@ -131,6 +139,7 @@ data SourceLoc = SourceLoc
 -- | Kinds.
 data Kind
   = KStar
+  | KNat
   | KArrow Kind Kind
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
@@ -138,6 +147,7 @@ data Kind
 data BuiltinType
   = BTInt64
   | BTDecimal
+  | BTNumeric
   | BTText
   | BTTimestamp
   | BTDate
@@ -149,8 +159,11 @@ data BuiltinType
   | BTScenario
   | BTContractId
   | BTOptional
-  | BTMap
+  | BTTextMap
+  | BTGenMap
   | BTArrow
+  | BTAny
+  | BTTypeRep
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 -- | Type as used in typed binders.
@@ -159,6 +172,8 @@ data Type
   = TVar        !TypeVarName
   -- | Reference to a type constructor.
   | TCon        !(Qualified TypeConName)
+  -- | Fully-applied type synonym.
+  | TSynApp     !(Qualified TypeSynName) ![Type]
   -- | Application of a type function to a type.
   | TApp        !Type !Type
   -- | Builtin type.
@@ -171,9 +186,11 @@ data Type
     , forallBody   :: !Type
       -- ^ Type of the body of the type abstraction.
     }
-  -- | Type for tuples aka structural records. Parameterized by the names of the
+  -- | Type for structs aka structural records. Parameterized by the names of the
   -- fields and their types.
-  | TTuple      ![(FieldName, Type)]
+  | TStruct      ![(FieldName, Type)]
+  -- | Type-level natural numbers
+  | TNat !TypeLevelNat
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 -- | Fully applied qualified type constructor.
@@ -185,15 +202,12 @@ data TypeConApp = TypeConApp
   }
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
-data E10
-instance HasResolution E10 where
-  resolution _ = 10000000000 -- 10^-10 resolution
-
 -- | Builtin operation or literal.
 data BuiltinExpr
   -- Literals
   = BEInt64      !Int64          -- :: Int64
   | BEDecimal    !(Fixed E10)    -- :: Decimal, precision 38, scale 10
+  | BENumeric    !Numeric        -- :: Numeric, precision 38, scale 0 through 37
   | BEText       !T.Text         -- :: Text
   | BETimestamp  !Int64          -- :: Timestamp, microseconds since unix epoch
   | BEParty      !PartyLiteral   -- :: Party
@@ -203,6 +217,7 @@ data BuiltinExpr
 
   -- Polymorphic functions
   | BEError                      -- :: ∀a. Text -> a
+  | BEEqualGeneric               -- :: ∀t. t -> t -> Bool
   | BEEqual      !BuiltinType    -- :: t -> t -> Bool, where t is the builtin type
   | BELess       !BuiltinType    -- :: t -> t -> Bool, where t is the builtin type
   | BELessEq     !BuiltinType    -- :: t -> t -> Bool, where t is the builtin type
@@ -218,17 +233,34 @@ data BuiltinExpr
   | BEDivDecimal                 -- :: Decimal -> Decimal -> Decimal, automatically rounds to even, crashes on divisor = 0 and on overflow
   | BERoundDecimal               -- :: Int64 -> Decimal -> Decimal, the Int64 is the required scale. Note that this doesn't modify the scale of the type itself, it just zeroes things outside that scale out. Can be negative. Crashes if the scale is > 10 or < -27.
 
+  -- Numeric arithmetic and comparisons
+  | BEEqualNumeric               -- :: ∀n. Numeric n -> Numeric n -> Bool, where t is the builtin type
+  | BELessNumeric                -- :: ∀(s:nat). Numeric s -> Numeric s -> Bool
+  | BELessEqNumeric              -- :: ∀(s:nat). Numeric s -> Numeric s -> Bool
+  | BEGreaterEqNumeric           -- :: ∀(s:nat). Numeric s -> Numeric s -> Bool
+  | BEGreaterNumeric             -- :: ∀(s:nat). Numeric s -> Numeric s -> Bool
+  | BEToTextNumeric              -- :: ∀(s:nat). Numeric s -> Text
+  | BEAddNumeric                 -- :: ∀(s:nat). Numeric s -> Numeric s -> Numeric s, crashes on overflow
+  | BESubNumeric                 -- :: ∀(s:nat). Numeric s -> Numeric s -> Numeric s, crashes on overflow
+  | BEMulNumeric                 -- :: ∀(s1:nat). ∀(s2:nat). ∀(s3:nat). Numeric s1 -> Numeric s2 -> Numeric s3, crashes on overflow and underflow, automatically rounds to even (see <https://en.wikipedia.org/wiki/Rounding#Round_half_to_even>)
+  | BEDivNumeric                 -- :: ∀(s1:nat). ∀(s2:nat). ∀(s3:nat). Numeric s1 -> Numeric s2 -> Numeric s3, automatically rounds to even, crashes on divisor = 0 and on overflow
+  | BERoundNumeric               -- :: ∀(s:nat). Int64 -> Numeric s -> Numeric s, the Int64 is the required scale. Note that this doesn't modify the scale of the type itself, it just zeroes things outside that scale out. Can be negative. Crashes if the scale is > 10 or < -27.
+  | BECastNumeric                -- :: ∀(s1:nat). ∀(s2:nat). Numeric s1 -> Numeric s2
+  | BEShiftNumeric               -- :: ∀(s1:nat). ∀(s2:nat). Numeric s1 -> Numeric s2
+
   -- Integer arithmetic
-  | BEAddInt64                 -- :: Int64 -> Int64 -> Int64, crashes on overflow
-  | BESubInt64                 -- :: Int64 -> Int64 -> Int64, crashes on overflow
-  | BEMulInt64                 -- :: Int64 -> Int64 -> Int64, crashes on overflow
-  | BEDivInt64                 -- :: Int64 -> Int64 -> Int64, crashes on divisor = 0
-  | BEModInt64                 -- :: Int64 -> Int64 -> Int64, crashes on divisor = 0
-  | BEExpInt64                 -- :: Int64 -> Int64 -> Int64, crashes on overflow
+  | BEAddInt64                   -- :: Int64 -> Int64 -> Int64, crashes on overflow
+  | BESubInt64                   -- :: Int64 -> Int64 -> Int64, crashes on overflow
+  | BEMulInt64                   -- :: Int64 -> Int64 -> Int64, crashes on overflow
+  | BEDivInt64                   -- :: Int64 -> Int64 -> Int64, crashes on divisor = 0
+  | BEModInt64                   -- :: Int64 -> Int64 -> Int64, crashes on divisor = 0
+  | BEExpInt64                   -- :: Int64 -> Int64 -> Int64, crashes on overflow
 
   -- Numerical conversion
-  | BEInt64ToDecimal           -- :: Int64 -> Decimal, always succeeds since 10^28 > 2^63
-  | BEDecimalToInt64           -- :: Decimal -> Int64, only converts the whole part, crashes if it doesn't fit
+  | BEInt64ToDecimal             -- :: Int64 -> Decimal, always succeeds since 10^28 > 2^63
+  | BEDecimalToInt64             -- :: Decimal -> Int64, only converts the whole part, crashes if it doesn't fit
+  | BEInt64ToNumeric             -- :: ∀(s:nat). Int64 -> Numeric s, crashes if it doesn't fit (TODO: verify?)
+  | BENumericToInt64             -- :: ∀(s:nat). Numeric s -> Int64, only converts the whole part, crashes if it doesn't fit
 
   -- Time conversion
   | BETimestampToUnixMicroseconds -- :: Timestamp -> Int64, in microseconds
@@ -241,12 +273,22 @@ data BuiltinExpr
   | BEFoldr                      -- :: ∀a b. (a -> b -> b) -> b -> List a -> b
   | BEEqualList                  -- :: ∀a. (a -> a -> Bool) -> List a -> List a -> Bool
 
-  | BEMapEmpty                    -- :: ∀ a. Map a
-  | BEMapInsert                   -- :: ∀ a. Text -> a -> Map a -> Map a
-  | BEMapLookup                   -- :: ∀ a. Text -> Map a -> Optional a
-  | BEMapDelete                   -- :: ∀ a. Text -> Map a -> Map a
-  | BEMapToList                   -- :: ∀ a. Map a -> List ⟨key: Text, value: a⟩
-  | BEMapSize                     -- :: ∀ a. Map a -> Int64
+  -- Map operations
+  | BETextMapEmpty               -- :: ∀ a. TextMap a
+  | BETextMapInsert              -- :: ∀ a. Text -> a -> TextMap a -> TextMap a
+  | BETextMapLookup              -- :: ∀ a. Text -> TextMap a -> Optional a
+  | BETextMapDelete              -- :: ∀ a. Text -> TextMap a -> TextMap a
+  | BETextMapToList              -- :: ∀ a. TextMap a -> List ⟨key: Text, value: a⟩
+  | BETextMapSize                -- :: ∀ a. TextMap a -> Int64
+
+  -- GenMap operations
+  | BEGenMapEmpty                -- :: ∀ a b. GenMap a b
+  | BEGenMapInsert               -- :: ∀ a b. a -> b -> GenMap a b -> GenMap a b
+  | BEGenMapLookup               -- :: ∀ a b. a -> GenMap a b -> Optional b
+  | BEGenMapDelete               -- :: ∀ a b. a -> GenMap a b -> GenMap a b
+  | BEGenMapKeys                 -- :: ∀ a b. GenMap a b -> List a
+  | BEGenMapValues               -- :: ∀ a b. GenMap a b -> List b
+  | BEGenMapSize                 -- :: ∀ a b. GenMap a b -> Int64
 
   -- Text operations
   | BEExplodeText                -- :: Text -> List Text
@@ -256,6 +298,7 @@ data BuiltinExpr
   | BEPartyFromText              -- :: Text -> Optional Party
   | BEInt64FromText              -- :: Text -> Optional Int64
   | BEDecimalFromText            -- :: Text -> Optional Decimal
+  | BENumericFromText            -- :: ∀(s:nat). Text -> Optional (Numeric s)
   | BETextToCodePoints           -- :: Text -> List Int64
   | BETextFromCodePoints         -- :: List Int64 -> Text
   | BEPartyToQuotedText          -- :: Party -> Text
@@ -263,6 +306,16 @@ data BuiltinExpr
   | BETrace                      -- :: forall a. Text -> a -> a
   | BEEqualContractId            -- :: forall a. ContractId a -> ContractId a -> Bool
   | BECoerceContractId           -- :: forall a b. ContractId a -> ContractId b
+
+  -- Experimental Text Primitives
+  | BETextToUpper                -- :: Text -> Text
+  | BETextToLower                -- :: Text -> Text
+  | BETextSlice                  -- :: Int -> Int -> Text -> Text
+  | BETextSliceIndex             -- :: Text -> Text -> Optional Int64
+  | BETextContainsOnly           -- :: Text -> Text -> Bool
+  | BETextReplicate              -- :: Int64 -> Text -> Text
+  | BETextSplitOn                -- :: Text -> Text -> [Text]
+  | BETextIntercalate            -- :: Text -> [Text] -> Text
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 
@@ -325,25 +378,25 @@ data Expr
     , enumDataCon :: !VariantConName
       -- ^ Data constructor of the enum type.
     }
-  -- | Tuple construction.
-  | ETupleCon
-    { tupFields :: ![(FieldName, Expr)]
+  -- | Struct construction.
+  | EStructCon
+    { structFields :: ![(FieldName, Expr)]
       -- ^ Fields together with the expressions to assign to them.
     }
-  -- | Tuple projection.
-  | ETupleProj
-    { tupField :: !FieldName
+  -- | Struct projection.
+  | EStructProj
+    { structField :: !FieldName
       -- ^ Field to project to.
-    , tupExpr  :: !Expr
+    , structExpr  :: !Expr
       -- ^ Expression to project from.
     }
-  -- | Non-destructive tuple update.
-  | ETupleUpd
-    { tupField :: !FieldName
+  -- | Non-destructive struct update.
+  | EStructUpd
+    { structField :: !FieldName
       -- ^ Field to update.
-    , tupExpr :: !Expr
+    , structExpr :: !Expr
       -- ^ Expression to update the field in.
-    , tupUpdate :: !Expr
+    , structUpdate :: !Expr
       -- ^ Expression to update the field with.
     }
   -- | (Expression) application.
@@ -419,6 +472,15 @@ data Expr
   | ENone
     { noneType :: !Type
     }
+  | EToAny
+    { toAnyType :: !Type
+    , toAnyBody :: !Expr
+    }
+  | EFromAny
+    { fromAnyType :: !Type
+    , fromAnyBody :: !Expr
+    }
+  | ETypeRep !Type
   -- | Update expression.
   | EUpdate !Update
   -- | Scenario expression.
@@ -604,6 +666,19 @@ newtype IsSerializable = IsSerializable{getIsSerializable :: Bool}
   deriving stock (Eq, Data, Generic, Ord, Show)
   deriving anyclass (NFData)
 
+-- | Definition of a type synonym.
+data DefTypeSyn = DefTypeSyn
+  { synLocation :: !(Maybe SourceLoc)
+    -- ^ Location of the definition in the source file.
+  , synName     :: !TypeSynName
+    -- ^ Name of the synonym.
+  , synParams   :: ![(TypeVarName, Kind)]
+    -- ^ Type paramaters to the type synonym.
+  , synType     :: !Type
+    -- ^ Type synonomized.
+  }
+  deriving (Eq, Data, Generic, NFData, Ord, Show)
+
 -- | Definition of a data type.
 data DefDataType = DefDataType
   { dataLocation :: !(Maybe SourceLoc)
@@ -753,6 +828,8 @@ data Module = Module
     -- protobuf serialization format.
   , moduleFeatureFlags :: !FeatureFlags
     -- ^ Feature flags of this module.
+  , moduleSynonyms :: !(NM.NameMap DefTypeSyn)
+    -- ^ Type synonym definitions.
   , moduleDataTypes :: !(NM.NameMap DefDataType)
     -- ^ Data type definitions.
   , moduleValues :: !(NM.NameMap DefValue)
@@ -782,6 +859,10 @@ instance Hashable a => Hashable (Qualified a)
 instance NM.Named TemplateChoice where
   type Name TemplateChoice = ChoiceName
   name = chcName
+
+instance NM.Named DefTypeSyn where
+  type Name DefTypeSyn = TypeSynName
+  name = synName
 
 instance NM.Named DefDataType where
   type Name DefDataType = TypeConName

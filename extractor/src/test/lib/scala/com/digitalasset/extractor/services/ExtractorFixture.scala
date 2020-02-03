@@ -1,24 +1,24 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.extractor.services
 
+import cats.effect.{ContextShift, IO}
+import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.extractor.Extractor
 import com.digitalasset.extractor.config.{ExtractorConfig, SnapshotEndSetting}
 import com.digitalasset.extractor.targets.PostgreSQLTarget
-import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.tls.TlsConfiguration
-import com.digitalasset.platform.sandbox.persistence.PostgresAround
+import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.platform.sandbox.services.SandboxFixture
-import scalaz.OneAnd
-import cats.effect.{ContextShift, IO}
+import com.digitalasset.testing.postgresql.PostgresAround
 import doobie._
 import doobie.implicits._
 import org.scalatest._
+import scalaz.OneAnd
 
-import scala.concurrent.{Await, ExecutionContext}
 import scala.concurrent.duration._
+import scala.concurrent.{Await, ExecutionContext}
 
 trait ExtractorFixture extends SandboxFixture with PostgresAround with Types {
   self: Suite =>
@@ -39,7 +39,10 @@ trait ExtractorFixture extends SandboxFixture with PostgresAround with Types {
       None,
       None,
     ),
+    None,
   )
+
+  protected def outputFormat: String = "single-table"
 
   protected def configureExtractor(ec: ExtractorConfig): ExtractorConfig = ec
 
@@ -47,7 +50,7 @@ trait ExtractorFixture extends SandboxFixture with PostgresAround with Types {
     connectUrl = postgresFixture.jdbcUrl,
     user = "test",
     password = "",
-    outputFormat = "combined",
+    outputFormat = outputFormat,
     schemaPerPackage = false,
     mergeIdentical = false,
     stripPrefix = None
@@ -93,7 +96,7 @@ trait ExtractorFixture extends SandboxFixture with PostgresAround with Types {
   protected def run(): Unit = {
     val config: ExtractorConfig = configureExtractor(baseConfig.copy(ledgerPort = getSandboxPort))
 
-    extractor = new Extractor(config, target)
+    extractor = new Extractor(config, target)()
 
     val res = extractor.run()
 

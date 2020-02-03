@@ -1,10 +1,10 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 daml 1.2
 module Iou where
 
-type IouId = ContractId Iou
+type IouCid = ContractId Iou
 
 template Iou
   with
@@ -23,7 +23,7 @@ template Iou
     controller owner can
 
       -- Split the IOU by dividing the amount.
-      Iou_Split : (IouId, IouId)
+      Iou_Split : (IouCid, IouCid)
          with
           splitAmount: Decimal
         do
@@ -33,9 +33,9 @@ template Iou
           return (splitCid, restCid)
 
       -- Merge two IOUs by aggregating their amounts.
-      Iou_Merge : IouId
+      Iou_Merge : IouCid
         with
-          otherCid: IouId
+          otherCid: IouCid
         do
           otherIou <- fetch otherCid
           -- Check the two IOU's are compatible
@@ -54,12 +54,12 @@ template Iou
           newOwner : Party
         do create IouTransfer with iou = this; newOwner
 
-      Iou_AddObserver : IouId
+      Iou_AddObserver : IouCid
         with
           newObserver : Party
         do create this with observers = newObserver :: observers
 
-      Iou_RemoveObserver : IouId
+      Iou_RemoveObserver : IouCid
         with
           oldObserver : Party
         do create this with observers = filter (/= oldObserver) observers
@@ -72,14 +72,14 @@ template IouTransfer
     signatory iou.issuer, iou.owner
 
     controller iou.owner can
-      IouTransfer_Cancel : IouId
+      IouTransfer_Cancel : IouCid
         do create iou
 
     controller newOwner can
-      IouTransfer_Reject : IouId
+      IouTransfer_Reject : IouCid
         do create iou
 
-      IouTransfer_Accept : IouId
+      IouTransfer_Accept : IouCid
         do
           create iou with
             owner = newOwner

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.platform.sandbox.perf
@@ -15,11 +15,26 @@ import com.digitalasset.ledger.api.v1.event.CreatedEvent
 import com.digitalasset.ledger.api.v1.value.Identifier
 import com.digitalasset.ledger.client.services.acs.ActiveContractSetClient
 import com.digitalasset.platform.sandbox.services.TestCommands
-import org.openjdk.jmh.annotations.Benchmark
+import org.openjdk.jmh.annotations.{Benchmark, Level, Setup}
+
+class AcsBenchState extends PerfBenchState with DummyCommands with InfAwait {
+
+  def commandCount = 10000L
+
+  @Setup(Level.Invocation)
+  def submitCommands(): Unit = {
+    await(
+      dummyCreates(ledger.ledgerId)
+        .take(commandCount)
+        .mapAsync(100)(ledger.commandService.submitAndWait)
+        .runWith(Sink.ignore)(mat))
+    ()
+  }
+}
 
 class AcsBench extends TestCommands with InfAwait {
 
-  override protected def darFile: File = new File(rlocation("ledger/sandbox/Test.dar"))
+  override protected def darFile: File = new File(rlocation("ledger/test-common/Test-stable.dar"))
 
   private def generateCommand(
       sequenceNumber: Int,

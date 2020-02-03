@@ -1,4 +1,4 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2020 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -9,35 +9,45 @@ load(
 da_haskell_library(
     name = "daml-compiler",
     srcs = glob(["src/**/*.hs"]),
-    hazel_deps = [
+    hackage_deps = [
         "base",
         "bytestring",
+        "conduit",
         "containers",
         "directory",
         "extra",
         "filepath",
         "ghc-lib",
         "ghc-lib-parser",
+        "ghcide",
         "haskell-lsp",
         "lens",
         "mtl",
+        "resourcet",
         "safe",
         "safe-exceptions",
+        "shake",
         "text",
         "time",
         "transformers",
+        "utf8-string",
+        "yaml",
+        "zip",
         "zip-archive",
     ],
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
+        "//:sdk-version-hs-lib",
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto",
+        "//compiler/daml-lf-reader",
+        "//compiler/damlc/daml-doctest",
         "//compiler/damlc/daml-ide-core",
         "//compiler/damlc/daml-opts:daml-opts-types",
         "//compiler/damlc/daml-preprocessor",
-        "//compiler/hie-core",
         "//compiler/scenario-service/client",
+        "//daml-assistant:daml-project-config",
         "//libs-haskell/da-hs-base",
     ],
 )

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.ledger.api
@@ -6,13 +6,15 @@ package com.digitalasset.ledger.api
 import java.time.Instant
 
 import brave.propagation.TraceContext
-
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.ledger.api.domain.Event.{CreateOrArchiveEvent, CreateOrExerciseEvent}
-import scalaz.{@@, Tag}
-import com.digitalasset.daml.lf.value.{Value => Lf}
+import com.daml.ledger.participant.state.v1.Configuration
 import com.digitalasset.daml.lf.command.{Commands => LfCommands}
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.LedgerString.ordering
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ValueRecord}
+import com.digitalasset.daml.lf.value.{Value => Lf}
+import com.digitalasset.ledger.api.domain.Event.{CreateOrArchiveEvent, CreateOrExerciseEvent}
+import scalaz.syntax.tag._
+import scalaz.{@@, Tag}
 
 import scala.collection.{breakOut, immutable}
 
@@ -97,7 +99,6 @@ object domain {
         eventId: EventId,
         contractId: ContractId,
         templateId: Ref.Identifier,
-        contractCreatingEventId: EventId,
         choice: Ref.ChoiceName,
         choiceArgument: Value,
         actingParties: immutable.Set[Ref.Party],
@@ -202,17 +203,10 @@ object domain {
       */
     final case class Disputed(description: String) extends RejectionReason
 
-    /** The participant node has already seen a command with the same commandId
-      * during its implementation specific deduplication window.
-      *
-      * TODO (SM): explain in more detail how command de-duplication should
-      * work.
-      */
-    final case class DuplicateCommandId(description: String) extends RejectionReason
-
     final case class PartyNotKnownOnLedger(description: String) extends RejectionReason
 
     final case class SubmitterCannotActViaParticipant(description: String) extends RejectionReason
+
   }
 
   type Value = Lf[Lf.AbsoluteContractId]
@@ -253,6 +247,7 @@ object domain {
 
   type EventId = Ref.LedgerString @@ EventIdTag
   val EventId: Tag.TagOf[EventIdTag] = Tag.of[EventIdTag]
+  implicit val eventIdOrdering = scala.math.Ordering.by[EventId, Ref.LedgerString](_.unwrap)
 
   sealed trait LedgerIdTag
 
@@ -287,4 +282,55 @@ object domain {
     * @param isLocal True if party is hosted by the backing participant.
     */
   case class PartyDetails(party: Ref.Party, displayName: Option[String], isLocal: Boolean)
+
+  sealed abstract class PartyEntry() extends Product with Serializable
+
+  object PartyEntry {
+    final case class AllocationAccepted(
+        submissionId: Option[String],
+        participantId: ParticipantId,
+        partyDetails: PartyDetails
+    ) extends PartyEntry
+
+    final case class AllocationRejected(
+        submissionId: String,
+        participantId: ParticipantId,
+        reason: String
+    ) extends PartyEntry
+  }
+
+  /** Configuration entry describes a change to the current configuration. */
+  sealed abstract class ConfigurationEntry extends Product with Serializable
+  object ConfigurationEntry {
+
+    final case class Accepted(
+        submissionId: String,
+        participantId: ParticipantId,
+        configuration: Configuration,
+    ) extends ConfigurationEntry
+
+    final case class Rejected(
+        submissionId: String,
+        participantId: ParticipantId,
+        rejectionReason: String,
+        proposedConfiguration: Configuration
+    ) extends ConfigurationEntry
+  }
+
+  sealed abstract class PackageEntry() extends Product with Serializable
+
+  object PackageEntry {
+
+    final case class PackageUploadAccepted(
+        submissionId: String,
+        recordTime: Instant
+    ) extends PackageEntry
+
+    final case class PackageUploadRejected(
+        submissionId: String,
+        recordTime: Instant,
+        reason: String
+    ) extends PackageEntry
+  }
+
 }

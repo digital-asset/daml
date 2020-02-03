@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE FlexibleInstances #-}
@@ -7,15 +7,19 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 -- | Set up the GHC monad in a way that works for us
-module DA.Daml.Options(toCompileOpts) where
+module DA.Daml.Options
+    ( toCompileOpts
+    , generatePackageState
+    , PackageDynFlags(..)
+    ) where
 
 import Control.Monad
 import qualified CmdLineParser as Cmd (warnMsg)
-import Data.Bifunctor
-import Data.Maybe
 import Data.IORef
 import Data.List
 import DynFlags (parseDynamicFilePragma)
+import qualified Data.Text as T
+import qualified Platform as P
 import qualified EnumSet
 import GHC                         hiding (convertLit)
 import GHC.LanguageExtensions.Type
@@ -25,36 +29,41 @@ import HscMain
 import Panic (throwGhcExceptionIO)
 import System.Directory
 import System.FilePath
+import qualified DA.Daml.LF.Ast.Version as LF
 
+import DA.Bazel.Runfiles
 import DA.Daml.Options.Types
 import DA.Daml.Preprocessor
 import Development.IDE.GHC.Util
-import qualified Development.IDE.Types.Options as HieCore
+import qualified Development.IDE.Types.Options as Ghcide
 
--- | Convert to hie-core’s IdeOptions type.
-toCompileOpts :: Options -> HieCore.IdeOptions
-toCompileOpts Options{..} =
-    HieCore.IdeOptions
-      { optPreprocessor = if optIsGenerated then noPreprocessor else damlPreprocessor optMbPackageName
+-- | Convert to ghcide’s IdeOptions type.
+toCompileOpts :: Options -> Ghcide.IdeReportProgress -> Ghcide.IdeOptions
+toCompileOpts options@Options{..} reportProgress =
+    Ghcide.IdeOptions
+      { optPreprocessor = if optIsGenerated then generatedPreprocessor else damlPreprocessor optMbPackageName
       , optGhcSession = do
-            env <- liftIO $ runGhcFast $ do
-                setupDamlGHC optImportPath optMbPackageName optGhcCustomOpts
+            env <- runGhcFast $ do
+                setupDamlGHC options
                 GHC.getSession
-            pkg <- liftIO $ generatePackageState optPackageDbs optHideAllPkgs $ map (second toRenaming) optPackageImports
-            return env{hsc_dflags = setPackageDynFlags pkg $ hsc_dflags env}
-      , optPkgLocationOpts = HieCore.IdePkgLocationOptions
+            pkg <- generatePackageState optDamlLfVersion optPackageDbs optHideAllPkgs optPackageImports
+            dflags <- checkDFlags options $ setPackageDynFlags pkg $ hsc_dflags env
+            hscenv <- newHscEnvEq env{hsc_dflags = dflags}
+            return $ const $ return hscenv
+      , optPkgLocationOpts = Ghcide.IdePkgLocationOptions
           { optLocateHieFile = locateInPkgDb "hie"
           , optLocateSrcFile = locateInPkgDb "daml"
           }
-      , optIfaceDir = HieCore.InterfaceDirectory (fromMaybe ifaceDir optIfaceDir <$ guard optWriteInterface)
       , optExtensions = ["daml"]
       , optThreads = optThreads
+      , optShakeFiles = if getIncrementalBuild optIncrementalBuild then Just ".daml/build/shake" else Nothing
       , optShakeProfiling = optShakeProfiling
+      , optReportProgress = reportProgress
       , optLanguageSyntax = "daml"
       , optNewColonConvention = True
+      , optDefer = Ghcide.IdeDefer False
       }
   where
-    toRenaming aliases = ModRenaming False [(GHC.mkModuleName mod, GHC.mkModuleName alias) | (mod, alias) <- aliases]
     locateInPkgDb :: String -> PackageConfig -> GHC.Module -> IO (Maybe FilePath)
     locateInPkgDb ext pkgConfig mod
       | (importDir : _) <- importDirs pkgConfig = do
@@ -87,12 +96,12 @@ getPackageDynFlags DynFlags{..} = PackageDynFlags
     , pdfThisUnitIdInsts = thisUnitIdInsts_
     }
 
-generatePackageState :: [FilePath] -> Bool -> [(String, ModRenaming)] -> IO PackageDynFlags
-generatePackageState paths hideAllPkgs pkgImports = do
-  let dflags = setPackageImports hideAllPkgs pkgImports $ setPackageDbs paths fakeDynFlags
+generatePackageState :: LF.Version -> [FilePath] -> Bool -> [PackageFlag] -> IO PackageDynFlags
+generatePackageState lfVersion paths hideAllPkgs pkgImports = do
+  versionedPaths <- getPackageDbs lfVersion paths
+  let dflags = setPackageImports hideAllPkgs pkgImports $ setPackageDbs versionedPaths fakeDynFlags
   (newDynFlags, _) <- initPackages dflags
   pure $ getPackageDynFlags newDynFlags
-
 
 setPackageDbs :: [FilePath] -> DynFlags -> DynFlags
 setPackageDbs paths dflags =
@@ -107,12 +116,9 @@ setPackageDbs paths dflags =
         }
     }
 
-setPackageImports :: Bool -> [(String, ModRenaming)] -> DynFlags -> DynFlags
+setPackageImports :: Bool -> [PackageFlag] -> DynFlags -> DynFlags
 setPackageImports hideAllPkgs pkgImports dflags = dflags {
-    packageFlags = packageFlags dflags ++
-        [ExposePackage pkgName (UnitIdArg $ stringToUnitId pkgName) renaming
-        | (pkgName, renaming) <- pkgImports
-        ]
+    packageFlags = packageFlags dflags ++ pkgImports
     , generalFlags = if hideAllPkgs
                       then Opt_HideAllPackages `EnumSet.insert` generalFlags dflags
                       else generalFlags dflags
@@ -144,8 +150,10 @@ xExtensionsSet =
   , DataKinds, KindSignatures, RankNTypes, TypeApplications
   , ConstraintKinds
     -- type classes
-  , MultiParamTypeClasses, FlexibleInstances, GeneralizedNewtypeDeriving, TypeSynonymInstances
+  , MultiParamTypeClasses, FlexibleContexts, FlexibleInstances, GeneralizedNewtypeDeriving, TypeSynonymInstances
   , DefaultSignatures, StandaloneDeriving, FunctionalDependencies, DeriveFunctor
+    -- let generalization
+  , MonoLocalBinds
     -- replacing primitives
   , RebindableSyntax, OverloadedStrings
     -- strictness
@@ -164,11 +172,11 @@ xExtensionsUnset :: [Extension]
 xExtensionsUnset = [ ]
 
 -- | Flags set for DAML-1.2 compilation
-xFlagsSet :: [ GeneralFlag ]
-xFlagsSet = [
-   Opt_Haddock
- , Opt_Ticky
- ]
+xFlagsSet :: Options -> [GeneralFlag]
+xFlagsSet options =
+ [Opt_Ticky
+ ] ++
+ [ Opt_DoCoreLinting | optCoreLinting options ]
 
 -- | Warning options set for DAML compilation. Note that these can be modified
 --   (per file) by the user via file headers '{-# OPTIONS -fwarn-... #-} and
@@ -197,11 +205,22 @@ wOptsUnset =
   , Opt_WarnOverflowedLiterals -- this does not play well with -ticky and the error message is misleading
   ]
 
+newtype GhcVersionHeader = GhcVersionHeader FilePath
 
-adjustDynFlags :: [FilePath] -> Maybe String -> DynFlags -> DynFlags
-adjustDynFlags paths mbPackageName dflags
-  = setImports paths
-  $ setThisInstalledUnitId (maybe mainUnitId stringToUnitId mbPackageName)
+adjustDynFlags :: Options -> GhcVersionHeader -> FilePath -> DynFlags -> DynFlags
+adjustDynFlags options@Options{..} (GhcVersionHeader versionHeader) tmpDir dflags
+  =
+  -- Generally, the lexer's "haddock mode" is disabled (`Haddock
+  -- False` is the default option. In this case, we run the lexer in
+  -- "keep raw token stream mode" (meaning basically, harvest all
+  -- comments encountered during parsing). The exception is when
+  -- parsing for daml-doc (c.f. `DA.Cli.Damlc.Command.Damldoc`).
+  (case optHaddock of
+      Haddock True -> flip gopt_set Opt_Haddock
+      Haddock False -> flip gopt_set Opt_KeepRawTokenStream
+  )
+ $ setImports optImportPath
+ $ setThisInstalledUnitId (maybe mainUnitId stringToUnitId optMbPackageName)
   -- once we have package imports working, we want to import the base package and set this to
   -- the default instead of always compiling in the context of ghc-prim.
   $ apply wopt_set wOptsSet
@@ -209,15 +228,53 @@ adjustDynFlags paths mbPackageName dflags
   $ apply wopt_set_fatal wOptsSetFatal
   $ apply xopt_set xExtensionsSet
   $ apply xopt_unset xExtensionsUnset
-  $ apply gopt_set xFlagsSet
+  $ apply gopt_set (xFlagsSet options)
+  $ addPlatformFlags
+  $ addCppFlags
   dflags{
     mainModIs = mkModule primUnitId (mkModuleName "NotAnExistingName"), -- avoid DEL-6770
     debugLevel = 1,
-    ghcLink = NoLink, hscTarget = HscNothing -- avoid generating .o or .hi files
+    ghcLink = NoLink, hscTarget = HscNothing, -- avoid generating .o or .hi files
     {-, dumpFlags = Opt_D_ppr_debug `EnumSet.insert` dumpFlags dflags -- turn on debug output from GHC-}
+    ghcVersionFile = Just versionHeader
   }
-  where apply f xs d = foldl' f d xs
+  where
+    apply f xs d = foldl' f d xs
+    alterSettings f d = d { settings = f (settings d) }
+    addCppFlags = case optCppPath of
+        Nothing -> id
+        Just cppPath -> alterSettings $ \s -> s
+            { sPgm_P = (cppPath, [])
+            , sOpt_P = "-P" : ["-D" <> T.unpack flag | flag <- cppFlags]
+                -- We add "-P" here to suppress #line pragmas from the
+                -- preprocessor (hpp, specifically) because the daml
+                -- parser can't handle them. This is a non-issue right now
+                -- because ghcversion.h is empty, but if it weren't empty
+                -- it would result in #line pragmas. By suppressing these
+                -- pragmas, line numbers may be wrong up when using CPP.
+                -- Ideally we fix the issue with the daml parser and
+                -- then remove this flag.
+            , sTmpDir = tmpDir
+                -- sometimes this is required by CPP?
+            }
 
+    cppFlags = map LF.featureCppFlag (LF.allFeaturesForVersion optDamlLfVersion)
+
+    -- We need to add platform info in order to run CPP. To prevent
+    -- .hi file incompatibilities, we set the platform the same way
+    -- for everyone even if they don't use CPP.
+    addPlatformFlags = alterSettings $ \s -> s
+        { sTargetPlatform = P.Platform
+            { platformArch = P.ArchUnknown
+            , platformOS = P.OSUnknown
+            , platformWordSize = 8
+            , platformUnregisterised = True
+            , platformHasGnuNonexecStack = False
+            , platformHasIdentDirective = False
+            , platformHasSubsectionsViaSymbols = False
+            , platformIsCrossCompiling = False
+            }
+        }
 
 setThisInstalledUnitId :: UnitId -> DynFlags -> DynFlags
 setThisInstalledUnitId unitId dflags =
@@ -226,7 +283,8 @@ setThisInstalledUnitId unitId dflags =
 setImports :: [FilePath] -> DynFlags -> DynFlags
 setImports paths dflags = dflags { importPaths = paths }
 
-
+locateGhcVersionHeader :: IO GhcVersionHeader
+locateGhcVersionHeader = GhcVersionHeader <$> locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "ghcversion.h")
 
 -- | Configures the @DynFlags@ for this session to DAML-1.2
 --  compilation:
@@ -235,21 +293,40 @@ setImports paths dflags = dflags { importPaths = paths }
 --     * Sets the import paths to the given list of 'FilePath'.
 --     * if present, parses and applies custom options for GHC
 --       (may fail if the custom options are inconsistent with std DAML ones)
-setupDamlGHC :: GhcMonad m => [FilePath] -> Maybe String -> [String] -> m ()
-setupDamlGHC importPaths mbPackageName [] =
-  modifyDynFlags $ adjustDynFlags importPaths mbPackageName
--- if custom options are given, add them after the standard DAML flag setup
-setupDamlGHC importPaths mbPackageName customOpts = do
-  setupDamlGHC importPaths mbPackageName []
-  damlDFlags <- getSessionDynFlags
-  (dflags', leftover, warns) <- parseDynamicFilePragma damlDFlags $ map noLoc customOpts
+setupDamlGHC :: GhcMonad m => Options -> m ()
+setupDamlGHC options@Options{..} = do
+  tmpDir <- liftIO getTemporaryDirectory
+  versionHeader <- liftIO locateGhcVersionHeader
+  modifyDynFlags $ adjustDynFlags options versionHeader tmpDir
 
-  let leftoverError = CmdLineError $
-        (unlines . ("Unable to parse custom flags:":) . map unLoc) leftover
-  unless (null leftover) $ liftIO $ throwGhcExceptionIO leftoverError
+  unless (null optGhcCustomOpts) $ do
+    damlDFlags <- getSessionDynFlags
+    (dflags', leftover, warns) <- parseDynamicFilePragma damlDFlags $ map noLoc optGhcCustomOpts
 
-  unless (null warns) $
-    liftIO $ putStrLn $ unlines $ "Warnings:" : map (unLoc . Cmd.warnMsg) warns
+    let leftoverError = CmdLineError $
+          (unlines . ("Unable to parse custom flags:":) . map unLoc) leftover
+    unless (null leftover) $ liftIO $ throwGhcExceptionIO leftoverError
 
-  modifySession $ \h ->
-    h { hsc_dflags = dflags', hsc_IC = (hsc_IC h) {ic_dflags = dflags' } }
+    unless (null warns) $
+      liftIO $ putStrLn $ unlines $ "Warnings:" : map (unLoc . Cmd.warnMsg) warns
+
+    modifySession $ \h ->
+      h { hsc_dflags = dflags', hsc_IC = (hsc_IC h) {ic_dflags = dflags' } }
+
+-- | Check for bad @DynFlags@.
+-- Checks:
+--    * thisInstalledUnitId not contained in loaded packages.
+checkDFlags :: Options -> DynFlags -> IO DynFlags
+checkDFlags Options {..} dflags@DynFlags {..}
+    | not optDflagCheck || thisInstalledUnitId == toInstalledUnitId primUnitId =
+        pure dflags
+    | otherwise = do
+        case lookupPackage dflags $
+             DefiniteUnitId $ DefUnitId thisInstalledUnitId of
+            Nothing -> pure dflags
+            Just _conf ->
+                fail $
+                "Package " <> installedUnitIdString thisInstalledUnitId <>
+                " imports a package with the same name. \
+            \ Please check your dependencies and rename the package you are compiling \
+            \ or the dependency."

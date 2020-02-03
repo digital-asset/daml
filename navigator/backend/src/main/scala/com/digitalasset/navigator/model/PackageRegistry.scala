@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.navigator.model
@@ -52,12 +52,10 @@ case class PackageRegistry(
       }
 
     val newTemplates = newPackages
-      .map(_._2.templates)
-      .reduce(_ ++ _)
+      .flatMap(_._2.templates)
 
     val newTypeDefs = newPackages
-      .map(_._2.typeDefs)
-      .reduce(_ ++ _)
+      .flatMap(_._2.typeDefs)
 
     copy(
       packages = packages ++ newPackages,
@@ -126,11 +124,11 @@ case class PackageRegistry(
         instantiatesRemaining: Int
     ): Map[DamlLfIdentifier, DamlLfDefDataType] = {
       typ match {
-        case t @ DamlLfTypeVar(_) => deps
-        case t @ DamlLfTypePrim(_, vars) =>
+        case DamlLfTypeVar(_) | DamlLfTypeNumeric(_) => deps
+        case DamlLfTypePrim(_, vars) =>
           vars.foldLeft(deps)((r, v) => foldType(v, r, instantiatesRemaining))
-        case t @ DamlLfTypeCon(name, vars) =>
-          deps.get(t.name.identifier) match {
+        case DamlLfTypeCon(name, vars) =>
+          deps.get(name.identifier) match {
             // Dependency already added
             case Some(_) => deps
             // New dependency

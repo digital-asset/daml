@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.platform.sandbox.cli
@@ -7,14 +7,17 @@ import java.io.File
 import java.time.Duration
 
 import ch.qos.logback.classic.Level
+import com.auth0.jwt.algorithms.Algorithm
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.jwt.{ECDSAVerifier, HMAC256Verifier, JwksVerifier, RSA256Verifier}
+import com.digitalasset.ledger.api.auth.AuthServiceJWT
+import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.platform.common.LedgerIdMode
-import com.digitalasset.platform.sandbox.BuildInfo
+import com.digitalasset.platform.configuration.BuildInfo
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.services.time.TimeProviderType
 import scopt.Read
-import com.digitalasset.ledger.api.domain.LedgerId
 
 import scala.util.Try
 
@@ -34,18 +37,25 @@ object Cli {
   private val cmdArgParser = new scopt.OptionParser[SandboxConfig]("sandbox") {
     head(s"Sandbox version ${BuildInfo.Version}")
 
+    arg[File]("<archive>...")
+      .optional()
+      .unbounded()
+      .validate(f => Either.cond(checkIfZip(f), (), s"Invalid dar file: ${f.getName}"))
+      .action((f, c) => c.copy(damlPackages = f :: c.damlPackages))
+      .text("DAML archives to load in .dar format. Only DAML-LF v1 Archives are currently supported. Can be mixed in with optional arguments.")
+
     opt[Int]('p', "port")
       .action((x, c) => c.copy(port = x))
       .text(s"Sandbox service port. Defaults to ${SandboxConfig.DefaultPort}.")
 
     opt[File]("port-file")
       .optional()
-      .action((f, c) => c.copy(portFile = Some(f)))
+      .action((f, c) => c.copy(portFile = Some(f.toPath)))
       .text("File to write the allocated port number to. Used to inform clients in CI about the allocated port.")
 
     opt[String]('a', "address")
       .action((x, c) => c.copy(address = Some(x)))
-      .text("Sandbox service host. Defaults to binding on all addresses.")
+      .text("Sandbox service host. Defaults to binding on localhost.")
 
     // TODO remove in next major release.
     opt[Unit]("dalf")
@@ -82,13 +92,6 @@ object Cli {
           "Two identifier formats are supported: Module.Name:Entity.Name (preferred) and Module.Name.Entity.Name (deprecated, will print a warning when used)." +
           "Also note that instructing the sandbox to load a scenario will have the side effect of loading _all_ the .dar files provided eagerly (see --eager-package-loading).")
 
-    arg[File]("<archive>...")
-      .optional()
-      .unbounded()
-      .validate(f => Either.cond(checkIfZip(f), (), s"Invalid dar file: ${f.getName}"))
-      .action((f, c) => c.copy(damlPackages = f :: c.damlPackages))
-      .text("DAML archives to load in .dar format. Only DAML-LF v1 Archives are currently supported.")
-
     opt[String]("pem")
       .optional()
       .text("TLS: The pem file to be used as the private key.")
@@ -113,6 +116,10 @@ object Cli {
         config.copy(tlsConfig =
           config.tlsConfig.fold(Some(TlsConfiguration(true, None, None, Some(new File(path)))))(c =>
             Some(c.copy(trustCertCollectionFile = Some(new File(path)))))))
+
+    opt[Int]("maxInboundMessageSize")
+      .action((x, c) => c.copy(maxInboundMessageSize = x))
+      .text(s"Max inbound message size in bytes. Defaults to ${SandboxConfig.DefaultMaxInboundMessageSize}.")
 
     opt[String]("jdbcurl")
       .optional()
@@ -142,6 +149,48 @@ object Cli {
         .optional()
         .text("Whether to load all the packages in the .dar files provided eagerly, rather than when needed as the commands come.")
         .action( (_, config) => config.copy(eagerPackageLoading = true))
+
+    opt[Long]("max-ttl-seconds")
+        .optional()
+        .validate(v => Either.cond(v > 0, (), "Max TTL must be a positive number"))
+        .text("The maximum TTL allowed for commands in seconds")
+        .action( (maxTtl, config) => config.copy(timeModel = config.timeModel.copy(maxTtl = Duration.ofSeconds(maxTtl))))
+
+    opt[String]("auth-jwt-hs256-unsafe")
+      .optional()
+      .hidden()
+      .validate(v => Either.cond(v.length > 0, (), "HMAC secret must be a non-empty string"))
+      .text("[UNSAFE] Enables JWT-based authorization with shared secret HMAC256 signing: USE THIS EXCLUSIVELY FOR TESTING")
+      .action( (secret, config) => config.copy(authService = Some(AuthServiceJWT(HMAC256Verifier(secret).valueOr(err => sys.error(s"Failed to create HMAC256 verifier: $err"))))))
+
+    opt[String]("auth-jwt-rs256-crt")
+      .optional()
+      .validate(v => Either.cond(v.length > 0, (), "Certificate file path must be a non-empty string"))
+      .text("Enables JWT-based authorization, where the JWT is signed by RSA256 with a public key loaded from the given X509 certificate file (.crt)")
+      .action( (path, config) => config.copy(authService = Some(AuthServiceJWT(RSA256Verifier.fromCrtFile(path).valueOr(err => sys.error(s"Failed to create RSA256 verifier: $err"))))))
+
+    opt[String]("auth-jwt-ec256-crt")
+      .optional()
+      .validate(v => Either.cond(v.length > 0, (), "Certificate file path must be a non-empty string"))
+      .text("Enables JWT-based authorization, where the JWT is signed by ECDSA256 with a public key loaded from the given X509 certificate file (.crt)")
+      .action( (path, config) => config.copy(
+        authService = Some(AuthServiceJWT(
+          ECDSAVerifier.fromCrtFile(path, Algorithm.ECDSA256(_, null)).valueOr(err => sys.error(s"Failed to create ECDSA256 verifier: $err"))))))
+
+    opt[String]("auth-jwt-ec512-crt")
+      .optional()
+      .validate(v => Either.cond(v.length > 0, (), "Certificate file path must be a non-empty string"))
+      .text("Enables JWT-based authorization, where the JWT is signed by ECDSA512 with a public key loaded from the given X509 certificate file (.crt)")
+      .action( (path, config) => config.copy(
+        authService = Some(AuthServiceJWT(
+          ECDSAVerifier.fromCrtFile(path, Algorithm.ECDSA512(_, null)).valueOr(err => sys.error(s"Failed to create ECDSA512 verifier: $err"))))))
+
+
+    opt[String]("auth-jwt-rs256-jwks")
+      .optional()
+      .validate(v => Either.cond(v.length > 0, (), "JWK server URL must be a non-empty string"))
+      .text("Enables JWT-based authorization, where the JWT is signed by RSA256 with a public key loaded from the given JWKS URL")
+      .action( (url, config) => config.copy(authService = Some(AuthServiceJWT(JwksVerifier(url)))))
 
     help("help").text("Print the usage text")
 

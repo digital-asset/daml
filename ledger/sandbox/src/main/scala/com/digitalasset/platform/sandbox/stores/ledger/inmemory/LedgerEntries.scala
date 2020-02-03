@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.platform.sandbox.stores.ledger.inmemory
@@ -43,17 +43,19 @@ private[ledger] class LedgerEntries[T](identify: T => String) {
     newOffset
   }
 
-  private val dispatcher = Dispatcher[Long, T](
-    RangeSource(
-      (inclusiveStart, exclusiveEnd) =>
-        Source[(Long, T)](state.get().items.range(inclusiveStart, exclusiveEnd)),
-    ),
-    ledgerBeginning,
-    ledgerEnd
-  )
+  private val dispatcher = Dispatcher[Long]("inmemory-ledger", ledgerBeginning, ledgerEnd)
 
-  def getSource(offset: Option[Long]): Source[(Long, T), NotUsed] =
-    dispatcher.startingAt(offset.getOrElse(ledgerBeginning))
+  def getSource(
+      beginInclusive: Option[Long],
+      endExclusive: Option[Long]): Source[(Long, T), NotUsed] =
+    dispatcher.startingAt(
+      beginInclusive.getOrElse(ledgerBeginning),
+      RangeSource(
+        (inclusiveStart, exclusiveEnd) =>
+          Source[(Long, T)](state.get().items.range(inclusiveStart, exclusiveEnd)),
+      ),
+      endExclusive
+    )
 
   def publish(item: T): Long = {
     val newHead = store(item)
@@ -62,6 +64,8 @@ private[ledger] class LedgerEntries[T](identify: T => String) {
   }
 
   def ledgerBeginning: Long = 0L
+
+  def items = state.get().items.iterator
 
   def ledgerEnd: Long = state.get().ledgerEnd
 

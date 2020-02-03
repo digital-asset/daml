@@ -1,9 +1,9 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.value
 
-import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref}
+import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref, Unnatural}
 import com.digitalasset.daml.lf.value.Value._
 
 import org.scalatest.prop.{Checkers, GeneratorDrivenPropertyChecks}
@@ -12,8 +12,8 @@ import org.scalatest.{FreeSpec, Matchers}
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class ValueSpec extends FreeSpec with Matchers with Checkers with GeneratorDrivenPropertyChecks {
   "serialize" - {
-    val emptyTuple = ValueTuple(ImmArray.empty)
-    val emptyTupleError = "contains tuple ValueTuple(ImmArray())"
+    val emptyStruct = ValueStruct(ImmArray.empty)
+    val emptyStructError = "contains struct ValueStruct(ImmArray())"
     val exceedsNesting = (1 to MAXIMUM_NESTING + 1).foldRight[Value[Nothing]](ValueInt64(42)) {
       case (_, v) => ValueVariant(None, Ref.Name.assertFromString("foo"), v)
     }
@@ -22,12 +22,12 @@ class ValueSpec extends FreeSpec with Matchers with Checkers with GeneratorDrive
       case (_, v) => ValueVariant(None, Ref.Name.assertFromString("foo"), v)
     }
 
-    "rejects tuple" in {
-      emptyTuple.serializable shouldBe ImmArray(emptyTupleError)
+    "rejects struct" in {
+      emptyStruct.serializable shouldBe ImmArray(emptyStructError)
     }
 
-    "rejects nested tuple" in {
-      ValueList(FrontStack(emptyTuple)).serializable shouldBe ImmArray(emptyTupleError)
+    "rejects nested struct" in {
+      ValueList(FrontStack(emptyStruct)).serializable shouldBe ImmArray(emptyStructError)
     }
 
     "rejects excessive nesting" in {
@@ -39,8 +39,8 @@ class ValueSpec extends FreeSpec with Matchers with Checkers with GeneratorDrive
     }
 
     "outputs both error messages, without duplication" in {
-      ValueList(FrontStack(exceedsNesting, ValueTuple(ImmArray.empty), exceedsNesting)).serializable shouldBe
-        ImmArray(exceedsNestingError, emptyTupleError)
+      ValueList(FrontStack(exceedsNesting, ValueStruct(ImmArray.empty), exceedsNesting)).serializable shouldBe
+        ImmArray(exceedsNestingError, emptyStructError)
     }
   }
 

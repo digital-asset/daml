@@ -1,21 +1,21 @@
 diff --git a/src/HIE/Bios/Cradle.hs b/src/HIE/Bios/Cradle.hs
-index 291a706..7a37977 100644
+index 8ca8251..672255e 100644
 --- a/src/HIE/Bios/Cradle.hs
 +++ b/src/HIE/Bios/Cradle.hs
-@@ -125,10 +125,10 @@ cabalCradle wdir mc = do
+@@ -146,10 +146,10 @@ cabalCradle wdir mc =
    }
  
  cabalWrapper :: String
 -cabalWrapper = $(embedStringFile "wrappers/cabal")
 +cabalWrapper = $(embedStringFile "external/haskell_hie__bios/wrappers/cabal")
  
- cabalWrapperBat :: String
--cabalWrapperBat = $(embedStringFile "wrappers/cabal.bat")
-+cabalWrapperBat = $(embedStringFile "external/haskell_hie__bios/wrappers/cabal.bat")
+ cabalWrapperHs :: String
+-cabalWrapperHs = $(embedStringFile "wrappers/cabal.hs")
++cabalWrapperHs = $(embedStringFile "external/haskell_hie__bios/wrappers/cabal.hs")
  
- cabalAction :: FilePath -> Maybe String -> FilePath -> IO (ExitCode, String, [String])
- cabalAction work_dir mc _fp = do
-@@ -179,7 +179,7 @@ stackCradle wdir =
+ processCabalWrapperArgs :: String -> Maybe [String]
+ processCabalWrapperArgs args =
+@@ -221,7 +221,7 @@ stackCradle wdir =
  
  -- Same wrapper works as with cabal
  stackWrapper :: String
@@ -24,7 +24,7 @@ index 291a706..7a37977 100644
  
  stackAction :: FilePath -> FilePath -> IO (ExitCode, String, [String])
  stackAction work_dir fp = do
-@@ -228,7 +228,7 @@ rulesHaskellCradle wdir = do
+@@ -272,7 +272,7 @@ rulesHaskellCradle wdir =
  
  
  bazelCommand :: String

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.codegen
@@ -135,7 +135,7 @@ object Util {
   type FilePlan = String \/ (Option[String], File, Iterable[Tree])
 
   final case class WriteParams[+TmplI](
-      supportedTemplateIds: Map[Ref.Identifier, TmplI],
+      templateIds: Map[Ref.Identifier, TmplI],
       definitions: List[lf.ScopedDataType.FWT])
 
   val reservedNames: Set[String] =

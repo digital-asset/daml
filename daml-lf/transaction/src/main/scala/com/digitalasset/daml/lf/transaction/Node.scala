@@ -1,10 +1,10 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.transaction
 import com.digitalasset.daml.lf.data.{ImmArray, ScalazEqual}
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst, VersionedValue}
+import com.digitalasset.daml.lf.value.Value.{ContractInst, VersionedValue}
 
 import scala.language.higherKinds
 import scalaz.Equal
@@ -49,16 +49,18 @@ object Node {
       optLocation: Option[Location], // Optional location of the create expression
       signatories: Set[Party],
       stakeholders: Set[Party],
-      key: Option[KeyWithMaintainers[Val]])
-      extends LeafOnlyNode[Cid, Val] {
+      key: Option[KeyWithMaintainers[Val]],
+  ) extends LeafOnlyNode[Cid, Val] {
     override def mapContractIdAndValue[Cid2, Val2](
         f: Cid => Cid2,
-        g: Val => Val2): NodeCreate[Cid2, Val2] =
+        g: Val => Val2,
+    ): NodeCreate[Cid2, Val2] =
       copy(coid = f(coid), coinst = coinst.mapValue(g), key = key.map(_.mapValue(g)))
 
     override def mapNodeId[Nid2](f: Nothing => Nid2): NodeCreate[Cid, Val] = this
 
     override def requiredAuthorizers(): Set[Party] = signatories
+
   }
 
   object NodeCreate extends WithTxValue2[NodeCreate]
@@ -70,11 +72,12 @@ object Node {
       optLocation: Option[Location], // Optional location of the fetch expression
       actingParties: Option[Set[Party]],
       signatories: Set[Party],
-      stakeholders: Set[Party])
-      extends LeafOnlyNode[Cid, Nothing] {
+      stakeholders: Set[Party],
+  ) extends LeafOnlyNode[Cid, Nothing] {
     override def mapContractIdAndValue[Cid2, Val2](
         f: Cid => Cid2,
-        g: Nothing => Val2): NodeFetch[Cid2] =
+        g: Nothing => Val2,
+    ): NodeFetch[Cid2] =
       copy(coid = f(coid))
 
     override def mapNodeId[Nid2](f: Nothing => Nid2): NodeFetch[Cid] = this
@@ -109,20 +112,22 @@ object Node {
       controllers: Set[Party],
       children: ImmArray[Nid],
       exerciseResult: Option[Val],
-      key: Option[Val])
-      extends GenNode[Nid, Cid, Val] {
+      key: Option[KeyWithMaintainers[Val]],
+  ) extends GenNode[Nid, Cid, Val] {
     override def mapContractIdAndValue[Cid2, Val2](
         f: Cid => Cid2,
-        g: Val => Val2): NodeExercises[Nid, Cid2, Val2] =
+        g: Val => Val2,
+    ): NodeExercises[Nid, Cid2, Val2] =
       copy(
         targetCoid = f(targetCoid),
         chosenValue = g(chosenValue),
         exerciseResult = exerciseResult.map(g),
-        key = key.map(g))
+        key = key.map(_.mapValue(g)),
+      )
 
     override def mapNodeId[Nid2](f: Nid => Nid2): NodeExercises[Nid2, Cid, Val] =
       copy(
-        children = children.map(f)
+        children = children.map(f),
       )
 
     override def requiredAuthorizers(): Set[Party] = actingParties
@@ -147,7 +152,8 @@ object Node {
         signatories: Set[Party],
         children: ImmArray[Nid],
         exerciseResult: Option[Val],
-        key: Option[Val]): NodeExercises[Nid, Cid, Val] =
+        key: Option[KeyWithMaintainers[Val]],
+    ): NodeExercises[Nid, Cid, Val] =
       NodeExercises(
         targetCoid,
         templateId,
@@ -161,18 +167,20 @@ object Node {
         actingParties,
         children,
         exerciseResult,
-        key)
+        key,
+      )
   }
 
   final case class NodeLookupByKey[+Cid, +Val](
       templateId: Identifier,
       optLocation: Option[Location],
       key: KeyWithMaintainers[Val],
-      result: Option[Cid])
-      extends LeafOnlyNode[Cid, Val] {
+      result: Option[Cid],
+  ) extends LeafOnlyNode[Cid, Val] {
     override def mapContractIdAndValue[Cid2, Val2](
         f: Cid => Cid2,
-        g: Val => Val2): NodeLookupByKey[Cid2, Val2] =
+        g: Val => Val2,
+    ): NodeLookupByKey[Cid2, Val2] =
       copy(result = result.map(f), key = key.mapValue(g))
 
     override def mapNodeId[Nid2](f: Nothing => Nid2): NodeLookupByKey[Cid, Val] = this
@@ -196,9 +204,10 @@ object Node {
       }
   }
 
-  private[transaction] def isReplayedBy[Cid: Equal, Val: Equal](
+  final def isReplayedBy[Cid: Equal, Val: Equal](
       recorded: GenNode[Nothing, Cid, Val],
-      isReplayedBy: GenNode[Nothing, Cid, Val]): Boolean =
+      isReplayedBy: GenNode[Nothing, Cid, Val],
+  ): Boolean =
     ScalazEqual.match2[recorded.type, isReplayedBy.type, Boolean](fallback = false) {
       case nc: NodeCreate[Cid, Val] => {
         case NodeCreate(coid2, coinst2, optLocation2 @ _, signatories2, stakeholders2, key2) =>
@@ -216,7 +225,8 @@ object Node {
             optLocation2 @ _,
             actingParties2,
             signatories2,
-            stakeholders2) =>
+            stakeholders2,
+            ) =>
           import nf._
           coid === coid2 && templateId == templateId2 &&
           actingParties.forall(_ => actingParties == actingParties2) &&
@@ -236,7 +246,8 @@ object Node {
             controllers2,
             _,
             exerciseResult2,
-            key2) =>
+            key2,
+            ) =>
           import ne._
           targetCoid === targetCoid2 && templateId == templateId2 && choiceId == choiceId2 &&
           consuming == consuming2 && actingParties == actingParties2 && chosenValue === chosenValue2 &&
@@ -255,7 +266,7 @@ object Node {
   /** Useful in various circumstances -- basically this is what a ledger implementation must use as
     * a key.
     */
-  case class GlobalKey(templateId: Identifier, key: VersionedValue[AbsoluteContractId])
+  case class GlobalKey(templateId: Identifier, key: VersionedValue[Nothing])
 
   sealed trait WithTxValue2[F[+ _, + _]] {
     type WithTxValue[+Cid] = F[Cid, Transaction.Value[Cid]]

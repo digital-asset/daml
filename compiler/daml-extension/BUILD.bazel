@@ -1,9 +1,34 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2020 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 package(default_visibility = ["//visibility:public"])
 
-load("@os_info//:os_info.bzl", "is_windows")
+filegroup(
+    name = "json-files",
+    srcs = glob([
+        "*.json",
+        "syntaxes/*.json",
+    ]),
+)
+
+sh_test(
+    name = "valid-json",
+    srcs = ["ci-tests.sh"],
+    args = [
+        "$(location @jq_dev_env//:jq)",
+        "$(locations :json-files)",
+    ],
+    data = [
+        ":json-files",
+        "@jq_dev_env//:jq",
+    ],
+    # This is required to get the test to run on Windows. Otherwise, it looks
+    # like Bazel decides that because it cannot create symlinks on Windows, it
+    # may as well just give up and start the test without any of its
+    # dependencies available at all. But not warn about it, so the script can
+    # just fail at build time when it doesn't find anything.
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)
 
 # For some reason,
 # 1. Bazel only exposes the node_modules dependency as a list of files, not as
@@ -44,14 +69,6 @@ genrule(
     """,
 )
 
-# This is needed to be able to call `$(location ...)` in the vsix rule.
-# Otherwise I have not found a way to express the conditional within the
-# `$(location ...)` substitution.
-alias(
-    name = "yarn",
-    actual = "@nodejs//:bin/yarn.cmd" if is_windows else "@nodejs//:bin/yarn",
-)
-
 genrule(
     name = "vsix",
     srcs = glob([
@@ -68,20 +85,27 @@ genrule(
         "//:VERSION",
     ],
     outs = ["daml-bundled.vsix"],
+    # rm -rf can fail with "directory not empty" on Windows.
+    # As a workaround we add `|| return`.
     cmd = """
-        set -x
+        export HOME=/does-not-exist
+        set -euo pipefail
+        TMP_DIR=$$(mktemp -d)
+        cleanup () { rm -rf $$TMP_DIR || return; }
+        trap cleanup EXIT
         DIR=$$PWD
         VERSION=$$(cat $(location //:VERSION))
-        cd compiler/daml-extension
+        cp -r compiler/daml-extension $$TMP_DIR
+        cd $$TMP_DIR/daml-extension
         tar xzf $$DIR/$(location :node_deps_cache)
         sed -i "s/__VERSION__/$$VERSION/" package.json
         sed -i 's/"name": "daml"/"name": "daml-bundled"/' package.json
-        $$DIR/$(location :yarn)
-        $$DIR/$(location :yarn) compile
+        $$DIR/$(location //:yarn)
+        $$DIR/$(location //:yarn) compile
         $$DIR/$(location @daml_extension_deps//vsce/bin:vsce) package -o $$DIR/$@
     """,
     tools = [
-        ":yarn",
+        "//:yarn",
         "@daml_extension_deps//vsce/bin:vsce",
     ],
 )

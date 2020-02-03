@@ -1,18 +1,18 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf
 
-import scala.math.BigDecimal
-
 package object data {
 
-  val Decimal: DecimalModule = new DecimalModule {
-    type T = BigDecimal
-    protected def cast(x: BigDecimal): T = x
-  }
-  type Decimal = Decimal.T
-
-  private[data] def assert[X](either: Either[String, X]): X =
+  def assertRight[X](either: Either[String, X]): X =
     either.fold(e => throw new IllegalArgumentException(e), identity)
+
+  val Numeric: NumericModule = new NumericModule {
+    override type Numeric = java.math.BigDecimal
+    @inline
+    override private[data] def cast(x: java.math.BigDecimal): Numeric = x
+  }
+  type Numeric = Numeric.Numeric
+
 }

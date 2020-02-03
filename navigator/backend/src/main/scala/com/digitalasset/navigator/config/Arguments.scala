@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.navigator.config
@@ -13,20 +13,20 @@ import scopt.{OptionDef, OptionParser}
 import scala.util.Try
 
 sealed abstract class Command
-final case object ShowUsage extends Command
-final case object RunServer extends Command
-final case object CreateConfig extends Command
-final case object DumpGraphQLSchema extends Command
+case object ShowUsage extends Command
+case object RunServer extends Command
+case object CreateConfig extends Command
+case object DumpGraphQLSchema extends Command
 
 case class Arguments(
     port: Int = 4000,
     assets: Option[String] = None,
     command: Command = ShowUsage,
     time: TimeProviderType = TimeProviderType.Auto,
-    platformIp: String = "localhost",
-    platformPort: Int = 6865,
+    participantHost: String = "localhost",
+    participantPort: Int = 6865,
     tlsConfig: Option[TlsConfiguration] = None,
-    requirePassword: Boolean = false,
+    accessTokenFile: Option[Path] = None,
     configFile: Option[Path] = None,
     startConsole: Boolean = false,
     startWebServer: Boolean = false,
@@ -37,26 +37,29 @@ case class Arguments(
 trait ArgumentsHelper { self: OptionParser[Arguments] =>
   def hostname: OptionDef[String, Arguments] =
     arg[String]("<host>")
-      .text("hostname or IP address of the platform server (default localhost)")
+      .text(
+        s"hostname or IP address of the Ledger API server (default ${Arguments.default.participantHost})")
       .optional()
       .action(
         (ip, arguments) =>
           arguments.copy(
-            platformIp = ip
+            participantHost = ip
         ))
 
   def port: OptionDef[Int, Arguments] =
     arg[Int]("<port>")
-      .text("port number of the platform server (default 6865)")
+      .text(s"port number of the Ledger API server (default ${Arguments.default.participantPort})")
       .optional()
       .action(
         (port, arguments) =>
           arguments.copy(
-            platformPort = port
+            participantPort = port
         ))
 }
 
 object Arguments {
+
+  val default = Arguments()
 
   private def validatePath(path: String, message: String): Either[String, Unit] = {
     val readable = Try(Paths.get(path).toFile.canRead).getOrElse(false)
@@ -74,24 +77,26 @@ object Arguments {
       help("help").abbr("h").text("prints this usage text")
 
       opt[Int]("port")
-        .text("port number on which the server should listen (default 4000)")
+        .text(s"port number on which the server should listen (default ${Arguments.default.port})")
         .action((port, arguments) => arguments.copy(port = port))
 
       opt[String]("assets")
         .text("folder where frontend assets are available")
         .action((assets, arguments) => arguments.copy(assets = Some(assets)))
 
-      opt[Unit]('w', "require-password")
-        .text("if true then the password is required to login")
-        .action((_, arguments) => arguments.copy(requirePassword = true))
+      opt[String]("access-token-file")
+        .text(
+          s"provide the path from which the access token will be read, required to interact with an authenticated ledger, no default")
+        .action((path, arguments) => arguments.copy(accessTokenFile = Some(Paths.get(path))))
+        .optional()
 
       opt[String]('c', "config-file")
         .text(s"set the configuration file default: ${defaultConfigFile}")
         .action((path, arguments) => arguments.copy(configFile = Some(Paths.get(path))))
 
       opt[TimeProviderType]('t', "time")
-        .text(
-          s"Time provider. Valid values are: ${TimeProviderType.acceptedValues.mkString(", ")}. Default: static")
+        .text(s"Time provider. Valid values are: ${TimeProviderType.acceptedValues
+          .mkString(", ")}. Default: ${Arguments.default.time.name}")
         .action((t, arguments) => arguments.copy(time = t))
 
       opt[String]("pem")
@@ -129,7 +134,8 @@ object Arguments {
 
       opt[Int]("ledger-api-inbound-message-size-max")
         .hidden()
-        .text("Maximum message size from the ledger API. Default is 52428800 (50MiB).")
+        .text(
+          s"Maximum message size in bytes from the ledger API. Default is ${Arguments.default.ledgerInboundMessageSizeMax}.")
         .valueName("<bytes>")
         .validate(x => Either.cond(x > 0, (), "Buffer size must be positive"))
         .action((x, arguments) =>
@@ -168,7 +174,7 @@ object Arguments {
     }
 
   def parse(args: Array[String], defaultConfigFile: Path): Option[Arguments] =
-    this.argumentParser(defaultConfigFile).parse(args, Arguments())
+    this.argumentParser(defaultConfigFile).parse(args, Arguments.default)
 
   def showUsage(defaultConfigFile: Path): Unit =
     this.argumentParser(defaultConfigFile).showUsage()

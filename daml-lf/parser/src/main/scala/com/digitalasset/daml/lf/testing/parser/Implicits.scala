@@ -1,13 +1,13 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.testing
 package parser
 
-import com.digitalasset.daml.lf.data.{Decimal, Ref}
-import com.digitalasset.daml.lf.language.Ast.{Expr, Kind, Package, Type}
+import com.digitalasset.daml.lf.data.{Numeric, Ref}
+import com.digitalasset.daml.lf.language.Ast.{Expr, Kind, Module, Package, Type}
 
-private[digitalasset] object Implicits {
+object Implicits {
 
   implicit val defaultParserParameters: ParserParameters[this.type] = ParserParameters(
     defaultPackageId,
@@ -26,6 +26,9 @@ private[digitalasset] object Implicits {
     def p[P](args: Any*)(implicit parserParameters: ParserParameters[P]): Package =
       interpolate(new ModParser[P](parserParameters).pkg)(args)
 
+    def m[P](args: Any*)(implicit parserParameters: ParserParameters[P]): Module =
+      interpolate(new ModParser[P](parserParameters).mod)(args)
+
     @SuppressWarnings(Array("org.wartremover.warts.Any"))
     def n(args: Any*): Ref.Name =
       Ref.Name.assertFromString(sc.standardInterpolator(identity, args.map(prettyPrint)))
@@ -36,7 +39,7 @@ private[digitalasset] object Implicits {
   }
 
   private def toString(x: BigDecimal) =
-    Decimal.toString(Decimal.assertFromBigDecimal(x))
+    Numeric.toUnscaledString(Numeric.assertFromUnscaledBigDecimal(x))
 
   private def prettyPrint(x: Any): String =
     x match {

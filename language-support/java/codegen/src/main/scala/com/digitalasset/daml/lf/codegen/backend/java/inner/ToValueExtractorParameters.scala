@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.codegen.backend.java.inner
@@ -8,9 +8,8 @@ import com.squareup.javapoet.{ClassName, ParameterSpec, ParameterizedTypeName, T
 
 private[inner] object ToValueExtractorParameters {
 
-  def generate(typeParameters: IndexedSeq[String]) = {
+  def generate(typeParameters: IndexedSeq[String]): IndexedSeq[ParameterSpec] =
     typeParameters.map(extractorParameter)
-  }
 
   private def extractorParameter(t: String): ParameterSpec =
     ParameterSpec.builder(extractorType(TypeVariableName.get(t)), s"toValue$t").build()

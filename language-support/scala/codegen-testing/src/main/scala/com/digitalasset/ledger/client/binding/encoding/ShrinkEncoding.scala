@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.ledger.client
@@ -9,6 +9,7 @@ import java.lang.Math.max
 import java.time.{Instant, LocalDate}
 import java.util.concurrent.TimeUnit
 
+import com.digitalasset.daml.lf.data.InsertOrdMap
 import com.digitalasset.ledger.api.v1.value.Identifier
 import com.digitalasset.ledger.api.v1.{value => rpcvalue}
 import com.digitalasset.ledger.client.binding.{Primitive => P}
@@ -90,7 +91,7 @@ object ShrinkEncoding extends ShrinkEncoding {
   class primitiveImpl extends ValuePrimitiveEncoding[Out] {
     override val valueInt64: Out[P.Int64] = shrinkIntegral
 
-    override val valueDecimal: Out[P.Decimal] = shrinkFractional
+    override val valueNumeric: Out[P.Numeric] = shrinkFractional
 
     override val valueParty: Out[P.Party] = P.Party.subst(myShrinkString)
 
@@ -165,8 +166,11 @@ object ShrinkEncoding extends ShrinkEncoding {
 
     def entry[A: Out]: Out[(String, A)] = implicitly[Out[(String, A)]]
 
-    override implicit def valueMap[A: Out]: Out[P.Map[A]] =
-      shrinkContainer2[Map, String, A]
+    override implicit def valueTextMap[A: Out]: Out[P.TextMap[A]] =
+      shrinkContainer2[Lambda[(uk, v) => P.TextMap[v]], String, A]
+
+    override implicit def valueGenMap[K: Shrink, V: Shrink]: Shrink[P.GenMap[K, V]] =
+      shrinkContainer2[InsertOrdMap, K, V]
 
   }
 

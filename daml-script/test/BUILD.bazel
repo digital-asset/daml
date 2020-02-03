@@ -1,0 +1,140 @@
+# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_binary",
+    "da_scala_library",
+)
+load(
+    "//bazel_tools/client_server:client_server_test.bzl",
+    "client_server_test",
+)
+
+genrule(
+    name = "script-test",
+    srcs =
+        glob(["**/*.daml"]) + [
+            "//daml-script/daml:daml-script.dar",
+            "//docs:source/daml-script/template-root/src/ScriptExample.daml",
+            "//:VERSION",
+        ],
+    outs = ["script-test.dar"],
+    cmd = """
+      set -eou pipefail
+      TMP_DIR=$$(mktemp -d)
+      mkdir -p $$TMP_DIR/daml
+      cp -L $(location :daml/ScriptTest.daml) $$TMP_DIR/daml
+      cp -L $(location :daml/MultiTest.daml) $$TMP_DIR/daml
+      cp -L $(location //docs:source/daml-script/template-root/src/ScriptExample.daml) $$TMP_DIR/daml
+      cp -L $(location //daml-script/daml:daml-script.dar) $$TMP_DIR/
+      cat << EOF > $$TMP_DIR/daml.yaml
+sdk-version: $$(cat $(location //:VERSION))
+name: script-test
+source: daml
+version: 0.0.1
+dependencies:
+  - daml-stdlib
+  - daml-prim
+  - daml-script.dar
+EOF
+      $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$(location script-test.dar)
+      rm -rf $$TMP_DIR
+    """,
+    tools = ["//compiler/damlc"],
+    visibility = ["//visibility:public"],
+)
+
+da_scala_library(
+    name = "test-lib",
+    srcs = glob(["src/**/*.scala"]),
+    deps = [
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive:daml_lf_dev_archive_java_proto",
+        "//daml-lf/data",
+        "//daml-lf/interpreter",
+        "//daml-lf/language",
+        "//daml-script/runner:script-runner-lib",
+        "//language-support/scala/bindings",
+        "//language-support/scala/bindings-akka",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger/ledger-api-common",
+        "@maven//:com_github_scopt_scopt_2_12",
+        "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:io_spray_spray_json_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
+    ],
+)
+
+da_scala_binary(
+    name = "test_client_single_participant",
+    main_class = "com.digitalasset.daml.lf.engine.script.test.SingleParticipant",
+    deps = [":test-lib"],
+)
+
+da_scala_binary(
+    name = "test_client_multi_participant",
+    main_class = "com.digitalasset.daml.lf.engine.script.test.MultiParticipant",
+    deps = [":test-lib"],
+)
+
+client_server_test(
+    name = "test_static_time",
+    client = ":test_client_single_participant",
+    client_files = ["$(rootpath :script-test.dar)"],
+    data = [":script-test.dar"],
+    server = "//ledger/sandbox:sandbox-binary",
+    server_args = ["--port=0"],
+    server_files = ["$(rootpath :script-test.dar)"],
+)
+
+client_server_test(
+    name = "test_wallclock_time",
+    client = ":test_client_single_participant",
+    client_args = ["-w"],
+    client_files = ["$(rootpath :script-test.dar)"],
+    data = [":script-test.dar"],
+    server = "//ledger/sandbox:sandbox-binary",
+    server_args = [
+        "-w",
+        "--port=0",
+    ],
+    server_files = ["$(rootpath :script-test.dar)"],
+)
+
+client_server_test(
+    name = "test_multiparticipant",
+    client = ":test_client_multi_participant",
+    client_args = [
+        "-w",
+        "--extra-participant-port=6866",
+    ],
+    client_files = ["$(rootpath :script-test.dar)"],
+    data = [":script-test.dar"],
+    server = "//ledger/api-server-damlonx/reference-v2",
+    server_args = [
+        "--port=6865",
+        "--jdbc-url=jdbc:h2:mem:daml_on_x;db_close_delay=-1;db_close_on_exit=false",
+        "--extra-participant=second-participant,6866,jdbc:h2:mem:daml_on_x2;db_close_delay=-1;db_close_on_exit=false",
+    ],
+    server_files = ["$(rootpath :script-test.dar)"],
+    tags = ["exclusive"],
+)
+
+sh_test(
+    name = "test_daml_script_test_runner",
+    srcs = [":daml-script-test-runner.sh"],
+    args = [
+        "$(rootpath //daml-script/runner:test-runner)",
+        "$(rootpath :script-test.dar)",
+        "$(POSIX_DIFF)",
+        "$(POSIX_GREP)",
+        "$(POSIX_SORT)",
+    ],
+    data = [
+        ":script-test.dar",
+        "//daml-script/runner:test-runner",
+    ],
+    toolchains = ["@rules_sh//sh/posix:make_variables"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)

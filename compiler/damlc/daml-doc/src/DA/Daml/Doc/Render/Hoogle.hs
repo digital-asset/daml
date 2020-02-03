@@ -1,7 +1,6 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE OverloadedStrings #-}
 
 module DA.Daml.Doc.Render.Hoogle
   ( renderSimpleHoogle
@@ -102,28 +101,31 @@ cls2hoogle ClassDoc{..} = concat
                  ++ maybe [] ((:["=>"]) . type2hoogle) cl_super
                  ++ wrapOp (unTypename cl_name) : cl_args
       , "" ]
-    , concatMap (fct2hoogle . addToContext) cl_functions
+    , concatMap classMethod2hoogle cl_methods
     ]
-  where
-    addToContext :: FunctionDoc -> FunctionDoc
-    addToContext fndoc = fndoc { fct_context = newContext (fct_context fndoc) }
 
-    newContext :: Maybe Type -> Maybe Type
-    newContext = \case
-        Nothing -> Just contextTy
-        Just (TypeTuple ctx) -> Just (TypeTuple (contextTy : ctx))
-        Just ctx -> Just (TypeTuple [contextTy, ctx])
-
-    contextTy :: Type
-    contextTy = TypeApp Nothing cl_name [TypeApp Nothing (Typename arg) [] | arg <- cl_args]
+classMethod2hoogle :: ClassMethodDoc -> [T.Text]
+classMethod2hoogle ClassMethodDoc{..} | cm_isDefault = [] -- hide default methods from hoogle search
+classMethod2hoogle ClassMethodDoc{..} = concat
+    [ hooglify cm_descr
+    , [ urlTag cm_anchor
+      , T.unwords . concat $
+          [ [wrapOp (unFieldname cm_name), "::"]
+          , maybe [] ((:["=>"]) . type2hoogle) cm_globalContext
+          , [type2hoogle cm_type]
+          ]
+      , "" ]
+    ]
 
 fct2hoogle :: FunctionDoc -> [T.Text]
 fct2hoogle FunctionDoc{..} = concat
     [ hooglify fct_descr
     , [ urlTag fct_anchor
-      , T.unwords $ [wrapOp (unFieldname fct_name), "::"]
-                 ++ maybe [] ((:["=>"]) . type2hoogle) fct_context
-                 ++ maybe ["_"] ((:[]) . type2hoogle) fct_type -- FIXME(FM): what to do when missing type?
+      , T.unwords . concat $
+          [ [wrapOp (unFieldname fct_name), "::"]
+          , maybe [] ((:["=>"]) . type2hoogle) fct_context
+          , [type2hoogle fct_type]
+          ]
       , "" ]
     ]
 
@@ -144,3 +146,4 @@ t2hg _ _ (TypeTuple ts) =
 t2hg _ _ (TypeApp _ n []) = unTypename n
 t2hg _ f (TypeApp _ name args) = f $
     T.unwords (wrapOp (unTypename name) : map (t2hg inParens inParens) args)
+t2hg _ _ (TypeLit lit) = lit

@@ -1,4 +1,4 @@
--- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
 daml 1.2
@@ -45,4 +45,4 @@ testOptionalToEither = scenario do
 
 testEitherToOptional = scenario do
   Some 1 === eitherToOptional (Right 1)
-  None === eitherToOptional ((Left "a") : Either Text Int)
+  None === eitherToOptional (Left "a" : Either Text Int)

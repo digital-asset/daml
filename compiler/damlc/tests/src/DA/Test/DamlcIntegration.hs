@@ -1,8 +1,7 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE MultiWayIf #-}
-{-# LANGUAGE OverloadedStrings #-}
 
 -- | Test driver for DAML-GHC CompilerService.
 -- For each file, compile it with GHC, convert it,
@@ -22,7 +21,6 @@ import           DA.Daml.LF.Ast as LF hiding (IsTest)
 import           "ghc-lib-parser" UniqSupply
 import           "ghc-lib-parser" Unique
 
-import           Control.Lens.Plated (transformOn)
 import           Control.Concurrent.Extra
 import           Control.DeepSeq
 import           Control.Exception.Extra
@@ -34,10 +32,11 @@ import qualified DA.Daml.Compiler.Scenario as SS
 import qualified DA.Service.Logger.Impl.Pure as Logger
 import qualified Development.IDE.Types.Logger as IdeLogger
 import Development.IDE.Types.Location
-import qualified Data.Aeson as A
-import qualified Data.Aeson.Lens as A
-import           Data.ByteString.Lazy.Char8 (unpack)
+import Development.IDE.Types.Options(IdeReportProgress(..))
+import qualified Data.Aeson.Encode.Pretty as A
+import qualified Data.ByteString.Lazy.Char8 as BSL
 import           Data.Char
+import Data.Default
 import qualified Data.DList as DList
 import Data.Foldable
 import           Data.List.Extra
@@ -46,6 +45,7 @@ import Data.Proxy
 import           Development.IDE.Types.Diagnostics
 import           Data.Maybe
 import           Development.Shake hiding (cmd, withResource)
+import qualified Language.Haskell.LSP.Types as LSP
 import           System.Directory.Extra
 import           System.Environment.Blank (setEnv)
 import           System.FilePath
@@ -57,8 +57,8 @@ import           Text.Read
 import qualified Data.Set as Set
 import qualified Data.Text as T
 import           System.Time.Extra
-import qualified Development.IDE.Core.API as Compile
-import qualified Development.IDE.Core.Rules.Daml as Compile
+import Development.IDE.Core.API
+import Development.IDE.Core.Rules.Daml
 import qualified Development.IDE.Types.Diagnostics as D
 import Development.IDE.GHC.Util
 import           Data.Tagged                  (Tagged (..))
@@ -70,7 +70,7 @@ import qualified Test.Tasty.HUnit as HUnit
 import Test.Tasty.HUnit ((@?=))
 import Test.Tasty.Options
 import Test.Tasty.Providers
-import Test.Tasty.Runners
+import Test.Tasty.Runners (Outcome(..), Result(..))
 
 -- Newtype to avoid mixing up the loging function and the one for registering TODOs.
 newtype TODO = TODO String
@@ -79,7 +79,7 @@ main :: IO ()
 main = mainWithVersions [versionDev]
 
 mainAll :: IO ()
-mainAll = mainWithVersions (delete versionDev supportedInputVersions)
+mainAll = mainWithVersions (delete versionDev supportedOutputVersions)
 
 mainWithVersions :: [Version] -> IO ()
 mainWithVersions versions = SS.withScenarioService Logger.makeNopHandle SS.defaultScenarioServiceConfig $ \scenarioService -> do
@@ -115,29 +115,38 @@ getIntegrationTests registerTODO scenarioService version = do
 
     -- test files are declared as data in BUILD.bazel
     testsLocation <- locateRunfiles $ mainWorkspace </> "compiler/damlc/tests/daml-test-files"
-    damlTestFiles <- filter (".daml" `isExtensionOf`) <$> listFiles testsLocation
+    damlTestFiles <-
+        map (\f -> (makeRelative testsLocation f, f)) .
+        filter (".daml" `isExtensionOf`) <$> listFiles testsLocation
     -- only run Test.daml (see https://github.com/digital-asset/daml/issues/726)
     bondTradingLocation <- locateRunfiles $ mainWorkspace </> "compiler/damlc/tests/bond-trading"
-    let allTestFiles = damlTestFiles ++ [bondTradingLocation </> "Test.daml"]
+    let allTestFiles = damlTestFiles ++ [("bond-trading/Test.daml", bondTradingLocation </> "Test.daml")]
+    let (generatedFiles, nongeneratedFiles) = partition (\(f, _) -> takeFileName f == "ProposalDesugared.daml") allTestFiles
 
     let outdir = "compiler/damlc/output"
     createDirectoryIfMissing True outdir
 
-    opts <- defaultOptionsIO (Just version)
-    opts <- pure $ opts
-        { optThreads = 0
-        , optScenarioValidation = ScenarioValidationFull
-        }
+    dlintDataDir <- locateRunfiles $ mainWorkspace </> "compiler/damlc/daml-ide-core"
+    let opts = (defaultOptions (Just version))
+          { optThreads = 0
+          , optCoreLinting = True
+          , optDlintUsage = DlintEnabled dlintDataDir False
+          }
 
     -- initialise the compiler service
-    vfs <- Compile.makeVFSHandle
-    damlEnv <- Compile.mkDamlEnv opts (Just scenarioService)
+    vfs <- makeVFSHandle
+    damlEnv <- mkDamlEnv opts (Just scenarioService)
+    -- We use a separate service for generated files so that we can test files containing internal imports.
     pure $
-      withResource
-      (Compile.initialise (Compile.mainRule opts) (const $ pure ()) IdeLogger.noLogging damlEnv (toCompileOpts opts) vfs)
-      Compile.shutdown $ \service ->
-      withTestArguments $ \args -> testGroup ("Tests for DAML-LF " ++ renderPretty version) $
-        map (testCase args version service outdir registerTODO) allTestFiles
+          withResource
+          (initialise def (mainRule opts) (pure $ LSP.IdInt 0) (const $ pure ()) IdeLogger.noLogging damlEnv (toCompileOpts opts (IdeReportProgress False)) vfs)
+          shutdown $ \service ->
+          withResource
+          (initialise def (mainRule opts) (pure $ LSP.IdInt 0) (const $ pure ()) IdeLogger.noLogging damlEnv (toCompileOpts opts { optIsGenerated = True } (IdeReportProgress False)) vfs)
+          shutdown $ \serviceGenerated ->
+          withTestArguments $ \args -> testGroup ("Tests for DAML-LF " ++ renderPretty version) $
+            map (testCase args version service outdir registerTODO) nongeneratedFiles <>
+            map (testCase args version serviceGenerated outdir registerTODO) generatedFiles
 
 newtype TestCase = TestCase ((String -> IO ()) -> IO Result)
 
@@ -153,8 +162,8 @@ instance IsTest TestCase where
     pure $ res { resultDescription = desc }
   testOptions = Tagged []
 
-testCase :: TestArguments -> LF.Version -> IO Compile.IdeState -> FilePath -> (TODO -> IO ()) -> FilePath -> TestTree
-testCase args version getService outdir registerTODO file = singleTest file . TestCase $ \log -> do
+testCase :: TestArguments -> LF.Version -> IO IdeState -> FilePath -> (TODO -> IO ()) -> (String, FilePath) -> TestTree
+testCase args version getService outdir registerTODO (name, file) = singleTest name . TestCase $ \log -> do
   service <- getService
   anns <- readFileAnns file
   if any (ignoreVersion version) anns
@@ -166,13 +175,13 @@ testCase args version getService outdir registerTODO file = singleTest file . Te
       }
     else do
       -- FIXME: Use of unsafeClearDiagnostics is only because we don't naturally lose them when we change setFilesOfInterest
-      Compile.unsafeClearDiagnostics service
+      unsafeClearDiagnostics service
       ex <- try $ mainProj args service outdir log (toNormalizedFilePath file) :: IO (Either SomeException Package)
-      diags <- Compile.getDiagnostics service
+      diags <- getDiagnostics service
       for_ [file ++ ", " ++ x | Todo x <- anns] (registerTODO . TODO)
       resDiag <- checkDiagnostics log [fields | DiagnosticFields fields <- anns] $
         [ideErrorText "" $ T.pack $ show e | Left e <- [ex], not $ "_IGNORE_" `isInfixOf` show e] ++ diags
-      resQueries <- runJqQuery log [(pkg, q) | Right pkg <- [ex], QueryLF q <- anns]
+      resQueries <- runJqQuery log version outdir file [q | QueryLF q <- anns]
       let failures = catMaybes $ resDiag : resQueries
       case failures of
         err : _others -> pure $ testFailed err
@@ -184,22 +193,22 @@ testCase args version getService outdir registerTODO file = singleTest file . Te
       UntilLF maxVersion -> version > maxVersion
       _ -> False
 
-runJqQuery :: (String -> IO ()) -> [(LF.Package, String)] -> IO [Maybe String]
-runJqQuery log qs = do
-  forM qs $ \(pkg, q) -> do
+runJqQuery :: (String -> IO ()) -> LF.Version -> FilePath -> FilePath -> [String] -> IO [Maybe String]
+runJqQuery log version outdir file qs = do
+  let proj = takeBaseName file
+  forM qs $ \q -> do
     log $ "running jq query: " ++ q
-    let json = unpack $ A.encode $ transformOn A._Value numToString $ JSONPB.toJSONPB (encodePackage pkg) JSONPB.jsonPBOptions
     let jqKey = "external" </> "jq_dev_env" </> "bin" </> if isWindows then "jq.exe" else "jq"
     jq <- locateRunfiles $ mainWorkspace </> jqKey
-    out <- readProcess jq [q] json
+    queryLfDir <- locateRunfiles $ mainWorkspace </> "compiler/damlc/tests/src"
+    let queryLfMod
+            | version `supports` featureStringInterning = "query-lf-interned"
+            | otherwise = "query-lf-non-interned"
+    let fullQuery = "import \"./" ++ queryLfMod ++ "\" as lf; . as $pkg | " ++ q
+    out <- readProcess jq ["-L", queryLfDir, fullQuery, outdir </> proj <.> "json"] ""
     case trim out of
       "true" -> pure Nothing
       other -> pure $ Just $ "jq query failed: got " ++ other
-  where
-    numToString :: A.Value -> A.Value
-    numToString = \case
-      A.Number x -> A.String $ T.pack $ show x
-      other -> other
 
 
 data DiagnosticField
@@ -225,7 +234,7 @@ checkDiagnostics log expected got = do
       | null bad -> Nothing
       | otherwise -> Just $ unlines ("Could not find matching diagnostics:" : map show bad)
     where checkField :: D.FileDiagnostic -> DiagnosticField -> Bool
-          checkField (fp, D.Diagnostic{..}) f = case f of
+          checkField (fp, _, D.Diagnostic{..}) f = case f of
             DFilePath p -> toNormalizedFilePath p == fp
             DRange r -> r == _range
             DSeverity s -> Just s == _severity
@@ -275,6 +284,7 @@ readFileAnns file = do
             ("UNTIL-LF", x) -> Just $ UntilLF $ fromJust $ LF.parseVersion $ trim x
             ("ERROR",x) -> Just (DiagnosticFields (DSeverity DsError : parseFields x))
             ("WARN",x) -> Just (DiagnosticFields (DSeverity DsWarning : parseFields x))
+            ("INFO",x) -> Just (DiagnosticFields (DSeverity DsInfo : parseFields x))
             ("QUERY-LF", x) -> Just $ QueryLF x
             ("TODO",x) -> Just $ Todo x
             _ -> error $ "Can't understand test annotation in " ++ show file ++ ", got " ++ show x
@@ -306,24 +316,28 @@ parseRange s =
             (Position (rowEnd - 1) (colEnd - 1))
     _ -> error $ "Failed to parse range, got " ++ s
 
-mainProj :: TestArguments -> Compile.IdeState -> FilePath -> (String -> IO ()) -> NormalizedFilePath -> IO LF.Package
+mainProj :: TestArguments -> IdeState -> FilePath -> (String -> IO ()) -> NormalizedFilePath -> IO LF.Package
 mainProj TestArguments{..} service outdir log file = do
-    writeFile <- return $ \a b -> length b `seq` writeFile a b
     let proj = takeBaseName (fromNormalizedFilePath file)
 
-    let corePrettyPrint = timed log "Core pretty-printing" . liftIO . writeFile (outdir </> proj <.> "core") . unlines . map prettyPrint
+    let corePrettyPrint = timed log "Core pretty-printing" . liftIO . writeFile (outdir </> proj <.> "core") . prettyPrint
     let lfSave = timed log "LF saving" . liftIO . writeFileLf (outdir </> proj <.> "dalf")
     let lfPrettyPrint = timed log "LF pretty-printing" . liftIO . writeFile (outdir </> proj <.> "pdalf") . renderPretty
+    let jsonSave pkg =
+            let json = A.encodePretty $ JSONPB.toJSONPB (encodePackage pkg) JSONPB.jsonPBOptions
+            in timed log "JSON saving" . liftIO . BSL.writeFile (outdir </> proj <.> "json") $ json
 
-    Compile.setFilesOfInterest service (Set.singleton file)
-    Compile.runActionSync service $ do
-            cores <- ghcCompile log file
-            corePrettyPrint cores
+    setFilesOfInterest service (Set.singleton file)
+    runActionSync service $ do
+            dlint log file
             lf <- lfConvert log file
             lfPrettyPrint lf
+            core <- ghcCompile log file
+            corePrettyPrint core
             lf <- lfTypeCheck log file
             lfSave lf
             lfRunScenarios log file
+            jsonSave lf
             pure lf
 
 unjust :: Action (Maybe b) -> Action b
@@ -333,17 +347,22 @@ unjust act = do
       Nothing -> fail "_IGNORE_"
       Just v -> return v
 
-ghcCompile :: (String -> IO ()) -> NormalizedFilePath -> Action [GHC.CoreModule]
-ghcCompile log file = timed log "GHC compile" $ unjust $ Compile.getGhcCore file
+dlint :: (String -> IO ()) -> NormalizedFilePath -> Action ()
+dlint log file = timed log "DLint" $ unjust $ getDlintIdeas file
+
+ghcCompile :: (String -> IO ()) -> NormalizedFilePath -> Action GHC.CoreModule
+ghcCompile log file = timed log "GHC compile" $ do
+    (_, Just (safeMode, guts, details)) <- generateCore file
+    pure $ cgGutsToCoreModule safeMode guts details
 
 lfConvert :: (String -> IO ()) -> NormalizedFilePath -> Action LF.Package
-lfConvert log file = timed log "LF convert" $ unjust $ Compile.getRawDalf file
+lfConvert log file = timed log "LF convert" $ unjust $ getRawDalf file
 
 lfTypeCheck :: (String -> IO ()) -> NormalizedFilePath -> Action LF.Package
-lfTypeCheck log file = timed log "LF type check" $ unjust $ Compile.getDalf file
+lfTypeCheck log file = timed log "LF type check" $ unjust $ getDalf file
 
 lfRunScenarios :: (String -> IO ()) -> NormalizedFilePath -> Action ()
-lfRunScenarios log file = timed log "LF execution" $ void $ unjust $ Compile.runScenarios file
+lfRunScenarios log file = timed log "LF execution" $ void $ unjust $ runScenarios file
 
 timed :: MonadIO m => (String -> IO ()) -> String -> m a -> m a
 timed log msg act = do

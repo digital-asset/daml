@@ -1,10 +1,12 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.index.v2
 
-import com.daml.ledger.participant.state.v2.ParticipantId
-import com.digitalasset.ledger.api.domain.PartyDetails
+import akka.NotUsed
+import akka.stream.scaladsl.Source
+import com.daml.ledger.participant.state.v1.ParticipantId
+import com.digitalasset.ledger.api.domain.{LedgerOffset, PartyDetails, PartyEntry}
 
 import scala.concurrent.Future
 
@@ -16,4 +18,6 @@ trait IndexPartyManagementService {
   def getParticipantId(): Future[ParticipantId]
 
   def listParties(): Future[List[PartyDetails]]
+
+  def partyEntries(beginOffset: LedgerOffset.Absolute): Source[PartyEntry, NotUsed]
 }

@@ -1,7 +1,8 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE CPP #-}
 
 daml 1.2
 -- | MOVE Prelude Our Prelude, extending WiredIn with things that don't need special treatment.
@@ -9,6 +10,7 @@ daml 1.2
 module DA.Internal.Prelude
   ( module DA.Internal.Prelude
   , module GHC
+  , Down(..)
   ) where
 
 import Control.Exception.Base ()
@@ -23,9 +25,21 @@ import GHC.Real as GHC (fromRational)
 import GHC.Show as GHC
 import DA.Types as GHC (Either(..))
 import GHC.Tuple()
-import GHC.Types as GHC (Bool (..), Int, Ordering (..), Text, Decimal, ifThenElse, primitive)
+import GHC.Types as GHC (Bool (..), Int, Ordering (..), Text, Decimal, DamlEnum, ifThenElse
+#ifdef DAML_NUMERIC
+  , Numeric
+#endif
+  )
+-- Not reexported
+import GHC.Types (primitive)
+
+import DA.Internal.Down
 
 infixr 0 $
+-- | Take a function from `a` to `b` and a value of type `a`, and apply the
+-- function to the value of type `a`, returning a value of type `b`.
+-- This function has a very low precedence, which is why you might want to use
+-- it instead of regular function application.
 ($) : (a -> b) -> a -> b
 f $ x =  f x
 
@@ -45,7 +59,7 @@ class Functor f => Applicative f where
     -- | Lift a value.
     pure : a -> f a
 
-    -- | Sequential application.
+    -- | Sequentially apply the function.
     --
     -- A few functors support an implementation of `<*>` that is more
     -- efficient than the default one.
@@ -70,7 +84,7 @@ class Functor f => Applicative f where
     (<*) = liftA2 const
 
 -- | Sequentially compose two actions, discarding any value produced
--- by the first, like sequencing operators (such as the semicolon)
+-- by the first. This is like sequencing operators (such as the semicolon)
 -- in imperative languages.
 (>>) : Applicative m => m a -> m b -> m b
 (>>) = (*>)
@@ -80,19 +94,21 @@ infixl 1 >>
 ap : Applicative f => f (a -> b) -> f a -> f b
 ap = (<*>)
 
--- | Inject a value into the monadic type.
-return      : Applicative m => a -> m a
-return      = pure
+-- This is a poor doc string but I don't know what the correct improvement would be.
+-- | Inject a value into the monadic type. For example, for `Update` and a
+-- value of type `a`, `return` would give you an `Update a`.
+return : Applicative m => a -> m a
+return = pure
 
 infixl 1 >>=
 class Applicative m => Action m where
     -- | Sequentially compose two actions, passing any value produced
     -- by the first as an argument to the second.
-    (>>=)       : forall a b. m a -> (a -> m b) -> m b
+    (>>=) : forall a b. m a -> (a -> m b) -> m b
 
 -- | Collapses nested actions into a single action.
-join              : (Action m) => m (m a) -> m a
-join x            =  x >>= identity
+join : (Action m) => m (m a) -> m a
+join x = x >>= identity
 
 class Action m => ActionFail m where
     -- | Fail with an error message.
@@ -130,50 +146,62 @@ guard : ActionFail m => Bool -> m ()
 guard False = fail "guard is false"
 guard True = pure ()
 
--- | `foldl f i xs` performs a left fold over `xs` using `f` with the starting value `i`.
+-- | This function is a left fold, which you can use to inspect/analyse/consume lists.
+-- `foldl f i xs` performs a left fold over the list `xs` using
+-- the function `f`, using the starting value `i`.
 --
--- #### Examples
+-- Examples:
 --
 -- ```
 -- >>> foldl (+) 0 [1,2,3]
 -- 6
+--
 -- >>> foldl (^) 10 [2,3]
 -- 1000000
 -- ```
 --
+-- Note that foldl works from left-to-right over the list arguments.
 foldl : (b -> a -> b) -> b -> [a] -> b
 foldl = primitive @"BEFoldl"
 
--- | `find p xs` finds the first element of `xs` where the predicate `p` holds.
+-- | `find p xs` finds the first element of the list `xs` where the
+-- predicate `p` is true. There might not be such an element, which
+-- is why this function returns an `Optional a`.
 find : (a -> Bool) -> [a] -> Optional a
 find p [] = None
 find p (x::xs) = if p x then Some x else find p xs
 
--- | Calculate the length of a list.
+-- | Gives the length of the list.
 length : [a] -> Int
 length = foldl (\l _ -> l + 1) 0
 
--- | `any p xs` is `True` if `p` holds for at least one element of `xs`.
+-- | Are there any elements in the list where the predicate is true?
+-- `any p xs` is `True` if `p` holds for at least one element of `xs`.
 any : (a -> Bool) -> [a] -> Bool
 any f = foldl (\b x -> b || f x) False
 
--- | `all p xs` is `True` if `p` holds for every element of `xs`.
+-- | Is the predicate true for all of the elements in the list?
+-- `all p xs` is `True` if `p` holds for every element of `xs`.
 all : (a -> Bool) -> [a] -> Bool
 all f = foldl (\b x -> b && f x) True
 
--- | `or bs` is `True` if at least one element of `bs` is `True`.
+-- | Is at least one of elements in a list of `Bool` true?
+-- `or bs` is `True` if at least one element of `bs` is `True`.
 or : [Bool] -> Bool
 or = any identity
 
--- | `and bs` is `True` if every element of `bs` is `True`.
+-- | Is every element in a list of Bool true?
+-- `and bs` is `True` if every element of `bs` is `True`.
 and : [Bool] -> Bool
 and = all identity
 
--- | `elem x xs` is `True` if `x` is an element of the list `xs`.
+-- | Does this value exist in this list?
+-- `elem x xs` is `True` if `x` is an element of the list `xs`.
 elem : Eq a => a -> [a] -> Bool
 elem x = any (== x)
 
--- | Negation of `elem`.
+-- | Negation of `elem`:
+-- `elem x xs` is `True` if `x` is _not_ an element of the list `xs`.
 notElem : Eq a => a ->  [a] -> Bool
 notElem x = not . elem x
 
@@ -188,9 +216,9 @@ infixl 4 <$>
 -- deal with errors or exceptional cases without resorting to drastic
 -- measures such as `error`.
 --
--- The `Optional` type is also a monad.  It is a simple kind of error
--- monad, where all errors are represented by `None`.  A richer
--- error monad can be built using the `Data.Either.Either` type.
+-- The `Optional` type is also an `Action`.  It is a simple kind of error
+-- `Action`, where all errors are represented by `None`.  A richer
+-- error `Action` could be built using the `Data.Either.Either` type.
 --
 data Optional a  =  None | Some a
     deriving (Eq, Ord, Show)
@@ -226,40 +254,33 @@ instance ActionFail Optional where
 -- default value.  Otherwise, it applies the function to the value inside
 -- the `Some` and returns the result.
 --
--- #### Examples
---
--- Basic usage:
+-- Basic usage examples:
 --
 -- ```
--- >>> optional False odd (Some 3)
+-- >>> optional False (> 2) (Some 3)
 -- True
 -- ```
 --
 -- ```
--- >>> optional False odd None
+-- >>> optional False (> 2) None
 -- False
 -- ```
 --
--- Read an Int from a string using `readOptional`. If we succeed,
--- return twice the Int; that is, apply `(*2)` to it. If instead
--- we fail to parse an Int, return `0` by default:
---
 -- ```
--- >>> import Text.Read ( readOptional )
--- >>> optional 0 (*2) (readOptional "5")
+-- >>> optional 0 (*2) (Some 5)
 -- 10
--- >>> optional 0 (*2) (readOptional "")
+-- >>> optional 0 (*2) None
 -- 0
 -- ```
 --
--- Apply `show` to a `Optional Int`. If we have `Some n`, we want to show
--- the underlying `Int`, `n`. But if we have `None`, we return the
--- empty string instead of (for example) `None`:
+-- This example applies `show` to a `Optional Int`. If you have `Some n`,
+-- this shows the underlying `Int`, `n`. But if you have `None`, this
+-- returns the empty string instead of (for example) `None`:
 --
 -- ```
 -- >>> optional "" show (Some 5)
 -- "5"
--- >>> optional "" show None
+-- >>> optional "" show (None : Optional Int)
 -- ""
 -- ```
 --
@@ -285,23 +306,21 @@ instance Action (Either e) where
 instance ActionFail (Either Text) where
   fail = Left
 
--- | Case analysis for the `Either` type.
--- If the value is `Left a`, apply the first function to `a`;
--- if it is `Right b`, apply the second function to `b`.
+-- | The `either` function provides case analysis for the `Either` type.
+-- If the value is `Left a`, it applies the first function to `a`;
+-- if it is `Right b`, it applies the second function to `b`.
 --
--- #### Examples
+-- Examples:
 --
--- We create two values of type `Either String Int`, one using the
+-- This example has two values of type `Either [Int] Int`, one using the
 -- `Left` constructor and another using the `Right` constructor. Then
--- we apply "either" the `length` function (if we have a `String`)
--- or the "times-two" function (if we have an `Int`):
+-- it applies `either` the `length` function (if it has a `[Int]`)
+-- or the "times-two" function (if it has an `Int`):
 --
 -- ```
--- >>> let s = Left "foo" :: Either String Int
--- >>> let n = Right 3 :: Either String Int
--- >>> either length (*2) s
+-- >>> let s = Left [1,2,3] : Either [Int] Int in either length (*2) s
 -- 3
--- >>> either length (*2) n
+-- >>> let n = Right 3 : Either [Int] Int in either length (*2) n
 -- 6
 -- ```
 --
@@ -346,6 +365,7 @@ instance Monoid Text where
 instance Monoid Ordering where
   mempty = EQ
 
+-- | Take a list of lists and concatenate those lists into one list.
 concat : [[a]] -> [a]
 concat = mconcat
 
@@ -383,7 +403,7 @@ infixr 1 =<<
 concatMap : (a -> [b]) -> [a] -> [b]
 concatMap f = concat . map f
 
--- | `replicate i x` is the list `[x, x, x, ..., x]` with `i` copies of `x`.
+-- | `replicate i x` gives the list `[x, x, x, ..., x]` with `i` copies of `x`.
 replicate : Int -> a -> [a]
 replicate i x | i <= 0 = []
               | otherwise = x :: replicate (i-1) x
@@ -425,6 +445,24 @@ span p xs@(x::xs')
          | p x          =  let (ys,zs) = span p xs' in (x::ys,zs)
          | otherwise    =  ([],xs)
 
+-- | The `partition` function takes a predicate, a list and returns
+-- the pair of lists of elements which do and do not satisfy the
+-- predicate, respectively; i.e.,
+--
+-- > partition p xs == (filter p xs, filter (not . p) xs)
+--
+-- ```
+-- >>> partition (<0) [1, -2, -3, 4, -5, 6]
+-- ([-2, -3, -5], [1, 4, 6])
+-- ```
+partition : (a -> Bool) -> [a] -> ([a], [a])
+partition p xs =
+  foldr insert ([], []) xs
+  where
+    insert x (ps, nonPs)
+      | p x = (x :: ps, nonPs)
+      | otherwise = (ps, x :: nonPs)
+
 -- | Break a list into two, just before the first element where the predicate holds.
 -- `break p xs` is equivalent to `span (not . p) xs`.
 break : (a -> Bool) -> [a] -> ([a], [a])
@@ -452,13 +490,14 @@ zip3 : [a] -> [b] -> [c] -> [(a, b, c)]
 zip3 (a::as) (b::bs) (c::cs) = (a,b,c) :: zip3 as bs cs
 zip3 _ _ _ = []
 
--- | `zipWith` generalises `zip` by combining elements using the function, instead of making pairs.
+-- | `zipWith` takes a function and two lists.
+-- It generalises `zip` by combining elements using the function, instead of forming pairs.
 -- If one list is shorter, the excess elements of the longer list are discarded.
 zipWith : (a -> b -> c) -> [a] -> [b] -> [c]
 zipWith f (a::as) (b::bs) = f a b :: zipWith f as bs
 zipWith _ _ _ = []
 
--- | `zipWith3` generalises `zip3` by combining elements using the function, instead of making pairs.
+-- | `zipWith3` generalises `zip3` by combining elements using the function, instead of forming triples.
 zipWith3 : (a -> b -> c -> d) -> [a] -> [b] -> [c] -> [d]
 zipWith3 f (a::as) (b::bs) (c::cs) = f a b c :: zipWith3 f as bs cs
 zipWith3 _ _ _ _ = []
@@ -488,58 +527,94 @@ traceId x = trace x x
 debug : (Show b, Applicative m) => b -> m ()
 debug x = trace x (pure ())
 
--- | Return the first element of a pair.
+-- | Return the first element of a tuple.
 fst : (a, b) -> a
 fst (x, _) = x
 
--- | Return the second element of a pair.
+-- | Return the second element of a tuple.
 snd : (a, b) -> b
 snd (_, x) = x
 
+#ifdef DAML_NUMERIC
+#define IF_NUMERIC(a,b) a
+#define NUMERIC_LIT(n) (primitive @"BEMulNumeric" (1.0 : Numeric 0) ((n) : Numeric 10))
+#else
+#define IF_NUMERIC(a,b) b
+#define NUMERIC_LIT(n) n
+#endif
+
 -- | `truncate x` rounds `x` toward zero.
-truncate : Decimal -> Int
-truncate = primitive @"BEDecimalToInt64"
+truncate : IF_NUMERIC(Numeric n, Decimal) -> Int
+truncate = primitive @IF_NUMERIC("BENumericToInt64", "BEDecimalToInt64")
+
+#ifdef DAML_NUMERIC
+-- | Convert an `Int` to a `Numeric`.
+intToNumeric : Int -> Numeric n
+intToNumeric = primitive @"BEInt64ToNumeric"
+#endif
 
 -- | Convert an `Int` to a `Decimal`.
 intToDecimal : Int -> Decimal
-intToDecimal = primitive @"BEInt64ToDecimal"
+intToDecimal = IF_NUMERIC(intToNumeric, primitive @"BEInt64ToDecimal")
 
 -- | Bankers' Rounding: `roundBankers dp x` rounds `x` to `dp` decimal places, where a `.5` is rounded to the nearest even digit.
-roundBankers : Int -> Decimal -> Decimal
-roundBankers = primitive @"BERoundDecimal"
+roundBankers : Int -> IF_NUMERIC(Numeric n -> Numeric n, Decimal -> Decimal)
+roundBankers = primitive @IF_NUMERIC("BERoundNumeric", "BERoundDecimal")
 
 -- | Commercial Rounding: `roundCommercial dp x` rounds `x` to `dp` decimal places, where a `.5` is rounded away from zero.
+#ifdef DAML_NUMERIC
+roundCommercial : forall n. NumericScale n => Int -> Numeric n -> Numeric n
+roundCommercial d x =
+  -- We must avoid conversions to Int, otherwise this will crash in some cases.
+  -- Until we have a `roundCommercial` primitive, we use a somewhat hacky implementation
+  -- relying on `roundBankers` is a primitive.
+
+  -- We first use bankers rounding and then check if the difference is exactly .5
+  -- If that is the case, we’ve rounded in the wrong direction, so we shift it the other way.
+  let t = roundBankers d x
+      diff = x - t
+      -- This is defined in DA.Numeric but we inline it here to avoid creating a cyclic module dependency.
+      divNumeric : Numeric n1 -> Numeric n2 -> Numeric n3
+      divNumeric = primitive @"BEDivNumeric"
+      problematicDiff = (0.5 : Numeric 1) `divNumeric` (10.0 ^ d : Numeric 0) * signum x
+  in if diff == problematicDiff
+       then x + problematicDiff
+       else t
+#else
 roundCommercial : Int -> Decimal -> Decimal
 roundCommercial d x =
+  -- This suffers from the same issue as the Numeric implementation but given
+  -- that Decimal is dead for newer LF versions anyway, we don’t bother fixing it.
   let t = intToDecimal (10 ^ d)
       v = round (x * t)
       w = intToDecimal v
   in w / t
+#endif
 
--- | Round to nearest integer, where a `.5` is rounded away from zero.
-round : Decimal -> Int
-round x = if x > 0.0
-    then truncate (x + 0.5)
-    else truncate (x - 0.5)
+-- | Round a `Decimal` to the nearest integer, where a `.5` is rounded away from zero.
+round : IF_NUMERIC(Numeric n, Decimal) -> Int
+round x = if x > NUMERIC_LIT(0.0)
+    then truncate (x + NUMERIC_LIT(0.5))
+    else truncate (x - NUMERIC_LIT(0.5))
 
--- | Round down to nearest integer.
-floor : Decimal -> Int
+-- | Round a `Decimal` down to the nearest integer.
+floor : IF_NUMERIC(Numeric n, Decimal) -> Int
 floor x =
   let i = truncate x
-  in if intToDecimal i <= x then i else i - 1
+  in if IF_NUMERIC(intToNumeric, intToDecimal) i <= x then i else i - 1
 
--- | Round up to nearest integer.
-ceiling : Decimal -> Int
+-- | Round a `Decimal` up to the nearest integer.
+ceiling : IF_NUMERIC(Numeric n, Decimal) -> Int
 ceiling x =
   let i = truncate x
-  in if intToDecimal i < x then i + 1 else i
+  in if IF_NUMERIC(intToNumeric, intToDecimal) i < x then i + 1 else i
 
--- | `null xs` is true if `xs` is the empty list.
+-- | Is the list empty? `null xs` is true if `xs` is the empty list.
 null : [a] -> Bool
 null [] = True
 null _ = False
 
--- | Keep only the elements where the predicate holds.
+-- | Filter the list using the function: keep only the elements where the predicate holds.
 filter : (a -> Bool) -> [a] -> [a]
 filter p = foldr (\x xs -> if p x then x :: xs else xs) []
 
@@ -547,10 +622,9 @@ filter p = foldr (\x xs -> if p x then x :: xs else xs) []
 fixedpoint : ((a -> b) -> a -> b) -> a -> b
 fixedpoint g v = g ( fixedpoint g ) v
 
--- | The `Down` type can be used for reversing sorting order.
---   For example, `sortOn (\x -> Down x.field)` would sort by descending `field`.
-newtype Down a = Down a
-    deriving (Eq, Show, Functor)
+deriving instance Eq a => Eq (Down a)
+deriving instance Show a => Show (Down a)
+deriving instance Functor Down
 
 instance Ord a => Ord (Down a) where
     compare (Down x) (Down y) = compare y x
@@ -562,10 +636,10 @@ instance Applicative Down where
 instance Action Down where
     Down a >>= k = k a
 
--- | Calculate the sum over all elements
+-- | Add together all the elements in the list.
 sum : Additive a => [a] -> a
 sum = foldl (+) aunit
 
--- | Calculate the product over all elements
+-- | Multiply all the elements in the list together.
 product : Multiplicative a => [a] -> a
 product = foldl (*) munit

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -50,6 +50,8 @@ message TransactionTree {
 
   // Roots of the transaction tree.
   // Each element must be a valid LedgerString (as describe in ``value.proto``).
+  // The elements are in the same order as the commands in the
+  // corresponding Commands object that triggerd this transaction.
   // Required
   repeated string root_event_ids = 8;
 

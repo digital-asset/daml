@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.ledger.client.binding
@@ -58,8 +58,7 @@ object Value {
       baseVariantId: rpcvalue.Identifier,
       caseName: String
   ): rpcvalue.Identifier =
-    baseVariantId copy (name = s"${baseVariantId.name}.$caseName", entityName =
-      s"${baseVariantId.entityName}.$caseName")
+    baseVariantId copy (entityName = s"${baseVariantId.entityName}.$caseName")
 }
 
 object DamlCodecs extends encoding.ValuePrimitiveEncoding[Value] {
@@ -78,8 +77,8 @@ object DamlCodecs extends encoding.ValuePrimitiveEncoding[Value] {
     override def write(obj: P.Int64): VSum = VSum.Int64(obj)
   }
 
-  implicit override val valueDecimal: Value[P.Decimal] =
-    fromArgumentValueFuns(_.decimal map BigDecimal.exact, bd => VSum.Decimal(bd.toString))
+  implicit override val valueNumeric: Value[P.Numeric] =
+    fromArgumentValueFuns(_.numeric map BigDecimal.exact, bd => VSum.Numeric(bd.toString))
 
   implicit override val valueParty: Value[P.Party] =
     Party.subst(fromArgumentValueFuns(_.party, VSum.Party))
@@ -139,7 +138,7 @@ object DamlCodecs extends encoding.ValuePrimitiveEncoding[Value] {
       _.optional flatMap (_.value traverse (Value.decode[A](_))),
       oa => VSum.Optional(rpcvalue.Optional(oa map (Value.encode(_)))))
 
-  implicit override def valueMap[A](implicit A: Value[A]): Value[P.Map[A]] =
+  implicit override def valueTextMap[A](implicit A: Value[A]): Value[P.TextMap[A]] =
     fromArgumentValueFuns(
       _.map.flatMap(gm =>
         seqAlterTraverse(gm.entries)(e => e.value.flatMap(Value.decode[A](_)).map(e.key -> _))),
@@ -148,6 +147,28 @@ object DamlCodecs extends encoding.ValuePrimitiveEncoding[Value] {
           case (key, value) =>
             rpcvalue.Map.Entry(
               key = key,
+              value = Some(Value.encode(value))
+            )
+        }.toSeq))
+    )
+
+  implicit override def valueGenMap[K, V](
+      implicit K: Value[K],
+      V: Value[V]): Value[P.GenMap[K, V]] =
+    fromArgumentValueFuns(
+      _.genMap.flatMap(gm =>
+        seqAlterTraverse(gm.entries)(e =>
+          for {
+            optK <- e.key
+            k <- Value.decode[K](optK)
+            optV <- e.value
+            v <- Value.decode[V](optV)
+          } yield k -> v)),
+      oa =>
+        VSum.GenMap(rpcvalue.GenMap(oa.map {
+          case (key, value) =>
+            rpcvalue.GenMap.Entry(
+              key = Some(Value.encode(key)),
               value = Some(Value.encode(value))
             )
         }.toSeq))
@@ -173,11 +194,7 @@ abstract class ValueRefCompanion {
       packageId: String,
       moduleName: String,
       entityName: String): rpcvalue.Identifier =
-    rpcvalue.Identifier(
-      packageId = packageId,
-      name = s"$moduleName.$entityName",
-      moduleName = moduleName,
-      entityName = entityName)
+    rpcvalue.Identifier(packageId = packageId, moduleName = moduleName, entityName = entityName)
 
   protected final def ` record`(elements: (String, rpcvalue.Value)*): VSum.Record =
     VSum.Record(Primitive.arguments(` dataTypeId`, elements))

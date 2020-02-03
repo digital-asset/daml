@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.platform.server.api.services.grpc
@@ -13,7 +13,7 @@ import com.digitalasset.ledger.api.v1.command_completion_service._
 import com.digitalasset.ledger.api.v1.completion.Completion
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.validation.{CompletionServiceRequestValidator, PartyNameChecker}
-import com.digitalasset.platform.common.util.DirectExecutionContext
+import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.platform.server.api.services.domain.CommandCompletionService
 import com.google.rpc.status.Status
 import io.grpc.Status.Code
@@ -104,7 +104,6 @@ class GrpcCommandCompletionService(
       case _: RejectionReason.OutOfQuota => Code.ABORTED
       case _: RejectionReason.TimedOut => Code.ABORTED
       case _: RejectionReason.Disputed => Code.INVALID_ARGUMENT
-      case _: RejectionReason.DuplicateCommandId => Code.INVALID_ARGUMENT
       case _: RejectionReason.PartyNotKnownOnLedger => Code.INVALID_ARGUMENT
       case _: RejectionReason.SubmitterCannotActViaParticipant => Code.PERMISSION_DENIED
     }

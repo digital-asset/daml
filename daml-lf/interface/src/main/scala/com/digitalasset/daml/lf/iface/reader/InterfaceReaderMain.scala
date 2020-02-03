@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.iface.reader
@@ -6,7 +6,7 @@ package com.digitalasset.daml.lf.iface.reader
 import java.io.BufferedInputStream
 import java.nio.file.Files
 
-import com.digitalasset.daml_lf.DamlLf
+import com.digitalasset.daml_lf_dev.DamlLf
 
 object InterfaceReaderMain extends App {
 

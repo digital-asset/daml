@@ -1,9 +1,9 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.platform.server.api.validation
 
-import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
+import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.v1.ledger_configuration_service.LedgerConfigurationServiceGrpc.LedgerConfigurationService
 import com.digitalasset.ledger.api.v1.ledger_configuration_service.{

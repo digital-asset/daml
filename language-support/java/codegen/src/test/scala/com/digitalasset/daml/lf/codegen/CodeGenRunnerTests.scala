@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.codegen
@@ -35,7 +35,7 @@ class CodeGenRunnerTests extends FlatSpec with Matchers with BazelRunfiles {
 
     val (interfaces, pkgPrefixes) = CodeGenRunner.collectDamlLfInterfaces(conf)
 
-    assert(interfaces.length == 3)
+    assert(interfaces.length == 17)
     assert(pkgPrefixes == Map.empty)
   }
 
@@ -48,8 +48,8 @@ class CodeGenRunnerTests extends FlatSpec with Matchers with BazelRunfiles {
 
     val (interfaces, pkgPrefixes) = CodeGenRunner.collectDamlLfInterfaces(conf)
 
-    assert(interfaces.map(_.packageId).length == 3)
-    assert(pkgPrefixes.size == 3)
+    assert(interfaces.map(_.packageId).length == 17)
+    assert(pkgPrefixes.size == 17)
     assert(pkgPrefixes.values.forall(_ == "PREFIX"))
   }
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf
@@ -9,7 +9,7 @@ import java.security.MessageDigest
 
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
-import com.digitalasset.daml_lf.DamlLf
+import com.digitalasset.daml_lf_dev.DamlLf
 import com.google.protobuf.CodedInputStream
 
 abstract class Reader[+Pkg] {

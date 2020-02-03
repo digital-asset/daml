@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.quickstart.iou
@@ -22,7 +22,7 @@ object IouCommands {
       RecordField("issuer", Some(Value(Value.Sum.Party(issuer)))),
       RecordField("owner", Some(Value(Value.Sum.Party(owner)))),
       RecordField("currency", Some(Value(Value.Sum.Text(currency)))),
-      RecordField("amount", Some(Value(Value.Sum.Decimal(amount.toString)))),
+      RecordField("amount", Some(Value(Value.Sum.Numeric(amount.toString)))),
       RecordField("observers", Some(Value(Value.Sum.List(List())))),
     )
     Command.Create(

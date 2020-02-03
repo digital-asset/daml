@@ -1,25 +1,26 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.ledger.client.services.identity
 
-import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
+import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.v1.ledger_identity_service.GetLedgerIdentityRequest
-import com.digitalasset.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc.LedgerIdentityService
+import com.digitalasset.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc.LedgerIdentityServiceStub
+import com.digitalasset.ledger.client.LedgerClient
 import com.digitalasset.ledger.client.configuration.LedgerIdRequirement
 
 import scala.concurrent.{ExecutionContext, Future}
 
-final class LedgerIdentityClient(ledgerIdentityService: LedgerIdentityService) {
+final class LedgerIdentityClient(service: LedgerIdentityServiceStub) {
 
   /**
     * The ledgerId in use, if the check was successful.
     */
-  def satisfies(ledgerIdRequirement: LedgerIdRequirement)(
+  def satisfies(ledgerIdRequirement: LedgerIdRequirement, token: Option[String] = None)(
       implicit ec: ExecutionContext): Future[LedgerId] =
     for {
-      ledgerId <- getLedgerId()
+      ledgerId <- getLedgerId(token)
     } yield {
       val requirement = ledgerIdRequirement
       require(
@@ -29,8 +30,9 @@ final class LedgerIdentityClient(ledgerIdentityService: LedgerIdentityService) {
       LedgerId(ledgerId)
     }
 
-  def getLedgerId(): Future[String] =
-    ledgerIdentityService
+  def getLedgerId(token: Option[String] = None): Future[String] =
+    LedgerClient
+      .stub(service, token)
       .getLedgerIdentity(new GetLedgerIdentityRequest())
       .map(_.ledgerId)(DirectExecutionContext)
 

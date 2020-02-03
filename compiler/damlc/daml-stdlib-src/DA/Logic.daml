@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 daml 1.2
@@ -30,22 +30,15 @@ module DA.Logic
 where
 
 import DA.Either
+import DA.Logic.Types
 
 infixr 3  &&&
 infixr 2  |||
 
--- | A `Formula t` is a formula in propositional calculus with
--- propositions of type t.
-data Formula t
-  -- | `Proposition p` is the formula p
-  = Proposition t
-  -- | For a formula f, `Negation f` is ¬f
-  | Negation (Formula t)
-  -- | For formulas f1, ..., fn, `Conjunction [f1, ..., fn]` is f1 ∧ ... ∧ fn
-  | Conjunction [Formula t]
-  -- | For formulas f1, ..., fn, `Disjunction [f1, ..., fn]` is f1 ∧ ... ∧ fn
-  | Disjunction [Formula t]
-  deriving (Eq, Ord, Show, Functor)
+deriving instance Eq t => Eq (Formula t)
+deriving instance Ord t => Ord (Formula t)
+deriving instance Show t => Show (Formula t)
+deriving instance Functor Formula
 
 -- | `&&&` is the ∧ operation of the boolean algebra of formulas, to
 -- be read as "and"
@@ -78,7 +71,7 @@ conj : [Formula t] -> Formula t
 conj = Conjunction
 
 -- | `disj` is a list version of `|||`, enabled by the associativity
--- of ∧.
+-- of ∨.
 disj : [Formula t] -> Formula t
 disj = Disjunction
 

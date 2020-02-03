@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.extractor
@@ -10,7 +10,7 @@ import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.extractor.config.{ExtractorConfig, TemplateConfig}
 import com.digitalasset.extractor.services.ExtractorFixtureAroundAll
 import com.digitalasset.ledger.api.testing.utils.SuiteResourceManagementAroundAll
-import com.digitalasset.platform.sandbox.persistence.PostgresAroundAll
+import com.digitalasset.testing.postgresql.PostgresAroundAll
 import org.scalatest.{FlatSpec, Inside, Matchers, Suite}
 import scalaz.OneAnd
 

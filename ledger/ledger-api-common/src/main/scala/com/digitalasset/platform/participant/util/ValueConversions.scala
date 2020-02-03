@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.platform.participant.util
@@ -15,7 +15,7 @@ import com.digitalasset.ledger.api.v1.commands.{
 import com.digitalasset.ledger.api.v1.value.Value.Sum
 import com.digitalasset.ledger.api.v1.value.Value.Sum.{
   ContractId,
-  Decimal,
+  Numeric,
   Int64,
   Party,
   Text,
@@ -38,7 +38,7 @@ object ValueConversions {
 
   implicit class StringValues(val s: String) extends AnyVal {
     def asParty: Value = Value(Party(s))
-    def asDecimal: Value = Value(Decimal(s))
+    def asNumeric: Value = Value(Numeric(s))
     def asText: Value = Value(Text(s))
     def asContractId: Value = Value(ContractId(s))
   }

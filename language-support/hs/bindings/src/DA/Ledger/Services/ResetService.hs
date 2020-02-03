@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Ledger.Services.ResetService (reset) where
@@ -12,11 +12,11 @@ import Network.GRPC.HighLevel.Generated
 
 reset :: LedgerId -> LedgerService ()
 reset lid =
-    makeLedgerService $ \timeout config -> do
+    makeLedgerService $ \timeout config mdm -> do
     withGRPCClient config $ \client -> do
         service <- resetServiceClient client
         let ResetService {resetServiceReset=rpc} = service
         let request = ResetRequest (unLedgerId lid)
-        response <- rpc (ClientNormalRequest request timeout emptyMdm)
+        response <- rpc (ClientNormalRequest request timeout mdm)
         Empty{} <- unwrap response
         return ()

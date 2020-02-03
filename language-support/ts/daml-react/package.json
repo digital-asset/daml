@@ -1,0 +1,54 @@
+{
+  "private": false,
+  "name": "@daml/react",
+  "version": "0.0.0-SDKVERSION",
+  "description": "React framework to interact with a DAML ledger",
+  "homepage": "https://daml.com",
+  "keywords": ["daml", "react", "client", "API"],
+  "main": "index.js",
+  "types": "index.d.ts",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@daml/types": "0.0.0-SDKVERSION",
+    "@daml/ledger": "0.0.0-SDKVERSION",
+    "immutable": "^4.0.0-rc.12",
+    "jwt-simple": "^0.5.6",
+    "react": "^16.12.0",
+    "@types/react": "^16.9.16"
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "build:watch": "tsc --build --watch",
+    "test": "jest",
+    "lint": "eslint --ext .ts ./ --max-warnings 0"
+  },
+  "eslintConfig": {
+    "extends": [
+      "eslint:recommended",
+      "plugin:@typescript-eslint/eslint-recommended",
+      "plugin:@typescript-eslint/recommended",
+      "plugin:@typescript-eslint/recommended-requiring-type-checking"
+    ],
+    "parser": "@typescript-eslint/parser",
+    "parserOptions": {
+      "project": "./tsconfig.json"
+    },
+    "plugins": [
+      "@typescript-eslint"
+    ],
+    "rules": {
+      "@typescript-eslint/no-floating-promises": "error",
+      "@typescript-eslint/explicit-function-return-type": "off",
+      "@typescript-eslint/no-inferrable-types": "off"
+    }
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^2.16.0",
+    "@typescript-eslint/parser": "^2.16.0",
+    "eslint": "^6.8.0",
+    "typescript": "3.7.4",
+    "@types/jest": "^24.0.23",
+    "jest": "^24.9.0",
+    "ts-jest": "^24.2.0"
+  }
+}

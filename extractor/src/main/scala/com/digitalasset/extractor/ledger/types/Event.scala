@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.extractor.ledger.types
@@ -26,7 +26,6 @@ final case class ExercisedEvent(
     eventId: String,
     contractId: String,
     templateId: Identifier,
-    contractCreatingEventId: String,
     choice: String,
     choiceArgument: LedgerValue,
     actingParties: Set[String],
@@ -84,7 +83,6 @@ object Event {
           apiEvent.eventId,
           apiEvent.contractId,
           templateId,
-          apiEvent.contractCreatingEventId,
           apiEvent.choice,
           choiceArg,
           apiEvent.actingParties.toSet,

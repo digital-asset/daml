@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.ledger.service
@@ -19,7 +19,6 @@ object TemplateIds {
       case (qn: QualifiedName, _: Template) =>
         Identifier(
           packageId = interface.packageId,
-          name = qn.qualifiedName,
           moduleName = qn.module.dottedName,
           entityName = qn.name.dottedName)
     }(breakOut)

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 const vscode = acquireVsCodeApi();
@@ -16,6 +16,10 @@ function toggle_view() {
 window.addEventListener('message', event => {
   const message = event.data;
   switch (message.command) {
+    case 'add_note':
+        document.body.classList.remove('hide_note');
+        document.getElementById('note').innerHTML = message.value;
+        break;
     case 'select_view':
       switch (message.value) {
         case 'transaction':

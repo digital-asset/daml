@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE GADTs #-}
@@ -19,13 +19,13 @@ type Response = (Maybe Checkpoint, [Completion])
 
 completionStream :: Request -> LedgerService (Stream Response)
 completionStream (lid,aid,partys,offsetOpt) =
-    makeLedgerService $ \timeout config -> do
+    makeLedgerService $ \timeout config mdm -> do
     let request = mkCompletionStreamRequest lid aid partys offsetOpt
     asyncStreamGen $ \stream ->
         withGRPCClient config $ \client -> do
             service <- commandCompletionServiceClient client
             let CommandCompletionService {commandCompletionServiceCompletionStream=rpc} = service
-            sendToStream timeout request raiseCompletionStreamResponse stream rpc
+            sendToStream timeout mdm request raiseCompletionStreamResponse stream rpc
 
 
 
@@ -46,13 +46,14 @@ mkCompletionStreamRequest (LedgerId id) aid parties offsetOpt = CompletionStream
 
 completionEnd :: LedgerId -> LedgerService AbsOffset
 completionEnd lid =
-    makeLedgerService $ \timeout config ->
+    makeLedgerService $ \timeout config mdm ->
     withGRPCClient config $ \client -> do
         service <- commandCompletionServiceClient client
         let CommandCompletionService {commandCompletionServiceCompletionEnd=rpc} = service
         let request = CompletionEndRequest (unLedgerId lid) noTrace
-        response <- rpc (ClientNormalRequest request timeout emptyMdm)
-        unwrap response >>= \case
+        rpc (ClientNormalRequest request timeout mdm)
+            >>= unwrap
+            >>= \case
             CompletionEndResponse (Just offset) ->
                 case raiseAbsLedgerOffset offset of
                     Left reason -> fail (show reason)

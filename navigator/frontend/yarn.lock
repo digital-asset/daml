@@ -76,10 +76,10 @@
     lodash "^4.17.11"
     to-fast-properties "^2.0.0"
 
-"@bazel/hide-bazel-files@0.32.0":
-  version "0.32.0"
-  resolved "https://registry.yarnpkg.com/@bazel/hide-bazel-files/-/hide-bazel-files-0.32.0.tgz#642becc6ac9c27a4486b3f671a078090f93371cb"
-  integrity sha512-eraORpt2iBiHal4FRV2c/3enH2nttWp4myOcHZvEVd8v7P/tt9FWv04MrxDIKHCqZIVt51D/2sXmOJKuKsKqvA==
+"@bazel/hide-bazel-files@1.1.0":
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/@bazel/hide-bazel-files/-/hide-bazel-files-1.1.0.tgz#a7d46a4aa3717150b54fde05b2f8b6bab733f493"
+  integrity sha512-JJ9eMKPBodWugC4Wu0QLe0saDZ971RcP2kjZbG1vJfQHn/gnxvw+4nXDRwei5EzxBsGGuLxY1MkNDtRFIfZr5w==
 
 "@endemolshinegroup/cosmiconfig-typescript-loader@^1.0.0":
   version "1.0.0"
@@ -4194,7 +4194,7 @@ lodash.templatesettings@^4.0.0:
   dependencies:
     lodash._reinterpolate "^3.0.0"
 
-lodash@4.17.4, lodash@^4.11.1, lodash@^4.14.0, lodash@^4.17.2, lodash@^4.17.3, lodash@^4.2.0, lodash@^4.2.1:
+lodash@4.17.4:
   version "4.17.4"
   resolved "https://registry.yarnpkg.com/lodash/-/lodash-4.17.4.tgz#78203a4d1c328ae1d86dca6460e369b57f4055ae"
 
@@ -4202,10 +4202,10 @@ lodash@^3.2.0:
   version "3.10.1"
   resolved "https://registry.yarnpkg.com/lodash/-/lodash-3.10.1.tgz#5bf45e8e49ba4189e17d482789dfd15bd140b7b6"
 
-lodash@^4.17.10, lodash@^4.17.11, lodash@~4.17.10:
-  version "4.17.11"
-  resolved "https://registry.yarnpkg.com/lodash/-/lodash-4.17.11.tgz#b39ea6229ef607ecd89e2c8df12536891cac9b8d"
-  integrity sha512-cQKh8igo5QUhZ7lg38DYWAxMvjSAKG0A8wGSVimP07SIUEK2UO+arSRKbRZWtelMtN5V0Hkwh5ryOto/SshYIg==
+lodash@^4.11.1, lodash@^4.14.0, lodash@^4.17.10, lodash@^4.17.11, lodash@^4.17.13, lodash@^4.17.2, lodash@^4.17.3, lodash@^4.2.0, lodash@^4.2.1, lodash@~4.17.10:
+  version "4.17.13"
+  resolved "https://registry.yarnpkg.com/lodash/-/lodash-4.17.13.tgz#0bdc3a6adc873d2f4e0c4bac285df91b64fc7b93"
+  integrity sha512-vm3/XWXfWtRua0FkUyEHBZy8kCPjErNBT9fJx8Zvs+U6zjqPbTUOpkaoum3O5uiA8sm+yNMHXfYkTUHFoMxFNA==
 
 lodash@~2.4.1:
   version "2.4.2"
@@ -5379,7 +5379,7 @@ react-markdown@2.5.0:
 
 react-overlays@1.0.0-beta.2:
   version "1.0.0-beta.2"
-  resolved "http://registry.npmjs.org/react-overlays/-/react-overlays-1.0.0-beta.2.tgz#2ea10880d7a04258720a3e9b386d9b3a1f957d29"
+  resolved "https://registry.npmjs.org/react-overlays/-/react-overlays-1.0.0-beta.2.tgz#2ea10880d7a04258720a3e9b386d9b3a1f957d29"
   dependencies:
     classnames "^2.2.5"
     dom-helpers "^3.2.1"
@@ -7322,9 +7322,9 @@ yargs@~3.10.0:
     window-size "0.1.0"
 
 yarn@^1.13.0:
-  version "1.13.0"
-  resolved "https://registry.yarnpkg.com/yarn/-/yarn-1.13.0.tgz#affa9c956739548024068532a902cf18c9cb523f"
-  integrity sha512-Unfw2eefv8imt4ZMPhvFVP44WCz38huDxkHs+Yqrx4wBTK75Tr0mh3V4rh+2Nw5iQq0rcM/VafotCZo9qTb5DA==
+  version "1.17.3"
+  resolved "https://registry.yarnpkg.com/yarn/-/yarn-1.17.3.tgz#60e0b77d079eb78e753bb616f7592b51b6a9adce"
+  integrity sha512-CgA8o7nRZaQvmeF/WBx2FC7f9W/0X59T2IaLYqgMo6637wfp5mMEsM3YXoJtKUspnpmDJKl/gGFhnqS+sON7hA==
 
 yauzl@2.4.1:
   version "2.4.1"

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 'use strict';
@@ -9,29 +9,50 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as cp from 'child_process';
-import { LanguageClient, LanguageClientOptions, RequestType, NotificationType, TextDocumentIdentifier, TextDocument } from 'vscode-languageclient';
-import { Uri, Event, TextDocumentContentProvider, ViewColumn, EventEmitter, window, QuickPickOptions, ExtensionContext, env, WorkspaceConfiguration } from 'vscode'
+import * as tmp from 'tmp';
+import { LanguageClient, LanguageClientOptions, RequestType, NotificationType, TextDocumentIdentifier, TextDocument, ExecuteCommandRequest } from 'vscode-languageclient';
+import { Uri, Event, TextDocumentContentProvider, ViewColumn, EventEmitter, window, QuickPickOptions, ExtensionContext, env, WorkspaceConfiguration } from 'vscode';
 import * as which from 'which';
+import * as util from 'util';
+import fetch from 'node-fetch';
+import { getOrd } from 'fp-ts/lib/Array';
+import { ordNumber } from 'fp-ts/lib/Ord';
 
 let damlRoot: string = path.join(os.homedir(), '.daml');
-let daSdkPath: string = path.join(os.homedir(), '.da');
-let daCmdPath: string = path.join(daSdkPath, 'bin', 'da');
+
+const versionContextKey = 'version'
+
+type WebviewFiles = {
+    src: Uri;  // The JavaScript file.
+    css: Uri;
+}
 
 var damlLanguageClient: LanguageClient;
 // Extension activation
+// Note: You can log debug information by using `console.log()`
+// and then `Toggle Developer Tools` in VSCode. This will show
+// output in the Console tab once the extension is activated.
 export async function activate(context: vscode.ExtensionContext) {
     // Start the language clients
     let config = vscode.workspace.getConfiguration('daml')
     // Get telemetry consent
     const consent = getTelemetryConsent(config, context);
 
+    // Display release notes on updates
+    showReleaseNotesIfNewVersion(context);
+
     damlLanguageClient = createLanguageClient(config, await consent);
     damlLanguageClient.registerProposedFeatures();
 
-    const webviewSrc: Uri =
-        vscode.Uri.file(path.join(context.extensionPath, 'src', 'webview.js')).
-        with({scheme: 'vscode-resource'});
-    let virtualResourceManager = new VirtualResourceManager(damlLanguageClient, webviewSrc);
+    const webviewFiles: WebviewFiles = {
+        src:
+            vscode.Uri.file(path.join(context.extensionPath, 'src', 'webview.js')).
+            with({scheme: 'vscode-resource'}),
+        css:
+            vscode.Uri.file(path.join(context.extensionPath, 'src', 'webview.css')).
+            with({scheme: 'vscode-resource'}),
+    };
+    let virtualResourceManager = new VirtualResourceManager(damlLanguageClient, webviewFiles);
     context.subscriptions.push(virtualResourceManager);
 
     let _unused = damlLanguageClient.onReady().then(() => {
@@ -39,6 +60,10 @@ export async function activate(context: vscode.ExtensionContext) {
         damlLanguageClient.onNotification(
             DamlVirtualResourceDidChangeNotification.type,
             (params) => virtualResourceManager.setContent(params.uri, params.contents)
+        );
+        damlLanguageClient.onNotification(
+            DamlVirtualResourceNoteNotification.type,
+            (params) => virtualResourceManager.setNote(params.uri, params.note)
         );
     });
 
@@ -50,6 +75,7 @@ export async function activate(context: vscode.ExtensionContext) {
     );
 
     let d2 = vscode.commands.registerCommand('daml.openDamlDocs', openDamlDocs);
+    let d5 = vscode.commands.registerCommand('daml.visualize', visualize);
 
     let highlight = vscode.window.createTextEditorDecorationType({ backgroundColor: 'rgba(200,200,200,.35)' });
 
@@ -79,9 +105,57 @@ export async function activate(context: vscode.ExtensionContext) {
 
     let d4 = vscode.commands.registerCommand("daml.resetTelemetryConsent", resetTelemetryConsent(context));
 
-    context.subscriptions.push(d1, d2, d3, d4);
+    context.subscriptions.push(d1, d2, d3, d4, d5);
 }
 
+// Compare the extension version with the one stored in the global state.
+// If they are different, we assume the user has updated the extension and
+// we display the release notes for the new SDK release in a new tab.
+// This should only occur the first time the user uses the extension after
+// an update.
+async function showReleaseNotesIfNewVersion(context: ExtensionContext) {
+    const packageFile = path.join(context.extensionPath, 'package.json');
+    const packageData = await util.promisify(fs.readFile)(packageFile, "utf8");
+    const extensionVersion = JSON.parse(packageData).version;
+    const recordedVersion = context.globalState.get(versionContextKey);
+    // Check if we have a new version of the extension and show the release
+    // notes if so. Update the current version so we don't show them again until
+    // the next update.
+    if (typeof extensionVersion === 'string' && extensionVersion !== '' &&
+        (!recordedVersion || typeof recordedVersion === 'string' && checkVersionUpgrade(recordedVersion, extensionVersion))) {
+        await showReleaseNotes(extensionVersion);
+        await context.globalState.update(versionContextKey, extensionVersion);
+    }
+}
+
+// Check that `version2` is an upgrade from `version1`,
+// i.e. that the components of the version number have increased
+// (checked from major to minor version numbers).
+function checkVersionUpgrade(version1: string, version2: string) {
+    const comps1 = version1.split(".").map(Number);
+    const comps2 = version2.split(".").map(Number);
+    const o = getOrd(ordNumber);
+    return o.compare(comps2, comps1) > 0;
+}
+
+// Show the release notes from the DAML Blog.
+// We display the HTML in a new editor tab using a "webview":
+// https://code.visualstudio.com/api/extension-guides/webview
+async function showReleaseNotes(version: string) {
+    try {
+        const releaseNotesUrl = 'https://blog.daml.com/release-notes/' + version;
+        const res = await fetch(releaseNotesUrl);
+        if (res.ok) {
+            const panel = vscode.window.createWebviewPanel(
+                'releaseNotes', // Identifies the type of the webview. Used internally
+                `New DAML SDK ${version} Available`, // Title of the panel displayed to the user
+                vscode.ViewColumn.One, // Editor column to show the new webview panel in
+                {} // No webview options for now
+            );
+            panel.webview.html = await res.text();
+        }
+    } catch (_error) {}
+}
 
 function getViewColumnForShowResource(): ViewColumn {
     const active = vscode.window.activeTextEditor;
@@ -90,6 +164,35 @@ function getViewColumnForShowResource(): ViewColumn {
         case ViewColumn.One: return ViewColumn.Two;
         case ViewColumn.Two: return ViewColumn.Three;
         default: return active.viewColumn;
+    }
+}
+
+function visualize() {
+    if (vscode.window.activeTextEditor) {
+        let currentFile = vscode.window.activeTextEditor.document.fileName
+        if (vscode.window.activeTextEditor.document.languageId != "daml") {
+            vscode.window.showInformationMessage("Open the daml file to visualize")
+        }
+        else {
+            damlLanguageClient.sendRequest(ExecuteCommandRequest.type,
+                { command: "daml/damlVisualize", arguments: [currentFile] }).then(dotFileContents => {
+                    vscode.workspace.openTextDocument({ content: dotFileContents, language: "dot" })
+                        .then(doc => vscode.window.showTextDocument(doc, vscode.ViewColumn.One, true)
+                            .then(_ => loadPreviewIfAvailable()))
+                });
+        }
+    }
+    else {
+        vscode.window.showInformationMessage("Please open a DAML module to be visualized and then run the command")
+    }
+}
+
+function loadPreviewIfAvailable() {
+    if (vscode.extensions.getExtension("EFanZh.graphviz-preview")) {
+        vscode.commands.executeCommand("graphviz.showPreviewToSide")
+    }
+    else{
+        vscode.window.showInformationMessage("Install Graphviz Preview (https://marketplace.visualstudio.com/items?itemName=EFanZh.graphviz-preview) plugin to see graph for this dot file")
     }
 }
 
@@ -113,29 +216,17 @@ export function createLanguageClient(config: vscode.WorkspaceConfiguration, tele
     };
 
     let command: string;
-    let args: string[];
-
-    const daArgs = ["run", "damlc", "--", "lax", "ide"];
+    let args: string[] = ["ide", "--"];
 
     try {
         command = which.sync("daml");
-        args = ["ide"];
     } catch (ex) {
-        try {
-            command = which.sync("da");
-            args = daArgs;
-        } catch (ex) {
-            const damlCmdPath = path.join(damlRoot, "bin", "daml");
-            if (fs.existsSync(damlCmdPath)) {
-                command = damlCmdPath;
-                args = ["ide"];
-            } else if (fs.existsSync(daCmdPath)) {
-                command = daCmdPath;
-                args = daArgs;
-            } else {
-                vscode.window.showErrorMessage("Failed to start the DAML language server. Make sure the assistant is installed.");
-                throw new Error("Failed to locate assistant.");
-            }
+        const damlCmdPath = path.join(damlRoot, "bin", "daml");
+        if (fs.existsSync(damlCmdPath)) {
+            command = damlCmdPath;
+        } else {
+            vscode.window.showErrorMessage("Failed to start the DAML language server. Make sure the assistant is installed.");
+            throw new Error("Failed to locate assistant.");
         }
     }
 
@@ -144,6 +235,10 @@ export function createLanguageClient(config: vscode.WorkspaceConfiguration, tele
     } else if (telemetryConsent === false){
         args.push('--optOutTelemetry')
     }
+    const extraArgsString = config.get("extraArguments", "").trim();
+    // split on an empty string returns an array with a single empty string
+    const extraArgs = extraArgsString === "" ? [] : extraArgsString.split(" ");
+    args = args.concat(extraArgs);
     const serverArgs : string[] = addIfInConfig(config, args,
         [ ['debug', ['--debug']]
         , ['experimental', ['--experimental']]
@@ -238,6 +333,21 @@ namespace DamlVirtualResourceDidChangeNotification {
       );
 }
 
+interface VirtualResourceNoteParams {
+    /** The virtual resource uri */
+    uri: string;
+
+    /** The note to set on the virtual resource */
+    note: string;
+}
+
+namespace DamlVirtualResourceNoteNotification {
+    export let type =
+      new NotificationType<VirtualResourceNoteParams, void>(
+        'daml/virtualResource/note'
+      );
+}
+
 type UriString = string;
 type ScenarioResult = string;
 type SelectedView = string;
@@ -253,11 +363,11 @@ class VirtualResourceManager {
     private _panelStates: Map<UriString, SelectedView> = new Map<UriString, SelectedView>();
     private _client: LanguageClient;
     private _disposables: vscode.Disposable[] = [];
-    private _webviewSrc : Uri;
+    private _webviewFiles : WebviewFiles;
 
-    constructor(client: LanguageClient, webviewSrc: Uri) {
+    constructor(client: LanguageClient, webviewFiles: WebviewFiles) {
         this._client = client;
-        this._webviewSrc = webviewSrc;
+        this._webviewFiles = webviewFiles;
     }
 
     private open(uri: UriString) {
@@ -315,15 +425,24 @@ class VirtualResourceManager {
     }
 
     public setContent(uri: UriString, contents: ScenarioResult) {
-        contents = contents.replace('$webviewSrc', this._webviewSrc.toString());
+        contents = contents.replace('$webviewSrc', this._webviewFiles.src.toString());
+        contents = contents.replace('$webviewCss', this._webviewFiles.css.toString());
         this._panelContents.set(uri, contents);
         const panel = this._panels.get(uri);
         if (panel) {
-            panel.webview.html = contents;
+            // append timestamp to force page reload (prevent using cache) as otherwise notes are not getting cleared
+            panel.webview.html = contents + "<!-- " + new Date() + " -->";
             const panelState = this._panelStates.get(uri);
             if (panelState) {
                 panel.webview.postMessage({command: 'select_view', value: panelState});
             };
+        }
+    }
+
+    public setNote(uri: UriString, note: string) {
+        const panel = this._panels.get(uri);
+        if (panel) {
+            panel.webview.postMessage({command: 'add_note', value: note});
         }
     }
 

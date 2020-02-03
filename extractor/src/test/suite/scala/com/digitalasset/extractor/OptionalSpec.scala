@@ -1,19 +1,17 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.extractor
 
+import java.io.File
+
 import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.extractor.services.{CustomMatchers, ExtractorFixtureAroundAll}
 import com.digitalasset.ledger.api.testing.utils.SuiteResourceManagementAroundAll
-import com.digitalasset.platform.sandbox.persistence.PostgresAroundAll
-
-import org.scalatest._
+import com.digitalasset.testing.postgresql.PostgresAroundAll
 import io.circe.parser._
-import java.io.File
-
-import scalaz._
-import Scalaz._
+import org.scalatest._
+import scalaz.Scalaz._
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class OptionalSpec
@@ -43,40 +41,24 @@ class OptionalSpec
       """
         {
           "reference" : "Nones",
-          "optional" : {
-            "None" : {}
-          },
-          "deep_optional" : {
-            "None" : {}
-          },
+          "optional" : null,
+          "deep_optional" : null,
           "party" : "Bob"
         }
       """,
       """
         {
           "reference" : "Somes",
-          "optional" : {
-            "Some" : "foo"
-          },
-          "deep_optional" : {
-            "Some" : {
-              "Some" : "foo"
-            }
-          },
+          "optional" : "foo",
+          "deep_optional" : ["foo"],
           "party" : "Bob"
         }
       """,
       """
         {
           "reference" : "Some None",
-          "optional" : {
-            "Some" : "foo"
-          },
-          "deep_optional" : {
-            "Some" : {
-              "None" : {}
-            }
-          },
+          "optional" : "foo",
+          "deep_optional" : [],
           "party" : "Bob"
         }
       """

@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE RankNTypes #-}
@@ -12,6 +12,7 @@
 module DA.Service.Logger
   ( Handle(..)
   , Priority(..)
+  , logTelemetry
   , logDebug
   , logInfo
   , logWarning
@@ -31,7 +32,8 @@ import GHC.Stack
 data Priority
 -- Don't change the ordering of this Sum type or you will mess up the Ord
 -- instance
-    = Debug -- ^ Verbose debug logging.
+    = Telemetry -- ^ Events that are interesting for user metrics.
+    | Debug -- ^ Verbose debug logging.
     | Info  -- ^ Useful information in case an error has to be understood.
     | Warning
       -- ^ These error messages should not occur in a expected usage, and
@@ -71,3 +73,6 @@ logInfo h = logJson h Info
 
 logDebug :: HasCallStack => Handle m -> T.Text -> m ()
 logDebug h = logJson h Debug
+
+logTelemetry :: HasCallStack => Handle m -> T.Text -> m ()
+logTelemetry h = logJson h Telemetry

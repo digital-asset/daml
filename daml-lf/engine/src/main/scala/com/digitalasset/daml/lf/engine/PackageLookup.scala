@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.engine
@@ -15,9 +15,12 @@ object PackageLookup {
     for {
       defn <- lookupDefinition(pkg, identifier)
       dataTyp <- defn match {
+        case dataType: DDataType => Right(dataType)
         case _: DValue =>
           Left(Error(s"Got value definition instead of datatype when looking up $identifier"))
-        case dataType: DDataType => Right(dataType)
+        case _: DTypeSyn =>
+          Left(
+            Error(s"Got type synonym definition instead of datatype when looking up $identifier"))
       }
     } yield dataTyp
 

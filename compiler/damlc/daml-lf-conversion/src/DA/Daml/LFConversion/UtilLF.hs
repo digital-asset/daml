@@ -1,8 +1,7 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
-{-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 -- | DAML-LF utility functions, may move to the LF utility if they are generally useful
 module DA.Daml.LFConversion.UtilLF(
@@ -18,31 +17,49 @@ import qualified Data.NameMap               as NM
 import qualified Data.Text                  as T
 import           GHC.Stack                  (HasCallStack)
 import Language.Haskell.LSP.Types
-import           Outputable
+import           Outputable (Outputable(..), text)
 
-mkVar :: String -> ExprVarName
-mkVar = ExprVarName . T.pack
+mkVar :: T.Text -> ExprVarName
+mkVar = ExprVarName
 
-mkVal :: String -> ExprValName
-mkVal = ExprValName . T.pack
+mkVal :: T.Text -> ExprValName
+mkVal = ExprValName
 
-mkTypeVar :: String -> TypeVarName
-mkTypeVar = TypeVarName . T.pack
+mkWorkerName :: T.Text -> ExprValName
+mkWorkerName name = ExprValName ("$W" <> name)
 
-mkModName :: [String] -> ModuleName
-mkModName = ModuleName . map T.pack
+mkSelectorName :: T.Text -> T.Text -> ExprValName
+mkSelectorName ty sel = ExprValName ("$sel:" <> sel <> ":" <> ty)
 
-mkField :: String -> FieldName
-mkField = FieldName . T.pack
+mkTypeVar :: T.Text -> TypeVarName
+mkTypeVar = TypeVarName
 
-mkVariantCon :: String -> VariantConName
-mkVariantCon = VariantConName . T.pack
+mkModName :: [T.Text] -> ModuleName
+mkModName = ModuleName
 
-mkChoiceName :: String -> ChoiceName
-mkChoiceName = ChoiceName . T.pack
+mkField :: T.Text -> FieldName
+mkField = FieldName
 
-mkTypeCon :: [String] -> TypeConName
-mkTypeCon = TypeConName . map T.pack
+mkIndexedField :: Int -> FieldName
+mkIndexedField i = mkField ("_" <> T.pack (show i))
+
+mkSuperClassField :: Int -> FieldName
+mkSuperClassField i = mkField ("s_" <> T.pack (show i))
+
+mkClassMethodField :: T.Text -> FieldName
+mkClassMethodField t = mkField ("m_" <> t)
+
+mkVariantCon :: T.Text -> VariantConName
+mkVariantCon = VariantConName
+
+mkChoiceName :: T.Text -> ChoiceName
+mkChoiceName = ChoiceName
+
+mkTypeCon :: [T.Text] -> TypeConName
+mkTypeCon = TypeConName
+
+mkTypeSyn :: [T.Text] -> TypeSynName
+mkTypeSyn = TypeSynName
 
 mkIdentity :: Type -> Expr
 mkIdentity t = ETmLam (varV1, t) $ EVar varV1
@@ -73,109 +90,7 @@ writeFileLf outFile lfPackage = do
 
 -- | Fails if there are any duplicate module names
 buildPackage :: HasCallStack => Maybe String -> Version -> [Module] -> Package
-buildPackage mbPkgName version mods = Package version $ NM.fromList $ extraMods ++ mods
-  where
-    extraMods = case mbPkgName of
-      Just "daml-prim" -> wiredInModules version
-      _ -> []
-
-wiredInModules :: Version -> [Module]
-wiredInModules version =
-  [ ghcPrim version
-  , ghcTypes version
-  ]
-
-ghcPrim :: Version -> Module
-ghcPrim version = Module
-  { moduleName = modName
-  , moduleSource = Nothing
-  , moduleFeatureFlags = daml12FeatureFlags
-  , moduleDataTypes = NM.fromList [dataVoid]
-  , moduleValues = NM.fromList [valVoid]
-  , moduleTemplates = NM.empty
-  }
-  where
-    modName = mkModName ["GHC", "Prim"]
-    qual = Qualified PRSelf modName
-    conName = mkVariantCon "Void#"
-    dataVoid = DefDataType
-      { dataLocation= Nothing
-      , dataTypeCon = mkTypeCon ["Void#"]
-      , dataSerializable = IsSerializable False
-      , dataParams = []
-      , dataCons = mkDataEnum version [conName]
-      }
-    valVoid = DefValue
-      { dvalLocation = Nothing
-      , dvalBinder = (mkVal "void#", TCon (qual (dataTypeCon dataVoid)))
-      , dvalNoPartyLiterals= HasNoPartyLiterals True
-      , dvalIsTest = IsTest False
-      , dvalBody = mkEEnumCon version (qual (dataTypeCon dataVoid)) conName
-      }
-
-ghcTypes :: Version -> Module
-ghcTypes version = Module
-  { moduleName = modName
-  , moduleSource = Nothing
-  , moduleFeatureFlags = daml12FeatureFlags
-  , moduleDataTypes = NM.fromList [dataOrdering, dataProxy]
-  , moduleValues = NM.fromList (proxyCtor : map valCtor cons)
-  , moduleTemplates = NM.empty
-  }
-  where
-    modName = mkModName ["GHC", "Types"]
-    qual = Qualified PRSelf modName
-    cons = ["LT", "EQ", "GT"]
-    dataOrdering = DefDataType
-      { dataLocation= Nothing
-      , dataTypeCon = mkTypeCon ["Ordering"]
-      , dataSerializable = IsSerializable True
-      , dataParams = []
-      , dataCons = mkDataEnum version $ map mkVariantCon cons
-      }
-    valCtor con = DefValue
-      { dvalLocation = Nothing
-      , dvalBinder = (mkVal ("$ctor:" ++ con), TCon (qual (dataTypeCon dataOrdering)))
-      , dvalNoPartyLiterals= HasNoPartyLiterals True
-      , dvalIsTest = IsTest False
-      , dvalBody = mkEEnumCon version (qual (dataTypeCon dataOrdering)) (mkVariantCon con)
-      }
-    dataProxy = DefDataType
-      { dataLocation= Nothing
-      , dataTypeCon = mkTypeCon ["Proxy"]
-      , dataSerializable = IsSerializable True
-      , dataParams = [(mkTypeVar "a", KStar)]
-      , dataCons = DataRecord []
-      }
-    proxyCtor = DefValue
-      { dvalLocation = Nothing
-      , dvalBinder =
-          ( mkVal "$ctor:Proxy"
-          , TForall (mkTypeVar "a", KStar) (TConApp (qual (dataTypeCon dataProxy)) [TVar (mkTypeVar "a")])
-          )
-      , dvalNoPartyLiterals = HasNoPartyLiterals True
-      , dvalIsTest = IsTest False
-      , dvalBody = ETyLam
-          (mkTypeVar "a", KStar)
-          (ERecCon (TypeConApp (qual (dataTypeCon dataProxy)) [TVar (mkTypeVar "a")]) [])
-      }
-
-mkDataEnum :: Version -> [VariantConName] -> DataCons
-mkDataEnum version cons
-    | version `supports` featureEnumTypes = DataEnum cons
-    | otherwise = DataVariant $ map (, TUnit) cons
-
-mkEEnumCon :: Version -> Qualified TypeConName -> VariantConName -> Expr
-mkEEnumCon version tcon con
-    | version `supports` featureEnumTypes = EEnumCon
-        { enumTypeCon = tcon
-        , enumDataCon = con
-        }
-    | otherwise = EVariantCon
-        { varTypeCon = TypeConApp tcon []
-        , varVariant = con
-        , varArg = EBuiltin BEUnit
-        }
+buildPackage _mbPkgName version mods = Package version $ NM.fromList mods
 
 instance Outputable Expr where
     ppr = text . renderPretty

@@ -1,4 +1,4 @@
-.. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2020 The DAML Authors. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 6 Parties and authority
@@ -15,7 +15,7 @@ In this section you will learn about DAML's authorization rules and how to devel
 Preventing IOU revocation
 -------------------------
 
-The ``SimpleIou`` contract from :doc:`4_Transformations` and :doc:`5_Restrictions` has one major problem: The contract is only signed by the ``issuer``. The signatories are the parties with the power to create and archive contracts. If Alice gave Bob a ``SimpleIou`` for $100 in exchange for some goods, she could just archive it again after receiving the goods. Bob would have a record such actions, but would have to resort to off-ledger means to get his money back.
+The ``SimpleIou`` contract from :doc:`4_Transformations` and :doc:`5_Restrictions` has one major problem: The contract is only signed by the ``issuer``. The signatories are the parties with the power to create and archive contracts. If Alice gave Bob a ``SimpleIou`` for $100 in exchange for some goods, she could just archive it again after receiving the goods. Bob would have a record of such actions, but would have to resort to off-ledger means to get his money back.
 
 .. literalinclude:: daml/daml-intro-6/Parties.daml
   :language: daml
@@ -43,7 +43,7 @@ There's a new problem here: There is no way for Alice to issue or transfer this 
 
 This may seem awkward, but notice that the ``ensure`` clause is gone from the ``Iou`` again. The above ``Iou`` can contain negative values so Bob should be glad that ``Alice`` cannot put his signature on any ``Iou``.
 
-You'll now learn a couple of common of ways of buildng issuance and transfer workflows for the above ``Iou``, before diving into the authorization model in full.
+You'll now learn a couple of common ways of building issuance and transfer workflows for the above ``Iou``, before diving into the authorization model in full.
 
 Use propose-accept workflows for one-off authorization
 ------------------------------------------------------
@@ -96,7 +96,7 @@ Use role contracts for ongoing authorization
 
 Many actions, like the issuance of assets or their transfer, can be pre-agreed. You can represent this succinctly in DAML through relationship or role contracts.
 
-Jointly, an ``owner`` and ``newOwner`` can transfer an asset, as demonstrated in the scenrario above. In :doc:`7_Composing`, you will see how to compose the ``ProposeTransfer`` and ``IouTransferProposal_Accept`` choices into a single new choice, but for now, here is a different way. You can give them the joint right to transfer an IOU:
+Jointly, an ``owner`` and ``newOwner`` can transfer an asset, as demonstrated in the scenario above. In :doc:`7_Composing`, you will see how to compose the ``ProposeTransfer`` and ``IouTransferProposal_Accept`` choices into a single new choice, but for now, here is a different way. You can give them the joint right to transfer an IOU:
 
 .. literalinclude:: daml/daml-intro-6/Parties.daml
   :language: daml
@@ -105,7 +105,7 @@ Jointly, an ``owner`` and ``newOwner`` can transfer an asset, as demonstrated in
 
 Up to now, the controllers of choices were known from the current contract. Here, the ``newOwner`` variable is part of the choice arguments, not the ``Iou``.
 
-The above syntax is an alternative to ``controller c can``, which allows for this. Such choices live outside any ``controller c can`` block. They declared using the ``choice`` keyword, and have an extra clause ``controller c``, which takes the place of ``controller c can``, and has access to to the choice arguments.
+The above syntax is an alternative to ``controller c can``, which allows for this. Such choices live outside any ``controller c can`` block. They declared using the ``choice`` keyword, and have an extra clause ``controller c``, which takes the place of ``controller c can``, and has access to the choice arguments.
 
 This is also the first time we have shown a choice with more than one controller. If multiple controllers are specified, the authority of *all* the controllers is needed. Here, neither ``owner``, nor ``newOwner`` can execute a transfer unilaterally, hence the name ``Mutual_Transfer``.
 
@@ -114,7 +114,7 @@ This is also the first time we have shown a choice with more than one controller
   :start-after: -- SENDER_ROLE_BEGIN
   :end-before: -- SENDER_ROLE_END
 
-The above ``IouSender`` contract now gives a one party, the ``sender`` the right to send ``Iou`` contracts with positive amounts to a ``receiver``. The ``nonconsuming`` keyword on the choice ``Send_Iou`` changes the behaviour of the choice so that the contract it's exercised on does not get archived when the choice is exercised. That way the ``sender`` can use the contract to send multiple Ious.
+The above ``IouSender`` contract now gives one party, the ``sender`` the right to send ``Iou`` contracts with positive amounts to a ``receiver``. The ``nonconsuming`` keyword on the choice ``Send_Iou`` changes the behaviour of the choice so that the contract it's exercised on does not get archived when the choice is exercised. That way the ``sender`` can use the contract to send multiple Ious.
 
 Here it is in action:
 

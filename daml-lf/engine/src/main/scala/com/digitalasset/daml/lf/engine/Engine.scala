@@ -1,9 +1,9 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine
+package com.digitalasset.daml.lf
+package engine
 
-import com.digitalasset.daml.lf.CompiledPackages
 import com.digitalasset.daml.lf.command._
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
@@ -14,7 +14,7 @@ import com.digitalasset.daml.lf.speedy.Speedy.Machine
 import com.digitalasset.daml.lf.speedy.SResult._
 import com.digitalasset.daml.lf.transaction.{GenTransaction, Transaction}
 import com.digitalasset.daml.lf.transaction.Node._
-import com.digitalasset.daml.lf.value.Value._
+import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.speedy.{Command => SpeedyCommand}
 
 /**
@@ -44,8 +44,9 @@ import com.digitalasset.daml.lf.speedy.{Command => SpeedyCommand}
   * This class is thread safe.
   */
 final class Engine {
-  private[this] val _compiledPackages = ConcurrentCompiledPackages()
-  private[this] val _commandTranslation = CommandPreprocessor(_compiledPackages)
+  private[this] val _compiledPackages: MutableCompiledPackages = ConcurrentCompiledPackages()
+  private[this] val _commandTranslation: CommandPreprocessor = new CommandPreprocessor(
+    _compiledPackages)
 
   /**
     * Executes commands `cmds` under the authority of `cmds.submitter` and returns one of the following:
@@ -66,23 +67,50 @@ final class Engine {
     * </li>
     * </ul>
     *
+    *
+    * [[transactionSeed]] is the master hash used to derive node and contractId discriminator.
+    * If let undefined, no discriminator will be generated.
+    *
     * This method does NOT perform authorization checks; ResultDone can contain a transaction that's not well-authorized.
+    *
+    * The resulting transaction is annotated with packages required to validate it.
     */
-  def submit(cmds: Commands): Result[Transaction.Transaction] =
+  def submit(
+      cmds: Commands,
+      transactionSeed: Option[crypto.Hash] = None
+  ): Result[Transaction.Transaction] = {
     _commandTranslation
       .preprocessCommands(cmds)
       .flatMap { processedCmds =>
         ShouldCheckSubmitterInMaintainers(_compiledPackages, cmds).flatMap {
           checkSubmitterInMaintainers =>
-            interpret(
+            interpretCommands(
               validating = false,
               checkSubmitterInMaintainers = checkSubmitterInMaintainers,
               submitters = Set(cmds.submitter),
               commands = processedCmds,
-              time = cmds.ledgerEffectiveTime
-            )
+              time = cmds.ledgerEffectiveTime,
+              transactionSeed = transactionSeed,
+            ) map { tx =>
+              // Annotate the transaction with the package dependencies. Since
+              // all commands are actions on a contract template, with a fully typed
+              // argument, we only need to consider the templates mentioned in the command
+              // to compute the full dependencies.
+              val deps = processedCmds.foldLeft(Set.empty[PackageId]) {
+                case (pkgIds, (_, cmd)) =>
+                  val pkgId = cmd.templateId.packageId
+                  val transitiveDeps =
+                    _compiledPackages
+                      .getPackageDependencies(pkgId)
+                      .getOrElse(
+                        sys.error("INTERNAL ERROR: Missing dependencies of package $pkgId"))
+                  (pkgIds + pkgId) union transitiveDeps
+              }
+              tx.copy(optUsedPackages = Some(deps))
+            }
         }
       }
+  }
 
   /**
     * Behaves like `submit`, but it takes GenNode arguments instead of a Commands argument.
@@ -101,24 +129,32 @@ final class Engine {
     * In addition to the errors returned by `submit`, reinterpretation fails with a `ValidationError` whenever `nodes`
     * contain a relative contract ID, either as the target contract of a fetch, or as an argument to a
     * create or an exercise choice.
+    *
+    * [[transactionSeed]] is the master hash te be used to derive node and contractId discriminator.
+    * If let undefined, no discriminator will be generated.
     */
   def reinterpret(
+      transactionSeed: Option[crypto.Hash],
       submitters: Set[Party],
-      nodes: Seq[GenNode.WithTxValue[NodeId, ContractId]],
+      nodes: Seq[GenNode.WithTxValue[Value.NodeId, Value.ContractId]],
       ledgerEffectiveTime: Time.Timestamp
   ): Result[Transaction.Transaction] = {
+
+    val commandTranslation = new CommandPreprocessor(_compiledPackages)
     for {
-      commands <- Result.sequence(ImmArray(nodes).map(translateNode(_commandTranslation)))
+      commands <- Result.sequence(ImmArray(nodes).map(translateNode(commandTranslation)))
       checkSubmitterInMaintainers <- ShouldCheckSubmitterInMaintainers(
         _compiledPackages,
         commands.map(_._2.templateId))
       // reinterpret is never used for submission, only for validation.
-      result <- interpret(
+      result <- interpretCommands(
         validating = true,
         checkSubmitterInMaintainers = checkSubmitterInMaintainers,
         submitters = submitters,
         commands = commands,
-        time = ledgerEffectiveTime)
+        time = ledgerEffectiveTime,
+        transactionSeed
+      )
     } yield result
   }
 
@@ -141,8 +177,9 @@ final class Engine {
       tx: Transaction.Transaction,
       ledgerEffectiveTime: Time.Timestamp
   ): Result[Unit] = {
-    import scalaz.syntax.traverse.ToTraverseOps
     import scalaz.std.option._
+    import scalaz.syntax.traverse.ToTraverseOps
+    val commandTranslation = new CommandPreprocessor(_compiledPackages)
     //reinterpret
     for {
       requiredAuthorizers <- tx.roots
@@ -167,16 +204,18 @@ final class Engine {
       // For empty transactions, use an empty set of submitters
       submitters = submittersOpt.getOrElse(Set.empty)
 
-      commands <- translateTransactionRoots(_commandTranslation, tx)
+      commands <- translateTransactionRoots(commandTranslation, tx)
       checkSubmitterInMaintainers <- ShouldCheckSubmitterInMaintainers(
         _compiledPackages,
         commands.map(_._2._2.templateId))
-      rtx <- interpret(
+      rtx <- interpretCommands(
+        transactionSeed = tx.transactionSeed,
         validating = true,
         checkSubmitterInMaintainers = checkSubmitterInMaintainers,
         submitters = submitters,
         commands = commands.map(_._2),
-        time = ledgerEffectiveTime)
+        time = ledgerEffectiveTime
+      )
       validationResult <- if (tx isReplayedBy rtx) {
         ResultDone(())
       } else {
@@ -190,35 +229,36 @@ final class Engine {
   // A safe cast of a value to a value which uses only absolute contract IDs.
   // In particular, the cast will succeed for all values contained in the root nodes of a Transaction produced by submit
   private[this] def asValueWithAbsoluteContractIds[Cid](
-      v: VersionedValue[Cid]): Result[VersionedValue[AbsoluteContractId]] =
+      v: Value[Cid]): Result[Value[Value.AbsoluteContractId]] =
     try {
       ResultDone(
         v.mapContractId {
-          case rcoid: RelativeContractId =>
+          case rcoid: Value.RelativeContractId =>
             throw ValidationError(s"unexpected relative contract id $rcoid")
-          case acoid: AbsoluteContractId => acoid
+          case acoid: Value.AbsoluteContractId => acoid
         }
       )
     } catch {
       case err: ValidationError => ResultError(err)
     }
 
-  private[this] def asAbsoluteContractId(coid: ContractId): Result[AbsoluteContractId] =
+  private[this] def asAbsoluteContractId(coid: Value.ContractId): Result[Value.AbsoluteContractId] =
     coid match {
-      case rcoid: RelativeContractId =>
+      case rcoid: Value.RelativeContractId =>
         ResultError(ValidationError(s"not an absolute contract ID: $rcoid"))
-      case acoid: AbsoluteContractId =>
+      case acoid: Value.AbsoluteContractId =>
         ResultDone(acoid)
     }
 
   // Translate a GenNode into an expression re-interpretable by the interpreter
-  private[this] def translateNode[Cid <: ContractId](commandPreprocessor: CommandPreprocessor)(
+  private[this] def translateNode[Cid <: Value.ContractId](
+      commandPreprocessor: CommandPreprocessor)(
       node: GenNode.WithTxValue[Transaction.NodeId, Cid]): Result[(Type, SpeedyCommand)] = {
 
     node match {
       case NodeCreate(coid @ _, coinst, optLoc @ _, sigs @ _, stks @ _, key @ _) =>
         val identifier = coinst.template
-        asValueWithAbsoluteContractIds(coinst.arg).flatMap(
+        asValueWithAbsoluteContractIds(coinst.arg.value).flatMap(
           absArg => commandPreprocessor.preprocessCreate(identifier, absArg)
         )
 
@@ -237,7 +277,7 @@ final class Engine {
           exerciseResult @ _,
           key @ _) =>
         val templateId = template
-        asValueWithAbsoluteContractIds(chosenVal).flatMap(
+        asValueWithAbsoluteContractIds(chosenVal.value).flatMap(
           absChosenVal =>
             commandPreprocessor
               .preprocessExercise(templateId, coid, choice, absChosenVal))
@@ -251,7 +291,7 @@ final class Engine {
     }
   }
 
-  private[this] def translateTransactionRoots[Cid <: ContractId](
+  private[this] def translateTransactionRoots[Cid <: Value.ContractId](
       commandPreprocessor: CommandPreprocessor,
       tx: GenTransaction.WithTxValue[Transaction.NodeId, Cid]
   ): Result[ImmArray[(Transaction.NodeId, (Type, SpeedyCommand))]] = {
@@ -273,46 +313,29 @@ final class Engine {
     }))
   }
 
-  /** Interprets the given expression under the authority of @submitters
-    *
-    * Submitters are a set, in order to support interpreting subtransactions (a subtransaciton can be authorized
-    * by multiple parties).
-    */
-  private[engine] def interpret(
-      validating: Boolean,
-      /* See documentation for `Speedy.Machine` for the meaning of this field */
-      checkSubmitterInMaintainers: Boolean,
-      submitters: Set[Party],
-      expr: Expr,
-      time: Time.Timestamp): Result[Transaction.Transaction] = {
-    val machine =
-      Machine
-        .build(
-          checkSubmitterInMaintainers = checkSubmitterInMaintainers,
-          sexpr = Compiler(_compiledPackages.packages).compile(expr),
-          compiledPackages = _compiledPackages)
-        .copy(validating = validating, committers = submitters)
-
-    interpretLoop(machine, time)
-  }
-
   /** Interprets the given commands under the authority of @submitters
     *
-    * Submitters are a set, in order to support interpreting subtransactions (a subtransaciton can be authorized
-    * by multiple parties).
+    * Submitters are a set, in order to support interpreting subtransactions
+    * (a subtransaction can be authorized by multiple parties).
+    *
+    * [[transactionSeed]] is the master hash used to derive node and contractId discriminator.
+    * If let undefined, no discriminator will be generated.
     */
-  private[engine] def interpret(
+  private[engine] def interpretCommands(
       validating: Boolean,
       /* See documentation for `Speedy.Machine` for the meaning of this field */
       checkSubmitterInMaintainers: Boolean,
       submitters: Set[Party],
       commands: ImmArray[(Type, SpeedyCommand)],
-      time: Time.Timestamp): Result[Transaction.Transaction] = {
+      time: Time.Timestamp,
+      transactionSeed: Option[crypto.Hash]
+  ): Result[Transaction.Transaction] = {
     val machine = Machine
       .build(
         checkSubmitterInMaintainers = checkSubmitterInMaintainers,
-        sexpr = Compiler(_compiledPackages.packages).compile(commands.map(_._2)),
-        compiledPackages = _compiledPackages
+        sexpr = Compiler(compiledPackages.packages).compile(commands.map(_._2)),
+        compiledPackages = _compiledPackages,
+        transactionSeed
       )
       .copy(validating = validating, committers = submitters)
     interpretLoop(machine, time)

@@ -1,8 +1,5 @@
 import sbt._
 
-import com.digitalasset.codegen.CodeGen.Novel
-import com.digitalasset.codegen.CodeGen
-
 import Versions._
 import Artifactory._
 
@@ -26,15 +23,6 @@ lazy val `scala-codegen` = project
     name := "scala-codegen",
     commonSettings,
     libraryDependencies ++= codeGenDependencies,
-    sourceGenerators in Compile += (damlScala in Compile).taskValue,
-    damlScala in Compile := {
-      generateScalaFrom(
-        darFile = darFile,
-        packageName = "com.digitalasset.quickstart.iou.model",
-        outputDir = (sourceManaged in Compile).value,
-        cacheDir = streams.value.cacheDirectory / name.value
-      )
-    }
   )
 
 lazy val `application` = project
@@ -71,26 +59,3 @@ lazy val applicationDependencies = Seq(
   "com.daml.scala" %% "bindings-akka" % daSdkVersion,
 )
 // </doc-ref:dependencies>
-
-lazy val damlScala = taskKey[Seq[File]]("Generate Scala code.")
-damlScala := Seq() // by default, do nothing
-
-// <doc-ref:generate-scala>
-def generateScalaFrom(
-    darFile: File,
-    packageName: String,
-    outputDir: File,
-    cacheDir: File): Seq[File] = {
-
-  require(
-    darFile.getPath.endsWith(".dar") && darFile.exists(),
-    s"DAR file doest not exist: ${darFile.getPath: String}")
-
-  val cache = FileFunction.cached(cacheDir, FileInfo.hash) { _ =>
-    if (outputDir.exists) IO.delete(outputDir.listFiles)
-    CodeGen.generateCode(List(darFile), packageName, outputDir, Novel)
-    (outputDir ** "*.scala").get.toSet
-  }
-  cache(Set(darFile)).toSeq
-}
-// </doc-ref:generate-scala>

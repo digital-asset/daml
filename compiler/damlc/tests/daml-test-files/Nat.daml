@@ -1,4 +1,4 @@
--- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
 -- @ TODO Recursive data types
@@ -15,4 +15,4 @@ add (S x) y = add x (S y)
 
 main = scenario do
     alice <- getParty "alice"
-    submit alice $ assert $ add (S (S Z)) (S Z) == (S (S (S Z)))
+    submit alice $ assert $ add (S (S Z)) (S Z) == S (S (S Z))

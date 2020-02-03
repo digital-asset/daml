@@ -1,18 +1,19 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 module DA.Daml.LF.Ast.World(
     World,
+    DalfPackage(..),
+    getWorldSelf,
     initWorld,
     initWorldSelf,
     extendWorldSelf,
-    ExternalPackage,
-    rewriteSelfReferences,
+    ExternalPackage(..),
     LookupError,
     lookupTemplate,
+    lookupTypeSyn,
     lookupDataType,
     lookupChoice,
     lookupValue,
@@ -23,13 +24,13 @@ import DA.Pretty
 
 import Control.DeepSeq
 import Control.Lens
+import qualified Data.ByteString as BS
 import qualified Data.HashMap.Strict as HMS
 import Data.List
 import qualified Data.NameMap as NM
 import GHC.Generics
 
 import DA.Daml.LF.Ast.Base
-import DA.Daml.LF.Ast.Optics (moduleModuleRef)
 import DA.Daml.LF.Ast.Pretty ()
 import DA.Daml.LF.Ast.Version
 
@@ -41,34 +42,37 @@ data World = World
   , _worldSelf :: Package
   }
 
+getWorldSelf :: World -> Package
+getWorldSelf = _worldSelf
+
 makeLensesFor [("_worldSelf","worldSelf")] ''World
 
 -- | A package where all references to `PRSelf` have been rewritten
 -- to `PRImport`.
-data ExternalPackage = ExternalPackage PackageId Package
-    deriving (Show, Eq, Generic)
+data ExternalPackage = ExternalPackage
+  { extPackageId :: PackageId
+  , extPackagePkg :: Package
+  } deriving (Show, Eq, Generic)
 
 instance NFData ExternalPackage
 
--- | Rewrite all `PRSelf` references to `PRImport` references.
-rewriteSelfReferences :: PackageId -> Package -> ExternalPackage
-rewriteSelfReferences pkgId = ExternalPackage pkgId . rewrite
-    where
-        rewrite = over (_packageModules . NM.traverse . moduleModuleRef . _1) $ \case
-            PRSelf -> PRImport pkgId
-            ref@PRImport{} -> ref
+data DalfPackage = DalfPackage
+    { dalfPackageId :: PackageId
+    , dalfPackagePkg :: ExternalPackage
+    , dalfPackageBytes :: BS.ByteString
+    } deriving (Show, Eq, Generic)
+
+instance NFData DalfPackage
 
 -- | Construct the 'World' from only the imported packages.
+-- TODO (drsk) : hurraybit: please check that the duplicate package id check here is not needed.
 initWorld :: [ExternalPackage] -> Version -> World
 initWorld importedPkgs version =
   World
     (foldl' insertPkg HMS.empty importedPkgs)
     (Package version NM.empty)
   where
-    insertPkg hms (ExternalPackage pkgId pkg)
-      | pkgId `HMS.member` hms =
-          error $  "World.initWorld: duplicate package id " ++ show pkgId
-      | otherwise = HMS.insert pkgId pkg hms
+    insertPkg hms (ExternalPackage pkgId pkg) = HMS.insert pkgId pkg hms
 
 -- | Create a World with an initial self package
 initWorldSelf :: [ExternalPackage] -> Package -> World
@@ -81,6 +85,7 @@ extendWorldSelf = over (worldSelf . _packageModules) . NM.insert
 data LookupError
   = LEPackage !PackageId
   | LEModule !PackageRef !ModuleName
+  | LETypeSyn !(Qualified TypeSynName)
   | LEDataType !(Qualified TypeConName)
   | LEValue !(Qualified ExprValName)
   | LETemplate !(Qualified TypeConName)
@@ -112,6 +117,9 @@ lookupDefinition selDefs mkError ref world = do
     Nothing -> Left (mkError ref)
     Just def -> pure def
 
+lookupTypeSyn :: Qualified TypeSynName -> World -> Either LookupError DefTypeSyn
+lookupTypeSyn = lookupDefinition moduleSynonyms LETypeSyn
+
 lookupDataType :: Qualified TypeConName -> World -> Either LookupError DefDataType
 lookupDataType = lookupDefinition moduleDataTypes LEDataType
 
@@ -133,6 +141,7 @@ instance Pretty LookupError where
     LEPackage pkgId -> "unknown package:" <-> pretty pkgId
     LEModule PRSelf modName -> "unknown module:" <-> pretty modName
     LEModule (PRImport pkgId) modName -> "unknown module:" <-> pretty pkgId <> ":" <> pretty modName
+    LETypeSyn synRef -> "unknown type synonym:" <-> pretty synRef
     LEDataType datRef -> "unknown data type:" <-> pretty datRef
     LEValue valRef-> "unknown value:" <-> pretty valRef
     LETemplate tplRef -> "unknown template:" <-> pretty tplRef

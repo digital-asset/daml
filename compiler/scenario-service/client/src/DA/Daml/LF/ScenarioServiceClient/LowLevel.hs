@@ -1,10 +1,9 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiWayIf #-}
-{-# LANGUAGE OverloadedStrings #-}
 module DA.Daml.LF.ScenarioServiceClient.LowLevel
   ( Options(..)
   , TimeoutSeconds
@@ -19,11 +18,11 @@ module DA.Daml.LF.ScenarioServiceClient.LowLevel
   , deleteCtx
   , gcCtxs
   , ContextUpdate(..)
-  , LightValidation(..)
+  , SkipValidation(..)
   , updateCtx
   , runScenario
   , SS.ScenarioResult(..)
-  , encodeModule
+  , encodeScenarioModule
   , ScenarioServiceException(..)
   ) where
 
@@ -49,7 +48,7 @@ import Data.List.Split (splitOn)
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.Vector as V
-import Network.GRPC.HighLevel.Client (Client, ClientError, ClientRequest(..), ClientResult(..), GRPCMethodType(..))
+import Network.GRPC.HighLevel.Client (ClientError, ClientRequest(..), ClientResult(..), GRPCMethodType(..))
 import Network.GRPC.HighLevel.Generated (withGRPCClient)
 import Network.GRPC.LowLevel (ClientConfig(..), Host(..), Port(..), StatusCode(..))
 import qualified Proto3.Suite as Proto
@@ -75,15 +74,16 @@ data Options = Options
 type TimeoutSeconds = Int
 
 data Handle = Handle
-  { hClient :: Client
+  { hClient :: SS.ScenarioService ClientRequest ClientResult
   , hOptions :: Options
   }
 
 newtype ContextId = ContextId { getContextId :: Int64 }
   deriving (NFData, Eq, Show)
 
--- | If true, the scenario service server only runs a subset of validations.
-newtype LightValidation = LightValidation { getLightValidation :: Bool }
+-- | If true, the scenario service server do not run package validations.
+newtype SkipValidation = SkipValidation { getSkipValidation :: Bool }
+  deriving Show
 
 data ContextUpdate = ContextUpdate
   { updLoadModules :: ![(LF.ModuleName, BS.ByteString)]
@@ -91,12 +91,12 @@ data ContextUpdate = ContextUpdate
   , updLoadPackages :: ![(LF.PackageId, BS.ByteString)]
   , updUnloadPackages :: ![LF.PackageId]
   , updDamlLfVersion :: LF.Version
-  , updLightValidation :: LightValidation
+  , updSkipValidation :: SkipValidation
   }
 
-encodeModule :: LF.Version -> LF.Module -> BS.ByteString
-encodeModule version m = case version of
-    LF.V1{} -> BSL.toStrict (Proto.toLazyByteString (EncodeV1.encodeModuleWithLargePackageIds version m))
+encodeScenarioModule :: LF.Version -> LF.Module -> BS.ByteString
+encodeScenarioModule version m = case version of
+    LF.V1{} -> BSL.toStrict (Proto.toLazyByteString (EncodeV1.encodeScenarioModule version m))
 
 data BackendError
   = BErrorClient ClientError
@@ -235,70 +235,65 @@ withScenarioService opts@Options{..} f = do
         -- if they are blocked in hGetNonBlocking so it is crucial that we close stdin in the
         -- callback or withAsync will block forever.
         flip finally (closeStdin stdinHdl) $ do
-            System.IO.hFlush System.IO.stdout
             port <- either fail pure =<< takeMVar portMVar
             liftIO $ optLogInfo $ "Scenario service backend running on port " <> show port
             -- Using 127.0.0.1 instead of localhost helps when our packaging logic falls over
             -- and DNS lookups break, e.g., on Alpine linux.
-            let grpcConfig = ClientConfig (Host "127.0.0.1") (Port port) [] Nothing
-            withGRPCClient grpcConfig $ \client ->
+            let grpcConfig = ClientConfig (Host "127.0.0.1") (Port port) [] Nothing Nothing
+            withGRPCClient grpcConfig $ \client -> do
+                ssClient <- SS.scenarioServiceClient client
                 f Handle
-                    { hClient = client
+                    { hClient = ssClient
                     , hOptions = opts
                     }
 
 newCtx :: Handle -> IO (Either BackendError ContextId)
 newCtx Handle{..} = do
-  ssClient <- SS.scenarioServiceClient hClient
   res <-
     performRequest
-      (SS.scenarioServiceNewContext ssClient)
+      (SS.scenarioServiceNewContext hClient)
       (optRequestTimeout hOptions)
       SS.NewContextRequest
   pure (ContextId . SS.newContextResponseContextId <$> res)
 
 cloneCtx :: Handle -> ContextId -> IO (Either BackendError ContextId)
 cloneCtx Handle{..} (ContextId ctxId) = do
-  ssClient <- SS.scenarioServiceClient hClient
   res <-
     performRequest
-      (SS.scenarioServiceCloneContext ssClient)
+      (SS.scenarioServiceCloneContext hClient)
       (optRequestTimeout hOptions)
       (SS.CloneContextRequest ctxId)
   pure (ContextId . SS.cloneContextResponseContextId <$> res)
 
 deleteCtx :: Handle -> ContextId -> IO (Either BackendError ())
 deleteCtx Handle{..} (ContextId ctxId) = do
-  ssClient <- SS.scenarioServiceClient hClient
   res <-
     performRequest
-      (SS.scenarioServiceDeleteContext ssClient)
+      (SS.scenarioServiceDeleteContext hClient)
       (optRequestTimeout hOptions)
       (SS.DeleteContextRequest ctxId)
   pure (void res)
 
 gcCtxs :: Handle -> [ContextId] -> IO (Either BackendError ())
 gcCtxs Handle{..} ctxIds = do
-    ssClient <- SS.scenarioServiceClient hClient
     res <-
         performRequest
-            (SS.scenarioServiceGCContexts ssClient)
+            (SS.scenarioServiceGCContexts hClient)
             (optRequestTimeout hOptions)
             (SS.GCContextsRequest (V.fromList (map getContextId ctxIds)))
     pure (void res)
 
 updateCtx :: Handle -> ContextId -> ContextUpdate -> IO (Either BackendError ())
 updateCtx Handle{..} (ContextId ctxId) ContextUpdate{..} = do
-  ssClient <- SS.scenarioServiceClient hClient
   res <-
     performRequest
-      (SS.scenarioServiceUpdateContext ssClient)
+      (SS.scenarioServiceUpdateContext hClient)
       (optRequestTimeout hOptions) $
       SS.UpdateContextRequest
           ctxId
           (Just updModules)
           (Just updPackages)
-          (getLightValidation updLightValidation)
+          (getSkipValidation updSkipValidation)
   pure (void res)
   where
     updModules =
@@ -310,17 +305,16 @@ updateCtx Handle{..} (ContextId ctxId) ContextUpdate{..} = do
         (V.fromList (map snd updLoadPackages))
         (V.fromList (map (TL.fromStrict . LF.unPackageId) updUnloadPackages))
     encodeName = TL.fromStrict . T.intercalate "." . LF.unModuleName
-    convModule :: (LF.ModuleName, BS.ByteString) -> SS.Module
+    convModule :: (LF.ModuleName, BS.ByteString) -> SS.ScenarioModule
     convModule (_, bytes) =
         case updDamlLfVersion of
-            LF.V1 minor -> SS.Module (Just (SS.ModuleModuleDamlLf1 bytes)) (TL.pack $ LF.renderMinorVersion minor)
+            LF.V1 minor -> SS.ScenarioModule bytes (TL.pack $ LF.renderMinorVersion minor)
 
 runScenario :: Handle -> ContextId -> LF.ValueRef -> IO (Either Error SS.ScenarioResult)
 runScenario Handle{..} (ContextId ctxId) name = do
-  ssClient <- SS.scenarioServiceClient hClient
   res <-
     performRequest
-      (SS.scenarioServiceRunScenario ssClient)
+      (SS.scenarioServiceRunScenario hClient)
       (optRequestTimeout hOptions)
       (SS.RunScenarioRequest ctxId (Just (toIdentifier name)))
   pure $ case res of

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.ledger.client.binding
@@ -9,16 +9,7 @@ import scala.collection.immutable.{Map, Seq}
 import scalaz.Id.Id
 import com.digitalasset.ledger.api.v1.{event => rpcevent, value => rpcvalue}
 
-abstract class EventDecoderApi(
-    rawUnsupportedTemplates: Map[String, (String, String)],
-    val templateTypes: Seq[TemplateCompanion[_]]) {
-  val unsupportedTemplates: Map[String, Primitive.TemplateId[_]] = {
-    type K[A] = Map[String, A]
-    Primitive.TemplateId.substEx[K](rawUnsupportedTemplates transform {
-      case (_, (packageId, s)) =>
-        rpcvalue.Identifier(packageId, s)
-    })
-  }
+abstract class EventDecoderApi(val templateTypes: Seq[TemplateCompanion[_]]) {
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   val decoderTable: Map[ApiTypes.TemplateId, rpcevent.CreatedEvent => Option[Template[_]]] =

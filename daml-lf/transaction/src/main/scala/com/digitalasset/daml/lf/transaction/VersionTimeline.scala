@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf
@@ -54,8 +54,14 @@ private[digitalasset] object VersionTimeline {
       That(LanguageVersion(LMV.V1, "5")),
       This(That(TransactionVersion("8"))),
       Both(This(ValueVersion("5")), LanguageVersion(LMV.V1, "6")),
+      Both(This(ValueVersion("6")), LanguageVersion(LMV.V1, "7")),
+      This(That(TransactionVersion("9"))),
+      // FIXME https://github.com/digital-asset/daml/issues/2256
+      //  * change the following line when LF 1.8 is frozen.
+      //  * do not insert line after this once until 1.8 is frozen.
+      This(This(ValueVersion("7"))),
+      // add new versions above this line (but see more notes below)
       That(LanguageVersion(LMV.V1, Dev)),
-      // add new versions above this line
       // do *not* backfill to make more Boths, because such would
       // invalidate the timeline, except to accompany Dev language
       // versions; use This and That instead as needed.
@@ -68,10 +74,9 @@ private[digitalasset] object VersionTimeline {
       // supported by this release".
     )
 
-  def foldRelease[Z: Semigroup](av: AllVersions[\&/])(
-      v: ValueVersion => Z,
-      t: TransactionVersion => Z,
-      l: LanguageVersion => Z): Z =
+  def foldRelease[Z: Semigroup](
+      av: Release,
+  )(v: ValueVersion => Z, t: TransactionVersion => Z, l: LanguageVersion => Z): Z =
     av.bifoldMap(_.bifoldMap(v)(t))(l)
 
   final case class SubVersion[A](inject: A => SpecifiedVersion, extract: Release => Option[A])
@@ -96,7 +101,8 @@ private[digitalasset] object VersionTimeline {
       def foldVersion[Z](
           v: ValueVersion => Z,
           t: TransactionVersion => Z,
-          l: LanguageVersion => Z): Z =
+          l: LanguageVersion => Z,
+      ): Z =
         sv fold (_ fold (v, t), l)
 
       def showsVersion: String = foldVersion(_.toString, _.toString, _.toString)
@@ -119,7 +125,8 @@ private[digitalasset] object VersionTimeline {
         foldRelease(avb)(
           vv => Map((SpecifiedVersion(vv), ix)),
           tv => Map((SpecifiedVersion(tv), ix)),
-          lv => Map((SpecifiedVersion(lv), ix)))
+          lv => Map((SpecifiedVersion(lv), ix)),
+        )
     }
   }
 
@@ -141,6 +148,15 @@ private[digitalasset] object VersionTimeline {
   private def releasePrecedes(left: SpecifiedVersion, right: SpecifiedVersion): Boolean =
     compareReleaseTime(left, right) contains Ordering.LT
 
+  /** Released versions in ascending order.  Public clients should prefer
+    * `ValueVersions` and `TransactionVersions`' members.
+    */
+  private[lf] def ascendingVersions[A](implicit A: SubVersion[A]): NonEmptyList[A] =
+    inAscendingOrder.list
+      .collect(Function unlift A.extract)
+      .toNel
+      .getOrElse(sys.error("every SubVersion must have at least one entry in the timeline"))
+
   // not antisymmetric, as unknown versions can't be compared
   def maxVersion[A](left: A, right: A)(implicit ev: SubVersion[A]): A =
     if (releasePrecedes(ev.inject(left), ev.inject(right))) right else left
@@ -161,6 +177,7 @@ private[digitalasset] object VersionTimeline {
 
   def checkSubmitterInMaintainers(lfVers: LanguageVersion): Boolean = {
     import Implicits._
-    !(lfVers precedes LanguageVersion.checkSubmitterInMaintainers)
+    !(lfVers precedes LanguageVersion.Features.checkSubmitterInMaintainersVersion)
   }
+
 }

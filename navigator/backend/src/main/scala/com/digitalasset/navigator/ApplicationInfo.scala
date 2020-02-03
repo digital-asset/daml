@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.navigator
@@ -9,10 +9,9 @@ import spray.json.DefaultJsonProtocol
 case class ApplicationInfo(
     id: String,
     name: String,
-    version: String,
-    revision: String
+    version: String
 )
 
 trait ApplicationInfoJsonSupport extends SprayJsonSupport with DefaultJsonProtocol {
-  implicit val applicationInfoFormat = jsonFormat4(ApplicationInfo)
+  implicit val applicationInfoFormat = jsonFormat3(ApplicationInfo)
 }

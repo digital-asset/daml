@@ -1,16 +1,22 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.testing.parser
 
+import java.math.BigDecimal
+
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.{Decimal, ImmArray, Time}
+import com.digitalasset.daml.lf.data.{ImmArray, Numeric, Time}
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.testing.parser.Implicits._
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Matchers, WordSpec}
 
+import scala.language.implicitConversions
+
 class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
+
+  private implicit def toScale(i: Int): Numeric.Scale = Numeric.Scale.assertFromInt(i)
 
   "kind parser" should {
 
@@ -18,9 +24,12 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
       val testCases = Table[String, Kind](
         "string to parse" -> "expected kind",
         "*" -> KStar,
+        "nat" -> KNat,
         "* -> *" -> KArrow(KStar, KStar),
         "* -> * -> *" -> KArrow(KStar, KArrow(KStar, KStar)),
         "(* -> *) -> *" -> KArrow(KArrow(KStar, KStar), KStar),
+        "* -> nat -> *" -> KArrow(KStar, KArrow(KNat, KStar)),
+        "(nat -> *) -> *" -> KArrow(KArrow(KNat, KStar), KStar),
       )
 
       forEvery(testCases)((stringToParse, expectedKind) =>
@@ -40,7 +49,7 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
       val testCases = Table[String, BuiltinType](
         "string to parse" -> "expected builtin type",
         "Int64" -> BTInt64,
-        "Decimal" -> BTDecimal,
+        "Numeric" -> BTNumeric,
         "Text" -> BTText,
         "Timestamp" -> BTTimestamp,
         "Party" -> BTParty,
@@ -53,7 +62,7 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         "ContractId" -> BTContractId,
         "Arrow" -> BTArrow,
         "Option" -> BTOptional,
-        "Map" -> BTMap,
+        "TextMap" -> BTTextMap,
       )
 
       forEvery(testCases)((stringToParse, expectedBuiltinType) =>
@@ -81,11 +90,13 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         "string to parse" -> "expected type",
         "a" -> α,
         "a b" -> TApp(α, β),
+        "3" -> TNat(3),
+        "a 3" -> TApp(α, TNat(3)),
         "Mod:T a b" -> TApp(TApp(T, α), β),
         "a -> b" -> TApp(TApp(TBuiltin(BTArrow), α), β),
         "a -> b -> a" -> TApp(TApp(TBuiltin(BTArrow), α), TApp(TApp(TBuiltin(BTArrow), β), α)),
         "forall (a: *). Mod:T a" -> TForall((α.name, KStar), TApp(T, α)),
-        "<f1: a, f2: Bool, f3:Mod:T>" -> TTuple(
+        "<f1: a, f2: Bool, f3:Mod:T>" -> TStruct(
           ImmArray[(FieldName, Type)](n"f1" -> α, n"f2" -> TBuiltin(BTBool), n"f3" -> T))
       )
 
@@ -113,13 +124,14 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
     }
 
     "parses properly literal" in {
+
       val testCases = Table[String, PrimLit](
         "string to parse" -> "expected literal",
         "1" -> PLInt64(1),
         "-2" -> PLInt64(-2),
-        "1.0" -> PLDecimal(Decimal.assertFromBigDecimal(1)),
-        "1.0" -> PLDecimal(Decimal.assertFromBigDecimal(1)),
-        "-1.0" -> PLDecimal(Decimal.assertFromBigDecimal(-1)),
+        "1.0000000000" -> PLNumeric(Numeric.assertFromBigDecimal(10, BigDecimal.ONE)),
+        "1.0" -> PLNumeric(Numeric.assertFromBigDecimal(1, BigDecimal.ONE)),
+        "-10.00" -> PLNumeric(Numeric.assertFromBigDecimal(2, BigDecimal.TEN.negate)),
         """"some text"""" -> PLText("some text"),
         """ " \n\r\"\\ " """ -> PLText(" \n\r\"\\ "),
         """ "français" """ -> PLText("français"),
@@ -139,8 +151,8 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         "string to parsed",
         "9223372036854775808",
         "-9223372036854775809",
-        "10000000000000000000000000000.",
-        "-10000000000000000000000000000.",
+        "10000000000000000000000000000.0000000000",
+        "-100000000000000000000000000000000000000.",
         "0000-01-01",
         "2100-02-29",
         "2019-13-28",
@@ -161,19 +173,21 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
       val testCases = Table[String, BuiltinFunction](
         "string to parse" -> "builtin",
         "TRACE" -> BTrace,
-        "ADD_DECIMAL" -> BAddDecimal,
-        "SUB_DECIMAL" -> BSubDecimal,
-        "MUL_DECIMAL" -> BMulDecimal,
-        "DIV_DECIMAL" -> BDivDecimal,
-        "ROUND_DECIMAL" -> BRoundDecimal,
+        "ADD_NUMERIC" -> BAddNumeric,
+        "SUB_NUMERIC" -> BSubNumeric,
+        "MUL_NUMERIC" -> BMulNumeric,
+        "DIV_NUMERIC" -> BDivNumeric,
+        "ROUND_NUMERIC" -> BRoundNumeric,
+        "CAST_NUMERIC" -> BCastNumeric,
+        "SHIFT_NUMERIC" -> BShiftNumeric,
         "ADD_INT64" -> BAddInt64,
         "SUB_INT64" -> BSubInt64,
         "MUL_INT64" -> BMulInt64,
         "DIV_INT64" -> BDivInt64,
         "MOD_INT64" -> BModInt64,
         "EXP_INT64" -> BExpInt64,
-        "INT64_TO_DECIMAL" -> BInt64ToDecimal,
-        "DECIMAL_TO_INT64" -> BDecimalToInt64,
+        "INT64_TO_NUMERIC" -> BInt64ToNumeric,
+        "NUMERIC_TO_INT64" -> BNumericToInt64,
         "DATE_TO_UNIX_DAYS" -> BDateToUnixDays,
         "UNIX_DAYS_TO_DATE" -> BUnixDaysToDate,
         "TIMESTAMP_TO_UNIX_MICROSECONDS" -> BTimestampToUnixMicroseconds,
@@ -184,41 +198,36 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         "IMPLODE_TEXT" -> BImplodeText,
         "APPEND_TEXT" -> BAppendText,
         "TO_TEXT_INT64" -> BToTextInt64,
-        "TO_TEXT_DECIMAL" -> BToTextDecimal,
+        "TO_TEXT_NUMERIC" -> BToTextNumeric,
         "TO_TEXT_TEXT" -> BToTextText,
         "TO_TEXT_TIMESTAMP" -> BToTextTimestamp,
         "TO_TEXT_PARTY" -> BToTextParty,
         "TO_TEXT_DATE" -> BToTextDate,
         "ERROR" -> BError,
         "LESS_INT64" -> BLessInt64,
-        "LESS_DECIMAL" -> BLessDecimal,
+        "LESS_NUMERIC" -> BLessNumeric,
         "LESS_TEXT" -> BLessText,
         "LESS_TIMESTAMP" -> BLessTimestamp,
         "LESS_DATE" -> BLessDate,
         "LESS_EQ_INT64" -> BLessEqInt64,
-        "LESS_EQ_DECIMAL" -> BLessEqDecimal,
+        "LESS_EQ_NUMERIC" -> BLessEqNumeric,
         "LESS_EQ_TEXT" -> BLessEqText,
         "LESS_EQ_TIMESTAMP" -> BLessEqTimestamp,
         "LESS_EQ_DATE" -> BLessEqDate,
         "GREATER_INT64" -> BGreaterInt64,
-        "GREATER_DECIMAL" -> BGreaterDecimal,
+        "GREATER_NUMERIC" -> BGreaterNumeric,
         "GREATER_TEXT" -> BGreaterText,
         "GREATER_TIMESTAMP" -> BGreaterTimestamp,
         "GREATER_DATE" -> BGreaterDate,
         "GREATER_EQ_INT64" -> BGreaterEqInt64,
-        "GREATER_EQ_DECIMAL" -> BGreaterEqDecimal,
+        "GREATER_EQ_NUMERIC" -> BGreaterEqNumeric,
         "GREATER_EQ_TEXT" -> BGreaterEqText,
         "GREATER_EQ_TIMESTAMP" -> BGreaterEqTimestamp,
         "GREATER_EQ_DATE" -> BGreaterEqDate,
-        "EQUAL_INT64" -> BEqualInt64,
-        "EQUAL_DECIMAL" -> BEqualDecimal,
-        "EQUAL_TEXT" -> BEqualText,
-        "EQUAL_TIMESTAMP" -> BEqualTimestamp,
-        "EQUAL_DATE" -> BEqualDate,
-        "EQUAL_PARTY" -> BEqualParty,
-        "EQUAL_BOOL" -> BEqualBool,
+        "EQUAL_NUMERIC" -> BEqualNumeric,
         "EQUAL_LIST" -> BEqualList,
         "EQUAL_CONTRACT_ID" -> BEqualContractId,
+        "EQUAL" -> BEqual,
         "COERCE_CONTRACT_ID" -> BCoerceContractId,
       )
 
@@ -247,9 +256,9 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         "Mod:R:C" ->
           EEnumCon(R.tycon, n"C"),
         "< f1 =2, f2=False >" ->
-          ETupleCon(ImmArray(n"f1" -> e"2", n"f2" -> e"False")),
+          EStructCon(ImmArray(n"f1" -> e"2", n"f2" -> e"False")),
         "(x).f1" ->
-          ETupleProj(n"f1", e"x"),
+          EStructProj(n"f1", e"x"),
         "x y" ->
           EApp(e"x", e"y"),
         "x y z" ->
@@ -278,8 +287,6 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
           ESome(TVar(n"a"), EVar(n"e")),
         "let x:Int64 = 2 in x" ->
           ELet(Binding(Some(x.value), t"Int64", e"2"), e"x"),
-        "#id @Mod:T" ->
-          EContractId(ContractIdString.assertFromString("#id"), T.tycon),
         "case e of () -> ()" ->
           ECase(e"e", ImmArray(CaseAlt(CPPrimCon(PCUnit), e"()"))),
         "case e of True -> False" ->

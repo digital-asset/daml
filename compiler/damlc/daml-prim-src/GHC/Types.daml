@@ -1,10 +1,11 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- Based on https://github.com/ghc/ghc/blob/23f6f31dd66d7c370cb8beec3f1d96a0cb577393/libraries/ghc-prim/GHC/Types.hs
 
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE MagicHash #-}
+{-# LANGUAGE CPP #-}
 {-# OPTIONS -Wno-unused-binds #-} -- the opaque constructors are not exported
 daml 1.2
 
@@ -21,7 +22,13 @@ module GHC.Types (
         Text, Decimal,
         Opaque,
         ifThenElse,
-        primitive, magic,
+        primitive, magic, external,
+        DamlEnum,
+
+#ifdef DAML_NUMERIC
+        Nat, Numeric,
+#endif
+
     ) where
 
 import GHC.Prim
@@ -40,7 +47,8 @@ data [] a = [] | a :: [a]
 
 
 -- | A type for giving information about ordering:
---  being less than, equal to, or greater than something.
+--  being less than (`LT`), equal to (`EQ`), or greater than
+--  (`GT`) something.
 data Ordering = LT | EQ | GT
 
 -- | A type representing a 64-bit integer.
@@ -129,6 +137,10 @@ data TyCon = TyCon Word# Word#           -- Fingerprint
                    KindRep               -- A representation of the type's kind
 
 
+-- | HIDE A DAML-LF call to an external package
+external : forall (f : Symbol) b. b
+external = external --deleted by the compiler
+
 -- | HIDE A DAML-LF primitive
 primitive : forall (f : Symbol) b. b
 primitive = primitive -- deleted by the compiler
@@ -146,9 +158,43 @@ data Text =
   -- | HIDE
   Text Opaque
 
+-- | HIDE Used to tag single-constructor enum types.
+class DamlEnum
+instance DamlEnum
+
+#ifdef DAML_NUMERIC
+
+-- | (Kind) This is the kind of type-level naturals.
+data Nat
+
+-- | A type for fixed-point decimal numbers, with the scale
+-- being passed as part of the type.
+--
+-- `Numeric n` represents a fixed-point decimal number with a
+-- fixed precision of 38 (i.e. 38 digits not including a leading zero)
+-- and a scale of `n`, i.e., `n` digits after the decimal point.
+--
+-- `n` must be between 0 and 37 (bounds inclusive).
+--
+-- Examples:
+-- ```
+-- 0.01 : Numeric 2
+-- 0.0001 : Numeric 4
+-- ```
+data Numeric (n:Nat) =
+  -- | HIDE
+  Numeric Opaque
+
+type Decimal = Numeric 10
+
+#else
+
 -- | A type for fixed-point decimals: numbers of the form
 --   `x / 10e10` where `x` is an integer with `|x| < 10e38`.
 --   For example, `1.25`.
 data Decimal =
   -- | HIDE
   Decimal Opaque
+
+
+#endif

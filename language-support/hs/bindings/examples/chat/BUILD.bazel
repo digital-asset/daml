@@ -1,4 +1,4 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2020 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_test")
@@ -12,9 +12,9 @@ daml_compile(
 
 da_haskell_binary(
     name = "chat",
-    srcs = glob(["src/*.hs"]),
+    srcs = glob(["src/**/*.hs"]),
     compiler_flags = [],
-    hazel_deps = [
+    hackage_deps = [
         "ansi-terminal",
         "base",
         "containers",
@@ -27,8 +27,10 @@ da_haskell_binary(
         "transformers",
         "uuid",
     ],
+    main_function = "DA.Ledger.App.Chat.Main.main",
     visibility = ["//visibility:public"],
     deps = [
+        "//compiler/daml-lf-ast",
         "//language-support/hs/bindings:hs-ledger",
     ],
 )

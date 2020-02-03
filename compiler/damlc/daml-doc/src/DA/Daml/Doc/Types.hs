@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DerivingStrategies #-}
@@ -8,8 +8,8 @@ module DA.Daml.Doc.Types(
     ) where
 
 import Data.Aeson
-import           Data.Text              (Text)
-import           Data.Hashable
+import Data.Text (Text)
+import Data.Hashable
 import GHC.Generics
 import Data.String
 
@@ -29,17 +29,43 @@ newtype Typename = Typename { unTypename :: Text }
 newtype Modulename = Modulename { unModulename :: Text }
     deriving newtype (Eq, Ord, Show, ToJSON, FromJSON, IsString)
 
+-- | Name of daml package, e.g. "daml-prim", "daml-stdlib"
+newtype Packagename = Packagename { unPackagename :: Text }
+    deriving newtype (Eq, Ord, Show, ToJSON, FromJSON, IsString)
+
 -- | Type expression, possibly a (nested) type application
-data Type = TypeApp !(Maybe Anchor) !Typename [Type] -- ^ Type application
+data Type = TypeApp !(Maybe Reference) !Typename [Type] -- ^ Type application
           | TypeFun [Type] -- ^ Function type
           | TypeList Type   -- ^ List syntax
           | TypeTuple [Type] -- ^ Tuple syntax
+          | TypeLit Text -- ^ a literal (e.g. "foo") appearing at the type level
   deriving (Eq, Ord, Show, Generic)
+
+getTypeAppAnchor :: Type -> Maybe Anchor
+getTypeAppAnchor = \case
+    TypeApp refM _ _ -> referenceAnchor <$> refM
+    _ -> Nothing
+
+getTypeAppName :: Type -> Maybe Typename
+getTypeAppName = \case
+    TypeApp _ n _ -> Just n
+    _ -> Nothing
+
+getTypeAppArgs :: Type -> Maybe [Type]
+getTypeAppArgs = \case
+    TypeApp _ _ a -> Just a
+    _ -> Nothing
 
 instance Hashable Type where
   hashWithSalt salt = hashWithSalt salt . show
 
--- | Anchors are URL-safe ids into the docs.
+-- | A docs reference, possibly external (i.e. in another package).
+data Reference = Reference
+    { referencePackage :: Maybe Packagename
+    , referenceAnchor :: Anchor
+    } deriving (Eq, Ord, Show, Generic)
+
+-- | Anchors are URL-safe (and RST-safe!) ids into the docs.
 newtype Anchor = Anchor { unAnchor :: Text }
     deriving newtype (Eq, Ord, Show, ToJSON, FromJSON, IsString)
 
@@ -56,6 +82,7 @@ data ModuleDoc = ModuleDoc
   -- TODO will later be refactored to contain "documentation sections" with an
   -- optional header, containing groups of templates and ADTs. This can be done
   -- storing just linkIDs for them, the renderer would then search the lists.
+  , md_instances :: [InstanceDoc]
   }
   deriving (Eq, Show, Generic)
 
@@ -64,6 +91,8 @@ data ModuleDoc = ModuleDoc
 data TemplateDoc = TemplateDoc
   { td_anchor  :: Maybe Anchor
   , td_name    :: Typename
+  , td_super   :: Maybe Type
+  , td_args    :: [Text]
   , td_descr   :: Maybe DocText
   , td_payload :: [FieldDoc]
   , td_choices :: [ChoiceDoc]
@@ -76,9 +105,51 @@ data ClassDoc = ClassDoc
   , cl_descr :: Maybe DocText
   , cl_super :: Maybe Type
   , cl_args :: [Text]
-  , cl_functions :: [FunctionDoc]
+  , cl_methods :: [ClassMethodDoc]
+  , cl_instances :: Maybe [InstanceDoc] -- relevant instances
   }
   deriving (Eq, Show, Generic)
+
+-- | Documentation data for typeclass methods.
+data ClassMethodDoc = ClassMethodDoc
+    { cm_anchor :: Maybe Anchor
+    , cm_name :: Fieldname
+    , cm_isDefault :: Bool
+        -- ^ Is this a default implementation, associated with a
+        -- separate default type signature? (These are marked with
+        -- "default" in the source code and docs. For example, in
+        -- the typeclass:
+        --
+        -- @
+        --     class MyShow t where
+        --         myShow :: t -> String
+        --         default myShow :: Show t => t -> String
+        -- @
+        --
+        -- The former method would have 'cm_isDefault' set to 'False',
+        -- the latter would have 'cm_isDefault' set to 'True'.
+    , cm_localContext :: Maybe Type
+        -- ^ Context of class method inside typeclass declaration.
+        -- For example, 'fold' from @'Foldable' t@:
+        --
+        -- @
+        --     class Foldable t where
+        --         fold :: Monoid m => t m -> m
+        --         ...
+        -- @
+        --
+        -- Would have the 'cm_contextLocal' of @('Monoid' m)@.
+    , cm_globalContext :: Maybe Type
+        -- ^ Context of class method outside typeclass declaration.
+        -- Following the previous example, 'fold' from @'Foldable' t@
+        -- would have the 'cm_globalContext' of @('Foldable' t, 'Monoid' m)@.
+        --
+        -- In other words, the difference between 'cm_globalContext' and
+        -- 'cm_localContext' is that the former has the containing
+        -- typeclass in the context, but the latter does not.
+    , cm_type :: Type
+    , cm_descr :: Maybe DocText
+    } deriving (Eq, Show, Generic)
 
 -- | Documentation data for an ADT or type synonym
 data ADTDoc = ADTDoc
@@ -87,6 +158,7 @@ data ADTDoc = ADTDoc
   , ad_descr  :: Maybe DocText
   , ad_args   :: [Text] -- retain names of type var.s
   , ad_constrs :: [ADTConstr]  -- allowed to be empty
+  , ad_instances :: Maybe [InstanceDoc] -- relevant instances
   }
   | TypeSynDoc
   { ad_anchor :: Maybe Anchor
@@ -94,6 +166,7 @@ data ADTDoc = ADTDoc
   , ad_descr  :: Maybe DocText
   , ad_args   :: [Text] -- retain names of type var.s
   , ad_rhs    :: Type
+  , ad_instances :: Maybe [InstanceDoc] -- relevant instances
   }
   deriving (Eq, Show, Generic)
 
@@ -141,13 +214,26 @@ data FunctionDoc = FunctionDoc
   { fct_anchor :: Maybe Anchor
   , fct_name  :: Fieldname
   , fct_context :: Maybe Type
-  , fct_type  :: Maybe Type
+  , fct_type  :: Type
   , fct_descr :: Maybe DocText
   }
   deriving (Eq, Show, Generic)
 
+-- | Documentation on a typeclass instance.
+data InstanceDoc = InstanceDoc
+    { id_type :: Type
+    , id_context :: Maybe Type
+    , id_isOrphan :: Bool
+    } deriving (Eq, Ord, Show, Generic)
+
 -----------------------------------------------------
 -- generate JSON instances
+
+instance ToJSON Reference where
+    toJSON = genericToJSON aesonOptions
+
+instance FromJSON Reference where
+    parseJSON = genericParseJSON aesonOptions
 
 instance ToJSON Type where
     toJSON = genericToJSON aesonOptions
@@ -165,6 +251,12 @@ instance ToJSON ClassDoc where
     toJSON = genericToJSON aesonOptions
 
 instance FromJSON ClassDoc where
+    parseJSON = genericParseJSON aesonOptions
+
+instance ToJSON ClassMethodDoc where
+    toJSON = genericToJSON aesonOptions
+
+instance FromJSON ClassMethodDoc where
     parseJSON = genericParseJSON aesonOptions
 
 instance ToJSON FieldDoc where
@@ -195,6 +287,12 @@ instance ToJSON TemplateDoc where
     toJSON = genericToJSON aesonOptions
 
 instance FromJSON TemplateDoc where
+    parseJSON = genericParseJSON aesonOptions
+
+instance ToJSON InstanceDoc where
+    toJSON = genericToJSON aesonOptions
+
+instance FromJSON InstanceDoc where
     parseJSON = genericParseJSON aesonOptions
 
 instance ToJSON ModuleDoc where

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.platform.sandbox
@@ -6,9 +6,8 @@ package com.digitalasset.platform.sandbox
 import java.util.concurrent.atomic.AtomicBoolean
 
 import ch.qos.logback.classic.Level
-import org.slf4j.Logger
 import com.digitalasset.platform.sandbox.cli.Cli
-import org.slf4j.LoggerFactory
+import org.slf4j.{Logger, LoggerFactory}
 
 import scala.util.control.NonFatal
 
@@ -19,7 +18,7 @@ object SandboxMain extends App {
   Cli.parse(args).fold(sys.exit(1)) { config =>
     setGlobalLogLevel(config.logLevel)
 
-    val server = SandboxServer(config)
+    val server = new SandboxServer(config)
 
     val closed = new AtomicBoolean(false)
 
@@ -27,13 +26,20 @@ object SandboxMain extends App {
       if (closed.compareAndSet(false, true)) server.close()
     }
 
+    server.failure.foreach { exception =>
+      logger.error(
+        s"Shutting down Sandbox application due to an initialization error:\n${exception.getMessage}")
+      closeServer()
+      sys.exit(1)
+    }
+
     try {
       Runtime.getRuntime.addShutdownHook(new Thread(() => closeServer()))
     } catch {
-      case NonFatal(t) => {
-        logger.error("Shutting down Sandbox application because of initialization error", t)
+      case NonFatal(exception) =>
+        logger.error("Shutting down Sandbox application due to an initialization error.", exception)
         closeServer()
-      }
+        sys.exit(1)
     }
   }
 

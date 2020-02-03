@@ -1,8 +1,9 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.extractor.writers.postgresql
 
+import com.digitalasset.daml.lf.data.Numeric.maxPrecision
 import com.digitalasset.daml.lf.iface
 import com.digitalasset.daml.lf.iface.reader.InterfaceType
 import com.digitalasset.daml.lf.iface.Record
@@ -176,7 +177,7 @@ class MultiTableDataFormat(
         if (event.consuming)
           setContractArchived(
             table.withSchema,
-            event.contractCreatingEventId,
+            event.contractId,
             transaction.transactionId,
             event.eventId).update.run.void
         else
@@ -243,20 +244,21 @@ class MultiTableDataFormat(
   }
 
   private def mapSQLType(iType: FullyAppliedType): String = iType match {
+    case TypeNumeric(scale) => s"NUMERIC($maxPrecision, $scale)"
     case TypePrim(typ, _) =>
       typ match {
         case iface.PrimTypeParty => "TEXT"
         case iface.PrimTypeList => "JSONB"
         case iface.PrimTypeContractId => "TEXT"
         case iface.PrimTypeTimestamp => "TIMESTAMP"
-        case iface.PrimTypeDecimal => "NUMERIC(38, 10)"
         case iface.PrimTypeBool => "BOOLEAN"
         case iface.PrimTypeUnit => "SMALLINT"
         case iface.PrimTypeInt64 => "BIGINT"
         case iface.PrimTypeText => "TEXT"
         case iface.PrimTypeDate => "DATE"
         case iface.PrimTypeOptional => "JSONB"
-        case iface.PrimTypeMap => "JSONB"
+        case iface.PrimTypeTextMap => "JSONB"
+        case iface.PrimTypeGenMap => "JSONB"
       }
     case TypeCon(_, _, true) => "TEXT"
     case TypeCon(_, _, _) => "JSONB"

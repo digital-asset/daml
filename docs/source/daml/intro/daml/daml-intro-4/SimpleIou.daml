@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 daml 1.2
@@ -31,7 +31,7 @@ test_iou = scenario do
   charlie <- getParty "Charlie"
   dora <- getParty "Dora"
 
-  -- The bank issues an Iou for $100 to alice
+  -- The bank issues an Iou for $100 to Alice.
   iou <- submit dora do
     create SimpleIou with
       issuer = dora
@@ -40,12 +40,12 @@ test_iou = scenario do
         amount = 100.0
         currency = "USD"
 
-  -- Alice transfers it to Bob
+  -- Alice transfers it to Bob.
   iou2 <- submit alice do
     exercise iou Transfer with
       newOwner = bob
 
-  -- Bob transfers it to Charlie
+  -- Bob transfers it to Charlie.
   submit bob do
     exercise iou2 Transfer with
       newOwner = charlie

@@ -42,7 +42,7 @@ in rec {
     m4              = pkgs.m4;
 
     thrift          = pkgs.thrift;
-    protoc          = bazel_dependencies.protobuf3_5;
+    protoc          = bazel_dependencies.protobuf3_8;
 
     # Haskell development
     ghcStatic       = bazel_dependencies.ghcStatic;
@@ -71,11 +71,10 @@ in rec {
     jstack = jdk;
     jar    = jdk;
 
-    bazel-deps = pkgs.callPackage ./tools/bazel-deps {};
     # The package itself is called bazel-watcher. However, the executable is
     # called ibazel. We call the attribute ibazel so that the default dev-env
     # wrapper works.
-    ibazel = pkgs.callPackage ./tools/bazel-watcher {};
+    ibazel = pkgs.bazel-watcher;
 
     scala = (bazel_dependencies.scala.override { jre = jdk; }).overrideAttrs (attrs: {
       buildInputs = attrs.buildInputs ++ [ pkgs.makeWrapper ];
@@ -98,12 +97,10 @@ in rec {
     scalafmt = pkgs.callPackage ./overrides/scalafmt.nix { jre = jdk; };
     dependency-check = (pkgs.callPackage ./tools/dependency-check { });
 
-    gradle = pkgs.gradle;
-
     # Nix development
     cabal2nix = pkgs.cabal2nix;
 
-    pypi2nix  = pkgs.pypi2nix.override { pythonPackages = pkgs.python37Packages; };
+    pypi2nix  = pkgs.pypi2nix;
 
     # Web development
     node        = bazel_dependencies.nodejs;
@@ -125,12 +122,10 @@ in rec {
     license-checker =
       (import ./tools/license-checker { inherit pkgs; nodejs = tools.node; }).license-checker;
 
-    # This override is necessary to be able to run automated UI tests with Selenium 3.12.0
-    # The override can be removed when nixpkgs snapshot moved past the commit of 6b91b0d09f582f308a8ad4de526df494ff363622
-    chromedriver = pkgs.callPackage ./tools/chromedriver/default.nix {};
+    chromedriver = pkgs.chromedriver;
 
     # Python development
-    pip3        = python37;
+    pip3        = pkgs.python37Packages.pip;
     python      = python37;
     python3     = python37;
     python37    = pkgs.python37Packages.python;
@@ -138,11 +133,11 @@ in rec {
     flake8 = pkgs.python37Packages.flake8;
     yapf = pkgs.python37Packages.yapf;
 
-    # Pex packaging has been submitted upsteam as
-    # https://github.com/NixOS/nixpkgs/pull/45497.
-    # However, this one is for a newer version
-    pex = pkgs.callPackage ./tools/pex {};
-    pipenv = pkgs.pipenv;
+    pex = pkgs.python37Packages.pex;
+    pipenv = import ./tools/pipenv {
+      lib = pkgs.stdenv.lib;
+      python3 = python3;
+    };
 
     sphinx            = pkgs.python37.withPackages (ps: [ps.sphinx ps.sphinx_rtd_theme]);
     sphinx-build      = sphinx;
@@ -164,8 +159,6 @@ in rec {
 
     convert = bazel_dependencies.imagemagick;
 
-    # The sass derivation in nixos-18.09 is broken, so we add our own
-    # created with bundix.
     sass = bazel_dependencies.sass;
 
     graphviz  = pkgs.graphviz_2_32;
@@ -246,7 +239,9 @@ in rec {
     gsutil = gcloud;
     # used to set up the webide CI pipeline in azure-cron.yml
     docker-credential-gcr = pkgs.docker-credential-gcr;
-    terraform = pkgs.terraform.withPlugins (p: with p; [
+    # Note: we need to pin Terraform to 0.11 until nixpkgs includes a version
+    # of the secret provider that is compatiblz with Terraform 0.12 (1.1.0+)
+    terraform = pkgs.terraform_0_11.withPlugins (p: with p; [
       google
       google-beta
       random
@@ -258,12 +253,7 @@ in rec {
 
   # Set of packages that we want Hydra to build for us
   cached = bazel_dependencies // {
-    # Python packages used via 'python3.6-da'.
-    pythonPackages = {
-      inherit (pkgs.python37Packages)
-        pyyaml semver GitPython;
-    };
-    # Packages used in command-line tools, e.g. `dade-info`.
+    # Packages used in command-line tools
     cli-tools = {
       inherit (pkgs) coreutils nix-info getopt;
     };

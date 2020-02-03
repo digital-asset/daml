@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.navigator.console.commands
@@ -15,7 +15,6 @@ import akka.util.Timeout
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
-import scala.io.Source
 import scala.util.Try
 
 @SuppressWarnings(Array("org.wartremover.warts.Option2Iterable"))
@@ -129,10 +128,6 @@ case object Info extends SimpleCommand {
   }
 
   def getBanner(state: State): String = {
-    val banner = Source
-      .fromResource("banner.txt")
-      .getLines
-      .toList
-    banner.mkString("\n") + s"\nVersion ${state.applicationInfo.version} commit ${state.applicationInfo.revision}"
+    s"Navigator version: ${state.applicationInfo.version}"
   }
 }

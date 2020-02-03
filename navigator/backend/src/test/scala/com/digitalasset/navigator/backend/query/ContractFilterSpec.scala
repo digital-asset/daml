@@ -1,13 +1,15 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.navigator.query
 
 import com.digitalasset.daml.lf.data.{Ref => DamlLfRef}
+import com.digitalasset.daml.lf.value.Value.{ValueText, ValueInt64}
 import com.digitalasset.navigator.graphql.GraphQLSchema
 import com.digitalasset.navigator.model.{Contract, Template}
 import com.digitalasset.ledger.api.refinements.ApiTypes
 import org.scalatest.{FlatSpec, Matchers}
+import com.digitalasset.navigator.DamlConstants.singletonRecord
 import com.digitalasset.navigator.model._
 import scalaz.syntax.tag._
 
@@ -75,7 +77,7 @@ class ContractFilterSpec extends FlatSpec with Matchers {
   val contract1 = Contract(
     ApiTypes.ContractId("id1"),
     template1,
-    ApiRecord(None, List(ApiRecordField("foo", ApiText("bar")))),
+    singletonRecord("foo", ValueText("bar")),
     None,
     List(alice),
     List(bob, charlie),
@@ -83,16 +85,16 @@ class ContractFilterSpec extends FlatSpec with Matchers {
   val contract2 = Contract(
     ApiTypes.ContractId("id2"),
     template2,
-    ApiRecord(None, List(ApiRecordField("int", ApiInt64(12)))),
+    singletonRecord("int", ValueInt64(12)),
     Some(""),
     List(alice),
     List(bob, charlie),
-    Some(ApiRecord(None, List(ApiRecordField("foo", ApiText("bar")))))
+    Some(singletonRecord("foo", ValueText("bar")))
   )
   val contract3 = Contract(
     ApiTypes.ContractId("id3"),
     template1,
-    ApiRecord(None, List(ApiRecordField("foo", ApiText("bar")))),
+    singletonRecord("foo", ValueText("bar")),
     Some("agreement"),
     List(alice),
     List(bob, charlie),

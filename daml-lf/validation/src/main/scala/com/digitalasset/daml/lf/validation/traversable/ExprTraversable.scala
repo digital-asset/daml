@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.validation
@@ -12,8 +12,8 @@ private[validation] object ExprTraversable {
 
   private[traversable] def foreach[U](x: Expr, f: Expr => U): Unit = {
     x match {
-      case EVar(_) | EBuiltin(_) | EPrimCon(_) | EPrimLit(_) | EVal(_) | EContractId(_, _) |
-          EEnumCon(_, _) =>
+      case EVar(_) | EBuiltin(_) | EPrimCon(_) | EPrimLit(_) | EVal(_) | EEnumCon(_, _) | ETypeRep(
+            _) =>
       case ELocation(_, expr) =>
         f(expr)
       case ERecCon(tycon @ _, fields) =>
@@ -25,12 +25,12 @@ private[validation] object ExprTraversable {
         f(update)
       case EVariantCon(tycon @ _, variant @ _, arg) =>
         f(arg)
-      case ETupleCon(fields) =>
+      case EStructCon(fields) =>
         fields.values.foreach(f)
-      case ETupleProj(field @ _, tuple) =>
-        f(tuple)
-      case ETupleUpd(field @ _, tuple, update) =>
-        f(tuple)
+      case EStructProj(field @ _, struct) =>
+        f(struct)
+      case EStructUpd(field @ _, struct, update) =>
+        f(struct)
         f(update)
       case EApp(fun, arg) =>
         f(fun)
@@ -57,6 +57,10 @@ private[validation] object ExprTraversable {
         foreach(scenario, f)
       case ENone(typ @ _) =>
       case ESome(typ @ _, body) =>
+        f(body)
+      case EToAny(ty @ _, body) =>
+        f(body)
+      case EFromAny(ty @ _, body) =>
         f(body)
     }
     ()
@@ -114,6 +118,7 @@ private[validation] object ExprTraversable {
 
   private[traversable] def foreach[U](x: Definition, f: Expr => U): Unit =
     x match {
+      case DTypeSyn(params @ _, typ @ _) =>
       case DDataType(serializable @ _, params @ _, DataRecord(fields @ _, template)) =>
         template.foreach(foreach(_, f))
       case DDataType(serializable @ _, params @ _, DataVariant(variants @ _)) =>

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.platform.server.services.transaction
@@ -51,20 +51,18 @@ object TransactionFiltration {
       val inheritedWitnessesByNode =
         mutable.Map.empty[Nid, immutable.Set[Party]].withDefaultValue(Set.empty)
 
-      transaction.foreach(
-        GenTransaction.TopDown, { (nodeId, node) =>
-          templateId(node).foreach { tpl =>
-            val requestingParties = partiesByTemplate(tpl)
-            val inheritedWitnesses = inheritedWitnessesByNode(nodeId)
-            val explicitWitnesses = explicitWitnessesForNode(node)
-            val allWitnesses = inheritedWitnesses union explicitWitnesses
-            val requestingWitnesses = requestingParties intersect allWitnesses
+      transaction.foreach { (nodeId, node) =>
+        templateId(node).foreach { tpl =>
+          val requestingParties = partiesByTemplate(tpl)
+          val inheritedWitnesses = inheritedWitnessesByNode(nodeId)
+          val explicitWitnesses = explicitWitnessesForNode(node)
+          val allWitnesses = inheritedWitnesses union explicitWitnesses
+          val requestingWitnesses = requestingParties intersect allWitnesses
 
-            filteredPartiesByNode += ((nodeId, requestingWitnesses))
-            inheritedWitnessesByNode ++= children(node).map(_ -> allWitnesses)
-          }
+          filteredPartiesByNode += ((nodeId, requestingWitnesses))
+          inheritedWitnessesByNode ++= children(node).map(_ -> allWitnesses)
         }
-      )
+      }
 
       // We currently allow composite commands without any actual commands and
       // emit empty flat transactions. To be consistent with that behavior,

@@ -1,0 +1,65 @@
+# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//rules_daml:daml.bzl", "daml_compile")
+load("@sdk_version//:sdk_version.bzl", "sdk_version")
+load("@os_info//:os_info.bzl", "is_windows")
+
+# This rule builds a dar from the daml sources under the 'daml'
+# directory. It is referenced from the 'build-and-lint' test that
+# follows.
+daml_compile(
+    name = "daml2ts-test",
+    srcs = glob(["daml/**/*.daml"]),
+    main_src = "daml/Main.daml",
+)
+
+# The 'build-and-lint' (test) target:
+#  - Causes 'daml2ts-test.dar' to be produced (from the sources under 'ts/daml');
+#  - Invokes 'daml2ts' on that dar to produce typescript bindings in' ts/generated/src/daml';
+#  - Invokes 'yarn install' in 'ts' to install dependencies;
+#  - Invokes 'yarn build' then 'yarn lint' on each of the '@daml/types', '@daml/ledger' and 'generated' packages;
+#  - Invokes 'yarn test' from the 'ts/generated' directory.
+# That last step causes 'ts/generated/src/tests/__tests__/test.ts' to be executed which:
+#  - Spins up a sandbox running the 'daml2ts-test.dar';
+#  - Spins up a http-json-api connected to the sandbox;
+#  - Evaluates assertions of http-json-api specified ledger operations involving contracts defined by the dar;
+#  - Gracefully tears down the processes it started when its work is done.
+# All in all, a pretty slick bit of work!
+sh_test(
+    name = "build-and-lint",
+    srcs = ["build-and-lint.sh"],
+    args = [
+        "$(location //:java)",
+        "$(location //:yarn)",
+        "$(location //:daml2ts)",
+        "$(location //ledger/sandbox:sandbox-binary_deploy.jar)",
+        "$(location //ledger-service/http-json:http-json-binary_deploy.jar)",
+        "$(location :daml2ts-test.dar)",
+        "$(location ts/package.json)",
+        "$(location //language-support/ts/daml-types:npm_package)",
+        "$(location //language-support/ts/daml-ledger:npm_package)",
+        sdk_version,
+    ],
+    data = [
+        "//:java",
+        "//:yarn",
+        "//:daml2ts",
+        "//ledger/sandbox:sandbox-binary_deploy.jar",
+        "//ledger-service/http-json:http-json-binary_deploy.jar",
+        ":daml2ts-test.dar",
+        "//language-support/ts/daml-types:npm_package",
+        "//language-support/ts/daml-ledger:npm_package",
+        "//:VERSION",
+    ] + glob(
+        ["ts/**"],
+        exclude = [
+            "ts/**/node_modules/**",
+            "ts/**/lib/**",
+            "ts/generated/src/daml/**",
+        ],
+    ),
+    deps = [
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+) if not is_windows else None

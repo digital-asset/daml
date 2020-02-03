@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.platform.sandbox.services.transaction
@@ -9,13 +9,9 @@ import com.digitalasset.daml.lf.value.Value.ValueRecord
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.Event.{ArchivedEvent, CreateOrArchiveEvent, CreatedEvent}
 import com.digitalasset.ledger.api.domain.{Filters, InclusiveFilters, TransactionFilter}
-import com.digitalasset.ledger.api.validation.TransactionFilterValidator
 import com.digitalasset.platform.participant.util.EventFilter
-import com.digitalasset.platform.server.api.validation.IdentifierResolver
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{Matchers, OptionValues, WordSpec}
-
-import scala.concurrent.Future
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class EventFilterSpec extends WordSpec with Matchers with ScalaFutures with OptionValues {
@@ -40,18 +36,16 @@ class EventFilterSpec extends WordSpec with Matchers with ScalaFutures with Opti
       Ref.PackageId.assertFromString(pkgId),
       QualifiedName(Ref.ModuleName.assertFromString(mod), Ref.DottedName.assertFromString(ent)))
 
-  private val filterValidator = new TransactionFilterValidator(
-    IdentifierResolver(_ => Future.successful(None)))
-
   private val mapping = Map(
     party1 -> getFilter(Seq(module1 -> template1)),
     party2 -> getFilter(Seq(module1 -> template1, module2 -> template2))
   )
 
   private val filter = (event: CreateOrArchiveEvent) =>
-    EventFilter
-      .TemplateAwareFilter(TransactionFilter(mapping))
-      .filterCreateOrArchiveWitnesses(event)
+    EventFilter.filterCreateOrArchiveWitnesses(
+      EventFilter
+        .TemplateAwareFilter(TransactionFilter(mapping)),
+      event)
 
   def getFilter(templateIds: Seq[(String, String)]) =
     Filters(InclusiveFilters(templateIds.map {

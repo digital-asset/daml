@@ -1,10 +1,17 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2020 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_test")
-load("//rules_daml:daml.bzl", "daml_compile")
+load("//rules_daml:daml.bzl", "daml_doc_test")
 load("@os_info//:os_info.bzl", "is_windows")
 load("//bazel_tools/packaging:packaging.bzl", "package_app")
+
+# This is a gross hack: ghc-pkg is linked dynamically so to distribute
+# it we have to throw it at package_app. However, the result of that
+# is a tarball so if we try to add that to resources `bazel run` is
+# not going to work. We thus use the dynamically linked executable in the runfiles of damlc
+# and the tarball produced by package_app in the resources of damlc-dist.
+ghc_pkg = "@rules_haskell_ghc_windows_amd64//:bin/ghc-pkg.exe" if is_windows else "@ghc_nix//:lib/ghc-8.6.5/bin/ghc-pkg"
 
 da_haskell_binary(
     name = "damlc",
@@ -17,18 +24,34 @@ da_haskell_binary(
         "-optl-pthread",
     ] if is_windows else [],
     data = [
-        "//compiler/damlc/daml-ide-core:hlint.yaml",
+        "//compiler/damlc/daml-ide-core:dlint.yaml",
+        "@static_asset_d3plus//:js/d3.min.js",
+        "@static_asset_d3plus//:js/d3plus.min.js",
+        ghc_pkg,
+        "//compiler/damlc:ghcversion",
         "//compiler/damlc/pkg-db",
+        "//compiler/damlc/stable-packages",
         "//compiler/scenario-service/server:scenario_service_jar",
     ],
-    hazel_deps = [
+    hackage_deps = [
         "base",
     ],
-    src_strip_prefix = "src",
+    src_strip_prefix = "exe",
     visibility = ["//visibility:public"],
     deps = [
         ":damlc-lib",
     ],
+)
+
+genrule(
+    name = "ghcversion",
+    srcs = [],
+    outs = ["ghcversion.h"],
+    cmd = """
+        echo > $(OUTS)
+    """,
+    tools = [],
+    visibility = ["__pkg__"],
 )
 
 # damlc without runfiles. We use that to build the daml-prim and daml-stdlib
@@ -43,10 +66,14 @@ da_haskell_binary(
         "-optl-static",
         "-optl-pthread",
     ] if is_windows else [],
-    hazel_deps = [
+    data = [
+        "//compiler/damlc:ghcversion",
+        "//compiler/damlc/stable-packages",
+    ],
+    hackage_deps = [
         "base",
     ],
-    src_strip_prefix = "src",
+    src_strip_prefix = "exe",
     visibility = ["//visibility:public"],
     deps = [
         ":damlc-lib",
@@ -58,9 +85,12 @@ package_app(
     binary = ":damlc",
     resources = [
         ":ghc-pkg-dist",
-        "//compiler/damlc/daml-ide-core:hlint.yaml",
+        "//compiler/damlc/daml-ide-core:dlint.yaml",
         "//compiler/damlc/pkg-db",
+        "//compiler/damlc/stable-packages",
         "//compiler/scenario-service/server:scenario_service_jar",
+        "@static_asset_d3plus//:js/d3.min.js",
+        "@static_asset_d3plus//:js/d3plus.min.js",
     ],
     tags = ["no-cache"],
     visibility = ["//visibility:public"],
@@ -73,7 +103,7 @@ package_app(
     # bin/ghc-pkg is actually a wrapper script on Unix systems so it is
     # important that we use lib/ghc-$VERSION/bin/ghc-pkg instead which is the
     # actual executable.
-    binary = "@io_tweag_rules_haskell_ghc_windows_amd64//:bin/ghc-pkg.exe" if is_windows else "@ghc_nix//:lib/ghc-8.6.5/bin/ghc-pkg",
+    binary = "@rules_haskell_ghc_windows_amd64//:bin/ghc-pkg.exe" if is_windows else "@ghc_nix//:lib/ghc-8.6.5/bin/ghc-pkg",
     visibility = ["//visibility:public"],
 )
 
@@ -83,7 +113,8 @@ da_haskell_library(
     extra_srcs = [
         "//compiler/daml-licenses/licenses:licensing.md",
     ],
-    hazel_deps = [
+    hackage_deps = [
+        "data-default",
         "aeson-pretty",
         "aeson",
         "ansi-wl-pprint",
@@ -97,8 +128,10 @@ da_haskell_library(
         "filepath",
         "ghc-lib",
         "ghc-lib-parser",
+        "ghcide",
         "gitrev",
         "haskell-lsp",
+        "haskell-lsp-types",
         "lens-aeson",
         "lens",
         "memory",
@@ -117,13 +150,17 @@ da_haskell_library(
         "tasty",
         "temporary",
         "text",
+        "transformers",
+        "utf8-string",
         "vector",
         "xml",
         "yaml",
+        "zip",
         "zip-archive",
         "unordered-containers",
         "uniplate",
-    ],
+    ] + ([] if is_windows else ["unix"]),
+    src_strip_prefix = "lib",
     visibility = ["//visibility:public"],
     deps = [
         "//:sdk-version-hs-lib",
@@ -137,11 +174,11 @@ da_haskell_library(
         "//compiler/damlc/daml-ide-core",
         "//compiler/damlc/daml-opts",
         "//compiler/damlc/daml-opts:daml-opts-types",
-        "//compiler/hie-core",
+        "//compiler/damlc/daml-visual",
         "//compiler/scenario-service/client",
         "//compiler/scenario-service/protos:scenario_service_haskell_proto",
         "//daml-assistant:daml-project-config",
-        "//daml-lf/archive:daml_lf_haskell_proto",
+        "//daml-lf/archive:daml_lf_dev_archive_haskell_proto",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
     ],
@@ -159,14 +196,20 @@ filegroup(
 )
 
 filegroup(
-    name = "daml-base-hoogle-prefix",
-    srcs = ["base-hoogle-prefix.txt"],
+    name = "daml-base-hoogle-template",
+    srcs = ["base-hoogle-template.txt"],
     visibility = ["__pkg__"],
 )
 
 filegroup(
-    name = "daml-base-rst-prefix",
-    srcs = ["base-rst-prefix.rst"],
+    name = "daml-base-rst-template",
+    srcs = ["base-rst-template.rst"],
+    visibility = ["__pkg__"],
+)
+
+filegroup(
+    name = "daml-base-md-template",
+    srcs = ["base-md-template.md"],
     visibility = ["__pkg__"],
 )
 
@@ -179,9 +222,13 @@ genrule(
             --output=$(OUTS) \
             --package-name=daml-prim \
             --format=Json \
+            --cpp $(location @hpp//:hpp) \
             $(locations //compiler/damlc/daml-prim-src)
     """,
-    tools = ["//compiler/damlc"],
+    tools = [
+        "//compiler/damlc",
+        "@hpp",
+    ],
     visibility = ["//visibility:public"],
 )
 
@@ -194,9 +241,13 @@ genrule(
             --output=$(OUTS) \
             --package-name=daml-stdlib \
             --format=Json \
+            --cpp $(location @hpp//:hpp) \
             $(locations //compiler/damlc/daml-stdlib-src)
     """,
-    tools = ["//compiler/damlc"],
+    tools = [
+        "//compiler/damlc",
+        "@hpp",
+    ],
     visibility = ["//visibility:public"],
 )
 
@@ -205,7 +256,7 @@ genrule(
     srcs = [
         ":daml-prim.json",
         ":daml-stdlib.json",
-        ":daml-base-hoogle-prefix",
+        ":daml-base-hoogle-template",
     ],
     outs = ["daml-base-hoogle.txt"],
     cmd = """
@@ -213,7 +264,9 @@ genrule(
             --output=$(OUTS) \
             --input-format=json \
             --format=Hoogle \
-            --prefix=$(location :daml-base-hoogle-prefix) \
+            --exclude-instances=HasField \
+            --drop-orphan-instances \
+            --template=$(location :daml-base-hoogle-template) \
             $(location :daml-stdlib.json) $(location :daml-prim.json)
     """,
     tools = ["//compiler/damlc"],
@@ -225,17 +278,71 @@ genrule(
     srcs = [
         ":daml-prim.json",
         ":daml-stdlib.json",
-        ":daml-base-rst-prefix",
+        ":daml-base-rst-template",
     ],
     outs = ["daml-base.rst"],
     cmd = """
         $(location //compiler/damlc) -- docs \
+            --combine \
             --output=$(OUTS) \
             --input-format=json \
             --format=Rst \
-            --prefix=$(location :daml-base-rst-prefix) \
+            --exclude-instances=HasField \
+            --drop-orphan-instances \
+            --template=$(location :daml-base-rst-template) \
             $(location :daml-stdlib.json) $(location :daml-prim.json)
     """,
     tools = ["//compiler/damlc"],
     visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "daml-base-md-docs",
+    srcs = [
+        ":daml-prim.json",
+        ":daml-stdlib.json",
+        ":daml-base-md-template",
+    ],
+    outs = ["daml-base.md"],
+    cmd = """
+        $(location //compiler/damlc) -- docs \
+            --combine \
+            --output=$(OUTS) \
+            --input-format=json \
+            --format=Markdown \
+            --template=$(location :daml-base-md-template) \
+            $(location :daml-stdlib.json) $(location :daml-prim.json)
+    """,
+    tools = ["//compiler/damlc"],
+    visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "daml-base-html-docs",
+    srcs = [
+        ":daml-prim.json",
+        ":daml-stdlib.json",
+    ],
+    outs = ["daml-base-html.tar.gz"],
+    cmd = """
+        $(location //compiler/damlc) -- docs \
+            --output=daml-base-html \
+            --input-format=json \
+            --format=Html \
+            $(location :daml-stdlib.json) $(location :daml-prim.json)
+        tar czf $(OUTS) daml-base-html
+    """,
+    tools = ["//compiler/damlc"],
+    visibility = ["//visibility:public"],
+)
+
+daml_doc_test(
+    name = "daml-stdlib-doctest",
+    package_name = "daml-stdlib",
+    srcs = ["//compiler/damlc/daml-stdlib-src"],
+    flags = ["--no-dflags-check"],
+    ignored_srcs = [
+        "LibraryModules.daml",
+        "DA/Time/Types.daml",
+    ],
 )

@@ -1,35 +1,41 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.navigator
 
-import java.nio.file.{Path, Paths}
+import java.nio.file.{Files, Path, Paths}
 import java.util.UUID
+import java.util.concurrent.TimeUnit
+import java.util.stream.Collectors
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.StatusCodes._
-import akka.http.scaladsl.model.headers.{Cookie, EntityTag, HttpCookie, `Cache-Control`}
-import akka.http.scaladsl.model.headers.CacheDirectives.{`max-age`, `no-cache`, immutableDirective}
 import akka.http.scaladsl.model.HttpHeader
+import akka.http.scaladsl.model.StatusCodes._
+import akka.http.scaladsl.model.headers.CacheDirectives.{`max-age`, `no-cache`, immutableDirective}
+import akka.http.scaladsl.model.headers.{Cookie, EntityTag, HttpCookie, `Cache-Control`}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.settings.RoutingSettings
-import akka.stream.ActorMaterializer
+import akka.pattern.ask
+import akka.stream.Materializer
+import akka.util.Timeout
+import com.digitalasset.grpc.GrpcException
 import com.digitalasset.navigator.SessionJsonProtocol._
 import com.digitalasset.navigator.config._
 import com.digitalasset.navigator.graphql.GraphQLContext
 import com.digitalasset.navigator.graphqless.GraphQLObject
 import com.digitalasset.navigator.model.{Ledger, PackageRegistry}
-import com.digitalasset.navigator.store.Store.Subscribe
+import com.digitalasset.navigator.store.Store._
 import com.digitalasset.navigator.store.platform.PlatformStore
 import com.typesafe.scalalogging.LazyLogging
 import org.slf4j.LoggerFactory
 import sangria.schema._
 import spray.json._
 
-import scala.concurrent.{Await, ExecutionContext}
 import scala.concurrent.duration._
+import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
 /**
@@ -38,11 +44,7 @@ import scala.util.{Failure, Success, Try}
   * A new UI backend can be implemented by extending [[UIBackend]] and by providing
   * the [[customEndpoints]], [[customRoutes]], [[applicationInfo]] definitions.
   */
-@SuppressWarnings(
-  Array(
-    "org.wartremover.warts.Any",
-    "org.wartremover.warts.ExplicitImplicitTypes",
-    "org.wartremover.warts.Option2Iterable"))
+@SuppressWarnings(Array("org.wartremover.warts.Any", "org.wartremover.warts.Option2Iterable"))
 abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
 
   def customEndpoints: Set[CustomEndpoint[_]]
@@ -62,7 +64,8 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
       arguments: Arguments,
       config: Config,
       graphQL: GraphQLHandler,
-      info: InfoHandler): Route = {
+      info: InfoHandler,
+      getAppState: () => Future[ApplicationStateInfo]): Route = {
 
     def openSession(userId: String, userConfig: UserConfig): Route = {
       val sessionId = UUID.randomUUID().toString
@@ -81,26 +84,16 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
         None
     }
 
-    def signIn: SignIn =
-      SignIn(
-        if (arguments.requirePassword) SignInPassword else SignInSelect(config.users.keySet),
-        invalidCredentials = false)
-
-    def invalidCredentials: SignIn =
-      SignIn(
-        if (arguments.requirePassword) SignInPassword else SignInSelect(config.users.keySet),
-        invalidCredentials = true)
+    def signIn(error: Option[SignInError] = None): SignIn =
+      SignIn(SignInSelect(config.users.keySet), error)
 
     // A resource with content that may change.
     // Users can quickly switch between Navigator versions, so we don't want to cache this resource for any amount of time.
     // Note: The server still uses E-Tags, so repeated fetches will complete with a "304: Not Modified".
     def mutableResource = respondWithHeader(`Cache-Control`(`no-cache`))
-    // Add an ETag with value equal to the revision used to build the application.
+    // Add an ETag with value equal to the version used to build the application.
     // Use as a cheap ETag for resources that may change between builds.
-    def revisionETag = conditional(EntityTag(applicationInfo.revision))
-    // Add an ETag with value equal to ID of this application instance.
-    // Use as a cheap ETag for resources that may change between application instances.
-    def applicationIdETag = conditional(EntityTag(applicationInfo.id))
+    def versionETag = conditional(EntityTag(applicationInfo.version))
     // A resource that is never going to change. Its path must use some kind of content hash.
     // Such a resource may be cached indefinitely.
     def immutableResource =
@@ -119,44 +112,37 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
             } ~
               path("session"./) {
                 get {
-                  session match {
-                    case Some((_, session)) => complete(session)
-                    case None => complete(signIn)
+                  complete {
+                    session match {
+                      case Some((_, session)) => session
+                      case None => signIn()
+                    }
                   }
                 } ~
                   post {
                     entity(as[LoginRequest]) { request =>
-                      if (arguments.requirePassword) {
-                        request.maybePassword match {
-                          case None =>
-                            logger.error(
-                              s"Attempt to signin with user ${request.userId} without password")
-                            complete(invalidCredentials)
-                          case Some(password) =>
-                            config.users.get(request.userId) match {
-                              case None =>
-                                logger.error(
-                                  s"Attempt to signin with non-existent user ${request.userId}")
-                                complete(invalidCredentials)
-                              case Some(userConfig)
-                                  if userConfig.password == None || userConfig.password.contains(
-                                    password) =>
-                                openSession(request.userId, userConfig)
-                              case Some(_) =>
-                                logger.error(
-                                  s"Attempt to signin with user ${request.userId} and wrong password")
-                                complete(invalidCredentials)
-                            }
-                        }
-                      } else {
-                        config.users.get(request.userId) match {
-                          case None =>
-                            logger.error(
-                              s"Attept to signin with non-existent user ${request.userId}")
-                            complete(invalidCredentials)
-                          case Some(userConfig) =>
-                            openSession(request.userId, userConfig)
-                        }
+                      config.users.get(request.userId) match {
+                        case None =>
+                          logger.error(
+                            s"Attempt to signin with non-existent user ${request.userId}")
+                          complete(signIn(Some(InvalidCredentials)))
+                        case Some(userConfig) =>
+                          onSuccess(getAppState()) {
+                            case ApplicationStateFailed(
+                                _,
+                                _,
+                                _,
+                                _,
+                                GrpcException.PERMISSION_DENIED()) =>
+                              logger.warn("Attempt to sign in without valid token")
+                              complete(signIn(Some(InvalidCredentials)))
+                            case _: ApplicationStateFailed =>
+                              complete(signIn(Some(Unknown)))
+                            case _: ApplicationStateConnecting =>
+                              complete(signIn(Some(NotConnected)))
+                            case _ =>
+                              openSession(request.userId, userConfig)
+                          }
                       }
                     }
                   } ~
@@ -169,7 +155,7 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
                         case None =>
                           logger.error("Cannot delete session without session-id, cookie not found")
                       }
-                      complete(signIn)
+                      complete(signIn())
                     }
                   }
               } ~
@@ -178,7 +164,7 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
               } ~
               path("graphql") {
                 get {
-                  revisionETag { mutableResource { getFromResource("graphiql.html") } }
+                  versionETag { mutableResource { getFromResource("graphiql.html") } }
                 } ~
                   post {
                     authorize(session.isDefined) {
@@ -205,7 +191,7 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
               } ~
                 // Serve index on root and anything else to allow History API to behave
                 // as expected on reloading.
-                revisionETag {
+                versionETag {
                   mutableResource { withoutFileETag { getFromResource("frontend/index.html") } }
                 }
             case Some(folder) =>
@@ -224,29 +210,46 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
 
   private[navigator] def runServer(arguments: Arguments, config: Config): Unit = {
 
-    banner.foreach(b => scala.Console.out.println(b))
+    banner.foreach(println)
 
-    implicit val system = ActorSystem("da-ui-backend")
-    implicit val materializer = ActorMaterializer()
+    implicit val system: ActorSystem = ActorSystem("da-ui-backend")
+    implicit val materializer: Materializer = Materializer(system)
 
     import system.dispatcher
 
+    // Read from the access token file or crash
+    val token =
+      arguments.accessTokenFile.map { path =>
+        try {
+          Files.readAllLines(path).stream.collect(Collectors.joining("\n"))
+        } catch {
+          case NonFatal(e) =>
+            throw new RuntimeException(s"Unable to read the access token from $path", e)
+        }
+      }
+
     val store = system.actorOf(
       PlatformStore.props(
-        arguments.platformIp,
-        arguments.platformPort,
+        arguments.participantHost,
+        arguments.participantPort,
         arguments.tlsConfig,
+        token,
         arguments.time,
         applicationInfo,
-        arguments.ledgerInboundMessageSizeMax))
+        arguments.ledgerInboundMessageSizeMax
+      ))
     config.parties.foreach(store ! Subscribe(_))
 
     def graphQL: GraphQLHandler = DefaultGraphQLHandler(customEndpoints, Some(store))
     def info: InfoHandler = DefaultInfoHandler(arguments, store)
+    val getAppState: () => Future[ApplicationStateInfo] = () => {
+      implicit val actorTimeout: Timeout = Timeout(5, TimeUnit.SECONDS)
+      (store ? GetApplicationStateInfo).mapTo[ApplicationStateInfo]
+    }
 
     val stopServer = if (arguments.startWebServer) {
       val binding = Http().bindAndHandle(
-        getRoute(system, arguments, config, graphQL, info),
+        getRoute(system, arguments, config, graphQL, info, getAppState),
         "0.0.0.0",
         arguments.port)
       logger.info(s"DA UI backend server listening on port ${arguments.port}")
@@ -279,7 +282,8 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
     Arguments.parse(rawArgs, defaultConfigFile) foreach run
 
   private def run(args: Arguments): Unit = {
-    val navigatorConfigFile = args.configFile.getOrElse(defaultConfigFile)
+    val navigatorConfigFile =
+      args.configFile.fold[ConfigOption](DefaultConfig(defaultConfigFile))(ExplicitConfig(_))
 
     args.command match {
       case ShowUsage =>
@@ -287,11 +291,12 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
       case DumpGraphQLSchema =>
         dumpGraphQLSchema()
       case CreateConfig =>
-        userFacingLogger.info(s"Creating a configuration template file at $navigatorConfigFile")
-        Config.writeTemplateToPath(navigatorConfigFile, args.useDatabase)
+        userFacingLogger.info(
+          s"Creating a configuration template file at ${navigatorConfigFile.path.toAbsolutePath()}")
+        Config.writeTemplateToPath(navigatorConfigFile.path, args.useDatabase)
       case RunServer =>
         Config.load(navigatorConfigFile, args.useDatabase) match {
-          case Left(ConfigNotFound(message)) =>
+          case Left(ConfigNotFound(_)) =>
             val message =
               s"""No configuration file found!
                  |Please specify a configuration file and restart ${applicationInfo.name}.

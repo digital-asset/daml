@@ -1,10 +1,10 @@
-.. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2020 The DAML Authors. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 DAML-LF Transaction Specification
 =================================
 
-**version 8, 26 June 2019**
+**version 9, 13 January 2020**
 
 This specification, in concert with the ``transaction.proto``
 machine-readable definition, defines a format for _transactions_, to be
@@ -161,6 +161,8 @@ This table lists every version of this specification in ascending order
 +--------------------+-----------------+
 |                  8 |      2019-06-26 |
 +--------------------+-----------------+
+|                  9 |      2020-01-13 |
++--------------------+-----------------+
 
 message Transaction
 ^^^^^^^^^^^^^^^^^^^
@@ -188,6 +190,8 @@ in same list, and consumers must reject values with such unknown
 versions.
 
 ``roots`` is constrained as described under `field node_id`_.
+
+The node of the tree appears in pre-order traversal in ``nodes``
 
 message ContractInstance
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -281,6 +285,9 @@ In this version, these fields are included:
 ``key`` is required.
 
 ``maintainers`` must be non-empty.
+
+The key may not contain contract IDs.
+
 
 message NodeCreate
 ^^^^^^^^^^^^^^^^^^
@@ -451,7 +458,8 @@ definition referred to by ``template_id``.
 ``children`` is constrained as described under `field node_id`_.  Every
 node referred to as one of ``children`` is another update to the ledger
 taken as part of this transaction and as a consequence of exercising
-this choice.
+this choice. Nodes in ``children`` appear in the order they were
+created during interpretation.
 
 Every element of ``actors``, ``stakeholders``, ``signatories``, and
 ``controllers`` is a party identifier.
@@ -501,7 +509,14 @@ Containing the result of the exercised choice.
 *since version 8*
 
 New optional field `contract_key` is now set when the exercised
-contract has a contract key defined.
+contract has a contract key defined. The key may not contain contract IDs.
+
+*since version 9*
+
+New optional field `key_with_maintainers` is now set when the exercised
+contract has a contract key defined. The `contract_key` field is
+not used any more.
+
 
 message NodeLookupByKey
 ^^^^^^^^^^^^^^^^^^^^^^^

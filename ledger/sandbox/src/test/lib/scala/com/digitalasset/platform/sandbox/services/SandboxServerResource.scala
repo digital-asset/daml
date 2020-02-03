@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.platform.sandbox.services
@@ -25,7 +25,7 @@ class SandboxServerResource(config: => SandboxConfig) extends Resource[Channel] 
   override def value: Channel = channel
 
   override def setup(): Unit = {
-    sandboxServer = SandboxServer(config)
+    sandboxServer = new SandboxServer(config)
     eventLoopGroup = createEventLoopGroup("api-client")
 
     channel = {

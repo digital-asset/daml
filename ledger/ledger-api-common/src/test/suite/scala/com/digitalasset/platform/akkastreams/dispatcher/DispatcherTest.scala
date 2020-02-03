@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.platform.akkastreams.dispatcher
@@ -38,7 +38,7 @@ class DispatcherTest extends WordSpec with AkkaBeforeAndAfterAll with Matchers w
 
       // compromise between catching flakes and not taking too long
       0 until 25 foreach { _ =>
-        val d = Dispatcher(OneAfterAnother(readSuccessor, readElement), 0, 0)
+        val d = Dispatcher("test", 0, 0)
         head.set(0)
 
         // Verify that the results are what we expected
@@ -46,7 +46,9 @@ class DispatcherTest extends WordSpec with AkkaBeforeAndAfterAll with Matchers w
           elements.updateAndGet(m => m + (i -> i))
           head.set(i + 1)
           d.signalNewHead(i + 1)
-          d.startingAt(i).toMat(Sink.collection)(Keep.right[NotUsed, Future[Seq[(Int, Int)]]]).run()
+          d.startingAt(i, OneAfterAnother(readSuccessor, readElement))
+            .toMat(Sink.collection)(Keep.right[NotUsed, Future[Seq[(Int, Int)]]])
+            .run()
         }
 
         d.close()

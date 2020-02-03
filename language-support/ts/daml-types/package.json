@@ -1,0 +1,47 @@
+{
+  "private": false,
+  "name": "@daml/types",
+  "version": "0.0.0-SDKVERSION",
+  "description": "Primitive types of the DAML language and their serialization.",
+  "keywords": ["daml", "API", "types", "serialization"],
+  "homepage": "https://daml.com",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@mojotech/json-type-validation": "^3.1.0"
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "build:watch": "tsc --build --watch",
+    "test": "true",
+    "lint": "eslint --ext .ts ./ --max-warnings 0"
+  },
+  "eslintConfig": {
+    "extends": [
+      "eslint:recommended",
+      "plugin:@typescript-eslint/eslint-recommended",
+      "plugin:@typescript-eslint/recommended",
+      "plugin:@typescript-eslint/recommended-requiring-type-checking"
+    ],
+    "parser": "@typescript-eslint/parser",
+    "parserOptions": {
+      "project": "./tsconfig.eslint.json"
+    },
+    "plugins": [
+      "@typescript-eslint"
+    ],
+    "rules": {
+      "@typescript-eslint/no-floating-promises": "error",
+      "@typescript-eslint/explicit-function-return-type": "off",
+      "@typescript-eslint/no-inferrable-types": "off",
+      "@typescript-eslint/no-unnecessary-type-assertion": "off"
+    }
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^2.16.0",
+    "@typescript-eslint/parser": "^2.16.0",
+    "eslint": "^6.8.0",
+    "typescript": "3.7.4"
+  }
+}

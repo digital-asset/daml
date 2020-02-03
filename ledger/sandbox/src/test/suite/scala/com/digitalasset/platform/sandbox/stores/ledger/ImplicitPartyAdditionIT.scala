@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.platform.sandbox.stores.ledger
@@ -6,12 +6,17 @@ package com.digitalasset.platform.sandbox.stores.ledger
 import java.time.Instant
 
 import akka.stream.scaladsl.Sink
-import com.daml.ledger.participant.state.v2.{SubmissionResult, SubmitterInfo, TransactionMeta}
+import com.daml.ledger.participant.state.v1.{
+  ParticipantId,
+  SubmissionResult,
+  SubmitterInfo,
+  TransactionMeta
+}
 import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.lf.data.{ImmArray, Ref}
+import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
+import com.digitalasset.daml.lf.transaction.GenTransaction
 import com.digitalasset.daml.lf.transaction.Node._
 import com.digitalasset.daml.lf.transaction.Transaction.{NodeId, TContractId, Value}
-import com.digitalasset.daml.lf.transaction.GenTransaction
 import com.digitalasset.daml.lf.value.Value.{
   AbsoluteContractId,
   ContractInst,
@@ -19,20 +24,22 @@ import com.digitalasset.daml.lf.value.Value.{
   VersionedValue
 }
 import com.digitalasset.daml.lf.value.ValueVersions
+import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
+  MultiResourceBase,
   Resource,
   SuiteResourceManagementAroundEach
 }
+import com.digitalasset.logging.LoggingContext.newLoggingContext
 import com.digitalasset.platform.sandbox.{LedgerResource, MetricsAround}
-import com.digitalasset.platform.testing.MultiResourceBase
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScalaFutures}
 import org.scalatest.time.Span
 import org.scalatest.{AsyncWordSpec, Matchers}
-import com.digitalasset.ledger.api.domain.LedgerId
 
-import scala.concurrent.Future
+import scala.collection.immutable.HashMap
 import scala.concurrent.duration._
+import scala.concurrent.{ExecutionContext, Future}
 import scala.language.implicitConversions
 
 sealed abstract class BackendType
@@ -59,6 +66,7 @@ class ImplicitPartyAdditionIT
   override def timeLimit: Span = scaled(60.seconds)
 
   private val ledgerId: LedgerId = LedgerId("ledgerId")
+  private val participantId: ParticipantId = Ref.LedgerString.assertFromString("participantId")
   private val timeProvider = TimeProvider.Constant(Instant.EPOCH.plusSeconds(10))
 
   private val templateId1: Ref.Identifier = Ref.Identifier(
@@ -76,36 +84,40 @@ class ImplicitPartyAdditionIT
   override protected def fixtureIdsEnabled: Set[BackendType] =
     Set(BackendType.InMemory, BackendType.Postgres)
 
-  override protected def constructResource(index: Int, fixtureId: BackendType): Resource[Ledger] =
+  override protected def constructResource(index: Int, fixtureId: BackendType): Resource[Ledger] = {
+    implicit val executionContext: ExecutionContext = system.dispatcher
     fixtureId match {
       case BackendType.InMemory =>
-        LedgerResource.inMemory(ledgerId, timeProvider)
+        LedgerResource.inMemory(ledgerId, participantId, timeProvider)
       case BackendType.Postgres =>
-        LedgerResource.postgres(ledgerId, timeProvider)
+        newLoggingContext { implicit logCtx =>
+          LedgerResource.postgres(ledgerId, participantId, timeProvider, metrics)
+        }
     }
+  }
 
   private def publishSingleNodeTx(
       ledger: Ledger,
       submitter: String,
       commandId: String,
       node: GenNode[NodeId, TContractId, Value[TContractId]]): Future[SubmissionResult] = {
-    val event1: NodeId = NodeId.unsafeFromIndex(0)
+    val event1: NodeId = NodeId(0)
 
     val transaction = GenTransaction[NodeId, TContractId, Value[TContractId]](
-      Map(event1 -> node),
+      HashMap(event1 -> node),
       ImmArray(event1),
-      Set.empty
+      None
     )
 
     val submitterInfo = SubmitterInfo(
       Ref.Party.assertFromString(submitter),
       Ref.LedgerString.assertFromString("appId"),
       Ref.LedgerString.assertFromString(commandId),
-      MRT
+      Time.Timestamp.assertFromInstant(MRT)
     )
 
     val transactionMeta = TransactionMeta(
-      LET,
+      Time.Timestamp.assertFromInstant(LET),
       Some(Ref.LedgerString.assertFromString("wfid"))
     )
 
@@ -170,7 +182,7 @@ class ImplicitPartyAdditionIT
         )
         // Wait until both transactions have been processed
         _ <- ledger
-          .ledgerEntries(None)
+          .ledgerEntries(None, None)
           .take(2)
           .runWith(Sink.seq)
         parties <- ledger.parties

@@ -1,9 +1,9 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.platform.sandbox.cli
 
-import java.io.{File}
+import java.io.File
 
 import com.digitalasset.daml.bazeltools.BazelRunfiles.rlocation
 import com.digitalasset.daml.lf.data.Ref
@@ -17,7 +17,7 @@ import org.scalatest.{Matchers, WordSpec}
 
 class CliSpec extends WordSpec with Matchers {
 
-  private val archive = rlocation("ledger/sandbox/Test.dar")
+  private val archive = rlocation("ledger/test-common/Test-stable.dar")
   private val nonExistingArchive = "whatever.dar"
   private val invalidArchive = createTempFile.getAbsolutePath
   private val defaultConfig = SandboxConfig.default

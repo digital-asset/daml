@@ -1,4 +1,4 @@
-.. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2020 The DAML Authors. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Moving to the new DAML assistant
@@ -58,7 +58,7 @@ To migrate the project manually:
 
       sdk-version: 0.12.14
       name: my_project
-      source: daml/Main.daml
+      source: daml
       scenario: Main:setup
       parties:
       - Alice
@@ -80,7 +80,7 @@ To migrate the project manually:
         sdk-version: 0.12.12
         scenario: Main:setup
         name: foobar
-      source: daml/Main.daml
+      source: daml
         parties:
         - Alice
         - Bob

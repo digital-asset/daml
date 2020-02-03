@@ -1,6 +1,5 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-{-# LANGUAGE OverloadedStrings #-}
 
 module Development.IDE.Core.Service.Daml(
     VirtualResource(..),
@@ -36,7 +35,9 @@ import Development.IDE.Core.OfInterest
 import Development.IDE.Core.Shake
 import Development.IDE.Types.Location
 import Development.IDE.Types.Options
+import qualified Language.Haskell.LSP.Types.Capabilities as LSP
 import qualified Language.Haskell.LSP.Messages as LSP
+import qualified Language.Haskell.LSP.Types as LSP
 
 import DA.Daml.Options.Types
 import qualified DA.Daml.LF.Ast as LF
@@ -67,7 +68,8 @@ data DamlEnv = DamlEnv
   -- ^ The scenario contexts we used as GC roots in the last iteration.
   -- This is used to avoid unnecessary GC calls.
   , envDamlLfVersion :: LF.Version
-  , envScenarioValidation :: ScenarioValidation
+  , envSkipScenarioValidation :: SkipScenarioValidation
+  , envIsGenerated :: Bool
   }
 
 instance IsIdeGlobal DamlEnv
@@ -83,7 +85,8 @@ mkDamlEnv opts scenarioService = do
         , envScenarioContexts = scenarioContextsVar
         , envPreviousScenarioContexts = previousScenarioContextsVar
         , envDamlLfVersion = optDamlLfVersion opts
-        , envScenarioValidation = optScenarioValidation opts
+        , envSkipScenarioValidation = optSkipScenarioValidation opts
+        , envIsGenerated = optIsGenerated opts
         }
 
 getDamlServiceEnv :: Action DamlEnv
@@ -100,17 +103,21 @@ modifyOpenVirtualResources state f = do
     void $ shakeRun state []
 
 initialise
-    :: Rules ()
+    :: LSP.ClientCapabilities
+    -> Rules ()
+    -> IO LSP.LspId
     -> (LSP.FromServerMessage -> IO ())
     -> Logger
     -> DamlEnv
     -> IdeOptions
     -> VFSHandle
     -> IO IdeState
-initialise mainRule toDiags logger damlEnv options vfs =
+initialise caps mainRule getLspId toDiags logger damlEnv options vfs =
     IDE.initialise
+        caps
         (do addIdeGlobal damlEnv
             mainRule)
+        getLspId
         toDiags
         logger
         options

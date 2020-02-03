@@ -1,4 +1,4 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2020 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_test")
@@ -7,7 +7,7 @@ load("@os_info//:os_info.bzl", "is_windows")
 da_haskell_library(
     name = "da-hs-base",
     srcs = glob(["src/**/*.hs"]),
-    hazel_deps = [
+    hackage_deps = [
         "aeson-pretty",
         "aeson",
         "ansi-terminal",
@@ -63,7 +63,7 @@ da_haskell_library(
 da_haskell_test(
     name = "da-hs-base-tests",
     srcs = glob(["tests/**/*.hs"]),
-    hazel_deps = [
+    hackage_deps = [
         "aeson",
         "extra",
         "tasty",

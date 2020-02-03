@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.extractor.ledger.types
@@ -35,11 +35,15 @@ object LedgerValue {
       case Sum.List(apiList) => convertList(apiList)
       case Sum.Record(apiRecord) => convertRecord(apiRecord)
       case Sum.Optional(apiOptional) => convertOptional(apiOptional)
-      case Sum.Map(map) => convertMap(map)
+      case Sum.Map(map) => convertTextMap(map)
+      case Sum.GenMap(entries) => convertGenMap(entries)
       case Sum.Bool(value) => V.ValueBool(value).right
       case Sum.ContractId(value) => V.ValueContractId(value).right
       case Sum.Int64(value) => V.ValueInt64(value).right
-      case Sum.Decimal(value) => lfdata.Decimal.fromString(value).disjunction map V.ValueDecimal
+      case Sum.Numeric(value) =>
+        lfdata.Numeric
+          .fromUnscaledBigDecimal(new java.math.BigDecimal(value))
+          .disjunction map V.ValueNumeric
       case Sum.Text(value) => V.ValueText(value).right
       case Sum.Timestamp(value) =>
         lfdata.Time.Timestamp.fromLong(value).disjunction map V.ValueTimestamp
@@ -81,18 +85,30 @@ object LedgerValue {
   private def convertOptional(apiOptional: api.value.Optional) =
     apiOptional.value traverseU (_.convert) map (V.ValueOptional(_))
 
-  private def convertMap(apiMap: api.value.Map): String \/ OfCid[V.ValueMap] =
+  private def convertTextMap(apiMap: api.value.Map): String \/ OfCid[V.ValueTextMap] =
     for {
       entries <- apiMap.entries.toList.traverseU {
-        case api.value.Map.Entry(_, None) => -\/("value must be defined")
         case api.value.Map.Entry(k, Some(v)) => v.sum.convert.map(k -> _)
+        case api.value.Map.Entry(_, None) => -\/("value field of Map.Entry must be defined")
       }
       map <- SortedLookupList.fromImmArray(ImmArray(entries)).disjunction
-    } yield V.ValueMap(map)
+    } yield V.ValueTextMap(map)
+
+  private def convertGenMap(apiMap: api.value.GenMap): String \/ OfCid[V.ValueGenMap] =
+    apiMap.entries.toList
+      .traverseU { entry =>
+        for {
+          k <- entry.key.fold[String \/ OfCid[V]](-\/("key field of GenMap.Entry must be defined"))(
+            _.convert)
+          v <- entry.value.fold[String \/ OfCid[V]](
+            -\/("value field of GenMap.Entry must be defined"))(_.convert)
+        } yield k -> v
+      }
+      .map(entries => V.ValueGenMap(ImmArray(entries)))
 
   private def convertIdentifier(
       apiIdentifier: api.value.Identifier): String \/ Option[Ref.Identifier] = {
-    val api.value.Identifier(packageId, _, moduleName, entityName) = apiIdentifier
+    val api.value.Identifier(packageId, moduleName, entityName) = apiIdentifier
     some(packageId)
       .filter(_.nonEmpty)
       .traverseU { _ =>

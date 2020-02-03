@@ -1,7 +1,6 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE BlockArguments #-}
@@ -32,8 +31,9 @@ module DA.Service.Logger.Impl.GCP
 
 import GHC.Generics(Generic)
 import Data.Int
-import Text.Read(readMaybe)
+import Text.Read (readMaybe)
 import Data.Aeson as Aeson
+import Data.Char (toUpper)
 import Control.Monad
 import Control.Monad.Loops
 import GHC.Stack
@@ -45,7 +45,7 @@ import System.Timeout
 import System.Random
 import qualified DA.Service.Logger as Lgr
 import qualified DA.Service.Logger.Impl.Pure as Lgr.Pure
-import DAML.Project.Consts
+import DA.Daml.Project.Consts
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text.Extended as T
 import qualified Data.ByteString.Lazy as LBS
@@ -264,14 +264,15 @@ toJsonObject v = either (\k -> HM.singleton k v) id $ objectOrKey v where
     Aeson.Bool _ -> Left "Bool"
     Aeson.Null -> Left "Null"
 
+-- | Map from our custom severities to Google Cloud Stackdriver's LogSeverity.
+-- Most severity levels are named the same, though we map Telemetry to NOTICE.
+-- This is necessary as a log message is rejected if its severity is not valid.
 priorityToGCP :: Lgr.Priority -> (T.Text, Value)
-priorityToGCP prio = ("severity",prio')
+priorityToGCP prio = ("severity", prio')
     where
-        prio' = case prio of
-            Lgr.Error -> "ERROR"
-            Lgr.Warning -> "WARNING"
-            Lgr.Info -> "INFO"
-            Lgr.Debug -> "DEBUG"
+      prio' = case prio of
+        Lgr.Telemetry -> "NOTICE"
+        _ -> toJSON $ map toUpper $ show prio
 
 -- | Add something to the log queue.
 logGCP

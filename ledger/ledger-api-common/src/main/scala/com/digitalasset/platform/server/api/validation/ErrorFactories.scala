@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.platform.server.api.validation
@@ -32,13 +32,16 @@ trait ErrorFactories {
     grpcError(Status.INTERNAL.withDescription(description))
 
   def aborted(description: String): StatusRuntimeException =
-    grpcError(Status.INTERNAL.withDescription(description))
+    grpcError(Status.ABORTED.withDescription(description))
 
   def unimplemented(description: String): StatusRuntimeException =
     grpcError(Status.UNIMPLEMENTED.withDescription(description))
 
   def permissionDenied(description: String): StatusRuntimeException =
     grpcError(Status.PERMISSION_DENIED.withDescription(description))
+
+  def resourceExhausted(description: String): StatusRuntimeException =
+    grpcError(Status.RESOURCE_EXHAUSTED.withDescription(description))
 
   def grpcError(status: Status) = new ApiException(status)
 

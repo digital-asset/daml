@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.transaction
@@ -15,8 +15,8 @@ object BlindingCoder {
 
   def decode(
       p: proto.Blindinginfo.BlindingInfo,
-      nodeIdReader: String => Either[DecodeError, Transaction.NodeId])
-    : Either[DecodeError, BlindingInfo] = {
+      nodeIdReader: String => Either[DecodeError, Transaction.NodeId],
+  ): Either[DecodeError, BlindingInfo] = {
 
     val explicitDisclosure =
       p.getExplicitDisclosureList.asScala.map(n =>
@@ -49,24 +49,25 @@ object BlindingCoder {
 
   def encode(
       blindingInfo: BlindingInfo,
-      nodeIdWriter: Transaction.NodeId => String): proto.Blindinginfo.BlindingInfo = {
+      nodeIdWriter: Transaction.NodeId => String,
+  ): proto.Blindinginfo.BlindingInfo = {
     val builder = proto.Blindinginfo.BlindingInfo.newBuilder()
 
-    val localImplicit = blindingInfo.localImplicitDisclosure.map(nodeParties => {
+    val localImplicit = blindingInfo.localDivulgence.map(nodeParties => {
       val b1 = proto.Blindinginfo.NodeParties.newBuilder()
       b1.setNodeId(nodeIdWriter(nodeParties._1))
       b1.addAllParties(nodeParties._2.toSet[String].asJava)
       b1.build()
     })
 
-    val explicit = blindingInfo.explicitDisclosure.map(nodeParties => {
+    val explicit = blindingInfo.disclosure.map(nodeParties => {
       val b1 = proto.Blindinginfo.NodeParties.newBuilder()
       b1.setNodeId(nodeIdWriter(nodeParties._1))
       b1.addAllParties(nodeParties._2.toSet[String].asJava)
       b1.build()
     })
 
-    val global = blindingInfo.globalImplicitDisclosure.map(contractParties => {
+    val global = blindingInfo.globalDivulgence.map(contractParties => {
       val b1 = proto.Blindinginfo.ContractParties.newBuilder()
       b1.setContractId(contractParties._1.coid)
       b1.addAllParties(contractParties._2.toSet[String].asJava)

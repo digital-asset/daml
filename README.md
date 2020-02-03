@@ -4,7 +4,7 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/digital-asset/daml/blob/master/LICENSE)
 [![Build](https://dev.azure.com/digitalasset/daml/_apis/build/status/digital-asset.daml?branchName=master&label=Build)](https://dev.azure.com/digitalasset/daml/_build/latest?definitionId=4&branchName=master)
 
-Copyright 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All Rights Reserved.
+Copyright 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 
 # Welcome to the DAML repository!
@@ -17,10 +17,10 @@ This repository hosts all code for the [DAML smart contract language and SDK](ht
 To download DAML, follow [the installation instructions](https://docs.daml.com/getting-started/installation.html).
 Once installed, to try it out, follow the [quickstart guide](https://docs.daml.com/getting-started/quickstart.html).
 
-If you have questions about how to use DAML or how to build DAML-based solutions, please ask
-them on [StackOverflow using the `daml` tag](https://stackoverflow.com/tags/daml).
+If you have questions about how to use DAML or how to build DAML-based solutions, please ask them 
+on [StackOverflow using the `daml` tag](https://stackoverflow.com/tags/daml).
 
-## Contribuing to DAML
+## Contributing to DAML
 
 We warmly welcome [contributions](./CONTRIBUTING.md). If you are looking for ideas on how to contribute, please browse our
 [issues](https://github.com/digital-asset/daml/issues). To build and test DAML:
@@ -81,7 +81,7 @@ On Windows:
 
 ```
 bazel build //release:sdk-release-tarball
-tar -vxf .\bazel-genfiles\release\sdk-release-tarball.tar.gz
+tar -vxf .\bazel-bin\release\sdk-release-tarball.tar.gz
 cd sdk-*
 daml\daml.exe install . --activate
 ```

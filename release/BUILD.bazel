@@ -1,12 +1,13 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2020 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary")
+load("util.bzl", "sdk_tarball")
 
 da_haskell_binary(
     name = "release",
     srcs = glob(["src/**/*.hs"]),
-    hazel_deps = [
+    hackage_deps = [
         "aeson",
         "async",
         "ansi-terminal",
@@ -53,87 +54,6 @@ da_haskell_binary(
     deps = [],
 )
 
-# This tarball is used by the new daml assistant.
-genrule(
-    name = "sdk-release-tarball",
-    srcs = [
-        ":sdk-config.yaml.tmpl",
-        ":install.sh",
-        ":install.bat",
-        "//:NOTICES",
-        "//:VERSION",
-        "//daml-assistant:daml-dist",
-        "//compiler/damlc:damlc-dist",
-        "//compiler/daml-extension:vsix",
-        "//daml-assistant/daml-helper:daml-helper-dist",
-        "//ledger/sandbox:sandbox-binary_deploy.jar",
-        "//navigator/backend:navigator-binary_deploy.jar",
-        "//extractor:extractor-binary_deploy.jar",
-        "//templates:templates-tarball.tar.gz",
-    ],
-    outs = ["sdk-release-tarball.tar.gz"],
-    cmd = """
-      # damlc
-      VERSION=$$(cat $(location //:VERSION))
-      OUT=sdk-$$VERSION
-      mkdir -p $$OUT
+sdk_tarball("sdk-release-tarball", "//:VERSION")
 
-      cp $(location //:NOTICES) $$OUT/NOTICES
-
-      cp $(location :install.sh) $$OUT/install.sh
-      cp $(location :install.bat) $$OUT/install.bat
-
-      cp $(location :sdk-config.yaml.tmpl) $$OUT/sdk-config.yaml
-      sed -i "s/__VERSION__/$$VERSION/" $$OUT/sdk-config.yaml
-
-      mkdir -p $$OUT/daml
-      tar xf $(location //daml-assistant:daml-dist) --strip-components=1 -C $$OUT/daml
-
-      mkdir -p $$OUT/damlc
-      tar xf $(location //compiler/damlc:damlc-dist) --strip-components=1 -C $$OUT/damlc
-
-      mkdir -p $$OUT/daml-helper
-      tar xf $(location //daml-assistant/daml-helper:daml-helper-dist) --strip-components=1 -C $$OUT/daml-helper
-
-      mkdir -p $$OUT/studio
-      cp $(location //compiler/daml-extension:vsix) $$OUT/studio/daml-bundled.vsix
-
-      mkdir -p $$OUT/sandbox
-      cp $(location //ledger/sandbox:sandbox-binary_deploy.jar) $$OUT/sandbox/sandbox.jar
-
-      mkdir -p $$OUT/navigator
-      cp $(location //navigator/backend:navigator-binary_deploy.jar) $$OUT/navigator/navigator.jar
-
-      mkdir -p $$OUT/extractor
-      cp $(location //extractor:extractor-binary_deploy.jar) $$OUT/extractor/extractor.jar
-
-      mkdir -p $$OUT/templates
-      tar xf $(location //templates:templates-tarball.tar.gz) --strip-components=1 -C $$OUT/templates
-
-      tar zcf $(location sdk-release-tarball.tar.gz) --format=ustar $$OUT
-    """,
-    visibility = ["//visibility:public"],
-)
-
-# Same as the above, but with head version 0.0.0.
-genrule(
-    name = "sdk-head-tarball",
-    srcs = [
-        ":sdk-config.yaml.tmpl",
-        ":sdk-release-tarball.tar.gz",
-    ],
-    outs = ["sdk-head-tarball.tar.gz"],
-    cmd = """
-
-      VERSION=0.0.0
-      OUT=sdk-head
-      mkdir -p $$OUT
-      tar xf $(location sdk-release-tarball.tar.gz) --strip-components=1 -C $$OUT
-
-      cp $(location :sdk-config.yaml.tmpl) $$OUT/sdk-config.yaml
-      sed -i "s/__VERSION__/$$VERSION/" $$OUT/sdk-config.yaml
-
-      tar zcf $(location sdk-head-tarball.tar.gz) --format=ustar $$OUT
-    """,
-    visibility = ["//visibility:public"],
-)
+sdk_tarball("sdk-head-tarball", ":HEAD-VERSION")

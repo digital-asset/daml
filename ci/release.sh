@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2020 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 set -euo pipefail
@@ -13,6 +13,14 @@ step() {
 ## Main
 
 cd "$(dirname "$0")"/..
+
+if [[ "$(uname)" == "Darwin" ]]; then
+    echo "Simulating release step..."
+    echo "##vso[task.setvariable variable=has_released;isOutput=true]true"
+    echo "##vso[task.setvariable variable=release_tag]$(cat VERSION)"
+    exit 0
+fi
+
 
 step "loading dev-env"
 

@@ -1,4 +1,4 @@
-.. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2020 The DAML Authors. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Overview: template structure
@@ -90,10 +90,9 @@ Here's the structure of a choice inside a template. There are two ways of specif
 
     Who can exercise the choice.
 
-:ref:`consumability <daml-ref-anytime>`
-    ``nonconsuming`` keyword
-
-    By default, contracts are archived when a choice on them is exercised, which means that choices can no longer be exercised on them. If you include ``nonconsuming``, this choice can be exercised over and over.
+:ref:`consumption annotation <daml-ref-consumability>`
+    Optionally one of ``preconsuming``, ``postconsuming``, ``nonconsuming``, which changes the behavior of the choice with respect to privacy and if and when the contract is archived.
+    See :ref:`contract consumption in choices <daml-ref-consumability>` for more details.
 
 :ref:`a name <daml-ref-choice-name>`
     Must begin with a capital letter. Must be unique - choices in different templates can't have the same name.

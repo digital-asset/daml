@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.http.json
@@ -6,11 +6,12 @@ package com.digitalasset.http.json
 import akka.http.scaladsl.marshalling.{Marshaller, ToEntityMarshaller}
 import akka.http.scaladsl.model.MediaTypes.`application/json`
 import akka.http.scaladsl.model.StatusCodes
-import akka.http.scaladsl.server.ExceptionHandler
 import akka.http.scaladsl.server.Directives._
+import akka.http.scaladsl.server.ExceptionHandler
 import akka.http.scaladsl.unmarshalling.{FromEntityUnmarshaller, Unmarshaller}
-import scalaz.{@@, Tag}
+import com.digitalasset.util.ExceptionOps._
 import scalaz.std.stream.unfold
+import scalaz.{@@, Tag}
 import spray.json._
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -25,8 +26,9 @@ object HttpCodec {
       complete(
         (
           StatusCodes.BadRequest,
-          ResponseFormats.errorsJsObject(StatusCodes.BadRequest)(
-            s"JSON parser error: ${e.msg}" +: unfoldCauses(e.cause).map(_.getMessage): _*)))
+          ResponseFormats.errorsJsObject(
+            StatusCodes.BadRequest,
+            s"JSON parser error: ${e.msg}" +: unfoldCauses(e.cause).map(_.description): _*)))
   }
 
   private[this] def unfoldCauses(t: Throwable): Seq[Throwable] =

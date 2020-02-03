@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.data
@@ -7,6 +7,7 @@ import scalaz.syntax.applicative._
 import scalaz.{Applicative, Equal, Foldable, Traverse}
 
 import scala.annotation.tailrec
+import scala.annotation.unchecked.uncheckedVariance
 import scala.collection.generic.{
   CanBuildFrom,
   GenericCompanion,
@@ -258,10 +259,8 @@ final class ImmArray[+A] private (
     val builder = ImmArray.newBuilder[B]
     var i = 0
     while (i < len) {
-      f.lift(uncheckedGet(i)) match {
-        case None => ()
-        case Some(x) => builder += x
-      }
+      val a = uncheckedGet(i)
+      if (f.isDefinedAt(a)) builder += f(a)
       i += 1
     }
     builder.result()
@@ -288,13 +287,16 @@ final class ImmArray[+A] private (
   }
 
   /** O(n) */
-  def find(f: A => Boolean): Option[A] =
-    indices collectFirst (Function unlift { i =>
-      val el = uncheckedGet(i)
-      if (f(el))
-        Some(el)
-      else None
-    })
+  def find(f: A => Boolean): Option[A] = {
+    @tailrec
+    def go(i: Int): Option[A] =
+      if (i < len) {
+        val e = uncheckedGet(i)
+        if (f(e)) Some(e)
+        else go(i + 1)
+      } else None
+    go(0)
+  }
 
   /** O(n) */
   def indexWhere(p: A => Boolean): Int =
@@ -303,7 +305,7 @@ final class ImmArray[+A] private (
     } getOrElse -1
 
   /** O(1) */
-  def indices(): Range = 0 until len
+  def indices: Range = 0 until len
 
   /** O(1) */
   def canEqual(that: Any) = that.isInstanceOf[ImmArray[_]]
@@ -379,6 +381,15 @@ object ImmArray {
   implicit def immArrayEqualInstance[A: Equal]: Equal[ImmArray[A]] =
     ScalazEqual.withNatural(Equal[A].equalIsNatural)(_ equalz _)
 
+  private[ImmArray] final class IACanBuildFrom[A]
+      extends CanBuildFrom[ImmArray[_], A, ImmArray[A]] {
+    override def apply(from: ImmArray[_]) = newBuilder[A]
+    override def apply() = newBuilder[A]
+  }
+
+  implicit def `ImmArray canBuildFrom`[A]: CanBuildFrom[ImmArray[_], A, ImmArray[A]] =
+    new IACanBuildFrom
+
   def newBuilder[A]: mutable.Builder[A, ImmArray[A]] =
     mutable.ArraySeq.newBuilder[A].mapResult(ImmArray.unsafeFromArraySeq)
 
@@ -415,6 +426,15 @@ object ImmArray {
       bf match {
         case _: IASCanBuildFrom[B] => array.map(f).toSeq
         case _ => super.map(f)(bf)
+      }
+
+    override def to[Col[_]](implicit bf: CanBuildFrom[Nothing, A, Col[A @uncheckedVariance]])
+      : Col[A @uncheckedVariance] =
+      bf match {
+        case _: IASCanBuildFrom[A] => this
+        case _: IACanBuildFrom[A] => toImmArray
+        case _: FrontStack.FSCanBuildFrom[A] => FrontStack(toImmArray)
+        case _ => super.to(bf)
       }
 
     override def companion: GenericCompanion[ImmArraySeq] = ImmArraySeq

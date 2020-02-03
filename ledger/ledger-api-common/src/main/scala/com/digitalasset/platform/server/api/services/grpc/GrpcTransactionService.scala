@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.platform.server.api.services.grpc
@@ -21,14 +21,10 @@ import com.digitalasset.ledger.api.v1.transaction_service._
 import com.digitalasset.ledger.api.validation.TransactionServiceRequestValidator.Result
 import com.digitalasset.ledger.api.validation.{PartyNameChecker, TransactionServiceRequestValidator}
 import com.digitalasset.platform.api.grpc.GrpcApiService
-import com.digitalasset.platform.common.util.DirectExecutionContext
+import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.platform.participant.util.LfEngineToApi
 import com.digitalasset.platform.server.api.services.domain.TransactionService
-import com.digitalasset.platform.server.api.validation.{
-  ErrorFactories,
-  FieldValidations,
-  IdentifierResolver
-}
+import com.digitalasset.platform.server.api.validation.{ErrorFactories, FieldValidations}
 import io.grpc.ServerServiceDefinition
 import org.slf4j.{Logger, LoggerFactory}
 import scalaz.Tag
@@ -39,8 +35,7 @@ import scala.concurrent.Future
 class GrpcTransactionService(
     protected val service: TransactionService,
     val ledgerId: LedgerId,
-    partyNameChecker: PartyNameChecker,
-    identifierResolver: IdentifierResolver)(
+    partyNameChecker: PartyNameChecker)(
     implicit protected val esf: ExecutionSequencerFactory,
     protected val mat: Materializer)
     extends TransactionServiceAkkaGrpc
@@ -53,12 +48,12 @@ class GrpcTransactionService(
   private type MapStringSet[T] = Map[String, Set[T]]
 
   private val validator =
-    new TransactionServiceRequestValidator(ledgerId, partyNameChecker, identifierResolver)
+    new TransactionServiceRequestValidator(ledgerId, partyNameChecker)
 
   override protected def getTransactionsSource(
       request: GetTransactionsRequest): Source[GetTransactionsResponse, NotUsed] = {
     logger.debug("Received new transaction request {}", request)
-    Source.fromFuture(service.getLedgerEnd(request.ledgerId)).flatMapConcat { ledgerEnd =>
+    Source.future(service.getLedgerEnd(request.ledgerId)).flatMapConcat { ledgerEnd =>
       val validation = validator.validate(request, ledgerEnd, service.offsetOrdering)
 
       validation.fold(
@@ -79,7 +74,7 @@ class GrpcTransactionService(
   override protected def getTransactionTreesSource(
       request: GetTransactionsRequest): Source[GetTransactionTreesResponse, NotUsed] = {
     logger.debug("Received new transaction tree request {}", request)
-    Source.fromFuture(service.getLedgerEnd(request.ledgerId)).flatMapConcat { ledgerEnd =>
+    Source.future(service.getLedgerEnd(request.ledgerId)).flatMapConcat { ledgerEnd =>
       val validation = validator.validateTree(request, ledgerEnd, service.offsetOrdering)
 
       validation.fold(
@@ -237,7 +232,6 @@ class GrpcTransactionService(
       eventId.unwrap,
       contractId.unwrap,
       Some(LfEngineToApi.toApiIdentifier(templateId)),
-      contractCreatingEventId.unwrap,
       choice,
       Some(
         LfEngineToApi

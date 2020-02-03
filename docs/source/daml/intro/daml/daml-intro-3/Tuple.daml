@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 daml 1.2
@@ -10,7 +10,7 @@ import DA.Tuple
 tuple_test = scenario do
   let
     my_key_value = ("Key", 1)
-    my_coordinate = (1.0, 2.0, 3.0)
+    my_coordinate = (1.0 : Decimal, 2.0 : Decimal, 3.0 : Decimal)
 
   assert (fst my_key_value == "Key")
   assert (snd my_key_value == 1)

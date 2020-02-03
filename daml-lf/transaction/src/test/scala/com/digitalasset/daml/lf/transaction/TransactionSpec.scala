@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.transaction
@@ -10,7 +10,7 @@ import com.digitalasset.daml.lf.transaction.GenTransaction.{
   AliasedNode,
   DanglingNodeId,
   NotWellFormedError,
-  OrphanedNode
+  OrphanedNode,
 }
 import com.digitalasset.daml.lf.transaction.Node.{GenNode, NodeCreate, NodeExercises}
 import com.digitalasset.daml.lf.value.{Value => V}
@@ -20,6 +20,7 @@ import org.scalacheck.Gen
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.{FreeSpec, Matchers}
 
+import scala.collection.immutable.HashMap
 import scala.language.implicitConversions
 
 class TransactionSpec extends FreeSpec with Matchers with GeneratorDrivenPropertyChecks {
@@ -27,32 +28,34 @@ class TransactionSpec extends FreeSpec with Matchers with GeneratorDrivenPropert
 
   "isWellFormed" - {
     "detects dangling references in roots" in {
-      val tx = StringTransaction(Map.empty, ImmArray("1"))
+      val tx = StringTransaction(HashMap.empty, ImmArray("1"))
       tx.isWellFormed shouldBe Set(NotWellFormedError("1", DanglingNodeId))
     }
 
     "detects dangling references in children" in {
-      val tx = StringTransaction(Map("1" -> dummyExerciseNode(ImmArray("2"))), ImmArray("1"))
+      val tx = StringTransaction(HashMap("1" -> dummyExerciseNode(ImmArray("2"))), ImmArray("1"))
       tx.isWellFormed shouldBe Set(NotWellFormedError("2", DanglingNodeId))
     }
 
     "detects cycles" in {
-      val tx = StringTransaction(Map("1" -> dummyExerciseNode(ImmArray("1"))), ImmArray("1"))
+      val tx = StringTransaction(HashMap("1" -> dummyExerciseNode(ImmArray("1"))), ImmArray("1"))
       tx.isWellFormed shouldBe Set(NotWellFormedError("1", AliasedNode))
     }
 
     "detects aliasing from roots and exercise" in {
       val tx = StringTransaction(
-        Map(
+        HashMap(
           "0" -> dummyExerciseNode(ImmArray("1")),
           "1" -> dummyExerciseNode(ImmArray("2")),
-          "2" -> dummyCreateNode),
-        ImmArray("0", "2"))
+          "2" -> dummyCreateNode,
+        ),
+        ImmArray("0", "2"),
+      )
       tx.isWellFormed shouldBe Set(NotWellFormedError("2", AliasedNode))
     }
 
     "detects orphans" in {
-      val tx = StringTransaction(Map("1" -> dummyCreateNode), ImmArray.empty)
+      val tx = StringTransaction(HashMap("1" -> dummyCreateNode), ImmArray.empty)
       tx.isWellFormed shouldBe Set(NotWellFormedError("1", OrphanedNode))
     }
   }
@@ -114,17 +117,20 @@ object TransactionSpec {
   private[this] type Value[+Cid] = V[Cid]
   type StringTransaction = GenTransaction[String, String, Value[String]]
   def StringTransaction(
-      nodes: Map[String, GenNode[String, String, Value[String]]],
-      roots: ImmArray[String]): StringTransaction = GenTransaction(nodes, roots, Set.empty)
+      nodes: HashMap[String, GenNode[String, String, Value[String]]],
+      roots: ImmArray[String],
+  ): StringTransaction = GenTransaction(nodes, roots, None)
 
   def dummyExerciseNode(
       children: ImmArray[String],
-      hasExerciseResult: Boolean = true): NodeExercises[String, String, Value[String]] =
+      hasExerciseResult: Boolean = true,
+  ): NodeExercises[String, String, Value[String]] =
     NodeExercises(
       "dummyCoid",
       Ref.Identifier(
         PackageId.assertFromString("-dummyPkg-"),
-        QualifiedName.assertFromString("DummyModule:dummyName")),
+        QualifiedName.assertFromString("DummyModule:dummyName"),
+      ),
       "dummyChoice",
       None,
       true,
@@ -135,7 +141,7 @@ object TransactionSpec {
       Set.empty,
       children,
       if (hasExerciseResult) Some(V.ValueUnit) else None,
-      None
+      None,
     )
 
   val dummyCreateNode: NodeCreate[String, Value[String]] =
@@ -144,14 +150,15 @@ object TransactionSpec {
       ContractInst(
         Ref.Identifier(
           PackageId.assertFromString("-dummyPkg-"),
-          QualifiedName.assertFromString("DummyModule:dummyName")),
+          QualifiedName.assertFromString("DummyModule:dummyName"),
+        ),
         V.ValueUnit,
-        ("dummyAgreement")
+        ("dummyAgreement"),
       ),
       None,
       Set.empty,
       Set.empty,
-      None
+      None,
     )
 
   private implicit def toChoiceName(s: String): Ref.Name = Ref.Name.assertFromString(s)

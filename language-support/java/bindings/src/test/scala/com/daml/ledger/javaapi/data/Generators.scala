@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.javaapi.data
@@ -135,6 +135,45 @@ object Generators {
   def listValueGen: Gen[ValueOuterClass.Value] =
     listGen.map(ValueOuterClass.Value.newBuilder().setList(_).build())
 
+  def textMapGen: Gen[ValueOuterClass.Map] =
+    Gen
+      .sized(
+        height =>
+          for {
+            size <- Gen.size.flatMap(maxSize =>
+              if (maxSize >= 1) Gen.chooseNum(1, maxSize) else Gen.const(1))
+            newHeight = height / size
+            keys <- Gen.listOfN(size, Arbitrary.arbString.arbitrary)
+            if keys.distinct == keys
+            values <- Gen.listOfN(size, Gen.resize(newHeight, valueGen))
+          } yield
+            (keys zip values).map {
+              case (k, v) => ValueOuterClass.Map.Entry.newBuilder().setKey(k).setValue(v).build()
+          })
+      .map(x => ValueOuterClass.Map.newBuilder().addAllEntries(x.asJava).build())
+
+  def textMapValueGen: Gen[ValueOuterClass.Value] =
+    textMapGen.map(ValueOuterClass.Value.newBuilder().setMap(_).build())
+
+  def genMapGen: Gen[ValueOuterClass.GenMap] =
+    Gen
+      .sized(
+        height =>
+          for {
+            size <- Gen.size.flatMap(maxSize =>
+              if (maxSize >= 1) Gen.chooseNum(1, maxSize) else Gen.const(1))
+            newHeight = height / size
+            keys <- Gen.listOfN(size, Gen.resize(newHeight, valueGen))
+            values <- Gen.listOfN(size, Gen.resize(newHeight, valueGen))
+          } yield
+            (keys zip values).map {
+              case (k, v) => ValueOuterClass.GenMap.Entry.newBuilder().setKey(k).setValue(v).build()
+          })
+      .map(x => ValueOuterClass.GenMap.newBuilder().addAllEntries(x.asJava).build())
+
+  def genMapValueGen: Gen[ValueOuterClass.Value] =
+    genMapGen.map(ValueOuterClass.Value.newBuilder().setGenMap(_).build())
+
   def int64ValueGen: Gen[ValueOuterClass.Value] =
     Arbitrary.arbLong.arbitrary.map(ValueOuterClass.Value.newBuilder().setInt64(_).build())
 
@@ -168,7 +207,7 @@ object Generators {
 
   def decimalValueGen: Gen[ValueOuterClass.Value] =
     Arbitrary.arbBigDecimal.arbitrary.map(d =>
-      ValueOuterClass.Value.newBuilder().setDecimal(d.bigDecimal.toPlainString).build())
+      ValueOuterClass.Value.newBuilder().setNumeric(d.bigDecimal.toPlainString).build())
 
   def eventGen: Gen[EventOuterClass.Event] =
     for {
@@ -232,7 +271,6 @@ object Generators {
       choice <- Arbitrary.arbString.arbitrary
       choiceArgument <- valueGen
       isConsuming <- Arbitrary.arbBool.arbitrary
-      contractCreatingEventId <- Arbitrary.arbString.arbitrary
       witnessParties <- Gen.listOf(Arbitrary.arbString.arbitrary)
       exerciseResult <- valueGen
     } yield
@@ -244,7 +282,6 @@ object Generators {
         .setChoice(choice)
         .setChoiceArgument(choiceArgument)
         .setConsuming(isConsuming)
-        .setContractCreatingEventId(contractCreatingEventId)
         .setEventId(eventId)
         .addAllWitnessParties(witnessParties.asJava)
         .setExerciseResult(exerciseResult)

@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE GADTs #-}
@@ -15,10 +15,10 @@ import qualified Com.Digitalasset.Ledger.Api.V1.LedgerConfigurationService as LL
 
 getLedgerConfiguration :: LedgerId -> LedgerService (Stream LedgerConfiguration)
 getLedgerConfiguration lid =
-    makeLedgerService $ \timeout config -> do
+    makeLedgerService $ \timeout config mdm -> do
     let request = LL.GetLedgerConfigurationRequest (unLedgerId lid) noTrace
     asyncStreamGen $ \stream ->
         withGRPCClient config $ \client -> do
             service <- LL.ledgerConfigurationServiceClient client
             let LL.LedgerConfigurationService {ledgerConfigurationServiceGetLedgerConfiguration=rpc} = service
-            sendToStream timeout request raiseGetLedgerConfigurationResponse stream rpc
+            sendToStream timeout mdm request raiseGetLedgerConfigurationResponse stream rpc

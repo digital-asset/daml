@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.ledger.api.refinements
@@ -20,7 +20,9 @@ class CompositeCommandAdapterUT extends WordSpec with Matchers {
 
     "translate CompositeCommand to SubmitRequest" in {
       val commands =
-        Seq(Command(Create(CreateCommand(Some(Identifier("packageId", "templateId")), None))))
+        Seq(
+          Command(
+            Create(CreateCommand(Some(Identifier("packageId", "moduleName", "templateId")), None))))
 
       val submittedTraceContext = Some(TraceContext(1, 2, 3, Some(4L), true))
       val compositeCommand = CompositeCommand(

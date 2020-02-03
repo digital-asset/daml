@@ -1,22 +1,18 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.platform.sandbox.config
 
 import java.io.File
+import java.nio.file.Path
 
 import ch.qos.logback.classic.Level
+import com.daml.ledger.participant.state.v1.TimeModel
+import com.digitalasset.ledger.api.auth.AuthService
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.platform.common.LedgerIdMode
-import com.digitalasset.platform.services.time.{TimeModel, TimeProviderType}
-
-import scala.concurrent.duration._
-
-final case class TlsServerConfiguration(
-    enabled: Boolean,
-    keyCertChainFile: File,
-    keyFile: File,
-    trustCertCollectionFile: File)
+import com.digitalasset.platform.configuration.CommandConfiguration
+import com.digitalasset.platform.services.time.TimeProviderType
 
 /**
   * Defines the basic configuration for running sandbox
@@ -24,7 +20,7 @@ final case class TlsServerConfiguration(
 final case class SandboxConfig(
     address: Option[String],
     port: Int,
-    portFile: Option[File],
+    portFile: Option[Path],
     damlPackages: List[File],
     timeProviderType: TimeProviderType,
     timeModel: TimeModel,
@@ -32,25 +28,19 @@ final case class SandboxConfig(
     tlsConfig: Option[TlsConfiguration],
     scenario: Option[String],
     ledgerIdMode: LedgerIdMode,
+    maxInboundMessageSize: Int,
     jdbcUrl: Option[String],
     eagerPackageLoading: Boolean,
-    logLevel: Level
+    logLevel: Level,
+    authService: Option[AuthService],
 )
 
-final case class CommandConfiguration(
-    inputBufferSize: Int,
-    maxParallelSubmissions: Int,
-    maxCommandsInFlight: Int,
-    limitMaxCommandsInFlight: Boolean,
-    historySize: Int,
-    retentionPeriod: FiniteDuration,
-    commandTtl: FiniteDuration)
-
 object SandboxConfig {
-
   val DefaultPort = 6865
 
-  def default: SandboxConfig =
+  val DefaultMaxInboundMessageSize = 4194304
+
+  lazy val default =
     SandboxConfig(
       None,
       DefaultPort,
@@ -58,23 +48,14 @@ object SandboxConfig {
       Nil,
       TimeProviderType.Static,
       TimeModel.reasonableDefault,
-      defaultCommandConfig,
+      CommandConfiguration.default,
       tlsConfig = None,
       scenario = None,
       ledgerIdMode = LedgerIdMode.Dynamic(),
       jdbcUrl = None,
+      maxInboundMessageSize = DefaultMaxInboundMessageSize,
       eagerPackageLoading = false,
-      logLevel = Level.INFO
-    )
-
-  lazy val defaultCommandConfig =
-    CommandConfiguration(
-      inputBufferSize = 512,
-      maxParallelSubmissions = 128,
-      maxCommandsInFlight = 256,
-      limitMaxCommandsInFlight = true,
-      historySize = 5000,
-      retentionPeriod = 24.hours,
-      commandTtl = 20.seconds
+      logLevel = Level.INFO,
+      authService = None,
     )
 }

@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 --
 
@@ -27,10 +27,10 @@ import "ghc-lib-parser" PrelNames hiding
     , to_RDR
     , u1DataCon_RDR
     )
-
 import "ghc-lib-parser" RdrName
 import "ghc-lib" TcGenDeriv
 import "ghc-lib-parser" Util
+import SdkVersion
 
 
 -- | Generate a generic instance for data definitions with a `deriving Generic` or `deriving
@@ -122,7 +122,7 @@ extError = error "Can't generate generic instances for extended AST"
 -- definitions coming from ghc-parser PrelNames.
 
 stdlibUnitId :: UnitId
-stdlibUnitId = fsToUnitId (fsLit "daml-stdlib")
+stdlibUnitId = fsToUnitId (fsLit damlStdlib)
 
 mkStdlibModule :: FastString -> Module
 mkStdlibModule m = mkModule stdlibUnitId (mkModuleNameFS m)
@@ -155,9 +155,9 @@ _unRec1_RDR  = varQual_RDR gHC_GENERICS (fsLit "unRec1")
 _unK1_RDR    = varQual_RDR gHC_GENERICS (fsLit "unK1")
 _unComp1_RDR = varQual_RDR gHC_GENERICS (fsLit "unComp1")
 
-from_RDR  = varQual_RDR gHC_GENERICS (fsLit "from")
+from_RDR  = mkRdrUnqual $ mkOccName varName "from" -- from/to appears as pattern and can not be qualified.
 _from1_RDR = varQual_RDR gHC_GENERICS (fsLit "from1")
-to_RDR    = varQual_RDR gHC_GENERICS (fsLit "to")
+to_RDR    = mkRdrUnqual $ mkOccName varName "to" -- from/to appears as pattern and can not be qualified.
 _to1_RDR   = varQual_RDR gHC_GENERICS (fsLit "to1")
 
 
@@ -196,7 +196,7 @@ generateGenericInstanceFor genClass name@(L loc _n) pkgName modName tyVars dataD
     -- The typeclass type: data Foo a b ... deriving Generic => Generic (Foo a b) (FooRep a b)
     typ =
         mkHsAppTys
-            (mkLoc $ HsTyVar NoExt NotPromoted $ mkLoc (Unqual genClass))
+            (mkLoc $ HsTyVar NoExt NotPromoted $ mkLoc (Qual (moduleName gHC_GENERICS) genClass))
             [tycon, repType]
     -- The type for which we construct a generic instance
     tycon =

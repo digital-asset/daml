@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.extractor.writers.postgresql
@@ -49,10 +49,19 @@ class SingleTableDataFormat extends DataFormat[SingleTableState.type] {
       transaction: TransactionTree,
       event: ExercisedEvent
   ): Writer.RefreshPackages \/ ConnectionIO[Unit] = {
-    val query =
-      setContractArchived(event.contractCreatingEventId, transaction.transactionId, event.eventId)
+    val update =
+      if (event.consuming)
+        setContractArchived(event.contractId, transaction.transactionId, event.eventId).update.run.void
+      else
+        connection.pure(())
 
-    query.update.run.void.right
+    val insert =
+      insertExercise(
+        event,
+        transaction.transactionId,
+        transaction.rootEventIds.contains(event.eventId)).update.run.void
+
+    (update *> insert).right
   }
 
   def handleCreatedEvent(

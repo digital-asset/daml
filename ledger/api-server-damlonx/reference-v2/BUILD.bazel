@@ -1,13 +1,23 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2020 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
+    "da_scala_test",
 )
 load(
-    "//bazel_tools/client_server_test:client_server_test.bzl",
-    "client_server_test",
+    "//ledger/ledger-api-test-tool:conformance.bzl",
+    "conformance_test",
+    "server_conformance_test",
+)
+load(
+    "//bazel_tools/client_server:client_server_build.bzl",
+    "client_server_build",
+)
+load(
+    "//ledger/participant-state/kvutils/tools:integrity_test.bzl",
+    "integrity_test",
 )
 load("@os_info//:os_info.bzl", "is_windows")
 
@@ -18,31 +28,68 @@ da_scala_binary(
     resources = glob(["src/main/resources/**/*"]),
     visibility = ["//visibility:public"],
     runtime_deps = [
-        "//3rdparty/jvm/ch/qos/logback:logback_classic",
-        "//3rdparty/jvm/ch/qos/logback:logback_core",
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:ch_qos_logback_logback_core",
+        "@maven//:com_h2database_h2",
     ],
     deps = [
-        "//3rdparty/jvm/com/github/scopt",
-        "//3rdparty/jvm/com/typesafe/akka:akka_stream",
-        "//3rdparty/jvm/io/netty:netty_handler",
-        "//3rdparty/jvm/io/netty:netty_tcnative_boringssl_static",
-        "//3rdparty/jvm/org/slf4j:slf4j_api",
-        "//daml-lf/archive:daml_lf_archive_scala",
-        "//daml-lf/archive:daml_lf_java_proto",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive:daml_lf_dev_archive_java_proto",
         "//daml-lf/data",
-        "//daml-lf/language",
+        "//daml-lf/engine",
         "//daml-lf/transaction",
         "//language-support/scala/bindings",
-        "//ledger/api-server-damlonx",
-        "//ledger/ledger-api-client",
+        "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
-        "//ledger/ledger-api-domain",
+        "//ledger/ledger-api-health",
         "//ledger/participant-state",
-        "//ledger/participant-state:participant-state-v1",
-        "//ledger/participant-state-index",
-        "//ledger/participant-state-index/reference",
         "//ledger/participant-state/kvutils",
         "//ledger/sandbox",
+        "//libs-scala/contextualized-logging",
+        "//libs-scala/resources",
+        "//libs-scala/resources-akka",
+        "@maven//:com_github_scopt_scopt_2_12",
+        "@maven//:com_typesafe_akka_akka_actor_2_12",
+        "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:io_dropwizard_metrics_metrics_core",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
+da_scala_test(
+    name = "reference-v2-tests",
+    size = "small",
+    srcs = glob(["src/test/suite/**/*.scala"]),
+    data = [
+        "//ledger/test-common:Test-stable.dar",
+    ],
+    resources = glob(["src/test/resources/**/*"]),
+    deps = [
+        ":reference-v2",
+        "//daml-lf/data",
+        "//language-support/scala/bindings",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger-api/testing-utils",
+        "//ledger/ledger-api-common",
+        "//ledger/ledger-api-domain",
+        "//ledger/ledger-api-health",
+        "//ledger/participant-state",
+        "//ledger/participant-state/kvutils",
+        "//ledger/participant-state/kvutils:kvutils-tests-lib",
+        "//ledger/sandbox",
+        "//ledger/test-common",
+        "//libs-scala/contextualized-logging",
+        "//libs-scala/resources",
+        "//libs-scala/timer-utils",
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:com_typesafe_akka_akka_actor_2_12",
+        "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:io_dropwizard_metrics_metrics_core",
+        "@maven//:org_mockito_mockito_core",
+        "@maven//:org_scala_lang_modules_scala_java8_compat_2_12",
+        "@maven//:org_scalactic_scalactic_2_12",
+        "@maven//:org_scalatest_scalatest_2_12",
+        "@maven//:org_slf4j_slf4j_api",
     ],
 )
 
@@ -52,51 +99,110 @@ da_scala_binary(
 
 da_scala_binary(
     name = "ephemeral-postgres-reference-server",
-    srcs = glob(["src/test/scala/**/*.scala"]),
+    srcs = glob(["src/test/lib/scala/**/*.scala"]),
     main_class = "com.daml.ledger.api.server.damlonx.reference.v2.EphemeralPostgresReferenceServerMain",
     resources = ["src/main/resources/logback.xml"],
     visibility = ["//visibility:public"],
     deps = [
         ":reference-v2",
-        "//3rdparty/jvm/org/slf4j:slf4j_api",
-        "//ledger/sandbox:sandbox-scala-tests-lib",
+        "//libs-scala/postgresql-testing",
     ],
 )
 
-conformance_tests_to_run = [
-    "TransactionServiceTests",
-    "DivulgenceIT",
-    "TransactionBackpressureIT",
-    "PartyManagementServiceIT",
-]
+SERVERS = {
+    "h2database": {
+        "binary": ":reference-v2",
+        "server_args": [
+            "--port=6865",
+            # "db_close_delay=-1" is needed so that the in-memory database is not closed
+            # (and therefore lost) after the flyway migration
+            "--jdbc-url=jdbc:h2:mem:daml_on_x;db_close_delay=-1;db_close_on_exit=false",
+            # participant-id contains special colon (:) character allowed in LfStrings
+            "--participant-id=participant:h2database",
+        ],
+    },
+    "postgres": {
+        "binary": ":ephemeral-postgres-reference-server",
+        "server_args": [
+            "--port=6865",
+        ],
+    },
+}
 
-client_server_test(
-    name = "conformance-test",
-    timeout = "long",
-    client = "//ledger/ledger-api-test-tool:ledger-api-test-tool",
+# Builds a ledger dump from running the test tool against a kvutils-based
+# in-memory ledger.
+client_server_build(
+    name = "reference-ledger-dump",
+    testonly = True,  # only test targets can depend on this.
+    client = "//ledger/ledger-api-test-tool",
     client_args = [
-        # disabling all tests for now, so that at least we have the infrastructure
-        # to slowly add and fix tests one after the other.
-        # "--all-tests",
-        "--include {}".format(",".join(conformance_tests_to_run)),
-        "--exclude SemanticTests",
+        "--include=SemanticTests,ContractKeysIT,TransactionServiceIT",
+        "--timeout-scale-factor=20",
+        "localhost:6865",
     ],
     data = [
-        "//ledger/ledger-api-integration-tests:SemanticTests.dar",
-        "//ledger/sandbox:Test.dar",
-        "@postgresql_dev_env//:all",
-        "@postgresql_dev_env//:createdb",
-        "@postgresql_dev_env//:initdb",
-        "@postgresql_dev_env//:pg_ctl",
+        "//ledger/test-common:dar-files",
     ],
-    server = ":ephemeral-postgres-reference-server",
+    output_env = "KVUTILS_LEDGER_DUMP",
+    server = ":reference-v2",
     server_args = [
-        "ledger/ledger-api-integration-tests/SemanticTests.dar",
-        "ledger/sandbox/Test.dar",
+        "--port 6865",
+        "--jdbc-url jdbc:h2:mem:daml_on_x;db_close_delay=-1;db_close_on_exit=false",
     ],
-    tags = [
-        "dont-run-on-darwin",
-        # NOTE(JM): As this test is somewhat heavy and has timeouts, run it without competition to avoid flakyness.
-        "exclusive",
+    server_files = [
+        "//ledger/test-common:dar-files",
     ],
 ) if not is_windows else None
+
+# Test for checking the integrity of the ledger dump produces above.
+integrity_test(
+    name = "reference-ledger-dump-integrity-test",
+    dump = ":reference-ledger-dump",
+) if not is_windows else None
+
+server_conformance_test(
+    name = "conformance-test",
+    servers = SERVERS,
+    test_tool_args = [
+        "--all-tests",
+        "--exclude=LotsOfPartiesIT",
+        "--exclude=TimeIT",
+        "--exclude=ConfigManagementServiceIT",
+    ],
+)
+
+conformance_test(
+    name = "conformance-test-h2database-multi-node",
+    ports = [
+        6865,
+        6866,
+    ],
+    server = ":reference-v2",
+    server_args = [
+        "--port=6865",
+        # "db_close_delay=-1" is needed so that the in-memory database is not closed
+        # (and therefore lost) after the flyway migration
+        "--jdbc-url=jdbc:h2:mem:daml_on_x;db_close_delay=-1;db_close_on_exit=false",
+        "--extra-participant=second-participant,6866,jdbc:h2:mem:daml_on_x2;db_close_delay=-1;db_close_on_exit=false",
+    ],
+    test_tool_args = [
+        "--include=SemanticTests,TransactionServiceIT",
+    ],
+)
+
+# Run the configuration management test in isolation as it modifies global ledger settings
+# and hence cannot be run in parallel with other tests.
+conformance_test(
+    name = "conformance-test-h2database-config-management",
+    ports = [6865],
+    server = ":reference-v2",
+    server_args = [
+        "--port=6865",
+        # "db_close_delay=-1" is needed so that the in-memory database is not closed
+        # (and therefore lost) after the flyway migration
+        "--jdbc-url=jdbc:h2:mem:daml_on_x;db_close_delay=-1;db_close_on_exit=false",
+    ],
+    test_tool_args = [
+        "--include=ConfigManagementServiceIT",
+    ],
+)

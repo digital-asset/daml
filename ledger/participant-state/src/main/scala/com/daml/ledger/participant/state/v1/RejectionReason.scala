@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.v1
@@ -13,9 +13,10 @@ sealed abstract class RejectionReason extends Product with Serializable {
 
 object RejectionReason {
 
-  /** The transaction relied on contracts being active that were no longer
-    * active at the point where it was sequenced.  See
-    * https://docs.daml.com/concepts/ledger-model/ledger-integrity.html
+  /** The transaction relied on contracts or keys being active that were no longer
+    * active at the point where it was sequenced or a contract key was being created
+    * that already exists.
+    * See https://docs.daml.com/concepts/ledger-model/ledger-integrity.html
     * for the definition of ledger consistency.
     */
   final case object Inconsistent extends RejectionReason {
@@ -47,22 +48,6 @@ object RejectionReason {
   final case object MaximumRecordTimeExceeded extends RejectionReason {
     override def description: String =
       "The maximum record time of the command exceeded"
-  }
-
-  /** The participant or ledger has already accepted a transaction with the
-    * same command-id.
-
-    * The guarantee provided by the ledger is to never store two transactions
-    * with [[SubmitterInfo]] with the same '(submitter, applicationId,
-    * commandId)' tuple.
-    *
-    * This is used to protect against duplicate submissions of transactions
-    * that do not consume any contract; e.g., a transaction creating a
-    * contract. These transactions can be sometimes submitted twice in case
-    * of faults in the submitting application.
-    */
-  final case object DuplicateCommand extends RejectionReason {
-    override def description: String = "Duplicate command"
   }
 
   /** A party mentioned as a stakeholder or actor has not been on-boarded on

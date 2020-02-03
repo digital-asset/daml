@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.validation
@@ -20,18 +20,21 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
       val testCases = Table(
         "builtin type" -> "expected kind",
         BTInt64 -> k"*",
-        BTDecimal -> k"*",
+        BTNumeric -> k"nat -> *",
         BTText -> k"*",
         BTTimestamp -> k"*",
         BTParty -> k"*",
         BTUnit -> k"*",
         BTBool -> k"*",
         BTList -> k"* -> *",
+        BTTextMap -> k"* -> *",
+        BTGenMap -> k"* -> * -> *",
         BTUpdate -> k"* -> *",
         BTScenario -> k"* -> *",
         BTDate -> k"*",
         BTContractId -> k"* -> *",
         BTArrow -> k"* -> * -> *",
+        BTAny -> k"*",
       )
 
       forEvery(testCases) { (bType: BuiltinType, expectedKind: Kind) =>
@@ -65,6 +68,9 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
   "Checker.typeOf" should {
 
     "infers the proper type for expression" in {
+      // The part of the expression that corresponds to the expression
+      // defined by the given rule should be wrapped in double
+      // parentheses.
       val testCases = Table(
         "expression" ->
           "expected type",
@@ -106,7 +112,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         // ExpLitInt64
         E"(( 42 ))" -> T"Int64",
         // ExpLitDecimal
-        E"(( 3.1415926536 ))" -> T"(( Decimal ))",
+        E"(( 3.1415926536 ))" -> T"(( Numeric 10 ))",
         //ExpLitText
         E"""(( "text" ))""" -> T"(( Text ))",
         //ExpLitDate
@@ -115,8 +121,10 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         E"(( 1969-07-20T20:17:00.000000Z ))" -> T"(( Timestamp ))",
         //ExpLitParty
         E"(( 'party' ))" -> T"(( Party ))",
-        //Map
-        E"Λ (τ : ⋆) . (( MAP_EMPTY @τ ))" -> T"∀ (τ : ⋆) . (( Map τ ))",
+        //TextMap
+        E"Λ (τ : ⋆) . (( TEXTMAP_EMPTY @τ ))" -> T"∀ (τ : ⋆) . (( TextMap τ ))",
+        //GenMap
+        E"Λ (τ : ⋆) (σ : ⋆). (( GENMAP_EMPTY @τ @σ ))" -> T"∀ (τ : ⋆) (σ : ⋆) . (( GenMap τ σ ))",
         //ExpVal
         E"(( Mod:f ))" -> T"(( Int64 →  Bool ))",
         //ExpRecCon
@@ -134,13 +142,13 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         // ExpEnumCon
         E"(( Mod:Color:Blue ))" ->
           T"Mod:Color",
-        // ExpTupleCon
+        // ExpStructCon
         E"Λ (τ₁ : ⋆) (τ₂ : ⋆). λ (e₁ : τ₁) (e₂ : τ₂)  →  (( ⟨ f₁ = e₁, f₂ = e₂ ⟩ ))" ->
           T"∀ (τ₁ : ⋆) (τ₂ : ⋆). τ₁ → τ₂ → (( ⟨ f₁: τ₁, f₂: τ₂ ⟩ ))",
-        // ExpTupleProj
+        // ExpStructProj
         E"Λ (τ₁ : ⋆) (τ₂ : ⋆). λ (e: ⟨ f₁: τ₁, f₂: τ₂ ⟩) → (( (e).f₂ ))" ->
           T"∀ (τ₁ : ⋆) (τ₂ : ⋆) . ⟨ f₁: τ₁, f₂: τ₂ ⟩ → (( τ₂ ))",
-        // ExpTupleUpdate
+        // ExpStructUpdate
         E"Λ (τ₁ : ⋆) (τ₂ : ⋆). λ (e: ⟨ f₁: τ₁, f₂: τ₂ ⟩) (e₂ : τ₂)  → (( ⟨ e with f₂ = e₂ ⟩ ))" ->
           T"∀ (τ₁ : ⋆) (τ₂ : ⋆) . ⟨ f₁: τ₁, f₂: τ₂ ⟩ → τ₂ → (( ⟨ f₁: τ₁, f₂: τ₂ ⟩ ))",
         // ExpCaseVariant
@@ -161,6 +169,33 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         // ExpDefault
         E"Λ (τ : ⋆) (σ : ⋆). λ (e₁ : τ) (e₂: σ) → (( case e₁ of _ → e₂ ))" ->
           T"∀ (τ : ⋆) (σ : ⋆). τ → σ → (( σ ))",
+        // ExpToAny
+        E"""λ (t : Mod:T) → (( to_any @Mod:T t ))""" ->
+          T"Mod:T → Any",
+        E"""λ (t : Mod:R Text) → (( to_any @(Mod:R Text) t ))""" ->
+          T"Mod:R Text → Any",
+        E"""λ (t : Text) → (( to_any @Text t ))""" ->
+          T"Text → Any",
+        E"""λ (t : Int64) → (( to_any @Int64 t ))""" ->
+          T"Int64 -> Any",
+        // ExpFromAny
+        E"""λ (t: Any) → (( from_any @Mod:T t ))""" ->
+          T"Any → Option Mod:T",
+        E"""λ (t: Any) → (( from_any @(Mod:R Text) t ))""" ->
+          T"Any → Option (Mod:R Text)",
+        E"""λ (t: Any) → (( from_any @Text t ))""" ->
+          T"Any → Option Text",
+        E"""λ (t: Any) → (( from_any @Int64 t ))""" ->
+          T"Any → Option Int64",
+        // ExpTypeRep
+        E"""(( type_rep @Mod:T ))""" ->
+          T"TypeRep",
+        E"""(( type_rep @Int64 ))""" ->
+          T"TypeRep",
+        E"""(( type_rep @(Mod:Tree (List Text)) ))""" ->
+          T"TypeRep",
+        E"""(( type_rep @((ContractId Mod:T) → Mod:Color) ))""" ->
+          T"TypeRep",
       )
 
       forEvery(testCases) { (exp: Expr, expectedType: Type) =>
@@ -281,6 +316,8 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         // ExpLet
         E"Λ  (τ₁: ⋆) (τ₂ : ⋆) (σ: ⋆). λ (e₁ : τ₁) (e₂ : σ) → (( let x : τ₂ = e₁ in e₂ ))",
         E"Λ (τ : ⋆ → ⋆) (σ: ⋆). λ (e₁ : τ) (e₂ : τ → σ) → (( let x : τ = e₁ in e₂ x ))",
+        // ExpLitDecimal
+        E"λ (f: Numeric 0 → Unit) → f (( 3.1415926536 ))",
         // ExpListNil
         E"Λ (τ : ⋆ → ⋆). (( Nil @τ ))",
         // ExpListCons
@@ -308,11 +345,11 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         // ExpVarCon
         E"Λ (σ : ⋆ → ⋆). λ (e : σ) → (( Mod:Tree:Leaf @σ e ))",
         E"Λ (σ : ⋆). λ (e : σ) → (( Mod:Tree @σ Cons @σ [e] (Nil @σ) ))",
-        // ExpTupleCon
+        // ExpStructCon
         E"Λ (τ₁ : ⋆) (τ₂ : ⋆). λ (e₁ : τ₁)  → (( ⟨ f₁ = e₁, f₁ = e₁ ⟩ ))",
-        // ExpTupleProj
+        // ExpStructProj
         E"Λ (τ₁ : ⋆) (τ₂ : ⋆). λ (e: ⟨ f₁: τ₁, f₂: τ₂ ⟩) → (( (e).f3 ))",
-        // ExpTupleUpdate
+        // ExpStructUpdate
         E"Λ (τ₁ : ⋆) (τ₂ : ⋆). λ (e: ⟨ f₁: τ₁, f₂: τ₂ ⟩) (e₂ : τ₂)  → (( ⟨ e with f₃ = e₂ ⟩ ))",
         E"Λ (τ₁ : ⋆) (τ₂ : ⋆) (τ₃: ⋆). λ (e: ⟨ f₁: τ₁, f₂: τ₂ ⟩) (e₃: τ₃)  → (( ⟨ e with f₂ = e₃ ⟩ ))",
         // ExpCaseVariant
@@ -329,6 +366,25 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         E"Λ (τ : ⋆). λ (e : τ) → (( case e of () → () ))",
         // ExpCaseOr
         E"Λ (τ : ⋆). λ (e : τ) → (( case e of  ))",
+        // ExpToAny
+        E"Λ (τ : *). λ (r: Mod:R τ) → (( to_any @Mod:R r ))",
+        E"Λ (τ : *). λ (r: Mod:R τ) → (( to_any @(Mod:R τ) r ))",
+        E"Λ (τ : *). λ (t: Mod:Tree τ) → (( to_any @Mod:Tree t ))",
+        E"Λ (τ : *). λ (t: Mod:Tree τ) → (( to_any @(Mod:Tree τ) t ))",
+        E"Λ (τ : *). λ (t: ∀ (α : ⋆). Int64) → (( to_any @(∀ (α : ⋆). Int64) t ))",
+        E"Λ (τ : *). λ (t: List (Optional (∀ (α : ⋆). Int64))) → (( to_any @(List (Optional (∀ (α : ⋆). Int64))) t ))",
+        // ExpFromAny
+        E"λ (t: Any) → (( from_any @Mod:R t ))",
+        E"Λ (τ : *). λ (t: Any) → (( from_any @(Mod:R τ) t ))",
+        E"λ (t: Any) → (( from_any @Mod:Tree t ))",
+        E"Λ (τ : *). λ (t: Any) → (( from_any @(Mod:Tree τ) t ))",
+        E"λ (t: Mod:T) → (( from_any @Mod:T t ))",
+        E"Λ (τ : *). λ (t: Any) → (( to_any @(∀ (α : ⋆). Int64) t ))",
+        E"Λ (τ : *). λ (t: Any) → (( to_any @(List (Optional (∀ (α : ⋆). Int64))) t ))",
+        // ExpTypeRep
+        E"(( type_rep @Mod:NoSuchType ))",
+        E"Λ (τ : *). (( type_rep @τ ))",
+        E"(( type_rep @(∀(τ : *) . Int64) ))",
         // ScnPure
         E"Λ (τ : ⋆ → ⋆). λ (e: τ) → (( spure @τ e ))",
         E"Λ (τ : ⋆) (σ : ⋆). λ (e: τ) → (( spure @σ e ))",
@@ -390,8 +446,8 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         E"Λ (τ : ⋆) (σ : ⋆). λ (e : σ) → (( uembed_expr @τ e ))",
       )
 
-      forEvery(testCases) { exp: Expr =>
-        an[ValidationError] should be thrownBy env.typeOf(exp)
+      forEvery(testCases) { exp =>
+        a[ValidationError] should be thrownBy env.typeOf(exp)
       }
     }
 
@@ -712,6 +768,115 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
 
   }
 
+  "accepts regression test #3777" in {
+    // This is a regression test for https://github.com/digital-asset/daml/issues/3777
+    def pkg =
+      p"""
+        module TypeVarShadowing2 {
+
+         val bar : forall b1 b2 a1 a2. (b1 -> b2) -> (a1 -> a2) -> a1 -> a2 =
+             /\b1 b2 a1 a2. \(f : b1 -> b2) (g : a1 -> a2) -> g ;
+
+          val baz : forall a1 a2 b1 b2. (a1 -> a2) -> (b1 -> b2) -> b1 -> b2 =
+            /\a1 a2 b1 b2.
+              \(f : a1 -> a2) (g : b1 -> b2) ->
+                TypeVarShadowing2:bar @a1 @a2 @b1 @b2 f g;
+        }
+      """
+
+    val mod = pkg.modules(DottedName.assertFromString("TypeVarShadowing2"))
+    val world = new World(Map(defaultPackageId -> pkg))
+    Typing.checkModule(world, defaultPackageId, mod)
+  }
+
+  "expand type synonyms correctly" in {
+    val testCases = Table(
+      "expression" ->
+        "expected type",
+      E"(( λ (e : |Mod:SynInt|) → () )) " ->
+        T"(( Int64 → Unit ))",
+      E"(( λ (e : |Mod:SynSynInt|) → () )) " ->
+        T"(( Int64 → Unit ))",
+      E"(( λ (e : |Mod:SynIdentity Int64|) → () )) " ->
+        T"(( Int64 → Unit ))",
+      E"(( λ (e : |Mod:SynIdentity |Mod:SynIdentity Int64||) → () )) " ->
+        T"(( Int64 → Unit ))",
+      E"(( λ (e : |Mod:SynList Date|) → () )) " ->
+        T"(( List Date → Unit ))",
+      E"(( λ (e : |Mod:SynSelfFunc Text|) → () )) " ->
+        T"(( (Text → Text) → Unit ))",
+      E"(( λ (e : |Mod:SynFunc Text Date|) → () )) " ->
+        T"(( (Text → Date) → Unit ))",
+      E"(( λ (e : |Mod:SynPair Text Date|) → () )) " ->
+        T"(( <one:Text, two: Date> → Unit ))",
+      E"(( λ (e : forall (a:*) . a) → () )) " ->
+        T"(( (forall (a:*) . a) → Unit ))",
+      E"(( λ (e : |Mod:SynIdentity (forall (a:*) . a)|) → () )) " ->
+        T"(( (forall (a:*) . a) → Unit ))",
+      E"(( λ (e : forall (a:*) . |Mod:SynIdentity a|) → () )) " ->
+        T"(( (forall (a:*) . a) → Unit ))",
+      E"(( λ (e : |Mod:SynHigh List|) → () )) " ->
+        T"(( List Int64 → Unit ))",
+      E"(( λ (e : |Mod:SynHigh2 GenMap Party|) → () )) " ->
+        T"(( (GenMap Party Party) → Unit ))",
+    )
+
+    forEvery(testCases) { (exp: Expr, expectedType: Type) =>
+      env.typeOf(exp) shouldBe expectedType
+    }
+  }
+
+  "reject ill formed type synonym application" in {
+    val testCases = Table(
+      "badly formed type synonym application",
+      E"(( λ (e : |Mod:MissingSyn|) → () )) ",
+      E"(( λ (e : |Mod:SynInt Text|) → () )) ",
+      E"(( λ (e : |Mod:SynIdentity|) → () )) ",
+      E"(( λ (e : |Mod:SynIdentity Text Text|) → () )) ",
+      E"(( λ (e : |Mod:SynPair Text|) → () )) ",
+      E"(( λ (e : |Mod:SynPair Text Text Text|) → () )) ",
+      E"(( λ (e : |Mod:SynIdentity List|) → () )) ",
+      E"(( λ (e : |Mod:SynHigh Text|) → () )) ",
+      E"(( λ (e : |Mod:SynHigh GenMap|) → () )) ",
+      E"(( λ (e : |Mod:SynHigh2 List Party|) → () )) ",
+    )
+
+    forEvery(testCases) { exp =>
+      a[ValidationError] should be thrownBy env.typeOf(exp)
+    }
+  }
+
+  "reject ill formed type synonym definitions" in {
+    val testCases = Table(
+      "module"
+        -> "reject",
+      //Good
+      m"""module Mod { synonym S = Int64 ; }""" -> false,
+      m"""module Mod { synonym S a = a ; }""" -> false,
+      m"""module Mod { synonym S a b = a ; }""" -> false,
+      m"""module Mod { synonym S (f: *) = f ; }""" -> false,
+      m"""module Mod { synonym S (f: * -> *) = f Int64; }""" -> false,
+      //Bad
+      m"""module Mod { synonym S = a ; }""" -> true,
+      m"""module Mod { synonym S a = b ; }""" -> true,
+      m"""module Mod { synonym S a a = a ; }""" -> true,
+      m"""module Mod { synonym S = List ; }""" -> true,
+      m"""module Mod { synonym S (f: * -> *) = f ; }""" -> true,
+      m"""module Mod { synonym S (f: *) = f Int64; }""" -> true,
+    )
+
+    forEvery(testCases) { (mod: Module, rejected: Boolean) =>
+      val world = new World(Map())
+
+      if (rejected)
+        a[ValidationError] should be thrownBy
+          Typing.checkModule(world, defaultPackageId, mod)
+      else
+        Typing.checkModule(world, defaultPackageId, mod)
+      ()
+    }
+  }
+
   private val pkg =
     p"""
        module Mod {
@@ -720,6 +885,16 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
          variant Tree (a: *) =  Node : < left: Mod:Tree a, right: Mod:Tree a > | Leaf : a ;
 
          enum Color = Red | Green | Blue ;
+
+         synonym SynInt = Int64 ;
+         synonym SynSynInt = |Mod:SynInt| ;
+         synonym SynIdentity (a: *) = a ;
+         synonym SynList (a: *) = List a ;
+         synonym SynSelfFunc (a: *) = a -> a ;
+         synonym SynFunc (a: *) (b: *) = a -> b ;
+         synonym SynPair (a: *) (b: *) = <one: a, two: b>;
+         synonym SynHigh (f: * -> *) = f Int64 ;
+         synonym SynHigh2 (f: * -> * -> *) (a: *) = f a a ;
 
          record T = {person: Party, name: Text };
          template (this : T) =  {

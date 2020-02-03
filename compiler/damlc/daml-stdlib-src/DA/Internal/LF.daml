@@ -1,6 +1,7 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# OPTIONS -Wno-unused-binds #-} -- the opaque constructors are not exported
 
@@ -21,6 +22,10 @@ module DA.Internal.LF
 
   , TextMap
 
+  #ifdef DAML_GENMAP
+  , Map
+  #endif
+
   , Update
 
   , Scenario
@@ -36,14 +41,21 @@ module DA.Internal.LF
 
   , Pair
   , unpackPair
+
+  -- We always expose Any and TypeRep since they are used by template desugaring.
+  -- If this is not supported by the target LF version, we compile it to ().
+  , Any
+  , TypeRep
   ) where
 
-import GHC.Types (Opaque, Symbol, magic)
+import GHC.Types (Opaque, Symbol, primitive, magic)
 import DA.Internal.Prelude
+
+-- This module should not define any new types. It should only provide the DAML equivalent for LF
+-- builtins using Opaque.
 
 -- | The `Party` type represents a party to a contract.
 data Party =
-  -- | HIDE
   Party Opaque
 -- Note that before DAML-LF 1.2 BEToText added single quotes around the party.
 -- now it does not, and the old behavior has been renamed BEPartyToQuotedText.
@@ -57,7 +69,7 @@ instance Ord Party where
   (>) = primitive @"BEGreater"
 
 -- | Convert the `Party` to `Text`, giving back what you passed to `getParty`.
---   Most users should stick to `show` of the party instead, which also wraps
+--   In most cases, you should use `show` instead. `show` wraps
 --   the party in `'ticks'` making it clear it was a `Party` originally.
 partyToText : Party -> Text
 partyToText = primitive @"BEToText"
@@ -67,8 +79,8 @@ partyToText = primitive @"BEToText"
 -- are allowed in parties. Note that this function accepts text _without_
 -- single quotes.
 --
--- Also note that this function does not perform any check on whether the provided
--- text correspond to a party that "exists" on a given ledger: it merely converts
+-- This function does not check on whether the provided
+-- text corresponds to a party that "exists" on a given ledger: it merely converts
 -- the given `Text` to a `Party`. The only way to guarantee that a given `Party`
 -- exists on a given ledger is to involve it in a contract.
 --
@@ -91,7 +103,6 @@ getParty = primitive @"SGetParty"
 
 -- | The `Date` type represents a date, for example `date 2007 Apr 5`.
 data Date =
-  -- | HIDE
   Date Opaque
 instance Show Date where show = primitive @"BEToText"
 instance Eq Date where (==) = primitive @"BEEqual"
@@ -100,7 +111,6 @@ instance Ord Date where (<=) = primitive @"BELessEq"
 -- | The `Time` type represents a specific datetime in UTC,
 -- for example `time (date 2007 Apr 5) 14 30 05`.
 data Time =
-  -- | HIDE
   Time Opaque
 instance Show Time where show = primitive @"BEToText"
 instance Eq Time where (==) = primitive @"BEEqual"
@@ -109,26 +119,31 @@ instance Ord Time where (<=) = primitive @"BELessEq"
 -- | The `TextMap a` type represents an associative array from keys of type
 -- `Text` to values of type `a`.
 data TextMap a =
-  -- | HIDE
   TextMap Opaque
+
+#ifdef DAML_GENMAP
+-- | The `Map a b` type represents an associative array from keys of type `a`
+-- to values of type `b`. It uses the built-in equality for keys. Import
+-- `DA.Map` to use it.
+data Map a b =
+  Map Opaque
+#endif
 
 -- | The `ContractId a` type represents an ID for a contract created from a template `a`.
 --   You can use the ID to fetch the contract, among other things.
-data ContractId a = 
-  -- | HIDE
+data ContractId a =
   ContractId Opaque
 instance Eq (ContractId a) where (==) = primitive @"BEEqualContractId"
 instance Show (ContractId a) where show _ = "<contract-id>"
 
--- | HIDE We need this for testing while during the implementation of
--- generic templates. It will most likely disappear thereafter.
+-- | HIDE This is currently used in the internals of DAML script and DAML triggers
+-- but not really something that we want to expose to users.
 coerceContractId : ContractId a -> ContractId b
 coerceContractId = primitive @"BECoerceContractId"
 
 -- | The `Update a` type represents an `Action` to update or query the ledger,
 --   before returning a value of type `a`. Examples include `create` and `fetch`.
 data Update a =
-  -- | HIDE
   Update Opaque
 
 instance Functor Update where
@@ -164,11 +179,13 @@ instance CanAbort Update where
 instance CanAbort Scenario where
     abort = fail
 
+instance CanAbort (Either Text) where
+    abort = fail
+
 -- | The `Scenario` type is for simulating ledger interactions.
 -- The type `Scenario a` describes a set of actions taken by various parties during
 -- the simulated scenario, before returning a value of type `a`.
 data Scenario a =
-  -- | HIDE
   Scenario Opaque
 
 instance Functor Scenario where
@@ -194,8 +211,8 @@ submit = primitive @"SCommit"
 
 infixr 0 `submitMustFail`
 -- | `submitMustFail` describes the scenario in which party `p` attempts to update the
--- ledger with update action `u`, but is expected to fail. This scenario is considered
--- a failure if the underlying update action succeeds.
+-- ledger with update action `u`, and the update is *expected to fail*. Therefore, this
+-- scenario fails if the underlying update action *succeeds*.
 submitMustFail : Party -> Update a -> Scenario ()
 submitMustFail = primitive @"SMustFailAt"
 
@@ -210,3 +227,16 @@ data Pair (f1 : Symbol) (f2 : Symbol) a1 a2 = Pair Opaque
 -- | HIDE Function to turn a DAML-LF structural record type into a DAML pair.
 unpackPair : forall f1 f2 a1 a2. Pair f1 f2 a1 a2 -> (a1, a2)
 unpackPair = magic @"unpackPair"
+
+-- | Existential type that can wrap an arbitrary type.
+-- We do not expose this directly and instead only expose AnyTemplate and AnyChoice.
+data Any = Any Opaque
+
+-- | Value-level representation of a type.
+-- We do not expose this directly and instead only expose TemplateTypeRep.
+data TypeRep = TypeRep Opaque
+
+#ifdef DAML_TYPE_REP
+instance Eq TypeRep where
+  (==) = primitive @"BEEqual"
+#endif

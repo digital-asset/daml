@@ -1,22 +1,18 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.quickstart.iou;
 
 import com.daml.ledger.rxjava.DamlLedgerClient;
 import com.daml.ledger.rxjava.LedgerClient;
-import com.daml.ledger.rxjava.PackageClient;
 import com.daml.ledger.javaapi.data.*;
 import com.digitalasset.quickstart.model.iou.Iou;
-import com.digitalasset.quickstart.model.iou.Iou_Transfer;
 import com.google.common.collect.BiMap;
 
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.Maps;
 import com.google.gson.Gson;
 import com.google.protobuf.Empty;
-import com.google.protobuf.InvalidProtocolBufferException;
-import io.reactivex.Flowable;
 import io.reactivex.disposables.Disposable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,10 +43,10 @@ public class IouMain {
         String party = args[2];
         int restport = Integer.valueOf(args[3]);
 
-        // create a client object to access services on the ledger
+        // Create a client object to access services on the ledger.
         DamlLedgerClient client = DamlLedgerClient.forHostWithLedgerIdDiscovery(ledgerhost, ledgerport, Optional.empty());
 
-        // Connects to the ledger and runs initial validation
+        // Connects to the ledger and runs initial validation.
         client.connect();
 
         String ledgerId = client.getLedgerId();
@@ -73,7 +69,6 @@ public class IouMain {
                                 long id = idCounter.getAndIncrement();
                                 contracts.put(id, contract.data);
                                 idMap.put(id, contract.id);
-
                             });
                 });
 
@@ -119,7 +114,7 @@ public class IouMain {
             return "Iou transfer submitted.";
         }, g::toJson);
 
-        // Run until user terminates
+        // Run until user terminates.
         while (true)
             try {
                 Thread.sleep(1000);

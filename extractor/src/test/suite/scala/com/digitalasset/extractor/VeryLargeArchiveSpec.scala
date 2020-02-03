@@ -1,19 +1,19 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.extractor
 
+import java.io.File
+
 import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.extractor.services.ExtractorFixture
 import com.digitalasset.ledger.api.testing.utils.SuiteResourceManagementAroundAll
-import com.digitalasset.platform.sandbox.persistence.PostgresAroundEach
-
-import scala.concurrent.Await
-import scala.concurrent.duration._
+import com.digitalasset.testing.postgresql.PostgresAroundEach
 import io.grpc.StatusRuntimeException
 import org.scalatest._
 
-import java.io.File
+import scala.concurrent.Await
+import scala.concurrent.duration._
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class VeryLargeArchiveSpec
@@ -27,7 +27,9 @@ class VeryLargeArchiveSpec
 
   private def runWithInboundLimit[Z](bytes: Int)(f: => Z): Z = {
     val config = baseConfig.copy(ledgerPort = getSandboxPort, ledgerInboundMessageSizeMax = bytes)
-    val extractor = new Extractor(config, target)
+    val extractor =
+      new Extractor(config, target)()
+
     Await.result(extractor.run(), Duration.Inf) // as with ExtractorFixture#run
     try f
     finally Await.result(extractor.shutdown(), Duration.Inf) // as with ExtractorFixture#kill
@@ -44,7 +46,7 @@ class VeryLargeArchiveSpec
   // future editors of this test should not feel obliged to synthesize a failure
   // if the system design has really changed so failures of this nature cannot
   // happen.
-  val failMB = 5
+  val failMB = 1
   val successMB = 10
 
   s"${failMB}MiB" should "fail" in {

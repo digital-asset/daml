@@ -1,4 +1,4 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2020 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("@os_info//:os_info.bzl", "is_darwin", "is_windows")
@@ -49,6 +49,7 @@ def _fat_cc_library_impl(ctx):
             ctx.attr.no_whole_archive_flag +
             # Some libs seems to depend on libstdc++ implicitely
             ["-lstdc++"] +
+            (["-framework", "CoreFoundation"] if is_darwin else []) +
             # On Windows some libs seems to depend on Windows sockets
             (["-lws2_32"] if is_windows else []),
         inputs = static_libs,

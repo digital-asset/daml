@@ -1,19 +1,17 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.extractor
 
+import java.io.File
+
 import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.extractor.services.{CustomMatchers, ExtractorFixtureAroundAll}
 import com.digitalasset.ledger.api.testing.utils.SuiteResourceManagementAroundAll
-import com.digitalasset.platform.sandbox.persistence.PostgresAroundAll
-
-import org.scalatest._
+import com.digitalasset.testing.postgresql.PostgresAroundAll
 import io.circe.parser._
-import java.io.File
-
-import scalaz._
-import Scalaz._
+import org.scalatest._
+import scalaz.Scalaz._
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class RecordsAndVariantsSpec
@@ -45,17 +43,18 @@ class RecordsAndVariantsSpec
           "party" : "Bob",
           "reference" : "All-in-one",
           "deepNested" : {
-            "MaybeRecRecordABRight" : {
+            "tag" : "MaybeRecRecordABRight",
+            "value" : {
               "baz" : {
                 "baz" : false,
                 "foo" : "foo"
               },
               "foo" : [
-                { "Some" : [1, 2, 3] },
-                { "None" : {} },
-                { "Some" : [4, 5, 6] },
-                { "None" : {} },
-                { "Some" : [7, 8, 9] }
+                [1, 2, 3],
+                null,
+                [4, 5, 6],
+                null,
+                [7, 8, 9]
               ]
             }
           },
@@ -64,7 +63,8 @@ class RecordsAndVariantsSpec
             "foo" : true
           },
           "eitherVariant" : {
-            "RightM" : 7
+            "tag": "RightM",
+            "value" : 7
           },
           "recordTextInt" : {
             "baz" : 6,

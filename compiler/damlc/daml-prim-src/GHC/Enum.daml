@@ -1,11 +1,11 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# OPTIONS_GHC -Wno-missing-methods #-}
 daml 1.2
 
--- | MOVE Prelude.
+-- | MOVE Prelude
 --
 -- A weird module - based on base.GHC.Enum, but not realy in the GHC namespace.
 -- Has to live here so GHC can find it for deriving instances.

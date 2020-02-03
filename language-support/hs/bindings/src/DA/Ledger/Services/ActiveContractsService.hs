@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE GADTs #-}
@@ -18,13 +18,13 @@ type Response = (AbsOffset,Maybe WorkflowId,[Event]) -- Always CreatedEvent. TOD
 
 getActiveContracts :: LedgerId -> TransactionFilter -> Verbosity -> LedgerService [Response]
 getActiveContracts lid tf verbosity =
-    makeLedgerService $ \timeout config -> do
+    makeLedgerService $ \timeout config mdm -> do
     let request = mkRequest lid tf verbosity
     stream <- asyncStreamGen $ \stream ->
         withGRPCClient config $ \client -> do
             service <- activeContractsServiceClient client
             let ActiveContractsService {activeContractsServiceGetActiveContracts=rpc} = service
-            sendToStream timeout request raiseGetActiveContractsResponse stream rpc
+            sendToStream timeout mdm request raiseGetActiveContractsResponse stream rpc
     -- The stream is not continuous, so we force the force the list here.
     streamToList stream
 

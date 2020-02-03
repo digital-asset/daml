@@ -1,4 +1,4 @@
-.. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2020 The DAML Authors. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 .. _sandbox-manual:
@@ -12,7 +12,9 @@ You can start Sandbox together with :doc:`Navigator </tools/navigator/index>` us
 
 It is possible to execute the Sandbox launching step in isolation by typing ``daml sandbox``.
 
-Sandbox can also be run manually as in this example::
+Sandbox can also be run manually as in this example:
+
+.. code-block:: none
 
   $ daml sandbox Main.dar --scenario Main:example
 
@@ -20,12 +22,18 @@ Sandbox can also be run manually as in this example::
     / __/__ ____  ___/ / /  ___ __ __
    _\ \/ _ `/ _ \/ _  / _ \/ _ \\ \ /
   /___/\_,_/_//_/\_,_/_.__/\___/_\_\
-  initialized sandbox with ledger-id = sandbox-16ae201c-b2fd-45e0-af04-c61abe13fed7, port = 6865, dar file = DAR files at List(/Users/donkeykong/temp/da-sdk/test/Main.dar), time mode = Static, daml-engine = {}
+  initialized sandbox with ledger-id = sandbox-16ae201c-b2fd-45e0-af04-c61abe13fed7, port = 6865,
+  dar file = DAR files at List(/Users/damluser/temp/da-sdk/test/Main.dar), time mode = Static, daml-engine = {}
   Initialized Static time provider, starting from 1970-01-01T00:00:00Z
   listening on localhost:6865
 
-Here, ``daml sandbox`` tells the SDK Assistant to run ``sandbox`` from the active SDK release and pass it any arguments that follow. The example passes the DAR file to load (``Main.dar``) and the optional ``--scenario`` flag tells Sandbox to run the ``Main:example`` scenario on startup. The scenario must be fully qualified; here ``Main`` is the module and ``example`` is the name of the scenario, separated by a ``:``. The scenario is used for testing and development; it is not run in production.
+Here, ``daml sandbox`` tells the SDK Assistant to run ``sandbox`` from the active SDK release and pass it any arguments that follow. The example passes the DAR file to load (``Main.dar``) and the optional ``--scenario`` flag tells Sandbox to run the ``Main:example`` scenario on startup. The scenario must be fully qualified; here ``Main`` is the module and ``example`` is the name of the scenario, separated by a ``:``.
 
+.. note::
+  
+  The scenario is used for testing and development only, and is not supported by production DAML Ledgers. It is therefore inadvisable to rely on scenarios for ledger initialization.
+
+  ``submitMustFail`` is only supported by the test-ledger used by ``daml test`` and the IDE, not by the Sandbox.
 
 Running with persistence
 ************************
@@ -43,11 +51,112 @@ To start Sandbox using persistence, pass an ``--sql-backend-jdbcurl <value>`` op
 
 Here is an example for such a url: ``jdbc:postgresql://localhost/test?user=fred&password=secret``
 
+Due to possible conflicts between the ``&`` character and various terminal shells, we recommend quoting the jdbc url like so:
+
+.. code-block:: none
+
+  $ daml sandbox Main.dar --sql-backend-jdbcurl "jdbc:postgresql://localhost/test?user=fred&password=secret"
+
 If you're not familiar with JDBC URLs, see the JDBC docs for more information: https://jdbc.postgresql.org/documentation/head/connect.html
+
+.. _sandbox-authentication:
+
+Running with authentication
+***************************
+
+By default, Sandbox does not use any authentication and accepts all valid ledger API requests.
+
+To start Sandbox with authentication based on `JWT <https://jwt.io/>`__ tokens,
+use one of the following command line options:
+
+- ``--auth-jwt-rs256-crt=<filename>``.
+  The sandbox will expect all tokens to be signed with RSA256 with the public key loaded from the given X.509 certificate file.
+  Both PEM-encoded certificates (text files starting with ``-----BEGIN CERTIFICATE-----``)
+  and DER-encoded certicates (binary files) are supported.
+
+- ``--auth-jwt-ec-crt=<filename>``.
+  The sandbox will expect all tokens to be signed with ECDSA512 with the public key loaded from the given X.509 certificate file.
+  Both PEM-encoded certificates (text files starting with ``-----BEGIN CERTIFICATE-----``)
+  and DER-encoded certicates (binary files) are supported.
+
+- ``--auth-jwt-rs256-jwks=<url>``.
+  The sandbox will expect all tokens to be signed with RSA256 with the public key loaded from the given `JWKS <https://tools.ietf.org/html/rfc7517>`__ URL.
+
+.. warning::
+
+  For testing purposes only, the following options may also be used.
+  None of them is considered safe for production:
+
+  - ``--auth-jwt-hss256-unsafe=<secret>``.
+    The sandbox will expect all tokens to be signed with HMAC256 with the given plaintext secret.
+
+Token payload
+=============
+
+JWTs express claims which are documented in the :ref:`authentication <authentication-claims>` documentation.
+
+The following is an example of a valid JWT payload:
+
+.. code-block:: json
+
+   {
+      "https://daml.com/ledger-api": {
+        "ledgerId": "aaaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+        "participantId": null,
+        "applicationId": null,
+        "admin": true,
+        "actAs": ["Alice"],
+        "readAs": ["Bob"]
+      },
+      "exp": 1300819380,
+   }
+
+where
+
+- ``ledgerId``, ``participantId``, ``applicationId`` restricts the validity of the token to the given ledger, participant, or application
+- ``exp`` is the standard JWT expiration date (in seconds since EPOCH)
+- ``admin``, ``actAs`` and ``readAs`` bear the same meaning as in the :ref:`authentication <authentication-claims>` documentation
+
+The ``public`` claim is implicitly held by anyone bearing a valid JWT (even without being an admin or being able to act or read on behalf of any party).
+
+Generating JSON Web Tokens (JWT)
+================================
+
+To generate tokens for testing purposes, use the `jtw.io <https://jwt.io/>`__ web site.
+
+
+Generating RSA keys
+===================
+
+To generate RSA keys for testing purposes, use the following command
+
+.. code-block:: none
+
+  openssl req -nodes -new -x509 -keyout sandbox.key -out sandbox.crt
+
+which generates the following files:
+
+- ``sandbox.key``: the private key in PEM/DER/PKCS#1 format
+- ``sandbox.crt``: a self-signed certificate containing the public key, in PEM/DER/X.509 Certificate format
+
+Generating EC keys
+==================
+
+To generate EC (elliptic curve) keys for testing purposes, use the following command
+
+.. code-block:: none
+
+  openssl req -x509 -nodes -days 3650 -newkey ec:<(openssl ecparam -name prime256v1) -keyout ecdsa.key -out ecdsa.crt
+
+which generates the following files:
+
+- ``ecdsa.key``: the private key in PEM/DER/PKCS#1 format
+- ``ecdsa.crt``: a self-signed certificate containing the public key, in PEM/DER/X.509 Certificate format
+
 
 Command-line reference
 **********************
 
-To start Sandbox, run: ``sandbox [options] <archive>...``
+To start Sandbox, run: ``sandbox [options] <archive>...``.
 
-To see all the available options, run ``da run sandbox -- --help``
+To see all the available options, run ``daml sandbox --help``.

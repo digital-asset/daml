@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.platform.sandbox.perf
@@ -9,11 +9,14 @@ import akka.stream.scaladsl.Sink
 import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import org.openjdk.jmh.annotations.Benchmark
 
+class SimpleBenchState extends PerfBenchState with DummyCommands with InfAwait
+
 class SimpleBench extends DummyCommands with InfAwait {
 
-  override protected def darFile: File = new File(rlocation("ledger/sandbox/Test.dar"))
+  override protected def darFile: File = new File(rlocation("ledger/test-common/Test-stable.dar"))
+
   @Benchmark
-  def ingest10kCommands(state: PerfBenchState): Unit = {
+  def ingest10kCommands(state: SimpleBenchState): Unit = {
     val commandCount = 10000L
     await(
       dummyCreates(state.ledger.ledgerId)

@@ -1,4 +1,4 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2020 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 set -euo pipefail
 
@@ -27,14 +27,16 @@ fi
 TESTS_DIR=$(dirname $(rlocation "$TEST_WORKSPACE/compiler/damlc/tests/daml-test-files/Examples.daml"))
 damlc=$(rlocation "$TEST_WORKSPACE/$1")
 protoc=$(rlocation "$TEST_WORKSPACE/$2")
+diff="$3"
 
 # Check that DAML compilation is deterministic.
 TMP_SRC1=$(mktemp -d)
 TMP_SRC2=$(mktemp -d)
 TMP_OUT=$(mktemp -d)
+PROJDIR=$(mktemp -d)
 
 cleanup () {
-    rm -rf "$TMP_SRC1" "$TMP_SRC2" "$TMP_OUT"
+    rm -rf "$TMP_SRC1" "$TMP_SRC2" "$TMP_OUT" "$PROJDIR"
 }
 trap cleanup EXIT
 
@@ -54,10 +56,39 @@ $protoc --decode_raw < "$TMP_OUT/out_2" > "$TMP_OUT/decoded_out_2"
 # We first diff the decoded files to get useful debugging output and
 # then the non-decoded files to ensure that we actually get bitwise
 # identical outputs.
-diff -u "$TMP_OUT/decoded_out_1" "$TMP_OUT/decoded_out_2"
-diff -u "$TMP_OUT/out_1" "$TMP_OUT/out_2"
+$diff -u "$TMP_OUT/decoded_out_1" "$TMP_OUT/decoded_out_2"
+$diff -u "$TMP_OUT/out_1" "$TMP_OUT/out_2"
 $protoc --decode_raw < "$TMP_OUT/out_proj_1" > "$TMP_OUT/decoded_out_proj_1"
 $protoc --decode_raw < "$TMP_OUT/out_proj_2" > "$TMP_OUT/decoded_out_proj_2"
-diff -u "$TMP_OUT/decoded_out_proj_1" "$TMP_OUT/decoded_out_proj_2"
-diff -u "$TMP_OUT/out_proj_1" "$TMP_OUT/out_proj_2"
+$diff -u "$TMP_OUT/decoded_out_proj_1" "$TMP_OUT/decoded_out_proj_2"
+$diff -u "$TMP_OUT/out_proj_1" "$TMP_OUT/out_proj_2"
 
+# Check that daml build is deterministic.
+# This includes things like the ZIP timestamps
+# in a DAR instead of just the package id.
+
+cat <<EOF > "$PROJDIR/daml.yaml"
+sdk-version: 0.0.0
+name: proj
+version: 0.0.1
+source: .
+dependencies: [daml-prim, daml-stdlib]
+EOF
+
+cat <<EOF > "$PROJDIR/A.daml"
+daml 1.2
+module A where
+EOF
+
+$damlc build --project-root "$PROJDIR" -o "$PROJDIR/out.dar"
+FIRST_SHA=$(sha256sum $PROJDIR/out.dar)
+
+$damlc build --project-root "$PROJDIR" -o "$PROJDIR/out.dar"
+SECOND_SHA=$(sha256sum $PROJDIR/out.dar)
+
+if [[ $FIRST_SHA != $SECOND_SHA ]]; then
+    echo "daml build was non-deterministic: "
+    echo "$FIRST_SHA"
+    echo "$SECOND_SHA"
+    exit 1
+fi

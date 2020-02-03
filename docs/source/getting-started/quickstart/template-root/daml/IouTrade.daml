@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 daml 1.2
@@ -12,7 +12,7 @@ template IouTrade
   with
     buyer : Party
     seller : Party
-    baseIouCid : IouId
+    baseIouCid : IouCid
     baseIssuer : Party
     baseCurrency : Text
     baseAmount : Decimal
@@ -23,9 +23,9 @@ template IouTrade
     signatory buyer
 
     controller seller can
-      IouTrade_Accept : (IouId, IouId)
+      IouTrade_Accept : (IouCid, IouCid)
         with
-          quoteIouCid : IouId
+          quoteIouCid : IouCid
         do
           baseIou <- fetch baseIouCid
           baseIssuer === baseIou.issuer
@@ -37,13 +37,13 @@ template IouTrade
           quoteCurrency === quoteIou.currency
           quoteAmount === quoteIou.amount
           seller === quoteIou.owner
-          quoteIouTransferId <- exercise quoteIouCid Iou_Transfer with
+          quoteIouTransferCid <- exercise quoteIouCid Iou_Transfer with
             newOwner = buyer
-          quoteIouCid <- exercise quoteIouTransferId IouTransfer_Accept
-          baseIouTransferId <- exercise baseIouCid Iou_Transfer with
+          transferredQuoteIouCid <- exercise quoteIouTransferCid IouTransfer_Accept
+          baseIouTransferCid <- exercise baseIouCid Iou_Transfer with
             newOwner = seller
-          baseIouCid <- exercise baseIouTransferId IouTransfer_Accept
-          return (quoteIouCid, baseIouCid)
+          transferredBaseIouCid <- exercise baseIouTransferCid IouTransfer_Accept
+          return (transferredQuoteIouCid, transferredBaseIouCid)
 
       TradeProposal_Reject : ()
         do return ()

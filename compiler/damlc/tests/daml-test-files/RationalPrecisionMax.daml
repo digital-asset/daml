@@ -1,4 +1,4 @@
--- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
 -- Test that the maximal precision of e^-10 in rational literals passes.
@@ -7,4 +7,5 @@ daml 1.2
 
 module RationalPrecisionMax where
 
+a : Decimal
 a = 0.0000000005

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.ledger.client.binding
@@ -97,7 +97,7 @@ class DomainTransactionMapper(decoder: DecoderType) extends LazyLogging {
   private def logAndDiscard(event: CreatedEvent)(
       err: EventDecoderError): Either[InputValidationError, Option[DomainEvent]] = {
     // TODO: improve error handling (make discarding error log message configurable)
-    logger.warn(s"Unhandled create event $event. Error: $err")
+    logger.warn(s"Unhandled create event ${event.toString}. Error: ${err.toString}")
     Right(None)
   }
 

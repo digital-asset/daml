@@ -1,160 +1,133 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE OverloadedStrings #-}
 
 module DA.Daml.Doc.Render.Markdown
-  ( renderSimpleMD
+  ( renderMd
   ) where
 
 import DA.Daml.Doc.Types
-import DA.Daml.Doc.Render.Util
+import DA.Daml.Doc.Render.Util (adjust, escapeText)
+import DA.Daml.Doc.Render.Monoid
 
-import           Data.Maybe
+import Data.List.Extra
 import qualified Data.Text as T
-import           Data.List (intersperse)
 
-renderSimpleMD :: ModuleDoc -> T.Text
-renderSimpleMD ModuleDoc{..}
-  | null md_templates && null md_classes &&
-    null md_adts && null md_functions &&
-    isNothing md_descr = T.empty
-renderSimpleMD ModuleDoc{..} = T.unlines $
-  [ "# " <> "Module " <> unModulename md_name
-  , ""
-  , maybe "" unDocText md_descr
-  , "" ]
-  <> concat
-  [ if null md_templates then []
-    else [ "## Templates"
-         , ""
-         , T.unlines $ map tmpl2md md_templates
-         , "" ]
-  , if null md_classes
-    then []
-    else [ "## Typeclasses"
-         , ""
-         , T.unlines $ map cls2md md_classes
-         , ""
-         ]
-  , if null md_adts then []
-    else [ "## Data types"
-         , ""
-         , T.unlines $ map adt2md md_adts
-         , "" ]
-  , if null md_functions then []
-    else [ "## Functions"
-         , ""
-         , T.unlines $ map fct2md md_functions
-         ]
-  ]
+renderMd :: RenderEnv -> RenderOut -> [T.Text]
+renderMd env = \case
+    RenderSpaced chunks -> renderMdSpaced env chunks
+    RenderModuleHeader title -> ["# " <> title]
+    RenderSectionHeader title -> ["## " <> title]
+    RenderBlock block -> blockquote (renderMd env block)
+    RenderList items -> spaced (map (bullet . renderMd env) items)
+    RenderRecordFields fields -> renderMdFields env fields
+    RenderParagraph text -> [renderMdText env text]
+    RenderDocs docText -> T.lines . unDocText $ docText
+    RenderAnchor anchor -> [anchorTag anchor]
 
+renderMdWithAnchor :: RenderEnv -> Anchor -> RenderOut -> [T.Text]
+renderMdWithAnchor env anchor = \case
+    RenderModuleHeader title -> ["# " <> anchorTag anchor <> title]
+    RenderSectionHeader title -> ["## " <> anchorTag anchor <> title]
+    RenderParagraph text -> [anchorTag anchor <> renderMdText env text]
+    other -> anchorTag anchor : renderMd env other
 
-tmpl2md :: TemplateDoc -> T.Text
-tmpl2md TemplateDoc{..} = T.unlines $
-    [ "### Template " <> asCode (unTypename td_name)
-    , maybe "" (T.cons '\n' . unDocText) td_descr
-    , ""
-    , fieldTable td_payload
-    , ""
-    , "  #### Choices"
-    , ""
-    ] ++ map choiceBullet td_choices -- ends by "\n" because of unlines above
+renderMdSpaced :: RenderEnv -> [RenderOut] -> [T.Text]
+renderMdSpaced env = spaced . renderMds env
 
-  where
-    choiceBullet :: ChoiceDoc -> T.Text
-    choiceBullet ChoiceDoc{..} = T.unlines
-        [ prefix "* " $ asCode (unTypename cd_name)
-        , maybe "  " (flip T.snoc '\n' . indent 2 . unDocText) cd_descr
-        , indent 2 (fieldTable cd_fields)
-        ]
+renderMds :: RenderEnv -> [RenderOut] -> [[T.Text]]
+renderMds env = \case
+    RenderAnchor anchor : next : rest ->
+        renderMdWithAnchor env anchor next : renderMds env rest
+    next : rest -> renderMd env next : renderMds env rest
+    [] -> []
 
-cls2md :: ClassDoc -> T.Text
-cls2md ClassDoc{..} = T.unlines $
-    [ "### `class` "
-        <> maybe "" (\x -> type2md x <> " => ") cl_super
-        <> T.unwords (unTypename cl_name : cl_args)
-        <> " where"
-    , maybe "" (T.cons '\n' . indent 2 . unDocText) cl_descr
-    ] ++ map (indent 2 . fct2md) cl_functions
+renderMdText :: RenderEnv -> RenderText -> T.Text
+renderMdText env = \case
+    RenderConcat ts -> mconcatMap (renderMdText env) ts
+    RenderPlain text -> escapeMd text
+    RenderStrong text -> T.concat ["**", escapeMd text, "**"]
+    RenderLink ref text ->
+        case lookupReference env ref of
+            Nothing -> escapeMd text
+            Just anchorLoc -> T.concat
+                [ "["
+                , escapeMd text
+                , "]("
+                , anchorHyperlink anchorLoc (referenceAnchor ref)
+                , ")"]
+    RenderDocsInline docText ->
+        T.unwords . T.lines . unDocText $ docText
 
-adt2md :: ADTDoc -> T.Text
-adt2md TypeSynDoc{..} = T.unlines $
-    [ "### `type` "
-        <> asCode (unTypename ad_name <> (T.concat $ map (T.cons ' ') ad_args))
-    , "    = " <> type2md ad_rhs
-    ] ++ maybe [] ((:[]) . T.cons '\n' . indent 2 . unDocText) ad_descr
+anchorTag :: Anchor -> T.Text
+anchorTag (Anchor anchor) = T.concat ["<a name=\"", anchor, "\"></a>"]
 
-adt2md ADTDoc{..} = T.unlines $
-    [ "### `data` "
-        <> asCode (unTypename ad_name <> (T.concat $ map (T.cons ' ') ad_args))
-    , maybe T.empty (T.cons '\n' . indent 2 . unDocText) ad_descr
-    ] ++ map constrMdItem ad_constrs
+-- Utilities
 
-constrMdItem :: ADTConstr -> T.Text
-constrMdItem PrefixC{..} =
-  ("* " <> T.unwords (asCode (unTypename ac_name) : map type2md ac_args))
-  <> maybe T.empty (T.cons '\n' . indent 2 . unDocText) ac_descr
-constrMdItem RecordC{..} =
-  ("* " <> asCode (unTypename ac_name))
-  <> maybe T.empty (T.cons '\n' . indent 2 . unDocText) ac_descr
-  <> "\n\n"
-  <> indent 2 (fieldTable ac_fields)
+spaced :: [[T.Text]] -> [T.Text]
+spaced = intercalate [""]
 
+blockquote :: [T.Text] -> [T.Text]
+blockquote = map ("> " <>)
+
+indent :: [T.Text] -> [T.Text]
+indent = map ("  " <>)
+
+bullet :: [T.Text] -> [T.Text]
+bullet [] = []
+bullet (x : xs) = ("* " <> x) : indent xs
+
+escapeMd :: T.Text -> T.Text
+escapeMd = escapeText (`elem` ("[]*_~`<>\\&" :: String))
 
 -- | Render fields as a pipe-table, like this:
--- >  | Field    | Type/Description |
--- >  | :------- | :---------------
--- >  |`anA`     | `a`
--- >  |`another` | `a`
--- >  |          | another a
--- >  |`andText` | `Text`
--- >  |          | and text
--- >
-fieldTable :: [FieldDoc] -> T.Text
-fieldTable []  = "(no fields)"
-fieldTable fds = header <> fieldRows <> "\n"
+-- >  | Field    | Type     | Description
+-- >  | :------- | :------- | :----------
+-- >  | anA      | a        |
+-- >  | another  | a        | another a
+-- >  | andText  | Text     | and text
+renderMdFields :: RenderEnv -> [(RenderText, RenderText, RenderText)] -> [T.Text]
+renderMdFields _ []  = ["(no fields)"]
+renderMdFields env fields = header <> fieldRows
   where
-    header = T.unlines
-      [ "| " <> adjust fLen "Field"   <> " | Type/Description |"
-      , "| :" <> T.replicate (fLen - 1) "-" <> " | :----------------"
-      ]
+    textFields =
+        [ ( renderMdText env name
+          , renderMdText env ty
+          , renderMdText env doc
+          )
+        | (name, ty, doc) <- fields
+        ]
 
-    fieldRows = T.unlines
-      [ "| " <> adjust fLen (asCode (unFieldname fd_name))
-        <> " | " <> type2md fd_type <> " |"
-        <> maybe "" (\desc -> "\n" <> col1Empty <> removeLineBreaks (unDocText desc) <> " |") fd_descr
-      | FieldDoc{..} <- fds ]
+    fLen = maximum $ T.length "Field" : T.length "Type" :
+        [ max (T.length name) (T.length ty)
+        | (name, ty, _) <- textFields ]
 
-    -- Markdown does not support multi-row cells so we have to remove
-    -- line breaks.
-    removeLineBreaks = T.unwords . T.lines
+    header =
+        [ T.concat
+            [ "| "
+            , adjust fLen "Field"
+            , " | "
+            , adjust fLen "Type"
+            , " | Description |"
+            ]
+        , T.concat
+            [ "| :"
+            , T.replicate (fLen - 1) "-"
+            , " | :"
+            , T.replicate (fLen - 1) "-"
+            , " | :---------- |"
+            ]
+        ]
 
-    fLen = maximum $ 5 : map (T.length . asCode . unFieldname . fd_name) fds
-      -- 5 = length of "Field" header
-
-    col1Empty = "| " <> T.replicate fLen " " <> " | "
-
--- | Render a type. Nested type applications are put in parentheses.
-type2md :: Type -> T.Text
-type2md t = t2md id t
-  where t2md f (TypeFun ts) = f $ T.intercalate " `->` " $ map (t2md id) ts
-        t2md _ (TypeList t1) = "`[` " <> t2md id t1 <> " `]`"
-        t2md _ (TypeTuple ts) = "`(` " <>
-                            T.concat (intersperse ", " $ map (t2md id) ts) <>
-                            " `)`"
-        t2md _ (TypeApp _ n []) = asCode (unTypename n)
-        t2md f (TypeApp _ name args) =
-          f $ T.unwords ( asCode (unTypename name) : map (t2md codeParens) args)
-        codeParens s = "`(` " <> s <> " `)`"
-
-fct2md :: FunctionDoc -> T.Text
-fct2md FunctionDoc{..} =
-  "* " <> asCode (unFieldname fct_name) <> maybe "" ((" : " <>) . type2md) fct_type
-  <> maybe "" (("  \n" <>) . indent 2 . unDocText) fct_descr
-  --             ^^ NB trailing whitespace to cause a line break
-
-------------------------------------------------------------
-
-asCode :: T.Text -> T.Text
-asCode = enclosedIn "`"
+    fieldRows =
+        [ T.concat
+            [ "| "
+            , adjust fLen name
+            , " | "
+            , adjust fLen ty
+            , " | "
+            , doc
+            , " |"
+            ]
+        | (name, ty, doc) <- textFields
+        ]

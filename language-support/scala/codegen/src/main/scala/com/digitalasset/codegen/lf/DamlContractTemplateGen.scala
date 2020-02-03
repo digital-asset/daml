@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.codegen.lf
@@ -36,7 +36,7 @@ object DamlContractTemplateGen {
     val syntaxIdDecl = LFUtil.toCovariantTypeDef(" ExOn")
     val syntaxIdType = TypeName(" ExOn")
 
-    logger.debug(s"generate templateDecl: $templateName, $templateInterface")
+    logger.debug(s"generate templateDecl: ${templateName.toString}, ${templateInterface.toString}")
 
     val templateChoiceMethods = templateInterface.template.choices.flatMap {
       case (id, interface) =>

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.v1
@@ -19,11 +19,6 @@ trait WritePartyService {
     * - Construct a new unique identifier from the given hint, e.g., by appending a UUID
     * - Use the given hint as is, and reject the call if such a party already exists
     *
-    * The result of the party allocation is communicated synchronously.
-    * TODO: consider also providing an asynchronous response in a similar
-    * manner as it is done for transaction submission. It is possible that
-    * in some implementations, party allocation will fail due to authorization etc.
-    *
     * Successful party allocations will result in a [[Update.PartyAddedToParticipant]]
     * message. See the comments on [[ReadService.stateUpdates]] and [[Update]] for
     * further details.
@@ -32,10 +27,13 @@ trait WritePartyService {
     *
     * @param displayName  : A human readable name of the new party
     *
-    * @return an async result of a PartyAllocationResult
+    * @param submissionId: Client picked submission identifier for matching the responses with the request.
+    *
+    * @return an async result of a SubmissionResult
     */
   def allocateParty(
-      hint: Option[String],
-      displayName: Option[String]
-  ): CompletionStage[PartyAllocationResult]
+      hint: Option[Party],
+      displayName: Option[String],
+      submissionId: SubmissionId
+  ): CompletionStage[SubmissionResult]
 }

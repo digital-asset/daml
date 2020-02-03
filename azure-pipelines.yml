@@ -17,12 +17,44 @@ pr:
       - master
 
 jobs:
+  - job: check_standard_change_label
+    condition: eq(variables['Build.Reason'], 'PullRequest')
+    pool:
+      name: 'linux-pool'
+    steps:
+      - checkout: self
+      - bash: |
+          set -euo pipefail
+
+          has_changed_infra_folder () {
+              git diff origin/master --name-only | grep -q '^infra/'
+          }
+
+          fail_if_missing_std_change_label () {
+              curl https://api.github.com/repos/digital-asset/daml/pulls/$PR -s | jq -r '.labels[].name' | grep -q '^Standard-Change$'
+          }
+
+          if has_changed_infra_folder; then
+              fail_if_missing_std_change_label
+          fi
+        env:
+          PR: $(System.PullRequest.PullRequestNumber)
+
+  - job: check_changelog_entry
+    condition: eq(variables['Build.Reason'], 'PullRequest')
+    pool:
+      name: 'linux-pool'
+    steps:
+      - checkout: self
+      - bash: ci/check-changelog.sh
+
   - job: Linux
     timeoutInMinutes: 360
     pool:
       name: 'linux-pool'
     steps:
       - template: ci/report-start.yml
+      - checkout: self
       - template: ci/build-unix.yml
         parameters:
           name: linux
@@ -33,11 +65,50 @@ jobs:
     timeoutInMinutes: 360
     pool:
       vmImage: 'macOS-10.14'
+    variables:
+      nix-cache-key: $(Build.StagingDirectory)/macos-nix-key
+      nix-cache-path: /tmp/nix-cache/
+      bazel-repo-cache-key: $(Build.StagingDirectory)/bazel-repo-cache-key
+      bazel-repo-cache-path: $(Agent.BuildDirectory)/.bazel-cache/repo
     steps:
       - template: ci/report-start.yml
+      - checkout: self
+      - bash: echo $(git log -n1 --pretty=format:%H dev-env nix azure-pipelines.yml) >> $(nix-cache-key)
+        displayName: nix cache key
+      - task: CacheBeta@0
+        inputs:
+          key: $(nix-cache-key) | v2
+          path: $(nix-cache-path)
+      - bash: |
+          set -euo pipefail
+          if [[ -e $(nix-cache-path) ]]; then
+              DIR=$(pwd)
+              sudo mkdir /nix && sudo chown $USER /nix
+              cd /nix
+              tar xzf $(nix-cache-path)/nix.tar.gz
+              cd $DIR
+              curl -sfL https://nixos.org/releases/nix/nix-2.2.1/install | bash
+          fi
+        displayName: restore cache
+      - bash: echo $(git log -n1 --pretty=format:%H azure-pipelines.yml $(find . -name \*.bazel -or -name \*.bzl -or -name WORKSPACE -or -name BUILD)) >> $(bazel-repo-cache-key)
+        displayName: bazel repo cache key
+      - task: CacheBeta@0
+        inputs:
+          key: $(bazel-repo-cache-key)
+          path: $(bazel-repo-cache-path)
       - template: ci/build-unix.yml
         parameters:
           name: macos
+      - bash: |
+          set -euo pipefail
+          if [[ ! -e $(nix-cache-path) ]]; then
+              mkdir -p $(nix-cache-path)
+              cd /nix
+              GZIP=-9 tar czf $(nix-cache-path)/nix.tar.gz store var
+          fi
+        displayName: create nix cache
+      - bash: mkdir -p $(bazel-repo-cache-path)
+        displayName: ensure bazel repo cache exists
       - template: ci/tell-slack-failed.yml
       - template: ci/report-end.yml
 
@@ -101,6 +172,10 @@ jobs:
           INSTALLER=daml-sdk-$(cat VERSION)-windows.exe
           mv "$(Build.StagingDirectory)/$(unsigned-installer)" "$(Build.StagingDirectory)/$INSTALLER"
           chmod +x "$(Build.StagingDirectory)/$INSTALLER"
+          cleanup () {
+              rm -f signing_key.pfx
+          }
+          trap cleanup EXIT
           echo "$SIGNING_KEY" | base64 -d > signing_key.pfx
           MSYS_NO_PATHCONV=1 signtool.exe sign '/f' signing_key.pfx '/fd' sha256 '/tr' "http://timestamp.digicert.com" '/v' "$(Build.StagingDirectory)/$INSTALLER"
           rm signing_key.pfx
@@ -122,8 +197,9 @@ jobs:
       vmImage: "Ubuntu-16.04"
     condition: and(succeeded(),
                    eq( dependencies.Linux.outputs['release.has_released'], 'true' ),
-                   eq( dependencies.macOS.outputs['release.has_released'], 'true' ),
-                   eq( dependencies.Windows.outputs['release.has_released'], 'true' ))
+                   eq( dependencies.Windows.outputs['release.has_released'], 'true' ),
+                   eq( dependencies.Windows_signing.outputs['signing.has_released'], 'true' ),
+                   eq( dependencies.macOS.outputs['release.has_released'], 'true' ))
     variables:
       artifact-linux: $[ dependencies.Linux.outputs['publish.artifact'] ]
       artifact-macos: $[ dependencies.macOS.outputs['publish.artifact'] ]
@@ -135,25 +211,50 @@ jobs:
         persistCredentials: true
       - bash: |
           set -euxo pipefail
-          git tag v$(cat VERSION)
-          git push origin v$(cat VERSION)
-          mkdir $(Build.StagingDirectory)/release
+          if git tag v$(cat VERSION); then
+            git push origin v$(cat VERSION)
+            mkdir $(Build.StagingDirectory)/release
+          else
+            echo "##vso[task.setvariable variable=skip-github]TRUE"
+          fi
       - task: DownloadPipelineArtifact@0
         inputs:
           artifactName: $(artifact-linux)
           targetPath: $(Build.StagingDirectory)/release
+        condition: not(eq(variables['skip-github'], 'TRUE'))
       - task: DownloadPipelineArtifact@0
         inputs:
           artifactName: $(artifact-macos)
           targetPath: $(Build.StagingDirectory)/release
+        condition: not(eq(variables['skip-github'], 'TRUE'))
       - task: DownloadPipelineArtifact@0
         inputs:
           artifactName: $(artifact-windows)
           targetPath: $(Build.StagingDirectory)/release
+        condition: not(eq(variables['skip-github'], 'TRUE'))
       - task: DownloadPipelineArtifact@0
         inputs:
           artifactName: $(artifact-windows-installer)
           targetPath: $(Build.StagingDirectory)/release
+        condition: not(eq(variables['skip-github'], 'TRUE'))
+      - bash: |
+          set -euo pipefail
+          KEY_FILE=$(mktemp)
+          GPG_DIR=$(mktemp -d)
+          cleanup() {
+              rm -rf $KEY_FILE $GPG_DIR
+          }
+          trap cleanup EXIT
+          echo "$GPG_KEY" | base64 -d > $KEY_FILE
+          gpg --homedir $GPG_DIR --no-tty --quiet --import $KEY_FILE
+          cd $(Build.StagingDirectory)/release
+          # Note: relies on our release artifacts not having spaces in their
+          # names. Creates a ${f}.asc with the signature for each $f.
+          for f in *; do
+              gpg --homedir $GPG_DIR -ab $f
+          done
+        env:
+          GPG_KEY: $(gpg-code-signing)
       - task: GitHubRelease@0
         inputs:
           gitHubConnection: 'garyverhaegen-da'
@@ -165,12 +266,47 @@ jobs:
           assetUploadMode: 'replace'
           addChangeLog: false
           isPrerelease: true
+        condition: not(eq(variables['skip-github'], 'TRUE'))
       - template: ci/tell-slack-failed.yml
       - template: ci/report-end.yml
 
+  - job: write_ledger_dump
+    dependsOn: [ "Linux", "macOS", "Windows", "Windows_signing", "perf"]
+    pool:
+      vmImage: "Ubuntu-16.04"
+    condition: and(succeeded(),
+                   eq( dependencies.Linux.outputs['release.has_released'], 'true' ),
+                   eq( dependencies.Windows.outputs['release.has_released'], 'true' ),
+                   eq( dependencies.Windows_signing.outputs['signing.has_released'], 'true' ),
+                   eq( dependencies.macOS.outputs['release.has_released'], 'true' ))
+    steps:
+      - checkout: self
+      - bash: |
+          set -euo pipefail
+
+          sudo mkdir -p /nix
+          sudo chown $USER /nix
+          curl -sfL https://nixos.org/releases/nix/nix-2.2.1/install | bash
+          eval "$(dev-env/bin/dade-assist)"
+          GCS_KEY=$(mktemp)
+          cleanup () {
+              rm -f $GCS_KEY
+          }
+          trap cleanup EXIT
+          echo "$GOOGLE_APPLICATION_CREDENTIALS_CONTENT" > $GCS_KEY
+          gcloud auth activate-service-account --key-file=$GCS_KEY
+          export BOTO_CONFIG=/dev/null
+
+          bazel build //ledger/api-server-damlonx/reference-v2:reference-ledger-dump
+          gsutil cp bazel-bin/ledger/api-server-damlonx/reference-v2/reference-ledger-dump.out \
+                    gs://daml-dumps/release/ledger/api-server-damlonx/reference-v2/reference-ledger-dump-$(cat VERSION)
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+      - template: ci/tell-slack-failed.yml
+
   - job: collect_build_data
     condition: always()
-    dependsOn: ["Linux", "macOS", "Windows", "Windows_signing", "perf", "release"]
+    dependsOn: ["Linux", "macOS", "Windows", "Windows_signing", "perf", "release", "check_standard_change_label", "write_ledger_dump"]
     pool:
       name: "linux-pool"
     variables:
@@ -198,10 +334,50 @@ jobs:
       release.machine: $[ dependencies.release.outputs['start.machine'] ]
       release.end: $[ dependencies.release.outputs['end.time'] ]
       release.status: $[ dependencies.release.result ]
+      std_change.start: $[ dependencies.check_standard_change_label.outputs['start.time'] ]
+      std_change.machine: $[ dependencies.check_standard_change_label.outputs['start.machine'] ]
+      std_change.end: $[ dependencies.check_standard_change_label.outputs['end.time'] ]
+      std_change.status: $[ dependencies.check_standard_change_label.result ]
+      dump.start: $[ dependencies.write_ledger_dump.outputs['start.time'] ]
+      dump.machine: $[ dependencies.write_ledger_dump.outputs['start.machine'] ]
+      dump.end: $[ dependencies.write_ledger_dump.outputs['end.time'] ]
+      dump.status: $[ dependencies.write_ledger_dump.result ]
+      # Using expression syntax so we get an empty string if not set, rather
+      # than the raw $(VarName) string. Expression syntax works on the
+      # variables key, but not on the env one, so we need an extra indirection.
+      # Note: These Azure variables are only set for PR builds.
+      pr.num: $[ variables['System.PullRequest.PullRequestNumber'] ]
+      pr.branch: $[ variables['System.PullRequest.SourceBranch'] ]
     steps:
-      - checkout: self
+      # some change in Azure configuration makes this fail recently (2020-01).
+      # Azure runs PR builds not on the PR commit, but on the GitHub-provided
+      # commit that would be the result of merging the PR. Recently, it looks
+      # like when it reaches the point of running this job (which has to run
+      # after the macOS one, which sometimes takes up to an hour), if master
+      # has changed in the meantime, Azure cannot find the commit it wants to
+      # build anymore. Therefore, we tell it not to checkout anything, and
+      # manually checkout the PR commit.
+      - checkout: none
       - bash: |
           set -euo pipefail
+          # Note: this is going to get the current master commit, not the
+          # result of the merge (i.e. this is not using the same commit as the
+          # other jobs in this build). This seems good enough here as all we
+          # really want is the dev-env, and conflicts should be pretty rare
+          # there. It _does_ mean this may fail to catch changes that would
+          # break this job, e.g. incompatible updates of jq or gcloud.
+          # Note: Azure doe snot guarantee a clean workspace and dev-env
+          # doesn't nest, so we need to handle both a clean slate and an
+          # existing, dirty workspace.
+          if [ -d .git ]; then
+              git fetch
+              git reset --hard
+              git clean -xffd
+              git checkout origin/master
+          else
+              git clone https://github.com/digital-asset/daml.git ./
+          fi
+          eval "$(./dev-env/bin/dade-assist)"
 
           REPORT=$(mktemp)
           cat >$REPORT <<END
@@ -225,6 +401,14 @@ jobs:
                              "machine": "$(perf.machine)",
                              "end": "$(perf.end)",
                              "status": "$(perf.status)"},
+                    "check_standard_change_label": {"start": "$(std_change.start)",
+                                                    "machine": "$(std_change.machine)",
+                                                    "end": "$(std_change.end)",
+                                                    "status": "$(std_change.status)"},
+                    "write_ledger_dump": {"start": "$(dump.start)",
+                                          "machine": "$(dump.machine)",
+                                          "end": "$(dump.end)",
+                                          "status": "$(dump.status)"},
                     "release": {"start": "$(release.start)",
                                 "machine": "$(release.machine)",
                                 "end": "$(release.end)",
@@ -237,26 +421,54 @@ jobs:
            "reason": "$(Build.Reason)",
            "branch": "$(Build.SourceBranch)",
            "commit_sha": "$(Build.SourceVersion)",
-           "commit_message": "$(Build.SourceVersionMessage)",
+           "commit_message": $(echo -n "$COMMIT_MSG" | jq -sR),
            "is_fork": "$(System.PullRequest.IsFork)",
-           "pr": "$(System.PullRequest.PullRequestNumber)",
-           "pr_url": "https://github.com/digital-asset/daml/pull/$(System.PullRequest.PullRequestNumber)",
-           "pr_source_branch": "$(System.PullRequest.SourceBranch)"}
+           "pr": "$PR_NUM",
+           "pr_url": "https://github.com/digital-asset/daml/pull/$PR_NUM",
+           "pr_source_branch": "$PR_BRANCH"}
           END
+          # Test above JSON is well formed
+          cat $REPORT | jq '.'
           REPORT_GZ=$(mktemp)
           cat $REPORT | gzip -9 > $REPORT_GZ
           GCS_KEY=$(mktemp)
-          echo "$GOOGLE_APPLICATION_CREDENTIALS_CONTENT" > $GCS_KEY
-          gcloud auth activate-service-account --key-file=$GCS_KEY
-          BOTO_CONFIG=/dev/null gsutil cp $REPORT_GZ gs://daml-data/builds/$(Build.BuildId)_$(date -u +%Y%m%d_%H%M%SZ).json.gz
+          cleanup() {
+              rm -rf $GCS_KEY
+          }
+          trap cleanup EXIT
+          # Application credentials will not be set for forks. We give up on
+          # tracking those for now. "Not set" in Azure world means set to the
+          # expression Azure would otherwise substitute, i.e. the literal value
+          # of the string in the `env:` block below.
+          if [[ "${GOOGLE_APPLICATION_CREDENTIALS_CONTENT:1:${#GOOGLE_APPLICATION_CREDENTIALS_CONTENT}-1}" != '(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)' ]]; then
+              echo "$GOOGLE_APPLICATION_CREDENTIALS_CONTENT" > $GCS_KEY
+              gcloud auth activate-service-account --key-file=$GCS_KEY
+              BOTO_CONFIG=/dev/null gsutil cp $REPORT_GZ gs://daml-data/builds/$(Build.BuildId)_$(date -u +%Y%m%d_%H%M%SZ).json.gz
+          else
+              echo "Could not save build data: no credentials. Data was:"
+              cat $REPORT
+          fi
 
-          if [[ "$(Linux.status)" == "Canceled"
-              || "$(macOS.status)" == "Canceled"
-              || "$(Windows.status)" == "Canceled"
-              || "$(perf.status)" == "Canceled"
+          # Linux, macOS, perf, check_std_change_label and Windows are always
+          # required and should always succeed.
+          #
+          # windows_signing, release and write_ledger_dump only run on releases
+          # and are skipped otherwise.
+          if [[ "$(Linux.status)" != "Succeeded"
+              || "$(macOS.status)" != "Succeeded"
+              || "$(Windows.status)" != "Succeeded"
+              || "$(perf.status)" != "Succeeded"
+              || "$(dump.status)" == "Canceled"
               || "$(Windows_signing.status)" == "Canceled"
               || "$(release.status)" == "Canceled" ]]; then
               exit 1
           fi
         env:
           GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+          # Commit message is always set
+          COMMIT_MSG: $(Build.SourceVersionMessage)
+          # Because these variables are always set (in the variables block),
+          # hopefully these should be set as expected (i.e. either correct
+          # value or empty string, but not $(Azure.Variable.Name)).
+          PR_NUM: $(pr.num)
+          PR_BRANCH: $(pr.branch)

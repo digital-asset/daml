@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.codegen.backend.java
@@ -12,7 +12,7 @@ import org.scalatest.{FlatSpec, Matchers}
 final class ObjectMethodsSpec extends FlatSpec with Matchers {
 
   val Vector(equalsSpec, hashCodeSpec, toStringSpec) =
-    ObjectMethods(ClassName.bestGuess("Test"), IndexedSeq.empty)
+    ObjectMethods(ClassName.bestGuess("Test"), IndexedSeq.empty, IndexedSeq.empty)
 
   behavior of "ObjectMethods.equals"
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.quickstart.iou
@@ -6,7 +6,7 @@ package com.digitalasset.quickstart.iou
 import java.time.Instant
 
 import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
+import akka.stream.Materializer
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.grpc.adapter.AkkaExecutionSequencerPool
 import com.digitalasset.ledger.api.refinements.ApiTypes.{ApplicationId, WorkflowId}
@@ -45,7 +45,7 @@ object IouMain extends App with StrictLogging {
   private val newOwner = "Bob"
 
   private val asys = ActorSystem()
-  private val amat = ActorMaterializer()(asys)
+  private val amat = Materializer(asys)
   private val aesf = new AkkaExecutionSequencerPool("clientPool")(asys)
 
   private def shutdown(): Unit = {
@@ -102,20 +102,20 @@ object IouMain extends App with StrictLogging {
       "USD",
       BigDecimal("99999.00"))
     _ <- clientUtil.submitCommand(issuer, issuerWorkflowId, createCmd)
-    _ = logger.info(s"$issuer sent create command: $createCmd")
+    _ = logger.info(s"$issuer sent create command: ${createCmd.toString}")
 
     tx0 <- clientUtil.nextTransaction(issuer, offset0)(amat)
-    _ = logger.info(s"$issuer received transaction: $tx0")
+    _ = logger.info(s"$issuer received transaction: ${tx0.toString}")
 
     createdEvent <- toFuture(decodeCreatedEvent(tx0))
-    _ = logger.info(s"$issuer received created event: $createdEvent")
+    _ = logger.info(s"$issuer received created event: ${createdEvent.toString}")
 
     exerciseCmd = IouCommands.iouTransferExerciseCommand(
       iouTemplateId,
       createdEvent.contractId,
       newOwner)
     _ <- clientUtil.submitCommand(issuer, issuerWorkflowId, exerciseCmd)
-    _ = logger.info(s"$issuer sent exercise command: $exerciseCmd")
+    _ = logger.info(s"$issuer sent exercise command: ${exerciseCmd.toString}")
 
   } yield ()
 
