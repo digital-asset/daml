@@ -26,7 +26,6 @@ import scalaz.syntax.show._
 import scalaz.syntax.tag._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
-import scalaz.std.list._
 import scalaz.{-\/, Show, \/, \/-}
 import spray.json.{JsObject, JsString, JsValue}
 
@@ -143,10 +142,20 @@ object WebSocketService {
         SprayJson
           .decode[List[domain.EnrichedContractKey[JsValue]]](str)
           .liftErr(InvalidUserInput)
-          .flatMap { as: List[domain.EnrichedContractKey[JsValue]] =>
-            as.traverse(a => decode(decoder)(a))
+          .map { as: List[domain.EnrichedContractKey[JsValue]] =>
+            as.map(a => decodeWithFallback(decoder, a))
           }
       }
+
+      private def decodeWithFallback(
+          decoder: DomainJsonDecoder,
+          a: domain.EnrichedContractKey[JsValue]): domain.EnrichedContractKey[LfV] =
+        decoder
+          .decodeUnderlyingValuesToLf(a)
+          .fold(
+            _ => a.map(_ => com.digitalasset.daml.lf.value.Value.ValueUnit), // unit will not match any key
+            identity
+          )
 
       override def allowPhantonArchives: Boolean = false
 

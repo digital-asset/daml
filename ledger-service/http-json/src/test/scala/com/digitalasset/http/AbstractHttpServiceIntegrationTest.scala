@@ -51,8 +51,9 @@ object AbstractHttpServiceIntegrationTestFuns {
   private val dar2 = requiredResource("ledger-service/http-json/Account.dar")
 }
 
-trait AbstractHttpServiceIntegrationTestFuns { this: Assertions =>
+trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging { this: Assertions =>
   import AbstractHttpServiceIntegrationTestFuns._
+  import json.JsonProtocol._
 
   def jdbcConfig: Option[JdbcConfig]
 
@@ -87,6 +88,67 @@ trait AbstractHttpServiceIntegrationTestFuns { this: Assertions =>
 
   protected def withLedger[A]: (LedgerClient => Future[A]) => Future[A] =
     HttpServiceTestFixture.withLedger[A](List(dar1, dar2), testId)
+
+  protected def accountCreateCommand(
+      owner: domain.Party,
+      number: String,
+      time: v.Value.Sum.Timestamp = TimestampConversion.instantToMicros(Instant.now))
+    : domain.CreateCommand[v.Record] = {
+    val templateId = domain.TemplateId(None, "Account", "Account")
+    val timeValue = v.Value(time)
+    val enabledVariantValue =
+      v.Value(v.Value.Sum.Variant(v.Variant(None, "Enabled", Some(timeValue))))
+    val arg: Record = v.Record(
+      fields = List(
+        v.RecordField("owner", Some(v.Value(v.Value.Sum.Party(owner.unwrap)))),
+        v.RecordField("number", Some(v.Value(v.Value.Sum.Text(number)))),
+        v.RecordField("status", Some(enabledVariantValue))
+      ))
+
+    domain.CreateCommand(templateId, arg, None)
+  }
+
+  private val headersWithAuth = List(Authorization(OAuth2BearerToken(jwt.value)))
+
+  protected def postJsonStringRequest(
+      uri: Uri,
+      jsonString: String
+  ): Future[(StatusCode, JsValue)] =
+    TestUtil.postJsonStringRequest(uri, jsonString, headersWithAuth)
+
+  protected def postJsonRequest(
+      uri: Uri,
+      json: JsValue,
+      headers: List[HttpHeader] = headersWithAuth): Future[(StatusCode, JsValue)] =
+    TestUtil.postJsonStringRequest(uri, json.prettyPrint, headers)
+
+  protected def getRequest(
+      uri: Uri,
+      headers: List[HttpHeader] = headersWithAuth): Future[(StatusCode, JsValue)] = {
+    Http()
+      .singleRequest(
+        HttpRequest(method = HttpMethods.GET, uri = uri, headers = headers)
+      )
+      .flatMap { resp =>
+        val bodyF: Future[String] = getResponseDataBytes(resp, debug = true)
+        bodyF.map(body => (resp.status, body.parseJson))
+      }
+  }
+
+  protected def getResponseDataBytes(resp: HttpResponse, debug: Boolean = false): Future[String] = {
+    val fb = resp.entity.dataBytes.runFold(ByteString.empty)((b, a) => b ++ a).map(_.utf8String)
+    if (debug) fb.foreach(x => logger.info(s"---- response data: $x"))
+    fb
+  }
+
+  protected def postCreateCommand(
+      cmd: domain.CreateCommand[v.Record],
+      encoder: DomainJsonEncoder,
+      uri: Uri): Future[(StatusCode, JsValue)] =
+    for {
+      json <- toFuture(encoder.encodeR(cmd)): Future[JsObject]
+      result <- postJsonRequest(uri.withPath(Uri.Path("/command/create")), json)
+    } yield result
 }
 
 @SuppressWarnings(Array("org.wartremover.warts.Any", "org.wartremover.warts.NonUnitStatements"))
@@ -97,8 +159,6 @@ abstract class AbstractHttpServiceIntegrationTest
     with StrictLogging
     with AbstractHttpServiceIntegrationTestFuns {
   import json.JsonProtocol._
-
-  private val headersWithAuth = List(Authorization(OAuth2BearerToken(jwt.value)))
 
   "contracts/search GET empty results" in withHttpService { (uri: Uri, _, _) =>
     getRequest(uri = uri.withPath(Uri.Path("/contracts/search")))
@@ -719,12 +779,6 @@ abstract class AbstractHttpServiceIntegrationTest
         assertActiveContract(result)(create, encoder, decoder)
     }
 
-  protected def getResponseDataBytes(resp: HttpResponse, debug: Boolean = false): Future[String] = {
-    val fb = resp.entity.dataBytes.runFold(ByteString.empty)((b, a) => b ++ a).map(_.utf8String)
-    if (debug) fb.foreach(x => logger.info(s"---- response data: $x"))
-    fb
-  }
-
   private def removeRecordId(a: v.Value): v.Value = a match {
     case v.Value(v.Value.Sum.Record(r)) if r.recordId.isDefined =>
       v.Value(v.Value.Sum.Record(removeRecordId(r)))
@@ -768,50 +822,6 @@ abstract class AbstractHttpServiceIntegrationTest
     domain.ExerciseCommand(reference, choice, boxedRecord(arg), None)
   }
 
-  private def accountCreateCommand(
-      owner: domain.Party,
-      number: String,
-      time: v.Value.Sum.Timestamp = TimestampConversion.instantToMicros(Instant.now))
-    : domain.CreateCommand[v.Record] = {
-    val templateId = domain.TemplateId(None, "Account", "Account")
-    val timeValue = v.Value(time)
-    val enabledVariantValue =
-      v.Value(v.Value.Sum.Variant(v.Variant(None, "Enabled", Some(timeValue))))
-    val arg: Record = v.Record(
-      fields = List(
-        v.RecordField("owner", Some(v.Value(v.Value.Sum.Party(owner.unwrap)))),
-        v.RecordField("number", Some(v.Value(v.Value.Sum.Text(number)))),
-        v.RecordField("status", Some(enabledVariantValue))
-      ))
-
-    domain.CreateCommand(templateId, arg, None)
-  }
-
-  private def postJsonStringRequest(
-      uri: Uri,
-      jsonString: String
-  ): Future[(StatusCode, JsValue)] =
-    TestUtil.postJsonStringRequest(uri, jsonString, headersWithAuth)
-
-  private def postJsonRequest(
-      uri: Uri,
-      json: JsValue,
-      headers: List[HttpHeader] = headersWithAuth): Future[(StatusCode, JsValue)] =
-    TestUtil.postJsonStringRequest(uri, json.prettyPrint, headers)
-
-  private def getRequest(
-      uri: Uri,
-      headers: List[HttpHeader] = headersWithAuth): Future[(StatusCode, JsValue)] = {
-    Http()
-      .singleRequest(
-        HttpRequest(method = HttpMethods.GET, uri = uri, headers = headers)
-      )
-      .flatMap { resp =>
-        val bodyF: Future[String] = getResponseDataBytes(resp, debug = true)
-        bodyF.map(body => (resp.status, body.parseJson))
-      }
-  }
-
   private def assertStatus(jsObj: JsValue, expectedStatus: StatusCode): Assertion = {
     inside(jsObj) {
       case JsObject(fields) =>
@@ -828,15 +838,6 @@ abstract class AbstractHttpServiceIntegrationTest
           case Some(JsArray(Vector(JsString(errorMsg)))) => errorMsg
         }
     }
-
-  protected def postCreateCommand(
-      cmd: domain.CreateCommand[v.Record],
-      encoder: DomainJsonEncoder,
-      uri: Uri): Future[(StatusCode, JsValue)] =
-    for {
-      json <- toFuture(encoder.encodeR(cmd)): Future[JsObject]
-      result <- postJsonRequest(uri.withPath(Uri.Path("/command/create")), json)
-    } yield result
 
   private def postContractsLookup(
       cmd: domain.ContractLocator[JsValue],

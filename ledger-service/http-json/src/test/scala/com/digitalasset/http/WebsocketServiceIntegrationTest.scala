@@ -7,13 +7,15 @@ import akka.NotUsed
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.http.scaladsl.model.ws.{BinaryMessage, Message, TextMessage, WebSocketRequest}
-import akka.http.scaladsl.model.{StatusCodes, Uri}
+import akka.http.scaladsl.model.{StatusCode, StatusCodes, Uri}
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
+import com.digitalasset.http.json.DomainJsonEncoder
 import com.digitalasset.http.util.TestUtil
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.{AsyncFreeSpec, BeforeAndAfterAll, Inside, Matchers}
 import scalaz.std.option._
 import scalaz.syntax.apply._
+import spray.json.JsValue
 
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
@@ -81,13 +83,23 @@ class WebsocketServiceIntegrationTest
   private val collectResultsAsRawString: Sink[Message, Future[Seq[String]]] =
     Flow[Message].map(_.toString).filter(v => !(v contains "heartbeat")).toMat(Sink.seq)(Keep.right)
 
-  private def singleClientStream(serviceUri: Uri, query: String) = {
+  private def singleClientQueryStream(serviceUri: Uri, query: String) = {
     val webSocketFlow = Http().webSocketClientFlow(
       WebSocketRequest(
         uri = serviceUri.copy(scheme = "ws").withPath(Uri.Path("/contracts/searchForever")),
         subprotocol = validSubprotocol))
     Source
       .single(TextMessage(query))
+      .via(webSocketFlow)
+  }
+
+  private def singleClientFetchStream(serviceUri: Uri, request: String) = {
+    val webSocketFlow = Http().webSocketClientFlow(
+      WebSocketRequest(
+        uri = serviceUri.copy(scheme = "ws").withPath(Uri.Path("/stream/fetch")),
+        subprotocol = validSubprotocol))
+    Source
+      .single(TextMessage(request))
       .via(webSocketFlow)
   }
 
@@ -99,25 +111,50 @@ class WebsocketServiceIntegrationTest
       headersWithAuth)
   }
 
-  "websocket should publish transactions when command create is completed" in withHttpService {
+  private def initialAccountCreate(
+      serviceUri: Uri,
+      encoder: DomainJsonEncoder): Future[(StatusCode, JsValue)] = {
+    val command = accountCreateCommand(domain.Party("Alice"), "abc123")
+    postCreateCommand(command, encoder, serviceUri)
+  }
+
+  "query endpoint should publish transactions when command create is completed" in withHttpService {
     (uri, _, _) =>
       for {
         _ <- initialIouCreate(uri)
 
-        clientMsg <- singleClientStream(uri, """{"templateIds": ["Iou:Iou"]}""")
+        clientMsg <- singleClientQueryStream(uri, """{"templateIds": ["Iou:Iou"]}""")
           .runWith(collectResultsAsRawString)
       } yield
         inside(clientMsg) {
           case Seq(result) =>
-            result should include("\"issuer\":\"Alice\"")
+            result should include(""""issuer":"Alice"""")
+            result should include(""""amount":"999.99"""")
         }
   }
 
-  "websocket should warn on unknown template IDs" in withHttpService { (uri, _, _) =>
+  "fetch endpoint should publish transactions when command create is completed" in withHttpService {
+    (uri, encoder, _) =>
+      for {
+        _ <- initialAccountCreate(uri, encoder)
+
+        clientMsg <- singleClientFetchStream(uri, fetchRequest)
+          .runWith(collectResultsAsRawString)
+      } yield
+        inside(clientMsg) {
+          case Seq(result) =>
+            result should include(""""owner":"Alice"""")
+            result should include(""""number":"abc123"""")
+        }
+  }
+
+  "query endpoint should warn on unknown template IDs" in withHttpService { (uri, _, _) =>
     for {
       _ <- initialIouCreate(uri)
 
-      clientMsg <- singleClientStream(uri, """{"templateIds": ["Iou:Iou", "Unknown:Template"]}""")
+      clientMsg <- singleClientQueryStream(
+        uri,
+        """{"templateIds": ["Iou:Iou", "Unknown:Template"]}""")
         .runWith(collectResultsAsRawString)
     } yield
       inside(clientMsg) {
@@ -127,9 +164,26 @@ class WebsocketServiceIntegrationTest
       }
   }
 
+  "fetch endpoint should warn on unknown template IDs" in withHttpService { (uri, encoder, _) =>
+    for {
+      _ <- initialAccountCreate(uri, encoder)
+
+      clientMsg <- singleClientFetchStream(
+        uri,
+        """[{"templateId": "Account:Account", "key": ["Alice", "abc123"]}, {"templateId": "Unknown:Template", "key": ["Alice", "abc123"]}]""")
+        .runWith(collectResultsAsRawString)
+    } yield
+      inside(clientMsg) {
+        case Seq(warning, result) =>
+          warning should include("""{"warnings":{"unknownTemplateIds":["Unk""")
+          result should include(""""owner":"Alice"""")
+          result should include(""""number":"abc123"""")
+      }
+  }
+
   "websocket should send error msg when receiving malformed message" in withHttpService {
     (uri, _, _) =>
-      val clientMsg = singleClientStream(uri, "{}")
+      val clientMsg = singleClientQueryStream(uri, "{}")
         .runWith(collectResultsAsRawString)
 
       val result = Await.result(clientMsg, 10.seconds)
@@ -207,7 +261,7 @@ class WebsocketServiceIntegrationTest
       for {
         creation <- initialCreate
         _ = creation._1 shouldBe 'success
-        lastState <- singleClientStream(uri, query) via parseResp runWith resp
+        lastState <- singleClientQueryStream(uri, query) via parseResp runWith resp
       } yield lastState should ===(ShouldHaveEnded(2))
   }
 
