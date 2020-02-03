@@ -30,14 +30,14 @@ import scalaz.std.list._
 import scalaz.{-\/, Show, \/, \/-}
 import spray.json.{JsObject, JsString, JsValue}
 
+import scala.collection.{immutable, mutable}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 object WebSocketService {
   private type CompiledQueries = Map[domain.TemplateId.RequiredPkg, LfV => Boolean]
 
-  // TODO(Leo): need a better name, this is more than just a predicate
-  private type AcPredicate = (
+  private type StreamPredicate = (
       Set[domain.TemplateId.RequiredPkg],
       Set[domain.TemplateId.OptionalPkg],
       domain.ActiveContract[LfV] => Boolean,
@@ -80,10 +80,12 @@ object WebSocketService {
 
     def parse(decoder: DomainJsonDecoder, str: String): Error \/ A
 
+    def allowPhantonArchives: Boolean
+
     def predicate(
         request: A,
         resolveTemplateId: PackageService.ResolveTemplateId,
-        lookupType: ValuePredicate.TypeLookup): AcPredicate
+        lookupType: ValuePredicate.TypeLookup): StreamPredicate
   }
 
   implicit val GetActiveContractsRequestWithStreamQuery
@@ -99,10 +101,12 @@ object WebSocketService {
           .liftErr(InvalidUserInput)
       }
 
+      override def allowPhantonArchives: Boolean = true
+
       override def predicate(
           request: GetActiveContractsRequest,
           resolveTemplateId: PackageService.ResolveTemplateId,
-          lookupType: ValuePredicate.TypeLookup): AcPredicate = {
+          lookupType: ValuePredicate.TypeLookup): StreamPredicate = {
 
         import util.Collections._
 
@@ -144,6 +148,8 @@ object WebSocketService {
           }
       }
 
+      override def allowPhantonArchives: Boolean = false
+
       private def decode(decoder: DomainJsonDecoder)(
           a: domain.EnrichedContractKey[JsValue]): Error \/ domain.EnrichedContractKey[LfV] =
         decoder.decodeUnderlyingValuesToLf(a).liftErr(InvalidUserInput)
@@ -151,7 +157,7 @@ object WebSocketService {
       override def predicate(
           request: List[domain.EnrichedContractKey[LfV]],
           resolveTemplateId: PackageService.ResolveTemplateId,
-          lookupType: TypeLookup): AcPredicate = {
+          lookupType: TypeLookup): StreamPredicate = {
 
         import util.Collections._
 
@@ -252,6 +258,7 @@ class WebSocketService(
         .insertDeleteStepSource(jwt, jwtPayload.party, resolved.toList, Terminates.Never)
         .via(convertFilterContracts(fn))
         .filter(_.nonEmpty)
+        .via(removePhantonArchives(remove = !Q.allowPhantonArchives))
         .map(_.render)
         .prepend(reportUnresolvedTemplateIds(unresolved))
         .map(jsv => TextMessage(jsv.compactPrint))
@@ -262,6 +269,23 @@ class WebSocketService(
             s"unresolved templateIds: ${unresolved: Set[domain.TemplateId.OptionalPkg]}"))
     }
   }
+
+  private def removePhantonArchives[A](remove: Boolean) =
+    if (remove) removePhantonArchives_[A]
+    else Flow[StepAndErrors[A]].map(identity)
+
+  private def removePhantonArchives_[A] =
+    Flow[StepAndErrors[A]].statefulMapConcat { () =>
+      val createIds = mutable.Set[String]()
+      (a: StepAndErrors[A]) =>
+        {
+          val deletesToKeep: Set[String] = a.step.deletes.filter(cid => createIds.remove(cid))
+          val a1 = a.copy(step = a.step.copy(deletes = deletesToKeep))
+          a.step.inserts.foreach(x => createIds.add(x.contractId.unwrap))
+          if (a1.nonEmpty) immutable.Iterable(a1)
+          else immutable.Iterable.empty
+        }
+    }
 
   private[http] def wsErrorMessage(errorMsg: String): TextMessage.Strict =
     TextMessage(
