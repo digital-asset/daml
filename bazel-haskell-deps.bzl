@@ -39,7 +39,7 @@ load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_binary")
 haskell_cabal_binary(
     name = "alex",
     srcs = glob(["**"]),
-    compiler_flags = ["-w", "-optF=-w"],
+    verbose = False,
     visibility = ["//visibility:public"],
 )
 """,
@@ -55,7 +55,6 @@ load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_binary")
 haskell_cabal_binary(
     name = "c2hs",
     srcs = glob(["**"]),
-    compiler_flags = ["-w", "-optF=-w"],
     deps = [
         "@c2hs_deps//:base",
         "@c2hs_deps//:bytestring",
@@ -63,6 +62,7 @@ haskell_cabal_binary(
         "@c2hs_deps//:filepath",
         "@c2hs_deps//:dlist",
     ],
+    verbose = False,
     visibility = ["//visibility:public"],
 )
 """,
@@ -78,7 +78,7 @@ load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_binary")
 haskell_cabal_binary(
     name = "happy",
     srcs = glob(["**"]),
-    compiler_flags = ["-w", "-optF=-w"],
+    verbose = False,
     visibility = ["//visibility:public"],
 )
 """,
@@ -163,7 +163,6 @@ load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_binary")
 haskell_cabal_binary(
     name = "hpp",
     srcs = glob(["**"]),
-    compiler_flags = ["-w", "-optF=-w"],
     deps = [
         "@stackage//:base",
         "@stackage//:directory",
@@ -171,6 +170,7 @@ haskell_cabal_binary(
         "@stackage//:hpp",
         "@stackage//:time",
     ],
+    verbose = False,
     visibility = ["//visibility:public"],
 )
 """,
@@ -292,9 +292,9 @@ haskell_cabal_library(
     version = "0.0.0.0",
     srcs = glob(["**"]),
     haddock = False,
-    compiler_flags = ["-w", "-optF=-w"],
     deps = packages["grpc-haskell-core"].deps + {deps},
     tools = ["@c2hs//:c2hs"],
+    verbose = False,
     visibility = ["//visibility:public"],
 )
 {extra_targets}
