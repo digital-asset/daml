@@ -18,11 +18,10 @@ import com.digitalasset.logging.LoggingContext.newLoggingContext
 import com.digitalasset.platform.apiserver.{ApiServerConfig, StandaloneApiServer}
 import com.digitalasset.platform.indexer.{IndexerConfig, StandaloneIndexerServer}
 import com.digitalasset.resources.akka.AkkaResourceOwner
-import com.digitalasset.resources.{Resource, ResourceOwner}
+import com.digitalasset.resources.{ProgramResource, ResourceOwner}
 import org.slf4j.LoggerFactory
 
-import scala.concurrent.duration.DurationInt
-import scala.concurrent.{Await, ExecutionContext}
+import scala.concurrent.ExecutionContext
 import scala.util.Try
 
 object ReferenceServer extends App {
@@ -41,26 +40,23 @@ object ReferenceServer extends App {
   implicit val materializer: Materializer = Materializer(system)
   implicit val executionContext: ExecutionContext = system.dispatcher
 
-  val resource = newLoggingContext { implicit logCtx =>
+  val owner = newLoggingContext { implicit logCtx =>
     for {
       // Take ownership of the actor system and materializer so they're cleaned up properly.
       // This is necessary because we can't declare them as implicits within a `for` comprehension.
-      _ <- AkkaResourceOwner.forActorSystem(() => system).acquire()
-      _ <- AkkaResourceOwner.forMaterializer(() => materializer).acquire()
+      _ <- AkkaResourceOwner.forActorSystem(() => system)
+      _ <- AkkaResourceOwner.forMaterializer(() => materializer)
       ledger <- ResourceOwner
         .forCloseable(() => new InMemoryKVParticipantState(config.participantId))
-        .acquire()
-      _ <- Resource.sequenceIgnoringValues(config.archiveFiles.map { file =>
+      _ <- ResourceOwner.sequenceIgnoringValues(config.archiveFiles.map { file =>
         val submissionId = SubmissionId.assertFromString(UUID.randomUUID().toString)
         for {
           dar <- ResourceOwner
             .forTry(() =>
               DarReader { case (_, x) => Try(Archive.parseFrom(x)) }
                 .readArchiveFromFile(file))
-            .acquire()
           _ <- ResourceOwner
             .forCompletionStage(() => ledger.uploadPackages(submissionId, dar.all, None))
-            .acquire()
         } yield ()
       })
       _ <- startIndexerServer(config, readService = ledger)
@@ -70,10 +66,8 @@ object ReferenceServer extends App {
         writeService = ledger,
         authService = AuthServiceWildcard,
       )
-      _ <- Resource.sequenceIgnoringValues(
-        for {
-          (extraParticipantId, port, jdbcUrl) <- config.extraParticipants
-        } yield {
+      _ <- ResourceOwner.sequenceIgnoringValues(
+        for ((extraParticipantId, port, jdbcUrl) <- config.extraParticipants) yield {
           val participantConfig = config.copy(
             port = port,
             participantId = extraParticipantId,
@@ -93,27 +87,23 @@ object ReferenceServer extends App {
     } yield ()
   }
 
-  resource.asFuture.failed.foreach { exception =>
-    logger.error("Shutting down because of an initialization error.", exception)
-    System.exit(1)
-  }
-
-  Runtime.getRuntime.addShutdownHook(new Thread(() => Await.result(resource.release(), 10.seconds)))
+  new ProgramResource(owner).run()
 
   private def startIndexerServer(config: Config, readService: ReadService)(
-      implicit logCtx: LoggingContext): Resource[Unit] =
+      implicit logCtx: LoggingContext
+  ): ResourceOwner[Unit] =
     new StandaloneIndexerServer(
       readService,
       IndexerConfig(config.participantId, config.jdbcUrl, config.startupMode),
       SharedMetricRegistries.getOrCreate(s"indexer-${config.participantId}"),
-    ).acquire()
+    )
 
   private def startApiServer(
       config: Config,
       readService: ReadService,
       writeService: WriteService,
       authService: AuthService,
-  )(implicit logCtx: LoggingContext): Resource[Unit] =
+  )(implicit logCtx: LoggingContext): ResourceOwner[Unit] =
     new StandaloneApiServer(
       ApiServerConfig(
         config.participantId,
@@ -130,5 +120,5 @@ object ReferenceServer extends App {
       writeService,
       authService,
       SharedMetricRegistries.getOrCreate(s"ledger-api-server-${config.participantId}"),
-    ).acquire()
+    )
 }

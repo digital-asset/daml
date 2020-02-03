@@ -9,13 +9,13 @@ import java.nio.file.Path
 import akka.stream.Materializer
 import com.daml.ledger.participant.state.kvutils.app.{Config, LedgerFactory, Runner}
 import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId}
-import com.digitalasset.resources.ResourceOwner
+import com.digitalasset.resources.{ProgramResource, ResourceOwner}
 import scopt.OptionParser
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
 object Main extends App {
-  Runner("File System Ledger", FileSystemLedgerFactory).run(args)
+  new ProgramResource(Runner("File System Ledger", FileSystemLedgerFactory).owner(args)).run()
 
   case class ExtraConfig(root: Option[Path])
 
