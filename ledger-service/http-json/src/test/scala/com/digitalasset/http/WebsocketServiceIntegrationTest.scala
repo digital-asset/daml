@@ -36,33 +36,46 @@ class WebsocketServiceIntegrationTest
 
   private val headersWithAuth = List(Authorization(OAuth2BearerToken(jwt.value)))
 
-  private val baseFlow: Flow[Message, Message, NotUsed] =
+  private val baseQueryFlow: Flow[Message, Message, NotUsed] =
     Flow.fromSinkAndSource(Sink.foreach(println), Source.single(TextMessage.Strict("{}")))
+
+  private val fetchRequest =
+    """[{"templateId": "Account:Account", "key": ["Alice", "abc123"]}]"""
+
+  private val baseFetchFlow: Flow[Message, Message, NotUsed] =
+    Flow.fromSinkAndSource(Sink.foreach(println), Source.single(TextMessage.Strict(fetchRequest)))
 
   private val validSubprotocol = Option(s"""$tokenPrefix${jwt.value},$wsProtocol""")
 
-  "ws request with valid protocol token should allow client subscribe to stream" in withHttpService {
-    (uri, _, _) =>
-      wsConnectRequest(
-        uri.copy(scheme = "ws").withPath(Uri.Path("/contracts/searchForever")),
-        validSubprotocol,
-        baseFlow)._1 flatMap (x => x.response.status shouldBe StatusCodes.SwitchingProtocols)
-  }
+  List(
+    SimpleScenario("query", Uri.Path("/contracts/searchForever"), baseQueryFlow),
+    SimpleScenario("fetch", Uri.Path("/stream/fetch"), baseFetchFlow)
+  ).foreach { scenario =>
+    s"${scenario.id} request with valid protocol token should allow client subscribe to stream" in withHttpService {
+      (uri, _, _) =>
+        wsConnectRequest(
+          uri.copy(scheme = "ws").withPath(scenario.path),
+          validSubprotocol,
+          scenario.flow)._1 flatMap (x => x.response.status shouldBe StatusCodes.SwitchingProtocols)
+    }
 
-  "ws request with invalid protocol token should be denied" in withHttpService { (uri, _, _) =>
-    wsConnectRequest(
-      uri.copy(scheme = "ws").withPath(Uri.Path("/contracts/searchForever")),
-      Option("foo"),
-      baseFlow
-    )._1 flatMap (x => x.response.status shouldBe StatusCodes.Unauthorized)
-  }
+    s"${scenario.id} request with invalid protocol token should be denied" in withHttpService {
+      (uri, _, _) =>
+        wsConnectRequest(
+          uri.copy(scheme = "ws").withPath(scenario.path),
+          Option("foo"),
+          scenario.flow
+        )._1 flatMap (x => x.response.status shouldBe StatusCodes.Unauthorized)
+    }
 
-  "ws request without protocol token should be denied" in withHttpService { (uri, _, _) =>
-    wsConnectRequest(
-      uri.copy(scheme = "ws").withPath(Uri.Path("/contracts/searchForever")),
-      None,
-      baseFlow
-    )._1 flatMap (x => x.response.status shouldBe StatusCodes.Unauthorized)
+    s"${scenario.id} request without protocol token should be denied" in withHttpService {
+      (uri, _, _) =>
+        wsConnectRequest(
+          uri.copy(scheme = "ws").withPath(scenario.path),
+          None,
+          scenario.flow
+        )._1 flatMap (x => x.response.status shouldBe StatusCodes.Unauthorized)
+    }
   }
 
   private val collectResultsAsRawString: Sink[Message, Future[Seq[String]]] =
@@ -206,6 +219,11 @@ class WebsocketServiceIntegrationTest
 }
 
 object WebsocketServiceIntegrationTest {
+  private case class SimpleScenario(
+      id: String,
+      path: Uri.Path,
+      flow: Flow[Message, Message, NotUsed])
+
   private object ContractDelta {
     import spray.json._
     def unapply(jsv: JsValue): Option[(Vector[(String, JsValue)], Vector[String])] =

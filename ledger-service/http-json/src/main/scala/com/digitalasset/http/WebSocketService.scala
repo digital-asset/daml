@@ -280,8 +280,8 @@ class WebSocketService(
       (a: StepAndErrors[A]) =>
         {
           val deletesToKeep: Set[String] = a.step.deletes.filter(cid => createIds.remove(cid))
-          val a1 = a.copy(step = a.step.copy(deletes = deletesToKeep))
           a.step.inserts.foreach(x => createIds.add(x.contractId.unwrap))
+          val a1 = a.copy(step = a.step.copy(deletes = deletesToKeep))
           if (a1.nonEmpty) immutable.Iterable(a1)
           else immutable.Iterable.empty
         }
