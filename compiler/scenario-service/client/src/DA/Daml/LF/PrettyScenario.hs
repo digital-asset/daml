@@ -448,7 +448,7 @@ prettyLocation world (Location mbPkgId modName sline scol eline _ecol _definitio
 
 prettyTxId :: Int32 -> Doc SyntaxClass
 prettyTxId txid =
-  linkToIdSC ("n" <> TE.show txid) $ char '#' <> string (show txid)
+  linkToIdSC ("n" <> TE.show txid) $ string (show txid)
 
 linkToIdSC :: T.Text -> Doc SyntaxClass -> Doc SyntaxClass
 linkToIdSC targetId =
@@ -462,15 +462,15 @@ prettyNodeId :: NodeId -> Doc SyntaxClass
 prettyNodeId (NodeId nodeId) =
     idSC ("n" <> TL.toStrict nodeId)
   $ annotateSC ConstructorSC
-  $ char '#' <> text (TL.toStrict nodeId)
+  $ text (TL.toStrict nodeId)
 
 prettyNodeIdLink :: NodeId -> Doc SyntaxClass
 prettyNodeIdLink (NodeId nodeId) =
-  linkToIdSC ("n" <> TL.toStrict nodeId) $ char '#' <> text (TL.toStrict nodeId)
+  linkToIdSC ("n" <> TL.toStrict nodeId) $ text (TL.toStrict nodeId)
 
 prettyContractId :: TL.Text -> Doc SyntaxClass
 prettyContractId coid =
-  linkToIdSC ("n" <> TL.toStrict coid) $ char '#' <> ltext coid
+  linkToIdSC ("n" <> TL.toStrict coid) $ ltext coid
 
 linkSC :: T.Text -> T.Text -> Doc SyntaxClass -> Doc SyntaxClass
 linkSC url title = annotateSC (LinkSC url title)

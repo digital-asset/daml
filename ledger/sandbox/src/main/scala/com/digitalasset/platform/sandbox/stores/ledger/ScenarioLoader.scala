@@ -13,7 +13,6 @@ import com.digitalasset.daml.lf.speedy.{ScenarioRunner, Speedy}
 import com.digitalasset.daml.lf.transaction.{GenTransaction, VersionTimeline}
 import com.digitalasset.daml.lf.types.Ledger.ScenarioTransactionId
 import com.digitalasset.daml.lf.types.{Ledger => L}
-import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.platform.packages.InMemoryPackageStore
 import com.digitalasset.platform.sandbox.stores.InMemoryActiveLedgerState
 import com.digitalasset.platform.store.entries.LedgerEntry
@@ -235,19 +234,10 @@ object ScenarioLoader {
         val transactionId = txId.id
         val workflowId =
           Some(Ref.LedgerString.concat(workflowIdPrefix, Ref.LedgerString.fromInt(stepId)))
-        val txNoHash = GenTransaction(richTransaction.nodes, richTransaction.roots, None)
-        val tx = txNoHash
-          .mapContractIdAndValue(absCidWithHash, _.mapContractId(absCidWithHash))
-          .mapNodeId(nodeIdWithHash)
-        val mappedExplicitDisclosure = richTransaction.explicitDisclosure.map {
-          case (nid, parties) => nodeIdWithHash(nid) -> parties
-        }
-        val mappedLocalImplicitDisclosure = richTransaction.localImplicitDisclosure.map {
-          case (nid, parties) => nodeIdWithHash(nid) -> parties
-        }
-        val mappedGlobalImplicitDisclosure = richTransaction.globalImplicitDisclosure.map {
-          case (k, v) => absCidWithHash(k) -> v
-        }
+        val tx = GenTransaction(richTransaction.nodes, richTransaction.roots, None)
+        val mappedExplicitDisclosure = richTransaction.explicitDisclosure
+        val mappedLocalImplicitDisclosure = richTransaction.localImplicitDisclosure
+        val mappedGlobalImplicitDisclosure = richTransaction.globalImplicitDisclosure
         // copies non-absolute-able node IDs, but IDs that don't match
         // get intersected away later
         acs.addTransaction(
@@ -287,14 +277,5 @@ object ScenarioLoader {
         (acs, time.addMicros(dtMicros), mbOldTxId)
     }
   }
-
-  private val `#` = Ref.ContractIdString.assertFromString("#")
-  // currently the scenario interpreter produces the contract ids with no hash prefix,
-  // but the sandbox does. add them here too for consistency
-  private def absCidWithHash(a: AbsoluteContractId): AbsoluteContractId =
-    AbsoluteContractId(Ref.ContractIdString.concat(`#`, a.coid))
-
-  private def nodeIdWithHash(nid: L.ScenarioNodeId): com.digitalasset.ledger.EventId =
-    Ref.ContractIdString.concat(`#`, nid)
 
 }

@@ -62,12 +62,13 @@ object Ledger {
     crash(s"Not expecting to find a contract id here, but found '$cid'")
 
   private val `:` = LedgerString.assertFromString(":")
+  private val `#` = LedgerString.assertFromString("#")
 
   case class ScenarioTransactionId(index: Int) extends Ordered[ScenarioTransactionId] {
     def next: ScenarioTransactionId = ScenarioTransactionId(index + 1)
     val id: TransactionIdString = TransactionIdString.fromLong(index.toLong)
     override def compare(that: ScenarioTransactionId): Int = index compare that.index
-    def makeCommitPrefix: LedgerString = LedgerString.concat(id, `:`)
+    def makeCommitPrefix: LedgerString = LedgerString.concat(`#`, id, `:`)
   }
 
   /** Errors */
