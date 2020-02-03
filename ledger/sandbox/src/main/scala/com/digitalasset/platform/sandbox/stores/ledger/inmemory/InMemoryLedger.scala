@@ -9,9 +9,14 @@ import java.util.concurrent.atomic.AtomicReference
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2.PackageDetails
-import com.daml.ledger.participant.state.v1._
+import com.daml.ledger.participant.state.v1.{
+  ApplicationId => _,
+  LedgerId => _,
+  TransactionId => _,
+  _
+}
 import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.lf.data.Ref.{PackageId, Party, TransactionIdString}
+import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party}
 import com.digitalasset.daml.lf.data.{ImmArray, Time}
 import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml.lf.language.Ast
@@ -23,7 +28,8 @@ import com.digitalasset.ledger.api.domain.{
   CommandId,
   LedgerId,
   PartyDetails,
-  RejectionReason
+  RejectionReason,
+  TransactionId
 }
 import com.digitalasset.ledger.api.health.{HealthStatus, Healthy}
 import com.digitalasset.platform.events.EventIdFormatter
@@ -42,6 +48,7 @@ import com.digitalasset.platform.store.entries.{
 }
 import com.digitalasset.platform.store.{Contract, LedgerSnapshot}
 import org.slf4j.LoggerFactory
+import scalaz.Tag
 
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
@@ -142,14 +149,14 @@ class InMemoryLedger(
             submitterInfo.applicationId: Any,
             submitterInfo.commandId)
         else
-          handleSuccessfulTx(entries.toTransactionId, submitterInfo, transactionMeta, transaction)
+          handleSuccessfulTx(entries.toLedgerString, submitterInfo, transactionMeta, transaction)
 
         SubmissionResult.Acknowledged
       }
     )
 
   private def handleSuccessfulTx(
-      trId: TransactionIdString,
+      trId: LedgerString,
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction): Unit = {
@@ -240,9 +247,9 @@ class InMemoryLedger(
   override def close(): Unit = ()
 
   override def lookupTransaction(
-      transactionId: TransactionIdString): Future[Option[(Long, LedgerEntry.Transaction)]] = {
+      transactionId: TransactionId): Future[Option[(Long, LedgerEntry.Transaction)]] = {
 
-    Try(transactionId.toLong) match {
+    Try(Tag.unwrap(transactionId).toLong) match {
       case Failure(_) =>
         Future.successful(None)
       case Success(n) =>

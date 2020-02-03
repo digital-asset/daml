@@ -8,13 +8,13 @@ import akka.stream.scaladsl.Source
 import com.codahale.metrics.{MetricRegistry, Timer}
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.v1.Configuration
-import com.digitalasset.daml.lf.data.Ref.{PackageId, Party, TransactionIdString}
+import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
-import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
+import com.digitalasset.ledger.api.domain.{LedgerId, TransactionId, PartyDetails}
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.platform.metrics.timedFuture
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
@@ -65,7 +65,7 @@ class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegistry)
     timedFuture(Metrics.lookupKey, ledger.lookupKey(key, forParty))
 
   override def lookupTransaction(
-      transactionId: TransactionIdString): Future[Option[(Long, LedgerEntry.Transaction)]] =
+      transactionId: TransactionId): Future[Option[(Long, LedgerEntry.Transaction)]] =
     timedFuture(Metrics.lookupTransaction, ledger.lookupTransaction(transactionId))
 
   override def parties: Future[List[PartyDetails]] =

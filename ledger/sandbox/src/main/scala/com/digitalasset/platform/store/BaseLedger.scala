@@ -8,14 +8,14 @@ import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.v1.Configuration
 import com.digitalasset.daml.lf.archive.Decode
-import com.digitalasset.daml.lf.data.Ref.{PackageId, Party, TransactionIdString}
+import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.domain.LedgerId
+import com.digitalasset.ledger.api.domain.{LedgerId, TransactionId}
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
 import com.digitalasset.platform.akkastreams.dispatcher.SubSource.RangeSource
@@ -80,9 +80,9 @@ class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Long, ledgerDao: 
       .lookupActiveOrDivulgedContract(contractId, forParty)
 
   override def lookupTransaction(
-      transactionId: TransactionIdString): Future[Option[(Long, LedgerEntry.Transaction)]] =
+      transactionId: TransactionId): Future[Option[(Long, LedgerEntry.Transaction)]] =
     ledgerDao
-      .lookupTransaction(transactionId)
+      .lookupTransaction(TransactionId.unwrap(transactionId))
 
   override def parties: Future[List[domain.PartyDetails]] =
     ledgerDao.getParties

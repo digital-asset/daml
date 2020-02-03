@@ -206,8 +206,7 @@ object ScenarioLoader {
     }
   }
 
-  private val transactionIdPrefix =
-    Ref.TransactionIdString.assertFromString(s"scenario-transaction-")
+  private val transactionIdPrefix = Ref.LedgerString.assertFromString(s"scenario-transaction-")
   private val workflowIdPrefix = Ref.LedgerString.assertFromString(s"scenario-workflow-")
   private val scenarioLoader = Ref.LedgerString.assertFromString("scenario-loader")
 

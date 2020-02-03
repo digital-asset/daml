@@ -14,7 +14,7 @@ import com.daml.ledger.participant.state.index.v2.{
 }
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId}
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party, TransactionIdString}
+import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party}
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
@@ -98,7 +98,7 @@ abstract class LedgerBackedIndexService(
     )
 
   private def getTransactionById(
-      transactionId: TransactionIdString): Future[Option[(Long, LedgerEntry.Transaction)]] = {
+      transactionId: TransactionId): Future[Option[(Long, LedgerEntry.Transaction)]] = {
     ledger
       .lookupTransaction(transactionId)
       .map(_.map { case (offset, t) => (offset + 1) -> t })(DEC)
@@ -195,11 +195,11 @@ abstract class LedgerBackedIndexService(
       requestingParties: Set[Ref.Party]): Future[Option[domain.Transaction]] = {
     val filter =
       domain.TransactionFilter(requestingParties.map(p => p -> domain.Filters.noFilter).toMap)
-    getTransactionById(transactionId.unwrap)
+    getTransactionById(transactionId)
       .map(_.flatMap {
         case (offset, transaction) =>
           TransactionConversion.ledgerEntryToDomainFlat(
-            LedgerOffset.Absolute(LedgerString.assertFromString(offset.toString)),
+            LedgerOffset.Absolute(LedgerString.fromLong(offset)),
             transaction,
             filter)
       })(DEC)
@@ -210,11 +210,11 @@ abstract class LedgerBackedIndexService(
       requestingParties: Set[Ref.Party]): Future[Option[domain.TransactionTree]] = {
     val filter =
       domain.TransactionFilter(requestingParties.map(p => p -> domain.Filters.noFilter).toMap)
-    getTransactionById(transactionId.unwrap)
+    getTransactionById(transactionId)
       .map(_.flatMap {
         case (offset, transaction) =>
           TransactionConversion.ledgerEntryToDomainTree(
-            LedgerOffset.Absolute(LedgerString.assertFromString(offset.toString)),
+            LedgerOffset.Absolute(LedgerString.fromLong(offset)),
             transaction,
             filter)
       })(DEC)
