@@ -6,5 +6,5 @@ steps:
            -i \
            -H 'Content-type: application/json' \
            --data "{\"text\":\"<!here> *FAILED* $(Agent.JobName): <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|$MESSAGE>\n\"}" \
-           $(Slack.URL)
+           $(Slack.team-daml)
     condition: and(failed(), eq(variables['Build.SourceBranchName'], 'master'))
