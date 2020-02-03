@@ -50,6 +50,8 @@ data Config = Config
         -- including stable packages and data dependencies.
     , configGetUnitId :: LF.PackageRef -> UnitId
         -- ^ maps a package reference to a unit id
+    , configSelfPkgId :: LF.PackageId
+        -- ^ package id for this package, we need it to build a closed LF.World
     , configStablePackages :: Set LF.PackageId
         -- ^ set of package ids for stable packages
     , configDependencyPackages :: Set LF.PackageId
@@ -74,7 +76,13 @@ data Env = Env
 buildWorld :: Config -> LF.World
 buildWorld Config{..} =
     fromMaybe (error "Failed to build LF World for data-dependencies") $ do
-        let packageIds = Set.toList configStablePackages ++ Set.toList configDependencyPackages
+        let packageIds = concat
+                [ [configSelfPkgId] -- We need to add this here,
+                    -- instead of relying on the self argument below,
+                    -- because package references in the current
+                    -- package have also been rewritten during decoding.
+                , Set.toList configStablePackages
+                , Set.toList configDependencyPackages ]
             mkExtPackage pkgId = do
                 pkg <- MS.lookup (configGetUnitId (LF.PRImport pkgId)) configPackages
                 Just (LF.ExternalPackage pkgId pkg)
