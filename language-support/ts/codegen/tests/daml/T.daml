@@ -7,3 +7,10 @@ template T with
     party: Party
   where
     signatory party
+
+    -- This key expression is interesting because it is the only place in this
+    -- module where we reference the module defining the `Tuple2` type. Thus,
+    -- this test would if we forgot to import modules only refernced by key
+    -- types.
+    key (party, party): (Party, Party)
+    maintainer key._1
