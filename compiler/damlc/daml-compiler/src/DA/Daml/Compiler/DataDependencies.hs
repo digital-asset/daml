@@ -653,7 +653,7 @@ generateSrcPkgFromLf config pkg = do
   where
     env m = Env
         { envConfig = config
-        , envQualifyThisModule = True
+        , envQualifyThisModule = False
         , envDepClassMap = buildDepClassMap config
         , envMod = m
         }
@@ -695,7 +695,7 @@ generateGenInstancesPkgFromLf config pkgId pkg qual =
         [ generateGenInstanceModule
             Env
                 { envConfig = config
-                , envQualifyThisModule = False
+                , envQualifyThisModule = True
                 , envMod = mod
                 , envDepClassMap = buildDepClassMap config
                 }

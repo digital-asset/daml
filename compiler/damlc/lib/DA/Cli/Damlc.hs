@@ -827,11 +827,17 @@ execGenerateSrc opts dalfOrDar mbOutDir = Command GenerateSrc Nothing effect
             stablePkgIds :: Set.Set LF.PackageId
             stablePkgIds = Set.fromList $ map LF.dalfPackageId $ MS.elems stableDalfPkgMap
 
+            dependencyPkgIds :: Set.Set LF.PackageId
+            dependencyPkgIds = Set.fromList
+                [ LF.dalfPackageId dalfPkg
+                | (_, dalfPkg) <- MS.toList dalfPkgMap
+                ]
+
             config = DataDeps.Config
                 { configPackages = pkgMap
                 , configGetUnitId = getUnitId unitId unitIdMap
                 , configStablePackages = stablePkgIds
-                , configDependencyPackages = Set.empty -- this isn't right, is it?
+                , configDependencyPackages = dependencyPkgIds
                 , configSdkPrefix = ["CurrentSdk"]
                 }
 
