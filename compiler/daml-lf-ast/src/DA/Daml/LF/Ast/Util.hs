@@ -226,7 +226,7 @@ _TApps :: Iso' Type (Type, [Type])
 _TApps = leftSpine _TApp
 
 mkTForalls :: [(TypeVarName, Kind)] -> Type -> Type
-mkTForalls = curry (review _TForalls)
+mkTForalls binders ty = foldr TForall ty binders
 
 mkTFuns :: [Type] -> Type -> Type
 mkTFuns ts t = foldr (:->) t ts
