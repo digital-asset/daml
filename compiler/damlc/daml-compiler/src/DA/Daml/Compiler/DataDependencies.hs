@@ -41,21 +41,30 @@ import SdkVersion
 
 data Config = Config
     { configPackages :: MS.Map UnitId LF.Package
+        -- ^ maps unit ids to packages, and contain all package dependencies,
+        -- including stable packages and data dependencies.
     , configGetUnitId :: LF.PackageRef -> UnitId
+        -- ^ maps a package reference to a unit id
     , configStablePackages :: Set LF.PackageId
+        -- ^ set of package ids for stable packages
     , configDependencyPackages :: Set LF.PackageId
+        -- ^ set of package ids for dependencies (not data-dependencies)
     , configSdkPrefix :: [T.Text]
+        -- ^ prefix to use for current SDK in data-dependencies
     }
 
 data Env = Env
     { envConfig :: Config
-    , envQualify :: Bool
+    , envQualifyThisModule :: Bool
+        -- ^ True if refences to this module should be qualified
     , envDepClassMap :: DepClassMap
+        -- ^ Map of typeclasses from dependencies.
     , envMod :: LF.Module
+        -- ^ The module under consideration.
     }
 
 -- | Type classes coming from dependencies. This maps a (module, synonym)
--- name pair to a corresponding dependency package id and list of fields.
+-- name pair to a corresponding dependency package id and synonym definition.
 newtype DepClassMap = DepClassMap
     { unDepClassMap :: MS.Map
         (LF.ModuleName, LF.TypeSynName)
@@ -390,8 +399,8 @@ sanitize = T.dropWhileEnd (== '#')
 
 mkConRdr :: Env -> Module -> OccName -> RdrName
 mkConRdr env thisModule
- | envQualify env = mkRdrUnqual
- | otherwise = mkOrig thisModule
+ | envQualifyThisModule env = mkOrig thisModule
+ | otherwise = mkRdrUnqual
 
 mkDataDecl :: Env -> Module -> OccName -> [(LF.TypeVarName, LF.Kind)] -> [LConDecl GhcPs] -> Gen (LHsDecl GhcPs)
 mkDataDecl env thisModule occName tyVars cons = do
@@ -644,7 +653,7 @@ generateSrcPkgFromLf config pkg = do
   where
     env m = Env
         { envConfig = config
-        , envQualify = True
+        , envQualifyThisModule = True
         , envDepClassMap = buildDepClassMap config
         , envMod = m
         }
@@ -686,7 +695,7 @@ generateGenInstancesPkgFromLf config pkgId pkg qual =
         [ generateGenInstanceModule
             Env
                 { envConfig = config
-                , envQualify = False
+                , envQualifyThisModule = False
                 , envMod = mod
                 , envDepClassMap = buildDepClassMap config
                 }
