@@ -17,6 +17,7 @@ let
         sha256 = "1jcyd9jy7kz5zfch25s4inwlivb1y1w52fzfjy5ra5vcnp3hmqyr";
         fetchSubmodules = true;
       };
+      patches = [];
     });
     ephemeralpg = pkgs.ephemeralpg.overrideAttrs(oldAttrs: {
       installPhase = ''
