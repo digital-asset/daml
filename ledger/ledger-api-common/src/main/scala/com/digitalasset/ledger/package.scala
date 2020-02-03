@@ -23,6 +23,6 @@ package object ledger {
   val EventId: LedgerString.type = LedgerString
 
   val TransactionId: LedgerString.type = LedgerString
-  type TransactionId = LedgerString.T
+  type TransactionId = LedgerString
 
 }

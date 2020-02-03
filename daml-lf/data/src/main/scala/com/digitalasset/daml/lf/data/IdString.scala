@@ -43,20 +43,22 @@ sealed trait ConcatenableStringModule[T <: String] extends StringModule[T] {
 
   def fromInt(i: Int): T
 
-  def concat(s: T, ss: T*): T
+  def concat(s: T, ss: T*): Either[String, T]
+
+  def assertConcat(s: T, ss: T*): T
 }
 
-sealed trait UnionStringModule[T <: String, TV0 <: T, TV1 <: T] extends StringModule[T] {
+sealed trait UnionStringModule[T <: String, TA <: T, TB <: T] extends StringModule[T] {
 
-  def toEither(s: T): Either[TV0, TV1]
+  def toEither(s: T): Either[TA, TB]
 
-  def toV0(s: T): Option[TV0]
+  def toA(s: T): Option[TA]
 
-  def assertToV0(s: T): TV0
+  def assertToVA(s: T): TA
 
-  def toV1(s: T): Option[TV1]
+  def toB(s: T): Option[TB]
 
-  def assertToV1(s: T): TV1
+  def assertToVB(s: T): TB
 
 }
 
@@ -84,12 +86,12 @@ sealed abstract class IdString {
     * transactionId, ... We use the same type for those ids, because we
     * construct some by concatenating the others.
     */
-  type LedgerString <: String
+  type LedgerString <: ContractIdStringV0
 
-  /** Identifier for a contractId */
+  /** Identifiers for a contractId */
   type ContractIdString <: String
 
-  /** Legacy Identifier for a contractId */
+  /** Legacy Identifiers for a contractId */
   type ContractIdStringV0 <: ContractIdString
 
   /**
@@ -101,7 +103,7 @@ sealed abstract class IdString {
   val Party: ConcatenableStringModule[Party]
   val PackageId: ConcatenableStringModule[PackageId]
   val LedgerString: ConcatenableStringModule[LedgerString]
-  val ContractIdStringV0: StringModule[ContractIdStringV0]
+  val ContractIdStringV0: ConcatenableStringModule[ContractIdStringV0]
   val ContractIdStringV1: StringModule[ContractIdStringV1]
   val ContractIdString: UnionStringModule[ContractIdString, ContractIdStringV0, ContractIdStringV1]
 
@@ -169,12 +171,15 @@ private final class ConcatenableMatchingStringModule(
 
   override def fromInt(i: Int): T = fromLong(i.toLong)
 
-  override def concat(s: T, ss: T*): T = {
+  override def concat(s: T, ss: T*): Either[String, T] = {
     val b = StringBuilder.newBuilder
     b ++= s
     ss.foreach(b ++= _)
-    b.result()
+    if (b.length <= maxLength) Right(b.result()) else Left(s"id ${b.result()} too Long")
   }
+
+  override def assertConcat(s: T, ss: T*): T =
+    assertRight(concat(s, ss: _*))
 
 }
 
@@ -217,7 +222,7 @@ private[data] final class IdStringImpl extends IdString {
     * Legacy contractIds.
     */
   override type ContractIdStringV0 = LedgerString
-  override val ContractIdStringV0: StringModule[LedgerString] = LedgerString
+  override val ContractIdStringV0: ConcatenableStringModule[LedgerString] = LedgerString
 
   /**
     * New contractId ordered with relative contractIds.
@@ -240,18 +245,18 @@ private[data] final class IdStringImpl extends IdString {
       override def fromString(s: String): Either[String, ContractIdString] =
         toEither(s).fold(ContractIdStringV0.fromString, ContractIdStringV1.fromString)
 
-      override def assertToV0(s: ContractIdString): ContractIdStringV0 =
+      override def assertToVA(s: ContractIdString): ContractIdStringV0 =
         toEither(s).left
           .getOrElse(throw new IllegalArgumentException("expect V0 ContractId get V1"))
 
-      override def assertToV1(s: ContractIdString): ContractIdStringV1 =
+      override def assertToVB(s: ContractIdString): ContractIdStringV1 =
         toEither(s).right
           .getOrElse(throw new IllegalArgumentException("expect V1 ContractId get V0"))
 
-      override def toV0(s: ContractIdString): Option[ContractIdStringV0] =
+      override def toA(s: ContractIdString): Option[ContractIdStringV0] =
         toEither(s).left.toOption
 
-      override def toV1(s: ContractIdString): Option[ContractIdStringV1] =
+      override def toB(s: ContractIdString): Option[ContractIdStringV1] =
         toEither(s).right.toOption
     }
 }
