@@ -41,10 +41,10 @@ object WebSocketService {
   private type CompiledQueries = Map[domain.TemplateId.RequiredPkg, LfV => Boolean]
 
   // TODO(Leo): need a better name, this is more than just a predicate
-  private type AcPredicate = (
+  private type AcPredicate[+Positive] = (
       Set[domain.TemplateId.RequiredPkg],
       Set[domain.TemplateId.OptionalPkg],
-      domain.ActiveContract[LfV] => Boolean,
+      domain.ActiveContract[LfV] => Option[Positive],
   )
 
   val heartBeat: String = JsObject("heartbeat" -> JsString("ping")).compactPrint
@@ -82,16 +82,20 @@ object WebSocketService {
 
   trait StreamQuery[A] {
 
+    type Positive
+
     def parse(decoder: DomainJsonDecoder, str: String): Error \/ A
 
     def predicate(
         request: A,
         resolveTemplateId: PackageService.ResolveTemplateId,
-        lookupType: ValuePredicate.TypeLookup): AcPredicate
+        lookupType: ValuePredicate.TypeLookup): AcPredicate[Positive]
   }
 
   implicit val SearchForeverRequestWithStreamQuery: StreamQuery[domain.SearchForeverRequest] =
     new StreamQuery[domain.SearchForeverRequest] {
+
+      type Positive = Unit
 
       override def parse(decoder: DomainJsonDecoder, str: String): Error \/ SearchForeverRequest = {
         import JsonProtocol._
@@ -103,7 +107,7 @@ object WebSocketService {
       override def predicate(
           request: SearchForeverRequest,
           resolveTemplateId: PackageService.ResolveTemplateId,
-          lookupType: ValuePredicate.TypeLookup): AcPredicate = {
+          lookupType: ValuePredicate.TypeLookup): AcPredicate[Positive] = {
 
         import util.Collections._
 
@@ -118,9 +122,9 @@ object WebSocketService {
             ((resolved, unresolved), fn)
           }
           .unfzip
-          .leftMap(_.unfzip)
+          .bimap(_.unfzip, _.toList)
 
-        (resolveds.fold, unresolveds.fold, lfv => fns.any(_(lfv)))
+        (resolveds.fold, unresolveds.fold, lfv => if (fns.exists(_(lfv))) Some(()) else None)
       }
 
       private def prepareFilters(
@@ -136,6 +140,8 @@ object WebSocketService {
   implicit val EnrichedContractKeyWithStreamQuery
     : StreamQuery[List[domain.EnrichedContractKey[LfV]]] =
     new StreamQuery[List[domain.EnrichedContractKey[LfV]]] {
+
+      type Positive = Unit
 
       import JsonProtocol._
 
@@ -158,7 +164,7 @@ object WebSocketService {
       override def predicate(
           request: List[domain.EnrichedContractKey[LfV]],
           resolveTemplateId: PackageService.ResolveTemplateId,
-          lookupType: TypeLookup): AcPredicate = {
+          lookupType: TypeLookup): AcPredicate[Positive] = {
 
         import util.Collections._
 
@@ -168,8 +174,10 @@ object WebSocketService {
           }
 
         val q: Map[domain.TemplateId.RequiredPkg, LfV] = resolvedWithKey.toMap
-        val fn: domain.ActiveContract[LfV] => Boolean = { a =>
-          q.get(a.templateId).exists(k => domain.ActiveContract.matchesKey(k)(a))
+        val fn: domain.ActiveContract[LfV] => Option[Positive] = { a =>
+          if (q.get(a.templateId).exists(k => domain.ActiveContract.matchesKey(k)(a)))
+            Some(())
+          else None
         }
         (q.keySet, unresolved, fn)
       }
@@ -283,7 +291,7 @@ class WebSocketService(
     }.toMap
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  private def convertFilterContracts(fn: domain.ActiveContract[LfV] => Boolean)
+  private def convertFilterContracts[Pos](fn: domain.ActiveContract[LfV] => Option[Pos])
     : Flow[InsertDeleteStep[api.event.CreatedEvent], StepAndErrors[JsValue], NotUsed] =
     Flow
       .fromFunction { step: InsertDeleteStep[api.event.CreatedEvent] =>
@@ -296,7 +304,9 @@ class WebSocketService(
           }
         StepAndErrors(
           errors,
-          step copy (inserts = (cs: Vector[domain.ActiveContract[LfV]]).filter(fn)))
+          step copy (inserts = (cs: Vector[domain.ActiveContract[LfV]]).flatMap { ac =>
+            fn(ac).map(_ => ac /* TODO SC incl arg */ ).toList
+          }))
       }
       .via(conflation)
       .map(sae => sae copy (step = sae.step.mapPreservingIds(_ map lfValueToJsValue)))
