@@ -24,7 +24,7 @@ import DA.Cli.Damlc.IdeState
 import DA.Cli.Damlc.Packaging
 import DA.Cli.Damlc.Test
 import DA.Daml.Compiler.Dar
-import DA.Daml.Compiler.DataDependencies
+import DA.Daml.Compiler.DataDependencies as DataDeps
 import DA.Daml.Compiler.DocTest
 import DA.Daml.Compiler.Scenario
 import DA.Daml.Compiler.Upgrade
@@ -827,7 +827,21 @@ execGenerateSrc opts dalfOrDar mbOutDir = Command GenerateSrc Nothing effect
             stablePkgIds :: Set.Set LF.PackageId
             stablePkgIds = Set.fromList $ map LF.dalfPackageId $ MS.elems stableDalfPkgMap
 
-            genSrcs = generateSrcPkgFromLf pkgMap (getUnitId unitId unitIdMap) stablePkgIds (Just "CurrentSdk") pkg
+            dependencyPkgIds :: Set.Set LF.PackageId
+            dependencyPkgIds = Set.fromList
+                [ LF.dalfPackageId dalfPkg
+                | (_, dalfPkg) <- MS.toList dalfPkgMap
+                ]
+
+            config = DataDeps.Config
+                { configPackages = pkgMap
+                , configGetUnitId = getUnitId unitId unitIdMap
+                , configStablePackages = stablePkgIds
+                , configDependencyPackages = dependencyPkgIds
+                , configSdkPrefix = ["CurrentSdk"]
+                }
+
+            genSrcs = generateSrcPkgFromLf config pkg
 
         forM_ genSrcs $ \(path, src) -> do
             let fp = fromMaybe "" mbOutDir </> fromNormalizedFilePath path
@@ -862,9 +876,15 @@ execGenerateGenSrc darFp mbQual outDir = Command GenerateGenerics Nothing effect
                 takeFileName $ ZipArchive.eRelativePath mainDalfEntry
         (mainPkgId, mainLfPkg) <-
             decode $ BSL.toStrict $ ZipArchive.fromEntry mainDalfEntry
-        let getUid = getUnitId unitId pkgMap
-        -- TODO Passing MS.empty is not right but this command is only used for debugging so for now this is fine.
-        let genSrcs = generateGenInstancesPkgFromLf getUid Set.empty Nothing mainPkgId mainLfPkg (fromMaybe "" mbQual)
+        -- TODO Passing MS.empty and Set.empty is not right but this command is only used for debugging so for now this is fine.
+        let config = DataDeps.Config
+                { configPackages = MS.empty
+                , configGetUnitId = getUnitId unitId pkgMap
+                , configStablePackages = Set.empty
+                , configDependencyPackages = Set.empty
+                , configSdkPrefix = []
+                }
+        let genSrcs = generateGenInstancesPkgFromLf config mainPkgId mainLfPkg (fromMaybe "" mbQual)
         forM_ genSrcs $ \(path, src) -> do
             let fp = fromMaybe "" outDir </> fromNormalizedFilePath path
             createDirectoryIfMissing True $ takeDirectory fp
