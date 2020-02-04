@@ -69,7 +69,7 @@ case class Test0(dar: Dar[(PackageId, Package)], runner: TestRunner) {
                 case SList(FrontStackCons(c, FrontStack())) => {
                   Right(c)
                 }
-                case v => Left("Expected list but got $v")
+                case v => Left(s"Expected list but got $v")
               }
               _ <- c match {
                 case SRecord(_, _, vals) if vals.size == 2 =>

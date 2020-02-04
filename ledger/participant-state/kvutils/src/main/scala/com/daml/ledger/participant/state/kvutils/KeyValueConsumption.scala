@@ -251,12 +251,12 @@ object KeyValueConsumption {
   private def parseLedgerString(what: String)(s: String): Ref.LedgerString =
     Ref.LedgerString
       .fromString(s)
-      .fold(err => throw Err.DecodeError(what, "Cannot parse '$s': $err"), identity)
+      .fold(err => throw Err.DecodeError(what, s"Cannot parse '$s': $err"), identity)
 
   @throws(classOf[Err])
   private def parseParty(s: String): Ref.Party =
     Ref.Party
       .fromString(s)
-      .fold(err => throw Err.DecodeError("Party", "Cannot parse '$s': $err"), identity)
+      .fold(err => throw Err.DecodeError("Party", s"Cannot parse '$s': $err"), identity)
 
 }
