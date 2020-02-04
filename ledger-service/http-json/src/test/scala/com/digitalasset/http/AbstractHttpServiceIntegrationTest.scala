@@ -152,6 +152,19 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
       result <- postJsonRequest(uri.withPath(Uri.Path("/command/create")), json)
     } yield result
 
+  protected def postArchiveCommand(
+      templateId: domain.TemplateId.OptionalPkg,
+      contractId: domain.ContractId,
+      encoder: DomainJsonEncoder,
+      uri: Uri): Future[(StatusCode, JsValue)] = {
+    val ref = domain.EnrichedContractId(Some(templateId), contractId)
+    val cmd = archiveCommand(ref)
+    for {
+      json <- toFuture(encoder.encodeExerciseCommand(cmd)): Future[JsValue]
+      result <- postJsonRequest(uri.withPath(Uri.Path("/command/exercise")), json)
+    } yield result
+  }
+
   protected def lookupContractAndAssert(contractLocator: domain.ContractLocator[JsValue])(
       contractId: ContractId,
       create: domain.CreateCommand[v.Record],

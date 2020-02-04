@@ -231,8 +231,6 @@ class WebsocketServiceIntegrationTest
         baseExercisePayload.copy(
           fields = baseExercisePayload.fields updated ("contractId", JsString(cid)))
 
-      val accountCreate = initialAccountCreate(uri, encoder)
-
       val query = """{"templateIds": ["Iou:Iou"]}"""
 
       val parseResp: Flow[Message, JsValue, NotUsed] =
@@ -251,9 +249,7 @@ class WebsocketServiceIntegrationTest
       final case class GotAcs(firstCid: String) extends StreamState
       final case class ShouldHaveEnded(msgCount: Int) extends StreamState
 
-      def resp(
-          iouCid: domain.ContractId,
-          accountCid: domain.ContractId): Sink[JsValue, Future[StreamState]] =
+      def resp(iouCid: domain.ContractId): Sink[JsValue, Future[StreamState]] =
         Sink
           .foldAsync(NothingYet: StreamState) {
             case (NothingYet, ContractDelta(Vector((ctid, ct)), Vector())) =>
@@ -281,19 +277,14 @@ class WebsocketServiceIntegrationTest
         _ = iou._1 shouldBe 'success
         iouCid = getContractId(getResult(iou._2))
 
-        account <- accountCreate
-        _ = account._1 shouldBe 'success
-        accountCid = getContractId(getResult(account._2))
-
-        lastState <- singleClientQueryStream(uri, query) via parseResp runWith resp(
-          iouCid,
-          accountCid)
+        lastState <- singleClientQueryStream(uri, query) via parseResp runWith resp(iouCid)
       } yield lastState should ===(ShouldHaveEnded(2))
   }
 
 //  "fetch should receive deltas as contracts are archived/created" in withHttpService {
 //    (uri, encoder, _) =>
 //      import spray.json._
+//
 //  }
 
   private def wsConnectRequest[M](
