@@ -247,7 +247,6 @@ optionsParser numProcessors enableScenarioService parsePkgName = Options
     <*> pure Nothing
     <*> parsePkgName
     <*> pure Nothing
-    <*> optHideAllPackages
     <*> many optPackageImport
     <*> shakeProfilingOpt
     <*> optShakeThreads
@@ -263,6 +262,7 @@ optionsParser numProcessors enableScenarioService parsePkgName = Options
     <*> pure (Haddock False)
     <*> optCppPath
     <*> pure (IncrementalBuild False)
+    <*> pure (InferDependantPackages True)
   where
     optImportPath :: Parser [FilePath]
     optImportPath =
@@ -324,13 +324,6 @@ optionsParser numProcessors enableScenarioService parsePkgName = Options
                  R.+++ return (orig, orig)
             tok :: R.ReadP a -> R.ReadP a
             tok m = m >>= \x -> R.skipSpaces >> return x
-
-    optHideAllPackages :: Parser Bool
-    optHideAllPackages =
-      switch $
-      help "hide all packages, use -package for explicit import" <>
-      long "hide-all-packages" <>
-      internal
 
     optIsGenerated :: Parser Bool
     optIsGenerated =

@@ -10,6 +10,7 @@ module DA.Daml.Options.Types
     , DlintUsage(..)
     , Haddock(..)
     , IncrementalBuild(..)
+    , InferDependantPackages(..)
     , PackageFlag(..)
     , ModRenaming(..)
     , PackageArg(..)
@@ -51,8 +52,6 @@ data Options = Options
     -- ^ compile in the context of the given package name and create interface files
   , optIfaceDir :: Maybe FilePath
     -- ^ directory to write interface files to. If set to `Nothing` we default to <current working dir>.daml/interfaces.
-  , optHideAllPkgs :: Bool
-    -- ^ hide all imported packages
   , optPackageImports :: [PackageFlag]
     -- ^ list of explicit package imports and modules with aliases. The boolean flag controls
     -- whether modules without given alias are visible.
@@ -86,9 +85,14 @@ data Options = Options
     -- ^ Enable CPP, by giving filepath to the executable.
   , optIncrementalBuild :: IncrementalBuild
   -- ^ Whether to do an incremental on-disk build as opposed to keeping everything in memory.
+  , optInferDependantPackages :: InferDependantPackages
+  -- ^ Whether to infer --package flags from deps/data-deps contained in daml.yaml
   } deriving Show
 
 newtype IncrementalBuild = IncrementalBuild { getIncrementalBuild :: Bool }
+  deriving Show
+
+newtype InferDependantPackages = InferDependantPackages { getInferDependantPackages :: Bool }
   deriving Show
 
 newtype Haddock = Haddock Bool
@@ -148,7 +152,6 @@ defaultOptions mbVersion =
         , optStablePackages = Nothing
         , optMbPackageName = Nothing
         , optIfaceDir = Nothing
-        , optHideAllPkgs = False
         , optPackageImports = []
         , optShakeProfiling = Nothing
         , optThreads = 1
@@ -164,6 +167,7 @@ defaultOptions mbVersion =
         , optHaddock = Haddock False
         , optCppPath = Nothing
         , optIncrementalBuild = IncrementalBuild False
+        , optInferDependantPackages = InferDependantPackages True
         }
 
 getBaseDir :: IO FilePath

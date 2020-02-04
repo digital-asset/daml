@@ -272,7 +272,6 @@ generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase
             , optIsGenerated = True
             , optDflagCheck = False
             , optMbPackageName = Just unitIdStr
-            , optHideAllPkgs = True
             , optGhcCustomOpts = []
             , optPackageImports =
                   baseImports ++
@@ -280,6 +279,9 @@ generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase
                   [ exposePackage (GHC.stringToUnitId $ takeBaseName dep) True []
                   | dep <- deps
                   ]
+            -- When compiling dummy interface files for a data-dependency,
+            -- we know all package flags so we don’t need to infer anything.
+            , optInferDependantPackages = InferDependantPackages False
             }
 
     res <- withDamlIdeState opts loggerH diagnosticsLogger $ \ide ->
@@ -406,7 +408,6 @@ _generateAndInstallInstancesPkg thisSdkVer templInstSrc opts dbPath projectPacka
                     , optIsGenerated = True
                     , optDflagCheck = False
                     , optMbPackageName = Just instancesUnitIdStr
-                    , optHideAllPkgs = True
                     , optPackageImports =
                           exposePackage (stringToUnitId unitIdStr) True [] :
                           baseImports ++

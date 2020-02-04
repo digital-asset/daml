@@ -13,15 +13,22 @@ module DA.Daml.Options
     , fakeDynFlags
     , findProjectRoot
     , memoIO
+    , expandSdkPackages
     , PackageDynFlags(..)
     ) where
 
+import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
 import Control.Exception
+import Control.Exception.Safe (handleIO)
 import Control.Concurrent.Extra
 import Control.Monad.Extra
+import Control.Monad.Trans.Maybe (runMaybeT)
 import qualified CmdLineParser as Cmd (warnMsg)
+import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy as BSL
 import Data.IORef
 import Data.List
+import Data.Maybe (fromMaybe)
 import DynFlags (parseDynamicFilePragma)
 import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
@@ -33,7 +40,7 @@ import GHC                         hiding (convertLit)
 import GHC.Fingerprint (fingerprint0)
 import GHC.LanguageExtensions.Type
 import GhcMonad
-import GhcPlugins as GHC hiding (fst3, (<>))
+import GhcPlugins as GHC hiding (fst3, (<>), parseUnitId)
 import HscMain
 import Panic (throwGhcExceptionIO)
 import System.Directory
@@ -41,12 +48,18 @@ import System.FilePath
 import qualified DA.Daml.LF.Ast.Version as LF
 
 import DA.Bazel.Runfiles
+import qualified DA.Daml.LF.Proto3.Archive as Archive
+import DA.Daml.LF.Reader
+import DA.Daml.Project.Config
 import DA.Daml.Project.Consts
+import DA.Daml.Project.Types (ConfigError, ProjectPath(..))
 import DA.Daml.Project.Util
 import DA.Daml.Options.Types
 import DA.Daml.Preprocessor
+import qualified DA.Pretty
 import Development.IDE.GHC.Util
 import qualified Development.IDE.Types.Options as Ghcide
+import SdkVersion (damlStdlib)
 
 -- | Convert to ghcide’s IdeOptions type.
 toCompileOpts :: Options -> Ghcide.IdeReportProgress -> Ghcide.IdeOptions
@@ -83,10 +96,19 @@ getDamlGhcSession :: Options -> IO (FilePath -> Action HscEnvEq)
 getDamlGhcSession options@Options{..} = do
     findProjectRoot <- memoIO findProjectRoot
     getSession <- memoIO $ \mbProjectRoot -> do
+        let base = mkBaseUnits optMbPackageName
+        optPackageImports <-
+          if getInferDependantPackages optInferDependantPackages
+          then do
+            let root = fromMaybe "." mbProjectRoot
+            more <- dependantUnitsFromDamlYaml root
+            pure $ map mkPackageFlag (base ++ more) ++ optPackageImports
+          else
+            pure $ map mkPackageFlag base ++ optPackageImports
         env <- runGhcFast $ do
             setupDamlGHC options
             GHC.getSession
-        pkg <- generatePackageState optDamlLfVersion mbProjectRoot optPackageDbs optHideAllPkgs optPackageImports
+        pkg <- generatePackageState optDamlLfVersion mbProjectRoot optPackageDbs optPackageImports
         dflags <- checkDFlags options $ setPackageDynFlags pkg $ hsc_dflags env
         newHscEnvEq env{hsc_dflags = dflags}
     pure $ \file -> liftIO $ getSession =<< findProjectRoot file
@@ -142,10 +164,11 @@ getPackageDynFlags DynFlags{..} = PackageDynFlags
     , pdfThisUnitIdInsts = thisUnitIdInsts_
     }
 
-generatePackageState :: LF.Version -> Maybe FilePath -> [FilePath] -> Bool -> [PackageFlag] -> IO PackageDynFlags
-generatePackageState lfVersion mbProjRoot paths hideAllPkgs pkgImports = do
+
+generatePackageState :: LF.Version -> Maybe FilePath -> [FilePath] -> [PackageFlag] -> IO PackageDynFlags
+generatePackageState lfVersion mbProjRoot paths pkgImports = do
   versionedPaths <- getPackageDbs lfVersion mbProjRoot paths
-  let dflags = setPackageImports hideAllPkgs pkgImports $ setPackageDbs versionedPaths fakeDynFlags
+  let dflags = setPackageImports pkgImports $ setPackageDbs versionedPaths fakeDynFlags
   (newDynFlags, _) <- initPackages dflags
   pure $ getPackageDynFlags newDynFlags
 
@@ -162,12 +185,10 @@ setPackageDbs paths dflags =
         }
     }
 
-setPackageImports :: Bool -> [PackageFlag] -> DynFlags -> DynFlags
-setPackageImports hideAllPkgs pkgImports dflags = dflags {
+setPackageImports :: [PackageFlag] -> DynFlags -> DynFlags
+setPackageImports pkgImports dflags = dflags {
     packageFlags = packageFlags dflags ++ pkgImports
-    , generalFlags = if hideAllPkgs
-                      then Opt_HideAllPackages `EnumSet.insert` generalFlags dflags
-                      else generalFlags dflags
+    , generalFlags = Opt_HideAllPackages `EnumSet.insert` generalFlags dflags
     }
 
 -- | fakeDynFlags that we can use as input for `initDynFlags`.
@@ -399,3 +420,88 @@ checkDFlags Options {..} dflags@DynFlags {..}
                 " imports a package with the same name. \
             \ Please check your dependencies and rename the package you are compiling \
             \ or the dependency."
+
+-- Expand SDK package dependencies using the SDK root path.
+-- E.g. `daml-trigger` --> `$DAML_SDK/daml-libs/daml-trigger.dar`
+-- When invoked outside of the SDK, we will only error out
+-- if there is actually an SDK package so that
+-- When there is no SDK
+expandSdkPackages :: [FilePath] -> IO [FilePath]
+expandSdkPackages dars = do
+    mbSdkPath <- handleIO (\_ -> pure Nothing) $ Just <$> getSdkPath
+    mapM (expand mbSdkPath) dars
+  where
+    isSdkPackage fp = takeExtension fp `notElem` [".dar", ".dalf"]
+    expand mbSdkPath fp
+      | fp `elem` basePackages = pure fp
+      | isSdkPackage fp = case mbSdkPath of
+            Just sdkPath -> pure $ sdkPath </> "daml-libs" </> fp <.> "dar"
+            Nothing -> fail $ "Cannot resolve SDK dependency '" ++ fp ++ "'. Use daml assistant."
+      | otherwise = pure fp
+
+
+mkPackageFlag :: UnitId -> PackageFlag
+mkPackageFlag unitId = ExposePackage ("--package " <> unitIdString unitId) (UnitIdArg unitId) (ModRenaming True [])
+
+mkBaseUnits :: Maybe String -> [UnitId]
+mkBaseUnits optMbPackageName
+  | optMbPackageName == Just "daml-prim" =
+      []
+  | optMbPackageName == Just damlStdlib =
+      [ stringToUnitId "daml-prim" ]
+  | otherwise =
+      [ stringToUnitId "daml-prim"
+      , stringToUnitId damlStdlib ]
+
+dependantUnitsFromDamlYaml :: FilePath -> IO [UnitId]
+dependantUnitsFromDamlYaml root = do
+  (deps,dataDeps) <- depsFromDamlYaml (ProjectPath root)
+  deps <- expandSdkPackages (filter (`notElem` basePackages) deps)
+  calcUnitsFromDeps root (deps ++ dataDeps)
+
+depsFromDamlYaml :: ProjectPath -> IO ([FilePath],[FilePath])
+depsFromDamlYaml projectPath = do
+  try (readProjectConfig projectPath) >>= \case
+    Left (_::ConfigError) -> return ([],[])
+    Right project -> return $ projectDeps project
+
+projectDeps :: ProjectConfig -> ([FilePath],[FilePath])
+projectDeps project = do
+  let deps = fromMaybe [] $ either (error . show) id $ queryProjectConfig ["dependencies"] project
+  let dataDeps = fromMaybe [] $ either (error . show) id $ queryProjectConfig ["data-dependencies"] project
+  (deps,dataDeps)
+
+calcUnitsFromDeps :: FilePath -> [FilePath] -> IO [UnitId]
+calcUnitsFromDeps root deps = do
+  let (fpDars, fpDalfs) = partition ((== ".dar") . takeExtension) deps
+  entries <- mapM (mainEntryOfDar root) fpDars
+  let dalfsFromDars =
+        [ ( dropExtension $ takeFileName $ ZipArchive.eRelativePath e
+          , BSL.toStrict $ ZipArchive.fromEntry e)
+        | e <- entries ]
+  dalfsFromFps <-
+    forM fpDalfs $ \fp -> do
+      bs <- BS.readFile (root </> fp)
+      pure (dropExtension $ takeFileName fp, bs)
+  let mainDalfs = dalfsFromDars ++ dalfsFromFps
+  flip mapMaybeM mainDalfs $ \(name, dalf) -> runMaybeT $ do
+    pkgId <-
+        liftIO $
+        either (fail . DA.Pretty.renderPretty) pure $
+        Archive.decodeArchivePackageId dalf
+    let parsedUnitId = parseUnitId name pkgId
+    let unitId = stringToUnitId parsedUnitId
+    pure unitId
+
+mainEntryOfDar :: FilePath -> FilePath -> IO ZipArchive.Entry
+mainEntryOfDar root fp = do
+  bs <- BSL.readFile (root </> fp)
+  let archive = ZipArchive.toArchive bs
+  dalfManifest <- either fail pure $ readDalfManifest archive
+  getEntry (mainDalfPath dalfManifest) archive
+
+-- | Get an entry from a dar or fail.
+getEntry :: FilePath -> ZipArchive.Archive -> IO ZipArchive.Entry
+getEntry fp dar =
+  maybe (fail $ "Package does not contain " <> fp) pure $
+  ZipArchive.findEntryByPath fp dar
