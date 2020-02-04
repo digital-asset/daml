@@ -13,7 +13,7 @@ import scala.language.higherKinds
 import scala.util.{Failure, Success, Try}
 
 @FunctionalInterface
-trait ResourceOwner[A] {
+trait ResourceOwner[+A] {
   self =>
 
   def acquire()(implicit executionContext: ExecutionContext): Resource[A]
@@ -44,15 +44,14 @@ trait ResourceOwner[A] {
       }
   }
 
-  def vary[B >: A]: ResourceOwner[B] = asInstanceOf[ResourceOwner[B]]
 }
 
 object ResourceOwner {
   def successful[T](value: T): ResourceOwner[T] =
-    forTry(() => Success(value))
+    new FutureResourceOwner[T](() => Future.successful(value))
 
-  def failed[T](exception: Throwable): ResourceOwner[T] =
-    forTry(() => Failure(exception))
+  def failed(throwable: Throwable): ResourceOwner[Nothing] =
+    new FutureResourceOwner[Nothing](() => Future.failed(throwable))
 
   def forTry[T](acquire: () => Try[T]): ResourceOwner[T] =
     new FutureResourceOwner[T](() => Future.fromTry(acquire()))

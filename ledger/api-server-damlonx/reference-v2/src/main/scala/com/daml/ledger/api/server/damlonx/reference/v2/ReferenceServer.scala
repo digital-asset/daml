@@ -10,7 +10,7 @@ import akka.stream.Materializer
 import com.codahale.metrics.SharedMetricRegistries
 import com.daml.ledger.api.server.damlonx.reference.v2.cli.Cli
 import com.daml.ledger.participant.state.v1.{ReadService, SubmissionId, WriteService}
-import com.digitalasset.daml.lf.archive.DarReader
+import com.digitalasset.daml.lf.archive.{Dar, DarReader}
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.auth.{AuthService, AuthServiceWildcard}
 import com.digitalasset.logging.LoggingContext
@@ -19,14 +19,52 @@ import com.digitalasset.platform.apiserver.{ApiServerConfig, StandaloneApiServer
 import com.digitalasset.platform.indexer.{IndexerConfig, StandaloneIndexerServer}
 import com.digitalasset.resources.akka.AkkaResourceOwner
 import com.digitalasset.resources.{ProgramResource, ResourceOwner}
+import java.io.File
 
-import scala.concurrent.ExecutionContext
+import scala.compat.java8.FutureConverters.CompletionStageOps
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
 object ReferenceServer {
   private implicit val system: ActorSystem = ActorSystem("indexed-kvutils")
   private implicit val materializer: Materializer = Materializer(system)
   private implicit val executionContext: ExecutionContext = system.dispatcher
+
+  private def readDar(from: File): Future[Dar[Archive]] =
+    Future(DarReader { case (_, x) => Try(Archive.parseFrom(x)) }.readArchiveFromFile(from).get)
+
+  private def uploadDar(from: File, to: InMemoryKVParticipantState): Future[Unit] = {
+    val submissionId = SubmissionId.assertFromString(UUID.randomUUID().toString)
+    for {
+      dar <- readDar(from)
+      _ <- to.uploadPackages(submissionId, dar.all, None).toScala
+    } yield ()
+  }
+
+  private def startParticipant(
+      config: Config,
+      ledger: InMemoryKVParticipantState): ResourceOwner[Unit] =
+    newLoggingContext { implicit logCtx =>
+      for {
+        _ <- startIndexerServer(config, readService = ledger)
+        _ <- startApiServer(
+          config,
+          readService = ledger,
+          writeService = ledger,
+          authService = AuthServiceWildcard,
+        )
+      } yield ()
+    }
+
+  private def extraParticipantConfig(base: Config): Vector[Config] =
+    for {
+      (extraParticipantId, port, jdbcUrl) <- base.extraParticipants
+    } yield
+      base.copy(
+        port = port,
+        participantId = extraParticipantId,
+        jdbcUrl = jdbcUrl,
+      )
 
   def main(args: Array[String]): Unit = {
     val config =
@@ -38,7 +76,7 @@ object ReferenceServer {
         )
         .getOrElse(sys.exit(1))
 
-    val owner = newLoggingContext { implicit logCtx =>
+    val owner =
       for {
         // Take ownership of the actor system and materializer so they're cleaned up properly.
         // This is necessary because we can't declare them as implicits within a `for` comprehension.
@@ -46,44 +84,12 @@ object ReferenceServer {
         _ <- AkkaResourceOwner.forMaterializer(() => materializer)
         ledger <- ResourceOwner
           .forCloseable(() => new InMemoryKVParticipantState(config.participantId))
-        _ <- ResourceOwner.sequenceIgnoringValues(config.archiveFiles.map { file =>
-          val submissionId = SubmissionId.assertFromString(UUID.randomUUID().toString)
-          for {
-            dar <- ResourceOwner
-              .forTry(() =>
-                DarReader { case (_, x) => Try(Archive.parseFrom(x)) }
-                  .readArchiveFromFile(file))
-            _ <- ResourceOwner
-              .forCompletionStage(() => ledger.uploadPackages(submissionId, dar.all, None))
-          } yield ()
-        })
-        _ <- startIndexerServer(config, readService = ledger)
-        _ <- startApiServer(
-          config,
-          readService = ledger,
-          writeService = ledger,
-          authService = AuthServiceWildcard,
-        )
+        _ <- ResourceOwner.forFuture(() =>
+          Future.sequence(config.archiveFiles.map(uploadDar(_, ledger))))
+        _ <- startParticipant(config, ledger)
         _ <- ResourceOwner.sequenceIgnoringValues(
-          for ((extraParticipantId, port, jdbcUrl) <- config.extraParticipants) yield {
-            val participantConfig = config.copy(
-              port = port,
-              participantId = extraParticipantId,
-              jdbcUrl = jdbcUrl,
-            )
-            for {
-              _ <- startIndexerServer(participantConfig, readService = ledger)
-              _ <- startApiServer(
-                participantConfig,
-                readService = ledger,
-                writeService = ledger,
-                authService = AuthServiceWildcard,
-              )
-            } yield ()
-          }
-        )
+          extraParticipantConfig(config).map(startParticipant(_, ledger)))
       } yield ()
-    }
 
     new ProgramResource(owner).run()
   }

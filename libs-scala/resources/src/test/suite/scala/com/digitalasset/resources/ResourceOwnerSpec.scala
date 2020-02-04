@@ -578,14 +578,10 @@ class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
         new ResourceOwner[Int] {
           override def acquire()(implicit executionContext: ExecutionContext): Resource[Int] = {
             acquireOrder += value
-            Resource(
+            Resource(Future(value))(v =>
               Future {
-                value
-              },
-              v =>
-                Future {
-                  releaseOrder += v
-              })
+                releaseOrder += v
+            })
           }
       })
       val resources = owners.map(_.acquire())
