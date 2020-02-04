@@ -526,6 +526,12 @@ initPackageDb opts (InitPkgDb shouldInit) =
             withPackageConfig defaultProjectPath $ \PackageConfigFields {..} ->
                 createProjectPackageDb opts pSdkVersion pDependencies pDataDependencies
 
+createDarFile :: FilePath -> Zip.ZipArchive () -> IO ()
+createDarFile fp dar = do
+    createDirectoryIfMissing True $ takeDirectory fp
+    Zip.createArchive fp dar
+    putStrLn $ "Created " <> fp <> "."
+
 execBuild :: ProjectOpts -> Options -> Maybe FilePath -> IncrementalBuild -> InitPkgDb -> Command
 execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb =
   Command Build (Just projectOpts) effect
@@ -549,9 +555,7 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb =
                             (FromDalf False)
                     dar <- mbErr "ERROR: Creation of DAR file failed." mbDar
                     let fp = targetFilePath $ pkgNameVersion pName pVersion
-                    createDirectoryIfMissing True $ takeDirectory fp
-                    Zip.createArchive fp dar
-                    putStrLn $ "Created " <> fp <> "."
+                    createDarFile fp dar
             where
                 targetFilePath name = fromMaybe (distDir </> name <.> "dar") mbOutFile
 
@@ -605,10 +609,7 @@ execPackage projectOpts filePath opts mbOutFile dalfInput =
             Nothing -> do
                 hPutStrLn stderr "ERROR: Creation of DAR file failed."
                 exitFailure
-            Just dar -> do
-              createDirectoryIfMissing True $ takeDirectory targetFilePath
-              Zip.createArchive targetFilePath dar
-              putStrLn $ "Created " <> targetFilePath <> "."
+            Just dar -> createDarFile targetFilePath dar
     -- This is somewhat ugly but our CLI parser guarantees that this will always be present.
     -- We could parametrize CliOptions by whether the package name is optional
     -- but I don’t think that is worth the complexity of carrying around a type parameter.
