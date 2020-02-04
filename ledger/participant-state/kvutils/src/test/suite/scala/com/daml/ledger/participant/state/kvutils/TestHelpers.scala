@@ -22,7 +22,7 @@ object TestHelpers {
   val simplePackage: Ast.Package =
     p"""
       module Simple {
-       record @serializable SimpleTemplate = { owner: Party } ;
+       record @serializable SimpleTemplate = { owner: Party, partyArg: Party } ;
        template (this : SimpleTemplate) =  {
           precondition True,
           signatories Cons @Party [Simple:SimpleTemplate {owner} this] (Nil @Party),
@@ -51,12 +51,14 @@ object TestHelpers {
   val simpleConsumeChoiceid: Ref.ChoiceName =
     Ref.ChoiceName.assertFromString("Consume")
 
-  def mkSimpleTemplateArg(party: String): Value[Value.AbsoluteContractId] =
+  def mkSimpleTemplateArg(owner: String, partyArg: String): Value[Value.AbsoluteContractId] =
     Value.ValueRecord(
       Some(simpleTemplateId),
       ImmArray(
         Some(Ref.Name.assertFromString("owner")) -> Value.ValueParty(
-          Ref.Party.assertFromString(party)))
+          Ref.Party.assertFromString(owner)),
+        Some(Ref.Name.assertFromString("partyArg")) -> Value.ValueParty(
+          Ref.Party.assertFromString(partyArg)))
     )
 
   val simpleTemplateId: Ref.Identifier =

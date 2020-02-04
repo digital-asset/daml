@@ -7,16 +7,19 @@ import com.codahale.metrics
 import com.codahale.metrics.{Counter, Timer}
 import com.daml.ledger.participant.state.kvutils.Conversions.{buildTimestamp, commandDedupKey, _}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.daml.ledger.participant.state.kvutils.{Conversions, Err, InputsAndEffects, DamlStateMap}
+import com.daml.ledger.participant.state.kvutils.{Conversions, DamlStateMap, Err, InputsAndEffects}
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId, RejectionReason}
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.archive.Reader.ParseError
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.{Blinding, Engine}
 import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, NodeCreate, NodeExercises}
-import com.digitalasset.daml.lf.transaction.BlindingInfo
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId, NodeId, VersionedValue}
+import com.digitalasset.daml.lf.transaction.Transaction.TContractId
+import com.digitalasset.daml.lf.transaction.{BlindingInfo, GenTransaction, Node}
+import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId, NodeId, ValueParty, VersionedValue}
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
@@ -43,6 +46,7 @@ private[kvutils] case class ProcessTransactionSubmission(
     runSequence(
       inputState = inputState,
       "Authorize submitter" -> authorizeSubmitter,
+      "Validate Parties" -> validateParties,
       "Deduplicate" -> deduplicateCommand,
       "Validate LET/TTL" -> validateLetAndTtl,
       "Validate Contract Key Uniqueness" -> validateContractKeyUniqueness,
@@ -207,6 +211,63 @@ private[kvutils] case class ProcessTransactionSubmission(
         reject(
           buildRejectionLogEntry(RejectionReason.Disputed("DuplicateKey: Contract Key not unique")))
     } yield r
+
+  /** Check that all parties mentioned in a transaction exist. */
+  private def validateParties: Commit[Unit] = {
+
+    def foldPartiesInTx[T](tx: GenTransaction.WithTxValue[NodeId, TContractId], z: T)(f: (T, String) => T): T =
+      foldPartiesInTxActors(tx, foldPartiesInTxVals(tx, z)(f))(f)
+
+    def foldPartiesInTxActors[T](tx: GenTransaction.WithTxValue[_, _], z: T)(f: (T, String) => T): T =
+      tx.fold(z) {
+        case (accum, (_, n)) => {
+          val parties = n match {
+            case c: NodeCreate[_, _] =>
+              (c.signatories union c.stakeholders)
+
+            case e: NodeExercises[_, _, _] =>
+              (e.actingParties union e.stakeholders)
+
+            case lk: Node.NodeLookupByKey[_, _] =>
+              lk.key.maintainers
+
+            case _ => Set[Ref.Party]()
+          }
+          parties.foldLeft(accum)(f)
+        }
+      }
+
+    def foldPartiesInTxVals[T](tx: GenTransaction.WithTxValue[_, TContractId], z: T)(f: (T, String) => T): T =
+      tx.foldValues(z) { (z, v) => foldPartiesInVal(v.value, z)(f) }
+
+    def foldPartiesInVal[T](v: Value[ContractId], z: T)(f: (T, String) => T): T =
+      v match {
+        case ValueParty(p) => f(z, p)
+        case other =>
+          InputsAndEffects.subValues(other).foldLeft(z) { (accum, v: Value[ContractId]) =>
+            foldPartiesInVal(v, accum)(f)
+          }
+      }
+
+    for {
+      allExist <- foldPartiesInTx(relTx, pure(true)) { (acc, p) =>
+          get(partyStateKey(p)).flatMap {
+            case Some(partyAllocation) =>
+              println(partyAllocation) ; acc
+            case _ =>
+              pure(false)
+          }
+        }
+
+      r <-
+        if (allExist)
+          pass
+        else
+          reject(
+            buildRejectionLogEntry(RejectionReason.PartyNotKnownOnLedger)
+          )
+    } yield r
+  }
 
   /** All checks passed. Produce the log entry and contract state updates. */
   private def buildFinalResult(blindingInfo: BlindingInfo): Commit[Unit] = delay {

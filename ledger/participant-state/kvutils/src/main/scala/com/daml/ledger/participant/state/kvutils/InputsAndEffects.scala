@@ -6,15 +6,23 @@ package com.daml.ledger.participant.state.kvutils
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1.SubmittedTransaction
-import com.digitalasset.daml.lf.data.InsertOrdSet
+import com.digitalasset.daml.lf.data.{ImmArray, InsertOrdSet}
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.transaction.Node._
 import com.digitalasset.daml.lf.transaction.Transaction
+import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{
   AbsoluteContractId,
   ContractId,
   RelativeContractId,
-  VersionedValue
+  VersionedValue,
+  ValueParty,
+  ValueRecord,
+  ValueList,
+  ValueStruct,
+  ValueOptional,
+  ValueTextMap,
+  ValueGenMap
 }
 
 /** Internal utilities to compute the inputs and effects of a DAML transaction */
@@ -75,6 +83,18 @@ private[kvutils] object InputsAndEffects {
       InsertOrdSet.fromSeq(parties.toList.sorted.map(partyStateKey))
     }
 
+    def foldValue(inputs: InsertOrdSet[DamlStateKey], v: Value[ContractId]): InsertOrdSet[DamlStateKey] = {
+      v match {
+        case ValueParty(p) => inputs ++ partyInputs(Set(p))
+        case other => subValues(other).foldLeft(inputs) { (accum, v) => foldValue(accum, v) }
+      }
+    }
+
+    def partyInputsInValues() =
+      tx.foldValues(packageInputs) { case (inputs, VersionedValue(_, v)) =>
+          foldValue(inputs, v)
+      }
+
     tx.fold(packageInputs: Set[DamlStateKey]) {
         case (inputs, (nodeId, node)) =>
           node match {
@@ -95,9 +115,22 @@ private[kvutils] object InputsAndEffects {
               l.result.fold(inputs)(inputs ++ contractInputs(_)) +
                 contractKeyToStateKey(GlobalKey(l.templateId, forceNoContractIds(l.key.key)))
           }
+      }.toList ++ partyInputsInValues()
+    }
+
+  def subValues(v: Value[ContractId]): ImmArray[Value[ContractId]] =
+    v match {
+      case ValueRecord(_, fields) => fields.map(_._2)
+      case ValueList(elems) => elems.toImmArray
+      case ValueStruct(fields) => fields.map(_._2)
+      case ValueOptional(optV) => optV match {
+        case Some(v) => ImmArray(v)
+        case None => ImmArray.empty
       }
-      .toList
-  }
+      case ValueTextMap(map) => map.values
+      case ValueGenMap(entries) => entries.map(_._1)
+      case _ => ImmArray.empty
+    }
 
   /** Compute the effects of a DAML transaction, that is, the created and consumed contracts. */
   def computeEffects(entryId: DamlLogEntryId, tx: SubmittedTransaction): Effects = {
