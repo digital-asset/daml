@@ -183,10 +183,13 @@ class WebsocketServiceIntegrationTest
             }
           case (
               GotAcs(consumedCtid),
-              ContractDelta(Vector((fstId, fst), (sndId, snd)), Vector(observeConsumed))) =>
+              evts @ ContractDelta(Vector((fstId, fst), (sndId, snd)), Vector(observeConsumed))) =>
             Future {
               observeConsumed should ===(consumedCtid)
               Set(fstId, sndId, consumedCtid) should have size 3
+              inside(evts) {
+                case JsArray(Vector(Archived(_), Created(_), Created(_))) =>
+              }
               ShouldHaveEnded(2)
             }
         }
@@ -206,8 +209,9 @@ class WebsocketServiceIntegrationTest
 }
 
 object WebsocketServiceIntegrationTest {
+  import spray.json._
+
   private object ContractDelta {
-    import spray.json._
     def unapply(jsv: JsValue): Option[(Vector[(String, JsValue)], Vector[String])] =
       for {
         JsArray(sums) <- Some(jsv)
@@ -223,4 +227,14 @@ object WebsocketServiceIntegrationTest {
           (add get "contractId" collect { case JsString(v) => v }) tuple (add get "payload")
         }), sets.getOrElse("archived", Vector()) collect { case (_, JsString(cid)) => cid })
   }
+
+  private abstract class DeltaEvt(label: String) {
+    def unapply(jsv: JsValue): Option[JsValue] = jsv match {
+      case JsObject(fields) => fields.get(label)
+      case _ => None
+    }
+  }
+
+  private object Created extends DeltaEvt("created")
+  private object Archived extends DeltaEvt("archived")
 }

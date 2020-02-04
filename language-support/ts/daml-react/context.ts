@@ -1,9 +1,6 @@
 // Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-//Copyright (c) 2020 The DAML Authors. All rights reserved.
-//SPDX-License-Identifier: Apache-2.0
-
 import Ledger from '@daml/ledger';
 import * as LedgerStore from './ledgerStore';
 import React from "react";
