@@ -37,13 +37,10 @@ object TransactionSerializer extends TransactionSerializer {
       transaction: GenTransaction[EventId, AbsoluteContractId, VersionedValue[AbsoluteContractId]])
     : Either[EncodeError, Array[Byte]] =
     TransactionCoder
-      .encodeTransactionWithCustomVersion(
+      .encodeTransaction(
         defaultNidEncode,
         ContractSerializer.defaultCidEncode,
-        VersionedTransaction(
-          TransactionVersions.assignVersion(transaction),
-          transaction
-        )
+        transaction
       )
       .map(_.toByteArray())
 

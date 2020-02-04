@@ -145,7 +145,7 @@ final case class ScenarioRunner(
           value
             .mapContractId(coid =>
               Ledger
-                .contractIdToAbsoluteContractId(result.transactionId.makeCommitPrefix, coid)))
+                .contractIdToAbsoluteContractId(result.transactionId, coid)))
     }
   }
 

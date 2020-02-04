@@ -29,12 +29,13 @@ object EventIdFormatter {
 
   /** When loading a scenario we get already absolute nids from the ledger -- still prefix them with the transaction
     * id, just to be safe.
+    * `TransactionId`` and `nid`` should be sufficiently small for the concatenation to be smaller than 255 bytes.
     */
   def fromTransactionId(
       transactionId: LedgerString,
       nid: Ledger.ScenarioNodeId,
   ): LedgerString =
-    LedgerString.concat(`#`, transactionId, `:`, nid)
+    LedgerString.assertConcat(`#`, transactionId, `:`, nid)
 
   def split(eventId: String): Option[TransactionIdWithIndex] =
     eventId.split(":") match {

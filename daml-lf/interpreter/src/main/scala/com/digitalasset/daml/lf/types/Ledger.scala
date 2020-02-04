@@ -3,7 +3,7 @@
 
 package com.digitalasset.daml.lf.types
 
-import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.{ImmArray, Time}
 import com.digitalasset.daml.lf.transaction.Node._
 import com.digitalasset.daml.lf.transaction.Transaction
@@ -19,43 +19,54 @@ import scala.collection.immutable
 /** An in-memory representation of a ledger for scenarios */
 object Ledger {
 
+  import Ref.{ContractIdString => _, _}
+
   type ScenarioNodeId = LedgerString
 
-  object ScenarioNodeId {
-    def apply(acoid: AbsoluteContractId): ScenarioNodeId = acoid.coid
-
+  private object ScenarioNodeId {
     def apply(commitPrefix: LedgerString, txnid: Transaction.NodeId): ScenarioNodeId =
-      apply(txNodeIdToAbsoluteContractId(commitPrefix, txnid.index))
+      txNodeIdToScenarioNodeId(commitPrefix, txnid.index)
   }
 
   /** This is the function that we use to turn relative contract ids (which are made of
     * transaction node ids) in the still
     * to be committed transaction into absolute contract ids in the ledger.
     */
+  //  The prefix should be smaller than 244 chars.
   @inline
-  def txNodeIdToAbsoluteContractId(
+  private def txNodeIdToScenarioNodeId(
       commitPrefix: LedgerString,
       txnidx: Int,
-  ): AbsoluteContractId =
-    AbsoluteContractId(ContractIdString.concat(commitPrefix, LedgerString.fromInt(txnidx)))
+  ): ScenarioNodeId =
+    LedgerString.assertConcat(commitPrefix, LedgerString.fromInt(txnidx))
 
   @inline
-  def relativeToAbsoluteContractId(
+  private def relativeToScenarioNodeId(
       commitPrefix: LedgerString,
       cid: RelativeContractId,
-  ): AbsoluteContractId =
-    txNodeIdToAbsoluteContractId(commitPrefix, cid.txnid.index)
+  ): ScenarioNodeId =
+    txNodeIdToScenarioNodeId(commitPrefix, cid.txnid.index)
 
   @inline
-  def contractIdToAbsoluteContractId(
+  private def contractIdToAbsoluteContractId(
       commitPrefix: LedgerString,
       cid: ContractId,
   ): AbsoluteContractId =
     cid match {
       case acoid: AbsoluteContractId => acoid
       case rcoid: RelativeContractId =>
-        relativeToAbsoluteContractId(commitPrefix, rcoid)
+        AbsoluteContractId(relativeToScenarioNodeId(commitPrefix, rcoid))
     }
+
+  def contractIdToAbsoluteContractId(
+      transactionId: ScenarioTransactionId,
+      cid: ContractId,
+  ): AbsoluteContractId = {
+    // commitPrefix is small enough (< 20 chars), so we do no exceed the 255
+    // chars limit when concatenate in txNodeIdToScenarioNodeId method.
+    val commitPrefix = transactionId.makeCommitPrefix
+    contractIdToAbsoluteContractId(commitPrefix, cid)
+  }
 
   @inline
   def assertNoContractId(cid: ContractId): Nothing =
@@ -66,9 +77,11 @@ object Ledger {
 
   case class ScenarioTransactionId(index: Int) extends Ordered[ScenarioTransactionId] {
     def next: ScenarioTransactionId = ScenarioTransactionId(index + 1)
+    // The resulting LedgerString is at most 11 chars long
     val id: LedgerString = LedgerString.fromLong(index.toLong)
     override def compare(that: ScenarioTransactionId): Int = index compare that.index
-    def makeCommitPrefix: LedgerString = LedgerString.concat(`#`, id, `:`)
+    // The resulting LedgerString is at most 13 chars long
+    def makeCommitPrefix: LedgerString = LedgerString.assertConcat(`#`, id, `:`)
   }
 
   /** Errors */
@@ -152,7 +165,7 @@ object Ledger {
     * different ledgers. All relative and absolute node id's are translated to absolute node id's of
     * the package format.
     */
-  def enrichedTransactionToRichTransaction(
+  private def enrichedTransactionToRichTransaction(
       commitPrefix: LedgerString,
       committer: Party,
       effectiveAt: Time.Timestamp,
@@ -183,7 +196,7 @@ object Ledger {
     * id's. Both are translated to sandbox ledger node id's (tagged strings) with help of the commit
     * prefix.
     */
-  def translateNode(commitPrefix: LedgerString, node: Transaction.Node): Node = {
+  private def translateNode(commitPrefix: LedgerString, node: Transaction.Node): Node = {
     node match {
       case nc: NodeCreate.WithTxValue[ContractId] =>
         NodeCreate[AbsoluteContractId, Transaction.Value[AbsoluteContractId]](
@@ -434,6 +447,8 @@ object Ledger {
       l: Ledger,
   ): Either[CommitError, CommitResult] = {
     val i = l.scenarioStepId
+    // commitPrefix is small enough (< 20 chars), so we do no exceed the 255
+    // chars limit when concatenate in txNodeIdToScenarioNodeId method.
     val commitPrefix = i.makeCommitPrefix
     val richTr =
       enrichedTransactionToRichTransaction(
@@ -707,7 +722,7 @@ object Ledger {
               optLocation = fetch.optLocation,
               stakeholders = stakeholders,
               authorizingParties = authParties,
-            ),
+            )
         ))
     }
 
@@ -1197,7 +1212,7 @@ object Ledger {
                             .asInstanceOf[NodeCreate[
                               AbsoluteContractId,
                               Transaction.Value[
-                                AbsoluteContractId,
+                                AbsoluteContractId
                               ]]]
                           nc.key match {
                             case None => newCache0_1
