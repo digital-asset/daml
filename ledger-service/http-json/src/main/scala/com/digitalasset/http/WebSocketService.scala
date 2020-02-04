@@ -82,6 +82,7 @@ object WebSocketService {
 
   trait StreamQuery[A] {
 
+    /** Extra data on success of a predicate. */
     type Positive
 
     def parse(decoder: DomainJsonDecoder, str: String): Error \/ A
