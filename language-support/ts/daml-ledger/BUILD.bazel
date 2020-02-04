@@ -3,9 +3,9 @@
 
 load("@os_info//:os_info.bzl", "is_windows")
 load("@build_bazel_rules_nodejs//:index.bzl", "pkg_npm")
-load("@language_support_ts_deps//typescript:index.bzl", "tsc")
 load("@npm_bazel_typescript//:index.bzl", "ts_library")
 load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+load("//language-support/ts:defs.bzl", "ts_commonjs_library")
 load("//language-support/ts:eslint.bzl", "eslint_test")
 load("@sdk_version//:sdk_version.bzl", "sdk_version")
 
@@ -45,26 +45,13 @@ eslint_test(
     ),
 )
 
-tsc(
+ts_commonjs_library(
     name = "daml-ledger.commonjs",
-    data = ["index.ts"] + [
-        "tsconfig.json",
-    ] + [
+    srcs = ["index.ts"],
+    deps = [
         "//language-support/ts/daml-types",
         "@language_support_ts_deps//@mojotech/json-type-validation",
         "@language_support_ts_deps//cross-fetch",
-    ],
-    outs = [
-        s.replace(".ts", ext)
-        for ext in [".js", ".d.ts"]
-        for s in ["index.ts"]
-    ],
-    args = [
-        "--outDir",
-        "$(RULEDIR)",
-        "--project",
-        "$(location tsconfig.json)",
-        "--declaration",
     ],
 )
 
