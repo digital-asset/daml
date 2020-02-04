@@ -53,6 +53,8 @@ ts_commonjs_library(
     deps = [
         "@language_support_ts_deps//@mojotech/json-type-validation",
     ],
+    module_name = "@daml/types",
+    visibility = ["//visibility:public"],
 )
 
 pkg_npm(

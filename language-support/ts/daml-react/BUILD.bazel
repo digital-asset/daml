@@ -52,10 +52,12 @@ ts_commonjs_library(
     name = "daml-react.commonjs",
     srcs = glob(["**/*.ts"]),
     deps = [
-        "//language-support/ts/daml-ledger",
-        "//language-support/ts/daml-types",
+        "//language-support/ts/daml-ledger:daml-ledger.commonjs",
+        "//language-support/ts/daml-types:daml-types.commonjs",
         "@language_support_ts_deps//:node_modules",
     ],
+    module_name = "@daml/react",
+    visibility = ["//visibility:public"],
 )
 
 pkg_npm(

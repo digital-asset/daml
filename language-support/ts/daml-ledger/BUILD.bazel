@@ -49,10 +49,12 @@ ts_commonjs_library(
     name = "daml-ledger.commonjs",
     srcs = ["index.ts"],
     deps = [
-        "//language-support/ts/daml-types",
+        "//language-support/ts/daml-types:daml-types.commonjs",
         "@language_support_ts_deps//@mojotech/json-type-validation",
         "@language_support_ts_deps//cross-fetch",
     ],
+    module_name = "@daml/ledger",
+    visibility = ["//visibility:public"],
 )
 
 pkg_npm(
