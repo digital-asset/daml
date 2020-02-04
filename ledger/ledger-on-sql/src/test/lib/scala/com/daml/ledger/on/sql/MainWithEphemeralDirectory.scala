@@ -6,7 +6,6 @@ package com.daml.ledger.on.sql
 import java.nio.file.Files
 
 import akka.stream.Materializer
-import com.daml.ledger.on.sql.Main.{ExtraConfig, SqlLedgerFactory}
 import com.daml.ledger.participant.state.kvutils.app.{Config, LedgerFactory, Runner}
 import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId}
 import com.digitalasset.resources.{ProgramResource, ResourceOwner}
@@ -26,6 +25,9 @@ object MainWithEphemeralDirectory {
 
     override def extraConfigParser(parser: OptionParser[Config[ExtraConfig]]): Unit =
       SqlLedgerFactory.extraConfigParser(parser)
+
+    override def manipulateConfig(config: Config[ExtraConfig]): Config[ExtraConfig] =
+      SqlLedgerFactory.manipulateConfig(config)
 
     override def owner(
         ledgerId: LedgerId,
