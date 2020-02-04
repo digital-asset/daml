@@ -573,7 +573,7 @@ execClean projectOpts =
                     removeAndWarn damlArtifactDir
                     putStrLn "Removed build artifacts."
 
-execPackage:: ProjectOpts
+execPackage :: ProjectOpts
             -> FilePath -- ^ input file
             -> Options
             -> Maybe FilePath
