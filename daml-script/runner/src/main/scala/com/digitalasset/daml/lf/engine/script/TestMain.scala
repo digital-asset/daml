@@ -4,21 +4,13 @@
 package com.digitalasset.daml.lf.engine.script
 
 import java.io.FileInputStream
-
-import akka.actor.ActorSystem
-import akka.stream._
-import com.typesafe.scalalogging.StrictLogging
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicBoolean
 
-import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.concurrent.duration.Duration
-import scala.io.Source
-import scalaz.syntax.traverse._
-import spray.json._
+import akka.actor.ActorSystem
+import akka.stream.Materializer
 import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.lf.archive.{Dar, DarReader}
-import com.digitalasset.daml.lf.archive.Decode
+import com.digitalasset.daml.lf.archive.{Dar, DarReader, Decode}
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.language.Ast.Package
@@ -35,8 +27,13 @@ import com.digitalasset.platform.sandbox.SandboxServer
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.services.time.TimeProviderType
 import com.google.protobuf.ByteString
+import com.typesafe.scalalogging.StrictLogging
+import scalaz.syntax.traverse._
+import spray.json._
 
-import scala.util.control.NonFatal
+import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.io.Source
 import scala.util.{Failure, Success}
 
 object TestMain extends StrictLogging {
@@ -45,7 +42,7 @@ object TestMain extends StrictLogging {
 
     TestConfig.parse(args) match {
       case None => sys.exit(1)
-      case Some(config) => {
+      case Some(config) =>
         val encodedDar: Dar[(PackageId, DamlLf.ArchivePayload)] =
           DarReader().readArchiveFromFile(config.darPath).get
         val dar: Dar[(PackageId, Package)] = encodedDar.map {
@@ -79,7 +76,7 @@ object TestMain extends StrictLogging {
 
         val runner = new Runner(dar, applicationId, commandUpdater)
         val (participantParams, participantCleanup) = config.participantConfig match {
-          case Some(file) => {
+          case Some(file) =>
             val source = Source.fromFile(file)
             val fileContent = try {
               source.mkString
@@ -88,39 +85,29 @@ object TestMain extends StrictLogging {
             }
             val jsVal = fileContent.parseJson
             import ParticipantsJsonProtocol._
-            (jsVal.convertTo[Participants[ApiParameters]], () => ())
-          }
+            (jsVal.convertTo[Participants[ApiParameters]], () => Future.successful(()))
           case None =>
             val (apiParameters, cleanup) = if (config.ledgerHost.isEmpty) {
               val sandboxConfig = SandboxConfig.default.copy(
                 port = 0, // Automatically choose a free port.
-                timeProviderType = config.timeProviderType
+                timeProviderType = config.timeProviderType,
               )
-              val sandbox = new SandboxServer(sandboxConfig)
-              val sandboxClosed = new AtomicBoolean(false)
-
-              def closeSandbox(): Unit = {
-                if (sandboxClosed.compareAndSet(false, true)) sandbox.close()
-              }
-
-              try Runtime.getRuntime.addShutdownHook(new Thread(() => closeSandbox()))
-              catch {
-                case NonFatal(t) =>
-                  logger.error(
-                    "Shutting down Sandbox application because of initialization error",
-                    t)
-                  closeSandbox()
-              }
-              (ApiParameters("localhost", sandbox.port), () => closeSandbox())
+              val sandboxResource = SandboxServer.owner(sandboxConfig).acquire()
+              val sandboxPort = Await.result(sandboxResource.asFuture.flatMap(_.port), Duration.Inf)
+              (ApiParameters("localhost", sandboxPort), () => sandboxResource.release())
             } else {
-              (ApiParameters(config.ledgerHost.get, config.ledgerPort.get), () => ())
+              (
+                ApiParameters(config.ledgerHost.get, config.ledgerPort.get),
+                () => Future.successful(()),
+              )
             }
             (
               Participants(
                 default_participant = Some(apiParameters),
                 participants = Map.empty,
                 party_participants = Map.empty),
-              cleanup)
+              cleanup,
+            )
         }
 
         val flow: Future[Boolean] = for {
@@ -162,14 +149,13 @@ object TestMain extends StrictLogging {
         } yield success.get()
 
         flow.onComplete { _ =>
-          participantCleanup()
+          Await.result(participantCleanup(), Duration.Inf)
           system.terminate()
         }
 
         if (!Await.result(flow, Duration.Inf)) {
           sys.exit(1)
         }
-      }
     }
   }
 }

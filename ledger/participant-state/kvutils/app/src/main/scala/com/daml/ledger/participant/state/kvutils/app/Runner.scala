@@ -9,6 +9,7 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.codahale.metrics.SharedMetricRegistries
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
+import com.daml.ledger.participant.state.kvutils.app.Runner._
 import com.daml.ledger.participant.state.v1.{
   LedgerId,
   ParticipantId,
@@ -29,51 +30,46 @@ import com.digitalasset.platform.indexer.{
   IndexerStartupMode,
   StandaloneIndexerServer
 }
+import com.digitalasset.resources.ProgramResource.SuppressedException
+import com.digitalasset.resources.ResourceOwner
 import com.digitalasset.resources.akka.AkkaResourceOwner
-import com.digitalasset.resources.{Resource, ResourceOwner}
-import org.slf4j.LoggerFactory
 
-import scala.concurrent.duration.DurationInt
-import scala.concurrent.{Await, ExecutionContext}
+import scala.concurrent.ExecutionContext
 import scala.util.Try
 
 class Runner[T <: KeyValueLedger, Extra](name: String, factory: LedgerFactory[T, Extra]) {
-  def run(args: Seq[String]): Resource[Unit] = {
-    val config = Config
-      .parse(name, factory.extraConfigParser, factory.defaultExtraConfig, args)
-      .getOrElse(sys.exit(1))
-
-    val logger = LoggerFactory.getLogger(getClass)
-
+  def owner(args: Seq[String]): ResourceOwner[Unit] = {
     implicit val system: ActorSystem = ActorSystem(
       "[^A-Za-z0-9_\\-]".r.replaceAllIn(name.toLowerCase, "-"))
     implicit val materializer: Materializer = Materializer(system)
     implicit val executionContext: ExecutionContext = system.dispatcher
 
-    val ledgerId =
-      config.ledgerId.getOrElse(Ref.LedgerString.assertFromString(UUID.randomUUID.toString))
-
-    val resource = newLoggingContext { implicit logCtx =>
+    newLoggingContext { implicit logCtx =>
       for {
         // Take ownership of the actor system and materializer so they're cleaned up properly.
         // This is necessary because we can't declare them as implicits within a `for` comprehension.
-        _ <- AkkaResourceOwner.forActorSystem(() => system).acquire()
-        _ <- AkkaResourceOwner.forMaterializer(() => materializer).acquire()
+        _ <- AkkaResourceOwner.forActorSystem(() => system)
+        _ <- AkkaResourceOwner.forMaterializer(() => materializer)
+
+        config <- Config
+          .parse(name, factory.extraConfigParser, factory.defaultExtraConfig, args)
+          .fold(ResourceOwner.failed[Config[Extra]](new ConfigParseException))(
+            ResourceOwner.successful)
+
+        ledgerId = config.ledgerId.getOrElse(
+          Ref.LedgerString.assertFromString(UUID.randomUUID.toString))
         readerWriter <- factory
           .owner(ledgerId, config.participantId, config.extra)
-          .acquire()
         ledger = new KeyValueParticipantState(readerWriter, readerWriter)
-        _ <- Resource.sequenceIgnoringValues(config.archiveFiles.map { file =>
+        _ <- ResourceOwner.sequenceIgnoringValues(config.archiveFiles.map { file =>
           val submissionId = SubmissionId.assertFromString(UUID.randomUUID().toString)
           for {
             dar <- ResourceOwner
               .forTry(() =>
                 DarReader { case (_, x) => Try(Archive.parseFrom(x)) }
                   .readArchiveFromFile(file.toFile))
-              .acquire()
             _ <- ResourceOwner
               .forCompletionStage(() => ledger.uploadPackages(submissionId, dar.all, None))
-              .acquire()
           } yield ()
         })
         _ <- startIndexerServer(config, readService = ledger)
@@ -85,22 +81,12 @@ class Runner[T <: KeyValueLedger, Extra](name: String, factory: LedgerFactory[T,
         )
       } yield ()
     }
-
-    resource.asFuture.failed.foreach { exception =>
-      logger.error("Shutting down because of an initialization error.", exception)
-      System.exit(1)
-    }
-
-    Runtime.getRuntime
-      .addShutdownHook(new Thread(() => Await.result(resource.release(), 10.seconds)))
-
-    resource
   }
 
   private def startIndexerServer(
       config: Config[Extra],
       readService: ReadService,
-  )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): Resource[Unit] =
+  )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): ResourceOwner[Unit] =
     new StandaloneIndexerServer(
       readService,
       IndexerConfig(
@@ -109,14 +95,14 @@ class Runner[T <: KeyValueLedger, Extra](name: String, factory: LedgerFactory[T,
         startupMode = IndexerStartupMode.MigrateAndStart,
       ),
       SharedMetricRegistries.getOrCreate(s"indexer-${config.participantId}"),
-    ).acquire()
+    )
 
   private def startApiServer(
       config: Config[Extra],
       readService: ReadService,
       writeService: WriteService,
       authService: AuthService,
-  )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): Resource[Unit] =
+  )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): ResourceOwner[Unit] =
     new StandaloneApiServer(
       ApiServerConfig(
         config.participantId,
@@ -133,7 +119,7 @@ class Runner[T <: KeyValueLedger, Extra](name: String, factory: LedgerFactory[T,
       writeService,
       authService,
       SharedMetricRegistries.getOrCreate(s"ledger-api-server-${config.participantId}"),
-    ).acquire()
+    )
 }
 
 object Runner {
@@ -148,4 +134,6 @@ object Runner {
       factory: LedgerFactory[T, Extra],
   ): Runner[T, Extra] =
     new Runner(name, factory)
+
+  class ConfigParseException extends SuppressedException
 }

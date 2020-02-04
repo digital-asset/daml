@@ -56,7 +56,6 @@ da_scala_library(
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils/app",
-        "//libs-scala/direct-execution-context",
         "//libs-scala/resources",
     ],
 )

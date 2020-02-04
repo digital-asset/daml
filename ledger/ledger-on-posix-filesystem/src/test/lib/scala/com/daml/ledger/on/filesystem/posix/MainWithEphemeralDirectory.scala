@@ -7,29 +7,33 @@ import java.nio.file.{Files, Path}
 
 import com.daml.ledger.on.filesystem.posix.DeleteFiles.deleteFiles
 import com.daml.ledger.participant.state.kvutils.app.Runner
-import com.digitalasset.dec.DirectExecutionContext
-import com.digitalasset.resources.Resource
+import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId}
+import com.digitalasset.resources.{ProgramResource, Resource, ResourceOwner}
 
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{ExecutionContext, Future}
 
 object MainWithEphemeralDirectory extends App {
-  implicit val executionContext: ExecutionContext = DirectExecutionContext
+  new ProgramResource(Runner("Ephemeral File System Ledger", owner _).owner(args)).run()
 
-  val root = Files.createTempDirectory("ledger-on-posix-filesystem-ephemeral-")
+  def owner(
+      ledgerId: LedgerId,
+      participantId: ParticipantId,
+  ): ResourceOwner[FileSystemLedgerReaderWriter] =
+    for {
+      root <- temporaryDirectory("ledger-on-posix-filesystem-ephemeral-")
+      participant <- FileSystemLedgerReaderWriter.owner(
+        ledgerId = ledgerId,
+        participantId = participantId,
+        root = root,
+      )
+    } yield participant
 
-  for {
-    root <- Resource[Path](
-      Future.successful(root),
-      directory => Future.successful(deleteFiles(directory)),
-    )
-    _ <- Runner(
-      "Ephemeral File System Ledger",
-      (ledgerId, participantId) =>
-        FileSystemLedgerReaderWriter.owner(
-          ledgerId = ledgerId,
-          participantId = participantId,
-          root = root,
-      ),
-    ).run(args)
-  } yield ()
+  def temporaryDirectory(prefix: String): ResourceOwner[Path] = new ResourceOwner[Path] {
+    def acquire()(implicit executionContext: ExecutionContext): Resource[Path] =
+      Resource[Path](
+        Future(Files.createTempDirectory(prefix))(executionContext),
+        directory => Future(deleteFiles(directory))(executionContext),
+      )(executionContext)
+  }
 }

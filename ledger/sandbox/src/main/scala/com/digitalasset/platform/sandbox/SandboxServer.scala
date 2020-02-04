@@ -51,6 +51,7 @@ import com.digitalasset.resources.{Resource, ResourceOwner}
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.util.Try
 
 object SandboxServer {
   private val ActorSystemName = "sandbox"
@@ -61,6 +62,16 @@ object SandboxServer {
   // We memoize the engine between resets so we avoid the expensive
   // repeated validation of the sames packages after each reset
   private val engine = Engine()
+
+  def owner(config: SandboxConfig): ResourceOwner[SandboxState] = new ResourceOwner[SandboxState] {
+    override def acquire()(implicit executionContext: ExecutionContext): Resource[SandboxState] = {
+      for {
+        server <- ResourceOwner.forTry(() => Try(new SandboxServer(config))).acquire()
+        state <- server.sandboxState
+        _ <- state.apiServer
+      } yield state
+    }
+  }
 
   // if requested, initialize the ledger state with the given scenario
   private def createInitialState(config: SandboxConfig, packageStore: InMemoryPackageStore)
@@ -91,21 +102,20 @@ object SandboxServer {
     }
   }
 
-  private final case class SandboxState(
+  final case class SandboxState(
       // nested resource so we can release it independently when restarting
       apiServer: Resource[ApiServer],
       packageStore: InMemoryPackageStore,
       materializer: Materializer,
   ) {
-    val executionContext: ExecutionContext = materializer.executionContext
+    private implicit val executionContext: ExecutionContext = materializer.executionContext
 
-    def port: Future[Int] = {
-      apiServer.asFuture.map(_.port)(executionContext)
-    }
+    def port: Future[Int] =
+      apiServer.map(_.port).asFuture
   }
 }
 
-final class SandboxServer(config: => SandboxConfig) extends AutoCloseable {
+final class SandboxServer(config: SandboxConfig) extends AutoCloseable {
 
   // Name of this participant
   // TODO: Pass this info in command-line (See issue #2025)
@@ -127,21 +137,11 @@ final class SandboxServer(config: => SandboxConfig) extends AutoCloseable {
     } yield state
   }
 
-  def failure: Option[Throwable] =
-    Await
-      .result(
-        sandboxState.asFuture
-          .flatMap(_.apiServer.asFuture)(DirectExecutionContext)
-          .transformWith(Future.successful)(DirectExecutionContext),
-        AsyncTolerance)
-      .failed
-      .toOption
-
   def port: Int =
     Await.result(portF(DirectExecutionContext), AsyncTolerance)
 
   def portF(implicit executionContext: ExecutionContext): Future[Int] =
-    sandboxState.asFuture.flatMap(_.apiServer.asFuture).map(_.port)
+    sandboxState.flatMap(_.apiServer).map(_.port).asFuture
 
   /** the reset service is special, since it triggers a server shutdown */
   private def resetService(
@@ -158,7 +158,7 @@ final class SandboxServer(config: => SandboxConfig) extends AutoCloseable {
 
   def resetAndRestartServer()(implicit executionContext: ExecutionContext): Future[Unit] = {
     val apiServicesClosed =
-      sandboxState.asFuture.flatMap(_.apiServer.asFuture).flatMap(_.servicesClosed())
+      sandboxState.flatMap(_.apiServer).asFuture.flatMap(_.servicesClosed())
 
     // Need to run this async otherwise the callback kills the server under the in-flight reset service request!
     // TODO: eliminate the state mutation somehow
