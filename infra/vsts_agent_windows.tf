@@ -81,6 +81,7 @@ Invoke-WebRequest https://dl.google.com/cloudagents/windows/StackdriverLogging-v
 .\StackdriverLogging-v1-9.exe /S /D="C:\Stackdriver\Logging\"
 
 # Install chocolatey
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 iex (New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1')
 
 # Install git, bash
