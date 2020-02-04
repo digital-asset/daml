@@ -33,9 +33,7 @@ installSignalHandlers = do
 withCloseOnStdin :: IO a -> IO a
 withCloseOnStdin a = do
     mainThread <- myThreadId
-    -- We close stdin at the end to avoid potential issues
-    -- with isEOF blocking on Windows.
-    withAsync (go mainThread) (const $ a `finally` hClose stdin)
+    withAsync (go mainThread) (const a)
   where go mainThread = do
             b <- isEOF
             if b
