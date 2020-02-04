@@ -15,8 +15,6 @@ Digital Asset currently provides bindings for the following programming language
 
 - :doc:`Scala </app-dev/bindings-scala/index>`
 
-- :doc:`JavaScript (Node.js) </app-dev/bindings-js>`
-
 You can create bindings for any programming language supported by `gRPC <https://grpc.io/docs/>`_.
 
 What do we mean by "bindings"? Bindings for a language consist of two main components:
