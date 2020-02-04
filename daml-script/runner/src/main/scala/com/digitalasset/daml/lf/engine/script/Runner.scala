@@ -15,10 +15,12 @@ import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 import spray.json._
 
+import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.PureCompiledPackages
 import com.digitalasset.daml.lf.archive.Dar
 import com.digitalasset.daml.lf.data.FrontStack
 import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.ValueTranslator
 import com.digitalasset.daml.lf.iface
 import com.digitalasset.daml.lf.iface.EnvironmentInterface
@@ -136,7 +138,8 @@ object Runner {
 class Runner(
     dar: Dar[(PackageId, Package)],
     applicationId: ApplicationId,
-    commandUpdater: CommandUpdater)
+    commandUpdater: CommandUpdater,
+    timeProvider: TimeProvider)
     extends StrictLogging {
 
   val ifaceDar = dar.map(pkg => InterfaceReader.readInterface(() => \/-(pkg))._2)
@@ -421,6 +424,12 @@ class Runner(
                 }
                 case _ => throw new RuntimeException(s"Expected record with 2 fields but got $v")
               }
+            }
+            case SVariant(_, "GetTime", continue) => {
+              val t = Timestamp.assertFromInstant(timeProvider.getCurrentTime)
+              machine.ctrl =
+                Speedy.CtrlExpr(SEApp(SEValue(continue), Array(SEValue(STimestamp(t)))))
+              go()
             }
             case _ =>
               throw new RuntimeException(s"Expected Submit, Query or AllocParty but got $v")
