@@ -89,6 +89,8 @@ object WebSocketService {
         request: A,
         resolveTemplateId: PackageService.ResolveTemplateId,
         lookupType: ValuePredicate.TypeLookup): AcPredicate[Positive]
+
+    def renderCreatedMetadata(p: Positive): Map[String, JsValue]
   }
 
   implicit val SearchForeverRequestWithStreamQuery: StreamQuery[domain.SearchForeverRequest] =
@@ -135,6 +137,8 @@ object WebSocketService {
         ids.iterator.map { tid =>
           (tid, ValuePredicate.fromTemplateJsObject(queryExpr, tid, lookupType).toFunPredicate)
         }.toMap
+
+      override def renderCreatedMetadata(p: Unit) = Map.empty
     }
 
   implicit val EnrichedContractKeyWithStreamQuery
@@ -181,6 +185,8 @@ object WebSocketService {
         }
         (q.keySet, unresolved, fn)
       }
+
+      override def renderCreatedMetadata(p: Unit) = Map.empty
     }
 }
 
