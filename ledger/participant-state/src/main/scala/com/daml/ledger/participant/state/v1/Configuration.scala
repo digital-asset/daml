@@ -31,7 +31,7 @@ object Configuration {
   def decode(config: protobuf.LedgerConfiguration): Either[String, Configuration] =
     config.getVersion match {
       case 1 => DecodeV1.decode(config)
-      case v => Left("Unknown version: $v")
+      case v => Left(s"Unknown version: $v")
     }
 
   private object DecodeV1 {

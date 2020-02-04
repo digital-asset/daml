@@ -516,7 +516,7 @@ object Converter {
         for {
           exerciseByKey <- toExerciseByKey(triggerIds, exerciseByKeyVal)
         } yield Command().withExerciseByKey(exerciseByKey)
-      case _ => Left("Expected CreateCommand or ExerciseCommand but got $v")
+      case _ => Left(s"Expected CreateCommand or ExerciseCommand but got $v")
     }
   }
 

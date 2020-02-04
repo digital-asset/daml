@@ -42,6 +42,8 @@ common_scalacopts = [
     # better error reporting for pureconfig
     "-Xmacro-settings:materialize-derivations",
     "-Xfatal-warnings",
+    # catch missing string interpolators
+    "-Xlint:missing-interpolator",
     # adapted args is a deprecated feature:
     # `def foo(a: (A, B))` can be called with `foo(a, b)`.
     # properly it should be `foo((a,b))`
