@@ -49,34 +49,35 @@ class TransactionCoderSpec
     "do NodeCreate" in {
       forAll(malformedCreateNodeGen, valueVersionGen()) {
         (node: NodeCreate[Tx.TContractId, Tx.Value[Tx.TContractId]], valVer: ValueVersion) =>
+          val encodedNode = TransactionCoder
+            .encodeNode(
+              defaultNidEncode,
+              defaultCidEncode,
+              defaultValEncode,
+              defaultTransactionVersion,
+              Tx.NodeId(0),
+              node,
+            )
+            .toOption
+            .get
           Right((Tx.NodeId(0), node)) shouldEqual TransactionCoder.decodeNode(
             defaultNidDecode,
             defaultCidDecode,
             defaultValDecode,
             defaultTransactionVersion,
+            encodedNode)
+
+          Right(node.informeesOfNode) shouldEqual
             TransactionCoder
-              .encodeNode(
-                defaultNidEncode,
-                defaultCidEncode,
-                defaultValEncode,
-                defaultTransactionVersion,
-                Tx.NodeId(0),
-                node,
-              )
-              .toOption
-              .get,
-          )
+              .protoNodeInfo(defaultTransactionVersion, encodedNode)
+              .map(_.informeesOfNode)
       }
     }
 
     "do NodeFetch" in {
       forAll(fetchNodeGen, valueVersionGen()) {
         (node: NodeFetch[ContractId], valVer: ValueVersion) =>
-          Right((Tx.NodeId(0), node)) shouldEqual TransactionCoder.decodeNode(
-            defaultNidDecode,
-            defaultCidDecode,
-            defaultValDecode,
-            defaultTransactionVersion,
+          val encodedNode =
             TransactionCoder
               .encodeNode(
                 defaultNidEncode,
@@ -87,19 +88,24 @@ class TransactionCoderSpec
                 node,
               )
               .toOption
-              .get,
-          )
+              .get
+          Right((Tx.NodeId(0), node)) shouldEqual TransactionCoder.decodeNode(
+            defaultNidDecode,
+            defaultCidDecode,
+            defaultValDecode,
+            defaultTransactionVersion,
+            encodedNode)
+          Right(node.informeesOfNode) shouldEqual
+            TransactionCoder
+              .protoNodeInfo(defaultTransactionVersion, encodedNode)
+              .map(_.informeesOfNode)
       }
     }
 
     "do NodeExercises" in {
       forAll(danglingRefExerciseNodeGen) {
         node: NodeExercises[Tx.NodeId, Tx.TContractId, Tx.Value[Tx.TContractId]] =>
-          Right((Tx.NodeId(0), node)) shouldEqual TransactionCoder.decodeNode(
-            defaultNidDecode,
-            defaultCidDecode,
-            defaultValDecode,
-            defaultTransactionVersion,
+          val encodedNode =
             TransactionCoder
               .encodeNode(
                 defaultNidEncode,
@@ -110,8 +116,18 @@ class TransactionCoderSpec
                 node,
               )
               .toOption
-              .get,
-          )
+              .get
+          Right((Tx.NodeId(0), node)) shouldEqual TransactionCoder.decodeNode(
+            defaultNidDecode,
+            defaultCidDecode,
+            defaultValDecode,
+            defaultTransactionVersion,
+            encodedNode)
+
+          Right(node.informeesOfNode) shouldEqual
+            TransactionCoder
+              .protoNodeInfo(defaultTransactionVersion, encodedNode)
+              .map(_.informeesOfNode)
       }
     }
 

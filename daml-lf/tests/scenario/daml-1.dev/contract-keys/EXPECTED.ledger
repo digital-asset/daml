@@ -16,22 +16,26 @@ mustFailAt 'Bob' [Test:90]
 
 TX #4 1970-01-01T00:00:00Z [Test:93]
 #4:0
+│   known to (since): Alice (#4)
 └─> lookup by key Test:TextKey@XXXXXXXX
 key { _1 = 'Alice', _2 = "some-key" } value-version: 1
 found #0:0
 
 TX #5 1970-01-01T00:00:00Z [Test:97]
 #5:0
+│   known to (since): Alice (#5)
 └─> ensure active #0:0
 
 TX #6 1970-01-01T00:00:00Z [Test:101]
 #6:0
+│   known to (since): Alice (#6)
 └─> lookup by key Test:TextKey@XXXXXXXX
 key { _1 = 'Alice', _2 = "blah" } value-version: 1
 not found
 
 TX #7 1970-01-01T00:00:00Z [Test:105]
 #7:0
+│   known to (since): Bob (#7)
 └─> lookup by key Test:TextKey@XXXXXXXX
 key { _1 = 'Bob', _2 = "some-key" } value-version: 1
 not found
@@ -45,6 +49,7 @@ TX #8 1970-01-01T00:00:00Z [Test:109]
 
 TX #9 1970-01-01T00:00:00Z [Test:112]
 #9:0
+│   known to (since): Alice (#9)
 └─> lookup by key Test:TextKey@XXXXXXXX
 key { _1 = 'Alice', _2 = "some-key" } value-version: 1
 not found
@@ -66,6 +71,7 @@ TX #11 1970-01-01T00:00:00Z [Test:123]
     
 
 #11:1
+│   known to (since): Alice (#11)
 └─> lookup by key Test:TextKey@XXXXXXXX
 key { _1 = 'Alice', _2 = "some-key-2" } value-version: 1
 not found
@@ -79,6 +85,7 @@ TX #12 1970-01-01T00:00:00Z [Test:129]
 key { _1 = 'Alice', _2 = "same-submit-key" } value-version: 1
 
 #12:1
+│   known to (since): Alice (#12)
 └─> lookup by key Test:TextKey@XXXXXXXX
 key { _1 = 'Alice', _2 = "same-submit-key" } value-version: 1
 found #12:0
@@ -125,6 +132,7 @@ key { _1 = 'Alice', _2 = "non-consuming-choice" } value-version: 1
     
 
 #16:2
+│   known to (since): Alice (#16)
 └─> lookup by key Test:TextKey@XXXXXXXX
 key { _1 = 'Alice', _2 = "non-consuming-choice" } value-version: 1
 found #16:0
