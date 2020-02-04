@@ -290,11 +290,10 @@ generateSrcFromLf env = noLoc mod
     instanceDecls :: [Gen (LHsDecl GhcPs)]
     instanceDecls = do
         LF.DefValue {..} <- NM.toList $ LF.moduleValues $ envMod env
-        let dvalType = snd dvalBinder
-        Just qname <- [getDFunClassName dvalType]
-        guard (isDFunBody dvalBody && not (isHasField qname))
+        Just dfunSig <- [getDFunSig dvalBinder]
+        guard (isDFunBody dvalBody)
         pure $ do
-            polyTy <- HsIB noExt . noLoc <$> convType env dvalType
+            polyTy <- HsIB noExt . noLoc <$> convDFunSig env dfunSig
             pure . noLoc . InstD noExt . ClsInstD noExt $ ClsInstDecl
                 { cid_ext = noExt
                 , cid_poly_ty = polyTy
@@ -304,31 +303,7 @@ generateSrcFromLf env = noLoc mod
                 , cid_datafam_insts = []
                 , cid_overlap_mode = Nothing
                 }
-
       where
-
-        -- | Filter out HasField instances for now. These need
-        -- special support since we can't reconstruct the field
-        -- name directly, as type level strings get stripped out
-        -- during LF conversion. (TODO: Figure out how to
-        -- reconstruct the original field name from the HasField
-        -- instance.)
-        isHasField :: LF.Qualified LF.TypeSynName -> Bool
-        isHasField LF.Qualified{..} =
-            qualModule == LF.ModuleName ["DA", "Internal", "Record"]
-            && qualObject == LF.TypeSynName ["HasField"]
-
-        -- | Verify that this is the type for a dictionary function,
-        -- and get the class name associated with it.
-        getDFunClassName :: LF.Type -> Maybe (LF.Qualified LF.TypeSynName)
-        getDFunClassName = \case
-            LF.TForall _ rest -> getDFunClassName rest
-            (LF.:->) c rest -> do
-                guard (isConstraint c)
-                getDFunClassName rest
-            LF.TSynApp name _ -> Just name
-            _ -> Nothing
-
         -- | Check that the body matches that of a dictionary function,
         -- as opposed to a superclass projection function.
         isDFunBody :: LF.Expr -> Bool
@@ -337,6 +312,7 @@ generateSrcFromLf env = noLoc mod
             LF.ETmLam _ body -> isDFunBody body
             LF.EStructCon _ -> True
             _ -> False
+
 
     shouldExposeDefDataType :: LF.DefDataType -> Bool
     shouldExposeDefDataType typeDef
@@ -860,3 +836,81 @@ getClassMethodName (LF.FieldName fieldName) =
 isSuperClassField :: LF.FieldName -> Bool
 isSuperClassField (LF.FieldName fieldName) =
     "s_" `T.isPrefixOf` fieldName
+
+-- | Signature data for a dictionary function.
+data DFunSig
+    = DFunSigNormal -- ^ signature for a normal dictionary function
+        { dfsType :: !LF.Type -- ^ LF type signature for the dictionary function
+        }
+    | DFunSigHasField -- ^ signature for a HasField dictionary function
+        { dfsBinders :: ![(LF.TypeVarName, LF.Kind)] -- ^ foralls
+        , dfsContext :: ![LF.Type] -- ^ constraints
+        , dfsName :: LF.Qualified LF.TypeSynName -- ^ name of type synonym
+        , dfsField :: !T.Text -- ^ first arg (a type level string)
+        , dfsArgs :: ![LF.Type] -- ^ rest of the args
+        }
+
+-- | Break a value type signature down into a dictionary function signature.
+getDFunSig :: (LF.ExprValName, LF.Type) -> Maybe DFunSig
+getDFunSig (valName, valType) = do
+    (dfsBinders, dfsContext, dfsName, args) <- go valType
+    if isHasField dfsName
+        then do
+            (LF.TUnit : dfsArgs) <- Just args
+            dfsField <- getFieldArg valName
+            guard (not $ T.null dfsField)
+            Just DFunSigHasField {..}
+        else
+            Just DFunSigNormal { dfsType = valType }
+  where
+    -- | Break a dictionary function type down into a tuple
+    -- (foralls, constraints, synonym name, args).
+    go = \case
+        LF.TForall b rest -> do
+            (bs, cs, name, args) <- go rest
+            Just (b:bs, cs, name, args)
+        (LF.:->) c rest -> do
+            guard (isConstraint c)
+            (bs, cs, name, args) <- go rest
+            Just (bs, c:cs, name, args)
+        LF.TSynApp name args -> do
+            Just ([], [], name, args)
+        _ ->
+            Nothing
+
+    -- | Is this an instance of the HasField typeclass?
+    isHasField :: LF.Qualified LF.TypeSynName -> Bool
+    isHasField LF.Qualified{..} =
+        qualModule == LF.ModuleName ["DA", "Internal", "Record"]
+        && qualObject == LF.TypeSynName ["HasField"]
+
+    -- | Get the first arg of HasField (the name of the field) from
+    -- the name of the binding.
+    getFieldArg :: LF.ExprValName -> Maybe T.Text
+    getFieldArg (LF.ExprValName name) = do
+        name' <- T.stripPrefix "$fHasField\"" name
+        Just $ fst (T.breakOn "\"" name')
+
+-- | Convert dictionary function signature into a DAML type.
+convDFunSig :: Env -> DFunSig -> Gen (HsType GhcPs)
+convDFunSig env = \case
+    DFunSigNormal ty ->
+        convType env ty
+
+    DFunSigHasField {..} -> do
+        binders <- mapM (convTyVarBinder env) dfsBinders
+        context <- mapM (convType env) dfsContext
+        args <- mapM (convType env) dfsArgs
+        ghcMod <- genModule env (LF.qualPackage dfsName) (LF.qualModule dfsName)
+        let tyvar :: HsType GhcPs
+                = HsTyVar noExt NotPromoted . noLoc
+                $ mkOrig ghcMod (mkOccName clsName "HasField")
+
+            arg0 :: HsType GhcPs
+            arg0 = HsTyLit noExt . HsStrTy NoSourceText
+                . mkFastString $ T.unpack dfsField
+
+        pure . HsParTy noExt . noLoc
+            . HsForAllTy noExt binders . noLoc
+            . HsQualTy noExt (noLoc (map noLoc context)) . noLoc
+            $ foldl (HsAppTy noExt . noLoc) tyvar (map noLoc (arg0 : args))
