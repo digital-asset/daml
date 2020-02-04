@@ -10,13 +10,7 @@ import akka.stream.Materializer
 import com.codahale.metrics.SharedMetricRegistries
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.kvutils.app.Runner._
-import com.daml.ledger.participant.state.v1.{
-  LedgerId,
-  ParticipantId,
-  ReadService,
-  SubmissionId,
-  WriteService
-}
+import com.daml.ledger.participant.state.v1.{ReadService, SubmissionId, WriteService}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.data.Ref
@@ -58,8 +52,7 @@ class Runner[T <: KeyValueLedger, Extra](name: String, factory: LedgerFactory[T,
 
         ledgerId = config.ledgerId.getOrElse(
           Ref.LedgerString.assertFromString(UUID.randomUUID.toString))
-        readerWriter <- factory
-          .owner(ledgerId, config.participantId, config.extra)
+        readerWriter <- factory.owner(ledgerId, config.participantId, config.extra)
         ledger = new KeyValueParticipantState(readerWriter, readerWriter)
         _ <- ResourceOwner.sequenceIgnoringValues(config.archiveFiles.map { file =>
           val submissionId = SubmissionId.assertFromString(UUID.randomUUID().toString)
@@ -123,17 +116,5 @@ class Runner[T <: KeyValueLedger, Extra](name: String, factory: LedgerFactory[T,
 }
 
 object Runner {
-  def apply[T <: KeyValueLedger](
-      name: String,
-      newOwner: (LedgerId, ParticipantId) => ResourceOwner[T],
-  ): Runner[T, Unit] =
-    apply(name, LedgerFactory(newOwner))
-
-  def apply[T <: KeyValueLedger, Extra](
-      name: String,
-      factory: LedgerFactory[T, Extra],
-  ): Runner[T, Extra] =
-    new Runner(name, factory)
-
   class ConfigParseException extends SuppressedException
 }

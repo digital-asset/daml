@@ -10,11 +10,11 @@ import com.digitalasset.logging.LoggingContext.newLoggingContext
 import com.digitalasset.resources.{ProgramResource, ResourceOwner}
 import scopt.OptionParser
 
-import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.ExecutionContext
 
 object Main {
   def main(args: Array[String]): Unit = {
-    new ProgramResource(Runner("SQL Ledger", SqlLedgerFactory).owner(args)).run()
+    new ProgramResource(new Runner("SQL Ledger", SqlLedgerFactory).owner(args)).run()
   }
 
   case class ExtraConfig(jdbcUrl: Option[String])
@@ -38,7 +38,10 @@ object Main {
         ledgerId: LedgerId,
         participantId: ParticipantId,
         config: ExtraConfig,
-    )(implicit materializer: Materializer): ResourceOwner[SqlLedgerReaderWriter] = {
+    )(
+        implicit executionContext: ExecutionContext,
+        materializer: Materializer,
+    ): ResourceOwner[SqlLedgerReaderWriter] = {
       val jdbcUrl = config.jdbcUrl.getOrElse {
         throw new IllegalStateException("No JDBC URL provided.")
       }

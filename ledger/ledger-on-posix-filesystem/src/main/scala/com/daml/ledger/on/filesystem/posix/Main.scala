@@ -12,11 +12,11 @@ import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId}
 import com.digitalasset.resources.{ProgramResource, ResourceOwner}
 import scopt.OptionParser
 
-import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.ExecutionContext
 
 object Main {
   def main(args: Array[String]): Unit = {
-    new ProgramResource(Runner("File System Ledger", FileSystemLedgerFactory).owner(args)).run()
+    new ProgramResource(new Runner("File System Ledger", FileSystemLedgerFactory).owner(args)).run()
   }
 
   case class ExtraConfig(root: Option[Path])
@@ -39,7 +39,10 @@ object Main {
         ledgerId: LedgerId,
         participantId: ParticipantId,
         config: ExtraConfig,
-    )(implicit materializer: Materializer): ResourceOwner[FileSystemLedgerReaderWriter] = {
+    )(
+        implicit executionContext: ExecutionContext,
+        materializer: Materializer,
+    ): ResourceOwner[FileSystemLedgerReaderWriter] = {
       val root = config.root.getOrElse {
         throw new IllegalStateException("No root directory provided.")
       }
