@@ -397,7 +397,7 @@ execIde telemetry (Debug debug) enableScenarioService options =
               withScenarioService' enableScenarioService loggerH scenarioServiceConfig $ \mbScenarioService -> do
                   sdkVersion <- getSdkVersion `catchIO` const (pure "Unknown (not started via the assistant)")
                   Logger.logInfo loggerH (T.pack $ "SDK version: " <> sdkVersion)
-                  runLanguageServer loggerH $ \getLspId sendMsg vfs caps ->
+                  runLanguageServer loggerH enabledPlugins $ \getLspId sendMsg vfs caps ->
                       getDamlIdeState options mbScenarioService loggerH caps getLspId sendMsg vfs (clientSupportsProgress caps)
 
 

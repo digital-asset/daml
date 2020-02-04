@@ -5,6 +5,7 @@ module DA.Cli.Damlc.IdeState
     ( IdeState
     , getDamlIdeState
     , withDamlIdeState
+    , enabledPlugins
     ) where
 
 import Data.Default
@@ -17,6 +18,9 @@ import qualified DA.Service.Logger as Logger
 import qualified DA.Daml.Compiler.Scenario as Scenario
 import Development.IDE.Core.Rules.Daml
 import Development.IDE.Core.API
+import Development.IDE.Plugin
+import Development.IDE.Plugin.Completions as Completions
+import Development.IDE.Plugin.CodeAction as CodeAction
 import qualified Development.IDE.Types.Logger as IdeLogger
 import Development.IDE.Types.Options
 import qualified Language.Haskell.LSP.Types as LSP
@@ -33,9 +37,12 @@ getDamlIdeState
     -> IdeReportProgress
     -> IO IdeState
 getDamlIdeState compilerOpts mbScenarioService loggerH caps getLspId eventHandler vfs reportProgress = do
-    let rule = mainRule compilerOpts
+    let rule = mainRule compilerOpts <> pluginRules enabledPlugins
     damlEnv <- mkDamlEnv compilerOpts mbScenarioService
     initialise caps rule getLspId eventHandler (toIdeLogger loggerH) damlEnv (toCompileOpts compilerOpts reportProgress) vfs
+
+enabledPlugins :: Plugin
+enabledPlugins = Completions.plugin <> CodeAction.plugin
 
 -- Wrapper for the common case where the scenario service will be started automatically (if enabled)
 -- and we use the builtin VFSHandle.
