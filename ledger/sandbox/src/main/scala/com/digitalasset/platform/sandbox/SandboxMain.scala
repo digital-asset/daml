@@ -11,14 +11,16 @@ import org.slf4j.{Logger, LoggerFactory}
 
 import scala.concurrent.ExecutionContext
 
-object SandboxMain extends App {
+object SandboxMain {
   private implicit val executionContext: ExecutionContext = DirectExecutionContext
 
   private val logger: Logger = LoggerFactory.getLogger(this.getClass)
 
-  Cli.parse(args).fold(sys.exit(1)) { config =>
-    setGlobalLogLevel(config.logLevel)
-    new ProgramResource(SandboxServer.owner(config)).run()
+  def main(args: Array[String]): Unit = {
+    Cli.parse(args).fold(sys.exit(1)) { config =>
+      setGlobalLogLevel(config.logLevel)
+      new ProgramResource(SandboxServer.owner(config)).run()
+    }
   }
 
   // Copied from language-support/scala/codegen/src/main/scala/com/digitalasset/codegen/Main.scala
@@ -31,5 +33,4 @@ object SandboxMain extends App {
         logger.warn(s"Sandbox verbosity cannot be set to requested $verbosity")
     }
   }
-
 }

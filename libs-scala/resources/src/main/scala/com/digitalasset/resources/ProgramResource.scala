@@ -14,7 +14,7 @@ import scala.util.control.NonFatal
 class ProgramResource[T](owner: ResourceOwner[T]) {
   private val logger = ContextualizedLogger.get(getClass)
 
-  def run()(implicit executionContext: ExecutionContext): Resource[T] = {
+  def run()(implicit executionContext: ExecutionContext): Unit = {
     newLoggingContext { implicit logCtx =>
       val resource = owner.acquire()
 
@@ -35,8 +35,6 @@ class ProgramResource[T](owner: ResourceOwner[T]) {
           Await.result(resource.release(), AsyncTimeout)
           System.exit(1)
       }
-
-      resource
     }
   }
 }
