@@ -874,8 +874,8 @@ Some notes on behavior:
    the same results.
 
 3. Within a given array, if an ``archived`` and ``created`` refer to
-   contracts with the same template ID and key, the ``archived`` is
-   guaranteed to occur before the ``created``.
+   contracts with the same template ID and contract key, the
+   ``archived`` is guaranteed to occur before the ``created``.
 
 4. You will almost certainly receive contract IDs in ``archived`` that
    you never received a ``created`` for.  These are contracts that
