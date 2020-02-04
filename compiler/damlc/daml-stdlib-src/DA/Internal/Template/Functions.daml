@@ -37,6 +37,7 @@ type Template t =
   , HasTemplateTypeRep t
   , HasToAnyTemplate t
   , HasFromAnyTemplate t
+  , HasFetchSome t
   )
 
 -- | Exposes `signatory` function. Part of the `Template` constraint.
@@ -75,6 +76,10 @@ class HasFetch t where
 class HasArchive t where
   -- | Archive the contract with the given contract ID.
   archive : ContractId t -> Update ()
+
+-- | Exposes `fetchSome` function. Part of the `Template` constraint.
+class HasFetchSome t where
+  fetchSome : (t -> t) -> Update (ContractId t)
 
 -- | Exposes `templateTypeRep` function in DAML-LF 1.7 or later.
 -- Part of the `Template` constraint.

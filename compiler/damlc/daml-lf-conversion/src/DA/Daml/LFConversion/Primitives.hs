@@ -292,6 +292,11 @@ convertPrim _ "UFetchByKey"
             , (mkIndexedField 2, EStructProj (FieldName "contract") (EVar (mkVar "res")))
             ])
 
+convertPrim _ "UFetchSome" ((TCon t1 :-> TCon t2) :-> TUpdate (TContractId (TCon t3)))
+    | t1 == t2 && t2 == t3 =
+    ETmLam (mkVar "arg", TCon t1 :-> TCon t1) $
+    EUpdate $ UFetchSome t1 (EVar (mkVar "arg"))
+
 convertPrim version "ETemplateTypeRep"
     ty@(TApp proxy (TCon template) :-> tTypeRep)
     | tTypeRep `elem` [TTypeRep, TUnit] =

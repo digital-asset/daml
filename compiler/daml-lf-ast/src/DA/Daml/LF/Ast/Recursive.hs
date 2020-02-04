@@ -61,6 +61,7 @@ data UpdateF expr
   | UEmbedExprF !Type !expr
   | UFetchByKeyF !(RetrieveByKeyF expr)
   | ULookupByKeyF !(RetrieveByKeyF expr)
+  | UFetchSomeF !(Qualified TypeConName) !expr
   deriving (Foldable, Functor, Traversable)
 
 data RetrieveByKeyF expr = RetrieveByKeyF
@@ -105,6 +106,7 @@ projectUpdate = \case
   UEmbedExpr a b -> UEmbedExprF a b
   ULookupByKey a -> ULookupByKeyF (projectRetrieveByKey a)
   UFetchByKey a -> UFetchByKeyF (projectRetrieveByKey a)
+  UFetchSome a b -> UFetchSomeF a b
 
 projectRetrieveByKey :: RetrieveByKey -> RetrieveByKeyF Expr
 projectRetrieveByKey (RetrieveByKey tpl key) = RetrieveByKeyF tpl key
@@ -120,6 +122,7 @@ embedUpdate = \case
   UEmbedExprF a b -> UEmbedExpr a b
   UFetchByKeyF a -> UFetchByKey (embedRetrieveByKey a)
   ULookupByKeyF a -> ULookupByKey (embedRetrieveByKey a)
+  UFetchSomeF a b -> UFetchSome a b
 
 embedRetrieveByKey :: RetrieveByKeyF Expr -> RetrieveByKey
 embedRetrieveByKey RetrieveByKeyF{..} = RetrieveByKey

@@ -591,6 +591,13 @@ data Update
     }
   | ULookupByKey !RetrieveByKey
   | UFetchByKey !RetrieveByKey
+  | UFetchSome
+    { fetsTemplate   :: !(Qualified TypeConName)
+      -- ^ Qualified type constructor corresponding to the contract template.
+    , fetsContractId :: !Expr
+      -- ^ Lambda of type t -> t that updates the template data structure and thereby encodes the
+      -- query. For example `\(t : T) -> t with x = 1` encodes the query `contracts of type T with x = 1`.
+    }
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 -- | Expression in the scenario monad
@@ -659,6 +666,12 @@ data Scenario
 data RetrieveByKey = RetrieveByKey
   { retrieveByKeyTemplate :: !(Qualified TypeConName)
   , retrieveByKeyKey :: !Expr
+  }
+  deriving (Eq, Data, Generic, NFData, Ord, Show)
+
+data RetrieveByQuery = RetrieveByQuery
+  { retrieveByQueryTemplate :: !(Qualified TypeConName)
+  , retrieveByQueryQuery :: !Expr
   }
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 

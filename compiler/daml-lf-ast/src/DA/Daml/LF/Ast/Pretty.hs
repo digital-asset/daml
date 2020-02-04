@@ -375,6 +375,8 @@ instance Pretty Update where
       prettyAppKeyword lvl prec "uembed_expr" [TyArg typ, TmArg e]
     UFetchByKey RetrieveByKey{..} ->
       prettyAppKeyword lvl prec "ufetch_by_key" [tplArg retrieveByKeyTemplate, TmArg retrieveByKeyKey]
+    UFetchSome tpl query ->
+      prettyAppKeyword lvl prec "ufetch_some" [tplArg tpl, TmArg query]
     ULookupByKey RetrieveByKey{..} ->
       prettyAppKeyword lvl prec "ulookup_by_key" [tplArg retrieveByKeyTemplate, TmArg retrieveByKeyKey]
 

@@ -480,6 +480,11 @@ checkFetch tpl cid = do
   _ :: Template <- inWorld (lookupTemplate tpl)
   checkExpr cid (TContractId (TCon tpl))
 
+checkFetchSome :: MonadGamma m => Qualified TypeConName -> Expr -> m ()
+checkFetchSome tpl query = do
+  _ :: Template <- inWorld (lookupTemplate tpl)
+  checkExpr query (TCon tpl :-> TCon tpl)
+
 -- returns the contract id and contract type
 checkRetrieveByKey :: MonadGamma m => RetrieveByKey -> m (Type, Type)
 checkRetrieveByKey RetrieveByKey{..} = do
@@ -497,6 +502,7 @@ typeOfUpdate = \case
   UCreate tpl arg -> checkCreate tpl arg $> TUpdate (TContractId (TCon tpl))
   UExercise tpl choice cid actors arg -> typeOfExercise tpl choice cid actors arg
   UFetch tpl cid -> checkFetch tpl cid $> TUpdate (TCon tpl)
+  UFetchSome tpl query -> checkFetchSome tpl query $> TUpdate (TContractId (TCon tpl))
   UGetTime -> pure (TUpdate TTimestamp)
   UEmbedExpr typ e -> do
     checkExpr e (TUpdate typ)

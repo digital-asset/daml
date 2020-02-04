@@ -71,6 +71,7 @@ freeVarsStep = \case
       UEmbedExprF _ s -> s
       UFetchByKeyF rbk -> retrieveByKeyFKey rbk
       ULookupByKeyF rbk -> retrieveByKeyFKey rbk
+      UFetchSomeF _ s1 -> s1
   EScenarioF e ->
     case e of
       SPureF _ s -> s

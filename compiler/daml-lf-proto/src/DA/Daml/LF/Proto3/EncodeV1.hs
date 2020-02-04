@@ -654,6 +654,7 @@ encodeUpdate = fmap (P.Update . Just) . \case
         P.UpdateSumFetchByKey <$> encodeRetrieveByKey rbk
     ULookupByKey rbk ->
         P.UpdateSumLookupByKey <$> encodeRetrieveByKey rbk
+    UFetchSome{..} -> error $ "TODO (drsk) encode UFetchSome"
 
 encodeRetrieveByKey :: RetrieveByKey -> Encode P.Update_RetrieveByKey
 encodeRetrieveByKey RetrieveByKey{..} = do

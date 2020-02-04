@@ -140,6 +140,7 @@ startFromUpdate seen world update = case update of
     LF.UCreate{} -> error "IMPOSSIBLE"
     LF.UExercise{} -> error "IMPOSSIBLE"
     LF.UFetch{} -> error "IMPOSSIBLE"
+    LF.UFetchSome{} -> error "IMPOSSIBLE"
     LF.ULookupByKey{} -> error "IMPOSSIBLE"
     LF.UFetchByKey{} -> error "IMPOSSIBLE"
 
