@@ -19,19 +19,17 @@ import query.ValuePredicate.{LfV, TypeLookup}
 import com.digitalasset.jwt.domain.Jwt
 import com.digitalasset.ledger.api.{v1 => api}
 import com.typesafe.scalalogging.LazyLogging
-import scalaz.Liskov
+import scalaz.{-\/, Liskov, NonEmptyList, Show, \/, \/-}
 import Liskov.<~<
 import com.digitalasset.http.query.ValuePredicate
-import scalaz.syntax.bifunctor._
 import scalaz.syntax.show._
 import scalaz.syntax.tag._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
-import scalaz.syntax.unzip._
 import scalaz.std.list._
+import scalaz.std.map._
 import scalaz.std.set._
 import scalaz.std.tuple._
-import scalaz.{-\/, Show, \/, \/-}
 import spray.json.{JsObject, JsString, JsValue}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -112,20 +110,21 @@ object WebSocketService {
 
         import util.Collections._
 
-        val ((resolveds, unresolveds), fns) = request.queries
-          .map { gacr =>
-            val (resolved, unresolved) =
-              gacr.templateIds.partitionMap(x => resolveTemplateId(x) toLeftDisjunction x)
-            val q: CompiledQueries = prepareFilters(resolved, gacr.query, lookupType)
-            val fn: domain.ActiveContract[LfV] => Boolean = { a =>
-              q.get(a.templateId).exists(_(a.payload))
-            }
-            ((resolved, unresolved), fn)
+        val (resolved, unresolved, q) = request.queries.zipWithIndex
+          .foldMap {
+            case (gacr, ix) =>
+              val (resolved, unresolved) =
+                gacr.templateIds.partitionMap(x => resolveTemplateId(x) toLeftDisjunction x)
+              val q: CompiledQueries = prepareFilters(resolved, gacr.query, lookupType)
+              (resolved, unresolved, q transform ((_, p) => NonEmptyList((p, ix))))
           }
-          .unfzip
-          .bimap(_.unfzip, _.toList)
+        val fn: domain.ActiveContract[LfV] => Option[Positive] = { a =>
+          q.get(a.templateId).flatMap { preds =>
+            if (preds.any { case (p, ix) => p(a.payload) }) Some(()) else None
+          }
+        }
 
-        (resolveds.fold, unresolveds.fold, lfv => if (fns.exists(_(lfv))) Some(()) else None)
+        (resolved, unresolved, fn)
       }
 
       private def prepareFilters(
