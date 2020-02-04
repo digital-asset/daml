@@ -88,7 +88,7 @@ class Runner[T <: KeyValueLedger, Extra](name: String, factory: LedgerFactory[T,
 
       config <- Config
         .parse(name, factory.extraConfigParser, factory.defaultExtraConfig, args)
-        .fold[ResourceOwner[Config[Extra]]](ResourceOwner.failed(new ConfigParseException).vary)(
+        .fold[ResourceOwner[Config[Extra]]](ResourceOwner.failed(new ConfigParseException))(
           ResourceOwner.successful)
 
       ledgerId = config.ledgerId.getOrElse(

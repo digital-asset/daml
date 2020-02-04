@@ -13,7 +13,7 @@ import scala.language.higherKinds
 import scala.util.{Failure, Success, Try}
 
 @FunctionalInterface
-trait ResourceOwner[A] {
+trait ResourceOwner[+A] {
   self =>
 
   def acquire()(implicit executionContext: ExecutionContext): Resource[A]
@@ -44,7 +44,6 @@ trait ResourceOwner[A] {
       }
   }
 
-  def vary[B >: A]: ResourceOwner[B] = asInstanceOf[ResourceOwner[B]]
 }
 
 object ResourceOwner {
