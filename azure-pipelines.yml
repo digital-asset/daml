@@ -506,6 +506,7 @@ jobs:
     variables:
       pr.num: $[ variables['System.PullRequest.PullRequestNumber'] ]
       branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
+      status: $[ dependencies.collect_build_data.result ]
     steps:
       - checkout: none
       - bash: |
@@ -535,7 +536,7 @@ jobs:
           }
 
           if user_registered; then
-              tell_slack "$(Agent.JobStatus)" "$(user_id)"
+              tell_slack "$(status)" "$(user_id)"
           else
               echo "User $(user_id) did not opt in for notifications."
           fi
