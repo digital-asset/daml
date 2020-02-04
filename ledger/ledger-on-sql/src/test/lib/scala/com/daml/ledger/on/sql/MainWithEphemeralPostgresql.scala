@@ -13,11 +13,12 @@ import scopt.OptionParser
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
-object MainWithEphemeralPostgresql extends App with PostgresAround {
-  startEphemeralPostgres()
-  sys.addShutdownHook(stopAndCleanUpPostgres())
-
-  new ProgramResource(Runner("SQL Ledger", PostgresqlLedgerFactory).owner(args)).run()
+object MainWithEphemeralPostgresql extends PostgresAround {
+  def main(args: Array[String]): Unit = {
+    startEphemeralPostgres()
+    sys.addShutdownHook(stopAndCleanUpPostgres())
+    new ProgramResource(Runner("SQL Ledger", PostgresqlLedgerFactory).owner(args)).run()
+  }
 
   object PostgresqlLedgerFactory extends LedgerFactory[SqlLedgerReaderWriter, Unit] {
     override val defaultExtraConfig: Unit = ()

@@ -13,8 +13,10 @@ import com.digitalasset.resources.{ProgramResource, Resource, ResourceOwner}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{ExecutionContext, Future}
 
-object MainWithEphemeralDirectory extends App {
-  new ProgramResource(Runner("Ephemeral File System Ledger", owner _).owner(args)).run()
+object MainWithEphemeralDirectory {
+  def main(args: Array[String]): Unit = {
+    new ProgramResource(Runner("Ephemeral File System Ledger", owner _).owner(args)).run()
+  }
 
   def owner(
       ledgerId: LedgerId,

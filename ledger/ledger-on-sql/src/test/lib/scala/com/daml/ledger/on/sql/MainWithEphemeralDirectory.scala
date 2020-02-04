@@ -14,12 +14,12 @@ import scopt.OptionParser
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
-object MainWithEphemeralDirectory extends App {
-  val DirectoryPattern = "%DIR"
+object MainWithEphemeralDirectory {
+  private val DirectoryPattern = "%DIR"
 
-  val directory = Files.createTempDirectory("ledger-on-sql-ephemeral-")
-
-  new ProgramResource(Runner("SQL Ledger", TestLedgerFactory).owner(args)).run()
+  def main(args: Array[String]): Unit = {
+    new ProgramResource(Runner("SQL Ledger", TestLedgerFactory).owner(args)).run()
+  }
 
   object TestLedgerFactory extends LedgerFactory[SqlLedgerReaderWriter, ExtraConfig] {
     override val defaultExtraConfig: ExtraConfig = SqlLedgerFactory.defaultExtraConfig
@@ -32,6 +32,7 @@ object MainWithEphemeralDirectory extends App {
         participantId: ParticipantId,
         config: ExtraConfig,
     )(implicit materializer: Materializer): ResourceOwner[SqlLedgerReaderWriter] = {
+      val directory = Files.createTempDirectory("ledger-on-sql-ephemeral-")
       val jdbcUrl = config.jdbcUrl.map(_.replace(DirectoryPattern, directory.toString))
       SqlLedgerFactory.owner(ledgerId, participantId, config.copy(jdbcUrl = jdbcUrl))
     }

@@ -5,8 +5,10 @@ package com.daml.ledger.api.server.damlonx.reference.v2
 
 import com.digitalasset.testing.postgresql.PostgresAround
 
-object EphemeralPostgresReferenceServerMain extends App with PostgresAround {
-  startEphemeralPostgres()
-  sys.addShutdownHook(stopAndCleanUpPostgres())
-  ReferenceServer.main(args ++ List("--jdbc-url", postgresFixture.jdbcUrl))
+object EphemeralPostgresReferenceServerMain extends PostgresAround {
+  def main(args: Array[String]): Unit = {
+    startEphemeralPostgres()
+    sys.addShutdownHook(stopAndCleanUpPostgres())
+    ReferenceServer.main(args ++ Array("--jdbc-url", postgresFixture.jdbcUrl))
+  }
 }

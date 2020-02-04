@@ -8,7 +8,9 @@ import com.digitalasset.resources.ProgramResource
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
-object Main extends App {
-  new ProgramResource(
-    Runner("In-Memory Ledger", InMemoryLedgerReaderWriter.owner(_, _)).owner(args)).run()
+object Main {
+  def main(args: Array[String]): Unit = {
+    new ProgramResource(
+      Runner("In-Memory Ledger", InMemoryLedgerReaderWriter.owner(_, _)).owner(args)).run()
+  }
 }

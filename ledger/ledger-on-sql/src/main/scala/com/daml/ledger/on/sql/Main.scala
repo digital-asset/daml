@@ -12,8 +12,10 @@ import scopt.OptionParser
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
-object Main extends App {
-  new ProgramResource(Runner("SQL Ledger", SqlLedgerFactory).owner(args)).run()
+object Main {
+  def main(args: Array[String]): Unit = {
+    new ProgramResource(Runner("SQL Ledger", SqlLedgerFactory).owner(args)).run()
+  }
 
   case class ExtraConfig(jdbcUrl: Option[String])
 
