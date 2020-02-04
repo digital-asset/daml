@@ -50,6 +50,7 @@ da_haskell_library(
         "http-conduit",
         "lens",
         "optparse-applicative",
+        "process",
         "safe",
         "safe-exceptions",
         "semver",
