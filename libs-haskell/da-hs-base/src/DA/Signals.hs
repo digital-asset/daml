@@ -38,4 +38,4 @@ withCloseOnStdin a = do
             b <- isEOF
             if b
                 then throwTo mainThread UserInterrupt
-                else go mainThread
+                else threadDelay 1000000 >> go mainThread
