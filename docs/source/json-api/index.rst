@@ -814,6 +814,8 @@ After submitting an ``Iou_Split`` exercise, which creates two contracts
 and archives the one above, the same stream will eventually produce::
 
     [{
+        "archived": "#1:0"
+    }, {
         "created": {
             "observers": [],
             "agreementText": "",
@@ -843,8 +845,6 @@ and archives the one above, the same stream will eventually produce::
             "contractId": "#2:2",
             "templateId": "6cc82609ede6576e5092e8c89a2c7a658efe15ae1347fc38eb316f787fa132bc:Iou:Iou"
         }
-    }, {
-        "archived": "#1:0"
     }]
 
 If any template IDs are found not to resolve, the first non-heartbeat
@@ -873,7 +873,11 @@ Some notes on behavior:
    ``created`` first or the ``archived`` first and be guaranteed to get
    the same results.
 
-3. You will almost certainly receive contract IDs in ``archived`` that
+3. Within a given array, if an ``archived`` and ``created`` refer to
+   contracts with the same template ID and key, the ``archived`` is
+   guaranteed to occur before the ``created``.
+
+4. You will almost certainly receive contract IDs in ``archived`` that
    you never received a ``created`` for.  These are contracts that
    query filtered out, but for which the server no longer is aware of
    that.  You can safely ignore these.  However, such "phantom archives"
@@ -881,7 +885,7 @@ Some notes on behavior:
    if you are keeping a more global dataset outside the context of this
    specific search, you can use that archival information as you wish.
 
-4. Within a single response array, the order of ``created`` and
+5. Within a single response array, the order of ``created`` and
    ``archived`` is undefined and does not imply that any element
    occurred "before" or "after" any other one.  As specified in note #2,
    order of application of changes doesn't matter; you will get the same
