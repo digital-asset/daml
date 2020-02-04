@@ -25,6 +25,7 @@ import com.digitalasset.http.query.ValuePredicate
 import scalaz.syntax.bifunctor._
 import scalaz.syntax.show._
 import scalaz.syntax.tag._
+import scalaz.syntax.std.boolean._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
 import scalaz.std.list._
@@ -107,7 +108,7 @@ object WebSocketService {
   implicit val SearchForeverRequestWithStreamQuery: StreamQuery[domain.SearchForeverRequest] =
     new StreamQuery[domain.SearchForeverRequest] {
 
-      type Positive = Unit
+      type Positive = NonEmptyList[Int]
 
       override def parse(decoder: DomainJsonDecoder, str: String): Error \/ SearchForeverRequest = {
         import JsonProtocol._
@@ -133,7 +134,7 @@ object WebSocketService {
           }
         val fn: domain.ActiveContract[LfV] => Option[Positive] = { a =>
           q.get(a.templateId).flatMap { preds =>
-            if (preds.any { case (p, ix) => p(a.payload) }) Some(()) else None
+            preds.collect(Function unlift { case (p, ix) => p(a.payload) option ix })
           }
         }
 
@@ -149,7 +150,11 @@ object WebSocketService {
           (tid, ValuePredicate.fromTemplateJsObject(queryExpr, tid, lookupType).toFunPredicate)
         }.toMap
 
-      override def renderCreatedMetadata(p: Unit) = Map.empty
+      override def renderCreatedMetadata(p: Positive) =
+        Map {
+          import spray.json._, JsonProtocol._
+          "matchedQueries" -> p.toJson
+        }
     }
 
   implicit val EnrichedContractKeyWithStreamQuery

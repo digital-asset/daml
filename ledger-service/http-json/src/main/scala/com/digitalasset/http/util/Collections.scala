@@ -3,7 +3,7 @@
 
 package com.digitalasset.http.util
 
-import scalaz.\/
+import scalaz.{NonEmptyList, \/}
 
 import scala.collection.TraversableLike
 
@@ -38,5 +38,10 @@ object Collections {
       (bsb.result, csb.result)
     }
    */
+  }
+
+  implicit final class `cdhuc Nel Ops`[A](private val self: NonEmptyList[A]) extends AnyVal {
+    def collect[B](f: A PartialFunction B): Option[NonEmptyList[B]] =
+      self.list.collect(f).toNel
   }
 }

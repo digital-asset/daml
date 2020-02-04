@@ -34,11 +34,14 @@ object JsonProtocol extends DefaultJsonProtocol {
   implicit val ContractIdFormat: JsonFormat[domain.ContractId] =
     taggedJsonFormat[String, domain.ContractIdTag]
 
-  implicit def NonEmptyListFormat[A: JsonReader]: JsonReader[NonEmptyList[A]] = {
+  implicit def NonEmptyListReader[A: JsonReader]: JsonReader[NonEmptyList[A]] = {
     case JsArray(hd +: tl) =>
       NonEmptyList(hd.convertTo[A], tl map (_.convertTo[A]): _*)
     case _ => deserializationError("must be a list with at least 1 element")
   }
+
+  implicit def NonEmptyListWriter[A: JsonWriter]: JsonWriter[NonEmptyList[A]] =
+    nela => JsArray(nela.map(_.toJson).list.toVector)
 
   implicit val PartyDetails: JsonFormat[domain.PartyDetails] =
     jsonFormat3(domain.PartyDetails.apply)

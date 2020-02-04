@@ -212,13 +212,13 @@ object WebsocketServiceIntegrationTest {
   import spray.json._
 
   private object ContractDelta {
+    private val tagKeys = Set("created", "archived", "error")
     def unapply(jsv: JsValue): Option[(Vector[(String, JsValue)], Vector[String])] =
       for {
         JsArray(sums) <- Some(jsv)
-        pairs = sums collect { case JsObject(fields) if fields.size == 1 => fields.head }
+        pairs = sums collect { case JsObject(fields) => fields.filterKeys(tagKeys).head }
         if pairs.length == sums.length
         sets = pairs groupBy (_._1)
-        if sets.keySet subsetOf Set("created", "archived", "error")
         creates = sets.getOrElse("created", Vector()) collect {
           case (_, JsObject(fields)) => fields
         }
