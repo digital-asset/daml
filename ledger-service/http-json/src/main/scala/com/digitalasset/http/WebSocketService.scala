@@ -87,7 +87,7 @@ object WebSocketService {
         lookupType: ValuePredicate.TypeLookup): StreamPredicate
   }
 
-  implicit val GetActiveContractsRequestWithStreamQuery
+  implicit val `GetActiveContractsRequest implementing StreamQuery`
     : StreamQuery[domain.GetActiveContractsRequest] =
     new StreamQuery[domain.GetActiveContractsRequest] {
 
@@ -129,7 +129,7 @@ object WebSocketService {
         }.toMap
     }
 
-  implicit val EnrichedContractKeyWithStreamQuery
+  implicit val `EnrichedContractKey List implementing StreamQuery`
     : StreamQuery[List[domain.EnrichedContractKey[LfV]]] =
     new StreamQuery[List[domain.EnrichedContractKey[LfV]]] {
 
@@ -267,7 +267,13 @@ class WebSocketService(
         .insertDeleteStepSource(jwt, jwtPayload.party, resolved.toList, Terminates.Never)
         .via(convertFilterContracts(fn))
         .filter(_.nonEmpty)
+        .map { e =>
+          println(s"---1: $e"); e
+        }
         .via(removePhantonArchives(remove = !Q.allowPhantonArchives))
+        .map { e =>
+          println(s"---3: $e"); e
+        }
         .map(_.render)
         .prepend(reportUnresolvedTemplateIds(unresolved))
         .map(jsv => TextMessage(jsv.compactPrint))
@@ -288,6 +294,7 @@ class WebSocketService(
       val createIds = mutable.Set[String]()
       (a: StepAndErrors[A]) =>
         {
+          println(s"---2 steps: $createIds, $a")
           val deletesToKeep: Set[String] = a.step.deletes.filter(cid => createIds.remove(cid))
           a.step.inserts.foreach(x => createIds.add(x.contractId.unwrap))
           val a1 = a.copy(step = a.step.copy(deletes = deletesToKeep))

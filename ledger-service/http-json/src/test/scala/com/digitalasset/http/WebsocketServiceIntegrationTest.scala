@@ -223,7 +223,7 @@ class WebsocketServiceIntegrationTest
   }
 
   "query should receive deltas as contracts are archived/created" in withHttpService {
-    (uri, encoder, _) =>
+    (uri, _, _) =>
       import spray.json._
 
       val initialCreate = initialIouCreate(uri)
@@ -232,22 +232,6 @@ class WebsocketServiceIntegrationTest
           fields = baseExercisePayload.fields updated ("contractId", JsString(cid)))
 
       val query = """{"templateIds": ["Iou:Iou"]}"""
-
-      val parseResp: Flow[Message, JsValue, NotUsed] =
-        Flow[Message]
-          .mapAsync(1) {
-            case _: BinaryMessage => fail("shouldn't get BinaryMessage")
-            case tm: TextMessage => tm.toStrict(1.second).map(_.text.parseJson)
-          }
-          .filter {
-            case JsObject(fields) => !(fields contains "heartbeat")
-            case _ => true
-          }
-
-      sealed abstract class StreamState extends Product with Serializable
-      case object NothingYet extends StreamState
-      final case class GotAcs(firstCid: String) extends StreamState
-      final case class ShouldHaveEnded(msgCount: Int) extends StreamState
 
       def resp(iouCid: domain.ContractId): Sink[JsValue, Future[StreamState]] =
         Sink
@@ -281,17 +265,80 @@ class WebsocketServiceIntegrationTest
       } yield lastState should ===(ShouldHaveEnded(2))
   }
 
-//  "fetch should receive deltas as contracts are archived/created" in withHttpService {
-//    (uri, encoder, _) =>
-//      import spray.json._
-//
-//  }
+  "fetch should receive deltas as contracts are archived/created filtering out phantom archives" in withHttpService {
+    (uri, encoder, _) =>
+      val templateId = domain.TemplateId(None, "Account", "Account")
+      val fetchRequest = """[{"templateId": "Account:Account", "key": ["Alice", "abc123"]}]"""
+      val f1 =
+        postCreateCommand(accountCreateCommand(domain.Party("Alice"), "abc123"), encoder, uri)
+      val f2 =
+        postCreateCommand(accountCreateCommand(domain.Party("Alice"), "def456"), encoder, uri)
+
+      def resp(
+          cid1: domain.ContractId,
+          cid2: domain.ContractId): Sink[JsValue, Future[StreamState]] =
+        Sink.foldAsync(NothingYet: StreamState) {
+
+          case (
+              NothingYet,
+              ContractDelta(Vector((cid, c)), Vector())
+              ) =>
+            (cid: String) shouldBe (cid1.unwrap: String)
+            postArchiveCommand(templateId, cid2, encoder, uri).flatMap {
+              case (statusCode, _) =>
+                statusCode.isSuccess shouldBe true
+                postArchiveCommand(templateId, cid1, encoder, uri).map {
+                  case (statusCode, _) =>
+                    statusCode.isSuccess shouldBe true
+                    GotAcs(cid)
+                }
+            }: Future[StreamState]
+
+          case (
+              GotAcs(archivedCid),
+              ContractDelta(Vector(), Vector(observeArchivedCid))
+              ) =>
+            Future {
+              (observeArchivedCid: String) shouldBe (archivedCid: String)
+              (observeArchivedCid: String) shouldBe (cid1.unwrap: String)
+              ShouldHaveEnded(0)
+            }
+        }
+
+      for {
+        r1 <- f1
+        _ = r1._1 shouldBe 'success
+        cid1 = getContractId(getResult(r1._2))
+
+        r2 <- f2
+        _ = r2._1 shouldBe 'success
+        cid2 = getContractId(getResult(r2._2))
+
+        lastState <- singleClientFetchStream(uri, fetchRequest).via(parseResp) runWith resp(
+          cid1,
+          cid2)
+
+      } yield lastState shouldBe ShouldHaveEnded(0)
+  }
 
   private def wsConnectRequest[M](
       uri: Uri,
       subprotocol: Option[String],
       flow: Flow[Message, Message, M]) =
     Http().singleWebSocketRequest(WebSocketRequest(uri = uri, subprotocol = subprotocol), flow)
+
+  val parseResp: Flow[Message, JsValue, NotUsed] = {
+    import spray.json._
+    Flow[Message]
+      .mapAsync(1) {
+        case _: BinaryMessage => fail("shouldn't get BinaryMessage")
+        case tm: TextMessage => tm.toStrict(1.second).map(_.text.parseJson)
+      }
+      .filter {
+        case JsObject(fields) => !(fields contains "heartbeat")
+        case _ => true
+      }
+  }
 }
 
 object WebsocketServiceIntegrationTest {
@@ -299,6 +346,11 @@ object WebsocketServiceIntegrationTest {
       id: String,
       path: Uri.Path,
       flow: Flow[Message, Message, NotUsed])
+
+  sealed abstract class StreamState extends Product with Serializable
+  case object NothingYet extends StreamState
+  final case class GotAcs(firstCid: String) extends StreamState
+  final case class ShouldHaveEnded(msgCount: Int) extends StreamState
 
   private object ContractDelta {
     import spray.json._
