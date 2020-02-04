@@ -3,23 +3,15 @@
 
 load("@os_info//:os_info.bzl", "is_windows")
 load("@build_bazel_rules_nodejs//:index.bzl", "pkg_npm")
-load("@npm_bazel_typescript//:index.bzl", "ts_library")
 load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
-load("//language-support/ts:defs.bzl", "ts_commonjs_library")
+load("//language-support/ts:defs.bzl", "da_ts_library")
 load("//language-support/ts:eslint.bzl", "eslint_test")
 load("@sdk_version//:sdk_version.bzl", "sdk_version")
 
-ts_library(
+da_ts_library(
     name = "daml-ledger",
-    srcs = glob(["**/*.ts"]),
-    data = [
-        ":LICENSE",
-        ":README.md",
-        ":package.json",
-    ],
+    srcs = ["index.ts"],
     module_name = "@daml/ledger",
-    node_modules = "@language_support_ts_deps//:node_modules",
-    tsconfig = ":tsconfig.json",
     visibility = ["//visibility:public"],
     deps = [
         "//language-support/ts/daml-types",
@@ -45,18 +37,6 @@ eslint_test(
     ),
 )
 
-ts_commonjs_library(
-    name = "daml-ledger.commonjs",
-    srcs = ["index.ts"],
-    deps = [
-        "//language-support/ts/daml-types:daml-types.commonjs",
-        "@language_support_ts_deps//@mojotech/json-type-validation",
-        "@language_support_ts_deps//cross-fetch",
-    ],
-    module_name = "@daml/ledger",
-    visibility = ["//visibility:public"],
-)
-
 pkg_npm(
     name = "npm_package",
     srcs = [
@@ -66,7 +46,7 @@ pkg_npm(
     substitutions = {"0.0.0-SDKVERSION": sdk_version},
     visibility = ["//visibility:public"],
     deps = [
-        ":daml-ledger.commonjs",
+        ":daml-ledger",
         ":license",
     ],
 ) if not is_windows else None

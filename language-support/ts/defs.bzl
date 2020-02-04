@@ -3,7 +3,7 @@
 
 load("@language_support_ts_deps//typescript:index.bzl", "tsc")
 
-def _ts_commonjs_library_impl(ctx):
+def _da_ts_library_impl(ctx):
     return [
         DefaultInfo(
             files = depset(ctx.files.srcs),
@@ -11,16 +11,17 @@ def _ts_commonjs_library_impl(ctx):
         ),
     ]
 
-_ts_commonjs_library_rule = rule(
-    _ts_commonjs_library_impl,
+_da_ts_library_rule = rule(
+    _da_ts_library_impl,
     attrs = {
         "srcs": attr.label_list(allow_files = True),
+        "deps": attr.label_list(allow_files = True),
         "module_name": attr.string(),
         "module_root": attr.string(),
     },
 )
 
-def ts_commonjs_library(
+def da_ts_library(
         name,
         tsconfig = "tsconfig.json",
         srcs = [],
@@ -48,7 +49,7 @@ def ts_commonjs_library(
         for s in srcs
     ]
     tsc(
-        name = "_%s_commonjs" % name,
+        name = "_%s_tsc" % name,
         data = [tsconfig] + srcs + deps,
         outs = outs,
         args = [
@@ -60,13 +61,17 @@ def ts_commonjs_library(
         ],
         **kwargs
     )
+
     # rules_nodejs does import remapping based on the module_name attribute.
     # The tsc macro is an instance of npm_package_bin under the covers which
     # doesn't take a module_name attribute. So, we use this wrapper rule to be
     # able to set the module_name attribute.
-    _ts_commonjs_library_rule(
+    _da_ts_library_rule(
         name = name,
         srcs = outs,
+        # We don't do anything with the deps, but they are needed for
+        # rules_nodejs's tracking of transitive dependencies.
+        deps = deps,
         module_name = module_name,
         module_root = module_root,
         **kwargs
