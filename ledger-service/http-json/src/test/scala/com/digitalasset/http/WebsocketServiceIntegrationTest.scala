@@ -15,6 +15,7 @@ import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.{AsyncFreeSpec, BeforeAndAfterAll, Inside, Matchers}
 import scalaz.std.option._
 import scalaz.syntax.apply._
+import scalaz.syntax.tag._
 import spray.json.JsValue
 
 import scala.concurrent.{Await, Future}
@@ -181,7 +182,7 @@ class WebsocketServiceIntegrationTest
       }
   }
 
-  "websocket should send error msg when receiving malformed message" in withHttpService {
+  "query endpoint should send error msg when receiving malformed message" in withHttpService {
     (uri, _, _) =>
       val clientMsg = singleClientQueryStream(uri, "{}")
         .runWith(collectResultsAsRawString)
@@ -190,6 +191,17 @@ class WebsocketServiceIntegrationTest
 
       result should have size 1
       result.head should include("error")
+  }
+
+  "fetch endpoint should send error msg when receiving malformed message" in withHttpService {
+    (uri, _, _) =>
+      val clientMsg = singleClientFetchStream(uri, """[abcdefg!]""")
+        .runWith(collectResultsAsRawString)
+
+      val result = Await.result(clientMsg, 10.seconds)
+
+      result should have size 1
+      result.head should include("""{"error":""")
   }
 
   // NB SC #3936: the WS connection below terminates at an appropriate time for
@@ -210,14 +222,16 @@ class WebsocketServiceIntegrationTest
         "argument": {"splitAmount": 42.42}}""".parseJson.asJsObject
   }
 
-  "websocket should receive deltas as contracts are archived/created" in withHttpService {
-    (uri, _, _) =>
+  "query should receive deltas as contracts are archived/created" in withHttpService {
+    (uri, encoder, _) =>
       import spray.json._
 
       val initialCreate = initialIouCreate(uri)
       def exercisePayload(cid: String) =
         baseExercisePayload.copy(
           fields = baseExercisePayload.fields updated ("contractId", JsString(cid)))
+
+      val accountCreate = initialAccountCreate(uri, encoder)
 
       val query = """{"templateIds": ["Iou:Iou"]}"""
 
@@ -237,33 +251,50 @@ class WebsocketServiceIntegrationTest
       final case class GotAcs(firstCid: String) extends StreamState
       final case class ShouldHaveEnded(msgCount: Int) extends StreamState
 
-      val resp: Sink[JsValue, Future[StreamState]] = Sink
-        .foldAsync(NothingYet: StreamState) {
-          case (NothingYet, ContractDelta(Vector((ctid, ct)), Vector())) =>
-            TestUtil.postJsonRequest(
-              uri.withPath(Uri.Path("/command/exercise")),
-              exercisePayload(ctid),
-              headersWithAuth) map {
-              case (statusCode, respBody) =>
-                statusCode.isSuccess shouldBe true
-                GotAcs(ctid)
-            }
-          case (
-              GotAcs(consumedCtid),
-              ContractDelta(Vector((fstId, fst), (sndId, snd)), Vector(observeConsumed))) =>
-            Future {
-              observeConsumed should ===(consumedCtid)
-              Set(fstId, sndId, consumedCtid) should have size 3
-              ShouldHaveEnded(2)
-            }
-        }
+      def resp(
+          iouCid: domain.ContractId,
+          accountCid: domain.ContractId): Sink[JsValue, Future[StreamState]] =
+        Sink
+          .foldAsync(NothingYet: StreamState) {
+            case (NothingYet, ContractDelta(Vector((ctid, ct)), Vector())) =>
+              (ctid: String) shouldBe (iouCid.unwrap: String)
+              TestUtil.postJsonRequest(
+                uri.withPath(Uri.Path("/command/exercise")),
+                exercisePayload(ctid),
+                headersWithAuth) map {
+                case (statusCode, _) =>
+                  statusCode.isSuccess shouldBe true
+                  GotAcs(ctid)
+              }
+            case (
+                GotAcs(consumedCtid),
+                ContractDelta(Vector((fstId, fst), (sndId, snd)), Vector(observeConsumed))) =>
+              Future {
+                observeConsumed should ===(consumedCtid)
+                Set(fstId, sndId, consumedCtid) should have size 3
+                ShouldHaveEnded(2)
+              }
+          }
 
       for {
-        creation <- initialCreate
-        _ = creation._1 shouldBe 'success
-        lastState <- singleClientQueryStream(uri, query) via parseResp runWith resp
+        iou <- initialCreate
+        _ = iou._1 shouldBe 'success
+        iouCid = getContractId(getResult(iou._2))
+
+        account <- accountCreate
+        _ = account._1 shouldBe 'success
+        accountCid = getContractId(getResult(account._2))
+
+        lastState <- singleClientQueryStream(uri, query) via parseResp runWith resp(
+          iouCid,
+          accountCid)
       } yield lastState should ===(ShouldHaveEnded(2))
   }
+
+//  "fetch should receive deltas as contracts are archived/created" in withHttpService {
+//    (uri, encoder, _) =>
+//      import spray.json._
+//  }
 
   private def wsConnectRequest[M](
       uri: Uri,
