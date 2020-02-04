@@ -183,7 +183,7 @@ requote s =
           -- If it's true escapable, strip the
           -- slashes, as we're going to strong
           -- escape instead.
-          | x `elem` ("$`\"\\\n" :: [Char]) = x : goX xs
+          | x `elem` ("$`\"\\\n" :: String) = x : goX xs
           | otherwise = '\\' : x : goX xs
         -- We've ended quoted section, so we
         -- don't recurse on goX, it's done.
