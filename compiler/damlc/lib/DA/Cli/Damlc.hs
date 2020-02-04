@@ -530,7 +530,7 @@ createDarFile :: FilePath -> Zip.ZipArchive () -> IO ()
 createDarFile fp dar = do
     createDirectoryIfMissing True $ takeDirectory fp
     Zip.createArchive fp dar
-    putStrLn $ "Created " <> fp <> "."
+    putStrLn $ "Created " <> fp
 
 execBuild :: ProjectOpts -> Options -> Maybe FilePath -> IncrementalBuild -> InitPkgDb -> Command
 execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb =
