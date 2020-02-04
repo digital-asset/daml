@@ -22,6 +22,7 @@ import com.typesafe.scalalogging.LazyLogging
 import scalaz.{-\/, Liskov, NonEmptyList, Show, \/, \/-}
 import Liskov.<~<
 import com.digitalasset.http.query.ValuePredicate
+import scalaz.syntax.bifunctor._
 import scalaz.syntax.show._
 import scalaz.syntax.tag._
 import scalaz.syntax.std.option._
@@ -52,26 +53,37 @@ object WebSocketService {
       self leftMap (e => f(e.shows))
   }
 
-  private final case class StepAndErrors[+LfV](
+  private final case class StepAndErrors[+Pos, +LfV](
       errors: Seq[ServerError],
-      step: InsertDeleteStep[domain.ActiveContract[LfV]]) {
+      step: InsertDeleteStep[(domain.ActiveContract[LfV], Pos)]) {
     import json.JsonProtocol._, spray.json._
-    def render(implicit lfv: LfV <~< JsValue): JsValue = {
-      def inj[V: JsonWriter](ctor: String) = (v: V) => JsObject(ctor -> v.toJson)
+    def render(implicit lfv: LfV <~< JsValue, pos: Pos <~< Map[String, JsValue]): JsValue = {
+      def inj[V: JsonWriter](ctor: String, v: V) = JsObject(ctor -> v.toJson)
+      val thisw =
+        Liskov.lift2[StepAndErrors, Pos, Map[String, JsValue], LfV, JsValue](pos, lfv)(this)
       JsArray(
-        step.deletes.iterator.map(inj("archived")).toVector
-          ++ Liskov.co[StepAndErrors, LfV, JsValue](lfv)(this).step.inserts.map(inj("created"))
-          ++ errors.map(inj[String]("error") compose (_.message)))
+        step.deletes.iterator.map(inj("archived", _)).toVector
+          ++ thisw.step.inserts.map {
+            case (ac, pos) =>
+              val acj = inj("created", ac)
+              acj copy (fields = acj.fields ++ pos)
+          } ++ errors.map(e => inj("error", e.message)))
     }
 
-    def append[A >: LfV](o: StepAndErrors[A]): StepAndErrors[A] =
-      StepAndErrors(errors ++ o.errors, step.appendWithCid(o.step)(_.contractId.unwrap))
+    def append[P >: Pos, A >: LfV](o: StepAndErrors[P, A]): StepAndErrors[P, A] =
+      StepAndErrors(errors ++ o.errors, step.appendWithCid(o.step)(_._1.contractId.unwrap))
+
+    def mapLfv[A](f: LfV => A): StepAndErrors[Pos, A] =
+      copy(step = step mapPreservingIds (_ leftMap (_ map f)))
+
+    def mapPos[P](f: Pos => P): StepAndErrors[P, LfV] =
+      copy(step = step mapPreservingIds (_ rightMap f))
 
     def nonEmpty = errors.nonEmpty || step.nonEmpty
   }
 
-  private def conflation[A]: Flow[StepAndErrors[A], StepAndErrors[A], NotUsed] =
-    Flow[StepAndErrors[A]]
+  private def conflation[P, A]: Flow[StepAndErrors[P, A], StepAndErrors[P, A], NotUsed] =
+    Flow[StepAndErrors[P, A]]
       .batchWeighted(max = 200, costFn = {
         case StepAndErrors(errors, InsertDeleteStep(inserts, deletes)) =>
           errors.length.toLong + (inserts.length * 2) + deletes.size
@@ -272,7 +284,7 @@ class WebSocketService(
         .insertDeleteStepSource(jwt, jwtPayload.party, resolved.toList, Terminates.Never)
         .via(convertFilterContracts(fn))
         .filter(_.nonEmpty)
-        .map(_.render)
+        .map(_.mapPos(Q.renderCreatedMetadata).render)
         .prepend(reportUnresolvedTemplateIds(unresolved))
         .map(jsv => TextMessage(jsv.compactPrint))
     } else {
@@ -297,7 +309,7 @@ class WebSocketService(
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def convertFilterContracts[Pos](fn: domain.ActiveContract[LfV] => Option[Pos])
-    : Flow[InsertDeleteStep[api.event.CreatedEvent], StepAndErrors[JsValue], NotUsed] =
+    : Flow[InsertDeleteStep[api.event.CreatedEvent], StepAndErrors[Pos, JsValue], NotUsed] =
     Flow
       .fromFunction { step: InsertDeleteStep[api.event.CreatedEvent] =>
         val (errors, cs) = step.inserts
@@ -310,11 +322,11 @@ class WebSocketService(
         StepAndErrors(
           errors,
           step copy (inserts = (cs: Vector[domain.ActiveContract[LfV]]).flatMap { ac =>
-            fn(ac).map(_ => ac /* TODO SC incl arg */ ).toList
+            fn(ac).map((ac, _)).toList
           }))
       }
       .via(conflation)
-      .map(sae => sae copy (step = sae.step.mapPreservingIds(_ map lfValueToJsValue)))
+      .map(_ mapLfv lfValueToJsValue)
 
   private def reportUnresolvedTemplateIds(
       unresolved: Set[domain.TemplateId.OptionalPkg]): Source[JsValue, NotUsed] =
