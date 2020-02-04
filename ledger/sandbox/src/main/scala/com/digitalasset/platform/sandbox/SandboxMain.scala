@@ -3,43 +3,23 @@
 
 package com.digitalasset.platform.sandbox
 
-import java.util.concurrent.atomic.AtomicBoolean
-
 import ch.qos.logback.classic.Level
+import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.platform.sandbox.cli.Cli
+import com.digitalasset.resources.ProgramResource
 import org.slf4j.{Logger, LoggerFactory}
 
-import scala.util.control.NonFatal
+import scala.concurrent.ExecutionContext
 
-object SandboxMain extends App {
+object SandboxMain {
+  private implicit val executionContext: ExecutionContext = DirectExecutionContext
 
-  private val logger = LoggerFactory.getLogger(this.getClass)
+  private val logger: Logger = LoggerFactory.getLogger(this.getClass)
 
-  Cli.parse(args).fold(sys.exit(1)) { config =>
-    setGlobalLogLevel(config.logLevel)
-
-    val server = new SandboxServer(config)
-
-    val closed = new AtomicBoolean(false)
-
-    def closeServer(): Unit = {
-      if (closed.compareAndSet(false, true)) server.close()
-    }
-
-    server.failure.foreach { exception =>
-      logger.error(
-        s"Shutting down Sandbox application due to an initialization error:\n${exception.getMessage}")
-      closeServer()
-      sys.exit(1)
-    }
-
-    try {
-      Runtime.getRuntime.addShutdownHook(new Thread(() => closeServer()))
-    } catch {
-      case NonFatal(exception) =>
-        logger.error("Shutting down Sandbox application due to an initialization error.", exception)
-        closeServer()
-        sys.exit(1)
+  def main(args: Array[String]): Unit = {
+    Cli.parse(args).fold(sys.exit(1)) { config =>
+      setGlobalLogLevel(config.logLevel)
+      new ProgramResource(SandboxServer.owner(config)).run()
     }
   }
 
@@ -53,5 +33,4 @@ object SandboxMain extends App {
         logger.warn(s"Sandbox verbosity cannot be set to requested $verbosity")
     }
   }
-
 }

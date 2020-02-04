@@ -433,7 +433,7 @@ object TransactionCoder {
     * @tparam Cid contract id type
     * @return protobuf encoded transaction
     */
-  private[transaction] def encodeTransaction[Nid, Cid](
+  def encodeTransaction[Nid, Cid](
       encodeNid: EncodeNid[Nid],
       encodeCid: EncodeCid[Cid],
       tx: GenTransaction[Nid, Cid, VersionedValue[Cid]],
@@ -454,7 +454,7 @@ object TransactionCoder {
     * @tparam Cid contract id type
     * @return protobuf encoded transaction
     */
-  def encodeTransactionWithCustomVersion[Nid, Cid](
+  private[transaction] def encodeTransactionWithCustomVersion[Nid, Cid](
       encodeNid: EncodeNid[Nid],
       encodeCid: EncodeCid[Cid],
       transaction: VersionedTransaction[Nid, Cid],

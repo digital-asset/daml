@@ -25,7 +25,6 @@ class PostgresIT extends WordSpec with Matchers with PostgresAroundAll with Befo
     connectionProviderResource = HikariJdbcConnectionProvider
       .owner(postgresFixture.jdbcUrl, maxConnections = 4, new MetricRegistry)
       .acquire()(DirectExecutionContext)
-      .vary
     connectionProvider = Await.result(connectionProviderResource.asFuture, 10.seconds)
   }
 

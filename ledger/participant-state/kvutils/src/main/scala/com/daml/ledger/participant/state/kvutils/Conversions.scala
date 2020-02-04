@@ -126,7 +126,7 @@ private[state] object Conversions {
           .fold(
             err =>
               throw Err
-                .DecodeError("ContractKey", "Cannot decode key: $err"),
+                .DecodeError("ContractKey", s"Cannot decode key: $err"),
             identity)
       )
     )
@@ -226,10 +226,7 @@ private[state] object Conversions {
 
   def encodeTransaction(tx: SubmittedTransaction): TransactionOuterClass.Transaction = {
     TransactionCoder
-      .encodeTransactionWithCustomVersion(
-        nidEncoder,
-        cidEncoder,
-        VersionedTransaction(TransactionVersions.assignVersion(tx), tx))
+      .encodeTransaction(nidEncoder, cidEncoder, tx)
       .fold(err => throw Err.EncodeError("Transaction", err.errorMessage), identity)
   }
 

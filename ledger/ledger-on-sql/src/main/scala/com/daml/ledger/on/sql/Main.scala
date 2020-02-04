@@ -7,13 +7,15 @@ import akka.stream.Materializer
 import com.daml.ledger.participant.state.kvutils.app.{Config, LedgerFactory, Runner}
 import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId}
 import com.digitalasset.logging.LoggingContext.newLoggingContext
-import com.digitalasset.resources.ResourceOwner
+import com.digitalasset.resources.{ProgramResource, ResourceOwner}
 import scopt.OptionParser
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
-object Main extends App {
-  Runner("SQL Ledger", SqlLedgerFactory).run(args)
+object Main {
+  def main(args: Array[String]): Unit = {
+    new ProgramResource(Runner("SQL Ledger", SqlLedgerFactory).owner(args)).run()
+  }
 
   case class ExtraConfig(jdbcUrl: Option[String])
 

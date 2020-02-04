@@ -7,15 +7,18 @@ import akka.stream.Materializer
 import com.daml.ledger.on.sql.Main.{ExtraConfig, SqlLedgerFactory}
 import com.daml.ledger.participant.state.kvutils.app.{Config, LedgerFactory, Runner}
 import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId}
-import com.digitalasset.resources.ResourceOwner
+import com.digitalasset.resources.{ProgramResource, ResourceOwner}
 import com.digitalasset.testing.postgresql.PostgresAround
 import scopt.OptionParser
 
-object MainWithEphemeralPostgresql extends App with PostgresAround {
-  startEphemeralPostgres()
-  sys.addShutdownHook(stopAndCleanUpPostgres())
+import scala.concurrent.ExecutionContext.Implicits.global
 
-  Runner("SQL Ledger", PostgresqlLedgerFactory).run(args)
+object MainWithEphemeralPostgresql extends PostgresAround {
+  def main(args: Array[String]): Unit = {
+    startEphemeralPostgres()
+    sys.addShutdownHook(stopAndCleanUpPostgres())
+    new ProgramResource(Runner("SQL Ledger", PostgresqlLedgerFactory).owner(args)).run()
+  }
 
   object PostgresqlLedgerFactory extends LedgerFactory[SqlLedgerReaderWriter, Unit] {
     override val defaultExtraConfig: Unit = ()

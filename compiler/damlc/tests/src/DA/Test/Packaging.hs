@@ -864,7 +864,7 @@ dataDependencyTests damlc repl davlDar = testGroup "Data Dependencies" $
     , targetLfVer <- LF.supportedOutputVersions
     , targetLfVer >= depLfVer
     ] <>
-    [ testCaseSteps ("Typeclass imports from DAML-LF " <> LF.renderVersion depLfVer <> " to " <> LF.renderVersion targetLfVer) $ \step -> withTempDir $ \tmpDir -> do
+    [ testCaseSteps ("Typeclasses and instances from DAML-LF " <> LF.renderVersion depLfVer <> " to " <> LF.renderVersion targetLfVer) $ \step -> withTempDir $ \tmpDir -> do
           let proja = tmpDir </> "proja"
           let projb = tmpDir </> "projb"
 
@@ -891,6 +891,8 @@ dataDependencyTests damlc repl davlDar = testGroup "Data Dependencies" $
               -- test constrained function export where typeclass is from stdlib
               , "usingEq : Eq t => t -> t -> Bool"
               , "usingEq = (==)"
+              -- test exporting of HasField instances
+              , "data R = R { rfoo : Int }"
               ]
           writeFileUTF8 (proja </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
@@ -906,8 +908,9 @@ dataDependencyTests damlc repl davlDar = testGroup "Data Dependencies" $
           writeFileUTF8 (projb </> "src" </> "B.daml") $ unlines
               [ "daml 1.2"
               , "module B where"
-              , "import A ( Foo (foo), Bar (..), usingFoo, Q (..), usingEq )"
+              , "import A ( Foo (foo), Bar (..), usingFoo, Q (..), usingEq, R(R) )"
               , "import DA.Assert"
+              , "import DA.Record"
               , ""
               , "data T = T Int"
               -- test instances for imported typeclass
@@ -927,6 +930,10 @@ dataDependencyTests damlc repl davlDar = testGroup "Data Dependencies" $
               , "  bar 20 === 20" -- Bar Int
               , "  Q1 === Q1" -- (Eq Q, Show Q)
               , "  (Q1 <= Q2) === True" -- Ord Q
+              -- test importing of HasField instances
+              , "testHasFieldInstanceImport = scenario do"
+              , "  let x = R 100"
+              , "  getField @\"rfoo\" x === 100"
               ]
           writeFileUTF8 (projb </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion

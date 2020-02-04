@@ -9,5 +9,5 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class TimerResourceOwner(acquireTimer: () => Timer) extends ResourceOwner[Timer] {
   override def acquire()(implicit executionContext: ExecutionContext): Resource[Timer] =
-    Resource(Future(acquireTimer()), timer => Future(timer.cancel()))
+    Resource(Future(acquireTimer()))(timer => Future(timer.cancel()))
 }

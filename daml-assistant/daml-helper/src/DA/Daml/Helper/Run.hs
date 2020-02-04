@@ -66,7 +66,7 @@ import System.Directory.Extra
 import System.Environment hiding (setEnv)
 import System.Exit
 import System.Info.Extra
-import System.Process (showCommandForUser)
+import System.Process (showCommandForUser, terminateProcess)
 import System.Process.Internals (translate)
 import System.Process.Typed
 import System.IO
@@ -314,7 +314,7 @@ runJar jarPath mbLogbackPath remainingArgs = do
 runDaml2ts :: [String] -> IO ()
 runDaml2ts remainingArgs = do
   daml2ts <- fmap (</> "daml2ts" </> "daml2ts") getSdkPath
-  withProcessWait_ (proc daml2ts remainingArgs) (const $ pure ()) `catchIO`
+  withProcessWait_' (proc daml2ts remainingArgs) (const $ pure ()) `catchIO`
     (\e -> hPutStrLn stderr "Failed to invoke daml2ts." *> throwIO e)
 
 getLogbackArg :: FilePath -> IO String
@@ -323,12 +323,26 @@ getLogbackArg relPath = do
     let logbackPath = sdkPath </> relPath
     pure $ "-Dlogback.configurationFile=" <> logbackPath
 
+-- | This is a version of `withProcessWait_` that will make sure that the process dies
+-- on an exception. The problem with `withProcessWait_` is that it tries to kill
+-- `waitForProcess` with an async exception which does not work on Windows
+-- since everything on Windows is terrible.
+-- Therefore, we kill the process with `terminateProcess` first which will unblock
+-- `waitForProcess`. Note that it is crucial to use `terminateProcess` instead of
+-- `stopProcess` since the latter falls into the same issue of trying to kill
+-- things which cannot be killed on Windows.
+withProcessWait_' :: ProcessConfig stdin stdout stderr -> (Process stdin stdout stderr -> IO a) -> IO a
+withProcessWait_' config f = bracket
+    (startProcess config)
+    stopProcess
+    (\p -> (f p <* checkExitCode p) `onException` terminateProcess (unsafeProcessHandle p))
+
 -- The first set of arguments is passed before -jar, the other after the jar path.
 withJar :: FilePath -> [String] -> [String] -> (Process () () () -> IO a) -> IO a
 withJar jarPath jvmArgs jarArgs a = do
     sdkPath <- getSdkPath
     let absJarPath = sdkPath </> jarPath
-    withProcessWait_ (proc "java" (jvmArgs ++ ["-jar", absJarPath] ++ jarArgs)) a `catchIO`
+    withProcessWait_' (proc "java" (jvmArgs ++ ["-jar", absJarPath] ++ jarArgs)) a `catchIO`
         (\e -> hPutStrLn stderr "Failed to start java. Make sure it is installed and in the PATH." *> throwIO e)
 
 getTemplatesFolder :: IO FilePath

@@ -205,7 +205,7 @@ genDefDataType curPkgId conName mod tpls def =
             case NM.lookup (dataTypeCon def) tpls of
                 Nothing -> ((makeType typeDesc, makeSer serDesc), Set.unions fieldRefs)
                 Just tpl ->
-                    let (chcs, argRefs) = unzip
+                    let (chcs, chcRefs) = unzip
                             [((unChoiceName (chcName chc), t, rtyp, rser), Set.union argRefs retRefs)
                             | chc <- NM.toList (tplChoices tpl)
                             , let tLf = snd (chcArgBinder chc)
@@ -215,10 +215,13 @@ genDefDataType curPkgId conName mod tpls def =
                             , let argRefs = Set.setOf typeModuleRef tLf
                             , let retRefs = Set.setOf typeModuleRef rLf
                             ]
-                        (keyTypeTs, keySer) = case tplKey tpl of
-                            Nothing -> ("undefined", "() => jtv.constant(undefined)")
-                            Just key -> (conName <.> "Key", "() => " <> snd (genType (moduleName mod) (tplKeyType key)) <> ".decoder()")
-                        templateId =unPackageId curPkgId <> ":" <> T.intercalate "." (unModuleName (moduleName mod)) <> ":" <> conName 
+                        (keyTypeTs, keySer, keyRefs) = case tplKey tpl of
+                            Nothing -> ("undefined", "() => jtv.constant(undefined)", Set.empty)
+                            Just key ->
+                                let keyType = tplKeyType key
+                                in
+                                (conName <.> "Key", "() => " <> snd (genType (moduleName mod) keyType) <> ".decoder()", Set.setOf typeModuleRef keyType)
+                        templateId = unPackageId curPkgId <> ":" <> T.intercalate "." (unModuleName (moduleName mod)) <> ":" <> conName
                         dict =
                             ["export const " <> conName <> ": daml.Template<" <> conName <> ", " <> keyTypeTs <> ", '" <> templateId <> "'> & {"] ++
                             ["  " <> x <> ": daml.Choice<" <> conName <> ", " <> t <> ", " <> rtyp <> ", " <> keyTypeTs <> ">;" | (x, t, rtyp, _) <- chcs] ++
@@ -256,7 +259,7 @@ genDefDataType curPkgId conName mod tpls def =
                               ["}"]) (tplKey tpl)
                         registrations =
                             ["daml.registerTemplate(" <> conName <> ");"]
-                        refs = Set.unions (fieldRefs ++ argRefs)
+                        refs = Set.unions (fieldRefs ++ keyRefs : chcRefs)
                     in
                     ((makeType typeDesc, dict ++ associatedTypes ++ registrations), refs)
       where

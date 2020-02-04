@@ -491,7 +491,7 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart"
       withCurrentDirectory quickstartDir $
       withDevNull $ \devNull -> do
           p :: Int <- fromIntegral <$> getFreePort
-          let sandboxProc = (shell $ unwords ["daml", "sandbox", "--port", show p, ".daml/dist/quickstart-0.0.1.dar"]) { std_out = UseHandle devNull }
+          let sandboxProc = (shell $ unwords ["daml", "sandbox", "--port", show p, ".daml/dist/quickstart-0.0.1.dar"]) { std_out = UseHandle devNull, std_in = CreatePipe }
           withCreateProcess sandboxProc  $
               \_ _ _ ph -> race_ (waitForProcess' sandboxProc ph) $ do
               waitForConnectionOnPort (threadDelay 100000) p
@@ -513,11 +513,11 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart"
       withDevNull $ \devNull1 -> do
       withDevNull $ \devNull2 -> do
           sandboxPort :: Int <- fromIntegral <$> getFreePort
-          let sandboxProc = (shell $ unwords ["daml", "sandbox", "--port", show sandboxPort, ".daml/dist/quickstart-0.0.1.dar"]) { std_out = UseHandle devNull1 }
+          let sandboxProc = (shell $ unwords ["daml", "sandbox", "--port", show sandboxPort, ".daml/dist/quickstart-0.0.1.dar"]) { std_out = UseHandle devNull1, std_in = CreatePipe }
           withCreateProcess sandboxProc  $ \_ _ _ sandboxPh -> race_ (waitForProcess' sandboxProc sandboxPh) $ do
               waitForConnectionOnPort (threadDelay 100000) sandboxPort
               navigatorPort :: Int <- fromIntegral <$> getFreePort
-              let navigatorProc = (shell $ unwords ["daml", "navigator", "server", "localhost", show sandboxPort, "--port", show navigatorPort]) { std_out = UseHandle devNull2 }
+              let navigatorProc = (shell $ unwords ["daml", "navigator", "server", "localhost", show sandboxPort, "--port", show navigatorPort]) { std_out = UseHandle devNull2, std_in = CreatePipe }
               withCreateProcess navigatorProc $ \_ _ _ navigatorPh -> race_ (waitForProcess' navigatorProc navigatorPh) $ do
                   -- waitForHttpServer will only return once we get a 200 response so we don’t need to do anything else.
                   waitForHttpServer (threadDelay 100000) ("http://localhost:" <> show navigatorPort) []
@@ -529,11 +529,11 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart"
       withDevNull $ \devNull1 -> do
       withDevNull $ \devNull2 -> do
           sandboxPort :: Int <- fromIntegral <$> getFreePort
-          let sandboxProc = (shell $ unwords ["daml", "sandbox", "--port", show sandboxPort, ".daml/dist/quickstart-0.0.1.dar"]) { std_out = UseHandle devNull1 }
+          let sandboxProc = (shell $ unwords ["daml", "sandbox", "--port", show sandboxPort, ".daml/dist/quickstart-0.0.1.dar"]) { std_out = UseHandle devNull1, std_in = CreatePipe }
           withCreateProcess sandboxProc  $ \_ _ _ sandboxPh -> race_ (waitForProcess' sandboxProc sandboxPh) $ do
               waitForConnectionOnPort (threadDelay 100000) sandboxPort
               jsonApiPort :: Int <- fromIntegral <$> getFreePort
-              let jsonApiProc = (shell $ unwords ["daml", "json-api", "--ledger-host", "localhost", "--ledger-port", show sandboxPort, "--http-port", show jsonApiPort]) { std_out = UseHandle devNull2 }
+              let jsonApiProc = (shell $ unwords ["daml", "json-api", "--ledger-host", "localhost", "--ledger-port", show sandboxPort, "--http-port", show jsonApiPort]) { std_out = UseHandle devNull2, std_in = CreatePipe }
               withCreateProcess jsonApiProc $ \_ _ _ jsonApiPh -> race_ (waitForProcess' jsonApiProc jsonApiPh) $ do
                   let headers =
                           [ ("Authorization", "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJsZWRnZXJJZCI6Ik15TGVkZ2VyIiwiYXBwbGljYXRpb25JZCI6ImZvb2JhciIsInBhcnR5IjoiQWxpY2UifQ.4HYfzjlYr1ApUDot0a6a4zB49zS_jrwRUOCkAiPMqo0")
@@ -560,7 +560,7 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart"
       withDevNull $ \devNull1 ->
       withDevNull $ \devNull2 -> do
           sandboxPort :: Int <- fromIntegral <$> getFreePort
-          let sandboxProc = (shell $ unwords ["daml", "sandbox", "--", "--port", show sandboxPort, "--", "--scenario", "Main:setup", ".daml/dist/quickstart-0.0.1.dar"]) { std_out = UseHandle devNull1 }
+          let sandboxProc = (shell $ unwords ["daml", "sandbox", "--", "--port", show sandboxPort, "--", "--scenario", "Main:setup", ".daml/dist/quickstart-0.0.1.dar"]) { std_out = UseHandle devNull1, std_in = CreatePipe }
           withCreateProcess sandboxProc $
               \_ _ _ ph -> race_ (waitForProcess' sandboxProc ph) $ do
               waitForConnectionOnPort (threadDelay 500000) sandboxPort
@@ -658,7 +658,7 @@ deployTest deployDir = testCase "daml deploy" $ do
                             , "--auth-jwt-hs256-unsafe=" <> sharedSecret
                             , "--port", show port
                             , ".daml/dist/proj1-0.0.1.dar"
-                            ]) { std_out = UseHandle devNull }
+                            ]) { std_out = UseHandle devNull, std_in = CreatePipe }
                 let tokenFile = deployDir </> "secretToken.jwt"
                 -- The trailing newline is not required but we want to test that it is supported.
                 writeFileUTF8 tokenFile ("Bearer " <> makeSignedJwt sharedSecret <> "\n")
@@ -692,7 +692,11 @@ damlInstallerName
 -- | Like call process but hides stdout.
 runCreateProcessQuiet :: CreateProcess -> IO ()
 runCreateProcessQuiet createProcess = do
-    (exit, _out, err) <- readCreateProcessWithExitCode createProcess ""
+    -- We use `repeat ' '` to keep stdin open. Really we would just
+    -- like to inherit stdin but readCreateProcessWithExitCode does
+    -- not allow us to overwrite just that and I don’t want to
+    -- reimplement everything.
+    (exit, _out, err) <- readCreateProcessWithExitCode createProcess (repeat ' ')
     hPutStr stderr err
     unless (exit == ExitSuccess) $ throwIO $ ProcessExitFailure exit createProcess
 

@@ -7,7 +7,6 @@ import java.time.Instant
 import java.util.concurrent.CompletionStage
 
 import akka.NotUsed
-import akka.actor.Cancellable
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.codahale.metrics.MetricRegistry
@@ -131,18 +130,17 @@ object SandboxIndexAndWriteService {
     override def acquire()(implicit executionContext: ExecutionContext): Resource[Unit] =
       timeProvider match {
         case timeProvider: TimeProvider.UTC.type =>
-          Resource[Cancellable](
-            Future {
-              val interval = 1.seconds
-              logger.debug(s"Scheduling heartbeats in intervals of {}", interval)
-              Source
-                .tick(0.seconds, interval, ())
-                .mapAsync[Unit](1)(
-                  _ => onTimeChange(timeProvider.getCurrentTime)
-                )
-                .to(Sink.ignore)
-                .run()
-            },
+          Resource(Future {
+            val interval = 1.seconds
+            logger.debug(s"Scheduling heartbeats in intervals of {}", interval)
+            Source
+              .tick(0.seconds, interval, ())
+              .mapAsync[Unit](1)(
+                _ => onTimeChange(timeProvider.getCurrentTime)
+              )
+              .to(Sink.ignore)
+              .run()
+          })(
             cancellable =>
               Future {
                 val _ = cancellable.cancel()

@@ -9,7 +9,7 @@ import scala.collection.generic.CanBuildFrom
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success, Try}
 
-trait Resource[A] {
+trait Resource[+A] {
   self =>
 
   val asFuture: Future[A]
@@ -17,7 +17,7 @@ trait Resource[A] {
   def release(): Future[Unit]
 
   def map[B](f: A => B)(implicit executionContext: ExecutionContext): Resource[B] =
-    Resource(asFuture.map(f), _ => Future.successful(()), release _)
+    Resource.nest(asFuture.map(f))(_ => Future.successful(()), release _)
 
   def flatMap[B](f: A => Resource[B])(implicit executionContext: ExecutionContext): Resource[B] = {
     val nextFuture: Future[Resource[B]] =
@@ -30,7 +30,7 @@ trait Resource[A] {
         case Success(b) => b.release()
         case Failure(_) => Future.successful(())
     }
-    Resource(nextFuture.flatMap(_.asFuture), nextRelease, release _)
+    Resource.nest(nextFuture.flatMap(_.asFuture))(nextRelease, release _)
   }
 
   def withFilter(p: A => Boolean)(implicit executionContext: ExecutionContext): Resource[A] = {
@@ -40,37 +40,31 @@ trait Resource[A] {
           Future.successful(value)
         else
           Future.failed(new ResourceAcquisitionFilterException()))
-    Resource(future, _ => Future.successful(()), release _)
+    Resource.nest(future)(_ => Future.successful(()), release _)
   }
 
   def flatten[B](
-      implicit nestedEvidence: <:<[A, Resource[B]],
+      implicit nestedEvidence: A <:< Resource[B],
       executionContext: ExecutionContext,
   ): Resource[B] =
-    flatMap(nested => nested)
+    flatMap(identity[A])
 
   def transformWith[B](f: Try[A] => Resource[B])(
       implicit executionContext: ExecutionContext,
   ): Resource[B] =
-    Resource(
-      asFuture.transformWith(f.andThen(Future.successful)),
-      (nested: Resource[B]) => nested.release(),
-      release _,
-    ).flatten
+    Resource
+      .nest(asFuture.transformWith(f.andThen(Future.successful)))(
+        (nested: Resource[B]) => nested.release(),
+        release _,
+      )
+      .flatten
 
-  def vary[B >: A]: Resource[B] = asInstanceOf[Resource[B]]
 }
 
 object Resource {
   import scala.language.higherKinds
 
-  def apply[T](future: Future[T], releaseResource: T => Future[Unit])(
-      implicit executionContext: ExecutionContext
-  ): Resource[T] =
-    apply(future, releaseResource, () => Future.successful(()))
-
-  private def apply[T](
-      future: Future[T],
+  private def nest[T](future: Future[T])(
       releaseResource: T => Future[Unit],
       releaseSubResources: () => Future[Unit],
   )(implicit executionContext: ExecutionContext): Resource[T] =
@@ -104,11 +98,22 @@ object Resource {
           releasePromise.future
     }
 
+  def apply[T](future: Future[T])(releaseResource: T => Future[Unit])(
+      implicit executionContext: ExecutionContext
+  ): Resource[T] =
+    nest(future)(releaseResource, () => Future.successful(()))
+
+  /**
+    * Useful to wrap a simple [[Future]] that doesn't need releasing in a [[Resource]]
+    */
+  def fromFuture[T](future: Future[T])(implicit executionContext: ExecutionContext): Resource[T] =
+    apply(future)(_ => Future.successful(()))
+
   def successful[T](value: T)(implicit executionContext: ExecutionContext): Resource[T] =
-    Resource(Future.successful(value), _ => Future.successful(()))
+    Resource.fromFuture(Future.successful(value))
 
   def failed[T](exception: Throwable)(implicit executionContext: ExecutionContext): Resource[T] =
-    Resource(Future.failed(exception), _ => Future.successful(()))
+    Resource.fromFuture(Future.failed(exception))
 
   def sequence[T, C[X] <: TraversableOnce[X]](seq: C[Resource[T]])(
       implicit bf: CanBuildFrom[C[Resource[T]], T, C[T]],

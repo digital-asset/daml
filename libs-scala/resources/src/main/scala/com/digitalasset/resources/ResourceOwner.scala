@@ -6,12 +6,14 @@ package com.digitalasset.resources
 import java.util.Timer
 import java.util.concurrent.{CompletionStage, ExecutorService}
 
+import scala.collection.generic.CanBuildFrom
 import scala.compat.java8.FutureConverters._
 import scala.concurrent.{ExecutionContext, Future}
+import scala.language.higherKinds
 import scala.util.{Failure, Success, Try}
 
 @FunctionalInterface
-trait ResourceOwner[A] {
+trait ResourceOwner[+A] {
   self =>
 
   def acquire()(implicit executionContext: ExecutionContext): Resource[A]
@@ -42,15 +44,14 @@ trait ResourceOwner[A] {
       }
   }
 
-  def vary[B >: A]: ResourceOwner[B] = asInstanceOf[ResourceOwner[B]]
 }
 
 object ResourceOwner {
   def successful[T](value: T): ResourceOwner[T] =
-    forTry(() => Success(value))
+    new FutureResourceOwner[T](() => Future.successful(value))
 
-  def failed[T](exception: Throwable): ResourceOwner[T] =
-    forTry(() => Failure(exception))
+  def failed(throwable: Throwable): ResourceOwner[Nothing] =
+    new FutureResourceOwner[Nothing](() => Future.failed(throwable))
 
   def forTry[T](acquire: () => Try[T]): ResourceOwner[T] =
     new FutureResourceOwner[T](() => Future.fromTry(acquire()))
@@ -75,4 +76,26 @@ object ResourceOwner {
 
   def forTimer(acquire: () => Timer): ResourceOwner[Timer] =
     new TimerResourceOwner(acquire)
+
+  def sequence[T, C[X] <: TraversableOnce[X]](seq: C[ResourceOwner[T]])(
+      implicit bf: CanBuildFrom[C[ResourceOwner[T]], T, C[T]],
+      executionContext: ExecutionContext,
+  ): ResourceOwner[C[T]] =
+    seq
+      .foldLeft(ResourceOwner.successful(bf()))((builderResource, elementResource) =>
+        for {
+          builder <- builderResource
+          element <- elementResource
+        } yield builder += element)
+      .map(_.result())
+
+  def sequenceIgnoringValues[T, C[X] <: TraversableOnce[X]](seq: C[ResourceOwner[T]])(
+      implicit executionContext: ExecutionContext,
+  ): ResourceOwner[Unit] =
+    seq
+      .foldLeft(ResourceOwner.successful(()))((builderResource, elementResource) =>
+        for {
+          _ <- builderResource
+          _ <- elementResource
+        } yield ())
 }

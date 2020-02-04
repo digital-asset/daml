@@ -397,7 +397,7 @@ execIde telemetry (Debug debug) enableScenarioService options =
               withScenarioService' enableScenarioService loggerH scenarioServiceConfig $ \mbScenarioService -> do
                   sdkVersion <- getSdkVersion `catchIO` const (pure "Unknown (not started via the assistant)")
                   Logger.logInfo loggerH (T.pack $ "SDK version: " <> sdkVersion)
-                  runLanguageServer loggerH $ \getLspId sendMsg vfs caps ->
+                  runLanguageServer loggerH enabledPlugins $ \getLspId sendMsg vfs caps ->
                       getDamlIdeState options mbScenarioService loggerH caps getLspId sendMsg vfs (clientSupportsProgress caps)
 
 
@@ -835,6 +835,7 @@ execGenerateSrc opts dalfOrDar mbOutDir = Command GenerateSrc Nothing effect
 
             config = DataDeps.Config
                 { configPackages = pkgMap
+                , configSelfPkgId = pkgId
                 , configGetUnitId = getUnitId unitId unitIdMap
                 , configStablePackages = stablePkgIds
                 , configDependencyPackages = dependencyPkgIds
@@ -879,6 +880,7 @@ execGenerateGenSrc darFp mbQual outDir = Command GenerateGenerics Nothing effect
         -- TODO Passing MS.empty and Set.empty is not right but this command is only used for debugging so for now this is fine.
         let config = DataDeps.Config
                 { configPackages = MS.empty
+                , configSelfPkgId = mainPkgId
                 , configGetUnitId = getUnitId unitId pkgMap
                 , configStablePackages = Set.empty
                 , configDependencyPackages = Set.empty

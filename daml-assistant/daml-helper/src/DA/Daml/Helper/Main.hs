@@ -21,7 +21,7 @@ main =
         exitFailure
   where
     parserPrefs = prefs showHelpOnError
-    go = do
+    go = withCloseOnStdin $ do
          installSignalHandlers
          command <- customExecParser parserPrefs (info (commandParser <**> helper) idm)
          runCommand command

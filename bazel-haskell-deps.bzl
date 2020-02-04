@@ -17,9 +17,9 @@ load("@os_info//:os_info.bzl", "is_windows")
 load("@dadew//:dadew.bzl", "dadew_tool_home")
 load("@rules_haskell//haskell:cabal.bzl", "stack_snapshot")
 
-GHCIDE_REV = "8f74783835324ee6dad7faf83b7a62143a48e8c6"
-GHCIDE_SHA256 = "36bed2b197dfc296488ed2e994b82193e4505051ffa3050d4844a6c66fab2baa"
-GHCIDE_VERSION = "0.0.6"
+GHCIDE_REV = "368cff7af5110f5cee4fa8a4648ac1e9893760de"
+GHCIDE_SHA256 = "4be34f38143cf9b1cccfcd335505c443901d4e00ab11960d96100d0cff77aa62"
+GHCIDE_VERSION = "0.1.0"
 
 def daml_haskell_deps():
     """Load all Haskell dependencies of the DAML repository."""
@@ -39,7 +39,7 @@ load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_binary")
 haskell_cabal_binary(
     name = "alex",
     srcs = glob(["**"]),
-    compiler_flags = ["-w", "-optF=-w"],
+    verbose = False,
     visibility = ["//visibility:public"],
 )
 """,
@@ -55,7 +55,6 @@ load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_binary")
 haskell_cabal_binary(
     name = "c2hs",
     srcs = glob(["**"]),
-    compiler_flags = ["-w", "-optF=-w"],
     deps = [
         "@c2hs_deps//:base",
         "@c2hs_deps//:bytestring",
@@ -63,6 +62,7 @@ haskell_cabal_binary(
         "@c2hs_deps//:filepath",
         "@c2hs_deps//:dlist",
     ],
+    verbose = False,
     visibility = ["//visibility:public"],
 )
 """,
@@ -78,7 +78,7 @@ load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_binary")
 haskell_cabal_binary(
     name = "happy",
     srcs = glob(["**"]),
-    compiler_flags = ["-w", "-optF=-w"],
+    verbose = False,
     visibility = ["//visibility:public"],
 )
 """,
@@ -163,7 +163,6 @@ load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_binary")
 haskell_cabal_binary(
     name = "hpp",
     srcs = glob(["**"]),
-    compiler_flags = ["-w", "-optF=-w"],
     deps = [
         "@stackage//:base",
         "@stackage//:directory",
@@ -171,6 +170,7 @@ haskell_cabal_binary(
         "@stackage//:hpp",
         "@stackage//:time",
     ],
+    verbose = False,
     visibility = ["//visibility:public"],
 )
 """,
@@ -292,9 +292,9 @@ haskell_cabal_library(
     version = "0.0.0.0",
     srcs = glob(["**"]),
     haddock = False,
-    compiler_flags = ["-w", "-optF=-w"],
     deps = packages["grpc-haskell-core"].deps + {deps},
     tools = ["@c2hs//:c2hs"],
+    verbose = False,
     visibility = ["//visibility:public"],
 )
 {extra_targets}

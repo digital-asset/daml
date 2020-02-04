@@ -6,8 +6,10 @@ package com.digitalasset.platform.sandbox.persistence
 import com.digitalasset.platform.sandbox.SandboxMain
 import com.digitalasset.testing.postgresql.PostgresAround
 
-object EphemeralPostgresSandboxMain extends App with PostgresAround {
-  startEphemeralPostgres()
-  sys.addShutdownHook(stopAndCleanUpPostgres())
-  SandboxMain.main(args ++ List("--sql-backend-jdbcurl", postgresFixture.jdbcUrl))
+object EphemeralPostgresSandboxMain extends PostgresAround {
+  def main(args: Array[String]): Unit = {
+    startEphemeralPostgres()
+    sys.addShutdownHook(stopAndCleanUpPostgres())
+    SandboxMain.main(args ++ Array("--sql-backend-jdbcurl", postgresFixture.jdbcUrl))
+  }
 }

@@ -21,7 +21,7 @@ import scala.language.implicitConversions
 
 class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChecks {
 
-  private implicit def id(s: String): Ref.Name.T = Name.assertFromString(s)
+  private implicit def id(s: String): Ref.Name = Name.assertFromString(s)
 
   private def runExpr(e: Expr): SValue = {
     val machine = Speedy.Machine.fromExpr(e, true, PureCompiledPackages(Map.empty).right.get, false)

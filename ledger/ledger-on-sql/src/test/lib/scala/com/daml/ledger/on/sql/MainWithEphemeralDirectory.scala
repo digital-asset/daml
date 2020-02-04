@@ -9,15 +9,17 @@ import akka.stream.Materializer
 import com.daml.ledger.on.sql.Main.{ExtraConfig, SqlLedgerFactory}
 import com.daml.ledger.participant.state.kvutils.app.{Config, LedgerFactory, Runner}
 import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId}
-import com.digitalasset.resources.ResourceOwner
+import com.digitalasset.resources.{ProgramResource, ResourceOwner}
 import scopt.OptionParser
 
-object MainWithEphemeralDirectory extends App {
-  val DirectoryPattern = "%DIR"
+import scala.concurrent.ExecutionContext.Implicits.global
 
-  val directory = Files.createTempDirectory("ledger-on-sql-ephemeral-")
+object MainWithEphemeralDirectory {
+  private val DirectoryPattern = "%DIR"
 
-  Runner("SQL Ledger", TestLedgerFactory).run(args)
+  def main(args: Array[String]): Unit = {
+    new ProgramResource(Runner("SQL Ledger", TestLedgerFactory).owner(args)).run()
+  }
 
   object TestLedgerFactory extends LedgerFactory[SqlLedgerReaderWriter, ExtraConfig] {
     override val defaultExtraConfig: ExtraConfig = SqlLedgerFactory.defaultExtraConfig
@@ -30,6 +32,7 @@ object MainWithEphemeralDirectory extends App {
         participantId: ParticipantId,
         config: ExtraConfig,
     )(implicit materializer: Materializer): ResourceOwner[SqlLedgerReaderWriter] = {
+      val directory = Files.createTempDirectory("ledger-on-sql-ephemeral-")
       val jdbcUrl = config.jdbcUrl.map(_.replace(DirectoryPattern, directory.toString))
       SqlLedgerFactory.owner(ledgerId, participantId, config.copy(jdbcUrl = jdbcUrl))
     }

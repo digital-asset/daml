@@ -4,17 +4,22 @@
   "version": "0.0.0-SDKVERSION",
   "description": "React framework to interact with a DAML ledger",
   "homepage": "https://daml.com",
-  "keywords": ["daml", "react", "client", "API"],
+  "keywords": [
+    "daml",
+    "react",
+    "client",
+    "API"
+  ],
   "main": "index.js",
   "types": "index.d.ts",
   "license": "Apache-2.0",
   "dependencies": {
-    "@daml/types": "0.0.0-SDKVERSION",
     "@daml/ledger": "0.0.0-SDKVERSION",
+    "@daml/types": "0.0.0-SDKVERSION",
+    "@types/react": "^16.9.16",
     "immutable": "^4.0.0-rc.12",
     "jwt-simple": "^0.5.6",
-    "react": "^16.12.0",
-    "@types/react": "^16.9.16"
+    "react": "^16.12.0"
   },
   "scripts": {
     "build": "tsc --build",
@@ -43,12 +48,13 @@
     }
   },
   "devDependencies": {
+    "@types/jest": "^24.0.23",
     "@typescript-eslint/eslint-plugin": "^2.16.0",
     "@typescript-eslint/parser": "^2.16.0",
     "eslint": "^6.8.0",
-    "typescript": "3.7.4",
-    "@types/jest": "^24.0.23",
+    "fast-deep-equal": "^3.1.1",
     "jest": "^24.9.0",
-    "ts-jest": "^24.2.0"
+    "ts-jest": "^24.2.0",
+    "typescript": "3.7.4"
   }
 }
