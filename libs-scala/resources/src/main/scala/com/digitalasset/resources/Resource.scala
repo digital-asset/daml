@@ -106,14 +106,14 @@ object Resource {
   /**
     * Useful to wrap a simple [[Future]] that doesn't need releasing in a [[Resource]]
     */
-  def unreleasable[T](future: Future[T])(implicit executionContext: ExecutionContext): Resource[T] =
+  def fromFuture[T](future: Future[T])(implicit executionContext: ExecutionContext): Resource[T] =
     apply(future)(_ => Future.successful(()))
 
   def successful[T](value: T)(implicit executionContext: ExecutionContext): Resource[T] =
-    Resource.unreleasable(Future.successful(value))
+    Resource.fromFuture(Future.successful(value))
 
   def failed[T](exception: Throwable)(implicit executionContext: ExecutionContext): Resource[T] =
-    Resource.unreleasable(Future.failed(exception))
+    Resource.fromFuture(Future.failed(exception))
 
   def sequence[T, C[X] <: TraversableOnce[X]](seq: C[Resource[T]])(
       implicit bf: CanBuildFrom[C[Resource[T]], T, C[T]],
