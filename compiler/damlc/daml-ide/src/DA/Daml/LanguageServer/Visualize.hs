@@ -26,11 +26,10 @@ collectTexts :: List Aeson.Value -> Maybe NormalizedFilePath
 collectTexts (List [Aeson.String file])  = Just (toNormalizedFilePath (T.unpack file))
 collectTexts _= Nothing
 
--- TODO(Anup) - Return errors via LSP instead of (return Aeson.Null) for which we will need some changes to withResponse
 onCommand
     :: IdeState
     -> ExecuteCommandParams
-    -> IO Aeson.Value
+    -> IO (Either ResponseError Aeson.Value)
 onCommand ide execParsms = case execParsms of
     ExecuteCommandParams "daml/damlVisualize" (Just _arguments) _ -> do
         case collectTexts _arguments of
@@ -42,13 +41,14 @@ onCommand ide execParsms = case execParsms of
                     let extpkgs = map LF.dalfPackagePkg $ Map.elems pkgMap
                     let wrld = LF.initWorldSelf extpkgs package
                     let dots = T.pack $ Visual.dotFileGen modules wrld
-                    return $ Aeson.String dots
+                    return $ Right $ Aeson.String dots
             Nothing     -> do
                 logError (ideLogger ide) "Expected a single module to visualize, got multiple module"
-                return $ Aeson.String "Expected a single module to visualize, got multiple module"
+                return $ Right $ Aeson.String "Expected a single module to visualize, got multiple module"
     ExecuteCommandParams command args _ -> do
-        logError (ideLogger ide) $ T.pack ("Unsupported command " ++ show command ++ "with args " ++ show args)
-        return Aeson.Null
+        let err = T.pack ("Unsupported command " ++ show command ++ "with args " ++ show args)
+        logError (ideLogger ide) err
+        return $ Left (ResponseError InvalidParams err Nothing)
 
 setCommandHandler ::PartialHandlers
 setCommandHandler = PartialHandlers $ \WithMessage{..} x -> return x {
