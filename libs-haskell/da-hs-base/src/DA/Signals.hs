@@ -12,6 +12,7 @@ module DA.Signals
 import Control.Exception
 import Control.Concurrent.Async
 import System.IO
+import System.IO.Error
 import Control.Concurrent
 
 #ifndef mingw32_HOST_OS
@@ -33,9 +34,13 @@ installSignalHandlers = do
 withCloseOnStdin :: IO a -> IO a
 withCloseOnStdin a = do
     mainThread <- myThreadId
-    withAsync (go mainThread) (const a)
+    withAsync (go mainThread) $ const a
   where go mainThread = do
-            b <- isEOF
-            if b
-                then throwTo mainThread UserInterrupt
-                else threadDelay 1000000 >> go mainThread
+            -- We cannot use hIsEOF since that is unkillable on Windows.
+            r <- try $ hReady stdin
+            case r of
+                Left e | isEOFError e -> throwTo mainThread UserInterrupt
+                       | otherwise -> throwIO e
+                Right _ -> do
+                    threadDelay 100_000
+                    go mainThread
