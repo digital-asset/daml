@@ -7,6 +7,7 @@
 resource "google_compute_instance" "periodic-killer" {
   name         = "periodic-killer"
   machine_type = "n1-standard-1"
+  zone         = "us-east4-a"
 
   boot_disk {
     initialize_params {
