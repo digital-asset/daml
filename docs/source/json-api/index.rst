@@ -933,6 +933,9 @@ Fetch by Key Contracts Stream
 
 List currently active contracts that match one of the given ``templateId - key`` pairs, with continuous updates.
 
+Similarly to `Contracts Query Stream`_, two subprotocols must be passed, as described in `Choosing a party
+<#choosing-a-party>`__.
+
 ``application/json`` body must be sent first, formatted according to the following rule:
 
 .. code-block:: none
