@@ -29,7 +29,6 @@ import scalaz.syntax.traverse._
 import scalaz.{-\/, Show, \/, \/-}
 import spray.json.{JsObject, JsString, JsValue}
 
-import scala.collection.{immutable, mutable}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
@@ -267,13 +266,7 @@ class WebSocketService(
         .insertDeleteStepSource(jwt, jwtPayload.party, resolved.toList, Terminates.Never)
         .via(convertFilterContracts(fn))
         .filter(_.nonEmpty)
-        .map { e =>
-          println(s"---1: $e"); e
-        }
         .via(removePhantonArchives(remove = !Q.allowPhantonArchives))
-        .map { e =>
-          println(s"---3: $e"); e
-        }
         .map(_.render)
         .prepend(reportUnresolvedTemplateIds(unresolved))
         .map(jsv => TextMessage(jsv.compactPrint))
@@ -289,19 +282,19 @@ class WebSocketService(
     if (remove) removePhantonArchives_[A]
     else Flow[StepAndErrors[A]].map(identity)
 
-  private def removePhantonArchives_[A] =
-    Flow[StepAndErrors[A]].statefulMapConcat { () =>
-      val createIds = mutable.Set[String]()
-      (a: StepAndErrors[A]) =>
-        {
-          println(s"---2 steps: $createIds, $a")
-          val deletesToKeep: Set[String] = a.step.deletes.filter(cid => createIds.remove(cid))
-          a.step.inserts.foreach(x => createIds.add(x.contractId.unwrap))
-          val a1 = a.copy(step = a.step.copy(deletes = deletesToKeep))
-          if (a1.nonEmpty) immutable.Iterable(a1)
-          else immutable.Iterable.empty
-        }
-    }
+  private def removePhantonArchives_[A]: Flow[StepAndErrors[A], StepAndErrors[A], NotUsed] =
+    Flow[StepAndErrors[A]]
+      .scan((Set.empty[String], Option.empty[StepAndErrors[A]])) {
+        case ((s0, _), a0) =>
+          val deletesToKeep: Set[String] = a0.step.deletes.filter(x => s0(x))
+          val newInserts: Vector[String] = a0.step.inserts.map(_.contractId.unwrap)
+
+          val s1: Set[String] = (s0 -- deletesToKeep) ++ newInserts
+          val a1 = a0.copy(step = a0.step.copy(deletes = deletesToKeep))
+
+          (s1, if (a1.nonEmpty) Some(a1) else None)
+      }
+      .collect { case (_, Some(x)) => x }
 
   private[http] def wsErrorMessage(errorMsg: String): TextMessage.Strict =
     TextMessage(
