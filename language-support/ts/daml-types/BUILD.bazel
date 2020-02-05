@@ -43,9 +43,9 @@ eslint_test(
 pkg_npm(
     name = "npm_package",
     srcs = [
+        ":README.md",
         ":package.json",
         ":tsconfig.json",
-        ":README.md",
     ],
     substitutions = {"0.0.0-SDKVERSION": sdk_version},
     visibility = ["//visibility:public"],
