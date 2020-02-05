@@ -354,10 +354,10 @@ object WebsocketServiceIntegrationTest {
       path: Uri.Path,
       flow: Flow[Message, Message, NotUsed])
 
-  sealed abstract class StreamState extends Product with Serializable
-  case object NothingYet extends StreamState
-  final case class GotAcs(firstCid: String) extends StreamState
-  final case class ShouldHaveEnded(msgCount: Int) extends StreamState
+  private sealed abstract class StreamState extends Product with Serializable
+  private case object NothingYet extends StreamState
+  private final case class GotAcs(firstCid: String) extends StreamState
+  private final case class ShouldHaveEnded(msgCount: Int) extends StreamState
 
   private object ContractDelta {
     def unapply(jsv: JsValue): Option[(Vector[(String, JsValue)], Vector[String])] =
