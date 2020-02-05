@@ -46,7 +46,7 @@ object Config {
       args: Seq[String],
   ): ResourceOwner[Config[Extra]] =
     parse(name, extraOptions, defaultExtra, args)
-      .fold(ResourceOwner.failed[Config[Extra]](new Config.ConfigParseException))(
+      .fold[ResourceOwner[Config[Extra]]](ResourceOwner.failed(new Config.ConfigParseException))(
         ResourceOwner.successful)
 
   def parse[Extra](

@@ -50,7 +50,7 @@ object ResourceOwner {
   def successful[T](value: T): ResourceOwner[T] =
     new FutureResourceOwner(() => Future.successful(value))
 
-  def failed[T](throwable: Throwable): ResourceOwner[T] =
+  def failed(throwable: Throwable): ResourceOwner[Nothing] =
     new FutureResourceOwner(() => Future.failed(throwable))
 
   def forTry[T](acquire: () => Try[T]): ResourceOwner[T] =
