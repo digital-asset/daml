@@ -1,7 +1,9 @@
 // Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.transaction
+package com.digitalasset.daml.lf
+package transaction
+
 import com.digitalasset.daml.lf.data.{ImmArray, ScalazEqual}
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.value.Value.{ContractInst, VersionedValue}
@@ -44,6 +46,7 @@ object Node {
 
   /** Denotes the creation of a contract instance. */
   final case class NodeCreate[+Cid, +Val](
+      nodeSeed: Option[crypto.Hash],
       coid: Cid,
       coinst: ContractInst[Val],
       optLocation: Option[Location], // Optional location of the create expression
@@ -95,6 +98,7 @@ object Node {
     * ledgers.
     */
   final case class NodeExercises[+Nid, +Cid, +Val](
+      nodeSeed: Option[crypto.Hash],
       targetCoid: Cid,
       templateId: Identifier,
       choiceId: ChoiceName,
@@ -141,6 +145,7 @@ object Node {
       * apply method enforces it.
       */
     def apply[Nid, Cid, Val](
+        nodeSeed: Option[crypto.Hash] = None,
         targetCoid: Cid,
         templateId: Identifier,
         choiceId: ChoiceName,
@@ -155,6 +160,7 @@ object Node {
         key: Option[KeyWithMaintainers[Val]],
     ): NodeExercises[Nid, Cid, Val] =
       NodeExercises(
+        nodeSeed,
         targetCoid,
         templateId,
         choiceId,
@@ -210,11 +216,18 @@ object Node {
   ): Boolean =
     ScalazEqual.match2[recorded.type, isReplayedBy.type, Boolean](fallback = false) {
       case nc: NodeCreate[Cid, Val] => {
-        case NodeCreate(coid2, coinst2, optLocation2 @ _, signatories2, stakeholders2, key2) =>
+        case NodeCreate(
+            nodeSeed2,
+            coid2,
+            coinst2,
+            optLocation2 @ _,
+            signatories2,
+            stakeholders2,
+            key2) =>
           import nc._
           // NOTE(JM): Do not compare location annotations as they may differ due to
           // differing update expression constructed from the root node.
-          coid === coid2 && coinst === coinst2 &&
+          nodeSeed == nodeSeed2 && coid === coid2 && coinst === coinst2 &&
           signatories == signatories2 && stakeholders == stakeholders2 && key === key2
         case _ => false
       }
@@ -234,6 +247,7 @@ object Node {
       }
       case ne: NodeExercises[Nothing, Cid, Val] => {
         case NodeExercises(
+            nodeSeed2,
             targetCoid2,
             templateId2,
             choiceId2,
@@ -249,6 +263,7 @@ object Node {
             key2,
             ) =>
           import ne._
+          nodeSeed == nodeSeed2 &&
           targetCoid === targetCoid2 && templateId == templateId2 && choiceId == choiceId2 &&
           consuming == consuming2 && actingParties == actingParties2 && chosenValue === chosenValue2 &&
           stakeholders == stakeholders2 && signatories == signatories2 && controllers == controllers2 &&

@@ -200,6 +200,7 @@ object Ledger {
     node match {
       case nc: NodeCreate.WithTxValue[ContractId] =>
         NodeCreate[AbsoluteContractId, Transaction.Value[AbsoluteContractId]](
+          nodeSeed = nc.nodeSeed,
           coid = contractIdToAbsoluteContractId(commitPrefix, nc.coid),
           coinst = nc.coinst.copy(arg = makeAbsolute(commitPrefix, nc.coinst.arg)),
           optLocation = nc.optLocation,
@@ -218,6 +219,7 @@ object Ledger {
         )
       case nex: NodeExercises.WithTxValue[Transaction.NodeId, ContractId] =>
         NodeExercises[ScenarioNodeId, AbsoluteContractId, Transaction.Value[AbsoluteContractId]](
+          nodeSeed = nex.nodeSeed,
           targetCoid = contractIdToAbsoluteContractId(commitPrefix, nex.targetCoid),
           templateId = nex.templateId,
           choiceId = nex.choiceId,
