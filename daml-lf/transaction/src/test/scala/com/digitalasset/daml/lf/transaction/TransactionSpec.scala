@@ -126,28 +126,30 @@ object TransactionSpec {
       hasExerciseResult: Boolean = true,
   ): NodeExercises[String, String, Value[String]] =
     NodeExercises(
-      "dummyCoid",
-      Ref.Identifier(
+      nodeSeed = None,
+      targetCoid = "dummyCoid",
+      templateId = Ref.Identifier(
         PackageId.assertFromString("-dummyPkg-"),
         QualifiedName.assertFromString("DummyModule:dummyName"),
       ),
-      "dummyChoice",
-      None,
-      true,
-      Set.empty,
-      V.ValueUnit,
-      Set.empty,
-      Set.empty,
-      Set.empty,
-      children,
-      if (hasExerciseResult) Some(V.ValueUnit) else None,
-      None,
+      choiceId = "dummyChoice",
+      optLocation = None,
+      consuming = true,
+      actingParties = Set.empty,
+      chosenValue = V.ValueUnit,
+      stakeholders = Set.empty,
+      signatories = Set.empty,
+      controllers = Set.empty,
+      children = children,
+      exerciseResult = if (hasExerciseResult) Some(V.ValueUnit) else None,
+      key = None,
     )
 
   val dummyCreateNode: NodeCreate[String, Value[String]] =
     NodeCreate(
-      "dummyCoid",
-      ContractInst(
+      nodeSeed = None,
+      coid = "dummyCoid",
+      coinst = ContractInst(
         Ref.Identifier(
           PackageId.assertFromString("-dummyPkg-"),
           QualifiedName.assertFromString("DummyModule:dummyName"),
@@ -155,10 +157,10 @@ object TransactionSpec {
         V.ValueUnit,
         ("dummyAgreement"),
       ),
-      None,
-      Set.empty,
-      Set.empty,
-      None,
+      optLocation = None,
+      signatories = Set.empty,
+      stakeholders = Set.empty,
+      key = None,
     )
 
   private implicit def toChoiceName(s: String): Ref.Name = Ref.Name.assertFromString(s)

@@ -385,7 +385,7 @@ object Transaction {
       * the sub-transaction structure due to 'exercises' statements.
       */
     sealed abstract class Context extends Product with Serializable {
-      def discriminator: Option[crypto.Hash]
+      def contextSeed: Option[crypto.Hash]
 
       def children: BackStack[NodeId]
 
@@ -396,7 +396,7 @@ object Transaction {
       * a choice.
       */
     final case class ContextRoot(
-        override val discriminator: Option[crypto.Hash],
+        val contextSeed: Option[crypto.Hash],
         children: BackStack[NodeId] = BackStack.empty,
     ) extends Context {
       override def addChild(child: NodeId): ContextRoot = copy(children = children :+ child)
@@ -410,7 +410,7 @@ object Transaction {
       override def addChild(child: NodeId): ContextExercise =
         copy(children = children :+ child)
 
-      override def discriminator: Option[crypto.Hash] = ctx.nodeId.discriminator
+      override def contextSeed: Option[crypto.Hash] = ctx.contextSeed
     }
 
     /** Context information to remember when building a sub-transaction
@@ -435,6 +435,7 @@ object Transaction {
       *                       happening.
       */
     case class ExercisesContext(
+        contextSeed: Option[crypto.Hash],
         targetId: TContractId,
         templateId: TypeConName,
         contractKey: Option[KeyWithMaintainers[Value[Nothing]]],
@@ -599,12 +600,13 @@ object Transaction {
             .mkString(",")}""",
         )
       } else {
-        val nodeDiscriminator = deriveChildDiscriminator
-        val nodeId = NodeId(nextNodeIdx, nodeDiscriminator)
+        val nodeSeed = deriveChildSeed
+        val nodeId = NodeId(nextNodeIdx)
         val contractDiscriminator =
-          nodeDiscriminator.map(crypto.Hash.deriveContractDiscriminator(_, stakeholders))
+          nodeSeed.map(crypto.Hash.deriveContractDiscriminator(_, stakeholders))
         val cid = RelativeContractId(nodeId, contractDiscriminator)
         val createNode = NodeCreate(
+          nodeSeed,
           cid,
           coinst,
           optLocation,
@@ -675,7 +677,7 @@ object Transaction {
             .mkString(",")}""",
         )
       } else {
-        val nodeId = NodeId(nextNodeIdx, deriveChildDiscriminator)
+        val nodeId = NodeId(nextNodeIdx)
         Right(
           mustBeActive(
             targetId,
@@ -684,6 +686,7 @@ object Transaction {
               nextNodeIdx = nextNodeIdx + 1,
               context = ContextExercise(
                 ExercisesContext(
+                  contextSeed = deriveChildSeed,
                   targetId = targetId,
                   templateId = templateId,
                   contractKey = mbKey,
@@ -717,6 +720,7 @@ object Transaction {
       context match {
         case ContextExercise(ec, children) =>
           val exerciseNode: Transaction.Node = NodeExercises(
+            nodeSeed = ec.contextSeed,
             targetCoid = ec.targetId,
             templateId = ec.templateId,
             choiceId = ec.choiceId,
@@ -758,7 +762,7 @@ object Transaction {
 
     /** Insert the given `LeafNode` under a fresh node-id, and return it */
     def insertLeafNode(node: LeafNode): PartialTransaction = {
-      val nodeId = NodeId(nextNodeIdx, deriveChildDiscriminator)
+      val nodeId = NodeId(nextNodeIdx)
       copy(
         nextNodeIdx = nextNodeIdx + 1,
         context = context.addChild(nodeId),
@@ -766,8 +770,8 @@ object Transaction {
       )
     }
 
-    def deriveChildDiscriminator: Option[crypto.Hash] =
-      context.discriminator.map(crypto.Hash.deriveNodeDiscriminator(_, nodes.size))
+    def deriveChildSeed: Option[crypto.Hash] =
+      context.contextSeed.map(crypto.Hash.deriveNodeDiscriminator(_, nodes.size))
 
   }
 

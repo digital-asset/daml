@@ -20,6 +20,7 @@ module DA.Service.Logger.Impl.GCP
     , GCPState(..)
     , initialiseGcpState
     , logOptOut
+    , logIgnored
     , logMetaData
     , SendResult(..)
     , isSuccess
@@ -335,14 +336,28 @@ fetchMachineID gcp = do
         generateID
 
 -- | If it hasn't already been done log that the user has opted out of telemetry.
--- This assumes that the logger has already been
 logOptOut :: GCPState -> IO ()
 logOptOut gcp = do
     let fp = optedOutFile gcp
     exists <- doesFileExist fp
-    let msg :: T.Text = "Opted out of telemetry"
+    metadata <- getMetaData gcp
+    let val = disabledMessage metadata "Opted out of telemetry"
     unless exists do
-        logGCP gcp Lgr.Info msg (writeFile fp "")
+        logGCP gcp Lgr.Info val (writeFile fp "")
+
+-- | Turn a message describing why telemetry was disabled (opt-out or no choice made) into an Aeson value
+-- that includes the machine id.
+disabledMessage :: MetaData -> T.Text -> Aeson.Value
+disabledMessage metadata msg =
+    -- The slightly odd format here is to make sure that we don’t break old queries before machineID was part of opt-out messages.
+    toJSON $ HM.insert "machineID" (toJSON $ machineID metadata) $ toJsonObject (toJSON msg)
+
+-- Log that the user clicked away the telemetry popup without making a choice.
+logIgnored :: GCPState -> IO ()
+logIgnored gcp = do
+    metadata <- getMetaData gcp
+    let val = disabledMessage metadata "No telemetry choice"
+    logGCP gcp Lgr.Info val (pure ())
 
 today :: IO Time.Day
 today = Time.utctDay <$> getCurrentTime

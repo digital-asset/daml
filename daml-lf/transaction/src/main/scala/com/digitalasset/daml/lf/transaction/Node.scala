@@ -1,7 +1,9 @@
 // Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.transaction
+package com.digitalasset.daml.lf
+package transaction
+
 import com.digitalasset.daml.lf.data.{ImmArray, ScalazEqual}
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.value.Value.{ContractInst, VersionedValue}
@@ -18,21 +20,9 @@ import scalaz.syntax.equal._
 object Node {
 
   /** Transaction nodes parametrized over identifier type */
-  sealed trait GenNode[+Nid, +Cid, +Val] extends Product with Serializable {
+  sealed trait GenNode[+Nid, +Cid, +Val] extends Product with Serializable with NodeInfo {
     def mapContractIdAndValue[Cid2, Val2](f: Cid => Cid2, g: Val => Val2): GenNode[Nid, Cid2, Val2]
     def mapNodeId[Nid2](f: Nid => Nid2): GenNode[Nid2, Cid, Val]
-
-    /** Required authorizers (see ledger model); UNSAFE TO USE on fetch nodes of transaction with versions < 5
-      *
-      * The ledger model defines the fetch node actors as the nodes' required authorizers.
-      * However, the our transaction data structure did not include the actors in versions < 5.
-      * The usage of this method must thus be restricted to:
-      * 1. settings where no fetch nodes appear (for example, the `validate` method of DAMLe, which uses it on root
-      *    nodes, which are guaranteed never to contain a fetch node)
-      * 2. DAML ledger implementations that do not store or process any transactions with version < 5
-      *
-      */
-    def requiredAuthorizers: Set[Party]
   }
 
   object GenNode extends WithTxValue3[GenNode]
@@ -44,13 +34,15 @@ object Node {
 
   /** Denotes the creation of a contract instance. */
   final case class NodeCreate[+Cid, +Val](
+      nodeSeed: Option[crypto.Hash],
       coid: Cid,
       coinst: ContractInst[Val],
       optLocation: Option[Location], // Optional location of the create expression
       signatories: Set[Party],
       stakeholders: Set[Party],
       key: Option[KeyWithMaintainers[Val]],
-  ) extends LeafOnlyNode[Cid, Val] {
+  ) extends LeafOnlyNode[Cid, Val]
+      with NodeInfo.Create {
     override def mapContractIdAndValue[Cid2, Val2](
         f: Cid => Cid2,
         g: Val => Val2,
@@ -58,8 +50,6 @@ object Node {
       copy(coid = f(coid), coinst = coinst.mapValue(g), key = key.map(_.mapValue(g)))
 
     override def mapNodeId[Nid2](f: Nothing => Nid2): NodeCreate[Cid, Val] = this
-
-    override def requiredAuthorizers(): Set[Party] = signatories
 
   }
 
@@ -73,7 +63,8 @@ object Node {
       actingParties: Option[Set[Party]],
       signatories: Set[Party],
       stakeholders: Set[Party],
-  ) extends LeafOnlyNode[Cid, Nothing] {
+  ) extends LeafOnlyNode[Cid, Nothing]
+      with NodeInfo.Fetch {
     override def mapContractIdAndValue[Cid2, Val2](
         f: Cid => Cid2,
         g: Nothing => Val2,
@@ -81,11 +72,6 @@ object Node {
       copy(coid = f(coid))
 
     override def mapNodeId[Nid2](f: Nothing => Nid2): NodeFetch[Cid] = this
-
-    /** This blows up on transactions with version <5. The caller must ensure that the transaction is of
-      * this form.
-      */
-    override def requiredAuthorizers: Set[Party] = actingParties.get
 
   }
 
@@ -95,6 +81,7 @@ object Node {
     * ledgers.
     */
   final case class NodeExercises[+Nid, +Cid, +Val](
+      nodeSeed: Option[crypto.Hash],
       targetCoid: Cid,
       templateId: Identifier,
       choiceId: ChoiceName,
@@ -113,7 +100,8 @@ object Node {
       children: ImmArray[Nid],
       exerciseResult: Option[Val],
       key: Option[KeyWithMaintainers[Val]],
-  ) extends GenNode[Nid, Cid, Val] {
+  ) extends GenNode[Nid, Cid, Val]
+      with NodeInfo.Exercise {
     override def mapContractIdAndValue[Cid2, Val2](
         f: Cid => Cid2,
         g: Val => Val2,
@@ -129,9 +117,6 @@ object Node {
       copy(
         children = children.map(f),
       )
-
-    override def requiredAuthorizers(): Set[Party] = actingParties
-
   }
 
   object NodeExercises extends WithTxValue3[NodeExercises] {
@@ -141,6 +126,7 @@ object Node {
       * apply method enforces it.
       */
     def apply[Nid, Cid, Val](
+        nodeSeed: Option[crypto.Hash] = None,
         targetCoid: Cid,
         templateId: Identifier,
         choiceId: ChoiceName,
@@ -155,6 +141,7 @@ object Node {
         key: Option[KeyWithMaintainers[Val]],
     ): NodeExercises[Nid, Cid, Val] =
       NodeExercises(
+        nodeSeed,
         targetCoid,
         templateId,
         choiceId,
@@ -176,7 +163,8 @@ object Node {
       optLocation: Option[Location],
       key: KeyWithMaintainers[Val],
       result: Option[Cid],
-  ) extends LeafOnlyNode[Cid, Val] {
+  ) extends LeafOnlyNode[Cid, Val]
+      with NodeInfo.LookupByKey {
     override def mapContractIdAndValue[Cid2, Val2](
         f: Cid => Cid2,
         g: Val => Val2,
@@ -185,7 +173,8 @@ object Node {
 
     override def mapNodeId[Nid2](f: Nothing => Nid2): NodeLookupByKey[Cid, Val] = this
 
-    override def requiredAuthorizers(): Set[Party] = key.maintainers
+    override def keyMaintainers: Set[Party] = key.maintainers
+    override def hasResult: Boolean = result.isDefined
 
   }
 
@@ -210,11 +199,18 @@ object Node {
   ): Boolean =
     ScalazEqual.match2[recorded.type, isReplayedBy.type, Boolean](fallback = false) {
       case nc: NodeCreate[Cid, Val] => {
-        case NodeCreate(coid2, coinst2, optLocation2 @ _, signatories2, stakeholders2, key2) =>
+        case NodeCreate(
+            nodeSeed2,
+            coid2,
+            coinst2,
+            optLocation2 @ _,
+            signatories2,
+            stakeholders2,
+            key2) =>
           import nc._
           // NOTE(JM): Do not compare location annotations as they may differ due to
           // differing update expression constructed from the root node.
-          coid === coid2 && coinst === coinst2 &&
+          nodeSeed == nodeSeed2 && coid === coid2 && coinst === coinst2 &&
           signatories == signatories2 && stakeholders == stakeholders2 && key === key2
         case _ => false
       }
@@ -234,6 +230,7 @@ object Node {
       }
       case ne: NodeExercises[Nothing, Cid, Val] => {
         case NodeExercises(
+            nodeSeed2,
             targetCoid2,
             templateId2,
             choiceId2,
@@ -249,6 +246,7 @@ object Node {
             key2,
             ) =>
           import ne._
+          nodeSeed == nodeSeed2 &&
           targetCoid === targetCoid2 && templateId == templateId2 && choiceId == choiceId2 &&
           consuming == consuming2 && actingParties == actingParties2 && chosenValue === chosenValue2 &&
           stakeholders == stakeholders2 && signatories == signatories2 && controllers == controllers2 &&

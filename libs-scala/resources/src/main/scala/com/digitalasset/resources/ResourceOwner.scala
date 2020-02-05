@@ -13,7 +13,7 @@ import scala.language.higherKinds
 import scala.util.{Failure, Success, Try}
 
 @FunctionalInterface
-trait ResourceOwner[A] {
+trait ResourceOwner[+A] {
   self =>
 
   def acquire()(implicit executionContext: ExecutionContext): Resource[A]
@@ -44,18 +44,17 @@ trait ResourceOwner[A] {
       }
   }
 
-  def vary[B >: A]: ResourceOwner[B] = asInstanceOf[ResourceOwner[B]]
 }
 
 object ResourceOwner {
   def successful[T](value: T): ResourceOwner[T] =
-    forTry(() => Success(value))
+    new FutureResourceOwner(() => Future.successful(value))
 
-  def failed[T](exception: Throwable): ResourceOwner[T] =
-    forTry(() => Failure(exception))
+  def failed(throwable: Throwable): ResourceOwner[Nothing] =
+    new FutureResourceOwner(() => Future.failed(throwable))
 
   def forTry[T](acquire: () => Try[T]): ResourceOwner[T] =
-    new FutureResourceOwner[T](() => Future.fromTry(acquire()))
+    new FutureResourceOwner(() => Future.fromTry(acquire()))
 
   def forFuture[T](acquire: () => Future[T]): ResourceOwner[T] =
     new FutureResourceOwner(acquire)
@@ -73,7 +72,7 @@ object ResourceOwner {
     new FutureCloseableResourceOwner(acquire)
 
   def forExecutorService[T <: ExecutorService](acquire: () => T): ResourceOwner[T] =
-    new ExecutorServiceResourceOwner[T](acquire)
+    new ExecutorServiceResourceOwner(acquire)
 
   def forTimer(acquire: () => Timer): ResourceOwner[Timer] =
     new TimerResourceOwner(acquire)

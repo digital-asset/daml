@@ -21,7 +21,7 @@ class InMemoryKVParticipantStateIT
       participantId: ParticipantId,
       ledgerId: LedgerString,
   ): ResourceOwner[ParticipantState] =
-    ResourceOwner.forCloseable(() => new InMemoryKVParticipantState(participantId, ledgerId)).vary
+    ResourceOwner.forCloseable(() => new InMemoryKVParticipantState(participantId, ledgerId))
 
   override def currentRecordTime(): Timestamp =
     Timestamp.assertFromInstant(Clock.systemUTC().instant())

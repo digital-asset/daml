@@ -11,5 +11,5 @@ import scala.concurrent.{ExecutionContext, Future}
 class ActorMaterializerResourceOwner(acquireMaterializer: () => Materializer)
     extends ResourceOwner[Materializer] {
   override def acquire()(implicit executionContext: ExecutionContext): Resource[Materializer] =
-    Resource(Future(acquireMaterializer()), materializer => Future(materializer.shutdown()))
+    Resource(Future(acquireMaterializer()))(materializer => Future(materializer.shutdown()))
 }

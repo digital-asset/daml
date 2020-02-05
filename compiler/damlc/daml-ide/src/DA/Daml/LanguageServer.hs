@@ -26,6 +26,7 @@ import Development.IDE.Core.FileStore
 import Development.IDE.Core.Rules
 import Development.IDE.Core.Rules.Daml
 import Development.IDE.Core.Service.Daml
+import Development.IDE.Plugin
 
 import DA.Daml.SessionTelemetry
 import DA.Daml.LanguageServer.Visualize
@@ -50,7 +51,7 @@ setHandlersKeepAlive = PartialHandlers $ \WithMessage{..} x -> return x
         case _method of
             CustomClientMethod "daml/keepAlive" ->
                 maybe (return ()) ($ msg) $
-                withResponse RspCustomServer (\_ _ _ -> return Aeson.Null)
+                withResponse RspCustomServer (\_ _ _ -> return (Right Aeson.Null))
             _ -> whenJust (LSP.customRequestHandler x) ($ msg)
     }
 
@@ -104,11 +105,12 @@ withUriDaml _ _ = return ()
 
 runLanguageServer
     :: Lgr.Handle IO
+    -> Plugin
     -> (IO LSP.LspId -> (FromServerMessage -> IO ()) -> VFSHandle -> ClientCapabilities -> IO IdeState)
     -> IO ()
-runLanguageServer lgr getIdeState = withSessionPings lgr $ \setSessionHandlers -> do
+runLanguageServer lgr plugins getIdeState = withSessionPings lgr $ \setSessionHandlers -> do
     let handlers = setHandlersKeepAlive <> setHandlersVirtualResource <> setHandlersCodeLens <> setIgnoreOptionalHandlers <> setCommandHandler <> setSessionHandlers
-    LS.runLanguageServer options handlers getIdeState
+    LS.runLanguageServer options (pluginHandler plugins <> handlers) getIdeState
 
 
 options :: LSP.Options

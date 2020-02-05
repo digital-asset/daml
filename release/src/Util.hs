@@ -117,7 +117,7 @@ instance FromJSON (Artifact (Maybe ArtifactLocation)) where
         <$> o .: "target"
         <*> o .: "type"
         <*> (fromMaybe PkgSdkComponents <$> o .:? "bintrayPackage")
-        <*> (fromMaybe (MavenUpload False) <$> o .:? "mavenUpload")
+        <*> (fromMaybe (MavenUpload True) <$> o .:? "mavenUpload")
         <*> o .:? "javadoc-jar"
         <*> o .:? "src-jar"
         <*> o .:? "location"

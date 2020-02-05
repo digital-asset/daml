@@ -103,7 +103,7 @@ final class Engine {
                     _compiledPackages
                       .getPackageDependencies(pkgId)
                       .getOrElse(
-                        sys.error("INTERNAL ERROR: Missing dependencies of package $pkgId"))
+                        sys.error(s"INTERNAL ERROR: Missing dependencies of package $pkgId"))
                   (pkgIds + pkgId) union transitiveDeps
               }
               tx.copy(optUsedPackages = Some(deps))
@@ -256,13 +256,14 @@ final class Engine {
       node: GenNode.WithTxValue[Transaction.NodeId, Cid]): Result[(Type, SpeedyCommand)] = {
 
     node match {
-      case NodeCreate(coid @ _, coinst, optLoc @ _, sigs @ _, stks @ _, key @ _) =>
+      case NodeCreate(nodeSeed @ _, coid @ _, coinst, optLoc @ _, sigs @ _, stks @ _, key @ _) =>
         val identifier = coinst.template
         asValueWithAbsoluteContractIds(coinst.arg.value).flatMap(
           absArg => commandPreprocessor.preprocessCreate(identifier, absArg)
         )
 
       case NodeExercises(
+          nodeSeed @ _,
           coid,
           template,
           choice,

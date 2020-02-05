@@ -54,9 +54,9 @@ final class JdbcIndexerFactory[Status <: InitStatus] private (metrics: MetricReg
     this.asInstanceOf[JdbcIndexerFactory[Initialized]]
   }
 
-  def migrateSchema(jdbcUrl: String)(
+  def migrateSchema(jdbcUrl: String, allowExistingSchema: Boolean)(
       implicit x: Status =:= Uninitialized): JdbcIndexerFactory[Initialized] = {
-    new FlywayMigrations(jdbcUrl).migrate()
+    new FlywayMigrations(jdbcUrl).migrate(allowExistingSchema)
     this.asInstanceOf[JdbcIndexerFactory[Initialized]]
   }
 
@@ -70,18 +70,20 @@ final class JdbcIndexerFactory[Status <: InitStatus] private (metrics: MetricReg
 
     implicit val ec: ExecutionContext = DEC
 
+    def fetchInitialState(dao: LedgerDao): Future[(dao.LedgerOffset, Option[LedgerString])] =
+      for {
+        initialConditions <- readService
+          .getLedgerInitialConditions()
+          .runWith(Sink.head)(materializer)
+        ledgerId = domain.LedgerId(initialConditions.ledgerId)
+        _ <- initializeLedger(ledgerId, dao)
+        ledgerEnd <- dao.lookupLedgerEnd()
+        externalOffset <- dao.lookupExternalLedgerEnd()
+      } yield (ledgerEnd, externalOffset)
+
     for {
       ledgerDao <- JdbcLedgerDao.owner(jdbcUrl, metrics, actorSystem.dispatcher)
-      LedgerInitialConditions(ledgerIdString, _, _) <- ResourceOwner
-        .forFuture(
-          () =>
-            readService
-              .getLedgerInitialConditions()
-              .runWith(Sink.head)(materializer))
-      ledgerId = domain.LedgerId(ledgerIdString)
-      _ <- ResourceOwner.forFuture(() => initializeLedger(ledgerId, ledgerDao))
-      ledgerEnd <- ResourceOwner.forFuture(() => ledgerDao.lookupLedgerEnd())
-      externalOffset <- ResourceOwner.forFuture(() => ledgerDao.lookupExternalLedgerEnd())
+      (ledgerEnd, externalOffset) <- ResourceOwner.forFuture(() => fetchInitialState(ledgerDao))
     } yield
       new JdbcIndexer(ledgerEnd, externalOffset, participantId, ledgerDao, metrics)(materializer)
   }
@@ -379,28 +381,27 @@ class JdbcIndexer private[indexer] (
     override def acquire()(
         implicit executionContext: ExecutionContext
     ): Resource[IndexFeedHandle] =
-      Resource[SubscriptionIndexFeedHandle](
-        Future {
-          Metrics.setup()
+      Resource(Future {
+        Metrics.setup()
 
-          val (killSwitch, completionFuture) = readService
-            .stateUpdates(beginAfterExternalOffset.map(Offset.assertFromString))
-            .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
-            .mapAsync(1) {
-              case (offset, update) =>
-                timedFuture(Metrics.stateUpdateProcessingTimer, handleStateUpdate(offset, update))
-            }
-            .toMat(Sink.ignore)(Keep.both)
-            .run()
+        val (killSwitch, completionFuture) = readService
+          .stateUpdates(beginAfterExternalOffset.map(Offset.assertFromString))
+          .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
+          .mapAsync(1) {
+            case (offset, update) =>
+              timedFuture(Metrics.stateUpdateProcessingTimer, handleStateUpdate(offset, update))
+          }
+          .toMat(Sink.ignore)(Keep.both)
+          .run()
 
-          new SubscriptionIndexFeedHandle(killSwitch, completionFuture.map(_ => ()))
-        },
+        new SubscriptionIndexFeedHandle(killSwitch, completionFuture.map(_ => ()))
+      })(
         handle =>
           for {
             _ <- Future(handle.killSwitch.shutdown())
             _ <- handle.completed.recover { case NonFatal(_) => () }
           } yield ()
-      ).vary
+      )
   }
 
   private class SubscriptionIndexFeedHandle(

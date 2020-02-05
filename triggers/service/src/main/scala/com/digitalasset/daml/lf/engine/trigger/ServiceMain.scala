@@ -171,7 +171,7 @@ object Server {
       }
       case _ => deserializationError("Expected trigger identifier of the form pkgid:mod:name")
     }
-    def write(id: Identifier) = JsString("${id.packageId}:${id.qualifiedName}")
+    def write(id: Identifier) = JsString(s"${id.packageId}:${id.qualifiedName}")
   }
   implicit val triggerParamsFormat = jsonFormat2(TriggerParams)
 

@@ -54,10 +54,9 @@ object WebSocketService {
     import json.JsonProtocol._, spray.json._
     def render(implicit lfv: LfV <~< JsValue): JsValue = {
       def inj[V: JsonWriter](ctor: String) = (v: V) => JsObject(ctor -> v.toJson)
-      type RF[+i] = Vector[domain.ActiveContract[i]]
       JsArray(
-        Liskov.co[RF, LfV, JsValue](lfv)(step.inserts).map(inj("created"))
-          ++ step.deletes.map(inj("archived"))
+        step.deletes.iterator.map(inj("archived")).toVector
+          ++ Liskov.co[StepAndErrors, LfV, JsValue](lfv)(this).step.inserts.map(inj("created"))
           ++ errors.map(inj[String]("error") compose (_.message)))
     }
 

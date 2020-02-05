@@ -13,6 +13,7 @@ case class IndexerConfig(
     jdbcUrl: String,
     startupMode: IndexerStartupMode,
     restartDelay: FiniteDuration = DefaultRestartDelay,
+    allowExistingSchema: Boolean = false,
 )
 
 object IndexerConfig {

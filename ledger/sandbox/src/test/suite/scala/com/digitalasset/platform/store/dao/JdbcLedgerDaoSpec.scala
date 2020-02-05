@@ -172,12 +172,13 @@ class JdbcLedgerDaoSpec
         GenTransaction(
           HashMap(
             event1 -> NodeCreate(
-              absCid,
-              someContractInstance,
-              None,
-              Set(alice, bob),
-              Set(alice, bob),
-              Some(keyWithMaintainers)
+              nodeSeed = None,
+              coid = absCid,
+              coinst = someContractInstance,
+              optLocation = None,
+              signatories = Set(alice, bob),
+              stakeholders = Set(alice, bob),
+              key = Some(keyWithMaintainers)
             )),
           ImmArray(event1),
           None
@@ -296,7 +297,7 @@ class JdbcLedgerDaoSpec
           offset + 1,
           None,
           Instant.EPOCH,
-          "submission-${offset}",
+          s"submission-$offset",
           Ref.LedgerString.assertFromString("participant-0"),
           defaultConfig,
           None
@@ -477,12 +478,13 @@ class JdbcLedgerDaoSpec
         GenTransaction(
           HashMap(
             event1 -> NodeCreate(
-              absCid,
-              someContractInstance,
-              None,
-              Set(alice, bob),
-              Set(alice, bob),
-              Some(keyWithMaintainers)
+              nodeSeed = None,
+              coid = absCid,
+              coinst = someContractInstance,
+              optLocation = None,
+              signatories = Set(alice, bob),
+              stakeholders = Set(alice, bob),
+              key = Some(keyWithMaintainers)
             )),
           ImmArray(event1),
           None
@@ -524,12 +526,13 @@ class JdbcLedgerDaoSpec
         GenTransaction(
           HashMap(
             event1 -> NodeCreate(
-              absCid,
-              someContractInstance,
-              None,
-              Set(alice, bob),
-              Set(alice, bob),
-              None
+              nodeSeed = None,
+              coid = absCid,
+              coinst = someContractInstance,
+              optLocation = None,
+              signatories = Set(alice, bob),
+              stakeholders = Set(alice, bob),
+              key = None
             ),
             event2 -> NodeFetch(
               absCid,
@@ -578,12 +581,13 @@ class JdbcLedgerDaoSpec
           GenTransaction(
             HashMap(
               (s"event$id": EventId) -> NodeCreate(
-                absCid,
-                someContractInstance,
-                None,
-                Set(alice, bob),
-                Set(alice, bob),
-                None
+                nodeSeed = None,
+                coid = absCid,
+                coinst = someContractInstance,
+                optLocation = None,
+                signatories = Set(alice, bob),
+                stakeholders = Set(alice, bob),
+                key = None
               )),
             ImmArray[EventId](s"event$id"),
             None
@@ -606,21 +610,24 @@ class JdbcLedgerDaoSpec
           GenTransaction(
             HashMap(
               (s"event$id": EventId) -> NodeExercises(
-                targetCid,
-                someTemplateId,
-                Ref.Name.assertFromString("choice"),
-                None,
+                nodeSeed = None,
+                targetCoid = targetCid,
+                templateId = someTemplateId,
+                choiceId = Ref.Name.assertFromString("choice"),
+                optLocation = None,
                 consuming = true,
-                Set(alice),
-                VersionedValue(ValueVersions.acceptedVersions.head, ValueText("some choice value")),
-                Set(alice, bob),
-                Set(alice, bob),
-                ImmArray.empty,
-                Some(
+                actingParties = Set(alice),
+                chosenValue = VersionedValue(
+                  ValueVersions.acceptedVersions.head,
+                  ValueText("some choice value")),
+                stakeholders = Set(alice, bob),
+                signatories = Set(alice, bob),
+                children = ImmArray.empty,
+                exerciseResult = Some(
                   VersionedValue(
                     ValueVersions.acceptedVersions.head,
                     ValueText("some exercise result"))),
-                None
+                key = None
               )),
             ImmArray[EventId](s"event$id"),
             None
@@ -781,12 +788,13 @@ class JdbcLedgerDaoSpec
           GenTransaction(
             HashMap(
               (s"event$id": EventId) -> NodeCreate(
-                AbsoluteContractId(s"contractId$id"),
-                someContractInstance,
-                None,
-                Set(party),
-                Set(party),
-                Some(
+                nodeSeed = None,
+                coid = AbsoluteContractId(s"contractId$id"),
+                coinst = someContractInstance,
+                optLocation = None,
+                signatories = Set(party),
+                stakeholders = Set(party),
+                key = Some(
                   KeyWithMaintainers(
                     VersionedValue(ValueVersions.acceptedVersions.head, ValueText(key)),
                     Set(party)))
@@ -815,6 +823,7 @@ class JdbcLedgerDaoSpec
           GenTransaction(
             HashMap(
               (s"event$id": EventId) -> NodeExercises(
+                nodeSeed = None,
                 targetCoid = AbsoluteContractId(s"contractId$cid"),
                 templateId = someTemplateId,
                 choiceId = Ref.ChoiceName.assertFromString("Archive"),

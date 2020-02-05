@@ -44,6 +44,10 @@ object TestRunner {
       Left(s"$note: Expected $expected and $actual to be different")
     }
   }
+  def assertSTimestamp(v: SValue) = v match {
+    case SValue.STimestamp(t) => Right(t)
+    case _ => Left(s"Expected STimestamp but got $v")
+  }
 }
 
 class TestRunner(
@@ -60,14 +64,10 @@ class TestRunner(
     sslContext = None
   )
   val ttl = java.time.Duration.ofSeconds(30)
-  val commandUpdater = if (wallclockTime) {
-    new CommandUpdater(timeProviderO = Some(TimeProvider.UTC), ttl = ttl, overrideTtl = true)
-  } else {
-    new CommandUpdater(
-      timeProviderO = Some(TimeProvider.Constant(Instant.EPOCH)),
-      ttl = ttl,
-      overrideTtl = true)
-  }
+  val timeProvider: TimeProvider =
+    if (wallclockTime) TimeProvider.UTC else TimeProvider.Constant(Instant.EPOCH)
+  val commandUpdater =
+    new CommandUpdater(timeProviderO = Some(timeProvider), ttl = ttl, overrideTtl = true)
 
   def genericTest[A](
       // test name
@@ -87,7 +87,7 @@ class TestRunner(
 
     val clientsF = Runner.connect(participantParams, clientConfig)
 
-    val runner = new Runner(dar, applicationId, commandUpdater)
+    val runner = new Runner(dar, applicationId, commandUpdater, timeProvider)
 
     val testFlow: Future[Unit] = for {
       clients <- clientsF

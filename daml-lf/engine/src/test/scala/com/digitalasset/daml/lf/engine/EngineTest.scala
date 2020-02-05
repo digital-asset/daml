@@ -922,6 +922,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       bobView.nodes.size shouldBe 2
       findNodeByIdx(bobView.nodes, 0).getOrElse(fail("node not found")) match {
         case NodeExercises(
+            nodeSeed @ _,
             coid,
             _,
             choice,
@@ -944,7 +945,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       }
 
       findNodeByIdx(bobView.nodes, 1).getOrElse(fail("node not found")) match {
-        case NodeCreate(_, coins, _, _, stakeholders, _) =>
+        case NodeCreate(nodeSeed @ _, _, coins, _, _, stakeholders, _) =>
           coins.template shouldBe templateId
           stakeholders shouldBe Set(alice, clara)
         case _ => fail("create event is expected")
@@ -955,7 +956,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
 
       claraView.nodes.size shouldBe 1
       findNodeByIdx(claraView.nodes, 1).getOrElse(fail("node not found")) match {
-        case NodeCreate(_, coins, _, _, stakeholders, _) =>
+        case NodeCreate(nodeSeed @ _, _, coins, _, _, stakeholders, _) =>
           coins.template shouldBe templateId
           stakeholders shouldBe Set(alice, clara)
         case _ => fail("create event is expected")
@@ -1127,7 +1128,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
         case (nid, n) =>
           val fetchTx = GenTx(HashMap(nid -> n), ImmArray(nid), None, seed)
           val Right(reinterpreted) = engine
-            .reinterpret(nid.discriminator, n.requiredAuthorizers, Seq(n), let)
+            .reinterpret(None, n.requiredAuthorizers, Seq(n), let)
             .consume(lookupContract, lookupPackage, lookupKey)
           (fetchTx isReplayedBy reinterpreted) shouldBe true
       }

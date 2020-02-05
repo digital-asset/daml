@@ -40,7 +40,10 @@ final class StandaloneIndexerServer(
         case IndexerStartupMode.MigrateOnly =>
           Resource.successful(Future.successful(()))
         case IndexerStartupMode.MigrateAndStart =>
-          startIndexer(indexer, indexerFactory.migrateSchema(config.jdbcUrl), actorSystem)
+          startIndexer(
+            indexer,
+            indexerFactory.migrateSchema(config.jdbcUrl, config.allowExistingSchema),
+            actorSystem)
         case IndexerStartupMode.ValidateAndStart =>
           startIndexer(indexer, indexerFactory.validateSchema(config.jdbcUrl), actorSystem)
       }

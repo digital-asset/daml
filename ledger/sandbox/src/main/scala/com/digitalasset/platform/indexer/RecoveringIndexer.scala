@@ -123,7 +123,7 @@ final class RecoveringIndexer(
       subscription
         .get()
         .asFuture
-        .transform(_ => Success(complete.future)),
+        .transform(_ => Success(complete.future)))(
       _ => {
         logger.info("Stopping Indexer Server")
         subscription

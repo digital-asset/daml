@@ -6,6 +6,7 @@ daml 1.2
 module ScriptTest where
 
 import Prelude hiding (getParty, submit, submitMustFail)
+import DA.Time
 
 import Daml.Script
 
@@ -139,3 +140,19 @@ failingTest = do
   cid <- submit alice $ createCmd (C alice 42)
   submit alice $ exerciseCmd cid ShouldFail
   pure ()
+
+time : Script (Time, Time)
+time = do
+  t1 <- getTime
+  t2 <- getTime
+  assert (t1 <= t2)
+  pure (t1, t2)
+
+sleepTest : Script (Time, Time, Time)
+sleepTest = do
+  t1 <- getTime
+  sleep (seconds 1)
+  t2 <- getTime
+  sleep (seconds 2)
+  t3 <- getTime
+  pure (t1, t2, t3)
