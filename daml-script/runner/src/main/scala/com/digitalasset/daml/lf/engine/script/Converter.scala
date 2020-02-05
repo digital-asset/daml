@@ -21,7 +21,7 @@ import com.digitalasset.daml.lf.speedy.Speedy
 import com.digitalasset.daml.lf.speedy.SResult._
 import com.digitalasset.daml.lf.speedy.{SValue, SExpr}
 import com.digitalasset.daml.lf.speedy.SValue._
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, RelativeContractId}
+import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.daml.lf.CompiledPackages
 import com.digitalasset.ledger.api.v1.commands.{
   Command,
@@ -48,34 +48,18 @@ case class AnyChoice(name: String, arg: SValue)
 case class AnyContractKey(key: SValue)
 
 object Converter {
-  private def toLedgerRecord(v: SValue): Either[String, value.Record] = {
-    try {
-      lfValueToApiRecord(
-        true,
-        v.toValue.mapContractId {
-          case rcoid: RelativeContractId =>
-            throw new ConverterException(s"Unexpected contract id $rcoid")
-          case acoid: AbsoluteContractId => acoid
-        }
-      )
-    } catch {
-      case ex: ConverterException => Left(ex.getMessage())
-    }
-  }
-  private def toLedgerValue(v: SValue) = {
-    try {
-      lfValueToApiValue(
-        true,
-        v.toValue.mapContractId {
-          case rcoid: RelativeContractId =>
-            throw new ConverterException(s"Unexpected contract id $rcoid")
-          case acoid: AbsoluteContractId => acoid
-        }
-      )
-    } catch {
-      case ex: ConverterException => Left(ex.getMessage())
-    }
-  }
+
+  private def toLedgerRecord(v: SValue): Either[String, value.Record] =
+    for {
+      value <- v.toValue.ensureNoRelCid.left.map(rcoid => s"Unexpected contract id $rcoid")
+      apiRecord <- lfValueToApiRecord(true, value)
+    } yield apiRecord
+
+  private def toLedgerValue(v: SValue): Either[String, value.Value] =
+    for {
+      value <- v.toValue.ensureNoRelCid.left.map(rcoid => s"Unexpected contract id $rcoid")
+      apiValue <- lfValueToApiValue(true, value)
+    } yield apiValue
 
   def toAnyTemplate(v: SValue): Either[String, AnyTemplate] = {
     v match {

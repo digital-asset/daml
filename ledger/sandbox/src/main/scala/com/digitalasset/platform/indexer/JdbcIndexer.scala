@@ -15,7 +15,6 @@ import com.daml.ledger.participant.state.v1.Update._
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref.LedgerString
 import com.digitalasset.daml.lf.engine.Blinding
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
 import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.dec.{DirectExecutionContext => DEC}
 import com.digitalasset.ledger.api.domain
@@ -277,10 +276,7 @@ class JdbcIndexer private[indexer] (
           transactionId,
           recordTime,
           divulgedContracts) =>
-        val toAbsCoid: ContractId => AbsoluteContractId =
-          EventIdFormatter.makeAbsCoid(transactionId)
-
-        val blindingInfo = Blinding.blind(transaction.mapContractId(cid => cid: ContractId))
+        val blindingInfo = Blinding.blind(transaction)
 
         val mappedDisclosure = blindingInfo.disclosure.map {
           case (nodeId, parties) =>
@@ -304,7 +300,7 @@ class JdbcIndexer private[indexer] (
             transactionMeta.ledgerEffectiveTime.toInstant,
             recordTime.toInstant,
             transaction
-              .mapContractIdAndValue(toAbsCoid, _.mapContractId(toAbsCoid))
+              .resolveRelCid(EventIdFormatter.makeAbs(transactionId))
               .mapNodeId(EventIdFormatter.fromTransactionId(transactionId, _)),
             mappedDisclosure
           ),

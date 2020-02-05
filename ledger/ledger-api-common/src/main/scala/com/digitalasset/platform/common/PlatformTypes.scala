@@ -40,6 +40,7 @@ object PlatformTypes {
   type ExerciseEvent[Nid, Cid] = E.ExerciseEvent[Nid, Cid, T.Transaction.Value[Cid]]
   val ExerciseEvent: E.ExerciseEvent.type = E.ExerciseEvent
 
+  @deprecated("use resolveRelCid/ensureNoCid/ensureNoRelCid", since = "0.13.52")
   def mapContractIdAndValue[Nid, Cid, Cid2](tx: GenTransaction[Nid, Cid])(
       f: Cid => Cid2): GenTransaction[Nid, Cid2] =
     tx.mapContractIdAndValue(f, _.mapContractId(f))

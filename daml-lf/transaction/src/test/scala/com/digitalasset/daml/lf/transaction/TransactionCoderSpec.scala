@@ -332,7 +332,7 @@ class TransactionCoderSpec
       }
 
   private def changeAllValueVersions(tx: Tx.Transaction, ver: ValueVersion): Tx.Transaction =
-    tx.mapContractIdAndValue(identity, _.copy(version = ver))
+    tx.map3(identity, identity, _.copy(version = ver))
 
   def withoutExerciseResult[Nid, Cid, Val](gn: GenNode[Nid, Cid, Val]): GenNode[Nid, Cid, Val] =
     gn match {
