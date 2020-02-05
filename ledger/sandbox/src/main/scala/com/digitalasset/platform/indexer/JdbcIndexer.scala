@@ -54,9 +54,9 @@ final class JdbcIndexerFactory[Status <: InitStatus] private (metrics: MetricReg
     this.asInstanceOf[JdbcIndexerFactory[Initialized]]
   }
 
-  def migrateSchema(jdbcUrl: String)(
+  def migrateSchema(jdbcUrl: String, allowExistingSchema: Boolean)(
       implicit x: Status =:= Uninitialized): JdbcIndexerFactory[Initialized] = {
-    new FlywayMigrations(jdbcUrl).migrate()
+    new FlywayMigrations(jdbcUrl).migrate(allowExistingSchema)
     this.asInstanceOf[JdbcIndexerFactory[Initialized]]
   }
 

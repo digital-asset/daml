@@ -15,6 +15,9 @@ trait LedgerFactory[T <: KeyValueLedger, ExtraConfig] {
 
   def extraConfigParser(parser: OptionParser[Config[ExtraConfig]]): Unit
 
+  def manipulateConfig(config: Config[ExtraConfig]): Config[ExtraConfig] =
+    config
+
   def owner(
       ledgerId: LedgerId,
       participantId: ParticipantId,
