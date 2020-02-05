@@ -79,444 +79,490 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
       }
     }
 
-    "provide update after uploadPackages" in participantState.use { ps =>
-      val submissionId = newSubmissionId()
-      for {
-        result <- ps.uploadPackages(submissionId, List(archives.head), sourceDescription).toScala
-        (offset, update) <- ps.stateUpdates(beginAfter = None).runWith(Sink.head)
-      } yield {
-        result should be(SubmissionResult.Acknowledged)
-        offset should be(theOffset(0, 0))
-        update.recordTime should be >= rt
-        matchPackageUpload(update, submissionId, List(archives.head))
+    "uploadPackages" should {
+      "provide an update" in participantState.use { ps =>
+        val submissionId = newSubmissionId()
+        for {
+          result <- ps.uploadPackages(submissionId, List(archives.head), sourceDescription).toScala
+          (offset, update) <- ps
+            .stateUpdates(beginAfter = None)
+            .idleTimeout(IdleTimeout)
+            .runWith(Sink.head)
+        } yield {
+          result should be(SubmissionResult.Acknowledged)
+          offset should be(theOffset(0, 0))
+          update.recordTime should be >= rt
+          matchPackageUpload(update, submissionId, List(archives.head))
+        }
       }
-    }
 
-    "provide two updates after uploadPackages with two archives" in participantState.use { ps =>
-      val submissionId = newSubmissionId()
-      for {
-        result <- ps.uploadPackages(submissionId, archives, sourceDescription).toScala
-        (offset, update) <- ps.stateUpdates(beginAfter = None).runWith(Sink.head)
-      } yield {
-        result should be(SubmissionResult.Acknowledged)
-        offset should be(theOffset(0, 0))
-        update.recordTime should be >= rt
-        matchPackageUpload(update, submissionId, archives)
+      "provide two updates when uploading two archives" in participantState.use { ps =>
+        val submissionId = newSubmissionId()
+        for {
+          result <- ps.uploadPackages(submissionId, archives, sourceDescription).toScala
+          (offset, update) <- ps
+            .stateUpdates(beginAfter = None)
+            .idleTimeout(IdleTimeout)
+            .runWith(Sink.head)
+        } yield {
+          result should be(SubmissionResult.Acknowledged)
+          offset should be(theOffset(0, 0))
+          update.recordTime should be >= rt
+          matchPackageUpload(update, submissionId, archives)
+        }
       }
-    }
 
-    "remove duplicate package from update after uploadPackages" in participantState.use { ps =>
-      val archive1 :: archive2 :: _ = archives
-      val (subId1, subId2, subId3) =
-        (newSubmissionId(), newSubmissionId(), newSubmissionId())
+      "remove a duplicate package from the update" in participantState.use { ps =>
+        val archive1 :: archive2 :: _ = archives
+        val (subId1, subId2, subId3) =
+          (newSubmissionId(), newSubmissionId(), newSubmissionId())
 
-      for {
-        result1 <- ps.uploadPackages(subId1, List(archive1), sourceDescription).toScala
-        result2 <- ps.uploadPackages(subId2, List(archive1), sourceDescription).toScala
-        result3 <- ps.uploadPackages(subId3, List(archive2), sourceDescription).toScala
-        results = Seq(result1, result2, result3)
-        Seq((offset1, update1), (offset2, update2), (offset3, update3)) <- ps
-          .stateUpdates(beginAfter = None)
-          .take(3)
-          .runWith(Sink.seq)
-        updates = Seq(update1, update2, update3)
-      } yield {
-        all(results) should be(SubmissionResult.Acknowledged)
-        all(updates.map(_.recordTime)) should be >= rt
-        // first upload arrives as head update:
-        offset1 should be(theOffset(0, 0))
-        matchPackageUpload(update1, subId1, List(archive1))
-        offset2 should be(theOffset(1, 0))
-        matchPackageUpload(update2, subId2, List())
-        offset3 should be(theOffset(2, 0))
-        matchPackageUpload(update3, subId3, List(archive2))
+        for {
+          result1 <- ps.uploadPackages(subId1, List(archive1), sourceDescription).toScala
+          result2 <- ps.uploadPackages(subId2, List(archive1), sourceDescription).toScala
+          result3 <- ps.uploadPackages(subId3, List(archive2), sourceDescription).toScala
+          results = Seq(result1, result2, result3)
+          Seq((offset1, update1), (offset2, update2), (offset3, update3)) <- ps
+            .stateUpdates(beginAfter = None)
+            .idleTimeout(IdleTimeout)
+            .take(3)
+            .runWith(Sink.seq)
+          updates = Seq(update1, update2, update3)
+        } yield {
+          all(results) should be(SubmissionResult.Acknowledged)
+          all(updates.map(_.recordTime)) should be >= rt
+          // first upload arrives as head update:
+          offset1 should be(theOffset(0, 0))
+          matchPackageUpload(update1, subId1, List(archive1))
+          offset2 should be(theOffset(1, 0))
+          matchPackageUpload(update2, subId2, List())
+          offset3 should be(theOffset(2, 0))
+          matchPackageUpload(update3, subId3, List(archive2))
+        }
       }
-    }
 
-    "reject uploadPackages when archive is empty" in participantState.use { ps =>
-      val badArchive = DamlLf.Archive.newBuilder
-        .setHash("asdf")
-        .build
+      "reject an empty archive" in participantState.use { ps =>
+        val badArchive = DamlLf.Archive.newBuilder
+          .setHash("asdf")
+          .build
 
-      val submissionId = newSubmissionId()
+        val submissionId = newSubmissionId()
 
-      for {
-        result <- ps.uploadPackages(submissionId, List(badArchive), sourceDescription).toScala
-        (offset, update) <- ps
-          .stateUpdates(beginAfter = None)
-          .idleTimeout(DefaultIdleTimeout)
-          .runWith(Sink.head)
-      } yield {
-        result should be(SubmissionResult.Acknowledged)
-        offset should be(theOffset(0, 0))
-        update.recordTime should be >= rt
-        inside(update) {
-          case PublicPackageUploadRejected(actualSubmissionId, _, _) =>
-            actualSubmissionId should be(submissionId)
+        for {
+          result <- ps.uploadPackages(submissionId, List(badArchive), sourceDescription).toScala
+          (offset, update) <- ps
+            .stateUpdates(beginAfter = None)
+            .idleTimeout(IdleTimeout)
+            .runWith(Sink.head)
+        } yield {
+          result should be(SubmissionResult.Acknowledged)
+          offset should be(theOffset(0, 0))
+          update.recordTime should be >= rt
+          inside(update) {
+            case PublicPackageUploadRejected(actualSubmissionId, _, _) =>
+              actualSubmissionId should be(submissionId)
+          }
+        }
+      }
+
+      "reject a duplicate submission" in participantState.use { ps =>
+        val submissionIds = (newSubmissionId(), newSubmissionId())
+        val archive1 :: archive2 :: _ = archives
+
+        for {
+          result1 <- ps.uploadPackages(submissionIds._1, List(archive1), sourceDescription).toScala
+          result2 <- ps.uploadPackages(submissionIds._1, List(archive1), sourceDescription).toScala
+          result3 <- ps.uploadPackages(submissionIds._2, List(archive2), sourceDescription).toScala
+          results = Seq(result1, result2, result3)
+          // second submission is a duplicate, it fails silently
+          Seq(_, (offset2, update2)) <- ps
+            .stateUpdates(beginAfter = None)
+            .idleTimeout(IdleTimeout)
+            .take(2)
+            .runWith(Sink.seq)
+        } yield {
+          all(results) should be(SubmissionResult.Acknowledged)
+          offset2 should be(theOffset(2, 0))
+          update2.recordTime should be >= rt
+          inside(update2) {
+            case PublicPackageUpload(_, _, _, Some(submissionId)) =>
+              submissionId should be(submissionIds._2)
+          }
         }
       }
     }
 
-    "reject duplicate submission in uploadPackage" in participantState.use { ps =>
-      val submissionIds = (newSubmissionId(), newSubmissionId())
-      val archive1 :: archive2 :: _ = archives
+    "allocateParty" should {
+      "provide an update" in participantState.use { ps =>
+        val partyHint = Ref.Party.assertFromString("Alice")
+        val displayName = "Alice Cooper"
 
-      for {
-        result1 <- ps.uploadPackages(submissionIds._1, List(archive1), sourceDescription).toScala
-        result2 <- ps.uploadPackages(submissionIds._1, List(archive1), sourceDescription).toScala
-        result3 <- ps.uploadPackages(submissionIds._2, List(archive2), sourceDescription).toScala
-        results = Seq(result1, result2, result3)
-        // second submission is a duplicate, it fails silently
-        Seq(_, (offset2, update2)) <- ps
-          .stateUpdates(beginAfter = None)
-          .take(2)
-          .runWith(Sink.seq)
-      } yield {
-        all(results) should be(SubmissionResult.Acknowledged)
-        offset2 should be(theOffset(2, 0))
-        update2.recordTime should be >= rt
-        inside(update2) {
-          case PublicPackageUpload(_, _, _, Some(submissionId)) =>
-            submissionId should be(submissionIds._2)
+        for {
+          result <- ps
+            .allocateParty(Some(partyHint), Some(displayName), newSubmissionId())
+            .toScala
+          (offset, update) <- ps
+            .stateUpdates(beginAfter = None)
+            .idleTimeout(IdleTimeout)
+            .runWith(Sink.head)
+        } yield {
+          result should be(SubmissionResult.Acknowledged)
+          offset should be(theOffset(0, 0))
+          update.recordTime should be >= rt
+          inside(update) {
+            case PartyAddedToParticipant(party, actualDisplayName, actualParticipantId, _, _) =>
+              party should be(partyHint)
+              actualDisplayName should be(displayName)
+              actualParticipantId should be(participantId)
+          }
+        }
+      }
+
+      "accept when the hint is empty" in participantState.use { ps =>
+        val displayName = "Alice Cooper"
+
+        for {
+          result <- ps.allocateParty(hint = None, Some(displayName), newSubmissionId()).toScala
+          (offset, update) <- ps
+            .stateUpdates(beginAfter = None)
+            .idleTimeout(IdleTimeout)
+            .runWith(Sink.head)
+        } yield {
+          result should be(SubmissionResult.Acknowledged)
+          offset should be(theOffset(0, 0))
+          update.recordTime should be >= rt
+          inside(update) {
+            case PartyAddedToParticipant(party, actualDisplayName, actualParticipantId, _, _) =>
+              party should not be empty
+              actualDisplayName should be(displayName)
+              actualParticipantId should be(participantId)
+          }
+        }
+      }
+
+      "reject a duplicate submission" in participantState.use { ps =>
+        val hints =
+          (Some(Ref.Party.assertFromString("Alice")), Some(Ref.Party.assertFromString("Bob")))
+        val displayNames = ("Alice Cooper", "Bob de Boumaa")
+
+        val submissionIds = (newSubmissionId(), newSubmissionId())
+
+        for {
+          result1 <- ps.allocateParty(hints._1, Some(displayNames._1), submissionIds._1).toScala
+          result2 <- ps.allocateParty(hints._2, Some(displayNames._2), submissionIds._1).toScala
+          result3 <- ps.allocateParty(hints._2, Some(displayNames._2), submissionIds._2).toScala
+          results = Seq(result1, result2, result3)
+          // second submission is a duplicate, it fails silently
+          Seq(_, (offset2, update2)) <- ps
+            .stateUpdates(beginAfter = None)
+            .idleTimeout(IdleTimeout)
+            .take(2)
+            .runWith(Sink.seq)
+        } yield {
+          all(results) should be(SubmissionResult.Acknowledged)
+          offset2 should be(theOffset(2, 0))
+          update2.recordTime should be >= rt
+          inside(update2) {
+            case PartyAddedToParticipant(_, displayName, _, _, Some(submissionId)) =>
+              displayName should be(displayNames._2)
+              submissionId should be(submissionIds._2)
+          }
+        }
+      }
+
+      "reject a duplicate party" in participantState.use { ps =>
+        val hint = Some(Ref.Party.assertFromString("Alice"))
+        val displayName = Some("Alice Cooper")
+
+        for {
+          result1 <- ps.allocateParty(hint, displayName, newSubmissionId()).toScala
+          result2 <- ps.allocateParty(hint, displayName, newSubmissionId()).toScala
+          results = Seq(result1, result2)
+          Seq(_, (offset2, update2)) <- ps
+            .stateUpdates(beginAfter = None)
+            .idleTimeout(IdleTimeout)
+            .take(2)
+            .runWith(Sink.seq)
+        } yield {
+          all(results) should be(SubmissionResult.Acknowledged)
+          offset2 should be(theOffset(1, 0))
+          update2.recordTime should be >= rt
+          inside(update2) {
+            case PartyAllocationRejected(_, _, _, rejectionReason) =>
+              rejectionReason should be("Party already exists")
+          }
         }
       }
     }
 
-    "provide update after allocateParty" in participantState.use { ps =>
-      val partyHint = Ref.Party.assertFromString("Alice")
-      val displayName = "Alice Cooper"
+    "submitTransaction" should {
+      "provide an update after a transaction submission" in participantState.use { ps =>
+        for {
+          _ <- ps.allocateParty(hint = Some(alice), None, newSubmissionId()).toScala
+          _ <- ps
+            .submitTransaction(submitterInfo(rt, alice), transactionMeta(rt), emptyTransaction)
+            .toScala
+          (offset, _) <- ps
+            .stateUpdates(beginAfter = None)
+            .idleTimeout(IdleTimeout)
+            .drop(1)
+            .runWith(Sink.head)
+        } yield {
+          offset should be(theOffset(1, 0))
+        }
+      }
 
-      for {
-        result <- ps
-          .allocateParty(Some(partyHint), Some(displayName), newSubmissionId())
-          .toScala
-        (offset, update) <- ps.stateUpdates(beginAfter = None).runWith(Sink.head)
-      } yield {
-        result should be(SubmissionResult.Acknowledged)
-        offset should be(theOffset(0, 0))
-        update.recordTime should be >= rt
-        inside(update) {
-          case PartyAddedToParticipant(party, actualDisplayName, actualParticipantId, _, _) =>
-            party should be(partyHint)
-            actualDisplayName should be(displayName)
-            actualParticipantId should be(participantId)
+      "reject duplicate commands" in participantState.use { ps =>
+        val commandIds = ("X1", "X2")
+
+        for {
+          result1 <- ps.allocateParty(hint = Some(alice), None, newSubmissionId()).toScala
+          result2 <- ps
+            .submitTransaction(
+              submitterInfo(rt, alice, commandIds._1),
+              transactionMeta(rt),
+              emptyTransaction,
+            )
+            .toScala
+          result3 <- ps
+            .submitTransaction(
+              submitterInfo(rt, alice, commandIds._1),
+              transactionMeta(rt),
+              emptyTransaction,
+            )
+            .toScala
+          result4 <- ps
+            .submitTransaction(
+              submitterInfo(rt, alice, commandIds._2),
+              transactionMeta(rt),
+              emptyTransaction,
+            )
+            .toScala
+          results = Seq(result1, result2, result3, result4)
+          Seq((offset1, update1), (offset2, update2), (offset3, update3)) <- ps
+            .stateUpdates(beginAfter = None)
+            .idleTimeout(IdleTimeout)
+            .take(3)
+            .runWith(Sink.seq)
+          updates = Seq(update1, update2, update3)
+        } yield {
+          all(results) should be(SubmissionResult.Acknowledged)
+          all(updates.map(_.recordTime)) should be >= rt
+
+          offset1 should be(theOffset(0, 0))
+          update1 should be(a[PartyAddedToParticipant])
+
+          offset2 should be(theOffset(1, 0))
+          matchTransaction(update2, commandIds._1)
+
+          offset3 should be(theOffset(3, 0))
+          matchTransaction(update3, commandIds._2)
+        }
+      }
+
+      "return the third update with beginAfter=1" in participantState.use { ps =>
+        for {
+          result1 <- ps
+            .allocateParty(hint = Some(alice), None, newSubmissionId())
+            .toScala // offset now at [1,0]
+          result2 <- ps
+            .submitTransaction(
+              submitterInfo(rt, alice, "X1"),
+              transactionMeta(rt),
+              emptyTransaction)
+            .toScala
+          result3 <- ps
+            .submitTransaction(
+              submitterInfo(rt, alice, "X2"),
+              transactionMeta(rt),
+              emptyTransaction)
+            .toScala
+          results = Seq(result1, result2, result3)
+          (offset, update) <- ps
+            .stateUpdates(beginAfter = Some(theOffset(1, 0)))
+            .idleTimeout(IdleTimeout)
+            .runWith(Sink.head)
+        } yield {
+          all(results) should be(SubmissionResult.Acknowledged)
+          offset should be(theOffset(2, 0))
+          update.recordTime should be >= rt
+          update should be(a[TransactionAccepted])
+        }
+      }
+
+      "correctly implement transaction submission authorization" in participantState.use { ps =>
+        val unallocatedParty = Ref.Party.assertFromString("nobody")
+        for {
+          lic <- ps.getLedgerInitialConditions().runWith(Sink.head)
+          _ <- ps
+            .submitConfiguration(
+              maxRecordTime = inTheFuture(10.seconds),
+              submissionId = newSubmissionId(),
+              config = lic.config.copy(
+                generation = lic.config.generation + 1,
+              ),
+            )
+            .toScala
+
+          // Submit without allocation
+          _ <- ps
+            .submitTransaction(
+              submitterInfo(rt, unallocatedParty),
+              transactionMeta(rt),
+              emptyTransaction,
+            )
+            .toScala
+
+          // Allocate a party and try the submission again with an allocated party.
+          result <- ps
+            .allocateParty(
+              None /* no name hint, implementation decides party name */,
+              Some("Somebody"),
+              newSubmissionId(),
+            )
+            .toScala
+          _ = result should be(a[SubmissionResult])
+
+          //get the new party off state updates
+          newParty <- ps
+            .stateUpdates(beginAfter = Some(theOffset(1, 0)))
+            .idleTimeout(IdleTimeout)
+            .runWith(Sink.head)
+            .map(_._2.asInstanceOf[PartyAddedToParticipant].party)
+          _ <- ps
+            .submitTransaction(
+              submitterInfo(rt, party = newParty),
+              transactionMeta(rt),
+              emptyTransaction,
+            )
+            .toScala
+
+          Seq((offset1, update1), (offset2, update2), (offset3, update3), (offset4, update4)) <- ps
+            .stateUpdates(beginAfter = None)
+            .idleTimeout(IdleTimeout)
+            .take(4)
+            .runWith(Sink.seq)
+          updates = Seq(update1, update2, update3, update4)
+        } yield {
+          all(updates.map(_.recordTime)) should be >= rt
+
+          offset1 should be(theOffset(0, 0))
+          update1 should be(a[ConfigurationChanged])
+
+          offset2 should be(theOffset(1, 0))
+          inside(update2) {
+            case CommandRejected(_, _, reason) =>
+              reason should be(RejectionReason.PartyNotKnownOnLedger)
+          }
+
+          offset3 should be(theOffset(2, 0))
+          update3 should be(a[PartyAddedToParticipant])
+
+          offset4 should be(theOffset(3, 0))
+          update4 should be(a[TransactionAccepted])
         }
       }
     }
 
-    "accept allocateParty when hint is empty" in participantState.use { ps =>
-      val displayName = "Alice Cooper"
+    "submitConfiguration" should {
+      "allow an administrator to submit a new configuration" in participantState.use { ps =>
+        for {
+          lic <- ps.getLedgerInitialConditions().runWith(Sink.head)
 
-      for {
-        result <- ps.allocateParty(hint = None, Some(displayName), newSubmissionId()).toScala
-        (offset, update) <- ps.stateUpdates(beginAfter = None).runWith(Sink.head)
-      } yield {
-        result should be(SubmissionResult.Acknowledged)
-        offset should be(theOffset(0, 0))
-        update.recordTime should be >= rt
-        inside(update) {
-          case PartyAddedToParticipant(party, actualDisplayName, actualParticipantId, _, _) =>
-            party should not be empty
-            actualDisplayName should be(displayName)
-            actualParticipantId should be(participantId)
+          // Submit an initial configuration change
+          _ <- ps
+            .submitConfiguration(
+              maxRecordTime = inTheFuture(10.seconds),
+              submissionId = newSubmissionId(),
+              config = lic.config.copy(
+                generation = lic.config.generation + 1,
+              ),
+            )
+            .toScala
+
+          // Submit another configuration change that uses stale "current config".
+          _ <- ps
+            .submitConfiguration(
+              maxRecordTime = inTheFuture(10.seconds),
+              submissionId = newSubmissionId(),
+              config = lic.config.copy(
+                generation = lic.config.generation + 1,
+                timeModel = TimeModel(
+                  Duration.ofSeconds(123),
+                  Duration.ofSeconds(123),
+                  Duration.ofSeconds(123),
+                ).get,
+              ),
+            )
+            .toScala
+
+          Seq((_, update1), (_, update2)) <- ps
+            .stateUpdates(beginAfter = None)
+            .idleTimeout(IdleTimeout)
+            .take(2)
+            .runWith(Sink.seq)
+        } yield {
+          // The first submission should change the config.
+          inside(update1) {
+            case ConfigurationChanged(_, _, _, newConfiguration) =>
+              newConfiguration should not be lic.config
+          }
+
+          // The second submission should get rejected.
+          update2 should be(a[ConfigurationChangeRejected])
         }
       }
-    }
 
-    "reject duplicate submission in allocateParty" in participantState.use { ps =>
-      val hints =
-        (Some(Ref.Party.assertFromString("Alice")), Some(Ref.Party.assertFromString("Bob")))
-      val displayNames = ("Alice Cooper", "Bob de Boumaa")
+      "reject a duplicate submission" in participantState.use { ps =>
+        val submissionIds = (newSubmissionId(), newSubmissionId())
+        for {
+          lic <- ps.getLedgerInitialConditions().runWith(Sink.head)
 
-      val submissionIds = (newSubmissionId(), newSubmissionId())
+          // Submit an initial configuration change
+          result1 <- ps
+            .submitConfiguration(
+              maxRecordTime = inTheFuture(10.seconds),
+              submissionId = submissionIds._1,
+              config = lic.config.copy(
+                generation = lic.config.generation + 1,
+              ),
+            )
+            .toScala
+          // this is a duplicate, which fails silently
+          result2 <- ps
+            .submitConfiguration(
+              maxRecordTime = inTheFuture(10.seconds),
+              submissionId = submissionIds._1,
+              config = lic.config.copy(
+                generation = lic.config.generation + 2,
+              ),
+            )
+            .toScala
+          result3 <- ps
+            .submitConfiguration(
+              maxRecordTime = inTheFuture(10.seconds),
+              submissionId = submissionIds._2,
+              config = lic.config.copy(
+                generation = lic.config.generation + 2,
+              ),
+            )
+            .toScala
+          results = Seq(result1, result2, result3)
 
-      for {
-        result1 <- ps.allocateParty(hints._1, Some(displayNames._1), submissionIds._1).toScala
-        result2 <- ps.allocateParty(hints._2, Some(displayNames._2), submissionIds._1).toScala
-        result3 <- ps.allocateParty(hints._2, Some(displayNames._2), submissionIds._2).toScala
-        results = Seq(result1, result2, result3)
-        // second submission is a duplicate, it fails silently
-        Seq(_, (offset2, update2)) <- ps
-          .stateUpdates(beginAfter = None)
-          .take(2)
-          .runWith(Sink.seq)
-      } yield {
-        all(results) should be(SubmissionResult.Acknowledged)
-        offset2 should be(theOffset(2, 0))
-        update2.recordTime should be >= rt
-        inside(update2) {
-          case PartyAddedToParticipant(_, displayName, _, _, Some(submissionId)) =>
-            displayName should be(displayNames._2)
-            submissionId should be(submissionIds._2)
-        }
-      }
-    }
-
-    "reject duplicate party in allocateParty" in participantState.use { ps =>
-      val hint = Some(Ref.Party.assertFromString("Alice"))
-      val displayName = Some("Alice Cooper")
-
-      for {
-        result1 <- ps.allocateParty(hint, displayName, newSubmissionId()).toScala
-        result2 <- ps.allocateParty(hint, displayName, newSubmissionId()).toScala
-        results = Seq(result1, result2)
-        Seq(_, (offset2, update2)) <- ps
-          .stateUpdates(beginAfter = None)
-          .take(2)
-          .runWith(Sink.seq)
-      } yield {
-        all(results) should be(SubmissionResult.Acknowledged)
-        offset2 should be(theOffset(1, 0))
-        update2.recordTime should be >= rt
-        inside(update2) {
-          case PartyAllocationRejected(_, _, _, rejectionReason) =>
-            rejectionReason should be("Party already exists")
-        }
-      }
-    }
-
-    "provide update after transaction submission" in participantState.use { ps =>
-      for {
-        _ <- ps.allocateParty(hint = Some(alice), None, newSubmissionId()).toScala
-        _ <- ps
-          .submitTransaction(submitterInfo(rt, alice), transactionMeta(rt), emptyTransaction)
-          .toScala
-        (offset, _) <- ps.stateUpdates(beginAfter = None).drop(1).runWith(Sink.head)
-      } yield {
-        offset should be(theOffset(1, 0))
-      }
-    }
-
-    "reject duplicate commands" in participantState.use { ps =>
-      val commandIds = ("X1", "X2")
-
-      for {
-        result1 <- ps.allocateParty(hint = Some(alice), None, newSubmissionId()).toScala
-        result2 <- ps
-          .submitTransaction(
-            submitterInfo(rt, alice, commandIds._1),
-            transactionMeta(rt),
-            emptyTransaction,
-          )
-          .toScala
-        result3 <- ps
-          .submitTransaction(
-            submitterInfo(rt, alice, commandIds._1),
-            transactionMeta(rt),
-            emptyTransaction,
-          )
-          .toScala
-        result4 <- ps
-          .submitTransaction(
-            submitterInfo(rt, alice, commandIds._2),
-            transactionMeta(rt),
-            emptyTransaction,
-          )
-          .toScala
-        results = Seq(result1, result2, result3, result4)
-        Seq((offset1, update1), (offset2, update2), (offset3, update3)) <- ps
-          .stateUpdates(beginAfter = None)
-          .take(3)
-          .runWith(Sink.seq)
-        updates = Seq(update1, update2, update3)
-      } yield {
-        all(results) should be(SubmissionResult.Acknowledged)
-        all(updates.map(_.recordTime)) should be >= rt
-
-        offset1 should be(theOffset(0, 0))
-        update1 should be(a[PartyAddedToParticipant])
-
-        offset2 should be(theOffset(1, 0))
-        matchTransaction(update2, commandIds._1)
-
-        offset3 should be(theOffset(3, 0))
-        matchTransaction(update3, commandIds._2)
-      }
-    }
-
-    "return second update with beginAfter=0" in participantState.use { ps =>
-      for {
-        result1 <- ps
-          .allocateParty(hint = Some(alice), None, newSubmissionId())
-          .toScala // offset now at [1,0]
-        result2 <- ps
-          .submitTransaction(submitterInfo(rt, alice, "X1"), transactionMeta(rt), emptyTransaction)
-          .toScala
-        result3 <- ps
-          .submitTransaction(submitterInfo(rt, alice, "X2"), transactionMeta(rt), emptyTransaction)
-          .toScala
-        results = Seq(result1, result2, result3)
-        (offset, update) <- ps
-          .stateUpdates(beginAfter = Some(theOffset(1, 0)))
-          .runWith(Sink.head)
-      } yield {
-        all(results) should be(SubmissionResult.Acknowledged)
-        offset should be(theOffset(2, 0))
-        update.recordTime should be >= rt
-        update should be(a[TransactionAccepted])
-      }
-    }
-
-    "correctly implements tx submission authorization" in participantState.use { ps =>
-      val unallocatedParty = Ref.Party.assertFromString("nobody")
-      for {
-        lic <- ps.getLedgerInitialConditions().runWith(Sink.head)
-        _ <- ps
-          .submitConfiguration(
-            maxRecordTime = inTheFuture(10.seconds),
-            submissionId = newSubmissionId(),
-            config = lic.config.copy(
-              generation = lic.config.generation + 1,
-            ),
-          )
-          .toScala
-
-        // Submit without allocation
-        _ <- ps
-          .submitTransaction(
-            submitterInfo(rt, unallocatedParty),
-            transactionMeta(rt),
-            emptyTransaction,
-          )
-          .toScala
-
-        // Allocate a party and try the submission again with an allocated party.
-        result <- ps
-          .allocateParty(
-            None /* no name hint, implementation decides party name */,
-            Some("Somebody"),
-            newSubmissionId(),
-          )
-          .toScala
-        _ = result should be(a[SubmissionResult])
-
-        //get the new party off state updates
-        newParty <- ps
-          .stateUpdates(beginAfter = Some(theOffset(1, 0)))
-          .runWith(Sink.head)
-          .map(_._2.asInstanceOf[PartyAddedToParticipant].party)
-        _ <- ps
-          .submitTransaction(
-            submitterInfo(rt, party = newParty),
-            transactionMeta(rt),
-            emptyTransaction,
-          )
-          .toScala
-
-        Seq((offset1, update1), (offset2, update2), (offset3, update3), (offset4, update4)) <- ps
-          .stateUpdates(beginAfter = None)
-          .take(4)
-          .runWith(Sink.seq)
-        updates = Seq(update1, update2, update3, update4)
-      } yield {
-        all(updates.map(_.recordTime)) should be >= rt
-
-        offset1 should be(theOffset(0, 0))
-        update1 should be(a[ConfigurationChanged])
-
-        offset2 should be(theOffset(1, 0))
-        inside(update2) {
-          case CommandRejected(_, _, reason) =>
-            reason should be(RejectionReason.PartyNotKnownOnLedger)
-        }
-
-        offset3 should be(theOffset(2, 0))
-        update3 should be(a[PartyAddedToParticipant])
-
-        offset4 should be(theOffset(3, 0))
-        update4 should be(a[TransactionAccepted])
-      }
-    }
-
-    "allow an administrator to submit new configuration" in participantState.use { ps =>
-      for {
-        lic <- ps.getLedgerInitialConditions().runWith(Sink.head)
-
-        // Submit an initial configuration change
-        _ <- ps
-          .submitConfiguration(
-            maxRecordTime = inTheFuture(10.seconds),
-            submissionId = newSubmissionId(),
-            config = lic.config.copy(
-              generation = lic.config.generation + 1,
-            ),
-          )
-          .toScala
-
-        // Submit another configuration change that uses stale "current config".
-        _ <- ps
-          .submitConfiguration(
-            maxRecordTime = inTheFuture(10.seconds),
-            submissionId = newSubmissionId(),
-            config = lic.config.copy(
-              generation = lic.config.generation + 1,
-              timeModel = TimeModel(
-                Duration.ofSeconds(123),
-                Duration.ofSeconds(123),
-                Duration.ofSeconds(123),
-              ).get,
-            ),
-          )
-          .toScala
-
-        Seq((_, update1), (_, update2)) <- ps.stateUpdates(None).take(2).runWith(Sink.seq)
-      } yield {
-        // The first submission should change the config.
-        inside(update1) {
-          case ConfigurationChanged(_, _, _, newConfiguration) =>
-            newConfiguration should not be lic.config
-        }
-
-        // The second submission should get rejected.
-        update2 should be(a[ConfigurationChangeRejected])
-      }
-    }
-
-    "reject duplicate submission in new configuration" in participantState.use { ps =>
-      val submissionIds = (newSubmissionId(), newSubmissionId())
-      for {
-        lic <- ps.getLedgerInitialConditions().runWith(Sink.head)
-
-        // Submit an initial configuration change
-        result1 <- ps
-          .submitConfiguration(
-            maxRecordTime = inTheFuture(10.seconds),
-            submissionId = submissionIds._1,
-            config = lic.config.copy(
-              generation = lic.config.generation + 1,
-            ),
-          )
-          .toScala
-        // this is a duplicate, which fails silently
-        result2 <- ps
-          .submitConfiguration(
-            maxRecordTime = inTheFuture(10.seconds),
-            submissionId = submissionIds._1,
-            config = lic.config.copy(
-              generation = lic.config.generation + 2,
-            ),
-          )
-          .toScala
-        result3 <- ps
-          .submitConfiguration(
-            maxRecordTime = inTheFuture(10.seconds),
-            submissionId = submissionIds._2,
-            config = lic.config.copy(
-              generation = lic.config.generation + 2,
-            ),
-          )
-          .toScala
-        results = Seq(result1, result2, result3)
-
-        // second submission is a duplicate, and is therefore dropped
-        Seq(_, (offset2, update2)) <- ps.stateUpdates(beginAfter = None).take(2).runWith(Sink.seq)
-      } yield {
-        all(results) should be(SubmissionResult.Acknowledged)
-        offset2 should be(theOffset(2, 0))
-        update2.recordTime should be >= rt
-        inside(update2) {
-          case ConfigurationChanged(_, submissionId, _, _) =>
-            submissionId should be(submissionIds._2)
+          // second submission is a duplicate, and is therefore dropped
+          Seq(_, (offset2, update2)) <- ps
+            .stateUpdates(beginAfter = None)
+            .idleTimeout(IdleTimeout)
+            .take(2)
+            .runWith(Sink.seq)
+        } yield {
+          all(results) should be(SubmissionResult.Acknowledged)
+          offset2 should be(theOffset(2, 0))
+          update2.recordTime should be >= rt
+          inside(update2) {
+            case ConfigurationChanged(_, submissionId, _, _) =>
+              submissionId should be(submissionIds._2)
+          }
         }
       }
     }
@@ -530,7 +576,11 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
           .map(i => Ref.Party.assertFromString(s"party-%0${partyIdDigits}d".format(i)))
           .toVector
 
-      val updatesF = ps.stateUpdates(beginAfter = None).take(partyCount).runWith(Sink.seq)
+      val updatesF = ps
+        .stateUpdates(beginAfter = None)
+        .idleTimeout(IdleTimeout)
+        .take(partyCount)
+        .runWith(Sink.seq)
       for {
         results <- Future.sequence(
           partyNames.map(name =>
@@ -568,8 +618,8 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
                 .toScala
               updates <- ps
                 .stateUpdates(beginAfter = None)
+                .idleTimeout(IdleTimeout)
                 .take(2)
-                .completionTimeout(10.seconds)
                 .runWith(Sink.seq)
             } yield updates.map(_._2)
           }
@@ -600,7 +650,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
 object ParticipantStateIntegrationSpecBase {
   type ParticipantState = ReadService with WriteService
 
-  private val DefaultIdleTimeout = 5.seconds
+  private val IdleTimeout = 5.seconds
   private val emptyTransaction: SubmittedTransaction =
     GenTransaction(HashMap.empty, ImmArray.empty, Some(InsertOrdSet.empty))
 
