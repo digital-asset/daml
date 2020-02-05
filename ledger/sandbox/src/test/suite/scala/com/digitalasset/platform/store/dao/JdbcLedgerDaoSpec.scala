@@ -296,7 +296,7 @@ class JdbcLedgerDaoSpec
           offset + 1,
           None,
           Instant.EPOCH,
-          "submission-${offset}",
+          s"submission-$offset",
           Ref.LedgerString.assertFromString("participant-0"),
           defaultConfig,
           None

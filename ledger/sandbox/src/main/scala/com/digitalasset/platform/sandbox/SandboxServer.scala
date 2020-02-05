@@ -164,8 +164,8 @@ final class SandboxServer(config: SandboxConfig) extends AutoCloseable {
     // TODO: eliminate the state mutation somehow
     sandboxState = for {
       state <- sandboxState
-      currentPort <- ResourceOwner.forFuture(() => state.port).acquire()
-      _ <- ResourceOwner.forFuture(() => state.apiServer.release()).acquire()
+      currentPort <- Resource.fromFuture(state.port)
+      _ <- Resource.fromFuture(state.apiServer.release())
     } yield
       state.copy(
         apiServer = buildAndStartApiServer(
@@ -276,7 +276,7 @@ final class SandboxServer(config: SandboxConfig) extends AutoCloseable {
           ),
           metrics
         ).acquire()
-        _ <- ResourceOwner.forFuture(() => writePortFile(apiServer.port)).acquire()
+        _ <- Resource.fromFuture(writePortFile(apiServer.port))
       } yield {
         Banner.show(Console.out)
         logger.withoutContext.info(

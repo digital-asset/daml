@@ -19,8 +19,7 @@ final class TestResourceOwner[T](acquire: Future[T], release: T => Future[Unit])
     if (!acquired.compareAndSet(false, true)) {
       throw new TriedToAcquireTwice
     }
-    Resource(
-      acquire,
+    Resource(acquire)(
       value =>
         if (acquired.compareAndSet(true, false))
           release(value)

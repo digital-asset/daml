@@ -13,6 +13,7 @@ import Data.Aeson (toJSON)
 import Data.Char (toLower)
 import Data.Foldable (toList)
 import Data.List.Extra
+import Data.Maybe
 import qualified Data.Text as T
 import qualified Language.Haskell.LSP.Test as LspTest
 import Language.Haskell.LSP.Types
@@ -485,7 +486,7 @@ executeCommandTests run _ = testGroup "execute command"
         let expectedDotString = "digraph G {\ncompound=true;\nrankdir=LR;\nsubgraph cluster_Coin{\nn0[label=Create][color=green]; \nn1[label=Archive][color=red]; \nn2[label=Delete][color=red]; \nlabel=<<table align = \"left\" border=\"0\" cellborder=\"0\" cellspacing=\"1\">\n<tr><td align=\"center\"><b>Coin</b></td></tr><tr><td align=\"left\">owner</td></tr> \n</table>>;color=blue\n}\n}\n"
         liftIO $ assertEqual "Visulization command" (Just expectedDotString) (_result actualDotString)
         closeDoc main'
-    , testCase "Invalid commands result in empty response"  $ run $ do
+    , testCase "Invalid commands result in error"  $ run $ do
         main' <- openDoc' "Main.daml" damlId $ T.unlines
             [ "daml 1.2"
             , "module Empty where"
@@ -493,14 +494,14 @@ executeCommandTests run _ = testGroup "execute command"
         Just escapedFp <- pure $ uriToFilePath (main' ^. uri)
         actualDotString :: ExecuteCommandResponse <- LSP.request WorkspaceExecuteCommand $ ExecuteCommandParams
            "daml/NoCommand"  (Just (List [Aeson.String $ T.pack escapedFp])) Nothing
-        let expectedNull = Just Aeson.Null
-        liftIO $ assertEqual "Invlalid command" expectedNull (_result actualDotString)
+        liftIO $ _result actualDotString @?= Nothing
+        liftIO $ assertBool "Expected response error but got Nothing" (isJust $ _error actualDotString)
         closeDoc main'
     , testCase "Visualization command with no arguments" $ run $ do
         actualDotString :: ExecuteCommandResponse <- LSP.request WorkspaceExecuteCommand $ ExecuteCommandParams
            "daml/damlVisualize"  Nothing Nothing
-        let expectedNull = Just Aeson.Null
-        liftIO $ assertEqual "Invlalid command" expectedNull (_result actualDotString)
+        liftIO $ _result actualDotString @?= Nothing
+        liftIO $ assertBool "Expected response error but got Nothing" (isJust $ _error actualDotString)
     ]
 
 -- | Do extreme things to the compiler service.

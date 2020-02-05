@@ -104,9 +104,7 @@ final class LedgerApiServer(
     override def acquire()(
         implicit executionContext: ExecutionContext
     ): Resource[ExecutionSequencerFactory] =
-      Resource[AkkaExecutionSequencerPool](
-        Future(new AkkaExecutionSequencerPool(poolName, ActorCount)),
-        _.closeAsync()).vary
+      Resource(Future(new AkkaExecutionSequencerPool(poolName, ActorCount)))(_.closeAsync())
   }
 
   private final class EventLoopGroupOwner(threadPoolName: String, parallelism: Int)
@@ -115,7 +113,7 @@ final class LedgerApiServer(
       Resource(
         Future(new NioEventLoopGroup(
           parallelism,
-          new DefaultThreadFactory(s"$threadPoolName-grpc-eventloop-${UUID.randomUUID()}", true))),
+          new DefaultThreadFactory(s"$threadPoolName-grpc-eventloop-${UUID.randomUUID()}", true))))(
         group => {
           val promise = Promise[Unit]()
           val future = group.shutdownGracefully(0, 0, MILLISECONDS)
@@ -139,32 +137,29 @@ final class LedgerApiServer(
   ) extends ResourceOwner[Server] {
     override def acquire()(implicit executionContext: ExecutionContext): Resource[Server] = {
       val host = address.map(InetAddress.getByName).getOrElse(InetAddress.getLoopbackAddress)
-      Resource(
-        Future {
-          val builder =
-            NettyServerBuilder.forAddress(new InetSocketAddress(host, desiredPort))
-          builder.sslContext(sslContext.orNull)
-          builder.channelType(classOf[NioServerSocketChannel])
-          builder.permitKeepAliveTime(10, SECONDS)
-          builder.permitKeepAliveWithoutCalls(true)
-          builder.directExecutor()
-          builder.maxInboundMessageSize(maxInboundMessageSize)
-          interceptors.foreach(builder.intercept)
-          builder.intercept(new MetricsInterceptor(metrics))
-          builder.bossEventLoopGroup(bossEventLoopGroup)
-          builder.workerEventLoopGroup(workerEventLoopGroup)
-          apiServices.services.foreach(builder.addService)
-          val server = builder.build()
-          try {
-            server.start()
-          } catch {
-            case e: IOException if e.getCause != null && e.getCause.isInstanceOf[BindException] =>
-              throw new UnableToBind(desiredPort, e.getCause)
-          }
-          server
-        },
-        server => Future(server.shutdown().awaitTermination())
-      )
+      Resource(Future {
+        val builder =
+          NettyServerBuilder.forAddress(new InetSocketAddress(host, desiredPort))
+        builder.sslContext(sslContext.orNull)
+        builder.channelType(classOf[NioServerSocketChannel])
+        builder.permitKeepAliveTime(10, SECONDS)
+        builder.permitKeepAliveWithoutCalls(true)
+        builder.directExecutor()
+        builder.maxInboundMessageSize(maxInboundMessageSize)
+        interceptors.foreach(builder.intercept)
+        builder.intercept(new MetricsInterceptor(metrics))
+        builder.bossEventLoopGroup(bossEventLoopGroup)
+        builder.workerEventLoopGroup(workerEventLoopGroup)
+        apiServices.services.foreach(builder.addService)
+        val server = builder.build()
+        try {
+          server.start()
+        } catch {
+          case e: IOException if e.getCause != null && e.getCause.isInstanceOf[BindException] =>
+            throw new UnableToBind(desiredPort, e.getCause)
+        }
+        server
+      })(server => Future(server.shutdown().awaitTermination()))
     }
   }
 
@@ -177,10 +172,8 @@ final class LedgerApiServer(
       servicesClosedPromise: Promise[Unit],
   ) extends ResourceOwner[ApiServices] {
     override def acquire()(implicit executionContext: ExecutionContext): Resource[ApiServices] =
-      Resource(
-        apiServices.asFuture,
-        _ => apiServices.release().map(_ => servicesClosedPromise.success(())),
-      )
+      Resource(apiServices.asFuture)(_ =>
+        apiServices.release().map(_ => servicesClosedPromise.success(())))
   }
 
   final class UnableToBind(port: Int, cause: Throwable)

@@ -189,7 +189,7 @@ object InterfaceReader {
         name -> iface.InterfaceType.Normal(
           DefDataType(ImmArraySeq.empty, Enum(enum.constructors.toSeq))))
     else
-      invalidDataTypeDefinition(name, "non-empty type parameters for enum type $name")
+      invalidDataTypeDefinition(name, s"non-empty type parameters for enum type $name")
 
   private[reader] def fieldsOrCons(ctx: QualifiedName, fields: ImmArray[(Ref.Name, Ast.Type)])
     : InterfaceReaderError \/ ImmArraySeq[(Ref.Name, Type)] =

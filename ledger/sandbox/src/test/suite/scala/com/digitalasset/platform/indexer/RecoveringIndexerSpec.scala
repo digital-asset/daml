@@ -276,22 +276,21 @@ object RecoveringIndexerSpec {
           implicit executionContext: ExecutionContext
       ): Resource[IndexFeedHandle] = {
         val result = results.next()
-        Resource[TestIndexerFeedHandle](
-          Future {
-            actionsQueue.add(EventSubscribeCalled(result.name))
-          }.flatMap { _ =>
-            after(result.subscribeDelay, scheduler)(Future {
-              if (result.status != SubscriptionFails) {
-                actionsQueue.add(EventSubscribeSuccess(result.name))
-                val handle = new TestIndexerFeedHandle(result)
-                openSubscriptions += handle
-                handle
-              } else {
-                actionsQueue.add(EventSubscribeFail(result.name))
-                throw new RuntimeException("Random simulated failure: subscribe")
-              }
-            })
-          },
+        Resource(Future {
+          actionsQueue.add(EventSubscribeCalled(result.name))
+        }.flatMap { _ =>
+          after(result.subscribeDelay, scheduler)(Future {
+            if (result.status != SubscriptionFails) {
+              actionsQueue.add(EventSubscribeSuccess(result.name))
+              val handle = new TestIndexerFeedHandle(result)
+              openSubscriptions += handle
+              handle
+            } else {
+              actionsQueue.add(EventSubscribeFail(result.name))
+              throw new RuntimeException("Random simulated failure: subscribe")
+            }
+          })
+        })(
           handle => {
             val complete = handle.stop()
             complete.onComplete { _ =>
@@ -299,7 +298,7 @@ object RecoveringIndexerSpec {
             }
             complete
           }
-        ).vary
+        )
       }
     }
 
