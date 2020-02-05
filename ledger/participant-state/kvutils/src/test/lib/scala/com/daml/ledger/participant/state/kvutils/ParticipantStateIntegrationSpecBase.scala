@@ -83,7 +83,10 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
       val submissionId = newSubmissionId()
       for {
         result <- ps.uploadPackages(submissionId, List(archives.head), sourceDescription).toScala
-        (offset, update) <- ps.stateUpdates(beginAfter = None).runWith(Sink.head)
+        (offset, update) <- ps
+          .stateUpdates(beginAfter = None)
+          .idleTimeout(IdleTimeout)
+          .runWith(Sink.head)
       } yield {
         result should be(SubmissionResult.Acknowledged)
         offset should be(theOffset(0, 0))
@@ -96,7 +99,10 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
       val submissionId = newSubmissionId()
       for {
         result <- ps.uploadPackages(submissionId, archives, sourceDescription).toScala
-        (offset, update) <- ps.stateUpdates(beginAfter = None).runWith(Sink.head)
+        (offset, update) <- ps
+          .stateUpdates(beginAfter = None)
+          .idleTimeout(IdleTimeout)
+          .runWith(Sink.head)
       } yield {
         result should be(SubmissionResult.Acknowledged)
         offset should be(theOffset(0, 0))
@@ -117,6 +123,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
         results = Seq(result1, result2, result3)
         Seq((offset1, update1), (offset2, update2), (offset3, update3)) <- ps
           .stateUpdates(beginAfter = None)
+          .idleTimeout(IdleTimeout)
           .take(3)
           .runWith(Sink.seq)
         updates = Seq(update1, update2, update3)
@@ -144,7 +151,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
         result <- ps.uploadPackages(submissionId, List(badArchive), sourceDescription).toScala
         (offset, update) <- ps
           .stateUpdates(beginAfter = None)
-          .idleTimeout(DefaultIdleTimeout)
+          .idleTimeout(IdleTimeout)
           .runWith(Sink.head)
       } yield {
         result should be(SubmissionResult.Acknowledged)
@@ -169,6 +176,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
         // second submission is a duplicate, it fails silently
         Seq(_, (offset2, update2)) <- ps
           .stateUpdates(beginAfter = None)
+          .idleTimeout(IdleTimeout)
           .take(2)
           .runWith(Sink.seq)
       } yield {
@@ -190,7 +198,10 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
         result <- ps
           .allocateParty(Some(partyHint), Some(displayName), newSubmissionId())
           .toScala
-        (offset, update) <- ps.stateUpdates(beginAfter = None).runWith(Sink.head)
+        (offset, update) <- ps
+          .stateUpdates(beginAfter = None)
+          .idleTimeout(IdleTimeout)
+          .runWith(Sink.head)
       } yield {
         result should be(SubmissionResult.Acknowledged)
         offset should be(theOffset(0, 0))
@@ -209,7 +220,10 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
 
       for {
         result <- ps.allocateParty(hint = None, Some(displayName), newSubmissionId()).toScala
-        (offset, update) <- ps.stateUpdates(beginAfter = None).runWith(Sink.head)
+        (offset, update) <- ps
+          .stateUpdates(beginAfter = None)
+          .idleTimeout(IdleTimeout)
+          .runWith(Sink.head)
       } yield {
         result should be(SubmissionResult.Acknowledged)
         offset should be(theOffset(0, 0))
@@ -238,6 +252,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
         // second submission is a duplicate, it fails silently
         Seq(_, (offset2, update2)) <- ps
           .stateUpdates(beginAfter = None)
+          .idleTimeout(IdleTimeout)
           .take(2)
           .runWith(Sink.seq)
       } yield {
@@ -262,6 +277,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
         results = Seq(result1, result2)
         Seq(_, (offset2, update2)) <- ps
           .stateUpdates(beginAfter = None)
+          .idleTimeout(IdleTimeout)
           .take(2)
           .runWith(Sink.seq)
       } yield {
@@ -281,7 +297,11 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
         _ <- ps
           .submitTransaction(submitterInfo(rt, alice), transactionMeta(rt), emptyTransaction)
           .toScala
-        (offset, _) <- ps.stateUpdates(beginAfter = None).drop(1).runWith(Sink.head)
+        (offset, _) <- ps
+          .stateUpdates(beginAfter = None)
+          .idleTimeout(IdleTimeout)
+          .drop(1)
+          .runWith(Sink.head)
       } yield {
         offset should be(theOffset(1, 0))
       }
@@ -316,6 +336,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
         results = Seq(result1, result2, result3, result4)
         Seq((offset1, update1), (offset2, update2), (offset3, update3)) <- ps
           .stateUpdates(beginAfter = None)
+          .idleTimeout(IdleTimeout)
           .take(3)
           .runWith(Sink.seq)
         updates = Seq(update1, update2, update3)
@@ -348,6 +369,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
         results = Seq(result1, result2, result3)
         (offset, update) <- ps
           .stateUpdates(beginAfter = Some(theOffset(1, 0)))
+          .idleTimeout(IdleTimeout)
           .runWith(Sink.head)
       } yield {
         all(results) should be(SubmissionResult.Acknowledged)
@@ -393,6 +415,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
         //get the new party off state updates
         newParty <- ps
           .stateUpdates(beginAfter = Some(theOffset(1, 0)))
+          .idleTimeout(IdleTimeout)
           .runWith(Sink.head)
           .map(_._2.asInstanceOf[PartyAddedToParticipant].party)
         _ <- ps
@@ -405,6 +428,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
 
         Seq((offset1, update1), (offset2, update2), (offset3, update3), (offset4, update4)) <- ps
           .stateUpdates(beginAfter = None)
+          .idleTimeout(IdleTimeout)
           .take(4)
           .runWith(Sink.seq)
         updates = Seq(update1, update2, update3, update4)
@@ -459,7 +483,11 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
           )
           .toScala
 
-        Seq((_, update1), (_, update2)) <- ps.stateUpdates(None).take(2).runWith(Sink.seq)
+        Seq((_, update1), (_, update2)) <- ps
+          .stateUpdates(beginAfter = None)
+          .idleTimeout(IdleTimeout)
+          .take(2)
+          .runWith(Sink.seq)
       } yield {
         // The first submission should change the config.
         inside(update1) {
@@ -509,7 +537,11 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
         results = Seq(result1, result2, result3)
 
         // second submission is a duplicate, and is therefore dropped
-        Seq(_, (offset2, update2)) <- ps.stateUpdates(beginAfter = None).take(2).runWith(Sink.seq)
+        Seq(_, (offset2, update2)) <- ps
+          .stateUpdates(beginAfter = None)
+          .idleTimeout(IdleTimeout)
+          .take(2)
+          .runWith(Sink.seq)
       } yield {
         all(results) should be(SubmissionResult.Acknowledged)
         offset2 should be(theOffset(2, 0))
@@ -530,7 +562,11 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
           .map(i => Ref.Party.assertFromString(s"party-%0${partyIdDigits}d".format(i)))
           .toVector
 
-      val updatesF = ps.stateUpdates(beginAfter = None).take(partyCount).runWith(Sink.seq)
+      val updatesF = ps
+        .stateUpdates(beginAfter = None)
+        .idleTimeout(IdleTimeout)
+        .take(partyCount)
+        .runWith(Sink.seq)
       for {
         results <- Future.sequence(
           partyNames.map(name =>
@@ -568,8 +604,8 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
                 .toScala
               updates <- ps
                 .stateUpdates(beginAfter = None)
+                .idleTimeout(IdleTimeout)
                 .take(2)
-                .completionTimeout(10.seconds)
                 .runWith(Sink.seq)
             } yield updates.map(_._2)
           }
@@ -600,7 +636,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
 object ParticipantStateIntegrationSpecBase {
   type ParticipantState = ReadService with WriteService
 
-  private val DefaultIdleTimeout = 5.seconds
+  private val IdleTimeout = 5.seconds
   private val emptyTransaction: SubmittedTransaction =
     GenTransaction(HashMap.empty, ImmArray.empty, Some(InsertOrdSet.empty))
 
