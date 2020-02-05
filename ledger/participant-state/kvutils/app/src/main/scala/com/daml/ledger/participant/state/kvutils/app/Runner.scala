@@ -11,15 +11,9 @@ import akka.stream.Materializer
 import com.codahale.metrics.SharedMetricRegistries
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.kvutils.app.Runner._
-import com.daml.ledger.participant.state.v1.{
-  LedgerId,
-  ParticipantId,
-  ReadService,
-  SubmissionId,
-  WriteService
-}
+import com.daml.ledger.participant.state.v1.{ReadService, SubmissionId, WriteService}
 import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.lf.archive.{Dar, DarReader}
+import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.auth.{AuthService, AuthServiceWildcard}
@@ -36,45 +30,11 @@ import com.digitalasset.resources.ResourceOwner
 import com.digitalasset.resources.akka.AkkaResourceOwner
 
 import scala.compat.java8.FutureConverters.CompletionStageOps
-import scala.concurrent.Future
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
 class Runner[T <: KeyValueLedger, Extra](name: String, factory: LedgerFactory[T, Extra]) {
-
-  private def readDar(from: Path)(
-      implicit executionContext: ExecutionContext): Future[Dar[Archive]] =
-    Future(
-      DarReader { case (_, x) => Try(Archive.parseFrom(x)) }.readArchiveFromFile(from.toFile).get)
-
-  private def uploadDar(from: Path, to: KeyValueParticipantState)(
-      implicit executionContext: ExecutionContext): Future[Unit] = {
-    val submissionId = SubmissionId.assertFromString(UUID.randomUUID().toString)
-    for {
-      dar <- readDar(from)
-      _ <- to.uploadPackages(submissionId, dar.all, None).toScala
-    } yield ()
-  }
-
-  private def startParticipant(config: Config[Extra], ledger: KeyValueParticipantState)(
-      implicit executionContext: ExecutionContext): ResourceOwner[Unit] =
-    newLoggingContext { implicit logCtx =>
-      for {
-        _ <- startIndexerServer(config, readService = ledger)
-        _ <- startApiServer(
-          config,
-          readService = ledger,
-          writeService = ledger,
-          authService = AuthServiceWildcard,
-        )
-      } yield ()
-    }
-
   def owner(args: Seq[String]): ResourceOwner[Unit] = {
-    val config = Config
-      .parse(name, factory.extraConfigParser, factory.defaultExtraConfig, args)
-      .getOrElse(sys.exit(1))
-
     implicit val system: ActorSystem = ActorSystem(
       "[^A-Za-z0-9_\\-]".r.replaceAllIn(name.toLowerCase, "-"))
     implicit val materializer: Materializer = Materializer(system)
@@ -101,6 +61,32 @@ class Runner[T <: KeyValueLedger, Extra](name: String, factory: LedgerFactory[T,
       _ <- startParticipant(config, ledger)
     } yield ()
   }
+
+  private def uploadDar(from: Path, to: KeyValueParticipantState)(
+      implicit executionContext: ExecutionContext
+  ): Future[Unit] = {
+    val submissionId = SubmissionId.assertFromString(UUID.randomUUID().toString)
+    for {
+      dar <- Future(
+        DarReader { case (_, x) => Try(Archive.parseFrom(x)) }.readArchiveFromFile(from.toFile).get)
+      _ <- to.uploadPackages(submissionId, dar.all, None).toScala
+    } yield ()
+  }
+
+  private def startParticipant(config: Config[Extra], ledger: KeyValueParticipantState)(
+      implicit executionContext: ExecutionContext
+  ): ResourceOwner[Unit] =
+    newLoggingContext { implicit logCtx =>
+      for {
+        _ <- startIndexerServer(config, readService = ledger)
+        _ <- startApiServer(
+          config,
+          readService = ledger,
+          writeService = ledger,
+          authService = AuthServiceWildcard,
+        )
+      } yield ()
+    }
 
   private def startIndexerServer(
       config: Config[Extra],
@@ -142,17 +128,5 @@ class Runner[T <: KeyValueLedger, Extra](name: String, factory: LedgerFactory[T,
 }
 
 object Runner {
-  def apply[T <: KeyValueLedger](
-      name: String,
-      newOwner: (LedgerId, ParticipantId) => ResourceOwner[T],
-  ): Runner[T, Unit] =
-    apply(name, LedgerFactory(newOwner))
-
-  def apply[T <: KeyValueLedger, Extra](
-      name: String,
-      factory: LedgerFactory[T, Extra],
-  ): Runner[T, Extra] =
-    new Runner(name, factory)
-
   class ConfigParseException extends SuppressedException
 }
