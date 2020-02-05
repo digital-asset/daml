@@ -1,3 +1,6 @@
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.daml.ledger.validator
 
 import java.time.Clock
@@ -6,13 +9,18 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.Envelope
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.SubmissionValidator.{LogEntryAndState, RawBytes, RawKeyValuePairs}
+import com.daml.ledger.validator.ValidationResult.{
+  MissingInputState,
+  SubmissionValidated,
+  ValidationError
+}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.google.protobuf.{ByteString, Empty}
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers._
 import org.mockito.Mockito.{times, verify, when}
-import org.scalatest.{AsyncWordSpec, Matchers}
 import org.scalatest.mockito.MockitoSugar
+import org.scalatest.{AsyncWordSpec, Matchers}
 
 import scala.concurrent.Future
 
@@ -43,7 +51,7 @@ class SubmissionValidatorSpec extends AsyncWordSpec with MockitoSugar with Match
       val mockStateOperations = mock[LedgerStateOperations]
       val instance = SubmissionValidator.create(new FakeStateAccess(mockStateOperations))
       instance.validate(Array[Byte](1, 2, 3), "aCorrelationId", newRecordTime()).map {
-        case InvalidSubmission(reason) => reason should include("Failed to parse")
+        case ValidationError(reason) => reason should include("Failed to parse")
         case _ => fail
       }
     }
@@ -66,7 +74,7 @@ class SubmissionValidatorSpec extends AsyncWordSpec with MockitoSugar with Match
           failingProcessSubmission,
           () => aLogEntryId())
       instance.validate(anEnvelope(), "aCorrelationId", newRecordTime()).map {
-        case InvalidSubmission(reason) => reason should include("Validation failed")
+        case ValidationError(reason) => reason should include("Validation failed")
         case _ => fail
       }
     }
@@ -143,7 +151,7 @@ class SubmissionValidatorSpec extends AsyncWordSpec with MockitoSugar with Match
         (_, _, _, _) => logEntryAndStateResult,
         () => aLogEntryId())
       instance.validateAndCommit(anEnvelope(), "aCorrelationId", newRecordTime()).map {
-        case InvalidSubmission(reason) => reason should include("Write error")
+        case ValidationError(reason) => reason should include("Write error")
         case _ => fail
       }
     }
@@ -189,9 +197,9 @@ class SubmissionValidatorSpec extends AsyncWordSpec with MockitoSugar with Match
     Timestamp.assertFromInstant(Clock.systemUTC().instant())
 
   private def mockFunctionReturning[A](returnValue: A): () => A = {
-    val f = mock[() => A]
-    when(f.apply).thenReturn(returnValue)
-    f
+    val mockFunction = mock[() => A]
+    when(mockFunction.apply).thenReturn(returnValue)
+    mockFunction
   }
 
   private class FakeStateAccess(mockStateOperations: LedgerStateOperations)

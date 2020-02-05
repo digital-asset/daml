@@ -1,3 +1,6 @@
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.daml.ledger.validator
 
 import java.util.UUID
@@ -7,6 +10,14 @@ import com.daml.ledger.participant.state.kvutils.api.LedgerReader
 import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting}
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.SubmissionValidator.LogEntryAndState
+import com.daml.ledger.validator.ValidationResult.{
+  MissingInputState,
+  SubmissionValidated,
+  TransformedSubmission,
+  ValidationError,
+  ValidationFailed,
+  ValidationResult
+}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.Engine
 import com.google.protobuf.ByteString
@@ -14,18 +25,6 @@ import com.google.protobuf.ByteString
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
-
-sealed trait SubmissionResult
-
-case object SubmissionValidated extends SubmissionResult
-
-sealed trait SubmissionFailed extends SubmissionResult
-
-final case class MissingInputState(keys: Seq[Array[Byte]]) extends SubmissionFailed
-
-final case class InvalidSubmission(reason: String) extends SubmissionFailed
-
-final case class TransformedSubmission[T](value: T)
 
 // Orchestrates validation, transforming and committing data for key-value ledgers.
 class SubmissionValidator(
@@ -42,7 +41,7 @@ class SubmissionValidator(
   def validate(
       envelope: RawBytes,
       correlationId: String,
-      recordTime: Timestamp): Future[SubmissionResult] =
+      recordTime: Timestamp): Future[ValidationResult] =
     validateAndWrapExceptions(envelope, correlationId, recordTime, (_, _, _, _) => ()).map {
       case Left(failure) => failure
       case Right(_) => SubmissionValidated
@@ -51,7 +50,7 @@ class SubmissionValidator(
   def validateAndCommit(
       envelope: RawBytes,
       correlationId: String,
-      recordTime: Timestamp): Future[SubmissionResult] =
+      recordTime: Timestamp): Future[ValidationResult] =
     validateAndWrapExceptions(envelope, correlationId, recordTime, commit).map {
       case Left(failure) => failure
       case Right(_) => SubmissionValidated
@@ -62,7 +61,7 @@ class SubmissionValidator(
       correlationId: String,
       recordTime: Timestamp,
       transform: (DamlLogEntryId, StateMap, LogEntryAndState) => T)
-    : Future[Either[SubmissionFailed, TransformedSubmission[T]]] = {
+    : Future[Either[ValidationFailed, TransformedSubmission[T]]] = {
     def applyTransformation(
         logEntryId: DamlLogEntryId,
         inputStates: StateMap,
@@ -96,10 +95,10 @@ class SubmissionValidator(
       correlationId: String,
       recordTime: Timestamp,
       postProcessResult: (DamlLogEntryId, StateMap, LogEntryAndState, LedgerStateOperations) => T)
-    : Future[Either[SubmissionFailed, TransformedSubmission[T]]] =
+    : Future[Either[ValidationFailed, TransformedSubmission[T]]] =
     Try(runValidation(envelope, correlationId, recordTime, postProcessResult))
       .fold(
-        exception => Future.successful(Left(InvalidSubmission(exception.getLocalizedMessage))),
+        exception => Future.successful(Left(ValidationError(exception.getLocalizedMessage))),
         identity
       )
 
@@ -108,7 +107,7 @@ class SubmissionValidator(
       correlationId: String,
       recordTime: Timestamp,
       postProcessResult: (DamlLogEntryId, StateMap, LogEntryAndState, LedgerStateOperations) => T)
-    : Future[Either[SubmissionFailed, TransformedSubmission[T]]] = {
+    : Future[Either[ValidationFailed, TransformedSubmission[T]]] = {
     val submission = Envelope.open(envelope) match {
       case Right(Envelope.SubmissionMessage(parsedSubmission)) => parsedSubmission
       case _ =>
@@ -145,7 +144,7 @@ class SubmissionValidator(
               (logEntry, damlStateUpdates),
               stateOperations)
           }.fold(
-            exception => Left(InvalidSubmission(exception.getLocalizedMessage)),
+            exception => Left(ValidationError(exception.getLocalizedMessage)),
             result => Right(TransformedSubmission(result)))
         }
       }
