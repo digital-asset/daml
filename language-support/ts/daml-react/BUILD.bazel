@@ -45,6 +45,7 @@ pkg_npm(
     srcs = [
         ":package.json",
         ":tsconfig.json",
+        ":README.md",
     ],
     substitutions = {"0.0.0-SDKVERSION": sdk_version},
     visibility = ["//visibility:public"],
