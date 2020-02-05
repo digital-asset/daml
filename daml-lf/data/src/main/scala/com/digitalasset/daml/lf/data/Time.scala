@@ -3,14 +3,14 @@
 
 package com.digitalasset.daml.lf.data
 
-import scalaz.Order
-import scalaz.std.anyVal._
-import scalaz.syntax.order._
-
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoField
 import java.time.{Instant, LocalDate, ZoneId}
 import java.util.concurrent.TimeUnit
+
+import scalaz.std.anyVal._
+import scalaz.syntax.order._
+import scalaz.{Order, Ordering}
 
 import scala.util.Try
 
@@ -28,9 +28,6 @@ object Time {
   object Date {
 
     type T = Date
-
-    private def apply(days: Int): Date =
-      new Date(days)
 
     private val formatter: DateTimeFormatter =
       DateTimeFormatter.ISO_DATE.withZone(ZoneId.of("Z"))
@@ -74,8 +71,10 @@ object Time {
 
     implicit val `Time.Date Order`: Order[Date] = new Order[Date] {
       override def equalIsNatural = true
-      override def equal(x: Date, y: Date) = x == y
-      override def order(x: Date, y: Date) = x.days ?|? y.days
+
+      override def equal(x: Date, y: Date): Boolean = x == y
+
+      override def order(x: Date, y: Date): Ordering = x.days ?|? y.days
     }
 
   }
@@ -102,9 +101,6 @@ object Time {
   object Timestamp {
 
     type T = Timestamp
-
-    private def apply(micros: Long): Timestamp =
-      new Timestamp(micros)
 
     private val formatter: DateTimeFormatter =
       DateTimeFormatter.ISO_INSTANT.withZone(ZoneId.of("Z"))
@@ -156,8 +152,10 @@ object Time {
 
     implicit val `Time.Timestamp Order`: Order[Timestamp] = new Order[Timestamp] {
       override def equalIsNatural = true
-      override def equal(x: Timestamp, y: Timestamp) = x == y
-      override def order(x: Timestamp, y: Timestamp) = x.micros ?|? y.micros
+
+      override def equal(x: Timestamp, y: Timestamp): Boolean = x == y
+
+      override def order(x: Timestamp, y: Timestamp): Ordering = x.micros ?|? y.micros
     }
   }
 
