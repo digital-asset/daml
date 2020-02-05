@@ -63,7 +63,7 @@ object WebSocketService {
     def append[A >: LfV](o: StepAndErrors[A]): StepAndErrors[A] =
       StepAndErrors(errors ++ o.errors, step.appendWithCid(o.step)(_.contractId.unwrap))
 
-    def nonEmpty = errors.nonEmpty || step.nonEmpty
+    def nonEmpty: Boolean = errors.nonEmpty || step.nonEmpty
   }
 
   private def conflation[A]: Flow[StepAndErrors[A], StepAndErrors[A], NotUsed] =
@@ -156,10 +156,6 @@ object WebSocketService {
           )
 
       override def allowPhantonArchives: Boolean = false
-
-      private def decode(decoder: DomainJsonDecoder)(
-          a: domain.EnrichedContractKey[JsValue]): Error \/ domain.EnrichedContractKey[LfV] =
-        decoder.decodeUnderlyingValuesToLf(a).liftErr(InvalidUserInput)
 
       override def predicate(
           request: List[domain.EnrichedContractKey[LfV]],
