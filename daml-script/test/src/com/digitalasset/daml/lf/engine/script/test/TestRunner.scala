@@ -61,7 +61,7 @@ class TestRunner(
   )
   val ttl = java.time.Duration.ofSeconds(30)
   val timeProvider: TimeProvider =
-    if (wallclockTime) { TimeProvider.Constant(Instant.EPOCH) } else TimeProvider.UTC
+    if (wallclockTime) TimeProvider.UTC else TimeProvider.Constant(Instant.EPOCH)
   val commandUpdater =
     new CommandUpdater(timeProviderO = Some(timeProvider), ttl = ttl, overrideTtl = true)
 
