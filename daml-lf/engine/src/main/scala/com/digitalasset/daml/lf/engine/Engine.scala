@@ -256,7 +256,7 @@ final class Engine {
       node: GenNode.WithTxValue[Transaction.NodeId, Cid]): Result[(Type, SpeedyCommand)] = {
 
     node match {
-      case NodeCreate(nodeSeed, coid @ _, coinst, optLoc @ _, sigs @ _, stks @ _, key @ _) =>
+      case NodeCreate(nodeSeed @ _, coid @ _, coinst, optLoc @ _, sigs @ _, stks @ _, key @ _) =>
         val identifier = coinst.template
         asValueWithAbsoluteContractIds(coinst.arg.value).flatMap(
           absArg => commandPreprocessor.preprocessCreate(identifier, absArg)
