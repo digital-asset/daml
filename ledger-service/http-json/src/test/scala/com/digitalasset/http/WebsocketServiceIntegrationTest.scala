@@ -248,13 +248,15 @@ class WebsocketServiceIntegrationTest
               }
             case (
                 GotAcs(consumedCtid),
-              evts @ ContractDelta(Vector((fstId, fst), (sndId, snd)), Vector(observeConsumed))) =>
+                evts @ ContractDelta(
+                  Vector((fstId, fst), (sndId, snd)),
+                  Vector(observeConsumed))) =>
               Future {
                 observeConsumed should ===(consumedCtid)
                 Set(fstId, sndId, consumedCtid) should have size 3
-              inside(evts) {
-                case JsArray(Vector(Archived(_), Created(_), Created(_))) =>
-              }
+                inside(evts) {
+                  case JsArray(Vector(Archived(_), Created(_), Created(_))) =>
+                }
                 ShouldHaveEnded(2)
               }
           }
