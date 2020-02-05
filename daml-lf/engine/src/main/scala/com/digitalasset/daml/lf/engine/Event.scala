@@ -89,7 +89,7 @@ final case class ExerciseEvent[Nid, Cid, Val](
     exerciseResult: Option[Val])
     extends Event[Nid, Cid, Val]
 
-object Event extends value.CidContainer3[Event] {
+object Event extends value.CidContainer3WithDefaultCidResolver[Event] {
 
   override private[lf] def map3[Nid, Cid, Val, Nid2, Cid2, Val2](
       f1: Nid => Nid2,
@@ -253,7 +253,7 @@ object Event extends value.CidContainer3[Event] {
     Events(relevantRoots, Map() ++ evts)
   }
 
-  object Events extends value.CidContainer3[Events] {
+  object Events extends value.CidContainer3WithDefaultCidResolver[Events] {
     override private[lf] def map3[Nid, Cid, Val, Nid2, Cid2, Val2](
         f1: Nid => Nid2,
         f2: Cid => Cid2,

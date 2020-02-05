@@ -131,7 +131,7 @@ sealed abstract class Value[+Cid] extends CidContainer[Value[Cid]] with Product 
 
 }
 
-object Value extends CidContainer1[Value] {
+object Value extends CidContainer1WithDefaultCidResolver[Value] {
 
   // TODO (FM) make this tail recursive
   private[lf] override def map1[Cid, Cid2](f: Cid => Cid2): Value[Cid] => Value[Cid2] = {
@@ -205,6 +205,16 @@ object Value extends CidContainer1[Value] {
 
     override private[lf] def map1[A, B](f: A => B): VersionedValue[A] => VersionedValue[B] =
       x => x.copy(value = Value.map1(f)(x.value))
+
+    final implicit def cidResolverV0Instance[A1, A2](
+        implicit mapper1: CidMapper.RelCidV0Resolver[A1, A2],
+    ): CidMapper.RelCidV0Resolver[VersionedValue[A1], VersionedValue[A2]] =
+      cidMapperInstance
+
+    final implicit def cidResolverV1Instance[A1, A2](
+        implicit mapper1: CidMapper.RelCidV1Resolver[A1, A2],
+    ): CidMapper.RelCidV1Resolver[VersionedValue[A1], VersionedValue[A2]] =
+      CidMapper.valueVersionCidV1Resolver
 
   }
 
@@ -312,7 +322,7 @@ object Value extends CidContainer1[Value] {
 
   }
 
-  object ContractInst extends CidContainer1[ContractInst] {
+  object ContractInst extends CidContainer1WithDefaultCidResolver[ContractInst] {
     implicit def equalInstance[Val: Equal]: Equal[ContractInst[Val]] =
       ScalazEqual.withNatural(Equal[Val].equalIsNatural) { (a, b) =>
         import a._
@@ -350,10 +360,14 @@ object Value extends CidContainer1[Value] {
   object ContractId {
     implicit val equalInstance: Equal[ContractId] = Equal.equalA
 
-    implicit val noCidMapper: CidMapper.NoCidMapper[ContractId, Nothing] =
-      CidMapper.basicInstance[ContractId, Nothing]
-    implicit val noRelCidMapper: CidMapper.NoRelCidMapper[ContractId, AbsoluteContractId] =
-      CidMapper.basicInstance[ContractId, AbsoluteContractId]
+    implicit val noCidMapper: CidMapper.NoCidChecker[ContractId, Nothing] =
+      CidMapper.basicMapperInstance[ContractId, Nothing]
+    implicit val noRelCidMapper: CidMapper.NoRelCidChecker[ContractId, AbsoluteContractId] =
+      CidMapper.basicMapperInstance[ContractId, AbsoluteContractId]
+    implicit val relCidV0esolver: CidMapper.RelCidV0Resolver[ContractId, AbsoluteContractId] =
+      CidMapper.basicCidResolverInstance
+    implicit val relCidV1Resolver: CidMapper.RelCidV1Resolver[ContractId, AbsoluteContractId] =
+      CidMapper.basicCidResolverInstance
   }
 
   /** The constructor is private so that we make sure that only this object constructs
