@@ -6,6 +6,53 @@ Release notes
 
 This page contains release notes for the SDK.
 
+.. _release-0-13-51:
+
+0.13.51 - 2020-02-05
+--------------------
+
+JSON API - Experimental
+~~~~~~~~~~~~~~~~~~~~~~~
+
+- In websocket endpoints, if a 'created' and 'archived' contract
+  in the same result array share a contract key, the 'archived' is guaranteed to occur
+  earlier in the array than the 'created'.
+  See `issue #4354 <https://github.com/digital-asset/daml/issues/4354>`_.
+
+DAML Assistant
+~~~~~~~~~~~~~~
+
+- Bash and Zsh completions will now fall back to
+  regular file completions after the command argument.
+
+- The DAML assistant will now shut down long-running
+  processes like ``daml sandbox`` when stdin is
+  closed. This is mainly useful on Windows, where process APIs often
+  kill the process in a way that does not allow it to do any cleanup, in
+  particular, we cannot stop child processes.
+
+KVUtils
+~~~~~~~
+
+- Added a test case to the participant state tests to ensure
+  your ledger state is resumable upon restart.
+
+Sandbox
+~~~~~~~
+
+- Fix an error that stops the server from exiting cleanly if
+  API server initialization fails.
+
+DAML Stdlib
+~~~~~~~~~~~
+
+- Added ``partition`` function to prelude.
+
+Documentation
+~~~~~~~~~~~~~
+
+- Updated roadmap to reflect the current state.
+
 .. _release-0-13-50:
 
 0.13.50 - 2020-01-30
