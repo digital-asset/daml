@@ -1,3 +1,6 @@
+# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 resolver: lts-14.3
 
 extra-lib-dirs:
@@ -21,3 +24,4 @@ extra-deps:
   - core
 
 - archive: /tmp/daml-ledger-0.1.0.0.tar.gz
+
