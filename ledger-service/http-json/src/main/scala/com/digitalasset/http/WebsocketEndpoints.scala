@@ -20,8 +20,6 @@ import EndpointsCompanion._
 object WebsocketEndpoints {
   private[http] val tokenPrefix: String = "jwt.token."
   private[http] val wsProtocol: String = "daml.ws.auth"
-  type WebSocketHandler =
-    (Jwt, domain.JwtPayload, UpgradeToWebSocket, Option[String]) => HttpResponse
 
   private def findJwtFromSubProtocol(
       upgradeToWebSocket: UpgradeToWebSocket,
