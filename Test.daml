@@ -1,0 +1,30 @@
+daml 1.2
+
+module Test where
+
+data X = X {
+  a : Int,
+  b : Int
+  } deriving (Eq, Show)
+
+template Bar
+  with
+   i : X
+   p : Party
+  where
+    signatory p
+
+template Foo
+  with
+    i : Int
+    p : Party
+  where
+    signatory p
+
+    nonconsuming choice Foo_Choice : ()
+      with
+        x : Int
+      controller p
+        do
+          cid <- fetchSome @Bar (\t -> t with i = X{a = 1, b = 1})
+          pure ()
