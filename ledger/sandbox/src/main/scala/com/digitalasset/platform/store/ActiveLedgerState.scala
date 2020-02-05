@@ -35,7 +35,7 @@ final case class Let(instant: Instant) extends LetLookup
   * The active ledger state could be derived from the transaction stream,
   * we keep track of it explicitly for performance reasons.
   */
-trait ActiveLedgerState[+Self] { this: ActiveLedgerState[Self] =>
+trait ActiveLedgerState[ALS <: ActiveLedgerState[ALS]] {
 
   /** Callback to query an active or divulged contract, used for transaction validation
     * Returns:
@@ -50,16 +50,16 @@ trait ActiveLedgerState[+Self] { this: ActiveLedgerState[Self] =>
   def lookupContractByKey(key: GlobalKey): Option[AbsoluteContractId]
 
   /** Called when a new contract is created */
-  def addContract(c: ActiveContract, keyO: Option[GlobalKey]): Self
+  def addContract(c: ActiveContract, keyO: Option[GlobalKey]): ALS
 
   /** Called when the given contract is archived */
-  def removeContract(cid: AbsoluteContractId): Self
+  def removeContract(cid: AbsoluteContractId): ALS
 
   /** Called once for each transaction with the set of parties found in that transaction.
     * As the sandbox has an open world of parties, any party name mentioned in a transaction
     * will implicitly add that name to the list of known parties.
     */
-  def addParties(parties: Set[Party]): Self
+  def addParties(parties: Set[Party]): ALS
 
   /** Note that this method is about divulging contracts _that have already been
     * committed_. Implementors of [[ActiveLedgerState]] must take care to also store
@@ -69,5 +69,5 @@ trait ActiveLedgerState[+Self] { this: ActiveLedgerState[Self] =>
   def divulgeAlreadyCommittedContracts(
       transactionId: TransactionId,
       global: Relation[AbsoluteContractId, Party],
-      referencedContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)]): Self
+      referencedContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)]): ALS
 }

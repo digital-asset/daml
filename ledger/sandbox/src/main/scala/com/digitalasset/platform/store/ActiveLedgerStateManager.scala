@@ -29,8 +29,7 @@ import com.digitalasset.platform.store.SequencingError.{
   * - Validates the transaction against the [[ActiveLedgerState]].
   * - Updates the [[ActiveLedgerState]].
   */
-class ActiveLedgerStateManager[ALS](initialState: => ALS)(
-    implicit ACS: ALS => ActiveLedgerState[ALS]) {
+class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](initialState: => ALS) {
 
   private case class AddTransactionState(
       acc: Option[ALS],
