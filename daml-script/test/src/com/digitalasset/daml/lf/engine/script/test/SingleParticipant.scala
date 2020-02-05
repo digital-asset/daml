@@ -4,6 +4,7 @@
 package com.digitalasset.daml.lf.engine.script.test
 
 import java.io.File
+import java.time.Duration
 import scalaz.syntax.traverse._
 import spray.json._
 
@@ -171,6 +172,58 @@ case class TestCreateAndExercise(dar: Dar[(PackageId, Package)], runner: TestRun
   }
 }
 
+case class Time(dar: Dar[(PackageId, Package)], runner: TestRunner) {
+  val scriptId = Identifier(dar.main._1, QualifiedName.assertFromString("ScriptTest:time"))
+  def runTests() = {
+    runner.genericTest(
+      "Time",
+      scriptId,
+      None,
+      result =>
+        result match {
+          case SRecord(_, _, vals) if vals.size == 2 =>
+            for {
+              t0 <- TestRunner.assertSTimestamp(vals.get(0))
+              t1 <- TestRunner.assertSTimestamp(vals.get(1))
+              r <- if (!(t0 <= t1))
+                Left(s"Second getTime call $t1 should have happened after first $t0")
+              else Right(())
+            } yield r
+          case v => Left(s"Expected SUnit but got $v")
+      }
+    )
+  }
+}
+
+case class Sleep(dar: Dar[(PackageId, Package)], runner: TestRunner) {
+  val scriptId = Identifier(dar.main._1, QualifiedName.assertFromString("ScriptTest:sleepTest"))
+  def runTests() = {
+    runner.genericTest(
+      "Sleep",
+      scriptId,
+      None, {
+        case SRecord(_, _, vals) if vals.size == 3 =>
+          for {
+            t0 <- TestRunner.assertSTimestamp(vals.get(0))
+            t1 <- TestRunner.assertSTimestamp(vals.get(1))
+            t2 <- TestRunner.assertSTimestamp(vals.get(2))
+            _ <- if (Duration
+                .between(t0.toInstant, t1.toInstant)
+                .compareTo(Duration.ofSeconds(1)) < 0 && runner.wallclockTime)
+              Left(s"Difference between $t0 and $t1 should be more than 1 second")
+            else Right(())
+            _ <- if (Duration
+                .between(t1.toInstant, t2.toInstant)
+                .compareTo(Duration.ofSeconds(2)) < 0 && runner.wallclockTime)
+              Left(s"Difference between $t1 and $t2 should be more than 2 seconds")
+            else Right(())
+          } yield ()
+        case v => Left(s"Expected SUnit but got $v")
+      }
+    )
+  }
+}
+
 // Runs the example from the docs to make sure it doesn’t produce a runtime error.
 case class ScriptExample(dar: Dar[(PackageId, Package)], runner: TestRunner) {
   val scriptId = Identifier(dar.main._1, QualifiedName.assertFromString("ScriptExample:test"))
@@ -230,6 +283,8 @@ object SingleParticipant {
         Test4(dar, runner).runTests()
         TestKey(dar, runner).runTests()
         TestCreateAndExercise(dar, runner).runTests()
+        Time(dar, runner).runTests()
+        Sleep(dar, runner).runTests()
         ScriptExample(dar, runner).runTests()
     }
   }

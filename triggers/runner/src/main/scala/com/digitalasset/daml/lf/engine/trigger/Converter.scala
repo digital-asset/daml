@@ -16,7 +16,7 @@ import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.speedy.SValue
 import com.digitalasset.daml.lf.speedy.SValue._
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, RelativeContractId}
+import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.ledger.api.v1.commands.{
   Command,
   CreateCommand,
@@ -101,34 +101,17 @@ object Converter {
     SRecord(ty, fieldNames, args)
   }
 
-  private def toLedgerRecord(v: SValue): Either[String, value.Record] = {
-    try {
-      lfValueToApiRecord(
-        true,
-        v.toValue.mapContractId {
-          case rcoid: RelativeContractId =>
-            throw new ConverterException(s"Unexpected contract id $rcoid")
-          case acoid: AbsoluteContractId => acoid
-        }
-      )
-    } catch {
-      case ex: ConverterException => Left(ex.getMessage())
-    }
-  }
-  private def toLedgerValue(v: SValue) = {
-    try {
-      lfValueToApiValue(
-        true,
-        v.toValue.mapContractId {
-          case rcoid: RelativeContractId =>
-            throw new ConverterException(s"Unexpected contract id $rcoid")
-          case acoid: AbsoluteContractId => acoid
-        }
-      )
-    } catch {
-      case ex: ConverterException => Left(ex.getMessage())
-    }
-  }
+  private def toLedgerRecord(v: SValue): Either[String, value.Record] =
+    for {
+      value <- v.toValue.ensureNoRelCid.left.map(rcoid => s"Unexpected contract id $rcoid")
+      apiRecord <- lfValueToApiRecord(true, value)
+    } yield apiRecord
+
+  private def toLedgerValue(v: SValue): Either[String, value.Value] =
+    for {
+      value <- v.toValue.ensureNoRelCid.left.map(rcoid => s"Unexpected contract id $rcoid")
+      apiValue <- lfValueToApiValue(true, value)
+    } yield apiValue
 
   private def fromIdentifier(id: value.Identifier): SValue = {
     STypeRep(

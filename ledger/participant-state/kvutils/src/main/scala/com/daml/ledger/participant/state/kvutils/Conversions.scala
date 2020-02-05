@@ -39,16 +39,12 @@ private[state] object Conversions {
   def packageStateKey(packageId: PackageId): DamlStateKey =
     DamlStateKey.newBuilder.setPackageId(packageId).build
 
-  def toAbsCoid(txId: DamlLogEntryId, coid: ContractId): AbsoluteContractId = {
+  def toAbsCoid(txId: DamlLogEntryId, coid: RelativeContractId): ContractIdString = {
     val hexTxId =
       BaseEncoding.base16.encode(txId.getEntryId.toByteArray)
-    coid match {
-      case a @ AbsoluteContractId(_) => a
-      case RelativeContractId(txnid, _) =>
-        // NOTE(JM): Must be in sync with [[absoluteContractIdToLogEntryId]] and
-        // [[absoluteContractIdToStateKey]].
-        AbsoluteContractId(ContractIdString.assertFromString(s"$hexTxId:${txnid.index}"))
-    }
+    // NOTE(JM): Must be in sync with [[absoluteContractIdToLogEntryId]] and
+    // [[absoluteContractIdToStateKey]].
+    ContractIdString.assertFromString(s"$hexTxId:${coid.txnid.index}")
   }
 
   def absoluteContractIdToLogEntryId(acoid: AbsoluteContractId): (DamlLogEntryId, Int) =
@@ -246,7 +242,15 @@ private[state] object Conversions {
       .decodeContractInstance(absValDecoder, coinst)
       .fold(
         err => throw Err.DecodeError("ContractInstance", err.errorMessage),
-        coinst => coinst.mapValue(forceAbsoluteContractIds))
+        coinst =>
+          coinst.ensureNoRelCid
+            .fold(
+              _ =>
+                throw Err.InternalError(
+                  "Relative contract identifier encountered in contract key!"),
+              identity
+          )
+      )
 
   def encodeContractInstance(coinst: Value.ContractInst[VersionedValue[AbsoluteContractId]])
     : TransactionOuterClass.ContractInstance =
@@ -254,16 +258,11 @@ private[state] object Conversions {
       .encodeContractInstance(absValEncoder, coinst)
       .fold(err => throw Err.InternalError(s"encodeContractInstance failed: $err"), identity)
 
-  def forceAbsoluteContractIds(v: VersionedValue[ContractId]): VersionedValue[AbsoluteContractId] =
-    v.mapContractId {
-      case _: RelativeContractId =>
-        throw Err.InternalError("Relative contract identifier encountered in contract key!")
-      case acoid: AbsoluteContractId => acoid
-    }
-
   def forceNoContractIds(v: VersionedValue[ContractId]): VersionedValue[Nothing] =
-    v.mapContractId(coid =>
-      throw Err.InternalError(s"Contract identifier encountered in contract key! $coid"))
+    v.ensureNoCid.fold(
+      coid => throw Err.InternalError(s"Contract identifier encountered in contract key! $coid"),
+      identity,
+    )
 
   def contractIdStructOrStringToStateKey(
       entryId: DamlLogEntryId,

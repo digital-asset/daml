@@ -48,13 +48,13 @@ trait ResourceOwner[+A] {
 
 object ResourceOwner {
   def successful[T](value: T): ResourceOwner[T] =
-    new FutureResourceOwner[T](() => Future.successful(value))
+    new FutureResourceOwner(() => Future.successful(value))
 
   def failed(throwable: Throwable): ResourceOwner[Nothing] =
-    new FutureResourceOwner[Nothing](() => Future.failed(throwable))
+    new FutureResourceOwner(() => Future.failed(throwable))
 
   def forTry[T](acquire: () => Try[T]): ResourceOwner[T] =
-    new FutureResourceOwner[T](() => Future.fromTry(acquire()))
+    new FutureResourceOwner(() => Future.fromTry(acquire()))
 
   def forFuture[T](acquire: () => Future[T]): ResourceOwner[T] =
     new FutureResourceOwner(acquire)
@@ -72,7 +72,7 @@ object ResourceOwner {
     new FutureCloseableResourceOwner(acquire)
 
   def forExecutorService[T <: ExecutorService](acquire: () => T): ResourceOwner[T] =
-    new ExecutorServiceResourceOwner[T](acquire)
+    new ExecutorServiceResourceOwner(acquire)
 
   def forTimer(acquire: () => Timer): ResourceOwner[Timer] =
     new TimerResourceOwner(acquire)

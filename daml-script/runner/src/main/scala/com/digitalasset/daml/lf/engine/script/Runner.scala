@@ -15,10 +15,12 @@ import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 import spray.json._
 
+import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.PureCompiledPackages
 import com.digitalasset.daml.lf.archive.Dar
 import com.digitalasset.daml.lf.data.FrontStack
 import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.ValueTranslator
 import com.digitalasset.daml.lf.iface
 import com.digitalasset.daml.lf.iface.EnvironmentInterface
@@ -136,7 +138,8 @@ object Runner {
 class Runner(
     dar: Dar[(PackageId, Package)],
     applicationId: ApplicationId,
-    commandUpdater: CommandUpdater)
+    commandUpdater: CommandUpdater,
+    timeProvider: TimeProvider)
     extends StrictLogging {
 
   val ifaceDar = dar.map(pkg => InterfaceReader.readInterface(() => \/-(pkg))._2)
@@ -418,6 +421,33 @@ class Runner(
                       Speedy.CtrlExpr(SEApp(SEValue(continue), Array(SEValue(SParty(party)))))
                     go()
                   })
+                }
+                case _ => throw new RuntimeException(s"Expected record with 2 fields but got $v")
+              }
+            }
+            case SVariant(_, "GetTime", continue) => {
+              val t = Timestamp.assertFromInstant(timeProvider.getCurrentTime)
+              machine.ctrl =
+                Speedy.CtrlExpr(SEApp(SEValue(continue), Array(SEValue(STimestamp(t)))))
+              go()
+            }
+            case SVariant(_, "Sleep", v) => {
+              v match {
+                case SRecord(_, _, vals) if vals.size == 2 => {
+                  val continue = vals.get(1)
+                  val sleepMicros = vals.get(0) match {
+                    case SRecord(_, _, vals) if vals.size == 1 =>
+                      vals.get(0) match {
+                        case SInt64(i) => i
+                        case _ => throw new ConverterException(s"Expected SInt64 but got $v")
+                      }
+                    case v => throw new ConverterException(s"Expected RelTime but got $v")
+                  }
+                  val sleepMillis = sleepMicros / 1000
+                  val sleepNanos = (sleepMicros % 1000) * 1000
+                  Thread.sleep(sleepMillis, sleepNanos.toInt)
+                  machine.ctrl = Speedy.CtrlExpr(SEApp(SEValue(continue), Array(SEValue(SUnit))))
+                  go()
                 }
                 case _ => throw new RuntimeException(s"Expected record with 2 fields but got $v")
               }

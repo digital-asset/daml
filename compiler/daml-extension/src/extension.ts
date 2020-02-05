@@ -234,6 +234,9 @@ export function createLanguageClient(config: vscode.WorkspaceConfiguration, tele
         args.push('--telemetry');
     } else if (telemetryConsent === false){
         args.push('--optOutTelemetry')
+    } else if (telemetryConsent == undefined) {
+        // The user has not made an explicit choice.
+        args.push('--telemetry-ignored')
     }
     const extraArgsString = config.get("extraArguments", "").trim();
     // split on an empty string returns an array with a single empty string

@@ -702,7 +702,6 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
             val toCoid: AbsoluteContractId => ContractId = identity
             val unmappedTx: Transaction.Transaction = tx.transaction
               .mapNodeId(EventIdFormatter.split(_).get.nodeId)
-              .mapContractIdAndValue(toCoid, _.mapContractId(toCoid))
 
             val blindingInfo = Blinding.blind(unmappedTx)
             val mappedLocalDivulgence = blindingInfo.localDivulgence.map {

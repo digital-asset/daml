@@ -4,6 +4,11 @@
   "version": "0.0.0-SDKVERSION",
   "description": "React framework to interact with a DAML ledger",
   "homepage": "https://daml.com",
+  "repository": {
+    "type" : "git",
+    "url" : "https://github.com/digital-asset/daml.git",
+    "directory": "language-support/ts/daml-react"
+  },
   "keywords": [
     "daml",
     "react",

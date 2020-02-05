@@ -238,14 +238,9 @@ object KeyValueConsumption {
 
   private def makeCommittedTransaction(
       txId: DamlLogEntryId,
-      tx: SubmittedTransaction): CommittedTransaction = {
-    tx
+      tx: SubmittedTransaction): CommittedTransaction =
     /* Assign absolute contract ids */
-      .mapContractIdAndValue(
-        toAbsCoid(txId, _),
-        _.mapContractId(toAbsCoid(txId, _))
-      )
-  }
+    tx.resolveRelCid(toAbsCoid(txId, _))
 
   @throws(classOf[Err])
   private def parseLedgerString(what: String)(s: String): Ref.LedgerString =
