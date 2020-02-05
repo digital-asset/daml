@@ -44,6 +44,10 @@ object TestRunner {
       Left(s"$note: Expected $expected and $actual to be different")
     }
   }
+  def assertSTimestamp(v: SValue) = v match {
+    case SValue.STimestamp(t) => Right(t)
+    case _ => Left(s"Expected STimestamp but got $v")
+  }
 }
 
 class TestRunner(

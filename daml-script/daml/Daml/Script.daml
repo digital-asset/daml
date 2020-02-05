@@ -15,10 +15,12 @@ module Daml.Script
   , exerciseByKeyCmd
   , createAndExerciseCmd
   , getTime
+  , sleep
   ) where
 
 import Prelude hiding (submit, submitMustFail)
 import DA.Optional
+import DA.Time
 
 -- | A free monad
 data Free f a
@@ -74,6 +76,7 @@ data ScriptF a
   | Query (QueryACS a)
   | AllocParty (AllocateParty a)
   | GetTime (Time -> a)
+  | Sleep (SleepRec a)
   deriving Functor
 
 data QueryACS a = QueryACS
@@ -93,6 +96,11 @@ data AllocateParty a = AllocateParty
   , continue : Party -> a
   } deriving Functor
 
+data SleepRec a = SleepRec
+  { duration : RelTime
+  , continue : () -> a
+  } deriving Functor
+
 -- | Allocate a party with the given display name
 -- using the party management service.
 allocateParty : Text -> Script Party
@@ -106,6 +114,15 @@ allocatePartyOn displayName participant = Script $ Free (AllocParty $ AllocatePa
 -- | In wallclock mode, this is UTC time. In static time mode, this is the UNIX epoch.
 instance HasTime Script where
   getTime = Script $ Free (GetTime pure)
+
+-- | Sleep for the given duration.
+--
+-- This is primarily useful in tests
+-- where you repeatedly call `query` until a certain state is reached.
+--
+-- Note that this will sleep for the same duration in both wallcock and static time mode.
+sleep : RelTime -> Script ()
+sleep duration = Script $ Free (Sleep $ SleepRec duration pure)
 
 data SubmitFailure = SubmitFailure
   { status : Int
