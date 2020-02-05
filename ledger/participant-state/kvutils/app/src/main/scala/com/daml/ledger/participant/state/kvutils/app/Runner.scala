@@ -13,7 +13,7 @@ import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.kvutils.app.Runner._
 import com.daml.ledger.participant.state.v1.{ReadService, SubmissionId, WriteService}
 import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.lf.archive.{Dar, DarReader}
+import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.auth.{AuthService, AuthServiceWildcard}
@@ -34,35 +34,6 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
 class Runner[T <: KeyValueLedger, Extra](name: String, factory: LedgerFactory[T, Extra]) {
-
-  private def readDar(from: Path)(
-      implicit executionContext: ExecutionContext): Future[Dar[Archive]] =
-    Future(
-      DarReader { case (_, x) => Try(Archive.parseFrom(x)) }.readArchiveFromFile(from.toFile).get)
-
-  private def uploadDar(from: Path, to: KeyValueParticipantState)(
-      implicit executionContext: ExecutionContext): Future[Unit] = {
-    val submissionId = SubmissionId.assertFromString(UUID.randomUUID().toString)
-    for {
-      dar <- readDar(from)
-      _ <- to.uploadPackages(submissionId, dar.all, None).toScala
-    } yield ()
-  }
-
-  private def startParticipant(config: Config[Extra], ledger: KeyValueParticipantState)(
-      implicit executionContext: ExecutionContext): ResourceOwner[Unit] =
-    newLoggingContext { implicit logCtx =>
-      for {
-        _ <- startIndexerServer(config, readService = ledger)
-        _ <- startApiServer(
-          config,
-          readService = ledger,
-          writeService = ledger,
-          authService = AuthServiceWildcard,
-        )
-      } yield ()
-    }
-
   def owner(args: Seq[String]): ResourceOwner[Unit] = {
     implicit val system: ActorSystem = ActorSystem(
       "[^A-Za-z0-9_\\-]".r.replaceAllIn(name.toLowerCase, "-"))
@@ -90,6 +61,32 @@ class Runner[T <: KeyValueLedger, Extra](name: String, factory: LedgerFactory[T,
       _ <- startParticipant(config, ledger)
     } yield ()
   }
+
+  private def uploadDar(from: Path, to: KeyValueParticipantState)(
+      implicit executionContext: ExecutionContext
+  ): Future[Unit] = {
+    val submissionId = SubmissionId.assertFromString(UUID.randomUUID().toString)
+    for {
+      dar <- Future(
+        DarReader { case (_, x) => Try(Archive.parseFrom(x)) }.readArchiveFromFile(from.toFile).get)
+      _ <- to.uploadPackages(submissionId, dar.all, None).toScala
+    } yield ()
+  }
+
+  private def startParticipant(config: Config[Extra], ledger: KeyValueParticipantState)(
+      implicit executionContext: ExecutionContext
+  ): ResourceOwner[Unit] =
+    newLoggingContext { implicit logCtx =>
+      for {
+        _ <- startIndexerServer(config, readService = ledger)
+        _ <- startApiServer(
+          config,
+          readService = ledger,
+          writeService = ledger,
+          authService = AuthServiceWildcard,
+        )
+      } yield ()
+    }
 
   private def startIndexerServer(
       config: Config[Extra],
