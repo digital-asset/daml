@@ -363,7 +363,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
         lic <- ps.getLedgerInitialConditions().runWith(Sink.head)
         _ <- ps
           .submitConfiguration(
-            maxRecordTime = inTheFuture(1.second),
+            maxRecordTime = inTheFuture(10.seconds),
             submissionId = newSubmissionId(),
             config = lic.config.copy(
               generation = lic.config.generation + 1,
@@ -435,7 +435,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
         // Submit an initial configuration change
         _ <- ps
           .submitConfiguration(
-            maxRecordTime = inTheFuture(1.second),
+            maxRecordTime = inTheFuture(10.seconds),
             submissionId = newSubmissionId(),
             config = lic.config.copy(
               generation = lic.config.generation + 1,
@@ -446,7 +446,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
         // Submit another configuration change that uses stale "current config".
         _ <- ps
           .submitConfiguration(
-            maxRecordTime = inTheFuture(1.second),
+            maxRecordTime = inTheFuture(10.seconds),
             submissionId = newSubmissionId(),
             config = lic.config.copy(
               generation = lic.config.generation + 1,
@@ -480,7 +480,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
         // Submit an initial configuration change
         result1 <- ps
           .submitConfiguration(
-            maxRecordTime = inTheFuture(1.second),
+            maxRecordTime = inTheFuture(10.seconds),
             submissionId = submissionIds._1,
             config = lic.config.copy(
               generation = lic.config.generation + 1,
@@ -490,7 +490,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
         // this is a duplicate, which fails silently
         result2 <- ps
           .submitConfiguration(
-            maxRecordTime = inTheFuture(2.seconds),
+            maxRecordTime = inTheFuture(10.seconds),
             submissionId = submissionIds._1,
             config = lic.config.copy(
               generation = lic.config.generation + 2,
@@ -499,7 +499,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
           .toScala
         result3 <- ps
           .submitConfiguration(
-            maxRecordTime = inTheFuture(2.seconds),
+            maxRecordTime = inTheFuture(10.seconds),
             submissionId = submissionIds._2,
             config = lic.config.copy(
               generation = lic.config.generation + 2,
