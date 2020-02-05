@@ -431,6 +431,27 @@ class Runner(
                 Speedy.CtrlExpr(SEApp(SEValue(continue), Array(SEValue(STimestamp(t)))))
               go()
             }
+            case SVariant(_, "Sleep", v) => {
+              v match {
+                case SRecord(_, _, vals) if vals.size == 2 => {
+                  val continue = vals.get(1)
+                  val sleepMicros = vals.get(0) match {
+                    case SRecord(_, _, vals) if vals.size == 1 =>
+                      vals.get(0) match {
+                        case SInt64(i) => i
+                        case _ => throw new ConverterException(s"Expected SInt64 but got $v")
+                      }
+                    case v => throw new ConverterException(s"Expected RelTime but got $v")
+                  }
+                  val sleepMillis = sleepMicros / 1000
+                  val sleepNanos = (sleepMicros % 1000) * 1000
+                  Thread.sleep(sleepMillis, sleepNanos.toInt)
+                  machine.ctrl = Speedy.CtrlExpr(SEApp(SEValue(continue), Array(SEValue(SUnit))))
+                  go()
+                }
+                case _ => throw new RuntimeException(s"Expected record with 2 fields but got $v")
+              }
+            }
             case _ =>
               throw new RuntimeException(s"Expected Submit, Query or AllocParty but got $v")
           }
