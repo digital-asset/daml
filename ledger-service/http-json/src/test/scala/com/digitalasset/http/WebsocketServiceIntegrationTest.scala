@@ -326,6 +326,35 @@ class WebsocketServiceIntegrationTest
       } yield lastState shouldBe ShouldHaveEnded(0)
   }
 
+  "fetch should receive all contracts when empty request specified" in withHttpService {
+    (uri, encoder, _) =>
+      val f1 =
+        postCreateCommand(accountCreateCommand(domain.Party("Alice"), "abc123"), encoder, uri)
+      val f2 =
+        postCreateCommand(accountCreateCommand(domain.Party("Alice"), "def456"), encoder, uri)
+
+      for {
+        r1 <- f1
+        _ = r1._1 shouldBe 'success
+        cid1 = getContractId(getResult(r1._2))
+
+        r2 <- f2
+        _ = r2._1 shouldBe 'success
+        cid2 = getContractId(getResult(r2._2))
+
+        clientMsgs <- singleClientFetchStream(uri, "[]").runWith(collectResultsAsRawString)
+      } yield {
+        inside(clientMsgs) {
+          case Seq(errorMsg) =>
+            // TODO(Leo) #4417: expected behavior is to return all active contracts (???). Make sure it is consistent with stream/query
+//            c1 should include(s""""contractId":"${cid1.unwrap: String}"""")
+//            c2 should include(s""""contractId":"${cid2.unwrap: String}"""")
+            errorMsg should include(
+              s""""error":"Cannot resolve any templateId from request: List()""")
+        }
+      }
+  }
+
   private def wsConnectRequest[M](
       uri: Uri,
       subprotocol: Option[String],
