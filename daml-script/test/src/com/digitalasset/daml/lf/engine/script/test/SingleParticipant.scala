@@ -252,15 +252,15 @@ object SingleParticipant {
           Participants(Some(ApiParameters("localhost", config.ledgerPort)), Map.empty, Map.empty)
 
         val runner = new TestRunner(participantParams, dar, config.wallclockTime)
-        // Test0(dar, runner).runTests()
-        // Test1(dar, runner).runTests()
-        // Test2(dar, runner).runTests()
-        // Test3(dar, runner).runTests()
-        // Test4(dar, runner).runTests()
-        // TestKey(dar, runner).runTests()
-        // TestCreateAndExercise(dar, runner).runTests()
+        Test0(dar, runner).runTests()
+        Test1(dar, runner).runTests()
+        Test2(dar, runner).runTests()
+        Test3(dar, runner).runTests()
+        Test4(dar, runner).runTests()
+        TestKey(dar, runner).runTests()
+        TestCreateAndExercise(dar, runner).runTests()
         Time(dar, runner).runTests()
-      // ScriptExample(dar, runner).runTests()
+        ScriptExample(dar, runner).runTests()
     }
   }
 }
