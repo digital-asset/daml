@@ -3,4 +3,4 @@
 
 package com.daml.ledger.on.sql
 
-case class ExtraConfig(jdbcUrl: Option[String])
+final case class ExtraConfig(jdbcUrl: Option[String])
