@@ -126,7 +126,7 @@ private[state] object Conversions {
           .fold(
             err =>
               throw Err
-                .DecodeError("ContractKey", "Cannot decode key: $err"),
+                .DecodeError("ContractKey", s"Cannot decode key: $err"),
             identity)
       )
     )

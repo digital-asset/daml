@@ -28,8 +28,8 @@ import Development.IDE.Types.Location
 handle
     :: IdeState
     -> CodeLensParams
-    -> IO (List CodeLens)
-handle ide (CodeLensParams (TextDocumentIdentifier uri) _) = do
+    -> IO (Either e (List CodeLens))
+handle ide (CodeLensParams (TextDocumentIdentifier uri) _) = Right <$> do
     mbResult <- case uriToFilePath' uri of
         Just (toNormalizedFilePath -> filePath) -> do
           logInfo (ideLogger ide) $ "CodeLens request for file: " <> T.pack (fromNormalizedFilePath filePath)

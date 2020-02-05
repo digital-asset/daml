@@ -12,13 +12,13 @@ import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId}
 import com.digitalasset.resources.{ProgramResource, ResourceOwner}
 import scopt.OptionParser
 
-import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.ExecutionContext
 
 object MainWithEphemeralDirectory {
   private val DirectoryPattern = "%DIR"
 
   def main(args: Array[String]): Unit = {
-    new ProgramResource(Runner("SQL Ledger", TestLedgerFactory).owner(args)).run()
+    new ProgramResource(new Runner("SQL Ledger", TestLedgerFactory).owner(args)).run()
   }
 
   object TestLedgerFactory extends LedgerFactory[SqlLedgerReaderWriter, ExtraConfig] {
@@ -31,7 +31,10 @@ object MainWithEphemeralDirectory {
         ledgerId: LedgerId,
         participantId: ParticipantId,
         config: ExtraConfig,
-    )(implicit materializer: Materializer): ResourceOwner[SqlLedgerReaderWriter] = {
+    )(
+        implicit executionContext: ExecutionContext,
+        materializer: Materializer,
+    ): ResourceOwner[SqlLedgerReaderWriter] = {
       val directory = Files.createTempDirectory("ledger-on-sql-ephemeral-")
       val jdbcUrl = config.jdbcUrl.map(_.replace(DirectoryPattern, directory.toString))
       SqlLedgerFactory.owner(ledgerId, participantId, config.copy(jdbcUrl = jdbcUrl))

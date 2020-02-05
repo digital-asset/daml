@@ -11,5 +11,5 @@ import scala.concurrent.{ExecutionContext, Future}
 class ActorSystemResourceOwner(acquireActorSystem: () => ActorSystem)
     extends ResourceOwner[ActorSystem] {
   override def acquire()(implicit executionContext: ExecutionContext): Resource[ActorSystem] =
-    Resource(Future(acquireActorSystem()), actorSystem => actorSystem.terminate().map(_ => ()))
+    Resource(Future(acquireActorSystem()))(_.terminate().map(_ => ()))
 }

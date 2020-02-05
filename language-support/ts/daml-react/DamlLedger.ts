@@ -3,13 +3,14 @@
 
 import React, { useReducer, useMemo } from 'react';
 import { DamlLedgerContext } from './context';
-import Credentials from './credentials';
 import * as LedgerStore from './ledgerStore';
 import Ledger from '@daml/ledger';
+import { Party } from '@daml/types';
 import { reducer } from './reducer';
 
 type Props = {
-  credentials: Credentials;
+  token: string;
+  party: Party;
 }
 
 const DamlLedger: React.FC<Props> = (props) => {
@@ -17,9 +18,9 @@ const DamlLedger: React.FC<Props> = (props) => {
   const state = useMemo(() => ({
     store,
     dispatch,
-    party: props.credentials.party,
-    ledger: new Ledger(props.credentials.token),
-  }), [props.credentials, store, dispatch])
+    party: props.party,
+    ledger: new Ledger(props.token),
+  }), [props.party, props.token, store, dispatch]);
   return React.createElement(DamlLedgerContext.Provider, {value: state}, props.children);
 }
 
