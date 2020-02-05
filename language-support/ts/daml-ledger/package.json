@@ -5,6 +5,11 @@
   "description": "Client side API implementation for a DAML based ledger. This library implements the JSON based API for a DAML ledger documented in https://docs.daml.com/json-api/index.html.",
   "keywords": ["daml", "API", "client"],
   "homepage": "https://daml.com",
+  "repository": {
+    "type" : "git",
+    "url" : "https://github.com/digital-asset/daml.git",
+    "directory": "language-support/ts/daml-ledger"
+  },
   "main": "index.js",
   "types": "index.d.ts",
   "license": "Apache-2.0",
