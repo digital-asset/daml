@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf
 package value
 
-import com.digitalasset.daml.lf.data.Ref.{ContractIdString, Identifier, LedgerString, Name}
+import com.digitalasset.daml.lf.data.Ref.{ContractIdString, Identifier, Name}
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.language.LanguageVersion
 
@@ -316,20 +316,7 @@ object Value {
   /** The constructor is private so that we make sure that only this object constructs
     * node ids -- we don't want external code to manipulate them.
     */
-  final case class NodeId(index: Int, discriminator: Option[crypto.Hash] = None) extends Equals {
-    val name: LedgerString = LedgerString.assertFromString(index.toString)
-
-    override def equals(other: Any): Boolean = other match {
-      case that: NodeId if (this.discriminator == that.discriminator) =>
-        this.discriminator.isDefined || this.index == that.index
-      case _ =>
-        false
-    }
-
-    override def hashCode(): Int =
-      discriminator.fold(index.hashCode)(_.hashCode())
-
-  }
+  final case class NodeId(index: Int)
 
   /*** Keys cannot contain contract ids */
   type Key = Value[Nothing]

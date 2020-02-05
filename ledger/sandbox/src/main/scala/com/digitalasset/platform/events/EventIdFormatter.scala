@@ -25,7 +25,7 @@ object EventIdFormatter {
 
   // this method defines the EventId format used by the sandbox
   def fromTransactionId(transactionId: LedgerString, nid: Transaction.NodeId): LedgerString =
-    fromTransactionId(transactionId, nid.name)
+    fromTransactionId(transactionId, LedgerString.fromInt(nid.index))
 
   /** When loading a scenario we get already absolute nids from the ledger -- still prefix them with the transaction
     * id, just to be safe.

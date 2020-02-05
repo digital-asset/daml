@@ -261,8 +261,9 @@ class TransactionCoderSpec
 
     "do tx with a lot of root nodes" in {
       val node: Node.NodeCreate[String, VersionedValue[String]] = Node.NodeCreate(
-        "test-cid",
-        ContractInst(
+        nodeSeed = None,
+        coid = "test-cid",
+        coinst = ContractInst(
           Identifier(
             PackageId.assertFromString("pkg-id"),
             QualifiedName.assertFromString("Test:Name"),
@@ -273,10 +274,10 @@ class TransactionCoderSpec
           ),
           ("agreement"),
         ),
-        None,
-        Set(Party.assertFromString("alice")),
-        Set(Party.assertFromString("alice"), Party.assertFromString("bob")),
-        None,
+        optLocation = None,
+        signatories = Set(Party.assertFromString("alice")),
+        stakeholders = Set(Party.assertFromString("alice"), Party.assertFromString("bob")),
+        key = None,
       )
       val nodes = ImmArray((1 to 10000).map { nid =>
         (nid.toString, node)

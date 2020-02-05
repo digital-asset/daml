@@ -303,7 +303,7 @@ object TransactionCoder {
           else if (txVersion precedes minKeyOrLookupByKey)
             Left(DecodeError(s"$txVersion is too old to support NodeCreate's `key` field"))
           else decodeKeyWithMaintainers(decodeVal, protoCreate.getKeyWithMaintainers).map(Some(_))
-        } yield (ni, NodeCreate(c, ci, None, signatories, stakeholders, key))
+        } yield (ni, NodeCreate(None, c, ci, None, signatories, stakeholders, key))
       case NodeTypeCase.FETCH =>
         val protoFetch = protoNode.getFetch
         for {
@@ -389,6 +389,7 @@ object TransactionCoder {
           (
             ni,
             NodeExercises[Nid, Cid, Val](
+              None,
               targetCoid = targetCoid,
               templateId = templateId,
               choiceId = choiceName,
