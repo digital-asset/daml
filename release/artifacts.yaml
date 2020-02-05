@@ -1,230 +1,196 @@
 - target: //daml-lf/data:data
   type: jar-scala
-  mavenUpload: true
 - target: //daml-lf/archive:daml_lf_dev_archive_java_proto
   type: jar-lib
   javadoc-jar: daml_lf_dev_archive_java_proto_javadoc.jar
-  mavenUpload: true
 - target: //daml-lf/archive:daml_lf_dev_archive_proto_zip
   type: zip
   location:
     groupId: com.digitalasset
     artifactId: daml-lf-dev-archive-proto
+  # This is a zip archive instead of a jar.
+  mavenUpload: false
 - target: //daml-lf/archive:daml_lf_dev_archive_proto_tarball
   type: targz
   location:
     groupId: com.digitalasset
     artifactId: daml-lf-dev-archive-proto
+  mavenUpload: false
 - target: //daml-lf/archive:daml_lf_1.6_archive_java_proto
   type: jar-lib
   javadoc-jar: daml_lf_1.6_archive_java_proto_javadoc.jar
-  mavenUpload: true
 - target: //daml-lf/archive:daml_lf_1.6_archive_proto_zip
   type: zip
   location:
     groupId: com.digitalasset
     artifactId: daml-lf-1.6-archive-proto
+  # This is a zip archive instead of a jar.
+  mavenUpload: false
 - target: //daml-lf/archive:daml_lf_1.6_archive_proto_tarball
   type: targz
   location:
     groupId: com.digitalasset
     artifactId: daml-lf-1.6-archive-proto
+  # This is a tarball instead of a jar.
+  mavenUpload: false
 - target: //daml-lf/archive:daml_lf_1.7_archive_java_proto
   type: jar-lib
   javadoc-jar: daml_lf_1.7_archive_java_proto_javadoc.jar
-  mavenUpload: true
 - target: //daml-lf/archive:daml_lf_1.7_archive_proto_zip
   type: zip
   location:
     groupId: com.digitalasset
     artifactId: daml-lf-1.7-archive-proto
+  # This is a zip archive instead of a jar.
+  mavenUpload: false
 - target: //daml-lf/archive:daml_lf_1.7_archive_proto_tarball
   type: targz
   location:
     groupId: com.digitalasset
     artifactId: daml-lf-1.7-archive-proto
+  # This is a tarball instead of a jar.
+  mavenUpload: false
 - target: //daml-lf/archive:daml_lf_archive_reader
   type: jar-scala
-  mavenUpload: true
 - target: //daml-lf/transaction:value_java_proto
   type: jar-proto
-  mavenUpload: true
 - target: //daml-lf/transaction:transaction_java_proto
   type: jar-proto
-  mavenUpload: true
 - target: //daml-lf/transaction:blindinginfo_java_proto
   type: jar-proto
-  mavenUpload: true
 - target: //daml-lf/transaction:transaction
   type: jar-scala
-  mavenUpload: true
 - target: //daml-lf/data-scalacheck:data-scalacheck
   type: jar-scala
-  mavenUpload: true
 - target: //daml-lf/transaction-scalacheck:transaction-scalacheck
   type: jar-scala
-  mavenUpload: true
 - target: //daml-lf/language:language
   type: jar-scala
-  mavenUpload: true
 - target: //daml-lf/interface:interface
   type: jar-scala
-  mavenUpload: true
 - target: //daml-lf/validation:validation
   type: jar-scala
-  mavenUpload: true
 - target: //daml-lf/interpreter:interpreter
   type: jar-scala
-  mavenUpload: true
 - target: //daml-lf/scenario-interpreter:scenario-interpreter
   type: jar-scala
-  mavenUpload: true
 - target: //daml-lf/engine:engine
   type: jar-scala
-  mavenUpload: true
 - target: //daml-lf/repl:repl
   type: jar
+  # This is an internal tool not something we want to make public
+  mavenUpload: false
 - target: //ledger-api/grpc-definitions:ledger-api-protos-tarball
   type: targz
-  mavenUpload: true
   location:
     groupId: com.digitalasset
     artifactId: ledger-api-protos
 - target: //ledger-api/rs-grpc-bridge:rs-grpc-bridge
   type: jar-lib
-  mavenUpload: true
 - target: //language-support/java/bindings:bindings-java
   type: jar-lib
-  mavenUpload: true
 - target: //language-support/java/bindings-rxjava:bindings-rxjava
   type: jar-lib
-  mavenUpload: true
 - target: //ledger/sandbox:sandbox-tarball
   type: targz
   location:
     groupId: com.digitalasset
     artifactId: sandbox
+  # This is a tarball of the fat jar.
+  mavenUpload: false
 - target: //extractor:extractor-binary
   type: jar-deploy
+  # This is a fat jar.
+  mavenUpload: false
 - target: //ledger-api/grpc-definitions:ledger-api-scalapb
   type: jar-scala
-  mavenUpload: true
 - target: //ledger-api/testing-utils:testing-utils
   type: jar-scala
-  mavenUpload: true
 - target: //language-support/scala/bindings:bindings
   type: jar-scala
-  mavenUpload: true
 - target: //ledger-api/rs-grpc-akka:rs-grpc-akka
   type: jar-scala
-  mavenUpload: true
 - target: //ledger-api/rs-grpc-testing-utils:rs-grpc-testing-utils
   type: jar-scala
-  mavenUpload: true
 - target: //ledger/ledger-api-akka:ledger-api-akka
   type: jar-scala
-  mavenUpload: true
 - target: //ledger/ledger-api-client:ledger-api-client
   type: jar-scala
-  mavenUpload: true
 - target: //ledger/ledger-api-domain:ledger-api-domain
   type: jar-scala
-  mavenUpload: true
 - target: //ledger/ledger-api-common:ledger-api-common
   type: jar-scala
-  mavenUpload: true
 - target: //ledger/ledger-api-auth:ledger-api-auth
   type: jar-scala
-  mavenUpload: true
 - target: //ledger/ledger-api-auth-client:ledger-api-auth-client
   type: jar-lib
-  mavenUpload: true
 - target: //ledger/ledger-api-health:ledger-api-health
   type: jar-scala
-  mavenUpload: true
 - target: //ledger/sandbox:sandbox
   type: jar-scala
-  mavenUpload: true
 - target: //ledger/ledger-api-test-tool:ledger-api-test-tool
   type: jar-deploy
-  mavenUpload: true
 - target: //language-support/scala/codegen:codegen
   type: jar-scala
-  mavenUpload: true
 - target: //language-support/scala/codegen:codegen-main
   type: jar
+  # This is a fat jar.
+  mavenUpload: false
 - target: //language-support/scala/bindings-akka:bindings-akka
   type: jar-scala
-  mavenUpload: true
 - target: //language-support/java/codegen:shaded_binary
   type: jar-scala
-  mavenUpload: true
 - target: //language-support/java/codegen:lib
   type: jar-scala
-  mavenUpload: true
 - target: //navigator/backend:navigator-binary
   type: jar-deploy
+  # This is a fat jar.
+  mavenUpload: false
 - target: //language-support/codegen-common:codegen-common
   type: jar-scala
-  mavenUpload: true
 - target: //language-support/codegen-main:shaded_binary
   type: jar-scala
-  mavenUpload: true
 - target: //ledger/participant-state:participant-state
   type: jar-scala
-  mavenUpload: true
 - target: //ledger/participant-state-index:participant-state-index
   type: jar-scala
-  mavenUpload: true
 - target: //ledger/sandbox:ledger-api-server
   type: jar-scala
-  mavenUpload: true
 - target: //ledger/participant-state/protobuf:ledger_configuration_java_proto
   type: jar-proto
-  mavenUpload: true
 - target: //ledger/participant-state/kvutils:daml_kvutils_java_proto
   type: jar-proto
-  mavenUpload: true
 - target: //ledger/participant-state/kvutils:kvutils
   type: jar-scala
-  mavenUpload: true
 - target: //ledger-service/lf-value-json:lf-value-json
   type: jar-scala
 - target: //ledger-service/utils:utils
   type: jar-scala
 - target: //ledger-service/jwt:jwt
   type: jar-scala
-  mavenUpload: true
 - target: //ledger-service/db-backend:db-backend
   type: jar-scala
 - target: //ledger-service/http-json:http-json
   type: jar-scala
 - target: //ledger-service/http-json:http-json-binary
   type: jar-deploy
+  # This is a fat jar.
+  mavenUpload: false
 - target: //triggers/runner:trigger-runner-lib
   type: jar-scala
-  mavenUpload: true
 - target: //daml-assistant/scala-daml-project-config:scala-daml-project-config
   type: jar-scala
-  mavenUpload: true
 - target: //libs-scala/auth-utils:auth-utils
   type: jar-scala
-  mavenUpload: true
 - target: //libs-scala/contextualized-logging:contextualized-logging
   type: jar-scala
-  mavenUpload: true
 - target: //libs-scala/direct-execution-context:direct-execution-context
   type: jar-scala
-  mavenUpload: true
 - target: //libs-scala/grpc-utils:grpc-utils
   type: jar-scala
-  mavenUpload: true
 - target: //libs-scala/resources:resources
   type: jar-scala
-  mavenUpload: true
 - target: //libs-scala/resources-akka:resources-akka
   type: jar-scala
-  mavenUpload: true
 - target: //libs-scala/timer-utils:timer-utils
   type: jar-scala
-  mavenUpload: true
