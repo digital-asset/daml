@@ -31,7 +31,7 @@ object ReadOnlySqlLedger {
   //jdbcUrl must have the user/password encoded in form of: "jdbc:postgresql://localhost/test?user=fred&password=secret"
   def apply(
       jdbcUrl: String,
-      ledgerId: Option[LedgerId],
+      ledgerId: LedgerId,
       metrics: MetricRegistry,
   )(implicit mat: Materializer, logCtx: LoggingContext): Resource[ReadOnlyLedger] = {
     implicit val ec: ExecutionContext = mat.executionContext
@@ -60,7 +60,7 @@ object ReadOnlySqlLedger {
       *
       * @return a compliant read-only Ledger implementation
       */
-    def createReadOnlySqlLedger(initialLedgerId: Option[LedgerId])(
+    def createReadOnlySqlLedger(initialLedgerId: LedgerId)(
         implicit mat: Materializer
     ): Future[ReadOnlySqlLedger] = {
 
@@ -75,38 +75,25 @@ object ReadOnlySqlLedger {
       }
     }
 
-    private def initialize(initialLedgerId: Option[LedgerId]): Future[LedgerId] = {
+    private def initialize(initialLedgerId: LedgerId): Future[LedgerId] = {
       // Note that here we only store the ledger entry and we do not update anything else, such as the
       // headRef. We also are not concerns with heartbeats / checkpoints. This is OK since this initialization
       // step happens before we start up the sql ledger at all, so it's running in isolation.
 
-      initialLedgerId match {
-        case Some(initialId) =>
-          ledgerDao
-            .lookupLedgerId()
-            .flatMap {
-              case Some(foundLedgerId) if foundLedgerId == initialId =>
-                ledgerFound(foundLedgerId)
-              case Some(foundLedgerId) =>
-                val errorMsg =
-                  s"Ledger id mismatch. Ledger id given ('$initialId') is not equal to the existing one ('$foundLedgerId')!"
-                logger.error(errorMsg)
-                Future.failed(new IllegalArgumentException(errorMsg))
-              case None =>
-                Future.successful(initialId)
+      ledgerDao
+        .lookupLedgerId()
+        .flatMap {
+          case Some(foundLedgerId) if foundLedgerId == initialLedgerId =>
+            ledgerFound(foundLedgerId)
+          case Some(foundLedgerId) =>
+            val errorMsg =
+              s"Ledger id mismatch. Ledger id given ('$initialLedgerId') is not equal to the existing one ('$foundLedgerId')!"
+            logger.error(errorMsg)
+            Future.failed(new IllegalArgumentException(errorMsg))
+          case None =>
+            Future.successful(initialLedgerId)
 
-            }(DEC)
-
-        case None =>
-          logger.info("No ledger id given. Looking for existing ledger in database.")
-          ledgerDao
-            .lookupLedgerId()
-            .flatMap {
-              case Some(foundLedgerId) => ledgerFound(foundLedgerId)
-              case None =>
-                Future.failed(new IllegalStateException("Underlying ledger not yet initialized"))
-            }(DEC)
-      }
+        }(DEC)
     }
 
     private def ledgerFound(foundLedgerId: LedgerId) = {
