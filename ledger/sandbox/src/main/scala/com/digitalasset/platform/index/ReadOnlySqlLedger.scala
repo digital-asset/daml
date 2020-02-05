@@ -11,6 +11,7 @@ import com.digitalasset.dec.{DirectExecutionContext => DEC}
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
+import com.digitalasset.platform.ledger.LedgerIdMismatchException
 import com.digitalasset.platform.store.dao.{
   DbDispatcher,
   JdbcLedgerDao,
@@ -63,43 +64,25 @@ object ReadOnlySqlLedger {
     def createReadOnlySqlLedger(initialLedgerId: LedgerId)(
         implicit mat: Materializer
     ): Future[ReadOnlySqlLedger] = {
-
       implicit val ec: ExecutionContext = DEC
-
       for {
         ledgerId <- initialize(initialLedgerId)
         ledgerEnd <- ledgerDao.lookupLedgerEnd()
-      } yield {
-
-        new ReadOnlySqlLedger(ledgerId, ledgerEnd, ledgerDao)
-      }
+      } yield new ReadOnlySqlLedger(ledgerId, ledgerEnd, ledgerDao)
     }
 
-    private def initialize(initialLedgerId: LedgerId): Future[LedgerId] = {
-      // Note that here we only store the ledger entry and we do not update anything else, such as the
-      // headRef. We also are not concerns with heartbeats / checkpoints. This is OK since this initialization
-      // step happens before we start up the sql ledger at all, so it's running in isolation.
-
+    private def initialize(initialLedgerId: LedgerId): Future[LedgerId] =
       ledgerDao
         .lookupLedgerId()
         .flatMap {
           case Some(foundLedgerId) if foundLedgerId == initialLedgerId =>
-            ledgerFound(foundLedgerId)
+            logger.info(s"Found existing ledger with ID: ${foundLedgerId.unwrap}")
+            Future.successful(foundLedgerId)
           case Some(foundLedgerId) =>
-            val errorMsg =
-              s"Ledger id mismatch. Ledger id given ('$initialLedgerId') is not equal to the existing one ('$foundLedgerId')!"
-            logger.error(errorMsg)
-            Future.failed(new IllegalArgumentException(errorMsg))
+            Future.failed(new LedgerIdMismatchException(foundLedgerId, initialLedgerId))
           case None =>
             Future.successful(initialLedgerId)
-
         }(DEC)
-    }
-
-    private def ledgerFound(foundLedgerId: LedgerId) = {
-      logger.info(s"Found existing ledger with id: ${foundLedgerId.unwrap}")
-      Future.successful(foundLedgerId)
-    }
   }
 
 }

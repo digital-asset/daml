@@ -22,6 +22,7 @@ import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, RejectionReas
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.common.LedgerIdMode
+import com.digitalasset.platform.ledger.LedgerIdMismatchException
 import com.digitalasset.platform.packages.InMemoryPackageStore
 import com.digitalasset.platform.sandbox.LedgerIdGenerator
 import com.digitalasset.platform.sandbox.stores.InMemoryActiveLedgerState
@@ -430,7 +431,8 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
       timeProvider: TimeProvider,
       acs: InMemoryActiveLedgerState,
       packages: InMemoryPackageStore,
-      initialLedgerEntries: ImmArray[LedgerEntryOrBump]): Future[LedgerId] = {
+      initialLedgerEntries: ImmArray[LedgerEntryOrBump],
+  ): Future[LedgerId] = {
     // Note that here we only store the ledger entry and we do not update anything else, such as the
     // headRef. We also are not concerns with heartbeats / checkpoints. This is OK since this initialization
     // step happens before we start up the sql ledger at all, so it's running in isolation.
@@ -443,57 +445,52 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
             case Some(foundLedgerId) if foundLedgerId == initialId =>
               if (initialLedgerEntries.nonEmpty) {
                 logger.warn(
-                  s"Initial ledger entries provided, presumably from scenario, but I'm picking up from an existing database, and thus they will not be used")
+                  s"Initial ledger entries provided, presumably from scenario, but there is an existing database, and thus they will not be used.")
               }
               if (packages.listLfPackagesSync().nonEmpty) {
                 logger.warn(
-                  s"Initial packages provided, presumably as command line arguments, but I'm picking up from an existing database, and thus they will not be used")
+                  s"Initial packages provided, presumably as command line arguments, but there is an existing database, and thus they will not be used.")
               }
               ledgerFound(foundLedgerId)
+
             case Some(foundLedgerId) =>
-              val errorMsg =
-                s"Ledger id mismatch. Ledger id given ('$initialId') is not equal to the existing one ('$foundLedgerId')!"
-              logger.error(errorMsg)
-              sys.error(errorMsg)
+              Future.failed(new LedgerIdMismatchException(foundLedgerId, initialId))
+
             case None =>
               if (initialLedgerEntries.nonEmpty) {
                 logger.info(
-                  s"Initializing ledger with ${initialLedgerEntries.length} ledger entries")
+                  s"Initializing ledger with ${initialLedgerEntries.length} ledger entries.")
               }
 
               val contracts = acs.activeContracts.values.toList
 
-              val initialLedgerEnd = 0L
-              val entriesWithOffset = initialLedgerEntries.foldLeft(
-                (initialLedgerEnd, immutable.Seq.empty[(Long, LedgerEntry)]))((acc, le) => {
-                val offset = acc._1
-                val seq = acc._2
-                le match {
-                  case LedgerEntryOrBump.Entry(entry) =>
-                    (offset + 1, seq :+ offset -> entry)
-                  case LedgerEntryOrBump.Bump(increment) =>
-                    (offset + increment, seq)
+              val (ledgerEnd, ledgerEntries) =
+                initialLedgerEntries.foldLeft((0L, immutable.Seq.empty[(Long, LedgerEntry)])) {
+                  case ((offset, entries), entryOrBump) =>
+                    entryOrBump match {
+                      case LedgerEntryOrBump.Entry(entry) =>
+                        (offset + 1, entries :+ offset -> entry)
+                      case LedgerEntryOrBump.Bump(increment) =>
+                        (offset + increment, entries)
+                    }
                 }
-              })
 
               implicit val ec: ExecutionContext = DEC
               for {
                 _ <- doInit(initialId)
-                _ <- copyPackages(packages, timeProvider.getCurrentTime, entriesWithOffset._1)
-                _ <- ledgerDao.storeInitialState(
-                  contracts,
-                  entriesWithOffset._2,
-                  entriesWithOffset._1)
-              } yield { initialId }
+                _ <- copyPackages(packages, timeProvider.getCurrentTime, ledgerEnd)
+                _ <- ledgerDao.storeInitialState(contracts, ledgerEntries, ledgerEnd)
+              } yield initialId
 
           }(DEC)
 
       case LedgerIdMode.Dynamic() =>
-        logger.info("No ledger id given. Looking for existing ledger in database.")
+        logger.info("No ledger ID provided. Looking for existing ledger in database.")
         ledgerDao
           .lookupLedgerId()
           .flatMap {
-            case Some(foundLedgerId) => ledgerFound(foundLedgerId)
+            case Some(foundLedgerId) =>
+              ledgerFound(foundLedgerId)
             case None =>
               val randomLedgerId = LedgerIdGenerator.generateRandomId()
               doInit(randomLedgerId).map(_ => randomLedgerId)(DEC)
@@ -501,13 +498,13 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
     }
   }
 
-  private def ledgerFound(foundLedgerId: LedgerId) = {
-    logger.info(s"Found existing ledger with id: ${foundLedgerId.unwrap}")
+  private def ledgerFound(foundLedgerId: LedgerId): Future[LedgerId] = {
+    logger.info(s"Found existing ledger with ID: ${foundLedgerId.unwrap}")
     Future.successful(foundLedgerId)
   }
 
   private def doInit(ledgerId: LedgerId): Future[Unit] = {
-    logger.info(s"Initializing ledger with id: ${ledgerId.unwrap}")
+    logger.info(s"Initializing ledger with ID: ${ledgerId.unwrap}")
     ledgerDao.initializeLedger(ledgerId, 0)
   }
 

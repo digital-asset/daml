@@ -92,7 +92,7 @@ class SqlLedgerSpec
         throwable <- createSqlLedger(ledgerId = "AnotherLedger").failed
       } yield {
         throwable.getMessage should be(
-          "Ledger id mismatch. Ledger id given ('AnotherLedger') is not equal to the existing one ('TheLedger')!")
+          "The provided ledger ID does not match the existing ID. Existing: \"TheLedger\", Provided: \"AnotherLedger\".")
       }
     }
 
