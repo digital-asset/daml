@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf.data
 
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoField
-import java.time.{Instant, LocalDate, ZoneId}
+import java.time.{Duration, Instant, LocalDate, ZoneId}
 import java.util.concurrent.TimeUnit
 
 import scalaz.std.anyVal._
@@ -91,6 +91,13 @@ object Time {
       val seconds = TimeUnit.MICROSECONDS.toSeconds(micros)
       val microsOfSecond = micros - TimeUnit.SECONDS.toMicros(seconds)
       Instant.ofEpochSecond(seconds, TimeUnit.MICROSECONDS.toNanos(microsOfSecond))
+    }
+
+    @throws[IllegalArgumentException]
+    def add(duration: Duration): Timestamp = {
+      val secondsInMicros = TimeUnit.SECONDS.toMicros(duration.getSeconds)
+      val nanosecondsInMicros = TimeUnit.NANOSECONDS.toMicros(duration.getNano.toLong)
+      addMicros(secondsInMicros + nanosecondsInMicros)
     }
 
     @throws[IllegalArgumentException]

@@ -6,7 +6,6 @@ package com.daml.ledger.participant.state.kvutils
 import java.io.File
 import java.time.Duration
 import java.util.UUID
-import java.util.concurrent.TimeUnit
 
 import akka.stream.scaladsl.Sink
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase._
@@ -595,13 +594,13 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
     Offset(Array(first + startIndex, rest: _*))
 
   private def inTheFuture(duration: FiniteDuration): Timestamp =
-    rt.addMicros(duration.toMicros)
+    rt.add(Duration.ofNanos(duration.toNanos))
 }
 
 object ParticipantStateIntegrationSpecBase {
   type ParticipantState = ReadService with WriteService
 
-  private val DefaultIdleTimeout = FiniteDuration(5, TimeUnit.SECONDS)
+  private val DefaultIdleTimeout = 5.seconds
   private val emptyTransaction: SubmittedTransaction =
     GenTransaction(HashMap.empty, ImmArray.empty, Some(InsertOrdSet.empty))
 
