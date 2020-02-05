@@ -266,7 +266,7 @@ class WebSocketService(
         .insertDeleteStepSource(jwt, jwtPayload.party, resolved.toList, Terminates.Never)
         .via(convertFilterContracts(fn))
         .filter(_.nonEmpty)
-        .via(removePhantonArchives(remove = !Q.allowPhantonArchives))
+        .via(removePhantomArchives(remove = !Q.allowPhantonArchives))
         .map(_.render)
         .prepend(reportUnresolvedTemplateIds(unresolved))
         .map(jsv => TextMessage(jsv.compactPrint))
@@ -278,11 +278,11 @@ class WebSocketService(
     }
   }
 
-  private def removePhantonArchives[A](remove: Boolean) =
-    if (remove) removePhantonArchives_[A]
+  private def removePhantomArchives[A](remove: Boolean) =
+    if (remove) removePhantomArchives_[A]
     else Flow[StepAndErrors[A]].map(identity)
 
-  private def removePhantonArchives_[A]: Flow[StepAndErrors[A], StepAndErrors[A], NotUsed] =
+  private def removePhantomArchives_[A]: Flow[StepAndErrors[A], StepAndErrors[A], NotUsed] =
     Flow[StepAndErrors[A]]
       .scan((Set.empty[String], Option.empty[StepAndErrors[A]])) {
         case ((s0, _), a0) =>
