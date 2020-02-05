@@ -11,6 +11,7 @@ import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.testing.utils.{OwnedResource, Resource}
 import com.digitalasset.logging.LoggingContext
+import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.packages.InMemoryPackageStore
 import com.digitalasset.platform.sandbox.stores.InMemoryActiveLedgerState
 import com.digitalasset.platform.sandbox.stores.ledger.Ledger
@@ -51,7 +52,7 @@ object LedgerResource {
         postgres <- PostgresResource.owner()
         ledger <- SqlLedger.owner(
           postgres.jdbcUrl,
-          Some(ledgerId),
+          LedgerIdMode.Static(ledgerId),
           participantId,
           timeProvider,
           InMemoryActiveLedgerState.empty,

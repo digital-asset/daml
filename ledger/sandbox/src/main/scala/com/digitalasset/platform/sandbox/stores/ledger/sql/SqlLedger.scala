@@ -7,6 +7,7 @@ import java.time.Instant
 
 import akka.Done
 import akka.stream.QueueOfferResult.{Dropped, Enqueued, QueueClosed}
+import akka.stream.scaladsl.GraphDSL.Implicits._
 import akka.stream.scaladsl.{GraphDSL, Keep, MergePreferred, Sink, Source, SourceQueueWithComplete}
 import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult, SourceShape}
 import com.codahale.metrics.MetricRegistry
@@ -20,6 +21,7 @@ import com.digitalasset.dec.{DirectExecutionContext => DEC}
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, RejectionReason}
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
+import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.packages.InMemoryPackageStore
 import com.digitalasset.platform.sandbox.LedgerIdGenerator
 import com.digitalasset.platform.sandbox.stores.InMemoryActiveLedgerState
@@ -36,7 +38,6 @@ import com.digitalasset.platform.store.entries.{LedgerEntry, PackageLedgerEntry,
 import com.digitalasset.platform.store.{BaseLedger, DbType, FlywayMigrations, PersistenceEntry}
 import com.digitalasset.resources.ResourceOwner
 import scalaz.syntax.tag._
-import akka.stream.scaladsl.GraphDSL.Implicits._
 
 import scala.collection.immutable
 import scala.collection.immutable.Queue
@@ -55,7 +56,7 @@ object SqlLedger {
   //jdbcUrl must have the user/password encoded in form of: "jdbc:postgresql://localhost/test?user=fred&password=secret"
   def owner(
       jdbcUrl: String,
-      ledgerId: Option[LedgerId],
+      ledgerId: LedgerIdMode,
       participantId: ParticipantId,
       timeProvider: TimeProvider,
       acs: InMemoryActiveLedgerState,
@@ -383,7 +384,7 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
     * @return a compliant Ledger implementation
     */
   def createSqlLedger(
-      initialLedgerId: Option[LedgerId],
+      initialLedgerId: LedgerIdMode,
       participantId: ParticipantId,
       timeProvider: TimeProvider,
       startMode: SqlStartMode,
@@ -425,7 +426,7 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
     ledgerDao.reset()
 
   private def initialize(
-      initialLedgerId: Option[LedgerId],
+      initialLedgerId: LedgerIdMode,
       timeProvider: TimeProvider,
       acs: InMemoryActiveLedgerState,
       packages: InMemoryPackageStore,
@@ -435,7 +436,7 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
     // step happens before we start up the sql ledger at all, so it's running in isolation.
 
     initialLedgerId match {
-      case Some(initialId) =>
+      case LedgerIdMode.Static(initialId) =>
         ledgerDao
           .lookupLedgerId()
           .flatMap {
@@ -487,7 +488,7 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
 
           }(DEC)
 
-      case None =>
+      case LedgerIdMode.Dynamic() =>
         logger.info("No ledger id given. Looking for existing ledger in database.")
         ledgerDao
           .lookupLedgerId()
