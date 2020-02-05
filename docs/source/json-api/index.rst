@@ -931,7 +931,7 @@ Fetch by Key Contracts Stream
 - Scheme: ``ws``
 - Protocol: ``WebSocket``
 
-List currently active contracts that match one of the given ``templateId - key`` pairs, with continuous updates.
+List currently active contracts that match one of the given ``{templateId, key}`` pairs, with continuous updates.
 
 Similarly to `Contracts Query Stream`_, two subprotocols must be passed, as described in `Choosing a party
 <#choosing-a-party>`__.
@@ -941,10 +941,10 @@ Similarly to `Contracts Query Stream`_, two subprotocols must be passed, as desc
 .. code-block:: none
 
     [
-        {"templateId": "<template ID 1>", "key": <key 1>}
-        , {"templateId": "<template ID 2>", "key": <key 2>}
+        {"templateId": "<template ID 1>", "key": <key 1>},
+        {"templateId": "<template ID 2>", "key": <key 2>},
         ...
-        , {"templateId": "<template ID N>", "key": <key N>}
+        {"templateId": "<template ID N>", "key": <key N>}
     ]
 
 Where:
@@ -957,8 +957,8 @@ Example:
 .. code-block:: json
 
     [
-        {"templateId": "Account:Account", "key": ["Alice", "abc123"]}
-        , {"templateId": "Account:Account", "key": ["Alice", "def345"]}
+        {"templateId": "Account:Account", "key": ["Alice", "abc123"]},
+        {"templateId": "Account:Account", "key": ["Alice", "def345"]}
     ]
 
-The output stream is similar to the output from the `Contracts Query Stream`_. With only one exception: "phantom archives" *are* being filtered out.
+The output stream has the same format as the output from the `Contracts Query Stream`_. We further guarantee that for every ``archived`` event appearing on the stream there has been a matching ``created`` event earlier in the stream.
