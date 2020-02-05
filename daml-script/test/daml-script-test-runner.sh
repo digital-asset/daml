@@ -46,6 +46,7 @@ ScriptTest:test3 SUCCESS
 ScriptTest:test4 SUCCESS
 ScriptTest:testCreateAndExercise SUCCESS
 ScriptTest:testKey SUCCESS
+ScriptTest:time SUCCESS
 EOF
 )"
 

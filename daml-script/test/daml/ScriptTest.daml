@@ -139,3 +139,10 @@ failingTest = do
   cid <- submit alice $ createCmd (C alice 42)
   submit alice $ exerciseCmd cid ShouldFail
   pure ()
+
+time : Script (Time, Time)
+time = do
+  t1 <- getTime
+  t2 <- getTime
+  assert (t1 <= t2)
+  pure (t1, t2)

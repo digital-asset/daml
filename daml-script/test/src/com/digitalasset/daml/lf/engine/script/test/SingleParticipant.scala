@@ -171,6 +171,35 @@ case class TestCreateAndExercise(dar: Dar[(PackageId, Package)], runner: TestRun
   }
 }
 
+case class Time(dar: Dar[(PackageId, Package)], runner: TestRunner) {
+  val scriptId = Identifier(dar.main._1, QualifiedName.assertFromString("ScriptTest:time"))
+  def runTests() = {
+    runner.genericTest(
+      "Time",
+      scriptId,
+      None,
+      result =>
+        result match {
+          case SRecord(_, _, vals) if vals.size == 2 =>
+            for {
+              t0 <- vals.get(0) match {
+                case STimestamp(t0) => Right(t0)
+                case _ => Left(s"Expected STimeStamp but got ${vals.get(0)})")
+              }
+              t1 <- vals.get(1) match {
+                case STimestamp(t1) => Right(t1)
+                case _ => Left(s"Expected STimeStamp but got ${vals.get(1)})")
+              }
+              r <- if (!(t0 <= t1))
+                Left(s"Second getTime call $t1 should have happened after first $t0")
+              else Right(())
+            } yield r
+          case v => Left(s"Expected SUnit but got $v")
+      }
+    )
+  }
+}
+
 // Runs the example from the docs to make sure it doesn’t produce a runtime error.
 case class ScriptExample(dar: Dar[(PackageId, Package)], runner: TestRunner) {
   val scriptId = Identifier(dar.main._1, QualifiedName.assertFromString("ScriptExample:test"))
@@ -230,6 +259,7 @@ object SingleParticipant {
         Test4(dar, runner).runTests()
         TestKey(dar, runner).runTests()
         TestCreateAndExercise(dar, runner).runTests()
+        Time(dar, runner).runTests()
         ScriptExample(dar, runner).runTests()
     }
   }
