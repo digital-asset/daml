@@ -372,15 +372,18 @@ execIde telemetry (Debug debug) enableScenarioService options =
             threshold
             "LanguageServer"
           let withLogger f = case telemetry of
-                  OptedIn ->
+                  TelemetryOptedIn ->
                     let logOfInterest prio = prio `elem` [Logger.Telemetry, Logger.Warning, Logger.Error] in
                     Logger.GCP.withGcpLogger logOfInterest loggerH $ \gcpState loggerH' -> do
                       Logger.GCP.logMetaData gcpState
                       f loggerH'
-                  OptedOut -> Logger.GCP.withGcpLogger (const False) loggerH $ \gcpState loggerH -> do
+                  TelemetryOptedOut -> Logger.GCP.withGcpLogger (const False) loggerH $ \gcpState loggerH -> do
                       Logger.GCP.logOptOut gcpState
                       f loggerH
-                  Undecided -> f loggerH
+                  TelemetryIgnored -> Logger.GCP.withGcpLogger (const False) loggerH $ \gcpState loggerH -> do
+                      Logger.GCP.logIgnored gcpState
+                      f loggerH
+                  TelemetryDisabled -> f loggerH
           dlintDataDir <- locateRunfiles $ mainWorkspace </> "compiler/damlc/daml-ide-core"
           options <- pure options
               { optScenarioService = enableScenarioService
