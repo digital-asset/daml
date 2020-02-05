@@ -364,7 +364,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
         lic <- ps.getLedgerInitialConditions().runWith(Sink.head)
         _ <- ps
           .submitConfiguration(
-            maxRecordTime = rt.addMicros(1000000),
+            maxRecordTime = inTheFuture(1.second),
             submissionId = newSubmissionId(),
             config = lic.config.copy(
               generation = lic.config.generation + 1,
@@ -436,7 +436,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
         // Submit an initial configuration change
         _ <- ps
           .submitConfiguration(
-            maxRecordTime = rt.addMicros(1000000),
+            maxRecordTime = inTheFuture(1.second),
             submissionId = newSubmissionId(),
             config = lic.config.copy(
               generation = lic.config.generation + 1,
@@ -447,7 +447,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
         // Submit another configuration change that uses stale "current config".
         _ <- ps
           .submitConfiguration(
-            maxRecordTime = rt.addMicros(1000000),
+            maxRecordTime = inTheFuture(1.second),
             submissionId = newSubmissionId(),
             config = lic.config.copy(
               generation = lic.config.generation + 1,
@@ -481,7 +481,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
         // Submit an initial configuration change
         result1 <- ps
           .submitConfiguration(
-            maxRecordTime = rt.addMicros(1000000),
+            maxRecordTime = inTheFuture(1.second),
             submissionId = submissionIds._1,
             config = lic.config.copy(
               generation = lic.config.generation + 1,
@@ -491,7 +491,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
         // this is a duplicate, which fails silently
         result2 <- ps
           .submitConfiguration(
-            maxRecordTime = rt.addMicros(2000000),
+            maxRecordTime = inTheFuture(2.seconds),
             submissionId = submissionIds._1,
             config = lic.config.copy(
               generation = lic.config.generation + 2,
@@ -500,7 +500,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
           .toScala
         result3 <- ps
           .submitConfiguration(
-            maxRecordTime = rt.addMicros(2000000),
+            maxRecordTime = inTheFuture(2.seconds),
             submissionId = submissionIds._2,
             config = lic.config.copy(
               generation = lic.config.generation + 2,
@@ -583,8 +583,19 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
     }
   }
 
+  private def submitterInfo(rt: Timestamp, party: Ref.Party, commandId: String = "X") =
+    SubmitterInfo(
+      submitter = party,
+      applicationId = Ref.LedgerString.assertFromString("tests"),
+      commandId = Ref.LedgerString.assertFromString(commandId),
+      maxRecordTime = inTheFuture(10.seconds),
+    )
+
   private def theOffset(first: Long, rest: Long*): Offset =
     Offset(Array(first + startIndex, rest: _*))
+
+  private def inTheFuture(duration: FiniteDuration): Timestamp =
+    rt.addMicros(duration.toMicros)
 }
 
 object ParticipantStateIntegrationSpecBase {
@@ -609,14 +620,6 @@ object ParticipantStateIntegrationSpecBase {
 
   private def newSubmissionId(): Ref.LedgerString =
     Ref.LedgerString.assertFromString(s"submission-${UUID.randomUUID()}")
-
-  private def submitterInfo(rt: Timestamp, party: Ref.Party, commandId: String = "X") =
-    SubmitterInfo(
-      submitter = party,
-      applicationId = Ref.LedgerString.assertFromString("tests"),
-      commandId = Ref.LedgerString.assertFromString(commandId),
-      maxRecordTime = rt.addMicros(Duration.ofSeconds(10).toNanos / 1000),
-    )
 
   private def transactionMeta(let: Timestamp) = TransactionMeta(
     ledgerEffectiveTime = let,
