@@ -95,7 +95,7 @@ class WebsocketEndpoints(
       )
   }
 
-  private def handleWebsocketRequest[A: WebSocketService.StreamQuery](
+  def handleWebsocketRequest[A: WebSocketService.StreamQuery](
       jwt: Jwt,
       jwtPayload: domain.JwtPayload,
       req: UpgradeToWebSocket,
@@ -105,5 +105,4 @@ class WebsocketEndpoints(
       webSocketService.transactionMessageHandler[A](jwt, jwtPayload)
     req.handleMessages(handler, Some(protocol))
   }
-
 }
