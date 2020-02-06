@@ -4,7 +4,7 @@
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
-    "da_scala_test",
+    "da_scala_test_suite",
 )
 load(
     "//ledger/ledger-api-test-tool:conformance.bzl",
@@ -57,9 +57,8 @@ da_scala_binary(
     ],
 )
 
-da_scala_test(
+da_scala_test_suite(
     name = "reference-v2-tests",
-    size = "small",
     srcs = glob(["src/test/suite/**/*.scala"]),
     data = [
         "//ledger/test-common:Test-stable.dar",
