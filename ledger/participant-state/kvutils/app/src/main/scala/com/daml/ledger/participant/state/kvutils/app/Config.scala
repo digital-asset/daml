@@ -7,7 +7,7 @@ import java.io.File
 import java.nio.file.Path
 
 import com.daml.ledger.participant.state.v1.ParticipantId
-import com.digitalasset.resources.ProgramResource.SuppressedException
+import com.digitalasset.resources.ProgramResource.SuppressedStartupException
 import com.digitalasset.resources.ResourceOwner
 import scopt.OptionParser
 
@@ -108,5 +108,5 @@ object Config {
     parser
   }
 
-  class ConfigParseException extends SuppressedException
+  class ConfigParseException extends SuppressedStartupException
 }

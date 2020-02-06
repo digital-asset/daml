@@ -93,10 +93,8 @@ da_scala_library(
         "//ledger/ledger-api-health",
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
-        "//ledger/participant-state/kvutils/app",
         "//libs-scala/contextualized-logging",
         "//libs-scala/resources",
-        "@maven//:com_github_scopt_scopt_2_12",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
@@ -107,13 +105,33 @@ da_scala_library(
     ],
 )
 
+da_scala_library(
+    name = "ledger-on-sql-app",
+    srcs = glob(["src/app/scala/**/*.scala"]),
+    resources = glob(["src/app/resources/**/*"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":ledger-on-sql",
+        "//daml-lf/data",
+        "//ledger/ledger-api-health",
+        "//ledger/participant-state",
+        "//ledger/participant-state/kvutils",
+        "//ledger/participant-state/kvutils/app",
+        "//libs-scala/contextualized-logging",
+        "//libs-scala/resources",
+        "@maven//:com_github_scopt_scopt_2_12",
+        "@maven//:com_typesafe_akka_akka_actor_2_12",
+        "@maven//:com_typesafe_akka_akka_stream_2_12",
+    ],
+)
+
 da_scala_binary(
     name = "app",
     main_class = "com.daml.ledger.on.sql.Main",
     visibility = ["//visibility:public"],
     runtime_deps = all_database_runtime_deps,
     deps = [
-        ":ledger-on-sql",
+        ":ledger-on-sql-app",
     ],
 )
 
@@ -125,6 +143,7 @@ da_scala_library(
     ],
     deps = [
         ":ledger-on-sql",
+        ":ledger-on-sql-app",
         "//daml-lf/data",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
