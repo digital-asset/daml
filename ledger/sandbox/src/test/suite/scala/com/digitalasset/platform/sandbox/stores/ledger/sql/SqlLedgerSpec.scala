@@ -69,7 +69,7 @@ class SqlLedgerSpec
       for {
         ledger <- createSqlLedger(ledgerId)
       } yield {
-        ledger.ledgerId should not be LedgerId
+        ledger.ledgerId should be(ledgerId)
       }
     }
 
