@@ -431,7 +431,7 @@ HTTP Response
         "status": 200,
         "result": {
             "exerciseResult": "#201:1",
-            "contracts": [
+            "events": [
                 {
                     "archived": {
                         "contractId": "#124:0",

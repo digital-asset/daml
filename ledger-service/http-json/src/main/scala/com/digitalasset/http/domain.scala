@@ -106,7 +106,7 @@ object domain {
 
   final case class ExerciseResponse[+LfV](
       exerciseResult: LfV,
-      contracts: List[Contract[LfV]],
+      events: List[Contract[LfV]],
   )
 
   object PartyDetails {
@@ -477,11 +477,11 @@ object domain {
       )(f: A => G[B]): G[ExerciseResponse[B]] = {
         import scalaz.syntax.applicative._
         val gb: G[B] = f(fa.exerciseResult)
-        val gbs: G[List[Contract[B]]] = fa.contracts.traverse(_.traverse(f))
-        ^(gb, gbs) { (exerciseResult, contracts) =>
+        val gbs: G[List[Contract[B]]] = fa.events.traverse(_.traverse(f))
+        ^(gb, gbs) { (exerciseResult, events) =>
           ExerciseResponse(
             exerciseResult = exerciseResult,
-            contracts = contracts,
+            events = events,
           )
         }
       }
