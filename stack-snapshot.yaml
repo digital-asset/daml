@@ -1,3 +1,6 @@
+# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 resolver: lts-14.1
 packages:
   - archive: http://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-parser-8.8.1.20200122.tar.gz
@@ -29,3 +32,4 @@ packages:
   # Core packages, need to be listed for integer-simple flags.
   - integer-simple-0.1.1.1
   - text-1.2.3.1
+

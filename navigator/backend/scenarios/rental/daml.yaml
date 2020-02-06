@@ -1,3 +1,6 @@
+# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 sdk-version: 0.13.0
 name: rental
 source: daml/Main.daml
@@ -12,3 +15,4 @@ exposed-modules:
 dependencies:
   - daml-prim
   - daml-stdlib
+
