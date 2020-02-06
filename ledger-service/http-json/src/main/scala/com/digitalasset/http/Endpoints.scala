@@ -144,7 +144,7 @@ class Endpoints(
 
         (jwt, jwtPayload, reqBody) = input
 
-        _ = logger.debug(s"/va1/fetch reqBody: $reqBody")
+        _ = logger.debug(s"/v1/fetch reqBody: $reqBody")
 
         cl <- either(
           decoder
