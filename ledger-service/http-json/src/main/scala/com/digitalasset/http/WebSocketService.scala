@@ -71,7 +71,7 @@ object WebSocketService {
     }
 
     def append[P >: Pos, A >: LfV](o: StepAndErrors[P, A]): StepAndErrors[P, A] =
-      StepAndErrors(errors ++ o.errors, step.appendWithCid(o.step)(_._1.contractId.unwrap))
+      StepAndErrors(errors ++ o.errors, step append o.step)
 
     def mapLfv[A](f: LfV => A): StepAndErrors[Pos, A] =
       copy(step = step mapPreservingIds (_ leftMap (_ map f)))

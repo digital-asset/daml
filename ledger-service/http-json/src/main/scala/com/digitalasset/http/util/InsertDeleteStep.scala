@@ -5,19 +5,15 @@ package com.digitalasset.http
 package util
 
 import com.digitalasset.http.dbbackend.Queries.DBContract
-import scalaz.Liskov
-import scalaz.Liskov.<~<
+
+import scalaz.syntax.tag._
+
+import scala.runtime.AbstractFunction1
 
 private[http] final case class InsertDeleteStep[+C](inserts: Vector[C], deletes: Set[String]) {
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  def append[CC >: C](
-      o: InsertDeleteStep[CC],
-  )(implicit cid: CC <~< DBContract[Any, Any, Any, Any]): InsertDeleteStep[CC] =
-    appendWithCid(o)(
-      Liskov.contra1_2[Function1, DBContract[Any, Any, Any, Any], CC, String](cid)(_.contractId),
-    )
+  import InsertDeleteStep._
 
-  def appendWithCid[CC >: C](o: InsertDeleteStep[CC])(cid: CC => String): InsertDeleteStep[CC] =
+  def append[CC >: C](o: InsertDeleteStep[CC])(implicit cid: Cid[CC]): InsertDeleteStep[CC] =
     InsertDeleteStep(
       InsertDeleteStep.appendForgettingDeletes(inserts, o)(cid),
       deletes union o.deletes,
@@ -30,6 +26,15 @@ private[http] final case class InsertDeleteStep[+C](inserts: Vector[C], deletes:
 }
 
 private[http] object InsertDeleteStep {
+  abstract class Cid[-C] extends (C AbstractFunction1 String)
+
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
+  object Cid {
+    implicit val ofDBC: Cid[DBContract[Any, Any, Any, Any]] = _.contractId
+    implicit val ofAC: Cid[domain.ActiveContract[Any]] = _.contractId.unwrap
+    implicit def ofFst[L](implicit L: Cid[L]): Cid[(L, Any)] = la => L(la._1)
+  }
+
   def appendForgettingDeletes[C](leftInserts: Vector[C], right: InsertDeleteStep[C])(
       cid: C => String,
   ): Vector[C] =

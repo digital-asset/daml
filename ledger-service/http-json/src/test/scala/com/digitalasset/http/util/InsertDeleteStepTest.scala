@@ -60,7 +60,7 @@ object InsertDeleteStepTest {
     Gen.alphaUpperChar map (_.toString))
 
   private implicit val `IDS monoid`
-    : Monoid[IDS] = Monoid instance (_.appendWithCid(_)(Cid.unwrap), InsertDeleteStep(
+    : Monoid[IDS] = Monoid instance (_.append(_)(Cid.unwrap), InsertDeleteStep(
     Vector.empty,
     Set.empty,
   ))
