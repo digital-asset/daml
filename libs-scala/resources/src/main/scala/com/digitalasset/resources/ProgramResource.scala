@@ -12,10 +12,10 @@ import com.digitalasset.resources.ProgramResource._
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Await, ExecutionContext}
 import scala.util.control.{NoStackTrace, NonFatal}
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 class ProgramResource[T](
-    owner: ResourceOwner[T],
+    owner: => ResourceOwner[T],
     startupTimeout: FiniteDuration = 1.minute,
     tearDownDuration: FiniteDuration = 10.seconds,
 ) {
@@ -27,7 +27,7 @@ class ProgramResource[T](
 
   def run(): Unit = {
     newLoggingContext { implicit logCtx =>
-      val resource = owner.acquire()
+      val resource = Try(owner.acquire()).fold(Resource.failed, identity)
 
       def stop(): Unit = {
         Await.result(resource.release(), tearDownDuration)
@@ -64,23 +64,9 @@ class ProgramResource[T](
 }
 
 object ProgramResource {
+  abstract class StartupException(message: String)
+      extends RuntimeException(message)
+      with NoStackTrace
 
-  abstract class StartupException(message: String, cause: Throwable)
-      extends RuntimeException
-      with NoStackTrace {
-    def this() = this(null, null)
-
-    def this(message: String) = this(message, null)
-
-    def this(cause: Throwable) = this(null, cause)
-  }
-
-  abstract class SuppressedStartupException(message: String, cause: Throwable)
-      extends RuntimeException {
-    def this() = this(null, null)
-
-    def this(message: String) = this(message, null)
-
-    def this(cause: Throwable) = this(null, cause)
-  }
+  abstract class SuppressedStartupException extends RuntimeException
 }
