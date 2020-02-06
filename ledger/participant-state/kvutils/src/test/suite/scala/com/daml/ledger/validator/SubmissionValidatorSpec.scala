@@ -23,13 +23,14 @@ import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{AsyncWordSpec, Matchers}
 
 import scala.concurrent.Future
+import scala.util.Try
 
 class SubmissionValidatorSpec extends AsyncWordSpec with MockitoSugar with Matchers {
   "validate" should {
     "return success in case of no errors during processing of submission" in {
       val mockStateOperations = mock[LedgerStateOperations]
       when(mockStateOperations.readState(any[RawBytes]()))
-        .thenReturn(Future.successful(Some(aConfigurationSubmission())))
+        .thenReturn(Future.successful(Some(aStateValue())))
       val instance = SubmissionValidator.create(new FakeStateAccess(mockStateOperations))
       instance.validate(anEnvelope(), "aCorrelationId", newRecordTime()).map {
         case SubmissionValidated => succeed
@@ -59,7 +60,7 @@ class SubmissionValidatorSpec extends AsyncWordSpec with MockitoSugar with Match
     "return invalid submission in case exception is thrown during processing of submission" in {
       val mockStateOperations = mock[LedgerStateOperations]
       when(mockStateOperations.readState(any[RawBytes]()))
-        .thenReturn(Future.successful(Some(aConfigurationSubmission())))
+        .thenReturn(Future.successful(Some(aStateValue())))
 
       def failingProcessSubmission(
           damlLogEntryId: DamlLogEntryId,
@@ -84,7 +85,7 @@ class SubmissionValidatorSpec extends AsyncWordSpec with MockitoSugar with Match
     "write marshalled log entry to ledger" in {
       val mockStateOperations = mock[LedgerStateOperations]
       when(mockStateOperations.readState(any[RawBytes]()))
-        .thenReturn(Future.successful(Some(aConfigurationSubmission())))
+        .thenReturn(Future.successful(Some(aStateValue())))
       val logEntryValueCaptor = ArgumentCaptor.forClass(classOf[RawBytes])
       val logEntryIdCaptor = ArgumentCaptor.forClass(classOf[RawBytes])
       when(
@@ -116,7 +117,7 @@ class SubmissionValidatorSpec extends AsyncWordSpec with MockitoSugar with Match
     "write marshalled key-value pairs to ledger" in {
       val mockStateOperations = mock[LedgerStateOperations]
       when(mockStateOperations.readState(any[RawBytes]()))
-        .thenReturn(Future.successful(Some(aConfigurationSubmission())))
+        .thenReturn(Future.successful(Some(aStateValue())))
       val writtenKeyValuesCaptor = ArgumentCaptor.forClass(classOf[RawKeyValuePairs])
       when(mockStateOperations.writeState(writtenKeyValuesCaptor.capture()))
         .thenReturn(Future.successful(()))
@@ -131,7 +132,9 @@ class SubmissionValidatorSpec extends AsyncWordSpec with MockitoSugar with Match
       instance.validateAndCommit(anEnvelope(), "aCorrelationId", newRecordTime()).map {
         case SubmissionValidated =>
           writtenKeyValuesCaptor.getAllValues should have size 1
-          writtenKeyValuesCaptor.getValue.asInstanceOf[RawKeyValuePairs] should have size 1
+          val writtenKeyValues = writtenKeyValuesCaptor.getValue.asInstanceOf[RawKeyValuePairs]
+          writtenKeyValues should have size 1
+          Try(SubmissionValidator.bytesToStateValue(writtenKeyValues.head._2)).isSuccess shouldBe true
           logEntryCaptor.getAllValues should have size 1
         case _ => fail
       }
@@ -142,7 +145,7 @@ class SubmissionValidatorSpec extends AsyncWordSpec with MockitoSugar with Match
       when(mockStateOperations.writeState(any[RawKeyValuePairs]()))
         .thenThrow(new IllegalArgumentException("Write error"))
       when(mockStateOperations.readState(any[RawBytes]()))
-        .thenReturn(Future.successful(Some(aConfigurationSubmission())))
+        .thenReturn(Future.successful(Some(aStateValue())))
       when(mockStateOperations.appendToLog(any[RawBytes](), any[RawBytes]()))
         .thenReturn(Future.successful(()))
       val logEntryAndStateResult = (aLogEntry(), someStateUpdates(1))
@@ -179,8 +182,8 @@ class SubmissionValidatorSpec extends AsyncWordSpec with MockitoSugar with Match
       key -> value
     }.toMap
 
-  private def aConfigurationSubmission(): RawBytes =
-    DamlConfigurationSubmission.getDefaultInstance.toByteArray
+  private def aStateValue(): RawBytes =
+    SubmissionValidator.valueToBytes(DamlStateValue.getDefaultInstance)
 
   private def anEnvelope(): RawBytes = {
     val submission = DamlSubmission

@@ -31,6 +31,8 @@ object KeyValueCommitting {
     DamlStateKey.parseFrom(bytes)
 
   def packDamlStateValue(value: DamlStateValue): ByteString = value.toByteString
+  def unpackDamlStateValue(bytes: Array[Byte]): DamlStateValue =
+    DamlStateValue.parseFrom(bytes)
   def unpackDamlStateValue(bytes: ByteString): DamlStateValue =
     DamlStateValue.parseFrom(bytes)
 

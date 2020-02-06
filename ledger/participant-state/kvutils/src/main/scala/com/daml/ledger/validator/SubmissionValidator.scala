@@ -123,8 +123,7 @@ class SubmissionValidator(
               stateOperations
                 .readState(keyToBytes(key))
                 .map { stateValue =>
-                  key -> stateValue.map(value =>
-                    KeyValueCommitting.unpackDamlStateValue(ByteString.copyFrom(value)))
+                  key -> stateValue.map(bytesToStateValue)
               }
           )
         )
@@ -182,9 +181,6 @@ object SubmissionValidator {
 
   private lazy val engine = Engine()
 
-  private[validator] def keyToBytes(damlStateKey: DamlStateKey): RawBytes =
-    KeyValueCommitting.packDamlStateKey(damlStateKey).toByteArray
-
   private[validator] def processSubmission(participantId: ParticipantId)(
       damlLogEntryId: DamlLogEntryId,
       recordTime: Timestamp,
@@ -205,13 +201,21 @@ object SubmissionValidator {
     val (logEntry, damlStateUpdates) = logEntryAndState
     val rawStateUpdates = damlStateUpdates
       .map {
-        case (key, value) =>
-          keyToBytes(key) -> Envelope
-            .enclose(value)
-            .toByteArray
+        case (key, value) => keyToBytes(key) -> valueToBytes(value)
       }
       .toSeq
       .sortBy(_._1.toIterable)
     (Envelope.enclose(logEntry).toByteArray, rawStateUpdates)
   }
+
+  private[validator] def keyToBytes(damlStateKey: DamlStateKey): RawBytes =
+    KeyValueCommitting.packDamlStateKey(damlStateKey).toByteArray
+
+  private[validator] def valueToBytes(value: DamlStateValue): RawBytes =
+    Envelope
+      .enclose(value)
+      .toByteArray
+
+  private[validator] def bytesToStateValue(value: RawBytes): DamlStateValue =
+    Envelope.openStateValue(value).right.get
 }
