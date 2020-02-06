@@ -42,7 +42,7 @@ class SubmissionValidator(
       envelope: RawBytes,
       correlationId: String,
       recordTime: Timestamp): Future[ValidationResult] =
-    validateAndWrapExceptions(envelope, correlationId, recordTime, (_, _, _, _) => ()).map {
+    runValidation(envelope, correlationId, recordTime, (_, _, _, _) => ()).map {
       case Left(failure) => failure
       case Right(_) => SubmissionValidated
     }
@@ -51,7 +51,7 @@ class SubmissionValidator(
       envelope: RawBytes,
       correlationId: String,
       recordTime: Timestamp): Future[ValidationResult] =
-    validateAndWrapExceptions(envelope, correlationId, recordTime, commit).map {
+    runValidation(envelope, correlationId, recordTime, commit).map {
       case Left(failure) => failure
       case Right(_) => SubmissionValidated
     }
@@ -69,7 +69,7 @@ class SubmissionValidator(
         stateOperations: LedgerStateOperations): T =
       transform(logEntryId, inputStates, logEntryAndState)
 
-    validateAndWrapExceptions(envelope, correlationId, recordTime, applyTransformation)
+    runValidation(envelope, correlationId, recordTime, applyTransformation)
   }
 
   private def commit(
@@ -92,65 +92,54 @@ class SubmissionValidator(
       .foreach(_ => ())
   }
 
-  private def validateAndWrapExceptions[T](
-      envelope: RawBytes,
-      correlationId: String,
-      recordTime: Timestamp,
-      postProcessResult: (DamlLogEntryId, StateMap, LogEntryAndState, LedgerStateOperations) => T)
-    : Future[Either[ValidationFailed, TransformedSubmission[T]]] =
-    Try(runValidation(envelope, correlationId, recordTime, postProcessResult))
-      .fold(
-        exception => Future.successful(Left(ValidationError(exception.getLocalizedMessage))),
-        identity
-      )
-
   private def runValidation[T](
       envelope: RawBytes,
       correlationId: String,
       recordTime: Timestamp,
       postProcessResult: (DamlLogEntryId, StateMap, LogEntryAndState, LedgerStateOperations) => T)
-    : Future[Either[ValidationFailed, TransformedSubmission[T]]] = {
-    val submission = Envelope.open(envelope) match {
-      case Right(Envelope.SubmissionMessage(parsedSubmission)) => parsedSubmission
-      case _ =>
-        throw new IllegalArgumentException(
-          s"Failed to parse submission, correlationId=$correlationId")
-    }
-    val declaredInputs = submission.getInputDamlStateList.asScala
-    ledgerStateAccess.inTransaction { stateOperations =>
-      for {
-        readStateInputs <- Future.sequence(
-          declaredInputs.map(
-            key =>
-              stateOperations
-                .readState(keyToBytes(key))
-                .map { stateValue =>
-                  key -> stateValue.map(bytesToStateValue)
-              }
-          )
-        )
-        damlLogEntryId = allocateLogEntryId()
-        readInputs: Map[DamlStateKey, Option[DamlStateValue]] = readStateInputs.toMap
-        missingInputs = declaredInputs -- readInputs.filter { case (_, value) => value.isDefined }.keySet
-      } yield {
-        if (missingInputs.nonEmpty) {
-          Left(MissingInputState(missingInputs.map(keyToBytes)))
-        } else {
-          Try {
-            val (logEntry, damlStateUpdates) =
-              processSubmission(damlLogEntryId, recordTime, submission, readInputs)
-            postProcessResult(
-              damlLogEntryId,
-              flattenInputStates(readInputs),
-              (logEntry, damlStateUpdates),
-              stateOperations)
-          }.fold(
-            exception => Left(ValidationError(exception.getLocalizedMessage)),
-            result => Right(TransformedSubmission(result)))
+    : Future[Either[ValidationFailed, TransformedSubmission[T]]] =
+    Envelope.open(envelope) match {
+      case Right(Envelope.SubmissionMessage(submission)) =>
+        val declaredInputs = submission.getInputDamlStateList.asScala
+        ledgerStateAccess.inTransaction { stateOperations =>
+          for {
+            readStateInputs <- Future.sequence(
+              declaredInputs.map(
+                key =>
+                  stateOperations
+                    .readState(keyToBytes(key))
+                    .map { stateValue =>
+                      key -> stateValue.map(bytesToStateValue)
+                  }
+              )
+            )
+            damlLogEntryId = allocateLogEntryId()
+            readInputs: Map[DamlStateKey, Option[DamlStateValue]] = readStateInputs.toMap
+            missingInputs = declaredInputs -- readInputs.filter {
+              case (_, value) => value.isDefined
+            }.keySet
+          } yield {
+            if (missingInputs.nonEmpty) {
+              Left(MissingInputState(missingInputs.map(keyToBytes)))
+            } else {
+              Try {
+                val (logEntry, damlStateUpdates) =
+                  processSubmission(damlLogEntryId, recordTime, submission, readInputs)
+                postProcessResult(
+                  damlLogEntryId,
+                  flattenInputStates(readInputs),
+                  (logEntry, damlStateUpdates),
+                  stateOperations)
+              }.fold(
+                exception => Left(ValidationError(exception.getLocalizedMessage)),
+                result => Right(TransformedSubmission(result)))
+            }
+          }
         }
-      }
+      case _ =>
+        Future.successful(
+          Left(ValidationError(s"Failed to parse submission, correlationId=$correlationId")))
     }
-  }
 
   private def flattenInputStates(
       inputs: Map[DamlStateKey, Option[DamlStateValue]]): Map[DamlStateKey, DamlStateValue] =
