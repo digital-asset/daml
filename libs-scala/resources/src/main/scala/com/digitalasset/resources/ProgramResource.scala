@@ -10,7 +10,7 @@ import com.digitalasset.logging.LoggingContext.newLoggingContext
 import com.digitalasset.resources.ProgramResource._
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
-import scala.concurrent.{Await, ExecutionContext}
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.control.{NoStackTrace, NonFatal}
 import scala.util.{Failure, Success, Try}
 
@@ -36,7 +36,10 @@ class ProgramResource[T](
         ()
       }
 
-      resource.asFuture.onComplete {
+      val acquisition =
+        Await.result(resource.asFuture.transformWith(Future.successful), startupTimeout)
+
+      acquisition match {
         case Success(_) =>
           try {
             sys.runtime.addShutdownHook(new Thread(() => stop()))
