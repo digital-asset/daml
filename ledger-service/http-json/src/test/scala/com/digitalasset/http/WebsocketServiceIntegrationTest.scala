@@ -7,13 +7,16 @@ import akka.NotUsed
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.http.scaladsl.model.ws.{BinaryMessage, Message, TextMessage, WebSocketRequest}
-import akka.http.scaladsl.model.{StatusCodes, Uri}
+import akka.http.scaladsl.model.{StatusCode, StatusCodes, Uri}
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
+import com.digitalasset.http.json.DomainJsonEncoder
 import com.digitalasset.http.util.TestUtil
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.{AsyncFreeSpec, BeforeAndAfterAll, Inside, Matchers}
 import scalaz.std.option._
 import scalaz.syntax.apply._
+import scalaz.syntax.tag._
+import spray.json.JsValue
 
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
@@ -36,45 +39,68 @@ class WebsocketServiceIntegrationTest
 
   private val headersWithAuth = List(Authorization(OAuth2BearerToken(jwt.value)))
 
-  private val baseFlow: Flow[Message, Message, NotUsed] =
+  private val baseQueryFlow: Flow[Message, Message, NotUsed] =
     Flow.fromSinkAndSource(Sink.foreach(println), Source.single(TextMessage.Strict("{}")))
+
+  private val fetchRequest =
+    """[{"templateId": "Account:Account", "key": ["Alice", "abc123"]}]"""
+
+  private val baseFetchFlow: Flow[Message, Message, NotUsed] =
+    Flow.fromSinkAndSource(Sink.foreach(println), Source.single(TextMessage.Strict(fetchRequest)))
 
   private val validSubprotocol = Option(s"""$tokenPrefix${jwt.value},$wsProtocol""")
 
-  "ws request with valid protocol token should allow client subscribe to stream" in withHttpService {
-    (uri, _, _) =>
-      wsConnectRequest(
-        uri.copy(scheme = "ws").withPath(Uri.Path("/contracts/searchForever")),
-        validSubprotocol,
-        baseFlow)._1 flatMap (x => x.response.status shouldBe StatusCodes.SwitchingProtocols)
-  }
+  List(
+    SimpleScenario("query", Uri.Path("/contracts/searchForever"), baseQueryFlow),
+    SimpleScenario("fetch", Uri.Path("/stream/fetch"), baseFetchFlow)
+  ).foreach { scenario =>
+    s"${scenario.id} request with valid protocol token should allow client subscribe to stream" in withHttpService {
+      (uri, _, _) =>
+        wsConnectRequest(
+          uri.copy(scheme = "ws").withPath(scenario.path),
+          validSubprotocol,
+          scenario.flow)._1 flatMap (x => x.response.status shouldBe StatusCodes.SwitchingProtocols)
+    }
 
-  "ws request with invalid protocol token should be denied" in withHttpService { (uri, _, _) =>
-    wsConnectRequest(
-      uri.copy(scheme = "ws").withPath(Uri.Path("/contracts/searchForever")),
-      Option("foo"),
-      baseFlow
-    )._1 flatMap (x => x.response.status shouldBe StatusCodes.Unauthorized)
-  }
+    s"${scenario.id} request with invalid protocol token should be denied" in withHttpService {
+      (uri, _, _) =>
+        wsConnectRequest(
+          uri.copy(scheme = "ws").withPath(scenario.path),
+          Option("foo"),
+          scenario.flow
+        )._1 flatMap (x => x.response.status shouldBe StatusCodes.Unauthorized)
+    }
 
-  "ws request without protocol token should be denied" in withHttpService { (uri, _, _) =>
-    wsConnectRequest(
-      uri.copy(scheme = "ws").withPath(Uri.Path("/contracts/searchForever")),
-      None,
-      baseFlow
-    )._1 flatMap (x => x.response.status shouldBe StatusCodes.Unauthorized)
+    s"${scenario.id} request without protocol token should be denied" in withHttpService {
+      (uri, _, _) =>
+        wsConnectRequest(
+          uri.copy(scheme = "ws").withPath(scenario.path),
+          None,
+          scenario.flow
+        )._1 flatMap (x => x.response.status shouldBe StatusCodes.Unauthorized)
+    }
   }
 
   private val collectResultsAsRawString: Sink[Message, Future[Seq[String]]] =
     Flow[Message].map(_.toString).filter(v => !(v contains "heartbeat")).toMat(Sink.seq)(Keep.right)
 
-  private def singleClientStream(serviceUri: Uri, query: String) = {
+  private def singleClientQueryStream(serviceUri: Uri, query: String) = {
     val webSocketFlow = Http().webSocketClientFlow(
       WebSocketRequest(
         uri = serviceUri.copy(scheme = "ws").withPath(Uri.Path("/contracts/searchForever")),
         subprotocol = validSubprotocol))
     Source
       .single(TextMessage(query))
+      .via(webSocketFlow)
+  }
+
+  private def singleClientFetchStream(serviceUri: Uri, request: String) = {
+    val webSocketFlow = Http().webSocketClientFlow(
+      WebSocketRequest(
+        uri = serviceUri.copy(scheme = "ws").withPath(Uri.Path("/stream/fetch")),
+        subprotocol = validSubprotocol))
+    Source
+      .single(TextMessage(request))
       .via(webSocketFlow)
   }
 
@@ -86,25 +112,50 @@ class WebsocketServiceIntegrationTest
       headersWithAuth)
   }
 
-  "websocket should publish transactions when command create is completed" in withHttpService {
+  private def initialAccountCreate(
+      serviceUri: Uri,
+      encoder: DomainJsonEncoder): Future[(StatusCode, JsValue)] = {
+    val command = accountCreateCommand(domain.Party("Alice"), "abc123")
+    postCreateCommand(command, encoder, serviceUri)
+  }
+
+  "query endpoint should publish transactions when command create is completed" in withHttpService {
     (uri, _, _) =>
       for {
         _ <- initialIouCreate(uri)
 
-        clientMsg <- singleClientStream(uri, """{"templateIds": ["Iou:Iou"]}""")
+        clientMsg <- singleClientQueryStream(uri, """{"templateIds": ["Iou:Iou"]}""")
           .runWith(collectResultsAsRawString)
       } yield
         inside(clientMsg) {
           case Seq(result) =>
-            result should include("\"issuer\":\"Alice\"")
+            result should include(""""issuer":"Alice"""")
+            result should include(""""amount":"999.99"""")
         }
   }
 
-  "websocket should warn on unknown template IDs" in withHttpService { (uri, _, _) =>
+  "fetch endpoint should publish transactions when command create is completed" in withHttpService {
+    (uri, encoder, _) =>
+      for {
+        _ <- initialAccountCreate(uri, encoder)
+
+        clientMsg <- singleClientFetchStream(uri, fetchRequest)
+          .runWith(collectResultsAsRawString)
+      } yield
+        inside(clientMsg) {
+          case Seq(result) =>
+            result should include(""""owner":"Alice"""")
+            result should include(""""number":"abc123"""")
+        }
+  }
+
+  "query endpoint should warn on unknown template IDs" in withHttpService { (uri, _, _) =>
     for {
       _ <- initialIouCreate(uri)
 
-      clientMsg <- singleClientStream(uri, """{"templateIds": ["Iou:Iou", "Unknown:Template"]}""")
+      clientMsg <- singleClientQueryStream(
+        uri,
+        """{"templateIds": ["Iou:Iou", "Unknown:Template"]}""")
         .runWith(collectResultsAsRawString)
     } yield
       inside(clientMsg) {
@@ -114,15 +165,43 @@ class WebsocketServiceIntegrationTest
       }
   }
 
-  "websocket should send error msg when receiving malformed message" in withHttpService {
+  "fetch endpoint should warn on unknown template IDs" in withHttpService { (uri, encoder, _) =>
+    for {
+      _ <- initialAccountCreate(uri, encoder)
+
+      clientMsg <- singleClientFetchStream(
+        uri,
+        """[{"templateId": "Account:Account", "key": ["Alice", "abc123"]}, {"templateId": "Unknown:Template", "key": ["Alice", "abc123"]}]""")
+        .runWith(collectResultsAsRawString)
+    } yield
+      inside(clientMsg) {
+        case Seq(warning, result) =>
+          warning should include("""{"warnings":{"unknownTemplateIds":["Unk""")
+          result should include(""""owner":"Alice"""")
+          result should include(""""number":"abc123"""")
+      }
+  }
+
+  "query endpoint should send error msg when receiving malformed message" in withHttpService {
     (uri, _, _) =>
-      val clientMsg = singleClientStream(uri, "{}")
+      val clientMsg = singleClientQueryStream(uri, "{}")
         .runWith(collectResultsAsRawString)
 
       val result = Await.result(clientMsg, 10.seconds)
 
       result should have size 1
       result.head should include("error")
+  }
+
+  "fetch endpoint should send error msg when receiving malformed message" in withHttpService {
+    (uri, _, _) =>
+      val clientMsg = singleClientFetchStream(uri, """[abcdefg!]""")
+        .runWith(collectResultsAsRawString)
+
+      val result = Await.result(clientMsg, 10.seconds)
+
+      result should have size 1
+      result.head should include("""{"error":""")
   }
 
   // NB SC #3936: the WS connection below terminates at an appropriate time for
@@ -143,7 +222,7 @@ class WebsocketServiceIntegrationTest
         "argument": {"splitAmount": 42.42}}""".parseJson.asJsObject
   }
 
-  "websocket should receive deltas as contracts are archived/created" in withHttpService {
+  "query should receive deltas as contracts are archived/created" in withHttpService {
     (uri, _, _) =>
       import spray.json._
 
@@ -159,60 +238,134 @@ class WebsocketServiceIntegrationTest
           {"templateIds": ["Iou:Iou"]}
         ]"""
 
-      val parseResp: Flow[Message, JsValue, NotUsed] =
-        Flow[Message]
-          .mapAsync(1) {
-            case _: BinaryMessage => fail("shouldn't get BinaryMessage")
-            case tm: TextMessage => tm.toStrict(1.second).map(_.text.parseJson)
-          }
-          .filter {
-            case JsObject(fields) => !(fields contains "heartbeat")
-            case _ => true
-          }
-
-      sealed abstract class StreamState extends Product with Serializable
-      case object NothingYet extends StreamState
-      final case class GotAcs(firstCid: String) extends StreamState
-      final case class ShouldHaveEnded(msgCount: Int) extends StreamState
-
-      val resp: Sink[JsValue, Future[StreamState]] = Sink
-        .foldAsync(NothingYet: StreamState) {
-          case (NothingYet, ContractDelta(Vector((ctid, ct)), Vector())) =>
-            TestUtil.postJsonRequest(
-              uri.withPath(Uri.Path("/command/exercise")),
-              exercisePayload(ctid),
-              headersWithAuth) map {
-              case (statusCode, respBody) =>
-                statusCode.isSuccess shouldBe true
-                GotAcs(ctid)
-            }
-          case (
-              GotAcs(consumedCtid),
-              evts @ ContractDelta(Vector((fstId, fst), (sndId, snd)), Vector(observeConsumed))) =>
-            Future {
-              observeConsumed should ===(consumedCtid)
-              Set(fstId, sndId, consumedCtid) should have size 3
-              inside(evts) {
-                case JsArray(
-                    Vector(
-                      Archived(_, _),
-                      Created(IouAmount(amt1), MatchedQueries(NumList(ixes1), _)),
-                      Created(IouAmount(amt2), MatchedQueries(NumList(ixes2), _)))) =>
-                  Set((amt1, ixes1), (amt2, ixes2)) should ===(
-                    Set(
-                      (BigDecimal("42.42"), Vector(BigDecimal(0), BigDecimal(2))),
-                      (BigDecimal("957.57"), Vector(BigDecimal(1), BigDecimal(2))),
-                    ))
+      def resp(iouCid: domain.ContractId): Sink[JsValue, Future[StreamState]] =
+        Sink
+          .foldAsync(NothingYet: StreamState) {
+            case (NothingYet, ContractDelta(Vector((ctid, ct)), Vector())) =>
+              (ctid: String) shouldBe (iouCid.unwrap: String)
+              TestUtil.postJsonRequest(
+                uri.withPath(Uri.Path("/command/exercise")),
+                exercisePayload(ctid),
+                headersWithAuth) map {
+                case (statusCode, respBody) =>
+                  statusCode.isSuccess shouldBe true
+                  GotAcs(ctid)
               }
-              ShouldHaveEnded(2)
-            }
-        }
+            case (
+                GotAcs(consumedCtid),
+                evts @ ContractDelta(
+                  Vector((fstId, fst), (sndId, snd)),
+                  Vector(observeConsumed))) =>
+              Future {
+                observeConsumed should ===(consumedCtid)
+                Set(fstId, sndId, consumedCtid) should have size 3
+                inside(evts) {
+                  case JsArray(
+                      Vector(
+                        Archived(_, _),
+                        Created(IouAmount(amt1), MatchedQueries(NumList(ixes1), _)),
+                        Created(IouAmount(amt2), MatchedQueries(NumList(ixes2), _)))) =>
+                    Set((amt1, ixes1), (amt2, ixes2)) should ===(
+                      Set(
+                        (BigDecimal("42.42"), Vector(BigDecimal(0), BigDecimal(2))),
+                        (BigDecimal("957.57"), Vector(BigDecimal(1), BigDecimal(2))),
+                      ))
+                }
+                ShouldHaveEnded(2)
+              }
+          }
 
       for {
         creation <- initialCreate
         _ = creation._1 shouldBe 'success
-        lastState <- singleClientStream(uri, query) via parseResp runWith resp
+        iouCid = getContractId(getResult(creation._2))
+        lastState <- singleClientQueryStream(uri, query) via parseResp runWith resp(iouCid)
       } yield lastState should ===(ShouldHaveEnded(2))
+  }
+
+  "fetch should receive deltas as contracts are archived/created, filtering out phantom archives" in withHttpService {
+    (uri, encoder, _) =>
+      val templateId = domain.TemplateId(None, "Account", "Account")
+      val fetchRequest = """[{"templateId": "Account:Account", "key": ["Alice", "abc123"]}]"""
+      val f1 =
+        postCreateCommand(accountCreateCommand(domain.Party("Alice"), "abc123"), encoder, uri)
+      val f2 =
+        postCreateCommand(accountCreateCommand(domain.Party("Alice"), "def456"), encoder, uri)
+
+      def resp(
+          cid1: domain.ContractId,
+          cid2: domain.ContractId): Sink[JsValue, Future[StreamState]] =
+        Sink.foldAsync(NothingYet: StreamState) {
+
+          case (
+              NothingYet,
+              ContractDelta(Vector((cid, c)), Vector())
+              ) =>
+            (cid: String) shouldBe (cid1.unwrap: String)
+            postArchiveCommand(templateId, cid2, encoder, uri).flatMap {
+              case (statusCode, _) =>
+                statusCode.isSuccess shouldBe true
+                postArchiveCommand(templateId, cid1, encoder, uri).map {
+                  case (statusCode, _) =>
+                    statusCode.isSuccess shouldBe true
+                    GotAcs(cid)
+                }
+            }: Future[StreamState]
+
+          case (
+              GotAcs(archivedCid),
+              ContractDelta(Vector(), Vector(observeArchivedCid))
+              ) =>
+            Future {
+              (observeArchivedCid: String) shouldBe (archivedCid: String)
+              (observeArchivedCid: String) shouldBe (cid1.unwrap: String)
+              ShouldHaveEnded(0)
+            }
+        }
+
+      for {
+        r1 <- f1
+        _ = r1._1 shouldBe 'success
+        cid1 = getContractId(getResult(r1._2))
+
+        r2 <- f2
+        _ = r2._1 shouldBe 'success
+        cid2 = getContractId(getResult(r2._2))
+
+        lastState <- singleClientFetchStream(uri, fetchRequest).via(parseResp) runWith resp(
+          cid1,
+          cid2)
+
+      } yield lastState shouldBe ShouldHaveEnded(0)
+  }
+
+  "fetch should receive all contracts when empty request specified" in withHttpService {
+    (uri, encoder, _) =>
+      val f1 =
+        postCreateCommand(accountCreateCommand(domain.Party("Alice"), "abc123"), encoder, uri)
+      val f2 =
+        postCreateCommand(accountCreateCommand(domain.Party("Alice"), "def456"), encoder, uri)
+
+      for {
+        r1 <- f1
+        _ = r1._1 shouldBe 'success
+        cid1 = getContractId(getResult(r1._2))
+
+        r2 <- f2
+        _ = r2._1 shouldBe 'success
+        cid2 = getContractId(getResult(r2._2))
+
+        clientMsgs <- singleClientFetchStream(uri, "[]").runWith(collectResultsAsRawString)
+      } yield {
+        inside(clientMsgs) {
+          case Seq(errorMsg) =>
+            // TODO(Leo) #4417: expected behavior is to return all active contracts (???). Make sure it is consistent with stream/query
+//            c1 should include(s""""contractId":"${cid1.unwrap: String}"""")
+//            c2 should include(s""""contractId":"${cid2.unwrap: String}"""")
+            errorMsg should include(
+              s""""error":"Cannot resolve any templateId from request: List()""")
+        }
+      }
   }
 
   private def wsConnectRequest[M](
@@ -220,10 +373,33 @@ class WebsocketServiceIntegrationTest
       subprotocol: Option[String],
       flow: Flow[Message, Message, M]) =
     Http().singleWebSocketRequest(WebSocketRequest(uri = uri, subprotocol = subprotocol), flow)
+
+  val parseResp: Flow[Message, JsValue, NotUsed] = {
+    import spray.json._
+    Flow[Message]
+      .mapAsync(1) {
+        case _: BinaryMessage => fail("shouldn't get BinaryMessage")
+        case tm: TextMessage => tm.toStrict(1.second).map(_.text.parseJson)
+      }
+      .filter {
+        case JsObject(fields) => !(fields contains "heartbeat")
+        case _ => true
+      }
+  }
 }
 
 object WebsocketServiceIntegrationTest {
   import spray.json._
+
+  private case class SimpleScenario(
+      id: String,
+      path: Uri.Path,
+      flow: Flow[Message, Message, NotUsed])
+
+  private sealed abstract class StreamState extends Product with Serializable
+  private case object NothingYet extends StreamState
+  private final case class GotAcs(firstCid: String) extends StreamState
+  private final case class ShouldHaveEnded(msgCount: Int) extends StreamState
 
   private object ContractDelta {
     private val tagKeys = Set("created", "archived", "error")

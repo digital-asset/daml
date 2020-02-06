@@ -773,8 +773,40 @@ Nonempty HTTP Response with Unknown Template IDs Warning
         "status": 200
     }
 
-WebSocket ``/contracts/searchForever``
-======================================
+Fetch All Known Parties
+=======================
+
+- URL: ``/parties``
+- Method: ``GET``
+- Content: <EMPTY>
+
+HTTP Response
+-------------
+
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+        "status": 200,
+        "result": [
+            {
+                "party": "Alice",
+                "isLocal": true
+            }
+        ]
+    }
+
+Streaming API
+=============
+
+Contracts Query Stream
+----------------------
+
+- URL: ``/contracts/searchForever``
+- Scheme: ``ws``
+- Protocol: ``WebSocket``
 
 List currently active contracts that match a given query, with
 continuous updates.
@@ -782,7 +814,7 @@ continuous updates.
 Two subprotocols must be passed, as described in `Choosing a party
 <#choosing-a-party>`__.
 
-application/json body must be sent first, formatted according to the
+``application/json`` body must be sent first, formatted according to the
 :doc:`search-query-language`::
 
     {"templateIds": ["Iou:Iou"]}
@@ -909,27 +941,41 @@ Some notes on behavior:
    results if you walk the array forwards, backwards, or in random
    order.
 
-Fetch All Known Parties
-=======================
+Fetch by Key Contracts Stream
+-----------------------------
 
-- URL: ``/parties``
-- Method: ``GET``
-- Content: <EMPTY>
+- URL: ``/stream/fetch``
+- Scheme: ``ws``
+- Protocol: ``WebSocket``
 
-HTTP Response
--------------
+List currently active contracts that match one of the given ``{templateId, key}`` pairs, with continuous updates.
 
-- Content-Type: ``application/json``
-- Content:
+Similarly to `Contracts Query Stream`_, two subprotocols must be passed, as described in `Choosing a party
+<#choosing-a-party>`__.
+
+``application/json`` body must be sent first, formatted according to the following rule:
+
+.. code-block:: none
+
+    [
+        {"templateId": "<template ID 1>", "key": <key 1>},
+        {"templateId": "<template ID 2>", "key": <key 2>},
+        ...
+        {"templateId": "<template ID N>", "key": <key N>}
+    ]
+
+Where:
+
+- ``templateId`` -- contract template identifier, same as in :ref:`create request <create-request>`,
+- ``key`` -- contract key, formatted according to the :doc:`lf-value-specification`,
+
+Example:
 
 .. code-block:: json
 
-    {
-        "status": 200,
-        "result": [
-            {
-                "party": "Alice",
-                "isLocal": true
-            }
-        ]
-    }
+    [
+        {"templateId": "Account:Account", "key": ["Alice", "abc123"]},
+        {"templateId": "Account:Account", "key": ["Alice", "def345"]}
+    ]
+
+The output stream has the same format as the output from the `Contracts Query Stream`_. We further guarantee that for every ``archived`` event appearing on the stream there has been a matching ``created`` event earlier in the stream.

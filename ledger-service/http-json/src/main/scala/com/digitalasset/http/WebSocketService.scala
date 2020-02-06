@@ -28,10 +28,10 @@ import scalaz.syntax.tag._
 import scalaz.syntax.std.boolean._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
-import scalaz.std.list._
 import scalaz.std.map._
 import scalaz.std.set._
 import scalaz.std.tuple._
+import scalaz.{-\/, Show, \/, \/-}
 import spray.json.{JsObject, JsString, JsValue}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -40,8 +40,7 @@ import scala.util.{Failure, Success}
 object WebSocketService {
   private type CompiledQueries = Map[domain.TemplateId.RequiredPkg, LfV => Boolean]
 
-  // TODO(Leo): need a better name, this is more than just a predicate
-  private type AcPredicate[+Positive] = (
+  private type StreamPredicate[+Positive] = (
       Set[domain.TemplateId.RequiredPkg],
       Set[domain.TemplateId.OptionalPkg],
       domain.ActiveContract[LfV] => Option[Positive],
@@ -80,7 +79,7 @@ object WebSocketService {
     def mapPos[P](f: Pos => P): StepAndErrors[P, LfV] =
       copy(step = step mapPreservingIds (_ rightMap f))
 
-    def nonEmpty = errors.nonEmpty || step.nonEmpty
+    def nonEmpty: Boolean = errors.nonEmpty || step.nonEmpty
   }
 
   private def conflation[P, A]: Flow[StepAndErrors[P, A], StepAndErrors[P, A], NotUsed] =
@@ -97,10 +96,12 @@ object WebSocketService {
 
     def parse(decoder: DomainJsonDecoder, str: String): Error \/ A
 
+    def allowPhantonArchives: Boolean
+
     def predicate(
         request: A,
         resolveTemplateId: PackageService.ResolveTemplateId,
-        lookupType: ValuePredicate.TypeLookup): AcPredicate[Positive]
+        lookupType: ValuePredicate.TypeLookup): StreamPredicate[Positive]
 
     def renderCreatedMetadata(p: Positive): Map[String, JsValue]
   }
@@ -117,10 +118,12 @@ object WebSocketService {
           .liftErr(InvalidUserInput)
       }
 
+      override def allowPhantonArchives: Boolean = true
+
       override def predicate(
           request: SearchForeverRequest,
           resolveTemplateId: PackageService.ResolveTemplateId,
-          lookupType: ValuePredicate.TypeLookup): AcPredicate[Positive] = {
+          lookupType: ValuePredicate.TypeLookup): StreamPredicate[Positive] = {
 
         import util.Collections._
 
@@ -168,23 +171,27 @@ object WebSocketService {
       @SuppressWarnings(Array("org.wartremover.warts.Any"))
       override def parse(
           decoder: DomainJsonDecoder,
-          str: String): Error \/ List[domain.EnrichedContractKey[LfV]] = {
-        SprayJson
-          .decode[List[domain.EnrichedContractKey[JsValue]]](str)
-          .liftErr(InvalidUserInput)
-          .flatMap { as: List[domain.EnrichedContractKey[JsValue]] =>
-            as.traverse(a => decode(decoder)(a))
-          }
-      }
+          str: String): Error \/ List[domain.EnrichedContractKey[LfV]] =
+        for {
+          as <- SprayJson
+            .decode[List[domain.EnrichedContractKey[JsValue]]](str)
+            .liftErr(InvalidUserInput)
+          bs = as.map(a => decodeWithFallback(decoder, a))
+        } yield bs
 
-      private def decode(decoder: DomainJsonDecoder)(
-          a: domain.EnrichedContractKey[JsValue]): Error \/ domain.EnrichedContractKey[LfV] =
-        decoder.decodeUnderlyingValuesToLf(a).liftErr(InvalidUserInput)
+      private def decodeWithFallback(
+          decoder: DomainJsonDecoder,
+          a: domain.EnrichedContractKey[JsValue]): domain.EnrichedContractKey[LfV] =
+        decoder
+          .decodeUnderlyingValuesToLf(a)
+          .valueOr(_ => a.map(_ => com.digitalasset.daml.lf.value.Value.ValueUnit)) // unit will not match any key
+
+      override def allowPhantonArchives: Boolean = false
 
       override def predicate(
           request: List[domain.EnrichedContractKey[LfV]],
           resolveTemplateId: PackageService.ResolveTemplateId,
-          lookupType: TypeLookup): AcPredicate[Positive] = {
+          lookupType: TypeLookup): StreamPredicate[Positive] = {
 
         import util.Collections._
 
@@ -289,6 +296,7 @@ class WebSocketService(
         .insertDeleteStepSource(jwt, jwtPayload.party, resolved.toList, Terminates.Never)
         .via(convertFilterContracts(fn))
         .filter(_.nonEmpty)
+        .via(removePhantomArchives(remove = !Q.allowPhantonArchives))
         .map(_.mapPos(Q.renderCreatedMetadata).render)
         .prepend(reportUnresolvedTemplateIds(unresolved))
         .map(jsv => TextMessage(jsv.compactPrint))
@@ -299,6 +307,24 @@ class WebSocketService(
             s"unresolved templateIds: ${unresolved: Set[domain.TemplateId.OptionalPkg]}"))
     }
   }
+
+  private def removePhantomArchives[A, B](remove: Boolean) =
+    if (remove) removePhantomArchives_[A, B]
+    else Flow[StepAndErrors[A, B]]
+
+  private def removePhantomArchives_[A, B]
+    : Flow[StepAndErrors[A, B], StepAndErrors[A, B], NotUsed] =
+    Flow[StepAndErrors[A, B]]
+      .scan((Set.empty[String], Option.empty[StepAndErrors[A, B]])) {
+        case ((s0, _), a0) =>
+          val newInserts: Vector[String] = a0.step.inserts.map(_._1.contractId.unwrap)
+          val (deletesToKeep, s0WithoutDeletesToKeep) = s0 partition a0.step.deletes
+          val s1: Set[String] = s0WithoutDeletesToKeep ++ newInserts
+          val a1 = a0.copy(step = a0.step.copy(deletes = deletesToKeep))
+
+          (s1, if (a1.nonEmpty) Some(a1) else None)
+      }
+      .collect { case (_, Some(x)) => x }
 
   private[http] def wsErrorMessage(errorMsg: String): TextMessage.Strict =
     TextMessage(

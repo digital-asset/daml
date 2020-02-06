@@ -51,8 +51,11 @@ object AbstractHttpServiceIntegrationTestFuns {
   private val dar2 = requiredResource("ledger-service/http-json/Account.dar")
 }
 
-trait AbstractHttpServiceIntegrationTestFuns { this: Assertions =>
+@SuppressWarnings(Array("org.wartremover.warts.Any", "org.wartremover.warts.NonUnitStatements"))
+trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
+  this: AsyncFreeSpec with Matchers with Inside with StrictLogging =>
   import AbstractHttpServiceIntegrationTestFuns._
+  import json.JsonProtocol._
 
   def jdbcConfig: Option[JdbcConfig]
 
@@ -87,6 +90,260 @@ trait AbstractHttpServiceIntegrationTestFuns { this: Assertions =>
 
   protected def withLedger[A]: (LedgerClient => Future[A]) => Future[A] =
     HttpServiceTestFixture.withLedger[A](List(dar1, dar2), testId)
+
+  protected def accountCreateCommand(
+      owner: domain.Party,
+      number: String,
+      time: v.Value.Sum.Timestamp = TimestampConversion.instantToMicros(Instant.now))
+    : domain.CreateCommand[v.Record] = {
+    val templateId = domain.TemplateId(None, "Account", "Account")
+    val timeValue = v.Value(time)
+    val enabledVariantValue =
+      v.Value(v.Value.Sum.Variant(v.Variant(None, "Enabled", Some(timeValue))))
+    val arg: Record = v.Record(
+      fields = List(
+        v.RecordField("owner", Some(v.Value(v.Value.Sum.Party(owner.unwrap)))),
+        v.RecordField("number", Some(v.Value(v.Value.Sum.Text(number)))),
+        v.RecordField("status", Some(enabledVariantValue))
+      ))
+
+    domain.CreateCommand(templateId, arg, None)
+  }
+
+  private val headersWithAuth = List(Authorization(OAuth2BearerToken(jwt.value)))
+
+  protected def postJsonStringRequest(
+      uri: Uri,
+      jsonString: String
+  ): Future[(StatusCode, JsValue)] =
+    TestUtil.postJsonStringRequest(uri, jsonString, headersWithAuth)
+
+  protected def postJsonRequest(
+      uri: Uri,
+      json: JsValue,
+      headers: List[HttpHeader] = headersWithAuth): Future[(StatusCode, JsValue)] =
+    TestUtil.postJsonStringRequest(uri, json.prettyPrint, headers)
+
+  protected def getRequest(
+      uri: Uri,
+      headers: List[HttpHeader] = headersWithAuth): Future[(StatusCode, JsValue)] = {
+    Http()
+      .singleRequest(
+        HttpRequest(method = HttpMethods.GET, uri = uri, headers = headers)
+      )
+      .flatMap { resp =>
+        val bodyF: Future[String] = getResponseDataBytes(resp, debug = true)
+        bodyF.map(body => (resp.status, body.parseJson))
+      }
+  }
+
+  protected def getResponseDataBytes(resp: HttpResponse, debug: Boolean = false): Future[String] = {
+    val fb = resp.entity.dataBytes.runFold(ByteString.empty)((b, a) => b ++ a).map(_.utf8String)
+    if (debug) fb.foreach(x => logger.info(s"---- response data: $x"))
+    fb
+  }
+
+  protected def postCreateCommand(
+      cmd: domain.CreateCommand[v.Record],
+      encoder: DomainJsonEncoder,
+      uri: Uri): Future[(StatusCode, JsValue)] =
+    for {
+      json <- toFuture(encoder.encodeR(cmd)): Future[JsObject]
+      result <- postJsonRequest(uri.withPath(Uri.Path("/command/create")), json)
+    } yield result
+
+  protected def postArchiveCommand(
+      templateId: domain.TemplateId.OptionalPkg,
+      contractId: domain.ContractId,
+      encoder: DomainJsonEncoder,
+      uri: Uri): Future[(StatusCode, JsValue)] = {
+    val ref = domain.EnrichedContractId(Some(templateId), contractId)
+    val cmd = archiveCommand(ref)
+    for {
+      json <- toFuture(encoder.encodeExerciseCommand(cmd)): Future[JsValue]
+      result <- postJsonRequest(uri.withPath(Uri.Path("/command/exercise")), json)
+    } yield result
+  }
+
+  protected def lookupContractAndAssert(contractLocator: domain.ContractLocator[JsValue])(
+      contractId: ContractId,
+      create: domain.CreateCommand[v.Record],
+      encoder: DomainJsonEncoder,
+      decoder: DomainJsonDecoder,
+      uri: Uri): Future[Assertion] =
+    postContractsLookup(contractLocator, uri).flatMap {
+      case (status, output) =>
+        status shouldBe StatusCodes.OK
+        assertStatus(output, StatusCodes.OK)
+        val result = getResult(output)
+        contractId shouldBe getContractId(result)
+        assertActiveContract(result)(create, encoder, decoder)
+    }
+
+  protected def removeRecordId(a: v.Value): v.Value = a match {
+    case v.Value(v.Value.Sum.Record(r)) if r.recordId.isDefined =>
+      v.Value(v.Value.Sum.Record(removeRecordId(r)))
+    case _ =>
+      a
+  }
+
+  protected def removeRecordId(a: v.Record): v.Record = a.copy(recordId = None)
+
+  protected def iouCreateCommand(
+      amount: String = "999.9900000000",
+      currency: String = "USD"): domain.CreateCommand[v.Record] = {
+    val templateId: OptionalPkg = domain.TemplateId(None, "Iou", "Iou")
+    val arg: Record = v.Record(
+      fields = List(
+        v.RecordField("issuer", Some(v.Value(v.Value.Sum.Party("Alice")))),
+        v.RecordField("owner", Some(v.Value(v.Value.Sum.Party("Alice")))),
+        v.RecordField("currency", Some(v.Value(v.Value.Sum.Text(currency)))),
+        v.RecordField("amount", Some(v.Value(v.Value.Sum.Numeric(amount)))),
+        v.RecordField("observers", Some(v.Value(v.Value.Sum.List(v.List()))))
+      ))
+
+    domain.CreateCommand(templateId, arg, None)
+  }
+
+  protected def iouExerciseTransferCommand(
+      contractId: lar.ContractId): domain.ExerciseCommand[v.Value, domain.EnrichedContractId] = {
+    val templateId = domain.TemplateId(None, "Iou", "Iou")
+    val reference = domain.EnrichedContractId(Some(templateId), contractId)
+    val arg: Record = v.Record(
+      fields = List(v.RecordField("newOwner", Some(v.Value(v.Value.Sum.Party("Alice")))))
+    )
+    val choice = lar.Choice("Iou_Transfer")
+
+    domain.ExerciseCommand(reference, choice, boxedRecord(arg), None)
+  }
+
+  protected def archiveCommand[Ref](reference: Ref): domain.ExerciseCommand[v.Value, Ref] = {
+    val arg: Record = v.Record()
+    val choice = lar.Choice("Archive")
+    domain.ExerciseCommand(reference, choice, boxedRecord(arg), None)
+  }
+
+  protected def assertStatus(jsObj: JsValue, expectedStatus: StatusCode): Assertion = {
+    inside(jsObj) {
+      case JsObject(fields) =>
+        inside(fields.get("status")) {
+          case Some(JsNumber(status)) => status shouldBe BigDecimal(expectedStatus.intValue)
+        }
+    }
+  }
+
+  protected def expectedOneErrorMessage(output: JsValue): String =
+    inside(output) {
+      case JsObject(fields) =>
+        inside(fields.get("errors")) {
+          case Some(JsArray(Vector(JsString(errorMsg)))) => errorMsg
+        }
+    }
+
+  protected def postContractsLookup(
+      cmd: domain.ContractLocator[JsValue],
+      uri: Uri): Future[(StatusCode, JsValue)] =
+    for {
+      json <- toFuture(SprayJson.encode(cmd)): Future[JsValue]
+      result <- postJsonRequest(uri.withPath(Uri.Path("/contracts/lookup")), json)
+    } yield result
+
+  protected def activeContractList(output: JsValue): List[domain.ActiveContract[JsValue]] = {
+    val result = getResult(output)
+    SprayJson
+      .decode[List[domain.ActiveContract[JsValue]]](result)
+      .valueOr(e => fail(e.shows))
+  }
+
+  protected def activeContract(output: JsValue): domain.ActiveContract[JsValue] = {
+    val result = getResult(output)
+    SprayJson
+      .decode[domain.ActiveContract[JsValue]](result)
+      .valueOr(e => fail(e.shows))
+  }
+
+  protected def getResult(output: JsValue): JsValue = getChild(output, "result")
+
+  protected def getWarnings(output: JsValue): JsValue = getChild(output, "warnings")
+
+  protected def getChild(output: JsValue, field: String): JsValue = {
+    def errorMsg = s"Expected JsObject with '$field' field, got: $output"
+    output
+      .asJsObject(errorMsg)
+      .fields
+      .getOrElse(field, fail(errorMsg))
+  }
+
+  protected def getContractId(result: JsValue): domain.ContractId =
+    inside(result.asJsObject.fields.get("contractId")) {
+      case Some(JsString(contractId)) => domain.ContractId(contractId)
+    }
+
+  protected def encodeExercise(encoder: DomainJsonEncoder)(
+      exercise: domain.ExerciseCommand[v.Value, domain.ContractLocator[v.Value]]): JsValue =
+    encoder.encodeExerciseCommand(exercise).getOrElse(fail(s"Cannot encode: $exercise"))
+
+  protected def decodeExercise(decoder: DomainJsonDecoder)(
+      jsVal: JsValue): domain.ExerciseCommand[v.Value, domain.EnrichedContractId] = {
+
+    import scalaz.syntax.bifunctor._
+
+    val cmd = decoder.decodeExerciseCommand(jsVal).getOrElse(fail(s"Cannot decode $jsVal"))
+    cmd.bimap(
+      lfToApi,
+      enrichedContractIdOnly
+    )
+  }
+
+  protected def enrichedContractIdOnly(x: domain.ContractLocator[_]): domain.EnrichedContractId =
+    x match {
+      case a: domain.EnrichedContractId => a
+      case _: domain.EnrichedContractKey[_] =>
+        fail(s"Expected domain.EnrichedContractId, got: $x")
+    }
+
+  protected def lfToApi(lfVal: domain.LfValue): v.Value =
+    LfEngineToApi.lfValueToApiValue(verbose = true, lfVal).fold(e => fail(e), identity)
+
+  protected def assertActiveContract(
+      decoder: DomainJsonDecoder,
+      actual: domain.ActiveContract[JsValue],
+      create: domain.CreateCommand[v.Record],
+      exercise: domain.ExerciseCommand[v.Value, _]): Assertion = {
+
+    val expectedContractFields: Seq[v.RecordField] = create.payload.fields
+    val expectedNewOwner: v.Value = exercise.argument.sum.record
+      .flatMap(_.fields.headOption)
+      .flatMap(_.value)
+      .getOrElse(fail("Cannot extract expected newOwner"))
+
+    val active: domain.ActiveContract[v.Value] =
+      decoder.decodeUnderlyingValues(actual).valueOr(e => fail(e.shows))
+
+    inside(active.payload.sum.record.map(_.fields)) {
+      case Some(
+          Seq(
+            v.RecordField("iou", Some(contractRecord)),
+            v.RecordField("newOwner", Some(newOwner)))) =>
+        val contractFields: Seq[v.RecordField] =
+          contractRecord.sum.record.map(_.fields).getOrElse(Seq.empty)
+        (contractFields: Seq[v.RecordField]) shouldBe (expectedContractFields: Seq[v.RecordField])
+        (newOwner: v.Value) shouldBe (expectedNewOwner: v.Value)
+    }
+  }
+
+  protected def assertActiveContract(jsVal: JsValue)(
+      command: domain.CreateCommand[Record],
+      encoder: DomainJsonEncoder,
+      decoder: DomainJsonDecoder) = {
+
+    inside(SprayJson.decode[domain.ActiveContract[JsValue]](jsVal)) {
+      case \/-(activeContract) =>
+        val expectedPayload: JsValue =
+          encoder.encodeUnderlyingRecord(command).map(_.payload).getOrElse(fail)
+        (activeContract.payload: JsValue) shouldBe expectedPayload
+    }
+  }
 }
 
 @SuppressWarnings(Array("org.wartremover.warts.Any", "org.wartremover.warts.NonUnitStatements"))
@@ -97,8 +354,6 @@ abstract class AbstractHttpServiceIntegrationTest
     with StrictLogging
     with AbstractHttpServiceIntegrationTestFuns {
   import json.JsonProtocol._
-
-  private val headersWithAuth = List(Authorization(OAuth2BearerToken(jwt.value)))
 
   "contracts/search GET empty results" in withHttpService { (uri: Uri, _, _) =>
     getRequest(uri = uri.withPath(Uri.Path("/contracts/search")))
@@ -437,46 +692,6 @@ abstract class AbstractHttpServiceIntegrationTest
     }
   }
 
-  private def assertActiveContract(
-      decoder: DomainJsonDecoder,
-      actual: domain.ActiveContract[JsValue],
-      create: domain.CreateCommand[v.Record],
-      exercise: domain.ExerciseCommand[v.Value, _]): Assertion = {
-
-    val expectedContractFields: Seq[v.RecordField] = create.payload.fields
-    val expectedNewOwner: v.Value = exercise.argument.sum.record
-      .flatMap(_.fields.headOption)
-      .flatMap(_.value)
-      .getOrElse(fail("Cannot extract expected newOwner"))
-
-    val active: domain.ActiveContract[v.Value] =
-      decoder.decodeUnderlyingValues(actual).valueOr(e => fail(e.shows))
-
-    inside(active.payload.sum.record.map(_.fields)) {
-      case Some(
-          Seq(
-            v.RecordField("iou", Some(contractRecord)),
-            v.RecordField("newOwner", Some(newOwner)))) =>
-        val contractFields: Seq[v.RecordField] =
-          contractRecord.sum.record.map(_.fields).getOrElse(Seq.empty)
-        (contractFields: Seq[v.RecordField]) shouldBe (expectedContractFields: Seq[v.RecordField])
-        (newOwner: v.Value) shouldBe (expectedNewOwner: v.Value)
-    }
-  }
-
-  private def assertActiveContract(jsVal: JsValue)(
-      command: domain.CreateCommand[Record],
-      encoder: DomainJsonEncoder,
-      decoder: DomainJsonDecoder) = {
-
-    inside(SprayJson.decode[domain.ActiveContract[JsValue]](jsVal)) {
-      case \/-(activeContract) =>
-        val expectedPayload: JsValue =
-          encoder.encodeUnderlyingRecord(command).map(_.payload).getOrElse(fail)
-        (activeContract.payload: JsValue) shouldBe expectedPayload
-    }
-  }
-
   "should be able to serialize and deserialize domain commands" in withLedger { client =>
     jsonCodecs(client).map {
       case (encoder, decoder) =>
@@ -703,203 +918,4 @@ abstract class AbstractHttpServiceIntegrationTest
         }
     }: Future[Assertion]
   }
-
-  private def lookupContractAndAssert(contractLocator: domain.ContractLocator[JsValue])(
-      contractId: ContractId,
-      create: domain.CreateCommand[v.Record],
-      encoder: DomainJsonEncoder,
-      decoder: DomainJsonDecoder,
-      uri: Uri): Future[Assertion] =
-    postContractsLookup(contractLocator, uri).flatMap {
-      case (status, output) =>
-        status shouldBe StatusCodes.OK
-        assertStatus(output, StatusCodes.OK)
-        val result = getResult(output)
-        contractId shouldBe getContractId(result)
-        assertActiveContract(result)(create, encoder, decoder)
-    }
-
-  protected def getResponseDataBytes(resp: HttpResponse, debug: Boolean = false): Future[String] = {
-    val fb = resp.entity.dataBytes.runFold(ByteString.empty)((b, a) => b ++ a).map(_.utf8String)
-    if (debug) fb.foreach(x => logger.info(s"---- response data: $x"))
-    fb
-  }
-
-  private def removeRecordId(a: v.Value): v.Value = a match {
-    case v.Value(v.Value.Sum.Record(r)) if r.recordId.isDefined =>
-      v.Value(v.Value.Sum.Record(removeRecordId(r)))
-    case _ =>
-      a
-  }
-
-  private def removeRecordId(a: v.Record): v.Record = a.copy(recordId = None)
-
-  private def iouCreateCommand(
-      amount: String = "999.9900000000",
-      currency: String = "USD"): domain.CreateCommand[v.Record] = {
-    val templateId: OptionalPkg = domain.TemplateId(None, "Iou", "Iou")
-    val arg: Record = v.Record(
-      fields = List(
-        v.RecordField("issuer", Some(v.Value(v.Value.Sum.Party("Alice")))),
-        v.RecordField("owner", Some(v.Value(v.Value.Sum.Party("Alice")))),
-        v.RecordField("currency", Some(v.Value(v.Value.Sum.Text(currency)))),
-        v.RecordField("amount", Some(v.Value(v.Value.Sum.Numeric(amount)))),
-        v.RecordField("observers", Some(v.Value(v.Value.Sum.List(v.List()))))
-      ))
-
-    domain.CreateCommand(templateId, arg, None)
-  }
-
-  private def iouExerciseTransferCommand(
-      contractId: lar.ContractId): domain.ExerciseCommand[v.Value, domain.EnrichedContractId] = {
-    val templateId = domain.TemplateId(None, "Iou", "Iou")
-    val reference = domain.EnrichedContractId(Some(templateId), contractId)
-    val arg: Record = v.Record(
-      fields = List(v.RecordField("newOwner", Some(v.Value(v.Value.Sum.Party("Alice")))))
-    )
-    val choice = lar.Choice("Iou_Transfer")
-
-    domain.ExerciseCommand(reference, choice, boxedRecord(arg), None)
-  }
-
-  private def archiveCommand[Ref](reference: Ref): domain.ExerciseCommand[v.Value, Ref] = {
-    val arg: Record = v.Record()
-    val choice = lar.Choice("Archive")
-    domain.ExerciseCommand(reference, choice, boxedRecord(arg), None)
-  }
-
-  private def accountCreateCommand(
-      owner: domain.Party,
-      number: String,
-      time: v.Value.Sum.Timestamp = TimestampConversion.instantToMicros(Instant.now))
-    : domain.CreateCommand[v.Record] = {
-    val templateId = domain.TemplateId(None, "Account", "Account")
-    val timeValue = v.Value(time)
-    val enabledVariantValue =
-      v.Value(v.Value.Sum.Variant(v.Variant(None, "Enabled", Some(timeValue))))
-    val arg: Record = v.Record(
-      fields = List(
-        v.RecordField("owner", Some(v.Value(v.Value.Sum.Party(owner.unwrap)))),
-        v.RecordField("number", Some(v.Value(v.Value.Sum.Text(number)))),
-        v.RecordField("status", Some(enabledVariantValue))
-      ))
-
-    domain.CreateCommand(templateId, arg, None)
-  }
-
-  private def postJsonStringRequest(
-      uri: Uri,
-      jsonString: String
-  ): Future[(StatusCode, JsValue)] =
-    TestUtil.postJsonStringRequest(uri, jsonString, headersWithAuth)
-
-  private def postJsonRequest(
-      uri: Uri,
-      json: JsValue,
-      headers: List[HttpHeader] = headersWithAuth): Future[(StatusCode, JsValue)] =
-    TestUtil.postJsonStringRequest(uri, json.prettyPrint, headers)
-
-  private def getRequest(
-      uri: Uri,
-      headers: List[HttpHeader] = headersWithAuth): Future[(StatusCode, JsValue)] = {
-    Http()
-      .singleRequest(
-        HttpRequest(method = HttpMethods.GET, uri = uri, headers = headers)
-      )
-      .flatMap { resp =>
-        val bodyF: Future[String] = getResponseDataBytes(resp, debug = true)
-        bodyF.map(body => (resp.status, body.parseJson))
-      }
-  }
-
-  private def assertStatus(jsObj: JsValue, expectedStatus: StatusCode): Assertion = {
-    inside(jsObj) {
-      case JsObject(fields) =>
-        inside(fields.get("status")) {
-          case Some(JsNumber(status)) => status shouldBe BigDecimal(expectedStatus.intValue)
-        }
-    }
-  }
-
-  private def expectedOneErrorMessage(output: JsValue): String =
-    inside(output) {
-      case JsObject(fields) =>
-        inside(fields.get("errors")) {
-          case Some(JsArray(Vector(JsString(errorMsg)))) => errorMsg
-        }
-    }
-
-  protected def postCreateCommand(
-      cmd: domain.CreateCommand[v.Record],
-      encoder: DomainJsonEncoder,
-      uri: Uri): Future[(StatusCode, JsValue)] =
-    for {
-      json <- toFuture(encoder.encodeR(cmd)): Future[JsObject]
-      result <- postJsonRequest(uri.withPath(Uri.Path("/command/create")), json)
-    } yield result
-
-  private def postContractsLookup(
-      cmd: domain.ContractLocator[JsValue],
-      uri: Uri): Future[(StatusCode, JsValue)] =
-    for {
-      json <- toFuture(SprayJson.encode(cmd)): Future[JsValue]
-      result <- postJsonRequest(uri.withPath(Uri.Path("/contracts/lookup")), json)
-    } yield result
-
-  private def activeContractList(output: JsValue): List[domain.ActiveContract[JsValue]] = {
-    val result = getResult(output)
-    SprayJson
-      .decode[List[domain.ActiveContract[JsValue]]](result)
-      .valueOr(e => fail(e.shows))
-  }
-
-  private def activeContract(output: JsValue): domain.ActiveContract[JsValue] = {
-    val result = getResult(output)
-    SprayJson
-      .decode[domain.ActiveContract[JsValue]](result)
-      .valueOr(e => fail(e.shows))
-  }
-
-  private def getResult(output: JsValue): JsValue = getChild(output, "result")
-
-  private def getWarnings(output: JsValue): JsValue = getChild(output, "warnings")
-
-  private def getChild(output: JsValue, field: String): JsValue = {
-    def errorMsg = s"Expected JsObject with '$field' field, got: $output"
-    output
-      .asJsObject(errorMsg)
-      .fields
-      .getOrElse(field, fail(errorMsg))
-  }
-
-  private def getContractId(result: JsValue): domain.ContractId =
-    inside(result.asJsObject.fields.get("contractId")) {
-      case Some(JsString(contractId)) => domain.ContractId(contractId)
-    }
-
-  private def encodeExercise(encoder: DomainJsonEncoder)(
-      exercise: domain.ExerciseCommand[v.Value, domain.ContractLocator[v.Value]]): JsValue =
-    encoder.encodeExerciseCommand(exercise).getOrElse(fail(s"Cannot encode: $exercise"))
-
-  private def decodeExercise(decoder: DomainJsonDecoder)(
-      jsVal: JsValue): domain.ExerciseCommand[v.Value, domain.EnrichedContractId] = {
-
-    import scalaz.syntax.bifunctor._
-
-    val cmd = decoder.decodeExerciseCommand(jsVal).getOrElse(fail(s"Cannot decode $jsVal"))
-    cmd.bimap(
-      lfToApi,
-      enrichedContractIdOnly
-    )
-  }
-
-  private def enrichedContractIdOnly(x: domain.ContractLocator[_]): domain.EnrichedContractId =
-    x match {
-      case a: domain.EnrichedContractId => a
-      case _: domain.EnrichedContractKey[_] =>
-        fail(s"Expected domain.EnrichedContractId, got: $x")
-    }
-
-  private def lfToApi(lfVal: domain.LfValue): v.Value =
-    LfEngineToApi.lfValueToApiValue(verbose = true, lfVal).fold(e => fail(e), identity)
 }
