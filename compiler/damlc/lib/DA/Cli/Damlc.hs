@@ -58,6 +58,7 @@ import qualified Data.NameMap as NM
 import qualified Data.Set as Set
 import qualified Data.Text.Extended as T
 import Development.IDE.Core.API
+import Development.IDE.Core.Debouncer
 import Development.IDE.Core.RuleTypes.Daml (GetParsedModule(..), GenerateStablePackages(..), GeneratePackageMap(..))
 import Development.IDE.Core.Rules
 import Development.IDE.Core.Rules.Daml (getDalf, getDlintIdeas)
@@ -400,8 +401,9 @@ execIde telemetry (Debug debug) enableScenarioService options =
               withScenarioService' enableScenarioService loggerH scenarioServiceConfig $ \mbScenarioService -> do
                   sdkVersion <- getSdkVersion `catchIO` const (pure "Unknown (not started via the assistant)")
                   Logger.logInfo loggerH (T.pack $ "SDK version: " <> sdkVersion)
+                  debouncer <- newAsyncDebouncer
                   runLanguageServer loggerH enabledPlugins $ \getLspId sendMsg vfs caps ->
-                      getDamlIdeState options mbScenarioService loggerH caps getLspId sendMsg vfs (clientSupportsProgress caps)
+                      getDamlIdeState options mbScenarioService loggerH debouncer caps getLspId sendMsg vfs (clientSupportsProgress caps)
 
 
 -- | Whether we should write interface files during `damlc compile`.

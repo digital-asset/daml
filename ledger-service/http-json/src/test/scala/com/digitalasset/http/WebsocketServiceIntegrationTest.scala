@@ -51,8 +51,8 @@ class WebsocketServiceIntegrationTest
   private val validSubprotocol = Option(s"""$tokenPrefix${jwt.value},$wsProtocol""")
 
   List(
-    SimpleScenario("query", Uri.Path("/contracts/searchForever"), baseQueryFlow),
-    SimpleScenario("fetch", Uri.Path("/stream/fetch"), baseFetchFlow)
+    SimpleScenario("query", Uri.Path("/v1/stream/query"), baseQueryFlow),
+    SimpleScenario("fetch", Uri.Path("/v1/stream/fetch"), baseFetchFlow)
   ).foreach { scenario =>
     s"${scenario.id} request with valid protocol token should allow client subscribe to stream" in withHttpService {
       (uri, _, _) =>
@@ -87,7 +87,7 @@ class WebsocketServiceIntegrationTest
   private def singleClientQueryStream(serviceUri: Uri, query: String) = {
     val webSocketFlow = Http().webSocketClientFlow(
       WebSocketRequest(
-        uri = serviceUri.copy(scheme = "ws").withPath(Uri.Path("/contracts/searchForever")),
+        uri = serviceUri.copy(scheme = "ws").withPath(Uri.Path("/v1/stream/query")),
         subprotocol = validSubprotocol))
     Source
       .single(TextMessage(query))
@@ -97,7 +97,7 @@ class WebsocketServiceIntegrationTest
   private def singleClientFetchStream(serviceUri: Uri, request: String) = {
     val webSocketFlow = Http().webSocketClientFlow(
       WebSocketRequest(
-        uri = serviceUri.copy(scheme = "ws").withPath(Uri.Path("/stream/fetch")),
+        uri = serviceUri.copy(scheme = "ws").withPath(Uri.Path("/v1/stream/fetch")),
         subprotocol = validSubprotocol))
     Source
       .single(TextMessage(request))
@@ -107,7 +107,7 @@ class WebsocketServiceIntegrationTest
   private def initialIouCreate(serviceUri: Uri) = {
     val payload = TestUtil.readFile("it/iouCreateCommand.json")
     TestUtil.postJsonStringRequest(
-      serviceUri.withPath(Uri.Path("/command/create")),
+      serviceUri.withPath(Uri.Path("/v1/create")),
       payload,
       headersWithAuth)
   }
@@ -244,7 +244,7 @@ class WebsocketServiceIntegrationTest
             case (NothingYet, ContractDelta(Vector((ctid, ct)), Vector())) =>
               (ctid: String) shouldBe (iouCid.unwrap: String)
               TestUtil.postJsonRequest(
-                uri.withPath(Uri.Path("/command/exercise")),
+                uri.withPath(Uri.Path("/v1/exercise")),
                 exercisePayload(ctid),
                 headersWithAuth) map {
                 case (statusCode, respBody) =>
