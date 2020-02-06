@@ -4,6 +4,18 @@
 # This file defines a machine meant to destroy/recreate all our CI nodes every
 # night.
 
+resource "google_service_account" "periodic-killer" {
+  account_id = "periodic-killer"
+}
+
+resource "google_project_iam_custom_role" "tf-write-state" {
+  role_id = "killCiNodesEveryNight"
+  title   = "Permissions to list & kill CI nodes every night"
+  permissions = [
+    "compute.zones.list",
+  ]
+}
+
 resource "google_compute_instance" "periodic-killer" {
   name         = "periodic-killer"
   machine_type = "n1-standard-1"
@@ -23,7 +35,8 @@ resource "google_compute_instance" "periodic-killer" {
   }
 
   service_account {
-    scopes = ["https://www.googleapis.com/auth/compute"]
+    email  = "${google_service_account.periodic-killer.email}"
+    scopes = ["cloud-platform"]
   }
   allow_stopping_for_update = true
 
