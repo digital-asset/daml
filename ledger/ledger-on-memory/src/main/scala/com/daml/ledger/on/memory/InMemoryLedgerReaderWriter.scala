@@ -8,29 +8,25 @@ import java.time.Clock
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.on.memory.InMemoryLedgerReaderWriter._
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
-  DamlLogEntryId,
-  DamlStateKey,
-  DamlStateValue,
-}
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntryId
 import com.daml.ledger.participant.state.kvutils.api.{LedgerReader, LedgerRecord, LedgerWriter}
-import com.daml.ledger.participant.state.kvutils.{
-  Envelope,
-  KeyValueCommitting,
-  SequentialLogEntryId,
-}
+import com.daml.ledger.participant.state.kvutils.{KeyValueCommitting, SequentialLogEntryId}
 import com.daml.ledger.participant.state.v1._
+import com.daml.ledger.validator.ValidationResult.{
+  MissingInputState,
+  SubmissionValidated,
+  ValidationError
+}
+import com.daml.ledger.validator._
 import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.ledger.api.health.{HealthStatus, Healthy}
 import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
 import com.digitalasset.platform.akkastreams.dispatcher.SubSource.OneAfterAnother
 import com.digitalasset.resources.ResourceOwner
 import com.google.protobuf.ByteString
 
-import scala.collection.JavaConverters._
+import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
-import scala.collection.{breakOut, mutable}
 import scala.concurrent.{ExecutionContext, Future}
 
 private[memory] class LogEntry(val entryId: DamlLogEntryId, val payload: Array[Byte])
@@ -42,7 +38,7 @@ private[memory] object LogEntry {
 
 private[memory] class InMemoryState(
     val log: mutable.Buffer[LogEntry] = ArrayBuffer[LogEntry](),
-    val state: mutable.Map[ByteString, DamlStateValue] = mutable.Map.empty,
+    val state: mutable.Map[ByteString, Array[Byte]] = mutable.Map.empty,
 )
 
 final class InMemoryLedgerReaderWriter(
@@ -53,39 +49,56 @@ final class InMemoryLedgerReaderWriter(
     extends LedgerWriter
     with LedgerReader {
 
-  private val engine = Engine()
-
   private val currentState = new InMemoryState()
 
-  override def commit(correlationId: String, envelope: Array[Byte]): Future[SubmissionResult] =
-    Future {
-      val submission = Envelope
-        .openSubmission(envelope)
-        .getOrElse(throw new IllegalArgumentException("Not a valid submission in envelope"))
-      currentState.synchronized {
-        val stateInputs: Map[DamlStateKey, Option[DamlStateValue]] =
-          submission.getInputDamlStateList.asScala
-            .map(key => key -> currentState.state.get(key.toByteString))(breakOut)
-        val entryId = sequentialLogEntryId.next()
-        val (logEntry, damlStateUpdates) =
-          KeyValueCommitting.processSubmission(
-            engine,
-            entryId,
-            currentRecordTime(),
-            LedgerReader.DefaultConfiguration,
-            submission,
-            participantId,
-            stateInputs,
-          )
-        val stateUpdates = damlStateUpdates.map {
-          case (damlStateKey, value) => damlStateKey.toByteString -> value
+  private class InMemoryLedgerStateAccess(theParticipantId: ParticipantId)
+      extends LedgerStateAccess {
+    override def inTransaction[T](body: LedgerStateOperations => Future[T]): Future[T] =
+      Future {
+        currentState.state.synchronized {
+          body(new InMemoryLedgerStateOperations)
         }
-        currentState.log += LogEntry(entryId, Envelope.enclose(logEntry).toByteArray)
-        currentState.state ++= stateUpdates
-        dispatcher.signalNewHead(currentState.log.size)
-      }
-      SubmissionResult.Acknowledged
+      }.flatten
+
+    override def participantId: String = theParticipantId
+  }
+
+  private class InMemoryLedgerStateOperations extends LedgerStateOperations {
+    override def readState(key: Array[Byte]): Future[Option[Array[Byte]]] = Future.successful {
+      currentState.state.get(ByteString.copyFrom(key))
     }
+
+    override def writeState(keyValuePairs: Seq[(Array[Byte], Array[Byte])]): Future[Unit] =
+      Future.successful {
+        currentState.state ++= keyValuePairs.map {
+          case (keyBytes, valueBytes) => ByteString.copyFrom(keyBytes) -> valueBytes
+        }
+      }
+
+    override def appendToLog(key: Array[Byte], value: Array[Byte]): Future[Unit] =
+      Future.successful {
+        val damlLogEntryId = KeyValueCommitting.unpackDamlLogEntryId(ByteString.copyFrom(key))
+        val logEntry = LogEntry(damlLogEntryId, value)
+        val newHead = currentState.log.synchronized {
+          currentState.log += logEntry
+          currentState.log.size
+        }
+        dispatcher.signalNewHead(newHead)
+      }
+  }
+
+  override def commit(correlationId: String, envelope: Array[Byte]): Future[SubmissionResult] = {
+    val validator = SubmissionValidator.create(
+      new InMemoryLedgerStateAccess(participantId),
+      () => sequentialLogEntryId.next())
+    validator
+      .validateAndCommit(envelope, correlationId, currentRecordTime())
+      .map {
+        case SubmissionValidated => SubmissionResult.Acknowledged
+        case MissingInputState(_) => SubmissionResult.InternalError("Missing input state")
+        case ValidationError(reason) => SubmissionResult.InternalError(reason)
+      }
+  }
 
   override def events(offset: Option[Offset]): Source[LedgerRecord, NotUsed] =
     dispatcher
@@ -108,7 +121,9 @@ final class InMemoryLedgerReaderWriter(
     Timestamp.assertFromInstant(Clock.systemUTC().instant())
 
   private def retrieveLogEntry(index: Int): LedgerRecord = {
-    val logEntry = currentState.log(index)
+    val logEntry = currentState.log.synchronized {
+      currentState.log(index)
+    }
     LedgerRecord(Offset(Array(index.toLong)), logEntry.entryId, logEntry.payload)
   }
 }

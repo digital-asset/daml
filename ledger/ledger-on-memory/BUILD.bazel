@@ -19,7 +19,6 @@ da_scala_library(
     ],
     deps = [
         "//daml-lf/data",
-        "//daml-lf/engine",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-health",
         "//ledger/participant-state",
