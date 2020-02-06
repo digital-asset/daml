@@ -25,6 +25,7 @@ resource "google_compute_instance" "periodic-killer" {
   service_account {
     scopes = ["https://www.googleapis.com/auth/compute"]
   }
+  allow_stopping_for_update = true
 
   metadata_startup_script = <<STARTUP
 set -euxo pipefail
