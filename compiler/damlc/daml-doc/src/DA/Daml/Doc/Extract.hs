@@ -22,6 +22,7 @@ import DA.Daml.Doc.Extract.Templates
 import DA.Daml.Doc.Extract.TypeExpr
 
 import Development.IDE.Types.Options (IdeOptions(..))
+import Development.IDE.Core.Debouncer
 import Development.IDE.Core.FileStore
 import qualified Development.IDE.Core.Service     as Service
 import qualified Development.IDE.Core.Rules     as Service
@@ -181,7 +182,7 @@ haddockParse :: (LSP.FromServerMessage -> IO ()) ->
                 MaybeT IO [Service.TcModuleResult]
 haddockParse diagsLogger opts f = MaybeT $ do
   vfs <- makeVFSHandle
-  service <- Service.initialise def Service.mainRule (pure $ LSP.IdInt 0) diagsLogger noLogging opts vfs
+  service <- Service.initialise def Service.mainRule (pure $ LSP.IdInt 0) diagsLogger noLogging noopDebouncer opts vfs
   Service.setFilesOfInterest service (Set.fromList f)
   Service.runActionSync service $
              runMaybeT $

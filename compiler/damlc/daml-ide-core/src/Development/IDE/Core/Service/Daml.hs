@@ -28,6 +28,7 @@ import Data.Tuple.Extra
 import Development.Shake
 
 import Development.IDE.Types.Logger
+import Development.IDE.Core.Debouncer
 import Development.IDE.Core.Service hiding (initialise)
 import Development.IDE.Core.FileStore
 import qualified Development.IDE.Core.Service as IDE
@@ -108,11 +109,12 @@ initialise
     -> IO LSP.LspId
     -> (LSP.FromServerMessage -> IO ())
     -> Logger
+    -> Debouncer NormalizedUri
     -> DamlEnv
     -> IdeOptions
     -> VFSHandle
     -> IO IdeState
-initialise caps mainRule getLspId toDiags logger damlEnv options vfs =
+initialise caps mainRule getLspId toDiags logger debouncer damlEnv options vfs =
     IDE.initialise
         caps
         (do addIdeGlobal damlEnv
@@ -120,5 +122,6 @@ initialise caps mainRule getLspId toDiags logger damlEnv options vfs =
         getLspId
         toDiags
         logger
+        debouncer
         options
         vfs

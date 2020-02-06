@@ -30,6 +30,7 @@ import           DA.Daml.LF.Proto3.EncodeV1
 import           DA.Pretty hiding (first)
 import qualified DA.Daml.Compiler.Scenario as SS
 import qualified DA.Service.Logger.Impl.Pure as Logger
+import Development.IDE.Core.Debouncer
 import qualified Development.IDE.Types.Logger as IdeLogger
 import Development.IDE.Types.Location
 import Development.IDE.Types.Options(IdeReportProgress(..))
@@ -139,10 +140,10 @@ getIntegrationTests registerTODO scenarioService version = do
     -- We use a separate service for generated files so that we can test files containing internal imports.
     pure $
           withResource
-          (initialise def (mainRule opts) (pure $ LSP.IdInt 0) (const $ pure ()) IdeLogger.noLogging damlEnv (toCompileOpts opts (IdeReportProgress False)) vfs)
+          (initialise def (mainRule opts) (pure $ LSP.IdInt 0) (const $ pure ()) IdeLogger.noLogging noopDebouncer damlEnv (toCompileOpts opts (IdeReportProgress False)) vfs)
           shutdown $ \service ->
           withResource
-          (initialise def (mainRule opts) (pure $ LSP.IdInt 0) (const $ pure ()) IdeLogger.noLogging damlEnv (toCompileOpts opts { optIsGenerated = True } (IdeReportProgress False)) vfs)
+          (initialise def (mainRule opts) (pure $ LSP.IdInt 0) (const $ pure ()) IdeLogger.noLogging noopDebouncer damlEnv (toCompileOpts opts { optIsGenerated = True } (IdeReportProgress False)) vfs)
           shutdown $ \serviceGenerated ->
           withTestArguments $ \args -> testGroup ("Tests for DAML-LF " ++ renderPretty version) $
             map (testCase args version service outdir registerTODO) nongeneratedFiles <>
