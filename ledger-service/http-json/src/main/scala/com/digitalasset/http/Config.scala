@@ -28,7 +28,8 @@ private[http] final case class Config(
     jdbcConfig: Option[JdbcConfig] = None,
     staticContentConfig: Option[StaticContentConfig] = None,
     accessTokenFile: Option[Path] = None,
-    wsConfig: Option[WebsocketConfig] = None
+    wsConfig: Option[WebsocketConfig] = None,
+    defaultTtl: FiniteDuration = HttpService.DefaultTimeToLive
 )
 
 private[http] object Config {
@@ -45,6 +46,8 @@ private[http] object Config {
 }
 
 private[http] abstract class ConfigCompanion[A](name: String) {
+
+  protected val indent: String = List.fill(8)(" ").mkString
 
   def create(x: Map[String, String]): Either[String, A]
 
@@ -103,12 +106,12 @@ private[http] object JdbcConfig extends ConfigCompanion[JdbcConfig]("JdbcConfig"
 
   lazy val help: String =
     "Contains comma-separated key-value pairs. Where:\n" +
-      "\tdriver -- JDBC driver class name, only org.postgresql.Driver supported right now,\n" +
-      "\turl -- JDBC connection URL, only jdbc:postgresql supported right now,\n" +
-      "\tuser -- database user name,\n" +
-      "\tpassword -- database user password,\n" +
-      "\tcreateSchema -- boolean flag, if set to true, the process will re-create database schema and terminate immediately.\n" +
-      "\tExample: " + helpString(
+      s"${indent}driver -- JDBC driver class name, only org.postgresql.Driver supported right now,\n" +
+      s"${indent}url -- JDBC connection URL, only jdbc:postgresql supported right now,\n" +
+      s"${indent}user -- database user name,\n" +
+      s"${indent}password -- database user password,\n" +
+      s"${indent}createSchema -- boolean flag, if set to true, the process will re-create database schema and terminate immediately.\n" +
+      s"${indent}Example: " + helpString(
       "org.postgresql.Driver",
       "jdbc:postgresql://localhost:5432/test?&ssl=true",
       "postgres",
@@ -163,9 +166,9 @@ private[http] object WebsocketConfig extends ConfigCompanion[WebsocketConfig]("W
 
   lazy val help: String =
     "Contains comma-separated key-value pairs. Where:\n" +
-      "\tmaxDuration -- Maximum websocket session duration in minutes\n" +
-      "\theartBeatPer -- Server-side heartBeat interval in seconds\n" +
-      "\tExample: " + helpString("120", "5")
+      s"${indent}maxDuration -- Maximum websocket session duration in minutes\n" +
+      s"${indent}heartBeatPer -- Server-side heartBeat interval in seconds\n" +
+      s"${indent}Example: " + helpString("120", "5")
 
   lazy val usage: String = helpString(
     "<Maximum websocket session duration in minutes>",
@@ -203,9 +206,9 @@ private[http] object StaticContentConfig
 
   lazy val help: String =
     "Contains comma-separated key-value pairs. Where:\n" +
-      "\tprefix -- URL prefix,\n" +
-      "\tdirectory -- local directory that will be mapped to the URL prefix.\n" +
-      "\tExample: " + helpString("static", "./static-content")
+      s"${indent}prefix -- URL prefix,\n" +
+      s"${indent}directory -- local directory that will be mapped to the URL prefix.\n" +
+      s"${indent}Example: " + helpString("static", "./static-content")
 
   lazy val usage: String = helpString("<URL prefix>", "<directory>")
 
