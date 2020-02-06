@@ -78,16 +78,18 @@ class SubmissionValidator(
       logEntryAndState: LogEntryAndState,
       stateOperations: LedgerStateOperations): Unit = {
     val (rawLogEntry, rawStateUpdates) = serializeProcessedSubmission(logEntryAndState)
-    val commitLogEntryOperation = stateOperations.appendToLog(logEntryId.toByteArray, rawLogEntry)
-    val commitOperations = if (rawStateUpdates.nonEmpty) {
-      Seq(stateOperations.writeState(rawStateUpdates), commitLogEntryOperation)
-    } else {
-      Seq(commitLogEntryOperation)
-    }
     Future
-      .sequence(commitOperations)
-      .map(_ => SubmissionValidated)
-    ()
+      .sequence(
+        Seq(
+          stateOperations.appendToLog(logEntryId.toByteArray, rawLogEntry),
+          if (rawStateUpdates.nonEmpty) {
+            stateOperations.writeState(rawStateUpdates)
+          } else {
+            Future.unit
+          }
+        )
+      )
+      .foreach(_ => ())
   }
 
   private def validateAndWrapExceptions[T](
@@ -164,14 +166,16 @@ object SubmissionValidator {
   type StateMap = Map[DamlStateKey, DamlStateValue]
   type LogEntryAndState = (DamlLogEntry, StateMap)
 
-  def create(ledgerStateAccess: LedgerStateAccess)(
+  def create(
+      ledgerStateAccess: LedgerStateAccess,
+      allocateNextLogEntryId: () => DamlLogEntryId = () => allocateRandomLogEntryId())(
       implicit executionContext: ExecutionContext): SubmissionValidator = {
     val participantId: ParticipantId =
       ParticipantId.assertFromString(ledgerStateAccess.participantId)
     new SubmissionValidator(
       ledgerStateAccess,
       processSubmission(participantId),
-      () => allocateRandomLogEntryId())
+      allocateNextLogEntryId)
   }
 
   def allocateRandomLogEntryId(): DamlLogEntryId =
