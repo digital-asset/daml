@@ -317,10 +317,9 @@ class WebSocketService(
     Flow[StepAndErrors[A, B]]
       .scan((Set.empty[String], Option.empty[StepAndErrors[A, B]])) {
         case ((s0, _), a0) =>
-          val deletesToKeep: Set[String] = a0.step.deletes.filter(x => s0(x))
           val newInserts: Vector[String] = a0.step.inserts.map(_._1.contractId.unwrap)
-
-          val s1: Set[String] = (s0 -- deletesToKeep) ++ newInserts
+          val (deletesToKeep, s0WithoutDeletesToKeep) = s0 partition a0.step.deletes
+          val s1: Set[String] = s0WithoutDeletesToKeep ++ newInserts
           val a1 = a0.copy(step = a0.step.copy(deletes = deletesToKeep))
 
           (s1, if (a1.nonEmpty) Some(a1) else None)
