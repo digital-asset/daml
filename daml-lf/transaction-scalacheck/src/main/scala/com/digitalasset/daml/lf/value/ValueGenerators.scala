@@ -61,7 +61,7 @@ object ValueGenerators {
     }
   )
 
-  val defaultValEncode: TransactionCoder.EncodeVal[Tx.Value[Tx.TContractId]] =
+  val defaultValEncode: TransactionCoder.EncodeVal[Tx.TContractId] =
     a => ValueCoder.encodeVersionedValueWithCustomVersion(defaultCidEncode, a).map((a.version, _))
 
   val defaultNidDecode: String => Either[ValueCoder.DecodeError, NodeId] = s => {
