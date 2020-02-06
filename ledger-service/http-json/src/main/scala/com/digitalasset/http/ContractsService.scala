@@ -257,7 +257,7 @@ class ContractsService(
       }
       .fold(empty) {
         case ((errL, stepL), (errR, stepR)) =>
-          (errL ++ errR, appendForgettingDeletes(stepL, stepR)(_.contractId.unwrap))
+          (errL ++ errR, appendForgettingDeletes(stepL, stepR))
       }
       .mapConcat {
         case (err, inserts) =>
