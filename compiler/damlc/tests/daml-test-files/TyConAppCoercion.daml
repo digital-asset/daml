@@ -1,0 +1,13 @@
+daml 1.2
+module TyConAppCoercion () where
+
+class MyClass a where
+  f : Optional a -> a
+  f = error "unimplemented"
+
+data X = X
+
+instance MyClass X where
+
+newtype Y = Y X
+  deriving MyClass
