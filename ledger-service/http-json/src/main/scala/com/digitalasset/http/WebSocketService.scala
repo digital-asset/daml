@@ -171,24 +171,20 @@ object WebSocketService {
       @SuppressWarnings(Array("org.wartremover.warts.Any"))
       override def parse(
           decoder: DomainJsonDecoder,
-          str: String): Error \/ List[domain.EnrichedContractKey[LfV]] = {
-        SprayJson
-          .decode[List[domain.EnrichedContractKey[JsValue]]](str)
-          .liftErr(InvalidUserInput)
-          .map { as: List[domain.EnrichedContractKey[JsValue]] =>
-            as.map(a => decodeWithFallback(decoder, a))
-          }
-      }
+          str: String): Error \/ List[domain.EnrichedContractKey[LfV]] =
+        for {
+          as <- SprayJson
+            .decode[List[domain.EnrichedContractKey[JsValue]]](str)
+            .liftErr(InvalidUserInput)
+          bs = as.map(a => decodeWithFallback(decoder, a))
+        } yield bs
 
       private def decodeWithFallback(
           decoder: DomainJsonDecoder,
           a: domain.EnrichedContractKey[JsValue]): domain.EnrichedContractKey[LfV] =
         decoder
           .decodeUnderlyingValuesToLf(a)
-          .fold(
-            _ => a.map(_ => com.digitalasset.daml.lf.value.Value.ValueUnit), // unit will not match any key
-            identity
-          )
+          .valueOr(_ => a.map(_ => com.digitalasset.daml.lf.value.Value.ValueUnit)) // unit will not match any key
 
       override def allowPhantonArchives: Boolean = false
 
@@ -314,7 +310,7 @@ class WebSocketService(
 
   private def removePhantomArchives[A, B](remove: Boolean) =
     if (remove) removePhantomArchives_[A, B]
-    else Flow[StepAndErrors[A, B]].map(identity)
+    else Flow[StepAndErrors[A, B]]
 
   private def removePhantomArchives_[A, B]
     : Flow[StepAndErrors[A, B], StepAndErrors[A, B], NotUsed] =
