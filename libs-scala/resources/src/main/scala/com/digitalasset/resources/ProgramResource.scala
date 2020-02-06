@@ -11,7 +11,7 @@ import com.digitalasset.resources.ProgramResource._
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Await, ExecutionContext}
-import scala.util.control.NonFatal
+import scala.util.control.{NoStackTrace, NonFatal}
 import scala.util.{Failure, Success}
 
 class ProgramResource[T](
@@ -46,7 +46,12 @@ class ProgramResource[T](
               stop()
               sys.exit(1)
           }
-        case Failure(_: SuppressedException) =>
+        case Failure(exception: StartupException) =>
+          logger.error(
+            s"Shutting down because of an initialization error.\n${exception.getMessage}")
+          stop()
+          sys.exit(1)
+        case Failure(_: SuppressedStartupException) =>
           stop()
           sys.exit(1)
         case Failure(NonFatal(exception)) =>
@@ -59,5 +64,23 @@ class ProgramResource[T](
 }
 
 object ProgramResource {
-  abstract class SuppressedException extends RuntimeException
+
+  abstract class StartupException(message: String, cause: Throwable)
+      extends RuntimeException
+      with NoStackTrace {
+    def this() = this(null, null)
+
+    def this(message: String) = this(message, null)
+
+    def this(cause: Throwable) = this(null, cause)
+  }
+
+  abstract class SuppressedStartupException(message: String, cause: Throwable)
+      extends RuntimeException {
+    def this() = this(null, null)
+
+    def this(message: String) = this(message, null)
+
+    def this(cause: Throwable) = this(null, cause)
+  }
 }
