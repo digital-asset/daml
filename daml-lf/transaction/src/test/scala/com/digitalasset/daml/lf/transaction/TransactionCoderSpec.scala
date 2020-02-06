@@ -40,8 +40,8 @@ class TransactionCoderSpec
     "do contractInstance" in {
       forAll(contractInstanceGen) { coinst: ContractInst[Tx.Value[Tx.TContractId]] =>
         Right(coinst) shouldEqual TransactionCoder.decodeContractInstance(
-          TransactionCoder.ValDecoder,
-          TransactionCoder.encodeContractInstance(TransactionCoder.ValEncoder, coinst).toOption.get,
+          ValueCoder.CidDecoder,
+          TransactionCoder.encodeContractInstance(ValueCoder.CidEncoder, coinst).toOption.get,
         )
       }
     }
@@ -53,7 +53,6 @@ class TransactionCoderSpec
             .encodeNode(
               TransactionCoder.NidEncoder,
               ValueCoder.CidEncoder,
-              TransactionCoder.ValEncoder,
               defaultTransactionVersion,
               Tx.NodeId(0),
               node,
@@ -63,9 +62,9 @@ class TransactionCoderSpec
           Right((Tx.NodeId(0), node)) shouldEqual TransactionCoder.decodeNode(
             TransactionCoder.NidDecoder,
             ValueCoder.CidDecoder,
-            TransactionCoder.ValDecoder,
             defaultTransactionVersion,
-            encodedNode)
+            encodedNode,
+          )
 
           Right(node.informeesOfNode) shouldEqual
             TransactionCoder
@@ -82,7 +81,6 @@ class TransactionCoderSpec
               .encodeNode(
                 TransactionCoder.NidEncoder,
                 ValueCoder.CidEncoder,
-                TransactionCoder.ValEncoder,
                 defaultTransactionVersion,
                 Tx.NodeId(0),
                 node,
@@ -92,9 +90,9 @@ class TransactionCoderSpec
           Right((Tx.NodeId(0), node)) shouldEqual TransactionCoder.decodeNode(
             TransactionCoder.NidDecoder,
             ValueCoder.CidDecoder,
-            TransactionCoder.ValDecoder,
             defaultTransactionVersion,
-            encodedNode)
+            encodedNode,
+          )
           Right(node.informeesOfNode) shouldEqual
             TransactionCoder
               .protoNodeInfo(defaultTransactionVersion, encodedNode)
@@ -110,7 +108,6 @@ class TransactionCoderSpec
               .encodeNode(
                 TransactionCoder.NidEncoder,
                 ValueCoder.CidEncoder,
-                TransactionCoder.ValEncoder,
                 defaultTransactionVersion,
                 Tx.NodeId(0),
                 node,
@@ -120,9 +117,9 @@ class TransactionCoderSpec
           Right((Tx.NodeId(0), node)) shouldEqual TransactionCoder.decodeNode(
             TransactionCoder.NidDecoder,
             ValueCoder.CidDecoder,
-            TransactionCoder.ValDecoder,
             defaultTransactionVersion,
-            encodedNode)
+            encodedNode,
+          )
 
           Right(node.informeesOfNode) shouldEqual
             TransactionCoder
@@ -145,7 +142,8 @@ class TransactionCoderSpec
               .decodeVersionedTransaction(
                 TransactionCoder.NidDecoder,
                 ValueCoder.CidDecoder,
-                encodedTx),
+                encodedTx,
+              ),
           )
 
         decodedVersionedTx.version shouldEqual TransactionVersions.assignVersion(t)
@@ -173,7 +171,8 @@ class TransactionCoderSpec
                   .decodeVersionedTransaction(
                     TransactionCoder.NidDecoder,
                     ValueCoder.CidDecoder,
-                    encodedTx),
+                    encodedTx,
+                  ),
               )
               decodedVersionedTx.transaction shouldBe minimalistTx(txVer, tx)
           }
@@ -211,7 +210,8 @@ class TransactionCoderSpec
                       .decodeVersionedTransaction(
                         TransactionCoder.NidDecoder,
                         ValueCoder.CidDecoder,
-                        _)),
+                        _,
+                      )),
                   ) {
                     case (Right(decWithMin), Right(decWithMax)) =>
                       decWithMin.transaction shouldBe minimalistTx(txvMin, tx)
@@ -298,7 +298,7 @@ class TransactionCoderSpec
               ValueVersions.acceptedVersions.last,
               ValueParty(Party.assertFromString("francesco")),
             ),
-            ("agreement"),
+            "agreement",
           ),
           optLocation = None,
           signatories = Set(Party.assertFromString("alice")),

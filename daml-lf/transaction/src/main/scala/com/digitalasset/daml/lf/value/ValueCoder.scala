@@ -15,6 +15,7 @@ import scala.collection.JavaConverters._
 import scalaz.std.either._
 import scalaz.std.option._
 import scalaz.syntax.traverse._
+import scalaz.syntax.bifunctor._
 
 /**
   * Utilities to serialize and de-serialize Values
@@ -75,9 +76,9 @@ object ValueCoder {
     override def fromString(s: String): Either[DecodeError, AbsoluteContractId] =
       ContractIdString
         .fromString(s)
-        .fold(
-          _ => Left(DecodeError(s"cannot parse absolute contractId $s")),
-          coid => Right(AbsoluteContractId(coid))
+        .bimap(
+          _ => DecodeError(s"cannot parse absolute contractId $s"),
+          AbsoluteContractId
         )
     override def fromStruct(
         s: String,
@@ -92,16 +93,17 @@ object ValueCoder {
     private def fromStringToRelCid(s: String): Either[DecodeError, RelativeContractId] =
       scalaz.std.string
         .parseInt(s)
-        .fold(
-          _ => Left(DecodeError(s"cannot parse relative contractId $s")),
-          idx => Right(RelativeContractId(NodeId(idx), None))
+        .toEither
+        .bimap(
+          _ => DecodeError(s"cannot parse relative contractId $s"),
+          idx => RelativeContractId(NodeId(idx), None)
         )
 
     override def fromString(s: String): Either[DecodeError, ContractId] =
       if (s.startsWith("~")) fromStringToRelCid(s.drop(1)) else AbsCidDecoder.fromString(s)
 
     override def fromStruct(s: String, isRelative: Boolean): Either[DecodeError, ContractId] =
-      if (isRelative) fromStringToRelCid(s) else AbsCidDecoder.fromString(s)
+      if (isRelative) fromStringToRelCid(s) else AbsCidDecoder.fromStruct(s, isRelative)
   }
 
   /**
@@ -196,7 +198,7 @@ object ValueCoder {
     ): Either[DecodeError, Cid] =
       for {
         str <- Either.cond(
-          p.getContractId.isEmpty,
+          p.getContractId.nonEmpty,
           p.getContractId,
           DecodeError("Missing required field contract_id"),
         )

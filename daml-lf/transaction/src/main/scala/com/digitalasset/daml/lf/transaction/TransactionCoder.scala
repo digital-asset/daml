@@ -26,10 +26,10 @@ object TransactionCoder {
 
   import ValueCoder.{DecodeCid, EncodeCid, codecContractId}
 
-  abstract class EncodeNid[Nid] private[lf] {
+  abstract class EncodeNid[-Nid] private[lf] {
     def asString(id: Nid): String
   }
-  abstract class DecodeNid[Nid] private[lf] {
+  abstract class DecodeNid[+Nid] private[lf] {
     def fromString(s: String): Either[DecodeError, Nid]
   }
 
