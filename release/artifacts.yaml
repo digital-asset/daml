@@ -129,6 +129,8 @@
   type: jar-lib
 - target: //ledger/ledger-api-health:ledger-api-health
   type: jar-scala
+- target: //ledger/ledger-on-sql:ledger-on-sql
+  type: jar-scala
 - target: //ledger/sandbox:sandbox
   type: jar-scala
 - target: //ledger/ledger-api-test-tool:ledger-api-test-tool
