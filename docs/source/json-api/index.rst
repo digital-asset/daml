@@ -431,7 +431,7 @@ HTTP Response
         "status": 200,
         "result": {
             "exerciseResult": "#201:1",
-            "contracts": [
+            "events": [
                 {
                     "archived": {
                         "contractId": "#124:0",
@@ -470,7 +470,7 @@ Where:
 - ``result`` field contains contract choice execution details:
 
     + ``exerciseResult`` field contains the return value of the exercised contract choice,
-    + ``contracts`` contains an array of contracts that were archived and created as part of the choice execution. The array may contain: **zero or many** ``{"archived": {...}}`` and **zero or many** ``{"created": {...}}`` elements. The order of the contracts is the same as on the ledger.
+    + ``events`` contains an array of contracts that were archived and created as part of the choice execution. The array may contain: **zero or many** ``{"archived": {...}}`` and **zero or many** ``{"created": {...}}`` elements. The order of the contracts is the same as on the ledger.
 
 
 Exercise by Contract Key

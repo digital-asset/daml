@@ -215,12 +215,12 @@ class Ledger {
     };
     const json = await this.submit('command/exercise', payload);
     // Decode the server response into a tuple.
-    const responseDecoder: jtv.Decoder<{exerciseResult: R; contracts: Event<object>[]}> = jtv.object({
+    const responseDecoder: jtv.Decoder<{exerciseResult: R; events: Event<object>[]}> = jtv.object({
       exerciseResult: choice.resultDecoder(),
-      contracts: jtv.array(decodeEventUnknown),
+      events: jtv.array(decodeEventUnknown),
     });
-    const {exerciseResult, contracts} = jtv.Result.withException(responseDecoder.run(json));
-    return [exerciseResult, contracts];
+    const {exerciseResult, events} = jtv.Result.withException(responseDecoder.run(json));
+    return [exerciseResult, events];
   }
 
   /**
@@ -238,12 +238,12 @@ class Ledger {
     };
     const json = await this.submit('command/exercise', payload);
     // Decode the server response into a tuple.
-    const responseDecoder: jtv.Decoder<{exerciseResult: R; contracts: Event<object>[]}> = jtv.object({
+    const responseDecoder: jtv.Decoder<{exerciseResult: R; events: Event<object>[]}> = jtv.object({
       exerciseResult: choice.resultDecoder(),
-      contracts: jtv.array(decodeEventUnknown),
+      events: jtv.array(decodeEventUnknown),
     });
-    const {exerciseResult, contracts} = jtv.Result.withException(responseDecoder.run(json));
-    return [exerciseResult, contracts];
+    const {exerciseResult, events} = jtv.Result.withException(responseDecoder.run(json));
+    return [exerciseResult, events];
   }
 
   /**
