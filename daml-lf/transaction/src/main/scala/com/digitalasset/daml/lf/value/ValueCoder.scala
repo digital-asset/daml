@@ -45,63 +45,64 @@ object ValueCoder {
       EncodeError(s"${version.showsVersion} is too old to support $isTooOldFor")
   }
 
-  final class EncodeCid[Cid] private[ValueCoder] (
-      val asString: Cid => String,
-      val asStruct: Cid => (String, Boolean)) {
-    def contramap[Cid2](f: Cid2 => Cid): EncodeCid[Cid2] =
-      new EncodeCid(f andThen asString, f andThen asStruct)
+  abstract class EncodeCid[Cid] private[lf] {
+    def asString(cid: Cid): String
+    def asStruct(cid: Cid): (String, Boolean)
   }
 
-  val AbsCidEncoder: EncodeCid[AbsoluteContractId] = new EncodeCid(_.coid, x => (x.coid, true))
-  val CidEncoder: EncodeCid[ContractId] = new EncodeCid(
-    {
+  abstract class DecodeCid[Cid] private[lf] {
+    def fromString(s: String): Either[DecodeError, Cid]
+    def fromStruct(s: String, isRelative: Boolean): Either[DecodeError, Cid]
+  }
+
+  object AbsCidEncoder extends EncodeCid[AbsoluteContractId] {
+    override def asString(cid: AbsoluteContractId): String = cid.coid
+    override def asStruct(cid: AbsoluteContractId): (String, Boolean) = cid.coid -> false
+  }
+
+  object CidEncoder extends EncodeCid[ContractId] {
+    override def asString(cid: ContractId): String = cid match {
       case RelativeContractId(nid, _) => "~" + nid.index.toString
       case AbsoluteContractId(coid) => coid
-    }, {
+    }
+    override def asStruct(cid: ContractId): (String, Boolean) = cid match {
       case RelativeContractId(nid, _) => nid.index.toString -> true
       case AbsoluteContractId(coid) => coid -> false
-    },
-  )
-
-  final class DecodeCid[Cid] private[ValueCoder] (
-      val fromString: String => Either[DecodeError, Cid],
-      val fromStruct: (String, Boolean) => Either[DecodeError, Cid],
-  ) {
-    def map[Cid2](f: Cid => Cid2): DecodeCid[Cid2] =
-      new DecodeCid(fromString andThen (_ map f), (s, b) => fromStruct(s, b) map f)
+    }
   }
+  object AbsCidDecoder extends DecodeCid[AbsoluteContractId] {
 
-  private def fromStringToAbsCid(s: String) =
-    ContractIdString
-      .fromString(s)
-      .fold(
-        _ => Left(DecodeError(s"cannot parse absolute contractId $s")),
-        coid => Right(AbsoluteContractId(coid))
-      )
+    override def fromString(s: String): Either[DecodeError, AbsoluteContractId] =
+      ContractIdString
+        .fromString(s)
+        .fold(
+          _ => Left(DecodeError(s"cannot parse absolute contractId $s")),
+          coid => Right(AbsoluteContractId(coid))
+        )
+    override def fromStruct(
+        s: String,
+        isRelative: Boolean): Either[DecodeError, AbsoluteContractId] =
+      if (isRelative)
+        Left(DecodeError(s"unexpected relative contractId $s"))
+      else
+        fromString(s)
+  }
+  val CidDecoder: DecodeCid[ContractId] = new DecodeCid[ContractId] {
 
-  private def fromStructToAbsCid(s: String, isRelative: Boolean) =
-    if (isRelative)
-      Left(DecodeError(s"unexpected relative contractId $s"))
-    else
-      fromStringToAbsCid(s)
+    private def fromStringToRelCid(s: String): Either[DecodeError, RelativeContractId] =
+      scalaz.std.string
+        .parseInt(s)
+        .fold(
+          _ => Left(DecodeError(s"cannot parse relative contractId $s")),
+          idx => Right(RelativeContractId(NodeId(idx), None))
+        )
 
-  private def fromStringToRelCid(s: String): Either[DecodeError, RelativeContractId] =
-    scalaz.std.string
-      .parseInt(s)
-      .fold(
-        _ => Left(DecodeError(s"cannot parse relative contractId $s")),
-        idx => Right(RelativeContractId(NodeId(idx), None))
-      )
+    override def fromString(s: String): Either[DecodeError, ContractId] =
+      if (s.startsWith("~")) fromStringToRelCid(s.drop(1)) else AbsCidDecoder.fromString(s)
 
-  private def fromString(s: String) =
-    if (s.startsWith("~")) fromStringToRelCid(s.drop(1)) else fromStringToAbsCid(s)
-
-  private def fromStruct(s: String, isRelative: Boolean) =
-    if (isRelative) fromStringToRelCid(s) else fromStringToAbsCid(s)
-
-  val AbsCidDecoder: DecodeCid[AbsoluteContractId] =
-    new DecodeCid(fromStringToAbsCid, fromStructToAbsCid)
-  val CidDecoder: DecodeCid[ContractId] = new DecodeCid(fromString, fromStruct)
+    override def fromStruct(s: String, isRelative: Boolean): Either[DecodeError, ContractId] =
+      if (isRelative) fromStringToRelCid(s) else AbsCidDecoder.fromString(s)
+  }
 
   /**
     * Simple encoding to wire of identifiers
@@ -162,7 +163,7 @@ object ValueCoder {
     * of builders.
     */
   private[lf] implicit final class codecContractId[A](private val self: A) extends AnyVal {
-    def setContractIdOrStruct[Cid <: ContractId, Z](
+    def setContractIdOrStruct[Cid, Z](
         encodeCid: EncodeCid[Cid],
         version: SpecifiedVersion,
         contractId: Cid,
@@ -189,15 +190,20 @@ object ValueCoder {
       if (c == null || c == placeholderContractId) Right(())
       else Left(DecodeError(v, isTooOldFor = "message ContractId"))
 
-    private[this] def decodeContractIdStruct(
+    private[this] def decodeContractIdStruct[Cid](
+        decodeCid: DecodeCid[Cid],
         p: proto.ContractId,
-    ): Either[DecodeError, (String, Boolean)] =
+    ): Either[DecodeError, Cid] =
       for {
-        cid <- if (p.getContractId.isEmpty) Left(DecodeError("Missing required field contract_id"))
-        else Right(p.getContractId)
-      } yield (cid, p.getRelative)
+        str <- Either.cond(
+          p.getContractId.isEmpty,
+          p.getContractId,
+          DecodeError("Missing required field contract_id"),
+        )
+        cid <- decodeCid.fromStruct(str, p.getRelative)
+      } yield cid
 
-    def decodeContractIdOrStruct[Cid <: ContractId, Z](
+    def decodeContractIdOrStruct[Cid, Z](
         decodeCid: DecodeCid[Cid],
         version: SpecifiedVersion,
     )(stringly: A => String, structly: A => proto.ContractId): Either[DecodeError, Cid] = {
@@ -213,11 +219,11 @@ object ValueCoder {
       else
         requireUnset(version, stringForm) flatMap (
             _ =>
-              decodeContractIdStruct(structForm) flatMap decodeCid.fromStruct.tupled,
+              decodeContractIdStruct(decodeCid, structForm),
         )
     }
 
-    def decodeOptionalContractIdOrStruct[Cid <: ContractId, Z](
+    def decodeOptionalContractIdOrStruct[Cid, Z](
         decodeCid: DecodeCid[Cid],
         version: SpecifiedVersion,
     )(stringly: A => String, structly: A => proto.ContractId): Either[DecodeError, Option[Cid]] = {
@@ -233,8 +239,7 @@ object ValueCoder {
         requireUnset(version, stringForm) flatMap (
             _ =>
               Option(structForm) filter (_ != placeholderContractId) traverseU (
-                  sf =>
-                    decodeContractIdStruct(sf) flatMap decodeCid.fromStruct.tupled,
+                  sf => decodeContractIdStruct(decodeCid, sf)
               ),
         )
     }
@@ -260,7 +265,7 @@ object ValueCoder {
     *             see [[com.digitalasset.daml.lf.value.Value]] and [[com.digitalasset.daml.lf.value.Value.ContractId]]
     * @return either error or [VersionedValue]
     */
-  def decodeVersionedValue[Cid <: ContractId](
+  def decodeVersionedValue[Cid](
       decodeCid: DecodeCid[Cid],
       protoValue0: proto.VersionedValue,
   ): Either[DecodeError, VersionedValue[Cid]] =
@@ -269,7 +274,7 @@ object ValueCoder {
       value <- decodeValue(decodeCid, version, protoValue0.getValue)
     } yield VersionedValue(version, value)
 
-  def decodeValue[Cid <: ContractId](
+  def decodeValue[Cid](
       decodeCid: DecodeCid[Cid],
       protoValue0: proto.VersionedValue,
   ): Either[DecodeError, Value[Cid]] =
@@ -285,7 +290,7 @@ object ValueCoder {
     *             see [[com.digitalasset.daml.lf.value.Value]] and [[com.digitalasset.daml.lf.value.Value.ContractId]]
     * @return protocol buffer serialized values
     */
-  def encodeVersionedValue[Cid <: ContractId](
+  def encodeVersionedValue[Cid](
       encodeCid: EncodeCid[Cid],
       value: Value[Cid],
   ): Either[EncodeError, proto.VersionedValue] =
@@ -305,7 +310,7 @@ object ValueCoder {
     *             see [[com.digitalasset.daml.lf.value.Value]] and [[com.digitalasset.daml.lf.value.Value.ContractId]]
     * @return protocol buffer serialized values
     */
-  def encodeVersionedValueWithCustomVersion[Cid <: ContractId](
+  def encodeVersionedValueWithCustomVersion[Cid](
       encodeCid: EncodeCid[Cid],
       versionedValue: VersionedValue[Cid],
   ): Either[EncodeError, proto.VersionedValue] =
@@ -326,7 +331,7 @@ object ValueCoder {
     *             see [[com.digitalasset.daml.lf.value.Value]] and [[com.digitalasset.daml.lf.value.Value.ContractId]]
     * @return either error or Value
     */
-  def decodeValue[Cid <: ContractId](
+  def decodeValue[Cid](
       decodeCid: DecodeCid[Cid],
       valueVersion: ValueVersion,
       protoValue0: proto.Value,
@@ -492,7 +497,7 @@ object ValueCoder {
     *             see [[com.digitalasset.daml.lf.value.Value]] and [[com.digitalasset.daml.lf.value.Value.ContractId]]
     * @return protocol buffer serialized values
     */
-  def encodeValue[Cid <: ContractId](
+  def encodeValue[Cid](
       encodeCid: EncodeCid[Cid],
       valueVersion: ValueVersion,
       v0: Value[Cid],
@@ -627,14 +632,14 @@ object ValueCoder {
   // each other and nothing else.  As such, they are unsafe for
   // general usage
 
-  private[value] def valueToBytes[Cid <: ContractId](
+  private[value] def valueToBytes[Cid](
       encodeCid: EncodeCid[Cid],
       v: Value[Cid],
   ): Either[EncodeError, Array[Byte]] = {
     encodeVersionedValue(encodeCid, v).map(_.toByteArray)
   }
 
-  private[value] def valueFromBytes[Cid <: ContractId](
+  private[value] def valueFromBytes[Cid](
       decodeCid: DecodeCid[Cid],
       bytes: Array[Byte],
   ): Either[DecodeError, Value[Cid]] = {

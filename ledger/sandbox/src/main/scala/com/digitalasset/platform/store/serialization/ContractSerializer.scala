@@ -25,14 +25,14 @@ object ContractSerializer extends ContractSerializer {
   override def serializeContractInstance(coinst: ContractInst[VersionedValue[AbsoluteContractId]])
     : Either[ValueCoder.EncodeError, Array[Byte]] =
     TransactionCoder
-      .encodeContractInstance[AbsoluteContractId](TransactionCoder.AbsCidValEncoder, coinst)
+      .encodeContractInstance[AbsoluteContractId](ValueCoder.AbsCidEncoder, coinst)
       .map(_.toByteArray())
 
   override def deserializeContractInstance(blob: Array[Byte])
     : Either[ValueCoder.DecodeError, ContractInst[VersionedValue[AbsoluteContractId]]] =
     TransactionCoder
       .decodeContractInstance[AbsoluteContractId](
-        TransactionCoder.AbsCidValDecoder,
+        ValueCoder.AbsCidDecoder,
         TransactionOuterClass.ContractInstance.parseFrom(
           Decode.damlLfCodedInputStreamFromBytes(blob, Reader.PROTOBUF_RECURSION_LIMIT))
       )

@@ -95,8 +95,8 @@ private[state] object Conversions {
   }
 
   def encodeContractKey(key: GlobalKey): DamlContractKey = {
-    val encodedValue = TransactionCoder.ValEncoder
-      .asProto(key.key)
+    val encodedValue = TransactionCoder
+      .encodeValue(ValueCoder.CidEncoder, key.key)
       .getOrElse(throw Err.InternalError(s"contractKeyToStateKey: Cannot encode ${key.key}!"))
       ._2
 
@@ -115,8 +115,8 @@ private[state] object Conversions {
             .DecodeError("ContractKey", s"Cannot decode template id: ${key.getTemplateId}")
         ),
       forceNoContractIds(
-        TransactionCoder.ValDecoder
-          .fromProto(key.getKey)
+        TransactionCoder
+          .decodeValue(ValueCoder.CidDecoder, key.getKey)
           .fold(
             err =>
               throw Err
@@ -237,7 +237,7 @@ private[state] object Conversions {
   def decodeContractInstance(coinst: TransactionOuterClass.ContractInstance)
     : Value.ContractInst[VersionedValue[AbsoluteContractId]] =
     TransactionCoder
-      .decodeContractInstance(TransactionCoder.AbsCidValDecoder, coinst)
+      .decodeContractInstance(ValueCoder.CidDecoder, coinst)
       .fold(
         err => throw Err.DecodeError("ContractInstance", err.errorMessage),
         coinst =>
@@ -253,7 +253,7 @@ private[state] object Conversions {
   def encodeContractInstance(coinst: Value.ContractInst[VersionedValue[AbsoluteContractId]])
     : TransactionOuterClass.ContractInstance =
     TransactionCoder
-      .encodeContractInstance(TransactionCoder.AbsCidValEncoder, coinst)
+      .encodeContractInstance(ValueCoder.CidEncoder, coinst)
       .fold(err => throw Err.InternalError(s"encodeContractInstance failed: $err"), identity)
 
   def forceNoContractIds(v: VersionedValue[ContractId]): VersionedValue[Nothing] =
