@@ -23,7 +23,7 @@ resource "google_compute_instance" "periodic-killer" {
   }
 
   service_account {
-    scopes = []
+    scopes = ["https://www.googleapis.com/auth/compute"]
   }
 
   metadata_startup_script = <<STARTUP
