@@ -61,7 +61,7 @@ import Development.IDE.Core.API
 import Development.IDE.Core.RuleTypes.Daml (GetParsedModule(..), GenerateStablePackages(..), GeneratePackageMap(..))
 import Development.IDE.Core.Rules
 import Development.IDE.Core.Rules.Daml (getDalf, getDlintIdeas)
-import Development.IDE.Core.Service (runAction)
+import Development.IDE.Core.Service (runActionSync)
 import Development.IDE.Core.Shake
 import Development.IDE.GHC.Util (hscEnv, moduleImportPath)
 import Development.IDE.Types.Location
@@ -418,7 +418,7 @@ execCompile inputFile outputFile opts (WriteInterface writeInterface) mbIfaceDir
       opts <- pure opts { optIfaceDir = mbIfaceDir }
       withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> do
           setFilesOfInterest ide (Set.singleton inputFile)
-          runAction ide $ do
+          runActionSync ide $ do
             -- Support for '-ddump-parsed', '-ddump-parsed-ast', '-dsource-stats'.
             dflags <- hsc_dflags . hscEnv <$> use_ GhcSession inputFile
             parsed <- pm_parsed_source <$> use_ GetParsedModule inputFile
@@ -454,7 +454,7 @@ execLint inputFile opts =
          opts <- setDlintDataDir opts
          withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> do
              setFilesOfInterest ide (Set.singleton inputFile)
-             runAction ide $ getDlintIdeas inputFile
+             runActionSync ide $ getDlintIdeas inputFile
              diags <- getDiagnostics ide
              if null diags then
                hPutStrLn stderr "No hints"
@@ -807,7 +807,7 @@ execGenerateSrc opts dalfOrDar mbOutDir = Command GenerateSrc Nothing effect
         (pkgId, pkg) <- decode bytes
         logger <- getLogger opts "generate-src"
 
-        (dalfPkgMap, stableDalfPkgMap) <- withDamlIdeState opts { optScenarioService = EnableScenarioService False } logger diagnosticsLogger $ \ideState -> runAction ideState $ do
+        (dalfPkgMap, stableDalfPkgMap) <- withDamlIdeState opts { optScenarioService = EnableScenarioService False } logger diagnosticsLogger $ \ideState -> runActionSync ideState $ do
             dalfPkgMap <- useNoFile_ GeneratePackageMap
             stableDalfPkgMap <- useNoFile_ GenerateStablePackages
             pure (dalfPkgMap, stableDalfPkgMap)
@@ -910,7 +910,7 @@ execDocTest opts files =
       -- We don’t add a logger here since we will otherwise emit logging messages twice.
       importPaths <-
           withDamlIdeState opts { optScenarioService = EnableScenarioService False }
-              logger (const $ pure ()) $ \ideState -> runAction ideState $ do
+              logger (const $ pure ()) $ \ideState -> runActionSync ideState $ do
           pmS <- catMaybes <$> uses GetParsedModule files'
           -- This is horrible but we do not have a way to change the import paths in a running
           -- IdeState at the moment.

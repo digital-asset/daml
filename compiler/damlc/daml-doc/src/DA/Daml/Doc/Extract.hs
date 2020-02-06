@@ -183,7 +183,7 @@ haddockParse diagsLogger opts f = MaybeT $ do
   vfs <- makeVFSHandle
   service <- Service.initialise def Service.mainRule (pure $ LSP.IdInt 0) diagsLogger noLogging opts vfs
   Service.setFilesOfInterest service (Set.fromList f)
-  Service.runAction service $
+  Service.runActionSync service $
              runMaybeT $
              do deps <- Service.usesE Service.GetDependencies f
                 Service.usesE Service.TypeCheck $ nubOrd $ f ++ concatMap Service.transitiveModuleDeps deps
