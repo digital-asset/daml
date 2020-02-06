@@ -482,7 +482,7 @@ tests damlc repl davlDar = testGroup "Packaging" $
             ]
           withCurrentDirectory projA $ callProcessSilent damlc ["build", "-o", "a.dar"]
           packageIdA2 <- head <$> darPackageIds (projA </> "a.dar")
-          assertBool ("Expected two different package IDs") (packageIdA1 /= packageIdA2)
+          assertBool "Expected two different package IDs" (packageIdA1 /= packageIdA2)
 
           writeFileUTF8 (projC </> "daml.yaml") $ unlines
             [ "sdk-version: " <> sdkVersion
@@ -555,7 +555,7 @@ tests damlc repl davlDar = testGroup "Packaging" $
             ]
           withCurrentDirectory projA $ callProcessSilent damlc ["build", "-o", "a.dar"]
           packageIdA2 <- head <$> darPackageIds (projA </> "a.dar")
-          assertBool ("Expected two different package IDs") (packageIdA1 /= packageIdA2)
+          assertBool "Expected two different package IDs" (packageIdA1 /= packageIdA2)
 
           writeFileUTF8 (projC </> "daml.yaml") $ unlines
             [ "sdk-version: " <> sdkVersion
