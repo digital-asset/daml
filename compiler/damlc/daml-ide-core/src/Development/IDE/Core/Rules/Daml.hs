@@ -476,7 +476,9 @@ generatePackageMap version userPkgDbs = do
             | (unitId, dalfPkg) <- pkgs ]
     when (not $ Map.null unitIdConflicts) $ do
         fail $ "Transitive dependencies with same unit id but conflicting package ids: "
-            ++ intercalate ", " (map show $ Map.keys unitIdConflicts)
+            ++ intercalate ", "
+                [ show k <> " [" <> intercalate "," (map show (Set.toList v)) <> "]"
+                | (k,v) <- Map.toList unitIdConflicts ]
 
     return (diags, Map.fromList pkgs)
 

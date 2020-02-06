@@ -163,7 +163,9 @@ createProjectPackageDb opts thisSdkVer deps dataDeps = do
             ]
     when (not $ MS.null unitIdConflicts) $ do
         fail $ "Transitive dependencies with same unit id but conflicting package ids: "
-            ++ intercalate ", " (map show $ MS.keys unitIdConflicts)
+            ++ intercalate ", "
+                [ show k <> " [" <> intercalate "," (map show (Set.toList v)) <> "]"
+                | (k,v) <- MS.toList unitIdConflicts ]
 
     let (depGraph, vertexToNode) = buildLfPackageGraph pkgs stablePkgIds dependencyPkgIds
     -- Iterate over the dependency graph in topological order.
