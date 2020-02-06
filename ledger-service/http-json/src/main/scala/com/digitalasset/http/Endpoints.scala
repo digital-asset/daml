@@ -54,7 +54,7 @@ class Endpoints(
     command orElse contracts orElse parties
 
   lazy val command: PartialFunction[HttpRequest, Future[HttpResponse]] = {
-    case req @ HttpRequest(POST, Uri.Path("/command/create"), _, _, _) =>
+    case req @ HttpRequest(POST, Uri.Path("/v1/create"), _, _, _) =>
       val et: ET[JsValue] = for {
         t3 <- FutureUtil.eitherT(input(req)): ET[(Jwt, JwtPayload, String)]
 
@@ -76,7 +76,7 @@ class Endpoints(
 
       httpResponse(et)
 
-    case req @ HttpRequest(POST, Uri.Path("/command/exercise"), _, _, _) =>
+    case req @ HttpRequest(POST, Uri.Path("/v1/exercise"), _, _, _) =>
       val et: ET[JsValue] = for {
         t3 <- eitherT(input(req)): ET[(Jwt, JwtPayload, String)]
 
@@ -138,13 +138,13 @@ class Endpoints(
     SprayJson.encode(as).leftMap(e => ServerError(e.shows))
 
   lazy val contracts: PartialFunction[HttpRequest, Future[HttpResponse]] = {
-    case req @ HttpRequest(POST, Uri.Path("/contracts/lookup"), _, _, _) =>
+    case req @ HttpRequest(POST, Uri.Path("/v1/fetch"), _, _, _) =>
       val et: ET[JsValue] = for {
         input <- FutureUtil.eitherT(input(req)): ET[(Jwt, JwtPayload, String)]
 
         (jwt, jwtPayload, reqBody) = input
 
-        _ = logger.debug(s"/contracts/lookup reqBody: $reqBody")
+        _ = logger.debug(s"/v1/fetch reqBody: $reqBody")
 
         cl <- either(
           decoder
@@ -152,7 +152,7 @@ class Endpoints(
             .leftMap(e => InvalidUserInput(e.shows))
         ): ET[domain.ContractLocator[LfValue]]
 
-        _ = logger.debug(s"/contracts/lookup cl: $cl")
+        _ = logger.debug(s"/v1/fetch cl: $cl")
 
         ac <- eitherT(
           handleFutureFailure(contractsService.lookup(jwt, jwtPayload, cl))
@@ -166,7 +166,7 @@ class Endpoints(
 
       httpResponse(et)
 
-    case req @ HttpRequest(GET, Uri.Path("/contracts/search"), _, _, _) =>
+    case req @ HttpRequest(GET, Uri.Path("/v1/query"), _, _, _) =>
       val sourceF: Future[Error \/ SearchResult[Error \/ JsValue]] = input(req).map {
         _.map {
           case (jwt, jwtPayload, _) =>
@@ -184,7 +184,7 @@ class Endpoints(
 
       httpResponse(sourceF)
 
-    case req @ HttpRequest(POST, Uri.Path("/contracts/search"), _, _, _) =>
+    case req @ HttpRequest(POST, Uri.Path("/v1/query"), _, _, _) =>
       val sourceF: Future[Error \/ SearchResult[Error \/ JsValue]] = input(req).map {
         _.flatMap {
           case (jwt, jwtPayload, reqBody) =>
@@ -209,7 +209,7 @@ class Endpoints(
   }
 
   lazy val parties: PartialFunction[HttpRequest, Future[HttpResponse]] = {
-    case req @ HttpRequest(GET, Uri.Path("/parties"), _, _, _) =>
+    case req @ HttpRequest(GET, Uri.Path("/v1/parties"), _, _, _) =>
       val et: ET[JsValue] = for {
         _ <- FutureUtil.eitherT(input(req)): ET[(Jwt, JwtPayload, String)]
         ps <- rightT(partiesService.allParties()): ET[List[domain.PartyDetails]]

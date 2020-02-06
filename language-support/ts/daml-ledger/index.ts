@@ -145,7 +145,7 @@ class Ledger {
    */
   async query<T extends object, K, I extends string>(template: Template<T, K, I>, query?: Query<T>): Promise<CreateEvent<T, K, I>[]> {
     const payload = {templateIds: [template.templateId], query};
-    const json = await this.submit('contracts/search', payload);
+    const json = await this.submit('v1/query', payload);
     return jtv.Result.withException(jtv.array(decodeCreateEvent(template)).run(json));
   }
 
@@ -165,7 +165,7 @@ class Ledger {
       templateId: template.templateId,
       contractId,
     };
-    const json = await this.submit('contracts/lookup', payload);
+    const json = await this.submit('v1/fetch', payload);
     return jtv.Result.withException(jtv.oneOf(jtv.constant(null), decodeCreateEvent(template)).run(json));
   }
 
@@ -180,7 +180,7 @@ class Ledger {
       templateId: template.templateId,
       key,
     };
-    const json = await this.submit('contracts/lookup', payload);
+    const json = await this.submit('v1/fetch', payload);
     return jtv.Result.withException(jtv.oneOf(jtv.constant(null), decodeCreateEvent(template)).run(json));
   }
 
@@ -199,7 +199,7 @@ class Ledger {
       templateId: template.templateId,
       payload,
     };
-    const json = await this.submit('command/create', command);
+    const json = await this.submit('v1/create', command);
     return jtv.Result.withException(decodeCreateEvent(template).run(json));
   }
 
@@ -213,7 +213,7 @@ class Ledger {
       choice: choice.choiceName,
       argument,
     };
-    const json = await this.submit('command/exercise', payload);
+    const json = await this.submit('v1/exercise', payload);
     // Decode the server response into a tuple.
     const responseDecoder: jtv.Decoder<{exerciseResult: R; events: Event<object>[]}> = jtv.object({
       exerciseResult: choice.resultDecoder(),
@@ -236,7 +236,7 @@ class Ledger {
       choice: choice.choiceName,
       argument,
     };
-    const json = await this.submit('command/exercise', payload);
+    const json = await this.submit('v1/exercise', payload);
     // Decode the server response into a tuple.
     const responseDecoder: jtv.Decoder<{exerciseResult: R; events: Event<object>[]}> = jtv.object({
       exerciseResult: choice.resultDecoder(),

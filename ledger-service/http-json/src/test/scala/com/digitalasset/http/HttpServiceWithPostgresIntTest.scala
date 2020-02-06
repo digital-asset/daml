@@ -32,7 +32,7 @@ class HttpServiceWithPostgresIntTest
     password = jdbcConfig_.password
   )
 
-  "contracts/search persists all active contracts" in withHttpService { (uri, encoder, _) =>
+  "query persists all active contracts" in withHttpService { (uri, encoder, _) =>
     searchWithQuery(
       searchDataSet,
       jsObject("""{"templateIds": ["Iou:Iou"], "query": {"currency": "EUR"}}"""),

@@ -149,7 +149,7 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
       uri: Uri): Future[(StatusCode, JsValue)] =
     for {
       json <- toFuture(encoder.encodeR(cmd)): Future[JsObject]
-      result <- postJsonRequest(uri.withPath(Uri.Path("/command/create")), json)
+      result <- postJsonRequest(uri.withPath(Uri.Path("/v1/create")), json)
     } yield result
 
   protected def postArchiveCommand(
@@ -161,7 +161,7 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
     val cmd = archiveCommand(ref)
     for {
       json <- toFuture(encoder.encodeExerciseCommand(cmd)): Future[JsValue]
-      result <- postJsonRequest(uri.withPath(Uri.Path("/command/exercise")), json)
+      result <- postJsonRequest(uri.withPath(Uri.Path("/v1/exercise")), json)
     } yield result
   }
 
@@ -245,7 +245,7 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
       uri: Uri): Future[(StatusCode, JsValue)] =
     for {
       json <- toFuture(SprayJson.encode(cmd)): Future[JsValue]
-      result <- postJsonRequest(uri.withPath(Uri.Path("/contracts/lookup")), json)
+      result <- postJsonRequest(uri.withPath(Uri.Path("/v1/fetch")), json)
     } yield result
 
   protected def activeContractList(output: JsValue): List[domain.ActiveContract[JsValue]] = {
@@ -355,8 +355,8 @@ abstract class AbstractHttpServiceIntegrationTest
     with AbstractHttpServiceIntegrationTestFuns {
   import json.JsonProtocol._
 
-  "contracts/search GET empty results" in withHttpService { (uri: Uri, _, _) =>
-    getRequest(uri = uri.withPath(Uri.Path("/contracts/search")))
+  "query GET empty results" in withHttpService { (uri: Uri, _, _) =>
+    getRequest(uri = uri.withPath(Uri.Path("/v1/query")))
       .flatMap {
         case (status, output) =>
           status shouldBe StatusCodes.OK
@@ -377,11 +377,11 @@ abstract class AbstractHttpServiceIntegrationTest
     iouCreateCommand(amount = "444.44", currency = "BTC"),
   )
 
-  "contracts/search GET" in withHttpService { (uri: Uri, encoder, _) =>
+  "query GET" in withHttpService { (uri: Uri, encoder, _) =>
     searchDataSet.traverse(c => postCreateCommand(c, encoder, uri)).flatMap { rs =>
       rs.map(_._1) shouldBe List.fill(searchDataSet.size)(StatusCodes.OK)
 
-      getRequest(uri = uri.withPath(Uri.Path("/contracts/search")))
+      getRequest(uri = uri.withPath(Uri.Path("/v1/query")))
         .flatMap {
           case (status, output) =>
             status shouldBe StatusCodes.OK
@@ -397,7 +397,7 @@ abstract class AbstractHttpServiceIntegrationTest
     }
   }
 
-  "contracts/search POST with empty query" in withHttpService { (uri, encoder, _) =>
+  "query POST with empty query" in withHttpService { (uri, encoder, _) =>
     searchWithQuery(
       searchDataSet,
       jsObject("""{"templateIds": ["Iou:Iou"]}"""),
@@ -408,7 +408,7 @@ abstract class AbstractHttpServiceIntegrationTest
     }
   }
 
-  "contracts/search with query, one field" in withHttpService { (uri, encoder, _) =>
+  "query with query, one field" in withHttpService { (uri, encoder, _) =>
     searchWithQuery(
       searchDataSet,
       jsObject("""{"templateIds": ["Iou:Iou"], "query": {"currency": "EUR"}}"""),
@@ -420,12 +420,12 @@ abstract class AbstractHttpServiceIntegrationTest
     }
   }
 
-  "contracts/search returns unknown Template IDs as warnings" in withHttpService { (uri, _, _) =>
+  "query returns unknown Template IDs as warnings" in withHttpService { (uri, _, _) =>
     val query =
       jsObject(
         """{"templateIds": ["Iou:Iou", "UnknownModule:UnknownEntity"], "query": {"currency": "EUR"}}""")
 
-    postJsonRequest(uri.withPath(Uri.Path("/contracts/search")), query)
+    postJsonRequest(uri.withPath(Uri.Path("/v1/query")), query)
       .map {
         case (status, output) =>
           status shouldBe StatusCodes.OK
@@ -436,7 +436,7 @@ abstract class AbstractHttpServiceIntegrationTest
       }
   }
 
-  "contracts/search with query, can use number or string for numeric field" in withHttpService {
+  "query with query, can use number or string for numeric field" in withHttpService {
     (uri, encoder, _) =>
       import scalaz.std.scalaFuture._
 
@@ -450,8 +450,8 @@ abstract class AbstractHttpServiceIntegrationTest
           val queryAmountAsNumber = queryAmountAs("111.11")
 
           List(
-            postJsonRequest(uri.withPath(Uri.Path("/contracts/search")), queryAmountAsString),
-            postJsonRequest(uri.withPath(Uri.Path("/contracts/search")), queryAmountAsNumber),
+            postJsonRequest(uri.withPath(Uri.Path("/v1/query")), queryAmountAsString),
+            postJsonRequest(uri.withPath(Uri.Path("/v1/query")), queryAmountAsNumber),
           ).sequence.flatMap { rs: List[(StatusCode, JsValue)] =>
             rs.map(_._1) shouldBe List.fill(2)(StatusCodes.OK)
             inside(rs.map(_._2)) {
@@ -469,7 +469,7 @@ abstract class AbstractHttpServiceIntegrationTest
       }: Future[Assertion]
   }
 
-  "contracts/search with query, two fields" in withHttpService { (uri, encoder, _) =>
+  "query with query, two fields" in withHttpService { (uri, encoder, _) =>
     searchWithQuery(
       searchDataSet,
       jsObject(
@@ -482,7 +482,7 @@ abstract class AbstractHttpServiceIntegrationTest
     }
   }
 
-  "contracts/search with query, no results" in withHttpService { (uri, encoder, _) =>
+  "query with query, no results" in withHttpService { (uri, encoder, _) =>
     searchWithQuery(
       searchDataSet,
       jsObject(
@@ -494,8 +494,8 @@ abstract class AbstractHttpServiceIntegrationTest
     }
   }
 
-  "contracts/search with invalid JSON query should return error" in withHttpService { (uri, _, _) =>
-    postJsonStringRequest(uri.withPath(Uri.Path("/contracts/search")), "{NOT A VALID JSON OBJECT")
+  "query with invalid JSON query should return error" in withHttpService { (uri, _, _) =>
+    postJsonStringRequest(uri.withPath(Uri.Path("/v1/query")), "{NOT A VALID JSON OBJECT")
       .flatMap {
         case (status, output) =>
           status shouldBe StatusCodes.BadRequest
@@ -518,7 +518,7 @@ abstract class AbstractHttpServiceIntegrationTest
       encoder: DomainJsonEncoder): Future[List[domain.ActiveContract[JsValue]]] = {
     commands.traverse(c => postCreateCommand(c, encoder, uri)).flatMap { rs =>
       rs.map(_._1) shouldBe List.fill(commands.size)(StatusCodes.OK)
-      postJsonRequest(uri.withPath(Uri.Path("/contracts/search")), query).map {
+      postJsonRequest(uri.withPath(Uri.Path("/v1/query")), query).map {
         case (status, output) =>
           status shouldBe StatusCodes.OK
           assertStatus(output, StatusCodes.OK)
@@ -528,7 +528,7 @@ abstract class AbstractHttpServiceIntegrationTest
     }
   }
 
-  "command/create IOU" in withHttpService { (uri, encoder, decoder) =>
+  "create IOU" in withHttpService { (uri, encoder, decoder) =>
     val command: domain.CreateCommand[v.Record] = iouCreateCommand()
 
     postCreateCommand(command, encoder, uri).flatMap {
@@ -540,12 +540,12 @@ abstract class AbstractHttpServiceIntegrationTest
     }: Future[Assertion]
   }
 
-  "command/create IOU should fail if authorization header is missing" in withHttpService {
+  "create IOU should fail if authorization header is missing" in withHttpService {
     (uri, encoder, _) =>
       val command: domain.CreateCommand[v.Record] = iouCreateCommand()
       val input: JsObject = encoder.encodeR(command).valueOr(e => fail(e.shows))
 
-      postJsonRequest(uri.withPath(Uri.Path("/command/create")), input, List()).flatMap {
+      postJsonRequest(uri.withPath(Uri.Path("/v1/create")), input, List()).flatMap {
         case (status, output) =>
           status shouldBe StatusCodes.Unauthorized
           assertStatus(output, StatusCodes.Unauthorized)
@@ -554,13 +554,13 @@ abstract class AbstractHttpServiceIntegrationTest
       }: Future[Assertion]
   }
 
-  "command/create IOU with unsupported templateId should return proper error" in withHttpService {
+  "create IOU with unsupported templateId should return proper error" in withHttpService {
     (uri, encoder, _) =>
       val command: domain.CreateCommand[v.Record] =
         iouCreateCommand().copy(templateId = domain.TemplateId(None, "Iou", "Dummy"))
       val input: JsObject = encoder.encodeR(command).valueOr(e => fail(e.shows))
 
-      postJsonRequest(uri.withPath(Uri.Path("/command/create")), input).flatMap {
+      postJsonRequest(uri.withPath(Uri.Path("/v1/create")), input).flatMap {
         case (status, output) =>
           status shouldBe StatusCodes.BadRequest
           assertStatus(output, StatusCodes.BadRequest)
@@ -571,7 +571,7 @@ abstract class AbstractHttpServiceIntegrationTest
       }: Future[Assertion]
   }
 
-  "command/exercise IOU_Transfer" in withHttpService { (uri, encoder, decoder) =>
+  "exercise IOU_Transfer" in withHttpService { (uri, encoder, decoder) =>
     val create: domain.CreateCommand[v.Record] = iouCreateCommand()
     postCreateCommand(create, encoder, uri)
       .flatMap {
@@ -584,7 +584,7 @@ abstract class AbstractHttpServiceIntegrationTest
             iouExerciseTransferCommand(contractId)
           val exerciseJson: JsValue = encodeExercise(encoder)(exercise)
 
-          postJsonRequest(uri.withPath(Uri.Path("/command/exercise")), exerciseJson)
+          postJsonRequest(uri.withPath(Uri.Path("/v1/exercise")), exerciseJson)
             .flatMap {
               case (exerciseStatus, exerciseOutput) =>
                 exerciseStatus shouldBe StatusCodes.OK
@@ -635,11 +635,11 @@ abstract class AbstractHttpServiceIntegrationTest
     }
   }
 
-  "command/exercise IOU_Transfer with unknown contractId should return proper error" in withHttpService {
+  "exercise IOU_Transfer with unknown contractId should return proper error" in withHttpService {
     (uri, encoder, _) =>
       val contractId = lar.ContractId("NonExistentContractId")
       val exerciseJson: JsValue = encodeExercise(encoder)(iouExerciseTransferCommand(contractId))
-      postJsonRequest(uri.withPath(Uri.Path("/command/exercise")), exerciseJson)
+      postJsonRequest(uri.withPath(Uri.Path("/v1/exercise")), exerciseJson)
         .flatMap {
           case (status, output) =>
             status shouldBe StatusCodes.InternalServerError
@@ -649,7 +649,7 @@ abstract class AbstractHttpServiceIntegrationTest
         }: Future[Assertion]
   }
 
-  "command/exercise Archive" in withHttpService { (uri, encoder, decoder) =>
+  "exercise Archive" in withHttpService { (uri, encoder, decoder) =>
     val create: domain.CreateCommand[v.Record] = iouCreateCommand()
     postCreateCommand(create, encoder, uri)
       .flatMap {
@@ -663,7 +663,7 @@ abstract class AbstractHttpServiceIntegrationTest
           val exercise = archiveCommand(reference)
           val exerciseJson: JsValue = encodeExercise(encoder)(exercise)
 
-          postJsonRequest(uri.withPath(Uri.Path("/command/exercise")), exerciseJson)
+          postJsonRequest(uri.withPath(Uri.Path("/v1/exercise")), exerciseJson)
             .flatMap {
               case (exerciseStatus, exerciseOutput) =>
                 exerciseStatus shouldBe StatusCodes.OK
@@ -743,7 +743,7 @@ abstract class AbstractHttpServiceIntegrationTest
         case (createStatus, createOutput) =>
           createStatus shouldBe StatusCodes.OK
           assertStatus(createOutput, StatusCodes.OK)
-          getRequest(uri = uri.withPath(Uri.Path("/parties")))
+          getRequest(uri = uri.withPath(Uri.Path("/v1/parties")))
             .flatMap {
               case (status, output) =>
                 status shouldBe StatusCodes.OK
@@ -764,7 +764,7 @@ abstract class AbstractHttpServiceIntegrationTest
       }: Future[Assertion]
   }
 
-  "contracts/lookup by contractId" in withHttpService { (uri, encoder, decoder) =>
+  "fetch by contractId" in withHttpService { (uri, encoder, decoder) =>
     val command: domain.CreateCommand[v.Record] = iouCreateCommand()
 
     postCreateCommand(command, encoder, uri).flatMap {
@@ -777,7 +777,7 @@ abstract class AbstractHttpServiceIntegrationTest
     }: Future[Assertion]
   }
 
-  "contracts/lookup returns {status:200, result:null} when contract is not found" in withHttpService {
+  "fetch returns {status:200, result:null} when contract is not found" in withHttpService {
     (uri, _, _) =>
       val owner = domain.Party("Alice")
       val accountNumber = "abc123"
@@ -785,7 +785,7 @@ abstract class AbstractHttpServiceIntegrationTest
         domain.TemplateId(None, "Account", "Account"),
         JsArray(JsString(owner.unwrap), JsString(accountNumber))
       )
-      postContractsLookup(locator, uri.withPath(Uri.Path("/contracts/lookup"))).flatMap {
+      postContractsLookup(locator, uri.withPath(Uri.Path("/v1/fetch"))).flatMap {
         case (status, output) =>
           status shouldBe StatusCodes.OK
           assertStatus(output, StatusCodes.OK)
@@ -796,7 +796,7 @@ abstract class AbstractHttpServiceIntegrationTest
       }: Future[Assertion]
   }
 
-  "contracts/lookup by contractKey" in withHttpService { (uri, encoder, decoder) =>
+  "fetch by contractKey" in withHttpService { (uri, encoder, decoder) =>
     val owner = domain.Party("Alice")
     val accountNumber = "abc123"
     val command: domain.CreateCommand[v.Record] = accountCreateCommand(owner, accountNumber)
@@ -837,7 +837,7 @@ abstract class AbstractHttpServiceIntegrationTest
         status shouldBe StatusCodes.OK
         assertStatus(output, StatusCodes.OK)
 
-        postJsonRequest(uri.withPath(Uri.Path("/command/exercise")), archiveJson).flatMap {
+        postJsonRequest(uri.withPath(Uri.Path("/v1/exercise")), archiveJson).flatMap {
           case (exerciseStatus, exerciseOutput) =>
             exerciseStatus shouldBe StatusCodes.OK
             assertStatus(exerciseOutput, StatusCodes.OK)
@@ -845,9 +845,8 @@ abstract class AbstractHttpServiceIntegrationTest
     }: Future[Assertion]
   }
 
-  "contracts/lookup by contractKey where Key contains variant and record" in withHttpService {
-    (uri, _, _) =>
-      val createCommand = jsObject("""{
+  "fetch by contractKey where Key contains variant and record" in withHttpService { (uri, _, _) =>
+    val createCommand = jsObject("""{
         "templateId": "Account:KeyedByVariantAndRecord",
         "payload": {
           "name": "ABC DEF",
@@ -858,29 +857,29 @@ abstract class AbstractHttpServiceIntegrationTest
         }
       }""")
 
-      val lookupRequest =
-        jsObject(
-          """{
+    val lookupRequest =
+      jsObject(
+        """{
             "templateId": "Account:KeyedByVariantAndRecord",
             "key": ["Alice", {"tag": "Baz", "value": {"baz": "baz value"}}, {"baz": "another baz value"}]
           }""")
 
-      postJsonRequest(uri.withPath(Uri.Path("/command/create")), createCommand).flatMap {
-        case (status, output) =>
-          status shouldBe StatusCodes.OK
-          assertStatus(output, StatusCodes.OK)
-          val contractId: ContractId = getContractId(getResult(output))
+    postJsonRequest(uri.withPath(Uri.Path("/v1/create")), createCommand).flatMap {
+      case (status, output) =>
+        status shouldBe StatusCodes.OK
+        assertStatus(output, StatusCodes.OK)
+        val contractId: ContractId = getContractId(getResult(output))
 
-          postJsonRequest(uri.withPath(Uri.Path("/contracts/lookup")), lookupRequest).flatMap {
-            case (status, output) =>
-              status shouldBe StatusCodes.OK
-              assertStatus(output, StatusCodes.OK)
-              activeContract(output).contractId shouldBe contractId
-          }
-      }: Future[Assertion]
+        postJsonRequest(uri.withPath(Uri.Path("/v1/fetch")), lookupRequest).flatMap {
+          case (status, output) =>
+            status shouldBe StatusCodes.OK
+            assertStatus(output, StatusCodes.OK)
+            activeContract(output).contractId shouldBe contractId
+        }
+    }: Future[Assertion]
   }
 
-  "contracts/search by a variant field" in withHttpService { (uri, encoder, decoder) =>
+  "query by a variant field" in withHttpService { (uri, encoder, decoder) =>
     val owner = domain.Party("Alice")
     val accountNumber = "abc123"
     val now = TimestampConversion.instantToMicros(Instant.now)
@@ -907,7 +906,7 @@ abstract class AbstractHttpServiceIntegrationTest
              }
           }""")
 
-        postJsonRequest(uri.withPath(Uri.Path("/contracts/search")), query).map {
+        postJsonRequest(uri.withPath(Uri.Path("/v1/query")), query).map {
           case (searchStatus, searchOutput) =>
             searchStatus shouldBe StatusCodes.OK
             assertStatus(searchOutput, StatusCodes.OK)

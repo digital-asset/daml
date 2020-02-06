@@ -55,7 +55,7 @@ class WebsocketEndpoints(
   import WebsocketEndpoints._
 
   lazy val transactionWebSocket: PartialFunction[HttpRequest, Future[HttpResponse]] = {
-    case req @ HttpRequest(GET, Uri.Path("/contracts/searchForever"), _, _, _) =>
+    case req @ HttpRequest(GET, Uri.Path("/v1/stream/query"), _, _, _) =>
       Future.successful(
         (for {
           upgradeReq <- req.header[UpgradeToWebSocket] \/> InvalidUserInput(
@@ -74,7 +74,7 @@ class WebsocketEndpoints(
           .valueOr(httpResponseError),
       )
 
-    case req @ HttpRequest(GET, Uri.Path("/stream/fetch"), _, _, _) =>
+    case req @ HttpRequest(GET, Uri.Path("/v1/stream/fetch"), _, _, _) =>
       Future.successful(
         (for {
           upgradeReq <- req.header[UpgradeToWebSocket] \/> InvalidUserInput(
