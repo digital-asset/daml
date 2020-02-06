@@ -238,44 +238,47 @@ class WebsocketServiceIntegrationTest
           {"templateIds": ["Iou:Iou"]}
         ]"""
 
-      val resp(iouCid: domain.ContractId): Sink[JsValue, Future[StreamState]] = Sink
-        .foldAsync(NothingYet: StreamState) {
-          case (NothingYet, ContractDelta(Vector((ctid, ct)), Vector())) =>
-            (ctid: String) shouldBe (iouCid.unwrap: String)
-            TestUtil.postJsonRequest(
-              uri.withPath(Uri.Path("/command/exercise")),
-              exercisePayload(ctid),
-              headersWithAuth) map {
-              case (statusCode, respBody) =>
-                statusCode.isSuccess shouldBe true
-                GotAcs(ctid)
-            }
-          case (
-              GotAcs(consumedCtid),
-              evts @ ContractDelta(Vector((fstId, fst), (sndId, snd)), Vector(observeConsumed))) =>
-            Future {
-              observeConsumed should ===(consumedCtid)
-              Set(fstId, sndId, consumedCtid) should have size 3
-              inside(evts) {
-                case JsArray(
-                    Vector(
-                      Archived(_, _),
-                      Created(IouAmount(amt1), MatchedQueries(NumList(ixes1), _)),
-                      Created(IouAmount(amt2), MatchedQueries(NumList(ixes2), _)))) =>
-                  Set((amt1, ixes1), (amt2, ixes2)) should ===(
-                    Set(
-                      (BigDecimal("42.42"), Vector(BigDecimal(0), BigDecimal(2))),
-                      (BigDecimal("957.57"), Vector(BigDecimal(1), BigDecimal(2))),
-                    ))
+      def resp(iouCid: domain.ContractId): Sink[JsValue, Future[StreamState]] =
+        Sink
+          .foldAsync(NothingYet: StreamState) {
+            case (NothingYet, ContractDelta(Vector((ctid, ct)), Vector())) =>
+              (ctid: String) shouldBe (iouCid.unwrap: String)
+              TestUtil.postJsonRequest(
+                uri.withPath(Uri.Path("/command/exercise")),
+                exercisePayload(ctid),
+                headersWithAuth) map {
+                case (statusCode, respBody) =>
+                  statusCode.isSuccess shouldBe true
+                  GotAcs(ctid)
               }
-              ShouldHaveEnded(2)
-            }
-        }
+            case (
+                GotAcs(consumedCtid),
+                evts @ ContractDelta(
+                  Vector((fstId, fst), (sndId, snd)),
+                  Vector(observeConsumed))) =>
+              Future {
+                observeConsumed should ===(consumedCtid)
+                Set(fstId, sndId, consumedCtid) should have size 3
+                inside(evts) {
+                  case JsArray(
+                      Vector(
+                        Archived(_, _),
+                        Created(IouAmount(amt1), MatchedQueries(NumList(ixes1), _)),
+                        Created(IouAmount(amt2), MatchedQueries(NumList(ixes2), _)))) =>
+                    Set((amt1, ixes1), (amt2, ixes2)) should ===(
+                      Set(
+                        (BigDecimal("42.42"), Vector(BigDecimal(0), BigDecimal(2))),
+                        (BigDecimal("957.57"), Vector(BigDecimal(1), BigDecimal(2))),
+                      ))
+                }
+                ShouldHaveEnded(2)
+              }
+          }
 
       for {
         creation <- initialCreate
         _ = creation._1 shouldBe 'success
-        iouCid = getContractId(getResult(iou._2))
+        iouCid = getContractId(getResult(creation._2))
         lastState <- singleClientQueryStream(uri, query) via parseResp runWith resp(iouCid)
       } yield lastState should ===(ShouldHaveEnded(2))
   }

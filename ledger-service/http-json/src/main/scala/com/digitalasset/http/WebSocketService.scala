@@ -28,7 +28,6 @@ import scalaz.syntax.tag._
 import scalaz.syntax.std.boolean._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
-import scalaz.std.list._
 import scalaz.std.map._
 import scalaz.std.set._
 import scalaz.std.tuple._
@@ -313,16 +312,17 @@ class WebSocketService(
     }
   }
 
-  private def removePhantomArchives[A](remove: Boolean) =
-    if (remove) removePhantomArchives_[A]
-    else Flow[StepAndErrors[A]].map(identity)
+  private def removePhantomArchives[A, B](remove: Boolean) =
+    if (remove) removePhantomArchives_[A, B]
+    else Flow[StepAndErrors[A, B]].map(identity)
 
-  private def removePhantomArchives_[A]: Flow[StepAndErrors[A], StepAndErrors[A], NotUsed] =
-    Flow[StepAndErrors[A]]
-      .scan((Set.empty[String], Option.empty[StepAndErrors[A]])) {
+  private def removePhantomArchives_[A, B]
+    : Flow[StepAndErrors[A, B], StepAndErrors[A, B], NotUsed] =
+    Flow[StepAndErrors[A, B]]
+      .scan((Set.empty[String], Option.empty[StepAndErrors[A, B]])) {
         case ((s0, _), a0) =>
           val deletesToKeep: Set[String] = a0.step.deletes.filter(x => s0(x))
-          val newInserts: Vector[String] = a0.step.inserts.map(_.contractId.unwrap)
+          val newInserts: Vector[String] = a0.step.inserts.map(_._1.contractId.unwrap)
 
           val s1: Set[String] = (s0 -- deletesToKeep) ++ newInserts
           val a1 = a0.copy(step = a0.step.copy(deletes = deletesToKeep))
