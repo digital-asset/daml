@@ -52,11 +52,11 @@ class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with P
           val Right(dec) = Decimal.fromBigDecimal(d)
           val value = ValueNumeric(dec)
           val recoveredDecimal = ValueCoder.decodeValue[ContractId](
-            defaultCidDecode,
+            ValueCoder.CidDecoder,
             lastDecimalVersion,
             assertRight(
               ValueCoder
-                .encodeValue[ContractId](defaultCidEncode, lastDecimalVersion, value),
+                .encodeValue[ContractId](ValueCoder.CidEncoder, lastDecimalVersion, value),
             ),
           ) match {
             case Right(ValueNumeric(d)) => d
@@ -79,11 +79,11 @@ class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with P
             val Right(dec) = Numeric.fromBigDecimal(s, d)
             val value = ValueNumeric(dec)
             val recoveredDecimal = ValueCoder.decodeValue[ContractId](
-              defaultCidDecode,
+              ValueCoder.CidDecoder,
               firstNumericVersion,
               assertRight(
                 ValueCoder
-                  .encodeValue[ContractId](defaultCidEncode, firstNumericVersion, value),
+                  .encodeValue[ContractId](ValueCoder.CidEncoder, firstNumericVersion, value),
               ),
             ) match {
               case Right(ValueNumeric(x)) => x
@@ -170,21 +170,22 @@ class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with P
 
     "don't struct" in {
       val struct = ValueStruct(ImmArray((Ref.Name.assertFromString("foo"), ValueInt64(42))))
-      val res = ValueCoder.encodeValue[ContractId](defaultCidEncode, defaultValueVersion, struct)
+      val res =
+        ValueCoder.encodeValue[ContractId](ValueCoder.CidEncoder, defaultValueVersion, struct)
       res.left.get.errorMessage should include("serializable")
     }
 
     "do unit" in {
       val recovered = ValueCoder.decodeValue(
-        defaultCidDecode,
+        ValueCoder.CidDecoder,
         defaultValueVersion,
         assertRight(
-          ValueCoder.encodeValue[ContractId](defaultCidEncode, defaultValueVersion, ValueUnit),
+          ValueCoder.encodeValue[ContractId](ValueCoder.CidEncoder, defaultValueVersion, ValueUnit),
         ),
       )
       val fromToBytes = ValueCoder.valueFromBytes(
-        defaultCidDecode,
-        ValueCoder.valueToBytes[ContractId](defaultCidEncode, ValueUnit).toOption.get,
+        ValueCoder.CidDecoder,
+        ValueCoder.valueToBytes[ContractId](ValueCoder.CidEncoder, ValueUnit).toOption.get,
       )
       Right(ValueUnit) shouldEqual fromToBytes
       recovered shouldEqual Right(ValueUnit)
@@ -219,7 +220,7 @@ class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with P
           val actual: proto.VersionedValue = assertRight(
             ValueCoder
               .encodeVersionedValueWithCustomVersion(
-                defaultCidEncode,
+                ValueCoder.CidEncoder,
                 VersionedValue(badVer, value),
               ),
           )
@@ -235,14 +236,14 @@ class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with P
           val protoWithUnsupportedVersion: proto.VersionedValue =
             assertRight(
               ValueCoder.encodeVersionedValueWithCustomVersion(
-                defaultCidEncode,
+                ValueCoder.CidEncoder,
                 VersionedValue(badVer, value),
               ),
             )
           protoWithUnsupportedVersion.getVersion shouldEqual badVer.protoValue
 
           val actual: Either[DecodeError, VersionedValue[ContractId]] =
-            ValueCoder.decodeVersionedValue(defaultCidDecode, protoWithUnsupportedVersion)
+            ValueCoder.decodeVersionedValue(ValueCoder.CidDecoder, protoWithUnsupportedVersion)
 
           actual shouldEqual Left(DecodeError(s"Unsupported value version ${badVer.protoValue}"))
       }
@@ -250,13 +251,14 @@ class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with P
 
   def testRoundTrip(value: Value[ContractId]): Assertion = {
     val recovered = ValueCoder.decodeValue(
-      defaultCidDecode,
+      ValueCoder.CidDecoder,
       defaultValueVersion,
-      assertRight(ValueCoder.encodeValue[ContractId](defaultCidEncode, defaultValueVersion, value)),
+      assertRight(
+        ValueCoder.encodeValue[ContractId](ValueCoder.CidEncoder, defaultValueVersion, value)),
     )
     val fromToBytes = ValueCoder.valueFromBytes(
-      defaultCidDecode,
-      assertRight(ValueCoder.valueToBytes[ContractId](defaultCidEncode, value)),
+      ValueCoder.CidDecoder,
+      assertRight(ValueCoder.valueToBytes[ContractId](ValueCoder.CidEncoder, value)),
     )
     Right(value) shouldEqual recovered
     Right(value) shouldEqual fromToBytes
@@ -267,10 +269,12 @@ class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with P
 
     val encoded: proto.VersionedValue = assertRight(
       ValueCoder
-        .encodeVersionedValueWithCustomVersion(defaultCidEncode, VersionedValue(version, value0)),
+        .encodeVersionedValueWithCustomVersion(
+          ValueCoder.CidEncoder,
+          VersionedValue(version, value0)),
     )
     val decoded: VersionedValue[ContractId] = assertRight(
-      ValueCoder.decodeVersionedValue(defaultCidDecode, encoded),
+      ValueCoder.decodeVersionedValue(ValueCoder.CidDecoder, encoded),
     )
 
     decoded.value shouldEqual value0
@@ -281,7 +285,7 @@ class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with P
     val encodedSentOverWire: proto.VersionedValue =
       proto.VersionedValue.parseFrom(encoded.toByteArray)
     val decodedSentOverWire: VersionedValue[ContractId] = assertRight(
-      ValueCoder.decodeVersionedValue(defaultCidDecode, encodedSentOverWire),
+      ValueCoder.decodeVersionedValue(ValueCoder.CidDecoder, encodedSentOverWire),
     )
 
     decodedSentOverWire.value shouldEqual value0

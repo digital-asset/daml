@@ -24,21 +24,16 @@ object ValueSerializer extends ValueSerializer {
   override def serializeValue(
       value: VersionedValue[AbsoluteContractId]): Either[ValueCoder.EncodeError, Array[Byte]] =
     ValueCoder
-      .encodeVersionedValueWithCustomVersion(defaultCidEncode, value)
+      .encodeVersionedValueWithCustomVersion(ValueCoder.AbsCidEncoder, value)
       .map(_.toByteArray())
 
   override def deserializeValue(
       blob: Array[Byte]): Either[DecodeError, VersionedValue[AbsoluteContractId]] =
     ValueCoder
       .decodeVersionedValue(
-        defaultCidDecode,
+        ValueCoder.AbsCidDecoder,
         ValueOuterClass.VersionedValue.parseFrom(
           Decode.damlLfCodedInputStreamFromBytes(blob, Reader.PROTOBUF_RECURSION_LIMIT)))
-
-  val defaultCidEncode: ValueCoder.EncodeCid[AbsoluteContractId] = ValueCoder.EncodeCid(
-    _.coid,
-    acid => (acid.coid, false)
-  )
 
   private def toContractId(s: String) =
     Ref.ContractIdString
@@ -46,13 +41,5 @@ object ValueSerializer extends ValueSerializer {
       .left
       .map(e => DecodeError(s"cannot decode contractId: $e"))
       .map(AbsoluteContractId)
-
-  val defaultCidDecode: ValueCoder.DecodeCid[AbsoluteContractId] = ValueCoder.DecodeCid(
-    toContractId, { (i, r) =>
-      if (r)
-        sys.error("found relative contract id in stored contract instance")
-      else toContractId(i)
-    }
-  )
 
 }

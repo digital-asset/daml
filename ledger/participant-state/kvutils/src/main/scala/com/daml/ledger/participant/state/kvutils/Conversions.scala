@@ -14,16 +14,12 @@ import com.digitalasset.daml.lf.transaction._
 import com.digitalasset.daml.lf.value.Value.{
   AbsoluteContractId,
   ContractId,
-  NodeId,
   RelativeContractId,
   VersionedValue
 }
-import com.digitalasset.daml.lf.value.ValueCoder.DecodeError
 import com.digitalasset.daml.lf.value.{Value, ValueCoder, ValueOuterClass}
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.{ByteString, Empty}
-
-import scala.util.Try
 
 /** Utilities for converting between protobuf messages and our scala
   * data structures.
@@ -99,7 +95,8 @@ private[state] object Conversions {
   }
 
   def encodeContractKey(key: GlobalKey): DamlContractKey = {
-    val encodedValue = valEncoder(key.key)
+    val encodedValue = TransactionCoder.ValEncoder
+      .asProto(key.key)
       .getOrElse(throw Err.InternalError(s"contractKeyToStateKey: Cannot encode ${key.key}!"))
       ._2
 
@@ -118,7 +115,8 @@ private[state] object Conversions {
             .DecodeError("ContractKey", s"Cannot decode template id: ${key.getTemplateId}")
         ),
       forceNoContractIds(
-        valDecoder(key.getKey)
+        TransactionCoder.ValDecoder
+          .fromProto(key.getKey)
           .fold(
             err =>
               throw Err
@@ -222,15 +220,15 @@ private[state] object Conversions {
 
   def encodeTransaction(tx: SubmittedTransaction): TransactionOuterClass.Transaction = {
     TransactionCoder
-      .encodeTransaction(nidEncoder, cidEncoder, tx)
+      .encodeTransaction(TransactionCoder.NidEncoder, ValueCoder.CidEncoder, tx)
       .fold(err => throw Err.EncodeError("Transaction", err.errorMessage), identity)
   }
 
   def decodeTransaction(tx: TransactionOuterClass.Transaction): SubmittedTransaction = {
     TransactionCoder
       .decodeVersionedTransaction(
-        nidDecoder,
-        cidDecoder,
+        TransactionCoder.NidDecoder,
+        ValueCoder.CidDecoder,
         tx
       )
       .fold(err => throw Err.DecodeError("Transaction", err.errorMessage), _.transaction)
@@ -239,7 +237,7 @@ private[state] object Conversions {
   def decodeContractInstance(coinst: TransactionOuterClass.ContractInstance)
     : Value.ContractInst[VersionedValue[AbsoluteContractId]] =
     TransactionCoder
-      .decodeContractInstance(absValDecoder, coinst)
+      .decodeContractInstance(TransactionCoder.AbsCidValDecoder, coinst)
       .fold(
         err => throw Err.DecodeError("ContractInstance", err.errorMessage),
         coinst =>
@@ -255,7 +253,7 @@ private[state] object Conversions {
   def encodeContractInstance(coinst: Value.ContractInst[VersionedValue[AbsoluteContractId]])
     : TransactionOuterClass.ContractInstance =
     TransactionCoder
-      .encodeContractInstance(absValEncoder, coinst)
+      .encodeContractInstance(TransactionCoder.AbsCidValEncoder, coinst)
       .fold(err => throw Err.InternalError(s"encodeContractInstance failed: $err"), identity)
 
   def forceNoContractIds(v: VersionedValue[ContractId]): VersionedValue[Nothing] =
@@ -270,9 +268,9 @@ private[state] object Conversions {
       coidStruct: ValueOuterClass.ContractId): DamlStateKey = {
     val result =
       if (coidString.isEmpty)
-        cidDecoder.fromStruct(coidStruct.getContractId, coidStruct.getRelative)
+        ValueCoder.CidDecoder.fromStruct(coidStruct.getContractId, coidStruct.getRelative)
       else
-        cidDecoder.fromString(coidString)
+        ValueCoder.CidDecoder.fromString(coidString)
 
     result match {
       case Left(err) =>
@@ -283,82 +281,5 @@ private[state] object Conversions {
         absoluteContractIdToStateKey(acoid)
     }
   }
-
-  // FIXME(JM): Should we have a well-defined schema for this?
-  private val cidEncoder: ValueCoder.EncodeCid[ContractId] = {
-    val asStruct: ContractId => (String, Boolean) = {
-      case RelativeContractId(nid, _) => (s"~${nid.index}", true)
-      case AbsoluteContractId(coid) => (s"$coid", false)
-    }
-
-    ValueCoder.EncodeCid(asStruct(_)._1, asStruct)
-  }
-  val cidDecoder: ValueCoder.DecodeCid[ContractId] = {
-    def fromString(x: String): Either[DecodeError, ContractId] = {
-      if (x.startsWith("~")) {
-        Try(x.tail.toInt).toOption match {
-          case None =>
-            Left(DecodeError(s"Invalid relative contract id: $x"))
-          case Some(i) =>
-            Right(RelativeContractId(NodeId(i)))
-        }
-      } else {
-        ContractIdString
-          .fromString(x)
-          .left
-          .map(e => DecodeError(s"Invalid absolute contract id: $e"))
-          .map(AbsoluteContractId)
-      }
-    }
-
-    ValueCoder.DecodeCid(
-      fromString, {
-        case (i, rel) =>
-          val coid = fromString(i)
-          assert(coid.isLeft || rel == coid.right.get.isInstanceOf[RelativeContractId])
-          coid
-      }
-    )
-  }
-
-  private val absCidEncoder: ValueCoder.EncodeCid[AbsoluteContractId] = {
-    val asStruct: AbsoluteContractId => (String, Boolean) =
-      coid => (coid.coid.toString, false)
-
-    ValueCoder.EncodeCid(asStruct(_)._1, asStruct)
-  }
-
-  private val absCidDecoder: ValueCoder.DecodeCid[AbsoluteContractId] = {
-    def fromString(x: String): Either[DecodeError, AbsoluteContractId] = {
-      ContractIdString
-        .fromString(x)
-        .left
-        .map(e => DecodeError(s"Invalid absolute contract id: $e"))
-        .map(AbsoluteContractId)
-    }
-    ValueCoder.DecodeCid(
-      fromString,
-      { case (i, _) => fromString(i) }
-    )
-  }
-
-  private val nidDecoder: String => Either[ValueCoder.DecodeError, NodeId] =
-    nid => Right(NodeId(nid.toInt))
-  private val nidEncoder: TransactionCoder.EncodeNid[NodeId] =
-    nid => nid.index.toString
-  private val valEncoder: TransactionCoder.EncodeVal[ContractId] =
-    a => ValueCoder.encodeVersionedValueWithCustomVersion(cidEncoder, a).map((a.version, _))
-  private val valDecoder: ValueOuterClass.VersionedValue => Either[
-    ValueCoder.DecodeError,
-    Transaction.Value[ContractId]] =
-    a => ValueCoder.decodeVersionedValue(cidDecoder, a)
-
-  private val absValEncoder: TransactionCoder.EncodeVal[AbsoluteContractId] =
-    a => ValueCoder.encodeVersionedValueWithCustomVersion(absCidEncoder, a).map((a.version, _))
-
-  private val absValDecoder: ValueOuterClass.VersionedValue => Either[
-    ValueCoder.DecodeError,
-    Transaction.Value[AbsoluteContractId]] =
-    a => ValueCoder.decodeVersionedValue(absCidDecoder, a)
 
 }

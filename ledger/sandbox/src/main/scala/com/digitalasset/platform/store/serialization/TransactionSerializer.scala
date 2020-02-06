@@ -4,9 +4,9 @@
 package com.digitalasset.platform.store.serialization
 
 import com.digitalasset.daml.lf.archive.{Decode, Reader}
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.transaction._
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, VersionedValue}
+import com.digitalasset.daml.lf.value.ValueCoder
 import com.digitalasset.daml.lf.value.ValueCoder.{DecodeError, EncodeError}
 import com.digitalasset.ledger.EventId
 
@@ -24,22 +24,13 @@ trait TransactionSerializer {
 
 object TransactionSerializer extends TransactionSerializer {
 
-  private val defaultNidEncode: TransactionCoder.EncodeNid[EventId] = identity
-  private def defaultDecodeNid(s: String) =
-    Ref.LedgerString
-      .fromString(s)
-      .left
-      .map(
-        e => DecodeError(s"cannot decode noid: $e")
-      )
-
   override def serializeTransaction(
       transaction: GenTransaction[EventId, AbsoluteContractId, VersionedValue[AbsoluteContractId]])
     : Either[EncodeError, Array[Byte]] =
     TransactionCoder
       .encodeTransaction(
-        defaultNidEncode,
-        ContractSerializer.defaultCidEncode,
+        TransactionCoder.EventIdEncoder,
+        ValueCoder.AbsCidEncoder,
         transaction
       )
       .map(_.toByteArray())
@@ -49,8 +40,8 @@ object TransactionSerializer extends TransactionSerializer {
     GenTransaction[EventId, AbsoluteContractId, VersionedValue[AbsoluteContractId]]] =
     TransactionCoder
       .decodeVersionedTransaction(
-        defaultDecodeNid,
-        ContractSerializer.defaultCidDecode,
+        TransactionCoder.EventIdDecoder,
+        ValueCoder.AbsCidDecoder,
         TransactionOuterClass.Transaction.parseFrom(
           Decode.damlLfCodedInputStreamFromBytes(blob, Reader.PROTOBUF_RECURSION_LIMIT))
       )

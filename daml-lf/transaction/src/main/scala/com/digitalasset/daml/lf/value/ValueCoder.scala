@@ -45,18 +45,63 @@ object ValueCoder {
       EncodeError(s"${version.showsVersion} is too old to support $isTooOldFor")
   }
 
-  final case class EncodeCid[Cid](asString: Cid => String, asStruct: Cid => (String, Boolean)) {
+  final class EncodeCid[Cid] private[ValueCoder] (
+      val asString: Cid => String,
+      val asStruct: Cid => (String, Boolean)) {
     def contramap[Cid2](f: Cid2 => Cid): EncodeCid[Cid2] =
-      EncodeCid(f andThen asString, f andThen asStruct)
+      new EncodeCid(f andThen asString, f andThen asStruct)
   }
 
-  final case class DecodeCid[Cid](
-      fromString: String => Either[DecodeError, Cid],
-      fromStruct: (String, Boolean) => Either[DecodeError, Cid],
+  val AbsCidEncoder: EncodeCid[AbsoluteContractId] = new EncodeCid(_.coid, x => (x.coid, true))
+  val CidEncoder: EncodeCid[ContractId] = new EncodeCid(
+    {
+      case RelativeContractId(nid, _) => "~" + nid.index.toString
+      case AbsoluteContractId(coid) => coid
+    }, {
+      case RelativeContractId(nid, _) => nid.index.toString -> true
+      case AbsoluteContractId(coid) => coid -> false
+    },
+  )
+
+  final class DecodeCid[Cid] private[ValueCoder] (
+      val fromString: String => Either[DecodeError, Cid],
+      val fromStruct: (String, Boolean) => Either[DecodeError, Cid],
   ) {
     def map[Cid2](f: Cid => Cid2): DecodeCid[Cid2] =
-      DecodeCid(fromString andThen (_ map f), (s, b) => fromStruct(s, b) map f)
+      new DecodeCid(fromString andThen (_ map f), (s, b) => fromStruct(s, b) map f)
   }
+
+  private def fromStringToAbsCid(s: String) =
+    ContractIdString
+      .fromString(s)
+      .fold(
+        _ => Left(DecodeError(s"cannot parse absolute contractId $s")),
+        coid => Right(AbsoluteContractId(coid))
+      )
+
+  private def fromStructToAbsCid(s: String, isRelative: Boolean) =
+    if (isRelative)
+      Left(DecodeError(s"unexpected relative contractId $s"))
+    else
+      fromStringToAbsCid(s)
+
+  private def fromStringToRelCid(s: String): Either[DecodeError, RelativeContractId] =
+    scalaz.std.string
+      .parseInt(s)
+      .fold(
+        _ => Left(DecodeError(s"cannot parse relative contractId $s")),
+        idx => Right(RelativeContractId(NodeId(idx), None))
+      )
+
+  private def fromString(s: String) =
+    if (s.startsWith("~")) fromStringToRelCid(s.drop(1)) else fromStringToAbsCid(s)
+
+  private def fromStruct(s: String, isRelative: Boolean) =
+    if (isRelative) fromStringToRelCid(s) else fromStringToAbsCid(s)
+
+  val AbsCidDecoder: DecodeCid[AbsoluteContractId] =
+    new DecodeCid(fromStringToAbsCid, fromStructToAbsCid)
+  val CidDecoder: DecodeCid[ContractId] = new DecodeCid(fromString, fromStruct)
 
   /**
     * Simple encoding to wire of identifiers
