@@ -13,7 +13,6 @@ import com.digitalasset.daml.lf.value.Value._
 import scalaz.Equal
 
 import scala.annotation.tailrec
-import scala.annotation.unchecked.uncheckedVariance
 import scala.collection.breakOut
 import scala.collection.immutable.HashMap
 
@@ -22,6 +21,7 @@ case class VersionedTransaction[Nid, Cid](
     transaction: GenTransaction.WithTxValue[Nid, Cid],
 ) {
 
+  @deprecated("use resolveRelCid/ensureNoCid/ensureNoRelCid", since = "0.13.52")
   def mapContractId[Cid2](f: Cid => Cid2): VersionedTransaction[Nid, Cid2] =
     copy(transaction = transaction.mapContractIdAndValue(f, _.mapContractId(f)))
 
@@ -78,35 +78,34 @@ case class VersionedTransaction[Nid, Cid](
   * For performance reasons, users are not required to call `isWellFormed`.
   * Therefore, it is '''forbidden''' to create ill-formed instances, i.e., instances with `!isWellFormed.isEmpty`.
   */
-case class GenTransaction[Nid, Cid, +Val](
+final case class GenTransaction[Nid, +Cid, +Val](
     nodes: HashMap[Nid, GenNode[Nid, Cid, Val]],
     roots: ImmArray[Nid],
     optUsedPackages: Option[Set[PackageId]],
     transactionSeed: Option[crypto.Hash] = None,
-) {
+) extends value.CidContainer[GenTransaction[Nid, Cid, Val]] {
 
   import GenTransaction._
 
+  override protected val self: this.type = this
+
+  private[lf] def map3[Nid2, Cid2, Val2](
+      f: Nid => Nid2,
+      g: Cid => Cid2,
+      h: Val => Val2
+  ): GenTransaction[Nid2, Cid2, Val2] =
+    GenTransaction.map3(f, g, h)(this)
+
+  @deprecated("use resolveRelCid/ensureNoCid/ensureNoRelCid", since = "0.13.52")
   def mapContractIdAndValue[Cid2, Val2](
       f: Cid => Cid2,
       g: Val => Val2,
   ): GenTransaction[Nid, Cid2, Val2] =
-    copy(
-      nodes = // do NOT use `Map#mapValues`! it applies the function lazily on lookup. see #1861
-        nodes.transform((_, value) => value.mapContractIdAndValue(f, g)),
-    )
-
-  def mapContractId[Cid2](f: Cid => Cid2)(
-      implicit ev: Val <:< VersionedValue[Cid],
-  ): WithTxValue[Nid, Cid2] =
-    mapContractIdAndValue(f, _.mapContractId(f))
+    map3(identity, f, g)
 
   /** Note: the provided function must be injective, otherwise the transaction will be corrupted. */
   def mapNodeId[Nid2](f: Nid => Nid2): GenTransaction[Nid2, Cid, Val] =
-    copy(
-      roots = roots.map(f),
-      nodes = nodes.map { case (nid, node) => (f(nid), node.mapNodeId(f)) },
-    )
+    map3(f, identity, identity)
 
   /**
     * This function traverses the transaction tree in pre-order traversal (i.e. exercise node are traversed before their children).
@@ -229,7 +228,7 @@ case class GenTransaction[Nid, Cid, +Val](
     *       However, requiring [[Equal]]`[Val2]` as `isReplayedBy` does would
     *       also solve the contains problem.  Food for thought
     */
-  final def equalForest(other: GenTransaction[_, Cid, Val @uncheckedVariance]): Boolean =
+  final def equalForest[Cid2 >: Cid, Val2 >: Val](other: GenTransaction[_, Cid2, Val2]): Boolean =
     compareForest(other)(_ == _)
 
   /**
@@ -289,9 +288,9 @@ case class GenTransaction[Nid, Cid, +Val](
     *
     * @note This function is asymmetric.
     */
-  final def isReplayedBy[Nid2, Val2 >: Val](
-      other: GenTransaction[Nid2, Cid, Val2],
-  )(implicit ECid: Equal[Cid], EVal: Equal[Val2]): Boolean =
+  final def isReplayedBy[Nid2, Cid2 >: Cid, Val2 >: Val](
+      other: GenTransaction[Nid2, Cid2, Val2],
+  )(implicit ECid: Equal[Cid2], EVal: Equal[Val2]): Boolean =
     compareForest(other)(Node.isReplayedBy(_, _))
 
   /** checks that all the values contained are serializable */
@@ -330,14 +329,31 @@ case class GenTransaction[Nid, Cid, +Val](
     }
 }
 
-object GenTransaction {
-  type WithTxValue[Nid, Cid] = GenTransaction[Nid, Cid, Transaction.Value[Cid]]
+object GenTransaction extends value.CidContainer3[GenTransaction] {
+  type WithTxValue[Nid, +Cid] = GenTransaction[Nid, Cid, Transaction.Value[Cid]]
 
   case class NotWellFormedError[Nid](nid: Nid, reason: NotWellFormedErrorReason)
   sealed trait NotWellFormedErrorReason
   case object DanglingNodeId extends NotWellFormedErrorReason
   case object OrphanedNode extends NotWellFormedErrorReason
   case object AliasedNode extends NotWellFormedErrorReason
+
+  override private[lf] def map3[A1, A2, A3, B1, B2, B3](
+      f1: A1 => B1,
+      f2: A2 => B2,
+      f3: A3 => B3,
+  ): GenTransaction[A1, A2, A3] => GenTransaction[B1, B2, B3] = {
+    case GenTransaction(nodes, roots, optUsedPackages, transactionSeed) =>
+      GenTransaction(
+        nodes = nodes.map {
+          case (nodeId, node) =>
+            f1(nodeId) -> GenNode.map3(f1, f2, f3)(node)
+        },
+        roots = roots.map(f1),
+        optUsedPackages,
+        transactionSeed,
+      )
+  }
 }
 
 object Transaction {
@@ -385,7 +401,7 @@ object Transaction {
       * the sub-transaction structure due to 'exercises' statements.
       */
     sealed abstract class Context extends Product with Serializable {
-      def discriminator: Option[crypto.Hash]
+      def contextSeed: Option[crypto.Hash]
 
       def children: BackStack[NodeId]
 
@@ -396,7 +412,7 @@ object Transaction {
       * a choice.
       */
     final case class ContextRoot(
-        override val discriminator: Option[crypto.Hash],
+        val contextSeed: Option[crypto.Hash],
         children: BackStack[NodeId] = BackStack.empty,
     ) extends Context {
       override def addChild(child: NodeId): ContextRoot = copy(children = children :+ child)
@@ -410,7 +426,7 @@ object Transaction {
       override def addChild(child: NodeId): ContextExercise =
         copy(children = children :+ child)
 
-      override def discriminator: Option[crypto.Hash] = ctx.nodeId.discriminator
+      override def contextSeed: Option[crypto.Hash] = ctx.contextSeed
     }
 
     /** Context information to remember when building a sub-transaction
@@ -435,6 +451,7 @@ object Transaction {
       *                       happening.
       */
     case class ExercisesContext(
+        contextSeed: Option[crypto.Hash],
         targetId: TContractId,
         templateId: TypeConName,
         contractKey: Option[KeyWithMaintainers[Value[Nothing]]],
@@ -599,12 +616,13 @@ object Transaction {
             .mkString(",")}""",
         )
       } else {
-        val nodeDiscriminator = deriveChildDiscriminator
-        val nodeId = NodeId(nextNodeIdx, nodeDiscriminator)
+        val nodeSeed = deriveChildSeed
+        val nodeId = NodeId(nextNodeIdx)
         val contractDiscriminator =
-          nodeDiscriminator.map(crypto.Hash.deriveContractDiscriminator(_, stakeholders))
+          nodeSeed.map(crypto.Hash.deriveContractDiscriminator(_, stakeholders))
         val cid = RelativeContractId(nodeId, contractDiscriminator)
         val createNode = NodeCreate(
+          nodeSeed,
           cid,
           coinst,
           optLocation,
@@ -675,7 +693,7 @@ object Transaction {
             .mkString(",")}""",
         )
       } else {
-        val nodeId = NodeId(nextNodeIdx, deriveChildDiscriminator)
+        val nodeId = NodeId(nextNodeIdx)
         Right(
           mustBeActive(
             targetId,
@@ -684,6 +702,7 @@ object Transaction {
               nextNodeIdx = nextNodeIdx + 1,
               context = ContextExercise(
                 ExercisesContext(
+                  contextSeed = deriveChildSeed,
                   targetId = targetId,
                   templateId = templateId,
                   contractKey = mbKey,
@@ -717,6 +736,7 @@ object Transaction {
       context match {
         case ContextExercise(ec, children) =>
           val exerciseNode: Transaction.Node = NodeExercises(
+            nodeSeed = ec.contextSeed,
             targetCoid = ec.targetId,
             templateId = ec.templateId,
             choiceId = ec.choiceId,
@@ -758,7 +778,7 @@ object Transaction {
 
     /** Insert the given `LeafNode` under a fresh node-id, and return it */
     def insertLeafNode(node: LeafNode): PartialTransaction = {
-      val nodeId = NodeId(nextNodeIdx, deriveChildDiscriminator)
+      val nodeId = NodeId(nextNodeIdx)
       copy(
         nextNodeIdx = nextNodeIdx + 1,
         context = context.addChild(nodeId),
@@ -766,8 +786,8 @@ object Transaction {
       )
     }
 
-    def deriveChildDiscriminator: Option[crypto.Hash] =
-      context.discriminator.map(crypto.Hash.deriveNodeDiscriminator(_, nodes.size))
+    def deriveChildSeed: Option[crypto.Hash] =
+      context.contextSeed.map(crypto.Hash.deriveNodeDiscriminator(_, nodes.size))
 
   }
 

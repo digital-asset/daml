@@ -15,7 +15,7 @@ import scala.annotation.tailrec
 trait PrivateLedgerData {
   def update(tx: GenTransaction.WithTxValue[NodeId, ContractId]): Unit
   def get(id: AbsoluteContractId): Option[ContractInst[VersionedValue[AbsoluteContractId]]]
-  def toAbsoluteContractId(txCounter: Int)(cid: ContractId): AbsoluteContractId
+  def toContractIdString(txCounter: Int)(cid: RelativeContractId): Ref.ContractIdString
   def transactionCounter: Int
   def clear(): Unit
 }
@@ -27,15 +27,11 @@ private[engine] class InMemoryPrivateLedgerData extends PrivateLedgerData {
   private val txCounter: AtomicInteger = new AtomicInteger(0)
 
   def update(tx: GenTransaction.WithTxValue[NodeId, ContractId]): Unit =
-    updateWithAbsoluteContractId(tx.mapContractId(toAbsoluteContractId(txCounter.get)))
+    updateWithAbsoluteContractId(tx.resolveRelCid(toContractIdString(txCounter.get)))
 
-  def toAbsoluteContractId(txCounter: Int)(cid: ContractId): AbsoluteContractId =
-    cid match {
-      case r: RelativeContractId =>
-        // It is safe to concatenate numbers and "-" to form a valid ContractId
-        AbsoluteContractId(Ref.ContractIdString.assertFromString(s"$txCounter-${r.txnid.index}"))
-      case a: AbsoluteContractId => a
-    }
+  def toContractIdString(txCounter: Int)(r: RelativeContractId): Ref.ContractIdString =
+    // It is safe to concatenate numbers and "-" to form a valid ContractId
+    Ref.ContractIdString.assertFromString(s"$txCounter-${r.txnid.index}")
 
   def updateWithAbsoluteContractId(
       tx: GenTransaction.WithTxValue[NodeId, AbsoluteContractId]): Unit =

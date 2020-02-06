@@ -1,3 +1,6 @@
+# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 name:                daml-ledger
 version:             0.1.0.0
 description:         Haskell bindings for a DAML Ledger
@@ -42,3 +45,4 @@ library:
   - OverloadedStrings
   - RecordWildCards
   - ScopedTypeVariables
+

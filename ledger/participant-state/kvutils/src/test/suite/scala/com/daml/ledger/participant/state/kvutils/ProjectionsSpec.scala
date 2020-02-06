@@ -25,18 +25,19 @@ class ProjectionsSpec extends WordSpec with Matchers {
 
   def makeCreateNode(cid: ContractId, signatories: Set[Party], stakeholders: Set[Party]) =
     Node.NodeCreate(
-      cid,
-      ContractInst(
+      nodeSeed = None,
+      coid = cid,
+      coinst = ContractInst(
         Identifier(
           PackageId.assertFromString("some-package"),
           QualifiedName.assertFromString("Foo:Bar")),
         VersionedValue(ValueVersions.acceptedVersions.last, ValueText("foo")),
         "agreement"
       ),
-      None,
-      signatories,
-      stakeholders,
-      None
+      optLocation = None,
+      signatories = signatories,
+      stakeholders = stakeholders,
+      key = None
     )
 
   def makeExeNode(
@@ -46,20 +47,21 @@ class ProjectionsSpec extends WordSpec with Matchers {
       stakeholders: Set[Party],
       children: ImmArray[NodeId]) =
     Node.NodeExercises(
-      target,
-      Identifier(
+      nodeSeed = None,
+      targetCoid = target,
+      templateId = Identifier(
         PackageId.assertFromString("some-package"),
         QualifiedName.assertFromString("Foo:Bar")),
-      Name.assertFromString("someChoice"),
-      None,
-      true,
-      actingParties,
-      VersionedValue(ValueVersions.acceptedVersions.last, ValueText("foo")),
-      stakeholders,
-      signatories,
-      children,
-      None,
-      None
+      choiceId = Name.assertFromString("someChoice"),
+      optLocation = None,
+      consuming = true,
+      actingParties = actingParties,
+      chosenValue = VersionedValue(ValueVersions.acceptedVersions.last, ValueText("foo")),
+      stakeholders = stakeholders,
+      signatories = signatories,
+      children = children,
+      exerciseResult = None,
+      key = None
     )
 
   def project(tx: Transaction) = {

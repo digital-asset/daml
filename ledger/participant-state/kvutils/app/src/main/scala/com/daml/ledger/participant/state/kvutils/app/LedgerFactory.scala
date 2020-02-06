@@ -8,37 +8,29 @@ import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId}
 import com.digitalasset.resources.ResourceOwner
 import scopt.OptionParser
 
+import scala.concurrent.ExecutionContext
+
 trait LedgerFactory[T <: KeyValueLedger, ExtraConfig] {
   val defaultExtraConfig: ExtraConfig
 
   def extraConfigParser(parser: OptionParser[Config[ExtraConfig]]): Unit
 
+  def manipulateConfig(config: Config[ExtraConfig]): Config[ExtraConfig] =
+    config
+
   def owner(
       ledgerId: LedgerId,
       participantId: ParticipantId,
       config: ExtraConfig,
-  )(implicit materializer: Materializer): ResourceOwner[T]
+  )(implicit executionContext: ExecutionContext, materializer: Materializer): ResourceOwner[T]
 }
 
 object LedgerFactory {
-  def apply[T <: KeyValueLedger](
-      newOwner: (LedgerId, ParticipantId) => ResourceOwner[T],
-  ): LedgerFactory[T, Unit] =
-    new SimpleLedgerFactory(newOwner)
 
-  class SimpleLedgerFactory[T <: KeyValueLedger](
-      newOwner: (LedgerId, ParticipantId) => ResourceOwner[T]
-  ) extends LedgerFactory[T, Unit] {
-    override val defaultExtraConfig: Unit = ()
+  abstract class SimpleLedgerFactory[T <: KeyValueLedger] extends LedgerFactory[T, Unit] {
+    override final val defaultExtraConfig: Unit = ()
 
-    override def extraConfigParser(parser: OptionParser[Config[Unit]]): Unit =
+    override final def extraConfigParser(parser: OptionParser[Config[Unit]]): Unit =
       ()
-
-    override def owner(
-        ledgerId: LedgerId,
-        participantId: ParticipantId,
-        config: Unit,
-    )(implicit materializer: Materializer): ResourceOwner[T] =
-      newOwner(ledgerId, participantId)
   }
 }

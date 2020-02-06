@@ -22,19 +22,19 @@ class TransactionVersionSpec extends WordSpec with Matchers {
     }
 
     "pick version 2 when confronted with newer data" in {
-      val usingOptional = dummyCreateTransaction mapContractIdAndValue (identity, v =>
+      val usingOptional = dummyCreateTransaction map3 (identity, identity, v =>
         ValueOptional(Some(v)): Value[String])
       assignVersion(assignValueVersions(usingOptional)) shouldBe TransactionVersion("2")
     }
 
     "pick version 7 when confronted with exercise result" in {
-      val hasExerciseResult = dummyExerciseWithResultTransaction mapContractIdAndValue (identity, v =>
+      val hasExerciseResult = dummyExerciseWithResultTransaction map3 (identity, identity, v =>
         ValueOptional(Some(v)): Value[String])
       assignVersion(assignValueVersions(hasExerciseResult)) shouldBe TransactionVersion("7")
     }
 
     "pick version 2 when confronted with exercise result" in {
-      val hasExerciseResult = dummyExerciseTransaction mapContractIdAndValue (identity, v =>
+      val hasExerciseResult = dummyExerciseTransaction map3 (identity, identity, v =>
         ValueOptional(Some(v)): Value[String])
       assignVersion(assignValueVersions(hasExerciseResult)) shouldBe TransactionVersion("2")
     }
@@ -44,7 +44,7 @@ class TransactionVersionSpec extends WordSpec with Matchers {
   private[this] def assignValueVersions[Nid, Cid, Cid2](
       t: GenTransaction[Nid, Cid, Value[Cid2]],
   ): GenTransaction[Nid, Cid, VersionedValue[Cid2]] =
-    t mapContractIdAndValue (identity, v =>
+    t map3 (identity, identity, v =>
       asVersionedValue(v) fold (e =>
         fail(s"We didn't write traverse for GenTransaction: $e"), identity))
 }

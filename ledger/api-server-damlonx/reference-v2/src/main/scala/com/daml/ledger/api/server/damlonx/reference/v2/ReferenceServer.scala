@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.server.damlonx.reference.v2
 
+import java.io.File
 import java.util.UUID
 
 import akka.actor.ActorSystem
@@ -10,7 +11,7 @@ import akka.stream.Materializer
 import com.codahale.metrics.SharedMetricRegistries
 import com.daml.ledger.api.server.damlonx.reference.v2.cli.Cli
 import com.daml.ledger.participant.state.v1.{ReadService, SubmissionId, WriteService}
-import com.digitalasset.daml.lf.archive.{Dar, DarReader}
+import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.auth.{AuthService, AuthServiceWildcard}
 import com.digitalasset.logging.LoggingContext
@@ -19,7 +20,6 @@ import com.digitalasset.platform.apiserver.{ApiServerConfig, StandaloneApiServer
 import com.digitalasset.platform.indexer.{IndexerConfig, StandaloneIndexerServer}
 import com.digitalasset.resources.akka.AkkaResourceOwner
 import com.digitalasset.resources.{ProgramResource, ResourceOwner}
-import java.io.File
 
 import scala.compat.java8.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContext, Future}
@@ -29,42 +29,6 @@ object ReferenceServer {
   private implicit val system: ActorSystem = ActorSystem("indexed-kvutils")
   private implicit val materializer: Materializer = Materializer(system)
   private implicit val executionContext: ExecutionContext = system.dispatcher
-
-  private def readDar(from: File): Future[Dar[Archive]] =
-    Future(DarReader { case (_, x) => Try(Archive.parseFrom(x)) }.readArchiveFromFile(from).get)
-
-  private def uploadDar(from: File, to: InMemoryKVParticipantState): Future[Unit] = {
-    val submissionId = SubmissionId.assertFromString(UUID.randomUUID().toString)
-    for {
-      dar <- readDar(from)
-      _ <- to.uploadPackages(submissionId, dar.all, None).toScala
-    } yield ()
-  }
-
-  private def startParticipant(
-      config: Config,
-      ledger: InMemoryKVParticipantState): ResourceOwner[Unit] =
-    newLoggingContext { implicit logCtx =>
-      for {
-        _ <- startIndexerServer(config, readService = ledger)
-        _ <- startApiServer(
-          config,
-          readService = ledger,
-          writeService = ledger,
-          authService = AuthServiceWildcard,
-        )
-      } yield ()
-    }
-
-  private def extraParticipantConfig(base: Config): Vector[Config] =
-    for {
-      (extraParticipantId, port, jdbcUrl) <- base.extraParticipants
-    } yield
-      base.copy(
-        port = port,
-        participantId = extraParticipantId,
-        jdbcUrl = jdbcUrl,
-      )
 
   def main(args: Array[String]): Unit = {
     val config =
@@ -93,6 +57,40 @@ object ReferenceServer {
 
     new ProgramResource(owner).run()
   }
+
+  private def uploadDar(from: File, to: InMemoryKVParticipantState): Future[Unit] = {
+    val submissionId = SubmissionId.assertFromString(UUID.randomUUID().toString)
+    for {
+      dar <- Future(
+        DarReader { case (_, x) => Try(Archive.parseFrom(x)) }.readArchiveFromFile(from).get)
+      _ <- to.uploadPackages(submissionId, dar.all, None).toScala
+    } yield ()
+  }
+
+  private def extraParticipantConfig(base: Config): Vector[Config] =
+    for ((extraParticipantId, port, jdbcUrl) <- base.extraParticipants)
+      yield
+        base.copy(
+          port = port,
+          participantId = extraParticipantId,
+          jdbcUrl = jdbcUrl,
+        )
+
+  private def startParticipant(
+      config: Config,
+      ledger: InMemoryKVParticipantState
+  ): ResourceOwner[Unit] =
+    newLoggingContext { implicit logCtx =>
+      for {
+        _ <- startIndexerServer(config, readService = ledger)
+        _ <- startApiServer(
+          config,
+          readService = ledger,
+          writeService = ledger,
+          authService = AuthServiceWildcard,
+        )
+      } yield ()
+    }
 
   private def startIndexerServer(config: Config, readService: ReadService)(
       implicit logCtx: LoggingContext

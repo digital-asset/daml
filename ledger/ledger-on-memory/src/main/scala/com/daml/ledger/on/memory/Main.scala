@@ -3,14 +3,28 @@
 
 package com.daml.ledger.on.memory
 
+import akka.stream.Materializer
+import com.daml.ledger.participant.state.kvutils.app.LedgerFactory.SimpleLedgerFactory
 import com.daml.ledger.participant.state.kvutils.app.Runner
-import com.digitalasset.resources.ProgramResource
+import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId}
+import com.digitalasset.resources.{ProgramResource, ResourceOwner}
 
-import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.ExecutionContext
 
 object Main {
   def main(args: Array[String]): Unit = {
-    new ProgramResource(
-      Runner("In-Memory Ledger", InMemoryLedgerReaderWriter.owner(_, _)).owner(args)).run()
+    new ProgramResource(new Runner("In-Memory Ledger", InMemoryLedgerFactory).owner(args)).run()
+  }
+
+  object InMemoryLedgerFactory extends SimpleLedgerFactory[InMemoryLedgerReaderWriter] {
+    override def owner(
+        ledgerId: LedgerId,
+        participantId: ParticipantId,
+        config: Unit
+    )(
+        implicit executionContext: ExecutionContext,
+        materializer: Materializer,
+    ): ResourceOwner[InMemoryLedgerReaderWriter] =
+      InMemoryLedgerReaderWriter.owner(ledgerId, participantId)
   }
 }

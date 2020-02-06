@@ -17,9 +17,9 @@ load("@os_info//:os_info.bzl", "is_windows")
 load("@dadew//:dadew.bzl", "dadew_tool_home")
 load("@rules_haskell//haskell:cabal.bzl", "stack_snapshot")
 
-GHCIDE_REV = "8f74783835324ee6dad7faf83b7a62143a48e8c6"
-GHCIDE_SHA256 = "36bed2b197dfc296488ed2e994b82193e4505051ffa3050d4844a6c66fab2baa"
-GHCIDE_VERSION = "0.0.6"
+GHCIDE_REV = "e59d3e2c778b07fde3a916046cfa2662ea6107ad"
+GHCIDE_SHA256 = "68b0386522c35db2a27bb1b4bf689508040bd6d6c3ff2569d6a6072e4c15acef"
+GHCIDE_VERSION = "0.1.0"
 
 def daml_haskell_deps():
     """Load all Haskell dependencies of the DAML repository."""

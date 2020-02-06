@@ -7,6 +7,8 @@ import java.io.File
 import java.nio.file.Path
 
 import com.daml.ledger.participant.state.v1.ParticipantId
+import com.digitalasset.resources.ProgramResource.SuppressedException
+import com.digitalasset.resources.ResourceOwner
 import scopt.OptionParser
 
 case class Config[Extra](
@@ -17,6 +19,7 @@ case class Config[Extra](
     serverJdbcUrl: String,
     ledgerId: Option[String],
     archiveFiles: Seq[Path],
+    allowExistingSchemaForIndex: Boolean,
     extra: Extra,
 )
 
@@ -32,8 +35,19 @@ object Config {
       serverJdbcUrl = "jdbc:h2:mem:server;db_close_delay=-1;db_close_on_exit=false",
       ledgerId = None,
       archiveFiles = Vector.empty,
+      allowExistingSchemaForIndex = false,
       extra = extra,
     )
+
+  def owner[Extra](
+      name: String,
+      extraOptions: OptionParser[Config[Extra]] => Unit,
+      defaultExtra: Extra,
+      args: Seq[String],
+  ): ResourceOwner[Config[Extra]] =
+    parse(name, extraOptions, defaultExtra, args)
+      .fold[ResourceOwner[Config[Extra]]](ResourceOwner.failed(new Config.ConfigParseException))(
+        ResourceOwner.successful)
 
   def parse[Extra](
       name: String,
@@ -93,4 +107,6 @@ object Config {
     extraOptions(parser)
     parser
   }
+
+  class ConfigParseException extends SuppressedException
 }

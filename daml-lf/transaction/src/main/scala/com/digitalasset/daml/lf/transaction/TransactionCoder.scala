@@ -303,7 +303,7 @@ object TransactionCoder {
           else if (txVersion precedes minKeyOrLookupByKey)
             Left(DecodeError(s"$txVersion is too old to support NodeCreate's `key` field"))
           else decodeKeyWithMaintainers(decodeVal, protoCreate.getKeyWithMaintainers).map(Some(_))
-        } yield (ni, NodeCreate(c, ci, None, signatories, stakeholders, key))
+        } yield (ni, NodeCreate(None, c, ci, None, signatories, stakeholders, key))
       case NodeTypeCase.FETCH =>
         val protoFetch = protoNode.getFetch
         for {
@@ -389,6 +389,7 @@ object TransactionCoder {
           (
             ni,
             NodeExercises[Nid, Cid, Val](
+              None,
               targetCoid = targetCoid,
               templateId = templateId,
               choiceId = choiceName,
@@ -569,7 +570,7 @@ object TransactionCoder {
     } yield GenTransaction(ns, rs, None)
   }
 
-  private def toPartySet(strList: ProtocolStringList): Either[DecodeError, Set[Party]] = {
+  def toPartySet(strList: ProtocolStringList): Either[DecodeError, Set[Party]] = {
     val parties = strList
       .asByteStringList()
       .asScala
@@ -583,5 +584,76 @@ object TransactionCoder {
 
   private def toIdentifier(s: String): Either[DecodeError, Name] =
     Name.fromString(s).left.map(DecodeError)
+
+  /** Node information for a serialized transaction node. Used to compute
+    * informees when deserialization is too costly.
+    * This method is not supported for transaction version <5 (as NodeInfo does not support it).
+    * We're not using e.g. "implicit class" in order to keep the decoding errors explicit.
+    * NOTE(JM): Currently used only externally, but kept here to keep in sync
+    * with the implementation.
+    */
+  def protoNodeInfo(
+      txVersion: TransactionVersion,
+      protoNode: TransactionOuterClass.Node): Either[DecodeError, NodeInfo] =
+    if (txVersion precedes TransactionVersions.minFetchActors) {
+      Left(DecodeError(s"NodeInfo not supported for transaction version $txVersion"))
+    } else {
+      protoNode.getNodeTypeCase match {
+        case NodeTypeCase.CREATE =>
+          val protoCreate = protoNode.getCreate
+          for {
+            signatories_ <- toPartySet(protoCreate.getSignatoriesList)
+            stakeholders_ <- toPartySet(protoCreate.getStakeholdersList)
+          } yield {
+            new NodeInfo.Create {
+              def signatories = signatories_
+              def stakeholders = stakeholders_
+            }
+          }
+        case NodeTypeCase.FETCH =>
+          val protoFetch = protoNode.getFetch
+          for {
+            actingParties_ <- toPartySet(protoFetch.getActorsList)
+            stakeholders_ <- toPartySet(protoFetch.getStakeholdersList)
+            signatories_ <- toPartySet(protoFetch.getSignatoriesList)
+          } yield {
+            new NodeInfo.Fetch {
+              def signatories = signatories_
+              def stakeholders = stakeholders_
+              def actingParties = Some(actingParties_)
+            }
+          }
+
+        case NodeTypeCase.EXERCISE =>
+          val protoExe = protoNode.getExercise
+          for {
+            actingParties_ <- toPartySet(protoExe.getActorsList)
+            signatories_ <- toPartySet(protoExe.getSignatoriesList)
+            stakeholders_ <- toPartySet(protoExe.getStakeholdersList)
+          } yield {
+            new NodeInfo.Exercise {
+              def signatories = signatories_
+              def stakeholders = stakeholders_
+              def actingParties = actingParties_
+              def consuming = protoExe.getConsuming
+            }
+          }
+
+        case NodeTypeCase.LOOKUP_BY_KEY =>
+          val protoLookupByKey = protoNode.getLookupByKey
+          for {
+            maintainers <- toPartySet(protoLookupByKey.getKeyWithMaintainers.getMaintainersList)
+          } yield {
+            new NodeInfo.LookupByKey {
+              def hasResult =
+                protoLookupByKey.getContractId.nonEmpty ||
+                  protoLookupByKey.hasContractIdStruct
+              def keyMaintainers = maintainers
+            }
+          }
+
+        case NodeTypeCase.NODETYPE_NOT_SET => Left(DecodeError("Unset Node type"))
+      }
+    }
 
 }

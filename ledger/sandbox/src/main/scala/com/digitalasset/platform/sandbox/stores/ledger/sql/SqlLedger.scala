@@ -212,7 +212,7 @@ private final class SqlLedger(
         EventIdFormatter.makeAbsCoid(transactionId)
 
       val mappedTx = transaction
-        .mapContractIdAndValue(toAbsCoid, _.mapContractId(toAbsCoid))
+        .resolveRelCid(EventIdFormatter.makeAbs(transactionId))
         .mapNodeId(EventIdFormatter.fromTransactionId(transactionId, _))
 
       val blindingInfo = Blinding.blind(transaction)

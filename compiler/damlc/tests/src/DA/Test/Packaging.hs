@@ -893,6 +893,12 @@ dataDependencyTests damlc repl davlDar = testGroup "Data Dependencies" $
               , "usingEq = (==)"
               -- test exporting of HasField instances
               , "data R = R { rfoo : Int }"
+              -- test exporting of template typeclass instances
+              , "template P"
+              , "  with"
+              , "    p : Party"
+              , "  where"
+              , "    signatory p"
               ]
           writeFileUTF8 (proja </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
@@ -908,7 +914,7 @@ dataDependencyTests damlc repl davlDar = testGroup "Data Dependencies" $
           writeFileUTF8 (projb </> "src" </> "B.daml") $ unlines
               [ "daml 1.2"
               , "module B where"
-              , "import A ( Foo (foo), Bar (..), usingFoo, Q (..), usingEq, R(R) )"
+              , "import A ( Foo (foo), Bar (..), usingFoo, Q (..), usingEq, R(R), P(P) )"
               , "import DA.Assert"
               , "import DA.Record"
               , ""
@@ -934,6 +940,13 @@ dataDependencyTests damlc repl davlDar = testGroup "Data Dependencies" $
               , "testHasFieldInstanceImport = scenario do"
               , "  let x = R 100"
               , "  getField @\"rfoo\" x === 100"
+              -- test importing of template typeclass instance
+              , "test = scenario do"
+              , "  alice <- getParty \"Alice\""
+              , "  let t = P alice"
+              , "  signatory t === [alice]"
+              , "  cid <- submit alice $ create t"
+              , "  submit alice $ archive cid"
               ]
           writeFileUTF8 (projb </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion

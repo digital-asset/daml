@@ -1,3 +1,6 @@
+# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 steps:
   - bash: |
       set -euo pipefail
@@ -8,3 +11,4 @@ steps:
            --data "{\"text\":\"<!here> *FAILED* $(Agent.JobName): <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|$MESSAGE>\n\"}" \
            $(Slack.team-daml)
     condition: and(failed(), eq(variables['Build.SourceBranchName'], 'master'))
+

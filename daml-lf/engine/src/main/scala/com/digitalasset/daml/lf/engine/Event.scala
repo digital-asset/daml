@@ -1,7 +1,9 @@
 // Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine
+package com.digitalasset.daml.lf
+package engine
+
 import com.digitalasset.daml.lf.data.Ref.{ChoiceName, Identifier, Party}
 import com.digitalasset.daml.lf.transaction.Node._
 import com.digitalasset.daml.lf.data.{FrontStack, FrontStackCons, ImmArray}
@@ -14,10 +16,19 @@ import scala.annotation.tailrec
 // Emitted events for the API
 // --------------------------
 
-sealed trait Event[+Nid, +Cid, +Val] extends Product with Serializable {
+sealed trait Event[+Nid, +Cid, +Val]
+    extends value.CidContainer[Event[Nid, Cid, Val]]
+    with Product
+    with Serializable {
   def witnesses: Set[Party]
-  def mapContractId[Cid2, Val2](f: Cid => Cid2, g: Val => Val2): Event[Nid, Cid2, Val2]
-  def mapNodeId[Nid2](f: Nid => Nid2): Event[Nid2, Cid, Val]
+
+  final override protected val self: this.type = this
+
+  @deprecated("use resolveRelCid/ensureNoCid/ensureNoRelCid", since = "0.13.52")
+  final def mapContractId[Cid2, Val2](f: Cid => Cid2, g: Val => Val2): Event[Nid, Cid2, Val2] =
+    Event.map3(identity[Nid], f, g)(this)
+  final def mapNodeId[Nid2](f: Nid => Nid2): Event[Nid2, Cid, Val] =
+    Event.map3(f, identity[Cid], identity[Val])(this)
 }
 
 /** Event for created contracts, follows ledger api event protocol
@@ -50,14 +61,6 @@ final case class CreateEvent[Cid, Val](
     * For broader and more detailed information, the consumer can use [[signatories]] and/or [[observers]].
     */
   val stakeholders = signatories.union(observers).intersect(witnesses)
-
-  override def mapContractId[Cid2, Val2](f: Cid => Cid2, g: Val => Val2): CreateEvent[Cid2, Val2] =
-    copy(
-      contractId = f(contractId),
-      argument = g(argument),
-      contractKey = contractKey.map(_.mapValue(g)))
-
-  override def mapNodeId[Nid2](f: Nothing => Nid2): CreateEvent[Cid, Val] = this
 }
 
 /** Event for exercises
@@ -84,21 +87,62 @@ final case class ExerciseEvent[Nid, Cid, Val](
     stakeholders: Set[Party],
     witnesses: Set[Party],
     exerciseResult: Option[Val])
-    extends Event[Nid, Cid, Val] {
-  override def mapContractId[Cid2, Val2](
-      f: Cid => Cid2,
-      g: Val => Val2): ExerciseEvent[Nid, Cid2, Val2] =
-    copy(
-      contractId = f(contractId),
-      choiceArgument = g(choiceArgument),
-      exerciseResult = exerciseResult.map(g)
-    )
+    extends Event[Nid, Cid, Val]
 
-  override def mapNodeId[Nid2](f: Nid => Nid2): ExerciseEvent[Nid2, Cid, Val] =
-    copy(children = children.map(f))
-}
+object Event extends value.CidContainer3[Event] {
 
-object Event {
+  override private[lf] def map3[Nid, Cid, Val, Nid2, Cid2, Val2](
+      f1: Nid => Nid2,
+      f2: Cid => Cid2,
+      f3: Val => Val2
+  ): Event[Nid, Cid, Val] => Event[Nid2, Cid2, Val2] = {
+    case CreateEvent(
+        contractId,
+        templateId,
+        contractKey,
+        argument,
+        agreementText,
+        signatories,
+        observers,
+        witnesses,
+        ) =>
+      CreateEvent(
+        contractId = f2(contractId),
+        templateId = templateId,
+        contractKey = contractKey.map(KeyWithMaintainers.map1(f3)),
+        argument = f3(argument),
+        agreementText = agreementText,
+        signatories = signatories,
+        observers = observers,
+        witnesses = witnesses,
+      )
+
+    case ExerciseEvent(
+        contractId,
+        templateId,
+        choice,
+        choiceArgument,
+        actingParties,
+        isConsuming,
+        children,
+        stakeholders,
+        witnesses,
+        exerciseResult,
+        ) =>
+      ExerciseEvent(
+        contractId = f2(contractId),
+        templateId = templateId,
+        choice = choice,
+        choiceArgument = f3(choiceArgument),
+        actingParties = actingParties,
+        isConsuming = isConsuming,
+        children = children.map(f1),
+        stakeholders = stakeholders,
+        witnesses = witnesses,
+        exerciseResult = exerciseResult.map(f3),
+      )
+  }
+
   case class Events[Nid, Cid, Val](roots: ImmArray[Nid], events: Map[Nid, Event[Nid, Cid, Val]]) {
     // filters from the leaves upwards: if any any exercise node returns false all its children will be purged, too
     def filter(f: Event[Nid, Cid, Val] => Boolean): Events[Nid, Cid, Val] = {
@@ -124,6 +168,7 @@ object Event {
       Events(roots.filter(liveEvts.contains), Map() ++ liveEvts)
     }
 
+    @deprecated("use resolveRelCid/ensureNoCid/ensureNoRelCid", since = "0.13.52")
     def mapContractIdAndValue[Cid2, Val2](f: Cid => Cid2, g: Val => Val2): Events[Nid, Cid2, Val2] =
       // do NOT use `Map#mapValues`! it applies the function lazily on lookup. see #1861
       copy(events = events.transform { (_, value) =>
@@ -207,4 +252,19 @@ object Event {
     go(FrontStack(relevantRoots))
     Events(relevantRoots, Map() ++ evts)
   }
+
+  object Events extends value.CidContainer3[Events] {
+    override private[lf] def map3[Nid, Cid, Val, Nid2, Cid2, Val2](
+        f1: Nid => Nid2,
+        f2: Cid => Cid2,
+        f3: Val => Val2,
+    ): Events[Nid, Cid, Val] => Events[Nid2, Cid2, Val2] = {
+      case Events(roots, events) =>
+        Events(roots.map(f1), events.map {
+          case (id, event) => f1(id) -> Event.map3(f1, f2, f3)(event)
+        })
+    }
+
+  }
+
 }

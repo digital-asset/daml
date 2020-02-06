@@ -29,8 +29,7 @@ import com.digitalasset.platform.store.SequencingError.{
   * - Validates the transaction against the [[ActiveLedgerState]].
   * - Updates the [[ActiveLedgerState]].
   */
-class ActiveLedgerStateManager[ALS](initialState: => ALS)(
-    implicit ACS: ALS => ActiveLedgerState[ALS]) {
+class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](initialState: => ALS) {
 
   private case class AddTransactionState(
       acc: Option[ALS],
@@ -147,8 +146,7 @@ class ActiveLedgerStateManager[ALS](initialState: => ALS)(
                   transactionId = transactionId,
                   eventId = nodeId,
                   workflowId = workflowId,
-                  contract = nc.coinst.mapValue(
-                    _.mapContractId(EventIdFormatter.makeAbsCoid(transactionId))),
+                  contract = nc.coinst.resolveRelCid(EventIdFormatter.makeAbs(transactionId)),
                   witnesses = disclosure(nodeId),
                   // we need to `getOrElse` here because the `Nid` might include absolute
                   // contract ids, and those are never present in the local disclosure.
@@ -156,8 +154,8 @@ class ActiveLedgerStateManager[ALS](initialState: => ALS)(
                     .getOrElse(nodeId, Set.empty) diff nc.stakeholders).toList
                     .map(p => p -> transactionId)
                     .toMap,
-                  key = nc.key.map(_.mapValue(_.mapContractId(coid =>
-                    throw new IllegalStateException(s"Contract ID $coid found in contract key")))),
+                  key =
+                    nc.key.map(_.assertNoCid(coid => s"Contract ID $coid found in contract key")),
                   signatories = nc.signatories,
                   observers = nc.stakeholders.diff(nc.signatories),
                   agreementText = nc.coinst.agreementText
@@ -199,8 +197,11 @@ class ActiveLedgerStateManager[ALS](initialState: => ALS)(
                 )
               case nlkup: N.NodeLookupByKey.WithTxValue[AbsoluteContractId] =>
                 // Check that the stored lookup result matches the current result
-                val key = nlkup.key.key.mapContractId(coid =>
-                  throw new IllegalStateException(s"Contract ID $coid found in contract key"))
+                val key = nlkup.key.key.ensureNoCid.fold(
+                  coid =>
+                    throw new IllegalStateException(s"Contract ID $coid found in contract key"),
+                  identity
+                )
                 val gk = GlobalKey(nlkup.templateId, key)
                 val nodeParties = nlkup.key.maintainers
 
