@@ -18,4 +18,5 @@ fi
 DADE_REPO_ROOT="$DADE_CURRENT_SCRIPT_DIR/../../"
 VERSION=$(cat "$DADE_REPO_ROOT/dev-env/VERSION")
 semver bump $BUMP $VERSION > "$DADE_REPO_ROOT/dev-env/VERSION"
-nix-build "$DADE_REPO_ROOT/nix" -A cached.dev-env --no-out-link
+# Work around sporadic segfaults. See https://github.com/digital-asset/daml/pull/4427
+nix-build --option http2 false "$DADE_REPO_ROOT/nix" -A cached.dev-env --no-out-link
