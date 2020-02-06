@@ -155,6 +155,16 @@ createProjectPackageDb opts thisSdkVer deps dataDeps = do
               _ -> parsedUnitId
         pure (pkgId, package, dalf, unitId)
 
+    let unitIdConflicts = MS.fromListWith Set.union $ concat
+            [ [ (unitId, Set.singleton pkgId)
+              | (pkgId, _package, _dalf, unitId) <- pkgs ]
+            , [ (unitId, Set.singleton (LF.dalfPackageId dalfPkg))
+              | (unitId, dalfPkg) <- MS.toList dependencies ]
+            ]
+    when (any ((>= 2) . Set.size) unitIdConflicts) $ do
+        fail $ "Transitive dependencies with same unit id but conflicting package ids: "
+            ++ intercalate ", " (map show $ MS.keys unitIdConflicts)
+
     let (depGraph, vertexToNode) = buildLfPackageGraph pkgs stablePkgIds dependencyPkgIds
     -- Iterate over the dependency graph in topological order.
     -- We do a topological sort on the transposed graph which ensures that
