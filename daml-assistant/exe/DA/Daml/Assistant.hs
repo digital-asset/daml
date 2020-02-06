@@ -14,6 +14,7 @@ import DA.Daml.Assistant.Command
 import DA.Daml.Assistant.Version
 import DA.Daml.Assistant.Install
 import DA.Daml.Assistant.Util
+import System.Environment (getArgs)
 import System.FilePath
 import System.Directory
 import System.Process.Typed
@@ -53,24 +54,26 @@ main = displayErrors $ do
             -- So if we can't find it, let the user know. This will happen whenever
             -- auto-install is disabled and the project or environment specify a
             -- missing SDK version.
-            when (isNothing envSdkPath) $ do
-                let installTarget
-                        | Just v <- envSdkVersion = versionToString v
-                        | otherwise = "latest"
-                hPutStr stderr . unlines $
-                    [ "DAML SDK not installed. Cannot run command without SDK."
-                    , "To proceed, please install the SDK by running:"
-                    , ""
-                    , "    daml install " <> installTarget
-                    , ""
-                    ]
-                exitFailure
-
-            sdkConfig <- readSdkConfig (fromJust envSdkPath)
-            sdkCommands <- fromRightM throwIO (listSdkCommands sdkConfig)
-            userCommand <- getCommand sdkCommands
-            versionChecks env
-            handleCommand env userCommand
+            case envSdkPath of
+                Nothing -> do
+                    let installTarget
+                            | Just v <- envSdkVersion = versionToString v
+                            | otherwise = "latest"
+                    hPutStr stderr . unlines $
+                        [ "DAML SDK not installed. Cannot run command without SDK."
+                        , "To proceed, please install the SDK by running:"
+                        , ""
+                        , "    daml install " <> installTarget
+                        , ""
+                        ]
+                    exitFailure
+                Just sdkPath -> do
+                    sdkConfig <- readSdkConfig sdkPath
+                    enriched <- hasEnrichedCompletion <$> getArgs
+                    sdkCommands <- fromRightM throwIO (listSdkCommands sdkPath enriched sdkConfig)
+                    userCommand <- getCommand sdkCommands
+                    versionChecks env
+                    handleCommand env userCommand
 
 -- | Perform version checks, i.e. warn user if project SDK version or assistant SDK
 -- versions are out of date with the latest known release.
