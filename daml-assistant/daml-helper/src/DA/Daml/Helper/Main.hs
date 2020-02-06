@@ -21,18 +21,20 @@ main =
         exitFailure
   where
     parserPrefs = prefs showHelpOnError
-    go = withCloseOnStdin $ do
-         installSignalHandlers
-         command <- customExecParser parserPrefs (info (commandParser <**> helper) idm)
-         runCommand command
+    go = do
+      installSignalHandlers
+      command <- customExecParser parserPrefs (info (commandParser <**> helper) idm)
+      runCommand command
 
 data Command
     = DamlStudio { replaceExtension :: ReplaceExtension, remainingArguments :: [String] }
     | RunJar
         { jarPath :: FilePath
         , mbLogbackConfig :: Maybe FilePath
-        -- Both file paths are relative to the SDK directory.
-        , remainingArguments :: [String] }
+        -- ^ Both file paths are relative to the SDK directory.
+        , remainingArguments :: [String]
+        , shutdownStdinClose :: Bool
+        }
     | New { targetFolder :: FilePath, templateNameM :: Maybe String }
     | Migrate { targetFolder :: FilePath, pkgPathFrom :: FilePath, pkgPathTo :: FilePath }
     | Init { targetFolderM :: Maybe FilePath }
@@ -47,6 +49,7 @@ data Command
       , sandboxOptions :: SandboxOptions
       , navigatorOptions :: NavigatorOptions
       , jsonApiOptions :: JsonApiOptions
+      , shutdownStdinClose :: Bool
       }
     | Deploy { flags :: LedgerFlags }
     | LedgerListParties { flags :: LedgerFlags, json :: JsonFlag }
@@ -86,10 +89,15 @@ commandParser = subparser $ fold
             "published" -> Just ReplaceExtPublished
             _ -> Nothing
 
+     -- We need to push this into the commands since it will end up after the command due to the way daml-assistant
+    -- invokes daml-helper.
+    stdinCloseOpt = switch (hidden <> long "shutdown-stdin-close" <> help "Shut down when stdin is closed, disabled by default")
+
     runJarCmd = RunJar
         <$> argument str (metavar "JAR" <> help "Path to JAR relative to SDK path")
         <*> optional (strOption (long "logback-config"))
         <*> many (argument str (metavar "ARG"))
+        <*> stdinCloseOpt
 
     newCmd = asum
         [ ListTemplates <$ flag' () (long "list" <> help "List the available project templates.")
@@ -116,6 +124,7 @@ commandParser = subparser $ fold
         <*> (SandboxOptions <$> many (strOption (long "sandbox-option" <> metavar "SANDBOX_OPTION" <> help "Pass option to sandbox")))
         <*> (NavigatorOptions <$> many (strOption (long "navigator-option" <> metavar "NAVIGATOR_OPTION" <> help "Pass option to navigator")))
         <*> (JsonApiOptions <$> many (strOption (long "json-api-option" <> metavar "JSON_API_OPTION" <> help "Pass option to HTTP JSON API")))
+        <*> stdinCloseOpt
 
     deployCmdInfo = mconcat
         [ progDesc $ concat
@@ -246,12 +255,15 @@ commandParser = subparser $ fold
 runCommand :: Command -> IO ()
 runCommand = \case
     DamlStudio {..} -> runDamlStudio replaceExtension remainingArguments
-    RunJar {..} -> runJar jarPath mbLogbackConfig remainingArguments
+    RunJar {..} ->
+        (if shutdownStdinClose then withCloseOnStdin else id) $
+        runJar jarPath mbLogbackConfig remainingArguments
     New {..} -> runNew targetFolder templateNameM [] []
     Migrate {..} -> runMigrate targetFolder pkgPathFrom pkgPathTo
     Init {..} -> runInit targetFolderM
     ListTemplates -> runListTemplates
     Start {..} ->
+        (if shutdownStdinClose then withCloseOnStdin else id) $
         runStart
             sandboxPortM
             startNavigator
