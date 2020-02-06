@@ -45,12 +45,12 @@ object ValueCoder {
       EncodeError(s"${version.showsVersion} is too old to support $isTooOldFor")
   }
 
-  final case class EncodeCid[-Cid](asString: Cid => String, asStruct: Cid => (String, Boolean)) {
+  final case class EncodeCid[Cid](asString: Cid => String, asStruct: Cid => (String, Boolean)) {
     def contramap[Cid2](f: Cid2 => Cid): EncodeCid[Cid2] =
       EncodeCid(f andThen asString, f andThen asStruct)
   }
 
-  final case class DecodeCid[+Cid](
+  final case class DecodeCid[Cid](
       fromString: String => Either[DecodeError, Cid],
       fromStruct: (String, Boolean) => Either[DecodeError, Cid],
   ) {
@@ -117,7 +117,7 @@ object ValueCoder {
     * of builders.
     */
   private[lf] implicit final class codecContractId[A](private val self: A) extends AnyVal {
-    def setContractIdOrStruct[Cid, Z](
+    def setContractIdOrStruct[Cid <: ContractId, Z](
         encodeCid: EncodeCid[Cid],
         version: SpecifiedVersion,
         contractId: Cid,
@@ -152,7 +152,7 @@ object ValueCoder {
         else Right(p.getContractId)
       } yield (cid, p.getRelative)
 
-    def decodeContractIdOrStruct[Cid, Z](
+    def decodeContractIdOrStruct[Cid <: ContractId, Z](
         decodeCid: DecodeCid[Cid],
         version: SpecifiedVersion,
     )(stringly: A => String, structly: A => proto.ContractId): Either[DecodeError, Cid] = {
@@ -172,7 +172,7 @@ object ValueCoder {
         )
     }
 
-    def decodeOptionalContractIdOrStruct[Cid, Z](
+    def decodeOptionalContractIdOrStruct[Cid <: ContractId, Z](
         decodeCid: DecodeCid[Cid],
         version: SpecifiedVersion,
     )(stringly: A => String, structly: A => proto.ContractId): Either[DecodeError, Option[Cid]] = {
@@ -215,7 +215,7 @@ object ValueCoder {
     *             see [[com.digitalasset.daml.lf.value.Value]] and [[com.digitalasset.daml.lf.value.Value.ContractId]]
     * @return either error or [VersionedValue]
     */
-  def decodeVersionedValue[Cid](
+  def decodeVersionedValue[Cid <: ContractId](
       decodeCid: DecodeCid[Cid],
       protoValue0: proto.VersionedValue,
   ): Either[DecodeError, VersionedValue[Cid]] =
@@ -224,7 +224,7 @@ object ValueCoder {
       value <- decodeValue(decodeCid, version, protoValue0.getValue)
     } yield VersionedValue(version, value)
 
-  def decodeValue[Cid](
+  def decodeValue[Cid <: ContractId](
       decodeCid: DecodeCid[Cid],
       protoValue0: proto.VersionedValue,
   ): Either[DecodeError, Value[Cid]] =
@@ -240,7 +240,7 @@ object ValueCoder {
     *             see [[com.digitalasset.daml.lf.value.Value]] and [[com.digitalasset.daml.lf.value.Value.ContractId]]
     * @return protocol buffer serialized values
     */
-  def encodeVersionedValue[Cid](
+  def encodeVersionedValue[Cid <: ContractId](
       encodeCid: EncodeCid[Cid],
       value: Value[Cid],
   ): Either[EncodeError, proto.VersionedValue] =
@@ -260,7 +260,7 @@ object ValueCoder {
     *             see [[com.digitalasset.daml.lf.value.Value]] and [[com.digitalasset.daml.lf.value.Value.ContractId]]
     * @return protocol buffer serialized values
     */
-  def encodeVersionedValueWithCustomVersion[Cid](
+  def encodeVersionedValueWithCustomVersion[Cid <: ContractId](
       encodeCid: EncodeCid[Cid],
       versionedValue: VersionedValue[Cid],
   ): Either[EncodeError, proto.VersionedValue] =
@@ -281,7 +281,7 @@ object ValueCoder {
     *             see [[com.digitalasset.daml.lf.value.Value]] and [[com.digitalasset.daml.lf.value.Value.ContractId]]
     * @return either error or Value
     */
-  def decodeValue[Cid](
+  def decodeValue[Cid <: ContractId](
       decodeCid: DecodeCid[Cid],
       valueVersion: ValueVersion,
       protoValue0: proto.Value,
@@ -447,7 +447,7 @@ object ValueCoder {
     *             see [[com.digitalasset.daml.lf.value.Value]] and [[com.digitalasset.daml.lf.value.Value.ContractId]]
     * @return protocol buffer serialized values
     */
-  def encodeValue[Cid](
+  def encodeValue[Cid <: ContractId](
       encodeCid: EncodeCid[Cid],
       valueVersion: ValueVersion,
       v0: Value[Cid],
@@ -582,14 +582,14 @@ object ValueCoder {
   // each other and nothing else.  As such, they are unsafe for
   // general usage
 
-  private[value] def valueToBytes[Cid](
+  private[value] def valueToBytes[Cid <: ContractId](
       encodeCid: EncodeCid[Cid],
       v: Value[Cid],
   ): Either[EncodeError, Array[Byte]] = {
     encodeVersionedValue(encodeCid, v).map(_.toByteArray)
   }
 
-  private[value] def valueFromBytes[Cid](
+  private[value] def valueFromBytes[Cid <: ContractId](
       decodeCid: DecodeCid[Cid],
       bytes: Array[Byte],
   ): Either[DecodeError, Value[Cid]] = {
