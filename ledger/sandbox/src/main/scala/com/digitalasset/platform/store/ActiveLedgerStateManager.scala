@@ -141,8 +141,8 @@ class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](initialState: => A
                   workflowId = workflowId,
                   contract = nc.coinst.resolveRelCid(EventIdFormatter.makeAbs(transactionId)),
                   witnesses = disclosure(nodeId),
-                  // we need to `getOrElse` here because the `Nid` might include absolute
-                  // contract ids, and those are never present in the local disclosure.
+                  // The divulgences field used to be filled with data coming from the `localDivulgence` field of the blinding info.
+                  // But this field is always empty in transactions with only absolute contract ids.
                   divulgences = Map.empty,
                   key =
                     nc.key.map(_.assertNoCid(coid => s"Contract ID $coid found in contract key")),
