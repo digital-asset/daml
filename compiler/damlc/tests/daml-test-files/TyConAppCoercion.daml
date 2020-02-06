@@ -2,8 +2,11 @@ daml 1.2
 module TyConAppCoercion () where
 
 class MyClass a where
-  f : Optional a -> a
-  f = error "unimplemented"
+  f1 : Optional a -> a
+  f1 = error ""
+
+  f2 : [a] -> a
+  f2 = error ""
 
 data X = X
 
