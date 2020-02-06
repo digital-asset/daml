@@ -61,7 +61,7 @@ class SqlLedgerSpec
       for {
         ledger <- createSqlLedger()
       } yield {
-        ledger.ledgerId should not be equal("")
+        ledger.ledgerId should not be ""
       }
     }
 
@@ -69,7 +69,7 @@ class SqlLedgerSpec
       for {
         ledger <- createSqlLedger(ledgerId)
       } yield {
-        ledger.ledgerId should not be equal(LedgerId)
+        ledger.ledgerId should not be LedgerId
       }
     }
 
@@ -79,9 +79,9 @@ class SqlLedgerSpec
         ledger2 <- createSqlLedger(ledgerId)
         ledger3 <- createSqlLedger()
       } yield {
-        ledger1.ledgerId should not be equal(LedgerId)
-        ledger1.ledgerId shouldEqual ledger2.ledgerId
-        ledger2.ledgerId shouldEqual ledger3.ledgerId
+        ledger1.ledgerId should not be LedgerId
+        ledger1.ledgerId should be(ledger2.ledgerId)
+        ledger2.ledgerId should be(ledger3.ledgerId)
       }
     }
 
@@ -90,7 +90,8 @@ class SqlLedgerSpec
         _ <- createSqlLedger(ledgerId = "TheLedger")
         throwable <- createSqlLedger(ledgerId = "AnotherLedger").failed
       } yield {
-        throwable.getMessage shouldEqual "Ledger id mismatch. Ledger id given ('AnotherLedger') is not equal to the existing one ('TheLedger')!"
+        throwable.getMessage should be(
+          "Ledger id mismatch. Ledger id given ('AnotherLedger') is not equal to the existing one ('TheLedger')!")
       }
     }
 
