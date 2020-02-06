@@ -17,7 +17,6 @@ import util.InsertDeleteStep
 import json.JsonProtocol.LfValueCodec.{apiValueToJsValue => lfValueToJsValue}
 import query.ValuePredicate.{LfV, TypeLookup}
 import com.digitalasset.jwt.domain.Jwt
-import com.digitalasset.ledger.api.{v1 => api}
 import com.typesafe.scalalogging.LazyLogging
 import scalaz.{-\/, Liskov, NonEmptyList, Show, \/, \/-}
 import Liskov.<~<
@@ -55,7 +54,7 @@ object WebSocketService {
 
   private final case class StepAndErrors[+Pos, +LfV](
       errors: Seq[ServerError],
-      step: InsertDeleteStep[(domain.ActiveContract[LfV], Pos)]) {
+      step: InsertDeleteStep[Unit, (domain.ActiveContract[LfV], Pos)]) {
     import json.JsonProtocol._, spray.json._
     def render(implicit lfv: LfV <~< JsValue, pos: Pos <~< Map[String, JsValue]): JsValue = {
       def inj[V: JsonWriter](ctor: String, v: V) = JsObject(ctor -> v.toJson)
@@ -318,9 +317,9 @@ class WebSocketService(
       .scan((Set.empty[String], Option.empty[StepAndErrors[A, B]])) {
         case ((s0, _), a0) =>
           val newInserts: Vector[String] = a0.step.inserts.map(_._1.contractId.unwrap)
-          val (deletesToKeep, s0WithoutDeletesToKeep) = s0 partition a0.step.deletes
-          val s1: Set[String] = s0WithoutDeletesToKeep ++ newInserts
-          val a1 = a0.copy(step = a0.step.copy(deletes = deletesToKeep))
+          val (deletesToEmit, deletesToHold) = s0 partition a0.step.deletes.keySet
+          val s1: Set[String] = deletesToHold ++ newInserts
+          val a1 = a0.copy(step = a0.step.copy(deletes = a0.step.deletes filterKeys deletesToEmit))
 
           (s1, if (a1.nonEmpty) Some(a1) else None)
       }
@@ -340,9 +339,9 @@ class WebSocketService(
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def convertFilterContracts[Pos](fn: domain.ActiveContract[LfV] => Option[Pos])
-    : Flow[InsertDeleteStep[api.event.CreatedEvent], StepAndErrors[Pos, JsValue], NotUsed] =
+    : Flow[InsertDeleteStep.LAV1, StepAndErrors[Pos, JsValue], NotUsed] =
     Flow
-      .fromFunction { step: InsertDeleteStep[api.event.CreatedEvent] =>
+      .fromFunction { step: InsertDeleteStep.LAV1 =>
         val (errors, cs) = step.inserts
           .partitionMap { ce =>
             domain.ActiveContract
@@ -354,7 +353,8 @@ class WebSocketService(
           errors,
           step copy (inserts = (cs: Vector[domain.ActiveContract[LfV]]).flatMap { ac =>
             fn(ac).map((ac, _)).toList
-          }))
+          }, deletes = step.deletes transform ((_, _) => (/*TODO SC template ID*/ )))
+        )
       }
       .via(conflation)
       .map(_ mapLfv lfValueToJsValue)

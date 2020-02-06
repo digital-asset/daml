@@ -23,7 +23,6 @@ import com.digitalasset.util.ExceptionOps._
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.syntax.show._
 import scalaz.syntax.std.option._
-import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 import scalaz.{-\/, Show, \/, \/-}
 import spray.json.JsValue
@@ -278,7 +277,7 @@ class ContractsService(
       party: lar.Party,
       templateIds: List[domain.TemplateId.RequiredPkg],
       terminates: Terminates = Terminates.AtLedgerEnd,
-  ): Source[InsertDeleteStep[api.event.CreatedEvent], NotUsed] = {
+  ): Source[InsertDeleteStep.LAV1, NotUsed] = {
 
     val txnFilter = util.Transactions.transactionFilterFor(party, templateIds)
     val source = getActiveContracts(jwt, txnFilter, true)
