@@ -77,7 +77,7 @@ final class InMemoryLedgerReaderWriter(
 
     override def appendToLog(key: Array[Byte], value: Array[Byte]): Future[Unit] =
       Future.successful {
-        val damlLogEntryId = KeyValueCommitting.unpackDamlLogEntryId(ByteString.copyFrom(key))
+        val damlLogEntryId = KeyValueCommitting.unpackDamlLogEntryId(key)
         val logEntry = LogEntry(damlLogEntryId, value)
         val newHead = currentState.log.synchronized {
           currentState.log += logEntry

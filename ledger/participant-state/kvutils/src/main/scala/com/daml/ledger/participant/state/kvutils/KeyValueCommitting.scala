@@ -41,6 +41,8 @@ object KeyValueCommitting {
     DamlLogEntry.parseFrom(bytes)
 
   def packDamlLogEntryId(entry: DamlLogEntryId): ByteString = entry.toByteString
+  def unpackDamlLogEntryId(bytes: Array[Byte]): DamlLogEntryId =
+    DamlLogEntryId.parseFrom(bytes)
   def unpackDamlLogEntryId(bytes: ByteString): DamlLogEntryId =
     DamlLogEntryId.parseFrom(bytes)
 
