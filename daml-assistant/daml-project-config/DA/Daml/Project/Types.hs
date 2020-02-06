@@ -142,7 +142,7 @@ data SdkCommandInfo = SdkCommandInfo
     } deriving (Eq, Show)
 
 data ForwardCompletion
-    = Forward EnrichedCompletion -- ^ Forwhat completions
+    = Forward EnrichedCompletion -- ^ Forward completions
     | NoForward -- ^ No forwarding, fall back to basic completion
     deriving (Eq, Show)
 
@@ -157,8 +157,8 @@ instance Y.FromJSON (SdkPath -> EnrichedCompletion -> SdkCommandInfo) where
     parseJSON = Y.withObject "SdkCommandInfo" $ \p -> do
         name <- p Y..: "name"
         path <- p Y..: "path"
-        args <-  fmap (fromMaybe (SdkCommandArgs [])) (p Y..:? "args")
-        desc <-  p Y..:? "desc"
+        args <- fmap (fromMaybe (SdkCommandArgs [])) (p Y..:? "args")
+        desc <- p Y..:? "desc"
         completion <- fromMaybe False <$> p Y..:? "completion"
         return $ \sdkPath enriched -> SdkCommandInfo
           name
