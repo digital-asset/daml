@@ -63,8 +63,8 @@ sdkVersionFromSdkConfig :: SdkConfig -> Either ConfigError SdkVersion
 sdkVersionFromSdkConfig = querySdkConfigRequired ["version"]
 
 -- | Read sdk config to get list of sdk commands.
-listSdkCommands :: SdkConfig -> Either ConfigError [SdkCommandInfo]
-listSdkCommands = querySdkConfigRequired ["commands"]
+listSdkCommands :: SdkPath -> EnrichedCompletion -> SdkConfig -> Either ConfigError [SdkCommandInfo]
+listSdkCommands sdkPath enriched sdkConf = fmap (map (\f -> f sdkPath enriched)) $ querySdkConfigRequired ["commands"] sdkConf
 
 -- | Query the daml config by passing a path to the desired property.
 -- See 'queryConfig' for more details.

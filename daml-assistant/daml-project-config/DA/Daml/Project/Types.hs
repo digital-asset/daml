@@ -1,6 +1,6 @@
 -- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-
+{-# LANGUAGE FlexibleInstances #-}
 
 module DA.Daml.Project.Types
     ( module DA.Daml.Project.Types
@@ -136,12 +136,34 @@ data SdkCommandInfo = SdkCommandInfo
     , sdkCommandPath :: SdkCommandPath -- ^ file path of binary relative to sdk directory
     , sdkCommandArgs :: SdkCommandArgs -- ^ extra args to pass before user-supplied args (defaults to [])
     , sdkCommandDesc :: Maybe Text     -- ^ description of sdk command (optional)
+    , sdkCommandForwardCompletion :: ForwardCompletion -- ^ Can we forward optparse-applicative completions to
+                                                       -- this command
+    , sdkCommandSdkPath :: SdkPath -- ^ SDK path so we can get the absolute path to the command.
     } deriving (Eq, Show)
 
-instance Y.FromJSON SdkCommandInfo where
-    parseJSON = Y.withObject "SdkCommandInfo" $ \p ->
-        SdkCommandInfo
-            <$> (p Y..: "name")
-            <*> (p Y..: "path")
-            <*> fmap (fromMaybe (SdkCommandArgs [])) (p Y..:? "args")
-            <*> (p Y..:? "desc")
+data ForwardCompletion
+    = Forward EnrichedCompletion -- ^ Forwhat completions
+    | NoForward -- ^ No forwarding, fall back to basic completion
+    deriving (Eq, Show)
+
+-- | True if --bash-completion-enriched was part of argv.
+newtype EnrichedCompletion = EnrichedCompletion { getEnrichedCompletion :: Bool }
+    deriving (Eq, Show)
+
+hasEnrichedCompletion :: [String] -> EnrichedCompletion
+hasEnrichedCompletion = EnrichedCompletion . elem "--bash-completion-enriched"
+
+instance Y.FromJSON (SdkPath -> EnrichedCompletion -> SdkCommandInfo) where
+    parseJSON = Y.withObject "SdkCommandInfo" $ \p -> do
+        name <- p Y..: "name"
+        path <- p Y..: "path"
+        args <-  fmap (fromMaybe (SdkCommandArgs [])) (p Y..:? "args")
+        desc <-  p Y..:? "desc"
+        completion <- fromMaybe False <$> p Y..:? "completion"
+        return $ \sdkPath enriched -> SdkCommandInfo
+          name
+          path
+          args
+          desc
+          (if completion then Forward enriched else NoForward)
+          sdkPath
