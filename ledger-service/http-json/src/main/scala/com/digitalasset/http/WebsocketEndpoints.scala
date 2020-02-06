@@ -66,7 +66,7 @@ class WebsocketEndpoints(
           payload <- preconnect(decodeJwt, upgradeReq, wsProtocol)
           (jwt, jwtPayload) = payload
         } yield
-          handleWebsocketRequest[domain.GetActiveContractsRequest](
+          handleWebsocketRequest[domain.SearchForeverRequest](
             jwt,
             jwtPayload,
             upgradeReq,

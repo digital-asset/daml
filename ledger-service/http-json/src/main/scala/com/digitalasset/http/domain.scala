@@ -19,7 +19,7 @@ import scalaz.std.vector._
 import scalaz.syntax.show._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
-import scalaz.{-\/, @@, Applicative, Bitraverse, Show, Tag, Traverse, \/, \/-}
+import scalaz.{-\/, @@, Applicative, Bitraverse, NonEmptyList, Show, Tag, Traverse, \/, \/-}
 import spray.json.JsValue
 
 import scala.annotation.tailrec
@@ -77,6 +77,10 @@ object domain {
   case class GetActiveContractsRequest(
       templateIds: Set[TemplateId.OptionalPkg],
       query: Map[String, JsValue],
+  )
+
+  final case class SearchForeverRequest(
+      queries: NonEmptyList[GetActiveContractsRequest]
   )
 
   case class PartyDetails(party: Party, displayName: Option[String], isLocal: Boolean)

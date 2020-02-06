@@ -8,7 +8,7 @@ import akka.http.scaladsl.model.ws.{Message, TextMessage}
 import akka.stream.scaladsl.{Flow, Source}
 import akka.stream.Materializer
 import com.digitalasset.http.EndpointsCompanion._
-import com.digitalasset.http.domain.{GetActiveContractsRequest, JwtPayload}
+import com.digitalasset.http.domain.{JwtPayload, SearchForeverRequest}
 import com.digitalasset.http.json.{DomainJsonDecoder, DomainJsonEncoder, JsonProtocol, SprayJson}
 import ContractsFetch.InsertDeleteStep
 import com.digitalasset.http.LedgerClientJwt.Terminates
@@ -19,13 +19,19 @@ import query.ValuePredicate.{LfV, TypeLookup}
 import com.digitalasset.jwt.domain.Jwt
 import com.digitalasset.ledger.api.{v1 => api}
 import com.typesafe.scalalogging.LazyLogging
-import scalaz.Liskov
+import scalaz.{-\/, Liskov, NonEmptyList, Show, \/, \/-}
 import Liskov.<~<
 import com.digitalasset.http.query.ValuePredicate
+import scalaz.syntax.bifunctor._
 import scalaz.syntax.show._
 import scalaz.syntax.tag._
+import scalaz.syntax.std.boolean._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
+import scalaz.std.list._
+import scalaz.std.map._
+import scalaz.std.set._
+import scalaz.std.tuple._
 import scalaz.{-\/, Show, \/, \/-}
 import spray.json.{JsObject, JsString, JsValue}
 
@@ -35,10 +41,10 @@ import scala.util.{Failure, Success}
 object WebSocketService {
   private type CompiledQueries = Map[domain.TemplateId.RequiredPkg, LfV => Boolean]
 
-  private type StreamPredicate = (
+  private type StreamPredicate[+Positive] = (
       Set[domain.TemplateId.RequiredPkg],
       Set[domain.TemplateId.OptionalPkg],
-      domain.ActiveContract[LfV] => Boolean,
+      domain.ActiveContract[LfV] => Option[Positive],
   )
 
   val heartBeat: String = JsObject("heartbeat" -> JsString("ping")).compactPrint
@@ -48,32 +54,46 @@ object WebSocketService {
       self leftMap (e => f(e.shows))
   }
 
-  private final case class StepAndErrors[+LfV](
+  private final case class StepAndErrors[+Pos, +LfV](
       errors: Seq[ServerError],
-      step: InsertDeleteStep[domain.ActiveContract[LfV]]) {
+      step: InsertDeleteStep[(domain.ActiveContract[LfV], Pos)]) {
     import json.JsonProtocol._, spray.json._
-    def render(implicit lfv: LfV <~< JsValue): JsValue = {
-      def inj[V: JsonWriter](ctor: String) = (v: V) => JsObject(ctor -> v.toJson)
+    def render(implicit lfv: LfV <~< JsValue, pos: Pos <~< Map[String, JsValue]): JsValue = {
+      def inj[V: JsonWriter](ctor: String, v: V) = JsObject(ctor -> v.toJson)
+      val thisw =
+        Liskov.lift2[StepAndErrors, Pos, Map[String, JsValue], LfV, JsValue](pos, lfv)(this)
       JsArray(
-        step.deletes.iterator.map(inj("archived")).toVector
-          ++ Liskov.co[StepAndErrors, LfV, JsValue](lfv)(this).step.inserts.map(inj("created"))
-          ++ errors.map(inj[String]("error") compose (_.message)))
+        step.deletes.iterator.map(inj("archived", _)).toVector
+          ++ thisw.step.inserts.map {
+            case (ac, pos) =>
+              val acj = inj("created", ac)
+              acj copy (fields = acj.fields ++ pos)
+          } ++ errors.map(e => inj("error", e.message)))
     }
 
-    def append[A >: LfV](o: StepAndErrors[A]): StepAndErrors[A] =
-      StepAndErrors(errors ++ o.errors, step.appendWithCid(o.step)(_.contractId.unwrap))
+    def append[P >: Pos, A >: LfV](o: StepAndErrors[P, A]): StepAndErrors[P, A] =
+      StepAndErrors(errors ++ o.errors, step.appendWithCid(o.step)(_._1.contractId.unwrap))
+
+    def mapLfv[A](f: LfV => A): StepAndErrors[Pos, A] =
+      copy(step = step mapPreservingIds (_ leftMap (_ map f)))
+
+    def mapPos[P](f: Pos => P): StepAndErrors[P, LfV] =
+      copy(step = step mapPreservingIds (_ rightMap f))
 
     def nonEmpty: Boolean = errors.nonEmpty || step.nonEmpty
   }
 
-  private def conflation[A]: Flow[StepAndErrors[A], StepAndErrors[A], NotUsed] =
-    Flow[StepAndErrors[A]]
+  private def conflation[P, A]: Flow[StepAndErrors[P, A], StepAndErrors[P, A], NotUsed] =
+    Flow[StepAndErrors[P, A]]
       .batchWeighted(max = 200, costFn = {
         case StepAndErrors(errors, InsertDeleteStep(inserts, deletes)) =>
           errors.length.toLong + (inserts.length * 2) + deletes.size
       }, identity)(_ append _)
 
   trait StreamQuery[A] {
+
+    /** Extra data on success of a predicate. */
+    type Positive
 
     def parse(decoder: DomainJsonDecoder, str: String): Error \/ A
 
@@ -82,36 +102,44 @@ object WebSocketService {
     def predicate(
         request: A,
         resolveTemplateId: PackageService.ResolveTemplateId,
-        lookupType: ValuePredicate.TypeLookup): StreamPredicate
+        lookupType: ValuePredicate.TypeLookup): StreamPredicate[Positive]
+
+    def renderCreatedMetadata(p: Positive): Map[String, JsValue]
   }
 
-  implicit val `GetActiveContractsRequest implementing StreamQuery`
-    : StreamQuery[domain.GetActiveContractsRequest] =
-    new StreamQuery[domain.GetActiveContractsRequest] {
+  implicit val SearchForeverRequestWithStreamQuery: StreamQuery[domain.SearchForeverRequest] =
+    new StreamQuery[domain.SearchForeverRequest] {
 
-      override def parse(
-          decoder: DomainJsonDecoder,
-          str: String): Error \/ GetActiveContractsRequest = {
+      type Positive = NonEmptyList[Int]
+
+      override def parse(decoder: DomainJsonDecoder, str: String): Error \/ SearchForeverRequest = {
         import JsonProtocol._
         SprayJson
-          .decode[GetActiveContractsRequest](str)
+          .decode[SearchForeverRequest](str)
           .liftErr(InvalidUserInput)
       }
 
       override def allowPhantonArchives: Boolean = true
 
       override def predicate(
-          request: GetActiveContractsRequest,
+          request: SearchForeverRequest,
           resolveTemplateId: PackageService.ResolveTemplateId,
-          lookupType: ValuePredicate.TypeLookup): StreamPredicate = {
+          lookupType: ValuePredicate.TypeLookup): StreamPredicate[Positive] = {
 
         import util.Collections._
 
-        val (resolved, unresolved) =
-          request.templateIds.partitionMap(x => resolveTemplateId(x) toLeftDisjunction x)
-        val q: CompiledQueries = prepareFilters(resolved, request.query, lookupType)
-        val fn: domain.ActiveContract[LfV] => Boolean = { a =>
-          q.get(a.templateId).exists(_(a.payload))
+        val (resolved, unresolved, q) = request.queries.zipWithIndex
+          .foldMap {
+            case (gacr, ix) =>
+              val (resolved, unresolved) =
+                gacr.templateIds.partitionMap(x => resolveTemplateId(x) toLeftDisjunction x)
+              val q: CompiledQueries = prepareFilters(resolved, gacr.query, lookupType)
+              (resolved, unresolved, q transform ((_, p) => NonEmptyList((p, ix))))
+          }
+        val fn: domain.ActiveContract[LfV] => Option[Positive] = { a =>
+          q.get(a.templateId).flatMap { preds =>
+            preds.collect(Function unlift { case (p, ix) => p(a.payload) option ix })
+          }
         }
 
         (resolved, unresolved, fn)
@@ -125,11 +153,19 @@ object WebSocketService {
         ids.iterator.map { tid =>
           (tid, ValuePredicate.fromTemplateJsObject(queryExpr, tid, lookupType).toFunPredicate)
         }.toMap
+
+      override def renderCreatedMetadata(p: Positive) =
+        Map {
+          import spray.json._, JsonProtocol._
+          "matchedQueries" -> p.toJson
+        }
     }
 
-  implicit val `EnrichedContractKey List implementing StreamQuery`
+  implicit val EnrichedContractKeyWithStreamQuery
     : StreamQuery[List[domain.EnrichedContractKey[LfV]]] =
     new StreamQuery[List[domain.EnrichedContractKey[LfV]]] {
+
+      type Positive = Unit
 
       import JsonProtocol._
 
@@ -160,7 +196,7 @@ object WebSocketService {
       override def predicate(
           request: List[domain.EnrichedContractKey[LfV]],
           resolveTemplateId: PackageService.ResolveTemplateId,
-          lookupType: TypeLookup): StreamPredicate = {
+          lookupType: TypeLookup): StreamPredicate[Positive] = {
 
         import util.Collections._
 
@@ -170,11 +206,15 @@ object WebSocketService {
           }
 
         val q: Map[domain.TemplateId.RequiredPkg, LfV] = resolvedWithKey.toMap
-        val fn: domain.ActiveContract[LfV] => Boolean = { a =>
-          q.get(a.templateId).exists(k => domain.ActiveContract.matchesKey(k)(a))
+        val fn: domain.ActiveContract[LfV] => Option[Positive] = { a =>
+          if (q.get(a.templateId).exists(k => domain.ActiveContract.matchesKey(k)(a)))
+            Some(())
+          else None
         }
         (q.keySet, unresolved, fn)
       }
+
+      override def renderCreatedMetadata(p: Unit) = Map.empty
     }
 }
 
@@ -262,7 +302,7 @@ class WebSocketService(
         .via(convertFilterContracts(fn))
         .filter(_.nonEmpty)
         .via(removePhantomArchives(remove = !Q.allowPhantonArchives))
-        .map(_.render)
+        .map(_.mapPos(Q.renderCreatedMetadata).render)
         .prepend(reportUnresolvedTemplateIds(unresolved))
         .map(jsv => TextMessage(jsv.compactPrint))
     } else {
@@ -304,8 +344,8 @@ class WebSocketService(
     }.toMap
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  private def convertFilterContracts(fn: domain.ActiveContract[LfV] => Boolean)
-    : Flow[InsertDeleteStep[api.event.CreatedEvent], StepAndErrors[JsValue], NotUsed] =
+  private def convertFilterContracts[Pos](fn: domain.ActiveContract[LfV] => Option[Pos])
+    : Flow[InsertDeleteStep[api.event.CreatedEvent], StepAndErrors[Pos, JsValue], NotUsed] =
     Flow
       .fromFunction { step: InsertDeleteStep[api.event.CreatedEvent] =>
         val (errors, cs) = step.inserts
@@ -317,10 +357,12 @@ class WebSocketService(
           }
         StepAndErrors(
           errors,
-          step copy (inserts = (cs: Vector[domain.ActiveContract[LfV]]).filter(fn)))
+          step copy (inserts = (cs: Vector[domain.ActiveContract[LfV]]).flatMap { ac =>
+            fn(ac).map((ac, _)).toList
+          }))
       }
       .via(conflation)
-      .map(sae => sae copy (step = sae.step.mapPreservingIds(_ map lfValueToJsValue)))
+      .map(_ mapLfv lfValueToJsValue)
 
   private def reportUnresolvedTemplateIds(
       unresolved: Set[domain.TemplateId.OptionalPkg]): Source[JsValue, NotUsed] =

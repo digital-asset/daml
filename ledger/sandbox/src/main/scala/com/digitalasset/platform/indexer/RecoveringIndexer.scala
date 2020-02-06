@@ -3,6 +3,7 @@
 
 package com.digitalasset.platform.indexer
 
+import java.time.temporal.ChronoUnit
 import java.time.{Clock, Instant}
 import java.util.concurrent.atomic.AtomicReference
 
@@ -12,7 +13,7 @@ import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.resources.Resource
 
-import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.concurrent.duration.{Duration, DurationLong, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success}
 
@@ -52,8 +53,12 @@ final class RecoveringIndexer(
 
     def waitForRestart(
         delayUntil: Instant = clock.instant().plusMillis(restartDelay.toMillis)
-    ): Future[Boolean] =
-      after(1.second, scheduler) {
+    ): Future[Boolean] = {
+      val now = clock.instant()
+      val delayIncrement =
+        Duration.fromNanos(
+          math.max(0, math.min(1.second.toNanos, ChronoUnit.NANOS.between(now, delayUntil))))
+      after(delayIncrement, scheduler) {
         if (subscription.get() == null) {
           logger.info("Indexer Server was stopped; cancelling the restart")
           complete.trySuccess(())
@@ -65,6 +70,7 @@ final class RecoveringIndexer(
           waitForRestart(delayUntil)
         }
       }
+    }
 
     def resubscribe(oldSubscription: Resource[IndexFeedHandle]): Future[Unit] =
       for {

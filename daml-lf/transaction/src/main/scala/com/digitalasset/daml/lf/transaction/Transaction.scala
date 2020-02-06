@@ -13,7 +13,6 @@ import com.digitalasset.daml.lf.value.Value._
 import scalaz.Equal
 
 import scala.annotation.tailrec
-import scala.annotation.unchecked.uncheckedVariance
 import scala.collection.breakOut
 import scala.collection.immutable.HashMap
 
@@ -22,6 +21,7 @@ case class VersionedTransaction[Nid, Cid](
     transaction: GenTransaction.WithTxValue[Nid, Cid],
 ) {
 
+  @deprecated("use resolveRelCid/ensureNoCid/ensureNoRelCid", since = "0.13.52")
   def mapContractId[Cid2](f: Cid => Cid2): VersionedTransaction[Nid, Cid2] =
     copy(transaction = transaction.mapContractIdAndValue(f, _.mapContractId(f)))
 
@@ -78,35 +78,34 @@ case class VersionedTransaction[Nid, Cid](
   * For performance reasons, users are not required to call `isWellFormed`.
   * Therefore, it is '''forbidden''' to create ill-formed instances, i.e., instances with `!isWellFormed.isEmpty`.
   */
-case class GenTransaction[Nid, Cid, +Val](
+final case class GenTransaction[Nid, +Cid, +Val](
     nodes: HashMap[Nid, GenNode[Nid, Cid, Val]],
     roots: ImmArray[Nid],
     optUsedPackages: Option[Set[PackageId]],
     transactionSeed: Option[crypto.Hash] = None,
-) {
+) extends value.CidContainer[GenTransaction[Nid, Cid, Val]] {
 
   import GenTransaction._
 
+  override protected val self: this.type = this
+
+  private[lf] def map3[Nid2, Cid2, Val2](
+      f: Nid => Nid2,
+      g: Cid => Cid2,
+      h: Val => Val2
+  ): GenTransaction[Nid2, Cid2, Val2] =
+    GenTransaction.map3(f, g, h)(this)
+
+  @deprecated("use resolveRelCid/ensureNoCid/ensureNoRelCid", since = "0.13.52")
   def mapContractIdAndValue[Cid2, Val2](
       f: Cid => Cid2,
       g: Val => Val2,
   ): GenTransaction[Nid, Cid2, Val2] =
-    copy(
-      nodes = // do NOT use `Map#mapValues`! it applies the function lazily on lookup. see #1861
-        nodes.transform((_, value) => value.mapContractIdAndValue(f, g)),
-    )
-
-  def mapContractId[Cid2](f: Cid => Cid2)(
-      implicit ev: Val <:< VersionedValue[Cid],
-  ): WithTxValue[Nid, Cid2] =
-    mapContractIdAndValue(f, _.mapContractId(f))
+    map3(identity, f, g)
 
   /** Note: the provided function must be injective, otherwise the transaction will be corrupted. */
   def mapNodeId[Nid2](f: Nid => Nid2): GenTransaction[Nid2, Cid, Val] =
-    copy(
-      roots = roots.map(f),
-      nodes = nodes.map { case (nid, node) => (f(nid), node.mapNodeId(f)) },
-    )
+    map3(f, identity, identity)
 
   /**
     * This function traverses the transaction tree in pre-order traversal (i.e. exercise node are traversed before their children).
@@ -229,7 +228,7 @@ case class GenTransaction[Nid, Cid, +Val](
     *       However, requiring [[Equal]]`[Val2]` as `isReplayedBy` does would
     *       also solve the contains problem.  Food for thought
     */
-  final def equalForest(other: GenTransaction[_, Cid, Val @uncheckedVariance]): Boolean =
+  final def equalForest[Cid2 >: Cid, Val2 >: Val](other: GenTransaction[_, Cid2, Val2]): Boolean =
     compareForest(other)(_ == _)
 
   /**
@@ -289,9 +288,9 @@ case class GenTransaction[Nid, Cid, +Val](
     *
     * @note This function is asymmetric.
     */
-  final def isReplayedBy[Nid2, Val2 >: Val](
-      other: GenTransaction[Nid2, Cid, Val2],
-  )(implicit ECid: Equal[Cid], EVal: Equal[Val2]): Boolean =
+  final def isReplayedBy[Nid2, Cid2 >: Cid, Val2 >: Val](
+      other: GenTransaction[Nid2, Cid2, Val2],
+  )(implicit ECid: Equal[Cid2], EVal: Equal[Val2]): Boolean =
     compareForest(other)(Node.isReplayedBy(_, _))
 
   /** checks that all the values contained are serializable */
@@ -330,14 +329,31 @@ case class GenTransaction[Nid, Cid, +Val](
     }
 }
 
-object GenTransaction {
-  type WithTxValue[Nid, Cid] = GenTransaction[Nid, Cid, Transaction.Value[Cid]]
+object GenTransaction extends value.CidContainer3[GenTransaction] {
+  type WithTxValue[Nid, +Cid] = GenTransaction[Nid, Cid, Transaction.Value[Cid]]
 
   case class NotWellFormedError[Nid](nid: Nid, reason: NotWellFormedErrorReason)
   sealed trait NotWellFormedErrorReason
   case object DanglingNodeId extends NotWellFormedErrorReason
   case object OrphanedNode extends NotWellFormedErrorReason
   case object AliasedNode extends NotWellFormedErrorReason
+
+  override private[lf] def map3[A1, A2, A3, B1, B2, B3](
+      f1: A1 => B1,
+      f2: A2 => B2,
+      f3: A3 => B3,
+  ): GenTransaction[A1, A2, A3] => GenTransaction[B1, B2, B3] = {
+    case GenTransaction(nodes, roots, optUsedPackages, transactionSeed) =>
+      GenTransaction(
+        nodes = nodes.map {
+          case (nodeId, node) =>
+            f1(nodeId) -> GenNode.map3(f1, f2, f3)(node)
+        },
+        roots = roots.map(f1),
+        optUsedPackages,
+        transactionSeed,
+      )
+  }
 }
 
 object Transaction {

@@ -49,7 +49,7 @@ class ValueSpec extends FreeSpec with Matchers with Checkers with GeneratorDrive
     import org.scalacheck.Arbitrary
     type T = VersionedValue[Unnatural[ContractId]]
     implicit val arbT: Arbitrary[T] =
-      Arbitrary(versionedValueGen map (_ mapContractId (Unnatural(_))))
+      Arbitrary(versionedValueGen.map(VersionedValue.map1(Unnatural(_))))
 
     scalaz.scalacheck.ScalazProperties.equal.laws[T].properties foreach {
       case (s, p) => s in check(p)

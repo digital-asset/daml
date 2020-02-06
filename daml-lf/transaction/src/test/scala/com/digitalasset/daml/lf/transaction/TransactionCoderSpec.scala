@@ -5,13 +5,13 @@ package com.digitalasset.daml.lf
 package transaction
 
 import com.digitalasset.daml.lf.EitherAssertions
-import com.digitalasset.daml.lf.data.ImmArray
+import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, Party, QualifiedName}
 import com.digitalasset.daml.lf.transaction.Node.{GenNode, NodeCreate, NodeExercises, NodeFetch}
 import com.digitalasset.daml.lf.transaction.{Transaction => Tx, TransactionOuterClass => proto}
 import com.digitalasset.daml.lf.value.Value.{ContractId, ContractInst, ValueParty, VersionedValue}
 import com.digitalasset.daml.lf.value.ValueCoder.{DecodeCid, DecodeError, EncodeCid, EncodeError}
-import com.digitalasset.daml.lf.value.{ValueVersion, ValueVersions}
+import com.digitalasset.daml.lf.value.{Value, ValueVersion, ValueVersions}
 import com.digitalasset.daml.lf.transaction.TransactionVersions._
 import com.digitalasset.daml.lf.transaction.VersionTimeline.Implicits._
 import org.scalatest.prop.PropertyChecks
@@ -276,25 +276,26 @@ class TransactionCoderSpec
     }
 
     "do tx with a lot of root nodes" in {
-      val node: Node.NodeCreate[String, VersionedValue[String]] = Node.NodeCreate(
-        nodeSeed = None,
-        coid = "test-cid",
-        coinst = ContractInst(
-          Identifier(
-            PackageId.assertFromString("pkg-id"),
-            QualifiedName.assertFromString("Test:Name"),
+      val node =
+        Node.NodeCreate[Value.AbsoluteContractId, Value.VersionedValue[Value.AbsoluteContractId]](
+          nodeSeed = None,
+          coid = absCid("test-cid"),
+          coinst = ContractInst(
+            Identifier(
+              PackageId.assertFromString("pkg-id"),
+              QualifiedName.assertFromString("Test:Name"),
+            ),
+            VersionedValue(
+              ValueVersions.acceptedVersions.last,
+              ValueParty(Party.assertFromString("francesco")),
+            ),
+            ("agreement"),
           ),
-          VersionedValue(
-            ValueVersions.acceptedVersions.last,
-            ValueParty(Party.assertFromString("francesco")),
-          ),
-          ("agreement"),
-        ),
-        optLocation = None,
-        signatories = Set(Party.assertFromString("alice")),
-        stakeholders = Set(Party.assertFromString("alice"), Party.assertFromString("bob")),
-        key = None,
-      )
+          optLocation = None,
+          signatories = Set(Party.assertFromString("alice")),
+          stakeholders = Set(Party.assertFromString("alice"), Party.assertFromString("bob")),
+          key = None,
+        )
       val nodes = ImmArray((1 to 10000).map { nid =>
         (nid.toString, node)
       })
@@ -303,14 +304,17 @@ class TransactionCoderSpec
         roots = nodes.map(_._1),
         optUsedPackages = None,
       )
+      def decodeCid(s: String) =
+        Ref.ContractIdString.fromString(s).left.map(DecodeError).map(Value.AbsoluteContractId)
+      def encodeCid(cid: Value.AbsoluteContractId) = cid.coid
       tx shouldEqual TransactionCoder
         .decodeVersionedTransaction(
           Right(_),
-          DecodeCid(Right(_), { case (s, _) => Right(s) }),
+          DecodeCid(decodeCid, { case (s, _) => decodeCid(s) }),
           TransactionCoder
             .encodeTransaction(
               identity[String],
-              EncodeCid(identity[String], (s: String) => (s, false)),
+              EncodeCid(encodeCid, (s: Value.AbsoluteContractId) => (encodeCid(s), false)),
               tx,
             )
             .right
@@ -332,7 +336,7 @@ class TransactionCoderSpec
       }
 
   private def changeAllValueVersions(tx: Tx.Transaction, ver: ValueVersion): Tx.Transaction =
-    tx.mapContractIdAndValue(identity, _.copy(version = ver))
+    tx.map3(identity, identity, _.copy(version = ver))
 
   def withoutExerciseResult[Nid, Cid, Val](gn: GenNode[Nid, Cid, Val]): GenNode[Nid, Cid, Val] =
     gn match {
@@ -378,5 +382,8 @@ class TransactionCoderSpec
         .compose(condApply(minExerciseResult, withoutExerciseResult)),
     )
   }
+
+  private def absCid(s: String): Value.AbsoluteContractId =
+    Value.AbsoluteContractId(Ref.ContractIdString.assertFromString(s))
 
 }
