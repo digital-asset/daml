@@ -785,6 +785,15 @@ application/json body must be sent first, formatted according to the
 
     {"templateIds": ["Iou:Iou"]}
 
+Multiple queries may be specified in an array, for overlapping or
+different sets of template IDs::
+
+    [
+        {"templateIds": ["Iou:Iou"], "query": {"amount": {"%lte": 50}}},
+        {"templateIds": ["Iou:Iou"], "query": {"amount": {"%gt": 50}}},
+        {"templateIds": ["Iou:Iou"]}
+    ]
+
 output a series of JSON documents, each ``payload`` formatted according
 to :doc:`lf-value-specification`::
 
@@ -801,9 +810,13 @@ to :doc:`lf-value-specification`::
             },
             "signatories": ["Alice"],
             "contractId": "#1:0",
-            "templateId": "6cc82609ede6576e5092e8c89a2c7a658efe15ae1347fc38eb316f787fa132bc:Iou:Iou"
-        }
+            "templateId": "b70bbfbc77a4790f66d4840cb19f657dd20848f5e2f64e39ad404a6cbd98cf75:Iou:Iou"
+        },
+        "matchedQueries": [1, 2]
     }]
+
+where ``matchedQueries`` indicates the 0-based indices into the request
+list of queries that matched this contract.
 
 To keep the stream alive, you'll occasionally see messages like this,
 which can be safely ignored::
@@ -828,8 +841,9 @@ and archives the one above, the same stream will eventually produce::
             },
             "signatories": ["Alice"],
             "contractId": "#2:1",
-            "templateId": "6cc82609ede6576e5092e8c89a2c7a658efe15ae1347fc38eb316f787fa132bc:Iou:Iou"
-        }
+            "templateId": "b70bbfbc77a4790f66d4840cb19f657dd20848f5e2f64e39ad404a6cbd98cf75:Iou:Iou"
+        },
+        "matchedQueries": [0, 2]
     }, {
         "created": {
             "observers": [],
@@ -843,8 +857,9 @@ and archives the one above, the same stream will eventually produce::
             },
             "signatories": ["Alice"],
             "contractId": "#2:2",
-            "templateId": "6cc82609ede6576e5092e8c89a2c7a658efe15ae1347fc38eb316f787fa132bc:Iou:Iou"
-        }
+            "templateId": "b70bbfbc77a4790f66d4840cb19f657dd20848f5e2f64e39ad404a6cbd98cf75:Iou:Iou"
+        },
+        "matchedQueries": [1, 2]
     }]
 
 If any template IDs are found not to resolve, the first non-heartbeat

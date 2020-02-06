@@ -152,7 +152,12 @@ class WebsocketServiceIntegrationTest
         baseExercisePayload.copy(
           fields = baseExercisePayload.fields updated ("contractId", JsString(cid)))
 
-      val query = """{"templateIds": ["Iou:Iou"]}"""
+      val query =
+        """[
+          {"templateIds": ["Iou:Iou"], "query": {"amount": {"%lte": 50}}},
+          {"templateIds": ["Iou:Iou"], "query": {"amount": {"%gt": 50}}},
+          {"templateIds": ["Iou:Iou"]}
+        ]"""
 
       val parseResp: Flow[Message, JsValue, NotUsed] =
         Flow[Message]
@@ -188,7 +193,16 @@ class WebsocketServiceIntegrationTest
               observeConsumed should ===(consumedCtid)
               Set(fstId, sndId, consumedCtid) should have size 3
               inside(evts) {
-                case JsArray(Vector(Archived(_), Created(_), Created(_))) =>
+                case JsArray(
+                    Vector(
+                      Archived(_, _),
+                      Created(IouAmount(amt1), MatchedQueries(NumList(ixes1), _)),
+                      Created(IouAmount(amt2), MatchedQueries(NumList(ixes2), _)))) =>
+                  Set((amt1, ixes1), (amt2, ixes2)) should ===(
+                    Set(
+                      (BigDecimal("42.42"), Vector(BigDecimal(0), BigDecimal(2))),
+                      (BigDecimal("957.57"), Vector(BigDecimal(1), BigDecimal(2))),
+                    ))
               }
               ShouldHaveEnded(2)
             }
@@ -212,13 +226,13 @@ object WebsocketServiceIntegrationTest {
   import spray.json._
 
   private object ContractDelta {
+    private val tagKeys = Set("created", "archived", "error")
     def unapply(jsv: JsValue): Option[(Vector[(String, JsValue)], Vector[String])] =
       for {
         JsArray(sums) <- Some(jsv)
-        pairs = sums collect { case JsObject(fields) if fields.size == 1 => fields.head }
+        pairs = sums collect { case JsObject(fields) => fields.filterKeys(tagKeys).head }
         if pairs.length == sums.length
         sets = pairs groupBy (_._1)
-        if sets.keySet subsetOf Set("created", "archived", "error")
         creates = sets.getOrElse("created", Vector()) collect {
           case (_, JsObject(fields)) => fields
         }
@@ -228,13 +242,29 @@ object WebsocketServiceIntegrationTest {
         }), sets.getOrElse("archived", Vector()) collect { case (_, JsString(cid)) => cid })
   }
 
-  private abstract class DeltaEvt(label: String) {
-    def unapply(jsv: JsValue): Option[JsValue] = jsv match {
-      case JsObject(fields) => fields.get(label)
-      case _ => None
-    }
+  private object IouAmount {
+    def unapply(jsv: JsObject): Option[BigDecimal] =
+      for {
+        JsObject(payload) <- jsv.fields get "payload"
+        JsString(amount) <- payload get "amount"
+      } yield BigDecimal(amount)
   }
 
-  private object Created extends DeltaEvt("created")
-  private object Archived extends DeltaEvt("archived")
+  private object NumList {
+    def unapply(jsv: JsValue): Option[Vector[BigDecimal]] =
+      for {
+        JsArray(numvs) <- Some(jsv)
+        nums = numvs collect { case JsNumber(n) => n }
+        if numvs.length == nums.length
+      } yield nums
+  }
+
+  private abstract class JsoField(label: String) {
+    def unapply(jsv: JsObject): Option[(JsValue, JsObject)] =
+      jsv.fields get label map ((_, JsObject(jsv.fields - label)))
+  }
+
+  private object Created extends JsoField("created")
+  private object Archived extends JsoField("archived")
+  private object MatchedQueries extends JsoField("matchedQueries")
 }
