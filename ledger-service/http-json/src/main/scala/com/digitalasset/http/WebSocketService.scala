@@ -54,14 +54,14 @@ object WebSocketService {
 
   private final case class StepAndErrors[+Pos, +LfV](
       errors: Seq[ServerError],
-      step: InsertDeleteStep[Unit, (domain.ActiveContract[LfV], Pos)]) {
+      step: InsertDeleteStep[domain.ArchivedContract, (domain.ActiveContract[LfV], Pos)]) {
     import json.JsonProtocol._, spray.json._
     def render(implicit lfv: LfV <~< JsValue, pos: Pos <~< Map[String, JsValue]): JsValue = {
       def inj[V: JsonWriter](ctor: String, v: V) = JsObject(ctor -> v.toJson)
       val thisw =
         Liskov.lift2[StepAndErrors, Pos, Map[String, JsValue], LfV, JsValue](pos, lfv)(this)
       JsArray(
-        step.deletes.iterator.map(inj("archived", _)).toVector
+        step.deletes.valuesIterator.map(inj("archived", _)).toVector
           ++ thisw.step.inserts.map {
             case (ac, pos) =>
               val acj = inj("created", ac)
@@ -349,11 +349,19 @@ class WebSocketService(
               .liftErr(ServerError)
               .flatMap(_.traverse(apiValueToLfValue).liftErr(ServerError))
           }
+        val (aerrors, archs) = step.deletes
+          .partitionMap {
+            case (k, ae) =>
+              domain.ArchivedContract
+                .fromLedgerApi(ae)
+                .liftErr(ServerError)
+                .map((k, _))
+          }
         StepAndErrors(
-          errors,
+          errors ++ aerrors,
           step copy (inserts = (cs: Vector[domain.ActiveContract[LfV]]).flatMap { ac =>
             fn(ac).map((ac, _)).toList
-          }, deletes = step.deletes transform ((_, _) => (/*TODO SC template ID*/ )))
+          }, deletes = archs)
         )
       }
       .via(conflation)

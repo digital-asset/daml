@@ -257,7 +257,7 @@ class WebsocketServiceIntegrationTest
                   Vector((fstId, fst), (sndId, snd)),
                   Vector(observeConsumed))) =>
               Future {
-                observeConsumed should ===(consumedCtid)
+                observeConsumed.contractId should ===(consumedCtid)
                 Set(fstId, sndId, consumedCtid) should have size 3
                 inside(evts) {
                   case JsArray(
@@ -317,8 +317,8 @@ class WebsocketServiceIntegrationTest
               ContractDelta(Vector(), Vector(observeArchivedCid))
               ) =>
             Future {
-              (observeArchivedCid: String) shouldBe (archivedCid: String)
-              (observeArchivedCid: String) shouldBe (cid1.unwrap: String)
+              (observeArchivedCid.contractId.unwrap: String) shouldBe (archivedCid: String)
+              (observeArchivedCid.contractId: domain.ContractId) shouldBe (cid1: domain.ContractId)
               ShouldHaveEnded(0)
             }
         }
@@ -403,7 +403,8 @@ object WebsocketServiceIntegrationTest {
 
   private object ContractDelta {
     private val tagKeys = Set("created", "archived", "error")
-    def unapply(jsv: JsValue): Option[(Vector[(String, JsValue)], Vector[String])] =
+    def unapply(
+        jsv: JsValue): Option[(Vector[(String, JsValue)], Vector[domain.ArchivedContract])] =
       for {
         JsArray(sums) <- Some(jsv)
         pairs = sums collect { case JsObject(fields) => fields.filterKeys(tagKeys).head }
@@ -415,7 +416,11 @@ object WebsocketServiceIntegrationTest {
       } yield
         (creates collect (Function unlift { add =>
           (add get "contractId" collect { case JsString(v) => v }) tuple (add get "payload")
-        }), sets.getOrElse("archived", Vector()) collect { case (_, JsString(cid)) => cid })
+        }), sets.getOrElse("archived", Vector()) collect {
+          case (_, adata) =>
+            import json.JsonProtocol.ArchivedContractFormat
+            adata.convertTo[domain.ArchivedContract]
+        })
   }
 
   private object IouAmount {

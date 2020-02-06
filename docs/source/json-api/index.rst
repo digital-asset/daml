@@ -861,7 +861,10 @@ After submitting an ``Iou_Split`` exercise, which creates two contracts
 and archives the one above, the same stream will eventually produce::
 
     [{
-        "archived": "#1:0"
+        "archived": {
+            "contractId": "#1:0",
+            "templateId": "b70bbfbc77a4790f66d4840cb19f657dd20848f5e2f64e39ad404a6cbd98cf75:Iou:Iou"
+        }
     }, {
         "created": {
             "observers": [],
