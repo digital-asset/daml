@@ -72,7 +72,6 @@ class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](initialState: => A
       submitter: Option[Party],
       transaction: GenTransaction.WithTxValue[EventId, AbsoluteContractId],
       disclosure: Relation[EventId, Party],
-      localDivulgence: Relation[EventId, Party],
       globalDivulgence: Relation[AbsoluteContractId, Party],
       divulgedContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)])
     : Either[Set[SequencingError], ALS] = {
@@ -133,12 +132,6 @@ class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](initialState: => A
                   .union(nc.stakeholders)
                   .union(nc.key.map(_.maintainers).getOrElse(Set.empty))
                 val absCoid = EventIdFormatter.makeAbsCoid(transactionId)(nc.coid)
-                val withoutStakeHolders = localDivulgence
-                  .getOrElse(nodeId, Set.empty) diff nc.stakeholders
-                val withStakeHolders = localDivulgence
-                  .getOrElse(nodeId, Set.empty)
-
-                assert(withoutStakeHolders == withStakeHolders)
 
                 val activeContract = ActiveContract(
                   id = absCoid,
@@ -150,10 +143,7 @@ class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](initialState: => A
                   witnesses = disclosure(nodeId),
                   // we need to `getOrElse` here because the `Nid` might include absolute
                   // contract ids, and those are never present in the local disclosure.
-                  divulgences = (localDivulgence
-                    .getOrElse(nodeId, Set.empty) diff nc.stakeholders).toList
-                    .map(p => p -> transactionId)
-                    .toMap,
+                  divulgences = Map.empty,
                   key =
                     nc.key.map(_.assertNoCid(coid => s"Contract ID $coid found in contract key")),
                   signatories = nc.signatories,

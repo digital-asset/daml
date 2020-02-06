@@ -50,7 +50,7 @@ class CommandExecutorImpl(engine: Engine, getPackage: PackageId => Future[Option
       .map { submission =>
         (for {
           updateTx <- submission
-          blindingInfo <- Blinding
+          _ <- Blinding
             .checkAuthorizationAndBlind(updateTx, Set(submitter))
         } yield
           (

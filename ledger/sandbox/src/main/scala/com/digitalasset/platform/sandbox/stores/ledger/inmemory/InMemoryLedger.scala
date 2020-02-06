@@ -18,7 +18,6 @@ import com.daml.ledger.participant.state.v1.{
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party}
 import com.digitalasset.daml.lf.data.{ImmArray, Time}
-import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
@@ -32,7 +31,6 @@ import com.digitalasset.ledger.api.domain.{
   TransactionId
 }
 import com.digitalasset.ledger.api.health.{HealthStatus, Healthy}
-import com.digitalasset.platform.events.EventIdFormatter
 import com.digitalasset.platform.packages.InMemoryPackageStore
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.sandbox.stores.InMemoryActiveLedgerState
@@ -156,7 +154,7 @@ class InMemoryLedger(
     )
 
   private def handleSuccessfulTx(
-      trId: LedgerString,
+      transactionId: LedgerString,
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction): Unit = {
@@ -170,31 +168,18 @@ class InMemoryLedger(
         RejectionReason.TimedOut(
           s"RecordTime $recordTime is after MaxiumRecordTime ${submitterInfo.maxRecordTime}"))
     } else {
-
-      val blindingInfo = Blinding.blind(transaction)
-      val mappedDisclosure = blindingInfo.disclosure.map {
-        case (nodeId, v) => EventIdFormatter.fromTransactionId(trId, nodeId) -> v
-      }
-      val mappedLocalDivulgence = blindingInfo.localDivulgence.map {
-        case (nodeId, v) => EventIdFormatter.fromTransactionId(trId, nodeId) -> v
-      }
-      val mappedGlobalDivulgence = blindingInfo.globalDivulgence
-
-      val mappedTx =
-        transaction
-          .resolveRelCid(EventIdFormatter.makeAbs(trId))
-          .mapNodeId(EventIdFormatter.fromTransactionId(trId, _))
+      val (transactionForIndex, disclosureForIndex, globalDivulgence) =
+        Ledger.convertToCommittedTransaction(transactionId, transaction)
       // 5b. modify the ActiveContracts, while checking that we do not have double
       // spends or timing issues
       val acsRes = acs.addTransaction(
         transactionMeta.ledgerEffectiveTime.toInstant,
-        trId,
+        transactionId,
         transactionMeta.workflowId,
         Some(submitterInfo.submitter),
-        mappedTx,
-        mappedDisclosure,
-        mappedLocalDivulgence,
-        mappedGlobalDivulgence,
+        transactionForIndex,
+        disclosureForIndex,
+        globalDivulgence,
         List.empty
       )
       acsRes match {
@@ -204,22 +189,17 @@ class InMemoryLedger(
             RejectionReason.Inconsistent(s"Reason: ${err.mkString("[", ", ", "]")}"))
         case Right(newAcs) =>
           acs = newAcs
-          val recordBlinding =
-            blindingInfo.disclosure.map {
-              case (nid, parties) =>
-                (EventIdFormatter.fromTransactionId(trId, nid), parties)
-            }
           val entry = LedgerEntry
             .Transaction(
               Some(submitterInfo.commandId),
-              trId,
+              transactionId,
               Some(submitterInfo.applicationId),
               Some(submitterInfo.submitter),
               transactionMeta.workflowId,
               transactionMeta.ledgerEffectiveTime.toInstant,
               recordTime,
-              mappedTx,
-              recordBlinding
+              transactionForIndex,
+              disclosureForIndex
             )
           entries.publish(InMemoryLedgerEntry(entry))
           ()
