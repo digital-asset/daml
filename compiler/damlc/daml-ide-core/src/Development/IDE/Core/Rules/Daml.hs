@@ -471,10 +471,10 @@ generatePackageMap version userPkgDbs = do
                     | otherwise = ( stringToUnitId $ parseUnitId baseName $ LF.dalfPackageId pkg, pkg)
             pure (fmap getUnitId dalfPkgOrErr)
 
-    let unitIdConflicts = Map.fromListWith Set.union $
+    let unitIdConflicts = Map.filter ((>=2) . Set.size) . Map.fromListWith Set.union $
             [ (unitId, Set.singleton (LF.dalfPackageId dalfPkg))
             | (unitId, dalfPkg) <- pkgs ]
-    when (any ((>= 2) . Set.size) unitIdConflicts) $ do
+    when (not $ Map.null unitIdConflicts) $ do
         fail $ "Transitive dependencies with same unit id but conflicting package ids: "
             ++ intercalate ", " (map show $ Map.keys unitIdConflicts)
 
