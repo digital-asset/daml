@@ -289,7 +289,7 @@ See the request documentation below on how to create an instance of ``Iou`` cont
 HTTP Request
 ------------
 
-- URL: ``/command/create``
+- URL: ``/v1/create``
 - Method: ``POST``
 - Content-Type: ``application/json``
 - Content:
@@ -394,7 +394,7 @@ The JSON command below, demonstrates how to exercise ``Iou_Transfer`` choice on 
 HTTP Request
 ------------
 
-- URL: ``/command/exercise``
+- URL: ``/v1/exercise``
 - Method: ``POST``
 - Content-Type: ``application/json``
 - Content:
@@ -493,7 +493,7 @@ The JSON command below, demonstrates how to exercise ``Archive`` choice on ``Acc
 HTT Request
 -----------
 
-- URL: ``/command/exercise``
+- URL: ``/v1/exercise``
 - Method: ``POST``
 - Content-Type: ``application/json``
 - Content:
@@ -526,7 +526,7 @@ Fetch Contract by Contract ID
 HTTP Request
 ------------
 
-- URL: ``/contracts/lookup``
+- URL: ``/v1/fetch``
 - Method: ``POST``
 - Content-Type: ``application/json``
 - Content:
@@ -589,7 +589,7 @@ Fetch Contract by Key
 HTTP Request
 ------------
 
-- URL: ``/contracts/lookup``
+- URL: ``/v1/fetch``
 - Method: ``POST``
 - Content-Type: ``application/json``
 - Content:
@@ -658,7 +658,7 @@ Note that the retrieved contracts do not get persisted into query store database
 HTTP Request
 ------------
 
-- URL: ``/contracts/search``
+- URL: ``/v1/query``
 - Method: ``GET``
 - Content: <EMPTY>
 
@@ -675,7 +675,7 @@ List currently active contracts that match a given query.
 HTTP Request
 ------------
 
-- URL: ``/contracts/search``
+- URL: ``/v1/query``
 - Method: ``POST``
 - Content-Type: ``application/json``
 - Content:
@@ -776,7 +776,7 @@ Nonempty HTTP Response with Unknown Template IDs Warning
 Fetch All Known Parties
 =======================
 
-- URL: ``/parties``
+- URL: ``/v1/parties``
 - Method: ``GET``
 - Content: <EMPTY>
 
@@ -804,7 +804,7 @@ Streaming API
 Contracts Query Stream
 ----------------------
 
-- URL: ``/contracts/searchForever``
+- URL: ``/v1/stream/query``
 - Scheme: ``ws``
 - Protocol: ``WebSocket``
 
@@ -911,7 +911,7 @@ stream will continue in these cases, rather than terminating.
 Some notes on behavior:
 
 1. Each result array means "this is what would have changed if you just
-   polled ``/contracts/search`` iteratively."  In particular, just as
+   polled ``/v1/query`` iteratively."  In particular, just as
    polling search can "miss" contracts (as a create and archive can be
    paired between polls), such contracts may or may not appear in any
    result object.
@@ -944,7 +944,7 @@ Some notes on behavior:
 Fetch by Key Contracts Stream
 -----------------------------
 
-- URL: ``/stream/fetch``
+- URL: ``/v1/stream/fetch``
 - Scheme: ``ws``
 - Protocol: ``WebSocket``
 

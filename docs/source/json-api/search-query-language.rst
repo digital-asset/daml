@@ -1,10 +1,10 @@
 .. Copyright (c) 2020 The DAML Authors. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-/contracts/search query language
-################################
+Query language
+##############
 
-The body of ``POST /contracts/search`` looks like so::
+The body of ``POST /query`` looks like so::
 
   {"templateIds": [...template IDs...],
    "query": {...query elements...}}
