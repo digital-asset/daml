@@ -4,7 +4,7 @@
 Query language
 ##############
 
-The body of ``POST /query`` looks like so::
+The body of ``POST /v1/query`` looks like so::
 
   {"templateIds": [...template IDs...],
    "query": {...query elements...}}
