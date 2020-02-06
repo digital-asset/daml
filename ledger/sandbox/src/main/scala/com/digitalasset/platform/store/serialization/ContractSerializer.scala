@@ -26,13 +26,13 @@ object ContractSerializer extends ContractSerializer {
   override def serializeContractInstance(coinst: ContractInst[VersionedValue[AbsoluteContractId]])
     : Either[ValueCoder.EncodeError, Array[Byte]] =
     TransactionCoder
-      .encodeContractInstance[VersionedValue[AbsoluteContractId]](defaultValEncode, coinst)
+      .encodeContractInstance[AbsoluteContractId](defaultValEncode, coinst)
       .map(_.toByteArray())
 
   override def deserializeContractInstance(
       blob: Array[Byte]): Either[DecodeError, ContractInst[VersionedValue[AbsoluteContractId]]] =
     TransactionCoder
-      .decodeContractInstance[VersionedValue[AbsoluteContractId]](
+      .decodeContractInstance[AbsoluteContractId](
         defaultValDecode,
         TransactionOuterClass.ContractInstance.parseFrom(
           Decode.damlLfCodedInputStreamFromBytes(blob, Reader.PROTOBUF_RECURSION_LIMIT)))
@@ -57,7 +57,7 @@ object ContractSerializer extends ContractSerializer {
     }
   )
 
-  private val defaultValEncode: TransactionCoder.EncodeVal[VersionedValue[AbsoluteContractId]] =
+  private val defaultValEncode: TransactionCoder.EncodeVal[AbsoluteContractId] =
     a => ValueCoder.encodeVersionedValueWithCustomVersion(defaultCidEncode, a).map((a.version, _))
 
   private val defaultValDecode: ValueOuterClass.VersionedValue => Either[
