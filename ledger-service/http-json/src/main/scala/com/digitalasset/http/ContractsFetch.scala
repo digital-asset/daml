@@ -28,6 +28,7 @@ import com.digitalasset.http.json.JsonProtocol.LfValueDatabaseCodec.{
   apiValueToJsValue => lfValueToDbJsValue,
 }
 import com.digitalasset.http.util.IdentifierConverters.apiIdentifier
+import util.InsertDeleteStep
 import com.digitalasset.util.ExceptionOps._
 import com.digitalasset.jwt.domain.Jwt
 import com.digitalasset.ledger.api.v1.transaction.Transaction
@@ -40,7 +41,7 @@ import scalaz.syntax.show._
 import scalaz.syntax.tag._
 import scalaz.syntax.functor._
 import scalaz.syntax.std.option._
-import scalaz.{-\/, Liskov, \/, \/-}
+import scalaz.{-\/, \/, \/-}
 import spray.json.{JsNull, JsValue}
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.Liskov.<~<
@@ -457,35 +458,6 @@ private[http] object ContractsFetch {
           )
         ))
     }.void
-  }
-
-  final case class InsertDeleteStep[+C](inserts: Vector[C], deletes: Set[String]) {
-    @SuppressWarnings(Array("org.wartremover.warts.Any"))
-    def append[CC >: C](
-        o: InsertDeleteStep[CC],
-    )(implicit cid: CC <~< DBContract[Any, Any, Any, Any]): InsertDeleteStep[CC] =
-      appendWithCid(o)(
-        Liskov.contra1_2[Function1, DBContract[Any, Any, Any, Any], CC, String](cid)(_.contractId),
-      )
-
-    def appendWithCid[CC >: C](o: InsertDeleteStep[CC])(cid: CC => String): InsertDeleteStep[CC] =
-      InsertDeleteStep(
-        InsertDeleteStep.appendForgettingDeletes(inserts, o)(cid),
-        deletes union o.deletes,
-      )
-
-    def nonEmpty: Boolean = inserts.nonEmpty || deletes.nonEmpty
-
-    /** Results undefined if cid(d) != cid(c) */
-    def mapPreservingIds[D](f: C => D): InsertDeleteStep[D] = copy(inserts = inserts map f)
-  }
-
-  object InsertDeleteStep {
-    def appendForgettingDeletes[C](leftInserts: Vector[C], right: InsertDeleteStep[C])(
-        cid: C => String,
-    ): Vector[C] =
-      (if (right.deletes.isEmpty) leftInserts
-       else leftInserts.filter(c => !right.deletes(cid(c)))) ++ right.inserts
   }
 
   private def transactionFilter(

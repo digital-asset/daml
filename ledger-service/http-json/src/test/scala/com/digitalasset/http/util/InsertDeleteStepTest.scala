@@ -1,24 +1,23 @@
 // Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http
+package com.digitalasset.http.util
 
 import com.digitalasset.daml.lf.data.FlatSpecCheckLaws
-import ContractsFetch.InsertDeleteStep
 
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.{FlatSpec, Matchers}
-import scalaz.{@@, Equal, Monoid, Tag}
-import scalaz.syntax.semigroup._
 import scalaz.scalacheck.ScalazProperties
+import scalaz.syntax.semigroup._
+import scalaz.{@@, Equal, Monoid, Tag}
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
-class ContractsFetchTest
+class InsertDeleteStepTest
     extends FlatSpec
     with Matchers
     with FlatSpecCheckLaws
     with GeneratorDrivenPropertyChecks {
-  import ContractsFetchTest._
+  import InsertDeleteStepTest._
 
   behavior of "InsertDeleteStep append monoid"
 
@@ -48,7 +47,7 @@ class ContractsFetchTest
   }
 }
 
-object ContractsFetchTest {
+object InsertDeleteStepTest {
   import org.scalacheck.{Arbitrary, Gen, Shrink}
   import Arbitrary.arbitrary
 

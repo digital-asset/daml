@@ -7,7 +7,6 @@ import akka.NotUsed
 import akka.stream.scaladsl._
 import akka.stream.Materializer
 import com.digitalasset.daml.lf
-import com.digitalasset.http.ContractsFetch.InsertDeleteStep
 import com.digitalasset.http.LedgerClientJwt.Terminates
 import com.digitalasset.http.dbbackend.ContractDao
 import com.digitalasset.http.domain.{GetActiveContractsRequest, JwtPayload, TemplateId}
@@ -16,6 +15,7 @@ import com.digitalasset.http.query.ValuePredicate
 import com.digitalasset.http.util.ApiValueToLfValueConverter
 import com.digitalasset.http.util.FutureUtil.toFuture
 import util.Collections._
+import util.InsertDeleteStep
 import com.digitalasset.jwt.domain.Jwt
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => api}

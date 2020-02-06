@@ -10,10 +10,10 @@ import akka.stream.Materializer
 import com.digitalasset.http.EndpointsCompanion._
 import com.digitalasset.http.domain.{JwtPayload, SearchForeverRequest}
 import com.digitalasset.http.json.{DomainJsonDecoder, DomainJsonEncoder, JsonProtocol, SprayJson}
-import ContractsFetch.InsertDeleteStep
 import com.digitalasset.http.LedgerClientJwt.Terminates
 import util.ApiValueToLfValueConverter.apiValueToLfValue
 import util.Collections._
+import util.InsertDeleteStep
 import json.JsonProtocol.LfValueCodec.{apiValueToJsValue => lfValueToJsValue}
 import query.ValuePredicate.{LfV, TypeLookup}
 import com.digitalasset.jwt.domain.Jwt
