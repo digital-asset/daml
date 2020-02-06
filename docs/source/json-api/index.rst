@@ -12,7 +12,7 @@ tracker
 <https://github.com/digital-asset/daml/issues/new?milestone=HTTP+JSON+API+Maintenance>`_
 or `on Slack <https://hub.daml.com/slack/>`_.
 
-Please keep in mind that the presence of **/v1** prefix in the the URLs below, does not mean that the endpoint interfaces are stabilized.
+Please keep in mind that the presence of **/v1** prefix in the the URLs below does not mean that the endpoint interfaces are stabilized.
 
 The **JSON API** provides a significantly simpler way than :doc:`the Ledger
 API </app-dev/index>` to interact with a ledger by providing *basic active contract set functionality*:
