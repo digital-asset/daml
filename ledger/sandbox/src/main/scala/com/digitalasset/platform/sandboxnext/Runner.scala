@@ -66,6 +66,7 @@ class Runner {
         throw new InvalidDatabaseException(
           "This version of Sandbox does not support file-based H2 databases. Please use SQLite instead.")
       case Some(url) if url.startsWith("jdbc:sqlite:") => ("SQLite", url, InMemoryIndexJdbcUrl)
+      case Some(url) => throw new InvalidDatabaseException(s"Unknown database: $url")
       case None => ("in-memory", InMemoryLedgerJdbcUrl, InMemoryIndexJdbcUrl)
     }
 
