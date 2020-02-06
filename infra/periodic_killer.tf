@@ -8,7 +8,14 @@ resource "google_service_account" "periodic-killer" {
   account_id = "periodic-killer"
 }
 
-resource "google_project_iam_custom_role" "tf-write-state" {
+resource "google_project_iam_member" "periodic-killer" {
+  # should reference google_project_iam_custom_role.periodic-killer.id or
+  # something, but for whatever reason that's not exposed.
+  role   = "projects/da-dev-gcp-daml-language/roles/killCiNodesEveryNight"
+  member = "serviceAccount:${google_service_account.periodic-killer.email}"
+}
+
+resource "google_project_iam_custom_role" "periodic-killer" {
   role_id = "killCiNodesEveryNight"
   title   = "Permissions to list & kill CI nodes every night"
   permissions = [
