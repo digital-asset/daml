@@ -38,7 +38,7 @@ class CommandService(
     submitAndWaitForTransaction: LedgerClientJwt.SubmitAndWaitForTransaction,
     submitAndWaitForTransactionTree: LedgerClientJwt.SubmitAndWaitForTransactionTree,
     timeProvider: TimeProvider,
-    defaultTimeToLive: Duration = 30.seconds)(implicit ec: ExecutionContext)
+    defaultTimeToLive: FiniteDuration)(implicit ec: ExecutionContext)
     extends StrictLogging {
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))

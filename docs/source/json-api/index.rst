@@ -83,6 +83,8 @@ From a DAML project directory:
             Optional application ID to use for ledger registration. Defaults to HTTP-JSON-API-Gateway
       --package-reload-interval <value>
             Optional interval to poll for package updates. Examples: 500ms, 5s, 10min, 1h, 1d. Defaults to 5 seconds
+      --default-ttl <value>
+            Optional Time to Live interval to set if not provided in the command. Examples: 30s, 1min, 1h. Defaults to 30 seconds
       --max-inbound-message-size <value>
             Optional max inbound message size in bytes. Defaults to 4194304
       --query-store-jdbc-config "driver=<JDBC driver class name>,url=<JDBC connection url>,user=<user>,password=<password>,createSchema=<true|false>"
@@ -92,7 +94,7 @@ From a DAML project directory:
             user -- database user name,
             password -- database user password,
             createSchema -- boolean flag, if set to true, the process will re-create database schema and terminate immediately.
-        Example: "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password,createSchema=false"
+            Example: "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password,createSchema=false"
       --static-content "prefix=<URL prefix>,directory=<directory>"
             DEV MODE ONLY (not recommended for production). Optional static content configuration string. Contains comma-separated key-value pairs. Where:
             prefix -- URL prefix,
