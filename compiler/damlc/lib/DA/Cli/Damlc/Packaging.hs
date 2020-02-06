@@ -29,8 +29,8 @@ import Data.Maybe
 import Data.Set (Set)
 import qualified Data.Set as Set
 import qualified Data.Text.Extended as T
-import Development.IDE.Core.Service (runAction)
-import Development.IDE.Core.Shake
+import Development.IDE.Core.Rules (useNoFileE)
+import Development.IDE.Core.Service (runActionSync)
 import Development.IDE.Types.Location
 import "ghc-lib-parser" Module (UnitId, primUnitId, stringToUnitId, unitIdString,)
 import qualified Module as GHC
@@ -101,8 +101,10 @@ createProjectPackageDb opts thisSdkVer deps dataDeps = do
         \ExtractedDar{..} -> installDar dbPath edConfFiles edDalfs edSrcs
 
     loggerH <- getLogger opts "generate package maps"
-    (stablePkgs, dependencies) <- withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> runAction ide $
-        (,) <$> useNoFile_ GenerateStablePackages <*> useNoFile_ GeneratePackageMap
+    mbRes <- withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> runActionSync ide $ runMaybeT $
+        (,) <$> useNoFileE GenerateStablePackages
+            <*> useNoFileE GeneratePackageMap
+    (stablePkgs, dependencies) <- maybe (fail "Failed to generate package info") pure mbRes
     let stablePkgIds :: Set LF.PackageId
         stablePkgIds = Set.fromList $ map LF.dalfPackageId $ MS.elems stablePkgs
     -- This includes both SDK dependencies like daml-prim and daml-stdlib but also DARs specified
@@ -241,7 +243,7 @@ generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase
             }
 
     res <- withDamlIdeState opts loggerH diagnosticsLogger $ \ide ->
-        runAction ide $
+        runActionSync ide $
         -- Setting ifDir to . means that the interface files will end up directly next to
         -- the source files which is what we want here.
         writeIfacesAndHie

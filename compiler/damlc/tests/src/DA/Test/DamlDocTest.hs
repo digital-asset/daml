@@ -110,5 +110,5 @@ shouldGenerate input expected = withTempFile $ \tmpFile -> do
     let opts = (defaultOptions Nothing) {optHaddock=Haddock True}
     vfs <- makeVFSHandle
     ideState <- initialise def mainRule (pure $ LSP.IdInt 0) (const $ pure ()) noLogging (toCompileOpts opts (IdeReportProgress False)) vfs
-    Just pm <- runAction ideState $ use GetParsedModule $ toNormalizedFilePath tmpFile
+    Just pm <- runActionSync ideState $ use GetParsedModule $ toNormalizedFilePath tmpFile
     genModuleContent (getDocTestModule pm) @?= T.unlines (doctestHeader <> expected)

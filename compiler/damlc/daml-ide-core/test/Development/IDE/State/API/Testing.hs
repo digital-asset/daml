@@ -564,10 +564,10 @@ graphTest wrld pkg expectedGraph = do
 expectedGraph :: D.NormalizedFilePath -> ExpectedGraph -> ShakeTest ()
 expectedGraph damlFilePath expectedGraph = do
     ideState <- ShakeTest $ Reader.asks steService
-    mbDalf <- liftIO $ API.runAction ideState (API.getDalf damlFilePath)
+    mbDalf <- liftIO $ API.runActionSync ideState (API.getDalf damlFilePath)
     expectNoErrors
     Just lfPkg <- pure mbDalf
-    wrld <- Reader.liftIO $ API.runAction ideState (API.worldForFile damlFilePath)
+    wrld <- Reader.liftIO $ API.runActionSync ideState (API.worldForFile damlFilePath)
     graphTest wrld lfPkg expectedGraph
 
 -- | Example testing scenario.
