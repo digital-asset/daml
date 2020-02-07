@@ -62,10 +62,15 @@ data Trigger s = Trigger
   -- ^ Update the user-defined state based on the ACS and a transaction or
   -- completion message.
   , rule : Party -> ACS -> Time -> Map CommandId [Command] -> s -> TriggerA ()
-  -- ^ The rule defines the main logic of your trigger.
-  -- Given the party your trigger is running as, the ACS, the commands in flight
-  -- and the user-defined state, you can send commands to the ledger using
-  -- `emitCommands` to change the ACS.
+  -- ^ The rule defines the main logic of your trigger. It can send commands
+  -- to the ledger using `emitCommands` to change the ACS.
+  -- The rule depends on the following arguments:
+  --
+  --   * The party your trigger is running as.
+  --   * The current state of the ACS.
+  --   * The current time (UTC in wallclock mode, Unix epoch in static mode)
+  --   * The commands in flight.
+  --   * The user-defined state.
   , registeredTemplates : RegisteredTemplates
   -- ^ The templates the trigger will receive events for.
   , heartbeat : Optional RelTime
