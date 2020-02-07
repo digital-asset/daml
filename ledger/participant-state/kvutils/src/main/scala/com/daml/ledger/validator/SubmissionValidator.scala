@@ -41,7 +41,8 @@ class SubmissionValidator(
         Timestamp,
         DamlSubmission,
         Map[DamlStateKey, Option[DamlStateValue]]) => LogEntryAndState,
-    allocateLogEntryId: () => DamlLogEntryId)(implicit executionContext: ExecutionContext) {
+    allocateLogEntryId: () => DamlLogEntryId,
+    checkForMissingInputs: Boolean = false)(implicit executionContext: ExecutionContext) {
 
   import SubmissionValidator._
 
@@ -117,12 +118,10 @@ class SubmissionValidator(
             }
             damlLogEntryId = allocateLogEntryId()
             readInputs: Map[DamlStateKey, Option[DamlStateValue]] = readStateInputs.toMap
-            missingInputs = declaredInputs -- readInputs.filter {
-              case (_, value) => value.isDefined
-            }.keySet
+            missingInputs = declaredInputs.toSet -- readInputs.filter(_._2.isDefined).keySet
           } yield {
-            if (missingInputs.nonEmpty) {
-              Left(MissingInputState(missingInputs.map(keyToBytes)))
+            if (checkForMissingInputs && missingInputs.nonEmpty) {
+              Left(MissingInputState(missingInputs.map(keyToBytes).toSeq))
             } else {
               Try {
                 val (logEntry, damlStateUpdates) =
@@ -159,14 +158,16 @@ object SubmissionValidator {
 
   def create(
       ledgerStateAccess: LedgerStateAccess,
-      allocateNextLogEntryId: () => DamlLogEntryId = () => allocateRandomLogEntryId())(
+      allocateNextLogEntryId: () => DamlLogEntryId = () => allocateRandomLogEntryId(),
+      checkForMissingInputs: Boolean = false)(
       implicit executionContext: ExecutionContext): SubmissionValidator = {
     val participantId: ParticipantId =
       ParticipantId.assertFromString(ledgerStateAccess.participantId)
     new SubmissionValidator(
       ledgerStateAccess,
       processSubmission(participantId),
-      allocateNextLogEntryId)
+      allocateNextLogEntryId,
+      checkForMissingInputs)
   }
 
   def allocateRandomLogEntryId(): DamlLogEntryId =
