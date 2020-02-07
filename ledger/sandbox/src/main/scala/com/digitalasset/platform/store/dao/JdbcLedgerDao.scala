@@ -1219,18 +1219,21 @@ private class JdbcLedgerDao(
     ~ str("signatories").?
     ~ str("observers").? map flatten)
 
-  private val ContractLetParser = (ledgerString("id")
-    ~ date("effective_at").? map flatten)
-
   private val SQL_SELECT_CONTRACT =
     SQL(queries.SQL_SELECT_CONTRACT)
 
+  private val ContractLetParser = date("effective_at").?
+
   private val SQL_SELECT_CONTRACT_LET =
     SQL("""
-        |select c.id, le.effective_at
-        |from contracts c
+        |select cd.id, le.effective_at
+        |from contract_data cd
+        |left join contracts c on c.id=cd.id
         |left join ledger_entries le on c.transaction_id = le.transaction_id
-        |where c.id={contract_id} and c.archive_offset is null""".stripMargin)
+        |where
+        |  cd.id={contract_id} and
+        |  (le.effective_at is null or c.archive_offset is null)
+        | """.stripMargin)
 
   private val SQL_SELECT_WITNESS =
     SQL("select witness from contract_witnesses where contract_id={contract_id}")
@@ -1262,8 +1265,8 @@ private class JdbcLedgerDao(
       .on("contract_id" -> contractId.coid)
       .as(ContractLetParser.singleOpt)
       .map {
-        case (_, None) => LetUnknown
-        case (_, Some(let)) => Let(let.toInstant)
+        case None => LetUnknown
+        case Some(let) => Let(let.toInstant)
       }
 
   override def lookupActiveOrDivulgedContract(
@@ -1416,7 +1419,6 @@ private class JdbcLedgerDao(
       filter: TemplateAwareFilter): Future[LedgerSnapshot] = {
 
     def orEmptyStringList(xs: Seq[String]) = if (xs.nonEmpty) xs else List("")
-
     val contractStream =
       PaginatingAsyncStream(PageSize, executionContext) { queryOffset =>
         dbDispatcher.executeSql(
