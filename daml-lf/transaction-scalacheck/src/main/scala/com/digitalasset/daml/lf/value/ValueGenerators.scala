@@ -21,61 +21,10 @@ import Arbitrary.arbitrary
 import scala.collection.immutable.HashMap
 import scalaz.syntax.apply._
 import scalaz.scalacheck.ScalaCheckBinding._
-import scalaz.std.string.parseInt
 
 object ValueGenerators {
 
   import Ref.LedgerString.{assertFromString => toContractId}
-
-  /** In string encoding, assume prefix of RCOID::: or ACOID:::. */
-  val defaultCidDecode: ValueCoder.DecodeCid[Tx.TContractId] = ValueCoder.DecodeCid(
-    { i: String =>
-      if (i.startsWith("RCOID")) {
-        Right(RelativeContractId(Tx.NodeId(i.split(":::")(1).toInt)))
-      } else if (i.startsWith("ACOID")) {
-        Right(AbsoluteContractId(toContractId(i.split(":::")(1))))
-      } else {
-        Left(ValueCoder.DecodeError(s"Invalid contractId string $i"))
-      }
-    }, { (i, r) =>
-      if (r)
-        parseInt(i)
-          .bimap(e => ValueCoder.DecodeError(e.getMessage), n => RelativeContractId(NodeId(n)))
-          .toEither
-      else Right(AbsoluteContractId(toContractId(i)))
-    }
-  )
-
-  val defaultValDecode
-    : ValueOuterClass.VersionedValue => Either[ValueCoder.DecodeError, Tx.Value[Tx.TContractId]] =
-    a => ValueCoder.decodeVersionedValue(defaultCidDecode, a)
-
-  /** In string encoding, prefix with RCOID::: or ACOID:::. */
-  val defaultCidEncode: ValueCoder.EncodeCid[Tx.TContractId] = ValueCoder.EncodeCid(
-    {
-      case AbsoluteContractId(coid) => s"ACOID:::${coid: String}"
-      case RelativeContractId(nid, _) => s"RCOID:::${nid.index: Int}"
-    }, {
-      case AbsoluteContractId(coid) => (coid, false)
-      case RelativeContractId(nid, _) => ((nid.index: Int).toString, true)
-    }
-  )
-
-  val defaultValEncode: TransactionCoder.EncodeVal[Tx.TContractId] =
-    a => ValueCoder.encodeVersionedValueWithCustomVersion(defaultCidEncode, a).map((a.version, _))
-
-  val defaultNidDecode: String => Either[ValueCoder.DecodeError, NodeId] = s => {
-    try {
-      Right(NodeId(s.toInt))
-    } catch {
-      case _: NumberFormatException =>
-        Left(ValueCoder.DecodeError(s"invalid node id, not an integer: $s"))
-      case e: Throwable =>
-        Left(ValueCoder.DecodeError(s"unexpected error during decoding nodeId: ${e.getMessage}"))
-    }
-  }
-
-  val defaultNidEncode: TransactionCoder.EncodeNid[NodeId] = nid => nid.index.toString
 
   //generate decimal values
   def numGen(scale: Numeric.Scale): Gen[Numeric] = {
