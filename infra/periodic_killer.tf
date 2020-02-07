@@ -60,10 +60,10 @@ cat <<CRON > /root/periodic-kill.sh
 set -euo pipefail
 
 PREFIX=temp-killable
-MACHINES=$(gcloud compute instances list --format=json | jq -c '.[] | select(.name | startswith("'$PREFIX'")) | [.name, .zone]')
+MACHINES=\$(gcloud compute instances list --format=json | jq -c '.[] | select(.name | startswith("'\$PREFIX'")) | [.name, .zone]')
 
-for m in $MACHINES; do
-    gcloud -q compute instances delete $(echo $m | jq -r '.[0]') --zone=$(echo $m | jq -r '.[1]')
+for m in \$MACHINES; do
+    gcloud -q compute instances delete \$(echo \$m | jq -r '.[0]') --zone=\$(echo \$m | jq -r '.[1]')
 done
 CRON
 
