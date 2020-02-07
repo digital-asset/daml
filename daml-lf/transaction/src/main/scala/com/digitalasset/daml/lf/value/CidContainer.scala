@@ -14,33 +14,17 @@ sealed abstract class CidMapper[-A1, +A2, In, Out] {
 
   def map(f: In => Out): A1 => A2
 
-  private[value] type UnsafeEither[L, R]
-
-  // here we emulate a traverse like function.
-  private[value] def traverse[L](
-      f: (L => UnsafeEither[L, Out], Out => UnsafeEither[L, Out]) => In => UnsafeEither[L, Out]
-  ): A1 => Either[L, A2]
-
-}
-
-private sealed abstract class CidMapperImpl[A1, A2, In, Out] extends CidMapper[A1, A2, In, Out] {
-
-  private[value] final type UnsafeEither[L, R] = R
-
-  // We cheat using exception
-  private[value] final def traverse[L](
-      f: (L => UnsafeEither[L, Out], Out => UnsafeEither[L, Out]) => In => UnsafeEither[L, Out]
-  ): A1 => Either[L, A2] = {
+  // We cheat using exceptions
+  def traverse[L](f: In => Either[L, Out]): A1 => Either[L, A2] = {
     case class Ball(x: L) extends Throwable with NoStackTrace
     a =>
-      def left(x: L): UnsafeEither[L, Out] = throw Ball(x)
-      def right(a: Out): UnsafeEither[L, Out] = a
       try {
-        Right(map(f(left, right))(a))
+        Right(map(x => f(x).fold(y => throw Ball(y), identity))(a))
       } catch {
         case Ball(x) => Left(x)
       }
   }
+
 }
 
 object CidMapper {
@@ -61,18 +45,18 @@ object CidMapper {
     CidMapper[A1, A2, Value.RelativeContractId, Ref.ContractIdStringV1]
 
   def trivialMapper[X, In, Out]: CidMapper[X, X, In, Out] =
-    new CidMapperImpl[X, X, In, Out] {
+    new CidMapper[X, X, In, Out] {
       override def map(f: In => Out): X => X = identity
     }
 
   private[value] def basicMapperInstance[Cid1, Cid2]: CidMapper[Cid1, Cid2, Cid1, Cid2] =
-    new CidMapperImpl[Cid1, Cid2, Cid1, Cid2] {
+    new CidMapper[Cid1, Cid2, Cid1, Cid2] {
       override def map(f: Cid1 => Cid2): Cid1 => Cid2 = f
     }
 
   private[value] def basicCidResolverInstance[Id <: Ref.ContractIdString]
     : RelCidResolver[Value.ContractId, Value.AbsoluteContractId, Id] =
-    new CidMapperImpl[Value.ContractId, Value.AbsoluteContractId, Value.RelativeContractId, Id] {
+    new CidMapper[Value.ContractId, Value.AbsoluteContractId, Value.RelativeContractId, Id] {
       override def map(
           f: Value.RelativeContractId => Id,
       ): Value.ContractId => Value.AbsoluteContractId = {
@@ -84,7 +68,7 @@ object CidMapper {
   private[value] def valueVersionCidV1Resolver[A1, A2](
       implicit resolver: RelCidV1Resolver[A1, A2],
   ): RelCidV1Resolver[Value.VersionedValue[A1], Value.VersionedValue[A2]] =
-    new CidMapperImpl[
+    new CidMapper[
       Value.VersionedValue[A1],
       Value.VersionedValue[A2],
       Value.RelativeContractId,
@@ -117,12 +101,12 @@ trait CidContainer[+A] {
       f: Value.RelativeContractId => Either[String, Ref.ContractIdStringV1])(
       implicit resolver: RelCidV1Resolver[A, B],
   ): Either[String, B] =
-    resolver.traverse[String]((left, right) => f(_).fold(left, right))(self)
+    resolver.traverse[String](f)(self)
 
   final def ensureNoCid[B](
       implicit mapper: NoCidChecker[A, B]
   ): Either[Value.ContractId, B] =
-    mapper.traverse[Value.ContractId]((left, _) => cid => left(cid))(self)
+    mapper.traverse[Value.ContractId](Left(_))(self)
 
   final def assertNoCid[B](message: Value.ContractId => String)(
       implicit mapper: NoCidChecker[A, B]
@@ -132,10 +116,10 @@ trait CidContainer[+A] {
   final def ensureNoRelCid[B](
       implicit mapper: NoRelCidChecker[A, B]
   ): Either[Value.RelativeContractId, B] =
-    mapper.traverse[Value.RelativeContractId]((left, right) => {
-      case acoid: Value.AbsoluteContractId => right(acoid)
-      case rcoid: Value.RelativeContractId => left(rcoid)
-    })(self)
+    mapper.traverse[Value.RelativeContractId] {
+      case acoid: Value.AbsoluteContractId => Right(acoid)
+      case rcoid: Value.RelativeContractId => Left(rcoid)
+    }(self)
 
   final def assertNoRelCid[B](message: Value.ContractId => String)(
       implicit mapper: NoRelCidChecker[A, B]
@@ -153,7 +137,7 @@ trait CidContainer1[F[_]] {
   protected final def cidMapperInstance[A1, A2, In, Out](
       implicit mapper: CidMapper[A1, A2, In, Out]
   ): CidMapper[F[A1], F[A2], In, Out] =
-    new CidMapperImpl[F[A1], F[A2], In, Out] {
+    new CidMapper[F[A1], F[A2], In, Out] {
       override def map(f: In => Out): F[A1] => F[A2] =
         map1[A1, A2](mapper.map(f))
     }
@@ -196,7 +180,7 @@ trait CidContainer3[F[_, _, _]] {
       mapper2: CidMapper[B1, B2, In, Out],
       mapper3: CidMapper[C1, C2, In, Out],
   ): CidMapper[F[A1, B1, C1], F[A2, B2, C2], In, Out] =
-    new CidMapperImpl[F[A1, B1, C1], F[A2, B2, C2], In, Out] {
+    new CidMapper[F[A1, B1, C1], F[A2, B2, C2], In, Out] {
       override def map(f: In => Out): F[A1, B1, C1] => F[A2, B2, C2] = {
         map3[A1, B1, C1, A2, B2, C2](mapper1.map(f), mapper2.map(f), mapper3.map(f))
       }
