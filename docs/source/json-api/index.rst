@@ -504,7 +504,10 @@ HTT Request
 
     {
         "templateId": "Account:Account",
-        "key": ["Alice", "abc123"],
+        "key": {
+            "_1": "Alice",
+            "_2": "abc123"
+        },
         "choice": "Archive",
         "argument": {}
     }
@@ -600,7 +603,10 @@ HTTP Request
 
     {
         "templateId": "Account:Account",
-        "key": ["Alice", "abc123"]
+        "key": {
+            "_1": "Alice",
+            "_2": "abc123"
+        }
     }
 
 Contract Not Found HTTP Response
@@ -979,8 +985,8 @@ Example:
 .. code-block:: json
 
     [
-        {"templateId": "Account:Account", "key": ["Alice", "abc123"]},
-        {"templateId": "Account:Account", "key": ["Alice", "def345"]}
+        {"templateId": "Account:Account", "key": {"_1": "Alice", "_2": "abc123"}},
+        {"templateId": "Account:Account", "key": {"_1": "Alice", "_2": "def345"}}
     ]
 
 The output stream has the same format as the output from the `Contracts Query Stream`_. We further guarantee that for every ``archived`` event appearing on the stream there has been a matching ``created`` event earlier in the stream.

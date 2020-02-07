@@ -796,7 +796,7 @@ abstract class AbstractHttpServiceIntegrationTest
       }: Future[Assertion]
   }
 
-  "fetch by contractKey" in withHttpService { (uri, encoder, decoder) =>
+  "fetch by key" in withHttpService { (uri, encoder, decoder) =>
     val owner = domain.Party("Alice")
     val accountNumber = "abc123"
     val command: domain.CreateCommand[v.Record] = accountCreateCommand(owner, accountNumber)
@@ -814,7 +814,7 @@ abstract class AbstractHttpServiceIntegrationTest
     }: Future[Assertion]
   }
 
-  "commands/exercise Archive by contractKey" in withHttpService { (uri, encoder, decoder) =>
+  "commands/exercise Archive by key" in withHttpService { (uri, encoder, decoder) =>
     val owner = domain.Party("Alice")
     val accountNumber = "abc123"
     val create: domain.CreateCommand[v.Record] = accountCreateCommand(owner, accountNumber)
@@ -845,7 +845,36 @@ abstract class AbstractHttpServiceIntegrationTest
     }: Future[Assertion]
   }
 
-  "fetch by contractKey where Key contains variant and record" in withHttpService { (uri, _, _) =>
+  "fetch by key containing variant and record, encoded as array" in withHttpService { (uri, _, _) =>
+    testFetchByCompositeKey(
+      uri,
+      jsObject("""{
+            "templateId": "Account:KeyedByVariantAndRecord",
+            "key": [
+              "Alice",
+              {"tag": "Baz", "value": {"baz": "baz value"}},
+              {"baz": "another baz value"}
+            ]
+          }""")
+    )
+  }
+
+  "fetch by key containing variant and record, encoded as record" in withHttpService {
+    (uri, _, _) =>
+      testFetchByCompositeKey(
+        uri,
+        jsObject("""{
+            "templateId": "Account:KeyedByVariantAndRecord",
+            "key": {
+              "_1": "Alice",
+              "_2": {"tag": "Baz", "value": {"baz": "baz value"}},
+              "_3": {"baz": "another baz value"}
+            }
+          }""")
+      )
+  }
+
+  private def testFetchByCompositeKey(uri: Uri, request: JsObject) = {
     val createCommand = jsObject("""{
         "templateId": "Account:KeyedByVariantAndRecord",
         "payload": {
@@ -857,20 +886,13 @@ abstract class AbstractHttpServiceIntegrationTest
         }
       }""")
 
-    val lookupRequest =
-      jsObject(
-        """{
-            "templateId": "Account:KeyedByVariantAndRecord",
-            "key": ["Alice", {"tag": "Baz", "value": {"baz": "baz value"}}, {"baz": "another baz value"}]
-          }""")
-
     postJsonRequest(uri.withPath(Uri.Path("/v1/create")), createCommand).flatMap {
       case (status, output) =>
         status shouldBe StatusCodes.OK
         assertStatus(output, StatusCodes.OK)
         val contractId: ContractId = getContractId(getResult(output))
 
-        postJsonRequest(uri.withPath(Uri.Path("/v1/fetch")), lookupRequest).flatMap {
+        postJsonRequest(uri.withPath(Uri.Path("/v1/fetch")), request).flatMap {
           case (status, output) =>
             status shouldBe StatusCodes.OK
             assertStatus(output, StatusCodes.OK)
