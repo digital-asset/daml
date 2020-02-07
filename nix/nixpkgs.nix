@@ -17,6 +17,8 @@ let
         sha256 = "1jcyd9jy7kz5zfch25s4inwlivb1y1w52fzfjy5ra5vcnp3hmqyr";
         fetchSubmodules = true;
       };
+      # Upstream nixpkgs applies patches that are incompatbile with our version
+      # of grpc. So, we disable them.
       patches = [];
     });
     ephemeralpg = pkgs.ephemeralpg.overrideAttrs(oldAttrs: {
