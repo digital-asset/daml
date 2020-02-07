@@ -31,6 +31,9 @@ source dev-env/lib/ensure-nix
 
 export NIX_CONF_DIR=$PWD/dev-env/etc
 
+step "Dumping Nix configuration"
+nix show-config
+
 step "Building dev-env dependencies"
 
 # Nix cache downloads can sometimes be flaky and end with "unexpected end-of-file" so we
