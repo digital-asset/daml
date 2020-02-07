@@ -44,6 +44,7 @@ import org.scalatest.{AsyncWordSpec, Matchers}
 
 import scala.concurrent.Future
 import scala.concurrent.duration.{Duration, DurationInt, DurationLong}
+import scala.ref.WeakReference
 
 final class ResetServiceIT
     extends AsyncWordSpec
@@ -63,7 +64,7 @@ final class ResetServiceIT
 
   override protected def darFile: File = new File(rlocation("ledger/test-common/Test-stable.dar"))
 
-  private def getLedgerId(): Future[String] =
+  private def fetchLedgerId(): Future[String] =
     LedgerIdentityServiceGrpc
       .stub(channel)
       .getLedgerIdentity(GetLedgerIdentityRequest())
@@ -74,7 +75,7 @@ final class ResetServiceIT
     for {
       _ <- ResetServiceGrpc.stub(channel).reset(ResetRequest(ledgerId))
       newLedgerId <- eventually { (_, _) =>
-        getLedgerId()
+        fetchLedgerId()
       }
     } yield newLedgerId
 
@@ -115,12 +116,10 @@ final class ResetServiceIT
     } yield unit
 
   "ResetService" when {
-
     "state is reset" should {
-
       "return a new ledger ID" in {
         for {
-          lid1 <- getLedgerId()
+          lid1 <- fetchLedgerId()
           lid2 <- reset(lid1)
           throwable <- reset(lid1).failed
         } yield {
@@ -131,7 +130,7 @@ final class ResetServiceIT
 
       "return new ledger ID - 20 resets" in {
         Future
-          .sequence(Iterator.iterate(getLedgerId())(_.flatMap(reset)).take(20).toVector)
+          .sequence(Iterator.iterate(fetchLedgerId())(_.flatMap(reset)).take(20).toVector)
           .map(ids => ids.distinct should have size 20L)
       }
 
@@ -148,7 +147,7 @@ final class ResetServiceIT
         Future
           .sequence(
             Iterator
-              .iterate(getLedgerId()) { ledgerIdF =>
+              .iterate(fetchLedgerId()) { ledgerIdF =>
                 for {
                   ledgerId <- ledgerIdF
                   _ <- submitAndExpectCompletions(ledgerId, numberOfCommands)
@@ -162,7 +161,7 @@ final class ResetServiceIT
 
       "remove contracts from ACS after reset" in {
         for {
-          lid <- getLedgerId()
+          lid <- fetchLedgerId()
           req = dummyCommands(LedgerId(lid), "commandId1")
           _ <- submitAndWait(SubmitAndWaitRequest(commands = req.commands))
           events <- activeContracts(lid, M.transactionFilter)
@@ -174,6 +173,17 @@ final class ResetServiceIT
         }
       }
 
+      "clear out all garbage" in {
+        val state = new WeakReference(sandboxResource.sandboxServer.sandboxState)
+        for {
+          lid <- fetchLedgerId()
+          _ <- reset(lid)
+        } yield {
+          System.gc()
+          state.get.isEmpty shouldBe true
+          succeed
+        }
+      }
     }
   }
 }

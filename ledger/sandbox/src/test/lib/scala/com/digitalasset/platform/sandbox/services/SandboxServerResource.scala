@@ -20,7 +20,7 @@ class SandboxServerResource(config: => SandboxConfig) extends Resource[Channel] 
   @volatile
   private var channel: ManagedChannel = _
   @volatile
-  private var sandboxServer: SandboxServer = _
+  var sandboxServer: SandboxServer = _
 
   override def value: Channel = channel
 

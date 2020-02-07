@@ -47,6 +47,7 @@ import com.digitalasset.platform.sandbox.stores.{
 import com.digitalasset.platform.services.time.TimeProviderType
 import com.digitalasset.resources.akka.AkkaResourceOwner
 import com.digitalasset.resources.{Resource, ResourceOwner}
+import com.google.common.annotations.VisibleForTesting
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.DurationInt
@@ -67,9 +68,8 @@ object SandboxServer {
     override def acquire()(implicit executionContext: ExecutionContext): Resource[SandboxState] = {
       for {
         server <- ResourceOwner.forTry(() => Try(new SandboxServer(config))).acquire()
-        state <- server.sandboxState
-        _ <- state.apiServer
-      } yield state
+        _ <- server.sandboxState.apiServer
+      } yield server.sandboxState
     }
   }
 
@@ -103,10 +103,11 @@ object SandboxServer {
   }
 
   final case class SandboxState(
+      materializer: Materializer,
+      metrics: MetricRegistry,
+      packageStore: InMemoryPackageStore,
       // nested resource so we can release it independently when restarting
       apiServer: Resource[ApiServer],
-      packageStore: InMemoryPackageStore,
-      materializer: Materializer,
   ) {
     private implicit val executionContext: ExecutionContext = materializer.executionContext
 
@@ -123,25 +124,34 @@ final class SandboxServer(config: SandboxConfig) extends AutoCloseable {
 
   private val authService: AuthService = config.authService.getOrElse(AuthServiceWildcard)
 
-  private val metrics = new MetricRegistry
-
-  @volatile private var sandboxState: Resource[SandboxState] = _
-
-  sandboxState = {
+  private val metricsResource: Resource[MetricRegistry] = {
     implicit val executionContext: ExecutionContext = DirectExecutionContext
+    val metrics = new MetricRegistry
     for {
       _ <- ResourceOwner
         .forCloseable(() => new MetricsReporting(metrics, getClass.getPackage.getName))
         .acquire()
-      state <- start()
-    } yield state
+    } yield metrics
   }
+
+  private val materializerResource: Resource[Materializer] = {
+    implicit val executionContext: ExecutionContext = DirectExecutionContext
+    for {
+      actorSystem <- AkkaResourceOwner.forActorSystem(() => ActorSystem(ActorSystemName)).acquire()
+      materializer <- AkkaResourceOwner.forMaterializer(() => Materializer(actorSystem)).acquire()
+    } yield materializer
+  }
+
+  @VisibleForTesting
+  @volatile private[sandbox] var sandboxState: SandboxState = _
+
+  start()(DirectExecutionContext)
 
   def port: Int =
     Await.result(portF(DirectExecutionContext), AsyncTolerance)
 
   def portF(implicit executionContext: ExecutionContext): Future[Int] =
-    sandboxState.flatMap(_.apiServer).map(_.port).asFuture
+    sandboxState.apiServer.map(_.port).asFuture
 
   /** the reset service is special, since it triggers a server shutdown */
   private def resetService(
@@ -158,22 +168,23 @@ final class SandboxServer(config: SandboxConfig) extends AutoCloseable {
 
   def resetAndRestartServer()(implicit executionContext: ExecutionContext): Future[Unit] = {
     val apiServicesClosed =
-      sandboxState.flatMap(_.apiServer).asFuture.flatMap(_.servicesClosed())
+      sandboxState.apiServer.asFuture.flatMap(_.servicesClosed())
 
     // Need to run this async otherwise the callback kills the server under the in-flight reset service request!
     // TODO: eliminate the state mutation somehow
-    sandboxState = for {
-      state <- sandboxState
-      currentPort <- Resource.fromFuture(state.port)
-      _ <- Resource.fromFuture(state.apiServer.release())
-    } yield
-      state.copy(
+    for {
+      currentPort <- sandboxState.port
+      _ <- sandboxState.apiServer.release()
+    } {
+      sandboxState = sandboxState.copy(
         apiServer = buildAndStartApiServer(
-          state.materializer,
-          state.packageStore,
+          sandboxState.materializer,
+          sandboxState.metrics,
+          sandboxState.packageStore,
           SqlStartMode.AlwaysReset,
           Some(currentPort),
         ))
+    }
 
     // waits for the services to be closed, so we can guarantee that future API calls after finishing the reset will never be handled by the old one
     apiServicesClosed
@@ -181,6 +192,7 @@ final class SandboxServer(config: SandboxConfig) extends AutoCloseable {
 
   private def buildAndStartApiServer(
       materializer: Materializer,
+      metrics: MetricRegistry,
       packageStore: InMemoryPackageStore,
       startMode: SqlStartMode,
       currentPort: Option[Int],
@@ -296,19 +308,20 @@ final class SandboxServer(config: SandboxConfig) extends AutoCloseable {
 
   }
 
-  private def start()(implicit executionContext: ExecutionContext): Resource[SandboxState] = {
+  private def start(port: Option[Int] = None)(implicit executionContext: ExecutionContext): Unit = {
     val packageStore = loadDamlPackages()
     for {
-      actorSystem <- AkkaResourceOwner.forActorSystem(() => ActorSystem(ActorSystemName)).acquire()
-      materializer <- AkkaResourceOwner.forMaterializer(() => Materializer(actorSystem)).acquire()
-    } yield {
+      metrics <- metricsResource.asFuture
+      materializer <- materializerResource.asFuture
+    } {
       val apiServerResource = buildAndStartApiServer(
         materializer,
+        metrics,
         packageStore,
         SqlStartMode.ContinueIfExists,
-        currentPort = None,
+        currentPort = port,
       )
-      SandboxState(apiServerResource, packageStore, materializer)
+      sandboxState = SandboxState(materializer, metrics, packageStore, apiServerResource)
     }
   }
 
@@ -324,9 +337,12 @@ final class SandboxServer(config: SandboxConfig) extends AutoCloseable {
   }
 
   override def close(): Unit = {
-    Await.result(
-      sandboxState.flatMap(_.apiServer)(DirectExecutionContext).release(),
-      AsyncTolerance)
+    implicit val executionContext: ExecutionContext = DirectExecutionContext
+    Await.result(for {
+      _ <- sandboxState.apiServer.release()
+      _ <- materializerResource.release()
+      _ <- metricsResource.release()
+    } yield (), AsyncTolerance)
   }
 
   private def writePortFile(port: Int)(

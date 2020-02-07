@@ -46,7 +46,7 @@ trait SandboxFixture extends SuiteResource[Channel] with BeforeAndAfterAll {
     Executors.newSingleThreadExecutor(
       new ThreadFactoryBuilder()
         .setDaemon(true)
-        .setNameFormat(s"${actorSystemName}-thread-pool-worker-%d")
+        .setNameFormat(s"$actorSystemName-thread-pool-worker-%d")
         .setUncaughtExceptionHandler((thread, _) =>
           logger.error(s"got an uncaught exception on thread: ${thread.getName}"))
         .build()))
@@ -101,7 +101,7 @@ trait SandboxFixture extends SuiteResource[Channel] with BeforeAndAfterAll {
 
   protected def scenario: Option[String] = None
 
-  private lazy val sandboxResource = new SandboxServerResource(config)
+  protected lazy val sandboxResource = new SandboxServerResource(config)
 
   protected override lazy val suiteResource: Resource[Channel] = sandboxResource
 
