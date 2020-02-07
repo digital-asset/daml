@@ -526,10 +526,15 @@ execInit opts projectOpts =
 initPackageDb :: Options -> InitPkgDb -> IO ()
 initPackageDb opts (InitPkgDb shouldInit) =
     when shouldInit $ do
-        isProject <- doesFileExist projectConfigName
+        -- Rather than just checking that there is a daml.yaml file we check that it has a project configuration.
+        -- This allows us to have a `daml.yaml` in the root of a multi-package project that just has an `sdk-version` field.
+        -- Once the IDE handles `initPackageDb` properly in multi-package projects instead of simply calling it once on
+        -- startup, this can be removed.
+        isProject <- withPackageConfig defaultProjectPath (const $ pure True) `catch` (\(_ :: ConfigError) -> pure False)
         when isProject $ do
+            projRoot <- getCurrentDirectory
             withPackageConfig defaultProjectPath $ \PackageConfigFields {..} ->
-                createProjectPackageDb opts pSdkVersion pDependencies pDataDependencies
+                createProjectPackageDb (toNormalizedFilePath projRoot) opts pSdkVersion pDependencies pDataDependencies
 
 createDarFile :: FilePath -> Zip.ZipArchive () -> IO ()
 createDarFile fp dar = do

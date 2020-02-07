@@ -36,6 +36,7 @@ da_haskell_library(
     srcs = ["daml-opts/DA/Daml/Options.hs"],
     hackage_deps = [
         "base",
+        "containers",
         "directory",
         "extra",
         "filepath",
@@ -44,6 +45,7 @@ da_haskell_library(
         "ghcide",
         "mtl",
         "text",
+        "shake",
     ],
     src_strip_prefix = "daml-opts",
     visibility = ["//visibility:public"],
@@ -51,6 +53,7 @@ da_haskell_library(
         ":daml-opts-types",
         "//compiler/daml-lf-ast",
         "//compiler/damlc/daml-preprocessor",
+        "//daml-assistant:daml-project-config",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
     ],

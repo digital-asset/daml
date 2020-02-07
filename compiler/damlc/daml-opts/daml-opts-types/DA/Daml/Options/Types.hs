@@ -126,18 +126,18 @@ basePackages :: [String]
 basePackages = ["daml-prim", "daml-stdlib"]
 
 -- | Find the builtin package dbs if the exist.
-locateBuiltinPackageDbs :: IO [FilePath]
-locateBuiltinPackageDbs = do
+locateBuiltinPackageDbs :: Maybe FilePath -> IO [FilePath]
+locateBuiltinPackageDbs mbProjRoot = do
     -- package db for daml-stdlib and daml-prim
     internalPackageDb <- fmap (</> "pkg-db_dir") $ locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "pkg-db")
     -- If these directories do not exist, we just discard them.
-    filterM Dir.doesDirectoryExist [internalPackageDb, projectPackageDatabase]
+    filterM Dir.doesDirectoryExist (internalPackageDb : [projRoot </> projectPackageDatabase | Just projRoot <- [mbProjRoot]])
 
 -- Given the target LF version and the package dbs specified by the user, return the versioned package dbs
 -- including builtin package dbs.
-getPackageDbs :: LF.Version -> [FilePath] -> IO [FilePath]
-getPackageDbs version userPkgDbs = do
-    builtinPkgDbs <- locateBuiltinPackageDbs
+getPackageDbs :: LF.Version -> Maybe FilePath -> [FilePath] -> IO [FilePath]
+getPackageDbs version mbProjRoot userPkgDbs = do
+    builtinPkgDbs <- locateBuiltinPackageDbs mbProjRoot
     pure $ map (</> renderPretty version) (builtinPkgDbs ++ userPkgDbs)
 
 defaultOptions :: Maybe LF.Version -> Options

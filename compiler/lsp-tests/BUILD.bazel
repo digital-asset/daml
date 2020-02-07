@@ -26,6 +26,7 @@ da_haskell_test(
         "mtl",
         "network-uri",
         "parser-combinators",
+        "process",
         "tasty",
         "tasty-hunit",
         "text",

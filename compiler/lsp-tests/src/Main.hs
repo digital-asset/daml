@@ -25,6 +25,7 @@ import System.Environment.Blank
 import System.FilePath
 import System.Info.Extra
 import System.IO.Extra
+import System.Process
 import Test.Tasty
 import Test.Tasty.HUnit
 import qualified Data.Aeson as Aeson
@@ -54,13 +55,15 @@ main = do
         , stressTests run runScenarios
         , executeCommandTests run runScenarios
         , regressionTests run runScenarios
+        , multiPackageTests damlcPath
         ]
-    where
-        conf = defaultConfig
-            -- If you uncomment this you can see all messages
-            -- which can be quite useful for debugging.
-            { logStdErr = True }
-            -- { logMessages = True, logColor = False, logStdErr = True }
+
+conf :: SessionConfig
+conf = defaultConfig
+    -- If you uncomment this you can see all messages
+    -- which can be quite useful for debugging.
+    { logStdErr = True }
+    -- { logMessages = True, logColor = False, logStdErr = True }
 
 diagnosticTests
     :: (forall a. Session a -> IO a)
@@ -646,3 +649,76 @@ regressionTests run _runScenarios = testGroup "regression"
           , _command = Nothing
           , _xdata = Nothing
           }
+
+multiPackageTests :: FilePath -> TestTree
+multiPackageTests damlc = testGroup "multi-package"
+    [ testCaseSteps "example 1" $ \step -> withTempDir $ \dir -> do
+          step "build a"
+          createDirectoryIfMissing True (dir </> "a")
+          writeFileUTF8 (dir </> "a" </> "daml.yaml") $ unlines
+              [ "sdk-version: ignored"
+              , "name: a"
+              , "version: 0.0.1"
+              , "source: ."
+              , "dependencies: [daml-prim, daml-stdlib]"
+              ]
+          writeFileUTF8 (dir </> "a" </> "A.daml") $ unlines
+              [ "daml 1.2 module A where"
+              , "data A = A"
+              , "a = A"
+              ]
+          withCurrentDirectory (dir </> "a") $ callProcess damlc ["build", "-o", dir </> "a" </> "a.dar"]
+          step "build b"
+          createDirectoryIfMissing True (dir </> "b")
+          writeFileUTF8 (dir </> "b" </> "daml.yaml") $ unlines
+              [ "sdk-version: ignored"
+              , "name: b"
+              , "version: 0.0.1"
+              , "source: ."
+              , "dependencies: [daml-prim, daml-stdlib, " <> show (".." </> "a" </> "a.dar") <> "]"
+              ]
+          writeFileUTF8 (dir </> "b" </> "B.daml") $ unlines
+              [ "daml 1.2 module B where"
+              , "import A"
+              , "f : Scenario A"
+              , "f = pure a"
+              ]
+          withCurrentDirectory (dir </> "b") $ callProcess damlc ["build", "-o", dir </> "b" </> "b.dar"]
+          step "run language server"
+          writeFileUTF8 (dir </> "daml.yaml") $ unlines
+              [ "sdk-version: ignored"
+              ]
+          withCurrentDirectory dir $ runSessionWithConfig conf (damlc <> " ide --scenarios=yes") fullCaps' dir $ do
+              docA <- openDoc ("a" </> "A.daml") "daml"
+              Just fpA <- pure $ uriToFilePath (docA ^. uri)
+              r <- getHover docA (Position 2 0)
+              liftIO $ r @?= Just Hover
+                { _contents = HoverContents $ MarkupContent MkMarkdown $ T.unlines
+                      [ "```daml"
+                      , "a"
+                      , ": A"
+                      , "```"
+                        , "*\t*\t*"
+                        , "*Defined at " <> T.pack fpA <> ":3:1*"
+                      ]
+                , _range = Just $ Range (Position 2 0) (Position 2 1)
+                }
+              docB <- openDoc ("b" </> "B.daml") "daml"
+              Just escapedFpB <- pure $ escapeURIString isUnescapedInURIComponent <$> uriToFilePath (docB ^. uri)
+              -- code lenses are a good test since they force LF compilation
+              r <- getCodeLenses docB
+              liftIO $ r @?=
+                  [ CodeLens
+                        { _range = Range (Position 3 0) (Position 3 1)
+                        , _command = Just $ Command
+                              { _title = "Scenario results"
+                              , _command = "daml.showResource"
+                              , _arguments = Just $ List
+                                  [ "Scenario: f"
+                                  , toJSON $ "daml://compiler?file=" <> escapedFpB <> "&top-level-decl=f"
+                                  ]
+                              }
+                        , _xdata = Nothing
+                        }
+                  ]
+    ]
