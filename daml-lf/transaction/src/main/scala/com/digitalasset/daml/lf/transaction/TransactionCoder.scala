@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf.transaction
 
 import com.digitalasset.daml.lf.data.{BackStack, Ref}
 import com.digitalasset.daml.lf.transaction.TransactionOuterClass.Node.NodeTypeCase
-import com.digitalasset.daml.lf.data.Ref.{LedgerString, Name, Party}
+import com.digitalasset.daml.lf.data.Ref.{Name, Party}
 import com.digitalasset.daml.lf.transaction.Node._
 import VersionTimeline.Implicits._
 import com.digitalasset.daml.lf.value.Value
@@ -45,11 +45,11 @@ object TransactionCoder {
   }
 
   val EventIdEncoder: EncodeNid[Ref.LedgerString] = new EncodeNid[Ref.LedgerString] {
-    override def asString(id: LedgerString): String = id
+    override def asString(id: Ref.LedgerString): String = id
   }
 
   val EventIdDecoder: DecodeNid[Ref.LedgerString] = new DecodeNid[Ref.LedgerString] {
-    override def fromString(s: String): Either[DecodeError, LedgerString] =
+    override def fromString(s: String): Either[DecodeError, Ref.LedgerString] =
       Ref.LedgerString
         .fromString(s)
         .left
