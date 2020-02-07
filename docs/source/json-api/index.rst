@@ -839,23 +839,32 @@ different sets of template IDs::
 output a series of JSON documents, each ``payload`` formatted according
 to :doc:`lf-value-specification`::
 
-    [{
-        "created": {
-            "observers": [],
-            "agreementText": "",
-            "payload": {
-                "observers": [],
-                "issuer": "Alice",
-                "amount": "999.99",
-                "currency": "USD",
-                "owner": "Alice"
-            },
-            "signatories": ["Alice"],
-            "contractId": "#1:0",
-            "templateId": "b70bbfbc77a4790f66d4840cb19f657dd20848f5e2f64e39ad404a6cbd98cf75:Iou:Iou"
-        },
-        "matchedQueries": [1, 2]
-    }]
+    {
+        "events": [
+            {
+                "created": {
+                    "observers": [],
+                    "agreementText": "",
+                    "payload": {
+                        "observers": [],
+                        "issuer": "Alice",
+                        "amount": "999.99",
+                        "currency": "USD",
+                        "owner": "Alice"
+                    },
+                    "signatories": [
+                        "Alice"
+                    ],
+                    "contractId": "#1:0",
+                    "templateId": "b70bbfbc77a4790f66d4840cb19f657dd20848f5e2f64e39ad404a6cbd98cf75:Iou:Iou"
+                },
+                "matchedQueries": [
+                    1,
+                    2
+                ]
+            }
+        ]
+    }
 
 where ``matchedQueries`` indicates the 0-based indices into the request
 list of queries that matched this contract.
@@ -868,44 +877,60 @@ which can be safely ignored::
 After submitting an ``Iou_Split`` exercise, which creates two contracts
 and archives the one above, the same stream will eventually produce::
 
-    [{
-        "archived": {
-            "contractId": "#1:0",
-            "templateId": "b70bbfbc77a4790f66d4840cb19f657dd20848f5e2f64e39ad404a6cbd98cf75:Iou:Iou"
-        }
-    }, {
-        "created": {
-            "observers": [],
-            "agreementText": "",
-            "payload": {
-                "observers": [],
-                "issuer": "Alice",
-                "amount": "42.42",
-                "currency": "USD",
-                "owner": "Alice"
+    {
+        "events": [
+            {
+                "archived": {
+                    "contractId": "#1:0",
+                    "templateId": "b70bbfbc77a4790f66d4840cb19f657dd20848f5e2f64e39ad404a6cbd98cf75:Iou:Iou"
+                }
             },
-            "signatories": ["Alice"],
-            "contractId": "#2:1",
-            "templateId": "b70bbfbc77a4790f66d4840cb19f657dd20848f5e2f64e39ad404a6cbd98cf75:Iou:Iou"
-        },
-        "matchedQueries": [0, 2]
-    }, {
-        "created": {
-            "observers": [],
-            "agreementText": "",
-            "payload": {
-                "observers": [],
-                "issuer": "Alice",
-                "amount": "957.57",
-                "currency": "USD",
-                "owner": "Alice"
+            {
+                "created": {
+                    "observers": [],
+                    "agreementText": "",
+                    "payload": {
+                        "observers": [],
+                        "issuer": "Alice",
+                        "amount": "42.42",
+                        "currency": "USD",
+                        "owner": "Alice"
+                    },
+                    "signatories": [
+                        "Alice"
+                    ],
+                    "contractId": "#2:1",
+                    "templateId": "b70bbfbc77a4790f66d4840cb19f657dd20848f5e2f64e39ad404a6cbd98cf75:Iou:Iou"
+                },
+                "matchedQueries": [
+                    0,
+                    2
+                ]
             },
-            "signatories": ["Alice"],
-            "contractId": "#2:2",
-            "templateId": "b70bbfbc77a4790f66d4840cb19f657dd20848f5e2f64e39ad404a6cbd98cf75:Iou:Iou"
-        },
-        "matchedQueries": [1, 2]
-    }]
+            {
+                "created": {
+                    "observers": [],
+                    "agreementText": "",
+                    "payload": {
+                        "observers": [],
+                        "issuer": "Alice",
+                        "amount": "957.57",
+                        "currency": "USD",
+                        "owner": "Alice"
+                    },
+                    "signatories": [
+                        "Alice"
+                    ],
+                    "contractId": "#2:2",
+                    "templateId": "b70bbfbc77a4790f66d4840cb19f657dd20848f5e2f64e39ad404a6cbd98cf75:Iou:Iou"
+                },
+                "matchedQueries": [
+                    1,
+                    2
+                ]
+            }
+        ]
+    }
 
 If any template IDs are found not to resolve, the first non-heartbeat
 element of the stream will report them::

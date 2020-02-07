@@ -60,13 +60,14 @@ object WebSocketService {
       def inj[V: JsonWriter](ctor: String, v: V) = JsObject(ctor -> v.toJson)
       val thisw =
         Liskov.lift2[StepAndErrors, Pos, Map[String, JsValue], LfV, JsValue](pos, lfv)(this)
-      JsArray(
+      val events = JsArray(
         step.deletes.valuesIterator.map(inj("archived", _)).toVector
           ++ thisw.step.inserts.map {
             case (ac, pos) =>
               val acj = inj("created", ac)
               acj copy (fields = acj.fields ++ pos)
           } ++ errors.map(e => inj("error", e.message)))
+      JsObject(("events", events))
     }
 
     def append[P >: Pos, A >: LfV](o: StepAndErrors[P, A]): StepAndErrors[P, A] =
