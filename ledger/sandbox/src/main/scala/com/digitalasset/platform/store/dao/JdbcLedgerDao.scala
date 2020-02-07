@@ -1219,11 +1219,10 @@ private class JdbcLedgerDao(
     ~ str("signatories").?
     ~ str("observers").? map flatten)
 
-  private val ContractLetParser = (ledgerString("id")
-    ~ date("effective_at").? map flatten)
-
   private val SQL_SELECT_CONTRACT =
     SQL(queries.SQL_SELECT_CONTRACT)
+
+  private val ContractLetParser = date("effective_at").?
 
   private val SQL_SELECT_CONTRACT_LET =
     SQL("""
@@ -1265,9 +1264,9 @@ private class JdbcLedgerDao(
     SQL_SELECT_CONTRACT_LET
       .on("contract_id" -> contractId.coid)
       .as(ContractLetParser.singleOpt)
-      .flatMap {
-        case (_, None) => Some(LetUnknown)
-        case (_, Some(let)) => Some(Let(let.toInstant))
+      .map {
+        case None => LetUnknown
+        case Some(let) => Let(let.toInstant)
       }
 
   override def lookupActiveOrDivulgedContract(
