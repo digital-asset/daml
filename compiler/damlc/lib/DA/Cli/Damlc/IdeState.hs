@@ -16,6 +16,7 @@ import DA.Daml.Options
 import DA.Daml.Options.Types
 import qualified DA.Service.Logger as Logger
 import qualified DA.Daml.Compiler.Scenario as Scenario
+import Development.IDE.Core.Debouncer
 import Development.IDE.Core.Rules.Daml
 import Development.IDE.Core.API
 import Development.IDE.Plugin
@@ -30,22 +31,25 @@ getDamlIdeState
     :: Options
     -> Maybe Scenario.Handle
     -> Logger.Handle IO
+    -> Debouncer LSP.NormalizedUri
     -> LSP.ClientCapabilities
     -> IO LSP.LspId
     -> (LSP.FromServerMessage -> IO ())
     -> VFSHandle
     -> IdeReportProgress
     -> IO IdeState
-getDamlIdeState compilerOpts mbScenarioService loggerH caps getLspId eventHandler vfs reportProgress = do
+getDamlIdeState compilerOpts mbScenarioService loggerH debouncer caps getLspId eventHandler vfs reportProgress = do
     let rule = mainRule compilerOpts <> pluginRules enabledPlugins
     damlEnv <- mkDamlEnv compilerOpts mbScenarioService
-    initialise caps rule getLspId eventHandler (toIdeLogger loggerH) damlEnv (toCompileOpts compilerOpts reportProgress) vfs
+    initialise caps rule getLspId eventHandler (toIdeLogger loggerH) debouncer damlEnv (toCompileOpts compilerOpts reportProgress) vfs
 
 enabledPlugins :: Plugin
 enabledPlugins = Completions.plugin <> CodeAction.plugin
 
--- Wrapper for the common case where the scenario service will be started automatically (if enabled)
--- and we use the builtin VFSHandle.
+-- Wrapper for the common case where the scenario service
+-- will be started automatically (if enabled)
+-- and we use the builtin VFSHandle. We always disable
+-- the debouncer here since this is not used in the IDE.
 withDamlIdeState
     :: Options
     -> Logger.Handle IO
@@ -59,7 +63,7 @@ withDamlIdeState opts@Options{..} loggerH eventHandler f = do
         -- We only use withDamlIdeState outside of the IDE where we do not care about
         -- progress reporting.
         bracket
-            (getDamlIdeState opts mbScenarioService loggerH def (pure $ LSP.IdInt 0) eventHandler vfs (IdeReportProgress False))
+            (getDamlIdeState opts mbScenarioService loggerH noopDebouncer def (pure $ LSP.IdInt 0) eventHandler vfs (IdeReportProgress False))
             shutdown
             f
 

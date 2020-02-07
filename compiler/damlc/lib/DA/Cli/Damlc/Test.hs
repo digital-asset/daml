@@ -56,10 +56,10 @@ testRun h inFiles lfVersion color mbJUnitOutput  = do
 
     -- take the transitive closure of all imports and run on all of them
     -- If some dependencies can't be resolved we'll get a Diagnostic out anyway, so don't worry
-    deps <- runAction h $ mapM getDependencies inFiles
+    deps <- runActionSync h $ mapM getDependencies inFiles
     let files = nubOrd $ concat $ inFiles : catMaybes deps
 
-    results <- runAction h $
+    results <- runActionSync h $
         Shake.forP files $ \file -> do
             mbScenarioResults <- runScenarios file
             results <- case mbScenarioResults of

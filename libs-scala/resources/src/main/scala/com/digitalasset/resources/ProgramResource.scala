@@ -10,12 +10,12 @@ import com.digitalasset.logging.LoggingContext.newLoggingContext
 import com.digitalasset.resources.ProgramResource._
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
-import scala.concurrent.{Await, ExecutionContext}
-import scala.util.control.NonFatal
-import scala.util.{Failure, Success}
+import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.util.control.{NoStackTrace, NonFatal}
+import scala.util.{Failure, Success, Try}
 
 class ProgramResource[T](
-    owner: ResourceOwner[T],
+    owner: => ResourceOwner[T],
     startupTimeout: FiniteDuration = 1.minute,
     tearDownDuration: FiniteDuration = 10.seconds,
 ) {
@@ -27,7 +27,7 @@ class ProgramResource[T](
 
   def run(): Unit = {
     newLoggingContext { implicit logCtx =>
-      val resource = owner.acquire()
+      val resource = Try(owner.acquire()).fold(Resource.failed, identity)
 
       def stop(): Unit = {
         Await.result(resource.release(), tearDownDuration)
@@ -36,7 +36,10 @@ class ProgramResource[T](
         ()
       }
 
-      resource.asFuture.onComplete {
+      val acquisition =
+        Await.result(resource.asFuture.transformWith(Future.successful), startupTimeout)
+
+      acquisition match {
         case Success(_) =>
           try {
             sys.runtime.addShutdownHook(new Thread(() => stop()))
@@ -46,7 +49,12 @@ class ProgramResource[T](
               stop()
               sys.exit(1)
           }
-        case Failure(_: SuppressedException) =>
+        case Failure(exception: StartupException) =>
+          logger.error(
+            s"Shutting down because of an initialization error.\n${exception.getMessage}")
+          stop()
+          sys.exit(1)
+        case Failure(_: SuppressedStartupException) =>
           stop()
           sys.exit(1)
         case Failure(NonFatal(exception)) =>
@@ -59,5 +67,9 @@ class ProgramResource[T](
 }
 
 object ProgramResource {
-  abstract class SuppressedException extends RuntimeException
+  abstract class StartupException(message: String)
+      extends RuntimeException(message)
+      with NoStackTrace
+
+  abstract class SuppressedStartupException extends RuntimeException
 }

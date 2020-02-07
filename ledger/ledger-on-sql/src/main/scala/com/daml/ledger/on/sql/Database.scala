@@ -7,6 +7,7 @@ import java.sql.Connection
 
 import com.daml.ledger.on.sql.queries.{H2Queries, PostgresqlQueries, Queries, SqliteQueries}
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
+import com.digitalasset.resources.ProgramResource.StartupException
 import com.digitalasset.resources.ResourceOwner
 import com.zaxxer.hikari.HikariDataSource
 import javax.sql.DataSource
@@ -209,5 +210,5 @@ object Database {
     }
   }
 
-  class InvalidDatabaseException(message: String) extends RuntimeException(message)
+  class InvalidDatabaseException(message: String) extends StartupException(message)
 }

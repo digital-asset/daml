@@ -6,7 +6,7 @@ package com.digitalasset.platform.sandbox.persistence
 import com.digitalasset.platform.sandbox.SandboxMain
 import com.digitalasset.testing.postgresql.PostgresAround
 
-object EphemeralPostgresSandboxMain extends PostgresAround {
+object MainWithEphemeralPostgresql extends PostgresAround {
   def main(args: Array[String]): Unit = {
     startEphemeralPostgres()
     sys.addShutdownHook(stopAndCleanUpPostgres())

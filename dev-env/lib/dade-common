@@ -57,7 +57,8 @@ dadeBaseHash() {
 
 # List tools defined in dade
 dadeListTools() {
-    cat $(nix-build $DADE_BASE_ROOT/nix -A dade.tools-list)
+    # Work around sporadic segfaults. See https://github.com/digital-asset/daml/pull/4427
+    cat $(nix-build --option http2 false $DADE_BASE_ROOT/nix -A dade.tools-list)
 }
 
 # dadeGetOutput get output of a target
@@ -108,7 +109,8 @@ buildTool() {
     errcho "Building tools.${attr}${forced}..."
     # Allow to fail, so we can capture outpath and to capture the exit code too.
     set +e
-    outpath=$(nix-build "${DADE_BASE_ROOT}/nix/default.nix" -A tools.$attr -Q -o "${target}")
+    # Work around sporadic segfaults. See https://github.com/digital-asset/daml/pull/4427
+    outpath=$(nix-build --option http2 false "${DADE_BASE_ROOT}/nix/default.nix" -A tools.$attr -Q -o "${target}")
     local dade_build_exit_code=$?
     set -e
     if [[ "$dade_build_exit_code" != "0" ]]; then

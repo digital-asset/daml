@@ -346,14 +346,14 @@ private[state] object Conversions {
     nid => Right(NodeId(nid.toInt))
   private val nidEncoder: TransactionCoder.EncodeNid[NodeId] =
     nid => nid.index.toString
-  private val valEncoder: TransactionCoder.EncodeVal[Transaction.Value[ContractId]] =
+  private val valEncoder: TransactionCoder.EncodeVal[ContractId] =
     a => ValueCoder.encodeVersionedValueWithCustomVersion(cidEncoder, a).map((a.version, _))
   private val valDecoder: ValueOuterClass.VersionedValue => Either[
     ValueCoder.DecodeError,
     Transaction.Value[ContractId]] =
     a => ValueCoder.decodeVersionedValue(cidDecoder, a)
 
-  private val absValEncoder: TransactionCoder.EncodeVal[Transaction.Value[AbsoluteContractId]] =
+  private val absValEncoder: TransactionCoder.EncodeVal[AbsoluteContractId] =
     a => ValueCoder.encodeVersionedValueWithCustomVersion(absCidEncoder, a).map((a.version, _))
 
   private val absValDecoder: ValueOuterClass.VersionedValue => Either[

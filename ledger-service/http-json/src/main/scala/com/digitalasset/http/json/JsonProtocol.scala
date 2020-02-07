@@ -12,7 +12,7 @@ import com.digitalasset.daml.lf.value.json.ApiCodecCompressed
 import com.digitalasset.http.domain
 import com.digitalasset.http.json.TaggedJsonFormat._
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
-import scalaz.{-\/, \/-}
+import scalaz.{-\/, NonEmptyList, \/-}
 import scalaz.syntax.std.option._
 import spray.json._
 
@@ -33,6 +33,15 @@ object JsonProtocol extends DefaultJsonProtocol {
 
   implicit val ContractIdFormat: JsonFormat[domain.ContractId] =
     taggedJsonFormat[String, domain.ContractIdTag]
+
+  implicit def NonEmptyListReader[A: JsonReader]: JsonReader[NonEmptyList[A]] = {
+    case JsArray(hd +: tl) =>
+      NonEmptyList(hd.convertTo[A], tl map (_.convertTo[A]): _*)
+    case _ => deserializationError("must be a list with at least 1 element")
+  }
+
+  implicit def NonEmptyListWriter[A: JsonWriter]: JsonWriter[NonEmptyList[A]] =
+    nela => JsArray(nela.map(_.toJson).list.toVector)
 
   implicit val PartyDetails: JsonFormat[domain.PartyDetails] =
     jsonFormat3(domain.PartyDetails.apply)
@@ -219,6 +228,13 @@ object JsonProtocol extends DefaultJsonProtocol {
             s"unsupported query fields ${extras}; likely should be within 'query' subobject")
         domain.GetActiveContractsRequest(tids, q getOrElse Map.empty)
       }
+  }
+
+  implicit val SearchForeverRequestFormat: RootJsonReader[domain.SearchForeverRequest] = {
+    case multi @ JsArray(_) =>
+      domain.SearchForeverRequest(multi.convertTo[NonEmptyList[domain.GetActiveContractsRequest]])
+    case single =>
+      domain.SearchForeverRequest(NonEmptyList(single.convertTo[domain.GetActiveContractsRequest]))
   }
 
   implicit val CommandMetaFormat: RootJsonFormat[domain.CommandMeta] = jsonFormat3(

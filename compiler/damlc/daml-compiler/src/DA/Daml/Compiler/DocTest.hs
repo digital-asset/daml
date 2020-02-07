@@ -25,7 +25,7 @@ import System.FilePath
 
 docTest :: IdeState -> [NormalizedFilePath] -> IO ()
 docTest ideState files = do
-    ms <- runAction ideState (uses_ GenerateDocTestModule files)
+    ms <- runActionSync ideState (uses_ GenerateDocTestModule files)
     let docTestFile m = toNormalizedFilePath $
             genDir </>
             T.unpack (T.replace "." "/" (docTestModuleName $ genModuleName m)) -<.>
@@ -35,10 +35,7 @@ docTest ideState files = do
         createDirectoryIfMissing True (takeDirectory $ fromNormalizedFilePath path)
         T.writeFileUtf8 (fromNormalizedFilePath path) (genModuleContent m)
     setFilesOfInterest ideState (Set.fromList $ map snd msWithPaths)
-    runAction ideState $ do
+    runActionSync ideState $ do
         void $ Shake.forP msWithPaths $ \(_, path) -> use_ RunScenarios path
-    -- This seems to make the gRPC issues on shutdown slightly less
-    -- frequent but sadly it doesn’t make them go away completely.
-    runActionSync ideState (pure ())
     diags <- getDiagnostics ideState
     when (any (\(_, _, diag) -> Just DsError == _severity diag) diags) exitFailure

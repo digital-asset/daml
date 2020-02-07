@@ -49,6 +49,7 @@ import scala.util.control.NonFatal
 object HttpService extends StrictLogging {
 
   val DefaultPackageReloadInterval: FiniteDuration = FiniteDuration(5, "s")
+  val DefaultTimeToLive: FiniteDuration = FiniteDuration(30, "s")
   val DefaultMaxInboundMessageSize: Int = 4194304
 
   private type ET[A] = EitherT[Future, Error, A]
@@ -67,6 +68,7 @@ object HttpService extends StrictLogging {
       staticContentConfig: Option[StaticContentConfig] = None,
       packageReloadInterval: FiniteDuration = DefaultPackageReloadInterval,
       maxInboundMessageSize: Int = DefaultMaxInboundMessageSize,
+      defaultTtl: FiniteDuration = DefaultTimeToLive,
       validateJwt: EndpointsCompanion.ValidateJwt = decodeJwt,
   )(
       implicit asys: ActorSystem,
@@ -111,6 +113,7 @@ object HttpService extends StrictLogging {
         LedgerClientJwt.submitAndWaitForTransaction(client),
         LedgerClientJwt.submitAndWaitForTransactionTree(client),
         TimeProvider.UTC,
+        defaultTtl
       )
 
       contractsService = new ContractsService(

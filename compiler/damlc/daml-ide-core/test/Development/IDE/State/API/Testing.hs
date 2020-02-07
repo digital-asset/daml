@@ -46,6 +46,7 @@ module Development.IDE.Core.API.Testing
 
 -- * internal dependencies
 import qualified Development.IDE.Core.API         as API
+import Development.IDE.Core.Debouncer
 import qualified Development.IDE.Core.Rules.Daml  as API
 import qualified Development.IDE.Types.Diagnostics as D
 import qualified Development.IDE.Types.Location as D
@@ -182,7 +183,7 @@ runShakeTest mbScenarioService (ShakeTest m) = do
         eventLogger _ = pure ()
     vfs <- API.makeVFSHandle
     damlEnv <- mkDamlEnv options mbScenarioService
-    service <- API.initialise def (mainRule options) (pure $ IdInt 0) (atomically . eventLogger) noLogging damlEnv (toCompileOpts options (IdeReportProgress False)) vfs
+    service <- API.initialise def (mainRule options) (pure $ IdInt 0) (atomically . eventLogger) noLogging noopDebouncer damlEnv (toCompileOpts options (IdeReportProgress False)) vfs
     result <- withSystemTempDirectory "shake-api-test" $ \testDirPath -> do
         let ste = ShakeTestEnv
                 { steService = service
@@ -564,10 +565,10 @@ graphTest wrld pkg expectedGraph = do
 expectedGraph :: D.NormalizedFilePath -> ExpectedGraph -> ShakeTest ()
 expectedGraph damlFilePath expectedGraph = do
     ideState <- ShakeTest $ Reader.asks steService
-    mbDalf <- liftIO $ API.runAction ideState (API.getDalf damlFilePath)
+    mbDalf <- liftIO $ API.runActionSync ideState (API.getDalf damlFilePath)
     expectNoErrors
     Just lfPkg <- pure mbDalf
-    wrld <- Reader.liftIO $ API.runAction ideState (API.worldForFile damlFilePath)
+    wrld <- Reader.liftIO $ API.runActionSync ideState (API.worldForFile damlFilePath)
     graphTest wrld lfPkg expectedGraph
 
 -- | Example testing scenario.

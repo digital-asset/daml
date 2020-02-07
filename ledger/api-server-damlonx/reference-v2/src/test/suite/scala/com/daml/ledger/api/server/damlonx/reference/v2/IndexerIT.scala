@@ -3,6 +3,8 @@
 
 package com.daml.ledger.api.server.damlonx.reference.v2
 
+import java.time.Instant
+import java.time.temporal.ChronoUnit.SECONDS
 import java.util.UUID
 
 import akka.actor.ActorSystem
@@ -164,8 +166,11 @@ class IndexerIT extends AsyncWordSpec with Matchers with BeforeAndAfterEach {
               Level.ERROR -> "Error while running indexer, restart scheduled after 10 seconds",
             )))
         }
+        timeBeforeStop = Instant.now()
         _ <- server.release()
+        timeAfterStop = Instant.now()
       } yield {
+        SECONDS.between(timeBeforeStop, timeAfterStop) should be <= 5L
         // stopping the server and logging the error can happen in either order
         readLog() should contain theSameElementsInOrderAs Seq(
           Level.INFO -> "Starting Indexer Server",

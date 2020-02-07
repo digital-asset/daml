@@ -12,6 +12,8 @@ tracker
 <https://github.com/digital-asset/daml/issues/new?milestone=HTTP+JSON+API+Maintenance>`_
 or `on Slack <https://hub.daml.com/slack/>`_.
 
+Please keep in mind that the presence of **/v1** prefix in the the URLs below does not mean that the endpoint interfaces are stabilized.
+
 The **JSON API** provides a significantly simpler way than :doc:`the Ledger
 API </app-dev/index>` to interact with a ledger by providing *basic active contract set functionality*:
 
@@ -83,6 +85,8 @@ From a DAML project directory:
             Optional application ID to use for ledger registration. Defaults to HTTP-JSON-API-Gateway
       --package-reload-interval <value>
             Optional interval to poll for package updates. Examples: 500ms, 5s, 10min, 1h, 1d. Defaults to 5 seconds
+      --default-ttl <value>
+            Optional Time to Live interval to set if not provided in the command. Examples: 30s, 1min, 1h. Defaults to 30 seconds
       --max-inbound-message-size <value>
             Optional max inbound message size in bytes. Defaults to 4194304
       --query-store-jdbc-config "driver=<JDBC driver class name>,url=<JDBC connection url>,user=<user>,password=<password>,createSchema=<true|false>"
@@ -92,7 +96,7 @@ From a DAML project directory:
             user -- database user name,
             password -- database user password,
             createSchema -- boolean flag, if set to true, the process will re-create database schema and terminate immediately.
-        Example: "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password,createSchema=false"
+            Example: "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password,createSchema=false"
       --static-content "prefix=<URL prefix>,directory=<directory>"
             DEV MODE ONLY (not recommended for production). Optional static content configuration string. Contains comma-separated key-value pairs. Where:
             prefix -- URL prefix,
@@ -287,7 +291,7 @@ See the request documentation below on how to create an instance of ``Iou`` cont
 HTTP Request
 ------------
 
-- URL: ``/command/create``
+- URL: ``/v1/create``
 - Method: ``POST``
 - Content-Type: ``application/json``
 - Content:
@@ -392,7 +396,7 @@ The JSON command below, demonstrates how to exercise ``Iou_Transfer`` choice on 
 HTTP Request
 ------------
 
-- URL: ``/command/exercise``
+- URL: ``/v1/exercise``
 - Method: ``POST``
 - Content-Type: ``application/json``
 - Content:
@@ -429,7 +433,7 @@ HTTP Response
         "status": 200,
         "result": {
             "exerciseResult": "#201:1",
-            "contracts": [
+            "events": [
                 {
                     "archived": {
                         "contractId": "#124:0",
@@ -468,7 +472,7 @@ Where:
 - ``result`` field contains contract choice execution details:
 
     + ``exerciseResult`` field contains the return value of the exercised contract choice,
-    + ``contracts`` contains an array of contracts that were archived and created as part of the choice execution. The array may contain: **zero or many** ``{"archived": {...}}`` and **zero or many** ``{"created": {...}}`` elements. The order of the contracts is the same as on the ledger.
+    + ``events`` contains an array of contracts that were archived and created as part of the choice execution. The array may contain: **zero or many** ``{"archived": {...}}`` and **zero or many** ``{"created": {...}}`` elements. The order of the contracts is the same as on the ledger.
 
 
 Exercise by Contract Key
@@ -491,7 +495,7 @@ The JSON command below, demonstrates how to exercise ``Archive`` choice on ``Acc
 HTT Request
 -----------
 
-- URL: ``/command/exercise``
+- URL: ``/v1/exercise``
 - Method: ``POST``
 - Content-Type: ``application/json``
 - Content:
@@ -524,7 +528,7 @@ Fetch Contract by Contract ID
 HTTP Request
 ------------
 
-- URL: ``/contracts/lookup``
+- URL: ``/v1/fetch``
 - Method: ``POST``
 - Content-Type: ``application/json``
 - Content:
@@ -587,7 +591,7 @@ Fetch Contract by Key
 HTTP Request
 ------------
 
-- URL: ``/contracts/lookup``
+- URL: ``/v1/fetch``
 - Method: ``POST``
 - Content-Type: ``application/json``
 - Content:
@@ -656,7 +660,7 @@ Note that the retrieved contracts do not get persisted into query store database
 HTTP Request
 ------------
 
-- URL: ``/contracts/search``
+- URL: ``/v1/query``
 - Method: ``GET``
 - Content: <EMPTY>
 
@@ -673,7 +677,7 @@ List currently active contracts that match a given query.
 HTTP Request
 ------------
 
-- URL: ``/contracts/search``
+- URL: ``/v1/query``
 - Method: ``POST``
 - Content-Type: ``application/json``
 - Content:
@@ -771,8 +775,40 @@ Nonempty HTTP Response with Unknown Template IDs Warning
         "status": 200
     }
 
-WebSocket ``/contracts/searchForever``
-======================================
+Fetch All Known Parties
+=======================
+
+- URL: ``/v1/parties``
+- Method: ``GET``
+- Content: <EMPTY>
+
+HTTP Response
+-------------
+
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+        "status": 200,
+        "result": [
+            {
+                "party": "Alice",
+                "isLocal": true
+            }
+        ]
+    }
+
+Streaming API
+=============
+
+Contracts Query Stream
+----------------------
+
+- URL: ``/v1/stream/query``
+- Scheme: ``ws``
+- Protocol: ``WebSocket``
 
 List currently active contracts that match a given query, with
 continuous updates.
@@ -780,10 +816,19 @@ continuous updates.
 Two subprotocols must be passed, as described in `Choosing a party
 <#choosing-a-party>`__.
 
-application/json body must be sent first, formatted according to the
+``application/json`` body must be sent first, formatted according to the
 :doc:`search-query-language`::
 
     {"templateIds": ["Iou:Iou"]}
+
+Multiple queries may be specified in an array, for overlapping or
+different sets of template IDs::
+
+    [
+        {"templateIds": ["Iou:Iou"], "query": {"amount": {"%lte": 50}}},
+        {"templateIds": ["Iou:Iou"], "query": {"amount": {"%gt": 50}}},
+        {"templateIds": ["Iou:Iou"]}
+    ]
 
 output a series of JSON documents, each ``payload`` formatted according
 to :doc:`lf-value-specification`::
@@ -801,9 +846,13 @@ to :doc:`lf-value-specification`::
             },
             "signatories": ["Alice"],
             "contractId": "#1:0",
-            "templateId": "6cc82609ede6576e5092e8c89a2c7a658efe15ae1347fc38eb316f787fa132bc:Iou:Iou"
-        }
+            "templateId": "b70bbfbc77a4790f66d4840cb19f657dd20848f5e2f64e39ad404a6cbd98cf75:Iou:Iou"
+        },
+        "matchedQueries": [1, 2]
     }]
+
+where ``matchedQueries`` indicates the 0-based indices into the request
+list of queries that matched this contract.
 
 To keep the stream alive, you'll occasionally see messages like this,
 which can be safely ignored::
@@ -828,8 +877,9 @@ and archives the one above, the same stream will eventually produce::
             },
             "signatories": ["Alice"],
             "contractId": "#2:1",
-            "templateId": "6cc82609ede6576e5092e8c89a2c7a658efe15ae1347fc38eb316f787fa132bc:Iou:Iou"
-        }
+            "templateId": "b70bbfbc77a4790f66d4840cb19f657dd20848f5e2f64e39ad404a6cbd98cf75:Iou:Iou"
+        },
+        "matchedQueries": [0, 2]
     }, {
         "created": {
             "observers": [],
@@ -843,8 +893,9 @@ and archives the one above, the same stream will eventually produce::
             },
             "signatories": ["Alice"],
             "contractId": "#2:2",
-            "templateId": "6cc82609ede6576e5092e8c89a2c7a658efe15ae1347fc38eb316f787fa132bc:Iou:Iou"
-        }
+            "templateId": "b70bbfbc77a4790f66d4840cb19f657dd20848f5e2f64e39ad404a6cbd98cf75:Iou:Iou"
+        },
+        "matchedQueries": [1, 2]
     }]
 
 If any template IDs are found not to resolve, the first non-heartbeat
@@ -862,7 +913,7 @@ stream will continue in these cases, rather than terminating.
 Some notes on behavior:
 
 1. Each result array means "this is what would have changed if you just
-   polled ``/contracts/search`` iteratively."  In particular, just as
+   polled ``/v1/query`` iteratively."  In particular, just as
    polling search can "miss" contracts (as a create and archive can be
    paired between polls), such contracts may or may not appear in any
    result object.
@@ -892,27 +943,41 @@ Some notes on behavior:
    results if you walk the array forwards, backwards, or in random
    order.
 
-Fetch All Known Parties
-=======================
+Fetch by Key Contracts Stream
+-----------------------------
 
-- URL: ``/parties``
-- Method: ``GET``
-- Content: <EMPTY>
+- URL: ``/v1/stream/fetch``
+- Scheme: ``ws``
+- Protocol: ``WebSocket``
 
-HTTP Response
--------------
+List currently active contracts that match one of the given ``{templateId, key}`` pairs, with continuous updates.
 
-- Content-Type: ``application/json``
-- Content:
+Similarly to `Contracts Query Stream`_, two subprotocols must be passed, as described in `Choosing a party
+<#choosing-a-party>`__.
+
+``application/json`` body must be sent first, formatted according to the following rule:
+
+.. code-block:: none
+
+    [
+        {"templateId": "<template ID 1>", "key": <key 1>},
+        {"templateId": "<template ID 2>", "key": <key 2>},
+        ...
+        {"templateId": "<template ID N>", "key": <key N>}
+    ]
+
+Where:
+
+- ``templateId`` -- contract template identifier, same as in :ref:`create request <create-request>`,
+- ``key`` -- contract key, formatted according to the :doc:`lf-value-specification`,
+
+Example:
 
 .. code-block:: json
 
-    {
-        "status": 200,
-        "result": [
-            {
-                "party": "Alice",
-                "isLocal": true
-            }
-        ]
-    }
+    [
+        {"templateId": "Account:Account", "key": ["Alice", "abc123"]},
+        {"templateId": "Account:Account", "key": ["Alice", "def345"]}
+    ]
+
+The output stream has the same format as the output from the `Contracts Query Stream`_. We further guarantee that for every ``archived`` event appearing on the stream there has been a matching ``created`` event earlier in the stream.

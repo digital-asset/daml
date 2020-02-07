@@ -1323,7 +1323,43 @@ convertCoercion env co = evalStateT (go env co) 0
         | Just (tCon, ts, field, flv) <- isSatNewTyCon t s = swap <$> newtypeCoercion tCon ts field flv
         | SymCo co' <- co = swap <$> go env co'
         | SubCo co' <- co = go env co'
+        | Just (tycon, cos) <- splitTyConAppCo_maybe co = do
+            s' <- lift $ convertType env s
+            t' <- lift $ convertType env t
+            case (s', t', cos) of
+                (TOptional a, TOptional b, [co1]) -> do
+                    (f,g) <- go env co1
+                    f' <- mkOptionalFMap a b f
+                    g' <- mkOptionalFMap b a g
+                    pure (f',g')
+                (TList a, TList b, [co1]) -> do
+                    (f,g) <- go env co1
+                    f' <- mkListFMap a b f
+                    g' <- mkListFMap b a g
+                    pure (f',g')
+                _ -> lift $ unhandled "TyConAppCo Coercion" (tycon, cos)
+
         | otherwise = lift $ unhandled "Coercion" co
+
+    mkOptionalFMap :: LF.Type -> LF.Type -> (LF.Expr -> LF.Expr) -> StateT Int ConvertM (LF.Expr -> LF.Expr)
+    mkOptionalFMap _a b f = do
+        y <- mkLamBinder
+        pure $ \x ->
+            ECase x
+                [ CaseAlternative CPNone (ENone b)
+                , CaseAlternative (CPSome y) (ESome b (f (EVar y)))
+                ]
+
+    mkListFMap :: LF.Type -> LF.Type -> (LF.Expr -> LF.Expr) -> StateT Int ConvertM (LF.Expr -> LF.Expr)
+    mkListFMap a b f = do
+        h <- mkLamBinder
+        t <- mkLamBinder
+        pure $ \x -> EBuiltin BEFoldr
+            `ETyApp` a
+            `ETyApp` TList b
+            `ETmApp` (ETmLam (h, a) $ ETmLam (t, TList b) $ ECons b (f (EVar h)) (EVar t))
+            `ETmApp` ENil b
+            `ETmApp` x
 
     newtypeCoercion tCon ts field flv = do
         ts' <- lift $ mapM (convertType env) ts
@@ -1491,7 +1527,8 @@ convertType env = go env
             fieldTys <- mapM (go env) ts
             let fieldNames = map mkSuperClassField [1..]
             pure $ TStruct (zip fieldNames fieldTys)
-         | tyConFlavour t == ClassFlavour && envLfVersion env `supports` featureTypeSynonyms = do
+        | tyConFlavour t == ClassFlavour
+        , envLfVersion env `supports` featureTypeSynonyms = do
            tySyn <- convertQualifiedTySyn env t
            TSynApp tySyn <$> mapM (go env) ts
         | otherwise =

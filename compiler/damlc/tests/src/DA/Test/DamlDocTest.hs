@@ -12,6 +12,7 @@ import Test.Tasty.HUnit
 import DA.Daml.DocTest
 import DA.Daml.Options.Types
 import DA.Daml.Options
+import Development.IDE.Core.Debouncer
 import Development.IDE.Core.FileStore
 import Development.IDE.Core.Rules
 import Development.IDE.Core.Service
@@ -109,6 +110,6 @@ shouldGenerate input expected = withTempFile $ \tmpFile -> do
     T.writeFileUtf8 tmpFile $ T.unlines $ testModuleHeader <> input
     let opts = (defaultOptions Nothing) {optHaddock=Haddock True}
     vfs <- makeVFSHandle
-    ideState <- initialise def mainRule (pure $ LSP.IdInt 0) (const $ pure ()) noLogging (toCompileOpts opts (IdeReportProgress False)) vfs
-    Just pm <- runAction ideState $ use GetParsedModule $ toNormalizedFilePath tmpFile
+    ideState <- initialise def mainRule (pure $ LSP.IdInt 0) (const $ pure ()) noLogging noopDebouncer (toCompileOpts opts (IdeReportProgress False)) vfs
+    Just pm <- runActionSync ideState $ use GetParsedModule $ toNormalizedFilePath tmpFile
     genModuleContent (getDocTestModule pm) @?= T.unlines (doctestHeader <> expected)

@@ -18,8 +18,10 @@ import DA.Daml.Assistant.Types
 import Data.List
 import Data.Maybe
 import Data.Foldable
+import Options.Applicative.Types
 import Options.Applicative.Extended
 import System.Environment
+import System.FilePath
 import Data.Either.Extra
 import Control.Exception.Safe
 import System.Process
@@ -60,8 +62,30 @@ dispatch info = subcommand
     (unwrapSdkCommandName $ sdkCommandName info)
     (fromMaybe "" $ sdkCommandDesc info)
     forwardOptions
-    (Dispatch info . UserCommandArgs <$>
-        many (strArgument (metavar "ARGS" <> completer defaultCompleter)))
+    (Dispatch info . UserCommandArgs <$> sdkCommandArgsParser info)
+
+sdkCommandArgsParser :: SdkCommandInfo -> Parser [String]
+sdkCommandArgsParser info = fromM (go (unwrapSdkCommandArgs $ sdkCommandArgs info))
+  where go args = do
+          mx <- oneM $ optional $ strArgument $ completer $
+              case sdkCommandForwardCompletion info of
+                  Forward enriched -> nestedCompl enriched args
+                  NoForward -> defaultCompleter
+          case mx of
+            Nothing -> return []
+            Just x -> (x :) <$> go (args ++ [x])
+        nestedCompl enriched args = mkCompleter $ \arg -> do
+          let path = unwrapSdkPath (sdkCommandSdkPath info) </> unwrapSdkCommandPath (sdkCommandPath info)
+          let createProc = proc
+                  path
+                  ( [ "--bash-completion-enriched" | getEnrichedCompletion enriched ]
+                  <>
+                  ("--bash-completion-index"
+                  : show (length args + 1)
+                  : concatMap (\x -> ["--bash-completion-word", x]) ("daml" : args ++ [arg])
+                  ))
+          stdout <- readCreateProcess createProc (repeat ' ')
+          pure $ lines stdout
 
 commandParser :: [SdkCommandInfo] -> Parser Command
 commandParser cmds | (hidden, visible) <- partition isHidden cmds = asum
@@ -104,7 +128,7 @@ readSdkVersion =
     eitherReader (mapLeft displayException . parseVersion . pack)
 
 -- | Completer that uses the builtin bash completion.
--- We use this to ensure that `daml build -o foo` will still complete to `daml build -o foobar.dar`.
+-- We use this as a fallback for commands that do not use optparse-applicative to at least get file completions.
 defaultCompleter :: Completer
 defaultCompleter = mkCompleter $ \word -> do
 -- The implementation here is a variant of optparse-applicative’s `bashCompleter`.

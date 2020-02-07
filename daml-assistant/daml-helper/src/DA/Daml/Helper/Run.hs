@@ -743,7 +743,7 @@ withJsonApi (SandboxPort sandboxPort) (JsonApiPort jsonApiPort) args a = do
         let headers =
                 [ ("Authorization", "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJsZWRnZXJJZCI6Ik15TGVkZ2VyIiwiYXBwbGljYXRpb25JZCI6ImZvb2JhciIsInBhcnR5IjoiQWxpY2UifQ.4HYfzjlYr1ApUDot0a6a4zB49zS_jrwRUOCkAiPMqo0")
                 ] :: HTTP.RequestHeaders
-        waitForHttpServer (putStr "." *> threadDelay 500000) ("http://localhost:" <> show jsonApiPort <> "/contracts/search") headers
+        waitForHttpServer (putStr "." *> threadDelay 500000) ("http://localhost:" <> show jsonApiPort <> "/v1/query") headers
         a ph
 
 -- | Whether `daml start` should open a browser automatically.
