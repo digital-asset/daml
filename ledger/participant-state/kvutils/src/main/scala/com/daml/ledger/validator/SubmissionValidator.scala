@@ -109,17 +109,12 @@ class SubmissionValidator(
       case Right(Envelope.SubmissionMessage(submission)) =>
         val declaredInputs = submission.getInputDamlStateList.asScala
         ledgerStateAccess.inTransaction { stateOperations =>
+          val inputKeysAsBytes = declaredInputs.map(keyToBytes)
           for {
-            readStateInputs <- Future.sequence(
-              declaredInputs.map(
-                key =>
-                  stateOperations
-                    .readState(keyToBytes(key))
-                    .map { stateValue =>
-                      key -> stateValue.map(bytesToStateValue)
-                  }
-              )
-            )
+            readStateValues <- stateOperations.readState(inputKeysAsBytes)
+            readStateInputs = readStateValues.zip(declaredInputs).map {
+              case (valueBytes, key) => (key, valueBytes.map(bytesToStateValue))
+            }
             damlLogEntryId = allocateLogEntryId()
             readInputs: Map[DamlStateKey, Option[DamlStateValue]] = readStateInputs.toMap
             missingInputs = declaredInputs -- readInputs.filter {

@@ -63,10 +63,11 @@ final class InMemoryLedgerReaderWriter(
     override def participantId: String = theParticipantId
   }
 
-  private class InMemoryLedgerStateOperations extends LedgerStateOperations {
-    override def readState(key: Array[Byte]): Future[Option[Array[Byte]]] = Future.successful {
-      currentState.state.get(ByteString.copyFrom(key))
-    }
+  private class InMemoryLedgerStateOperations extends BatchingLedgerStateOperations {
+    override def readState(keys: Seq[Array[Byte]]): Future[Seq[Option[Array[Byte]]]] =
+      Future.successful {
+        keys.map(keyBytes => currentState.state.get(ByteString.copyFrom(keyBytes)))
+      }
 
     override def writeState(keyValuePairs: Seq[(Array[Byte], Array[Byte])]): Future[Unit] =
       Future.successful {
