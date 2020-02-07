@@ -49,6 +49,14 @@ class ProjectConfigSpec extends WordSpec with Matchers {
         } yield result
         parties shouldBe Right(Some(List("Alice", "Bob")))
       }
+
+      "empty ledger config" in {
+        val ledger = for {
+          config <- ProjectConfig.loadFromString(configSource)
+          result <- config.ledger
+        } yield result
+        ledger shouldBe Right(None)
+      }
     }
 
     "Loading a minimal config" should {
@@ -97,6 +105,50 @@ class ProjectConfigSpec extends WordSpec with Matchers {
           case pe: ConfigParseError => true
           case _ => false
         } shouldBe true
+      }
+    }
+
+    "Loading a ledger config" should {
+      "find the config" in {
+        val config =
+          """
+            |ledger:
+            |  port: 12345
+            |  address: host.domain.com
+            |  wall-clock-time: true
+            |  max-inbound-message-size-bytes: 98765
+            |  ledger-id: ledger-id-string-1234567890
+            |  max-ttl-seconds: 17
+        """.stripMargin
+
+        val ledgerConfig = for {
+          config <- ProjectConfig.loadFromString(config)
+          result <- config.ledger
+        } yield result
+
+        ledgerConfig shouldBe Right(
+          Some(LedgerConfig(
+            port = Some(12345),
+            address = Some("host.domain.com"),
+            wallClockTime = Some(true),
+            maxInboundMessageSize = Some(98765),
+            ledgerId = Some("ledger-id-string-1234567890"),
+            maxTtlSeconds = Some(17)
+          )))
+      }
+
+      "not return an empty config" in {
+        val config =
+          """
+            |ledger:
+        """.stripMargin
+
+        val ledgerConfig = for {
+          config <- ProjectConfig.loadFromString(config)
+          result <- config.ledger
+        } yield result
+
+        ledgerConfig shouldBe Right(None)
       }
     }
   }

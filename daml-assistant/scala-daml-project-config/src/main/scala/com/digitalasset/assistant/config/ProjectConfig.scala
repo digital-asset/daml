@@ -55,42 +55,56 @@ case class ProjectConfig(
       .as[Option[String]]
       .left
       .map(e => ConfigParseError(e.getMessage()))
+
   def source: OptionalResult[String] =
     content.hcursor
       .downField("source")
       .as[Option[String]]
       .left
       .map(e => ConfigParseError(e.getMessage()))
+
   def scenario: OptionalResult[String] =
     content.hcursor
       .downField("scenario")
       .as[Option[String]]
       .left
       .map(e => ConfigParseError(e.getMessage()))
+
   def parties: OptionalResult[List[String]] =
     content.hcursor
       .downField("parties")
       .as[Option[List[String]]]
       .left
       .map(e => ConfigParseError(e.getMessage()))
+
   def version: OptionalResult[String] =
     content.hcursor
       .downField("version")
       .as[Option[String]]
       .left
       .map(e => ConfigParseError(e.getMessage()))
+
   def exposedModules: OptionalResult[List[String]] =
     content.hcursor
       .downField("exposed-modules")
       .as[Option[List[String]]]
       .left
       .map(e => ConfigParseError(e.getMessage()))
+
   def dependencies: OptionalResult[List[String]] =
     content.hcursor
       .downField("dependencies")
       .as[Option[List[String]]]
       .left
       .map(e => ConfigParseError(e.getMessage()))
+
+  def ledger: OptionalResult[LedgerConfig] =
+    content.hcursor
+      .downField("ledger")
+      .as[Option[LedgerConfig]]
+      .left
+      .map(e => ConfigParseError(e.getMessage()))
+      .map(_.flatMap(c => if (c.isEmpty) None else Some(c)))
 }
 
 object ProjectConfig {
