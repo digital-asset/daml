@@ -99,13 +99,13 @@ trait SandboxFixture extends SuiteResource[Unit] with BeforeAndAfterAll {
 
   protected def scenario: Option[String] = None
 
-  protected def getSandboxPort: Int = serverResource.value
+  protected def getSandboxPort: Int = serverResource.value.port
 
   protected def channel: Channel = clientResource.value
 
-  protected lazy val serverResource = new SandboxServerResource(config)
+  protected lazy val serverResource = SandboxServerResource(config)
 
-  protected lazy val clientResource = new SandboxClientResource(() => serverResource.value)
+  protected lazy val clientResource = new SandboxClientResource(() => getSandboxPort)
 
   protected override lazy val suiteResource: Resource[Unit] = new Resource[Unit] {
     override val value: Unit = ()

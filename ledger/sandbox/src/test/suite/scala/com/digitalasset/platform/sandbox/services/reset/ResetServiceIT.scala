@@ -174,7 +174,7 @@ final class ResetServiceIT
       }
 
       "clear out all garbage" in {
-        val state = new WeakReference(serverResource.sandboxServer.sandboxState)
+        val state = new WeakReference(serverResource.value.sandboxState)
         for {
           lid <- fetchLedgerId()
           _ <- reset(lid)

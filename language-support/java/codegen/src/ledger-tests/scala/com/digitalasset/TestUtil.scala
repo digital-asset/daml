@@ -44,8 +44,8 @@ object TestUtil {
       timeProviderType = TimeProviderType.WallClock,
       timeModel = TimeModel.reasonableDefault
     )
-    val server = new SandboxServerResource(config)
-    val client = new SandboxClientResource(() => server.value)
+    val server = SandboxServerResource(config)
+    val client = new SandboxClientResource(() => server.value.port)
     server.setup()
     client.setup()
     try {

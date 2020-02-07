@@ -64,14 +64,14 @@ object SandboxServer {
   // repeated validation of the sames packages after each reset
   private val engine = Engine()
 
-  def owner(config: SandboxConfig): ResourceOwner[SandboxState] = new ResourceOwner[SandboxState] {
-    override def acquire()(implicit executionContext: ExecutionContext): Resource[SandboxState] = {
-      for {
-        server <- ResourceOwner.forTryCloseable(() => Try(new SandboxServer(config))).acquire()
-        _ <- server.sandboxState.apiServer
-      } yield server.sandboxState
+  def owner(config: SandboxConfig): ResourceOwner[SandboxServer] =
+    new ResourceOwner[SandboxServer] {
+      override def acquire()(implicit executionContext: ExecutionContext): Resource[SandboxServer] =
+        for {
+          server <- ResourceOwner.forTryCloseable(() => Try(new SandboxServer(config))).acquire()
+          _ <- Resource.fromFuture(server.sandboxState.apiServer.asFuture.map(_ => ()))
+        } yield server
     }
-  }
 
   // if requested, initialize the ledger state with the given scenario
   private def createInitialState(config: SandboxConfig, packageStore: InMemoryPackageStore)
