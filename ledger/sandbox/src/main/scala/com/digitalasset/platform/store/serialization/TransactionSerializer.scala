@@ -30,7 +30,7 @@ object TransactionSerializer extends TransactionSerializer {
     TransactionCoder
       .encodeTransaction(
         TransactionCoder.EventIdEncoder,
-        ValueCoder.AbsCidEncoder,
+        ValueCoder.CidEncoder,
         transaction
       )
       .map(_.toByteArray())

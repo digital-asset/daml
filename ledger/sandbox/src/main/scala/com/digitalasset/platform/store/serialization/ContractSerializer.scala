@@ -25,7 +25,7 @@ object ContractSerializer extends ContractSerializer {
   override def serializeContractInstance(coinst: ContractInst[VersionedValue[AbsoluteContractId]])
     : Either[ValueCoder.EncodeError, Array[Byte]] =
     TransactionCoder
-      .encodeContractInstance[AbsoluteContractId](ValueCoder.AbsCidEncoder, coinst)
+      .encodeContractInstance[AbsoluteContractId](ValueCoder.CidEncoder, coinst)
       .map(_.toByteArray())
 
   override def deserializeContractInstance(blob: Array[Byte])

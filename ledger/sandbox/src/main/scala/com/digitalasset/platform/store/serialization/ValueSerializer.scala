@@ -24,7 +24,7 @@ object ValueSerializer extends ValueSerializer {
   override def serializeValue(
       value: VersionedValue[AbsoluteContractId]): Either[ValueCoder.EncodeError, Array[Byte]] =
     ValueCoder
-      .encodeVersionedValueWithCustomVersion(ValueCoder.AbsCidEncoder, value)
+      .encodeVersionedValueWithCustomVersion(ValueCoder.CidEncoder, value)
       .map(_.toByteArray())
 
   override def deserializeValue(

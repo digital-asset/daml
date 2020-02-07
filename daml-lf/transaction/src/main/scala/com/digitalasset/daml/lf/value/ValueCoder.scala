@@ -46,7 +46,7 @@ object ValueCoder {
       EncodeError(s"${version.showsVersion} is too old to support $isTooOldFor")
   }
 
-  abstract class EncodeCid[Cid] private[lf] {
+  abstract class EncodeCid[-Cid] private[lf] {
     def asString(cid: Cid): String
     def asStruct(cid: Cid): (String, Boolean)
   }
@@ -54,11 +54,6 @@ object ValueCoder {
   abstract class DecodeCid[Cid] private[lf] {
     def fromString(s: String): Either[DecodeError, Cid]
     def fromStruct(s: String, isRelative: Boolean): Either[DecodeError, Cid]
-  }
-
-  object AbsCidEncoder extends EncodeCid[AbsoluteContractId] {
-    override def asString(cid: AbsoluteContractId): String = cid.coid
-    override def asStruct(cid: AbsoluteContractId): (String, Boolean) = cid.coid -> false
   }
 
   object CidEncoder extends EncodeCid[ContractId] {
@@ -71,6 +66,7 @@ object ValueCoder {
       case AbsoluteContractId(coid) => coid -> false
     }
   }
+
   object AbsCidDecoder extends DecodeCid[AbsoluteContractId] {
 
     override def fromString(s: String): Either[DecodeError, AbsoluteContractId] =
@@ -88,7 +84,8 @@ object ValueCoder {
       else
         fromString(s)
   }
-  val CidDecoder: DecodeCid[ContractId] = new DecodeCid[ContractId] {
+
+  object CidDecoder extends DecodeCid[ContractId] {
 
     private def fromStringToRelCid(s: String): Either[DecodeError, RelativeContractId] =
       scalaz.std.string
