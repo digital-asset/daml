@@ -35,7 +35,7 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext}
 import scala.util.Try
 
-trait SandboxFixture extends SuiteResource[Channel] with BeforeAndAfterAll {
+trait SandboxFixture extends SuiteResource[Unit] with BeforeAndAfterAll {
   self: Suite =>
 
   private[this] val logger = LoggerFactory.getLogger(getClass)
@@ -68,8 +68,6 @@ trait SandboxFixture extends SuiteResource[Channel] with BeforeAndAfterAll {
 
   protected def darFile = new File(rlocation("ledger/test-common/Test-stable.dar"))
 
-  protected def channel: Channel = suiteResource.value
-
   protected def ledgerId(token: Option[String] = None): domain.LedgerId =
     domain.LedgerId(
       LedgerIdentityServiceGrpc
@@ -101,10 +99,25 @@ trait SandboxFixture extends SuiteResource[Channel] with BeforeAndAfterAll {
 
   protected def scenario: Option[String] = None
 
-  protected lazy val sandboxResource = new SandboxServerResource(config)
+  protected def getSandboxPort: Int = serverResource.value
 
-  protected override lazy val suiteResource: Resource[Channel] = sandboxResource
+  protected def channel: Channel = clientResource.value
 
-  def getSandboxPort: Int = sandboxResource.getPort
+  protected lazy val serverResource = new SandboxServerResource(config)
 
+  protected lazy val clientResource = new SandboxClientResource(() => serverResource.value)
+
+  protected override lazy val suiteResource: Resource[Unit] = new Resource[Unit] {
+    override val value: Unit = ()
+
+    override def setup(): Unit = {
+      serverResource.setup()
+      clientResource.setup()
+    }
+
+    override def close(): Unit = {
+      clientResource.close()
+      serverResource.close()
+    }
+  }
 }

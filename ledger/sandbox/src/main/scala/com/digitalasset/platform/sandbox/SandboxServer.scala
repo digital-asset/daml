@@ -67,7 +67,7 @@ object SandboxServer {
   def owner(config: SandboxConfig): ResourceOwner[SandboxState] = new ResourceOwner[SandboxState] {
     override def acquire()(implicit executionContext: ExecutionContext): Resource[SandboxState] = {
       for {
-        server <- ResourceOwner.forTry(() => Try(new SandboxServer(config))).acquire()
+        server <- ResourceOwner.forTryCloseable(() => Try(new SandboxServer(config))).acquire()
         _ <- server.sandboxState.apiServer
       } yield server.sandboxState
     }

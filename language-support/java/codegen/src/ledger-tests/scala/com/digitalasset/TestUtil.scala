@@ -11,24 +11,24 @@ import java.util.stream.{Collectors, StreamSupport}
 
 import com.daml.ledger.javaapi.data
 import com.daml.ledger.javaapi.data._
+import com.daml.ledger.participant.state.v1.TimeModel
 import com.digitalasset.daml.bazeltools.BazelRunfiles
 import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.ledger.api.v1.{CommandServiceGrpc, TransactionServiceGrpc}
 import com.digitalasset.ledger.api.v1.CommandServiceOuterClass.SubmitAndWaitRequest
 import com.digitalasset.ledger.api.v1.TransactionServiceOuterClass.{
   GetLedgerEndRequest,
   GetTransactionsResponse
 }
+import com.digitalasset.ledger.api.v1.{CommandServiceGrpc, TransactionServiceGrpc}
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.config.SandboxConfig
-import com.digitalasset.platform.sandbox.services.SandboxServerResource
+import com.digitalasset.platform.sandbox.services.{SandboxClientResource, SandboxServerResource}
 import com.digitalasset.platform.services.time.TimeProviderType
-import com.daml.ledger.participant.state.v1.TimeModel
 import io.grpc.Channel
 import org.scalatest.Assertion
 
-import scala.language.implicitConversions
 import scala.collection.JavaConverters._
+import scala.language.implicitConversions
 
 object TestUtil {
 
@@ -37,19 +37,22 @@ object TestUtil {
 
   val LedgerID = "ledger-test"
   def withClient(testCode: Channel => Assertion): Assertion = {
-    val cfg = SandboxConfig.default.copy(
+    val config = SandboxConfig.default.copy(
       port = 0,
       damlPackages = List(testDalf),
       ledgerIdMode = LedgerIdMode.Static(LedgerId(LedgerID)),
       timeProviderType = TimeProviderType.WallClock,
       timeModel = TimeModel.reasonableDefault
     )
-    val sandbox = new SandboxServerResource(cfg)
-    sandbox.setup()
+    val server = new SandboxServerResource(config)
+    val client = new SandboxClientResource(() => server.value)
+    server.setup()
+    client.setup()
     try {
-      testCode(sandbox.value)
+      testCode(client.value)
     } finally {
-      sandbox.close()
+      client.close()
+      server.close()
     }
   }
 

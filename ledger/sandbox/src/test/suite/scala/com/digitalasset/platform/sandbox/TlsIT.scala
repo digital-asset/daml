@@ -6,7 +6,7 @@ package com.digitalasset.platform.sandbox
 import java.io.File
 import java.nio.file.{Files, Path}
 
-import com.digitalasset.ledger.api.testing.utils.{Resource, SuiteResourceManagementAroundAll}
+import com.digitalasset.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.ledger.client.LedgerClient
 import com.digitalasset.ledger.client.configuration.{
@@ -15,8 +15,7 @@ import com.digitalasset.ledger.client.configuration.{
   LedgerIdRequirement
 }
 import com.digitalasset.platform.sandbox.config.SandboxConfig
-import com.digitalasset.platform.sandbox.services.{SandboxFixture, SandboxServerResource}
-import io.grpc.Channel
+import com.digitalasset.platform.sandbox.services.SandboxFixture
 import org.apache.commons.io.FileUtils
 import org.scalatest.AsyncWordSpec
 
@@ -67,30 +66,25 @@ class TlsIT extends AsyncWordSpec with SandboxFixture with SuiteResourceManageme
           Some(privateKeyFilePath),
           Some(trustCertCollectionFilePath))))
 
-  private lazy val sandboxServer = new SandboxServer(config)
-
   private lazy val clientF = LedgerClient.singleHost(
     "localhost",
-    sandboxServer.port,
+    getSandboxPort,
     tlsEnabledConfig
   )
 
-  override protected lazy val suiteResource: Resource[Channel] =
-    new SandboxServerResource(config)
-
   "A TLS-enabled server" should {
-
     "reject ledger queries when the client connects without tls" in {
       recoverToSucceededIf[io.grpc.StatusRuntimeException] {
         LedgerClient
           .singleHost(
             "localhost",
-            sandboxServer.port,
+            getSandboxPort,
             tlsEnabledConfig.copy(sslContext = None)
           )
           .flatMap(_.transactionClient.getLedgerEnd())
       }
     }
+
     "serve ledger queries when the client presents a valid certificate" in {
       clientF.flatMap(_.transactionClient.getLedgerEnd()).map(_ => succeed)
     }
