@@ -15,14 +15,11 @@ import com.daml.ledger.participant.state.v1._
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
-import com.digitalasset.daml.lf.engine.Blinding
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.dec.{DirectExecutionContext => DEC}
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, RejectionReason}
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
-import com.digitalasset.platform.events.EventIdFormatter
 import com.digitalasset.platform.packages.InMemoryPackageStore
 import com.digitalasset.platform.sandbox.LedgerIdGenerator
 import com.digitalasset.platform.sandbox.stores.InMemoryActiveLedgerState
@@ -39,6 +36,7 @@ import com.digitalasset.platform.store.entries.{LedgerEntry, PackageLedgerEntry,
 import com.digitalasset.platform.store.{BaseLedger, DbType, FlywayMigrations, PersistenceEntry}
 import com.digitalasset.resources.ResourceOwner
 import scalaz.syntax.tag._
+import akka.stream.scaladsl.GraphDSL.Implicits._
 
 import scala.collection.immutable
 import scala.collection.immutable.Queue
@@ -143,7 +141,6 @@ private final class SqlLedger(
     val mergedSources =
       Source.fromGraph(GraphDSL.create(checkpointQueue, persistenceQueue)(_ -> _) {
         implicit b => (checkpointSource, persistenceSource) =>
-          import akka.stream.scaladsl.GraphDSL.Implicits._
           val merge = b.add(MergePreferred[Offsets => Future[Unit]](1))
 
           checkpointSource ~> merge.preferred
@@ -208,24 +205,9 @@ private final class SqlLedger(
       transaction: SubmittedTransaction): Future[SubmissionResult] =
     enqueue { offsets =>
       val transactionId = Ref.LedgerString.fromLong(offsets.offset)
-      val toAbsCoid: ContractId => AbsoluteContractId =
-        EventIdFormatter.makeAbsCoid(transactionId)
 
-      val mappedTx = transaction
-        .resolveRelCid(EventIdFormatter.makeAbs(transactionId))
-        .mapNodeId(EventIdFormatter.fromTransactionId(transactionId, _))
-
-      val blindingInfo = Blinding.blind(transaction)
-
-      val mappedDisclosure = blindingInfo.disclosure
-        .map {
-          case (nodeId, parties) =>
-            EventIdFormatter.fromTransactionId(transactionId, nodeId) -> parties
-        }
-
-      val mappedLocalDivulgence = blindingInfo.localDivulgence.map {
-        case (k, v) => EventIdFormatter.fromTransactionId(transactionId, k) -> v
-      }
+      val (transactionForIndex, disclosureForIndex, globalDivulgence) =
+        Ledger.convertToCommittedTransaction(transactionId, transaction)
 
       val recordTime = timeProvider.getCurrentTime
       val entry = if (recordTime.isAfter(submitterInfo.maxRecordTime.toInstant)) {
@@ -252,11 +234,10 @@ private final class SqlLedger(
             transactionMeta.workflowId,
             transactionMeta.ledgerEffectiveTime.toInstant,
             recordTime,
-            mappedTx,
-            mappedDisclosure
+            transactionForIndex,
+            disclosureForIndex
           ),
-          mappedLocalDivulgence,
-          blindingInfo.globalDivulgence,
+          globalDivulgence,
           List.empty
         )
       }

@@ -246,7 +246,6 @@ object ScenarioLoader {
           Some(richTransaction.committer),
           tx,
           mappedExplicitDisclosure,
-          mappedLocalImplicitDisclosure,
           mappedGlobalImplicitDisclosure,
           List.empty
         ) match {

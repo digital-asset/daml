@@ -193,7 +193,6 @@ class JdbcLedgerDaoSpec
           externalOffset,
           PersistenceEntry.Transaction(
             transaction,
-            Map.empty,
             Map(
               absCid -> Set(
                 Ref.Party.assertFromString("Alice"),
@@ -498,7 +497,7 @@ class JdbcLedgerDaoSpec
           offset,
           offset + 1,
           None,
-          PersistenceEntry.Transaction(transaction, Map.empty, Map.empty, List.empty))
+          PersistenceEntry.Transaction(transaction, Map.empty, List.empty))
         entry <- ledgerDao.lookupLedgerEntry(offset)
         endingOffset <- ledgerDao.lookupLedgerEnd()
       } yield {
@@ -555,7 +554,7 @@ class JdbcLedgerDaoSpec
           offset,
           offset + 1,
           None,
-          PersistenceEntry.Transaction(transaction, Map.empty, Map.empty, List.empty))
+          PersistenceEntry.Transaction(transaction, Map.empty, List.empty))
         entry <- ledgerDao.lookupLedgerEntry(offset)
         endingOffset <- ledgerDao.lookupLedgerEnd()
       } yield {
@@ -644,7 +643,7 @@ class JdbcLedgerDaoSpec
             offset,
             offset + 1,
             None,
-            PersistenceEntry.Transaction(t, Map.empty, Map.empty, List.empty))
+            PersistenceEntry.Transaction(t, Map.empty, List.empty))
           .map(_ => ())
       }
 
@@ -656,7 +655,7 @@ class JdbcLedgerDaoSpec
             offset,
             offset + 1,
             None,
-            PersistenceEntry.Transaction(t, Map.empty, Map.empty, List.empty))
+            PersistenceEntry.Transaction(t, Map.empty, List.empty))
           .map(_ => ())
       }
 
@@ -805,7 +804,6 @@ class JdbcLedgerDaoSpec
           Map((s"event$id": EventId) -> Set(party))
         ),
         Map.empty,
-        Map.empty,
         List.empty
       )
 
@@ -848,7 +846,6 @@ class JdbcLedgerDaoSpec
           Map((s"event$id": EventId) -> Set(party))
         ),
         Map.empty,
-        Map.empty,
         List.empty
       )
 
@@ -879,7 +876,6 @@ class JdbcLedgerDaoSpec
           Map((s"event$id": EventId) -> Set(party))
         ),
         Map.empty,
-        Map.empty,
         List.empty
       )
 
@@ -909,7 +905,6 @@ class JdbcLedgerDaoSpec
           ),
           Map((s"event$id": EventId) -> Set(party))
         ),
-        Map.empty,
         Map.empty,
         List.empty
       )

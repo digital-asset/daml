@@ -283,11 +283,8 @@ class JdbcIndexer private[indexer] (
             EventIdFormatter.fromTransactionId(transactionId, nodeId) -> parties
         }
 
-        val mappedLocalDivulgence = blindingInfo.localDivulgence.map {
-          case (nodeId, parties) =>
-            EventIdFormatter.fromTransactionId(transactionId, nodeId) -> parties
-        }
-
+        // local blinding info only contains values on transactions with relative contractIds.
+        // this does not happen here (see type of transaction: GenTransaction.WithTxValue[NodeId, Value.AbsoluteContractId])
         assert(blindingInfo.localDivulgence.isEmpty)
 
         val pt = PersistenceEntry.Transaction(
@@ -300,11 +297,9 @@ class JdbcIndexer private[indexer] (
             transactionMeta.ledgerEffectiveTime.toInstant,
             recordTime.toInstant,
             transaction
-              .resolveRelCid(EventIdFormatter.makeAbs(transactionId))
               .mapNodeId(EventIdFormatter.fromTransactionId(transactionId, _)),
             mappedDisclosure
           ),
-          mappedLocalDivulgence,
           blindingInfo.globalDivulgence,
           divulgedContracts.map(c => c.contractId -> c.contractInst)
         )
