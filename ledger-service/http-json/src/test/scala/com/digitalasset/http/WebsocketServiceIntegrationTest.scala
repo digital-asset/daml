@@ -393,9 +393,6 @@ class WebsocketServiceIntegrationTest
         case JsObject(fields) => !(fields contains "heartbeat")
         case _ => true
       }
-      .map { x =>
-        println(s"---- stream: $x"); x
-      }
   }
 }
 
