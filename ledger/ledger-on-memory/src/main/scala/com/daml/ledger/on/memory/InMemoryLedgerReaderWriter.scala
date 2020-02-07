@@ -61,11 +61,12 @@ final class InMemoryLedgerReaderWriter(
   private class InMemoryLedgerStateAccess(theParticipantId: ParticipantId)
       extends LedgerStateAccess {
     override def inTransaction[T](body: LedgerStateOperations => Future[T]): Future[T] =
-      Future(lockCurrentState.acquire())
+      Future
+        .successful(lockCurrentState.acquire())
         .flatMap(_ => body(InMemoryLedgerStateOperations))
-        .transform { result =>
-          lockCurrentState.release()
-          result
+        .andThen {
+          case _ =>
+            lockCurrentState.release()
         }
 
     override def participantId: String = theParticipantId
