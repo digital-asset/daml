@@ -107,7 +107,7 @@ jobs:
               cd /nix
               tar xzf $(nix-cache-path)/nix.tar.gz
               cd $DIR
-              curl -sfL https://nixos.org/releases/nix/nix-2.2.1/install | bash
+              curl -sfL https://nixos.org/releases/nix/nix-2.3.2/install | bash
           fi
         displayName: restore cache
       - bash: echo $(git log -n1 --pretty=format:%H azure-pipelines.yml $(find . -name \*.bazel -or -name \*.bzl -or -name WORKSPACE -or -name BUILD)) >> $(bazel-repo-cache-key)
@@ -306,7 +306,7 @@ jobs:
 
           sudo mkdir -p /nix
           sudo chown $USER /nix
-          curl -sfL https://nixos.org/releases/nix/nix-2.2.1/install | bash
+          curl -sfL https://nixos.org/releases/nix/nix-2.3.2/install | bash
           eval "$(dev-env/bin/dade-assist)"
           GCS_KEY=$(mktemp)
           cleanup () {

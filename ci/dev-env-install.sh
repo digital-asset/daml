@@ -23,8 +23,7 @@ if [[ ! -e /nix ]]; then
   sudo mkdir -m 0755 /nix
   sudo chown "$(id -u):$(id -g)" /nix
 
-  # 2.2.2 seems to segfault on MacOS in CI so for now we use 2.2.1.
-  curl -sfL https://nixos.org/releases/nix/nix-2.2.1/install | bash
+  curl -sfL https://nixos.org/releases/nix/nix-2.3.2/install | bash
 fi
 
 # shellcheck source=../dev-env/lib/ensure-nix
