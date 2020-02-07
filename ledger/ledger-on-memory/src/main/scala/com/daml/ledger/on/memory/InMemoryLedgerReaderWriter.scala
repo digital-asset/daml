@@ -87,10 +87,11 @@ final class InMemoryLedgerReaderWriter(
       }
   }
 
+  private val validator = SubmissionValidator.create(
+    new InMemoryLedgerStateAccess(participantId),
+    () => sequentialLogEntryId.next())
+
   override def commit(correlationId: String, envelope: Array[Byte]): Future[SubmissionResult] = {
-    val validator = SubmissionValidator.create(
-      new InMemoryLedgerStateAccess(participantId),
-      () => sequentialLogEntryId.next())
     validator
       .validateAndCommit(envelope, correlationId, currentRecordTime())
       .map {

@@ -26,7 +26,14 @@ import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
-// Orchestrates validation, transforming and committing data for key-value ledgers.
+/**
+  * Orchestrates validating, transforming or committing submissions for key-value ledgers.
+  *
+  * @param ledgerStateAccess defines how the validator retrieves/writes back state to the ledger
+  * @param processSubmission defines how a log entry and state updates get generated from a submission
+  * @param allocateLogEntryId  defines how new log entry IDs are being generated
+  * @param executionContext  ExecutionContext to use when performing ledger state reads/writes
+  */
 class SubmissionValidator(
     ledgerStateAccess: LedgerStateAccess,
     processSubmission: (
