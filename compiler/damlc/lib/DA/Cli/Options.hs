@@ -151,24 +151,20 @@ newtype InitPkgDb = InitPkgDb Bool
 initPkgDbOpt :: Parser InitPkgDb
 initPkgDbOpt = InitPkgDb <$> flagYesNoAuto "init-package-db" True "Initialize package database" idm
 
-data Telemetry = OptedIn | OptedOut | Undecided
+data Telemetry
+    = TelemetryOptedIn -- ^ User has explicitly opted in
+    | TelemetryOptedOut -- ^ User has explicitly opted out
+    | TelemetryIgnored -- ^ User has clicked away the telemetry dialog without making a choice
+    | TelemetryDisabled -- ^ No options have been supplied so telemetry is
+               -- disabled. You’ll never get this in the IDE but it is
+               -- used when invoking the compiler from a terminal.
+
 telemetryOpt :: Parser Telemetry
-telemetryOpt = do
-    let optInS = "telemetry"
-        optOutS = "optOutTelemetry"
-    optIn <-
-        switch $
-        help "Send crash data + telemetry to Digital Asset" <> long optInS
-    optOut <-
-        switch $
-        help "Opt out of sending crash data + telemetry to Digital Asset" <> long optOutS
-    pure $ case (optIn, optOut) of
-        (False, False) -> Undecided
-        (True, False) -> OptedIn
-        (False, True) -> OptedOut
-        (True, True) ->
-            error $
-            "Both --"++optInS++" and --"++optOutS++" have been selected, you either have to opt into telemetry or opt out"
+telemetryOpt = fromMaybe TelemetryDisabled <$> optional (optIn <|> optOut <|> optIgnored)
+  where
+    optIn = flag' TelemetryOptedIn $ hidden <> long "telemetry"
+    optOut = flag' TelemetryOptedOut $ hidden <> long "optOutTelemetry"
+    optIgnored = flag' TelemetryIgnored $ hidden <> long "telemetry-ignored"
 
 -- Parse helper for non-empty string lists separated by the given separator
 stringsSepBy :: Char -> ReadM [String]

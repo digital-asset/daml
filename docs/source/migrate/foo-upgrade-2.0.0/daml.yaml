@@ -1,3 +1,6 @@
+# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 sdk-version: 0.0.0
 name: foo-upgrade-2.0.0
 source: daml
@@ -14,3 +17,4 @@ dependencies:
 build-options:
 - '--package=("foo-1.0.0",[("Foo","FooA")])'
 - '--package=("foo-2.0.0",[("Foo","FooB")])'
+

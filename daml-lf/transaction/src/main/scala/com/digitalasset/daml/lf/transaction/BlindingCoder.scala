@@ -15,20 +15,20 @@ object BlindingCoder {
 
   def decode(
       p: proto.Blindinginfo.BlindingInfo,
-      nodeIdReader: String => Either[DecodeError, Transaction.NodeId],
+      nodeIdReader: TransactionCoder.DecodeNid[Transaction.NodeId],
   ): Either[DecodeError, BlindingInfo] = {
 
     val explicitDisclosure =
       p.getExplicitDisclosureList.asScala.map(n =>
         for {
-          ni <- nodeIdReader(n.getNodeId)
+          ni <- nodeIdReader.fromString(n.getNodeId)
           parties <- toPartySet(n.getPartiesList)
         } yield ni -> parties)
 
     val implicitLocal =
       p.getLocalImplicitDisclosureList.asScala.map(n =>
         for {
-          ni <- nodeIdReader(n.getNodeId)
+          ni <- nodeIdReader.fromString(n.getNodeId)
           parties <- toPartySet(n.getPartiesList)
         } yield ni -> parties)
 
@@ -49,20 +49,20 @@ object BlindingCoder {
 
   def encode(
       blindingInfo: BlindingInfo,
-      nodeIdWriter: Transaction.NodeId => String,
+      nodeIdWriter: TransactionCoder.EncodeNid[Transaction.NodeId],
   ): proto.Blindinginfo.BlindingInfo = {
     val builder = proto.Blindinginfo.BlindingInfo.newBuilder()
 
     val localImplicit = blindingInfo.localDivulgence.map(nodeParties => {
       val b1 = proto.Blindinginfo.NodeParties.newBuilder()
-      b1.setNodeId(nodeIdWriter(nodeParties._1))
+      b1.setNodeId(nodeIdWriter.asString(nodeParties._1))
       b1.addAllParties(nodeParties._2.toSet[String].asJava)
       b1.build()
     })
 
     val explicit = blindingInfo.disclosure.map(nodeParties => {
       val b1 = proto.Blindinginfo.NodeParties.newBuilder()
-      b1.setNodeId(nodeIdWriter(nodeParties._1))
+      b1.setNodeId(nodeIdWriter.asString(nodeParties._1))
       b1.addAllParties(nodeParties._2.toSet[String].asJava)
       b1.build()
     })

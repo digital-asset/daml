@@ -21,7 +21,7 @@ import com.digitalasset.daml.lf.data.{ImmArray, Time}
 import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.Node
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
+import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.domain.{
   ApplicationId,
@@ -170,8 +170,6 @@ class InMemoryLedger(
         RejectionReason.TimedOut(
           s"RecordTime $recordTime is after MaxiumRecordTime ${submitterInfo.maxRecordTime}"))
     } else {
-      val toAbsCoid: ContractId => AbsoluteContractId =
-        EventIdFormatter.makeAbsCoid(trId)
 
       val blindingInfo = Blinding.blind(transaction)
       val mappedDisclosure = blindingInfo.disclosure.map {
@@ -182,9 +180,10 @@ class InMemoryLedger(
       }
       val mappedGlobalDivulgence = blindingInfo.globalDivulgence
 
-      val mappedTx = transaction
-        .mapContractIdAndValue(toAbsCoid, _.mapContractId(toAbsCoid))
-        .mapNodeId(EventIdFormatter.fromTransactionId(trId, _))
+      val mappedTx =
+        transaction
+          .resolveRelCid(EventIdFormatter.makeAbs(trId))
+          .mapNodeId(EventIdFormatter.fromTransactionId(trId, _))
       // 5b. modify the ActiveContracts, while checking that we do not have double
       // spends or timing issues
       val acsRes = acs.addTransaction(

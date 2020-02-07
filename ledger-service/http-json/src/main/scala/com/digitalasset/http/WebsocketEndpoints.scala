@@ -20,8 +20,6 @@ import EndpointsCompanion._
 object WebsocketEndpoints {
   private[http] val tokenPrefix: String = "jwt.token."
   private[http] val wsProtocol: String = "daml.ws.auth"
-  type WebSocketHandler =
-    (Jwt, domain.JwtPayload, UpgradeToWebSocket, Option[String]) => HttpResponse
 
   private def findJwtFromSubProtocol(
       upgradeToWebSocket: UpgradeToWebSocket,
@@ -57,7 +55,7 @@ class WebsocketEndpoints(
   import WebsocketEndpoints._
 
   lazy val transactionWebSocket: PartialFunction[HttpRequest, Future[HttpResponse]] = {
-    case req @ HttpRequest(GET, Uri.Path("/contracts/searchForever"), _, _, _) =>
+    case req @ HttpRequest(GET, Uri.Path("/v1/stream/query"), _, _, _) =>
       Future.successful(
         (for {
           upgradeReq <- req.header[UpgradeToWebSocket] \/> InvalidUserInput(
@@ -68,7 +66,7 @@ class WebsocketEndpoints(
           payload <- preconnect(decodeJwt, upgradeReq, wsProtocol)
           (jwt, jwtPayload) = payload
         } yield
-          handleWebsocketRequest[domain.GetActiveContractsRequest](
+          handleWebsocketRequest[domain.SearchForeverRequest](
             jwt,
             jwtPayload,
             upgradeReq,
@@ -76,7 +74,7 @@ class WebsocketEndpoints(
           .valueOr(httpResponseError),
       )
 
-    case req @ HttpRequest(GET, Uri.Path("/stream/fetch"), _, _, _) =>
+    case req @ HttpRequest(GET, Uri.Path("/v1/stream/fetch"), _, _, _) =>
       Future.successful(
         (for {
           upgradeReq <- req.header[UpgradeToWebSocket] \/> InvalidUserInput(
@@ -95,7 +93,7 @@ class WebsocketEndpoints(
       )
   }
 
-  private def handleWebsocketRequest[A: WebSocketService.StreamQuery](
+  def handleWebsocketRequest[A: WebSocketService.StreamQuery](
       jwt: Jwt,
       jwtPayload: domain.JwtPayload,
       req: UpgradeToWebSocket,
@@ -105,5 +103,4 @@ class WebsocketEndpoints(
       webSocketService.transactionMessageHandler[A](jwt, jwtPayload)
     req.handleMessages(handler, Some(protocol))
   }
-
 }

@@ -1,3 +1,6 @@
+# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 # hlint configuration file
 # ==================================
 
@@ -419,8 +422,6 @@
 
     # LIST COMP
 
-    - hint: {lhs: "if b then [x] else []", rhs: "[x | b]", name: Use list comprehension}
-    - hint: {lhs: "if b then [] else [x]", rhs: "[x | not b]", name: Use list comprehension}
     - hint: {lhs: "[x | x <- y]", rhs: "y", side: isVar x, name: Redundant list comprehension}
 
     # TUPLE
@@ -670,3 +671,4 @@
 - ignore: {name: Redundant $}
 # Don't warn on redundant do (DAML choice syntax *mandates* 'do'!)
 - ignore: {name: Redundant do}
+

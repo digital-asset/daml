@@ -1,12 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
 
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} %level %logger{10}: %msg%n</pattern>
+        </encoder>
+    </appender>
+
     <appender name="MEM" class="com.digitalasset.platform.testing.LogCollector">
         <test>com.daml.ledger.api.server.damlonx.reference.v2.IndexerIT</test>
     </appender>
 
     <logger name="com.digitalasset.platform.indexer.RecoveringIndexer" level="INFO">
-        <appender-ref ref="MEM" />
+        <appender-ref ref="STDOUT"/>
+        <appender-ref ref="MEM"/>
     </logger>
 
 </configuration>

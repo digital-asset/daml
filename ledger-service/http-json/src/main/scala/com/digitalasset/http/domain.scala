@@ -19,7 +19,7 @@ import scalaz.std.vector._
 import scalaz.syntax.show._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
-import scalaz.{-\/, @@, Applicative, Bitraverse, Show, Tag, Traverse, \/, \/-}
+import scalaz.{-\/, @@, Applicative, Bitraverse, NonEmptyList, Show, Tag, Traverse, \/, \/-}
 import spray.json.JsValue
 
 import scala.annotation.tailrec
@@ -79,6 +79,10 @@ object domain {
       query: Map[String, JsValue],
   )
 
+  final case class SearchForeverRequest(
+      queries: NonEmptyList[GetActiveContractsRequest]
+  )
+
   case class PartyDetails(party: Party, displayName: Option[String], isLocal: Boolean)
 
   final case class CommandMeta(
@@ -102,7 +106,7 @@ object domain {
 
   final case class ExerciseResponse[+LfV](
       exerciseResult: LfV,
-      contracts: List[Contract[LfV]],
+      events: List[Contract[LfV]],
   )
 
   object PartyDetails {
@@ -473,11 +477,11 @@ object domain {
       )(f: A => G[B]): G[ExerciseResponse[B]] = {
         import scalaz.syntax.applicative._
         val gb: G[B] = f(fa.exerciseResult)
-        val gbs: G[List[Contract[B]]] = fa.contracts.traverse(_.traverse(f))
-        ^(gb, gbs) { (exerciseResult, contracts) =>
+        val gbs: G[List[Contract[B]]] = fa.events.traverse(_.traverse(f))
+        ^(gb, gbs) { (exerciseResult, events) =>
           ExerciseResponse(
             exerciseResult = exerciseResult,
-            contracts = contracts,
+            events = events,
           )
         }
       }

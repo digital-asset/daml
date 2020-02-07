@@ -1,3 +1,6 @@
+# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 - target: //daml-lf/data:data
   type: jar-scala
 - target: //daml-lf/archive:daml_lf_dev_archive_java_proto
@@ -126,6 +129,8 @@
   type: jar-lib
 - target: //ledger/ledger-api-health:ledger-api-health
   type: jar-scala
+- target: //ledger/ledger-on-sql:ledger-on-sql
+  type: jar-scala
 - target: //ledger/sandbox:sandbox
   type: jar-scala
 - target: //ledger/ledger-api-test-tool:ledger-api-test-tool
@@ -194,3 +199,4 @@
   type: jar-scala
 - target: //libs-scala/timer-utils:timer-utils
   type: jar-scala
+

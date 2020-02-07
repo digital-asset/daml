@@ -538,8 +538,8 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart"
                   let headers =
                           [ ("Authorization", "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJsZWRnZXJJZCI6Ik15TGVkZ2VyIiwiYXBwbGljYXRpb25JZCI6ImZvb2JhciIsInBhcnR5IjoiQWxpY2UifQ.4HYfzjlYr1ApUDot0a6a4zB49zS_jrwRUOCkAiPMqo0")
                           ] :: RequestHeaders
-                  waitForHttpServer (threadDelay 100000) ("http://localhost:" <> show jsonApiPort <> "/contracts/search") headers
-                  req <- parseRequest $ "http://localhost:" <> show jsonApiPort <> "/contracts/search"
+                  waitForHttpServer (threadDelay 100000) ("http://localhost:" <> show jsonApiPort <> "/v1/query") headers
+                  req <- parseRequest $ "http://localhost:" <> show jsonApiPort <> "/v1/query"
                   req <- pure req { requestHeaders = headers }
                   manager <- newManager defaultManagerSettings
                   resp <- httpLbs req manager

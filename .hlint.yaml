@@ -1,3 +1,6 @@
+# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 # HLint configuration file
 # https://github.com/ndmitchell/hlint
 ##########################
@@ -132,3 +135,4 @@
 
 # Define some custom infix operators
 # - fixity: infixr 3 ~^#^~
+

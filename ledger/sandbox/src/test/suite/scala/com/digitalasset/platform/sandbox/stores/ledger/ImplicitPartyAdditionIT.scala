@@ -135,16 +135,17 @@ class ImplicitPartyAdditionIT
           "create-signatory",
           "CmdId1",
           NodeCreate(
-            AbsoluteContractId("cId1"),
-            ContractInst(
+            nodeSeed = None,
+            coid = AbsoluteContractId("cId1"),
+            coinst = ContractInst(
               templateId1,
               textValue("some text"),
               "agreement"
             ),
-            None,
-            Set("create-signatory"),
-            Set("create-stakeholder"),
-            Some(KeyWithMaintainers(textValue("some text"), Set("create-signatory")))
+            optLocation = None,
+            signatories = Set("create-signatory"),
+            stakeholders = Set("create-stakeholder"),
+            key = Some(KeyWithMaintainers(textValue("some text"), Set("create-signatory")))
           )
         )
         exerciseResult <- publishSingleNodeTx(
@@ -152,19 +153,20 @@ class ImplicitPartyAdditionIT
           "exercise-signatory",
           "CmdId2",
           NodeExercises(
-            AbsoluteContractId("cId1"),
-            templateId1,
-            Ref.ChoiceName.assertFromString("choice"),
-            None,
-            false,
-            Set("exercise-signatory"),
-            textValue("choice value"),
-            Set("exercise-stakeholder"),
-            Set("exercise-signatory"),
-            Set("exercise-signatory"),
-            ImmArray.empty,
-            None,
-            None
+            nodeSeed = None,
+            targetCoid = AbsoluteContractId("cId1"),
+            templateId = templateId1,
+            choiceId = Ref.ChoiceName.assertFromString("choice"),
+            optLocation = None,
+            consuming = false,
+            actingParties = Set("exercise-signatory"),
+            chosenValue = textValue("choice value"),
+            stakeholders = Set("exercise-stakeholder"),
+            signatories = Set("exercise-signatory"),
+            controllers = Set("exercise-signatory"),
+            children = ImmArray.empty,
+            exerciseResult = None,
+            key = None
           )
         )
         fetchResult <- publishSingleNodeTx(

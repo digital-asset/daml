@@ -74,7 +74,7 @@ object TestMain extends StrictLogging {
         implicit val materializer: Materializer = Materializer(system)
         implicit val ec: ExecutionContext = system.dispatcher
 
-        val runner = new Runner(dar, applicationId, commandUpdater)
+        val runner = new Runner(dar, applicationId, commandUpdater, timeProvider)
         val (participantParams, participantCleanup) = config.participantConfig match {
           case Some(file) =>
             val source = Source.fromFile(file)

@@ -60,6 +60,8 @@ filetypes = \
     'tf'     : { 'start' : '#' * 80 , 'line' : '#'    , 'end' : ''    , 'empty_line' : '' } ,
     'css'    : { 'start' : '/*'     , 'line' : ''     , 'end' : ' */' } ,
     'scss'   : { 'start' : '/*'     , 'line' : ''     , 'end' : ' */' } ,
+    'yml'    : { 'start' : '#' * 80 , 'line' : '#'    , 'end' : ''    , 'empty_line' : '' } ,
+    'yaml'   : { 'start' : '#' * 80 , 'line' : '#'    , 'end' : ''    , 'empty_line' : '' } ,
   }
 
 #########################

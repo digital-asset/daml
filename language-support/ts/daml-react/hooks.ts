@@ -37,7 +37,7 @@ export type QueryResult<T extends object, K> = {
 // to work in `useQuery` when using the default value for `queryFactory`.
 const emptyQuery = {};
 
-/// React Hook for a query against the `/contracts/search` endpoint of the JSON API.
+/// React Hook for a query against the `/query` endpoint of the JSON API.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const useQuery = <T extends object, K>(template: Template<T, K>, queryFactory: () => Query<T> = () => emptyQuery as Query<T>, queryDeps?: readonly any[]): QueryResult<T, K> => {
   const state = useDamlState();
@@ -69,7 +69,7 @@ export type FetchResult<T extends object, K> = {
   loading: boolean;
 }
 
-/// React Hook for a lookup by key against the `/contracts/lookup` endpoint of the JSON API.
+/// React Hook for a lookup by key against the `/fetch` endpoint of the JSON API.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const useFetchByKey = <T extends object, K>(template: Template<T, K>, keyFactory: () => K, keyDeps?: readonly any[]): FetchResult<T, K> => {
   const state = useDamlState();

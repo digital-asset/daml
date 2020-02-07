@@ -7,11 +7,13 @@ import java.sql.Connection
 
 import com.daml.ledger.on.sql.queries.{H2Queries, PostgresqlQueries, Queries, SqliteQueries}
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
+import com.digitalasset.resources.ProgramResource.StartupException
 import com.digitalasset.resources.ResourceOwner
 import com.zaxxer.hikari.HikariDataSource
 import javax.sql.DataSource
 import org.flywaydb.core.Flyway
 
+import scala.collection.JavaConverters._
 import scala.concurrent.duration.Duration
 import scala.util.control.NonFatal
 
@@ -66,6 +68,9 @@ class Database(
 
 object Database {
   private val logger = ContextualizedLogger.get(classOf[Database])
+
+  // We use a prefix for all tables to ensure the database schema can be shared with the index.
+  private val TablePrefix = "ledger_"
 
   // This *must* be 1 right now. We need to insert entries into the log in order; otherwise, we
   // might end up dispatching (head + 2) before (head + 1), which will result in missing out an
@@ -184,18 +189,18 @@ object Database {
       readerConnectionPool: DataSource,
       writerConnectionPool: DataSource,
       adminConnectionPool: DataSource,
-      afterMigration: () => Unit = () => (),
   ) {
     private val flyway: Flyway =
       Flyway
         .configure()
+        .placeholders(Map("table.prefix" -> TablePrefix).asJava)
+        .table(TablePrefix + Flyway.configure().getTable)
         .dataSource(adminConnectionPool)
         .locations(s"classpath:/com/daml/ledger/on/sql/migrations/${system.name}")
         .load()
 
     def migrate(): Database = {
       flyway.migrate()
-      afterMigration()
       new Database(system.queries, readerConnectionPool, writerConnectionPool)
     }
 
@@ -205,5 +210,5 @@ object Database {
     }
   }
 
-  class InvalidDatabaseException(message: String) extends RuntimeException(message)
+  class InvalidDatabaseException(message: String) extends StartupException(message)
 }

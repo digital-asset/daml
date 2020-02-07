@@ -228,19 +228,14 @@ final class Engine {
 
   // A safe cast of a value to a value which uses only absolute contract IDs.
   // In particular, the cast will succeed for all values contained in the root nodes of a Transaction produced by submit
-  private[this] def asValueWithAbsoluteContractIds[Cid](
-      v: Value[Cid]): Result[Value[Value.AbsoluteContractId]] =
-    try {
-      ResultDone(
-        v.mapContractId {
-          case rcoid: Value.RelativeContractId =>
-            throw ValidationError(s"unexpected relative contract id $rcoid")
-          case acoid: Value.AbsoluteContractId => acoid
-        }
+  private[this] def asValueWithAbsoluteContractIds(
+      v: Value[Value.ContractId]
+  ): Result[Value[Value.AbsoluteContractId]] =
+    v.ensureNoRelCid
+      .fold(
+        rcoid => ResultError(ValidationError(s"unexpected relative contract id $rcoid")),
+        ResultDone(_)
       )
-    } catch {
-      case err: ValidationError => ResultError(err)
-    }
 
   private[this] def asAbsoluteContractId(coid: Value.ContractId): Result[Value.AbsoluteContractId] =
     coid match {
@@ -256,13 +251,14 @@ final class Engine {
       node: GenNode.WithTxValue[Transaction.NodeId, Cid]): Result[(Type, SpeedyCommand)] = {
 
     node match {
-      case NodeCreate(coid @ _, coinst, optLoc @ _, sigs @ _, stks @ _, key @ _) =>
+      case NodeCreate(nodeSeed @ _, coid @ _, coinst, optLoc @ _, sigs @ _, stks @ _, key @ _) =>
         val identifier = coinst.template
         asValueWithAbsoluteContractIds(coinst.arg.value).flatMap(
           absArg => commandPreprocessor.preprocessCreate(identifier, absArg)
         )
 
       case NodeExercises(
+          nodeSeed @ _,
           coid,
           template,
           choice,

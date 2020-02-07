@@ -10,7 +10,6 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.codahale.metrics.SharedMetricRegistries
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
-import com.daml.ledger.participant.state.kvutils.app.Runner._
 import com.daml.ledger.participant.state.v1.{ReadService, SubmissionId, WriteService}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.archive.DarReader
@@ -25,7 +24,6 @@ import com.digitalasset.platform.indexer.{
   IndexerStartupMode,
   StandaloneIndexerServer
 }
-import com.digitalasset.resources.ProgramResource.SuppressedException
 import com.digitalasset.resources.ResourceOwner
 import com.digitalasset.resources.akka.AkkaResourceOwner
 
@@ -34,7 +32,14 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
 class Runner[T <: KeyValueLedger, Extra](name: String, factory: LedgerFactory[T, Extra]) {
-  def owner(args: Seq[String]): ResourceOwner[Unit] = {
+  def owner(args: Seq[String]): ResourceOwner[Unit] =
+    Config
+      .owner(name, factory.extraConfigParser, factory.defaultExtraConfig, args)
+      .flatMap(owner)
+
+  def owner(originalConfig: Config[Extra]): ResourceOwner[Unit] = {
+    val config = factory.manipulateConfig(originalConfig)
+
     implicit val system: ActorSystem = ActorSystem(
       "[^A-Za-z0-9_\\-]".r.replaceAllIn(name.toLowerCase, "-"))
     implicit val materializer: Materializer = Materializer(system)
@@ -45,11 +50,6 @@ class Runner[T <: KeyValueLedger, Extra](name: String, factory: LedgerFactory[T,
       // This is necessary because we can't declare them as implicits within a `for` comprehension.
       _ <- AkkaResourceOwner.forActorSystem(() => system)
       _ <- AkkaResourceOwner.forMaterializer(() => materializer)
-
-      config <- Config
-        .parse(name, factory.extraConfigParser, factory.defaultExtraConfig, args)
-        .fold[ResourceOwner[Config[Extra]]](ResourceOwner.failed(new ConfigParseException))(
-          ResourceOwner.successful)
 
       ledgerId = config.ledgerId.getOrElse(
         Ref.LedgerString.assertFromString(UUID.randomUUID.toString))
@@ -98,6 +98,7 @@ class Runner[T <: KeyValueLedger, Extra](name: String, factory: LedgerFactory[T,
         config.participantId,
         jdbcUrl = config.serverJdbcUrl,
         startupMode = IndexerStartupMode.MigrateAndStart,
+        allowExistingSchema = config.allowExistingSchemaForIndex,
       ),
       SharedMetricRegistries.getOrCreate(s"indexer-${config.participantId}"),
     )
@@ -125,8 +126,4 @@ class Runner[T <: KeyValueLedger, Extra](name: String, factory: LedgerFactory[T,
       authService,
       SharedMetricRegistries.getOrCreate(s"ledger-api-server-${config.participantId}"),
     )
-}
-
-object Runner {
-  class ConfigParseException extends SuppressedException
 }

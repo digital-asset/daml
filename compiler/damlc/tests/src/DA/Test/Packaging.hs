@@ -431,6 +431,152 @@ tests damlc repl davlDar = testGroup "Packaging" $
             ]
           withCurrentDirectory projC $ callProcessSilent damlc ["build", "-o", "baz.dar"]
 
+    , testCase "Detects unitId collisions in dependencies" $ withTempDir $ \projDir -> do
+          -- Check that two pacages with the same unit id is flagged as an error.
+          let projA = projDir </> "a"
+          let projB = projDir </> "b"
+          let projC = projDir </> "c"
+
+          createDirectoryIfMissing True (projA </> "src")
+          createDirectoryIfMissing True (projB </> "src")
+          createDirectoryIfMissing True (projC </> "src")
+
+          writeFileUTF8 (projA </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: a"
+            , "version: 0.0.1"
+            , "source: src"
+            , "dependencies: [daml-prim, daml-stdlib]"
+            ]
+          writeFileUTF8 (projA </> "src" </> "A.daml") $ unlines
+            [ "daml 1.2"
+            , "module A where"
+            , "foo : Int"
+            , "foo = 10"
+            ]
+          withCurrentDirectory projA $ callProcessSilent damlc ["build", "-o", "a.dar"]
+          packageIdA1 <- head <$> darPackageIds (projA </> "a.dar")
+
+          writeFileUTF8 (projB </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: b"
+            , "version: 0.0.1"
+            , "source: src"
+            , "dependencies:"
+            , " - daml-prim"
+            , " - daml-stdlib"
+            , " - " <> projA </> "a.dar"
+            ]
+          writeFileUTF8 (projB </> "src" </> "B.daml") $ unlines
+            [ "daml 1.2"
+            , "module B where"
+            , "import A ()"
+            ]
+          withCurrentDirectory projB $ callProcessSilent damlc ["build", "-o", "b.dar"]
+
+          writeFileUTF8 (projA </> "src" </> "A.daml") $ unlines
+            [ "daml 1.2"
+            , "module A where"
+            , "foo : Int"
+            , "foo = 20"
+            ]
+          withCurrentDirectory projA $ callProcessSilent damlc ["build", "-o", "a.dar"]
+          packageIdA2 <- head <$> darPackageIds (projA </> "a.dar")
+          assertBool "Expected two different package IDs" (packageIdA1 /= packageIdA2)
+
+          writeFileUTF8 (projC </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: c"
+            , "version: 0.0.1"
+            , "source: src"
+            , "dependencies:"
+            , " - daml-prim"
+            , " - daml-stdlib"
+            , " - " <> projA </> "a.dar"
+            , " - " <> projB </> "b.dar"
+            ]
+          writeFileUTF8 (projC </> "src" </> "C.daml") $ unlines
+            [ "daml 1.2"
+            , "module C where"
+            , "import A ()"
+            , "import B ()"
+            ]
+          buildProjectError projC "" "dependencies with same unit id but conflicting package ids: a-0.0.1"
+
+    , testCase "Detects unitId collisions in data-dependencies" $ withTempDir $ \projDir -> do
+          -- Check that two pacages with the same unit id is flagged as an error.
+          let projA = projDir </> "a"
+          let projB = projDir </> "b"
+          let projC = projDir </> "c"
+
+          createDirectoryIfMissing True (projA </> "src")
+          createDirectoryIfMissing True (projB </> "src")
+          createDirectoryIfMissing True (projC </> "src")
+
+          writeFileUTF8 (projA </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: a"
+            , "version: 0.0.1"
+            , "source: src"
+            , "dependencies: [daml-prim, daml-stdlib]"
+            ]
+          writeFileUTF8 (projA </> "src" </> "A.daml") $ unlines
+            [ "daml 1.2"
+            , "module A where"
+            , "foo : Int"
+            , "foo = 10"
+            ]
+          withCurrentDirectory projA $ callProcessSilent damlc ["build", "-o", "a.dar"]
+          packageIdA1 <- head <$> darPackageIds (projA </> "a.dar")
+
+          writeFileUTF8 (projB </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: b"
+            , "version: 0.0.1"
+            , "source: src"
+            , "dependencies:"
+            , " - daml-prim"
+            , " - daml-stdlib"
+            , "data-dependencies:"
+            , " - " <> projA </> "a.dar"
+            ]
+          writeFileUTF8 (projB </> "src" </> "B.daml") $ unlines
+            [ "daml 1.2"
+            , "module B where"
+            , "import A ()"
+            ]
+          withCurrentDirectory projB $ callProcessSilent damlc ["build", "-o", "b.dar"]
+
+          writeFileUTF8 (projA </> "src" </> "A.daml") $ unlines
+            [ "daml 1.2"
+            , "module A where"
+            , "foo : Int"
+            , "foo = 20"
+            ]
+          withCurrentDirectory projA $ callProcessSilent damlc ["build", "-o", "a.dar"]
+          packageIdA2 <- head <$> darPackageIds (projA </> "a.dar")
+          assertBool "Expected two different package IDs" (packageIdA1 /= packageIdA2)
+
+          writeFileUTF8 (projC </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: c"
+            , "version: 0.0.1"
+            , "source: src"
+            , "dependencies:"
+            , " - daml-prim"
+            , " - daml-stdlib"
+            , "data-dependencies:"
+            , " - " <> projA </> "a.dar"
+            , " - " <> projB </> "b.dar"
+            ]
+          writeFileUTF8 (projC </> "src" </> "C.daml") $ unlines
+            [ "daml 1.2"
+            , "module C where"
+            , "import A ()"
+            , "import B ()"
+            ]
+          buildProjectError projC "" "dependencies with same unit id but conflicting package ids: a-0.0.1"
+
     , testCase "build-options + project-root" $ withTempDir $ \projDir -> do
           createDirectoryIfMissing True (projDir </> "src")
           writeFileUTF8 (projDir </> "daml.yaml") $ unlines
@@ -893,6 +1039,12 @@ dataDependencyTests damlc repl davlDar = testGroup "Data Dependencies" $
               , "usingEq = (==)"
               -- test exporting of HasField instances
               , "data R = R { rfoo : Int }"
+              -- test exporting of template typeclass instances
+              , "template P"
+              , "  with"
+              , "    p : Party"
+              , "  where"
+              , "    signatory p"
               ]
           writeFileUTF8 (proja </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
@@ -908,7 +1060,7 @@ dataDependencyTests damlc repl davlDar = testGroup "Data Dependencies" $
           writeFileUTF8 (projb </> "src" </> "B.daml") $ unlines
               [ "daml 1.2"
               , "module B where"
-              , "import A ( Foo (foo), Bar (..), usingFoo, Q (..), usingEq, R(R) )"
+              , "import A ( Foo (foo), Bar (..), usingFoo, Q (..), usingEq, R(R), P(P) )"
               , "import DA.Assert"
               , "import DA.Record"
               , ""
@@ -934,6 +1086,13 @@ dataDependencyTests damlc repl davlDar = testGroup "Data Dependencies" $
               , "testHasFieldInstanceImport = scenario do"
               , "  let x = R 100"
               , "  getField @\"rfoo\" x === 100"
+              -- test importing of template typeclass instance
+              , "test = scenario do"
+              , "  alice <- getParty \"Alice\""
+              , "  let t = P alice"
+              , "  signatory t === [alice]"
+              , "  cid <- submit alice $ create t"
+              , "  submit alice $ archive cid"
               ]
           writeFileUTF8 (projb </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion

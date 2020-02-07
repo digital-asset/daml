@@ -43,6 +43,7 @@ eslint_test(
 pkg_npm(
     name = "npm_package",
     srcs = [
+        ":README.md",
         ":package.json",
         ":tsconfig.json",
     ],

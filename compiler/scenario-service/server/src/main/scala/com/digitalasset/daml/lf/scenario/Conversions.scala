@@ -410,7 +410,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
   def convertTxNodeId(nodeId: Tx.NodeId): NodeId =
     NodeId.newBuilder.setId(nodeId.index.toString).build
 
-  def convertNode(nodeId: Ledger.ScenarioNodeId, nodeInfo: Ledger.NodeInfo): Node = {
+  def convertNode(nodeId: Ledger.ScenarioNodeId, nodeInfo: Ledger.LedgerNodeInfo): Node = {
     val builder = Node.newBuilder
     builder
       .setNodeId(convertNodeId(nodeId))
