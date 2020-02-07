@@ -376,7 +376,8 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
   final case class NodeId(index: Int)
 
   object NodeId {
-    implicit def cidMapperInstance[Fun]: CidMapper[NodeId, NodeId, Fun] = CidMapper.trivialMapper
+    implicit def cidMapperInstance[In, Out]: CidMapper[NodeId, NodeId, In, Out] =
+      CidMapper.trivialMapper
   }
 
   /*** Keys cannot contain contract ids */

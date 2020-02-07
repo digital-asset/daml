@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf
 package crypto
 
 import java.nio.ByteBuffer
-import java.security.MessageDigest
+import java.security.{MessageDigest, SecureRandom}
 import java.util
 
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Utf8}
@@ -20,10 +20,10 @@ final class Hash private (private val bytes: Array[Byte]) {
 
   def toByteArray: Array[Byte] = bytes.clone()
 
-  def toLedgerString: Ref.LedgerString =
-    Hash.toLedgerString(this)
+  def toHexaString: String =
+    bytes.map("%02x" format _).mkString
 
-  override def toString: String = s"Hash($toLedgerString)"
+  override def toString: String = s"Hash($toHexaString)"
 
   override def equals(other: Any): Boolean =
     other match {
@@ -47,6 +47,16 @@ object Hash {
 
   private val version = 0.toByte
   private val underlyingHashLength = 32
+
+  val secureRandom: () => Hash = {
+    val random = new SecureRandom()
+    () =>
+      {
+        val a = Array.ofDim[Byte](underlyingHashLength)
+        random.nextBytes(a)
+        new Hash(a)
+      }
+  }
 
   implicit val HashOrdering: Ordering[Hash] =
     ((hash1, hash2) => implicitly[Ordering[Iterable[Byte]]].compare(hash1.bytes, hash2.bytes))
@@ -200,9 +210,6 @@ object Hash {
       mac.doFinal(buf, offset)
 
   }
-
-  def toLedgerString(hash: Hash): Ref.LedgerString =
-    Ref.LedgerString.assertFromString(hash.bytes.map("%02x" format _).mkString)
 
   def fromString(s: String): Either[String, Hash] = {
     def error = s"Cannot parse hash $s"

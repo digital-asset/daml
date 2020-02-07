@@ -232,7 +232,7 @@ private[data] final class IdStringImpl extends IdString {
   // Prefixed with "$0" which is not a valid substring of ContractIdV0.
   override type ContractIdStringV1 = String
   override val ContractIdStringV1: StringModule[ContractIdStringV1] =
-    new MatchingStringModule("""\$0[0-9a-f]{64}[A-Za-z0-9:\-_]{189}""")
+    new MatchingStringModule("""\$0[0-9a-f]{64}[A-Za-z0-9:\-_]{0,189}""")
 
   /** Identifier for a contractIs, union of `ContractIdStringV0` and `ContractIdStringV1` */
   override type ContractIdString = String
