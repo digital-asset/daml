@@ -1103,6 +1103,44 @@ class JdbcLedgerDaoSpec
         res3 shouldBe a[LedgerEntry.Rejection]
       }
     }
+
+    "be able to use divulged contract in later transaction" in {
+      val let = Instant.now
+      val emptyTxWithDivulgedContracts = PersistenceEntry.Transaction(
+        LedgerEntry.Transaction(
+          Some("commandId0"),
+          "transactionId0",
+          Some("applicationId"),
+          Some(alice),
+          Some("workflowId"),
+          let,
+          let,
+          GenTransaction(HashMap.empty, ImmArray.empty, None),
+          Map.empty
+        ),
+        Map.empty,
+        Map(AbsoluteContractId("contractId0") -> Set(bob)),
+        List(AbsoluteContractId("contractId0") -> someContractInstance)
+      )
+      val offset1 = nextOffset()
+      val offset2 = nextOffset()
+      for {
+        // First store a transaction that only divulges the contract to bob.
+        _ <- ledgerDao.storeLedgerEntry(offset1, offset1 + 1, None, emptyTxWithDivulgedContracts)
+
+        // Next try and fetch the divulged contract. LedgerDao should be able to look up the divulged contract
+        // and index the transaction without finding the contract metadata (LET) for it.
+        _ <- ledgerDao.storeLedgerEntry(
+          offset2,
+          offset2 + 1,
+          None,
+          txFetch(let.plusSeconds(1), 1, bob, 0))
+
+        res1 <- ledgerDao.lookupLedgerEntry(offset2)
+      } yield {
+        res1 shouldBe a[LedgerEntry.Transaction]
+      }
+    }
   }
 
   private implicit def toParty(s: String): Ref.Party = Ref.Party.assertFromString(s)
