@@ -12,30 +12,33 @@ trait LedgerStateAccess {
 }
 
 trait LedgerStateOperations {
-  def readState(key: Array[Byte]): Future[Option[Array[Byte]]]
-  def readState(keys: Seq[Array[Byte]]): Future[Seq[Option[Array[Byte]]]]
+  type Key = Array[Byte]
+  type Value = Array[Byte]
 
-  def writeState(key: Array[Byte], value: Array[Byte]): Future[Unit]
-  def writeState(keyValuePairs: Seq[(Array[Byte], Array[Byte])]): Future[Unit]
+  def readState(key: Key): Future[Option[Value]]
+  def readState(keys: Seq[Key]): Future[Seq[Option[Value]]]
 
-  def appendToLog(key: Array[Byte], value: Array[Byte]): Future[Unit]
+  def writeState(key: Key, value: Value): Future[Unit]
+  def writeState(keyValuePairs: Seq[(Key, Value)]): Future[Unit]
+
+  def appendToLog(key: Key, value: Value): Future[Unit]
 }
 
 abstract class BatchingLedgerStateOperations(implicit executionContext: ExecutionContext)
     extends LedgerStateOperations {
-  override def readState(key: Array[Byte]): Future[Option[Array[Byte]]] =
+  override def readState(key: Key): Future[Option[Value]] =
     readState(Seq(key)).map(_.head)
 
-  override def writeState(key: Array[Byte], value: Array[Byte]): Future[Unit] =
+  override def writeState(key: Key, value: Value): Future[Unit] =
     writeState(Seq((key, value)))
 }
 
 abstract class NonBatchingLedgerStateOperations(implicit executionContext: ExecutionContext)
     extends LedgerStateOperations {
-  override def readState(keys: Seq[Array[Byte]]): Future[Seq[Option[Array[Byte]]]] =
+  override def readState(keys: Seq[Key]): Future[Seq[Option[Value]]] =
     Future.sequence(keys.map(readState))
 
-  override def writeState(keyValuePairs: Seq[(Array[Byte], Array[Byte])]): Future[Unit] =
+  override def writeState(keyValuePairs: Seq[(Key, Value)]): Future[Unit] =
     Future
       .sequence(keyValuePairs.map {
         case (key, value) => writeState(key, value)

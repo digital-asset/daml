@@ -62,7 +62,7 @@ final class InMemoryLedgerReaderWriter(
       extends LedgerStateAccess {
     override def inTransaction[T](body: LedgerStateOperations => Future[T]): Future[T] =
       Future(lockCurrentState.acquire())
-        .flatMap(_ => body(new InMemoryLedgerStateOperations))
+        .flatMap(_ => body(InMemoryLedgerStateOperations))
         .transform { result =>
           lockCurrentState.release()
           result
@@ -71,20 +71,20 @@ final class InMemoryLedgerReaderWriter(
     override def participantId: String = theParticipantId
   }
 
-  private class InMemoryLedgerStateOperations extends BatchingLedgerStateOperations {
-    override def readState(keys: Seq[Array[Byte]]): Future[Seq[Option[Array[Byte]]]] =
+  private object InMemoryLedgerStateOperations extends BatchingLedgerStateOperations {
+    override def readState(keys: Seq[Key]): Future[Seq[Option[Value]]] =
       Future.successful {
         keys.map(keyBytes => currentState.state.get(ByteString.copyFrom(keyBytes)))
       }
 
-    override def writeState(keyValuePairs: Seq[(Array[Byte], Array[Byte])]): Future[Unit] =
+    override def writeState(keyValuePairs: Seq[(Key, Value)]): Future[Unit] =
       Future.successful {
         currentState.state ++= keyValuePairs.map {
           case (keyBytes, valueBytes) => ByteString.copyFrom(keyBytes) -> valueBytes
         }
       }
 
-    override def appendToLog(key: Array[Byte], value: Array[Byte]): Future[Unit] =
+    override def appendToLog(key: Key, value: Value): Future[Unit] =
       Future.successful {
         val damlLogEntryId = KeyValueCommitting.unpackDamlLogEntryId(key)
         val logEntry = LogEntry(damlLogEntryId, value)
