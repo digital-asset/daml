@@ -1116,7 +1116,6 @@ class JdbcLedgerDaoSpec
           GenTransaction(HashMap.empty, ImmArray.empty, None),
           Map.empty
         ),
-        Map.empty,
         Map(AbsoluteContractId(s"contractId$id") -> Set(bob)),
         List(AbsoluteContractId(s"contractId$id") -> someContractInstance)
       )
