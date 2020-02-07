@@ -55,8 +55,23 @@ set -euxo pipefail
 apt-get update
 apt-get install -y curl jq
 
-curl https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-270.0.0-linux-x86_64.tar.gz | tar xz
-export PATH="$(pwd)/google-cloud-sdk/bin:$PATH"
+cat <<CRON > /root/periodic-kill.sh
+#!/usr/bin/env bash
+set -euo pipefail
+
+PREFIX=temp-killable
+MACHINES=$(gcloud compute instances list --format=json | jq -c '.[] | select(.name | startswith("'$PREFIX'")) | [.name, .zone]')
+
+for m in $MACHINES; do
+    gcloud -q compute instances delete $(echo $m | jq -r '.[0]') --zone=$(echo $m | jq -r '.[1]')
+done
+CRON
+
+chmod +x /root/periodic-kill.sh
+
+cat <<CRONTAB >> /etc/crontab
+* * * * * /root/periodic-kill.sh
+CRONTAB
 
 STARTUP
 }
