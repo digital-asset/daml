@@ -4,6 +4,7 @@
 package com.daml.ledger.on.memory
 
 import java.time.Clock
+import java.util.concurrent.Semaphore
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
@@ -51,14 +52,21 @@ final class InMemoryLedgerReaderWriter(
 
   private val currentState = new InMemoryState()
 
+  private val lockCurrentState = new Semaphore(1, true)
+
+  private val validator = SubmissionValidator.create(
+    new InMemoryLedgerStateAccess(participantId),
+    () => sequentialLogEntryId.next())
+
   private class InMemoryLedgerStateAccess(theParticipantId: ParticipantId)
       extends LedgerStateAccess {
     override def inTransaction[T](body: LedgerStateOperations => Future[T]): Future[T] =
-      Future {
-        currentState.state.synchronized {
-          body(new InMemoryLedgerStateOperations)
+      Future(lockCurrentState.acquire())
+        .flatMap(_ => body(new InMemoryLedgerStateOperations))
+        .transform { result =>
+          lockCurrentState.release()
+          result
         }
-      }.flatten
 
     override def participantId: String = theParticipantId
   }
@@ -87,10 +95,6 @@ final class InMemoryLedgerReaderWriter(
         dispatcher.signalNewHead(newHead)
       }
   }
-
-  private val validator = SubmissionValidator.create(
-    new InMemoryLedgerStateAccess(participantId),
-    () => sequentialLogEntryId.next())
 
   override def commit(correlationId: String, envelope: Array[Byte]): Future[SubmissionResult] = {
     validator
