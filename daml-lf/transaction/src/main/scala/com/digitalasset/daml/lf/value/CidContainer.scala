@@ -14,7 +14,8 @@ sealed abstract class CidMapper[-A1, +A2, In, Out] {
 
   def map(f: In => Out): A1 => A2
 
-  // We cheat using exceptions
+  // We cheat using exceptions, to get a cheap implementation of traverse using the `map` function above.
+  // In practice, we abort the traversal using an exception as soon as we find an input we cannot map.
   def traverse[L](f: In => Either[L, Out]): A1 => Either[L, A2] = {
     case class Ball(x: L) extends Throwable with NoStackTrace
     a =>
