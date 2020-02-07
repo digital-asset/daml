@@ -19,6 +19,7 @@ resource "google_project_iam_custom_role" "periodic-killer" {
   role_id = "killCiNodesEveryNight"
   title   = "Permissions to list & kill CI nodes every night"
   permissions = [
+    "compute.instances.delete",
     "compute.instances.list",
     "compute.zones.list",
   ]
