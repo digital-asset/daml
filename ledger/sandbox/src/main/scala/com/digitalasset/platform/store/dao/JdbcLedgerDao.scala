@@ -1220,8 +1220,7 @@ private class JdbcLedgerDao(
     ~ str("observers").? map flatten)
 
   private val ContractLetParser = (ledgerString("id")
-    ~ date("effective_at").?
-    ~ long("archive_offset").? map flatten)
+    ~ date("effective_at").? map flatten)
 
   private val SQL_SELECT_CONTRACT =
     SQL(queries.SQL_SELECT_CONTRACT)
@@ -1234,7 +1233,7 @@ private class JdbcLedgerDao(
         |left join ledger_entries le on c.transaction_id = le.transaction_id
         |where
         |  cd.id={contract_id} and
-        |  ((le.effective_at is not null and c.archive_offset is null) or le.effective_at is null)
+        |  (le.effective_at is null or c.archive_offset is null)
         | """.stripMargin)
 
   private val SQL_SELECT_WITNESS =
@@ -1267,9 +1266,8 @@ private class JdbcLedgerDao(
       .on("contract_id" -> contractId.coid)
       .as(ContractLetParser.singleOpt)
       .flatMap {
-        case (_, None, None) => Some(LetUnknown)
-        case (_, Some(let), None) => Some(Let(let.toInstant))
-        case (_, _, Some(archiveOffset @ _)) => None
+        case (_, None) => Some(LetUnknown)
+        case (_, Some(let)) => Some(Let(let.toInstant))
       }
 
   override def lookupActiveOrDivulgedContract(
