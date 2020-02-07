@@ -5,6 +5,7 @@ load("@build_bazel_rules_nodejs//:index.bzl", "nodejs_binary")
 load("@os_info//:os_info.bzl", "is_linux", "is_windows")
 load("//rules_daml:daml.bzl", "daml_compile", "daml_test")
 load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+load("@build_environment//:configuration.bzl", "mvn_version", "sdk_version")
 
 nodejs_binary(
     name = "grunt",
@@ -292,13 +293,11 @@ genrule(
         "configs/static/pygments_daml_lexer.py",
     ]) + [
         ":sources",
-        "//:VERSION",
     ],
     outs = ["DigitalAssetSDK.pdf"],
     cmd = ("""
         export LOCALE_ARCHIVE="$$PWD/$(location @glibc_locales//:locale-archive)"
     """ if is_linux else "") + """
-        VERSION=$$(cat $(location //:VERSION))
         set -euo pipefail
         # Set up tools
         export PATH="$$( cd "$$(dirname "$(location @imagemagick_nix//:bin/convert)")" ; pwd -P )":$$PATH
@@ -311,7 +310,7 @@ genrule(
         cp -rL docs/configs/static ./
 
         # Build with Sphinx
-        sed -i "s,__VERSION__,"$$VERSION"," source/conf.py
+        sed -i "s,__VERSION__,"{sdk}"," source/conf.py
         export LC_ALL=en_US.UTF-8
         export LANG=en_US.UTF-8
         $(location @sphinx_nix//:bin/sphinx-build) -b latex source out
@@ -324,7 +323,7 @@ genrule(
         ../$(location @texlive_nix//:bin/lualatex) -halt-on-error -interaction=batchmode --shell-escape *.tex
 
         # Move output to target
-        mv DigitalAssetSDK.pdf ../$(location DigitalAssetSDK.pdf)""",
+        mv DigitalAssetSDK.pdf ../$(location DigitalAssetSDK.pdf)""".format(sdk = sdk_version),
     tools =
         [
             "@texlive_nix//:bin/lualatex",
@@ -344,13 +343,11 @@ genrule(
         "//compiler/damlc:daml-base-rst-docs",
         "//compiler/damlc:daml-base-hoogle-docs",
         "//language-support/java:javadoc",
-        "//:VERSION",
     ],
     outs = ["html-only.tar.gz"],
     cmd = ("""
         export LOCALE_ARCHIVE="$$PWD/$(location @glibc_locales//:locale-archive)"
     """ if is_linux else "") + """
-        VERSION=$$(cat $(location //:VERSION))
         # Copy files into the right structure and remove symlinks
         mkdir build
         cp -rL docs build
@@ -362,7 +359,7 @@ genrule(
 
         # Build with Sphinx
         cd build
-        sed -i "s,__VERSION__,"$$VERSION"," docs/configs/html/conf.py
+        sed -i "s,__VERSION__,"{sdk}"," docs/configs/html/conf.py
         export LC_ALL=en_US.UTF-8
         export LANG=en_US.UTF-8
         WARNINGS=$$(../$(location @sphinx_nix//:bin/sphinx-build) -c docs/configs/html docs/source html 2>&1 | \
@@ -383,7 +380,7 @@ genrule(
         cp -rL ../$(location //compiler/damlc:daml-base-hoogle-docs) html/hoogle_db/base.txt
 
         tar -zcf ../$(location html-only.tar.gz) html
-        """,
+        """.format(sdk = sdk_version),
     tools =
         ["@sphinx_nix//:bin/sphinx-build"] +
         (["@glibc_locales//:locale-archive"] if is_linux else []),
@@ -419,11 +416,9 @@ genrule(
         ":pdf-docs",
         ":redirects",
         "error.html",
-        "//:VERSION",
     ],
     outs = ["html.tar.gz"],
     cmd = """
-        VERSION=$$(cat $(location //:VERSION))
         VERSION_DATE=$$(cat bazel-out/stable-status.txt | grep STABLE_VERSION_DATE | head -1 | cut -f 2 -d' ')
         tar -zxf $(location :redirects)
         tar -zxf $(location :docs-no-pdf)
@@ -431,25 +426,26 @@ genrule(
         cp -L docs/error.html html
         cd html
         find . -name '*.html' | sort | sed -e 's,^\\./,https://docs.daml.com/,' > sitemap
-        SMHEAD=\"{}\"
-        SMITEM=\"{}\"
-        SMFOOT=\"{}\"
+        SMHEAD=\"{head}\"
+        SMITEM=\"{item}\"
+        SMFOOT=\"{foot}\"
         echo $$SMHEAD > sitemap.xml
         while read item; do
             echo $$SMITEM | sed -e "s,%DATE%,$${{VERSION_DATE}}," | sed -e "s,%LOC%,$${{item}}," >> sitemap.xml
         done < sitemap
         rm sitemap
         echo $$SMFOOT >> sitemap.xml
-        echo {{ \\"$$VERSION\\" : \\"$$VERSION\\" }} > versions.json
+        echo {{ \\"{version}\\" : \\"{version}\\" }} > versions.json
         cd ..
         cp -L $(location :pdf-docs) html/_downloads
         # Remove Sphinx build products
         rm -rf .buildinfo .doctrees objects.inv
         tar -zcf $(location html.tar.gz) html
     """.format(
-        """<?xml version='1.0' encoding='UTF-8'?><urlset xmlns='http://www.sitemaps.org/schemas/sitemap/0.9' xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xsi:schemaLocation='http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd'>""",
-        """<url><loc>%LOC%</loc><lastmod>%DATE%</lastmod><changefreq>daily</changefreq><priority>0.8</priority></url>""",
-        """</urlset>""",
+        head = """<?xml version='1.0' encoding='UTF-8'?><urlset xmlns='http://www.sitemaps.org/schemas/sitemap/0.9' xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xsi:schemaLocation='http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd'>""",
+        item = """<url><loc>%LOC%</loc><lastmod>%DATE%</lastmod><changefreq>daily</changefreq><priority>0.8</priority></url>""",
+        foot = """</urlset>""",
+        version = sdk_version,
     ),
     stamp = 1,
 ) if not is_windows else None
@@ -471,15 +467,14 @@ filegroup(
 
 genrule(
     name = "quickstart-java",
-    srcs = ["//:component-version"] + glob(["source/getting-started/quickstart/template-root/**"]),
+    srcs = glob(["source/getting-started/quickstart/template-root/**"]),
     outs = ["quickstart-java.tar.gz"],
     cmd = """
         mkdir -p quickstart-java
         cp -rL docs/source/getting-started/quickstart/template-root/* quickstart-java/
-        VERSION=$$(cat $(location //:component-version))
-        sed -i "s/__VERSION__/$$VERSION/" quickstart-java/pom.xml
+        sed -i "s/__VERSION__/{mvn}/" quickstart-java/pom.xml
         tar zcf $@ quickstart-java
-    """,
+    """.format(mvn = mvn_version),
     visibility = ["//visibility:public"],
 )
 

@@ -37,7 +37,7 @@ import DA.Daml.LanguageServer
 import DA.Daml.Options.Types
 import DA.Daml.Project.Config
 import DA.Daml.Project.Consts
-import DA.Daml.Project.Types (ConfigError, ProjectPath(..))
+import DA.Daml.Project.Types (ConfigError(..), ProjectPath(..))
 import DA.Daml.Visual
 import qualified DA.Pretty
 import qualified DA.Service.Logger as Logger
@@ -532,12 +532,21 @@ overrideSdkVersion pkgConfig = do
                     ]
             pure pkgConfig { pSdkVersion = PackageSdkVersion sdkVersion }
 
+--- | replace SDK version with one ghc-pkg accepts
+---
+--- This should let release version unchanged, but convert snapshot versions.
+--- See module SdkVersion (in //BUILD) for details.
+replaceSdkVersionWithGhcPkgVersion :: PackageConfigFields -> PackageConfigFields
+replaceSdkVersionWithGhcPkgVersion p@PackageConfigFields{ pSdkVersion = PackageSdkVersion v } =
+    p { pSdkVersion = PackageSdkVersion $ SdkVersion.toGhcPkgVersion v }
+
 withPackageConfig :: ProjectPath -> (PackageConfigFields -> IO a) -> IO a
 withPackageConfig projectPath f = do
     project <- readProjectConfig projectPath
     pkgConfig <- either throwIO pure (parseProjectConfig project)
     pkgConfig' <- overrideSdkVersion pkgConfig
-    f pkgConfig'
+    let pkgConfig'' = replaceSdkVersionWithGhcPkgVersion pkgConfig'
+    f pkgConfig''
 
 -- | If we're in a daml project, read the daml.yaml field and create the project local package
 -- database. Otherwise do nothing.

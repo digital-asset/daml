@@ -20,7 +20,7 @@ object NavigatorBackend extends UIBackend {
   override def applicationInfo: ApplicationInfo = ApplicationInfo(
     id = s"Navigator-${UUID.randomUUID().toString}",
     name = "Navigator",
-    version = Source.fromResource("COMPONENT-VERSION").mkString("").trim(),
+    version = Source.fromResource("MVN_VERSION").mkString("").trim(),
   )
   override def banner: Option[String] =
     Some(

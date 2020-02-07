@@ -42,9 +42,9 @@ load("//bazel_tools:os_info.bzl", "os_info")
 
 os_info(name = "os_info")
 
-load("//bazel_tools:sdk_version.bzl", "sdk_version")
+load("//bazel_tools:build_environment.bzl", "build_environment")
 
-sdk_version(name = "sdk_version")
+build_environment(name = "build_environment")
 
 dadew(name = "dadew")
 
