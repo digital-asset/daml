@@ -115,6 +115,9 @@ da_scala_test(
         ":Account.dar",
         "//docs:quickstart-model.dar",
     ],
+    plugins = [
+        "@maven//:org_spire_math_kind_projector_2_12",
+    ],
     resources = glob(["src/test/resources/**/*"]),
     scalacopts = hj_scalacopts,
     deps = [
