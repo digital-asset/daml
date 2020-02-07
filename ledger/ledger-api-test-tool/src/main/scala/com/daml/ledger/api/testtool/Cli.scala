@@ -151,6 +151,11 @@ object Cli {
       .action((_, c) => c.copy(waitForParties = false))
       .text("""Do not wait for parties to be allocated on all participants.""")
 
+    opt[Unit]("shuffle-participants")
+      .action((_, c) => c.copy(shuffleParticipants = true))
+      .text("""Shuffle the list of participants used in a test.
+          |By default participants are used in the order they're given.""".stripMargin)
+
     opt[Unit]("list")
       .action((_, c) => c.copy(listTests = true))
       .text("""Lists all available tests that can be used in the include and exclude options.""")

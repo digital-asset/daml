@@ -38,9 +38,11 @@ private[testtool] final class LedgerSession(
       identifierSuffix: String,
   ): Future[LedgerTestContext] =
     participantSessions.flatMap { sessions =>
-      val shuffledSessions = scala.util.Random.shuffle(sessions)
+      val sessions2 =
+        if (config.shuffleParticipants) scala.util.Random.shuffle(sessions)
+        else sessions
       Future
-        .sequence(shuffledSessions.map {
+        .sequence(sessions2.map {
           case (endpointId, session) =>
             session.createTestContext(endpointId, applicationId, identifierSuffix)
         })

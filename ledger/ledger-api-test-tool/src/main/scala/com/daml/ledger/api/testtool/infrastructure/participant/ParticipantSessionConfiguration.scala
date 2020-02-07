@@ -10,5 +10,5 @@ private[testtool] final case class ParticipantSessionConfiguration(
     port: Int,
     ssl: Option[TlsConfiguration],
     commandTtlFactor: Double,
-    waitForParties: Boolean
+    waitForParties: Boolean,
 )

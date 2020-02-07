@@ -7,8 +7,9 @@ import com.digitalasset.ledger.api.tls.TlsConfiguration
 
 private[testtool] final case class LedgerSessionConfiguration(
     participants: Vector[(String, Int)],
+    shuffleParticipants: Boolean,
     ssl: Option[TlsConfiguration],
     commandTtlFactor: Double,
     loadScaleFactor: Double,
-    waitForParties: Boolean, /** Allow synchronizing party allocation across participants */
+    waitForParties: Boolean /** Allow synchronizing party allocation across participants */
 )

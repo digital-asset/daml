@@ -23,6 +23,7 @@ final case class Config(
     listTests: Boolean,
     allTests: Boolean,
     waitForParties: Boolean,
+    shuffleParticipants: Boolean,
 )
 
 object Config {
@@ -41,6 +42,7 @@ object Config {
     included = Set.empty,
     listTests = false,
     allTests = false,
-    waitForParties = true
+    waitForParties = true,
+    shuffleParticipants = false
   )
 }
