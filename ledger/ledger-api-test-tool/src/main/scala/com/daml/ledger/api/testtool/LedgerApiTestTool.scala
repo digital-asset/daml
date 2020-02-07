@@ -112,6 +112,7 @@ object LedgerApiTestTool {
         config.tlsConfig,
         config.commandSubmissionTtlScaleFactor,
         config.loadScaleFactor,
+        config.waitForParties,
       ),
       testsToRun.values.toVector,
       identifierSuffix,

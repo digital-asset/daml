@@ -23,7 +23,12 @@ private[testtool] final class LedgerSession(
       .sequence(config.participants.map {
         case (host, port) =>
           participantSessionManager.getOrCreate(
-            ParticipantSessionConfiguration(host, port, config.ssl, config.commandTtlFactor),
+            ParticipantSessionConfiguration(
+              host,
+              port,
+              config.ssl,
+              config.commandTtlFactor,
+              config.waitForParties),
           )
       })
       .map(sessions => sessions.map(endpointIdProvider() -> _))

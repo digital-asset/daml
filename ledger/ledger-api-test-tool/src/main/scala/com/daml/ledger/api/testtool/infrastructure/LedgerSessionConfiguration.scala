@@ -10,4 +10,5 @@ private[testtool] final case class LedgerSessionConfiguration(
     ssl: Option[TlsConfiguration],
     commandTtlFactor: Double,
     loadScaleFactor: Double,
+    waitForParties: Boolean, /** Allow synchronizing party allocation across participants */
 )

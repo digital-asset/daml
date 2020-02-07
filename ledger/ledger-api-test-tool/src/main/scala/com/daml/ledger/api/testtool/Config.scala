@@ -22,6 +22,7 @@ final case class Config(
     included: Set[String],
     listTests: Boolean,
     allTests: Boolean,
+    waitForParties: Boolean,
 )
 
 object Config {
@@ -40,5 +41,6 @@ object Config {
     included = Set.empty,
     listTests = false,
     allTests = false,
+    waitForParties = true
   )
 }
