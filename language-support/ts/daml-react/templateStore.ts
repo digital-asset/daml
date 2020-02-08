@@ -38,7 +38,7 @@ export const empty = <T extends object, K>(): Store<T, K> => ({
 
 export const setAllLoading = <T extends object, K>(store: Store<T, K>): Store<T, K> => ({
   queryResults: store.queryResults.map((res) => ({...res, loading: true})),
-  fetchByKeyResults: store.fetchByKeyResults.map((res) => ({...res, laoding: true})),
+  fetchByKeyResults: store.fetchByKeyResults.map((res) => ({...res, loading: true})),
 });
 
 export const setQueryLoading = <T extends object, K>(store: Store<T, K>, query: Query<T>): Store<T, K> => ({
