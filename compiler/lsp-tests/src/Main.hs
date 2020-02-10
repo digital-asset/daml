@@ -20,6 +20,7 @@ import Language.Haskell.LSP.Types
 import Language.Haskell.LSP.Types.Capabilities
 import Language.Haskell.LSP.Types.Lens
 import Network.URI
+import SdkVersion
 import System.Directory
 import System.Environment.Blank
 import System.FilePath
@@ -656,7 +657,7 @@ multiPackageTests damlc = testGroup "multi-package"
           step "build a"
           createDirectoryIfMissing True (dir </> "a")
           writeFileUTF8 (dir </> "a" </> "daml.yaml") $ unlines
-              [ "sdk-version: ignored"
+              [ "sdk-version: " <> sdkVersion
               , "name: a"
               , "version: 0.0.1"
               , "source: ."
@@ -671,7 +672,7 @@ multiPackageTests damlc = testGroup "multi-package"
           step "build b"
           createDirectoryIfMissing True (dir </> "b")
           writeFileUTF8 (dir </> "b" </> "daml.yaml") $ unlines
-              [ "sdk-version: ignored"
+              [ "sdk-version: " <> sdkVersion
               , "name: b"
               , "version: 0.0.1"
               , "source: ."
@@ -686,7 +687,7 @@ multiPackageTests damlc = testGroup "multi-package"
           withCurrentDirectory (dir </> "b") $ callProcess damlc ["build", "-o", dir </> "b" </> "b.dar"]
           step "run language server"
           writeFileUTF8 (dir </> "daml.yaml") $ unlines
-              [ "sdk-version: ignored"
+              [ "sdk-version: " <> sdkVersion
               ]
           withCurrentDirectory dir $ runSessionWithConfig conf (damlc <> " ide --scenarios=yes") fullCaps' dir $ do
               docA <- openDoc ("a" </> "A.daml") "daml"
