@@ -94,9 +94,9 @@ trait CidContainer[+A] {
   protected val self: A
 
   final def resolveRelCidV0[B](f: Value.RelativeContractId => Ref.ContractIdStringV0)(
-      implicit mapper: RelCidV0Resolver[A, B]
+      implicit resolver: RelCidV0Resolver[A, B]
   ): B =
-    mapper.map(f)(self)
+    resolver.map(f)(self)
 
   final def resolveRelCidV1[B](
       f: Value.RelativeContractId => Either[String, Ref.ContractIdStringV1])(
@@ -105,25 +105,25 @@ trait CidContainer[+A] {
     resolver.traverse[String](f)(self)
 
   final def ensureNoCid[B](
-      implicit mapper: NoCidChecker[A, B]
+      implicit checker: NoCidChecker[A, B]
   ): Either[Value.ContractId, B] =
-    mapper.traverse[Value.ContractId](Left(_))(self)
+    checker.traverse[Value.ContractId](Left(_))(self)
 
   final def assertNoCid[B](message: Value.ContractId => String)(
-      implicit mapper: NoCidChecker[A, B]
+      implicit checker: NoCidChecker[A, B]
   ): B =
     data.assertRight(ensureNoCid.left.map(message))
 
   final def ensureNoRelCid[B](
-      implicit mapper: NoRelCidChecker[A, B]
+      implicit checker: NoRelCidChecker[A, B]
   ): Either[Value.RelativeContractId, B] =
-    mapper.traverse[Value.RelativeContractId] {
+    checker.traverse[Value.RelativeContractId] {
       case acoid: Value.AbsoluteContractId => Right(acoid)
       case rcoid: Value.RelativeContractId => Left(rcoid)
     }(self)
 
   final def assertNoRelCid[B](message: Value.ContractId => String)(
-      implicit mapper: NoRelCidChecker[A, B]
+      implicit checker: NoRelCidChecker[A, B]
   ): B =
     data.assertRight(ensureNoRelCid.left.map(message))
 
@@ -160,9 +160,9 @@ trait CidContainer1WithDefaultCidResolver[F[_]] extends CidContainer1[F] {
   import CidMapper._
 
   final implicit def cidResolverInstance[A1, A2, OutputId](
-      implicit mapper1: RelCidResolver[A1, A2, OutputId],
+      implicit resolver1: RelCidResolver[A1, A2, OutputId],
   ): RelCidResolver[F[A1], F[A2], OutputId] =
-    cidMapperInstance(mapper1)
+    cidMapperInstance(resolver1)
 
 }
 
@@ -201,9 +201,9 @@ trait CidContainer3WithDefaultCidResolver[F[_, _, _]] extends CidContainer3[F] {
   import CidMapper._
 
   final implicit def cidResolverInstance[A1, B1, C1, A2, B2, C2, OutputId](
-      implicit mapper1: RelCidResolver[A1, A2, OutputId],
-      mapper2: RelCidResolver[B1, B2, OutputId],
-      mapper3: RelCidResolver[C1, C2, OutputId],
+      implicit resolver1: RelCidResolver[A1, A2, OutputId],
+      resolver2: RelCidResolver[B1, B2, OutputId],
+      resolver3: RelCidResolver[C1, C2, OutputId],
   ): RelCidResolver[F[A1, B1, C1], F[A2, B2, C2], OutputId] =
     cidMapperInstance
 
