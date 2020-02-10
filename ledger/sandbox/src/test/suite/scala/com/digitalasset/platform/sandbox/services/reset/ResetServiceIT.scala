@@ -180,8 +180,7 @@ final class ResetServiceIT
           _ <- reset(lid)
         } yield {
           System.gc()
-          state.get.isEmpty shouldBe true
-          succeed
+          state.get should be(None)
         }
       }
     }

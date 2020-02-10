@@ -55,6 +55,8 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.Try
 
 object SandboxServer {
+  type Port = Int
+
   private val ActorSystemName = "sandbox"
   private val AsyncTolerance = 30.seconds
 
@@ -102,17 +104,35 @@ object SandboxServer {
     }
   }
 
-  final case class SandboxState(
+  final class SandboxState(
       materializer: Materializer,
       metrics: MetricRegistry,
       packageStore: InMemoryPackageStore,
       // nested resource so we can release it independently when restarting
-      apiServer: Resource[ApiServer],
+      private[SandboxServer] val apiServer: Resource[ApiServer],
   ) {
     private implicit val executionContext: ExecutionContext = materializer.executionContext
 
-    def port: Future[Int] =
+    def port: Future[Port] =
       apiServer.map(_.port).asFuture
+
+    private[SandboxServer] def reset(
+        newApiServer: (
+            Materializer,
+            MetricRegistry,
+            InMemoryPackageStore,
+            Port) => Resource[ApiServer]
+    ): Future[SandboxState] =
+      for {
+        currentPort <- port
+        _ <- apiServer.release()
+      } yield {
+        new SandboxState(
+          materializer,
+          metrics,
+          packageStore,
+          apiServer = newApiServer(materializer, metrics, packageStore, currentPort))
+      }
   }
 }
 
@@ -147,10 +167,10 @@ final class SandboxServer(config: SandboxConfig) extends AutoCloseable {
 
   start()(DirectExecutionContext)
 
-  def port: Int =
+  def port: Port =
     Await.result(portF(DirectExecutionContext), AsyncTolerance)
 
-  def portF(implicit executionContext: ExecutionContext): Future[Int] =
+  def portF(implicit executionContext: ExecutionContext): Future[Port] =
     sandboxState.apiServer.map(_.port).asFuture
 
   /** the reset service is special, since it triggers a server shutdown */
@@ -172,19 +192,19 @@ final class SandboxServer(config: SandboxConfig) extends AutoCloseable {
 
     // Need to run this async otherwise the callback kills the server under the in-flight reset service request!
     // TODO: eliminate the state mutation somehow
-    for {
-      currentPort <- sandboxState.port
-      _ <- sandboxState.apiServer.release()
-    } {
-      sandboxState = sandboxState.copy(
-        apiServer = buildAndStartApiServer(
-          sandboxState.materializer,
-          sandboxState.metrics,
-          sandboxState.packageStore,
-          SqlStartMode.AlwaysReset,
-          Some(currentPort),
+    sandboxState
+      .reset(
+        (materializer, metrics, packageStore, port) =>
+          buildAndStartApiServer(
+            materializer,
+            metrics,
+            packageStore,
+            SqlStartMode.AlwaysReset,
+            Some(port),
         ))
-    }
+      .foreach {
+        sandboxState = _
+      }
 
     // waits for the services to be closed, so we can guarantee that future API calls after finishing the reset will never be handled by the old one
     apiServicesClosed
@@ -195,7 +215,7 @@ final class SandboxServer(config: SandboxConfig) extends AutoCloseable {
       metrics: MetricRegistry,
       packageStore: InMemoryPackageStore,
       startMode: SqlStartMode,
-      currentPort: Option[Int],
+      currentPort: Option[Port],
   ): Resource[ApiServer] = {
     implicit val _materializer: Materializer = materializer
     implicit val actorSystem: ActorSystem = materializer.system
@@ -308,7 +328,9 @@ final class SandboxServer(config: SandboxConfig) extends AutoCloseable {
 
   }
 
-  private def start(port: Option[Int] = None)(implicit executionContext: ExecutionContext): Unit = {
+  private def start(port: Option[Port] = None)(
+      implicit executionContext: ExecutionContext
+  ): Unit = {
     val packageStore = loadDamlPackages()
     for {
       metrics <- metricsResource.asFuture
@@ -321,7 +343,7 @@ final class SandboxServer(config: SandboxConfig) extends AutoCloseable {
         SqlStartMode.ContinueIfExists,
         currentPort = port,
       )
-      sandboxState = SandboxState(materializer, metrics, packageStore, apiServerResource)
+      sandboxState = new SandboxState(materializer, metrics, packageStore, apiServerResource)
     }
   }
 
@@ -345,7 +367,7 @@ final class SandboxServer(config: SandboxConfig) extends AutoCloseable {
     } yield (), AsyncTolerance)
   }
 
-  private def writePortFile(port: Int)(
+  private def writePortFile(port: Port)(
       implicit executionContext: ExecutionContext
   ): Future[Unit] =
     config.portFile
