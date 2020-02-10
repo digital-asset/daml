@@ -53,13 +53,13 @@ resource "google_compute_instance" "periodic-killer" {
 set -euxo pipefail
 
 apt-get update
-apt-get install -y curl jq
+apt-get install -y jq
 
 cat <<CRON > /root/periodic-kill.sh
 #!/usr/bin/env bash
 set -euo pipefail
 
-PREFIX=temp-killable
+PREFIX=vsts-
 MACHINES=\$(/snap/bin/gcloud compute instances list --format=json | jq -c '.[] | select(.name | startswith("'\$PREFIX'")) | [.name, .zone]')
 
 for m in \$MACHINES; do
@@ -70,7 +70,7 @@ CRON
 chmod +x /root/periodic-kill.sh
 
 cat <<CRONTAB >> /etc/crontab
-*/30 * * * * root /root/periodic-kill.sh
+0 4 * * * root /root/periodic-kill.sh
 CRONTAB
 
 STARTUP
