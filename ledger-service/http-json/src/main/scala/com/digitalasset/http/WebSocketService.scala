@@ -12,7 +12,6 @@ import com.digitalasset.http.domain.{JwtPayload, SearchForeverRequest}
 import com.digitalasset.http.json.{DomainJsonDecoder, DomainJsonEncoder, JsonProtocol, SprayJson}
 import com.digitalasset.http.LedgerClientJwt.Terminates
 import util.ApiValueToLfValueConverter.apiValueToLfValue
-import util.Collections._
 import util.InsertDeleteStep
 import json.JsonProtocol.LfValueCodec.{apiValueToJsValue => lfValueToJsValue}
 import query.ValuePredicate.{LfV, TypeLookup}
@@ -343,26 +342,22 @@ class WebSocketService(
     : Flow[InsertDeleteStep.LAV1, StepAndErrors[Pos, JsValue], NotUsed] =
     Flow
       .fromFunction { step: InsertDeleteStep.LAV1 =>
-        val (errors, cs) = step.inserts
-          .partitionMap { ce =>
+        val (aerrors, errors, dstep) = step.partitionBimap(
+          ae =>
+            domain.ArchivedContract
+              .fromLedgerApi(ae)
+              .liftErr(ServerError),
+          ce =>
             domain.ActiveContract
               .fromLedgerApi(ce)
               .liftErr(ServerError)
-              .flatMap(_.traverse(apiValueToLfValue).liftErr(ServerError))
-          }
-        val (aerrors, archs) = step.deletes
-          .partitionMap {
-            case (k, ae) =>
-              domain.ArchivedContract
-                .fromLedgerApi(ae)
-                .liftErr(ServerError)
-                .map((k, _))
-          }
+              .flatMap(_.traverse(apiValueToLfValue).liftErr(ServerError)),
+        )
         StepAndErrors(
           errors ++ aerrors,
-          step copy (inserts = (cs: Vector[domain.ActiveContract[LfV]]).flatMap { ac =>
+          dstep copy (inserts = (dstep.inserts: Vector[domain.ActiveContract[LfV]]).flatMap { ac =>
             fn(ac).map((ac, _)).toList
-          }, deletes = archs)
+          })
         )
       }
       .via(conflation)
