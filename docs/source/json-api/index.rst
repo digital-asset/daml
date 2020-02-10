@@ -200,7 +200,7 @@ For HTTP JSON requests, you must pass two subprotocols:
 where ``copy-paste-token-here`` is the encoded JWT token described above.
 
 Error Reporting
-===============
+***************
 
 The **JSON API** reports errors using standard HTTP status codes. It divides HTTP status codes in 3 groups indicating:
 
@@ -236,7 +236,7 @@ Where:
 See the following blog post for more details about error handling best practices: `REST API Error Codes 101 <https://blog.restcase.com/rest-api-error-codes-101/>`_.
 
 Successful response, HTTP status: 200 OK
-----------------------------------------
+========================================
 
 - Content-Type: ``application/json``
 - Content:
@@ -249,7 +249,7 @@ Successful response, HTTP status: 200 OK
     }
 
 Successful response with a warning, HTTP status: 200 OK
--------------------------------------------------------
+=======================================================
 
 - Content-Type: ``application/json``
 - Content:
@@ -263,7 +263,7 @@ Successful response with a warning, HTTP status: 200 OK
     }
 
 Failure, HTTP status: 400 | 401 | 404 | 500
--------------------------------------------
+===========================================
 
 - Content-Type: ``application/json``
 - Content:
@@ -276,7 +276,7 @@ Failure, HTTP status: 400 | 401 | 404 | 500
     }
 
 Examples
---------
+========
 
 .. code-block:: none
 
@@ -299,7 +299,7 @@ Examples
     {"status": 500, "errors": ["Cannot initialize Ledger API"]}
 
 Create a new Contract
-=====================
+*********************
 
 See the request documentation below on how to create an instance of ``Iou`` contract from the :doc:`Quickstart guide </getting-started/quickstart>`:
 
@@ -310,7 +310,7 @@ See the request documentation below on how to create an instance of ``Iou`` cont
 .. _create-request:
 
 HTTP Request
-------------
+============
 
 - URL: ``/v1/create``
 - Method: ``POST``
@@ -342,7 +342,7 @@ Where:
 .. _create-response:
 
 HTTP Response
--------------
+=============
 
 - Content-Type: ``application/json``
 - Content:
@@ -377,7 +377,7 @@ Where:
 .. _create-request-with-meta:
 
 Create a new Contract with optional meta field
-==============================================
+**********************************************
 
 When creating a new contract, client may specify an optional ``meta`` field:
 
@@ -406,7 +406,7 @@ Where:
 - ``maximumRecordTime`` -- optional field, the number of milliseconds from the epoch of ``1970-01-01T00:00:00Z``, a deadline for observing this command in the completion stream before it can be considered to have timed out.
  
 Exercise by Contract ID
-=======================
+***********************
 
 The JSON command below, demonstrates how to exercise ``Iou_Transfer`` choice on ``Iou`` contract:
 
@@ -415,7 +415,7 @@ The JSON command below, demonstrates how to exercise ``Iou_Transfer`` choice on 
   :lines: 23, 52-55
 
 HTTP Request
-------------
+============
 
 - URL: ``/v1/exercise``
 - Method: ``POST``
@@ -443,7 +443,7 @@ Where:
 .. _exercise-response:
 
 HTTP Response
--------------
+=============
 
 - Content-Type: ``application/json``
 - Content:
@@ -497,7 +497,7 @@ Where:
 
 
 Exercise by Contract Key
-========================
+************************
 
 The JSON command below, demonstrates how to exercise ``Archive`` choice on ``Account`` contract with a ``(Party, Text)`` key defined like this:
 
@@ -513,8 +513,8 @@ The JSON command below, demonstrates how to exercise ``Archive`` choice on ``Acc
         maintainer key._1
 
 
-HTT Request
------------
+HTTP Request
+============
 
 - URL: ``/v1/exercise``
 - Method: ``POST``
@@ -541,16 +541,16 @@ Where:
 - ``argument`` -- contract choice argument(s), empty, because ``Archive`` does not take any.
 
 HTTP Response
--------------
+=============
 
 Formatted similar to :ref:`Exercise by Contract ID response <exercise-response>`.
 
 
 Fetch Contract by Contract ID
-==============================
+*****************************
 
 HTTP Request
-------------
+============
 
 - URL: ``/v1/fetch``
 - Method: ``POST``
@@ -566,7 +566,7 @@ application/json body:
     }
 
 Contract Not Found HTTP Response
---------------------------------
+================================
 
 - Content-Type: ``application/json``
 - Content:
@@ -579,7 +579,7 @@ Contract Not Found HTTP Response
     }
 
 Contract Found HTTP Response
-----------------------------
+============================
 
 - Content-Type: ``application/json``
 - Content:
@@ -610,10 +610,10 @@ Contract Found HTTP Response
     }
 
 Fetch Contract by Key
-==============================
+*********************
 
 HTTP Request
-------------
+============
 
 - URL: ``/v1/fetch``
 - Method: ``POST``
@@ -631,7 +631,7 @@ HTTP Request
     }
 
 Contract Not Found HTTP Response
---------------------------------
+================================
 
 - Content-Type: ``application/json``
 - Content:
@@ -644,7 +644,7 @@ Contract Not Found HTTP Response
     }
 
 Contract Found HTTP Response
-----------------------------
+============================
 
 - Content-Type: ``application/json``
 - Content:
@@ -678,31 +678,31 @@ Contract Found HTTP Response
 
 
 Contract Search, All Templates
-==============================
+******************************
 
 List all currently active contracts for all known templates.
 
 Note that the retrieved contracts do not get persisted into query store database. Query store is a search index and can be used to optimize search latency. See :ref:`Start HTTP service <start-http-service>` for information on how to start JSON API service with query store enabled.
 
 HTTP Request
-------------
+============
 
 - URL: ``/v1/query``
 - Method: ``GET``
 - Content: <EMPTY>
 
 HTTP Response
--------------
+=============
 
 The response is the same as for the POST method below.
 
 Contract Search
-===============
+***************
 
 List currently active contracts that match a given query.
 
 HTTP Request
-------------
+============
 
 - URL: ``/v1/query``
 - Method: ``POST``
@@ -722,7 +722,7 @@ Where:
 - ``query`` -- search criteria to apply to the specified ``templateIds``, formatted according to the :doc:`search-query-language`:
 
 Empty HTTP Response
--------------------
+===================
 
 - Content-Type: ``application/json``
 - Content:
@@ -735,7 +735,7 @@ Empty HTTP Response
     }
 
 Nonempty HTTP Response
------------------------
+======================
 
 - Content-Type: ``application/json``
 - Content:
@@ -770,7 +770,7 @@ Where
 - ``status`` matches the HTTP status code returned in the HTTP header,
 
 Nonempty HTTP Response with Unknown Template IDs Warning
---------------------------------------------------------
+========================================================
 
 - Content-Type: ``application/json``
 - Content:
@@ -803,14 +803,14 @@ Nonempty HTTP Response with Unknown Template IDs Warning
     }
 
 Fetch All Known Parties
-=======================
+***********************
 
 - URL: ``/v1/parties``
 - Method: ``GET``
 - Content: <EMPTY>
 
 HTTP Response
--------------
+=============
 
 - Content-Type: ``application/json``
 - Content:
@@ -828,13 +828,13 @@ HTTP Response
     }
 
 Streaming API
-=============
+*************
 
 Two subprotocols must be passed with every request, as described in
 `Passing token with WebSockets <#passing-token-with-websockets>`__.
 
 Contracts Query Stream
-----------------------
+======================
 
 - URL: ``/v1/stream/query``
 - Scheme: ``ws``
@@ -999,7 +999,7 @@ Some notes on behavior:
    order.
 
 Fetch by Key Contracts Stream
------------------------------
+=============================
 
 - URL: ``/v1/stream/fetch``
 - Scheme: ``ws``
