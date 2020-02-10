@@ -105,4 +105,25 @@ package object v2 {
       size: Long,
       knownSince: Instant,
       sourceDescription: Option[String])
+
+  /** The result of a command submission:
+    * - `Left(error)` if the submission failed (either at command interpretation or at submission to the ledger)
+    *   with the given error message.
+    * - `Right(())` if the submission was successful, in which case the completion of the command
+    *   can be tracked as usual through the completion service.
+    */
+  type CommandSubmissionResult = Either[String, Unit]
+
+  sealed abstract class CommandDeduplicationResult extends Product with Serializable
+
+  /** This is the first time the command was submitted. */
+  final case object CommandDeduplicationNew extends CommandDeduplicationResult
+
+  /** This command was submitted before, but the result of the submission not known (yet). */
+  final case class CommandDeduplicationDuplicate(firstSubmittedAt: Instant)
+      extends CommandDeduplicationResult
+
+  /** This command was submitted before, and the result of the submission is known */
+  final case class CommandDeduplicationDuplicateWithResult(result: CommandSubmissionResult)
+      extends CommandDeduplicationResult
 }

@@ -15,5 +15,6 @@ trait IndexService
     with IdentityProvider
     with IndexPartyManagementService
     with IndexConfigManagementService
+    with IndexSubmissionService
     // with IndexTimeService //TODO: this needs some further discussion as the TimeService is actually optional
     with ReportsHealth
