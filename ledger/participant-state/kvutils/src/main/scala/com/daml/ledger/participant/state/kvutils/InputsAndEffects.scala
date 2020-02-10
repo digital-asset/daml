@@ -18,11 +18,21 @@ import com.digitalasset.daml.lf.value.Value.{
   VersionedValue,
   ValueParty,
   ValueRecord,
+  ValueVariant,
   ValueList,
   ValueStruct,
   ValueOptional,
   ValueTextMap,
-  ValueGenMap
+  ValueGenMap,
+  ValueContractId,
+  ValueNumeric,
+  ValueInt64,
+  ValueTimestamp,
+  ValueBool,
+  ValueDate,
+  ValueEnum,
+  ValueText,
+  ValueUnit
 }
 
 /** Internal utilities to compute the inputs and effects of a DAML transaction */
@@ -123,13 +133,18 @@ private[kvutils] object InputsAndEffects {
       case ValueRecord(_, fields) => fields.map(_._2)
       case ValueList(elems) => elems.toImmArray
       case ValueStruct(fields) => fields.map(_._2)
+      case ValueVariant(_, _, v) => ImmArray(v)
       case ValueOptional(optV) => optV match {
         case Some(v) => ImmArray(v)
         case None => ImmArray.empty
       }
       case ValueTextMap(map) => map.values
-      case ValueGenMap(entries) => entries.map(_._1)
-      case _ => ImmArray.empty
+      case ValueGenMap(entries) =>
+        entries.map(_._1).slowAppend(entries.map(_._2)) // TODO Review: is there a better way?
+      case // Enumerating explicitly all cases to make it exhaustive and always get compilation errors on model changes
+        ValueContractId(_) | ValueNumeric(_) | ValueInt64(_) | ValueTimestamp(_) | ValueBool(_) | ValueDate(_)
+        | ValueParty(_) | ValueText(_) | ValueEnum(_, _) | ValueUnit
+        => ImmArray.empty
     }
 
   /** Compute the effects of a DAML transaction, that is, the created and consumed contracts. */
