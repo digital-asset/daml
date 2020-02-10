@@ -90,7 +90,7 @@ class HashSpec extends WordSpec with Matchers {
       val hash = "ea24627f5b014af67dbedb13d950e60be7f96a1a5bd9fb1a3b9a85b7fa9db4bc"
       val value = complexRecordT.inj(complexRecordV)
       val name = defRef("module", "name")
-      Hash.hashContractKey(GlobalKey(name, value)).toLedgerString shouldBe hash
+      Hash.hashContractKey(GlobalKey(name, value)).toHexaString shouldBe hash
     }
 
     "be deterministic and thread safe" in {
@@ -542,7 +542,7 @@ class HashSpec extends WordSpec with Matchers {
             .builder(Hash.Purpose.Testing)
             .addTypedValue(value)
             .build
-            .toLedgerString
+            .toHexaString
           s"${value.toString}$sep $hash"
         }
         .mkString("", sep, sep)
@@ -554,7 +554,7 @@ class HashSpec extends WordSpec with Matchers {
   "Hash.fromString" should {
     "convert properly string" in {
       val s = "01cf85cfeb36d628ca2e6f583fa2331be029b6b28e877e1008fb3f862306c086"
-      Hash.assertFromString(s).toLedgerString shouldBe s
+      Hash.assertFromString(s).toHexaString shouldBe s
     }
   }
 

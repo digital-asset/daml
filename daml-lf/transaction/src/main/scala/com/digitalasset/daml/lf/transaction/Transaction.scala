@@ -329,7 +329,7 @@ final case class GenTransaction[Nid, +Cid, +Val](
     }
 }
 
-object GenTransaction extends value.CidContainer3[GenTransaction] {
+object GenTransaction extends value.CidContainer3WithDefaultCidResolver[GenTransaction] {
   type WithTxValue[Nid, +Cid] = GenTransaction[Nid, Cid, Transaction.Value[Cid]]
 
   case class NotWellFormedError[Nid](nid: Nid, reason: NotWellFormedErrorReason)

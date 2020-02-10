@@ -49,7 +49,9 @@ object Node {
     def requiredAuthorizers: Set[Party]
   }
 
-  object GenNode extends WithTxValue3[GenNode] with value.CidContainer3[GenNode] {
+  object GenNode
+      extends WithTxValue3[GenNode]
+      with value.CidContainer3WithDefaultCidResolver[GenNode] {
     override private[lf] def map3[A1, A2, A3, B1, B2, B3](
         f1: A1 => B1,
         f2: A2 => B2,
@@ -258,7 +260,7 @@ object Node {
       KeyWithMaintainers.map1(f)(this)
   }
 
-  object KeyWithMaintainers extends value.CidContainer1[KeyWithMaintainers] {
+  object KeyWithMaintainers extends value.CidContainer1WithDefaultCidResolver[KeyWithMaintainers] {
     implicit def equalInstance[Val: Equal]: Equal[KeyWithMaintainers[Val]] =
       ScalazEqual.withNatural(Equal[Val].equalIsNatural) { (a, b) =>
         import a._

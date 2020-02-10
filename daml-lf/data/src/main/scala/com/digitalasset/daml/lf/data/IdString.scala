@@ -52,9 +52,13 @@ sealed trait UnionStringModule[T <: String, TA <: T, TB <: T] extends StringModu
 
   def toEither(s: T): Either[TA, TB]
 
+  def isA(s: T): Boolean
+
   def toA(s: T): Option[TA]
 
   def assertToVA(s: T): TA
+
+  def isB(s: T): Boolean
 
   def toB(s: T): Option[TB]
 
@@ -228,7 +232,7 @@ private[data] final class IdStringImpl extends IdString {
   // Prefixed with "$0" which is not a valid substring of ContractIdV0.
   override type ContractIdStringV1 = String
   override val ContractIdStringV1: StringModule[ContractIdStringV1] =
-    new MatchingStringModule("""\$0[0-9a-f]{64}[A-Za-z0-9:\-_]{189}""")
+    new MatchingStringModule("""\$0[0-9a-f]{64}[A-Za-z0-9:\-_]{0,189}""")
 
   /** Identifier for a contractIs, union of `ContractIdStringV0` and `ContractIdStringV1` */
   override type ContractIdString = String
@@ -238,23 +242,28 @@ private[data] final class IdStringImpl extends IdString {
     with UnionStringModule[ContractIdString, ContractIdStringV0, ContractIdStringV1] {
 
       override def toEither(s: ContractIdString): Either[String, String] =
-        Either.cond(s.startsWith("$0"), s, s)
+        Either.cond(isA(s), s, s)
 
       override def fromString(s: String): Either[String, ContractIdString] =
         toEither(s).fold(ContractIdStringV0.fromString, ContractIdStringV1.fromString)
 
-      override def assertToVA(s: ContractIdString): ContractIdStringV0 =
-        toEither(s).left
-          .getOrElse(throw new IllegalArgumentException("expect V0 ContractId get V1"))
-
-      override def assertToVB(s: ContractIdString): ContractIdStringV1 =
-        toEither(s).right
-          .getOrElse(throw new IllegalArgumentException("expect V1 ContractId get V0"))
+      override def isA(s: ContractIdString): Boolean =
+        s.startsWith("$0")
 
       override def toA(s: ContractIdString): Option[ContractIdStringV0] =
-        toEither(s).left.toOption
+        Some(s).filter(isA)
+
+      override def assertToVA(s: ContractIdString): ContractIdStringV0 =
+        toA(s).getOrElse(throw new IllegalArgumentException("expect V0 ContractId get V1"))
+
+      override def isB(s: ContractIdString): Boolean =
+        !isA(s)
 
       override def toB(s: ContractIdString): Option[ContractIdStringV1] =
-        toEither(s).right.toOption
+        Some(s).filter(isB)
+
+      override def assertToVB(s: ContractIdString): ContractIdStringV1 =
+        toB(s).getOrElse(throw new IllegalArgumentException("expect V1 ContractId get V0"))
+
     }
 }
