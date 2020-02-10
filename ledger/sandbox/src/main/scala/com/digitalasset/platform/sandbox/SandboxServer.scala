@@ -54,8 +54,6 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.Try
 
 object SandboxServer {
-  type Port = Int
-
   private val ActorSystemName = "sandbox"
   private val AsyncTolerance = 30.seconds
 
@@ -113,7 +111,7 @@ object SandboxServer {
       // nested resource so we can release it independently when restarting
       apiServerResource: Resource[ApiServer],
   ) {
-    def port(implicit executionContext: ExecutionContext): Future[Port] =
+    def port(implicit executionContext: ExecutionContext): Future[Int] =
       apiServer.map(_.port)
 
     private[SandboxServer] def apiServer(
@@ -126,7 +124,7 @@ object SandboxServer {
             Materializer,
             MetricRegistry,
             InMemoryPackageStore,
-            Port,
+            Int // port number
         ) => Resource[ApiServer]
     )(implicit executionContext: ExecutionContext): Future[SandboxState] =
       for {
@@ -181,10 +179,10 @@ final class SandboxServer(config: SandboxConfig) extends AutoCloseable {
     sandboxState.flatMap(_.apiServer)
 
   // Only used in testing; hopefully we can get rid of it soon.
-  def port: Port =
+  def port: Int =
     Await.result(portF(DirectExecutionContext), AsyncTolerance)
 
-  def portF(implicit executionContext: ExecutionContext): Future[Port] =
+  def portF(implicit executionContext: ExecutionContext): Future[Int] =
     apiServer.map(_.port)
 
   /** the reset service is special, since it triggers a server shutdown */
@@ -225,7 +223,7 @@ final class SandboxServer(config: SandboxConfig) extends AutoCloseable {
       metrics: MetricRegistry,
       packageStore: InMemoryPackageStore,
       startMode: SqlStartMode,
-      currentPort: Option[Port],
+      currentPort: Option[Int],
   ): Resource[ApiServer] = {
     implicit val _materializer: Materializer = materializer
     implicit val actorSystem: ActorSystem = materializer.system
@@ -375,7 +373,7 @@ final class SandboxServer(config: SandboxConfig) extends AutoCloseable {
     } yield (), AsyncTolerance)
   }
 
-  private def writePortFile(port: Port)(
+  private def writePortFile(port: Int)(
       implicit executionContext: ExecutionContext
   ): Future[Unit] =
     config.portFile
