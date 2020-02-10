@@ -150,6 +150,7 @@ object Cli {
     opt[Unit]("no-wait-for-parties")
       .action((_, c) => c.copy(waitForParties = false))
       .text("""Do not wait for parties to be allocated on all participants.""")
+      .hidden()
 
     opt[Unit]("shuffle-participants")
       .action((_, c) => c.copy(shuffleParticipants = true))

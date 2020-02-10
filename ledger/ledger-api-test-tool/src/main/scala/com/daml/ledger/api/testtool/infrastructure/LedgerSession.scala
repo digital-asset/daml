@@ -31,21 +31,21 @@ private[testtool] final class LedgerSession(
               config.waitForParties),
           )
       })
-      .map(sessions => sessions.map(endpointIdProvider() -> _))
+      .map(_.map(endpointIdProvider() -> _))
 
   private[testtool] def createTestContext(
       applicationId: String,
       identifierSuffix: String,
   ): Future[LedgerTestContext] =
     participantSessions.flatMap { sessions =>
-      val sessions2 =
-        if (config.shuffleParticipants) scala.util.Random.shuffle(sessions)
-        else sessions
       Future
-        .sequence(sessions2.map {
-          case (endpointId, session) =>
-            session.createTestContext(endpointId, applicationId, identifierSuffix)
-        })
+        .sequence(
+          (if (config.shuffleParticipants) scala.util.Random.shuffle(sessions) else sessions)
+            .map {
+              case (endpointId, session) =>
+                session.createTestContext(endpointId, applicationId, identifierSuffix)
+            }
+        )
         .map(new LedgerTestContext(_))
     }
 

@@ -219,12 +219,12 @@ private[testtool] final class ParticipantTestContext private[participant] (
           .sequence(participants.map(otherParticipant => {
             otherParticipant
               .listParties()
-              .map(actualParties => {
+              .map { actualParties =>
                 assert(
                   expectedParties.subsetOf(actualParties),
                   s"Parties from $this never appeared on $otherParticipant.",
                 )
-              })
+              }
           }))
           .map(_ => ())
       }
