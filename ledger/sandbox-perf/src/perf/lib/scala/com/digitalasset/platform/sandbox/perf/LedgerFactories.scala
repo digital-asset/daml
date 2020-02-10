@@ -12,7 +12,9 @@ import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.testing.utils.Resource
 import com.digitalasset.platform.common.LedgerIdMode
+import com.digitalasset.platform.sandbox.SandboxServer
 import com.digitalasset.platform.sandbox.config.SandboxConfig
+import com.digitalasset.platform.sandbox.services.{SandboxClientResource, SandboxServerResource}
 import com.digitalasset.testing.postgresql.{PostgresFixture, PostgresResource}
 
 object LedgerFactories {
@@ -35,31 +37,55 @@ object LedgerFactories {
   def createSandboxResource(store: String, darFiles: List[File])(
       implicit esf: ExecutionSequencerFactory,
       mat: Materializer): Resource[LedgerContext] = {
-    def createResource(sandboxConfig: SandboxConfig): Resource[LedgerContext] =
-      SandboxServerResource(sandboxConfig).map(
-        new LedgerContext(_, darFiles.map(getPackageIdOrThrow)))
+
+    def createClientResource(port: Int): Resource[LedgerContext] =
+      new SandboxClientResource(port).map(new LedgerContext(_, darFiles.map(getPackageIdOrThrow)))
 
     store match {
       case `mem` =>
-        createResource(sandboxConfig(None, darFiles))
+        new Resource[LedgerContext] {
+          @volatile private var server: Resource[SandboxServer] = _
+          @volatile private var client: Resource[LedgerContext] = _
+
+          override def value: LedgerContext = client.value
+
+          override def setup(): Unit = {
+            server = SandboxServerResource(sandboxConfig(None, darFiles))
+            server.setup()
+            client = createClientResource(server.value.port)
+            client.setup()
+          }
+
+          override def close(): Unit = {
+            client.close()
+            client = null
+            server.close()
+            server = null
+          }
+        }
       case `sql` =>
         new Resource[LedgerContext] {
           @volatile private var postgres: Resource[PostgresFixture] = _
-          @volatile private var sandbox: Resource[LedgerContext] = _
+          @volatile private var server: Resource[SandboxServer] = _
+          @volatile private var client: Resource[LedgerContext] = _
 
-          override def value: LedgerContext = sandbox.value
+          override def value: LedgerContext = client.value
 
           override def setup(): Unit = {
             postgres = PostgresResource()
             postgres.setup()
-            sandbox = createResource(sandboxConfig(Some(postgres.value.jdbcUrl), darFiles))
-            sandbox.setup()
+            server = SandboxServerResource(sandboxConfig(Some(postgres.value.jdbcUrl), darFiles))
+            server.setup()
+            client = createClientResource(server.value.port)
+            client.setup()
           }
 
           override def close(): Unit = {
-            sandbox.close()
+            client.close()
+            client = null
+            server.close()
+            server = null
             postgres.close()
-            sandbox = null
             postgres = null
           }
         }

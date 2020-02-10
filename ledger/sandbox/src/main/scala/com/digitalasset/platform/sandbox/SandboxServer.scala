@@ -64,16 +64,22 @@ object SandboxServer {
   private val engine = Engine()
 
   def owner(config: SandboxConfig): ResourceOwner[SandboxServer] =
-    new ResourceOwner[SandboxServer] {
-      override def acquire()(implicit executionContext: ExecutionContext): Resource[SandboxServer] =
-        for {
-          server <- ResourceOwner.forTryCloseable(() => Try(new SandboxServer(config))).acquire()
-          // Wait for the API server to start.
+    for {
+      metrics <- ResourceOwner.successful(new MetricRegistry)
+      _ <- ResourceOwner
+        .forCloseable(() => new MetricsReporting(metrics, classOf[SandboxServer].getName))
+      actorSystem <- AkkaResourceOwner.forActorSystem(() => ActorSystem(ActorSystemName))
+      materializer <- AkkaResourceOwner.forMaterializer(() => Materializer(actorSystem))
+      server <- ResourceOwner
+        .forTryCloseable(() => Try(new SandboxServer(config, materializer, metrics)))
+      // Wait for the API server to start.
+      _ <- new ResourceOwner[Unit] {
+        override def acquire()(implicit executionContext: ExecutionContext): Resource[Unit] =
           // We use the Future rather than the Resource to avoid holding onto the API server.
           // Otherwise, we cause a memory leak upon reset.
-          _ <- Resource.fromFuture(server.apiServer.map(_ => ()))
-        } yield server
-    }
+          Resource.fromFuture(server.apiServer.map(_ => ()))
+      }
+    } yield server
 
   // if requested, initialize the ledger state with the given scenario
   private def createInitialState(config: SandboxConfig, packageStore: InMemoryPackageStore)
@@ -130,20 +136,27 @@ object SandboxServer {
       for {
         currentPort <- port
         _ <- release()
-      } yield {
+      } yield
         new SandboxState(
           materializer,
           metrics,
           packageStore,
           newApiServer(materializer, metrics, packageStore, currentPort))
-      }
 
     def release()(implicit executionContext: ExecutionContext): Future[Unit] =
       apiServerResource.release()
   }
 }
 
-final class SandboxServer(config: SandboxConfig) extends AutoCloseable {
+final class SandboxServer(
+    config: SandboxConfig,
+    materializer: Materializer,
+    metrics: MetricRegistry,
+) extends AutoCloseable {
+
+  // Only used for testing.
+  def this(config: SandboxConfig, materializer: Materializer) =
+    this(config, materializer, new MetricRegistry)
 
   // Name of this participant
   // TODO: Pass this info in command-line (See issue #2025)
@@ -151,29 +164,10 @@ final class SandboxServer(config: SandboxConfig) extends AutoCloseable {
 
   private val authService: AuthService = config.authService.getOrElse(AuthServiceWildcard)
 
-  private val metricsResource: Resource[MetricRegistry] = {
-    implicit val executionContext: ExecutionContext = DirectExecutionContext
-    val metrics = new MetricRegistry
-    for {
-      _ <- ResourceOwner
-        .forCloseable(() => new MetricsReporting(metrics, getClass.getPackage.getName))
-        .acquire()
-    } yield metrics
-  }
-
-  private val materializerResource: Resource[Materializer] = {
-    implicit val executionContext: ExecutionContext = DirectExecutionContext
-    for {
-      actorSystem <- AkkaResourceOwner.forActorSystem(() => ActorSystem(ActorSystemName)).acquire()
-      materializer <- AkkaResourceOwner.forMaterializer(() => Materializer(actorSystem)).acquire()
-    } yield materializer
-  }
-
   // We store a Future rather than a Resource to avoid keeping old resources around after a reset.
   // It's package-private so we can test that we drop the reference properly in ResetServiceIT.
   @volatile
-  private[sandbox] var sandboxState: Future[SandboxState] =
-    start()(DirectExecutionContext)
+  private[sandbox] var sandboxState: Future[SandboxState] = start()
 
   private def apiServer(implicit executionContext: ExecutionContext): Future[ApiServer] =
     sandboxState.flatMap(_.apiServer)
@@ -331,26 +325,19 @@ final class SandboxServer(config: SandboxConfig) extends AutoCloseable {
         )
         apiServer
       }
-
     }
-
   }
 
-  private def start()(implicit executionContext: ExecutionContext): Future[SandboxState] = {
+  private def start(): Future[SandboxState] = {
     val packageStore = loadDamlPackages()
-    for {
-      metrics <- metricsResource.asFuture
-      materializer <- materializerResource.asFuture
-    } yield {
-      val apiServerResource = buildAndStartApiServer(
-        materializer,
-        metrics,
-        packageStore,
-        SqlStartMode.ContinueIfExists,
-        currentPort = None,
-      )
-      new SandboxState(materializer, metrics, packageStore, apiServerResource)
-    }
+    val apiServerResource = buildAndStartApiServer(
+      materializer,
+      metrics,
+      packageStore,
+      SqlStartMode.ContinueIfExists,
+      currentPort = None,
+    )
+    Future.successful(new SandboxState(materializer, metrics, packageStore, apiServerResource))
   }
 
   private def loadDamlPackages(): InMemoryPackageStore = {
@@ -366,16 +353,10 @@ final class SandboxServer(config: SandboxConfig) extends AutoCloseable {
 
   override def close(): Unit = {
     implicit val executionContext: ExecutionContext = DirectExecutionContext
-    Await.result(for {
-      _ <- sandboxState.flatMap(_.release())
-      _ <- materializerResource.release()
-      _ <- metricsResource.release()
-    } yield (), AsyncTolerance)
+    Await.result(sandboxState.flatMap(_.release()), AsyncTolerance)
   }
 
-  private def writePortFile(port: Int)(
-      implicit executionContext: ExecutionContext
-  ): Future[Unit] =
+  private def writePortFile(port: Int)(implicit executionContext: ExecutionContext): Future[Unit] =
     config.portFile
       .map(path => Future(Files.write(path, Seq(port.toString).asJava)).map(_ => ()))
       .getOrElse(Future.successful(()))

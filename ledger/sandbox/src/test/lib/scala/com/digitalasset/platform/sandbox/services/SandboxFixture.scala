@@ -4,6 +4,7 @@
 package com.digitalasset.platform.sandbox.services
 
 import java.io.File
+import java.net.InetAddress
 import java.util.concurrent.Executors
 
 import akka.actor.ActorSystem
@@ -99,6 +100,8 @@ trait SandboxFixture extends SuiteResource[Unit] with BeforeAndAfterAll {
   protected def packageFiles: List[File] = List(darFile)
 
   protected def scenario: Option[String] = None
+
+  protected def getSandboxHost: String = InetAddress.getLoopbackAddress.getHostName
 
   protected def getSandboxPort: Int = serverResource.value.port
 

@@ -3,18 +3,17 @@
 
 package com.digitalasset.codegen
 
+import java.io.File
 import java.time.Instant
 import java.util.UUID
 
-import akka.actor.ActorSystem
-import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.api.util.TimestampConversion.fromInstant
 import com.digitalasset.codegen.util.TestUtil.{TestContext, requiredResource}
-import com.digitalasset.grpc.adapter.AkkaExecutionSequencerPool
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.refinements.ApiTypes.{CommandId, WorkflowId}
+import com.digitalasset.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
 import com.digitalasset.ledger.api.v1.commands.Commands
 import com.digitalasset.ledger.api.v1.event.Event
@@ -32,8 +31,8 @@ import com.digitalasset.ledger.client.configuration.{
   LedgerIdRequirement
 }
 import com.digitalasset.platform.common.LedgerIdMode
-import com.digitalasset.platform.sandbox.SandboxServer
 import com.digitalasset.platform.sandbox.config.SandboxConfig
+import com.digitalasset.platform.sandbox.services.SandboxFixture
 import com.digitalasset.platform.services.time.TimeProviderType
 import com.digitalasset.sample.MyMain.{CallablePayout, MkListExample, PayOut}
 import com.digitalasset.sample.{EventDecoder, MyMain, MySecondMain}
@@ -53,37 +52,24 @@ import scala.util.{Failure, Success, Try}
 class ScalaCodeGenIT
     extends AsyncWordSpec
     with Matchers
-    with BeforeAndAfterAll
     with ScalaFutures
-    with Inside {
+    with Inside
+    with SuiteResourceManagementAroundAll
+    with SandboxFixture {
 
-  private val shortTimeout = 5.seconds
+  private val StartupTimeout = 10.seconds
 
-  private implicit val ec: ExecutionContext = ExecutionContext.global
-
-  implicit override lazy val patienceConfig: PatienceConfig =
+  override implicit lazy val patienceConfig: PatienceConfig =
     PatienceConfig(timeout = Span(20, Seconds), interval = Span(250, Millis))
 
-  private val ledgerId = this.getClass.getSimpleName
+  override implicit def executionContext: ExecutionContext = ExecutionContext.global
 
-  private val archives = List(
+  override protected def packageFiles: List[File] = List(
     requiredResource("language-support/scala/codegen-sample-app/MyMain.dar"),
     requiredResource("language-support/scala/codegen-sample-app/MySecondMain.dar"),
   )
 
-  private val asys = ActorSystem()
-  private val amat = Materializer(asys)
-  private val aesf = new AkkaExecutionSequencerPool("clientPool")(asys)
-
-  private val serverConfig = SandboxConfig.default.copy(
-    port = 0,
-    damlPackages = archives,
-    timeProviderType = TimeProviderType.WallClock,
-    ledgerIdMode = LedgerIdMode.Static(LedgerId(ledgerId)),
-  )
-
-  private val sandbox: SandboxServer = new SandboxServer(serverConfig)
-
+  private val ledgerId = this.getClass.getSimpleName
   private val applicationId = ledgerId + "-client"
   private val decoder: DecoderType = EventDecoder.createdEventToContractRef
   private val timeProvider = TimeProvider.UTC
@@ -97,13 +83,10 @@ class ScalaCodeGenIT
 
   private val emptyAgreementText = Some("") // this is by design, starting from release: 0.12.18 it is a requried field
 
-  override protected def afterAll(): Unit = {
-    sandbox.close()
-    aesf.close()
-    amat.shutdown()
-    asys.terminate()
-    super.afterAll()
-  }
+  override protected def config: SandboxConfig = super.config.copy(
+    ledgerIdMode = LedgerIdMode.Static(LedgerId(ledgerId)),
+    timeProviderType = TimeProviderType.WallClock,
+  )
 
   private val clientConfig = LedgerClientConfiguration(
     applicationId = applicationId,
@@ -112,10 +95,12 @@ class ScalaCodeGenIT
     sslContext = None
   )
 
-  private val ledgerF: Future[LedgerClient] =
-    LedgerClient.singleHost("127.0.0.1", sandbox.port, clientConfig)(ec, aesf)
+  private var ledger: LedgerClient = _
 
-  private val ledger: LedgerClient = Await.result(ledgerF, shortTimeout)
+  override protected def beforeAll(): Unit = {
+    super.beforeAll()
+    ledger = Await.result(LedgerClient(channel, clientConfig), StartupTimeout)
+  }
 
   "generated package ID among those returned by the packageClient" in {
     val expectedPackageId: String = P.TemplateId
@@ -452,7 +437,7 @@ class ScalaCodeGenIT
     ledger.transactionClient
       .getTransactions(offset, None, transactionFilter(party))
       .take(1)
-      .runWith(Sink.head)(amat)
+      .runWith(Sink.head)
 
   private def uniqueId = UUID.randomUUID.toString
 
@@ -485,7 +470,7 @@ class ScalaCodeGenIT
       .fromIterator(() => input.iterator)
       .via(ledger.commandClient.submissionFlow())
       .take(take)
-      .runWith(Sink.seq)(amat)
+      .runWith(Sink.seq)
 
   private def toFuture[A](o: Option[A]): Future[A] = o match {
     case None => Future.failed(new IllegalStateException(s"empty option: $o"))
