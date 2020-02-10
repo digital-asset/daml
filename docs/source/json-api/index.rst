@@ -137,12 +137,15 @@ Example session
     $ daml json-api --ledger-host localhost --ledger-port 6865 --http-port 7575
 
 Choosing a party
-================
+****************
 
-You specify your party and other settings with JWT.  In testing
-environments, you can use https://jwt.io to generate your token.
+Every request requires you to specify a party and some other settings,
+with a JWT token.  Normal HTTP requests pass the token in an
+``Authentication`` header, while WebSocket requests pass the token in a
+subprotocol.
 
-The default "header" is fine.  Under "Payload", fill in:
+In testing environments, you can use https://jwt.io to generate your
+token.  The default "header" is fine.  Under "Payload", fill in:
 
 .. code-block:: json
 
@@ -161,12 +164,10 @@ Keep in mind:
 Under "Verify Signature", put ``secret`` as the secret (_not_ base64
 encoded); that is the hardcoded secret for testing.
 
-Then the "Encoded" box should have your token; set HTTP header
-``Authorization: Bearer copy-paste-token-here`` for normal requests, and
-add the subprotocols ``jwt.token.copy-paste-token-here`` and
-``daml.ws.auth`` for WebSockets requests.
+Then the "Encoded" box should have your **token**, ready for passing to
+the service as described in the following sections.
 
-Here are two tokens you can use for testing:
+Alternatively, here are two tokens you can use for testing:
 
 - ``{"https://daml.com/ledger-api": {"ledgerId": "MyLedger", "applicationId": "foobar", "actAs": ["Alice"]}}``
   ``eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJmb29iYXIiLCJhY3RBcyI6WyJBbGljZSJdfX0.VdDI96mw5hrfM5ZNxLyetSVwcD7XtLT4dIdHIOa9lcU``
@@ -177,6 +178,26 @@ Here are two tokens you can use for testing:
 For production use, we have a tool in development for generating proper
 RSA-encrypted tokens locally, which will arrive when the service also
 supports such tokens.
+
+Passing token with HTTP
+=======================
+
+Set HTTP header ``Authorization: Bearer copy-paste-token-here`` for
+normal requests.
+
+Passing token with WebSockets
+=============================
+
+WebSocket clients support a "subprotocols" argument; this is usually in
+a list form but occasionally in comma-separated form.  Check
+documentation for your WebSocket library of choice for details.
+
+For HTTP JSON requests, you must pass two subprotocols:
+
+- ``daml.ws.auth``
+- ``jwt.token.copy-paste-token-here``
+
+where ``copy-paste-token-here`` is the encoded JWT token described above.
 
 Error Reporting
 ===============
