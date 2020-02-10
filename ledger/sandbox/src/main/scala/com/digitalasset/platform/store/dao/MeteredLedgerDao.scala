@@ -21,6 +21,7 @@ import com.digitalasset.platform.metrics.timedFuture
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.store.Contract.ActiveContract
 import com.digitalasset.platform.store.entries.{
+  CommandDeduplicationEntry,
   ConfigurationEntry,
   LedgerEntry,
   PackageLedgerEntry,
@@ -47,6 +48,8 @@ class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegistry)
     val getParties: Timer = metrics.timer("daml.index.db.get_parties")
     val listLfPackages: Timer = metrics.timer("daml.index.db.list_lf_packages")
     val getLfArchive: Timer = metrics.timer("daml.index.db.get_lf_archive")
+    val deduplicateCommand: Timer = metrics.timer("daml.index.db.deduplicate_command")
+    val updateCommandResult: Timer = metrics.timer("daml.index.db.update_command_result")
   }
 
   override def currentHealth(): HealthStatus = ledgerDao.currentHealth()
@@ -119,6 +122,22 @@ class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegistry)
     ledgerDao.getConfigurationEntries(startInclusive, endExclusive)
 
   override val completions: CommandCompletionsReader[LedgerOffset] = ledgerDao.completions
+
+  override def deduplicateCommand(
+      deduplicationKey: String,
+      submittedAt: Instant,
+      ttl: Instant): Future[Option[CommandDeduplicationEntry]] =
+    timedFuture(
+      Metrics.deduplicateCommand,
+      ledgerDao.deduplicateCommand(deduplicationKey, submittedAt, ttl))
+
+  override def updateCommandResult(
+      deduplicationKey: String,
+      submittedAt: Instant,
+      result: Either[String, Unit]): Future[Unit] =
+    timedFuture(
+      Metrics.updateCommandResult,
+      ledgerDao.updateCommandResult(deduplicationKey, submittedAt, result))
 }
 
 class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: MetricRegistry)

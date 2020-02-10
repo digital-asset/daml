@@ -3,12 +3,19 @@
 
 package com.digitalasset.platform.index
 
+import java.time.Instant
+
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2.{
   AcsUpdateEvent,
   ActiveContractSetSnapshot,
+  CommandDeduplicationDuplicate,
+  CommandDeduplicationDuplicateWithResult,
+  CommandDeduplicationNew,
+  CommandDeduplicationResult,
+  CommandSubmissionResult,
   IndexService,
   PackageDetails
 }
@@ -37,7 +44,11 @@ import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStrea
 import com.digitalasset.platform.participant.util.EventFilter
 import com.digitalasset.platform.server.api.validation.ErrorFactories
 import com.digitalasset.platform.store.Contract.ActiveContract
-import com.digitalasset.platform.store.entries.{LedgerEntry, PartyLedgerEntry}
+import com.digitalasset.platform.store.entries.{
+  CommandDeduplicationEntry,
+  LedgerEntry,
+  PartyLedgerEntry
+}
 import com.digitalasset.platform.store.{LedgerSnapshot, ReadOnlyLedger}
 
 import scala.concurrent.Future
@@ -277,4 +288,25 @@ abstract class LedgerBackedIndexService(
   override def configurationEntries(
       startInclusive: Option[Long]): Source[domain.ConfigurationEntry, NotUsed] =
     ledger.configurationEntries(startInclusive).map(_._2.toDomain)
+
+  /** Deduplicate commands */
+  override def deduplicateCommand(
+      deduplicationKey: String,
+      submittedAt: Instant,
+      ttl: Instant): Future[CommandDeduplicationResult] =
+    ledger
+      .deduplicateCommand(deduplicationKey, submittedAt, ttl)
+      .map {
+        case None => CommandDeduplicationNew
+        case Some(CommandDeduplicationEntry(_, firstSubmittedAt, _, None)) =>
+          CommandDeduplicationDuplicate(firstSubmittedAt)
+        case Some(CommandDeduplicationEntry(_, _, _, Some(result))) =>
+          CommandDeduplicationDuplicateWithResult(result)
+      }(DEC)
+
+  override def updateCommandResult(
+      deduplicationKey: String,
+      submittedAt: Instant,
+      result: CommandSubmissionResult): Future[Unit] =
+    ledger.updateCommandResult(deduplicationKey: String, submittedAt, result)
 }

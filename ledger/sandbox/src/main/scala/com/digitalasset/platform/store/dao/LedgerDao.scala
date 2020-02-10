@@ -20,6 +20,7 @@ import com.digitalasset.ledger.api.health.ReportsHealth
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.store.Contract.ActiveContract
 import com.digitalasset.platform.store.entries.{
+  CommandDeduplicationEntry,
   ConfigurationEntry,
   LedgerEntry,
   PackageLedgerEntry,
@@ -140,6 +141,23 @@ trait LedgerReadDao extends ReportsHealth {
 
   def completions: CommandCompletionsReader[LedgerOffset]
 
+  /** Deduplicates commands.
+    *
+    * @param deduplicationKey The key used to deduplicate commands
+    * @param submittedAt The time when the command was submitted
+    * @param ttl The time until which the command should be deduplicated
+    * @return
+    */
+  def deduplicateCommand(
+      deduplicationKey: String,
+      submittedAt: Instant,
+      ttl: Instant): Future[Option[CommandDeduplicationEntry]]
+
+  /** Sets the result of a command, so that duplicate submissions can return the original result */
+  def updateCommandResult(
+      deduplicationKey: String,
+      submittedAt: Instant,
+      result: Either[String, Unit]): Future[Unit]
 }
 
 trait LedgerWriteDao extends ReportsHealth {
