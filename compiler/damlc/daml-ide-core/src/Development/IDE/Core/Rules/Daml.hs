@@ -33,6 +33,7 @@ import Development.IDE.GHC.Warnings
 import Development.IDE.Core.OfInterest
 import Development.IDE.GHC.Util
 import Development.IDE.Types.Logger hiding (Priority)
+import DA.Daml.Options
 import DA.Daml.Options.Types
 import qualified Text.PrettyPrint.Annotated.HughesPJClass as HughesPJPretty
 import Development.IDE.Types.Location as Base
@@ -203,7 +204,7 @@ finalPackageCheck fp pkg = do
 getDalfDependencies :: [NormalizedFilePath] -> MaybeT Action (Map.Map UnitId LF.DalfPackage)
 getDalfDependencies files = do
     unitIds <- concatMap transitivePkgDeps <$> usesE GetDependencies files
-    pkgMap <- useNoFileE GeneratePackageMap
+    pkgMap <- Map.unions <$> usesE GeneratePackageMap files
     let actualDeps = Map.restrictKeys pkgMap (Set.fromList $ map (DefiniteUnitId . DefUnitId) unitIds)
     -- For now, we unconditionally include all stable packages.
     -- Given that they are quite small and it is pretty much impossible to not depend on them
@@ -242,7 +243,7 @@ generateRawDalfRule =
                     let core = cgGutsToCoreModule safeMode cgGuts details
                     setPriority priorityGenerateDalf
                     -- Generate the map from package names to package hashes
-                    pkgMap <- useNoFile_ GeneratePackageMap
+                    pkgMap <- use_ GeneratePackageMap file
                     stablePkgs <- useNoFile_ GenerateStablePackages
                     DamlEnv{envIsGenerated} <- getDamlServiceEnv
                     -- GHC Core to DAML LF
@@ -250,9 +251,9 @@ generateRawDalfRule =
                         Left e -> return ([e], Nothing)
                         Right v -> return ([], Just $ LF.simplifyModule v)
 
-getExternalPackages :: Action [LF.ExternalPackage]
-getExternalPackages = do
-    pkgMap <- useNoFile_ GeneratePackageMap
+getExternalPackages :: NormalizedFilePath -> Action [LF.ExternalPackage]
+getExternalPackages file = do
+    pkgMap <- use_ GeneratePackageMap file
     stablePackages <- useNoFile_ GenerateStablePackages
     -- We need to dedup here to make sure that each package only appears once.
     pure $
@@ -265,7 +266,7 @@ generateDalfRule =
     define $ \GenerateDalf file -> do
         lfVersion <- getDamlLfVersion
         WhnfPackage pkg <- use_ GeneratePackageDeps file
-        pkgs <- getExternalPackages
+        pkgs <- getExternalPackages file
         let world = LF.initWorldSelf pkgs pkg
         rawDalf <- use_ GenerateRawDalf file
         setPriority priorityGenerateDalf
@@ -388,7 +389,7 @@ generateSerializedDalfRule options =
                         Nothing -> pure (diags, Nothing)
                         Just core -> fmap (first (diags ++)) $ do
                             -- lf conversion
-                            pkgMap <- useNoFile_ GeneratePackageMap
+                            pkgMap <- use_ GeneratePackageMap file
                             stablePkgs <- useNoFile_ GenerateStablePackages
                             DamlEnv{envIsGenerated} <- getDamlServiceEnv
                             case convertModule lfVersion pkgMap (Map.map LF.dalfPackageId stablePkgs) envIsGenerated file core of
@@ -396,7 +397,7 @@ generateSerializedDalfRule options =
                                 Right rawDalf -> do
                                     -- LF postprocessing
                                     rawDalf <- pure $ LF.simplifyModule rawDalf
-                                    pkgs <- getExternalPackages
+                                    pkgs <- getExternalPackages file
                                     let world = LF.initWorldSelf pkgs (buildPackage (optMbPackageName options) lfVersion dalfDeps)
                                     let liftError e = [ideErrorPretty file e]
                                     let dalfOrErr = do
@@ -448,9 +449,9 @@ generateDocTestModuleRule =
 -- filename to match the package name.
 -- TODO (drsk): We might want to change this to load only needed packages in the future.
 generatePackageMap ::
-     LF.Version -> [FilePath] -> IO ([FileDiagnostic], Map.Map UnitId LF.DalfPackage)
-generatePackageMap version userPkgDbs = do
-    versionedPackageDbs <- getPackageDbs version userPkgDbs
+     LF.Version -> Maybe FilePath -> [FilePath] -> IO ([FileDiagnostic], Map.Map UnitId LF.DalfPackage)
+generatePackageMap version mbProjRoot userPkgDbs = do
+    versionedPackageDbs <- getPackageDbs version mbProjRoot userPkgDbs
     (diags, pkgs) <-
         fmap (partitionEithers . concat) $
         forM versionedPackageDbs $ \pkgDb -> do
@@ -491,10 +492,16 @@ readDalfPackage dalf = do
         Right (LF.DalfPackage pkgId (LF.ExternalPackage pkgId package) bs)
 
 generatePackageMapRule :: Options -> Rules ()
-generatePackageMapRule opts =
-    defineEarlyCutoff $ \GeneratePackageMap _file -> assert (null $ fromNormalizedFilePath _file) $ do
-        (errs, res) <-
-            liftIO $ generatePackageMap (optDamlLfVersion opts) (optPackageDbs opts)
+generatePackageMapRule opts = do
+    defineNoFile $ \GeneratePackageMapIO -> do
+        f <- liftIO $ do
+            findProjectRoot <- memoIO findProjectRoot
+            generatePackageMap <- memoIO $ \mbRoot -> generatePackageMap (optDamlLfVersion opts) mbRoot (optPackageDbs opts)
+            pure $ \file -> liftIO $ generatePackageMap =<< findProjectRoot file
+        pure (GeneratePackageMapFun f)
+    defineEarlyCutoff $ \GeneratePackageMap file -> do
+        GeneratePackageMapFun fun <- useNoFile_ GeneratePackageMapIO
+        (errs, res) <- fun $ fromNormalizedFilePath file
         when (errs /= []) $ do
             logger <- actionLogger
             liftIO $ logError logger $ T.pack $
@@ -648,8 +655,8 @@ contextForFile :: NormalizedFilePath -> Action SS.Context
 contextForFile file = do
     lfVersion <- getDamlLfVersion
     WhnfPackage pkg <- use_ GeneratePackage file
-    pkgMap <- useNoFile_ GeneratePackageMap
-    stablePackages <- useNoFile_ GenerateStablePackages
+    pkgMap <- use_ GeneratePackageMap file
+    stablePackages <- use_ GenerateStablePackages file
     encodedModules <-
         mapM (\m -> fmap (\(hash, bs) -> (hash, (LF.moduleName m, bs))) (encodeModule lfVersion m)) $
         NM.toList $ LF.packageModules pkg
@@ -664,7 +671,7 @@ contextForFile file = do
 worldForFile :: NormalizedFilePath -> Action LF.World
 worldForFile file = do
     WhnfPackage pkg <- use_ GeneratePackage file
-    pkgs <- getExternalPackages
+    pkgs <- getExternalPackages file
     pure $ LF.initWorldSelf pkgs pkg
 
 data ScenarioBackendException = ScenarioBackendException
