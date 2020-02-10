@@ -47,7 +47,6 @@ import com.digitalasset.platform.sandbox.stores.{
 import com.digitalasset.platform.services.time.TimeProviderType
 import com.digitalasset.resources.akka.AkkaResourceOwner
 import com.digitalasset.resources.{Resource, ResourceOwner}
-import com.google.common.annotations.VisibleForTesting
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.DurationInt
@@ -169,7 +168,7 @@ final class SandboxServer(config: SandboxConfig) extends AutoCloseable {
     } yield materializer
   }
 
-  @VisibleForTesting
+  // Visible so we can test that we drop the reference properly in ResetServiceIT.
   @volatile
   private[sandbox] var sandboxState: Future[SandboxState] =
     start()(DirectExecutionContext)
