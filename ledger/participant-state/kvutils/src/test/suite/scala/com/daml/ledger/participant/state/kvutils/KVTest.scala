@@ -32,6 +32,8 @@ object KVTest {
 
   type KVTest[A] = State[KVTestState, A]
 
+  private val defaultAdditionalContractDataTy = "Party"
+
   def initialTestState: KVTestState =
     KVTestState(
       engine = Engine(),
@@ -45,18 +47,23 @@ object KVTest {
   def runTest[A](test: KVTest[A]): A =
     test.eval(initialTestState)
 
-  def runTestWithSimplePackage[A](parties: Party*)(test: KVTest[A]): A =
+  def runTestWithPackage[A](additionalContractDataTy: String, parties: Party*)(test: KVTest[A]): A =
     (for {
-      _ <- uploadSimpleArchive
+      _ <- uploadArchive(additionalContractDataTy)
       _ <- parties.toList.map(p => allocateParty(p, p)).sequenceU
       r <- test
     } yield r).eval(initialTestState)
 
-  def uploadSimpleArchive: KVTest[Unit] =
+  def runTestWithSimplePackage[A](parties: Party*)(test: KVTest[A]): A =
+    runTestWithPackage(defaultAdditionalContractDataTy, parties:_*)(test)
+
+  def uploadArchive(additionalContractDataTy: String): KVTest[Unit] =
     for {
-      archiveLogEntry <- submitArchives("simple-archive-submission", simpleArchive).map(_._2)
+      archiveLogEntry <- submitArchives("simple-archive-submission", archive(additionalContractDataTy)).map(_._2)
       _ = assert(archiveLogEntry.getPayloadCase == DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_ENTRY)
     } yield ()
+
+  def uploadSimpleArchive: KVTest[Unit] = uploadArchive(defaultAdditionalContractDataTy)
 
   def freshEntryId: KVTest.KVTest[DamlLogEntryId] =
     for {
@@ -147,7 +154,7 @@ object KVTest {
 
   val minMRTDelta: Duration = theDefaultConfig.timeModel.minTtl
 
-  def runCommand(submitter: Party, cmds: Command*): KVTest[SubmittedTransaction] =
+  def runCommand(submitter: Party, additionalContractDataTy: String, cmds: Command*): KVTest[SubmittedTransaction] =
     for {
       s <- get[KVTestState]
       tx = s.engine
@@ -167,13 +174,16 @@ object KVTest {
                 Conversions.decodeContractInstance(v.getContractState.getContractInstance)
               }
           }, { pkgId =>
-            Some(simpleDecodedPackage)
+            Some(decodedPackage(additionalContractDataTy))
           }, { _ =>
             sys.error("no keys")
           }
         )
         .getOrElse(sys.error("Engine.submit fail"))
     } yield tx
+
+  def runSimpleCommand(submitter: Party, cmds: Command*): KVTest[SubmittedTransaction] =
+    runCommand(submitter, defaultAdditionalContractDataTy, cmds:_*)
 
   def submitTransaction(
       submitter: Party,

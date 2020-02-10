@@ -18,20 +18,23 @@ import org.scalatest.{Matchers, WordSpec}
 import scala.util.Try
 
 class KVUtilsPackageSpec extends WordSpec with Matchers with BazelRunfiles {
+
   import KVTest._
   import TestHelpers._
 
-  val darReader = DarReader { case (_, is) => Try(DamlLf.Archive.parseFrom(is)) }
+  private val darReader = DarReader { case (_, is) => Try(DamlLf.Archive.parseFrom(is)) }
 
-  val testStablePackages =
+  private val testStablePackages =
     darReader.readArchiveFromFile(new File(rlocation("ledger/test-common/Test-stable.dar"))).get
+
+  private val simpleArchive = archive("Party")
 
   "packages" should {
     "be able to submit simple package" in KVTest.runTest {
       for {
         // NOTE(JM): 'runTest' always uploads 'simpleArchive' by default.
         logEntry <- submitArchives("simple-archive-submission-1", simpleArchive).map(_._2)
-        archiveState <- getDamlState(Conversions.packageStateKey(simplePackageId))
+        archiveState <- getDamlState(Conversions.packageStateKey(packageId("Party")))
 
         // Submit again and verify that the uploaded archive didn't appear again.
         logEntry2 <- submitArchives("simple-archive-submission-2", simpleArchive)
