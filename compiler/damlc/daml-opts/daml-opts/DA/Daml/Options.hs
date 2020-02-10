@@ -10,6 +10,7 @@
 module DA.Daml.Options
     ( toCompileOpts
     , generatePackageState
+    , fakeDynFlags
     , PackageDynFlags(..)
     ) where
 
@@ -19,9 +20,11 @@ import Data.IORef
 import Data.List
 import DynFlags (parseDynamicFilePragma)
 import qualified Data.Text as T
+import Config (cProjectVersion)
 import qualified Platform as P
 import qualified EnumSet
 import GHC                         hiding (convertLit)
+import GHC.Fingerprint (fingerprint0)
 import GHC.LanguageExtensions.Type
 import GhcMonad
 import GhcPlugins as GHC hiding (fst3, (<>))
@@ -34,7 +37,7 @@ import qualified DA.Daml.LF.Ast.Version as LF
 import DA.Bazel.Runfiles
 import DA.Daml.Options.Types
 import DA.Daml.Preprocessor
-import Development.IDE.GHC.Util
+import Development.IDE.GHC.Util hiding (fakeDynFlags)
 import qualified Development.IDE.Types.Options as Ghcide
 
 -- | Convert to ghcide’s IdeOptions type.
@@ -123,6 +126,29 @@ setPackageImports hideAllPkgs pkgImports dflags = dflags {
                       then Opt_HideAllPackages `EnumSet.insert` generalFlags dflags
                       else generalFlags dflags
     }
+
+-- | fakeDynFlags that we can use as input for `initDynFlags`.
+fakeDynFlags :: DynFlags
+fakeDynFlags = defaultDynFlags
+                  settings
+                  mempty
+    where
+        settings = Settings
+                   { sTargetPlatform = platform
+                   , sPlatformConstants = platformConstants
+                   , sProgramName = "ghc"
+                   , sProjectVersion = cProjectVersion
+                   , sOpt_P_fingerprint = fingerprint0
+                   }
+        platform = P.Platform
+          { platformWordSize=8
+          , platformOS=P.OSUnknown
+          , platformUnregisterised=True
+          }
+        platformConstants = PlatformConstants
+          { pc_DYNAMIC_BY_DEFAULT=False
+          , pc_WORD_SIZE=8
+          }
 
 -- | Like 'runGhc' but much faster (400x), with less IO and no file dependency
 runGhcFast :: GHC.Ghc a -> IO a

@@ -18,7 +18,6 @@ import Data.Maybe
 import Data.Either
 import qualified Data.NameMap as NM
 import qualified Data.Text as T
-import Development.IDE.GHC.Util
 import Development.IDE.Types.Location
 import Safe
 import System.FilePath
@@ -40,6 +39,7 @@ import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.Ast.Type as LF
 import qualified DA.Daml.LF.TypeChecker.Check as LF
 import qualified DA.Daml.LF.TypeChecker.Env as LF
+import DA.Daml.Options
 
 import DA.Daml.Preprocessor.Generics
 import SdkVersion
