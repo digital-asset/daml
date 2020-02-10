@@ -35,7 +35,7 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest {
       .map {
         case Ctx(
             context @ RetryInfo(_, _, _, status),
-            SubmitRequest(Some(Commands(_, _, _, commandId, _, let, _, _)), tc)) =>
+            SubmitRequest(Some(Commands(_, _, _, commandId, _, let, _, _, _)), tc)) =>
           if (let.get.seconds == 0) {
             Ctx(context, Completion(commandId, Some(status), traceContext = tc))
           } else {

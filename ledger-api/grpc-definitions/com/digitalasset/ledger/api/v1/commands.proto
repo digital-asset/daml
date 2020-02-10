@@ -58,6 +58,12 @@ message Commands {
   // Required
   repeated Command commands = 8;
 
+  // The time to live (TTL), in seconds.
+  // In the time window between the first submission of a command and TTL seconds later,
+  // all commands with the same application ID and command ID will be deduplicated, i.e.,
+  // at most one of these commands will have an effect on the ledger.
+  // Optional
+  uint64 ttl = 9;
 }
 
 // A command can either create a new contract or exercise a choice on an existing contract.
