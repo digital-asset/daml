@@ -8,7 +8,7 @@ import java.util.concurrent.atomic.AtomicReference
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.index.v2.PackageDetails
+import com.daml.ledger.participant.state.index.v2.{CommandSubmissionResult, PackageDetails}
 import com.daml.ledger.participant.state.v1.{
   ApplicationId => _,
   LedgerId => _,
@@ -41,6 +41,7 @@ import com.digitalasset.platform.sandbox.stores.ledger.Ledger
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.digitalasset.platform.store.Contract.ActiveContract
 import com.digitalasset.platform.store.entries.{
+  CommandDeduplicationEntry,
   ConfigurationEntry,
   LedgerEntry,
   PackageLedgerEntry,
@@ -102,6 +103,8 @@ class InMemoryLedger(
   private var acs = acs0
   private var deduplicator = Deduplicator()
   private var ledgerConfiguration: Option[Configuration] = None
+  private var commands: scala.collection.mutable.Map[String, CommandDeduplicationEntry] =
+    scala.collection.mutable.Map.empty
 
   override def completions(
       beginInclusive: Option[Long],
@@ -386,4 +389,33 @@ class InMemoryLedger(
       .getSource(startInclusive, None)
       .collect { case (offset, InMemoryConfigEntry(entry)) => offset -> entry }
 
+  override def deduplicateCommand(
+      deduplicationKey: String,
+      submittedAt: Instant,
+      ttl: Instant): Future[Option[CommandDeduplicationEntry]] =
+    Future.successful(this.synchronized {
+      commands
+        .get(deduplicationKey)
+        .fold[Option[CommandDeduplicationEntry]] {
+          commands += (deduplicationKey -> CommandDeduplicationEntry(
+            deduplicationKey,
+            submittedAt,
+            ttl,
+            None))
+          None
+        }(ce => Some(ce))
+    })
+
+  override def updateCommandResult(
+      deduplicationKey: String,
+      submittedAt: Instant,
+      result: CommandSubmissionResult): Future[Unit] =
+    Future.successful(this.synchronized {
+      commands
+        .get(deduplicationKey)
+        .foreach(cde =>
+          if (cde.submittedAt == submittedAt)
+            commands.update(deduplicationKey, cde.copy(result = Some(result))))
+      ()
+    })
 }
