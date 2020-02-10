@@ -39,6 +39,7 @@ import com.digitalasset.platform.store.Conversions._
 import com.digitalasset.platform.store.dao.JdbcLedgerDao.{H2DatabaseQueries, PostgresQueries}
 import com.digitalasset.platform.store.entries.LedgerEntry.Transaction
 import com.digitalasset.platform.store.entries.{
+  CommandDeduplicationEntry,
   ConfigurationEntry,
   LedgerEntry,
   PackageLedgerEntry,
@@ -1627,6 +1628,115 @@ private class JdbcLedgerDao(
       }
     }
   }
+
+  private val SQL_REMOVE_OLD_COMMAND = SQL(
+    """
+      |delete from participant_commands
+      |where deduplication_key = {deduplicationKey} and {submittedAt} < ttl
+    """.stripMargin)
+
+  private val SQL_SELECT_COMMAND = SQL(
+    """
+      |select submitted_at, ttl, success, error
+      |from participant_commands
+      |where deduplication_key = {deduplicationKey} and {submittedAt} < ttl
+    """.stripMargin)
+
+  private val SQL_INSERT_COMMAND = SQL(
+    """
+      |insert into participant_commands(deduplication_key, submitted_at, ttl)
+      |values ({deduplicationKey}, {submittedAt}, {ttl})
+    """.stripMargin)
+
+  case class ParsedCommandData(
+      submittedAt: Instant,
+      ttl: Instant,
+      success: Option[Boolean],
+      error: Option[String])
+
+  private val CommandDataParser: RowParser[ParsedCommandData] =
+    Macro.parser[ParsedCommandData](
+      "submitted_at",
+      "ttl",
+      "success",
+      "error"
+    )
+
+  override def deduplicateCommand(
+      deduplicationKey: String,
+      submittedAt: Instant,
+      ttl: Instant): Future[Option[CommandDeduplicationEntry]] =
+    dbDispatcher.executeSql("deduplicate_command") { implicit conn =>
+      // Remove expired deduplication rows
+      SQL_REMOVE_OLD_COMMAND
+        .on("deduplicationKey" -> deduplicationKey, "submittedAt" -> submittedAt)
+        .execute()
+
+      // Try to insert a new deduplication row.
+      // If the row already exists and the insert fails, select the existing row.
+      Try(
+        SQL_INSERT_COMMAND
+          .on("deduplicationKey" -> deduplicationKey, "submittedAt" -> submittedAt, "ttl" -> ttl)
+          .execute()
+      ).fold(
+        _ =>
+          Try(
+            SQL_SELECT_COMMAND
+              .on("deduplicationKey" -> deduplicationKey, "submittedAt" -> submittedAt)
+              .as(CommandDataParser.single)
+          ).fold(
+            error => sys.error(s"Could not find deduplication data: $error"), {
+              case ParsedCommandData(originalSubmittedAt, originalTtl, None, None) =>
+                Some(
+                  CommandDeduplicationEntry(
+                    deduplicationKey,
+                    originalSubmittedAt,
+                    originalTtl,
+                    None))
+              case ParsedCommandData(originalSubmittedAt, originalTtl, Some(true), None) =>
+                Some(
+                  CommandDeduplicationEntry(
+                    deduplicationKey,
+                    originalSubmittedAt,
+                    originalTtl,
+                    Some(Right(()))))
+              case ParsedCommandData(originalSubmittedAt, originalTtl, Some(false), Some(error)) =>
+                Some(
+                  CommandDeduplicationEntry(
+                    deduplicationKey,
+                    originalSubmittedAt,
+                    originalTtl,
+                    Some(Left(error))))
+              case data =>
+                sys.error(s"Invalid command deduplication row $data")
+            }
+        ),
+        _ => None
+      )
+    }
+
+  private val SQL_UPDATE_COMMAND = SQL(
+    """
+      |update participant_commands
+      |set success={success}, error={error}
+      |where deduplication_key={deduplicationKey} and submitted_at={submittedAt}
+    """.stripMargin)
+
+  override def updateCommandResult(
+      deduplicationKey: String,
+      submittedAt: Instant,
+      result: Either[String, Unit]): Future[Unit] =
+    dbDispatcher.executeSql("deduplicate_command") { implicit conn =>
+      SQL_UPDATE_COMMAND
+        .on(
+          "deduplicationKey" -> deduplicationKey,
+          "submittedAt" -> submittedAt,
+          "success" -> result.isRight,
+          "error" -> result.fold(Some(_), _ => None)
+        )
+        .execute()
+      ()
+    }
 
   private val SQL_TRUNCATE_ALL_TABLES =
     SQL("""
