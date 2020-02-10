@@ -193,7 +193,6 @@ class JdbcLedgerDaoSpec
           externalOffset,
           PersistenceEntry.Transaction(
             transaction,
-            Map.empty,
             Map(
               absCid -> Set(
                 Ref.Party.assertFromString("Alice"),
@@ -498,7 +497,7 @@ class JdbcLedgerDaoSpec
           offset,
           offset + 1,
           None,
-          PersistenceEntry.Transaction(transaction, Map.empty, Map.empty, List.empty))
+          PersistenceEntry.Transaction(transaction, Map.empty, List.empty))
         entry <- ledgerDao.lookupLedgerEntry(offset)
         endingOffset <- ledgerDao.lookupLedgerEnd()
       } yield {
@@ -555,7 +554,7 @@ class JdbcLedgerDaoSpec
           offset,
           offset + 1,
           None,
-          PersistenceEntry.Transaction(transaction, Map.empty, Map.empty, List.empty))
+          PersistenceEntry.Transaction(transaction, Map.empty, List.empty))
         entry <- ledgerDao.lookupLedgerEntry(offset)
         endingOffset <- ledgerDao.lookupLedgerEnd()
       } yield {
@@ -644,7 +643,7 @@ class JdbcLedgerDaoSpec
             offset,
             offset + 1,
             None,
-            PersistenceEntry.Transaction(t, Map.empty, Map.empty, List.empty))
+            PersistenceEntry.Transaction(t, Map.empty, List.empty))
           .map(_ => ())
       }
 
@@ -656,7 +655,7 @@ class JdbcLedgerDaoSpec
             offset,
             offset + 1,
             None,
-            PersistenceEntry.Transaction(t, Map.empty, Map.empty, List.empty))
+            PersistenceEntry.Transaction(t, Map.empty, List.empty))
           .map(_ => ())
       }
 
@@ -805,7 +804,6 @@ class JdbcLedgerDaoSpec
           Map((s"event$id": EventId) -> Set(party))
         ),
         Map.empty,
-        Map.empty,
         List.empty
       )
 
@@ -848,7 +846,6 @@ class JdbcLedgerDaoSpec
           Map((s"event$id": EventId) -> Set(party))
         ),
         Map.empty,
-        Map.empty,
         List.empty
       )
 
@@ -879,7 +876,6 @@ class JdbcLedgerDaoSpec
           Map((s"event$id": EventId) -> Set(party))
         ),
         Map.empty,
-        Map.empty,
         List.empty
       )
 
@@ -909,7 +905,6 @@ class JdbcLedgerDaoSpec
           ),
           Map((s"event$id": EventId) -> Set(party))
         ),
-        Map.empty,
         Map.empty,
         List.empty
       )
@@ -1101,6 +1096,56 @@ class JdbcLedgerDaoSpec
         res1 shouldBe a[LedgerEntry.Transaction]
         res2 shouldBe a[LedgerEntry.Transaction]
         res3 shouldBe a[LedgerEntry.Rejection]
+      }
+    }
+
+    "be able to use divulged contract in later transaction" in {
+      val let = Instant.now
+      val offset1 = nextOffset()
+      val offset2 = nextOffset()
+      val offset3 = nextOffset()
+      def emptyTxWithDivulgedContracts(id: Long) = PersistenceEntry.Transaction(
+        LedgerEntry.Transaction(
+          Some(s"commandId$id"),
+          s"transactionId$id",
+          Some("applicationId"),
+          Some(alice),
+          Some("workflowId"),
+          let,
+          let,
+          GenTransaction(HashMap.empty, ImmArray.empty, None),
+          Map.empty
+        ),
+        Map(AbsoluteContractId(s"contractId$id") -> Set(bob)),
+        List(AbsoluteContractId(s"contractId$id") -> someContractInstance)
+      )
+
+      for {
+        // First try and index a transaction fetching a completely unknown contract.
+        _ <- ledgerDao.storeLedgerEntry(offset1, offset1 + 1, None, txFetch(let, offset1, bob, 0))
+        res1 <- ledgerDao.lookupLedgerEntryAssert(offset1)
+
+        // Then index a transaction that just divulges the contract to bob.
+        _ <- ledgerDao.storeLedgerEntry(
+          offset2,
+          offset2 + 1,
+          None,
+          emptyTxWithDivulgedContracts(offset2))
+        res2 <- ledgerDao.lookupLedgerEntryAssert(offset2)
+
+        // Finally try and fetch the divulged contract. LedgerDao should be able to look up the divulged contract
+        // and index the transaction without finding the contract metadata (LET) for it, as long as the contract
+        // exists in contract_data.
+        _ <- ledgerDao.storeLedgerEntry(
+          offset3,
+          offset3 + 1,
+          None,
+          txFetch(let.plusSeconds(1), offset3, bob, offset2))
+        res3 <- ledgerDao.lookupLedgerEntryAssert(offset3)
+      } yield {
+        res1 shouldBe a[LedgerEntry.Rejection]
+        res2 shouldBe a[LedgerEntry.Transaction]
+        res3 shouldBe a[LedgerEntry.Transaction]
       }
     }
   }

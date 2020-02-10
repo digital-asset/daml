@@ -161,7 +161,6 @@ case class InMemoryActiveLedgerState(
       submitter: Option[Party],
       transaction: GenTransaction.WithTxValue[EventId, AbsoluteContractId],
       disclosure: Relation[EventId, Party],
-      localDivulgence: Relation[EventId, Party],
       globalDivulgence: Relation[AbsoluteContractId, Party],
       referencedContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)]
   ): Either[Set[SequencingError], InMemoryActiveLedgerState] =
@@ -172,7 +171,6 @@ case class InMemoryActiveLedgerState(
       submitter,
       transaction,
       disclosure,
-      localDivulgence,
       globalDivulgence,
       referencedContracts)
 

@@ -25,6 +25,7 @@ import GHC.Generics (Generic)
 import "ghc-lib-parser" Module (UnitId)
 import Development.IDE.Core.Service.Daml
 
+import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
 import Development.IDE.Core.RuleTypes
 
@@ -56,7 +57,11 @@ type instance RuleResult GeneratePackage = WhnfPackage
 type instance RuleResult GenerateRawPackage = WhnfPackage
 type instance RuleResult GeneratePackageDeps = WhnfPackage
 
-
+newtype GeneratePackageMapFun = GeneratePackageMapFun (FilePath -> Action ([FileDiagnostic], Map UnitId LF.DalfPackage))
+instance Show GeneratePackageMapFun where show _ = "GeneratePackageMapFun"
+instance NFData GeneratePackageMapFun where rnf !_ = ()
+-- | This matches how GhcSessionIO is handled in ghcide.
+type instance RuleResult GeneratePackageMapIO = GeneratePackageMapFun
 type instance RuleResult GeneratePackageMap = Map UnitId LF.DalfPackage
 type instance RuleResult GenerateStablePackages = Map (UnitId, LF.ModuleName) LF.DalfPackage
 
@@ -153,6 +158,11 @@ data GeneratePackageMap = GeneratePackageMap
 instance Binary   GeneratePackageMap
 instance Hashable GeneratePackageMap
 instance NFData   GeneratePackageMap
+
+data GeneratePackageMapIO = GeneratePackageMapIO deriving (Eq, Show, Typeable, Generic)
+instance Hashable GeneratePackageMapIO
+instance NFData   GeneratePackageMapIO
+instance Binary   GeneratePackageMapIO
 
 data GenerateStablePackages = GenerateStablePackages
    deriving (Eq, Show, Typeable, Generic)

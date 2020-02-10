@@ -23,10 +23,15 @@ private[testtool] final class LedgerSession(
       .sequence(config.participants.map {
         case (host, port) =>
           participantSessionManager.getOrCreate(
-            ParticipantSessionConfiguration(host, port, config.ssl, config.commandTtlFactor),
+            ParticipantSessionConfiguration(
+              host,
+              port,
+              config.ssl,
+              config.commandTtlFactor,
+              config.waitForParties),
           )
       })
-      .map(sessions => sessions.map(endpointIdProvider() -> _))
+      .map(_.map(endpointIdProvider() -> _))
 
   private[testtool] def createTestContext(
       applicationId: String,
@@ -34,10 +39,13 @@ private[testtool] final class LedgerSession(
   ): Future[LedgerTestContext] =
     participantSessions.flatMap { sessions =>
       Future
-        .sequence(sessions.map {
-          case (endpointId, session) =>
-            session.createTestContext(endpointId, applicationId, identifierSuffix)
-        })
+        .sequence(
+          (if (config.shuffleParticipants) scala.util.Random.shuffle(sessions) else sessions)
+            .map {
+              case (endpointId, session) =>
+                session.createTestContext(endpointId, applicationId, identifierSuffix)
+            }
+        )
         .map(new LedgerTestContext(_))
     }
 

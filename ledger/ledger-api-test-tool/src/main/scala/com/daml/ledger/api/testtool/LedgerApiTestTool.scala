@@ -109,9 +109,11 @@ object LedgerApiTestTool {
     val runner = new LedgerTestSuiteRunner(
       LedgerSessionConfiguration(
         config.participants,
+        config.shuffleParticipants,
         config.tlsConfig,
         config.commandSubmissionTtlScaleFactor,
         config.loadScaleFactor,
+        config.waitForParties
       ),
       testsToRun.values.toVector,
       identifierSuffix,

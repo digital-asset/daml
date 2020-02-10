@@ -36,7 +36,7 @@ onCommand ide execParsms = case execParsms of
             Just mod -> do
                     logInfo (ideLogger ide) "Generating visualization for current daml project"
                     WhnfPackage package <- runAction ide (use_ GeneratePackage mod)
-                    pkgMap <- runAction ide (useNoFile_ GeneratePackageMap)
+                    pkgMap <- runAction ide (use_ GeneratePackageMap mod)
                     let modules = NM.toList $ LF.packageModules package
                     let extpkgs = map LF.dalfPackagePkg $ Map.elems pkgMap
                     let wrld = LF.initWorldSelf extpkgs package

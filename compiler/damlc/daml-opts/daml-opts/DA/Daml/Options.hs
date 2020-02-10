@@ -10,18 +10,27 @@
 module DA.Daml.Options
     ( toCompileOpts
     , generatePackageState
+    , fakeDynFlags
+    , findProjectRoot
+    , memoIO
     , PackageDynFlags(..)
     ) where
 
-import Control.Monad
+import Control.Exception
+import Control.Concurrent.Extra
+import Control.Monad.Extra
 import qualified CmdLineParser as Cmd (warnMsg)
 import Data.IORef
 import Data.List
 import DynFlags (parseDynamicFilePragma)
+import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
+import Config (cProjectVersion)
+import Development.Shake (Action)
 import qualified Platform as P
 import qualified EnumSet
 import GHC                         hiding (convertLit)
+import GHC.Fingerprint (fingerprint0)
 import GHC.LanguageExtensions.Type
 import GhcMonad
 import GhcPlugins as GHC hiding (fst3, (<>))
@@ -32,9 +41,11 @@ import System.FilePath
 import qualified DA.Daml.LF.Ast.Version as LF
 
 import DA.Bazel.Runfiles
+import DA.Daml.Project.Consts
+import DA.Daml.Project.Util
 import DA.Daml.Options.Types
 import DA.Daml.Preprocessor
-import Development.IDE.GHC.Util
+import Development.IDE.GHC.Util hiding (fakeDynFlags)
 import qualified Development.IDE.Types.Options as Ghcide
 
 -- | Convert to ghcide’s IdeOptions type.
@@ -42,14 +53,7 @@ toCompileOpts :: Options -> Ghcide.IdeReportProgress -> Ghcide.IdeOptions
 toCompileOpts options@Options{..} reportProgress =
     Ghcide.IdeOptions
       { optPreprocessor = if optIsGenerated then generatedPreprocessor else damlPreprocessor optMbPackageName
-      , optGhcSession = do
-            env <- runGhcFast $ do
-                setupDamlGHC options
-                GHC.getSession
-            pkg <- generatePackageState optDamlLfVersion optPackageDbs optHideAllPkgs optPackageImports
-            dflags <- checkDFlags options $ setPackageDynFlags pkg $ hsc_dflags env
-            hscenv <- newHscEnvEq env{hsc_dflags = dflags}
-            return $ const $ return hscenv
+      , optGhcSession = getDamlGhcSession options
       , optPkgLocationOpts = Ghcide.IdePkgLocationOptions
           { optLocateHieFile = locateInPkgDb "hie"
           , optLocateSrcFile = locateInPkgDb "daml"
@@ -75,6 +79,48 @@ toCompileOpts options@Options{..} reportProgress =
                 else Nothing
       | otherwise = pure Nothing
 
+getDamlGhcSession :: Options -> IO (FilePath -> Action HscEnvEq)
+getDamlGhcSession options@Options{..} = do
+    findProjectRoot <- memoIO findProjectRoot
+    getSession <- memoIO $ \mbProjectRoot -> do
+        env <- runGhcFast $ do
+            setupDamlGHC options
+            GHC.getSession
+        pkg <- generatePackageState optDamlLfVersion mbProjectRoot optPackageDbs optHideAllPkgs optPackageImports
+        dflags <- checkDFlags options $ setPackageDynFlags pkg $ hsc_dflags env
+        newHscEnvEq env{hsc_dflags = dflags}
+    pure $ \file -> liftIO $ getSession =<< findProjectRoot file
+
+-- | Find the daml.yaml given a starting file or directory.
+findProjectRoot :: FilePath -> IO (Maybe FilePath)
+findProjectRoot file = do
+    isFile <- doesFileExist (takeDirectory file)
+    let dir = if isFile then takeDirectory file else file
+    findM hasProjectConfig (ascendants dir)
+  where
+    hasProjectConfig :: FilePath -> IO Bool
+    hasProjectConfig p = doesFileExist (p </> projectConfigName)
+
+
+-- | Memoize an IO function, with the characteristics:
+--
+--   * If multiple people ask for a result simultaneously, make sure you only compute it once.
+--
+--   * If there are exceptions, repeatedly reraise them.
+--
+--   * If the caller is aborted (async exception) finish computing it anyway.
+--
+-- This matches the memoIO function in ghcide.
+memoIO :: Ord a => (a -> IO b) -> IO (a -> IO b)
+memoIO op = do
+    ref <- newVar Map.empty
+    return $ \k -> join $ mask_ $ modifyVar ref $ \mp ->
+        case Map.lookup k mp of
+            Nothing -> do
+                res <- onceFork $ op k
+                return (Map.insert k res mp, res)
+            Just res -> return (mp, res)
+
 -- | The subset of @DynFlags@ computed by package initialization.
 data PackageDynFlags = PackageDynFlags
     { pdfPkgDatabase :: !(Maybe [(FilePath, [PackageConfig])])
@@ -96,9 +142,9 @@ getPackageDynFlags DynFlags{..} = PackageDynFlags
     , pdfThisUnitIdInsts = thisUnitIdInsts_
     }
 
-generatePackageState :: LF.Version -> [FilePath] -> Bool -> [PackageFlag] -> IO PackageDynFlags
-generatePackageState lfVersion paths hideAllPkgs pkgImports = do
-  versionedPaths <- getPackageDbs lfVersion paths
+generatePackageState :: LF.Version -> Maybe FilePath -> [FilePath] -> Bool -> [PackageFlag] -> IO PackageDynFlags
+generatePackageState lfVersion mbProjRoot paths hideAllPkgs pkgImports = do
+  versionedPaths <- getPackageDbs lfVersion mbProjRoot paths
   let dflags = setPackageImports hideAllPkgs pkgImports $ setPackageDbs versionedPaths fakeDynFlags
   (newDynFlags, _) <- initPackages dflags
   pure $ getPackageDynFlags newDynFlags
@@ -123,6 +169,29 @@ setPackageImports hideAllPkgs pkgImports dflags = dflags {
                       then Opt_HideAllPackages `EnumSet.insert` generalFlags dflags
                       else generalFlags dflags
     }
+
+-- | fakeDynFlags that we can use as input for `initDynFlags`.
+fakeDynFlags :: DynFlags
+fakeDynFlags = defaultDynFlags
+                  settings
+                  mempty
+    where
+        settings = Settings
+                   { sTargetPlatform = platform
+                   , sPlatformConstants = platformConstants
+                   , sProgramName = "ghc"
+                   , sProjectVersion = cProjectVersion
+                   , sOpt_P_fingerprint = fingerprint0
+                   }
+        platform = P.Platform
+          { platformWordSize=8
+          , platformOS=P.OSUnknown
+          , platformUnregisterised=True
+          }
+        platformConstants = PlatformConstants
+          { pc_DYNAMIC_BY_DEFAULT=False
+          , pc_WORD_SIZE=8
+          }
 
 -- | Like 'runGhc' but much faster (400x), with less IO and no file dependency
 runGhcFast :: GHC.Ghc a -> IO a

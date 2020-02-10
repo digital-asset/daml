@@ -10,14 +10,13 @@ import akka.stream.Materializer
 import com.digitalasset.http.EndpointsCompanion._
 import com.digitalasset.http.domain.{JwtPayload, SearchForeverRequest}
 import com.digitalasset.http.json.{DomainJsonDecoder, DomainJsonEncoder, JsonProtocol, SprayJson}
-import ContractsFetch.InsertDeleteStep
 import com.digitalasset.http.LedgerClientJwt.Terminates
 import util.ApiValueToLfValueConverter.apiValueToLfValue
 import util.Collections._
+import util.InsertDeleteStep
 import json.JsonProtocol.LfValueCodec.{apiValueToJsValue => lfValueToJsValue}
 import query.ValuePredicate.{LfV, TypeLookup}
 import com.digitalasset.jwt.domain.Jwt
-import com.digitalasset.ledger.api.{v1 => api}
 import com.typesafe.scalalogging.LazyLogging
 import scalaz.{-\/, Liskov, NonEmptyList, Show, \/, \/-}
 import Liskov.<~<
@@ -55,23 +54,24 @@ object WebSocketService {
 
   private final case class StepAndErrors[+Pos, +LfV](
       errors: Seq[ServerError],
-      step: InsertDeleteStep[(domain.ActiveContract[LfV], Pos)]) {
+      step: InsertDeleteStep[domain.ArchivedContract, (domain.ActiveContract[LfV], Pos)]) {
     import json.JsonProtocol._, spray.json._
     def render(implicit lfv: LfV <~< JsValue, pos: Pos <~< Map[String, JsValue]): JsValue = {
       def inj[V: JsonWriter](ctor: String, v: V) = JsObject(ctor -> v.toJson)
       val thisw =
         Liskov.lift2[StepAndErrors, Pos, Map[String, JsValue], LfV, JsValue](pos, lfv)(this)
-      JsArray(
-        step.deletes.iterator.map(inj("archived", _)).toVector
+      val events = JsArray(
+        step.deletes.valuesIterator.map(inj("archived", _)).toVector
           ++ thisw.step.inserts.map {
             case (ac, pos) =>
               val acj = inj("created", ac)
               acj copy (fields = acj.fields ++ pos)
           } ++ errors.map(e => inj("error", e.message)))
+      JsObject(("events", events))
     }
 
     def append[P >: Pos, A >: LfV](o: StepAndErrors[P, A]): StepAndErrors[P, A] =
-      StepAndErrors(errors ++ o.errors, step.appendWithCid(o.step)(_._1.contractId.unwrap))
+      StepAndErrors(errors ++ o.errors, step append o.step)
 
     def mapLfv[A](f: LfV => A): StepAndErrors[Pos, A] =
       copy(step = step mapPreservingIds (_ leftMap (_ map f)))
@@ -318,9 +318,9 @@ class WebSocketService(
       .scan((Set.empty[String], Option.empty[StepAndErrors[A, B]])) {
         case ((s0, _), a0) =>
           val newInserts: Vector[String] = a0.step.inserts.map(_._1.contractId.unwrap)
-          val (deletesToKeep, s0WithoutDeletesToKeep) = s0 partition a0.step.deletes
-          val s1: Set[String] = s0WithoutDeletesToKeep ++ newInserts
-          val a1 = a0.copy(step = a0.step.copy(deletes = deletesToKeep))
+          val (deletesToEmit, deletesToHold) = s0 partition a0.step.deletes.keySet
+          val s1: Set[String] = deletesToHold ++ newInserts
+          val a1 = a0.copy(step = a0.step.copy(deletes = a0.step.deletes filterKeys deletesToEmit))
 
           (s1, if (a1.nonEmpty) Some(a1) else None)
       }
@@ -340,9 +340,9 @@ class WebSocketService(
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def convertFilterContracts[Pos](fn: domain.ActiveContract[LfV] => Option[Pos])
-    : Flow[InsertDeleteStep[api.event.CreatedEvent], StepAndErrors[Pos, JsValue], NotUsed] =
+    : Flow[InsertDeleteStep.LAV1, StepAndErrors[Pos, JsValue], NotUsed] =
     Flow
-      .fromFunction { step: InsertDeleteStep[api.event.CreatedEvent] =>
+      .fromFunction { step: InsertDeleteStep.LAV1 =>
         val (errors, cs) = step.inserts
           .partitionMap { ce =>
             domain.ActiveContract
@@ -350,11 +350,20 @@ class WebSocketService(
               .liftErr(ServerError)
               .flatMap(_.traverse(apiValueToLfValue).liftErr(ServerError))
           }
+        val (aerrors, archs) = step.deletes
+          .partitionMap {
+            case (k, ae) =>
+              domain.ArchivedContract
+                .fromLedgerApi(ae)
+                .liftErr(ServerError)
+                .map((k, _))
+          }
         StepAndErrors(
-          errors,
+          errors ++ aerrors,
           step copy (inserts = (cs: Vector[domain.ActiveContract[LfV]]).flatMap { ac =>
             fn(ac).map((ac, _)).toList
-          }))
+          }, deletes = archs)
+        )
       }
       .via(conflation)
       .map(_ mapLfv lfValueToJsValue)

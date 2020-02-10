@@ -617,55 +617,12 @@ private class JdbcLedgerDao(
         )
       }
 
-      // Part 3: insert divulgences into the 'contract_divulgences' table
-      val hasNonLocalDivulgence =
-        contracts.exists(c => c.divulgences.exists(d => d._2 != c.transactionId))
-      if (hasNonLocalDivulgence) {
-        // There is at least one contract that was divulged to some party after it was commited.
-        // This happens when writing contracts produced by the scenario loader.
-        // Since we only have the transaction IDs when the contract was divulged, we need to look up the corresponding
-        // ledger offsets.
-        val namedDivulgenceParams = contracts
-          .flatMap(
-            c =>
-              c.divulgences.map(
-                w =>
-                  Seq[NamedParameter](
-                    "contract_id" -> c.id.coid,
-                    "party" -> w._1,
-                    "transaction_id" -> w._2
-                ))
-          )
-          .toArray
-
-        if (!namedDivulgenceParams.isEmpty) {
-          executeBatchSql(
-            queries.SQL_BATCH_INSERT_DIVULGENCES_FROM_TRANSACTION_ID,
-            namedDivulgenceParams
-          )
-        }
-      } else {
-        val namedDivulgenceParams = contracts
-          .flatMap(
-            c =>
-              c.divulgences.map(
-                w =>
-                  Seq[NamedParameter](
-                    "contract_id" -> c.id.coid,
-                    "party" -> w._1,
-                    "ledger_offset" -> offset,
-                    "transaction_id" -> c.transactionId
-                ))
-          )
-          .toArray
-
-        if (!namedDivulgenceParams.isEmpty) {
-          executeBatchSql(
-            queries.SQL_BATCH_INSERT_DIVULGENCES,
-            namedDivulgenceParams
-          )
-        }
-      }
+      // Part 3: formerly: insert divulgences into the 'contract_divulgences' table
+      assert(
+        contracts.forall(_.divulgences.isEmpty),
+        "Encountered non-empty local divulgence. This is a bug!")
+      // when storing contracts, the `divulgences` field is only used to store local divulgences.
+      // since local divulgences in a committed transaction are non-existent, there is nothing to do here.
 
       // Part 4: insert key maintainers into the 'contract_key_maintainers' table
       val namedKeyMaintainerParams = contracts
@@ -763,7 +720,6 @@ private class JdbcLedgerDao(
       offset: Long,
       submitter: Option[Party],
       tx: Transaction,
-      localDivulgence: Relation[EventId, Party],
       globalDivulgence: Relation[AbsoluteContractId, Party],
       divulgedContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)])(
       implicit connection: Connection): Option[RejectionReason] = tx match {
@@ -850,7 +806,6 @@ private class JdbcLedgerDao(
         submitter,
         transaction,
         disclosure,
-        localDivulgence,
         globalDivulgence,
         divulgedContracts
       )
@@ -952,11 +907,7 @@ private class JdbcLedgerDao(
 
     def insertEntry(le: PersistenceEntry)(implicit conn: Connection): PersistenceResponse =
       le match {
-        case PersistenceEntry.Transaction(
-            tx,
-            localDivulgence,
-            globalDivulgence,
-            divulgedContracts) =>
+        case PersistenceEntry.Transaction(tx, globalDivulgence, divulgedContracts) =>
           Try {
             storeTransaction(offset, tx, txBytes)
 
@@ -967,7 +918,6 @@ private class JdbcLedgerDao(
               offset,
               tx.submittingParty,
               tx,
-              localDivulgence,
               globalDivulgence,
               divulgedContracts)
               .flatMap { rejectionReason =>
@@ -1219,18 +1169,21 @@ private class JdbcLedgerDao(
     ~ str("signatories").?
     ~ str("observers").? map flatten)
 
-  private val ContractLetParser = (ledgerString("id")
-    ~ date("effective_at").? map flatten)
-
   private val SQL_SELECT_CONTRACT =
     SQL(queries.SQL_SELECT_CONTRACT)
 
+  private val ContractLetParser = date("effective_at").?
+
   private val SQL_SELECT_CONTRACT_LET =
     SQL("""
-        |select c.id, le.effective_at
-        |from contracts c
+        |select cd.id, le.effective_at
+        |from contract_data cd
+        |left join contracts c on c.id=cd.id
         |left join ledger_entries le on c.transaction_id = le.transaction_id
-        |where c.id={contract_id} and c.archive_offset is null""".stripMargin)
+        |where
+        |  cd.id={contract_id} and
+        |  (le.effective_at is null or c.archive_offset is null)
+        | """.stripMargin)
 
   private val SQL_SELECT_WITNESS =
     SQL("select witness from contract_witnesses where contract_id={contract_id}")
@@ -1262,8 +1215,8 @@ private class JdbcLedgerDao(
       .on("contract_id" -> contractId.coid)
       .as(ContractLetParser.singleOpt)
       .map {
-        case (_, None) => LetUnknown
-        case (_, Some(let)) => Let(let.toInstant)
+        case None => LetUnknown
+        case Some(let) => Let(let.toInstant)
       }
 
   override def lookupActiveOrDivulgedContract(
@@ -1416,7 +1369,6 @@ private class JdbcLedgerDao(
       filter: TemplateAwareFilter): Future[LedgerSnapshot] = {
 
     def orEmptyStringList(xs: Seq[String]) = if (xs.nonEmpty) xs else List("")
-
     val contractStream =
       PaginatingAsyncStream(PageSize, executionContext) { queryOffset =>
         dbDispatcher.executeSql(

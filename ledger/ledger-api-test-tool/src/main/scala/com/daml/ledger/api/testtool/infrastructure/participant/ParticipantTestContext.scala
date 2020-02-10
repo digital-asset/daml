@@ -100,6 +100,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
     referenceOffset: LedgerOffset,
     services: LedgerServices,
     ttl: Duration,
+    waitForPartiesEnabled: Boolean
 )(implicit ec: ExecutionContext) {
 
   import ParticipantTestContext._
@@ -210,21 +211,26 @@ private[testtool] final class ParticipantTestContext private[participant] (
   def waitForParties(
       otherParticipants: Iterable[ParticipantTestContext],
       expectedParties: Set[Party],
-  ): Future[Unit] = eventually {
-    val participants = otherParticipants.toSet + this
-    Future
-      .sequence(participants.map(otherParticipant => {
-        otherParticipant
-          .listParties()
-          .map(actualParties => {
-            assert(
-              expectedParties.subsetOf(actualParties),
-              s"Parties from $this never appeared on $otherParticipant.",
-            )
-          })
-      }))
-      .map(_ => ())
-  }
+  ): Future[Unit] =
+    if (waitForPartiesEnabled) {
+      eventually {
+        val participants = otherParticipants.toSet + this
+        Future
+          .sequence(participants.map(otherParticipant => {
+            otherParticipant
+              .listParties()
+              .map { actualParties =>
+                assert(
+                  expectedParties.subsetOf(actualParties),
+                  s"Parties from $this never appeared on $otherParticipant.",
+                )
+              }
+          }))
+          .map(_ => ())
+      }
+    } else {
+      Future.successful(())
+    }
 
   def activeContracts(
       request: GetActiveContractsRequest,

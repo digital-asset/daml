@@ -29,7 +29,7 @@ import Data.Maybe
 import Data.Set (Set)
 import qualified Data.Set as Set
 import qualified Data.Text.Extended as T
-import Development.IDE.Core.Rules (useNoFileE)
+import Development.IDE.Core.Rules (useE, useNoFileE)
 import Development.IDE.Core.Service (runActionSync)
 import Development.IDE.Types.Location
 import "ghc-lib-parser" Module (UnitId, primUnitId, stringToUnitId, unitIdString,)
@@ -69,9 +69,8 @@ import SdkVersion
 --   ledger. Based on the DAML-LF we generate dummy interface files
 --   and then remap references to those dummy packages to the original DAML-LF
 --   package id.
-createProjectPackageDb ::
-       Options -> PackageSdkVersion -> [FilePath] -> [FilePath] -> IO ()
-createProjectPackageDb opts thisSdkVer deps dataDeps = do
+createProjectPackageDb :: NormalizedFilePath -> Options -> PackageSdkVersion -> [FilePath] -> [FilePath] -> IO ()
+createProjectPackageDb projectRoot opts thisSdkVer deps dataDeps = do
     let dbPath = projectPackageDatabase </> lfVersionString (optDamlLfVersion opts)
     -- Since we reinitialize the whole package db anyway,
     -- during `daml init`, we clear the package db before to avoid
@@ -103,7 +102,7 @@ createProjectPackageDb opts thisSdkVer deps dataDeps = do
     loggerH <- getLogger opts "generate package maps"
     mbRes <- withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> runActionSync ide $ runMaybeT $
         (,) <$> useNoFileE GenerateStablePackages
-            <*> useNoFileE GeneratePackageMap
+            <*> useE GeneratePackageMap  projectRoot
     (stablePkgs, dependencies) <- maybe (fail "Failed to generate package info") pure mbRes
     let stablePkgIds :: Set LF.PackageId
         stablePkgIds = Set.fromList $ map LF.dalfPackageId $ MS.elems stablePkgs

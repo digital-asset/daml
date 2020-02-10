@@ -121,8 +121,7 @@ if [[ $(uname -v) =~ 'Ubuntu' ]]; then
     (
         export LC_ALL=C
         unset NIX_PATH
-        # Work around sporadic segfaults. See https://github.com/digital-asset/daml/pull/4427
-        out=$(nix-build --option http2 false --no-out-link -Q "${DADE_DEVENV_DIR}/../nix" -I "${TMP_NIX_PATH}" -A pkgs.glibcLocales)
+        out=$(nix-build --no-out-link -Q "${DADE_DEVENV_DIR}/../nix" -I "${TMP_NIX_PATH}" -A pkgs.glibcLocales)
         echo "export LOCALE_ARCHIVE=\"${out}/lib/locale/locale-archive\""
     )
 fi
