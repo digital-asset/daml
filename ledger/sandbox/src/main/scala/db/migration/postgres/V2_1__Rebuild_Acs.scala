@@ -22,7 +22,7 @@ import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
 import com.digitalasset.ledger.api.domain.RejectionReason
 import com.digitalasset.ledger.api.domain.RejectionReason._
-import com.digitalasset.ledger.{ApplicationId, CommandId, EventId, WorkflowId}
+import com.digitalasset.ledger.{ApplicationId, CommandId, WorkflowId}
 import com.digitalasset.platform.events.EventIdFormatter
 import com.digitalasset.platform.store.Contract.ActiveContract
 import com.digitalasset.platform.store.Conversions._
@@ -325,7 +325,6 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
   private def updateActiveContractSet(
       offset: Long,
       tx: LedgerEntry.Transaction,
-      localDivulgence: Relation[EventId, Party],
       globalDivulgence: Relation[AbsoluteContractId, Party])(
       implicit connection: Connection): Unit = tx match {
     case LedgerEntry.Transaction(
@@ -404,7 +403,6 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
         tx.submittingParty,
         transaction,
         mappedDisclosure,
-        localDivulgence,
         globalDivulgence,
         List.empty
       )
@@ -704,15 +702,8 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
               .mapNodeId(EventIdFormatter.split(_).get.nodeId)
 
             val blindingInfo = Blinding.blind(unmappedTx)
-            val mappedLocalDivulgence = blindingInfo.localDivulgence.map {
-              case (k, v) => EventIdFormatter.fromTransactionId(tx.transactionId, k) -> v
-            }
 
-            updateActiveContractSet(
-              offset,
-              tx,
-              mappedLocalDivulgence,
-              blindingInfo.globalDivulgence)
+            updateActiveContractSet(offset, tx, blindingInfo.globalDivulgence)
           })
       }
     })

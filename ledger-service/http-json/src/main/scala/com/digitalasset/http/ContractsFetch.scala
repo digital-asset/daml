@@ -28,6 +28,7 @@ import com.digitalasset.http.json.JsonProtocol.LfValueDatabaseCodec.{
   apiValueToJsValue => lfValueToDbJsValue,
 }
 import com.digitalasset.http.util.IdentifierConverters.apiIdentifier
+import util.InsertDeleteStep
 import com.digitalasset.util.ExceptionOps._
 import com.digitalasset.jwt.domain.Jwt
 import com.digitalasset.ledger.api.v1.transaction.Transaction
@@ -40,7 +41,7 @@ import scalaz.syntax.show._
 import scalaz.syntax.tag._
 import scalaz.syntax.functor._
 import scalaz.syntax.std.option._
-import scalaz.{-\/, Liskov, \/, \/-}
+import scalaz.{-\/, \/, \/-}
 import spray.json.{JsNull, JsValue}
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.Liskov.<~<
@@ -152,15 +153,12 @@ private class ContractsFetch(
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def jsonifyInsertDeleteStep(
-      a: InsertDeleteStep[lav1.event.CreatedEvent],
-  ): InsertDeleteStep[PreInsertContract] = {
-    import scalaz.syntax.traverse._
-    InsertDeleteStep(
-      a.inserts traverse prepareCreatedEventStorage fold (e => throw e, identity),
-      a.deletes,
-    )
-  }
+      a: InsertDeleteStep[Any, lav1.event.CreatedEvent],
+  ): InsertDeleteStep[Unit, PreInsertContract] =
+    a.leftMap(_ => ())
+      .mapPreservingIds(prepareCreatedEventStorage(_) valueOr (e => throw e))
 
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def contractsFromOffsetIo(
       jwt: Jwt,
       party: domain.Party,
@@ -286,14 +284,14 @@ private[http] object ContractsFetch {
   /** Plan inserts, deletes from an in-order batch of create/archive events. */
   private def partitionInsertsDeletes(
       txes: Traversable[lav1.event.Event],
-  ): InsertDeleteStep[lav1.event.CreatedEvent] = {
+  ): InsertDeleteStep.LAV1 = {
     val csb = Vector.newBuilder[lav1.event.CreatedEvent]
-    val asb = Set.newBuilder[String]
+    val asb = Map.newBuilder[String, lav1.event.ArchivedEvent]
     import lav1.event.Event
     import Event.Event._
     txes foreach {
       case Event(Created(c)) => discard { csb += c }
-      case Event(Archived(a)) => discard { asb += a.contractId }
+      case Event(Archived(a)) => discard { asb += ((a.contractId, a)) }
       case Event(Empty) => () // nonsense
     }
     val as = asb.result()
@@ -328,17 +326,15 @@ private[http] object ContractsFetch {
   ): Graph[
     FanOutShape2[
       lav1.active_contracts_service.GetActiveContractsResponse,
-      InsertDeleteStep[
-        lav1.event.CreatedEvent,
-      ],
+      InsertDeleteStep.LAV1,
       BeginBookmark[String]],
     NotUsed] =
     GraphDSL.create() { implicit b =>
       import GraphDSL.Implicits._
       val acs = b add acsAndBoundary
       val txns = b add transactionsFollowingBoundary(transactionsSince)
-      val allSteps = b add Concat[InsertDeleteStep[lav1.event.CreatedEvent]](2)
-      discard { acs.out0.map(sce => InsertDeleteStep(sce.toVector, Set.empty)) ~> allSteps }
+      val allSteps = b add Concat[InsertDeleteStep.LAV1](2)
+      discard { acs.out0.map(sce => InsertDeleteStep(sce.toVector, Map.empty)) ~> allSteps }
       discard { allSteps <~ txns.out0 }
       discard { acs.out1 ~> txns.in }
       new FanOutShape2(acs.in, allSteps.out, txns.out1)
@@ -353,7 +349,7 @@ private[http] object ContractsFetch {
   ): Graph[
     FanOutShape2[
       BeginBookmark[String],
-      InsertDeleteStep[lav1.event.CreatedEvent],
+      InsertDeleteStep.LAV1,
       BeginBookmark[String],
     ],
     NotUsed] =
@@ -365,7 +361,7 @@ private[http] object ContractsFetch {
       val txns = Flow[Off]
         .flatMapConcat(off => transactionsSince(domain.Offset.tag.subst(off).toLedgerApi))
         .map(transactionToInsertsAndDeletes)
-      val txnSplit = b add project2[InsertDeleteStep[lav1.event.CreatedEvent], domain.Offset]
+      val txnSplit = b add project2[InsertDeleteStep.LAV1, domain.Offset]
       val lastOff = b add last(LedgerBegin: Off)
       discard { dupOff ~> txns ~> txnSplit.in }
       discard { dupOff ~> mergeOff ~> lastOff }
@@ -399,7 +395,7 @@ private[http] object ContractsFetch {
 
   private def transactionToInsertsAndDeletes(
       tx: lav1.transaction.Transaction,
-  ): (InsertDeleteStep[lav1.event.CreatedEvent], domain.Offset) = {
+  ): (InsertDeleteStep.LAV1, domain.Offset) = {
     val offset = domain.Offset.fromLedgerApi(tx)
     (partitionInsertsDeletes(tx.events), offset)
   }
@@ -438,14 +434,14 @@ private[http] object ContractsFetch {
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def insertAndDelete(
-      step: InsertDeleteStep[PreInsertContract],
+      step: InsertDeleteStep[Any, PreInsertContract],
   )(implicit log: doobie.LogHandler): ConnectionIO[Unit] = {
     import doobie.implicits._, cats.syntax.functor._
     surrogateTemplateIds(step.inserts.iterator.map(_.templateId).toSet).flatMap { stidMap =>
       import cats.syntax.apply._, cats.instances.vector._, scalaz.std.set._
       import json.JsonProtocol._
       import doobie.postgres.implicits._
-      (Queries.deleteContracts(step.deletes) *>
+      (Queries.deleteContracts(step.deletes.keySet) *>
         Queries.insertContracts(
           step.inserts map (
               dbc =>
@@ -457,35 +453,6 @@ private[http] object ContractsFetch {
           )
         ))
     }.void
-  }
-
-  final case class InsertDeleteStep[+C](inserts: Vector[C], deletes: Set[String]) {
-    @SuppressWarnings(Array("org.wartremover.warts.Any"))
-    def append[CC >: C](
-        o: InsertDeleteStep[CC],
-    )(implicit cid: CC <~< DBContract[Any, Any, Any, Any]): InsertDeleteStep[CC] =
-      appendWithCid(o)(
-        Liskov.contra1_2[Function1, DBContract[Any, Any, Any, Any], CC, String](cid)(_.contractId),
-      )
-
-    def appendWithCid[CC >: C](o: InsertDeleteStep[CC])(cid: CC => String): InsertDeleteStep[CC] =
-      InsertDeleteStep(
-        InsertDeleteStep.appendForgettingDeletes(inserts, o)(cid),
-        deletes union o.deletes,
-      )
-
-    def nonEmpty: Boolean = inserts.nonEmpty || deletes.nonEmpty
-
-    /** Results undefined if cid(d) != cid(c) */
-    def mapPreservingIds[D](f: C => D): InsertDeleteStep[D] = copy(inserts = inserts map f)
-  }
-
-  object InsertDeleteStep {
-    def appendForgettingDeletes[C](leftInserts: Vector[C], right: InsertDeleteStep[C])(
-        cid: C => String,
-    ): Vector[C] =
-      (if (right.deletes.isEmpty) leftInserts
-       else leftInserts.filter(c => !right.deletes(cid(c)))) ++ right.inserts
   }
 
   private def transactionFilter(

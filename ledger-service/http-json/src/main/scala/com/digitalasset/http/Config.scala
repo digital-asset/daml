@@ -150,7 +150,8 @@ private[http] object JdbcConfig extends ConfigCompanion[JdbcConfig]("JdbcConfig"
     s"""\"driver=$driver,url=$url,user=$user,password=$password,createSchema=$createSchema\""""
 }
 
-private[http] final case class WebsocketConfig(
+// It is public for DABL
+final case class WebsocketConfig(
     maxDuration: FiniteDuration,
     throttleElem: Int,
     throttlePer: FiniteDuration,

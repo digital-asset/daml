@@ -84,7 +84,7 @@ class WebsocketServiceIntegrationTest
   private val collectResultsAsRawString: Sink[Message, Future[Seq[String]]] =
     Flow[Message].map(_.toString).filter(v => !(v contains "heartbeat")).toMat(Sink.seq)(Keep.right)
 
-  private def singleClientQueryStream(serviceUri: Uri, query: String) = {
+  private def singleClientQueryStream(serviceUri: Uri, query: String): Source[Message, NotUsed] = {
     val webSocketFlow = Http().webSocketClientFlow(
       WebSocketRequest(
         uri = serviceUri.copy(scheme = "ws").withPath(Uri.Path("/v1/stream/query")),
@@ -94,7 +94,9 @@ class WebsocketServiceIntegrationTest
       .via(webSocketFlow)
   }
 
-  private def singleClientFetchStream(serviceUri: Uri, request: String) = {
+  private def singleClientFetchStream(
+      serviceUri: Uri,
+      request: String): Source[Message, NotUsed] = {
     val webSocketFlow = Http().webSocketClientFlow(
       WebSocketRequest(
         uri = serviceUri.copy(scheme = "ws").withPath(Uri.Path("/v1/stream/fetch")),
@@ -253,23 +255,29 @@ class WebsocketServiceIntegrationTest
               }
             case (
                 GotAcs(consumedCtid),
-                evts @ ContractDelta(
+                evtsWrapper @ ContractDelta(
                   Vector((fstId, fst), (sndId, snd)),
                   Vector(observeConsumed))) =>
               Future {
-                observeConsumed should ===(consumedCtid)
+                observeConsumed.contractId should ===(consumedCtid)
                 Set(fstId, sndId, consumedCtid) should have size 3
-                inside(evts) {
-                  case JsArray(
-                      Vector(
-                        Archived(_, _),
-                        Created(IouAmount(amt1), MatchedQueries(NumList(ixes1), _)),
-                        Created(IouAmount(amt2), MatchedQueries(NumList(ixes2), _)))) =>
-                    Set((amt1, ixes1), (amt2, ixes2)) should ===(
-                      Set(
-                        (BigDecimal("42.42"), Vector(BigDecimal(0), BigDecimal(2))),
-                        (BigDecimal("957.57"), Vector(BigDecimal(1), BigDecimal(2))),
-                      ))
+                inside(evtsWrapper) {
+                  case JsObject(obj) =>
+                    inside(obj.toSeq) {
+                      case Seq(("events", array)) =>
+                        inside(array) {
+                          case JsArray(
+                              Vector(
+                                Archived(_, _),
+                                Created(IouAmount(amt1), MatchedQueries(NumList(ixes1), _)),
+                                Created(IouAmount(amt2), MatchedQueries(NumList(ixes2), _)))) =>
+                            Set((amt1, ixes1), (amt2, ixes2)) should ===(
+                              Set(
+                                (BigDecimal("42.42"), Vector(BigDecimal(0), BigDecimal(2))),
+                                (BigDecimal("957.57"), Vector(BigDecimal(1), BigDecimal(2))),
+                              ))
+                        }
+                    }
                 }
                 ShouldHaveEnded(2)
               }
@@ -317,8 +325,8 @@ class WebsocketServiceIntegrationTest
               ContractDelta(Vector(), Vector(observeArchivedCid))
               ) =>
             Future {
-              (observeArchivedCid: String) shouldBe (archivedCid: String)
-              (observeArchivedCid: String) shouldBe (cid1.unwrap: String)
+              (observeArchivedCid.contractId.unwrap: String) shouldBe (archivedCid: String)
+              (observeArchivedCid.contractId: domain.ContractId) shouldBe (cid1: domain.ContractId)
               ShouldHaveEnded(0)
             }
         }
@@ -403,9 +411,12 @@ object WebsocketServiceIntegrationTest {
 
   private object ContractDelta {
     private val tagKeys = Set("created", "archived", "error")
-    def unapply(jsv: JsValue): Option[(Vector[(String, JsValue)], Vector[String])] =
+    def unapply(
+        jsv: JsValue
+    ): Option[(Vector[(String, JsValue)], Vector[domain.ArchivedContract])] =
       for {
-        JsArray(sums) <- Some(jsv)
+        JsObject(eventsWrapper) <- Some(jsv)
+        JsArray(sums) <- eventsWrapper.get("events") if eventsWrapper.size == 1
         pairs = sums collect { case JsObject(fields) => fields.filterKeys(tagKeys).head }
         if pairs.length == sums.length
         sets = pairs groupBy (_._1)
@@ -415,7 +426,11 @@ object WebsocketServiceIntegrationTest {
       } yield
         (creates collect (Function unlift { add =>
           (add get "contractId" collect { case JsString(v) => v }) tuple (add get "payload")
-        }), sets.getOrElse("archived", Vector()) collect { case (_, JsString(cid)) => cid })
+        }), sets.getOrElse("archived", Vector()) collect {
+          case (_, adata) =>
+            import json.JsonProtocol.ArchivedContractFormat
+            adata.convertTo[domain.ArchivedContract]
+        })
   }
 
   private object IouAmount {

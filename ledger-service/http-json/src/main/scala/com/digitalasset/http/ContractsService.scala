@@ -7,7 +7,6 @@ import akka.NotUsed
 import akka.stream.scaladsl._
 import akka.stream.Materializer
 import com.digitalasset.daml.lf
-import com.digitalasset.http.ContractsFetch.InsertDeleteStep
 import com.digitalasset.http.LedgerClientJwt.Terminates
 import com.digitalasset.http.dbbackend.ContractDao
 import com.digitalasset.http.domain.{GetActiveContractsRequest, JwtPayload, TemplateId}
@@ -16,6 +15,7 @@ import com.digitalasset.http.query.ValuePredicate
 import com.digitalasset.http.util.ApiValueToLfValueConverter
 import com.digitalasset.http.util.FutureUtil.toFuture
 import util.Collections._
+import util.InsertDeleteStep
 import com.digitalasset.jwt.domain.Jwt
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => api}
@@ -23,7 +23,6 @@ import com.digitalasset.util.ExceptionOps._
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.syntax.show._
 import scalaz.syntax.std.option._
-import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 import scalaz.{-\/, Show, \/, \/-}
 import spray.json.JsValue
@@ -257,7 +256,7 @@ class ContractsService(
       }
       .fold(empty) {
         case ((errL, stepL), (errR, stepR)) =>
-          (errL ++ errR, appendForgettingDeletes(stepL, stepR)(_.contractId.unwrap))
+          (errL ++ errR, appendForgettingDeletes(stepL, stepR))
       }
       .mapConcat {
         case (err, inserts) =>
@@ -278,7 +277,7 @@ class ContractsService(
       party: lar.Party,
       templateIds: List[domain.TemplateId.RequiredPkg],
       terminates: Terminates = Terminates.AtLedgerEnd,
-  ): Source[InsertDeleteStep[api.event.CreatedEvent], NotUsed] = {
+  ): Source[InsertDeleteStep.LAV1, NotUsed] = {
 
     val txnFilter = util.Transactions.transactionFilterFor(party, templateIds)
     val source = getActiveContracts(jwt, txnFilter, true)

@@ -7,7 +7,6 @@ import com.daml.ledger.participant.state.v1.AbsoluteContractInst
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
-import com.digitalasset.ledger.EventId
 import com.digitalasset.platform.store.entries.LedgerEntry
 
 /**
@@ -24,7 +23,6 @@ object PersistenceEntry {
 
   final case class Transaction(
       entry: LedgerEntry.Transaction,
-      localDivulgence: Relation[EventId, Party],
       globalDivulgence: Relation[AbsoluteContractId, Party],
       divulgedContracts: List[(AbsoluteContractId, AbsoluteContractInst)]
   ) extends PersistenceEntry
