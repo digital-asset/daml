@@ -12,7 +12,7 @@ import scalaz.syntax.tag._
 import scala.runtime.AbstractFunction1
 
 private[http] final case class InsertDeleteStep[+D, +C](
-    inserts: Vector[C],
+    inserts: InsertDeleteStep.Inserts[C],
     deletes: Map[String, D]) {
   import InsertDeleteStep._
 
@@ -34,6 +34,9 @@ private[http] final case class InsertDeleteStep[+D, +C](
 private[http] object InsertDeleteStep {
   type LAV1 = InsertDeleteStep[evv1.ArchivedEvent, evv1.CreatedEvent]
 
+  type Inserts[+C] = Vector[C]
+  val Inserts: Vector.type = Vector
+
   abstract class Cid[-C] extends (C AbstractFunction1 String)
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
@@ -44,9 +47,9 @@ private[http] object InsertDeleteStep {
     // ofFst and ofSnd should *not* both be defined, being incoherent together
   }
 
-  def appendForgettingDeletes[D, C](leftInserts: Vector[C], right: InsertDeleteStep[Any, C])(
+  def appendForgettingDeletes[D, C](leftInserts: Inserts[C], right: InsertDeleteStep[Any, C])(
       implicit cid: Cid[C],
-  ): Vector[C] =
+  ): Inserts[C] =
     (if (right.deletes.isEmpty) leftInserts
      else leftInserts.filter(c => !right.deletes.isDefinedAt(cid(c)))) ++ right.inserts
 }
