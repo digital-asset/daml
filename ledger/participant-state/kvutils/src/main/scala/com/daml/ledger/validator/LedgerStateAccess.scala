@@ -15,7 +15,7 @@ trait LedgerStateAccess {
   def inTransaction[T](body: LedgerStateOperations => Future[T]): Future[T]
 
   /**
-    * @return  participant's ID from which the backing store is being accessed from
+    * @return ID of the participant accessing the backing store.
     */
   def participantId: String
 }
