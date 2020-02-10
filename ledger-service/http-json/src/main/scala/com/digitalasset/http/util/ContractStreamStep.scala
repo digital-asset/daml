@@ -2,6 +2,13 @@ package com.digitalasset.http
 package util
 
 import InsertDeleteStep.{Cid, Inserts}
+import Collections._
+
+import scalaz.\/
+import scalaz.std.tuple._
+import scalaz.syntax.functor._
+
+import scala.collection.generic.CanBuildFrom
 
 private[http] sealed abstract class ContractStreamStep[+D, +C] extends Product with Serializable {
   import ContractStreamStep._
@@ -18,6 +25,19 @@ private[http] sealed abstract class ContractStreamStep[+D, +C] extends Product w
       case (Acs(_), LiveBegin) => this
       case (LiveBegin, LiveBegin) => LiveBegin // should never happen, but *shrug*
       case _ => Txn(toInsertDelete append o.toInsertDelete)
+    }
+
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
+  def partitionBimap[LD, DD, LC, CC, LDS, LCS](f: D => (LD \/ DD), g: C => (LC \/ CC))(
+      implicit LDS: CanBuildFrom[Map[String, D], LD, LDS],
+      LCS: CanBuildFrom[Inserts[C], LC, LCS],
+  ): (LDS, LCS, ContractStreamStep[DD, CC]) =
+    this match {
+      case Acs(inserts) =>
+        val (lcs, vcc) = inserts partitionMap g
+        (LDS().result(), lcs, Acs(vcc))
+      case LiveBegin => (LDS().result(), LCS().result(), LiveBegin)
+      case Txn(step) => step partitionBimap (f, g) map (Txn(_))
     }
 }
 
