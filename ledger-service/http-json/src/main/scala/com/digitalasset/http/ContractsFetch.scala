@@ -365,9 +365,11 @@ private[http] object ContractsFetch {
         .map(transactionToInsertsAndDeletes)
       val txnSplit = b add project2[InsertDeleteStep.LAV1, domain.Offset]
       val lastOff = b add last(LedgerBegin: Off)
-      discard { dupOff ~> txns ~> txnSplit.in }
-      discard { dupOff ~> mergeOff ~> lastOff }
+      // format: off
+      discard { txnSplit.in <~ txns <~ dupOff }
+      discard {                        dupOff                          ~> mergeOff ~> lastOff }
       discard { txnSplit.out1.map(off => AbsoluteBookmark(off.unwrap)) ~> mergeOff }
+      // format: on
       new FanOutShape2(dupOff.in, txnSplit.out0, lastOff.out)
     }
 
