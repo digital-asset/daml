@@ -830,6 +830,9 @@ HTTP Response
 Streaming API
 =============
 
+Two subprotocols must be passed with every request, as described in
+`Passing token with WebSockets <#passing-token-with-websockets>`__.
+
 Contracts Query Stream
 ----------------------
 
@@ -839,9 +842,6 @@ Contracts Query Stream
 
 List currently active contracts that match a given query, with
 continuous updates.
-
-Two subprotocols must be passed, as described in `Choosing a party
-<#choosing-a-party>`__.
 
 ``application/json`` body must be sent first, formatted according to the
 :doc:`search-query-language`::
@@ -1006,9 +1006,6 @@ Fetch by Key Contracts Stream
 - Protocol: ``WebSocket``
 
 List currently active contracts that match one of the given ``{templateId, key}`` pairs, with continuous updates.
-
-Similarly to `Contracts Query Stream`_, two subprotocols must be passed, as described in `Choosing a party
-<#choosing-a-party>`__.
 
 ``application/json`` body must be sent first, formatted according to the following rule:
 
