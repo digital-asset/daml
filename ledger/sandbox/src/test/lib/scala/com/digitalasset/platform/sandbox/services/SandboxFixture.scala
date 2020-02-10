@@ -23,6 +23,7 @@ import com.digitalasset.ledger.api.v1.ledger_identity_service.{
 import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc
 import com.digitalasset.ledger.client.services.testing.time.StaticTime
 import com.digitalasset.platform.common.LedgerIdMode
+import com.digitalasset.platform.sandbox.SandboxServer
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.services.time.TimeProviderType
 import com.google.common.util.concurrent.ThreadFactoryBuilder
@@ -103,21 +104,25 @@ trait SandboxFixture extends SuiteResource[Unit] with BeforeAndAfterAll {
 
   protected def channel: Channel = clientResource.value
 
-  protected lazy val serverResource = SandboxServerResource(config)
+  protected var serverResource: Resource[SandboxServer] = _
 
-  protected lazy val clientResource = new SandboxClientResource(() => getSandboxPort)
+  protected var clientResource: Resource[Channel] = _
 
   protected override lazy val suiteResource: Resource[Unit] = new Resource[Unit] {
     override val value: Unit = ()
 
     override def setup(): Unit = {
+      serverResource = SandboxServerResource(config)
       serverResource.setup()
+      clientResource = new SandboxClientResource(getSandboxPort)
       clientResource.setup()
     }
 
     override def close(): Unit = {
       clientResource.close()
+      clientResource = null
       serverResource.close()
+      serverResource = null
     }
   }
 }

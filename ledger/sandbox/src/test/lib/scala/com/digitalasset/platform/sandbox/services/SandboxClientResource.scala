@@ -13,7 +13,7 @@ import io.netty.channel.EventLoopGroup
 import io.netty.channel.nio.NioEventLoopGroup
 import io.netty.util.concurrent.DefaultThreadFactory
 
-class SandboxClientResource(port: () => Int) extends Resource[Channel] {
+class SandboxClientResource(port: Int) extends Resource[Channel] {
   @volatile
   private var eventLoopGroup: EventLoopGroup = _
   @volatile
@@ -24,7 +24,7 @@ class SandboxClientResource(port: () => Int) extends Resource[Channel] {
   override def setup(): Unit = {
     eventLoopGroup = createEventLoopGroup("api-client")
     val channelBuilder: NettyChannelBuilder = NettyChannelBuilder
-      .forAddress(new InetSocketAddress(InetAddress.getLoopbackAddress, port()))
+      .forAddress(new InetSocketAddress(InetAddress.getLoopbackAddress, port))
     channelBuilder.eventLoopGroup(eventLoopGroup)
     channelBuilder.usePlaintext()
     channelBuilder.directExecutor()

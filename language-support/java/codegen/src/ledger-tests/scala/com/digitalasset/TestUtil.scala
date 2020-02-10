@@ -45,8 +45,8 @@ object TestUtil {
       timeModel = TimeModel.reasonableDefault
     )
     val server = SandboxServerResource(config)
-    val client = new SandboxClientResource(() => server.value.port)
     server.setup()
+    val client = new SandboxClientResource(server.value.port)
     client.setup()
     try {
       testCode(client.value)
