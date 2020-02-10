@@ -12,6 +12,7 @@ import com.digitalasset.daml.lf.data.Ref.{LedgerString, Party}
 import com.digitalasset.daml.lf.data.Time
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.transaction._
+import com.digitalasset.daml.lf.transaction.VersionTimeline.Implicits._
 import com.digitalasset.daml.lf.value.Value.{
   AbsoluteContractId,
   ContractId,
@@ -263,15 +264,14 @@ private[state] object Conversions {
       identity,
     )
 
-  def contractIdStructOrStringToStateKey(
+  def contractIdStructOrStringToStateKey[A](
+      transactionVersion: TransactionVersion,
       entryId: DamlLogEntryId,
       coidString: String,
       coidStruct: ValueOuterClass.ContractId): DamlStateKey = {
-    val result =
-      if (coidString.isEmpty)
-        ValueCoder.CidDecoder.fromStruct(coidStruct.getContractId, coidStruct.getRelative)
-      else
-        ValueCoder.CidDecoder.fromString(coidString)
+
+    val result = ValueCoder
+      .decodeContractIdOrStruct(ValueCoder.CidDecoder, transactionVersion, coidString, coidStruct)
 
     result match {
       case Left(err) =>

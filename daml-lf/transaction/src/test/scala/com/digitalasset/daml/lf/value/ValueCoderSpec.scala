@@ -128,8 +128,14 @@ class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with P
       }
     }
 
-    "do ContractId in any ValueVersion" in forAll(coidValueGen, valueVersionGen())(
-      testRoundTripWithVersion,
+    "do ContractId V0 in any ValueVersion" in forAll(coidValueGenV0, valueVersionGen())(
+      testRoundTripWithVersion
+    )
+
+    "do ContractId in any ValueVersion > 1.7" in forAll(
+      coidValueGen,
+      valueVersionGen(ValueVersions.minContractIdV1))(
+      testRoundTripWithVersion
     )
 
     "do lists" in {

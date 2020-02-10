@@ -26,7 +26,7 @@ import scala.language.higherKinds
   * version picker uses the timeline in order to describe changes to
   * that same timeline.
   */
-private[digitalasset] object VersionTimeline {
+object VersionTimeline {
   import LanguageVersion.Minor.Dev
   import \&/.{Both, That, This}
 
@@ -74,7 +74,7 @@ private[digitalasset] object VersionTimeline {
       // supported by this release".
     )
 
-  def foldRelease[Z: Semigroup](
+  private[lf] def foldRelease[Z: Semigroup](
       av: Release,
   )(v: ValueVersion => Z, t: TransactionVersion => Z, l: LanguageVersion => Z): Z =
     av.bifoldMap(_.bifoldMap(v)(t))(l)
@@ -105,9 +105,9 @@ private[digitalasset] object VersionTimeline {
       ): Z =
         sv fold (_ fold (v, t), l)
 
-      def showsVersion: String = foldVersion(_.toString, _.toString, _.toString)
+      private[lf] def showsVersion: String = foldVersion(_.toString, _.toString, _.toString)
 
-      def precedes(ov: SpecifiedVersion): Boolean = releasePrecedes(sv, ov)
+      private[lf] def precedes(ov: SpecifiedVersion): Boolean = releasePrecedes(sv, ov)
     }
 
     implicit def `any to SVOps`[A: SubVersion](vv: A): SpecifiedVersionOps =
@@ -135,7 +135,9 @@ private[digitalasset] object VersionTimeline {
     * @note We do not know the relative ordering of unlisted versions; so
     *       the meaning of "no index" is not "equal" but undefined.
     */
-  def compareReleaseTime(left: SpecifiedVersion, right: SpecifiedVersion): Option[Ordering] =
+  private[lf] def compareReleaseTime(
+      left: SpecifiedVersion,
+      right: SpecifiedVersion): Option[Ordering] =
     (index get left, index get right) match {
       case (Some(ixl), Some(ixr)) =>
         import scalaz.std.anyVal._
@@ -158,10 +160,11 @@ private[digitalasset] object VersionTimeline {
       .getOrElse(sys.error("every SubVersion must have at least one entry in the timeline"))
 
   // not antisymmetric, as unknown versions can't be compared
-  def maxVersion[A](left: A, right: A)(implicit ev: SubVersion[A]): A =
+  private[lf] def maxVersion[A](left: A, right: A)(implicit ev: SubVersion[A]): A =
     if (releasePrecedes(ev.inject(left), ev.inject(right))) right else left
 
-  def latestWhenAllPresent[A](minimum: A, as: SpecifiedVersion*)(implicit A: SubVersion[A]): A = {
+  private[lf] def latestWhenAllPresent[A](minimum: A, as: SpecifiedVersion*)(
+      implicit A: SubVersion[A]): A = {
     import scalaz.std.anyVal._
     import scalaz.std.iterable._
     // None means "after the end"

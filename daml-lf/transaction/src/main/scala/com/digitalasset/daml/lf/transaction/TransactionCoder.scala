@@ -321,9 +321,11 @@ object TransactionCoder {
         for {
           ni <- nodeId
           protoCreate = protoNode.getCreate
-          c <- protoCreate.decodeContractIdOrStruct(decodeCid, txVersion)(
-            _.getContractId,
-            _.getContractIdStruct,
+          c <- ValueCoder.decodeContractIdOrStruct(
+            decodeCid,
+            txVersion,
+            protoCreate.getContractId,
+            protoCreate.getContractIdStruct,
           )
           ci <- decodeContractInstance(decodeCid, protoCreate.getContractInstance)
           stakeholders <- toPartySet(protoCreate.getStakeholdersList)
@@ -339,9 +341,11 @@ object TransactionCoder {
         for {
           ni <- nodeId
           templateId <- ValueCoder.decodeIdentifier(protoFetch.getTemplateId)
-          c <- protoFetch.decodeContractIdOrStruct(decodeCid, txVersion)(
-            _.getContractId,
-            _.getContractIdStruct,
+          c <- ValueCoder.decodeContractIdOrStruct(
+            decodeCid,
+            txVersion,
+            protoFetch.getContractId,
+            protoFetch.getContractIdStruct,
           )
           actingPartiesSet <- toPartySet(protoFetch.getActorsList)
           _ <- if ((txVersion precedes TransactionVersions.minFetchActors) && actingPartiesSet.nonEmpty)
@@ -395,9 +399,11 @@ object TransactionCoder {
           } else Right(None)
 
           ni <- nodeId
-          targetCoid <- protoExe.decodeContractIdOrStruct(decodeCid, txVersion)(
-            _.getContractId,
-            _.getContractIdStruct,
+          targetCoid <- ValueCoder.decodeContractIdOrStruct(
+            decodeCid,
+            txVersion,
+            protoExe.getContractId,
+            protoExe.getContractIdStruct,
           )
           children <- childrenOrError
           cv <- decodeValue(decodeCid, protoExe.getChosenValue)
@@ -445,9 +451,11 @@ object TransactionCoder {
           ni <- nodeId
           templateId <- ValueCoder.decodeIdentifier(protoLookupByKey.getTemplateId)
           key <- decodeKeyWithMaintainers(decodeCid, protoLookupByKey.getKeyWithMaintainers)
-          cid <- protoLookupByKey.decodeOptionalContractIdOrStruct(decodeCid, txVersion)(
-            _.getContractId,
-            _.getContractIdStruct,
+          cid <- ValueCoder.decodeOptionalContractIdOrStruct(
+            decodeCid,
+            txVersion,
+            protoLookupByKey.getContractId,
+            protoLookupByKey.getContractIdStruct,
           )
         } yield (ni, NodeLookupByKey[Cid, Value.VersionedValue[Cid]](templateId, None, key, cid))
       case NodeTypeCase.NODETYPE_NOT_SET => Left(DecodeError("Unset Node type"))
@@ -522,7 +530,7 @@ object TransactionCoder {
     })
   }
 
-  private def decodeVersion(vs: String): Either[DecodeError, TransactionVersion] =
+  def decodeVersion(vs: String): Either[DecodeError, TransactionVersion] =
     TransactionVersions
       .isAcceptedVersion(vs)
       .fold[Either[DecodeError, TransactionVersion]](

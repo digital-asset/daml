@@ -63,6 +63,7 @@ object LanguageVersion {
     val typeRep = v1_7
     val genMap = v1_dev
     val typeSynonyms = v1_dev
+    val scenarioMustFailAtMsg = v1_dev
 
     /** Unstable, experimental features. This should stay in 1.dev forever.
       * Features implemented with this flag should be moved to a separate

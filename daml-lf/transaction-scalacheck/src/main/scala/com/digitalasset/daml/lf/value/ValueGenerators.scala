@@ -1,7 +1,8 @@
 // Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.value
+package com.digitalasset.daml.lf
+package value
 
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data._
@@ -151,19 +152,31 @@ object ValueGenerators {
 
   def valueGenMapGen: Gen[ValueGenMap[ContractId]] = valueGenMapGen(0)
 
-  def coidGen: Gen[ContractId] = {
-    val genRel: Gen[ContractId] =
-      Arbitrary.arbInt.arbitrary.map(i => RelativeContractId(Tx.NodeId(i)))
-    val genAbs: Gen[ContractId] =
-      Gen.zip(Gen.alphaChar, Gen.alphaStr) map {
-        case (h, t) => AbsoluteContractId(toContractId(h +: t))
-      }
-    Gen.frequency((1, genRel), (3, genAbs))
+  private val genRel: Gen[ContractId] =
+    Arbitrary.arbInt.arbitrary.map(i => RelativeContractId(Tx.NodeId(i)))
+  private val genAbsV0: Gen[ContractId] =
+    Gen.zip(Gen.alphaChar, Gen.alphaStr) map {
+      case (h, t) => AbsoluteContractId(toContractId(h +: t))
+    }
+  private val genAbsV1: Gen[ContractId] = {
+    val random = crypto.Hash.secureRandom
+    Gen.alphaNumStr.map(
+      suffix =>
+        AbsoluteContractId(
+          Ref.ContractIdStringV1.assertFromString("$0" + random().toHexaString + suffix)))
   }
 
-  def coidValueGen: Gen[ValueContractId[ContractId]] = {
+  def coidGenV0: Gen[ContractId] =
+    Gen.frequency((1, genRel), (3, genAbsV0))
+
+  def coidValueGenV0: Gen[ValueContractId[ContractId]] =
+    coidGenV0.map(ValueContractId(_))
+
+  def coidGen: Gen[ContractId] =
+    Gen.frequency((2, genRel), (3, genAbsV0), (3, genAbsV1))
+
+  def coidValueGen: Gen[ValueContractId[ContractId]] =
     coidGen.map(ValueContractId(_))
-  }
 
   private def valueGen(nesting: Int): Gen[Value[ContractId]] = {
     Gen.sized(sz => {
