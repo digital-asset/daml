@@ -334,9 +334,7 @@ final class SandboxServer(config: SandboxConfig) extends AutoCloseable {
 
   }
 
-  private def start(port: Option[Port] = None)(
-      implicit executionContext: ExecutionContext
-  ): Future[SandboxState] = {
+  private def start()(implicit executionContext: ExecutionContext): Future[SandboxState] = {
     val packageStore = loadDamlPackages()
     for {
       metrics <- metricsResource.asFuture
@@ -347,7 +345,7 @@ final class SandboxServer(config: SandboxConfig) extends AutoCloseable {
         metrics,
         packageStore,
         SqlStartMode.ContinueIfExists,
-        currentPort = port,
+        currentPort = None,
       )
       new SandboxState(materializer, metrics, packageStore, apiServerResource)
     }
