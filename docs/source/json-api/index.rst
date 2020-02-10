@@ -188,9 +188,10 @@ normal requests.
 Passing token with WebSockets
 =============================
 
-WebSocket clients support a "subprotocols" argument; this is usually in
-a list form but occasionally in comma-separated form.  Check
-documentation for your WebSocket library of choice for details.
+WebSocket clients support a "subprotocols" argument (sometimes simply
+called "protocols"); this is usually in a list form but occasionally in
+comma-separated form.  Check documentation for your WebSocket library of
+choice for details.
 
 For HTTP JSON requests, you must pass two subprotocols:
 
