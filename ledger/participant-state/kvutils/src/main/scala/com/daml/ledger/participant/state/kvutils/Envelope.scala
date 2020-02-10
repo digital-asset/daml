@@ -113,6 +113,12 @@ object Envelope {
       case msg => Left(s"Expected state value, got ${msg.getClass}")
     }
 
+  def openStateValue(envelopeBytes: Array[Byte]): Either[String, Proto.DamlStateValue] =
+    open(envelopeBytes).flatMap {
+      case StateValueMessage(entry) => Right(entry)
+      case msg => Left(s"Expected state value, got ${msg.getClass}")
+    }
+
   private def compress(payload: ByteString): ByteString = {
     val out = ByteString.newOutput
     val gzipOut = new GZIPOutputStream(out)
