@@ -334,9 +334,11 @@ private[http] object ContractsFetch {
       val acs = b add acsAndBoundary
       val txns = b add transactionsFollowingBoundary(transactionsSince)
       val allSteps = b add Concat[InsertDeleteStep.LAV1](2)
-      discard { acs.out0.map(sce => InsertDeleteStep(sce.toVector, Map.empty)) ~> allSteps }
-      discard { allSteps <~ txns.out0 }
+      // format: off
+      discard { acs.out0.map(createdEventsIDS) ~> allSteps }
+      discard {             txns.out0          ~> allSteps }
       discard { acs.out1 ~> txns.in }
+      // format: on
       new FanOutShape2(acs.in, allSteps.out, txns.out1)
     }
 
@@ -368,6 +370,9 @@ private[http] object ContractsFetch {
       discard { txnSplit.out1.map(off => AbsoluteBookmark(off.unwrap)) ~> mergeOff }
       new FanOutShape2(dupOff.in, txnSplit.out0, lastOff.out)
     }
+
+  private[this] def createdEventsIDS[C](seq: Seq[C]): InsertDeleteStep[Nothing, C] =
+    InsertDeleteStep(seq.toVector, Map.empty)
 
   /** Split a series of ACS responses into two channels: one with contracts, the
     * other with a single result, the last offset.
