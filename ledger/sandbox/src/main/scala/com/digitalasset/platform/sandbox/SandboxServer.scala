@@ -70,6 +70,9 @@ object SandboxServer {
       override def acquire()(implicit executionContext: ExecutionContext): Resource[SandboxServer] =
         for {
           server <- ResourceOwner.forTryCloseable(() => Try(new SandboxServer(config))).acquire()
+          // Wait for the API server to start.
+          // We use the Future rather than the Resource to avoid holding onto the API server.
+          // Otherwise, we cause a memory leak upon reset.
           _ <- Resource.fromFuture(server.apiServer.map(_ => ()))
         } yield server
     }
@@ -168,7 +171,8 @@ final class SandboxServer(config: SandboxConfig) extends AutoCloseable {
     } yield materializer
   }
 
-  // Visible so we can test that we drop the reference properly in ResetServiceIT.
+  // We store a Future rather than a Resource to avoid keeping old resources around after a reset.
+  // It's package-private so we can test that we drop the reference properly in ResetServiceIT.
   @volatile
   private[sandbox] var sandboxState: Future[SandboxState] =
     start()(DirectExecutionContext)
@@ -176,6 +180,7 @@ final class SandboxServer(config: SandboxConfig) extends AutoCloseable {
   private def apiServer(implicit executionContext: ExecutionContext): Future[ApiServer] =
     sandboxState.flatMap(_.apiServer)
 
+  // Only used in testing; hopefully we can get rid of it soon.
   def port: Port =
     Await.result(portF(DirectExecutionContext), AsyncTolerance)
 
