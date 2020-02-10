@@ -41,7 +41,7 @@ private[http] sealed abstract class ContractStreamStep[+D, +C] extends Product w
     }
 }
 
-private[http] object ContractStreamStep {
+private[http] object ContractStreamStep extends WithLAV1[ContractStreamStep] {
   final case class Acs[+C](inserts: Inserts[C]) extends ContractStreamStep[Nothing, C]
   case object LiveBegin extends ContractStreamStep[Nothing, Nothing]
   final case class Txn[+D, +C](step: InsertDeleteStep[D, C]) extends ContractStreamStep[D, C]

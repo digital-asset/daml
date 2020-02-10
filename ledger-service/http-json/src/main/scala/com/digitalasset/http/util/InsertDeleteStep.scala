@@ -12,6 +12,7 @@ import scalaz.syntax.tag._
 
 import scala.collection.generic.CanBuildFrom
 import scala.runtime.AbstractFunction1
+import scala.language.higherKinds
 
 private[http] final case class InsertDeleteStep[+D, +C](
     inserts: InsertDeleteStep.Inserts[C],
@@ -46,9 +47,7 @@ private[http] final case class InsertDeleteStep[+D, +C](
   }
 }
 
-private[http] object InsertDeleteStep {
-  type LAV1 = InsertDeleteStep[evv1.ArchivedEvent, evv1.CreatedEvent]
-
+private[http] object InsertDeleteStep extends WithLAV1[InsertDeleteStep] {
   type Inserts[+C] = Vector[C]
   val Inserts: Vector.type = Vector
 
@@ -67,4 +66,8 @@ private[http] object InsertDeleteStep {
   ): Inserts[C] =
     (if (right.deletes.isEmpty) leftInserts
      else leftInserts.filter(c => !right.deletes.isDefinedAt(cid(c)))) ++ right.inserts
+}
+
+private[http] trait WithLAV1[F[_, _]] {
+  type LAV1 = F[evv1.ArchivedEvent, evv1.CreatedEvent]
 }

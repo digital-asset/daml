@@ -28,7 +28,7 @@ import com.digitalasset.http.json.JsonProtocol.LfValueDatabaseCodec.{
   apiValueToJsValue => lfValueToDbJsValue,
 }
 import com.digitalasset.http.util.IdentifierConverters.apiIdentifier
-import util.InsertDeleteStep
+import util.{ContractStreamStep, InsertDeleteStep}
 import com.digitalasset.util.ExceptionOps._
 import com.digitalasset.jwt.domain.Jwt
 import com.digitalasset.ledger.api.v1.transaction.Transaction
@@ -326,16 +326,19 @@ private[http] object ContractsFetch {
   ): Graph[
     FanOutShape2[
       lav1.active_contracts_service.GetActiveContractsResponse,
-      InsertDeleteStep.LAV1,
+      ContractStreamStep.LAV1,
       BeginBookmark[String]],
     NotUsed] =
     GraphDSL.create() { implicit b =>
       import GraphDSL.Implicits._
+      import ContractStreamStep.{LiveBegin, Txn}
       val acs = b add acsAndBoundary
+      val liveBegin = b add Source.single(ContractStreamStep.LiveBegin: ContractStreamStep.LAV1)
       val txns = b add transactionsFollowingBoundary(transactionsSince)
-      val allSteps = b add Concat[InsertDeleteStep.LAV1](2)
+      val allSteps = b add Concat[ContractStreamStep.LAV1](3)
       // format: off
       discard { acs.out0.map(createdEventsIDS) ~> allSteps }
+      discard { Source.single(LiveBegin)       ~> allSteps }
       discard {             txns.out0          ~> allSteps }
       discard { acs.out1 ~> txns.in }
       // format: on
