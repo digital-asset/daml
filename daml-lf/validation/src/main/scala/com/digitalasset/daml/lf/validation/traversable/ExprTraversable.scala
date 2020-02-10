@@ -105,6 +105,9 @@ private[validation] object ExprTraversable {
       case ScenarioMustFailAt(party, update, retType @ _) =>
         f(party)
         f(update)
+      case ScenarioMustFailAtMsg(party, update, retType @ _) =>
+        f(party)
+        f(update)
       case ScenarioPass(relTime) =>
         f(relTime)
       case ScenarioGetTime =>

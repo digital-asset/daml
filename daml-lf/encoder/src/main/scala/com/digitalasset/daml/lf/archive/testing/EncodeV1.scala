@@ -398,6 +398,9 @@ private[daml] class EncodeV1(val minor: LV.Minor) {
         case ScenarioMustFailAt(party, update, retType) =>
           builder.setMustFailAt(
             PLF.Scenario.Commit.newBuilder().setParty(party).setExpr(update).setRetType(retType))
+        case ScenarioMustFailAtMsg(party, update, retType) =>
+          builder.setMustFailAtMsg(
+            PLF.Scenario.Commit.newBuilder().setParty(party).setExpr(update).setRetType(retType))
         case ScenarioPass(relTime) =>
           builder.setPass(relTime)
         case ScenarioGetTime =>

@@ -9,6 +9,8 @@ module DA.Assert
   , assertBefore
   ) where
 
+import DA.Text qualified as T
+
 infix 4 ===
 infix 4 =/=
 
@@ -35,6 +37,13 @@ assertNotEq x y
 -- | Infix version of `assertNotEq`.
 (=/=) : (CanAbort m, Show a, Eq a) => a -> a -> m ()
 (=/=) = assertNotEq
+
+-- | Check if the first value is a prefix of the second value using `DA.Text.isPrefixOf`.
+-- If the prefix is not satisfied, fail with a message.
+assertPrefix : CanAbort m => Text -> Text -> m ()
+assertPrefix x y
+  | x `T.isPrefixOf` y = return ()
+  | otherwise = abort ("Failure, expected " <> show x <> " to be a prefix of " <> show y)
 
 -- | Check whether the given time is in the future. If it's not,
 -- abort with a message.

@@ -628,6 +628,11 @@ decodeScenario LF1.Scenario{..} = mayDecode "scenarioSum" scenarioSum $ \case
       <$> mayDecode "scenario_CommitRetType" scenario_CommitRetType decodeType
       <*> mayDecode "scenario_CommitParty" scenario_CommitParty decodeExpr
       <*> mayDecode "scenario_CommitExpr" scenario_CommitExpr decodeExpr
+  LF1.ScenarioSumMustFailAtMsg LF1.Scenario_Commit{..} ->
+    fmap EScenario $ SMustFailAtMsg
+      <$> mayDecode "scenario_CommitRetType" scenario_CommitRetType decodeType
+      <*> mayDecode "scenario_CommitParty" scenario_CommitParty decodeExpr
+      <*> mayDecode "scenario_CommitExpr" scenario_CommitExpr decodeExpr
   LF1.ScenarioSumPass delta ->
     EScenario . SPass <$> decodeExpr delta
   LF1.ScenarioSumGetTime LF1.Unit ->

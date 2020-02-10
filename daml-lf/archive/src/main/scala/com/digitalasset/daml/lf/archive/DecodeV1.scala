@@ -1123,6 +1123,13 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
             decodeExpr(commit.getExpr, definition),
             decodeType(commit.getRetType))
 
+        case PLF.Scenario.SumCase.MUSTFAILATMSG =>
+          val commit = lfScenario.getMustFailAtMsg
+          ScenarioMustFailAtMsg(
+            decodeExpr(commit.getParty, definition),
+            decodeExpr(commit.getExpr, definition),
+            decodeType(commit.getRetType))
+
         case PLF.Scenario.SumCase.BLOCK =>
           val block = lfScenario.getBlock
           ScenarioBlock(

@@ -750,6 +750,27 @@ private[lf] final case class Compiler(
           )
         }
 
+      case ScenarioMustFailAtMsg(partyE, updateE, _retType @ _) => {
+        // \token ->
+        //   let _ = $beginCommit <party> token
+        //       r = $catch (<updateE> token) true false
+        //   in $endCommit[mustFail = true] r token
+
+        withEnv { _ =>
+          env = env.incrPos // token
+          val party = translate(partyE)
+          env = env.incrPos // $beginCommit
+          val update = translate(updateE)
+
+          SEAbs(1) {
+            SELet(
+              SBSBeginCommit(optLoc)(party, SEVar(1)),
+              SECatch(SEApp(update, Array(SEVar(2))), SEValue.True, SEValue.False),
+            ) in SBSEndCommit(true)(SEVar(1), SEVar(3))
+          }
+        }
+      }
+
       case ScenarioGetTime =>
         SEGetTime
 

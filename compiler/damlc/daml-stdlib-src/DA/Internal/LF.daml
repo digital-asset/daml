@@ -213,12 +213,18 @@ class HasSubmit m cmds | m -> cmds, cmds -> m where
   -- It only succeeds if the submitting the transaction fails.
   submitMustFail : Party -> cmds a -> m ()
 
+  -- | The same semantics as `submitMustFail`, except the user initiated error triggered
+  -- via `abort` or `assert` is returned.
+  submitMustFailMsg : Party -> cmds a -> m Text
+
 instance HasSubmit Scenario Update where
   submit = primitive @"SCommit"
   submitMustFail = primitive @"SMustFailAt"
+  submitMustFailMsg = primitive @"SMustFailAtMsg"
 
 infixr 0 `submit`
 infixr 0 `submitMustFail`
+infixr 0 `submitMustFailMsg`
 
 -- | Declare you are building a scenario.
 scenario : Scenario a -> Scenario a

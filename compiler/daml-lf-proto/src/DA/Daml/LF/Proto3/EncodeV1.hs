@@ -685,6 +685,11 @@ encodeScenario = fmap (P.Scenario . Just) . \case
         scenario_CommitExpr <- encodeExpr smustFailAtExpr
         scenario_CommitRetType <- encodeType smustFailAtType
         pure $ P.ScenarioSumMustFailAt P.Scenario_Commit{..}
+    SMustFailAtMsg{..} -> do
+        scenario_CommitParty <- encodeExpr smustFailAtMsgParty
+        scenario_CommitExpr <- encodeExpr smustFailAtMsgExpr
+        scenario_CommitRetType <- encodeType smustFailAtMsgType
+        pure $ P.ScenarioSumMustFailAtMsg P.Scenario_Commit{..}
     SPass{..} ->
         P.ScenarioSumPass <$> encodeExpr' spassDelta
     SGetTime -> pure $ P.ScenarioSumGetTime P.Unit

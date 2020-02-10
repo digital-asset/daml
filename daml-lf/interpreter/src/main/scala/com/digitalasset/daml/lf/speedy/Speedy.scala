@@ -110,6 +110,8 @@ object Speedy {
        * been fully evaluated. If this is not null, then `ctrl` must be null.
        */
       var returnValue: SValue,
+      /* The error message contained within DamlEUserError should it exist */
+      var userErrorMessage: Option[String],
       /* Frame: to access values for a closure's free-vars. */
       var frame: Frame,
       /* Actuals: to access values for a function application's arguments. */
@@ -314,7 +316,13 @@ object Speedy {
           case SpeedyHungry(res: SResult) => result = res //stop
           case serr: SError =>
             serr match {
-              case _: SErrorDamlException if tryHandleException => () // outer loop will run again
+              case e: SErrorDamlException if tryHandleException => // outer loop will run again
+                e match {
+                    case DamlEUserError(message) =>
+                      userErrorMessage = Some(message)
+                      ()
+                    case _  => ()
+                }
               case _ => result = SResultError(serr) //stop
             }
           case ex: RuntimeException =>
@@ -536,6 +544,7 @@ object Speedy {
         validating = validating,
         ctrl = expr,
         returnValue = null,
+        userErrorMessage = None,
         frame = null,
         actuals = null,
         env = emptyEnv,

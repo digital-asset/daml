@@ -298,6 +298,11 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       case t ~ actor ~ upd => ScenarioMustFailAt(actor, upd, t)
     }
 
+  private lazy val scenarioMustFailAtMsg: Parser[Scenario] =
+    Id("must_fail_at_msg") ~>! argTyp ~ expr0 ~ expr0 ^^ {
+      case t ~ actor ~ upd => ScenarioMustFailAtMsg(actor, upd, t)
+    }
+
   private lazy val scenarioPass: Parser[Scenario] =
     Id("pass") ~>! expr0 ^^ { case offest => ScenarioPass(offest) }
 
@@ -317,6 +322,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       scenarioBlock |
       scenarioCommit |
       scenarioMustFailAt |
+      scenarioMustFailAtMsg |
       scenarioPass |
       scenarioGetTime |
       scenarioGetParty |

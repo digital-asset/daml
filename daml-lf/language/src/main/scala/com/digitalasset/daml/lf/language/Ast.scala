@@ -457,6 +457,7 @@ object Ast {
   final case class ScenarioBlock(bindings: ImmArray[Binding], body: Expr) extends Scenario
   final case class ScenarioCommit(partyE: Expr, updateE: Expr, retType: Type) extends Scenario
   final case class ScenarioMustFailAt(partyE: Expr, updateE: Expr, retType: Type) extends Scenario
+  final case class ScenarioMustFailAtMsg(partyE: Expr, updateE: Expr, retType: Type) extends Scenario
   final case class ScenarioPass(relTimeE: Expr) extends Scenario
   case object ScenarioGetTime extends Scenario
   final case class ScenarioGetParty(nameE: Expr) extends Scenario

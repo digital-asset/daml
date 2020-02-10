@@ -189,6 +189,8 @@ private[daml] class AstRewriter(
         ScenarioCommit(apply(party), apply(update), apply(retType))
       case ScenarioMustFailAt(party, update, retType) =>
         ScenarioMustFailAt(apply(party), apply(update), apply(retType))
+      case ScenarioMustFailAtMsg(party, update, retType) =>
+        ScenarioMustFailAtMsg(apply(party), apply(update), apply(retType))
       case ScenarioPass(relTime) =>
         ScenarioPass(apply(relTime))
       case ScenarioGetTime => x
