@@ -32,7 +32,7 @@ object KVTest {
 
   type KVTest[A] = State[KVTestState, A]
 
-  private val defaultAdditionalContractDataTy = "Party"
+  private[this] val defaultAdditionalContractDataTy = "Party"
 
   def initialTestState: KVTestState =
     KVTestState(
