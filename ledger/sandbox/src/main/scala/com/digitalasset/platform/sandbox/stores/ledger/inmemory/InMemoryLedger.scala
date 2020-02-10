@@ -25,7 +25,6 @@ import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.domain.{
   ApplicationId,
-  CommandId,
   LedgerId,
   PartyDetails,
   RejectionReason,
@@ -36,7 +35,6 @@ import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStrea
 import com.digitalasset.platform.packages.InMemoryPackageStore
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.sandbox.stores.InMemoryActiveLedgerState
-import com.digitalasset.platform.sandbox.stores.deduplicator.Deduplicator
 import com.digitalasset.platform.sandbox.stores.ledger.Ledger
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.digitalasset.platform.store.Contract.ActiveContract
@@ -101,7 +99,6 @@ class InMemoryLedger(
 
   // mutable state
   private var acs = acs0
-  private var deduplicator = Deduplicator()
   private var ledgerConfiguration: Option[Configuration] = None
   private var commands: scala.collection.mutable.Map[String, CommandDeduplicationEntry] =
     scala.collection.mutable.Map.empty
@@ -154,20 +151,7 @@ class InMemoryLedger(
       transaction: SubmittedTransaction): Future[SubmissionResult] =
     Future.successful(
       this.synchronized[SubmissionResult] {
-        val (newDeduplicator, isDuplicate) =
-          deduplicator.checkAndAdd(
-            submitterInfo.submitter,
-            ApplicationId(submitterInfo.applicationId),
-            CommandId(submitterInfo.commandId))
-        deduplicator = newDeduplicator
-        if (isDuplicate)
-          logger.warn(
-            "Ignoring duplicate submission for applicationId {}, commandId {}",
-            submitterInfo.applicationId: Any,
-            submitterInfo.commandId)
-        else
-          handleSuccessfulTx(entries.toLedgerString, submitterInfo, transactionMeta, transaction)
-
+        handleSuccessfulTx(entries.toLedgerString, submitterInfo, transactionMeta, transaction)
         SubmissionResult.Acknowledged
       }
     )
