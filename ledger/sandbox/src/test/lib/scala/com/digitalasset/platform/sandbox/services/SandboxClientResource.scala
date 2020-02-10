@@ -32,7 +32,7 @@ class SandboxClientResource(port: () => Int) extends Resource[Channel] {
   }
 
   override def close(): Unit = {
-    channel.shutdown()
+    channel.shutdownNow()
     if (!channel.awaitTermination(5L, TimeUnit.SECONDS)) {
       sys.error(
         "Unable to shutdown channel to a remote API under tests. Unable to recover. Terminating.")
