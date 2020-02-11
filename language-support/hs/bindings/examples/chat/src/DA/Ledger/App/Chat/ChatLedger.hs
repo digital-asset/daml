@@ -65,7 +65,7 @@ getTrans party Handle{log,lid} = do
 submitCommand :: Handle -> Party -> Command -> IO (Either String ())
 submitCommand Handle{lid} party com = do
     cid <- randomCid
-    run 5 $ Ledger.submit (Commands {lid,wid,aid=myAid,cid,party,leTime,mrTime,coms=[com]})
+    run 5 $ Ledger.submit (Commands {lid,wid,aid=myAid,cid,party,leTime,mrTime,ttl=Nothing,coms=[com]})
     where
         wid = Nothing
         leTime = Timestamp 0 0
