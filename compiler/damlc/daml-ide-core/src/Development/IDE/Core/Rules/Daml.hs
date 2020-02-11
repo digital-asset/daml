@@ -845,7 +845,7 @@ ofInterestRule opts = do
         -- updated.
         let scenarioFiles = files `HashSet.union` vrFiles
         gc scenarioFiles
-        let openVRsByFile = HashMap.fromList (map (\vr -> (vrScenarioFile vr, vr)) $ HashSet.toList openVRs)
+        let openVRsByFile = HashMap.fromListWith (<>) (map (\vr -> (vrScenarioFile vr, [vr])) $ HashSet.toList openVRs)
         -- compile and notify any errors
         let runScenarios file = do
                 world <- worldForFile file
@@ -855,7 +855,7 @@ ofInterestRule opts = do
                     when (vr `HashSet.member` openVRs) $
                         sendEvent $ vrChangedNotification vr doc
                 let vrScenarioNames = Set.fromList $ fmap (vrScenarioName . fst) (concat $ maybeToList mbVrs)
-                forM_ (HashMap.lookup file openVRsByFile) $ \ovr -> do
+                forM_ (HashMap.lookupDefault [] file openVRsByFile) $ \ovr -> do
                     when (not $ vrScenarioName ovr `Set.member` vrScenarioNames) $
                         sendEvent $ vrNoteSetNotification ovr $ LF.scenarioNotInFileNote $
                         T.pack $ fromNormalizedFilePath file
@@ -867,7 +867,7 @@ ofInterestRule opts = do
         let notifyOpenVrsOnGetDalfError file = do
             mbDalf <- getDalf file
             when (isNothing mbDalf) $ do
-                forM_ (HashMap.lookup file openVRsByFile) $ \ovr ->
+                forM_ (HashMap.lookupDefault [] file openVRsByFile) $ \ovr ->
                     sendEvent $ vrNoteSetNotification ovr $ LF.fileWScenarioNoLongerCompilesNote $ T.pack $
                         fromNormalizedFilePath file
 
