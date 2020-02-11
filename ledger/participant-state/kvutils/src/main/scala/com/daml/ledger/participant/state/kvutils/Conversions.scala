@@ -7,7 +7,8 @@ import java.time.{Duration, Instant}
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1.{PackageId, SubmittedTransaction, SubmitterInfo}
-import com.digitalasset.daml.lf.data.Ref.{ContractIdString, LedgerString, Party}
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.{LedgerString, Party}
 import com.digitalasset.daml.lf.data.Time
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.transaction._
@@ -35,12 +36,12 @@ private[state] object Conversions {
   def packageStateKey(packageId: PackageId): DamlStateKey =
     DamlStateKey.newBuilder.setPackageId(packageId).build
 
-  def toAbsCoid(txId: DamlLogEntryId, coid: RelativeContractId): ContractIdString = {
+  def toAbsCoid(txId: DamlLogEntryId, coid: RelativeContractId): Ref.ContractIdStringV0 = {
     val hexTxId =
       BaseEncoding.base16.encode(txId.getEntryId.toByteArray)
     // NOTE(JM): Must be in sync with [[absoluteContractIdToLogEntryId]] and
     // [[absoluteContractIdToStateKey]].
-    ContractIdString.assertFromString(s"$hexTxId:${coid.txnid.index}")
+    Ref.ContractIdStringV0.assertFromString(s"$hexTxId:${coid.txnid.index}")
   }
 
   def absoluteContractIdToLogEntryId(acoid: AbsoluteContractId): (DamlLogEntryId, Int) =
@@ -87,7 +88,7 @@ private[state] object Conversions {
   def decodeContractId(coid: DamlContractId): AbsoluteContractId = {
     val hexTxId =
       BaseEncoding.base16.encode(coid.getEntryId.getEntryId.toByteArray)
-    AbsoluteContractId(ContractIdString.assertFromString(s"$hexTxId:${coid.getNodeId}"))
+    AbsoluteContractId(Ref.ContractIdString.assertFromString(s"$hexTxId:${coid.getNodeId}"))
   }
 
   def stateKeyToContractId(key: DamlStateKey): AbsoluteContractId = {

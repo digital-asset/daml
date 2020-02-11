@@ -23,6 +23,7 @@ import com.digitalasset.ledger.api.v1.ledger_identity_service.{
 import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc
 import com.digitalasset.ledger.client.services.testing.time.StaticTime
 import com.digitalasset.platform.common.LedgerIdMode
+import com.digitalasset.platform.sandbox.SandboxServer
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.services.time.TimeProviderType
 import com.google.common.util.concurrent.ThreadFactoryBuilder
@@ -35,7 +36,7 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext}
 import scala.util.Try
 
-trait SandboxFixture extends SuiteResource[Channel] with BeforeAndAfterAll {
+trait SandboxFixture extends SuiteResource[Unit] with BeforeAndAfterAll {
   self: Suite =>
 
   private[this] val logger = LoggerFactory.getLogger(getClass)
@@ -46,7 +47,7 @@ trait SandboxFixture extends SuiteResource[Channel] with BeforeAndAfterAll {
     Executors.newSingleThreadExecutor(
       new ThreadFactoryBuilder()
         .setDaemon(true)
-        .setNameFormat(s"${actorSystemName}-thread-pool-worker-%d")
+        .setNameFormat(s"$actorSystemName-thread-pool-worker-%d")
         .setUncaughtExceptionHandler((thread, _) =>
           logger.error(s"got an uncaught exception on thread: ${thread.getName}"))
         .build()))
@@ -67,8 +68,6 @@ trait SandboxFixture extends SuiteResource[Channel] with BeforeAndAfterAll {
   }
 
   protected def darFile = new File(rlocation("ledger/test-common/Test-stable.dar"))
-
-  protected def channel: Channel = suiteResource.value
 
   protected def ledgerId(token: Option[String] = None): domain.LedgerId =
     domain.LedgerId(
@@ -101,10 +100,29 @@ trait SandboxFixture extends SuiteResource[Channel] with BeforeAndAfterAll {
 
   protected def scenario: Option[String] = None
 
-  private lazy val sandboxResource = new SandboxServerResource(config)
+  protected def getSandboxPort: Int = serverResource.value.port
 
-  protected override lazy val suiteResource: Resource[Channel] = sandboxResource
+  protected def channel: Channel = clientResource.value
 
-  def getSandboxPort: Int = sandboxResource.getPort
+  protected var serverResource: Resource[SandboxServer] = _
 
+  protected var clientResource: Resource[Channel] = _
+
+  protected override lazy val suiteResource: Resource[Unit] = new Resource[Unit] {
+    override val value: Unit = ()
+
+    override def setup(): Unit = {
+      serverResource = SandboxServerResource(config)
+      serverResource.setup()
+      clientResource = new SandboxClientResource(getSandboxPort)
+      clientResource.setup()
+    }
+
+    override def close(): Unit = {
+      clientResource.close()
+      clientResource = null
+      serverResource.close()
+      serverResource = null
+    }
+  }
 }

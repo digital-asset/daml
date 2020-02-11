@@ -63,15 +63,17 @@ object SandboxServer {
   // repeated validation of the sames packages after each reset
   private val engine = Engine()
 
-  def owner(config: SandboxConfig): ResourceOwner[SandboxState] = new ResourceOwner[SandboxState] {
-    override def acquire()(implicit executionContext: ExecutionContext): Resource[SandboxState] = {
-      for {
-        server <- ResourceOwner.forTry(() => Try(new SandboxServer(config))).acquire()
-        state <- server.sandboxState
-        _ <- state.apiServer
-      } yield state
+  def owner(config: SandboxConfig): ResourceOwner[SandboxServer] =
+    new ResourceOwner[SandboxServer] {
+      override def acquire()(implicit executionContext: ExecutionContext): Resource[SandboxServer] =
+        for {
+          server <- ResourceOwner.forTryCloseable(() => Try(new SandboxServer(config))).acquire()
+          // Wait for the API server to start.
+          // We use the Future rather than the Resource to avoid holding onto the API server.
+          // Otherwise, we cause a memory leak upon reset.
+          _ <- Resource.fromFuture(server.apiServer.map(_ => ()))
+        } yield server
     }
-  }
 
   // if requested, initialize the ledger state with the given scenario
   private def createInitialState(config: SandboxConfig, packageStore: InMemoryPackageStore)
@@ -102,16 +104,42 @@ object SandboxServer {
     }
   }
 
-  final case class SandboxState(
-      // nested resource so we can release it independently when restarting
-      apiServer: Resource[ApiServer],
-      packageStore: InMemoryPackageStore,
+  final class SandboxState(
       materializer: Materializer,
+      metrics: MetricRegistry,
+      packageStore: InMemoryPackageStore,
+      // nested resource so we can release it independently when restarting
+      apiServerResource: Resource[ApiServer],
   ) {
-    private implicit val executionContext: ExecutionContext = materializer.executionContext
+    def port(implicit executionContext: ExecutionContext): Future[Int] =
+      apiServer.map(_.port)
 
-    def port: Future[Int] =
-      apiServer.map(_.port).asFuture
+    private[SandboxServer] def apiServer(
+        implicit executionContext: ExecutionContext
+    ): Future[ApiServer] =
+      apiServerResource.asFuture
+
+    private[SandboxServer] def reset(
+        newApiServer: (
+            Materializer,
+            MetricRegistry,
+            InMemoryPackageStore,
+            Int // port number
+        ) => Resource[ApiServer]
+    )(implicit executionContext: ExecutionContext): Future[SandboxState] =
+      for {
+        currentPort <- port
+        _ <- release()
+      } yield {
+        new SandboxState(
+          materializer,
+          metrics,
+          packageStore,
+          newApiServer(materializer, metrics, packageStore, currentPort))
+      }
+
+    def release()(implicit executionContext: ExecutionContext): Future[Unit] =
+      apiServerResource.release()
   }
 }
 
@@ -123,25 +151,39 @@ final class SandboxServer(config: SandboxConfig) extends AutoCloseable {
 
   private val authService: AuthService = config.authService.getOrElse(AuthServiceWildcard)
 
-  private val metrics = new MetricRegistry
-
-  @volatile private var sandboxState: Resource[SandboxState] = _
-
-  sandboxState = {
+  private val metricsResource: Resource[MetricRegistry] = {
     implicit val executionContext: ExecutionContext = DirectExecutionContext
+    val metrics = new MetricRegistry
     for {
       _ <- ResourceOwner
         .forCloseable(() => new MetricsReporting(metrics, getClass.getPackage.getName))
         .acquire()
-      state <- start()
-    } yield state
+    } yield metrics
   }
 
+  private val materializerResource: Resource[Materializer] = {
+    implicit val executionContext: ExecutionContext = DirectExecutionContext
+    for {
+      actorSystem <- AkkaResourceOwner.forActorSystem(() => ActorSystem(ActorSystemName)).acquire()
+      materializer <- AkkaResourceOwner.forMaterializer(() => Materializer(actorSystem)).acquire()
+    } yield materializer
+  }
+
+  // We store a Future rather than a Resource to avoid keeping old resources around after a reset.
+  // It's package-private so we can test that we drop the reference properly in ResetServiceIT.
+  @volatile
+  private[sandbox] var sandboxState: Future[SandboxState] =
+    start()(DirectExecutionContext)
+
+  private def apiServer(implicit executionContext: ExecutionContext): Future[ApiServer] =
+    sandboxState.flatMap(_.apiServer)
+
+  // Only used in testing; hopefully we can get rid of it soon.
   def port: Int =
     Await.result(portF(DirectExecutionContext), AsyncTolerance)
 
   def portF(implicit executionContext: ExecutionContext): Future[Int] =
-    sandboxState.flatMap(_.apiServer).map(_.port).asFuture
+    apiServer.map(_.port)
 
   /** the reset service is special, since it triggers a server shutdown */
   private def resetService(
@@ -157,23 +199,20 @@ final class SandboxServer(config: SandboxConfig) extends AutoCloseable {
     )
 
   def resetAndRestartServer()(implicit executionContext: ExecutionContext): Future[Unit] = {
-    val apiServicesClosed =
-      sandboxState.flatMap(_.apiServer).asFuture.flatMap(_.servicesClosed())
+    val apiServicesClosed = apiServer.flatMap(_.servicesClosed())
 
     // Need to run this async otherwise the callback kills the server under the in-flight reset service request!
     // TODO: eliminate the state mutation somehow
-    sandboxState = for {
-      state <- sandboxState
-      currentPort <- Resource.fromFuture(state.port)
-      _ <- Resource.fromFuture(state.apiServer.release())
-    } yield
-      state.copy(
-        apiServer = buildAndStartApiServer(
-          state.materializer,
-          state.packageStore,
-          SqlStartMode.AlwaysReset,
-          Some(currentPort),
-        ))
+    sandboxState = sandboxState.flatMap(
+      _.reset(
+        (materializer, metrics, packageStore, port) =>
+          buildAndStartApiServer(
+            materializer,
+            metrics,
+            packageStore,
+            SqlStartMode.AlwaysReset,
+            Some(port),
+        )))
 
     // waits for the services to be closed, so we can guarantee that future API calls after finishing the reset will never be handled by the old one
     apiServicesClosed
@@ -181,6 +220,7 @@ final class SandboxServer(config: SandboxConfig) extends AutoCloseable {
 
   private def buildAndStartApiServer(
       materializer: Materializer,
+      metrics: MetricRegistry,
       packageStore: InMemoryPackageStore,
       startMode: SqlStartMode,
       currentPort: Option[Int],
@@ -296,19 +336,20 @@ final class SandboxServer(config: SandboxConfig) extends AutoCloseable {
 
   }
 
-  private def start()(implicit executionContext: ExecutionContext): Resource[SandboxState] = {
+  private def start()(implicit executionContext: ExecutionContext): Future[SandboxState] = {
     val packageStore = loadDamlPackages()
     for {
-      actorSystem <- AkkaResourceOwner.forActorSystem(() => ActorSystem(ActorSystemName)).acquire()
-      materializer <- AkkaResourceOwner.forMaterializer(() => Materializer(actorSystem)).acquire()
+      metrics <- metricsResource.asFuture
+      materializer <- materializerResource.asFuture
     } yield {
       val apiServerResource = buildAndStartApiServer(
         materializer,
+        metrics,
         packageStore,
         SqlStartMode.ContinueIfExists,
         currentPort = None,
       )
-      SandboxState(apiServerResource, packageStore, materializer)
+      new SandboxState(materializer, metrics, packageStore, apiServerResource)
     }
   }
 
@@ -324,9 +365,12 @@ final class SandboxServer(config: SandboxConfig) extends AutoCloseable {
   }
 
   override def close(): Unit = {
-    Await.result(
-      sandboxState.flatMap(_.apiServer)(DirectExecutionContext).release(),
-      AsyncTolerance)
+    implicit val executionContext: ExecutionContext = DirectExecutionContext
+    Await.result(for {
+      _ <- sandboxState.flatMap(_.release())
+      _ <- materializerResource.release()
+      _ <- metricsResource.release()
+    } yield (), AsyncTolerance)
   }
 
   private def writePortFile(port: Int)(

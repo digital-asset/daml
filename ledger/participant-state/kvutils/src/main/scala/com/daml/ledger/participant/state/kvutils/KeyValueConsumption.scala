@@ -240,7 +240,7 @@ object KeyValueConsumption {
       txId: DamlLogEntryId,
       tx: SubmittedTransaction): CommittedTransaction =
     /* Assign absolute contract ids */
-    tx.resolveRelCid(toAbsCoid(txId, _))
+    tx.resolveRelCidV0(toAbsCoid(txId, _))
 
   @throws(classOf[Err])
   private def parseLedgerString(what: String)(s: String): Ref.LedgerString =

@@ -50,66 +50,136 @@ class Endpoints(
   import Endpoints._
   import json.JsonProtocol._
 
-  lazy val all: PartialFunction[HttpRequest, Future[HttpResponse]] =
-    command orElse contracts orElse parties
-
-  lazy val command: PartialFunction[HttpRequest, Future[HttpResponse]] = {
-    case req @ HttpRequest(POST, Uri.Path("/v1/create"), _, _, _) =>
-      val et: ET[JsValue] = for {
-        t3 <- FutureUtil.eitherT(input(req)): ET[(Jwt, JwtPayload, String)]
-
-        (jwt, jwtPayload, reqBody) = t3
-
-        cmd <- either(
-          decoder
-            .decodeR[domain.CreateCommand](reqBody)
-            .leftMap(e => InvalidUserInput(e.shows))
-        ): ET[domain.CreateCommand[lav1.value.Record]]
-
-        ac <- eitherT(
-          handleFutureFailure(commandService.create(jwt, jwtPayload, cmd))
-        ): ET[domain.ActiveContract[lav1.value.Value]]
-
-        jsVal <- either(encoder.encodeV(ac).leftMap(e => ServerError(e.shows))): ET[JsValue]
-
-      } yield jsVal
-
-      httpResponse(et)
-
-    case req @ HttpRequest(POST, Uri.Path("/v1/exercise"), _, _, _) =>
-      val et: ET[JsValue] = for {
-        t3 <- eitherT(input(req)): ET[(Jwt, JwtPayload, String)]
-
-        (jwt, jwtPayload, reqBody) = t3
-
-        cmd <- either(
-          decoder
-            .decodeExerciseCommand(reqBody)
-            .leftMap(e => InvalidUserInput(e.shows))
-        ): ET[domain.ExerciseCommand[LfValue, domain.ContractLocator[LfValue]]]
-
-        resolvedRef <- eitherT(
-          resolveReference(jwt, jwtPayload, cmd.reference)
-        ): ET[domain.ResolvedContractRef[ApiValue]]
-
-        apiArg <- either(lfValueToApiValue(cmd.argument)): ET[ApiValue]
-
-        resolvedCmd = cmd.copy(argument = apiArg, reference = resolvedRef)
-
-        apiResp <- eitherT(
-          handleFutureFailure(commandService.exercise(jwt, jwtPayload, resolvedCmd))
-        ): ET[domain.ExerciseResponse[ApiValue]]
-
-        lfResp <- either(apiResp.traverse(apiValueToLfValue)): ET[domain.ExerciseResponse[LfValue]]
-
-        jsResp <- either(lfResp.traverse(lfValueToJsValue)): ET[domain.ExerciseResponse[JsValue]]
-
-        jsVal <- either(SprayJson.encode(jsResp).leftMap(e => ServerError(e.shows))): ET[JsValue]
-
-      } yield jsVal
-
-      httpResponse(et)
+  lazy val all: PartialFunction[HttpRequest, Future[HttpResponse]] = {
+    case req @ HttpRequest(POST, Uri.Path("/v1/create"), _, _, _) => httpResponse(create(req))
+    case req @ HttpRequest(POST, Uri.Path("/v1/exercise"), _, _, _) => httpResponse(exercise(req))
+    case req @ HttpRequest(POST, Uri.Path("/v1/fetch"), _, _, _) => httpResponse(fetch(req))
+    case req @ HttpRequest(GET, Uri.Path("/v1/query"), _, _, _) => httpResponse(retrieveAll(req))
+    case req @ HttpRequest(POST, Uri.Path("/v1/query"), _, _, _) => httpResponse(query(req))
+    case req @ HttpRequest(GET, Uri.Path("/v1/parties"), _, _, _) => httpResponse(parties(req))
   }
+
+  def create(req: HttpRequest): ET[JsValue] =
+    for {
+      t3 <- FutureUtil.eitherT(input(req)): ET[(Jwt, JwtPayload, String)]
+
+      (jwt, jwtPayload, reqBody) = t3
+
+      cmd <- either(
+        decoder
+          .decodeR[domain.CreateCommand](reqBody)
+          .leftMap(e => InvalidUserInput(e.shows))
+      ): ET[domain.CreateCommand[lav1.value.Record]]
+
+      ac <- eitherT(
+        handleFutureFailure(commandService.create(jwt, jwtPayload, cmd))
+      ): ET[domain.ActiveContract[lav1.value.Value]]
+
+      jsVal <- either(encoder.encodeV(ac).leftMap(e => ServerError(e.shows))): ET[JsValue]
+
+    } yield jsVal
+
+  def exercise(req: HttpRequest): ET[JsValue] =
+    for {
+      t3 <- eitherT(input(req)): ET[(Jwt, JwtPayload, String)]
+
+      (jwt, jwtPayload, reqBody) = t3
+
+      cmd <- either(
+        decoder
+          .decodeExerciseCommand(reqBody)
+          .leftMap(e => InvalidUserInput(e.shows))
+      ): ET[domain.ExerciseCommand[LfValue, domain.ContractLocator[LfValue]]]
+
+      resolvedRef <- eitherT(
+        resolveReference(jwt, jwtPayload, cmd.reference)
+      ): ET[domain.ResolvedContractRef[ApiValue]]
+
+      apiArg <- either(lfValueToApiValue(cmd.argument)): ET[ApiValue]
+
+      resolvedCmd = cmd.copy(argument = apiArg, reference = resolvedRef)
+
+      apiResp <- eitherT(
+        handleFutureFailure(commandService.exercise(jwt, jwtPayload, resolvedCmd))
+      ): ET[domain.ExerciseResponse[ApiValue]]
+
+      lfResp <- either(apiResp.traverse(apiValueToLfValue)): ET[domain.ExerciseResponse[LfValue]]
+
+      jsResp <- either(lfResp.traverse(lfValueToJsValue)): ET[domain.ExerciseResponse[JsValue]]
+
+      jsVal <- either(SprayJson.encode(jsResp).leftMap(e => ServerError(e.shows))): ET[JsValue]
+
+    } yield jsVal
+
+  def fetch(req: HttpRequest): ET[JsValue] =
+    for {
+      input <- FutureUtil.eitherT(input(req)): ET[(Jwt, JwtPayload, String)]
+
+      (jwt, jwtPayload, reqBody) = input
+
+      _ = logger.debug(s"/v1/fetch reqBody: $reqBody")
+
+      cl <- either(
+        decoder
+          .decodeContractLocator(reqBody)
+          .leftMap(e => InvalidUserInput(e.shows))
+      ): ET[domain.ContractLocator[LfValue]]
+
+      _ = logger.debug(s"/v1/fetch cl: $cl")
+
+      ac <- eitherT(
+        handleFutureFailure(contractsService.lookup(jwt, jwtPayload, cl))
+      ): ET[Option[domain.ActiveContract[LfValue]]]
+
+      jsVal <- either(
+        ac.cata(x => lfAcToJsValue(x).leftMap(e => ServerError(e.shows)), \/-(JsNull))
+      ): ET[JsValue]
+
+    } yield jsVal
+
+  def retrieveAll(req: HttpRequest): Future[Error \/ SearchResult[Error \/ JsValue]] =
+    input(req).map {
+      _.map {
+        case (jwt, jwtPayload, _) =>
+          val result: SearchResult[ContractsService.Error \/ domain.ActiveContract[LfValue]] =
+            contractsService
+              .retrieveAll(jwt, jwtPayload)
+
+          val jsValSource = result.source
+            .via(handleSourceFailure)
+            .map(_.flatMap(lfAcToJsValue)): Source[Error \/ JsValue, NotUsed]
+
+          result.copy(source = jsValSource): SearchResult[Error \/ JsValue]
+      }
+    }
+
+  def query(req: HttpRequest): Future[Error \/ SearchResult[Error \/ JsValue]] =
+    input(req).map {
+      _.flatMap {
+        case (jwt, jwtPayload, reqBody) =>
+          SprayJson
+            .decode[domain.GetActiveContractsRequest](reqBody)
+            .leftMap(e => InvalidUserInput(e.shows))
+            .map { cmd =>
+              val result: SearchResult[ContractsService.Error \/ domain.ActiveContract[JsValue]] =
+                contractsService
+                  .search(jwt, jwtPayload, cmd)
+
+              val jsValSource: Source[Error \/ JsValue, NotUsed] = result.source
+                .via(handleSourceFailure)
+                .map(_.flatMap(jsAcToJsValue))
+
+              result.copy(source = jsValSource): SearchResult[Error \/ JsValue]
+            }
+      }
+    }
+
+  def parties(req: HttpRequest): ET[JsValue] =
+    for {
+      _ <- FutureUtil.eitherT(input(req)): ET[(Jwt, JwtPayload, String)]
+      ps <- rightT(partiesService.allParties()): ET[List[domain.PartyDetails]]
+      jsVal <- either(SprayJson.encode(ps)).leftMap(e => ServerError(e.shows)): ET[JsValue]
+    } yield jsVal
 
   private def handleFutureFailure[A: Show, B](fa: Future[A \/ B]): Future[ServerError \/ B] =
     fa.map(a => a.leftMap(e => ServerError(e.shows))).recover {
@@ -133,122 +203,6 @@ class Endpoints(
           logger.error("Source failed", e)
           -\/(ServerError(e.description))
       }
-
-  private def encodeList(as: Seq[JsValue]): ServerError \/ JsValue =
-    SprayJson.encode(as).leftMap(e => ServerError(e.shows))
-
-  lazy val contracts: PartialFunction[HttpRequest, Future[HttpResponse]] = {
-    case req @ HttpRequest(POST, Uri.Path("/v1/fetch"), _, _, _) =>
-      val et: ET[JsValue] = for {
-        input <- FutureUtil.eitherT(input(req)): ET[(Jwt, JwtPayload, String)]
-
-        (jwt, jwtPayload, reqBody) = input
-
-        _ = logger.debug(s"/v1/fetch reqBody: $reqBody")
-
-        cl <- either(
-          decoder
-            .decodeContractLocator(reqBody)
-            .leftMap(e => InvalidUserInput(e.shows))
-        ): ET[domain.ContractLocator[LfValue]]
-
-        _ = logger.debug(s"/v1/fetch cl: $cl")
-
-        ac <- eitherT(
-          handleFutureFailure(contractsService.lookup(jwt, jwtPayload, cl))
-        ): ET[Option[domain.ActiveContract[LfValue]]]
-
-        jsVal <- either(
-          ac.cata(x => lfAcToJsValue(x).leftMap(e => ServerError(e.shows)), \/-(JsNull))
-        ): ET[JsValue]
-
-      } yield jsVal
-
-      httpResponse(et)
-
-    case req @ HttpRequest(GET, Uri.Path("/v1/query"), _, _, _) =>
-      val sourceF: Future[Error \/ SearchResult[Error \/ JsValue]] = input(req).map {
-        _.map {
-          case (jwt, jwtPayload, _) =>
-            val result: SearchResult[ContractsService.Error \/ domain.ActiveContract[LfValue]] =
-              contractsService
-                .retrieveAll(jwt, jwtPayload)
-
-            val jsValSource = result.source
-              .via(handleSourceFailure)
-              .map(_.flatMap(lfAcToJsValue)): Source[Error \/ JsValue, NotUsed]
-
-            result.copy(source = jsValSource): SearchResult[Error \/ JsValue]
-        }
-      }
-
-      httpResponse(sourceF)
-
-    case req @ HttpRequest(POST, Uri.Path("/v1/query"), _, _, _) =>
-      val sourceF: Future[Error \/ SearchResult[Error \/ JsValue]] = input(req).map {
-        _.flatMap {
-          case (jwt, jwtPayload, reqBody) =>
-            SprayJson
-              .decode[domain.GetActiveContractsRequest](reqBody)
-              .leftMap(e => InvalidUserInput(e.shows))
-              .map { cmd =>
-                val result: SearchResult[ContractsService.Error \/ domain.ActiveContract[JsValue]] =
-                  contractsService
-                    .search(jwt, jwtPayload, cmd)
-
-                val jsValSource: Source[Error \/ JsValue, NotUsed] = result.source
-                  .via(handleSourceFailure)
-                  .map(_.flatMap(jsAcToJsValue))
-
-                result.copy(source = jsValSource): SearchResult[Error \/ JsValue]
-              }
-        }
-      }
-
-      httpResponse(sourceF)
-  }
-
-  lazy val parties: PartialFunction[HttpRequest, Future[HttpResponse]] = {
-    case req @ HttpRequest(GET, Uri.Path("/v1/parties"), _, _, _) =>
-      val et: ET[JsValue] = for {
-        _ <- FutureUtil.eitherT(input(req)): ET[(Jwt, JwtPayload, String)]
-        ps <- rightT(partiesService.allParties()): ET[List[domain.PartyDetails]]
-        jsVal <- either(SprayJson.encode(ps)).leftMap(e => ServerError(e.shows)): ET[JsValue]
-      } yield jsVal
-
-      httpResponse(et)
-  }
-
-  private def apiValueToLfValue(a: ApiValue): Error \/ LfValue =
-    ApiValueToLfValueConverter.apiValueToLfValue(a).leftMap(e => ServerError(e.shows))
-
-  private def lfValueToJsValue(a: LfValue): Error \/ JsValue =
-    \/.fromTryCatchNonFatal(LfValueCodec.apiValueToJsValue(a)).leftMap(e =>
-      ServerError(e.description))
-
-  private def lfValueToApiValue(a: LfValue): Error \/ ApiValue =
-    JsValueToApiValueConverter.lfValueToApiValue(a).leftMap(e => ServerError(e.shows))
-
-  private def collectActiveContracts(
-      predicates: Map[domain.TemplateId.RequiredPkg, LfValue => Boolean]): PartialFunction[
-    Error \/ domain.ActiveContract[LfValue],
-    Error \/ domain.ActiveContract[LfValue]
-  ] = {
-    case e @ -\/(_) => e
-    case a @ \/-(ac) if predicates.get(ac.templateId).forall(f => f(ac.payload)) => a
-  }
-
-  private def errorToJsValue(e: Error): JsValue = errorsJsObject(e)._2
-
-  private def lfAcToJsValue(a: domain.ActiveContract[LfValue]): Error \/ JsValue = {
-    for {
-      b <- a.traverse(lfValueToJsValue): Error \/ domain.ActiveContract[JsValue]
-      c <- SprayJson.encode(b).leftMap(e => ServerError(e.shows))
-    } yield c
-  }
-
-  private def jsAcToJsValue(a: domain.ActiveContract[JsValue]): Error \/ JsValue =
-    SprayJson.encode(a).leftMap(e => ServerError(e.shows))
 
   private def httpResponse(output: ET[JsValue]): Future[HttpResponse] = {
     val fa: Future[Error \/ JsValue] = output.run
@@ -328,10 +282,32 @@ class Endpoints(
 }
 
 object Endpoints {
+  import json.JsonProtocol._
 
   private type ET[A] = EitherT[Future, Error, A]
 
   private type ApiValue = lav1.value.Value
 
   private type LfValue = lf.value.Value[lf.value.Value.AbsoluteContractId]
+
+  private def apiValueToLfValue(a: ApiValue): Error \/ LfValue =
+    ApiValueToLfValueConverter.apiValueToLfValue(a).leftMap(e => ServerError(e.shows))
+
+  private def lfValueToJsValue(a: LfValue): Error \/ JsValue =
+    \/.fromTryCatchNonFatal(LfValueCodec.apiValueToJsValue(a)).leftMap(e =>
+      ServerError(e.description))
+
+  private def lfValueToApiValue(a: LfValue): Error \/ ApiValue =
+    JsValueToApiValueConverter.lfValueToApiValue(a).leftMap(e => ServerError(e.shows))
+
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
+  private def lfAcToJsValue(a: domain.ActiveContract[LfValue]): Error \/ JsValue = {
+    for {
+      b <- a.traverse(lfValueToJsValue): Error \/ domain.ActiveContract[JsValue]
+      c <- SprayJson.encode(b).leftMap(e => ServerError(e.shows))
+    } yield c
+  }
+
+  private def jsAcToJsValue(a: domain.ActiveContract[JsValue]): Error \/ JsValue =
+    SprayJson.encode(a).leftMap(e => ServerError(e.shows))
 }

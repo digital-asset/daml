@@ -27,6 +27,7 @@ object ValueVersions
   private[value] val minEnum = ValueVersion("5")
   private[value] val minNumeric = ValueVersion("6")
   private[value] val minGenMap = ValueVersion("7")
+  private[value] val minContractIdV1 = ValueVersion("7")
 
   def assignVersion[Cid](v0: Value[Cid]): Either[String, ValueVersion] = {
     import VersionTimeline.{maxVersion => maxVV}

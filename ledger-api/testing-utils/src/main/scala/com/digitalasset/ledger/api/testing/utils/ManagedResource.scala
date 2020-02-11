@@ -15,7 +15,7 @@ abstract class ManagedResource[Value: ClassTag] extends Resource[Value] {
 
   protected def destruct(resource: Value): Unit
 
-  override def value: Value = {
+  final override def value: Value = {
     val res = resourceRef.get()
     if (res != null) res
     else
@@ -23,7 +23,7 @@ abstract class ManagedResource[Value: ClassTag] extends Resource[Value] {
         s"Attempted to read non-initialized resource of class ${implicitly[ClassTag[Value]].runtimeClass.getName}")
   }
 
-  override def setup(): Unit = {
+  final override def setup(): Unit = {
     resourceRef.updateAndGet(
       (resource: Value) =>
         if (resource == null) construct()
@@ -31,7 +31,7 @@ abstract class ManagedResource[Value: ClassTag] extends Resource[Value] {
     ()
   }
 
-  override def close(): Unit = {
+  final override def close(): Unit = {
     resourceRef.updateAndGet { (resource: Value) =>
       if (resource != null) {
         destruct(resource)

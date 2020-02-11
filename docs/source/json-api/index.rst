@@ -137,12 +137,15 @@ Example session
     $ daml json-api --ledger-host localhost --ledger-port 6865 --http-port 7575
 
 Choosing a party
-================
+****************
 
-You specify your party and other settings with JWT.  In testing
-environments, you can use https://jwt.io to generate your token.
+Every request requires you to specify a party and some other settings,
+with a JWT token.  Normal HTTP requests pass the token in an
+``Authentication`` header, while WebSocket requests pass the token in a
+subprotocol.
 
-The default "header" is fine.  Under "Payload", fill in:
+In testing environments, you can use https://jwt.io to generate your
+token.  The default "header" is fine.  Under "Payload", fill in:
 
 .. code-block:: json
 
@@ -161,12 +164,10 @@ Keep in mind:
 Under "Verify Signature", put ``secret`` as the secret (_not_ base64
 encoded); that is the hardcoded secret for testing.
 
-Then the "Encoded" box should have your token; set HTTP header
-``Authorization: Bearer copy-paste-token-here`` for normal requests, and
-add the subprotocols ``jwt.token.copy-paste-token-here`` and
-``daml.ws.auth`` for WebSockets requests.
+Then the "Encoded" box should have your **token**, ready for passing to
+the service as described in the following sections.
 
-Here are two tokens you can use for testing:
+Alternatively, here are two tokens you can use for testing:
 
 - ``{"https://daml.com/ledger-api": {"ledgerId": "MyLedger", "applicationId": "foobar", "actAs": ["Alice"]}}``
   ``eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJmb29iYXIiLCJhY3RBcyI6WyJBbGljZSJdfX0.VdDI96mw5hrfM5ZNxLyetSVwcD7XtLT4dIdHIOa9lcU``
@@ -178,8 +179,29 @@ For production use, we have a tool in development for generating proper
 RSA-encrypted tokens locally, which will arrive when the service also
 supports such tokens.
 
+Passing token with HTTP
+=======================
+
+Set HTTP header ``Authorization: Bearer copy-paste-token-here`` for
+normal requests.
+
+Passing token with WebSockets
+=============================
+
+WebSocket clients support a "subprotocols" argument (sometimes simply
+called "protocols"); this is usually in a list form but occasionally in
+comma-separated form.  Check documentation for your WebSocket library of
+choice for details.
+
+For HTTP JSON requests, you must pass two subprotocols:
+
+- ``daml.ws.auth``
+- ``jwt.token.copy-paste-token-here``
+
+where ``copy-paste-token-here`` is the encoded JWT token described above.
+
 Error Reporting
-===============
+***************
 
 The **JSON API** reports errors using standard HTTP status codes. It divides HTTP status codes in 3 groups indicating:
 
@@ -215,7 +237,7 @@ Where:
 See the following blog post for more details about error handling best practices: `REST API Error Codes 101 <https://blog.restcase.com/rest-api-error-codes-101/>`_.
 
 Successful response, HTTP status: 200 OK
-----------------------------------------
+========================================
 
 - Content-Type: ``application/json``
 - Content:
@@ -228,7 +250,7 @@ Successful response, HTTP status: 200 OK
     }
 
 Successful response with a warning, HTTP status: 200 OK
--------------------------------------------------------
+=======================================================
 
 - Content-Type: ``application/json``
 - Content:
@@ -242,7 +264,7 @@ Successful response with a warning, HTTP status: 200 OK
     }
 
 Failure, HTTP status: 400 | 401 | 404 | 500
--------------------------------------------
+===========================================
 
 - Content-Type: ``application/json``
 - Content:
@@ -255,7 +277,7 @@ Failure, HTTP status: 400 | 401 | 404 | 500
     }
 
 Examples
---------
+========
 
 .. code-block:: none
 
@@ -278,7 +300,7 @@ Examples
     {"status": 500, "errors": ["Cannot initialize Ledger API"]}
 
 Create a new Contract
-=====================
+*********************
 
 See the request documentation below on how to create an instance of ``Iou`` contract from the :doc:`Quickstart guide </getting-started/quickstart>`:
 
@@ -289,7 +311,7 @@ See the request documentation below on how to create an instance of ``Iou`` cont
 .. _create-request:
 
 HTTP Request
-------------
+============
 
 - URL: ``/v1/create``
 - Method: ``POST``
@@ -321,7 +343,7 @@ Where:
 .. _create-response:
 
 HTTP Response
--------------
+=============
 
 - Content-Type: ``application/json``
 - Content:
@@ -356,7 +378,7 @@ Where:
 .. _create-request-with-meta:
 
 Create a new Contract with optional meta field
-==============================================
+**********************************************
 
 When creating a new contract, client may specify an optional ``meta`` field:
 
@@ -385,7 +407,7 @@ Where:
 - ``maximumRecordTime`` -- optional field, the number of milliseconds from the epoch of ``1970-01-01T00:00:00Z``, a deadline for observing this command in the completion stream before it can be considered to have timed out.
  
 Exercise by Contract ID
-=======================
+***********************
 
 The JSON command below, demonstrates how to exercise ``Iou_Transfer`` choice on ``Iou`` contract:
 
@@ -394,7 +416,7 @@ The JSON command below, demonstrates how to exercise ``Iou_Transfer`` choice on 
   :lines: 23, 52-55
 
 HTTP Request
-------------
+============
 
 - URL: ``/v1/exercise``
 - Method: ``POST``
@@ -422,7 +444,7 @@ Where:
 .. _exercise-response:
 
 HTTP Response
--------------
+=============
 
 - Content-Type: ``application/json``
 - Content:
@@ -476,7 +498,7 @@ Where:
 
 
 Exercise by Contract Key
-========================
+************************
 
 The JSON command below, demonstrates how to exercise ``Archive`` choice on ``Account`` contract with a ``(Party, Text)`` key defined like this:
 
@@ -492,8 +514,8 @@ The JSON command below, demonstrates how to exercise ``Archive`` choice on ``Acc
         maintainer key._1
 
 
-HTT Request
------------
+HTTP Request
+============
 
 - URL: ``/v1/exercise``
 - Method: ``POST``
@@ -520,16 +542,16 @@ Where:
 - ``argument`` -- contract choice argument(s), empty, because ``Archive`` does not take any.
 
 HTTP Response
--------------
+=============
 
 Formatted similar to :ref:`Exercise by Contract ID response <exercise-response>`.
 
 
 Fetch Contract by Contract ID
-==============================
+*****************************
 
 HTTP Request
-------------
+============
 
 - URL: ``/v1/fetch``
 - Method: ``POST``
@@ -545,7 +567,7 @@ application/json body:
     }
 
 Contract Not Found HTTP Response
---------------------------------
+================================
 
 - Content-Type: ``application/json``
 - Content:
@@ -558,7 +580,7 @@ Contract Not Found HTTP Response
     }
 
 Contract Found HTTP Response
-----------------------------
+============================
 
 - Content-Type: ``application/json``
 - Content:
@@ -589,10 +611,10 @@ Contract Found HTTP Response
     }
 
 Fetch Contract by Key
-==============================
+*********************
 
 HTTP Request
-------------
+============
 
 - URL: ``/v1/fetch``
 - Method: ``POST``
@@ -610,7 +632,7 @@ HTTP Request
     }
 
 Contract Not Found HTTP Response
---------------------------------
+================================
 
 - Content-Type: ``application/json``
 - Content:
@@ -623,7 +645,7 @@ Contract Not Found HTTP Response
     }
 
 Contract Found HTTP Response
-----------------------------
+============================
 
 - Content-Type: ``application/json``
 - Content:
@@ -657,31 +679,31 @@ Contract Found HTTP Response
 
 
 Contract Search, All Templates
-==============================
+******************************
 
 List all currently active contracts for all known templates.
 
 Note that the retrieved contracts do not get persisted into query store database. Query store is a search index and can be used to optimize search latency. See :ref:`Start HTTP service <start-http-service>` for information on how to start JSON API service with query store enabled.
 
 HTTP Request
-------------
+============
 
 - URL: ``/v1/query``
 - Method: ``GET``
 - Content: <EMPTY>
 
 HTTP Response
--------------
+=============
 
 The response is the same as for the POST method below.
 
 Contract Search
-===============
+***************
 
 List currently active contracts that match a given query.
 
 HTTP Request
-------------
+============
 
 - URL: ``/v1/query``
 - Method: ``POST``
@@ -701,7 +723,7 @@ Where:
 - ``query`` -- search criteria to apply to the specified ``templateIds``, formatted according to the :doc:`search-query-language`:
 
 Empty HTTP Response
--------------------
+===================
 
 - Content-Type: ``application/json``
 - Content:
@@ -714,7 +736,7 @@ Empty HTTP Response
     }
 
 Nonempty HTTP Response
------------------------
+======================
 
 - Content-Type: ``application/json``
 - Content:
@@ -749,7 +771,7 @@ Where
 - ``status`` matches the HTTP status code returned in the HTTP header,
 
 Nonempty HTTP Response with Unknown Template IDs Warning
---------------------------------------------------------
+========================================================
 
 - Content-Type: ``application/json``
 - Content:
@@ -782,14 +804,14 @@ Nonempty HTTP Response with Unknown Template IDs Warning
     }
 
 Fetch All Known Parties
-=======================
+***********************
 
 - URL: ``/v1/parties``
 - Method: ``GET``
 - Content: <EMPTY>
 
 HTTP Response
--------------
+=============
 
 - Content-Type: ``application/json``
 - Content:
@@ -807,10 +829,13 @@ HTTP Response
     }
 
 Streaming API
-=============
+*************
+
+Two subprotocols must be passed with every request, as described in
+`Passing token with WebSockets <#passing-token-with-websockets>`__.
 
 Contracts Query Stream
-----------------------
+======================
 
 - URL: ``/v1/stream/query``
 - Scheme: ``ws``
@@ -818,9 +843,6 @@ Contracts Query Stream
 
 List currently active contracts that match a given query, with
 continuous updates.
-
-Two subprotocols must be passed, as described in `Choosing a party
-<#choosing-a-party>`__.
 
 ``application/json`` body must be sent first, formatted according to the
 :doc:`search-query-language`::
@@ -978,16 +1000,13 @@ Some notes on behavior:
    order.
 
 Fetch by Key Contracts Stream
------------------------------
+=============================
 
 - URL: ``/v1/stream/fetch``
 - Scheme: ``ws``
 - Protocol: ``WebSocket``
 
 List currently active contracts that match one of the given ``{templateId, key}`` pairs, with continuous updates.
-
-Similarly to `Contracts Query Stream`_, two subprotocols must be passed, as described in `Choosing a party
-<#choosing-a-party>`__.
 
 ``application/json`` body must be sent first, formatted according to the following rule:
 
