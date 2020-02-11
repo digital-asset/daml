@@ -16,7 +16,11 @@ da_ts_library(
     deps = [
         "//language-support/ts/daml-types",
         "@language_support_ts_deps//@mojotech/json-type-validation",
+        "@language_support_ts_deps//@types/ws",
         "@language_support_ts_deps//cross-fetch",
+        "@language_support_ts_deps//events",
+        "@language_support_ts_deps//isomorphic-ws",
+        "@language_support_ts_deps//ws",
     ],
 ) if not is_windows else None
 

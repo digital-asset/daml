@@ -3,6 +3,8 @@
 import { Choice, ContractId, List, Party, Template, Text, lookupTemplate } from '@daml/types';
 import * as jtv from '@mojotech/json-type-validation';
 import fetch from 'cross-fetch';
+import { EventEmitter } from 'events';
+import WebSocket from 'isomorphic-ws';
 
 export type CreateEvent<T extends object, K = unknown, I extends string = string> = {
   templateId: I;
@@ -38,10 +40,20 @@ const decodeCreateEventUnknown: jtv.Decoder<CreateEvent<object>> =
     decodeCreateEvent(lookupTemplate(templateId))
   );
 
-const decodeArchiveEventUnknown: jtv.Decoder<ArchiveEvent<object>> = jtv.object({
-  templateId: jtv.string(),
-  contractId: ContractId({decoder: jtv.unknownJson}).decoder(),
+const decodeArchiveEvent = <T extends object, K, I extends string>(template: Template<T, K, I>): jtv.Decoder<ArchiveEvent<T, I>> => jtv.object({
+  templateId: jtv.constant(template.templateId),
+  contractId: ContractId(template).decoder(),
 });
+
+const decodeArchiveEventUnknown: jtv.Decoder<ArchiveEvent<object>> =
+  jtv.valueAt(['templateId'], jtv.string()).andThen(templateId =>
+    decodeArchiveEvent(lookupTemplate(templateId))
+  );
+
+const decodeEvent = <T extends object, K, I extends string>(template: Template<T, K, I>): jtv.Decoder<Event<T, K, I>> => jtv.oneOf<Event<T, K, I>>(
+  jtv.object({created: decodeCreateEvent(template)}),
+  jtv.object({archived: decodeArchiveEvent(template)}),
+);
 
 const decodeEventUnknown: jtv.Decoder<Event<object>> = jtv.oneOf<Event<object>>(
   jtv.object({created: decodeCreateEventUnknown}),
@@ -63,8 +75,13 @@ async function decodeArchiveResponse<T extends object, K, I extends string>(
   }
 }
 
+function isRecordWith<Field extends string>(field: Field, x: unknown): x is Record<Field, unknown> {
+  return typeof x === 'object' && x !== null && field in x;
+}
+
 /**
- * Type for queries against the `/contract/search` endpoint of the JSON API.
+ * Type for queries against the `/v1/query` and `/v1/stream/query` endpoints
+ * of the JSON API.
  * `Query<T>` is the type of queries that are valid when searching for
  * contracts of template type `T`.
  *
@@ -97,21 +114,42 @@ const decodeLedgerError: jtv.Decoder<LedgerError> = jtv.object({
   errors: jtv.array(jtv.string()),
 });
 
+export type EventStreamCloseEvent = {
+  code: number;
+  reason: string;
+}
+
+/**
+ * Interface for a stream of ledger events for a template type `T`.
+ */
+export interface EventStream<T extends object, K, I extends string> {
+  on(type: 'events', listener: (events: readonly Event<T,K, I>[]) => void): void;
+  on(type: 'close', listener: (closeEvent: EventStreamCloseEvent) => void): void;
+  off(type: 'events', listener: (events: readonly Event<T,K, I>[]) => void): void;
+  off(type: 'close', listener: (closeEvent: EventStreamCloseEvent) => void): void;
+  close(): void;
+}
+
 /**
  * An object of type `Ledger` represents a handle to a DAML ledger.
  */
 class Ledger {
   private readonly token: string;
-  private readonly baseUrl: string;
+  private readonly httpBaseUrl: string;
+  private readonly wsBaseUrl: string;
 
   constructor(token: string, baseUrl?: string) {
     this.token = token;
     if (!baseUrl) {
-      this.baseUrl = '';
-    } else if (baseUrl.endsWith('/')) {
-      this.baseUrl = baseUrl;
-    } else {
+      this.httpBaseUrl = '';
+      this.wsBaseUrl = `ws://${window.location.hostname}:7575/`;
+    } else if (!baseUrl.startsWith('http')) {
+      throw Error(`The ledger base URL must start with 'http'. (${baseUrl})`);
+    } else if (!baseUrl.endsWith('/')) {
       throw Error(`The ledger base URL must end in a '/'. (${baseUrl})`);
+    } else {
+      this.httpBaseUrl = baseUrl;
+      this.wsBaseUrl = 'ws' + baseUrl.slice(4);
     }
   }
 
@@ -119,7 +157,7 @@ class Ledger {
    * Internal function to submit a command to the JSON API.
    */
   private async submit(endpoint: string, payload: unknown): Promise<unknown> {
-    const httpResponse = await fetch(this.baseUrl + endpoint, {
+    const httpResponse = await fetch(this.httpBaseUrl + endpoint, {
       body: JSON.stringify(payload),
       headers: {
         'Authorization': 'Bearer ' + this.token,
@@ -258,6 +296,66 @@ class Ledger {
    */
   async archiveByKey<T extends object, K, I extends string>(template: Template<T, K, I>, key: K): Promise<ArchiveEvent<T, I>> {
     return decodeArchiveResponse(template, 'archiveByKey', () => this.exerciseByKey(template.Archive, key, {}));
+  }
+
+  /**
+   * Retrieve a consolidated stream of events for a given template.
+   * When no `query` argument is
+   * given, all events visible to the submitting party are returned. When a
+   * `query` argument is given, only those create events matching the query are
+   * returned. See https://docs.daml.com/json-api/search-query-language.html
+   * for a description of the query language.
+   */
+  streamQuery<T extends object, K, I extends string>(
+    template: Template<T, K, I>,
+    query?: Query<T>,
+  ): EventStream<T, K, I> {
+    // TODO(MH): When this moves into the proper `Ledger` class, we should use
+    // `this.token` instead of this hack around privacy using `this['token']`.
+    const protocols = ['jwt.token.' + this['token'], 'daml.ws.auth'];
+    const ws = new WebSocket(this.wsBaseUrl + 'v1/stream/query', protocols);
+    let haveSeenEvents = false;
+    const emitter = new EventEmitter();
+    ws.onopen = () => {
+      const payload = {templateIds: [template.templateId], query};
+      ws.send(JSON.stringify(payload));
+    };
+    ws.onmessage = event => {
+      const json: unknown = JSON.parse(event.data.toString());
+      if (isRecordWith('events', json)) {
+        const events = jtv.Result.withException(jtv.array(decodeEvent(template)).run(json.events));
+        haveSeenEvents = true;
+        emitter.emit('events', events);
+      } else if (isRecordWith('heartbeat', json)) {
+        // NOTE(MH): If we receive the first heartbeat before any events, then
+        // it's very likely nothing in the ACS matches the query. We signal this
+        // by sending an empty list of events. This never does harm.
+        if (!haveSeenEvents) {
+          haveSeenEvents = true;
+          emitter.emit('events', []);
+        }
+      } else if (isRecordWith('warnings', json)) {
+        console.warn('Ledger.streamQuery warnings', json);
+      } else if (isRecordWith('errors', json)) {
+        console.error('Ledger.streamQuery errors', json);
+      } else {
+        console.error('Ledger.streamQuery unknown message', json);
+      }
+    };
+    // NOTE(MH): We ignore the 'error' event since it is always followed by a
+    // 'close' event, which we need to handle anyway.
+    ws.onclose = ({code, reason}) => {
+      emitter.emit('close', {code, reason});
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const on = (type: string, listener: any) => emitter.on(type, listener);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const off = (type: string, listener: any) => emitter.on(type, listener);
+    const close = () => {
+      emitter.removeAllListeners();
+      ws.close();
+    }
+    return {on, off, close};
   }
 }
 
