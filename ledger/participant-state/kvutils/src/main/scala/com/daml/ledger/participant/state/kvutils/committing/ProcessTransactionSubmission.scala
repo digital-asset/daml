@@ -220,7 +220,7 @@ private[kvutils] case class ProcessTransactionSubmission(
 
     def foldPartiesInTxActors[T](tx: GenTransaction.WithTxValue[_, _], z: T)(f: (T, String) => T): T =
       tx.fold(z) {
-        case (accum, (_, n)) => {
+        case (accum, (_, n)) =>
           val parties = n match {
             case c: NodeCreate[_, _] =>
               (c.signatories union c.stakeholders)
@@ -234,7 +234,6 @@ private[kvutils] case class ProcessTransactionSubmission(
             case _ => Set[Ref.Party]()
           }
           parties.foldLeft(accum)(f)
-        }
       }
 
     def foldPartiesInTxVals[T](tx: GenTransaction.WithTxValue[_, TContractId], z: T)(f: (T, String) => T): T =
@@ -251,11 +250,8 @@ private[kvutils] case class ProcessTransactionSubmission(
 
     for {
       allExist <- foldPartiesInTx(relTx, pure(true)) { (acc, p) =>
-          get(partyStateKey(p)).flatMap {
-            case Some(_) => acc
-            case _ => pure(false)
-          }
-        }
+        get(partyStateKey(p)).flatMap(_.fold(pure(false))(_ => acc))
+      }
 
       r <-
         if (allExist)
