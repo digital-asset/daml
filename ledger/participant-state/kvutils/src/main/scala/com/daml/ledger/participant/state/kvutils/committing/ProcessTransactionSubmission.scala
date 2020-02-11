@@ -216,10 +216,10 @@ private[kvutils] case class ProcessTransactionSubmission(
   /** Check that all parties mentioned in a transaction exist. */
   private def validateParties: Commit[Unit] = {
 
-    def foldPartiesInTx[T](tx: GenTransaction.WithTxValue[NodeId, TContractId], z: T)(f: (T, String) => T): T =
-      foldPartiesInTxActors(tx, foldPartiesInTxVals(tx, z)(f))(f)
+    def foldAllParties[T](tx: GenTransaction.WithTxValue[NodeId, TContractId], z: T)(f: (T, String) => T): T =
+      foldInvolvedParties(tx, foldValueParties(tx, z)(f))(f)
 
-    def foldPartiesInTxActors[T](tx: GenTransaction.WithTxValue[_, _], z: T)(f: (T, String) => T): T =
+    def foldInvolvedParties[T](tx: GenTransaction.WithTxValue[_, _], z: T)(f: (T, String) => T): T =
       tx.fold(z) {
         case (accum, (_, n)) =>
           val parties = n match {
@@ -239,10 +239,10 @@ private[kvutils] case class ProcessTransactionSubmission(
           parties.foldLeft(accum)(f)
       }
 
-    def foldPartiesInTxVals[T](tx: GenTransaction.WithTxValue[_, TContractId], z: T)(f: (T, String) => T): T =
-      tx.foldValues(z) { (z, v) => foldPartiesInVal(v.value, z)(f) }
+    def foldValueParties[T](tx: GenTransaction.WithTxValue[_, TContractId], z: T)(f: (T, String) => T): T =
+      tx.foldValues(z) { (z, v) => foldParties(v.value, z)(f) }
 
-    def foldPartiesInVal[T](v: Value[ContractId], z: T)(f: (T, String) => T): T = {
+    def foldParties[T](v: Value[ContractId], z: T)(f: (T, String) => T): T = {
       @tailrec def go(vs: List[Value[ContractId]], z: T)(f: (T, String) => T): T = {
         vs match {
           case Nil => z
@@ -254,7 +254,7 @@ private[kvutils] case class ProcessTransactionSubmission(
     }
 
     for {
-      allExist <- foldPartiesInTx(relTx, pure(true)) { (acc, p) =>
+      allExist <- foldAllParties(relTx, pure(true)) { (acc, p) =>
         get(partyStateKey(p)).flatMap(_.fold(pure(false))(_ => acc))
       }
 
