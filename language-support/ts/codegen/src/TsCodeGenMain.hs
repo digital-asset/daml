@@ -56,8 +56,11 @@ main :: IO ()
 main = do
     opts@Options{..} <- execParser optionsParserInfo
     dar <- B.readFile optInputDar
-    dalfs <- either fail pure $ DAR.readDalfs $ Zip.toArchive $ BSL.fromStrict dar
-    forM_ ((DAR.mainDalf dalfs, optMainPackageName) : map (, Nothing) (DAR.dalfs dalfs)) $ \(dalf, mbPkgName) -> do
+    let archive = Zip.toArchive $ BSL.fromStrict dar
+    dalfs <- either fail pure $ DAR.readDalfs archive
+    DAR.DalfManifest{packageName, ..} <- either fail pure $ DAR.readDalfManifest archive
+    packageName <- pure $ optMainPackageName <|> packageName
+    forM_ ((DAR.mainDalf dalfs, packageName) : map (, Nothing) (DAR.dalfs dalfs)) $ \(dalf, mbPkgName) -> do
         (pkgId, pkg) <- either (fail . show)  pure $ Archive.decodeArchive Archive.DecodeAsMain (BSL.toStrict dalf)
         daml2ts opts pkgId pkg mbPkgName
 
