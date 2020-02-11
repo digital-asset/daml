@@ -17,6 +17,7 @@ import scalaz.syntax.tag._
 import scalaz.{@@, Tag}
 
 import scala.collection.{breakOut, immutable}
+import scala.concurrent.duration.FiniteDuration
 
 object domain {
 
@@ -274,6 +275,7 @@ object domain {
       submitter: Ref.Party,
       ledgerEffectiveTime: Instant,
       maximumRecordTime: Instant,
+      ttl: Option[FiniteDuration],
       commands: LfCommands)
 
   /**
