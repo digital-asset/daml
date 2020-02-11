@@ -6,7 +6,7 @@ module DA.Daml.Compiler.DocTest (docTest) where
 import Control.Monad
 import DA.Daml.Options.Types
 import DA.Daml.DocTest
-import qualified Data.Set as Set
+import qualified Data.HashSet as HashSet
 import qualified Data.Text.Extended as T
 import Development.IDE.Core.API
 import Development.IDE.Core.RuleTypes.Daml
@@ -34,7 +34,7 @@ docTest ideState files = do
     forM_ msWithPaths $ \(m, path) -> do
         createDirectoryIfMissing True (takeDirectory $ fromNormalizedFilePath path)
         T.writeFileUtf8 (fromNormalizedFilePath path) (genModuleContent m)
-    setFilesOfInterest ideState (Set.fromList $ map snd msWithPaths)
+    setFilesOfInterest ideState (HashSet.fromList $ map snd msWithPaths)
     runActionSync ideState $ do
         void $ Shake.forP msWithPaths $ \(_, path) -> use_ RunScenarios path
     diags <- getDiagnostics ideState

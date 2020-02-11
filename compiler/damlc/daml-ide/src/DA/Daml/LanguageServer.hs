@@ -19,7 +19,7 @@ import DA.Daml.LanguageServer.CodeLens
 import Development.IDE.Types.Logger
 
 import qualified Data.Aeson                                as Aeson
-import qualified Data.Set                                  as S
+import qualified Data.HashSet as HS
 import qualified Data.Text as T
 
 import Development.IDE.Core.FileStore
@@ -80,13 +80,13 @@ setHandlersVirtualResource = PartialHandlers $ \WithMessage{..} x -> return x
             withUriDaml _uri $ \vr -> do
                 logInfo (ideLogger ide) $ "Opened virtual resource: " <> textShow vr
                 logTelemetry (ideLogger ide) "Viewed scenario results"
-                modifyOpenVirtualResources ide (S.insert vr)
+                modifyOpenVirtualResources ide (HS.insert vr)
 
     ,LSP.didCloseTextDocumentNotificationHandler = withNotification (LSP.didCloseTextDocumentNotificationHandler x) $
         \_ ide (DidCloseTextDocumentParams TextDocumentIdentifier{_uri}) -> do
             withUriDaml _uri $ \vr -> do
                 logInfo (ideLogger ide) $ "Closed virtual resource: " <> textShow vr
-                modifyOpenVirtualResources ide (S.delete vr)
+                modifyOpenVirtualResources ide (HS.delete vr)
     }
 
 

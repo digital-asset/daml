@@ -55,7 +55,7 @@ import           System.IO
 import           System.IO.Extra
 import           System.Info.Extra (isWindows)
 import           Text.Read
-import qualified Data.Set as Set
+import qualified Data.HashSet as HashSet
 import qualified Data.Text as T
 import           System.Time.Extra
 import Development.IDE.Core.API
@@ -328,7 +328,7 @@ mainProj TestArguments{..} service outdir log file = do
             let json = A.encodePretty $ JSONPB.toJSONPB (encodePackage pkg) JSONPB.jsonPBOptions
             in timed log "JSON saving" . liftIO . BSL.writeFile (outdir </> proj <.> "json") $ json
 
-    setFilesOfInterest service (Set.singleton file)
+    setFilesOfInterest service (HashSet.singleton file)
     runActionSync service $ do
             dlint log file
             lf <- lfConvert log file

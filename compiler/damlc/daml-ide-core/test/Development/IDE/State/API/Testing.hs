@@ -77,7 +77,7 @@ import qualified Data.Vector as V
 import qualified Data.NameMap as NM
 import qualified Data.Text              as T
 import qualified Data.Text.IO           as T.IO
-import qualified Data.Set               as Set
+import qualified Data.HashSet as HashSet
 import Network.URI
 import qualified System.FilePath        as FilePath
 import qualified System.Directory       as Directory
@@ -245,14 +245,14 @@ setFilesOfInterest :: [D.NormalizedFilePath] -> ShakeTest ()
 setFilesOfInterest paths = do
     forM_ paths checkPath
     service <- ShakeTest $ Reader.asks steService
-    ShakeTest . liftIO $ API.setFilesOfInterest service (Set.fromList paths)
+    ShakeTest . liftIO $ API.setFilesOfInterest service (HashSet.fromList paths)
 
 -- | Set open virtual resources, i.e., open scenario results.
 setOpenVirtualResources :: [VirtualResource] -> ShakeTest ()
 setOpenVirtualResources vrs = do
     mapM_ (checkPath . vrScenarioFile) vrs
     service <- ShakeTest $ Reader.asks steService
-    ShakeTest . liftIO $ API.setOpenVirtualResources service (Set.fromList vrs)
+    ShakeTest . liftIO $ API.setOpenVirtualResources service (HashSet.fromList vrs)
 
 -- | Notify compiler service that buffer is modified, with these new contents.
 setBufferModified :: D.NormalizedFilePath -> T.Text -> ShakeTest ()
