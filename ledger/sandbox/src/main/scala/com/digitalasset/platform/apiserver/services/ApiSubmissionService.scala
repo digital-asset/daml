@@ -47,6 +47,7 @@ import io.grpc.{Status, StatusRuntimeException}
 import scalaz.syntax.tag._
 
 import scala.compat.java8.FutureConverters
+import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
@@ -62,6 +63,7 @@ object ApiSubmissionService {
       timeModel: TimeModel,
       timeProvider: TimeProvider,
       commandExecutor: CommandExecutor,
+      configuration: ApiSubmissionService.Configuration,
       metrics: MetricRegistry)(
       implicit ec: ExecutionContext,
       mat: Materializer,
@@ -74,6 +76,7 @@ object ApiSubmissionService {
         timeModel,
         timeProvider,
         commandExecutor,
+        configuration,
         metrics),
       ledgerId
     )
@@ -82,6 +85,7 @@ object ApiSubmissionService {
     def apply(views: Either[LfError, (Transaction, BlindingInfo)]): RecordUpdate = views
   }
 
+  final case class Configuration(maxTtl: FiniteDuration)
 }
 
 final class ApiSubmissionService private (
@@ -91,6 +95,7 @@ final class ApiSubmissionService private (
     timeModel: TimeModel,
     timeProvider: TimeProvider,
     commandExecutor: CommandExecutor,
+    configuration: ApiSubmissionService.Configuration,
     metrics: MetricRegistry)(
     implicit ec: ExecutionContext,
     mat: Materializer,
@@ -104,8 +109,6 @@ final class ApiSubmissionService private (
   // FIXME(JM): We need to query the current configuration every time we want to validate
   // a command. Will be addressed in follow-up PR.
   private val validator = TimeModelValidator(timeModel)
-
-  private val maxTtl: Long = 60 * 60
 
   private object Metrics {
     val failedInterpretationsMeter: Meter =
@@ -122,7 +125,7 @@ final class ApiSubmissionService private (
       implicit logCtx: LoggingContext): Future[Unit] = {
     val deduplicationKey = commands.submitter + "%" + commands.commandId.unwrap
     val submittedAt = Instant.now
-    val ttl = submittedAt.plusSeconds(commands.ttl.getOrElse(maxTtl))
+    val ttl = submittedAt.plusNanos(commands.ttl.getOrElse(configuration.maxTtl).toNanos)
 
     submissionService.deduplicateCommand(deduplicationKey, submittedAt, ttl).flatMap {
       case CommandDeduplicationNew =>

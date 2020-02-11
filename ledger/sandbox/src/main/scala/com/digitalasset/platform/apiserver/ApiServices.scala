@@ -34,7 +34,7 @@ import com.digitalasset.platform.apiserver.services.{
   ApiSubmissionService,
   ApiTimeService
 }
-import com.digitalasset.platform.configuration.CommandConfiguration
+import com.digitalasset.platform.configuration.{CommandConfiguration, SubmissionConfiguration}
 import com.digitalasset.platform.server.api.services.grpc.GrpcHealthService
 import io.grpc.BindableService
 import io.grpc.protobuf.services.ProtoReflectionService
@@ -75,6 +75,7 @@ object ApiServices {
       timeProvider: TimeProvider,
       defaultLedgerConfiguration: Configuration,
       commandConfig: CommandConfiguration,
+      submissionConfig: SubmissionConfiguration,
       optTimeServiceBackend: Option[TimeServiceBackend],
       metrics: MetricRegistry,
       healthChecks: HealthChecks,
@@ -107,6 +108,9 @@ object ApiServices {
           defaultLedgerConfiguration.timeModel,
           timeProvider,
           new CommandExecutorImpl(engine, packagesService.getLfPackage, participantId, seedService),
+          ApiSubmissionService.Configuration(
+            submissionConfig.maxTtl
+          ),
           metrics,
         )
 

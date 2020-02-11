@@ -11,7 +11,7 @@ import com.daml.ledger.participant.state.v1.TimeModel
 import com.digitalasset.ledger.api.auth.AuthService
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.platform.common.LedgerIdMode
-import com.digitalasset.platform.configuration.CommandConfiguration
+import com.digitalasset.platform.configuration.{CommandConfiguration, SubmissionConfiguration}
 import com.digitalasset.platform.services.time.TimeProviderType
 
 /**
@@ -25,6 +25,7 @@ final case class SandboxConfig(
     timeProviderType: Option[TimeProviderType],
     timeModel: TimeModel,
     commandConfig: CommandConfiguration, //TODO: this should go to the file config
+    submissionConfig: SubmissionConfiguration,
     tlsConfig: Option[TlsConfiguration],
     scenario: Option[String],
     ledgerIdMode: LedgerIdMode,
@@ -50,6 +51,7 @@ object SandboxConfig {
       timeProviderType = None,
       timeModel = TimeModel.reasonableDefault,
       commandConfig = CommandConfiguration.default,
+      submissionConfig = SubmissionConfiguration.default,
       tlsConfig = None,
       scenario = None,
       ledgerIdMode = LedgerIdMode.Dynamic,
