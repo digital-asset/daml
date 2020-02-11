@@ -1109,8 +1109,6 @@ message Scenario {
     // case, the `if` will be executed every time the scenario runs --
     // as expected.
     EmbedExpr embed_expr = 8;
-
-    Commit mustFailAtMsg = 9;
   }
 }
 
