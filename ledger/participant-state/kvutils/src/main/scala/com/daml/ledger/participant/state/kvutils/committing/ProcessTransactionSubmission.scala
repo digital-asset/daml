@@ -15,13 +15,14 @@ import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.{Blinding, Engine}
-import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, NodeCreate, NodeExercises}
+import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, NodeCreate, NodeExercises, NodeLookupByKey}
 import com.digitalasset.daml.lf.transaction.Transaction.TContractId
-import com.digitalasset.daml.lf.transaction.{BlindingInfo, GenTransaction, Node}
+import com.digitalasset.daml.lf.transaction.{BlindingInfo, GenTransaction}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId, NodeId, ValueParty, VersionedValue}
 import org.slf4j.LoggerFactory
 
+import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 
 private[kvutils] case class ProcessTransactionSubmission(
@@ -227,7 +228,7 @@ private[kvutils] case class ProcessTransactionSubmission(
             case e: NodeExercises[_, _, _] =>
               (e.actingParties union e.stakeholders)
 
-            case lk: Node.NodeLookupByKey[_, _] =>
+            case lk: NodeLookupByKey[_, _] =>
               lk.key.maintainers
 
             case _ => Set[Ref.Party]()
@@ -238,14 +239,16 @@ private[kvutils] case class ProcessTransactionSubmission(
     def foldPartiesInTxVals[T](tx: GenTransaction.WithTxValue[_, TContractId], z: T)(f: (T, String) => T): T =
       tx.foldValues(z) { (z, v) => foldPartiesInVal(v.value, z)(f) }
 
-    def foldPartiesInVal[T](v: Value[ContractId], z: T)(f: (T, String) => T): T =
-      v match {
-        case ValueParty(p) => f(z, p)
-        case other =>
-          InputsAndEffects.subValues(other).foldLeft(z) { (accum, v: Value[ContractId]) =>
-            foldPartiesInVal(v, accum)(f)
-          }
+    def foldPartiesInVal[T](v: Value[ContractId], z: T)(f: (T, String) => T): T = {
+      @tailrec def go(vs: Seq[Value[ContractId]], z: T)(f: (T, String) => T): T = {
+        vs match {
+          case Nil => z
+          case ValueParty(p) :: tail => go(tail, f(z, p))(f)
+          case v :: tail => go(tail ++ InputsAndEffects.subValues(v).toSeq, z)(f)
+        }
       }
+      go(Seq(v), z)(f)
+    }
 
     for {
       allExist <- foldPartiesInTx(relTx, pure(true)) { (acc, p) =>

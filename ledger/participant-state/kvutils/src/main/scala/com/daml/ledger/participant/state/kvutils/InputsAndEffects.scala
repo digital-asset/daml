@@ -3,6 +3,8 @@
 
 package com.daml.ledger.participant.state.kvutils
 
+import scala.annotation.tailrec
+
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1.SubmittedTransaction
@@ -94,10 +96,14 @@ private[kvutils] object InputsAndEffects {
     }
 
     def foldValue(inputs: InsertOrdSet[DamlStateKey], v: Value[ContractId]): InsertOrdSet[DamlStateKey] = {
-      v match {
-        case ValueParty(p) => inputs ++ partyInputs(Set(p))
-        case other => subValues(other).foldLeft(inputs) { (accum, v) => foldValue(accum, v) }
+      @tailrec def go(inputs: InsertOrdSet[DamlStateKey], vs: Seq[Value[ContractId]]): InsertOrdSet[DamlStateKey] = {
+        vs match {
+          case Nil => inputs
+          case ValueParty(p) :: tail => go(inputs ++ partyInputs(Set(p)), tail)
+          case v :: tail => go(inputs, tail ++ subValues(v).toSeq)
+        }
       }
+      go(inputs, Seq(v))
     }
 
     def partyInputsInValues() =
