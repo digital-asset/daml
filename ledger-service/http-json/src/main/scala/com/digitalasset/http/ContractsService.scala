@@ -15,7 +15,7 @@ import com.digitalasset.http.query.ValuePredicate
 import com.digitalasset.http.util.ApiValueToLfValueConverter
 import com.digitalasset.http.util.FutureUtil.toFuture
 import util.Collections._
-import util.InsertDeleteStep
+import util.{ContractStreamStep, InsertDeleteStep}
 import com.digitalasset.jwt.domain.Jwt
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => api}
@@ -243,7 +243,7 @@ class ContractsService(
 
     insertDeleteStepSource(jwt, party, templateIds.toList)
       .map { step =>
-        val (errors, inserts) = step.inserts partitionMap { apiEvent =>
+        val (errors, converted) = step.toInsertDelete.partitionMapPreservingIds { apiEvent =>
           domain.ActiveContract
             .fromLedgerApi(apiEvent)
             .leftMap(e => Error('searchInMemory, e.shows))
@@ -251,7 +251,8 @@ class ContractsService(
         }
         (
           errors,
-          step copy (inserts = inserts filter (ac => funPredicates(ac.templateId)(ac.payload))),
+          converted copy (inserts = converted.inserts filter (ac =>
+            funPredicates(ac.templateId)(ac.payload))),
         )
       }
       .fold(empty) {
@@ -277,7 +278,7 @@ class ContractsService(
       party: lar.Party,
       templateIds: List[domain.TemplateId.RequiredPkg],
       terminates: Terminates = Terminates.AtLedgerEnd,
-  ): Source[InsertDeleteStep.LAV1, NotUsed] = {
+  ): Source[ContractStreamStep.LAV1, NotUsed] = {
 
     val txnFilter = util.Transactions.transactionFilterFor(party, templateIds)
     val source = getActiveContracts(jwt, txnFilter, true)

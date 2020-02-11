@@ -193,7 +193,7 @@ private class ContractsFetch(
               transactionFilter(party, List(templateId)),
               true,
             )
-            (stepsAndOffset.out0, stepsAndOffset.out1)
+            (stepsAndOffset.out0.map(_.toInsertDelete).outlet, stepsAndOffset.out1)
 
           case AbsoluteBookmark(_) =>
             val stepsAndOffset = builder add transactionsFollowingBoundary(txnK)
@@ -331,15 +331,14 @@ private[http] object ContractsFetch {
     NotUsed] =
     GraphDSL.create() { implicit b =>
       import GraphDSL.Implicits._
-      import ContractStreamStep.{LiveBegin, Txn}
+      import ContractStreamStep.{LiveBegin, Acs, Txn}
       val acs = b add acsAndBoundary
-      val liveBegin = b add Source.single(ContractStreamStep.LiveBegin: ContractStreamStep.LAV1)
       val txns = b add transactionsFollowingBoundary(transactionsSince)
       val allSteps = b add Concat[ContractStreamStep.LAV1](3)
       // format: off
-      discard { acs.out0.map(createdEventsIDS) ~> allSteps }
-      discard { Source.single(LiveBegin)       ~> allSteps }
-      discard {             txns.out0          ~> allSteps }
+      discard { acs.out0.map(ces => Acs(ces.toVector)) ~> allSteps }
+      discard {      Source.single(LiveBegin)          ~> allSteps }
+      discard {             txns.out0.map(Txn(_))      ~> allSteps }
       discard { acs.out1 ~> txns.in }
       // format: on
       new FanOutShape2(acs.in, allSteps.out, txns.out1)

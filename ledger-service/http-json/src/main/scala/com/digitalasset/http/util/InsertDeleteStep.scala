@@ -7,7 +7,7 @@ package util
 import com.digitalasset.http.dbbackend.Queries.DBContract
 import com.digitalasset.ledger.api.v1.{event => evv1}
 
-import scalaz.\/
+import scalaz.{\/, \/-}
 import scalaz.syntax.tag._
 
 import scala.collection.generic.CanBuildFrom
@@ -32,6 +32,14 @@ private[http] final case class InsertDeleteStep[+D, +C](
 
   /** Results undefined if cid(d) != cid(c) */
   def mapPreservingIds[CC](f: C => CC): InsertDeleteStep[D, CC] = copy(inserts = inserts map f)
+
+  /** Results undefined if cid(d) != cid(c) */
+  def partitionMapPreservingIds[LC, CC, LCS](f: C => (LC \/ CC))(
+      implicit LCS: CanBuildFrom[Inserts[C], LC, LCS],
+  ): (LCS, InsertDeleteStep[D, CC]) = {
+    val (_, lcs, step) = partitionBimap(\/-(_), f)
+    (lcs, step)
+  }
 
   /** Results undefined if cid(cc) != cid(c) */
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
