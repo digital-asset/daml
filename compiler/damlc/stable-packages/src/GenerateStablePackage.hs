@@ -78,6 +78,8 @@ main = do
       writePackage (daValidationTypes (PackageId $ encodePackageHash daNonEmptyTypes)) optOutputPath
     ModuleName ["DA", "Internal", "Down"] ->
       writePackage daInternalDown optOutputPath
+    ModuleName ["DA", "Internal", "Erased"] ->
+      writePackage daInternalErased optOutputPath
     _ -> fail $ "Unknown module: " <> show optModule
 
 writePackage :: Package -> FilePath -> IO ()
@@ -486,6 +488,23 @@ daInternalDown = Package version1_6 $ NM.singleton Module
       ]
     values = NM.fromList
       [ mkWorkerDef modName downTyCon tyVars [(unpackField, TVar tyVar)]
+      ]
+
+daInternalErased :: Package
+daInternalErased = Package version1_6 $ NM.singleton Module
+  { moduleName = modName
+  , moduleSource = Nothing
+  , moduleFeatureFlags = daml12FeatureFlags
+  , moduleSynonyms = NM.empty
+  , moduleDataTypes = types
+  , moduleValues = NM.empty
+  , moduleTemplates = NM.empty
+  }
+  where
+    modName = mkModName ["DA", "Internal", "Erased"]
+    erasedTyCon = mkTypeCon ["Erased"]
+    types = NM.fromList
+      [ DefDataType Nothing erasedTyCon (IsSerializable False) [] $ DataVariant []
       ]
 
 mkSelectorDef :: ModuleName -> TypeConName -> [(TypeVarName, Kind)] -> FieldName -> Type -> DefValue

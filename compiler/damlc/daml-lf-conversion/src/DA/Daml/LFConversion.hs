@@ -1407,6 +1407,14 @@ qDA_Types env a = do
   pkgRef <- packageNameToPkgRef env "daml-prim"
   pure $ rewriteStableQualified env $ Qualified pkgRef (mkModName ["DA", "Types"]) a
 
+-- | Types of a kind not supported in DAML-LF, e.g., Symbol or the DataKinds stuff from GHC.Generics
+-- are translated to a special uninhabited Erased type. This allows us to easily catch these cases in
+-- data-dependencies.
+erasedTy :: Env -> ConvertM LF.Type
+erasedTy env = do
+    pkgRef <- packageNameToPkgRef env "daml-prim"
+    pure $ TCon $ rewriteStableQualified env (Qualified pkgRef (mkModName ["DA", "Internal", "Erased"]) (mkTypeCon ["Erased"]))
+
 -- | Rewrite an a qualified name into a reference into one of the hardcoded
 -- stable packages if there is one.
 rewriteStableQualified :: Env -> Qualified a -> Qualified a
@@ -1455,8 +1463,8 @@ convertTyCon env t
     | t == boolTyCon = pure TBool
     | t == intTyCon || t == intPrimTyCon = pure TInt64
     | t == charTyCon = unsupported "Type GHC.Types.Char" t
-    | t == liftedRepDataConTyCon = pure TUnit
-    | t == typeSymbolKindCon = pure TUnit
+    | t == liftedRepDataConTyCon = erasedTy env
+    | t == typeSymbolKindCon = erasedTy env
     | NameIn GHC_Types n <- t =
         case n of
             "Text" -> pure TText
@@ -1510,10 +1518,9 @@ convertType env = go env
             pure TText
         | NameIn DA_Generics n <- t
         , n `elementOfUniqSet` metadataTys
-        , [_] <- ts =
-            pure TUnit
+        , [_] <- ts = erasedTy env
         | t == anyTyCon, [_] <- ts =
-            pure TUnit -- used for type-zonking
+            erasedTy env -- used for type-zonking
         | t == funTyCon, _:_:ts' <- ts =
             foldl TApp TArrow <$> mapM (go env) ts'
         | NameIn DA_Internal_LF "Pair" <- t
@@ -1544,7 +1551,7 @@ convertType env = go env
         = TVar . fst <$> convTypeVar env v
 
     go _ t | Just s <- isStrLitTy t
-        = pure TUnit
+        = erasedTy env
 
     go env t | Just m <- isNumLitTy t
         = case typeLevelNatE m of

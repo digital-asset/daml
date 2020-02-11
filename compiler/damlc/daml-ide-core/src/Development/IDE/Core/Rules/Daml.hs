@@ -522,7 +522,7 @@ generateStablePackages lfVersion fp = do
         -- if you forget to update it, we hardcode it here.
         let dalfs =
                 map (fp </>) $
-                map ("daml-prim" </>) ["DA-Types.dalf", "GHC-Prim.dalf", "GHC-Tuple.dalf", "GHC-Types.dalf"] <>
+                map ("daml-prim" </>) [ "DA-Internal-Erased.dalf", "DA-Types.dalf", "GHC-Prim.dalf", "GHC-Tuple.dalf", "GHC-Types.dalf"] <>
                 map ("daml-stdlib" </>)
                   [ "DA-Internal-Any.dalf"
                   , "DA-Internal-Template.dalf"

@@ -45,6 +45,7 @@ $DAMLC build --project-root $DIR -o $DIR/out.dar
 # an empty package
 $DIFF -u -b <($DAMLC inspect-dar $DIR/out.dar | sed '1,/following packages/d' | head -n -1) <(cat <<EOF
 
+daml-prim-DA-Internal-Erased-76bf0fd12bd945762a01f8fc5bbcdfa4d0ff20f8762af490f8f41d6237c6524f "76bf0fd12bd945762a01f8fc5bbcdfa4d0ff20f8762af490f8f41d6237c6524f"
 daml-prim-DA-Types-40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7 "40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7"
 daml-prim-GHC-Prim-e491352788e56ca4603acc411ffe1a49fefd76ed8b163af86cf5ee5f4c38645b "e491352788e56ca4603acc411ffe1a49fefd76ed8b163af86cf5ee5f4c38645b"
 daml-prim-GHC-Tuple-6839a6d3d430c569b2425e9391717b44ca324b88ba621d597778811b2d05031d "6839a6d3d430c569b2425e9391717b44ca324b88ba621d597778811b2d05031d"
