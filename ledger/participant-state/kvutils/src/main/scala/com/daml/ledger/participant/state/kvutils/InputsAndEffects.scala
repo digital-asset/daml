@@ -96,14 +96,14 @@ private[kvutils] object InputsAndEffects {
     }
 
     def foldValue(inputs: InsertOrdSet[DamlStateKey], v: Value[ContractId]): InsertOrdSet[DamlStateKey] = {
-      @tailrec def go(inputs: InsertOrdSet[DamlStateKey], vs: Seq[Value[ContractId]]): InsertOrdSet[DamlStateKey] = {
+      @tailrec def go(inputs: InsertOrdSet[DamlStateKey], vs: List[Value[ContractId]]): InsertOrdSet[DamlStateKey] = {
         vs match {
           case Nil => inputs
           case ValueParty(p) :: tail => go(inputs ++ partyInputs(Set(p)), tail)
-          case v :: tail => go(inputs, tail ++ subValues(v).toSeq)
+          case v :: tail => go(inputs, tail ++ subValues(v).toList)
         }
       }
-      go(inputs, Seq(v))
+      go(inputs, List(v))
     }
 
     def partyInputsInValues() =

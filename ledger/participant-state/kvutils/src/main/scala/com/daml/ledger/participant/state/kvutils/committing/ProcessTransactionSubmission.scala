@@ -240,14 +240,14 @@ private[kvutils] case class ProcessTransactionSubmission(
       tx.foldValues(z) { (z, v) => foldPartiesInVal(v.value, z)(f) }
 
     def foldPartiesInVal[T](v: Value[ContractId], z: T)(f: (T, String) => T): T = {
-      @tailrec def go(vs: Seq[Value[ContractId]], z: T)(f: (T, String) => T): T = {
+      @tailrec def go(vs: List[Value[ContractId]], z: T)(f: (T, String) => T): T = {
         vs match {
           case Nil => z
           case ValueParty(p) :: tail => go(tail, f(z, p))(f)
-          case v :: tail => go(tail ++ InputsAndEffects.subValues(v).toSeq, z)(f)
+          case v :: tail => go(tail ++ InputsAndEffects.subValues(v).toList, z)(f)
         }
       }
-      go(Seq(v), z)(f)
+      go(List(v), z)(f)
     }
 
     for {
