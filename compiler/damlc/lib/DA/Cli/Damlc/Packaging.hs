@@ -297,7 +297,8 @@ baseImports =
        (GHC.stringToUnitId damlStdlib)
        False
        (map (\mod -> (GHC.mkModuleName mod, GHC.mkModuleName (currentSdkPrefix <> "." <> mod)))
-          [ "DA.Internal.Template"
+          [ "DA.Internal.Any"
+          , "DA.Internal.Template"
           , "DA.Internal.Template.Functions"
           , "DA.Internal.LF"
           , "DA.Internal.Prelude"
