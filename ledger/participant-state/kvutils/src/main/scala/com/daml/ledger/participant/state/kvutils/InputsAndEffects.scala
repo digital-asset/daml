@@ -4,11 +4,12 @@
 package com.daml.ledger.participant.state.kvutils
 
 import scala.annotation.tailrec
+import scala.collection.mutable
 
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1.SubmittedTransaction
-import com.digitalasset.daml.lf.data.{ImmArray, InsertOrdSet}
+import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.transaction.Node._
 import com.digitalasset.daml.lf.transaction.Transaction
@@ -68,71 +69,87 @@ private[kvutils] object InputsAndEffects {
   /** Compute the inputs to a DAML transaction, that is, the referenced contracts, keys
     * and packages.
     */
-  def computeInputs(tx: SubmittedTransaction): List[DamlStateKey] = {
-    val packageInputs: InsertOrdSet[DamlStateKey] = {
-      val usedPackages = tx.optUsedPackages.getOrElse(
-        throw new InternalError("Transaction was not annotated with used packages")
-      )
+  def computeInputs(tx: SubmittedTransaction): Set[DamlStateKey] = {
+    val inputs = mutable.LinkedHashSet[DamlStateKey]()
+
+    {
       import PackageId.ordering
-      InsertOrdSet.fromSeq(
-        usedPackages.toList.sorted
-          .map { pkgId =>
-            DamlStateKey.newBuilder.setPackageId(pkgId).build
-          }
-      )
+      inputs ++=
+        tx.optUsedPackages.getOrElse(
+          throw new InternalError("Transaction was not annotated with used packages")
+        ).toList.sorted.map(DamlStateKey.newBuilder.setPackageId(_).build)
     }
 
-    def contractInputs(coid: ContractId): InsertOrdSet[DamlStateKey] =
+    def addContractInput(coid: ContractId): Unit =
       coid match {
         case acoid: AbsoluteContractId =>
-          InsertOrdSet.empty + absoluteContractIdToStateKey(acoid)
+          inputs += absoluteContractIdToStateKey(acoid)
         case _ =>
-          InsertOrdSet.empty
       }
 
-    def partyInputs(parties: Set[Party]): InsertOrdSet[DamlStateKey] = {
+    def partyInputs(parties: Set[Party]): List[DamlStateKey] = {
       import Party.ordering
-      InsertOrdSet.fromSeq(parties.toList.sorted.map(partyStateKey))
+      parties.toList.sorted.map(partyStateKey)
     }
 
-    def foldValue(inputs: InsertOrdSet[DamlStateKey], v: Value[ContractId]): InsertOrdSet[DamlStateKey] = {
-      @tailrec def go(inputs: InsertOrdSet[DamlStateKey], vs: List[Value[ContractId]]): InsertOrdSet[DamlStateKey] = {
-        vs match {
-          case Nil => inputs
-          case ValueParty(p) :: tail => go(inputs ++ partyInputs(Set(p)), tail)
-          case v :: tail => go(inputs, tail ++ subValues(v).toList)
-        }
-      }
-      go(inputs, List(v))
-    }
+    def addPartyInputInValue(v: Value[ContractId]): Unit = {
+      val toBeProcessed = mutable.ArrayBuffer[Value[ContractId]](v)
 
-    def partyInputsInValues() =
-      tx.foldValues(packageInputs) { case (inputs, VersionedValue(_, v)) =>
-          foldValue(inputs, v)
-      }
+      @tailrec def go(): Unit =
+        if (toBeProcessed.nonEmpty) {
+          toBeProcessed.remove(0) match {
+            case ValueParty(p) =>
+              inputs += partyStateKey(p)
 
-    tx.fold(packageInputs: Set[DamlStateKey]) {
-        case (inputs, (nodeId, node)) =>
-          node match {
-            case fetch: NodeFetch[ContractId] =>
-              inputs ++ contractInputs(fetch.coid) ++ partyInputs(fetch.signatories) ++
-                partyInputs(fetch.stakeholders)
-            case create: NodeCreate[ContractId, VersionedValue[ContractId]] =>
-              create.key.fold(inputs) { keyWithM =>
-                inputs + contractKeyToStateKey(
-                  GlobalKey(create.coinst.template, forceNoContractIds(keyWithM.key)))
-              } ++ partyInputs(create.signatories) ++ partyInputs(create.stakeholders)
-            case exe: NodeExercises[_, ContractId, _] =>
-              inputs ++ contractInputs(exe.targetCoid) ++ partyInputs(exe.stakeholders) ++ partyInputs(
-                exe.signatories) ++ partyInputs(exe.controllers)
-            case l: NodeLookupByKey[ContractId, Transaction.Value[ContractId]] =>
-              // We need both the contract key state and the contract state. The latter is used to verify
-              // that the submitter can access the contract.
-              l.result.fold(inputs)(inputs ++ contractInputs(_)) +
-                contractKeyToStateKey(GlobalKey(l.templateId, forceNoContractIds(l.key.key)))
+            case v =>
+              toBeProcessed ++= subValues(v).toSeq
           }
-      }.toList ++ partyInputsInValues()
+          go()
+        }
+
+      go()
     }
+
+    def addPartyInputsInValues(): Unit = {
+      tx.foldValues(()) { case (_, VersionedValue(_, v)) =>
+        addPartyInputInValue(v)
+      }
+    }
+
+    tx.foreach {
+      case (_, node) =>
+        node match {
+          case fetch: NodeFetch[ContractId] =>
+            addContractInput(fetch.coid)
+            inputs ++= partyInputs(fetch.signatories)
+            inputs ++= partyInputs(fetch.stakeholders)
+
+          case create: NodeCreate[ContractId, VersionedValue[ContractId]] =>
+            create.key.foreach { keyWithM =>
+              inputs += contractKeyToStateKey(
+                GlobalKey(create.coinst.template, forceNoContractIds(keyWithM.key)))
+            }
+            inputs ++= partyInputs(create.signatories)
+            inputs ++= partyInputs(create.stakeholders)
+
+          case exe: NodeExercises[_, ContractId, _] =>
+            addContractInput(exe.targetCoid)
+            inputs ++= partyInputs(exe.stakeholders)
+            inputs ++= partyInputs(exe.signatories)
+            inputs ++= partyInputs(exe.controllers)
+
+          case l: NodeLookupByKey[ContractId, Transaction.Value[ContractId]] =>
+            // We need both the contract key state and the contract state. The latter is used to verify
+            // that the submitter can access the contract.
+            l.result.foreach(addContractInput)
+            inputs += contractKeyToStateKey(GlobalKey(l.templateId, forceNoContractIds(l.key.key)))
+        }
+    }
+
+    addPartyInputsInValues()
+
+    inputs.toSet
+  }
 
   def subValues(v: Value[ContractId]): ImmArray[Value[ContractId]] =
     v match {
