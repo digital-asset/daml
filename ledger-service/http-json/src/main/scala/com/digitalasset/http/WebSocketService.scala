@@ -12,7 +12,7 @@ import com.digitalasset.http.domain.{JwtPayload, SearchForeverRequest}
 import com.digitalasset.http.json.{DomainJsonDecoder, DomainJsonEncoder, JsonProtocol, SprayJson}
 import com.digitalasset.http.LedgerClientJwt.Terminates
 import util.ApiValueToLfValueConverter.apiValueToLfValue
-import util.InsertDeleteStep
+import util.{ContractStreamStep, InsertDeleteStep}
 import json.JsonProtocol.LfValueCodec.{apiValueToJsValue => lfValueToJsValue}
 import query.ValuePredicate.{LfV, TypeLookup}
 import com.digitalasset.jwt.domain.Jwt
@@ -30,7 +30,7 @@ import scalaz.std.map._
 import scalaz.std.set._
 import scalaz.std.tuple._
 import scalaz.{-\/, Show, \/, \/-}
-import spray.json.{JsObject, JsString, JsValue}
+import spray.json.{JsObject, JsString, JsTrue, JsValue}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -45,6 +45,7 @@ object WebSocketService {
   )
 
   val heartBeat: String = JsObject("heartbeat" -> JsString("ping")).compactPrint
+  private val liveMarker = JsObject("live" -> JsTrue)
 
   private implicit final class `\\/ WSS extras`[L, R](private val self: L \/ R) extends AnyVal {
     def liftErr[M](f: String => M)(implicit L: Show[L]): M \/ R =
@@ -53,21 +54,27 @@ object WebSocketService {
 
   private final case class StepAndErrors[+Pos, +LfV](
       errors: Seq[ServerError],
-      step: InsertDeleteStep[domain.ArchivedContract, (domain.ActiveContract[LfV], Pos)]) {
+      step: ContractStreamStep[domain.ArchivedContract, (domain.ActiveContract[LfV], Pos)]) {
     import json.JsonProtocol._, spray.json._
-    def render(implicit lfv: LfV <~< JsValue, pos: Pos <~< Map[String, JsValue]): JsValue = {
-      def inj[V: JsonWriter](ctor: String, v: V) = JsObject(ctor -> v.toJson)
-      val thisw =
-        Liskov.lift2[StepAndErrors, Pos, Map[String, JsValue], LfV, JsValue](pos, lfv)(this)
-      val events = JsArray(
-        step.deletes.valuesIterator.map(inj("archived", _)).toVector
-          ++ thisw.step.inserts.map {
-            case (ac, pos) =>
-              val acj = inj("created", ac)
-              acj copy (fields = acj.fields ++ pos)
-          } ++ errors.map(e => inj("error", e.message)))
-      JsObject(("events", events))
-    }
+    def render(implicit lfv: LfV <~< JsValue, pos: Pos <~< Map[String, JsValue]): JsValue =
+      step match {
+        case ContractStreamStep.LiveBegin => liveMarker
+        case _ =>
+          def inj[V: JsonWriter](ctor: String, v: V) = JsObject(ctor -> v.toJson)
+          val InsertDeleteStep(inserts, deletes) =
+            Liskov
+              .lift2[StepAndErrors, Pos, Map[String, JsValue], LfV, JsValue](pos, lfv)(this)
+              .step
+              .toInsertDelete
+          val events = JsArray(
+            deletes.valuesIterator.map(inj("archived", _)).toVector
+              ++ inserts.map {
+                case (ac, pos) =>
+                  val acj = inj("created", ac)
+                  acj copy (fields = acj.fields ++ pos)
+              } ++ errors.map(e => inj("error", e.message)))
+          JsObject(("events", events))
+      }
 
     def append[P >: Pos, A >: LfV](o: StepAndErrors[P, A]): StepAndErrors[P, A] =
       StepAndErrors(errors ++ o.errors, step append o.step)
@@ -81,12 +88,22 @@ object WebSocketService {
     def nonEmpty: Boolean = errors.nonEmpty || step.nonEmpty
   }
 
-  private def conflation[P, A]: Flow[StepAndErrors[P, A], StepAndErrors[P, A], NotUsed] =
+  private def conflation[P, A]: Flow[StepAndErrors[P, A], StepAndErrors[P, A], NotUsed] = {
+    val maxCost = 200L
     Flow[StepAndErrors[P, A]]
-      .batchWeighted(max = 200, costFn = {
-        case StepAndErrors(errors, InsertDeleteStep(inserts, deletes)) =>
-          errors.length.toLong + (inserts.length * 2) + deletes.size
-      }, identity)(_ append _)
+      .batchWeighted(
+        max = maxCost,
+        costFn = {
+          case StepAndErrors(_, ContractStreamStep.LiveBegin) =>
+            // this is how we avoid conflating LiveBegin
+            maxCost
+          case StepAndErrors(errors, step) =>
+            val InsertDeleteStep(inserts, deletes) = step.toInsertDelete
+            errors.length.toLong + (inserts.length * 2) + deletes.size
+        },
+        identity
+      )(_ append _)
+  }
 
   trait StreamQuery[A] {
 
