@@ -11,7 +11,7 @@
 DROP INDEX idx_transactions_deduplication;
 
 
-CREATE TABLE participant_commands(
+CREATE TABLE participant_command_submissions(
   -- The deduplication key
   deduplication_key  varchar primary key   not null,
   -- The time the command was first submitted

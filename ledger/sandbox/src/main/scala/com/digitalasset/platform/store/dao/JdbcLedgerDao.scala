@@ -1631,20 +1631,20 @@ private class JdbcLedgerDao(
 
   private val SQL_REMOVE_OLD_COMMAND = SQL(
     """
-      |delete from participant_commands
+      |delete from participant_command_submissions
       |where deduplication_key = {deduplicationKey} and {submittedAt} < ttl
     """.stripMargin)
 
   private val SQL_SELECT_COMMAND = SQL(
     """
       |select submitted_at, ttl, success, error
-      |from participant_commands
+      |from participant_command_submissions
       |where deduplication_key = {deduplicationKey} and {submittedAt} < ttl
     """.stripMargin)
 
   private val SQL_INSERT_COMMAND = SQL(
     """
-      |insert into participant_commands(deduplication_key, submitted_at, ttl)
+      |insert into participant_command_submissions(deduplication_key, submitted_at, ttl)
       |values ({deduplicationKey}, {submittedAt}, {ttl})
     """.stripMargin)
 
@@ -1717,7 +1717,7 @@ private class JdbcLedgerDao(
 
   private val SQL_UPDATE_COMMAND = SQL(
     """
-      |update participant_commands
+      |update participant_command_submissions
       |set success={success}, error={error}
       |where deduplication_key={deduplicationKey} and submitted_at={submittedAt}
     """.stripMargin)
