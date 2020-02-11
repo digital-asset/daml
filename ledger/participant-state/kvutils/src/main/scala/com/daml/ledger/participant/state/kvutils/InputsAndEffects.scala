@@ -110,11 +110,10 @@ private[kvutils] object InputsAndEffects {
       go()
     }
 
-    def addPartyInputsInValues(): Unit = {
+    def addPartyInputsInValues(): Unit =
       tx.foldValues(()) { case (_, VersionedValue(_, v)) =>
         addPartyInputInValue(v)
       }
-    }
 
     tx.foreach {
       case (_, node) =>
