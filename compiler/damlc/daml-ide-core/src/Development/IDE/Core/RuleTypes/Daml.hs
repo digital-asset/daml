@@ -18,7 +18,7 @@ import Data.Binary
 import qualified Data.ByteString as BS
 import Data.Hashable
 import Data.Map.Strict (Map)
-import Data.Set (Set)
+import Data.HashSet (HashSet)
 import Data.Typeable (Typeable)
 import Development.Shake
 import GHC.Generics (Generic)
@@ -89,7 +89,7 @@ type instance RuleResult GetScenarioRoot = NormalizedFilePath
 
 -- | These rules manage access to the global state in
 -- envOfInterestVar and envOpenVirtualResources.
-type instance RuleResult GetOpenVirtualResources = Set VirtualResource
+type instance RuleResult GetOpenVirtualResources = HashSet VirtualResource
 
 -- | This is used for on-disk incremental builds
 type instance RuleResult ReadSerializedDalf = LF.Module

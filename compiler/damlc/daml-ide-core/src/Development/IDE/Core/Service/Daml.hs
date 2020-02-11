@@ -19,10 +19,11 @@ import Control.Concurrent.Extra
 import Control.Monad
 import Control.DeepSeq
 import GHC.Generics
-import Data.Map.Strict (Map)
-import qualified Data.Map.Strict as Map
-import Data.Set (Set)
-import qualified Data.Set as Set
+import Data.Hashable
+import Data.HashMap.Strict (HashMap)
+import qualified Data.HashMap.Strict as HashMap
+import Data.HashSet (HashSet)
+import qualified Data.HashSet as HashSet
 import qualified Data.Text as T
 import Data.Tuple.Extra
 import Development.Shake
@@ -53,13 +54,14 @@ data VirtualResource = VRScenario
     -- This virtual resource is associated with the HTML result of
     -- interpreting the corresponding scenario.
 
+instance Hashable VirtualResource
 instance NFData VirtualResource
 
 
 data DamlEnv = DamlEnv
   { envScenarioService :: Maybe SS.Handle
-  , envOpenVirtualResources :: Var (Set VirtualResource)
-  , envScenarioContexts :: Var (Map NormalizedFilePath SS.ContextId)
+  , envOpenVirtualResources :: Var (HashSet VirtualResource)
+  , envScenarioContexts :: Var (HashMap NormalizedFilePath SS.ContextId)
   -- ^ This is a map from the file for which the context was created to
   -- the context id. We use this to track which scenario contexts
   -- are active so that we can GC inactive scenarios.
@@ -77,8 +79,8 @@ instance IsIdeGlobal DamlEnv
 
 mkDamlEnv :: Options -> Maybe SS.Handle -> IO DamlEnv
 mkDamlEnv opts scenarioService = do
-    openVRsVar <- newVar Set.empty
-    scenarioContextsVar <- newVar Map.empty
+    openVRsVar <- newVar HashSet.empty
+    scenarioContextsVar <- newVar HashMap.empty
     previousScenarioContextsVar <- newVar []
     pure DamlEnv
         { envScenarioService = scenarioService
@@ -93,14 +95,14 @@ mkDamlEnv opts scenarioService = do
 getDamlServiceEnv :: Action DamlEnv
 getDamlServiceEnv = getIdeGlobalAction
 
-setOpenVirtualResources :: IdeState -> Set VirtualResource -> IO ()
+setOpenVirtualResources :: IdeState -> HashSet VirtualResource -> IO ()
 setOpenVirtualResources state resources = modifyOpenVirtualResources state (const resources)
 
-modifyOpenVirtualResources :: IdeState -> (Set VirtualResource -> Set VirtualResource) -> IO ()
+modifyOpenVirtualResources :: IdeState -> (HashSet VirtualResource -> HashSet VirtualResource) -> IO ()
 modifyOpenVirtualResources state f = do
     DamlEnv{..} <- getIdeGlobalState state
     vrs <- modifyVar envOpenVirtualResources $ pure . dupe . f
-    logDebug (ideLogger state) $ "Set vrs of interest to: " <> T.pack (show $ Set.toList vrs)
+    logDebug (ideLogger state) $ "Set vrs of interest to: " <> T.pack (show $ HashSet.toList vrs)
     void $ shakeRun state []
 
 initialise
