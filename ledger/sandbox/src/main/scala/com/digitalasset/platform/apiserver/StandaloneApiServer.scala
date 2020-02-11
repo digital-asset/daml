@@ -100,7 +100,7 @@ final class StandaloneApiServer(
         initialConditions.ledgerId,
         participantId)
       indexService <- JdbcIndex(
-        readService,
+        initialConditions.config.timeModel,
         domain.LedgerId(initialConditions.ledgerId),
         participantId,
         config.jdbcUrl,
