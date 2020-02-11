@@ -1045,6 +1045,7 @@ dataDependencyTests damlc repl davlDar = testGroup "Data Dependencies" $
               , "    p : Party"
               , "  where"
               , "    signatory p"
+              , "data AnyWrapper = AnyWrapper { getAnyWrapper : AnyTemplate }"
               ]
           writeFileUTF8 (proja </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
@@ -1060,7 +1061,7 @@ dataDependencyTests damlc repl davlDar = testGroup "Data Dependencies" $
           writeFileUTF8 (projb </> "src" </> "B.daml") $ unlines
               [ "daml 1.2"
               , "module B where"
-              , "import A ( Foo (foo), Bar (..), usingFoo, Q (..), usingEq, R(R), P(P) )"
+              , "import A ( Foo (foo), Bar (..), usingFoo, Q (..), usingEq, R(R), P(P), AnyWrapper(..) )"
               , "import DA.Assert"
               , "import DA.Record"
               , ""
@@ -1093,6 +1094,11 @@ dataDependencyTests damlc repl davlDar = testGroup "Data Dependencies" $
               , "  signatory t === [alice]"
               , "  cid <- submit alice $ create t"
               , "  submit alice $ archive cid"
+              -- references to DA.Internal.Any
+              , "testAny = scenario do"
+              , "  p <- getParty \"p\""
+              , "  let t = P p"
+              , "  fromAnyTemplate (AnyWrapper $ toAnyTemplate t).getAnyWrapper === Some t"
               ]
           writeFileUTF8 (projb </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
