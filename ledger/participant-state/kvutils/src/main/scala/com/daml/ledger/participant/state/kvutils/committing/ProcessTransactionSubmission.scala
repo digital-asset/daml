@@ -222,8 +222,7 @@ private[kvutils] case class ProcessTransactionSubmission(
       tx.fold(z) {
         case (accum, (_, n)) =>
           val parties = n match {
-            case c: NodeCreate[_, _] =>
-              (c.signatories union c.stakeholders)
+            case c: NodeCreate[_, _] => c.stakeholders
 
             case e: NodeExercises[_, _, _] =>
               (e.actingParties union e.stakeholders)
