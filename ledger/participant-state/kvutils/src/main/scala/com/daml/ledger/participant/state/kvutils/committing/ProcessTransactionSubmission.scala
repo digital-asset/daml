@@ -252,10 +252,8 @@ private[kvutils] case class ProcessTransactionSubmission(
     for {
       allExist <- foldPartiesInTx(relTx, pure(true)) { (acc, p) =>
           get(partyStateKey(p)).flatMap {
-            case Some(partyAllocation) =>
-              println(partyAllocation) ; acc
-            case _ =>
-              pure(false)
+            case Some(_) => acc
+            case _ => pure(false)
           }
         }
 
