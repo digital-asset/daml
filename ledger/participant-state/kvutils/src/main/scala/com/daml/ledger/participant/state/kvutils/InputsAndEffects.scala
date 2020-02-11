@@ -9,7 +9,6 @@ import scala.collection.mutable
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1.SubmittedTransaction
-import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.transaction.Node._
 import com.digitalasset.daml.lf.transaction.Transaction
@@ -102,7 +101,7 @@ private[kvutils] object InputsAndEffects {
               inputs += partyStateKey(p)
 
             case v =>
-              toBeProcessed ++= subValues(v).toSeq
+              toBeProcessed ++= subValues(v)
           }
           go()
         }
@@ -150,23 +149,23 @@ private[kvutils] object InputsAndEffects {
     inputs.toSet
   }
 
-  def subValues(v: Value[ContractId]): ImmArray[Value[ContractId]] =
+  def subValues(v: Value[ContractId]): List[Value[ContractId]] =
     v match {
-      case ValueRecord(_, fields) => fields.map(_._2)
-      case ValueList(elems) => elems.toImmArray
-      case ValueStruct(fields) => fields.map(_._2)
-      case ValueVariant(_, _, v) => ImmArray(v)
+      case ValueRecord(_, fields) => fields.map(_._2).toList
+      case ValueList(elems) => elems.toImmArray.toList
+      case ValueStruct(fields) => fields.map(_._2).toList
+      case ValueVariant(_, _, v) => List(v)
       case ValueOptional(optV) => optV match {
-        case Some(v) => ImmArray(v)
-        case None => ImmArray.empty
+        case Some(v) => List(v)
+        case None => List.empty
       }
-      case ValueTextMap(map) => map.values
+      case ValueTextMap(map) => map.values.toList
       case ValueGenMap(entries) =>
-        entries.map(_._1).slowAppend(entries.map(_._2)) // TODO Review: is there a better way?
+        entries.map(_._1).toList ++ entries.toList.map(_._2)
       case // Enumerating explicitly all cases to make it exhaustive and always get compilation errors on model changes
         ValueContractId(_) | ValueNumeric(_) | ValueInt64(_) | ValueTimestamp(_) | ValueBool(_) | ValueDate(_)
         | ValueParty(_) | ValueText(_) | ValueEnum(_, _) | ValueUnit
-        => ImmArray.empty
+        => List.empty
     }
 
   /** Compute the effects of a DAML transaction, that is, the created and consumed contracts. */
