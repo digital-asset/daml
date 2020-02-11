@@ -194,8 +194,7 @@ object ApiCommandService {
       maxCommandsInFlight: Int,
       limitMaxCommandsInFlight: Boolean,
       historySize: Int,
-      retentionPeriod: FiniteDuration,
-      commandTtl: FiniteDuration)
+      retentionPeriod: FiniteDuration)
 
   sealed abstract class LowLevelCommandServiceAccess extends Product with Serializable
 
