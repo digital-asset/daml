@@ -15,7 +15,7 @@ import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.{Blinding, Engine}
-import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, NodeCreate, NodeExercises, NodeLookupByKey}
+import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, NodeCreate, NodeExercises, NodeFetch, NodeLookupByKey}
 import com.digitalasset.daml.lf.transaction.Transaction.TContractId
 import com.digitalasset.daml.lf.transaction.{BlindingInfo, GenTransaction}
 import com.digitalasset.daml.lf.value.Value
@@ -226,7 +226,10 @@ private[kvutils] case class ProcessTransactionSubmission(
             case c: NodeCreate[_, _] => c.stakeholders
 
             case e: NodeExercises[_, _, _] =>
-              (e.actingParties union e.stakeholders)
+              e.actingParties union e.stakeholders
+
+            case f: NodeFetch[_] =>
+              f.actingParties.getOrElse(Set.empty) union f.stakeholders
 
             case lk: NodeLookupByKey[_, _] =>
               lk.key.maintainers
