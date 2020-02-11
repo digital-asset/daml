@@ -64,6 +64,7 @@ import qualified Development.IDE.Types.Diagnostics as D
 import Development.IDE.GHC.Util
 import           Data.Tagged                  (Tagged (..))
 import qualified GHC
+import Outputable (ppr, showSDoc)
 import qualified Proto3.Suite.JSONPB as JSONPB
 
 import Test.Tasty
@@ -321,7 +322,9 @@ mainProj :: TestArguments -> IdeState -> FilePath -> (String -> IO ()) -> Normal
 mainProj TestArguments{..} service outdir log file = do
     let proj = takeBaseName (fromNormalizedFilePath file)
 
-    let corePrettyPrint = timed log "Core pretty-printing" . liftIO . writeFile (outdir </> proj <.> "core") . prettyPrint
+    -- NOTE (MK): For some reason ghcide’s `prettyPrint` seems to fall over on Windows with `commitBuffer: invalid argument`.
+    -- With `fakeDynFlags` things seem to work out fine.
+    let corePrettyPrint = timed log "Core pretty-printing" . liftIO . writeFile (outdir </> proj <.> "core") . showSDoc fakeDynFlags . ppr
     let lfSave = timed log "LF saving" . liftIO . writeFileLf (outdir </> proj <.> "dalf")
     let lfPrettyPrint = timed log "LF pretty-printing" . liftIO . writeFile (outdir </> proj <.> "pdalf") . renderPretty
     let jsonSave pkg =
