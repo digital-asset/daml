@@ -5,6 +5,7 @@ import { ChildProcess, spawn } from 'child_process';
 import waitOn from 'wait-on';
 import { encode } from 'jwt-simple';
 import Ledger, { CreateEvent, ArchiveEvent } from  '@daml/ledger';
+import pEvent from 'p-event';
 import * as Main from '../daml/daml-tests/Main';
 import * as LibMod from '../daml/daml-tests/Lib/Mod';
 
@@ -49,7 +50,7 @@ beforeAll(async () => {
   console.log('Sandbox up');
   jsonApiProcess = await spawnJvmAndWaitOnPort(
     getEnv('JSON_API'),
-    ['--ledger-host', 'localhost', '--ledger-port', `${SANDBOX_PORT}`,'--http-port', `${JSON_API_PORT}`],
+    ['--ledger-host', 'localhost', '--ledger-port', `${SANDBOX_PORT}`,'--http-port', `${JSON_API_PORT}`, '--websocket-config', 'heartBeatPer=1'],
     JSON_API_PORT,
   )
   console.log('JSON API up');
@@ -68,6 +69,15 @@ afterAll(() => {
 
 test('create + fetch & exercise', async () => {
   const ledger = new Ledger(ALICE_TOKEN, `http://localhost:${JSON_API_PORT}/`);
+  const aliceStream = ledger.streamQuery(Main.Person, {party: ALICE_PARTY});
+  const aliceIterator = pEvent.iterator(aliceStream, 'events', {rejectionEvents: ['close']});
+  const aliceIteratorNext = async () => {
+    const {done, value} = await aliceIterator.next();
+    expect(done).toBe(false);
+    return value;
+  };
+  expect(await aliceIteratorNext()).toEqual([]);
+
   const alice5: Main.Person = {
     name: 'Alice from Wonderland',
     party: ALICE_PARTY,
@@ -77,6 +87,7 @@ test('create + fetch & exercise', async () => {
   const alice5Contract = await ledger.create(Main.Person, alice5);
   expect(alice5Contract.payload).toEqual(alice5);
   expect(alice5Contract.key).toEqual(alice5Key);
+  expect(await aliceIteratorNext()).toEqual([{created: alice5Contract}]);
 
   let personContracts = await ledger.query(Main.Person);
   expect(personContracts).toHaveLength(1);
@@ -110,6 +121,7 @@ test('create + fetch & exercise', async () => {
   expect(alice6Contract.contractId).toEqual(result);
   expect(alice6Contract.payload).toEqual({...alice5, age: '6'});
   expect(alice6Contract.key).toEqual({...alice5Key, _2: '6'});
+  expect(await aliceIteratorNext()).toEqual([{archived: alice5Archived}, {created: alice6Contract}]);
 
   alice5ContractById = await ledger.fetch(Main.Person, alice5Contract.contractId);
   expect(alice5ContractById).toBeNull();
@@ -130,17 +142,21 @@ test('create + fetch & exercise', async () => {
   expect(alice7Contract.contractId).toEqual(result);
   expect(alice7Contract.payload).toEqual({...alice5, age: '7'});
   expect(alice7Contract.key).toEqual({...alice5Key, _2: '7'});
+  expect(await aliceIteratorNext()).toEqual([{archived: alice6Archived}, {created: alice7Contract}]);
 
   personContracts = await ledger.query(Main.Person);
   expect(personContracts).toHaveLength(1);
   expect(personContracts[0]).toEqual(alice7Contract);
 
   // Alice gets archived.
-  const archiveEvent = await ledger.archiveByKey(Main.Person, alice7Contract.key);
-  expect(archiveEvent.contractId).toEqual(alice7Contract.contractId);
+  const alice7Archived = await ledger.archiveByKey(Main.Person, alice7Contract.key);
+  expect(alice7Archived.contractId).toEqual(alice7Contract.contractId);
+  expect(await aliceIteratorNext()).toEqual([{archived: alice7Archived}]);
 
   personContracts = await ledger.query(Main.Person);
   expect(personContracts).toHaveLength(0);
+
+  aliceStream.close();
 
   const allTypes: Main.AllTypes = {
     unit: {},
