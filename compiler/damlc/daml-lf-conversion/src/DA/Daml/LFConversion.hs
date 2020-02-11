@@ -1520,7 +1520,13 @@ convertType env = go env
         , n `elementOfUniqSet` metadataTys
         , [_] <- ts = erasedTy env
         | t == anyTyCon, [_] <- ts =
-            erasedTy env -- used for type-zonking
+            -- used for type-zonking
+            -- We translate this to Erased instead of TUnit since we do
+            -- not want to translate this back to `()` for `data-dependencies`
+            -- and because we never actually have values of type `Any xs` which
+            -- is made explicit by translating it to an uninhabited type.
+            erasedTy env
+
         | t == funTyCon, _:_:ts' <- ts =
             foldl TApp TArrow <$> mapM (go env) ts'
         | NameIn DA_Internal_LF "Pair" <- t
