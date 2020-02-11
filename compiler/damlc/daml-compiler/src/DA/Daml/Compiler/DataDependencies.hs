@@ -857,7 +857,7 @@ getDFunSig (valName, valType) = do
     if isHasField dfsName
         then do
             (symbolTy : dfsArgs) <- Just args
-            -- We handle both the old state where symbol was translated to True
+            -- We handle both the old state where symbol was translated to unit
             -- and new state where it is translated to Erased.
             guard $ case symbolTy of
                 LF.TUnit -> True
