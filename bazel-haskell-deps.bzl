@@ -17,8 +17,8 @@ load("@os_info//:os_info.bzl", "is_windows")
 load("@dadew//:dadew.bzl", "dadew_tool_home")
 load("@rules_haskell//haskell:cabal.bzl", "stack_snapshot")
 
-GHCIDE_REV = "4e89d4574d538d663bd37f074ef6ef973d14a0f1"
-GHCIDE_SHA256 = "0a31e5d7250c0ce18709152c64cea0cc949c84c47cc40396893e5256b587f7ef"
+GHCIDE_REV = "e8cd55e6c28a066b3b5a1a2d5e6d8a59389c798d"
+GHCIDE_SHA256 = "0c4e9e1c703adeb4fd0beadeccae90e7277f1d525f2827ad306a1f05ff90d9f4"
 GHCIDE_VERSION = "0.1.0"
 
 def daml_haskell_deps():
