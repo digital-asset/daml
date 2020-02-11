@@ -20,7 +20,7 @@ trait ServiceCallWithMainActorAuthTests extends ServiceCallAuthTests {
     expectPermissionDenied(serviceCallWithToken(canReadAsRandomParty))
   }
   it should "deny calls with an invalid signature" in {
-    expectPermissionDenied(serviceCallWithToken(signedIncorrectly))
+    expectUnauthenticated(serviceCallWithToken(signedIncorrectly))
   }
 
   protected val canReadAsMainActor =

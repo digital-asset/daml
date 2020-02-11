@@ -6,7 +6,7 @@ package com.digitalasset.platform.sandbox.auth
 trait ReadWriteServiceCallAuthTests extends ServiceCallWithMainActorAuthTests {
 
   it should "deny calls with an expired read/write token" in {
-    expectPermissionDenied(serviceCallWithToken(canActAsMainActorExpired))
+    expectUnauthenticated(serviceCallWithToken(canActAsMainActorExpired))
   }
   it should "allow calls with explicitly non-expired read/write token" in {
     expectSuccess(serviceCallWithToken(canActAsMainActorExpiresTomorrow))

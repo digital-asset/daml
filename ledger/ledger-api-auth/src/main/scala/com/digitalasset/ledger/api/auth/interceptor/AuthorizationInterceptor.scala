@@ -4,7 +4,7 @@
 package com.digitalasset.ledger.api.auth.interceptor
 
 import com.digitalasset.ledger.api.auth.{AuthService, Claims}
-import com.digitalasset.platform.server.api.validation.ErrorFactories.internal
+import com.digitalasset.platform.server.api.validation.ErrorFactories.unauthenticated
 import io.grpc.{
   Context,
   Contexts,
@@ -27,7 +27,9 @@ import scala.util.{Failure, Success, Try}
 final class AuthorizationInterceptor(protected val authService: AuthService, ec: ExecutionContext)
     extends ServerInterceptor {
 
-  private[this] val logger: Logger = LoggerFactory.getLogger(AuthorizationInterceptor.getClass)
+  private val logger: Logger = LoggerFactory.getLogger(AuthorizationInterceptor.getClass)
+  private val internalAuthenticationError =
+    Status.INTERNAL.withDescription("Failed to get claims from request metadata")
 
   import AuthorizationInterceptor.contextKeyClaim
 
@@ -47,6 +49,14 @@ final class AuthorizationInterceptor(protected val authService: AuthService, ec:
       FutureConverters
         .toScala(authService.decodeMetadata(headers))
         .onComplete {
+          case Failure(exception) =>
+            logger.warn(s"Failed to get claims from request metadata: ${exception.getMessage}")
+            call.close(internalAuthenticationError, new Metadata())
+            new ServerCall.Listener[Nothing]() {}
+          case Success(Claims.empty) =>
+            logger.debug(s"Auth metadata decoded into empty claims, returning UNAUTHENTICATED")
+            call.close(Status.UNAUTHENTICATED, new Metadata())
+            new ServerCall.Listener[Nothing]() {}
           case Success(claims) =>
             val nextCtx = prevCtx.withValue(contextKeyClaim, claims)
             // Contexts.interceptCall() creates a listener that wraps all methods of `nextListener`
@@ -55,12 +65,6 @@ final class AuthorizationInterceptor(protected val authService: AuthService, ec:
               Contexts.interceptCall(nextCtx, call, headers, nextListener)
             setNextListener(nextListenerWithContext)
             nextListenerWithContext
-          case Failure(exception) =>
-            logger.warn(s"Failed to get claims from request metadata: ${exception.getMessage}")
-            call.close(
-              Status.INTERNAL.withDescription("Failed to get claims from request metadata"),
-              new Metadata())
-            new ServerCall.Listener[Nothing]() {}
         }(ec)
     }
   }
@@ -68,12 +72,10 @@ final class AuthorizationInterceptor(protected val authService: AuthService, ec:
 
 object AuthorizationInterceptor {
 
-  private val contextKeyClaim: Context.Key[Claims] = Context.key("AuthServiceDecodedClaim")
-
-  private[this] val claimNotFound = "Cannot retrieve claims from context"
+  private val contextKeyClaim = Context.key[Claims]("AuthServiceDecodedClaim")
 
   def extractClaimsFromContext(): Try[Claims] =
-    Try(Option(contextKeyClaim.get()).getOrElse(throw internal(claimNotFound)))
+    Option(contextKeyClaim.get()).fold[Try[Claims]](Failure(unauthenticated()))(Success(_))
 
   def apply(authService: AuthService, ec: ExecutionContext): AuthorizationInterceptor =
     new AuthorizationInterceptor(authService, ec)

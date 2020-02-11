@@ -12,12 +12,6 @@ import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}
 
 import scala.concurrent.Future
 
-object Authorizer {
-
-  private def exception = permissionDenied("You are not authorized to use this resource")
-
-}
-
 /** A simple helper that allows services to use authorization claims
   * that have been stored by [[AuthorizationInterceptor]].
   */
@@ -124,7 +118,7 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
     }
 
   private def ongoingAuthorization[Res](scso: ServerCallStreamObserver[Res], claims: Claims) =
-    new OngoingAuthorizationObserver[Res](scso, claims, _.notExpired(now()), Authorizer.exception)
+    new OngoingAuthorizationObserver[Res](scso, claims, _.notExpired(now()), permissionDenied())
 
   private def wrapStream[Req, Res](
       authorized: Claims => Boolean,
@@ -144,7 +138,7 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
                 else
                   scso
               )
-            else observer.onError(Authorizer.exception)
+            else observer.onError(permissionDenied())
         )
     }
 
@@ -158,7 +152,7 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
           Future.failed,
           claims =>
             if (authorized(claims)) call(request)
-            else Future.failed(Authorizer.exception)
+            else Future.failed(permissionDenied())
       )
 
 }
