@@ -49,6 +49,7 @@ class DarReaderTest extends WordSpec with Matchers with Inside with BazelRunfile
               ((packageId15, archive15), LanguageMajorVersion.V1) ::
               ((packageId16, archive16), LanguageMajorVersion.V1) ::
               ((packageId17, archive17), LanguageMajorVersion.V1) ::
+              ((packageId18, archive18), LanguageMajorVersion.V1) ::
               Nil)) =>
         packageId1 shouldNot be('empty)
         packageId2 shouldNot be('empty)
@@ -67,6 +68,7 @@ class DarReaderTest extends WordSpec with Matchers with Inside with BazelRunfile
         packageId15 shouldNot be('empty)
         packageId16 shouldNot be('empty)
         packageId17 shouldNot be('empty)
+        packageId18 shouldNot be('empty)
         archive1.getDamlLf1.getModulesCount should be > 0
         archive2.getDamlLf1.getModulesCount should be > 0
         archive3.getDamlLf1.getModulesCount should be > 0
@@ -84,6 +86,7 @@ class DarReaderTest extends WordSpec with Matchers with Inside with BazelRunfile
         archive15.getDamlLf1.getModulesCount should be > 0
         archive16.getDamlLf1.getModulesCount should be > 0
         archive17.getDamlLf1.getModulesCount should be > 0
+        archive18.getDamlLf1.getModulesCount should be > 0
 
         val archive1Modules = archive1.getDamlLf1.getModulesList.asScala
         val archive1InternedDotted = archive1.getDamlLf1.getInternedDottedNamesList.asScala
