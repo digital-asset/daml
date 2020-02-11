@@ -93,7 +93,7 @@ private[kvutils] object InputsAndEffects {
     }
 
     def addPartyInputInValue(v: Value[ContractId]): Unit = {
-      val toBeProcessed = mutable.ArrayBuffer[Value[ContractId]](v)
+      val toBeProcessed = mutable.ArrayBuffer(v)
 
       @tailrec def go(): Unit =
         if (toBeProcessed.nonEmpty) {
