@@ -95,6 +95,7 @@ object ApiServices {
     val completionsService: IndexCompletionsService = indexService
     val partyManagementService: IndexPartyManagementService = indexService
     val configManagementService: IndexConfigManagementService = indexService
+    val submissionService: IndexSubmissionService = indexService
 
     identityService.getLedgerId().map { ledgerId =>
       val apiSubmissionService =
@@ -102,6 +103,7 @@ object ApiServices {
           ledgerId,
           contractStore,
           writeService,
+          submissionService,
           defaultLedgerConfiguration.timeModel,
           timeProvider,
           new CommandExecutorImpl(engine, packagesService.getLfPackage, participantId, seedService),
