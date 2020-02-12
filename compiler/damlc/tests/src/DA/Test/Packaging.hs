@@ -1048,6 +1048,9 @@ dataDependencyTests damlc repl davlDar = testGroup "Data Dependencies" $
               , "data AnyWrapper = AnyWrapper { getAnyWrapper : AnyTemplate }"
 
               , "data FunT a b = FunT (a -> b)"
+
+              , "instance (Foo a, Foo b) => Foo (a,b) where"
+              , "  foo x = (foo x, foo x)"
               ]
           writeFileUTF8 (proja </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
@@ -1083,6 +1086,7 @@ dataDependencyTests damlc repl davlDar = testGroup "Data Dependencies" $
               , "testInstanceImport = scenario do"
               , "  foo 10 === 10" -- Foo Int
               , "  bar 20 === 20" -- Bar Int
+              , "  foo 10 === (10, 10)" -- Foo (a, b)
               , "  Q1 === Q1" -- (Eq Q, Show Q)
               , "  (Q1 <= Q2) === True" -- Ord Q
               -- test importing of HasField instances
