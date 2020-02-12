@@ -101,7 +101,7 @@ class KeyValueParticipantStateReaderSpec
             .setParticipantId("aParticipantId")
             .setDisplayName("participant"))
         .build
-      val anInvalidEnvelopeMessage = Envelope.enclose(aStateValue).toByteArray()
+      val anInvalidEnvelopeMessage = Envelope.enclose(aStateValue).toByteArray
       val reader = readerStreamingFrom(
         offset = None,
         LedgerRecord(Offset(Array(0, 0)), aLogEntryId, anInvalidEnvelopeMessage))
@@ -119,7 +119,7 @@ class KeyValueParticipantStateReaderSpec
       DamlPartyAllocationEntry.newBuilder().setParty("aParty").setParticipantId("aParticipant"))
     .build()
 
-  private val aWrappedLogEntry = Envelope.enclose(aLogEntry).toByteArray()
+  private val aWrappedLogEntry = Envelope.enclose(aLogEntry).toByteArray
 
   private def aLogEntryId =
     DamlLogEntryId.newBuilder
