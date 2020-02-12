@@ -9,6 +9,7 @@ daml 1.2
 -- Remove this module when DEL-6311 is done.
 module LibraryModules where
 
+import DA.Internal.Erased
 import Data.String
 import Control.Exception.Base
 import GHC.Base

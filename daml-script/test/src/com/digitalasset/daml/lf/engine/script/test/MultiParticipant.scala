@@ -10,6 +10,7 @@ import com.digitalasset.daml.lf.archive.Dar
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.data.Ref.{Party => LedgerParty}
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml_lf_dev.DamlLf
@@ -31,6 +32,30 @@ case class MultiTest(dar: Dar[(PackageId, Package)], runner: TestRunner) {
       scriptId,
       None,
       result => TestRunner.assertEqual(result, SInt64(42), "Accept return value"))
+  }
+}
+
+case class MultiPartyIdHintTest(dar: Dar[(PackageId, Package)], runner: TestRunner) {
+  val scriptId =
+    Identifier(dar.main._1, QualifiedName.assertFromString("MultiTest:partyIdHintTest"))
+  def runTests() = {
+    runner.genericTest(
+      "partyIdHintTest",
+      scriptId,
+      None, {
+        case SRecord(_, _, vals) if vals.size == 2 =>
+          for {
+            _ <- TestRunner.assertEqual(
+              vals.get(0),
+              SParty(LedgerParty.assertFromString("alice")),
+              "Accept party id hint on participant one")
+            _ <- TestRunner.assertEqual(
+              vals.get(1),
+              SParty(LedgerParty.assertFromString("bob")),
+              "Accept party id hint on participant two")
+          } yield ()
+      }
+    )
   }
 }
 
@@ -81,6 +106,7 @@ object MultiParticipant {
 
         val runner = new TestRunner(participantParams, dar, config.wallclockTime)
         MultiTest(dar, runner).runTests()
+        MultiPartyIdHintTest(dar, runner).runTests()
     }
   }
 }

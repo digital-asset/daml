@@ -660,9 +660,9 @@ darPackageIds fp = do
 
 numStablePackages :: LF.Version -> Int
 numStablePackages ver
-  | ver == LF.version1_6 = 13
-  | ver == LF.version1_7 = 14
-  | ver == LF.versionDev = 14
+  | ver == LF.version1_6 = 14
+  | ver == LF.version1_7 = 15
+  | ver == LF.versionDev = 15
   | otherwise = error $ "Unsupported LF version: " <> show ver
 
 dataDependencyTests :: FilePath -> FilePath -> FilePath -> TestTree
@@ -1045,6 +1045,18 @@ dataDependencyTests damlc repl davlDar = testGroup "Data Dependencies" $
               , "    p : Party"
               , "  where"
               , "    signatory p"
+              , "data AnyWrapper = AnyWrapper { getAnyWrapper : AnyTemplate }"
+
+              , "data FunT a b = FunT (a -> b)"
+
+              , "instance (Foo a, Foo b) => Foo (a,b) where"
+              , "  foo x = (foo x, foo x)"
+
+              , "class ActionTrans t where"
+              , "  lift : Action f => f a -> t f a"
+              , "newtype OptionalT f a = OptionalT { runOptionalT : f (Maybe a) }"
+              , "instance ActionTrans OptionalT where"
+              , "  lift f = OptionalT (fmap Just f)"
               ]
           writeFileUTF8 (proja </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
@@ -1060,7 +1072,7 @@ dataDependencyTests damlc repl davlDar = testGroup "Data Dependencies" $
           writeFileUTF8 (projb </> "src" </> "B.daml") $ unlines
               [ "daml 1.2"
               , "module B where"
-              , "import A ( Foo (foo), Bar (..), usingFoo, Q (..), usingEq, R(R), P(P) )"
+              , "import A ( Foo (foo), Bar (..), usingFoo, Q (..), usingEq, R(R), P(P), AnyWrapper(..), FunT(..), OptionalT(..), ActionTrans(..) )"
               , "import DA.Assert"
               , "import DA.Record"
               , ""
@@ -1080,6 +1092,7 @@ dataDependencyTests damlc repl davlDar = testGroup "Data Dependencies" $
               , "testInstanceImport = scenario do"
               , "  foo 10 === 10" -- Foo Int
               , "  bar 20 === 20" -- Bar Int
+              , "  foo 10 === (10, 10)" -- Foo (a, b)
               , "  Q1 === Q1" -- (Eq Q, Show Q)
               , "  (Q1 <= Q2) === True" -- Ord Q
               -- test importing of HasField instances
@@ -1093,6 +1106,17 @@ dataDependencyTests damlc repl davlDar = testGroup "Data Dependencies" $
               , "  signatory t === [alice]"
               , "  cid <- submit alice $ create t"
               , "  submit alice $ archive cid"
+              -- references to DA.Internal.Any
+              , "testAny = scenario do"
+              , "  p <- getParty \"p\""
+              , "  let t = P p"
+              , "  fromAnyTemplate (AnyWrapper $ toAnyTemplate t).getAnyWrapper === Some t"
+              -- reference to T
+              , "foobar : FunT Int Text"
+              , "foobar = FunT show"
+              -- ActionTrans
+              , "trans = scenario do"
+              , "  runOptionalT (lift [0]) === [Just 0]"
               ]
           writeFileUTF8 (projb </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion

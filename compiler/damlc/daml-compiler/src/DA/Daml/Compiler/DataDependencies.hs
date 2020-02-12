@@ -499,7 +499,7 @@ convType env =
             ty2' <- convType env ty2
             pure $ if isConstraint ty1
                 then HsQualTy noExt (noLoc [noLoc ty1']) (noLoc ty2')
-                else HsFunTy noExt (noLoc ty1') (noLoc ty2')
+                else HsParTy noExt (noLoc $ HsFunTy noExt (noLoc ty1') (noLoc ty2'))
 
         LF.TSynApp LF.Qualified{..} lfArgs -> do
             ghcMod <- genModule env qualPackage qualModule
@@ -509,7 +509,7 @@ convType env =
                 tyvar = HsTyVar noExt NotPromoted . noLoc
                     . mkOrig ghcMod . mkOccName clsName $ T.unpack tyname
             args <- mapM (convType env) lfArgs
-            pure $ foldl (HsAppTy noExt . noLoc) tyvar (map noLoc args)
+            pure $ HsParTy noExt (noLoc $ foldl (HsAppTy noExt . noLoc) tyvar (map noLoc args))
 
         LF.TCon LF.Qualified {..}
           | qualModule == LF.ModuleName ["DA", "Types"]
@@ -588,7 +588,7 @@ convKind env = \case
     LF.KArrow k1 k2 -> do
         k1' <- convKind env k1
         k2' <- convKind env k2
-        pure . noLoc $ HsFunTy noExt k1' k2'
+        pure . noLoc . HsParTy noExt . noLoc $ HsFunTy noExt k1' k2'
 
 convTyVarBinder :: Env -> (LF.TypeVarName, LF.Kind) -> Gen (LHsTyVarBndr GhcPs)
 convTyVarBinder env = \case
@@ -838,30 +838,42 @@ isSuperClassField (LF.FieldName fieldName) =
     "s_" `T.isPrefixOf` fieldName
 
 -- | Signature data for a dictionary function.
-data DFunSig
-    = DFunSigNormal -- ^ signature for a normal dictionary function
-        { dfsType :: !LF.Type -- ^ LF type signature for the dictionary function
-        }
-    | DFunSigHasField -- ^ signature for a HasField dictionary function
-        { dfsBinders :: ![(LF.TypeVarName, LF.Kind)] -- ^ foralls
-        , dfsContext :: ![LF.Type] -- ^ constraints
-        , dfsName :: LF.Qualified LF.TypeSynName -- ^ name of type synonym
-        , dfsField :: !T.Text -- ^ first arg (a type level string)
-        , dfsArgs :: ![LF.Type] -- ^ rest of the args
-        }
+data DFunSig = DFunSig
+    { dfsBinders :: ![(LF.TypeVarName, LF.Kind)] -- ^ foralls
+    , dfsContext :: ![LF.Type] -- ^ constraints
+    , dfsHead :: !DFunHead
+    }
+
+-- | Instance declaration head
+data DFunHead
+    = DFunHeadHasField -- ^ HasField instance
+          { dfhName :: LF.Qualified LF.TypeSynName -- ^ name of type synonym
+          , dfhField :: !T.Text -- ^ first arg (a type level string)
+          , dfhArgs :: [LF.Type] -- ^ rest of the args
+          }
+    | DFunHeadNormal -- ^ Normal, i.e., non-HasField, instance
+          { dfhName :: LF.Qualified LF.TypeSynName -- ^ name of type synonym
+          , dfhArgs :: [LF.Type] -- ^ arguments
+          }
 
 -- | Break a value type signature down into a dictionary function signature.
 getDFunSig :: (LF.ExprValName, LF.Type) -> Maybe DFunSig
 getDFunSig (valName, valType) = do
-    (dfsBinders, dfsContext, dfsName, args) <- go valType
-    if isHasField dfsName
+    (dfsBinders, dfsContext, dfhName, dfhArgs) <- go valType
+    head <- if isHasField dfhName
         then do
-            (LF.TUnit : dfsArgs) <- Just args
-            dfsField <- getFieldArg valName
-            guard (not $ T.null dfsField)
-            Just DFunSigHasField {..}
-        else
-            Just DFunSigNormal { dfsType = valType }
+            (symbolTy : dfhArgs) <- Just dfhArgs
+            -- We handle both the old state where symbol was translated to unit
+            -- and new state where it is translated to Erased.
+            guard $ case symbolTy of
+                LF.TUnit -> True
+                LF.TCon (LF.Qualified _ (LF.ModuleName ["DA", "Internal", "Erased"]) (LF.TypeConName ["Erased"])) -> True
+                _ -> False
+            dfhField <- getFieldArg valName
+            guard (not $ T.null dfhField)
+            Just DFunHeadHasField {..}
+        else Just DFunHeadNormal {..}
+    pure $ DFunSig dfsBinders dfsContext head
   where
     -- | Break a dictionary function type down into a tuple
     -- (foralls, constraints, synonym name, args).
@@ -893,24 +905,22 @@ getDFunSig (valName, valType) = do
 
 -- | Convert dictionary function signature into a DAML type.
 convDFunSig :: Env -> DFunSig -> Gen (HsType GhcPs)
-convDFunSig env = \case
-    DFunSigNormal ty ->
-        convType env ty
-
-    DFunSigHasField {..} -> do
-        binders <- mapM (convTyVarBinder env) dfsBinders
-        context <- mapM (convType env) dfsContext
-        args <- mapM (convType env) dfsArgs
-        ghcMod <- genModule env (LF.qualPackage dfsName) (LF.qualModule dfsName)
-        let tyvar :: HsType GhcPs
-                = HsTyVar noExt NotPromoted . noLoc
-                $ mkOrig ghcMod (mkOccName clsName "HasField")
-
-            arg0 :: HsType GhcPs
-            arg0 = HsTyLit noExt . HsStrTy NoSourceText
-                . mkFastString $ T.unpack dfsField
-
-        pure . HsParTy noExt . noLoc
-            . HsForAllTy noExt binders . noLoc
-            . HsQualTy noExt (noLoc (map noLoc context)) . noLoc
-            $ foldl (HsAppTy noExt . noLoc) tyvar (map noLoc (arg0 : args))
+convDFunSig env DFunSig{..} = do
+    binders <- mapM (convTyVarBinder env) dfsBinders
+    context <- mapM (convType env) dfsContext
+    let headName = dfhName dfsHead
+    ghcMod <- genModule env (LF.qualPackage headName) (LF.qualModule headName)
+    let cls = case LF.unTypeSynName (LF.qualObject headName) of
+            [n] -> HsTyVar noExt NotPromoted . noLoc $ mkOrig ghcMod . mkOccName clsName $ T.unpack n
+            ns -> error ("DamlDependencies: unexpected typeclass name " <> show ns)
+    args <- case dfsHead of
+      DFunHeadHasField{..} -> do
+          let arg0 = HsTyLit noExt . HsStrTy NoSourceText . mkFastString $ T.unpack dfhField
+          args <- mapM (convType env) dfhArgs
+          pure (arg0 : args)
+      DFunHeadNormal{..} -> do mapM (convType env) dfhArgs
+    pure
+      . HsParTy noExt . noLoc
+      . HsForAllTy noExt binders . noLoc
+      . HsQualTy noExt (noLoc (map noLoc context)) . noLoc
+      $ foldl (HsAppTy noExt . noLoc) cls (map noLoc args)

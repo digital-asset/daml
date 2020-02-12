@@ -55,7 +55,7 @@ import           System.IO
 import           System.IO.Extra
 import           System.Info.Extra (isWindows)
 import           Text.Read
-import qualified Data.Set as Set
+import qualified Data.HashSet as HashSet
 import qualified Data.Text as T
 import           System.Time.Extra
 import Development.IDE.Core.API
@@ -64,6 +64,7 @@ import qualified Development.IDE.Types.Diagnostics as D
 import Development.IDE.GHC.Util
 import           Data.Tagged                  (Tagged (..))
 import qualified GHC
+import Outputable (ppr, showSDoc)
 import qualified Proto3.Suite.JSONPB as JSONPB
 
 import Test.Tasty
@@ -321,14 +322,16 @@ mainProj :: TestArguments -> IdeState -> FilePath -> (String -> IO ()) -> Normal
 mainProj TestArguments{..} service outdir log file = do
     let proj = takeBaseName (fromNormalizedFilePath file)
 
-    let corePrettyPrint = timed log "Core pretty-printing" . liftIO . writeFile (outdir </> proj <.> "core") . prettyPrint
+    -- NOTE (MK): For some reason ghcide’s `prettyPrint` seems to fall over on Windows with `commitBuffer: invalid argument`.
+    -- With `fakeDynFlags` things seem to work out fine.
+    let corePrettyPrint = timed log "Core pretty-printing" . liftIO . writeFile (outdir </> proj <.> "core") . showSDoc fakeDynFlags . ppr
     let lfSave = timed log "LF saving" . liftIO . writeFileLf (outdir </> proj <.> "dalf")
     let lfPrettyPrint = timed log "LF pretty-printing" . liftIO . writeFile (outdir </> proj <.> "pdalf") . renderPretty
     let jsonSave pkg =
             let json = A.encodePretty $ JSONPB.toJSONPB (encodePackage pkg) JSONPB.jsonPBOptions
             in timed log "JSON saving" . liftIO . BSL.writeFile (outdir </> proj <.> "json") $ json
 
-    setFilesOfInterest service (Set.singleton file)
+    setFilesOfInterest service (HashSet.singleton file)
     runActionSync service $ do
             dlint log file
             lf <- lfConvert log file

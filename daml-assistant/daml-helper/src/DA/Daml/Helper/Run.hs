@@ -48,11 +48,14 @@ import Control.Monad
 import Control.Monad.Extra hiding (fromMaybeM)
 import Control.Monad.Loops (untilJust)
 import Data.Foldable
+import qualified Data.HashMap.Strict as HashMap
 import Data.Maybe
+import qualified Data.Map.Strict as Map
 import Data.List.Extra
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy.UTF8 as UTF8
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.IO as TL
 import qualified Data.Yaml as Y
@@ -72,6 +75,7 @@ import System.Process.Typed
 import System.IO
 import System.IO.Extra
 import Web.Browser
+import qualified Web.JWT as JWT
 import Data.Aeson
 import Data.Aeson.Text
 
@@ -737,11 +741,16 @@ withJsonApi (SandboxPort sandboxPort) (JsonApiPort jsonApiPort) args a = do
             ["--ledger-host", "localhost", "--ledger-port", show sandboxPort, "--http-port", show jsonApiPort] <> args
     withJar damlSdkJar [logbackArg] ("json-api":jsonApiArgs) $ \ph -> do
         putStrLn "Waiting for JSON API to start: "
+        -- The secret doesn’t matter here
+        let token = JWT.encodeSigned (JWT.HMACSecret "secret") mempty mempty
+                { JWT.unregisteredClaims = JWT.ClaimsMap $
+                      Map.fromList [("https://daml.com/ledger-api", Object $ HashMap.fromList [("actAs", toJSON ["Alice" :: T.Text]), ("ledgerId", "MyLedger"), ("applicationId", "foobar")])]
+                }
         -- For now, we have a dummy authorization header here to wait for startup since we cannot get a 200
         -- response otherwise. We probably want to add some method to detect successful startup without
         -- any authorization
         let headers =
-                [ ("Authorization", "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJsZWRnZXJJZCI6Ik15TGVkZ2VyIiwiYXBwbGljYXRpb25JZCI6ImZvb2JhciIsInBhcnR5IjoiQWxpY2UifQ.4HYfzjlYr1ApUDot0a6a4zB49zS_jrwRUOCkAiPMqo0")
+                [ ("Authorization", "Bearer " <> T.encodeUtf8 token)
                 ] :: HTTP.RequestHeaders
         waitForHttpServer (putStr "." *> threadDelay 500000) ("http://localhost:" <> show jsonApiPort <> "/v1/query") headers
         a ph

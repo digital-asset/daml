@@ -91,7 +91,6 @@ def damlc_integration_test(name, main_function):
             "aeson-pretty",
             "base",
             "bytestring",
-            "containers",
             "data-default",
             "deepseq",
             "directory",
@@ -111,6 +110,7 @@ def damlc_integration_test(name, main_function):
             "tasty-hunit",
             "text",
             "time",
+            "unordered-containers",
         ],
         visibility = ["//visibility:public"],
     )

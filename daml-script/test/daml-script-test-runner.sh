@@ -38,6 +38,7 @@ fi
 
 EXPECTED="$($SORT <<'EOF'
 MultiTest:multiTest SUCCESS
+MultiTest:partyIdHintTest SUCCESS
 ScriptExample:test SUCCESS
 ScriptTest:failingTest FAILURE (com.digitalasset.daml.lf.speedy.SError$DamlEUserError)
 ScriptTest:test0 SUCCESS
@@ -47,6 +48,7 @@ ScriptTest:test4 SUCCESS
 ScriptTest:testCreateAndExercise SUCCESS
 ScriptTest:testKey SUCCESS
 ScriptTest:time SUCCESS
+ScriptTest:partyIdHintTest SUCCESS
 ScriptTest:sleepTest SUCCESS
 EOF
 )"

@@ -93,7 +93,8 @@ object TestMain extends StrictLogging {
                 timeProviderType = config.timeProviderType,
               )
               val sandboxResource = SandboxServer.owner(sandboxConfig).acquire()
-              val sandboxPort = Await.result(sandboxResource.asFuture.flatMap(_.port), Duration.Inf)
+              val sandboxPort =
+                Await.result(sandboxResource.asFuture.flatMap(_.portF), Duration.Inf)
               (ApiParameters("localhost", sandboxPort), () => sandboxResource.release())
             } else {
               (

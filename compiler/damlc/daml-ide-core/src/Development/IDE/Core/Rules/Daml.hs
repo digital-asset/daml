@@ -43,13 +43,14 @@ import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.UTF8 as BS
 import Data.Either.Extra
 import Data.Foldable
+import qualified Data.HashMap.Strict as HashMap
+import qualified Data.HashSet as HashSet
 import Data.List.Extra
 import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.IntMap.Strict as IntMap
 import qualified Data.Map.Strict as Map
 import Data.Maybe
 import qualified Data.NameMap as NM
-import Data.Set (Set)
 import qualified Data.Set as Set
 import qualified Data.Text.Encoding as T
 import qualified Data.Text.Extended as T
@@ -521,7 +522,7 @@ generateStablePackages lfVersion fp = do
         -- if you forget to update it, we hardcode it here.
         let dalfs =
                 map (fp </>) $
-                map ("daml-prim" </>) ["DA-Types.dalf", "GHC-Prim.dalf", "GHC-Tuple.dalf", "GHC-Types.dalf"] <>
+                map ("daml-prim" </>) [ "DA-Internal-Erased.dalf", "DA-Types.dalf", "GHC-Prim.dalf", "GHC-Tuple.dalf", "GHC-Types.dalf"] <>
                 map ("daml-stdlib" </>)
                   [ "DA-Internal-Any.dalf"
                   , "DA-Internal-Template.dalf"
@@ -694,7 +695,7 @@ createScenarioContextRule =
                 pure
                 ctxIdOrErr
         scenarioContextsVar <- envScenarioContexts <$> getDamlServiceEnv
-        liftIO $ modifyVar_ scenarioContextsVar $ pure . Map.insert file ctxId
+        liftIO $ modifyVar_ scenarioContextsVar $ pure . HashMap.insert file ctxId
         pure ([], Just ctxId)
 
 -- | This helper should be used instead of GenerateDalf/GenerateRawDalf
@@ -750,7 +751,7 @@ getScenarioRootsRule =
     defineNoFile $ \GetScenarioRoots -> do
         filesOfInterest <- getFilesOfInterest
         openVRs <- useNoFile_ GetOpenVirtualResources
-        let files = Set.toList (filesOfInterest `Set.union` Set.map vrScenarioFile openVRs)
+        let files = HashSet.toList (filesOfInterest `HashSet.union` HashSet.map vrScenarioFile openVRs)
         deps <- forP files $ \file -> do
             transitiveDeps <- maybe [] transitiveModuleDeps <$> use GetDependencies file
             pure $ Map.fromList [ (f, file) | f <- transitiveDeps ]
@@ -838,23 +839,23 @@ ofInterestRule opts = do
         -- query for files of interest
         files   <- getFilesOfInterest
         openVRs <- useNoFile_ GetOpenVirtualResources
-        let vrFiles = Set.map vrScenarioFile openVRs
+        let vrFiles = HashSet.map vrScenarioFile openVRs
         -- We run scenarios for all files of interest to get diagnostics
         -- and for the files for which we have open VRs so that they get
         -- updated.
-        let scenarioFiles = files `Set.union` vrFiles
+        let scenarioFiles = files `HashSet.union` vrFiles
         gc scenarioFiles
-        let openVRsByFile = Map.fromList (map (\vr -> (vrScenarioFile vr, vr)) $ Set.toList openVRs)
+        let openVRsByFile = HashMap.fromListWith (<>) (map (\vr -> (vrScenarioFile vr, [vr])) $ HashSet.toList openVRs)
         -- compile and notify any errors
         let runScenarios file = do
                 world <- worldForFile file
                 mbVrs <- use RunScenarios file
                 forM_ (fromMaybe [] mbVrs) $ \(vr, res) -> do
                     let doc = formatScenarioResult world res
-                    when (vr `Set.member` openVRs) $
+                    when (vr `HashSet.member` openVRs) $
                         sendEvent $ vrChangedNotification vr doc
                 let vrScenarioNames = Set.fromList $ fmap (vrScenarioName . fst) (concat $ maybeToList mbVrs)
-                forM_ (Map.lookup file openVRsByFile) $ \ovr -> do
+                forM_ (HashMap.lookupDefault [] file openVRsByFile) $ \ovr -> do
                     when (not $ vrScenarioName ovr `Set.member` vrScenarioNames) $
                         sendEvent $ vrNoteSetNotification ovr $ LF.scenarioNotInFileNote $
                         T.pack $ fromNormalizedFilePath file
@@ -866,23 +867,23 @@ ofInterestRule opts = do
         let notifyOpenVrsOnGetDalfError file = do
             mbDalf <- getDalf file
             when (isNothing mbDalf) $ do
-                forM_ (Map.lookup file openVRsByFile) $ \ovr ->
+                forM_ (HashMap.lookupDefault [] file openVRsByFile) $ \ovr ->
                     sendEvent $ vrNoteSetNotification ovr $ LF.fileWScenarioNoLongerCompilesNote $ T.pack $
                         fromNormalizedFilePath file
 
         let dlintEnabled = case optDlintUsage opts of
               DlintEnabled _ _ -> True
               DlintDisabled -> False
-        let files = Set.toList scenarioFiles
+        let files = HashSet.toList scenarioFiles
         let dalfActions = [notifyOpenVrsOnGetDalfError f | f <- files]
         let dlintActions = [use_ GetDlintDiagnostics f | dlintEnabled, f <- files]
         let runScenarioActions = [runScenarios f | shouldRunScenarios, f <- files]
         _ <- parallel $ dalfActions <> dlintActions <> runScenarioActions
         return ()
   where
-      gc :: Set NormalizedFilePath -> Action ()
+      gc :: HashSet.HashSet NormalizedFilePath -> Action ()
       gc roots = do
-        depInfoOrErr <- sequence <$> uses GetDependencyInformation (Set.toList roots)
+        depInfoOrErr <- sequence <$> uses GetDependencyInformation (HashSet.toList roots)
         -- We only clear results if there are no errors in the
         -- dependency information (in particular, no parse errors).
         -- This prevents us from clearing the results for files that are
@@ -895,14 +896,14 @@ ofInterestRule opts = do
             let reachableFiles =
                     -- To guard against buggy dependency info, we add
                     -- the roots even though they should be included.
-                    roots `Set.union`
-                    (Set.insert "" $ Set.fromList $ concatMap reachableModules depInfos)
-            garbageCollect (`Set.member` reachableFiles)
+                    roots `HashSet.union`
+                    (HashSet.insert "" $ HashSet.fromList $ concatMap reachableModules depInfos)
+            garbageCollect (`HashSet.member` reachableFiles)
           DamlEnv{..} <- getDamlServiceEnv
           liftIO $ whenJust envScenarioService $ \scenarioService -> do
               ctxRoots <- modifyVar envScenarioContexts $ \ctxs -> do
-                  let gcdCtxs = Map.restrictKeys ctxs roots
-                  pure (gcdCtxs, Map.elems gcdCtxs)
+                  let gcdCtxs = HashMap.filterWithKey (\k _ -> k `HashSet.member` roots) ctxs
+                  pure (gcdCtxs, HashMap.elems gcdCtxs)
               prevCtxRoots <- modifyVar envPreviousScenarioContexts $ \prevCtxs -> pure (ctxRoots, prevCtxs)
               when (prevCtxRoots /= ctxRoots) $ void $ SS.gcCtxs scenarioService ctxRoots
 

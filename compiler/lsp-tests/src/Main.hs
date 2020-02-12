@@ -653,7 +653,7 @@ regressionTests run _runScenarios = testGroup "regression"
 
 multiPackageTests :: FilePath -> TestTree
 multiPackageTests damlc = testGroup "multi-package"
-    [ testCaseSteps "example 1" $ \step -> withTempDir $ \dir -> do
+    [ testCaseSteps "IDE in root directory" $ \step -> withTempDir $ \dir -> do
           step "build a"
           createDirectoryIfMissing True (dir </> "a")
           writeFileUTF8 (dir </> "a" </> "daml.yaml") $ unlines
@@ -705,6 +705,60 @@ multiPackageTests damlc = testGroup "multi-package"
                 , _range = Just $ Range (Position 2 0) (Position 2 1)
                 }
               docB <- openDoc ("b" </> "B.daml") "daml"
+              Just escapedFpB <- pure $ escapeURIString isUnescapedInURIComponent <$> uriToFilePath (docB ^. uri)
+              -- code lenses are a good test since they force LF compilation
+              r <- getCodeLenses docB
+              liftIO $ r @?=
+                  [ CodeLens
+                        { _range = Range (Position 3 0) (Position 3 1)
+                        , _command = Just $ Command
+                              { _title = "Scenario results"
+                              , _command = "daml.showResource"
+                              , _arguments = Just $ List
+                                  [ "Scenario: f"
+                                  , toJSON $ "daml://compiler?file=" <> escapedFpB <> "&top-level-decl=f"
+                                  ]
+                              }
+                        , _xdata = Nothing
+                        }
+                  ]
+    , testCaseSteps "IDE in project directory" $ \step -> withTempDir $ \dir -> do
+          step "build a"
+          createDirectoryIfMissing True (dir </> "a")
+          writeFileUTF8 (dir </> "a" </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "name: a"
+              , "version: 0.0.1"
+              , "source: ."
+              , "dependencies: [daml-prim, daml-stdlib]"
+              ]
+          writeFileUTF8 (dir </> "a" </> "A.daml") $ unlines
+              [ "daml 1.2 module A where"
+              , "data A = A"
+              , "a = A"
+              ]
+          withCurrentDirectory (dir </> "a") $ callProcess damlc ["build", "-o", dir </> "a" </> "a.dar"]
+          step "create b"
+          createDirectoryIfMissing True (dir </> "b")
+          writeFileUTF8 (dir </> "b" </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "name: b"
+              , "version: 0.0.1"
+              , "source: ."
+              , "dependencies: [daml-prim, daml-stdlib, " <> show (".." </> "a" </> "a.dar") <> "]"
+              ]
+          writeFileUTF8 (dir </> "b" </> "B.daml") $ unlines
+              [ "daml 1.2 module B where"
+              , "import A"
+              , "f : Scenario A"
+              , "f = pure a"
+              ]
+          -- When run in the project directory, the IDE will take care of initializing
+          -- the package db so we do not need to build.
+          step "run language server"
+          withCurrentDirectory (dir </> "b") $ runSessionWithConfig conf (damlc <> " ide --scenarios=yes") fullCaps' (dir </> "b") $ do
+              -- We cannot open files in a here but we can open files in b
+              docB <- openDoc "B.daml" "daml"
               Just escapedFpB <- pure $ escapeURIString isUnescapedInURIComponent <$> uriToFilePath (docB ^. uri)
               -- code lenses are a good test since they force LF compilation
               r <- getCodeLenses docB

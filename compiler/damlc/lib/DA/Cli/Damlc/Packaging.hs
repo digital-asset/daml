@@ -289,6 +289,7 @@ baseImports =
            [ "GHC.Tuple"
            , "GHC.Types"
            , "DA.Types"
+           , "DA.Internal.Erased"
            ]
         )
     -- We need the standard library from the current SDK, e.g., LF builtins like Optional are translated
@@ -297,7 +298,8 @@ baseImports =
        (GHC.stringToUnitId damlStdlib)
        False
        (map (\mod -> (GHC.mkModuleName mod, GHC.mkModuleName (currentSdkPrefix <> "." <> mod)))
-          [ "DA.Internal.Template"
+          [ "DA.Internal.Any"
+          , "DA.Internal.Template"
           , "DA.Internal.Template.Functions"
           , "DA.Internal.LF"
           , "DA.Internal.Prelude"
