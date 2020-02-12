@@ -22,6 +22,8 @@ import scalaz.syntax.bifunctor._
 object ValueCoder {
   import Value.MAXIMUM_NESTING
 
+  "a".r
+
   /**
     * Error type for signalling errors occuring during decoding serialized values
     * @param errorMessage description
@@ -279,12 +281,13 @@ object ValueCoder {
     *             see [[com.digitalasset.daml.lf.value.Value]] and [[com.digitalasset.daml.lf.value.Value.ContractId]]
     * @return protocol buffer serialized values
     */
-  def encodeVersionedValue[Cid <: ContractId](
+  def encodeVersionedValue[Cid](
+      versionCid: ValueVersions.VersionCid[Cid],
       encodeCid: EncodeCid[Cid],
       value: Value[Cid],
   ): Either[EncodeError, proto.VersionedValue] =
     ValueVersions
-      .assignVersion(value)
+      .assignVersion(versionCid, value)
       .fold(
         err => Left(EncodeError(err)),
         version => encodeVersionedValueWithCustomVersion(encodeCid, VersionedValue(version, value)),
@@ -622,11 +625,12 @@ object ValueCoder {
   // each other and nothing else.  As such, they are unsafe for
   // general usage
 
-  private[value] def valueToBytes[Cid <: ContractId](
+  private[value] def valueToBytes[Cid](
+      versionCid: ValueVersions.VersionCid[Cid],
       encodeCid: EncodeCid[Cid],
       v: Value[Cid],
   ): Either[EncodeError, Array[Byte]] = {
-    encodeVersionedValue(encodeCid, v).map(_.toByteArray)
+    encodeVersionedValue(versionCid, encodeCid, v).map(_.toByteArray)
   }
 
   private[value] def valueFromBytes[Cid](

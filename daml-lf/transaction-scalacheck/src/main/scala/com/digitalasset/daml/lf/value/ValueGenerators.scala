@@ -227,7 +227,7 @@ object ValueGenerators {
   def versionedValueGen: Gen[VersionedValue[ContractId]] =
     for {
       value <- valueGen
-      minVersion = ValueVersions.assertAssignVersion(value)
+      minVersion = ValueVersions.assertAssignVersion(ValueVersions.VersionCid, value)
       version <- valueVersionGen(minVersion)
     } yield VersionedValue(version, value)
 

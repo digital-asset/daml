@@ -29,7 +29,23 @@ object ValueVersions
   private[value] val minGenMap = ValueVersion("7")
   private[value] val minContractIdV1 = ValueVersion("7")
 
-  def assignVersion[Cid <: ContractId](v0: Value[Cid]): Either[String, ValueVersion] = {
+  abstract class VersionCid[-Cid] private[lf] {
+    private[lf] def assignVersion(cid: Cid): ValueVersion
+  }
+
+  object VersionCid extends VersionCid[ContractId] {
+    override private[lf] def assignVersion(cid: ContractId): ValueVersion =
+      cid match {
+        case AbsoluteContractId(cid) if Ref.ContractIdString.isB(cid) =>
+          minContractIdV1
+        case _ =>
+          minVersion
+      }
+  }
+
+  def assignVersion[Cid](
+      versionCid: VersionCid[Cid],
+      v0: Value[Cid]): Either[String, ValueVersion] = {
     import VersionTimeline.{maxVersion => maxVV}
 
     @tailrec
@@ -51,10 +67,8 @@ object ValueVersions
               case ValueInt64(_) | ValueText(_) | ValueTimestamp(_) | ValueParty(_) | ValueBool(_) |
                   ValueDate(_) | ValueUnit =>
                 go(currentVersion, values)
-              case ValueContractId(AbsoluteContractId(cid)) if Ref.ContractIdString.isB(cid) =>
-                go(maxVV(minContractIdV1, currentVersion), values)
-              case ValueContractId(_) =>
-                go(currentVersion, values)
+              case ValueContractId(cid) =>
+                go(maxVV(versionCid.assignVersion(cid), currentVersion), values)
               case ValueNumeric(x) if x.scale == Decimal.scale =>
                 go(currentVersion, values)
               // for things added after version 1, we raise the minimum if present
@@ -83,14 +97,21 @@ object ValueVersions
   }
 
   @throws[IllegalArgumentException]
-  def assertAssignVersion[Cid <: ContractId](v0: Value[Cid]): ValueVersion =
-    assignVersion(v0) match {
+  def assertAssignVersion[Cid](versionCid: VersionCid[Cid], v0: Value[Cid]): ValueVersion =
+    assignVersion(versionCid, v0) match {
       case Left(err) => throw new IllegalArgumentException(err)
       case Right(x) => x
     }
 
+  def asVersionedValue[Cid](
+      versionCid: VersionCid[Cid],
+      value: Value[Cid],
+  ): Either[String, VersionedValue[Cid]] =
+    assignVersion(versionCid, value).map(version =>
+      VersionedValue(version = version, value = value))
+
   def asVersionedValue[Cid <: ContractId](value: Value[Cid]): Either[String, VersionedValue[Cid]] =
-    assignVersion(value).map(version => VersionedValue(version = version, value = value))
+    asVersionedValue(VersionCid, value)
 
   @throws[IllegalArgumentException]
   def assertAsVersionedValue[Cid <: ContractId](value: Value[Cid]): VersionedValue[Cid] =
