@@ -13,9 +13,9 @@ import qualified DA.Pretty
 import qualified DA.Pretty as Pretty
 import DA.Cli.Damlc.Base
 import DA.Cli.Damlc.IdeState
+import qualified Data.HashSet as HashSet
 import Data.Maybe
 import Data.List.Extra
-import qualified Data.Set as S
 import Data.Tuple.Extra
 import Control.Monad.Extra
 import Development.IDE.Core.Service.Daml
@@ -52,7 +52,7 @@ execTest inFiles color mbJUnitOutput opts = do
 testRun :: IdeState -> [NormalizedFilePath] -> LF.Version -> UseColor -> Maybe FilePath -> IO ()
 testRun h inFiles lfVersion color mbJUnitOutput  = do
     -- make sure none of the files disappear
-    liftIO $ setFilesOfInterest h (S.fromList inFiles)
+    liftIO $ setFilesOfInterest h (HashSet.fromList inFiles)
 
     -- take the transitive closure of all imports and run on all of them
     -- If some dependencies can't be resolved we'll get a Diagnostic out anyway, so don't worry

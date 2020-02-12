@@ -50,6 +50,7 @@ import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSLC
 import qualified Data.ByteString.UTF8 as BSUTF8
 import Data.FileEmbed (embedFile)
+import qualified Data.HashSet as HashSet
 import Data.List.Extra
 import qualified Data.List.Split as Split
 import qualified Data.Map.Strict as MS
@@ -419,7 +420,7 @@ execCompile inputFile outputFile opts (WriteInterface writeInterface) mbIfaceDir
       inputFile <- toNormalizedFilePath <$> relativize inputFile
       opts <- pure opts { optIfaceDir = mbIfaceDir }
       withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> do
-          setFilesOfInterest ide (Set.singleton inputFile)
+          setFilesOfInterest ide (HashSet.singleton inputFile)
           runActionSync ide $ do
             -- Support for '-ddump-parsed', '-ddump-parsed-ast', '-dsource-stats'.
             dflags <- hsc_dflags . hscEnv <$> use_ GhcSession inputFile
@@ -455,7 +456,7 @@ execLint inputFile opts =
          inputFile <- toNormalizedFilePath <$> relativize inputFile
          opts <- setDlintDataDir opts
          withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> do
-             setFilesOfInterest ide (Set.singleton inputFile)
+             setFilesOfInterest ide (HashSet.singleton inputFile)
              runActionSync ide $ getDlintIdeas inputFile
              diags <- getDiagnostics ide
              if null diags then

@@ -45,7 +45,7 @@ import DA.Daml.Project.Consts
 import DA.Daml.Project.Util
 import DA.Daml.Options.Types
 import DA.Daml.Preprocessor
-import Development.IDE.GHC.Util hiding (fakeDynFlags)
+import Development.IDE.GHC.Util
 import qualified Development.IDE.Types.Options as Ghcide
 
 -- | Convert to ghcide’s IdeOptions type.
