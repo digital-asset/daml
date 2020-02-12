@@ -89,6 +89,9 @@ da_scala_test_suite(
     data = [
         ":bindings-integration-tests-model-latest.dar",
     ],
+    resources = [
+        ":src/test/resources/logback-test.xml",
+    ],
     deps = [
         ":bindings-integration-tests-model-latest.jar",
         ":bindings-java-tests-lib",
