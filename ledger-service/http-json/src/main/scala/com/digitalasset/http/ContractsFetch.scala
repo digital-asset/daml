@@ -331,7 +331,7 @@ private[http] object ContractsFetch {
     NotUsed] =
     GraphDSL.create() { implicit b =>
       import GraphDSL.Implicits._
-      import ContractStreamStep.{LiveBegin, Acs, Txn}
+      import ContractStreamStep.{LiveBegin, acs => Acs, Txn}
       val acs = b add acsAndBoundary
       val txns = b add transactionsFollowingBoundary(transactionsSince)
       val allSteps = b add Concat[ContractStreamStep.LAV1](3)
