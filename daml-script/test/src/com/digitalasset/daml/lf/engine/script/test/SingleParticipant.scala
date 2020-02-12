@@ -13,6 +13,7 @@ import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.{FrontStack, FrontStackCons, Numeric}
 import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.data.Ref.{Party => LedgerParty}
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml_lf_dev.DamlLf
@@ -224,6 +225,30 @@ case class Sleep(dar: Dar[(PackageId, Package)], runner: TestRunner) {
   }
 }
 
+case class PartyIdHintTest(dar: Dar[(PackageId, Package)], runner: TestRunner) {
+  val scriptId =
+    Identifier(dar.main._1, QualifiedName.assertFromString("ScriptTest:partyIdHintTest"))
+  def runTests() = {
+    runner.genericTest(
+      "PartyIdHint",
+      scriptId,
+      None, {
+        case SRecord(_, _, vals) if vals.size == 2 =>
+          for {
+            _ <- TestRunner.assertEqual(
+              vals.get(0),
+              SParty(LedgerParty.assertFromString("carol")),
+              "Accept party id hint")
+            _ <- TestRunner.assertEqual(
+              vals.get(1),
+              SParty(LedgerParty.assertFromString("dan")),
+              "Accept party id hint")
+          } yield ()
+      }
+    )
+  }
+}
+
 // Runs the example from the docs to make sure it doesn’t produce a runtime error.
 case class ScriptExample(dar: Dar[(PackageId, Package)], runner: TestRunner) {
   val scriptId = Identifier(dar.main._1, QualifiedName.assertFromString("ScriptExample:test"))
@@ -285,6 +310,7 @@ object SingleParticipant {
         TestCreateAndExercise(dar, runner).runTests()
         Time(dar, runner).runTests()
         Sleep(dar, runner).runTests()
+        PartyIdHintTest(dar, runner).runTests()
         ScriptExample(dar, runner).runTests()
     }
   }

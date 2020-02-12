@@ -156,3 +156,9 @@ sleepTest = do
   sleep (seconds 2)
   t3 <- getTime
   pure (t1, t2, t3)
+
+partyIdHintTest : Script (Party, Party)
+partyIdHintTest = do
+  carol <- allocatePartyWithHint "carol" (PartyIdHint "carol")
+  dan <- allocatePartyWithHint "dan" (PartyIdHint "dan")
+  pure (carol, dan)
