@@ -59,6 +59,13 @@ template Person with
       do
         create this with age = age+1
 
+    nonconsuming choice Rename: ContractId Person with
+        newName: Text
+      controller party
+      do
+        archive self
+        create this with name = newName
+
 data Pair a b = Pair {
   one: a;
   two: b
