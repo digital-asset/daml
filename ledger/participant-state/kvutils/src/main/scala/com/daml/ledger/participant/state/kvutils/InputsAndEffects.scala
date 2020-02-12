@@ -3,7 +3,6 @@
 
 package com.daml.ledger.participant.state.kvutils
 
-import scala.annotation.tailrec
 import scala.collection.mutable
 
 import com.daml.ledger.participant.state.kvutils.Conversions._
@@ -99,19 +98,15 @@ private[kvutils] object InputsAndEffects {
     def addPartyInputInValue(v: Value[ContractId]): Unit = {
       val toBeProcessed = mutable.Queue(v)
 
-      @tailrec def go(): Unit =
-        if (toBeProcessed.nonEmpty) {
-          toBeProcessed.dequeue() match {
-            case ValueParty(p) =>
-              inputs += partyStateKey(p)
+      while (toBeProcessed.nonEmpty) {
+        toBeProcessed.dequeue() match {
+          case ValueParty(p) =>
+            inputs += partyStateKey(p)
 
-            case v =>
-              toBeProcessed.enqueue(subValues(v): _*)
-          }
-          go()
+          case v =>
+            toBeProcessed.enqueue(subValues(v): _*)
         }
-
-      go()
+      }
     }
 
     def addPartyInputsInValues(): Unit =
