@@ -96,7 +96,7 @@ query p = Script $ Free $ Query (QueryACS p (templateTypeRep @t) (pure . map (\(
 
 data AllocateParty a = AllocateParty
   { displayName : Text
-  , idHint : Optional Text
+  , idHint : Text
   , participant : Optional Text
   , continue : Party -> a
   } deriving Functor
@@ -117,7 +117,7 @@ newtype ParticipantName = ParticipantName { participantName : Text }
 allocateParty : Text -> Script Party
 allocateParty displayName = Script $ Free $ AllocParty $ AllocateParty
   { displayName
-  , idHint = None
+  , idHint = ""
   , participant = None
   , continue = pure
   }
@@ -127,7 +127,7 @@ allocateParty displayName = Script $ Free $ AllocParty $ AllocateParty
 allocatePartyWithHint : Text -> PartyIdHint -> Script Party
 allocatePartyWithHint displayName (PartyIdHint idHint) = Script $ Free $ AllocParty $ AllocateParty
   { displayName
-  , idHint = Some idHint
+  , idHint = idHint
   , participant = None
   , continue = pure
   }
@@ -137,7 +137,7 @@ allocatePartyWithHint displayName (PartyIdHint idHint) = Script $ Free $ AllocPa
 allocatePartyOn : Text -> ParticipantName -> Script Party
 allocatePartyOn displayName (ParticipantName participant) = Script $ Free $ AllocParty $ AllocateParty
   { displayName
-  , idHint = None
+  , idHint = ""
   , participant = Some participant
   , continue = pure
   }
@@ -147,7 +147,7 @@ allocatePartyOn displayName (ParticipantName participant) = Script $ Free $ Allo
 allocatePartyWithHintOn : Text -> PartyIdHint -> ParticipantName -> Script Party
 allocatePartyWithHintOn displayName (PartyIdHint idHint) (ParticipantName participant) = Script $ Free $ AllocParty $ AllocateParty
   { displayName
-  , idHint = Some idHint
+  , idHint = idHint
   , participant = Some participant
   , continue = pure
   }

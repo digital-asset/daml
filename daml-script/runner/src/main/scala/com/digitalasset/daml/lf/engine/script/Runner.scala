@@ -395,9 +395,8 @@ class Runner(
                     case v => throw new ConverterException(s"Expected SText but got $v")
                   }
                   val partyIdHint = vals.get(1) match {
-                    case SOptional(Some(SText(t))) => Some(t)
-                    case SOptional(None) => None
-                    case v => throw new ConverterException(s"Expected SOptional(SText) but got $v")
+                    case SText(t) => t
+                    case v => throw new ConverterException(s"Expected SText but got $v")
                   }
                   val participantName = vals.get(2) match {
                     case SOptional(Some(SText(t))) => Some(Participant(t))
@@ -410,7 +409,7 @@ class Runner(
                   }
                   val continue = vals.get(3)
                   val f =
-                    client.partyManagementClient.allocateParty(partyIdHint, Some(displayName))
+                    client.partyManagementClient.allocateParty(Some(partyIdHint), Some(displayName))
                   f.flatMap(allocRes => {
                     val party = allocRes.party
                     participantName match {
