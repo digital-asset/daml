@@ -389,12 +389,17 @@ class Runner(
             }
             case SVariant(_, "AllocParty", v) => {
               v match {
-                case SRecord(_, _, vals) if vals.size == 3 => {
+                case SRecord(_, _, vals) if vals.size == 4 => {
                   val displayName = vals.get(0) match {
                     case SText(value) => value
                     case v => throw new ConverterException(s"Expected SText but got $v")
                   }
-                  val participantName = vals.get(1) match {
+                  val partyIdHint = vals.get(1) match {
+                    case SOptional(Some(SText(t))) => Some(t)
+                    case SOptional(None) => None
+                    case v => throw new ConverterException(s"Expected SOptional(SText) but got $v")
+                  }
+                  val participantName = vals.get(2) match {
                     case SOptional(Some(SText(t))) => Some(Participant(t))
                     case SOptional(None) => None
                     case v => throw new ConverterException(s"Expected SOptional(SText) but got $v")
@@ -403,9 +408,9 @@ class Runner(
                     case Left(err) => throw new RuntimeException(err)
                     case Right(client) => client
                   }
-                  val continue = vals.get(2)
+                  val continue = vals.get(3)
                   val f =
-                    client.partyManagementClient.allocateParty(None, Some(displayName))
+                    client.partyManagementClient.allocateParty(partyIdHint, Some(displayName))
                   f.flatMap(allocRes => {
                     val party = allocRes.party
                     participantName match {
