@@ -240,13 +240,14 @@ Now we are ready to run the trigger using ``daml trigger``:
 
 .. code-block:: sh
 
-    daml trigger --dar .daml/dist/copy-trigger-0.0.1.dar --trigger-name CopyTrigger:copyTrigger --ledger-host localhost --ledger-port 6865 --ledger-party Alice
+    daml trigger --dar .daml/dist/copy-trigger-0.0.1.dar --trigger-name CopyTrigger:copyTrigger --ledger-host localhost --ledger-port 6865 --ledger-party Alice --static-time
 
 The first argument specifies the ``.dar`` file that we have just
 built. The second argument specifies the identifier of the trigger
 using the syntax ``ModuleName:identifier``. Finally, we need to
-specify the ledger host, port and the party that our trigger is executed
-as.
+specify the ledger host, port, the party that our trigger is executed
+as, and the time mode of the ledger which is the sandbox default, i.e,
+static time.
 
 Now open Navigator at http://localhost:7500/.
 
