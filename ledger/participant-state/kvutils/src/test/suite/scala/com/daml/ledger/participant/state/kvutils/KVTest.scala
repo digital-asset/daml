@@ -55,11 +55,13 @@ object KVTest {
     } yield r).eval(initialTestState)
 
   def runTestWithSimplePackage[A](parties: Party*)(test: KVTest[A]): A =
-    runTestWithPackage(defaultAdditionalContractDataTy, parties:_*)(test)
+    runTestWithPackage(defaultAdditionalContractDataTy, parties: _*)(test)
 
   def uploadArchive(additionalContractDataTy: String): KVTest[Unit] =
     for {
-      archiveLogEntry <- submitArchives("simple-archive-submission", archive(additionalContractDataTy)).map(_._2)
+      archiveLogEntry <- submitArchives(
+        "simple-archive-submission",
+        archive(additionalContractDataTy)).map(_._2)
       _ = assert(archiveLogEntry.getPayloadCase == DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_ENTRY)
     } yield ()
 
@@ -154,7 +156,10 @@ object KVTest {
 
   val minMRTDelta: Duration = theDefaultConfig.timeModel.minTtl
 
-  def runCommand(submitter: Party, additionalContractDataTy: String, cmds: Command*): KVTest[SubmittedTransaction] =
+  def runCommand(
+      submitter: Party,
+      additionalContractDataTy: String,
+      cmds: Command*): KVTest[SubmittedTransaction] =
     for {
       s <- get[KVTestState]
       tx = s.engine
@@ -183,7 +188,7 @@ object KVTest {
     } yield tx
 
   def runSimpleCommand(submitter: Party, cmds: Command*): KVTest[SubmittedTransaction] =
-    runCommand(submitter, defaultAdditionalContractDataTy, cmds:_*)
+    runCommand(submitter, defaultAdditionalContractDataTy, cmds: _*)
 
   def submitTransaction(
       submitter: Party,

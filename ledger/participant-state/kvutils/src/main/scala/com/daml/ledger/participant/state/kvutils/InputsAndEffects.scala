@@ -61,6 +61,7 @@ private[kvutils] object InputsAndEffects {
       /** The contract keys created or updated as part of the transaction. */
       updatedContractKeys: Map[DamlStateKey, DamlContractKeyState]
   )
+
   object Effects {
     val empty = Effects(List.empty, List.empty, Map.empty)
   }
@@ -74,9 +75,13 @@ private[kvutils] object InputsAndEffects {
     {
       import PackageId.ordering
       inputs ++=
-        tx.optUsedPackages.getOrElse(
-          throw new InternalError("Transaction was not annotated with used packages")
-        ).toList.sorted.map(DamlStateKey.newBuilder.setPackageId(_).build)
+        tx.optUsedPackages
+          .getOrElse(
+            throw new InternalError("Transaction was not annotated with used packages")
+          )
+          .toList
+          .sorted
+          .map(DamlStateKey.newBuilder.setPackageId(_).build)
     }
 
     def addContractInput(coid: ContractId): Unit =
@@ -101,7 +106,7 @@ private[kvutils] object InputsAndEffects {
               inputs += partyStateKey(p)
 
             case v =>
-              toBeProcessed.enqueue(subValues(v):_*)
+              toBeProcessed.enqueue(subValues(v): _*)
           }
           go()
         }
@@ -110,8 +115,9 @@ private[kvutils] object InputsAndEffects {
     }
 
     def addPartyInputsInValues(): Unit =
-      tx.foldValues(()) { case (_, VersionedValue(_, v)) =>
-        addPartyInputInValue(v)
+      tx.foldValues(()) {
+        case (_, VersionedValue(_, v)) =>
+          addPartyInputInValue(v)
       }
 
     tx.foreach {
@@ -155,17 +161,18 @@ private[kvutils] object InputsAndEffects {
       case ValueList(elems) => elems.toImmArray.toList
       case ValueStruct(fields) => fields.map(_._2).toList
       case ValueVariant(_, _, v) => List(v)
-      case ValueOptional(optV) => optV match {
-        case Some(v) => List(v)
-        case None => List.empty
-      }
+      case ValueOptional(optV) =>
+        optV match {
+          case Some(v) => List(v)
+          case None => List.empty
+        }
       case ValueTextMap(map) => map.values.toList
       case ValueGenMap(entries) =>
         entries.map(_._1).toList ++ entries.toList.map(_._2)
       case // Enumerating explicitly all cases to make it exhaustive and always get compilation errors on model changes
-        ValueContractId(_) | ValueNumeric(_) | ValueInt64(_) | ValueTimestamp(_) | ValueBool(_) | ValueDate(_)
-        | ValueParty(_) | ValueText(_) | ValueEnum(_, _) | ValueUnit
-        => List.empty
+          ValueContractId(_) | ValueNumeric(_) | ValueInt64(_) | ValueTimestamp(_) | ValueBool(_) |
+          ValueDate(_) | ValueParty(_) | ValueText(_) | ValueEnum(_, _) | ValueUnit =>
+        List.empty
     }
 
   /** Compute the effects of a DAML transaction, that is, the created and consumed contracts. */

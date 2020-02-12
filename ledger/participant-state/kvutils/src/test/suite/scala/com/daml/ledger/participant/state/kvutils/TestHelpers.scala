@@ -76,7 +76,10 @@ object TestHelpers {
   val simpleConsumeChoiceid: Ref.ChoiceName =
     Ref.ChoiceName.assertFromString("Consume")
 
-  def mkTemplateArg(owner: String, value: Value[Value.AbsoluteContractId], additionalContractDataTy: String): Value[Value.AbsoluteContractId] = {
+  def mkTemplateArg(
+      owner: String,
+      value: Value[Value.AbsoluteContractId],
+      additionalContractDataTy: String): Value[Value.AbsoluteContractId] = {
     val tId = templateId(additionalContractDataTy)
     Value.ValueRecord(
       Some(tId),

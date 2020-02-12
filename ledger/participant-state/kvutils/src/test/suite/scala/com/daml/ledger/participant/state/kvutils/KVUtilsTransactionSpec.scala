@@ -47,16 +47,15 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
       "List Party" -> ValueList(FrontStack(bobValue)),
       "TextMap Party" -> ValueTextMap(SortedLookupList(Map("bob" -> bobValue))),
       "Simple:SimpleVariant" ->
-          ValueVariant(Some(typeConstructorId("Simple:SimpleVariant")), name("SV"), bobValue),
+        ValueVariant(Some(typeConstructorId("Simple:SimpleVariant")), name("SV"), bobValue),
       "DA.Types:Tuple2 Party Unit" ->
-          ValueRecord(
-            Some(typeConstructorId("DA.Types:Tuple2 Party Unit", "DA.Types:Tuple2")),
-            FrontStack(
-              Some(name("x1")) -> bobValue,
-              Some(name("x2")) -> ValueUnit
-            ).toImmArray
-          ),
-
+        ValueRecord(
+          Some(typeConstructorId("DA.Types:Tuple2 Party Unit", "DA.Types:Tuple2")),
+          FrontStack(
+            Some(name("x1")) -> bobValue,
+            Some(name("x2")) -> ValueUnit
+          ).toImmArray
+        ),
       // Not yet supported in DAML:
       //
       // "<party: Party>" -> Value.ValueStruct(FrontStack(Ref.Name.assertFromString("party") -> bobValue).toImmArray),
@@ -64,7 +63,10 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
       // "GenMap Unit Party" -> Value.ValueGenMap(FrontStack(ValueUnit -> bobValue).toImmArray),
     )
 
-    def createCmd(templateId: Ref.Identifier, templateArg: Value[Value.AbsoluteContractId]): Command = CreateCommand(templateId, templateArg)
+    def createCmd(
+        templateId: Ref.Identifier,
+        templateArg: Value[Value.AbsoluteContractId]): Command =
+      CreateCommand(templateId, templateArg)
 
     val simpleTemplateId = templateId("Party")
     val simpleTemplateArg = mkTemplateArg("Alice", bobValue, "Party")
@@ -77,11 +79,10 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
         simpleConsumeChoiceid,
         ValueUnit)
 
-    def createAndExerciseCmd(templateId: Ref.Identifier, templateArg: Value[Value.AbsoluteContractId]): Command = CreateAndExerciseCommand(
-      templateId,
-      templateArg,
-      simpleConsumeChoiceid,
-      ValueUnit)
+    def createAndExerciseCmd(
+        templateId: Ref.Identifier,
+        templateArg: Value[Value.AbsoluteContractId]): Command =
+      CreateAndExerciseCommand(templateId, templateArg, simpleConsumeChoiceid, ValueUnit)
 
     val p0 = mkParticipantId(0)
     val p1 = mkParticipantId(1)
@@ -230,7 +231,9 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
       }
     }
 
-    "transient contracts and keys are properly archived" in KVTest.runTestWithSimplePackage(alice, bob) {
+    "transient contracts and keys are properly archived" in KVTest.runTestWithSimplePackage(
+      alice,
+      bob) {
       val simpleCreateAndExerciseCmd = createAndExerciseCmd(simpleTemplateId, simpleTemplateArg)
 
       for {

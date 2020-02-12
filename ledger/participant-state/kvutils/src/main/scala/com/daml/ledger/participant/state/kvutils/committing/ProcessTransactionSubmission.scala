@@ -15,11 +15,23 @@ import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.{Blinding, Engine}
-import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, NodeCreate, NodeExercises, NodeFetch, NodeLookupByKey}
+import com.digitalasset.daml.lf.transaction.Node.{
+  GlobalKey,
+  NodeCreate,
+  NodeExercises,
+  NodeFetch,
+  NodeLookupByKey
+}
 import com.digitalasset.daml.lf.transaction.Transaction.TContractId
 import com.digitalasset.daml.lf.transaction.{BlindingInfo, GenTransaction}
 import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId, NodeId, ValueParty, VersionedValue}
+import com.digitalasset.daml.lf.value.Value.{
+  AbsoluteContractId,
+  ContractId,
+  NodeId,
+  ValueParty,
+  VersionedValue
+}
 import org.slf4j.LoggerFactory
 
 import scala.annotation.tailrec
@@ -216,7 +228,8 @@ private[kvutils] case class ProcessTransactionSubmission(
   /** Check that all parties mentioned in a transaction exist. */
   private def validateParties: Commit[Unit] = {
 
-    def foldAllParties[T](tx: GenTransaction.WithTxValue[NodeId, TContractId], z: T)(f: (T, String) => T): T =
+    def foldAllParties[T](tx: GenTransaction.WithTxValue[NodeId, TContractId], z: T)(
+        f: (T, String) => T): T =
       foldInvolvedParties(tx, foldValueParties(tx, z)(f))(f)
 
     def foldInvolvedParties[T](tx: GenTransaction.WithTxValue[_, _], z: T)(f: (T, String) => T): T =
@@ -239,8 +252,11 @@ private[kvutils] case class ProcessTransactionSubmission(
           parties.foldLeft(accum)(f)
       }
 
-    def foldValueParties[T](tx: GenTransaction.WithTxValue[_, TContractId], z: T)(f: (T, String) => T): T =
-      tx.foldValues(z) { (z, v) => foldParties(v.value, z)(f) }
+    def foldValueParties[T](tx: GenTransaction.WithTxValue[_, TContractId], z: T)(
+        f: (T, String) => T): T =
+      tx.foldValues(z) { (z, v) =>
+        foldParties(v.value, z)(f)
+      }
 
     def foldParties[T](v: Value[ContractId], z: T)(f: (T, String) => T): T = {
       @tailrec def go(vs: List[Value[ContractId]], z: T)(f: (T, String) => T): T = {
@@ -258,13 +274,12 @@ private[kvutils] case class ProcessTransactionSubmission(
         get(partyStateKey(p)).flatMap(_.fold(pure(false))(_ => acc))
       }
 
-      r <-
-        if (allExist)
-          pass
-        else
-          reject(
-            buildRejectionLogEntry(RejectionReason.PartyNotKnownOnLedger)
-          )
+      r <- if (allExist)
+        pass
+      else
+        reject(
+          buildRejectionLogEntry(RejectionReason.PartyNotKnownOnLedger)
+        )
     } yield r
   }
 
