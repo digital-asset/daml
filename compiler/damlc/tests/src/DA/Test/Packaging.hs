@@ -1051,6 +1051,12 @@ dataDependencyTests damlc repl davlDar = testGroup "Data Dependencies" $
 
               , "instance (Foo a, Foo b) => Foo (a,b) where"
               , "  foo x = (foo x, foo x)"
+
+              , "class ActionTrans t where"
+              , "  lift : Action f => f a -> t f a"
+              , "newtype OptionalT f a = OptionalT { runOptionalT : f (Maybe a) }"
+              , "instance ActionTrans OptionalT where"
+              , "  lift f = OptionalT (fmap Just f)"
               ]
           writeFileUTF8 (proja </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
@@ -1066,7 +1072,7 @@ dataDependencyTests damlc repl davlDar = testGroup "Data Dependencies" $
           writeFileUTF8 (projb </> "src" </> "B.daml") $ unlines
               [ "daml 1.2"
               , "module B where"
-              , "import A ( Foo (foo), Bar (..), usingFoo, Q (..), usingEq, R(R), P(P), AnyWrapper(..), FunT(..) )"
+              , "import A ( Foo (foo), Bar (..), usingFoo, Q (..), usingEq, R(R), P(P), AnyWrapper(..), FunT(..), OptionalT(..), ActionTrans(..) )"
               , "import DA.Assert"
               , "import DA.Record"
               , ""
@@ -1108,6 +1114,9 @@ dataDependencyTests damlc repl davlDar = testGroup "Data Dependencies" $
               -- reference to T
               , "foobar : FunT Int Text"
               , "foobar = FunT show"
+              -- ActionTrans
+              , "trans = scenario do"
+              , "  runOptionalT (lift [0]) === [Just 0]"
               ]
           writeFileUTF8 (projb </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion

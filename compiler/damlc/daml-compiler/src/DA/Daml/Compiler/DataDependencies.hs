@@ -588,7 +588,7 @@ convKind env = \case
     LF.KArrow k1 k2 -> do
         k1' <- convKind env k1
         k2' <- convKind env k2
-        pure . noLoc $ HsFunTy noExt k1' k2'
+        pure . noLoc . HsParTy noExt . noLoc $ HsFunTy noExt k1' k2'
 
 convTyVarBinder :: Env -> (LF.TypeVarName, LF.Kind) -> Gen (LHsTyVarBndr GhcPs)
 convTyVarBinder env = \case
