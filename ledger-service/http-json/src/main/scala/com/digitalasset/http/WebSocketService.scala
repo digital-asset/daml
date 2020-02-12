@@ -356,9 +356,9 @@ class WebSocketService(
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def convertFilterContracts[Pos](fn: domain.ActiveContract[LfV] => Option[Pos])
-    : Flow[InsertDeleteStep.LAV1, StepAndErrors[Pos, JsValue], NotUsed] =
+    : Flow[ContractStreamStep.LAV1, StepAndErrors[Pos, JsValue], NotUsed] =
     Flow
-      .fromFunction { step: InsertDeleteStep.LAV1 =>
+      .fromFunction { step: ContractStreamStep.LAV1 =>
         val (aerrors, errors, dstep) = step.partitionBimap(
           ae =>
             domain.ArchivedContract
@@ -372,9 +372,11 @@ class WebSocketService(
         )
         StepAndErrors(
           errors ++ aerrors,
-          dstep copy (inserts = (dstep.inserts: Vector[domain.ActiveContract[LfV]]).flatMap { ac =>
-            fn(ac).map((ac, _)).toList
-          })
+          dstep mapStep (insDel =>
+            insDel copy (inserts = (insDel.inserts: Vector[domain.ActiveContract[LfV]]).flatMap {
+              ac =>
+                fn(ac).map((ac, _)).toList
+            }))
         )
       }
       .via(conflation)

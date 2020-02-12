@@ -24,10 +24,8 @@ private[http] sealed abstract class ContractStreamStep[+D, +C] extends Product w
       case _ => Txn(toInsertDelete append o.toInsertDelete)
     }
 
-  def mapPreservingIds[CC](f: C => CC): ContractStreamStep[D, CC] = this match {
-    case LiveBegin => LiveBegin
-    case Txn(step) => Txn(step mapPreservingIds f)
-  }
+  def mapPreservingIds[CC](f: C => CC): ContractStreamStep[D, CC] =
+    mapStep(_ mapPreservingIds f)
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def partitionBimap[LD, DD, LC, CC, LDS, LCS](f: D => (LD \/ DD), g: C => (LC \/ CC))(
@@ -37,6 +35,13 @@ private[http] sealed abstract class ContractStreamStep[+D, +C] extends Product w
     this match {
       case LiveBegin => (LDS().result(), LCS().result(), LiveBegin)
       case Txn(step) => step partitionBimap (f, g) map (Txn(_))
+    }
+
+  def mapStep[DD, CC](
+      f: InsertDeleteStep[D, C] => InsertDeleteStep[DD, CC]): ContractStreamStep[DD, CC] =
+    this match {
+      case LiveBegin => LiveBegin
+      case Txn(step) => Txn(f(step))
     }
 
   def nonEmpty: Boolean = this match {
