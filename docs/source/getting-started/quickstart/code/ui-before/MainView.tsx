@@ -1,25 +1,27 @@
 import React from 'react';
 import { Container, Grid, Header, Icon, Segment, Divider } from 'semantic-ui-react';
-import { Party } from '@digitalasset/daml-json-types';
-import { User } from '../daml/create-daml-app/User';
-import { useParty, useReload, usePseudoExerciseByKey, useFetchByKey, useQuery } from '../daml-react-hooks';
+import { Party } from '@daml/types';
+import { User } from '@daml2ts/create-daml-app/lib/create-daml-app-0.1.0/User';
+import { useParty, useReload, useExerciseByKey, useFetchByKey, useQuery } from '@daml/react';
 import UserList from './UserList';
 import PartyListEdit from './PartyListEdit';
 
 const MainView: React.FC = () => {
 // -- HOOKS_BEGIN
-  const party = useParty();
-  const myUser = useFetchByKey(User, () => party, [party]).contract?.payload;
-  const allUsers = useQuery(User, () => ({}), []).contracts.map((user) => user.payload);
+  const username = useParty();
+  const myUserResult = useFetchByKey<User, Party>(User, () => username, [username]);
+  const myUser = myUserResult.contract?.payload;
+  const allUsersResult = useQuery<User, Party>(User);
+  const allUsers = allUsersResult.contracts.map((user) => user.payload);
 // -- HOOKS_END
   const reload = useReload();
 
-  const [exerciseAddFriend] = usePseudoExerciseByKey(User.AddFriend);
-  const [exerciseRemoveFriend] = usePseudoExerciseByKey(User.RemoveFriend);
+  const [exerciseAddFriend] = useExerciseByKey(User.AddFriend);
+  const [exerciseRemoveFriend] = useExerciseByKey(User.RemoveFriend);
 
   const addFriend = async (friend: Party): Promise<boolean> => {
     try {
-      await exerciseAddFriend({party}, {friend});
+      await exerciseAddFriend(username, {friend});
       return true;
     } catch (error) {
       alert("Unknown error:\n" + JSON.stringify(error));
@@ -29,7 +31,7 @@ const MainView: React.FC = () => {
 
   const removeFriend = async (friend: Party): Promise<void> => {
     try {
-      await exerciseRemoveFriend({party}, {friend});
+      await exerciseRemoveFriend(username, {friend});
     } catch (error) {
       alert("Unknown error:\n" + JSON.stringify(error));
     }
@@ -46,14 +48,14 @@ const MainView: React.FC = () => {
         <Grid.Row stretched>
           <Grid.Column>
             <Header as='h1' size='huge' color='blue' textAlign='center' style={{padding: '1ex 0em 0ex 0em'}}>
-                {myUser ? `Welcome, ${myUser.party}!` : 'Loading...'}
+                {myUser ? `Welcome, ${myUser.username}!` : 'Loading...'}
             </Header>
 
             <Segment>
               <Header as='h2'>
                 <Icon name='user' />
                 <Header.Content>
-                  {myUser?.party ?? 'Loading...'}
+                  {myUser?.username ?? 'Loading...'}
                   <Header.Subheader>Me and my friends</Header.Subheader>
                 </Header.Content>
               </Header>
@@ -81,7 +83,7 @@ const MainView: React.FC = () => {
               </Header>
               <Divider />
               <UserList
-                users={allUsers.sort((user1, user2) => user1.party.localeCompare(user2.party))}
+                users={allUsers.sort((user1, user2) => user1.username.localeCompare(user2.username))}
                 onAddFriend={addFriend}
               />
             </Segment>
