@@ -7,6 +7,9 @@ module DA.Daml.Assistant
     ) where
 
 import DA.Signals
+import qualified DA.Service.Logger as L
+--import qualified DA.Service.Logger.Impl.Pure as L
+import qualified DA.Service.Logger.Impl.IO as L
 import DA.Daml.Project.Config
 import DA.Daml.Assistant.Types
 import DA.Daml.Assistant.Env
@@ -21,10 +24,12 @@ import System.Process.Typed
 import System.Exit
 import System.IO
 import Control.Exception.Safe
+import qualified Data.Aeson.Text as A
 import Data.Maybe
 import Data.List.Extra
 import Data.Either.Extra
 import qualified Data.Text as T
+import qualified Data.Text.Lazy as TL
 import Control.Monad.Extra
 import Safe
 
@@ -38,15 +43,16 @@ main :: IO ()
 -- This means that closing stdin won’t work for things like daml test
 -- but that seems acceptable for now.
 -- In theory, process groups or job control might provide a solution
--- but as Ben Gamari noticed, this is horribly unreliable https://gitlab.haskell.org/ghc/ghc/issues/17777
+-- but as Ben Gamari noticed, this is horribly unreliable
+-- https://gitlab.haskell.org/ghc/ghc/issues/17777
 -- so we are likely to make things worse rather than better.
-main = displayErrors $ do
+main = withLogger $ \logger -> handleErrors logger $ do
     installSignalHandlers
     builtinCommandM <- tryBuiltinCommand
     case builtinCommandM of
         Just builtinCommand -> do
             env <- getDamlEnv
-            handleCommand env builtinCommand
+            handleCommand env logger builtinCommand
         Nothing -> do
             env@Env{..} <- autoInstall =<< getDamlEnv
 
@@ -73,7 +79,7 @@ main = displayErrors $ do
                     sdkCommands <- fromRightM throwIO (listSdkCommands sdkPath enriched sdkConfig)
                     userCommand <- getCommand sdkCommands
                     versionChecks env
-                    handleCommand env userCommand
+                    handleCommand env logger userCommand
 
 -- | Perform version checks, i.e. warn user if project SDK version or assistant SDK
 -- versions are out of date with the latest known release.
@@ -148,9 +154,14 @@ autoInstall env@Env{..} = do
     else
         pure env
 
-handleCommand :: Env -> Command -> IO ()
-handleCommand env@Env{..} = \case
+handleCommand :: Env -> L.Handle IO -> Command -> IO ()
+handleCommand env@Env{..} logger command = do
+    runCommand env command
+    args' <- anonimizeArgs
+    L.logTelemetry logger (TL.toStrict (A.encodeToLazyText args'))
 
+runCommand :: Env -> Command -> IO ()
+runCommand env@Env{..}  = \case
     Builtin (Version VersionOptions{..}) -> do
         installedVersionsE <- tryAssistant $ getInstalledSdkVersions envDamlPath
         availableVersionsE <- tryAssistant $ refreshAvailableSdkVersions envDamlPath
@@ -239,12 +250,39 @@ dispatch env path args = do
     requiredIO "Failed to spawn command subprocess." $
         runProcess_ (setEnv dispatchEnv $ proc path args)
 
-displayErrors :: IO () -> IO ()
-displayErrors m = m `catches`
-    [ Handler $ \ (e :: AssistantError) -> do
-        hPutStrLn stderr (displayException e)
-        exitFailure
-    , Handler $ \ (e :: ConfigError) -> do
-        hPutStrLn stderr (displayException e)
-        exitFailure
+handleErrors :: L.Handle IO -> IO () -> IO ()
+handleErrors logger m = m `catches`
+    [ Handler (go . displayException @AssistantError)
+    , Handler (go . displayException @ConfigError)
     ]
+  where
+    go :: String -> IO ()
+    go err = do
+        hPutStrLn stderr err
+        L.logError logger (T.pack err)
+        exitFailure
+
+withLogger :: (L.Handle IO -> IO ()) -> IO ()
+withLogger k = do
+    logger <- L.newStderrLogger L.Telemetry "daml"
+    k logger
+
+-- | Get the arguments to `daml` and anonimize all but the first.
+-- That way, the daml command doesn't get accidentally anonimized.
+anonimizeArgs :: IO [T.Text]
+anonimizeArgs = do
+    args <- getArgs
+    case args of
+        [] -> pure []
+        argsHead : argsTail -> do
+            argsTail' <- concatMapM (anonimizeArg . T.pack) argsTail
+            pure (T.pack argsHead : argsTail')
+
+-- | Anonimize an argument to `daml`.
+anonimizeArg :: T.Text -> IO [T.Text]
+anonimizeArg arg = do
+    forM (T.splitOn "=" arg) $ \part -> do
+        b <- doesPathExist (T.unpack part)
+        pure $ if b
+            then ""
+            else part
