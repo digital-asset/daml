@@ -2,19 +2,23 @@
   "dependencies": {
     "@mojotech/json-type-validation": "^3.1.0",
     "cross-fetch": "^3.0.4",
-    "typescript": "3.7.4",
+    "events": "^3.1.0",
     "immutable": "^4.0.0-rc.12",
+    "isomorphic-ws": "^4.0.1",
     "jwt-simple": "^0.5.6",
     "react": "^16.12.0",
-    "@types/react": "^16.9.16"
+    "typescript": "3.7.4",
+    "ws": "^7.2.1"
   },
   "devDependencies": {
     "@bazel/bazel": "1.1.0",
     "@bazel/hide-bazel-files": "1.1.0",
     "@bazel/typescript": "1.1.0",
+    "@types/jest": "^24.9.0",
+    "@types/react": "^16.9.16",
+    "@types/ws": "^7.2.1",
     "@typescript-eslint/eslint-plugin": "^2.16.0",
     "@typescript-eslint/parser": "^2.16.0",
-    "@types/jest": "^24.9.0",
     "eslint": "^6.8.0",
     "jest": "^24.9.0",
     "jest-cli": "^24.9.0",
