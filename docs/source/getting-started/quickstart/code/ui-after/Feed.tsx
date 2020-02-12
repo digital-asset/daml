@@ -1,19 +1,17 @@
 import React from 'react'
 import { List, ListItem } from 'semantic-ui-react';
-import { Message } from '../daml/create-daml-app/Message';
+import { Message } from '@daml2ts/create-daml-app/lib/create-daml-app-0.1.0/User';
 
 type Props = {
   messages: Message[];
 }
 
 /**
- * React component to show all messages that have been sent to you from your network.
+ * React component to show a feed of messages for a particular user.
  */
 const Feed: React.FC<Props> = ({messages}) => {
   const showMessage = (message: Message): string => {
-    const author = message.sender;
-    const content = message.content;
-    return (author + " says: " + content);
+    return (message.sender + ": " + message.content);
   }
 
   return (

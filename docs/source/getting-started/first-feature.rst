@@ -53,19 +53,20 @@ Now let's see how to integrate this new functionality, which we've written in DA
 TypeScript Code Generation
 ==========================
 
-Remember that we interface with our DAML code from the UI components using generated TypeScript classes.
+Remember that we interface with our DAML code from the UI components using the generated TypeScript.
 Since we have changed our DAML code, we also need to rerun the TypeScript code generator.
 Let's do this now by running::
 
   daml build
-  daml daml2ts
+  daml codegen ts .daml/dist/create-daml-app-0.1.0.dar -o daml-ts/src
 
-in the ``create-daml-app/daml`` directory.
+As the TypeScript code is generated into the separate ``daml-ts`` workspace on which the UI depends, we need to rebuild the workspaces from the root directory using::
 
-.. TODO Fiddle with daml2ts arguments later.
+  yarn workspaces run build
 
-We should now have the updated TypeScript classes with equivalents of the ``SendMessage`` choice and ``Message`` template.
-Let's implement our messaging feature in the UI!
+We should now have the updated TypeScript code with equivalents of the ``Message`` template and ``SendMessage`` choice.
+
+Now let's implement our messaging feature in the UI!
 
 Messaging UI
 ============
@@ -93,7 +94,7 @@ In addition to the feed component, we need a component for composing messages an
 .. literalinclude:: quickstart/code/ui-after/MessageEdit.tsx
   :language: ts
 
-In this component we use React hooks for the message content and receivers.
+In this component we use React hooks for the message content and receiver.
 You can see these used in the ``submitMessage`` function, called when the "Send" button is clicked.
 The ``isSubmitting`` state is used to ensure that message requests are processed one at a time.
 The result of each send is a new ``Message`` contract created, after which the form is cleared.
@@ -118,7 +119,7 @@ Then we declare the hooks themselves at the start of the component.
   :start-after: -- HOOKS_BEGIN
   :end-before: -- HOOKS_END
 
-The ``messageHook`` tracks the state of ``Message`` contracts on the ledger, where we specify no restrictions on the query.
+The ``messagesResult`` tracks the state of ``Message`` contracts on the ledger, where we specify no restrictions on the query.
 We extract the actual message data in ``messages``.
 The ``exerciseSendMessage`` hook gives us a function to exercise the appropriate choice on our ``User``.
 We wrap this in another ``sendMessage`` function which splits an input string into a list of parties and then exercises the choice, reporting to the user in the case of an error.
@@ -129,20 +130,12 @@ We wrap this in another ``sendMessage`` function which splits an input string in
   :end-before: -- SENDMESSAGE_END
 
 Finally we can integrate our new messaging components into the main screen view.
-The first change is just reformatting the main screen so that the messaging UI appears as a panel in the right column.
-To do this, we put our existing panels (the two ``segment`` s) in a new column.
+In another segment we add the panel including our two new components: the ``MessageEdit`` and the ``Feed``.
 
 .. literalinclude:: quickstart/code/ui-after/MainView.tsx
   :language: html
-  :start-after: -- FORMATTING_BEGIN
-  :end-before: -- FORMATTING_END
-
-Then in another column we add the panel including our two new components: the ``MessageEdit`` above and ``Feed`` below.
-
-.. literalinclude:: quickstart/code/ui-after/MainView.tsx
-  :language: html
-  :start-after: -- MESSAGEPANEL_BEGIN
-  :end-before: -- MESSAGEPANEL_END
+  :start-after: -- MESSAGES_SEGMENT_BEGIN
+  :end-before: -- MESSAGES_SEGMENT_END
 
 You have now finished implementing your first end-to-end DAML feature!
 Let's give the new functionality a spin.
