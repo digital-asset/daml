@@ -499,7 +499,7 @@ convType env =
             ty2' <- convType env ty2
             pure $ if isConstraint ty1
                 then HsQualTy noExt (noLoc [noLoc ty1']) (noLoc ty2')
-                else HsFunTy noExt (noLoc ty1') (noLoc ty2')
+                else HsParTy noExt (noLoc $ HsFunTy noExt (noLoc ty1') (noLoc ty2'))
 
         LF.TSynApp LF.Qualified{..} lfArgs -> do
             ghcMod <- genModule env qualPackage qualModule
@@ -509,7 +509,7 @@ convType env =
                 tyvar = HsTyVar noExt NotPromoted . noLoc
                     . mkOrig ghcMod . mkOccName clsName $ T.unpack tyname
             args <- mapM (convType env) lfArgs
-            pure $ foldl (HsAppTy noExt . noLoc) tyvar (map noLoc args)
+            pure $ HsParTy noExt (noLoc $ foldl (HsAppTy noExt . noLoc) tyvar (map noLoc args))
 
         LF.TCon LF.Qualified {..}
           | qualModule == LF.ModuleName ["DA", "Types"]
