@@ -1,0 +1,13 @@
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE NoImplicitPrelude #-}
+daml 1.2
+module DA.Internal.Erased
+  ( Erased
+  ) where
+
+import GHC.Types()
+
+-- | Erased type used for kinds not supported by DAML-LF.
+data Erased

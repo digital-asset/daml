@@ -856,7 +856,13 @@ getDFunSig (valName, valType) = do
     (dfsBinders, dfsContext, dfsName, args) <- go valType
     if isHasField dfsName
         then do
-            (LF.TUnit : dfsArgs) <- Just args
+            (symbolTy : dfsArgs) <- Just args
+            -- We handle both the old state where symbol was translated to unit
+            -- and new state where it is translated to Erased.
+            guard $ case symbolTy of
+                LF.TUnit -> True
+                LF.TCon (LF.Qualified _ (LF.ModuleName ["DA", "Internal", "Erased"]) (LF.TypeConName ["Erased"])) -> True
+                _ -> False
             dfsField <- getFieldArg valName
             guard (not $ T.null dfsField)
             Just DFunSigHasField {..}

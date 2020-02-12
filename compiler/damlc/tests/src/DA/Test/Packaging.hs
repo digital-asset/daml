@@ -660,9 +660,9 @@ darPackageIds fp = do
 
 numStablePackages :: LF.Version -> Int
 numStablePackages ver
-  | ver == LF.version1_6 = 13
-  | ver == LF.version1_7 = 14
-  | ver == LF.versionDev = 14
+  | ver == LF.version1_6 = 14
+  | ver == LF.version1_7 = 15
+  | ver == LF.versionDev = 15
   | otherwise = error $ "Unsupported LF version: " <> show ver
 
 dataDependencyTests :: FilePath -> FilePath -> FilePath -> TestTree

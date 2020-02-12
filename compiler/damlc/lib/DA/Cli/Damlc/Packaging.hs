@@ -289,6 +289,7 @@ baseImports =
            [ "GHC.Tuple"
            , "GHC.Types"
            , "DA.Types"
+           , "DA.Internal.Erased"
            ]
         )
     -- We need the standard library from the current SDK, e.g., LF builtins like Optional are translated
