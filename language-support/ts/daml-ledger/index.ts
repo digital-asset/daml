@@ -367,6 +367,14 @@ class Ledger {
     const request = {templateIds: [template.templateId], query};
     return this.streamSubmit(template, 'v1/stream/query', request);
   }
+
+  streamFetchByKey<T extends object, K, I extends string>(
+    template: Template<T, K, I>,
+    key: K
+  ): EventStream<T, K, I> {
+    const request = [{templateId: template.templateId, key}];
+    return this.streamSubmit(template, 'v1/stream/fetch', request);
+  }
 }
 
 export default Ledger;
