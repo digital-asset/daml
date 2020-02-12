@@ -1046,6 +1046,8 @@ dataDependencyTests damlc repl davlDar = testGroup "Data Dependencies" $
               , "  where"
               , "    signatory p"
               , "data AnyWrapper = AnyWrapper { getAnyWrapper : AnyTemplate }"
+
+              , "data FunT a b = FunT (a -> b)"
               ]
           writeFileUTF8 (proja </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
@@ -1061,7 +1063,7 @@ dataDependencyTests damlc repl davlDar = testGroup "Data Dependencies" $
           writeFileUTF8 (projb </> "src" </> "B.daml") $ unlines
               [ "daml 1.2"
               , "module B where"
-              , "import A ( Foo (foo), Bar (..), usingFoo, Q (..), usingEq, R(R), P(P), AnyWrapper(..) )"
+              , "import A ( Foo (foo), Bar (..), usingFoo, Q (..), usingEq, R(R), P(P), AnyWrapper(..), FunT(..) )"
               , "import DA.Assert"
               , "import DA.Record"
               , ""
@@ -1099,6 +1101,9 @@ dataDependencyTests damlc repl davlDar = testGroup "Data Dependencies" $
               , "  p <- getParty \"p\""
               , "  let t = P p"
               , "  fromAnyTemplate (AnyWrapper $ toAnyTemplate t).getAnyWrapper === Some t"
+              -- reference to T
+              , "foobar : FunT Int Text"
+              , "foobar = FunT show"
               ]
           writeFileUTF8 (projb </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
