@@ -65,6 +65,6 @@ conformance_test(
     ],
     server = ":canton-test-runner-with-dependencies",
     test_tool_args = [
-        "--exclude=PartyAllocationIT", # TODO Review: pls. confirm Canton implements validation separately
+        "--exclude=PartyAllocationIT",
     ],
 ) if not is_windows else None
