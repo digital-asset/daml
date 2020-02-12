@@ -43,13 +43,37 @@ This is a radical change to how apps are written usually - with privacy and secu
 
 The only other thing we'll say about the User template for now is that it has two operations - called *choices* - to add or remove a friend.
 As DAML contracts are immutable, exercising one of these choices in fact *archives* the existing user contract and creates a new one with the modified data.
-So let's see how user contracts are controlled through the UI.
+
+.. TODO Update above depending on consuming/nonconsuming nature.
+
+Now let's see how our DAML code gets reflected and then used on the UI side.
+
+TypeScript Code Generation
+==========================
+
+The user interface for our app is written in a variant of Javascript called TypeScript.
+The main feature of TypeScript is a rich type system which gives us more support through type checking during development.
+
+Of course, we need a way to refer to our DAML model (template and choices) in our TypeScript code.
+This is where we have a code generation tool come in to play.
+
+The command ``daml codegen ts`` takes as argument a DAR file (a compiled form of our DAML model) and produces a number of corresponding TypeScript types and objects.
+This is a crucial bridge to programming the UI around our DAML.
+
+The commands to run code generation (or "codegen") is::
+
+    daml build
+    daml codegen ts .daml/dist/create-daml-app-0.1.0.dar -o daml-ts/src
+
+The first command builds the ``create-daml-app-0.1.0.dar`` DAR file.
+The ``codegen`` command translates the DAML into a series of TypeScript files in the ``daml-ts/src`` directory.
+These definitions can then be used in the UI code, as we'll see next.
 
 The UI
 ======
 
 Our UI is written using `React <https://reactjs.org/>`_ and `TypeScript <https://www.typescriptlang.org/>`_.
-React helps us write modular UI components and TypeScript is a variant of Javascript that gives us typechecking support during development.
+React helps us write modular UI components through the judicious use of both state and "props" (arguments passed to components).
 
 The interesting thing is how we interact with the DAML ledger from the UI, specifically through React.
 One can think of the ledger as a global state that we read and write from different components of the UI.
@@ -71,16 +95,3 @@ However, the query respects the privacy guarantees of a DAML ledger: the contrac
 This explains why you cannot see *all* users in the network on the main screen, only those who have added you as a friend (making you an observer of their ``User`` contract).
 
 .. TODO You also see friends of friends; either explain or prevent this.
-
-There is one more technicality to explain before we can dive into building a new feature for our app.
-In the above example we refer to the ``User`` template in our Typescript code (the React component).
-However we wrote our template in DAML, not Typescript.
-Therefore we need a way to bridge the gap and allow us access to DAML templates (and data types they depend on) from the UI code.
-
-.. TODO How do we run daml2ts? Hopefully it will run automatically in a DAML watch command, or be shipped with the SDK and called through the assistant.
-
-Our solution to this is a simple code generation tool called ``daml2ts``.
-This is shipped with the SDK and can be run with ``daml daml2ts``.
-The tool reads a compiled DAML project and generates a Typescript file corresponding to each DAML source file.
-We won't show the generated code here as it simply contains Typescript equivalents of the data structures used in the DAML templates (it does not include equivalents for signatories, observers or other DAML-specific constructs).
-With this tool to help bridge the gap between our DAML code and the UI, we can get started on our first full-stack DAML feature!
