@@ -22,8 +22,10 @@ DAML Changes
 The first addition we make is a template for a message contracts.
 This is very simple, containing only the message content as well as the sending and receiving parties.
 
-.. literalinclude:: quickstart/code/daml/Message.daml
+.. literalinclude:: quickstart/code/daml/User.daml
   :language: daml
+  :start-after: -- MESSAGE_BEGIN
+  :end-before: -- MESSAGE_END
 
 The sender is the signatory, the one who can create and archive the post, and the receivers are listed as observers of the contract.
 This simple setup gives the same desirable behaviour as the ``User`` contracts discussed earlier: querying the ledger for messages will yield exactly those which have been sent to the current user (or which that user has written), and it is impossible to see any other messages.

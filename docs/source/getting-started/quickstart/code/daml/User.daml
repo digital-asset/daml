@@ -3,31 +3,29 @@ module User where
 
 import DA.List
 
-import Message
-
 -- MAIN_TEMPLATE_BEGIN
 template User with
-    user: Party
+    username: Party
     friends: [Party]
   where
-    signatory user
+    signatory username
     observer friends
 -- MAIN_TEMPLATE_END
-    ensure user `notElem` friends && dedupSort friends == friends
 
-    key user: Party
+    key username: Party
     maintainer key
 
     choice AddFriend: ContractId User with
         friend: Party
-      controller user
+      controller username
       do
-        assert $ friend `notElem` friends
+        assertMsg "You cannot add yourself as a friend" (friend /= username)
+        assertMsg "You cannot add a friend twice" (friend `notElem` friends)
         create this with friends = sort (friend :: friends)
 
     nonconsuming choice RemoveFriend: ContractId User with
         friend: Party
-      controller user
+      controller username
       do
         assert $ friend `elem` friends
         archive self
@@ -35,9 +33,18 @@ template User with
 
 -- SENDMESSAGE_BEGIN
     nonconsuming choice SendMessage: ContractId Message with
+        sender: Party
         content: Text
-        receivers: [Party]
-      controller user
+      controller sender
       do
-        create Message with sender = user, content, receivers
+        create Message with sender, receiver = username, content
 -- SENDMESSAGE_END
+
+-- MESSAGE_BEGIN
+template Message with
+    sender: Party
+    receiver: Party
+    content: Text
+  where
+    signatory sender, receiver
+-- MESSAGE_END
