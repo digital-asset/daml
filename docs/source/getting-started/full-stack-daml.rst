@@ -27,22 +27,29 @@ You will also need some common software tools to build and interact with the tem
 Running the app
 ***************
 
-First off, open a terminal and clone the template project using
-``git clone https://github.com/digital-asset/create-daml-app.git``
-
 We'll start by getting the app up and running, and then explain the different components which we will later extend.
-To build the app, move to the project folder
-``cd create-daml-app``
-and use Yarn to install the dependencies and build the project::
+
+First off, open a terminal, clone the template project and move to the project folder::
+
+    git clone https://github.com/digital-asset/create-daml-app.git
+    cd create-daml-app
+
+We need to run a code generation step (which we will explain later).
+For now, just run::
+
+    daml build
+    daml codegen ts .daml/dist/create-daml-app-0.1.0.dar -o daml-ts/src
+
+Now, use Yarn to install the project dependencies and build the app::
 
     yarn install
     yarn workspaces run build
 
-If you see ``Compiled successfully.`` in the output then everything is working as expected.
+You should see ``Compiled successfully.`` in the output if everything is working as expected.
 
 .. TODO: Give instructions for possible failures.
 
-Now we can run the app in two steps.
+We can now run the app in two steps.
 You'll need two terminal windows running for this.
 
 In one terminal, at the root of the ``create-daml-app`` directory, run the script::
