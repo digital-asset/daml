@@ -115,42 +115,42 @@ newtype ParticipantName = ParticipantName { participantName : Text }
 -- | Allocate a party with the given display name
 -- using the party management service.
 allocateParty : Text -> Script Party
-allocateParty displayName = Script $ Free (AllocParty $ AllocateParty
+allocateParty displayName = Script $ Free $ AllocParty $ AllocateParty
   { displayName
   , idHint = None
   , participant = None
   , continue = pure
-  })
+  }
 
 -- | Allocate a party with the given display name and id hint
 -- using the party management service.
 allocatePartyWithHint : Text -> PartyIdHint -> Script Party
-allocatePartyWithHint displayName (PartyIdHint idHint) = Script $ Free (AllocParty $ AllocateParty
+allocatePartyWithHint displayName (PartyIdHint idHint) = Script $ Free $ AllocParty $ AllocateParty
   { displayName
   , idHint = Some idHint
   , participant = None
   , continue = pure
-  })
+  }
 
 -- | Allocate a party with the given display name
 -- on the specified participant using the party management service.
 allocatePartyOn : Text -> ParticipantName -> Script Party
-allocatePartyOn displayName (ParticipantName participant) = Script $ Free (AllocParty $ AllocateParty
+allocatePartyOn displayName (ParticipantName participant) = Script $ Free $ AllocParty $ AllocateParty
   { displayName
   , idHint = None
   , participant = Some participant
   , continue = pure
-  })
+  }
 
 -- | Allocate a party with the given display name and id hint
 -- on the specified participant using the party management service.
 allocatePartyWithHintOn : Text -> PartyIdHint -> ParticipantName -> Script Party
-allocatePartyWithHintOn displayName (PartyIdHint idHint) (ParticipantName participant) = Script $ Free (AllocParty $ AllocateParty
+allocatePartyWithHintOn displayName (PartyIdHint idHint) (ParticipantName participant) = Script $ Free $ AllocParty $ AllocateParty
   { displayName
   , idHint = Some idHint
   , participant = Some participant
   , continue = pure
-  })
+  }
 
 -- | In wallclock mode, this is UTC time. In static time mode, this is the UNIX epoch.
 instance HasTime Script where
