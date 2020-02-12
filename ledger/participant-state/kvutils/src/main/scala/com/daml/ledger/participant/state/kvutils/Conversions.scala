@@ -268,10 +268,14 @@ private[state] object Conversions {
       transactionVersion: TransactionVersion,
       entryId: DamlLogEntryId,
       coidString: String,
-      coidStruct: ValueOuterClass.ContractId): DamlStateKey = {
+      coidStruct: ValueOuterClass.ContractId,
+  ): DamlStateKey = {
 
-    val result = ValueCoder
-      .decodeContractIdOrStruct(ValueCoder.CidDecoder, transactionVersion, coidString, coidStruct)
+    val result = ValueCoder.CidDecoder.decode(
+      sv = transactionVersion,
+      stringForm = coidString,
+      structForm = coidStruct,
+    )
 
     result match {
       case Left(err) =>

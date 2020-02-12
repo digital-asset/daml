@@ -37,7 +37,7 @@ object VersionTimeline {
     * it appeared in an earlier engine release.  If two versions occur at the
     * same index, they were both added in the same engine release.
     */
-  private[transaction] val inAscendingOrder: NonEmptyList[Release] =
+  private[lf] val inAscendingOrder: NonEmptyList[Release] =
     NonEmptyList(
       That(LanguageVersion(LMV.V0, "")),
       That(LanguageVersion(LMV.V0, Dev)),
@@ -59,7 +59,7 @@ object VersionTimeline {
       // FIXME https://github.com/digital-asset/daml/issues/2256
       //  * change the following line when LF 1.8 is frozen.
       //  * do not insert line after this once until 1.8 is frozen.
-      This(This(ValueVersion("7"))),
+      This(Both(ValueVersion("7"), TransactionVersion("10"))),
       // add new versions above this line (but see more notes below)
       That(LanguageVersion(LMV.V1, Dev)),
       // do *not* backfill to make more Boths, because such would

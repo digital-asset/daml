@@ -1048,7 +1048,9 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       (Some[Name]("fetcher"), ValueParty(party)),
     )
 
-    def makeContract[Cid](tid: Ref.QualifiedName, targs: ImmArray[(Option[Name], Value[Cid])]) =
+    def makeContract[Cid <: ContractId](
+        tid: Ref.QualifiedName,
+        targs: ImmArray[(Option[Name], Value[Cid])]) =
       ContractInst(
         TypeConName(basicTestsPkgId, tid),
         assertAsVersionedValue(ValueRecord(Some(Identifier(basicTestsPkgId, tid)), targs)),

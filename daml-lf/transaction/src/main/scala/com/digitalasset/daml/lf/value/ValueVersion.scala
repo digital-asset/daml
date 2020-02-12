@@ -29,7 +29,7 @@ object ValueVersions
   private[value] val minGenMap = ValueVersion("7")
   private[value] val minContractIdV1 = ValueVersion("7")
 
-  def assignVersion[Cid](v0: Value[Cid]): Either[String, ValueVersion] = {
+  def assignVersion[Cid <: ContractId](v0: Value[Cid]): Either[String, ValueVersion] = {
     import VersionTimeline.{maxVersion => maxVV}
 
     @tailrec
@@ -83,17 +83,17 @@ object ValueVersions
   }
 
   @throws[IllegalArgumentException]
-  def assertAssignVersion[Cid](v0: Value[Cid]): ValueVersion =
+  def assertAssignVersion[Cid <: ContractId](v0: Value[Cid]): ValueVersion =
     assignVersion(v0) match {
       case Left(err) => throw new IllegalArgumentException(err)
       case Right(x) => x
     }
 
-  def asVersionedValue[Cid](value: Value[Cid]): Either[String, VersionedValue[Cid]] =
+  def asVersionedValue[Cid <: ContractId](value: Value[Cid]): Either[String, VersionedValue[Cid]] =
     assignVersion(value).map(version => VersionedValue(version = version, value = value))
 
   @throws[IllegalArgumentException]
-  def assertAsVersionedValue[Cid](value: Value[Cid]): VersionedValue[Cid] =
+  def assertAsVersionedValue[Cid <: ContractId](value: Value[Cid]): VersionedValue[Cid] =
     asVersionedValue(value) match {
       case Left(err) => throw new IllegalArgumentException(err)
       case Right(x) => x
