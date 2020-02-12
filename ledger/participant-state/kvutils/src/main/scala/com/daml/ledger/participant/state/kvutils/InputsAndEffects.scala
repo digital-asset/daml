@@ -92,16 +92,16 @@ private[kvutils] object InputsAndEffects {
     }
 
     def addPartyInputInValue(v: Value[ContractId]): Unit = {
-      val toBeProcessed = mutable.ArrayBuffer(v)
+      val toBeProcessed = mutable.Queue(v)
 
       @tailrec def go(): Unit =
         if (toBeProcessed.nonEmpty) {
-          toBeProcessed.remove(0) match {
+          toBeProcessed.dequeue() match {
             case ValueParty(p) =>
               inputs += partyStateKey(p)
 
             case v =>
-              toBeProcessed ++= subValues(v)
+              toBeProcessed.enqueue(subValues(v):_*)
           }
           go()
         }
