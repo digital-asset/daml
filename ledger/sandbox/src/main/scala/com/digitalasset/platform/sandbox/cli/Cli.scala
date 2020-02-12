@@ -204,7 +204,7 @@ object Cli {
   private def assertTimeModeIsDefault(c: SandboxConfig): Unit = {
     if (c.timeProviderType != TimeProviderType.default)
       throw new IllegalArgumentException(
-        "Error: -w and -o options may not be used together (time mode must be unambiguous).")
+        "Error: -w and -s options may not be used together (time mode must be unambiguous).")
   }
 
   private def checkIfZip(f: File): Boolean = {
