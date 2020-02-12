@@ -847,30 +847,30 @@ data DFunSig = DFunSig
 -- | Instance declaration head
 data DFunHead
     = DFunHeadHasField -- ^ HasField instance
-          { dfsName :: LF.Qualified LF.TypeSynName -- ^ name of type synonym
-          , dfsField :: !T.Text -- ^ first arg (a type level string)
-          , dfsArgs :: [LF.Type] -- ^ rest of the args
+          { dfhName :: LF.Qualified LF.TypeSynName -- ^ name of type synonym
+          , dfhField :: !T.Text -- ^ first arg (a type level string)
+          , dfhArgs :: [LF.Type] -- ^ rest of the args
           }
     | DFunHeadNormal -- ^ Normal, i.e., non-HasField, instance
-          { dfsName :: LF.Qualified LF.TypeSynName -- ^ name of type synonym
-          , dfsArgs :: [LF.Type] -- ^ arguments
+          { dfhName :: LF.Qualified LF.TypeSynName -- ^ name of type synonym
+          , dfhArgs :: [LF.Type] -- ^ arguments
           }
 
 -- | Break a value type signature down into a dictionary function signature.
 getDFunSig :: (LF.ExprValName, LF.Type) -> Maybe DFunSig
 getDFunSig (valName, valType) = do
-    (dfsBinders, dfsContext, dfsName, dfsArgs) <- go valType
-    head <- if isHasField dfsName
+    (dfsBinders, dfsContext, dfhName, dfhArgs) <- go valType
+    head <- if isHasField dfhName
         then do
-            (symbolTy : dfsArgs) <- Just dfsArgs
+            (symbolTy : dfhArgs) <- Just dfhArgs
             -- We handle both the old state where symbol was translated to unit
             -- and new state where it is translated to Erased.
             guard $ case symbolTy of
                 LF.TUnit -> True
                 LF.TCon (LF.Qualified _ (LF.ModuleName ["DA", "Internal", "Erased"]) (LF.TypeConName ["Erased"])) -> True
                 _ -> False
-            dfsField <- getFieldArg valName
-            guard (not $ T.null dfsField)
+            dfhField <- getFieldArg valName
+            guard (not $ T.null dfhField)
             Just DFunHeadHasField {..}
         else Just DFunHeadNormal {..}
     pure $ DFunSig dfsBinders dfsContext head
@@ -908,17 +908,17 @@ convDFunSig :: Env -> DFunSig -> Gen (HsType GhcPs)
 convDFunSig env DFunSig{..} = do
     binders <- mapM (convTyVarBinder env) dfsBinders
     context <- mapM (convType env) dfsContext
-    let headName = dfsName dfsHead
+    let headName = dfhName dfsHead
     ghcMod <- genModule env (LF.qualPackage headName) (LF.qualModule headName)
     let cls = case LF.unTypeSynName (LF.qualObject headName) of
             [n] -> HsTyVar noExt NotPromoted . noLoc $ mkOrig ghcMod . mkOccName clsName $ T.unpack n
             ns -> error ("DamlDependencies: unexpected typeclass name " <> show ns)
     args <- case dfsHead of
       DFunHeadHasField{..} -> do
-          let arg0 = HsTyLit noExt . HsStrTy NoSourceText . mkFastString $ T.unpack dfsField
-          args <- mapM (convType env) dfsArgs
+          let arg0 = HsTyLit noExt . HsStrTy NoSourceText . mkFastString $ T.unpack dfhField
+          args <- mapM (convType env) dfhArgs
           pure (arg0 : args)
-      DFunHeadNormal{..} -> do mapM (convType env) dfsArgs
+      DFunHeadNormal{..} -> do mapM (convType env) dfhArgs
     pure
       . HsParTy noExt . noLoc
       . HsForAllTy noExt binders . noLoc
