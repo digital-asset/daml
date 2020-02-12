@@ -50,7 +50,13 @@ object RunnerConfig {
       .action { (t, c) =>
         c.copy(timeProviderType = TimeProviderType.WallClock)
       }
-      .text("Use wall clock time (UTC). When not provided, static time is used.")
+      .text("Use wall clock time (UTC).")
+
+    opt[Unit]('s', "static-time")
+      .action { (t, c) =>
+        c.copy(timeProviderType = TimeProviderType.Static)
+      }
+      .text("Use static time.")
 
     opt[Long]("ttl")
       .action { (t, c) =>
@@ -83,6 +89,8 @@ object RunnerConfig {
           failure("Missing option --ledger-port")
         } else if (c.ledgerParty == null) {
           failure("Missing option --ledger-party")
+        } else if (c.timeProviderType == null) {
+          failure("Must specify either --wall-clock-time or --static-time")
         } else {
           success
         }
@@ -98,7 +106,7 @@ object RunnerConfig {
         ledgerHost = null,
         ledgerPort = 0,
         ledgerParty = null,
-        timeProviderType = TimeProviderType.Static,
+        timeProviderType = null,
         commandTtl = Duration.ofSeconds(30L),
         accessTokenFile = None,
       )

@@ -179,10 +179,10 @@ them away using ``map snd``.
    :end-before: -- TEST_QUERIES_END
 
 To run our script, we first build it with ``daml build`` and then run
-it by pointing to the DAR, the name of our script and the host and
-port our ledger is running on.
+it by pointing to the DAR, the name of our script, the host and
+port our ledger is running on and the time mode of the ledger.
 
-``daml script --dar .daml/dist/script-example-0.0.1.dar --script-name ScriptExample:test --ledger-host localhost --ledger-port 6865``
+``daml script --dar .daml/dist/script-example-0.0.1.dar --script-name ScriptExample:test --ledger-host localhost --ledger-port 6865 --static-time``
 
 Up to now, we have worked with parties that we have allocated in the
 test. We can also pass in the path to a file containing
@@ -193,7 +193,7 @@ the input in the :doc:`/json-api/lf-value-specification`.
 
 We can then initialize our ledger passing in the json file via ``--input-file``.
 
-``daml script daml script --dar .daml/dist/script-example-0.0.1.dar --script-name ScriptExample:initialize --ledger-host localhost --ledger-port 6865 --input-file ledger-parties.json``
+``daml script daml script --dar .daml/dist/script-example-0.0.1.dar --script-name ScriptExample:initialize --ledger-host localhost --ledger-port 6865 --input-file ledger-parties.json --static-time``
 
 If you open Navigator, you can now see the contracts that have been created.
 
