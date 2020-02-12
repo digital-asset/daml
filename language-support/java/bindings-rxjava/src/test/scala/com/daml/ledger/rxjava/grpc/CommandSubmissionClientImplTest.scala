@@ -98,7 +98,7 @@ class CommandSubmissionClientImplTest
 
   it should "fail without a token" in {
     toAuthenticatedServer { client =>
-      expectPermissionDenied {
+      expectUnauthenticated {
         submitDummyCommand(client)
       }
     }

@@ -123,7 +123,7 @@ class CommandCompletionClientImplTest
   it should "deny access without token" in {
     toAuthenticatedServer { client =>
       withClue("completionStream") {
-        expectPermissionDenied {
+        expectUnauthenticated {
           client
             .completionStream("appId", LedgerBegin.getInstance(), Set(someParty).asJava)
             .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
@@ -131,7 +131,7 @@ class CommandCompletionClientImplTest
         }
       }
       withClue("completionStream unbounded") {
-        expectPermissionDenied {
+        expectUnauthenticated {
           client
             .completionStream("appId", Set(someParty).asJava)
             .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
@@ -139,7 +139,7 @@ class CommandCompletionClientImplTest
         }
       }
       withClue("completionEnd") {
-        expectPermissionDenied {
+        expectUnauthenticated {
           client.completionEnd().blockingGet()
         }
       }
@@ -169,7 +169,7 @@ class CommandCompletionClientImplTest
         }
       }
       withClue("completionEnd") {
-        expectPermissionDenied {
+        expectUnauthenticated {
           client.completionEnd(emptyToken).blockingGet()
         }
       }

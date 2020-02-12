@@ -162,22 +162,22 @@ class CommandClientImplTest
   it should "deny access without token" in {
     withCommandClient(mockedAuthService) { (client, _) =>
       withClue("submitAndWait") {
-        expectPermissionDenied {
+        expectUnauthenticated {
           submitAndWait(client)(dummyCommands, someParty, None)
         }
       }
       withClue("submitAndWaitForTransaction") {
-        expectPermissionDenied {
+        expectUnauthenticated {
           submitAndWaitForTransaction(client)(dummyCommands, someParty, None)
         }
       }
       withClue("submitAndWaitForTransactionId") {
-        expectPermissionDenied {
+        expectUnauthenticated {
           submitAndWaitForTransactionId(client)(dummyCommands, someParty, None)
         }
       }
       withClue("submitAndWaitForTransactionTree") {
-        expectPermissionDenied {
+        expectUnauthenticated {
           submitAndWaitForTransactionTree(client)(dummyCommands, someParty, None)
         }
       }

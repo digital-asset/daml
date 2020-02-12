@@ -53,7 +53,7 @@ final class LedgerConfigurationClientImplTest
     }
 
   it should "deny access without a token" in {
-    expectPermissionDenied {
+    expectUnauthenticated {
       toAuthenticatedServer(
         _.getLedgerConfiguration
           .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
@@ -62,7 +62,7 @@ final class LedgerConfigurationClientImplTest
   }
 
   it should "deny access with insufficient authorization" in {
-    expectPermissionDenied {
+    expectUnauthenticated {
       toAuthenticatedServer(
         _.getLedgerConfiguration(emptyToken)
           .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
