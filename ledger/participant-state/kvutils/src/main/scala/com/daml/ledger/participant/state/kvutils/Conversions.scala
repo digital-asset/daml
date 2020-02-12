@@ -8,7 +8,7 @@ import java.time.{Duration, Instant}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1.{PackageId, SubmittedTransaction, SubmitterInfo}
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.{LedgerString, Party}
+import com.digitalasset.daml.lf.data.Ref.{Identifier, LedgerString, Party}
 import com.digitalasset.daml.lf.data.Time
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.transaction._
@@ -20,6 +20,7 @@ import com.digitalasset.daml.lf.value.Value.{
   VersionedValue
 }
 import com.digitalasset.daml.lf.value.{Value, ValueCoder, ValueOuterClass}
+import com.digitalasset.platform.store.serialization.KeyHasher
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.{ByteString, Empty}
 
@@ -97,19 +98,25 @@ private[state] object Conversions {
   }
 
   def encodeContractKey(key: GlobalKey): DamlContractKey = {
-    val encodedValue = TransactionCoder
-      .encodeValue(ValueCoder.CidEncoder, key.key)
-      .getOrElse(throw Err.InternalError(s"contractKeyToStateKey: Cannot encode ${key.key}!"))
-      ._2
-
+    val hash = KeyHasher.hashKey(key)
     DamlContractKey.newBuilder
       .setTemplateId(ValueCoder.encodeIdentifier(key.templateId))
-      .setKey(encodedValue)
+      .setHash(ByteString.copyFrom(hash))
       .build
   }
 
-  def decodeContractKey(key: DamlContractKey): GlobalKey = {
-    GlobalKey(
+  def decodeIdentifier(protoIdent: ValueOuterClass.Identifier): Identifier =
+    ValueCoder
+      .decodeIdentifier(protoIdent)
+      .getOrElse(
+        throw Err
+          .DecodeError("Identifier", s"Cannot decode identifier: $protoIdent"))
+
+  def decodeContractKey(key: DamlContractKey): (Identifier, ContractKeyHash) = {
+    val templateId = decodeIdentifier(key.getTemplateId)
+    val hash = key.getHash.toByteArray
+    (templateId, hash)
+    /*GlobalKey(
       ValueCoder
         .decodeIdentifier(key.getTemplateId)
         .getOrElse(
@@ -125,7 +132,7 @@ private[state] object Conversions {
                 .DecodeError("ContractKey", s"Cannot decode key: $err"),
             identity)
       )
-    )
+    )*/
   }
 
   def contractKeyToStateKey(key: GlobalKey): DamlStateKey = {
@@ -236,6 +243,22 @@ private[state] object Conversions {
       .fold(err => throw Err.DecodeError("Transaction", err.errorMessage), _.transaction)
   }
 
+  def decodeVersionedValue(
+      protoValue: ValueOuterClass.VersionedValue): VersionedValue[AbsoluteContractId] =
+    ValueCoder
+      .decodeVersionedValue(ValueCoder.CidDecoder, protoValue)
+      .fold(
+        err => throw Err.DecodeError("ContractInstance", err.errorMessage),
+        value =>
+          value.ensureNoRelCid
+            .fold(
+              _ =>
+                throw Err.InternalError(
+                  "Relative contract identifier encountered in contract key!"),
+              identity
+          )
+      )
+
   def decodeContractInstance(coinst: TransactionOuterClass.ContractInstance)
     : Value.ContractInst[VersionedValue[AbsoluteContractId]] =
     TransactionCoder
@@ -258,9 +281,9 @@ private[state] object Conversions {
       .encodeContractInstance(ValueCoder.CidEncoder, coinst)
       .fold(err => throw Err.InternalError(s"encodeContractInstance failed: $err"), identity)
 
-  def forceNoContractIds(v: VersionedValue[ContractId]): VersionedValue[Nothing] =
+  def forceNoContractIds(v: Value[ContractId]): Value[Nothing] =
     v.ensureNoCid.fold(
-      coid => throw Err.InternalError(s"Contract identifier encountered in contract key! $coid"),
+      coid => throw Err.InternalError(s"Contract identifier '$coid' encountered in contract key"),
       identity,
     )
 

@@ -218,7 +218,8 @@ object ValueCoder {
   private def decodeVersion(vs: String): Either[DecodeError, ValueVersion] =
     ValueVersions
       .isAcceptedVersion(vs)
-      .fold[Either[DecodeError, ValueVersion]](Left(DecodeError(s"Unsupported value version $vs")))(
+      .fold[Either[DecodeError, ValueVersion]](
+        Left(DecodeError(s"Unsupported value version '$vs'")))(
         v => Right(v),
       )
 

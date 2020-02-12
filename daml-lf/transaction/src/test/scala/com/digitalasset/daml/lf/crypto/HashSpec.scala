@@ -567,7 +567,4 @@ class HashSpec extends WordSpec with Matchers {
       ),
     )
 
-  private implicit def addVersion[Cid](v: Value[Cid]): VersionedValue[Cid] =
-    VersionedValue(ValueVersion("4"), v)
-
 }

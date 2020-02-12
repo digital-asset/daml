@@ -247,7 +247,7 @@ object Hash {
   def hashContractKey(key: Node.GlobalKey): Hash =
     builder(Hash.Purpose.ContractKey)
       .addIdentifier(key.templateId)
-      .addTypedValue(key.key.value)
+      .addTypedValue(key.key)
       .build
 
   def deriveSubmissionSeed(

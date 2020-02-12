@@ -56,4 +56,7 @@ package object kvutils {
   import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
 
   type DamlStateMap = Map[DamlStateKey, Option[DamlStateValue]]
+
+  type ContractKeyHash = Array[Byte]
+
 }

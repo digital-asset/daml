@@ -157,7 +157,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
   def convertGlobalKey(globalKey: N.GlobalKey): GlobalKey = {
     GlobalKey.newBuilder
       .setTemplateId(convertIdentifier(globalKey.templateId))
-      .setKey(convertValue(globalKey.key.value))
+      .setKey(convertValue(globalKey.key))
       .build
   }
 

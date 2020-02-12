@@ -85,7 +85,7 @@ private[kvutils] object InputsAndEffects {
           case create: NodeCreate[ContractId, VersionedValue[ContractId]] =>
             create.key.foreach { keyWithMaintainers =>
               inputs += contractKeyToStateKey(
-                GlobalKey(create.coinst.template, forceNoContractIds(keyWithMaintainers.key)))
+                GlobalKey(create.coinst.template, forceNoContractIds(keyWithMaintainers.key.value)))
             }
 
           case exe: NodeExercises[_, ContractId, _] =>
@@ -96,7 +96,7 @@ private[kvutils] object InputsAndEffects {
             // that the submitter can access the contract.
             lookup.result.foreach(addContractInput)
             inputs += contractKeyToStateKey(
-              GlobalKey(lookup.templateId, forceNoContractIds(lookup.key.key)))
+              GlobalKey(lookup.templateId, forceNoContractIds(lookup.key.key.value)))
         }
 
         inputs ++= partyInputs(node.informeesOfNode)
@@ -126,7 +126,7 @@ private[kvutils] object InputsAndEffects {
                       (contractKeyToStateKey(
                         GlobalKey(
                           create.coinst.template,
-                          forceNoContractIds(keyWithMaintainers.key))) ->
+                          forceNoContractIds(keyWithMaintainers.key.value))) ->
                         DamlContractKeyState.newBuilder
                           .setContractId(encodeRelativeContractId(
                             entryId,
@@ -149,7 +149,7 @@ private[kvutils] object InputsAndEffects {
                     key =>
                       effects.updatedContractKeys +
                         (contractKeyToStateKey(
-                          GlobalKey(exe.templateId, forceNoContractIds(key.key))) ->
+                          GlobalKey(exe.templateId, forceNoContractIds(key.key.value))) ->
                           DamlContractKeyState.newBuilder.build)
                   )
               )

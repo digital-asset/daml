@@ -158,7 +158,7 @@ object KeyHasher extends KeyHasher {
     putString(digest, key.templateId.qualifiedName.toString())
 
     // Note: We do not emit the type as it is implied by the template ID.
-    putValue(digest, key.key.value)
+    putValue(digest, key.key)
 
     digest.digest()
   }

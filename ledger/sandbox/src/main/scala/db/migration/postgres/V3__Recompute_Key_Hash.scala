@@ -62,7 +62,7 @@ class V3__Recompute_Key_Hash extends BaseJavaMigration {
 
         hasNext = rows.next()
 
-        contractId -> GlobalKey(templateId, key)
+        contractId -> GlobalKey(templateId, key.value)
       }
     }
 

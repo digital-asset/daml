@@ -1041,7 +1041,7 @@ object SBuiltin {
       checkToken(args.get(1))
       val keyWithMaintainers = extractKeyWithMaintainers(args.get(0))
       checkLookupMaintainers(templateId, machine, keyWithMaintainers.maintainers)
-      val gkey = GlobalKey(templateId, keyWithMaintainers.key)
+      val gkey = GlobalKey(templateId, keyWithMaintainers.key.value)
       // check if we find it locally
       machine.ptx.keys.get(gkey) match {
         case Some(mbCoid) =>
@@ -1112,7 +1112,7 @@ object SBuiltin {
       checkToken(args.get(1))
       val keyWithMaintainers = extractKeyWithMaintainers(args.get(0))
       checkLookupMaintainers(templateId, machine, keyWithMaintainers.maintainers)
-      val gkey = GlobalKey(templateId, keyWithMaintainers.key)
+      val gkey = GlobalKey(templateId, keyWithMaintainers.key.value)
       // check if we find it locally
       machine.ptx.keys.get(gkey) match {
         case Some(None) =>

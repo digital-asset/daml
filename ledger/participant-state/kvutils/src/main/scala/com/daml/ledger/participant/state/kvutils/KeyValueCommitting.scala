@@ -16,8 +16,11 @@ import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.daml.lf.transaction.{TransactionCoder, TransactionOuterClass}
+import com.digitalasset.daml.lf.transaction.Node.GlobalKey
+import com.digitalasset.daml.lf.value.ValueOuterClass
 import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.platform.common.metrics.VarGauge
+import com.digitalasset.platform.store.serialization.KeyHasher
 import com.google.protobuf.ByteString
 import org.slf4j.LoggerFactory
 
@@ -228,17 +231,10 @@ object KeyValueCommitting {
       node.getNodeTypeCase match {
         case TransactionOuterClass.Node.NodeTypeCase.CREATE =>
           val create = node.getCreate
-          val ckeyOrEmpty =
+          val templateId = create.getContractInstance.getTemplateId
+          val contractKeyStateKeyOrEmpty =
             if (create.hasKeyWithMaintainers)
-              List(
-                DamlStateKey.newBuilder
-                  .setContractKey(
-                    DamlContractKey.newBuilder
-                      .setTemplateId(create.getContractInstance.getTemplateId)
-                      .setKey(create.getKeyWithMaintainers.getKey),
-                  )
-                  .build,
-              )
+              List(contractKeyToStateKey(templateId, create.getKeyWithMaintainers.getKey))
             else
               List.empty
 
@@ -248,21 +244,13 @@ object KeyValueCommitting {
               entryId,
               create.getContractId,
               create.getContractIdStruct,
-            ) :: ckeyOrEmpty
+            ) :: contractKeyStateKeyOrEmpty
 
         case TransactionOuterClass.Node.NodeTypeCase.EXERCISE =>
           val exe = node.getExercise
-          val ckeyOrEmpty =
+          val contractKeyStateKeyOrEmpty =
             if (exe.getConsuming && exe.hasKeyWithMaintainers)
-              List(
-                DamlStateKey.newBuilder
-                  .setContractKey(
-                    DamlContractKey.newBuilder
-                      .setTemplateId(exe.getTemplateId)
-                      .setKey(exe.getKeyWithMaintainers.getKey),
-                  )
-                  .build,
-              )
+              List(contractKeyToStateKey(exe.getTemplateId, exe.getKeyWithMaintainers.getKey))
             else
               List.empty
 
@@ -272,10 +260,10 @@ object KeyValueCommitting {
               entryId,
               exe.getContractId,
               exe.getContractIdStruct,
-            ) :: ckeyOrEmpty
+            ) :: contractKeyStateKeyOrEmpty
 
         case TransactionOuterClass.Node.NodeTypeCase.FETCH =>
-          // A fetch may cause a divulgence, which is why it is a potential output.
+          // A fetch may cause a divulgence, which is why the target contract is a potential output.
           List(
             Conversions
               .contractIdStructOrStringToStateKey(
@@ -289,10 +277,32 @@ object KeyValueCommitting {
           // Contract state only modified on divulgence, in which case we'll have a fetch node,
           // so no outputs from lookup node.
           List.empty
+
         case TransactionOuterClass.Node.NodeTypeCase.NODETYPE_NOT_SET =>
           throw Err.InvalidSubmission("submissionOutputs: NODETYPE_NOT_SET")
       }
     }.toSet
+  }
+
+  private def contractKeyToStateKey(
+      templateId: ValueOuterClass.Identifier,
+      key: ValueOuterClass.VersionedValue): DamlStateKey = {
+    // NOTE(JM): The deserialization of the values is meant to be temporary. With the removal of relative
+    // contract ids from kvutils submissions we will be able to up-front compute the outputs without having
+    // to allocate a log entry id and we can directly place the output keys into the submission.
+    val contractKey =
+      GlobalKey(
+        decodeIdentifier(templateId),
+        decodeVersionedValue(key).value.ensureNoCid
+          .getOrElse(throw Err.DecodeError("ContractKey", s"Contract key contained contract id"))
+      )
+    DamlStateKey.newBuilder
+      .setContractKey(
+        DamlContractKey.newBuilder
+          .setTemplateId(templateId)
+          .setHash(ByteString.copyFrom(KeyHasher.hashKey(contractKey))))
+      .build
+
   }
 
   private def verifyStateUpdatesAgainstPreDeclaredOutputs(

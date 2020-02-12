@@ -123,7 +123,7 @@ object Pretty {
       case ScenarioErrorCommitError(CommitError.FailedAuthorizations(fas)) =>
         (text("due to failed authorizations:") / prettyFailedAuthorizations(fas)).nested(4)
       case ScenarioErrorCommitError(CommitError.UniqueKeyViolation(gk)) =>
-        (text("due to unique key violation for key:") & prettyVersionedValue(false)(gk.gk.key) & text(
+        (text("due to unique key violation for key:") & prettyValue(false)(gk.gk.key) & text(
           "for template",
         ) & prettyIdentifier(gk.gk.templateId))
 

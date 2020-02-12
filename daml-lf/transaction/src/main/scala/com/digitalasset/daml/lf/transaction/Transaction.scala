@@ -653,7 +653,7 @@ object Transaction {
         key match {
           case None => Right((cid, ptx))
           case Some(kWithM) =>
-            val ck = GlobalKey(coinst.template, kWithM.key)
+            val ck = GlobalKey(coinst.template, kWithM.key.value)
             Right((cid, ptx.copy(keys = ptx.keys.updated(ck, Some(cid)))))
         }
       }
@@ -735,7 +735,7 @@ object Transaction {
               consumedBy = if (consuming) consumedBy.updated(targetId, nodeId) else consumedBy,
               keys = mbKey match {
                 case Some(kWithM) if consuming =>
-                  keys.updated(GlobalKey(templateId, kWithM.key), None)
+                  keys.updated(GlobalKey(templateId, kWithM.key.value), None)
                 case _ => keys
               },
             ),
