@@ -155,9 +155,7 @@ object TransactionCoder {
 
         for {
           encodedCid <- encodeCid.encode(transactionVersion, nc.coid)
-          _ = encodedCid.fold(createBuilder.setContractId, createBuilder.setContractIdStruct)
           inst <- encodeContractInstance(encodeCid, nc.coinst)
-          _ = createBuilder.setContractInstance(inst)
           optKey <- nc.key match {
             case None => Right(None)
             case Some(key) =>
@@ -166,10 +164,15 @@ object TransactionCoder {
               else
                 encodeKeyWithMaintainers(encodeCid, key).map(Some(_))
           }
-          _ = optKey.foreach {
+
+        } yield {
+          encodedCid.fold(createBuilder.setContractId, createBuilder.setContractIdStruct)
+          createBuilder.setContractInstance(inst)
+          optKey.foreach {
             case (_, encodedKey) => createBuilder.setKeyWithMaintainers(encodedKey)
           }
-        } yield nodeBuilder.setCreate(createBuilder).build()
+          nodeBuilder.setCreate(createBuilder).build()
+        }
 
       case nf @ NodeFetch(_, _, _, _, _, _) =>
         val (vversion, etid) = ValueCoder.encodeIdentifier(
@@ -185,14 +188,16 @@ object TransactionCoder {
 
         for {
           encodedCid <- encodeCid.encode(transactionVersion, nf.coid)
-          _ = encodedCid.fold(fetchBuilder.setContractId, fetchBuilder.setContractIdStruct)
           actors <- Either.cond(
             nf.actingParties.isEmpty || !(transactionVersion precedes TransactionVersions.minFetchActors),
             nf.actingParties.getOrElse(Set.empty),
             EncodeError(transactionVersion, isTooOldFor = "NodeFetch actors")
           )
-          _ = actors.foreach(fetchBuilder.addActors)
-        } yield nodeBuilder.setFetch(fetchBuilder).build()
+        } yield {
+          encodedCid.fold(fetchBuilder.setContractId, fetchBuilder.setContractIdStruct)
+          actors.foreach(fetchBuilder.addActors)
+          nodeBuilder.setFetch(fetchBuilder).build()
+        }
 
       case ne @ NodeExercises(_, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
         for {
@@ -210,7 +215,6 @@ object TransactionCoder {
             .addAllSignatories(ne.signatories.toSet[String].asJava)
             .addAllStakeholders(ne.stakeholders.toSet[String].asJava)
           encodedCid <- encodeCid.encode(transactionVersion, ne.targetCoid)
-          _ = encodedCid.fold(exBuilder.setContractId, exBuilder.setContractIdStruct)
           controllers <- if (transactionVersion precedes minNoControllers)
             Either.cond(
               ne.controllers == ne.actingParties,
@@ -221,7 +225,6 @@ object TransactionCoder {
             )
           else
             Right(Set.empty)
-          _ = controllers.foreach(exBuilder.addControllers)
           result <- if (transactionVersion precedes minExerciseResult)
             Right(None)
           else
@@ -232,7 +235,6 @@ object TransactionCoder {
                 s"Trying to encode transaction of version $transactionVersion, which requires the exercise return value, but did not get exercise return value in node.",
               )
             )
-          _ = result.foreach { case (_, v) => exBuilder.setReturnValue(v) }
           _ <- Right(
             ne.key
               .map { kWithM =>
@@ -250,7 +252,12 @@ object TransactionCoder {
               }
               .getOrElse(()),
           )
-        } yield nodeBuilder.setExercise(exBuilder).build()
+        } yield {
+          encodedCid.fold(exBuilder.setContractId, exBuilder.setContractIdStruct)
+          controllers.foreach(exBuilder.addControllers)
+          result.foreach { case (_, v) => exBuilder.setReturnValue(v) }
+          nodeBuilder.setExercise(exBuilder).build()
+        }
 
       case nlbk @ NodeLookupByKey(_, _, _, _) =>
         val nlbkBuilder = TransactionOuterClass.NodeLookupByKey.newBuilder()
@@ -262,13 +269,15 @@ object TransactionCoder {
               EncodeError(transactionVersion, isTooOldFor = "NodeLookupByKey transaction nodes")
           )
           versionAndKey <- encodeKeyWithMaintainers(encodeCid, nlbk.key)
-          (vversion, key) = versionAndKey
-          _ = nlbkBuilder
+          encodedCid <- nlbk.result traverseU (cid => encodeCid.encode(transactionVersion, cid))
+        } yield {
+          val (vversion, key) = versionAndKey
+          nlbkBuilder
             .setTemplateId(ValueCoder.encodeIdentifier(nlbk.templateId, Some(vversion))._2)
             .setKeyWithMaintainers(key)
-          encodedCid <- nlbk.result traverseU (cid => encodeCid.encode(transactionVersion, cid))
-          _ = encodedCid.foreach(_.fold(nlbkBuilder.setContractId, nlbkBuilder.setContractIdStruct))
-        } yield nodeBuilder.setLookupByKey(nlbkBuilder).build()
+          encodedCid.foreach(_.fold(nlbkBuilder.setContractId, nlbkBuilder.setContractIdStruct))
+          nodeBuilder.setLookupByKey(nlbkBuilder).build()
+        }
     }
   }
   private def decodeKeyWithMaintainers[Cid](

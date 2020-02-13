@@ -129,7 +129,7 @@ object ValueCoder {
     ): Either[DecodeError, Option[ContractId]] =
       if (useOldStringField(sv)) {
         if (structForm != proto.ContractId.getDefaultInstance) {
-          Left(DecodeError(s"${sv.showsVersion} is too new to use string contract IDs"))
+          Left(DecodeError(sv, isTooOldFor = "message ContractId"))
         } else {
           if (stringForm.isEmpty)
             Right(None)
@@ -147,7 +147,7 @@ object ValueCoder {
         }
       } else {
         if (stringForm.nonEmpty)
-          Left(DecodeError(sv, isTooOldFor = "message ContractId"))
+          Left(DecodeError(s"${sv.showsVersion} is too new to use string contract IDs"))
         else if (structForm.getContractId.isEmpty)
           Right(None)
         else if (structForm.getRelative)
