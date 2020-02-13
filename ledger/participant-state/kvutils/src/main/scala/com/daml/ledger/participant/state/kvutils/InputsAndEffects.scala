@@ -68,7 +68,7 @@ private[kvutils] object InputsAndEffects {
   /** Compute the inputs to a DAML transaction, that is, the referenced contracts, keys
     * and packages.
     */
-  def computeInputs(tx: SubmittedTransaction): Set[DamlStateKey] = {
+  def computeInputs(tx: SubmittedTransaction): List[DamlStateKey] = {
     val inputs = mutable.LinkedHashSet[DamlStateKey]()
 
     {
@@ -145,9 +145,7 @@ private[kvutils] object InputsAndEffects {
         }
     }
 
-    addPartyInputsInValues()
-
-    inputs.toSet
+    inputs.toList
   }
 
   def subValues(v: Value[ContractId]): List[Value[ContractId]] =
