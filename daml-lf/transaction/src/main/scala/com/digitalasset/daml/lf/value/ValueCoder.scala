@@ -22,8 +22,6 @@ import scalaz.syntax.bifunctor._
 object ValueCoder {
   import Value.MAXIMUM_NESTING
 
-  "a".r
-
   /**
     * Error type for signalling errors occuring during decoding serialized values
     * @param errorMessage description
