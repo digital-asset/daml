@@ -21,13 +21,16 @@ import com.digitalasset.ledger.api.v1.TransactionServiceOuterClass.{
 }
 import com.digitalasset.ledger.api.v1.{CommandServiceGrpc, TransactionServiceGrpc}
 import com.digitalasset.platform.common.LedgerIdMode
+import com.digitalasset.platform.sandbox.SandboxServer
 import com.digitalasset.platform.sandbox.config.SandboxConfig
-import com.digitalasset.platform.sandbox.services.{SandboxClientResource, SandboxServerResource}
+import com.digitalasset.platform.sandbox.services.SandboxClientResource
 import com.digitalasset.platform.services.time.TimeProviderType
+import com.google.protobuf.Empty
 import io.grpc.Channel
 import org.scalatest.Assertion
 
 import scala.collection.JavaConverters._
+import scala.concurrent.{ExecutionContext, Future}
 import scala.language.implicitConversions
 
 object TestUtil {
@@ -36,7 +39,10 @@ object TestUtil {
     new File(BazelRunfiles.rlocation("language-support/java/codegen/ledger-tests-model.dar"))
 
   val LedgerID = "ledger-test"
-  def withClient(testCode: Channel => Assertion): Assertion = {
+
+  def withClient(testCode: Channel => Assertion)(
+      implicit executionContext: ExecutionContext
+  ): Future[Assertion] = {
     val config = SandboxConfig.default.copy(
       port = 0,
       damlPackages = List(testDalf),
@@ -45,16 +51,11 @@ object TestUtil {
       timeModel = TimeModel.reasonableDefault
     )
 
-    val server = SandboxServerResource(config)
-    server.setup()
-    val client = SandboxClientResource(server.value.port)
-    client.setup()
-    try {
-      testCode(client.value)
-    } finally {
-      client.close()
-      server.close()
-    }
+    val channelOwner = for {
+      server <- SandboxServer.owner(config)
+      channel <- SandboxClientResource.owner(server.port)
+    } yield channel
+    channelOwner.use(channel => Future(testCode(channel)))
   }
 
   // unfortunately this is needed to help with passing functions to rxjava methods like Flowable#map
@@ -66,7 +67,7 @@ object TestUtil {
   val Charlie = "Charlie"
   val allTemplates = new FiltersByParty(Map[String, Filter](Alice -> NoFilter.instance).asJava)
 
-  def sendCmd(channel: Channel, cmds: Command*) = {
+  def sendCmd(channel: Channel, cmds: Command*): Empty = {
     CommandServiceGrpc
       .newBlockingStub(channel)
       .withDeadlineAfter(40, TimeUnit.SECONDS)
@@ -86,7 +87,9 @@ object TestUtil {
           .build)
   }
 
-  def readActiveContracts[C <: Contract](fromCreatedEvent: CreatedEvent => C)(channel: Channel) = {
+  def readActiveContracts[C <: Contract](fromCreatedEvent: CreatedEvent => C)(
+      channel: Channel
+  ): List[C] = {
     val txService = TransactionServiceGrpc.newBlockingStub(channel)
     val end = txService.getLedgerEnd(GetLedgerEndRequest.newBuilder().setLedgerId(LedgerID).build)
     val txs = txService.getTransactions(
