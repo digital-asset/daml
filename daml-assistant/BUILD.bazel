@@ -89,6 +89,7 @@ da_haskell_binary(
         "safe-exceptions",
         "typed-process",
         "text",
+        "unordered-containers",
     ],
     main_function = "DA.Daml.Assistant.main",
     src_strip_prefix = "exe",

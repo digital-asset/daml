@@ -373,16 +373,20 @@ execIde telemetry (Debug debug) enableScenarioService options =
             -- performance will be significatly impacted by large log output.
             threshold
             "LanguageServer"
-          let withLogger f = case telemetry of
+          let gcpConfig = Logger.GCP.GCPConfig
+                  { gcpConfigTag = "ide"
+                  , gcpConfigDamlPath = Nothing
+                  }
+              withLogger f = case telemetry of
                   TelemetryOptedIn ->
                     let logOfInterest prio = prio `elem` [Logger.Telemetry, Logger.Warning, Logger.Error] in
-                    Logger.GCP.withGcpLogger logOfInterest loggerH $ \gcpState loggerH' -> do
+                    Logger.GCP.withGcpLogger gcpConfig logOfInterest loggerH $ \gcpState loggerH' -> do
                       Logger.GCP.logMetaData gcpState
                       f loggerH'
-                  TelemetryOptedOut -> Logger.GCP.withGcpLogger (const False) loggerH $ \gcpState loggerH -> do
+                  TelemetryOptedOut -> Logger.GCP.withGcpLogger gcpConfig (const False) loggerH $ \gcpState loggerH -> do
                       Logger.GCP.logOptOut gcpState
                       f loggerH
-                  TelemetryIgnored -> Logger.GCP.withGcpLogger (const False) loggerH $ \gcpState loggerH -> do
+                  TelemetryIgnored -> Logger.GCP.withGcpLogger gcpConfig (const False) loggerH $ \gcpState loggerH -> do
                       Logger.GCP.logIgnored gcpState
                       f loggerH
                   TelemetryDisabled -> f loggerH

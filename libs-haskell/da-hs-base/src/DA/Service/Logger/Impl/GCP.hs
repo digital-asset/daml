@@ -17,6 +17,7 @@ is added.
 -}
 module DA.Service.Logger.Impl.GCP
     ( withGcpLogger
+    , GCPConfig(..)
     , GCPState(..)
     , initialiseGcpState
     , logOptOut
@@ -51,6 +52,8 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.Text.Extended as T
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.ByteString as BS
+import Data.String
+import Control.Applicative
 import Data.Time as Time
 import Data.UUID (UUID)
 import qualified Data.UUID as UUID
@@ -61,6 +64,18 @@ import Control.Exception.Safe
 import Network.HTTP.Simple
 
 -- Type definitions
+
+-- | Tag used to distinguish between different components that use the
+-- GCP logger, such as "daml" or "ide". This should be a valid suffix
+-- for a file name.
+newtype GCPTag = GCPTag { unGCPTag :: String }
+    deriving (IsString)
+
+-- | Configuration for setting up GCP logger.
+data GCPConfig = GCPConfig
+    { gcpConfigTag :: GCPTag
+    , gcpConfigDamlPath :: Maybe FilePath
+    }
 
 data GCPState = GCPState
     { gcpFallbackLogger :: Lgr.Handle IO
@@ -79,6 +94,10 @@ data GCPState = GCPState
     -- running. However, we can handle a corrupted data file gracefully
     -- and cross-platform file locking is annoying so we do not bother
     -- with a lock that works across processes.
+    , gcpTag :: GCPTag
+    -- ^ A tag to keep different SDK components that use the GCP logger from
+    -- interfering with each other. This is all so we don't have to deal with
+    -- cross-platform file locking.
     }
 
 newtype SentBytes = SentBytes { getSentBytes :: Int64 }
@@ -104,7 +123,8 @@ requestTimeout = 5_000_000
 -- Files used to record data that should persist over restarts.
 
 sentDataFile :: GCPState -> FilePath
-sentDataFile GCPState{gcpDamlDir} = gcpDamlDir </> ".sent_data"
+sentDataFile GCPState{..} =
+    gcpDamlDir </> (".sent_data_" <> unGCPTag gcpTag)
 
 machineIDFile :: GCPState -> FilePath
 machineIDFile GCPState{gcpDamlDir} = gcpDamlDir </> ".machine_id"
@@ -140,13 +160,14 @@ validateSentData = \case
       then pure sentData
       else noSentData
 
-initialiseGcpState :: Lgr.Handle IO -> IO GCPState
-initialiseGcpState lgr =
-    GCPState lgr
-        <$> newTChanIO
-        <*> randomIO
-        <*> getDamlDir
-        <*> newLock
+initialiseGcpState :: GCPConfig -> Lgr.Handle IO -> IO GCPState
+initialiseGcpState GCPConfig{..} gcpFallbackLogger = do
+    gcpLogChan <- newTChanIO
+    gcpSessionID <- randomIO
+    gcpDamlDir <- getDamlDir gcpConfigDamlPath
+    gcpSentDataFileLock <- newLock
+    let gcpTag = gcpConfigTag
+    pure GCPState {..}
 
 readBatch :: TChan a -> Int -> IO [a]
 readBatch chan n = atomically $ replicateM n (readTChan chan)
@@ -159,15 +180,16 @@ drainChan chan = atomically $ unfoldM (tryReadTChan chan)
 --   to GCP
 --   will attempt to flush the logs
 withGcpLogger
-    :: (Lgr.Priority -> Bool) -- ^ if this is true log to GCP
+    :: GCPConfig
+    -> (Lgr.Priority -> Bool) -- ^ if this is true log to GCP
     -> Lgr.Handle IO
     -> (GCPState -> Lgr.Handle IO -> IO a)
     -- ^ We give access to both the GCPState as well as the modified logger
     -- since the GCPState can be useful to bypass the message filter, e.g.,
     -- for metadata messages which have info prio.
     -> IO a
-withGcpLogger p hnd f = do
-    gcpState <- initialiseGcpState hnd
+withGcpLogger config p hnd f = do
+    gcpState <- initialiseGcpState config hnd
     let logger = hnd
             { Lgr.logJson = newLogJson gcpState
             }
@@ -368,10 +390,10 @@ maxDataPerDay :: SentBytes
 maxDataPerDay = SentBytes (8 * 2 ^ (20 :: Int))
 
 -- | The DAML home folder, getting this ensures the folder exists
-getDamlDir :: IO FilePath
-getDamlDir = do
+getDamlDir :: Maybe FilePath -> IO FilePath
+getDamlDir damlPathM = do
     dh <- lookupEnv damlPathEnvVar
-    dir <- case dh of
+    dir <- case damlPathM <|> dh of
         Nothing -> fallback
         Just "" -> fallback
         Just var -> pure var
@@ -421,7 +443,7 @@ sendData gcp sendRequest payload = withSentDataFile gcp $ \sentDataFile -> do
 --------------------------------------------------------------------------------
 -- | These are not in the test suite because it hits an external endpoint
 test :: IO ()
-test = withGcpLogger (Lgr.Error ==) Lgr.Pure.makeNopHandle $ \_gcp hnd -> do
+test = withGcpLogger (GCPConfig "test" Nothing) (Lgr.Error ==) Lgr.Pure.makeNopHandle $ \_gcp hnd -> do
     let lg = Lgr.logError hnd
     let (ls :: [T.Text]) = replicate 13 $ "I like short songs!"
     mapM_ lg ls
