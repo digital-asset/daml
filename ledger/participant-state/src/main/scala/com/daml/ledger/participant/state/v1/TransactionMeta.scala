@@ -19,4 +19,7 @@ import com.digitalasset.daml.lf.data.Time.Timestamp
   *   communicating over the ledger.
   *
   */
-final case class TransactionMeta(ledgerEffectiveTime: Timestamp, workflowId: Option[WorkflowId])
+final case class TransactionMeta(
+    ledgerEffectiveTime: Timestamp,
+    workflowId: Option[WorkflowId],
+)

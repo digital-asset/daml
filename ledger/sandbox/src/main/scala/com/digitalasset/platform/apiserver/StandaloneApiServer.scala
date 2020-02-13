@@ -115,6 +115,7 @@ final class StandaloneApiServer(
         (mat: Materializer, esf: ExecutionSequencerFactory) =>
           ApiServices
             .create(
+              participantId,
               writeService,
               indexService,
               authorizer,

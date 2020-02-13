@@ -6,6 +6,7 @@ package speedy
 
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.data.Time
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.speedy.SError._
 import com.digitalasset.daml.lf.speedy.SExpr._
@@ -241,14 +242,14 @@ object Speedy {
     private def initial(
         checkSubmitterInMaintainers: Boolean,
         compiledPackages: CompiledPackages,
-        seed: Option[crypto.Hash],
+        seedWithTime: Option[(crypto.Hash, Time.Timestamp)],
     ) =
       Machine(
         ctrl = null,
         env = emptyEnv,
         kont = new util.ArrayList[Kont](128),
         lastLocation = None,
-        ptx = PartialTransaction.initial(seed),
+        ptx = PartialTransaction.initial(seedWithTime),
         committers = Set.empty,
         commitLocation = None,
         traceLog = TraceLog(damlTraceLog, 100),
@@ -274,13 +275,13 @@ object Speedy {
         checkSubmitterInMaintainers: Boolean,
         sexpr: SExpr,
         compiledPackages: CompiledPackages,
-        seed: Option[crypto.Hash] = None,
+        seedWithTime: Option[(crypto.Hash, Time.Timestamp)] = None,
     ): Machine =
       fromSExpr(
         SEApp(sexpr, Array(SEValue.Token)),
         checkSubmitterInMaintainers,
         compiledPackages,
-        seed,
+        seedWithTime,
       )
 
     // Used from repl.
@@ -307,9 +308,10 @@ object Speedy {
         sexpr: SExpr,
         checkSubmitterInMaintainers: Boolean,
         compiledPackages: CompiledPackages,
-        seed: Option[crypto.Hash] = None,
+        seedWithTime: Option[(crypto.Hash, Time.Timestamp)] = None,
     ): Machine =
-      initial(checkSubmitterInMaintainers, compiledPackages, seed).copy(ctrl = CtrlExpr(sexpr))
+      initial(checkSubmitterInMaintainers, compiledPackages, seedWithTime).copy(
+        ctrl = CtrlExpr(sexpr))
   }
 
   /** Control specifies the thing that the machine should be reducing.

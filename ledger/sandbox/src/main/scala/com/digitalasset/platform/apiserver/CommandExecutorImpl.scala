@@ -7,7 +7,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 import com.daml.ledger.participant.state.v1.{SubmitterInfo, TransactionMeta}
 import com.digitalasset.daml.lf.command._
-import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
+import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data.{Ref, Time}
 import com.digitalasset.daml.lf.engine.{
   Blinding,
@@ -33,8 +33,11 @@ import scalaz.syntax.tag._
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success}
 
-class CommandExecutorImpl(engine: Engine, getPackage: PackageId => Future[Option[Package]])(
-    implicit ec: ExecutionContext)
+class CommandExecutorImpl(
+    engine: Engine,
+    getPackage: Ref.PackageId => Future[Option[Package]],
+    participant: Ref.ParticipantId,
+)(implicit ec: ExecutionContext)
     extends CommandExecutor {
 
   override def execute(
@@ -43,13 +46,25 @@ class CommandExecutorImpl(engine: Engine, getPackage: PackageId => Future[Option
       getContract: Value.AbsoluteContractId => Future[
         Option[Value.ContractInst[TxValue[Value.AbsoluteContractId]]]],
       lookupKey: GlobalKey => Future[Option[AbsoluteContractId]],
-      commands: Commands)
-    : Future[Either[ErrorCause, (SubmitterInfo, TransactionMeta, Transaction.Transaction)]] = {
+      commands: Commands,
+  ): Future[Either[ErrorCause, (SubmitterInfo, TransactionMeta, Transaction.Transaction)]] = {
 
-    consume(engine.submit(commands))(getPackage, getContract, lookupKey)
+    consume(engine.submit(participant, commands))(getPackage, getContract, lookupKey)
       .map { submission =>
         (for {
-          updateTx <- submission
+          updateTx0 <- submission
+          updateTx <- if (commands.submissionSeed.isEmpty)
+            Right(updateTx0)
+          else
+            updateTx0
+              .resolveRelCidV1 {
+                case Value.RelativeContractId(_, Some(discriminator)) =>
+                  Right(Ref.ContractIdStringV1.assertFromString("$0" + discriminator.toHexaString))
+                case _ =>
+                  Left("Unexpected Error")
+              }
+              .left
+              .map(DamlLfError(_))
           _ <- Blinding
             .checkAuthorizationAndBlind(updateTx, Set(submitter))
         } yield

@@ -293,6 +293,7 @@ final class SandboxServer(config: SandboxConfig) extends AutoCloseable {
           (mat: Materializer, esf: ExecutionSequencerFactory) =>
             ApiServices
               .create(
+                participantId,
                 indexAndWriteService.writeService,
                 indexAndWriteService.indexService,
                 authorizer,

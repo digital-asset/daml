@@ -1181,7 +1181,7 @@ object SBuiltin {
       def clearCommit(): Unit = {
         machine.committers = Set.empty
         machine.commitLocation = None
-        machine.ptx = Tx.PartialTransaction.initial(None)
+        machine.ptx = Tx.PartialTransaction.initial()
       }
 
       args.get(0) match {
@@ -1227,7 +1227,7 @@ object SBuiltin {
           callback = newValue => {
             machine.committers = Set.empty
             machine.commitLocation = None
-            machine.ptx = Tx.PartialTransaction.initial(None)
+            machine.ptx = Tx.PartialTransaction.initial()
             machine.ctrl = CtrlValue(newValue)
           },
         ),

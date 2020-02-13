@@ -192,7 +192,7 @@ class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with P
       val fromToBytes = ValueCoder.valueFromBytes(
         ValueCoder.CidDecoder,
         ValueCoder
-          .valueToBytes[ContractId](ValueVersions.VersionCid, ValueCoder.CidEncoder, ValueUnit)
+          .valueToBytes(ValueVersions.VersionCid, ValueCoder.CidEncoder, ValueUnit)
           .toOption
           .get,
       )

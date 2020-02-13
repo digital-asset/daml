@@ -8,7 +8,7 @@ import java.nio.ByteBuffer
 import java.security.{MessageDigest, SecureRandom}
 import java.util
 
-import com.digitalasset.daml.lf.data.{ImmArray, Ref, Utf8}
+import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time, Utf8}
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value
 import javax.crypto.Mac
@@ -48,8 +48,22 @@ object Hash {
   private val version = 0.toByte
   private val underlyingHashLength = 32
 
+  def fromBytes(a: Array[Byte]): Either[String, Hash] =
+    Either.cond(
+      a.length == underlyingHashLength,
+      new Hash(a.clone()),
+      s"hash should have ${underlyingHashLength} bytes, found ${a.length}",
+    )
+
+  def fromBytes(a: com.google.protobuf.ByteString): Either[String, Hash] =
+    Either.cond(
+      a.size() == underlyingHashLength,
+      new Hash(a.toByteArray),
+      s"hash should have ${underlyingHashLength} bytes, found ${a.size}",
+    )
+
   val secureRandom: () => Hash = {
-    val random = new SecureRandom()
+    val random = SecureRandom.getInstance("SHA1PRNG")
     () =>
       {
         val a = Array.ofDim[Byte](underlyingHashLength)
@@ -240,31 +254,41 @@ object Hash {
       .addTypedValue(key.key.value)
       .build
 
-  def deriveTransactionSeed(
+  def deriveSubmissionSeed(
       nonce: Hash,
-      participantId: Ref.LedgerString,
       applicationId: Ref.LedgerString,
       commandId: Ref.LedgerString,
       submitter: Ref.Party,
   ): Hash =
     hMacBuilder(nonce)
-      .add(participantId)
       .add(applicationId)
       .add(commandId)
       .add(submitter)
       .build
 
-  def deriveNodeDiscriminator(
+  def deriveTransactionSeed(
+      submissionSeed: Hash,
+      participantId: Ref.ParticipantId,
+      submitTime: Time.Timestamp,
+  ): Hash =
+    hMacBuilder(submissionSeed)
+      .add(participantId)
+      .add(submitTime.micros)
+      .build
+
+  def deriveNodeSeed(
       parentDiscriminator: Hash,
       childIdx: Int,
   ): Hash =
     hMacBuilder(parentDiscriminator).add(childIdx).build
 
   def deriveContractDiscriminator(
-      nodeDiscriminator: Hash,
+      nodeSeed: Hash,
+      submitTime: Time.Timestamp,
       parties: Set[Ref.Party],
-  ) =
-    hMacBuilder(nodeDiscriminator)
+  ): Hash =
+    hMacBuilder(nodeSeed)
+      .add(submitTime.micros)
       .iterateOver(parties.toSeq.sorted[String].iterator, parties.size)(_ add _)
       .build
 

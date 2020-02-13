@@ -4,6 +4,7 @@
 package com.digitalasset.ledger.api.validation
 
 import com.digitalasset.api.util.TimestampConversion
+import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.command._
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.ledger.api.domain
@@ -49,18 +50,20 @@ final class CommandsValidator(ledgerId: LedgerId) {
         .map(invalidField(_, "ledger_effective_time"))
     } yield
       domain.Commands(
-        ledgerId,
-        workflowId,
-        appId,
-        commandId,
-        submitter,
-        ledgerEffectiveTime,
-        TimestampConversion.toInstant(mrt),
-        Commands(
-          submitter,
-          ImmArray(validatedCommands),
-          ledgerEffectiveTimestamp,
-          workflowId.fold("")(_.unwrap)),
+        ledgerId = ledgerId,
+        workflowId = workflowId,
+        applicationId = appId,
+        commandId = commandId,
+        submitter = submitter,
+        ledgerEffectiveTime = ledgerEffectiveTime,
+        maximumRecordTime = TimestampConversion.toInstant(mrt),
+        commands = Commands(
+          submitter = submitter,
+          commands = ImmArray(validatedCommands),
+          ledgerEffectiveTime = ledgerEffectiveTimestamp,
+          commandsReference = workflowId.fold("")(_.unwrap),
+          submissionSeed = None
+        ),
       )
 
   private def validateInnerCommands(

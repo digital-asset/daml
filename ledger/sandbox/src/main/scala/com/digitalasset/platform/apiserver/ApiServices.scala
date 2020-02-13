@@ -8,6 +8,7 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.index.v2._
 import com.daml.ledger.participant.state.v1.{Configuration, WriteService}
 import com.digitalasset.api.util.TimeProvider
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine._
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.auth.Authorizer
@@ -65,6 +66,7 @@ object ApiServices {
   private val logger = ContextualizedLogger.get(this.getClass)
 
   def create(
+      participantId: Ref.ParticipantId,
       writeService: WriteService,
       indexService: IndexService,
       authorizer: Authorizer,
@@ -100,7 +102,7 @@ object ApiServices {
           writeService,
           defaultLedgerConfiguration.timeModel,
           timeProvider,
-          new CommandExecutorImpl(engine, packagesService.getLfPackage),
+          new CommandExecutorImpl(engine, packagesService.getLfPackage, participantId),
           metrics,
         )
 
