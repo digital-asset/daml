@@ -1124,6 +1124,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
             decodeType(commit.getRetType))
 
         case PLF.Scenario.SumCase.MUSTFAILATMSG =>
+          assertSince(LV.Features.scenarioMustFailAtMsg, "Scenario.mustFailAtMsg")
           val commit = lfScenario.getMustFailAtMsg
           ScenarioMustFailAtMsg(
             decodeExpr(commit.getParty, definition),
