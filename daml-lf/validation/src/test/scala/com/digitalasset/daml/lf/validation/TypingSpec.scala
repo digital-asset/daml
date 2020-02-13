@@ -215,6 +215,8 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
           T"∀ (τ : ⋆). Party → Update τ → (( Scenario τ ))",
         E"Λ (τ : ⋆). λ (e₁: Party) (e₂: Update τ) → (( must_fail_at @τ e₁ e₂ ))" ->
           T"∀ (τ : ⋆). Party → Update τ → (( Scenario Unit ))",
+        E"Λ (τ : ⋆). λ (e₁: Party) (e₂: Update τ) → (( must_fail_at_msg @τ e₁ e₂ ))" ->
+          T"∀ (τ : ⋆). Party → Update τ → (( Scenario Text ))",
         E"λ (e: Int64) → (( pass e ))" ->
           T"Int64 → (( Scenario Timestamp ))",
         E"(( sget_time ))" ->
@@ -410,6 +412,12 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         E"Λ (τ : ⋆) (σ : ⋆). λ (e₁: Party) (e₂: Update σ) → (( must_fail_at @τ e₁ e₂ ))",
         E"Λ (τ : ⋆) (σ : ⋆). λ (e₁: Party) (e₂: σ) → (( must_fail_at @τ e₁ e₂ ))",
         E"Λ (τ : ⋆) (σ : ⋆). λ (e₁: Party) (e₂: Update τ) → (( must_fail_at @σ e₁ e₂ ))",
+        // ScnMustFailMsg
+        E"Λ (τ : ⋆ → ⋆). λ (e₁: Party) (e₂: Update τ) → (( must_fail_at_msg @τ e₁ e₂ ))",
+        E"Λ (τ : ⋆) (σ : ⋆). λ (e₁: σ) (e₂: Update τ) → (( must_fail_at_msg @τ e₁ e₂ ))",
+        E"Λ (τ : ⋆) (σ : ⋆). λ (e₁: Party) (e₂: Update σ) → (( must_fail_at_msg @τ e₁ e₂ ))",
+        E"Λ (τ : ⋆) (σ : ⋆). λ (e₁: Party) (e₂: σ) → (( must_fail_at_msg @τ e₁ e₂ ))",
+        E"Λ (τ : ⋆) (σ : ⋆). λ (e₁: Party) (e₂: Update τ) → (( must_fail_at_msg @σ e₁ e₂ ))",
         // ScnPass
         E"Λ (σ : ⋆). λ (e: σ) → (( pass e ))",
         // ScnGetParty
