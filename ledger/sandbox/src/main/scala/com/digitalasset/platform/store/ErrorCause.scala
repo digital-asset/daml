@@ -9,6 +9,7 @@ sealed abstract class ErrorCause extends Product with Serializable {
   def explain: String
 }
 object ErrorCause {
+
   final case class DamlLf(error: LfError) extends ErrorCause {
     override def explain: String = {
       val details =

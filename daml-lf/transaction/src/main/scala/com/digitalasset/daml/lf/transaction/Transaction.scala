@@ -473,14 +473,16 @@ object Transaction {
       *                         contractIds discriminator. If let undefined no
       *                         discriminators should be generate.
       */
-    def initial(transactionSeed: Option[crypto.Hash]) = PartialTransaction(
-      nextNodeIdx = 0,
-      nodes = HashMap.empty,
-      consumedBy = Map.empty,
-      context = ContextRoot(transactionSeed),
-      aborted = None,
-      keys = Map.empty,
-    )
+    def initial(seedWithTime: Option[(crypto.Hash, Time.Timestamp)] = None) =
+      PartialTransaction(
+        seedWithTime.map(_._2),
+        nextNodeIdx = 0,
+        nodes = HashMap.empty,
+        consumedBy = Map.empty,
+        context = ContextRoot(seedWithTime.map(_._1)),
+        aborted = None,
+        keys = Map.empty,
+      )
 
   }
 
@@ -509,6 +511,7 @@ object Transaction {
     *              locally archived absolute contract ids will succeed wrongly.
     */
   case class PartialTransaction(
+      submissionTime: Option[Time.Timestamp],
       nextNodeIdx: Int,
       nodes: HashMap[NodeId, Node],
       consumedBy: Map[TContractId, NodeId],
@@ -563,6 +566,10 @@ object Transaction {
         sb.toString
       }
 
+    def resolveCidDiscriminator(node: Node) =
+      node.resolveRelCid(cid =>
+        Ref.ContractIdString.assertFromString("0" + cid.discriminator.get.toHexaString))
+
     /** Finish building a transaction; i.e., try to extract a complete
       *  transaction from the given 'PartialTransaction'. This fails if
       *  the 'PartialTransaction' is not yet complete or has been
@@ -573,7 +580,9 @@ object Transaction {
         case ContextRoot(transactionSeed, children) if aborted.isEmpty =>
           Right(
             GenTransaction(
-              nodes = nodes,
+              nodes =
+                if (transactionSeed.isEmpty) nodes
+                else nodes.transform((_, v) => resolveCidDiscriminator(v)),
               roots = children.toImmArray,
               optUsedPackages = None,
               transactionSeed = transactionSeed,
@@ -619,7 +628,10 @@ object Transaction {
         val nodeSeed = deriveChildSeed
         val nodeId = NodeId(nextNodeIdx)
         val contractDiscriminator =
-          nodeSeed.map(crypto.Hash.deriveContractDiscriminator(_, stakeholders))
+          for {
+            seed <- nodeSeed
+            time <- submissionTime
+          } yield crypto.Hash.deriveContractDiscriminator(seed, time, stakeholders)
         val cid = RelativeContractId(nodeId, contractDiscriminator)
         val createNode = NodeCreate(
           nodeSeed,
@@ -787,7 +799,7 @@ object Transaction {
     }
 
     def deriveChildSeed: Option[crypto.Hash] =
-      context.contextSeed.map(crypto.Hash.deriveNodeDiscriminator(_, nodes.size))
+      context.contextSeed.map(crypto.Hash.deriveNodeSeed(_, nodes.size))
 
   }
 

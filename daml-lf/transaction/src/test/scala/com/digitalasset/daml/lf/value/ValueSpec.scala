@@ -63,7 +63,7 @@ class ValueSpec extends FreeSpec with Matchers with Checkers with GeneratorDrive
       "ensureNoRelCid is used " in {
         val value = VersionedValue(
           ValueVersions.minVersion,
-          ValueContractId(AbsoluteContractId(Ref.ContractIdStringV0.assertFromString("#0:0"))),
+          ValueContractId(AbsoluteContractId(Ref.ContractIdString.assertFromString("#0:0"))),
         )
         val contract = ContractInst(tmplId, value, "agreed")
         value.ensureNoRelCid.map(_.version) shouldBe Right(ValueVersions.minVersion)
@@ -76,33 +76,14 @@ class ValueSpec extends FreeSpec with Matchers with Checkers with GeneratorDrive
           ValueContractId(ValueContractId(RelativeContractId(NodeId(0), Some(randomHash())))),
         )
         val contract = ContractInst(tmplId, value, "agreed")
-        val resolver: RelativeContractId => Ref.ContractIdStringV0 = {
+        val resolver: RelativeContractId => Ref.ContractIdString = {
           case RelativeContractId(NodeId(idx), _) =>
-            Ref.ContractIdStringV0.assertFromString(s"#0:$idx")
+            Ref.ContractIdString.assertFromString(s"#0:$idx")
         }
-        value.resolveRelCidV0(resolver).version shouldBe ValueVersions.minVersion
-        contract.resolveRelCidV0(resolver).arg.version shouldBe ValueVersions.minVersion
+        value.resolveRelCid(resolver).version shouldBe ValueVersions.minVersion
+        contract.resolveRelCid(resolver).arg.version shouldBe ValueVersions.minVersion
       }
 
-    }
-
-    "does  bump version when" - {
-      "resolveRelCidV1 is used" in {
-        val value = VersionedValue(
-          ValueVersions.minVersion,
-          ValueContractId(RelativeContractId(NodeId(0), Some(randomHash()))),
-        )
-        val contract = ContractInst(tmplId, value, "agreed")
-        val resolver: RelativeContractId => Either[String, Ref.ContractIdStringV1] = {
-          case RelativeContractId(_, Some(hash)) =>
-            Right(Ref.ContractIdStringV1.assertFromString("$0" + hash.toHexaString))
-          case RelativeContractId(_, _) =>
-            Left("unexpected relative contractId without discriminator")
-        }
-        value.resolveRelCidV1(resolver).map(_.version) shouldBe Right(ValueVersions.minContractIdV1)
-        contract.resolveRelCidV1(resolver).map(_.arg.version) shouldBe Right(
-          ValueVersions.minContractIdV1)
-      }
     }
 
   }

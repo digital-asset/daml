@@ -27,11 +27,11 @@ private[engine] class InMemoryPrivateLedgerData extends PrivateLedgerData {
   private val txCounter: AtomicInteger = new AtomicInteger(0)
 
   def update(tx: GenTransaction.WithTxValue[NodeId, ContractId]): Unit =
-    updateWithAbsoluteContractId(tx.resolveRelCidV0(toContractIdString(txCounter.get)))
+    updateWithAbsoluteContractId(tx.resolveRelCid(toContractIdString(txCounter.get)))
 
-  def toContractIdString(txCounter: Int)(r: RelativeContractId): Ref.ContractIdStringV0 =
+  def toContractIdString(txCounter: Int)(r: RelativeContractId): Ref.ContractIdString =
     // It is safe to concatenate numbers and "-" to form a valid ContractId
-    Ref.ContractIdStringV0.assertFromString(s"$txCounter-${r.txnid.index}")
+    Ref.ContractIdString.assertFromString(s"$txCounter-${r.txnid.index}")
 
   def updateWithAbsoluteContractId(
       tx: GenTransaction.WithTxValue[NodeId, AbsoluteContractId]): Unit =

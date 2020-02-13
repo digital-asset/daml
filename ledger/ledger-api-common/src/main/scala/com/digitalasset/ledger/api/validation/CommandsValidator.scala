@@ -49,18 +49,19 @@ final class CommandsValidator(ledgerId: LedgerId) {
         .map(invalidField(_, "ledger_effective_time"))
     } yield
       domain.Commands(
-        ledgerId,
-        workflowId,
-        appId,
-        commandId,
-        submitter,
-        ledgerEffectiveTime,
-        TimestampConversion.toInstant(mrt),
-        Commands(
-          submitter,
-          ImmArray(validatedCommands),
-          ledgerEffectiveTimestamp,
-          workflowId.fold("")(_.unwrap)),
+        ledgerId = ledgerId,
+        workflowId = workflowId,
+        applicationId = appId,
+        commandId = commandId,
+        submitter = submitter,
+        ledgerEffectiveTime = ledgerEffectiveTime,
+        maximumRecordTime = TimestampConversion.toInstant(mrt),
+        commands = Commands(
+          submitter = submitter,
+          commands = ImmArray(validatedCommands),
+          ledgerEffectiveTime = ledgerEffectiveTimestamp,
+          commandsReference = workflowId.fold("")(_.unwrap)
+        ),
       )
 
   private def validateInnerCommands(

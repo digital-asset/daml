@@ -139,7 +139,7 @@ class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](initialState: => A
                   transactionId = transactionId,
                   eventId = nodeId,
                   workflowId = workflowId,
-                  contract = nc.coinst.resolveRelCidV0(EventIdFormatter.makeAbs(transactionId)),
+                  contract = nc.coinst.resolveRelCid(EventIdFormatter.makeAbs(transactionId)),
                   witnesses = disclosure(nodeId),
                   // The divulgences field used to be filled with data coming from the `localDivulgence` field of the blinding info.
                   // But this field is always empty in transactions with only absolute contract ids.

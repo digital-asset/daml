@@ -25,8 +25,10 @@ import scala.language.implicitConversions
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class LargeTransactionTest extends WordSpec with Matchers with BazelRunfiles {
 
-  def hash(s: String, i: Int) =
+  private def hash(s: String, i: Int) =
     Some(crypto.Hash.hashPrivateKey(s + ":" + i.toString))
+
+  private val participant = Ref.ParticipantId.assertFromString("participant")
 
   private def loadPackage(
       resource: String): (PackageId, Ast.Package, Map[PackageId, Ast.Package]) = {
@@ -205,7 +207,11 @@ class LargeTransactionTest extends WordSpec with Matchers with BazelRunfiles {
       seed: Option[crypto.Hash]
   ): Tx.Transaction = {
     engine
-      .submit(Commands(submitter, ImmArray(cmd), Time.Timestamp.now(), cmdReference), seed)
+      .submit(
+        Commands(submitter, ImmArray(cmd), Time.Timestamp.now(), cmdReference),
+        participant,
+        seed,
+      )
       .consume(pcs.get, lookupPackage, { _ =>
         sys.error("TODO keys for LargeTransactionTest")
       }) match {

@@ -191,7 +191,7 @@ object Ledger {
       nodes = enrichedTx.nodes.map {
         case (nodeId, node) =>
           ScenarioNodeId(commitPrefix, nodeId) -> node
-            .resolveRelCidV0(makeAbs)
+            .resolveRelCid(makeAbs)
             .mapNodeId(ScenarioNodeId(commitPrefix, _))
       }(breakOut),
       explicitDisclosure = enrichedTx.explicitDisclosure.map {

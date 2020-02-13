@@ -1,7 +1,8 @@
 // Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.command
+package com.digitalasset.daml.lf
+package command
 
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.value.Value

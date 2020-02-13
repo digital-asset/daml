@@ -231,7 +231,7 @@ private[kvutils] case class ProcessTransactionSubmission(
             blindingInfo.localDisclosure(NodeId(key.getContractId.getNodeId.toInt))
           cs.addAllLocallyDisclosedTo((localDisclosure: Iterable[String]).asJava)
           val absCoInst =
-            createNode.coinst.resolveRelCidV0(Conversions.toAbsCoid(entryId, _))
+            createNode.coinst.resolveRelCid(Conversions.toAbsCoid(entryId, _))
           cs.setContractInstance(
             Conversions.encodeContractInstance(absCoInst)
           )

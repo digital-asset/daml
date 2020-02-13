@@ -92,26 +92,17 @@ sealed abstract class IdString {
     * transactionId, ... We use the same type for those ids, because we
     * construct some by concatenating the others.
     */
-  type LedgerString <: ContractIdStringV0
+  type LedgerString <: ContractIdString
 
   /** Identifiers for contracts */
   type ContractIdString <: String
-
-  /** Legacy Identifiers for contracts */
-  type ContractIdStringV0 <: ContractIdString
-
-  /** New contractId ordered with relative contractIds */
-  type ContractIdStringV1 <: ContractIdString
 
   val Name: StringModule[Name]
   val Party: ConcatenableStringModule[Party]
   val PackageId: ConcatenableStringModule[PackageId]
   val ParticipantId: StringModule[ParticipantId]
   val LedgerString: ConcatenableStringModule[LedgerString]
-  val ContractIdStringV0: ConcatenableStringModule[ContractIdStringV0]
-  val ContractIdStringV1: StringModule[ContractIdStringV1]
-  val ContractIdString: UnionStringModule[ContractIdString, ContractIdStringV0, ContractIdStringV1]
-
+  val ContractIdString: ConcatenableStringModule[ContractIdString]
 }
 
 private sealed abstract class StringModuleImpl extends StringModule[String] {
@@ -229,50 +220,7 @@ private[data] final class IdStringImpl extends IdString {
   /**
     * Legacy contractIds.
     */
-  override type ContractIdStringV0 = LedgerString
-  override val ContractIdStringV0: ConcatenableStringModule[LedgerString] = LedgerString
+  override type ContractIdString = LedgerString
+  override val ContractIdString: ConcatenableStringModule[LedgerString] = LedgerString
 
-  /**
-    * New contractId ordered with relative contractIds.
-    */
-  // Prefixed with "$0" which is not a valid substring of ContractIdV0.
-  override type ContractIdStringV1 = String
-  override val ContractIdStringV1: StringModule[ContractIdStringV1] =
-    new MatchingStringModule("""\$0[0-9a-f]{64}[A-Za-z0-9:\-_]{0,189}""")
-
-  /** Identifier for a contractIs, union of `ContractIdStringV0` and `ContractIdStringV1` */
-  override type ContractIdString = String
-  override val ContractIdString
-    : UnionStringModule[ContractIdString, ContractIdStringV0, ContractIdStringV1] =
-    new StringModuleImpl
-    with UnionStringModule[ContractIdString, ContractIdStringV0, ContractIdStringV1] {
-
-      override def toEither(s: ContractIdString): Either[String, String] =
-        Either.cond(isA(s), s, s)
-
-      override def fromString(s: String): Either[String, ContractIdString] =
-        if (isA(s))
-          ContractIdStringV0.fromString(s)
-        else
-          ContractIdStringV1.fromString(s)
-
-      override def isA(s: ContractIdString): Boolean =
-        !isB(s)
-
-      override def toA(s: ContractIdString): Option[ContractIdStringV0] =
-        Some(s).filter(isA)
-
-      override def assertToVA(s: ContractIdString): ContractIdStringV0 =
-        toA(s).getOrElse(throw new IllegalArgumentException("expect V0 ContractId get V1"))
-
-      override def isB(s: ContractIdString): Boolean =
-        s.startsWith("$0")
-
-      override def toB(s: ContractIdString): Option[ContractIdStringV1] =
-        Some(s).filter(isB)
-
-      override def assertToVB(s: ContractIdString): ContractIdStringV1 =
-        toB(s).getOrElse(throw new IllegalArgumentException("expect V1 ContractId get V0"))
-
-    }
 }

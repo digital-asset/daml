@@ -192,6 +192,12 @@ object Cli {
       .text("Enables JWT-based authorization, where the JWT is signed by RSA256 with a public key loaded from the given JWKS URL")
       .action( (url, config) => config.copy(authService = Some(AuthServiceJWT(JwksVerifier(url)))))
 
+    opt[Unit]("sortable-contract-ids")
+      .hidden()
+      .optional()
+      .text("(Experimental) use new sortable contract ids")
+      .action( (_, config) => config.copy(useSortableCid = true))
+
     help("help").text("Print the usage text")
 
     checkConfig(c => {

@@ -206,15 +206,10 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
     override private[lf] def map1[A, B](f: A => B): VersionedValue[A] => VersionedValue[B] =
       x => x.copy(value = Value.map1(f)(x.value))
 
-    final implicit def cidResolverV0Instance[A1, A2](
-        implicit mapper1: CidMapper.RelCidV0Resolver[A1, A2],
-    ): CidMapper.RelCidV0Resolver[VersionedValue[A1], VersionedValue[A2]] =
+    final implicit def cidResolverInstance[A1, A2](
+        implicit mapper1: CidMapper.RelCidResolver[A1, A2],
+    ): CidMapper.RelCidResolver[VersionedValue[A1], VersionedValue[A2]] =
       cidMapperInstance
-
-    final implicit def cidResolverV1Instance[A1, A2](
-        implicit mapper1: CidMapper.RelCidV1Resolver[A1, A2],
-    ): CidMapper.RelCidV1Resolver[VersionedValue[A1], VersionedValue[A2]] =
-      CidMapper.valueVersionCidV1Resolver
 
   }
 
@@ -364,9 +359,7 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
       CidMapper.basicMapperInstance[ContractId, Nothing]
     implicit val noRelCidMapper: CidMapper.NoRelCidChecker[ContractId, AbsoluteContractId] =
       CidMapper.basicMapperInstance[ContractId, AbsoluteContractId]
-    implicit val relCidV0esolver: CidMapper.RelCidV0Resolver[ContractId, AbsoluteContractId] =
-      CidMapper.basicCidResolverInstance
-    implicit val relCidV1Resolver: CidMapper.RelCidV1Resolver[ContractId, AbsoluteContractId] =
+    implicit val relCidResolver: CidMapper.RelCidResolver[ContractId, AbsoluteContractId] =
       CidMapper.basicCidResolverInstance
   }
 

@@ -5,7 +5,6 @@ package com.digitalasset.daml.lf
 package value
 
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.transaction.VersionTimeline
 
 import scala.language.higherKinds
 import scala.util.control.NoStackTrace
@@ -36,14 +35,8 @@ object CidMapper {
 
   type NoRelCidChecker[-A1, +A2] = CidChecker[A1, A2, Value.AbsoluteContractId]
 
-  type RelCidResolver[-A1, +A2, Id] =
-    CidMapper[A1, A2, Value.RelativeContractId, Id]
-
-  type RelCidV0Resolver[-A1, +A2] =
-    CidMapper[A1, A2, Value.RelativeContractId, Ref.ContractIdStringV0]
-
-  type RelCidV1Resolver[-A1, +A2] =
-    CidMapper[A1, A2, Value.RelativeContractId, Ref.ContractIdStringV1]
+  type RelCidResolver[-A1, +A2] =
+    CidMapper[A1, A2, Value.RelativeContractId, Ref.ContractIdString]
 
   def trivialMapper[X, In, Out]: CidMapper[X, X, In, Out] =
     new CidMapper[X, X, In, Out] {
@@ -55,34 +48,18 @@ object CidMapper {
       override def map(f: Cid1 => Cid2): Cid1 => Cid2 = f
     }
 
-  private[value] def basicCidResolverInstance[Id <: Ref.ContractIdString]
-    : RelCidResolver[Value.ContractId, Value.AbsoluteContractId, Id] =
-    new CidMapper[Value.ContractId, Value.AbsoluteContractId, Value.RelativeContractId, Id] {
+  private[value] val basicCidResolverInstance
+    : RelCidResolver[Value.ContractId, Value.AbsoluteContractId] =
+    new CidMapper[
+      Value.ContractId,
+      Value.AbsoluteContractId,
+      Value.RelativeContractId,
+      Ref.ContractIdString] {
       override def map(
-          f: Value.RelativeContractId => Id,
+          f: Value.RelativeContractId => Ref.ContractIdString,
       ): Value.ContractId => Value.AbsoluteContractId = {
         case acoid: Value.AbsoluteContractId => acoid
         case rcoid: Value.RelativeContractId => Value.AbsoluteContractId(f(rcoid))
-      }
-    }
-
-  private[value] def valueVersionCidV1Resolver[A1, A2](
-      implicit resolver: RelCidV1Resolver[A1, A2],
-  ): RelCidV1Resolver[Value.VersionedValue[A1], Value.VersionedValue[A2]] =
-    new CidMapper[
-      Value.VersionedValue[A1],
-      Value.VersionedValue[A2],
-      Value.RelativeContractId,
-      Ref.ContractIdStringV1,
-    ] {
-      override def map(
-          f: Value.RelativeContractId => Ref.ContractIdStringV1,
-      ): Value.VersionedValue[A1] => Value.VersionedValue[A2] = {
-        case Value.VersionedValue(version, value) =>
-          Value.VersionedValue(
-            version = VersionTimeline.maxVersion(version, ValueVersions.minContractIdV1),
-            value = value.map1(resolver.map(f)),
-          )
       }
     }
 }
@@ -93,16 +70,10 @@ trait CidContainer[+A] {
 
   protected val self: A
 
-  final def resolveRelCidV0[B](f: Value.RelativeContractId => Ref.ContractIdStringV0)(
-      implicit resolver: RelCidV0Resolver[A, B]
+  final def resolveRelCid[B](f: Value.RelativeContractId => Ref.ContractIdString)(
+      implicit resolver: RelCidResolver[A, B]
   ): B =
     resolver.map(f)(self)
-
-  final def resolveRelCidV1[B](
-      f: Value.RelativeContractId => Either[String, Ref.ContractIdStringV1])(
-      implicit resolver: RelCidV1Resolver[A, B],
-  ): Either[String, B] =
-    resolver.traverse[String](f)(self)
 
   final def ensureNoCid[B](
       implicit checker: NoCidChecker[A, B]
@@ -159,9 +130,9 @@ trait CidContainer1WithDefaultCidResolver[F[_]] extends CidContainer1[F] {
 
   import CidMapper._
 
-  final implicit def cidResolverInstance[A1, A2, OutputId](
-      implicit resolver1: RelCidResolver[A1, A2, OutputId],
-  ): RelCidResolver[F[A1], F[A2], OutputId] =
+  final implicit def cidResolverInstance[A1, A2](
+      implicit resolver1: RelCidResolver[A1, A2],
+  ): RelCidResolver[F[A1], F[A2]] =
     cidMapperInstance(resolver1)
 
 }
@@ -200,11 +171,11 @@ trait CidContainer3WithDefaultCidResolver[F[_, _, _]] extends CidContainer3[F] {
 
   import CidMapper._
 
-  final implicit def cidResolverInstance[A1, B1, C1, A2, B2, C2, OutputId](
-      implicit resolver1: RelCidResolver[A1, A2, OutputId],
-      resolver2: RelCidResolver[B1, B2, OutputId],
-      resolver3: RelCidResolver[C1, C2, OutputId],
-  ): RelCidResolver[F[A1, B1, C1], F[A2, B2, C2], OutputId] =
+  final implicit def cidResolverInstance[A1, B1, C1, A2, B2, C2](
+      implicit resolver1: RelCidResolver[A1, A2],
+      resolver2: RelCidResolver[B1, B2],
+      resolver3: RelCidResolver[C1, C2],
+  ): RelCidResolver[F[A1, B1, C1], F[A2, B2, C2]] =
     cidMapperInstance
 
 }
