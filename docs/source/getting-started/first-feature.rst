@@ -19,6 +19,23 @@ Let's start with adding to the DAML code, on which we will base our UI changes.
 DAML Changes
 ============
 
+The DAML code defines the *workflow* of the application.
+This means: what interactions between users (or *parties*) are permitted by the system?
+In the context of our feature, the question is: when is a user allowed to message another user?
+There are different ways we could answer this.
+
+The approach we'll take is: a user Bob can message another user Alice if Alice has added Bob as a friend.
+Remember that friendships are single-directional in our app!
+So Alice adding Bob as a friend means that she gives permission (or *authority*) for Bob to send her a message.
+
+In DAML this workflow is represented as a choice on the ``User`` contract.
+This is the code we need to add::
+
+.. literalinclude:: quickstart/code/daml/User.daml
+  :language: daml
+  :start-after: -- SENDMESSAGE_BEGIN
+  :end-before: -- SENDMESSAGE_END
+
 The first addition we make is a template for a message contracts.
 This is very simple, containing only the message content as well as the sending and receiving parties.
 
@@ -34,11 +51,6 @@ Now we have defined what messages look like, we need a way to create them.
 We implement this with a choice in the ``User`` template.
 We didn't talk much about choices earlier, but these are essentially operations on contracts which can perform updates to the ledger.
 In our case, we simply want to add an operation for a user to create a ``Message`` contract on the ledger, without performing any other updates.
-
-.. literalinclude:: quickstart/code/daml/User.daml
-  :language: daml
-  :start-after: -- SENDMESSAGE_BEGIN
-  :end-before: -- SENDMESSAGE_END
 
 There are a few things to note in these few lines of code.
 Firstly the ``nonconsuming`` keyword means that the ``SendMessage`` choice can be performed any number of times without affecting the ``User`` contract it is exercised on.
