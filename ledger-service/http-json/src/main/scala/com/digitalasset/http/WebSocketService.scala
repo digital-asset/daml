@@ -329,18 +329,24 @@ class WebSocketService(
     else Flow[StepAndErrors[A, B]]
 
   private def removePhantomArchives_[A, B]
-    : Flow[StepAndErrors[A, B], StepAndErrors[A, B], NotUsed] =
+    : Flow[StepAndErrors[A, B], StepAndErrors[A, B], NotUsed] = {
+    import ContractStreamStep.{LiveBegin, Txn}
     Flow[StepAndErrors[A, B]]
       .scan((Set.empty[String], Option.empty[StepAndErrors[A, B]])) {
-        case ((s0, _), a0) =>
-          val newInserts: Vector[String] = a0.step.inserts.map(_._1.contractId.unwrap)
-          val (deletesToEmit, deletesToHold) = s0 partition a0.step.deletes.keySet
+        case ((s0, _), a0 @ StepAndErrors(_, Txn(idstep))) =>
+          val newInserts: Vector[String] = idstep.inserts.map(_._1.contractId.unwrap)
+          val (deletesToEmit, deletesToHold) = s0 partition idstep.deletes.keySet
           val s1: Set[String] = deletesToHold ++ newInserts
-          val a1 = a0.copy(step = a0.step.copy(deletes = a0.step.deletes filterKeys deletesToEmit))
+          val a1 = a0.copy(
+            step = a0.step.mapStep(_ copy (deletes = idstep.deletes filterKeys deletesToEmit)))
 
           (s1, if (a1.nonEmpty) Some(a1) else None)
+
+        case ((s0, _), a0 @ StepAndErrors(_, LiveBegin)) =>
+          (s0, Some(a0))
       }
       .collect { case (_, Some(x)) => x }
+  }
 
   private[http] def wsErrorMessage(errorMsg: String): TextMessage.Strict =
     TextMessage(
