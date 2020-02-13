@@ -44,9 +44,10 @@ object TestUtil {
       timeProviderType = TimeProviderType.WallClock,
       timeModel = TimeModel.reasonableDefault
     )
+
     val server = SandboxServerResource(config)
     server.setup()
-    val client = new SandboxClientResource(server.value.port)
+    val client = SandboxClientResource(server.value.port)
     client.setup()
     try {
       testCode(client.value)

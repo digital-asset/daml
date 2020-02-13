@@ -117,7 +117,7 @@ trait SandboxFixture extends SuiteResource[Unit] with BeforeAndAfterAll {
     override def setup(): Unit = {
       serverResource = SandboxServerResource(config)
       serverResource.setup()
-      clientResource = new SandboxClientResource(getSandboxPort)
+      clientResource = SandboxClientResource(getSandboxPort)
       clientResource.setup()
     }
 

@@ -39,7 +39,7 @@ object LedgerFactories {
       mat: Materializer): Resource[LedgerContext] = {
 
     def createClientResource(port: Int): Resource[LedgerContext] =
-      new SandboxClientResource(port).map(new LedgerContext(_, darFiles.map(getPackageIdOrThrow)))
+      SandboxClientResource(port).map(new LedgerContext(_, darFiles.map(getPackageIdOrThrow)))
 
     store match {
       case `mem` =>
