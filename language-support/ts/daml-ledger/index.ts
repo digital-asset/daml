@@ -132,6 +132,12 @@ export interface EventStream<T extends object, K, I extends string> {
 
 /**
  * An object of type `Ledger` represents a handle to a DAML ledger.
+ *
+ * NOTE: Unfortunately, the development server shipped with `create-react-app`
+ * does not proxy websocket connections properly. Thus, you need to connect
+ * to the JSON API directly when using `create-react-app` in development mode.
+ * You can do so by specifying the port the JSON API is listening on by setting
+ * the environment variable `REACT_APP_JSON_API_PORT` in `.env.development`.
  */
 class Ledger {
   private readonly token: string;
@@ -142,7 +148,12 @@ class Ledger {
     this.token = token;
     if (!baseUrl) {
       this.httpBaseUrl = '';
-      this.wsBaseUrl = `ws://${window.location.hostname}:7575/`;
+      const wsProtocol = window.location.protocol === 'http:' ? 'ws:' : 'wss:';
+      // NOTE(MH): This is the workaround for the issues with proxing of
+      // websockets in `create-react-app`'s development server mentioned above.
+      const wsPort = process.env.REACT_APP_JSON_API_PORT;
+      const wsHost = wsPort ? `${window.location.hostname}:${wsPort}` : window.location.host;
+      this.wsBaseUrl = `${wsProtocol}//${wsHost}/`;
     } else if (!baseUrl.startsWith('http')) {
       throw Error(`The ledger base URL must start with 'http'. (${baseUrl})`);
     } else if (!baseUrl.endsWith('/')) {
