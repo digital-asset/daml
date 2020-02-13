@@ -20,7 +20,8 @@ private[http] sealed abstract class ContractStreamStep[+D, +C] extends Product w
   /** Forms a monoid with 0 = LiveBegin */
   def append[DD >: D, CC >: C: Cid](o: ContractStreamStep[DD, CC]): ContractStreamStep[DD, CC] =
     (this, o) match {
-      case (_, LiveBegin) => this // should never happen, but *shrug*
+      case (_, LiveBegin) => this
+      case (LiveBegin, _) => o
       case _ => Txn(toInsertDelete append o.toInsertDelete)
     }
 
