@@ -21,13 +21,12 @@ DAML Assistant
   down when stdin is closed is now disabled unless you explicitly
   enable it by passing ``--shutdown-stdin-close``.
 
-DAML Script
-~~~~~~~~~~~
+DAML Script - Experimental
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 - Add a ``HasTime`` instance for ``Script`` which allows
   you to get the current time (UTC in wallclock mode, UNIX epoch otherwise)
 
-DAML Script - Experimental
-~~~~~~~~~~~~~~~~~~~~~~~~~~
 - The time mode must now always be
   specified explicitly. Use ``--static-time`` to recover the previous
   default time mode.
@@ -45,7 +44,7 @@ DAML Studio
 ~~~~~~~~~~~
 - You can now open DAML Studio in the root of a
   multi-package project instead of opening it separately for each
-  package. Take a look at the documentation for details on how to set
+  package. Take a look at the :ref:`documentation <daml-studio-packages>` for details on how to set
   this up.
 
 DAML Triggers - Experimental
