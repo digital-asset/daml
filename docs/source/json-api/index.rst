@@ -891,6 +891,13 @@ to :doc:`lf-value-specification`::
 where ``matchedQueries`` indicates the 0-based indices into the request
 list of queries that matched this contract.
 
+When the stream reaches the end of contracts that existed when the
+request started, you'll receive a special message indicating the start
+of "live" updates.  For example, you might use it to turn off an initial
+"loading" indicator::
+
+    {"live": true}
+
 To keep the stream alive, you'll occasionally see messages like this,
 which can be safely ignored::
 
