@@ -167,7 +167,7 @@ class SubmissionValidatorSpec extends AsyncWordSpec with MockitoSugar with Match
     DamlLogEntry
       .newBuilder()
       .setPartyAllocationEntry(
-        DamlPartyAllocationEntry.newBuilder().setParty("aParty").setParticipantId("aParticipant"))
+        DamlPartyAllocationEntry.newBuilder().setParty("aParty").setParticipantId(aParticipantId()))
       .build()
 
   private def aLogEntryId(): DamlLogEntryId = SubmissionValidator.allocateRandomLogEntryId()
