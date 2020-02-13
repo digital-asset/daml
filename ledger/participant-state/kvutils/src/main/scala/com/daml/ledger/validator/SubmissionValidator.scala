@@ -114,7 +114,7 @@ class SubmissionValidator(
           for {
             readStateValues <- stateOperations.readState(inputKeysAsBytes)
             readStateInputs = readStateValues.zip(declaredInputs).map {
-              case (valueBytes, key) => (key, valueBytes.map(bytesToStateValue))
+              case ((_, valueBytes), key) => (key, valueBytes.map(bytesToStateValue))
             }
             damlLogEntryId = allocateLogEntryId()
             readInputs: Map[DamlStateKey, Option[DamlStateValue]] = readStateInputs.toMap

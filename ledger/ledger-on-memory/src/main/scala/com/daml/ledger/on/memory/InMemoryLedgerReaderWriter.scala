@@ -73,9 +73,9 @@ final class InMemoryLedgerReaderWriter(
   }
 
   private object InMemoryLedgerStateOperations extends BatchingLedgerStateOperations {
-    override def readState(keys: Seq[Key]): Future[Seq[Option[Value]]] =
+    override def readState(keys: Seq[Key]): Future[Seq[(Key, Option[Value])]] =
       Future.successful {
-        keys.map(keyBytes => currentState.state.get(ByteString.copyFrom(keyBytes)))
+        keys.map(keyBytes => keyBytes -> currentState.state.get(ByteString.copyFrom(keyBytes)))
       }
 
     override def writeState(keyValuePairs: Seq[(Key, Value)]): Future[Unit] =

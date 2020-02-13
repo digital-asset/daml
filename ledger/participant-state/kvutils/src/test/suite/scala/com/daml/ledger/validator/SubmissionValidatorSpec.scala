@@ -30,7 +30,7 @@ class SubmissionValidatorSpec extends AsyncWordSpec with MockitoSugar with Match
     "return success in case of no errors during processing of submission" in {
       val mockStateOperations = mock[LedgerStateOperations]
       when(mockStateOperations.readState(any[Seq[RawBytes]]()))
-        .thenReturn(Future.successful(Seq(Some(aStateValue()))))
+        .thenReturn(Future.successful(Seq((aStateKey(), Some(aStateValue())))))
       val instance = SubmissionValidator.create(new FakeStateAccess(mockStateOperations))
       instance.validate(anEnvelope(), "aCorrelationId", newRecordTime()).map {
         case SubmissionValidated => succeed
@@ -41,7 +41,7 @@ class SubmissionValidatorSpec extends AsyncWordSpec with MockitoSugar with Match
     "signal missing input in case state cannot be retrieved" in {
       val mockStateOperations = mock[LedgerStateOperations]
       when(mockStateOperations.readState(any[Seq[RawBytes]]()))
-        .thenReturn(Future.successful(Seq(None)))
+        .thenReturn(Future.successful(Seq((aStateKey(), None))))
       val instance = SubmissionValidator.create(
         ledgerStateAccess = new FakeStateAccess(mockStateOperations),
         checkForMissingInputs = true)
@@ -63,7 +63,7 @@ class SubmissionValidatorSpec extends AsyncWordSpec with MockitoSugar with Match
     "return invalid submission in case exception is thrown during processing of submission" in {
       val mockStateOperations = mock[BatchingLedgerStateOperations]
       when(mockStateOperations.readState(any[Seq[RawBytes]]()))
-        .thenReturn(Future.successful(Seq(Some(aStateValue()))))
+        .thenReturn(Future.successful(Seq((aStateKey(), Some(aStateValue())))))
 
       def failingProcessSubmission(
           damlLogEntryId: DamlLogEntryId,
@@ -88,7 +88,7 @@ class SubmissionValidatorSpec extends AsyncWordSpec with MockitoSugar with Match
     "write marshalled log entry to ledger" in {
       val mockStateOperations = mock[LedgerStateOperations]
       when(mockStateOperations.readState(any[Seq[RawBytes]]()))
-        .thenReturn(Future.successful(Seq(Some(aStateValue()))))
+        .thenReturn(Future.successful(Seq((aStateKey(), Some(aStateValue())))))
       val logEntryValueCaptor = ArgumentCaptor.forClass(classOf[RawBytes])
       val logEntryIdCaptor = ArgumentCaptor.forClass(classOf[RawBytes])
       when(
@@ -120,7 +120,7 @@ class SubmissionValidatorSpec extends AsyncWordSpec with MockitoSugar with Match
     "write marshalled key-value pairs to ledger" in {
       val mockStateOperations = mock[LedgerStateOperations]
       when(mockStateOperations.readState(any[Seq[RawBytes]]()))
-        .thenReturn(Future.successful(Seq(Some(aStateValue()))))
+        .thenReturn(Future.successful(Seq((aStateKey(), Some(aStateValue())))))
       val writtenKeyValuesCaptor = ArgumentCaptor.forClass(classOf[RawKeyValuePairs])
       when(mockStateOperations.writeState(writtenKeyValuesCaptor.capture()))
         .thenReturn(Future.successful(()))
@@ -148,7 +148,7 @@ class SubmissionValidatorSpec extends AsyncWordSpec with MockitoSugar with Match
       when(mockStateOperations.writeState(any[RawKeyValuePairs]()))
         .thenThrow(new IllegalArgumentException("Write error"))
       when(mockStateOperations.readState(any[Seq[RawBytes]]()))
-        .thenReturn(Future.successful(Seq(Some(aStateValue()))))
+        .thenReturn(Future.successful(Seq((aStateKey(), Some(aStateValue())))))
       when(mockStateOperations.appendToLog(any[RawBytes](), any[RawBytes]()))
         .thenReturn(Future.successful(()))
       val logEntryAndStateResult = (aLogEntry(), someStateUpdates(1))
@@ -184,6 +184,9 @@ class SubmissionValidatorSpec extends AsyncWordSpec with MockitoSugar with Match
       val value = DamlStateValue.getDefaultInstance
       key -> value
     }.toMap
+
+  private def aStateKey(): RawBytes =
+    SubmissionValidator.keyToBytes(DamlStateKey.getDefaultInstance)
 
   private def aStateValue(): RawBytes =
     SubmissionValidator.valueToBytes(DamlStateValue.getDefaultInstance)

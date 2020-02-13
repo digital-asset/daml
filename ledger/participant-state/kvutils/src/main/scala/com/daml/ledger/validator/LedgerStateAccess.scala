@@ -34,9 +34,9 @@ trait LedgerStateOperations {
   /**
     * Reads values of a set of keys from the backing store.
     * @param keys  list of keys to look up data for
-    * @return  values corresponding to the requested keys, in the same order as requested
+    * @return  key-value pairs corresponding to the requested keys, in the same order as requested
     */
-  def readState(keys: Seq[Key]): Future[Seq[Option[Value]]]
+  def readState(keys: Seq[Key]): Future[Seq[(Key, Option[Value])]]
 
   /**
     * Writes a single key-value pair to the backing store.  In case the key already exists its value is overwritten.
@@ -61,7 +61,7 @@ trait LedgerStateOperations {
 abstract class BatchingLedgerStateOperations(implicit executionContext: ExecutionContext)
     extends LedgerStateOperations {
   override def readState(key: Key): Future[Option[Value]] =
-    readState(Seq(key)).map(_.head)
+    readState(Seq(key)).map(_.head._2)
 
   override def writeState(key: Key, value: Value): Future[Unit] =
     writeState(Seq((key, value)))
@@ -72,8 +72,8 @@ abstract class BatchingLedgerStateOperations(implicit executionContext: Executio
   */
 abstract class NonBatchingLedgerStateOperations(implicit executionContext: ExecutionContext)
     extends LedgerStateOperations {
-  override def readState(keys: Seq[Key]): Future[Seq[Option[Value]]] =
-    Future.sequence(keys.map(readState))
+  override def readState(keys: Seq[Key]): Future[Seq[(Key, Option[Value])]] =
+    Future.sequence(keys.map(key => readState(key).map((key, _))))
 
   override def writeState(keyValuePairs: Seq[(Key, Value)]): Future[Unit] =
     Future
