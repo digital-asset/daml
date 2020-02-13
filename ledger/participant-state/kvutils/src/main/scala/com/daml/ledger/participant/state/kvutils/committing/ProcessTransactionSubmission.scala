@@ -11,30 +11,14 @@ import com.daml.ledger.participant.state.kvutils.{Conversions, DamlStateMap, Err
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId, RejectionReason}
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.archive.Reader.ParseError
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.{Blinding, Engine}
-import com.digitalasset.daml.lf.transaction.Node.{
-  GlobalKey,
-  NodeCreate,
-  NodeExercises,
-  NodeFetch,
-  NodeLookupByKey
-}
-import com.digitalasset.daml.lf.transaction.Transaction.TContractId
+import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, NodeCreate, NodeExercises}
 import com.digitalasset.daml.lf.transaction.{BlindingInfo, GenTransaction}
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{
-  AbsoluteContractId,
-  ContractId,
-  NodeId,
-  ValueParty,
-  VersionedValue
-}
+import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId, NodeId, VersionedValue}
 import org.slf4j.LoggerFactory
 
-import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 
 private[kvutils] case class ProcessTransactionSubmission(
@@ -59,7 +43,7 @@ private[kvutils] case class ProcessTransactionSubmission(
     runSequence(
       inputState = inputState,
       "Authorize submitter" -> authorizeSubmitter,
-      "Validate Parties" -> validateParties,
+      "Check Informee Parties Allocation" -> checkInformeePartiesAllocation,
       "Deduplicate" -> deduplicateCommand,
       "Validate LET/TTL" -> validateLetAndTtl,
       "Validate Contract Key Uniqueness" -> validateContractKeyUniqueness,
@@ -225,52 +209,17 @@ private[kvutils] case class ProcessTransactionSubmission(
           buildRejectionLogEntry(RejectionReason.Disputed("DuplicateKey: Contract Key not unique")))
     } yield r
 
-  /** Check that all parties mentioned in a transaction exist. */
-  private def validateParties: Commit[Unit] = {
+  /** Check that all informee parties mentioned of a transaction are allocated. */
+  private def checkInformeePartiesAllocation: Commit[Unit] = {
 
-    def foldAllParties[T](tx: GenTransaction.WithTxValue[NodeId, TContractId], z: T)(
-        f: (T, String) => T): T =
-      foldInvolvedParties(tx, foldValueParties(tx, z)(f))(f)
-
-    def foldInvolvedParties[T](tx: GenTransaction.WithTxValue[_, _], z: T)(f: (T, String) => T): T =
+    def foldInformeeParties[T](tx: GenTransaction.WithTxValue[_, _], z: T)(f: (T, String) => T): T =
       tx.fold(z) {
         case (accum, (_, n)) =>
-          val parties = n match {
-            case c: NodeCreate[_, _] => c.stakeholders
-
-            case e: NodeExercises[_, _, _] =>
-              e.actingParties union e.stakeholders
-
-            case f: NodeFetch[_] =>
-              f.actingParties.getOrElse(Set.empty) union f.stakeholders
-
-            case lk: NodeLookupByKey[_, _] =>
-              lk.key.maintainers
-
-            case _ => Set[Ref.Party]()
-          }
-          parties.foldLeft(accum)(f)
+          n.informeesOfNode.foldLeft(accum)(f)
       }
-
-    def foldValueParties[T](tx: GenTransaction.WithTxValue[_, TContractId], z: T)(
-        f: (T, String) => T): T =
-      tx.foldValues(z) { (z, v) =>
-        foldParties(v.value, z)(f)
-      }
-
-    def foldParties[T](v: Value[ContractId], z: T)(f: (T, String) => T): T = {
-      @tailrec def go(vs: List[Value[ContractId]], z: T)(f: (T, String) => T): T = {
-        vs match {
-          case Nil => z
-          case ValueParty(p) :: tail => go(tail, f(z, p))(f)
-          case v :: tail => go(tail ++ InputsAndEffects.subValues(v).toList, z)(f)
-        }
-      }
-      go(List(v), z)(f)
-    }
 
     for {
-      allExist <- foldAllParties(relTx, pure(true)) { (acc, p) =>
+      allExist <- foldInformeeParties(relTx, pure(true)) { (acc, p) =>
         get(partyStateKey(p)).flatMap(_.fold(pure(false))(_ => acc))
       }
 

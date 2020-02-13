@@ -95,47 +95,20 @@ private[kvutils] object InputsAndEffects {
       parties.toList.sorted.map(partyStateKey)
     }
 
-    def addPartyInputInValue(v: Value[ContractId]): Unit = {
-      val toBeProcessed = mutable.Queue(v)
-
-      while (toBeProcessed.nonEmpty) {
-        toBeProcessed.dequeue() match {
-          case ValueParty(p) =>
-            inputs += partyStateKey(p)
-
-          case v =>
-            toBeProcessed.enqueue(subValues(v): _*)
-        }
-      }
-    }
-
-    def addPartyInputsInValues(): Unit =
-      tx.foldValues(()) {
-        case (_, VersionedValue(_, v)) =>
-          addPartyInputInValue(v)
-      }
-
     tx.foreach {
-      case (_, node) =>
-        node match {
+      case (_, n) =>
+        n match {
           case fetch: NodeFetch[ContractId] =>
             addContractInput(fetch.coid)
-            inputs ++= partyInputs(fetch.signatories)
-            inputs ++= partyInputs(fetch.stakeholders)
 
           case create: NodeCreate[ContractId, VersionedValue[ContractId]] =>
             create.key.foreach { keyWithM =>
               inputs += contractKeyToStateKey(
                 GlobalKey(create.coinst.template, forceNoContractIds(keyWithM.key)))
             }
-            inputs ++= partyInputs(create.signatories)
-            inputs ++= partyInputs(create.stakeholders)
 
           case exe: NodeExercises[_, ContractId, _] =>
             addContractInput(exe.targetCoid)
-            inputs ++= partyInputs(exe.stakeholders)
-            inputs ++= partyInputs(exe.signatories)
-            inputs ++= partyInputs(exe.controllers)
 
           case l: NodeLookupByKey[ContractId, Transaction.Value[ContractId]] =>
             // We need both the contract key state and the contract state. The latter is used to verify
@@ -143,6 +116,8 @@ private[kvutils] object InputsAndEffects {
             l.result.foreach(addContractInput)
             inputs += contractKeyToStateKey(GlobalKey(l.templateId, forceNoContractIds(l.key.key)))
         }
+
+        inputs ++= partyInputs(n.informeesOfNode)
     }
 
     inputs.toList

@@ -166,14 +166,15 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
 
     for ((t, v) <- templateArgs) {
       val command = createCmd(templateId(t), mkTemplateArg("Alice", v, t))
-      s"reject transactions with unallocated parties: $t" in KVTest.runTestWithPackage(t, alice) {
+      s"accept transactions with unallocated parties in values: $t" in KVTest.runTestWithPackage(
+        t,
+        alice) {
 
         for {
           createTx <- runCommand(alice, t, command)
           txEntry <- submitTransaction(submitter = alice, tx = createTx).map(_._2)
         } yield {
-          txEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY
-          txEntry.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.PARTY_NOT_KNOWN_ON_LEDGER
+          txEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_ENTRY
         }
       }
     }
