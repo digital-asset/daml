@@ -24,7 +24,7 @@ import com.google.protobuf.ByteString
 
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 /**
   * Orchestrates validating, transforming or committing submissions for key-value ledgers.
@@ -52,10 +52,11 @@ class SubmissionValidator(
       correlationId: String,
       recordTime: Timestamp,
       participantId: ParticipantId): Future[ValidationResult] =
-    runValidation(envelope, correlationId, recordTime, participantId, (_, _, _, _) => ()).map {
-      case Left(failure) => failure
-      case Right(_) => SubmissionValidated
-    }
+    runValidation(envelope, correlationId, recordTime, participantId, (_, _, _, _) => Future.unit)
+      .map {
+        case Left(failure) => failure
+        case Right(_) => SubmissionValidated
+      }
 
   def validateAndCommit(
       envelope: RawBytes,
@@ -78,8 +79,8 @@ class SubmissionValidator(
         logEntryId: DamlLogEntryId,
         inputStates: StateMap,
         logEntryAndState: LogEntryAndState,
-        stateOperations: LedgerStateOperations): T =
-      transform(logEntryId, inputStates, logEntryAndState)
+        stateOperations: LedgerStateOperations): Future[T] =
+      Future.successful(transform(logEntryId, inputStates, logEntryAndState))
 
     runValidation(envelope, correlationId, recordTime, participantId, applyTransformation)
   }
@@ -88,7 +89,7 @@ class SubmissionValidator(
       logEntryId: DamlLogEntryId,
       ignored: StateMap,
       logEntryAndState: LogEntryAndState,
-      stateOperations: LedgerStateOperations): Unit = {
+      stateOperations: LedgerStateOperations): Future[Unit] = {
     val (rawLogEntry, rawStateUpdates) = serializeProcessedSubmission(logEntryAndState)
     Future
       .sequence(
@@ -101,15 +102,20 @@ class SubmissionValidator(
           }
         )
       )
-      .foreach(_ => ())
+      .map(_ => ())
   }
 
+  @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
   private def runValidation[T](
       envelope: RawBytes,
       correlationId: String,
       recordTime: Timestamp,
       participantId: ParticipantId,
-      postProcessResult: (DamlLogEntryId, StateMap, LogEntryAndState, LedgerStateOperations) => T)
+      postProcessResult: (
+          DamlLogEntryId,
+          StateMap,
+          LogEntryAndState,
+          LedgerStateOperations) => Future[T])
     : Future[Either[ValidationFailed, TransformedSubmission[T]]] =
     Envelope.open(envelope) match {
       case Right(Envelope.SubmissionMessage(submission)) =>
@@ -124,28 +130,31 @@ class SubmissionValidator(
             damlLogEntryId = allocateLogEntryId()
             readInputs: Map[DamlStateKey, Option[DamlStateValue]] = readStateInputs.toMap
             missingInputs = declaredInputs.toSet -- readInputs.filter(_._2.isDefined).keySet
-          } yield {
-            if (checkForMissingInputs && missingInputs.nonEmpty) {
-              Left(MissingInputState(missingInputs.map(keyToBytes).toSeq))
+            finalResult <- if (checkForMissingInputs && missingInputs.nonEmpty) {
+              Future.successful(Left(MissingInputState(missingInputs.map(keyToBytes).toSeq)))
             } else {
-              Try {
-                val (logEntry, damlStateUpdates) =
-                  processSubmission(
-                    damlLogEntryId,
-                    recordTime,
-                    submission,
-                    participantId,
-                    readInputs)
-                postProcessResult(
+              val postProcessedResult = for {
+                logEntryAndState <- Future.fromTry(
+                  Try(
+                    processSubmission(
+                      damlLogEntryId,
+                      recordTime,
+                      submission,
+                      participantId,
+                      readInputs)))
+                result <- postProcessResult(
                   damlLogEntryId,
                   flattenInputStates(readInputs),
-                  (logEntry, damlStateUpdates),
+                  logEntryAndState,
                   stateOperations)
-              }.fold(
-                exception => Left(ValidationError(exception.getLocalizedMessage)),
-                result => Right(TransformedSubmission(result)))
+              } yield result
+              postProcessedResult.transform {
+                case Failure(exception) =>
+                  Success(Left(ValidationError(exception.getLocalizedMessage)))
+                case Success(result) => Success(Right(TransformedSubmission(result)))
+              }
             }
-          }
+          } yield finalResult
         }
       case _ =>
         Future.successful(
