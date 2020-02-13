@@ -66,7 +66,7 @@ class ImplicitPartyAdditionIT
   override def timeLimit: Span = scaled(60.seconds)
 
   private val ledgerId: LedgerId = LedgerId("ledgerId")
-  private val participantId: ParticipantId = Ref.LedgerString.assertFromString("participantId")
+  private val participantId: ParticipantId = Ref.ParticipantId.assertFromString("participantId")
   private val timeProvider = TimeProvider.Constant(Instant.EPOCH.plusSeconds(10))
 
   private val templateId1: Ref.Identifier = Ref.Identifier(

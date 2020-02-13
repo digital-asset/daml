@@ -59,7 +59,7 @@ class TransactionMRTComplianceIT
   override def timeLimit: Span = scaled(60.seconds)
 
   val ledgerId: LedgerId = LedgerId(Ref.LedgerString.assertFromString("ledgerId"))
-  private val participantId: ParticipantId = Ref.LedgerString.assertFromString("participantId")
+  private val participantId: ParticipantId = Ref.ParticipantId.assertFromString("participantId")
   val timeProvider = TimeProvider.Constant(Instant.EPOCH.plusSeconds(10))
 
   /** Overriding this provides an easy way to narrow down testing to a single implementation. */

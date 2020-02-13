@@ -297,7 +297,7 @@ class JdbcLedgerDaoSpec
           None,
           Instant.EPOCH,
           s"submission-$offset",
-          Ref.LedgerString.assertFromString("participant-0"),
+          Ref.ParticipantId.assertFromString("participant-0"),
           defaultConfig,
           None
         )
@@ -313,7 +313,7 @@ class JdbcLedgerDaoSpec
 
     "be able to persist configuration rejection" in {
       val offset = nextOffset()
-      val participantId = Ref.LedgerString.assertFromString("participant-0")
+      val participantId = Ref.ParticipantId.assertFromString("participant-0")
       for {
         startingConfig <- ledgerDao.lookupLedgerConfiguration().map(_.map(_._2))
         proposedConfig = startingConfig.getOrElse(defaultConfig)
@@ -342,7 +342,7 @@ class JdbcLedgerDaoSpec
 
     "refuse to persist invalid configuration entry" in {
       val offset0 = nextOffset()
-      val participantId = Ref.LedgerString.assertFromString("participant-0")
+      val participantId = Ref.ParticipantId.assertFromString("participant-0")
       for {
         config <- ledgerDao.lookupLedgerConfiguration().map(_.map(_._2).getOrElse(defaultConfig))
 

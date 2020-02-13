@@ -41,6 +41,9 @@ object Ref {
   type LedgerString = IdString.LedgerString
   val LedgerString: IdString.LedgerString.type = IdString.LedgerString
 
+  type ParticipantId = IdString.ParticipantId
+  val ParticipantId: IdString.ParticipantId.type = IdString.ParticipantId
+
   /* Location annotation */
   case class Location(
       packageId: PackageId,

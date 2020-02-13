@@ -191,7 +191,7 @@ private class JdbcLedgerDao(
           val config = Configuration
             .decode(configBytes)
             .fold(err => sys.error(s"Failed to decode configuration: $err"), identity)
-          val participantId = LedgerString
+          val participantId = ParticipantId
             .fromString(participantIdRaw)
             .fold(
               err => sys.error(s"Failed to decode participant id in configuration entry: $err"),
@@ -382,7 +382,7 @@ private class JdbcLedgerDao(
     (long("ledger_offset") ~
       date("recorded_at") ~
       ledgerString("submission_id").? ~
-      ledgerString("participant_id").? ~
+      participantId("participant_id").? ~
       party("party").? ~
       str("display_name").? ~
       str("typ") ~

@@ -14,7 +14,13 @@ import anorm.{
   SqlParser,
   ToStatement
 }
-import com.digitalasset.daml.lf.data.Ref.{ContractIdString, LedgerString, PackageId, Party}
+import com.digitalasset.daml.lf.data.Ref.{
+  ContractIdString,
+  LedgerString,
+  PackageId,
+  ParticipantId,
+  Party
+}
 
 object Conversions {
 
@@ -64,6 +70,13 @@ object Conversions {
       implicit strToStm: ToStatement[String]): ToStatement[LedgerString] =
     subStringToStatement(strToStm)
 
+  implicit def columnToParticipantId(implicit c: Column[String]): Column[ParticipantId] =
+    stringColumnToX(ParticipantId.fromString)(c)
+
+  implicit def participantToStatement(
+      implicit strToStm: ToStatement[String]): ToStatement[ParticipantId] =
+    subStringToStatement(strToStm)
+
   implicit def columnToContractId(implicit c: Column[String]): Column[ContractIdString] =
     stringColumnToX(ContractIdString.fromString)(c)
 
@@ -83,6 +96,13 @@ object Conversions {
 
   implicit def ledgerStringMetaParameter(
       implicit strParamMetaData: ParameterMetaData[String]): ParameterMetaData[LedgerString] =
+    subStringMetaParameter(strParamMetaData)
+
+  def participantId(columnName: String)(implicit c: Column[String]): RowParser[ParticipantId] =
+    SqlParser.get[ParticipantId](columnName)(columnToParticipantId(c))
+
+  implicit def participantIdMetaParameter(
+      implicit strParamMetaData: ParameterMetaData[String]): ParameterMetaData[ParticipantId] =
     subStringMetaParameter(strParamMetaData)
 
   def contractIdString(columnName: String)(
