@@ -120,8 +120,8 @@ class SubmissionValidator(
     Envelope.open(envelope) match {
       case Right(Envelope.SubmissionMessage(submission)) =>
         val declaredInputs = submission.getInputDamlStateList.asScala
+        val inputKeysAsBytes = declaredInputs.map(keyToBytes)
         ledgerStateAccess.inTransaction { stateOperations =>
-          val inputKeysAsBytes = declaredInputs.map(keyToBytes)
           for {
             readStateValues <- stateOperations.readState(inputKeysAsBytes)
             readStateInputs = readStateValues.zip(declaredInputs).map {
