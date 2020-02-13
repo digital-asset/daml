@@ -43,7 +43,7 @@ private[memory] class InMemoryState(
 )
 
 final class InMemoryLedgerReaderWriter(
-    ledgerId: LedgerId,
+    override val ledgerId: LedgerId,
     override val participantId: ParticipantId,
     dispatcher: Dispatcher[Index],
 )(implicit executionContext: ExecutionContext)
@@ -115,8 +115,6 @@ final class InMemoryLedgerReaderWriter(
         ),
       )
       .mapConcat { case (_, updates) => updates }
-
-  override def retrieveLedgerId(): LedgerId = ledgerId
 
   override def currentHealth(): HealthStatus = Healthy
 
