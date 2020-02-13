@@ -49,8 +49,8 @@ object NodeInfo {
     def stakeholders: Set[Party]
     def actingParties: Option[Set[Party]]
 
-    final def requiredAuthorizers: Set[Party] = actingParties.get
-    final def informeesOfNode: Set[Party] = signatories | actingParties.get
+    final def requiredAuthorizers: Set[Party] = actingParties.getOrElse(Set.empty)
+    final def informeesOfNode: Set[Party] = signatories | actingParties.getOrElse(Set.empty)
   }
 
   trait Exercise extends NodeInfo {
