@@ -82,7 +82,10 @@ class WebsocketServiceIntegrationTest
   }
 
   private val collectResultsAsRawString: Sink[Message, Future[Seq[String]]] =
-    Flow[Message].map(_.toString).filter(v => !(v contains "heartbeat")).toMat(Sink.seq)(Keep.right)
+    Flow[Message]
+      .map(_.toString)
+      .filterNot(v => Set("heartbeat", "live") exists (v contains _))
+      .toMat(Sink.seq)(Keep.right)
 
   private def singleClientQueryStream(serviceUri: Uri, query: String): Source[Message, NotUsed] = {
     val webSocketFlow = Http().webSocketClientFlow(
@@ -253,8 +256,9 @@ class WebsocketServiceIntegrationTest
                   statusCode.isSuccess shouldBe true
                   GotAcs(ctid)
               }
+            case (GotAcs(ctid), Live(_, _)) => Future.successful(GotLive(ctid))
             case (
-                GotAcs(consumedCtid),
+                GotLive(consumedCtid),
                 evtsWrapper @ ContractDelta(
                   Vector((fstId, fst), (sndId, snd)),
                   Vector(observeConsumed))) =>
@@ -320,8 +324,10 @@ class WebsocketServiceIntegrationTest
                 }
             }: Future[StreamState]
 
+          case (GotAcs(ctid), Live(_, _)) => Future.successful(GotLive(ctid))
+
           case (
-              GotAcs(archivedCid),
+              GotLive(archivedCid),
               ContractDelta(Vector(), Vector(observeArchivedCid))
               ) =>
             Future {
@@ -407,6 +413,7 @@ object WebsocketServiceIntegrationTest {
   private sealed abstract class StreamState extends Product with Serializable
   private case object NothingYet extends StreamState
   private final case class GotAcs(firstCid: String) extends StreamState
+  private final case class GotLive(firstCid: String) extends StreamState
   private final case class ShouldHaveEnded(msgCount: Int) extends StreamState
 
   private object ContractDelta {
@@ -455,6 +462,7 @@ object WebsocketServiceIntegrationTest {
       jsv.fields get label map ((_, JsObject(jsv.fields - label)))
   }
 
+  private object Live extends JsoField("live")
   private object Created extends JsoField("created")
   private object Archived extends JsoField("archived")
   private object MatchedQueries extends JsoField("matchedQueries")
