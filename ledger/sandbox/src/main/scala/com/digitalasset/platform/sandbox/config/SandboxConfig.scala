@@ -33,7 +33,7 @@ final case class SandboxConfig(
     eagerPackageLoading: Boolean,
     logLevel: Level,
     authService: Option[AuthService],
-    useSortableCid: Boolean
+    useSortableCid: Boolean,
 )
 
 object SandboxConfig {
@@ -58,6 +58,6 @@ object SandboxConfig {
       eagerPackageLoading = false,
       logLevel = Level.INFO,
       authService = None,
-      useSortableCid = false
+      useSortableCid = false,
     )
 }

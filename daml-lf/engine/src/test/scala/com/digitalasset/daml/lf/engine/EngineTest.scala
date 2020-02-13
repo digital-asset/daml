@@ -511,6 +511,8 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       val submitResult = engine
         .submit(Commands(party, ImmArray(command), let, "test"), participant, submissionSeed)
         .consume(lookupContract, lookupPackage, lookupKey)
+      remy.log(interpretResult)
+      remy.log(submitResult)
       interpretResult shouldBe 'right
       (interpretResult |@| submitResult)(_ isReplayedBy _) shouldBe Right(true)
     }

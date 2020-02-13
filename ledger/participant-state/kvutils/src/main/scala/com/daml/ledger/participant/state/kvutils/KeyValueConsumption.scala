@@ -6,6 +6,7 @@ package com.daml.ledger.participant.state.kvutils
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1._
+import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.google.common.io.BaseEncoding
@@ -253,6 +254,12 @@ object KeyValueConsumption {
   private def parseParticipantId(what: String)(s: String): Ref.ParticipantId =
     Ref.ParticipantId
       .fromString(s)
+      .fold(err => throw Err.DecodeError(what, s"Cannot parse '$s': $err"), identity)
+
+  @throws(classOf[Err])
+  private def parseHash(what: String)(s: ByteString): crypto.Hash =
+    crypto.Hash
+      .fromBytes(s.toByteArray)
       .fold(err => throw Err.DecodeError(what, s"Cannot parse '$s': $err"), identity)
 
   @throws(classOf[Err])
