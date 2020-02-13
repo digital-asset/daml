@@ -55,7 +55,7 @@ class KeyValueParticipantStateReader(reader: LedgerReader)(implicit materializer
 
   private def createLedgerInitialConditions(): LedgerInitialConditions =
     LedgerInitialConditions(
-      reader.retrieveLedgerId(),
+      reader.ledgerId(),
       LedgerReader.DefaultConfiguration,
       Time.Timestamp.Epoch)
 }
