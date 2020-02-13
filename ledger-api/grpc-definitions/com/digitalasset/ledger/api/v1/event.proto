@@ -151,27 +151,21 @@ message ExercisedEvent {
 
   // The parties that are notified of this event. The witnesses of an exercise
   // node will depend on whether the exercise was consuming or not.
-  //
   // If consuming, the witnesses are the union of the stakeholders and
   // the actors.
-  //
   // If not consuming, the witnesses are the union of the signatories and
   // the actors. Note that the actors might not necessarily be observers
   // and thus signatories. This is the case when the controllers of a
   // choice are specified using "flexible controllers", using the
   // `choice ... controller` syntax, and said controllers are not
   // explicitly marked as observers.
-  //
   // Each element must be a valid PartyIdString (as described in ``value.proto``).
-  //
   // Required
   repeated string witness_parties = 10;
 
   // References to further events in the same transaction that appeared as a result of this ``ExercisedEvent``.
   // It contains only the immediate children of this event, not all members of the subtree rooted at this node.
-  //
   // Each element must be a valid LedgerString (as described in ``value.proto``).
-  //
   // Optional
   repeated string child_event_ids = 11;
 
