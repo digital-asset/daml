@@ -26,6 +26,7 @@ import Data.Graph
 import Data.List.Extra
 import qualified Data.Map.Strict as MS
 import Data.Maybe
+import qualified Data.NameMap as NM
 import Data.Set (Set)
 import qualified Data.Set as Set
 import qualified Data.Text.Extended as T
@@ -110,7 +111,9 @@ createProjectPackageDb projectRoot opts thisSdkVer deps dataDeps = do
         stablePkgIds = Set.fromList $ map LF.dalfPackageId $ MS.elems stablePkgs
     -- This includes both SDK dependencies like daml-prim and daml-stdlib but also DARs specified
     -- in the dependencies field.
-    let dependencyPkgIds = Set.fromList $ map LF.dalfPackageId $ MS.elems dependencies
+    let dependencyPkgIdMap :: MS.Map UnitId LF.PackageId
+        dependencyPkgIdMap = MS.map LF.dalfPackageId dependencies
+    let dependencyPkgIds = Set.fromList $ MS.elems dependencyPkgIdMap
 
     -- Now handle data imports.
     let (fpDars, fpDalfs) = partition ((== ".dar") . takeExtension) dataDeps
@@ -132,7 +135,7 @@ createProjectPackageDb projectRoot opts thisSdkVer deps dataDeps = do
         (pkgId, package) <-
             liftIO $
             either (fail . DA.Pretty.renderPretty) pure $
-            Archive.decodeArchive Archive.DecodeAsMain dalf
+            Archive.decodeArchive Archive.DecodeAsDependency dalf
         -- daml-prim and daml-stdlib are somewhat special:
         --
         -- We always have daml-prim and daml-stdlib from the current SDK and we
@@ -182,7 +185,7 @@ createProjectPackageDb projectRoot opts thisSdkVer deps dataDeps = do
                 [ show k <> " [" <> intercalate "," (map show (Set.toList v)) <> "]"
                 | (k,v) <- MS.toList unitIdConflicts ]
 
-    let (depGraph, vertexToNode) = buildLfPackageGraph pkgs stablePkgIds dependencyPkgIds
+    let (depGraph, vertexToNode) = buildLfPackageGraph pkgs stablePkgs dependencies
     -- Iterate over the dependency graph in topological order.
     -- We do a topological sort on the transposed graph which ensures that
     -- the packages with no dependencies come first and we
@@ -219,6 +222,10 @@ createProjectPackageDb projectRoot opts thisSdkVer deps dataDeps = do
             pkgName
             mbPkgVersion
             deps
+            dependencies
+
+toGhcModuleName :: LF.ModuleName -> GHC.ModuleName
+toGhcModuleName = GHC.mkModuleName . T.unpack . LF.moduleNameString
 
 -- generate interface files and install them in the package database
 generateAndInstallIfaceFiles ::
@@ -233,11 +240,23 @@ generateAndInstallIfaceFiles ::
     -> String
     -> Maybe String
     -> [String]
+    -> MS.Map UnitId LF.DalfPackage
     -> IO ()
-generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase unitIdStr pkgIdStr pkgName mbPkgVersion deps = do
+generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase unitIdStr pkgIdStr pkgName mbPkgVersion deps dependencies = do
     loggerH <- getLogger opts "generate interface files"
     let src' = [ (toNormalizedFilePath $ workDir </> fromNormalizedFilePath nfp, str) | (nfp, str) <- src]
     mapM_ writeSrc src'
+    -- We expose dependencies under a Pkg_$pkgId prefix so we can unambiguously refer to them
+    -- while avoiding name collisions in package imports.
+    -- TODO (MK)
+    -- Use this scheme to refer to data-dependencies as well and replace the CurrentSdk prefix by this.
+    let depImps =
+            [ exposePackage unitId False
+                  [ (toGhcModuleName modName, toGhcModuleName (prefixDependencyModule dalfPackageId modName))
+                  | mod <- NM.toList $ LF.packageModules $ LF.extPackagePkg dalfPackagePkg
+                  , let modName = LF.moduleName mod
+                  ]
+            | (unitId, LF.DalfPackage{..}) <- MS.toList dependencies]
     opts <-
         pure $ opts
             { optIfaceDir = Nothing
@@ -250,6 +269,7 @@ generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase
             , optGhcCustomOpts = []
             , optPackageImports =
                   baseImports ++
+                  depImps ++
                   [ exposePackage (GHC.stringToUnitId $ takeBaseName dep) True []
                   | dep <- deps
                   ]
@@ -304,6 +324,8 @@ baseImports =
            , "GHC.Types"
            , "DA.Types"
            , "DA.Internal.Erased"
+           , "GHC.Err"
+           , "Data.String"
            ]
         )
     -- We need the standard library from the current SDK, e.g., LF builtins like Optional are translated
@@ -524,19 +546,23 @@ lfVersionString = DA.Pretty.renderPretty
 -- | The graph will have an edge from package A to package B if A depends on B.
 buildLfPackageGraph
     :: [(LF.PackageId, LF.Package, BS.ByteString, UnitId)]
-    -> Set LF.PackageId
-    -> Set LF.PackageId
+    -> MS.Map (UnitId, LF.ModuleName) LF.DalfPackage
+    -> MS.Map UnitId LF.DalfPackage
     -> ( Graph
        , Vertex -> (PackageNode, LF.PackageId)
        )
 buildLfPackageGraph pkgs stablePkgs dependencyPkgs = (depGraph, vertexToNode')
   where
-    -- mapping unit ids to packages
-    unitIdToPkgMap = MS.fromList [(unitId, pkg) | (_pkgId, pkg, _bs, unitId) <- pkgs]
-
     -- mapping from package id's to unit id's. if the same package is imported with
     -- different unit id's, we would loose a unit id here.
-    pkgMap = MS.fromList [(pkgId, unitId) | (pkgId, _pkg, _bs, unitId) <- pkgs]
+    pkgMap =
+        MS.fromList [(pkgId, unitId) | (pkgId, _pkg, _bs, unitId) <- pkgs] `MS.union`
+        MS.fromList [(LF.dalfPackageId pkg, unitId) | (unitId, pkg) <- MS.toList dependencyPkgs]
+
+    packages = MS.unions
+      [ MS.fromList [(pkgId, pkg) | (pkgId, pkg, _, _) <- pkgs]
+      , MS.fromList [(LF.dalfPackageId dalfPkg, LF.extPackagePkg $ LF.dalfPackagePkg dalfPkg) | dalfPkg <- MS.elems dependencyPkgs <> MS.elems stablePkgs]
+      ]
 
     -- order the packages in topological order
     (depGraph, vertexToNode, _keyToVertex) =
@@ -551,11 +577,11 @@ buildLfPackageGraph pkgs stablePkgs dependencyPkgs = (depGraph, vertexToNode')
         (node, key, _keys) -> (node, key)
 
     config pkgId unitId = DataDeps.Config
-        { configPackages = unitIdToPkgMap
+        { configPackages = packages
         , configGetUnitId = getUnitId unitId pkgMap
         , configSelfPkgId = pkgId
-        , configStablePackages = stablePkgs
-        , configDependencyPackages = dependencyPkgs
+        , configStablePackages = Set.fromList $ map LF.dalfPackageId $ MS.elems stablePkgs
+        , configDependencyPackages = Set.fromList $ map LF.dalfPackageId $ MS.elems dependencyPkgs
         , configSdkPrefix = [T.pack currentSdkPrefix]
         }
 

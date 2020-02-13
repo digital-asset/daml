@@ -10,7 +10,9 @@ daml 1.2
 module DA.Upgrade
   ( iso
   , Convertible(..)
+  , Iso
   , GenConvertible
+  , MetaEquiv
   )
   where
 

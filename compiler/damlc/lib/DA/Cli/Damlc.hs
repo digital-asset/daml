@@ -826,10 +826,10 @@ execGenerateSrc opts dalfOrDar mbOutDir = Command GenerateSrc Nothing effect
                 | ((unitId, _modName), dalfPkg) <- MS.toList stableDalfPkgMap ]
                 ++ MS.toList dalfPkgMap
 
-            pkgMap :: MS.Map UnitId LF.Package
-            pkgMap = MS.insert unitId pkg $ MS.fromList
-                [ (unitId, LF.extPackagePkg (LF.dalfPackagePkg dalfPkg))
-                | (unitId, dalfPkg) <- allDalfPkgs ]
+            pkgMap :: MS.Map LF.PackageId LF.Package
+            pkgMap = MS.insert pkgId pkg $ MS.fromList
+                [ (LF.dalfPackageId dalfPkg, LF.extPackagePkg (LF.dalfPackagePkg dalfPkg))
+                | (_, dalfPkg) <- allDalfPkgs ]
 
             unitIdMap :: MS.Map LF.PackageId UnitId
             unitIdMap = MS.insert pkgId unitId $ MS.fromList
