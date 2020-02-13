@@ -11,7 +11,12 @@ import com.digitalasset.ledger.api.health.ReportsHealth
 trait LedgerReader extends ReportsHealth {
   def events(offset: Option[Offset]): Source[LedgerRecord, NotUsed]
 
-  def retrieveLedgerId(): LedgerId
+  /**
+    * Get the ledger's ID from which this reader instance streams events.
+    * Should not be a blocking operation.
+    * @return  ID of the ledger from which this reader streams events
+    */
+  def ledgerId(): LedgerId
 }
 
 object LedgerReader {

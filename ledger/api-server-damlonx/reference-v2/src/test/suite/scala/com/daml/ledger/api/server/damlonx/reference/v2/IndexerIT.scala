@@ -189,7 +189,7 @@ class IndexerIT extends AsyncWordSpec with Matchers with BeforeAndAfterEach {
       restartDelay: FiniteDuration = 100.millis,
   ): (ParticipantState, Resource[Unit], Resource[LedgerDao]) = {
     val id = UUID.randomUUID()
-    val participantId: ParticipantId = LedgerString.assertFromString(s"participant-$id")
+    val participantId = ParticipantId.assertFromString(s"participant-$id")
     val ledgerId = LedgerString.assertFromString(s"ledger-$id")
     val participantState = newParticipantState(participantId, ledgerId)
     val jdbcUrl =

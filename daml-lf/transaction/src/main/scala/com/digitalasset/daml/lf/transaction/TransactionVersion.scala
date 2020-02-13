@@ -4,9 +4,10 @@
 package com.digitalasset.daml.lf
 package transaction
 
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.transaction.Node.KeyWithMaintainers
 import com.digitalasset.daml.lf.value.Value.VersionedValue
-import com.digitalasset.daml.lf.value.ValueVersion
+import com.digitalasset.daml.lf.value.{Value, ValueVersion}
 
 final case class TransactionVersion(protoValue: String)
 
@@ -25,8 +26,16 @@ object TransactionVersions
   private[transaction] val minExerciseResult = TransactionVersion("7")
   private[transaction] val minContractKeyInExercise = TransactionVersion("8")
   private[transaction] val minMaintainersInExercise = TransactionVersion("9")
+  private[transaction] val minContractIdV1 = TransactionVersion("10")
 
-  def assignVersion(a: GenTransaction[_, _, _ <: VersionedValue[_]]): TransactionVersion = {
+  private def isV1(cid: Value.ContractId) = cid match {
+    case Value.AbsoluteContractId(coid) => Ref.ContractIdString.isB(coid)
+    case _ => false
+  }
+
+  def assignVersion(
+      a: GenTransaction[_, Value.ContractId, VersionedValue[Value.ContractId]],
+  ): TransactionVersion = {
     require(a != null)
     import VersionTimeline.Implicits._
 
@@ -43,26 +52,30 @@ object TransactionVersions
           case _: Node.NodeLookupByKey[_, _] => true
           case _: Node.NodeFetch[_] | _: Node.NodeExercises[_, _, _] => false
         }) minKeyOrLookupByKey
-      else minVersion,
+      else
+        minVersion,
       // a NodeFetch with actingParties implies minimum version 5
       if (a.nodes.values
           .exists { case nf: Node.NodeFetch[_] => nf.actingParties.nonEmpty; case _ => false })
         minFetchActors
-      else minVersion,
+      else
+        minVersion,
       if (a.nodes.values
           .exists {
             case ne: Node.NodeExercises[_, _, _] => ne.exerciseResult.isDefined
             case _ => false
           })
         minExerciseResult
-      else minVersion,
+      else
+        minVersion,
       if (a.nodes.values
           .exists {
             case ne: Node.NodeExercises[_, _, _] => ne.key.isDefined
             case _ => false
           })
         minContractKeyInExercise
-      else minVersion,
+      else
+        minVersion,
       if (a.nodes.values
           .exists {
             case ne: Node.NodeExercises[_, _, _] =>
@@ -73,7 +86,20 @@ object TransactionVersions
             case _ => false
           })
         minMaintainersInExercise
-      else minVersion,
+      else
+        minVersion,
+      if (a.transactionSeed.isDefined || a.nodes.values.exists {
+          case Node.NodeCreate(nodeSeed, coid, _, _, _, _, _) =>
+            nodeSeed.isDefined || isV1(coid)
+          case Node.NodeExercises(nodeSeed, coid, _, _, _, _, _, _, _, _, _, _, _, _) =>
+            nodeSeed.isDefined || isV1(coid)
+          case Node.NodeFetch(cid, _, _, _, _, _) =>
+            isV1(cid)
+          case _ => false
+        })
+        minContractIdV1
+      else
+        minVersion
     )
   }
 }

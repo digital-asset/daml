@@ -38,7 +38,7 @@ final class PartyManagementClient(service: PartyManagementServiceStub)(
     LedgerClient
       .stub(service, token)
       .getParticipantId(PartyManagementClient.getParticipantIdRequest)
-      .map(r => ParticipantId(Ref.LedgerString.assertFromString(r.participantId)))
+      .map(r => ParticipantId(Ref.ParticipantId.assertFromString(r.participantId)))
 
   def listKnownParties(token: Option[String] = None): Future[List[PartyDetails]] =
     LedgerClient

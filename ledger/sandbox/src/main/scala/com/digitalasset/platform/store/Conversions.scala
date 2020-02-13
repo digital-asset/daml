@@ -14,7 +14,7 @@ import anorm.{
   SqlParser,
   ToStatement
 }
-import com.digitalasset.daml.lf.data.Ref.{ContractIdString, LedgerString, PackageId, Party}
+import com.digitalasset.daml.lf.data.Ref
 
 object Conversions {
 
@@ -34,41 +34,48 @@ object Conversions {
 
   // Parties
 
-  implicit def columnToParty(implicit c: Column[String]): Column[Party] =
-    stringColumnToX(Party.fromString)(c)
+  implicit def columnToParty(implicit c: Column[String]): Column[Ref.Party] =
+    stringColumnToX(Ref.Party.fromString)(c)
 
-  implicit def partyToStatement(implicit strToStm: ToStatement[String]): ToStatement[Party] =
+  implicit def partyToStatement(implicit strToStm: ToStatement[String]): ToStatement[Ref.Party] =
     subStringToStatement(strToStm)
 
-  def party(columnName: String)(implicit c: Column[String]): RowParser[Party] =
-    SqlParser.get[Party](columnName)(columnToParty(c))
+  def party(columnName: String)(implicit c: Column[String]): RowParser[Ref.Party] =
+    SqlParser.get[Ref.Party](columnName)(columnToParty(c))
 
   // PackageIds
 
-  implicit def columnToPackageId(implicit c: Column[String]): Column[PackageId] =
-    stringColumnToX(PackageId.fromString)(c)
+  implicit def columnToPackageId(implicit c: Column[String]): Column[Ref.PackageId] =
+    stringColumnToX(Ref.PackageId.fromString)(c)
 
   implicit def packageIdToStatement(
-      implicit strToStm: ToStatement[String]): ToStatement[PackageId] =
+      implicit strToStm: ToStatement[String]): ToStatement[Ref.PackageId] =
     subStringToStatement(strToStm)
 
-  def packageId(columnName: String)(implicit c: Column[String]): RowParser[PackageId] =
-    SqlParser.get[PackageId](columnName)(columnToPackageId(c))
+  def packageId(columnName: String)(implicit c: Column[String]): RowParser[Ref.PackageId] =
+    SqlParser.get[Ref.PackageId](columnName)(columnToPackageId(c))
 
   // LedgerStrings
 
-  implicit def columnToLedgerString(implicit c: Column[String]): Column[LedgerString] =
-    stringColumnToX(LedgerString.fromString)(c)
+  implicit def columnToLedgerString(implicit c: Column[String]): Column[Ref.LedgerString] =
+    stringColumnToX(Ref.LedgerString.fromString)(c)
 
   implicit def ledgerStringToStatement(
-      implicit strToStm: ToStatement[String]): ToStatement[LedgerString] =
+      implicit strToStm: ToStatement[String]): ToStatement[Ref.LedgerString] =
     subStringToStatement(strToStm)
 
-  implicit def columnToContractId(implicit c: Column[String]): Column[ContractIdString] =
-    stringColumnToX(ContractIdString.fromString)(c)
+  implicit def columnToParticipantId(implicit c: Column[String]): Column[Ref.ParticipantId] =
+    stringColumnToX(Ref.ParticipantId.fromString)(c)
+
+  implicit def participantToStatement(
+      implicit strToStm: ToStatement[String]): ToStatement[Ref.ParticipantId] =
+    subStringToStatement(strToStm)
+
+  implicit def columnToContractId(implicit c: Column[String]): Column[Ref.ContractIdString] =
+    stringColumnToX(Ref.ContractIdString.fromString)(c)
 
   implicit def contractIdToStatement(
-      implicit strToStm: ToStatement[String]): ToStatement[ContractIdString] =
+      implicit strToStm: ToStatement[String]): ToStatement[Ref.ContractIdString] =
     subStringToStatement(strToStm)
 
   def emptyStringToNullColumn(implicit c: Column[String]): Column[String] = new Column[String] {
@@ -78,19 +85,26 @@ object Conversions {
     }
   }
 
-  def ledgerString(columnName: String)(implicit c: Column[String]): RowParser[LedgerString] =
-    SqlParser.get[LedgerString](columnName)(columnToLedgerString(c))
+  def ledgerString(columnName: String)(implicit c: Column[String]): RowParser[Ref.LedgerString] =
+    SqlParser.get[Ref.LedgerString](columnName)(columnToLedgerString(c))
 
   implicit def ledgerStringMetaParameter(
-      implicit strParamMetaData: ParameterMetaData[String]): ParameterMetaData[LedgerString] =
+      implicit strParamMetaData: ParameterMetaData[String]): ParameterMetaData[Ref.LedgerString] =
+    subStringMetaParameter(strParamMetaData)
+
+  def participantId(columnName: String)(implicit c: Column[String]): RowParser[Ref.ParticipantId] =
+    SqlParser.get[Ref.ParticipantId](columnName)(columnToParticipantId(c))
+
+  implicit def participantIdMetaParameter(
+      implicit strParamMetaData: ParameterMetaData[String]): ParameterMetaData[Ref.ParticipantId] =
     subStringMetaParameter(strParamMetaData)
 
   def contractIdString(columnName: String)(
-      implicit c: Column[String]): RowParser[ContractIdString] =
-    SqlParser.get[ContractIdString](columnName)(columnToContractId(c))
+      implicit c: Column[String]): RowParser[Ref.ContractIdString] =
+    SqlParser.get[Ref.ContractIdString](columnName)(columnToContractId(c))
 
-  implicit def contractIdStringMetaParameter(
-      implicit strParamMetaData: ParameterMetaData[String]): ParameterMetaData[ContractIdString] =
+  implicit def contractIdStringMetaParameter(implicit strParamMetaData: ParameterMetaData[String])
+    : ParameterMetaData[Ref.ContractIdString] =
     subStringMetaParameter(strParamMetaData)
 
 }

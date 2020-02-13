@@ -6,6 +6,95 @@ Release notes
 
 This page contains release notes for the SDK.
 
+.. _release-0-13-52:
+
+0.13.52 - 2020-02-12
+--------------------
+
+DAML Assistant
+~~~~~~~~~~~~~~
+- The assistant can now do completions for SDK
+  commands, e.g., ``daml ledger upl<TAB>`` will complete to ``daml
+  ledger upload-dar``.
+
+- The new behavior introduced in ``0.13.51`` to shut
+  down when stdin is closed is now disabled unless you explicitly
+  enable it by passing ``--shutdown-stdin-close``.
+
+DAML Script - Experimental
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Add a ``HasTime`` instance for ``Script`` which allows
+  you to get the current time (UTC in wallclock mode, UNIX epoch otherwise)
+
+- The time mode must now always be
+  specified explicitly. Use ``--static-time`` to recover the previous
+  default time mode.
+
+- Add a sleep function that pauses
+  the script for the given duration. This is primarily useful in tests
+  where you repeatedly call query until a certain state is
+  reached.
+
+DAML SDK
+~~~~~~~~
+- Fix computation of witnesses of top-level fetch nodes in scenario results ("known to").
+
+DAML Studio
+~~~~~~~~~~~
+- You can now open DAML Studio in the root of a
+  multi-package project instead of opening it separately for each
+  package. Take a look at the :ref:`documentation <daml-studio-packages>` for details on how to set
+  this up.
+
+DAML Triggers - Experimental
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+- The time mode must now always be
+  specified explicitly. Use ``--static-time`` to recover the previous
+  default time mode.
+
+JSON API - Experimental
+~~~~~~~~~~~~~~~~~~~~~~~
+- wrap Streaming API events in JSON object:
+  ``{ "events": [ E1, E2, ... ] }``
+  See `issue #4384 <https://github.com/digital-asset/daml/issues/4384>`_.
+
+- The format of ``archived`` responses from WebSocket endpoints
+  has changed to include template IDs, similar to exercise responses.
+  See `issue #4383 <https://github.com/digital-asset/daml/issues/4383>`_.
+
+- Rename JSON API endpoints.
+  See `issue #4289 <https://github.com/digital-asset/daml/issues/4289>`_
+  and `issue #3145 <https://github.com/digital-asset/daml/issues/3145>`_.
+  .. code-block::
+
+    /command/create => /v1/create
+    /command/exercise => /v1/exercise
+    /contracts/lookup => /v1/fetch
+    /contracts/search => /v1/query
+    /contracts/searchForever => /v1/stream/query
+    /contracts/lookupForever => /v1/stream/fetch
+    /parties => /v1/parties
+
+- Exercise response field "contracts" renamed to "events".
+  See `issue #4385 <https://github.com/digital-asset/daml/issues/4385>`_.
+
+- Added streaming version of fetch by key: ``/stream/fetch``.
+  See `issue #4705 <https://github.com/digital-asset/daml/issues/4705>`_.
+
+- ``/contracts/searchForever`` accepts multiple queries,
+  and includes with each ``created`` result the ``matchedQueries`` indicating which
+  queries matched.
+  See `issue #4363 <https://github.com/digital-asset/daml/pull/4363>`_.
+
+Sandbox
+~~~~~~~
+- Fixed a memory leak when using the ResetService; not
+  everything was cleaned up correctly.
+
+- Preliminary work to rebuild Sandbox on top of the DAML
+  Ledger Integration Kit. Currently not exposed through the CLI.
+
 .. _release-0-13-51:
 
 0.13.51 - 2020-02-05

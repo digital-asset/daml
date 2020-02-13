@@ -13,11 +13,6 @@ trait LedgerStateAccess {
     * @tparam T type of result returned after execution
     */
   def inTransaction[T](body: LedgerStateOperations => Future[T]): Future[T]
-
-  /**
-    * @return ID of the participant accessing the backing store.
-    */
-  def participantId: String
 }
 
 trait LedgerStateOperations {

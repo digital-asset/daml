@@ -328,6 +328,7 @@ to exercise the contract the following error would occur:
 
 To fix this issue the party 'Bob' should be made a controlling party in one of the choices.
 
+.. _daml-studio-packages:
 
 Working with multiple packages
 ******************************

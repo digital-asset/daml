@@ -68,7 +68,7 @@ afterAll(() => {
 });
 
 test('create + fetch & exercise', async () => {
-  const ledger = new Ledger(ALICE_TOKEN, `http://localhost:${JSON_API_PORT}/`);
+  const ledger = new Ledger({token: ALICE_TOKEN, httpBaseUrl: `http://localhost:${JSON_API_PORT}/`});
   const aliceStream = ledger.streamQuery(Main.Person, {party: ALICE_PARTY});
   const aliceIterator = pEvent.iterator(aliceStream, 'events', {rejectionEvents: ['close']});
   const aliceIteratorNext = async () => {

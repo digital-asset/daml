@@ -35,7 +35,7 @@ import scala.collection.immutable.TreeSet
 import scala.concurrent.{ExecutionContext, Future}
 
 class SqlLedgerReaderWriter(
-    ledgerId: LedgerId = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
+    override val ledgerId: LedgerId = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
     val participantId: ParticipantId,
     database: Database,
     dispatcher: Dispatcher[Index],
@@ -52,8 +52,6 @@ class SqlLedgerReaderWriter(
 
   // TODO: implement
   override def currentHealth(): HealthStatus = Healthy
-
-  override def retrieveLedgerId(): LedgerId = ledgerId
 
   override def events(offset: Option[Offset]): Source[LedgerRecord, NotUsed] =
     dispatcher

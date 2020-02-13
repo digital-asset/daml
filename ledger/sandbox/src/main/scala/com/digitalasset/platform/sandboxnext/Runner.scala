@@ -175,7 +175,7 @@ object Runner {
   private val DefaultMaxInboundMessageSize: Int = 4 * 1024 * 1024
 
   private val ParticipantId: v1.ParticipantId =
-    Ref.LedgerString.assertFromString("sandbox-participant")
+    Ref.ParticipantId.assertFromString("sandbox-participant")
 
   private val InMemoryLedgerJdbcUrl =
     "jdbc:sqlite:file:ledger?mode=memory&cache=shared"

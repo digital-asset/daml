@@ -41,7 +41,7 @@ class SqlLedgerSpec
   private val queueDepth = 128
 
   private val ledgerId: LedgerId = LedgerId(Ref.LedgerString.assertFromString("TheLedger"))
-  private val participantId: ParticipantId = Ref.LedgerString.assertFromString("TheParticipant")
+  private val participantId: ParticipantId = Ref.ParticipantId.assertFromString("TheParticipant")
 
   private val createdLedgers = mutable.Buffer[Resource[Ledger]]()
 

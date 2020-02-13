@@ -10,18 +10,20 @@ import { reducer } from './reducer';
 
 type Props = {
   token: string;
+  httpBaseUrl?: string;
+  wsBaseUrl?: string;
   party: Party;
 }
 
-const DamlLedger: React.FC<Props> = (props) => {
+const DamlLedger: React.FC<Props> = ({token, httpBaseUrl, wsBaseUrl, party, children}) => {
   const [store, dispatch] = useReducer(reducer, LedgerStore.empty());
   const state = useMemo(() => ({
     store,
     dispatch,
-    party: props.party,
-    ledger: new Ledger(props.token),
-  }), [props.party, props.token, store, dispatch]);
-  return React.createElement(DamlLedgerContext.Provider, {value: state}, props.children);
+    party,
+    ledger: new Ledger({token, httpBaseUrl, wsBaseUrl}),
+  }), [party, token, httpBaseUrl, wsBaseUrl, store, dispatch]);
+  return React.createElement(DamlLedgerContext.Provider, {value: state}, children);
 }
 
 export default DamlLedger;
