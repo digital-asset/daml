@@ -251,10 +251,13 @@ private[data] final class IdStringImpl extends IdString {
         Either.cond(isA(s), s, s)
 
       override def fromString(s: String): Either[String, ContractIdString] =
-        toEither(s).fold(ContractIdStringV0.fromString, ContractIdStringV1.fromString)
+        if (isA(s))
+          ContractIdStringV0.fromString(s)
+        else
+          ContractIdStringV1.fromString(s)
 
       override def isA(s: ContractIdString): Boolean =
-        s.startsWith("$0")
+        !isB(s)
 
       override def toA(s: ContractIdString): Option[ContractIdStringV0] =
         Some(s).filter(isA)
@@ -263,7 +266,7 @@ private[data] final class IdStringImpl extends IdString {
         toA(s).getOrElse(throw new IllegalArgumentException("expect V0 ContractId get V1"))
 
       override def isB(s: ContractIdString): Boolean =
-        !isA(s)
+        s.startsWith("$0")
 
       override def toB(s: ContractIdString): Option[ContractIdStringV1] =
         Some(s).filter(isB)
