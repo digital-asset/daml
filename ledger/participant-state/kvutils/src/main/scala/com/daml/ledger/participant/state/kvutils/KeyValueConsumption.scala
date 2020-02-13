@@ -76,7 +76,7 @@ object KeyValueConsumption {
         // entry.getPartyAllocationEntry.getParticipantId == participantId
         val pae = entry.getPartyAllocationEntry
         val party = parseParty(pae.getParty)
-        val participantId = parseLedgerString("ParticipantId")(pae.getParticipantId)
+        val participantId = parseParticipantId("ParticipantId")(pae.getParticipantId)
         val submissionId =
           Option(pae.getSubmissionId).filterNot(_.isEmpty).map(parseLedgerString("SubmissionId"))
         List(
@@ -89,7 +89,7 @@ object KeyValueConsumption {
 
       case DamlLogEntry.PayloadCase.PARTY_ALLOCATION_REJECTION_ENTRY =>
         val rejection = entry.getPartyAllocationRejectionEntry
-        val participantId = parseLedgerString("ParticipantId")(rejection.getParticipantId)
+        val participantId = parseParticipantId("ParticipantId")(rejection.getParticipantId)
         val submissionId = parseLedgerString("SubmissionId")(rejection.getSubmissionId)
         def wrap(reason: String) =
           List(Update.PartyAllocationRejected(submissionId, participantId, recordTime, reason))
@@ -119,7 +119,7 @@ object KeyValueConsumption {
           .decode(configEntry.getConfiguration)
           .fold(err => throw Err.DecodeError("Configuration", err), identity)
         val participantId =
-          parseLedgerString("ParticipantId")(configEntry.getParticipantId)
+          parseParticipantId("ParticipantId")(configEntry.getParticipantId)
         val submissionId =
           parseLedgerString("SubmissionId")(configEntry.getSubmissionId)
         List(
@@ -137,7 +137,7 @@ object KeyValueConsumption {
           .decode(rejection.getConfiguration)
           .fold(err => throw Err.DecodeError("Configuration", err), identity)
         val participantId =
-          parseLedgerString("ParticipantId")(rejection.getParticipantId)
+          parseParticipantId("ParticipantId")(rejection.getParticipantId)
         val submissionId =
           parseLedgerString("SubmissionId")(rejection.getSubmissionId)
         def wrap(reason: String) =
@@ -245,6 +245,12 @@ object KeyValueConsumption {
   @throws(classOf[Err])
   private def parseLedgerString(what: String)(s: String): Ref.LedgerString =
     Ref.LedgerString
+      .fromString(s)
+      .fold(err => throw Err.DecodeError(what, s"Cannot parse '$s': $err"), identity)
+
+  @throws(classOf[Err])
+  private def parseParticipantId(what: String)(s: String): Ref.ParticipantId =
+    Ref.ParticipantId
       .fromString(s)
       .fold(err => throw Err.DecodeError(what, s"Cannot parse '$s': $err"), identity)
 

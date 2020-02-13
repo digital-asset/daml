@@ -655,7 +655,7 @@ object ParticipantStateIntegrationSpecBase {
     GenTransaction(HashMap.empty, ImmArray.empty, Some(InsertOrdSet.empty))
 
   private val participantId: ParticipantId =
-    Ref.LedgerString.assertFromString("in-memory-participant")
+    Ref.ParticipantId.assertFromString("in-memory-participant")
   private val sourceDescription = Some("provided by test")
 
   private val darReader = DarReader { case (_, is) => Try(DamlLf.Archive.parseFrom(is)) }

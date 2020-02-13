@@ -85,6 +85,8 @@ sealed abstract class IdString {
     * lowercase hex-encoded hash of the package contents found in the DAML LF Archive. */
   type PackageId <: String
 
+  type ParticipantId <: String
+
   /**
     * Used to reference to leger objects like legacy contractIds, ledgerIds,
     * transactionId, ... We use the same type for those ids, because we
@@ -104,6 +106,7 @@ sealed abstract class IdString {
   val Name: StringModule[Name]
   val Party: ConcatenableStringModule[Party]
   val PackageId: ConcatenableStringModule[PackageId]
+  val ParticipantId: StringModule[ParticipantId]
   val LedgerString: ConcatenableStringModule[LedgerString]
   val ContractIdStringV0: ConcatenableStringModule[ContractIdStringV0]
   val ContractIdStringV1: StringModule[ContractIdStringV1]
@@ -219,6 +222,9 @@ private[data] final class IdStringImpl extends IdString {
   override type LedgerString = String
   override val LedgerString: ConcatenableStringModule[LedgerString] =
     new ConcatenableMatchingStringModule("._:-#/ ".contains(_), 255)
+
+  override type ParticipantId = String
+  override val ParticipantId = LedgerString
 
   /**
     * Legacy contractIds.

@@ -8,7 +8,6 @@ import java.nio.file.Path
 
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.lf.data.Ref.LedgerString
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.platform.indexer.IndexerStartupMode
 
@@ -42,7 +41,7 @@ object Config {
       timeProvider = TimeProvider.UTC,
       jdbcUrl = "",
       tlsConfig = None,
-      participantId = LedgerString.assertFromString("standalone-participant"),
+      participantId = ParticipantId.assertFromString("standalone-participant"),
       extraParticipants = Vector.empty,
       startupMode = IndexerStartupMode.MigrateAndStart,
     )

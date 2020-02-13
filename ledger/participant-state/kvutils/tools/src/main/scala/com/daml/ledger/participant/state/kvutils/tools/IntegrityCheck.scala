@@ -86,7 +86,7 @@ object IntegrityCheck extends App {
           Conversions.parseTimestamp(logEntry.getRecordTime),
           defaultConfig,
           submission,
-          Ref.LedgerString.assertFromString(entry.getParticipantId),
+          Ref.ParticipantId.assertFromString(entry.getParticipantId),
           inputState
       ))
     total_t_commit += t_commit
