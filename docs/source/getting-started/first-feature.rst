@@ -22,45 +22,40 @@ DAML Changes
 The DAML code defines the *workflow* of the application.
 This means: what interactions between users (or *parties*) are permitted by the system?
 In the context of our feature, the question is: when is a user allowed to message another user?
-There are different ways we could answer this.
 
 The approach we'll take is: a user Bob can message another user Alice if Alice has added Bob as a friend.
-Remember that friendships are single-directional in our app!
+Remember that friendships are single-directional in our app.
 So Alice adding Bob as a friend means that she gives permission (or *authority*) for Bob to send her a message.
 
-In DAML this workflow is represented as a choice on the ``User`` contract.
-This is the code we need to add::
+In DAML this workflow is represented as a new choice on the ``User`` contract.
 
 .. literalinclude:: quickstart/code/daml/User.daml
   :language: daml
   :start-after: -- SENDMESSAGE_BEGIN
   :end-before: -- SENDMESSAGE_END
 
-The first addition we make is a template for a message contracts.
-This is very simple, containing only the message content as well as the sending and receiving parties.
+Let's break this down.
+The choice is ``nonconsuming`` because sending a message should not affect the existence of the ``User`` contract.
+By convention, the choice returns the ``ContractId`` of the resulting ``Message`` contract (which we'll show next).
+Next, the parameters to the choice are the sender (the party wishing to talk to the signatory of this ``User`` contract) and the message text.
+The ``controller`` clause suggests that it is the ``sender`` who can exercise the choice.
+Finally, the body of the choice simply creates the new ``Message`` with the sender, receiver and content.
+
+Note that there is no explicit check in the choice that the ``sender`` is a friend of the user.
+This is because the ``User`` contract is only ever visible to friends (the observers of the contract).
+
+Now let's see the ``Message`` contract template.
+This is very simple - data and no choices - as well as the ``signatory`` declaration.
 
 .. literalinclude:: quickstart/code/daml/User.daml
   :language: daml
   :start-after: -- MESSAGE_BEGIN
   :end-before: -- MESSAGE_END
 
-The sender is the signatory, the one who can create and archive the post, and the receivers are listed as observers of the contract.
-This simple setup gives the same desirable behaviour as the ``User`` contracts discussed earlier: querying the ledger for messages will yield exactly those which have been sent to the current user (or which that user has written), and it is impossible to see any other messages.
+Note that we have two signatories on the ``Message`` contract: both the sender and receiver.
+This enforces the fact that the contract creation (and archival) must be authorized by both parties.
 
-Now we have defined what messages look like, we need a way to create them.
-We implement this with a choice in the ``User`` template.
-We didn't talk much about choices earlier, but these are essentially operations on contracts which can perform updates to the ledger.
-In our case, we simply want to add an operation for a user to create a ``Message`` contract on the ledger, without performing any other updates.
-
-There are a few things to note in these few lines of code.
-Firstly the ``nonconsuming`` keyword means that the ``SendMessage`` choice can be performed any number of times without affecting the ``User`` contract it is exercised on.
-Second, we can see that the choice takes the content and receivers as arguments and returns the ``ContractId`` of the message that is created (see section on contract IDs).
-Here the ``user`` party (defined in the ``User`` template data) is the *controller* of the choice, meaning that no one can send a message on behalf of a user.
-The last line of the choice is the actual action that creates the ``Message`` contract.
-
-.. TODO Refer to relevant sections to explain the concepts above.
-
-Now let's see how to integrate this new functionality, which we've written in DAML, into the rest of our application code.
+Now we've specified the workflow of sending messages, let's integrate the functionality into our app.
 
 TypeScript Code Generation
 ==========================
