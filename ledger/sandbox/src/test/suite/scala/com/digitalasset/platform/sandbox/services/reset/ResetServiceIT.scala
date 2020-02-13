@@ -42,8 +42,8 @@ import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScalaFutures}
 import org.scalatest.time.Span
 import org.scalatest.{AsyncWordSpec, Matchers}
 
-import scala.concurrent.Future
 import scala.concurrent.duration.{Duration, DurationInt, DurationLong}
+import scala.concurrent.{Await, Future}
 import scala.ref.WeakReference
 
 final class ResetServiceIT
@@ -174,7 +174,7 @@ final class ResetServiceIT
       }
 
       "clear out all garbage" in {
-        val state = new WeakReference(serverResource.value.sandboxState)
+        val state = new WeakReference(Await.result(server.sandboxState, 5.seconds))
         for {
           lid <- fetchLedgerId()
           _ <- reset(lid)

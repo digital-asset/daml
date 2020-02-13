@@ -5,17 +5,18 @@ package com.digitalasset.platform.sandbox.perf
 
 import java.io.File
 
-import akka.stream.Materializer
 import com.digitalasset.daml.lf.archive.UniversalArchiveReader
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.ledger.api.testing.utils.Resource
+import com.digitalasset.ledger.api.testing.utils.{OwnedResource, Resource}
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.SandboxServer
 import com.digitalasset.platform.sandbox.config.SandboxConfig
-import com.digitalasset.platform.sandbox.services.{SandboxClientResource, SandboxServerResource}
-import com.digitalasset.testing.postgresql.{PostgresFixture, PostgresResource}
+import com.digitalasset.platform.sandbox.services.SandboxClientResource
+import com.digitalasset.resources.ResourceOwner
+import com.digitalasset.testing.postgresql.PostgresResource
+
+import scala.concurrent.ExecutionContext
 
 object LedgerFactories {
 
@@ -35,61 +36,18 @@ object LedgerFactories {
   val sql = "Postgres"
 
   def createSandboxResource(store: String, darFiles: List[File])(
-      implicit esf: ExecutionSequencerFactory,
-      mat: Materializer): Resource[LedgerContext] = {
-
-    def createClientResource(port: Int): Resource[LedgerContext] =
-      SandboxClientResource(port).map(new LedgerContext(_, darFiles.map(getPackageIdOrThrow)))
-
-    store match {
-      case `mem` =>
-        new Resource[LedgerContext] {
-          @volatile private var server: Resource[SandboxServer] = _
-          @volatile private var client: Resource[LedgerContext] = _
-
-          override def value: LedgerContext = client.value
-
-          override def setup(): Unit = {
-            server = SandboxServerResource(sandboxConfig(None, darFiles))
-            server.setup()
-            client = createClientResource(server.value.port)
-            client.setup()
-          }
-
-          override def close(): Unit = {
-            client.close()
-            client = null
-            server.close()
-            server = null
-          }
+      implicit executionContext: ExecutionContext
+  ): Resource[LedgerContext] =
+    new OwnedResource(
+      for {
+        jdbcUrl <- store match {
+          case `mem` =>
+            ResourceOwner.successful(None)
+          case `sql` =>
+            PostgresResource.owner().map(fixture => Some(fixture.jdbcUrl))
         }
-      case `sql` =>
-        new Resource[LedgerContext] {
-          @volatile private var postgres: Resource[PostgresFixture] = _
-          @volatile private var server: Resource[SandboxServer] = _
-          @volatile private var client: Resource[LedgerContext] = _
-
-          override def value: LedgerContext = client.value
-
-          override def setup(): Unit = {
-            postgres = PostgresResource()
-            postgres.setup()
-            server = SandboxServerResource(sandboxConfig(Some(postgres.value.jdbcUrl), darFiles))
-            server.setup()
-            client = createClientResource(server.value.port)
-            client.setup()
-          }
-
-          override def close(): Unit = {
-            client.close()
-            client = null
-            server.close()
-            server = null
-            postgres.close()
-            postgres = null
-          }
-        }
-    }
-
-  }
+        server <- SandboxServer.owner(sandboxConfig(jdbcUrl, darFiles))
+        channel <- SandboxClientResource.owner(server.port)
+      } yield new LedgerContext(channel, darFiles.map(getPackageIdOrThrow))
+    )
 }

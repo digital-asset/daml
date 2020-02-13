@@ -13,9 +13,9 @@ import com.digitalasset.ledger.api.v1.ledger_configuration_service.{
   LedgerConfigurationServiceGrpc
 }
 import com.digitalasset.platform.api.grpc.GrpcApiUtil
-import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.sandbox.services.SandboxFixture
-import com.digitalasset.testing.postgresql.PostgresAroundAll
+import com.digitalasset.resources.ResourceOwner
+import com.digitalasset.testing.postgresql.PostgresResource
 import org.scalatest.{Matchers, WordSpec}
 import scalaz.syntax.tag._
 
@@ -23,11 +23,8 @@ sealed trait LedgerConfigurationServiceITBase extends WordSpec with Matchers {
   self: SandboxFixture with SuiteResourceManagement =>
 
   "LedgerConfigurationService" when {
-
     "asked for ledger configuration" should {
-
       "return expected configuration" in {
-
         val LedgerConfiguration(Some(minTtl), Some(maxTtl)) =
           LedgerConfigurationServiceGrpc
             .blockingStub(channel)
@@ -37,13 +34,9 @@ sealed trait LedgerConfigurationServiceITBase extends WordSpec with Matchers {
 
         minTtl shouldEqual GrpcApiUtil.durationToProto(config.timeModel.minTtl)
         maxTtl shouldEqual GrpcApiUtil.durationToProto(config.timeModel.maxTtl)
-
       }
-
     }
-
   }
-
 }
 
 final class LedgerConfigurationServiceInMemoryIT
@@ -54,9 +47,7 @@ final class LedgerConfigurationServiceInMemoryIT
 final class LedgerConfigurationServicePostgresIT
     extends LedgerConfigurationServiceITBase
     with SandboxFixture
-    with SuiteResourceManagementAroundAll
-    with PostgresAroundAll {
-
-  override def config: SandboxConfig = super.config.copy(jdbcUrl = Some(postgresFixture.jdbcUrl))
-
+    with SuiteResourceManagementAroundAll {
+  override protected def database: Option[ResourceOwner[String]] =
+    Some(PostgresResource.owner().map(_.jdbcUrl))
 }

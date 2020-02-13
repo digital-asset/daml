@@ -3,21 +3,19 @@
 
 package com.digitalasset.testing.postgresql
 
-import com.digitalasset.ledger.api.testing.utils.Resource
+import com.digitalasset.resources.{Resource, ResourceOwner}
 
-private class PostgresResource extends Resource[PostgresFixture] with PostgresAround {
-
-  override def value: PostgresFixture = postgresFixture
-
-  override def setup(): Unit = {
-    startEphemeralPostgres()
-  }
-
-  override def close(): Unit = {
-    stopAndCleanUpPostgres()
-  }
-}
+import scala.concurrent.{ExecutionContext, Future}
 
 object PostgresResource {
-  def apply(): Resource[PostgresFixture] = new PostgresResource
+  def owner(): ResourceOwner[PostgresFixture] =
+    new ResourceOwner[PostgresFixture] with PostgresAround {
+      override def acquire()(
+          implicit executionContext: ExecutionContext
+      ): Resource[PostgresFixture] =
+        Resource(Future {
+          startEphemeralPostgres()
+          postgresFixture
+        })(_ => Future(stopAndCleanUpPostgres()))
+    }
 }

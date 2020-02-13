@@ -3,10 +3,12 @@
 
 package com.digitalasset.platform.sandbox
 
-import com.digitalasset.platform.sandbox.config.SandboxConfig
-import com.digitalasset.testing.postgresql.PostgresAroundEach
+import com.digitalasset.resources.ResourceOwner
+import com.digitalasset.testing.postgresql.PostgresResource
 
-class ScenarioLoadingITPostgres extends ScenarioLoadingITBase with PostgresAroundEach {
-  override def config: SandboxConfig = super.config.copy(jdbcUrl = Some(postgresFixture.jdbcUrl))
-  override def scenario: Option[String] = Some("Test:testScenario")
+class ScenarioLoadingITPostgres extends ScenarioLoadingITBase {
+  override protected def database: Option[ResourceOwner[String]] =
+    Some(PostgresResource.owner().map(_.jdbcUrl))
+
+  override protected def scenario: Option[String] = Some("Test:testScenario")
 }

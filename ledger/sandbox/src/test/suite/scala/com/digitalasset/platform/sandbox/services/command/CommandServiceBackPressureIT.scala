@@ -18,12 +18,13 @@ import com.digitalasset.ledger.api.v1.value.{Record, RecordField, Value}
 import com.digitalasset.platform.participant.util.ValueConversions._
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.sandbox.services.{SandboxFixture, TestCommands}
-import com.digitalasset.testing.postgresql.PostgresAroundAll
+import com.digitalasset.resources.ResourceOwner
+import com.digitalasset.testing.postgresql.PostgresResource
 import io.grpc.Status
 import org.scalatest.{Assertion, AsyncWordSpec, Inspectors, Matchers}
 import scalaz.syntax.tag._
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
@@ -33,8 +34,9 @@ class CommandServiceBackPressureIT
     with Inspectors
     with SandboxFixture
     with TestCommands
-    with PostgresAroundAll
     with SuiteResourceManagementAroundAll {
+
+  override implicit def executionContext: ExecutionContext = ExecutionContext.global
 
   private val commands = 50
 
@@ -74,7 +76,7 @@ class CommandServiceBackPressureIT
       })))
       .map(_.collect { case Failure(ex) => ex }) map { errors =>
       info(s"${errors.size}/$commands requests failed")
-      info(s"${errors.filter(pushedBack).size}/${errors.size} errors are push-backs")
+      info(s"${errors.count(pushedBack)}/${errors.size} errors are push-backs")
       errors should not be empty
       forAll(errors)(IsStatusException(Status.RESOURCE_EXHAUSTED))
     }
@@ -99,9 +101,11 @@ class CommandServiceBackPressureIT
     }
   }
 
+  override protected def database: Option[ResourceOwner[String]] =
+    Some(PostgresResource.owner().map(_.jdbcUrl))
+
   override protected def config: SandboxConfig =
     super.config.copy(
-      jdbcUrl = Some(postgresFixture.jdbcUrl),
       commandConfig = super.config.commandConfig.copy(
         inputBufferSize = 1,
         maxParallelSubmissions = 2,
