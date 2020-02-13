@@ -54,12 +54,10 @@ final class InMemoryLedgerReaderWriter(
 
   private val lockCurrentState = new Semaphore(1, true)
 
-  private val validator = SubmissionValidator.create(
-    new InMemoryLedgerStateAccess(participantId),
-    () => sequentialLogEntryId.next())
+  private val validator =
+    SubmissionValidator.create(InMemoryLedgerStateAccess, () => sequentialLogEntryId.next())
 
-  private class InMemoryLedgerStateAccess(theParticipantId: ParticipantId)
-      extends LedgerStateAccess {
+  private object InMemoryLedgerStateAccess extends LedgerStateAccess {
     override def inTransaction[T](body: LedgerStateOperations => Future[T]): Future[T] =
       Future
         .successful(lockCurrentState.acquire())
@@ -68,8 +66,6 @@ final class InMemoryLedgerReaderWriter(
           case _ =>
             lockCurrentState.release()
         }
-
-    override def participantId: String = theParticipantId
   }
 
   private object InMemoryLedgerStateOperations extends BatchingLedgerStateOperations {
@@ -99,7 +95,7 @@ final class InMemoryLedgerReaderWriter(
 
   override def commit(correlationId: String, envelope: Array[Byte]): Future[SubmissionResult] = {
     validator
-      .validateAndCommit(envelope, correlationId, currentRecordTime())
+      .validateAndCommit(envelope, correlationId, currentRecordTime(), participantId)
       .map {
         case SubmissionValidated => SubmissionResult.Acknowledged
         case MissingInputState(_) => SubmissionResult.InternalError("Missing input state")

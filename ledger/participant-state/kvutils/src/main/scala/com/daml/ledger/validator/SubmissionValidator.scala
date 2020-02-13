@@ -40,6 +40,7 @@ class SubmissionValidator(
         DamlLogEntryId,
         Timestamp,
         DamlSubmission,
+        ParticipantId,
         Map[DamlStateKey, Option[DamlStateValue]]) => LogEntryAndState,
     allocateLogEntryId: () => DamlLogEntryId,
     checkForMissingInputs: Boolean = false)(implicit executionContext: ExecutionContext) {
@@ -49,8 +50,9 @@ class SubmissionValidator(
   def validate(
       envelope: RawBytes,
       correlationId: String,
-      recordTime: Timestamp): Future[ValidationResult] =
-    runValidation(envelope, correlationId, recordTime, (_, _, _, _) => ()).map {
+      recordTime: Timestamp,
+      participantId: ParticipantId): Future[ValidationResult] =
+    runValidation(envelope, correlationId, recordTime, participantId, (_, _, _, _) => ()).map {
       case Left(failure) => failure
       case Right(_) => SubmissionValidated
     }
@@ -58,8 +60,9 @@ class SubmissionValidator(
   def validateAndCommit(
       envelope: RawBytes,
       correlationId: String,
-      recordTime: Timestamp): Future[ValidationResult] =
-    runValidation(envelope, correlationId, recordTime, commit).map {
+      recordTime: Timestamp,
+      participantId: ParticipantId): Future[ValidationResult] =
+    runValidation(envelope, correlationId, recordTime, participantId, commit).map {
       case Left(failure) => failure
       case Right(_) => SubmissionValidated
     }
@@ -68,6 +71,7 @@ class SubmissionValidator(
       envelope: RawBytes,
       correlationId: String,
       recordTime: Timestamp,
+      participantId: ParticipantId,
       transform: (DamlLogEntryId, StateMap, LogEntryAndState) => T)
     : Future[Either[ValidationFailed, TransformedSubmission[T]]] = {
     def applyTransformation(
@@ -77,7 +81,7 @@ class SubmissionValidator(
         stateOperations: LedgerStateOperations): T =
       transform(logEntryId, inputStates, logEntryAndState)
 
-    runValidation(envelope, correlationId, recordTime, applyTransformation)
+    runValidation(envelope, correlationId, recordTime, participantId, applyTransformation)
   }
 
   private def commit(
@@ -104,6 +108,7 @@ class SubmissionValidator(
       envelope: RawBytes,
       correlationId: String,
       recordTime: Timestamp,
+      participantId: ParticipantId,
       postProcessResult: (DamlLogEntryId, StateMap, LogEntryAndState, LedgerStateOperations) => T)
     : Future[Either[ValidationFailed, TransformedSubmission[T]]] =
     Envelope.open(envelope) match {
@@ -125,7 +130,12 @@ class SubmissionValidator(
             } else {
               Try {
                 val (logEntry, damlStateUpdates) =
-                  processSubmission(damlLogEntryId, recordTime, submission, readInputs)
+                  processSubmission(
+                    damlLogEntryId,
+                    recordTime,
+                    submission,
+                    participantId,
+                    readInputs)
                 postProcessResult(
                   damlLogEntryId,
                   flattenInputStates(readInputs),
@@ -161,11 +171,9 @@ object SubmissionValidator {
       allocateNextLogEntryId: () => DamlLogEntryId = () => allocateRandomLogEntryId(),
       checkForMissingInputs: Boolean = false)(
       implicit executionContext: ExecutionContext): SubmissionValidator = {
-    val participantId: ParticipantId =
-      ParticipantId.assertFromString(ledgerStateAccess.participantId)
     new SubmissionValidator(
       ledgerStateAccess,
-      processSubmission(participantId),
+      processSubmission,
       allocateNextLogEntryId,
       checkForMissingInputs)
   }
@@ -177,10 +185,11 @@ object SubmissionValidator {
 
   private lazy val engine = Engine()
 
-  private[validator] def processSubmission(participantId: ParticipantId)(
+  private[validator] def processSubmission(
       damlLogEntryId: DamlLogEntryId,
       recordTime: Timestamp,
       damlSubmission: DamlSubmission,
+      participantId: ParticipantId,
       inputState: Map[DamlStateKey, Option[DamlStateValue]]): LogEntryAndState =
     KeyValueCommitting.processSubmission(
       engine,
