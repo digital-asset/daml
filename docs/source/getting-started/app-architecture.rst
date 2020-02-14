@@ -4,8 +4,11 @@
 App Architecture
 ****************
 
-As you saw from playing around with our social network app, we have a basic interface and backend (the Sandbox) for adding and removing friends.
-In this section we'll walk through the components of this system, positioning us to extend these components with added functionality in the next section.
+In this section we'll look at the different components of our social network app.
+The goal is to familiarise you enough to feel comfortable extending the code with a new feature in the next section.
+
+There are two main components in the code - the DAML model and the React/TypeScript frontend - with generated TypeScript code to bridge the two.
+Let's start by looking at the DAML model, as this sets the core logic of the application.
 
 The DAML Model
 ==============
