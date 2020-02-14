@@ -221,9 +221,8 @@ generateSrcFromLf env = noLoc mod
     classMethodNames = Set.fromList
         [ methodName
         | LF.DefTypeSyn{..} <- NM.toList . LF.moduleSynonyms $ envMod env
-        , (fieldName, _) <- case synType of
-                LF.TStruct fields -> fields
-                _ -> []
+        , LF.TStruct fields <- [synType]
+        , (fieldName, _) <- fields
         , Just methodName <- [getClassMethodName fieldName]
         ]
 
@@ -239,6 +238,9 @@ generateSrcFromLf env = noLoc mod
         synDef@LF.DefTypeSyn{..} <- NM.toList . LF.moduleSynonyms $ envMod env
         guard $ case synType of
             LF.TStruct _ -> True
+            -- Type classes with no fields are translated to TUnit
+            -- since LF structs need to have a non-zero number of
+            -- fields.
             LF.TUnit -> True
             _ -> False
         LF.TypeSynName [name] <- [synName]
