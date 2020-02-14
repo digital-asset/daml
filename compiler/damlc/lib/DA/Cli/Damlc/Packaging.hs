@@ -97,7 +97,9 @@ createProjectPackageDb projectRoot opts thisSdkVer deps dataDeps = do
     -- See https://github.com/digital-asset/daml/issues/4218 for more details.
     -- TODO Enforce this with useful error messages
     forM_ depsExtracted $
-        \ExtractedDar{..} -> installDar dbPath edConfFiles edDalfs edSrcs
+        -- We only have the interface files for the main DALF in a `dependency` so we
+        -- also only extract the main dalf.
+        \ExtractedDar{..} -> installDar dbPath edConfFiles edMain edSrcs
 
     loggerH <- getLogger opts "generate package maps"
     mbRes <- withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> runActionSync ide $ runMaybeT $
@@ -156,11 +158,23 @@ createProjectPackageDb projectRoot opts thisSdkVer deps dataDeps = do
               _ -> parsedUnitId
         pure (pkgId, package, dalf, unitId)
 
+    -- All transitive packages from DARs specified in  `dependencies`. This is only used for unit-id collision checks.
+    transitiveDependencies <- fmap concat $ forM depsExtracted $ \ExtractedDar{..} -> forM edDalfs $ \zipEntry -> do
+       let bytes = BSL.toStrict $ ZipArchive.fromEntry zipEntry
+       (pkgId, _) <- liftIO $
+            either (fail . DA.Pretty.renderPretty) pure $
+            Archive.decodeArchivePayload bytes
+       let unitId = parseUnitId (takeBaseName $ ZipArchive.eRelativePath zipEntry) pkgId
+       pure (pkgId, stringToUnitId unitId)
+
     let unitIdConflicts = MS.filter ((>=2) . Set.size) .  MS.fromListWith Set.union $ concat
             [ [ (unitId, Set.singleton pkgId)
               | (pkgId, _package, _dalf, unitId) <- pkgs ]
             , [ (unitId, Set.singleton (LF.dalfPackageId dalfPkg))
               | (unitId, dalfPkg) <- MS.toList dependencies ]
+            , [ (unitId, Set.singleton pkgId)
+              | (pkgId, unitId) <- transitiveDependencies
+              ]
             ]
     when (not $ MS.null unitIdConflicts) $ do
         fail $ "Transitive dependencies with same unit id but conflicting package ids: "
