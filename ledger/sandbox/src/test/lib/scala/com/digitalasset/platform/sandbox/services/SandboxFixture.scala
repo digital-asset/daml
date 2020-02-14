@@ -4,6 +4,7 @@
 package com.digitalasset.platform.sandbox.services
 
 import java.io.File
+import java.net.InetAddress
 import java.util.concurrent.Executors
 
 import akka.actor.ActorSystem
@@ -15,7 +16,7 @@ import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSeque
 import com.digitalasset.ledger.api.auth.client.LedgerCallCredentials
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.ledger.api.testing.utils.{Resource, SuiteResource}
+import com.digitalasset.ledger.api.testing.utils.{OwnedResource, Resource, SuiteResource}
 import com.digitalasset.ledger.api.v1.ledger_identity_service.{
   GetLedgerIdentityRequest,
   LedgerIdentityServiceGrpc
@@ -26,6 +27,7 @@ import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.SandboxServer
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.services.time.TimeProviderType
+import com.digitalasset.resources.ResourceOwner
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import io.grpc.Channel
 import org.scalatest.{BeforeAndAfterAll, Suite}
@@ -36,15 +38,15 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext}
 import scala.util.Try
 
-trait SandboxFixture extends SuiteResource[Unit] with BeforeAndAfterAll {
+trait SandboxFixture extends SuiteResource[(SandboxServer, Channel)] with BeforeAndAfterAll {
   self: Suite =>
 
   private[this] val logger = LoggerFactory.getLogger(getClass)
 
   private[this] val actorSystemName = this.getClass.getSimpleName
 
-  private lazy val executorContext = ExecutionContext.fromExecutorService(
-    Executors.newSingleThreadExecutor(
+  private lazy val executionContext = ExecutionContext.fromExecutorService(
+    Executors.newCachedThreadPool(
       new ThreadFactoryBuilder()
         .setDaemon(true)
         .setNameFormat(s"$actorSystemName-thread-pool-worker-%d")
@@ -53,7 +55,7 @@ trait SandboxFixture extends SuiteResource[Unit] with BeforeAndAfterAll {
         .build()))
 
   protected implicit val system: ActorSystem =
-    ActorSystem(actorSystemName, defaultExecutionContext = Some(executorContext))
+    ActorSystem(actorSystemName, defaultExecutionContext = Some(executionContext))
 
   protected implicit val materializer: Materializer = Materializer(system)
 
@@ -100,29 +102,25 @@ trait SandboxFixture extends SuiteResource[Unit] with BeforeAndAfterAll {
 
   protected def scenario: Option[String] = None
 
-  protected def getSandboxPort: Int = serverResource.value.port
+  protected def database: Option[ResourceOwner[String]] = None
 
-  protected def channel: Channel = clientResource.value
+  protected def server: SandboxServer = suiteResource.value._1
 
-  protected var serverResource: Resource[SandboxServer] = _
+  protected def serverHost: String = InetAddress.getLoopbackAddress.getHostName
 
-  protected var clientResource: Resource[Channel] = _
+  protected def serverPort: Int = server.port
 
-  protected override lazy val suiteResource: Resource[Unit] = new Resource[Unit] {
-    override val value: Unit = ()
+  protected def channel: Channel = suiteResource.value._2
 
-    override def setup(): Unit = {
-      serverResource = SandboxServerResource(config)
-      serverResource.setup()
-      clientResource = new SandboxClientResource(getSandboxPort)
-      clientResource.setup()
-    }
-
-    override def close(): Unit = {
-      clientResource.close()
-      clientResource = null
-      serverResource.close()
-      serverResource = null
-    }
+  override protected lazy val suiteResource: Resource[(SandboxServer, Channel)] = {
+    implicit val ec: ExecutionContext = executionContext
+    new OwnedResource[(SandboxServer, Channel)](
+      for {
+        jdbcUrl <- database
+          .fold[ResourceOwner[Option[String]]](ResourceOwner.successful(None))(_.map(Some(_)))
+        server <- SandboxServer.owner(config.copy(jdbcUrl = jdbcUrl))
+        channel <- SandboxClientResource.owner(server.port)
+      } yield (server, channel)
+    )
   }
 }

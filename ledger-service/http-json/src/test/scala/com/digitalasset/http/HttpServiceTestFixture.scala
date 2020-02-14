@@ -58,7 +58,7 @@ object HttpServiceTestFixture {
     val contractDaoF: Future[Option[ContractDao]] = jdbcConfig.map(c => initializeDb(c)).sequence
 
     val ledgerF = for {
-      ledger <- Future(new SandboxServer(ledgerConfig(0, dars, ledgerId)))
+      ledger <- Future(new SandboxServer(ledgerConfig(0, dars, ledgerId), mat))
       port <- ledger.portF
     } yield (ledger, port)
 
@@ -110,14 +110,15 @@ object HttpServiceTestFixture {
       testName: String,
       token: Option[String] = None,
       authService: Option[AuthService] = None)(testFn: LedgerClient => Future[A])(
-      implicit aesf: ExecutionSequencerFactory,
+      implicit mat: Materializer,
+      aesf: ExecutionSequencerFactory,
       ec: ExecutionContext): Future[A] = {
 
     val ledgerId = LedgerId(testName)
     val applicationId = ApplicationId(testName)
 
     val ledgerF = for {
-      ledger <- Future(new SandboxServer(ledgerConfig(0, dars, ledgerId, authService)))
+      ledger <- Future(new SandboxServer(ledgerConfig(0, dars, ledgerId, authService), mat))
       port <- ledger.portF
     } yield (ledger, port)
 

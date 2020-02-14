@@ -94,7 +94,7 @@ trait ExtractorFixture extends SandboxFixture with PostgresAround with Types {
   protected var extractor: Extractor[PostgreSQLTarget] = _
 
   protected def run(): Unit = {
-    val config: ExtractorConfig = configureExtractor(baseConfig.copy(ledgerPort = getSandboxPort))
+    val config: ExtractorConfig = configureExtractor(baseConfig.copy(ledgerPort = serverPort))
 
     extractor = new Extractor(config, target)()
 

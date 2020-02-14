@@ -5,15 +5,18 @@ package com.digitalasset.platform.sandbox.perf
 
 import java.io.File
 
-import akka.stream.Materializer
 import com.digitalasset.daml.lf.archive.UniversalArchiveReader
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.ledger.api.testing.utils.Resource
+import com.digitalasset.ledger.api.testing.utils.{OwnedResource, Resource}
 import com.digitalasset.platform.common.LedgerIdMode
+import com.digitalasset.platform.sandbox.SandboxServer
 import com.digitalasset.platform.sandbox.config.SandboxConfig
-import com.digitalasset.testing.postgresql.{PostgresFixture, PostgresResource}
+import com.digitalasset.platform.sandbox.services.SandboxClientResource
+import com.digitalasset.resources.ResourceOwner
+import com.digitalasset.testing.postgresql.PostgresResource
+
+import scala.concurrent.ExecutionContext
 
 object LedgerFactories {
 
@@ -33,37 +36,18 @@ object LedgerFactories {
   val sql = "Postgres"
 
   def createSandboxResource(store: String, darFiles: List[File])(
-      implicit esf: ExecutionSequencerFactory,
-      mat: Materializer): Resource[LedgerContext] = {
-    def createResource(sandboxConfig: SandboxConfig): Resource[LedgerContext] =
-      SandboxServerResource(sandboxConfig).map(
-        new LedgerContext(_, darFiles.map(getPackageIdOrThrow)))
-
-    store match {
-      case `mem` =>
-        createResource(sandboxConfig(None, darFiles))
-      case `sql` =>
-        new Resource[LedgerContext] {
-          @volatile private var postgres: Resource[PostgresFixture] = _
-          @volatile private var sandbox: Resource[LedgerContext] = _
-
-          override def value: LedgerContext = sandbox.value
-
-          override def setup(): Unit = {
-            postgres = PostgresResource()
-            postgres.setup()
-            sandbox = createResource(sandboxConfig(Some(postgres.value.jdbcUrl), darFiles))
-            sandbox.setup()
-          }
-
-          override def close(): Unit = {
-            sandbox.close()
-            postgres.close()
-            sandbox = null
-            postgres = null
-          }
+      implicit executionContext: ExecutionContext
+  ): Resource[LedgerContext] =
+    new OwnedResource(
+      for {
+        jdbcUrl <- store match {
+          case `mem` =>
+            ResourceOwner.successful(None)
+          case `sql` =>
+            PostgresResource.owner().map(fixture => Some(fixture.jdbcUrl))
         }
-    }
-
-  }
+        server <- SandboxServer.owner(sandboxConfig(jdbcUrl, darFiles))
+        channel <- SandboxClientResource.owner(server.port)
+      } yield new LedgerContext(channel, darFiles.map(getPackageIdOrThrow))
+    )
 }

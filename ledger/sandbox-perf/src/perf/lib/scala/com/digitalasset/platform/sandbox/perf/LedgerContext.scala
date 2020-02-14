@@ -5,9 +5,7 @@ package com.digitalasset.platform.sandbox.perf
 
 import akka.actor.ActorSystem
 import akka.pattern
-import akka.stream.Materializer
 import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc
 import com.digitalasset.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc.ActiveContractsServiceStub
@@ -28,8 +26,8 @@ import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 
 final class LedgerContext(channel: Channel, packageIds: Iterable[PackageId])(
-    implicit protected val mat: Materializer,
-    implicit protected val esf: ExecutionSequencerFactory) {
+    implicit executionContext: ExecutionContext
+) {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
 
@@ -41,7 +39,6 @@ final class LedgerContext(channel: Channel, packageIds: Iterable[PackageId])(
         .ledgerId)
 
   def reset()(implicit system: ActorSystem): Future[LedgerContext] = {
-    implicit val ec: ExecutionContext = mat.executionContext
     def waitForNewLedger(retries: Int): Future[domain.LedgerId] =
       if (retries <= 0)
         Future.failed(new RuntimeException("waitForNewLedger: out of retries"))

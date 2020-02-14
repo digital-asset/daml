@@ -4,14 +4,13 @@
 package com.digitalasset.daml.lf.engine.trigger
 
 import java.io.File
+import java.time.Duration
 
 import akka.actor.ActorSystem
 import akka.actor.typed.{ActorSystem => TypedActorSystem}
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.model.Uri
 import akka.stream.Materializer
-import java.time.Duration
-
 import com.digitalasset.daml.lf.archive.Dar
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.language.Ast._
@@ -46,9 +45,8 @@ object TriggerServiceFixture {
 
     val ledgerId = LedgerId(testName)
     val applicationId = ApplicationId(testName)
-
     val ledgerF = for {
-      ledger <- Future(new SandboxServer(ledgerConfig(0, dars, ledgerId)))
+      ledger <- Future(new SandboxServer(ledgerConfig(0, dars, ledgerId), mat))
       port <- ledger.portF
     } yield (ledger, port)
 

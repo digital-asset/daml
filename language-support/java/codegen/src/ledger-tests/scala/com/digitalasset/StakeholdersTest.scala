@@ -3,11 +3,11 @@
 
 package com.digitalasset
 
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.{AsyncFlatSpec, Matchers}
 import stakeholders.{ExplicitObservers, ImplicitObservers, MixedObservers, OnlySignatories}
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
-class StakeholdersTest extends FlatSpec with Matchers {
+class StakeholdersTest extends AsyncFlatSpec with Matchers {
 
   import TestUtil._
 

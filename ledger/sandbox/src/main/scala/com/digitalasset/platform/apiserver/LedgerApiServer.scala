@@ -6,7 +6,7 @@ package com.digitalasset.platform.apiserver
 import java.io.IOException
 import java.net.{BindException, InetAddress, InetSocketAddress}
 import java.util.UUID
-import java.util.concurrent.TimeUnit.{MILLISECONDS, SECONDS}
+import java.util.concurrent.TimeUnit.SECONDS
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
@@ -17,13 +17,10 @@ import com.digitalasset.resources.{Resource, ResourceOwner}
 import io.grpc.netty.NettyServerBuilder
 import io.grpc.{Server, ServerInterceptor}
 import io.netty.channel.EventLoopGroup
-import io.netty.channel.nio.NioEventLoopGroup
 import io.netty.channel.socket.nio.NioServerSocketChannel
 import io.netty.handler.ssl.SslContext
-import io.netty.util.concurrent.DefaultThreadFactory
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
-import scala.util.Try
 import scala.util.control.NoStackTrace
 
 trait ApiServer {
@@ -105,23 +102,6 @@ final class LedgerApiServer(
         implicit executionContext: ExecutionContext
     ): Resource[ExecutionSequencerFactory] =
       Resource(Future(new AkkaExecutionSequencerPool(poolName, ActorCount)))(_.closeAsync())
-  }
-
-  private final class EventLoopGroupOwner(threadPoolName: String, parallelism: Int)
-      extends ResourceOwner[EventLoopGroup] {
-    override def acquire()(implicit executionContext: ExecutionContext): Resource[EventLoopGroup] =
-      Resource(
-        Future(new NioEventLoopGroup(
-          parallelism,
-          new DefaultThreadFactory(s"$threadPoolName-grpc-eventloop-${UUID.randomUUID()}", true))))(
-        group => {
-          val promise = Promise[Unit]()
-          val future = group.shutdownGracefully(0, 0, MILLISECONDS)
-          future.addListener((f: io.netty.util.concurrent.Future[_]) =>
-            promise.complete(Try(f.get).map(_ => ())))
-          promise.future
-        }
-      )
   }
 
   private final class GrpcServerOwner(

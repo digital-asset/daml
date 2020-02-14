@@ -11,7 +11,8 @@ import com.digitalasset.ledger.api.testing.utils.SuiteResourceManagementAroundEa
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.sandbox.services.SandboxFixture
-import com.digitalasset.testing.postgresql.{PostgresAroundAll, PostgresAroundEach}
+import com.digitalasset.resources.ResourceOwner
+import com.digitalasset.testing.postgresql.{PostgresAroundAll, PostgresResource}
 import org.scalatest.{Matchers, WordSpec}
 import scalaz.syntax.tag._
 
@@ -44,13 +45,9 @@ sealed trait LedgerIdentityServiceITBaseGiven
 
 final class LedgerIdentityServiceInMemoryGivenIT extends LedgerIdentityServiceITBaseGiven
 
-final class LedgerIdentityServicePostgresGivenIT
-    extends LedgerIdentityServiceITBaseGiven
-    with PostgresAroundAll {
-
-  override protected def config: SandboxConfig =
-    super.config.copy(jdbcUrl = Some(postgresFixture.jdbcUrl))
-
+final class LedgerIdentityServicePostgresGivenIT extends LedgerIdentityServiceITBaseGiven {
+  override protected def database: Option[ResourceOwner[String]] =
+    Some(PostgresResource.owner().map(_.jdbcUrl))
 }
 
 sealed trait LedgerIdentityServiceITBaseDynamic
@@ -87,13 +84,9 @@ sealed trait LedgerIdentityServiceITBaseDynamic
 
 final class LedgerIdentityServiceInMemoryDynamicIT extends LedgerIdentityServiceITBaseDynamic
 
-final class LedgerIdentityServicePostgresDynamicIT
-    extends LedgerIdentityServiceITBaseDynamic
-    with PostgresAroundEach {
-
-  override protected def config: SandboxConfig =
-    super.config.copy(jdbcUrl = Some(postgresFixture.jdbcUrl))
-
+final class LedgerIdentityServicePostgresDynamicIT extends LedgerIdentityServiceITBaseDynamic {
+  override protected def database: Option[ResourceOwner[String]] =
+    Some(PostgresResource.owner().map(_.jdbcUrl))
 }
 
 final class LedgerIdentityServicePostgresDynamicSharedPostgresIT
@@ -113,13 +106,12 @@ final class LedgerIdentityServicePostgresDynamicSharedPostgresIT
 
   @volatile private var firstRunLedgerId: String = _
 
-  // This test relies on inheriting from SuiteResourceManagementAroundEach to restart the ledger across test cases AND
-  // on PostgresAroundAll to share the Postgres instance across restarts to test the peculiar semantics of this case
+  // This test relies on inheriting from SuiteResourceManagementAroundEach to restart the ledger
+  // across test cases AND on PostgresAroundAll to share the Postgres instance across restarts to
+  // test the peculiar semantics of this case
 
   "A platform" when {
-
     "started" should {
-
       "expose a ledger identifer" in {
         firstRunLedgerId = ledgerId().unwrap
         firstRunLedgerId should not be empty
@@ -128,9 +120,6 @@ final class LedgerIdentityServicePostgresDynamicSharedPostgresIT
       "have the assigned random ledger identifier after a restart" in {
         firstRunLedgerId shouldEqual ledgerId().unwrap
       }
-
     }
-
   }
-
 }

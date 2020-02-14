@@ -7,16 +7,16 @@ import java.math.BigDecimal
 import java.time.temporal.ChronoField
 import java.time.{Instant, LocalDate, ZoneOffset}
 
-import com.digitalasset.daml.lf.data.Numeric
 import com.daml.ledger.javaapi.data.{Unit => DamlUnit}
-import org.scalatest.{FlatSpec, Matchers}
+import com.digitalasset.daml.lf.data.Numeric
+import org.scalatest.{AsyncFlatSpec, Matchers}
 import wolpertinger.color.Grey
 import wolpertinger.{Color, Wolpertinger}
 
 import scala.collection.JavaConverters._
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
-class CodegenLedgerTest extends FlatSpec with Matchers {
+class CodegenLedgerTest extends AsyncFlatSpec with Matchers {
 
   import TestUtil._
 

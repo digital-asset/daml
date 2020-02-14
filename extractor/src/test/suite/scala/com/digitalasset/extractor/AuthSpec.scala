@@ -4,8 +4,8 @@
 package com.digitalasset.extractor
 
 import java.nio.file.Files
-import java.time.{Duration, Instant}
 import java.time.temporal.ChronoUnit
+import java.time.{Duration, Instant}
 import java.util.concurrent.atomic.AtomicReference
 
 import com.digitalasset.daml.lf.data.Ref.Party
@@ -88,7 +88,7 @@ final class AuthSpec
   private def noAuth =
     ExtractorConfig(
       "127.0.0.1",
-      ledgerPort = getSandboxPort,
+      ledgerPort = serverPort,
       ledgerInboundMessageSizeMax = 50 * 1024 * 1024,
       LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)),
       SnapshotEndSetting.Head,

@@ -66,21 +66,13 @@ class TlsIT extends AsyncWordSpec with SandboxFixture with SuiteResourceManageme
           Some(privateKeyFilePath),
           Some(trustCertCollectionFilePath))))
 
-  private lazy val clientF = LedgerClient.singleHost(
-    "localhost",
-    getSandboxPort,
-    tlsEnabledConfig
-  )
+  private lazy val clientF = LedgerClient.singleHost(serverHost, serverPort, tlsEnabledConfig)
 
   "A TLS-enabled server" should {
     "reject ledger queries when the client connects without tls" in {
       recoverToSucceededIf[io.grpc.StatusRuntimeException] {
         LedgerClient
-          .singleHost(
-            "localhost",
-            getSandboxPort,
-            tlsEnabledConfig.copy(sslContext = None)
-          )
+          .singleHost(serverHost, serverPort, tlsEnabledConfig.copy(sslContext = None))
           .flatMap(_.transactionClient.getLedgerEnd())
       }
     }

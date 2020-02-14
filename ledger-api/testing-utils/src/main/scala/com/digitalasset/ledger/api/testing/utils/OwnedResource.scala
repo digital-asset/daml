@@ -3,22 +3,22 @@
 
 package com.digitalasset.ledger.api.testing.utils
 
-import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.resources
 
-import scala.concurrent.Await
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.concurrent.{Await, ExecutionContext}
 import scala.reflect.ClassTag
 
 class OwnedResource[T: ClassTag](
     owner: resources.ResourceOwner[T],
-    acquisitionTimeout: FiniteDuration = 10.seconds,
-    releaseTimeout: FiniteDuration = 10.seconds,
-) extends ManagedResource[T] {
+    acquisitionTimeout: FiniteDuration = 30.seconds,
+    releaseTimeout: FiniteDuration = 30.seconds,
+)(implicit executionContext: ExecutionContext)
+    extends ManagedResource[T] {
   private var resource: resources.Resource[T] = _
 
   override def construct(): T = {
-    resource = owner.acquire()(DirectExecutionContext)
+    resource = owner.acquire()
     Await.result(resource.asFuture, acquisitionTimeout)
   }
 
