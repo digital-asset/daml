@@ -320,7 +320,7 @@ testGetDispatchEnv = Tasty.testGroup "DA.Daml.Assistant.Env.getDispatchEnv"
                     , envProjectPath = Just $ ProjectPath (base </> "proj")
                     }
             env <- withEnv [] (getDispatchEnv denv1)
-            denv2 <- withEnv (fmap (fmap Just) env) getDamlEnv
+            denv2 <- withEnv (fmap (fmap Just) env) (getDamlEnv =<< getDamlPath)
             Tasty.assertEqual "daml envs" denv1 denv2
 
     , Tasty.testCase "getDispatchEnv should override getDamlEnv (2)" $ do
@@ -335,7 +335,7 @@ testGetDispatchEnv = Tasty.testGroup "DA.Daml.Assistant.Env.getDispatchEnv"
                     , envProjectPath = Nothing
                     }
             env <- withEnv [] (getDispatchEnv denv1)
-            denv2 <- withEnv (fmap (fmap Just) env) getDamlEnv
+            denv2 <- withEnv (fmap (fmap Just) env) (getDamlEnv =<< getDamlPath)
             Tasty.assertEqual "daml envs" denv1 denv2
     ]
 

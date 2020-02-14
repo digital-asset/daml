@@ -20,7 +20,7 @@ main = defaultMain tests
 tests :: TestTree
 tests = testGroup "Telemetry data limiter"
     [ withResource homeDir (\mbHome -> whenJust mbHome unsetEnv) $ \getHomeDir ->
-      withResource (initialiseGcpState makeNopHandle) (\gcp -> removeFile (sentDataFile gcp)) $ \getGcp ->
+      withResource (initialiseGcpState (GCPConfig "test" Nothing) makeNopHandle) (\gcp -> removeFile (sentDataFile gcp)) $ \getGcp ->
           testCase "Check that limit is triggered" $ do
              _ <- getHomeDir
              gcp <- getGcp

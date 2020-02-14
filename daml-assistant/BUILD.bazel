@@ -80,7 +80,9 @@ da_haskell_binary(
     name = "daml",
     srcs = ["exe/DA/Daml/Assistant.hs"],
     hackage_deps = [
+        "aeson",
         "base",
+        "containers",
         "directory",
         "extra",
         "filepath",
@@ -88,6 +90,7 @@ da_haskell_binary(
         "safe-exceptions",
         "typed-process",
         "text",
+        "unordered-containers",
     ],
     main_function = "DA.Daml.Assistant.main",
     src_strip_prefix = "exe",

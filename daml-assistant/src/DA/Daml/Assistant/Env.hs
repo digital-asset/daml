@@ -30,9 +30,8 @@ import Control.Exception.Safe
 import Data.Maybe
 
 -- | Calculate the environment variables in which to run daml commands.
-getDamlEnv :: IO Env
-getDamlEnv = do
-    envDamlPath <- getDamlPath
+getDamlEnv :: DamlPath -> IO Env
+getDamlEnv envDamlPath = do
     envDamlAssistantSdkVersion <- getDamlAssistantSdkVersion
     envDamlAssistantPath <- getDamlAssistantPath envDamlPath envDamlAssistantSdkVersion
     envProjectPath <- getProjectPath
@@ -212,5 +211,3 @@ getDispatchEnv Env{..} = do
                (versionToString . unwrapDamlAssistantSdkVersion)
                envDamlAssistantSdkVersion)
            ]
-
-

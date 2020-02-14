@@ -7,6 +7,9 @@ module DA.Daml.Assistant
     ) where
 
 import DA.Signals
+import qualified DA.Service.Logger as L
+import qualified DA.Service.Logger.Impl.Pure as L
+import qualified DA.Service.Logger.Impl.GCP as L
 import DA.Daml.Project.Config
 import DA.Daml.Assistant.Types
 import DA.Daml.Assistant.Env
@@ -21,9 +24,13 @@ import System.Process.Typed
 import System.Exit
 import System.IO
 import Control.Exception.Safe
+import qualified Data.Aeson as A
+import qualified Data.HashMap.Strict as HM
+import Data.Char
 import Data.Maybe
 import Data.List.Extra
 import Data.Either.Extra
+import qualified Data.Set as S
 import qualified Data.Text as T
 import Control.Monad.Extra
 import Safe
@@ -38,42 +45,45 @@ main :: IO ()
 -- This means that closing stdin won’t work for things like daml test
 -- but that seems acceptable for now.
 -- In theory, process groups or job control might provide a solution
--- but as Ben Gamari noticed, this is horribly unreliable https://gitlab.haskell.org/ghc/ghc/issues/17777
+-- but as Ben Gamari noticed, this is horribly unreliable
+-- https://gitlab.haskell.org/ghc/ghc/issues/17777
 -- so we are likely to make things worse rather than better.
-main = displayErrors $ do
-    installSignalHandlers
-    builtinCommandM <- tryBuiltinCommand
-    case builtinCommandM of
-        Just builtinCommand -> do
-            env <- getDamlEnv
-            handleCommand env builtinCommand
-        Nothing -> do
-            env@Env{..} <- autoInstall =<< getDamlEnv
+main = do
+    damlPath <- handleErrors L.makeNopHandle getDamlPath
+    withLogger damlPath $ \logger -> handleErrors logger $ do
+        installSignalHandlers
+        builtinCommandM <- tryBuiltinCommand
+        case builtinCommandM of
+            Just builtinCommand -> do
+                env <- getDamlEnv damlPath
+                handleCommand env logger builtinCommand
+            Nothing -> do
+                env@Env{..} <- autoInstall =<< getDamlEnv damlPath
 
-            -- We already know we can't parse the command without an installed SDK.
-            -- So if we can't find it, let the user know. This will happen whenever
-            -- auto-install is disabled and the project or environment specify a
-            -- missing SDK version.
-            case envSdkPath of
-                Nothing -> do
-                    let installTarget
-                            | Just v <- envSdkVersion = versionToString v
-                            | otherwise = "latest"
-                    hPutStr stderr . unlines $
-                        [ "DAML SDK not installed. Cannot run command without SDK."
-                        , "To proceed, please install the SDK by running:"
-                        , ""
-                        , "    daml install " <> installTarget
-                        , ""
-                        ]
-                    exitFailure
-                Just sdkPath -> do
-                    sdkConfig <- readSdkConfig sdkPath
-                    enriched <- hasEnrichedCompletion <$> getArgs
-                    sdkCommands <- fromRightM throwIO (listSdkCommands sdkPath enriched sdkConfig)
-                    userCommand <- getCommand sdkCommands
-                    versionChecks env
-                    handleCommand env userCommand
+                -- We already know we can't parse the command without an installed SDK.
+                -- So if we can't find it, let the user know. This will happen whenever
+                -- auto-install is disabled and the project or environment specify a
+                -- missing SDK version.
+                case envSdkPath of
+                    Nothing -> do
+                        let installTarget
+                                | Just v <- envSdkVersion = versionToString v
+                                | otherwise = "latest"
+                        hPutStr stderr . unlines $
+                            [ "DAML SDK not installed. Cannot run command without SDK."
+                            , "To proceed, please install the SDK by running:"
+                            , ""
+                            , "    daml install " <> installTarget
+                            , ""
+                            ]
+                        exitFailure
+                    Just sdkPath -> do
+                        sdkConfig <- readSdkConfig sdkPath
+                        enriched <- hasEnrichedCompletion <$> getArgs
+                        sdkCommands <- fromRightM throwIO (listSdkCommands sdkPath enriched sdkConfig)
+                        userCommand <- getCommand sdkCommands
+                        versionChecks env
+                        handleCommand env logger userCommand
 
 -- | Perform version checks, i.e. warn user if project SDK version or assistant SDK
 -- versions are out of date with the latest known release.
@@ -148,9 +158,21 @@ autoInstall env@Env{..} = do
     else
         pure env
 
-handleCommand :: Env -> Command -> IO ()
-handleCommand env@Env{..} = \case
+handleCommand :: Env -> L.Handle IO -> Command -> IO ()
+handleCommand env@Env{..} logger command = do
+    runCommand env command
+    args' <- anonimizeArgs
+    L.logJson logger L.Telemetry $ mkLogTable
+        [ ("event", "command")
+        , ("assistant-version", A.String (maybe ""
+            (versionToText . unwrapDamlAssistantSdkVersion)
+            envDamlAssistantSdkVersion))
+        , ("sdk-version", A.String (maybe "" versionToText envSdkVersion))
+        , ("args", A.toJSON args')
+        ]
 
+runCommand :: Env -> Command -> IO ()
+runCommand env@Env{..}  = \case
     Builtin (Version VersionOptions{..}) -> do
         installedVersionsE <- tryAssistant $ getInstalledSdkVersions envDamlPath
         availableVersionsE <- tryAssistant $ refreshAvailableSdkVersions envDamlPath
@@ -239,12 +261,98 @@ dispatch env path args = do
     requiredIO "Failed to spawn command subprocess." $
         runProcess_ (setEnv dispatchEnv $ proc path args)
 
-displayErrors :: IO () -> IO ()
-displayErrors m = m `catches`
-    [ Handler $ \ (e :: AssistantError) -> do
-        hPutStrLn stderr (displayException e)
-        exitFailure
-    , Handler $ \ (e :: ConfigError) -> do
-        hPutStrLn stderr (displayException e)
-        exitFailure
+handleErrors :: forall t. L.Handle IO -> IO t -> IO t
+handleErrors logger m = m `catches`
+    [ Handler (go . displayException @AssistantError)
+    , Handler (go . displayException @ConfigError)
     ]
+  where
+    go :: String -> IO t
+    go err = do
+        hPutStrLn stderr err
+        L.logJson logger L.Error $ mkLogTable
+            [ ("event", "error")
+            , ("message", A.String (T.pack err))
+            ]
+        exitFailure
+
+withLogger :: DamlPath -> (L.Handle IO -> IO ()) -> IO ()
+withLogger damlPath k = do
+    let logOfInterest prio = prio `elem` [L.Telemetry, L.Warning, L.Error]
+        gcpConfig = L.GCPConfig
+            { gcpConfigTag = "assistant"
+            , gcpConfigDamlPath = Just (unwrapDamlPath damlPath)
+            }
+        optedOutPath = unwrapDamlPath damlPath </> ".opted_out"
+        optedInPath = unwrapDamlPath damlPath </> ".opted_in"
+
+    isOptedOut <- doesPathExist optedOutPath
+    isOptedIn <- doesPathExist optedInPath
+    if isOptedIn && not isOptedOut
+        then
+            L.withGcpLogger gcpConfig logOfInterest L.makeNopHandle $ \gcpState logger -> do
+                L.logMetaData gcpState
+                k logger
+        else
+            k L.makeNopHandle
+
+-- | Get the arguments to `daml` and anonimize all but the first.
+-- That way, the daml command doesn't get accidentally anonimized.
+anonimizeArgs :: IO [T.Text]
+anonimizeArgs = do
+    args <- map T.pack <$> getArgs
+    case args of
+        [] -> pure []
+        argsHead : argsTail -> do
+            argsTail' <- concatMapM anonimizeArg argsTail
+            pure (argsHead : argsTail')
+
+-- | Anonimize an argument to `daml`.
+anonimizeArg :: T.Text -> IO [T.Text]
+anonimizeArg arg = do
+    forM (T.splitOn "=" arg) $ \part -> do
+        let partStr = T.unpack part
+        isPath <- doesPathExist partStr
+        pure $ if (part `S.member` argWhitelist) || (isFlag partStr && not isPath)
+            then part
+            else ""
+  where
+    isFlag :: [Char] -> Bool
+    isFlag ['-', _] = True
+    isFlag ('-':'-':cs) = all isFlagChar cs
+    isFlag _ = False
+
+    isFlagChar :: Char -> Bool
+    isFlagChar c = isAlphaNum c || c == '-'
+
+argWhitelist :: S.Set T.Text
+argWhitelist = S.fromList
+    [ "version", "yes", "no", "auto"
+    , "install", "latest", "project"
+    , "uninstall"
+    , "studio", "never", "always", "published"
+    , "new", "skeleton", "quickstart-java", "quickstart-scala", "copy-trigger"
+    , "daml-intro-1", "daml-intro-2", "daml-intro-3", "daml-intro-4"
+    , "daml-intro-5", "daml-intro-6", "daml-intro-7", "script-example"
+    , "migrate"
+    , "init"
+    , "build"
+    , "test"
+    , "start", "none"
+    , "clean"
+    , "damlc", "ide", "license", "package", "docs", "visual", "visual-web", "inspect-dar", "doctest", "lint"
+    , "sandbox", "INFO", "TRACE", "DEBUG", "WARN", "ERROR"
+    , "navigator", "server", "console", "dump-graphql-schema", "create-config", "static", "simulated", "wallclock"
+    , "extractor", "prettyprint", "postgresql"
+    , "ledger", "list-parties", "allocate-parties", "upload-dar"
+    , "codegen", "java", "scala", "ts"
+    , "deploy"
+    , "json-api"
+    , "trigger", "list"
+    , "script"
+    , "test-script"
+    ]
+
+mkLogTable :: [(T.Text, A.Value)] -> A.Value
+mkLogTable fields = A.Object . HM.fromList $
+    ("source", A.String "daml-assistant") : fields
