@@ -84,12 +84,12 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
         val submissionId = newSubmissionId()
         for {
           result <- ps.uploadPackages(submissionId, List(archives.head), sourceDescription).toScala
+          _ = result should be(SubmissionResult.Acknowledged)
           (offset, update) <- ps
             .stateUpdates(beginAfter = None)
             .idleTimeout(IdleTimeout)
             .runWith(Sink.head)
         } yield {
-          result should be(SubmissionResult.Acknowledged)
           offset should be(theOffset(0, 0))
           update.recordTime should be >= rt
           matchPackageUpload(update, submissionId, List(archives.head))
@@ -100,12 +100,12 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
         val submissionId = newSubmissionId()
         for {
           result <- ps.uploadPackages(submissionId, archives, sourceDescription).toScala
+          _ = result should be(SubmissionResult.Acknowledged)
           (offset, update) <- ps
             .stateUpdates(beginAfter = None)
             .idleTimeout(IdleTimeout)
             .runWith(Sink.head)
         } yield {
-          result should be(SubmissionResult.Acknowledged)
           offset should be(theOffset(0, 0))
           update.recordTime should be >= rt
           matchPackageUpload(update, submissionId, archives)
@@ -122,6 +122,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
           result2 <- ps.uploadPackages(subId2, List(archive1), sourceDescription).toScala
           result3 <- ps.uploadPackages(subId3, List(archive2), sourceDescription).toScala
           results = Seq(result1, result2, result3)
+          _ = all(results) should be(SubmissionResult.Acknowledged)
           Seq((offset1, update1), (offset2, update2), (offset3, update3)) <- ps
             .stateUpdates(beginAfter = None)
             .idleTimeout(IdleTimeout)
@@ -129,7 +130,6 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
             .runWith(Sink.seq)
           updates = Seq(update1, update2, update3)
         } yield {
-          all(results) should be(SubmissionResult.Acknowledged)
           all(updates.map(_.recordTime)) should be >= rt
           // first upload arrives as head update:
           offset1 should be(theOffset(0, 0))
@@ -150,12 +150,12 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
 
         for {
           result <- ps.uploadPackages(submissionId, List(badArchive), sourceDescription).toScala
+          _ = result should be(SubmissionResult.Acknowledged)
           (offset, update) <- ps
             .stateUpdates(beginAfter = None)
             .idleTimeout(IdleTimeout)
             .runWith(Sink.head)
         } yield {
-          result should be(SubmissionResult.Acknowledged)
           offset should be(theOffset(0, 0))
           update.recordTime should be >= rt
           inside(update) {
@@ -174,6 +174,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
           result2 <- ps.uploadPackages(submissionIds._1, List(archive1), sourceDescription).toScala
           result3 <- ps.uploadPackages(submissionIds._2, List(archive2), sourceDescription).toScala
           results = Seq(result1, result2, result3)
+          _ = all(results) should be(SubmissionResult.Acknowledged)
           // second submission is a duplicate, it fails silently
           Seq(_, (offset2, update2)) <- ps
             .stateUpdates(beginAfter = None)
@@ -181,7 +182,6 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
             .take(2)
             .runWith(Sink.seq)
         } yield {
-          all(results) should be(SubmissionResult.Acknowledged)
           offset2 should be(theOffset(2, 0))
           update2.recordTime should be >= rt
           inside(update2) {
@@ -201,12 +201,12 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
           result <- ps
             .allocateParty(Some(partyHint), Some(displayName), newSubmissionId())
             .toScala
+          _ = result should be(SubmissionResult.Acknowledged)
           (offset, update) <- ps
             .stateUpdates(beginAfter = None)
             .idleTimeout(IdleTimeout)
             .runWith(Sink.head)
         } yield {
-          result should be(SubmissionResult.Acknowledged)
           offset should be(theOffset(0, 0))
           update.recordTime should be >= rt
           inside(update) {
@@ -223,12 +223,12 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
 
         for {
           result <- ps.allocateParty(hint = None, Some(displayName), newSubmissionId()).toScala
+          _ = result should be(SubmissionResult.Acknowledged)
           (offset, update) <- ps
             .stateUpdates(beginAfter = None)
             .idleTimeout(IdleTimeout)
             .runWith(Sink.head)
         } yield {
-          result should be(SubmissionResult.Acknowledged)
           offset should be(theOffset(0, 0))
           update.recordTime should be >= rt
           inside(update) {
@@ -252,6 +252,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
           result2 <- ps.allocateParty(hints._2, Some(displayNames._2), submissionIds._1).toScala
           result3 <- ps.allocateParty(hints._2, Some(displayNames._2), submissionIds._2).toScala
           results = Seq(result1, result2, result3)
+          _ = all(results) should be(SubmissionResult.Acknowledged)
           // second submission is a duplicate, it fails silently
           Seq(_, (offset2, update2)) <- ps
             .stateUpdates(beginAfter = None)
@@ -259,7 +260,6 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
             .take(2)
             .runWith(Sink.seq)
         } yield {
-          all(results) should be(SubmissionResult.Acknowledged)
           offset2 should be(theOffset(2, 0))
           update2.recordTime should be >= rt
           inside(update2) {
@@ -278,13 +278,13 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
           result1 <- ps.allocateParty(hint, displayName, newSubmissionId()).toScala
           result2 <- ps.allocateParty(hint, displayName, newSubmissionId()).toScala
           results = Seq(result1, result2)
+          _ = all(results) should be(SubmissionResult.Acknowledged)
           Seq(_, (offset2, update2)) <- ps
             .stateUpdates(beginAfter = None)
             .idleTimeout(IdleTimeout)
             .take(2)
             .runWith(Sink.seq)
         } yield {
-          all(results) should be(SubmissionResult.Acknowledged)
           offset2 should be(theOffset(1, 0))
           update2.recordTime should be >= rt
           inside(update2) {
@@ -339,6 +339,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
             )
             .toScala
           results = Seq(result1, result2, result3, result4)
+          _ = all(results) should be(SubmissionResult.Acknowledged)
           Seq((offset1, update1), (offset2, update2), (offset3, update3)) <- ps
             .stateUpdates(beginAfter = None)
             .idleTimeout(IdleTimeout)
@@ -346,7 +347,6 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
             .runWith(Sink.seq)
           updates = Seq(update1, update2, update3)
         } yield {
-          all(results) should be(SubmissionResult.Acknowledged)
           all(updates.map(_.recordTime)) should be >= rt
 
           offset1 should be(theOffset(0, 0))
@@ -378,12 +378,12 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
               emptyTransaction)
             .toScala
           results = Seq(result1, result2, result3)
+          _ = all(results) should be(SubmissionResult.Acknowledged)
           (offset, update) <- ps
             .stateUpdates(beginAfter = Some(theOffset(1, 0)))
             .idleTimeout(IdleTimeout)
             .runWith(Sink.head)
         } yield {
-          all(results) should be(SubmissionResult.Acknowledged)
           offset should be(theOffset(2, 0))
           update.recordTime should be >= rt
           update should be(a[TransactionAccepted])
@@ -548,6 +548,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
             )
             .toScala
           results = Seq(result1, result2, result3)
+          _ = all(results) should be(SubmissionResult.Acknowledged)
 
           // second submission is a duplicate, and is therefore dropped
           Seq(_, (offset2, update2)) <- ps
@@ -556,7 +557,6 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
             .take(2)
             .runWith(Sink.seq)
         } yield {
-          all(results) should be(SubmissionResult.Acknowledged)
           offset2 should be(theOffset(2, 0))
           update2.recordTime should be >= rt
           inside(update2) {
@@ -586,10 +586,9 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
           partyNames.map(name =>
             ps.allocateParty(Some(name), Some(name), newSubmissionId()).toScala),
         )
+        _ = all(results) should be(SubmissionResult.Acknowledged)
         updates <- updatesF
       } yield {
-        all(results) should be(SubmissionResult.Acknowledged)
-
         val expectedOffsets = partyIds.map(i => theOffset(i - 1, 0)).toVector
         val actualOffsets = updates.map(_._1).sorted.toVector
         actualOffsets should be(expectedOffsets)
