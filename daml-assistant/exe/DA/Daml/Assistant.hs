@@ -30,6 +30,7 @@ import Data.Char
 import Data.Maybe
 import Data.List.Extra
 import Data.Either.Extra
+import qualified Data.Set as S
 import qualified Data.Text as T
 import Control.Monad.Extra
 import Safe
@@ -311,13 +312,46 @@ anonimizeArg :: T.Text -> IO [T.Text]
 anonimizeArg arg = do
     forM (T.splitOn "=" arg) $ \part -> do
         let partStr = T.unpack part
-        b <- doesPathExist partStr
-        pure $ if b && all isAcceptableChar partStr
-            then ""
-            else part
+        isPath <- doesPathExist partStr
+        pure $ if (part `S.member` argWhitelist) || (isFlag partStr && not isPath)
+            then part
+            else ""
   where
-    isAcceptableChar :: Char -> Bool
-    isAcceptableChar c = isAlphaNum c || c == '-' || c == '_'
+    isFlag :: [Char] -> Bool
+    isFlag ['-', _] = True
+    isFlag ('-':'-':cs) = all isFlagChar cs
+    isFlag _ = False
+
+    isFlagChar :: Char -> Bool
+    isFlagChar c = isAlphaNum c || c == '-'
+
+argWhitelist :: S.Set T.Text
+argWhitelist = S.fromList
+    [ "version", "yes", "no", "auto"
+    , "install", "latest", "project"
+    , "uninstall"
+    , "studio", "never", "always", "published"
+    , "new", "skeleton", "quickstart-java", "quickstart-scala", "copy-trigger"
+    , "daml-intro-1", "daml-intro-2", "daml-intro-3", "daml-intro-4"
+    , "daml-intro-5", "daml-intro-6", "daml-intro-7", "script-example"
+    , "migrate"
+    , "init"
+    , "build"
+    , "test"
+    , "start", "none"
+    , "clean"
+    , "damlc", "ide", "license", "package", "docs", "visual", "visual-web", "inspect-dar", "doctest", "lint"
+    , "sandbox", "INFO", "TRACE", "DEBUG", "WARN", "ERROR"
+    , "navigator", "server", "console", "dump-graphql-schema", "create-config", "static", "simulated", "wallclock"
+    , "extractor", "prettyprint", "postgresql"
+    , "ledger", "list-parties", "allocate-parties", "upload-dar"
+    , "codegen", "java", "scala", "ts"
+    , "deploy"
+    , "json-api"
+    , "trigger", "list"
+    , "script"
+    , "test-script"
+    ]
 
 mkLogTable :: [(T.Text, A.Value)] -> A.Value
 mkLogTable fields = A.Object . HM.fromList $
