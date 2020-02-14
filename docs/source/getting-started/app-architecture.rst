@@ -74,13 +74,14 @@ The UI
 ======
 
 Our UI is written using `React <https://reactjs.org/>`_ and `TypeScript <https://www.typescriptlang.org/>`_.
-React helps us write modular UI components through the judicious use of both state and "props" (arguments passed to components).
+React helps us write modular UI components using a functional style - a component is rerendered whenever one of its inputs changes - combined with a judicious use of global state.
 
-The interesting thing is how we interact with the DAML ledger from the UI, specifically through React.
-One can think of the ledger as a global state that we read and write from different components of the UI.
-Since React usually promotes all data being passed as arguments (called *props*) to different components, we use a state management feature called `Hooks <https://reactjs.org/docs/hooks-intro.html>`_.
+We can see the latter in the way we handle ledger state throughout the application code.
+For this we use a state management feature in React called `Hooks <https://reactjs.org/docs/hooks-intro.html>`_.
 You can see the capabilities of the DAML React hooks in ``create-daml-app/ui/src/daml-react-hooks/hooks.ts``.
 For example, we can query the ledger for all visible contracts (relative to a particular user), create contracts and exercise choices on contracts.
+
+.. TODO Update location to view DAML react hooks API
 
 Let's see some examples of DAML React hooks.
 
