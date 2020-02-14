@@ -476,7 +476,7 @@ mkDataDecl env thisModule occName tyVars cons = do
                 }
         }
 
--- | Make a binding of the form "x = x". If a qualified name is passed,
+-- | Make a binding of the form "x = error \"data-dependency stub\"". If a qualified name is passed,
 -- we turn the left-hand side into the unqualified form of that name (LHS
 -- must always be unqualified), and the right-hand side remains qualified.
 mkStubBind :: Env -> Located RdrName -> Gen (HsBind GhcPs)
