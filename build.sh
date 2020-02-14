@@ -22,7 +22,7 @@ ARTIFACT_DIRS="${BUILD_ARTIFACTSTAGINGDIRECTORY:-$PWD}"
   # overload machines.
   # This also appears to be what Google uses internally, see
   # https://github.com/bazelbuild/bazel/issues/6394#issuecomment-436234594.
-  bazel build -j 200 //... --experimental_execution_log_file "$ARTIFACT_DIRS/build_execution${execution_log_postfix}.log"
+  bazel build -j 200 //...
 )
 tag_filter=""
 if [[ "$execution_log_postfix" == "_Darwin" ]]; then
