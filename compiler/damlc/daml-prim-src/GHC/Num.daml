@@ -16,6 +16,7 @@ module GHC.Num
   , Signed (..)
   , Number (..)
   , (%)
+  , subtract
   ) where
 
 import GHC.Base
@@ -57,6 +58,14 @@ class Additive a  where
     -- | Negate the argument: `x + negate x` = `aunit`
     negate              : a -> a
     negate x            = aunit - x
+
+-- | `subtract x y` is equivalent to `y - x`.
+--
+-- This is useful for partial application, e.g., in `subtract 1` since `(- 1)` is
+-- interpreted as the number `-1` and not a function that subtracts `1` from
+-- its argument.
+subtract : Additive a => a -> a -> a
+subtract x y = y - x
 
 -- | Use the `Multiplicative` class for types that can be multiplied.
 -- Instances have to respect the following laws:
