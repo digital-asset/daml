@@ -72,6 +72,8 @@ object RunnerConfig {
       }
       .text("Path to a file containing the input value for the script in JSON format.")
 
+    help("help").text("Print this usage text")
+
     checkConfig(c => {
       if (c.ledgerHost.isDefined != c.ledgerPort.isDefined) {
         failure("Must specify both --ledger-host and --ledger-port")

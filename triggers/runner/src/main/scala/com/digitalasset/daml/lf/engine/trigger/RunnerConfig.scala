@@ -70,6 +70,8 @@ object RunnerConfig {
       }
       .text("File from which the access token will be read, required to interact with an authenticated ledger")
 
+    help("help").text("Print this usage text")
+
     cmd("list")
       .action((_, c) => c.copy(listTriggers = true))
       .text("List the triggers in the DAR.")
