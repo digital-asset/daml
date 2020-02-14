@@ -12,8 +12,7 @@ import com.digitalasset.http.domain.{JwtPayload, SearchForeverRequest}
 import com.digitalasset.http.json.{DomainJsonDecoder, DomainJsonEncoder, JsonProtocol, SprayJson}
 import com.digitalasset.http.LedgerClientJwt.Terminates
 import util.ApiValueToLfValueConverter.apiValueToLfValue
-import util.Collections._
-import util.InsertDeleteStep
+import util.{ContractStreamStep, InsertDeleteStep}
 import json.JsonProtocol.LfValueCodec.{apiValueToJsValue => lfValueToJsValue}
 import query.ValuePredicate.{LfV, TypeLookup}
 import com.digitalasset.jwt.domain.Jwt
@@ -31,7 +30,7 @@ import scalaz.std.map._
 import scalaz.std.set._
 import scalaz.std.tuple._
 import scalaz.{-\/, Show, \/, \/-}
-import spray.json.{JsObject, JsString, JsValue}
+import spray.json.{JsObject, JsString, JsTrue, JsValue}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -46,6 +45,7 @@ object WebSocketService {
   )
 
   val heartBeat: String = JsObject("heartbeat" -> JsString("ping")).compactPrint
+  private val liveMarker = JsObject("live" -> JsTrue)
 
   private implicit final class `\\/ WSS extras`[L, R](private val self: L \/ R) extends AnyVal {
     def liftErr[M](f: String => M)(implicit L: Show[L]): M \/ R =
@@ -54,21 +54,27 @@ object WebSocketService {
 
   private final case class StepAndErrors[+Pos, +LfV](
       errors: Seq[ServerError],
-      step: InsertDeleteStep[domain.ArchivedContract, (domain.ActiveContract[LfV], Pos)]) {
+      step: ContractStreamStep[domain.ArchivedContract, (domain.ActiveContract[LfV], Pos)]) {
     import json.JsonProtocol._, spray.json._
-    def render(implicit lfv: LfV <~< JsValue, pos: Pos <~< Map[String, JsValue]): JsValue = {
-      def inj[V: JsonWriter](ctor: String, v: V) = JsObject(ctor -> v.toJson)
-      val thisw =
-        Liskov.lift2[StepAndErrors, Pos, Map[String, JsValue], LfV, JsValue](pos, lfv)(this)
-      val events = JsArray(
-        step.deletes.valuesIterator.map(inj("archived", _)).toVector
-          ++ thisw.step.inserts.map {
-            case (ac, pos) =>
-              val acj = inj("created", ac)
-              acj copy (fields = acj.fields ++ pos)
-          } ++ errors.map(e => inj("error", e.message)))
-      JsObject(("events", events))
-    }
+    def render(implicit lfv: LfV <~< JsValue, pos: Pos <~< Map[String, JsValue]): JsValue =
+      step match {
+        case ContractStreamStep.LiveBegin => liveMarker
+        case _ =>
+          def inj[V: JsonWriter](ctor: String, v: V) = JsObject(ctor -> v.toJson)
+          val InsertDeleteStep(inserts, deletes) =
+            Liskov
+              .lift2[StepAndErrors, Pos, Map[String, JsValue], LfV, JsValue](pos, lfv)(this)
+              .step
+              .toInsertDelete
+          val events = JsArray(
+            deletes.valuesIterator.map(inj("archived", _)).toVector
+              ++ inserts.map {
+                case (ac, pos) =>
+                  val acj = inj("created", ac)
+                  acj copy (fields = acj.fields ++ pos)
+              } ++ errors.map(e => inj("error", e.message)))
+          JsObject(("events", events))
+      }
 
     def append[P >: Pos, A >: LfV](o: StepAndErrors[P, A]): StepAndErrors[P, A] =
       StepAndErrors(errors ++ o.errors, step append o.step)
@@ -82,12 +88,22 @@ object WebSocketService {
     def nonEmpty: Boolean = errors.nonEmpty || step.nonEmpty
   }
 
-  private def conflation[P, A]: Flow[StepAndErrors[P, A], StepAndErrors[P, A], NotUsed] =
+  private def conflation[P, A]: Flow[StepAndErrors[P, A], StepAndErrors[P, A], NotUsed] = {
+    val maxCost = 200L
     Flow[StepAndErrors[P, A]]
-      .batchWeighted(max = 200, costFn = {
-        case StepAndErrors(errors, InsertDeleteStep(inserts, deletes)) =>
-          errors.length.toLong + (inserts.length * 2) + deletes.size
-      }, identity)(_ append _)
+      .batchWeighted(
+        max = maxCost,
+        costFn = {
+          case StepAndErrors(_, ContractStreamStep.LiveBegin) =>
+            // this is how we avoid conflating LiveBegin
+            maxCost
+          case StepAndErrors(errors, step) =>
+            val InsertDeleteStep(inserts, deletes) = step.toInsertDelete
+            errors.length.toLong + (inserts.length * 2) + deletes.size
+        },
+        identity
+      )(_ append _)
+  }
 
   trait StreamQuery[A] {
 
@@ -313,18 +329,24 @@ class WebSocketService(
     else Flow[StepAndErrors[A, B]]
 
   private def removePhantomArchives_[A, B]
-    : Flow[StepAndErrors[A, B], StepAndErrors[A, B], NotUsed] =
+    : Flow[StepAndErrors[A, B], StepAndErrors[A, B], NotUsed] = {
+    import ContractStreamStep.{LiveBegin, Txn}
     Flow[StepAndErrors[A, B]]
       .scan((Set.empty[String], Option.empty[StepAndErrors[A, B]])) {
-        case ((s0, _), a0) =>
-          val newInserts: Vector[String] = a0.step.inserts.map(_._1.contractId.unwrap)
-          val (deletesToEmit, deletesToHold) = s0 partition a0.step.deletes.keySet
+        case ((s0, _), a0 @ StepAndErrors(_, Txn(idstep))) =>
+          val newInserts: Vector[String] = idstep.inserts.map(_._1.contractId.unwrap)
+          val (deletesToEmit, deletesToHold) = s0 partition idstep.deletes.keySet
           val s1: Set[String] = deletesToHold ++ newInserts
-          val a1 = a0.copy(step = a0.step.copy(deletes = a0.step.deletes filterKeys deletesToEmit))
+          val a1 = a0.copy(
+            step = a0.step.mapStep(_ copy (deletes = idstep.deletes filterKeys deletesToEmit)))
 
           (s1, if (a1.nonEmpty) Some(a1) else None)
+
+        case ((s0, _), a0 @ StepAndErrors(_, LiveBegin)) =>
+          (s0, Some(a0))
       }
       .collect { case (_, Some(x)) => x }
+  }
 
   private[http] def wsErrorMessage(errorMsg: String): TextMessage.Strict =
     TextMessage(
@@ -340,29 +362,27 @@ class WebSocketService(
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def convertFilterContracts[Pos](fn: domain.ActiveContract[LfV] => Option[Pos])
-    : Flow[InsertDeleteStep.LAV1, StepAndErrors[Pos, JsValue], NotUsed] =
+    : Flow[ContractStreamStep.LAV1, StepAndErrors[Pos, JsValue], NotUsed] =
     Flow
-      .fromFunction { step: InsertDeleteStep.LAV1 =>
-        val (errors, cs) = step.inserts
-          .partitionMap { ce =>
+      .fromFunction { step: ContractStreamStep.LAV1 =>
+        val (aerrors, errors, dstep) = step.partitionBimap(
+          ae =>
+            domain.ArchivedContract
+              .fromLedgerApi(ae)
+              .liftErr(ServerError),
+          ce =>
             domain.ActiveContract
               .fromLedgerApi(ce)
               .liftErr(ServerError)
-              .flatMap(_.traverse(apiValueToLfValue).liftErr(ServerError))
-          }
-        val (aerrors, archs) = step.deletes
-          .partitionMap {
-            case (k, ae) =>
-              domain.ArchivedContract
-                .fromLedgerApi(ae)
-                .liftErr(ServerError)
-                .map((k, _))
-          }
+              .flatMap(_.traverse(apiValueToLfValue).liftErr(ServerError)),
+        )
         StepAndErrors(
           errors ++ aerrors,
-          step copy (inserts = (cs: Vector[domain.ActiveContract[LfV]]).flatMap { ac =>
-            fn(ac).map((ac, _)).toList
-          }, deletes = archs)
+          dstep mapStep (insDel =>
+            insDel copy (inserts = (insDel.inserts: Vector[domain.ActiveContract[LfV]]).flatMap {
+              ac =>
+                fn(ac).map((ac, _)).toList
+            }))
         )
       }
       .via(conflation)

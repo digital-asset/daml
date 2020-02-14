@@ -28,7 +28,7 @@ import com.digitalasset.http.json.JsonProtocol.LfValueDatabaseCodec.{
   apiValueToJsValue => lfValueToDbJsValue,
 }
 import com.digitalasset.http.util.IdentifierConverters.apiIdentifier
-import util.InsertDeleteStep
+import util.{ContractStreamStep, InsertDeleteStep}
 import com.digitalasset.util.ExceptionOps._
 import com.digitalasset.jwt.domain.Jwt
 import com.digitalasset.ledger.api.v1.transaction.Transaction
@@ -193,7 +193,7 @@ private class ContractsFetch(
               transactionFilter(party, List(templateId)),
               true,
             )
-            (stepsAndOffset.out0, stepsAndOffset.out1)
+            (stepsAndOffset.out0.map(_.toInsertDelete).outlet, stepsAndOffset.out1)
 
           case AbsoluteBookmark(_) =>
             val stepsAndOffset = builder add transactionsFollowingBoundary(txnK)
@@ -326,17 +326,21 @@ private[http] object ContractsFetch {
   ): Graph[
     FanOutShape2[
       lav1.active_contracts_service.GetActiveContractsResponse,
-      InsertDeleteStep.LAV1,
+      ContractStreamStep.LAV1,
       BeginBookmark[String]],
     NotUsed] =
     GraphDSL.create() { implicit b =>
       import GraphDSL.Implicits._
+      import ContractStreamStep.{LiveBegin, acs => Acs, Txn}
       val acs = b add acsAndBoundary
       val txns = b add transactionsFollowingBoundary(transactionsSince)
-      val allSteps = b add Concat[InsertDeleteStep.LAV1](2)
-      discard { acs.out0.map(sce => InsertDeleteStep(sce.toVector, Map.empty)) ~> allSteps }
-      discard { allSteps <~ txns.out0 }
+      val allSteps = b add Concat[ContractStreamStep.LAV1](3)
+      // format: off
+      discard { acs.out0.map(ces => Acs(ces.toVector)) ~> allSteps }
+      discard {      Source.single(LiveBegin)          ~> allSteps }
+      discard {             txns.out0.map(Txn(_))      ~> allSteps }
       discard { acs.out1 ~> txns.in }
+      // format: on
       new FanOutShape2(acs.in, allSteps.out, txns.out1)
     }
 
@@ -363,11 +367,16 @@ private[http] object ContractsFetch {
         .map(transactionToInsertsAndDeletes)
       val txnSplit = b add project2[InsertDeleteStep.LAV1, domain.Offset]
       val lastOff = b add last(LedgerBegin: Off)
-      discard { dupOff ~> txns ~> txnSplit.in }
-      discard { dupOff ~> mergeOff ~> lastOff }
+      // format: off
+      discard { txnSplit.in <~ txns <~ dupOff }
+      discard {                        dupOff                          ~> mergeOff ~> lastOff }
       discard { txnSplit.out1.map(off => AbsoluteBookmark(off.unwrap)) ~> mergeOff }
+      // format: on
       new FanOutShape2(dupOff.in, txnSplit.out0, lastOff.out)
     }
+
+  private[this] def createdEventsIDS[C](seq: Seq[C]): InsertDeleteStep[Nothing, C] =
+    InsertDeleteStep(seq.toVector, Map.empty)
 
   /** Split a series of ACS responses into two channels: one with contracts, the
     * other with a single result, the last offset.
