@@ -5,6 +5,7 @@ package com.daml.ledger.api.testtool.tests
 
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
+import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
 import com.digitalasset.ledger.api.v1.event.CreatedEvent
@@ -37,6 +38,7 @@ final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(sessio
     case TestParticipants(t) =>
       for {
         contractId <- t.alpha.create(t.giver, WithObservers(t.giver, t.observers))
+        _ <- synchronize(t.alpha, t.beta)
         alphaTransactionsByParty <- transactionsForEachParty(t.alpha, t.alphaParties)
         betaTransactionsByParty <- transactionsForEachParty(t.beta, t.betaParties)
       } yield {
@@ -62,6 +64,7 @@ final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(sessio
     case TestParticipants(t) =>
       for {
         contractId <- t.alpha.create(t.giver, WithObservers(t.giver, t.observers))
+        _ <- synchronize(t.alpha, t.beta)
         alphaTransactions <- t.alpha.flatTransactions(t.alphaParties: _*)
         betaTransactions <- t.beta.flatTransactions(t.betaParties: _*)
       } yield {
@@ -87,6 +90,7 @@ final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(sessio
     case TestParticipants(t) =>
       for {
         contractId <- t.alpha.create(t.giver, WithObservers(t.giver, t.observers))
+        _ <- synchronize(t.alpha, t.beta)
         alphaContractsByParty <- activeContractsForEachParty(t.alpha, t.alphaParties)
         betaContractsByParty <- activeContractsForEachParty(t.beta, t.betaParties)
       } yield {
@@ -112,6 +116,7 @@ final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(sessio
     case TestParticipants(t) =>
       for {
         contractId <- t.alpha.create(t.giver, WithObservers(t.giver, t.observers))
+        _ <- synchronize(t.alpha, t.beta)
         alphaContracts <- t.alpha.activeContracts(t.alphaParties: _*)
         betaContracts <- t.beta.activeContracts(t.betaParties: _*)
       } yield {
