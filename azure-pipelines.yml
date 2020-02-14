@@ -21,6 +21,7 @@ pr:
 
 jobs:
   - job: git_sha
+    condition: false
     pool:
       name: 'linux-pool'
     steps:
@@ -38,7 +39,7 @@ jobs:
         name: out
 
   - job: check_standard_change_label
-    condition: eq(variables['Build.Reason'], 'PullRequest')
+    condition: false #eq(variables['Build.Reason'], 'PullRequest')
     pool:
       name: 'linux-pool'
     steps:
@@ -61,7 +62,7 @@ jobs:
           PR: $(System.PullRequest.PullRequestNumber)
 
   - job: check_changelog_entry
-    condition: eq(variables['Build.Reason'], 'PullRequest')
+    condition: false #eq(variables['Build.Reason'], 'PullRequest')
     pool:
       name: 'linux-pool'
     steps:
@@ -78,7 +79,7 @@ jobs:
       is_release: $[ dependencies.check_for_release.outputs['out.is_release'] ]
     timeoutInMinutes: 360
     pool:
-      name: 'linux-pool'
+      name: 'garys-linux-pool'
     steps:
       - template: ci/report-start.yml
       - checkout: self
@@ -105,6 +106,7 @@ jobs:
   - job: macOS
     dependsOn:
       - check_for_release
+    condition: false
     timeoutInMinutes: 360
     pool:
       vmImage: 'macOS-10.14'
@@ -150,7 +152,7 @@ jobs:
       is_release: $[ dependencies.check_for_release.outputs['out.is_release'] ]
     timeoutInMinutes: 360
     pool:
-      name: 'windows-pool'
+      name: 'garys-windows-pool'
     steps:
       - template: ci/report-start.yml
       - checkout: self
@@ -170,6 +172,7 @@ jobs:
   - job: check_for_release
     dependsOn:
       - git_sha
+    condition: false
     variables:
       branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
       fork_sha: $[ dependencies.git_sha.outputs['out.fork_point'] ]
@@ -200,7 +203,7 @@ jobs:
 
   - job: release
     dependsOn: [ "check_for_release", "Linux", "macOS", "Windows" ]
-    condition: and(succeeded(),
+    condition: and(false, succeeded(),
                    eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
                    eq(variables['Build.SourceBranchName'], 'master'))
     pool:
@@ -283,7 +286,7 @@ jobs:
     dependsOn: [ "check_for_release" ]
     pool:
       vmImage: "Ubuntu-16.04"
-    condition: and(eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
+    condition: and(false, eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
                    eq(variables['Build.SourceBranchName'], 'master'))
     variables:
       release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
@@ -317,7 +320,7 @@ jobs:
       - template: ci/tell-slack-failed.yml
 
   - job: collect_build_data
-    condition: always()
+    condition: false #always()
     dependsOn:
       - Linux
       - macOS
@@ -495,7 +498,7 @@ jobs:
           PR_BRANCH: $(pr.branch)
 
   - job: notify_user
-    condition: eq(variables['Build.Reason'], 'PullRequest')
+    condition: false #eq(variables['Build.Reason'], 'PullRequest')
     dependsOn:
       - git_sha
       - collect_build_data

@@ -1,14 +1,14 @@
 # Bazel distributed cache, can be temporarily disabled by passing the following
 # flag: --noremote_accept_cached
-build:darwin --remote_http_cache=https://bazel-cache.da-ext.net
-build:linux --remote_http_cache=https://bazel-cache.da-ext.net
-build:windows-ci --remote_http_cache=https://bazel-cache.da-ext.net
+#build:darwin --remote_http_cache=https://bazel-cache.da-ext.net
+#build:linux --remote_http_cache=https://bazel-cache.da-ext.net
+#build:windows-ci --remote_http_cache=https://bazel-cache.da-ext.net
 build --remote_upload_local_results=false
 # Enable the disk cache in addition to the http cache.
-build:linux --disk_cache=.bazel-cache/disk
-build:darwin --disk_cache=.bazel-cache/disk
-fetch:linux --repository_cache=.bazel-cache/repo
-fetch:darwin --repository_cache=.bazel-cache/repo
+#build:linux --disk_cache=.bazel-cache/disk
+#build:darwin --disk_cache=.bazel-cache/disk
+#fetch:linux --repository_cache=.bazel-cache/repo
+#fetch:darwin --repository_cache=.bazel-cache/repo
 
 # Improve remote cache hit rate by exluding environment variables from the
 # sandbox that are not whitelisted using --action_env.
