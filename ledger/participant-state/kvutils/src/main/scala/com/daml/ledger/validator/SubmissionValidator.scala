@@ -15,8 +15,7 @@ import com.daml.ledger.validator.ValidationResult.{
   SubmissionValidated,
   TransformedSubmission,
   ValidationError,
-  ValidationFailed,
-  ValidationResult
+  ValidationFailed
 }
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.Engine
@@ -122,7 +121,7 @@ class SubmissionValidator(
         val declaredInputs = submission.getInputDamlStateList.asScala
         val inputKeysAsBytes = declaredInputs.map(keyToBytes)
         ledgerStateAccess.inTransaction { stateOperations =>
-          for {
+          val result = for {
             readStateValues <- stateOperations.readState(inputKeysAsBytes)
             readStateInputs = readStateValues.zip(declaredInputs).map {
               case (valueBytes, key) => (key, valueBytes.map(bytesToStateValue))
@@ -130,31 +129,27 @@ class SubmissionValidator(
             damlLogEntryId = allocateLogEntryId()
             readInputs: Map[DamlStateKey, Option[DamlStateValue]] = readStateInputs.toMap
             missingInputs = declaredInputs.toSet -- readInputs.filter(_._2.isDefined).keySet
-            finalResult <- if (checkForMissingInputs && missingInputs.nonEmpty) {
-              Future.successful(Left(MissingInputState(missingInputs.map(keyToBytes).toSeq)))
-            } else {
-              val postProcessedResult = for {
-                logEntryAndState <- Future.fromTry(
-                  Try(
-                    processSubmission(
-                      damlLogEntryId,
-                      recordTime,
-                      submission,
-                      participantId,
-                      readInputs)))
-                result <- postProcessResult(
-                  damlLogEntryId,
-                  flattenInputStates(readInputs),
-                  logEntryAndState,
-                  stateOperations)
-              } yield result
-              postProcessedResult.transform {
-                case Failure(exception) =>
-                  Success(Left(ValidationError(exception.getLocalizedMessage)))
-                case Success(result) => Success(Right(TransformedSubmission(result)))
-              }
-            }
-          } yield finalResult
+            _ <- if (checkForMissingInputs && missingInputs.nonEmpty)
+              Future.failed(MissingInputState(missingInputs.map(keyToBytes).toSeq))
+            else
+              Future.unit
+            logEntryAndState <- Future.fromTry(Try(
+              processSubmission(damlLogEntryId, recordTime, submission, participantId, readInputs)))
+            result <- postProcessResult(
+              damlLogEntryId,
+              flattenInputStates(readInputs),
+              logEntryAndState,
+              stateOperations,
+            )
+          } yield result
+          result.transform {
+            case Success(result) =>
+              Success(Right(TransformedSubmission(result)))
+            case Failure(exception: ValidationFailed) =>
+              Success(Left(exception))
+            case Failure(exception) =>
+              Success(Left(ValidationError(exception.getLocalizedMessage)))
+          }
         }
       case _ =>
         Future.successful(
