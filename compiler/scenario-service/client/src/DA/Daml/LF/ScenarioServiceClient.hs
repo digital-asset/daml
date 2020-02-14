@@ -27,7 +27,7 @@ module DA.Daml.LF.ScenarioServiceClient
 import Control.Concurrent.Extra
 import Control.DeepSeq
 import Control.Exception
-import Control.Monad.IO.Class
+import Control.Monad.Except
 import qualified Data.ByteString as BS
 import Data.Hashable
 import Data.IORef
@@ -68,7 +68,9 @@ data Handle = Handle
   -- ^ Used to make updating and cloning a context via getNewCtx atomic.
   , hLoadedPackages :: IORef (S.Set LF.PackageId)
   , hLoadedModules :: IORef (MS.Map Hash (LF.ModuleName, BS.ByteString))
-  , hContextId :: LowLevel.ContextId
+  , hContextId :: IORef LowLevel.ContextId
+  -- ^ The root context id, this is mutable so that rather than mutating the context
+  -- we can clone it and update the clone which allows us to safely interrupt a context update.
   }
 
 withSem :: QSemN -> IO a -> IO a
@@ -79,11 +81,12 @@ withScenarioService hOptions f = do
   LowLevel.withScenarioService (toLowLevelOpts hOptions) $ \hLowLevelHandle ->
       bracket
          (either (\err -> fail $ "Failed to start scenario service: " <> show err) pure =<< LowLevel.newCtx hLowLevelHandle)
-         (LowLevel.deleteCtx hLowLevelHandle) $ \hContextId -> do
+         (LowLevel.deleteCtx hLowLevelHandle) $ \rootCtxId -> do
              hLoadedPackages <- liftIO $ newIORef S.empty
              hLoadedModules <- liftIO $ newIORef MS.empty
              hConcurrencySem <- liftIO $ newQSemN (optMaxConcurrency hOptions)
              hContextLock <- liftIO newLock
+             hContextId <- liftIO $ newIORef rootCtxId
              f Handle {..} `finally`
                  -- Wait for gRPC requests to exit, otherwise gRPC gets very unhappy.
                  liftIO (waitQSemN hConcurrencySem $ optMaxConcurrency hOptions)
@@ -142,23 +145,30 @@ getNewCtx Handle{..} Context{..} = withLock hContextLock $ withSem hConcurrencyS
       (S.toList unloadPackages)
       ctxDamlLfVersion
       ctxSkipValidation
-  writeIORef hLoadedPackages newLoadedPackages
-  writeIORef hLoadedModules ctxModules
-  res <- LowLevel.updateCtx hLowLevelHandle hContextId ctxUpdate
-  case res of
-    Left err -> pure (Left err)
-    Right () -> LowLevel.cloneCtx hLowLevelHandle hContextId
+  rootCtxId <- readIORef hContextId
+  runExceptT $ do
+      clonedRootCtxId <- ExceptT $ LowLevel.cloneCtx hLowLevelHandle rootCtxId
+      () <- ExceptT $ LowLevel.updateCtx hLowLevelHandle clonedRootCtxId ctxUpdate
+      -- Update successful, now atomically update our local state and the root context id.
+      -- If we get interrupted before this stage, the new context will just be garbage collected.
+      liftIO $ mask_ $ do
+          writeIORef hLoadedPackages newLoadedPackages
+          writeIORef hLoadedModules ctxModules
+          writeIORef hContextId clonedRootCtxId
+      -- clone again so that the returned context is independent of the root context
+      ExceptT $ LowLevel.cloneCtx hLowLevelHandle clonedRootCtxId
 
 deleteCtx :: Handle -> LowLevel.ContextId -> IO (Either LowLevel.BackendError ())
 deleteCtx Handle{..} ctxId = withSem hConcurrencySem $
   LowLevel.deleteCtx hLowLevelHandle ctxId
 
 gcCtxs :: Handle -> [LowLevel.ContextId] -> IO (Either LowLevel.BackendError ())
-gcCtxs Handle{..} ctxIds = withLock hContextLock $ withSem hConcurrencySem $
+gcCtxs Handle{..} ctxIds = withLock hContextLock $ withSem hConcurrencySem $ do
+    rootCtxId <- readIORef hContextId
     -- We never want to GC the root context so we always add that
     -- explicitly. Adding it twice is harmless so we do not check
     -- if it is already present.
-    LowLevel.gcCtxs hLowLevelHandle (hContextId : ctxIds)
+    LowLevel.gcCtxs hLowLevelHandle (rootCtxId : ctxIds)
 
 encodeModule :: LF.Version -> LF.Module -> (Hash, BS.ByteString)
 encodeModule v m = (Hash $ hash m', m')
