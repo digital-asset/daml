@@ -218,12 +218,10 @@ object SubmissionValidator {
   }
 
   private[validator] def keyToBytes(damlStateKey: DamlStateKey): RawBytes =
-    KeyValueCommitting.packDamlStateKey(damlStateKey).toByteArray
+    damlStateKey.toByteArray
 
   private[validator] def valueToBytes(value: DamlStateValue): RawBytes =
-    Envelope
-      .enclose(value)
-      .toByteArray
+    Envelope.enclose(value).toByteArray
 
   private[validator] def bytesToStateValue(value: RawBytes): DamlStateValue =
     Envelope.openStateValue(value).right.get
