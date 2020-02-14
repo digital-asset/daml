@@ -5,6 +5,7 @@
 -- | Utilities for working with DAML-LF protobuf archives
 module DA.Daml.LF.Proto3.Archive
   ( decodeArchive
+  , decodeArchivePayload
   , encodeArchive
   , encodeArchiveLazy
   , encodeArchiveAndHash
@@ -51,6 +52,17 @@ data DecodingMode
 -- | Decode a LF archive header, returing the hash and the payload
 decodeArchive :: DecodingMode -> BS.ByteString -> Either ArchiveError (LF.PackageId, LF.Package)
 decodeArchive mode bytes = do
+    (packageId, payloadBytes) <- decodeArchivePayload bytes
+    let selfPackageRef = case mode of
+            DecodeAsMain -> LF.PRSelf
+            DecodeAsDependency -> LF.PRImport packageId
+
+    payload <- over _Left (ProtobufError . show) $ Proto.fromByteString payloadBytes
+    package <- over _Left (ProtobufError. show) $ Decode.decodePayload selfPackageRef payload
+    return (packageId, package)
+
+decodeArchivePayload :: BS.ByteString -> Either ArchiveError (LF.PackageId, BS.ByteString)
+decodeArchivePayload bytes = do
     archive <- over _Left (ProtobufError . show) $ Proto.fromByteString bytes
     let payloadBytes = ProtoLF.archivePayload archive
     let archiveHash = TL.toStrict (ProtoLF.archiveHash archive)
@@ -64,13 +76,7 @@ decodeArchive mode bytes = do
     when (computedHash /= archiveHash) $
       Left (HashMismatch archiveHash computedHash)
     let packageId = LF.PackageId archiveHash
-    let selfPackageRef = case mode of
-            DecodeAsMain -> LF.PRSelf
-            DecodeAsDependency -> LF.PRImport packageId
-
-    payload <- over _Left (ProtobufError . show) $ Proto.fromByteString payloadBytes
-    package <- over _Left (ProtobufError. show) $ Decode.decodePayload selfPackageRef payload
-    return (packageId, package)
+    pure (packageId, payloadBytes)
 
 
 -- | Encode a LFv1 package payload into a DAML-LF archive using the default
