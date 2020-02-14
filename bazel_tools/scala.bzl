@@ -405,6 +405,7 @@ def _create_scaladoc_jar(**kwargs):
             srcs = kwargs["srcs"],
             scalacopts = kwargs.get("scalacopts", []),
             generated_srcs = kwargs.get("generated_srcs", []),
+            tags = ["dont-run-on-darwin"],
         )
 
 def da_scala_library(name, unused_dependency_checker_mode = "error", **kwargs):

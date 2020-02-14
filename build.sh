@@ -13,6 +13,11 @@ export LC_ALL=en_US.UTF-8
 
 ARTIFACT_DIRS="${BUILD_ARTIFACTSTAGINGDIRECTORY:-$PWD}"
 
+tag_filter=""
+if [[ "$execution_log_postfix" == "_Darwin" ]]; then
+  tag_filter="-dont-run-on-darwin"
+fi
+
 # Bazel test only builds targets that are dependencies of a test suite
 # so do a full build first.
 (
@@ -22,12 +27,8 @@ ARTIFACT_DIRS="${BUILD_ARTIFACTSTAGINGDIRECTORY:-$PWD}"
   # overload machines.
   # This also appears to be what Google uses internally, see
   # https://github.com/bazelbuild/bazel/issues/6394#issuecomment-436234594.
-  bazel build -j 200 //...
+  bazel build -j 200 //... --build_tag_filters "$tag_filter"
 )
-tag_filter=""
-if [[ "$execution_log_postfix" == "_Darwin" ]]; then
-  tag_filter="-dont-run-on-darwin"
-fi
 bazel test -j 200 //... --test_tag_filters "$tag_filter" --experimental_execution_log_file "$ARTIFACT_DIRS/test_execution${execution_log_postfix}.log"
 # Make sure that Bazel query works.
 bazel query 'deps(//...)' > /dev/null

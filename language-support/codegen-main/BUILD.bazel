@@ -68,6 +68,7 @@ pom_file(
 scaladoc_jar(
     name = "shaded_binary_scaladoc",
     srcs = [],
+    tags = ["dont-run-on-darwin"],
     deps = [],
 ) if is_windows == False else None
 
