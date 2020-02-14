@@ -11,11 +11,21 @@ terraform {
 provider "google" {
   project = "da-dev-gcp-daml-language"
   region  = "us-east4"
+  version = "3.5"
 }
 
 provider "google-beta" {
   project = "da-dev-gcp-daml-language"
   region  = "us-east4"
+  version = "3.5"
+}
+
+provider "secret" {
+  version = "1.1"
+}
+
+provider "template" {
+  version = "2.1.2"
 }
 
 data "google_project" "current" {
