@@ -15,7 +15,7 @@ ARTIFACT_DIRS="${BUILD_ARTIFACTSTAGINGDIRECTORY:-$PWD}"
 
 tag_filter=""
 if [[ "$execution_log_postfix" == "_Darwin" ]]; then
-  tag_filter="-dont-run-on-darwin"
+  tag_filter="-dont-run-on-darwin,-scaladoc"
 fi
 
 # Bazel test only builds targets that are dependencies of a test suite
@@ -29,7 +29,7 @@ fi
   # https://github.com/bazelbuild/bazel/issues/6394#issuecomment-436234594.
   bazel build -j 200 //... --build_tag_filters "$tag_filter"
 )
-bazel test -j 200 //... --test_tag_filters "$tag_filter" --experimental_execution_log_file "$ARTIFACT_DIRS/test_execution${execution_log_postfix}.log"
+bazel test -j 200 //... --build_tag_filters "$tag_filter" --test_tag_filters "$tag_filter" --experimental_execution_log_file "$ARTIFACT_DIRS/test_execution${execution_log_postfix}.log"
 # Make sure that Bazel query works.
 bazel query 'deps(//...)' > /dev/null
 # Check that we can load damlc in ghci
