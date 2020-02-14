@@ -82,6 +82,7 @@ da_haskell_binary(
     hackage_deps = [
         "aeson",
         "base",
+        "containers",
         "directory",
         "extra",
         "filepath",
