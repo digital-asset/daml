@@ -26,6 +26,7 @@ import System.IO
 import Control.Exception.Safe
 import qualified Data.Aeson as A
 import qualified Data.HashMap.Strict as HM
+import Data.Char
 import Data.Maybe
 import Data.List.Extra
 import Data.Either.Extra
@@ -298,21 +299,25 @@ withLogger damlPath k = do
 -- That way, the daml command doesn't get accidentally anonimized.
 anonimizeArgs :: IO [T.Text]
 anonimizeArgs = do
-    args <- getArgs
+    args <- map T.pack <$> getArgs
     case args of
         [] -> pure []
         argsHead : argsTail -> do
-            argsTail' <- concatMapM (anonimizeArg . T.pack) argsTail
-            pure (T.pack argsHead : argsTail')
+            argsTail' <- concatMapM anonimizeArg argsTail
+            pure (argsHead : argsTail')
 
 -- | Anonimize an argument to `daml`.
 anonimizeArg :: T.Text -> IO [T.Text]
 anonimizeArg arg = do
     forM (T.splitOn "=" arg) $ \part -> do
-        b <- doesPathExist (T.unpack part)
-        pure $ if b
+        let partStr = T.unpack part
+        b <- doesPathExist partStr
+        pure $ if b && all isAcceptableChar partStr
             then ""
             else part
+  where
+    isAcceptableChar :: Char -> Bool
+    isAcceptableChar c = isAlphaNum c || c == '-' || c == '_'
 
 mkLogTable :: [(T.Text, A.Value)] -> A.Value
 mkLogTable fields = A.Object . HM.fromList $
