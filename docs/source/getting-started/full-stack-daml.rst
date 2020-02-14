@@ -34,8 +34,7 @@ First off, open a terminal, clone the template project and move to the project f
     git clone https://github.com/digital-asset/create-daml-app.git
     cd create-daml-app
 
-We need to run a code generation step (which we will explain later).
-For now, just run::
+In order to connect the DAML model to the UI code, we need to run a code generation step (more on this later)::
 
     daml build
     daml codegen ts .daml/dist/create-daml-app-0.1.0.dar -o daml-ts/src
@@ -56,17 +55,18 @@ In one terminal, at the root of the ``create-daml-app`` directory, run the scrip
 
     ./daml-start.sh
 
-This compiles the DAML component of the project and starts a DAML *Sandbox* ledger for the app.
-The ledger in this case is stored in the Sandbox application memory; it is not a persistent storage but is useful for testing and development.
-We will let the Sandbox continue to run in order to serve requests from the UI, which result in changes to the in-memory ledger.
+This compiles the DAML component of the project and starts a *Sandbox* ledger for the app.
+The ledger in this case is stored in the Sandbox application memory; it is not persistent but is useful for testing and development.
+We'll leave the Sandbox running to serve requests from the UI, which result in changes to the in-memory ledger.
 
 In a second terminal, navigate to the ``create-daml-app/ui`` folder and run::
 
     yarn start
 
-This runs the UI application connected to the already running Sandbox.
-The command should automatically open a window in your browser at http://localhost:3000.
+This starts the UI application connected to the already running Sandbox.
+The command should automatically open a window in your default browser at http://localhost:3000.
 If it doesn't, just open that link in any web browser.
+You may be asked whether to allow the app to receive network connections, which you should allow.
 
 At this point you should see the login page for the social network.
 
