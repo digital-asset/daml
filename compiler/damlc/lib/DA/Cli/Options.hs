@@ -300,12 +300,12 @@ optionsParser numProcessors enableScenarioService parsePkgName = Options
     --  * @--package foo with (A as B)@ is @ModRenaming True [("A", "B")]@
     readPackageImport :: ReadM PackageFlag
     readPackageImport = maybeReader $ \str ->
-        case filter ((=="").snd) (R.readP_to_S parse str) of
+        case filter ((=="").snd) (R.readP_to_S (parse str) str) of
             [(r, "")] -> Just r
             _ -> Nothing
-      where parse = do
+      where parse str = do
                 pkg_arg <- tok GHC.parseUnitId
-                let mk_expose = ExposePackage "--package " (UnitIdArg pkg_arg)
+                let mk_expose = ExposePackage ("--package " <> str) (UnitIdArg pkg_arg)
                 do _ <- tok $ R.string "with"
                    fmap (mk_expose . ModRenaming True) parseRns
                  R.<++ fmap (mk_expose . ModRenaming False) parseRns

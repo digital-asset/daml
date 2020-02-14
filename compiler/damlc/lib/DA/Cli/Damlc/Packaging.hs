@@ -558,4 +558,15 @@ currentSdkPrefix :: String
 currentSdkPrefix = "CurrentSdk"
 
 exposePackage :: GHC.UnitId -> Bool -> [(GHC.ModuleName, GHC.ModuleName)] -> PackageFlag
-exposePackage unitId exposeImplicit mods = ExposePackage "--package " (UnitIdArg unitId) (ModRenaming exposeImplicit mods)
+exposePackage unitId exposeImplicit mods = ExposePackage ("--package " <> show (showPackageFlag unitId exposeImplicit mods)) (UnitIdArg unitId) (ModRenaming exposeImplicit mods)
+
+-- | This is only used in error messages.
+showPackageFlag :: GHC.UnitId -> Bool -> [(GHC.ModuleName, GHC.ModuleName)] -> String
+showPackageFlag unitId exposeImplicit mods = concat
+    [ unitIdString unitId
+    , if exposeImplicit then " with " else ""
+    , if null mods then "" else "(" <> intercalate ", " (map showRenaming mods) <> ")"
+    ]
+  where showRenaming (a, b)
+          | a == b = GHC.moduleNameString a
+          | otherwise = GHC.moduleNameString a <> " as " <> GHC.moduleNameString b
