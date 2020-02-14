@@ -18,13 +18,6 @@ steps:
     displayName: 'Build'
 
   - task: PublishBuildArtifacts@1
-    condition: succeededOrFailed()
-    displayName: 'Publish the bazel execution logs'
-    inputs:
-      pathtoPublish: '$(Build.ArtifactStagingDirectory)'
-      artifactName: 'Execution logs'
-
-  - task: PublishBuildArtifacts@1
     condition: failed()
     displayName: 'Publish the bazel test logs'
     inputs:
