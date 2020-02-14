@@ -13,17 +13,15 @@ Let's start by looking at the DAML model, as this sets the core logic of the app
 The DAML Model
 ==============
 
-The first thing to look at is the DAML code, located in the ``daml`` subdirectory.
-There is only one short DAML module for this whole project, the user model in
-``User.daml``.
-Here is the first part of it.
+Using VSCode (or a code editor of your choice), navigate to the ``daml`` subdirectory.
+There is a single DAML file called ``User.daml`` with the model for users of the app.
+
+The core data is in the ``User`` contract template.
 
 .. literalinclude:: quickstart/code/daml/User.daml
   :language: daml
   :start-after: -- MAIN_TEMPLATE_BEGIN
   :end-before: -- MAIN_TEMPLATE_END
-
-.. TODO Relax or omit ensure clause.
 
 This is a DAML contract *template* describing the data for users of our app.
 Since we are developing for a distributed ledger, all data are represented as immutable contracts.
