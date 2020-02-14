@@ -9,17 +9,11 @@ import anorm.SqlParser._
 import anorm._
 import com.daml.ledger.on.sql.Index
 import com.daml.ledger.on.sql.queries.Queries._
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntryId
-import com.google.protobuf.ByteString
+import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 
 class SqliteQueries extends Queries with CommonQueries {
-  override def insertIntoLog(
-      entry: DamlLogEntryId,
-      envelope: ByteString,
-  )(implicit connection: Connection): Index = {
-    val entryIdArray = entry.getEntryId.toByteArray
-    val envelopeArray = envelope.toByteArray
-    SQL"INSERT INTO #$LogTable (entry_id, envelope) VALUES ($entryIdArray, $envelopeArray)"
+  override def insertIntoLog(key: Key, value: Value)(implicit connection: Connection): Index = {
+    SQL"INSERT INTO #$LogTable (entry_id, envelope) VALUES ($key, $value)"
       .executeInsert()
     SQL"SELECT LAST_INSERT_ROWID()"
       .as(long("LAST_INSERT_ROWID()").single)

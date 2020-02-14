@@ -7,9 +7,8 @@ import java.sql.Connection
 
 import anorm.{BatchSql, NamedParameter}
 import com.daml.ledger.on.sql.Index
-import com.daml.ledger.participant.state.kvutils.DamlKvutils
 import com.daml.ledger.participant.state.kvutils.api.LedgerRecord
-import com.google.protobuf.ByteString
+import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 
 import scala.collection.immutable
 
@@ -21,20 +20,13 @@ trait Queries {
       end: Index,
   )(implicit connection: Connection): immutable.Seq[(Index, LedgerRecord)]
 
-  def insertIntoLog(
-      entry: DamlKvutils.DamlLogEntryId,
-      envelope: ByteString,
-  )(implicit connection: Connection): Index
+  def insertIntoLog(key: Key, value: Value)(implicit connection: Connection): Index
 
-  def selectStateByKeys(
-      keys: Iterable[DamlKvutils.DamlStateKey],
-  )(
-      implicit connection: Connection,
-  ): immutable.Seq[(DamlKvutils.DamlStateKey, Option[DamlKvutils.DamlStateValue])]
+  def selectStateValuesByKeys(
+      keys: Seq[Key],
+  )(implicit connection: Connection): immutable.Seq[Option[Value]]
 
-  def updateState(
-      stateUpdates: Map[DamlKvutils.DamlStateKey, DamlKvutils.DamlStateValue],
-  )(implicit connection: Connection): Unit
+  def updateState(stateUpdates: Seq[(Key, Value)])(implicit connection: Connection): Unit
 }
 
 object Queries {
@@ -44,7 +36,7 @@ object Queries {
 
   def executeBatchSql(
       query: String,
-      params: Iterable[immutable.Seq[NamedParameter]],
+      params: Iterable[Seq[NamedParameter]],
   )(implicit connection: Connection): Unit = {
     if (params.nonEmpty)
       BatchSql(query, params.head, params.drop(1).toArray: _*).execute()
