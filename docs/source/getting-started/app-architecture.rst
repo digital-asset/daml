@@ -23,12 +23,12 @@ The core data is in the ``User`` contract template.
   :start-after: -- MAIN_TEMPLATE_BEGIN
   :end-before: -- MAIN_TEMPLATE_END
 
-This is a DAML contract *template* describing the data for users of our app.
 Since we are developing for a distributed ledger, all data are represented as immutable contracts.
-There are two main parts here:
+There are two aspects here:
 
-1. The data definition, or schema, which prescribes the data that is stored with each user contract.
-In this case it is simply the user's party identifier, and the list of the user's friends.
+1. The data definition (a *schema* in database terms), describing the data stored with each user contract.
+In this case it is the username, and a list of the user's current friends.
+Both fields use DAML's built-in ``Party`` type, which is an abstraction of cryptographic keys.
 
 2. The signatories and observers of the user contract.
 The signatories - the single user in this case - are the parties authorized to make changes to the contract (which we'll see next).
