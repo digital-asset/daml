@@ -126,7 +126,8 @@ object KeyHasher extends KeyHasher {
   // Do not use directly. It is package visible for testing purpose.
   private[serialization] def putValue(
       digest: MessageDigest,
-      value: Value[AbsoluteContractId]): MessageDigest = {
+      value: Value[AbsoluteContractId],
+  ): MessageDigest = {
     // Then, write the value
     foldLeft[MessageDigest](
       value,

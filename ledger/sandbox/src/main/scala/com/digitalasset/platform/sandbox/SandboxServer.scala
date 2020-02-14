@@ -147,7 +147,7 @@ final class SandboxServer(config: SandboxConfig) extends AutoCloseable {
 
   // Name of this participant
   // TODO: Pass this info in command-line (See issue #2025)
-  val participantId: ParticipantId = Ref.LedgerString.assertFromString("sandbox-participant")
+  val participantId: ParticipantId = Ref.ParticipantId.assertFromString("sandbox-participant")
 
   private val authService: AuthService = config.authService.getOrElse(AuthServiceWildcard)
 

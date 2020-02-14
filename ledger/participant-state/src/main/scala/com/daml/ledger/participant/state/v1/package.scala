@@ -60,8 +60,8 @@ package object v1 {
   type LedgerId = String
 
   /** Identifier for the participant, MUST match regexp [a-zA-Z0-9-]. */
-  val ParticipantId: Ref.LedgerString.type = Ref.LedgerString
-  type ParticipantId = Ref.LedgerString
+  val ParticipantId: Ref.ParticipantId.type = Ref.ParticipantId
+  type ParticipantId = Ref.ParticipantId
 
   /** Identifiers for transactions. */
   val TransactionId: Ref.LedgerString.type = Ref.LedgerString

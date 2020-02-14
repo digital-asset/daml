@@ -85,6 +85,8 @@ sealed abstract class IdString {
     * lowercase hex-encoded hash of the package contents found in the DAML LF Archive. */
   type PackageId <: String
 
+  type ParticipantId <: String
+
   /**
     * Used to reference to leger objects like legacy contractIds, ledgerIds,
     * transactionId, ... We use the same type for those ids, because we
@@ -104,6 +106,7 @@ sealed abstract class IdString {
   val Name: StringModule[Name]
   val Party: ConcatenableStringModule[Party]
   val PackageId: ConcatenableStringModule[PackageId]
+  val ParticipantId: StringModule[ParticipantId]
   val LedgerString: ConcatenableStringModule[LedgerString]
   val ContractIdStringV0: ConcatenableStringModule[ContractIdStringV0]
   val ContractIdStringV1: StringModule[ContractIdStringV1]
@@ -220,6 +223,9 @@ private[data] final class IdStringImpl extends IdString {
   override val LedgerString: ConcatenableStringModule[LedgerString] =
     new ConcatenableMatchingStringModule("._:-#/ ".contains(_), 255)
 
+  override type ParticipantId = String
+  override val ParticipantId = LedgerString
+
   /**
     * Legacy contractIds.
     */
@@ -245,10 +251,13 @@ private[data] final class IdStringImpl extends IdString {
         Either.cond(isA(s), s, s)
 
       override def fromString(s: String): Either[String, ContractIdString] =
-        toEither(s).fold(ContractIdStringV0.fromString, ContractIdStringV1.fromString)
+        if (isA(s))
+          ContractIdStringV0.fromString(s)
+        else
+          ContractIdStringV1.fromString(s)
 
       override def isA(s: ContractIdString): Boolean =
-        s.startsWith("$0")
+        !isB(s)
 
       override def toA(s: ContractIdString): Option[ContractIdStringV0] =
         Some(s).filter(isA)
@@ -257,7 +266,7 @@ private[data] final class IdStringImpl extends IdString {
         toA(s).getOrElse(throw new IllegalArgumentException("expect V0 ContractId get V1"))
 
       override def isB(s: ContractIdString): Boolean =
-        !isA(s)
+        s.startsWith("$0")
 
       override def toB(s: ContractIdString): Option[ContractIdStringV1] =
         Some(s).filter(isB)

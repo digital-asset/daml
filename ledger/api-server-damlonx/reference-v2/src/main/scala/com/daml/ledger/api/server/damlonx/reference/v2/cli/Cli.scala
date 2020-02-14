@@ -13,6 +13,9 @@ object Cli {
   private implicit val ledgerStringRead: Read[Ref.LedgerString] =
     Read.stringRead.map(Ref.LedgerString.assertFromString)
 
+  private implicit val participantIdRead: Read[Ref.ParticipantId] =
+    Read.stringRead.map(Ref.ParticipantId.assertFromString)
+
   private implicit def tripleRead[A, B, C](
       implicit readA: Read[A],
       readB: Read[B],
@@ -54,11 +57,11 @@ object Cli {
       opt[String]("jdbc-url")
         .text("The JDBC URL to the postgres database used for the indexer and the index")
         .action((u, c) => c.copy(jdbcUrl = u))
-      opt[Ref.LedgerString]("participant-id")
+      opt[Ref.ParticipantId]("participant-id")
         .optional()
         .text("The participant id given to all components of a ledger api server")
         .action((p, c) => c.copy(participantId = p))
-      opt[(Ref.LedgerString, Int, String)]('P', "extra-participant")
+      opt[(Ref.ParticipantId, Int, String)]('P', "extra-participant")
         .optional()
         .unbounded()
         .text("A list of triples in the form `<participant-id>,<port>,<index-jdbc-url>` to spin up multiple nodes backed by the same in-memory ledger")

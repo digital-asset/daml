@@ -114,20 +114,20 @@ class TransactionSpec extends FreeSpec with Matchers with GeneratorDrivenPropert
 }
 
 object TransactionSpec {
-  private[this] type Value[+Cid] = V[Cid]
-  type StringTransaction = GenTransaction[String, String, Value[String]]
+  private[this] type Value = V[V.AbsoluteContractId]
+  type StringTransaction = GenTransaction[String, V.AbsoluteContractId, Value]
   def StringTransaction(
-      nodes: HashMap[String, GenNode[String, String, Value[String]]],
+      nodes: HashMap[String, GenNode[String, V.AbsoluteContractId, Value]],
       roots: ImmArray[String],
   ): StringTransaction = GenTransaction(nodes, roots, None)
 
   def dummyExerciseNode(
       children: ImmArray[String],
       hasExerciseResult: Boolean = true,
-  ): NodeExercises[String, String, Value[String]] =
+  ): NodeExercises[String, V.AbsoluteContractId, Value] =
     NodeExercises(
       nodeSeed = None,
-      targetCoid = "dummyCoid",
+      targetCoid = V.AbsoluteContractId(Ref.ContractIdString.assertFromString("dummyCoid")),
       templateId = Ref.Identifier(
         PackageId.assertFromString("-dummyPkg-"),
         QualifiedName.assertFromString("DummyModule:dummyName"),
@@ -145,10 +145,10 @@ object TransactionSpec {
       key = None,
     )
 
-  val dummyCreateNode: NodeCreate[String, Value[String]] =
+  val dummyCreateNode: NodeCreate[V.AbsoluteContractId, Value] =
     NodeCreate(
       nodeSeed = None,
-      coid = "dummyCoid",
+      coid = V.AbsoluteContractId(Ref.ContractIdString.assertFromString("dummyCoid")),
       coinst = ContractInst(
         Ref.Identifier(
           PackageId.assertFromString("-dummyPkg-"),

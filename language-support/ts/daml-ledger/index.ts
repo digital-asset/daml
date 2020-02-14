@@ -131,6 +131,27 @@ export interface EventStream<T extends object, K, I extends string> {
 }
 
 /**
+ * Options for creating a handle to a DAML ledger.
+ * - `token` JSON web token used for authentication.
+ * - `httpBaseUrl` Optional base URL for the non-streaming endpoints of
+ *   the JSON API. If this parameter is not provided, the protocol, host and
+ *   port of the `window.location` object are used.
+ * - `wsBaseUrl` Optional base URL for the streaming endpoints of the
+ *   JSON API. If this parameter is not provided, the base URL for the
+ *   non-streaming endpoints is used with the protocol 'http' or 'https'
+ *   replaced by 'ws' or 'wss', respectively.
+ *   Specifying this parameter explicitly can be useful when the
+ *   non-streaming requests are proxied but the streaming request cannot be
+ *   proxied, as it is the case with the development server of
+ *   `create-react-app`.
+ */
+type LedgerOptions = {
+  token: string;
+  httpBaseUrl?: string;
+  wsBaseUrl?: string;
+}
+
+/**
  * An object of type `Ledger` represents a handle to a DAML ledger.
  */
 class Ledger {
@@ -138,19 +159,32 @@ class Ledger {
   private readonly httpBaseUrl: string;
   private readonly wsBaseUrl: string;
 
-  constructor(token: string, baseUrl?: string) {
-    this.token = token;
-    if (!baseUrl) {
-      this.httpBaseUrl = '';
-      this.wsBaseUrl = `ws://${window.location.hostname}:7575/`;
-    } else if (!baseUrl.startsWith('http')) {
-      throw Error(`The ledger base URL must start with 'http'. (${baseUrl})`);
-    } else if (!baseUrl.endsWith('/')) {
-      throw Error(`The ledger base URL must end in a '/'. (${baseUrl})`);
-    } else {
-      this.httpBaseUrl = baseUrl;
-      this.wsBaseUrl = 'ws' + baseUrl.slice(4);
+  /**
+   * Construct a new `Ledger` object.
+   */
+  constructor({token, httpBaseUrl, wsBaseUrl}: LedgerOptions) {
+    if (!httpBaseUrl) {
+      httpBaseUrl = `${window.location.protocol}//${window.location.host}/`;
     }
+    if (!(httpBaseUrl.startsWith('http://') || httpBaseUrl.startsWith('https://'))) {
+      throw Error(`Ledger: httpBaseUrl must start with 'http://' or 'https://'. (${httpBaseUrl})`);
+    }
+    if (!httpBaseUrl.endsWith('/')) {
+      throw Error(`Ledger: httpBaseUrl must end with '/'. (${httpBaseUrl})`);
+    }
+    if (!wsBaseUrl) {
+      wsBaseUrl = 'ws' + httpBaseUrl.slice(4);
+    }
+    if (!(wsBaseUrl.startsWith('ws://') || wsBaseUrl.startsWith('wss://'))) {
+      throw Error(`Ledger: wsBaseUrl must start with 'ws://' or 'wss://'. (${wsBaseUrl})`);
+    }
+    if (!wsBaseUrl.endsWith('/')) {
+      throw Error(`Ledger: wsBaseUrl must end with '/'. (${wsBaseUrl})`);
+    }
+
+    this.token = token;
+    this.httpBaseUrl = httpBaseUrl;
+    this.wsBaseUrl = wsBaseUrl;
   }
 
   /**

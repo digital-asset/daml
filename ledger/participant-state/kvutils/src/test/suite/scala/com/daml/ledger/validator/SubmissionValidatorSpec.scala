@@ -32,7 +32,7 @@ class SubmissionValidatorSpec extends AsyncWordSpec with MockitoSugar with Match
       when(mockStateOperations.readState(any[Seq[RawBytes]]()))
         .thenReturn(Future.successful(aStateKeyValuePair()))
       val instance = SubmissionValidator.create(new FakeStateAccess(mockStateOperations))
-      instance.validate(anEnvelope(), "aCorrelationId", newRecordTime()).map {
+      instance.validate(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId()).map {
         case SubmissionValidated => succeed
         case _ => fail
       }
@@ -45,7 +45,7 @@ class SubmissionValidatorSpec extends AsyncWordSpec with MockitoSugar with Match
       val instance = SubmissionValidator.create(
         ledgerStateAccess = new FakeStateAccess(mockStateOperations),
         checkForMissingInputs = true)
-      instance.validate(anEnvelope(), "aCorrelationId", newRecordTime()).map {
+      instance.validate(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId()).map {
         case MissingInputState(keys) => keys should have size 1
         case _ => fail
       }
@@ -54,10 +54,12 @@ class SubmissionValidatorSpec extends AsyncWordSpec with MockitoSugar with Match
     "return invalid submission for invalid envelope" in {
       val mockStateOperations = mock[LedgerStateOperations]
       val instance = SubmissionValidator.create(new FakeStateAccess(mockStateOperations))
-      instance.validate(Array[Byte](1, 2, 3), "aCorrelationId", newRecordTime()).map {
-        case ValidationError(reason) => reason should include("Failed to parse")
-        case _ => fail
-      }
+      instance
+        .validate(Array[Byte](1, 2, 3), "aCorrelationId", newRecordTime(), aParticipantId())
+        .map {
+          case ValidationError(reason) => reason should include("Failed to parse")
+          case _ => fail
+        }
     }
 
     "return invalid submission in case exception is thrown during processing of submission" in {
@@ -69,6 +71,7 @@ class SubmissionValidatorSpec extends AsyncWordSpec with MockitoSugar with Match
           damlLogEntryId: DamlLogEntryId,
           recordTime: Timestamp,
           damlSubmission: DamlSubmission,
+          participantId: ParticipantId,
           inputState: Map[DamlStateKey, Option[DamlStateValue]]): LogEntryAndState =
         throw new IllegalArgumentException("Validation failed")
 
@@ -77,7 +80,7 @@ class SubmissionValidatorSpec extends AsyncWordSpec with MockitoSugar with Match
           new FakeStateAccess(mockStateOperations),
           failingProcessSubmission,
           () => aLogEntryId())
-      instance.validate(anEnvelope(), "aCorrelationId", newRecordTime()).map {
+      instance.validate(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId()).map {
         case ValidationError(reason) => reason should include("Validation failed")
         case _ => fail
       }
@@ -98,23 +101,25 @@ class SubmissionValidatorSpec extends AsyncWordSpec with MockitoSugar with Match
       val mockLogEntryIdGenerator = mockFunctionReturning(expectedLogEntryId)
       val instance = new SubmissionValidator(
         new FakeStateAccess(mockStateOperations),
-        SubmissionValidator.processSubmission(aParticipantId()),
+        SubmissionValidator.processSubmission,
         mockLogEntryIdGenerator)
-      instance.validateAndCommit(anEnvelope(), "aCorrelationId", newRecordTime()).map {
-        case SubmissionValidated =>
-          verify(mockLogEntryIdGenerator, times(1)).apply()
-          verify(mockStateOperations, times(0)).writeState(any[RawKeyValuePairs]())
-          logEntryValueCaptor.getAllValues should have size 1
-          logEntryIdCaptor.getAllValues should have size 1
-          val actualLogEntryIdBytes = ByteString
-            .copyFrom(logEntryIdCaptor.getValue.asInstanceOf[RawBytes])
-          val expectedLogEntryIdBytes = ByteString.copyFrom(expectedLogEntryId.toByteArray)
-          actualLogEntryIdBytes should be(expectedLogEntryIdBytes)
-          ByteString
-            .copyFrom(logEntryValueCaptor.getValue.asInstanceOf[RawBytes]) should not equal ByteString
-            .copyFrom(logEntryIdCaptor.getValue.asInstanceOf[RawBytes])
-        case _ => fail
-      }
+      instance
+        .validateAndCommit(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId())
+        .map {
+          case SubmissionValidated =>
+            verify(mockLogEntryIdGenerator, times(1)).apply()
+            verify(mockStateOperations, times(0)).writeState(any[RawKeyValuePairs]())
+            logEntryValueCaptor.getAllValues should have size 1
+            logEntryIdCaptor.getAllValues should have size 1
+            val actualLogEntryIdBytes = ByteString
+              .copyFrom(logEntryIdCaptor.getValue.asInstanceOf[RawBytes])
+            val expectedLogEntryIdBytes = ByteString.copyFrom(expectedLogEntryId.toByteArray)
+            actualLogEntryIdBytes should be(expectedLogEntryIdBytes)
+            ByteString
+              .copyFrom(logEntryValueCaptor.getValue.asInstanceOf[RawBytes]) should not equal ByteString
+              .copyFrom(logEntryIdCaptor.getValue.asInstanceOf[RawBytes])
+          case _ => fail
+        }
     }
 
     "write marshalled key-value pairs to ledger" in {
@@ -130,17 +135,19 @@ class SubmissionValidatorSpec extends AsyncWordSpec with MockitoSugar with Match
       val logEntryAndStateResult = (aLogEntry(), someStateUpdates(1))
       val instance = new SubmissionValidator(
         new FakeStateAccess(mockStateOperations),
-        (_, _, _, _) => logEntryAndStateResult,
+        (_, _, _, _, _) => logEntryAndStateResult,
         () => aLogEntryId())
-      instance.validateAndCommit(anEnvelope(), "aCorrelationId", newRecordTime()).map {
-        case SubmissionValidated =>
-          writtenKeyValuesCaptor.getAllValues should have size 1
-          val writtenKeyValues = writtenKeyValuesCaptor.getValue.asInstanceOf[RawKeyValuePairs]
-          writtenKeyValues should have size 1
-          Try(SubmissionValidator.bytesToStateValue(writtenKeyValues.head._2)).isSuccess shouldBe true
-          logEntryCaptor.getAllValues should have size 1
-        case _ => fail
-      }
+      instance
+        .validateAndCommit(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId())
+        .map {
+          case SubmissionValidated =>
+            writtenKeyValuesCaptor.getAllValues should have size 1
+            val writtenKeyValues = writtenKeyValuesCaptor.getValue.asInstanceOf[RawKeyValuePairs]
+            writtenKeyValues should have size 1
+            Try(SubmissionValidator.bytesToStateValue(writtenKeyValues.head._2)).isSuccess shouldBe true
+            logEntryCaptor.getAllValues should have size 1
+          case _ => fail
+        }
     }
 
     "return invalid submission if state cannot be written" in {
@@ -154,12 +161,14 @@ class SubmissionValidatorSpec extends AsyncWordSpec with MockitoSugar with Match
       val logEntryAndStateResult = (aLogEntry(), someStateUpdates(1))
       val instance = new SubmissionValidator(
         new FakeStateAccess(mockStateOperations),
-        (_, _, _, _) => logEntryAndStateResult,
+        (_, _, _, _, _) => logEntryAndStateResult,
         () => aLogEntryId())
-      instance.validateAndCommit(anEnvelope(), "aCorrelationId", newRecordTime()).map {
-        case ValidationError(reason) => reason should include("Write error")
-        case _ => fail
-      }
+      instance
+        .validateAndCommit(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId())
+        .map {
+          case ValidationError(reason) => reason should include("Write error")
+          case _ => fail
+        }
     }
   }
 
@@ -215,8 +224,6 @@ class SubmissionValidatorSpec extends AsyncWordSpec with MockitoSugar with Match
       extends LedgerStateAccess {
     override def inTransaction[T](body: LedgerStateOperations => Future[T]): Future[T] =
       body(mockStateOperations)
-
-    override def participantId: String = "aParticipantId"
   }
 
 }

@@ -139,7 +139,8 @@ private[validation] object Serializability {
       version: LanguageVersion,
       world: World,
       tyCon: TTyCon,
-      template: Template): Unit = {
+      template: Template,
+  ): Unit = {
     val context = ContextTemplate(tyCon.tycon)
     Env(version, world, context, SRTemplateArg, tyCon).checkType()
     template.choices.values.foreach { choice =>
