@@ -551,6 +551,21 @@ genModuleAux isQualified unitId modName = do
     emitModRef modRef
     pure $ mkModule unitId ghcModName
 
+-- | We cannot refer to a class C reexported from the current module M using M.C. Therefore
+-- we have to rewrite it to the original module. The map only contains type synonyms reexported
+-- from the current module.
+rewriteClassReexport :: Env -> MS.Map LF.TypeSynName LF.PackageId -> LF.Qualified LF.TypeSynName -> LF.Qualified LF.TypeSynName
+rewriteClassReexport env reexported syn@LF.Qualified{..}
+  | Just reexportPkgId <- MS.lookup qualObject reexported
+  -- Only rewrite a reference to the current module
+  , case qualPackage of
+        LF.PRSelf -> True
+        LF.PRImport synPkgId -> synPkgId == configSelfPkgId (envConfig env)
+  , LF.moduleName (envMod env) == qualModule
+  = syn { LF.qualPackage = LF.PRImport reexportPkgId }
+  | otherwise = syn
+
+
 convType :: Env -> MS.Map LF.TypeSynName LF.PackageId -> LF.Type -> Gen (HsType GhcPs)
 convType env reexported =
     \case
@@ -564,10 +579,8 @@ convType env reexported =
                 then HsQualTy noExt (noLoc [noLoc ty1']) (noLoc ty2')
                 else HsParTy noExt (noLoc $ HsFunTy noExt (noLoc ty1') (noLoc ty2'))
 
-        LF.TSynApp LF.Qualified{..} lfArgs -> do
-            let pkg | Just pkgId <- MS.lookup qualObject reexported = LF.PRImport pkgId
-                    | otherwise = qualPackage
-            ghcMod <- genModule env pkg qualModule
+        LF.TSynApp (rewriteClassReexport env reexported -> LF.Qualified{..}) lfArgs -> do
+            ghcMod <- genModule env qualPackage qualModule
             let tyname = case LF.unTypeSynName qualObject of
                     [n] -> n
                     ns -> error ("DamlDependencies: unexpected typeclass name " <> show ns)
@@ -980,11 +993,8 @@ convDFunSig :: Env -> MS.Map LF.TypeSynName LF.PackageId -> DFunSig -> Gen (HsTy
 convDFunSig env reexported DFunSig{..} = do
     binders <- mapM (convTyVarBinder env) dfsBinders
     context <- mapM (convType env reexported) dfsContext
-    let headName = dfhName dfsHead
-    let pkg = case MS.lookup (LF.qualObject headName) reexported of
-            Just pkgId -> LF.PRImport pkgId
-            Nothing -> LF.qualPackage headName
-    ghcMod <- genModule env pkg (LF.qualModule headName)
+    let headName = rewriteClassReexport env reexported (dfhName dfsHead)
+    ghcMod <- genModule env (LF.qualPackage headName) (LF.qualModule headName)
     let cls = case LF.unTypeSynName (LF.qualObject headName) of
             [n] -> HsTyVar noExt NotPromoted . noLoc $ mkOrig ghcMod . mkOccName clsName $ T.unpack n
             ns -> error ("DamlDependencies: unexpected typeclass name " <> show ns)
