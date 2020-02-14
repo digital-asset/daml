@@ -113,6 +113,7 @@ pom_file(
 scaladoc_jar(
     name = "shaded_binary_scaladoc",
     srcs = [],
+    tags = ["scaladoc"],
     deps = [],
 ) if is_windows == False else None
 
