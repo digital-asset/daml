@@ -33,10 +33,11 @@ main = do
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
     repl <- locateRunfiles (mainWorkspace </> "daml-lf" </> "repl" </> exe "repl")
     davlDar <- locateRunfiles ("davl" </> "released" </> "davl-v3.dar")
-    defaultMain $ tests damlc repl davlDar
+    oldProjDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "dars" </> "old-proj-0.13.51-1.dev.dar")
+    defaultMain $ tests damlc repl davlDar oldProjDar
 
-tests :: FilePath -> FilePath -> FilePath -> TestTree
-tests damlc repl davlDar = testGroup "Packaging" $
+tests :: FilePath -> FilePath -> FilePath -> FilePath -> TestTree
+tests damlc repl davlDar oldProjDar = testGroup "Packaging" $
     [ testCaseSteps "Build package with dependency" $ \step -> withTempDir $ \tmpDir -> do
         let projectA = tmpDir </> "a"
         let projectB = tmpDir </> "b"
@@ -598,7 +599,7 @@ tests damlc repl davlDar = testGroup "Packaging" $
           assertBool ("Expected \"non-exhaustive\" error in stderr but got: " <> show stderr) ("non-exhaustive" `isInfixOf` stderr)
     ] <>
     [ lfVersionTests damlc
-    , dataDependencyTests damlc repl davlDar
+    , dataDependencyTests damlc repl davlDar oldProjDar
     ]
   where
       buildProject' :: FilePath -> FilePath -> IO ()
@@ -665,8 +666,8 @@ numStablePackages ver
   | ver == LF.versionDev = 15
   | otherwise = error $ "Unsupported LF version: " <> show ver
 
-dataDependencyTests :: FilePath -> FilePath -> FilePath -> TestTree
-dataDependencyTests damlc repl davlDar = testGroup "Data Dependencies" $
+dataDependencyTests :: FilePath -> FilePath -> FilePath -> FilePath -> TestTree
+dataDependencyTests damlc repl davlDar oldProjDar = testGroup "Data Dependencies" $
     [ testCaseSteps ("Cross DAML-LF version: " <> LF.renderVersion depLfVer <> " -> " <> LF.renderVersion targetLfVer)  $ \step -> withTempDir $ \tmpDir -> do
           let proja = tmpDir </> "proja"
           let projb = tmpDir </> "projb"
@@ -1139,6 +1140,47 @@ dataDependencyTests damlc repl davlDar = testGroup "Data Dependencies" $
     , targetLfVer <- LF.supportedOutputVersions
     , targetLfVer >= depLfVer
     , LF.supports depLfVer LF.featureTypeSynonyms -- only test for new-style typeclasses
+    ] <>
+    [ testCase "Cross-SDK typeclasses" $ withTempDir $ \tmpDir -> do
+          writeFileUTF8 (tmpDir </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "name: upgrade"
+              , "source: ."
+              , "version: 0.1.0"
+              , "dependencies: [daml-prim, daml-stdlib]"
+              , "data-dependencies:"
+              , "  - " <> show oldProjDar
+              , "build-options:"
+              , " - --target=1.dev"
+              , " - --hide-all-packages"
+              , " - --package=daml-prim"
+              , " - --package=" <> damlStdlib
+              , " - --package=old-proj-0.0.1"
+              ]
+          writeFileUTF8 (tmpDir </> "Upgrade.daml") $ unlines
+              [ "daml 1.2"
+              , "module Upgrade where"
+              , "import qualified Old"
+
+              , "template T"
+              , "  with"
+              , "    p : Party"
+              , "  where signatory p"
+
+              , "template Upgrade"
+              , "  with"
+              , "    p : Party"
+              , "  where"
+              , "    signatory p"
+              , "    nonconsuming choice DoUpgrade : ContractId T"
+              , "      with"
+              , "        cid : ContractId Old.T"
+              , "      controller p"
+              , "      do Old.T{..} <- fetch cid"
+              , "         archive cid"
+              , "         create T{..}"
+              ]
+          callProcessSilent damlc ["build", "--project-root", tmpDir]
     ]
 
 
