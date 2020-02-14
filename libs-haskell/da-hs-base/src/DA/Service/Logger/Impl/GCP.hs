@@ -20,6 +20,7 @@ module DA.Service.Logger.Impl.GCP
     , GCPConfig(..)
     , GCPState(..)
     , initialiseGcpState
+    , setOptIn
     , logOptOut
     , logIgnored
     , logMetaData
@@ -131,6 +132,9 @@ machineIDFile GCPState{gcpDamlDir} = gcpDamlDir </> ".machine_id"
 
 optedOutFile :: GCPState -> FilePath
 optedOutFile GCPState{gcpDamlDir} = gcpDamlDir </> ".opted_out"
+
+optedInFile :: GCPState -> FilePath
+optedInFile GCPState{gcpDamlDir} = gcpDamlDir </> ".opted_in"
 
 noSentData :: IO SentData
 noSentData = SentData <$> today <*> pure (SentBytes 0)
@@ -357,15 +361,27 @@ fetchMachineID gcp = do
        else
         generateID
 
+-- | Write out a `.opted_in` file to the daml home directory, if it doesn't exist,
+-- and remove any existing `.opted_out`.
+setOptIn :: GCPState -> IO ()
+setOptIn gcp = do
+    let fpOut = optedOutFile gcp
+        fpIn = optedInFile gcp
+    writeFile fpIn ""
+    removePathForcibly fpOut
+
 -- | If it hasn't already been done log that the user has opted out of telemetry.
 logOptOut :: GCPState -> IO ()
 logOptOut gcp = do
-    let fp = optedOutFile gcp
-    exists <- doesFileExist fp
+    let fpOut = optedOutFile gcp
+        fpIn = optedInFile gcp
+    removePathForcibly fpIn
+    exists <- doesFileExist fpOut
     metadata <- getMetaData gcp
     let val = disabledMessage metadata "Opted out of telemetry"
     unless exists do
-        logGCP gcp Lgr.Info val (writeFile fp "")
+        logGCP gcp Lgr.Info val $ do
+            writeFile fpOut ""
 
 -- | Turn a message describing why telemetry was disabled (opt-out or no choice made) into an Aeson value
 -- that includes the machine id.

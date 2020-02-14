@@ -281,17 +281,18 @@ withLogger damlPath k = do
             { gcpConfigTag = "assistant"
             , gcpConfigDamlPath = Just (unwrapDamlPath damlPath)
             }
-
         optedOutPath = unwrapDamlPath damlPath </> ".opted_out"
+        optedInPath = unwrapDamlPath damlPath </> ".opted_in"
 
     isOptedOut <- doesPathExist optedOutPath
-    if isOptedOut
+    isOptedIn <- doesPathExist optedInPath
+    if isOptedIn && not isOptedOut
         then
-            k L.makeNopHandle
-        else do
             L.withGcpLogger gcpConfig logOfInterest L.makeNopHandle $ \gcpState logger -> do
                 L.logMetaData gcpState
                 k logger
+        else
+            k L.makeNopHandle
 
 -- | Get the arguments to `daml` and anonimize all but the first.
 -- That way, the daml command doesn't get accidentally anonimized.

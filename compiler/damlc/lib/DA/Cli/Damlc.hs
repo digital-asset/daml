@@ -381,6 +381,7 @@ execIde telemetry (Debug debug) enableScenarioService options =
                   TelemetryOptedIn ->
                     let logOfInterest prio = prio `elem` [Logger.Telemetry, Logger.Warning, Logger.Error] in
                     Logger.GCP.withGcpLogger gcpConfig logOfInterest loggerH $ \gcpState loggerH' -> do
+                      Logger.GCP.setOptIn gcpState
                       Logger.GCP.logMetaData gcpState
                       f loggerH'
                   TelemetryOptedOut -> Logger.GCP.withGcpLogger gcpConfig (const False) loggerH $ \gcpState loggerH -> do
