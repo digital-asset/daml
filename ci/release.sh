@@ -38,6 +38,10 @@ step "temporary release directory is ${release_dir}"
 if [[ "${BUILD_SOURCEBRANCHNAME:-}" == "master" ]]; then
     # set up bintray credentials
     mkdir -p ~/.jfrog
+    cleanup() {
+        rm -f ~/.jfrog/jfrog-cli.conf
+    }
+    trap cleanup EXIT
     echo "$JFROG_CONFIG_CONTENT" > ~/.jfrog/jfrog-cli.conf
     unset JFROG_CONFIG_CONTENT
 
