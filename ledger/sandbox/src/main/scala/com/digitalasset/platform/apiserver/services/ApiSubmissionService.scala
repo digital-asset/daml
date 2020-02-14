@@ -131,20 +131,20 @@ final class ApiSubmissionService private (
                 Success(())
 
               case Success(Overloaded) =>
-                logger.debug(s"Submission has failed due to back pressure")
+                logger.info(s"Submission has failed due to back pressure")
                 Failure(Status.RESOURCE_EXHAUSTED.asRuntimeException)
 
               case Success(NotSupported) =>
-                logger.debug(s"Submission of command was not supported")
+                logger.warn(s"Submission of command was not supported")
                 Failure(Status.INVALID_ARGUMENT.asRuntimeException)
 
               case Success(InternalError(reason)) =>
-                logger.debug(
+                logger.error(
                   s"Submission of command failed due to an internal error, reason=$reason ")
                 Failure(Status.INTERNAL.augmentDescription(reason).asRuntimeException)
 
               case Failure(error) =>
-                logger.warn(s"Submission of command has failed.", error)
+                logger.error(s"Submission of command has failed.", error)
                 Failure(error)
 
             }(DirectExecutionContext)
