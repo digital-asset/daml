@@ -71,6 +71,8 @@ data Env = Env
     , envDepClassMap :: DepClassMap
         -- ^ Map of typeclasses from dependencies.
     , envDepInstances :: MS.Map LF.TypeSynName [LF.Type]
+        -- ^ Map of instances from dependencies.
+        -- We only store the name since the real check happens in `isDuplicate`.
     , envMod :: LF.Module
         -- ^ The module under consideration.
     }
