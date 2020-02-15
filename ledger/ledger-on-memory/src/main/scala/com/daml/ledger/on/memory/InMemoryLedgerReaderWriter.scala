@@ -13,6 +13,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntryId
 import com.daml.ledger.participant.state.kvutils.api.{LedgerReader, LedgerRecord, LedgerWriter}
 import com.daml.ledger.participant.state.kvutils.{KeyValueCommitting, SequentialLogEntryId}
 import com.daml.ledger.participant.state.v1._
+import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.daml.ledger.validator.ValidationResult.{
   MissingInputState,
   SubmissionValidated,
@@ -93,7 +94,7 @@ final class InMemoryLedgerReaderWriter(
       }
   }
 
-  override def commit(correlationId: String, envelope: Array[Byte]): Future[SubmissionResult] = {
+  override def commit(correlationId: String, envelope: Array[Byte]): Future[SubmissionResult] =
     validator
       .validateAndCommit(envelope, correlationId, currentRecordTime(), participantId)
       .map {
@@ -101,7 +102,6 @@ final class InMemoryLedgerReaderWriter(
         case MissingInputState(_) => SubmissionResult.InternalError("Missing input state")
         case ValidationError(reason) => SubmissionResult.InternalError(reason)
       }
-  }
 
   override def events(offset: Option[Offset]): Source[LedgerRecord, NotUsed] =
     dispatcher

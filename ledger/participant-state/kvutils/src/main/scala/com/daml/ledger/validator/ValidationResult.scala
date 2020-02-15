@@ -3,13 +3,13 @@
 
 package com.daml.ledger.validator
 
-object ValidationResult {
+sealed trait ValidationResult
 
-  sealed trait ValidationResult
+object ValidationResult {
 
   case object SubmissionValidated extends ValidationResult
 
-  sealed trait ValidationFailed extends ValidationResult
+  sealed trait ValidationFailed extends RuntimeException with ValidationResult
 
   final case class MissingInputState(keys: Seq[Array[Byte]]) extends ValidationFailed
 

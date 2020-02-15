@@ -15,7 +15,8 @@ import org.flywaydb.core.Flyway
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.Duration
-import scala.util.control.NonFatal
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 class Database(
     val queries: Queries,
@@ -25,44 +26,58 @@ class Database(
   private val logger = ContextualizedLogger.get(this.getClass)
 
   def inReadTransaction[T](message: String)(
-      body: Connection => T,
-  )(implicit logCtx: LoggingContext): T = {
+      body: Connection => Future[T],
+  )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): Future[T] = {
     inTransaction(message, readerConnectionPool)(body)
   }
 
   def inWriteTransaction[T](message: String)(
-      body: Connection => T,
-  )(implicit logCtx: LoggingContext): T = {
+      body: Connection => Future[T],
+  )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): Future[T] = {
     inTransaction(message, writerConnectionPool)(body)
   }
 
   private def inTransaction[T](message: String, connectionPool: DataSource)(
-      body: Connection => T,
-  )(implicit logCtx: LoggingContext): T = {
+      body: Connection => Future[T],
+  )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): Future[T] = {
     val connection =
       time(s"$message: acquiring connection")(connectionPool.getConnection())
-    time(message) {
-      try {
-        val result = body(connection)
-        connection.commit()
-        result
-      } catch {
-        case NonFatal(exception) =>
-          connection.rollback()
-          throw exception
-      } finally {
-        connection.close()
-      }
+    timeFuture(message) {
+      body(connection)
+        .andThen {
+          case Success(_) => connection.commit()
+          case Failure(_) => connection.rollback()
+        }
+        .andThen {
+          case _ => connection.close()
+        }
     }
   }
 
   private def time[T](message: String)(body: => T)(implicit logCtx: LoggingContext): T = {
-    val startTime = System.nanoTime()
-    logger.trace(s"$message: starting")
+    val startTime = timeStart(message)
     val result = body
+    timeEnd(message, startTime)
+    result
+  }
+
+  private def timeFuture[T](message: String)(
+      body: => Future[T],
+  )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): Future[T] = {
+    val startTime = timeStart(message)
+    body.andThen {
+      case _ => timeEnd(message, startTime)
+    }
+  }
+
+  private def timeStart(message: String)(implicit logCtx: LoggingContext): Long = {
+    logger.trace(s"$message: starting")
+    System.nanoTime()
+  }
+
+  private def timeEnd(message: String, startTime: Long)(implicit logCtx: LoggingContext): Unit = {
     val endTime = System.nanoTime()
     logger.trace(s"$message: finished in ${Duration.fromNanos(endTime - startTime).toMillis}ms")
-    result
   }
 }
 

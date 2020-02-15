@@ -3,6 +3,8 @@
 
 package com.daml.ledger.validator
 
+import com.daml.ledger.validator.LedgerStateOperations._
+
 import scala.concurrent.{ExecutionContext, Future}
 
 trait LedgerStateAccess {
@@ -16,8 +18,6 @@ trait LedgerStateAccess {
 }
 
 trait LedgerStateOperations {
-  type Key = Array[Byte]
-  type Value = Array[Byte]
 
   /**
     * Reads value of a single key from the backing store.
@@ -55,11 +55,11 @@ trait LedgerStateOperations {
   */
 abstract class BatchingLedgerStateOperations(implicit executionContext: ExecutionContext)
     extends LedgerStateOperations {
-  override def readState(key: Key): Future[Option[Value]] =
+  override final def readState(key: Key): Future[Option[Value]] =
     readState(Seq(key)).map(_.head)
 
-  override def writeState(key: Key, value: Value): Future[Unit] =
-    writeState(Seq((key, value)))
+  override final def writeState(key: Key, value: Value): Future[Unit] =
+    writeState(Seq(key -> value))
 }
 
 /**
@@ -67,13 +67,18 @@ abstract class BatchingLedgerStateOperations(implicit executionContext: Executio
   */
 abstract class NonBatchingLedgerStateOperations(implicit executionContext: ExecutionContext)
     extends LedgerStateOperations {
-  override def readState(keys: Seq[Key]): Future[Seq[Option[Value]]] =
+  override final def readState(keys: Seq[Key]): Future[Seq[Option[Value]]] =
     Future.sequence(keys.map(readState))
 
-  override def writeState(keyValuePairs: Seq[(Key, Value)]): Future[Unit] =
+  override final def writeState(keyValuePairs: Seq[(Key, Value)]): Future[Unit] =
     Future
       .sequence(keyValuePairs.map {
         case (key, value) => writeState(key, value)
       })
       .map(_ => ())
+}
+
+object LedgerStateOperations {
+  type Key = Array[Byte]
+  type Value = Array[Byte]
 }
