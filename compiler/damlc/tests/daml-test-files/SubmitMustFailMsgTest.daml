@@ -1,0 +1,48 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @SINCE-LF 1.dev
+daml 1.2
+module SubmitMustFailMsgTest where
+
+import DA.Assert
+
+template TestHelper
+  with
+    owner : Party
+    id : Int
+  where
+    signatory owner
+
+    controller owner can
+      TestHelper_AssertMsg : ContractId TestHelper
+        with
+          id' : Int
+        do
+          assertMsg "id must be over 18 triggered via assertMsg" $ id' > 18
+          create this with id = id'
+
+      TestHelper_Abort : ContractId TestHelper
+        with
+          id' : Int
+        do
+          if id' <= 18 then
+            abort "id must be over 18 triggered via abort"
+          else
+            create this with id = id'
+
+test = scenario do
+  owner <- getParty "Alice"
+
+  cid <- submit owner do
+    create TestHelper with
+      owner
+      id = 100
+
+  assertEq "id must be over 18 triggered via assertMsg" =<<
+    submitMustFailMsg owner do
+      exercise cid TestHelper_AssertMsg with id' = 18
+
+  assertEq "id must be over 18 triggered via abort" =<<
+    submitMustFailMsg owner do
+      exercise cid TestHelper_Abort with id' = 18
