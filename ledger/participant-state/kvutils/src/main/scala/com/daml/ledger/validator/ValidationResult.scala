@@ -3,18 +3,20 @@
 
 package com.daml.ledger.validator
 
-sealed trait ValidationResult
+sealed trait ValidationResult[+T]
 
 object ValidationResult {
 
-  case object SubmissionValidated extends ValidationResult
+  final case class SubmissionValidated[T](value: T) extends ValidationResult[T]
 
-  sealed trait ValidationFailed extends RuntimeException with ValidationResult
+  object SubmissionValidated {
+    val unit: SubmissionValidated[Unit] = SubmissionValidated(())
+  }
+
+  sealed trait ValidationFailed extends RuntimeException with ValidationResult[Nothing]
 
   final case class MissingInputState(keys: Seq[Array[Byte]]) extends ValidationFailed
 
   final case class ValidationError(reason: String) extends ValidationFailed
-
-  final case class TransformedSubmission[T](value: T)
 
 }

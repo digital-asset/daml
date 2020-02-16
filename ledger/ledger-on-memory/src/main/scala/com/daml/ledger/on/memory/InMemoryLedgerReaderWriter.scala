@@ -58,8 +58,8 @@ final class InMemoryLedgerReaderWriter(
   private val validator =
     SubmissionValidator.create(InMemoryLedgerStateAccess, () => sequentialLogEntryId.next())
 
-  private object InMemoryLedgerStateAccess extends LedgerStateAccess {
-    override def inTransaction[T](body: LedgerStateOperations => Future[T]): Future[T] =
+  private object InMemoryLedgerStateAccess extends LedgerStateAccess[Index] {
+    override def inTransaction[T](body: LedgerStateOperations[Index] => Future[T]): Future[T] =
       Future
         .successful(lockCurrentState.acquire())
         .flatMap(_ => body(InMemoryLedgerStateOperations))
@@ -69,7 +69,7 @@ final class InMemoryLedgerReaderWriter(
         }
   }
 
-  private object InMemoryLedgerStateOperations extends BatchingLedgerStateOperations {
+  private object InMemoryLedgerStateOperations extends BatchingLedgerStateOperations[Index] {
     override def readState(keys: Seq[Key]): Future[Seq[Option[Value]]] =
       Future.successful {
         keys.map(keyBytes => currentState.state.get(ByteString.copyFrom(keyBytes)))
@@ -82,15 +82,14 @@ final class InMemoryLedgerReaderWriter(
         }
       }
 
-    override def appendToLog(key: Key, value: Value): Future[Unit] =
+    override def appendToLog(key: Key, value: Value): Future[Index] =
       Future.successful {
         val damlLogEntryId = KeyValueCommitting.unpackDamlLogEntryId(key)
         val logEntry = LogEntry(damlLogEntryId, value)
-        val newHead = currentState.log.synchronized {
+        currentState.log.synchronized {
           currentState.log += logEntry
           currentState.log.size
         }
-        dispatcher.signalNewHead(newHead)
       }
   }
 
@@ -98,9 +97,13 @@ final class InMemoryLedgerReaderWriter(
     validator
       .validateAndCommit(envelope, correlationId, currentRecordTime(), participantId)
       .map {
-        case SubmissionValidated => SubmissionResult.Acknowledged
-        case MissingInputState(_) => SubmissionResult.InternalError("Missing input state")
-        case ValidationError(reason) => SubmissionResult.InternalError(reason)
+        case SubmissionValidated(newHead) =>
+          dispatcher.signalNewHead(newHead)
+          SubmissionResult.Acknowledged
+        case MissingInputState(_) =>
+          SubmissionResult.InternalError("Missing input state")
+        case ValidationError(reason) =>
+          SubmissionResult.InternalError(reason)
       }
 
   override def events(offset: Option[Offset]): Source[LedgerRecord, NotUsed] =

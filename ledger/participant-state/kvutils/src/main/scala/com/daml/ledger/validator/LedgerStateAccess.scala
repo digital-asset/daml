@@ -7,17 +7,18 @@ import com.daml.ledger.validator.LedgerStateOperations._
 
 import scala.concurrent.{ExecutionContext, Future}
 
-trait LedgerStateAccess {
+trait LedgerStateAccess[LogResult] {
 
   /**
     * Performs read and write operations on the backing store in a single atomic transaction.
+    *
     * @param body  operations to perform
-    * @tparam T type of result returned after execution
+    * @tparam T return type of the body
     */
-  def inTransaction[T](body: LedgerStateOperations => Future[T]): Future[T]
+  def inTransaction[T](body: LedgerStateOperations[LogResult] => Future[T]): Future[T]
 }
 
-trait LedgerStateOperations {
+trait LedgerStateOperations[LogResult] {
 
   /**
     * Reads value of a single key from the backing store.
@@ -47,14 +48,14 @@ trait LedgerStateOperations {
     * Writes a single log entry to the backing store.  The implementation may return Future.failed in case the key
     * (i.e., the log entry ID) already exists.
     */
-  def appendToLog(key: Key, value: Value): Future[Unit]
+  def appendToLog(key: Key, value: Value): Future[LogResult]
 }
 
 /**
   * Implements non-batching read and write operations on the backing store based on batched implementations.
   */
-abstract class BatchingLedgerStateOperations(implicit executionContext: ExecutionContext)
-    extends LedgerStateOperations {
+abstract class BatchingLedgerStateOperations[LogResult](implicit executionContext: ExecutionContext)
+    extends LedgerStateOperations[LogResult] {
   override final def readState(key: Key): Future[Option[Value]] =
     readState(Seq(key)).map(_.head)
 
@@ -65,8 +66,9 @@ abstract class BatchingLedgerStateOperations(implicit executionContext: Executio
 /**
   * Implements batching read and write operations on the backing store based on non-batched implementations.
   */
-abstract class NonBatchingLedgerStateOperations(implicit executionContext: ExecutionContext)
-    extends LedgerStateOperations {
+abstract class NonBatchingLedgerStateOperations[LogResult](
+    implicit executionContext: ExecutionContext
+) extends LedgerStateOperations[LogResult] {
   override final def readState(keys: Seq[Key]): Future[Seq[Option[Value]]] =
     Future.sequence(keys.map(readState))
 
