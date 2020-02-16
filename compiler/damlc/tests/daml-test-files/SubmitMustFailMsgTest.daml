@@ -19,7 +19,7 @@ template TestHelper
         with
           id' : Int
         do
-          assertMsg "id must be over 18 triggered via assertMsg" $ id' > 18
+          assertMsg "id must be over 18 triggered by assertMsg" $ id' > 18
           create this with id = id'
 
       TestHelper_Abort : ContractId TestHelper
@@ -27,7 +27,7 @@ template TestHelper
           id' : Int
         do
           if id' <= 18 then
-            abort "id must be over 18 triggered via abort"
+            abort "id must be over 18 triggered by abort"
           else
             create this with id = id'
 
@@ -39,10 +39,10 @@ test = scenario do
       owner
       id = 100
 
-  assertEq "id must be over 18 triggered via assertMsg" =<<
+  assertEq "id must be over 18 triggered by assertMsg" =<<
     submitMustFailMsg owner do
       exercise cid TestHelper_AssertMsg with id' = 18
 
-  assertEq "id must be over 18 triggered via abort" =<<
+  assertEq "id must be over 18 triggered by abort" =<<
     submitMustFailMsg owner do
       exercise cid TestHelper_Abort with id' = 18

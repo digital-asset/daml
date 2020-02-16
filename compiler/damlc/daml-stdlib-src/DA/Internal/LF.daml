@@ -214,8 +214,14 @@ class HasSubmit m cmds | m -> cmds, cmds -> m where
   submitMustFail : Party -> cmds a -> m ()
 
   #ifdef DAML_ANY_TYPE
-  -- | The same semantics as `submitMustFail`, except the user initiated error triggered
-  -- via `abort` or `assert` is returned.
+  -- | Behaves like `submitMustFail`, except the user initiated error triggered
+  -- via `abort` or `assert` is returned. Example use:
+  --
+  -- ```
+  -- assertEq "The expected error message" =<<
+  --    submitMustFailMsg p do
+  --      exercise ...
+  -- ```
   submitMustFailMsg : Party -> cmds a -> m Text
   #endif
 
