@@ -57,7 +57,7 @@ class PackageClientImplTest extends FlatSpec with Matchers with AuthMatchers wit
         .getPackage("")
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
         .blockingGet()
-      getPackage.getArchivePayload shouldBe ByteString.EMPTY.toByteArray()
+      getPackage.getArchivePayload shouldBe ByteString.EMPTY.toByteArray
       getPackage.getArchivePayload shouldBe defaultGetPackageResponse.archivePayload.toByteArray
     }
   }
@@ -111,7 +111,7 @@ class PackageClientImplTest extends FlatSpec with Matchers with AuthMatchers wit
 
   behavior of "Authorization"
 
-  def toAuthenticatedServer(fn: PackageClient => Any): Any =
+  private def toAuthenticatedServer(fn: PackageClient => Any): Any =
     ledgerServices.withPackageClient(
       listPackageResponseFuture(),
       defaultGetPackageResponseFuture,
@@ -122,21 +122,21 @@ class PackageClientImplTest extends FlatSpec with Matchers with AuthMatchers wit
 
   it should "deny access without token" in {
     withClue("getPackage") {
-      expectPermissionDenied {
+      expectUnauthenticated {
         toAuthenticatedServer { client =>
           client.getPackage("...").blockingGet()
         }
       }
     }
     withClue("getPackageStatus") {
-      expectPermissionDenied {
+      expectUnauthenticated {
         toAuthenticatedServer { client =>
           client.getPackageStatus("...").blockingGet()
         }
       }
     }
     withClue("listPackages") {
-      expectPermissionDenied {
+      expectUnauthenticated {
         toAuthenticatedServer { client =>
           client.listPackages().blockingFirst()
         }
@@ -146,21 +146,21 @@ class PackageClientImplTest extends FlatSpec with Matchers with AuthMatchers wit
 
   it should "deny access without sufficient authorization" in {
     withClue("getPackage") {
-      expectPermissionDenied {
+      expectUnauthenticated {
         toAuthenticatedServer { client =>
           client.getPackage("...", emptyToken).blockingGet()
         }
       }
     }
     withClue("getPackageStatus") {
-      expectPermissionDenied {
+      expectUnauthenticated {
         toAuthenticatedServer { client =>
           client.getPackageStatus("...", emptyToken).blockingGet()
         }
       }
     }
     withClue("listPackages") {
-      expectPermissionDenied {
+      expectUnauthenticated {
         toAuthenticatedServer { client =>
           client.listPackages(emptyToken).blockingFirst()
         }
@@ -186,15 +186,18 @@ class PackageClientImplTest extends FlatSpec with Matchers with AuthMatchers wit
     }
   }
 
-  def listPackageResponse(pids: String*) = new ListPackagesResponse(pids)
+  private def listPackageResponse(pids: String*) = new ListPackagesResponse(pids)
 
-  def listPackageResponseFuture(pids: String*) = Future.successful(listPackageResponse(pids: _*))
+  private def listPackageResponseFuture(pids: String*) =
+    Future.successful(listPackageResponse(pids: _*))
 
-  val defaultGetPackageResponsePayload = ByteString.EMPTY
-  val defaultGetPackageResponse =
+  private val defaultGetPackageResponsePayload = ByteString.EMPTY
+  private val defaultGetPackageResponse =
     new GetPackageResponse(HashFunction.values.head, defaultGetPackageResponsePayload)
-  val defaultGetPackageResponseFuture = Future.successful(defaultGetPackageResponse)
-  val defaultGetPackageStatusResponse = new GetPackageStatusResponse(PackageStatus.values.head)
-  val defaultGetPackageStatusResponseFuture = Future.successful(defaultGetPackageStatusResponse)
+  private val defaultGetPackageResponseFuture = Future.successful(defaultGetPackageResponse)
+  private val defaultGetPackageStatusResponse = new GetPackageStatusResponse(
+    PackageStatus.values.head)
+  private val defaultGetPackageStatusResponseFuture =
+    Future.successful(defaultGetPackageStatusResponse)
 
 }

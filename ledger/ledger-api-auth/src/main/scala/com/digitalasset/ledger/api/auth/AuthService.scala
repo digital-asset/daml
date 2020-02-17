@@ -21,10 +21,10 @@ import java.util.concurrent.CompletionStage
   */
 trait AuthService {
 
-  /** Converts gRPC request metadata into a set of [[Claims]].
-    *
-    *  @param headers All HTTP headers attached to the request.
-    *
+  /**
+    * Return empty [[Claims]] to reject requests with a UNAUTHENTICATED error status.
+    * Return [[Claims]] with only a single [[ClaimPublic]] claim to reject all non-public requests with a PERMISSION_DENIED status.
+    * Return a failed future to reject requests with an INTERNAL error status.
     */
   def decodeMetadata(headers: io.grpc.Metadata): CompletionStage[Claims]
 }

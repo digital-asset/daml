@@ -87,7 +87,7 @@ class ActiveContractClientImplTest
 
   "ActiveContractClientImpl.getActiveContracts" should "fail with insufficient authorization" in {
     ledgerServices.withACSClient(Observable.empty(), mockedAuthService) { (acsClient, _) =>
-      expectPermissionDenied {
+      expectUnauthenticated {
         acsClient
           .getActiveContracts(filterFor(someParty), false, emptyToken)
           .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)

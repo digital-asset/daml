@@ -98,14 +98,14 @@ final class TimeClientImplTest
 
   it should "deny access without a token" in {
     withClue("getTime") {
-      expectPermissionDenied {
+      expectUnauthenticated {
         toAuthenticatedServer {
           _.getTime().blockingFirst()
         }
       }
     }
     withClue("setTime") {
-      expectPermissionDenied {
+      expectUnauthenticated {
         toAuthenticatedServer { client =>
           val t = Instant.now()
           client.setTime(t, t.plusSeconds(1)).blockingGet()
@@ -116,7 +116,7 @@ final class TimeClientImplTest
 
   it should "deny access with insufficient authorization" in {
     withClue("getTime") {
-      expectPermissionDenied {
+      expectUnauthenticated {
         toAuthenticatedServer {
           _.getTime(emptyToken).blockingFirst()
         }

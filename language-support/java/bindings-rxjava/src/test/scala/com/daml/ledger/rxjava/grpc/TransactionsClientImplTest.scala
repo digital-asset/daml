@@ -289,7 +289,7 @@ final class TransactionsClientImplTest
 
   it should "deny access without a token" in {
     withClue("getTransactions specifying end") {
-      expectPermissionDenied {
+      expectUnauthenticated {
         toAuthenticatedServer(
           _.getTransactions(ledgerBegin, ledgerEnd, filterFor(someParty), false)
             .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
@@ -299,7 +299,7 @@ final class TransactionsClientImplTest
       }
     }
     withClue("getTransactions without specifying end") {
-      expectPermissionDenied {
+      expectUnauthenticated {
         toAuthenticatedServer(
           _.getTransactions(ledgerBegin, filterFor(someParty), false)
             .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
@@ -309,7 +309,7 @@ final class TransactionsClientImplTest
       }
     }
     withClue("getTransactionsTree specifying end") {
-      expectPermissionDenied {
+      expectUnauthenticated {
         toAuthenticatedServer(
           _.getTransactionsTrees(ledgerBegin, ledgerEnd, filterFor(someParty), false)
             .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
@@ -319,28 +319,28 @@ final class TransactionsClientImplTest
       }
     }
     withClue("getTransactionByEventId") {
-      expectPermissionDenied {
+      expectUnauthenticated {
         toAuthenticatedServer(_.getTransactionByEventId("...", Set(someParty).asJava).blockingGet())
       }
     }
     withClue("getTransactionById") {
-      expectPermissionDenied {
+      expectUnauthenticated {
         toAuthenticatedServer(_.getTransactionById("...", Set(someParty).asJava).blockingGet())
       }
     }
     withClue("getFlatTransactionByEventId") {
-      expectPermissionDenied {
+      expectUnauthenticated {
         toAuthenticatedServer(
           _.getFlatTransactionByEventId("...", Set(someParty).asJava).blockingGet())
       }
     }
     withClue("getFlatTransactionById") {
-      expectPermissionDenied {
+      expectUnauthenticated {
         toAuthenticatedServer(_.getFlatTransactionById("...", Set(someParty).asJava).blockingGet())
       }
     }
     withClue("getLedgerEnd") {
-      expectPermissionDenied {
+      expectUnauthenticated {
         toAuthenticatedServer(_.getLedgerEnd.blockingGet())
       }
     }
@@ -416,7 +416,7 @@ final class TransactionsClientImplTest
       }
     }
     withClue("getLedgerEnd") {
-      expectPermissionDenied {
+      expectUnauthenticated {
         toAuthenticatedServer(_.getLedgerEnd(emptyToken).blockingGet())
       }
     }

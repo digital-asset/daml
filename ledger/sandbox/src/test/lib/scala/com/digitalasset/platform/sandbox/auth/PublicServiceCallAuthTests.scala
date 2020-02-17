@@ -6,7 +6,7 @@ package com.digitalasset.platform.sandbox.auth
 trait PublicServiceCallAuthTests extends ServiceCallAuthTests {
 
   it should "deny calls with an expired read-only token" in {
-    expectPermissionDenied(serviceCallWithToken(canReadAsRandomPartyExpired))
+    expectUnauthenticated(serviceCallWithToken(canReadAsRandomPartyExpired))
   }
   it should "allow calls with explicitly non-expired read-only token" in {
     expectSuccess(serviceCallWithToken(canReadAsRandomPartyExpiresTomorrow))
@@ -16,7 +16,7 @@ trait PublicServiceCallAuthTests extends ServiceCallAuthTests {
   }
 
   it should "deny calls with an expired read/write token" in {
-    expectPermissionDenied(serviceCallWithToken(canActAsRandomPartyExpired))
+    expectUnauthenticated(serviceCallWithToken(canActAsRandomPartyExpired))
   }
   it should "allow calls with explicitly non-expired read/write token" in {
     expectSuccess(serviceCallWithToken(canActAsRandomPartyExpiresTomorrow))
@@ -26,7 +26,7 @@ trait PublicServiceCallAuthTests extends ServiceCallAuthTests {
   }
 
   it should "deny calls with an expired admin token" in {
-    expectPermissionDenied(serviceCallWithToken(canReadAsAdminExpired))
+    expectUnauthenticated(serviceCallWithToken(canReadAsAdminExpired))
   }
   it should "allow calls with explicitly non-expired admin token" in {
     expectSuccess(serviceCallWithToken(canReadAsAdminExpiresTomorrow))

@@ -16,7 +16,7 @@ trait ReadOnlyServiceCallAuthTests extends ServiceCallWithMainActorAuthTests {
   def successfulBehavior: Future[Any] => Future[Assertion] = expectSuccess(_: Future[Any])
 
   it should "deny calls with an expired read-only token" in {
-    expectPermissionDenied(serviceCallWithToken(canReadAsMainActorExpired))
+    expectUnauthenticated(serviceCallWithToken(canReadAsMainActorExpired))
   }
   it should "allow calls with explicitly non-expired read-only token" in {
     successfulBehavior(serviceCallWithToken(canReadAsMainActorExpiresTomorrow))
@@ -26,7 +26,7 @@ trait ReadOnlyServiceCallAuthTests extends ServiceCallWithMainActorAuthTests {
   }
 
   it should "deny calls with an expired read/write token" in {
-    expectPermissionDenied(serviceCallWithToken(canActAsMainActorExpired))
+    expectUnauthenticated(serviceCallWithToken(canActAsMainActorExpired))
   }
   it should "allow calls with explicitly non-expired read/write token" in {
     successfulBehavior(serviceCallWithToken(canActAsMainActorExpiresTomorrow))

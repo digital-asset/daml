@@ -33,7 +33,7 @@ final class LedgerIdentityClientTest extends FlatSpec with Matchers with AuthMat
 
   it should "deny ledger-id queries with insufficient authorization" in ledgerServices
     .withLedgerIdentityClient(mockedAuthService) { (binding, _) =>
-      expectPermissionDenied {
+      expectUnauthenticated {
         binding
           .getLedgerIdentity(emptyToken)
           .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)

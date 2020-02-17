@@ -109,9 +109,9 @@ final class AuthSpec
 
   behavior of "Extractor against a Ledger API protected by authentication"
 
-  it should "fail immediately with a PERMISSION_DENIED if no token is provided" in {
+  it should "fail immediately with a UNAUTHENTICATED if no token is provided" in {
     extractor(noAuth).run().failed.collect {
-      case GrpcException.PERMISSION_DENIED() => succeed
+      case GrpcException.UNAUTHENTICATED() => succeed
     }
   }
 

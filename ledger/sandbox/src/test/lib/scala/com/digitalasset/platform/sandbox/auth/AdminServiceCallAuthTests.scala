@@ -10,10 +10,10 @@ trait AdminServiceCallAuthTests extends ServiceCallAuthTests {
   private val signedIncorrectly = Option(toHeader(adminToken, UUID.randomUUID.toString))
 
   it should "deny calls with an invalid signature" in {
-    expectPermissionDenied(serviceCallWithToken(signedIncorrectly))
+    expectUnauthenticated(serviceCallWithToken(signedIncorrectly))
   }
   it should "deny calls with an expired admin token" in {
-    expectPermissionDenied(serviceCallWithToken(canReadAsAdminExpired))
+    expectUnauthenticated(serviceCallWithToken(canReadAsAdminExpired))
   }
   it should "deny calls with a read-only token" in {
     expectPermissionDenied(serviceCallWithToken(canReadAsRandomParty))

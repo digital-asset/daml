@@ -39,6 +39,9 @@ trait ServiceCallAuthTests
   protected def expectPermissionDenied(f: Future[Any]): Future[Assertion] =
     expectFailure(f, Status.Code.PERMISSION_DENIED)
 
+  protected def expectUnauthenticated(f: Future[Any]): Future[Assertion] =
+    expectFailure(f, Status.Code.UNAUTHENTICATED)
+
   protected def expectFailure(f: Future[Any], code: Status.Code): Future[Assertion] =
     f.failed.collect {
       case GrpcException(GrpcStatus(`code`, _), _) => succeed
@@ -52,8 +55,8 @@ trait ServiceCallAuthTests
 
   behavior of serviceCallName
 
-  it should "deny unauthorized calls" in {
-    expectPermissionDenied(serviceCallWithToken(None))
+  it should "deny unauthenticated calls" in {
+    expectUnauthenticated(serviceCallWithToken(None))
   }
 
   protected val canActAsRandomParty =

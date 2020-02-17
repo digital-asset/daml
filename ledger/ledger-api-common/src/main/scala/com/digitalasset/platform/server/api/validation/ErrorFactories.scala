@@ -37,8 +37,11 @@ trait ErrorFactories {
   def unimplemented(description: String): StatusRuntimeException =
     grpcError(Status.UNIMPLEMENTED.withDescription(description))
 
-  def permissionDenied(description: String): StatusRuntimeException =
-    grpcError(Status.PERMISSION_DENIED.withDescription(description))
+  def permissionDenied(): StatusRuntimeException =
+    grpcError(Status.PERMISSION_DENIED)
+
+  def unauthenticated(): StatusRuntimeException =
+    grpcError(Status.UNAUTHENTICATED)
 
   def resourceExhausted(description: String): StatusRuntimeException =
     grpcError(Status.RESOURCE_EXHAUSTED.withDescription(description))

@@ -11,9 +11,19 @@ private[rxjava] trait AuthMatchers { self: Matchers =>
   private def theCausalChainOf(t: Throwable): Iterator[Throwable] =
     Iterator.iterate(t)(_.getCause).takeWhile(_ != null)
 
-  def expectPermissionDenied(blockingAuthenticatedCall: => Any): Assertion =
-    theCausalChainOf(the[RuntimeException] thrownBy { blockingAuthenticatedCall }) collect {
-      case GrpcException(GrpcStatus.PERMISSION_DENIED(), _) => ()
-    } should not be empty
+  private def expectError(predicate: Throwable => Boolean)(call: => Any): Assertion =
+    theCausalChainOf(the[RuntimeException] thrownBy call).filter(predicate) should not be empty
+
+  def expectUnauthenticated(call: => Any): Assertion =
+    expectError {
+      case GrpcException(GrpcStatus.UNAUTHENTICATED(), _) => true
+      case _ => false
+    }(call)
+
+  def expectPermissionDenied(call: => Any): Assertion =
+    expectError {
+      case GrpcException(GrpcStatus.PERMISSION_DENIED(), _) => true
+      case _ => false
+    }(call)
 
 }
