@@ -14,6 +14,7 @@ import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.ledger.api.domain.PartyDetails
 import com.digitalasset.ledger.{EventId, TransactionId, WorkflowId}
+import com.digitalasset.platform.store.ActiveLedgerStateManager.IndexingOptions
 import com.digitalasset.platform.store.Contract.{ActiveContract, DivulgedContract}
 import com.digitalasset.platform.store.{
   ActiveLedgerState,
@@ -147,6 +148,9 @@ case class InMemoryActiveLedgerState(
         divulgedContracts = divulgedContracts ++ updatedDcs ++ newDcs
       )
     } else this
+
+  private[this] implicit val indexingOptions: IndexingOptions = IndexingOptions(
+    implicitPartyAllocation = true)
 
   private val acManager =
     new ActiveLedgerStateManager(this)

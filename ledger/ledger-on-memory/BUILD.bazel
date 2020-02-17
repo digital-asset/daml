@@ -99,6 +99,7 @@ conformance_test(
         "--all-tests",
         "--exclude=ConfigManagementServiceIT",
         "--exclude=TimeIT",
+        "--exclude=OpenWorldSandboxIT",
     ],
 )
 

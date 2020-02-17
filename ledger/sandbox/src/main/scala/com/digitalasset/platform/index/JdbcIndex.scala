@@ -13,6 +13,7 @@ import com.daml.ledger.participant.state.v1.{ParticipantId, TimeModel}
 import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.logging.LoggingContext
+import com.digitalasset.platform.store.ActiveLedgerStateManager.IndexingOptions
 import com.digitalasset.resources.Resource
 
 object JdbcIndex {
@@ -21,8 +22,12 @@ object JdbcIndex {
       ledgerId: LedgerId,
       participantId: ParticipantId,
       jdbcUrl: String,
-      metrics: MetricRegistry,
-  )(implicit mat: Materializer, logCtx: LoggingContext): Resource[IndexService] =
+      metrics: MetricRegistry
+  )(
+      implicit mat: Materializer,
+      logCtx: LoggingContext,
+      indexingOptions: IndexingOptions = IndexingOptions.defaultNoImplicitPartyAllocation)
+    : Resource[IndexService] =
     ReadOnlySqlLedger(jdbcUrl, Some(ledgerId), metrics).map { ledger =>
       new LedgerBackedIndexService(MeteredReadOnlyLedger(ledger, metrics), participantId) {
         override def getLedgerConfiguration(): Source[v2.LedgerConfiguration, NotUsed] =

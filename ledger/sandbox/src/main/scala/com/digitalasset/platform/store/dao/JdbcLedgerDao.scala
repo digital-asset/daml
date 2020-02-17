@@ -34,6 +34,7 @@ import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.ledger.{ApplicationId, CommandId, EventId, WorkflowId}
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
+import com.digitalasset.platform.store.ActiveLedgerStateManager.IndexingOptions
 import com.digitalasset.platform.store.Contract.{ActiveContract, DivulgedContract}
 import com.digitalasset.platform.store.Conversions._
 import com.digitalasset.platform.store.dao.JdbcLedgerDao.{H2DatabaseQueries, PostgresQueries}
@@ -78,7 +79,7 @@ private class JdbcLedgerDao(
     keyHasher: KeyHasher,
     dbType: DbType,
     executionContext: ExecutionContext,
-)(implicit logCtx: LoggingContext)
+)(implicit logCtx: LoggingContext, indexingOptions: IndexingOptions)
     extends LedgerDao {
 
   private val queries = dbType match {
@@ -1646,8 +1647,11 @@ object JdbcLedgerDao {
   def owner(
       jdbcUrl: String,
       metrics: MetricRegistry,
-      executionContext: ExecutionContext,
-  )(implicit logCtx: LoggingContext): ResourceOwner[LedgerDao] = {
+      executionContext: ExecutionContext
+  )(
+      implicit logCtx: LoggingContext,
+      indexingOptions: IndexingOptions = IndexingOptions.defaultNoImplicitPartyAllocation)
+    : ResourceOwner[LedgerDao] = {
     val dbType = DbType.jdbcType(jdbcUrl)
     val maxConnections =
       if (dbType.supportsParallelWrites) defaultNumberOfShortLivedConnections else 1
@@ -1659,8 +1663,11 @@ object JdbcLedgerDao {
   def apply(
       dbDispatcher: DbDispatcher,
       dbType: DbType,
-      executionContext: ExecutionContext,
-  )(implicit logCtx: LoggingContext): LedgerDao =
+      executionContext: ExecutionContext
+  )(
+      implicit logCtx: LoggingContext,
+      indexingOptions: IndexingOptions = IndexingOptions.defaultNoImplicitPartyAllocation)
+    : LedgerDao =
     new JdbcLedgerDao(
       dbDispatcher,
       ContractSerializer,
@@ -1668,7 +1675,7 @@ object JdbcLedgerDao {
       ValueSerializer,
       KeyHasher,
       dbType,
-      executionContext,
+      executionContext
     )
 
   private val PARTY_SEPARATOR = '%'

@@ -32,6 +32,7 @@ import com.digitalasset.platform.indexer.{
 import com.digitalasset.platform.sandbox.banner.Banner
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.sandboxnext.Runner._
+import com.digitalasset.platform.store.ActiveLedgerStateManager.IndexingOptions
 import com.digitalasset.resources.ResourceOwner
 import com.digitalasset.resources.akka.AkkaResourceOwner
 import scalaz.syntax.tag._
@@ -49,6 +50,9 @@ import scala.util.Try
   *   - does not provide the reset service
   */
 class Runner {
+
+  implicit val indexingOptions: IndexingOptions = IndexingOptions(implicitPartyAllocation = true)
+
   def owner(config: SandboxConfig): ResourceOwner[Unit] = {
     implicit val system: ActorSystem = ActorSystem("sandbox")
     implicit val materializer: Materializer = Materializer(system)
@@ -140,7 +144,7 @@ class Runner {
         startupMode = IndexerStartupMode.MigrateAndStart,
         allowExistingSchema = true,
       ),
-      SharedMetricRegistries.getOrCreate(s"indexer-$ParticipantId"),
+      SharedMetricRegistries.getOrCreate(s"indexer-$ParticipantId")
     )
 
   private def startApiServer(

@@ -11,6 +11,7 @@ import com.digitalasset.dec.{DirectExecutionContext => DEC}
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
+import com.digitalasset.platform.store.ActiveLedgerStateManager.IndexingOptions
 import com.digitalasset.platform.store.dao.{
   DbDispatcher,
   JdbcLedgerDao,
@@ -32,8 +33,12 @@ object ReadOnlySqlLedger {
   def apply(
       jdbcUrl: String,
       ledgerId: Option[LedgerId],
-      metrics: MetricRegistry,
-  )(implicit mat: Materializer, logCtx: LoggingContext): Resource[ReadOnlyLedger] = {
+      metrics: MetricRegistry
+  )(
+      implicit mat: Materializer,
+      logCtx: LoggingContext,
+      indexingOptions: IndexingOptions = IndexingOptions.defaultNoImplicitPartyAllocation)
+    : Resource[ReadOnlyLedger] = {
     implicit val ec: ExecutionContext = mat.executionContext
     val dbType = DbType.jdbcType(jdbcUrl)
     for {

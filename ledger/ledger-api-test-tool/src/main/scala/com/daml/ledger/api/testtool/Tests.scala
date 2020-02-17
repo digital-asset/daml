@@ -40,6 +40,7 @@ object Tests {
     "WitnessesIT" -> (new Witnesses(_)),
     "WronglyTypedContractIdIT" -> (new WronglyTypedContractId(_)),
     "ConfigManagementServiceIT" -> (new ConfigManagement(_)),
+    "OpenWorldSandboxIT" -> (new OpenWorldSandbox(_)),
   )
 
   val all: Tests = default ++ optional

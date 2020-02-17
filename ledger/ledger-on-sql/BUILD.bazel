@@ -216,6 +216,7 @@ da_scala_test_suite(
                 "--all-tests",
                 "--exclude=ConfigManagementServiceIT",
                 "--exclude=TimeIT",
+                "--exclude=OpenWorldSandboxIT",
             ],
         ),
         conformance_test(

@@ -37,6 +37,7 @@ import com.digitalasset.platform.store.{BaseLedger, DbType, FlywayMigrations, Pe
 import com.digitalasset.resources.ResourceOwner
 import scalaz.syntax.tag._
 import akka.stream.scaladsl.GraphDSL.Implicits._
+import com.digitalasset.platform.store.ActiveLedgerStateManager.IndexingOptions
 
 import scala.collection.immutable
 import scala.collection.immutable.Queue
@@ -65,7 +66,9 @@ object SqlLedger {
       startMode: SqlStartMode = SqlStartMode.ContinueIfExists,
       metrics: MetricRegistry,
   )(implicit mat: Materializer, logCtx: LoggingContext): ResourceOwner[Ledger] = {
+
     implicit val ec: ExecutionContext = DEC
+    implicit val indexingOptions: IndexingOptions = IndexingOptions(implicitPartyAllocation = true)
 
     new FlywayMigrations(jdbcUrl).migrate()
 
