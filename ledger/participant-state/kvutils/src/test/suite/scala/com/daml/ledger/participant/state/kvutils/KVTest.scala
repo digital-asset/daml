@@ -147,17 +147,21 @@ object KVTest {
 
   val minMRTDelta: Duration = theDefaultConfig.timeModel.minTtl
 
+  private val participant = Ref.ParticipantId.assertFromString("participant")
+
   def runCommand(submitter: Party, cmds: Command*): KVTest[SubmittedTransaction] =
     for {
       s <- get[KVTestState]
       tx = s.engine
         .submit(
-          Commands(
+          cmds = Commands(
             submitter = submitter,
             commands = ImmArray(cmds),
             ledgerEffectiveTime = s.recordTime,
-            commandsReference = "cmds-ref"
-          )
+            commandsReference = "cmds-ref",
+          ),
+          participantId = participant,
+          submissionSeed = None,
         )
         .consume(
           { coid =>

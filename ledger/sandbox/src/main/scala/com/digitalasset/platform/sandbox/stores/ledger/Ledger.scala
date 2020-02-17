@@ -67,7 +67,7 @@ object Ledger {
 
     // First we "commit" the transaction by converting all relative contractIds to absolute ones
     val committedTransaction: GenTransaction.WithTxValue[NodeId, AbsoluteContractId] =
-      transaction.resolveRelCidV0(EventIdFormatter.makeAbs(transactionId))
+      transaction.resolveRelCid(EventIdFormatter.makeAbs(transactionId))
 
     // here we just need to align the type for blinding
     val blindingInfo = Blinding.blind(committedTransaction)

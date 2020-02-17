@@ -4,7 +4,6 @@
 package com.digitalasset.daml.lf
 package transaction
 
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.transaction.Node.KeyWithMaintainers
 import com.digitalasset.daml.lf.value.Value.VersionedValue
 import com.digitalasset.daml.lf.value.{Value, ValueVersion}
@@ -27,11 +26,6 @@ object TransactionVersions
   private[transaction] val minContractKeyInExercise = TransactionVersion("8")
   private[transaction] val minMaintainersInExercise = TransactionVersion("9")
   private[transaction] val minContractIdV1 = TransactionVersion("10")
-
-  private def isV1(cid: Value.ContractId) = cid match {
-    case Value.AbsoluteContractId(coid) => Ref.ContractIdString.isB(coid)
-    case _ => false
-  }
 
   def assignVersion(
       a: GenTransaction[_, Value.ContractId, VersionedValue[Value.ContractId]],
@@ -89,13 +83,12 @@ object TransactionVersions
       else
         minVersion,
       if (a.transactionSeed.isDefined || a.nodes.values.exists {
-          case Node.NodeCreate(nodeSeed, coid, _, _, _, _, _) =>
-            nodeSeed.isDefined || isV1(coid)
-          case Node.NodeExercises(nodeSeed, coid, _, _, _, _, _, _, _, _, _, _, _, _) =>
-            nodeSeed.isDefined || isV1(coid)
-          case Node.NodeFetch(cid, _, _, _, _, _) =>
-            isV1(cid)
-          case _ => false
+          case Node.NodeCreate(nodeSeed, _, _, _, _, _, _) =>
+            nodeSeed.isDefined
+          case Node.NodeExercises(nodeSeed, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+            nodeSeed.isDefined
+          case _ =>
+            false
         })
         minContractIdV1
       else

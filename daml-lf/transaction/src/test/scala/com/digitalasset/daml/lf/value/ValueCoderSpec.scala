@@ -128,7 +128,7 @@ class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with P
       }
     }
 
-    "do ContractId V0 in any ValueVersion" in forAll(coidValueGenV0, valueVersionGen())(
+    "do ContractId V0 in any ValueVersion" in forAll(coidValueGen, valueVersionGen())(
       testRoundTripWithVersion
     )
 
@@ -192,7 +192,7 @@ class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with P
       val fromToBytes = ValueCoder.valueFromBytes(
         ValueCoder.CidDecoder,
         ValueCoder
-          .valueToBytes[ContractId](ValueVersions.VersionCid, ValueCoder.CidEncoder, ValueUnit)
+          .valueToBytes(ValueCoder.CidEncoder, ValueUnit)
           .toOption
           .get,
       )
@@ -218,7 +218,7 @@ class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with P
     }
 
     "do versioned value with assigned version" in forAll(valueGen) { v: Value[ContractId] =>
-      testRoundTripWithVersion(v, ValueVersions.assertAssignVersion(ValueVersions.VersionCid, v))
+      testRoundTripWithVersion(v, ValueVersions.assertAssignVersion(v))
     }
 
     "versioned value should pass serialization if unsupported override version provided" in
@@ -269,7 +269,7 @@ class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with P
       ValueCoder.CidDecoder,
       assertRight(
         ValueCoder
-          .valueToBytes[ContractId](ValueVersions.VersionCid, ValueCoder.CidEncoder, value)),
+          .valueToBytes[ContractId](ValueCoder.CidEncoder, value)),
     )
     Right(value) shouldEqual recovered
     Right(value) shouldEqual fromToBytes

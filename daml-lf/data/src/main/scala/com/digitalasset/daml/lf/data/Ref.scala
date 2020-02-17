@@ -30,14 +30,6 @@ object Ref {
   type ContractIdString = IdString.ContractIdString
   val ContractIdString: IdString.ContractIdString.type = IdString.ContractIdString
 
-  /** Identifiers for a legacy contractIds */
-  type ContractIdStringV0 = IdString.ContractIdStringV0
-  val ContractIdStringV0: IdString.ContractIdStringV0.type = IdString.ContractIdStringV0
-
-  /** Identifiers for a new contractIds comparable with relative contractId */
-  type ContractIdStringV1 = IdString.ContractIdStringV1
-  val ContractIdStringV1: IdString.ContractIdStringV1.type = IdString.ContractIdStringV1
-
   type LedgerString = IdString.LedgerString
   val LedgerString: IdString.LedgerString.type = IdString.LedgerString
 

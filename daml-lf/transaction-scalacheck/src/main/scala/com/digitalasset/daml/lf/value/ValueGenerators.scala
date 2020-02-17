@@ -158,22 +158,9 @@ object ValueGenerators {
     Gen.zip(Gen.alphaChar, Gen.alphaStr) map {
       case (h, t) => AbsoluteContractId(toContractId(h +: t))
     }
-  private val genAbsV1: Gen[ContractId] = {
-    val random = crypto.Hash.secureRandom
-    Gen.alphaNumStr.map(
-      suffix =>
-        AbsoluteContractId(
-          Ref.ContractIdStringV1.assertFromString("$0" + random().toHexaString + suffix)))
-  }
-
-  def coidGenV0: Gen[ContractId] =
-    Gen.frequency((1, genRel), (3, genAbsV0))
-
-  def coidValueGenV0: Gen[ValueContractId[ContractId]] =
-    coidGenV0.map(ValueContractId(_))
 
   def coidGen: Gen[ContractId] =
-    Gen.frequency((2, genRel), (3, genAbsV0), (3, genAbsV1))
+    Gen.frequency((1, genRel), (3, genAbsV0))
 
   def coidValueGen: Gen[ValueContractId[ContractId]] =
     coidGen.map(ValueContractId(_))
@@ -227,7 +214,7 @@ object ValueGenerators {
   def versionedValueGen: Gen[VersionedValue[ContractId]] =
     for {
       value <- valueGen
-      minVersion = ValueVersions.assertAssignVersion(ValueVersions.VersionCid, value)
+      minVersion = ValueVersions.assertAssignVersion(value)
       version <- valueVersionGen(minVersion)
     } yield VersionedValue(version, value)
 

@@ -63,6 +63,7 @@ message DamlSubmission {
     DamlConfigurationSubmission configuration_submission = 4;
     DamlPartyAllocationEntry party_allocation_entry = 5;
   }
+  bytes submission_seed = 6;
 }
 
 // A log entry for a committed DAML submission.
@@ -106,14 +107,14 @@ message DamlLogEntry {
 }
 
 message DamlLogEntryId {
-  // Entry identifiers are opaque bytestrings chosen by the implementation that provide a unique
-  // reference to the entry. They do not need to be comparable, as long as the implementation can
-  // provide an ordered sequence of log entries.
-  // The entry identifier is used:
-  // * to lookup the log entry when producing `Update`.
-  // * as the DAML transaction identifier and rendered as hexadecimal.
-  // * as part of absolute contract identifiers.
-  bytes entry_id = 1;
+   // Entry identifiers are opaque bytestrings chosen by the implementation that provide a unique
+   // reference to the entry. They do not need to be comparable, as long as the implementation can
+   // provide an ordered sequence of log entries.
+   // The entry identifier is used:
+   // * to lookup the log entry when producing `Update`.
+   // * as the DAML transaction identifier and rendered as hexadecimal.
+   // * as part of absolute contract identifiers.
+   bytes entry_id = 1;
 }
 
 message DamlSubmitterInfo {

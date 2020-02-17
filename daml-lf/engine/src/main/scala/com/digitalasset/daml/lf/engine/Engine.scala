@@ -6,7 +6,7 @@ package engine
 
 import com.digitalasset.daml.lf.command._
 import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
+import com.digitalasset.daml.lf.data.Ref.{PackageId, ParticipantId, Party}
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.speedy.Compiler
 import com.digitalasset.daml.lf.speedy.Pretty
@@ -77,7 +77,8 @@ final class Engine {
     */
   def submit(
       cmds: Commands,
-      transactionSeed: Option[crypto.Hash] = None
+      participantId: ParticipantId,
+      submissionSeed: Option[crypto.Hash],
   ): Result[Transaction.Transaction] = {
     _commandTranslation
       .preprocessCommands(cmds)
@@ -90,7 +91,9 @@ final class Engine {
               submitters = Set(cmds.submitter),
               commands = processedCmds,
               time = cmds.ledgerEffectiveTime,
-              transactionSeed = transactionSeed,
+              transactionSeed = submissionSeed.map(
+                crypto.Hash.deriveTransactionSeed(_, participantId, cmds.ledgerEffectiveTime)
+              ),
             ) map { tx =>
               // Annotate the transaction with the package dependencies. Since
               // all commands are actions on a contract template, with a fully typed
@@ -134,11 +137,16 @@ final class Engine {
     * If let undefined, no discriminator will be generated.
     */
   def reinterpret(
-      transactionSeed: Option[crypto.Hash],
+      submissionSeed: Option[crypto.Hash],
+      participantId: Ref.ParticipantId,
       submitters: Set[Party],
       nodes: Seq[GenNode.WithTxValue[Value.NodeId, Value.ContractId]],
       ledgerEffectiveTime: Time.Timestamp
   ): Result[Transaction.Transaction] = {
+
+    val transactionSeed = submissionSeed.map(
+      crypto.Hash.deriveTransactionSeed(_, participantId, ledgerEffectiveTime)
+    )
 
     val commandTranslation = new CommandPreprocessor(_compiledPackages)
     for {
@@ -153,7 +161,7 @@ final class Engine {
         submitters = submitters,
         commands = commands,
         time = ledgerEffectiveTime,
-        transactionSeed
+        transactionSeed = transactionSeed
       )
     } yield result
   }
@@ -331,7 +339,7 @@ final class Engine {
         checkSubmitterInMaintainers = checkSubmitterInMaintainers,
         sexpr = Compiler(compiledPackages.packages).compile(commands.map(_._2)),
         compiledPackages = _compiledPackages,
-        transactionSeed
+        seedWithTime = transactionSeed.map(_ -> time),
       )
       .copy(validating = validating, committers = submitters)
     interpretLoop(machine, time)
@@ -344,7 +352,7 @@ final class Engine {
       time: Time.Timestamp
   ): Result[Transaction.Transaction] = {
     while (!machine.isFinal) {
-      machine.step match {
+      machine.step() match {
         case SResultContinue =>
           ()
 

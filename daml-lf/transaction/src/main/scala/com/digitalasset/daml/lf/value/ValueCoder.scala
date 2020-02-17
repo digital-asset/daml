@@ -62,10 +62,8 @@ object ValueCoder {
         cid match {
           case RelativeContractId(nid, _) =>
             Right(Left("~" + nid.index.toString))
-          case AbsoluteContractId(s) if Ref.ContractIdString.isA(s) =>
+          case AbsoluteContractId(s) =>
             Right(Left(s))
-          case AbsoluteContractId(_) =>
-            Left(EncodeError(s"absolute contractId v1 not supported by ${sv.showsVersion}"))
         } else
         cid match {
           case RelativeContractId(nid, _) =>
@@ -76,10 +74,7 @@ object ValueCoder {
                   .setContractId(nid.index.toString)
                   .build))
           case AbsoluteContractId(s) =>
-            if ((sv precedes ValueVersions.minContractIdV1) && (Ref.ContractIdString.isB(s)))
-              Left(EncodeError(s"absolute contractId v1 not supported by ${sv.showsVersion}"))
-            else
-              Right(Right(proto.ContractId.newBuilder.setRelative(false).setContractId(s).build))
+            Right(Right(proto.ContractId.newBuilder.setRelative(false).setContractId(s).build))
         }
   }
 
@@ -134,14 +129,7 @@ object ValueCoder {
           else if (stringForm.startsWith("~"))
             stringToRelativeCid(stringForm.drop(1))
           else
-            for {
-              coid <- stringToCidString(stringForm)
-              _ <- Either.cond(
-                test = Ref.ContractIdString.isA(coid),
-                right = (),
-                left = DecodeError(sv, s"absolute contractId V1"),
-              )
-            } yield Some(AbsoluteContractId(coid))
+            stringToCidString(stringForm).map(coid => Some(AbsoluteContractId(coid)))
         }
       } else {
         if (stringForm.nonEmpty)
@@ -151,14 +139,7 @@ object ValueCoder {
         else if (structForm.getRelative)
           stringToRelativeCid(structForm.getContractId)
         else
-          for {
-            coid <- stringToCidString(structForm.getContractId)
-            _ <- Either.cond(
-              test = Ref.ContractIdString.isA(coid) || !(sv precedes ValueVersions.minContractIdV1),
-              right = (),
-              left = DecodeError(sv, s"absolute contractId V1")
-            )
-          } yield Some(AbsoluteContractId(coid))
+          stringToCidString(structForm.getContractId).map(coid => Some(AbsoluteContractId(coid)))
       }
 
   }
@@ -280,12 +261,11 @@ object ValueCoder {
     * @return protocol buffer serialized values
     */
   def encodeVersionedValue[Cid](
-      versionCid: ValueVersions.VersionCid[Cid],
       encodeCid: EncodeCid[Cid],
       value: Value[Cid],
   ): Either[EncodeError, proto.VersionedValue] =
     ValueVersions
-      .assignVersion(versionCid, value)
+      .assignVersion(value)
       .fold(
         err => Left(EncodeError(err)),
         version => encodeVersionedValueWithCustomVersion(encodeCid, VersionedValue(version, value)),
@@ -624,11 +604,10 @@ object ValueCoder {
   // general usage
 
   private[value] def valueToBytes[Cid](
-      versionCid: ValueVersions.VersionCid[Cid],
       encodeCid: EncodeCid[Cid],
       v: Value[Cid],
   ): Either[EncodeError, Array[Byte]] = {
-    encodeVersionedValue(versionCid, encodeCid, v).map(_.toByteArray)
+    encodeVersionedValue(encodeCid, v).map(_.toByteArray)
   }
 
   private[value] def valueFromBytes[Cid](

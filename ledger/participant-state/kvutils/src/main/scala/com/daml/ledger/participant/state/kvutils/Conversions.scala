@@ -37,12 +37,12 @@ private[state] object Conversions {
   def packageStateKey(packageId: PackageId): DamlStateKey =
     DamlStateKey.newBuilder.setPackageId(packageId).build
 
-  def toAbsCoid(txId: DamlLogEntryId, coid: RelativeContractId): Ref.ContractIdStringV0 = {
+  def toAbsCoid(txId: DamlLogEntryId, coid: RelativeContractId): Ref.ContractIdString = {
     val hexTxId =
       BaseEncoding.base16.encode(txId.getEntryId.toByteArray)
     // NOTE(JM): Must be in sync with [[absoluteContractIdToLogEntryId]] and
     // [[absoluteContractIdToStateKey]].
-    Ref.ContractIdStringV0.assertFromString(s"$hexTxId:${coid.txnid.index}")
+    Ref.ContractIdString.assertFromString(s"$hexTxId:${coid.txnid.index}")
   }
 
   def absoluteContractIdToLogEntryId(acoid: AbsoluteContractId): (DamlLogEntryId, Int) =
