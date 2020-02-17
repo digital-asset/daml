@@ -11,29 +11,11 @@ import com.daml.ledger.participant.state.v1.SubmittedTransaction
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.transaction.Node._
 import com.digitalasset.daml.lf.transaction.Transaction
-import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{
   AbsoluteContractId,
   ContractId,
   RelativeContractId,
   VersionedValue,
-  ValueParty,
-  ValueRecord,
-  ValueVariant,
-  ValueList,
-  ValueStruct,
-  ValueOptional,
-  ValueTextMap,
-  ValueGenMap,
-  ValueContractId,
-  ValueNumeric,
-  ValueInt64,
-  ValueTimestamp,
-  ValueBool,
-  ValueDate,
-  ValueEnum,
-  ValueText,
-  ValueUnit
 }
 
 /** Internal utilities to compute the inputs and effects of a DAML transaction */
@@ -123,26 +105,6 @@ private[kvutils] object InputsAndEffects {
 
     inputs.toList
   }
-
-  def subValues(v: Value[ContractId]): List[Value[ContractId]] =
-    v match {
-      case ValueRecord(_, fields) => fields.map(_._2).toList
-      case ValueList(elems) => elems.toImmArray.toList
-      case ValueStruct(fields) => fields.map(_._2).toList
-      case ValueVariant(_, _, v) => List(v)
-      case ValueOptional(optV) =>
-        optV match {
-          case Some(v) => List(v)
-          case None => List.empty
-        }
-      case ValueTextMap(map) => map.values.toList
-      case ValueGenMap(entries) =>
-        entries.map(_._1).toList ++ entries.toList.map(_._2)
-      case // Enumerating explicitly all cases to make it exhaustive and always get compilation errors on model changes
-          ValueContractId(_) | ValueNumeric(_) | ValueInt64(_) | ValueTimestamp(_) | ValueBool(_) |
-          ValueDate(_) | ValueParty(_) | ValueText(_) | ValueEnum(_, _) | ValueUnit =>
-        List.empty
-    }
 
   /** Compute the effects of a DAML transaction, that is, the created and consumed contracts. */
   def computeEffects(entryId: DamlLogEntryId, tx: SubmittedTransaction): Effects = {
