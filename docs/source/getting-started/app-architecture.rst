@@ -62,28 +62,25 @@ Next we'll see how our DAML code is reflected and used on the UI side.
 TypeScript Code Generation
 ==========================
 
-The user interface for our app is written in a variant of Javascript called TypeScript.
-The main feature of TypeScript is a rich type system which gives us more support through type checking during development.
+The user interface for our app is written in `TypeScript <https://www.typescriptlang.org/>`_.
+TypeScript is a variant of Javascript that provides more support in development through its type system.
 
-Of course, we need a way to refer to our DAML model (template and choices) in our TypeScript code.
-This is where we have a code generation tool come in to play.
+In order to build an application on top of DAML, we need a way to refer to the DAML template and choices in TypeScript.
+We do this using a DAML to TypeScript code generation tool in the DAML SDK.
 
-The command ``daml codegen ts`` takes as argument a DAR file (a compiled form of our DAML model) and produces a number of corresponding TypeScript types and objects.
-This is a crucial bridge to programming the UI around our DAML.
-
-The commands to run code generation (or "codegen") is::
+To run code generation, we first need to compile the DAML model to an archive format (with a ``.dar`` extension).
+Then the command ``daml codegen ts`` takes this file as argument to produce a number of TypeScript files in the specified location.
 
     daml build
     daml codegen ts .daml/dist/create-daml-app-0.1.0.dar -o daml-ts/src
 
-The first command builds the ``create-daml-app-0.1.0.dar`` DAR file.
-The ``codegen`` command translates the DAML into a series of TypeScript files in the ``daml-ts/src`` directory.
-These definitions can then be used in the UI code, as we'll see next.
+We now have TypeScript types and companion objects in the ``daml-ts`` workspace which we can use from our UI code.
+We'll see that next.
 
 The UI
 ======
 
-Our UI is written using `React <https://reactjs.org/>`_ and `TypeScript <https://www.typescriptlang.org/>`_.
+Our UI is written using `React <https://reactjs.org/>`_ and
 React helps us write modular UI components using a functional style - a component is rerendered whenever one of its inputs changes - combined with a judicious use of global state.
 
 We can see the latter in the way we handle ledger state throughout the application code.
