@@ -11,7 +11,7 @@ Getting started
    :titlesonly:
    :maxdepth: 2
 
-   getting-started/installation
+   Installing the SDK <getting-started/installation>
    Quickstart Guide <getting-started/quickstart>
 
 Writing DAML
