@@ -7,7 +7,7 @@ import com.codahale.metrics
 import com.codahale.metrics.{Counter, Timer}
 import com.daml.ledger.participant.state.kvutils.Conversions.{buildTimestamp, commandDedupKey, _}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.daml.ledger.participant.state.kvutils.{Conversions, Err, InputsAndEffects, DamlStateMap}
+import com.daml.ledger.participant.state.kvutils.{Conversions, DamlStateMap, Err, InputsAndEffects}
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId, RejectionReason}
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.archive.Reader.ParseError
@@ -15,7 +15,7 @@ import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.{Blinding, Engine}
 import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, NodeCreate, NodeExercises}
-import com.digitalasset.daml.lf.transaction.BlindingInfo
+import com.digitalasset.daml.lf.transaction.{BlindingInfo, GenTransaction}
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId, NodeId, VersionedValue}
 import org.slf4j.LoggerFactory
 
@@ -43,6 +43,7 @@ private[kvutils] case class ProcessTransactionSubmission(
     runSequence(
       inputState = inputState,
       "Authorize submitter" -> authorizeSubmitter,
+      "Check Informee Parties Allocation" -> checkInformeePartiesAllocation,
       "Deduplicate" -> deduplicateCommand,
       "Validate LET/TTL" -> validateLetAndTtl,
       "Validate Contract Key Uniqueness" -> validateContractKeyUniqueness,
@@ -207,6 +208,29 @@ private[kvutils] case class ProcessTransactionSubmission(
         reject(
           buildRejectionLogEntry(RejectionReason.Disputed("DuplicateKey: Contract Key not unique")))
     } yield r
+
+  /** Check that all informee parties mentioned of a transaction are allocated. */
+  private def checkInformeePartiesAllocation: Commit[Unit] = {
+
+    def foldInformeeParties[T](tx: GenTransaction.WithTxValue[_, _], z: T)(f: (T, String) => T): T =
+      tx.fold(z) {
+        case (accum, (_, n)) =>
+          n.informeesOfNode.foldLeft(accum)(f)
+      }
+
+    for {
+      allExist <- foldInformeeParties(relTx, pure(true)) { (acc, p) =>
+        get(partyStateKey(p)).flatMap(_.fold(pure(false))(_ => acc))
+      }
+
+      result <- if (allExist)
+        pass
+      else
+        reject(
+          buildRejectionLogEntry(RejectionReason.PartyNotKnownOnLedger)
+        )
+    } yield result
+  }
 
   /** All checks passed. Produce the log entry and contract state updates. */
   private def buildFinalResult(blindingInfo: BlindingInfo): Commit[Unit] = delay {

@@ -11,6 +11,7 @@ object Tests {
 
   val default: Tests = Map(
     "SemanticTests" -> (new SemanticTests(_)),
+    "ClosedWorldIT" -> (new ClosedWorld(_)),
   )
 
   /*

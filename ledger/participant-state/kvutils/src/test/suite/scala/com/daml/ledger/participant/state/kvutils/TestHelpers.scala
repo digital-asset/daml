@@ -9,6 +9,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntryId
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId, TimeModel}
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.archive.testing.Encode
+import com.digitalasset.daml.lf.data.Ref.{IdString, QualifiedName}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.language.Ast
@@ -19,10 +20,15 @@ import com.google.protobuf.ByteString
 
 object TestHelpers {
 
-  val simplePackage: Ast.Package =
+  def damlPackageWithContractData(additionalContractDataType: String): Ast.Package =
     p"""
+      module DA.Types {
+        record @serializable Tuple2 (a: *) (b: *) = { x1: a, x2: b } ;
+      }
+
       module Simple {
-       record @serializable SimpleTemplate = { owner: Party } ;
+       record @serializable SimpleTemplate = { owner: Party, contractData: $additionalContractDataType } ;
+       variant @serializable SimpleVariant = SV: Party ;
        template (this : SimpleTemplate) =  {
           precondition True,
           signatories Cons @Party [Simple:SimpleTemplate {owner} this] (Nil @Party),
@@ -35,13 +41,32 @@ object TestHelpers {
         } ;
       }
     """
-  val simpleArchive: DamlLf.Archive =
+
+  def archiveWithContractData(additionalContractDataType: String): DamlLf.Archive = {
+    val damlP = damlPackageWithContractData(additionalContractDataType)
     Encode.encodeArchive(
-      defaultParserParameters.defaultPackageId -> simplePackage,
+      defaultParserParameters.defaultPackageId -> damlP,
       defaultParserParameters.languageVersion)
-  val simplePackageId = Ref.PackageId.assertFromString(simpleArchive.getHash)
-  val simpleDecodedPackage =
-    Decode.decodeArchive(simpleArchive)._2
+  }
+
+  def packageIdWithContractData(additionalContractDataType: String): IdString.PackageId = {
+    val arc = archiveWithContractData(additionalContractDataType)
+    Ref.PackageId.assertFromString(arc.getHash)
+  }
+
+  def typeConstructorId(ty: String, typeConstructor: String): Ref.Identifier =
+    Ref.Identifier(packageIdWithContractData(ty), QualifiedName.assertFromString(typeConstructor))
+
+  def typeConstructorId(ty: String): Ref.Identifier = typeConstructorId(ty, ty)
+
+  def name(v: String): Ref.Name = Ref.Name.assertFromString(v)
+
+  def party(v: String): Ref.Party = Ref.Party.assertFromString(v)
+
+  def decodedPackageWithContractData(additionalContractDataType: String): Ast.Package = {
+    val arc = archiveWithContractData(additionalContractDataType)
+    Decode.decodeArchive(arc)._2
+  }
 
   val badArchive: DamlLf.Archive =
     DamlLf.Archive.newBuilder
@@ -51,22 +76,32 @@ object TestHelpers {
   val simpleConsumeChoiceid: Ref.ChoiceName =
     Ref.ChoiceName.assertFromString("Consume")
 
-  def mkSimpleTemplateArg(party: String): Value[Value.AbsoluteContractId] =
+  def mkTemplateArg(
+      owner: String,
+      additionalContractDataType: String,
+      additionalContractValue: Value[Value.AbsoluteContractId]): Value[Value.AbsoluteContractId] = {
+    val tId = templateIdWith(additionalContractDataType)
     Value.ValueRecord(
-      Some(simpleTemplateId),
+      Some(tId),
       ImmArray(
         Some(Ref.Name.assertFromString("owner")) -> Value.ValueParty(
-          Ref.Party.assertFromString(party)))
-    )
-
-  val simpleTemplateId: Ref.Identifier =
-    Ref.Identifier(
-      simplePackageId,
-      Ref.QualifiedName(
-        Ref.ModuleName.assertFromString("Simple"),
-        Ref.DottedName.assertFromString("SimpleTemplate")
+          Ref.Party.assertFromString(owner)),
+        Some(Ref.Name.assertFromString("contractData")) -> additionalContractValue
       )
     )
+  }
+
+  def templateIdWith(additionalContractDataType: String): Ref.Identifier = {
+    val pId = packageIdWithContractData(additionalContractDataType)
+    val qualifiedName = Ref.QualifiedName(
+      Ref.ModuleName.assertFromString("Simple"),
+      Ref.DottedName.assertFromString("SimpleTemplate")
+    )
+    Ref.Identifier(
+      pId,
+      qualifiedName
+    )
+  }
 
   val theRecordTime: Timestamp = Timestamp.Epoch
   val theDefaultConfig = Configuration(
@@ -85,5 +120,4 @@ object TestHelpers {
 
   def randomLedgerString: Ref.LedgerString =
     Ref.LedgerString.assertFromString(UUID.randomUUID().toString)
-
 }

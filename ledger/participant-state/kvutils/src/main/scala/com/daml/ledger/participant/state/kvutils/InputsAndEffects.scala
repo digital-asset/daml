@@ -3,18 +3,37 @@
 
 package com.daml.ledger.participant.state.kvutils
 
+import scala.collection.mutable
+
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1.SubmittedTransaction
-import com.digitalasset.daml.lf.data.InsertOrdSet
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.transaction.Node._
 import com.digitalasset.daml.lf.transaction.Transaction
+import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{
   AbsoluteContractId,
   ContractId,
   RelativeContractId,
-  VersionedValue
+  VersionedValue,
+  ValueParty,
+  ValueRecord,
+  ValueVariant,
+  ValueList,
+  ValueStruct,
+  ValueOptional,
+  ValueTextMap,
+  ValueGenMap,
+  ValueContractId,
+  ValueNumeric,
+  ValueInt64,
+  ValueTimestamp,
+  ValueBool,
+  ValueDate,
+  ValueEnum,
+  ValueText,
+  ValueUnit
 }
 
 /** Internal utilities to compute the inputs and effects of a DAML transaction */
@@ -41,6 +60,7 @@ private[kvutils] object InputsAndEffects {
       /** The contract keys created or updated as part of the transaction. */
       updatedContractKeys: Map[DamlStateKey, DamlContractKeyState]
   )
+
   object Effects {
     val empty = Effects(List.empty, List.empty, Map.empty)
   }
@@ -49,55 +69,80 @@ private[kvutils] object InputsAndEffects {
     * and packages.
     */
   def computeInputs(tx: SubmittedTransaction): List[DamlStateKey] = {
-    val packageInputs: InsertOrdSet[DamlStateKey] = {
-      val usedPackages = tx.optUsedPackages.getOrElse(
-        throw new InternalError("Transaction was not annotated with used packages")
-      )
+    val inputs = mutable.LinkedHashSet[DamlStateKey]()
+
+    {
       import PackageId.ordering
-      InsertOrdSet.fromSeq(
-        usedPackages.toList.sorted
-          .map { pkgId =>
-            DamlStateKey.newBuilder.setPackageId(pkgId).build
-          }
-      )
+      inputs ++=
+        tx.optUsedPackages
+          .getOrElse(
+            throw new InternalError("Transaction was not annotated with used packages")
+          )
+          .toList
+          .sorted
+          .map(DamlStateKey.newBuilder.setPackageId(_).build)
     }
 
-    def contractInputs(coid: ContractId): InsertOrdSet[DamlStateKey] =
+    def addContractInput(coid: ContractId): Unit =
       coid match {
         case acoid: AbsoluteContractId =>
-          InsertOrdSet.empty + absoluteContractIdToStateKey(acoid)
+          inputs += absoluteContractIdToStateKey(acoid)
         case _ =>
-          InsertOrdSet.empty
       }
 
-    def partyInputs(parties: Set[Party]): InsertOrdSet[DamlStateKey] = {
+    def partyInputs(parties: Set[Party]): List[DamlStateKey] = {
       import Party.ordering
-      InsertOrdSet.fromSeq(parties.toList.sorted.map(partyStateKey))
+      parties.toList.sorted.map(partyStateKey)
     }
 
-    tx.fold(packageInputs: Set[DamlStateKey]) {
-        case (inputs, (nodeId, node)) =>
-          node match {
-            case fetch: NodeFetch[ContractId] =>
-              inputs ++ contractInputs(fetch.coid) ++ partyInputs(fetch.signatories) ++
-                partyInputs(fetch.stakeholders)
-            case create: NodeCreate[ContractId, VersionedValue[ContractId]] =>
-              create.key.fold(inputs) { keyWithM =>
-                inputs + contractKeyToStateKey(
-                  GlobalKey(create.coinst.template, forceNoContractIds(keyWithM.key)))
-              } ++ partyInputs(create.signatories) ++ partyInputs(create.stakeholders)
-            case exe: NodeExercises[_, ContractId, _] =>
-              inputs ++ contractInputs(exe.targetCoid) ++ partyInputs(exe.stakeholders) ++ partyInputs(
-                exe.signatories) ++ partyInputs(exe.controllers)
-            case l: NodeLookupByKey[ContractId, Transaction.Value[ContractId]] =>
-              // We need both the contract key state and the contract state. The latter is used to verify
-              // that the submitter can access the contract.
-              l.result.fold(inputs)(inputs ++ contractInputs(_)) +
-                contractKeyToStateKey(GlobalKey(l.templateId, forceNoContractIds(l.key.key)))
-          }
-      }
-      .toList
+    tx.foreach {
+      case (_, n) =>
+        n match {
+          case fetch: NodeFetch[ContractId] =>
+            addContractInput(fetch.coid)
+
+          case create: NodeCreate[ContractId, VersionedValue[ContractId]] =>
+            create.key.foreach { keyWithMaintainers =>
+              inputs += contractKeyToStateKey(
+                GlobalKey(create.coinst.template, forceNoContractIds(keyWithMaintainers.key)))
+            }
+
+          case exe: NodeExercises[_, ContractId, _] =>
+            addContractInput(exe.targetCoid)
+
+          case lookup: NodeLookupByKey[ContractId, Transaction.Value[ContractId]] =>
+            // We need both the contract key state and the contract state. The latter is used to verify
+            // that the submitter can access the contract.
+            lookup.result.foreach(addContractInput)
+            inputs += contractKeyToStateKey(
+              GlobalKey(lookup.templateId, forceNoContractIds(lookup.key.key)))
+        }
+
+        inputs ++= partyInputs(n.informeesOfNode)
+    }
+
+    inputs.toList
   }
+
+  def subValues(v: Value[ContractId]): List[Value[ContractId]] =
+    v match {
+      case ValueRecord(_, fields) => fields.map(_._2).toList
+      case ValueList(elems) => elems.toImmArray.toList
+      case ValueStruct(fields) => fields.map(_._2).toList
+      case ValueVariant(_, _, v) => List(v)
+      case ValueOptional(optV) =>
+        optV match {
+          case Some(v) => List(v)
+          case None => List.empty
+        }
+      case ValueTextMap(map) => map.values.toList
+      case ValueGenMap(entries) =>
+        entries.map(_._1).toList ++ entries.toList.map(_._2)
+      case // Enumerating explicitly all cases to make it exhaustive and always get compilation errors on model changes
+          ValueContractId(_) | ValueNumeric(_) | ValueInt64(_) | ValueTimestamp(_) | ValueBool(_) |
+          ValueDate(_) | ValueParty(_) | ValueText(_) | ValueEnum(_, _) | ValueUnit =>
+        List.empty
+    }
 
   /** Compute the effects of a DAML transaction, that is, the created and consumed contracts. */
   def computeEffects(entryId: DamlLogEntryId, tx: SubmittedTransaction): Effects = {
