@@ -3,7 +3,9 @@
 
 package com.daml.ledger.validator
 
-sealed trait ValidationFailed extends RuntimeException
+import scala.util.control.NoStackTrace
+
+sealed trait ValidationFailed extends RuntimeException with NoStackTrace
 
 object ValidationFailed {
 
