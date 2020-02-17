@@ -1199,20 +1199,6 @@ private class JdbcLedgerDao(
   private val SQL_SELECT_KEY_MAINTAINERS =
     SQL("select maintainer from contract_key_maintainers where contract_id={contract_id}")
 
-  private def lookupContractSync(contractId: AbsoluteContractId, forParty: Party)(
-      implicit conn: Connection): Option[ContractInst[Value.VersionedValue[AbsoluteContractId]]] =
-    SQL_SELECT_CONTRACT
-      .on(
-        "contract_id" -> contractId.coid,
-        "party" -> forParty
-      )
-      .as(binaryStream("contract").singleOpt)
-      .map { contractStream =>
-        contractSerializer
-          .deserializeContractInstance(ByteStreams.toByteArray(contractStream))
-          .getOrElse(sys.error(s"failed to deserialize contract! cid:${contractId.coid}"))
-      }
-
   private def lookupContractLetSync(contractId: AbsoluteContractId)(
       implicit conn: Connection): Option[LetLookup] =
     SQL_SELECT_CONTRACT_LET
@@ -1226,9 +1212,20 @@ private class JdbcLedgerDao(
   override def lookupActiveOrDivulgedContract(
       contractId: AbsoluteContractId,
       forParty: Party): Future[Option[ContractInst[Value.VersionedValue[AbsoluteContractId]]]] =
-    dbDispatcher.executeSql("lookup_active_contract") { implicit conn =>
-      lookupContractSync(contractId, forParty)
-    }
+    dbDispatcher
+      .executeSql("lookup_active_contract") { implicit conn =>
+        SQL_SELECT_CONTRACT
+          .on(
+            "contract_id" -> contractId.coid,
+            "party" -> forParty
+          )
+          .as(binaryStream("contract").singleOpt)
+      }
+      .map(_.map { bytes =>
+        contractSerializer
+          .deserializeContractInstance(ByteStreams.toByteArray(bytes))
+          .getOrElse(sys.error(s"failed to deserialize contract! cid:${contractId.coid}"))
+      })(executionContext)
 
   private def mapContractDetails(
       contractResult: (
