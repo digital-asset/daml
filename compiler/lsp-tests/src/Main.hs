@@ -303,7 +303,7 @@ requestTests run _runScenarios = testGroup "requests"
               [ "daml 1.2"
               , "module Main where"
               , "single = scenario do"
-              , "  assert (True == True)"
+              , "  assert True"
               ]
           lenses <- getCodeLenses main'
           Just escapedFp <- pure $ escapeURIString isUnescapedInURIComponent <$> uriToFilePath (main' ^. uri)
