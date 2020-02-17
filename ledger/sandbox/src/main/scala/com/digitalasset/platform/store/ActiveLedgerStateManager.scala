@@ -29,7 +29,9 @@ import com.digitalasset.platform.store.SequencingError.{
   * - Validates the transaction against the [[ActiveLedgerState]].
   * - Updates the [[ActiveLedgerState]].
   */
-class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](initialState: => ALS) {
+class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
+    initialState: => ALS,
+    implicitlyAllocateParties: Boolean) {
 
   private case class AddTransactionState(
       acc: Option[ALS],
@@ -224,7 +226,12 @@ class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](initialState: => A
     val divulgedContractIds = globalDivulgence -- st.archivedIds
     st.mapAcs(
         _ divulgeAlreadyCommittedContracts (transactionId, divulgedContractIds, divulgedContracts))
-      .mapAcs(_ addParties st.parties)
+      .mapAcs { acs =>
+        if (implicitlyAllocateParties)
+          acs addParties st.parties
+        else
+          acs
+      }
       .result
   }
 

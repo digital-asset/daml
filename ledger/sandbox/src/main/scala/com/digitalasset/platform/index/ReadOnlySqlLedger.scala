@@ -33,6 +33,7 @@ object ReadOnlySqlLedger {
       jdbcUrl: String,
       ledgerId: Option[LedgerId],
       metrics: MetricRegistry,
+      implicitlyAllocateParties: Boolean
   )(implicit mat: Materializer, logCtx: LoggingContext): Resource[ReadOnlyLedger] = {
     implicit val ec: ExecutionContext = mat.executionContext
     val dbType = DbType.jdbcType(jdbcUrl)
@@ -41,7 +42,7 @@ object ReadOnlySqlLedger {
         .owner(jdbcUrl, maxConnections, metrics)
         .acquire()
       ledgerReadDao = new MeteredLedgerReadDao(
-        JdbcLedgerDao(dbDispatcher, dbType, mat.executionContext),
+        JdbcLedgerDao(dbDispatcher, dbType, mat.executionContext, implicitlyAllocateParties),
         metrics,
       )
       factory = new Factory(ledgerReadDao)

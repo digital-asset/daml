@@ -18,6 +18,7 @@ final class StandaloneIndexerServer(
     readService: ReadService,
     config: IndexerConfig,
     metrics: MetricRegistry,
+    implicitlyAllocateParties: Boolean,
 )(implicit logCtx: LoggingContext)
     extends ResourceOwner[Unit] {
 
@@ -60,7 +61,12 @@ final class StandaloneIndexerServer(
       .start(
         () =>
           initializedIndexerFactory
-            .owner(config.participantId, actorSystem, readService, config.jdbcUrl)
+            .owner(
+              config.participantId,
+              actorSystem,
+              readService,
+              config.jdbcUrl,
+              implicitlyAllocateParties)
             .flatMap(_.subscription(readService))
             .acquire())
 }

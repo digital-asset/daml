@@ -64,6 +64,7 @@ final class JdbcIndexerFactory[Status <: InitStatus] private (metrics: MetricReg
       actorSystem: ActorSystem,
       readService: ReadService,
       jdbcUrl: String,
+      implicitlyAllocateParties: Boolean
   )(implicit x: Status =:= Initialized): ResourceOwner[JdbcIndexer] = {
     val materializer: Materializer = Materializer(actorSystem)
 
@@ -81,10 +82,20 @@ final class JdbcIndexerFactory[Status <: InitStatus] private (metrics: MetricReg
       } yield (ledgerEnd, externalOffset)
 
     for {
-      ledgerDao <- JdbcLedgerDao.owner(jdbcUrl, metrics, actorSystem.dispatcher)
+      ledgerDao <- JdbcLedgerDao.owner(
+        jdbcUrl,
+        metrics,
+        actorSystem.dispatcher,
+        implicitlyAllocateParties)
       (ledgerEnd, externalOffset) <- ResourceOwner.forFuture(() => fetchInitialState(ledgerDao))
     } yield
-      new JdbcIndexer(ledgerEnd, externalOffset, participantId, ledgerDao, metrics)(materializer)
+      new JdbcIndexer(
+        ledgerEnd,
+        externalOffset,
+        participantId,
+        ledgerDao,
+        metrics,
+        implicitlyAllocateParties)(materializer)
   }
 
   private def ledgerFound(foundLedgerId: LedgerId) = {
@@ -123,6 +134,7 @@ class JdbcIndexer private[indexer] (
     participantId: ParticipantId,
     ledgerDao: LedgerDao,
     metrics: MetricRegistry,
+    implicitlyAllocateParties: Boolean
 )(implicit mat: Materializer)
     extends Indexer {
 
@@ -176,9 +188,12 @@ class JdbcIndexer private[indexer] (
   }
 
   override def subscription(readService: ReadService): ResourceOwner[IndexFeedHandle] =
-    new SubscriptionResourceOwner(readService)
+    new SubscriptionResourceOwner(readService, implicitlyAllocateParties)
 
-  private def handleStateUpdate(offset: Offset, update: Update): Future[Unit] = {
+  private def handleStateUpdate(
+      offset: Offset,
+      update: Update,
+      implicitlyAllocateParties: Boolean): Future[Unit] = {
     lastReceivedOffset = offset.toLedgerString
     lastReceivedRecordTime = update.recordTime.toInstant
 
@@ -190,7 +205,8 @@ class JdbcIndexer private[indexer] (
             headRef,
             headRef + 1,
             externalOffset,
-            PersistenceEntry.Checkpoint(LedgerEntry.Checkpoint(recordTime.toInstant)))
+            PersistenceEntry.Checkpoint(LedgerEntry.Checkpoint(recordTime.toInstant))
+          )
           .map(_ => headRef = headRef + 1)(DEC)
 
       case PartyAddedToParticipant(
@@ -367,7 +383,9 @@ class JdbcIndexer private[indexer] (
       domain.RejectionReason.SubmitterCannotActViaParticipant(state.description)
   }
 
-  private class SubscriptionResourceOwner(readService: ReadService)
+  private class SubscriptionResourceOwner(
+      readService: ReadService,
+      implicitlyAllocateParties: Boolean)
       extends ResourceOwner[IndexFeedHandle] {
     override def acquire()(
         implicit executionContext: ExecutionContext
@@ -380,7 +398,9 @@ class JdbcIndexer private[indexer] (
           .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
           .mapAsync(1) {
             case (offset, update) =>
-              timedFuture(Metrics.stateUpdateProcessingTimer, handleStateUpdate(offset, update))
+              timedFuture(
+                Metrics.stateUpdateProcessingTimer,
+                handleStateUpdate(offset, update, implicitlyAllocateParties))
           }
           .toMat(Sink.ignore)(Keep.both)
           .run()

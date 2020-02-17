@@ -75,7 +75,7 @@ object SqlLedger {
     for {
       dbDispatcher <- DbDispatcher.owner(jdbcUrl, maxConnections, metrics)
       ledgerDao = new MeteredLedgerDao(
-        JdbcLedgerDao(dbDispatcher, dbType, mat.executionContext),
+        JdbcLedgerDao(dbDispatcher, dbType, mat.executionContext, implicitlyAllocateParties = true),
         metrics,
       )
       ledger <- ResourceOwner

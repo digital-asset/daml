@@ -141,6 +141,7 @@ class Runner {
         allowExistingSchema = true,
       ),
       SharedMetricRegistries.getOrCreate(s"indexer-$ParticipantId"),
+      implicitlyAllocateParties = false,
     )
 
   private def startApiServer(

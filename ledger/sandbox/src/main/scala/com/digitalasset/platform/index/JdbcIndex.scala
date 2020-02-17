@@ -22,8 +22,9 @@ object JdbcIndex {
       participantId: ParticipantId,
       jdbcUrl: String,
       metrics: MetricRegistry,
+      implicitlyAllocateParties: Boolean,
   )(implicit mat: Materializer, logCtx: LoggingContext): Resource[IndexService] =
-    ReadOnlySqlLedger(jdbcUrl, Some(ledgerId), metrics).map { ledger =>
+    ReadOnlySqlLedger(jdbcUrl, Some(ledgerId), metrics, implicitlyAllocateParties).map { ledger =>
       new LedgerBackedIndexService(MeteredReadOnlyLedger(ledger, metrics), participantId) {
         override def getLedgerConfiguration(): Source[v2.LedgerConfiguration, NotUsed] =
           // FIXME(JM): This is broken. We should not use ReadService in Ledger API Server,

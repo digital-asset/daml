@@ -85,7 +85,12 @@ class JdbcLedgerDaoSpec
         dbDispatcher <- DbDispatcher
           .owner(postgresFixture.jdbcUrl, 4, new MetricRegistry)
           .acquire()
-      } yield JdbcLedgerDao(dbDispatcher, DbType.Postgres, system.dispatcher)
+      } yield
+        JdbcLedgerDao(
+          dbDispatcher,
+          DbType.Postgres,
+          system.dispatcher,
+          implicitlyAllocateParties = false)
     }
     ledgerDao = Await.result(resource.asFuture, 10.seconds)
     Await.result(ledgerDao.initializeLedger(LedgerId("test-ledger"), 0), 10.seconds)

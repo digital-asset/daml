@@ -101,6 +101,7 @@ class Runner[T <: KeyValueLedger, Extra](name: String, factory: LedgerFactory[T,
         allowExistingSchema = config.allowExistingSchemaForIndex,
       ),
       SharedMetricRegistries.getOrCreate(s"indexer-${config.participantId}"),
+      implicitlyAllocateParties = false,
     )
 
   private def startApiServer(

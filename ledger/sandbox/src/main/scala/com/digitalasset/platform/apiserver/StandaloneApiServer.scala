@@ -105,6 +105,7 @@ final class StandaloneApiServer(
         participantId,
         config.jdbcUrl,
         metrics,
+        implicitlyAllocateParties = true
       )(materializer, logCtx)
       healthChecks = new HealthChecks(
         "index" -> indexService,

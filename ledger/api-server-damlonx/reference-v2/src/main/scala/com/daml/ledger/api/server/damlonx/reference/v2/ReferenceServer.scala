@@ -99,6 +99,7 @@ object ReferenceServer {
       readService,
       IndexerConfig(config.participantId, config.jdbcUrl, config.startupMode),
       SharedMetricRegistries.getOrCreate(s"indexer-${config.participantId}"),
+      implicitlyAllocateParties = false,
     )
 
   private def startApiServer(
