@@ -27,12 +27,12 @@ object TestHelpers {
       }
 
       module Simple {
-       record @serializable SimpleTemplate = { owner: Party, contractData: $additionalContractDataType } ;
+       record @serializable SimpleTemplate = { owner: Party, observer: Party, contractData: $additionalContractDataType } ;
        variant @serializable SimpleVariant = SV: Party ;
        template (this : SimpleTemplate) =  {
           precondition True,
           signatories Cons @Party [Simple:SimpleTemplate {owner} this] (Nil @Party),
-          observers Nil @Party,
+          observers Cons @Party [Simple:SimpleTemplate {observer} this] (Nil @Party),
           agreement "",
           choices {
             choice Consume (x: Unit) : Unit by Cons @Party [Simple:SimpleTemplate {owner} this] (Nil @Party) to upure @Unit ()
@@ -78,6 +78,7 @@ object TestHelpers {
 
   def mkTemplateArg(
       owner: String,
+      observer: String,
       additionalContractDataType: String,
       additionalContractValue: Value[Value.AbsoluteContractId]): Value[Value.AbsoluteContractId] = {
     val tId = templateIdWith(additionalContractDataType)
@@ -86,6 +87,8 @@ object TestHelpers {
       ImmArray(
         Some(Ref.Name.assertFromString("owner")) -> Value.ValueParty(
           Ref.Party.assertFromString(owner)),
+        Some(Ref.Name.assertFromString("observer")) -> Value.ValueParty(
+          Ref.Party.assertFromString(observer)),
         Some(Ref.Name.assertFromString("contractData")) -> additionalContractValue
       )
     )

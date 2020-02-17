@@ -39,6 +39,7 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
 
     val alice = party("Alice")
     val bob = party("Bob")
+    val eve = party("Eve")
     val bobValue = ValueParty(bob)
 
     val templateArgs: Map[String, Value[AbsoluteContractId]] = Map(
@@ -69,7 +70,7 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
       CreateCommand(templateId, templateArg)
 
     val simpleTemplateId = templateIdWith("Party")
-    val simpleTemplateArg = mkTemplateArg("Alice", "Party", bobValue)
+    val simpleTemplateArg = mkTemplateArg("Alice", "Eve", "Party", bobValue)
     val simpleCreateCmd = createCmd(simpleTemplateId, simpleTemplateArg)
 
     def exerciseCmd(coid: String, templateId: Ref.Identifier): Command =
@@ -87,7 +88,7 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
     val p0 = mkParticipantId(0)
     val p1 = mkParticipantId(1)
 
-    "be able to submit transaction" in KVTest.runTestWithSimplePackage(alice, bob)(
+    "be able to submit transaction" in KVTest.runTestWithSimplePackage(alice, bob, eve)(
       for {
         tx <- runSimpleCommand(alice, simpleCreateCmd)
         logEntry <- submitTransaction(submitter = alice, tx = tx).map(_._2)
@@ -109,7 +110,7 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
     )
      */
 
-    "reject transaction with out of bounds LET" in KVTest.runTestWithSimplePackage(alice, bob)(
+    "reject transaction with out of bounds LET" in KVTest.runTestWithSimplePackage(alice, bob, eve)(
       for {
         tx <- runSimpleCommand(alice, simpleCreateCmd)
         conf <- getDefaultConfiguration
@@ -122,7 +123,10 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
       }
     )
 
-    "be able to exercise and rejects double spends" in KVTest.runTestWithSimplePackage(alice, bob) {
+    "be able to exercise and rejects double spends" in KVTest.runTestWithSimplePackage(
+      alice,
+      bob,
+      eve) {
       for {
         createTx <- runSimpleCommand(alice, simpleCreateCmd)
         result <- submitTransaction(submitter = alice, tx = createTx)
@@ -150,7 +154,7 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
       }
     }
 
-    "reject transactions by unallocated submitters" in KVTest.runTestWithSimplePackage(bob) {
+    "reject transactions by unallocated submitters" in KVTest.runTestWithSimplePackage(bob, eve) {
       for {
         configEntry <- submitConfig { c =>
           c.copy(generation = c.generation + 1)
@@ -167,9 +171,9 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
     for ((additionalContractDataType, additionalContractValue) <- templateArgs) {
       val command = createCmd(
         templateIdWith(additionalContractDataType),
-        mkTemplateArg("Alice", additionalContractDataType, additionalContractValue))
+        mkTemplateArg("Alice", "Eve", additionalContractDataType, additionalContractValue))
       s"accept transactions with unallocated parties in values: $additionalContractDataType" in KVTest
-        .runTestWithPackage(additionalContractDataType, alice) {
+        .runTestWithPackage(additionalContractDataType, alice, eve) {
 
           for {
             createTx <- runCommand(alice, additionalContractDataType, command)
@@ -180,7 +184,17 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
         }
     }
 
-    "reject transactions for unhosted parties" in KVTest.runTestWithSimplePackage(bob) {
+    "reject transactions with unallocated informee" in KVTest.runTestWithSimplePackage(alice, bob) {
+      for {
+        createTx <- runSimpleCommand(alice, simpleCreateCmd)
+        txEntry1 <- submitTransaction(submitter = alice, tx = createTx).map(_._2)
+      } yield {
+        txEntry1.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY
+        txEntry1.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.PARTY_NOT_KNOWN_ON_LEDGER
+      }
+    }
+
+    "reject transactions for unhosted parties" in KVTest.runTestWithSimplePackage(bob, eve) {
       for {
         configEntry <- submitConfig { c =>
           c.copy(generation = c.generation + 1)
@@ -202,7 +216,7 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
       }
     }
 
-    "reject unauthorized transactions" in KVTest.runTestWithSimplePackage(alice) {
+    "reject unauthorized transactions" in KVTest.runTestWithSimplePackage(alice, eve) {
       for {
         // Submit a creation of a contract with owner 'Alice', but submit it as 'Bob'.
         createTx <- runSimpleCommand(alice, simpleCreateCmd)
@@ -215,7 +229,7 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
       }
     }
 
-    "metrics get updated" in KVTest.runTestWithSimplePackage(alice) {
+    "metrics get updated" in KVTest.runTestWithSimplePackage(alice, eve) {
       for {
         // Submit a creation of a contract with owner 'Alice', but submit it as 'Bob'.
         createTx <- runSimpleCommand(alice, simpleCreateCmd)
@@ -235,7 +249,8 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
 
     "transient contracts and keys are properly archived" in KVTest.runTestWithSimplePackage(
       alice,
-      bob) {
+      bob,
+      eve) {
       val simpleCreateAndExerciseCmd = createAndExerciseCmd(simpleTemplateId, simpleTemplateArg)
 
       for {
@@ -269,7 +284,7 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
       }
     }
 
-    "submitter info is optional" in KVTest.runTestWithSimplePackage(alice, bob) {
+    "submitter info is optional" in KVTest.runTestWithSimplePackage(alice, bob, eve) {
       for {
         createTx <- runSimpleCommand(alice, simpleCreateCmd)
         result <- submitTransaction(submitter = alice, tx = createTx)
