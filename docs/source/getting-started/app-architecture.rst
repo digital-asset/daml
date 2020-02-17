@@ -44,12 +44,20 @@ We can see some concepts here that are central to DAML, namely *privacy* and *au
 Privacy is about who can *see* what, and authorization is about who can *do* what.
 In DAML we must answer these questions upfront, as they fundamentally change the design of an application.
 
-The only other thing we'll say about the User template for now is that it has two operations - called *choices* - to add or remove a friend.
-As DAML contracts are immutable, exercising one of these choices in fact *archives* the existing user contract and creates a new one with the modified data.
+The last thing we'll point out about the DAML model for now is the operation to add friends, called a *choice* in DAML.
 
-.. TODO Update above depending on consuming/nonconsuming nature.
+.. literalinclude:: quickstart/code/daml/User.daml
+  :language: daml
+  :start-after: -- ADDFRIEND_BEGIN
+  :end-before: -- ADDFRIEND_END
 
-Now let's see how our DAML code gets reflected and then used on the UI side.
+DAML contracts are *immutable* (can not be changed in place), so they must be updated by archiving the current instance and creating a new one.
+That is what the ``AddFriend`` choice does: after checking some preconditions, it creates a new user contract with the new friend added to the list.
+The ``choice`` syntax automatically includes the archival of the current instance.
+
+.. TODO Update depending on consuming/nonconsuming choice.
+
+Next we'll see how our DAML code is reflected and used on the UI side.
 
 TypeScript Code Generation
 ==========================
