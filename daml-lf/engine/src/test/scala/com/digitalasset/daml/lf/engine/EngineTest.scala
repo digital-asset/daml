@@ -118,7 +118,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     key match {
       case GlobalKey(
           BasicTests_WithKey,
-          Value.VersionedValue(_, ValueRecord(_, ImmArray((_, p), (_, ValueInt64(42))))),
+          ValueRecord(_, ImmArray((_, p), (_, ValueInt64(42)))),
           hash @ _) if p == ValueParty(alice) =>
         Some(AbsoluteContractId("1"))
       case _ =>

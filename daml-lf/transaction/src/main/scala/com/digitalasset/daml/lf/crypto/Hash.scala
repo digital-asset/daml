@@ -9,7 +9,6 @@ import java.security.{MessageDigest, SecureRandom}
 import java.util
 
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time, Utf8}
-import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.data.Ref.Identifier
 import com.digitalasset.daml.lf.value.Value
 import javax.crypto.Mac
@@ -55,6 +54,9 @@ object Hash {
       new Hash(a.clone()),
       s"hash should have ${underlyingHashLength} bytes, found ${a.length}",
     )
+
+  def assertFromBytes(a: Array[Byte]): Hash =
+    data.assertRight(fromBytes(a))
 
   def secureRandom(seed: Array[Byte]): () => Hash = {
     val random = new SecureRandom(seed)
@@ -242,16 +244,6 @@ object Hash {
 
   def assertFromString(s: String): Hash =
     data.assertRight(fromString(s))
-
-  def fromBytes(a: Array[Byte]): Either[String, Hash] =
-    Either.cond(
-      a.length == underlyingHashLength,
-      new Hash(a.clone()),
-      s"hash should have ${underlyingHashLength} bytes, found ${a.length}",
-    )
-
-  def assertFromBytes(a: Array[Byte]): Hash =
-    data.assertRight(fromBytes(a))
 
   def hashPrivateKey(s: String): Hash =
     builder(Purpose.PrivateKey).add(s).build

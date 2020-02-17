@@ -348,11 +348,11 @@ object Node {
     * a key. The 'hash' should be used when storing the key as value serialization is not guaranteed
     * to be stable over time (e.g. a new encoding might be introduced).
     */
-  case class GlobalKey private (templateId: Identifier, key: Value[Nothing], hash: Hash)
+  sealed abstract case class GlobalKey(templateId: Identifier, key: Value[Nothing], hash: Hash)
 
   object GlobalKey {
     def apply(templateId: Identifier, key: Value[Nothing]): GlobalKey =
-      GlobalKey(templateId, key, Hash.hashContractKey(templateId, key))
+      new GlobalKey(templateId, key, Hash.hashContractKey(templateId, key)) {}
   }
 
   sealed trait WithTxValue2[F[+ _, + _]] {
