@@ -13,6 +13,7 @@ import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId, Trans
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party}
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
 import com.digitalasset.ledger.api.health.HealthStatus
@@ -25,7 +26,7 @@ import com.digitalasset.platform.store.entries.{
   PackageLedgerEntry,
   PartyLedgerEntry
 }
-import com.digitalasset.platform.store.{Contract, LedgerSnapshot, PersistenceEntry}
+import com.digitalasset.platform.store.{LedgerSnapshot, PersistenceEntry}
 
 import scala.collection.immutable
 import scala.concurrent.Future
@@ -61,7 +62,7 @@ class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegistry)
 
   override def lookupActiveOrDivulgedContract(
       contractId: Value.AbsoluteContractId,
-      forParty: Party): Future[Option[Contract]] =
+      forParty: Party): Future[Option[ContractInst[Value.VersionedValue[AbsoluteContractId]]]] =
     timedFuture(
       Metrics.lookupActiveContract,
       ledgerDao.lookupActiveOrDivulgedContract(contractId, forParty))

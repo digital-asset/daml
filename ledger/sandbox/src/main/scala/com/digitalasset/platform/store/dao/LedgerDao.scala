@@ -11,7 +11,8 @@ import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId, TransactionId}
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party}
 import com.digitalasset.daml.lf.transaction.Node
-import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
+import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
@@ -24,7 +25,7 @@ import com.digitalasset.platform.store.entries.{
   PackageLedgerEntry,
   PartyLedgerEntry
 }
-import com.digitalasset.platform.store.{Contract, LedgerSnapshot, PersistenceEntry}
+import com.digitalasset.platform.store.{LedgerSnapshot, PersistenceEntry}
 
 import scala.collection.immutable
 import scala.concurrent.Future
@@ -47,7 +48,7 @@ trait LedgerReadDao extends ReportsHealth {
   /** Looks up an active or divulged contract if it is visible for the given party. Archived contracts must not be returned by this method */
   def lookupActiveOrDivulgedContract(
       contractId: AbsoluteContractId,
-      forParty: Party): Future[Option[Contract]]
+      forParty: Party): Future[Option[ContractInst[Value.VersionedValue[AbsoluteContractId]]]]
 
   /** Looks up the current ledger configuration, if it has been set. */
   def lookupLedgerConfiguration(): Future[Option[(Long, Configuration)]]

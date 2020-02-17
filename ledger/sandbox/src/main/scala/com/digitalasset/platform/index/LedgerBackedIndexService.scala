@@ -277,14 +277,11 @@ abstract class LedgerBackedIndexService(
   override def getLfPackage(packageId: PackageId): Future[Option[Ast.Package]] =
     ledger.getLfPackage(packageId)
 
-  // ContractStore
   override def lookupActiveContract(
       submitter: Ref.Party,
       contractId: AbsoluteContractId,
   ): Future[Option[ContractInst[Value.VersionedValue[AbsoluteContractId]]]] =
-    ledger
-      .lookupContract(contractId, submitter)
-      .map(_.map(_.contract))(DEC)
+    ledger.lookupContract(contractId, submitter)
 
   override def lookupContractKey(
       submitter: Party,

@@ -12,9 +12,9 @@ import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
+import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
-import com.digitalasset.ledger.api.domain.{LedgerId, TransactionId, PartyDetails}
+import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, TransactionId}
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.platform.metrics.timedFuture
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
@@ -24,7 +24,7 @@ import com.digitalasset.platform.store.entries.{
   PackageLedgerEntry,
   PartyLedgerEntry
 }
-import com.digitalasset.platform.store.{Contract, LedgerSnapshot, ReadOnlyLedger}
+import com.digitalasset.platform.store.{LedgerSnapshot, ReadOnlyLedger}
 
 import scala.concurrent.Future
 
@@ -58,7 +58,7 @@ class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegistry)
 
   override def lookupContract(
       contractId: Value.AbsoluteContractId,
-      forParty: Party): Future[Option[Contract]] =
+      forParty: Party): Future[Option[ContractInst[Value.VersionedValue[AbsoluteContractId]]]] =
     timedFuture(Metrics.lookupContract, ledger.lookupContract(contractId, forParty))
 
   override def lookupKey(key: GlobalKey, forParty: Party): Future[Option[AbsoluteContractId]] =
