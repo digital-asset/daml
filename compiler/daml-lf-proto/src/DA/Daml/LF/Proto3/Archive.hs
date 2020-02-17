@@ -6,6 +6,7 @@
 module DA.Daml.LF.Proto3.Archive
   ( decodeArchive
   , decodeArchivePayload
+  , decodeArchivePackageId
   , encodeArchive
   , encodeArchiveLazy
   , encodeArchiveAndHash
@@ -78,6 +79,8 @@ decodeArchivePayload bytes = do
     let packageId = LF.PackageId archiveHash
     pure (packageId, payloadBytes)
 
+decodeArchivePackageId :: BS.ByteString -> Either ArchiveError LF.PackageId
+decodeArchivePackageId = fmap fst . decodeArchivePayload
 
 -- | Encode a LFv1 package payload into a DAML-LF archive using the default
 -- hash function.

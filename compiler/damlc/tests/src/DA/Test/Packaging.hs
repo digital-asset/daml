@@ -655,8 +655,8 @@ darPackageIds :: FilePath -> IO [LF.PackageId]
 darPackageIds fp = do
     archive <- Zip.toArchive <$> BSL.readFile fp
     Dalfs mainDalf dalfDeps <- either fail pure $ readDalfs archive
-    Right parsedDalfs <- pure $ mapM (LFArchive.decodeArchive LFArchive.DecodeAsMain . BSL.toStrict) $ mainDalf : dalfDeps
-    pure $ map fst parsedDalfs
+    Right dalfPkgIds  <- pure $ mapM (LFArchive.decodeArchivePackageId . BSL.toStrict) $ mainDalf : dalfDeps
+    pure dalfPkgIds
 
 
 numStablePackages :: LF.Version -> Int

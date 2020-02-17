@@ -698,10 +698,10 @@ execInspectDar inFile =
               [e | e <- ZipArchive.zEntries dar, ".dalf" `isExtensionOf` ZipArchive.eRelativePath e]
       forM_ dalfEntries $ \dalfEntry -> do
           let dalf = BSL.toStrict $ ZipArchive.fromEntry dalfEntry
-          (pkgId, _lfPkg) <-
+          pkgId <-
               errorOnLeft
                   ("Cannot decode package " <> ZipArchive.eRelativePath dalfEntry)
-                  (Archive.decodeArchive Archive.DecodeAsMain dalf)
+                  (Archive.decodeArchivePackageId dalf)
           putStrLn $
               (dropExtension $ takeFileName $ ZipArchive.eRelativePath dalfEntry) <> " " <>
               show (LF.unPackageId pkgId)
