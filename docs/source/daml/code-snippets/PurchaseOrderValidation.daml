@@ -1,0 +1,40 @@
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+daml 1.2
+module PurchaseOrderValidation where
+
+import DA.Assert
+
+template PurchaseOrder
+  with
+    owner : Party
+    item : Text
+    qty : Int
+  where
+    signatory owner
+    
+    controller owner can
+      PurchaseOrder_UpdateQuantity : ContractId PurchaseOrder
+        with
+          newQty : Int
+        do
+          assertMsg "newQty must be different" $ newQty /= qty
+          assertMsg "newQty must be greater than 0" $ newQty > 0
+          create this with qty = newQty
+
+submitMustFailMsgAssert =
+  scenario do
+    alice <- getParty "Alice"
+
+    cid <- submit alice do
+      create PurchaseOrder with owner = alice; item = "Hat"; qty = 1
+
+    assertEq "newQty must be different" =<<
+      submitMustFailMsg alice do
+        exercise cid PurchaseOrder_UpdateQuantity with newQty = 1
+
+    actual <- submitMustFailMsg alice do
+      exercise cid PurchaseOrder_UpdateQuantity with newQty = 0
+
+    assertEq "newQty must be greater than 0" actual

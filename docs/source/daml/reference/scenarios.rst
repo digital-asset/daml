@@ -37,6 +37,20 @@ submitMustFail
 - Like ``submit``, but you're asserting it should fail.
 - Takes two arguments, the party submitting followed by the expression by a party, for example: ``submitMustFail bankOfEngland do create ...``
 
+submitMustFailMsg
+*****************
+
+- ``submitMustFailMsg`` keyword.
+- Behaves like ``submitMustFail``, except the user initiated error message triggered by :ref:`abort <daml-ref-abort>` or :ref:`assert <daml-ref-assert>` is returned.
+
+Here's an example of using ``submitMustFailMsg``. A complete example can be found in :doc:`../testing-scenarios`.
+
+.. code-block:: daml
+
+   assertEq "The expected error message" =<<
+      submitMustFailMsg p do
+        exercise ...
+
 Scenario body
 *************
 
