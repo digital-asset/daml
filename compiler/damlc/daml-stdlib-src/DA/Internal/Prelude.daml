@@ -87,6 +87,11 @@ class Functor f => Applicative f where
 -- by the first. This is like sequencing operators (such as the semicolon)
 -- in imperative languages.
 (>>) : Action m => m a -> m b -> m b
+-- NOTE(MH): We need an `Action` constraint here rather than an `Applicative`
+-- constrait since the conversion to DAML-LF rewrites `A >> B` into
+-- `A >>= \_ -> B`. This is to make `(>>)` lazy in its second argument and
+-- hence give `do A; B` the desired semantics where `B` is not evaluated if
+-- `A` short-circuits the monad computation..
 (>>) = (*>)
 infixl 1 >>
 

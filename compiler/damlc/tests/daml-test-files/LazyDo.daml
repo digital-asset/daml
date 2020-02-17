@@ -1,5 +1,5 @@
 daml 1.2
-module SemiLazy where
+module LazyDo where
 
 import DA.Assert
 
