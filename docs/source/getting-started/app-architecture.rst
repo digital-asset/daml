@@ -80,8 +80,8 @@ We'll see that next.
 The UI
 ======
 
-Our UI is written using `React <https://reactjs.org/>`_ and
-React helps us write modular UI components using a functional style - a component is rerendered whenever one of its inputs changes - combined with a judicious use of global state.
+On top of TypeScript, we use the UI framework `React <https://reactjs.org/>`_.
+React helps us write modular UI components using a functional style - a component is rerendered whenever one of its inputs changes - with careful use of global state.
 
 We can see the latter in the way we handle ledger state throughout the application code.
 For this we use a state management feature in React called `Hooks <https://reactjs.org/docs/hooks-intro.html>`_.
