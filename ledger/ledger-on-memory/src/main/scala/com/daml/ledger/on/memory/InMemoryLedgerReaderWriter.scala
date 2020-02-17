@@ -14,11 +14,7 @@ import com.daml.ledger.participant.state.kvutils.api.{LedgerReader, LedgerRecord
 import com.daml.ledger.participant.state.kvutils.{KeyValueCommitting, SequentialLogEntryId}
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
-import com.daml.ledger.validator.ValidationResult.{
-  MissingInputState,
-  SubmissionValidated,
-  ValidationError
-}
+import com.daml.ledger.validator.ValidationFailed.{MissingInputState, ValidationError}
 import com.daml.ledger.validator._
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.ledger.api.health.{HealthStatus, Healthy}
@@ -97,12 +93,12 @@ final class InMemoryLedgerReaderWriter(
     validator
       .validateAndCommit(envelope, correlationId, currentRecordTime(), participantId)
       .map {
-        case SubmissionValidated(newHead) =>
+        case Right(newHead) =>
           dispatcher.signalNewHead(newHead)
           SubmissionResult.Acknowledged
-        case MissingInputState(_) =>
+        case Left(MissingInputState(_)) =>
           SubmissionResult.InternalError("Missing input state")
-        case ValidationError(reason) =>
+        case Left(ValidationError(reason)) =>
           SubmissionResult.InternalError(reason)
       }
 

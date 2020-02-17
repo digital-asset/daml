@@ -14,11 +14,7 @@ import com.daml.ledger.on.sql.SqlLedgerReaderWriter._
 import com.daml.ledger.participant.state.kvutils.api.{LedgerReader, LedgerRecord, LedgerWriter}
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
-import com.daml.ledger.validator.ValidationResult.{
-  MissingInputState,
-  SubmissionValidated,
-  ValidationError
-}
+import com.daml.ledger.validator.ValidationFailed.{MissingInputState, ValidationError}
 import com.daml.ledger.validator.{
   BatchingLedgerStateOperations,
   LedgerStateAccess,
@@ -86,13 +82,13 @@ class SqlLedgerReaderWriter(
       validator
         .validateAndCommit(envelope, correlationId, currentRecordTime(), participantId)
         .map {
-          case SubmissionValidated(latestSequenceNo) =>
+          case Right(latestSequenceNo) =>
             dispatcher.signalNewHead(latestSequenceNo + 1)
             SubmissionResult.Acknowledged
-          case MissingInputState(keys) =>
+          case Left(MissingInputState(keys)) =>
             SubmissionResult.InternalError(
               s"Missing input state: ${keys.map(_.map("%02x".format(_)).mkString).mkString(", ")}")
-          case ValidationError(reason) =>
+          case Left(ValidationError(reason)) =>
             SubmissionResult.InternalError(reason)
         }
     }

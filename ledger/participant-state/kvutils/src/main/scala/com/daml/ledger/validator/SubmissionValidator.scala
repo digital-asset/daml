@@ -10,12 +10,7 @@ import com.daml.ledger.participant.state.kvutils.api.LedgerReader
 import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting}
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.SubmissionValidator._
-import com.daml.ledger.validator.ValidationResult.{
-  MissingInputState,
-  SubmissionValidated,
-  ValidationError,
-  ValidationFailed
-}
+import com.daml.ledger.validator.ValidationFailed.{MissingInputState, ValidationError}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.Engine
 import com.google.protobuf.ByteString
@@ -50,23 +45,16 @@ class SubmissionValidator[LogResult](
       correlationId: String,
       recordTime: Timestamp,
       participantId: ParticipantId,
-  ): Future[ValidationResult[Unit]] =
+  ): Future[Either[ValidationFailed, Unit]] =
     runValidation(envelope, correlationId, recordTime, participantId, (_, _, _, _) => Future.unit)
-      .map {
-        case Left(failure) => failure
-        case Right(_) => SubmissionValidated.unit
-      }
 
   def validateAndCommit(
       envelope: RawBytes,
       correlationId: String,
       recordTime: Timestamp,
       participantId: ParticipantId,
-  ): Future[ValidationResult[LogResult]] =
-    runValidation(envelope, correlationId, recordTime, participantId, commit).map {
-      case Left(failure) => failure
-      case Right(value) => SubmissionValidated(value)
-    }
+  ): Future[Either[ValidationFailed, LogResult]] =
+    runValidation(envelope, correlationId, recordTime, participantId, commit)
 
   def validateAndTransform[U](
       envelope: RawBytes,
