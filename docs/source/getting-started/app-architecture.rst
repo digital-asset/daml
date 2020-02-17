@@ -96,7 +96,6 @@ For example, we can query the ledger for all visible contracts (relative to a pa
 Let's see some examples of DAML React hooks.
 
 .. literalinclude:: code/ui-before/MainView.tsx
-  :language: ts
   :start-after: -- HOOKS_BEGIN
   :end-before: -- HOOKS_END
 
