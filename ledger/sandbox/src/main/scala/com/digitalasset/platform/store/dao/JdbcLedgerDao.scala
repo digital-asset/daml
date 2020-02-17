@@ -1178,7 +1178,8 @@ private class JdbcLedgerDao(
         |where
         |  cd.id={contract_id} and
         |  c.archive_offset is null and
-        |  (cowi.witness is not null or codi.party is not null)""".stripMargin)
+        |  (cowi.witness is not null or codi.party is not null)
+        |""".stripMargin)
 
   private val ContractLetParser = date("effective_at").?
 
