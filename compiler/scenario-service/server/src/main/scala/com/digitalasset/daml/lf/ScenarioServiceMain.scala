@@ -10,6 +10,7 @@ import com.digitalasset.daml.lf.scenario.api.v1.{Map => _, _}
 import io.grpc.stub.StreamObserver
 import io.grpc.{ServerBuilder, Status, StatusRuntimeException}
 
+import scala.collection.concurrent.TrieMap
 import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
 
@@ -55,7 +56,7 @@ class ScenarioService extends ScenarioServiceGrpc.ScenarioServiceImplBase {
 
   import ScenarioService._
 
-  @volatile private var contexts = Map.empty[Context.ContextId, Context]
+  private val contexts = TrieMap.empty[Context.ContextId, Context]
 
   private def log(msg: String) =
     System.err.println("ScenarioService: " + msg)
@@ -115,7 +116,7 @@ class ScenarioService extends ScenarioServiceGrpc.ScenarioServiceImplBase {
       respObs: StreamObserver[NewContextResponse],
   ): Unit = {
     val ctx = Context.newContext()
-    contexts = contexts + (ctx.contextId -> ctx)
+    contexts += (ctx.contextId -> ctx)
     val response = NewContextResponse.newBuilder.setContextId(ctx.contextId).build
     respObs.onNext(response)
     respObs.onCompleted()
@@ -132,7 +133,7 @@ class ScenarioService extends ScenarioServiceGrpc.ScenarioServiceImplBase {
         respObs.onError(notFoundContextError(req.getContextId))
       case Some(ctx) =>
         val clonedCtx = ctx.cloneContext()
-        contexts = contexts + (clonedCtx.contextId -> clonedCtx)
+        contexts += (clonedCtx.contextId -> clonedCtx)
         val response = CloneContextResponse.newBuilder.setContextId(clonedCtx.contextId).build
         respObs.onNext(response)
         respObs.onCompleted()
@@ -145,7 +146,7 @@ class ScenarioService extends ScenarioServiceGrpc.ScenarioServiceImplBase {
   ): Unit = {
     val ctxId = req.getContextId
     if (contexts.contains(ctxId)) {
-      contexts = contexts - ctxId
+      contexts -= ctxId
       respObs.onNext(DeleteContextResponse.newBuilder.build)
       respObs.onCompleted()
     } else {
@@ -157,8 +158,10 @@ class ScenarioService extends ScenarioServiceGrpc.ScenarioServiceImplBase {
       req: GCContextsRequest,
       respObs: StreamObserver[GCContextsResponse],
   ): Unit = {
-    val ctxIds = req.getContextIdsList.asScala.toSet
-    contexts = contexts.filterKeys(ctxId => ctxIds.contains(ctxId));
+    val ctxIds: Set[Context.ContextId] =
+      req.getContextIdsList.asScala.map(x => x: Context.ContextId).toSet
+    val ctxToRemove = contexts.keySet.diff(ctxIds)
+    contexts --= ctxToRemove
     respObs.onNext(GCContextsResponse.newBuilder.build)
     respObs.onCompleted()
   }
