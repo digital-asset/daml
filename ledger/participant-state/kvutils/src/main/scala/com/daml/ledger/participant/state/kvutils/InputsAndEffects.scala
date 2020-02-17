@@ -84,7 +84,7 @@ private[kvutils] object InputsAndEffects {
 
           case create: NodeCreate[ContractId, VersionedValue[ContractId]] =>
             create.key.foreach { keyWithMaintainers =>
-              inputs += contractKeyToStateKey(
+              inputs += globalKeyToStateKey(
                 GlobalKey(create.coinst.template, forceNoContractIds(keyWithMaintainers.key.value)))
             }
 
@@ -95,7 +95,7 @@ private[kvutils] object InputsAndEffects {
             // We need both the contract key state and the contract state. The latter is used to verify
             // that the submitter can access the contract.
             lookup.result.foreach(addContractInput)
-            inputs += contractKeyToStateKey(
+            inputs += globalKeyToStateKey(
               GlobalKey(lookup.templateId, forceNoContractIds(lookup.key.key.value)))
         }
 
@@ -123,7 +123,7 @@ private[kvutils] object InputsAndEffects {
                 .fold(effects.updatedContractKeys)(
                   keyWithMaintainers =>
                     effects.updatedContractKeys +
-                      (contractKeyToStateKey(
+                      (globalKeyToStateKey(
                         GlobalKey(
                           create.coinst.template,
                           forceNoContractIds(keyWithMaintainers.key.value))) ->
@@ -148,7 +148,7 @@ private[kvutils] object InputsAndEffects {
                   .fold(effects.updatedContractKeys)(
                     key =>
                       effects.updatedContractKeys +
-                        (contractKeyToStateKey(
+                        (globalKeyToStateKey(
                           GlobalKey(exe.templateId, forceNoContractIds(key.key.value))) ->
                           DamlContractKeyState.newBuilder.build)
                   )

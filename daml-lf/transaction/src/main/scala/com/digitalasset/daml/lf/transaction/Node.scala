@@ -4,6 +4,7 @@
 package com.digitalasset.daml.lf
 package transaction
 
+import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.{ImmArray, ScalazEqual}
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.value.Value
@@ -344,9 +345,15 @@ object Node {
     }(recorded, isReplayedBy)
 
   /** Useful in various circumstances -- basically this is what a ledger implementation must use as
-    * a key.
+    * a key. The 'hash' should be used when storing the key as value serialization is not guaranteed
+    * to be stable over time (e.g. a new encoding might be introduced).
     */
-  case class GlobalKey(templateId: Identifier, key: Value[Nothing])
+  case class GlobalKey private (templateId: Identifier, key: Value[Nothing], hash: Hash)
+
+  object GlobalKey {
+    def apply(templateId: Identifier, key: Value[Nothing]): GlobalKey =
+      GlobalKey(templateId, key, Hash.hashContractKey(templateId, key))
+  }
 
   sealed trait WithTxValue2[F[+ _, + _]] {
     type WithTxValue[+Cid] = F[Cid, Transaction.Value[Cid]]

@@ -20,7 +20,6 @@ import com.digitalasset.daml.lf.value.Value.{
   VersionedValue
 }
 import com.digitalasset.daml.lf.value.{Value, ValueCoder, ValueOuterClass}
-import com.digitalasset.platform.store.serialization.KeyHasher
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.{ByteString, Empty}
 
@@ -97,11 +96,10 @@ private[state] object Conversions {
     decodeContractId(key.getContractId)
   }
 
-  def encodeContractKey(key: GlobalKey): DamlContractKey = {
-    val hash = KeyHasher.hashKey(key)
+  def encodeGlobalKey(key: GlobalKey): DamlContractKey = {
     DamlContractKey.newBuilder
       .setTemplateId(ValueCoder.encodeIdentifier(key.templateId))
-      .setHash(ByteString.copyFrom(hash))
+      .setHash(ByteString.copyFrom(key.hash.toByteArray))
       .build
   }
 
@@ -112,32 +110,9 @@ private[state] object Conversions {
         throw Err
           .DecodeError("Identifier", s"Cannot decode identifier: $protoIdent"))
 
-  def decodeContractKey(key: DamlContractKey): (Identifier, ContractKeyHash) = {
-    val templateId = decodeIdentifier(key.getTemplateId)
-    val hash = key.getHash.toByteArray
-    (templateId, hash)
-    /*GlobalKey(
-      ValueCoder
-        .decodeIdentifier(key.getTemplateId)
-        .getOrElse(
-          throw Err
-            .DecodeError("ContractKey", s"Cannot decode template id: ${key.getTemplateId}")
-        ),
-      forceNoContractIds(
-        TransactionCoder
-          .decodeValue(ValueCoder.CidDecoder, key.getKey)
-          .fold(
-            err =>
-              throw Err
-                .DecodeError("ContractKey", s"Cannot decode key: $err"),
-            identity)
-      )
-    )*/
-  }
-
-  def contractKeyToStateKey(key: GlobalKey): DamlStateKey = {
+  def globalKeyToStateKey(key: GlobalKey): DamlStateKey = {
     DamlStateKey.newBuilder
-      .setContractKey(encodeContractKey(key))
+      .setContractKey(encodeGlobalKey(key))
       .build
   }
 

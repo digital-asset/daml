@@ -61,7 +61,6 @@ class V3__Recompute_Key_Hash extends BaseJavaMigration {
           .assertNoCid(coid => s"Found contract ID $coid in contract key")
 
         hasNext = rows.next()
-
         contractId -> GlobalKey(templateId, key.value)
       }
     }

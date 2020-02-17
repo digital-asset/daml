@@ -20,7 +20,6 @@ import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.ValueOuterClass
 import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.platform.common.metrics.VarGauge
-import com.digitalasset.platform.store.serialization.KeyHasher
 import com.google.protobuf.ByteString
 import org.slf4j.LoggerFactory
 
@@ -289,7 +288,8 @@ object KeyValueCommitting {
       key: ValueOuterClass.VersionedValue): DamlStateKey = {
     // NOTE(JM): The deserialization of the values is meant to be temporary. With the removal of relative
     // contract ids from kvutils submissions we will be able to up-front compute the outputs without having
-    // to allocate a log entry id and we can directly place the output keys into the submission.
+    // to allocate a log entry id and we can directly place the output keys into the submission and do not need
+    // to compute outputs from serialized transaction.
     val contractKey =
       GlobalKey(
         decodeIdentifier(templateId),
@@ -300,9 +300,8 @@ object KeyValueCommitting {
       .setContractKey(
         DamlContractKey.newBuilder
           .setTemplateId(templateId)
-          .setHash(ByteString.copyFrom(KeyHasher.hashKey(contractKey))))
+          .setHash(ByteString.copyFrom(contractKey.hash.toByteArray)))
       .build
-
   }
 
   private def verifyStateUpdatesAgainstPreDeclaredOutputs(
