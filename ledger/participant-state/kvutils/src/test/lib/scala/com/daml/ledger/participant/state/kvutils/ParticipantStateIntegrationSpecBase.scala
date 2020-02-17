@@ -4,7 +4,7 @@
 package com.daml.ledger.participant.state.kvutils
 
 import java.io.File
-import java.time.Duration
+import java.time.{Clock, Duration}
 import java.util.UUID
 
 import akka.stream.scaladsl.Sink
@@ -50,8 +50,6 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
       ledgerId: Ref.LedgerString,
   ): ResourceOwner[ParticipantState]
 
-  protected def currentRecordTime(): Timestamp
-
   private def participantState: ResourceOwner[ParticipantState] = {
     val ledgerId = newLedgerId()
     participantStateFactory(participantId, ledgerId)
@@ -59,7 +57,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
 
   override protected def beforeEach(): Unit = {
     super.beforeEach()
-    rt = currentRecordTime()
+    rt = Timestamp.assertFromInstant(Clock.systemUTC().instant())
   }
 
   // TODO(BH): Many of these tests for transformation from DamlLogEntry to Update better belong as

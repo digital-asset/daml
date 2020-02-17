@@ -14,10 +14,15 @@ import com.daml.ledger.participant.state.kvutils.api.{LedgerReader, LedgerRecord
 import com.daml.ledger.participant.state.kvutils.{KeyValueCommitting, SequentialLogEntryId}
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
-import com.daml.ledger.validator.ValidationFailed.{MissingInputState, ValidationError}
-import com.daml.ledger.validator._
-import com.digitalasset.daml.lf.data.Time.Timestamp
+import com.daml.ledger.validator.{
+  BatchingLedgerStateOperations,
+  LedgerStateAccess,
+  LedgerStateOperations,
+  SubmissionValidator,
+  ValidatingCommitter
+}
 import com.digitalasset.ledger.api.health.{HealthStatus, Healthy}
+import com.digitalasset.logging.LoggingContext
 import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
 import com.digitalasset.platform.akkastreams.dispatcher.SubSource.OneAfterAnother
 import com.digitalasset.resources.ResourceOwner
@@ -42,17 +47,24 @@ private[memory] class InMemoryState(
 final class InMemoryLedgerReaderWriter(
     override val ledgerId: LedgerId,
     override val participantId: ParticipantId,
+    clock: Clock,
     dispatcher: Dispatcher[Index],
-)(implicit executionContext: ExecutionContext)
-    extends LedgerWriter
+)(
+    implicit executionContext: ExecutionContext,
+    logCtx: LoggingContext,
+) extends LedgerWriter
     with LedgerReader {
 
   private val currentState = new InMemoryState()
 
   private val lockCurrentState = new Semaphore(1, true)
 
-  private val validator =
-    SubmissionValidator.create(InMemoryLedgerStateAccess, () => sequentialLogEntryId.next())
+  private val committer = new ValidatingCommitter(
+    participantId,
+    clock,
+    SubmissionValidator.create(InMemoryLedgerStateAccess, () => sequentialLogEntryId.next()),
+    dispatcher.signalNewHead,
+  )
 
   private object InMemoryLedgerStateAccess extends LedgerStateAccess[Index] {
     override def inTransaction[T](body: LedgerStateOperations[Index] => Future[T]): Future[T] =
@@ -89,18 +101,11 @@ final class InMemoryLedgerReaderWriter(
       }
   }
 
+  override def currentHealth(): HealthStatus =
+    Healthy
+
   override def commit(correlationId: String, envelope: Array[Byte]): Future[SubmissionResult] =
-    validator
-      .validateAndCommit(envelope, correlationId, currentRecordTime(), participantId)
-      .map {
-        case Right(newHead) =>
-          dispatcher.signalNewHead(newHead)
-          SubmissionResult.Acknowledged
-        case Left(MissingInputState(_)) =>
-          SubmissionResult.InternalError("Missing input state")
-        case Left(ValidationError(reason)) =>
-          SubmissionResult.InternalError(reason)
-      }
+    committer.commit(correlationId, envelope)
 
   override def events(offset: Option[Offset]): Source[LedgerRecord, NotUsed] =
     dispatcher
@@ -114,11 +119,6 @@ final class InMemoryLedgerReaderWriter(
         ),
       )
       .mapConcat { case (_, updates) => updates }
-
-  override def currentHealth(): HealthStatus = Healthy
-
-  private def currentRecordTime(): Timestamp =
-    Timestamp.assertFromInstant(Clock.systemUTC().instant())
 
   private def retrieveLogEntry(index: Int): LedgerRecord = {
     val logEntry = currentState.log.synchronized {
@@ -140,7 +140,11 @@ object InMemoryLedgerReaderWriter {
   def owner(
       ledgerId: LedgerId,
       participantId: ParticipantId,
-  )(implicit executionContext: ExecutionContext): ResourceOwner[InMemoryLedgerReaderWriter] =
+      clock: Clock = Clock.systemUTC(),
+  )(
+      implicit executionContext: ExecutionContext,
+      logCtx: LoggingContext,
+  ): ResourceOwner[InMemoryLedgerReaderWriter] =
     for {
       dispatcher <- ResourceOwner.forCloseable(
         () =>
@@ -149,5 +153,5 @@ object InMemoryLedgerReaderWriter {
             zeroIndex = StartIndex,
             headAtInitialization = StartIndex,
         ))
-    } yield new InMemoryLedgerReaderWriter(ledgerId, participantId, dispatcher)
+    } yield new InMemoryLedgerReaderWriter(ledgerId, participantId, clock, dispatcher)
 }
