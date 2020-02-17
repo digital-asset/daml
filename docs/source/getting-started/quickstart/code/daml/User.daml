@@ -1,8 +1,6 @@
 daml 1.2
 module User where
 
-import DA.List
-
 -- MAIN_TEMPLATE_BEGIN
 template User with
     username: Party
@@ -15,21 +13,15 @@ template User with
     key username: Party
     maintainer key
 
+-- ADDFRIEND_BEGIN
     choice AddFriend: ContractId User with
         friend: Party
       controller username
       do
         assertMsg "You cannot add yourself as a friend" (friend /= username)
         assertMsg "You cannot add a friend twice" (friend `notElem` friends)
-        create this with friends = sort (friend :: friends)
-
-    nonconsuming choice RemoveFriend: ContractId User with
-        friend: Party
-      controller username
-      do
-        assert $ friend `elem` friends
-        archive self
-        create this with friends = delete friend friends
+        create this with friends = friend :: friends
+-- ADDFRIEND_END
 
 -- SENDMESSAGE_BEGIN
     nonconsuming choice SendMessage: ContractId Message with
