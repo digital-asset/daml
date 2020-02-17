@@ -86,7 +86,7 @@ class Functor f => Applicative f where
 -- | Sequentially compose two actions, discarding any value produced
 -- by the first. This is like sequencing operators (such as the semicolon)
 -- in imperative languages.
-(>>) : Applicative m => m a -> m b -> m b
+(>>) : Action m => m a -> m b -> m b
 (>>) = (*>)
 infixl 1 >>
 

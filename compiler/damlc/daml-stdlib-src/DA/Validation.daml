@@ -71,16 +71,8 @@ instance Applicative (Validation err) where
     Errors e1 *> Success _ = Errors e1
     Errors e1 *> Errors e2 = Errors (e1 <> e2)
 
-instance Action (Validation err) where
-    (Success x) >>= k = k x
-    (Errors e) >>= k = Errors e
-
-instance ActionFail (Validation Text) where
-    fail = Errors . singleton
-
 -- | Convert an `Optional t` into a `Validation Text t`, or
 -- more generally into an `m t` for any `ActionFail` type `m`.
-(<?>) : ActionFail m => Optional b -> Text -> m b
-None <?> s = fail s
+(<?>) : Optional b -> Text -> Validation Text b
+None <?> s = invalid s
 Some v <?> _ = pure v
-
