@@ -53,6 +53,8 @@ object TestConfig {
       }
       .text("TTL in seconds used for commands emitted by the trigger. Defaults to 30s.")
 
+    help("help").text("Print this usage text")
+
     checkConfig(c => {
       if (c.ledgerHost.isDefined != c.ledgerPort.isDefined) {
         failure("Must specify both --ledger-host and --ledger-port")
