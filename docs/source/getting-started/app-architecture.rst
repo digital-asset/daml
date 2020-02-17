@@ -16,23 +16,24 @@ The DAML Model
 Using VSCode (or a code editor of your choice), navigate to the ``daml`` subdirectory.
 There is a single DAML file called ``User.daml`` with the model for users of the app.
 
-The core data is in the ``User`` contract template.
+The core data is at the start of the ``User`` contract template.
 
 .. literalinclude:: quickstart/code/daml/User.daml
   :language: daml
   :start-after: -- MAIN_TEMPLATE_BEGIN
   :end-before: -- MAIN_TEMPLATE_END
 
-Since we are developing for a distributed ledger, all data are represented as immutable contracts.
-There are two aspects here:
+There are two important aspects here:
 
 1. The data definition (a *schema* in database terms), describing the data stored with each user contract.
-In this case it is the username, and a list of the user's current friends.
-Both fields use DAML's built-in ``Party`` type, which is an abstraction of cryptographic keys.
+In this case it is an identifier for the user and their current list of friends.
+Both fields use the built-in ``Party`` type which lets us use them in the following clauses.
 
-2. The signatories and observers of the user contract.
-The signatories - the single user in this case - are the parties authorized to make changes to the contract (which we'll see next).
-The observers - in this case the user's friends - are the parties who can see the contract on the ledger.
+2. The signatories and observers of the contract.
+The signatories are the parties authorized to create new versions of the contract or archive the contract.
+In this case only the user has those rights.
+The observers are the parties who are able to view the contract on the ledger.
+In this case all friends of a user are able to see the user contract.
 
 The ``observer`` clause explains something about the behaviour of our app.
 A user, say Alice, can only see another user Bob in the network if Alice is listed as Bob's friend.
