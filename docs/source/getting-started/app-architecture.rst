@@ -35,13 +35,14 @@ In this case only the user has those rights.
 The observers are the parties who are able to view the contract on the ledger.
 In this case all friends of a user are able to see the user contract.
 
-The ``observer`` clause explains something about the behaviour of our app.
-A user, say Alice, can only see another user Bob in the network if Alice is listed as Bob's friend.
-Otherwise Bob's user contract is invisible to Alice.
+Let's say what the ``signatory`` and ``observer`` clauses mean in our app more concretely.
+A user Alice can see another user Bob in the network only when Alice is a friend in Bob's user contract.
+For this to be true, Bob must have previously added Alice as a friend (i.e. updated his user contract), as he is the sole signatory on his user contract.
+If not, Bob will be invisible to Alice.
 
-These 6 lines of code are saying a lot!
-A key point is that privacy and authorization are central to the way we write code in DAML and the resulting app behaviour.
-This is a radical change to how apps are written usually - with privacy and security as an afterthought - and is key to writing secure distributed applications.
+We can see some concepts here that are central to DAML, namely *privacy* and *authorization*.
+Privacy is about who can *see* what, and authorization is about who can *do* what.
+In DAML we must answer these questions upfront, as they fundamentally change the design of an application.
 
 The only other thing we'll say about the User template for now is that it has two operations - called *choices* - to add or remove a friend.
 As DAML contracts are immutable, exercising one of these choices in fact *archives* the existing user contract and creates a new one with the modified data.
