@@ -486,8 +486,16 @@ $(document).ready(function () {
         if ($(window).width() < 1600) {
             $('.content-menu').toggleClass('collapsed');
         }
-        var position = $($(this).attr('href')).offset().top;
-        $("html, body").animate({scrollTop: position}, "slow");
+        var href = $(this).attr('href');
+        // Special treatment for going back to the top since those links
+        // don't have an id and just go to #
+        var position = href === "#" ? 0 : $(href).offset().top;
+        $("html, body").animate(
+          {scrollTop: position},
+          "slow",
+          function () {
+            window.location.hash = href;
+          });
         ev.preventDefault();
     });
     // sections padding
