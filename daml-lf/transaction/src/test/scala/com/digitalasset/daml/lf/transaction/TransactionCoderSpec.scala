@@ -19,6 +19,7 @@ import org.scalatest.{Inside, Matchers, WordSpec}
 
 import scala.collection.breakOut
 import scala.collection.immutable.HashMap
+import scala.collection.JavaConverters._
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class TransactionCoderSpec
@@ -148,6 +149,22 @@ class TransactionCoderSpec
 
         decodedVersionedTx.version shouldEqual TransactionVersions.assignVersion(t)
         decodedVersionedTx.transaction shouldEqual t
+
+        // Verify that we can compute the informees for all nodes, for both
+        // the deserialized and serialized form.
+        val encodedNodes = encodedTx.getNodesList.asScala.map(n => n.getNodeId -> n).toMap
+        decodedVersionedTx.transaction.nodes.foreach {
+          case (nodeId, node) =>
+            val encodedNodeId = TransactionCoder.NidEncoder.asString(nodeId)
+            val encodedNode = encodedNodes(encodedNodeId)
+
+            node.informeesOfNode shouldBe 'nonEmpty
+
+            Right(node.informeesOfNode) shouldEqual
+              TransactionCoder
+                .protoNodeInfo(decodedVersionedTx.version, encodedNode)
+                .map(_.informeesOfNode)
+        }
       }
     }
 
