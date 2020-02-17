@@ -44,7 +44,6 @@ import com.digitalasset.ledger.api.domain.{
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.digitalasset.logging.LoggingContext.newLoggingContext
 import com.digitalasset.platform.participant.util.EventFilter
-import com.digitalasset.platform.store.Contract.ActiveContract
 import com.digitalasset.platform.store.entries.{ConfigurationEntry, LedgerEntry}
 import com.digitalasset.platform.store.{DbType, FlywayMigrations, PersistenceEntry}
 import com.digitalasset.resources.Resource
@@ -146,21 +145,6 @@ class JdbcLedgerDaoSpec
         Set(alice)
       )
 
-      val contract = ActiveContract(
-        absCid,
-        let,
-        txId,
-        event1,
-        Some(workflowId),
-        someContractInstance,
-        Set(alice, bob),
-        Map(alice -> txId, bob -> txId),
-        Some(keyWithMaintainers),
-        Set(alice, bob),
-        Set.empty,
-        someContractInstance.agreementText
-      )
-
       val transaction = LedgerEntry.Transaction(
         Some("commandId1"),
         txId,
@@ -204,7 +188,7 @@ class JdbcLedgerDaoSpec
         externalLedgerEnd <- ledgerDao.lookupExternalLedgerEnd()
       } yield {
         result1 shouldEqual None
-        result2 shouldEqual Some(contract)
+        result2 shouldEqual Some(someContractInstance)
         externalLedgerEnd shouldEqual externalOffset
       }
     }

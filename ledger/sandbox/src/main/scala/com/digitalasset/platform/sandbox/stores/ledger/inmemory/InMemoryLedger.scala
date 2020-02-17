@@ -20,7 +20,8 @@ import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party}
 import com.digitalasset.daml.lf.data.{ImmArray, Time}
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.Node
-import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
+import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.domain.{
   ApplicationId,
@@ -44,7 +45,7 @@ import com.digitalasset.platform.store.entries.{
   PackageLedgerEntry,
   PartyLedgerEntry
 }
-import com.digitalasset.platform.store.{Contract, LedgerSnapshot}
+import com.digitalasset.platform.store.LedgerSnapshot
 import org.slf4j.LoggerFactory
 import scalaz.Tag
 
@@ -113,9 +114,12 @@ class InMemoryLedger(
   override def lookupContract(
       contractId: AbsoluteContractId,
       forParty: Party
-  ): Future[Option[Contract]] =
+  ): Future[Option[ContractInst[Value.VersionedValue[AbsoluteContractId]]]] =
     Future.successful(this.synchronized {
-      acs.activeContracts.get(contractId).filter(ac => acs.isVisibleForDivulgees(ac.id, forParty))
+      acs.activeContracts
+        .get(contractId)
+        .filter(ac => acs.isVisibleForDivulgees(ac.id, forParty))
+        .map(_.contract)
     })
 
   override def lookupKey(key: Node.GlobalKey, forParty: Party): Future[Option[AbsoluteContractId]] =

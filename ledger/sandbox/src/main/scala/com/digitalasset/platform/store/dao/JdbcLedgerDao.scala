@@ -26,7 +26,7 @@ import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers}
 import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
+import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.domain.RejectionReason._
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, RejectionReason}
@@ -1200,7 +1200,7 @@ private class JdbcLedgerDao(
     SQL("select maintainer from contract_key_maintainers where contract_id={contract_id}")
 
   private def lookupContractSync(contractId: AbsoluteContractId, forParty: Party)(
-      implicit conn: Connection): Option[Contract] =
+      implicit conn: Connection): Option[ContractInst[Value.VersionedValue[AbsoluteContractId]]] =
     SQL_SELECT_CONTRACT
       .on(
         "contract_id" -> contractId.coid,
@@ -1208,6 +1208,7 @@ private class JdbcLedgerDao(
       )
       .as(ContractDataParser.singleOpt)
       .map(mapContractDetails)
+      .map(_.contract)
 
   private def lookupContractLetSync(contractId: AbsoluteContractId)(
       implicit conn: Connection): Option[LetLookup] =
@@ -1221,7 +1222,7 @@ private class JdbcLedgerDao(
 
   override def lookupActiveOrDivulgedContract(
       contractId: AbsoluteContractId,
-      forParty: Party): Future[Option[Contract]] =
+      forParty: Party): Future[Option[ContractInst[Value.VersionedValue[AbsoluteContractId]]]] =
     dbDispatcher.executeSql("lookup_active_contract") { implicit conn =>
       lookupContractSync(contractId, forParty)
     }

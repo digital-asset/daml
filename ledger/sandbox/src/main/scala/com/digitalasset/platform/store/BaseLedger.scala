@@ -11,7 +11,8 @@ import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.Node
-import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
+import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.ledger.api.domain
@@ -75,9 +76,8 @@ class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Long, ledgerDao: 
   override def lookupContract(
       contractId: AbsoluteContractId,
       forParty: Party
-  ): Future[Option[Contract]] =
-    ledgerDao
-      .lookupActiveOrDivulgedContract(contractId, forParty)
+  ): Future[Option[ContractInst[Value.VersionedValue[AbsoluteContractId]]]] =
+    ledgerDao.lookupActiveOrDivulgedContract(contractId, forParty)
 
   override def lookupTransaction(
       transactionId: TransactionId): Future[Option[(Long, LedgerEntry.Transaction)]] =
