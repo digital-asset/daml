@@ -8,7 +8,7 @@ import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpec
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref.LedgerString
-import com.digitalasset.logging.LoggingContext.newLoggingContext
+import com.digitalasset.logging.LoggingContext
 import com.digitalasset.resources.ResourceOwner
 
 import scala.concurrent.ExecutionContext
@@ -24,10 +24,8 @@ abstract class SqlLedgerReaderWriterIntegrationSpecBase(implementationName: Stri
   override final def participantStateFactory(
       participantId: ParticipantId,
       ledgerId: LedgerString,
-  ): ResourceOwner[ParticipantState] =
-    newLoggingContext { implicit logCtx =>
-      SqlLedgerReaderWriter
-        .owner(ledgerId, participantId, jdbcUrl(ledgerId.replaceAllLiterally("-", "_")))
-        .map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter))
-    }
+  )(implicit logCtx: LoggingContext): ResourceOwner[ParticipantState] =
+    SqlLedgerReaderWriter
+      .owner(ledgerId, participantId, jdbcUrl(ledgerId.replaceAllLiterally("-", "_")))
+      .map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter))
 }

@@ -7,6 +7,7 @@ import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpec
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase.ParticipantState
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref.LedgerString
+import com.digitalasset.logging.LoggingContext
 import com.digitalasset.resources.ResourceOwner
 
 class InMemoryKVParticipantStateIT
@@ -17,6 +18,6 @@ class InMemoryKVParticipantStateIT
   override def participantStateFactory(
       participantId: ParticipantId,
       ledgerId: LedgerString,
-  ): ResourceOwner[ParticipantState] =
+  )(implicit logCtx: LoggingContext): ResourceOwner[ParticipantState] =
     ResourceOwner.forCloseable(() => new InMemoryKVParticipantState(participantId, ledgerId))
 }

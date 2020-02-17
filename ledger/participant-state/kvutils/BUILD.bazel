@@ -62,6 +62,7 @@ da_scala_library(
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-health",
         "//ledger/participant-state",
+        "//libs-scala/contextualized-logging",
         "//libs-scala/resources",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
