@@ -29,7 +29,7 @@ So Alice adding Bob as a friend means that she gives permission (or *authority*)
 
 In DAML this workflow is represented as a new choice on the ``User`` contract.
 
-.. literalinclude:: quickstart/code/daml/User.daml
+.. literalinclude:: code/daml/User.daml
   :language: daml
   :start-after: -- SENDMESSAGE_BEGIN
   :end-before: -- SENDMESSAGE_END
@@ -47,7 +47,7 @@ This is because the ``User`` contract is only ever visible to friends (the obser
 Now let's see the ``Message`` contract template.
 This is very simple - data and no choices - as well as the ``signatory`` declaration.
 
-.. literalinclude:: quickstart/code/daml/User.daml
+.. literalinclude:: code/daml/User.daml
   :language: daml
   :start-after: -- MESSAGE_BEGIN
   :end-before: -- MESSAGE_END
@@ -87,7 +87,7 @@ Feed Component
 The feed component is fairly straight-forward: it queries all ``Message`` contracts and displays their contents as a list.
 Here is the code for the entire component.
 
-.. literalinclude:: quickstart/code/ui-after/Feed.tsx
+.. literalinclude:: code/ui-after/Feed.tsx
   :language: ts
 
 The key point here is that for any particular user, the ``Message`` query yields exactly the messages that have been either written by or sent to that user.
@@ -98,7 +98,7 @@ Message Edit Component
 
 In addition to the feed component, we need a component for composing messages and sending them using the appropriate choice on the ``User`` contract.
 
-.. literalinclude:: quickstart/code/ui-after/MessageEdit.tsx
+.. literalinclude:: code/ui-after/MessageEdit.tsx
   :language: ts
 
 In this component we use React hooks for the message content and receiver.
@@ -114,14 +114,14 @@ To support the messaging components, we will need DAML React hooks for querying 
 
 First import the generated Typescript code for the ``Message`` contract template, as well as our two new components.
 
-.. literalinclude:: quickstart/code/ui-after/MainView.tsx
+.. literalinclude:: code/ui-after/MainView.tsx
   :language: ts
   :start-after: -- IMPORTS_BEGIN
   :end-before: -- IMPORTS_END
 
 Then we declare the hooks themselves at the start of the component.
 
-.. literalinclude:: quickstart/code/ui-after/MainView.tsx
+.. literalinclude:: code/ui-after/MainView.tsx
   :language: ts
   :start-after: -- HOOKS_BEGIN
   :end-before: -- HOOKS_END
@@ -131,7 +131,7 @@ We extract the actual message data in ``messages``.
 The ``exerciseSendMessage`` hook gives us a function to exercise the appropriate choice on our ``User``.
 We wrap this in another ``sendMessage`` function which splits an input string into a list of parties and then exercises the choice, reporting to the user in the case of an error.
 
-.. literalinclude:: quickstart/code/ui-after/MainView.tsx
+.. literalinclude:: code/ui-after/MainView.tsx
   :language: ts
   :start-after: -- SENDMESSAGE_BEGIN
   :end-before: -- SENDMESSAGE_END
@@ -139,7 +139,7 @@ We wrap this in another ``sendMessage`` function which splits an input string in
 Finally we can integrate our new messaging components into the main screen view.
 In another segment we add the panel including our two new components: the ``MessageEdit`` and the ``Feed``.
 
-.. literalinclude:: quickstart/code/ui-after/MainView.tsx
+.. literalinclude:: code/ui-after/MainView.tsx
   :language: html
   :start-after: -- MESSAGES_SEGMENT_BEGIN
   :end-before: -- MESSAGES_SEGMENT_END

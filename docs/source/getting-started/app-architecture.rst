@@ -18,7 +18,7 @@ There is a single DAML file called ``User.daml`` with the model for users of the
 
 The core data is at the start of the ``User`` contract template.
 
-.. literalinclude:: quickstart/code/daml/User.daml
+.. literalinclude:: code/daml/User.daml
   :language: daml
   :start-after: -- MAIN_TEMPLATE_BEGIN
   :end-before: -- MAIN_TEMPLATE_END
@@ -46,7 +46,7 @@ In DAML we must answer these questions upfront, as they fundamentally change the
 
 The last thing we'll point out about the DAML model for now is the operation to add friends, called a *choice* in DAML.
 
-.. literalinclude:: quickstart/code/daml/User.daml
+.. literalinclude:: code/daml/User.daml
   :language: daml
   :start-after: -- ADDFRIEND_BEGIN
   :end-before: -- ADDFRIEND_END
@@ -95,7 +95,7 @@ For example, we can query the ledger for all visible contracts (relative to a pa
 
 Let's see some examples of DAML React hooks.
 
-.. literalinclude:: quickstart/code/ui-before/MainView.tsx
+.. literalinclude:: code/ui-before/MainView.tsx
   :language: ts
   :start-after: -- HOOKS_BEGIN
   :end-before: -- HOOKS_END

@@ -18,10 +18,7 @@ DAML SDK documentation
    :caption: Getting started
 
    getting-started/installation
-   getting-started/full-stack-daml
-   getting-started/app-architecture
-   getting-started/first-feature
-   Old Quickstart Guide <getting-started/quickstart>
+   Quickstart Guide <getting-started/quickstart>
 
 .. toctree::
    :titlesonly:
@@ -105,6 +102,7 @@ DAML SDK documentation
    DAML Script <daml-script/index>
    tools/visual
    daml2ts/index
+   getting-started/index
 
 .. toctree::
    :titlesonly:

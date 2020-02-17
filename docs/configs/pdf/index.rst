@@ -12,10 +12,7 @@ Getting started
    :maxdepth: 2
 
    getting-started/installation
-   getting-started/full-stack-daml
-   getting-started/app-architecture
-   getting-started/first-feature
-   Old Quickstart Guide <getting-started/quickstart>
+   Quickstart Guide <getting-started/quickstart>
 
 Writing DAML
 ------------
@@ -100,6 +97,7 @@ Experimental features
    daml-script/index
    tools/visual
    daml2ts/index
+   getting-started/index
 
 Support and updates
 -------------------
