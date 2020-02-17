@@ -71,15 +71,13 @@ import SdkVersion
 --   and then remap references to those dummy packages to the original DAML-LF
 --   package id.
 createProjectPackageDb :: NormalizedFilePath -> Options -> PackageSdkVersion -> [FilePath] -> [FilePath] -> IO ()
-createProjectPackageDb projectRoot opts thisSdkVer deps dataDeps = do
-    let dbPath = projectPackageDatabase </> lfVersionString (optDamlLfVersion opts)
-    -- Since we reinitialize the whole package db anyway,
-    -- during `daml init`, we clear the package db before to avoid
-    -- issues during SDk upgrades. Once we have a more clever mechanism than
-    -- reinitializing everything, we probably want to change this.
-    removePathForcibly dbPath
-    createDirectoryIfMissing True $ dbPath </> "package.conf.d"
-
+createProjectPackageDb projectRoot opts thisSdkVer deps dataDeps
+  | null dataDeps && all (`elem` basePackages) deps =
+    -- Initializing the package db is expensive since it requires calling GenerateStablePackages and GeneratePackageMap.
+    --Therefore we only do it if we actually have a dependency.
+    clearPackageDb
+  | otherwise = do
+    clearPackageDb
     deps <- expandSdkPackages (filter (`notElem` basePackages) deps)
     depsExtracted <- mapM extractDar deps
 
@@ -223,6 +221,15 @@ createProjectPackageDb projectRoot opts thisSdkVer deps dataDeps = do
             mbPkgVersion
             deps
             dependencies
+  where
+    dbPath = projectPackageDatabase </> lfVersionString (optDamlLfVersion opts)
+    clearPackageDb = do
+        -- Since we reinitialize the whole package db during `daml init` anyway,
+        -- we clear the package db before to avoid
+        -- issues during SDk upgrades. Once we have a more clever mechanism than
+        -- reinitializing everything, we probably want to change this.
+        removePathForcibly dbPath
+        createDirectoryIfMissing True $ dbPath </> "package.conf.d"
 
 toGhcModuleName :: LF.ModuleName -> GHC.ModuleName
 toGhcModuleName = GHC.mkModuleName . T.unpack . LF.moduleNameString
