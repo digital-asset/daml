@@ -83,8 +83,8 @@ The UI
 On top of TypeScript, we use the UI framework `React <https://reactjs.org/>`_.
 React helps us write modular UI components using a functional style - a component is rerendered whenever one of its inputs changes - with careful use of global state.
 
-We can see the latter in the way we handle ledger state throughout the application code.
-For this we use a state management feature in React called `Hooks <https://reactjs.org/docs/hooks-intro.html>`_.
+The latter is especially interesting as it's how we handle ledger state in our application.
+We use a state management feature of React called `Hooks <https://reactjs.org/docs/hooks-intro.html>`_.
 You can see the capabilities of the DAML React hooks in ``create-daml-app/ui/src/daml-react-hooks/hooks.ts``.
 For example, we can query the ledger for all visible contracts (relative to a particular user), create contracts and exercise choices on contracts.
 
