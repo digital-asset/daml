@@ -618,65 +618,67 @@ object TransactionCoder {
   def protoNodeInfo(
       txVersion: TransactionVersion,
       protoNode: TransactionOuterClass.Node): Either[DecodeError, NodeInfo] =
-    if (txVersion precedes TransactionVersions.minFetchActors) {
-      Left(DecodeError(s"NodeInfo not supported for transaction version $txVersion"))
-    } else {
-      protoNode.getNodeTypeCase match {
-        case NodeTypeCase.CREATE =>
-          val protoCreate = protoNode.getCreate
-          for {
-            signatories_ <- toPartySet(protoCreate.getSignatoriesList)
-            stakeholders_ <- toPartySet(protoCreate.getStakeholdersList)
-          } yield {
-            new NodeInfo.Create {
-              def signatories = signatories_
-              def stakeholders = stakeholders_
-            }
+    protoNode.getNodeTypeCase match {
+      case NodeTypeCase.CREATE =>
+        val protoCreate = protoNode.getCreate
+        for {
+          signatories_ <- toPartySet(protoCreate.getSignatoriesList)
+          stakeholders_ <- toPartySet(protoCreate.getStakeholdersList)
+        } yield {
+          new NodeInfo.Create {
+            def signatories = signatories_
+            def stakeholders = stakeholders_
           }
-        case NodeTypeCase.FETCH =>
-          val protoFetch = protoNode.getFetch
-          for {
-            actingParties_ <- toPartySet(protoFetch.getActorsList)
-            stakeholders_ <- toPartySet(protoFetch.getStakeholdersList)
-            signatories_ <- toPartySet(protoFetch.getSignatoriesList)
-          } yield {
-            new NodeInfo.Fetch {
-              def signatories = signatories_
-              def stakeholders = stakeholders_
-              def actingParties = Some(actingParties_)
-            }
+        }
+      case NodeTypeCase.FETCH =>
+        val protoFetch = protoNode.getFetch
+        for {
+          _ <- if (txVersion precedes TransactionVersions.minFetchActors)
+            Left(DecodeError(txVersion, isTooOldFor = "NodeFetch actors"))
+          else Right(())
+          actingParties_ <- toPartySet(protoFetch.getActorsList)
+          stakeholders_ <- toPartySet(protoFetch.getStakeholdersList)
+          signatories_ <- toPartySet(protoFetch.getSignatoriesList)
+        } yield {
+          new NodeInfo.Fetch {
+            def signatories = signatories_
+            def stakeholders = stakeholders_
+            def actingParties = Some(actingParties_)
           }
+        }
 
-        case NodeTypeCase.EXERCISE =>
-          val protoExe = protoNode.getExercise
-          for {
-            actingParties_ <- toPartySet(protoExe.getActorsList)
-            signatories_ <- toPartySet(protoExe.getSignatoriesList)
-            stakeholders_ <- toPartySet(protoExe.getStakeholdersList)
-          } yield {
-            new NodeInfo.Exercise {
-              def signatories = signatories_
-              def stakeholders = stakeholders_
-              def actingParties = actingParties_
-              def consuming = protoExe.getConsuming
-            }
+      case NodeTypeCase.EXERCISE =>
+        val protoExe = protoNode.getExercise
+        for {
+          actingParties_ <- toPartySet(protoExe.getActorsList)
+          signatories_ <- toPartySet(protoExe.getSignatoriesList)
+          stakeholders_ <- toPartySet(protoExe.getStakeholdersList)
+        } yield {
+          new NodeInfo.Exercise {
+            def signatories = signatories_
+            def stakeholders = stakeholders_
+            def actingParties = actingParties_
+            def consuming = protoExe.getConsuming
           }
+        }
 
-        case NodeTypeCase.LOOKUP_BY_KEY =>
-          val protoLookupByKey = protoNode.getLookupByKey
-          for {
-            maintainers <- toPartySet(protoLookupByKey.getKeyWithMaintainers.getMaintainersList)
-          } yield {
-            new NodeInfo.LookupByKey {
-              def hasResult =
-                protoLookupByKey.getContractId.nonEmpty ||
-                  protoLookupByKey.hasContractIdStruct
-              def keyMaintainers = maintainers
-            }
+      case NodeTypeCase.LOOKUP_BY_KEY =>
+        val protoLookupByKey = protoNode.getLookupByKey
+        for {
+          _ <- if (txVersion precedes TransactionVersions.minKeyOrLookupByKey)
+            Left(DecodeError(txVersion, isTooOldFor = "NodeLookupByKey"))
+          else Right(())
+          maintainers <- toPartySet(protoLookupByKey.getKeyWithMaintainers.getMaintainersList)
+        } yield {
+          new NodeInfo.LookupByKey {
+            def hasResult =
+              protoLookupByKey.getContractId.nonEmpty ||
+                protoLookupByKey.hasContractIdStruct
+            def keyMaintainers = maintainers
           }
+        }
 
-        case NodeTypeCase.NODETYPE_NOT_SET => Left(DecodeError("Unset Node type"))
-      }
+      case NodeTypeCase.NODETYPE_NOT_SET => Left(DecodeError("Unset Node type"))
     }
 
 }
