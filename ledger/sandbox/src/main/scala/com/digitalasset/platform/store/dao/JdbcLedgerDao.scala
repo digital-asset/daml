@@ -1199,17 +1199,6 @@ private class JdbcLedgerDao(
   private val SQL_SELECT_KEY_MAINTAINERS =
     SQL("select maintainer from contract_key_maintainers where contract_id={contract_id}")
 
-  private def lookupContractSync(contractId: AbsoluteContractId, forParty: Party)(
-      implicit conn: Connection): Option[ContractInst[Value.VersionedValue[AbsoluteContractId]]] =
-    SQL_SELECT_CONTRACT
-      .on(
-        "contract_id" -> contractId.coid,
-        "party" -> forParty
-      )
-      .as(ContractDataParser.singleOpt)
-      .map(mapContractDetails)
-      .map(_.contract)
-
   private def lookupContractLetSync(contractId: AbsoluteContractId)(
       implicit conn: Connection): Option[LetLookup] =
     SQL_SELECT_CONTRACT_LET
@@ -1223,9 +1212,20 @@ private class JdbcLedgerDao(
   override def lookupActiveOrDivulgedContract(
       contractId: AbsoluteContractId,
       forParty: Party): Future[Option[ContractInst[Value.VersionedValue[AbsoluteContractId]]]] =
-    dbDispatcher.executeSql("lookup_active_contract") { implicit conn =>
-      lookupContractSync(contractId, forParty)
-    }
+    dbDispatcher
+      .executeSql("lookup_active_contract") { implicit conn =>
+        SQL_SELECT_CONTRACT
+          .on(
+            "contract_id" -> contractId.coid,
+            "party" -> forParty
+          )
+          .as(binaryStream("contract").singleOpt)
+      }
+      .map(_.map { bytes =>
+        contractSerializer
+          .deserializeContractInstance(ByteStreams.toByteArray(bytes))
+          .getOrElse(sys.error(s"failed to deserialize contract! cid:${contractId.coid}"))
+      })(executionContext)
 
   private def mapContractDetails(
       contractResult: (
@@ -1728,32 +1728,18 @@ object JdbcLedgerDao {
 
     override protected[JdbcLedgerDao] val SQL_SELECT_CONTRACT: String =
       s"""
-         |select
-         |  cd.id,
-         |  cd.contract,
-         |  c.transaction_id,
-         |  c.create_event_id,
-         |  c.workflow_id,
-         |  c.key,
-         |  le.effective_at,
-         |  string_agg(distinct sigs.signatory, '$PARTY_SEPARATOR') as signatories,
-         |  string_agg(distinct obs.observer, '$PARTY_SEPARATOR') as observers
+         |select cd.contract
          |from contract_data cd
          |left join contracts c on cd.id=c.id
-         |left join ledger_entries le on c.transaction_id = le.transaction_id
          |left join contract_witnesses cowi on cowi.contract_id = c.id and witness = {party}
          |left join contract_divulgences codi on codi.contract_id = cd.id and party = {party}
-         |left join contract_signatories sigs on sigs.contract_id = c.id
-         |left join contract_observers obs on obs.contract_id = c.id
-         |
          |where
          |  cd.id={contract_id} and
          |  c.archive_offset is null and
          |  (cowi.witness is not null or codi.party is not null)
-         |group by cd.id, cd.contract, c.transaction_id, c.create_event_id, c.workflow_id, c.key, le.effective_at
          |""".stripMargin
 
-    override protected[JdbcLedgerDao] def SQL_SELECT_ACTIVE_CONTRACTS: String =
+    override protected[JdbcLedgerDao] val SQL_SELECT_ACTIVE_CONTRACTS: String =
       // the distinct keyword is required, because a single contract can be visible by 2 parties,
       // thus resulting in multiple output rows
       s"""
@@ -1819,32 +1805,18 @@ object JdbcLedgerDao {
 
     override protected[JdbcLedgerDao] val SQL_SELECT_CONTRACT: String =
       s"""
-         |select
-         |  cd.id,
-         |  cd.contract,
-         |  c.transaction_id,
-         |  c.create_event_id,
-         |  c.workflow_id,
-         |  c.key,
-         |  le.effective_at,
-         |  listagg(distinct sigs.signatory, '$PARTY_SEPARATOR') as signatories,
-         |  listagg(distinct obs.observer, '$PARTY_SEPARATOR') as observers
+         |select cd.contract
          |from contract_data cd
          |left join contracts c on cd.id=c.id
-         |left join ledger_entries le on c.transaction_id = le.transaction_id
          |left join contract_witnesses cowi on cowi.contract_id = c.id and witness = {party}
          |left join contract_divulgences codi on codi.contract_id = cd.id and party = {party}
-         |left join contract_signatories sigs on sigs.contract_id = c.id
-         |left join contract_observers obs on obs.contract_id = c.id
-         |
          |where
          |  cd.id={contract_id} and
          |  c.archive_offset is null and
          |  (cowi.witness is not null or codi.party is not null)
-         |group by cd.id, cd.contract, c.transaction_id, c.create_event_id, c.workflow_id, c.key, le.effective_at
          |""".stripMargin
 
-    override protected[JdbcLedgerDao] def SQL_SELECT_ACTIVE_CONTRACTS: String =
+    override protected[JdbcLedgerDao] val SQL_SELECT_ACTIVE_CONTRACTS: String =
       // the distinct keyword is required, because a single contract can be visible by 2 parties,
       // thus resulting in multiple output rows
       s"""
