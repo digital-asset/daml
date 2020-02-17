@@ -11,7 +11,7 @@ object Tests {
 
   val default: Tests = Map(
     "SemanticTests" -> (new SemanticTests(_)),
-    "PartyAllocationIT" -> (new PartyAllocation(_)),
+    "ClosedWorldIT" -> (new ClosedWorld(_)),
   )
 
   /*
@@ -41,6 +41,7 @@ object Tests {
     "WitnessesIT" -> (new Witnesses(_)),
     "WronglyTypedContractIdIT" -> (new WronglyTypedContractId(_)),
     "ConfigManagementServiceIT" -> (new ConfigManagement(_)),
+    "OpenWorldSandboxIT" -> (new OpenWorldSandbox(_)),
   )
 
   val all: Tests = default ++ optional

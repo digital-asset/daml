@@ -9,13 +9,11 @@ import com.daml.ledger.api.testtool.infrastructure.Allocation.{
   SingleParty,
   allocate
 }
-import com.daml.ledger.api.testtool.infrastructure.Assertions.assertGrpcError
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
 import com.digitalasset.ledger.client.binding
 import com.digitalasset.ledger.test.SemanticTests.{Amount, Iou}
-import io.grpc.Status
 
-class PartyAllocation(session: LedgerSession) extends LedgerTestSuite(session) {
+class OpenWorldSandbox(session: LedgerSession) extends LedgerTestSuite(session) {
 
   private[this] val onePound = Amount(BigDecimal(1), "GBP")
 
@@ -24,17 +22,14 @@ class PartyAllocation(session: LedgerSession) extends LedgerTestSuite(session) {
    */
 
   test(
-    "SemanticPartiesAllocated",
-    "Cannot execute a transaction that references unallocated parties",
+    "PartiesWillBeImplicitlyAllocated",
+    "A transaction that references unallocated informee parties will go through on the sandbox",
     allocate(SingleParty),
   ) {
     case Participants(Participant(alpha, payer)) =>
       for {
-        failure <- alpha
+        _ <- alpha
           .create(payer, Iou(payer, binding.Primitive.Party("unallocated"), onePound))
-          .failed
-      } yield {
-        assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "Party not known on ledger")
-      }
+      } yield ()
   }
 }

@@ -350,7 +350,7 @@ server_conformance_test(
         "--all-tests",
         "--exclude=LotsOfPartiesIT",
         "--exclude=ConfigManagementServiceIT",
-        "--exclude=PartyAllocationIT",
+        "--exclude=ClosedWorldIT",
     ],
 )
 
@@ -377,7 +377,7 @@ server_conformance_test(
         "--exclude=LotsOfPartiesIT",
         "--exclude=TimeIT",
         "--exclude=ConfigManagementServiceIT",
-        "--exclude=PartyAllocationIT",
+        "--exclude=ClosedWorldIT",
     ],
 )
 
@@ -416,7 +416,7 @@ server_conformance_test(
         "--all-tests",
         "--exclude=ConfigManagementServiceIT",
         "--exclude=TimeIT",
-        "--exclude=PartyAllocationIT",
+        "--exclude=ClosedWorldIT",
     ],
 )
 
