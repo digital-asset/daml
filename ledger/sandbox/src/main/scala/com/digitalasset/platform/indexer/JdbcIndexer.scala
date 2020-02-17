@@ -22,6 +22,7 @@ import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.events.EventIdFormatter
 import com.digitalasset.platform.metrics.timedFuture
+import com.digitalasset.platform.store.ActiveLedgerStateManager.IndexingOptions
 import com.digitalasset.platform.store.dao.{JdbcLedgerDao, LedgerDao}
 import com.digitalasset.platform.store.entries.{LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.digitalasset.platform.store.{FlywayMigrations, PersistenceEntry}
@@ -63,9 +64,11 @@ final class JdbcIndexerFactory[Status <: InitStatus] private (metrics: MetricReg
       participantId: ParticipantId,
       actorSystem: ActorSystem,
       readService: ReadService,
-      jdbcUrl: String,
-      implicitlyAllocateParties: Boolean
-  )(implicit x: Status =:= Initialized): ResourceOwner[JdbcIndexer] = {
+      jdbcUrl: String
+  )(
+      implicit x: Status =:= Initialized,
+      indexingOptions: IndexingOptions = IndexingOptions.defaultNoImplicitPartyAllocation)
+    : ResourceOwner[JdbcIndexer] = {
     val materializer: Materializer = Materializer(actorSystem)
 
     implicit val ec: ExecutionContext = DEC
@@ -82,20 +85,12 @@ final class JdbcIndexerFactory[Status <: InitStatus] private (metrics: MetricReg
       } yield (ledgerEnd, externalOffset)
 
     for {
-      ledgerDao <- JdbcLedgerDao.owner(
-        jdbcUrl,
-        metrics,
-        actorSystem.dispatcher,
-        implicitlyAllocateParties)
+      ledgerDao <- JdbcLedgerDao.owner(jdbcUrl, metrics, actorSystem.dispatcher)
       (ledgerEnd, externalOffset) <- ResourceOwner.forFuture(() => fetchInitialState(ledgerDao))
     } yield
-      new JdbcIndexer(
-        ledgerEnd,
-        externalOffset,
-        participantId,
-        ledgerDao,
-        metrics,
-        implicitlyAllocateParties)(materializer)
+      new JdbcIndexer(ledgerEnd, externalOffset, participantId, ledgerDao, metrics)(
+        materializer,
+        indexingOptions)
   }
 
   private def ledgerFound(foundLedgerId: LedgerId) = {
@@ -133,9 +128,8 @@ class JdbcIndexer private[indexer] (
     beginAfterExternalOffset: Option[LedgerString],
     participantId: ParticipantId,
     ledgerDao: LedgerDao,
-    metrics: MetricRegistry,
-    implicitlyAllocateParties: Boolean
-)(implicit mat: Materializer)
+    metrics: MetricRegistry
+)(implicit mat: Materializer, indexingOptions: IndexingOptions)
     extends Indexer {
 
   @volatile
@@ -188,12 +182,9 @@ class JdbcIndexer private[indexer] (
   }
 
   override def subscription(readService: ReadService): ResourceOwner[IndexFeedHandle] =
-    new SubscriptionResourceOwner(readService, implicitlyAllocateParties)
+    new SubscriptionResourceOwner(readService)
 
-  private def handleStateUpdate(
-      offset: Offset,
-      update: Update,
-      implicitlyAllocateParties: Boolean): Future[Unit] = {
+  private def handleStateUpdate(offset: Offset, update: Update): Future[Unit] = {
     lastReceivedOffset = offset.toLedgerString
     lastReceivedRecordTime = update.recordTime.toInstant
 
@@ -383,9 +374,8 @@ class JdbcIndexer private[indexer] (
       domain.RejectionReason.SubmitterCannotActViaParticipant(state.description)
   }
 
-  private class SubscriptionResourceOwner(
-      readService: ReadService,
-      implicitlyAllocateParties: Boolean)
+  private class SubscriptionResourceOwner(readService: ReadService)(
+      implicit indexingOptions: IndexingOptions)
       extends ResourceOwner[IndexFeedHandle] {
     override def acquire()(
         implicit executionContext: ExecutionContext
@@ -398,9 +388,7 @@ class JdbcIndexer private[indexer] (
           .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
           .mapAsync(1) {
             case (offset, update) =>
-              timedFuture(
-                Metrics.stateUpdateProcessingTimer,
-                handleStateUpdate(offset, update, implicitlyAllocateParties))
+              timedFuture(Metrics.stateUpdateProcessingTimer, handleStateUpdate(offset, update))
           }
           .toMat(Sink.ignore)(Keep.both)
           .run()

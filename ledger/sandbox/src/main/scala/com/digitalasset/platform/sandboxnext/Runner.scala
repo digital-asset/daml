@@ -140,8 +140,7 @@ class Runner {
         startupMode = IndexerStartupMode.MigrateAndStart,
         allowExistingSchema = true,
       ),
-      SharedMetricRegistries.getOrCreate(s"indexer-$ParticipantId"),
-      implicitlyAllocateParties = false,
+      SharedMetricRegistries.getOrCreate(s"indexer-$ParticipantId")
     )
 
   private def startApiServer(

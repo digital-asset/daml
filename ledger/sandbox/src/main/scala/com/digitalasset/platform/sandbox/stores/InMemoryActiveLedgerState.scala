@@ -14,6 +14,7 @@ import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.ledger.api.domain.PartyDetails
 import com.digitalasset.ledger.{EventId, TransactionId, WorkflowId}
+import com.digitalasset.platform.store.ActiveLedgerStateManager.IndexingOptions
 import com.digitalasset.platform.store.Contract.{ActiveContract, DivulgedContract}
 import com.digitalasset.platform.store.{
   ActiveLedgerState,
@@ -148,8 +149,11 @@ case class InMemoryActiveLedgerState(
       )
     } else this
 
+  private[this] implicit val indexingOptions: IndexingOptions = IndexingOptions(
+    implicitPartyAllocation = true)
+
   private val acManager =
-    new ActiveLedgerStateManager(this, implicitlyAllocateParties = true)
+    new ActiveLedgerStateManager(this)
 
   /** adds a transaction to the ActiveContracts, make sure that there are no double spends or
     * timing errors. this check is leveraged to achieve higher concurrency, see LedgerState

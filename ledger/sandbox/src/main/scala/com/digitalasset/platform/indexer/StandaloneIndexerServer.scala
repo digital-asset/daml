@@ -7,6 +7,7 @@ import akka.actor.ActorSystem
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.v1.ReadService
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
+import com.digitalasset.platform.store.ActiveLedgerStateManager.IndexingOptions
 import com.digitalasset.resources.akka.AkkaResourceOwner
 import com.digitalasset.resources.{Resource, ResourceOwner}
 
@@ -17,9 +18,10 @@ import scala.concurrent.{ExecutionContext, Future}
 final class StandaloneIndexerServer(
     readService: ReadService,
     config: IndexerConfig,
-    metrics: MetricRegistry,
-    implicitlyAllocateParties: Boolean,
-)(implicit logCtx: LoggingContext)
+    metrics: MetricRegistry
+)(
+    implicit logCtx: LoggingContext,
+    indexingOptions: IndexingOptions = IndexingOptions.defaultNoImplicitPartyAllocation)
     extends ResourceOwner[Unit] {
 
   private val logger = ContextualizedLogger.get(this.getClass)
@@ -61,12 +63,7 @@ final class StandaloneIndexerServer(
       .start(
         () =>
           initializedIndexerFactory
-            .owner(
-              config.participantId,
-              actorSystem,
-              readService,
-              config.jdbcUrl,
-              implicitlyAllocateParties)
+            .owner(config.participantId, actorSystem, readService, config.jdbcUrl)
             .flatMap(_.subscription(readService))
             .acquire())
 }

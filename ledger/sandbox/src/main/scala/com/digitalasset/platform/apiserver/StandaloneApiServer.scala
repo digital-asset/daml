@@ -23,6 +23,7 @@ import com.digitalasset.platform.apiserver.StandaloneApiServer._
 import com.digitalasset.platform.configuration.{BuildInfo, CommandConfiguration}
 import com.digitalasset.platform.index.JdbcIndex
 import com.digitalasset.platform.packages.InMemoryPackageStore
+import com.digitalasset.platform.store.ActiveLedgerStateManager.IndexingOptions
 import com.digitalasset.resources.akka.AkkaResourceOwner
 import com.digitalasset.resources.{Resource, ResourceOwner}
 
@@ -87,6 +88,8 @@ final class StandaloneApiServer(
   }
 
   private def buildAndStartApiServer()(implicit ec: ExecutionContext): Resource[ApiServer] = {
+    implicit val indexingOptions: IndexingOptions = IndexingOptions(implicitPartyAllocation = true)
+
     val packageStore = loadDamlPackages()
     preloadPackages(packageStore)
 
@@ -104,9 +107,8 @@ final class StandaloneApiServer(
         domain.LedgerId(initialConditions.ledgerId),
         participantId,
         config.jdbcUrl,
-        metrics,
-        implicitlyAllocateParties = true
-      )(materializer, logCtx)
+        metrics
+      )(materializer, logCtx, indexingOptions)
       healthChecks = new HealthChecks(
         "index" -> indexService,
         "read" -> readService,

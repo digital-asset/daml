@@ -203,15 +203,10 @@ class IndexerIT extends AsyncWordSpec with Matchers with BeforeAndAfterEach {
           startupMode = IndexerStartupMode.MigrateAndStart,
           restartDelay = restartDelay,
         ),
-        new MetricRegistry,
-        implicitlyAllocateParties = false,
+        new MetricRegistry
       )
       val ledgerDaoOwner =
-        JdbcLedgerDao.owner(
-          jdbcUrl,
-          new MetricRegistry,
-          ExecutionContext.global,
-          implicitlyAllocateParties = false)
+        JdbcLedgerDao.owner(jdbcUrl, new MetricRegistry, ExecutionContext.global)
       val server = serverOwner.acquire()
       val ledgerDao = ledgerDaoOwner.acquire()
       (participantState, server, ledgerDao)

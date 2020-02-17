@@ -34,6 +34,7 @@ import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.ledger.{ApplicationId, CommandId, EventId, WorkflowId}
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
+import com.digitalasset.platform.store.ActiveLedgerStateManager.IndexingOptions
 import com.digitalasset.platform.store.Contract.{ActiveContract, DivulgedContract}
 import com.digitalasset.platform.store.Conversions._
 import com.digitalasset.platform.store.dao.JdbcLedgerDao.{H2DatabaseQueries, PostgresQueries}
@@ -78,8 +79,7 @@ private class JdbcLedgerDao(
     keyHasher: KeyHasher,
     dbType: DbType,
     executionContext: ExecutionContext,
-    implicitlyAllocateParties: Boolean,
-)(implicit logCtx: LoggingContext)
+)(implicit logCtx: LoggingContext, indexingOptions: IndexingOptions)
     extends LedgerDao {
 
   private val queries = dbType match {
@@ -796,7 +796,7 @@ private class JdbcLedgerDao(
       }
 
       // this should be a class member field, we can't move it out yet as the functions above are closing over to the implicit Connection
-      val acsManager = new ActiveLedgerStateManager(new AcsStoreAcc, implicitlyAllocateParties)
+      val acsManager = new ActiveLedgerStateManager(new AcsStoreAcc)
 
       // Note: ACS is typed as Unit here, as the ACS is given implicitly by the current database state
       // within the current SQL transaction. All of the given functions perform side effects to update the database.
@@ -1646,26 +1646,27 @@ object JdbcLedgerDao {
   def owner(
       jdbcUrl: String,
       metrics: MetricRegistry,
-      executionContext: ExecutionContext,
-      implicitlyAllocateParties: Boolean,
-  )(implicit logCtx: LoggingContext): ResourceOwner[LedgerDao] = {
+      executionContext: ExecutionContext
+  )(
+      implicit logCtx: LoggingContext,
+      indexingOptions: IndexingOptions = IndexingOptions.defaultNoImplicitPartyAllocation)
+    : ResourceOwner[LedgerDao] = {
     val dbType = DbType.jdbcType(jdbcUrl)
     val maxConnections =
       if (dbType.supportsParallelWrites) defaultNumberOfShortLivedConnections else 1
     for {
       dbDispatcher <- DbDispatcher.owner(jdbcUrl, maxConnections, metrics)
-    } yield
-      new MeteredLedgerDao(
-        JdbcLedgerDao(dbDispatcher, dbType, executionContext, implicitlyAllocateParties),
-        metrics)
+    } yield new MeteredLedgerDao(JdbcLedgerDao(dbDispatcher, dbType, executionContext), metrics)
   }
 
   def apply(
       dbDispatcher: DbDispatcher,
       dbType: DbType,
-      executionContext: ExecutionContext,
-      implicitlyAllocateParties: Boolean
-  )(implicit logCtx: LoggingContext): LedgerDao =
+      executionContext: ExecutionContext
+  )(
+      implicit logCtx: LoggingContext,
+      indexingOptions: IndexingOptions = IndexingOptions.defaultNoImplicitPartyAllocation)
+    : LedgerDao =
     new JdbcLedgerDao(
       dbDispatcher,
       ContractSerializer,
@@ -1673,8 +1674,7 @@ object JdbcLedgerDao {
       ValueSerializer,
       KeyHasher,
       dbType,
-      executionContext,
-      implicitlyAllocateParties
+      executionContext
     )
 
   private val PARTY_SEPARATOR = '%'

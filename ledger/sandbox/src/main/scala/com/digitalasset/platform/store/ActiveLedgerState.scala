@@ -57,7 +57,11 @@ trait ActiveLedgerState[ALS <: ActiveLedgerState[ALS]] {
 
   /** Called once for each transaction with the set of parties found in that transaction.
     * As the sandbox has an open world of parties, any party name mentioned in a transaction
-    * will implicitly add that name to the list of known parties.
+    * will implicitly add that name to the list of known parties. It should only be used by
+    * sandbox implementations.
+    *
+    * @deprecated The sandbox will behave like all the other ledgers in the near future:
+    *              implicit parties allocation will be forbidden and this method will be removed.
     */
   def addParties(parties: Set[Party]): ALS
 
