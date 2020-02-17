@@ -195,8 +195,8 @@ object Cli {
     opt[Unit]("sortable-contract-ids")
       .hidden()
       .optional()
-      .text("(Experimental) use new sortable contract ids")
-      .action( (_, config) => config.copy(useSortableCid = true))
+        .text("(Experimental) use new sortable contract ids")
+        .action( (_, config) => config.copy(useSortableCid = true))
 
     help("help").text("Print the usage text")
 
