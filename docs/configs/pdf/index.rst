@@ -12,7 +12,7 @@ Getting started
    :maxdepth: 2
 
    Installing the SDK <getting-started/installation>
-   getting-started/quickstart
+   Quickstart Guide <getting-started/quickstart>
 
 Writing DAML
 ------------
@@ -97,6 +97,7 @@ Experimental features
    daml-script/index
    tools/visual
    daml2ts/index
+   getting-started/index
 
 Support and updates
 -------------------
