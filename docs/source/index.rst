@@ -17,7 +17,7 @@ DAML SDK documentation
    :hidden:
    :caption: Getting started
 
-   getting-started/installation
+   Installing the SDK <getting-started/installation>
    Quickstart Guide <getting-started/quickstart>
 
 .. toctree::
