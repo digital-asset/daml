@@ -1418,9 +1418,13 @@ erasedTy env = do
 
 -- | Type-level strings are represented in DAML-LF via the PromotedText type. This is
 -- For example, the type-level string @"foo"@ will be represented by the type
--- @PromotedText {"foo": Unit}@. This allows us to preserve all the information we need
+-- @PromotedText {"_foo": Unit}@. This allows us to preserve all the information we need
 -- to reconstruct `HasField` instances in data-dependencies without resorting to
 -- name-based hacks.
+--
+-- Note: It's fine to put arbitrary non-empty strings in field names, because we mangle
+-- the field names in daml-lf-proto to encode undesired characters. We later reconstruct
+-- the original string during unmangling. See DA.Daml.LF.Mangling for more details.
 promotedTextTy :: Env -> T.Text -> ConvertM LF.Type
 promotedTextTy env text = do
     pkgRef <- packageNameToPkgRef env "daml-prim"
@@ -1428,7 +1432,7 @@ promotedTextTy env text = do
         (TCon . rewriteStableQualified env $ Qualified pkgRef
             (mkModName ["DA", "Internal", "PromotedText"])
             (mkTypeCon ["PromotedText"]))
-        (TStruct [(FieldName text, TUnit)])
+        (TStruct [(FieldName ("_" <> text), TUnit)])
 
 -- | Rewrite an a qualified name into a reference into one of the hardcoded
 -- stable packages if there is one.

@@ -1048,6 +1048,8 @@ dataDependencyTests damlc repl davlDar oldProjDar = testGroup "Data Dependencies
               -- (i.e. this tests type-level strings across data-dependencies)
               , "usesHasField : (HasField \"a_field\" a b) => a -> b"
               , "usesHasField = getField @\"a_field\""
+              , "usesHasFieldEmpty : (HasField \"\" a b) => a -> b"
+              , "usesHasFieldEmpty = getField @\"\""
               ]
           writeFileUTF8 (proja </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
@@ -1063,7 +1065,7 @@ dataDependencyTests damlc repl davlDar oldProjDar = testGroup "Data Dependencies
           writeFileUTF8 (projb </> "src" </> "B.daml") $ unlines
               [ "daml 1.2"
               , "module B where"
-              , "import A ( Foo (foo), Bar (..), usingFoo, Q (..), usingEq, R(R), P(P), AnyWrapper(..), FunT(..), OptionalT(..), ActionTrans(..), usesHasField )"
+              , "import A ( Foo (foo), Bar (..), usingFoo, Q (..), usingEq, R(R), P(P), AnyWrapper(..), FunT(..), OptionalT(..), ActionTrans(..), usesHasField, usesHasFieldEmpty )"
               , "import DA.Assert"
               , "import DA.Record"
               , ""
@@ -1111,6 +1113,8 @@ dataDependencyTests damlc repl davlDar oldProjDar = testGroup "Data Dependencies
               -- type-level string test
               , "usesHasFieldIndirectly : HasField \"a_field\" a b => a -> b"
               , "usesHasFieldIndirectly = usesHasField"
+              , "usesHasFieldEmptyIndirectly : HasField \"\" a b => a -> b"
+              , "usesHasFieldEmptyIndirectly = usesHasFieldEmpty"
               ]
           writeFileUTF8 (projb </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
