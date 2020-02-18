@@ -54,39 +54,44 @@ main = do
       where
         -- Generate the ts for a single DAR. 'processed' is a map of
         -- package ids of processed DALFs (the same package can appear
-        -- in multiple DARS - avoid regenerating them where possible).
+        -- in multiple DARs - avoid regenerating them where possible).
         processDar :: Options -> Map.Map PackageId [String] -> FilePath -> IO (Map.Map PackageId [String])
-        processDar opts processed dar = do
+        processDar opts pkgs dar = do
           dar <- B.readFile dar
           let archive = Zip.toArchive $ BSL.fromStrict dar
           dalfs <- either fail pure $ DAR.readDalfs archive
-          DAR.DalfManifest{packageName, ..} <- either fail pure $ DAR.readDalfManifest archive
+          DAR.DalfManifest{packageName} <- either fail pure $ DAR.readDalfManifest archive
           let allDalfsInDar = (DAR.mainDalf dalfs, packageName) : map (, Nothing) (DAR.dalfs dalfs)
-          foldM (processDalf opts) processed allDalfsInDar
+          foldM (processDalf opts) pkgs allDalfsInDar
 
         -- Generate the ts for a single DALF. Avoid generating it
         -- multiple times where possible.
         processDalf :: Options -> Map.Map PackageId [String] -> (BSL.ByteString, Maybe String) -> IO (Map.Map PackageId [String])
         processDalf opts pkgs (dalf, mbPkgName) = do
+          -- If a package id is in 'pkgs' it means it has been
+          -- processed at least once. The list it is associated with
+          -- is the set of names it's been written as (for example, as
+          -- its hash if it's depended upon and perhaps also as a human
+          -- readable string if it's the main package of a DAR).
           (pkgId, pkg) <- either (fail . show)  pure $ Archive.decodeArchive Archive.DecodeAsMain (BSL.toStrict dalf)
-          let mainPkgNames = [x | x <- concat (Map.elems pkgs), not $ null x]
+          let pkgNames = concat (Map.elems pkgs)
           gen <- case Map.lookup pkgId pkgs of
             Nothing -> do
-              maybe (return ()) (\name -> when (name `elem` mainPkgNames) $
+              maybe (return ()) (\name -> when (name `elem` pkgNames) $
                                   fail $ "Duplicate name '" <> name <> "' for different packages detected") mbPkgName
               return True
             Just names -> do
-              maybe (return ()) (\name -> when (name `notElem` names && name `elem` mainPkgNames) $
+              maybe (return ()) (\name -> when (name `notElem` names && name `elem` pkgNames) $
                                   fail $ "Duplicate name '" <> name <> "' for different packages detected") mbPkgName
-              return (fromMaybe "" mbPkgName `notElem` names)
+              return (fromMaybe (show $ unPackageId pkgId) mbPkgName `notElem` names)
           let id = show $ unPackageId pkgId
-          let name = fromMaybe "" mbPkgName
-          let asName = if null name then "itself" else name
+          let name = fromMaybe id mbPkgName
+          let asName = if name == id then "itself" else name
           if gen
             then do
               putStrLn $ "Generating " <> id <> " as " <> asName
               daml2ts opts pkgId pkg mbPkgName
-              return $ Map.insertWith (++) pkgId [fromMaybe "" mbPkgName] pkgs
+              return $ Map.insertWith (++) pkgId [name] pkgs
             else do
               putStrLn $ "Skipping generation of " <> id <> " as " <> asName
               return pkgs
