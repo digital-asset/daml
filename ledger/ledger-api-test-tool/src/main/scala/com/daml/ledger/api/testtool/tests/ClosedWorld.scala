@@ -20,12 +20,12 @@ class ClosedWorld(session: LedgerSession) extends LedgerTestSuite(session) {
   private[this] val onePound = Amount(BigDecimal(1), "GBP")
 
   /*
-   * All party values in a transaction must be allocated.
+   * All informees in a transaction must be allocated.
    */
 
   test(
-    "ClosedWorld",
-    "Cannot execute a transaction that references unallocated informee parties",
+    "ClosedWorldObserver",
+    "Cannot execute a transaction that references unallocated observer parties",
     allocate(SingleParty),
   ) {
     case Participants(Participant(alpha, payer)) =>
