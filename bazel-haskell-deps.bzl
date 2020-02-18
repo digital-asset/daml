@@ -20,6 +20,10 @@ load("@rules_haskell//haskell:cabal.bzl", "stack_snapshot")
 GHCIDE_REV = "4e89d4574d538d663bd37f074ef6ef973d14a0f1"
 GHCIDE_SHA256 = "0a31e5d7250c0ce18709152c64cea0cc949c84c47cc40396893e5256b587f7ef"
 GHCIDE_VERSION = "0.1.0"
+JS_JQUERY_VERSION = "3.3.1"
+JS_DGTABLE_VERSION = "0.5.2"
+JS_FLOT_VERSION = "0.8.3"
+SHAKE_VERSION = "0.18.5"
 
 def daml_haskell_deps():
     """Load all Haskell dependencies of the DAML repository."""
@@ -308,6 +312,110 @@ haskell_cabal_library(
         urls = ["http://hackage.haskell.org/package/grpc-haskell-core-0.0.0.0/grpc-haskell-core-0.0.0.0.tar.gz"],
     )
 
+    # Note (MK)
+    # We vendor Shake and its JS dependencies
+    # so that we can replace the data-files with file-embed.
+    # This is both to workaround bugs in rules_haskell where data-files
+    # are not propagated correctly to non-cabal targets and to
+    # make sure that they are shipped in the SDK.
+
+    http_archive(
+        name = "js_jquery",
+        build_file_content = """
+load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
+load("@stackage//:packages.bzl", "packages")
+haskell_cabal_library(
+    name = "js-jquery",
+    version = "{version}",
+    srcs = glob(["**"]),
+    haddock = False,
+    deps = packages["js-jquery"].deps,
+    verbose = False,
+    visibility = ["//visibility:public"],
+)
+""".format(version = JS_JQUERY_VERSION),
+        patch_args = ["-p1"],
+        patches = [
+            "@com_github_digital_asset_daml//bazel_tools:haskell-js-jquery.patch",
+        ],
+        sha256 = "e0e0681f0da1130ede4e03a051630ea439c458cb97216cdb01771ebdbe44069b",
+        strip_prefix = "js-jquery-{}".format(JS_JQUERY_VERSION),
+        urls = ["http://hackage.haskell.org/package/js-jquery-{version}/js-jquery-{version}.tar.gz".format(version = JS_JQUERY_VERSION)],
+    )
+
+    http_archive(
+        name = "js_dgtable",
+        build_file_content = """
+load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
+load("@stackage//:packages.bzl", "packages")
+haskell_cabal_library(
+    name = "js-dgtable",
+    version = "{version}",
+    srcs = glob(["**"]),
+    haddock = False,
+    deps = packages["js-dgtable"].deps,
+    verbose = False,
+    visibility = ["//visibility:public"],
+)
+""".format(version = JS_DGTABLE_VERSION),
+        patch_args = ["-p1"],
+        patches = [
+            "@com_github_digital_asset_daml//bazel_tools:haskell-js-dgtable.patch",
+        ],
+        sha256 = "e28dd65bee8083b17210134e22e01c6349dc33c3b7bd17705973cd014e9f20ac",
+        strip_prefix = "js-dgtable-{}".format(JS_DGTABLE_VERSION),
+        urls = ["http://hackage.haskell.org/package/js-dgtable-{version}/js-dgtable-{version}.tar.gz".format(version = JS_DGTABLE_VERSION)],
+    )
+
+    http_archive(
+        name = "js_flot",
+        build_file_content = """
+load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
+load("@stackage//:packages.bzl", "packages")
+haskell_cabal_library(
+    name = "js-flot",
+    version = "{version}",
+    srcs = glob(["**"]),
+    haddock = False,
+    deps = packages["js-flot"].deps,
+    verbose = False,
+    visibility = ["//visibility:public"],
+)
+""".format(version = JS_FLOT_VERSION),
+        patch_args = ["-p1"],
+        patches = [
+            "@com_github_digital_asset_daml//bazel_tools:haskell-js-flot.patch",
+        ],
+        sha256 = "1ba2f2a6b8d85da76c41f526c98903cbb107f8642e506c072c1e7e3c20fe5e7a",
+        strip_prefix = "js-flot-{}".format(JS_FLOT_VERSION),
+        urls = ["http://hackage.haskell.org/package/js-flot-{version}/js-flot-{version}.tar.gz".format(version = JS_FLOT_VERSION)],
+    )
+
+    http_archive(
+        name = "shake",
+        build_file_content = """
+load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
+load("@stackage//:packages.bzl", "packages")
+haskell_cabal_library(
+    name = "shake",
+    version = "{version}",
+    srcs = glob(["**"]),
+    haddock = False,
+    deps = packages["shake"].deps,
+    verbose = False,
+    visibility = ["//visibility:public"],
+    flags = ["embed-files"],
+)
+""".format(version = SHAKE_VERSION),
+        patch_args = ["-p1"],
+        patches = [
+            "@com_github_digital_asset_daml//bazel_tools:haskell-shake.patch",
+        ],
+        sha256 = "576ab57f53b8051f67ceeb97bd9abf2e0926f592334a7a1c27c07b36afca240f",
+        strip_prefix = "shake-{}".format(SHAKE_VERSION),
+        urls = ["http://hackage.haskell.org/package/shake-{version}/shake-{version}.tar.gz".format(version = SHAKE_VERSION)],
+    )
+
     #
     # Stack binary
     #
@@ -429,6 +537,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "haskell-lsp-types",
             "haskell-src",
             "haskell-src-exts",
+            "heaps",
             "hie-bios",
             "hlint",
             "hpc",
@@ -470,6 +579,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "prettyprinter",
             "prettyprinter-ansi-terminal",
             "pretty-show",
+            "primitive",
             "process",
             "proto3-suite",
             "proto3-wire",
@@ -487,7 +597,6 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "scientific",
             "semigroups",
             "semver",
-            "shake",
             "sorted-list",
             "split",
             "stache",
@@ -539,5 +648,9 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
         vendored_packages = {
             "ghcide": "@ghcide_ghc_lib//:ghcide",
             "grpc-haskell-core": "@grpc_haskell_core//:grpc-haskell-core",
+            "js-jquery": "@js_jquery//:js-jquery",
+            "js-dgtable": "@js_dgtable//:js-dgtable",
+            "js-flot": "@js_flot//:js-flot",
+            "shake": "@shake//:shake",
         },
     )
