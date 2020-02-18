@@ -29,18 +29,17 @@ In this case it is an identifier for the user and their current list of friends.
 Both fields use the built-in ``Party`` type which lets us use them in the following clauses.
 
 2. The signatories and observers of the contract.
-The signatories are the parties authorized to create new versions of the contract or archive the contract.
-In this case only the user has those rights.
+The signatories are the parties whose authorization is required to create or archive instances of the contract template, in this case the user herself.
 The observers are the parties who are able to view the contract on the ledger.
 In this case all friends of a user are able to see the user contract.
 
 Let's say what the ``signatory`` and ``observer`` clauses mean in our app more concretely.
 A user Alice can see another user Bob in the network only when Alice is a friend in Bob's user contract.
-For this to be true, Bob must have previously added Alice as a friend (i.e. updated his user contract), as he is the sole signatory on his user contract.
+For this to be true, Bob must have previously added Alice as a friend, as he is the sole signatory on his user contract.
 If not, Bob will be invisible to Alice.
 
-We can see some concepts here that are central to DAML, namely *privacy* and *authorization*.
-Privacy is about who can *see* what, and authorization is about who can *do* what.
+Here we see two concepts that are central to DAML: *authorization* and *privacy*.
+Authorization is about who can *do* what, and privacy is about who can *see* what.
 In DAML we must answer these questions upfront, as they fundamentally change the design of an application.
 
 The last thing we'll point out about the DAML model for now is the operation to add friends, called a *choice* in DAML.
@@ -50,7 +49,7 @@ The last thing we'll point out about the DAML model for now is the operation to 
   :start-after: -- ADDFRIEND_BEGIN
   :end-before: -- ADDFRIEND_END
 
-DAML contracts are *immutable* (can not be changed in place), so they must be updated by archiving the current instance and creating a new one.
+DAML contracts are *immutable* (can not be changed in place), so the only way to "update" one is to archive it and create a new instance.
 That is what the ``AddFriend`` choice does: after checking some preconditions, it creates a new user contract with the new friend added to the list.
 The ``choice`` syntax automatically includes the archival of the current instance.
 
@@ -64,7 +63,7 @@ TypeScript Code Generation
 The user interface for our app is written in `TypeScript <https://www.typescriptlang.org/>`_.
 TypeScript is a variant of Javascript that provides more support in development through its type system.
 
-In order to build an application on top of DAML, we need a way to refer to the DAML template and choices in TypeScript.
+In order to build an application on top of DAML, we need a way to refer to our DAML templates and choices in TypeScript.
 We do this using a DAML to TypeScript code generation tool in the DAML SDK.
 
 To run code generation, we first need to compile the DAML model to an archive format (with a ``.dar`` extension).
@@ -85,7 +84,7 @@ React helps us write modular UI components using a functional style - a componen
 The latter is especially interesting as it's how we handle ledger state in our application.
 We use a state management feature of React called `Hooks <https://reactjs.org/docs/hooks-intro.html>`_.
 You can see the capabilities of the DAML React hooks in ``create-daml-app/ui/src/daml-react-hooks/hooks.ts``.
-For example, we can query the ledger for all visible contracts (relative to a particular user), create contracts and exercise choices on contracts.
+For example, we can query the ledger for all contracts visible to the logged-in user, create new contracts, and exercise choices.
 
 .. TODO Update location to view DAML react hooks API
 
@@ -97,7 +96,7 @@ Let's see some examples of DAML React hooks.
 
 This is the start of the component which provides data from the current state of the ledger to the main screen of our app.
 The three declarations within ``MainView`` all use DAML hooks to get information from the ledger.
-For instance, ``allUsers`` uses a catch-all query to get the ``User`` contracts on the ledger.
+For instance, ``allUsers`` uses a query to get the ``User`` contracts on the ledger.
 However, the query respects the privacy guarantees of a DAML ledger: the contracts returned are only those visible to the currently logged in party.
 This explains why you cannot see *all* users in the network on the main screen, only those who have added you as a friend (making you an observer of their ``User`` contract).
 
