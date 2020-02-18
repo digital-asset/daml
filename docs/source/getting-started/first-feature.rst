@@ -4,12 +4,12 @@
 Your First Feature: Messaging Friends
 *************************************
 
-Let's dive into implementing a feature for our social network app.
+Let's dive into implementing a new feature for our social network app.
 From that we'll get a better idea of how to build DAML applications using our template.
 
-Right now our app allows us to add and remove friends, but we can't communicate with them!
+Right now our app allows us to add friends to our network, but we can't communicate with them!
 Let's fix that by adding a private messaging feature.
-We will allow a user to send messages to a number of friends at once, and see all the messages that have been sent to them.
+This should allow a user to send messages to a chosen friend, and see all messages that have been sent to them.
 Of course we must make sure that no one can see messages that were not sent to them.
 We will see that DAML lets us implement this in a direct and intuitive way.
 
@@ -37,7 +37,7 @@ In DAML this workflow is represented as a new choice on the ``User`` contract.
 Let's break this down.
 The choice is ``nonconsuming`` because sending a message should not affect the existence of the ``User`` contract.
 By convention, the choice returns the ``ContractId`` of the resulting ``Message`` contract (which we'll show next).
-Next, the parameters to the choice are the sender (the party wishing to talk to the signatory of this ``User`` contract) and the message text.
+The parameters to the choice are the sender (the party wishing to talk to the signatory of this ``User`` contract) and the message text.
 The ``controller`` clause suggests that it is the ``sender`` who can exercise the choice.
 Finally, the body of the choice simply creates the new ``Message`` with the sender, receiver and content.
 
