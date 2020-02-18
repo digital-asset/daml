@@ -70,6 +70,9 @@ object Configuration {
           .setMaxClockSkew(buildDuration(tm.maxClockSkew))
           .setMinTransactionLatency(buildDuration(tm.minTransactionLatency))
           .setMaxTtl(buildDuration(tm.maxTtl))
+          .setAvgTransactionLatency(buildDuration(tm.avgTransactionLatency))
+          .setMinSkew(buildDuration(tm.minSkew))
+          .setMaxSkew(buildDuration(tm.maxSkew))
       )
       .build
   }
