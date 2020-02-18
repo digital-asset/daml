@@ -15,7 +15,7 @@ import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.{Blinding, Engine}
 import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, NodeCreate, NodeExercises}
-import com.digitalasset.daml.lf.transaction.BlindingInfo
+import com.digitalasset.daml.lf.transaction.{BlindingInfo, GenTransaction}
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId, NodeId, VersionedValue}
 import org.slf4j.LoggerFactory
 
@@ -43,6 +43,7 @@ private[kvutils] case class ProcessTransactionSubmission(
     runSequence(
       inputState = inputState,
       "Authorize submitter" -> authorizeSubmitter,
+      "Check Informee Parties Allocation" -> checkInformeePartiesAllocation,
       "Deduplicate" -> deduplicateCommand,
       "Validate LET/TTL" -> validateLetAndTtl,
       "Validate Contract Key Uniqueness" -> validateContractKeyUniqueness,
@@ -207,6 +208,30 @@ private[kvutils] case class ProcessTransactionSubmission(
         reject(
           buildRejectionLogEntry(RejectionReason.Disputed("DuplicateKey: Contract Key not unique")))
     } yield r
+
+  /** Check that all informee parties mentioned of a transaction are allocated. */
+  private def checkInformeePartiesAllocation: Commit[Unit] = {
+
+    def foldInformeeParties[T](tx: GenTransaction.WithTxValue[_, _], init: T)(
+        f: (T, String) => T): T =
+      tx.fold(init) {
+        case (accum, (_, node)) =>
+          node.informeesOfNode.foldLeft(accum)(f)
+      }
+
+    for {
+      allExist <- foldInformeeParties(relTx, pure(true)) { (accum, party) =>
+        get(partyStateKey(party)).flatMap(_.fold(pure(false))(_ => accum))
+      }
+
+      result <- if (allExist)
+        pass
+      else
+        reject(
+          buildRejectionLogEntry(RejectionReason.PartyNotKnownOnLedger)
+        )
+    } yield result
+  }
 
   /** All checks passed. Produce the log entry and contract state updates. */
   private def buildFinalResult(blindingInfo: BlindingInfo): Commit[Unit] = delay {

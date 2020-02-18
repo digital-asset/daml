@@ -350,6 +350,7 @@ server_conformance_test(
         "--all-tests",
         "--exclude=LotsOfPartiesIT",
         "--exclude=ConfigManagementServiceIT",
+        "--exclude=ClosedWorldIT",
     ],
 )
 
@@ -375,6 +376,7 @@ server_conformance_test(
         "--all-tests",
         "--exclude=LotsOfPartiesIT",
         "--exclude=ConfigManagementServiceIT",
+        "--exclude=ClosedWorldIT",
     ],
 )
 
@@ -412,6 +414,7 @@ server_conformance_test(
     test_tool_args = [
         "--all-tests",
         "--exclude=ConfigManagementServiceIT",
+        "--exclude=ClosedWorldIT",
     ],
 )
 

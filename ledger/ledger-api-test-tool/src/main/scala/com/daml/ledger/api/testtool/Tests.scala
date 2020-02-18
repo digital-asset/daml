@@ -30,6 +30,7 @@ object Tests {
     "TransactionServiceIT" -> (new TransactionService(_)),
     "WitnessesIT" -> (new Witnesses(_)),
     "WronglyTypedContractIdIT" -> (new WronglyTypedContractId(_)),
+    "ClosedWorldIT" -> (new ClosedWorld(_)),
   )
 
   /**
