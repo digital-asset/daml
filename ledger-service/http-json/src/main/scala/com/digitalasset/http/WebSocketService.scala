@@ -61,7 +61,7 @@ object WebSocketService {
         case ContractStreamStep.LiveBegin => liveMarker
         case _ =>
           def inj[V: JsonWriter](ctor: String, v: V) = JsObject(ctor -> v.toJson)
-          val InsertDeleteStep(inserts, deletes) =
+          val (inserts, deletes) =
             Liskov
               .lift2[StepAndErrors, Pos, Map[String, JsValue], LfV, JsValue](pos, lfv)(this)
               .step
@@ -73,7 +73,7 @@ object WebSocketService {
                   val acj = inj("created", ac)
                   acj copy (fields = acj.fields ++ pos)
               } ++ errors.map(e => inj("error", e.message)))
-          JsObject(("events", events))
+          JsObject(("events", events), ("offset", JsString(offsetAfter)))
       }
 
     def append[P >: Pos, A >: LfV](o: StepAndErrors[P, A]): StepAndErrors[P, A] =
@@ -98,7 +98,7 @@ object WebSocketService {
             // this is how we avoid conflating LiveBegin
             maxCost
           case StepAndErrors(errors, step) =>
-            val InsertDeleteStep(inserts, deletes) = step.toInsertDelete
+            val (inserts, deletes) = step.toInsertDelete
             errors.length.toLong + (inserts.length * 2) + deletes.size
         },
         identity
@@ -337,8 +337,7 @@ class WebSocketService(
           val newInserts: Vector[String] = idstep.inserts.map(_._1.contractId.unwrap)
           val (deletesToEmit, deletesToHold) = s0 partition idstep.deletes.keySet
           val s1: Set[String] = deletesToHold ++ newInserts
-          val a1 = a0.copy(
-            step = a0.step.mapStep(_ copy (deletes = idstep.deletes filterKeys deletesToEmit)))
+          val a1 = a0.copy(step = a0.step.mapDeletes(_ filterKeys deletesToEmit))
 
           (s1, if (a1.nonEmpty) Some(a1) else None)
 

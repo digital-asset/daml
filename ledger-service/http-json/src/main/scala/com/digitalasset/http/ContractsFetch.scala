@@ -266,6 +266,7 @@ private[http] object ContractsFetch {
   /** Plan inserts, deletes from an in-order batch of create/archive events. */
   private def partitionInsertsDeletes(
       txes: Traversable[lav1.event.Event],
+      offsetAfter: domain.Offset,
   ): InsertDeleteStep.LAV1 = {
     val csb = Vector.newBuilder[lav1.event.CreatedEvent]
     val asb = Map.newBuilder[String, lav1.event.ArchivedEvent]
@@ -277,7 +278,10 @@ private[http] object ContractsFetch {
       case Event(Empty) => () // nonsense
     }
     val as = asb.result()
-    InsertDeleteStep(csb.result() filter (ce => !as.contains(ce.contractId)), as)
+    InsertDeleteStep(
+      csb.result() filter (ce => !as.contains(ce.contractId)),
+      as,
+      offsetAfter = offsetAfter)
   }
 
   object GraphExtensions {
@@ -313,7 +317,7 @@ private[http] object ContractsFetch {
     NotUsed] =
     GraphDSL.create() { implicit b =>
       import GraphDSL.Implicits._
-      import ContractStreamStep.{LiveBegin, acs => Acs, Txn}
+      import ContractStreamStep.{LiveBegin, Acs, Txn}
       val acs = b add acsAndBoundary
       val txns = b add transactionsFollowingBoundary(transactionsSince)
       val allSteps = b add Concat[ContractStreamStep.LAV1](3)
@@ -357,9 +361,6 @@ private[http] object ContractsFetch {
       new FanOutShape2(dupOff.in, txnSplit.out0, lastOff.out)
     }
 
-  private[this] def createdEventsIDS[C](seq: Seq[C]): InsertDeleteStep[Nothing, C] =
-    InsertDeleteStep(seq.toVector, Map.empty)
-
   /** Split a series of ACS responses into two channels: one with contracts, the
     * other with a single result, the last offset.
     */
@@ -388,7 +389,7 @@ private[http] object ContractsFetch {
       tx: lav1.transaction.Transaction,
   ): (InsertDeleteStep.LAV1, domain.Offset) = {
     val offset = domain.Offset.fromLedgerApi(tx)
-    (partitionInsertsDeletes(tx.events), offset)
+    (partitionInsertsDeletes(tx.events, offset), offset)
   }
 
   private def surrogateTemplateIds[K <: TemplateId.RequiredPkg](
