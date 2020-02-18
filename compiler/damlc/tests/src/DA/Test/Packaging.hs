@@ -431,7 +431,6 @@ tests damlc repl davlDar oldProjDar = testGroup "Packaging" $
             , "import B"
             ]
           withCurrentDirectory projC $ callProcessSilent damlc ["build", "-o", "baz.dar"]
-
     , testCase "Detects unitId collisions in dependencies" $ withTempDir $ \projDir -> do
           -- Check that two pacages with the same unit id is flagged as an error.
           let projA = projDir </> "a"
@@ -714,13 +713,8 @@ dataDependencyTests damlc repl davlDar oldProjDar = testGroup "Data Dependencies
               , "dependencies: [daml-prim, daml-stdlib]"
               , "data-dependencies: [" <> show (proja </> "proja.dar") <> "]"
               ]
-          -- TODO Users should not have to pass --hide-all-packages, see https://github.com/digital-asset/daml/issues/4094
           withCurrentDirectory projb $ callProcessSilent damlc
             [ "build", "--target=" <> LF.renderVersion targetLfVer, "-o", projb </> "projb.dar"
-            , "--hide-all-packages"
-            , "--package", "daml-prim"
-            , "--package", damlStdlib
-            , "--package", "proja-0.0.1"
             ]
           callProcessSilent repl ["validate", projb </> "projb.dar"]
           projbPkgIds <- darPackageIds (projb </> "projb.dar")
@@ -776,12 +770,8 @@ dataDependencyTests damlc repl davlDar oldProjDar = testGroup "Data Dependencies
               ]
           withCurrentDirectory tmpDir $ callProcessSilent damlc
             [ "build", "-o", tmpDir </> "foobar.dar"
-            , "--hide-all-packages"
-            , "--package", "daml-prim"
-            , "--package", damlStdlib
             -- We need to use the old stdlib for the Archive type
             , "--package", "daml-stdlib-cc6d52aa624250119006cd19d51c60006762bd93ca5a6d288320a703024b33da (DA.Internal.Template as OldStdlib.DA.Internal.Template)"
-            , "--package", "davl-0.0.3"
             ]
           step "Validating DAR"
           callProcessSilent repl ["validate", tmpDir </> "foobar.dar"]
@@ -899,8 +889,6 @@ dataDependencyTests damlc repl davlDar oldProjDar = testGroup "Data Dependencies
           , "source: ."
           , "dependencies: [daml-prim, daml-stdlib]"
           , "data-dependencies: [simple-dalf-0.0.0.dalf]"
-          , "build-options:"
-          , "- '--package=" <> damlStdlib <> "'"
           ]
         writeFileUTF8 (projDir </> "A.daml") $ unlines
             [ "daml 1.2"
@@ -1000,10 +988,6 @@ dataDependencyTests damlc repl davlDar oldProjDar = testGroup "Data Dependencies
               ]
           withCurrentDirectory projb $ callProcessSilent damlc
             [ "build", "--target=" <> LF.renderVersion targetLfVer, "-o", projb </> "projb.dar"
-            , "--hide-all-packages"
-            , "--package", "daml-prim"
-            , "--package", damlStdlib
-            , "--package", "proja-0.0.1"
             ]
           callProcessSilent repl ["validate", projb </> "projb.dar"]
 
@@ -1129,10 +1113,6 @@ dataDependencyTests damlc repl davlDar oldProjDar = testGroup "Data Dependencies
               ]
           withCurrentDirectory projb $ callProcessSilent damlc
             [ "build", "--target=" <> LF.renderVersion targetLfVer, "-o", projb </> "projb.dar"
-            , "--hide-all-packages"
-            , "--package", "daml-prim"
-            , "--package", damlStdlib
-            , "--package", "proja-0.0.1"
             ]
           callProcessSilent repl ["validate", projb </> "projb.dar"]
 
@@ -1152,7 +1132,6 @@ dataDependencyTests damlc repl davlDar oldProjDar = testGroup "Data Dependencies
               , "  - " <> show oldProjDar
               , "build-options:"
               , " - --target=1.dev"
-              , " - --hide-all-packages"
               , " - --package=daml-prim"
               , " - --package=" <> damlStdlib
               , " - --package=old-proj-0.0.1"
@@ -1182,7 +1161,6 @@ dataDependencyTests damlc repl davlDar oldProjDar = testGroup "Data Dependencies
               ]
           callProcessSilent damlc ["build", "--project-root", tmpDir]
     ]
-
 
 -- | Only displays stdout and stderr on errors
 callProcessSilent :: FilePath -> [String] -> IO ()

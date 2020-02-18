@@ -18,7 +18,6 @@ module DA.Daml.Compiler.Dar
 import qualified "zip" Codec.Archive.Zip as Zip
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
 import Control.Exception (assert)
-import Control.Exception.Safe (handleIO)
 import Control.Monad.Extra
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
@@ -27,8 +26,8 @@ import Control.Monad.Trans.Resource (ResourceT)
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Proto3.Archive (encodeArchiveAndHash)
 import DA.Daml.LF.Reader (readDalfManifest, packageName)
+import DA.Daml.Options (expandSdkPackages)
 import DA.Daml.Options.Types
-import DA.Daml.Project.Consts
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSC
@@ -275,24 +274,6 @@ pkgNameVersion n mbV =
     case mbV of
         Nothing -> n
         Just v -> n ++ "-" ++ v
-
--- Expand SDK package dependencies using the SDK root path.
--- E.g. `daml-trigger` --> `$DAML_SDK/daml-libs/daml-trigger.dar`
--- When invoked outside of the SDK, we will only error out
--- if there is actually an SDK package so that
--- When there is no SDK
-expandSdkPackages :: [FilePath] -> IO [FilePath]
-expandSdkPackages dars = do
-    mbSdkPath <- handleIO (\_ -> pure Nothing) $ Just <$> getSdkPath
-    mapM (expand mbSdkPath) dars
-  where
-    isSdkPackage fp = takeExtension fp `notElem` [".dar", ".dalf"]
-    expand mbSdkPath fp
-      | fp `elem` basePackages = pure fp
-      | isSdkPackage fp = case mbSdkPath of
-            Just sdkPath -> pure $ sdkPath </> "daml-libs" </> fp <.> "dar"
-            Nothing -> fail $ "Cannot resolve SDK dependency '" ++ fp ++ "'. Use daml assistant."
-      | otherwise = pure fp
 
 mkConfFile ::
        PackageConfigFields -> [String] -> String -> IO (String, BS.ByteString)
