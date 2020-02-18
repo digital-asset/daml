@@ -21,7 +21,6 @@ da_scala_binary(
     resources = glob(["src/main/resources/*"]),
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
-        "@maven//:io_grpc_grpc_netty",
     ],
     deps = [
         "//compiler/scenario-service/protos:scenario_service_java_proto",
@@ -35,6 +34,8 @@ da_scala_binary(
         "//daml-lf/validation",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_core",
+        "@maven//:io_grpc_grpc_netty",
         "@maven//:io_grpc_grpc_stub",
         "@maven//:org_scalaz_scalaz_core_2_12",
     ],

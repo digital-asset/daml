@@ -3,12 +3,14 @@
 
 package com.digitalasset.daml.lf.scenario
 
+import java.net.{InetAddress, InetSocketAddress}
 import java.util.logging.{Level, Logger}
 
 import com.digitalasset.daml.lf.archive.Decode.ParseError
 import com.digitalasset.daml.lf.scenario.api.v1.{Map => _, _}
 import io.grpc.stub.StreamObserver
-import io.grpc.{ServerBuilder, Status, StatusRuntimeException}
+import io.grpc.{Status, StatusRuntimeException}
+import io.grpc.netty.NettyServerBuilder
 
 import scala.collection.concurrent.TrieMap
 import scala.collection.JavaConverters._
@@ -18,8 +20,8 @@ object ScenarioServiceMain extends App {
   // default to 128MB
   val maxMessageSize = args.headOption.map(_.toInt).getOrElse(128 * 1024 * 1024)
   val server =
-    ServerBuilder
-      .forPort(0) // any free port
+    NettyServerBuilder
+      .forAddress(new InetSocketAddress(InetAddress.getLoopbackAddress, 0)) // any free port
       .addService(new ScenarioService())
       .maxInboundMessageSize(maxMessageSize)
       .build
