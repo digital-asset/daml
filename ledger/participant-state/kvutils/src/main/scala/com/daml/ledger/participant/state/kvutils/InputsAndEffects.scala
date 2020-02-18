@@ -15,7 +15,7 @@ import com.digitalasset.daml.lf.value.Value.{
   AbsoluteContractId,
   ContractId,
   RelativeContractId,
-  VersionedValue,
+  VersionedValue
 }
 
 /** Internal utilities to compute the inputs and effects of a DAML transaction */
@@ -42,7 +42,6 @@ private[kvutils] object InputsAndEffects {
       /** The contract keys created or updated as part of the transaction. */
       updatedContractKeys: Map[DamlStateKey, DamlContractKeyState]
   )
-
   object Effects {
     val empty = Effects(List.empty, List.empty, Map.empty)
   }
@@ -78,8 +77,8 @@ private[kvutils] object InputsAndEffects {
     }
 
     tx.foreach {
-      case (_, n) =>
-        n match {
+      case (_, node) =>
+        node match {
           case fetch: NodeFetch[ContractId] =>
             addContractInput(fetch.coid)
 
@@ -100,7 +99,7 @@ private[kvutils] object InputsAndEffects {
               GlobalKey(lookup.templateId, forceNoContractIds(lookup.key.key)))
         }
 
-        inputs ++= partyInputs(n.informeesOfNode)
+        inputs ++= partyInputs(node.informeesOfNode)
     }
 
     inputs.toList

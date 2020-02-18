@@ -43,9 +43,9 @@ object TestHelpers {
     """
 
   def archiveWithContractData(additionalContractDataType: String): DamlLf.Archive = {
-    val damlP = damlPackageWithContractData(additionalContractDataType)
+    val damlPackage = damlPackageWithContractData(additionalContractDataType)
     Encode.encodeArchive(
-      defaultParserParameters.defaultPackageId -> damlP,
+      defaultParserParameters.defaultPackageId -> damlPackage,
       defaultParserParameters.languageVersion)
   }
 

@@ -7,7 +7,7 @@ import com.codahale.metrics
 import com.codahale.metrics.{Counter, Timer}
 import com.daml.ledger.participant.state.kvutils.Conversions.{buildTimestamp, commandDedupKey, _}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.daml.ledger.participant.state.kvutils.{Conversions, DamlStateMap, Err, InputsAndEffects}
+import com.daml.ledger.participant.state.kvutils.{Conversions, Err, InputsAndEffects, DamlStateMap}
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId, RejectionReason}
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.archive.Reader.ParseError
@@ -212,15 +212,16 @@ private[kvutils] case class ProcessTransactionSubmission(
   /** Check that all informee parties mentioned of a transaction are allocated. */
   private def checkInformeePartiesAllocation: Commit[Unit] = {
 
-    def foldInformeeParties[T](tx: GenTransaction.WithTxValue[_, _], z: T)(f: (T, String) => T): T =
-      tx.fold(z) {
-        case (accum, (_, n)) =>
-          n.informeesOfNode.foldLeft(accum)(f)
+    def foldInformeeParties[T](tx: GenTransaction.WithTxValue[_, _], init: T)(
+        f: (T, String) => T): T =
+      tx.fold(init) {
+        case (accum, (_, node)) =>
+          node.informeesOfNode.foldLeft(accum)(f)
       }
 
     for {
-      allExist <- foldInformeeParties(relTx, pure(true)) { (acc, p) =>
-        get(partyStateKey(p)).flatMap(_.fold(pure(false))(_ => acc))
+      allExist <- foldInformeeParties(relTx, pure(true)) { (accum, party) =>
+        get(partyStateKey(party)).flatMap(_.fold(pure(false))(_ => accum))
       }
 
       result <- if (allExist)
