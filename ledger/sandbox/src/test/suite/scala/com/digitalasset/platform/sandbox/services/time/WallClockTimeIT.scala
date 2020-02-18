@@ -35,7 +35,7 @@ final class WallClockTimeIT
   override val timeLimit: Span = 15.seconds
 
   override protected def config: SandboxConfig = super.config.copy(
-    timeProviderType = TimeProviderType.WallClock,
+    timeProviderType = Some(TimeProviderType.WallClock),
   )
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))

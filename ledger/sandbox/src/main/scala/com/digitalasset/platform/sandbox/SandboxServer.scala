@@ -234,8 +234,9 @@ final class SandboxServer(
 
     val (acs, ledgerEntries, mbLedgerTime) = createInitialState(config, packageStore)
 
+    val timeProviderType = config.timeProviderType.getOrElse(TimeProviderType.Static)
     val (timeProvider, timeServiceBackendO: Option[TimeServiceBackend]) =
-      (mbLedgerTime, config.timeProviderType) match {
+      (mbLedgerTime, timeProviderType) match {
         case (None, TimeProviderType.WallClock) => (TimeProvider.UTC, None)
         case (ledgerTime, _) =>
           val ts = TimeServiceBackend.simple(ledgerTime.getOrElse(Instant.EPOCH))
@@ -327,7 +328,7 @@ final class SandboxServer(
           ledgerId,
           apiServer.port.toString,
           config.damlPackages,
-          config.timeProviderType,
+          timeProviderType,
           ledgerType,
           authService.getClass.getSimpleName
         )

@@ -58,13 +58,20 @@ class CliSpec extends WordSpec with Matchers {
     }
 
     "apply static time when given" in {
-      checkOption(Array("-s"), _.copy(timeProviderType = TimeProviderType.Static))
-      checkOption(Array("--static-time"), _.copy(timeProviderType = TimeProviderType.Static))
+      checkOption(Array("-s"), _.copy(timeProviderType = Some(TimeProviderType.Static)))
+      checkOption(Array("--static-time"), _.copy(timeProviderType = Some(TimeProviderType.Static)))
     }
 
     "apply wall-clock time when given" in {
-      checkOption(Array("--wall-clock-time"), _.copy(timeProviderType = TimeProviderType.WallClock))
-      checkOption(Array("-w"), _.copy(timeProviderType = TimeProviderType.WallClock))
+      checkOption(
+        Array("--wall-clock-time"),
+        _.copy(timeProviderType = Some(TimeProviderType.WallClock)))
+      checkOption(Array("-w"), _.copy(timeProviderType = Some(TimeProviderType.WallClock)))
+    }
+
+    "return None when both static and wall-clock time are given" in {
+      val config = Cli.parse(Array("--static-time", "--wall-clock-time"))
+      config shouldEqual None
     }
 
     "parse the scenario when given" in {

@@ -47,8 +47,8 @@ object TestUtil {
       port = 0,
       damlPackages = List(testDalf),
       ledgerIdMode = LedgerIdMode.Static(LedgerId(LedgerID)),
-      timeProviderType = TimeProviderType.WallClock,
-      timeModel = TimeModel.reasonableDefault
+      timeProviderType = Some(TimeProviderType.WallClock),
+      timeModel = TimeModel.reasonableDefault,
     )
 
     val channelOwner = for {

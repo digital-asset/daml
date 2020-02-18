@@ -7,8 +7,6 @@ sealed abstract class TimeProviderType extends Product with Serializable
 
 object TimeProviderType {
 
-  def default: Static.type = Static
-
   case object Static extends TimeProviderType
 
   case object WallClock extends TimeProviderType
