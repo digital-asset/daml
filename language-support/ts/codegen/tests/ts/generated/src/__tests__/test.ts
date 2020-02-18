@@ -4,7 +4,7 @@
 import { ChildProcess, spawn } from 'child_process';
 import waitOn from 'wait-on';
 import { encode } from 'jwt-simple';
-import Ledger, { CreateEvent, ArchiveEvent } from  '@daml/ledger';
+import Ledger, { CreateEvent, ArchiveEvent, Event, Stream } from  '@daml/ledger';
 import pEvent from 'p-event';
 import * as Main from '../daml/daml-tests/Main';
 import * as LibMod from '../daml/daml-tests/Lib/Mod';
@@ -72,17 +72,29 @@ afterAll(() => {
   console.log('Killed JSON API');
 });
 
-test('create + fetch & exercise', async () => {
-  const aliceLedger = new Ledger({token: ALICE_TOKEN, httpBaseUrl: HTTP_BASE_URL});
-  const bobLedger = new Ledger({token: BOB_TOKEN, httpBaseUrl: HTTP_BASE_URL});
-  const aliceStream = aliceLedger.streamQuery(Main.Person, {party: ALICE_PARTY});
-  const aliceIterator = pEvent.iterator(aliceStream, 'change', {rejectionEvents: ['close'], multiArgs: true});
-  const aliceIteratorNext = async () => {
-    const {done, value} = await aliceIterator.next();
+interface PromisifiedStream<T extends object, K, I extends string, State> {
+  next(): Promise<[State, readonly Event<T, K, I>[]]>;
+  close(): void;
+}
+
+function promisifyStream<T extends object, K, I extends string, State>(
+  stream: Stream<T, K, I, State>,
+): PromisifiedStream<T, K, I, State> {
+  const iterator = pEvent.iterator(stream, 'change', {rejectionEvents: ['close'], multiArgs: true});
+  const next = async () => {
+    const {done, value} = await iterator.next();
     expect(done).toBe(false);
     return value;
   };
-  expect(await aliceIteratorNext()).toEqual([[], []]);
+  const close = () => stream.close();
+  return {next, close};
+}
+
+test('create + fetch & exercise', async () => {
+  const aliceLedger = new Ledger({token: ALICE_TOKEN, httpBaseUrl: HTTP_BASE_URL});
+  const bobLedger = new Ledger({token: BOB_TOKEN, httpBaseUrl: HTTP_BASE_URL});
+  const aliceStream = promisifyStream(aliceLedger.streamQuery(Main.Person, {party: ALICE_PARTY}));
+  expect(await aliceStream.next()).toEqual([[], []]);
 
   const alice5: Main.Person = {
     name: 'Alice from Wonderland',
@@ -101,7 +113,7 @@ test('create + fetch & exercise', async () => {
   const alice5Contract = await aliceLedger.create(Main.Person, alice5);
   expect(alice5Contract.payload).toEqual(alice5);
   expect(alice5Contract.key).toEqual(alice5Key);
-  expect(await aliceIteratorNext()).toEqual([[alice5Contract], [{created: alice5Contract}]]);
+  expect(await aliceStream.next()).toEqual([[alice5Contract], [{created: alice5Contract}]]);
 
   let personContracts = await aliceLedger.query(Main.Person);
   expect(personContracts).toHaveLength(1);
@@ -135,7 +147,7 @@ test('create + fetch & exercise', async () => {
   expect(alice6Contract.contractId).toEqual(result);
   expect(alice6Contract.payload).toEqual({...alice5, age: '6'});
   expect(alice6Contract.key).toEqual({...alice5Key, _2: '6'});
-  expect(await aliceIteratorNext()).toEqual([[alice6Contract], [{archived: alice5Archived}, {created: alice6Contract}]]);
+  expect(await aliceStream.next()).toEqual([[alice6Contract], [{archived: alice5Archived}, {created: alice6Contract}]]);
 
   alice5ContractById = await aliceLedger.fetch(Main.Person, alice5Contract.contractId);
   expect(alice5ContractById).toBeNull();
@@ -145,29 +157,17 @@ test('create + fetch & exercise', async () => {
   expect(personContracts[0]).toEqual(alice6Contract);
 
   const alice6Key = {...alice5Key, _2: '6'};
-  const alice6KeyStream = aliceLedger.streamFetchByKey(Main.Person, alice6Key);
-  const alice6KeyIterator = pEvent.iterator(alice6KeyStream, 'change', {rejectionEvents: ['close'], multiArgs: true});
-  const alice6KeyIteratorNext = async () => {
-    const {done, value} = await alice6KeyIterator.next();
-    expect(done).toBe(false);
-    return value;
-  }
-  expect(await alice6KeyIteratorNext()).toEqual([alice6Contract, [{created: alice6Contract}]]);
+  const alice6KeyStream = promisifyStream(aliceLedger.streamFetchByKey(Main.Person, alice6Key));
+  expect(await alice6KeyStream.next()).toEqual([alice6Contract, [{created: alice6Contract}]]);
 
-  const personStream = aliceLedger.streamQuery(Main.Person);
-  const personIterator = pEvent.iterator(personStream, 'change', {rejectionEvents: ['close'], multiArgs: true});
-  const personIteratorNext = async () => {
-    const {done, value} = await personIterator.next();
-    expect(done).toBe(false);
-    return value;
-  };
-  expect(await personIteratorNext()).toEqual([[alice6Contract], [{created: alice6Contract}]]);
+  const personStream = promisifyStream(aliceLedger.streamQuery(Main.Person));
+  expect(await personStream.next()).toEqual([[alice6Contract], [{created: alice6Contract}]]);
 
   // Bob enters the scene.
   const bob4Contract = await bobLedger.create(Main.Person, bob4);
   expect(bob4Contract.payload).toEqual(bob4);
   expect(bob4Contract.key).toEqual(bob4Key);
-  expect(await personIteratorNext()).toEqual([[alice6Contract, bob4Contract], [{created: bob4Contract}]]);
+  expect(await personStream.next()).toEqual([[alice6Contract, bob4Contract], [{created: bob4Contract}]]);
 
 
   // Alice changes her name.
@@ -182,9 +182,9 @@ test('create + fetch & exercise', async () => {
   expect(cooper6Contract.contractId).toEqual(result);
   expect(cooper6Contract.payload).toEqual({...alice5, name: 'Alice Cooper', age: '6'});
   expect(cooper6Contract.key).toEqual(alice6Key);
-  expect(await aliceIteratorNext()).toEqual([[cooper6Contract], [{archived: alice6Archived}, {created: cooper6Contract}]]);
-  expect(await alice6KeyIteratorNext()).toEqual([cooper6Contract, [{archived: alice6Archived}, {created: cooper6Contract}]]);
-  expect(await personIteratorNext()).toEqual([[bob4Contract, cooper6Contract], [{archived: alice6Archived}, {created: cooper6Contract}]]);
+  expect(await aliceStream.next()).toEqual([[cooper6Contract], [{archived: alice6Archived}, {created: cooper6Contract}]]);
+  expect(await alice6KeyStream.next()).toEqual([cooper6Contract, [{archived: alice6Archived}, {created: cooper6Contract}]]);
+  expect(await personStream.next()).toEqual([[bob4Contract, cooper6Contract], [{archived: alice6Archived}, {created: cooper6Contract}]]);
 
   personContracts = await aliceLedger.query(Main.Person);
   expect(personContracts).toHaveLength(2);
@@ -194,9 +194,9 @@ test('create + fetch & exercise', async () => {
   // Alice gets archived.
   const cooper7Archived = await aliceLedger.archiveByKey(Main.Person, cooper6Contract.key);
   expect(cooper7Archived.contractId).toEqual(cooper6Contract.contractId);
-  expect(await aliceIteratorNext()).toEqual([[], [{archived: cooper7Archived}]]);
-  expect(await alice6KeyIteratorNext()).toEqual([null, [{archived: cooper7Archived}]]);
-  expect(await personIteratorNext()).toEqual([[bob4Contract], [{archived: cooper7Archived}]]);
+  expect(await aliceStream.next()).toEqual([[], [{archived: cooper7Archived}]]);
+  expect(await alice6KeyStream.next()).toEqual([null, [{archived: cooper7Archived}]]);
+  expect(await personStream.next()).toEqual([[bob4Contract], [{archived: cooper7Archived}]]);
 
   personContracts = await aliceLedger.query(Main.Person);
   expect(personContracts).toHaveLength(1);
@@ -205,7 +205,7 @@ test('create + fetch & exercise', async () => {
   // Bob gets archived.
   const bob4Archived = await bobLedger.archive(Main.Person, bob4Contract.contractId);
   expect(bob4Archived.contractId).toEqual(bob4Contract.contractId);
-  expect(await personIteratorNext()).toEqual([[], [{archived: bob4Archived}]]);
+  expect(await personStream.next()).toEqual([[], [{archived: bob4Archived}]]);
 
   personContracts = await aliceLedger.query(Main.Person);
   expect(personContracts).toHaveLength(0);
