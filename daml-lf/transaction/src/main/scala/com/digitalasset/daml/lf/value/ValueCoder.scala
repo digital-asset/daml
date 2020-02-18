@@ -219,7 +219,7 @@ object ValueCoder {
     ValueVersions
       .isAcceptedVersion(vs)
       .fold[Either[DecodeError, ValueVersion]](
-        Left(DecodeError(s"Unsupported value version '$vs'")))(
+        Left(DecodeError(s"Unsupported value version $vs")))(
         v => Right(v),
       )
 
