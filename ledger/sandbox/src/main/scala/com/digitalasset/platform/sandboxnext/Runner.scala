@@ -4,6 +4,7 @@
 package com.digitalasset.platform.sandboxnext
 
 import java.io.File
+import java.time.Clock
 import java.util.UUID
 
 import akka.actor.ActorSystem
@@ -32,6 +33,8 @@ import com.digitalasset.platform.indexer.{
 import com.digitalasset.platform.sandbox.banner.Banner
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.sandboxnext.Runner._
+import com.digitalasset.platform.services.time.TimeProviderType
+import com.digitalasset.resources.ProgramResource.StartupException
 import com.digitalasset.resources.ResourceOwner
 import com.digitalasset.resources.akka.AkkaResourceOwner
 import scalaz.syntax.tag._
@@ -70,6 +73,14 @@ class Runner {
       case None => ("in-memory", InMemoryLedgerJdbcUrl, InMemoryIndexJdbcUrl)
     }
 
+    val timeProviderType = config.timeProviderType.getOrElse(TimeProviderType.Static)
+    val clock = timeProviderType match {
+      case provider @ TimeProviderType.Static =>
+        throw new InvalidTimeProviderTypeException(provider)
+      case TimeProviderType.WallClock =>
+        Clock.systemUTC()
+    }
+
     newLoggingContext { implicit logCtx =>
       for {
         // Take ownership of the actor system and materializer so they're cleaned up properly.
@@ -77,7 +88,7 @@ class Runner {
         _ <- AkkaResourceOwner.forActorSystem(() => system)
         _ <- AkkaResourceOwner.forMaterializer(() => materializer)
         readerWriter <- SqlLedgerReaderWriter
-          .owner(ledgerId, ParticipantId, ledgerJdbcUrl)
+          .owner(ledgerId, ParticipantId, ledgerJdbcUrl, clock)
         ledger = new KeyValueParticipantState(readerWriter, readerWriter)
         _ <- ResourceOwner.forFuture(() =>
           Future.sequence(config.damlPackages.map(uploadDar(_, ledger))))
@@ -91,7 +102,7 @@ class Runner {
           // TODO: Deliver the API server port.
           0.toString,
           config.damlPackages,
-          config.timeProviderType,
+          timeProviderType.description,
           ledgerType,
           // TODO: Use the correct authorization service.
           AuthServiceWildcard.getClass.getSimpleName,
@@ -182,4 +193,7 @@ object Runner {
 
   private val InMemoryIndexJdbcUrl =
     "jdbc:h2:mem:index;db_close_delay=-1;db_close_on_exit=false"
+
+  private class InvalidTimeProviderTypeException(provider: TimeProviderType)
+      extends StartupException(s"This version of Sandbox does not support ${provider.description}.")
 }

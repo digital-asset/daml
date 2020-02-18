@@ -328,7 +328,7 @@ final class SandboxServer(
           ledgerId,
           apiServer.port.toString,
           config.damlPackages,
-          timeProviderType,
+          timeProviderType.description,
           ledgerType,
           authService.getClass.getSimpleName
         )
