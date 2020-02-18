@@ -48,11 +48,7 @@ import com.digitalasset.ledger.api.v1.ledger_configuration_service.{
 }
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.package_service._
-import com.digitalasset.ledger.api.v1.testing.time_service.{
-  GetTimeRequest,
-  GetTimeResponse,
-  SetTimeRequest,
-}
+import com.digitalasset.ledger.api.v1.testing.time_service.{GetTimeRequest, GetTimeResponse}
 import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree}
 import com.digitalasset.ledger.api.v1.transaction_filter.{
   Filters,
