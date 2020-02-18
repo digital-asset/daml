@@ -278,10 +278,7 @@ private[http] object ContractsFetch {
       case Event(Empty) => () // nonsense
     }
     val as = asb.result()
-    InsertDeleteStep(
-      csb.result() filter (ce => !as.contains(ce.contractId)),
-      as,
-      offsetAfter = offsetAfter)
+    InsertDeleteStep(csb.result() filter (ce => !as.contains(ce.contractId)), as)
   }
 
   object GraphExtensions {
@@ -318,14 +315,20 @@ private[http] object ContractsFetch {
     GraphDSL.create() { implicit b =>
       import GraphDSL.Implicits._
       import ContractStreamStep.{LiveBegin, Acs, Txn}
+      type Off = BeginBookmark[String]
       val acs = b add acsAndBoundary
+      val dupOff = b add Broadcast[Off](2)
+      val liveStart = Flow fromFunction { off: Off =>
+        LiveBegin(domain.Offset.tag.subst(off))
+      }
       val txns = b add transactionsFollowingBoundary(transactionsSince)
       val allSteps = b add Concat[ContractStreamStep.LAV1](3)
       // format: off
-      discard { acs.out0.map(ces => Acs(ces.toVector)) ~> allSteps }
-      discard {      Source.single(LiveBegin)          ~> allSteps }
-      discard {             txns.out0.map(Txn(_))      ~> allSteps }
-      discard { acs.out1 ~> txns.in }
+      discard { dupOff <~ acs.out1 }
+      discard {           acs.out0.map(ces => Acs(ces.toVector)) ~> allSteps }
+      discard { dupOff       ~> liveStart                        ~> allSteps }
+      discard {                      txns.out0.map(Txn(_))       ~> allSteps }
+      discard { dupOff            ~> txns.in }
       // format: on
       new FanOutShape2(acs.in, allSteps.out, txns.out1)
     }

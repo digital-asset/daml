@@ -58,10 +58,13 @@ object WebSocketService {
     import json.JsonProtocol._, spray.json._
     def render(implicit lfv: LfV <~< JsValue, pos: Pos <~< Map[String, JsValue]): JsValue =
       step match {
-        case ContractStreamStep.LiveBegin => liveMarker
+        case ContractStreamStep.LiveBegin(off) =>
+          JsObject(
+            ("events", JsArray()),
+            ("offset", off.toOption.cata(o => JsString(domain.Offset.unwrap(o)), JsNull)))
         case _ =>
           def inj[V: JsonWriter](ctor: String, v: V) = JsObject(ctor -> v.toJson)
-          val (inserts, deletes) =
+          val InsertDeleteStep(inserts, deletes) =
             Liskov
               .lift2[StepAndErrors, Pos, Map[String, JsValue], LfV, JsValue](pos, lfv)(this)
               .step
@@ -94,11 +97,9 @@ object WebSocketService {
       .batchWeighted(
         max = maxCost,
         costFn = {
-          case StepAndErrors(_, ContractStreamStep.LiveBegin) =>
-            // this is how we avoid conflating LiveBegin
-            maxCost
+          case StepAndErrors(_, ContractStreamStep.LiveBegin(_)) => maxCost
           case StepAndErrors(errors, step) =>
-            val (inserts, deletes) = step.toInsertDelete
+            val InsertDeleteStep(inserts, deletes) = step.toInsertDelete
             errors.length.toLong + (inserts.length * 2) + deletes.size
         },
         identity
@@ -333,7 +334,7 @@ class WebSocketService(
     import ContractStreamStep.{LiveBegin, Txn}
     Flow[StepAndErrors[A, B]]
       .scan((Set.empty[String], Option.empty[StepAndErrors[A, B]])) {
-        case ((s0, _), a0 @ StepAndErrors(_, Txn(idstep))) =>
+        case ((s0, _), a0 @ StepAndErrors(_, Txn(idstep, _))) =>
           val newInserts: Vector[String] = idstep.inserts.map(_._1.contractId.unwrap)
           val (deletesToEmit, deletesToHold) = s0 partition idstep.deletes.keySet
           val s1: Set[String] = deletesToHold ++ newInserts
@@ -341,7 +342,7 @@ class WebSocketService(
 
           (s1, if (a1.nonEmpty) Some(a1) else None)
 
-        case ((s0, _), a0 @ StepAndErrors(_, LiveBegin)) =>
+        case ((s0, _), a0 @ StepAndErrors(_, LiveBegin(_))) =>
           (s0, Some(a0))
       }
       .collect { case (_, Some(x)) => x }
@@ -375,14 +376,12 @@ class WebSocketService(
               .liftErr(ServerError)
               .flatMap(_.traverse(apiValueToLfValue).liftErr(ServerError)),
         )
-        StepAndErrors(
-          errors ++ aerrors,
-          dstep mapStep (insDel =>
-            insDel copy (inserts = (insDel.inserts: Vector[domain.ActiveContract[LfV]]).flatMap {
-              ac =>
-                fn(ac).map((ac, _)).toList
-            }))
-        )
+        StepAndErrors(errors ++ aerrors, dstep mapInserts {
+          inserts: Vector[domain.ActiveContract[LfV]] =>
+            inserts.flatMap { ac =>
+              fn(ac).map((ac, _)).toList
+            }
+        })
       }
       .via(conflation)
       .map(_ mapLfv lfValueToJsValue)

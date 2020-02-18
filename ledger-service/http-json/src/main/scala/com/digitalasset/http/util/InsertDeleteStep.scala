@@ -16,16 +16,11 @@ import scala.language.higherKinds
 
 private[http] final case class InsertDeleteStep[+D, +C](
     inserts: InsertDeleteStep.Inserts[C],
-    deletes: Map[String, D],
-    offsetAfter: domain.Offset) {
+    deletes: Map[String, D]) {
   import InsertDeleteStep._
 
   def append[DD >: D, CC >: C: Cid](o: InsertDeleteStep[DD, CC]): InsertDeleteStep[DD, CC] =
-    InsertDeleteStep(
-      appendForgettingDeletes(inserts, o),
-      deletes ++ o.deletes,
-      o.offsetAfter
-    )
+    InsertDeleteStep(appendForgettingDeletes(inserts, o), deletes ++ o.deletes)
 
   def nonEmpty: Boolean = inserts.nonEmpty || deletes.nonEmpty
 
