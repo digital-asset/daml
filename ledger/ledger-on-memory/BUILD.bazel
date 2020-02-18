@@ -98,7 +98,6 @@ conformance_test(
     test_tool_args = [
         "--all-tests",
         "--exclude=ConfigManagementServiceIT",
-        "--exclude=TimeIT",
     ],
 )
 
