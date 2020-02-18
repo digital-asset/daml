@@ -88,7 +88,7 @@ object TimeModel {
     require(!maxTtl.isNegative, "Negative max TTL")
     require(!maxClockSkew.isNegative, "Negative max clock skew")
     require(!maxTtl.minus(maxClockSkew).isNegative, "Max TTL must be greater than max clock skew")
-    require(!minSkew.isNegative, "Negative average transaction latency")
+    require(!avgTransactionLatency.isNegative, "Negative average transaction latency")
     require(!minSkew.isNegative, "Negative min skew")
     require(!maxSkew.isNegative, "Negative max skew")
     new TimeModel(
