@@ -13,12 +13,23 @@ import scala.util.Try
   * @param maxClockSkew          The maximum allowed clock skew between the ledger and clients.
   * @param maxTtl                The maximum allowed time to live for a transaction.
   *                              Must be greater than the derived minimum time to live.
+  *
+  * @param avgTransactionLatency The expected average latency of a transaction, i.e., the average time
+  *                              from submitting the transaction to a [[WriteService]] and the transaction
+  *                              being assigned a record time.
+  * @param minSkew               The minimimum skew between ledger time and record time: lt_TX >= rt_TX - minSkew
+  * @param maxSkew               The maximum skew between ledger time and record time: lt_TX <= rt_TX + maxSkew
+  *
   * @throws IllegalArgumentException if the parameters aren't valid
   */
 case class TimeModel private (
     minTransactionLatency: Duration,
     maxClockSkew: Duration,
-    maxTtl: Duration) {
+    maxTtl: Duration,
+    avgTransactionLatency: Duration,
+    minSkew: Duration,
+    maxSkew: Duration,
+) {
 
   /**
     * The minimum time to live for a transaction. Equal to the minimum transaction latency plus the maximum clock skew.
@@ -57,16 +68,35 @@ object TimeModel {
     * Serious applications (viz. ledger) should probably specify their own TimeModel.
     */
   val reasonableDefault: TimeModel =
-    TimeModel(Duration.ofSeconds(1L), Duration.ofSeconds(1L), Duration.ofSeconds(30L)).get
+    TimeModel(
+      minTransactionLatency = Duration.ofSeconds(1L),
+      maxClockSkew = Duration.ofSeconds(1L),
+      maxTtl = Duration.ofSeconds(30L),
+      avgTransactionLatency = Duration.ofSeconds(0L),
+      minSkew = Duration.ofSeconds(30L),
+      maxSkew = Duration.ofSeconds(30L),
+    ).get
 
   def apply(
       minTransactionLatency: Duration,
       maxClockSkew: Duration,
-      maxTtl: Duration): Try[TimeModel] = Try {
+      maxTtl: Duration,
+      avgTransactionLatency: Duration,
+      minSkew: Duration,
+      maxSkew: Duration): Try[TimeModel] = Try {
     require(!minTransactionLatency.isNegative, "Negative min transaction latency")
     require(!maxTtl.isNegative, "Negative max TTL")
     require(!maxClockSkew.isNegative, "Negative max clock skew")
     require(!maxTtl.minus(maxClockSkew).isNegative, "Max TTL must be greater than max clock skew")
-    new TimeModel(minTransactionLatency, maxClockSkew, maxTtl)
+    require(!minSkew.isNegative, "Negative average transaction latency")
+    require(!minSkew.isNegative, "Negative min skew")
+    require(!maxSkew.isNegative, "Negative max skew")
+    new TimeModel(
+      minTransactionLatency,
+      maxClockSkew,
+      maxTtl,
+      avgTransactionLatency,
+      minSkew,
+      maxSkew)
   }
 }

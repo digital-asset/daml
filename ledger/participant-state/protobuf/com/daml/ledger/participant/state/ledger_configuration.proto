@@ -7,6 +7,7 @@
 //
 // version summary:
 // * 1: initial version
+// * 2: added new fields for the new ledger time model
 //
 
 syntax = "proto3";
@@ -42,4 +43,15 @@ message LedgerTimeModel {
   // The maximum allowed time to live for a transaction.
   // Must be greater than the derived minimum time to live.
   google.protobuf.Duration max_ttl = 3;
+
+  // The expected average latency of a transaction, i.e., the average time
+  // from submitting the transaction to a WriteService and the transaction
+  // being assigned a record time.
+  google.protobuf.Duration avg_transaction_latency = 4;
+
+  // The minimimum skew between ledger time and record time: lt_TX >= rt_TX - minSkew
+  google.protobuf.Duration min_skew = 5;
+
+  // The maximum skew between ledger time and record time: lt_TX <= rt_TX + maxSkew
+  google.protobuf.Duration max_skew = 6;
 }
