@@ -13,9 +13,8 @@ Let's start by looking at the DAML model, as this sets the core logic of the app
 The DAML Model
 ==============
 
-Using VSCode (or a code editor of your choice), navigate to the ``daml`` subdirectory.
-There is a single DAML file called ``User.daml`` with the model for users of the app.
-
+Using the Visual Studio Code editor, navigate to the ``daml`` subdirectory.
+There is a single DAML file called ``User.daml`` with the model for app users.
 The core data is at the start of the ``User`` contract template.
 
 .. literalinclude:: code/daml/User.daml

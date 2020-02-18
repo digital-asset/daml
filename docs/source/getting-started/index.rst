@@ -9,7 +9,7 @@ Full Stack DAML
 **Disclaimer:** This guide is being actively developed.
 Expect major changes to the tutorial text and minor changes to the template application.
 
-The goal of this tutorial is to get you up and running with full-stack, DAML-driven app development. We will provide you with the template for a miniature social networking app, get you writing your first end-to-end feature and finally deploy your new app to a persistent ledger.
+The goal of this tutorial is to get you up and running with full-stack DAML development. We will guide you through an example social networking app, get you writing your first feature from DAML model to UI, and finally deploy the app to a persistent ledger.
 
 By the end of the tutorial, you should have an idea of what DAML contracts and ledgers are, how the UI interacts with them, and how you might solve a potential use case with a DAML solution. We do not aim to give a comprehensive guide to all DAML concepts and tools; for that, see the later sections of the documentation. With that, let's get started!
 
@@ -75,7 +75,7 @@ In a second terminal, navigate to the ``create-daml-app/ui`` folder and run::
 This starts the UI application connected to the already running Sandbox.
 The command should automatically open a window in your default browser at http://localhost:3000.
 If it doesn't, just open that link in any web browser.
-You may be asked whether to allow the app to receive network connections, which you should allow.
+(Depending on your firewall settings, you may be asked whether to allow the app to receive network connections. It is safe to accept.)
 
 At this point you should see the login page for the social network.
 
@@ -85,12 +85,13 @@ Enter a user name of your choice and click the calculator icon next to the passw
 (We do not have proper authentication in this app for simplicity.)
 Once you click "Sign up", you can see a screen with panels for your friends and the entire social network.
 Initially these are both empty as you don't have any friends yet!
-Go ahead and add some using the form (and remove them using the cross icons if you change your mind).
+Go ahead and add some using the form input.
 
-Now let's grow the network. Log out and sign up using the name of one of your friends.
+Now let's grow the network.
+In a new browser tab, sign up using the name of one of your friends.
 Let's say your name is Alice and your friend's name is Bob.
 Bob should now see Alice in the network (since she added him as a friend) and he is able to add her back.
-Note that in this app, friendships can be added in one direction at a time, similar to how "followers" work in Twitter.
+Note that in this app, friendships can be added in one direction at a time (similar to "followers" in Twitter).
 
 Add a few more friends as Bob, and play around a bit more by logging in as different users and adding/removing friends from the network.
 This should give you a idea of the app's functionality.
