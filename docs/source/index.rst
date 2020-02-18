@@ -18,7 +18,7 @@ DAML SDK documentation
    :caption: Getting started
 
    Installing the SDK <getting-started/installation>
-   getting-started/quickstart
+   Quickstart Guide <getting-started/quickstart>
 
 .. toctree::
    :titlesonly:
@@ -102,6 +102,7 @@ DAML SDK documentation
    DAML Script <daml-script/index>
    tools/visual
    daml2ts/index
+   getting-started/index
 
 .. toctree::
    :titlesonly:

@@ -12,15 +12,20 @@ import * as LibMod from '../daml/daml-tests/Lib/Mod';
 const LEDGER_ID = 'daml2ts-tests';
 const APPLICATION_ID = 'daml2ts-tests';
 const SECRET_KEY = 'secret';
-const ALICE_PARTY = 'Alice';
-const ALICE_TOKEN = encode({
+const computeToken = (party: string) => encode({
   ledgerId: LEDGER_ID,
   applicationId: APPLICATION_ID,
-  party: ALICE_PARTY,
+  party,
 }, SECRET_KEY, 'HS256');
+
+const ALICE_PARTY = 'Alice';
+const ALICE_TOKEN = computeToken(ALICE_PARTY);
+const BOB_PARTY = 'Bob';
+const BOB_TOKEN = computeToken(BOB_PARTY);
 
 const SANDBOX_PORT = 6865;
 const JSON_API_PORT = 7575;
+const HTTP_BASE_URL = `http://localhost:${JSON_API_PORT}/`;
 
 let sandboxProcess: ChildProcess | undefined = undefined;
 let jsonApiProcess: ChildProcess | undefined = undefined;
@@ -68,49 +73,58 @@ afterAll(() => {
 });
 
 test('create + fetch & exercise', async () => {
-  const ledger = new Ledger({token: ALICE_TOKEN, httpBaseUrl: `http://localhost:${JSON_API_PORT}/`});
-  const aliceStream = ledger.streamQuery(Main.Person, {party: ALICE_PARTY});
-  const aliceIterator = pEvent.iterator(aliceStream, 'events', {rejectionEvents: ['close']});
+  const aliceLedger = new Ledger({token: ALICE_TOKEN, httpBaseUrl: HTTP_BASE_URL});
+  const bobLedger = new Ledger({token: BOB_TOKEN, httpBaseUrl: HTTP_BASE_URL});
+  const aliceStream = aliceLedger.streamQuery(Main.Person, {party: ALICE_PARTY});
+  const aliceIterator = pEvent.iterator(aliceStream, 'change', {rejectionEvents: ['close'], multiArgs: true});
   const aliceIteratorNext = async () => {
     const {done, value} = await aliceIterator.next();
     expect(done).toBe(false);
     return value;
   };
-  expect(await aliceIteratorNext()).toEqual([]);
+  expect(await aliceIteratorNext()).toEqual([[], []]);
 
   const alice5: Main.Person = {
     name: 'Alice from Wonderland',
     party: ALICE_PARTY,
     age: '5',
+    friends: [],
+  };
+  const bob4: Main.Person = {
+    name: 'Bob the Builder',
+    party: BOB_PARTY,
+    age: '4',
+    friends: [ALICE_PARTY],
   };
   const alice5Key = {_1: alice5.party, _2: alice5.age};
-  const alice5Contract = await ledger.create(Main.Person, alice5);
+  const bob4Key = {_1: bob4.party, _2: bob4.age};
+  const alice5Contract = await aliceLedger.create(Main.Person, alice5);
   expect(alice5Contract.payload).toEqual(alice5);
   expect(alice5Contract.key).toEqual(alice5Key);
-  expect(await aliceIteratorNext()).toEqual([{created: alice5Contract}]);
+  expect(await aliceIteratorNext()).toEqual([[alice5Contract], [{created: alice5Contract}]]);
 
-  let personContracts = await ledger.query(Main.Person);
+  let personContracts = await aliceLedger.query(Main.Person);
   expect(personContracts).toHaveLength(1);
   expect(personContracts[0]).toEqual(alice5Contract);
 
-  const aliceContracts = await ledger.query(Main.Person, {party: ALICE_PARTY});
+  const aliceContracts = await aliceLedger.query(Main.Person, {party: ALICE_PARTY});
   expect(aliceContracts).toEqual(personContracts);
-  const bobContracts = await ledger.query(Main.Person, {party: 'Bob'});
+  const bobContracts = await aliceLedger.query(Main.Person, {party: BOB_PARTY});
   expect(bobContracts).toEqual([]);
 
-  let alice5ContractById = await ledger.fetch(Main.Person, alice5Contract.contractId);
+  let alice5ContractById = await aliceLedger.fetch(Main.Person, alice5Contract.contractId);
   expect(alice5ContractById).toEqual(alice5Contract);
 
-  const alice5ContractByKey = await ledger.fetchByKey(Main.Person, alice5Key);
+  const alice5ContractByKey = await aliceLedger.fetchByKey(Main.Person, alice5Key);
   expect(alice5ContractByKey).toEqual(alice5Contract);
 
-  const bobByKey = await ledger.fetchByKey(Main.Person, {_1: 'Bob', _2: '4'});
+  const bobByKey = await aliceLedger.fetchByKey(Main.Person, bob4Key);
   expect(bobByKey).toBeNull();
 
   // Alice has a birthday and turns 6. The choice returns the new contract id.
   // There are two events: the archival of the old contract and the creation of
   // the new contract.
-  let [result, events] = await ledger.exercise(Main.Person.Birthday, alice5Contract.contractId, {});
+  let [result, events] = await aliceLedger.exercise(Main.Person.Birthday, alice5Contract.contractId, {});
   expect(result).not.toEqual(alice5Contract.contractId);
   expect(events).toHaveLength(2);
   expect(events[0]).toHaveProperty('archived');
@@ -121,27 +135,43 @@ test('create + fetch & exercise', async () => {
   expect(alice6Contract.contractId).toEqual(result);
   expect(alice6Contract.payload).toEqual({...alice5, age: '6'});
   expect(alice6Contract.key).toEqual({...alice5Key, _2: '6'});
-  expect(await aliceIteratorNext()).toEqual([{archived: alice5Archived}, {created: alice6Contract}]);
+  expect(await aliceIteratorNext()).toEqual([[alice6Contract], [{archived: alice5Archived}, {created: alice6Contract}]]);
 
-  alice5ContractById = await ledger.fetch(Main.Person, alice5Contract.contractId);
+  alice5ContractById = await aliceLedger.fetch(Main.Person, alice5Contract.contractId);
   expect(alice5ContractById).toBeNull();
 
-  personContracts = await ledger.query(Main.Person);
+  personContracts = await aliceLedger.query(Main.Person);
   expect(personContracts).toHaveLength(1);
   expect(personContracts[0]).toEqual(alice6Contract);
 
   const alice6Key = {...alice5Key, _2: '6'};
-  const alice6KeyStream = ledger.streamFetchByKey(Main.Person, alice6Key);
-  const alice6KeyIterator = pEvent.iterator(alice6KeyStream, 'events', {rejectionEvents: ['close']});
+  const alice6KeyStream = aliceLedger.streamFetchByKey(Main.Person, alice6Key);
+  const alice6KeyIterator = pEvent.iterator(alice6KeyStream, 'change', {rejectionEvents: ['close'], multiArgs: true});
   const alice6KeyIteratorNext = async () => {
     const {done, value} = await alice6KeyIterator.next();
     expect(done).toBe(false);
     return value;
   }
-  expect(await alice6KeyIteratorNext()).toEqual([{created: alice6Contract}]);
+  expect(await alice6KeyIteratorNext()).toEqual([alice6Contract, [{created: alice6Contract}]]);
+
+  const personStream = aliceLedger.streamQuery(Main.Person);
+  const personIterator = pEvent.iterator(personStream, 'change', {rejectionEvents: ['close'], multiArgs: true});
+  const personIteratorNext = async () => {
+    const {done, value} = await personIterator.next();
+    expect(done).toBe(false);
+    return value;
+  };
+  expect(await personIteratorNext()).toEqual([[alice6Contract], [{created: alice6Contract}]]);
+
+  // Bob enters the scene.
+  const bob4Contract = await bobLedger.create(Main.Person, bob4);
+  expect(bob4Contract.payload).toEqual(bob4);
+  expect(bob4Contract.key).toEqual(bob4Key);
+  expect(await personIteratorNext()).toEqual([[alice6Contract, bob4Contract], [{created: bob4Contract}]]);
+
 
   // Alice changes her name.
-  [result, events] = await ledger.exerciseByKey(Main.Person.Rename, alice6Contract.key, {newName: 'Alice Cooper'});
+  [result, events] = await aliceLedger.exerciseByKey(Main.Person.Rename, alice6Contract.key, {newName: 'Alice Cooper'});
   expect(result).not.toEqual(alice6Contract.contractId);
   expect(events).toHaveLength(2);
   expect(events[0]).toHaveProperty('archived');
@@ -152,24 +182,37 @@ test('create + fetch & exercise', async () => {
   expect(cooper6Contract.contractId).toEqual(result);
   expect(cooper6Contract.payload).toEqual({...alice5, name: 'Alice Cooper', age: '6'});
   expect(cooper6Contract.key).toEqual(alice6Key);
-  expect(await aliceIteratorNext()).toEqual([{archived: alice6Archived}, {created: cooper6Contract}]);
-  expect(await alice6KeyIteratorNext()).toEqual([{archived: alice6Archived}, {created: cooper6Contract}]);
+  expect(await aliceIteratorNext()).toEqual([[cooper6Contract], [{archived: alice6Archived}, {created: cooper6Contract}]]);
+  expect(await alice6KeyIteratorNext()).toEqual([cooper6Contract, [{archived: alice6Archived}, {created: cooper6Contract}]]);
+  expect(await personIteratorNext()).toEqual([[bob4Contract, cooper6Contract], [{archived: alice6Archived}, {created: cooper6Contract}]]);
 
-  personContracts = await ledger.query(Main.Person);
-  expect(personContracts).toHaveLength(1);
-  expect(personContracts[0]).toEqual(cooper6Contract);
+  personContracts = await aliceLedger.query(Main.Person);
+  expect(personContracts).toHaveLength(2);
+  expect(personContracts[0]).toEqual(bob4Contract);
+  expect(personContracts[1]).toEqual(cooper6Contract);
 
   // Alice gets archived.
-  const cooper7Archived = await ledger.archiveByKey(Main.Person, cooper6Contract.key);
+  const cooper7Archived = await aliceLedger.archiveByKey(Main.Person, cooper6Contract.key);
   expect(cooper7Archived.contractId).toEqual(cooper6Contract.contractId);
-  expect(await aliceIteratorNext()).toEqual([{archived: cooper7Archived}]);
-  expect(await alice6KeyIteratorNext()).toEqual([{archived: cooper7Archived}]);
+  expect(await aliceIteratorNext()).toEqual([[], [{archived: cooper7Archived}]]);
+  expect(await alice6KeyIteratorNext()).toEqual([null, [{archived: cooper7Archived}]]);
+  expect(await personIteratorNext()).toEqual([[bob4Contract], [{archived: cooper7Archived}]]);
 
-  personContracts = await ledger.query(Main.Person);
+  personContracts = await aliceLedger.query(Main.Person);
+  expect(personContracts).toHaveLength(1);
+  expect(personContracts[0]).toEqual(bob4Contract);
+
+  // Bob gets archived.
+  const bob4Archived = await bobLedger.archive(Main.Person, bob4Contract.contractId);
+  expect(bob4Archived.contractId).toEqual(bob4Contract.contractId);
+  expect(await personIteratorNext()).toEqual([[], [{archived: bob4Archived}]]);
+
+  personContracts = await aliceLedger.query(Main.Person);
   expect(personContracts).toHaveLength(0);
 
   aliceStream.close();
   alice6KeyStream.close();
+  personStream.close();
 
   const allTypes: Main.AllTypes = {
     unit: {},
@@ -205,20 +248,20 @@ test('create + fetch & exercise', async () => {
     n5:  '3.14159',      // Numeric 5
     n10: '3.1415926536', // Numeric 10
   };
-  const allTypesContract = await ledger.create(Main.AllTypes, allTypes);
+  const allTypesContract = await aliceLedger.create(Main.AllTypes, allTypes);
   expect(allTypesContract.payload).toEqual(allTypes);
   expect(allTypesContract.key).toBeUndefined();
 
-  const allTypesContracts = await ledger.query(Main.AllTypes);
+  const allTypesContracts = await aliceLedger.query(Main.AllTypes);
   expect(allTypesContracts).toHaveLength(1);
   expect(allTypesContracts[0]).toEqual(allTypesContract);
 
   const NonTopLevel: LibMod.NonTopLevel = {
     party: ALICE_PARTY,
   }
-  const NonTopLevelContract = await ledger.create(LibMod.NonTopLevel, NonTopLevel);
+  const NonTopLevelContract = await aliceLedger.create(LibMod.NonTopLevel, NonTopLevel);
   expect(NonTopLevelContract.payload).toEqual(NonTopLevel);
-  const NonTopLevelContracts = await ledger.query(LibMod.NonTopLevel);
+  const NonTopLevelContracts = await aliceLedger.query(LibMod.NonTopLevel);
   expect(NonTopLevelContracts).toHaveLength(1);
   expect(NonTopLevelContracts[0]).toEqual(NonTopLevelContract);
 });

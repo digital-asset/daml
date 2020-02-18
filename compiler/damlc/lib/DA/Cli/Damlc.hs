@@ -70,7 +70,7 @@ import Development.IDE.Types.Location
 import Development.IDE.Types.Options (clientSupportsProgress)
 import "ghc-lib-parser" DynFlags
 import GHC.Conc
-import "ghc-lib-parser" Module hiding (parseUnitId)
+import "ghc-lib-parser" Module (stringToUnitId)
 import qualified Network.Socket as NS
 import Options.Applicative.Extended
 import qualified Proto3.Suite as PS
@@ -698,10 +698,10 @@ execInspectDar inFile =
               [e | e <- ZipArchive.zEntries dar, ".dalf" `isExtensionOf` ZipArchive.eRelativePath e]
       forM_ dalfEntries $ \dalfEntry -> do
           let dalf = BSL.toStrict $ ZipArchive.fromEntry dalfEntry
-          (pkgId, _lfPkg) <-
+          pkgId <-
               errorOnLeft
                   ("Cannot decode package " <> ZipArchive.eRelativePath dalfEntry)
-                  (Archive.decodeArchive Archive.DecodeAsMain dalf)
+                  (Archive.decodeArchivePackageId dalf)
           putStrLn $
               (dropExtension $ takeFileName $ ZipArchive.eRelativePath dalfEntry) <> " " <>
               show (LF.unPackageId pkgId)

@@ -25,7 +25,6 @@ object TransactionVersions
   private[transaction] val minExerciseResult = TransactionVersion("7")
   private[transaction] val minContractKeyInExercise = TransactionVersion("8")
   private[transaction] val minMaintainersInExercise = TransactionVersion("9")
-  private[transaction] val minContractIdV1 = TransactionVersion("10")
 
   def assignVersion(
       a: GenTransaction[_, Value.ContractId, VersionedValue[Value.ContractId]],
@@ -82,17 +81,6 @@ object TransactionVersions
         minMaintainersInExercise
       else
         minVersion,
-      if (a.transactionSeed.isDefined || a.nodes.values.exists {
-          case Node.NodeCreate(nodeSeed, _, _, _, _, _, _) =>
-            nodeSeed.isDefined
-          case Node.NodeExercises(nodeSeed, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-            nodeSeed.isDefined
-          case _ =>
-            false
-        })
-        minContractIdV1
-      else
-        minVersion
     )
   }
 }

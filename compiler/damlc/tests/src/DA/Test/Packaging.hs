@@ -431,7 +431,6 @@ tests damlc repl davlDar oldProjDar = testGroup "Packaging" $
             , "import B"
             ]
           withCurrentDirectory projC $ callProcessSilent damlc ["build", "-o", "baz.dar"]
-
     , testCase "Detects unitId collisions in dependencies" $ withTempDir $ \projDir -> do
           -- Check that two pacages with the same unit id is flagged as an error.
           let projA = projDir </> "a"
@@ -655,8 +654,8 @@ darPackageIds :: FilePath -> IO [LF.PackageId]
 darPackageIds fp = do
     archive <- Zip.toArchive <$> BSL.readFile fp
     Dalfs mainDalf dalfDeps <- either fail pure $ readDalfs archive
-    Right parsedDalfs <- pure $ mapM (LFArchive.decodeArchive LFArchive.DecodeAsMain . BSL.toStrict) $ mainDalf : dalfDeps
-    pure $ map fst parsedDalfs
+    Right dalfPkgIds  <- pure $ mapM (LFArchive.decodeArchivePackageId . BSL.toStrict) $ mainDalf : dalfDeps
+    pure dalfPkgIds
 
 
 numStablePackages :: LF.Version -> Int
@@ -714,13 +713,8 @@ dataDependencyTests damlc repl davlDar oldProjDar = testGroup "Data Dependencies
               , "dependencies: [daml-prim, daml-stdlib]"
               , "data-dependencies: [" <> show (proja </> "proja.dar") <> "]"
               ]
-          -- TODO Users should not have to pass --hide-all-packages, see https://github.com/digital-asset/daml/issues/4094
           withCurrentDirectory projb $ callProcessSilent damlc
             [ "build", "--target=" <> LF.renderVersion targetLfVer, "-o", projb </> "projb.dar"
-            , "--hide-all-packages"
-            , "--package", "daml-prim"
-            , "--package", damlStdlib
-            , "--package", "proja-0.0.1"
             ]
           callProcessSilent repl ["validate", projb </> "projb.dar"]
           projbPkgIds <- darPackageIds (projb </> "projb.dar")
@@ -776,12 +770,8 @@ dataDependencyTests damlc repl davlDar oldProjDar = testGroup "Data Dependencies
               ]
           withCurrentDirectory tmpDir $ callProcessSilent damlc
             [ "build", "-o", tmpDir </> "foobar.dar"
-            , "--hide-all-packages"
-            , "--package", "daml-prim"
-            , "--package", damlStdlib
             -- We need to use the old stdlib for the Archive type
             , "--package", "daml-stdlib-cc6d52aa624250119006cd19d51c60006762bd93ca5a6d288320a703024b33da (DA.Internal.Template as OldStdlib.DA.Internal.Template)"
-            , "--package", "davl-0.0.3"
             ]
           step "Validating DAR"
           callProcessSilent repl ["validate", tmpDir </> "foobar.dar"]
@@ -899,8 +889,6 @@ dataDependencyTests damlc repl davlDar oldProjDar = testGroup "Data Dependencies
           , "source: ."
           , "dependencies: [daml-prim, daml-stdlib]"
           , "data-dependencies: [simple-dalf-0.0.0.dalf]"
-          , "build-options:"
-          , "- '--package=" <> damlStdlib <> "'"
           ]
         writeFileUTF8 (projDir </> "A.daml") $ unlines
             [ "daml 1.2"
@@ -1000,10 +988,6 @@ dataDependencyTests damlc repl davlDar oldProjDar = testGroup "Data Dependencies
               ]
           withCurrentDirectory projb $ callProcessSilent damlc
             [ "build", "--target=" <> LF.renderVersion targetLfVer, "-o", projb </> "projb.dar"
-            , "--hide-all-packages"
-            , "--package", "daml-prim"
-            , "--package", damlStdlib
-            , "--package", "proja-0.0.1"
             ]
           callProcessSilent repl ["validate", projb </> "projb.dar"]
 
@@ -1129,10 +1113,6 @@ dataDependencyTests damlc repl davlDar oldProjDar = testGroup "Data Dependencies
               ]
           withCurrentDirectory projb $ callProcessSilent damlc
             [ "build", "--target=" <> LF.renderVersion targetLfVer, "-o", projb </> "projb.dar"
-            , "--hide-all-packages"
-            , "--package", "daml-prim"
-            , "--package", damlStdlib
-            , "--package", "proja-0.0.1"
             ]
           callProcessSilent repl ["validate", projb </> "projb.dar"]
 
@@ -1152,7 +1132,6 @@ dataDependencyTests damlc repl davlDar oldProjDar = testGroup "Data Dependencies
               , "  - " <> show oldProjDar
               , "build-options:"
               , " - --target=1.dev"
-              , " - --hide-all-packages"
               , " - --package=daml-prim"
               , " - --package=" <> damlStdlib
               , " - --package=old-proj-0.0.1"
@@ -1181,8 +1160,87 @@ dataDependencyTests damlc repl davlDar oldProjDar = testGroup "Data Dependencies
               , "         create T{..}"
               ]
           callProcessSilent damlc ["build", "--project-root", tmpDir]
-    ]
+    , testCaseSteps "Duplicate instance reexports" $ \step -> withTempDir $ \tmpDir -> do
+          -- This test checks that we handle the case where a data-dependency has (orphan) instances
+          -- Functor, Applicative for a type Proxy while a dependency only has instance Functor.
+          -- In this case we need to import the Functor instance or the Applicative instance will have a type error.
+          step "building type project"
+          createDirectoryIfMissing True (tmpDir </> "type")
+          writeFileUTF8 (tmpDir </> "type" </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "name: type"
+              , "source: ."
+              , "version: 0.1.0"
+              , "dependencies: [daml-prim, daml-stdlib]"
+              , "build-options: [--target=1.dev]"
+              ]
+          writeFileUTF8 (tmpDir </> "type" </> "Proxy.daml") $ unlines
+              [ "daml 1.2 module Proxy where"
+              , "data Proxy a = Proxy {}"
+              ]
+          withCurrentDirectory (tmpDir </> "type") $ callProcessSilent damlc ["build", "-o", "type.dar"]
 
+          step "building dependency project"
+          createDirectoryIfMissing True (tmpDir </> "dependency")
+          writeFileUTF8 (tmpDir </> "dependency" </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "name: dependency"
+              , "source: ."
+              , "version: 0.1.0"
+              , "dependencies: [daml-prim, daml-stdlib]"
+              , "data-dependencies: [" <> show (tmpDir </> "type/type.dar") <> "]"
+              , "build-options: [ \"--target=1.dev\" ]"
+              ]
+          writeFileUTF8 (tmpDir </> "dependency" </> "Dependency.daml") $ unlines
+             [ "daml 1.2 module Dependency where"
+             , "import Proxy"
+             , "instance Functor Proxy where"
+             , "  fmap _ Proxy = Proxy"
+             ]
+          withCurrentDirectory (tmpDir </> "dependency") $ callProcessSilent damlc ["build", "-o", "dependency.dar"]
+
+          step "building data-dependency project"
+          createDirectoryIfMissing True (tmpDir </> "data-dependency")
+          writeFileUTF8 (tmpDir </> "data-dependency" </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "name: data-dependency"
+              , "source: ."
+              , "version: 0.1.0"
+              , "dependencies: [daml-prim, daml-stdlib]"
+              , "data-dependencies: [" <> show (tmpDir </> "type/type.dar") <> "]"
+              , "build-options: [ \"--target=1.dev\" ]"
+              ]
+          writeFileUTF8 (tmpDir </> "data-dependency" </> "DataDependency.daml") $ unlines
+             [ "daml 1.2 module DataDependency where"
+             , "import Proxy"
+             , "instance Functor Proxy where"
+             , "  fmap _ Proxy = Proxy"
+             , "instance Applicative Proxy where"
+             , "  pure _ = Proxy"
+             , "  Proxy <*> Proxy = Proxy"
+             ]
+          withCurrentDirectory (tmpDir </> "data-dependency") $ callProcessSilent damlc ["build", "-o", "data-dependency.dar"]
+
+          step "building top-level project"
+          createDirectoryIfMissing True (tmpDir </> "top" </> "data-dependency")
+          writeFileUTF8 (tmpDir </> "top" </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "name: top"
+              , "source: ."
+              , "version: 0.1.0"
+              , "dependencies: [daml-prim, daml-stdlib, " <> show (tmpDir </> "dependency/dependency.dar") <> ", " <> show (tmpDir </> "type/type.dar") <> "]"
+              , "data-dependencies: [" <> show (tmpDir </> "data-dependency/data-dependency.dar") <> "]"
+              , "build-options: [--target=1.dev]"
+              ]
+          writeFileUTF8 (tmpDir </> "top" </> "Top.daml") $ unlines
+              [ "daml 1.2 module Top where"
+              , "import DataDependency"
+              , "import Proxy"
+              -- Test that we can use the Applicaive instance of Proxy from the data-dependency
+              , "f = pure () : Proxy ()"
+              ]
+          withCurrentDirectory (tmpDir </> "top") $ callProcessSilent damlc ["build", "-o", "top.dar"]
+    ]
 
 -- | Only displays stdout and stderr on errors
 callProcessSilent :: FilePath -> [String] -> IO ()

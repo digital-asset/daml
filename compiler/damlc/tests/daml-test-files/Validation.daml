@@ -1,6 +1,7 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
+{-# LANGUAGE ApplicativeDo #-}
 daml 1.2
 module Validation where
 
@@ -16,6 +17,6 @@ main = scenario do
   let v = run do
       head l <?> "fail"
       y <- tail l <?> "fail"
-      pure $ length y
+      return (length y)
   v === Left (NonEmpty with hd = "fail"; tl = ["fail"])
   pure ()

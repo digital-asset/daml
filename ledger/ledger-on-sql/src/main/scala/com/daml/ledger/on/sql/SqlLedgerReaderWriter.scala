@@ -6,7 +6,6 @@ package com.daml.ledger.on.sql
 import java.sql.Connection
 import java.time.Clock
 import java.util.UUID
-import java.util.concurrent.atomic.AtomicLong
 
 import akka.NotUsed
 import akka.stream.Materializer
@@ -15,11 +14,7 @@ import com.daml.ledger.on.sql.SqlLedgerReaderWriter._
 import com.daml.ledger.participant.state.kvutils.api.{LedgerReader, LedgerRecord, LedgerWriter}
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
-import com.daml.ledger.validator.ValidationResult.{
-  MissingInputState,
-  SubmissionValidated,
-  ValidationError
-}
+import com.daml.ledger.validator.ValidationFailed.{MissingInputState, ValidationError}
 import com.daml.ledger.validator.{
   BatchingLedgerStateOperations,
   LedgerStateAccess,
@@ -37,7 +32,6 @@ import com.digitalasset.resources.ResourceOwner
 
 import scala.collection.immutable.TreeSet
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Success
 
 class SqlLedgerReaderWriter(
     override val ledgerId: LedgerId = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
@@ -54,8 +48,6 @@ class SqlLedgerReaderWriter(
   private val queries = database.queries
 
   private val validator = SubmissionValidator.create(SqlLedgerStateAccess)
-
-  private val head = new AtomicLong(dispatcher.getHead())
 
   // TODO: implement
   override def currentHealth(): HealthStatus = Healthy
@@ -90,12 +82,13 @@ class SqlLedgerReaderWriter(
       validator
         .validateAndCommit(envelope, correlationId, currentRecordTime(), participantId)
         .map {
-          case SubmissionValidated =>
+          case Right(latestSequenceNo) =>
+            dispatcher.signalNewHead(latestSequenceNo + 1)
             SubmissionResult.Acknowledged
-          case MissingInputState(keys) =>
+          case Left(MissingInputState(keys)) =>
             SubmissionResult.InternalError(
               s"Missing input state: ${keys.map(_.map("%02x".format(_)).mkString).mkString(", ")}")
-          case ValidationError(reason) =>
+          case Left(ValidationError(reason)) =>
             SubmissionResult.InternalError(reason)
         }
     }
@@ -103,31 +96,23 @@ class SqlLedgerReaderWriter(
   private def currentRecordTime(): Timestamp =
     Timestamp.assertFromInstant(Clock.systemUTC().instant())
 
-  object SqlLedgerStateAccess extends LedgerStateAccess {
-    override def inTransaction[T](body: LedgerStateOperations => Future[T]): Future[T] =
-      database
-        .inWriteTransaction("Committing a submission") { implicit connection =>
-          body(new SqlLedgerStateOperations)
-        }
-        .andThen {
-          case Success(_) =>
-            dispatcher.signalNewHead(head.get())
-        }
+  object SqlLedgerStateAccess extends LedgerStateAccess[Index] {
+    override def inTransaction[T](body: LedgerStateOperations[Index] => Future[T]): Future[T] =
+      database.inWriteTransaction("Committing a submission") { implicit connection =>
+        body(new SqlLedgerStateOperations)
+      }
   }
 
   class SqlLedgerStateOperations(implicit connection: Connection)
-      extends BatchingLedgerStateOperations {
+      extends BatchingLedgerStateOperations[Index] {
     override def readState(keys: Seq[Key]): Future[Seq[Option[Value]]] =
       Future.successful(queries.selectStateValuesByKeys(keys))
 
     override def writeState(keyValuePairs: Seq[(Key, Value)]): Future[Unit] =
       Future.successful(queries.updateState(keyValuePairs))
 
-    override def appendToLog(key: Key, value: Value): Future[Unit] = {
-      val latestSequenceNo = queries.insertIntoLog(key, value)
-      head.set(latestSequenceNo + 1)
-      Future.unit
-    }
+    override def appendToLog(key: Key, value: Value): Future[Index] =
+      Future.successful(queries.insertIntoLog(key, value))
   }
 }
 

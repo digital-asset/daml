@@ -886,19 +886,20 @@ convertExpr env0 e = do
               y' <- convertExpr env y
               b' <- convVarWithType env b
               pure (inj (bind (Binding b' x') y'))
-    go env semi@(VarIn DA_Internal_Prelude ">>") allArgs@(LType monad : LType t : LType _ : LExpr _dict : LExpr x : LExpr y : args) = do
+    go env semi@(VarIn DA_Internal_Prelude ">>") (LType monad : LType t1 : LType t2 : LExpr dict : LExpr x : LExpr y : args) = fmap (, args) $ do
         monad' <- convertType env monad
+        dict' <- convertExpr env dict
+        t1' <- convertType env t1
+        t2' <- convertType env t2
+        x' <- convertExpr env x
+        y' <- convertExpr env y
         case monad' of
-          TBuiltin BTUpdate -> mkSeq EUpdate UBind
-          TBuiltin BTScenario -> mkSeq EScenario SBind
-          _ -> fmap (, allArgs) $ convertExpr env semi
-        where
-          mkSeq :: (m -> LF.Expr) -> (Binding -> LF.Expr -> m) -> ConvertM (LF.Expr, [LArg Var])
-          mkSeq inj bind = fmap (, args) $ do
-              t' <- convertType env t
-              x' <- convertExpr env x
-              y' <- convertExpr env y
-              pure $ inj (bind (Binding (mkVar "_", t') x') y')
+          TBuiltin BTUpdate -> pure $ EUpdate (UBind (Binding (mkVar "_", t1') x') y')
+          TBuiltin BTScenario -> pure $ EScenario (SBind (Binding (mkVar "_", t1') x') y')
+          _ -> do
+            EVal semi' <- convertExpr env semi
+            let bind' = EVal semi'{qualObject = mkVal ">>="}
+            pure $ mkEApps bind' [TyArg monad', TmArg dict', TyArg t1', TyArg t2', TmArg x', TmArg (ETmLam (mkVar "_", t1') y')]
 
     go env (VarIn GHC_Types "[]") (LType (TypeCon (Is "Char") []) : args)
         = fmap (, args) $ pure $ EBuiltin (BEText T.empty)
