@@ -39,8 +39,8 @@ import com.digitalasset.platform.sandbox.banner.Banner
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.sandbox.metrics.MetricsReporting
 import com.digitalasset.platform.sandbox.services.SandboxResetService
+import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
-import com.digitalasset.platform.sandbox.stores.ledger._
 import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode
 import com.digitalasset.platform.sandbox.stores.{
   InMemoryActiveLedgerState,
@@ -332,6 +332,20 @@ final class SandboxServer(
           ledgerType,
           authService.getClass.getSimpleName
         )
+        if (config.timeProviderType != TimeProviderType.WallClock) {
+          logger.withoutContext.warn(
+            "DAML is deprecating static time. In a future version, wall clock time will"
+              + " become the default, and in a subsequent release, support will be removed"
+              + " altogether. You can keep using the `--static-time` flag until then.")
+        }
+        if (config.scenario.nonEmpty) {
+          logger.withoutContext.warn(
+            "DAML is deprecating scenarios at Sandbox initialization. In a future version,"
+              + " support will be removed from Sandbox. You are advised to migrate your ledger"
+              + " initialization scenarios to DAML Script. Test scenarios in DAML Studio will"
+              + " continue to work as expected. More details can be found at:"
+              + " https://docs.daml.com/daml-script/")
+        }
         apiServer
       }
     }
