@@ -597,12 +597,20 @@ convType env reexported =
             args <- mapM (convType env reexported) lfArgs
             pure $ HsParTy noExt (noLoc $ foldl (HsAppTy noExt . noLoc) tyvar (map noLoc args))
 
+        LF.TApp (LF.TCon LF.Qualified {..}) (LF.TStruct fields)
+            | qualModule == LF.ModuleName ["DA", "Internal", "PromotedText"]
+            , ["PromotedText"] <- LF.unTypeConName qualObject
+            , [(LF.FieldName text, LF.TUnit)] <- fields
+            -> pure $ HsTyLit noExt (HsStrTy NoSourceText (mkFastString $ T.unpack text))
+
         LF.TCon LF.Qualified {..}
-          | qualModule == LF.ModuleName ["DA", "Types"]
-          , [name] <- LF.unTypeConName qualObject
-          , Just n <- stripPrefix "Tuple" $ T.unpack name
-          , Just i <- readMay n
-          , 2 <= i && i <= 20 -> mkTuple i
+            | qualModule == LF.ModuleName ["DA", "Types"]
+            , [name] <- LF.unTypeConName qualObject
+            , Just n <- stripPrefix "Tuple" $ T.unpack name
+            , Just i <- readMay n
+            , 2 <= i && i <= 20
+            -> mkTuple i
+
         LF.TCon LF.Qualified {..} ->
             case LF.unTypeConName qualObject of
                 [name] -> do
@@ -957,12 +965,16 @@ getDFunSig (valName, valType) = do
         then do
             (symbolTy : dfhArgs) <- Just dfhArgs
             -- We handle both the old state where symbol was translated to unit
-            -- and new state where it is translated to Erased.
-            guard $ case symbolTy of
-                LF.TUnit -> True
-                LF.TCon (LF.Qualified _ (LF.ModuleName ["DA", "Internal", "Erased"]) (LF.TypeConName ["Erased"])) -> True
-                _ -> False
-            dfhField <- getFieldArg valName
+            -- and new state where it is translated to PromotedText.
+            dfhField <- case symbolTy of
+                LF.TUnit ->
+                    getFieldArg valName
+                LF.TCon (LF.Qualified _ (LF.ModuleName ["DA", "Internal", "Erased"]) (LF.TypeConName ["Erased"])) -> -- we probably don't need this case, unless an LF version comes out before PromotedText is added to DAML.
+                    getFieldArg valName
+                LF.TApp (LF.TCon (LF.Qualified _ (LF.ModuleName ["DA", "Internal", "PromotedText"]) (LF.TypeConName ["PromotedText"]))) (LF.TStruct [(LF.FieldName t, LF.TUnit)]) ->
+                    Just t
+                _ ->
+                    Nothing
             guard (not $ T.null dfhField)
             Just DFunHeadHasField {..}
         else Just DFunHeadNormal {..}

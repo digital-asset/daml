@@ -1408,13 +1408,27 @@ qDA_Types env a = do
   pkgRef <- packageNameToPkgRef env "daml-prim"
   pure $ rewriteStableQualified env $ Qualified pkgRef (mkModName ["DA", "Types"]) a
 
--- | Types of a kind not supported in DAML-LF, e.g., Symbol or the DataKinds stuff from GHC.Generics
--- are translated to a special uninhabited Erased type. This allows us to easily catch these cases in
--- data-dependencies.
+-- | Types of a kind not supported in DAML-LF, e.g., the DataKinds stuff from GHC.Generics
+-- are translated to a special uninhabited Erased type. This allows us to easily catch these
+-- cases in data-dependencies.
 erasedTy :: Env -> ConvertM LF.Type
 erasedTy env = do
     pkgRef <- packageNameToPkgRef env "daml-prim"
     pure $ TCon $ rewriteStableQualified env (Qualified pkgRef (mkModName ["DA", "Internal", "Erased"]) (mkTypeCon ["Erased"]))
+
+-- | Type-level strings are represented in DAML-LF via the PromotedText type. This is
+-- For example, the type-level string @"foo"@ will be represented by the type
+-- @PromotedText {"foo": Unit}@. This allows us to preserve all the information we need
+-- to reconstruct `HasField` instances in data-dependencies without resorting to
+-- name-based hacks.
+promotedTextTy :: Env -> T.Text -> ConvertM LF.Type
+promotedTextTy env text = do
+    pkgRef <- packageNameToPkgRef env "daml-prim"
+    pure $ TApp
+        (TCon . rewriteStableQualified env $ Qualified pkgRef
+            (mkModName ["DA", "Internal", "PromotedText"])
+            (mkTypeCon ["PromotedText"]))
+        (TStruct [(FieldName text, TUnit)])
 
 -- | Rewrite an a qualified name into a reference into one of the hardcoded
 -- stable packages if there is one.
@@ -1557,8 +1571,8 @@ convertType env = go env
     go env t | Just v <- getTyVar_maybe t
         = TVar . fst <$> convTypeVar env v
 
-    go _ t | Just s <- isStrLitTy t
-        = erasedTy env
+    go env t | Just s <- isStrLitTy t
+        = promotedTextTy env (fsToText s)
 
     go env t | Just m <- isNumLitTy t
         = case typeLevelNatE m of
