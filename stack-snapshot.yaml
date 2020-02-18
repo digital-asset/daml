@@ -8,12 +8,12 @@ packages:
   - archive: http://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-8.8.1.20200122.tar.gz
     sha256: "50d6942d35cef80a8159b4f593bca467e9186c7efcdbe010dfd2e654d90888bd"
   - github: digital-asset/hlint
-    commit: "36890188176b5296d729985a8b61406e2ecd6f8a"
-    sha256: "b6ee9c5efada791bbec0cfd0f0fb63cb4a3500b3b75c4787584f74bacc83331a"
-  - ghc-lib-parser-ex-8.8.4.0
+    commit: "258bc2b539730b0604d0feffed98636f25022d66"
+    sha256: "bb3ad5cd059e2586b2246843693aa1aee4d9db40910378929bcb88f16d0615c4"
+  - ghc-lib-parser-ex-8.8.5.2
   - haskell-src-exts-1.23.0
   - bytestring-nums-0.3.6
-  - extra-1.6.18
+  - extra-1.6.19
   - grpc-haskell-0.0.1.0
   - grpc-haskell-core-0.0.0.0
   - fuzzy-0.1.0.0
@@ -32,4 +32,3 @@ packages:
   # Core packages, need to be listed for integer-simple flags.
   - integer-simple-0.1.1.1
   - text-1.2.3.1
-
