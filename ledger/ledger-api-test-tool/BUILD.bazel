@@ -91,6 +91,7 @@ da_scala_library_suite(
         "//ledger/test-common:SemanticTests.scala",
         "//ledger/test-common:Test-dev.scala",
         "//ledger/test-common:Test-stable.scala",
+        "//libs-scala/timer-utils",
         "@maven//:ai_x_diff_2_12",
         "@maven//:com_chuusai_shapeless_2_12",
         "@maven//:org_cvogt_scala_extensions_2_12",
