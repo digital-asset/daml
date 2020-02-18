@@ -12,14 +12,14 @@ import api.event
 import scalaz._
 import Scalaz._
 
-sealed trait Event
+sealed trait Event extends Serializable with Product
 
 final case class CreatedEvent(
     eventId: String,
     contractId: String,
     templateId: Identifier,
     createArguments: OfCid[V.ValueRecord],
-    witnessParties: Set[String]
+    stakeholders: Set[String]
 ) extends Event
 
 final case class ExercisedEvent(
@@ -66,7 +66,7 @@ object Event {
           apiEvent.contractId,
           templateId,
           createArguments,
-          apiEvent.witnessParties.toSet
+          (apiEvent.observers ++ apiEvent.signatories).toSet
         )
     }
   }

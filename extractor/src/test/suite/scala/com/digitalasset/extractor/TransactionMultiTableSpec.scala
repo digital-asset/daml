@@ -98,7 +98,7 @@ class TransactionMultiTableSpec
     archived_by_event_id1 shouldEqual Some(exercise.event_id)
 
     // ... while it resulted in `contract2`
-    exercise.child_event_ids shouldEqual List(event_id2).asJson
+    exercise.child_event_ids.asArray.toList.toVector.flatten should contain(event_id2.asJson)
     transaction_id2 shouldEqual transaction2.transaction_id
     // which is not archived
     archived_by_transaction_id2 shouldEqual None

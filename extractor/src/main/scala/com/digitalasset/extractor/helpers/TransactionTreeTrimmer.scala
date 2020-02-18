@@ -8,8 +8,12 @@ import com.digitalasset.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
 import com.digitalasset.ledger.api.v1.value.Identifier
 
 object TransactionTreeTrimmer {
-  def trim(templateIds: Set[Identifier]): TransactionTree => TransactionTree = {
-    val shouldKeep: TreeEvent.Kind => Boolean = containsTemplateId(templateIds.map(asTuple))
+  def trim(
+      parties: Set[String],
+      templateIds: Set[Identifier]): TransactionTree => TransactionTree = {
+    val shouldKeep: TreeEvent.Kind => Boolean = event =>
+      (templateIds.isEmpty || containsTemplateId(templateIds.map(asTuple))(event)) &&
+        exerciseEventOrStakeholder(parties)(event)
     transactionTree: TransactionTree =>
       {
         val eventsById = transactionTree.eventsById.filter(kv => shouldKeep(kv._2.kind))
@@ -23,6 +27,15 @@ object TransactionTreeTrimmer {
       templateIds: Set[(String, String, String)]): TreeEvent.Kind => Boolean = {
     case Kind.Created(event) => contains(templateIds)(event.templateId.map(asTuple))
     case Kind.Exercised(event) => contains(templateIds)(event.templateId.map(asTuple))
+    case Kind.Empty => false
+  }
+
+  private def exerciseEventOrStakeholder(parties: Set[String]): TreeEvent.Kind => Boolean = {
+    case Kind.Created(event) =>
+      event.signatories.toSet.intersect(parties).nonEmpty || event.observers.toSet
+        .intersect(parties)
+        .nonEmpty
+    case Kind.Exercised(_) => true
     case Kind.Empty => false
   }
 

@@ -28,8 +28,12 @@ import com.digitalasset.ledger.service.LedgerReader.PackageStore
 import com.digitalasset.timer.RetryStrategy
 import com.typesafe.scalalogging.StrictLogging
 import io.grpc.netty.NettyChannelBuilder
-import scalaz.Scalaz._
-import scalaz._
+import scalaz.\/
+import scalaz.std.list._
+import scalaz.std.scalaFuture._
+import scalaz.std.string._
+import scalaz.syntax.apply._
+import scalaz.syntax.foldable._
 import scalaz.syntax.tag._
 
 import scala.collection.breakOut
@@ -42,6 +46,7 @@ class Extractor[T](config: ExtractorConfig, target: T)(
     extends StrictLogging {
 
   private val tokenHolder = config.accessTokenFile.map(new TokenHolder(_))
+  private val parties = config.parties.toSet.map[String, Set[String]](identity)
 
   implicit val system: ActorSystem = ActorSystem()
   import system.dispatcher
@@ -162,8 +167,7 @@ class Extractor[T](config: ExtractorConfig, target: T)(
     logger.info(s"Setting transaction filter: ${transactionFilter}")
 
     val trim: api.transaction.TransactionTree => api.transaction.TransactionTree =
-      if (requestedTemplateIds.isEmpty) identity
-      else TransactionTreeTrimmer.trim(requestedTemplateIds)
+      TransactionTreeTrimmer.trim(parties, requestedTemplateIds)
 
     RestartSource
       .onFailuresWithBackoff(

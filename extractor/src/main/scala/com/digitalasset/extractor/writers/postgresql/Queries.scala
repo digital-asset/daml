@@ -167,7 +167,7 @@ object Queries {
         ,package_id TEXT NOT NULL
         ,template TEXT NOT NULL
         ,create_arguments JSONB NOT NULL
-        ,witness_parties JSONB NOT NULL
+        ,stakeholders JSONB NOT NULL
         )
     """
 
@@ -196,7 +196,7 @@ object Queries {
           ${event.templateId.packageId},
           ${event.templateId.name},
           ${toJsonString(event.createArguments)}::jsonb,
-          ${toJsonString(event.witnessParties)}::jsonb
+          ${toJsonString(event.stakeholders)}::jsonb
         )
       """
   }
@@ -215,7 +215,7 @@ object Queries {
               ,_transaction_id TEXT NOT NULL
               ,_archived_by_transaction_id TEXT DEFAULT NULL
               ,_is_root_event BOOLEAN NOT NULL
-              ,_witness_parties JSONB NOT NULL
+              ,_stakeholders JSONB NOT NULL
               ${columnDefs}
             )
         """
@@ -246,7 +246,7 @@ object Queries {
         Fragment("?", transactionId), // _transaction_id
         Fragment.const("DEFAULT"), // _archived_by_transaction_id
         Fragment.const(if (isRoot) "TRUE" else "FALSE"), // _is_root_event
-        Fragment("?::jsonb", toJsonString(event.witnessParties)) // _witness_parties
+        Fragment("?::jsonb", toJsonString(event.stakeholders)) // _stakeholders
       )
 
       val contractArgColumns = event.createArguments.fields.map {
