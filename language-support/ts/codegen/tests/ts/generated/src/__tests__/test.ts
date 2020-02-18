@@ -116,8 +116,7 @@ test('create + fetch & exercise', async () => {
   expect(await aliceStream.next()).toEqual([[alice5Contract], [{created: alice5Contract}]]);
 
   let personContracts = await aliceLedger.query(Main.Person);
-  expect(personContracts).toHaveLength(1);
-  expect(personContracts[0]).toEqual(alice5Contract);
+  expect(personContracts).toEqual([alice5Contract]);
 
   const aliceContracts = await aliceLedger.query(Main.Person, {party: ALICE_PARTY});
   expect(aliceContracts).toEqual(personContracts);
@@ -153,8 +152,7 @@ test('create + fetch & exercise', async () => {
   expect(alice5ContractById).toBeNull();
 
   personContracts = await aliceLedger.query(Main.Person);
-  expect(personContracts).toHaveLength(1);
-  expect(personContracts[0]).toEqual(alice6Contract);
+  expect(personContracts).toEqual([alice6Contract]);
 
   const alice6Key = {...alice5Key, _2: '6'};
   const alice6KeyStream = promisifyStream(aliceLedger.streamFetchByKey(Main.Person, alice6Key));
@@ -187,9 +185,7 @@ test('create + fetch & exercise', async () => {
   expect(await personStream.next()).toEqual([[bob4Contract, cooper6Contract], [{archived: alice6Archived}, {created: cooper6Contract}]]);
 
   personContracts = await aliceLedger.query(Main.Person);
-  expect(personContracts).toHaveLength(2);
-  expect(personContracts[0]).toEqual(bob4Contract);
-  expect(personContracts[1]).toEqual(cooper6Contract);
+  expect(personContracts).toEqual([bob4Contract, cooper6Contract]);
 
   // Alice gets archived.
   const cooper7Archived = await aliceLedger.archiveByKey(Main.Person, cooper6Contract.key);
@@ -199,8 +195,7 @@ test('create + fetch & exercise', async () => {
   expect(await personStream.next()).toEqual([[bob4Contract], [{archived: cooper7Archived}]]);
 
   personContracts = await aliceLedger.query(Main.Person);
-  expect(personContracts).toHaveLength(1);
-  expect(personContracts[0]).toEqual(bob4Contract);
+  expect(personContracts).toEqual([bob4Contract]);
 
   // Bob gets archived.
   const bob4Archived = await bobLedger.archive(Main.Person, bob4Contract.contractId);
@@ -208,7 +203,7 @@ test('create + fetch & exercise', async () => {
   expect(await personStream.next()).toEqual([[], [{archived: bob4Archived}]]);
 
   personContracts = await aliceLedger.query(Main.Person);
-  expect(personContracts).toHaveLength(0);
+  expect(personContracts).toEqual([]);
 
   aliceStream.close();
   alice6KeyStream.close();
@@ -253,15 +248,13 @@ test('create + fetch & exercise', async () => {
   expect(allTypesContract.key).toBeUndefined();
 
   const allTypesContracts = await aliceLedger.query(Main.AllTypes);
-  expect(allTypesContracts).toHaveLength(1);
-  expect(allTypesContracts[0]).toEqual(allTypesContract);
+  expect(allTypesContracts).toEqual([allTypesContract]);
 
-  const NonTopLevel: LibMod.NonTopLevel = {
+  const nonTopLevel: LibMod.NonTopLevel = {
     party: ALICE_PARTY,
   }
-  const NonTopLevelContract = await aliceLedger.create(LibMod.NonTopLevel, NonTopLevel);
-  expect(NonTopLevelContract.payload).toEqual(NonTopLevel);
-  const NonTopLevelContracts = await aliceLedger.query(LibMod.NonTopLevel);
-  expect(NonTopLevelContracts).toHaveLength(1);
-  expect(NonTopLevelContracts[0]).toEqual(NonTopLevelContract);
+  const nonTopLevelContract = await aliceLedger.create(LibMod.NonTopLevel, nonTopLevel);
+  expect(nonTopLevelContract.payload).toEqual(nonTopLevel);
+  const nonTopLevelContracts = await aliceLedger.query(LibMod.NonTopLevel);
+  expect(nonTopLevelContracts).toEqual([nonTopLevelContract]);
 });
