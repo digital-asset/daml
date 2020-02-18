@@ -48,8 +48,10 @@ template Person with
     name: Text
     party: Party
     age: Int
+    friends: [Party]
   where
     signatory party
+    observer friends
 
     key (party, age): (Party, Int)
     maintainer key._1
