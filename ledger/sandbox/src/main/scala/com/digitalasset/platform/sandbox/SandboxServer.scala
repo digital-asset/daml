@@ -238,9 +238,7 @@ final class SandboxServer(
       (mbLedgerTime, config.timeProviderType) match {
         case (None, TimeProviderType.WallClock) => (TimeProvider.UTC, None)
         case (ledgerTime, _) =>
-          val ts = TimeServiceBackend.simple(
-            ledgerTime.getOrElse(Instant.EPOCH),
-            config.timeProviderType == TimeProviderType.StaticAllowBackwards)
+          val ts = TimeServiceBackend.simple(ledgerTime.getOrElse(Instant.EPOCH))
           (ts, Some(ts))
       }
 

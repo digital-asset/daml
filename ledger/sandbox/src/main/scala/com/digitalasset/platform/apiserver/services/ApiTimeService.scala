@@ -87,7 +87,8 @@ final class ApiTimeService private (
       expectedTime <- requirePresence(request.currentTime, "current_time").map(toInstant)
       requestedTime <- requirePresence(request.newTime, "new_time").map(toInstant)
       _ <- {
-        if (backend.allowSettingTimeBackwards || !requestedTime.isBefore(expectedTime)) Right(())
+        if (!requestedTime.isBefore(expectedTime))
+          Right(())
         else
           Left(
             new StatusRuntimeException(Status.INVALID_ARGUMENT
