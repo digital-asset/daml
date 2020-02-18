@@ -25,6 +25,8 @@ import scala.util.{Failure, Success, Try}
   * @param ledgerStateAccess defines how the validator retrieves/writes back state to the ledger
   * @param processSubmission defines how a log entry and state updates get generated from a submission
   * @param allocateLogEntryId  defines how new log entry IDs are being generated
+  * @param checkForMissingInputs  whether all inputs declared as the required inputs in the submission must be available
+  *                               in order to pass validation
   * @param executionContext  ExecutionContext to use when performing ledger state reads/writes
   */
 class SubmissionValidator[LogResult](
