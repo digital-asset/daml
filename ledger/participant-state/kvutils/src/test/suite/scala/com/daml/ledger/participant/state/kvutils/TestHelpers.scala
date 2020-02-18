@@ -112,4 +112,5 @@ object TestHelpers {
 
   def randomLedgerString: Ref.LedgerString =
     Ref.LedgerString.assertFromString(UUID.randomUUID().toString)
+
 }
