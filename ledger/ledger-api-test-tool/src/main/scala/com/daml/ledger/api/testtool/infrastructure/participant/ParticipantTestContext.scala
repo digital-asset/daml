@@ -146,16 +146,6 @@ private[testtool] final class ParticipantTestContext private[participant] (
         case NonFatal(_) => Clock.systemUTC().instant()
       }
 
-  def passTime(t: Duration): Future[Unit] =
-    for {
-      currentInstant <- time()
-      currentTime = Some(currentInstant.asProtobuf)
-      newTime = Some(currentInstant.plus(t).asProtobuf)
-      result <- services.time
-        .setTime(new SetTimeRequest(ledgerId, currentTime, newTime))
-        .map(_ => ())
-    } yield result
-
   def listKnownPackages(): Future[Seq[PackageDetails]] =
     services.packageManagement.listKnownPackages(new ListKnownPackagesRequest).map(_.packageDetails)
 
