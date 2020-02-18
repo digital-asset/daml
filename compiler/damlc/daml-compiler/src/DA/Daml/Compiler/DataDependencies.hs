@@ -70,7 +70,7 @@ data Env = Env
         -- ^ World built from dependencies, stable packages, and current package.
     , envDepClassMap :: DepClassMap
         -- ^ Map of typeclasses from dependencies.
-    , envDepInstances :: MS.Map LF.TypeSynName [LF.Type]
+    , envDepInstances :: MS.Map LF.TypeSynName [LF.Qualified LF.Type]
         -- ^ Map of instances from dependencies.
         -- We only store the name since the real check happens in `isDuplicate`.
     , envMod :: LF.Module
@@ -115,9 +115,9 @@ buildDepClassMap Config{..} = DepClassMap $ MS.fromList
     , dsyn@LF.DefTypeSyn{..} <- NM.toList moduleSynonyms
     ]
 
-buildDepInstances :: Config -> MS.Map LF.TypeSynName [LF.Type]
+buildDepInstances :: Config -> MS.Map LF.TypeSynName [LF.Qualified LF.Type]
 buildDepInstances Config{..} = MS.fromListWith (<>)
-    [ (clsName, [snd dvalBinder])
+    [ (clsName, [LF.Qualified (LF.PRImport packageId) moduleName (snd dvalBinder)])
     | packageId <- Set.toList configDependencyPackages
     , Just LF.Package{..} <- [MS.lookup packageId configPackages]
     , LF.Module{..} <- NM.toList packageModules
@@ -210,12 +210,15 @@ generateSrcFromLf env = noLoc mod
     genExports = sequence $ selfReexport : classReexports
 
     genDecls :: Gen [LHsDecl GhcPs]
-    genDecls = sequence . concat $
-        [ classDecls
-        , dataTypeDecls
-        , valueDecls
-        , instanceDecls
-        ]
+    genDecls = do
+        decls <- sequence . concat $
+            [ classDecls
+            , dataTypeDecls
+            , valueDecls
+            ]
+        instDecls <- sequence instanceDecls
+        pure $ decls <> catMaybes instDecls
+
 
     classMethodNames :: Set T.Text
     classMethodNames = Set.fromList
@@ -326,7 +329,7 @@ generateSrcFromLf env = noLoc mod
         [ lsigD, lvalD ]
 
     -- | Generate instance declarations from dictionary functions.
-    instanceDecls :: [Gen (LHsDecl GhcPs)]
+    instanceDecls :: [Gen (Maybe (LHsDecl GhcPs))]
     instanceDecls = do
         LF.DefValue {..} <- NM.toList $ LF.moduleValues $ envMod env
         Just dfunSig <- [getDFunSig dvalBinder]
@@ -338,18 +341,23 @@ generateSrcFromLf env = noLoc mod
         guard (LF.qualObject (dfhName $ dfsHead dfunSig) `notElem` map (LF.TypeSynName . pure) ["MetaEquiv", "GenConvertible"])
         guard (isDFunBody dvalBody)
         let clsName = LF.qualObject $ dfhName $ dfsHead dfunSig
-        guard $ not $ any (\t -> isDuplicate env (snd dvalBinder) t) (MS.findWithDefault [] clsName $ envDepInstances env)
-        pure $ do
-            polyTy <- HsIB noExt . noLoc <$> convDFunSig env reexportedClasses dfunSig
-            pure . noLoc . InstD noExt . ClsInstD noExt $ ClsInstDecl
-                { cid_ext = noExt
-                , cid_poly_ty = polyTy
-                , cid_binds = emptyBag
-                , cid_sigs = []
-                , cid_tyfam_insts = []
-                , cid_datafam_insts = []
-                , cid_overlap_mode = Nothing
-                }
+        case find (isDuplicate env (snd dvalBinder) . LF.qualObject) (MS.findWithDefault [] clsName $ envDepInstances env) of
+            Just qualInstance ->
+                -- If the instance already exists, we still
+                -- need to import it so that we can refer to it from other
+                -- instances.
+                [Nothing <$ genModule env (LF.qualPackage qualInstance) (LF.qualModule qualInstance)]
+            Nothing -> pure $ do
+                polyTy <- HsIB noExt . noLoc <$> convDFunSig env reexportedClasses dfunSig
+                pure . Just . noLoc . InstD noExt . ClsInstD noExt $ ClsInstDecl
+                    { cid_ext = noExt
+                    , cid_poly_ty = polyTy
+                    , cid_binds = emptyBag
+                    , cid_sigs = []
+                    , cid_tyfam_insts = []
+                    , cid_datafam_insts = []
+                    , cid_overlap_mode = Nothing
+                    }
       where
         -- | Check that the body matches that of a dictionary function,
         -- as opposed to a superclass projection function.
