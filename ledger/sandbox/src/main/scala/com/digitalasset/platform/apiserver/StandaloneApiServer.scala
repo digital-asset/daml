@@ -12,6 +12,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.v1.{ParticipantId, ReadService, WriteService}
+import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.auth.interceptor.AuthorizationInterceptor
@@ -38,7 +39,7 @@ final class StandaloneApiServer(
     authService: AuthService,
     metrics: MetricRegistry,
     engine: Engine = sharedEngine, // allows sharing DAML engine with DAML-on-X participant
-    timeServiceBackendO: Option[TimeServiceBackend] = None,
+    timeServiceBackend: Option[TimeServiceBackend] = None,
 )(implicit logCtx: LoggingContext)
     extends ResourceOwner[Unit] {
 
@@ -112,7 +113,7 @@ final class StandaloneApiServer(
         "write" -> writeService,
       )
       apiServer <- new LedgerApiServer(
-        (mat: Materializer, esf: ExecutionSequencerFactory) =>
+        (mat: Materializer, esf: ExecutionSequencerFactory) => {
           ApiServices
             .create(
               participantId = participantId,
@@ -120,14 +121,15 @@ final class StandaloneApiServer(
               indexService = indexService,
               authorizer = authorizer,
               engine = engine,
-              timeProvider = config.timeProvider,
+              timeProvider = timeServiceBackend.getOrElse(TimeProvider.UTC),
               defaultLedgerConfiguration = initialConditions.config,
               commandConfig = CommandConfiguration.default,
-              optTimeServiceBackend = timeServiceBackendO,
+              optTimeServiceBackend = timeServiceBackend,
               metrics = metrics,
               healthChecks = healthChecks,
               seedService = None,
-            )(mat, esf, logCtx),
+            )(mat, esf, logCtx)
+        },
         config.port,
         config.maxInboundMessageSize,
         config.address,

@@ -147,7 +147,7 @@ object HttpServiceTestFixture {
     SandboxConfig.default.copy(
       port = ledgerPort,
       damlPackages = dars,
-      timeProviderType = TimeProviderType.WallClock,
+      timeProviderType = Some(TimeProviderType.WallClock),
       ledgerIdMode = LedgerIdMode.Static(ledgerId),
       authService = authService
     )

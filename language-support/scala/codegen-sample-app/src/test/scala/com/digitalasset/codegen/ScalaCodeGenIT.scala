@@ -85,7 +85,7 @@ class ScalaCodeGenIT
 
   override protected def config: SandboxConfig = super.config.copy(
     ledgerIdMode = LedgerIdMode.Static(LedgerId(ledgerId)),
-    timeProviderType = TimeProviderType.WallClock,
+    timeProviderType = Some(TimeProviderType.WallClock),
   )
 
   private val clientConfig = LedgerClientConfiguration(
@@ -284,6 +284,7 @@ class ScalaCodeGenIT
   }
 
   "alice creates TemplateWith23Arguments contract and receives corresponding event" in {
+    //noinspection NameBooleanParameters
     val contract = MyMain.TemplateWith23Arguments(
       alice,
       true,

@@ -115,7 +115,6 @@ object ReferenceServer {
         config.address,
         config.jdbcUrl,
         config.tlsConfig,
-        config.timeProvider,
         config.maxInboundMessageSize,
         config.portFile,
       ),

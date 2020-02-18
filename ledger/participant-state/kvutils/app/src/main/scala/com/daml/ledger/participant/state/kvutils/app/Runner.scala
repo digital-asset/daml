@@ -11,7 +11,6 @@ import akka.stream.Materializer
 import com.codahale.metrics.SharedMetricRegistries
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.v1.{ReadService, SubmissionId, WriteService}
-import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
@@ -45,21 +44,23 @@ class Runner[T <: KeyValueLedger, Extra](name: String, factory: LedgerFactory[T,
     implicit val materializer: Materializer = Materializer(system)
     implicit val executionContext: ExecutionContext = system.dispatcher
 
-    for {
-      // Take ownership of the actor system and materializer so they're cleaned up properly.
-      // This is necessary because we can't declare them as implicits within a `for` comprehension.
-      _ <- AkkaResourceOwner.forActorSystem(() => system)
-      _ <- AkkaResourceOwner.forMaterializer(() => materializer)
+    newLoggingContext { implicit logCtx =>
+      for {
+        // Take ownership of the actor system and materializer so they're cleaned up properly.
+        // This is necessary because we can't declare them as implicits within a `for` comprehension.
+        _ <- AkkaResourceOwner.forActorSystem(() => system)
+        _ <- AkkaResourceOwner.forMaterializer(() => materializer)
 
-      ledgerId = config.ledgerId.getOrElse(
-        Ref.LedgerString.assertFromString(UUID.randomUUID.toString))
-      readerWriter <- factory
-        .owner(ledgerId, config.participantId, config.extra)
-      ledger = new KeyValueParticipantState(readerWriter, readerWriter)
-      _ <- ResourceOwner.forFuture(() =>
-        Future.sequence(config.archiveFiles.map(uploadDar(_, ledger))))
-      _ <- startParticipant(config, ledger)
-    } yield ()
+        ledgerId = config.ledgerId.getOrElse(
+          Ref.LedgerString.assertFromString(UUID.randomUUID.toString))
+        readerWriter <- factory
+          .owner(ledgerId, config.participantId, config.extra)
+        ledger = new KeyValueParticipantState(readerWriter, readerWriter)
+        _ <- ResourceOwner.forFuture(() =>
+          Future.sequence(config.archiveFiles.map(uploadDar(_, ledger))))
+        _ <- startParticipant(config, ledger)
+      } yield ()
+    }
   }
 
   private def uploadDar(from: Path, to: KeyValueParticipantState)(
@@ -74,19 +75,18 @@ class Runner[T <: KeyValueLedger, Extra](name: String, factory: LedgerFactory[T,
   }
 
   private def startParticipant(config: Config[Extra], ledger: KeyValueParticipantState)(
-      implicit executionContext: ExecutionContext
+      implicit executionContext: ExecutionContext,
+      logCtx: LoggingContext,
   ): ResourceOwner[Unit] =
-    newLoggingContext { implicit logCtx =>
-      for {
-        _ <- startIndexerServer(config, readService = ledger)
-        _ <- startApiServer(
-          config,
-          readService = ledger,
-          writeService = ledger,
-          authService = AuthServiceWildcard,
-        )
-      } yield ()
-    }
+    for {
+      _ <- startIndexerServer(config, readService = ledger)
+      _ <- startApiServer(
+        config,
+        readService = ledger,
+        writeService = ledger,
+        authService = AuthServiceWildcard,
+      )
+    } yield ()
 
   private def startIndexerServer(
       config: Config[Extra],
@@ -111,15 +111,14 @@ class Runner[T <: KeyValueLedger, Extra](name: String, factory: LedgerFactory[T,
   )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): ResourceOwner[Unit] =
     new StandaloneApiServer(
       ApiServerConfig(
-        config.participantId,
-        config.archiveFiles.map(_.toFile).toList,
-        config.port,
-        config.address,
+        participantId = config.participantId,
+        archiveFiles = config.archiveFiles.map(_.toFile).toList,
+        port = config.port,
+        address = config.address,
         jdbcUrl = config.serverJdbcUrl,
         tlsConfig = None,
-        TimeProvider.UTC,
-        Config.DefaultMaxInboundMessageSize,
-        config.portFile,
+        maxInboundMessageSize = Config.DefaultMaxInboundMessageSize,
+        portFile = config.portFile,
       ),
       readService,
       writeService,

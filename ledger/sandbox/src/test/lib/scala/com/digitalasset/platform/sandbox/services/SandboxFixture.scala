@@ -92,7 +92,7 @@ trait SandboxFixture extends SuiteResource[(SandboxServer, Channel)] with Before
       .copy(
         port = 0, //dynamic port allocation
         damlPackages = packageFiles,
-        timeProviderType = TimeProviderType.Static,
+        timeProviderType = Some(TimeProviderType.Static),
         timeModel = TimeModel.reasonableDefault,
         scenario = scenario,
         ledgerIdMode = LedgerIdMode.Static(LedgerId("sandbox-server"))

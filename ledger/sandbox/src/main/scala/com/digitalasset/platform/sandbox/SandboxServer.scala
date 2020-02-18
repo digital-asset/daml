@@ -234,13 +234,12 @@ final class SandboxServer(
 
     val (acs, ledgerEntries, mbLedgerTime) = createInitialState(config, packageStore)
 
+    val timeProviderType = config.timeProviderType.getOrElse(TimeProviderType.Static)
     val (timeProvider, timeServiceBackendO: Option[TimeServiceBackend]) =
-      (mbLedgerTime, config.timeProviderType) match {
+      (mbLedgerTime, timeProviderType) match {
         case (None, TimeProviderType.WallClock) => (TimeProvider.UTC, None)
         case (ledgerTime, _) =>
-          val ts = TimeServiceBackend.simple(
-            ledgerTime.getOrElse(Instant.EPOCH),
-            config.timeProviderType == TimeProviderType.StaticAllowBackwards)
+          val ts = TimeServiceBackend.simple(ledgerTime.getOrElse(Instant.EPOCH))
           (ts, Some(ts))
       }
 
@@ -329,7 +328,7 @@ final class SandboxServer(
           ledgerId,
           apiServer.port.toString,
           config.damlPackages,
-          config.timeProviderType,
+          timeProviderType.description,
           ledgerType,
           authService.getClass.getSimpleName
         )

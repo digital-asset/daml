@@ -13,32 +13,14 @@ import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.services.time.TimeProviderType
 import org.apache.commons.io.FileUtils
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.{Assertion, Matchers, WordSpec}
 
 class CliSpec extends WordSpec with Matchers {
 
   private val archive = rlocation("ledger/test-common/Test-stable.dar")
   private val nonExistingArchive = "whatever.dar"
-  private val invalidArchive = createTempFile.getAbsolutePath
+  private val invalidArchive = createTempFile().getAbsolutePath
   private val defaultConfig = SandboxConfig.default
-
-  private def checkOption(
-      options: Array[String],
-      expectedChange: SandboxConfig => SandboxConfig) = {
-    val expectedConfig = expectedChange(defaultConfig.copy(damlPackages = List(new File(archive))))
-
-    val config =
-      Cli.parse(options ++: Array(archive))
-
-    config shouldEqual Some(expectedConfig)
-  }
-
-  private def createTempFile(): File = {
-    val tempFile = File.createTempFile("invalid-archive", ".dar.tmp")
-    FileUtils.writeByteArrayToFile(tempFile, "NOT A ZIP".getBytes)
-    tempFile.deleteOnExit
-    tempFile
-  }
 
   "Cli" should {
 
@@ -65,70 +47,76 @@ class CliSpec extends WordSpec with Matchers {
 
     "parse the port when given" in {
       val port = "1234"
-      checkOption(Array(s"-p", port), _.copy(port = port.toInt))
-      checkOption(Array(s"--port", port), _.copy(port = port.toInt))
+      checkOption(Array("-p", port), _.copy(port = port.toInt))
+      checkOption(Array("--port", port), _.copy(port = port.toInt))
     }
 
     "parse the address when given" in {
       val address = "myhost"
-      checkOption(Array(s"-a", address), _.copy(address = Some(address)))
-      checkOption(Array(s"--address", address), _.copy(address = Some(address)))
+      checkOption(Array("-a", address), _.copy(address = Some(address)))
+      checkOption(Array("--address", address), _.copy(address = Some(address)))
     }
 
     "apply static time when given" in {
-      checkOption(Array(s"-s"), _.copy(timeProviderType = TimeProviderType.Static))
-      checkOption(Array(s"--static-time"), _.copy(timeProviderType = TimeProviderType.Static))
+      checkOption(Array("-s"), _.copy(timeProviderType = Some(TimeProviderType.Static)))
+      checkOption(Array("--static-time"), _.copy(timeProviderType = Some(TimeProviderType.Static)))
     }
 
     "apply wall-clock time when given" in {
       checkOption(
-        Array(s"--wall-clock-time"),
-        _.copy(timeProviderType = TimeProviderType.WallClock))
-      checkOption(Array(s"-w"), _.copy(timeProviderType = TimeProviderType.WallClock))
+        Array("--wall-clock-time"),
+        _.copy(timeProviderType = Some(TimeProviderType.WallClock)))
+      checkOption(Array("-w"), _.copy(timeProviderType = Some(TimeProviderType.WallClock)))
+    }
+
+    "return None when both static and wall-clock time are given" in {
+      val config = Cli.parse(Array("--static-time", "--wall-clock-time"))
+      config shouldEqual None
     }
 
     "parse the scenario when given" in {
       val scenario = "myscenario"
-      checkOption(Array(s"--scenario", scenario), _.copy(scenario = Some(scenario)))
+      checkOption(Array("--scenario", scenario), _.copy(scenario = Some(scenario)))
     }
 
     "parse the crt file when given" in {
       val crt = "mycrt"
       checkOption(
-        Array(s"--crt", crt),
-        _.copy(tlsConfig = Some(TlsConfiguration(true, Some(new File(crt)), None, None))))
+        Array("--crt", crt),
+        _.copy(tlsConfig = Some(TlsConfiguration(enabled = true, Some(new File(crt)), None, None))))
     }
 
     "parse the cacrt file when given" in {
       val cacrt = "mycacrt"
       checkOption(
-        Array(s"--cacrt", cacrt),
-        _.copy(tlsConfig = Some(TlsConfiguration(true, None, None, Some(new File(cacrt))))))
+        Array("--cacrt", cacrt),
+        _.copy(
+          tlsConfig = Some(TlsConfiguration(enabled = true, None, None, Some(new File(cacrt))))))
     }
 
     "parse the pem file when given" in {
       val pem = "mypem"
       checkOption(
-        Array(s"--pem", pem),
-        _.copy(tlsConfig = Some(TlsConfiguration(true, None, Some(new File(pem)), None))))
+        Array("--pem", pem),
+        _.copy(tlsConfig = Some(TlsConfiguration(enabled = true, None, Some(new File(pem)), None))))
     }
 
     "parse the ledger id when given" in {
       val ledgerId = "myledger"
       checkOption(
-        Array(s"--ledgerid", ledgerId),
+        Array("--ledgerid", ledgerId),
         _.copy(ledgerIdMode =
           LedgerIdMode.Static(LedgerId(Ref.LedgerString.assertFromString(ledgerId)))))
     }
 
     "parse the jdbcurl (deprecated) when given" in {
       val jdbcUrl = "jdbc:postgresql://localhost:5432/test?user=test"
-      checkOption(Array(s"--jdbcurl", jdbcUrl), _.copy(jdbcUrl = Some(jdbcUrl)))
+      checkOption(Array("--jdbcurl", jdbcUrl), _.copy(jdbcUrl = Some(jdbcUrl)))
     }
 
     "parse the sql backend flag when given" in {
       val jdbcUrl = "jdbc:postgresql://localhost:5432/test?user=test"
-      checkOption(Array(s"--sql-backend-jdbcurl", jdbcUrl), _.copy(jdbcUrl = Some(jdbcUrl)))
+      checkOption(Array("--sql-backend-jdbcurl", jdbcUrl), _.copy(jdbcUrl = Some(jdbcUrl)))
     }
 
     "parse the eager package loading flag when given" in {
@@ -136,4 +124,22 @@ class CliSpec extends WordSpec with Matchers {
     }
   }
 
+  private def checkOption(
+      options: Array[String],
+      expectedChange: SandboxConfig => SandboxConfig
+  ): Assertion = {
+    val expectedConfig = expectedChange(defaultConfig.copy(damlPackages = List(new File(archive))))
+
+    val config =
+      Cli.parse(options ++ Array(archive))
+
+    config shouldEqual Some(expectedConfig)
+  }
+
+  private def createTempFile(): File = {
+    val tempFile = File.createTempFile("invalid-archive", ".dar.tmp")
+    FileUtils.writeByteArrayToFile(tempFile, "NOT A ZIP".getBytes)
+    tempFile.deleteOnExit()
+    tempFile
+  }
 }

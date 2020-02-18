@@ -4,6 +4,7 @@
 package com.digitalasset.platform.sandboxnext
 
 import java.io.File
+import java.time.{Clock, Instant}
 import java.util.UUID
 
 import akka.actor.ActorSystem
@@ -14,14 +15,17 @@ import com.daml.ledger.on.sql.SqlLedgerReaderWriter
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.{ReadService, WriteService}
-import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.auth.{AuthService, AuthServiceWildcard}
 import com.digitalasset.logging.LoggingContext.newLoggingContext
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
-import com.digitalasset.platform.apiserver.{ApiServerConfig, StandaloneApiServer}
+import com.digitalasset.platform.apiserver.{
+  ApiServerConfig,
+  StandaloneApiServer,
+  TimeServiceBackend
+}
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.configuration.BuildInfo
 import com.digitalasset.platform.indexer.{
@@ -32,6 +36,7 @@ import com.digitalasset.platform.indexer.{
 import com.digitalasset.platform.sandbox.banner.Banner
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.sandboxnext.Runner._
+import com.digitalasset.platform.services.time.TimeProviderType
 import com.digitalasset.resources.ResourceOwner
 import com.digitalasset.resources.akka.AkkaResourceOwner
 import scalaz.syntax.tag._
@@ -45,7 +50,9 @@ import scala.util.Try
   *
   * Known issues:
   *   - does not support authorization
-  *   - does not support static time
+  *   - does not support implicit party allocation
+  *   - does not support scenarios
+  *   - does not emit heartbeats
   *   - does not provide the reset service
   */
 class Runner {
@@ -70,6 +77,21 @@ class Runner {
       case None => ("in-memory", InMemoryLedgerJdbcUrl, InMemoryIndexJdbcUrl)
     }
 
+    val timeProviderType = config.timeProviderType.getOrElse(TimeProviderType.Static)
+    val timeServiceBackend = timeProviderType match {
+      case TimeProviderType.Static =>
+        Some(TimeServiceBackend.simple(Instant.EPOCH))
+      case TimeProviderType.WallClock =>
+        None
+    }
+    val now: () => Instant = timeServiceBackend
+      .map(backend => () => backend.getCurrentTime)
+      .getOrElse({
+        val clock = Clock.systemUTC()
+        () =>
+          clock.instant()
+      })
+
     newLoggingContext { implicit logCtx =>
       for {
         // Take ownership of the actor system and materializer so they're cleaned up properly.
@@ -77,11 +99,11 @@ class Runner {
         _ <- AkkaResourceOwner.forActorSystem(() => system)
         _ <- AkkaResourceOwner.forMaterializer(() => materializer)
         readerWriter <- SqlLedgerReaderWriter
-          .owner(ledgerId, ParticipantId, ledgerJdbcUrl)
+          .owner(ledgerId, ParticipantId, ledgerJdbcUrl, now)
         ledger = new KeyValueParticipantState(readerWriter, readerWriter)
         _ <- ResourceOwner.forFuture(() =>
           Future.sequence(config.damlPackages.map(uploadDar(_, ledger))))
-        _ <- startParticipant(config, indexJdbcUrl, ledger)
+        _ <- startParticipant(config, indexJdbcUrl, ledger, timeServiceBackend)
       } yield {
         Banner.show(Console.out)
         logger.withoutContext.info(
@@ -91,7 +113,7 @@ class Runner {
           // TODO: Deliver the API server port.
           0.toString,
           config.damlPackages,
-          config.timeProviderType,
+          timeProviderType.description,
           ledgerType,
           // TODO: Use the correct authorization service.
           AuthServiceWildcard.getClass.getSimpleName,
@@ -115,6 +137,7 @@ class Runner {
       config: SandboxConfig,
       indexJdbcUrl: String,
       ledger: KeyValueParticipantState,
+      timeServiceBackend: Option[TimeServiceBackend],
   )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): ResourceOwner[Unit] =
     for {
       _ <- startIndexerServer(config, indexJdbcUrl, readService = ledger)
@@ -124,6 +147,7 @@ class Runner {
         readService = ledger,
         writeService = ledger,
         authService = AuthServiceWildcard,
+        timeServiceBackend,
       )
     } yield ()
 
@@ -149,6 +173,7 @@ class Runner {
       readService: ReadService,
       writeService: WriteService,
       authService: AuthService,
+      timeServiceBackend: Option[TimeServiceBackend],
   )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): ResourceOwner[Unit] =
     new StandaloneApiServer(
       ApiServerConfig(
@@ -158,7 +183,6 @@ class Runner {
         config.address,
         jdbcUrl = indexJdbcUrl,
         tlsConfig = None,
-        TimeProvider.UTC,
         DefaultMaxInboundMessageSize,
         config.portFile,
       ),
@@ -166,6 +190,7 @@ class Runner {
       writeService,
       authService,
       SharedMetricRegistries.getOrCreate(s"ledger-api-server-$ParticipantId"),
+      timeServiceBackend = timeServiceBackend,
     )
 }
 
