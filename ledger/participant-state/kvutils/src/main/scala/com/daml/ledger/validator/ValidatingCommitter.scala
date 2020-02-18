@@ -3,7 +3,7 @@
 
 package com.daml.ledger.validator
 
-import java.time.Clock
+import java.time.Instant
 
 import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
 import com.daml.ledger.validator.ValidationFailed.{MissingInputState, ValidationError}
@@ -15,7 +15,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class ValidatingCommitter[LogResult](
     participantId: ParticipantId,
-    clock: Clock,
+    now: () => Instant,
     validator: SubmissionValidator[LogResult],
     postCommit: LogResult => Unit,
 ) {
@@ -28,7 +28,7 @@ class ValidatingCommitter[LogResult](
         .validateAndCommit(
           envelope,
           correlationId,
-          Timestamp.assertFromInstant(clock.instant()),
+          Timestamp.assertFromInstant(now()),
           participantId,
         )
         .map {

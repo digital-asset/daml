@@ -4,7 +4,7 @@
 package com.daml.ledger.on.sql
 
 import java.sql.Connection
-import java.time.Clock
+import java.time.{Clock, Instant}
 import java.util.UUID
 
 import akka.NotUsed
@@ -34,7 +34,7 @@ import scala.concurrent.{ExecutionContext, Future}
 class SqlLedgerReaderWriter(
     override val ledgerId: LedgerId = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
     val participantId: ParticipantId,
-    clock: Clock,
+    now: () => Instant,
     database: Database,
     dispatcher: Dispatcher[Index],
 )(
@@ -48,7 +48,7 @@ class SqlLedgerReaderWriter(
 
   private val committer = new ValidatingCommitter[Index](
     participantId,
-    clock,
+    now,
     SubmissionValidator.create(SqlLedgerStateAccess),
     latestSequenceNo => dispatcher.signalNewHead(latestSequenceNo + 1),
   )
@@ -107,11 +107,13 @@ class SqlLedgerReaderWriter(
 object SqlLedgerReaderWriter {
   private val StartOffset: Offset = Offset(Array(StartIndex))
 
+  private val DefaultClock: Clock = Clock.systemUTC()
+
   def owner(
       ledgerId: LedgerId,
       participantId: ParticipantId,
       jdbcUrl: String,
-      clock: Clock = Clock.systemUTC(),
+      now: () => Instant = () => DefaultClock.instant(),
   )(
       implicit executionContext: ExecutionContext,
       materializer: Materializer,
@@ -131,5 +133,5 @@ object SqlLedgerReaderWriter {
             zeroIndex = StartIndex,
             headAtInitialization = head,
         ))
-    } yield new SqlLedgerReaderWriter(ledgerId, participantId, clock, database, dispatcher)
+    } yield new SqlLedgerReaderWriter(ledgerId, participantId, now, database, dispatcher)
 }

@@ -84,7 +84,13 @@ class Runner {
       case TimeProviderType.WallClock =>
         None
     }
-    val clock = timeServiceBackend.map(_.clock).getOrElse(Clock.systemUTC())
+    val now: () => Instant = timeServiceBackend
+      .map(backend => () => backend.getCurrentTime)
+      .getOrElse({
+        val clock = Clock.systemUTC()
+        () =>
+          clock.instant()
+      })
 
     newLoggingContext { implicit logCtx =>
       for {
@@ -93,7 +99,7 @@ class Runner {
         _ <- AkkaResourceOwner.forActorSystem(() => system)
         _ <- AkkaResourceOwner.forMaterializer(() => materializer)
         readerWriter <- SqlLedgerReaderWriter
-          .owner(ledgerId, ParticipantId, ledgerJdbcUrl, clock)
+          .owner(ledgerId, ParticipantId, ledgerJdbcUrl, now)
         ledger = new KeyValueParticipantState(readerWriter, readerWriter)
         _ <- ResourceOwner.forFuture(() =>
           Future.sequence(config.damlPackages.map(uploadDar(_, ledger))))

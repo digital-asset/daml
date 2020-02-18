@@ -31,20 +31,6 @@ class SimpleTimeServiceBackendSpec extends WordSpec with Matchers with ScalaFutu
       }
       timeService.getCurrentTime should be(instantAt(month = 2))
     }
-
-    "produce a clock" in {
-      val timeService = TimeServiceBackend.simple(instantAt(month = 1))
-      val clock = timeService.clock
-      clock.instant() should be(instantAt(month = 1))
-      whenReady(timeService.setCurrentTime(instantAt(month = 1), instantAt(month = 2))) { result =>
-        result should be(true)
-        clock.instant() should be(instantAt(month = 2))
-      }
-      whenReady(timeService.setCurrentTime(instantAt(month = 2), instantAt(month = 3))) { result =>
-        result should be(true)
-        clock.instant() should be(instantAt(month = 3))
-      }
-    }
   }
 
   // always construct new instants to avoid sharing references, which would allow us to cheat when

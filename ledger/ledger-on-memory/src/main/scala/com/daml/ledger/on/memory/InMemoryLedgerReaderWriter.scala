@@ -3,7 +3,7 @@
 
 package com.daml.ledger.on.memory
 
-import java.time.Clock
+import java.time.{Clock, Instant}
 import java.util.concurrent.Semaphore
 
 import akka.NotUsed
@@ -47,7 +47,7 @@ private[memory] class InMemoryState(
 final class InMemoryLedgerReaderWriter(
     override val ledgerId: LedgerId,
     override val participantId: ParticipantId,
-    clock: Clock,
+    now: () => Instant,
     dispatcher: Dispatcher[Index],
 )(
     implicit executionContext: ExecutionContext,
@@ -61,7 +61,7 @@ final class InMemoryLedgerReaderWriter(
 
   private val committer = new ValidatingCommitter(
     participantId,
-    clock,
+    now,
     SubmissionValidator.create(InMemoryLedgerStateAccess, () => sequentialLogEntryId.next()),
     dispatcher.signalNewHead,
   )
@@ -135,12 +135,14 @@ object InMemoryLedgerReaderWriter {
 
   private val NamespaceLogEntries = "L"
 
+  private val DefaultClock: Clock = Clock.systemUTC()
+
   private val sequentialLogEntryId = new SequentialLogEntryId(NamespaceLogEntries)
 
   def owner(
       ledgerId: LedgerId,
       participantId: ParticipantId,
-      clock: Clock = Clock.systemUTC(),
+      now: () => Instant = () => DefaultClock.instant(),
   )(
       implicit executionContext: ExecutionContext,
       logCtx: LoggingContext,
@@ -153,5 +155,5 @@ object InMemoryLedgerReaderWriter {
             zeroIndex = StartIndex,
             headAtInitialization = StartIndex,
         ))
-    } yield new InMemoryLedgerReaderWriter(ledgerId, participantId, clock, dispatcher)
+    } yield new InMemoryLedgerReaderWriter(ledgerId, participantId, now, dispatcher)
 }

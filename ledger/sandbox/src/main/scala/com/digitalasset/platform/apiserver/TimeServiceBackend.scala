@@ -12,8 +12,6 @@ import com.digitalasset.dec.DirectExecutionContext
 import scala.concurrent.Future
 
 trait TimeServiceBackend extends TimeProvider {
-  def clock = new TimeServiceBackendClock(this)
-
   def getCurrentTime: Instant
 
   def setCurrentTime(currentTime: Instant, newTime: Instant): Future[Boolean]
