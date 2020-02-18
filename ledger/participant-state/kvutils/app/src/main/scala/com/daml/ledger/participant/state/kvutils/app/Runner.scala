@@ -11,7 +11,6 @@ import akka.stream.Materializer
 import com.codahale.metrics.SharedMetricRegistries
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.v1.{ReadService, SubmissionId, WriteService}
-import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
@@ -112,15 +111,14 @@ class Runner[T <: KeyValueLedger, Extra](name: String, factory: LedgerFactory[T,
   )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): ResourceOwner[Unit] =
     new StandaloneApiServer(
       ApiServerConfig(
-        config.participantId,
-        config.archiveFiles.map(_.toFile).toList,
-        config.port,
-        config.address,
+        participantId = config.participantId,
+        archiveFiles = config.archiveFiles.map(_.toFile).toList,
+        port = config.port,
+        address = config.address,
         jdbcUrl = config.serverJdbcUrl,
         tlsConfig = None,
-        TimeProvider.UTC,
-        Config.DefaultMaxInboundMessageSize,
-        config.portFile,
+        maxInboundMessageSize = Config.DefaultMaxInboundMessageSize,
+        portFile = config.portFile,
       ),
       readService,
       writeService,

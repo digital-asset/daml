@@ -7,7 +7,6 @@ import java.io.File
 import java.nio.file.Path
 
 import com.daml.ledger.participant.state.v1.ParticipantId
-import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.platform.indexer.IndexerStartupMode
 
@@ -17,7 +16,6 @@ final case class Config(
     portFile: Option[Path],
     archiveFiles: List[File],
     maxInboundMessageSize: Int,
-    timeProvider: TimeProvider, // enables use of non-wall-clock time in tests
     jdbcUrl: String,
     tlsConfig: Option[TlsConfiguration],
     participantId: ParticipantId,
@@ -38,7 +36,6 @@ object Config {
       portFile = None,
       archiveFiles = List.empty,
       maxInboundMessageSize = DefaultMaxInboundMessageSize,
-      timeProvider = TimeProvider.UTC,
       jdbcUrl = "",
       tlsConfig = None,
       participantId = ParticipantId.assertFromString("standalone-participant"),

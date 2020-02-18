@@ -404,7 +404,7 @@ NEXT_SERVERS = {
 }
 
 server_conformance_test(
-    name = "next-conformance-test-wall-clock",
+    name = "next-conformance-test-static-time",
     server_args = [
         "--static-time",
     ],
@@ -416,9 +416,21 @@ server_conformance_test(
 )
 
 server_conformance_test(
-    name = "next-conformance-test-wall-clock-config-management",
+    name = "next-conformance-test-wall-clock-time",
     server_args = [
-        "--static-time",
+        "--wall-clock-time",
+    ],
+    servers = NEXT_SERVERS,
+    test_tool_args = [
+        "--all-tests",
+        "--exclude=ConfigManagementServiceIT",
+    ],
+)
+
+server_conformance_test(
+    name = "next-conformance-test-config-management",
+    server_args = [
+        "--wall-clock-time",
     ],
     servers = NEXT_SERVERS,
     test_tool_args = [
