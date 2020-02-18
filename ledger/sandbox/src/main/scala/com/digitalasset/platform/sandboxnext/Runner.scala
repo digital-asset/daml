@@ -48,7 +48,9 @@ import scala.util.Try
   *
   * Known issues:
   *   - does not support authorization
+  *   - does not support implicit party allocation
   *   - does not support static time
+  *   - does not support scenarios
   *   - does not provide the reset service
   */
 class Runner {
