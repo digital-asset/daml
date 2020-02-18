@@ -39,10 +39,10 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
 
   private var rt: Timestamp = _
 
-  // This can be overriden by tests for ledgers that don't start at 0.
+  // This can be overridden by tests for ledgers that don't start at 0.
   protected val startIndex: Long = 0
 
-  // This can be overriden by tests for in-memory or otherwise ephemeral ledgers.
+  // This can be overridden by tests for in-memory or otherwise ephemeral ledgers.
   protected val isPersistent: Boolean = true
 
   protected def participantStateFactory(
