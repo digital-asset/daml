@@ -1629,23 +1629,10 @@ private class JdbcLedgerDao(
     }
   }
 
-  private val SQL_REMOVE_OLD_COMMAND = SQL(
-    """
-      |delete from participant_command_submissions
-      |where deduplication_key = {deduplicationKey} and {submittedAt} < ttl
-    """.stripMargin)
-
-  private val SQL_SELECT_COMMAND = SQL(
-    """
+  private val SQL_SELECT_COMMAND = SQL("""
       |select submitted_at, ttl, success, error
       |from participant_command_submissions
-      |where deduplication_key = {deduplicationKey} and {submittedAt} < ttl
-    """.stripMargin)
-
-  private val SQL_INSERT_COMMAND = SQL(
-    """
-      |insert into participant_command_submissions(deduplication_key, submitted_at, ttl)
-      |values ({deduplicationKey}, {submittedAt}, {ttl})
+      |where deduplication_key = {deduplicationKey}
     """.stripMargin)
 
   case class ParsedCommandData(
@@ -1667,52 +1654,42 @@ private class JdbcLedgerDao(
       submittedAt: Instant,
       ttl: Instant): Future[Option[CommandDeduplicationEntry]] =
     dbDispatcher.executeSql("deduplicate_command") { implicit conn =>
-      // Remove expired deduplication rows
-      SQL_REMOVE_OLD_COMMAND
-        .on("deduplicationKey" -> deduplicationKey, "submittedAt" -> submittedAt)
-        .execute()
+      // Insert a new deduplication entry, or update an expired entry
+      val updated = SQL(queries.SQL_INSERT_COMMAND)
+        .on("deduplicationKey" -> deduplicationKey, "submittedAt" -> submittedAt, "ttl" -> ttl)
+        .executeUpdate()
 
-      // Try to insert a new deduplication row.
-      // If the row already exists and the insert fails, select the existing row.
-      Try(
-        SQL_INSERT_COMMAND
-          .on("deduplicationKey" -> deduplicationKey, "submittedAt" -> submittedAt, "ttl" -> ttl)
-          .execute()
-      ).fold(
-        _ =>
-          Try(
-            SQL_SELECT_COMMAND
-              .on("deduplicationKey" -> deduplicationKey, "submittedAt" -> submittedAt)
-              .as(CommandDataParser.single)
-          ).fold(
-            error => sys.error(s"Could not find deduplication data: $error"), {
-              case ParsedCommandData(originalSubmittedAt, originalTtl, None, None) =>
-                Some(
-                  CommandDeduplicationEntry(
-                    deduplicationKey,
-                    originalSubmittedAt,
-                    originalTtl,
-                    None))
-              case ParsedCommandData(originalSubmittedAt, originalTtl, Some(true), None) =>
-                Some(
-                  CommandDeduplicationEntry(
-                    deduplicationKey,
-                    originalSubmittedAt,
-                    originalTtl,
-                    Some(Right(()))))
-              case ParsedCommandData(originalSubmittedAt, originalTtl, Some(false), Some(error)) =>
-                Some(
-                  CommandDeduplicationEntry(
-                    deduplicationKey,
-                    originalSubmittedAt,
-                    originalTtl,
-                    Some(Left(error))))
-              case data =>
-                sys.error(s"Invalid command deduplication row $data")
-            }
-        ),
-        _ => None
-      )
+      if (updated == 1) {
+        // New row inserted, this is the first time the command is submitted
+        None
+      } else {
+        // Deduplication row already exists
+        val result = SQL_SELECT_COMMAND
+          .on("deduplicationKey" -> deduplicationKey)
+          .as(CommandDataParser.single)
+
+        result match {
+          case ParsedCommandData(originalSubmittedAt, originalTtl, None, None) =>
+            Some(
+              CommandDeduplicationEntry(deduplicationKey, originalSubmittedAt, originalTtl, None))
+          case ParsedCommandData(originalSubmittedAt, originalTtl, Some(true), None) =>
+            Some(
+              CommandDeduplicationEntry(
+                deduplicationKey,
+                originalSubmittedAt,
+                originalTtl,
+                Some(Right(()))))
+          case ParsedCommandData(originalSubmittedAt, originalTtl, Some(false), Some(error)) =>
+            Some(
+              CommandDeduplicationEntry(
+                deduplicationKey,
+                originalSubmittedAt,
+                originalTtl,
+                Some(Left(error))))
+          case data =>
+            sys.error(s"Invalid command deduplication row $data")
+        }
+      }
     }
 
   private val SQL_UPDATE_COMMAND = SQL(
@@ -1809,6 +1786,7 @@ object JdbcLedgerDao {
     protected[JdbcLedgerDao] def SQL_INSERT_CONTRACT_DATA: String
     protected[JdbcLedgerDao] def SQL_INSERT_PACKAGE: String
     protected[JdbcLedgerDao] def SQL_IMPLICITLY_INSERT_PARTIES: String
+    protected[JdbcLedgerDao] def SQL_INSERT_COMMAND: String
 
     protected[JdbcLedgerDao] def SQL_SELECT_ACTIVE_CONTRACTS: String
 
@@ -1840,6 +1818,14 @@ object JdbcLedgerDao {
       """insert into parties(party, explicit, ledger_offset)
         |values({name}, {explicit}, {ledger_offset})
         |on conflict (party) do nothing""".stripMargin
+
+    override protected[JdbcLedgerDao] val SQL_INSERT_COMMAND: String =
+      """insert into participant_command_submissions as pcs (deduplication_key, submitted_at, ttl)
+        |values ({deduplicationKey}, {submittedAt}, {ttl})
+        |on conflict (deduplication_key)
+        |  do update
+        |  set submitted_at={submittedAt}, ttl={ttl}
+        |  where pcs.ttl < {submittedAt}""".stripMargin
 
     override protected[JdbcLedgerDao] val SQL_BATCH_INSERT_DIVULGENCES: String =
       """insert into contract_divulgences(contract_id, party, ledger_offset, transaction_id)
@@ -1903,6 +1889,15 @@ object JdbcLedgerDao {
     override protected[JdbcLedgerDao] val SQL_IMPLICITLY_INSERT_PARTIES: String =
       """merge into parties using dual on party = {name}
         |when not matched then insert (party, explicit, ledger_offset) values ({name}, {explicit}, {ledger_offset})""".stripMargin
+
+    override protected[JdbcLedgerDao] val SQL_INSERT_COMMAND: String =
+      """merge into participant_command_submissions pcs
+        |using dual on deduplication_key = {deduplicationKey}
+        |when not matched then
+        |  insert (deduplication_key, submitted_at, ttl)
+        |  values ({deduplicationKey}, {submittedAt}, {ttl})
+        |when matched and pcs.ttl < {submittedAt} then
+        |  update set submitted_at={submittedAt}, ttl={ttl}""".stripMargin
 
     override protected[JdbcLedgerDao] val SQL_BATCH_INSERT_DIVULGENCES: String =
       """merge into contract_divulgences using dual on contract_id = {contract_id} and party = {party}
