@@ -162,9 +162,9 @@ createProjectPackageDb projectRoot opts thisSdkVer deps dataDeps
     -- All transitive packages from DARs specified in  `dependencies`. This is only used for unit-id collision checks.
     transitiveDependencies <- fmap concat $ forM depsExtracted $ \ExtractedDar{..} -> forM edDalfs $ \zipEntry -> do
        let bytes = BSL.toStrict $ ZipArchive.fromEntry zipEntry
-       (pkgId, _) <- liftIO $
+       pkgId <- liftIO $
             either (fail . DA.Pretty.renderPretty) pure $
-            Archive.decodeArchivePayload bytes
+            Archive.decodeArchivePackageId bytes
        let unitId = parseUnitId (takeBaseName $ ZipArchive.eRelativePath zipEntry) pkgId
        pure (pkgId, stringToUnitId unitId)
 
