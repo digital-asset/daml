@@ -42,31 +42,26 @@ object TestHelpers {
       }
     """
 
-  def archiveWithContractData(additionalContractDataType: String): DamlLf.Archive = {
-    val damlPackage = damlPackageWithContractData(additionalContractDataType)
+  def archiveWithContractData(additionalContractDataType: String): DamlLf.Archive =
     Encode.encodeArchive(
-      defaultParserParameters.defaultPackageId -> damlPackage,
+      defaultParserParameters.defaultPackageId -> damlPackageWithContractData(
+        additionalContractDataType),
       defaultParserParameters.languageVersion)
-  }
 
-  def packageIdWithContractData(additionalContractDataType: String): IdString.PackageId = {
-    val arc = archiveWithContractData(additionalContractDataType)
-    Ref.PackageId.assertFromString(arc.getHash)
-  }
+  def packageIdWithContractData(additionalContractDataType: String): IdString.PackageId =
+    Ref.PackageId.assertFromString(archiveWithContractData(additionalContractDataType).getHash)
 
   def typeConstructorId(ty: String, typeConstructor: String): Ref.Identifier =
     Ref.Identifier(packageIdWithContractData(ty), QualifiedName.assertFromString(typeConstructor))
 
   def typeConstructorId(ty: String): Ref.Identifier = typeConstructorId(ty, ty)
 
-  def name(v: String): Ref.Name = Ref.Name.assertFromString(v)
+  def name(value: String): Ref.Name = Ref.Name.assertFromString(value)
 
-  def party(v: String): Ref.Party = Ref.Party.assertFromString(v)
+  def party(value: String): Ref.Party = Ref.Party.assertFromString(value)
 
-  def decodedPackageWithContractData(additionalContractDataType: String): Ast.Package = {
-    val arc = archiveWithContractData(additionalContractDataType)
-    Decode.decodeArchive(arc)._2
-  }
+  def decodedPackageWithContractData(additionalContractDataType: String): Ast.Package =
+    Decode.decodeArchive(archiveWithContractData(additionalContractDataType))._2
 
   val badArchive: DamlLf.Archive =
     DamlLf.Archive.newBuilder
@@ -80,10 +75,9 @@ object TestHelpers {
       owner: String,
       observer: String,
       additionalContractDataType: String,
-      additionalContractValue: Value[Value.AbsoluteContractId]): Value[Value.AbsoluteContractId] = {
-    val tId = templateIdWith(additionalContractDataType)
+      additionalContractValue: Value[Value.AbsoluteContractId]): Value[Value.AbsoluteContractId] =
     Value.ValueRecord(
-      Some(tId),
+      Some(templateIdWith(additionalContractDataType)),
       ImmArray(
         Some(Ref.Name.assertFromString("owner")) -> Value.ValueParty(
           Ref.Party.assertFromString(owner)),
@@ -92,19 +86,15 @@ object TestHelpers {
         Some(Ref.Name.assertFromString("contractData")) -> additionalContractValue
       )
     )
-  }
 
-  def templateIdWith(additionalContractDataType: String): Ref.Identifier = {
-    val pId = packageIdWithContractData(additionalContractDataType)
-    val qualifiedName = Ref.QualifiedName(
-      Ref.ModuleName.assertFromString("Simple"),
-      Ref.DottedName.assertFromString("SimpleTemplate")
-    )
+  def templateIdWith(additionalContractDataType: String): Ref.Identifier =
     Ref.Identifier(
-      pId,
-      qualifiedName
+      packageIdWithContractData(additionalContractDataType),
+      Ref.QualifiedName(
+        Ref.ModuleName.assertFromString("Simple"),
+        Ref.DottedName.assertFromString("SimpleTemplate")
+      )
     )
-  }
 
   val theRecordTime: Timestamp = Timestamp.Epoch
   val theDefaultConfig = Configuration(
@@ -112,11 +102,10 @@ object TestHelpers {
     timeModel = TimeModel.reasonableDefault
   )
 
-  def mkEntryId(n: Int): DamlLogEntryId = {
+  def mkEntryId(n: Int): DamlLogEntryId =
     DamlLogEntryId.newBuilder
       .setEntryId(ByteString.copyFromUtf8(n.toString))
       .build
-  }
 
   def mkParticipantId(n: Int): ParticipantId =
     Ref.ParticipantId.assertFromString(s"participant-$n")
