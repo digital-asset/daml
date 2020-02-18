@@ -39,10 +39,7 @@ The choice is ``nonconsuming`` because sending a message should not affect the e
 By convention, the choice returns the ``ContractId`` of the resulting ``Message`` contract (which we'll show next).
 The parameters to the choice are the sender (the party wishing to talk to the signatory of this ``User`` contract) and the message text.
 The ``controller`` clause suggests that it is the ``sender`` who can exercise the choice.
-Finally, the body of the choice simply creates the new ``Message`` with the sender, receiver and content.
-
-Note that there is no explicit check in the choice that the ``sender`` is a friend of the user.
-This is because the ``User`` contract is only ever visible to friends (the observers of the contract).
+Finally, the body of the choice makes sure that the sender is a friend of the user and then creates the ``Message`` with the sender, receiver and content.
 
 Now let's see the ``Message`` contract template.
 This is very simple - data and no choices - as well as the ``signatory`` declaration.
