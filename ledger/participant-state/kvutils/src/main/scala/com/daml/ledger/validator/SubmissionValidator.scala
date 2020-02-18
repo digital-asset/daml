@@ -61,18 +61,13 @@ class SubmissionValidator[LogResult](
       correlationId: String,
       recordTime: Timestamp,
       participantId: ParticipantId,
-      transform: (DamlLogEntryId, StateMap, LogEntryAndState) => U
-  ): Future[Either[ValidationFailed, U]] = {
-    def applyTransformation(
-        logEntryId: DamlLogEntryId,
-        inputStates: StateMap,
-        logEntryAndState: LogEntryAndState,
-        stateOperations: LedgerStateOperations[LogResult],
-    ): Future[U] =
-      Future.successful(transform(logEntryId, inputStates, logEntryAndState))
-
-    runValidation(envelope, correlationId, recordTime, participantId, applyTransformation)
-  }
+      transform: (
+          DamlLogEntryId,
+          StateMap,
+          LogEntryAndState,
+          LedgerStateOperations[LogResult]) => Future[U]
+  ): Future[Either[ValidationFailed, U]] =
+    runValidation(envelope, correlationId, recordTime, participantId, transform)
 
   private def commit(
       logEntryId: DamlLogEntryId,
