@@ -28,7 +28,7 @@ import com.digitalasset.http.json.JsonProtocol.LfValueDatabaseCodec.{
   apiValueToJsValue => lfValueToDbJsValue,
 }
 import com.digitalasset.http.util.IdentifierConverters.apiIdentifier
-import util.{ContractStreamStep, InsertDeleteStep}
+import util.{AbsoluteBookmark, BeginBookmark, ContractStreamStep, InsertDeleteStep, LedgerBegin}
 import com.digitalasset.util.ExceptionOps._
 import com.digitalasset.jwt.domain.Jwt
 import com.digitalasset.ledger.api.v1.transaction.Transaction
@@ -234,24 +234,6 @@ private class ContractsFetch(
 private[http] object ContractsFetch {
 
   type PreInsertContract = DBContract[TemplateId.RequiredPkg, JsValue, JsValue, Seq[domain.Party]]
-
-  sealed abstract class BeginBookmark[+Off] extends Product with Serializable {
-    import lav1.ledger_offset.LedgerOffset
-    import LedgerOffset.{LedgerBoundary, Value}
-    import Value.Boundary
-    def toLedgerApi(implicit ev: Off <~< domain.Offset): LedgerOffset =
-      this match {
-        case AbsoluteBookmark(offset) => domain.Offset.toLedgerApi(ev(offset))
-        case LedgerBegin => LedgerOffset(Boundary(LedgerBoundary.LEDGER_BEGIN))
-      }
-
-    def toOption: Option[Off] = this match {
-      case AbsoluteBookmark(offset) => Some(offset)
-      case LedgerBegin => None
-    }
-  }
-  final case class AbsoluteBookmark[+Off](offset: Off) extends BeginBookmark[Off]
-  case object LedgerBegin extends BeginBookmark[Nothing]
 
   def partition[A, B]: Graph[FanOutShape2[A \/ B, A, B], NotUsed] =
     GraphDSL.create() { implicit b =>
