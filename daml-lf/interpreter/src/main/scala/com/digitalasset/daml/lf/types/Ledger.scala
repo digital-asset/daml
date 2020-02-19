@@ -78,7 +78,7 @@ object Ledger {
   }
 
   @inline
-  def assertNoContractId(key: VersionedValue[Value.ContractId]): VersionedValue[Nothing] =
+  def assertNoContractId(key: Value[Value.ContractId]): Value[Nothing] =
     key.ensureNoCid.fold(
       cid => crash(s"Not expecting to find a contract id here, but found '$cid'"),
       identity,
@@ -1155,7 +1155,7 @@ object Ledger {
                           val gk = GlobalKey(
                             nc.coinst.template,
                             // FIXME: we probably should never crash here !
-                            assertNoContractId(keyWithMaintainers.key),
+                            assertNoContractId(keyWithMaintainers.key.value),
                           )
                           newCache1.activeKeys.get(gk) match {
                             case None => Right(newCache1.addKey(gk, nc.coid))
@@ -1197,7 +1197,7 @@ object Ledger {
                                 GlobalKey(
                                   ex.templateId,
                                   // FIXME: we probably should'nt crash here !
-                                  assertNoContractId(keyWithMaintainers.key),
+                                  assertNoContractId(keyWithMaintainers.key.value),
                                 ),
                               )
                           }
