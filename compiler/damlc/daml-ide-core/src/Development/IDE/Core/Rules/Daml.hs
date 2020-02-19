@@ -520,21 +520,27 @@ generateStablePackages lfVersion fp = do
         -- sandboxing which resulted in newly added files being picked up from other PRs.
         -- Given that this list doesn’t change too often and you will get a compile error
         -- if you forget to update it, we hardcode it here.
-        let dalfs =
-                map (fp </>) $
-                map ("daml-prim" </>) [ "DA-Internal-Erased.dalf", "DA-Types.dalf", "GHC-Prim.dalf", "GHC-Tuple.dalf", "GHC-Types.dalf"] <>
-                map ("daml-stdlib" </>)
-                  [ "DA-Internal-Any.dalf"
-                  , "DA-Internal-Template.dalf"
-                  , "DA-Date-Types.dalf"
-                  , "DA-NonEmpty-Types.dalf"
-                  , "DA-Time-Types.dalf"
-                  , "DA-Semigroup-Types.dalf"
-                  , "DA-Monoid-Types.dalf"
-                  , "DA-Validation-Types.dalf"
-                  , "DA-Logic-Types.dalf"
-                  , "DA-Internal-Down.dalf"
-                  ]
+        let dalfs = map (fp </>) $ concat
+                [ map ("daml-prim" </>)
+                    [ "DA-Internal-Erased.dalf"
+                    , "DA-Internal-PromotedText.dalf"
+                    , "DA-Types.dalf"
+                    , "GHC-Prim.dalf"
+                    , "GHC-Tuple.dalf"
+                    , "GHC-Types.dalf"]
+                , map ("daml-stdlib" </>)
+                    [ "DA-Internal-Any.dalf"
+                    , "DA-Internal-Template.dalf"
+                    , "DA-Date-Types.dalf"
+                    , "DA-NonEmpty-Types.dalf"
+                    , "DA-Time-Types.dalf"
+                    , "DA-Semigroup-Types.dalf"
+                    , "DA-Monoid-Types.dalf"
+                    , "DA-Validation-Types.dalf"
+                    , "DA-Logic-Types.dalf"
+                    , "DA-Internal-Down.dalf"
+                    ]
+                ]
         forM dalfs $ \dalf -> do
             let packagePath = takeFileName $ takeDirectory dalf
             let unitId = stringToUnitId $ if packagePath == "daml-stdlib"

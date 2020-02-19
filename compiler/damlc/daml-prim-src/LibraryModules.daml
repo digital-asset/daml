@@ -10,6 +10,7 @@ daml 1.2
 module LibraryModules where
 
 import DA.Internal.Erased
+import DA.Internal.PromotedText
 import Data.String
 import Control.Exception.Base
 import GHC.Base

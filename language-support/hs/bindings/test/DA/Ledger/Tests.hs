@@ -129,7 +129,7 @@ tListPackages withSandbox = testCase "listPackages" $ run withSandbox $ \pid _te
     lid <- getLedgerIdentity
     pids <- listPackages lid
     liftIO $ do
-        assertEqual "#packages" 18 (length pids)
+        assertEqual "#packages" 19 (length pids)
         assertBool "The pid is listed" (pid `elem` pids)
 
 tGetPackage :: SandboxTest

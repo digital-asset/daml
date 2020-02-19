@@ -436,7 +436,7 @@ class JdbcLedgerDaoSpec
         firstUploadResult shouldBe PersistenceResponse.Ok
         secondUploadResult shouldBe PersistenceResponse.Ok
         loadedPackages.values.flatMap(_.sourceDescription.toList) should contain theSameElementsAs
-          Seq(firstDescription) ++ Seq.fill(16)(secondDescription)
+          Seq(firstDescription) ++ Seq.fill(17)(secondDescription)
       }
     }
 

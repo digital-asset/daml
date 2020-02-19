@@ -10,6 +10,7 @@ module DA.Daml.Compiler.DataDependencies
     ) where
 
 import DA.Pretty
+import Control.Applicative
 import Control.Monad
 import Control.Monad.Trans.Writer.CPS
 import Data.List.Extra
@@ -597,12 +598,17 @@ convType env reexported =
             args <- mapM (convType env reexported) lfArgs
             pure $ HsParTy noExt (noLoc $ foldl (HsAppTy noExt . noLoc) tyvar (map noLoc args))
 
+        ty | Just text <- getPromotedText ty ->
+            pure $ HsTyLit noExt (HsStrTy NoSourceText (mkFastString $ T.unpack text))
+
         LF.TCon LF.Qualified {..}
-          | qualModule == LF.ModuleName ["DA", "Types"]
-          , [name] <- LF.unTypeConName qualObject
-          , Just n <- stripPrefix "Tuple" $ T.unpack name
-          , Just i <- readMay n
-          , 2 <= i && i <= 20 -> mkTuple i
+            | qualModule == LF.ModuleName ["DA", "Types"]
+            , [name] <- LF.unTypeConName qualObject
+            , Just n <- stripPrefix "Tuple" $ T.unpack name
+            , Just i <- readMay n
+            , 2 <= i && i <= 20
+            -> mkTuple i
+
         LF.TCon LF.Qualified {..} ->
             case LF.unTypeConName qualObject of
                 [name] -> do
@@ -957,12 +963,8 @@ getDFunSig (valName, valType) = do
         then do
             (symbolTy : dfhArgs) <- Just dfhArgs
             -- We handle both the old state where symbol was translated to unit
-            -- and new state where it is translated to Erased.
-            guard $ case symbolTy of
-                LF.TUnit -> True
-                LF.TCon (LF.Qualified _ (LF.ModuleName ["DA", "Internal", "Erased"]) (LF.TypeConName ["Erased"])) -> True
-                _ -> False
-            dfhField <- getFieldArg valName
+            -- and new state where it is translated to PromotedText.
+            dfhField <- getPromotedText symbolTy <|> getFieldArg valName
             guard (not $ T.null dfhField)
             Just DFunHeadHasField {..}
         else Just DFunHeadNormal {..}
@@ -1017,3 +1019,18 @@ convDFunSig env reexported DFunSig{..} = do
       . HsForAllTy noExt binders . noLoc
       . HsQualTy noExt (noLoc (map noLoc context)) . noLoc
       $ foldl (HsAppTy noExt . noLoc) cls (map noLoc args)
+
+getPromotedText :: LF.Type -> Maybe T.Text
+getPromotedText = \case
+    LF.TApp (LF.TCon LF.Qualified {..}) argTy
+        | qualPackage == LF.PRImport (LF.PackageId "d58cf9939847921b2aab78eaa7b427dc4c649d25e6bee3c749ace4c3f52f5c97")
+        , qualModule == LF.ModuleName ["DA", "Internal", "PromotedText"]
+        , ["PromotedText"] <- LF.unTypeConName qualObject
+        ->
+            case argTy of
+                LF.TStruct [(LF.FieldName text, LF.TUnit)]
+                    | T.length text >= 1 && T.head text == '_' ->
+                        Just (T.tail text) -- strip leading underscore
+                _ ->
+                    error ("Unexpected argument type to DA.Internal.PromotedText: " <> show argTy)
+    _ -> Nothing
