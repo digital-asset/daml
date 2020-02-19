@@ -25,22 +25,22 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 final class Database(
-    queries: Queries,
+    queries: Connection => Queries,
     readerConnectionPool: DataSource,
     writerConnectionPool: DataSource,
 ) {
   private val logger = ContextualizedLogger.get(this.getClass)
 
   def inReadTransaction[T](message: String)(
-      body: ReadQueries => Connection => Future[T],
+      body: ReadQueries => Future[T],
   )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): Future[T] = {
-    inTransaction(message, readerConnectionPool)(body(queries))
+    inTransaction(message, readerConnectionPool)(connection => body(queries(connection)))
   }
 
   def inWriteTransaction[T](message: String)(
-      body: Queries => Connection => Future[T],
+      body: Queries => Future[T],
   )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): Future[T] = {
-    inTransaction(message, writerConnectionPool)(body(queries))
+    inTransaction(message, writerConnectionPool)(connection => body(queries(connection)))
   }
 
   private def inTransaction[T](message: String, connectionPool: DataSource)(
@@ -182,26 +182,26 @@ object Database {
   sealed trait RDBMS {
     val name: String
 
-    val queries: Queries
+    val queries: Connection => Queries
   }
 
   object RDBMS {
     object H2 extends RDBMS {
       override val name: String = "h2"
 
-      override val queries: Queries = new H2Queries
+      override val queries: Connection => Queries = H2Queries.apply
     }
 
     object PostgreSQL extends RDBMS {
       override val name: String = "postgresql"
 
-      override val queries: Queries = new PostgresqlQueries
+      override val queries: Connection => Queries = PostgresqlQueries.apply
     }
 
     object SQLite extends RDBMS {
       override val name: String = "sqlite"
 
-      override val queries: Queries = new SqliteQueries
+      override val queries: Connection => Queries = SqliteQueries.apply
     }
   }
 

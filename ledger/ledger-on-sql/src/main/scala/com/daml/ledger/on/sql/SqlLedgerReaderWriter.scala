@@ -3,7 +3,6 @@
 
 package com.daml.ledger.on.sql
 
-import java.sql.Connection
 import java.time.{Clock, Instant}
 import java.util.UUID
 
@@ -64,9 +63,8 @@ final class SqlLedgerReaderWriter(
         RangeSource((start, end) => {
           Source
             .futureSource(database
-              .inReadTransaction(s"Querying events [$start, $end[ from log") {
-                queries => implicit connection =>
-                  Future.successful(queries.selectFromLog(start, end))
+              .inReadTransaction(s"Querying events [$start, $end[ from log") { queries =>
+                Future.successful(queries.selectFromLog(start, end))
               }
               .map { result =>
                 if (result.length < end - start) {
@@ -87,13 +85,12 @@ final class SqlLedgerReaderWriter(
 
   object SqlLedgerStateAccess extends LedgerStateAccess[Index] {
     override def inTransaction[T](body: LedgerStateOperations[Index] => Future[T]): Future[T] =
-      database.inWriteTransaction("Committing a submission") { queries => implicit connection =>
+      database.inWriteTransaction("Committing a submission") { queries =>
         body(new SqlLedgerStateOperations(queries))
       }
   }
 
-  class SqlLedgerStateOperations(queries: Queries)(implicit connection: Connection)
-      extends BatchingLedgerStateOperations[Index] {
+  class SqlLedgerStateOperations(queries: Queries) extends BatchingLedgerStateOperations[Index] {
     override def readState(keys: Seq[Key]): Future[Seq[Option[Value]]] =
       Future.successful(queries.selectStateValuesByKeys(keys))
 
@@ -131,7 +128,7 @@ object SqlLedgerReaderWriter {
       implicit executionContext: ExecutionContext,
       logCtx: LoggingContext,
   ): Future[LedgerId] =
-    database.inWriteTransaction("Checking ledger ID at startup") { queries => implicit connection =>
+    database.inWriteTransaction("Checking ledger ID at startup") { queries =>
       val providedLedgerId =
         initialLedgerId.getOrElse(Ref.LedgerString.assertFromString(UUID.randomUUID.toString))
       val ledgerId = queries.updateOrRetrieveLedgerId(providedLedgerId)
@@ -151,7 +148,7 @@ object SqlLedgerReaderWriter {
       logCtx: LoggingContext,
   ): Future[Dispatcher[Index]] =
     database
-      .inReadTransaction("Reading head at startup") { queries => implicit connection =>
+      .inReadTransaction("Reading head at startup") { queries =>
         Future.successful(queries.selectLatestLogEntryId().map(_ + 1).getOrElse(StartIndex))
       }
       .map(head => Dispatcher("sql-participant-state", StartIndex, head))
