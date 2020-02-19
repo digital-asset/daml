@@ -21,8 +21,7 @@ import com.digitalasset.dec.{DirectExecutionContext => DEC}
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, RejectionReason}
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
-import com.digitalasset.platform.common.LedgerIdMode
-import com.digitalasset.platform.ledger.LedgerIdMismatchException
+import com.digitalasset.platform.common.{LedgerIdMismatchException, LedgerIdMode}
 import com.digitalasset.platform.packages.InMemoryPackageStore
 import com.digitalasset.platform.sandbox.LedgerIdGenerator
 import com.digitalasset.platform.sandbox.stores.InMemoryActiveLedgerState
@@ -37,6 +36,7 @@ import com.digitalasset.platform.store.dao.{
 }
 import com.digitalasset.platform.store.entries.{LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.digitalasset.platform.store.{BaseLedger, DbType, FlywayMigrations, PersistenceEntry}
+import com.digitalasset.resources.ProgramResource.StartupException
 import com.digitalasset.resources.ResourceOwner
 import scalaz.syntax.tag._
 
@@ -445,7 +445,8 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
           ledgerFound(foundLedgerId, initialLedgerEntries, packages)
 
         case (Some(foundLedgerId), LedgerIdMode.Static(initialId)) =>
-          Future.failed(new LedgerIdMismatchException(foundLedgerId, initialId))
+          Future.failed(
+            new LedgerIdMismatchException(foundLedgerId, initialId) with StartupException)
 
         case (Some(foundLedgerId), LedgerIdMode.Dynamic) =>
           ledgerFound(foundLedgerId, initialLedgerEntries, packages)

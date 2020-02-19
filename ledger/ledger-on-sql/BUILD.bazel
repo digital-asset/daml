@@ -89,6 +89,7 @@ da_scala_library(
     deps = [
         "//daml-lf/data",
         "//ledger/ledger-api-common",
+        "//ledger/ledger-api-domain",
         "//ledger/ledger-api-health",
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
@@ -101,6 +102,7 @@ da_scala_library(
         "@maven//:com_typesafe_play_anorm_tokenizer_2_12",
         "@maven//:com_zaxxer_HikariCP",
         "@maven//:org_flywaydb_flyway_core",
+        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 

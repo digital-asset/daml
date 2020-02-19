@@ -9,9 +9,19 @@ import anorm.SqlParser._
 import anorm._
 import com.daml.ledger.on.sql.Index
 import com.daml.ledger.on.sql.queries.Queries._
+import com.daml.ledger.participant.state.v1.LedgerId
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 
 class PostgresqlQueries extends Queries with CommonQueries {
+  override def updateOrRetrieveLedgerId(
+      providedLedgerId: LedgerId,
+  )(implicit connection: Connection): LedgerId = {
+    SQL"INSERT INTO #$MetaTable (table_key, ledger_id) VALUES ($MetaTableKey, $providedLedgerId) ON CONFLICT DO NOTHING"
+      .executeInsert()
+    SQL"SELECT ledger_id FROM #$MetaTable WHERE table_key = $MetaTableKey"
+      .as(str("ledger_id").single)
+  }
+
   override def insertIntoLog(key: Key, value: Value)(implicit connection: Connection): Index = {
     SQL"INSERT INTO #$LogTable (entry_id, envelope) VALUES ($key, $value) RETURNING sequence_no"
       .as(long("sequence_no").single)

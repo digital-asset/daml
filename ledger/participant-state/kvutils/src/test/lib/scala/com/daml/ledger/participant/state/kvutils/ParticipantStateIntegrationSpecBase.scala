@@ -20,6 +20,7 @@ import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.digitalasset.logging.LoggingContext
 import com.digitalasset.logging.LoggingContext.newLoggingContext
+import com.digitalasset.platform.common.LedgerIdMismatchException
 import com.digitalasset.resources.ResourceOwner
 import org.scalatest.Inside._
 import org.scalatest.Matchers._
@@ -59,6 +60,11 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
 
   private def participantState: ResourceOwner[ParticipantState] =
     newParticipantState(newLedgerId())
+
+  private def newParticipantState(): ResourceOwner[ParticipantState] =
+    newLoggingContext { implicit logCtx =>
+      participantStateFactory(None, participantId, testId)
+    }
 
   private def newParticipantState(ledgerId: LedgerId): ResourceOwner[ParticipantState] =
     newLoggingContext { implicit logCtx =>
@@ -612,6 +618,39 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
     }
 
     if (isPersistent) {
+      "store the ledger ID and re-use it" in {
+        val ledgerId = newLedgerId()
+        for {
+          retrievedLedgerId1 <- newParticipantState(ledgerId).use { ps =>
+            ps.getLedgerInitialConditions().map(_.ledgerId).runWith(Sink.head)
+          }
+          retrievedLedgerId2 <- newParticipantState().use { ps =>
+            ps.getLedgerInitialConditions().map(_.ledgerId).runWith(Sink.head)
+          }
+        } yield {
+          retrievedLedgerId1 should be(ledgerId)
+          retrievedLedgerId2 should be(ledgerId)
+        }
+      }
+
+      "reject a different ledger ID" in {
+        val ledgerId = newLedgerId()
+        val attemptedLedgerId = newLedgerId()
+        for {
+          _ <- newParticipantState(ledgerId).use { _ =>
+            Future.unit
+          }
+          exception <- newParticipantState(attemptedLedgerId).use { _ =>
+            Future.unit
+          }.failed
+        } yield {
+          exception should be(a[LedgerIdMismatchException])
+          val mismatchException = exception.asInstanceOf[LedgerIdMismatchException]
+          mismatchException.existingLedgerId should be(ledgerId)
+          mismatchException.providedLedgerId should be(attemptedLedgerId)
+        }
+      }
+
       "resume where it left off on restart" in {
         val ledgerId = newLedgerId()
         for {
@@ -622,7 +661,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
                 .toScala
             } yield ()
           }
-          updates <- newParticipantState(ledgerId).use { ps =>
+          updates <- newParticipantState().use { ps =>
             for {
               _ <- ps
                 .allocateParty(None, Some("party-2"), newSubmissionId())

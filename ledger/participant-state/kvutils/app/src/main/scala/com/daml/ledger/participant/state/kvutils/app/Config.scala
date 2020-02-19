@@ -108,5 +108,5 @@ object Config {
     parser
   }
 
-  class ConfigParseException extends SuppressedStartupException
+  class ConfigParseException extends RuntimeException with SuppressedStartupException
 }

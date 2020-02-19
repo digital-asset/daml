@@ -11,7 +11,7 @@ import com.digitalasset.dec.{DirectExecutionContext => DEC}
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
-import com.digitalasset.platform.ledger.LedgerIdMismatchException
+import com.digitalasset.platform.common.LedgerIdMismatchException
 import com.digitalasset.platform.store.dao.{
   DbDispatcher,
   JdbcLedgerDao,
@@ -19,6 +19,7 @@ import com.digitalasset.platform.store.dao.{
   MeteredLedgerReadDao
 }
 import com.digitalasset.platform.store.{BaseLedger, DbType, ReadOnlyLedger}
+import com.digitalasset.resources.ProgramResource.StartupException
 import com.digitalasset.resources.{Resource, ResourceOwner}
 import scalaz.syntax.tag._
 
@@ -79,7 +80,8 @@ object ReadOnlySqlLedger {
             logger.info(s"Found existing ledger with ID: ${foundLedgerId.unwrap}")
             Future.successful(foundLedgerId)
           case Some(foundLedgerId) =>
-            Future.failed(new LedgerIdMismatchException(foundLedgerId, initialLedgerId))
+            Future.failed(
+              new LedgerIdMismatchException(foundLedgerId, initialLedgerId) with StartupException)
           case None =>
             Future.successful(initialLedgerId)
         }(DEC)

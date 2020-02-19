@@ -67,9 +67,12 @@ class ProgramResource[T](
 }
 
 object ProgramResource {
-  abstract class StartupException(message: String)
-      extends RuntimeException(message)
-      with NoStackTrace
 
-  abstract class SuppressedStartupException extends RuntimeException
+  trait StartupException extends NoStackTrace {
+    self: Exception =>
+  }
+
+  trait SuppressedStartupException {
+    self: Exception =>
+  }
 }

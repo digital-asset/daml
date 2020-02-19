@@ -22,10 +22,12 @@ import com.daml.ledger.validator.{
   ValidatingCommitter
 }
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.health.{HealthStatus, Healthy}
 import com.digitalasset.logging.LoggingContext
 import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
 import com.digitalasset.platform.akkastreams.dispatcher.SubSource.RangeSource
+import com.digitalasset.platform.common.LedgerIdMismatchException
 import com.digitalasset.resources.ResourceOwner
 
 import scala.collection.immutable.TreeSet
@@ -122,9 +124,25 @@ object SqlLedgerReaderWriter {
     for {
       uninitializedDatabase <- Database.owner(jdbcUrl)
       database = uninitializedDatabase.migrate()
+      queries = database.queries
+      ledgerId <- ResourceOwner.forFuture(() =>
+        database.inWriteTransaction("Checking ledger ID at startup") { implicit connection =>
+          val providedLedgerId =
+            initialLedgerId.getOrElse(Ref.LedgerString.assertFromString(UUID.randomUUID.toString))
+          val ledgerId = queries.updateOrRetrieveLedgerId(providedLedgerId)
+          if (initialLedgerId.exists(_ != ledgerId)) {
+            Future.failed(
+              new LedgerIdMismatchException(
+                domain.LedgerId(ledgerId),
+                domain.LedgerId(initialLedgerId.get),
+              ))
+          } else {
+            Future.successful(ledgerId)
+          }
+      })
       head <- ResourceOwner.forFuture(() =>
         database.inReadTransaction("Reading head at startup") { implicit connection =>
-          Future(database.queries.selectLatestLogEntryId().map(_ + 1).getOrElse(StartIndex))
+          Future.successful(queries.selectLatestLogEntryId().map(_ + 1).getOrElse(StartIndex))
       })
       dispatcher <- ResourceOwner.forCloseable(
         () =>
@@ -133,9 +151,5 @@ object SqlLedgerReaderWriter {
             zeroIndex = StartIndex,
             headAtInitialization = head,
         ))
-    } yield {
-      val ledgerId =
-        initialLedgerId.getOrElse(Ref.LedgerString.assertFromString(UUID.randomUUID.toString))
-      new SqlLedgerReaderWriter(ledgerId, participantId, now, database, dispatcher)
-    }
+    } yield new SqlLedgerReaderWriter(ledgerId, participantId, now, database, dispatcher)
 }
