@@ -47,7 +47,7 @@ class LedgerSpec extends WordSpec with Matchers {
   def error(commandId: String): CommandStatusError = CommandStatusError("code", "details")
 
   "A ledger with existing contracts" when {
-    val subject = Ledger(None, false).withTransaction(
+    val subject = Ledger(alice, None, false).withTransaction(
       transaction("Tx0").copy(
         events = List(
           ContractCreated(
@@ -139,6 +139,32 @@ class LedgerSpec extends WordSpec with Matchers {
 
       "increase the number of active contracts" in {
         result.activeContractsCount shouldBe subject.activeContractsCount + 2
+      }
+    }
+
+    "adding an event that creates a contract for which the party is not a stakeholder" should {
+      def contractCreated(id: String, contractId: String): ContractCreated = ContractCreated(
+        id = ApiTypes.EventId(id),
+        parentId = None,
+        transactionId = ApiTypes.TransactionId("Tx2"),
+        witnessParties = List(party),
+        workflowId = ApiTypes.WorkflowId("workflow"),
+        contractId = ApiTypes.ContractId(contractId),
+        templateId = templateId,
+        argument = contractArgument,
+        agreementText = Some(""),
+        signatories = List(bob),
+        observers = List(charlie),
+        key = None
+      )
+
+      val created1 = contractCreated("NonVisible", "NotVisible")
+      val latest = transaction("Tx2").copy(events = List(created1))
+
+      val result = subject.withTransaction(latest, templateRegistry)
+
+      "not store the contract for the party" in {
+        result.contract(created1.contractId, templateRegistry) shouldBe None
       }
     }
 

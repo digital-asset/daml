@@ -15,7 +15,7 @@ case class State(ledger: Ledger, packageRegistry: PackageRegistry)
 /** A DA party and its ledger view(s). */
 class PartyState(val name: ApiTypes.Party, val useDatabase: Boolean) {
   private val stateRef: AtomicReference[State] = new AtomicReference(
-    State(Ledger(None, useDatabase), new PackageRegistry))
+    State(Ledger(name, None, useDatabase), new PackageRegistry))
 
   def ledger: Ledger = stateRef.get.ledger
   def packageRegistry: PackageRegistry = stateRef.get.packageRegistry
