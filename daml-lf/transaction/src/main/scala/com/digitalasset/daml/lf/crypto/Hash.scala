@@ -18,7 +18,7 @@ import javax.crypto.spec.SecretKeySpec
 import scala.util.control.NonFatal
 
 final class Hash private (private val bytes: Array[Byte]) {
-  
+
   def toByteArray: Array[Byte] = bytes.clone()
 
   def toHexaString: String = Hash.hexEncoding.encode(bytes)
