@@ -124,28 +124,37 @@ object SqlLedgerReaderWriter {
     for {
       uninitializedDatabase <- Database.owner(jdbcUrl)
       database = uninitializedDatabase.migrate()
-      queries = database.queries
-      ledgerId <- ResourceOwner.forFuture(() =>
-        database.inWriteTransaction("Checking ledger ID at startup") { implicit connection =>
-          val providedLedgerId =
-            initialLedgerId.getOrElse(Ref.LedgerString.assertFromString(UUID.randomUUID.toString))
-          val ledgerId = queries.updateOrRetrieveLedgerId(providedLedgerId)
-          if (initialLedgerId.exists(_ != ledgerId)) {
-            Future.failed(
-              new LedgerIdMismatchException(
-                domain.LedgerId(ledgerId),
-                domain.LedgerId(initialLedgerId.get),
-              ))
-          } else {
-            Future.successful(ledgerId)
-          }
-      })
-      dispatcher <- ResourceOwner.forFutureCloseable(
-        () =>
-          database
-            .inReadTransaction("Reading head at startup") { implicit connection =>
-              Future.successful(queries.selectLatestLogEntryId().map(_ + 1).getOrElse(StartIndex))
-            }
-            .map(head => Dispatcher("sql-participant-state", StartIndex, head)))
+      ledgerId <- ResourceOwner.forFuture(() => updateOrRetrieveLedgerId(initialLedgerId, database))
+      dispatcher <- ResourceOwner.forFutureCloseable(() => newDispatcher(database))
     } yield new SqlLedgerReaderWriter(ledgerId, participantId, now, database, dispatcher)
+
+  private def updateOrRetrieveLedgerId(initialLedgerId: Option[LedgerId], database: Database)(
+      implicit executionContext: ExecutionContext,
+      logCtx: LoggingContext,
+  ): Future[LedgerId] =
+    database.inWriteTransaction("Checking ledger ID at startup") { implicit connection =>
+      val providedLedgerId =
+        initialLedgerId.getOrElse(Ref.LedgerString.assertFromString(UUID.randomUUID.toString))
+      val ledgerId = database.queries.updateOrRetrieveLedgerId(providedLedgerId)
+      if (initialLedgerId.exists(_ != ledgerId)) {
+        Future.failed(
+          new LedgerIdMismatchException(
+            domain.LedgerId(ledgerId),
+            domain.LedgerId(initialLedgerId.get),
+          ))
+      } else {
+        Future.successful(ledgerId)
+      }
+    }
+
+  private def newDispatcher(database: Database)(
+      implicit executionContext: ExecutionContext,
+      logCtx: LoggingContext,
+  ): Future[Dispatcher[Index]] =
+    database
+      .inReadTransaction("Reading head at startup") { implicit connection =>
+        Future.successful(
+          database.queries.selectLatestLogEntryId().map(_ + 1).getOrElse(StartIndex))
+      }
+      .map(head => Dispatcher("sql-participant-state", StartIndex, head))
 }
