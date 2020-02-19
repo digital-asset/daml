@@ -117,7 +117,7 @@ package object v2 {
   sealed abstract class CommandDeduplicationResult extends Product with Serializable
 
   /** This is the first time the command was submitted. */
-  final case object CommandDeduplicationNew extends CommandDeduplicationResult
+  case object CommandDeduplicationNew extends CommandDeduplicationResult
 
   /** This command was submitted before, but the result of the submission not known (yet). */
   final case class CommandDeduplicationDuplicate(firstSubmittedAt: Instant)
