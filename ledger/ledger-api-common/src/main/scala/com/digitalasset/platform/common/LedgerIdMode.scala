@@ -3,6 +3,7 @@
 
 package com.digitalasset.platform.common
 
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.api.domain.LedgerId
 
 sealed abstract class LedgerIdMode extends Product with Serializable {
@@ -10,6 +11,12 @@ sealed abstract class LedgerIdMode extends Product with Serializable {
 }
 
 object LedgerIdMode {
+
+  def static(ledgerId: String): LedgerIdMode =
+    Static(LedgerId(Ref.LedgerString.assertFromString(ledgerId)))
+
+  def dynamic: LedgerIdMode =
+    Dynamic
 
   /**
     * The ledger ID is provided by the user or test fixture,
@@ -25,7 +32,7 @@ object LedgerIdMode {
     * if the ledger is separate. With this option, Sandbox will generate a new ledger ID on first
     * run.
     */
-  final case class Dynamic() extends LedgerIdMode {
+  case object Dynamic extends LedgerIdMode {
     override def or(other: => LedgerId): LedgerId = other
   }
 }

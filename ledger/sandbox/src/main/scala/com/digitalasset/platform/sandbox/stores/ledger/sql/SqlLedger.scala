@@ -447,13 +447,13 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
         case (Some(foundLedgerId), LedgerIdMode.Static(initialId)) =>
           Future.failed(new LedgerIdMismatchException(foundLedgerId, initialId))
 
-        case (Some(foundLedgerId), LedgerIdMode.Dynamic()) =>
+        case (Some(foundLedgerId), LedgerIdMode.Dynamic) =>
           ledgerFound(foundLedgerId, initialLedgerEntries, packages)
 
         case (None, LedgerIdMode.Static(initialId)) =>
           Future.successful(initialId)
 
-        case (None, LedgerIdMode.Dynamic()) =>
+        case (None, LedgerIdMode.Dynamic) =>
           val randomLedgerId = LedgerIdGenerator.generateRandomId()
           Future.successful(randomLedgerId)
       }

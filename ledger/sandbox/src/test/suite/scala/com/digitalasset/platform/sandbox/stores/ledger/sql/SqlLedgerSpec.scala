@@ -200,7 +200,7 @@ class SqlLedgerSpec
       SqlLedger
         .owner(
           jdbcUrl = postgresFixture.jdbcUrl,
-          ledgerId = ledgerId.fold[LedgerIdMode](LedgerIdMode.Dynamic())(LedgerIdMode.Static),
+          ledgerId = ledgerId.fold[LedgerIdMode](LedgerIdMode.Dynamic)(LedgerIdMode.Static),
           participantId = participantId,
           timeProvider = TimeProvider.UTC,
           acs = InMemoryActiveLedgerState.empty,

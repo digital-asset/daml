@@ -63,7 +63,7 @@ class Runner {
 
     val ledgerId: v1.LedgerId = Ref.LedgerString.assertFromString(config.ledgerIdMode match {
       case LedgerIdMode.Static(ledgerId) => ledgerId.unwrap
-      case LedgerIdMode.Dynamic() => UUID.randomUUID.toString
+      case LedgerIdMode.Dynamic => UUID.randomUUID.toString
     })
 
     val (ledgerType, ledgerJdbcUrl, indexJdbcUrl) = config.jdbcUrl match {
