@@ -84,7 +84,7 @@ class WebsocketServiceIntegrationTest
   private val collectResultsAsRawString: Sink[Message, Future[Seq[String]]] =
     Flow[Message]
       .map(_.toString)
-      .filterNot(v => Set("heartbeat", "live") exists (v contains _))
+      .filterNot(_ contains "heartbeat")
       .toMat(Sink.seq)(Keep.right)
 
   private def singleClientQueryStream(serviceUri: Uri, query: String): Source[Message, NotUsed] = {
@@ -133,9 +133,10 @@ class WebsocketServiceIntegrationTest
           .runWith(collectResultsAsRawString)
       } yield
         inside(clientMsg) {
-          case Seq(result) =>
+          case Seq(result, liveBegin) =>
             result should include(""""issuer":"Alice"""")
             result should include(""""amount":"999.99"""")
+            liveBegin should include(""""offset":"""")
         }
   }
 
@@ -148,9 +149,10 @@ class WebsocketServiceIntegrationTest
           .runWith(collectResultsAsRawString)
       } yield
         inside(clientMsg) {
-          case Seq(result) =>
+          case Seq(result, liveBegin) =>
             result should include(""""owner":"Alice"""")
             result should include(""""number":"abc123"""")
+            liveBegin should include(""""offset":"""")
         }
   }
 
@@ -164,9 +166,10 @@ class WebsocketServiceIntegrationTest
         .runWith(collectResultsAsRawString)
     } yield
       inside(clientMsg) {
-        case Seq(warning, result) =>
+        case Seq(warning, result, liveBegin) =>
           warning should include("\"warnings\":{\"unknownTemplateIds\":[\"Unk")
           result should include("\"issuer\":\"Alice\"")
+          liveBegin should include(""""offset":"""")
       }
   }
 
