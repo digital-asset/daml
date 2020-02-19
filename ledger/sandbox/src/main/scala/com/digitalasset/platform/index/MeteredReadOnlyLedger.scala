@@ -14,7 +14,8 @@ import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
-import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, TransactionId}
+import com.digitalasset.ledger.api.domain
+import com.digitalasset.ledger.api.domain.{ApplicationId, LedgerId, PartyDetails, TransactionId}
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.platform.metrics.timedFuture
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
@@ -35,7 +36,7 @@ class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegistry)
     val lookupContract: Timer = metrics.timer("daml.index.lookup_contract")
     val lookupKey: Timer = metrics.timer("daml.index.lookup_key")
     val lookupTransaction: Timer = metrics.timer("daml.index.lookup_transaction")
-    val lookupLedgerConfiguration: Timer = metrics.timer("daml.index.lookup_ledger_configuration ")
+    val lookupLedgerConfiguration: Timer = metrics.timer("daml.index.lookup_ledger_configuration")
     val parties: Timer = metrics.timer("daml.index.parties")
     val listLfPackages: Timer = metrics.timer("daml.index.list_lf_packages")
     val getLfArchive: Timer = metrics.timer("daml.index.get_lf_archive")
@@ -52,6 +53,13 @@ class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegistry)
     ledger.ledgerEntries(offset, endOpt)
 
   override def ledgerEnd: Long = ledger.ledgerEnd
+
+  override def completions(
+      beginInclusive: Option[Long],
+      endExclusive: Option[Long],
+      applicationId: ApplicationId,
+      parties: Set[Party]): Source[(Long, domain.CompletionEvent), NotUsed] =
+    ledger.completions(beginInclusive, endExclusive, applicationId, parties)
 
   override def snapshot(filter: TemplateAwareFilter): Future[LedgerSnapshot] =
     ledger.snapshot(filter)

@@ -16,7 +16,7 @@ import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.domain.{LedgerId, TransactionId}
+import com.digitalasset.ledger.api.domain.{ApplicationId, LedgerId, TransactionId}
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
 import com.digitalasset.platform.akkastreams.dispatcher.SubSource.RangeSource
@@ -31,6 +31,7 @@ import com.digitalasset.platform.store.entries.{
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
+import scalaz.syntax.tag.ToTagOps
 
 class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Long, ledgerDao: LedgerReadDao)
     extends ReadOnlyLedger {
@@ -59,6 +60,17 @@ class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Long, ledgerDao: 
   }
 
   override def ledgerEnd: Long = dispatcher.getHead()
+
+  override def completions(
+      beginInclusive: Option[Long],
+      endExclusive: Option[Long],
+      applicationId: ApplicationId,
+      parties: Set[Party]): Source[(Long, domain.CompletionEvent), NotUsed] =
+    dispatcher.startingAt(
+      beginInclusive.getOrElse(0),
+      RangeSource(ledgerDao.completions.getCommandCompletions(_, _, applicationId.unwrap, parties)),
+      endExclusive
+    )
 
   override def snapshot(filter: TemplateAwareFilter): Future[LedgerSnapshot] =
     // instead of looking up the latest ledger end, we can only take the latest known ledgerEnd in the scope of SqlLedger.

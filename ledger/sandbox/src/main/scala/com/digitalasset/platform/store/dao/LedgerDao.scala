@@ -138,6 +138,8 @@ trait LedgerReadDao extends ReportsHealth {
       startInclusive: LedgerOffset,
       endExclusive: LedgerOffset): Source[(LedgerOffset, PackageLedgerEntry), NotUsed]
 
+  def completions: CommandCompletionsReader[LedgerOffset]
+
 }
 
 trait LedgerWriteDao extends ReportsHealth {

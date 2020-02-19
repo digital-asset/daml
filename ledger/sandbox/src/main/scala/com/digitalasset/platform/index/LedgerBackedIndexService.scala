@@ -22,11 +22,6 @@ import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.dec.{DirectExecutionContext => DEC}
 import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.domain.CompletionEvent.{
-  Checkpoint,
-  CommandAccepted,
-  CommandRejected
-}
 import com.digitalasset.ledger.api.domain.{
   ApplicationId,
   CompletionEvent,
@@ -44,8 +39,6 @@ import com.digitalasset.platform.server.api.validation.ErrorFactories
 import com.digitalasset.platform.store.Contract.ActiveContract
 import com.digitalasset.platform.store.entries.{LedgerEntry, PartyLedgerEntry}
 import com.digitalasset.platform.store.{LedgerSnapshot, ReadOnlyLedger}
-import scalaz.Tag
-import scalaz.syntax.tag._
 
 import scala.concurrent.Future
 
@@ -224,48 +217,11 @@ abstract class LedgerBackedIndexService(
       begin: LedgerOffset,
       applicationId: ApplicationId,
       parties: Set[Ref.Party]
-  ): Source[CompletionEvent, NotUsed] = {
-    val converter = new OffsetConverter()
-    converter.toAbsolute(begin).flatMapConcat {
+  ): Source[CompletionEvent, NotUsed] =
+    new OffsetConverter().toAbsolute(begin).flatMapConcat {
       case LedgerOffset.Absolute(absBegin) =>
-        ledger
-          .ledgerEntries(Some(absBegin.toLong), endExclusive = None)
-          .map {
-            case (offset, entry) =>
-              (offset + 1, entry) //doing the same as above with transactions. The ledger api has to return a non-inclusive offset
-          }
-          .collect {
-            case (offset, t: LedgerEntry.Transaction)
-                // We only send out completions for transactions for which we have the full submitter information (appId, submitter, cmdId).
-                //
-                // This doesn't make a difference for the sandbox (because it represents the ledger backend + api server in single package).
-                // But for an api server that is part of a distributed ledger network, we might see
-                // transactions that originated from some other api server. These transactions don't contain the submitter information,
-                // and therefore we don't emit CommandAccepted completions for those
-                if t.applicationId.contains(applicationId.unwrap) &&
-                  t.submittingParty.exists(parties.contains) &&
-                  t.commandId.nonEmpty =>
-              CommandAccepted(
-                domain.LedgerOffset.Absolute(Ref.LedgerString.assertFromString(offset.toString)),
-                t.recordedAt,
-                Tag.subst(t.commandId).get,
-                domain.TransactionId(t.transactionId)
-              )
-
-            case (offset, c: LedgerEntry.Checkpoint) =>
-              Checkpoint(
-                domain.LedgerOffset.Absolute(Ref.LedgerString.assertFromString(offset.toString)),
-                c.recordedAt)
-            case (offset, r: LedgerEntry.Rejection)
-                if r.commandId.nonEmpty && r.applicationId.contains(applicationId.unwrap) =>
-              CommandRejected(
-                domain.LedgerOffset.Absolute(Ref.LedgerString.assertFromString(offset.toString)),
-                r.recordTime,
-                domain.CommandId(r.commandId),
-                r.rejectionReason)
-          }
+        ledger.completions(Option(absBegin.toLong), None, applicationId, parties).map(_._2)
     }
-  }
 
   // IndexPackagesService
   override def listLfPackages(): Future[Map[PackageId, PackageDetails]] =
