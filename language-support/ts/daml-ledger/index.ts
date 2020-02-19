@@ -25,6 +25,52 @@ export type Event<T extends object, K = unknown, I extends string = string> =
   | { created: CreateEvent<T, K, I> }
   | { archived: ArchiveEvent<T, I> }
 
+/**
+ * `CreateEventUnknown` is equivalent to `CreateEvent<object>` with the added
+ * benefit that the type checker understands it better.
+ */
+export interface CreateEventUnknown extends CreateEvent<object> {
+  contractId: ContractId<object>;
+}
+
+/**
+ * `ArchiveEventUnknown` is equivalent to `ArchiveEvent<object>` with the added
+ * benefit that the type checker understands it better.
+ */
+export interface ArchiveEventUnknown extends ArchiveEvent<object> {
+  contractId: ContractId<object>;
+}
+/**
+ * `EventUnknown` is equivalent to `Event<object>` with the added
+ * benefit that the type checker understands it better.
+ */
+export type EventUnknown =
+  | { created: CreateEventUnknown }
+  | { archived: ArchiveEventUnknown}
+
+export function isCreateEventFor<T extends object, K, I extends string>(
+  template: Template<T, K, I>,
+  event: CreateEventUnknown,
+): event is CreateEvent<T, K, I> {
+  return event.templateId === template.templateId;
+}
+
+export function isArchiveEventFor<T extends object, K, I extends string>(
+  template: Template<T, K, I>,
+  event: ArchiveEventUnknown,
+): event is ArchiveEvent<T, I> {
+  return event.templateId === template.templateId;
+}
+
+export function isEventFor<T extends object, K, I extends string>(
+  template: Template<T, K, I>,
+  event: EventUnknown,
+): event is Event<T, K, I> {
+  return 'created' in event
+    ? isCreateEventFor(template, event.created)
+    : isArchiveEventFor(template, event.archived);
+}
+
 const decodeCreateEvent = <T extends object, K, I extends string>(template: Template<T, K, I>): jtv.Decoder<CreateEvent<T, K, I>> => jtv.object({
   templateId: jtv.constant(template.templateId),
   contractId: ContractId(template).decoder(),
@@ -35,7 +81,7 @@ const decodeCreateEvent = <T extends object, K, I extends string>(template: Temp
   payload: template.decoder(),
 });
 
-const decodeCreateEventUnknown: jtv.Decoder<CreateEvent<object>> =
+const decodeCreateEventUnknown: jtv.Decoder<CreateEventUnknown> =
   jtv.valueAt(['templateId'], jtv.string()).andThen((templateId) =>
     decodeCreateEvent(lookupTemplate(templateId))
   );
@@ -45,7 +91,7 @@ const decodeArchiveEvent = <T extends object, K, I extends string>(template: Tem
   contractId: ContractId(template).decoder(),
 });
 
-const decodeArchiveEventUnknown: jtv.Decoder<ArchiveEvent<object>> =
+const decodeArchiveEventUnknown: jtv.Decoder<ArchiveEventUnknown> =
   jtv.valueAt(['templateId'], jtv.string()).andThen(templateId =>
     decodeArchiveEvent(lookupTemplate(templateId))
   );
@@ -55,7 +101,7 @@ const decodeEvent = <T extends object, K, I extends string>(template: Template<T
   jtv.object({archived: decodeArchiveEvent(template)}),
 );
 
-const decodeEventUnknown: jtv.Decoder<Event<object>> = jtv.oneOf<Event<object>>(
+const decodeEventUnknown: jtv.Decoder<EventUnknown> = jtv.oneOf<EventUnknown>(
   jtv.object({created: decodeCreateEventUnknown}),
   jtv.object({archived: decodeArchiveEventUnknown}),
 );
@@ -63,12 +109,13 @@ const decodeEventUnknown: jtv.Decoder<Event<object>> = jtv.oneOf<Event<object>>(
 async function decodeArchiveResponse<T extends object, K, I extends string>(
   template: Template<T, K, I>,
   archiveMethod: 'archive' | 'archiveByKey',
-  archiveCommand: () => Promise<[{}, Event<object>[]]>,
+  archiveCommand: () => Promise<[{}, EventUnknown[]]>,
 ): Promise<ArchiveEvent<T, I>> {
   // eslint-disable-next-line no-empty-pattern
   const [{}, events] = await archiveCommand();
-  if (events.length === 1 && 'archived' in events[0] && events[0].archived.templateId === template.templateId) {
-    return events[0].archived as ArchiveEvent<T, I>;
+  const event = events[0];
+  if (events.length === 1 && 'archived' in event && isArchiveEventFor(template, event.archived)) {
+    return event.archived;
   } else {
     throw Error(`Ledger.${archiveMethod} is expected to cause one archive event for template ${template.templateId} \
       but caused ${JSON.stringify(events)}.`);
@@ -280,7 +327,7 @@ class Ledger {
   /**
    * Exercise a choice on a contract identified by its contract ID.
    */
-  async exercise<T extends object, C, R>(choice: Choice<T, C, R>, contractId: ContractId<T>, argument: C): Promise<[R , Event<object>[]]> {
+  async exercise<T extends object, C, R>(choice: Choice<T, C, R>, contractId: ContractId<T>, argument: C): Promise<[R , EventUnknown[]]> {
     const payload = {
       templateId: choice.template().templateId,
       contractId,
@@ -289,7 +336,7 @@ class Ledger {
     };
     const json = await this.submit('v1/exercise', payload);
     // Decode the server response into a tuple.
-    const responseDecoder: jtv.Decoder<{exerciseResult: R; events: Event<object>[]}> = jtv.object({
+    const responseDecoder: jtv.Decoder<{exerciseResult: R; events: EventUnknown[]}> = jtv.object({
       exerciseResult: choice.resultDecoder(),
       events: jtv.array(decodeEventUnknown),
     });
@@ -300,7 +347,7 @@ class Ledger {
   /**
    * Exercise a choice on a contract identified by its contract key.
    */
-  async exerciseByKey<T extends object, C, R, K>(choice: Choice<T, C, R, K>, key: K, argument: C): Promise<[R, Event<object>[]]> {
+  async exerciseByKey<T extends object, C, R, K>(choice: Choice<T, C, R, K>, key: K, argument: C): Promise<[R, EventUnknown[]]> {
     if (key === undefined) {
       throw Error(`Cannot exercise by key on template ${choice.template().templateId} because it does not define a key.`);
     }
@@ -312,7 +359,7 @@ class Ledger {
     };
     const json = await this.submit('v1/exercise', payload);
     // Decode the server response into a tuple.
-    const responseDecoder: jtv.Decoder<{exerciseResult: R; events: Event<object>[]}> = jtv.object({
+    const responseDecoder: jtv.Decoder<{exerciseResult: R; events: EventUnknown[]}> = jtv.object({
       exerciseResult: choice.resultDecoder(),
       events: jtv.array(decodeEventUnknown),
     });
