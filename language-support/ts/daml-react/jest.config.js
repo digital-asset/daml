@@ -13,6 +13,7 @@ module.exports = {
   },
   moduleNameMapper: {
     '^@daml/types$': '../daml-types',
+    '^@daml/ledger$': '../daml-ledger',
     // $1 used for @daml/react/ledgerStore
     '^@daml/react(.*)$': '../daml-react$1'
   }
