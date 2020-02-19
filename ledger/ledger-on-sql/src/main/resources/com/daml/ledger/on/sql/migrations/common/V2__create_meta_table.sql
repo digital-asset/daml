@@ -3,6 +3,8 @@
 
 CREATE TABLE ${table.prefix}meta
 (
-    table_key INTEGER DEFAULT 0 NOT NULL PRIMARY KEY, -- used to ensure we don't write twice
+    -- By explicitly using a value here, we ensure we only ever have one row in this table.
+    -- An attempt to write a second row will result in a key conflict.
+    table_key INTEGER DEFAULT 0 NOT NULL PRIMARY KEY,
     ledger_id TEXT NOT NULL
 );

@@ -40,6 +40,8 @@ object Queries {
   val MetaTable = s"${TablePrefix}_meta"
   val StateTable = s"${TablePrefix}_state"
 
+  // By explicitly writing a value to a "table_key" column, we ensure we only ever have one row in
+  // the meta table. An attempt to write a second row will result in a key conflict.
   private[queries] val MetaTableKey = 0
 
   def executeBatchSql(
