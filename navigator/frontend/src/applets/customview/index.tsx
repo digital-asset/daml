@@ -198,13 +198,16 @@ function createColumns(config: ConfigType, viewId: string)
           case 'choices-button': return (
             <ChoicesButton
               contract={props.rowData}
-              renderLink={(id, name) => (<Link
-                route={Routes.contract}
-                params={{id: encodeURIComponent(id), name}}
-              >
-                <div>{name}</div>
-              </Link>)}
-            />);
+              renderLink={(id, name) => (
+                <Link
+                  route={Routes.contract}
+                  params={{id: encodeURIComponent(id), name}}
+                >
+                  <div>{name}</div>
+                </Link>
+              )}
+            />
+          );
           // tslint:disable-next-line: no-any
           default: throw new Error(`Unknown cell type ${(cell as any).type}`);
         }

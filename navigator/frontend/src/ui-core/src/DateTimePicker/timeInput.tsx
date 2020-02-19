@@ -94,7 +94,7 @@ export default class TimeInput extends React.Component<Props, State> {
   }
 
   setSelection() {
-    if (!this.input) {
+    if (!this.input || this.input.selectionStart === null) {
       return;
     }
     const i = this.input.value.indexOf(':');

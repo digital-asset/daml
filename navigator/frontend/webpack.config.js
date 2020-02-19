@@ -102,6 +102,7 @@ module.exports = (env) => {
   }
 
   return {
+    mode: isProduction ? 'production' : 'development',
     entry: {
       browsercheck: './src/browsercheck.ts',
       bundle: './src/index.tsx',
@@ -127,7 +128,7 @@ module.exports = (env) => {
       rules: [
         {
           test: /\.modernizrrc$/,
-          use: [ 'modernizr-loader', 'json-loader' ]
+          loader: "modernizr-loader!json-loader",
         },
         {
           test: /\.tsx?$/,
