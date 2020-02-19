@@ -193,12 +193,14 @@ private class ContractsFetch(
               transactionFilter(party, List(templateId)),
               true,
             )
-            (stepsAndOffset.out0.map(_.toInsertDelete).outlet, stepsAndOffset.out1)
+            (stepsAndOffset.out0, stepsAndOffset.out1)
 
           case AbsoluteBookmark(_) =>
             val stepsAndOffset = builder add transactionsFollowingBoundary(txnK)
             stepsAndOffset.in <~ Source.single(domain.Offset.tag.unsubst(offset))
-            (stepsAndOffset.out0, stepsAndOffset.out1)
+            (
+              (stepsAndOffset: FanOutShape2[_, ContractStreamStep.LAV1, _]).out0,
+              stepsAndOffset.out1)
         }
 
         val transactInsertsDeletes = Flow
@@ -206,7 +208,7 @@ private class ContractsFetch(
           .conflate(_ append _)
           .map(insertAndDelete)
 
-        idses ~> transactInsertsDeletes ~> acsSink
+        idses.map(_.toInsertDelete) ~> transactInsertsDeletes ~> acsSink
         lastOff ~> offsetSink
 
         ClosedShape
@@ -266,7 +268,6 @@ private[http] object ContractsFetch {
   /** Plan inserts, deletes from an in-order batch of create/archive events. */
   private def partitionInsertsDeletes(
       txes: Traversable[lav1.event.Event],
-      offsetAfter: domain.Offset,
   ): InsertDeleteStep.LAV1 = {
     val csb = Vector.newBuilder[lav1.event.CreatedEvent]
     val asb = Map.newBuilder[String, lav1.event.ArchivedEvent]
@@ -314,7 +315,7 @@ private[http] object ContractsFetch {
     NotUsed] =
     GraphDSL.create() { implicit b =>
       import GraphDSL.Implicits._
-      import ContractStreamStep.{LiveBegin, Acs, Txn}
+      import ContractStreamStep.{LiveBegin, Acs}
       type Off = BeginBookmark[String]
       val acs = b add acsAndBoundary
       val dupOff = b add Broadcast[Off](2)
@@ -327,7 +328,7 @@ private[http] object ContractsFetch {
       discard { dupOff <~ acs.out1 }
       discard {           acs.out0.map(ces => Acs(ces.toVector)) ~> allSteps }
       discard { dupOff       ~> liveStart                        ~> allSteps }
-      discard {                      txns.out0.map(Txn(_))       ~> allSteps }
+      discard {                      txns.out0                   ~> allSteps }
       discard { dupOff            ~> txns.in }
       // format: on
       new FanOutShape2(acs.in, allSteps.out, txns.out1)
@@ -342,7 +343,7 @@ private[http] object ContractsFetch {
   ): Graph[
     FanOutShape2[
       BeginBookmark[String],
-      InsertDeleteStep.LAV1,
+      ContractStreamStep.Txn.LAV1,
       BeginBookmark[String],
     ],
     NotUsed] =
@@ -354,7 +355,7 @@ private[http] object ContractsFetch {
       val txns = Flow[Off]
         .flatMapConcat(off => transactionsSince(domain.Offset.tag.subst(off).toLedgerApi))
         .map(transactionToInsertsAndDeletes)
-      val txnSplit = b add project2[InsertDeleteStep.LAV1, domain.Offset]
+      val txnSplit = b add project2[ContractStreamStep.Txn.LAV1, domain.Offset]
       val lastOff = b add last(LedgerBegin: Off)
       // format: off
       discard { txnSplit.in <~ txns <~ dupOff }
@@ -390,9 +391,9 @@ private[http] object ContractsFetch {
 
   private def transactionToInsertsAndDeletes(
       tx: lav1.transaction.Transaction,
-  ): (InsertDeleteStep.LAV1, domain.Offset) = {
+  ): (ContractStreamStep.Txn.LAV1, domain.Offset) = {
     val offset = domain.Offset.fromLedgerApi(tx)
-    (partitionInsertsDeletes(tx.events, offset), offset)
+    (ContractStreamStep.Txn(partitionInsertsDeletes(tx.events), offset), offset)
   }
 
   private def surrogateTemplateIds[K <: TemplateId.RequiredPkg](
