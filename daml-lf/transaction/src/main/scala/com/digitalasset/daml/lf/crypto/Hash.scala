@@ -18,10 +18,10 @@ import javax.crypto.spec.SecretKeySpec
 import scala.util.control.NonFatal
 
 final class Hash private (private val bytes: Array[Byte]) {
-
+  
   def toByteArray: Array[Byte] = bytes.clone()
 
-  def toHexaString: String = BaseEncoding.base16().encode(bytes)
+  def toHexaString: String = Hash.hexEncoding.encode(bytes)
 
   override def toString: String = s"Hash($toHexaString)"
 
@@ -47,6 +47,8 @@ object Hash {
 
   private val version = 0.toByte
   private val underlyingHashLength = 32
+
+  private val hexEncoding = BaseEncoding.base16().lowerCase()
 
   def fromBytes(a: Array[Byte]): Either[String, Hash] =
     Either.cond(
@@ -231,7 +233,7 @@ object Hash {
   def fromString(s: String): Either[String, Hash] = {
     def error = s"Cannot parse hash $s"
     try {
-      val bytes = s.sliding(2, 2).map(Integer.parseInt(_, 16).toByte).toArray
+      val bytes = hexEncoding.decode(s)
       Either.cond(
         bytes.length == underlyingHashLength,
         new Hash(bytes),
