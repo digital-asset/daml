@@ -180,19 +180,37 @@ export const Date: Serializable<Date> = {
   decoder: jtv.string,
 }
 
+const ContractIdBrand: unique symbol = Symbol();
+
 /**
  * The counterpart of DAML's `ContractId T` type. We represent `ContractId`s
  * as strings. Their exact format of these strings depends on the ledger the
  * DAML application is running on.
+ *
+ * The purpose of the intersection with `{ [ContractIdBrand]: ... }` is to
+ * prevent accidental use of a `ContractId<T>` when a `ContractId<U>` is
+ * needed. This technique is known as "branding" in the TypeScript community.
+ *
+ * The specific type used for branding has two very helpful consequences:
+ *
+ * (1) For every subtype `T` of `object`, `ContractId<T>` is a subtype of
+ *     `ContractId<object>`. This is required to be able to downcast a
+ *     `ContractId<object>` into a `ContractId<T>`.
+ * (2) For two _proper_ subtypes `T` and `U` of `object`, `ContractId<T>` is a
+ *     subtype of `ContractId<U>` if and only if `T` and `U` are _structurally_
+ *     equal. In other words, a value of `ContractId<T>` can only be assigned
+ *     to a variable of type `ContractId<U>` when `T` and `U` are
+ *     _structurally_ the same. Thus, accidentally mixing up `ContractId<T>`
+ *     and `ContractId<U>` is impossible.
  */
-export type ContractId<T> = string;
+export type ContractId<T> = string & { [ContractIdBrand]: object extends T ? (_: never) => object : (_: T) => T }
 
 /**
  * Companion object of the `ContractId` type.
  */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export const ContractId = <T>(_t: Serializable<T>): Serializable<ContractId<T>> => ({
-  decoder: jtv.string,
+  decoder: jtv.string as () => jtv.Decoder<ContractId<T>>,
 });
 
 /**
