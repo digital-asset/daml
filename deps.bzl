@@ -35,8 +35,8 @@ rules_haskell_version = "107ab5ccf0cdf884e19c1b3a37b9b8064c4e4e03"
 rules_haskell_sha256 = "758f8190a9dd6e5e6fd7c9fb38a1bb4c5743a6e314d6678761e2cc070d8e465b"
 rules_nixpkgs_version = "33c50ba64c11dddb95823d12f6b1324083cc5c43"
 rules_nixpkgs_sha256 = "91fedd5151bbd9ef89efc39e2172921bd7036c68cff54712a5df8ddf62bd6922"
-davl_version = "625a5791458c54051adb6d1e41e720c673951b72"
-davl_sha256 = "fa300aacb00096d61f527422bbab2f98a38d7438795f80d2e6cbc365fc5256f3"
+davl_version = "51d3977be2ab22f7f4434fd4692ca2e17a7cce23"
+davl_sha256 = "e8e76e21b50fb3adab36df26045b1e8c3ee12814abc60f137d39b864d2eae166"
 
 def daml_deps():
     if "rules_haskell" not in native.existing_rules():
@@ -283,6 +283,6 @@ def daml_deps():
             sha256 = davl_sha256,
             build_file_content = """
 package(default_visibility = ["//visibility:public"])
-exports_files(["released/davl-v3.dar"])
+exports_files(["released/davl-v3.dar", "released/davl-v4.dar", "released/davl-v5.dar", "released/davl-upgrade-v3-v4.dar", "released/davl-upgrade-v4-v5.dar"])
             """,
         )
