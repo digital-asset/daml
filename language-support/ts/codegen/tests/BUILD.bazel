@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("//rules_daml:daml.bzl", "daml_compile")
+load("//bazel_tools:haskell.bzl", "da_haskell_test")
 load("@sdk_version//:sdk_version.bzl", "sdk_version")
 load("@os_info//:os_info.bzl", "is_windows")
 
@@ -66,3 +67,33 @@ sh_test(
         "@bazel_tools//tools/bash/runfiles",
     ],
 ) if not is_windows else None
+
+# Tests for daml2Ts
+da_haskell_test(
+    name = "daml2ts",
+    srcs = ["src/DA/Test/Daml2Ts.hs"],
+    data = [
+        "//compiler/damlc",
+        "//language-support/ts/codegen:daml2ts",
+        "@davl//:released/davl-upgrade-v3-v4.dar",
+        "@davl//:released/davl-upgrade-v4-v5.dar",
+        "@davl//:released/davl-v3.dar",
+        "@davl//:released/davl-v4.dar",
+        "@davl//:released/davl-v5.dar",
+    ],
+    hackage_deps = [
+        "base",
+        "extra",
+        "filepath",
+        "process",
+        "tasty",
+        "tasty-hunit",
+    ],
+    main_function = "DA.Test.Daml2Ts.main",
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//:sdk-version-hs-lib",
+        "//libs-haskell/bazel-runfiles",
+    ],
+)
