@@ -40,7 +40,6 @@ import com.digitalasset.platform.store.{BaseLedger, DbType, FlywayMigrations, Pe
 import com.digitalasset.resources.ResourceOwner
 import scalaz.syntax.tag._
 
-import scala.collection.immutable
 import scala.collection.immutable.Queue
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -498,7 +497,7 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
     }
 
     val (ledgerEnd, ledgerEntries) =
-      initialLedgerEntries.foldLeft((0L, immutable.Seq.empty[(Long, LedgerEntry)])) {
+      initialLedgerEntries.foldLeft((0L, Vector.empty[(Long, LedgerEntry)])) {
         case ((offset, entries), entryOrBump) =>
           entryOrBump match {
             case LedgerEntryOrBump.Entry(entry) =>
