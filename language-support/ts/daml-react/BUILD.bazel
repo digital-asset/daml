@@ -55,15 +55,15 @@ pkg_npm(
     ],
 ) if not is_windows else None
 
-jest_test(
-    name = "test",
-    # Use the js outputs because jest cannot resolve imports in the ts_library
-    # despite moduleNameMapper.
-    srcs = [":daml-react"],
-    jest_config = ":jest.config.js",
-    deps = [
-        "//language-support/ts/daml-ledger",
-        "//language-support/ts/daml-types",
-        "@language_support_ts_deps//immutable",
-    ],
-)
+# jest_test(
+#     name = "test",
+#     # Use the js outputs because jest cannot resolve imports in the ts_library
+#     # despite moduleNameMapper.
+#     srcs = [":daml-react"],
+#     jest_config = ":jest.config.js",
+#     deps = [
+#         "//language-support/ts/daml-ledger",
+#         "//language-support/ts/daml-types",
+#         "@language_support_ts_deps//immutable",
+#     ],
+# )
