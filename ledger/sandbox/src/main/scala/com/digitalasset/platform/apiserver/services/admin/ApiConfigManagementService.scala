@@ -148,7 +148,10 @@ final class ApiConfigManagementService private (
       newTimeModel <- v1.TimeModel(
         minTransactionLatency = DurationConversion.fromProto(pMinTransactionLatency),
         maxClockSkew = DurationConversion.fromProto(pMaxClockSkew),
-        maxTtl = DurationConversion.fromProto(pMaxTtl)
+        maxTtl = DurationConversion.fromProto(pMaxTtl),
+        avgTransactionLatency = java.time.Duration.ZERO,
+        minSkew = java.time.Duration.ZERO,
+        maxSkew = java.time.Duration.ZERO,
       ) match {
         case Failure(err) => Left(ErrorFactories.invalidArgument(err.toString))
         case Success(ok) => Right(ok)
