@@ -56,28 +56,29 @@ object WebSocketService {
       errors: Seq[ServerError],
       step: ContractStreamStep[domain.ArchivedContract, (domain.ActiveContract[LfV], Pos)]) {
     import json.JsonProtocol._, spray.json._
-    def render(implicit lfv: LfV <~< JsValue, pos: Pos <~< Map[String, JsValue]): JsValue =
-      step match {
-        case ContractStreamStep.LiveBegin(off) =>
-          JsObject(
-            ("events", JsArray()),
-            ("offset", off.toOption.cata(o => JsString(domain.Offset.unwrap(o)), JsNull)))
-        case _ =>
-          def inj[V: JsonWriter](ctor: String, v: V) = JsObject(ctor -> v.toJson)
-          val InsertDeleteStep(inserts, deletes) =
-            Liskov
-              .lift2[StepAndErrors, Pos, Map[String, JsValue], LfV, JsValue](pos, lfv)(this)
-              .step
-              .toInsertDelete
-          val events = JsArray(
-            deletes.valuesIterator.map(inj("archived", _)).toVector
-              ++ inserts.map {
-                case (ac, pos) =>
-                  val acj = inj("created", ac)
-                  acj copy (fields = acj.fields ++ pos)
-              } ++ errors.map(e => inj("error", e.message)))
-          JsObject(("events", events), ("offset", JsString(offsetAfter)))
+    def render(implicit lfv: LfV <~< JsValue, pos: Pos <~< Map[String, JsValue]): JsValue = {
+      import ContractStreamStep._
+      def inj[V: JsonWriter](ctor: String, v: V) = JsObject(ctor -> v.toJson)
+      val InsertDeleteStep(inserts, deletes) =
+        Liskov
+          .lift2[StepAndErrors, Pos, Map[String, JsValue], LfV, JsValue](pos, lfv)(this)
+          .step
+          .toInsertDelete
+
+      val events = (deletes.valuesIterator.map(inj("archived", _)).toVector
+        ++ inserts.map {
+          case (ac, pos) =>
+            val acj = inj("created", ac)
+            acj copy (fields = acj.fields ++ pos)
+        } ++ errors.map(e => inj("error", e.message)))
+      val offsetAfter = step match {
+        case Acs(_) => None
+        case LiveBegin(off) =>
+          Some(off.toOption.cata(o => JsString(domain.Offset.unwrap(o)), JsNull: JsValue))
+        case Txn(_, off) => Some(JsString(domain.Offset.unwrap(off)))
       }
+      JsObject(Map("events" -> JsArray(events)) ++ offsetAfter.map("offset" -> _).toList)
+    }
 
     def append[P >: Pos, A >: LfV](o: StepAndErrors[P, A]): StepAndErrors[P, A] =
       StepAndErrors(errors ++ o.errors, step append o.step)
