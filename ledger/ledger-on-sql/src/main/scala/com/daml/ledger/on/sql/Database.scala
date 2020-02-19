@@ -18,7 +18,7 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
-class Database(
+final class Database(
     val queries: Queries,
     readerConnectionPool: DataSource,
     writerConnectionPool: DataSource,

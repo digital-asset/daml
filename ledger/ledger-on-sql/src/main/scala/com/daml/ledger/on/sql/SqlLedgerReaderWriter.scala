@@ -33,7 +33,7 @@ import com.digitalasset.resources.ResourceOwner
 import scala.collection.immutable.TreeSet
 import scala.concurrent.{ExecutionContext, Future}
 
-class SqlLedgerReaderWriter(
+final class SqlLedgerReaderWriter(
     override val ledgerId: LedgerId = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
     val participantId: ParticipantId,
     now: () => Instant,

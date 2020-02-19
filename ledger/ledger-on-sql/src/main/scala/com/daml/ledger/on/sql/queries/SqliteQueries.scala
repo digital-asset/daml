@@ -12,7 +12,7 @@ import com.daml.ledger.on.sql.queries.Queries._
 import com.daml.ledger.participant.state.v1.LedgerId
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 
-class SqliteQueries extends Queries with CommonQueries {
+final class SqliteQueries extends Queries with CommonQueries {
   override def updateOrRetrieveLedgerId(
       providedLedgerId: LedgerId,
   )(implicit connection: Connection): LedgerId = {
