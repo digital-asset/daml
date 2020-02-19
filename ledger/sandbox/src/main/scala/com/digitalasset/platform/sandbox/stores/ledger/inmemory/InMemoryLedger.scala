@@ -377,29 +377,42 @@ class InMemoryLedger(
       deduplicationKey: String,
       submittedAt: Instant,
       ttl: Instant): Future[Option[CommandDeduplicationEntry]] =
-    Future.successful(this.synchronized {
-      commands
-        .get(deduplicationKey)
-        .fold[Option[CommandDeduplicationEntry]] {
+    Future.successful {
+      this.synchronized {
+        val entry = commands.get(deduplicationKey)
+        if (entry.isEmpty) {
+          // No previous entry - new command
           commands += (deduplicationKey -> CommandDeduplicationEntry(
             deduplicationKey,
             submittedAt,
             ttl,
             None))
           None
-        }(ce => Some(ce))
-    })
+        } else {
+          val previousTtl = entry.get.ttl
+          if (submittedAt.isAfter(previousTtl)) {
+            // Previous entry expired - new command
+            commands += (deduplicationKey -> CommandDeduplicationEntry(
+              deduplicationKey,
+              submittedAt,
+              ttl,
+              None))
+            None
+          } else {
+            // Existing previous entry - deduplicate command
+            entry
+          }
+        }
+      }
+    }
 
   override def updateCommandResult(
       deduplicationKey: String,
       submittedAt: Instant,
       result: CommandSubmissionResult): Future[Unit] =
     Future.successful(this.synchronized {
-      commands
-        .get(deduplicationKey)
-        .foreach(cde =>
-          if (cde.submittedAt == submittedAt)
-            commands.update(deduplicationKey, cde.copy(result = Some(result))))
-      ()
+      for (cde <- commands.get(deduplicationKey) if cde.submittedAt == submittedAt) {
+        commands.update(deduplicationKey, cde.copy(result = Some(result)))
+      }
     })
 }
