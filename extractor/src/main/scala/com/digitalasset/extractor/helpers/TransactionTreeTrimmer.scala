@@ -32,9 +32,7 @@ object TransactionTreeTrimmer {
 
   private def exerciseEventOrStakeholder(parties: Set[String]): TreeEvent.Kind => Boolean = {
     case Kind.Created(event) =>
-      event.signatories.toSet.intersect(parties).nonEmpty || event.observers.toSet
-        .intersect(parties)
-        .nonEmpty
+      event.signatories.exists(parties) || event.observers.exists(parties)
     case Kind.Exercised(_) => true
     case Kind.Empty => false
   }

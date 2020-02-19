@@ -46,7 +46,7 @@ class Extractor[T](config: ExtractorConfig, target: T)(
     extends StrictLogging {
 
   private val tokenHolder = config.accessTokenFile.map(new TokenHolder(_))
-  private val parties = config.parties.toSet.map[String, Set[String]](identity)
+  private val parties = config.parties.widen[String]
 
   implicit val system: ActorSystem = ActorSystem()
   import system.dispatcher
