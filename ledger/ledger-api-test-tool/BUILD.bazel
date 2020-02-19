@@ -133,6 +133,9 @@ conformance_test(
     name = "test",
     server = "//ledger/api-server-damlonx/reference-v2:ephemeral-postgres-reference-server",
     server_args = ["--port 6865"],
+    test_tool_args = [
+        "--exclude=CommandDeduplicationIT",
+    ],
 )
 
 conformance_test(
@@ -149,5 +152,6 @@ conformance_test(
         "--crt $(rlocation $TEST_WORKSPACE/$(rootpath test/main/resources/client.crt))",
         "--cacrt $(rlocation $TEST_WORKSPACE/$(rootpath test/main/resources/ca.crt))",
         "--pem $(rlocation $TEST_WORKSPACE/$(rootpath test/main/resources/client.pem))",
+        "--exclude=CommandDeduplicationIT",
     ],
 )
