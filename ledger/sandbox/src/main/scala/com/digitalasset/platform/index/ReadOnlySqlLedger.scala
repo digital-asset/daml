@@ -20,7 +20,7 @@ import com.digitalasset.platform.store.dao.{
 }
 import com.digitalasset.platform.store.{BaseLedger, DbType, ReadOnlyLedger}
 import com.digitalasset.resources.ProgramResource.StartupException
-import com.digitalasset.resources.{Resource, ResourceOwner}
+import com.digitalasset.resources.ResourceOwner
 import scalaz.syntax.tag._
 
 import scala.concurrent.duration._
@@ -31,25 +31,20 @@ object ReadOnlySqlLedger {
   val maxConnections = 16
 
   //jdbcUrl must have the user/password encoded in form of: "jdbc:postgresql://localhost/test?user=fred&password=secret"
-  def apply(
+  def owner(
       jdbcUrl: String,
       ledgerId: LedgerId,
       metrics: MetricRegistry,
-  )(implicit mat: Materializer, logCtx: LoggingContext): Resource[ReadOnlyLedger] = {
-    implicit val ec: ExecutionContext = mat.executionContext
+  )(implicit mat: Materializer, logCtx: LoggingContext): ResourceOwner[ReadOnlyLedger] = {
     val dbType = DbType.jdbcType(jdbcUrl)
     for {
-      dbDispatcher <- DbDispatcher
-        .owner(jdbcUrl, maxConnections, metrics)
-        .acquire()
+      dbDispatcher <- DbDispatcher.owner(jdbcUrl, maxConnections, metrics)
       ledgerReadDao = new MeteredLedgerReadDao(
         JdbcLedgerDao(dbDispatcher, dbType, mat.executionContext),
         metrics,
       )
       factory = new Factory(ledgerReadDao)
-      ledger <- ResourceOwner
-        .forFutureCloseable(() => factory.createReadOnlySqlLedger(ledgerId))
-        .acquire()
+      ledger <- ResourceOwner.forFutureCloseable(() => factory.createReadOnlySqlLedger(ledgerId))
     } yield ledger
   }
 
