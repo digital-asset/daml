@@ -11,6 +11,7 @@ import java.util
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time, Utf8}
 import com.digitalasset.daml.lf.data.Ref.Identifier
 import com.digitalasset.daml.lf.value.Value
+import com.google.common.io.BaseEncoding
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 
@@ -20,18 +21,7 @@ final class Hash private (private val bytes: Array[Byte]) {
 
   def toByteArray: Array[Byte] = bytes.clone()
 
-  def toHexaString: String = {
-    import Hash._
-    // using `bytes.map("%02x" format _).mkString` is 300 times slower
-    val buff = Array.ofDim[Char](underlyingHashLength * 2)
-    var i = 0
-    while (i < underlyingHashLength) {
-      buff(i * 2) = HexaLookupTable((bytes(i) >> 4) & 0xF)
-      buff(i * 2 + 1) = HexaLookupTable(bytes(i) & 0xF)
-      i = i + 1
-    }
-    new String(buff)
-  }
+  def toHexaString: String = BaseEncoding.base16().encode(bytes)
 
   override def toString: String = s"Hash($toHexaString)"
 
@@ -304,8 +294,5 @@ object Hash {
       .add(submitTime.micros)
       .iterateOver(parties.toSeq.sorted[String].iterator, parties.size)(_ add _)
       .build
-
-  private val HexaLookupTable =
-    Array('0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f')
 
 }
