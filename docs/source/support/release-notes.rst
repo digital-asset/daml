@@ -35,7 +35,7 @@ This page contains release notes for the SDK.
 - Static time mode is being deprecated in the future. A warning has been added
   to notify users of this fact.
 
-- Scenarios are being deprecated in the future, in favor of `DAML Script
+- Scenarios for ledger initialization are being deprecated in the future, in favor of `DAML Script
   <https://docs.daml.com/daml-script/>`_. A warning has been added to notify
   users of this fact.
 
