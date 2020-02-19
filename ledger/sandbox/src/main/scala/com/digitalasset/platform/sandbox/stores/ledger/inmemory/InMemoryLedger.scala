@@ -110,7 +110,7 @@ class InMemoryLedger(
       parties: Set[Party]): Source[(Long, CompletionEvent), NotUsed] =
     entries
       .getSource(beginInclusive, endExclusive)
-      .collect { case (offset, InMemoryLedgerEntry(entry)) => offset -> entry }
+      .collect { case (offset, InMemoryLedgerEntry(entry)) => (offset + 1, entry) }
       .collect(CompletionFromTransaction(applicationId.unwrap, parties))
 
   override def ledgerEnd: Long = entries.ledgerEnd
