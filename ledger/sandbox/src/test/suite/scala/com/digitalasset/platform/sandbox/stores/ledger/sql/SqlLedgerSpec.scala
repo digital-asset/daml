@@ -113,7 +113,7 @@ class SqlLedgerSpec
         ledger <- createSqlLedger(packages = testDar.all)
         packages <- ledger.listLfPackages()
       } yield {
-        packages should have size 17
+        packages should have size testDar.all.length.toLong
       }
     }
 
@@ -122,7 +122,7 @@ class SqlLedgerSpec
         ledger <- createSqlLedger(ledgerId = "TheLedger", packages = testDar.all)
         packages <- ledger.listLfPackages()
       } yield {
-        packages should have size 17
+        packages should have size testDar.all.length.toLong
       }
     }
 
