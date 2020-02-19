@@ -180,19 +180,26 @@ export const Date: Serializable<Date> = {
   decoder: jtv.string,
 }
 
+const ContractIdBrand: unique symbol = Symbol();
+
 /**
  * The counterpart of DAML's `ContractId T` type. We represent `ContractId`s
  * as strings. Their exact format of these strings depends on the ledger the
  * DAML application is running on.
+ *
+ * The purpose of the intersection with `{ [ContractIdBrand]: T }` is to
+ * prevent accidental use of a `ContractId<T>` when a `ContractId<U>` is
+ * needed (unless `T` is a subtype of `U`). This technique is known as
+ * "branding" in the TypeScript community.
  */
-export type ContractId<T> = string;
+export type ContractId<T> = string & { [ContractIdBrand]: T }
 
 /**
  * Companion object of the `ContractId` type.
  */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export const ContractId = <T>(_t: Serializable<T>): Serializable<ContractId<T>> => ({
-  decoder: jtv.string,
+  decoder: jtv.string as () => jtv.Decoder<ContractId<T>>,
 });
 
 /**
