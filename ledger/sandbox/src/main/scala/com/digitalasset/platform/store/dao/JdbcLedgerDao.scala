@@ -1703,7 +1703,7 @@ private class JdbcLedgerDao(
       deduplicationKey: String,
       submittedAt: Instant,
       result: Either[String, Unit]): Future[Unit] =
-    dbDispatcher.executeSql("deduplicate_command") { implicit conn =>
+    dbDispatcher.executeSql("update_command_result") { implicit conn =>
       SQL_UPDATE_COMMAND
         .on(
           "deduplicationKey" -> deduplicationKey,
