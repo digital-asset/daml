@@ -19,22 +19,22 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 final class Database(
-    val queries: Queries,
+    queries: Queries,
     readerConnectionPool: DataSource,
     writerConnectionPool: DataSource,
 ) {
   private val logger = ContextualizedLogger.get(this.getClass)
 
   def inReadTransaction[T](message: String)(
-      body: Connection => Future[T],
+      body: Queries => Connection => Future[T],
   )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): Future[T] = {
-    inTransaction(message, readerConnectionPool)(body)
+    inTransaction(message, readerConnectionPool)(body(queries))
   }
 
   def inWriteTransaction[T](message: String)(
-      body: Connection => Future[T],
+      body: Queries => Connection => Future[T],
   )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): Future[T] = {
-    inTransaction(message, writerConnectionPool)(body)
+    inTransaction(message, writerConnectionPool)(body(queries))
   }
 
   private def inTransaction[T](message: String, connectionPool: DataSource)(
