@@ -437,75 +437,82 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
     // headRef. We also are not concerns with heartbeats / checkpoints. This is OK since this initialization
     // step happens before we start up the sql ledger at all, so it's running in isolation.
 
-    initialLedgerId match {
-      case LedgerIdMode.Static(initialId) =>
-        ledgerDao
-          .lookupLedgerId()
-          .flatMap {
-            case Some(foundLedgerId) if foundLedgerId == initialId =>
-              if (initialLedgerEntries.nonEmpty) {
-                logger.warn(
-                  s"Initial ledger entries provided, presumably from scenario, but there is an existing database, and thus they will not be used.")
-              }
-              if (packages.listLfPackagesSync().nonEmpty) {
-                logger.warn(
-                  s"Initial packages provided, presumably as command line arguments, but there is an existing database, and thus they will not be used.")
-              }
-              ledgerFound(foundLedgerId)
+    implicit val ec: ExecutionContext = DEC
+    for {
+      currentLedgerId <- ledgerDao.lookupLedgerId()
+      initializationRequired = currentLedgerId.isEmpty
+      ledgerId <- (currentLedgerId, initialLedgerId) match {
+        case (Some(foundLedgerId), LedgerIdMode.Static(initialId)) if foundLedgerId == initialId =>
+          ledgerFound(foundLedgerId, initialLedgerEntries, packages)
 
-            case Some(foundLedgerId) =>
-              Future.failed(new LedgerIdMismatchException(foundLedgerId, initialId))
+        case (Some(foundLedgerId), LedgerIdMode.Static(initialId)) =>
+          Future.failed(new LedgerIdMismatchException(foundLedgerId, initialId))
 
-            case None =>
-              if (initialLedgerEntries.nonEmpty) {
-                logger.info(
-                  s"Initializing ledger with ${initialLedgerEntries.length} ledger entries.")
-              }
+        case (Some(foundLedgerId), LedgerIdMode.Dynamic()) =>
+          ledgerFound(foundLedgerId, initialLedgerEntries, packages)
 
-              val contracts = acs.activeContracts.values.toList
+        case (None, LedgerIdMode.Static(initialId)) =>
+          Future.successful(initialId)
 
-              val (ledgerEnd, ledgerEntries) =
-                initialLedgerEntries.foldLeft((0L, immutable.Seq.empty[(Long, LedgerEntry)])) {
-                  case ((offset, entries), entryOrBump) =>
-                    entryOrBump match {
-                      case LedgerEntryOrBump.Entry(entry) =>
-                        (offset + 1, entries :+ offset -> entry)
-                      case LedgerEntryOrBump.Bump(increment) =>
-                        (offset + increment, entries)
-                    }
-                }
-
-              implicit val ec: ExecutionContext = DEC
-              for {
-                _ <- doInit(initialId)
-                _ <- copyPackages(packages, timeProvider.getCurrentTime, ledgerEnd)
-                _ <- ledgerDao.storeInitialState(contracts, ledgerEntries, ledgerEnd)
-              } yield initialId
-
-          }(DEC)
-
-      case LedgerIdMode.Dynamic() =>
-        logger.info("No ledger ID provided. Looking for existing ledger in database.")
-        ledgerDao
-          .lookupLedgerId()
-          .flatMap {
-            case Some(foundLedgerId) =>
-              ledgerFound(foundLedgerId)
-            case None =>
-              val randomLedgerId = LedgerIdGenerator.generateRandomId()
-              doInit(randomLedgerId).map(_ => randomLedgerId)(DEC)
-          }(DEC)
-    }
+        case (None, LedgerIdMode.Dynamic()) =>
+          val randomLedgerId = LedgerIdGenerator.generateRandomId()
+          Future.successful(randomLedgerId)
+      }
+      _ <- if (initializationRequired) {
+        logger.info(s"Initializing ledger with ID: $ledgerId")
+        for {
+          _ <- ledgerDao.initializeLedger(ledgerId, 0)
+          _ <- initializeLedgerEntries(initialLedgerEntries, timeProvider, packages, acs)
+        } yield ()
+      } else {
+        Future.unit
+      }
+    } yield ledgerId
   }
 
-  private def ledgerFound(foundLedgerId: LedgerId): Future[LedgerId] = {
+  private def ledgerFound(
+      foundLedgerId: LedgerId,
+      initialLedgerEntries: ImmArray[LedgerEntryOrBump],
+      packages: InMemoryPackageStore,
+  ): Future[LedgerId] = {
     logger.info(s"Found existing ledger with ID: ${foundLedgerId.unwrap}")
+    if (initialLedgerEntries.nonEmpty) {
+      logger.warn(
+        s"Initial ledger entries provided, presumably from scenario, but there is an existing database, and thus they will not be used.")
+    }
+    if (packages.listLfPackagesSync().nonEmpty) {
+      logger.warn(
+        s"Initial packages provided, presumably as command line arguments, but there is an existing database, and thus they will not be used.")
+    }
     Future.successful(foundLedgerId)
   }
 
-  private def doInit(ledgerId: LedgerId): Future[Unit] = {
-    logger.info(s"Initializing ledger with ID: ${ledgerId.unwrap}")
-    ledgerDao.initializeLedger(ledgerId, 0)
+  private def initializeLedgerEntries(
+      initialLedgerEntries: ImmArray[LedgerEntryOrBump],
+      timeProvider: TimeProvider,
+      packages: InMemoryPackageStore,
+      acs: InMemoryActiveLedgerState,
+  )(implicit executionContext: ExecutionContext): Future[Unit] = {
+    if (initialLedgerEntries.nonEmpty) {
+      logger.info(s"Initializing ledger with ${initialLedgerEntries.length} ledger entries.")
+    }
+
+    val (ledgerEnd, ledgerEntries) =
+      initialLedgerEntries.foldLeft((0L, immutable.Seq.empty[(Long, LedgerEntry)])) {
+        case ((offset, entries), entryOrBump) =>
+          entryOrBump match {
+            case LedgerEntryOrBump.Entry(entry) =>
+              (offset + 1, entries :+ offset -> entry)
+            case LedgerEntryOrBump.Bump(increment) =>
+              (offset + increment, entries)
+          }
+      }
+
+    val contracts = acs.activeContracts.values.toList
+    for {
+      _ <- copyPackages(packages, timeProvider.getCurrentTime, ledgerEnd)
+      _ <- ledgerDao.storeInitialState(contracts, ledgerEntries, ledgerEnd)
+    } yield ()
   }
 
   private def copyPackages(
