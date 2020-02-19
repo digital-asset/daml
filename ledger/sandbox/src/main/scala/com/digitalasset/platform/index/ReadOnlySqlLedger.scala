@@ -76,7 +76,7 @@ object ReadOnlySqlLedger {
       ledgerDao
         .lookupLedgerId()
         .flatMap {
-          case Some(foundLedgerId) if foundLedgerId == initialLedgerId =>
+          case Some(foundLedgerId @ `initialLedgerId`) =>
             logger.info(s"Found existing ledger with ID: ${foundLedgerId.unwrap}")
             Future.successful(foundLedgerId)
           case Some(foundLedgerId) =>
