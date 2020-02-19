@@ -31,7 +31,7 @@ da_scala_library(
 # the utilities from the tests.
 da_scala_test(
     name = "tests",
-    timeout = "long",
+    timeout = "moderate",
     srcs = glob(["src/test/**/*.scala"]),
     data = [
         "//daml-lf/tests:BasicTests.dar",

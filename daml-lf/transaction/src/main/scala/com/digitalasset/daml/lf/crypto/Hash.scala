@@ -11,6 +11,7 @@ import java.util
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time, Utf8}
 import com.digitalasset.daml.lf.data.Ref.Identifier
 import com.digitalasset.daml.lf.value.Value
+import com.google.common.io.BaseEncoding
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 
@@ -20,8 +21,7 @@ final class Hash private (private val bytes: Array[Byte]) {
 
   def toByteArray: Array[Byte] = bytes.clone()
 
-  def toHexaString: String =
-    bytes.map("%02x" format _).mkString
+  def toHexaString: String = Hash.hexEncoding.encode(bytes)
 
   override def toString: String = s"Hash($toHexaString)"
 
@@ -47,6 +47,8 @@ object Hash {
 
   private val version = 0.toByte
   private val underlyingHashLength = 32
+
+  private val hexEncoding = BaseEncoding.base16().lowerCase()
 
   def fromBytes(a: Array[Byte]): Either[String, Hash] =
     Either.cond(
@@ -231,7 +233,7 @@ object Hash {
   def fromString(s: String): Either[String, Hash] = {
     def error = s"Cannot parse hash $s"
     try {
-      val bytes = s.sliding(2, 2).map(Integer.parseInt(_, 16).toByte).toArray
+      val bytes = hexEncoding.decode(s)
       Either.cond(
         bytes.length == underlyingHashLength,
         new Hash(bytes),
