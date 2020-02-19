@@ -5,7 +5,13 @@ package com.daml.ledger.on.sql
 
 import java.sql.Connection
 
-import com.daml.ledger.on.sql.queries.{H2Queries, PostgresqlQueries, Queries, SqliteQueries}
+import com.daml.ledger.on.sql.queries.{
+  H2Queries,
+  PostgresqlQueries,
+  Queries,
+  ReadQueries,
+  SqliteQueries
+}
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.resources.ProgramResource.StartupException
 import com.digitalasset.resources.ResourceOwner
@@ -26,7 +32,7 @@ final class Database(
   private val logger = ContextualizedLogger.get(this.getClass)
 
   def inReadTransaction[T](message: String)(
-      body: Queries => Connection => Future[T],
+      body: ReadQueries => Connection => Future[T],
   )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): Future[T] = {
     inTransaction(message, readerConnectionPool)(body(queries))
   }
