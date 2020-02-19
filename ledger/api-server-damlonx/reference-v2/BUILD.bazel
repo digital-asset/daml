@@ -176,6 +176,7 @@ conformance_test(
     ],
     test_tool_args = [
         "--include=SemanticTests,TransactionServiceIT",
+        "--exclude=CommandDeduplicationIT",
     ],
 )
 
@@ -193,5 +194,6 @@ conformance_test(
     ],
     test_tool_args = [
         "--include=ConfigManagementServiceIT",
+        "--exclude=CommandDeduplicationIT",
     ],
 )
