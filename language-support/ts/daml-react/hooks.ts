@@ -127,7 +127,31 @@ export function useStreamQuery<T extends object, K>(template: Template<T, K>, qu
       stream.close();
     };
   // NOTE(MH): See note at the top of the file regarding "useEffect dependencies".
-}, [state.ledger, template, ...(queryDeps ?? [])]);
+  }, [state.ledger, template, ...(queryDeps ?? [])]);
+  return result;
+}
+
+/// React Hook for a query against the `/v1/stream/fetch` endpoint of the JSON API.
+export function useStreamFetchByKey<T extends object, K>(template: Template<T, K>, keyFactory: () => K, keyDeps: readonly unknown[]): FetchResult<T, K> {
+  const [result, setResult] = useState<FetchResult<T, K>>({contract: null, loading: false});
+  const state = useDamlState();
+  useEffect(() => {
+    setResult({contract: null, loading: true});
+    const key = keyFactory();
+    console.debug(`mount useStreamFetchByKey(${template.templateId}, ...)`, key);
+    const stream = state.ledger.streamFetchByKey(template, key);
+    stream.on('change', contract => setResult(result => ({...result, contract})));
+    stream.on('close', closeEvent => {
+      console.error('useStreamFetchByKey: web socket closed', closeEvent);
+      setResult(result => ({...result, loading: true}));
+    });
+    setResult(result => ({...result, loading: false}));
+    return () => {
+      console.debug(`unmount useStreamFetchByKey(${template.templateId}, ...)`, key);
+      stream.close();
+    };
+  // NOTE(MH): See note at the top of the file regarding "useEffect dependencies".
+  }, [state.ledger, template, ...keyDeps]);
   return result;
 }
 
