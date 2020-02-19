@@ -37,7 +37,7 @@ This page contains release notes for the SDK.
 
 - Scenarios for ledger initialization are being deprecated in the future, in favor of `DAML Script
   <https://docs.daml.com/daml-script/>`_. A warning has been added to notify
-  users of this fact.
+  users of this fact. Scenarios can still be used for testing in DAML studio.
 
 - Participant index contract lookups simplified. This should speed up command
   interpretation.
