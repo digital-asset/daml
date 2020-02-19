@@ -26,6 +26,7 @@ import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.domain.{
   ApplicationId,
   CommandId,
+  CompletionEvent,
   LedgerId,
   PartyDetails,
   RejectionReason,
@@ -45,9 +46,10 @@ import com.digitalasset.platform.store.entries.{
   PackageLedgerEntry,
   PartyLedgerEntry
 }
-import com.digitalasset.platform.store.LedgerSnapshot
+import com.digitalasset.platform.store.{CompletionFromTransaction, LedgerSnapshot}
 import org.slf4j.LoggerFactory
 import scalaz.Tag
+import scalaz.syntax.tag.ToTagOps
 
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
@@ -100,6 +102,16 @@ class InMemoryLedger(
   private var acs = acs0
   private var deduplicator = Deduplicator()
   private var ledgerConfiguration: Option[Configuration] = None
+
+  override def completions(
+      beginInclusive: Option[Long],
+      endExclusive: Option[Long],
+      applicationId: ApplicationId,
+      parties: Set[Party]): Source[(Long, CompletionEvent), NotUsed] =
+    entries
+      .getSource(beginInclusive, endExclusive)
+      .collect { case (offset, InMemoryLedgerEntry(entry)) => (offset + 1, entry) }
+      .collect(CompletionFromTransaction(applicationId.unwrap, parties))
 
   override def ledgerEnd: Long = entries.ledgerEnd
 

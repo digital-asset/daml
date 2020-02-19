@@ -7,13 +7,20 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.v1.Configuration
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
-import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, TransactionId}
+import com.digitalasset.ledger.api.domain.{
+  ApplicationId,
+  CompletionEvent,
+  LedgerId,
+  PartyDetails,
+  TransactionId
+}
 import com.digitalasset.ledger.api.health.ReportsHealth
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.store.entries.{
@@ -35,6 +42,12 @@ trait ReadOnlyLedger extends ReportsHealth with AutoCloseable {
       endExclusive: Option[Long]): Source[(Long, LedgerEntry), NotUsed]
 
   def ledgerEnd: Long
+
+  def completions(
+      beginInclusive: Option[Long],
+      endExclusive: Option[Long],
+      applicationId: ApplicationId,
+      parties: Set[Ref.Party]): Source[(Long, CompletionEvent), NotUsed]
 
   def snapshot(filter: TemplateAwareFilter): Future[LedgerSnapshot]
 
