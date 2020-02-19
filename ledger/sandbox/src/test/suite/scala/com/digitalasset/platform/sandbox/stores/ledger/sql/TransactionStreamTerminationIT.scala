@@ -45,14 +45,14 @@ class TransactionStreamTerminationIT
 
   override protected def config: SandboxConfig = super.config.copy(
     jdbcUrl = Some("jdbc:h2:mem:static_time;db_close_delay=-1"),
-    timeProviderType = TimeProviderType.Static
+    timeProviderType = Some(TimeProviderType.Static),
   )
   def commandClientConfig =
     CommandClientConfiguration(
       config.commandConfig.maxCommandsInFlight,
       config.commandConfig.maxParallelSubmissions,
-      true,
-      JDuration.ofMillis(2000)
+      overrideTtl = true,
+      ttl = JDuration.ofMillis(2000),
     )
   private val applicationId = "transaction-stream-termination-test"
 

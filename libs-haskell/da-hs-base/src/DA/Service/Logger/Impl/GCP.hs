@@ -63,6 +63,7 @@ import Control.Concurrent.Extra
 import Control.Concurrent.STM
 import Control.Exception.Safe
 import Network.HTTP.Simple
+import SdkVersion
 
 -- Type definitions
 
@@ -234,7 +235,7 @@ instance ToJSON LogEntry where
 data MetaData = MetaData
     { machineID :: !UUID
     , operatingSystem :: !T.Text
-    , version :: !(Maybe T.Text)
+    , version :: !T.Text
     } deriving Generic
 instance ToJSON MetaData
 
@@ -247,10 +248,13 @@ getMetaData :: GCPState -> IO MetaData
 getMetaData gcp = do
     machineID <- fetchMachineID gcp
     v <- lookupEnv sdkVersionEnvVar
-    let version = case v of
-            Nothing -> Nothing
-            Just "" -> Nothing
-            Just vs -> Just $ T.pack vs
+    let version = T.pack $ case v of
+            Just vs | not (null vs) -> vs
+            -- If damlc is invoked directly which people might do when using other LSP clients, e.g.,
+            -- vim we cannot rely on the version being set by the assistant.
+            -- Therefore we fall back on the SDK version at built time which
+            -- should be correct with the exception of daml-sdk-head where it will not be set to 0.0.0.
+            _ -> sdkVersion
     pure MetaData
         { machineID
         , operatingSystem=T.pack os

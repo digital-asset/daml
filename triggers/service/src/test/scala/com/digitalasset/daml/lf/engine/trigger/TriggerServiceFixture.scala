@@ -88,7 +88,7 @@ object TriggerServiceFixture {
     SandboxConfig.default.copy(
       port = ledgerPort,
       damlPackages = dars,
-      timeProviderType = TimeProviderType.Static,
+      timeProviderType = Some(TimeProviderType.Static),
       ledgerIdMode = LedgerIdMode.Static(ledgerId),
       authService = authService
     )

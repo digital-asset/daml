@@ -9,7 +9,7 @@ import java.security.{MessageDigest, SecureRandom}
 import java.util
 
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time, Utf8}
-import com.digitalasset.daml.lf.transaction.Node
+import com.digitalasset.daml.lf.data.Ref.Identifier
 import com.digitalasset.daml.lf.value.Value
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
@@ -55,6 +55,9 @@ object Hash {
       s"hash should have ${underlyingHashLength} bytes, found ${a.length}",
     )
 
+  def assertFromBytes(a: Array[Byte]): Hash =
+    data.assertRight(fromBytes(a))
+
   def secureRandom(seed: Array[Byte]): () => Hash = {
     val random = new SecureRandom(seed)
     () =>
@@ -71,7 +74,7 @@ object Hash {
   implicit val HashOrdering: Ordering[Hash] =
     ((hash1, hash2) => implicitly[Ordering[Iterable[Byte]]].compare(hash1.bytes, hash2.bytes))
 
-  private[crypto] sealed abstract class Builder {
+  private[crypto] sealed abstract class Builder(purpose: Purpose) {
 
     protected def update(a: Array[Byte]): Unit
 
@@ -154,7 +157,11 @@ object Hash {
         case Value.ValueText(v) =>
           add(v)
         case Value.ValueContractId(v) =>
-          add(v.coid)
+          purpose match {
+            case Purpose.ContractKey =>
+              sys.error("Hashing of contract id for contract keys is not supported")
+            case _ => add(v.coid)
+          }
         case Value.ValueOptional(None) =>
           add(0)
         case Value.ValueOptional(Some(v)) =>
@@ -190,7 +197,7 @@ object Hash {
 
   // package private for testing purpose.
   // Do not call this method from outside Hash object/
-  private[crypto] def builder(purpose: Purpose): Builder = new Builder {
+  private[crypto] def builder(purpose: Purpose): Builder = new Builder(purpose) {
 
     private val md = MessageDigest.getInstance("SHA-256")
 
@@ -207,7 +214,7 @@ object Hash {
 
   private val hMacAlgorithm = "HmacSHA256"
 
-  private[crypto] def hMacBuilder(key: Hash): Builder = new Builder {
+  private[crypto] def hMacBuilder(key: Hash): Builder = new Builder(Purpose.PrivateKey) {
 
     private val mac: Mac = Mac.getInstance(hMacAlgorithm)
 
@@ -242,12 +249,12 @@ object Hash {
     builder(Purpose.PrivateKey).add(s).build
 
   // This function assumes that key is well typed, i.e. :
-  // 1 - `key.identifier` is the identifier for a template with a key of type τ
-  // 2 - `key.key` is a value of type τ
-  def hashContractKey(key: Node.GlobalKey): Hash =
+  // 1 - `templateId` is the identifier for a template with a key of type τ
+  // 2 - `key` is a value of type τ
+  def hashContractKey(templateId: Identifier, key: Value[Nothing]): Hash =
     builder(Hash.Purpose.ContractKey)
-      .addIdentifier(key.templateId)
-      .addTypedValue(key.key.value)
+      .addIdentifier(templateId)
+      .addTypedValue(key)
       .build
 
   def deriveSubmissionSeed(

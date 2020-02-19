@@ -3,18 +3,14 @@
 
 package com.daml.ledger.validator
 
-sealed trait ValidationResult
+import scala.util.control.NoStackTrace
 
-object ValidationResult {
+sealed trait ValidationFailed extends RuntimeException with NoStackTrace
 
-  case object SubmissionValidated extends ValidationResult
-
-  sealed trait ValidationFailed extends RuntimeException with ValidationResult
+object ValidationFailed {
 
   final case class MissingInputState(keys: Seq[Array[Byte]]) extends ValidationFailed
 
   final case class ValidationError(reason: String) extends ValidationFailed
-
-  final case class TransformedSubmission[T](value: T)
 
 }

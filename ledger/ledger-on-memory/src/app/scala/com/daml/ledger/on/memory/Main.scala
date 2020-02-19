@@ -7,6 +7,7 @@ import akka.stream.Materializer
 import com.daml.ledger.participant.state.kvutils.app.LedgerFactory.SimpleLedgerFactory
 import com.daml.ledger.participant.state.kvutils.app.Runner
 import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId}
+import com.digitalasset.logging.LoggingContext
 import com.digitalasset.resources.{ProgramResource, ResourceOwner}
 
 import scala.concurrent.ExecutionContext
@@ -24,6 +25,7 @@ object Main {
     )(
         implicit executionContext: ExecutionContext,
         materializer: Materializer,
+        logCtx: LoggingContext,
     ): ResourceOwner[InMemoryLedgerReaderWriter] =
       InMemoryLedgerReaderWriter.owner(ledgerId, participantId)
   }

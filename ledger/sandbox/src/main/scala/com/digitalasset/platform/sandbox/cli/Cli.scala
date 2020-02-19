@@ -17,7 +17,7 @@ import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.configuration.BuildInfo
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.services.time.TimeProviderType
-import scopt.Read
+import scopt.{OptionParser, Read}
 
 import scala.util.Try
 
@@ -33,8 +33,11 @@ object Cli {
     override val reads: String => Duration = Duration.parse
   }
 
+  private val KnownLogLevels = Set("ERROR", "WARN", "INFO", "DEBUG", "TRACE")
+
   // format: off
-  private val cmdArgParser = new scopt.OptionParser[SandboxConfig]("sandbox") {
+  private val cmdArgParser: OptionParser[SandboxConfig] = new OptionParser[SandboxConfig](
+    "sandbox") {
     head(s"Sandbox version ${BuildInfo.Version}")
 
     arg[File]("<archive>...")
@@ -64,17 +67,11 @@ object Cli {
         "This argument is present for backwards compatibility. DALF and DAR archives are now identified by their extensions.")
 
     opt[Unit]('s', "static-time")
-      .action { (_, c) =>
-        assertTimeModeIsDefault(c)
-        c.copy(timeProviderType = TimeProviderType.Static)
-      }
+      .action { (_, c) => setTimeProviderType(c, TimeProviderType.Static) }
       .text("Use static time, configured with TimeService through gRPC.")
 
     opt[Unit]('w', "wall-clock-time")
-      .action { (t, c) =>
-        assertTimeModeIsDefault(c)
-        c.copy(timeProviderType = TimeProviderType.WallClock)
-      }
+      .action { (_, c) => setTimeProviderType(c, TimeProviderType.WallClock) }
       .text("Use wall clock time (UTC). When not provided, static time is used.")
 
     // TODO(#577): Remove this flag.
@@ -97,7 +94,8 @@ object Cli {
       .text("TLS: The pem file to be used as the private key.")
       .action((path, config) =>
         config.copy(tlsConfig =
-          config.tlsConfig.fold(Some(TlsConfiguration(true, None, Some(new File(path)), None)))(c =>
+          config.tlsConfig
+            .fold(Some(TlsConfiguration(enabled = true, None, Some(new File(path)), None)))(c =>
             Some(c.copy(keyFile = Some(new File(path)))))))
 
     opt[String]("crt")
@@ -106,7 +104,8 @@ object Cli {
       .action((path: String, config: SandboxConfig) =>
         config.copy(
           tlsConfig =
-            config.tlsConfig.fold(Some(TlsConfiguration(true, Some(new File(path)), None, None)))(c =>
+            config.tlsConfig
+              .fold(Some(TlsConfiguration(enabled = true, Some(new File(path)), None, None)))(c =>
               Some(c.copy(keyCertChainFile = Some(new File(path)))))))
 
     opt[String]("cacrt")
@@ -114,7 +113,8 @@ object Cli {
       .text("TLS: The crt file to be used as the the trusted root CA.")
       .action((path, config) =>
         config.copy(tlsConfig =
-          config.tlsConfig.fold(Some(TlsConfiguration(true, None, None, Some(new File(path)))))(c =>
+          config.tlsConfig
+            .fold(Some(TlsConfiguration(enabled = true, None, None, Some(new File(path)))))(c =>
             Some(c.copy(trustCertCollectionFile = Some(new File(path)))))))
 
     opt[Int]("maxInboundMessageSize")
@@ -137,11 +137,10 @@ object Cli {
         .action((id, c) => c.copy(ledgerIdMode = LedgerIdMode.Static(LedgerId(Ref.LedgerString.assertFromString(id)))))
       .text("Sandbox ledger ID. If missing, a random unique ledger ID will be used. Only useful with persistent stores.")
 
-    val knownLevels = Set("ERROR", "WARN", "INFO", "DEBUG", "TRACE")
-
     opt[String]("log-level")
       .optional()
-      .validate(l => Either.cond(knownLevels.contains(l.toUpperCase), (), s"Unrecognized logging level $l"))
+      .validate(l => Either
+        .cond(KnownLogLevels.contains(l.toUpperCase), (), s"Unrecognized logging level $l"))
       .action((level, c) => c.copy(logLevel = Level.toLevel(level.toUpperCase)))
       .text("Default logging level to use. Available values are INFO, TRACE, DEBUG, WARN, and ERROR. Defaults to INFO.")
 
@@ -201,17 +200,24 @@ object Cli {
     help("help").text("Print the usage text")
 
     checkConfig(c => {
-      if (c.scenario.isDefined && c.timeProviderType == TimeProviderType.WallClock)
-        failure("Wallclock mode (-w / --wall-clock-time) and scenario initialisation (--scenario) may not be used together.")
+      if (c.scenario.isDefined && c.timeProviderType.contains(TimeProviderType.WallClock))
+        failure(
+          "Wall-clock time mode (`-w`/`--wall-clock-time`) and scenario initialization (`--scenario`) may not be used together.")
       else success
     })
+
+    private def setTimeProviderType(
+      config: SandboxConfig,
+      timeProviderType: TimeProviderType,
+    ): SandboxConfig = {
+      if (config.timeProviderType.exists(_ != timeProviderType)) {
+        throw new IllegalStateException(
+          "Static time mode (`-s`/`--static-time`) and wall-clock time mode (`-w`/`--wall-clock-time`) are mutually exclusive. The time mode must be unambiguous.")
+      }
+      config.copy(timeProviderType = Some(timeProviderType))
+    }
   }
   // format: on
-  private def assertTimeModeIsDefault(c: SandboxConfig): Unit = {
-    if (c.timeProviderType != TimeProviderType.default)
-      throw new IllegalArgumentException(
-        "Error: -w and -s options may not be used together (time mode must be unambiguous).")
-  }
 
   private def checkIfZip(f: File): Boolean = {
     import java.io.RandomAccessFile
@@ -219,7 +225,7 @@ object Cli {
       val raf = new RandomAccessFile(f, "r")
       val n = raf.readInt
       raf.close()
-      (n == 0x504B0304) //non-empty, non-spanned ZIPs are always beginning with this
+      n == 0x504B0304 //non-empty, non-spanned ZIPs are always beginning with this
     }.getOrElse(false)
   }
 

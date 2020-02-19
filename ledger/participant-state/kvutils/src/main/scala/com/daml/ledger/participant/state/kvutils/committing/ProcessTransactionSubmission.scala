@@ -7,7 +7,7 @@ import com.codahale.metrics
 import com.codahale.metrics.{Counter, Timer}
 import com.daml.ledger.participant.state.kvutils.Conversions.{buildTimestamp, commandDedupKey, _}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.daml.ledger.participant.state.kvutils.{Conversions, Err, InputsAndEffects, DamlStateMap}
+import com.daml.ledger.participant.state.kvutils.{Conversions, DamlStateMap, Err, InputsAndEffects}
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId, RejectionReason}
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.archive.Reader.ParseError
@@ -15,7 +15,7 @@ import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.{Blinding, Engine}
 import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, NodeCreate, NodeExercises}
-import com.digitalasset.daml.lf.transaction.BlindingInfo
+import com.digitalasset.daml.lf.transaction.{BlindingInfo, GenTransaction}
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId, NodeId, VersionedValue}
 import org.slf4j.LoggerFactory
 
@@ -43,6 +43,7 @@ private[kvutils] case class ProcessTransactionSubmission(
     runSequence(
       inputState = inputState,
       "Authorize submitter" -> authorizeSubmitter,
+      "Check Informee Parties Allocation" -> checkInformeePartiesAllocation,
       "Deduplicate" -> deduplicateCommand,
       "Validate LET/TTL" -> validateLetAndTtl,
       "Validate Contract Key Uniqueness" -> validateContractKeyUniqueness,
@@ -75,14 +76,13 @@ private[kvutils] case class ProcessTransactionSubmission(
   // Pull all keys from referenced contracts. We require this for 'fetchByKey' calls
   // which are not evidenced in the transaction itself and hence the contract key state is
   // not included in the inputs.
-  private lazy val knownKeys: Map[GlobalKey, AbsoluteContractId] =
+  private lazy val knownKeys: Map[DamlContractKey, AbsoluteContractId] =
     inputState.collect {
       case (key, Some(value))
           if value.hasContractState
             && value.getContractState.hasContractKey
             && contractIsActiveAndVisibleToSubmitter(value.getContractState) =>
-        Conversions.decodeContractKey(value.getContractState.getContractKey) ->
-          Conversions.stateKeyToContractId(key)
+        value.getContractState.getContractKey -> Conversions.stateKeyToContractId(key)
     }
 
   /** Deduplicate the submission. If the check passes we save the command deduplication
@@ -184,16 +184,18 @@ private[kvutils] case class ProcessTransactionSubmission(
               (allUnique, existingKeys),
               (_nodeId, exe: NodeExercises[_, _, VersionedValue[ContractId]]))
               if exe.key.isDefined && exe.consuming =>
-            val stateKey = Conversions.contractKeyToStateKey(
-              GlobalKey(exe.templateId, Conversions.forceNoContractIds(exe.key.get.key)))
+            val stateKey = Conversions.globalKeyToStateKey(
+              GlobalKey(exe.templateId, Conversions.forceNoContractIds(exe.key.get.key.value)))
             (allUnique, existingKeys - stateKey)
 
           case (
               (allUnique, existingKeys),
               (_nodeId, create: NodeCreate[_, VersionedValue[ContractId]]))
               if create.key.isDefined =>
-            val stateKey = Conversions.contractKeyToStateKey(
-              GlobalKey(create.coinst.template, Conversions.forceNoContractIds(create.key.get.key)))
+            val stateKey = Conversions.globalKeyToStateKey(
+              GlobalKey(
+                create.coinst.template,
+                Conversions.forceNoContractIds(create.key.get.key.value)))
 
             (allUnique && !existingKeys.contains(stateKey), existingKeys + stateKey)
 
@@ -207,6 +209,30 @@ private[kvutils] case class ProcessTransactionSubmission(
         reject(
           buildRejectionLogEntry(RejectionReason.Disputed("DuplicateKey: Contract Key not unique")))
     } yield r
+
+  /** Check that all informee parties mentioned of a transaction are allocated. */
+  private def checkInformeePartiesAllocation: Commit[Unit] = {
+
+    def foldInformeeParties[T](tx: GenTransaction.WithTxValue[_, _], init: T)(
+        f: (T, String) => T): T =
+      tx.fold(init) {
+        case (accum, (_, node)) =>
+          node.informeesOfNode.foldLeft(accum)(f)
+      }
+
+    for {
+      allExist <- foldInformeeParties(relTx, pure(true)) { (accum, party) =>
+        get(partyStateKey(party)).flatMap(_.fold(pure(false))(_ => accum))
+      }
+
+      result <- if (allExist)
+        pass
+      else
+        reject(
+          buildRejectionLogEntry(RejectionReason.PartyNotKnownOnLedger)
+        )
+    } yield result
+  }
 
   /** All checks passed. Produce the log entry and contract state updates. */
   private def buildFinalResult(blindingInfo: BlindingInfo): Commit[Unit] = delay {
@@ -237,10 +263,10 @@ private[kvutils] case class ProcessTransactionSubmission(
           )
           createNode.key.foreach { keyWithMaintainers =>
             cs.setContractKey(
-              Conversions.encodeContractKey(
+              Conversions.encodeGlobalKey(
                 GlobalKey(
                   createNode.coinst.template,
-                  Conversions.forceNoContractIds(keyWithMaintainers.key)
+                  Conversions.forceNoContractIds(keyWithMaintainers.key.value)
                 )
               ))
           }
@@ -276,6 +302,7 @@ private[kvutils] case class ProcessTransactionSubmission(
       // Update contract keys
       set(effects.updatedContractKeys.map {
         case (key, contractKeyState) =>
+          logger.trace(s"updating contract key $key to $contractKeyState")
           key -> DamlStateValue.newBuilder
             .setContractKeyState(contractKeyState)
             .build
@@ -349,8 +376,9 @@ private[kvutils] case class ProcessTransactionSubmission(
   }
 
   private def lookupKey(key: GlobalKey): Option[AbsoluteContractId] = {
+    val stateKey = Conversions.globalKeyToStateKey(key)
     inputState
-      .get(Conversions.contractKeyToStateKey(key))
+      .get(stateKey)
       .flatMap {
         _.flatMap { value =>
           for {
@@ -363,8 +391,10 @@ private[kvutils] case class ProcessTransactionSubmission(
       }
       // If the key was not in state inputs, then we look whether any of the accessed contracts
       // has the key we're looking for. This happens with "fetchByKey" where the key lookup
-      // is not evidenced in the transaction.
-      .orElse(knownKeys.get(key))
+      // is not evidenced in the transaction. The activeness of the contract is checked when it is fetched.
+      .orElse {
+        knownKeys.get(stateKey.getContractKey)
+      }
   }
 
   private def buildRejectionLogEntry(

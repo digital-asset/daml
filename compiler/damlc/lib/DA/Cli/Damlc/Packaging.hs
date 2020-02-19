@@ -162,9 +162,9 @@ createProjectPackageDb projectRoot opts thisSdkVer deps dataDeps
     -- All transitive packages from DARs specified in  `dependencies`. This is only used for unit-id collision checks.
     transitiveDependencies <- fmap concat $ forM depsExtracted $ \ExtractedDar{..} -> forM edDalfs $ \zipEntry -> do
        let bytes = BSL.toStrict $ ZipArchive.fromEntry zipEntry
-       (pkgId, _) <- liftIO $
+       pkgId <- liftIO $
             either (fail . DA.Pretty.renderPretty) pure $
-            Archive.decodeArchivePayload bytes
+            Archive.decodeArchivePackageId bytes
        let unitId = parseUnitId (takeBaseName $ ZipArchive.eRelativePath zipEntry) pkgId
        pure (pkgId, stringToUnitId unitId)
 
@@ -272,7 +272,6 @@ generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase
             , optIsGenerated = True
             , optDflagCheck = False
             , optMbPackageName = Just unitIdStr
-            , optHideAllPkgs = True
             , optGhcCustomOpts = []
             , optPackageImports =
                   baseImports ++
@@ -280,6 +279,9 @@ generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase
                   [ exposePackage (GHC.stringToUnitId $ takeBaseName dep) True []
                   | dep <- deps
                   ]
+            -- When compiling dummy interface files for a data-dependency,
+            -- we know all package flags so we don’t need to infer anything.
+            , optInferDependantPackages = InferDependantPackages False
             }
 
     res <- withDamlIdeState opts loggerH diagnosticsLogger $ \ide ->
@@ -406,7 +408,6 @@ _generateAndInstallInstancesPkg thisSdkVer templInstSrc opts dbPath projectPacka
                     , optIsGenerated = True
                     , optDflagCheck = False
                     , optMbPackageName = Just instancesUnitIdStr
-                    , optHideAllPkgs = True
                     , optPackageImports =
                           exposePackage (stringToUnitId unitIdStr) True [] :
                           baseImports ++

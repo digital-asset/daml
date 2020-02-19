@@ -12,6 +12,7 @@ import qualified Data.Set as Set
 import qualified Data.Set.Lens as Set
 import qualified Data.Text.Extended as T
 import qualified "zip-archive" Codec.Archive.Zip as Zip
+import qualified Data.Map as Map
 
 import Control.Monad.Extra
 import DA.Daml.LF.Ast
@@ -24,27 +25,21 @@ import System.FilePath hiding ((<.>))
 import qualified System.FilePath as FP
 
 data Options = Options
-    { optInputDar :: FilePath
+    { optInputDars :: [FilePath]
     , optOutputDir :: FilePath
-    , optMainPackageName :: Maybe String
     }
 
 optionsParser :: Parser Options
 optionsParser = Options
-    <$> argument str
-        (  metavar "DAR-FILE"
-        <> help "DAR file to generate TypeScript bindings for"
-        )
+    <$> some ( argument str
+        (  metavar "DAR-FILES"
+        <> help "DAR files to generate TypeScript bindings for"
+        ) )
     <*> strOption
         (  short 'o'
         <> metavar "DIR"
         <> help "Output directory for the generated TypeScript files"
         )
-    <*> optional (strOption
-        (  long "main-package-name"
-        <> metavar "STRING"
-        <> help "Package name to use for the main DALF of the DAR"
-        ))
 
 optionsParserInfo :: ParserInfo Options
 optionsParserInfo = info (optionsParser <**> helper)
@@ -55,14 +50,51 @@ optionsParserInfo = info (optionsParser <**> helper)
 main :: IO ()
 main = do
     opts@Options{..} <- execParser optionsParserInfo
-    dar <- B.readFile optInputDar
-    let archive = Zip.toArchive $ BSL.fromStrict dar
-    dalfs <- either fail pure $ DAR.readDalfs archive
-    DAR.DalfManifest{packageName, ..} <- either fail pure $ DAR.readDalfManifest archive
-    packageName <- pure $ optMainPackageName <|> packageName
-    forM_ ((DAR.mainDalf dalfs, packageName) : map (, Nothing) (DAR.dalfs dalfs)) $ \(dalf, mbPkgName) -> do
-        (pkgId, pkg) <- either (fail . show)  pure $ Archive.decodeArchive Archive.DecodeAsMain (BSL.toStrict dalf)
-        daml2ts opts pkgId pkg mbPkgName
+    foldM_ (processDar opts) Map.empty optInputDars
+      where
+        -- Generate the ts for a single DAR. 'processed' is a map of
+        -- package ids of processed DALFs (the same package can appear
+        -- in multiple DARs - avoid regenerating them where possible).
+        processDar :: Options -> Map.Map PackageId [String] -> FilePath -> IO (Map.Map PackageId [String])
+        processDar opts pkgs dar = do
+          dar <- B.readFile dar
+          let archive = Zip.toArchive $ BSL.fromStrict dar
+          dalfs <- either fail pure $ DAR.readDalfs archive
+          DAR.DalfManifest{packageName} <- either fail pure $ DAR.readDalfManifest archive
+          let allDalfsInDar = (DAR.mainDalf dalfs, packageName) : map (, Nothing) (DAR.dalfs dalfs)
+          foldM (processDalf opts) pkgs allDalfsInDar
+
+        -- Generate the ts for a single DALF. Avoid generating it
+        -- multiple times where possible.
+        processDalf :: Options -> Map.Map PackageId [String] -> (BSL.ByteString, Maybe String) -> IO (Map.Map PackageId [String])
+        processDalf opts pkgs (dalf, mbPkgName) = do
+          -- If a package id is in 'pkgs' it means it has been
+          -- processed at least once. The list it is associated with
+          -- is the set of names it's been written as (for example, as
+          -- its hash if it's depended upon and perhaps also as a human
+          -- readable string if it's the main package of a DAR).
+          (pkgId, pkg) <- either (fail . show)  pure $ Archive.decodeArchive Archive.DecodeAsMain (BSL.toStrict dalf)
+          let pkgNames = concat (Map.elems pkgs)
+          gen <- case Map.lookup pkgId pkgs of
+            Nothing -> do
+              maybe (return ()) (\name -> when (name `elem` pkgNames) $
+                                  fail $ "Duplicate name '" <> name <> "' for different packages detected") mbPkgName
+              return True
+            Just names -> do
+              maybe (return ()) (\name -> when (name `notElem` names && name `elem` pkgNames) $
+                                  fail $ "Duplicate name '" <> name <> "' for different packages detected") mbPkgName
+              return (fromMaybe (show $ unPackageId pkgId) mbPkgName `notElem` names)
+          let id = show $ unPackageId pkgId
+          let name = fromMaybe id mbPkgName
+          let asName = if name == id then "itself" else name
+          if gen
+            then do
+              putStrLn $ "Generating " <> id <> " as " <> asName
+              daml2ts opts pkgId pkg mbPkgName
+              return $ Map.insertWith (++) pkgId [name] pkgs
+            else do
+              putStrLn $ "Skipping generation of " <> id <> " as " <> asName
+              return pkgs
 
 daml2ts :: Options -> PackageId -> Package -> Maybe String -> IO ()
 daml2ts Options{..} pkgId pkg mbPkgName = do
@@ -73,7 +105,6 @@ daml2ts Options{..} pkgId pkg mbPkgName = do
     forM_ (packageModules pkg) $ \mod -> do
         whenJust (genModule pkgId mod) $ \modTxt -> do
             let outputFile = outputDir </> joinPath (map T.unpack (unModuleName (moduleName mod))) FP.<.> "ts"
-            putStrLn $ "Generating " ++ outputFile
             createDirectoryIfMissing True (takeDirectory outputFile)
             T.writeFileUtf8 outputFile modTxt
 

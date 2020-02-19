@@ -12,6 +12,7 @@ import scala.util.{Failure, Success, Try}
 /** In-memory projection of ledger events. */
 @SuppressWarnings(Array("org.wartremover.warts.Option2Iterable"))
 case class Ledger(
+    private val forParty: ApiTypes.Party,
     private val lastTransaction: Option[Transaction],
     private val useDatabase: Boolean,
     private val transactionById: Map[ApiTypes.TransactionId, Transaction] = Map.empty,
@@ -126,18 +127,24 @@ case class Ledger(
     }
 
   private def withContractCreatedInEvent(contract: Contract, event: ContractCreated): Ledger = {
+    val isStakeHolder = contract.signatories.contains(forParty) || contract.observers.contains(
+      forParty)
     if (useDatabase) {
-      db.insertContract(contract)
+      if (isStakeHolder) db.insertContract(contract)
       db.insertEvent(event)
       this
     } else {
-      copy(
-        contractById = contractById + (contract.id -> contract),
-        activeContractById = activeContractById + (contract.id -> contract),
-        contractsByTemplateId = contractsByTemplateIdWith(contract),
-        createEventByContractId = createEventByContractId + (contract.id -> event),
-        eventById = eventById + (event.id -> event)
-      )
+      val contractUpdated =
+        if (isStakeHolder)
+          copy(
+            contractById = contractById + (contract.id -> contract),
+            activeContractById = activeContractById + (contract.id -> contract),
+            contractsByTemplateId = contractsByTemplateIdWith(contract),
+            createEventByContractId = createEventByContractId + (contract.id -> event),
+          )
+        else
+          this
+      contractUpdated.copy(eventById = eventById + (event.id -> event))
     }
   }
 

@@ -3,13 +3,11 @@
 
 package com.daml.ledger.api.server.damlonx.reference.v2
 
-import java.time.Clock
-
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase.ParticipantState
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref.LedgerString
-import com.digitalasset.daml.lf.data.Time.Timestamp
+import com.digitalasset.logging.LoggingContext
 import com.digitalasset.resources.ResourceOwner
 
 class InMemoryKVParticipantStateIT
@@ -20,9 +18,6 @@ class InMemoryKVParticipantStateIT
   override def participantStateFactory(
       participantId: ParticipantId,
       ledgerId: LedgerString,
-  ): ResourceOwner[ParticipantState] =
+  )(implicit logCtx: LoggingContext): ResourceOwner[ParticipantState] =
     ResourceOwner.forCloseable(() => new InMemoryKVParticipantState(participantId, ledgerId))
-
-  override def currentRecordTime(): Timestamp =
-    Timestamp.assertFromInstant(Clock.systemUTC().instant())
 }

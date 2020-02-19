@@ -114,19 +114,21 @@ const decodeLedgerError: jtv.Decoder<LedgerError> = jtv.object({
   errors: jtv.array(jtv.string()),
 });
 
-export type EventStreamCloseEvent = {
+export type StreamCloseEvent = {
   code: number;
   reason: string;
 }
 
 /**
- * Interface for a stream of ledger events for a template type `T`.
+ * Interface for streams returned by the streaming methods of the `Ledger`
+ * class. Each `'change'` event contains accumulated state of type `State` as
+ * well as the ledger events that triggered the current state change.
  */
-export interface EventStream<T extends object, K, I extends string> {
-  on(type: 'events', listener: (events: readonly Event<T,K, I>[]) => void): void;
-  on(type: 'close', listener: (closeEvent: EventStreamCloseEvent) => void): void;
-  off(type: 'events', listener: (events: readonly Event<T,K, I>[]) => void): void;
-  off(type: 'close', listener: (closeEvent: EventStreamCloseEvent) => void): void;
+export interface Stream<T extends object, K, I extends string, State> {
+  on(type: 'change', listener: (state: State, events: readonly Event<T, K, I>[]) => void): void;
+  on(type: 'close', listener: (closeEvent: StreamCloseEvent) => void): void;
+  off(type: 'change', listener: (state: State, events: readonly Event<T, K, I>[]) => void): void;
+  off(type: 'close', listener: (closeEvent: StreamCloseEvent) => void): void;
   close(): void;
 }
 
@@ -334,16 +336,28 @@ class Ledger {
 
   /**
    * Internal command to submit a request to a streaming endpoint of the
-   * JSON API. Returns an event stream for the given template.
+   * JSON API. Returns a stream consisting of accumulated state together with
+   * the events that produced the latest state change. The `change` function
+   * must be an operation of the monoid `Event<T, K, I>[]` on the set `State`,
+   * i.e., for all `s: State` and `x, y: Event<T, K, I>[]` we
+   * must have the structural equalities
+   * ```
+   * change(s, []) == s
+   * change(s, x.concat(y)) == change(change(s, x), y)
+   * ```
+   * Also, `change` must never change its arguments.
    */
-  private streamSubmit<T extends object, K, I extends string>(
+  private streamSubmit<T extends object, K, I extends string, State>(
     template: Template<T, K, I>,
     endpoint: string,
     request: unknown,
-  ): EventStream<T, K, I> {
+    init: State,
+    change: (state: State, events: readonly Event<T, K, I>[]) => State,
+  ): Stream<T, K, I, State> {
     const protocols = ['jwt.token.' + this.token, 'daml.ws.auth'];
     const ws = new WebSocket(this.wsBaseUrl + endpoint, protocols);
     let haveSeenEvents = false;
+    let state = init;
     const emitter = new EventEmitter();
     ws.onopen = () => {
       ws.send(JSON.stringify(request));
@@ -352,15 +366,17 @@ class Ledger {
       const json: unknown = JSON.parse(event.data.toString());
       if (isRecordWith('events', json)) {
         const events = jtv.Result.withException(jtv.array(decodeEvent(template)).run(json.events));
+        state = change(state, events);
         haveSeenEvents = true;
-        emitter.emit('events', events);
+        emitter.emit('change', state, events);
       } else if (isRecordWith('heartbeat', json)) {
         // NOTE(MH): If we receive the first heartbeat before any events, then
         // it's very likely nothing in the ACS matches the query. We signal this
-        // by sending an empty list of events. This never does harm.
+        // by pretending we received an empty list of events. This never does
+        // any harm.
         if (!haveSeenEvents) {
           haveSeenEvents = true;
-          emitter.emit('events', []);
+          emitter.emit('change', state, []);
         }
       } else if (isRecordWith('warnings', json)) {
         console.warn('Ledger.streamQuery warnings', json);
@@ -375,6 +391,7 @@ class Ledger {
     ws.onclose = ({code, reason}) => {
       emitter.emit('close', {code, reason});
     }
+    // TODO(MH): Make types stricter.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const on = (type: string, listener: any) => emitter.on(type, listener);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -387,7 +404,9 @@ class Ledger {
   }
 
   /**
-   * Retrieve a consolidated stream of events for a given template.
+   * Retrieve a consolidated stream of events for a given template and query.
+   * The accumulated state is the current set of active contracts matching the
+   * query.
    * When no `query` argument is
    * given, all events visible to the submitting party are returned. When a
    * `query` argument is given, only those create events matching the query are
@@ -397,17 +416,48 @@ class Ledger {
   streamQuery<T extends object, K, I extends string>(
     template: Template<T, K, I>,
     query?: Query<T>,
-  ): EventStream<T, K, I> {
+  ): Stream<T, K, I, readonly CreateEvent<T, K, I>[]> {
     const request = {templateIds: [template.templateId], query};
-    return this.streamSubmit(template, 'v1/stream/query', request);
+    const change = (contracts: readonly CreateEvent<T, K, I>[], events: readonly Event<T, K, I>[]) => {
+      const archiveEvents: Set<ContractId<T>> = new Set();
+      const createEvents: CreateEvent<T, K, I>[] = [];
+      for (const event of events) {
+        if ('created' in event) {
+          createEvents.push(event.created);
+        } else { // i.e. 'archived' in event
+          archiveEvents.add(event.archived.contractId);
+        }
+      }
+      return contracts
+        .concat(createEvents)
+        .filter(contract => !archiveEvents.has(contract.contractId));
+    };
+    return this.streamSubmit(template, 'v1/stream/query', request, [], change);
   }
 
   streamFetchByKey<T extends object, K, I extends string>(
     template: Template<T, K, I>,
-    key: K
-  ): EventStream<T, K, I> {
+    key: K,
+  ): Stream<T, K, I, CreateEvent<T, K, I> | null> {
     const request = [{templateId: template.templateId, key}];
-    return this.streamSubmit(template, 'v1/stream/fetch', request);
+    const change = (contract: CreateEvent<T, K, I> | null, events: readonly Event<T, K, I>[]) => {
+      // NOTE(MH, #4564): We're very lenient here. We should not see a create
+      // event when `contract` is currently not null. We should also only see
+      // archive events when `contract` is currently not null and the contract
+      // ids match. However, the JSON API does not provied these guarantees yet
+      // but we're working on them.
+      for (const event of events) {
+        if ('created' in event) {
+          contract = event.created;
+        } else { // i.e. 'archived' in event
+          if (contract && contract.contractId === event.archived.contractId) {
+            contract = null;
+          }
+        }
+      }
+      return contract;
+    }
+    return this.streamSubmit(template, 'v1/stream/fetch', request, null, change);
   }
 }
 

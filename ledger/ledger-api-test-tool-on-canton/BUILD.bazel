@@ -65,6 +65,6 @@ conformance_test(
     ],
     server = ":canton-test-runner-with-dependencies",
     test_tool_args = [
-        "--exclude=OpenWorldSandboxIT",
+        "--include=SemanticTests",
     ],
 ) if not is_windows else None

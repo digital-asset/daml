@@ -158,7 +158,7 @@ class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](initialState: => A
                       acc = Some(acc.addContract(activeContract, None)),
                       parties = parties.union(nodeParties))
                   case Some(key) =>
-                    val gk = GlobalKey(activeContract.contract.template, key.key)
+                    val gk = GlobalKey(activeContract.contract.template, key.key.value)
                     if (acc.lookupContractByKey(gk).isDefined) {
                       AddTransactionState(
                         None,
@@ -194,7 +194,7 @@ class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](initialState: => A
                     throw new IllegalStateException(s"Contract ID $coid found in contract key"),
                   identity
                 )
-                val gk = GlobalKey(nlkup.templateId, key)
+                val gk = GlobalKey(nlkup.templateId, key.value)
                 val nodeParties = nlkup.key.maintainers
 
                 submitter match {

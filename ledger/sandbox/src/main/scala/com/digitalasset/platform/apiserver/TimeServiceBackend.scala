@@ -15,49 +15,42 @@ trait TimeServiceBackend extends TimeProvider {
   def getCurrentTime: Instant
 
   def setCurrentTime(currentTime: Instant, newTime: Instant): Future[Boolean]
-
-  def allowSettingTimeBackwards: Boolean
 }
 
 object TimeServiceBackend {
-  def simple(startTime: Instant, allowSettingTimeBackwards: Boolean): TimeServiceBackend =
-    new SimpleTimeServiceBackend(startTime, allowSettingTimeBackwards)
+  def simple(startTime: Instant): TimeServiceBackend =
+    new SimpleTimeServiceBackend(startTime)
 
   def withObserver(
       timeProvider: TimeServiceBackend,
       onTimeChange: Instant => Future[Unit]): TimeServiceBackend =
     new ObservingTimeServiceBackend(timeProvider, onTimeChange)
-}
 
-private class SimpleTimeServiceBackend(startTime: Instant, val allowSettingTimeBackwards: Boolean)
-    extends TimeServiceBackend {
-  private val timeRef = new AtomicReference[Instant](startTime)
+  private class SimpleTimeServiceBackend(startTime: Instant) extends TimeServiceBackend {
+    private val timeRef = new AtomicReference[Instant](startTime)
 
-  override def getCurrentTime: Instant = timeRef.get
+    override def getCurrentTime: Instant = timeRef.get
 
-  override def setCurrentTime(expectedTime: Instant, newTime: Instant): Future[Boolean] = {
-    val currentTime = timeRef.get
-    val res = currentTime == expectedTime && timeRef.compareAndSet(currentTime, newTime)
-    Future.successful(res)
+    override def setCurrentTime(expectedTime: Instant, newTime: Instant): Future[Boolean] = {
+      val currentTime = timeRef.get
+      val res = currentTime == expectedTime && timeRef.compareAndSet(currentTime, newTime)
+      Future.successful(res)
+    }
   }
-}
 
-private class ObservingTimeServiceBackend(
-    timeProvider: TimeServiceBackend,
-    onTimeChange: Instant => Future[Unit]
-) extends TimeServiceBackend {
+  private class ObservingTimeServiceBackend(
+      timeProvider: TimeServiceBackend,
+      onTimeChange: Instant => Future[Unit]
+  ) extends TimeServiceBackend {
+    override def getCurrentTime: Instant = timeProvider.getCurrentTime
 
-  override def getCurrentTime: Instant = timeProvider.getCurrentTime
-
-  override def setCurrentTime(expectedTime: Instant, newTime: Instant): Future[Boolean] =
-    timeProvider
-      .setCurrentTime(expectedTime, newTime)
-      .flatMap { success =>
-        if (success)
-          onTimeChange(expectedTime).map(_ => true)(DirectExecutionContext)
-        else Future.successful(false)
-      }(DirectExecutionContext)
-
-  override def allowSettingTimeBackwards: Boolean = timeProvider.allowSettingTimeBackwards
-
+    override def setCurrentTime(expectedTime: Instant, newTime: Instant): Future[Boolean] =
+      timeProvider
+        .setCurrentTime(expectedTime, newTime)
+        .flatMap { success =>
+          if (success)
+            onTimeChange(expectedTime).map(_ => true)(DirectExecutionContext)
+          else Future.successful(false)
+        }(DirectExecutionContext)
+  }
 }

@@ -240,8 +240,13 @@ da_haskell_repl(
     deps = [
         ":damlc",
         "//compiler/daml-lf-ast:tests",
+        "//compiler/damlc/daml-doc:daml-doc-testing",
+        "//compiler/damlc/daml-ide-core:ide-testing",
         "//compiler/damlc/stable-packages:generate-stable-package",
+        "//compiler/damlc/tests:daml-doctest",
         "//compiler/damlc/tests:generate-simple-dalf",
+        "//compiler/damlc/tests:integration-dev",
+        "//compiler/damlc/tests:packaging",
         "//daml-assistant:daml",
         "//daml-assistant/daml-helper",
         "//daml-assistant/integration-tests",

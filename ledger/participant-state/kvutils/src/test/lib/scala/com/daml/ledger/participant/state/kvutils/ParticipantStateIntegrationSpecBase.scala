@@ -4,7 +4,7 @@
 package com.daml.ledger.participant.state.kvutils
 
 import java.io.File
-import java.time.Duration
+import java.time.{Clock, Duration}
 import java.util.UUID
 
 import akka.stream.scaladsl.Sink
@@ -18,6 +18,8 @@ import com.digitalasset.daml.lf.data.{ImmArray, InsertOrdSet, Ref}
 import com.digitalasset.daml.lf.transaction.GenTransaction
 import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.digitalasset.logging.LoggingContext
+import com.digitalasset.logging.LoggingContext.newLoggingContext
 import com.digitalasset.resources.ResourceOwner
 import org.scalatest.Inside._
 import org.scalatest.Matchers._
@@ -48,18 +50,24 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
   protected def participantStateFactory(
       participantId: ParticipantId,
       ledgerId: Ref.LedgerString,
-  ): ResourceOwner[ParticipantState]
-
-  protected def currentRecordTime(): Timestamp
+  )(implicit logCtx: LoggingContext): ResourceOwner[ParticipantState]
 
   private def participantState: ResourceOwner[ParticipantState] = {
     val ledgerId = newLedgerId()
-    participantStateFactory(participantId, ledgerId)
+    newParticipantState(participantId, ledgerId)
   }
+
+  private def newParticipantState(
+      participantId: ParticipantId,
+      ledgerId: Ref.LedgerString,
+  ): ResourceOwner[ParticipantState] =
+    newLoggingContext { implicit logCtx =>
+      participantStateFactory(participantId, ledgerId)
+    }
 
   override protected def beforeEach(): Unit = {
     super.beforeEach()
-    rt = currentRecordTime()
+    rt = Timestamp.assertFromInstant(Clock.systemUTC().instant())
   }
 
   // TODO(BH): Many of these tests for transformation from DamlLogEntry to Update better belong as
@@ -68,7 +76,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
   implementationName should {
     "return initial conditions" in {
       val ledgerId = newLedgerId()
-      participantStateFactory(participantId, ledgerId).use { ps =>
+      newParticipantState(participantId, ledgerId).use { ps =>
         for {
           conditions <- ps
             .getLedgerInitialConditions()
@@ -491,6 +499,9 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
                   Duration.ofSeconds(123),
                   Duration.ofSeconds(123),
                   Duration.ofSeconds(123),
+                  Duration.ofSeconds(123),
+                  Duration.ofSeconds(123),
+                  Duration.ofSeconds(123),
                 ).get,
               ),
             )
@@ -603,14 +614,14 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
       "resume where it left off on restart" in {
         val ledgerId = newLedgerId()
         for {
-          _ <- participantStateFactory(participantId, ledgerId).use { ps =>
+          _ <- newParticipantState(participantId, ledgerId).use { ps =>
             for {
               _ <- ps
                 .allocateParty(None, Some("party-1"), newSubmissionId())
                 .toScala
             } yield ()
           }
-          updates <- participantStateFactory(participantId, ledgerId).use { ps =>
+          updates <- newParticipantState(participantId, ledgerId).use { ps =>
             for {
               _ <- ps
                 .allocateParty(None, Some("party-2"), newSubmissionId())

@@ -8,6 +8,7 @@ import java.nio.file.Files
 import akka.stream.Materializer
 import com.daml.ledger.participant.state.kvutils.app.{Config, LedgerFactory, Runner}
 import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId}
+import com.digitalasset.logging.LoggingContext
 import com.digitalasset.resources.{ProgramResource, ResourceOwner}
 import scopt.OptionParser
 
@@ -36,6 +37,7 @@ object MainWithEphemeralDirectory {
     )(
         implicit executionContext: ExecutionContext,
         materializer: Materializer,
+        logCtx: LoggingContext,
     ): ResourceOwner[SqlLedgerReaderWriter] = {
       val directory = Files.createTempDirectory("ledger-on-sql-ephemeral-")
       val jdbcUrl = config.jdbcUrl.map(_.replace(DirectoryPattern, directory.toString))

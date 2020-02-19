@@ -48,11 +48,7 @@ import com.digitalasset.ledger.api.v1.ledger_configuration_service.{
 }
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.package_service._
-import com.digitalasset.ledger.api.v1.testing.time_service.{
-  GetTimeRequest,
-  GetTimeResponse,
-  SetTimeRequest,
-}
+import com.digitalasset.ledger.api.v1.testing.time_service.{GetTimeRequest, GetTimeResponse}
 import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree}
 import com.digitalasset.ledger.api.v1.transaction_filter.{
   Filters,
@@ -145,16 +141,6 @@ private[testtool] final class ParticipantTestContext private[participant] (
       .recover {
         case NonFatal(_) => Clock.systemUTC().instant()
       }
-
-  def passTime(t: Duration): Future[Unit] =
-    for {
-      currentInstant <- time()
-      currentTime = Some(currentInstant.asProtobuf)
-      newTime = Some(currentInstant.plus(t).asProtobuf)
-      result <- services.time
-        .setTime(new SetTimeRequest(ledgerId, currentTime, newTime))
-        .map(_ => ())
-    } yield result
 
   def listKnownPackages(): Future[Seq[PackageDetails]] =
     services.packageManagement.listKnownPackages(new ListKnownPackagesRequest).map(_.packageDetails)

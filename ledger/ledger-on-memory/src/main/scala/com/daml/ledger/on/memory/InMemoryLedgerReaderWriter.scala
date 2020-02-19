@@ -3,7 +3,7 @@
 
 package com.daml.ledger.on.memory
 
-import java.time.Clock
+import java.time.{Clock, Instant}
 import java.util.concurrent.Semaphore
 
 import akka.NotUsed
@@ -14,14 +14,15 @@ import com.daml.ledger.participant.state.kvutils.api.{LedgerReader, LedgerRecord
 import com.daml.ledger.participant.state.kvutils.{KeyValueCommitting, SequentialLogEntryId}
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
-import com.daml.ledger.validator.ValidationResult.{
-  MissingInputState,
-  SubmissionValidated,
-  ValidationError
+import com.daml.ledger.validator.{
+  BatchingLedgerStateOperations,
+  LedgerStateAccess,
+  LedgerStateOperations,
+  SubmissionValidator,
+  ValidatingCommitter
 }
-import com.daml.ledger.validator._
-import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.ledger.api.health.{HealthStatus, Healthy}
+import com.digitalasset.logging.LoggingContext
 import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
 import com.digitalasset.platform.akkastreams.dispatcher.SubSource.OneAfterAnother
 import com.digitalasset.resources.ResourceOwner
@@ -46,20 +47,27 @@ private[memory] class InMemoryState(
 final class InMemoryLedgerReaderWriter(
     override val ledgerId: LedgerId,
     override val participantId: ParticipantId,
+    now: () => Instant,
     dispatcher: Dispatcher[Index],
-)(implicit executionContext: ExecutionContext)
-    extends LedgerWriter
+)(
+    implicit executionContext: ExecutionContext,
+    logCtx: LoggingContext,
+) extends LedgerWriter
     with LedgerReader {
 
   private val currentState = new InMemoryState()
 
   private val lockCurrentState = new Semaphore(1, true)
 
-  private val validator =
-    SubmissionValidator.create(InMemoryLedgerStateAccess, () => sequentialLogEntryId.next())
+  private val committer = new ValidatingCommitter(
+    participantId,
+    now,
+    SubmissionValidator.create(InMemoryLedgerStateAccess, () => sequentialLogEntryId.next()),
+    dispatcher.signalNewHead,
+  )
 
-  private object InMemoryLedgerStateAccess extends LedgerStateAccess {
-    override def inTransaction[T](body: LedgerStateOperations => Future[T]): Future[T] =
+  private object InMemoryLedgerStateAccess extends LedgerStateAccess[Index] {
+    override def inTransaction[T](body: LedgerStateOperations[Index] => Future[T]): Future[T] =
       Future
         .successful(lockCurrentState.acquire())
         .flatMap(_ => body(InMemoryLedgerStateOperations))
@@ -69,7 +77,7 @@ final class InMemoryLedgerReaderWriter(
         }
   }
 
-  private object InMemoryLedgerStateOperations extends BatchingLedgerStateOperations {
+  private object InMemoryLedgerStateOperations extends BatchingLedgerStateOperations[Index] {
     override def readState(keys: Seq[Key]): Future[Seq[Option[Value]]] =
       Future.successful {
         keys.map(keyBytes => currentState.state.get(ByteString.copyFrom(keyBytes)))
@@ -82,26 +90,22 @@ final class InMemoryLedgerReaderWriter(
         }
       }
 
-    override def appendToLog(key: Key, value: Value): Future[Unit] =
+    override def appendToLog(key: Key, value: Value): Future[Index] =
       Future.successful {
         val damlLogEntryId = KeyValueCommitting.unpackDamlLogEntryId(key)
         val logEntry = LogEntry(damlLogEntryId, value)
-        val newHead = currentState.log.synchronized {
+        currentState.log.synchronized {
           currentState.log += logEntry
           currentState.log.size
         }
-        dispatcher.signalNewHead(newHead)
       }
   }
 
+  override def currentHealth(): HealthStatus =
+    Healthy
+
   override def commit(correlationId: String, envelope: Array[Byte]): Future[SubmissionResult] =
-    validator
-      .validateAndCommit(envelope, correlationId, currentRecordTime(), participantId)
-      .map {
-        case SubmissionValidated => SubmissionResult.Acknowledged
-        case MissingInputState(_) => SubmissionResult.InternalError("Missing input state")
-        case ValidationError(reason) => SubmissionResult.InternalError(reason)
-      }
+    committer.commit(correlationId, envelope)
 
   override def events(offset: Option[Offset]): Source[LedgerRecord, NotUsed] =
     dispatcher
@@ -115,11 +119,6 @@ final class InMemoryLedgerReaderWriter(
         ),
       )
       .mapConcat { case (_, updates) => updates }
-
-  override def currentHealth(): HealthStatus = Healthy
-
-  private def currentRecordTime(): Timestamp =
-    Timestamp.assertFromInstant(Clock.systemUTC().instant())
 
   private def retrieveLogEntry(index: Int): LedgerRecord = {
     val logEntry = currentState.log.synchronized {
@@ -136,12 +135,18 @@ object InMemoryLedgerReaderWriter {
 
   private val NamespaceLogEntries = "L"
 
+  private val DefaultClock: Clock = Clock.systemUTC()
+
   private val sequentialLogEntryId = new SequentialLogEntryId(NamespaceLogEntries)
 
   def owner(
       ledgerId: LedgerId,
       participantId: ParticipantId,
-  )(implicit executionContext: ExecutionContext): ResourceOwner[InMemoryLedgerReaderWriter] =
+      now: () => Instant = () => DefaultClock.instant(),
+  )(
+      implicit executionContext: ExecutionContext,
+      logCtx: LoggingContext,
+  ): ResourceOwner[InMemoryLedgerReaderWriter] =
     for {
       dispatcher <- ResourceOwner.forCloseable(
         () =>
@@ -150,5 +155,5 @@ object InMemoryLedgerReaderWriter {
             zeroIndex = StartIndex,
             headAtInitialization = StartIndex,
         ))
-    } yield new InMemoryLedgerReaderWriter(ledgerId, participantId, dispatcher)
+    } yield new InMemoryLedgerReaderWriter(ledgerId, participantId, now, dispatcher)
 }

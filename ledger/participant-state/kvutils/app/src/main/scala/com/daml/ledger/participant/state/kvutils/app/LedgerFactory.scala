@@ -5,6 +5,7 @@ package com.daml.ledger.participant.state.kvutils.app
 
 import akka.stream.Materializer
 import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId}
+import com.digitalasset.logging.LoggingContext
 import com.digitalasset.resources.ResourceOwner
 import scopt.OptionParser
 
@@ -22,7 +23,11 @@ trait LedgerFactory[T <: KeyValueLedger, ExtraConfig] {
       ledgerId: LedgerId,
       participantId: ParticipantId,
       config: ExtraConfig,
-  )(implicit executionContext: ExecutionContext, materializer: Materializer): ResourceOwner[T]
+  )(
+      implicit executionContext: ExecutionContext,
+      materializer: Materializer,
+      logCtx: LoggingContext,
+  ): ResourceOwner[T]
 }
 
 object LedgerFactory {

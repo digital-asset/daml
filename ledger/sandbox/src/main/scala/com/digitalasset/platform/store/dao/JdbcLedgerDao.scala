@@ -1171,7 +1171,16 @@ private class JdbcLedgerDao(
     ~ str("observers").? map flatten)
 
   private val SQL_SELECT_CONTRACT =
-    SQL(queries.SQL_SELECT_CONTRACT)
+    SQL("""select cd.contract
+        |from contract_data cd
+        |left join contracts c on cd.id=c.id
+        |left join contract_witnesses cowi on cowi.contract_id = c.id and witness = {party}
+        |left join contract_divulgences codi on codi.contract_id = cd.id and party = {party}
+        |where
+        |  cd.id={contract_id} and
+        |  c.archive_offset is null and
+        |  (cowi.witness is not null or codi.party is not null)
+        |""".stripMargin)
 
   private val ContractLetParser = date("effective_at").?
 
@@ -1687,7 +1696,6 @@ object JdbcLedgerDao {
     protected[JdbcLedgerDao] def SQL_INSERT_PACKAGE: String
     protected[JdbcLedgerDao] def SQL_IMPLICITLY_INSERT_PARTIES: String
 
-    protected[JdbcLedgerDao] def SQL_SELECT_CONTRACT: String
     protected[JdbcLedgerDao] def SQL_SELECT_ACTIVE_CONTRACTS: String
 
     // Note: the SQL backend may receive divulgence information for the same (contract, party) tuple
@@ -1732,19 +1740,6 @@ object JdbcLedgerDao {
         |on conflict on constraint contract_divulgences_idx do nothing""".stripMargin
 
     override protected[JdbcLedgerDao] val DUPLICATE_KEY_ERROR: String = "duplicate key"
-
-    override protected[JdbcLedgerDao] val SQL_SELECT_CONTRACT: String =
-      s"""
-         |select cd.contract
-         |from contract_data cd
-         |left join contracts c on cd.id=c.id
-         |left join contract_witnesses cowi on cowi.contract_id = c.id and witness = {party}
-         |left join contract_divulgences codi on codi.contract_id = cd.id and party = {party}
-         |where
-         |  cd.id={contract_id} and
-         |  c.archive_offset is null and
-         |  (cowi.witness is not null or codi.party is not null)
-         |""".stripMargin
 
     override protected[JdbcLedgerDao] val SQL_SELECT_ACTIVE_CONTRACTS: String =
       // the distinct keyword is required, because a single contract can be visible by 2 parties,
@@ -1809,19 +1804,6 @@ object JdbcLedgerDao {
 
     override protected[JdbcLedgerDao] val DUPLICATE_KEY_ERROR: String =
       "Unique index or primary key violation"
-
-    override protected[JdbcLedgerDao] val SQL_SELECT_CONTRACT: String =
-      s"""
-         |select cd.contract
-         |from contract_data cd
-         |left join contracts c on cd.id=c.id
-         |left join contract_witnesses cowi on cowi.contract_id = c.id and witness = {party}
-         |left join contract_divulgences codi on codi.contract_id = cd.id and party = {party}
-         |where
-         |  cd.id={contract_id} and
-         |  c.archive_offset is null and
-         |  (cowi.witness is not null or codi.party is not null)
-         |""".stripMargin
 
     override protected[JdbcLedgerDao] val SQL_SELECT_ACTIVE_CONTRACTS: String =
       // the distinct keyword is required, because a single contract can be visible by 2 parties,

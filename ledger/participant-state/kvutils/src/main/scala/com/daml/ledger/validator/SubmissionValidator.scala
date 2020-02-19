@@ -9,14 +9,8 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.api.LedgerReader
 import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting}
 import com.daml.ledger.participant.state.v1.ParticipantId
-import com.daml.ledger.validator.SubmissionValidator.LogEntryAndState
-import com.daml.ledger.validator.ValidationResult.{
-  MissingInputState,
-  SubmissionValidated,
-  TransformedSubmission,
-  ValidationError,
-  ValidationFailed
-}
+import com.daml.ledger.validator.SubmissionValidator._
+import com.daml.ledger.validator.ValidationFailed.{MissingInputState, ValidationError}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.Engine
 import com.google.protobuf.ByteString
@@ -31,77 +25,69 @@ import scala.util.{Failure, Success, Try}
   * @param ledgerStateAccess defines how the validator retrieves/writes back state to the ledger
   * @param processSubmission defines how a log entry and state updates get generated from a submission
   * @param allocateLogEntryId  defines how new log entry IDs are being generated
+  * @param checkForMissingInputs  whether all inputs declared as the required inputs in the submission must be available
+  *                               in order to pass validation
   * @param executionContext  ExecutionContext to use when performing ledger state reads/writes
   */
-class SubmissionValidator(
-    ledgerStateAccess: LedgerStateAccess,
+class SubmissionValidator[LogResult](
+    ledgerStateAccess: LedgerStateAccess[LogResult],
     processSubmission: (
         DamlLogEntryId,
         Timestamp,
         DamlSubmission,
         ParticipantId,
-        Map[DamlStateKey, Option[DamlStateValue]]) => LogEntryAndState,
+        Map[DamlStateKey, Option[DamlStateValue]],
+    ) => LogEntryAndState,
     allocateLogEntryId: () => DamlLogEntryId,
-    checkForMissingInputs: Boolean = false)(implicit executionContext: ExecutionContext) {
-
-  import SubmissionValidator._
+    checkForMissingInputs: Boolean = false,
+)(implicit executionContext: ExecutionContext) {
 
   def validate(
       envelope: RawBytes,
       correlationId: String,
       recordTime: Timestamp,
-      participantId: ParticipantId): Future[ValidationResult] =
+      participantId: ParticipantId,
+  ): Future[Either[ValidationFailed, Unit]] =
     runValidation(envelope, correlationId, recordTime, participantId, (_, _, _, _) => Future.unit)
-      .map {
-        case Left(failure) => failure
-        case Right(_) => SubmissionValidated
-      }
 
   def validateAndCommit(
       envelope: RawBytes,
       correlationId: String,
       recordTime: Timestamp,
-      participantId: ParticipantId): Future[ValidationResult] =
-    runValidation(envelope, correlationId, recordTime, participantId, commit).map {
-      case Left(failure) => failure
-      case Right(_) => SubmissionValidated
-    }
+      participantId: ParticipantId,
+  ): Future[Either[ValidationFailed, LogResult]] =
+    runValidation(envelope, correlationId, recordTime, participantId, commit)
 
-  def validateAndTransform[T](
+  def validateAndTransform[U](
       envelope: RawBytes,
       correlationId: String,
       recordTime: Timestamp,
       participantId: ParticipantId,
-      transform: (DamlLogEntryId, StateMap, LogEntryAndState) => T)
-    : Future[Either[ValidationFailed, TransformedSubmission[T]]] = {
-    def applyTransformation(
-        logEntryId: DamlLogEntryId,
-        inputStates: StateMap,
-        logEntryAndState: LogEntryAndState,
-        stateOperations: LedgerStateOperations): Future[T] =
-      Future.successful(transform(logEntryId, inputStates, logEntryAndState))
-
-    runValidation(envelope, correlationId, recordTime, participantId, applyTransformation)
-  }
+      transform: (
+          DamlLogEntryId,
+          StateMap,
+          LogEntryAndState,
+          LedgerStateOperations[LogResult]) => Future[U]
+  ): Future[Either[ValidationFailed, U]] =
+    runValidation(envelope, correlationId, recordTime, participantId, transform)
 
   private def commit(
       logEntryId: DamlLogEntryId,
       ignored: StateMap,
       logEntryAndState: LogEntryAndState,
-      stateOperations: LedgerStateOperations): Future[Unit] = {
+      stateOperations: LedgerStateOperations[LogResult],
+  ): Future[LogResult] = {
     val (rawLogEntry, rawStateUpdates) = serializeProcessedSubmission(logEntryAndState)
-    Future
-      .sequence(
-        Seq(
-          stateOperations.appendToLog(logEntryId.toByteArray, rawLogEntry),
-          if (rawStateUpdates.nonEmpty) {
-            stateOperations.writeState(rawStateUpdates)
-          } else {
-            Future.unit
-          }
-        )
-      )
-      .map(_ => ())
+    val eventualLogResult = stateOperations.appendToLog(logEntryId.toByteArray, rawLogEntry)
+    val eventualStateResult =
+      if (rawStateUpdates.nonEmpty)
+        stateOperations.writeState(rawStateUpdates)
+      else
+        Future.unit
+    for {
+      logResult <- eventualLogResult
+      _ <- eventualStateResult
+    } yield logResult
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
@@ -114,8 +100,9 @@ class SubmissionValidator(
           DamlLogEntryId,
           StateMap,
           LogEntryAndState,
-          LedgerStateOperations) => Future[T])
-    : Future[Either[ValidationFailed, TransformedSubmission[T]]] =
+          LedgerStateOperations[LogResult],
+      ) => Future[T],
+  ): Future[Either[ValidationFailed, T]] =
     Envelope.open(envelope) match {
       case Right(Envelope.SubmissionMessage(submission)) =>
         val declaredInputs = submission.getInputDamlStateList.asScala
@@ -144,7 +131,7 @@ class SubmissionValidator(
           } yield result
           result.transform {
             case Success(result) =>
-              Success(Right(TransformedSubmission(result)))
+              Success(Right(result))
             case Failure(exception: ValidationFailed) =>
               Success(Left(exception))
             case Failure(exception) =>
@@ -170,24 +157,25 @@ object SubmissionValidator {
   type StateMap = Map[DamlStateKey, DamlStateValue]
   type LogEntryAndState = (DamlLogEntry, StateMap)
 
-  def create(
-      ledgerStateAccess: LedgerStateAccess,
+  private lazy val engine = Engine()
+
+  def create[LogResult](
+      ledgerStateAccess: LedgerStateAccess[LogResult],
       allocateNextLogEntryId: () => DamlLogEntryId = () => allocateRandomLogEntryId(),
-      checkForMissingInputs: Boolean = false)(
-      implicit executionContext: ExecutionContext): SubmissionValidator = {
+      checkForMissingInputs: Boolean = false,
+  )(implicit executionContext: ExecutionContext): SubmissionValidator[LogResult] = {
     new SubmissionValidator(
       ledgerStateAccess,
       processSubmission,
       allocateNextLogEntryId,
-      checkForMissingInputs)
+      checkForMissingInputs,
+    )
   }
 
-  def allocateRandomLogEntryId(): DamlLogEntryId =
+  private[validator] def allocateRandomLogEntryId(): DamlLogEntryId =
     DamlLogEntryId.newBuilder
       .setEntryId(ByteString.copyFromUtf8(UUID.randomUUID().toString))
       .build()
-
-  private lazy val engine = Engine()
 
   private[validator] def processSubmission(
       damlLogEntryId: DamlLogEntryId,
