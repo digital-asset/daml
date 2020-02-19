@@ -140,16 +140,12 @@ object SqlLedgerReaderWriter {
             Future.successful(ledgerId)
           }
       })
-      head <- ResourceOwner.forFuture(() =>
-        database.inReadTransaction("Reading head at startup") { implicit connection =>
-          Future.successful(queries.selectLatestLogEntryId().map(_ + 1).getOrElse(StartIndex))
-      })
-      dispatcher <- ResourceOwner.forCloseable(
+      dispatcher <- ResourceOwner.forFutureCloseable(
         () =>
-          Dispatcher(
-            "sql-participant-state",
-            zeroIndex = StartIndex,
-            headAtInitialization = head,
-        ))
+          database
+            .inReadTransaction("Reading head at startup") { implicit connection =>
+              Future.successful(queries.selectLatestLogEntryId().map(_ + 1).getOrElse(StartIndex))
+            }
+            .map(head => Dispatcher("sql-participant-state", StartIndex, head)))
     } yield new SqlLedgerReaderWriter(ledgerId, participantId, now, database, dispatcher)
 }
