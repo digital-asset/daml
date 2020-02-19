@@ -3,7 +3,7 @@
 
 package com.daml.ledger.api.server.damlonx.reference.v2
 
-import java.io._
+import java.io.{File, FileInputStream, FileOutputStream, ObjectInputStream, ObjectOutputStream}
 import java.time.Clock
 import java.util.UUID
 import java.util.concurrent.{CompletableFuture, CompletionStage}
@@ -23,7 +23,6 @@ import com.daml.ledger.participant.state.kvutils.{
 }
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.LedgerString
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
@@ -35,18 +34,24 @@ import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
 import scala.collection.breakOut
-import scala.concurrent.duration._
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.Try
 
 object InMemoryKVParticipantState {
+
+  /** Get a new record time for the ledger from the system clock.
+    * Public for use from integration tests.
+    */
+  private def now(): Timestamp =
+    Timestamp.assertFromInstant(Clock.systemUTC().instant())
 
   /** The complete state of the ledger at a given point in time.
     * This emulates a key-value blockchain with a log of commits and a key-value store.
     * The commit log provides the ordering for the log entries, and its height is used
     * as the [[Offset]].
     * */
-  case class State(
+  private case class State(
       // Log of commits, which are either [[DamlSubmission]]s or heartbeats.
       // Replaying the commits constructs the store.
       commitLog: Vector[Commit],
@@ -58,7 +63,7 @@ object InMemoryKVParticipantState {
       store: Map[ByteString, ByteString]
   )
 
-  object State {
+  private object State {
     def empty = State(
       commitLog = Vector.empty[Commit],
       recordTime = Timestamp.Epoch,
@@ -67,20 +72,20 @@ object InMemoryKVParticipantState {
 
   }
 
-  sealed trait Commit extends Serializable with Product
+  private sealed trait Commit extends Serializable with Product
 
   /** A commit sent to the [[InMemoryKVParticipantState.CommitActor]],
     * which inserts it into [[State.commitLog]].
     */
-  final case class CommitSubmission(
+  private final case class CommitSubmission(
       entryId: Proto.DamlLogEntryId,
       envelope: ByteString
   ) extends Commit
 
   /** A periodically emitted heartbeat that is committed to the ledger. */
-  final case class CommitHeartbeat(recordTime: Timestamp) extends Commit
+  private final case class CommitHeartbeat(recordTime: Timestamp) extends Commit
 
-  final case class AddPotentialResponse(idx: Int)
+  private final case class AddPotentialResponse(idx: Int)
 
 }
 
@@ -92,8 +97,8 @@ object InMemoryKVParticipantState {
   * https://doc.akka.io/docs/akka/current/index-actors.html.
   */
 class InMemoryKVParticipantState(
+    val initialLedgerId: Option[LedgerId],
     val participantId: ParticipantId,
-    val ledgerId: LedgerString = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
     file: Option[File] = None,
 )(implicit system: ActorSystem, mat: Materializer)
     extends ReadService
@@ -106,11 +111,20 @@ class InMemoryKVParticipantState(
 
   private implicit val ec: ExecutionContext = mat.executionContext
 
+  private val ledgerId =
+    initialLedgerId.getOrElse(Ref.LedgerString.assertFromString(UUID.randomUUID.toString))
+
   // The initial ledger configuration
   private val initialLedgerConfig = Configuration(
     generation = 0,
     timeModel = TimeModel.reasonableDefault
   )
+
+  /** The initial conditions of the ledger. The initial record time is the instant
+    * at which this class has been instantiated.
+    */
+  private val initialConditions =
+    LedgerInitialConditions(ledgerId, initialLedgerConfig, now())
 
   // DAML Engine for transaction validation.
   private val engine = Engine()
@@ -183,7 +197,7 @@ class InMemoryKVParticipantState(
           case Right(_) => sys.error("Unexpected message in envelope")
         }
         val state = stateRef
-        val newRecordTime = getNewRecordTime
+        val newRecordTime = now()
 
         if (state.store.contains(entryId.getEntryId)) {
           // The entry identifier already in use, drop the message and let the
@@ -250,8 +264,8 @@ class InMemoryKVParticipantState(
     // This source stops when the actor dies.
     val _ = Source
       .tick(HEARTBEAT_INTERVAL, HEARTBEAT_INTERVAL, ())
-      .map(_ => CommitHeartbeat(getNewRecordTime))
-      .to(Sink.actorRef(actorRef, onCompleteMessage = (), onFailureMessage = (_) => ()))
+      .map(_ => CommitHeartbeat(now()))
+      .to(Sink.actorRef(actorRef, onCompleteMessage = (), onFailureMessage = _ => ()))
       .run()
 
     actorRef
@@ -458,18 +472,6 @@ class InMemoryKVParticipantState(
       .setEntryId(NS_LOG_ENTRIES.concat(ByteString.copyFrom(nonce)))
       .build
   }
-
-  /** The initial conditions of the ledger. The initial record time is the instant
-    * at which this class has been instantiated.
-    */
-  private val initialConditions =
-    LedgerInitialConditions(ledgerId, initialLedgerConfig, getNewRecordTime)
-
-  /** Get a new record time for the ledger from the system clock.
-    * Public for use from integration tests.
-    */
-  def getNewRecordTime(): Timestamp =
-    Timestamp.assertFromInstant(Clock.systemUTC().instant())
 
   /** Submit a new configuration to the ledger. */
   override def submitConfiguration(

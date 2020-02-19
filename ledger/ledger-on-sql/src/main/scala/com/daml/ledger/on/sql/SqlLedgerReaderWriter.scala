@@ -110,7 +110,7 @@ object SqlLedgerReaderWriter {
   private val DefaultClock: Clock = Clock.systemUTC()
 
   def owner(
-      ledgerId: LedgerId,
+      initialLedgerId: Option[LedgerId],
       participantId: ParticipantId,
       jdbcUrl: String,
       now: () => Instant = () => DefaultClock.instant(),
@@ -133,5 +133,9 @@ object SqlLedgerReaderWriter {
             zeroIndex = StartIndex,
             headAtInitialization = head,
         ))
-    } yield new SqlLedgerReaderWriter(ledgerId, participantId, now, database, dispatcher)
+    } yield {
+      val ledgerId =
+        initialLedgerId.getOrElse(Ref.LedgerString.assertFromString(UUID.randomUUID.toString))
+      new SqlLedgerReaderWriter(ledgerId, participantId, now, database, dispatcher)
+    }
 }

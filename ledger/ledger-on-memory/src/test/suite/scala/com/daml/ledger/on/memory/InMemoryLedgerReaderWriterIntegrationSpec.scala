@@ -6,8 +6,7 @@ package com.daml.ledger.on.memory
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase.ParticipantState
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
-import com.daml.ledger.participant.state.v1._
-import com.digitalasset.daml.lf.data.Ref.LedgerString
+import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId}
 import com.digitalasset.logging.LoggingContext
 import com.digitalasset.resources.ResourceOwner
 
@@ -18,10 +17,10 @@ class InMemoryLedgerReaderWriterIntegrationSpec
   override val isPersistent: Boolean = false
 
   override def participantStateFactory(
+      ledgerId: LedgerId,
       participantId: ParticipantId,
-      ledgerId: LedgerString,
   )(implicit logCtx: LoggingContext): ResourceOwner[ParticipantState] =
     InMemoryLedgerReaderWriter
-      .owner(ledgerId, participantId)
+      .owner(Some(ledgerId), participantId)
       .map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter))
 }

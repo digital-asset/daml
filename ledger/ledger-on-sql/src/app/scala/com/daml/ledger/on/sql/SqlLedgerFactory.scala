@@ -30,7 +30,7 @@ object SqlLedgerFactory extends LedgerFactory[SqlLedgerReaderWriter, ExtraConfig
     config.copy(allowExistingSchemaForIndex = true)
 
   override def owner(
-      ledgerId: LedgerId,
+      initialLedgerId: Option[LedgerId],
       participantId: ParticipantId,
       config: ExtraConfig,
   )(
@@ -41,10 +41,6 @@ object SqlLedgerFactory extends LedgerFactory[SqlLedgerReaderWriter, ExtraConfig
     val jdbcUrl = config.jdbcUrl.getOrElse {
       throw new IllegalStateException("No JDBC URL provided.")
     }
-    SqlLedgerReaderWriter.owner(
-      ledgerId = ledgerId,
-      participantId = participantId,
-      jdbcUrl = jdbcUrl,
-    )
+    SqlLedgerReaderWriter.owner(initialLedgerId, participantId, jdbcUrl)
   }
 }

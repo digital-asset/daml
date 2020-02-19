@@ -48,21 +48,21 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
   protected val isPersistent: Boolean = true
 
   protected def participantStateFactory(
+      ledgerId: LedgerId,
       participantId: ParticipantId,
-      ledgerId: Ref.LedgerString,
   )(implicit logCtx: LoggingContext): ResourceOwner[ParticipantState]
 
   private def participantState: ResourceOwner[ParticipantState] = {
     val ledgerId = newLedgerId()
-    newParticipantState(participantId, ledgerId)
+    newParticipantState(ledgerId, participantId)
   }
 
   private def newParticipantState(
+      ledgerId: LedgerId,
       participantId: ParticipantId,
-      ledgerId: Ref.LedgerString,
   ): ResourceOwner[ParticipantState] =
     newLoggingContext { implicit logCtx =>
-      participantStateFactory(participantId, ledgerId)
+      participantStateFactory(ledgerId, participantId)
     }
 
   override protected def beforeEach(): Unit = {
@@ -76,7 +76,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
   implementationName should {
     "return initial conditions" in {
       val ledgerId = newLedgerId()
-      newParticipantState(participantId, ledgerId).use { ps =>
+      newParticipantState(ledgerId, participantId).use { ps =>
         for {
           conditions <- ps
             .getLedgerInitialConditions()
@@ -614,14 +614,14 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
       "resume where it left off on restart" in {
         val ledgerId = newLedgerId()
         for {
-          _ <- newParticipantState(participantId, ledgerId).use { ps =>
+          _ <- newParticipantState(ledgerId, participantId).use { ps =>
             for {
               _ <- ps
                 .allocateParty(None, Some("party-1"), newSubmissionId())
                 .toScala
             } yield ()
           }
-          updates <- newParticipantState(participantId, ledgerId).use { ps =>
+          updates <- newParticipantState(ledgerId, participantId).use { ps =>
             for {
               _ <- ps
                 .allocateParty(None, Some("party-2"), newSubmissionId())
@@ -674,10 +674,10 @@ object ParticipantStateIntegrationSpecBase {
 
   private val alice = Ref.Party.assertFromString("alice")
 
-  private def newLedgerId(): Ref.LedgerString =
+  private def newLedgerId(): LedgerId =
     Ref.LedgerString.assertFromString(s"ledger-${UUID.randomUUID()}")
 
-  private def newSubmissionId(): Ref.LedgerString =
+  private def newSubmissionId(): SubmissionId =
     Ref.LedgerString.assertFromString(s"submission-${UUID.randomUUID()}")
 
   private def transactionMeta(let: Timestamp) = TransactionMeta(
