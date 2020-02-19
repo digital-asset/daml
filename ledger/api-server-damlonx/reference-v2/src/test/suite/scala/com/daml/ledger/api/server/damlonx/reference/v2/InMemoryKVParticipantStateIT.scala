@@ -15,8 +15,9 @@ class InMemoryKVParticipantStateIT
   override val isPersistent: Boolean = false
 
   override def participantStateFactory(
-      ledgerId: LedgerId,
+      ledgerId: Option[LedgerId],
       participantId: ParticipantId,
+      testId: String,
   )(implicit logCtx: LoggingContext): ResourceOwner[ParticipantState] =
-    ResourceOwner.forCloseable(() => new InMemoryKVParticipantState(Some(ledgerId), participantId))
+    ResourceOwner.forCloseable(() => new InMemoryKVParticipantState(ledgerId, participantId))
 }

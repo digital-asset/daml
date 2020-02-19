@@ -21,10 +21,11 @@ abstract class SqlLedgerReaderWriterIntegrationSpecBase(implementationName: Stri
   override final val startIndex: Long = StartIndex
 
   override final def participantStateFactory(
-      ledgerId: LedgerId,
+      ledgerId: Option[LedgerId],
       participantId: ParticipantId,
+      testId: String,
   )(implicit logCtx: LoggingContext): ResourceOwner[ParticipantState] =
     SqlLedgerReaderWriter
-      .owner(Some(ledgerId), participantId, jdbcUrl(ledgerId.replaceAllLiterally("-", "_")))
+      .owner(ledgerId, participantId, jdbcUrl(testId))
       .map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter))
 }

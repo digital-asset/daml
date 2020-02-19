@@ -39,6 +39,10 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
 
   private implicit val ec: ExecutionContext = ExecutionContext.global
 
+  // Can be used by [[participantStateFactory]] to get a stable ID throughout the test.
+  // For example, for initializing a database.
+  private var testId: String = _
+
   private var rt: Timestamp = _
 
   // This can be overriden by tests for ledgers that don't start at 0.
@@ -48,25 +52,22 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
   protected val isPersistent: Boolean = true
 
   protected def participantStateFactory(
-      ledgerId: LedgerId,
+      ledgerId: Option[LedgerId],
       participantId: ParticipantId,
+      testId: String,
   )(implicit logCtx: LoggingContext): ResourceOwner[ParticipantState]
 
-  private def participantState: ResourceOwner[ParticipantState] = {
-    val ledgerId = newLedgerId()
-    newParticipantState(ledgerId, participantId)
-  }
+  private def participantState: ResourceOwner[ParticipantState] =
+    newParticipantState(newLedgerId())
 
-  private def newParticipantState(
-      ledgerId: LedgerId,
-      participantId: ParticipantId,
-  ): ResourceOwner[ParticipantState] =
+  private def newParticipantState(ledgerId: LedgerId): ResourceOwner[ParticipantState] =
     newLoggingContext { implicit logCtx =>
-      participantStateFactory(ledgerId, participantId)
+      participantStateFactory(Some(ledgerId), participantId, testId)
     }
 
   override protected def beforeEach(): Unit = {
     super.beforeEach()
+    testId = UUID.randomUUID().toString
     rt = Timestamp.assertFromInstant(Clock.systemUTC().instant())
   }
 
@@ -76,7 +77,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
   implementationName should {
     "return initial conditions" in {
       val ledgerId = newLedgerId()
-      newParticipantState(ledgerId, participantId).use { ps =>
+      newParticipantState(ledgerId).use { ps =>
         for {
           conditions <- ps
             .getLedgerInitialConditions()
@@ -614,14 +615,14 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
       "resume where it left off on restart" in {
         val ledgerId = newLedgerId()
         for {
-          _ <- newParticipantState(ledgerId, participantId).use { ps =>
+          _ <- newParticipantState(ledgerId).use { ps =>
             for {
               _ <- ps
                 .allocateParty(None, Some("party-1"), newSubmissionId())
                 .toScala
             } yield ()
           }
-          updates <- newParticipantState(ledgerId, participantId).use { ps =>
+          updates <- newParticipantState(ledgerId).use { ps =>
             for {
               _ <- ps
                 .allocateParty(None, Some("party-2"), newSubmissionId())
@@ -664,8 +665,7 @@ object ParticipantStateIntegrationSpecBase {
   private val emptyTransaction: SubmittedTransaction =
     GenTransaction(HashMap.empty, ImmArray.empty, Some(InsertOrdSet.empty))
 
-  private val participantId: ParticipantId =
-    Ref.ParticipantId.assertFromString("in-memory-participant")
+  private val participantId: ParticipantId = Ref.ParticipantId.assertFromString("test-participant")
   private val sourceDescription = Some("provided by test")
 
   private val darReader = DarReader { case (_, is) => Try(DamlLf.Archive.parseFrom(is)) }

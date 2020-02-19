@@ -17,10 +17,11 @@ class InMemoryLedgerReaderWriterIntegrationSpec
   override val isPersistent: Boolean = false
 
   override def participantStateFactory(
-      ledgerId: LedgerId,
+      ledgerId: Option[LedgerId],
       participantId: ParticipantId,
+      testId: String,
   )(implicit logCtx: LoggingContext): ResourceOwner[ParticipantState] =
     InMemoryLedgerReaderWriter
-      .owner(Some(ledgerId), participantId)
+      .owner(ledgerId, participantId)
       .map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter))
 }
