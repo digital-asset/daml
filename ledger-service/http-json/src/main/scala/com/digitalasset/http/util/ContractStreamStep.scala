@@ -25,13 +25,19 @@ private[http] sealed abstract class ContractStreamStep[+D, +C] extends Product w
   def append[DD >: D, CC >: C: Cid](o: ContractStreamStep[DD, CC]): ContractStreamStep[DD, CC] =
     (this, o) match {
       case (Acs(inserts), Acs(oinserts)) => Acs(inserts ++ oinserts)
-      case (Acs(_), LiveBegin(LedgerBegin)) => this
       case (Acs(_), LiveBegin(AbsoluteBookmark(off))) =>
         Txn(toInsertDelete, off)
-      case (Acs(_), Txn(ostep, off)) =>
+      case (Acs(_) | Txn(_, _), Txn(ostep, off)) =>
         Txn(toInsertDelete append ostep, off)
       case (LiveBegin(_), Txn(_, _) | LiveBegin(_)) => o
-      case (Txn(step, _), Txn(ostep, off)) => Txn(step append ostep, off)
+      // the following cases should never happen in a real stream; we attempt to
+      // provide definitions that make `append` totally associative, anyway
+      case (Acs(_), LiveBegin(LedgerBegin)) => this
+      case (LiveBegin(LedgerBegin), Acs(_)) => o
+      case (LiveBegin(AbsoluteBookmark(off)), Acs(_)) => Txn(o.toInsertDelete, off)
+      case (Txn(step, off), Acs(_) | LiveBegin(LedgerBegin)) =>
+        Txn(step append o.toInsertDelete, off)
+      case (Txn(step, _), LiveBegin(AbsoluteBookmark(off))) => Txn(step, off)
     }
 
   def mapPreservingIds[CC](f: C => CC): ContractStreamStep[D, CC] = this match {
