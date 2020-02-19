@@ -435,8 +435,10 @@ class JdbcLedgerDaoSpec
       } yield {
         firstUploadResult shouldBe PersistenceResponse.Ok
         secondUploadResult shouldBe PersistenceResponse.Ok
+        // Note that the order here isn’t fixed.
         loadedPackages.values.flatMap(_.sourceDescription.toList) should contain theSameElementsAs
-          Seq(firstDescription) ++ Seq.fill(17)(secondDescription)
+          Seq(firstDescription) ++ Seq.fill(JdbcLedgerDaoSpec.Fixtures.packages.length - 1)(
+            secondDescription)
       }
     }
 
