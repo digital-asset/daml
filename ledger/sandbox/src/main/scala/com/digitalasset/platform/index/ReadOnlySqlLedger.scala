@@ -3,9 +3,9 @@
 
 package com.digitalasset.platform.index
 
-import akka.NotUsed
 import akka.stream._
 import akka.stream.scaladsl.{Keep, RestartSource, Sink, Source}
+import akka.{Done, NotUsed}
 import com.codahale.metrics.MetricRegistry
 import com.digitalasset.dec.{DirectExecutionContext => DEC}
 import com.digitalasset.ledger.api.domain.LedgerId
@@ -24,7 +24,7 @@ import com.digitalasset.resources.ResourceOwner
 import scalaz.syntax.tag._
 
 import scala.concurrent.duration._
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{Await, ExecutionContext, Future}
 
 object ReadOnlySqlLedger {
 
@@ -91,26 +91,24 @@ private class ReadOnlySqlLedger(
 )(implicit mat: Materializer)
     extends BaseLedger(ledgerId, headAtInitialization, ledgerDao) {
 
-  private val ledgerEndUpdateKillSwitch = {
-    val offsetUpdates = Source
-      .tick(0.millis, 100.millis, ())
-      .mapAsync(1)(_ => ledgerDao.lookupLedgerEnd())
-
+  private val (ledgerEndUpdateKillSwitch, ledgerEndUpdateDone) =
     RestartSource
-      .withBackoff(
-        minBackoff = 1.second,
-        maxBackoff = 10.seconds,
-        randomFactor = 0.2
-      )(() => offsetUpdates)
+      .withBackoff(minBackoff = 1.second, maxBackoff = 10.seconds, randomFactor = 0.2)(
+        () =>
+          Source
+            .tick(0.millis, 100.millis, ())
+            .mapAsync(1)(_ => ledgerDao.lookupLedgerEnd()))
       .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
-      .to(Sink.foreach(dispatcher.signalNewHead))
+      .toMat(Sink.foreach(dispatcher.signalNewHead))(Keep.both[UniqueKillSwitch, Future[Done]])
       .run()
-  }
 
   override def currentHealth(): HealthStatus = ledgerDao.currentHealth()
 
   override def close(): Unit = {
-    ledgerEndUpdateKillSwitch.shutdown()
+    // Terminate the dispatcher first so that it doesn't trigger new queries.
     super.close()
+    ledgerEndUpdateKillSwitch.shutdown()
+    Await.result(ledgerEndUpdateDone, 10.seconds)
+    ()
   }
 }
