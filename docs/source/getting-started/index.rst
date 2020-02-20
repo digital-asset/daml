@@ -17,7 +17,7 @@ showing you three things:
     2. The design of its different components (:doc:`app-architecture`)
     3. How to write a new feature for the app (:doc:`first-feature`)
 
-We do not aim to be comprehensive in all DAML concepts and tools (covered in Writing DAML) or in all deployment options (see Deploying).
+We do not aim to be comprehensive in all DAML concepts and tools (covered in :doc:`Writing DAML </daml/intro/0_Intro>`) or in all deployment options (see :doc:`Deploying </deploy/index>`).
 The goal is that by the end of this tutorial, you'll have a good idea of the following:
 
     1. What DAML contracts and ledgers are
@@ -25,8 +25,6 @@ The goal is that by the end of this tutorial, you'll have a good idea of the fol
     3. How DAML helps you build a real-life application fast.
 
 With that, let's get started!
-
-.. TODO: link to other sections of docs
 
 .. toctree::
    :hidden:
@@ -111,3 +109,5 @@ Note that in this app, friendships can be added in one direction at a time (simi
 
 Add a few more friends as Bob, and play around a bit more by logging in as different users and adding/removing friends from the network.
 This should give you a idea of the app's functionality.
+
+Next, we'll look at the :doc:`architecture of our app <app-architecture>` and the individual components.

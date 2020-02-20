@@ -101,4 +101,6 @@ For instance, ``allUsers`` uses a query to get the ``User`` contracts on the led
 However, the query respects the privacy guarantees of a DAML ledger: the contracts returned are only those visible to the currently logged in party.
 This explains why you cannot see *all* users in the network on the main screen, only those who have added you as a friend (making you an observer of their ``User`` contract).
 
-.. TODO You also see friends of friends; either explain or prevent this.
+.. TODO Explain why you see friends of friends.
+
+In the next section, we'll guide you through building :doc:`your first feature <first-feature>` for this social network.
