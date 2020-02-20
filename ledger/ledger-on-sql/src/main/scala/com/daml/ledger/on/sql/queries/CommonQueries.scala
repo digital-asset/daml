@@ -19,15 +19,14 @@ import com.google.protobuf.ByteString
 import scala.collection.{breakOut, immutable}
 
 trait CommonQueries extends Queries {
-  override final def selectLatestLogEntryId()(implicit connection: Connection): Option[Index] =
+  protected implicit val connection: Connection
+
+  override final def selectLatestLogEntryId(): Option[Index] =
     SQL"SELECT MAX(sequence_no) max_sequence_no FROM #$LogTable"
       .as(get[Option[Long]]("max_sequence_no").singleOpt)
       .flatten
 
-  override final def selectFromLog(
-      start: Index,
-      end: Index,
-  )(implicit connection: Connection): immutable.Seq[(Index, LedgerRecord)] =
+  override final def selectFromLog(start: Index, end: Index): immutable.Seq[(Index, LedgerRecord)] =
     SQL"SELECT sequence_no, entry_id, envelope FROM #$LogTable WHERE sequence_no >= $start AND sequence_no < $end"
       .as(
         (long("sequence_no") ~ binaryStream("entry_id") ~ byteArray("envelope")).map {
@@ -36,9 +35,7 @@ trait CommonQueries extends Queries {
         }.*,
       )
 
-  override final def selectStateValuesByKeys(
-      keys: Seq[Key],
-  )(implicit connection: Connection): immutable.Seq[Option[Value]] = {
+  override final def selectStateValuesByKeys(keys: Seq[Key]): immutable.Seq[Option[Value]] = {
     val results = SQL"SELECT key, value FROM #$StateTable WHERE key IN ($keys)"
       .fold(Map.newBuilder[ByteString, Array[Byte]], ColumnAliaser.empty)((builder, row) =>
         builder += ByteString.readFrom(row[InputStream]("key")) -> row[Value]("value"))
@@ -48,9 +45,7 @@ trait CommonQueries extends Queries {
     keys.map(key => results.get(ByteString.copyFrom(key)))(breakOut)
   }
 
-  override final def updateState(
-      stateUpdates: Seq[(Key, Value)],
-  )(implicit connection: Connection): Unit =
+  override final def updateState(stateUpdates: Seq[(Key, Value)]): Unit =
     executeBatchSql(updateStateQuery, stateUpdates.map {
       case (key, value) => Seq[NamedParameter]("key" -> key, "value" -> value)
     })
