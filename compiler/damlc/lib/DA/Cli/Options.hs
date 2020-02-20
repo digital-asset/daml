@@ -257,8 +257,6 @@ optionsParser numProcessors enableScenarioService parsePkgName = do
     optImportPath <- optImportPath
     optPackageDbs <- optPackageDir
     let optStablePackages = Nothing
-    -- let optMbPackageName = (_ mbSplitUnitId)
-    -- optMbPackageVersion <- pure Nothing
     let optIfaceDir = Nothing
     optPackageImports <- many optPackageImport
     optShakeProfiling <- shakeProfilingOpt
