@@ -86,7 +86,9 @@ Here is the code for the entire component.
 
 .. literalinclude:: code/ui-after/MessageList.tsx
 
-The key point here is that for any particular user, the ``Message`` query yields exactly the messages that have been either written by or sent to that user.
+The ``messagesResult`` tracks the state of ``Message`` contracts on the ledger, where we specify no restrictions on the query.
+We extract the actual message data in ``messages``.
+Note that for any particular user, the ``Message`` query yields exactly the messages that have been either written by or sent to that user.
 This is due to how we modelled the signatories and observers in the ``Message`` template, and means we do not risk a privacy breach coming from the application code.
 
 Message Edit Component
@@ -96,45 +98,30 @@ In addition to the feed component, we need a component for composing messages an
 
 .. literalinclude:: code/ui-after/MessageEdit.tsx
 
-In this component we use React hooks for the message content and receiver.
-You can see these used in the ``submitMessage`` function, called when the "Send" button is clicked.
+In this component we use React hooks to track the current choice of message receiver and content.
+The ``exerciseSendMessage`` hook gives us a function to exercise the appropriate choice on our ``User``.
+We wrap this in the ``sendMessage`` function to report potential errors to the user, and then the ``submitMessage`` function, called when the "Send" button is clicked.
 The ``isSubmitting`` state is used to ensure that message requests are processed one at a time.
-The result of each send is a new ``Message`` contract created, after which the form is cleared.
+The result of each send is a new ``Message`` contract created on the ledger.
 
 View Component
 --------------------
 
-The ``MainView`` component is the workhorse of this application which queries the ledger for data and houses the different subcomponents (e.g. friends, the network and our messaging components above).
-To support the messaging components, we will need DAML React hooks for querying ``Message`` contracts and exercising the ``SendMessage`` choice on our ``User`` contract.
+The ``MainView`` component composes the different subcomponents (for our friends, the network and the messaging components above) to build the full app view.
 
-First import the generated Typescript code for the ``Message`` contract template, as well as our two new components.
-
-.. literalinclude:: code/ui-after/MainView.tsx
-  :start-after: -- IMPORTS_BEGIN
-  :end-before: -- IMPORTS_END
-
-Then we declare the hooks themselves at the start of the component.
+We first import our two new components.
 
 .. literalinclude:: code/ui-after/MainView.tsx
-  :start-after: -- HOOKS_BEGIN
-  :end-before: -- HOOKS_END
+  :start-after: // IMPORTS_BEGIN
+  :end-before: // IMPORTS_END
 
-The ``messagesResult`` tracks the state of ``Message`` contracts on the ledger, where we specify no restrictions on the query.
-We extract the actual message data in ``messages``.
-The ``exerciseSendMessage`` hook gives us a function to exercise the appropriate choice on our ``User``.
-We wrap this in another ``sendMessage`` function which splits an input string into a list of parties and then exercises the choice, reporting to the user in the case of an error.
-
-.. literalinclude:: code/ui-after/MainView.tsx
-  :start-after: -- SENDMESSAGE_BEGIN
-  :end-before: -- SENDMESSAGE_END
-
-Finally we can integrate our new messaging components into the main screen view.
+Then we can integrate our new messaging components into the main screen view.
 In another segment we add the panel including our two new components: the ``MessageEdit`` and the ``MessageList``.
 
 .. literalinclude:: code/ui-after/MainView.tsx
-  :start-after: -- MESSAGES_SEGMENT_BEGIN
-  :end-before: -- MESSAGES_SEGMENT_END
+  :start-after: // MESSAGES_SEGMENT_BEGIN
+  :end-before: // MESSAGES_SEGMENT_END
 
-You have now finished implementing your first end-to-end DAML feature!
+This wraps up the implementation of your first end-to-end DAML feature!
 Let's give the new functionality a spin.
-We follow the instructions in "Running the app" to start up the new app.
+Follow the instructions in "Running the app" to start up the new app.
