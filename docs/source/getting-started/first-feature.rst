@@ -78,13 +78,13 @@ Messaging UI
 Our messaging feature has two parts: a form with inputs for selecting friends and composing the message text, and a "feed" of messages that have been sent to you.
 Both parts will be implemented as React components that render on the main screen.
 
-Feed Component
+MessageList Component
 --------------
 
-The feed component is fairly straight-forward: it queries all ``Message`` contracts and displays their contents as a list.
+The MessageList component is fairly straight-forward: it queries all ``Message`` contracts and displays their contents as a list.
 Here is the code for the entire component.
 
-.. literalinclude:: code/ui-after/Feed.tsx
+.. literalinclude:: code/ui-after/MessageList.tsx
 
 The key point here is that for any particular user, the ``Message`` query yields exactly the messages that have been either written by or sent to that user.
 This is due to how we modelled the signatories and observers in the ``Message`` template, and means we do not risk a privacy breach coming from the application code.
@@ -129,7 +129,7 @@ We wrap this in another ``sendMessage`` function which splits an input string in
   :end-before: -- SENDMESSAGE_END
 
 Finally we can integrate our new messaging components into the main screen view.
-In another segment we add the panel including our two new components: the ``MessageEdit`` and the ``Feed``.
+In another segment we add the panel including our two new components: the ``MessageEdit`` and the ``MessageList``.
 
 .. literalinclude:: code/ui-after/MainView.tsx
   :start-after: -- MESSAGES_SEGMENT_BEGIN
