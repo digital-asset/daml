@@ -109,7 +109,7 @@ Another example is how we exercise the ``AddFriend`` choice of the ``User`` temp
 
 We use the ``useExerciseByKey`` hook to gain access to the ``exerciseAddFriend`` function.
 The *key* in this case is the username of the current user, used to look up the corresponding ``User`` contract.
-The wrapper function ``addFriend`` is then passed to subcomponents, as
+The wrapper function ``addFriend`` is then passed to the subcomponents of ``MainView``.
 For example, ``addFriend`` is passed to the ``UserList`` component as an argument (called a *prop* in React terms).
 This gets triggered when you click the button next to a user's name in the "Network" panel.
 
