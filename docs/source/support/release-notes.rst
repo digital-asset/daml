@@ -6,6 +6,25 @@ Release notes
 
 This page contains release notes for the SDK.
 
+.. _release-0-13-54:
+
+0.13.54 - 2020-02-20
+--------------------
+
+Sandbox
+~~~~~~~
+
+- Removed the warnings regarding static time and scenarios on
+  initialization. We will not deprecate these until we have a stable
+  alternative.
+- If no ledger ID is provided when running against an existing
+  ledger, use the existing ID. Previously, Sandbox would fail to start.
+
+DAML Standard Library
+~~~~~~~~~~~~~~~~~~~~~
+
+- Add ``subtractDays`` to the DAML Standard Library.
+
 .. _release-0-13-53:
 
 0.13.53 - 2020-02-19
