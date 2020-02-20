@@ -61,13 +61,14 @@ TypeScript Code Generation
 ==========================
 
 The user interface for our app is written in `TypeScript <https://www.typescriptlang.org/>`_.
-TypeScript is a variant of Javascript that provides more support in development through its type system.
+TypeScript is a variant of Javascript that provides more support during development through its type system.
 
 In order to build an application on top of DAML, we need a way to refer to our DAML templates and choices in TypeScript.
 We do this using a DAML to TypeScript code generation tool in the DAML SDK.
 
 To run code generation, we first need to compile the DAML model to an archive format (with a ``.dar`` extension).
 Then the command ``daml codegen ts`` takes this file as argument to produce a number of TypeScript files in the specified location.
+::
 
     daml build
     daml codegen ts .daml/dist/create-daml-app-0.1.0.dar -o daml-ts/src
@@ -100,4 +101,6 @@ For instance, ``allUsers`` uses a query to get the ``User`` contracts on the led
 However, the query respects the privacy guarantees of a DAML ledger: the contracts returned are only those visible to the currently logged in party.
 This explains why you cannot see *all* users in the network on the main screen, only those who have added you as a friend (making you an observer of their ``User`` contract).
 
-.. TODO You also see friends of friends; either explain or prevent this.
+.. TODO Explain why you see friends of friends.
+
+In the next section, we'll guide you through building :doc:`your first feature <first-feature>` for this social network.
