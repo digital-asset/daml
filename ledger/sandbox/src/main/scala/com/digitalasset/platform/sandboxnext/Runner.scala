@@ -36,7 +36,6 @@ import com.digitalasset.platform.indexer.{
 import com.digitalasset.platform.sandbox.banner.Banner
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.sandboxnext.Runner._
-import com.digitalasset.platform.store.ActiveLedgerStateManager.IndexingOptions
 import com.digitalasset.platform.services.time.TimeProviderType
 import com.digitalasset.resources.ResourceOwner
 import com.digitalasset.resources.akka.AkkaResourceOwner
@@ -57,8 +56,6 @@ import scala.util.Try
   *   - does not provide the reset service
   */
 class Runner {
-
-  implicit val indexingOptions: IndexingOptions = IndexingOptions(implicitPartyAllocation = true)
 
   def owner(config: SandboxConfig): ResourceOwner[Unit] = {
     implicit val system: ActorSystem = ActorSystem("sandbox")
@@ -168,7 +165,8 @@ class Runner {
         startupMode = IndexerStartupMode.MigrateAndStart,
         allowExistingSchema = true,
       ),
-      SharedMetricRegistries.getOrCreate(s"indexer-$ParticipantId")
+      SharedMetricRegistries.getOrCreate(s"indexer-$ParticipantId"),
+      implicitPartyAllocation = true,
     )
 
   private def startApiServer(
@@ -195,6 +193,7 @@ class Runner {
       authService,
       SharedMetricRegistries.getOrCreate(s"ledger-api-server-$ParticipantId"),
       timeServiceBackend = timeServiceBackend,
+      implicitPartyAllocation = true,
     )
 }
 

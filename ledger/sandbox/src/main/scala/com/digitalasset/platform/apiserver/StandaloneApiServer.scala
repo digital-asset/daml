@@ -24,7 +24,6 @@ import com.digitalasset.platform.apiserver.StandaloneApiServer._
 import com.digitalasset.platform.configuration.{BuildInfo, CommandConfiguration}
 import com.digitalasset.platform.index.JdbcIndex
 import com.digitalasset.platform.packages.InMemoryPackageStore
-import com.digitalasset.platform.store.ActiveLedgerStateManager.IndexingOptions
 import com.digitalasset.resources.akka.AkkaResourceOwner
 import com.digitalasset.resources.{Resource, ResourceOwner}
 
@@ -41,6 +40,7 @@ final class StandaloneApiServer(
     metrics: MetricRegistry,
     engine: Engine = sharedEngine, // allows sharing DAML engine with DAML-on-X participant
     timeServiceBackend: Option[TimeServiceBackend] = None,
+    implicitPartyAllocation: Boolean = false,
 )(implicit logCtx: LoggingContext)
     extends ResourceOwner[Unit] {
 
@@ -89,8 +89,6 @@ final class StandaloneApiServer(
   }
 
   private def buildAndStartApiServer()(implicit ec: ExecutionContext): Resource[ApiServer] = {
-    implicit val indexingOptions: IndexingOptions = IndexingOptions(implicitPartyAllocation = true)
-
     val packageStore = loadDamlPackages()
     preloadPackages(packageStore)
 
@@ -108,8 +106,9 @@ final class StandaloneApiServer(
         domain.LedgerId(initialConditions.ledgerId),
         participantId,
         config.jdbcUrl,
-        metrics
-      )(materializer, logCtx, indexingOptions)
+        metrics,
+        implicitPartyAllocation
+      )(materializer, logCtx)
       healthChecks = new HealthChecks(
         "index" -> indexService,
         "read" -> readService,

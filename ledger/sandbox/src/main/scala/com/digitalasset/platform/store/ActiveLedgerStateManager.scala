@@ -14,7 +14,6 @@ import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.ledger.{EventId, TransactionId, WorkflowId}
 import com.digitalasset.platform.events.EventIdFormatter
-import com.digitalasset.platform.store.ActiveLedgerStateManager.IndexingOptions
 import com.digitalasset.platform.store.Contract.ActiveContract
 import com.digitalasset.platform.store.SequencingError.PredicateType.{Exercise, Fetch}
 import com.digitalasset.platform.store.SequencingError.{
@@ -30,8 +29,10 @@ import com.digitalasset.platform.store.SequencingError.{
   * - Validates the transaction against the [[ActiveLedgerState]].
   * - Updates the [[ActiveLedgerState]].
   */
-class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](initialState: => ALS)(
-    implicit indexingOptions: IndexingOptions = IndexingOptions.defaultNoImplicitPartyAllocation) {
+class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
+    initialState: => ALS,
+    implicitPartyAllocation: Boolean = false,
+) {
 
   private case class AddTransactionState(
       acc: Option[ALS],
@@ -227,7 +228,7 @@ class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](initialState: => A
     st.mapAcs(
         _ divulgeAlreadyCommittedContracts (transactionId, divulgedContractIds, divulgedContracts))
       .mapAcs { acs =>
-        if (indexingOptions.implicitPartyAllocation)
+        if (implicitPartyAllocation)
           acs addParties st.parties
         else
           acs
@@ -235,13 +236,4 @@ class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](initialState: => A
       .result
   }
 
-}
-
-object ActiveLedgerStateManager {
-
-  final case class IndexingOptions(implicitPartyAllocation: Boolean)
-
-  object IndexingOptions {
-    val defaultNoImplicitPartyAllocation = IndexingOptions(implicitPartyAllocation = false)
-  }
 }

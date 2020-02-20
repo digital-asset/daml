@@ -37,7 +37,6 @@ import com.digitalasset.platform.store.{BaseLedger, DbType, FlywayMigrations, Pe
 import com.digitalasset.resources.ResourceOwner
 import scalaz.syntax.tag._
 import akka.stream.scaladsl.GraphDSL.Implicits._
-import com.digitalasset.platform.store.ActiveLedgerStateManager.IndexingOptions
 
 import scala.collection.immutable
 import scala.collection.immutable.Queue
@@ -68,7 +67,6 @@ object SqlLedger {
   )(implicit mat: Materializer, logCtx: LoggingContext): ResourceOwner[Ledger] = {
 
     implicit val ec: ExecutionContext = DEC
-    implicit val indexingOptions: IndexingOptions = IndexingOptions(implicitPartyAllocation = true)
 
     new FlywayMigrations(jdbcUrl).migrate()
 
@@ -78,7 +76,7 @@ object SqlLedger {
     for {
       dbDispatcher <- DbDispatcher.owner(jdbcUrl, maxConnections, metrics)
       ledgerDao = new MeteredLedgerDao(
-        JdbcLedgerDao(dbDispatcher, dbType, mat.executionContext),
+        JdbcLedgerDao(dbDispatcher, dbType, mat.executionContext, implicitPartyAllocation = true),
         metrics,
       )
       ledger <- ResourceOwner

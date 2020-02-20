@@ -22,7 +22,6 @@ import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.events.EventIdFormatter
 import com.digitalasset.platform.metrics.timedFuture
-import com.digitalasset.platform.store.ActiveLedgerStateManager.IndexingOptions
 import com.digitalasset.platform.store.dao.{JdbcLedgerDao, LedgerDao}
 import com.digitalasset.platform.store.entries.{LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.digitalasset.platform.store.{FlywayMigrations, PersistenceEntry}
@@ -64,11 +63,9 @@ final class JdbcIndexerFactory[Status <: InitStatus] private (metrics: MetricReg
       participantId: ParticipantId,
       actorSystem: ActorSystem,
       readService: ReadService,
-      jdbcUrl: String
-  )(
-      implicit x: Status =:= Initialized,
-      indexingOptions: IndexingOptions = IndexingOptions.defaultNoImplicitPartyAllocation)
-    : ResourceOwner[JdbcIndexer] = {
+      jdbcUrl: String,
+      implicitPartyAllocation: Boolean = false,
+  )(implicit x: Status =:= Initialized): ResourceOwner[JdbcIndexer] = {
     val materializer: Materializer = Materializer(actorSystem)
 
     implicit val ec: ExecutionContext = DEC
@@ -85,12 +82,14 @@ final class JdbcIndexerFactory[Status <: InitStatus] private (metrics: MetricReg
       } yield (ledgerEnd, externalOffset)
 
     for {
-      ledgerDao <- JdbcLedgerDao.owner(jdbcUrl, metrics, actorSystem.dispatcher)
+      ledgerDao <- JdbcLedgerDao.owner(
+        jdbcUrl,
+        metrics,
+        actorSystem.dispatcher,
+        implicitPartyAllocation)
       (ledgerEnd, externalOffset) <- ResourceOwner.forFuture(() => fetchInitialState(ledgerDao))
     } yield
-      new JdbcIndexer(ledgerEnd, externalOffset, participantId, ledgerDao, metrics)(
-        materializer,
-        indexingOptions)
+      new JdbcIndexer(ledgerEnd, externalOffset, participantId, ledgerDao, metrics)(materializer)
   }
 
   private def ledgerFound(foundLedgerId: LedgerId) = {
@@ -129,7 +128,7 @@ class JdbcIndexer private[indexer] (
     participantId: ParticipantId,
     ledgerDao: LedgerDao,
     metrics: MetricRegistry
-)(implicit mat: Materializer, indexingOptions: IndexingOptions)
+)(implicit mat: Materializer)
     extends Indexer {
 
   @volatile
@@ -374,8 +373,7 @@ class JdbcIndexer private[indexer] (
       domain.RejectionReason.SubmitterCannotActViaParticipant(state.description)
   }
 
-  private class SubscriptionResourceOwner(readService: ReadService)(
-      implicit indexingOptions: IndexingOptions)
+  private class SubscriptionResourceOwner(readService: ReadService)
       extends ResourceOwner[IndexFeedHandle] {
     override def acquire()(
         implicit executionContext: ExecutionContext
