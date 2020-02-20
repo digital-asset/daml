@@ -1,8 +1,8 @@
 .. Copyright (c) 2020 The DAML Authors. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Your First Feature: Messaging Friends
-*************************************
+Your First Feature
+******************
 
 Let's dive into implementing a new feature for our social network app.
 From that we'll get a better idea of how to build DAML applications using our template.

@@ -14,8 +14,8 @@ We do this through the example of a simple social networking application,
 showing you three things:
 
     1. How to build and run the application
-    2. The design of its different components
-    3. How to write a new feature for the app.
+    2. The design of its different components (:doc:`app-architecture`)
+    3. How to write a new feature for the app (:doc:`first-feature`)
 
 We do not aim to be comprehensive in all DAML concepts and tools (covered in Writing DAML) or in all deployment options (see Deploying).
 The goal is that by the end of this tutorial, you'll have a good idea of the following:
@@ -26,7 +26,6 @@ The goal is that by the end of this tutorial, you'll have a good idea of the fol
 
 With that, let's get started!
 
-.. TODO: link to sections of this guide
 .. TODO: link to other sections of docs
 
 .. toctree::
