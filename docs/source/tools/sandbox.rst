@@ -87,7 +87,7 @@ use one of the following command line options:
   For testing purposes only, the following options may also be used.
   None of them is considered safe for production:
 
-  - ``--auth-jwt-hss256-unsafe=<secret>``.
+  - ``--auth-jwt-hs256-unsafe=<secret>``.
     The sandbox will expect all tokens to be signed with HMAC256 with the given plaintext secret.
 
 Token payload
