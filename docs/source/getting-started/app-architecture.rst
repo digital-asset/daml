@@ -91,11 +91,11 @@ For example, we can query the ledger for all contracts visible to the logged-in 
 Let's see some examples of DAML React hooks.
 
 .. literalinclude:: code/ui-before/MainView.tsx
-  :start-after: -- HOOKS_BEGIN
-  :end-before: -- HOOKS_END
+  :start-after: // HOOKS_BEGIN
+  :end-before: // HOOKS_END
 
 This is the start of the component which provides data from the current state of the ledger to the main screen of our app.
-The three declarations within ``MainView`` all use DAML hooks to get information from the ledger.
+The declarations within ``MainView`` all use DAML hooks to get information from the ledger.
 For instance, ``allUsers`` uses a query to get the ``User`` contracts on the ledger.
 However, the query respects the privacy guarantees of a DAML ledger: the contracts returned are only those visible to the currently logged in party.
 This explains why you cannot see *all* users in the network on the main screen, only those who have added you as a friend (making you an observer of their ``User`` contract).

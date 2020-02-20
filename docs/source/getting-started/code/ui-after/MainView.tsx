@@ -1,36 +1,33 @@
 // Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Container, Grid, Header, Icon, Segment, Divider } from 'semantic-ui-react';
 import { Party } from '@daml/types';
+import { User } from '@daml2ts/create-daml-app/lib/create-daml-app-0.1.0/User';
 import { useParty, useReload, useExerciseByKey, useFetchByKey, useQuery } from '@daml/react';
 import UserList from './UserList';
 import PartyListEdit from './PartyListEdit';
-// -- IMPORTS_BEGIN
-import { User, Message } from '@daml2ts/create-daml-app/lib/create-daml-app-0.1.0/User';
+// IMPORTS_BEGIN
 import MessageEdit from './MessageEdit';
-import Feed from './Feed';
-// -- IMPORTS_END
+import MessageList from './MessageList';
+// IMPORTS_END
 
 const MainView: React.FC = () => {
   const username = useParty();
-  const myUserResult = useFetchByKey<User, Party>(User, () => username, [username]);
+  const myUserResult = useFetchByKey(User, () => username, [username]);
   const myUser = myUserResult.contract?.payload;
-  const allUsersResult = useQuery<User, Party>(User);
-  const allUsers = allUsersResult.contracts.map((user) => user.payload);
-  const reload = useReload();
+  const allUsers = useQuery(User).contracts;
+
+  // Sorted list of friends of the current user
+  const friends = useMemo(() =>
+    allUsers
+    .map(user => user.payload)
+    .filter(user => user.username !== username)
+    .sort((x, y) => x.username.localeCompare(y.username)),
+    [allUsers, username]);
 
   const [exerciseAddFriend] = useExerciseByKey(User.AddFriend);
-  const [exerciseRemoveFriend] = useExerciseByKey(User.RemoveFriend);
-
-// -- HOOKS_BEGIN
-  const messagesResult = useQuery(Message, () => ({receiver: username}), []);
-  const messages = messagesResult.contracts.map((message) => message.payload);
-
-  const [exerciseSendMessage] = useExerciseByKey(User.SendMessage);
-// -- HOOKS_END
-
 
   const addFriend = async (friend: Party): Promise<boolean> => {
     try {
@@ -42,26 +39,10 @@ const MainView: React.FC = () => {
     }
   }
 
-  const removeFriend = async (friend: Party): Promise<void> => {
-    try {
-      await exerciseRemoveFriend(username, {friend});
-    } catch (error) {
-      alert("Unknown error:\n" + JSON.stringify(error));
-    }
-  }
+  const messageFriend = (friend: Party) =>
+    alert('Messaging parties is not yet implemented.');
 
-// -- SENDMESSAGE_BEGIN
-  const sendMessage = async (content: string, receiver: string): Promise<boolean> => {
-    try {
-      await exerciseSendMessage(receiver, {sender: username, content});
-      return true;
-    } catch (error) {
-      alert("Error while sending message:\n" + JSON.stringify(error));
-      return false;
-    }
-  }
-// -- SENDMESSAGE_END
-
+  const reload = useReload();
   React.useEffect(() => {
     const interval = setInterval(reload, 5000);
     return () => clearInterval(interval);
@@ -88,7 +69,7 @@ const MainView: React.FC = () => {
               <PartyListEdit
                 parties={myUser?.friends ?? []}
                 onAddParty={addFriend}
-                onRemoveParty={removeFriend}
+                onMessageParty={messageFriend}
               />
             </Segment>
             <Segment>
@@ -108,11 +89,11 @@ const MainView: React.FC = () => {
               </Header>
               <Divider />
               <UserList
-                users={allUsers.sort((user1, user2) => user1.username.localeCompare(user2.username))}
+                users={friends}
                 onAddFriend={addFriend}
               />
             </Segment>
-// -- MESSAGES_SEGMENT_BEGIN
+// MESSAGES_SEGMENT_BEGIN
             <Segment>
               <Header as='h2'>
                 <Icon name='pencil square' />
@@ -122,12 +103,12 @@ const MainView: React.FC = () => {
                 </Header.Content>
               </Header>
               <MessageEdit
-                sendMessage={sendMessage}
+                friends={friends.map(user => user.username)}
               />
             <Divider />
-            <Feed messages={messages} />
+            <MessageList />
             </Segment>
-// -- MESSAGES_SEGMENT_END
+// MESSAGES_SEGMENT_END
           </Grid.Column>
         </Grid.Row>
       </Grid>
