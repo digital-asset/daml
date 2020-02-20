@@ -9,13 +9,13 @@ import { useParty, useReload, useExerciseByKey, useFetchByKey, useQuery } from '
 import UserList from './UserList';
 import PartyListEdit from './PartyListEdit';
 
+// USERS_BEGIN
 const MainView: React.FC = () => {
-// HOOKS_BEGIN
   const username = useParty();
   const myUserResult = useFetchByKey(User, () => username, [username]);
   const myUser = myUserResult.contract?.payload;
   const allUsers = useQuery(User).contracts;
-// HOOKS_END
+// USERS_END
 
   // Sorted list of friends of the current user
   const friends = useMemo(() =>
@@ -25,6 +25,7 @@ const MainView: React.FC = () => {
     .sort((x, y) => x.username.localeCompare(y.username)),
     [allUsers, username]);
 
+// ADDFRIEND_BEGIN
   const [exerciseAddFriend] = useExerciseByKey(User.AddFriend);
 
   const addFriend = async (friend: Party): Promise<boolean> => {
@@ -36,6 +37,7 @@ const MainView: React.FC = () => {
       return false;
     }
   }
+// ADDFRIEND_END
 
   const messageFriend = (friend: Party) =>
     alert('Messaging parties is not yet implemented.');
@@ -86,10 +88,12 @@ const MainView: React.FC = () => {
                 </Header.Content>
               </Header>
               <Divider />
+// USERLIST_BEGIN
               <UserList
                 users={friends}
                 onAddFriend={addFriend}
               />
+// USERLIST_END
             </Segment>
           </Grid.Column>
         </Grid.Row>

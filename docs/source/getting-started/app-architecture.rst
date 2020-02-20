@@ -84,23 +84,38 @@ React helps us write modular UI components using a functional style - a componen
 
 The latter is especially interesting as it's how we handle ledger state in our application.
 We use a state management feature of React called `Hooks <https://reactjs.org/docs/hooks-intro.html>`_.
-You can see the capabilities of the DAML React hooks in ``create-daml-app/ui/src/daml-react-hooks/hooks.ts``.
-For example, we can query the ledger for all contracts visible to the logged-in user, create new contracts, and exercise choices.
+We use custom DAML React hooks to query the ledger for contracts, create new contracts, and exercise choices.
 
-.. TODO Update location to view DAML react hooks API
+.. TODO Link to DAML react hooks API
 
-Let's see some examples of DAML React hooks.
+We can see examples of this in the ``MainView`` component.
+This is the React component that enables the main functionality of the app.
 
 .. literalinclude:: code/ui-before/MainView.tsx
-  :start-after: // HOOKS_BEGIN
-  :end-before: // HOOKS_END
+  :start-after: // USERS_BEGIN
+  :end-before: // USERS_END
 
-This is the start of the component which provides data from the current state of the ledger to the main screen of our app.
-The declarations within ``MainView`` all use DAML hooks to get information from the ledger.
-For instance, ``allUsers`` uses a query to get the ``User`` contracts on the ledger.
-However, the query respects the privacy guarantees of a DAML ledger: the contracts returned are only those visible to the currently logged in party.
-This explains why you cannot see *all* users in the network on the main screen, only those who have added you as a friend (making you an observer of their ``User`` contract).
+For instance, ``allUsers`` uses the query hook to get the ``User`` contracts on the ledger.
+Note however that the query preserves privacy: only users that have added the party currently logged in are shown.
+This is because the observers of a ``User`` contract are exactly the user's friends.
 
 .. TODO Explain why you see friends of friends.
 
-In the next section, we'll guide you through building :doc:`your first feature <first-feature>` for this social network.
+Another example is how we exercise the ``AddFriend`` choice of the ``User`` template.
+
+.. literalinclude:: code/ui-before/MainView.tsx
+  :start-after: // ADDFRIEND_BEGIN
+  :end-before: // ADDFRIEND_END
+
+We use the ``useExerciseByKey`` hook to gain access to the ``exerciseAddFriend`` function.
+The *key* in this case is the username of the current user, used to look up the corresponding ``User`` contract.
+The wrapper function ``addFriend`` is then passed to subcomponents, as
+For example, ``addFriend`` is passed to the ``UserList`` component as an argument (called a *prop* in React terms).
+This gets triggered when you click the button next to a user's name in the "Network" panel.
+
+.. literalinclude:: code/ui-before/MainView.tsx
+  :start-after: // USERLIST_BEGIN
+  :end-before: // USERLIST_END
+
+This gives you a taste of how the UI works alongside a DAML ledger.
+You'll see this more as we develop :doc:`your first feature <first-feature>` for our social network.
