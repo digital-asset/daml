@@ -170,7 +170,7 @@ object domain {
   object Contract {
 
     type WithParty[+LfV] = Contract[domain.Party, LfV]
-    type withPartyDetails[+LfV] = Contract[domain.Party, LfV]
+    type withPartyDetails[+LfV] = Contract[domain.PartyDetails, LfV]
 
     def fromTransaction(
         tx: lav1.transaction.Transaction,
@@ -247,7 +247,7 @@ object domain {
   object ActiveContract {
 
     type WithParty[+LfV] = ActiveContract[domain.Party, LfV]
-    type withPartyDetails[+LfV] = ActiveContract[domain.PartyDetails, LfV]
+    type WithPartyDetails[+LfV] = ActiveContract[domain.PartyDetails, LfV]
 
     def matchesKey(k: LfValue)(a: domain.ActiveContract.WithParty[LfValue]): Boolean =
       a.key.fold(false)(_ == k)
@@ -300,8 +300,8 @@ object domain {
       }
     }
 
-    implicit val rightTraverseInstance: Traverse[ActiveContract[Party, +?]] =
-      bitraverseInstance.rightTraverse[domain.Party]
+    implicit def rightTraverseInstance[P]: Traverse[ActiveContract[P, +?]] =
+      bitraverseInstance.rightTraverse[P]
 
     implicit def hasTemplateId[P]: HasTemplateId[ActiveContract[P, +?]] =
       new HasTemplateId[ActiveContract[P, +?]] {
@@ -494,7 +494,7 @@ object domain {
 
   object ExerciseResponse {
     type WithParty[+LfV] = ExerciseResponse[domain.Party, LfV]
-    type WithPartyDetails[+LfV] = ExerciseResponse[domain.Party, LfV]
+    type WithPartyDetails[+LfV] = ExerciseResponse[domain.PartyDetails, LfV]
 
     implicit val bitraverseInstance: Bitraverse[ExerciseResponse] =
       new Bitraverse[ExerciseResponse] {

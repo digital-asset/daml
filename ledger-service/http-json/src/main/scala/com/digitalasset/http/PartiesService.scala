@@ -4,17 +4,29 @@
 package com.digitalasset.http
 
 import com.digitalasset.ledger.api.domain.PartyDetails
+import scalaz.syntax.equal._
+import scalaz.std.string._
 
+import scala.collection.breakOut
 import scala.concurrent.{ExecutionContext, Future}
 
 class PartiesService(listAllParties: () => Future[List[PartyDetails]])(
     implicit ec: ExecutionContext) {
 
   def allParties(): Future[List[domain.PartyDetails]] = {
-    listAllParties().map(ps => ps.map(p => domain.PartyDetails.fromLedgerApi(p)))
+    listAllParties().map(ps => ps.map(domain.PartyDetails.fromLedgerApi))
   }
+
+  // TODO(Leo) memoize it
+  def resolveParty(identifier: String): Future[Option[domain.PartyDetails]] =
+    listAllParties().map {
+      _.find(identifier === _.party).map(domain.PartyDetails.fromLedgerApi)
+    }
 }
 
 object PartiesService {
   type ResolveParty = String => Option[domain.PartyDetails]
+
+  def buildPartiesMap(parties: List[domain.PartyDetails]): Map[domain.Party, domain.PartyDetails] =
+    parties.map(x => (x.identifier, x))(breakOut)
 }

@@ -175,12 +175,12 @@ object JsonProtocol extends DefaultJsonProtocol {
       }
     }
 
-  implicit val ContractFormat: RootJsonFormat[domain.Contract[domain.Party, JsValue]] =
-    new RootJsonFormat[domain.Contract[domain.Party, JsValue]] {
+  implicit val ContractFormat: RootJsonFormat[domain.Contract[domain.PartyDetails, JsValue]] =
+    new RootJsonFormat[domain.Contract[domain.PartyDetails, JsValue]] {
       private val archivedKey = "archived"
       private val activeKey = "created"
 
-      override def read(json: JsValue): domain.Contract[domain.Party, JsValue] = json match {
+      override def read(json: JsValue): domain.Contract[domain.PartyDetails, JsValue] = json match {
         case JsObject(fields) =>
           fields.toList match {
             case List((`archivedKey`, archived)) =>
@@ -194,15 +194,16 @@ object JsonProtocol extends DefaultJsonProtocol {
         case _ => deserializationError("Contract must be an object")
       }
 
-      override def write(obj: domain.Contract[domain.Party, JsValue]): JsValue =
+      override def write(obj: domain.Contract[domain.PartyDetails, JsValue]): JsValue =
         obj.value match {
           case -\/(archived) => JsObject(archivedKey -> ArchivedContractFormat.write(archived))
           case \/-(active) => JsObject(activeKey -> ActiveContractFormat.write(active))
         }
     }
 
-  implicit val ActiveContractFormat: RootJsonFormat[domain.ActiveContract[domain.Party, JsValue]] =
-    jsonFormat7(domain.ActiveContract.apply[domain.Party, JsValue])
+  implicit val ActiveContractFormat
+    : RootJsonFormat[domain.ActiveContract[domain.PartyDetails, JsValue]] =
+    jsonFormat7(domain.ActiveContract.apply[domain.PartyDetails, JsValue])
 
   implicit val ArchivedContractFormat: RootJsonFormat[domain.ArchivedContract] =
     jsonFormat2(domain.ArchivedContract.apply)
@@ -278,8 +279,8 @@ object JsonProtocol extends DefaultJsonProtocol {
     }
 
   implicit val ExerciseResponseFormat
-    : RootJsonFormat[domain.ExerciseResponse[domain.Party, JsValue]] =
-    jsonFormat2(domain.ExerciseResponse[domain.Party, JsValue])
+    : RootJsonFormat[domain.ExerciseResponse[domain.PartyDetails, JsValue]] =
+    jsonFormat2(domain.ExerciseResponse[domain.PartyDetails, JsValue])
 
   implicit val StatusCodeFormat: RootJsonFormat[StatusCode] =
     new RootJsonFormat[StatusCode] {

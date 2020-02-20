@@ -25,8 +25,10 @@ import com.typesafe.scalalogging.StrictLogging
 import scalaz.std.scalaFuture._
 import scalaz.syntax.show._
 import scalaz.syntax.std.option._
+import scalaz.std.option._
 import scalaz.syntax.traverse._
-import scalaz.{-\/, EitherT, Show, \/, \/-}
+import scalaz.syntax.bitraverse._
+import scalaz.{-\/, Bitraverse, EitherT, Show, Traverse, \/, \/-}
 import spray.json._
 
 import scala.concurrent.duration.FiniteDuration
@@ -71,13 +73,43 @@ class Endpoints(
           .leftMap(e => InvalidUserInput(e.shows))
       ): ET[domain.CreateCommand[lav1.value.Record]]
 
-      ac <- eitherT(
+      ac0 <- eitherT(
         handleFutureFailure(commandService.create(jwt, jwtPayload, cmd))
       ): ET[domain.ActiveContract.WithParty[lav1.value.Value]]
 
-      jsVal <- either(encoder.encodeV(ac).leftMap(e => ServerError(e.shows))): ET[JsValue]
+      ac1 <- enrichParties(ac0): ET[domain.ActiveContract.WithPartyDetails[lav1.value.Value]]
+
+      jsVal <- either(encoder.encodeV(ac1).leftMap(e => ServerError(e.shows))): ET[JsValue]
 
     } yield jsVal
+
+//  def enrichParties(ac0: domain.ActiveContract.WithParty[lav1.value.Value])
+//    : ET[domain.ActiveContract.WithPartyDetails[lav1.value.Value]] =
+//    for {
+//      partiesMap <- rightT(
+//        partiesService.allParties().map(xs => PartiesService.buildPartiesMap(xs))
+//      ): ET[Map[domain.Party, domain.PartyDetails]]
+//
+//      ac1 <- either(
+//        domain.ActiveContract.bitraverseInstance
+//          .leftTraverse[lav1.value.Value]
+//          .traverse(ac0)(resolveParty(partiesMap))
+//      ): ET[domain.ActiveContract.WithPartyDetails[lav1.value.Value]]
+//    } yield ac1
+
+  def enrichParties[F[_, _], B](fab: F[domain.Party, B])(
+      implicit ev: Bitraverse[F]): ET[F[domain.PartyDetails, B]] = {
+    for {
+      partiesMap <- rightT(
+        partiesService.allParties().map(xs => PartiesService.buildPartiesMap(xs))
+      ): ET[Map[domain.Party, domain.PartyDetails]]
+
+      fxb <- either(
+        ev.leftTraverse[B].traverse(fab)(resolveParty(partiesMap))
+      ): ET[F[domain.PartyDetails, B]]
+
+    } yield fxb
+  }
 
   def exercise(req: HttpRequest): ET[JsValue] =
     for {
@@ -107,11 +139,13 @@ class Endpoints(
         apiResp.traverse(apiValueToLfValue)
       ): ET[domain.ExerciseResponse.WithParty[LfValue]]
 
-      jsResp <- either(
+      jsResp0 <- either(
         lfResp.traverse(lfValueToJsValue)
       ): ET[domain.ExerciseResponse.WithParty[JsValue]]
 
-      jsVal <- either(SprayJson.encode(jsResp).leftMap(e => ServerError(e.shows))): ET[JsValue]
+      jsResp1 <- enrichParties(jsResp0): ET[domain.ExerciseResponse.WithPartyDetails[JsValue]]
+
+      jsVal <- either(SprayJson.encode(jsResp1).leftMap(e => ServerError(e.shows))): ET[JsValue]
 
     } yield jsVal
 
@@ -131,12 +165,15 @@ class Endpoints(
 
       _ = logger.debug(s"/v1/fetch cl: $cl")
 
-      ac <- eitherT(
+      ac0 <- eitherT(
         handleFutureFailure(contractsService.lookup(jwt, jwtPayload, cl))
       ): ET[Option[domain.ActiveContract.WithParty[LfValue]]]
 
+      ac1 <- ac0.traverse(enrichParties(_)): ET[
+        Option[domain.ActiveContract.WithPartyDetails[LfValue]]]
+
       jsVal <- either(
-        ac.cata(x => lfAcToJsValue(x).leftMap(e => ServerError(e.shows)), \/-(JsNull))
+        ac1.cata(x => lfAcToJsValue(x).leftMap(e => ServerError(e.shows)), \/-(JsNull))
       ): ET[JsValue]
 
     } yield jsVal
@@ -152,7 +189,10 @@ class Endpoints(
 
           val jsValSource = result.source
             .via(handleSourceFailure)
-            .map(_.flatMap(lfAcToJsValue)): Source[Error \/ JsValue, NotUsed]
+            .map(_.flatMap { ac0: domain.ActiveContract.WithParty[LfValue] =>
+              val ac1: domain.ActiveContract.WithPartyDetails[LfValue] = enrichParties(ac0)
+              lfAcToJsValue(ac1)
+            }): Source[Error \/ JsValue, NotUsed]
 
           result.copy(source = jsValSource): SearchResult[Error \/ JsValue]
       }
@@ -307,13 +347,20 @@ object Endpoints {
     JsValueToApiValueConverter.lfValueToApiValue(a).leftMap(e => ServerError(e.shows))
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  private def lfAcToJsValue(a: domain.ActiveContract.WithParty[LfValue]): Error \/ JsValue = {
+  private def lfAcToJsValue(
+      a: domain.ActiveContract.WithPartyDetails[LfValue]): Error \/ JsValue = {
     for {
-      b <- a.traverse(lfValueToJsValue): Error \/ domain.ActiveContract.WithParty[JsValue]
+      b <- a.traverse(lfValueToJsValue): Error \/ domain.ActiveContract.WithPartyDetails[JsValue]
       c <- SprayJson.encode(b).leftMap(e => ServerError(e.shows))
     } yield c
   }
 
   private def jsAcToJsValue(a: domain.ActiveContract.WithParty[JsValue]): Error \/ JsValue =
     SprayJson.encode(a).leftMap(e => ServerError(e.shows))
+
+  private def resolveParty(map: Map[domain.Party, domain.PartyDetails])(
+      identifier: domain.Party): Error \/ domain.PartyDetails =
+    map
+      .get(identifier)
+      .toRightDisjunction(ServerError(s"Cannot resolve party: $identifier"))
 }
