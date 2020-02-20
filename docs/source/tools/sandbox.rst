@@ -108,7 +108,7 @@ The following is an example of a valid JWT payload:
         "actAs": ["Alice"],
         "readAs": ["Bob"]
       },
-      "exp": 1300819380,
+      "exp": 1300819380
    }
 
 where
