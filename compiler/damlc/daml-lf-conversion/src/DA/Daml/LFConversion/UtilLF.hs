@@ -17,6 +17,7 @@ import qualified Data.NameMap               as NM
 import qualified Data.Text                  as T
 import           GHC.Stack                  (HasCallStack)
 import Language.Haskell.LSP.Types
+import Module (UnitId)
 import           Outputable (Outputable(..), text)
 
 mkVar :: T.Text -> ExprVarName
@@ -89,7 +90,7 @@ writeFileLf outFile lfPackage = do
     BS.writeFile outFile $ Archive.encodeArchive lfPackage
 
 -- | Fails if there are any duplicate module names
-buildPackage :: HasCallStack => Maybe String -> Version -> [Module] -> Package
+buildPackage :: HasCallStack => Maybe UnitId -> Version -> [Module] -> Package
 buildPackage _mbPkgName version mods =
     -- TODO Set package metadata for new LF versions, see #4412
     Package version (NM.fromList mods) Nothing

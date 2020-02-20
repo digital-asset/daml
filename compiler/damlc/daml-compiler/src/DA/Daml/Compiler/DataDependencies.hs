@@ -701,9 +701,6 @@ mkKindedTyVar name = noLoc .
 mkRdrName :: T.Text -> Located RdrName
 mkRdrName = noLoc . mkRdrUnqual . mkOccName varName . T.unpack
 
-damlStdlibUnitId :: UnitId
-damlStdlibUnitId = stringToUnitId damlStdlib
-
 sumProdRecords :: LF.Module -> MS.Map [T.Text] [(LF.FieldName, LF.Type)]
 sumProdRecords m =
     MS.fromList
@@ -725,11 +722,11 @@ mkGhcType env = mkStableType env primUnitId $
     LF.ModuleName ["GHC", "Types"]
 
 mkLfInternalType :: Env -> String -> Gen (HsType GhcPs)
-mkLfInternalType env = mkStableType env damlStdlibUnitId $
+mkLfInternalType env = mkStableType env damlStdlib $
     LF.ModuleName ["DA", "Internal", "LF"]
 
 mkLfInternalPrelude :: Env -> String -> Gen (HsType GhcPs)
-mkLfInternalPrelude env = mkStableType env damlStdlibUnitId $
+mkLfInternalPrelude env = mkStableType env damlStdlib $
     LF.ModuleName ["DA", "Internal", "Prelude"]
 
 mkTyConTypeUnqual :: TyCon -> HsType GhcPs
@@ -775,7 +772,10 @@ genericInstances env externPkgId =
       generateGenericInstanceFor
           (nameOccName genClassName)
           tcdLName
-          (T.unpack $ LF.unPackageId externPkgId)
+          -- NOTE (MK) Using the package id as the unit id
+          -- sounds very sketchy but is only used for a debugging
+          -- command that should be removed soon.
+          (stringToUnitId $ T.unpack $ LF.unPackageId externPkgId)
           (noLoc $
            mkModuleName $
            T.unpack $ LF.moduleNameString $ LF.moduleName $ envMod env)

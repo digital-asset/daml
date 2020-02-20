@@ -23,6 +23,9 @@ module DA.Daml.Options.Types
     , genDir
     , basePackages
     , getPackageDbs
+    , pkgNameVersion
+    , fullPkgName
+    , optUnitId
     ) where
 
 import Control.Monad.Reader
@@ -30,8 +33,10 @@ import DA.Bazel.Runfiles
 import qualified DA.Daml.LF.Ast as LF
 import DA.Pretty
 import Data.Maybe
+import qualified Data.Text as T
 import Development.IDE.GHC.Util (prettyPrint)
 import DynFlags (ModRenaming(..), PackageFlag(..), PackageArg(..))
+import Module (UnitId, stringToUnitId)
 import qualified System.Directory as Dir
 import System.FilePath
 
@@ -48,8 +53,10 @@ data Options = Options
     -- This should not contain the LF version suffix. We will append this at the usesite.
   , optStablePackages :: Maybe FilePath
     -- ^ The directory in which stable DALF packages are located.
-  , optMbPackageName :: Maybe String
-    -- ^ compile in the context of the given package name and create interface files
+  , optMbPackageName :: Maybe LF.PackageName
+    -- ^ Name of the package (version not included, so this is not the unit id)
+  , optMbPackageVersion :: Maybe LF.PackageVersion
+    -- ^ Version of the package
   , optIfaceDir :: Maybe FilePath
     -- ^ directory to write interface files to. If set to `Nothing` we default to <current working dir>.daml/interfaces.
   , optPackageImports :: [PackageFlag]
@@ -151,6 +158,7 @@ defaultOptions mbVersion =
         , optPackageDbs = []
         , optStablePackages = Nothing
         , optMbPackageName = Nothing
+        , optMbPackageVersion = Nothing
         , optIfaceDir = Nothing
         , optPackageImports = []
         , optShakeProfiling = Nothing
@@ -172,3 +180,18 @@ defaultOptions mbVersion =
 
 getBaseDir :: IO FilePath
 getBaseDir = locateRunfiles (mainWorkspace </> "compiler/damlc")
+
+pkgNameVersion :: LF.PackageName -> Maybe LF.PackageVersion -> UnitId
+pkgNameVersion (LF.PackageName n) mbV =
+    stringToUnitId $ T.unpack $ case mbV of
+        Nothing -> n
+        Just (LF.PackageVersion v) -> n <> "-" <> v
+
+fullPkgName :: LF.PackageName -> Maybe LF.PackageVersion -> LF.PackageId -> String
+fullPkgName (LF.PackageName n) mbV (LF.PackageId h) =
+    T.unpack $ case mbV of
+        Nothing -> n <> "-" <> h
+        Just (LF.PackageVersion v) -> n <> "-" <> v <> "-" <> h
+
+optUnitId :: Options -> Maybe UnitId
+optUnitId Options{..} = fmap (\name -> pkgNameVersion name optMbPackageVersion) optMbPackageName

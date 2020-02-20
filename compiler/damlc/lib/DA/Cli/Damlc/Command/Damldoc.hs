@@ -12,6 +12,7 @@ import DA.Daml.Options
 import DA.Daml.Options.Types
 import Development.IDE.Types.Location
 import Development.IDE.Types.Options
+import Module (unitIdString)
 
 import Options.Applicative
 import Data.List.Extra
@@ -215,7 +216,7 @@ exec Damldoc{..} = do
         , do_inputFiles = map toNormalizedFilePath cMainFiles
         , do_docTemplate = cTemplate
         , do_transformOptions = transformOptions
-        , do_docTitle = T.pack <$> optMbPackageName cOptions
+        , do_docTitle = T.pack . unitIdString <$> optUnitId cOptions
         , do_combine = cCombine
         , do_extractOptions = cExtractOptions
         }

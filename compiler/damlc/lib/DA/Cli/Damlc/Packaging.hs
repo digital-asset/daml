@@ -215,10 +215,9 @@ createProjectPackageDb projectRoot opts thisSdkVer deps dataDeps
             workDir
             dbPath
             projectPackageDatabase
-            unitIdStr
-            pkgIdStr
-            pkgName
-            mbPkgVersion
+            pkgId
+            (LF.PackageName $ T.pack pkgName)
+            (fmap (LF.PackageVersion . T.pack) mbPkgVersion)
             deps
             dependencies
   where
@@ -242,14 +241,13 @@ generateAndInstallIfaceFiles ::
     -> FilePath
     -> FilePath
     -> FilePath
-    -> String
-    -> String
-    -> String
-    -> Maybe String
+    -> LF.PackageId
+    -> LF.PackageName
+    -> Maybe LF.PackageVersion
     -> [String]
     -> MS.Map UnitId LF.DalfPackage
     -> IO ()
-generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase unitIdStr pkgIdStr pkgName mbPkgVersion deps dependencies = do
+generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase pkgIdStr pkgName mbPkgVersion deps dependencies = do
     loggerH <- getLogger opts "generate interface files"
     let src' = [ (toNormalizedFilePath $ workDir </> fromNormalizedFilePath nfp, str) | (nfp, str) <- src]
     mapM_ writeSrc src'
@@ -271,7 +269,8 @@ generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase
             , optPackageDbs = projectPackageDatabase : optPackageDbs opts
             , optIsGenerated = True
             , optDflagCheck = False
-            , optMbPackageName = Just unitIdStr
+            , optMbPackageName = Just pkgName
+            , optMbPackageVersion = mbPkgVersion
             , optGhcCustomOpts = []
             , optPackageImports =
                   baseImports ++
@@ -292,7 +291,9 @@ generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase
             (toNormalizedFilePath ".")
             [fp | (fp, _content) <- src']
     when (isNothing res) $
-      errorIO $ "Failed to compile interface for data-dependency: " <> unitIdStr
+      errorIO
+          $ "Failed to compile interface for data-dependency: "
+          <> unitIdString (pkgNameVersion pkgName mbPkgVersion)
     -- write the conf file and refresh the package cache
     (cfPath, cfBs) <-
             mkConfFile
@@ -341,7 +342,7 @@ baseImports =
     -- We need the standard library from the current SDK, e.g., LF builtins like Optional are translated
     -- to types in the current standard library.
     , exposePackage
-       (GHC.stringToUnitId damlStdlib)
+       damlStdlib
        False
        (map (\mod -> (GHC.mkModuleName mod, GHC.mkModuleName (currentSdkPrefix <> "." <> mod)))
           [ "DA.Internal.Any"
@@ -371,8 +372,8 @@ _generateAndInstallInstancesPkg
     -> FilePath
     -> String
     -> String
-    -> String
-    -> Maybe String
+    -> LF.PackageName
+    -> Maybe LF.PackageVersion
     -> [String]
     -> IO ()
 _generateAndInstallInstancesPkg thisSdkVer templInstSrc opts dbPath projectPackageDatabase unitIdStr instancesUnitIdStr pkgName mbPkgVersion deps = do
@@ -393,7 +394,7 @@ _generateAndInstallInstancesPkg thisSdkVer templInstSrc opts dbPath projectPacka
             mapM_ writeSrc templInstSrc
             let pkgConfig =
                     PackageConfigFields
-                        { pName = "instances-" <> pkgName
+                        { pName = LF.PackageName ("instances-" <> LF.unPackageName pkgName)
                         , pSrc = "."
                         , pExposedModules = Nothing
                         , pVersion = mbPkgVersion
@@ -408,7 +409,8 @@ _generateAndInstallInstancesPkg thisSdkVer templInstSrc opts dbPath projectPacka
                     , optPackageDbs = projectPackageDatabaseAbs : optPackageDbs opts
                     , optIsGenerated = True
                     , optDflagCheck = False
-                    , optMbPackageName = Just instancesUnitIdStr
+                    , optMbPackageName = Just pkgName
+                    , optMbPackageVersion = mbPkgVersion
                     , optPackageImports =
                           exposePackage (stringToUnitId unitIdStr) True [] :
                           baseImports ++
@@ -416,7 +418,7 @@ _generateAndInstallInstancesPkg thisSdkVer templInstSrc opts dbPath projectPacka
                           -- library dependency, but the dalf still uses builtins or builtin
                           -- types like Party.  In this case, we use the current daml-stdlib as
                           -- their origin.
-                          [exposePackage (stringToUnitId damlStdlib) True [] | not $ any isStdlib deps] ++
+                          [exposePackage damlStdlib True [] | not $ any isStdlib deps] ++
                           [ exposePackage (stringToUnitId $ takeBaseName dep) True []
                           | dep <- deps
                           , not $ unitIdString primUnitId `isPrefixOf` dep

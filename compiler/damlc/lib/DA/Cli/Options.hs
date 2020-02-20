@@ -10,8 +10,11 @@ import Options.Applicative.Extended
 import Safe (lastMay)
 import Data.List
 import Data.Maybe
+import qualified Data.Text as T
 import qualified DA.Pretty           as Pretty
+import DA.Daml.Compiler.DataDependencies (splitUnitId)
 import DA.Daml.Options.Types
+import qualified DA.Daml.LF.Ast.Base as LF
 import qualified DA.Daml.LF.Ast.Version as LF
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Types
@@ -89,8 +92,8 @@ targetFileNameOpt = option (Just <$> str) $
         <> long "dar-name"
         <> value Nothing
 
-packageNameOpt :: Parser String
-packageNameOpt = argument str $
+packageNameOpt :: Parser GHC.UnitId
+packageNameOpt = fmap GHC.stringToUnitId $ argument str $
        metavar "PACKAGE-NAME"
     <> help "Name of the DAML package"
 
@@ -232,37 +235,47 @@ dlintUsageOpt = fmap (fromMaybe DlintDisabled . lastMay) $
 optDebugLog :: Parser Bool
 optDebugLog = switch $ help "Enable debug output" <> long "debug"
 
-optPackageName :: Parser (Maybe String)
-optPackageName = optional $ strOption $
+optPackageName :: Parser (Maybe GHC.UnitId)
+optPackageName = optional $ fmap GHC.stringToUnitId $ strOption $
        metavar "PACKAGE-NAME"
     <> help "create package artifacts for the given package name"
     <> long "package-name"
 
 -- | Parametrized by the type of pkgname parser since we want that to be different for
 -- "package".
-optionsParser :: Int -> EnableScenarioService -> Parser (Maybe String) -> Parser Options
-optionsParser numProcessors enableScenarioService parsePkgName = Options
-    <$> optImportPath
-    <*> optPackageDir
-    <*> pure Nothing
-    <*> parsePkgName
-    <*> pure Nothing
-    <*> many optPackageImport
-    <*> shakeProfilingOpt
-    <*> optShakeThreads
-    <*> lfVersionOpt
-    <*> optDebugLog
-    <*> optGhcCustomOptions
-    <*> pure enableScenarioService
-    <*> pure (optSkipScenarioValidation $ defaultOptions Nothing)
-    <*> dlintUsageOpt
-    <*> optIsGenerated
-    <*> optNoDflagCheck
-    <*> pure False
-    <*> pure (Haddock False)
-    <*> optCppPath
-    <*> pure (IncrementalBuild False)
-    <*> pure (InferDependantPackages True)
+optionsParser :: Int -> EnableScenarioService -> Parser (Maybe GHC.UnitId) -> Parser Options
+optionsParser numProcessors enableScenarioService parsePkgName = do
+    let parseUnitId Nothing = (Nothing, Nothing)
+        parseUnitId (Just unitId) = case splitUnitId (GHC.unitIdString unitId) of
+            (name, mbVersion) ->
+                ( Just . LF.PackageName $ T.pack name
+                , fmap (LF.PackageVersion . T.pack) mbVersion
+                )
+    ~(optMbPackageName, optMbPackageVersion) <-
+        fmap parseUnitId parsePkgName
+
+    optImportPath <- optImportPath
+    optPackageDbs <- optPackageDir
+    let optStablePackages = Nothing
+    let optIfaceDir = Nothing
+    optPackageImports <- many optPackageImport
+    optShakeProfiling <- shakeProfilingOpt
+    optThreads <- optShakeThreads
+    optDamlLfVersion <- lfVersionOpt
+    optDebug <- optDebugLog
+    optGhcCustomOpts <- optGhcCustomOptions
+    let optScenarioService = enableScenarioService
+    let optSkipScenarioValidation = SkipScenarioValidation False
+    optDlintUsage <- dlintUsageOpt
+    optIsGenerated <- optIsGenerated
+    optDflagCheck <- optNoDflagCheck
+    let optCoreLinting = False
+    let optHaddock = Haddock False
+    let optIncrementalBuild = IncrementalBuild False
+    let optInferDependantPackages = InferDependantPackages True
+    optCppPath <- optCppPath
+
+    return Options{..}
   where
     optImportPath :: Parser [FilePath]
     optImportPath =

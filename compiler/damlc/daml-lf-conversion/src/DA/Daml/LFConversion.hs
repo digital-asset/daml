@@ -1405,7 +1405,7 @@ qualify env m x = do
 
 qDA_Types :: Env -> a -> ConvertM (Qualified a)
 qDA_Types env a = do
-  pkgRef <- packageNameToPkgRef env "daml-prim"
+  pkgRef <- packageNameToPkgRef env primUnitId
   pure $ rewriteStableQualified env $ Qualified pkgRef (mkModName ["DA", "Types"]) a
 
 -- | Types of a kind not supported in DAML-LF, e.g., the DataKinds stuff from GHC.Generics
@@ -1413,7 +1413,7 @@ qDA_Types env a = do
 -- cases in data-dependencies.
 erasedTy :: Env -> ConvertM LF.Type
 erasedTy env = do
-    pkgRef <- packageNameToPkgRef env "daml-prim"
+    pkgRef <- packageNameToPkgRef env primUnitId
     pure $ TCon $ rewriteStableQualified env (Qualified pkgRef (mkModName ["DA", "Internal", "Erased"]) (mkTypeCon ["Erased"]))
 
 -- | Type-level strings are represented in DAML-LF via the PromotedText type. This is
@@ -1427,7 +1427,7 @@ erasedTy env = do
 -- the original string during unmangling. See DA.Daml.LF.Mangling for more details.
 promotedTextTy :: Env -> T.Text -> ConvertM LF.Type
 promotedTextTy env text = do
-    pkgRef <- packageNameToPkgRef env "daml-prim"
+    pkgRef <- packageNameToPkgRef env primUnitId
     pure $ TApp
         (TCon . rewriteStableQualified env $ Qualified pkgRef
             (mkModName ["DA", "Internal", "PromotedText"])
@@ -1470,9 +1470,8 @@ nameToPkgRef env x =
     thisUnitId = envModuleUnitId env
     pkgMap = envPkgMap env
 
-packageNameToPkgRef :: Env -> String -> ConvertM LF.PackageRef
-packageNameToPkgRef env =
-  convertUnitId (envModuleUnitId env) (envPkgMap env) . GHC.stringToUnitId
+packageNameToPkgRef :: Env -> UnitId -> ConvertM LF.PackageRef
+packageNameToPkgRef env = convertUnitId (envModuleUnitId env) (envPkgMap env)
 
 convertTyCon :: Env -> TyCon -> ConvertM LF.Type
 convertTyCon env t
