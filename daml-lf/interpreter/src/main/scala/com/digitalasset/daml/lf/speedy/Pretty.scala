@@ -12,7 +12,6 @@ import com.digitalasset.daml.lf.transaction.Node._
 import com.digitalasset.daml.lf.types.{Ledger => L}
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.transaction.Transaction
-import com.digitalasset.daml.lf.transaction.Transaction.PartialTransaction
 import com.digitalasset.daml.lf.speedy.SError._
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.speedy.SBuiltin._
