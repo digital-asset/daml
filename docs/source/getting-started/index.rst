@@ -61,7 +61,7 @@ Next we need to compile the DAML code to an archive ``.dar`` file::
 
     daml build
 
-In order to connect the UI code to this DAML, we need to run a code generation step (which we'll explain later)::
+In order to connect the UI code to this DAML, we need to run a code generation step::
 
     daml codegen ts .daml/dist/create-daml-app-0.1.0.dar -o daml-ts/src
 
