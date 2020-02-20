@@ -8,6 +8,7 @@ module DA.Date
   ( DayOfWeek(..)
   , Month(..)
   , addDays
+  , subtractDays
   , subDate
   , dayOfWeek
   , fromGregorian
@@ -42,6 +43,12 @@ addDays : Date -> Int -> Date
 addDays d r =
     let dt = dateToDaysSinceEpoch d
     in daysSinceEpochToDate (dt + r)
+
+-- | Subtract the given number of days from a date.
+--
+-- `subtractDays d r` is equivalent to `addDays d (- r)`.
+subtractDays : Date -> Int -> Date
+subtractDays d r = addDays d (- r)
 
 -- | Returns the number of days between the two given dates.
 subDate : Date -> Date -> Int
