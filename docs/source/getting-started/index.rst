@@ -57,7 +57,7 @@ First off, open a terminal, clone the template project and move to the project f
     git clone https://github.com/digital-asset/create-daml-app.git
     cd create-daml-app
 
-Next we need to compile the DAML code to an archive ``.dar`` file::
+Next we need to compile the DAML code to a DAR file::
 
     daml build
 
