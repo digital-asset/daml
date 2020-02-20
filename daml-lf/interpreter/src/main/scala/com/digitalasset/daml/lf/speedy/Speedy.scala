@@ -12,13 +12,11 @@ import com.digitalasset.daml.lf.speedy.SError._
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.SResult._
 import com.digitalasset.daml.lf.speedy.SValue._
-import com.digitalasset.daml.lf.transaction.Transaction._
 import com.digitalasset.daml.lf.value.{Value => V}
 
 import scala.collection.JavaConverters._
 import java.util
 
-import com.digitalasset.daml.lf.CompiledPackages
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import org.slf4j.LoggerFactory
 

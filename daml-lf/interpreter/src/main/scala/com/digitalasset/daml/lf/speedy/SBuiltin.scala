@@ -1012,9 +1012,9 @@ object SBuiltin {
       val observers = extractParties(args.get(2))
       val stakeholders = observers union signatories
       val contextActors = machine.ptx.context match {
-        case Tx.PartialTransaction.ContextExercise(ctx, _) =>
+        case PartialTransaction.ContextExercise(ctx, _) =>
           ctx.actingParties union ctx.signatories
-        case Tx.PartialTransaction.ContextRoot(_, _) =>
+        case PartialTransaction.ContextRoot(_, _) =>
           machine.committers
       }
 
@@ -1181,7 +1181,7 @@ object SBuiltin {
       def clearCommit(): Unit = {
         machine.committers = Set.empty
         machine.commitLocation = None
-        machine.ptx = Tx.PartialTransaction.initial()
+        machine.ptx = PartialTransaction.initial()
       }
 
       args.get(0) match {
@@ -1227,7 +1227,7 @@ object SBuiltin {
           callback = newValue => {
             machine.committers = Set.empty
             machine.commitLocation = None
-            machine.ptx = Tx.PartialTransaction.initial()
+            machine.ptx = PartialTransaction.initial()
             machine.ctrl = CtrlValue(newValue)
           },
         ),
@@ -1490,7 +1490,7 @@ object SBuiltin {
     * throw if so. The partial transaction abort status must be
     * checked after every operation on it.
     */
-  private def checkAborted(ptx: Tx.PartialTransaction): Unit =
+  private def checkAborted(ptx: PartialTransaction): Unit =
     ptx.aborted match {
       case Some(Tx.ContractNotActive(coid, tid, consumedBy)) =>
         throw DamlELocalContractNotActive(coid, tid, consumedBy)

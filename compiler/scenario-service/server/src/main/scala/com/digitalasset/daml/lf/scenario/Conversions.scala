@@ -7,9 +7,12 @@ import scala.collection.JavaConverters._
 import com.digitalasset.daml.lf.data.{Numeric, Ref}
 import com.digitalasset.daml.lf.scenario.api.v1
 import com.digitalasset.daml.lf.scenario.api.v1.{List => _, _}
-import com.digitalasset.daml.lf.speedy.SError
-import com.digitalasset.daml.lf.speedy.Speedy
-import com.digitalasset.daml.lf.speedy.SValue
+import com.digitalasset.daml.lf.speedy.{
+  SError,
+  PartialTransaction => SPartialTransaction,
+  Speedy,
+  SValue
+}
 import com.digitalasset.daml.lf.transaction.{Node => N, Transaction => Tx}
 import com.digitalasset.daml.lf.types.Ledger
 import com.digitalasset.daml.lf.types.Ledger.ScenarioNodeId
@@ -384,7 +387,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
       .build
   }
 
-  def convertPartialTransaction(ptx: Tx.PartialTransaction): PartialTransaction = {
+  def convertPartialTransaction(ptx: SPartialTransaction): PartialTransaction = {
     val builder = PartialTransaction.newBuilder
       .addAllNodes(ptx.nodes.map(Function.tupled(convertTxNode)).asJava)
       .addAllRoots(
@@ -392,8 +395,8 @@ case class Conversions(homePackageId: Ref.PackageId) {
       )
 
     ptx.context match {
-      case Tx.PartialTransaction.ContextRoot(_, _) =>
-      case Tx.PartialTransaction.ContextExercise(ctx, _) =>
+      case SPartialTransaction.ContextRoot(_, _) =>
+      case SPartialTransaction.ContextExercise(ctx, _) =>
         val ecBuilder = ExerciseContext.newBuilder
           .setTargetId(mkContractRef(ctx.targetId, ctx.templateId))
           .setChoiceId(ctx.choiceId)
