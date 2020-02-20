@@ -72,36 +72,36 @@ import scala.util.Try
 import scala.util.control.NonFatal
 
 private final case class ParsedEntry(
-  typ: String,
-  transactionId: Option[TransactionId],
-  commandId: Option[CommandId],
-  applicationId: Option[ApplicationId],
-  submitter: Option[Party],
-  workflowId: Option[WorkflowId],
-  effectiveAt: Option[Date],
-  recordedAt: Option[Date],
-  transaction: Option[Array[Byte]],
-  rejectionType: Option[String],
-  rejectionDesc: Option[String],
-  offset: Long)
+    typ: String,
+    transactionId: Option[TransactionId],
+    commandId: Option[CommandId],
+    applicationId: Option[ApplicationId],
+    submitter: Option[Party],
+    workflowId: Option[WorkflowId],
+    effectiveAt: Option[Date],
+    recordedAt: Option[Date],
+    transaction: Option[Array[Byte]],
+    rejectionType: Option[String],
+    rejectionDesc: Option[String],
+    offset: Long)
 
 private final case class ParsedPartyData(
-  party: String,
-  displayName: Option[String],
-  ledgerOffset: Long,
-  explicit: Boolean)
+    party: String,
+    displayName: Option[String],
+    ledgerOffset: Long,
+    explicit: Boolean)
 
 private final case class ParsedPackageData(
-  packageId: String,
-  sourceDescription: Option[String],
-  size: Long,
-  knownSince: Date)
+    packageId: String,
+    sourceDescription: Option[String],
+    size: Long,
+    knownSince: Date)
 
 private final case class ParsedCommandData(
-  submittedAt: Instant,
-  ttl: Instant,
-  success: Option[Boolean],
-  error: Option[String])
+    submittedAt: Instant,
+    ttl: Instant,
+    success: Option[Boolean],
+    error: Option[String])
 
 private class JdbcLedgerDao(
     dbDispatcher: DbDispatcher,
