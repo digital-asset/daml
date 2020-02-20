@@ -27,6 +27,7 @@ import com.digitalasset.ledger.client.configuration.{
 }
 import com.digitalasset.ledger.client.services.commands.CommandUpdater
 import com.digitalasset.platform.services.time.TimeProviderType
+import com.digitalasset.auth.TokenHolder
 
 object RunnerMain {
 
@@ -44,11 +45,16 @@ object RunnerMain {
           Identifier(dar.main._1, QualifiedName.assertFromString(config.scriptIdentifier))
 
         val applicationId = ApplicationId("Script Runner")
+        // Note (MK): For now, we only support using a single-token for everything.
+        // We might want to extend this to allow for multiple tokens, e.g., one token per party +
+        // one admin token for allocating parties.
+        val tokenHolder = config.accessTokenFile.map(new TokenHolder(_))
         val clientConfig = LedgerClientConfiguration(
           applicationId = ApplicationId.unwrap(applicationId),
           ledgerIdRequirement = LedgerIdRequirement("", enabled = false),
           commandClient = CommandClientConfiguration.default,
-          sslContext = None
+          sslContext = None,
+          token = tokenHolder.flatMap(_.token),
         )
         val timeProvider: TimeProvider =
           config.timeProviderType match {

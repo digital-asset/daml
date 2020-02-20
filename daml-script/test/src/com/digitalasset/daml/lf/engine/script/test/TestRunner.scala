@@ -53,7 +53,8 @@ object TestRunner {
 class TestRunner(
     val participantParams: Participants[ApiParameters],
     val dar: Dar[(PackageId, Package)],
-    val wallclockTime: Boolean)
+    val wallclockTime: Boolean,
+    val token: Option[String])
     extends StrictLogging {
   val applicationId = ApplicationId("DAML Script Test Runner")
 
@@ -61,7 +62,8 @@ class TestRunner(
     applicationId = applicationId.unwrap,
     ledgerIdRequirement = LedgerIdRequirement("", enabled = false),
     commandClient = CommandClientConfiguration.default,
-    sslContext = None
+    sslContext = None,
+    token = token,
   )
   val ttl = java.time.Duration.ofSeconds(30)
   val timeProvider: TimeProvider =

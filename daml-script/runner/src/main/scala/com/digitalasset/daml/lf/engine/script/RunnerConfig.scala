@@ -3,6 +3,7 @@
 
 package com.digitalasset.daml.lf.engine.script
 
+import java.nio.file.{Path, Paths}
 import java.io.File
 import java.time.Duration
 
@@ -17,6 +18,7 @@ case class RunnerConfig(
     timeProviderType: TimeProviderType,
     commandTtl: Duration,
     inputFile: Option[File],
+    accessTokenFile: Option[Path],
 )
 
 object RunnerConfig {
@@ -72,6 +74,12 @@ object RunnerConfig {
       }
       .text("Path to a file containing the input value for the script in JSON format.")
 
+    opt[String]("access-token-file")
+      .action { (f, c) =>
+        c.copy(accessTokenFile = Some(Paths.get(f)))
+      }
+      .text("File from which the access token will be read, required to interact with an authenticated ledger")
+
     help("help").text("Print this usage text")
 
     checkConfig(c => {
@@ -100,6 +108,7 @@ object RunnerConfig {
         timeProviderType = null,
         commandTtl = Duration.ofSeconds(30L),
         inputFile = None,
+        accessTokenFile = None,
       )
     )
 }
