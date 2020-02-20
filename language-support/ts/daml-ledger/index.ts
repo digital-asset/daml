@@ -370,10 +370,12 @@ class Ledger {
         haveSeenEvents = true;
         emitter.emit('change', state, events);
       } else if (isRecordWith('heartbeat', json)) {
-        // NOTE(MH): If we receive the first heartbeat before any events, then
-        // it's very likely nothing in the ACS matches the query. We signal this
-        // by pretending we received an empty list of events. This never does
-        // any harm.
+        // NOTE(MH): Threre's nothing to be done with heartbeats.
+      } else if (isRecordWith('live', json) && json.live === true) {
+        // NOTE(MH): If we receive the marker indicating that we are switching
+        // from the ACS to the live stream and we haven't received any events
+        // yet, we signal this by pretending we received an empty list of
+        // events. This never does any harm.
         if (!haveSeenEvents) {
           haveSeenEvents = true;
           emitter.emit('change', state, []);
@@ -390,7 +392,7 @@ class Ledger {
     // 'close' event, which we need to handle anyway.
     ws.onclose = ({code, reason}) => {
       emitter.emit('close', {code, reason});
-    }
+    };
     // TODO(MH): Make types stricter.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const on = (type: string, listener: any) => emitter.on(type, listener);
@@ -399,7 +401,7 @@ class Ledger {
     const close = () => {
       emitter.removeAllListeners();
       ws.close();
-    }
+    };
     return {on, off, close};
   }
 
