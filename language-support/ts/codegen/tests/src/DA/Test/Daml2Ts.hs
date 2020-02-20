@@ -64,7 +64,7 @@ tests damlc daml2ts davl = testGroup "daml2Ts"
       assertBool "'Grover.ts' was not created." =<< doesFileExist (groverTs </> "grover-1.0" </> "Grover.ts")
       assertBool "'packageId.ts' was not created." =<< doesFileExist (groverTs </> "grover-1.0" </> "packageId.ts")
 
-  ,  testCaseSteps "Dependency test" $ \step -> withTempDir $ \tmpDir -> do
+  , testCaseSteps "Dependency test" $ \step -> withTempDir $ \tmpDir -> do
       let grover = tmpDir </> "grover"
       let groverDar = grover </> ".daml" </> "dist" </> "grover-1.0.dar"
       step "Creating project 'grover'..."
@@ -200,6 +200,104 @@ tests damlc daml2ts davl = testGroup "daml2Ts"
       step "Generating TypeScript of 'grover' and 'elmo'..."
       (exitCode, _, err) <- readProcessWithExitCode daml2ts ([groverDar, elmoDar] ++ ["-o", elmoTs]) ""
       assertBool "A name collision error was expected." (exitCode /= ExitSuccess && isJust (stripInfix "Duplicate name 'grover-1.0' for different packages detected" err))
+
+  , testCaseSteps "Different names for the same package test" $ \step -> withTempDir $ \tmpDir -> do
+      let grover = tmpDir </> "grover"
+      let groverDar = grover </> ".daml" </> "dist" </> "grover-1.0.dar"
+      step "Creating project 'grover'..."
+      createDirectoryIfMissing True (grover </> "daml")
+      writeFileUTF8 (grover </> "daml" </> "Grover.daml") $ unlines
+        [ "daml 1.2"
+        , "module Grover where"
+        , "template Grover"
+        , "  with puppeteer : Party"
+        , "  where"
+        , "    signatory puppeteer"
+        , "    choice Grover_GoSuper: ContractId Grover"
+        , "      controller puppeteer"
+        , "      do"
+        , "        return self"
+        ]
+      writeFileUTF8 (grover </> "daml.yaml") $ unlines
+        [ "sdk-version: " <> sdkVersion
+        , "name: grover"
+        , "version: \"1.0\""
+        , "source: daml"
+        , "exposed-modules: [Grover]"
+        , "dependencies:"
+        , "  - daml-prim"
+        , "  - daml-stdlib"
+        ]
+      buildProject grover []
+      assertBool "grover-1.0.dar was not created." =<< doesFileExist groverDar
+      let superGrover = tmpDir </> "super-grover"
+      let superGroverDar = superGrover </> ".daml" </> "dist" </> "super-grover-1.0.dar"
+      step "Creating project 'superGrover'..."
+      createDirectoryIfMissing True (superGrover </> "daml")
+      writeFileUTF8 (superGrover </> "daml" </> "Grover.daml") $ unlines
+        [ "daml 1.2"
+        , "module Grover where"
+        , "template Grover"
+        , "  with puppeteer : Party"
+        , "  where"
+        , "    signatory puppeteer"
+        , "    choice Grover_GoSuper: ContractId Grover"
+        , "      controller puppeteer"
+        , "      do"
+        , "        return self"
+        ]
+      writeFileUTF8 (superGrover </> "daml.yaml") $ unlines
+        [ "sdk-version: " <> sdkVersion
+        , "name: super-grover"
+        , "version: \"1.0\""
+        , "source: daml"
+        , "exposed-modules: [Grover]"
+        , "dependencies:"
+        , "  - daml-prim"
+        , "  - daml-stdlib"
+        ]
+      buildProject superGrover []
+      assertBool "super-grover-1.0.dar was not created." =<< doesFileExist superGroverDar
+      step "Generating TypeScript of 'grover' and 'super-grover'..."
+      let charliesRestaurantTs = tmpDir </> "charlies-restaurant-ts"
+      createDirectoryIfMissing True charliesRestaurantTs
+      (exitCode, _, err) <- readProcessWithExitCode daml2ts ([groverDar, superGroverDar] ++ ["-o", charliesRestaurantTs]) ""
+      assertBool "An error resulting from the same name for different packages was expected." (exitCode /= ExitSuccess && isJust (stripInfix "Different names ('grover-1.0' and 'super-grover-1.0') for the same package detected" err))
+
+  , testCaseSteps "Same package, same name test" $ \step -> withTempDir $ \tmpDir -> do
+      let grover = tmpDir </> "grover"
+      let groverDar = grover </> ".daml" </> "dist" </> "grover-1.0.dar"
+      step "Creating project 'grover'..."
+      createDirectoryIfMissing True (grover </> "daml")
+      writeFileUTF8 (grover </> "daml" </> "Grover.daml") $ unlines
+        [ "daml 1.2"
+        , "module Grover where"
+        , "template Grover"
+        , "  with puppeteer : Party"
+        , "  where"
+        , "    signatory puppeteer"
+        , "    choice Grover_GoSuper: ContractId Grover"
+        , "      controller puppeteer"
+        , "      do"
+        , "        return self"
+        ]
+      writeFileUTF8 (grover </> "daml.yaml") $ unlines
+        [ "sdk-version: " <> sdkVersion
+        , "name: grover"
+        , "version: \"1.0\""
+        , "source: daml"
+        , "exposed-modules: [Grover]"
+        , "dependencies:"
+        , "  - daml-prim"
+        , "  - daml-stdlib"
+        ]
+      buildProject grover []
+      assertBool "grover-1.0.dar was not created." =<< doesFileExist groverDar
+      step "Generating TypeScript of 'grover' and 'grover'..."
+      let charliesRestaurantTs = tmpDir </> "charlies-restaurant-ts"
+      createDirectoryIfMissing True charliesRestaurantTs
+      daml2tsProject [groverDar, groverDar] charliesRestaurantTs
+      assertBool "'Grover.ts' was not created." =<< doesFileExist (charliesRestaurantTs </> "grover-1.0" </> "Grover.ts")
 
    , testCase "DAVL test" $ withTempDir $ \tmpDir -> do
        let davlTs = tmpDir </> "davl-ts"

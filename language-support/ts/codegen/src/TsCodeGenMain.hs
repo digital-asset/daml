@@ -47,9 +47,45 @@ optionsParserInfo = info (optionsParser <**> helper)
     <> progDesc "Generate TypeScript bindings from a DAR"
     )
 
+buildPackageMap :: Map.Map PackageId (Maybe String, Package) -> FilePath -> IO (Map.Map PackageId (Maybe String, Package))
+buildPackageMap pkgs dar = do
+  dar <- B.readFile dar
+  let archive = Zip.toArchive $ BSL.fromStrict dar
+  dalfs <- either fail pure $ DAR.readDalfs archive
+  DAR.DalfManifest{packageName} <- either fail pure $ DAR.readDalfManifest archive
+  let allDalfsInDar = (DAR.mainDalf dalfs, packageName) : map (, Nothing) (DAR.dalfs dalfs)
+  foldM insertPkg pkgs allDalfsInDar
+  where
+    insertPkg :: Map.Map PackageId (Maybe String, Package) -> (BSL.ByteString, Maybe String) -> IO (Map.Map PackageId (Maybe String, Package))
+    insertPkg pkgs (dalf, mbPkgName) = do
+      (pkgId, pkg) <- either (fail . show)  pure $ Archive.decodeArchive Archive.DecodeAsMain (BSL.toStrict dalf)
+      let pkgNames = catMaybes (map fst (Map.elems pkgs))
+      case Map.lookup pkgId pkgs of
+        Nothing ->
+          maybe (return ()) (
+            \name ->
+              when (name `elem` pkgNames) $
+                fail $ "Duplicate name '" <> name <> "' for different packages detected (1)"
+            ) mbPkgName
+        Just (mbName, _) -> do
+          maybe (return ()) (
+            \name ->
+              case mbName of
+                Nothing ->
+                  when (name `elem` pkgNames) $
+                    fail $ "Duplicate name '" <> name <> "' for different packages detected (1)"
+                Just n ->
+                  when (n /= name) $
+                    fail $ "Different names ('" <> n <> "' and '" <> name <> "') for the same package detected (2)"
+            ) mbPkgName
+      return $ Map.insert pkgId (mbPkgName, pkg) pkgs
+
 main :: IO ()
 main = do
     opts@Options{..} <- execParser optionsParserInfo
+
+    void $ foldM buildPackageMap Map.empty optInputDars
+
     foldM_ (processDar opts) Map.empty optInputDars
       where
         -- Generate the ts for a single DAR. 'processed' is a map of
@@ -135,6 +171,7 @@ genModule curPkgId mod
             ,"import * as daml from '@daml/types';"
             ]
         imports =
+            -- pkgRefStr needs to respect symbolic names
             ["import * as " <> modNameStr <> " from '" <> pkgRootPath <> "/" <> pkgRefStr <> T.intercalate "/" (unModuleName modName) <> "';"
             | modRef@(pkgRef, modName) <- Set.toList ((PRSelf, curModName) `Set.delete` Set.unions refs)
             , let pkgRefStr = case pkgRef of
