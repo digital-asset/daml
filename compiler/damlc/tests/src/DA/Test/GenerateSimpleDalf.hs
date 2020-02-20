@@ -117,6 +117,7 @@ main = do
     let pkg = Package
             { packageLfVersion = version
             , packageModules = NM.fromList [mod]
+            , packageMetadata = Nothing
             }
     let (bytes, hash) = encodeArchiveAndHash pkg
     BSL.writeFile file bytes

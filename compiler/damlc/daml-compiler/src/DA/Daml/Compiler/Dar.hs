@@ -17,6 +17,7 @@ module DA.Daml.Compiler.Dar
 
 import qualified "zip" Codec.Archive.Zip as Zip
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
+import Control.Applicative
 import Control.Exception (assert)
 import Control.Monad.Extra
 import Control.Monad.IO.Class
@@ -226,8 +227,9 @@ mergePkgs ver pkgs =
              LF.Package
                  { LF.packageLfVersion = ver
                  , LF.packageModules = LF.packageModules pkg1 `NM.union` LF.packageModules pkg2
+                 , LF.packageMetadata = LF.packageMetadata pkg1 <|> LF.packageMetadata pkg2
                  })
-        LF.Package { LF.packageLfVersion = ver, LF.packageModules = NM.empty }
+        LF.Package { LF.packageLfVersion = ver, LF.packageModules = NM.empty, LF.packageMetadata = Nothing }
         pkgs
 
 -- | Find all DAML files below a given source root. If the source root is a file we interpret it as

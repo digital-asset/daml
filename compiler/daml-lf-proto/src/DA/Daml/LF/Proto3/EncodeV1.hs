@@ -815,7 +815,7 @@ encodeFeatureFlags FeatureFlags{..} = Just P.FeatureFlags
 -- each scenario module is wrapped in a proto package
 encodeScenarioModule :: Version -> Module -> P.Package
 encodeScenarioModule version mod =
-    encodePackage (Package version $ NM.insert mod NM.empty)
+    encodePackage (Package version (NM.insert mod NM.empty) Nothing)
 
 encodeModule :: Module -> Encode P.Module
 encodeModule Module{..} = do
@@ -827,12 +827,18 @@ encodeModule Module{..} = do
     moduleTemplates <- encodeNameMap encodeTemplate moduleTemplates
     pure P.Module{..}
 
+encodePackageMetadata :: PackageMetadata -> Encode P.PackageMetadata
+encodePackageMetadata PackageMetadata{..} = do
+    packageMetadataNameInternedStr <- either (const $ error "Package name is always interned") id <$> encodeInternableString (unPackageName packageName)
+    packageMetadataVersionInternedStr <- either (const $ error "Package name is always interned") id <$> encodeInternableString (unPackageVersion packageVersion)
+    pure P.PackageMetadata{..}
+
 -- | NOTE(MH): Assumes the DAML-LF version of the 'Package' is 'V1'.
 encodePackage :: Package -> P.Package
-encodePackage (Package version mods) =
+encodePackage (Package version mods metadata) =
     let env = initEncodeEnv version (WithInterning True)
-        (packageModules, EncodeEnv{internedStrings, internedDottedNames}) =
-            runState (encodeNameMap encodeModule mods) env
+        ((packageModules, packageMetadata), EncodeEnv{internedStrings, internedDottedNames}) =
+            runState ((,) <$> encodeNameMap encodeModule mods <*> traverse encodePackageMetadata metadata) env
         packageInternedStrings =
             V.fromList $ map (encodeString . fst) $ L.sortOn snd $ HMS.toList internedStrings
         packageInternedDottedNames =

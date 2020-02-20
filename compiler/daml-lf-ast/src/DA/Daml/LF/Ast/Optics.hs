@@ -128,6 +128,8 @@ instance MonoTraversable ModuleRef TypeConName where monoTraverse _ = pure
 instance MonoTraversable ModuleRef TypeVarName where monoTraverse _ = pure
 instance MonoTraversable ModuleRef VariantConName where monoTraverse _ = pure
 instance MonoTraversable ModuleRef Version where monoTraverse _ = pure
+instance MonoTraversable ModuleRef PackageName where monoTraverse _ = pure
+instance MonoTraversable ModuleRef PackageVersion where monoTraverse _ = pure
 
 -- NOTE(MH): This is an optimization to avoid running into a dead end.
 instance {-# OVERLAPPING #-} MonoTraversable ModuleRef FilePath where monoTraverse _ = pure
@@ -178,6 +180,7 @@ instance MonoTraversable ModuleRef Template
 
 instance MonoTraversable ModuleRef FeatureFlags
 instance MonoTraversable ModuleRef Module
+instance MonoTraversable ModuleRef PackageMetadata
 instance MonoTraversable ModuleRef Package
 
 exprPartyLiteral

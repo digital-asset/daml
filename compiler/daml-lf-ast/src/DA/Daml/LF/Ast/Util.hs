@@ -29,7 +29,7 @@ chcArgType :: TemplateChoice -> Type
 chcArgType = snd . chcArgBinder
 
 topoSortPackage :: Package -> Either [ModuleName] Package
-topoSortPackage (Package version mods) = do
+topoSortPackage pkg@Package{packageModules = mods} = do
   let isLocal (pkgRef, modName) = case pkgRef of
         PRSelf -> Just modName
         PRImport{} -> Nothing
@@ -41,7 +41,8 @@ topoSortPackage (Package version mods) = do
         -- NOTE(MH): A module referencing itself is not really a cycle.
         G.CyclicSCC [mod0] -> Right mod0
         G.CyclicSCC modCycle -> Left (map moduleName modCycle)
-  Package version . NM.fromList <$> traverse isAcyclic sccs
+  mods <- traverse isAcyclic sccs
+  pure pkg { packageModules = NM.fromList mods }
 
 data Arg
   = TmArg Expr

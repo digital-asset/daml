@@ -90,7 +90,9 @@ writeFileLf outFile lfPackage = do
 
 -- | Fails if there are any duplicate module names
 buildPackage :: HasCallStack => Maybe String -> Version -> [Module] -> Package
-buildPackage _mbPkgName version mods = Package version $ NM.fromList mods
+buildPackage _mbPkgName version mods =
+    -- TODO Set package metadata for new LF versions, see #4412
+    Package version (NM.fromList mods) Nothing
 
 instance Outputable Expr where
     ppr = text . renderPretty

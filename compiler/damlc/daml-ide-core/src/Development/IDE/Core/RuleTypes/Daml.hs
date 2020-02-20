@@ -50,8 +50,8 @@ newtype WhnfPackage = WhnfPackage { getWhnfPackage :: LF.Package }
     deriving Show
 
 instance NFData WhnfPackage where
-    rnf (WhnfPackage (LF.Package ver modules)) =
-        modules `seq` rnf ver
+    rnf (WhnfPackage (LF.Package ver modules metadata)) =
+        modules `seq` rnf ver `seq` rnf metadata
 
 type instance RuleResult GeneratePackage = WhnfPackage
 type instance RuleResult GenerateRawPackage = WhnfPackage
