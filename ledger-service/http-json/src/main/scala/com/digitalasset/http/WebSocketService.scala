@@ -98,7 +98,7 @@ object WebSocketService {
       .batchWeighted(
         max = maxCost,
         costFn = {
-          case StepAndErrors(_, ContractStreamStep.LiveBegin) =>
+          case StepAndErrors(_, ContractStreamStep.LiveBegin(_)) =>
             // this is how we avoid conflating LiveBegin
             maxCost
           case StepAndErrors(errors, step) =>
