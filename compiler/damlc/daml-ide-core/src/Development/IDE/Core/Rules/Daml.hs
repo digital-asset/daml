@@ -214,9 +214,9 @@ getDalfDependencies files = do
         fmap (Map.mapKeys stableUnitId) $
         useNoFileE GenerateStablePackages
     pure $ stablePackages `Map.union` actualDeps
-  where stableUnitId (unitId, modName) = stringToUnitId $ stripStdlibVersion unitId <> "-" <> T.unpack (T.intercalate "-" $ LF.unModuleName modName)
-        stripStdlibVersion (GHC.unitIdString -> unitId)
-          | unitId == damlStdlib = "daml-stdlib"
+  where stableUnitId (unitId, modName) = stringToUnitId $ GHC.unitIdString (stripStdlibVersion unitId) <> "-" <> T.unpack (T.intercalate "-" $ LF.unModuleName modName)
+        stripStdlibVersion unitId
+          | unitId == damlStdlib = stringToUnitId "daml-stdlib"
           | otherwise = unitId
 
 runScenarios :: NormalizedFilePath -> Action (Maybe [(VirtualResource, Either SS.Error SS.ScenarioResult)])
@@ -370,7 +370,7 @@ generateSerializedDalfRule options =
         , runRule = do
             lfVersion <- getDamlLfVersion
             -- build dependencies
-            files <- discardInternalModules (optMbPackageName options) . transitiveModuleDeps =<< use_ GetDependencies file
+            files <- discardInternalModules (optUnitId options) . transitiveModuleDeps =<< use_ GetDependencies file
             dalfDeps <- uses_ ReadSerializedDalf files
             -- type checking
             pm <- use_ GetParsedModule file
@@ -399,7 +399,7 @@ generateSerializedDalfRule options =
                                     -- LF postprocessing
                                     rawDalf <- pure $ LF.simplifyModule rawDalf
                                     pkgs <- getExternalPackages file
-                                    let world = LF.initWorldSelf pkgs (buildPackage (optMbPackageName options) lfVersion dalfDeps)
+                                    let world = LF.initWorldSelf pkgs (buildPackage (optUnitId options) lfVersion dalfDeps)
                                     let liftError e = [ideErrorPretty file e]
                                     let dalfOrErr = do
                                             dalf <- mapLeft liftError $
@@ -543,9 +543,9 @@ generateStablePackages lfVersion fp = do
                 ]
         forM dalfs $ \dalf -> do
             let packagePath = takeFileName $ takeDirectory dalf
-            let unitId = stringToUnitId $ if packagePath == "daml-stdlib"
+            let unitId = if packagePath == "daml-stdlib"
                     then damlStdlib -- We patch this to add the version number
-                    else packagePath
+                    else stringToUnitId packagePath
             let moduleName = LF.ModuleName (NonEmpty.toList $ T.splitOn "-" $ T.pack $ dropExtension $ takeFileName dalf)
             dalfPkgOrErr <- readDalfPackage dalf
             pure (fmap ((unitId, moduleName),) dalfPkgOrErr)
@@ -593,7 +593,7 @@ generatePackageRule =
 
 -- We don’t really gain anything by turning this into a rule since we only call it once
 -- and having it be a function makes the merging a bit easier.
-generateSerializedPackage :: String -> [NormalizedFilePath] -> MaybeT Action LF.Package
+generateSerializedPackage :: UnitId -> [NormalizedFilePath] -> MaybeT Action LF.Package
 generateSerializedPackage pkgName rootFiles = do
     fileDeps <- usesE GetDependencies rootFiles
     let allFiles = nubSort $ rootFiles <> concatMap transitiveModuleDeps fileDeps
@@ -641,10 +641,10 @@ generateRawPackageRule options =
     define $ \GenerateRawPackage file -> do
         lfVersion <- getDamlLfVersion
         fs <- transitiveModuleDeps <$> use_ GetDependencies file
-        files <- discardInternalModules (optMbPackageName options) (fs ++ [file])
+        files <- discardInternalModules (optUnitId options) (fs ++ [file])
         dalfs <- uses_ GenerateRawDalf files
         -- build package
-        let pkg = buildPackage (optMbPackageName options) lfVersion dalfs
+        let pkg = buildPackage (optUnitId options) lfVersion dalfs
         return ([], Just $ WhnfPackage pkg)
 
 generatePackageDepsRule :: Options -> Rules ()
@@ -652,11 +652,11 @@ generatePackageDepsRule options =
     define $ \GeneratePackageDeps file -> do
         lfVersion <- getDamlLfVersion
         fs <- transitiveModuleDeps <$> use_ GetDependencies file
-        files <- discardInternalModules (optMbPackageName options) fs
+        files <- discardInternalModules (optUnitId options) fs
         dalfs <- uses_ GenerateDalf files
 
         -- build package
-        return ([], Just $ WhnfPackage $ buildPackage (optMbPackageName options) lfVersion dalfs)
+        return ([], Just $ WhnfPackage $ buildPackage (optUnitId options) lfVersion dalfs)
 
 contextForFile :: NormalizedFilePath -> Action SS.Context
 contextForFile file = do
@@ -947,7 +947,7 @@ encodeModuleRule options =
     define $ \EncodeModule file -> do
         lfVersion <- getDamlLfVersion
         fs <- transitiveModuleDeps <$> use_ GetDependencies file
-        files <- discardInternalModules (optMbPackageName options) fs
+        files <- discardInternalModules (optUnitId options) fs
         encodedDeps <- uses_ EncodeModule files
         m <- dalfForScenario file
         let (hash, bs) = SS.encodeModule lfVersion m
@@ -1028,14 +1028,14 @@ getDamlLfVersion :: Action LF.Version
 getDamlLfVersion = envDamlLfVersion <$> getDamlServiceEnv
 
 -- | This operates on file paths rather than module names so that we avoid introducing a dependency on GetParsedModule.
-discardInternalModules :: Maybe String -> [NormalizedFilePath] -> Action [NormalizedFilePath]
+discardInternalModules :: Maybe UnitId -> [NormalizedFilePath] -> Action [NormalizedFilePath]
 discardInternalModules mbPackageName files = do
     stablePackages <- useNoFile_ GenerateStablePackages
     pure $ filter (shouldKeep stablePackages) files
   where shouldKeep stablePackages f =
             not (any (`isSuffixOf` fromNormalizedFilePath f) internalModules) &&
             not (any (\(unitId, modName) ->
-                          mbPackageName == Just (GHC.unitIdString unitId) &&
+                          mbPackageName == Just unitId &&
                           moduleNameFile modName `isSuffixOf` fromNormalizedFilePath f)
                      $ Map.keys stablePackages)
         moduleNameFile (LF.ModuleName segments) = joinPath (map T.unpack segments) <.> "daml"

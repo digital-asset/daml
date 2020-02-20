@@ -15,6 +15,7 @@ import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSL.Char8
 import Data.List.Extra
 import Data.Maybe
+import Module (unitIdString)
 import System.Directory.Extra
 import System.Environment.Blank
 import System.Exit
@@ -869,7 +870,7 @@ dataDependencyTests damlc repl davlDar oldProjDar = testGroup "Data Dependencies
             , "-o"
             , "FooGen.dalf"
             , "--package"
-            , damlStdlib <> " (DA.Internal.LF as CurrentSdk.DA.Internal.LF, DA.Internal.Prelude as CurrentSdk.DA.Internal.Prelude, DA.Internal.Template as CurrentSdk.DA.Internal.Template)"
+            , unitIdString damlStdlib <> " (DA.Internal.LF as CurrentSdk.DA.Internal.LF, DA.Internal.Prelude as CurrentSdk.DA.Internal.Prelude, DA.Internal.Template as CurrentSdk.DA.Internal.Template)"
             , "--package"
             , "daml-prim (DA.Types as CurrentSdk.DA.Types, GHC.Types as CurrentSdk.GHC.Types)"
             ]
@@ -1146,7 +1147,7 @@ dataDependencyTests damlc repl davlDar oldProjDar = testGroup "Data Dependencies
               , "build-options:"
               , " - --target=1.dev"
               , " - --package=daml-prim"
-              , " - --package=" <> damlStdlib
+              , " - --package=" <> unitIdString damlStdlib
               , " - --package=old-proj-0.0.1"
               ]
           writeFileUTF8 (tmpDir </> "Upgrade.daml") $ unlines
