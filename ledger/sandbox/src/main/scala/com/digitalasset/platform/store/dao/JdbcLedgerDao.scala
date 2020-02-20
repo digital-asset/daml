@@ -71,6 +71,38 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 import scala.util.control.NonFatal
 
+private final case class ParsedEntry(
+  typ: String,
+  transactionId: Option[TransactionId],
+  commandId: Option[CommandId],
+  applicationId: Option[ApplicationId],
+  submitter: Option[Party],
+  workflowId: Option[WorkflowId],
+  effectiveAt: Option[Date],
+  recordedAt: Option[Date],
+  transaction: Option[Array[Byte]],
+  rejectionType: Option[String],
+  rejectionDesc: Option[String],
+  offset: Long)
+
+private final case class ParsedPartyData(
+  party: String,
+  displayName: Option[String],
+  ledgerOffset: Long,
+  explicit: Boolean)
+
+private final case class ParsedPackageData(
+  packageId: String,
+  sourceDescription: Option[String],
+  size: Long,
+  knownSince: Date)
+
+private final case class ParsedCommandData(
+  submittedAt: Instant,
+  ttl: Instant,
+  success: Option[Boolean],
+  error: Option[String])
+
 private class JdbcLedgerDao(
     dbDispatcher: DbDispatcher,
     contractSerializer: ContractSerializer,
@@ -1037,20 +1069,6 @@ private class JdbcLedgerDao(
   private val SQL_SELECT_DISCLOSURE =
     SQL("select * from disclosures where transaction_id={transaction_id}")
 
-  case class ParsedEntry(
-      typ: String,
-      transactionId: Option[TransactionId],
-      commandId: Option[CommandId],
-      applicationId: Option[ApplicationId],
-      submitter: Option[Party],
-      workflowId: Option[WorkflowId],
-      effectiveAt: Option[Date],
-      recordedAt: Option[Date],
-      transaction: Option[Array[Byte]],
-      rejectionType: Option[String],
-      rejectionDesc: Option[String],
-      offset: Long)
-
   private val EntryParser: RowParser[ParsedEntry] = (
     str("typ") ~
       ledgerString("transaction_id").? ~
@@ -1418,12 +1436,6 @@ private class JdbcLedgerDao(
   private val SQL_SELECT_PARTIES =
     SQL("select party, display_name, ledger_offset, explicit from parties")
 
-  case class ParsedPartyData(
-      party: String,
-      displayName: Option[String],
-      ledgerOffset: Long,
-      explicit: Boolean)
-
   private val PartyDataParser: RowParser[ParsedPartyData] =
     Macro.parser[ParsedPartyData](
       "party",
@@ -1480,12 +1492,6 @@ private class JdbcLedgerDao(
           |from packages
           |where package_id = {package_id}
           |""".stripMargin)
-
-  case class ParsedPackageData(
-      packageId: String,
-      sourceDescription: Option[String],
-      size: Long,
-      knownSince: Date)
 
   private val PackageDataParser: RowParser[ParsedPackageData] =
     Macro.parser[ParsedPackageData](
@@ -1634,12 +1640,6 @@ private class JdbcLedgerDao(
       |from participant_command_submissions
       |where deduplication_key = {deduplicationKey}
     """.stripMargin)
-
-  case class ParsedCommandData(
-      submittedAt: Instant,
-      ttl: Instant,
-      success: Option[Boolean],
-      error: Option[String])
 
   private val CommandDataParser: RowParser[ParsedCommandData] =
     Macro.parser[ParsedCommandData](
