@@ -79,7 +79,7 @@ Our messaging feature has two parts: a form with inputs for selecting friends an
 Both parts will be implemented as React components that render on the main screen.
 
 MessageList Component
---------------
+---------------------
 
 The MessageList component is fairly straight-forward: it queries all ``Message`` contracts and displays their contents as a list.
 Here is the code for the entire component.
