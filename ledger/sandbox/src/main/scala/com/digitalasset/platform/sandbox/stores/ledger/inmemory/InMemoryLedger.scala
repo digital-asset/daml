@@ -100,7 +100,7 @@ class InMemoryLedger(
   // mutable state
   private var acs = acs0
   private var ledgerConfiguration: Option[Configuration] = None
-  private var commands: scala.collection.mutable.Map[String, CommandDeduplicationEntry] =
+  private val commands: scala.collection.mutable.Map[String, CommandDeduplicationEntry] =
     scala.collection.mutable.Map.empty
 
   override def completions(
