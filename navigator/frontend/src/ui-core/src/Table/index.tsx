@@ -256,6 +256,6 @@ export function createColumns<
       }
       className={'column'}
       headerClassName={'headerColumn'}
-    />),
-  );
+    />
+  ));
 }

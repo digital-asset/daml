@@ -6,6 +6,80 @@ Release notes
 
 This page contains release notes for the SDK.
 
+.. _release-0-13-54:
+
+0.13.54 - 2020-02-20
+--------------------
+
+Sandbox
+~~~~~~~
+
+- Removed the warnings regarding static time and scenarios on
+  initialization. We will not deprecate these until we have a stable
+  alternative.
+- If no ledger ID is provided when running against an existing
+  ledger, use the existing ID. Previously, Sandbox would fail to start.
+
+DAML Standard Library
+~~~~~~~~~~~~~~~~~~~~~
+
+- Add ``subtractDays`` to the DAML Standard Library.
+
+.. _release-0-13-53:
+
+0.13.53 - 2020-02-19
+--------------------
+
+[DAML Stdlib]
+~~~~~~~~~~~~~
+- Restrict the ``(>>)`` operator to instances of ``Action`` and make it lazy
+  in its second argument. This gives expressions of the form ``do A; B`` the
+  desirable semantics of only running ``B`` when ``A`` is a successful action.
+
+- Remove the ``Action`` and ``ActionFail`` instances for ``Validation`` in
+  ``DA.Validation``. Please enable the ``ApplicativeDo`` language extension if
+  you want to use ``Validation`` with ``do``-notation and replace ``fail``
+  with ``DA.Validation.invalid``.
+
+[DAML Ledger Integration Kit]
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+- Enforce that all parties referenced as stakeholders, actors, or maintainers
+  in a transaction have been allocated.
+
+- Ledger API Test Tool default tests modified. Use ``--list`` for the updated
+  list of default tests. Time service test dropped from the suite.
+
+[Sandbox]
+~~~~~~~~~
+- Static time mode is being deprecated in the future. A warning has been added
+  to notify users of this fact.
+
+- Scenarios for ledger initialization are being deprecated in the future, in favor of `DAML Script
+  <https://docs.daml.com/daml-script/>`_. A warning has been added to notify
+  users of this fact. Scenarios can still be used for testing in DAML studio.
+
+- Participant index contract lookups simplified. This should speed up command
+  interpretation.
+
+- If authentication is enabled, requests without a valid authentication are
+  going to be rejected with an ``UNAUTHENTICATED`` return code instead of
+  ``PERMISSION_DENIED``.
+
+[JSON API - Experimental]
+~~~~~~~~~~~~~~~~~~~~~~~~~
+- Add ``{"live": true}`` to WebSocket streams to mark the beginning of "live" data.
+  See `issue #4461 <https://github.com/digital-asset/daml/issues/4461>`_.
+
+  This marker is a placeholder feature;
+  `issue #4509 bookmarks in query streams <https://github.com/digital-asset/daml/issues/4509>`_
+  will obsolete this marker, after which it will no longer be emitted.  When
+  building features on the marker, be aware of this forthcoming replacement.
+
+[DAML Standard Library]
+~~~~~~~~~~~~~~~~~~~~~~~
+- Add a ``subtract`` function which is useful as a replacement for sections of
+  ``(-)``, e.g., ``subtract 1`` is equivalent to ``\x -> x - 1``.
+
 .. _release-0-13-52:
 
 0.13.52 - 2020-02-12

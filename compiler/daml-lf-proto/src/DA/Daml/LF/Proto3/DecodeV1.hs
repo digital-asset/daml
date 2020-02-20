@@ -163,7 +163,7 @@ decodeInternedDottedName (LF1.InternedDottedName ids) =
     mapM lookupString $ V.toList ids
 
 decodePackage :: TL.Text -> LF.PackageRef -> LF1.Package -> Either Error Package
-decodePackage minorText selfPackageRef (LF1.Package mods internedStringsV internedDottedNamesV) = do
+decodePackage minorText selfPackageRef (LF1.Package mods internedStringsV internedDottedNamesV metadata) = do
   version <- decodeVersion (decodeString minorText)
   let internedStrings = V.map decodeString internedStringsV
   let internedDottedNames = V.empty
@@ -171,11 +171,17 @@ decodePackage minorText selfPackageRef (LF1.Package mods internedStringsV intern
   internedDottedNames <- runDecode env0 $ mapM decodeInternedDottedName internedDottedNamesV
   let env = DecodeEnv{..}
   runDecode env $ do
-    Package version <$> decodeNM DuplicateModule decodeModule mods
+    Package version <$> decodeNM DuplicateModule decodeModule mods <*> traverse decodePackageMetadata metadata
+
+decodePackageMetadata :: LF1.PackageMetadata -> Decode PackageMetadata
+decodePackageMetadata LF1.PackageMetadata{..} = do
+    pkgName <- PackageName <$> lookupString packageMetadataNameInternedStr
+    pkgVersion <- PackageVersion <$> lookupString packageMetadataVersionInternedStr
+    pure (PackageMetadata pkgName pkgVersion)
 
 decodeScenarioModule :: TL.Text -> LF1.Package -> Either Error Module
 decodeScenarioModule minorText protoPkg = do
-    Package _ modules <- decodePackage minorText PRSelf protoPkg
+    Package { packageModules = modules } <- decodePackage minorText PRSelf protoPkg
     pure $ head $ NM.toList modules
 
 decodeModule :: LF1.Module -> Decode Module

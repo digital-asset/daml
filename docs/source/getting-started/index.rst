@@ -3,17 +3,28 @@
 
 .. _new-quickstart:
 
-Full Stack DAML
-###############
+Getting Started with DAML
+#########################
 
 **Disclaimer:** This guide is being actively developed.
 Expect major changes to the tutorial text and minor changes to the template application.
 
-The goal of this tutorial is to get you up and running with full-stack DAML development. We will guide you through an example social networking app, get you writing your first feature from DAML model to UI, and finally deploy the app to a persistent ledger.
+The goal of this tutorial is to get you up and running with full-stack DAML development.
+We do this through the example of a simple social networking application,
+showing you three things:
 
-By the end of the tutorial, you should have an idea of what DAML contracts and ledgers are, how the UI interacts with them, and how you might solve a potential use case with a DAML solution. We do not aim to give a comprehensive guide to all DAML concepts and tools; for that, see the later sections of the documentation. With that, let's get started!
+    1. How to build and run the application
+    2. The design of its different components (:doc:`app-architecture`)
+    3. How to write a new feature for the app (:doc:`first-feature`)
 
-.. TODO: reference specific sections of docs instead of saying "later sections".
+We do not aim to be comprehensive in all DAML concepts and tools (covered in :doc:`Writing DAML </daml/intro/0_Intro>`) or in all deployment options (see :doc:`Deploying </deploy/index>`).
+The goal is that by the end of this tutorial, you'll have a good idea of the following:
+
+    1. What DAML contracts and ledgers are
+    2. How a user interface (UI) interacts with a DAML ledger
+    3. How DAML helps you build a real-life application fast.
+
+With that, let's get started!
 
 .. toctree::
    :hidden:
@@ -43,9 +54,12 @@ First off, open a terminal, clone the template project and move to the project f
     git clone https://github.com/digital-asset/create-daml-app.git
     cd create-daml-app
 
-In order to connect the DAML model to the UI code, we need to run a code generation step (more on this later)::
+Next we need to compile the DAML code to a DAR file::
 
     daml build
+
+In order to connect the UI code to this DAML, we need to run a code generation step::
+
     daml codegen ts .daml/dist/create-daml-app-0.1.0.dar -o daml-ts/src
 
 Now, use Yarn to install the project dependencies and build the app::
@@ -95,3 +109,5 @@ Note that in this app, friendships can be added in one direction at a time (simi
 
 Add a few more friends as Bob, and play around a bit more by logging in as different users and adding/removing friends from the network.
 This should give you a idea of the app's functionality.
+
+Next, we'll look at the :doc:`architecture of our app <app-architecture>` and the individual components.

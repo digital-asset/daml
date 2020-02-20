@@ -3,7 +3,6 @@
 
 package com.daml.ledger.on.sql
 
-import java.sql.Connection
 import java.time.{Clock, Instant}
 import java.util.UUID
 
@@ -11,6 +10,7 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.ledger.on.sql.SqlLedgerReaderWriter._
+import com.daml.ledger.on.sql.queries.Queries
 import com.daml.ledger.participant.state.kvutils.api.{LedgerReader, LedgerRecord, LedgerWriter}
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
@@ -22,16 +22,18 @@ import com.daml.ledger.validator.{
   ValidatingCommitter
 }
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.health.{HealthStatus, Healthy}
 import com.digitalasset.logging.LoggingContext
 import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
 import com.digitalasset.platform.akkastreams.dispatcher.SubSource.RangeSource
+import com.digitalasset.platform.common.LedgerIdMismatchException
 import com.digitalasset.resources.ResourceOwner
 
 import scala.collection.immutable.TreeSet
 import scala.concurrent.{ExecutionContext, Future}
 
-class SqlLedgerReaderWriter(
+final class SqlLedgerReaderWriter(
     override val ledgerId: LedgerId = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
     val participantId: ParticipantId,
     now: () => Instant,
@@ -43,8 +45,6 @@ class SqlLedgerReaderWriter(
     logCtx: LoggingContext,
 ) extends LedgerWriter
     with LedgerReader {
-
-  private val queries = database.queries
 
   private val committer = new ValidatingCommitter[Index](
     participantId,
@@ -63,9 +63,8 @@ class SqlLedgerReaderWriter(
         RangeSource((start, end) => {
           Source
             .futureSource(database
-              .inReadTransaction(s"Querying events [$start, $end[ from log") {
-                implicit connection =>
-                  Future.successful(queries.selectFromLog(start, end))
+              .inReadTransaction(s"Querying events [$start, $end[ from log") { queries =>
+                Future.successful(queries.selectFromLog(start, end))
               }
               .map { result =>
                 if (result.length < end - start) {
@@ -86,13 +85,12 @@ class SqlLedgerReaderWriter(
 
   object SqlLedgerStateAccess extends LedgerStateAccess[Index] {
     override def inTransaction[T](body: LedgerStateOperations[Index] => Future[T]): Future[T] =
-      database.inWriteTransaction("Committing a submission") { implicit connection =>
-        body(new SqlLedgerStateOperations)
+      database.inWriteTransaction("Committing a submission") { queries =>
+        body(new SqlLedgerStateOperations(queries))
       }
   }
 
-  class SqlLedgerStateOperations(implicit connection: Connection)
-      extends BatchingLedgerStateOperations[Index] {
+  class SqlLedgerStateOperations(queries: Queries) extends BatchingLedgerStateOperations[Index] {
     override def readState(keys: Seq[Key]): Future[Seq[Option[Value]]] =
       Future.successful(queries.selectStateValuesByKeys(keys))
 
@@ -110,7 +108,7 @@ object SqlLedgerReaderWriter {
   private val DefaultClock: Clock = Clock.systemUTC()
 
   def owner(
-      ledgerId: LedgerId,
+      initialLedgerId: Option[LedgerId],
       participantId: ParticipantId,
       jdbcUrl: String,
       now: () => Instant = () => DefaultClock.instant(),
@@ -122,16 +120,36 @@ object SqlLedgerReaderWriter {
     for {
       uninitializedDatabase <- Database.owner(jdbcUrl)
       database = uninitializedDatabase.migrate()
-      head <- ResourceOwner.forFuture(() =>
-        database.inReadTransaction("Reading head at startup") { implicit connection =>
-          Future(database.queries.selectLatestLogEntryId().map(_ + 1).getOrElse(StartIndex))
-      })
-      dispatcher <- ResourceOwner.forCloseable(
-        () =>
-          Dispatcher(
-            "sql-participant-state",
-            zeroIndex = StartIndex,
-            headAtInitialization = head,
-        ))
+      ledgerId <- ResourceOwner.forFuture(() => updateOrRetrieveLedgerId(initialLedgerId, database))
+      dispatcher <- ResourceOwner.forFutureCloseable(() => newDispatcher(database))
     } yield new SqlLedgerReaderWriter(ledgerId, participantId, now, database, dispatcher)
+
+  private def updateOrRetrieveLedgerId(initialLedgerId: Option[LedgerId], database: Database)(
+      implicit executionContext: ExecutionContext,
+      logCtx: LoggingContext,
+  ): Future[LedgerId] =
+    database.inWriteTransaction("Checking ledger ID at startup") { queries =>
+      val providedLedgerId =
+        initialLedgerId.getOrElse(Ref.LedgerString.assertFromString(UUID.randomUUID.toString))
+      val ledgerId = queries.updateOrRetrieveLedgerId(providedLedgerId)
+      if (initialLedgerId.exists(_ != ledgerId)) {
+        Future.failed(
+          new LedgerIdMismatchException(
+            domain.LedgerId(ledgerId),
+            domain.LedgerId(initialLedgerId.get),
+          ))
+      } else {
+        Future.successful(ledgerId)
+      }
+    }
+
+  private def newDispatcher(database: Database)(
+      implicit executionContext: ExecutionContext,
+      logCtx: LoggingContext,
+  ): Future[Dispatcher[Index]] =
+    database
+      .inReadTransaction("Reading head at startup") { queries =>
+        Future.successful(queries.selectLatestLogEntryId().map(_ + 1).getOrElse(StartIndex))
+      }
+      .map(head => Dispatcher("sql-participant-state", StartIndex, head))
 }

@@ -70,7 +70,7 @@ import Development.IDE.Types.Location
 import Development.IDE.Types.Options (clientSupportsProgress)
 import "ghc-lib-parser" DynFlags
 import GHC.Conc
-import "ghc-lib-parser" Module (stringToUnitId)
+import "ghc-lib-parser" Module (stringToUnitId, unitIdString)
 import qualified Network.Socket as NS
 import Options.Applicative.Extended
 import qualified Proto3.Suite as PS
@@ -554,11 +554,12 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb =
   where effect = withProjectRoot' projectOpts $ \_relativize -> do
             initPackageDb opts initPkgDb
             withPackageConfig defaultProjectPath $ \pkgConfig@PackageConfigFields{..} -> do
-                putStrLn $ "Compiling " <> pName <> " to a DAR."
+                putStrLn $ "Compiling " <> T.unpack (LF.unPackageName pName) <> " to a DAR."
                 loggerH <- getLogger opts "package"
                 withDamlIdeState
                     opts
-                      { optMbPackageName = Just $ pkgNameVersion pName pVersion
+                      { optMbPackageName = Just pName
+                      , optMbPackageVersion = pVersion
                       , optIncrementalBuild = incrementalBuild
                       }
                     loggerH
@@ -570,7 +571,7 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb =
                             (toNormalizedFilePath $ fromMaybe ifaceDir $ optIfaceDir opts)
                             (FromDalf False)
                     dar <- mbErr "ERROR: Creation of DAR file failed." mbDar
-                    let fp = targetFilePath $ pkgNameVersion pName pVersion
+                    let fp = targetFilePath $ unitIdString (pkgNameVersion pName pVersion)
                     createDarFile fp dar
             where
                 targetFilePath name = fromMaybe (distDir </> name <.> "dar") mbOutFile
@@ -611,10 +612,10 @@ execPackage projectOpts filePath opts mbOutFile dalfInput =
           -- in the new daml assistant.
           mbDar <- buildDar ide
                             PackageConfigFields
-                              { pName = fromMaybe (takeBaseName filePath) $ optMbPackageName opts
+                              { pName = fromMaybe (LF.PackageName $ T.pack $ takeBaseName filePath) $ optMbPackageName opts
                               , pSrc = filePath
                               , pExposedModules = Nothing
-                              , pVersion = Nothing
+                              , pVersion = optMbPackageVersion opts
                               , pDependencies = []
                               , pDataDependencies = []
                               , pSdkVersion = PackageSdkVersion ""
@@ -635,9 +636,9 @@ execPackage projectOpts filePath opts mbOutFile dalfInput =
     -- the package name is specified via them, otherwise we use the
     -- name.
     defaultDarFile =
-      case Split.splitOn ":" name of
+      case Split.splitOn ":" (T.unpack $ LF.unPackageName name) of
         [_g, a, v] -> a <> "-" <> v <> ".dar"
-        _otherwise -> name <> ".dar"
+        _otherwise -> (T.unpack $ LF.unPackageName name) <> ".dar"
 
     targetFilePath = fromMaybe defaultDarFile mbOutFile
 

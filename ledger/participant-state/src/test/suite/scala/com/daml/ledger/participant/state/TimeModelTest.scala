@@ -12,7 +12,14 @@ class TimeModelTest extends WordSpec with Matchers {
   private val referenceTime = Instant.EPOCH
   private val epsilon = Duration.ofMillis(10L)
   private val timeModel =
-    TimeModel(Duration.ofSeconds(1L), Duration.ofSeconds(1L), Duration.ofSeconds(30L)).get
+    TimeModel(
+      minTransactionLatency = Duration.ofSeconds(1L),
+      maxClockSkew = Duration.ofSeconds(1L),
+      maxTtl = Duration.ofSeconds(30L),
+      avgTransactionLatency = Duration.ofSeconds(0L),
+      minSkew = Duration.ofSeconds(30L),
+      maxSkew = Duration.ofSeconds(30L),
+    ).get
 
   private val referenceMrt = referenceTime.plus(timeModel.maxTtl)
 

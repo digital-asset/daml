@@ -25,6 +25,8 @@ import scala.util.{Failure, Success, Try}
   * @param ledgerStateAccess defines how the validator retrieves/writes back state to the ledger
   * @param processSubmission defines how a log entry and state updates get generated from a submission
   * @param allocateLogEntryId  defines how new log entry IDs are being generated
+  * @param checkForMissingInputs  whether all inputs declared as the required inputs in the submission must be available
+  *                               in order to pass validation
   * @param executionContext  ExecutionContext to use when performing ledger state reads/writes
   */
 class SubmissionValidator[LogResult](
@@ -61,18 +63,13 @@ class SubmissionValidator[LogResult](
       correlationId: String,
       recordTime: Timestamp,
       participantId: ParticipantId,
-      transform: (DamlLogEntryId, StateMap, LogEntryAndState) => U
-  ): Future[Either[ValidationFailed, U]] = {
-    def applyTransformation(
-        logEntryId: DamlLogEntryId,
-        inputStates: StateMap,
-        logEntryAndState: LogEntryAndState,
-        stateOperations: LedgerStateOperations[LogResult],
-    ): Future[U] =
-      Future.successful(transform(logEntryId, inputStates, logEntryAndState))
-
-    runValidation(envelope, correlationId, recordTime, participantId, applyTransformation)
-  }
+      transform: (
+          DamlLogEntryId,
+          StateMap,
+          LogEntryAndState,
+          LedgerStateOperations[LogResult]) => Future[U]
+  ): Future[Either[ValidationFailed, U]] =
+    runValidation(envelope, correlationId, recordTime, participantId, transform)
 
   private def commit(
       logEntryId: DamlLogEntryId,

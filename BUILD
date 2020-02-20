@@ -140,9 +140,14 @@ genrule(
         SDK_VERSION=$$(cat $(location VERSION))
         cat > $@ <<EOF
 module SdkVersion where
-sdkVersion, damlStdlib :: String
+
+import Module (stringToUnitId, UnitId)
+
+sdkVersion :: String
 sdkVersion = "$$SDK_VERSION"
-damlStdlib = "daml-stdlib-" ++ sdkVersion
+
+damlStdlib :: UnitId
+damlStdlib = stringToUnitId ("daml-stdlib-" ++ sdkVersion)
 EOF
     """,
 )
@@ -150,7 +155,10 @@ EOF
 da_haskell_library(
     name = "sdk-version-hs-lib",
     srcs = [":sdk-version-hs"],
-    hackage_deps = ["base"],
+    hackage_deps = [
+        "base",
+        "ghc-lib-parser",
+    ],
     visibility = ["//visibility:public"],
 )
 

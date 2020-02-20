@@ -5,7 +5,13 @@ package com.daml.ledger.on.sql
 
 import java.sql.Connection
 
-import com.daml.ledger.on.sql.queries.{H2Queries, PostgresqlQueries, Queries, SqliteQueries}
+import com.daml.ledger.on.sql.queries.{
+  H2Queries,
+  PostgresqlQueries,
+  Queries,
+  ReadQueries,
+  SqliteQueries
+}
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.resources.ProgramResource.StartupException
 import com.digitalasset.resources.ResourceOwner
@@ -18,23 +24,23 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
-class Database(
-    val queries: Queries,
+final class Database(
+    queries: Connection => Queries,
     readerConnectionPool: DataSource,
     writerConnectionPool: DataSource,
 ) {
   private val logger = ContextualizedLogger.get(this.getClass)
 
   def inReadTransaction[T](message: String)(
-      body: Connection => Future[T],
+      body: ReadQueries => Future[T],
   )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): Future[T] = {
-    inTransaction(message, readerConnectionPool)(body)
+    inTransaction(message, readerConnectionPool)(connection => body(queries(connection)))
   }
 
   def inWriteTransaction[T](message: String)(
-      body: Connection => Future[T],
+      body: Queries => Future[T],
   )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): Future[T] = {
-    inTransaction(message, writerConnectionPool)(body)
+    inTransaction(message, writerConnectionPool)(connection => body(queries(connection)))
   }
 
   private def inTransaction[T](message: String, connectionPool: DataSource)(
@@ -176,26 +182,26 @@ object Database {
   sealed trait RDBMS {
     val name: String
 
-    val queries: Queries
+    val queries: Connection => Queries
   }
 
   object RDBMS {
     object H2 extends RDBMS {
       override val name: String = "h2"
 
-      override val queries: Queries = new H2Queries
+      override val queries: Connection => Queries = H2Queries.apply
     }
 
     object PostgreSQL extends RDBMS {
       override val name: String = "postgresql"
 
-      override val queries: Queries = new PostgresqlQueries
+      override val queries: Connection => Queries = PostgresqlQueries.apply
     }
 
     object SQLite extends RDBMS {
       override val name: String = "sqlite"
 
-      override val queries: Queries = new SqliteQueries
+      override val queries: Connection => Queries = SqliteQueries.apply
     }
   }
 
@@ -211,7 +217,10 @@ object Database {
         .placeholders(Map("table.prefix" -> TablePrefix).asJava)
         .table(TablePrefix + Flyway.configure().getTable)
         .dataSource(adminConnectionPool)
-        .locations(s"classpath:/com/daml/ledger/on/sql/migrations/${system.name}")
+        .locations(
+          "classpath:/com/daml/ledger/on/sql/migrations/common",
+          s"classpath:/com/daml/ledger/on/sql/migrations/${system.name}",
+        )
         .load()
 
     def migrate(): Database = {
@@ -225,5 +234,7 @@ object Database {
     }
   }
 
-  class InvalidDatabaseException(message: String) extends StartupException(message)
+  class InvalidDatabaseException(message: String)
+      extends RuntimeException(message)
+      with StartupException
 }

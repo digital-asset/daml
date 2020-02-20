@@ -221,6 +221,7 @@ da_haskell_test(
         "base",
         "bytestring",
         "extra",
+        "ghc-lib-parser",
         "filepath",
         "process",
         "safe-exceptions",

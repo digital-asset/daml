@@ -53,7 +53,10 @@ object Configuration {
       TimeModel(
         maxClockSkew = parseDuration(tm.getMaxClockSkew),
         minTransactionLatency = parseDuration(tm.getMinTransactionLatency),
-        maxTtl = parseDuration(tm.getMaxTtl)
+        maxTtl = parseDuration(tm.getMaxTtl),
+        avgTransactionLatency = parseDuration(tm.getAvgTransactionLatency),
+        minSkew = parseDuration(tm.getMinSkew),
+        maxSkew = parseDuration(tm.getMaxSkew),
       ).toEither.left.map(e => s"decodeTimeModel: ${e.getMessage}")
   }
 
@@ -67,6 +70,9 @@ object Configuration {
           .setMaxClockSkew(buildDuration(tm.maxClockSkew))
           .setMinTransactionLatency(buildDuration(tm.minTransactionLatency))
           .setMaxTtl(buildDuration(tm.maxTtl))
+          .setAvgTransactionLatency(buildDuration(tm.avgTransactionLatency))
+          .setMinSkew(buildDuration(tm.minSkew))
+          .setMaxSkew(buildDuration(tm.maxSkew))
       )
       .build
   }

@@ -7,6 +7,7 @@ import java.io.File
 import java.nio.file.Files
 
 import com.digitalasset.daml.bazeltools.BazelRunfiles
+import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.codegen.backend.java.JavaBackend
 import com.digitalasset.daml.lf.codegen.conf.Conf
 import org.scalatest.{FlatSpec, Matchers}
@@ -19,6 +20,7 @@ class CodeGenRunnerTests extends FlatSpec with Matchers with BazelRunfiles {
   def path(p: String) = new File(p).getAbsoluteFile.toPath
 
   val testDar = path(rlocation("language-support/java/codegen/test-daml.dar"))
+  val dar = DarReader().readArchiveFromFile(testDar.toFile).get
 
   val dummyOutputDir = Files.createTempDirectory("codegen")
 
@@ -35,7 +37,7 @@ class CodeGenRunnerTests extends FlatSpec with Matchers with BazelRunfiles {
 
     val (interfaces, pkgPrefixes) = CodeGenRunner.collectDamlLfInterfaces(conf)
 
-    assert(interfaces.length == 18)
+    assert(interfaces.length == 19)
     assert(pkgPrefixes == Map.empty)
   }
 
@@ -48,8 +50,8 @@ class CodeGenRunnerTests extends FlatSpec with Matchers with BazelRunfiles {
 
     val (interfaces, pkgPrefixes) = CodeGenRunner.collectDamlLfInterfaces(conf)
 
-    assert(interfaces.map(_.packageId).length == 18)
-    assert(pkgPrefixes.size == 18)
+    assert(interfaces.map(_.packageId).length == dar.all.length)
+    assert(pkgPrefixes.size == dar.all.length)
     assert(pkgPrefixes.values.forall(_ == "PREFIX"))
   }
 }

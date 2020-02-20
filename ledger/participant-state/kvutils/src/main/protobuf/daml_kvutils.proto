@@ -398,8 +398,10 @@ message DamlContractKey {
   // The DAML template identifier of the contract that created this key.
   com.digitalasset.daml.lf.value.Identifier template_id = 1;
 
-  // The contract key itself.
-  com.digitalasset.daml.lf.value.VersionedValue key = 2;
+  reserved 2; // This was key serialized as a VersionedValue. Replaced by hash.
+
+  // Hash of the contract key value, produced by KeyHasher.
+  bytes hash = 3;
 }
 
 // Stored information about a given party.

@@ -12,7 +12,6 @@ import com.digitalasset.daml.lf.transaction.Node._
 import com.digitalasset.daml.lf.types.{Ledger => L}
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.transaction.Transaction
-import com.digitalasset.daml.lf.transaction.Transaction.PartialTransaction
 import com.digitalasset.daml.lf.speedy.SError._
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.speedy.SBuiltin._
@@ -123,7 +122,7 @@ object Pretty {
       case ScenarioErrorCommitError(CommitError.FailedAuthorizations(fas)) =>
         (text("due to failed authorizations:") / prettyFailedAuthorizations(fas)).nested(4)
       case ScenarioErrorCommitError(CommitError.UniqueKeyViolation(gk)) =>
-        (text("due to unique key violation for key:") & prettyVersionedValue(false)(gk.gk.key) & text(
+        (text("due to unique key violation for key:") & prettyValue(false)(gk.gk.key) & text(
           "for template",
         ) & prettyIdentifier(gk.gk.templateId))
 

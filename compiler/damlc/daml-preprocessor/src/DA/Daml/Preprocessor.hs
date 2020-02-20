@@ -56,13 +56,13 @@ mayImportInternal =
         ]
 
 -- | Apply all necessary preprocessors
-damlPreprocessor :: Maybe String -> GHC.ParsedSource -> IdePreprocessedSource
-damlPreprocessor mbPkgName x
+damlPreprocessor :: Maybe GHC.UnitId -> GHC.ParsedSource -> IdePreprocessedSource
+damlPreprocessor mbUnitId x
     | maybe False (isInternal ||^ (`elem` mayImportInternal)) name = noPreprocessor x
     | otherwise = IdePreprocessedSource
         { preprocWarnings = checkModuleName x
         , preprocErrors = checkImports x ++ checkDataTypes x ++ checkModuleDefinition x
-        , preprocSource = recordDotPreprocessor $ importDamlPreprocessor $ genericsPreprocessor mbPkgName $ enumTypePreprocessor "GHC.Types" x
+        , preprocSource = recordDotPreprocessor $ importDamlPreprocessor $ genericsPreprocessor mbUnitId $ enumTypePreprocessor "GHC.Types" x
         }
     where
       name = fmap GHC.unLoc $ GHC.hsmodName $ GHC.unLoc x

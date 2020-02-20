@@ -65,7 +65,7 @@ import SdkVersion (damlStdlib)
 toCompileOpts :: Options -> Ghcide.IdeReportProgress -> Ghcide.IdeOptions
 toCompileOpts options@Options{..} reportProgress =
     Ghcide.IdeOptions
-      { optPreprocessor = if optIsGenerated then generatedPreprocessor else damlPreprocessor optMbPackageName
+      { optPreprocessor = if optIsGenerated then generatedPreprocessor else damlPreprocessor (optUnitId options)
       , optGhcSession = getDamlGhcSession options
       , optPkgLocationOpts = Ghcide.IdePkgLocationOptions
           { optLocateHieFile = locateInPkgDb "hie"
@@ -96,7 +96,7 @@ getDamlGhcSession :: Options -> IO (FilePath -> Action HscEnvEq)
 getDamlGhcSession options@Options{..} = do
     findProjectRoot <- memoIO findProjectRoot
     getSession <- memoIO $ \mbProjectRoot -> do
-        let base = mkBaseUnits optMbPackageName
+        let base = mkBaseUnits (optUnitId options)
         optPackageImports <-
           if getInferDependantPackages optInferDependantPackages
           then do
@@ -310,7 +310,7 @@ adjustDynFlags options@Options{..} (GhcVersionHeader versionHeader) tmpDir dflag
       Haddock False -> flip gopt_set Opt_KeepRawTokenStream
   )
  $ setImports optImportPath
- $ setThisInstalledUnitId (maybe mainUnitId stringToUnitId optMbPackageName)
+ $ setThisInstalledUnitId (fromMaybe mainUnitId $ optUnitId options)
   -- once we have package imports working, we want to import the base package and set this to
   -- the default instead of always compiling in the context of ghc-prim.
   $ apply wopt_set wOptsSet
@@ -443,15 +443,15 @@ expandSdkPackages dars = do
 mkPackageFlag :: UnitId -> PackageFlag
 mkPackageFlag unitId = ExposePackage ("--package " <> unitIdString unitId) (UnitIdArg unitId) (ModRenaming True [])
 
-mkBaseUnits :: Maybe String -> [UnitId]
+mkBaseUnits :: Maybe UnitId -> [UnitId]
 mkBaseUnits optMbPackageName
-  | optMbPackageName == Just "daml-prim" =
+  | optMbPackageName == Just (stringToUnitId "daml-prim") =
       []
   | optMbPackageName == Just damlStdlib =
       [ stringToUnitId "daml-prim" ]
   | otherwise =
       [ stringToUnitId "daml-prim"
-      , stringToUnitId damlStdlib ]
+      , damlStdlib ]
 
 dependantUnitsFromDamlYaml :: FilePath -> IO [UnitId]
 dependantUnitsFromDamlYaml root = do

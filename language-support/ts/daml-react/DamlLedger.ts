@@ -1,12 +1,10 @@
 // Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import React, { useReducer, useMemo } from 'react';
-import { DamlLedgerContext } from './context';
-import * as LedgerStore from './ledgerStore';
+import React, { useMemo, useState } from 'react';
+import { DamlLedgerContext, DamlLedgerState } from './context';
 import Ledger from '@daml/ledger';
 import { Party } from '@daml/types';
-import { reducer } from './reducer';
 
 type Props = {
   token: string;
@@ -16,13 +14,14 @@ type Props = {
 }
 
 const DamlLedger: React.FC<Props> = ({token, httpBaseUrl, wsBaseUrl, party, children}) => {
-  const [store, dispatch] = useReducer(reducer, LedgerStore.empty());
-  const state = useMemo(() => ({
-    store,
-    dispatch,
+  const [reloadToken, setReloadToken] = useState(0);
+  const ledger = useMemo(() => new Ledger({token, httpBaseUrl, wsBaseUrl}), [token, httpBaseUrl, wsBaseUrl]);
+  const state: DamlLedgerState = useMemo(() => ({
+    reloadToken,
+    triggerReload: () => setReloadToken(x => x +1),
     party,
-    ledger: new Ledger({token, httpBaseUrl, wsBaseUrl}),
-  }), [party, token, httpBaseUrl, wsBaseUrl, store, dispatch]);
+    ledger,
+  }), [party, ledger, reloadToken]);
   return React.createElement(DamlLedgerContext.Provider, {value: state}, children);
 }
 

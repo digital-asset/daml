@@ -31,7 +31,7 @@ object MainWithEphemeralDirectory {
       SqlLedgerFactory.manipulateConfig(config)
 
     override def owner(
-        ledgerId: LedgerId,
+        initialLedgerId: Option[LedgerId],
         participantId: ParticipantId,
         config: ExtraConfig,
     )(
@@ -41,7 +41,7 @@ object MainWithEphemeralDirectory {
     ): ResourceOwner[SqlLedgerReaderWriter] = {
       val directory = Files.createTempDirectory("ledger-on-sql-ephemeral-")
       val jdbcUrl = config.jdbcUrl.map(_.replace(DirectoryPattern, directory.toString))
-      SqlLedgerFactory.owner(ledgerId, participantId, config.copy(jdbcUrl = jdbcUrl))
+      SqlLedgerFactory.owner(initialLedgerId, participantId, config.copy(jdbcUrl = jdbcUrl))
     }
   }
 }

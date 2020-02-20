@@ -57,7 +57,7 @@ sealed trait LedgerIdentityServiceITBaseDynamic
     with SuiteResourceManagementAroundEach {
 
   override protected def config: SandboxConfig =
-    super.config.copy(ledgerIdMode = LedgerIdMode.Dynamic())
+    super.config.copy(ledgerIdMode = LedgerIdMode.Dynamic)
 
   @volatile private var firstRunLedgerId: String = _
 
@@ -100,7 +100,7 @@ final class LedgerIdentityServicePostgresDynamicSharedPostgresIT
     super.config
       .copy(
         jdbcUrl = Some(postgresFixture.jdbcUrl),
-        ledgerIdMode = Option(firstRunLedgerId).fold[LedgerIdMode](LedgerIdMode.Dynamic())(id =>
+        ledgerIdMode = Option(firstRunLedgerId).fold[LedgerIdMode](LedgerIdMode.Dynamic)(id =>
           LedgerIdMode.Static(LedgerId(Ref.LedgerString.assertFromString(id))))
       )
 

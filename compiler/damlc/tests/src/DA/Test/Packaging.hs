@@ -15,6 +15,7 @@ import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSL.Char8
 import Data.List.Extra
 import Data.Maybe
+import Module (unitIdString)
 import System.Directory.Extra
 import System.Environment.Blank
 import System.Exit
@@ -660,9 +661,9 @@ darPackageIds fp = do
 
 numStablePackages :: LF.Version -> Int
 numStablePackages ver
-  | ver == LF.version1_6 = 14
-  | ver == LF.version1_7 = 15
-  | ver == LF.versionDev = 15
+  | ver == LF.version1_6 = 15
+  | ver == LF.version1_7 = 16
+  | ver == LF.versionDev = 16
   | otherwise = error $ "Unsupported LF version: " <> show ver
 
 dataDependencyTests :: FilePath -> FilePath -> FilePath -> FilePath -> TestTree
@@ -869,7 +870,7 @@ dataDependencyTests damlc repl davlDar oldProjDar = testGroup "Data Dependencies
             , "-o"
             , "FooGen.dalf"
             , "--package"
-            , damlStdlib <> " (DA.Internal.LF as CurrentSdk.DA.Internal.LF, DA.Internal.Prelude as CurrentSdk.DA.Internal.Prelude, DA.Internal.Template as CurrentSdk.DA.Internal.Template)"
+            , unitIdString damlStdlib <> " (DA.Internal.LF as CurrentSdk.DA.Internal.LF, DA.Internal.Prelude as CurrentSdk.DA.Internal.Prelude, DA.Internal.Template as CurrentSdk.DA.Internal.Template)"
             , "--package"
             , "daml-prim (DA.Types as CurrentSdk.DA.Types, GHC.Types as CurrentSdk.GHC.Types)"
             ]
@@ -1004,6 +1005,7 @@ dataDependencyTests damlc repl davlDar oldProjDar = testGroup "Data Dependencies
           writeFileUTF8 (proja </> "src" </> "A.daml") $ unlines
               [ "daml 1.2"
               , "module A where"
+              , "import DA.Record"
               -- test typeclass export
               , "class Foo t where"
               , "  foo : Int -> t"
@@ -1042,6 +1044,13 @@ dataDependencyTests damlc repl davlDar oldProjDar = testGroup "Data Dependencies
               , "newtype OptionalT f a = OptionalT { runOptionalT : f (Maybe a) }"
               , "instance ActionTrans OptionalT where"
               , "  lift f = OptionalT (fmap Just f)"
+
+              -- function that requires a HasField instance
+              -- (i.e. this tests type-level strings across data-dependencies)
+              , "usesHasField : (HasField \"a_field\" a b) => a -> b"
+              , "usesHasField = getField @\"a_field\""
+              , "usesHasFieldEmpty : (HasField \"\" a b) => a -> b"
+              , "usesHasFieldEmpty = getField @\"\""
               ]
           writeFileUTF8 (proja </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
@@ -1057,7 +1066,7 @@ dataDependencyTests damlc repl davlDar oldProjDar = testGroup "Data Dependencies
           writeFileUTF8 (projb </> "src" </> "B.daml") $ unlines
               [ "daml 1.2"
               , "module B where"
-              , "import A ( Foo (foo), Bar (..), usingFoo, Q (..), usingEq, R(R), P(P), AnyWrapper(..), FunT(..), OptionalT(..), ActionTrans(..) )"
+              , "import A ( Foo (foo), Bar (..), usingFoo, Q (..), usingEq, R(R), P(P), AnyWrapper(..), FunT(..), OptionalT(..), ActionTrans(..), usesHasField, usesHasFieldEmpty )"
               , "import DA.Assert"
               , "import DA.Record"
               , ""
@@ -1102,6 +1111,11 @@ dataDependencyTests damlc repl davlDar oldProjDar = testGroup "Data Dependencies
               -- ActionTrans
               , "trans = scenario do"
               , "  runOptionalT (lift [0]) === [Just 0]"
+              -- type-level string test
+              , "usesHasFieldIndirectly : HasField \"a_field\" a b => a -> b"
+              , "usesHasFieldIndirectly = usesHasField"
+              , "usesHasFieldEmptyIndirectly : HasField \"\" a b => a -> b"
+              , "usesHasFieldEmptyIndirectly = usesHasFieldEmpty"
               ]
           writeFileUTF8 (projb </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
@@ -1133,7 +1147,7 @@ dataDependencyTests damlc repl davlDar oldProjDar = testGroup "Data Dependencies
               , "build-options:"
               , " - --target=1.dev"
               , " - --package=daml-prim"
-              , " - --package=" <> damlStdlib
+              , " - --package=" <> unitIdString damlStdlib
               , " - --package=old-proj-0.0.1"
               ]
           writeFileUTF8 (tmpDir </> "Upgrade.daml") $ unlines

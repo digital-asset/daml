@@ -89,8 +89,8 @@ class IndexerIT extends AsyncWordSpec with Matchers with BeforeAndAfterEach {
     }
 
     "index the participant state, even on spurious failures" in {
-      val (participantState, server, ledgerDao) = initializeEverything((participantId, ledgerId) =>
-        failingOften(new InMemoryKVParticipantState(participantId, ledgerId)))
+      val (participantState, server, ledgerDao) = initializeEverything((ledgerId, participantId) =>
+        failingOften(new InMemoryKVParticipantState(ledgerId, participantId)))
 
       for {
         _ <- participantState
@@ -144,8 +144,8 @@ class IndexerIT extends AsyncWordSpec with Matchers with BeforeAndAfterEach {
 
     "stop when the kill switch is hit after a failure" in {
       val (participantState, server, ledgerDao) = initializeEverything(
-        (participantId, ledgerId) =>
-          failingOften(new InMemoryKVParticipantState(participantId, ledgerId)),
+        (ledgerId, participantId) =>
+          failingOften(new InMemoryKVParticipantState(ledgerId, participantId)),
         restartDelay = 10.seconds,
       )
 
@@ -185,13 +185,13 @@ class IndexerIT extends AsyncWordSpec with Matchers with BeforeAndAfterEach {
   }
 
   private def initializeEverything(
-      newParticipantState: (ParticipantId, LedgerString) => ParticipantState,
+      newParticipantState: (Option[LedgerId], ParticipantId) => ParticipantState,
       restartDelay: FiniteDuration = 100.millis,
   ): (ParticipantState, Resource[Unit], Resource[LedgerDao]) = {
     val id = UUID.randomUUID()
-    val participantId = ParticipantId.assertFromString(s"participant-$id")
     val ledgerId = LedgerString.assertFromString(s"ledger-$id")
-    val participantState = newParticipantState(participantId, ledgerId)
+    val participantId = ParticipantId.assertFromString(s"participant-$id")
+    val participantState = newParticipantState(Some(ledgerId), participantId)
     val jdbcUrl =
       s"jdbc:h2:mem:${getClass.getSimpleName.toLowerCase()}-$id;db_close_delay=-1;db_close_on_exit=false"
     LoggingContext.newLoggingContext { implicit logCtx =>

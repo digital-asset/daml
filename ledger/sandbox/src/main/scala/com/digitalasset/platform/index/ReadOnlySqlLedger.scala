@@ -11,6 +11,7 @@ import com.digitalasset.dec.{DirectExecutionContext => DEC}
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
+import com.digitalasset.platform.common.LedgerIdMismatchException
 import com.digitalasset.platform.store.dao.{
   DbDispatcher,
   JdbcLedgerDao,
@@ -18,6 +19,7 @@ import com.digitalasset.platform.store.dao.{
   MeteredLedgerReadDao
 }
 import com.digitalasset.platform.store.{BaseLedger, DbType, ReadOnlyLedger}
+import com.digitalasset.resources.ProgramResource.StartupException
 import com.digitalasset.resources.{Resource, ResourceOwner}
 import scalaz.syntax.tag._
 
@@ -31,7 +33,7 @@ object ReadOnlySqlLedger {
   //jdbcUrl must have the user/password encoded in form of: "jdbc:postgresql://localhost/test?user=fred&password=secret"
   def apply(
       jdbcUrl: String,
-      ledgerId: Option[LedgerId],
+      ledgerId: LedgerId,
       metrics: MetricRegistry,
   )(implicit mat: Materializer, logCtx: LoggingContext): Resource[ReadOnlyLedger] = {
     implicit val ec: ExecutionContext = mat.executionContext
@@ -60,59 +62,29 @@ object ReadOnlySqlLedger {
       *
       * @return a compliant read-only Ledger implementation
       */
-    def createReadOnlySqlLedger(initialLedgerId: Option[LedgerId])(
+    def createReadOnlySqlLedger(initialLedgerId: LedgerId)(
         implicit mat: Materializer
     ): Future[ReadOnlySqlLedger] = {
-
       implicit val ec: ExecutionContext = DEC
-
       for {
         ledgerId <- initialize(initialLedgerId)
         ledgerEnd <- ledgerDao.lookupLedgerEnd()
-      } yield {
-
-        new ReadOnlySqlLedger(ledgerId, ledgerEnd, ledgerDao)
-      }
+      } yield new ReadOnlySqlLedger(ledgerId, ledgerEnd, ledgerDao)
     }
 
-    private def initialize(initialLedgerId: Option[LedgerId]): Future[LedgerId] = {
-      // Note that here we only store the ledger entry and we do not update anything else, such as the
-      // headRef. We also are not concerns with heartbeats / checkpoints. This is OK since this initialization
-      // step happens before we start up the sql ledger at all, so it's running in isolation.
-
-      initialLedgerId match {
-        case Some(initialId) =>
-          ledgerDao
-            .lookupLedgerId()
-            .flatMap {
-              case Some(foundLedgerId) if foundLedgerId == initialId =>
-                ledgerFound(foundLedgerId)
-              case Some(foundLedgerId) =>
-                val errorMsg =
-                  s"Ledger id mismatch. Ledger id given ('$initialId') is not equal to the existing one ('$foundLedgerId')!"
-                logger.error(errorMsg)
-                Future.failed(new IllegalArgumentException(errorMsg))
-              case None =>
-                Future.successful(initialId)
-
-            }(DEC)
-
-        case None =>
-          logger.info("No ledger id given. Looking for existing ledger in database.")
-          ledgerDao
-            .lookupLedgerId()
-            .flatMap {
-              case Some(foundLedgerId) => ledgerFound(foundLedgerId)
-              case None =>
-                Future.failed(new IllegalStateException("Underlying ledger not yet initialized"))
-            }(DEC)
-      }
-    }
-
-    private def ledgerFound(foundLedgerId: LedgerId) = {
-      logger.info(s"Found existing ledger with id: ${foundLedgerId.unwrap}")
-      Future.successful(foundLedgerId)
-    }
+    private def initialize(initialLedgerId: LedgerId): Future[LedgerId] =
+      ledgerDao
+        .lookupLedgerId()
+        .flatMap {
+          case Some(foundLedgerId @ `initialLedgerId`) =>
+            logger.info(s"Found existing ledger with ID: ${foundLedgerId.unwrap}")
+            Future.successful(foundLedgerId)
+          case Some(foundLedgerId) =>
+            Future.failed(
+              new LedgerIdMismatchException(foundLedgerId, initialLedgerId) with StartupException)
+          case None =>
+            Future.successful(initialLedgerId)
+        }(DEC)
   }
 
 }

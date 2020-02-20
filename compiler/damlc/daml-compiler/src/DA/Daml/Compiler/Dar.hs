@@ -17,6 +17,7 @@ module DA.Daml.Compiler.Dar
 
 import qualified "zip" Codec.Archive.Zip as Zip
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
+import Control.Applicative
 import Control.Exception (assert)
 import Control.Monad.Extra
 import Control.Monad.IO.Class
@@ -96,10 +97,10 @@ newtype PackageSdkVersion = PackageSdkVersion
 
 -- | daml.yaml config fields specific to packaging.
 data PackageConfigFields = PackageConfigFields
-    { pName :: String
+    { pName :: LF.PackageName
     , pSrc :: String
     , pExposedModules :: Maybe [String]
-    , pVersion :: Maybe String
+    , pVersion :: Maybe LF.PackageVersion
     , pDependencies :: [String]
     , pDataDependencies :: [String]
     , pSdkVersion :: PackageSdkVersion
@@ -119,7 +120,8 @@ buildDar service pkgConf@PackageConfigFields {..} ifDir dalfInput = do
         then do
             bytes <- BSL.readFile pSrc
             -- in the dalfInput case we interpret pSrc as the filepath pointing to the dalf.
-            pure $ Just $ createArchive pkgConf "" bytes [] (toNormalizedFilePath ".") [] [] []
+            -- Note that the package id is obviously wrong but this feature is not something we expose to users.
+            pure $ Just $ createArchive pkgConf (LF.PackageId "") bytes [] (toNormalizedFilePath ".") [] [] []
         -- We need runActionSync here to ensure that diagnostics are printed to the terminal.
         -- Otherwise runAction can return before the diagnostics have been printed and we might die
         -- without ever seeing diagnostics.
@@ -130,7 +132,7 @@ buildDar service pkgConf@PackageConfigFields {..} ifDir dalfInput = do
                  lfVersion <- lift getDamlLfVersion
                  pkg <- case optShakeFiles opts of
                      Nothing -> mergePkgs lfVersion <$> usesE GeneratePackage files
-                     Just _ -> generateSerializedPackage pName files
+                     Just _ -> generateSerializedPackage (pkgNameVersion pName pVersion) files
 
                  MaybeT $ finalPackageCheck (toNormalizedFilePath pSrc) pkg
 
@@ -143,7 +145,7 @@ buildDar service pkgConf@PackageConfigFields {..} ifDir dalfInput = do
                      error $
                      "The following modules are declared in exposed-modules but are not part of the DALF: " <>
                      show (S.toList missingExposed)
-                 let (dalf, pkgId) = encodeArchiveAndHash pkg
+                 let (dalf, LF.PackageId -> pkgId) = encodeArchiveAndHash pkg
                  -- For now, we don’t include ifaces and hie files in incremental mode.
                  -- The main reason for this is that writeIfacesAndHie is not yet ported to incremental mode
                  -- but it also makes creation of the archive slightly faster and those files are only required
@@ -158,13 +160,13 @@ buildDar service pkgConf@PackageConfigFields {..} ifDir dalfInput = do
                          [ (T.pack $ unitIdString unitId, LF.dalfPackageBytes pkg, LF.dalfPackageId pkg)
                          | (unitId, pkg) <- Map.toList dalfDependencies0
                          ]
-                 confFile <- liftIO $ mkConfFile pkgConf pkgModuleNames (T.unpack pkgId)
+                 confFile <- liftIO $ mkConfFile pkgConf pkgModuleNames pkgId
                  let dataFiles = [confFile]
                  srcRoot <- getSrcRoot pSrc
                  pure $
                      createArchive
                          pkgConf
-                         (T.unpack pkgId)
+                         pkgId
                          dalf
                          dalfDependencies
                          srcRoot
@@ -226,8 +228,9 @@ mergePkgs ver pkgs =
              LF.Package
                  { LF.packageLfVersion = ver
                  , LF.packageModules = LF.packageModules pkg1 `NM.union` LF.packageModules pkg2
+                 , LF.packageMetadata = LF.packageMetadata pkg1 <|> LF.packageMetadata pkg2
                  })
-        LF.Package { LF.packageLfVersion = ver, LF.packageModules = NM.empty }
+        LF.Package { LF.packageLfVersion = ver, LF.packageModules = NM.empty, LF.packageMetadata = Nothing }
         pkgs
 
 -- | Find all DAML files below a given source root. If the source root is a file we interpret it as
@@ -263,44 +266,32 @@ getDamlRootFiles srcRoot = do
         then liftIO $ damlFilesInDir srcRoot
         else pure [toNormalizedFilePath srcRoot]
 
-fullPkgName :: String -> Maybe String -> String -> String
-fullPkgName n mbV h =
-    case mbV of
-        Nothing -> n <> "-" <> h
-        Just v -> n <> "-" <> v <> "-" <> h
-
-pkgNameVersion :: String -> Maybe String -> String
-pkgNameVersion n mbV =
-    case mbV of
-        Nothing -> n
-        Just v -> n ++ "-" ++ v
-
 mkConfFile ::
-       PackageConfigFields -> [String] -> String -> IO (String, BS.ByteString)
+       PackageConfigFields -> [String] -> LF.PackageId -> IO (String, BS.ByteString)
 mkConfFile PackageConfigFields {..} pkgModuleNames pkgId = do
     deps <- mapM darUnitId =<< expandSdkPackages pDependencies
     pure (confName, confContent deps)
   where
     darUnitId "daml-stdlib" = pure damlStdlib
-    darUnitId "daml-prim" = pure "daml-prim"
+    darUnitId "daml-prim" = pure $ stringToUnitId "daml-prim"
     darUnitId f
       -- This case is used by data-dependencies. DALF names are not affected by
       -- -o so this should be fine.
-      | takeExtension f == ".dalf" = pure $ dropExtension $ takeFileName f
+      | takeExtension f == ".dalf" = pure $ stringToUnitId $ dropExtension $ takeFileName f
     darUnitId darPath = do
         archive <- ZipArchive.toArchive . BSL.fromStrict  <$> BS.readFile darPath
         manifest <- either (\err -> fail $ "Failed to read manifest of " <> darPath <> ": " <> err) pure $ readDalfManifest archive
-        maybe (fail $ "Missing 'Name' attribute in manifest of " <> darPath) pure (packageName manifest)
-    confName = pkgNameVersion pName pVersion ++ ".conf"
+        maybe (fail $ "Missing 'Name' attribute in manifest of " <> darPath) (pure . stringToUnitId) (packageName manifest)
+    confName = unitIdString (pkgNameVersion pName pVersion) ++ ".conf"
     key = fullPkgName pName pVersion pkgId
     confContent deps =
         BSC.toStrict $
         BSC.pack $
         unlines $
-            [ "name: " ++ pName
-            , "id: " ++ pkgNameVersion pName pVersion
+            [ "name: " ++ T.unpack (LF.unPackageName pName)
+            , "id: " ++ unitIdString (pkgNameVersion pName pVersion)
             ]
-            ++ ["version: " ++ v | Just v <- [pVersion] ]
+            ++ ["version: " ++ T.unpack v | Just (LF.PackageVersion v) <- [pVersion] ]
             ++
             [ "exposed: True"
             , "exposed-modules: " ++
@@ -308,7 +299,7 @@ mkConfFile PackageConfigFields {..} pkgModuleNames pkgId = do
             , "import-dirs: ${pkgroot}" ++ "/" ++ key -- we really want '/' here
             , "library-dirs: ${pkgroot}" ++ "/" ++ key
             , "data-dir: ${pkgroot}" ++ "/" ++ key
-            , "depends: " ++ unwords deps
+            , "depends: " ++ unwords (map unitIdString deps)
             ]
 
 sinkEntryDeterministic
@@ -327,7 +318,7 @@ sinkEntryDeterministic compression sink sel = do
 -- | Helper to bundle up all files into a DAR.
 createArchive ::
        PackageConfigFields
-    -> String
+    -> LF.PackageId
     -> BSL.ByteString -- ^ DALF
     -> [(T.Text, BS.ByteString, LF.PackageId)] -- ^ DALF dependencies
     -> NormalizedFilePath -- ^ Source root directory
@@ -349,7 +340,7 @@ createArchive PackageConfigFields {..} pkgId dalf dalfDependencies srcRoot fileD
                     (ifaceDir </> fromNormalizedFilePath srcRoot)
         entry <- Zip.mkEntrySelector $ pkgName </> fromNormalizedFilePath (makeRelative' ifaceRoot mPath)
         sinkEntryDeterministic Zip.Deflate (sourceFile $ fromNormalizedFilePath mPath) entry
-    let dalfName = pkgName </> pkgNameVersion pName pVersion <> "-" <> pkgId <.> "dalf"
+    let dalfName = pkgName </> fullPkgName pName pVersion pkgId <.> "dalf"
     let dependencies =
             [ (pkgName </> T.unpack depName <> "-" <> (T.unpack $ LF.unPackageId depPkgId) <> ".dalf", BSL.fromStrict bs)
             | (depName, bs, depPkgId) <- dalfDependencies
@@ -375,7 +366,7 @@ createArchive PackageConfigFields {..} pkgId dalf dalfDependencies srcRoot fileD
         map (breakAt72Bytes . BSLUTF8.fromString)
             [ "Manifest-Version: 1.0"
             , "Created-By: damlc"
-            , "Name: " <> pkgNameVersion pName pVersion
+            , "Name: " <> unitIdString (pkgNameVersion pName pVersion)
             , "Sdk-Version: " <> unPackageSdkVersion pSdkVersion
             , "Main-Dalf: " <> toPosixFilePath location
             , "Dalfs: " <> intercalate ", " (map toPosixFilePath dalfs)

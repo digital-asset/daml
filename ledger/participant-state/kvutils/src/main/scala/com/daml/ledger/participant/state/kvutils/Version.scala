@@ -7,6 +7,10 @@ package com.daml.ledger.participant.state.kvutils
   * and the changelog of kvutils.
   *
   * Changes:
+  * [after 100.13.52]: *BACKWARDS INCOMPATIBLE*
+  * - Use hash for serializing contract keys instead of serializing the value, as
+  *   the value serialization is not guaranteed to be stable over time.
+  *
   * [after 100.13.39]:
   * - logEntryToAsyncResponse has now been removed as all requests
   *   now have event based responses.
@@ -51,5 +55,5 @@ object Version {
     * when the protobuf default value for a field is insufficient and must be filled in during decoding.
     * Handling of older versions is handled by [[Envelope.open]] which performs the migration to latest version.
     */
-  val version: Long = 0
+  val version: Long = 1
 }

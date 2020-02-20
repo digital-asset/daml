@@ -1646,6 +1646,7 @@ private class JdbcLedgerDao(
     BatchSql(query, params.head, params.drop(1).toArray: _*).execute()
   }
 
+  override val completions: CommandCompletionsReader[LedgerOffset] = CommandCompletionsReader(this)
 }
 
 object JdbcLedgerDao {

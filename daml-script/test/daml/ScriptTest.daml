@@ -162,3 +162,9 @@ partyIdHintTest = do
   carol <- allocatePartyWithHint "carol" (PartyIdHint "carol")
   dan <- allocatePartyWithHint "dan" (PartyIdHint "dan")
   pure (carol, dan)
+
+auth : (Party, Party) -> Script ()
+auth (alice, bob) = do
+  proposal <- submit alice $ createCmd (TProposal alice bob)
+  _ <- submit bob $ exerciseCmd proposal Accept
+  pure ()

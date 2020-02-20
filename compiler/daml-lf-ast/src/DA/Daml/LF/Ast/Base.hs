@@ -11,6 +11,7 @@ module DA.Daml.LF.Ast.Base(
     module DA.Daml.LF.Ast.Base
     ) where
 
+import Data.Aeson
 import Data.Hashable
 import Data.Data
 import GHC.Generics(Generic)
@@ -106,6 +107,20 @@ newtype ExprValName = ExprValName{unExprValName :: T.Text}
 newtype PartyLiteral = PartyLiteral{unPartyLiteral :: T.Text}
     deriving stock (Eq, Data, Generic, Ord, Show)
     deriving newtype (Hashable, NFData)
+
+-- | Human-readable name of a package. Must match the regex
+--
+-- > [a-zA-Z0-9_-]+
+newtype PackageName = PackageName{unPackageName :: T.Text}
+    deriving stock (Eq, Data, Generic, Ord, Show)
+    deriving newtype (Hashable, NFData, FromJSON)
+
+-- | Human-readable version of a package. Must match the regex
+--
+-- > [0-9]+(\.[0-9]+)*
+newtype PackageVersion = PackageVersion{unPackageVersion :: T.Text}
+    deriving stock (Eq, Data, Generic, Ord, Show)
+    deriving newtype (Hashable, NFData, FromJSON)
 
 -- | Reference to a package.
 data PackageRef
@@ -839,12 +854,20 @@ data Module = Module
   }
   deriving (Eq, Data, Generic, NFData, Show)
 
+
+data PackageMetadata = PackageMetadata
+    { packageName :: PackageName
+    , packageVersion :: PackageVersion
+    } deriving (Eq, Data, Generic, NFData, Show)
+
 -- | A package.
 data Package = Package
     { packageLfVersion :: Version
     , packageModules :: NM.NameMap Module
+    , packageMetadata :: Maybe PackageMetadata
     }
   deriving (Eq, Data, Generic, NFData, Show)
+
 
 -- | Type synonym for a reference to an LF value.
 type ValueRef = Qualified ExprValName

@@ -1405,16 +1405,34 @@ qualify env m x = do
 
 qDA_Types :: Env -> a -> ConvertM (Qualified a)
 qDA_Types env a = do
-  pkgRef <- packageNameToPkgRef env "daml-prim"
+  pkgRef <- packageNameToPkgRef env primUnitId
   pure $ rewriteStableQualified env $ Qualified pkgRef (mkModName ["DA", "Types"]) a
 
--- | Types of a kind not supported in DAML-LF, e.g., Symbol or the DataKinds stuff from GHC.Generics
--- are translated to a special uninhabited Erased type. This allows us to easily catch these cases in
--- data-dependencies.
+-- | Types of a kind not supported in DAML-LF, e.g., the DataKinds stuff from GHC.Generics
+-- are translated to a special uninhabited Erased type. This allows us to easily catch these
+-- cases in data-dependencies.
 erasedTy :: Env -> ConvertM LF.Type
 erasedTy env = do
-    pkgRef <- packageNameToPkgRef env "daml-prim"
+    pkgRef <- packageNameToPkgRef env primUnitId
     pure $ TCon $ rewriteStableQualified env (Qualified pkgRef (mkModName ["DA", "Internal", "Erased"]) (mkTypeCon ["Erased"]))
+
+-- | Type-level strings are represented in DAML-LF via the PromotedText type. This is
+-- For example, the type-level string @"foo"@ will be represented by the type
+-- @PromotedText {"_foo": Unit}@. This allows us to preserve all the information we need
+-- to reconstruct `HasField` instances in data-dependencies without resorting to
+-- name-based hacks.
+--
+-- Note: It's fine to put arbitrary non-empty strings in field names, because we mangle
+-- the field names in daml-lf-proto to encode undesired characters. We later reconstruct
+-- the original string during unmangling. See DA.Daml.LF.Mangling for more details.
+promotedTextTy :: Env -> T.Text -> ConvertM LF.Type
+promotedTextTy env text = do
+    pkgRef <- packageNameToPkgRef env primUnitId
+    pure $ TApp
+        (TCon . rewriteStableQualified env $ Qualified pkgRef
+            (mkModName ["DA", "Internal", "PromotedText"])
+            (mkTypeCon ["PromotedText"]))
+        (TStruct [(FieldName ("_" <> text), TUnit)])
 
 -- | Rewrite an a qualified name into a reference into one of the hardcoded
 -- stable packages if there is one.
@@ -1452,9 +1470,8 @@ nameToPkgRef env x =
     thisUnitId = envModuleUnitId env
     pkgMap = envPkgMap env
 
-packageNameToPkgRef :: Env -> String -> ConvertM LF.PackageRef
-packageNameToPkgRef env =
-  convertUnitId (envModuleUnitId env) (envPkgMap env) . GHC.stringToUnitId
+packageNameToPkgRef :: Env -> UnitId -> ConvertM LF.PackageRef
+packageNameToPkgRef env = convertUnitId (envModuleUnitId env) (envPkgMap env)
 
 convertTyCon :: Env -> TyCon -> ConvertM LF.Type
 convertTyCon env t
@@ -1557,8 +1574,8 @@ convertType env = go env
     go env t | Just v <- getTyVar_maybe t
         = TVar . fst <$> convTypeVar env v
 
-    go _ t | Just s <- isStrLitTy t
-        = erasedTy env
+    go env t | Just s <- isStrLitTy t
+        = promotedTextTy env (fsToText s)
 
     go env t | Just m <- isNumLitTy t
         = case typeLevelNatE m of

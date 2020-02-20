@@ -35,7 +35,7 @@ import SdkVersion
 
 -- | Generate a generic instance for data definitions with a `deriving Generic` or `deriving
 -- Generic1` derivation.
-genericsPreprocessor :: Maybe String -> ParsedSource -> ParsedSource
+genericsPreprocessor :: Maybe UnitId -> ParsedSource -> ParsedSource
 genericsPreprocessor mbPkgName (L l src) =
     L l
         src
@@ -44,9 +44,11 @@ genericsPreprocessor mbPkgName (L l src) =
                   [ generateGenericInstanceFor
                       genericsType
                       name
-                      (fromMaybe "Main" mbPkgName)
-                      -- We check in the preprocessor that this error case never happens.
+                      (fromMaybe (stringToUnitId "unknown-package") mbPkgName)
+                      -- In `damlc build` and `damlc package` we always have a unit id, this is only for
+                      -- `damlc compile`.
                       (fromMaybe (error "Missing module name") $ hsmodName src)
+                      -- We check in the preprocessor that the module name is always present.
                       tys
                       dataDef
                   | (genericsType, name, tys, dataDef) <- dataDeclsWithGenericDeriv
@@ -122,7 +124,7 @@ extError = error "Can't generate generic instances for extended AST"
 -- definitions coming from ghc-parser PrelNames.
 
 stdlibUnitId :: UnitId
-stdlibUnitId = fsToUnitId (fsLit damlStdlib)
+stdlibUnitId = fsToUnitId (fsLit $ unitIdString damlStdlib)
 
 mkStdlibModule :: FastString -> Module
 mkStdlibModule m = mkModule stdlibUnitId (mkModuleNameFS m)
@@ -165,7 +167,7 @@ _to1_RDR   = varQual_RDR gHC_GENERICS (fsLit "to1")
 generateGenericInstanceFor ::
        OccName
     -> Located (IdP GhcPs)
-    -> String
+    -> UnitId
     -> Located ModuleName
     -> LHsQTyVars GhcPs
     -> HsDataDefn GhcPs
@@ -281,7 +283,7 @@ generateGenericInstanceFor genClass name@(L loc _n) pkgName modName tyVars dataD
     ms0 = mkGenCon0 "MetaSel0"
     plus = mkGenTy sumTyConName
     times = mkGenTy prodTyConName
-    metaDataTy :: String -> String -> String -> Bool -> LHsType GhcPs
+    metaDataTy :: String -> String -> UnitId -> Bool -> LHsType GhcPs
     metaDataTy name mod pkg isNewType =
         mkHsAppTy md (metaDataTy0 name mod pkg isNewType)
     metaConsTy :: LConDecl GhcPs -> LHsType GhcPs
@@ -292,7 +294,7 @@ generateGenericInstanceFor genClass name@(L loc _n) pkgName modName tyVars dataD
             md0
             [ mkStrLit name
             , mkStrLit mod
-            , mkStrLit pkg
+            , mkStrLit (unitIdString pkg)
             , if isNewType
                   then mkPromotedTy gHC_TYPES "True"
                   else mkPromotedTy gHC_TYPES "False"

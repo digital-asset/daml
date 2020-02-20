@@ -70,7 +70,7 @@ initWorld :: [ExternalPackage] -> Version -> World
 initWorld importedPkgs version =
   World
     (foldl' insertPkg HMS.empty importedPkgs)
-    (Package version NM.empty)
+    (Package version NM.empty Nothing)
   where
     insertPkg hms (ExternalPackage pkgId pkg) = HMS.insert pkgId pkg hms
 
@@ -94,7 +94,7 @@ data LookupError
 
 lookupModule :: Qualified a -> World -> Either LookupError Module
 lookupModule (Qualified pkgRef modName _) (World importedPkgs selfPkg) = do
-  Package _version mods <- case pkgRef of
+  Package { packageModules = mods } <- case pkgRef of
     PRSelf -> pure selfPkg
     PRImport pkgId ->
       case HMS.lookup pkgId importedPkgs of

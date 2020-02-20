@@ -84,8 +84,8 @@ private[kvutils] object InputsAndEffects {
 
           case create: NodeCreate[ContractId, VersionedValue[ContractId]] =>
             create.key.foreach { keyWithMaintainers =>
-              inputs += contractKeyToStateKey(
-                GlobalKey(create.coinst.template, forceNoContractIds(keyWithMaintainers.key)))
+              inputs += globalKeyToStateKey(
+                GlobalKey(create.coinst.template, forceNoContractIds(keyWithMaintainers.key.value)))
             }
 
           case exe: NodeExercises[_, ContractId, _] =>
@@ -95,8 +95,8 @@ private[kvutils] object InputsAndEffects {
             // We need both the contract key state and the contract state. The latter is used to verify
             // that the submitter can access the contract.
             lookup.result.foreach(addContractInput)
-            inputs += contractKeyToStateKey(
-              GlobalKey(lookup.templateId, forceNoContractIds(lookup.key.key)))
+            inputs += globalKeyToStateKey(
+              GlobalKey(lookup.templateId, forceNoContractIds(lookup.key.key.value)))
         }
 
         inputs ++= partyInputs(node.informeesOfNode)
@@ -123,10 +123,10 @@ private[kvutils] object InputsAndEffects {
                 .fold(effects.updatedContractKeys)(
                   keyWithMaintainers =>
                     effects.updatedContractKeys +
-                      (contractKeyToStateKey(
+                      (globalKeyToStateKey(
                         GlobalKey(
                           create.coinst.template,
-                          forceNoContractIds(keyWithMaintainers.key))) ->
+                          forceNoContractIds(keyWithMaintainers.key.value))) ->
                         DamlContractKeyState.newBuilder
                           .setContractId(encodeRelativeContractId(
                             entryId,
@@ -148,8 +148,8 @@ private[kvutils] object InputsAndEffects {
                   .fold(effects.updatedContractKeys)(
                     key =>
                       effects.updatedContractKeys +
-                        (contractKeyToStateKey(
-                          GlobalKey(exe.templateId, forceNoContractIds(key.key))) ->
+                        (globalKeyToStateKey(
+                          GlobalKey(exe.templateId, forceNoContractIds(key.key.value))) ->
                           DamlContractKeyState.newBuilder.build)
                   )
               )

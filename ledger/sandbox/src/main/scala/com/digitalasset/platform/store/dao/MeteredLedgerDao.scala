@@ -117,6 +117,8 @@ class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegistry)
       startInclusive: LedgerOffset,
       endExclusive: LedgerOffset): Source[(LedgerOffset, ConfigurationEntry), NotUsed] =
     ledgerDao.getConfigurationEntries(startInclusive, endExclusive)
+
+  override val completions: CommandCompletionsReader[LedgerOffset] = ledgerDao.completions
 }
 
 class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: MetricRegistry)

@@ -52,7 +52,7 @@ object SandboxConfig {
       commandConfig = CommandConfiguration.default,
       tlsConfig = None,
       scenario = None,
-      ledgerIdMode = LedgerIdMode.Dynamic(),
+      ledgerIdMode = LedgerIdMode.Dynamic,
       maxInboundMessageSize = DefaultMaxInboundMessageSize,
       jdbcUrl = None,
       eagerPackageLoading = false,

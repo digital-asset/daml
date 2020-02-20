@@ -3,11 +3,13 @@
 
 package com.digitalasset.daml.lf.engine.script.test
 
+import java.nio.file.{Path, Paths}
 import java.io.File
 import java.time.Duration
 import scalaz.syntax.traverse._
 import spray.json._
 
+import com.digitalasset.auth.TokenHolder
 import com.digitalasset.daml.lf.archive.Dar
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.archive.Decode
@@ -21,7 +23,11 @@ import com.digitalasset.ledger.api.refinements.ApiTypes.{ApplicationId}
 
 import com.digitalasset.daml.lf.engine.script._
 
-case class Config(ledgerPort: Int, darPath: File, wallclockTime: Boolean)
+case class Config(
+    ledgerPort: Int,
+    darPath: File,
+    wallclockTime: Boolean,
+    accessTokenFile: Option[Path])
 
 case class Test0(dar: Dar[(PackageId, Package)], runner: TestRunner) {
   val scriptId = Identifier(dar.main._1, QualifiedName.assertFromString("ScriptTest:test0"))
@@ -264,6 +270,20 @@ case class ScriptExample(dar: Dar[(PackageId, Package)], runner: TestRunner) {
   }
 }
 
+case class TestAuth(dar: Dar[(PackageId, Package)], runner: TestRunner) {
+  val scriptId = Identifier(dar.main._1, QualifiedName.assertFromString("ScriptTest:auth"))
+  def runTests(): Unit = {
+    runner.genericTest(
+      "auth",
+      scriptId,
+      Some(JsObject(("_1", JsString("Alice")), ("_2", JsString("Bob")))), {
+        case SUnit => Right(())
+        case v => Left(s"Expected SInt but got $v")
+      }
+    )
+  }
+}
+
 object SingleParticipant {
 
   private val configParser = new scopt.OptionParser[Config]("daml_script_test") {
@@ -282,12 +302,16 @@ object SingleParticipant {
         c.copy(wallclockTime = true)
       }
       .text("Use wall clock time (UTC). When not provided, static time is used.")
+    opt[String]("access-token-file")
+      .action { (f, c) =>
+        c.copy(accessTokenFile = Some(Paths.get(f)))
+      }
   }
 
   private val applicationId = ApplicationId("DAML Script Tests")
 
   def main(args: Array[String]): Unit = {
-    configParser.parse(args, Config(0, null, false)) match {
+    configParser.parse(args, Config(0, null, false, None)) match {
       case None =>
         sys.exit(1)
       case Some(config) =>
@@ -300,18 +324,28 @@ object SingleParticipant {
         val participantParams =
           Participants(Some(ApiParameters("localhost", config.ledgerPort)), Map.empty, Map.empty)
 
-        val runner = new TestRunner(participantParams, dar, config.wallclockTime)
-        Test0(dar, runner).runTests()
-        Test1(dar, runner).runTests()
-        Test2(dar, runner).runTests()
-        Test3(dar, runner).runTests()
-        Test4(dar, runner).runTests()
-        TestKey(dar, runner).runTests()
-        TestCreateAndExercise(dar, runner).runTests()
-        Time(dar, runner).runTests()
-        Sleep(dar, runner).runTests()
-        PartyIdHintTest(dar, runner).runTests()
-        ScriptExample(dar, runner).runTests()
+        val tokenHolder = config.accessTokenFile.map(new TokenHolder(_))
+
+        val runner =
+          new TestRunner(participantParams, dar, config.wallclockTime, tokenHolder.flatMap(_.token))
+        config.accessTokenFile match {
+          case None =>
+            Test0(dar, runner).runTests()
+            Test1(dar, runner).runTests()
+            Test2(dar, runner).runTests()
+            Test3(dar, runner).runTests()
+            Test4(dar, runner).runTests()
+            TestKey(dar, runner).runTests()
+            TestCreateAndExercise(dar, runner).runTests()
+            Time(dar, runner).runTests()
+            Sleep(dar, runner).runTests()
+            PartyIdHintTest(dar, runner).runTests()
+            ScriptExample(dar, runner).runTests()
+          case Some(_) =>
+            // We can’t test much with auth since most of our tests rely on party allocation and being
+            // able to act as the corresponding party.
+            TestAuth(dar, runner).runTests()
+        }
     }
   }
 }
