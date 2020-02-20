@@ -20,6 +20,7 @@ import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.digitalasset.logging.LoggingContext
 import com.digitalasset.logging.LoggingContext.newLoggingContext
+import com.digitalasset.platform.common.LedgerIdMismatchException
 import com.digitalasset.resources.ResourceOwner
 import org.scalatest.Inside._
 import org.scalatest.Matchers._
@@ -39,6 +40,10 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
 
   private implicit val ec: ExecutionContext = ExecutionContext.global
 
+  // Can be used by [[participantStateFactory]] to get a stable ID throughout the test.
+  // For example, for initializing a database.
+  private var testId: String = _
+
   private var rt: Timestamp = _
 
   // This can be overriden by tests for ledgers that don't start at 0.
@@ -48,25 +53,27 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
   protected val isPersistent: Boolean = true
 
   protected def participantStateFactory(
+      ledgerId: Option[LedgerId],
       participantId: ParticipantId,
-      ledgerId: Ref.LedgerString,
+      testId: String,
   )(implicit logCtx: LoggingContext): ResourceOwner[ParticipantState]
 
-  private def participantState: ResourceOwner[ParticipantState] = {
-    val ledgerId = newLedgerId()
-    newParticipantState(participantId, ledgerId)
-  }
+  private def participantState: ResourceOwner[ParticipantState] =
+    newParticipantState(newLedgerId())
 
-  private def newParticipantState(
-      participantId: ParticipantId,
-      ledgerId: Ref.LedgerString,
-  ): ResourceOwner[ParticipantState] =
+  private def newParticipantState(): ResourceOwner[ParticipantState] =
     newLoggingContext { implicit logCtx =>
-      participantStateFactory(participantId, ledgerId)
+      participantStateFactory(None, participantId, testId)
+    }
+
+  private def newParticipantState(ledgerId: LedgerId): ResourceOwner[ParticipantState] =
+    newLoggingContext { implicit logCtx =>
+      participantStateFactory(Some(ledgerId), participantId, testId)
     }
 
   override protected def beforeEach(): Unit = {
     super.beforeEach()
+    testId = UUID.randomUUID().toString
     rt = Timestamp.assertFromInstant(Clock.systemUTC().instant())
   }
 
@@ -76,7 +83,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
   implementationName should {
     "return initial conditions" in {
       val ledgerId = newLedgerId()
-      newParticipantState(participantId, ledgerId).use { ps =>
+      newParticipantState(ledgerId).use { ps =>
         for {
           conditions <- ps
             .getLedgerInitialConditions()
@@ -611,17 +618,50 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
     }
 
     if (isPersistent) {
+      "store the ledger ID and re-use it" in {
+        val ledgerId = newLedgerId()
+        for {
+          retrievedLedgerId1 <- newParticipantState(ledgerId).use { ps =>
+            ps.getLedgerInitialConditions().map(_.ledgerId).runWith(Sink.head)
+          }
+          retrievedLedgerId2 <- newParticipantState().use { ps =>
+            ps.getLedgerInitialConditions().map(_.ledgerId).runWith(Sink.head)
+          }
+        } yield {
+          retrievedLedgerId1 should be(ledgerId)
+          retrievedLedgerId2 should be(ledgerId)
+        }
+      }
+
+      "reject a different ledger ID" in {
+        val ledgerId = newLedgerId()
+        val attemptedLedgerId = newLedgerId()
+        for {
+          _ <- newParticipantState(ledgerId).use { _ =>
+            Future.unit
+          }
+          exception <- newParticipantState(attemptedLedgerId).use { _ =>
+            Future.unit
+          }.failed
+        } yield {
+          exception should be(a[LedgerIdMismatchException])
+          val mismatchException = exception.asInstanceOf[LedgerIdMismatchException]
+          mismatchException.existingLedgerId should be(ledgerId)
+          mismatchException.providedLedgerId should be(attemptedLedgerId)
+        }
+      }
+
       "resume where it left off on restart" in {
         val ledgerId = newLedgerId()
         for {
-          _ <- newParticipantState(participantId, ledgerId).use { ps =>
+          _ <- newParticipantState(ledgerId).use { ps =>
             for {
               _ <- ps
                 .allocateParty(None, Some("party-1"), newSubmissionId())
                 .toScala
             } yield ()
           }
-          updates <- newParticipantState(participantId, ledgerId).use { ps =>
+          updates <- newParticipantState().use { ps =>
             for {
               _ <- ps
                 .allocateParty(None, Some("party-2"), newSubmissionId())
@@ -664,8 +704,7 @@ object ParticipantStateIntegrationSpecBase {
   private val emptyTransaction: SubmittedTransaction =
     GenTransaction(HashMap.empty, ImmArray.empty, Some(InsertOrdSet.empty))
 
-  private val participantId: ParticipantId =
-    Ref.ParticipantId.assertFromString("in-memory-participant")
+  private val participantId: ParticipantId = Ref.ParticipantId.assertFromString("test-participant")
   private val sourceDescription = Some("provided by test")
 
   private val darReader = DarReader { case (_, is) => Try(DamlLf.Archive.parseFrom(is)) }
@@ -674,10 +713,10 @@ object ParticipantStateIntegrationSpecBase {
 
   private val alice = Ref.Party.assertFromString("alice")
 
-  private def newLedgerId(): Ref.LedgerString =
+  private def newLedgerId(): LedgerId =
     Ref.LedgerString.assertFromString(s"ledger-${UUID.randomUUID()}")
 
-  private def newSubmissionId(): Ref.LedgerString =
+  private def newSubmissionId(): SubmissionId =
     Ref.LedgerString.assertFromString(s"submission-${UUID.randomUUID()}")
 
   private def transactionMeta(let: Timestamp) = TransactionMeta(

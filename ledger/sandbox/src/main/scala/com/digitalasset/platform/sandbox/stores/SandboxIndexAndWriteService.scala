@@ -22,11 +22,12 @@ import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data.{ImmArray, Time}
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
-import com.digitalasset.ledger.api.domain.{ParticipantId => _, _}
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.logging.LoggingContext
+import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.index.LedgerBackedIndexService
 import com.digitalasset.platform.packages.InMemoryPackageStore
+import com.digitalasset.platform.sandbox.LedgerIdGenerator
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.digitalasset.platform.sandbox.stores.ledger._
 import com.digitalasset.platform.sandbox.stores.ledger.inmemory.InMemoryLedger
@@ -51,7 +52,7 @@ object SandboxIndexAndWriteService {
   private val logger = LoggerFactory.getLogger(SandboxIndexAndWriteService.getClass)
 
   def postgres(
-      ledgerId: LedgerId,
+      ledgerId: LedgerIdMode,
       participantId: ParticipantId,
       jdbcUrl: String,
       timeModel: ParticipantState.TimeModel,
@@ -66,7 +67,7 @@ object SandboxIndexAndWriteService {
     SqlLedger
       .owner(
         jdbcUrl,
-        Some(ledgerId),
+        ledgerId,
         participantId,
         timeProvider,
         acs,
@@ -80,7 +81,7 @@ object SandboxIndexAndWriteService {
         owner(MeteredLedger(ledger, metrics), participantId, timeModel, timeProvider))
 
   def inMemory(
-      ledgerId: LedgerId,
+      ledgerId: LedgerIdMode,
       participantId: ParticipantId,
       timeModel: ParticipantState.TimeModel,
       timeProvider: TimeProvider,
@@ -90,7 +91,13 @@ object SandboxIndexAndWriteService {
       metrics: MetricRegistry,
   )(implicit mat: Materializer): ResourceOwner[IndexAndWriteService] = {
     val ledger =
-      new InMemoryLedger(ledgerId, participantId, timeProvider, acs, templateStore, ledgerEntries)
+      new InMemoryLedger(
+        ledgerId.or(LedgerIdGenerator.generateRandomId()),
+        participantId,
+        timeProvider,
+        acs,
+        templateStore,
+        ledgerEntries)
     owner(MeteredLedger(ledger, metrics), participantId, timeModel, timeProvider)
   }
 

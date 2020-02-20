@@ -19,12 +19,12 @@ import com.google.protobuf.ByteString
 import scala.collection.{breakOut, immutable}
 
 trait CommonQueries extends Queries {
-  override def selectLatestLogEntryId()(implicit connection: Connection): Option[Index] =
+  override final def selectLatestLogEntryId()(implicit connection: Connection): Option[Index] =
     SQL"SELECT MAX(sequence_no) max_sequence_no FROM #$LogTable"
       .as(get[Option[Long]]("max_sequence_no").singleOpt)
       .flatten
 
-  override def selectFromLog(
+  override final def selectFromLog(
       start: Index,
       end: Index,
   )(implicit connection: Connection): immutable.Seq[(Index, LedgerRecord)] =
@@ -36,7 +36,7 @@ trait CommonQueries extends Queries {
         }.*,
       )
 
-  def selectStateValuesByKeys(
+  override final def selectStateValuesByKeys(
       keys: Seq[Key],
   )(implicit connection: Connection): immutable.Seq[Option[Value]] = {
     val results = SQL"SELECT key, value FROM #$StateTable WHERE key IN ($keys)"
@@ -48,7 +48,9 @@ trait CommonQueries extends Queries {
     keys.map(key => results.get(ByteString.copyFrom(key)))(breakOut)
   }
 
-  override def updateState(stateUpdates: Seq[(Key, Value)])(implicit connection: Connection): Unit =
+  override final def updateState(
+      stateUpdates: Seq[(Key, Value)],
+  )(implicit connection: Connection): Unit =
     executeBatchSql(updateStateQuery, stateUpdates.map {
       case (key, value) => Seq[NamedParameter]("key" -> key, "value" -> value)
     })

@@ -3,17 +3,25 @@
 
 package com.digitalasset.platform.sandbox.stores.ledger.sql
 
+import java.nio.file.Paths
+import java.time.Instant
+
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.digitalasset.api.util.TimeProvider
+import com.digitalasset.daml.bazeltools.BazelRunfiles.rlocation
+import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
+import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.health.{Healthy, Unhealthy}
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.digitalasset.logging.LoggingContext.newLoggingContext
+import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.packages.InMemoryPackageStore
 import com.digitalasset.platform.sandbox.MetricsAround
 import com.digitalasset.platform.sandbox.stores.InMemoryActiveLedgerState
 import com.digitalasset.platform.sandbox.stores.ledger.Ledger
+import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlLedgerSpec._
 import com.digitalasset.resources.Resource
 import com.digitalasset.testing.postgresql.PostgresAroundEach
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, Eventually, ScaledTimeSpans}
@@ -23,6 +31,7 @@ import org.scalatest.{AsyncWordSpec, Matchers}
 import scala.collection.mutable
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, Future}
+import scala.util.{Success, Try}
 
 class SqlLedgerSpec
     extends AsyncWordSpec
@@ -37,11 +46,6 @@ class SqlLedgerSpec
   override val timeLimit: Span = scaled(Span(1, Minute))
   implicit override val patienceConfig: PatienceConfig =
     PatienceConfig(timeout = scaled(Span(10, Seconds)))
-
-  private val queueDepth = 128
-
-  private val ledgerId: LedgerId = LedgerId(Ref.LedgerString.assertFromString("TheLedger"))
-  private val participantId: ParticipantId = Ref.ParticipantId.assertFromString("TheParticipant")
 
   private val createdLedgers = mutable.Buffer[Resource[Ledger]]()
 
@@ -61,7 +65,7 @@ class SqlLedgerSpec
       for {
         ledger <- createSqlLedger()
       } yield {
-        ledger.ledgerId should not be equal("")
+        ledger.ledgerId should not be ""
       }
     }
 
@@ -69,7 +73,7 @@ class SqlLedgerSpec
       for {
         ledger <- createSqlLedger(ledgerId)
       } yield {
-        ledger.ledgerId should not be equal(LedgerId)
+        ledger.ledgerId should be(ledgerId)
       }
     }
 
@@ -79,9 +83,9 @@ class SqlLedgerSpec
         ledger2 <- createSqlLedger(ledgerId)
         ledger3 <- createSqlLedger()
       } yield {
-        ledger1.ledgerId should not be equal(LedgerId)
-        ledger1.ledgerId shouldEqual ledger2.ledgerId
-        ledger2.ledgerId shouldEqual ledger3.ledgerId
+        ledger1.ledgerId should not be LedgerId
+        ledger1.ledgerId should be(ledger2.ledgerId)
+        ledger2.ledgerId should be(ledger3.ledgerId)
       }
     }
 
@@ -90,7 +94,45 @@ class SqlLedgerSpec
         _ <- createSqlLedger(ledgerId = "TheLedger")
         throwable <- createSqlLedger(ledgerId = "AnotherLedger").failed
       } yield {
-        throwable.getMessage shouldEqual "Ledger id mismatch. Ledger id given ('AnotherLedger') is not equal to the existing one ('TheLedger')!"
+        throwable.getMessage should be(
+          "The provided ledger ID does not match the existing ID. Existing: \"TheLedger\", Provided: \"AnotherLedger\".")
+      }
+    }
+
+    "load no packages by default" in {
+      for {
+        ledger <- createSqlLedger()
+        packages <- ledger.listLfPackages()
+      } yield {
+        packages should have size 0
+      }
+    }
+
+    "load packages if provided with a dynamic ledger ID" in {
+      for {
+        ledger <- createSqlLedger(packages = testDar.all)
+        packages <- ledger.listLfPackages()
+      } yield {
+        packages should have size testDar.all.length.toLong
+      }
+    }
+
+    "load packages if provided with a static ledger ID" in {
+      for {
+        ledger <- createSqlLedger(ledgerId = "TheLedger", packages = testDar.all)
+        packages <- ledger.listLfPackages()
+      } yield {
+        packages should have size testDar.all.length.toLong
+      }
+    }
+
+    "load no packages if the ledger already exists" in {
+      for {
+        _ <- createSqlLedger(ledgerId = "TheLedger")
+        ledger <- createSqlLedger(ledgerId = "TheLedger", packages = testDar.all)
+        packages <- ledger.listLfPackages()
+      } yield {
+        packages should have size 0
       }
     }
 
@@ -130,27 +172,41 @@ class SqlLedgerSpec
   }
 
   private def createSqlLedger(): Future[Ledger] =
-    createSqlLedger(None)
+    createSqlLedger(None, List.empty)
+
+  private def createSqlLedger(ledgerId: String): Future[Ledger] =
+    createSqlLedger(ledgerId, List.empty)
 
   private def createSqlLedger(ledgerId: LedgerId): Future[Ledger] =
-    createSqlLedger(Some(ledgerId))
+    createSqlLedger(ledgerId, List.empty)
 
-  private def createSqlLedger(ledgerId: String): Future[Ledger] = {
+  private def createSqlLedger(packages: List[DamlLf.Archive]): Future[Ledger] =
+    createSqlLedger(None, packages)
+
+  private def createSqlLedger(ledgerId: String, packages: List[DamlLf.Archive]): Future[Ledger] = {
     val assertedLedgerId: LedgerId = LedgerId(Ref.LedgerString.assertFromString(ledgerId))
-    createSqlLedger(Some(assertedLedgerId))
+    createSqlLedger(assertedLedgerId, packages)
   }
 
-  private def createSqlLedger(ledgerId: Option[LedgerId]): Future[Ledger] = {
+  private def createSqlLedger(ledgerId: LedgerId, packages: List[DamlLf.Archive]): Future[Ledger] =
+    createSqlLedger(Some(ledgerId), packages)
+
+  private def createSqlLedger(
+      ledgerId: Option[LedgerId],
+      packages: List[DamlLf.Archive],
+  ): Future[Ledger] = {
     metrics.getNames.forEach(name => { val _ = metrics.remove(name) })
     val ledger = newLoggingContext { implicit logCtx =>
       SqlLedger
         .owner(
           jdbcUrl = postgresFixture.jdbcUrl,
-          ledgerId = ledgerId,
+          ledgerId = ledgerId.fold[LedgerIdMode](LedgerIdMode.Dynamic)(LedgerIdMode.Static),
           participantId = participantId,
           timeProvider = TimeProvider.UTC,
           acs = InMemoryActiveLedgerState.empty,
-          packages = InMemoryPackageStore.empty,
+          packages = InMemoryPackageStore.empty
+            .withPackages(Instant.EPOCH, None, packages)
+            .fold(sys.error, identity),
           initialLedgerEntries = ImmArray.empty,
           queueDepth,
           startMode = SqlStartMode.ContinueIfExists,
@@ -161,4 +217,18 @@ class SqlLedgerSpec
     createdLedgers += ledger
     ledger.asFuture
   }
+}
+
+object SqlLedgerSpec {
+  private val queueDepth = 128
+
+  private val ledgerId: LedgerId = LedgerId(Ref.LedgerString.assertFromString("TheLedger"))
+  private val participantId: ParticipantId = Ref.ParticipantId.assertFromString("TheParticipant")
+
+  private val testArchivePath = rlocation(Paths.get("ledger/test-common/Test-stable.dar"))
+  private val darReader = DarReader { (_, stream) =>
+    Try(DamlLf.Archive.parseFrom(stream))
+  }
+  private lazy val Success(testDar) =
+    darReader.readArchiveFromFile(testArchivePath.toFile)
 }

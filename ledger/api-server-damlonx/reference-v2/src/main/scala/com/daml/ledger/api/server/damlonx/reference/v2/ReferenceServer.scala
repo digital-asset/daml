@@ -47,7 +47,12 @@ object ReferenceServer {
         _ <- AkkaResourceOwner.forActorSystem(() => system)
         _ <- AkkaResourceOwner.forMaterializer(() => materializer)
         ledger <- ResourceOwner
-          .forCloseable(() => new InMemoryKVParticipantState(config.participantId))
+          .forCloseable(
+            () =>
+              new InMemoryKVParticipantState(
+                initialLedgerId = None,
+                participantId = config.participantId,
+            ))
         _ <- ResourceOwner.forFuture(() =>
           Future.sequence(config.archiveFiles.map(uploadDar(_, ledger))))
         _ <- startParticipant(config, ledger)

@@ -18,7 +18,7 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
-class Database(
+final class Database(
     val queries: Queries,
     readerConnectionPool: DataSource,
     writerConnectionPool: DataSource,
@@ -211,7 +211,10 @@ object Database {
         .placeholders(Map("table.prefix" -> TablePrefix).asJava)
         .table(TablePrefix + Flyway.configure().getTable)
         .dataSource(adminConnectionPool)
-        .locations(s"classpath:/com/daml/ledger/on/sql/migrations/${system.name}")
+        .locations(
+          "classpath:/com/daml/ledger/on/sql/migrations/common",
+          s"classpath:/com/daml/ledger/on/sql/migrations/${system.name}",
+        )
         .load()
 
     def migrate(): Database = {
@@ -225,5 +228,7 @@ object Database {
     }
   }
 
-  class InvalidDatabaseException(message: String) extends StartupException(message)
+  class InvalidDatabaseException(message: String)
+      extends RuntimeException(message)
+      with StartupException
 }

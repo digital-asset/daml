@@ -22,16 +22,18 @@ import com.daml.ledger.validator.{
   ValidatingCommitter
 }
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.health.{HealthStatus, Healthy}
 import com.digitalasset.logging.LoggingContext
 import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
 import com.digitalasset.platform.akkastreams.dispatcher.SubSource.RangeSource
+import com.digitalasset.platform.common.LedgerIdMismatchException
 import com.digitalasset.resources.ResourceOwner
 
 import scala.collection.immutable.TreeSet
 import scala.concurrent.{ExecutionContext, Future}
 
-class SqlLedgerReaderWriter(
+final class SqlLedgerReaderWriter(
     override val ledgerId: LedgerId = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
     val participantId: ParticipantId,
     now: () => Instant,
@@ -110,7 +112,7 @@ object SqlLedgerReaderWriter {
   private val DefaultClock: Clock = Clock.systemUTC()
 
   def owner(
-      ledgerId: LedgerId,
+      initialLedgerId: Option[LedgerId],
       participantId: ParticipantId,
       jdbcUrl: String,
       now: () => Instant = () => DefaultClock.instant(),
@@ -122,16 +124,37 @@ object SqlLedgerReaderWriter {
     for {
       uninitializedDatabase <- Database.owner(jdbcUrl)
       database = uninitializedDatabase.migrate()
-      head <- ResourceOwner.forFuture(() =>
-        database.inReadTransaction("Reading head at startup") { implicit connection =>
-          Future(database.queries.selectLatestLogEntryId().map(_ + 1).getOrElse(StartIndex))
-      })
-      dispatcher <- ResourceOwner.forCloseable(
-        () =>
-          Dispatcher(
-            "sql-participant-state",
-            zeroIndex = StartIndex,
-            headAtInitialization = head,
-        ))
+      ledgerId <- ResourceOwner.forFuture(() => updateOrRetrieveLedgerId(initialLedgerId, database))
+      dispatcher <- ResourceOwner.forFutureCloseable(() => newDispatcher(database))
     } yield new SqlLedgerReaderWriter(ledgerId, participantId, now, database, dispatcher)
+
+  private def updateOrRetrieveLedgerId(initialLedgerId: Option[LedgerId], database: Database)(
+      implicit executionContext: ExecutionContext,
+      logCtx: LoggingContext,
+  ): Future[LedgerId] =
+    database.inWriteTransaction("Checking ledger ID at startup") { implicit connection =>
+      val providedLedgerId =
+        initialLedgerId.getOrElse(Ref.LedgerString.assertFromString(UUID.randomUUID.toString))
+      val ledgerId = database.queries.updateOrRetrieveLedgerId(providedLedgerId)
+      if (initialLedgerId.exists(_ != ledgerId)) {
+        Future.failed(
+          new LedgerIdMismatchException(
+            domain.LedgerId(ledgerId),
+            domain.LedgerId(initialLedgerId.get),
+          ))
+      } else {
+        Future.successful(ledgerId)
+      }
+    }
+
+  private def newDispatcher(database: Database)(
+      implicit executionContext: ExecutionContext,
+      logCtx: LoggingContext,
+  ): Future[Dispatcher[Index]] =
+    database
+      .inReadTransaction("Reading head at startup") { implicit connection =>
+        Future.successful(
+          database.queries.selectLatestLogEntryId().map(_ + 1).getOrElse(StartIndex))
+      }
+      .map(head => Dispatcher("sql-participant-state", StartIndex, head))
 }

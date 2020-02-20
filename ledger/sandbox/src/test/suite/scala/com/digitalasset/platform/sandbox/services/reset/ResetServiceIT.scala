@@ -60,7 +60,7 @@ final class ResetServiceIT
   override def timeLimit: Span = scaled(30.seconds)
 
   override protected val config: SandboxConfig =
-    super.config.copy(ledgerIdMode = LedgerIdMode.Dynamic())
+    super.config.copy(ledgerIdMode = LedgerIdMode.Dynamic)
 
   override protected def darFile: File = new File(rlocation("ledger/test-common/Test-stable.dar"))
 

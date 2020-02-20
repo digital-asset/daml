@@ -4,6 +4,7 @@
 package com.daml.ledger.on.memory
 
 import java.time.{Clock, Instant}
+import java.util.UUID
 import java.util.concurrent.Semaphore
 
 import akka.NotUsed
@@ -21,6 +22,7 @@ import com.daml.ledger.validator.{
   SubmissionValidator,
   ValidatingCommitter
 }
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.api.health.{HealthStatus, Healthy}
 import com.digitalasset.logging.LoggingContext
 import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
@@ -140,7 +142,7 @@ object InMemoryLedgerReaderWriter {
   private val sequentialLogEntryId = new SequentialLogEntryId(NamespaceLogEntries)
 
   def owner(
-      ledgerId: LedgerId,
+      initialLedgerId: Option[LedgerId],
       participantId: ParticipantId,
       now: () => Instant = () => DefaultClock.instant(),
   )(
@@ -155,5 +157,9 @@ object InMemoryLedgerReaderWriter {
             zeroIndex = StartIndex,
             headAtInitialization = StartIndex,
         ))
-    } yield new InMemoryLedgerReaderWriter(ledgerId, participantId, now, dispatcher)
+    } yield {
+      val ledgerId =
+        initialLedgerId.getOrElse(Ref.LedgerString.assertFromString(UUID.randomUUID.toString))
+      new InMemoryLedgerReaderWriter(ledgerId, participantId, now, dispatcher)
+    }
 }

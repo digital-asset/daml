@@ -31,7 +31,6 @@ import com.digitalasset.platform.apiserver.{
   LedgerApiServer,
   TimeServiceBackend
 }
-import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.configuration.BuildInfo
 import com.digitalasset.platform.packages.InMemoryPackageStore
 import com.digitalasset.platform.sandbox.SandboxServer._
@@ -225,11 +224,6 @@ final class SandboxServer(
     implicit val actorSystem: ActorSystem = materializer.system
     implicit val executionContext: ExecutionContext = materializer.executionContext
 
-    val ledgerId = config.ledgerIdMode match {
-      case LedgerIdMode.Static(id) => id
-      case LedgerIdMode.Dynamic() => LedgerIdGenerator.generateRandomId()
-    }
-
     val defaultConfiguration = ParticipantState.Configuration(0, config.timeModel)
 
     val (acs, ledgerEntries, mbLedgerTime) = createInitialState(config, packageStore)
@@ -247,7 +241,7 @@ final class SandboxServer(
       val (ledgerType, indexAndWriteServiceResourceOwner) = config.jdbcUrl match {
         case Some(jdbcUrl) =>
           "postgres" -> SandboxIndexAndWriteService.postgres(
-            ledgerId,
+            config.ledgerIdMode,
             participantId,
             jdbcUrl,
             config.timeModel,
@@ -262,7 +256,7 @@ final class SandboxServer(
 
         case None =>
           "in-memory" -> SandboxIndexAndWriteService.inMemory(
-            ledgerId,
+            config.ledgerIdMode,
             participantId,
             config.timeModel,
             timeProvider,
@@ -281,6 +275,7 @@ final class SandboxServer(
 
       for {
         indexAndWriteService <- indexAndWriteServiceResourceOwner.acquire()
+        ledgerId <- Resource.fromFuture(indexAndWriteService.indexService.getLedgerId())
         authorizer = new Authorizer(
           () => java.time.Clock.systemUTC.instant(),
           LedgerId.unwrap(ledgerId),

@@ -19,7 +19,7 @@ object Main {
 
   object InMemoryLedgerFactory extends SimpleLedgerFactory[InMemoryLedgerReaderWriter] {
     override def owner(
-        ledgerId: LedgerId,
+        initialLedgerId: Option[LedgerId],
         participantId: ParticipantId,
         config: Unit
     )(
@@ -27,6 +27,6 @@ object Main {
         materializer: Materializer,
         logCtx: LoggingContext,
     ): ResourceOwner[InMemoryLedgerReaderWriter] =
-      InMemoryLedgerReaderWriter.owner(ledgerId, participantId)
+      InMemoryLedgerReaderWriter.owner(initialLedgerId, participantId)
   }
 }

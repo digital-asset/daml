@@ -20,7 +20,7 @@ trait LedgerFactory[T <: KeyValueLedger, ExtraConfig] {
     config
 
   def owner(
-      ledgerId: LedgerId,
+      initialLedgerId: Option[LedgerId],
       participantId: ParticipantId,
       config: ExtraConfig,
   )(

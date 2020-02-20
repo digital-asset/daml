@@ -61,10 +61,12 @@ class Runner {
     implicit val materializer: Materializer = Materializer(system)
     implicit val executionContext: ExecutionContext = system.dispatcher
 
-    val ledgerId: v1.LedgerId = Ref.LedgerString.assertFromString(config.ledgerIdMode match {
-      case LedgerIdMode.Static(ledgerId) => ledgerId.unwrap
-      case LedgerIdMode.Dynamic() => UUID.randomUUID.toString
-    })
+    val ledgerId: Option[v1.LedgerId] = config.ledgerIdMode match {
+      case LedgerIdMode.Static(ledgerId) =>
+        Some(Ref.LedgerString.assertFromString(ledgerId.unwrap))
+      case LedgerIdMode.Dynamic =>
+        None
+    }
 
     val (ledgerType, ledgerJdbcUrl, indexJdbcUrl) = config.jdbcUrl match {
       case Some(url) if url.startsWith("jdbc:postgresql") => ("PostgreSQL", url, url)
@@ -98,8 +100,7 @@ class Runner {
         // This is necessary because we can't declare them as implicits within a `for` comprehension.
         _ <- AkkaResourceOwner.forActorSystem(() => system)
         _ <- AkkaResourceOwner.forMaterializer(() => materializer)
-        readerWriter <- SqlLedgerReaderWriter
-          .owner(ledgerId, ParticipantId, ledgerJdbcUrl, now)
+        readerWriter <- SqlLedgerReaderWriter.owner(ledgerId, ParticipantId, ledgerJdbcUrl, now)
         ledger = new KeyValueParticipantState(readerWriter, readerWriter)
         _ <- ResourceOwner.forFuture(() =>
           Future.sequence(config.damlPackages.map(uploadDar(_, ledger))))
