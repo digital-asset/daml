@@ -84,7 +84,7 @@ object domain {
       queries: NonEmptyList[GetActiveContractsRequest]
   )
 
-  case class PartyDetails(party: Party, displayName: Option[String], isLocal: Boolean)
+  case class PartyDetails(identifier: Party, displayName: Option[String])
 
   final case class CommandMeta(
       commandId: Option[CommandId],
@@ -112,7 +112,7 @@ object domain {
 
   object PartyDetails {
     def fromLedgerApi(p: com.digitalasset.ledger.api.domain.PartyDetails): PartyDetails =
-      PartyDetails(Party(p.party), p.displayName, p.isLocal)
+      PartyDetails(Party(p.party), p.displayName)
   }
 
   sealed trait OffsetTag
@@ -247,7 +247,7 @@ object domain {
   object ActiveContract {
 
     type WithParty[+LfV] = ActiveContract[domain.Party, LfV]
-    type withPartyDetails[+LfV] = ActiveContract[domain.Party, LfV]
+    type withPartyDetails[+LfV] = ActiveContract[domain.PartyDetails, LfV]
 
     def matchesKey(k: LfValue)(a: domain.ActiveContract.WithParty[LfValue]): Boolean =
       a.key.fold(false)(_ == k)

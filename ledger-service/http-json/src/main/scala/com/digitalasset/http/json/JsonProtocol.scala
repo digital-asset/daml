@@ -44,7 +44,7 @@ object JsonProtocol extends DefaultJsonProtocol {
     nela => JsArray(nela.map(_.toJson).list.toVector)
 
   implicit val PartyDetails: JsonFormat[domain.PartyDetails] =
-    jsonFormat3(domain.PartyDetails.apply)
+    jsonFormat2(domain.PartyDetails.apply)
 
   object LfValueCodec
       extends ApiCodecCompressed[AbsoluteContractId](

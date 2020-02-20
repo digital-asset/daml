@@ -822,11 +822,19 @@ HTTP Response
         "status": 200,
         "result": [
             {
-                "party": "Alice",
-                "isLocal": true
+                "identifier": "Alice",
+                "displayName": "Alice & Co., LLC"
+            },
+            {
+                "identifier": "Bob"
             }
         ]
     }
+
+Where
+
+- ``identifier`` -- a stable unique identifier of a DAML party,
+- ``displayName`` -- optional human readable name associated with the party. Might not be unique.
 
 Streaming API
 *************

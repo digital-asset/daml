@@ -757,7 +757,7 @@ abstract class AbstractHttpServiceIntegrationTest
                         inside(SprayJson.decode[List[domain.PartyDetails]](jsArray)) {
                           case \/-(partyDetails) =>
                             val partyNames: Set[String] =
-                              partyDetails.map(_.party.unwrap)(breakOut)
+                              partyDetails.map(_.identifier.unwrap)(breakOut)
                             partyNames should contain("Alice")
                         }
                     }
