@@ -41,7 +41,7 @@ object WebSocketService {
   private type StreamPredicate[+Positive] = (
       Set[domain.TemplateId.RequiredPkg],
       Set[domain.TemplateId.OptionalPkg],
-      domain.ActiveContract[LfV] => Option[Positive],
+      domain.ActiveContract.WithParty[LfV] => Option[Positive],
   )
 
   val heartBeat: String = JsObject("heartbeat" -> JsString("ping")).compactPrint
@@ -54,7 +54,11 @@ object WebSocketService {
 
   private final case class StepAndErrors[+Pos, +LfV](
       errors: Seq[ServerError],
-      step: ContractStreamStep[domain.ArchivedContract, (domain.ActiveContract[LfV], Pos)]) {
+      step: ContractStreamStep[
+        domain.ArchivedContract,
+        (domain.ActiveContract.WithParty[LfV], Pos)
+      ]
+  ) {
     import json.JsonProtocol._, spray.json._
     def render(implicit lfv: LfV <~< JsValue, pos: Pos <~< Map[String, JsValue]): JsValue =
       step match {
@@ -151,7 +155,7 @@ object WebSocketService {
               val q: CompiledQueries = prepareFilters(resolved, gacr.query, lookupType)
               (resolved, unresolved, q transform ((_, p) => NonEmptyList((p, ix))))
           }
-        val fn: domain.ActiveContract[LfV] => Option[Positive] = { a =>
+        val fn: domain.ActiveContract.WithParty[LfV] => Option[Positive] = { a =>
           q.get(a.templateId).flatMap { preds =>
             preds.collect(Function unlift { case (p, ix) => p(a.payload) option ix })
           }
@@ -217,7 +221,7 @@ object WebSocketService {
           }
 
         val q: Map[domain.TemplateId.RequiredPkg, LfV] = resolvedWithKey.toMap
-        val fn: domain.ActiveContract[LfV] => Option[Positive] = { a =>
+        val fn: domain.ActiveContract.WithParty[LfV] => Option[Positive] = { a =>
           if (q.get(a.templateId).exists(k => domain.ActiveContract.matchesKey(k)(a)))
             Some(())
           else None
@@ -361,7 +365,7 @@ class WebSocketService(
     }.toMap
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  private def convertFilterContracts[Pos](fn: domain.ActiveContract[LfV] => Option[Pos])
+  private def convertFilterContracts[Pos](fn: domain.ActiveContract.WithParty[LfV] => Option[Pos])
     : Flow[ContractStreamStep.LAV1, StepAndErrors[Pos, JsValue], NotUsed] =
     Flow
       .fromFunction { step: ContractStreamStep.LAV1 =>
@@ -378,11 +382,13 @@ class WebSocketService(
         )
         StepAndErrors(
           errors ++ aerrors,
-          dstep mapStep (insDel =>
-            insDel copy (inserts = (insDel.inserts: Vector[domain.ActiveContract[LfV]]).flatMap {
+          dstep mapStep { insDel =>
+            val inserts = (insDel.inserts: Vector[domain.ActiveContract.WithParty[LfV]]).flatMap {
               ac =>
                 fn(ac).map((ac, _)).toList
-            }))
+            }
+            insDel.copy(inserts = inserts)
+          }
         )
       }
       .via(conflation)

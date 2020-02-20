@@ -73,7 +73,7 @@ class Endpoints(
 
       ac <- eitherT(
         handleFutureFailure(commandService.create(jwt, jwtPayload, cmd))
-      ): ET[domain.ActiveContract[lav1.value.Value]]
+      ): ET[domain.ActiveContract.WithParty[lav1.value.Value]]
 
       jsVal <- either(encoder.encodeV(ac).leftMap(e => ServerError(e.shows))): ET[JsValue]
 
@@ -101,11 +101,15 @@ class Endpoints(
 
       apiResp <- eitherT(
         handleFutureFailure(commandService.exercise(jwt, jwtPayload, resolvedCmd))
-      ): ET[domain.ExerciseResponse[ApiValue]]
+      ): ET[domain.ExerciseResponse.WithParty[ApiValue]]
 
-      lfResp <- either(apiResp.traverse(apiValueToLfValue)): ET[domain.ExerciseResponse[LfValue]]
+      lfResp <- either(
+        apiResp.traverse(apiValueToLfValue)
+      ): ET[domain.ExerciseResponse.WithParty[LfValue]]
 
-      jsResp <- either(lfResp.traverse(lfValueToJsValue)): ET[domain.ExerciseResponse[JsValue]]
+      jsResp <- either(
+        lfResp.traverse(lfValueToJsValue)
+      ): ET[domain.ExerciseResponse.WithParty[JsValue]]
 
       jsVal <- either(SprayJson.encode(jsResp).leftMap(e => ServerError(e.shows))): ET[JsValue]
 
@@ -129,7 +133,7 @@ class Endpoints(
 
       ac <- eitherT(
         handleFutureFailure(contractsService.lookup(jwt, jwtPayload, cl))
-      ): ET[Option[domain.ActiveContract[LfValue]]]
+      ): ET[Option[domain.ActiveContract.WithParty[LfValue]]]
 
       jsVal <- either(
         ac.cata(x => lfAcToJsValue(x).leftMap(e => ServerError(e.shows)), \/-(JsNull))
@@ -141,7 +145,8 @@ class Endpoints(
     input(req).map {
       _.map {
         case (jwt, jwtPayload, _) =>
-          val result: SearchResult[ContractsService.Error \/ domain.ActiveContract[LfValue]] =
+          val result
+            : SearchResult[ContractsService.Error \/ domain.ActiveContract.WithParty[LfValue]] =
             contractsService
               .retrieveAll(jwt, jwtPayload)
 
@@ -161,7 +166,8 @@ class Endpoints(
             .decode[domain.GetActiveContractsRequest](reqBody)
             .leftMap(e => InvalidUserInput(e.shows))
             .map { cmd =>
-              val result: SearchResult[ContractsService.Error \/ domain.ActiveContract[JsValue]] =
+              val result
+                : SearchResult[ContractsService.Error \/ domain.ActiveContract.WithParty[JsValue]] =
                 contractsService
                   .search(jwt, jwtPayload, cmd)
 
@@ -301,13 +307,13 @@ object Endpoints {
     JsValueToApiValueConverter.lfValueToApiValue(a).leftMap(e => ServerError(e.shows))
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  private def lfAcToJsValue(a: domain.ActiveContract[LfValue]): Error \/ JsValue = {
+  private def lfAcToJsValue(a: domain.ActiveContract.WithParty[LfValue]): Error \/ JsValue = {
     for {
-      b <- a.traverse(lfValueToJsValue): Error \/ domain.ActiveContract[JsValue]
+      b <- a.traverse(lfValueToJsValue): Error \/ domain.ActiveContract.WithParty[JsValue]
       c <- SprayJson.encode(b).leftMap(e => ServerError(e.shows))
     } yield c
   }
 
-  private def jsAcToJsValue(a: domain.ActiveContract[JsValue]): Error \/ JsValue =
+  private def jsAcToJsValue(a: domain.ActiveContract.WithParty[JsValue]): Error \/ JsValue =
     SprayJson.encode(a).leftMap(e => ServerError(e.shows))
 }

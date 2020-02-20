@@ -6,13 +6,9 @@ package com.digitalasset.http.util
 import java.time.Instant
 
 import com.digitalasset.api.util.TimestampConversion.fromInstant
-import com.digitalasset.http.CommandService.Error
-import com.digitalasset.http.domain.Contract
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
 import com.typesafe.scalalogging.StrictLogging
-import scalaz.\/
-import scalaz.syntax.show._
 
 object Commands extends StrictLogging {
   def create(
@@ -79,8 +75,4 @@ object Commands extends StrictLogging {
 
     lav1.command_service.SubmitAndWaitRequest(Some(commands))
   }
-
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  def contracts(tx: lav1.transaction.Transaction): Error \/ List[Contract[lav1.value.Value]] =
-    Contract.fromTransaction(tx).leftMap(e => Error('contracts, e.shows))
 }

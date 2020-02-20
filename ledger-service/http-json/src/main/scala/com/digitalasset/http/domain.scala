@@ -19,6 +19,7 @@ import scalaz.std.vector._
 import scalaz.syntax.show._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
+import scalaz.syntax.bitraverse._
 import scalaz.{-\/, @@, Applicative, Bitraverse, NonEmptyList, Show, Tag, Traverse, \/, \/-}
 import spray.json.JsValue
 
@@ -42,7 +43,7 @@ object domain {
 
   case class TemplateId[+PkgId](packageId: PkgId, moduleName: String, entityName: String)
 
-  case class Contract[+LfV](value: ArchivedContract \/ ActiveContract[LfV])
+  case class Contract[+P, +LfV](value: ArchivedContract \/ ActiveContract[P, LfV])
 
   type InputContractRef[+LfV] =
     (TemplateId.OptionalPkg, LfV) \/ (Option[TemplateId.OptionalPkg], ContractId)
@@ -50,13 +51,13 @@ object domain {
   type ResolvedContractRef[+LfV] =
     (TemplateId.RequiredPkg, LfV) \/ (TemplateId.RequiredPkg, ContractId)
 
-  case class ActiveContract[+LfV](
+  case class ActiveContract[+P, +LfV](
       contractId: ContractId,
       templateId: TemplateId.RequiredPkg,
       key: Option[LfV],
       payload: LfV,
-      signatories: Seq[Party],
-      observers: Seq[Party],
+      signatories: Seq[P],
+      observers: Seq[P],
       agreementText: String,
   )
 
@@ -104,9 +105,9 @@ object domain {
       meta: Option[CommandMeta],
   )
 
-  final case class ExerciseResponse[+LfV](
+  final case class ExerciseResponse[+P, +LfV](
       exerciseResult: LfV,
-      events: List[Contract[LfV]],
+      events: List[Contract[P, LfV]],
   )
 
   object PartyDetails {
@@ -168,22 +169,25 @@ object domain {
 
   object Contract {
 
+    type WithParty[+LfV] = Contract[domain.Party, LfV]
+    type withPartyDetails[+LfV] = Contract[domain.Party, LfV]
+
     def fromTransaction(
         tx: lav1.transaction.Transaction,
-    ): Error \/ List[Contract[lav1.value.Value]] = {
+    ): Error \/ List[Contract.WithParty[lav1.value.Value]] = {
       tx.events.toList.traverse(fromEvent(_))
     }
 
     def fromTransactionTree(
         tx: lav1.transaction.TransactionTree,
-    ): Error \/ Vector[Contract[lav1.value.Value]] = {
+    ): Error \/ Vector[Contract.WithParty[lav1.value.Value]] = {
       tx.rootEventIds.toVector
         .map(fromTreeEvent(tx.eventsById))
         .sequence
         .map(_.flatten)
     }
 
-    def fromEvent(event: lav1.event.Event): Error \/ Contract[lav1.value.Value] =
+    def fromEvent(event: lav1.event.Event): Error \/ Contract.WithParty[lav1.value.Value] =
       event.event match {
         case lav1.event.Event.Event.Created(created) =>
           ActiveContract.fromLedgerApi(created).map(a => Contract(\/-(a)))
@@ -196,14 +200,14 @@ object domain {
 
     def fromTreeEvent(
         eventsById: Map[String, lav1.transaction.TreeEvent],
-    )(eventId: String): Error \/ Vector[Contract[lav1.value.Value]] = {
+    )(eventId: String): Error \/ Vector[Contract.WithParty[lav1.value.Value]] = {
       import scalaz.syntax.applicative._
 
       @tailrec
       def loop(
           es: Vector[String],
-          acc: Error \/ Vector[Contract[lav1.value.Value]],
-      ): Error \/ Vector[Contract[lav1.value.Value]] = es match {
+          acc: Error \/ Vector[Contract.WithParty[lav1.value.Value]],
+      ): Error \/ Vector[Contract.WithParty[lav1.value.Value]] = es match {
         case Vector() =>
           acc
         case head +: tail =>
@@ -225,34 +229,37 @@ object domain {
       loop(Vector(eventId), \/-(Vector()))
     }
 
-    implicit val covariant: Traverse[Contract] = new Traverse[Contract] {
-
-      override def map[A, B](fa: Contract[A])(f: A => B): Contract[B] = {
-        val valueB: ArchivedContract \/ ActiveContract[B] = fa.value.map(a => a.map(f))
-        Contract(valueB)
+    implicit val covariant: Bitraverse[Contract] = new Bitraverse[Contract] {
+      override def bimap[A, B, C, D](fab: Contract[A, B])(f: A => C, g: B => D): Contract[C, D] = {
+        val gcd: ArchivedContract \/ ActiveContract[C, D] = fab.value.map(_.bimap(f, g))
+        Contract(gcd)
       }
 
-      override def traverseImpl[G[_]: Applicative, A, B](
-          fa: Contract[A],
-      )(f: A => G[B]): G[Contract[B]] = {
-        val valueB: G[ArchivedContract \/ ActiveContract[B]] = fa.value.traverse(a => a.traverse(f))
-        valueB.map(x => Contract[B](x))
+      override def bitraverseImpl[G[_]: Applicative, A, B, C, D](
+          fab: Contract[A, B])(f: A => G[C], g: B => G[D]): G[Contract[C, D]] = {
+        val gcd: G[ArchivedContract \/ ActiveContract[C, D]] =
+          fab.value.traverse(_.bitraverse(f, g))
+        gcd.map(cd => Contract[C, D](cd))
       }
     }
   }
 
   object ActiveContract {
 
-    def matchesKey(k: LfValue)(a: domain.ActiveContract[LfValue]): Boolean =
+    type WithParty[+LfV] = ActiveContract[domain.Party, LfV]
+    type withPartyDetails[+LfV] = ActiveContract[domain.Party, LfV]
+
+    def matchesKey(k: LfValue)(a: domain.ActiveContract.WithParty[LfValue]): Boolean =
       a.key.fold(false)(_ == k)
 
     def fromLedgerApi(
         gacr: lav1.active_contracts_service.GetActiveContractsResponse,
-    ): Error \/ List[ActiveContract[lav1.value.Value]] = {
+    ): Error \/ List[ActiveContract.WithParty[lav1.value.Value]] = {
       gacr.activeContracts.toList.traverse(fromLedgerApi(_))
     }
 
-    def fromLedgerApi(in: lav1.event.CreatedEvent): Error \/ ActiveContract[lav1.value.Value] =
+    def fromLedgerApi(
+        in: lav1.event.CreatedEvent): Error \/ ActiveContract.WithParty[lav1.value.Value] =
       for {
         templateId <- in.templateId required "templateId"
         payload <- in.createArguments required "createArguments"
@@ -267,39 +274,54 @@ object domain {
           agreementText = in.agreementText getOrElse "",
         )
 
-    implicit val covariant: Traverse[ActiveContract] = new Traverse[ActiveContract] {
+    implicit val bitraverseInstance: Bitraverse[ActiveContract] = new Bitraverse[ActiveContract] {
 
-      override def map[A, B](fa: ActiveContract[A])(f: A => B): ActiveContract[B] =
-        fa.copy(key = fa.key map f, payload = f(fa.payload))
+      override def bimap[A, B, C, D](
+          fab: ActiveContract[A, B])(f: A => C, g: B => D): ActiveContract[C, D] =
+        fab.copy(
+          key = fab.key map g,
+          payload = g(fab.payload),
+          signatories = fab.signatories map f,
+          observers = fab.observers map f
+        )
 
-      override def traverseImpl[G[_]: Applicative, A, B](
-          fa: ActiveContract[A],
-      )(f: A => G[B]): G[ActiveContract[B]] = {
+      override def bitraverseImpl[G[_]: Applicative, A, B, C, D](
+          fab: ActiveContract[A, B])(f: A => G[C], g: B => G[D]): G[ActiveContract[C, D]] = {
+
         import scalaz.syntax.apply._
-        val gk: G[Option[B]] = fa.key traverse f
-        val ga: G[B] = f(fa.payload)
-        ^(gk, ga)((k, a) => fa.copy(key = k, payload = a))
+
+        val gKey = fab.key traverse g
+        val gPayload = g(fab.payload)
+        val gSignatories = fab.signatories.toList.traverse(f)
+        val gObservers = fab.observers.toList.traverse(f)
+
+        ^^^(gKey, gPayload, gSignatories, gObservers)((k, p, s, o) =>
+          fab.copy(key = k, payload = p, signatories = s, observers = o))
       }
     }
 
-    implicit val hasTemplateId: HasTemplateId[ActiveContract] = new HasTemplateId[ActiveContract] {
-      override def templateId(fa: ActiveContract[_]): TemplateId.OptionalPkg =
-        TemplateId(
-          Some(fa.templateId.packageId),
-          fa.templateId.moduleName,
-          fa.templateId.entityName,
-        )
+    implicit val rightTraverseInstance: Traverse[ActiveContract[Party, +?]] =
+      bitraverseInstance.rightTraverse[domain.Party]
 
-      override def lfType(
-          fa: ActiveContract[_],
-          templateId: TemplateId.RequiredPkg,
-          f: PackageService.ResolveTemplateRecordType,
-          g: PackageService.ResolveChoiceRecordType,
-          h: PackageService.ResolveKeyType,
-      ): Error \/ LfType =
-        f(templateId)
-          .leftMap(e => Error('ActiveContract_hasTemplateId_lfType, e.shows))
-    }
+    implicit def hasTemplateId[P]: HasTemplateId[ActiveContract[P, +?]] =
+      new HasTemplateId[ActiveContract[P, +?]] {
+        override def templateId(fa: ActiveContract[P, _]): TemplateId.OptionalPkg =
+          TemplateId(
+            Some(fa.templateId.packageId),
+            fa.templateId.moduleName,
+            fa.templateId.entityName,
+          )
+
+        override def lfType(
+            fa: ActiveContract[P, _],
+            templateId: TemplateId.RequiredPkg,
+            f: PackageService.ResolveTemplateRecordType,
+            g: PackageService.ResolveChoiceRecordType,
+            h: PackageService.ResolveKeyType,
+        ): Error \/ LfType =
+          f(templateId)
+            .leftMap(e => Error('ActiveContract_hasTemplateId_lfType, e.shows))
+      }
   }
 
   object ArchivedContract {
@@ -471,21 +493,22 @@ object domain {
   }
 
   object ExerciseResponse {
-    implicit val traverseInstance: Traverse[ExerciseResponse] = new Traverse[ExerciseResponse] {
-      override def traverseImpl[G[_]: Applicative, A, B](
-          fa: ExerciseResponse[A],
-      )(f: A => G[B]): G[ExerciseResponse[B]] = {
-        import scalaz.syntax.applicative._
-        val gb: G[B] = f(fa.exerciseResult)
-        val gbs: G[List[Contract[B]]] = fa.events.traverse(_.traverse(f))
-        ^(gb, gbs) { (exerciseResult, events) =>
-          ExerciseResponse(
-            exerciseResult = exerciseResult,
-            events = events,
-          )
+    type WithParty[+LfV] = ExerciseResponse[domain.Party, LfV]
+    type WithPartyDetails[+LfV] = ExerciseResponse[domain.Party, LfV]
+
+    implicit val bitraverseInstance: Bitraverse[ExerciseResponse] =
+      new Bitraverse[ExerciseResponse] {
+        override def bitraverseImpl[G[_]: Applicative, A, B, C, D](
+            fab: ExerciseResponse[A, B])(f: A => G[C], g: B => G[D]): G[ExerciseResponse[C, D]] = {
+          import scalaz.syntax.applicative._
+          val gd: G[D] = g(fab.exerciseResult)
+          val gds: G[List[Contract[C, D]]] = fab.events.traverse(_.bitraverse(f, g))
+          ^(gd, gds)(ExerciseResponse(_, _))
         }
       }
-    }
+
+    implicit val rightTraverseInstance: Traverse[ExerciseResponse[Party, +?]] =
+      bitraverseInstance.rightTraverse[domain.Party]
   }
 
   sealed abstract class ServiceResponse extends Product with Serializable

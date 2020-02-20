@@ -76,9 +76,9 @@ class JsonProtocolTest
     }
     "can be serialized and deserialized back to the same object" in forAll(contractGen) {
       contract0 =>
-        val actual: SprayJson.Error \/ domain.Contract[JsValue] = for {
+        val actual: SprayJson.Error \/ domain.Contract.WithParty[JsValue] = for {
           jsValue <- SprayJson.encode(contract0)
-          contract <- SprayJson.decode[domain.Contract[JsValue]](jsValue)
+          contract <- SprayJson.decode[domain.Contract.WithParty[JsValue]](jsValue)
         } yield contract
 
         inside(actual) {

@@ -175,12 +175,12 @@ object JsonProtocol extends DefaultJsonProtocol {
       }
     }
 
-  implicit val ContractFormat: RootJsonFormat[domain.Contract[JsValue]] =
-    new RootJsonFormat[domain.Contract[JsValue]] {
+  implicit val ContractFormat: RootJsonFormat[domain.Contract[domain.Party, JsValue]] =
+    new RootJsonFormat[domain.Contract[domain.Party, JsValue]] {
       private val archivedKey = "archived"
       private val activeKey = "created"
 
-      override def read(json: JsValue): domain.Contract[JsValue] = json match {
+      override def read(json: JsValue): domain.Contract[domain.Party, JsValue] = json match {
         case JsObject(fields) =>
           fields.toList match {
             case List((`archivedKey`, archived)) =>
@@ -194,14 +194,15 @@ object JsonProtocol extends DefaultJsonProtocol {
         case _ => deserializationError("Contract must be an object")
       }
 
-      override def write(obj: domain.Contract[JsValue]): JsValue = obj.value match {
-        case -\/(archived) => JsObject(archivedKey -> ArchivedContractFormat.write(archived))
-        case \/-(active) => JsObject(activeKey -> ActiveContractFormat.write(active))
-      }
+      override def write(obj: domain.Contract[domain.Party, JsValue]): JsValue =
+        obj.value match {
+          case -\/(archived) => JsObject(archivedKey -> ArchivedContractFormat.write(archived))
+          case \/-(active) => JsObject(activeKey -> ActiveContractFormat.write(active))
+        }
     }
 
-  implicit val ActiveContractFormat: RootJsonFormat[domain.ActiveContract[JsValue]] =
-    jsonFormat7(domain.ActiveContract.apply[JsValue])
+  implicit val ActiveContractFormat: RootJsonFormat[domain.ActiveContract[domain.Party, JsValue]] =
+    jsonFormat7(domain.ActiveContract.apply[domain.Party, JsValue])
 
   implicit val ArchivedContractFormat: RootJsonFormat[domain.ArchivedContract] =
     jsonFormat2(domain.ArchivedContract.apply)
@@ -261,7 +262,8 @@ object JsonProtocol extends DefaultJsonProtocol {
       }
 
       override def read(
-          json: JsValue): domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]] = {
+          json: JsValue
+      ): domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]] = {
         val reference = ContractLocatorFormat.read(json)
         val choice = fromField[domain.Choice](json, "choice")
         val argument = fromField[JsValue](json, "argument")
@@ -275,8 +277,9 @@ object JsonProtocol extends DefaultJsonProtocol {
       }
     }
 
-  implicit val ExerciseResponseFormat: RootJsonFormat[domain.ExerciseResponse[JsValue]] =
-    jsonFormat2(domain.ExerciseResponse[JsValue])
+  implicit val ExerciseResponseFormat
+    : RootJsonFormat[domain.ExerciseResponse[domain.Party, JsValue]] =
+    jsonFormat2(domain.ExerciseResponse[domain.Party, JsValue])
 
   implicit val StatusCodeFormat: RootJsonFormat[StatusCode] =
     new RootJsonFormat[StatusCode] {

@@ -69,10 +69,10 @@ object Generators {
   def contractLocatorGen[LfV](lfv: Gen[LfV]): Gen[domain.ContractLocator[LfV]] =
     inputContractRefGen(lfv) map (domain.ContractLocator.structure.from(_))
 
-  def contractGen: Gen[domain.Contract[JsValue]] =
+  def contractGen: Gen[domain.Contract.WithParty[JsValue]] =
     scalazEitherGen(archivedContractGen, activeContractGen).map(domain.Contract(_))
 
-  def activeContractGen: Gen[domain.ActiveContract[JsValue]] =
+  def activeContractGen: Gen[domain.ActiveContract.WithParty[JsValue]] =
     for {
       contractId <- contractIdGen
       templateId <- Generators.genDomainTemplateId
@@ -82,7 +82,7 @@ object Generators {
       observers <- Gen.listOf(partyGen)
       agreementText <- Gen.identifier
     } yield
-      domain.ActiveContract[JsValue](
+      domain.ActiveContract(
         contractId = contractId,
         templateId = templateId,
         key = key,

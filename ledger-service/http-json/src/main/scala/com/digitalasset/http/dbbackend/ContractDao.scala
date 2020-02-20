@@ -71,7 +71,7 @@ object ContractDao {
       party: domain.Party,
       templateId: domain.TemplateId.RequiredPkg,
       predicate: doobie.Fragment)(
-      implicit log: LogHandler): ConnectionIO[Vector[domain.ActiveContract[JsValue]]] = {
+      implicit log: LogHandler): ConnectionIO[Vector[domain.ActiveContract.WithParty[JsValue]]] = {
     import doobie.postgres.implicits._
     for {
       tpId <- Queries.surrogateTemplateId(
@@ -86,7 +86,7 @@ object ContractDao {
 
   private def toDomain(templateId: domain.TemplateId.RequiredPkg)(
       a: Queries.DBContract[Unit, JsValue, JsValue, Vector[String]])
-    : domain.ActiveContract[JsValue] =
+    : domain.ActiveContract.WithParty[JsValue] =
     domain.ActiveContract(
       contractId = domain.ContractId(a.contractId),
       templateId = templateId,

@@ -43,9 +43,9 @@ class CommandService(
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def create(jwt: Jwt, jwtPayload: JwtPayload, input: CreateCommand[lav1.value.Record])
-    : Future[Error \/ ActiveContract[lav1.value.Value]] = {
+    : Future[Error \/ ActiveContract.WithParty[lav1.value.Value]] = {
 
-    val et: EitherT[Future, Error, ActiveContract[lav1.value.Value]] = for {
+    val et: EitherT[Future, Error, ActiveContract.WithParty[lav1.value.Value]] = for {
       command <- EitherT.either(createCommand(input))
       request = submitAndWaitRequest(jwtPayload, input.meta, command)
       response <- liftET(logResult('create, submitAndWaitForTransaction(jwt, request)))
@@ -62,12 +62,12 @@ class CommandService(
       jwt: Jwt,
       jwtPayload: JwtPayload,
       input: ExerciseCommand[lav1.value.Value, ExerciseCommandRef])
-    : Future[Error \/ ExerciseResponse[lav1.value.Value]] = {
+    : Future[Error \/ ExerciseResponse.WithParty[lav1.value.Value]] = {
 
     val command = exerciseCommand(input)
     val request = submitAndWaitRequest(jwtPayload, input.meta, command)
 
-    val et: EitherT[Future, Error, ExerciseResponse[lav1.value.Value]] = for {
+    val et: EitherT[Future, Error, ExerciseResponse.WithParty[lav1.value.Value]] = for {
       response <- liftET(logResult('exercise, submitAndWaitForTransactionTree(jwt, request)))
       exerciseResult <- EitherT.either(exerciseResult(response))
       contracts <- EitherT.either(contracts(response))
@@ -134,7 +134,7 @@ class CommandService(
 
   private def exactlyOneActiveContract(
       response: lav1.command_service.SubmitAndWaitForTransactionResponse)
-    : Error \/ ActiveContract[lav1.value.Value] =
+    : Error \/ ActiveContract.WithParty[lav1.value.Value] =
     activeContracts(response).flatMap {
       case Seq(x) => \/-(x)
       case xs @ _ =>
@@ -142,15 +142,15 @@ class CommandService(
     }
 
   private def activeContracts(response: lav1.command_service.SubmitAndWaitForTransactionResponse)
-    : Error \/ ImmArraySeq[ActiveContract[lav1.value.Value]] =
+    : Error \/ ImmArraySeq[ActiveContract.WithParty[lav1.value.Value]] =
     response.transaction
       .toRightDisjunction(
         Error('activeContracts, s"Received response without transaction: $response"))
       .flatMap(activeContracts)
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  private def activeContracts(
-      tx: lav1.transaction.Transaction): Error \/ ImmArraySeq[ActiveContract[lav1.value.Value]] = {
+  private def activeContracts(tx: lav1.transaction.Transaction)
+    : Error \/ ImmArraySeq[ActiveContract.WithParty[lav1.value.Value]] = {
     Transactions
       .allCreatedEvents(tx)
       .traverse(ActiveContract.fromLedgerApi(_))
@@ -158,14 +158,14 @@ class CommandService(
   }
 
   private def contracts(response: lav1.command_service.SubmitAndWaitForTransactionTreeResponse)
-    : Error \/ List[Contract[lav1.value.Value]] =
+    : Error \/ List[Contract.WithParty[lav1.value.Value]] =
     response.transaction
       .toRightDisjunction(Error('contracts, s"Received response without transaction: $response"))
       .flatMap(contracts)
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def contracts(
-      tx: lav1.transaction.TransactionTree): Error \/ List[Contract[lav1.value.Value]] =
+      tx: lav1.transaction.TransactionTree): Error \/ List[Contract.WithParty[lav1.value.Value]] =
     Contract.fromTransactionTree(tx).leftMap(e => Error('contracts, e.shows)).map(_.toList)
 
   private def exerciseResult(a: lav1.command_service.SubmitAndWaitForTransactionTreeResponse)

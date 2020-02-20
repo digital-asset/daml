@@ -14,3 +14,7 @@ class PartiesService(listAllParties: () => Future[List[PartyDetails]])(
     listAllParties().map(ps => ps.map(p => domain.PartyDetails.fromLedgerApi(p)))
   }
 }
+
+object PartiesService {
+  type ResolveParty = String => Option[domain.PartyDetails]
+}

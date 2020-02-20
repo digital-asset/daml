@@ -81,7 +81,7 @@ class ContractsService(
       jwt: Jwt,
       jwtPayload: JwtPayload,
       contractLocator: domain.ContractLocator[LfValue],
-  ): Future[Option[domain.ActiveContract[LfValue]]] =
+  ): Future[Option[domain.ActiveContract.WithParty[LfValue]]] =
     contractLocator match {
       case domain.EnrichedContractKey(templateId, contractKey) =>
         findByContractKey(jwt, jwtPayload.party, templateId, contractKey)
@@ -94,7 +94,7 @@ class ContractsService(
       party: lar.Party,
       templateId: TemplateId.OptionalPkg,
       contractKey: LfValue,
-  ): Future[Option[domain.ActiveContract[LfValue]]] =
+  ): Future[Option[domain.ActiveContract.WithParty[LfValue]]] =
     for {
 
       resolvedTemplateId <- toFuture(resolveTemplateId(templateId)): Future[TemplateId.RequiredPkg]
@@ -106,7 +106,7 @@ class ContractsService(
           case e @ -\/(_) => e
           case a @ \/-(ac) if predicate(ac) => a
         }
-        .runWith(Sink.headOption): Future[Option[Error \/ domain.ActiveContract[LfValue]]]
+        .runWith(Sink.headOption): Future[Option[Error \/ domain.ActiveContract.WithParty[LfValue]]]
 
       result <- lookupResult(errorOrAc)
 
@@ -117,7 +117,7 @@ class ContractsService(
       party: lar.Party,
       templateId: Option[domain.TemplateId.OptionalPkg],
       contractId: domain.ContractId,
-  ): Future[Option[domain.ActiveContract[LfValue]]] =
+  ): Future[Option[domain.ActiveContract.WithParty[LfValue]]] =
     for {
 
       resolvedTemplateIds <- templateId.cata(
@@ -130,31 +130,32 @@ class ContractsService(
           case e @ -\/(_) => e
           case a @ \/-(ac) if isContractId(contractId)(ac) => a
         }
-        .runWith(Sink.headOption): Future[Option[Error \/ domain.ActiveContract[LfValue]]]
+        .runWith(Sink.headOption): Future[Option[Error \/ domain.ActiveContract.WithParty[LfValue]]]
 
       result <- lookupResult(errorOrAc)
 
     } yield result
 
   private def lookupResult(
-      errorOrAc: Option[Error \/ domain.ActiveContract[LfValue]],
-  ): Future[Option[domain.ActiveContract[LfValue]]] = {
+      errorOrAc: Option[Error \/ domain.ActiveContract.WithParty[LfValue]],
+  ): Future[Option[domain.ActiveContract.WithParty[LfValue]]] = {
     errorOrAc.cata(x => toFuture(x).map(Some(_)), Future.successful(None))
   }
 
-  private def isContractId(k: domain.ContractId)(a: domain.ActiveContract[LfValue]): Boolean =
+  private def isContractId(k: domain.ContractId)(
+      a: domain.ActiveContract.WithParty[LfValue]): Boolean =
     (a.contractId: domain.ContractId) == k
 
   def retrieveAll(
       jwt: Jwt,
       jwtPayload: JwtPayload,
-  ): SearchResult[Error \/ domain.ActiveContract[LfValue]] =
+  ): SearchResult[Error \/ domain.ActiveContract.WithParty[LfValue]] =
     retrieveAll(jwt, jwtPayload.party)
 
   def retrieveAll(
       jwt: Jwt,
       party: domain.Party,
-  ): SearchResult[Error \/ domain.ActiveContract[LfValue]] =
+  ): SearchResult[Error \/ domain.ActiveContract.WithParty[LfValue]] =
     SearchResult(
       Source(allTemplateIds()).flatMapConcat(x => searchInMemoryOneTpId(jwt, party, x, Map.empty)),
       Set.empty,
@@ -164,7 +165,7 @@ class ContractsService(
       jwt: Jwt,
       jwtPayload: JwtPayload,
       request: GetActiveContractsRequest,
-  ): SearchResult[Error \/ domain.ActiveContract[JsValue]] =
+  ): SearchResult[Error \/ domain.ActiveContract.WithParty[JsValue]] =
     search(jwt, jwtPayload.party, request.templateIds, request.query)
 
   def search(
@@ -172,7 +173,7 @@ class ContractsService(
       party: domain.Party,
       templateIds: Set[domain.TemplateId.OptionalPkg],
       queryParams: Map[String, JsValue],
-  ): SearchResult[Error \/ domain.ActiveContract[JsValue]] = {
+  ): SearchResult[Error \/ domain.ActiveContract.WithParty[JsValue]] = {
 
     val (resolvedTemplateIds, unresolvedTemplateIds) = resolveTemplateIds(templateIds)
 
@@ -185,16 +186,16 @@ class ContractsService(
     SearchResult(source, unresolvedTemplateIds)
   }
 
-  // we store create arguments as JSON in DB, that is why it is `domain.ActiveContract[JsValue]` in the result
+  // we store create arguments as JSON in DB, that is why it is `domain.ActiveContract.WithParty[JsValue]` in the result
   def searchDb(dao: dbbackend.ContractDao, fetch: ContractsFetch)(
       jwt: Jwt,
       party: domain.Party,
       templateIds: Set[domain.TemplateId.RequiredPkg],
       queryParams: Map[String, JsValue],
-  ): Source[Error \/ domain.ActiveContract[JsValue], NotUsed] = {
+  ): Source[Error \/ domain.ActiveContract.WithParty[JsValue], NotUsed] = {
 
     // TODO use `stream` when materializing DBContracts, so we could stream ActiveContracts
-    val fv: Future[Vector[domain.ActiveContract[JsValue]]] = dao
+    val fv: Future[Vector[domain.ActiveContract.WithParty[JsValue]]] = dao
       .transact { searchDb_(fetch, dao.logHandler)(jwt, party, templateIds, queryParams) }
       .unsafeToFuture()
 
@@ -206,7 +207,7 @@ class ContractsService(
       party: domain.Party,
       templateIds: Set[domain.TemplateId.RequiredPkg],
       queryParams: Map[String, JsValue],
-  ): doobie.ConnectionIO[Vector[domain.ActiveContract[JsValue]]] = {
+  ): doobie.ConnectionIO[Vector[domain.ActiveContract.WithParty[JsValue]]] = {
     import cats.instances.vector._
     import cats.syntax.traverse._
     import doobie.implicits._
@@ -222,7 +223,7 @@ class ContractsService(
       party: domain.Party,
       templateId: domain.TemplateId.RequiredPkg,
       queryParams: Map[String, JsValue],
-  ): doobie.ConnectionIO[Vector[domain.ActiveContract[JsValue]]] = {
+  ): doobie.ConnectionIO[Vector[domain.ActiveContract.WithParty[JsValue]]] = {
     val predicate = valuePredicate(templateId, queryParams)
     ContractDao.selectContracts(party, templateId, predicate.toSqlWhereClause)(doobieLog)
   }
@@ -232,9 +233,9 @@ class ContractsService(
       party: domain.Party,
       templateIds: Set[domain.TemplateId.RequiredPkg],
       queryParams: Map[String, JsValue],
-  ): Source[Error \/ domain.ActiveContract[LfValue], NotUsed] = {
+  ): Source[Error \/ domain.ActiveContract.WithParty[LfValue], NotUsed] = {
 
-    type Ac = domain.ActiveContract[LfValue]
+    type Ac = domain.ActiveContract.WithParty[LfValue]
     val empty = (Vector.empty[Error], Vector.empty[Ac])
     import InsertDeleteStep.appendForgettingDeletes
 
@@ -270,7 +271,7 @@ class ContractsService(
       party: domain.Party,
       templateId: domain.TemplateId.RequiredPkg,
       queryParams: Map[String, JsValue],
-  ): Source[Error \/ domain.ActiveContract[LfValue], NotUsed] =
+  ): Source[Error \/ domain.ActiveContract.WithParty[LfValue], NotUsed] =
     searchInMemory(jwt, party, Set(templateId), queryParams)
 
   private[http] def insertDeleteStepSource(
@@ -298,8 +299,8 @@ class ContractsService(
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def apiAcToLfAc(
-      ac: domain.ActiveContract[ApiValue],
-  ): Error \/ domain.ActiveContract[LfValue] =
+      ac: domain.ActiveContract.WithParty[ApiValue],
+  ): Error \/ domain.ActiveContract.WithParty[LfValue] =
     ac.traverse(ApiValueToLfValueConverter.apiValueToLfValue)
       .leftMap(e => Error('apiAcToLfAc, e.shows))
 
@@ -311,8 +312,8 @@ class ContractsService(
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def lfAcToJsAc(
-      a: domain.ActiveContract[LfValue],
-  ): Error \/ domain.ActiveContract[JsValue] =
+      a: domain.ActiveContract.WithParty[LfValue],
+  ): Error \/ domain.ActiveContract.WithParty[JsValue] =
     a.traverse(lfValueToJsValue)
 
   private def lfValueToJsValue(a: LfValue): Error \/ JsValue =
