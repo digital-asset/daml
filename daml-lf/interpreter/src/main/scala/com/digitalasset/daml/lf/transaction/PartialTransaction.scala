@@ -198,6 +198,7 @@ case class PartialTransaction(
               else nodes.transform((_, v) => resolveCidDiscriminator(v)),
             roots = children.toImmArray,
             optUsedPackages = None,
+            transactionSeed = transactionSeed,
           ),
         )
       case _ =>
