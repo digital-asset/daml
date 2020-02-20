@@ -21,6 +21,7 @@ import com.daml.ledger.participant.state.v1.SubmissionResult.{
   Overloaded
 }
 import com.daml.ledger.participant.state.v1.{
+  SubmissionResult,
   SubmitterInfo,
   TimeModel,
   TransactionMeta,
@@ -49,7 +50,7 @@ import scalaz.syntax.tag._
 import scala.compat.java8.FutureConverters
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 object ApiSubmissionService {
 
@@ -130,6 +131,7 @@ final class ApiSubmissionService private (
     submissionService.deduplicateCommand(deduplicationKey, submittedAt, ttl).flatMap {
       case CommandDeduplicationNew =>
         recordOnLedger(commands)
+          .transform(mapSubmissionResult)
           .andThen {
             case Success(_) =>
               submissionService.updateCommandResult(deduplicationKey, submittedAt, Right(()))
@@ -185,8 +187,32 @@ final class ApiSubmissionService private (
         .andThen(logger.logErrorsOnCall[Unit])(DirectExecutionContext)
     }
 
-  private def recordOnLedger(commands: ApiCommands)(implicit logCtx: LoggingContext): Future[Unit] =
-    (for {
+  private def mapSubmissionResult(result: Try[SubmissionResult])(
+      implicit logCtx: LoggingContext): Try[Unit] = result match {
+    case Success(Acknowledged) =>
+      logger.debug("Submission of command succeeded")
+      Success(())
+
+    case Success(Overloaded) =>
+      logger.info("Submission has failed due to backpressure")
+      Failure(Status.RESOURCE_EXHAUSTED.asRuntimeException)
+
+    case Success(NotSupported) =>
+      logger.warn("Submission of command was not supported")
+      Failure(Status.INVALID_ARGUMENT.asRuntimeException)
+
+    case Success(InternalError(reason)) =>
+      logger.error(s"Submission of command failed due to an internal error, reason=$reason")
+      Failure(Status.INTERNAL.augmentDescription(reason).asRuntimeException)
+
+    case Failure(error) =>
+      logger.error("Submission of command has failed.", error)
+      Failure(error)
+  }
+
+  private def recordOnLedger(commands: ApiCommands)(
+      implicit logCtx: LoggingContext): Future[SubmissionResult] =
+    for {
       res <- commandExecutor
         .execute(
           commands.submitter,
@@ -196,28 +222,7 @@ final class ApiSubmissionService private (
           commands.commands
         )
       submissionResult <- handleResult(res)
-    } yield submissionResult).transform {
-      case Success(Acknowledged) =>
-        logger.debug("Submission of command succeeded")
-        Success(())
-
-      case Success(Overloaded) =>
-        logger.info("Submission has failed due to backpressure")
-        Failure(Status.RESOURCE_EXHAUSTED.asRuntimeException)
-
-      case Success(NotSupported) =>
-        logger.warn("Submission of command was not supported")
-        Failure(Status.INVALID_ARGUMENT.asRuntimeException)
-
-      case Success(InternalError(reason)) =>
-        logger.error(s"Submission of command failed due to an internal error, reason=$reason")
-        Failure(Status.INTERNAL.augmentDescription(reason).asRuntimeException)
-
-      case Failure(error) =>
-        logger.error("Submission of command has failed.", error)
-        Failure(error)
-
-    }(DirectExecutionContext)
+    } yield submissionResult
 
   private def handleResult(
       res: scala.Either[ErrorCause, (SubmitterInfo, TransactionMeta, Transaction.Transaction)]
