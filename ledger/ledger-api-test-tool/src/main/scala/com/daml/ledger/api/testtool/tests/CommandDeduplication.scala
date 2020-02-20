@@ -6,16 +6,25 @@ package com.daml.ledger.api.testtool.tests
 import java.util.UUID
 
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
-//import com.daml.ledger.api.testtool.infrastructure.Assertions.assertGrpcError
+import com.daml.ledger.api.testtool.infrastructure.Assertions.assertGrpcError
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
 import com.digitalasset.ledger.test_stable.Test.Dummy
 import com.digitalasset.timer.Delayed
 import com.google.protobuf.duration.Duration
-//import io.grpc.Status
+import io.grpc.Status
 
 import scala.concurrent.duration.DurationInt
+import scala.util.Success
 
 final class CommandDeduplication(session: LedgerSession) extends LedgerTestSuite(session) {
+
+  /** A deduplicated submission can either
+    * succeed (if the participant knows that the original submission has succeeded),
+    * or fail with status ALREADY_EXISTS */
+  private[this] def assertDeduplicated(result: Either[Throwable, Unit]): Unit = result match {
+    case Left(e) => assertGrpcError(e, Status.Code.ALREADY_EXISTS, "")
+    case Right(v) => ()
+  }
 
   test(
     "CDSimpleDeduplication",
@@ -34,14 +43,14 @@ final class CommandDeduplication(session: LedgerSession) extends LedgerTestSuite
 
         // Submit command A (first TTL window)
         _ <- ledger.submit(requestA)
-        _ <- ledger.submit(requestA)
+        resultA2 <- ledger.submit(requestA).transform(x => Success(x.toEither))
 
         // Wait until the end of first TTL window
         _ <- Delayed.by(ttlSeconds.seconds)(())
 
         // Submit command A (second TTL window)
         _ <- ledger.submit(requestA)
-        _ <- ledger.submit(requestA)
+        resultA4 <- ledger.submit(requestA).transform(x => Success(x.toEither))
 
         // Submit and wait for command B (to get a unique completion for the end of the test)
         submitAndWaitRequest <- ledger.submitAndWaitRequest(party, Dummy(party).create.command)
@@ -50,8 +59,8 @@ final class CommandDeduplication(session: LedgerSession) extends LedgerTestSuite
         // Inspect created contracts
         activeContracts <- ledger.activeContracts(party)
       } yield {
-        //assertGrpcError(duplicateA1, Status.Code.ALREADY_EXISTS, "")
-        //assertGrpcError(duplicateA2, Status.Code.ALREADY_EXISTS, "")
+        assertDeduplicated(resultA2)
+        assertDeduplicated(resultA4)
 
         assert(
           activeContracts.size == 3,
