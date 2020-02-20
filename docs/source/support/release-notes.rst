@@ -16,7 +16,7 @@ Sandbox
 
 - Removed the warnings regarding static time and scenarios on
   initialization. We will not deprecate these until we have a stable
-  path forward.
+  alternative.
 - If no ledger ID is provided when running against an existing
   ledger, use the existing ID. Previously, Sandbox would fail to start.
 
