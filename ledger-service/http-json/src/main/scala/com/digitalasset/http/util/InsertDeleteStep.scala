@@ -20,7 +20,10 @@ private[http] final case class InsertDeleteStep[+D, +C](
   import InsertDeleteStep._
 
   def append[DD >: D, CC >: C: Cid](o: InsertDeleteStep[DD, CC]): InsertDeleteStep[DD, CC] =
-    InsertDeleteStep(appendForgettingDeletes(inserts, o), deletes ++ o.deletes)
+    InsertDeleteStep(
+      appendForgettingDeletes(inserts, o),
+      deletes ++ o.deletes,
+    )
 
   def nonEmpty: Boolean = inserts.nonEmpty || deletes.nonEmpty
 
