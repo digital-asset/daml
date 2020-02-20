@@ -1445,8 +1445,14 @@ message InternedDottedName {
   repeated int32 segments_interned_str = 1; // *Available in versions >= 1.7*
 }
 
+message PackageMetadata {
+  int32 name_interned_str = 1; // *Available in versions >= 1.dev*
+  int32 version_interned_str = 2; // *Available in versions >= 1.dev*
+}
+
 message Package {
   repeated Module modules = 1;
   repeated string interned_strings = 2; // *Available in versions >= 1.6*
   repeated InternedDottedName interned_dotted_names = 3; // *Available in versions >= 1.7*
+  PackageMetadata metadata = 4; // * Available in versions >= 1.dev*
 }

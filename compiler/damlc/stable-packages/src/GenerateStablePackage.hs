@@ -89,7 +89,7 @@ writePackage pkg path = do
   BS.writeFile path $ encodeArchive pkg
 
 ghcTypes :: Package
-ghcTypes = Package version1_6 $ NM.singleton Module
+ghcTypes = package version1_6 $ NM.singleton Module
   { moduleName = modName
   , moduleSource = Nothing
   , moduleFeatureFlags = daml12FeatureFlags
@@ -110,7 +110,7 @@ ghcTypes = Package version1_6 $ NM.singleton Module
       }
 
 ghcPrim :: Package
-ghcPrim = Package version1_6 $ NM.singleton Module
+ghcPrim = package version1_6 $ NM.singleton Module
   { moduleName = modName
   , moduleSource = Nothing
   , moduleFeatureFlags = daml12FeatureFlags
@@ -138,8 +138,13 @@ ghcPrim = Package version1_6 $ NM.singleton Module
       , dvalBody = EEnumCon (qual (dataTypeCon dataVoid)) conName
       }
 
+package :: Version -> NM.NameMap Module -> Package
+package ver mods
+    | ver > version1_7 = error "Packages with LF version >= 1.7 need to have package metadata"
+    | otherwise = Package ver mods Nothing
+
 daTypes :: Package
-daTypes = Package version1_6 $ NM.singleton Module
+daTypes = package version1_6 $ NM.singleton Module
   { moduleName = modName
   , moduleSource = Nothing
   , moduleFeatureFlags = daml12FeatureFlags
@@ -184,7 +189,7 @@ daTypes = Package version1_6 $ NM.singleton Module
     tupleWorkers = map tupleWorker [2..20]
 
 ghcTuple :: Package
-ghcTuple = Package version1_6 $ NM.singleton Module
+ghcTuple = package version1_6 $ NM.singleton Module
   { moduleName = modName
   , moduleSource = Nothing
   , moduleFeatureFlags = daml12FeatureFlags
@@ -207,7 +212,7 @@ ghcTuple = Package version1_6 $ NM.singleton Module
       ]
 
 daInternalTemplate :: Package
-daInternalTemplate = Package version1_6 $ NM.singleton Module
+daInternalTemplate = package version1_6 $ NM.singleton Module
   { moduleName = modName
   , moduleSource = Nothing
   , moduleFeatureFlags = daml12FeatureFlags
@@ -224,7 +229,7 @@ daInternalTemplate = Package version1_6 $ NM.singleton Module
       ]
 
 daInternalAny :: Package
-daInternalAny = Package version1_7 $ NM.singleton Module
+daInternalAny = package version1_7 $ NM.singleton Module
   { moduleName = modName
   , moduleSource = Nothing
   , moduleFeatureFlags = daml12FeatureFlags
@@ -247,7 +252,7 @@ daInternalAny = Package version1_7 $ NM.singleton Module
       ]
 
 daTimeTypes :: Package
-daTimeTypes = Package version1_6 $ NM.singleton Module
+daTimeTypes = package version1_6 $ NM.singleton Module
   { moduleName = modName
   , moduleSource = Nothing
   , moduleFeatureFlags = daml12FeatureFlags
@@ -270,7 +275,7 @@ daTimeTypes = Package version1_6 $ NM.singleton Module
     usField = mkField "microseconds"
 
 daNonEmptyTypes :: Package
-daNonEmptyTypes = Package version1_6 $ NM.singleton Module
+daNonEmptyTypes = package version1_6 $ NM.singleton Module
   { moduleName = modName
   , moduleSource = Nothing
   , moduleFeatureFlags = daml12FeatureFlags
@@ -297,7 +302,7 @@ daNonEmptyTypes = Package version1_6 $ NM.singleton Module
       ]
 
 daDateTypes :: Package
-daDateTypes = Package version1_6 $ NM.singleton Module
+daDateTypes = package version1_6 $ NM.singleton Module
   { moduleName = modName
   , moduleSource = Nothing
   , moduleFeatureFlags = daml12FeatureFlags
@@ -337,7 +342,7 @@ daDateTypes = Package version1_6 $ NM.singleton Module
       ]
 
 daSemigroupTypes :: Package
-daSemigroupTypes = Package version1_6 $ NM.singleton Module
+daSemigroupTypes = package version1_6 $ NM.singleton Module
   { moduleName = modName
   , moduleSource = Nothing
   , moduleFeatureFlags = daml12FeatureFlags
@@ -363,7 +368,7 @@ daSemigroupTypes = Package version1_6 $ NM.singleton Module
       ]
 
 daMonoidTypes :: Package
-daMonoidTypes = Package version1_6 $ NM.singleton Module
+daMonoidTypes = package version1_6 $ NM.singleton Module
   { moduleName = modName
   , moduleSource = Nothing
   , moduleFeatureFlags = daml12FeatureFlags
@@ -404,7 +409,7 @@ daMonoidTypes = Package version1_6 $ NM.singleton Module
       ]
 
 daValidationTypes :: PackageId -> Package
-daValidationTypes nonEmptyPkgId = Package version1_6 $ NM.singleton Module
+daValidationTypes nonEmptyPkgId = package version1_6 $ NM.singleton Module
   { moduleName = modName
   , moduleSource = Nothing
   , moduleFeatureFlags = daml12FeatureFlags
@@ -435,7 +440,7 @@ daValidationTypes nonEmptyPkgId = Package version1_6 $ NM.singleton Module
       ]
 
 daLogicTypes :: Package
-daLogicTypes = Package version1_6 $ NM.singleton Module
+daLogicTypes = package version1_6 $ NM.singleton Module
   { moduleName = modName
   , moduleSource = Nothing
   , moduleFeatureFlags = daml12FeatureFlags
@@ -470,7 +475,7 @@ daLogicTypes = Package version1_6 $ NM.singleton Module
       ]
 
 daInternalDown :: Package
-daInternalDown = Package version1_6 $ NM.singleton Module
+daInternalDown = package version1_6 $ NM.singleton Module
   { moduleName = modName
   , moduleSource = Nothing
   , moduleFeatureFlags = daml12FeatureFlags
@@ -493,7 +498,7 @@ daInternalDown = Package version1_6 $ NM.singleton Module
       ]
 
 daInternalErased :: Package
-daInternalErased = Package version1_6 $ NM.singleton Module
+daInternalErased = package version1_6 $ NM.singleton Module
   { moduleName = modName
   , moduleSource = Nothing
   , moduleFeatureFlags = daml12FeatureFlags
@@ -510,7 +515,7 @@ daInternalErased = Package version1_6 $ NM.singleton Module
       ]
 
 daInternalPromotedText :: Package
-daInternalPromotedText = Package version1_6 $ NM.singleton Module
+daInternalPromotedText = package version1_6 $ NM.singleton Module
   { moduleName = modName
   , moduleSource = Nothing
   , moduleFeatureFlags = daml12FeatureFlags

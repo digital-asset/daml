@@ -571,9 +571,19 @@ instance Pretty Module where
         | isEmpty prettyFlags = [keyword_ "module" <-> pretty modName <-> keyword_ "where"]
         | otherwise = [prettyFlags, keyword_ "module" <-> pretty modName <-> keyword_ "where"]
 
+instance Pretty PackageName where
+    pPrint = pretty . unPackageName
+
+instance Pretty PackageVersion where
+    pPrint = pretty . unPackageVersion
+
+instance Pretty PackageMetadata where
+    pPrint (PackageMetadata name version) = pretty name <> "-" <> pretty version
+
 instance Pretty Package where
-  pPrintPrec lvl _prec (Package version modules) =
+  pPrintPrec lvl _prec (Package version modules metadata) =
     vcat
       [ "daml-lf" <-> pPrintPrec lvl 0 version
+      , "metadata" <-> pPrintPrec lvl 0 metadata
       , vsep $ map (pPrintPrec lvl 0) (NM.toList modules)
       ]
