@@ -27,13 +27,16 @@ import scalaz.syntax.show._
 import scalaz.syntax.std.option._
 import scalaz.std.option._
 import scalaz.syntax.traverse._
+import scalaz.syntax.apply._
 import scalaz.syntax.bitraverse._
-import scalaz.{-\/, Bitraverse, EitherT, Show, Traverse, \/, \/-}
+import scalaz.{-\/, Bitraverse, EitherT, Show, \/, \/-}
 import spray.json._
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
+
+import scala.language.higherKinds
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class Endpoints(
@@ -82,34 +85,6 @@ class Endpoints(
       jsVal <- either(encoder.encodeV(ac1).leftMap(e => ServerError(e.shows))): ET[JsValue]
 
     } yield jsVal
-
-//  def enrichParties(ac0: domain.ActiveContract.WithParty[lav1.value.Value])
-//    : ET[domain.ActiveContract.WithPartyDetails[lav1.value.Value]] =
-//    for {
-//      partiesMap <- rightT(
-//        partiesService.allParties().map(xs => PartiesService.buildPartiesMap(xs))
-//      ): ET[Map[domain.Party, domain.PartyDetails]]
-//
-//      ac1 <- either(
-//        domain.ActiveContract.bitraverseInstance
-//          .leftTraverse[lav1.value.Value]
-//          .traverse(ac0)(resolveParty(partiesMap))
-//      ): ET[domain.ActiveContract.WithPartyDetails[lav1.value.Value]]
-//    } yield ac1
-
-  def enrichParties[F[_, _], B](fab: F[domain.Party, B])(
-      implicit ev: Bitraverse[F]): ET[F[domain.PartyDetails, B]] = {
-    for {
-      partiesMap <- rightT(
-        partiesService.allParties().map(xs => PartiesService.buildPartiesMap(xs))
-      ): ET[Map[domain.Party, domain.PartyDetails]]
-
-      fxb <- either(
-        ev.leftTraverse[B].traverse(fab)(resolveParty(partiesMap))
-      ): ET[F[domain.PartyDetails, B]]
-
-    } yield fxb
-  }
 
   def exercise(req: HttpRequest): ET[JsValue] =
     for {
@@ -179,29 +154,26 @@ class Endpoints(
     } yield jsVal
 
   def retrieveAll(req: HttpRequest): Future[Error \/ SearchResult[Error \/ JsValue]] =
-    input(req).map {
+    inputAndPartyMap(req).map {
       _.map {
-        case (jwt, jwtPayload, _) =>
+        case (jwt, jwtPayload, _, partyMap) =>
           val result
             : SearchResult[ContractsService.Error \/ domain.ActiveContract.WithParty[LfValue]] =
             contractsService
               .retrieveAll(jwt, jwtPayload)
 
-          val jsValSource = result.source
+          val jsValSource: Source[Error \/ JsValue, NotUsed] = result.source
             .via(handleSourceFailure)
-            .map(_.flatMap { ac0: domain.ActiveContract.WithParty[LfValue] =>
-              val ac1: domain.ActiveContract.WithPartyDetails[LfValue] = enrichParties(ac0)
-              lfAcToJsValue(ac1)
-            }): Source[Error \/ JsValue, NotUsed]
+            .map(_.flatMap(ac => lfAcToJsValue(ac.leftMap(resolveParty(partyMap)))))
 
           result.copy(source = jsValSource): SearchResult[Error \/ JsValue]
       }
     }
 
   def query(req: HttpRequest): Future[Error \/ SearchResult[Error \/ JsValue]] =
-    input(req).map {
+    inputAndPartyMap(req).map {
       _.flatMap {
-        case (jwt, jwtPayload, reqBody) =>
+        case (jwt, jwtPayload, reqBody, partyMap) =>
           SprayJson
             .decode[domain.GetActiveContractsRequest](reqBody)
             .leftMap(e => InvalidUserInput(e.shows))
@@ -213,7 +185,7 @@ class Endpoints(
 
               val jsValSource: Source[Error \/ JsValue, NotUsed] = result.source
                 .via(handleSourceFailure)
-                .map(_.flatMap(jsAcToJsValue))
+                .map(_.flatMap(ac => jsAcToJsValue(ac.leftMap(resolveParty(partyMap)))))
 
               result.copy(source = jsValSource): SearchResult[Error \/ JsValue]
             }
@@ -325,6 +297,31 @@ class Endpoints(
           case a @ \/-((_, _)) => \/-(a)
         }
       }
+
+  private def enrichParties[F[_, _], B](fab: F[domain.Party, B])(
+      implicit ev: Bitraverse[F]): ET[F[domain.PartyDetails, B]] = {
+    for {
+      partiesMap <- rightT(
+        partiesService.allParties().map(xs => PartiesService.buildPartiesMap(xs))
+      ): ET[PartiesService.PartyMap]
+
+      fxb = ev.leftMap(fab)(resolveParty(partiesMap)): F[domain.PartyDetails, B]
+
+    } yield fxb
+  }
+
+  // TODO(Leo): memoize it
+  private def partiesMap(): Future[Error \/ PartiesService.PartyMap] =
+    handleFutureFailure(partiesService.allParties().map(xs => PartiesService.buildPartiesMap(xs)))
+
+  private def inputAndPartyMap(
+      req: HttpRequest): Future[Error \/ (Jwt, JwtPayload, String, PartiesService.PartyMap)] = {
+    val inputF = input(req)
+    val mapF = partiesMap()
+    ^(inputF, mapF) { (inputE, mapE) =>
+      ^(inputE, mapE)((input, map) => (input._1, input._2, input._3, map))
+    }
+  }
 }
 
 object Endpoints {
@@ -355,12 +352,10 @@ object Endpoints {
     } yield c
   }
 
-  private def jsAcToJsValue(a: domain.ActiveContract.WithParty[JsValue]): Error \/ JsValue =
+  private def jsAcToJsValue(a: domain.ActiveContract.WithPartyDetails[JsValue]): Error \/ JsValue =
     SprayJson.encode(a).leftMap(e => ServerError(e.shows))
 
   private def resolveParty(map: Map[domain.Party, domain.PartyDetails])(
-      identifier: domain.Party): Error \/ domain.PartyDetails =
-    map
-      .get(identifier)
-      .toRightDisjunction(ServerError(s"Cannot resolve party: $identifier"))
+      identifier: domain.Party): domain.PartyDetails =
+    map.getOrElse(identifier, domain.PartyDetails(identifier, None))
 }

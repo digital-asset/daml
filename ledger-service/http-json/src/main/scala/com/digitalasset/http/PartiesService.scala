@@ -27,6 +27,8 @@ class PartiesService(listAllParties: () => Future[List[PartyDetails]])(
 object PartiesService {
   type ResolveParty = String => Option[domain.PartyDetails]
 
-  def buildPartiesMap(parties: List[domain.PartyDetails]): Map[domain.Party, domain.PartyDetails] =
+  type PartyMap = Map[domain.Party, domain.PartyDetails]
+
+  def buildPartiesMap(parties: List[domain.PartyDetails]): PartyMap =
     parties.map(x => (x.identifier, x))(breakOut)
 }

@@ -60,7 +60,9 @@ object WebSocketService {
       ]
   ) {
     import json.JsonProtocol._, spray.json._
-    def render(implicit lfv: LfV <~< JsValue, pos: Pos <~< Map[String, JsValue]): JsValue =
+    def render(f: domain.Party => domain.PartyDetails)(
+        implicit lfv: LfV <~< JsValue,
+        pos: Pos <~< Map[String, JsValue]): JsValue =
       step match {
         case ContractStreamStep.LiveBegin => liveMarker
         case _ =>
@@ -74,7 +76,7 @@ object WebSocketService {
             deletes.valuesIterator.map(inj("archived", _)).toVector
               ++ inserts.map {
                 case (ac, pos) =>
-                  val acj = inj("created", ac)
+                  val acj = inj("created", ac.leftMap(f))
                   acj copy (fields = acj.fields ++ pos)
               } ++ errors.map(e => inj("error", e.message)))
           JsObject(("events", events))
@@ -317,7 +319,7 @@ class WebSocketService(
         .via(convertFilterContracts(fn))
         .filter(_.nonEmpty)
         .via(removePhantomArchives(remove = !Q.allowPhantonArchives))
-        .map(_.mapPos(Q.renderCreatedMetadata).render)
+        .map(_.mapPos(Q.renderCreatedMetadata).render(enrichParty))
         .prepend(reportUnresolvedTemplateIds(unresolved))
         .map(jsv => TextMessage(jsv.compactPrint))
     } else {
@@ -402,4 +404,7 @@ class WebSocketService(
         import spray.json._
         Map("warnings" -> domain.UnknownTemplateIds(unresolved.toList)).toJson
       }
+
+  // TODO(Leo): look up the PartyDetails using PartiesService
+  private def enrichParty(p: domain.Party): domain.PartyDetails = domain.PartyDetails(p, None)
 }
