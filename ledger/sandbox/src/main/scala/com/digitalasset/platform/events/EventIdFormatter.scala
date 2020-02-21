@@ -22,7 +22,7 @@ object EventIdFormatter {
   def makeAbsCoid(transactionId: LedgerString)(coid: Lf.ContractId): Lf.AbsoluteContractId =
     coid match {
       case a @ Lf.AbsoluteContractId(_) => a
-      case Lf.RelativeContractId(txnid, _) =>
+      case Lf.RelativeContractId(txnid) =>
         Lf.AbsoluteContractId(fromTransactionId(transactionId, txnid))
     }
 

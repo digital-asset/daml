@@ -244,7 +244,7 @@ case class PartialTransaction(
           time <- submissionTime
         } yield crypto.Hash.deriveContractDiscriminator(seed, time, stakeholders)
       val cid = discriminator.fold[Value.ContractId](
-        Value.RelativeContractId(Value.NodeId(nextNodeIdx), None)
+        Value.RelativeContractId(Value.NodeId(nextNodeIdx))
       )(
         hash =>
           Value.AbsoluteContractId(Ref.ContractIdString.assertFromString("0" + hash.toHexaString))

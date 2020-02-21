@@ -73,7 +73,7 @@ class ValueSpec extends FreeSpec with Matchers with Checkers with GeneratorDrive
       "resolveRelCidV0 is used" in {
         val value = VersionedValue(
           ValueVersions.minVersion,
-          ValueContractId(ValueContractId(RelativeContractId(NodeId(0), Some(randomHash())))),
+          ValueContractId(ValueContractId(RelativeContractId(NodeId(0)))),
         )
         val contract = ContractInst(tmplId, value, "agreed")
         val resolver: RelativeContractId => Ref.ContractIdString = {

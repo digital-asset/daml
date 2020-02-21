@@ -339,7 +339,7 @@ object Pretty {
   def prettyContractId(coid: ContractId): Doc =
     coid match {
       case AbsoluteContractId(acoid) => text(acoid)
-      case RelativeContractId(rcoid, _) => str(rcoid)
+      case RelativeContractId(rcoid) => str(rcoid)
     }
 
   def prettyActiveContracts(c: L.LedgerData): Doc = {
@@ -416,7 +416,7 @@ object Pretty {
           text(constructor)
       case ValueText(t) => char('"') + text(t) + char('"')
       case ValueContractId(AbsoluteContractId(acoid)) => text(acoid)
-      case ValueContractId(RelativeContractId(rcoid, _)) =>
+      case ValueContractId(RelativeContractId(rcoid)) =>
         char('~') + text(rcoid.toString)
       case ValueUnit => text("<unit>")
       case ValueBool(b) => str(b)
