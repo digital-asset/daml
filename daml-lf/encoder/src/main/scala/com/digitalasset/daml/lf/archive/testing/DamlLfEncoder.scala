@@ -57,7 +57,7 @@ private[digitalasset] object DamlLfEncoder extends App {
 
     val modules = parseModules[this.type](source).fold(error, identity)
 
-    val pkgs = Map(pkgId -> Ast.Package(modules, Set.empty[Ref.PackageId]))
+    val pkgs = Map(pkgId -> Ast.Package(modules, Set.empty[Ref.PackageId], None))
 
     Validation.checkPackage(pkgs, pkgId).left.foreach(e => error(e.pretty))
 

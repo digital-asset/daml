@@ -14,6 +14,12 @@ object Ref {
   val Name: IdString.Name.type = IdString.Name
   implicit def `Name equal instance`: Equal[Name] = Name.equalInstance
 
+  type PackageName = IdString.PackageName
+  val PackageName: IdString.PackageName.type = IdString.PackageName
+
+  type PackageVersion = IdString.PackageVersion
+  val PackageVersion: IdString.PackageVersion.type = IdString.PackageVersion
+
   /** Party identifiers are non-empty US-ASCII strings built from letters, digits, space, colon, minus and,
       underscore. We use them to represent [Party] literals. In this way, we avoid
       empty identifiers, escaping problems, and other similar pitfalls.

@@ -22,14 +22,16 @@ class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         List(
           Module(modName1, List.empty, List.empty, defaultVersion, FeatureFlags.default),
           Module(modName2, List.empty, List.empty, defaultVersion, FeatureFlags.default)),
-        Set.empty
+        Set.empty,
+        None
       )
       a[PackageError] shouldBe thrownBy(
         Package(
           List(
             Module(modName1, List.empty, List.empty, defaultVersion, FeatureFlags.default),
             Module(modName1, List.empty, List.empty, defaultVersion, FeatureFlags.default)),
-          Set.empty
+          Set.empty,
+          None
         ))
 
     }

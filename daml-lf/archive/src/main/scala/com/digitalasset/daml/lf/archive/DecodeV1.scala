@@ -40,6 +40,17 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
 
     val dependencyTracker = new PackageDependencyTracker(packageId)
 
+    val metadata: Option[PackageMetadata] =
+      if (lfPackage.hasMetadata) {
+        assertSince(LV.Features.packageMetadata, "Package.metadata")
+        Some(decodePackageMetadata(lfPackage.getMetadata, internedStrings))
+      } else {
+        if (!versionIsOlderThan(LV.Features.packageMetadata)) {
+          throw ParseError(s"Package.metadata is required in DAML-LF 1.$minor")
+        }
+        None
+      }
+
     Package(
       modules = lfPackage.getModulesList.asScala
         .map(
@@ -50,9 +61,23 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
             Some(dependencyTracker),
             _,
             onlySerializableDataDefs).decode),
-      directDeps = dependencyTracker.getDependencies
+      directDeps = dependencyTracker.getDependencies,
+      metadata = metadata,
     )
 
+  }
+
+  private[archive] def decodePackageMetadata(
+      metadata: PLF.PackageMetadata,
+      internedStrings: ImmArraySeq[String]): PackageMetadata = {
+    def getInternedStr(id: Int) =
+      internedStrings.lift(id).getOrElse {
+        throw ParseError(s"invalid internedString table index $id")
+      }
+    PackageMetadata(
+      toPackageName(getInternedStr(metadata.getNameInternedStr), "PackageMetadata.name"),
+      toPackageVersion(getInternedStr(metadata.getVersionInternedStr), "PackageMetadata.version22")
+    )
   }
 
   // each LF scenario module is wrapped in a distinct proto package
@@ -1200,6 +1225,16 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
 
   private[this] def toName(s: String): Name =
     eitherToParseError(Name.fromString(s))
+
+  private[this] def toPackageName(s: String, description: => String): PackageName = {
+    assertSince(LV.Features.packageMetadata, description)
+    eitherToParseError(PackageName.fromString(s))
+  }
+
+  private[this] def toPackageVersion(s: String, description: => String): PackageVersion = {
+    assertSince(LV.Features.packageMetadata, description)
+    eitherToParseError(PackageVersion.fromString(s))
+  }
 
   private[this] def toPLNumeric(s: String) =
     PLNumeric(eitherToParseError(Numeric.fromString(s)))
