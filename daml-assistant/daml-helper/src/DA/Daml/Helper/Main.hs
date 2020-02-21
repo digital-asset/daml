@@ -49,6 +49,7 @@ data Command
       , sandboxOptions :: SandboxOptions
       , navigatorOptions :: NavigatorOptions
       , jsonApiOptions :: JsonApiOptions
+      , scriptOptions :: ScriptOptions
       , shutdownStdinClose :: Bool
       }
     | Deploy { flags :: LedgerFlags }
@@ -124,6 +125,7 @@ commandParser = subparser $ fold
         <*> (SandboxOptions <$> many (strOption (long "sandbox-option" <> metavar "SANDBOX_OPTION" <> help "Pass option to sandbox")))
         <*> (NavigatorOptions <$> many (strOption (long "navigator-option" <> metavar "NAVIGATOR_OPTION" <> help "Pass option to navigator")))
         <*> (JsonApiOptions <$> many (strOption (long "json-api-option" <> metavar "JSON_API_OPTION" <> help "Pass option to HTTP JSON API")))
+        <*> (ScriptOptions <$> many (strOption (long "script-option" <> metavar "SCRIPT_OPTION" <> help "Pass option to DAML script interpreter")))
         <*> stdinCloseOpt
 
     deployCmdInfo = mconcat
@@ -274,6 +276,7 @@ runCommand = \case
             sandboxOptions
             navigatorOptions
             jsonApiOptions
+            scriptOptions
     Deploy {..} -> runDeploy flags
     LedgerListParties {..} -> runLedgerListParties flags json
     LedgerAllocateParties {..} -> runLedgerAllocateParties flags parties
