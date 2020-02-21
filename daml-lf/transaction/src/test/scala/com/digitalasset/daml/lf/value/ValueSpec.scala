@@ -77,7 +77,7 @@ class ValueSpec extends FreeSpec with Matchers with Checkers with GeneratorDrive
         )
         val contract = ContractInst(tmplId, value, "agreed")
         val resolver: RelativeContractId => Ref.ContractIdString = {
-          case RelativeContractId(NodeId(idx), _) =>
+          case RelativeContractId(NodeId(idx)) =>
             Ref.ContractIdString.assertFromString(s"#0:$idx")
         }
         value.resolveRelCid(resolver).version shouldBe ValueVersions.minVersion
@@ -104,5 +104,4 @@ class ValueSpec extends FreeSpec with Matchers with Checkers with GeneratorDrive
     }
   }
 
-  private val randomHash = crypto.Hash.secureRandom
 }
