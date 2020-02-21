@@ -50,7 +50,7 @@ trait ResourceOwner[+A] {
     }
 
   /**
-    * Uses the acquired [[Resource]]'s value asynchronously.
+    * Acquire the [[Resource]]'s value, use it asynchronously, and release it afterwards.
     *
     * @param behavior The aynchronous computation on the value.
     * @param executionContext The asynchronous task execution engine.
@@ -61,7 +61,7 @@ trait ResourceOwner[+A] {
     val resource = acquire()
     resource.asFuture
       .flatMap(behavior)
-      .transformWith { // Release the resource no matter if the computation succeeds or not
+      .transformWith { // Release the resource whether the computation succeeds or not
         case Success(value) => resource.release().map(_ => value)
         case Failure(exception) => resource.release().flatMap(_ => Future.failed(exception))
       }

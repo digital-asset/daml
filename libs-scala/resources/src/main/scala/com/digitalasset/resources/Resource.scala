@@ -23,7 +23,8 @@ trait Resource[+A] {
   val asFuture: Future[A]
 
   /**
-    * Every [[Resource]] can be (asynchronously) released.
+    * Every [[Resource]] can be (asynchronously) released. Releasing a resource will also release
+    * all earlier resources constructed via [[flatMap()]] or a `for` comprehension.
     */
   def release(): Future[Unit]
 
@@ -77,7 +78,7 @@ trait Resource[+A] {
     flatMap(identity[A])
 
   /**
-    * Just like [[Future]]s, an attempted [[Resource]] computation can chained to a [[Resource]].
+    * Just like [[Future]]s, an attempted [[Resource]] computation can transformed.
     */
   def transformWith[B](f: Try[A] => Resource[B])(
       implicit executionContext: ExecutionContext,
@@ -105,15 +106,16 @@ object Resource {
       final lazy val asFuture: Future[T] = future.transformWith {
         case Success(value) => Future.successful(value)
         case Failure(throwable) =>
-          release().flatMap(_ => Future.failed(throwable)) // Release all if failing
+          release().flatMap(_ => Future.failed(throwable)) // Release everything on failure
       }
 
       private val released: AtomicBoolean = new AtomicBoolean(false) // Short-circuits to a promise
       private val releasePromise: Promise[Unit] = Promise() // Will be the release return handle
 
-      // Explicit release must call both main and nested releases
       def release(): Future[Unit] =
-        if (released.compareAndSet(false, true)) // Atomically: if not yet released, set released
+        if (released.compareAndSet(false, true))
+          // If `release` is called twice, we wait for `releasePromise` to complete instead
+          // `released` is set atomically to ensure we don't end up with two concurrent releases
           future
             .transformWith {
               case Success(value) =>
@@ -121,7 +123,7 @@ object Resource {
               case Failure(_) =>
                 releaseSubResources() // Only sub-release as the future will take care of itself
             }
-            .transform( // Then use set the promise as release completion future
+            .transform( // Finally, complete `releasePromise` to allow other releases to complete
               value => {
                 releasePromise.success(())
                 value
@@ -131,12 +133,12 @@ object Resource {
                 exception
               },
             )
-        else // The release completion future is already the promise
+        else // A release is already in progress or completed; we wait for that instead
           releasePromise.future
     }
 
   /**
-    * Builds a [[Resource]] from a [[Future]] plus release logic.
+    * Builds a [[Resource]] from a [[Future]] and some release logic.
     */
   def apply[T](future: Future[T])(releaseResource: T => Future[Unit])(
       implicit executionContext: ExecutionContext
@@ -144,7 +146,7 @@ object Resource {
     nest(future)(releaseResource, () => Future.successful(()))
 
   /**
-    * Wraps in a [[Resource]] a simple [[Future]] that doesn't need any releasing.
+    * Wraps a simple [[Future]] in a [[Resource]] that doesn't need to be released.
     */
   def fromFuture[T](future: Future[T])(implicit executionContext: ExecutionContext): Resource[T] =
     apply(future)(_ => Future.successful(()))
@@ -165,7 +167,7 @@ object Resource {
     * Sequences a [[TraversableOnce]] of [[Resource]]s into a [[Resource]] of the [[TraversableOnce]] of their values.
     *
     * @param seq The [[TraversableOnce]] of [[Resource]]s.
-    * @param bf The projection from a [[TraversableOnce]] of resources into a one of their values.
+    * @param bf The projection from a [[TraversableOnce]] of resources into one of their values.
     * @param executionContext The asynchronous task execution engine.
     * @tparam T The value type.
     * @tparam C The [[TraversableOnce]] actual type.
