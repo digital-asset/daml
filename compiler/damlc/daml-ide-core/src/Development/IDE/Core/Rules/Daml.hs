@@ -399,7 +399,7 @@ generateSerializedDalfRule options =
                                     -- LF postprocessing
                                     rawDalf <- pure $ LF.simplifyModule rawDalf
                                     pkgs <- getExternalPackages file
-                                    let world = LF.initWorldSelf pkgs (buildPackage (optUnitId options) lfVersion dalfDeps)
+                                    let world = LF.initWorldSelf pkgs (buildPackage (optMbPackageName options) (optMbPackageVersion options) lfVersion dalfDeps)
                                     let liftError e = [ideErrorPretty file e]
                                     let dalfOrErr = do
                                             dalf <- mapLeft liftError $
@@ -593,14 +593,14 @@ generatePackageRule =
 
 -- We don’t really gain anything by turning this into a rule since we only call it once
 -- and having it be a function makes the merging a bit easier.
-generateSerializedPackage :: UnitId -> [NormalizedFilePath] -> MaybeT Action LF.Package
-generateSerializedPackage pkgName rootFiles = do
+generateSerializedPackage :: LF.PackageName -> Maybe LF.PackageVersion -> [NormalizedFilePath] -> MaybeT Action LF.Package
+generateSerializedPackage pkgName pkgVersion rootFiles = do
     fileDeps <- usesE GetDependencies rootFiles
     let allFiles = nubSort $ rootFiles <> concatMap transitiveModuleDeps fileDeps
-    files <- lift $ discardInternalModules (Just pkgName) allFiles
+    files <- lift $ discardInternalModules (Just $ pkgNameVersion pkgName pkgVersion) allFiles
     dalfs <- usesE ReadSerializedDalf files
     lfVersion <- lift getDamlLfVersion
-    pure $ buildPackage (Just pkgName) lfVersion dalfs
+    pure $ buildPackage (Just pkgName) pkgVersion lfVersion dalfs
 
 -- | Artifact directory for incremental builds.
 buildDir :: FilePath
@@ -644,7 +644,7 @@ generateRawPackageRule options =
         files <- discardInternalModules (optUnitId options) (fs ++ [file])
         dalfs <- uses_ GenerateRawDalf files
         -- build package
-        let pkg = buildPackage (optUnitId options) lfVersion dalfs
+        let pkg = buildPackage (optMbPackageName options) (optMbPackageVersion options) lfVersion dalfs
         return ([], Just $ WhnfPackage pkg)
 
 generatePackageDepsRule :: Options -> Rules ()
@@ -656,7 +656,7 @@ generatePackageDepsRule options =
         dalfs <- uses_ GenerateDalf files
 
         -- build package
-        return ([], Just $ WhnfPackage $ buildPackage (optUnitId options) lfVersion dalfs)
+        return ([], Just $ WhnfPackage $ buildPackage (optMbPackageName options) (optMbPackageVersion options) lfVersion dalfs)
 
 contextForFile :: NormalizedFilePath -> Action SS.Context
 contextForFile file = do

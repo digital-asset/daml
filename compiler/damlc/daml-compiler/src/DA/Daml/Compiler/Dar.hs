@@ -133,8 +133,8 @@ buildDar service pkgConf@PackageConfigFields {..} ifDir dalfInput = do
                  opts <- lift getIdeOptions
                  lfVersion <- lift getDamlLfVersion
                  pkg <- case optShakeFiles opts of
-                     Nothing -> mergePkgs lfVersion <$> usesE GeneratePackage files
-                     Just _ -> generateSerializedPackage (pkgNameVersion pName pVersion) files
+                     Nothing -> mergePkgs pName pVersion lfVersion <$> usesE GeneratePackage files
+                     Just _ -> generateSerializedPackage pName pVersion files
 
                  MaybeT $ finalPackageCheck (toNormalizedFilePath pSrc) pkg
 
@@ -223,8 +223,8 @@ getSrcRoot fileOrDir = do
           pure $ toNormalizedFilePath root
 
 -- | Merge several packages into one.
-mergePkgs :: LF.Version -> [WhnfPackage] -> LF.Package
-mergePkgs ver pkgs =
+mergePkgs :: LF.PackageName -> Maybe LF.PackageVersion -> LF.Version -> [WhnfPackage] -> LF.Package
+mergePkgs pkgName mbPkgVer ver pkgs =
     foldl'
         (\pkg1 (WhnfPackage pkg2) -> assert (LF.packageLfVersion pkg1 == ver) $
              LF.Package
@@ -232,7 +232,7 @@ mergePkgs ver pkgs =
                  , LF.packageModules = LF.packageModules pkg1 `NM.union` LF.packageModules pkg2
                  , LF.packageMetadata = LF.packageMetadata pkg1 <|> LF.packageMetadata pkg2
                  })
-        LF.Package { LF.packageLfVersion = ver, LF.packageModules = NM.empty, LF.packageMetadata = Nothing }
+        LF.Package { LF.packageLfVersion = ver, LF.packageModules = NM.empty, LF.packageMetadata = LF.getPackageMetadata ver pkgName mbPkgVer }
         pkgs
 
 -- | Find all DAML files below a given source root. If the source root is a file we interpret it as
