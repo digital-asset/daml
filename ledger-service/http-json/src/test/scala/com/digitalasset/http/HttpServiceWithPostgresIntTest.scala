@@ -38,7 +38,7 @@ class HttpServiceWithPostgresIntTest
       jsObject("""{"templateIds": ["Iou:Iou"], "query": {"currency": "EUR"}}"""),
       uri,
       encoder
-    ).flatMap { searchResult: List[domain.ActiveContract.WithParty[JsValue]] =>
+    ).flatMap { searchResult: List[domain.ActiveContract.WithPartyDetails[JsValue]] =>
       discard { searchResult should have size 2 }
       discard { searchResult.map(getField("currency")) shouldBe List.fill(2)(JsString("EUR")) }
       selectAllDbContracts.flatMap { listFromDb =>
@@ -69,7 +69,7 @@ class HttpServiceWithPostgresIntTest
     dao.transact(q.to[List]).unsafeToFuture()
   }
 
-  private def getField(k: String)(a: domain.ActiveContract.WithParty[JsValue]): JsValue =
+  private def getField(k: String)(a: domain.ActiveContract[_, JsValue]): JsValue =
     a.payload.asJsObject().getFields(k) match {
       case Seq(x) => x
       case xs @ _ => fail(s"Expected exactly one value, got: $xs")

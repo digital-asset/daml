@@ -170,7 +170,7 @@ object domain {
   object Contract {
 
     type WithParty[+LfV] = Contract[domain.Party, LfV]
-    type withPartyDetails[+LfV] = Contract[domain.PartyDetails, LfV]
+    type WithPartyDetails[+LfV] = Contract[domain.PartyDetails, LfV]
 
     def fromTransaction(
         tx: lav1.transaction.Transaction,

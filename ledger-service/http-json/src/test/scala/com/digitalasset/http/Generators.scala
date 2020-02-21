@@ -58,6 +58,12 @@ object Generators {
   def contractIdGen: Gen[domain.ContractId] = domain.ContractId subst Gen.identifier
   def partyGen: Gen[domain.Party] = domain.Party subst Gen.identifier
 
+  def partyDetailsGen: Gen[domain.PartyDetails] =
+    for {
+      identifier <- partyGen
+      displayName <- Gen.option(Gen.identifier)
+    } yield domain.PartyDetails(identifier, displayName)
+
   def scalazEitherGen[A, B](a: Gen[A], b: Gen[B]): Gen[A \/ B] =
     Gen.oneOf(a.map(-\/(_)), b.map(\/-(_)))
 
@@ -69,17 +75,17 @@ object Generators {
   def contractLocatorGen[LfV](lfv: Gen[LfV]): Gen[domain.ContractLocator[LfV]] =
     inputContractRefGen(lfv) map (domain.ContractLocator.structure.from(_))
 
-  def contractGen: Gen[domain.Contract.WithParty[JsValue]] =
+  def contractGen: Gen[domain.Contract.WithPartyDetails[JsValue]] =
     scalazEitherGen(archivedContractGen, activeContractGen).map(domain.Contract(_))
 
-  def activeContractGen: Gen[domain.ActiveContract.WithParty[JsValue]] =
+  def activeContractGen: Gen[domain.ActiveContract.WithPartyDetails[JsValue]] =
     for {
       contractId <- contractIdGen
       templateId <- Generators.genDomainTemplateId
       key <- Gen.option(Gen.identifier.map(JsString(_)))
       argument <- Gen.identifier.map(JsString(_))
-      signatories <- Gen.listOf(partyGen)
-      observers <- Gen.listOf(partyGen)
+      signatories <- Gen.listOf(partyDetailsGen)
+      observers <- Gen.listOf(partyDetailsGen)
       agreementText <- Gen.identifier
     } yield
       domain.ActiveContract(

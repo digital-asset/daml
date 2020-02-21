@@ -249,17 +249,17 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
     } yield result
 
   protected def activeContractList(
-      output: JsValue): List[domain.ActiveContract.WithParty[JsValue]] = {
+      output: JsValue): List[domain.ActiveContract.WithPartyDetails[JsValue]] = {
     val result = getResult(output)
     SprayJson
-      .decode[List[domain.ActiveContract.WithParty[JsValue]]](result)
+      .decode[List[domain.ActiveContract.WithPartyDetails[JsValue]]](result)
       .valueOr(e => fail(e.shows))
   }
 
-  protected def activeContract(output: JsValue): domain.ActiveContract.WithParty[JsValue] = {
+  protected def activeContract(output: JsValue): domain.ActiveContract.WithPartyDetails[JsValue] = {
     val result = getResult(output)
     SprayJson
-      .decode[domain.ActiveContract.WithParty[JsValue]](result)
+      .decode[domain.ActiveContract.WithPartyDetails[JsValue]](result)
       .valueOr(e => fail(e.shows))
   }
 
@@ -308,7 +308,7 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
 
   protected def assertActiveContract(
       decoder: DomainJsonDecoder,
-      actual: domain.ActiveContract.WithParty[JsValue],
+      actual: domain.ActiveContract.WithPartyDetails[JsValue],
       create: domain.CreateCommand[v.Record],
       exercise: domain.ExerciseCommand[v.Value, _]): Assertion = {
 
@@ -318,7 +318,7 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
       .flatMap(_.value)
       .getOrElse(fail("Cannot extract expected newOwner"))
 
-    val active: domain.ActiveContract.WithParty[v.Value] =
+    val active: domain.ActiveContract.WithPartyDetails[v.Value] =
       decoder.decodeUnderlyingValues(actual).valueOr(e => fail(e.shows))
 
     inside(active.payload.sum.record.map(_.fields)) {
@@ -337,7 +337,7 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
       command: domain.CreateCommand[Record],
       encoder: DomainJsonEncoder,
       decoder: DomainJsonDecoder): Assertion = {
-    inside(SprayJson.decode[domain.ActiveContract.WithParty[JsValue]](jsVal)) {
+    inside(SprayJson.decode[domain.ActiveContract.WithPartyDetails[JsValue]](jsVal)) {
       case \/-(activeContract) =>
         val expectedPayload: JsValue =
           encoder.encodeUnderlyingRecord(command).map(_.payload).getOrElse(fail)
@@ -403,7 +403,7 @@ abstract class AbstractHttpServiceIntegrationTest
       jsObject("""{"templateIds": ["Iou:Iou"]}"""),
       uri,
       encoder
-    ).map { acl: List[domain.ActiveContract.WithParty[JsValue]] =>
+    ).map { acl: List[domain.ActiveContract.WithPartyDetails[JsValue]] =>
       acl.size shouldBe searchDataSet.size
     }
   }
@@ -414,7 +414,7 @@ abstract class AbstractHttpServiceIntegrationTest
       jsObject("""{"templateIds": ["Iou:Iou"], "query": {"currency": "EUR"}}"""),
       uri,
       encoder
-    ).map { acl: List[domain.ActiveContract.WithParty[JsValue]] =>
+    ).map { acl: List[domain.ActiveContract.WithPartyDetails[JsValue]] =>
       acl.size shouldBe 2
       acl.map(a => objectField(a.payload, "currency")) shouldBe List.fill(2)(Some(JsString("EUR")))
     }
@@ -457,9 +457,9 @@ abstract class AbstractHttpServiceIntegrationTest
             inside(rs.map(_._2)) {
               case List(jsVal1, jsVal2) =>
                 jsVal1 shouldBe jsVal2
-                val acl1: List[domain.ActiveContract.WithParty[JsValue]] =
+                val acl1: List[domain.ActiveContract.WithPartyDetails[JsValue]] =
                   activeContractList(jsVal1)
-                val acl2: List[domain.ActiveContract.WithParty[JsValue]] =
+                val acl2: List[domain.ActiveContract.WithPartyDetails[JsValue]] =
                   activeContractList(jsVal2)
                 acl1 shouldBe acl2
                 inside(acl1) {
@@ -477,7 +477,7 @@ abstract class AbstractHttpServiceIntegrationTest
       jsObject(
         """{"templateIds": ["Iou:Iou"], "query": {"currency": "EUR", "amount": "111.11"}}"""),
       uri,
-      encoder).map { acl: List[domain.ActiveContract.WithParty[JsValue]] =>
+      encoder).map { acl: List[domain.ActiveContract.WithPartyDetails[JsValue]] =>
       acl.size shouldBe 1
       acl.map(a => objectField(a.payload, "currency")) shouldBe List(Some(JsString("EUR")))
       acl.map(a => objectField(a.payload, "amount")) shouldBe List(Some(JsString("111.11")))
@@ -491,7 +491,7 @@ abstract class AbstractHttpServiceIntegrationTest
         """{"templateIds": ["Iou:Iou"], "query": {"currency": "RUB", "amount": "666.66"}}"""),
       uri,
       encoder
-    ).map { acl: List[domain.ActiveContract.WithParty[JsValue]] =>
+    ).map { acl: List[domain.ActiveContract.WithPartyDetails[JsValue]] =>
       acl.size shouldBe 0
     }
   }
@@ -517,7 +517,7 @@ abstract class AbstractHttpServiceIntegrationTest
       commands: List[domain.CreateCommand[v.Record]],
       query: JsObject,
       uri: Uri,
-      encoder: DomainJsonEncoder): Future[List[domain.ActiveContract.WithParty[JsValue]]] = {
+      encoder: DomainJsonEncoder): Future[List[domain.ActiveContract.WithPartyDetails[JsValue]]] = {
     commands.traverse(c => postCreateCommand(c, encoder, uri)).flatMap { rs =>
       rs.map(_._1) shouldBe List.fill(commands.size)(StatusCodes.OK)
       postJsonRequest(uri.withPath(Uri.Path("/v1/query")), query).map {
@@ -610,7 +610,7 @@ abstract class AbstractHttpServiceIntegrationTest
       decoder: DomainJsonDecoder,
       uri: Uri
   ): Future[Assertion] = {
-    inside(SprayJson.decode[domain.ExerciseResponse.WithParty[JsValue]](exerciseResponse)) {
+    inside(SprayJson.decode[domain.ExerciseResponse.WithPartyDetails[JsValue]](exerciseResponse)) {
       case \/-(domain.ExerciseResponse(JsString(exerciseResult), List(contract1, contract2))) => {
         // checking contracts
         inside(contract1) {
@@ -683,7 +683,7 @@ abstract class AbstractHttpServiceIntegrationTest
   ): Assertion = {
     inside(exerciseResponse) {
       case result @ JsObject(_) =>
-        inside(SprayJson.decode[domain.ExerciseResponse.WithParty[JsValue]](result)) {
+        inside(SprayJson.decode[domain.ExerciseResponse.WithPartyDetails[JsValue]](result)) {
           case \/-(domain.ExerciseResponse(exerciseResult, List(contract1))) =>
             exerciseResult shouldBe JsObject()
             inside(contract1) {
