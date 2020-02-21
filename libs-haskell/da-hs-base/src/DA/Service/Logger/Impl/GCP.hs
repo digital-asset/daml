@@ -112,12 +112,6 @@ data SentData = SentData
 
 -- Parameters
 
--- | Number of messages that need to end up in the log before we send
--- them as a batch. This is done to avoid sending a ton of small
--- messages.
-batchSize :: Int
-batchSize = 10
-
 -- | Timeout on log requests
 requestTimeout :: Int
 requestTimeout = 5_000_000
@@ -174,9 +168,6 @@ initialiseGcpState GCPConfig{..} gcpFallbackLogger = do
     let gcpTag = gcpConfigTag
     pure GCPState {..}
 
-readBatch :: TChan a -> Int -> IO [a]
-readBatch chan n = atomically $ replicateM n (readTChan chan)
-
 -- | Read everything from the chan that you can within a single transaction.
 drainChan :: TChan a -> IO [a]
 drainChan chan = atomically $ unfoldM (tryReadTChan chan)
@@ -200,8 +191,8 @@ withGcpLogger config p hnd f = do
             }
     let worker = forever $ mask_ $ do
             -- We mask to avoid messages getting lost.
-            entries <- readBatch (gcpLogChan gcpState) batchSize
-            sendLogs gcpState entries
+            entry <- atomically (readTChan (gcpLogChan gcpState))
+            sendLogs gcpState [entry]
     (withAsync worker $ \_ -> do
         f gcpState logger) `finally` do
         logs <- drainChan (gcpLogChan gcpState)
