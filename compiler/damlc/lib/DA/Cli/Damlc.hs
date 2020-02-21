@@ -482,7 +482,7 @@ parseProjectConfig project = do
     pName <- queryProjectConfigRequired ["name"] project
     pSrc <- queryProjectConfigRequired ["source"] project
     pExposedModules <- queryProjectConfig ["exposed-modules"] project
-    pVersion <- queryProjectConfigRequired ["version"] project
+    pVersion <- Just <$> queryProjectConfigRequired ["version"] project
     pDependencies <- queryProjectConfigRequired ["dependencies"] project
     pDataDependencies <- fromMaybe [] <$> queryProjectConfig ["data-dependencies"] project
     pSdkVersion <- queryProjectConfigRequired ["sdk-version"] project

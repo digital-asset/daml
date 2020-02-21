@@ -101,6 +101,8 @@ data PackageConfigFields = PackageConfigFields
     , pSrc :: String
     , pExposedModules :: Maybe [String]
     , pVersion :: Maybe LF.PackageVersion
+    -- ^ This is optional since for `damlc compile` and `damlc package`
+    -- we might not have a version. In `damlc build` this is always set to `Just`.
     , pDependencies :: [String]
     , pDataDependencies :: [String]
     , pSdkVersion :: PackageSdkVersion
