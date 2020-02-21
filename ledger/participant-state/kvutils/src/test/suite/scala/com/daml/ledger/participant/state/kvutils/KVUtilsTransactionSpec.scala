@@ -267,6 +267,8 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
         metrics.daml.kvutils.committer.transaction.accepts.getCount should be >= 1L
         metrics.daml.kvutils.committer.transaction.rejection(disputed.name).getCount should be >= 1L
         metrics.daml.kvutils.committer.runTimer("transaction").getCount should be >= 1L
+        metrics.daml.kvutils.committer.transaction.interpretTimer.getCount should be >= 1L
+        metrics.daml.kvutils.committer.transaction.runTimer.getCount should be >= 1L
       }
     }
 
