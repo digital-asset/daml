@@ -1503,14 +1503,16 @@ private class JdbcLedgerDao(
     }
 
   override def getLfArchive(packageId: PackageId): Future[Option[Archive]] =
-    dbDispatcher.executeSql("load_archive", Some(s"pkg id: $packageId")) { implicit conn =>
-      SQL_SELECT_PACKAGE
-        .on(
-          "package_id" -> packageId
-        )
-        .as[Option[Array[Byte]]](SqlParser.byteArray("package").singleOpt)
-        .map(data => Archive.parseFrom(Decode.damlLfCodedInputStreamFromBytes(data)))
-    }
+    dbDispatcher
+      .executeSql("load_archive", Some(s"pkg id: $packageId")) { implicit conn =>
+        SQL_SELECT_PACKAGE
+          .on(
+            "package_id" -> packageId
+          )
+          .as[Option[Array[Byte]]](SqlParser.byteArray("package").singleOpt)
+      }
+      .map(_.map(data => Archive.parseFrom(Decode.damlLfCodedInputStreamFromBytes(data))))(
+        executionContext)
 
   private val SQL_INSERT_PACKAGE_ENTRY_ACCEPT =
     SQL("""insert into package_entries(ledger_offset, recorded_at, submission_id, typ)
