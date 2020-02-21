@@ -60,13 +60,13 @@ object ValueCoder {
     ): Either[EncodeError, Either[String, (proto.ContractId)]] =
       if (useOldStringField(sv))
         cid match {
-          case RelativeContractId(nid, _) =>
+          case RelativeContractId(nid) =>
             Right(Left("~" + nid.index.toString))
           case AbsoluteContractId(s) =>
             Right(Left(s))
         } else
         cid match {
-          case RelativeContractId(nid, _) =>
+          case RelativeContractId(nid) =>
             Right(
               Right(
                 proto.ContractId.newBuilder
@@ -105,7 +105,7 @@ object ValueCoder {
         .bimap(
           _ => //
             DecodeError(s"""cannot parse relative contractId "$s""""),
-          idx => Some(RelativeContractId(NodeId(idx), None))
+          idx => Some(RelativeContractId(NodeId(idx)))
         )
 
     private def stringToCidString(s: String): Either[DecodeError, Ref.ContractIdString] =
@@ -151,7 +151,7 @@ object ValueCoder {
         structForm: ValueOuterClass.ContractId,
     ): Either[DecodeError, Option[AbsoluteContractId]] =
       CidDecoder.decodeOptional(sv, stringForm, structForm).flatMap {
-        case Some(RelativeContractId(_, _)) =>
+        case Some(RelativeContractId(_)) =>
           Left(DecodeError("Unexpected relative contractId"))
         case Some(AbsoluteContractId(coid)) =>
           Right(Some(AbsoluteContractId(coid)))

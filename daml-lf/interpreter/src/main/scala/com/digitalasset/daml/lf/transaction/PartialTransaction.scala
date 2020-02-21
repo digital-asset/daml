@@ -95,6 +95,7 @@ object PartialTransaction {
       context = ContextRoot(seedWithTime.map(_._1)),
       aborted = None,
       keys = Map.empty,
+      localContracts = Map.empty,
     )
 
 }
@@ -131,6 +132,7 @@ case class PartialTransaction(
     context: PartialTransaction.Context,
     aborted: Option[Tx.TransactionError],
     keys: Map[Node.GlobalKey, Option[Value.ContractId]],
+    localContracts: Map[Value.ContractId, Value.NodeId]
 ) {
 
   import PartialTransaction._
@@ -179,10 +181,6 @@ case class PartialTransaction(
       sb.toString
     }
 
-  def resolveCidDiscriminator(node: Tx.Node) =
-    node.resolveRelCid(cid =>
-      Ref.ContractIdString.assertFromString("0" + cid.discriminator.get.toHexaString))
-
   /** Finish building a transaction; i.e., try to extract a complete
     *  transaction from the given 'PartialTransaction'. This fails if
     *  the 'PartialTransaction' is not yet complete or has been
@@ -193,9 +191,7 @@ case class PartialTransaction(
       case ContextRoot(transactionSeed, children) if aborted.isEmpty =>
         Right(
           GenTransaction(
-            nodes =
-              if (transactionSeed.isEmpty) nodes
-              else nodes.transform((_, v) => resolveCidDiscriminator(v)),
+            nodes = nodes,
             roots = children.toImmArray,
             optUsedPackages = None,
             transactionSeed = transactionSeed,
@@ -210,13 +206,14 @@ case class PartialTransaction(
     * consumed if any.
     */
   def lookupLocalContract(
-      lcoid: Value.RelativeContractId,
-  ): Option[(Value.ContractInst[Tx.Value[Value.ContractId]], Option[Value.NodeId])] =
+      lcoid: Value.ContractId,
+  ): Option[Value.ContractInst[Tx.Value[Value.ContractId]]] =
     for {
-      node <- nodes.get(lcoid.txnid)
+      nid <- localContracts.get(lcoid)
+      node <- nodes.get(nid)
       coinst <- node match {
         case create: Node.NodeCreate.WithTxValue[Value.ContractId] =>
-          Some((create.coinst, consumedBy.get(lcoid)))
+          Some(create.coinst)
         case _: Node.NodeExercises[_, _, _] | _: Node.NodeFetch[_] |
             _: Node.NodeLookupByKey[_, _] =>
           None
@@ -241,12 +238,17 @@ case class PartialTransaction(
       )
     } else {
       val nodeSeed = deriveChildSeed
-      val contractDiscriminator =
+      val discriminator =
         for {
           seed <- nodeSeed
           time <- submissionTime
         } yield crypto.Hash.deriveContractDiscriminator(seed, time, stakeholders)
-      val cid = Value.RelativeContractId(Value.NodeId(nextNodeIdx), contractDiscriminator)
+      val cid = discriminator.fold[Value.ContractId](
+        Value.RelativeContractId(Value.NodeId(nextNodeIdx))
+      )(
+        hash =>
+          Value.AbsoluteContractId(Ref.ContractIdString.assertFromString("0" + hash.toHexaString))
+      )
       val createNode = Node.NodeCreate(
         nodeSeed,
         cid,
@@ -261,6 +263,7 @@ case class PartialTransaction(
         nextNodeIdx = nextNodeIdx + 1,
         context = context.addChild(nid),
         nodes = nodes.updated(nid, createNode),
+        localContracts = localContracts.updated(cid, nid)
       )
 
       // if we have a contract key being added, include it in the list of

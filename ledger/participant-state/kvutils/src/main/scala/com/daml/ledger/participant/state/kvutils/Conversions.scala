@@ -75,7 +75,8 @@ private[state] object Conversions {
 
   def relativeContractIdToStateKey(
       entryId: DamlLogEntryId,
-      rcoid: RelativeContractId): DamlStateKey =
+      rcoid: RelativeContractId,
+  ): DamlStateKey =
     DamlStateKey.newBuilder
       .setContractId(encodeRelativeContractId(entryId, rcoid))
       .build
