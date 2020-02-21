@@ -1,10 +1,13 @@
 // Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
-import React, { ComponentType } from 'react';
-import { renderHook, RenderHookResult } from '@testing-library/react-hooks';
-import DamlLedger, { useQuery} from './index';
+
+// NOTE(MH): Unfortunately the `act` function triggers this warning by looking
+// like a promis without being one.
+/* eslint-disable @typescript-eslint/no-floating-promises */
+import React, { ComponentType, useState } from 'react';
+import { renderHook, RenderHookResult, act } from '@testing-library/react-hooks';
+import DamlLedger, { useParty, useQuery } from './index';
 import { Template } from '@daml/types';
-import { useParty } from './hooks';
 
 const mockConstructor = jest.fn();
 const mockQuery = jest.fn();
@@ -44,17 +47,50 @@ test('useParty', () => {
   expect(result.current).toBe(PARTY);
 });
 
-test('useQuery', async () => {
-  const resolvent = ['foo'];
-  mockQuery.mockReturnValueOnce(Promise.resolve(resolvent));
-  const {result, waitForNextUpdate} = renderDamlHook(() => useQuery(Foo));
-  expect(mockQuery).toHaveBeenCalledTimes(1);
-  expect(mockQuery).toHaveBeenLastCalledWith(Foo, undefined);
-  mockQuery.mockClear();
-  expect(result.current.contracts).toEqual([]);
-  expect(result.current.loading).toBe(true);
-  await waitForNextUpdate();
-  expect(mockQuery).not.toHaveBeenCalled();
-  expect(result.current.contracts).toBe(resolvent);
-  expect(result.current.loading).toBe(false);
+describe('useQuery', () => {
+  test('one shot without query', async () => {
+    const resolvent = ['foo'];
+    mockQuery.mockReturnValueOnce(Promise.resolve(resolvent));
+    const {result, waitForNextUpdate} = renderDamlHook(() => useQuery(Foo));
+    expect(mockQuery).toHaveBeenCalledTimes(1);
+    expect(mockQuery).toHaveBeenLastCalledWith(Foo, undefined);
+    mockQuery.mockClear();
+    expect(result.current.contracts).toEqual([]);
+    expect(result.current.loading).toBe(true);
+    await waitForNextUpdate();
+    expect(mockQuery).not.toHaveBeenCalled();
+    expect(result.current.contracts).toBe(resolvent);
+    expect(result.current.loading).toBe(false);
+  });
+
+  test('change to query', async () => {
+    const query1 = 'foo-query';
+    const query2 = 'bar-query';
+    const resolvent1 = ['foo'];
+    const resolvent2 = ['bar'];
+
+    mockQuery.mockReturnValueOnce(Promise.resolve(resolvent1));
+    const {result, waitForNextUpdate} = renderDamlHook(() => {
+      const [query, setQuery] = useState(query1);
+      const queryResult = useQuery(Foo, () => ({query}), [query]);
+      return {queryResult, query, setQuery};
+    });
+    expect(mockQuery).toHaveBeenCalledTimes(1);
+    expect(mockQuery).toHaveBeenLastCalledWith(Foo, {query: query1});
+    mockQuery.mockClear();
+    expect(result.current.queryResult).toEqual({contracts: [], loading: true});
+    expect(result.current.query).toBe(query1);
+    await waitForNextUpdate();
+    expect(result.current.queryResult).toEqual({contracts: resolvent1, loading: false});
+
+    mockQuery.mockReturnValueOnce(Promise.resolve(resolvent2));
+    act(() => result.current.setQuery(query2));
+    expect(mockQuery).toHaveBeenCalledTimes(1);
+    expect(mockQuery).toHaveBeenLastCalledWith(Foo, {query: query2});
+    mockQuery.mockClear();
+    expect(result.current.queryResult).toEqual({contracts: [], loading: true});
+    expect(result.current.query).toBe(query2);
+    await waitForNextUpdate();
+    expect(result.current.queryResult).toEqual({contracts: resolvent2, loading: false});
+  });
 });
