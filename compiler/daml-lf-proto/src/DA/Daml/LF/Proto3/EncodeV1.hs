@@ -815,7 +815,9 @@ encodeFeatureFlags FeatureFlags{..} = Just P.FeatureFlags
 -- each scenario module is wrapped in a proto package
 encodeScenarioModule :: Version -> Module -> P.Package
 encodeScenarioModule version mod =
-    encodePackage (Package version (NM.insert mod NM.empty) Nothing)
+    encodePackage (Package version (NM.insert mod NM.empty) metadata)
+  where
+    metadata = getPackageMetadata version (PackageName "scenario") Nothing
 
 encodeModule :: Module -> Encode P.Module
 encodeModule Module{..} = do

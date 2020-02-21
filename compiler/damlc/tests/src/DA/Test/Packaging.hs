@@ -375,6 +375,39 @@ tests damlc repl davlDar oldProjDar = testGroup "Packaging" $
           -- Verify that the name in the manifest is independent of the DAR name.
           packageName manifest @?= Just "foobar-0.0.1"
 
+    , testCase "Package metadata - no files" $ withTempDir $ \projDir -> do
+          -- The no files case is somewhat special since it relies on the default metadata
+          -- set in mergePkgs.
+          createDirectoryIfMissing True projDir
+          writeFileUTF8 (projDir </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "name: foobar"
+              , "version: 1.2.3"
+              , "source: ."
+              , "dependencies: [daml-prim, daml-stdlib]"
+              ]
+          withCurrentDirectory projDir $ callProcessSilent damlc ["build", "-o", "foobar.dar", "--target=1.dev"]
+          Right Dalfs{..} <- readDalfs . Zip.toArchive <$> BSL.readFile (projDir </> "foobar.dar")
+          (_pkgId, pkg) <- either (fail . show) pure (LFArchive.decodeArchive LFArchive.DecodeAsMain (BSL.toStrict mainDalf))
+          LF.packageMetadata pkg @?= Just (LF.PackageMetadata (LF.PackageName "foobar") (LF.PackageVersion "1.2.3"))
+
+    , testCase "Package metadata - single file" $ withTempDir $ \projDir -> do
+          createDirectoryIfMissing True projDir
+          writeFileUTF8 (projDir </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "name: foobar"
+              , "version: 1.2.3"
+              , "source: ."
+              , "dependencies: [daml-prim, daml-stdlib]"
+              ]
+          writeFileUTF8 (projDir </> "A.daml") $ unlines
+              [ "daml 1.2 module A where"
+              ]
+          withCurrentDirectory projDir $ callProcessSilent damlc ["build", "-o", "foobar.dar", "--target=1.dev"]
+          Right Dalfs{..} <- readDalfs . Zip.toArchive <$> BSL.readFile (projDir </> "foobar.dar")
+          (_pkgId, pkg) <- either (fail . show) pure (LFArchive.decodeArchive LFArchive.DecodeAsMain (BSL.toStrict mainDalf))
+          LF.packageMetadata pkg @?= Just (LF.PackageMetadata (LF.PackageName "foobar") (LF.PackageVersion "1.2.3"))
+
     , testCase "Transitive package deps" $ withTempDir $ \projDir -> do
           -- Check that the depends field in the package config files does not depend on the name of the DAR.
           let projA = projDir </> "a"
