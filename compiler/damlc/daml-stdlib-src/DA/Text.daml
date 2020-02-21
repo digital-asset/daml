@@ -316,7 +316,7 @@ parseDecimal = parseNumeric
 parseDecimal = primitive @"BEDecimalFromText"
 #endif
 
--- | Computes the SHA256 of the UTF8 bytes of the `Text`, and returns it in its hex-encoded
+-- | Computes the SHA256 hash of the UTF8 bytes of the `Text`, and returns it in its hex-encoded
 -- form. The hex encoding uses lowercase letters.
 --
 -- This function will crash at runtime if you compile DAML to DAML-LF < 1.2.
