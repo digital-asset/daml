@@ -164,7 +164,7 @@ class EncodeV1Spec extends WordSpec with Matchers with TableDrivenPropertyChecks
         implicit val parserParameters: ParserParameters[version.type] =
           ParserParameters(pkgId, version)
 
-        val pkg = Package(parseModules(text).right.get, Set.empty)
+        val pkg = Package(parseModules(text).right.get, Set.empty, None)
         val archive = Encode.encodeArchive(pkgId -> pkg, version)
         val ((hashCode @ _, decodedPackage: Package), _) = Decode.readArchiveAndVersion(archive)
 

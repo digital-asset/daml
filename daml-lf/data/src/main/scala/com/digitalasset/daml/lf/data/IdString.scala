@@ -75,6 +75,10 @@ sealed abstract class IdString {
   // In a language like C# you'll need to use some other unicode char for `$`.
   type Name <: String
 
+  // Human-readable package names and versions.
+  type PackageName <: String
+  type PackageVersion <: String
+
   /** Party identifiers are non-empty US-ASCII strings built from letters, digits, space, colon, minus and,
       underscore. We use them to represent [Party] literals. In this way, we avoid
       empty identifiers, escaping problems, and other similar pitfalls.
@@ -98,6 +102,8 @@ sealed abstract class IdString {
   type ContractIdString <: String
 
   val Name: StringModule[Name]
+  val PackageName: ConcatenableStringModule[PackageName]
+  val PackageVersion: StringModule[PackageVersion]
   val Party: ConcatenableStringModule[Party]
   val PackageId: ConcatenableStringModule[PackageId]
   val ParticipantId: StringModule[ParticipantId]
@@ -189,6 +195,19 @@ private[data] final class IdStringImpl extends IdString {
   override type Name = String
   override val Name: StringModule[Name] =
     new MatchingStringModule("""[A-Za-z\$_][A-Za-z0-9\$_]*""")
+
+  /** Package names are non-empty US-ASCII strings built from letters, digits, minus and underscore.
+    */
+  override type PackageName = String
+  override val PackageName: ConcatenableStringModule[PackageName] =
+    new ConcatenableMatchingStringModule("-_".contains(_))
+
+  /** Package versions are non-empty strings consisting of segments of digits (without leading zeros)
+      separated by dots.
+    */
+  override type PackageVersion = String
+  override val PackageVersion: StringModule[PackageVersion] =
+    new MatchingStringModule("""(0|[1-9][0-9]*)(\.(0|[1-9][0-9]*))*""")
 
   /** Party identifiers are non-empty US-ASCII strings built from letters, digits, space, colon, minus and,
     *underscore. We use them to represent [Party] literals. In this way, we avoid

@@ -666,7 +666,12 @@ object Ast {
     }
   }
 
-  case class Package(modules: Map[ModuleName, Module], directDeps: Set[PackageId]) {
+  case class PackageMetadata(name: PackageName, version: PackageVersion)
+
+  case class Package(
+      modules: Map[ModuleName, Module],
+      directDeps: Set[PackageId],
+      metadata: Option[PackageMetadata]) {
     def lookupIdentifier(identifier: QualifiedName): Either[String, Definition] = {
       this.modules.get(identifier.module) match {
         case None =>
@@ -685,12 +690,15 @@ object Ast {
 
   object Package {
 
-    def apply(modules: Traversable[Module], directDeps: Traversable[PackageId]): Package = {
+    def apply(
+        modules: Traversable[Module],
+        directDeps: Traversable[PackageId],
+        metadata: Option[PackageMetadata]): Package = {
       val modulesWithNames = modules.map(m => m.name -> m)
       findDuplicate(modulesWithNames).foreach { modName =>
         throw PackageError(s"Collision on module name ${modName.toString}")
       }
-      Package(modulesWithNames.toMap, directDeps.toSet)
+      Package(modulesWithNames.toMap, directDeps.toSet, metadata)
     }
   }
 

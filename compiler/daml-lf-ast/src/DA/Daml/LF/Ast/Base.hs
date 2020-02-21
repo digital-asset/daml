@@ -117,7 +117,7 @@ newtype PackageName = PackageName{unPackageName :: T.Text}
 
 -- | Human-readable version of a package. Must match the regex
 --
--- > [0-9]+(\.[0-9]+)*
+-- > (0|[1-9][0-9]*)(\.(0|[1-9][0-9]*))*
 newtype PackageVersion = PackageVersion{unPackageVersion :: T.Text}
     deriving stock (Eq, Data, Generic, Ord, Show)
     deriving newtype (Hashable, NFData, FromJSON)
