@@ -153,9 +153,9 @@ createProjectPackageDb projectRoot opts thisSdkVer deps dataDeps
         -- as the one we are currently compiling against, we don’t need to apply this
         -- hack.
         let parsedUnitId = parseUnitId name pkgId
-        let unitId = stringToUnitId $ case splitUnitId parsedUnitId of
-              ("daml-prim", Nothing) | pkgId `Set.notMember` dependencyPkgIds -> "daml-prim-" <> T.unpack (LF.unPackageId pkgId)
-              ("daml-stdlib", _) | pkgId `Set.notMember` dependencyPkgIds -> "daml-stdlib-" <> T.unpack (LF.unPackageId pkgId)
+        let unitId = stringToUnitId $ case splitUnitId (stringToUnitId parsedUnitId) of
+              (LF.PackageName "daml-prim", Nothing) | pkgId `Set.notMember` dependencyPkgIds -> "daml-prim-" <> T.unpack (LF.unPackageId pkgId)
+              (LF.PackageName "daml-stdlib", _) | pkgId `Set.notMember` dependencyPkgIds -> "daml-stdlib-" <> T.unpack (LF.unPackageId pkgId)
               _ -> parsedUnitId
         pure (pkgId, package, dalf, unitId)
 
@@ -196,7 +196,7 @@ createProjectPackageDb projectRoot opts thisSdkVer deps dataDeps
         let unitIdStr = unitIdString $ unitId pkgNode
         let _instancesUnitIdStr = "instances-" <> unitIdStr
         let pkgIdStr = T.unpack $ LF.unPackageId pkgId
-        let (pkgName, mbPkgVersion) = splitUnitId unitIdStr
+        let (pkgName, mbPkgVersion) = splitUnitId (unitId pkgNode)
         let deps =
                 [ unitIdString (unitId depPkgNode) <.> "dalf"
                 | (depPkgNode, depPkgId) <- map vertexToNode $ reachable depGraph vertex
@@ -216,8 +216,8 @@ createProjectPackageDb projectRoot opts thisSdkVer deps dataDeps
             dbPath
             projectPackageDatabase
             pkgId
-            (LF.PackageName $ T.pack pkgName)
-            (fmap (LF.PackageVersion . T.pack) mbPkgVersion)
+            pkgName
+            mbPkgVersion
             deps
             dependencies
   where

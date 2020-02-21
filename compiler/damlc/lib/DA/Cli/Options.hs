@@ -10,11 +10,9 @@ import Options.Applicative.Extended
 import Safe (lastMay)
 import Data.List
 import Data.Maybe
-import qualified Data.Text as T
 import qualified DA.Pretty           as Pretty
 import DA.Daml.Compiler.DataDependencies (splitUnitId)
 import DA.Daml.Options.Types
-import qualified DA.Daml.LF.Ast.Base as LF
 import qualified DA.Daml.LF.Ast.Version as LF
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Types
@@ -246,11 +244,8 @@ optPackageName = optional $ fmap GHC.stringToUnitId $ strOption $
 optionsParser :: Int -> EnableScenarioService -> Parser (Maybe GHC.UnitId) -> Parser Options
 optionsParser numProcessors enableScenarioService parsePkgName = do
     let parseUnitId Nothing = (Nothing, Nothing)
-        parseUnitId (Just unitId) = case splitUnitId (GHC.unitIdString unitId) of
-            (name, mbVersion) ->
-                ( Just . LF.PackageName $ T.pack name
-                , fmap (LF.PackageVersion . T.pack) mbVersion
-                )
+        parseUnitId (Just unitId) = case splitUnitId unitId of
+            (name, mbVersion) -> (Just name, mbVersion)
     ~(optMbPackageName, optMbPackageVersion) <-
         fmap parseUnitId parsePkgName
 
