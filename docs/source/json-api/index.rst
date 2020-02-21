@@ -353,17 +353,25 @@ HTTP Response
     {
         "status": 200,
         "result": {
-            "observers": [],
+            "observers": [
+                {"identifier": "Bob"}
+            ],
             "agreementText": "",
             "payload": {
-                "observers": [],
+                "observers": ["Charlie"],
                 "issuer": "Alice",
                 "amount": "999.99",
                 "currency": "USD",
                 "owner": "Alice"
             },
             "signatories": [
-                "Alice"
+                {
+                    "identifier": "Alice",
+                    "displayName": "Alice & Co., LLC"
+                },
+                {
+                    "identifier": "Bob"
+                }
             ],
             "contractId": "#124:0",
             "templateId": "11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Iou:Iou"
@@ -477,7 +485,10 @@ HTTP Response
                             "newOwner": "Alice"
                         },
                         "signatories": [
-                            "Alice"
+                            {
+                                "identifier": "Alice",
+                                "displayName": "Alice & Co., LLC"
+                            }
                         ],
                         "contractId": "#201:1",
                         "templateId": "11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Iou:IouTransfer"
@@ -590,7 +601,11 @@ Contract Found HTTP Response
     {
         "status": 200,
         "result": {
-            "observers": [],
+            "observers": [
+                {
+                    "identifier": "Bob", "displayName": "Bob & Co., LLC"
+                }
+            ],
             "agreementText": "",
             "payload": {
                 "iou": {
@@ -603,7 +618,9 @@ Contract Found HTTP Response
                 "newOwner": "Alice"
             },
             "signatories": [
-                "Alice"
+                {
+                    "identifier": "Alice"
+                }
             ],
             "contractId": "#201:1",
             "templateId": "11c8f3ace75868d28136adc5cfc1de265a9ee5ad73fe8f2db97510e3631096a2:Iou:IouTransfer"
@@ -666,7 +683,7 @@ Contract Found HTTP Response
                 }
             },
             "signatories": [
-                "Alice"
+                {"identifier": "Alice"}
             ],
             "key": {
                 "_1": "Alice",
@@ -756,7 +773,7 @@ Nonempty HTTP Response
                     "owner": "Alice"
                 },
                 "signatories": [
-                    "Alice"
+                    {"identifier": "Alice"}
                 ],
                 "contractId": "#52:0",
                 "templateId": "b10d22d6c2f2fae41b353315cf893ed66996ecb0abe4424ea6a81576918f658a:Iou:Iou"
@@ -794,7 +811,7 @@ Nonempty HTTP Response with Unknown Template IDs Warning
                     "owner": "Alice"
                 },
                 "signatories": [
-                    "Alice"
+                    {"identifier": "Alice"}
                 ],
                 "contractId": "#52:0",
                 "templateId": "b10d22d6c2f2fae41b353315cf893ed66996ecb0abe4424ea6a81576918f658a:Iou:Iou"
@@ -883,7 +900,7 @@ to :doc:`lf-value-specification`::
                         "owner": "Alice"
                     },
                     "signatories": [
-                        "Alice"
+                        {"identifier": "Alice"}
                     ],
                     "contractId": "#1:0",
                     "templateId": "b70bbfbc77a4790f66d4840cb19f657dd20848f5e2f64e39ad404a6cbd98cf75:Iou:Iou"
@@ -934,7 +951,7 @@ and archives the one above, the same stream will eventually produce::
                         "owner": "Alice"
                     },
                     "signatories": [
-                        "Alice"
+                        {"identifier": "Alice"}
                     ],
                     "contractId": "#2:1",
                     "templateId": "b70bbfbc77a4790f66d4840cb19f657dd20848f5e2f64e39ad404a6cbd98cf75:Iou:Iou"
@@ -956,7 +973,7 @@ and archives the one above, the same stream will eventually produce::
                         "owner": "Alice"
                     },
                     "signatories": [
-                        "Alice"
+                        {"identifier": "Alice"}
                     ],
                     "contractId": "#2:2",
                     "templateId": "b70bbfbc77a4790f66d4840cb19f657dd20848f5e2f64e39ad404a6cbd98cf75:Iou:Iou"
