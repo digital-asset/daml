@@ -354,7 +354,7 @@ HTTP Response
         "status": 200,
         "result": {
             "observers": [
-                {"identifier": "Bob"}
+                {"identifier": "Charlie"}
             ],
             "agreementText": "",
             "payload": {
