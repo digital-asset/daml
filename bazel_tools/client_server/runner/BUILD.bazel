@@ -16,5 +16,5 @@ da_haskell_binary(
         "split",
     ],
     visibility = ["//visibility:public"],
-    deps = [],
+    deps = ["//libs-haskell/da-hs-base"],
 )

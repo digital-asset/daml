@@ -4,6 +4,7 @@
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_test")
 load("@os_info//:os_info.bzl", "is_windows")
 load(":util.bzl", "damlc_compile_test", "damlc_integration_test")
+load("//rules_daml:daml.bzl", "daml_compile")
 
 # Tests for the lax CLI parser
 da_haskell_test(
@@ -237,6 +238,64 @@ da_haskell_test(
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto",
         "//compiler/daml-lf-reader",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+    ],
+)
+
+genrule(
+    name = "repl-test",
+    srcs = [
+        "ReplTest.daml",
+        "//:VERSION",
+    ],
+    outs = ["repl-test.dar"],
+    cmd = """
+      set -eou pipefail
+      TMP_DIR=$$(mktemp -d)
+      mkdir -p $$TMP_DIR/daml
+      cp -L $(location ReplTest.daml) $$TMP_DIR/daml
+      cat << EOF > $$TMP_DIR/daml.yaml
+sdk-version: $$(cat $(location //:VERSION))
+name: repl-test
+source: daml
+version: 0.1.0
+dependencies:
+  - daml-stdlib
+  - daml-prim
+build-options: ["--ghc-option", "-Werror"]
+EOF
+      $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$(location repl-test.dar)
+      rm -rf $$TMP_DIR
+    """,
+    tools = ["//compiler/damlc"],
+    visibility = ["//visibility:public"],
+)
+
+da_haskell_test(
+    name = "repl",
+    srcs = ["src/DA/Test/Repl.hs"],
+    data = [
+        ":repl-test.dar",
+        "//compiler/damlc",
+        "//daml-script/daml:daml-script.dar",
+        "//ledger/sandbox:sandbox-binary",
+    ],
+    hackage_deps = [
+        "base",
+        "extra",
+        "filepath",
+        "process",
+        "regex-tdfa",
+        "safe",
+        "safe-exceptions",
+        "tasty",
+        "tasty-hunit",
+    ],
+    main_function = "DA.Test.Repl.main",
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
     ],

@@ -26,7 +26,7 @@ import com.digitalasset.daml.lf.iface
 import com.digitalasset.daml.lf.iface.EnvironmentInterface
 import com.digitalasset.daml.lf.iface.reader.InterfaceReader
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.speedy.{Compiler, Pretty, Speedy, SValue}
+import com.digitalasset.daml.lf.speedy.{Compiler, Pretty, Speedy, SValue, SExpr}
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.SResult._
 import com.digitalasset.daml.lf.speedy.SValue._
@@ -271,6 +271,13 @@ class Runner(
         }
 
     }
+    runExpr(initialClients, scriptExpr)
+  }
+
+  def runExpr(initialClients: Participants[LedgerClient], scriptExpr: SExpr)(
+      implicit ec: ExecutionContext,
+      mat: Materializer): Future[SValue] = {
+    var clients = initialClients
     var machine =
       Speedy.Machine.fromSExpr(scriptExpr, false, compiledPackages)
 
