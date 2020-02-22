@@ -72,7 +72,9 @@ sh_test(
 da_haskell_test(
     name = "daml2ts",
     srcs = ["src/DA/Test/Daml2Ts.hs"],
+    args = ["$(rootpath //:yarn)"],
     data = [
+        "//:yarn",
         "//compiler/damlc",
         "//language-support/ts/codegen:daml2ts",
         "@davl//:released/davl-upgrade-v3-v4.dar",

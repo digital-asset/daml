@@ -14,7 +14,6 @@ import qualified Data.Text.Extended as T
 import qualified "zip-archive" Codec.Archive.Zip as Zip
 import qualified Data.Map as Map
 
-import Control.Monad
 import Control.Monad.Extra
 import DA.Daml.LF.Ast
 import DA.Daml.LF.Ast.Optics
