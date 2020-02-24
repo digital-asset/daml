@@ -54,6 +54,14 @@ main = do
                   , input "debug =<< query @TProposal bob"
                   , matchOutput "^.*: \\[\\]$"
                   ]
+            , testInteraction' "shadowing"
+                  [ input "x <- pure 1"
+                  , input "debug x"
+                  , matchOutput "^.*: 1$"
+                  , input "x <- pure $ x + x"
+                  , input "debug x"
+                  , matchOutput "^.*: 2$"
+                  ]
             ]
 
 testInteraction :: FilePath -> Int -> FilePath -> FilePath -> [Step] -> Assertion

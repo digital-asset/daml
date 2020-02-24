@@ -101,8 +101,10 @@ runRepl opts mainDar replClient ideState = do
                  -- TODO don’t kill the whole process
                  exitFailure
 
-         -- TODO Allow shadowing
-         go moduleNames (i + 1 :: Int) (binds <> [(fromMaybe "_" mbBind, ty)])
+         let shadow bind
+               | Just newBind  <- mbBind, bind == newBind = "_"
+               | otherwise = bind
+         go moduleNames (i + 1 :: Int) (map (\(bind, ty) -> (shadow bind, ty)) binds <> [(fromMaybe "_" mbBind, ty)])
 
 exprTy :: LHsBinds GhcTc -> Maybe Type
 exprTy binds = listToMaybe
