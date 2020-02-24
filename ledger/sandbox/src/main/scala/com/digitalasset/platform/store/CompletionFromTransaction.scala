@@ -21,23 +21,20 @@ import com.google.rpc.status.Status
 import io.grpc.Status.Code
 
 // Turn a stream of transactions into a stream of completions for a given application and set of parties
-// TODO Remove this when:
-// TODO - the participant can read completions off the index directly AND
+// TODO Restrict the scope of this to com.digitalasset.platform.store.dao when
 // TODO - the in-memory sandbox is gone
 private[platform] object CompletionFromTransaction {
 
-  private def toApiCheckpoint(
-      recordedAt: Instant,
-      offset: LedgerDao#LedgerOffset): Some[Checkpoint] =
+  def toApiCheckpoint(recordTime: Instant, offset: LedgerDao#LedgerOffset): Some[Checkpoint] =
     Some(
       Checkpoint(
-        recordTime = Some(fromInstant(recordedAt)),
+        recordTime = Some(fromInstant(recordTime)),
         offset = Some(LedgerOffset(LedgerOffset.Value.Absolute(offset.toString)))))
 
   // We _rely_ on the following compiler flags for this to be safe:
   // * -Xno-patmat-analysis _MUST NOT_ be enabled
   // * -Xfatal-warnings _MUST_ be enabled
-  private def toErrorCode(rejection: RejectionReason): Code = {
+  def toErrorCode(rejection: RejectionReason): Code = {
     rejection match {
       case _: RejectionReason.Inconsistent | _: RejectionReason.Disputed |
           _: RejectionReason.PartyNotKnownOnLedger =>
@@ -66,11 +63,11 @@ private[platform] object CompletionFromTransaction {
           Some(submitter),
           _,
           _,
-          recordedAt,
+          recordTime,
           _,
           _)) if parties(submitter) =>
       offset -> CompletionStreamResponse(
-        checkpoint = toApiCheckpoint(recordedAt, offset),
+        checkpoint = toApiCheckpoint(recordTime, offset),
         Seq(Completion(commandId, Some(Status()), transactionId))
       )
     case (offset, LedgerEntry.Rejection(recordTime, commandId, `appId`, submitter, reason))
@@ -79,9 +76,9 @@ private[platform] object CompletionFromTransaction {
         checkpoint = toApiCheckpoint(recordTime, offset),
         Seq(Completion(commandId, Some(Status(toErrorCode(reason).value(), reason.description))))
       )
-    case (offset, LedgerEntry.Checkpoint(recordedAt)) =>
+    case (offset, LedgerEntry.Checkpoint(recordTime)) =>
       offset -> CompletionStreamResponse(
-        checkpoint = toApiCheckpoint(recordedAt, offset),
+        checkpoint = toApiCheckpoint(recordTime, offset),
         completions = Seq())
   }
 
