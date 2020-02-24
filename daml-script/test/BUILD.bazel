@@ -155,7 +155,7 @@ client_server_test(
     ],
     client_files = ["$(rootpath :script-test.dar)"],
     data = [":script-test.dar"],
-    server = "//ledger/api-server-damlonx/reference-v2",
+    server = "//ledger/ledger-on-memory:app",
     server_args = [
         "--port=6865",
         "--jdbc-url=jdbc:h2:mem:daml_on_x;db_close_delay=-1;db_close_on_exit=false",
