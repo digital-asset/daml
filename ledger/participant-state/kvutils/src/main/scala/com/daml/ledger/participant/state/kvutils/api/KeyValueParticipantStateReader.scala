@@ -20,29 +20,29 @@ class KeyValueParticipantStateReader(reader: LedgerReader)(implicit materializer
     reader
       .events(toReaderOffset(beginAfter))
       .flatMapConcat { record =>
-        val updates = Envelope
+        Envelope
           .open(record.envelope)
           .flatMap {
             case Envelope.LogEntryMessage(logEntry) =>
-              Right[String, Seq[(Offset, Update)]](
-                KeyValueConsumption
-                  .logEntryToUpdate(record.entryId, logEntry)
-                  .zipWithIndex
-                  .map {
-                    case (entry, index) =>
-                      (toReturnedOffset(index, record.offset), entry)
-                  })
-            case _ => Left[String, Seq[(Offset, Update)]]("Envelope does not contain a log entry")
+              val updates = Source(KeyValueConsumption.logEntryToUpdate(record.entryId, logEntry))
+              val updatesWithOffsets = updates.zipWithIndex
+                .map {
+                  case (entry, index) =>
+                    (toReturnedOffset(index, record.offset), entry)
+                }
+                .filter {
+                  case (offset, _) => beginAfter.forall(offset > _)
+                }
+              Right(updatesWithOffsets)
+            case _ =>
+              Left("Envelope does not contain a log entry")
           }
           .getOrElse(throw new IllegalArgumentException(
             s"Invalid log entry received at offset ${record.offset}"))
-        Source.fromIterator(() => updates.iterator)
-      }
-      .filter {
-        case (offset, _) => beginAfter.forall(offset > _)
       }
 
-  override def currentHealth(): HealthStatus = reader.currentHealth()
+  override def currentHealth(): HealthStatus =
+    reader.currentHealth()
 
   private def toReaderOffset(offset: Option[Offset]): Option[Offset] =
     offset.collect {
@@ -50,8 +50,8 @@ class KeyValueParticipantStateReader(reader: LedgerReader)(implicit materializer
         Offset(beginAfter.components.take(beginAfter.components.size - 1).toArray)
     }
 
-  private def toReturnedOffset(index: Int, offset: Offset): Offset =
-    Offset(Array.concat(offset.components.toArray, Array(index.toLong)))
+  private def toReturnedOffset(index: Long, offset: Offset): Offset =
+    Offset(Array.concat(offset.components.toArray, Array(index)))
 
   private def createLedgerInitialConditions(): LedgerInitialConditions =
     LedgerInitialConditions(
