@@ -19,27 +19,28 @@ class KeyValueParticipantStateReader(reader: LedgerReader)(implicit materializer
   override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed] =
     reader
       .events(toReaderOffset(beginAfter))
-      .flatMapConcat { record =>
-        Envelope
-          .open(record.envelope)
-          .flatMap {
-            case Envelope.LogEntryMessage(logEntry) =>
-              val updates = Source(KeyValueConsumption.logEntryToUpdate(record.entryId, logEntry))
-              val updatesWithOffsets = updates.zipWithIndex
-                .map {
-                  case (entry, index) =>
-                    (toReturnedOffset(index, record.offset), entry)
+      .flatMapConcat {
+        case LedgerEntry.Heartbeat(offset, instant) =>
+          val update = Update.Heartbeat(Time.Timestamp.assertFromInstant(instant))
+          Source.single(toReturnedOffset(0, offset) -> update)
+        case LedgerEntry.LedgerRecord(offset, entryId, envelope) =>
+          Envelope
+            .open(envelope)
+            .flatMap {
+              case Envelope.LogEntryMessage(logEntry) =>
+                val updates = Source(KeyValueConsumption.logEntryToUpdate(entryId, logEntry))
+                val updatesWithOffsets = updates.zipWithIndex.map {
+                  case (update, index) =>
+                    toReturnedOffset(index, offset) -> update
                 }
-                .filter {
-                  case (offset, _) => beginAfter.forall(offset > _)
-                }
-              Right(updatesWithOffsets)
-            case _ =>
-              Left("Envelope does not contain a log entry")
-          }
-          .getOrElse(throw new IllegalArgumentException(
-            s"Invalid log entry received at offset ${record.offset}"))
+                Right(updatesWithOffsets)
+              case _ =>
+                Left("Envelope does not contain a log entry")
+            }
+            .getOrElse(throw new IllegalArgumentException(
+              s"Invalid log entry received at offset $offset"))
       }
+      .filter { case (offset, _) => beginAfter.forall(offset > _) }
 
   override def currentHealth(): HealthStatus =
     reader.currentHealth()

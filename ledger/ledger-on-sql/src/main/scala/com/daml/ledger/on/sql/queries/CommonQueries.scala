@@ -11,7 +11,7 @@ import anorm._
 import com.daml.ledger.on.sql.Index
 import com.daml.ledger.on.sql.queries.Queries._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntryId
-import com.daml.ledger.participant.state.kvutils.api.LedgerRecord
+import com.daml.ledger.participant.state.kvutils.api.LedgerEntry
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.google.protobuf.ByteString
@@ -26,12 +26,15 @@ trait CommonQueries extends Queries {
       .as(get[Option[Long]]("max_sequence_no").singleOpt)
       .flatten
 
-  override final def selectFromLog(start: Index, end: Index): immutable.Seq[(Index, LedgerRecord)] =
+  override final def selectFromLog(start: Index, end: Index): immutable.Seq[(Index, LedgerEntry)] =
     SQL"SELECT sequence_no, entry_id, envelope FROM #$LogTable WHERE sequence_no >= $start AND sequence_no < $end"
       .as(
         (long("sequence_no") ~ binaryStream("entry_id") ~ byteArray("envelope")).map {
           case index ~ entryId ~ envelope =>
-            index -> LedgerRecord(Offset(Array(index)), DamlLogEntryId.parseFrom(entryId), envelope)
+            index -> LedgerEntry.LedgerRecord(
+              Offset(Array(index)),
+              DamlLogEntryId.parseFrom(entryId),
+              envelope)
         }.*,
       )
 

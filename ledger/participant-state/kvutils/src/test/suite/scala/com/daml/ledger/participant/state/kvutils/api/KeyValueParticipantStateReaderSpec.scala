@@ -3,6 +3,9 @@
 
 package com.daml.ledger.participant.state.kvutils.api
 
+import java.time.ZoneOffset.UTC
+import java.time.{Instant, ZonedDateTime}
+
 import akka.NotUsed
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
@@ -13,6 +16,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlStateValue
 }
 import com.daml.ledger.participant.state.kvutils.Envelope
+import com.daml.ledger.participant.state.kvutils.api.LedgerEntry.{Heartbeat, LedgerRecord}
 import com.daml.ledger.participant.state.v1.{Offset, Update}
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.google.protobuf.ByteString
@@ -29,47 +33,59 @@ class KeyValueParticipantStateReaderSpec
     with MockitoSugar
     with AkkaBeforeAndAfterAll {
 
+  private val start: Instant = Instant.from(ZonedDateTime.of(2020, 1, 1, 12, 0, 0, 0, UTC))
+
   "participant state reader" should {
-    "stream offsets from the start" in {
+    "stream offsets and heartbeats from the start" in {
       val reader = readerStreamingFrom(
         offset = None,
         LedgerRecord(Offset(Array(1, 1)), aLogEntryId(1), aWrappedLogEntry),
-        LedgerRecord(Offset(Array(1, 2)), aLogEntryId(2), aWrappedLogEntry),
+        Heartbeat(Offset(Array(1, 2)), start.plusSeconds(1)),
         LedgerRecord(Offset(Array(1, 3)), aLogEntryId(3), aWrappedLogEntry),
+        Heartbeat(Offset(Array(1, 4)), start.plusSeconds(2)),
+        Heartbeat(Offset(Array(1, 5)), start.plusSeconds(3)),
+        LedgerRecord(Offset(Array(1, 6)), aLogEntryId(6), aWrappedLogEntry),
       )
       val instance = new KeyValueParticipantStateReader(reader)
       val stream = instance.stateUpdates(None)
 
       offsetsFrom(stream).map { actual =>
-        actual should have size 3
+        actual should have size 6
         actual shouldBe Seq(
           Offset(Array(1, 1, 0)),
           Offset(Array(1, 2, 0)),
           Offset(Array(1, 3, 0)),
+          Offset(Array(1, 4, 0)),
+          Offset(Array(1, 5, 0)),
+          Offset(Array(1, 6, 0)),
         )
       }
     }
 
-    "stream offsets from a given offset" in {
+    "stream offsets and heartbeats from a given offset" in {
       val reader = readerStreamingFrom(
-        offset = Some(Offset(Array(1, 2))),
-        LedgerRecord(Offset(Array(1, 1)), aLogEntryId(1), aWrappedLogEntry),
-        LedgerRecord(Offset(Array(1, 2)), aLogEntryId(2), aWrappedLogEntry),
-        LedgerRecord(Offset(Array(1, 3)), aLogEntryId(3), aWrappedLogEntry),
-        LedgerRecord(Offset(Array(1, 4)), aLogEntryId(4), aWrappedLogEntry),
+        offset = Some(Offset(Array(1, 4))),
         LedgerRecord(Offset(Array(1, 5)), aLogEntryId(5), aWrappedLogEntry),
         LedgerRecord(Offset(Array(1, 6)), aLogEntryId(6), aWrappedLogEntry),
+        Heartbeat(Offset(Array(1, 7)), start.plusSeconds(2)),
+        Heartbeat(Offset(Array(1, 8)), start.plusSeconds(3)),
+        LedgerRecord(Offset(Array(1, 9)), aLogEntryId(9), aWrappedLogEntry),
+        Heartbeat(Offset(Array(1, 10)), start.plusSeconds(4)),
+        LedgerRecord(Offset(Array(1, 11)), aLogEntryId(11), aWrappedLogEntry),
       )
       val instance = new KeyValueParticipantStateReader(reader)
-      val stream = instance.stateUpdates(Some(Offset(Array(1, 2, 0))))
+      val stream = instance.stateUpdates(Some(Offset(Array(1, 4, 0))))
 
       offsetsFrom(stream).map { actual =>
-        actual should have size 4
+        actual should have size 7
         actual shouldBe Seq(
-          Offset(Array(1, 3, 0)),
-          Offset(Array(1, 4, 0)),
           Offset(Array(1, 5, 0)),
           Offset(Array(1, 6, 0)),
+          Offset(Array(1, 7, 0)),
+          Offset(Array(1, 8, 0)),
+          Offset(Array(1, 9, 0)),
+          Offset(Array(1, 10, 0)),
+          Offset(Array(1, 11, 0)),
         )
       }
     }
@@ -107,7 +123,8 @@ class KeyValueParticipantStateReaderSpec
       val reader = readerStreamingFromAnyOffset(
         LedgerRecord(Offset(Array(1)), aLogEntryId(1), aWrappedLogEntry),
         LedgerRecord(Offset(Array(2)), aLogEntryId(2), aWrappedLogEntry),
-        LedgerRecord(Offset(Array(3)), aLogEntryId(3), aWrappedLogEntry),
+        Heartbeat(Offset(Array(3)), start),
+        LedgerRecord(Offset(Array(4)), aLogEntryId(4), aWrappedLogEntry),
       )
       val instance = new KeyValueParticipantStateReader(reader)
 
@@ -116,13 +133,15 @@ class KeyValueParticipantStateReaderSpec
           Seq(
             offsetsFrom(instance.stateUpdates(None)),
             offsetsFrom(instance.stateUpdates(Some(Offset(Array(1, 0))))),
-            offsetsFrom(instance.stateUpdates(Some(Offset(Array(3, 0)))))
+            offsetsFrom(instance.stateUpdates(Some(Offset(Array(3, 0))))),
+            offsetsFrom(instance.stateUpdates(Some(Offset(Array(4, 0))))),
           )
         )
         .map {
-          case Seq(all, afterFirst, afterLast) =>
-            all should have size 3
-            afterFirst should have size 2
+          case Seq(all, afterFirst, beforeLast, afterLast) =>
+            all should have size 4
+            afterFirst should have size 3
+            beforeLast should have size 1
             afterLast should have size 0
         }
     }
@@ -173,14 +192,14 @@ class KeyValueParticipantStateReaderSpec
       .setEntryId(ByteString.copyFrom(s"id-$index".getBytes))
       .build
 
-  private def readerStreamingFrom(offset: Option[Offset], items: LedgerRecord*): LedgerReader = {
+  private def readerStreamingFrom(offset: Option[Offset], items: LedgerEntry*): LedgerReader = {
     val reader = mock[LedgerReader]
     val stream = Source.fromIterator(() => items.iterator)
     when(reader.events(offset)).thenReturn(stream)
     reader
   }
 
-  private def readerStreamingFromAnyOffset(items: LedgerRecord*): LedgerReader = {
+  private def readerStreamingFromAnyOffset(items: LedgerEntry*): LedgerReader = {
     val reader = mock[LedgerReader]
     val stream = Source.fromIterator(() => items.iterator)
     when(reader.events(any[Option[Offset]]())).thenReturn(stream)

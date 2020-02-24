@@ -10,7 +10,7 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.on.memory.InMemoryLedgerReaderWriter._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntryId
-import com.daml.ledger.participant.state.kvutils.api.{LedgerReader, LedgerRecord, LedgerWriter}
+import com.daml.ledger.participant.state.kvutils.api.{LedgerEntry, LedgerReader, LedgerWriter}
 import com.daml.ledger.participant.state.kvutils.{KeyValueCommitting, SequentialLogEntryId}
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
@@ -88,22 +88,22 @@ final class InMemoryLedgerReaderWriter(
   override def commit(correlationId: String, envelope: Array[Byte]): Future[SubmissionResult] =
     committer.commit(correlationId, envelope)
 
-  override def events(offset: Option[Offset]): Source[LedgerRecord, NotUsed] =
+  override def events(offset: Option[Offset]): Source[LedgerEntry, NotUsed] =
     dispatcher
       .startingAt(
         offset
           .map(_.components.head.toInt)
           .getOrElse(StartIndex),
-        OneAfterAnother[Int, List[LedgerRecord]](
+        OneAfterAnother[Int, List[LedgerEntry]](
           (index: Int, _) => index + 1,
           (index: Int) => Future.successful(List(retrieveLogEntry(index))),
         ),
       )
       .mapConcat { case (_, updates) => updates }
 
-  private def retrieveLogEntry(index: Int): LedgerRecord = {
+  private def retrieveLogEntry(index: Int): LedgerEntry = {
     val logEntry = inMemoryState.readLogEntry(index)
-    LedgerRecord(Offset(Array(index.toLong)), logEntry.entryId, logEntry.payload)
+    LedgerEntry.LedgerRecord(Offset(Array(index.toLong)), logEntry.entryId, logEntry.payload)
   }
 }
 
