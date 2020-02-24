@@ -69,6 +69,7 @@ describe('useQuery', () => {
     const resolvent1 = ['foo'];
     const resolvent2 = ['bar'];
 
+    // First rendering works?
     mockQuery.mockReturnValueOnce(Promise.resolve(resolvent1));
     const {result, waitForNextUpdate} = renderDamlHook(() => {
       const [query, setQuery] = useState(query1);
@@ -83,6 +84,7 @@ describe('useQuery', () => {
     await waitForNextUpdate();
     expect(result.current.queryResult).toEqual({contracts: resolvent1, loading: false});
 
+    // Change to query triggers another call to JSON API?
     mockQuery.mockReturnValueOnce(Promise.resolve(resolvent2));
     act(() => result.current.setQuery(query2));
     expect(mockQuery).toHaveBeenCalledTimes(1);
@@ -92,5 +94,27 @@ describe('useQuery', () => {
     expect(result.current.query).toBe(query2);
     await waitForNextUpdate();
     expect(result.current.queryResult).toEqual({contracts: resolvent2, loading: false});
+  });
+
+  test('rerendering without query change', async () => {
+    const query = 'query';
+    const resolvent = ['foo'];
+
+    // First rendering works?
+    mockQuery.mockReturnValueOnce(Promise.resolve(resolvent));
+    const {result, waitForNextUpdate} = renderDamlHook(() => {
+      const setState = useState('state')[1];
+      const queryResult = useQuery(Foo, () => ({query}), [query]);
+      return {queryResult, query, setState};
+    });
+    expect(mockQuery).toHaveBeenCalledTimes(1);
+    mockQuery.mockClear();
+    await waitForNextUpdate();
+    expect(result.current.queryResult).toEqual({contracts: resolvent, loading: false});
+
+    // Change to unrelated state does _not_ trigger another call to JSON API?
+    act(() => result.current.setState('new-state'));
+    expect(mockQuery).not.toHaveBeenCalled();
+    expect(result.current.queryResult).toEqual({contracts: resolvent, loading: false});
   });
 });
