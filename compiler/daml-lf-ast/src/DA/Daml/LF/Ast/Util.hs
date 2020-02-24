@@ -313,7 +313,7 @@ stripPkgId baseName expectedPkgId = do
     guard $ pkgId == expectedPkgId
     pure unitId
 
--- | Take a string of the form daml-stdlib-"0.13.43" and split it into ("daml-stdlib", Just "0.13.43")
+-- | Take a string of the form "daml-stdlib-0.13.43" and split it into ("daml-stdlib", Just "0.13.43")
 splitUnitId :: UnitId -> (PackageName, Maybe PackageVersion)
 splitUnitId (unitIdString -> unitId) = fromMaybe (PackageName (T.pack unitId), Nothing) $ do
     (name, ver) <- stripInfixEnd "-" unitId
