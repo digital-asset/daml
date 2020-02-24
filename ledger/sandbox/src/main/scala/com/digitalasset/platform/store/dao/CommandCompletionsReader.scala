@@ -7,7 +7,7 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.ApplicationId
-import com.digitalasset.ledger.api.domain.CompletionEvent
+import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.digitalasset.platform.store.CompletionFromTransaction
 
 private[dao] object CommandCompletionsReader {
@@ -40,6 +40,6 @@ trait CommandCompletionsReader[LedgerOffset] {
       startInclusive: LedgerOffset,
       endExclusive: LedgerOffset,
       applicationId: ApplicationId,
-      parties: Set[Ref.Party]): Source[(LedgerOffset, CompletionEvent), NotUsed]
+      parties: Set[Ref.Party]): Source[(LedgerOffset, CompletionStreamResponse), NotUsed]
 
 }

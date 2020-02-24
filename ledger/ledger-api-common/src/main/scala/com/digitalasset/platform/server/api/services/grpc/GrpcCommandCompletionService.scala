@@ -46,8 +46,6 @@ class GrpcCommandCompletionService(
 )(implicit protected val esf: ExecutionSequencerFactory, protected val mat: Materializer)
     extends CommandCompletionServiceAkkaGrpc {
 
-  import GrpcCommandCompletionService.fillInWithDefaults
-
   private val validator = new CompletionServiceRequestValidator(ledgerId, partyNameChecker)
 
   override def completionStreamSource(
@@ -56,11 +54,7 @@ class GrpcCommandCompletionService(
       .validateCompletionStreamRequest(request)
       .fold(
         Source.failed[CompletionStreamResponse],
-        validatedRequest => {
-          service
-            .completionStreamSource(fillInWithDefaults(validatedRequest))
-            .map(toApiCompletion)
-        }
+        GrpcCommandCompletionService.fillInWithDefaults _ andThen service.completionStreamSource
       )
   }
 
@@ -76,39 +70,5 @@ class GrpcCommandCompletionService(
               CompletionEndResponse(Some(LedgerOffset(LedgerOffset.Value.Absolute(abs.value)))))(
               DirectExecutionContext)
       )
-
-  private def toApiCompletion(ce: domain.CompletionEvent): CompletionStreamResponse = {
-    val checkpoint = Some(
-      Checkpoint(
-        Some(fromInstant(ce.recordTime)),
-        Some(LedgerOffset(LedgerOffset.Value.Absolute(ce.offset.value)))))
-
-    ce match {
-      case CompletionEvent.CommandAccepted(_, _, commandId, transactionId) =>
-        CompletionStreamResponse(
-          checkpoint,
-          List(Completion(commandId.unwrap, Some(Status()), transactionId.unwrap))
-        )
-
-      case CompletionEvent.CommandRejected(_, _, commandId, reason) =>
-        CompletionStreamResponse(checkpoint, List(rejectionToCompletion(commandId, reason)))
-
-      case _: CompletionEvent.Checkpoint =>
-        CompletionStreamResponse(checkpoint)
-    }
-  }
-
-  private def rejectionToCompletion(commandId: CommandId, error: RejectionReason): Completion = {
-    val code = error match {
-      case _: RejectionReason.Inconsistent => Code.INVALID_ARGUMENT
-      case _: RejectionReason.OutOfQuota => Code.ABORTED
-      case _: RejectionReason.TimedOut => Code.ABORTED
-      case _: RejectionReason.Disputed => Code.INVALID_ARGUMENT
-      case _: RejectionReason.PartyNotKnownOnLedger => Code.INVALID_ARGUMENT
-      case _: RejectionReason.SubmitterCannotActViaParticipant => Code.PERMISSION_DENIED
-    }
-
-    Completion(commandId.unwrap, Some(Status(code.value(), error.description)), traceContext = None)
-  }
 
 }
