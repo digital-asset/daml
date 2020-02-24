@@ -37,15 +37,15 @@ private[platform] object CompletionFromTransaction {
   // We _rely_ on the following compiler flags for this to be safe:
   // * -Xno-patmat-analysis _MUST NOT_ be enabled
   // * -Xfatal-warnings _MUST_ be enabled
-  private def toErrorCode(rejection: RejectionReason): Int = {
+  private def toErrorCode(rejection: RejectionReason): Code = {
     rejection match {
       case _: RejectionReason.Inconsistent | _: RejectionReason.Disputed |
           _: RejectionReason.PartyNotKnownOnLedger =>
-        Code.INVALID_ARGUMENT.value()
+        Code.INVALID_ARGUMENT
       case _: RejectionReason.OutOfQuota | _: RejectionReason.TimedOut =>
-        Code.ABORTED.value()
+        Code.ABORTED
       case _: RejectionReason.SubmitterCannotActViaParticipant =>
-        Code.PERMISSION_DENIED.value()
+        Code.PERMISSION_DENIED
     }
   }
 
@@ -77,7 +77,7 @@ private[platform] object CompletionFromTransaction {
         if parties(submitter) =>
       offset -> CompletionStreamResponse(
         checkpoint = toApiCheckpoint(recordTime, offset),
-        Seq(Completion(commandId, Option(Status(toErrorCode(reason), reason.description))))
+        Seq(Completion(commandId, Option(Status(toErrorCode(reason).value(), reason.description))))
       )
     case (offset, LedgerEntry.Checkpoint(recordedAt)) =>
       offset -> CompletionStreamResponse(
