@@ -459,18 +459,7 @@ generatePackageMap version mbProjRoot userPkgDbs = do
             let dalfs = filter ((== ".dalf") . takeExtension) allFiles
             forM dalfs $ \dalf -> do
                 dalfPkgOrErr <- readDalfPackage dalf
-                let getUnitId pkg = case LF.packageMetadataFromFile dalf (LF.extPackagePkg $ LF.dalfPackagePkg pkg) (LF.dalfPackageId pkg) of
-                        -- If we use data-dependencies we can end up with multiple DALFs for daml-prim/daml-stdlib
-                        -- one per version. The one shipped with the SDK is called daml-prim.dalf and daml-stdlib-$VERSION.dalf
-                        -- and have the same unit ids, so we do not need to strip package ids.
-                        -- The one coming from daml-prim will be called daml-prim-$PKGID.dalf daml-stdlib-$PKGID.dalf
-                        -- To avoid collisions, we include this hash in the unit id so we also don’t want to strip
-                        -- package ids here.
-                        (LF.PackageName name, mbVersion)
-                          | "daml-prim" `T.isPrefixOf` name -> (stringToUnitId (takeBaseName dalf), pkg)
-                          | "daml-stdlib" `T.isPrefixOf` name -> (stringToUnitId (takeBaseName dalf), pkg)
-                          | otherwise -> (pkgNameVersion (LF.PackageName name) mbVersion, pkg)
-                pure (fmap getUnitId dalfPkgOrErr)
+                pure (fmap (\dalfPkg -> (getUnitId dalf dalfPkg, dalfPkg)) dalfPkgOrErr)
 
     let unitIdConflicts = Map.filter ((>=2) . Set.size) . Map.fromListWith Set.union $
             [ (unitId, Set.singleton (LF.dalfPackageId dalfPkg))
@@ -482,6 +471,24 @@ generatePackageMap version mbProjRoot userPkgDbs = do
                 | (k,v) <- Map.toList unitIdConflicts ]
 
     return (diags, Map.fromList pkgs)
+  where
+    -- If we use data-dependencies we can end up with multiple DALFs for daml-prim/daml-stdlib
+    -- one per version. The one shipped with the SDK is called daml-prim.dalf and daml-stdlib-$VERSION.dalf
+    -- and have the same unit ids, so we do not need to strip package ids.
+    -- The one coming from daml-prim will be called daml-prim-$PKGID.dalf daml-stdlib-$PKGID.dalf
+    -- To avoid collisions, we include this hash in the unit id so we also don’t want to strip
+    -- package ids here.
+    getUnitId :: FilePath -> LF.DalfPackage -> UnitId
+    getUnitId dalf pkg
+      | "daml-prim" `T.isPrefixOf` name = stringToUnitId (takeBaseName dalf)
+      | "daml-stdlib" `T.isPrefixOf` name = stringToUnitId (takeBaseName dalf)
+      | otherwise = pkgNameVersion (LF.PackageName name) mbVersion
+      where (LF.PackageName name, mbVersion)
+               = LF.packageMetadataFromFile
+                     dalf
+                     (LF.extPackagePkg $ LF.dalfPackagePkg pkg)
+                     (LF.dalfPackageId pkg)
+
 
 readDalfPackage :: FilePath -> IO (Either FileDiagnostic LF.DalfPackage)
 readDalfPackage dalf = do
