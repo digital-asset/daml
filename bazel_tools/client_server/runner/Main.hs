@@ -3,35 +3,11 @@
 
 module Main(main) where
 
-import Control.Concurrent (threadDelay)
-import qualified Data.Text.IO as T
+import DA.PortFile
 import System.Environment
 import System.Process
-import System.IO
 import System.IO.Extra (withTempFile)
-import System.Exit
-import Safe
 import Data.List.Split (splitOn)
-
-retryDelayMillis :: Int
-retryDelayMillis = 100
-
--- Wait up to 60s for the port file to be written to. A long timeout is used to
--- avoid flaky results under high system load.
-maxRetries :: Int
-maxRetries = 60 * (1000 `div` retryDelayMillis)
-
-readPortFile :: Int -> String -> IO Int
-readPortFile 0 _file = do
-  T.hPutStrLn stderr "Port file was not written to in time."
-  exitFailure
-
-readPortFile n file =
-  readMay <$> readFile file >>= \case
-    Nothing -> do
-      threadDelay (1000 * retryDelayMillis)
-      readPortFile (n-1) file
-    Just p -> pure p
 
 main :: IO ()
 main = do

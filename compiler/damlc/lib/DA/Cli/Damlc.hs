@@ -24,9 +24,11 @@ import DA.Cli.Damlc.IdeState
 import DA.Cli.Damlc.Packaging
 import DA.Cli.Damlc.Test
 import DA.Daml.Compiler.Dar
+import qualified DA.Daml.Compiler.Repl as Repl
 import DA.Daml.Compiler.DataDependencies as DataDeps
 import DA.Daml.Compiler.DocTest
 import DA.Daml.Compiler.Scenario
+import qualified DA.Daml.LF.ReplClient as ReplClient
 import DA.Daml.Compiler.Upgrade
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.Proto3.Archive as Archive
@@ -90,6 +92,7 @@ import "ghc-lib" HsDumpAst
 import "ghc-lib" HscStats
 import "ghc-lib-parser" HscTypes
 import qualified "ghc-lib-parser" Outputable as GHC
+import qualified SdkVersion
 
 --------------------------------------------------------------------------------
 -- Commands
@@ -114,6 +117,7 @@ data CommandName =
   | Package
   | Test
   | Visual
+  | Repl
   deriving (Ord, Show, Eq)
 data Command = Command CommandName (Maybe ProjectOpts) (IO ())
 
@@ -245,6 +249,21 @@ cmdBuild numProcessors =
             <*> optionalOutputFileOpt
             <*> incrementalBuildOpt
             <*> initPkgDbOpt
+
+cmdRepl :: Int -> Mod CommandFields Command
+cmdRepl numProcessors =
+    command "repl" $
+    info (helper <*> cmd) fullDesc
+  where
+    cmd =
+        execRepl
+            <$> projectOpts "daml build"
+            <*> optionsParser numProcessors (EnableScenarioService False) (pure Nothing)
+            <*> strOption (long "script-lib" <> value "daml-script" <> internal)
+            -- ^ This is useful for tests and `bazel run`.
+            <*> strArgument (help "DAR to load in the repl")
+            <*> strOption (long "ledger-host" <> help "Host of the ledger API")
+            <*> strOption (long "ledger-port" <> help "Port of the ledger API")
 
 cmdClean :: Mod CommandFields Command
 cmdClean =
@@ -575,6 +594,35 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb =
                     createDarFile fp dar
             where
                 targetFilePath name = fromMaybe (distDir </> name <.> "dar") mbOutFile
+
+execRepl :: ProjectOpts -> Options -> FilePath -> FilePath -> String -> String -> Command
+execRepl projectOpts opts scriptDar mainDar ledgerHost ledgerPort = Command Repl (Just projectOpts) effect
+  where effect = do
+            opts <- pure opts
+                { optDlintUsage = DlintDisabled
+                , optScenarioService = EnableScenarioService False
+                }
+            logger <- getLogger opts "repl"
+            runfilesDir <- locateRunfiles (mainWorkspace </> "compiler/repl-service/server")
+            let jar = runfilesDir </> "repl-service.jar"
+            ReplClient.withReplClient (ReplClient.Options jar ledgerHost ledgerPort) $ \replHandle ->
+                withTempDir $ \dir ->
+                withCurrentDirectory dir $ do
+                sdkVer <- fromMaybe SdkVersion.sdkVersion <$> lookupEnv sdkVersionEnvVar
+                writeFileUTF8 "daml.yaml" $ unlines
+                    [ "sdk-version: " <> sdkVer
+                    , "name: repl"
+                    , "version: 0.0.1"
+                    , "source: ."
+                    , "dependencies:"
+                    , "- daml-prim"
+                    , "- daml-stdlib"
+                    , "- " <> show scriptDar
+                    , "- " <> show mainDar
+                    ]
+                initPackageDb opts (InitPkgDb True)
+                withDamlIdeState opts logger diagnosticsLogger
+                    (Repl.runRepl opts mainDar replHandle)
 
 -- | Remove any build artifacts if they exist.
 execClean :: ProjectOpts -> Command
@@ -965,6 +1013,9 @@ options numProcessors =
         <> cmdClean
         <> cmdGenerateSrc numProcessors
         <> cmdGenerateGenSrc
+        <> cmdRepl numProcessors
+        -- once the repl is a bit more mature, make it non-internal
+        -- and modify sdk-config.yaml to add a description.
       )
 
 parserInfo :: Int -> ParserInfo Command

@@ -89,3 +89,6 @@ commands:
   path: daml-helper/daml-helper
   args: ["run-jar", "--logback-config=daml-sdk/test-script-logback.xml", "daml-sdk/daml-sdk.jar", "test-script"]
   desc: "Run a DAML script tests (experimental)"
+- name: repl
+  path: damlc/damlc
+  args: ["repl"]
