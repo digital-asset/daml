@@ -621,7 +621,8 @@ execRepl projectOpts opts scriptDar mainDar ledgerHost ledgerPort = Command Repl
                     , "- " <> show mainDar
                     ]
                 initPackageDb opts (InitPkgDb True)
-                withDamlIdeState opts logger diagnosticsLogger
+                -- We want diagnostics to go to stdout in the repl.
+                withDamlIdeState opts logger (hDiagnosticsLogger stdout)
                     (Repl.runRepl opts mainDar replHandle)
 
 -- | Remove any build artifacts if they exist.
