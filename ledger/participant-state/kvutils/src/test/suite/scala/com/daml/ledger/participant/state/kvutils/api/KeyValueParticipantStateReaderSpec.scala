@@ -58,8 +58,7 @@ class KeyValueParticipantStateReaderSpec
     }
 
     "skip events before specified offset" in {
-      val reader = readerStreamingFrom(
-        offset = None,
+      val reader = readerStreamingFromAnyOffset(
         LedgerRecord(Offset(Array(1)), aLogEntryId, aWrappedLogEntry),
         LedgerRecord(Offset(Array(2)), aLogEntryId, aWrappedLogEntry),
         LedgerRecord(Offset(Array(3)), aLogEntryId, aWrappedLogEntry)
@@ -128,12 +127,15 @@ class KeyValueParticipantStateReaderSpec
 
   private def readerStreamingFrom(offset: Option[Offset], items: LedgerRecord*): LedgerReader = {
     val reader = mock[LedgerReader]
-    val stream = Source.fromIterator(() => items.toIterator)
-    if (offset.isDefined) {
-      when(reader.events(offset)).thenReturn(stream)
-    } else {
-      when(reader.events(any[Option[Offset]]())).thenReturn(stream)
-    }
+    val stream = Source.fromIterator(() => items.iterator)
+    when(reader.events(offset)).thenReturn(stream)
+    reader
+  }
+
+  private def readerStreamingFromAnyOffset(items: LedgerRecord*): LedgerReader = {
+    val reader = mock[LedgerReader]
+    val stream = Source.fromIterator(() => items.iterator)
+    when(reader.events(any[Option[Offset]]())).thenReturn(stream)
     reader
   }
 
