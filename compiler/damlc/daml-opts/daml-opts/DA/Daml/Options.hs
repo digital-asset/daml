@@ -50,6 +50,7 @@ import qualified DA.Daml.LF.Ast.Version as LF
 import DA.Bazel.Runfiles
 import qualified DA.Daml.LF.Proto3.Archive as Archive
 import DA.Daml.LF.Reader
+import DA.Daml.LF.Ast.Util
 import DA.Daml.Project.Config
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Types (ConfigError, ProjectPath(..))
@@ -476,22 +477,21 @@ calcUnitsFromDeps root deps = do
   let (fpDars, fpDalfs) = partition ((== ".dar") . takeExtension) deps
   entries <- mapM (mainEntryOfDar root) fpDars
   let dalfsFromDars =
-        [ ( dropExtension $ takeFileName $ ZipArchive.eRelativePath e
+        [ ( ZipArchive.eRelativePath e
           , BSL.toStrict $ ZipArchive.fromEntry e)
         | e <- entries ]
   dalfsFromFps <-
     forM fpDalfs $ \fp -> do
       bs <- BS.readFile (root </> fp)
-      pure (dropExtension $ takeFileName fp, bs)
+      pure (fp, bs)
   let mainDalfs = dalfsFromDars ++ dalfsFromFps
-  flip mapMaybeM mainDalfs $ \(name, dalf) -> runMaybeT $ do
-    pkgId <-
+  flip mapMaybeM mainDalfs $ \(file, dalf) -> runMaybeT $ do
+    (pkgId, pkg) <-
         liftIO $
         either (fail . DA.Pretty.renderPretty) pure $
-        Archive.decodeArchivePackageId dalf
-    let parsedUnitId = parseUnitId name pkgId
-    let unitId = stringToUnitId parsedUnitId
-    pure unitId
+        Archive.decodeArchive Archive.DecodeAsMain dalf
+    let (name, mbVersion) = packageMetadataFromFile file pkg pkgId
+    pure (pkgNameVersion name mbVersion)
 
 mainEntryOfDar :: FilePath -> FilePath -> IO ZipArchive.Entry
 mainEntryOfDar root fp = do

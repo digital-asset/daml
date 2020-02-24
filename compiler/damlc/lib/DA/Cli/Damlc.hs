@@ -786,8 +786,7 @@ execMigrate projectOpts inFile1_ inFile2_ mbDir =
                   mainDalfEntry <- getEntry (mainDalfPath dalfManifest) dar
                   (mainPkgId, mainLfPkg) <-
                       decode $ BSL.toStrict $ ZipArchive.fromEntry mainDalfEntry
-                  let baseName = takeBaseName $ mainDalfPath dalfManifest
-                  let pkgName = parseUnitId baseName mainPkgId
+                  let pkgName = unitIdString (LF.unitIdFromFile (mainDalfPath dalfManifest) mainPkgId)
                   pure (pkgName, mainPkgId, mainLfPkg)
           -- generate upgrade modules and instances modules
           let eqModNames =

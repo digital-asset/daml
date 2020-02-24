@@ -11,8 +11,8 @@ import Safe (lastMay)
 import Data.List
 import Data.Maybe
 import qualified DA.Pretty           as Pretty
-import DA.Daml.Compiler.DataDependencies (splitUnitId)
 import DA.Daml.Options.Types
+import DA.Daml.LF.Ast.Util (splitUnitId)
 import qualified DA.Daml.LF.Ast.Version as LF
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Types
