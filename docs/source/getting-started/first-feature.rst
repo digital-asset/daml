@@ -112,6 +112,7 @@ The ``MainView`` component composes the different subcomponents (for our friends
 We first import our two new components.
 
 .. literalinclude:: code/ui-after/MainView.tsx
+  :language: typescript
   :start-after: // IMPORTS_BEGIN
   :end-before: // IMPORTS_END
 
