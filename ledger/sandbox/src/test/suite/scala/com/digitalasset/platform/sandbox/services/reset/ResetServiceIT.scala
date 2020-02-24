@@ -81,7 +81,7 @@ final class ResetServiceIT
 
   private def timedReset(ledgerId: String): Future[(String, Duration)] = {
     val start = System.nanoTime()
-    reset(ledgerId).zip(Future.successful((System.nanoTime() - start).nanos))
+    reset(ledgerId).map(_ -> (System.nanoTime() - start).nanos)
   }
 
   private def submitAndWait(req: SubmitAndWaitRequest): Future[Empty] =
