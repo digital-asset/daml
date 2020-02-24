@@ -83,7 +83,7 @@ object domain {
       queries: NonEmptyList[GetActiveContractsRequest]
   )
 
-  case class PartyDetails(party: Party, displayName: Option[String], isLocal: Boolean)
+  case class PartyDetails(identifier: Party, displayName: Option[String], isLocal: Boolean)
 
   final case class CommandMeta(
       commandId: Option[CommandId],

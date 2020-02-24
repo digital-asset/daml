@@ -83,10 +83,16 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
   import shapeless.tag, tag.@@ // used for subtyping to make `AHS ec` beat executionContext
   implicit val `AHS ec`: ExecutionContext @@ this.type = tag[this.type](`AHS asys`.dispatcher)
 
-  protected def withHttpService[A]
-    : ((Uri, DomainJsonEncoder, DomainJsonDecoder) => Future[A]) => Future[A] =
+  protected def withHttpServiceAndClient[A]
+    : ((Uri, DomainJsonEncoder, DomainJsonDecoder, LedgerClient) => Future[A]) => Future[A] =
     HttpServiceTestFixture
       .withHttpService[A](testId, List(dar1, dar2), jdbcConfig, staticContentConfig)
+
+  protected def withHttpService[A](
+      f3: (Uri, DomainJsonEncoder, DomainJsonDecoder) => Future[A]): Future[A] =
+    HttpServiceTestFixture
+      .withHttpService[A](testId, List(dar1, dar2), jdbcConfig, staticContentConfig)((a, b, c, _) =>
+        f3(a, b, c))
 
   protected def withLedger[A]: (LedgerClient => Future[A]) => Future[A] =
     HttpServiceTestFixture.withLedger[A](List(dar1, dar2), testId)
@@ -736,32 +742,83 @@ abstract class AbstractHttpServiceIntegrationTest
         }: Future[Assertion]
   }
 
-  "parties endpoint should return all known parties" in withHttpService { (uri, encoder, _) =>
-    val create: domain.CreateCommand[v.Record] = iouCreateCommand()
-    postCreateCommand(create, encoder, uri)
-      .flatMap {
-        case (createStatus, createOutput) =>
-          createStatus shouldBe StatusCodes.OK
-          assertStatus(createOutput, StatusCodes.OK)
-          getRequest(uri = uri.withPath(Uri.Path("/v1/parties")))
-            .flatMap {
-              case (status, output) =>
-                status shouldBe StatusCodes.OK
-                assertStatus(output, StatusCodes.OK)
-                inside(output) {
-                  case JsObject(fields) =>
-                    inside(fields.get("result")) {
-                      case Some(jsArray) =>
-                        inside(SprayJson.decode[List[domain.PartyDetails]](jsArray)) {
-                          case \/-(partyDetails) =>
-                            val partyNames: Set[String] =
-                              partyDetails.map(_.party.unwrap)(breakOut)
-                            partyNames should contain("Alice")
-                        }
-                    }
-                }
-            }
-      }: Future[Assertion]
+  "parties endpoint should return all known parties" in withHttpServiceAndClient {
+    (uri, _, _, client) =>
+      import scalaz.std.vector._
+
+      val partyIds = Vector("Alice", "Bob", "Charlie", "Dave")
+
+      val partyManagement = client.partyManagementClient
+
+      partyIds
+        .traverse { p =>
+          partyManagement.allocateParty(Some(p), Some(s"$p & Co. LLC"))
+        }
+        .flatMap { allocatedParties =>
+          getRequest(uri = uri.withPath(Uri.Path("/v1/parties"))).flatMap {
+            case (status, output) =>
+              status shouldBe StatusCodes.OK
+              assertStatus(output, StatusCodes.OK)
+              inside(output) {
+                case JsObject(fields) =>
+                  inside(fields.get("result")) {
+                    case Some(jsArray) =>
+                      inside(SprayJson.decode[List[domain.PartyDetails]](jsArray)) {
+                        case \/-(partyDetails) =>
+                          val actualIds: Set[domain.Party] =
+                            partyDetails.map(x => x.identifier)(breakOut)
+                          domain.Party.unsubst(actualIds) shouldBe partyIds.toSet
+                          val expected: Set[domain.PartyDetails] =
+                            allocatedParties.toSet.map(domain.PartyDetails.fromLedgerApi)
+                          partyDetails.toSet shouldBe expected
+                      }
+                  }
+              }
+          }
+        }: Future[Assertion]
+  }
+
+  "parties endpoint should return only requested parties" in withHttpServiceAndClient {
+    (uri, _, _, client) =>
+      import scalaz.std.vector._
+
+      val partyIds = Vector("Alice", "Bob", "Charlie", "Dave")
+      val requestedPartyIds = partyIds.filterNot(_ == "Charlie")
+
+      val partyManagement = client.partyManagementClient
+
+      partyIds
+        .traverse { p =>
+          partyManagement.allocateParty(Some(p), Some(s"$p & Co. LLC"))
+        }
+        .flatMap { allocatedParties =>
+          postJsonRequest(
+            uri = uri.withPath(Uri.Path("/v1/parties")),
+            JsArray(requestedPartyIds.map(JsString(_)))
+          ).flatMap {
+            case (status, output) =>
+              status shouldBe StatusCodes.OK
+              assertStatus(output, StatusCodes.OK)
+              inside(output) {
+                case JsObject(fields) =>
+                  inside(fields.get("result")) {
+                    case Some(jsArray) =>
+                      inside(SprayJson.decode[List[domain.PartyDetails]](jsArray)) {
+                        case \/-(partyDetails) =>
+                          partyDetails.size shouldBe partyIds.size - 1
+                          val actualIds: Set[domain.Party] =
+                            partyDetails.map(x => x.identifier)(breakOut)
+                          domain.Party.unsubst(actualIds) shouldBe partyIds.toSet
+                          val expected: Set[domain.PartyDetails] =
+                            allocatedParties.toSet
+                              .map(domain.PartyDetails.fromLedgerApi)
+                              .filter(x => requestedPartyIds.contains(x.identifier.unwrap: String))
+                          partyDetails.toSet shouldBe expected
+                      }
+                  }
+              }
+          }
+        }: Future[Assertion]
   }
 
   "fetch by contractId" in withHttpService { (uri, encoder, decoder) =>

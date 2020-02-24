@@ -6,11 +6,21 @@ package com.digitalasset.http
 import com.digitalasset.ledger.api.domain.PartyDetails
 
 import scala.concurrent.{ExecutionContext, Future}
+import com.digitalasset.jwt.domain.Jwt
 
-class PartiesService(listAllParties: () => Future[List[PartyDetails]])(
+class PartiesService(listAllParties: Jwt => Future[List[PartyDetails]])(
     implicit ec: ExecutionContext) {
 
-  def allParties(): Future[List[domain.PartyDetails]] = {
-    listAllParties().map(ps => ps.map(p => domain.PartyDetails.fromLedgerApi(p)))
+  // TODO(Leo) memoize this calls or listAllParties()?
+  def allParties(jwt: Jwt): Future[List[domain.PartyDetails]] = {
+    listAllParties(jwt).map(ps => ps.map(p => domain.PartyDetails.fromLedgerApi(p)))
+  }
+
+  // TODO(Leo) memoize this calls or listAllParties()?
+  def parties(jwt: Jwt, identifiers: Set[domain.Party]): Future[List[domain.PartyDetails]] = {
+    val ids: Set[String] = domain.Party.unsubst(identifiers)
+    listAllParties(jwt).map { ps =>
+      ps.collect { case p if ids(p.party) => domain.PartyDetails.fromLedgerApi(p) }
+    }
   }
 }

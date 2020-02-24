@@ -56,7 +56,8 @@ class Endpoints(
     case req @ HttpRequest(POST, Uri.Path("/v1/fetch"), _, _, _) => httpResponse(fetch(req))
     case req @ HttpRequest(GET, Uri.Path("/v1/query"), _, _, _) => httpResponse(retrieveAll(req))
     case req @ HttpRequest(POST, Uri.Path("/v1/query"), _, _, _) => httpResponse(query(req))
-    case req @ HttpRequest(GET, Uri.Path("/v1/parties"), _, _, _) => httpResponse(parties(req))
+    case req @ HttpRequest(GET, Uri.Path("/v1/parties"), _, _, _) => httpResponse(allParties(req))
+    case req @ HttpRequest(POST, Uri.Path("/v1/parties"), _, _, _) => httpResponse(parties(req))
   }
 
   def create(req: HttpRequest): ET[JsValue] =
@@ -174,11 +175,31 @@ class Endpoints(
       }
     }
 
+  def allParties(req: HttpRequest): ET[JsValue] =
+    for {
+      t3 <- eitherT(input(req)): ET[(Jwt, JwtPayload, String)]
+      ps <- rightT(partiesService.allParties(t3._1)): ET[List[domain.PartyDetails]]
+      jsVal <- either(SprayJson.encode(ps)).leftMap(e => ServerError(e.shows)): ET[JsValue]
+    } yield jsVal
+
   def parties(req: HttpRequest): ET[JsValue] =
     for {
-      _ <- FutureUtil.eitherT(input(req)): ET[(Jwt, JwtPayload, String)]
-      ps <- rightT(partiesService.allParties()): ET[List[domain.PartyDetails]]
+      t3 <- eitherT(input(req)): ET[(Jwt, JwtPayload, String)]
+
+      (jwt, _, reqBody) = t3
+
+      cmd <- either(
+        SprayJson
+          .decode[Set[domain.Party]](reqBody)
+          .leftMap(e => InvalidUserInput(e.shows))
+      ): ET[Set[domain.Party]]
+
+      ps <- eitherT(
+        handleFutureFailure(partiesService.parties(jwt, cmd))
+      ): ET[List[domain.PartyDetails]]
+
       jsVal <- either(SprayJson.encode(ps)).leftMap(e => ServerError(e.shows)): ET[JsValue]
+
     } yield jsVal
 
   private def handleFutureFailure[A: Show, B](fa: Future[A \/ B]): Future[ServerError \/ B] =
