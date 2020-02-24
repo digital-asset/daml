@@ -273,20 +273,18 @@ class WebsocketServiceIntegrationTest
                 Set(fstId, sndId, consumedCtid) should have size 3
                 inside(evtsWrapper) {
                   case JsObject(obj) =>
-                    inside(obj.toSeq) {
-                      case Seq(("events", array)) =>
-                        inside(array) {
-                          case JsArray(
-                              Vector(
-                                Archived(_, _),
-                                Created(IouAmount(amt1), MatchedQueries(NumList(ixes1), _)),
-                                Created(IouAmount(amt2), MatchedQueries(NumList(ixes2), _)))) =>
-                            Set((amt1, ixes1), (amt2, ixes2)) should ===(
-                              Set(
-                                (BigDecimal("42.42"), Vector(BigDecimal(0), BigDecimal(2))),
-                                (BigDecimal("957.57"), Vector(BigDecimal(1), BigDecimal(2))),
-                              ))
-                        }
+                    inside(obj get "events") {
+                      case Some(
+                          JsArray(
+                            Vector(
+                              Archived(_, _),
+                              Created(IouAmount(amt1), MatchedQueries(NumList(ixes1), _)),
+                              Created(IouAmount(amt2), MatchedQueries(NumList(ixes2), _))))) =>
+                        Set((amt1, ixes1), (amt2, ixes2)) should ===(
+                          Set(
+                            (BigDecimal("42.42"), Vector(BigDecimal(0), BigDecimal(2))),
+                            (BigDecimal("957.57"), Vector(BigDecimal(1), BigDecimal(2))),
+                          ))
                     }
                 }
                 ShouldHaveEnded(2)
@@ -431,7 +429,7 @@ object WebsocketServiceIntegrationTest {
     ): Option[(Vector[(String, JsValue)], Vector[domain.ArchivedContract])] =
       for {
         JsObject(eventsWrapper) <- Some(jsv)
-        JsArray(sums) <- eventsWrapper.get("events") if eventsWrapper.size == 1
+        JsArray(sums) <- eventsWrapper.get("events")
         pairs = sums collect { case JsObject(fields) => fields.filterKeys(tagKeys).head }
         if pairs.length == sums.length
         sets = pairs groupBy (_._1)
