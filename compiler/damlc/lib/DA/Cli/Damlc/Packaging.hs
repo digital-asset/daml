@@ -118,7 +118,7 @@ createProjectPackageDb projectRoot opts thisSdkVer deps dataDeps
     dars <- mapM extractDar fpDars
     -- These are the dalfs that are in a DAR that has been passed in via data-dependencies.
     let dalfsFromDars =
-            [ ( dropExtension $ takeFileName $ ZipArchive.eRelativePath e
+            [ ( ZipArchive.eRelativePath e
               , BSL.toStrict $ ZipArchive.fromEntry e
               )
             | e <- concatMap edDalfs dars
@@ -127,9 +127,9 @@ createProjectPackageDb projectRoot opts thisSdkVer deps dataDeps
     dalfsFromFps <-
         forM fpDalfs $ \fp -> do
             bs <- BS.readFile fp
-            pure (dropExtension $ takeFileName fp, bs)
+            pure (fp, bs)
     let allDalfs = dalfsFromDars ++ dalfsFromFps
-    pkgs <- flip mapMaybeM allDalfs $ \(name, dalf) -> runMaybeT $ do
+    pkgs <- flip mapMaybeM allDalfs $ \(dalfPath, dalf) -> runMaybeT $ do
         (pkgId, package) <-
             liftIO $
             either (fail . DA.Pretty.renderPretty) pure $
@@ -152,21 +152,20 @@ createProjectPackageDb projectRoot opts thisSdkVer deps dataDeps
         -- If the version of daml-prim/daml-stdlib in a data-dependency is the same
         -- as the one we are currently compiling against, we don’t need to apply this
         -- hack.
-        let parsedUnitId = parseUnitId name pkgId
-        let unitId = stringToUnitId $ case splitUnitId (stringToUnitId parsedUnitId) of
-              (LF.PackageName "daml-prim", Nothing) | pkgId `Set.notMember` dependencyPkgIds -> "daml-prim-" <> T.unpack (LF.unPackageId pkgId)
-              (LF.PackageName "daml-stdlib", _) | pkgId `Set.notMember` dependencyPkgIds -> "daml-stdlib-" <> T.unpack (LF.unPackageId pkgId)
-              _ -> parsedUnitId
-        pure (pkgId, package, dalf, unitId)
+        let (name, mbVersion) = case LF.packageMetadataFromFile dalfPath package pkgId of
+              (LF.PackageName "daml-prim", Nothing) | pkgId `Set.notMember` dependencyPkgIds -> (LF.PackageName ("daml-prim-" <> LF.unPackageId pkgId), Nothing)
+              (LF.PackageName "daml-stdlib", _) | pkgId `Set.notMember` dependencyPkgIds -> (LF.PackageName ("daml-stdlib-" <> LF.unPackageId pkgId), Nothing)
+              (name, mbVersion) -> (name, mbVersion)
+        pure (pkgId, package, dalf, pkgNameVersion name mbVersion)
 
     -- All transitive packages from DARs specified in  `dependencies`. This is only used for unit-id collision checks.
     transitiveDependencies <- fmap concat $ forM depsExtracted $ \ExtractedDar{..} -> forM edDalfs $ \zipEntry -> do
        let bytes = BSL.toStrict $ ZipArchive.fromEntry zipEntry
-       pkgId <- liftIO $
+       (pkgId, pkg) <- liftIO $
             either (fail . DA.Pretty.renderPretty) pure $
-            Archive.decodeArchivePackageId bytes
-       let unitId = parseUnitId (takeBaseName $ ZipArchive.eRelativePath zipEntry) pkgId
-       pure (pkgId, stringToUnitId unitId)
+            Archive.decodeArchive Archive.DecodeAsMain bytes
+       let (pkgName, mbPkgVer) = LF.packageMetadataFromFile (ZipArchive.eRelativePath zipEntry) pkg pkgId
+       pure (pkgId, pkgNameVersion pkgName mbPkgVer)
 
     let unitIdConflicts = MS.filter ((>=2) . Set.size) .  MS.fromListWith Set.union $ concat
             [ [ (unitId, Set.singleton pkgId)
@@ -196,7 +195,7 @@ createProjectPackageDb projectRoot opts thisSdkVer deps dataDeps
         let unitIdStr = unitIdString $ unitId pkgNode
         let _instancesUnitIdStr = "instances-" <> unitIdStr
         let pkgIdStr = T.unpack $ LF.unPackageId pkgId
-        let (pkgName, mbPkgVersion) = splitUnitId (unitId pkgNode)
+        let (pkgName, mbPkgVersion) = LF.splitUnitId (unitId pkgNode)
         let deps =
                 [ unitIdString (unitId depPkgNode) <.> "dalf"
                 | (depPkgNode, depPkgId) <- map vertexToNode $ reachable depGraph vertex

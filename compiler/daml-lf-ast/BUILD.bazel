@@ -14,6 +14,8 @@ da_haskell_library(
         "deepseq",
         "Decimal",
         "extra",
+        "filepath",
+        "ghc-lib-parser",
         "hashable",
         "lens",
         "mtl",
