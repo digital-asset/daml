@@ -4,6 +4,7 @@
 package com.daml.ledger.participant.state.kvutils.app
 
 import akka.stream.Materializer
+import com.codahale.metrics.{MetricRegistry, SharedMetricRegistries}
 import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId}
 import com.digitalasset.ledger.api.auth.{AuthService, AuthServiceWildcard}
 import com.digitalasset.logging.LoggingContext
@@ -40,6 +41,9 @@ trait LedgerFactory[T <: KeyValueLedger, ExtraConfig] {
       allowExistingSchema = config.allowExistingSchemaForIndex,
     )
 
+  def indexerMetricRegistry(config: Config[ExtraConfig]): MetricRegistry =
+    SharedMetricRegistries.getOrCreate(s"indexer-${config.participantId}")
+
   def apiServerConfig(config: Config[ExtraConfig]): ApiServerConfig =
     ApiServerConfig(
       participantId = config.participantId,
@@ -51,6 +55,9 @@ trait LedgerFactory[T <: KeyValueLedger, ExtraConfig] {
       maxInboundMessageSize = Config.DefaultMaxInboundMessageSize,
       portFile = config.portFile,
     )
+
+  def apiServerMetricRegistry(config: Config[ExtraConfig]): MetricRegistry =
+    SharedMetricRegistries.getOrCreate(s"ledger-api-server-${config.participantId}")
 
   def authService(config: Config[ExtraConfig]): AuthService =
     AuthServiceWildcard

@@ -8,7 +8,6 @@ import java.util.UUID
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import com.codahale.metrics.SharedMetricRegistries
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.v1.{ReadService, SubmissionId, WriteService}
 import com.digitalasset.daml.lf.archive.DarReader
@@ -87,7 +86,7 @@ class Runner[T <: KeyValueLedger, Extra](name: String, factory: LedgerFactory[T,
     new StandaloneIndexerServer(
       readService,
       factory.indexerConfig(config),
-      SharedMetricRegistries.getOrCreate(s"indexer-${config.participantId}"),
+      factory.indexerMetricRegistry(config),
     )
 
   private def startApiServer(
@@ -101,6 +100,6 @@ class Runner[T <: KeyValueLedger, Extra](name: String, factory: LedgerFactory[T,
       readService,
       writeService,
       authService,
-      SharedMetricRegistries.getOrCreate(s"ledger-api-server-${config.participantId}"),
+      factory.apiServerMetricRegistry(config),
     )
 }
