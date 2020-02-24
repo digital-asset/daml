@@ -100,7 +100,7 @@ You should see the main screen with two panels for your friends and the entire n
 Initially these are both empty as you don't have friends yet!
 Go ahead and add some using the text box and add button.
 
-You'll notice that the newly added friends are under your name in the Friends panel but don't appear in the network panel.
+You'll notice that the newly added friends are under your name in the *Friends* panel but don't appear in the *Network* panel.
 The latter is because 1. they have not signed up and are not parties on the ledger and 2. they have not yet added you as a friend.
 In our social network, friendships can go in a single direction.
 By adding a friend, say Alice, your User contract becomes visible to Alice but not vice versa.
