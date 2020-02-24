@@ -7,6 +7,7 @@ import com.digitalasset.ledger.api.domain.PartyDetails
 
 import scala.concurrent.{ExecutionContext, Future}
 import com.digitalasset.jwt.domain.Jwt
+import scalaz.OneAnd
 
 class PartiesService(listAllParties: Jwt => Future[List[PartyDetails]])(
     implicit ec: ExecutionContext) {
@@ -17,8 +18,10 @@ class PartiesService(listAllParties: Jwt => Future[List[PartyDetails]])(
   }
 
   // TODO(Leo) memoize this calls or listAllParties()?
-  def parties(jwt: Jwt, identifiers: Set[domain.Party]): Future[List[domain.PartyDetails]] = {
-    val ids: Set[String] = domain.Party.unsubst(identifiers)
+  def parties(
+      jwt: Jwt,
+      identifiers: OneAnd[Set, domain.Party]): Future[List[domain.PartyDetails]] = {
+    val ids: Set[String] = domain.Party.unsubst(identifiers.tail + identifiers.head)
     listAllParties(jwt).map { ps =>
       ps.collect { case p if ids(p.party) => domain.PartyDetails.fromLedgerApi(p) }
     }

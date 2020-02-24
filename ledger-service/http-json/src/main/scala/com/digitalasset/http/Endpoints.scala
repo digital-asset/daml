@@ -26,7 +26,7 @@ import scalaz.std.scalaFuture._
 import scalaz.syntax.show._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
-import scalaz.{-\/, EitherT, Show, \/, \/-}
+import scalaz.{-\/, EitherT, OneAnd, Show, \/, \/-}
 import spray.json._
 
 import scala.concurrent.duration.FiniteDuration
@@ -190,13 +190,17 @@ class Endpoints(
 
       cmd <- either(
         SprayJson
-          .decode[Set[domain.Party]](reqBody)
+          .decode[List[domain.Party]](reqBody)
           .leftMap(e => InvalidUserInput(e.shows))
-      ): ET[Set[domain.Party]]
+      ): ET[List[domain.Party]]
 
       ps <- eitherT(
-        handleFutureFailure(partiesService.parties(jwt, cmd))
-      ): ET[List[domain.PartyDetails]]
+        handleFutureFailure(
+          cmd match {
+            case Nil => partiesService.allParties(jwt)
+            case h :: t => partiesService.parties(jwt, OneAnd(h, t.toSet))
+          }
+        )): ET[List[domain.PartyDetails]]
 
       jsVal <- either(SprayJson.encode(ps)).leftMap(e => ServerError(e.shows)): ET[JsValue]
 

@@ -803,6 +803,52 @@ Nonempty HTTP Response with Unknown Template IDs Warning
         "status": 200
     }
 
+Fetch Parties by their Identifiers
+**********************************
+
+- URL: ``/v1/parties``
+- Method: ``POST``
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    ["Alice", "Bob", "Dave"]
+
+If empty JSON array is passed: ``[]``, this endpoint will return all known parties.
+
+HTTP Response
+=============
+
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+      "status": 200,
+      "result": [
+        {
+          "identifier": "Alice",
+          "displayName": "Alice & Co. LLC",
+          "isLocal": true
+        },
+        {
+          "identifier": "Bob",
+          "displayName": "Bob & Co. LLC",
+          "isLocal": true
+        },
+        {
+          "identifier": "Dave",
+          "isLocal": true
+        }
+      ]
+    }
+
+- ``identifier`` -- a stable unique identifier of a DAML party,
+- ``displayName`` -- optional human readable name associated with the party. Might not be unique,
+- ``isLocal`` -- true if party is hosted by the backing participant.
+
 Fetch All Known Parties
 ***********************
 
@@ -819,14 +865,31 @@ HTTP Response
 .. code-block:: json
 
     {
-        "status": 200,
-        "result": [
-            {
-                "party": "Alice",
-                "isLocal": true
-            }
-        ]
+      "status": 200,
+      "result": [
+        {
+          "identifier": "Alice",
+          "displayName": "Alice & Co. LLC",
+          "isLocal": true
+        },
+        {
+          "identifier": "Bob",
+          "displayName": "Bob & Co. LLC",
+          "isLocal": true
+        },
+        {
+          "identifier": "Charlie",
+          "displayName": "Charlie & Co. LLC",
+          "isLocal": true
+        },
+        {
+          "identifier": "Dave",
+          "isLocal": true
+        }
+      ]
     }
+
+The response is the same as for the POST method above.
 
 Streaming API
 *************
