@@ -7,6 +7,7 @@ import java.io.File
 import java.nio.file.Path
 
 import com.daml.ledger.participant.state.v1.ParticipantId
+import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.resources.ProgramResource.SuppressedStartupException
 import com.digitalasset.resources.ResourceOwner
 import scopt.OptionParser
@@ -20,8 +21,12 @@ case class Config[Extra](
     ledgerId: Option[String],
     archiveFiles: Seq[Path],
     allowExistingSchemaForIndex: Boolean,
+    tlsConfig: Option[TlsConfiguration],
     extra: Extra,
-)
+) {
+  def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): Config[Extra] =
+    copy(tlsConfig = Some(modify(tlsConfig.getOrElse(TlsConfiguration.Empty))))
+}
 
 object Config {
   val DefaultMaxInboundMessageSize: Int = 4 * 1024 * 1024
@@ -36,6 +41,7 @@ object Config {
       ledgerId = None,
       archiveFiles = Vector.empty,
       allowExistingSchemaForIndex = false,
+      tlsConfig = None,
       extra = extra,
     )
 
@@ -95,6 +101,21 @@ object Config {
         .text(
           "The ID of the ledger. This must be the same each time the ledger is started. Defaults to a random UUID.")
         .action((ledgerId, config) => config.copy(ledgerId = Some(ledgerId)))
+
+      opt[String]("pem")
+        .optional()
+        .text("TLS: The pem file to be used as the private key.")
+        .action((path, config) => config.withTlsConfig(c => c.copy(keyFile = Some(new File(path)))))
+      opt[String]("crt")
+        .optional()
+        .text("TLS: The crt file to be used as the cert chain. Required if any other TLS parameters are set.")
+        .action((path, config) =>
+          config.withTlsConfig(c => c.copy(keyCertChainFile = Some(new File(path)))))
+      opt[String]("cacrt")
+        .optional()
+        .text("TLS: The crt file to be used as the the trusted root CA.")
+        .action((path, config) =>
+          config.withTlsConfig(c => c.copy(trustCertCollectionFile = Some(new File(path)))))
 
       arg[File]("<archive>...")
         .optional()

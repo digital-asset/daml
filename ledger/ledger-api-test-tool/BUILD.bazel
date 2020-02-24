@@ -130,18 +130,9 @@ da_scala_binary(
 )
 
 conformance_test(
-    name = "test",
-    server = "//ledger/api-server-damlonx/reference-v2:ephemeral-postgres-reference-server",
-    server_args = ["--port 6865"],
-    test_tool_args = [
-        "--exclude=CommandDeduplicationIT",
-    ],
-)
-
-conformance_test(
     name = "ssl-test",
     extra_data = glob(["test/main/resources/*"]),
-    server = "//ledger/api-server-damlonx/reference-v2:ephemeral-postgres-reference-server",
+    server = "//ledger/ledger-on-memory:app",
     server_args = [
         "--port 6865",
         "--crt $(rlocation $TEST_WORKSPACE/$(rootpath test/main/resources/server.crt))",
@@ -149,6 +140,7 @@ conformance_test(
         "--pem $(rlocation $TEST_WORKSPACE/$(rootpath test/main/resources/server.pem))",
     ],
     test_tool_args = [
+        "--include=SemanticTests",
         "--crt $(rlocation $TEST_WORKSPACE/$(rootpath test/main/resources/client.crt))",
         "--cacrt $(rlocation $TEST_WORKSPACE/$(rootpath test/main/resources/ca.crt))",
         "--pem $(rlocation $TEST_WORKSPACE/$(rootpath test/main/resources/client.pem))",
