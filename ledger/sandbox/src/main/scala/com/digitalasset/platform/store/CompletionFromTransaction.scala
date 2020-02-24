@@ -38,20 +38,13 @@ private[platform] object CompletionFromTransaction {
   // * -Xno-patmat-analysis _MUST NOT_ be enabled
   // * -Xfatal-warnings _MUST_ be enabled
   private def toErrorCode(rejection: RejectionReason): Int = {
-    import RejectionReason.{
-      Disputed,
-      Inconsistent,
-      OutOfQuota,
-      PartyNotKnownOnLedger,
-      SubmitterCannotActViaParticipant,
-      TimedOut
-    }
     rejection match {
-      case _: Inconsistent | _: Disputed | _: PartyNotKnownOnLedger =>
+      case _: RejectionReason.Inconsistent | _: RejectionReason.Disputed |
+          _: RejectionReason.PartyNotKnownOnLedger =>
         Code.INVALID_ARGUMENT.value()
-      case _: OutOfQuota | _: TimedOut =>
+      case _: RejectionReason.OutOfQuota | _: RejectionReason.TimedOut =>
         Code.ABORTED.value()
-      case _: SubmitterCannotActViaParticipant =>
+      case _: RejectionReason.SubmitterCannotActViaParticipant =>
         Code.PERMISSION_DENIED.value()
     }
   }
