@@ -808,7 +808,7 @@ abstract class AbstractHttpServiceIntegrationTest
                           partyDetails.size shouldBe partyIds.size - 1
                           val actualIds: Set[domain.Party] =
                             partyDetails.map(x => x.identifier)(breakOut)
-                          domain.Party.unsubst(actualIds) shouldBe partyIds.toSet
+                          domain.Party.unsubst(actualIds) shouldBe requestedPartyIds.toSet
                           val expected: Set[domain.PartyDetails] =
                             allocatedParties.toSet
                               .map(domain.PartyDetails.fromLedgerApi)
