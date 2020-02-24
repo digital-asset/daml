@@ -42,7 +42,7 @@ import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScalaFutures}
 import org.scalatest.time.Span
 import org.scalatest.{AsyncWordSpec, Matchers}
 
-import scala.concurrent.duration.{Duration, DurationInt, DurationLong}
+import scala.concurrent.duration.{DurationInt, DurationLong, FiniteDuration}
 import scala.concurrent.{Await, Future}
 import scala.ref.WeakReference
 
@@ -79,7 +79,7 @@ final class ResetServiceIT
       }
     } yield newLedgerId
 
-  private def timedReset(ledgerId: String): Future[(String, Duration)] = {
+  private def timedReset(ledgerId: String): Future[(String, FiniteDuration)] = {
     val start = System.nanoTime()
     reset(ledgerId).map(_ -> (System.nanoTime() - start).nanos)
   }
@@ -151,7 +151,8 @@ final class ResetServiceIT
                 for {
                   ledgerId <- ledgerIdF
                   _ <- submitAndExpectCompletions(ledgerId, numberOfCommands)
-                  (newLedgerId, timing) <- timedReset(ledgerId) if timing <= 5.seconds
+                  (newLedgerId, timing) <- timedReset(ledgerId)
+                  _ = timing should be <= 5.seconds
                 } yield newLedgerId
               }
               .take(numberOfAttempts)
