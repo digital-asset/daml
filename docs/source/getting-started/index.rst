@@ -101,16 +101,16 @@ Initially these are both empty as you don't have friends yet!
 Go ahead and add some using the text box and add button.
 
 You'll notice that the newly added friends are under your name in the *Friends* panel but don't appear in the *Network* panel.
-The latter is because 1. they have not signed up and are not parties on the ledger and 2. they have not yet added you as a friend.
+The latter is because 1. they have not signed up and are not parties on the ledger, and 2. they have not yet added you as a friend.
 In our social network, friendships can go in a single direction.
-By adding a friend, say Alice, your User contract becomes visible to Alice but not vice versa.
+By adding a friend, say Alice, you make yourself visible to her but not vice versa.
 We will see how we encode this model in DAML in the next section.
 
 To make your friendships reciprocal, open a new browser window at http://localhost:3000.
 (Having separate windows allows you to see both you and your friend's screens together.)
 Once you sign up as your friend Alice, you'll notice your name in her network.
 When Alice finally adds you back as a friend, you can see her in your network as well.
-(Just open the previous window for this - no need to reload the page!).
+(Just open the window where you are logged in as yourself - no need to reload the page!).
 
 Play around more with the app at your leisure: create new users and add more friends.
 Observe when a user are visible to others - this will be important to understanding DAML's privacy guarantees later.
