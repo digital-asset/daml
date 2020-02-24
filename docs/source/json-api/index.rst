@@ -845,6 +845,12 @@ HTTP Response
       ]
     }
 
+Please note that the order of the party objects in the response is not guaranteed to match the order of the passed party identifiers.
+
+An empty JSON array will be returned in the ``result`` element of the response if passed identifiers did not match any party.
+
+Where
+
 - ``identifier`` -- a stable unique identifier of a DAML party,
 - ``displayName`` -- optional human readable name associated with the party. Might not be unique,
 - ``isLocal`` -- true if party is hosted by the backing participant.
@@ -858,36 +864,6 @@ Fetch All Known Parties
 
 HTTP Response
 =============
-
-- Content-Type: ``application/json``
-- Content:
-
-.. code-block:: json
-
-    {
-      "status": 200,
-      "result": [
-        {
-          "identifier": "Alice",
-          "displayName": "Alice & Co. LLC",
-          "isLocal": true
-        },
-        {
-          "identifier": "Bob",
-          "displayName": "Bob & Co. LLC",
-          "isLocal": true
-        },
-        {
-          "identifier": "Charlie",
-          "displayName": "Charlie & Co. LLC",
-          "isLocal": true
-        },
-        {
-          "identifier": "Dave",
-          "isLocal": true
-        }
-      ]
-    }
 
 The response is the same as for the POST method above.
 
