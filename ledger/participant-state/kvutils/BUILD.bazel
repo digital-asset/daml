@@ -6,7 +6,16 @@ load(
     "da_scala_library",
     "da_scala_test",
 )
+load(
+    "//bazel_tools/client_server:client_server_build.bzl",
+    "client_server_build",
+)
+load(
+    "//ledger/participant-state/kvutils/tools:integrity_test.bzl",
+    "integrity_test",
+)
 load("//bazel_tools:java.bzl", "da_java_proto_library")
+load("@os_info//:os_info.bzl", "is_windows")
 
 da_scala_library(
     name = "kvutils",
@@ -137,3 +146,33 @@ da_java_proto_library(
     visibility = ["//ledger/participant-state/kvutils:__subpackages__"],
     deps = [":daml_kvutils_proto"],
 )
+
+# Builds a ledger dump from running the test tool against a kvutils-based
+# in-memory ledger.
+client_server_build(
+    name = "reference-ledger-dump",
+    testonly = True,  # only test targets can depend on this.
+    client = "//ledger/ledger-api-test-tool",
+    client_args = [
+        "--include=SemanticTests,ContractKeysIT,TransactionServiceIT",
+        "--timeout-scale-factor=20",
+        "localhost:6865",
+    ],
+    data = [
+        "//ledger/test-common:dar-files",
+    ],
+    output_env = "KVUTILS_LEDGER_DUMP",
+    server = "//ledger/ledger-on-memory:app",
+    server_args = [
+        "--port 6865",
+    ],
+    server_files = [
+        "//ledger/test-common:dar-files",
+    ],
+) if not is_windows else None
+
+# Test for checking the integrity of the ledger dump produces above.
+integrity_test(
+    name = "reference-ledger-dump-integrity-test",
+    dump = ":reference-ledger-dump",
+) if not is_windows else None
