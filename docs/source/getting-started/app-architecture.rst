@@ -92,6 +92,7 @@ We can see examples of this in the ``MainView`` component.
 This is the React component that enables the main functionality of the app.
 
 .. literalinclude:: code/ui-before/MainView.tsx
+  :language: typescript
   :start-after: // USERS_BEGIN
   :end-before: // USERS_END
 
@@ -104,6 +105,7 @@ This is because the observers of a ``User`` contract are exactly the user's frie
 Another example is how we exercise the ``AddFriend`` choice of the ``User`` template.
 
 .. literalinclude:: code/ui-before/MainView.tsx
+  :language: typescript
   :start-after: // ADDFRIEND_BEGIN
   :end-before: // ADDFRIEND_END
 
@@ -114,6 +116,7 @@ For example, ``addFriend`` is passed to the ``UserList`` component as an argumen
 This gets triggered when you click the button next to a user's name in the "Network" panel.
 
 .. literalinclude:: code/ui-before/MainView.tsx
+  :language: typescript
   :start-after: // USERLIST_BEGIN
   :end-before: // USERLIST_END
 
