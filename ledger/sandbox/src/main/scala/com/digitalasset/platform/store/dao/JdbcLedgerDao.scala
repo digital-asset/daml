@@ -1432,14 +1432,19 @@ private class JdbcLedgerDao(
     )
 
   override def getParties: Future[List[PartyDetails]] =
-    dbDispatcher.executeSql("load_parties") { implicit conn =>
-      SQL_SELECT_PARTIES
-        .as(PartyDataParser.*)
-        // TODO: isLocal should be based on equality of participantId reported in an
-        // update and the id given to participant in a command-line argument
-        // (See issue #2026)
-        .map(d => PartyDetails(Party.assertFromString(d.party), d.displayName, isLocal = true))
-    }
+    dbDispatcher
+      .executeSql("load_parties") { implicit conn =>
+        SQL_SELECT_PARTIES
+          .as(PartyDataParser.*)
+      }
+      .map(
+        _.map(
+          d =>
+            // TODO: isLocal should be based on equality of participantId reported in an
+            // update and the id given to participant in a command-line argument
+            // (See issue #2026)
+            PartyDetails(Party.assertFromString(d.party), d.displayName, isLocal = true)))(
+        executionContext)
 
   private val SQL_INSERT_PARTY =
     SQL("""insert into parties(party, display_name, ledger_offset, explicit)
@@ -1490,17 +1495,18 @@ private class JdbcLedgerDao(
     )
 
   override def listLfPackages: Future[Map[PackageId, PackageDetails]] =
-    dbDispatcher.executeSql("load_packages") { implicit conn =>
-      SQL_SELECT_PACKAGES
-        .as(PackageDataParser.*)
-        .map(
+    dbDispatcher
+      .executeSql("load_packages") { implicit conn =>
+        SQL_SELECT_PACKAGES
+          .as(PackageDataParser.*)
+      }
+      .map(
+        _.map(
           d =>
             PackageId.assertFromString(d.packageId) -> PackageDetails(
               d.size,
               d.knownSince.toInstant,
-              d.sourceDescription))
-        .toMap
-    }
+              d.sourceDescription)).toMap)(executionContext)
 
   override def getLfArchive(packageId: PackageId): Future[Option[Archive]] =
     dbDispatcher
