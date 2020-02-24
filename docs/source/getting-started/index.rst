@@ -91,23 +91,29 @@ The command should automatically open a window in your default browser at http:/
 If it doesn't, just open that link in any web browser.
 (Depending on your firewall settings, you may be asked whether to allow the app to receive network connections. It is safe to accept.)
 
-At this point you should see the login page for the social network.
+Now you should see the login page for the social network.
+For simplicity of this app, there is no password required to sign up or log in.
+To learn how to handle authentication, see this blog post about `DAML and Auth0 <https://blog.daml.com/daml-driven/easy-authentication-for-your-distributed-app-with-daml-and-auth0>`_ or the :doc:`full documentation </app-dev/authentication>`.
 
-.. TODO: Screenshot
+First enter your name and click "Sign up".
+You should see the main screen with two panels for your friends and the entire network.
+Initially these are both empty as you don't have friends yet!
+Go ahead and add some using the text box and add button.
 
-Enter a user name of your choice and click the calculator icon next to the password field to generate a password token.
-(We do not have proper authentication in this app for simplicity.)
-Once you click "Sign up", you can see a screen with panels for your friends and the entire social network.
-Initially these are both empty as you don't have any friends yet!
-Go ahead and add some using the form input.
+You'll notice that the newly added friends are under your name in the *Friends* panel but don't appear in the *Network* panel.
+The latter is because 1. they have not signed up and are not parties on the ledger, and 2. they have not yet added you as a friend.
+In our social network, friendships can go in a single direction.
+By adding a friend, say Alice, you make yourself visible to her but not vice versa.
+We will see how we encode this model in DAML in the next section.
 
-Now let's grow the network.
-In a new browser tab, sign up using the name of one of your friends.
-Let's say your name is Alice and your friend's name is Bob.
-Bob should now see Alice in the network (since she added him as a friend) and he is able to add her back.
-Note that in this app, friendships can be added in one direction at a time (similar to "followers" in Twitter).
+To make your friendships reciprocal, open a new browser window at http://localhost:3000.
+(Having separate windows allows you to see both you and your friend's screens together.)
+Once you sign up as your friend Alice, you'll notice your name in her network.
+When Alice finally adds you back as a friend, you can see her in your network as well.
+(Just open the window where you are logged in as yourself - no need to reload the page!).
 
-Add a few more friends as Bob, and play around a bit more by logging in as different users and adding/removing friends from the network.
-This should give you a idea of the app's functionality.
+Play around more with the app at your leisure: create new users and add more friends.
+Observe when a user are visible to others - this will be important to understanding DAML's privacy guarantees later.
+When you're ready, move on to the :doc:`architecture of our app <app-architecture>`.
 
-Next, we'll look at the :doc:`architecture of our app <app-architecture>` and the individual components.
+.. TODO: Add screenshots for the app above
