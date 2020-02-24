@@ -14,14 +14,9 @@ import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
-import com.digitalasset.ledger.api.domain.{
-  ApplicationId,
-  CompletionEvent,
-  LedgerId,
-  PartyDetails,
-  TransactionId
-}
+import com.digitalasset.ledger.api.domain.{ApplicationId, LedgerId, PartyDetails, TransactionId}
 import com.digitalasset.ledger.api.health.ReportsHealth
+import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.store.entries.{
   ConfigurationEntry,
@@ -47,7 +42,7 @@ trait ReadOnlyLedger extends ReportsHealth with AutoCloseable {
       beginInclusive: Option[Long],
       endExclusive: Option[Long],
       applicationId: ApplicationId,
-      parties: Set[Ref.Party]): Source[(Long, CompletionEvent), NotUsed]
+      parties: Set[Ref.Party]): Source[(Long, CompletionStreamResponse), NotUsed]
 
   def snapshot(filter: TemplateAwareFilter): Future[LedgerSnapshot]
 

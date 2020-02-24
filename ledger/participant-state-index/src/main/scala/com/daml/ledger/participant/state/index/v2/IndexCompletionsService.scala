@@ -6,7 +6,8 @@ package com.daml.ledger.participant.state.index.v2
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.ledger.api.domain.{ApplicationId, CompletionEvent, LedgerOffset}
+import com.digitalasset.ledger.api.domain.{ApplicationId, LedgerOffset}
+import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
 
 /**
   * Serves as a backend to implement
@@ -17,5 +18,5 @@ trait IndexCompletionsService extends LedgerEndService {
       begin: LedgerOffset,
       applicationId: ApplicationId,
       parties: Set[Ref.Party]
-  ): Source[CompletionEvent, NotUsed]
+  ): Source[CompletionStreamResponse, NotUsed]
 }

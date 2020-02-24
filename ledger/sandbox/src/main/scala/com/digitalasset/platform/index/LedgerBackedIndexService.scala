@@ -24,7 +24,6 @@ import com.digitalasset.dec.{DirectExecutionContext => DEC}
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.{
   ApplicationId,
-  CompletionEvent,
   LedgerId,
   LedgerOffset,
   PackageEntry,
@@ -34,6 +33,7 @@ import com.digitalasset.ledger.api.domain.{
   TransactionId
 }
 import com.digitalasset.ledger.api.health.HealthStatus
+import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.digitalasset.platform.participant.util.EventFilter
 import com.digitalasset.platform.server.api.validation.ErrorFactories
 import com.digitalasset.platform.store.Contract.ActiveContract
@@ -217,7 +217,7 @@ abstract class LedgerBackedIndexService(
       begin: LedgerOffset,
       applicationId: ApplicationId,
       parties: Set[Ref.Party]
-  ): Source[CompletionEvent, NotUsed] =
+  ): Source[CompletionStreamResponse, NotUsed] =
     new OffsetConverter().toAbsolute(begin).flatMapConcat {
       case LedgerOffset.Absolute(absBegin) =>
         ledger.completions(Option(absBegin.toLong), None, applicationId, parties).map(_._2)
