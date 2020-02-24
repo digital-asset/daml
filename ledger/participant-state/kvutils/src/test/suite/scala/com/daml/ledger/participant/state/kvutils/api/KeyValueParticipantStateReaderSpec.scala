@@ -30,6 +30,50 @@ class KeyValueParticipantStateReaderSpec
     with AkkaBeforeAndAfterAll {
 
   "participant state reader" should {
+    "stream offsets from the start" in {
+      val reader = readerStreamingFrom(
+        offset = None,
+        LedgerRecord(Offset(Array(1, 1)), aLogEntryId(1), aWrappedLogEntry),
+        LedgerRecord(Offset(Array(1, 2)), aLogEntryId(2), aWrappedLogEntry),
+        LedgerRecord(Offset(Array(1, 3)), aLogEntryId(3), aWrappedLogEntry),
+      )
+      val instance = new KeyValueParticipantStateReader(reader)
+      val stream = instance.stateUpdates(None)
+
+      offsetsFrom(stream).map { actual =>
+        actual should have size 3
+        actual shouldBe Seq(
+          Offset(Array(1, 1, 0)),
+          Offset(Array(1, 2, 0)),
+          Offset(Array(1, 3, 0)),
+        )
+      }
+    }
+
+    "stream offsets from a given offset" in {
+      val reader = readerStreamingFrom(
+        offset = Some(Offset(Array(1, 2))),
+        LedgerRecord(Offset(Array(1, 1)), aLogEntryId(1), aWrappedLogEntry),
+        LedgerRecord(Offset(Array(1, 2)), aLogEntryId(2), aWrappedLogEntry),
+        LedgerRecord(Offset(Array(1, 3)), aLogEntryId(3), aWrappedLogEntry),
+        LedgerRecord(Offset(Array(1, 4)), aLogEntryId(4), aWrappedLogEntry),
+        LedgerRecord(Offset(Array(1, 5)), aLogEntryId(5), aWrappedLogEntry),
+        LedgerRecord(Offset(Array(1, 6)), aLogEntryId(6), aWrappedLogEntry),
+      )
+      val instance = new KeyValueParticipantStateReader(reader)
+      val stream = instance.stateUpdates(Some(Offset(Array(1, 2, 0))))
+
+      offsetsFrom(stream).map { actual =>
+        actual should have size 4
+        actual shouldBe Seq(
+          Offset(Array(1, 3, 0)),
+          Offset(Array(1, 4, 0)),
+          Offset(Array(1, 5, 0)),
+          Offset(Array(1, 6, 0)),
+        )
+      }
+    }
+
     "remove index suffix when streaming from underlying reader" in {
       val reader = readerStreamingFrom(
         offset = Some(Offset(Array(1, 1))),
