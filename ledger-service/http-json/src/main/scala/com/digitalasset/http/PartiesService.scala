@@ -3,13 +3,12 @@
 
 package com.digitalasset.http
 
-import com.digitalasset.ledger.api.domain.PartyDetails
-
-import scala.concurrent.{ExecutionContext, Future}
 import com.digitalasset.jwt.domain.Jwt
 import scalaz.OneAnd
 
-class PartiesService(listAllParties: Jwt => Future[List[PartyDetails]])(
+import scala.concurrent.{ExecutionContext, Future}
+
+class PartiesService(listAllParties: LedgerClientJwt.ListKnownParties)(
     implicit ec: ExecutionContext) {
 
   // TODO(Leo) memoize this calls or listAllParties()?
