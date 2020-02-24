@@ -62,6 +62,44 @@ main = do
                   , input "debug x"
                   , matchOutput "^.*: 2$"
                   ]
+            , testInteraction' "parse error"
+                  [ input "eaiu\\1"
+                  , matchOutput "^parse error.*$"
+                  , input "debug 1"
+                  , matchOutput "^.*: 1"
+                  ]
+            , testInteraction' "unsupported statement"
+                  [ input "(x, y) <- pure (1, 2)"
+                  , matchOutput "^Unsupported statement:.*$"
+                  , input "debug 1"
+                  , matchOutput "^.*: 1"
+                  ]
+            , testInteraction' "type error"
+                  [ input "1"
+                  -- TODO Make this less noisy
+                  , matchOutput "^File:.*$"
+                  , matchOutput "^Hidden:.*$"
+                  , matchOutput "^Range:.*$"
+                  , matchOutput "^Source:.*$"
+                  , matchOutput "^Severity:.*$"
+                  , matchOutput "^Message:.*$"
+                  , matchOutput "^.*error.*$"
+                  , matchOutput "^.*expected type .*Script _.* with actual type .*Int.*$"
+                  , matchOutput "^.*$"
+                  , matchOutput "^.*$"
+                  , matchOutput "^.*$"
+                  , matchOutput "^.*$"
+                  , input "debug 1"
+                  , matchOutput "^.*: 1"
+                  ]
+            , testInteraction' "script error"
+                  [ input "alice <- allocateParty \"Alice\""
+                  , input "bob <- allocateParty \"Bob\""
+                  , input "submit alice (createCmd (T alice bob))"
+                  , matchOutput "^.*Submit failed.*requires authorizers.*but only.*were given.*$"
+                  , input "debug 1"
+                  , matchOutput "^.*: 1"
+                  ]
             ]
 
 testInteraction :: FilePath -> Int -> FilePath -> FilePath -> [Step] -> Assertion

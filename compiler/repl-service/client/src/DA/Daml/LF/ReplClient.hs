@@ -10,6 +10,7 @@ module DA.Daml.LF.ReplClient
   , withReplClient
   , loadPackage
   , runScript
+  , BackendError
   ) where
 
 import Control.Concurrent
