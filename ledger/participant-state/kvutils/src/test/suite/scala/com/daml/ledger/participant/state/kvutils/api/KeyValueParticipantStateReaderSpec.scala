@@ -28,11 +28,13 @@ class KeyValueParticipantStateReaderSpec
     with Matchers
     with MockitoSugar
     with AkkaBeforeAndAfterAll {
+
   "participant state reader" should {
     "remove index suffix when streaming from underlying reader" in {
       val reader = readerStreamingFrom(
         offset = Some(Offset(Array(1, 1))),
-        LedgerRecord(Offset(Array(1, 2)), aLogEntryId, aWrappedLogEntry))
+        LedgerRecord(Offset(Array(1, 2)), aLogEntryId(2), aWrappedLogEntry),
+      )
       val instance = new KeyValueParticipantStateReader(reader)
       val stream = instance.stateUpdates(Some(Offset(Array(1, 1, 0))))
 
@@ -45,8 +47,8 @@ class KeyValueParticipantStateReaderSpec
     "append index to internal offset" in {
       val reader = readerStreamingFrom(
         offset = None,
-        LedgerRecord(Offset(Array(1)), aLogEntryId, aWrappedLogEntry),
-        LedgerRecord(Offset(Array(2)), aLogEntryId, aWrappedLogEntry)
+        LedgerRecord(Offset(Array(1)), aLogEntryId(1), aWrappedLogEntry),
+        LedgerRecord(Offset(Array(2)), aLogEntryId(2), aWrappedLogEntry),
       )
       val instance = new KeyValueParticipantStateReader(reader)
       val stream = instance.stateUpdates(None)
@@ -59,9 +61,9 @@ class KeyValueParticipantStateReaderSpec
 
     "skip events before specified offset" in {
       val reader = readerStreamingFromAnyOffset(
-        LedgerRecord(Offset(Array(1)), aLogEntryId, aWrappedLogEntry),
-        LedgerRecord(Offset(Array(2)), aLogEntryId, aWrappedLogEntry),
-        LedgerRecord(Offset(Array(3)), aLogEntryId, aWrappedLogEntry)
+        LedgerRecord(Offset(Array(1)), aLogEntryId(1), aWrappedLogEntry),
+        LedgerRecord(Offset(Array(2)), aLogEntryId(2), aWrappedLogEntry),
+        LedgerRecord(Offset(Array(3)), aLogEntryId(3), aWrappedLogEntry),
       )
       val instance = new KeyValueParticipantStateReader(reader)
 
@@ -85,7 +87,8 @@ class KeyValueParticipantStateReaderSpec
       val anInvalidEnvelope = Array[Byte](0, 1, 2)
       val reader = readerStreamingFrom(
         offset = None,
-        LedgerRecord(Offset(Array(0, 0)), aLogEntryId, anInvalidEnvelope))
+        LedgerRecord(Offset(Array(0, 0)), aLogEntryId(0), anInvalidEnvelope),
+      )
       val instance = new KeyValueParticipantStateReader(reader)
 
       offsetsFrom(instance.stateUpdates(None)).failed.map { _ =>
@@ -103,7 +106,8 @@ class KeyValueParticipantStateReaderSpec
       val anInvalidEnvelopeMessage = Envelope.enclose(aStateValue).toByteArray
       val reader = readerStreamingFrom(
         offset = None,
-        LedgerRecord(Offset(Array(0, 0)), aLogEntryId, anInvalidEnvelopeMessage))
+        LedgerRecord(Offset(Array(0, 0)), aLogEntryId(0), anInvalidEnvelopeMessage),
+      )
       val instance = new KeyValueParticipantStateReader(reader)
 
       offsetsFrom(instance.stateUpdates(None)).failed.map { _ =>
@@ -120,9 +124,9 @@ class KeyValueParticipantStateReaderSpec
 
   private val aWrappedLogEntry = Envelope.enclose(aLogEntry).toByteArray
 
-  private def aLogEntryId =
+  private def aLogEntryId(index: Int): DamlLogEntryId =
     DamlLogEntryId.newBuilder
-      .setEntryId(ByteString.copyFrom("anId".getBytes))
+      .setEntryId(ByteString.copyFrom(s"id-$index".getBytes))
       .build
 
   private def readerStreamingFrom(offset: Option[Offset], items: LedgerRecord*): LedgerReader = {
