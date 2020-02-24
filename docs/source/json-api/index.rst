@@ -803,8 +803,8 @@ Nonempty HTTP Response with Unknown Template IDs Warning
         "status": 200
     }
 
-Fetch Parties by their Identifiers
-**********************************
+Fetch Parties by Identifiers
+****************************
 
 - URL: ``/v1/parties``
 - Method: ``POST``
