@@ -252,8 +252,9 @@ cmdBuild numProcessors =
 
 cmdRepl :: Int -> Mod CommandFields Command
 cmdRepl numProcessors =
-    command "repl" $
-    info (helper <*> cmd) fullDesc
+    command "repl" $ info (helper <*> cmd) $
+    progDesc "Launch the DAML Repl." <>
+    fullDesc
   where
     cmd =
         execRepl
@@ -261,7 +262,7 @@ cmdRepl numProcessors =
             <*> optionsParser numProcessors (EnableScenarioService False) (pure Nothing)
             <*> strOption (long "script-lib" <> value "daml-script" <> internal)
             -- ^ This is useful for tests and `bazel run`.
-            <*> strArgument (help "DAR to load in the repl")
+            <*> strArgument (help "DAR to load in the repl" <> metavar "DAR")
             <*> strOption (long "ledger-host" <> help "Host of the ledger API")
             <*> strOption (long "ledger-port" <> help "Port of the ledger API")
 
@@ -598,6 +599,8 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb =
 execRepl :: ProjectOpts -> Options -> FilePath -> FilePath -> String -> String -> Command
 execRepl projectOpts opts scriptDar mainDar ledgerHost ledgerPort = Command Repl (Just projectOpts) effect
   where effect = do
+            -- We change directory so make this absolute
+            mainDar <- makeAbsolute mainDar
             opts <- pure opts
                 { optDlintUsage = DlintDisabled
                 , optScenarioService = EnableScenarioService False
@@ -1001,6 +1004,7 @@ options numProcessors =
       <> cmdInspectDar
       <> cmdDocTest numProcessors
       <> cmdLint numProcessors
+      <> cmdRepl numProcessors
       )
     <|> subparser
       (internal -- internal commands
@@ -1014,7 +1018,6 @@ options numProcessors =
         <> cmdClean
         <> cmdGenerateSrc numProcessors
         <> cmdGenerateGenSrc
-        <> cmdRepl numProcessors
         -- once the repl is a bit more mature, make it non-internal
         -- and modify sdk-config.yaml to add a description.
       )

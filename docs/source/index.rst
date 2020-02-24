@@ -100,6 +100,7 @@ DAML SDK documentation
    json-api/index
    DAML Triggers <triggers/index>
    DAML Script <daml-script/index>
+   DAML Repl <daml-repl/index>
    tools/visual
    daml2ts/index
    getting-started/index
