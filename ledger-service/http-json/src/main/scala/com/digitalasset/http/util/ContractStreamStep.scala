@@ -40,11 +40,8 @@ private[http] sealed abstract class ContractStreamStep[+D, +C] extends Product w
       case (Txn(step, _), LiveBegin(AbsoluteBookmark(off))) => Txn(step, off)
     }
 
-  def mapPreservingIds[CC](f: C => CC): ContractStreamStep[D, CC] = this match {
-    case Acs(inserts) => Acs(inserts map f)
-    case lb @ LiveBegin(_) => lb
-    case Txn(step, off) => Txn(step mapPreservingIds f, off)
-  }
+  def mapPreservingIds[CC](f: C => CC): ContractStreamStep[D, CC] =
+    mapInserts(_ map f)
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def partitionBimap[LD, DD, LC, CC, LDS](f: D => (LD \/ DD), g: C => (LC \/ CC))(
