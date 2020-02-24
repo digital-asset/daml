@@ -101,5 +101,6 @@ class Runner[T <: KeyValueLedger, Extra](name: String, factory: LedgerFactory[T,
       writeService,
       authService,
       factory.apiServerMetricRegistry(config),
+      timeServiceBackend = factory.timeServiceBackend(config),
     )
 }
