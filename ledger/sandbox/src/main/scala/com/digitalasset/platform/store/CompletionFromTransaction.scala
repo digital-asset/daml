@@ -28,11 +28,11 @@ private[platform] object CompletionFromTransaction {
 
   private def toApiCheckpoint(
       recordedAt: Instant,
-      offset: LedgerDao#LedgerOffset): Option[Checkpoint] =
-    Option(
+      offset: LedgerDao#LedgerOffset): Some[Checkpoint] =
+    Some(
       Checkpoint(
-        recordTime = Option(fromInstant(recordedAt)),
-        offset = Option(LedgerOffset(LedgerOffset.Value.Absolute(offset.toString)))))
+        recordTime = Some(fromInstant(recordedAt)),
+        offset = Some(LedgerOffset(LedgerOffset.Value.Absolute(offset.toString)))))
 
   // We _rely_ on the following compiler flags for this to be safe:
   // * -Xno-patmat-analysis _MUST NOT_ be enabled
@@ -71,13 +71,13 @@ private[platform] object CompletionFromTransaction {
           _)) if parties(submitter) =>
       offset -> CompletionStreamResponse(
         checkpoint = toApiCheckpoint(recordedAt, offset),
-        Seq(Completion(commandId, Option(Status()), transactionId))
+        Seq(Completion(commandId, Some(Status()), transactionId))
       )
     case (offset, LedgerEntry.Rejection(recordTime, commandId, `appId`, submitter, reason))
         if parties(submitter) =>
       offset -> CompletionStreamResponse(
         checkpoint = toApiCheckpoint(recordTime, offset),
-        Seq(Completion(commandId, Option(Status(toErrorCode(reason).value(), reason.description))))
+        Seq(Completion(commandId, Some(Status(toErrorCode(reason).value(), reason.description))))
       )
     case (offset, LedgerEntry.Checkpoint(recordedAt)) =>
       offset -> CompletionStreamResponse(
