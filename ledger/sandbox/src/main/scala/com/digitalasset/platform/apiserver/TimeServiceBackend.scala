@@ -10,7 +10,6 @@ import akka.NotUsed
 import akka.stream.scaladsl.{Keep, Sink, SinkQueueWithCancel, Source, SourceQueueWithComplete}
 import akka.stream.{Materializer, OverflowStrategy}
 import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.resources.{Resource, ResourceOwner}
 
 import scala.collection.mutable
@@ -33,11 +32,6 @@ object TimeServiceBackend {
       implicit materializer: Materializer
   ): ObservedTimeServiceBackend =
     new AkkaQueueBasedObservedTimeServiceBackend(backend)
-
-  def withObserver(
-      timeProvider: TimeServiceBackend,
-      onTimeChange: Instant => Future[Unit]): TimeServiceBackend =
-    new ObservingTimeServiceBackend(timeProvider, onTimeChange)
 
   private final class SimpleTimeServiceBackend(startTime: Instant) extends TimeServiceBackend {
     private val timeRef = new AtomicReference[Instant](startTime)
@@ -92,21 +86,5 @@ object TimeServiceBackend {
           }
         }
       }
-  }
-
-  private final class ObservingTimeServiceBackend(
-      timeProvider: TimeServiceBackend,
-      onTimeChange: Instant => Future[Unit]
-  ) extends TimeServiceBackend {
-    override def getCurrentTime: Instant = timeProvider.getCurrentTime
-
-    override def setCurrentTime(expectedTime: Instant, newTime: Instant): Future[Boolean] =
-      timeProvider
-        .setCurrentTime(expectedTime, newTime)
-        .flatMap { success =>
-          if (success)
-            onTimeChange(expectedTime).map(_ => true)(DirectExecutionContext)
-          else Future.successful(false)
-        }(DirectExecutionContext)
   }
 }
