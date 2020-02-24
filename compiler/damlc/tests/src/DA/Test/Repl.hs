@@ -84,7 +84,7 @@ main = do
                   , matchOutput "^Severity:.*$"
                   , matchOutput "^Message:.*$"
                   , matchOutput "^.*error.*$"
-                  , matchOutput "^.*expected type .Script _. with actual type .Int..*$"
+                  , matchOutput "^.*expected type .*Script _.* with actual type .*Int.*$"
                   , matchOutput "^.*$"
                   , matchOutput "^.*$"
                   , matchOutput "^.*$"
