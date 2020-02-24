@@ -6,12 +6,13 @@
 /* eslint-disable @typescript-eslint/no-floating-promises */
 import React, { ComponentType, useState } from 'react';
 import { renderHook, RenderHookResult, act } from '@testing-library/react-hooks';
-import DamlLedger, { useParty, useQuery } from './index';
+import DamlLedger, { useParty, useQuery, useFetchByKey } from './index';
 import { Template } from '@daml/types';
 
 const mockConstructor = jest.fn();
 const mockQuery = jest.fn();
-const mockFunctions = [mockConstructor, mockQuery];
+const mockFetchByKey = jest.fn();
+const mockFunctions = [mockConstructor, mockQuery, mockFetchByKey];
 
 jest.mock('@daml/ledger', () => class {
   constructor(...args: unknown[]) {
@@ -19,6 +20,10 @@ jest.mock('@daml/ledger', () => class {
   }
   query(...args: unknown[]): Promise<string> {
     return mockQuery(...args);
+  }
+
+  fetchByKey(...args: unknown[]): Promise<string> {
+    return mockFetchByKey(...args);
   }
 });
 
@@ -105,7 +110,7 @@ describe('useQuery', () => {
     const {result, waitForNextUpdate} = renderDamlHook(() => {
       const setState = useState('state')[1];
       const queryResult = useQuery(Foo, () => ({query}), [query]);
-      return {queryResult, query, setState};
+      return {queryResult, setState};
     });
     expect(mockQuery).toHaveBeenCalledTimes(1);
     mockQuery.mockClear();
@@ -116,5 +121,76 @@ describe('useQuery', () => {
     act(() => result.current.setState('new-state'));
     expect(mockQuery).not.toHaveBeenCalled();
     expect(result.current.queryResult).toEqual({contracts: resolvent, loading: false});
+  });
+});
+
+describe('useFetchByKey', () => {
+  test('one shot', async () => {
+    const contract = {owner: 'Alice'};
+    const key = contract.owner;
+    mockFetchByKey.mockReturnValueOnce(Promise.resolve(contract));
+    const {result, waitForNextUpdate} = renderDamlHook(() => useFetchByKey(Foo, () => key, [key]));
+    expect(mockFetchByKey).toHaveBeenCalledTimes(1);
+    expect(mockFetchByKey).toHaveBeenLastCalledWith(Foo, key);
+    mockFetchByKey.mockClear();
+    expect(result.current).toEqual({contract: null, loading: true});
+    await waitForNextUpdate();
+    expect(mockFetchByKey).not.toHaveBeenCalled();
+    expect(result.current).toEqual({contract, loading: false});
+  });
+
+  test('change to key', async () => {
+    const contract1 = {owner: 'Alice'};
+    const key1 = contract1.owner;
+    const contract2 = {owner: 'Bob'};
+    const key2 = contract2.owner;
+
+    // First rendering works?
+    mockFetchByKey.mockReturnValueOnce(Promise.resolve(contract1));
+    const {result, waitForNextUpdate} = renderDamlHook(() => {
+      const [key, setKey] = useState(key1);
+      const queryResult = useFetchByKey(Foo, () => key, [key]);
+      return {queryResult, key, setKey};
+    });
+    expect(mockFetchByKey).toHaveBeenCalledTimes(1);
+    expect(mockFetchByKey).toHaveBeenLastCalledWith(Foo, key1);
+    mockFetchByKey.mockClear();
+    expect(result.current.queryResult).toEqual({contract: null, loading: true});
+    expect(result.current.key).toBe(key1);
+    await waitForNextUpdate();
+    expect(result.current.queryResult).toEqual({contract: contract1, loading: false});
+
+    // Change to key triggers another call to JSON API?
+    mockFetchByKey.mockReturnValueOnce(Promise.resolve(contract2));
+    act(() => result.current.setKey(key2));
+    expect(mockFetchByKey).toHaveBeenCalledTimes(1);
+    expect(mockFetchByKey).toHaveBeenLastCalledWith(Foo, key2);
+    mockFetchByKey.mockClear();
+    expect(result.current.queryResult).toEqual({contract: null, loading: true});
+    expect(result.current.key).toBe(key2);
+    await waitForNextUpdate();
+    expect(result.current.queryResult).toEqual({contract: contract2, loading: false});
+  });
+
+  test('rerendering without key change', async () => {
+    const contract = {owner: 'Alice'};
+    const key = contract.owner;
+
+    // First rendering works?
+    mockFetchByKey.mockReturnValueOnce(Promise.resolve(contract));
+    const {result, waitForNextUpdate} = renderDamlHook(() => {
+      const setState = useState('state')[1];
+      const queryResult = useFetchByKey(Foo, () => key, [key]);
+      return {queryResult, setState};
+    });
+    expect(mockFetchByKey).toHaveBeenCalledTimes(1);
+    mockFetchByKey.mockClear();
+    await waitForNextUpdate();
+    expect(result.current.queryResult).toEqual({contract, loading: false});
+
+    // Change to unrelated state does _not_ trigger another call to JSON API?
+    act(() => result.current.setState('new-state'));
+    expect(mockFetchByKey).not.toHaveBeenCalled();
+    expect(result.current.queryResult).toEqual({contract, loading: false});
   });
 });
