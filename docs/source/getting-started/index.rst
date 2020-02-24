@@ -106,7 +106,7 @@ In our social network, friendships can go in a single direction.
 By adding a friend, say Alice, your User contract becomes visible to Alice but not vice versa.
 We will see how we encode this model in DAML in the next section.
 
-To make your friendships reciprocal, open a new browser window to the same http://localhost:3000 address.
+To make your friendships reciprocal, open a new browser window at http://localhost:3000.
 (Having separate windows allows you to see both you and your friend's screens together.)
 Once you sign up as your friend Alice, you'll notice your name in her network.
 When Alice finally adds you back as a friend, you can see her in your network as well.
