@@ -207,6 +207,7 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
                 ),
               ),
               Set.empty[PackageId],
+              None,
             ),
         ),
       ).right.get

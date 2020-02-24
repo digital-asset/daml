@@ -60,11 +60,15 @@ main = do
       -- first find out all the missing internal dependencies
       missingDepsForAllArtifacts <- forM nonDeployJars $ \a -> do
           -- run a bazel query to find all internal java and scala library dependencies
-          -- We exclude the scenario service proto to avoid a false dependency on scala files
+          -- We exclude the scenario service and the script service to avoid a false dependency on scala files
           -- originating from genrules that use damlc. This is a bit hacky but
           -- given that it’s fairly unlikely to accidentally introduce a dependency on the scenario
           -- service it doesn’t seem worth fixing properly.
-          let bazelQueryCommand = shell $ "bazel query 'kind(\"(scala|java)_library\", deps(" ++ (T.unpack . getBazelTarget . artTarget) a ++ ")) intersect //... except //compiler/scenario-service/protos:scenario_service_java_proto'"
+          let bazelQueryCommand = shell $
+                  "bazel query 'kind(\"(scala|java)_library\", deps(" ++
+                  (T.unpack . getBazelTarget . artTarget) a ++
+                  ")) intersect //... " ++
+                  "except (//compiler/scenario-service/protos:scenario_service_java_proto + //compiler/repl-service/protos:repl_service_java_proto + //daml-script/runner:script-runner-lib)'"
           internalDeps <- liftIO $ lines <$> readCreateProcess bazelQueryCommand ""
           -- check if a dependency is not already a maven target from artifacts.yaml
           let missingDeps = filter (`Set.notMember` allMavenTargets) internalDeps

@@ -4,8 +4,8 @@
 module DA.Cli.Output
   ( writeOutput
   , writeOutputBSL
-  , printDiagnostics
   , diagnosticsLogger
+  , hDiagnosticsLogger
   ) where
 
 import qualified Data.ByteString.Char8 as BS
@@ -51,11 +51,14 @@ writeOutputBSL = writeOutputWith BSL.hPutStr
 -- relies on LOCALE_ARCHIVE being set correctly. This is the case in our dev-env
 -- but not when we ship the SDK. If LOCALE_ARCHIVE is not set properly the colored
 -- diagnostics get eaten somewhere in glibc and we don’t even get a write syscall containing them.
-printDiagnostics :: [FileDiagnostic] -> IO ()
-printDiagnostics [] = return ()
-printDiagnostics xs = BS.hPutStrLn stderr $ T.encodeUtf8 $ showDiagnosticsColored xs
+printDiagnostics :: Handle -> [FileDiagnostic] -> IO ()
+printDiagnostics _ [] = return ()
+printDiagnostics handle xs = BS.hPutStrLn handle $ T.encodeUtf8 $ showDiagnosticsColored xs
 
 diagnosticsLogger :: FromServerMessage -> IO ()
-diagnosticsLogger = \case
-    EventFileDiagnostics fp diags -> printDiagnostics $ map (toNormalizedFilePath fp,ShowDiag,) diags
+diagnosticsLogger = hDiagnosticsLogger stderr
+
+hDiagnosticsLogger :: Handle -> FromServerMessage -> IO ()
+hDiagnosticsLogger handle = \case
+    EventFileDiagnostics fp diags -> printDiagnostics handle $ map (toNormalizedFilePath fp,ShowDiag,) diags
     _ -> pure ()

@@ -51,7 +51,7 @@ data Feature = Feature
     , featureMinVersion :: !Version
     , featureCppFlag :: !T.Text
         -- ^ CPP flag to test for availability of the feature.
-    }
+    } deriving Show
 
 featureNumeric :: Feature
 featureNumeric = Feature
@@ -95,6 +95,13 @@ featureTypeSynonyms = Feature
     , featureCppFlag = "DAML_TYPE_SYNONYMS"
     }
 
+featurePackageMetadata :: Feature
+featurePackageMetadata = Feature
+    { featureName = "Package metadata"
+    , featureMinVersion = versionDev
+    , featureCppFlag = "DAML_PACKAGE_METADATA"
+    }
+
 -- Unstable, experimental features. This should stay in 1.dev forever.
 -- Features implemented with this flag should be moved to a separate
 -- feature flag once the decision to add them permanently has been made.
@@ -112,6 +119,7 @@ allFeatures =
     , featureTypeRep
     , featureStringInterning
     , featureGenMap
+    , featurePackageMetadata
     , featureUnstable
     ]
 

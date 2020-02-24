@@ -349,8 +349,7 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
     */
   sealed trait ContractId extends Product with Serializable
   final case class AbsoluteContractId(coid: ContractIdString) extends ContractId
-  final case class RelativeContractId(txnid: NodeId, discriminator: Option[crypto.Hash] = None)
-      extends ContractId
+  final case class RelativeContractId(txnid: NodeId) extends ContractId
 
   object ContractId {
     implicit val equalInstance: Equal[ContractId] = Equal.equalA

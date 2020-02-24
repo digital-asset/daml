@@ -84,7 +84,6 @@ import DA.Bazel.Runfiles
 import DA.Daml.DocTest
 import DA.Daml.LFConversion (convertModule, sourceLocToRange)
 import DA.Daml.LFConversion.UtilLF
-import DA.Daml.LF.Reader (parseUnitId)
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.InferSerializability as Serializability
 import qualified DA.Daml.LF.PrettyScenario as LF
@@ -399,7 +398,7 @@ generateSerializedDalfRule options =
                                     -- LF postprocessing
                                     rawDalf <- pure $ LF.simplifyModule rawDalf
                                     pkgs <- getExternalPackages file
-                                    let world = LF.initWorldSelf pkgs (buildPackage (optUnitId options) lfVersion dalfDeps)
+                                    let world = LF.initWorldSelf pkgs (buildPackage (optMbPackageName options) (optMbPackageVersion options) lfVersion dalfDeps)
                                     let liftError e = [ideErrorPretty file e]
                                     let dalfOrErr = do
                                             dalf <- mapLeft liftError $
@@ -460,18 +459,7 @@ generatePackageMap version mbProjRoot userPkgDbs = do
             let dalfs = filter ((== ".dalf") . takeExtension) allFiles
             forM dalfs $ \dalf -> do
                 dalfPkgOrErr <- readDalfPackage dalf
-                let baseName = takeBaseName dalf
-                let getUnitId pkg
-                -- If we use data-dependencies we can end up with multiple DALFs for daml-prim/daml-stdlib
-                -- one per version. The one shipped with the SDK is called daml-prim.dalf and daml-stdlib-$VERSION.dalf
-                -- and have the same unit ids, so we do not need to strip package ids.
-                -- The one coming from daml-prim will be called daml-prim-$PKGID.dalf daml-stdlib-$PKGID.dalf
-                -- To avoid collisions, we include this hash in the unit id so we also don’t want to strip
-                -- package ids here.
-                        | "daml-prim" `isPrefixOf` baseName = (stringToUnitId baseName, pkg)
-                        | "daml-stdlib" `isPrefixOf` baseName = (stringToUnitId baseName, pkg)
-                        | otherwise = ( stringToUnitId $ parseUnitId baseName $ LF.dalfPackageId pkg, pkg)
-                pure (fmap getUnitId dalfPkgOrErr)
+                pure (fmap (\dalfPkg -> (getUnitId dalf dalfPkg, dalfPkg)) dalfPkgOrErr)
 
     let unitIdConflicts = Map.filter ((>=2) . Set.size) . Map.fromListWith Set.union $
             [ (unitId, Set.singleton (LF.dalfPackageId dalfPkg))
@@ -483,6 +471,24 @@ generatePackageMap version mbProjRoot userPkgDbs = do
                 | (k,v) <- Map.toList unitIdConflicts ]
 
     return (diags, Map.fromList pkgs)
+  where
+    -- If we use data-dependencies we can end up with multiple DALFs for daml-prim/daml-stdlib
+    -- one per version. The one shipped with the SDK is called daml-prim.dalf and daml-stdlib-$VERSION.dalf
+    -- and have the same unit ids, so we do not need to strip package ids.
+    -- The one coming from daml-prim will be called daml-prim-$PKGID.dalf daml-stdlib-$PKGID.dalf
+    -- To avoid collisions, we include this hash in the unit id so we also don’t want to strip
+    -- package ids here.
+    getUnitId :: FilePath -> LF.DalfPackage -> UnitId
+    getUnitId dalf pkg
+      | "daml-prim" `T.isPrefixOf` name = stringToUnitId (takeBaseName dalf)
+      | "daml-stdlib" `T.isPrefixOf` name = stringToUnitId (takeBaseName dalf)
+      | otherwise = pkgNameVersion (LF.PackageName name) mbVersion
+      where (LF.PackageName name, mbVersion)
+               = LF.packageMetadataFromFile
+                     dalf
+                     (LF.extPackagePkg $ LF.dalfPackagePkg pkg)
+                     (LF.dalfPackageId pkg)
+
 
 readDalfPackage :: FilePath -> IO (Either FileDiagnostic LF.DalfPackage)
 readDalfPackage dalf = do
@@ -593,14 +599,14 @@ generatePackageRule =
 
 -- We don’t really gain anything by turning this into a rule since we only call it once
 -- and having it be a function makes the merging a bit easier.
-generateSerializedPackage :: UnitId -> [NormalizedFilePath] -> MaybeT Action LF.Package
-generateSerializedPackage pkgName rootFiles = do
+generateSerializedPackage :: LF.PackageName -> Maybe LF.PackageVersion -> [NormalizedFilePath] -> MaybeT Action LF.Package
+generateSerializedPackage pkgName pkgVersion rootFiles = do
     fileDeps <- usesE GetDependencies rootFiles
     let allFiles = nubSort $ rootFiles <> concatMap transitiveModuleDeps fileDeps
-    files <- lift $ discardInternalModules (Just pkgName) allFiles
+    files <- lift $ discardInternalModules (Just $ pkgNameVersion pkgName pkgVersion) allFiles
     dalfs <- usesE ReadSerializedDalf files
     lfVersion <- lift getDamlLfVersion
-    pure $ buildPackage (Just pkgName) lfVersion dalfs
+    pure $ buildPackage (Just pkgName) pkgVersion lfVersion dalfs
 
 -- | Artifact directory for incremental builds.
 buildDir :: FilePath
@@ -644,7 +650,7 @@ generateRawPackageRule options =
         files <- discardInternalModules (optUnitId options) (fs ++ [file])
         dalfs <- uses_ GenerateRawDalf files
         -- build package
-        let pkg = buildPackage (optUnitId options) lfVersion dalfs
+        let pkg = buildPackage (optMbPackageName options) (optMbPackageVersion options) lfVersion dalfs
         return ([], Just $ WhnfPackage pkg)
 
 generatePackageDepsRule :: Options -> Rules ()
@@ -656,7 +662,7 @@ generatePackageDepsRule options =
         dalfs <- uses_ GenerateDalf files
 
         -- build package
-        return ([], Just $ WhnfPackage $ buildPackage (optUnitId options) lfVersion dalfs)
+        return ([], Just $ WhnfPackage $ buildPackage (optMbPackageName options) (optMbPackageVersion options) lfVersion dalfs)
 
 contextForFile :: NormalizedFilePath -> Action SS.Context
 contextForFile file = do

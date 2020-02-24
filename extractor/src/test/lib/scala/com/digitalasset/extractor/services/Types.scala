@@ -28,7 +28,7 @@ trait Types {
       package_id: String,
       template: String,
       create_arguments: Json,
-      witness_parties: Json
+      stakeholders: Json
   )
 
   case class TransactionResult(

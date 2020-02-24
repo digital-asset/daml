@@ -29,7 +29,7 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
   }
 
   lazy val pkg: Parser[Package] =
-    rep(mod) ^^ (Package(_, Set.empty))
+    rep(mod) ^^ (Package(_, Set.empty, None))
 
   lazy val mod: Parser[Module] =
     Id("module") ~! tags(modTags) ~ dottedName ~ `{` ~ rep(definition <~ `;`) <~ `}` ^^ {

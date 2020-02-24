@@ -9,13 +9,9 @@ module DA.Daml.LF.Reader
     , Dalfs(..)
     , readDalfManifest
     , readDalfs
-    , stripPkgId
-    , parseUnitId
     ) where
 
 import "zip-archive" Codec.Archive.Zip
-import Control.Monad (guard)
-import qualified DA.Daml.LF.Ast as LF
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
@@ -23,8 +19,6 @@ import qualified Data.ByteString.UTF8 as BSUTF8
 import Data.Char
 import Data.Either.Extra
 import Data.List.Extra
-import Data.Maybe
-import qualified Data.Text as T
 import Data.Void
 import Text.Megaparsec
 import Text.Megaparsec.Byte
@@ -128,18 +122,3 @@ getEntry :: Archive -> FilePath -> Either String BSL.ByteString
 getEntry dar path = case findEntryByPath path dar of
     Nothing -> Left $ "Could not find " <> path <> " in DAR"
     Just entry -> Right $ fromEntry entry
-
--- Strip the package id from the end of a dalf file name
--- TODO (drsk) This needs to become a hard error
-stripPkgId :: String -> String -> Maybe String
-stripPkgId baseName expectedPkgId = do
-    (unitId, pkgId) <- stripInfixEnd "-" baseName
-    guard $ pkgId == expectedPkgId
-    pure unitId
-
--- Get the unit id of a string, given an expected package id of the package, by stripping the
--- package id from the back. I.e. if 'package-name-123abc' is given and the known package id is
--- '123abc', then 'package-name' is returned as unit id.
-parseUnitId :: String -> LF.PackageId -> String
-parseUnitId name pkgId =
-    fromMaybe name $ stripPkgId name $ T.unpack $ LF.unPackageId pkgId

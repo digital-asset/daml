@@ -40,6 +40,10 @@
 - warn: {lhs: nubBy, rhs: Data.List.Extra.nubOrdBy}
 - warn: {lhs: Data.List.Extra.nubOn, rhs: Data.List.Extra.nubOrdOn}
 
+# Promote whenJust
+- warn: {lhs: maybe (return ()) f x, rhs: Control.Monad.Extra.whenJust x f}
+- warn: {lhs: maybe (pure ()) f x, rhs: Control.Monad.Extra.whenJust x f}
+
 # DA specific hints
 - warn: {lhs: Data.Text.pack (DA.Pretty.renderPlain x), rhs: DA.Pretty.renderPlain x}
 - warn: {lhs: Data.Text.Extended.pack (DA.Pretty.renderPlain x), rhs: DA.Pretty.renderPlain x}

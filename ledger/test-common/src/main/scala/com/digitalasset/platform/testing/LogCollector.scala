@@ -26,8 +26,9 @@ object LogCollector {
       .flatMap(_.get(logger.runtimeClass.getName))
       .fold(IndexedSeq.empty[(Level, String)])(_.result())
 
-  def clear[Test](implicit test: ClassTag[Test]) = {
-    val _ = log.remove(test.runtimeClass.getName)
+  def clear[Test](implicit test: ClassTag[Test]): Unit = {
+    log.remove(test.runtimeClass.getName)
+    ()
   }
 
 }

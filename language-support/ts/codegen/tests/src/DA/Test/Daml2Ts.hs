@@ -24,13 +24,37 @@ main = do
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
     daml2ts <- locateRunfiles (mainWorkspace </> "language-support" </> "ts" </> "codegen" </> exe "daml2ts")
     davl <- locateRunfiles ("davl" </> "released")
-    defaultMain $ tests damlc daml2ts davl
+    yarnPath : args <- getArgs
+    yarn <- locateRunfiles (mainWorkspace </> yarnPath)
+    withTempDir $ \rootDir ->
+      withArgs args (
+        defaultMain $
+          withResource
+          (yarnInstall yarn rootDir) (\_ -> pure ())
+          (\_ -> tests rootDir yarn damlc daml2ts davl)
+        )
 
-tests :: FilePath -> FilePath -> FilePath -> TestTree
-tests damlc daml2ts davl = testGroup "daml2Ts"
-  [ testCaseSteps "Breathing test" $ \step -> withTempDir $ \tmpDir -> do
-      let grover = tmpDir </> "grover"
-      let groverTs = tmpDir </> "grover-ts"
+yarnInstall :: FilePath -> FilePath -> IO ()
+yarnInstall yarn rootDir = do
+  let here = rootDir </> "dummy"
+  let dummyTs = here </> "dummy-ts"
+  createDirectoryIfMissing True here
+  createDirectoryIfMissing True dummyTs
+  writeTsConfig dummyTs
+  writePackageJson dummyTs "@dummy/dummy"
+  writeRootPackageJson rootDir "dummy/dummy-ts"
+  withCurrentDirectory rootDir $ yarnProject' yarn ["install"]
+
+tests :: FilePath -> FilePath -> FilePath -> FilePath -> FilePath -> TestTree
+tests rootDir yarn damlc daml2ts davl = testGroup "daml2Ts"
+  [ testCase "Pre-test yarn check" $ do
+      assertBool "'node_modules' does not exist" =<< doesDirectoryExist rootDir
+      assertBool "'yarn.lock' does not exist " =<< doesFileExist (rootDir </> "yarn.lock")
+
+  , testCaseSteps "Breathing test" $ \step -> do
+      let here = rootDir </> "breathing-test"
+      let grover = here </> "grover"
+      let groverTs = here </> "grover-ts"
       let groverDar = grover </> ".daml" </> "dist" </> "grover-1.0.dar"
       step "Creating project 'grover'..."
       createDirectoryIfMissing True (grover </> "daml")
@@ -60,12 +84,19 @@ tests damlc daml2ts davl = testGroup "daml2Ts"
       buildProject grover []
       assertBool "grover-1.0.dar was not created." =<< doesFileExist groverDar
       step "Generating TypeScript of 'grover'..."
-      daml2tsProject [groverDar] groverTs
-      assertBool "'Grover.ts' was not created." =<< doesFileExist (groverTs </> "grover-1.0" </> "Grover.ts")
-      assertBool "'packageId.ts' was not created." =<< doesFileExist (groverTs </> "grover-1.0" </> "packageId.ts")
+      daml2tsProject [groverDar] (groverTs </> "src")
+      assertBool "'Grover.ts' was not created." =<< doesFileExist (groverTs </> "src" </> "grover-1.0" </> "Grover.ts")
+      assertBool "'packageId.ts' was not created." =<< doesFileExist (groverTs </> "src" </> "grover-1.0" </> "packageId.ts")
+      step "Compiling 'grover-ts' to JavaScript... "
+      writeTsConfig groverTs
+      writePackageJson groverTs "@breathing-test/grover"
+      writeRootPackageJson rootDir "breathing-test/grover-ts"
+      withCurrentDirectory rootDir $ yarnProject ["workspaces", "run", "build"]
+      assertBool "'Grover.js' was not created." =<< doesFileExist (groverTs </> "lib" </> "grover-1.0" </> "Grover.js")
 
-  ,  testCaseSteps "Dependency test" $ \step -> withTempDir $ \tmpDir -> do
-      let grover = tmpDir </> "grover"
+  , testCaseSteps "Dependency test" $ \step -> do
+      let here = rootDir </> "dependency-test"
+      let grover = here </> "grover"
       let groverDar = grover </> ".daml" </> "dist" </> "grover-1.0.dar"
       step "Creating project 'grover'..."
       createDirectoryIfMissing True (grover </> "daml")
@@ -93,9 +124,9 @@ tests damlc daml2ts davl = testGroup "daml2Ts"
         ]
       buildProject grover []
       assertBool "grover-1.0.dar was not created." =<< doesFileExist groverDar
-      let charliesRestaurant = tmpDir </> "charlies-restaurant"
+      let charliesRestaurant = here </> "charlies-restaurant"
       let charliesRestaurantDar = charliesRestaurant </> ".daml" </> "dist" </> "charlies-restaurant-1.0.dar"
-      let charliesRestaurantTs = tmpDir </> "charlies-restaurant-ts"
+      let charliesRestaurantTs = here </> "charlies-restaurant-ts"
       step "Creating project 'charlies-restaurant'..."
       createDirectoryIfMissing True charliesRestaurantTs
       createDirectoryIfMissing True (charliesRestaurant </> "daml")
@@ -126,19 +157,26 @@ tests damlc daml2ts davl = testGroup "daml2Ts"
       buildProject charliesRestaurant []
       assertBool "'charlies-restaurant-1.0.dar' was not created." =<< doesFileExist charliesRestaurantDar
       step "Generating TypeScript of 'charlies-restaurant'..."
-      daml2tsProject [charliesRestaurantDar] charliesRestaurantTs
-      assertBool "'CharliesRestaurant.ts' was not created." =<< doesFileExist (charliesRestaurantTs </> "charlies-restaurant-1.0" </> "CharliesRestaurant.ts")
-      assertBool "'packageId.ts' was not created." =<< doesFileExist (charliesRestaurantTs </> "charlies-restaurant-1.0" </> "packageId.ts")
-      assertBool "'Grover.ts' was created." . not =<< doesFileExist (charliesRestaurantTs </> "grover-1.0" </> "Grover.ts")
+      daml2tsProject [charliesRestaurantDar] (charliesRestaurantTs </> "src")
+      assertBool "'CharliesRestaurant.ts' was not created." =<< doesFileExist (charliesRestaurantTs </> "src" </> "charlies-restaurant-1.0" </> "CharliesRestaurant.ts")
+      assertBool "'packageId.ts' was not created." =<< doesFileExist (charliesRestaurantTs </> "src" </> "charlies-restaurant-1.0" </> "packageId.ts")
+      assertBool "'Grover.ts' was created." . not =<< doesFileExist (charliesRestaurantTs </> "src" </> "grover-1.0" </> "Grover.ts")
       removeDirectoryRecursive charliesRestaurantTs
       assertBool "'charlies-restaurant-ts' should not exist." . not =<< doesDirectoryExist charliesRestaurantTs
       createDirectoryIfMissing True charliesRestaurantTs
       assertBool "'charlies-restaurant-ts' should exist." =<< doesDirectoryExist charliesRestaurantTs
-      daml2tsProject [charliesRestaurantDar, groverDar] charliesRestaurantTs
-      assertBool "'CharliesRestaurant.ts' was not created." =<< doesFileExist (charliesRestaurantTs </> "charlies-restaurant-1.0" </> "CharliesRestaurant.ts")
-      assertBool "'packageId.ts' was not created." =<< doesFileExist (charliesRestaurantTs </> "charlies-restaurant-1.0" </> "packageId.ts")
-      assertBool "'Grover.ts' was not created." =<< doesFileExist (charliesRestaurantTs </> "grover-1.0" </> "Grover.ts")
-      assertBool "'packageId.ts' was not created." =<< doesFileExist (charliesRestaurantTs </> "grover-1.0" </> "packageId.ts")
+      daml2tsProject [charliesRestaurantDar, groverDar] (charliesRestaurantTs </> "src")
+      assertBool "'CharliesRestaurant.ts' was not created." =<< doesFileExist (charliesRestaurantTs </> "src" </> "charlies-restaurant-1.0" </> "CharliesRestaurant.ts")
+      assertBool "'packageId.ts' was not created." =<< doesFileExist (charliesRestaurantTs </> "src" </> "charlies-restaurant-1.0" </> "packageId.ts")
+      assertBool "'Grover.ts' was not created." =<< doesFileExist (charliesRestaurantTs </> "src" </> "grover-1.0" </> "Grover.ts")
+      assertBool "'packageId.ts' was not created." =<< doesFileExist (charliesRestaurantTs </> "src" </> "grover-1.0" </> "packageId.ts")
+      step "Compiling 'charlies-restaurant-ts' to JavaScript... "
+      writeTsConfig charliesRestaurantTs
+      writePackageJson charliesRestaurantTs "@dependency-test/charlies-restaurant"
+      writeRootPackageJson rootDir "dependency-test/charlies-restaurant-ts"
+      withCurrentDirectory rootDir $ yarnProject ["workspaces", "run", "build"]
+      assertBool "'Grover.js' was not created." =<< doesFileExist (charliesRestaurantTs </> "lib" </> "grover-1.0" </> "Grover.js")
+      assertBool "'CharliesRestaurant.js' was not created." =<< doesFileExist (charliesRestaurantTs </> "lib" </> "charlies-restaurant-1.0" </> "CharliesRestaurant.js")
 
   , testCaseSteps "Package name collision test" $ \step -> withTempDir $ \tmpDir -> do
       let grover = tmpDir </> "grover"
@@ -201,13 +239,128 @@ tests damlc daml2ts davl = testGroup "daml2Ts"
       (exitCode, _, err) <- readProcessWithExitCode daml2ts ([groverDar, elmoDar] ++ ["-o", elmoTs]) ""
       assertBool "A name collision error was expected." (exitCode /= ExitSuccess && isJust (stripInfix "Duplicate name 'grover-1.0' for different packages detected" err))
 
-   , testCase "DAVL test" $ withTempDir $ \tmpDir -> do
-       let davlTs = tmpDir </> "davl-ts"
-       createDirectoryIfMissing True davlTs
-       daml2tsProject [ davl </> "davl-v4.dar", davl </> "davl-v5.dar", davl </> "davl-upgrade-v4-v5.dar" ] davlTs
-       assertBool "davl-0.0.4/DAVL.ts was not created." =<< doesFileExist (davlTs </> "davl-0.0.4" </> "DAVL.ts")
-       assertBool "davl-0.0.5/DAVL.ts was not created." =<< doesFileExist (davlTs </> "davl-0.0.5" </> "DAVL.ts")
-       assertBool "davl-upgrade-v4-v5-0.0.5/Upgrade.ts was not created." =<< doesFileExist (davlTs </> "davl-upgrade-v4-v5-0.0.5" </> "Upgrade.ts")
+  , testCaseSteps "Different names for the same package test" $ \step -> withTempDir $ \tmpDir -> do
+      let grover = tmpDir </> "grover"
+      let groverDar = grover </> ".daml" </> "dist" </> "grover-1.0.dar"
+      step "Creating project 'grover'..."
+      createDirectoryIfMissing True (grover </> "daml")
+      writeFileUTF8 (grover </> "daml" </> "Grover.daml") $ unlines
+        [ "daml 1.2"
+        , "module Grover where"
+        , "template Grover"
+        , "  with puppeteer : Party"
+        , "  where"
+        , "    signatory puppeteer"
+        , "    choice Grover_GoSuper: ContractId Grover"
+        , "      controller puppeteer"
+        , "      do"
+        , "        return self"
+        ]
+      writeFileUTF8 (grover </> "daml.yaml") $ unlines
+        [ "sdk-version: " <> sdkVersion
+        , "name: grover"
+        , "version: \"1.0\""
+        , "source: daml"
+        , "exposed-modules: [Grover]"
+        , "dependencies:"
+        , "  - daml-prim"
+        , "  - daml-stdlib"
+        ]
+      buildProject grover []
+      assertBool "grover-1.0.dar was not created." =<< doesFileExist groverDar
+      let superGrover = tmpDir </> "super-grover"
+      let superGroverDar = superGrover </> ".daml" </> "dist" </> "super-grover-1.0.dar"
+      step "Creating project 'superGrover'..."
+      createDirectoryIfMissing True (superGrover </> "daml")
+      writeFileUTF8 (superGrover </> "daml" </> "Grover.daml") $ unlines
+        [ "daml 1.2"
+        , "module Grover where"
+        , "template Grover"
+        , "  with puppeteer : Party"
+        , "  where"
+        , "    signatory puppeteer"
+        , "    choice Grover_GoSuper: ContractId Grover"
+        , "      controller puppeteer"
+        , "      do"
+        , "        return self"
+        ]
+      writeFileUTF8 (superGrover </> "daml.yaml") $ unlines
+        [ "sdk-version: " <> sdkVersion
+        , "name: super-grover"
+        , "version: \"1.0\""
+        , "source: daml"
+        , "exposed-modules: [Grover]"
+        , "dependencies:"
+        , "  - daml-prim"
+        , "  - daml-stdlib"
+        ]
+      buildProject superGrover []
+      assertBool "super-grover-1.0.dar was not created." =<< doesFileExist superGroverDar
+      step "Generating TypeScript of 'grover' and 'super-grover'..."
+      let charliesRestaurantTs = tmpDir </> "charlies-restaurant-ts"
+      createDirectoryIfMissing True charliesRestaurantTs
+      (exitCode, _, err) <- readProcessWithExitCode daml2ts ([groverDar, superGroverDar] ++ ["-o", charliesRestaurantTs]) ""
+      assertBool "An error resulting from the same name for different packages was expected." (exitCode /= ExitSuccess && isJust (stripInfix "Different names ('grover-1.0' and 'super-grover-1.0') for the same package detected" err))
+
+  , testCaseSteps "Same package, same name test" $ \step -> do
+      let here = rootDir </> "duplicate-package-test"
+      let grover = here </> "grover"
+      let groverDar = grover </> ".daml" </> "dist" </> "grover-1.0.dar"
+      step "Creating project 'grover'..."
+      createDirectoryIfMissing True (grover </> "daml")
+      writeFileUTF8 (grover </> "daml" </> "Grover.daml") $ unlines
+        [ "daml 1.2"
+        , "module Grover where"
+        , "template Grover"
+        , "  with puppeteer : Party"
+        , "  where"
+        , "    signatory puppeteer"
+        , "    choice Grover_GoSuper: ContractId Grover"
+        , "      controller puppeteer"
+        , "      do"
+        , "        return self"
+        ]
+      writeFileUTF8 (grover </> "daml.yaml") $ unlines
+        [ "sdk-version: " <> sdkVersion
+        , "name: grover"
+        , "version: \"1.0\""
+        , "source: daml"
+        , "exposed-modules: [Grover]"
+        , "dependencies:"
+        , "  - daml-prim"
+        , "  - daml-stdlib"
+        ]
+      buildProject grover []
+      assertBool "grover-1.0.dar was not created." =<< doesFileExist groverDar
+      step "Generating TypeScript of 'grover' and 'grover'..."
+      let charliesRestaurantTs = here </> "charlies-restaurant-ts"
+      createDirectoryIfMissing True charliesRestaurantTs
+      daml2tsProject [groverDar, groverDar] (charliesRestaurantTs </> "src")
+      assertBool "'Grover.ts' was not created." =<< doesFileExist (charliesRestaurantTs </> "src" </> "grover-1.0" </> "Grover.ts")
+      step "Compiling 'charlies-restaurant-ts' to JavaScript... "
+      writeTsConfig charliesRestaurantTs
+      writePackageJson charliesRestaurantTs "@duplicate-package-test/charlies-restaurant"
+      writeRootPackageJson rootDir "duplicate-package-test/charlies-restaurant-ts"
+      withCurrentDirectory rootDir $ yarnProject ["workspaces", "run", "build"]
+      assertBool "'Grover.js' was not created." =<< doesFileExist (charliesRestaurantTs </> "lib" </> "grover-1.0" </> "Grover.js")
+
+  , testCaseSteps "DAVL test" $ \step -> do
+      let here = rootDir </> "davl-test"
+      let davlTs = here </> "davl-ts"
+      createDirectoryIfMissing True davlTs
+      step "Generating TypeScript of davl..."
+      daml2tsProject [ davl </> "davl-v4.dar", davl </> "davl-v5.dar", davl </> "davl-upgrade-v4-v5.dar" ] (davlTs </> "src")
+      assertBool "davl-0.0.4/DAVL.ts was not created." =<< doesFileExist (davlTs </> "src" </> "davl-0.0.4" </> "DAVL.ts")
+      assertBool "davl-0.0.5/DAVL.ts was not created." =<< doesFileExist (davlTs </> "src" </> "davl-0.0.5" </> "DAVL.ts")
+      assertBool "davl-upgrade-v4-v5-0.0.5/Upgrade.ts was not created." =<< doesFileExist (davlTs </> "src" </> "davl-upgrade-v4-v5-0.0.5" </> "Upgrade.ts")
+      step "Compiling 'davl-ts' to JavaScript... "
+      writeTsConfig davlTs
+      writePackageJson davlTs "@davl-test/davl"
+      writeRootPackageJson rootDir "davl-test/davl-ts"
+      withCurrentDirectory rootDir $ yarnProject ["workspaces", "run", "build"]
+      assertBool "'davl-0.0.4/DAVL.js' was not created." =<< doesFileExist (davlTs </> "lib" </> "davl-0.0.4" </> "DAVL.js")
+      assertBool "'davl-0.0.5/DAVL.js' was not created." =<< doesFileExist (davlTs </> "lib" </> "davl-0.0.5" </> "DAVL.js")
+      assertBool "'davl-upgrade-v4-v5-0.0.5/Upgrade.js' was not created." =<< doesFileExist (davlTs </> "lib" </> "davl-upgrade-v4-v5-0.0.5" </> "Upgrade.js")
      ]
   where
     buildProject' :: FilePath -> FilePath -> [String] -> IO ()
@@ -218,6 +371,11 @@ tests damlc daml2ts davl = testGroup "daml2Ts"
     daml2tsProject' daml2ts dars outDir = callProcessSilent daml2ts $ dars ++ ["-o", outDir]
     daml2tsProject = daml2tsProject' daml2ts
 
+    yarnProject = yarnProject' yarn
+
+yarnProject' :: FilePath -> [String] -> IO ()
+yarnProject' yarn args = callProcessSilent yarn args
+
 -- | Only displays stdout and stderr on errors
 callProcessSilent :: FilePath -> [String] -> IO ()
 callProcessSilent cmd args = do
@@ -227,3 +385,84 @@ callProcessSilent cmd args = do
       hPutStrLn stderr $ unlines ["stdout:", out]
       hPutStrLn stderr $ unlines ["stderr: ", err]
       exitFailure
+
+writeTsConfig :: FilePath -> IO ()
+writeTsConfig dir = writeFileUTF8 (dir </> "tsconfig.json") $ unlines
+    [ "{"
+    , "  \"compilerOptions\": {"
+    , "    \"target\": \"es5\","
+    , "    \"lib\": ["
+    , "      \"dom\","
+    , "      \"es2015\""
+    , "     ],"
+    , "    \"strict\": true,"
+    , "    \"noUnusedLocals\": true,"
+    , "    \"noUnusedParameters\": false,"
+    , "    \"noImplicitReturns\": true,"
+    , "    \"noFallthroughCasesInSwitch\": true,"
+    , "    \"outDir\": \"lib\","
+    , "    \"module\": \"commonjs\","
+    , "    \"declaration\": true,"
+    , "    \"sourceMap\": true"
+    , "    },"
+    , "  \"include\": [\"src/**/*.ts\"],"
+    , "}"
+    ]
+
+writePackageJson :: FilePath -> String -> IO ()
+writePackageJson dir name = writeFileUTF8 (dir </> "package.json") $ unlines
+        ["{"
+        , "  \"private\": true,"
+        , "  \"name\": \"" <> name <> "\","
+        , "  \"version\": \"0.13.53\","
+        , "  \"description\": \"Produced by daml2ts\","
+        , "  \"license\": \"Apache-2.0\","
+        , "  \"dependencies\": {"
+        , "    \"@daml/types\": \"0.13.53\","
+        , "    \"@mojotech/json-type-validation\": \"^3.1.0\""
+        , "  },"
+        , "  \"scripts\": {"
+        , "    \"build\": \"tsc --build\","
+        , "    \"build:watch\": \"tsc --build --watch\","
+        , "    \"test\": \"true\","
+        , "    \"lint\": \"eslint --ext .js,.ts src/ --max-warnings 0\""
+        , "  },"
+        , "  \"eslintConfig\": {"
+        , "    \"extends\": ["
+        , "      \"eslint:recommended\","
+        , "      \"plugin:@typescript-eslint/eslint-recommended\","
+        , "      \"plugin:@typescript-eslint/recommended\","
+        , "      \"plugin:@typescript-eslint/recommended-requiring-type-checking\""
+        , "    ],"
+        , "    \"parser\": \"@typescript-eslint/parser\","
+        , "    \"parserOptions\": {"
+        , "      \"project\": \"./tsconfig.json\""
+        , "    },"
+        , "    \"plugins\": ["
+        , "      \"@typescript-eslint\""
+        , "    ],"
+        , "    \"rules\": {"
+        , "      \"@typescript-eslint/no-floating-promises\": \"error\","
+        , "      \"@typescript-eslint/explicit-function-return-type\": \"off\","
+        , "      \"@typescript-eslint/no-inferrable-types\": \"off\""
+        , "    }"
+        , "  },"
+        , "  \"devDependencies\": {"
+        , "    \"@typescript-eslint/eslint-plugin\": \"^2.11.0\","
+        , "    \"@typescript-eslint/parser\": \"^2.11.0\","
+        , "    \"eslint\": \"^6.7.2\","
+        , "    \"typescript\": \"~3.7.3\""
+        , "  }"
+        , "}"
+        ]
+
+writeRootPackageJson :: FilePath -> String -> IO ()
+writeRootPackageJson rootDir workspace =
+   writeFileUTF8 (rootDir </> "package.json") $ unlines
+     [ "{"
+     , "  \"private\": true,"
+     , "  \"workspaces\": ["
+     , "    \"" <> workspace <> "\""
+     , "  ]"
+     , "}"
+     ]

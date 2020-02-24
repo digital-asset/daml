@@ -47,63 +47,62 @@ optionsParserInfo = info (optionsParser <**> helper)
     <> progDesc "Generate TypeScript bindings from a DAR"
     )
 
+readPackages :: [FilePath] -> IO [(PackageId, (Package, Maybe String))]
+readPackages dars = concatMapM readPackage dars
+  where
+    readPackage dar = do
+      dar <- B.readFile dar
+      let archive = Zip.toArchive $ BSL.fromStrict dar
+      dalfs <- either fail pure $ DAR.readDalfs archive
+      DAR.DalfManifest{packageName} <- either fail pure $ DAR.readDalfManifest archive
+      forM ((DAR.mainDalf dalfs, packageName) : map (, Nothing) (DAR.dalfs dalfs)) $
+        \(dalf, mbPkgName) -> do
+          (pkgId, pkg) <- either (fail . show)  pure $ Archive.decodeArchive Archive.DecodeAsMain (BSL.toStrict dalf)
+          pure (pkgId, (pkg, mbPkgName))
+
+mergePackageMap :: [(PackageId, (Package, Maybe String))] -> Either String (Map.Map PackageId (Maybe String, Package))
+mergePackageMap ps = foldM merge Map.empty ps
+  where
+    merge :: Map.Map PackageId (Maybe String, Package) -> (PackageId, (Package, Maybe String)) -> Either String (Map.Map PackageId (Maybe String, Package))
+    merge pkgs (pkgId, (pkg, mbPkgName)) = do
+        let pkgNames = mapMaybe fst (Map.elems pkgs)
+        -- Check if there is a package with the same name but a
+        -- different package id.
+        whenJust mbPkgName $ \name -> when (pkgId `Map.notMember` pkgs && name `elem` pkgNames) $
+            Left $ "Duplicate name '" <> name <> "' for different packages detected"
+        let update mbOld = case mbOld of
+                Nothing -> pure (Just (mbPkgName, pkg))
+                Just (mbOldPkgName, _) -> do
+                    -- Check if we have colliding names for the same
+                    -- package.
+                    whenJust (liftA2 (,) mbOldPkgName mbPkgName) $ \(name1, name2) ->
+                        when (name1 /= name2) $ Left $ "Different names ('" <> name1 <> "' and '" <> name2 <> "') for the same package detected"
+                    pure (Just (mbOldPkgName <|> mbPkgName, pkg))
+        Map.alterF update pkgId pkgs
+
 main :: IO ()
 main = do
     opts@Options{..} <- execParser optionsParserInfo
-    foldM_ (processDar opts) Map.empty optInputDars
-      where
-        -- Generate the ts for a single DAR. 'processed' is a map of
-        -- package ids of processed DALFs (the same package can appear
-        -- in multiple DARs - avoid regenerating them where possible).
-        processDar :: Options -> Map.Map PackageId [String] -> FilePath -> IO (Map.Map PackageId [String])
-        processDar opts pkgs dar = do
-          dar <- B.readFile dar
-          let archive = Zip.toArchive $ BSL.fromStrict dar
-          dalfs <- either fail pure $ DAR.readDalfs archive
-          DAR.DalfManifest{packageName} <- either fail pure $ DAR.readDalfManifest archive
-          let allDalfsInDar = (DAR.mainDalf dalfs, packageName) : map (, Nothing) (DAR.dalfs dalfs)
-          foldM (processDalf opts) pkgs allDalfsInDar
-
-        -- Generate the ts for a single DALF. Avoid generating it
-        -- multiple times where possible.
-        processDalf :: Options -> Map.Map PackageId [String] -> (BSL.ByteString, Maybe String) -> IO (Map.Map PackageId [String])
-        processDalf opts pkgs (dalf, mbPkgName) = do
-          -- If a package id is in 'pkgs' it means it has been
-          -- processed at least once. The list it is associated with
-          -- is the set of names it's been written as (for example, as
-          -- its hash if it's depended upon and perhaps also as a human
-          -- readable string if it's the main package of a DAR).
-          (pkgId, pkg) <- either (fail . show)  pure $ Archive.decodeArchive Archive.DecodeAsMain (BSL.toStrict dalf)
-          let pkgNames = concat (Map.elems pkgs)
-          gen <- case Map.lookup pkgId pkgs of
-            Nothing -> do
-              maybe (return ()) (\name -> when (name `elem` pkgNames) $
-                                  fail $ "Duplicate name '" <> name <> "' for different packages detected") mbPkgName
-              return True
-            Just names -> do
-              maybe (return ()) (\name -> when (name `notElem` names && name `elem` pkgNames) $
-                                  fail $ "Duplicate name '" <> name <> "' for different packages detected") mbPkgName
-              return (fromMaybe (show $ unPackageId pkgId) mbPkgName `notElem` names)
+    ps <- readPackages optInputDars
+    case mergePackageMap ps of
+      Left err -> fail err
+      Right pm ->
+        forM_ (Map.toList pm) $
+        \(pkgId, (mbPkgName, pkg)) -> do
           let id = show $ unPackageId pkgId
           let name = fromMaybe id mbPkgName
           let asName = if name == id then "itself" else name
-          if gen
-            then do
-              putStrLn $ "Generating " <> id <> " as " <> asName
-              daml2ts opts pkgId pkg mbPkgName
-              return $ Map.insertWith (++) pkgId [name] pkgs
-            else do
-              putStrLn $ "Skipping generation of " <> id <> " as " <> asName
-              return pkgs
+          putStrLn $ "Generating " <> id <> " as " <> asName
+          daml2ts opts pm pkgId pkg mbPkgName
 
-daml2ts :: Options -> PackageId -> Package -> Maybe String -> IO ()
-daml2ts Options{..} pkgId pkg mbPkgName = do
+daml2ts :: Options -> Map.Map PackageId (Maybe String, Package) -> PackageId -> Package -> Maybe String -> IO ()
+daml2ts Options{..} pm pkgId pkg mbPkgName = do
     let outputDir = optOutputDir </> fromMaybe (T.unpack (unPackageId pkgId)) mbPkgName
     createDirectoryIfMissing True outputDir
     T.writeFileUtf8 (outputDir </> "packageId.ts") $ T.unlines
         ["export default '" <> unPackageId pkgId <> "';"]
     forM_ (packageModules pkg) $ \mod -> do
-        whenJust (genModule pkgId mod) $ \modTxt -> do
+        whenJust (genModule pm pkgId mod) $ \modTxt -> do
             let outputFile = outputDir </> joinPath (map T.unpack (unModuleName (moduleName mod))) FP.<.> "ts"
             createDirectoryIfMissing True (takeDirectory outputFile)
             T.writeFileUtf8 outputFile modTxt
@@ -115,8 +114,8 @@ infixr 6 <.> -- This is the same fixity as '<>'.
 (<.>) :: T.Text -> T.Text -> T.Text
 (<.>) u v = u <> "." <> v
 
-genModule :: PackageId -> Module -> Maybe T.Text
-genModule curPkgId mod
+genModule :: Map.Map PackageId (Maybe String, Package) -> PackageId -> Module -> Maybe T.Text
+genModule pm curPkgId mod
   | null serDefs = Nothing
   | otherwise =
     let curModName = moduleName mod
@@ -139,7 +138,14 @@ genModule curPkgId mod
             | modRef@(pkgRef, modName) <- Set.toList ((PRSelf, curModName) `Set.delete` Set.unions refs)
             , let pkgRefStr = case pkgRef of
                     PRSelf -> ""
-                    PRImport pkgId -> "../" <> unPackageId pkgId <> "/"
+                    PRImport pkgId ->
+                      -- If the imported package has a symbolic name,
+                      -- then we need to use it in the package path.
+                      "../" <> (case Map.lookup pkgId pm of
+                                   Just (Just name, _) -> T.pack name
+                                   Just (Nothing, _) -> unPackageId pkgId
+                                   Nothing -> error "IMPOSSIBLE : package map malformed"
+                               ) <> "/"
             , let modNameStr = genModuleRef modRef
             ]
         defs = map (\(def, ser) -> def ++ ser) defSers

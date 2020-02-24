@@ -18,7 +18,7 @@ import org.scalatest._
 import scala.concurrent.duration._
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
-abstract class TransactionSingleTableSpec
+class TransactionSingleTableSpec
     extends FlatSpec
     with Suite
     with PostgresAroundAll
@@ -94,7 +94,8 @@ abstract class TransactionSingleTableSpec
     contract1.archived_by_event_id shouldEqual Some(exercise.event_id)
 
     // ... while it resulted in `contract2`
-    exercise.child_event_ids shouldEqual List(contract2.event_id).asJson
+    exercise.child_event_ids.asArray.toList.toVector.flatten should contain(
+      contract2.event_id.asJson)
     contract2.transaction_id shouldEqual transaction2.transaction_id
     // which is not archived
     contract2.archived_by_transaction_id shouldEqual None

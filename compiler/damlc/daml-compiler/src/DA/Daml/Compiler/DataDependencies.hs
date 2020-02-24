@@ -5,7 +5,6 @@ module DA.Daml.Compiler.DataDependencies
     ( Config (..)
     , generateSrcPkgFromLf
     , generateGenInstancesPkgFromLf
-    , splitUnitId
     , prefixDependencyModule
     ) where
 
@@ -440,7 +439,7 @@ generateSrcFromLf env = noLoc mod
                     -- need to use "this" instead of the package id.
                     if modRefUnitId == unitId
                         then "this"
-                        else fst (splitUnitId $ unitIdString modRefUnitId)
+                        else T.unpack . LF.unPackageName . fst $ LF.splitUnitId modRefUnitId
             , ideclSource = False
             , ideclSafe = False
             , ideclImplicit = False
@@ -847,13 +846,6 @@ generateGenInstanceModule env externPkgId qual
         [ "import qualified " <> modNameQual
         , "import qualified DA.Generics"
         ]
-
--- | Take a string of the form daml-stdlib-"0.13.43" and split it into ("daml-stdlib", Just "0.13.43")
-splitUnitId :: String -> (String, Maybe String)
-splitUnitId unitId = fromMaybe (unitId, Nothing) $ do
-    (name, ver) <- stripInfixEnd "-" unitId
-    guard $ all (`elem` '.' : ['0' .. '9']) ver
-    pure (name, Just ver)
 
 -- | Returns 'True' if an LF type contains a reference to an
 -- old-style typeclass. See 'tconIsOldTypeclass' for more details.

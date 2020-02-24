@@ -5,19 +5,23 @@
 {-# LANGUAGE PatternSynonyms #-}
 module DA.Daml.LF.Ast.Util(module DA.Daml.LF.Ast.Util) where
 
+import Control.Monad
 import Data.Maybe
 import qualified Data.Text as T
 import           Control.Lens
 import           Control.Lens.Ast
 import           Data.Functor.Foldable
 import qualified Data.Graph as G
-import           Data.List.Extra (nubSort)
+import Data.List.Extra (nubSort, stripInfixEnd)
 import qualified Data.NameMap as NM
+import Module (UnitId, unitIdString, stringToUnitId)
+import System.FilePath
 
 import DA.Daml.LF.Ast.Base
 import DA.Daml.LF.Ast.TypeLevelNat
 import DA.Daml.LF.Ast.Optics
 import DA.Daml.LF.Ast.Recursive
+import DA.Daml.LF.Ast.Version
 
 dvalName :: DefValue -> ExprValName
 dvalName = fst . dvalBinder
@@ -274,3 +278,44 @@ removeLocations :: Expr -> Expr
 removeLocations = cata $ \case
     ELocationF _loc e -> e
     b -> embed b
+
+getPackageMetadata :: Version -> PackageName -> Maybe PackageVersion -> Maybe PackageMetadata
+getPackageMetadata lfVer pkgName mbPkgVersion = do
+    guard (lfVer `supports` featurePackageMetadata)
+    Just (PackageMetadata pkgName (fromMaybe (PackageVersion "0.0.0") mbPkgVersion))
+
+-- | Given the name of a DALF and the decoded package return package metadata.
+--
+-- For newer DAML-LF versions this is taken directly from the
+-- package metadata in DAML-LF. For older versions, we instead infer
+-- metadata from the filename.
+packageMetadataFromFile :: FilePath -> Package -> PackageId -> (PackageName, Maybe PackageVersion)
+packageMetadataFromFile file pkg pkgId
+    | Just (PackageMetadata name version) <- packageMetadata pkg =
+          -- GHC insists on daml-prim not having a version so we filter it out.
+          (name, version <$ guard (name /= PackageName "daml-prim"))
+    | otherwise = splitUnitId (unitIdFromFile file pkgId)
+
+-- Get the name of a file and an expeted package id of the package, get the unit id
+-- by stripping away the package name at the end.
+-- E.g., if 'package-name-123abc' is given and the known package id is
+-- '123abc', then 'package-name' is returned as unit id.
+unitIdFromFile :: FilePath -> PackageId -> UnitId
+unitIdFromFile file (PackageId pkgId) =
+    (stringToUnitId . fromMaybe name . stripPkgId name . T.unpack) pkgId
+    where name = takeBaseName file
+
+-- Strip the package id from the end of a dalf file name
+-- TODO (drsk) This needs to become a hard error
+stripPkgId :: String -> String -> Maybe String
+stripPkgId baseName expectedPkgId = do
+    (unitId, pkgId) <- stripInfixEnd "-" baseName
+    guard $ pkgId == expectedPkgId
+    pure unitId
+
+-- | Take a string of the form "daml-stdlib-0.13.43" and split it into ("daml-stdlib", Just "0.13.43")
+splitUnitId :: UnitId -> (PackageName, Maybe PackageVersion)
+splitUnitId (unitIdString -> unitId) = fromMaybe (PackageName (T.pack unitId), Nothing) $ do
+    (name, ver) <- stripInfixEnd "-" unitId
+    guard $ all (`elem` '.' : ['0' .. '9']) ver
+    pure (PackageName (T.pack name), Just (PackageVersion (T.pack ver)))

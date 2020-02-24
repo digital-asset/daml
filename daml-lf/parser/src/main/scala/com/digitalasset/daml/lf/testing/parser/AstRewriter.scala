@@ -25,7 +25,9 @@ private[digitalasset] class AstRewriter(
         }
         .toSeq
         .toMap,
-      Set.empty[PackageId])
+      Set.empty[PackageId],
+      pkg.metadata,
+    )
 
   def apply(module: Module): Module =
     module match {
