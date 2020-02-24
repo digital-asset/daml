@@ -5,20 +5,10 @@ package com.digitalasset.platform.store
 
 import java.time.Instant
 
-import com.daml.ledger.participant.state.v1.TransactionId
 import com.digitalasset.api.util.TimestampConversion.fromInstant
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.ledger.{ApplicationId, CommandId}
-import com.digitalasset.ledger.api.domain
+import com.digitalasset.ledger.ApplicationId
 import com.digitalasset.ledger.api.domain.RejectionReason
-import com.digitalasset.ledger.api.domain.RejectionReason.{
-  Disputed,
-  Inconsistent,
-  OutOfQuota,
-  PartyNotKnownOnLedger,
-  SubmitterCannotActViaParticipant,
-  TimedOut
-}
 import com.digitalasset.ledger.api.v1.command_completion_service.{
   Checkpoint,
   CompletionStreamResponse
@@ -49,12 +39,12 @@ private[platform] object CompletionFromTransaction {
   // * -Xfatal-warnings _MUST_ be enabled
   private def toErrorCode(rejection: RejectionReason): Int = {
     import RejectionReason.{
-      Inconsistent,
       Disputed,
-      PartyNotKnownOnLedger,
+      Inconsistent,
       OutOfQuota,
-      TimedOut,
-      SubmitterCannotActViaParticipant
+      PartyNotKnownOnLedger,
+      SubmitterCannotActViaParticipant,
+      TimedOut
     }
     rejection match {
       case _: Inconsistent | _: Disputed | _: PartyNotKnownOnLedger =>

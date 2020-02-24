@@ -5,23 +5,17 @@ package com.digitalasset.platform.server.api.services.grpc
 
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.digitalasset.api.util.TimestampConversion.fromInstant
+import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.domain.{CommandId, CompletionEvent, LedgerId, RejectionReason}
-import com.digitalasset.ledger.api.v1.command_completion_service._
-import com.digitalasset.ledger.api.v1.completion.Completion
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.ledger.api.validation.{CompletionServiceRequestValidator, PartyNameChecker}
-import com.digitalasset.dec.DirectExecutionContext
-import com.digitalasset.platform.server.api.services.domain.CommandCompletionService
-import com.google.rpc.status.Status
-import io.grpc.Status.Code
-import scalaz.syntax.tag._
-
+import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.messages.command.completion.{
   CompletionStreamRequest => ValidatedCompletionStreamRequest
 }
+import com.digitalasset.ledger.api.v1.command_completion_service._
+import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
+import com.digitalasset.ledger.api.validation.{CompletionServiceRequestValidator, PartyNameChecker}
+import com.digitalasset.platform.server.api.services.domain.CommandCompletionService
 
 import scala.concurrent.Future
 
