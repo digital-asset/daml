@@ -259,7 +259,10 @@ class WebsocketServiceIntegrationTest
                   statusCode.isSuccess shouldBe true
                   GotAcs(ctid)
               }
-            case (GotAcs(ctid), Live(_, _)) => Future.successful(GotLive(ctid))
+
+            case (GotAcs(ctid), Offset(JsString(_), Events(JsArray(Vector()), _))) =>
+              Future.successful(GotLive(ctid))
+
             case (
                 GotLive(consumedCtid),
                 evtsWrapper @ ContractDelta(
@@ -300,6 +303,7 @@ class WebsocketServiceIntegrationTest
 
   "fetch should receive deltas as contracts are archived/created, filtering out phantom archives" in withHttpService {
     (uri, encoder, _) =>
+      import spray.json.{JsArray, JsString}
       val templateId = domain.TemplateId(None, "Account", "Account")
       val fetchRequest = """[{"templateId": "Account:Account", "key": ["Alice", "abc123"]}]"""
       val f1 =
@@ -327,7 +331,8 @@ class WebsocketServiceIntegrationTest
                 }
             }: Future[StreamState]
 
-          case (GotAcs(ctid), Live(_, _)) => Future.successful(GotLive(ctid))
+          case (GotAcs(ctid), Offset(JsString(_), Events(JsArray(Vector()), _))) =>
+            Future.successful(GotLive(ctid))
 
           case (
               GotLive(archivedCid),
@@ -465,7 +470,8 @@ object WebsocketServiceIntegrationTest {
       jsv.fields get label map ((_, JsObject(jsv.fields - label)))
   }
 
-  private object Live extends JsoField("live")
+  private object Events extends JsoField("events")
+  private object Offset extends JsoField("offset")
   private object Created extends JsoField("created")
   private object Archived extends JsoField("archived")
   private object MatchedQueries extends JsoField("matchedQueries")
