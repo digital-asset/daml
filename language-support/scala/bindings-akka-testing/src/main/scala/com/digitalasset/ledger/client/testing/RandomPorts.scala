@@ -3,7 +3,7 @@
 
 package com.digitalasset.ledger.client.testing
 
-import java.net.ServerSocket
+import java.net.{InetAddress, ServerSocket}
 
 import com.typesafe.scalalogging.LazyLogging
 
@@ -21,7 +21,7 @@ trait RandomPorts extends LazyLogging { self: AkkaTest =>
       } else {
         var candidate: ServerSocket = null
         try {
-          candidate = new ServerSocket(0)
+          candidate = new ServerSocket(0, 0, InetAddress.getLoopbackAddress)
         } finally {
           candidate.close()
         }

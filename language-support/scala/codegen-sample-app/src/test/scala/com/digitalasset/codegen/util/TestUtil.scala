@@ -3,11 +3,10 @@
 
 package com.digitalasset.codegen.util
 
-import com.digitalasset.daml.bazeltools.BazelRunfiles._
-
 import java.io.File
-import java.net.ServerSocket
+import java.net.{InetAddress, ServerSocket}
 
+import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import scalaz.{@@, Tag}
 
 import scala.util.Try
@@ -18,7 +17,7 @@ object TestUtil {
   val TestContext = Tag.of[TestContextTag]
 
   def findOpenPort(): Try[Int] = Try {
-    val socket = new ServerSocket(0)
+    val socket = new ServerSocket(0, 0, InetAddress.getLoopbackAddress)
     val result = socket.getLocalPort
     socket.close()
     result

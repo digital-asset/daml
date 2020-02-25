@@ -190,7 +190,7 @@ object PostgresAround {
   private val databaseName = "test"
 
   private def findFreePort(): Int = {
-    val s = new ServerSocket(0)
+    val s = new ServerSocket(0, 0, InetAddress.getLoopbackAddress)
     val port = s.getLocalPort
     // We have to release the port so the PostgreSQL server can use it. Note that there is a small
     // window for race, as releasing the port then handing it to the server is not atomic. If this

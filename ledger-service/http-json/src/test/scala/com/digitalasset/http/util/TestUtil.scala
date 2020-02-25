@@ -4,7 +4,7 @@
 package com.digitalasset.http.util
 
 import java.io.{BufferedWriter, File, FileWriter}
-import java.net.ServerSocket
+import java.net.{InetAddress, ServerSocket}
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
@@ -22,15 +22,15 @@ import akka.stream.Materializer
 import akka.util.ByteString
 import com.digitalasset.daml.lf.data.TryOps.Bracket.bracket
 import com.typesafe.scalalogging.LazyLogging
-import spray.json.JsValue
 import spray.json._
+
 import scala.concurrent.{ExecutionContext, Future}
 import scala.io.Source
 import scala.util.{Failure, Success, Try}
 
 object TestUtil extends LazyLogging {
   def findOpenPort(): Try[Int] = Try {
-    val socket = new ServerSocket(0)
+    val socket = new ServerSocket(0, 0, InetAddress.getLoopbackAddress)
     val result = socket.getLocalPort
     socket.close()
     result
