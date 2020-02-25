@@ -5,9 +5,11 @@ package com.digitalasset.platform.store.entries
 
 import java.time.Instant
 
+import com.daml.ledger.participant.state.index.v2.CommandSubmissionResult
+
 final case class CommandDeduplicationEntry(
     deduplicationKey: String,
     submittedAt: Instant,
     ttl: Instant,
-    result: Option[Either[String, Unit]],
+    result: Option[CommandSubmissionResult],
 )

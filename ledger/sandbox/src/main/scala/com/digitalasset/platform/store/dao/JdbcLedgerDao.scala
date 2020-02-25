@@ -13,7 +13,7 @@ import anorm.SqlParser._
 import anorm.ToStatement.optionToStatement
 import anorm.{BatchSql, Macro, NamedParameter, ResultSetParser, RowParser, SQL, SqlParser}
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.participant.state.index.v2.PackageDetails
+import com.daml.ledger.participant.state.index.v2.{CommandSubmissionResult, PackageDetails}
 import com.daml.ledger.participant.state.v1.{
   AbsoluteContractInst,
   Configuration,
@@ -100,8 +100,8 @@ private final case class ParsedPackageData(
 private final case class ParsedCommandData(
     submittedAt: Instant,
     ttl: Instant,
-    success: Option[Boolean],
-    error: Option[String])
+    code: Option[Int],
+    message: Option[String])
 
 private class JdbcLedgerDao(
     dbDispatcher: DbDispatcher,
@@ -1636,7 +1636,7 @@ private class JdbcLedgerDao(
   }
 
   private val SQL_SELECT_COMMAND = SQL("""
-      |select submitted_at, ttl, success, error
+      |select submitted_at, ttl, result_code, result_message
       |from participant_command_submissions
       |where deduplication_key = {deduplicationKey}
     """.stripMargin)
@@ -1645,8 +1645,8 @@ private class JdbcLedgerDao(
     Macro.parser[ParsedCommandData](
       "submitted_at",
       "ttl",
-      "success",
-      "error"
+      "result_code",
+      "result_message"
     )
 
   override def deduplicateCommand(
@@ -1672,20 +1672,13 @@ private class JdbcLedgerDao(
           case ParsedCommandData(originalSubmittedAt, originalTtl, None, None) =>
             Some(
               CommandDeduplicationEntry(deduplicationKey, originalSubmittedAt, originalTtl, None))
-          case ParsedCommandData(originalSubmittedAt, originalTtl, Some(true), None) =>
+          case ParsedCommandData(originalSubmittedAt, originalTtl, Some(code), message) =>
             Some(
               CommandDeduplicationEntry(
                 deduplicationKey,
                 originalSubmittedAt,
                 originalTtl,
-                Some(Right(()))))
-          case ParsedCommandData(originalSubmittedAt, originalTtl, Some(false), Some(error)) =>
-            Some(
-              CommandDeduplicationEntry(
-                deduplicationKey,
-                originalSubmittedAt,
-                originalTtl,
-                Some(Left(error))))
+                Some(CommandSubmissionResult(code, message))))
           case data =>
             sys.error(s"Invalid command deduplication row $data")
         }
@@ -1695,21 +1688,22 @@ private class JdbcLedgerDao(
   private val SQL_UPDATE_COMMAND = SQL(
     """
       |update participant_command_submissions
-      |set success={success}, error={error}
+      |set result_code={resultCode}, result_message={resultMessage}
       |where deduplication_key={deduplicationKey} and submitted_at={submittedAt}
     """.stripMargin)
 
   override def updateCommandResult(
       deduplicationKey: String,
       submittedAt: Instant,
-      result: Either[String, Unit]): Future[Unit] =
+      code: Int,
+      message: Option[String]): Future[Unit] =
     dbDispatcher.executeSql("update_command_result") { implicit conn =>
       SQL_UPDATE_COMMAND
         .on(
           "deduplicationKey" -> deduplicationKey,
           "submittedAt" -> submittedAt,
-          "success" -> result.isRight,
-          "error" -> result.fold(Some(_), _ => None)
+          "resultCode" -> code,
+          "resultMessage" -> message
         )
         .execute()
       ()

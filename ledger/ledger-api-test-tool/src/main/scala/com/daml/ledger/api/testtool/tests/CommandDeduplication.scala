@@ -14,7 +14,6 @@ import com.google.protobuf.duration.Duration
 import io.grpc.Status
 
 import scala.concurrent.duration.DurationInt
-import scala.util.Success
 
 final class CommandDeduplication(session: LedgerSession) extends LedgerTestSuite(session) {
 
@@ -43,14 +42,17 @@ final class CommandDeduplication(session: LedgerSession) extends LedgerTestSuite
 
         // Submit command A (first TTL window)
         _ <- ledger.submit(requestA)
-        resultA2 <- ledger.submit(requestA).transform(x => Success(x.toEither))
+
+        // Re-submit command A.
+        // This should return success, as the original result is known by now.
+        _ <- ledger.submit(requestA)
 
         // Wait until the end of first TTL window
         _ <- Delayed.by(ttlSeconds.seconds)(())
 
         // Submit command A (second TTL window)
         _ <- ledger.submit(requestA)
-        resultA4 <- ledger.submit(requestA).transform(x => Success(x.toEither))
+        _ <- ledger.submit(requestA)
 
         // Submit and wait for command B (to get a unique completion for the end of the test)
         submitAndWaitRequest <- ledger.submitAndWaitRequest(party, Dummy(party).create.command)
@@ -59,9 +61,6 @@ final class CommandDeduplication(session: LedgerSession) extends LedgerTestSuite
         // Inspect created contracts
         activeContracts <- ledger.activeContracts(party)
       } yield {
-        assertDeduplicated(resultA2)
-        assertDeduplicated(resultA4)
-
         assert(
           activeContracts.size == 3,
           s"There should be 3 active contracts, but received $activeContracts",

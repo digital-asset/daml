@@ -37,6 +37,7 @@ compile_deps = [
     "//ledger/participant-state/kvutils",
     "//libs-scala/contextualized-logging",
     "//libs-scala/direct-execution-context",
+    "//libs-scala/grpc-utils",
     "//libs-scala/resources",
     "//libs-scala/resources-akka",
     "@maven//:ch_qos_logback_logback_classic",

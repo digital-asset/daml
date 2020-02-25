@@ -11,6 +11,7 @@ import com.daml.ledger.participant.state.index.v2.{
   CommandDeduplicationDuplicate,
   CommandDeduplicationDuplicateWithResult,
   CommandDeduplicationNew,
+  CommandSubmissionResult,
   ContractStore,
   IndexSubmissionService
 }
@@ -32,6 +33,7 @@ import com.digitalasset.daml.lf.engine.{Error => LfError}
 import com.digitalasset.daml.lf.transaction.Transaction.Transaction
 import com.digitalasset.daml.lf.transaction.{BlindingInfo, Transaction}
 import com.digitalasset.dec.DirectExecutionContext
+import com.digitalasset.grpc.GrpcException
 import com.digitalasset.ledger.api.domain.{LedgerId, Commands => ApiCommands}
 import com.digitalasset.ledger.api.messages.command.submission.SubmitRequest
 import com.digitalasset.logging.LoggingContext.withEnrichedLoggingContext
@@ -44,7 +46,7 @@ import com.digitalasset.platform.server.api.services.grpc.GrpcCommandSubmissionS
 import com.digitalasset.platform.server.api.validation.ErrorFactories
 import com.digitalasset.platform.server.services.command.time.TimeModelValidator
 import com.digitalasset.platform.store.ErrorCause
-import io.grpc.{Status, StatusRuntimeException}
+import io.grpc.Status
 import scalaz.syntax.tag._
 
 import scala.compat.java8.FutureConverters
@@ -134,14 +136,22 @@ final class ApiSubmissionService private (
           .transform(mapSubmissionResult)
           .andThen {
             case Success(_) =>
-              submissionService.updateCommandResult(deduplicationKey, submittedAt, Right(()))
-            case Failure(error: StatusRuntimeException) =>
-              // TODO: store correct status instead of always returning INTERNAL
+              submissionService.updateCommandResult(
+                deduplicationKey,
+                submittedAt,
+                CommandSubmissionResult(Status.OK.getCode.value(), None))
+            case Failure(GrpcException(status, _)) =>
               submissionService
-                .updateCommandResult(deduplicationKey, submittedAt, Left(error.getMessage))
+                .updateCommandResult(
+                  deduplicationKey,
+                  submittedAt,
+                  CommandSubmissionResult(status.getCode.value(), Option(status.getDescription)))
             case Failure(error) =>
               submissionService
-                .updateCommandResult(deduplicationKey, submittedAt, Left(error.getMessage))
+                .updateCommandResult(
+                  deduplicationKey,
+                  submittedAt,
+                  CommandSubmissionResult(Status.INTERNAL.getCode.value(), Some(error.getMessage)))
           }
       case CommandDeduplicationDuplicate(firstSubmittedAt) =>
         Metrics.deduplicatedCommandsMeter.mark()
@@ -149,13 +159,14 @@ final class ApiSubmissionService private (
           s"Duplicate command submission. This command was submitted before at $firstSubmittedAt. The result of the submission is unknown."
         logger.debug(reason)
         Future.failed(Status.ALREADY_EXISTS.augmentDescription(reason).asRuntimeException)
-      case CommandDeduplicationDuplicateWithResult(Left(error)) =>
-        // TODO: store correct status instead of always returning INTERNAL
-        Metrics.deduplicatedCommandsMeter.mark()
-        Future.failed(Status.INTERNAL.augmentDescription(error).asRuntimeException)
-      case CommandDeduplicationDuplicateWithResult(Right(())) =>
+      case CommandDeduplicationDuplicateWithResult(CommandSubmissionResult(0, _)) =>
         Metrics.deduplicatedCommandsMeter.mark()
         Future.successful(())
+      case CommandDeduplicationDuplicateWithResult(CommandSubmissionResult(code, message)) =>
+        Metrics.deduplicatedCommandsMeter.mark()
+        val status = message.fold(Status.fromCodeValue(code))(msg =>
+          Status.fromCodeValue(code).augmentDescription(msg))
+        Future.failed(status.asRuntimeException)
     }
   }
 

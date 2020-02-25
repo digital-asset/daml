@@ -134,10 +134,11 @@ class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegistry)
   override def updateCommandResult(
       deduplicationKey: String,
       submittedAt: Instant,
-      result: Either[String, Unit]): Future[Unit] =
+      code: Int,
+      message: Option[String]): Future[Unit] =
     timedFuture(
       Metrics.updateCommandResult,
-      ledgerDao.updateCommandResult(deduplicationKey, submittedAt, result))
+      ledgerDao.updateCommandResult(deduplicationKey, submittedAt, code, message))
 }
 
 class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: MetricRegistry)

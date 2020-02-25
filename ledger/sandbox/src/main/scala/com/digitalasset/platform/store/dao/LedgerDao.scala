@@ -157,7 +157,8 @@ trait LedgerReadDao extends ReportsHealth {
   def updateCommandResult(
       deduplicationKey: String,
       submittedAt: Instant,
-      result: Either[String, Unit]): Future[Unit]
+      code: Int,
+      message: Option[String]): Future[Unit]
 }
 
 trait LedgerWriteDao extends ReportsHealth {

@@ -106,13 +106,13 @@ package object v2 {
       knownSince: Instant,
       sourceDescription: Option[String])
 
-  /** The result of a command submission:
-    * - `Left(error)` if the submission failed (either at command interpretation or at submission to the ledger)
-    *   with the given error message.
-    * - `Right(())` if the submission was successful, in which case the completion of the command
-    *   can be tracked as usual through the completion service.
+  /** The result of a command submission, as reported to client applications.
+    * Isomorphic to a [[io.grpc.Status]].
+    *
+    * @param code    The gRPC status code of the original command submission
+    * @param message The detailed error message of the original command submission
     */
-  type CommandSubmissionResult = Either[String, Unit]
+  final case class CommandSubmissionResult(code: Int, message: Option[String])
 
   sealed abstract class CommandDeduplicationResult extends Product with Serializable
 

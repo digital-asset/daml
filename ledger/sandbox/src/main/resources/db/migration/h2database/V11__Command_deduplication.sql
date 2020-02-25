@@ -18,8 +18,8 @@ CREATE TABLE participant_command_submissions(
   submitted_at       timestamp             not null,
   -- The time the command will stop being deduplicated
   ttl                timestamp             not null,
-  -- If set, then the command was successfully submitted
-  success            boolean,
-  -- If set, then the command submission failed with the given error
-  error              varchar
+  -- The gRPC status code of the original command submission, if available
+  result_code        int,
+  -- The gRPC status message of the original command submission, if available
+  result_message     varchar
 );
