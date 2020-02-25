@@ -3,10 +3,11 @@
 
 # TODO Once daml_compile uses build instead of package we should use
 # daml_compile instead of a genrule.
+load("@build_environment//:configuration.bzl", "sdk_version")
 
 genrule(
     name = "daml-script",
-    srcs = glob(["**/*.daml"]) + ["//:VERSION"],
+    srcs = glob(["**/*.daml"]),
     outs = ["daml-script.dar"],
     cmd = """
       set -eou pipefail
@@ -14,10 +15,10 @@ genrule(
       mkdir -p $$TMP_DIR/daml/Daml
       cp -L $(location Daml/Script.daml) $$TMP_DIR/daml/Daml
       cat << EOF > $$TMP_DIR/daml.yaml
-sdk-version: $$(cat $(location //:VERSION))
+sdk-version: {sdk}
 name: daml-script
 source: daml
-version: $$(cat $(location //:VERSION))
+version: 0.0.1
 dependencies:
   - daml-stdlib
   - daml-prim
@@ -25,7 +26,7 @@ build-options: ["--ghc-option", "-Werror"]
 EOF
       $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$(location daml-script.dar)
       rm -rf $$TMP_DIR
-    """,
+    """.format(sdk = sdk_version),
     tools = ["//compiler/damlc"],
     visibility = ["//visibility:public"],
 )

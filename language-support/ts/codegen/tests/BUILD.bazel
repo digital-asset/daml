@@ -3,7 +3,7 @@
 
 load("//rules_daml:daml.bzl", "daml_compile")
 load("//bazel_tools:haskell.bzl", "da_haskell_test")
-load("@sdk_version//:sdk_version.bzl", "sdk_version")
+load("@build_environment//:configuration.bzl", "sdk_version")
 load("@os_info//:os_info.bzl", "is_windows")
 
 # This rule builds a dar from the daml sources under the 'daml'
@@ -51,7 +51,6 @@ sh_test(
         ":daml2ts-test.dar",
         "//language-support/ts/daml-types:npm_package",
         "//language-support/ts/daml-ledger:npm_package",
-        "//:VERSION",
     ] + glob(
         ["ts/**"],
         exclude = [

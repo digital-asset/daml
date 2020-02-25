@@ -8,6 +8,7 @@ load("//ledger/ledger-api-test-tool:conformance.bzl", "server_conformance_test")
 load("@io_bazel_rules_docker//container:container.bzl", "container_image")
 load("@io_bazel_rules_docker//java:image.bzl", "java_image")
 load("@os_info//:os_info.bzl", "is_windows")
+load("@build_environment//:configuration.bzl", "mvn_version")
 
 compile_deps = [
     "//daml-lf/archive:daml_lf_archive_reader",
@@ -83,7 +84,7 @@ da_scala_library(
             # of the sandbox-as-a-library decide how to log.
             exclude = ["src/main/resources/logback.xml"],
         ) + [
-            "//:COMPONENT-VERSION",
+            "//:MVN_VERSION",
         ],
     tags = ["maven_coordinates=com.digitalasset.platform:sandbox:__VERSION__"],
     visibility = [
@@ -103,7 +104,7 @@ da_scala_library(
             # of the sandbox-as-a-library decide how to log.
             exclude = ["src/main/resources/logback.xml"],
         ) + [
-            "//:COMPONENT-VERSION",
+            "//:MVN_VERSION",
         ],
     tags = ["maven_coordinates=com.daml.ledger:ledger-api-server:__VERSION__"],
     visibility = [
@@ -159,17 +160,15 @@ genrule(
     name = "sandbox-tarball",
     srcs = [
         ":sandbox-binary_deploy.jar",
-        "//:component-version",
     ],
     outs = ["sandbox-tarball.tar.gz"],
     cmd = """
-        VERSION=$$(cat $(location //:component-version))
         mkdir -p sandbox-tarball/sandbox
-        cp -L $(location :sandbox-binary_deploy.jar) sandbox-tarball/sandbox/sandbox-$$VERSION.jar
+        cp -L $(location :sandbox-binary_deploy.jar) sandbox-tarball/sandbox/sandbox-{mvn}.jar
         out=$$(realpath $@)
         cd sandbox-tarball
         tar zcf $$out sandbox
-    """,
+    """.format(mvn = mvn_version),
     visibility = ["//visibility:public"],
 )
 

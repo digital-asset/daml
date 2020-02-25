@@ -7,7 +7,6 @@ module Types (
     ArtifactType,
     CIException(..),
     Classifier,
-    BintrayPackage(..),
     GitRev,
     GroupId,
     MavenAllowUnsecureTls(..),
@@ -17,15 +16,11 @@ module Types (
     MonadCI,
     OS(..),
     PerformUpload(..),
-    TextVersion,
     Version(..),
-    VersionChange(..),
     (#),
     dropFileName,
-    parseVersion,
     pathToString,
     pathToText,
-    renderVersion,
     throwIO,
     tshow,
   ) where
@@ -45,23 +40,7 @@ import           Data.Typeable                        (Typeable)
 import           Path
 import           Path.Internal
 import qualified System.FilePath                      as FP
-import           Control.Monad (guard, (>=>))
-import           Safe (readMay)
 
-data BintrayPackage
-  = PkgSdkComponents
-  | PkgSdk
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
-
-instance FromJSON BintrayPackage where
-    parseJSON = withText "BintrayPackage" $ \t ->
-        case t of
-            "sdk-components" -> pure PkgSdkComponents
-            "sdk" -> pure PkgSdk
-            _ -> fail $ "Unknown bintray package " <> show t
-
-
-type TextVersion = Text
 type GroupId = [Text]
 type ArtifactId = Text
 type Classifier = Text
@@ -71,7 +50,7 @@ type ArtifactType = Text
 data MavenCoords = MavenCoords
     { groupId :: !GroupId
     , artifactId :: !ArtifactId
-    , version :: !TextVersion
+    , version :: !Version
     , classifier :: Maybe ArtifactType
     , artifactType :: !ArtifactType
     } deriving Show
@@ -134,27 +113,7 @@ newtype PerformUpload = PerformUpload{getPerformUpload :: Bool}
 --
 -- | Version number bumping is fully automated using the @VERSION@
 --   files that can be found in the root directory of the repo.
-data Version = Version
-  { versionMajor :: Int
-  , versionMinor :: Int
-  , versionPatch :: Int
-  } deriving (Eq, Ord, Show, Read)
-
-data VersionChange =
-    VCPatch
-  | VCMinor
-  | VCMajor
-  deriving (Eq, Ord, Show, Read)
-
-parseVersion :: Text -> Maybe Version
-parseVersion (T.strip -> txt) = do
-  let positive n = n <$ guard (n >= 0)
-  [versionMajor, versionMinor, versionPatch] <-
-    traverse ((readMay >=> positive) . T.unpack) (T.split (=='.') txt)
-  return Version{..}
-
-renderVersion :: Version -> Text
-renderVersion (Version maj min_ patch) = T.intercalate "." [tshow maj, tshow min_, tshow patch]
+newtype Version = Version Text deriving (Eq, Show)
 
 newtype MavenAllowUnsecureTls = MavenAllowUnsecureTls { getAllowUnsecureTls :: Bool }
     deriving (Eq, Show, FromJSON)

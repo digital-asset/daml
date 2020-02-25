@@ -2,12 +2,12 @@
 # SPDX-License-Identifier: Apache-2.0
 load("//bazel_tools:haskell.bzl", "da_haskell_test")
 load("@os_info//:os_info.bzl", "is_windows")
+load("@build_environment//:configuration.bzl", "mvn_version")
 
 genrule(
     name = "integration-tests-mvn",
     srcs = [
         "@mvn_dev_env//:mvn",
-        "//:component-version",
         "//daml-lf/archive:daml_lf_dev_archive_java_proto",
         "//daml-lf/archive:daml_lf_dev_archive_java_proto_pom",
         "//language-support/java/bindings:libbindings-java.jar",
@@ -27,8 +27,7 @@ genrule(
       set -euo pipefail
       TMP_DIR=$$(mktemp -d)
       MVN_DB="$$TMP_DIR/m2"
-      VERSION=$$(cat $(location //:component-version))
-      install_mvn() {
+      install_mvn() {{
           $(location @mvn_dev_env//:mvn) -q install:install-file \
           -Dmaven.repo.local=$$MVN_DB \
           "-DgroupId=$$1" \
@@ -36,8 +35,8 @@ genrule(
           "-Dfile=$$3" \
           "-DpomFile=$$4" \
           -Dpackaging=jar \
-          -Dversion=$$VERSION
-      }
+          -Dversion={mvn}
+      }}
       tar xf $(location //docs:quickstart-java.tar.gz) -C "$$TMP_DIR"
       install_mvn \
         "com.digitalasset" "daml-lf-archive" \
@@ -65,7 +64,7 @@ genrule(
         $(location //ledger/ledger-api-auth-client:ledger-api-auth-client_pom.xml)
       $(location @mvn_dev_env//:mvn) -q -Dmaven.repo.local=$$MVN_DB -f "$$TMP_DIR/quickstart-java/pom.xml" dependency:resolve dependency:resolve-plugins
       tar cf $(location integration-tests-mvn.tar) -C $$(dirname $$MVN_DB) $$(basename $$MVN_DB)
-    """,
+    """.format(mvn = mvn_version),
 )
 
 da_haskell_test(

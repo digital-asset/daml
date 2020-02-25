@@ -25,33 +25,26 @@ import Types
 import Upload
 import Util
 
+import qualified SdkVersion
+
 main :: IO ()
 main = do
   opts@Options{..} <- parseOptions
   runLog opts $ do
       releaseDir <- parseAbsDir =<< liftIO (Dir.makeAbsolute optsReleaseDir)
       liftIO $ createDirIfMissing True releaseDir
-      $logInfo "Checking if we should release"
-      sdkVersion <- readVersionAt "HEAD"
-      release <- isReleaseCommit
-      let upload = if release then optsPerformUpload else PerformUpload False
-      -- NOTE(MH): We add 100 to get version numbers for the individual
-      -- components which are bigger than all version numbers we used
-      -- before moving to the new daml repo.
-      let compVersion = sdkVersion{versionMajor = 100 + versionMajor sdkVersion}
+      mvnArtifacts :: [Artifact (Maybe ArtifactLocation)] <- decodeFileThrow "release/artifacts.yaml"
 
-      artifacts :: [Artifact (Maybe ArtifactLocation)] <- decodeFileThrow optsArtifacts
-
-      let targets = concatMap buildTargets artifacts
+      let mvnVersion = Version $ T.pack SdkVersion.mvnVersion
+      let mvnTargets = concatMap buildTargets mvnArtifacts
       $logInfo "Building all targets"
-      liftIO $ callProcess "bazel" ("build" : map (T.unpack . getBazelTarget) targets)
+      liftIO $ callProcess "bazel" ("build" : map (T.unpack . getBazelTarget) mvnTargets)
 
       bazelLocations <- liftIO getBazelLocations
       $logInfo "Reading metadata from pom files"
-      artifacts <- liftIO $ mapM (resolvePomData bazelLocations sdkVersion compVersion) artifacts
+      mvnArtifacts <- liftIO $ mapM (resolvePomData bazelLocations mvnVersion) mvnArtifacts
 
-      let mavenUploadArtifacts = filter (\a -> getMavenUpload $ artMavenUpload a) artifacts
-
+      let mavenUploadArtifacts = filter (\a -> getMavenUpload $ artMavenUpload a) mvnArtifacts
       -- all known targets uploaded to maven, that are not deploy Jars
       -- we don't check dependencies for deploy jars as they are single-executable-jars
       let nonDeployJars = filter (not . isDeployJar . artReleaseType) mavenUploadArtifacts
@@ -83,13 +76,13 @@ main = do
                       forM_ missingDeps $ \dep -> $logError ("\t- "# T.pack dep)
                   liftIO exitFailure
 
-      files <- fmap concat $ forM artifacts $ \a -> do
+      mvnFiles <- fmap concat $ forM mvnArtifacts $ \a -> do
           fs <- artifactFiles a
           pure $ map (a,) fs
-      mapM_ (\(_, (inp, outp)) -> copyToReleaseDir bazelLocations releaseDir inp outp) files
+      mapM_ (\(_, (inp, outp)) -> copyToReleaseDir bazelLocations releaseDir inp outp) mvnFiles
 
-      uploadArtifacts <- concatMapM mavenArtifactCoords mavenUploadArtifacts
-      validateMavenArtifacts releaseDir uploadArtifacts
+      mvnUploadArtifacts <- concatMapM mavenArtifactCoords mavenUploadArtifacts
+      validateMavenArtifacts releaseDir mvnUploadArtifacts
 
       -- npm packages we want to publish.
       let npmPackages =
@@ -101,36 +94,31 @@ main = do
       $logDebug "Building language-support typescript packages"
       forM_ npmPackages $ \rule -> liftIO $ callCommand $ "bazel build " <> rule
 
-      if | getPerformUpload upload -> do
-              $logInfo "Make release"
-              releaseToBintray upload releaseDir (map (\(a, (_, outp)) -> (a, outp)) files)
+      if | getPerformUpload optsPerformUpload -> do
+              $logInfo "Uploading to Bintray"
+              releaseToBintray releaseDir (map (\(a, (_, outp)) -> (a, outp)) mvnFiles)
 
-              -- Uploading to Maven Central
+              $logInfo "Uploading to Maven Central"
               mavenUploadConfig <- mavenConfigFromEnv
-              if not (null uploadArtifacts)
+              if not (null mvnUploadArtifacts)
                   then
-                    uploadToMavenCentral mavenUploadConfig releaseDir uploadArtifacts
+                    uploadToMavenCentral mavenUploadConfig releaseDir mvnUploadArtifacts
                   else
                     $logInfo "No artifacts to upload to Maven Central"
 
-              let npmrcPath = ".npmrc"
+              $logDebug "Uploading npm packages"
               -- We can't put an .npmrc file in the root of the directory because other bazel npm
               -- code picks it up and looks for the token which is not yet set before the release
               -- phase.
-              -- Only upload from the linux machine.
-              when (osName == "linux") $ do
-                $logDebug "Uploading npm packages"
-                liftIO $ bracket_
-                  (writeFile npmrcPath "//registry.npmjs.org/:_authToken=${NPM_TOKEN}")
-                  (Dir.removeFile npmrcPath)
-                  (forM_ npmPackages
-                    $ \rule -> liftIO $ callCommand $ "bazel run " <> rule <> ":npm_package.publish -- --access public")
+              let npmrcPath = ".npmrc"
+              liftIO $ bracket_
+                (writeFile npmrcPath "//registry.npmjs.org/:_authToken=${NPM_TOKEN}")
+                (Dir.removeFile npmrcPath)
+                (forM_ npmPackages
+                  $ \rule -> liftIO $ callCommand $ "bazel run " <> rule <> ":npm_package.publish -- --access public")
 
-              -- set variables for next steps in Azure pipelines
-              liftIO . putStrLn $ "##vso[task.setvariable variable=has_released;isOutput=true]true"
-              liftIO . putStrLn . T.unpack $ "##vso[task.setvariable variable=release_tag]" # renderVersion sdkVersion
          | optsLocallyInstallJars -> do
-              let lib_jars = filter (\(mvn,_) -> (artifactType mvn == "jar" || artifactType mvn == "pom") && Maybe.isNothing (classifier mvn)) uploadArtifacts
+              let lib_jars = filter (\(mvn,_) -> (artifactType mvn == "jar" || artifactType mvn == "pom") && Maybe.isNothing (classifier mvn)) mvnUploadArtifacts
               forM_ lib_jars $ \(mvn_coords, path) -> do
                   let args = ["install:install-file",
                               "-Dfile=" <> pathToString releaseDir <> pathToString path,
@@ -139,8 +127,8 @@ main = do
                               "-Dversion=100.0.0",
                               "-Dpackaging=" <> (T.unpack $ artifactType mvn_coords)]
                   liftIO $ callProcess "mvn" args
-         | otherwise -> $logInfo "Make dry run of release"
+         | otherwise -> $logInfo "Dry run selected: not uploading, not installing"
   where
     runLog Options{..} m0 = do
-        let m = filterLogger (\_ ll -> ll >= optsLogLevel) m0
-        if optsFullLogging then runStdoutLoggingT m else runFastLoggingT m
+        let m = filterLogger (\_ ll -> ll >= LevelDebug) m0
+        runFastLoggingT m

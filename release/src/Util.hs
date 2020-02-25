@@ -8,8 +8,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE UndecidableInstances #-}
 module Util (
-    isReleaseCommit,
-    readVersionAt,
     releaseToBintray,
     runFastLoggingT,
 
@@ -97,7 +95,6 @@ instance FromJSON ReleaseType where
 data Artifact c = Artifact
     { artTarget :: !BazelTarget
     , artReleaseType :: !ReleaseType
-    , artBintrayPackage :: !BintrayPackage
     -- ^ Defaults to sdk-components if not specified
     , artMavenUpload :: MavenUpload
     -- ^ Defaults to False if not specified
@@ -116,7 +113,6 @@ instance FromJSON (Artifact (Maybe ArtifactLocation)) where
     parseJSON = withObject "Artifact" $ \o -> Artifact
         <$> o .: "target"
         <*> o .: "type"
-        <*> (fromMaybe PkgSdkComponents <$> o .:? "bintrayPackage")
         <*> (fromMaybe (MavenUpload True) <$> o .:? "mavenUpload")
         <*> o .:? "javadoc-jar"
         <*> o .:? "src-jar"
@@ -165,7 +161,7 @@ buildTargets art@Artifact{..} =
 data PomData = PomData
   { pomGroupId :: GroupId
   , pomArtifactId :: ArtifactId
-  , pomVersion :: TextVersion
+  , pomVersion :: Text
   } deriving (Eq, Show)
 
 readPomData :: FilePath -> IO PomData
@@ -182,14 +178,14 @@ readPomData f = do
         , pomVersion = version
         }
 
-resolvePomData :: BazelLocations -> Version -> Version -> Artifact (Maybe ArtifactLocation) -> IO (Artifact PomData)
-resolvePomData BazelLocations{..} sdkVersion sdkComponentVersion art =
+resolvePomData :: BazelLocations -> Version -> Artifact (Maybe ArtifactLocation) -> IO (Artifact PomData)
+resolvePomData BazelLocations{..} (Version version) art =
     case artMetadata art of
         Just ArtifactLocation{..} -> pure art
             { artMetadata = PomData
                 { pomGroupId = coordGroupId
                 , pomArtifactId = coordArtifactId
-                , pomVersion = renderVersion version
+                , pomVersion = version
                 }
             }
         Nothing -> do
@@ -198,9 +194,6 @@ resolvePomData BazelLocations{..} sdkVersion sdkComponentVersion art =
             name <- parseRelFile (unpack name <> "_pom.xml")
             dat <- readPomData $ unpack $ pathToText $ bazelBin </> dir </> name
             pure art { artMetadata = dat }
-    where version = case artBintrayPackage art of
-              PkgSdk -> sdkVersion
-              PkgSdkComponents -> sdkComponentVersion
 
 data BazelLocations = BazelLocations
     { bazelBin :: !(Path Abs Dir)
@@ -343,7 +336,7 @@ mavenArtifactCoords Artifact{..} = do
     javadocFile <- releaseDocJarPath artMetadata
 
     let mavenCoords classifier artifactType =
-           MavenCoords { groupId = pomGroupId, artifactId = pomArtifactId, version = pomVersion, classifier, artifactType }
+           MavenCoords { groupId = pomGroupId, artifactId = pomArtifactId, version = Version pomVersion, classifier, artifactType }
     pure $ [ (mavenCoords Nothing $ mainExt artReleaseType, outDir </> mainArtifactFile)] <>
            [ (mavenCoords Nothing "pom",  outDir </> pomFile) | isJar artReleaseType] <>
            [ (mavenCoords (Just "sources") "jar", outDir </> sourcesFile) | isJar artReleaseType] <>
@@ -376,68 +369,35 @@ isDeployJar t =
         Jar Deploy -> True
         _ -> False
 
-bintrayTargetLocation :: BintrayPackage -> TextVersion -> Text
-bintrayTargetLocation pkg version =
-    let pkgName = case pkg of
-          PkgSdkComponents -> "sdk-components"
-          PkgSdk -> "sdk"
+bintrayTargetLocation :: Version -> Text
+bintrayTargetLocation (Version version) =
+    let pkgName = "sdk-components"
     in "digitalassetsdk/DigitalAssetSDK/" # pkgName # "/" # version
 
 releaseToBintray ::
      MonadCI m
-  => PerformUpload
-  -> ReleaseDir
+  => ReleaseDir
   -> [(Artifact PomData, Path Rel File)]
   -> m ()
-releaseToBintray upload releaseDir artifacts = do
+releaseToBintray releaseDir artifacts = do
   for_ artifacts $ \(Artifact{..}, location) -> do
     let sourcePath = pathToText (releaseDir </> location)
-    let targetLocation = bintrayTargetLocation artBintrayPackage (pomVersion artMetadata)
+    let targetLocation = bintrayTargetLocation (Version $ pomVersion artMetadata)
     let targetPath = pathToText location
     let msg = "Uploading "# sourcePath #" to target location "# targetLocation #" and target path "# targetPath
-    if getPerformUpload upload
-        then do
-            $logInfo msg
-            let args = ["bt", "upload", "--flat=false", "--publish=true", sourcePath, targetLocation, targetPath]
-            mbErr <- E.try (loggedProcess_ "jfrog" args)
-            case mbErr of
-              Left (err :: Proc.ProcessExitedUnsuccessfully) ->
-                $logError ("jfrog failed, assuming it's because the artifact was already there: "# tshow err)
-              Right () -> return ()
-        else
-            $logInfo ("(In dry run, skipping) "# msg)
+    $logInfo msg
+    let args = ["bt", "upload", "--flat=false", "--publish=true", sourcePath, targetLocation, targetPath]
+    mbErr <- E.try (loggedProcess_ "jfrog" args)
+    case mbErr of
+      Left (err :: Proc.ProcessExitedUnsuccessfully) ->
+        $logError ("jfrog failed, assuming it's because the artifact was already there: "# tshow err)
+      Right () -> return ()
 
 osName ::  Text
 osName
   | isWindows = "windows"
   | isMac = "osx"
   | otherwise = "linux"
-
-readVersionAt :: MonadCI m => GitRev -> m Version
-readVersionAt rev = do
-    txt <- T.unlines <$> loggedProcess "git" ["show", rev #":"# pathToText versionFile] C.sourceToList
-    case parseVersion (T.strip txt) of
-        Nothing ->
-            throwIO (CIException ("Could not decode VERSION file at revision "# rev #": "# tshow txt))
-        Just version ->
-            pure version
-
-gitChangedFiles :: MonadCI m => GitRev -> m [T.Text]
-gitChangedFiles rev =
-    loggedProcess "git" ["diff-tree", "--no-commit-id", "--name-only", "-r", rev] C.sourceToList
-
-versionFile :: Path Rel File
-versionFile = $(mkRelFile "VERSION")
-
-isReleaseCommit :: MonadCI m => m Bool
-isReleaseCommit = do
-    files <- gitChangedFiles "HEAD"
-    let isRelease = "VERSION" `elem` files
-                 && "docs/source/support/release-notes.rst" `elem` files
-                 && length files == 2
-    if "VERSION" `elem` files && not isRelease
-    then throwIO $ CIException "Release commit should only change VERSION and release-notes.rst"
-    else return isRelease
 
 runFastLoggingT :: LoggingT IO c -> IO c
 runFastLoggingT m = do

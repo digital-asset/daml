@@ -13,9 +13,7 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
 
 set -eou pipefail
 
-# Avoid leading `./` which confuses `rlocation`.
-# See https://github.com/bazelbuild/bazel/issues/10670
-SDK_VERSION=$(rlocation $TEST_WORKSPACE/${1#./})
+SDK_VERSION=$1
 DAMLC=$(rlocation $TEST_WORKSPACE/$2)
 DAML_TRIGGERS_DAR=$(rlocation $TEST_WORKSPACE/$3)
 DAML_SOURCE=$(rlocation $TEST_WORKSPACE/$4)
@@ -23,7 +21,7 @@ DAML_SOURCE=$(rlocation $TEST_WORKSPACE/$4)
 TMP_DIR=$(mktemp -d)
 mkdir -p $TMP_DIR/daml
 cat <<EOF > $TMP_DIR/daml.yaml
-sdk-version: $(cat $SDK_VERSION)
+sdk-version: $SDK_VERSION
 name: trigger-scenarios
 source: daml
 version: 0.0.1

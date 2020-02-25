@@ -9,6 +9,7 @@ load(
     "//bazel_tools/client_server:client_server_test.bzl",
     "client_server_test",
 )
+load("@build_environment//:configuration.bzl", "sdk_version")
 
 genrule(
     name = "acs",
@@ -16,7 +17,6 @@ genrule(
         glob(["**/*.daml"]) + [
             "//triggers/daml:daml-trigger.dar",
             "//docs:source/triggers/template-root/src/CopyTrigger.daml",
-            "//:VERSION",
         ],
     outs = ["acs.dar"],
     cmd = """
@@ -35,7 +35,7 @@ genrule(
       cp -L $(location //docs:source/triggers/template-root/src/CopyTrigger.daml) $$TMP_DIR/daml
       cp -L $(location //triggers/daml:daml-trigger.dar) $$TMP_DIR/
       cat << EOF > $$TMP_DIR/daml.yaml
-sdk-version: $$(cat $(location //:VERSION))
+sdk-version: {sdk}
 name: acs
 source: daml
 version: 0.0.1
@@ -46,7 +46,7 @@ dependencies:
 EOF
       $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$(location acs.dar)
       rm -rf $$TMP_DIR
-    """,
+    """.format(sdk = sdk_version),
     tools = ["//compiler/damlc"],
     visibility = ["//visibility:public"],
 )

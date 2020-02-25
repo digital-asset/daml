@@ -27,6 +27,7 @@
 #   - A list of targets produced by daml-compile
 #   Outputs:
 #   - A directory containing the combined package database
+load("@build_environment//:configuration.bzl", "ghc_version")
 
 PACKAGE_CONF_TEMPLATE = """
 name: {name}
@@ -51,17 +52,16 @@ def _daml_package_rule_impl(ctx):
     pkg_name_version = ctx.actions.declare_file("".join([name, "_pkg_name_version"]))
     ctx.actions.run_shell(
         outputs = [pkg_name_version],
-        inputs = [ctx.file.sdk_version],
         command = """
         if [ "daml-prim" = {pkg_name} ]; then
           echo {pkg_name} > {pkg_name_version_file}
         else
-          echo {pkg_name}-`cat {sdk_version_file}` > {pkg_name_version_file}
+          echo {pkg_name}-{version} > {pkg_name_version_file}
         fi
       """.format(
             pkg_name = ctx.attr.pkg_name,
             pkg_name_version_file = pkg_name_version.path,
-            sdk_version_file = ctx.file.sdk_version.path,
+            version = ghc_version,
         ),
     )
     dalf = ctx.actions.declare_file("{}.dalf".format(name))
@@ -79,15 +79,15 @@ def _daml_package_rule_impl(ctx):
     # Create the package conf file
     ctx.actions.run_shell(
         outputs = [package_config],
-        inputs = [pkg_name_version, ctx.file.sdk_version],
+        inputs = [pkg_name_version],
         command = """
         echo "{content}" > {package_config}
         sed -i s/__ID__/`cat {pkg_name_version_file}`/ {package_config}
-        sed -i s/__SDK_VERSION__/`cat {sdk_version_file}`/ {package_config}
+        sed -i s/__SDK_VERSION__/{version}/ {package_config}
           """.format(
             package_config = package_config.path,
             pkg_name_version_file = pkg_name_version.path,
-            sdk_version_file = ctx.file.sdk_version.path,
+            version = ghc_version,
             content = PACKAGE_CONF_TEMPLATE.format(
                 name = ctx.attr.pkg_name,
                 modules = " ".join(modules.keys()),
@@ -177,10 +177,6 @@ daml_package_rule = rule(
         ),
         "daml_lf_version": attr.string(
             mandatory = True,
-        ),
-        "sdk_version": attr.label(
-            allow_single_file = True,
-            default = "//:VERSION",
         ),
     },
 )
