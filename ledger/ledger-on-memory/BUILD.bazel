@@ -19,6 +19,7 @@ da_scala_library(
     ],
     deps = [
         "//daml-lf/data",
+        "//language-support/scala/bindings",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-health",
         "//ledger/participant-state",
@@ -42,6 +43,7 @@ da_scala_test(
     deps = [
         ":ledger-on-memory",
         "//daml-lf/data",
+        "//language-support/scala/bindings",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
         "//ledger/ledger-api-common",

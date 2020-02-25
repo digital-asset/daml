@@ -4,7 +4,7 @@
 package com.digitalasset.platform.sandboxnext
 
 import java.io.File
-import java.time.{Clock, Instant}
+import java.time.Instant
 import java.util.UUID
 
 import akka.actor.ActorSystem
@@ -14,18 +14,14 @@ import com.daml.ledger.on.sql.Database.InvalidDatabaseException
 import com.daml.ledger.on.sql.SqlLedgerReaderWriter
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.v1
-import com.daml.ledger.participant.state.v1.{ReadService, WriteService}
+import com.daml.ledger.participant.state.v1.{ReadService, TimeServiceBackend, WriteService}
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.auth.{AuthService, AuthServiceWildcard}
 import com.digitalasset.logging.LoggingContext.newLoggingContext
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
-import com.digitalasset.platform.apiserver.{
-  ApiServerConfig,
-  StandaloneApiServer,
-  TimeServiceBackend
-}
+import com.digitalasset.platform.apiserver.{ApiServerConfig, StandaloneApiServer}
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.configuration.BuildInfo
 import com.digitalasset.platform.indexer.{
@@ -86,13 +82,6 @@ class Runner {
       case TimeProviderType.WallClock =>
         None
     }
-    val now: () => Instant = timeServiceBackend
-      .map(backend => () => backend.getCurrentTime)
-      .getOrElse({
-        val clock = Clock.systemUTC()
-        () =>
-          clock.instant()
-      })
 
     newLoggingContext { implicit logCtx =>
       for {
@@ -100,7 +89,11 @@ class Runner {
         // This is necessary because we can't declare them as implicits within a `for` comprehension.
         _ <- AkkaResourceOwner.forActorSystem(() => system)
         _ <- AkkaResourceOwner.forMaterializer(() => materializer)
-        readerWriter <- SqlLedgerReaderWriter.owner(ledgerId, ParticipantId, ledgerJdbcUrl, now)
+        readerWriter <- SqlLedgerReaderWriter.owner(
+          ledgerId,
+          ParticipantId,
+          ledgerJdbcUrl,
+          timeServiceBackend.getOrElse(SqlLedgerReaderWriter.DefaultTimeServiceBackend))
         ledger = new KeyValueParticipantState(readerWriter, readerWriter)
         _ <- ResourceOwner.forFuture(() =>
           Future.sequence(config.damlPackages.map(uploadDar(_, ledger))))

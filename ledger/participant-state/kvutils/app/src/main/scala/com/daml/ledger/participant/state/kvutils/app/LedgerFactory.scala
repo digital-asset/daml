@@ -5,10 +5,10 @@ package com.daml.ledger.participant.state.kvutils.app
 
 import akka.stream.Materializer
 import com.codahale.metrics.{MetricRegistry, SharedMetricRegistries}
-import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId}
+import com.daml.ledger.participant.state.v1.TimeServiceBackend
 import com.digitalasset.ledger.api.auth.{AuthService, AuthServiceWildcard}
 import com.digitalasset.logging.LoggingContext
-import com.digitalasset.platform.apiserver.{ApiServerConfig, TimeServiceBackend}
+import com.digitalasset.platform.apiserver.ApiServerConfig
 import com.digitalasset.platform.indexer.{IndexerConfig, IndexerStartupMode}
 import com.digitalasset.resources.ResourceOwner
 import scopt.OptionParser
@@ -20,11 +20,7 @@ trait LedgerFactory[T <: KeyValueLedger, ExtraConfig] {
 
   def extraConfigParser(parser: OptionParser[Config[ExtraConfig]]): Unit
 
-  def owner(
-      initialLedgerId: Option[LedgerId],
-      participantId: ParticipantId,
-      config: ExtraConfig,
-  )(
+  def owner(config: Config[ExtraConfig])(
       implicit executionContext: ExecutionContext,
       materializer: Materializer,
       logCtx: LoggingContext,

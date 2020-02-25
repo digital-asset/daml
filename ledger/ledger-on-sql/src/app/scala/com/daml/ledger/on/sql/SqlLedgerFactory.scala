@@ -5,7 +5,7 @@ package com.daml.ledger.on.sql
 
 import akka.stream.Materializer
 import com.daml.ledger.participant.state.kvutils.app.{Config, LedgerFactory}
-import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId}
+import com.daml.ledger.participant.state.v1.TimeServiceBackend
 import com.digitalasset.logging.LoggingContext
 import com.digitalasset.resources.ResourceOwner
 import scopt.OptionParser
@@ -30,17 +30,25 @@ object SqlLedgerFactory extends LedgerFactory[SqlLedgerReaderWriter, ExtraConfig
     config.copy(allowExistingSchemaForIndex = true)
 
   override def owner(
-      initialLedgerId: Option[LedgerId],
-      participantId: ParticipantId,
-      config: ExtraConfig,
+      config: Config[ExtraConfig],
   )(
       implicit executionContext: ExecutionContext,
       materializer: Materializer,
       logCtx: LoggingContext,
   ): ResourceOwner[SqlLedgerReaderWriter] = {
-    val jdbcUrl = config.jdbcUrl.getOrElse {
+    val jdbcUrl = config.extra.jdbcUrl.getOrElse {
       throw new IllegalStateException("No JDBC URL provided.")
     }
-    SqlLedgerReaderWriter.owner(initialLedgerId, participantId, jdbcUrl)
+    SqlLedgerReaderWriter.owner(
+      config.ledgerId,
+      config.participantId,
+      jdbcUrl,
+      timeServiceBackend(config).getOrElse(
+        throw new IllegalStateException(
+          s"${getClass.getSimpleName} should always provide a timeServerBackend but didn't"))
+    )
   }
+
+  final override def timeServiceBackend(config: Config[ExtraConfig]): Option[TimeServiceBackend] =
+    Some(SqlLedgerReaderWriter.DefaultTimeServiceBackend)
 }

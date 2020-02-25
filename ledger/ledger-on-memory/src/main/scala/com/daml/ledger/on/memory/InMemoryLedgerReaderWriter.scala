@@ -3,7 +3,7 @@
 
 package com.daml.ledger.on.memory
 
-import java.time.{Clock, Instant}
+import java.time.Clock
 import java.util.UUID
 import java.util.concurrent.Semaphore
 
@@ -13,7 +13,7 @@ import com.daml.ledger.on.memory.InMemoryLedgerReaderWriter._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntryId
 import com.daml.ledger.participant.state.kvutils.api.{LedgerReader, LedgerRecord, LedgerWriter}
 import com.daml.ledger.participant.state.kvutils.{KeyValueCommitting, SequentialLogEntryId}
-import com.daml.ledger.participant.state.v1._
+import com.daml.ledger.participant.state.v1.{TimeServiceBackend, _}
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.daml.ledger.validator.{
   BatchingLedgerStateOperations,
@@ -49,8 +49,8 @@ private[memory] class InMemoryState(
 final class InMemoryLedgerReaderWriter(
     override val ledgerId: LedgerId,
     override val participantId: ParticipantId,
-    now: () => Instant,
     dispatcher: Dispatcher[Index],
+    timeServiceBackend: TimeServiceBackend,
 )(
     implicit executionContext: ExecutionContext,
     logCtx: LoggingContext,
@@ -63,7 +63,7 @@ final class InMemoryLedgerReaderWriter(
 
   private val committer = new ValidatingCommitter(
     participantId,
-    now,
+    () => timeServiceBackend.getCurrentTime,
     SubmissionValidator.create(InMemoryLedgerStateAccess, () => sequentialLogEntryId.next()),
     dispatcher.signalNewHead,
   )
@@ -139,12 +139,15 @@ object InMemoryLedgerReaderWriter {
 
   private val DefaultClock: Clock = Clock.systemUTC()
 
+  val DefaultTimeServiceBackend: TimeServiceBackend =
+    TimeServiceBackend.wallClock(DefaultClock)
+
   private val sequentialLogEntryId = new SequentialLogEntryId(NamespaceLogEntries)
 
   def owner(
       initialLedgerId: Option[LedgerId],
       participantId: ParticipantId,
-      now: () => Instant = () => DefaultClock.instant(),
+      timeServiceBackend: TimeServiceBackend,
   )(
       implicit executionContext: ExecutionContext,
       logCtx: LoggingContext,
@@ -160,6 +163,6 @@ object InMemoryLedgerReaderWriter {
     } yield {
       val ledgerId =
         initialLedgerId.getOrElse(Ref.LedgerString.assertFromString(UUID.randomUUID.toString))
-      new InMemoryLedgerReaderWriter(ledgerId, participantId, now, dispatcher)
+      new InMemoryLedgerReaderWriter(ledgerId, participantId, dispatcher, timeServiceBackend)
     }
 }

@@ -45,7 +45,7 @@ class Runner[T <: KeyValueLedger, Extra](name: String, factory: LedgerFactory[T,
         _ <- AkkaResourceOwner.forActorSystem(() => system)
         _ <- AkkaResourceOwner.forMaterializer(() => materializer)
 
-        readerWriter <- factory.owner(config.ledgerId, config.participantId, config.extra)
+        readerWriter <- factory.owner(config)
         ledger = new KeyValueParticipantState(readerWriter, readerWriter)
         _ <- ResourceOwner.forFuture(() =>
           Future.sequence(config.archiveFiles.map(uploadDar(_, ledger))))

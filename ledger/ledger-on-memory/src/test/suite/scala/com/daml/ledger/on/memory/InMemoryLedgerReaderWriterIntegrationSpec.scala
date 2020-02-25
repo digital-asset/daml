@@ -22,6 +22,6 @@ class InMemoryLedgerReaderWriterIntegrationSpec
       testId: String,
   )(implicit logCtx: LoggingContext): ResourceOwner[ParticipantState] =
     InMemoryLedgerReaderWriter
-      .owner(ledgerId, participantId)
+      .owner(ledgerId, participantId, InMemoryLedgerReaderWriter.DefaultTimeServiceBackend)
       .map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter))
 }
