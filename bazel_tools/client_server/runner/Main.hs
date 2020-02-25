@@ -30,6 +30,6 @@ main = do
 
   let serverProc = proc serverExe newServerArgs
   withCreateProcess serverProc $ \_stdin _stdout _stderr _ph -> do
-    _ <- forM_ files $ \(file, _cleanup) -> readPortFile maxRetries file
+    forM_ files $ \(file, _cleanup) -> readPortFile maxRetries file
     callProcess clientExe (splitArgs clientArgs)
-    forM_ files $ \(_file, cleanup) -> cleanup
+    forM_ files snd
