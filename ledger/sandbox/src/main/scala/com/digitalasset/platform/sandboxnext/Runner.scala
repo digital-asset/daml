@@ -4,7 +4,7 @@
 package com.digitalasset.platform.sandboxnext
 
 import java.io.File
-import java.time.Instant
+import java.time.{Clock, Instant}
 import java.util.UUID
 
 import akka.actor.ActorSystem
@@ -15,6 +15,7 @@ import com.daml.ledger.on.sql.SqlLedgerReaderWriter
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.{ReadService, WriteService}
+import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
@@ -87,13 +88,24 @@ class Runner {
         None
     }
 
+    val now: TimeProvider = timeServiceBackend
+      .map(backend =>
+        new TimeProvider {
+          override def getCurrentTime: Instant = backend.getCurrentTime
+      })
+      .getOrElse(
+        new TimeProvider {
+          override def getCurrentTime: Instant = Clock.systemUTC().instant()
+        }
+      )
+
     newLoggingContext { implicit logCtx =>
       for {
         // Take ownership of the actor system and materializer so they're cleaned up properly.
         // This is necessary because we can't declare them as implicits within a `for` comprehension.
         _ <- AkkaResourceOwner.forActorSystem(() => system)
         _ <- AkkaResourceOwner.forMaterializer(() => materializer)
-        readerWriter <- SqlLedgerReaderWriter.owner(ledgerId, ParticipantId, ledgerJdbcUrl)
+        readerWriter <- SqlLedgerReaderWriter.owner(ledgerId, ParticipantId, ledgerJdbcUrl, now)
         ledger = new KeyValueParticipantState(readerWriter, readerWriter)
         _ <- ResourceOwner.forFuture(() =>
           Future.sequence(config.damlPackages.map(uploadDar(_, ledger))))
