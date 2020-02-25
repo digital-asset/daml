@@ -5,7 +5,6 @@ package com.digitalasset.platform.apiserver
 
 import java.time.{Instant, ZoneOffset, ZonedDateTime}
 
-import com.daml.ledger.participant.state.v1.TimeServiceBackend
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{Matchers, WordSpec}
 

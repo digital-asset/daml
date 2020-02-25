@@ -6,7 +6,7 @@ package com.digitalasset.platform.apiserver
 import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.index.v2._
-import com.daml.ledger.participant.state.v1.{Configuration, TimeServiceBackend, WriteService}
+import com.daml.ledger.participant.state.v1.{Configuration, WriteService}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.Ref

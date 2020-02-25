@@ -11,12 +11,7 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.participant.state.v1.{
-  ParticipantId,
-  ReadService,
-  TimeServiceBackend,
-  WriteService
-}
+import com.daml.ledger.participant.state.v1.{ParticipantId, ReadService, WriteService}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
