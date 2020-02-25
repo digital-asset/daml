@@ -19,7 +19,7 @@ CREATE TABLE participant_command_submissions(
   -- The time the command will stop being deduplicated
   ttl                timestamp             not null,
   -- The gRPC status code of the original command submission, if available
-  result_code        int,
+  status_code        int,
   -- The gRPC status message of the original command submission, if available
-  result_message     varchar
+  status_message     varchar
 );

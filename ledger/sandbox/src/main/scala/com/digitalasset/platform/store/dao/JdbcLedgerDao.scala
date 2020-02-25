@@ -1636,7 +1636,7 @@ private class JdbcLedgerDao(
   }
 
   private val SQL_SELECT_COMMAND = SQL("""
-      |select submitted_at, ttl, result_code, result_message
+      |select submitted_at, ttl, status_code, status_message
       |from participant_command_submissions
       |where deduplication_key = {deduplicationKey}
     """.stripMargin)
@@ -1645,8 +1645,8 @@ private class JdbcLedgerDao(
     Macro.parser[ParsedCommandData](
       "submitted_at",
       "ttl",
-      "result_code",
-      "result_message"
+      "status_code",
+      "status_message"
     )
 
   override def deduplicateCommand(
@@ -1688,7 +1688,7 @@ private class JdbcLedgerDao(
   private val SQL_UPDATE_COMMAND = SQL(
     """
       |update participant_command_submissions
-      |set result_code={resultCode}, result_message={resultMessage}
+      |set status_code={statusCode}, status_message={statusMessage}
       |where deduplication_key={deduplicationKey} and submitted_at={submittedAt}
     """.stripMargin)
 
@@ -1702,8 +1702,8 @@ private class JdbcLedgerDao(
         .on(
           "deduplicationKey" -> deduplicationKey,
           "submittedAt" -> submittedAt,
-          "resultCode" -> code,
-          "resultMessage" -> message
+          "statusCode" -> code,
+          "statusMessage" -> message
         )
         .execute()
       ()
