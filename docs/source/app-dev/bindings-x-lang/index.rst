@@ -4,7 +4,7 @@
 Creating your own bindings
 ##########################
 
-This page gets you started with creating custom bindings for the DAML Ledger.
+This page gets you started with creating custom bindings for a DAML Ledger.
 
 Introduction
 ============

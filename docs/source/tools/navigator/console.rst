@@ -272,7 +272,7 @@ Advancing time
 
 You can advance the time of the DAML Sandbox. This can be useful when testing, for example, when entering a trade on one date and settling it on a later date.
 
-(For obvious reasons, this feature does not exist on the DAML Ledger.)
+(For obvious reasons, this feature does not exist on all DAML Ledgers.)
 
 To display the current ledger time, use the ``time`` command::
 

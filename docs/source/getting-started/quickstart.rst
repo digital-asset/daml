@@ -257,7 +257,7 @@ The core concept in DAML is a *contract template* - you used them earlier to cre
 - constraints or conditions on the data on a contract instance
 - additional parties, called observers, who can see the contract instance
 
-For more information about the DAML Ledger, consult :ref:`da-ledgers` for an in-depth technical description.
+For more information about DAML Ledgers, consult :ref:`da-ledgers` for an in-depth technical description.
 
 Develop with DAML Studio
 ========================
