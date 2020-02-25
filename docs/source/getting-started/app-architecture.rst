@@ -88,15 +88,29 @@ We use custom DAML React hooks to query the ledger for contracts, create new con
 
 .. TODO Link to DAML react hooks API
 
-We can see examples of this in the ``MainView`` component.
-This is the React component that enables the main functionality of the app.
+Let's first see an example of a React component using a (non-DAML) hook.
+This is the ``App`` component at the top of our component tree.
+
+.. literalinclude:: code/ui-before/App.tsx
+  :start-after: // APP_BEGIN
+  :end-before: // APP_END
+
+The ``useState`` hook keeps track of the user credentials across components.
+If they are not set, we render the ``LoginScreen`` with a callback to ``setCredentials``.
+If they are set, then we render the ``MainScreen`` of the app.
+This is wrapped in a ``DamlLedger`` component, a `React context <https://reactjs.org/docs/context.html>`_ with the current view of the ledger.
+
+The ``MainScreen`` is a simple frame around the ``MainView`` component.
+The ``MainView`` houses the main functionality of our app and is especially interesting as it uses the DAML React hooks to query and update ledger state.
 
 .. literalinclude:: code/ui-before/MainView.tsx
   :language: typescript
   :start-after: // USERS_BEGIN
   :end-before: // USERS_END
 
-For instance, ``allUsers`` uses the query hook to get the ``User`` contracts on the ledger.
+The ``useParty`` hook simply returns the current user as stored in the ``DamlLedger`` state.
+A good example is the ``allUsers`` line.
+We use the query hook to get the ``User`` contracts on the ledger.
 Note however that the query preserves privacy: only users that have added the party currently logged in are shown.
 This is because the observers of a ``User`` contract are exactly the user's friends.
 
