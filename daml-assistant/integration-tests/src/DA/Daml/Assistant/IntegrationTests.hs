@@ -215,9 +215,6 @@ packagingTests = testGroup "packaging"
           , "  alice `submit` createCmd (T alice)"
           , "  pure ()"
           ]
-        withCurrentDirectory projDir $ do
-          callProcess "daml" ["build"]
-          callProcess "daml" ["damlc", "inspect-dar", ".daml/dist/init-script-example-1.0.dar"]
         sandboxPort :: Int <- fromIntegral <$> getFreePort
         jsonApiPort :: Int <- fromIntegral <$> getFreePort
         let startProc = shell $ unwords
