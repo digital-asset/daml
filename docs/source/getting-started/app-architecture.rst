@@ -82,26 +82,30 @@ The UI
 On top of TypeScript, we use the UI framework `React <https://reactjs.org/>`_.
 React helps us write modular UI components using a functional style - a component is rerendered whenever one of its inputs changes - with careful use of global state.
 
-The latter is especially interesting as it's how we handle ledger state in our application.
-We use a state management feature of React called `Hooks <https://reactjs.org/docs/hooks-intro.html>`_.
-We use custom DAML React hooks to query the ledger for contracts, create new contracts, and exercise choices.
-
-.. TODO Link to DAML react hooks API
-
-Let's first see an example of a React component using a (non-DAML) hook.
-This is the ``App`` component at the top of our component tree.
+Let's see an example of a React component.
+All components are in the ``ui/src/components`` folder.
+You can navigate there within Visual Studio Code using the file *Explorer* on the left sidebar.
+We'll first look at ``App.tsx``, which is the entry point to our application.
 
 .. literalinclude:: code/ui-before/App.tsx
   :start-after: // APP_BEGIN
   :end-before: // APP_END
 
-The ``useState`` hook keeps track of the user credentials across components.
+An important tool in the design of our components is a React feature called `Hooks <https://reactjs.org/docs/hooks-intro.html>`_.
+Hooks allow you to share and update state across components, avoiding having to thread it through manually.
+We take advantage of hooks in particular to share ledger state across components.
+We use custom *DAML React hooks* to query the ledger for contracts, create new contracts, and exercise choices.
+
+.. TODO Link to DAML react hooks API
+
+The ``useState`` hook (not specific to DAML) here keeps track of the user's credentials.
 If they are not set, we render the ``LoginScreen`` with a callback to ``setCredentials``.
 If they are set, then we render the ``MainScreen`` of the app.
-This is wrapped in a ``DamlLedger`` component, a `React context <https://reactjs.org/docs/context.html>`_ with the current view of the ledger.
+This is wrapped in the ``DamlLedger`` component, a React `context <https://reactjs.org/docs/context.html>`_ with the current view of the ledger.
 
-The ``MainScreen`` is a simple frame around the ``MainView`` component.
-The ``MainView`` houses the main functionality of our app and is especially interesting as it uses DAML React hooks to query and update ledger state.
+Let's move on to more advanced uses of our DAML React library.
+The ``MainScreen`` is a simple frame around the ``MainView`` component, which houses the main functionality of our app.
+It uses DAML React hooks to query and update ledger state.
 
 .. literalinclude:: code/ui-before/MainView.tsx
   :language: typescript
