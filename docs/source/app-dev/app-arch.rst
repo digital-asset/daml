@@ -122,3 +122,25 @@ typical DAML developer workflow is to
   #. Make further changes either to your DAML and/or React code until you're happy with what you've developed
 
 .. image:: ./developer_workflow.svg
+
+.. _handling-submission-failures:
+
+Handle failures when submitting commands
+****************************************
+
+The interaction of a DAML application with the ledger is inherently asynchronous: applications send commands to the ledger, and some time later they see the effect of that command on the ledger.
+
+There are several things that can fail during this time window: the application can crash, the participant node can crash, messages can be lost on the network, or the ledger may be just slow to respond due to a high load.
+
+If you want to make sure no command is executed twice (especially important with non-consuming choices), your application needs to robustly handle all the various failure scenarios.
+DAML ledgers provide **command deduplication** to solve this problem:
+Applications can assign a “time to live” (TTL) to each command,
+and the ledger will guarantee that duplicate commands (using the same submitter and command ID) will be ignored within this time window.
+
+To use command deduplication, you should:
+
+- Use generous values for the TTL. It should be large enough such that you can assume the command was permanently lost if the TTL has passed and you still don’t observe any effect of the command on the ledger.
+- Make sure you set command IDs deterministically - the "same" command must use the same command ID.
+- If you are not sure whether a command was submitted successfully, just resubmit it. If the new command was submitted within the TTL window, the duplicate submission will safely be ignored. If the TTL window has passed, you can assume the command was lost or rejected and a new submission is justified.
+
+For more details on command deduplication, see the :ref:`Ledger API Services <command-submission-service-deduplication>` documentation.

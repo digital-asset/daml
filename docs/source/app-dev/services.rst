@@ -59,6 +59,23 @@ Commands can be labeled with two application-specific IDs, both of which are ret
 
 For full details, see :ref:`the proto documentation for the service <com.digitalasset.ledger.api.v1.CommandSubmissionService>`.
 
+.. _command-submission-service-deduplication:
+
+Command deduplication
+---------------------
+
+The command submission service deduplicates submitted commands:
+
+- Applications can assign a "time to live" (TTL) value to each command.
+- Duplicate command submissions (using the same submitter and command ID) will be ignored until either the TTL of the original command has elapsed or the original submission was rejected, whichever comes first.
+- Command deduplication is only guaranteed to work if all commands are submitted to the same participant. On some ledgers, the deduplication may also work across participants.
+- A command submission will return:
+  - The result of the submission, if the command was submitted for the first time
+  - The status error ALREADY_EXISTS, if the command was deduplicated and the result of the first submission is unknown
+  - The result of the original submission, if the command was deduplicated and the result of the original submission is known
+
+For details on how to use command deduplication, see the :ref:`Application Architecture Guide <handling-submission-failures>`.
+
 .. _command-completion-service:
 
 Command completion service
