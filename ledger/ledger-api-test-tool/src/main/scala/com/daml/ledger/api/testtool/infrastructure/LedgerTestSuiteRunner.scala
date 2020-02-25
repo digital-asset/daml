@@ -78,35 +78,39 @@ final class LedgerTestSuiteRunner(
     execution.completeWith(startedTest).future
   }
 
-  private def result(startedTest: Future[Duration])(implicit ec: ExecutionContext): Future[Result] =
+  private def result(startedTest: Future[Duration])(
+      implicit ec: ExecutionContext): Future[Either[Result.Failure, Result.Success]] =
     startedTest
-      .map[Result](Result.Succeeded)
-      .recover[Result] {
+      .map[Either[Result.Failure, Result.Success]](duration => Right(Result.Succeeded(duration)))
+      .recover[Either[Result.Failure, Result.Success]] {
         case SkipTestException(reason) =>
-          Result.Skipped(reason)
+          Right(Result.Skipped(reason))
         case _: TimeoutException =>
-          Result.TimedOut
+          Left(Result.TimedOut)
         case failure: AssertionError =>
-          Result.Failed(failure)
+          Left(Result.Failed(failure))
         case NonFatal(box: ExecutionException) =>
           box.getCause match {
             case failure: AssertionError =>
-              Result.Failed(failure)
+              Left(Result.Failed(failure))
             case NonFatal(exception) =>
-              Result.FailedUnexpectedly(exception)
+              Left(Result.FailedUnexpectedly(exception))
           }
         case NonFatal(exception) =>
-          Result.FailedUnexpectedly(exception)
+          Left(Result.FailedUnexpectedly(exception))
       }
 
-  private def summarize(suite: LedgerTestSuite, test: LedgerTestCase, result: Result)(
+  private def summarize(
+      suite: LedgerTestSuite,
+      test: LedgerTestCase,
+      result: Either[Result.Failure, Result.Success])(
       implicit ec: ExecutionContext,
   ): LedgerTestSummary =
     LedgerTestSummary(suite.name, test.description, suite.session.config, result)
 
   private def run(test: LedgerTestCase, session: LedgerSession)(
       implicit ec: ExecutionContext,
-  ): Future[Result] =
+  ): Future[Either[Result.Failure, Result.Success]] =
     result(start(test, session))
 
   private def run(completionCallback: Try[Vector[LedgerTestSummary]] => Unit): Unit = {

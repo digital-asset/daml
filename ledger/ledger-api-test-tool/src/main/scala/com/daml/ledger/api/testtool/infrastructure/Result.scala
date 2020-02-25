@@ -5,30 +5,17 @@ package com.daml.ledger.api.testtool.infrastructure
 
 import scala.concurrent.duration.Duration
 
-private[testtool] sealed trait Result {
-  def failure: Boolean
-}
-
 private[testtool] object Result {
 
-  final case class Succeeded(duration: Duration) extends Result {
-    val failure: Boolean = false
-  }
+  sealed trait Success
 
-  final case class Skipped(reason: String) extends Result {
-    val failure: Boolean = false
-  }
+  final case class Succeeded(duration: Duration) extends Success
+  final case class Skipped(reason: String) extends Success
 
-  case object TimedOut extends Result {
-    val failure: Boolean = true
-  }
+  sealed trait Failure
 
-  final case class Failed(cause: AssertionError) extends Result {
-    val failure: Boolean = true
-  }
-
-  final case class FailedUnexpectedly(cause: Throwable) extends Result {
-    val failure: Boolean = true
-  }
+  case object TimedOut extends Failure
+  final case class Failed(cause: AssertionError) extends Failure
+  final case class FailedUnexpectedly(cause: Throwable) extends Failure
 
 }
