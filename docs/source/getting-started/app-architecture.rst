@@ -7,14 +7,21 @@ App Architecture
 In this section we'll look at the different components of our social network app.
 The goal is to familiarise you enough to feel comfortable extending the code with a new feature in the next section.
 
-There are two main components in the code - the DAML model and the React/TypeScript frontend - with generated TypeScript code to bridge the two.
-Let's start by looking at the DAML model, as this sets the core logic of the application.
+There are two main components: the DAML model and the React/TypeScript frontend.
+We generate TypeScript code to bridge the two.
+Let's start by looking at the DAML model, which defines the core logic of the application.
 
 The DAML Model
 ==============
 
-Using the Visual Studio Code editor, navigate to the ``daml`` subdirectory.
-There is a single DAML file called ``User.daml`` with the model for app users.
+Using your terminal, navigate to the ``create-daml-app/daml`` directory and run::
+
+  daml studio
+
+This should open the Visual Studio Code editor at the DAML source files.
+(You may get a new tab pop up with release notes for the latest SDK - just close this.)
+We want to focus on the ``User.daml`` file.
+This models the data and workflow for users of the app.
 The core data is at the start of the ``User`` contract template.
 
 .. literalinclude:: code/daml/User.daml
