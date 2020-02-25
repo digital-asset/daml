@@ -58,7 +58,7 @@ Next we need to compile the DAML code to a DAR file::
 
     daml build
 
-Any commands starting with ``daml`` are using the *DAML Assistant*, a command line tool in the DAML SDK for building and running DAML apps.
+Any commands starting with ``daml`` are using the :doc:`DAML Assistant </tools/assistant>`, a command line tool in the DAML SDK for building and running DAML apps.
 In order to connect the UI code to this DAML, we need to run a code generation step::
 
     daml codegen ts .daml/dist/create-daml-app-0.1.0.dar -o daml-ts/src
@@ -68,7 +68,7 @@ Now, use Yarn to install the project dependencies and build the app::
     yarn install
     yarn workspaces run build
 
-You should see ``Compiled successfully.`` in the output if everything is worked expected.
+You should see ``Compiled successfully.`` in the output if everything worked as expected.
 
 .. TODO: Give instructions for possible failures.
 
@@ -99,10 +99,10 @@ You should now see the login page for the social network.
 For simplicity of this app, there is no password or sign-up required.
 To learn how to handle proper authentication, see this blog post about `DAML and Auth0 <https://blog.daml.com/daml-driven/easy-authentication-for-your-distributed-app-with-daml-and-auth0>`_ or the :doc:`full documentation </app-dev/authentication>`.
 
-First enter your name and click "Log in".
+First enter your name and click *Log in*.
 You should see the main screen with two panels for your friends and the entire network.
 Initially these are both empty as you don't have friends yet!
-Go ahead and add some using the text box and "Add Friend" button in the top panel.
+Go ahead and add some using the text box and *Add Friend* button in the top panel.
 
 You'll notice that the newly added friends appear in the *Friends* panel.
 However they do *not* yet appear in the *Network* panel.
