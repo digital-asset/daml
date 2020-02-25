@@ -856,8 +856,6 @@ HTTP Response
 
 Please note that the order of the party objects in the response is not guaranteed to match the order of the passed party identifiers.
 
-An empty JSON array will be returned in the ``result`` element of the response if passed identifiers did not match any party.
-
 Where
 
 - ``identifier`` -- a stable unique identifier of a DAML party,
