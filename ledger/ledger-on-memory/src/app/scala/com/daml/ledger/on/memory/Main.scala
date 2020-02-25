@@ -6,7 +6,6 @@ package com.daml.ledger.on.memory
 import akka.stream.Materializer
 import com.daml.ledger.participant.state.kvutils.app.LedgerFactory.SimpleLedgerFactory
 import com.daml.ledger.participant.state.kvutils.app.{Config, Runner}
-import com.daml.ledger.participant.state.v1.TimeServiceBackend
 import com.digitalasset.logging.LoggingContext
 import com.digitalasset.resources.{ProgramResource, ResourceOwner}
 
@@ -25,13 +24,7 @@ object Main {
     ): ResourceOwner[InMemoryLedgerReaderWriter] =
       InMemoryLedgerReaderWriter.owner(
         config.ledgerId,
-        config.participantId,
-        timeServiceBackend(config).getOrElse(
-          throw new IllegalStateException(
-            s"${getClass.getSimpleName} should always provide a timeServerBackend but didn't"))
+        config.participantId
       )
-
-    final override def timeServiceBackend(config: Config[Unit]): Option[TimeServiceBackend] =
-      Some(InMemoryLedgerReaderWriter.DefaultTimeServiceBackend)
   }
 }

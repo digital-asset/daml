@@ -26,10 +26,6 @@ abstract class SqlLedgerReaderWriterIntegrationSpecBase(implementationName: Stri
       testId: String,
   )(implicit logCtx: LoggingContext): ResourceOwner[ParticipantState] =
     SqlLedgerReaderWriter
-      .owner(
-        ledgerId,
-        participantId,
-        jdbcUrl(testId),
-        SqlLedgerReaderWriter.DefaultTimeServiceBackend)
+      .owner(ledgerId, participantId, jdbcUrl(testId))
       .map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter))
 }

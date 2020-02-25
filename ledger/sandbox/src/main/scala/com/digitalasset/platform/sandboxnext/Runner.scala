@@ -89,11 +89,7 @@ class Runner {
         // This is necessary because we can't declare them as implicits within a `for` comprehension.
         _ <- AkkaResourceOwner.forActorSystem(() => system)
         _ <- AkkaResourceOwner.forMaterializer(() => materializer)
-        readerWriter <- SqlLedgerReaderWriter.owner(
-          ledgerId,
-          ParticipantId,
-          ledgerJdbcUrl,
-          timeServiceBackend.getOrElse(SqlLedgerReaderWriter.DefaultTimeServiceBackend))
+        readerWriter <- SqlLedgerReaderWriter.owner(ledgerId, ParticipantId, ledgerJdbcUrl)
         ledger = new KeyValueParticipantState(readerWriter, readerWriter)
         _ <- ResourceOwner.forFuture(() =>
           Future.sequence(config.damlPackages.map(uploadDar(_, ledger))))

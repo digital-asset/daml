@@ -3,7 +3,6 @@
 
 package com.daml.ledger.on.sql
 
-import java.time.Clock
 import java.util.UUID
 
 import akka.NotUsed
@@ -12,7 +11,7 @@ import akka.stream.scaladsl.Source
 import com.daml.ledger.on.sql.SqlLedgerReaderWriter._
 import com.daml.ledger.on.sql.queries.Queries
 import com.daml.ledger.participant.state.kvutils.api.{LedgerReader, LedgerRecord, LedgerWriter}
-import com.daml.ledger.participant.state.v1.{TimeServiceBackend, _}
+import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.daml.ledger.validator.{
   BatchingLedgerStateOperations,
@@ -21,6 +20,7 @@ import com.daml.ledger.validator.{
   SubmissionValidator,
   ValidatingCommitter
 }
+import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.health.{HealthStatus, Healthy}
@@ -36,7 +36,7 @@ import scala.concurrent.{ExecutionContext, Future}
 final class SqlLedgerReaderWriter(
     override val ledgerId: LedgerId = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
     val participantId: ParticipantId,
-    timeServiceBackend: TimeServiceBackend,
+    timeProvider: TimeProvider,
     database: Database,
     dispatcher: Dispatcher[Index],
 )(
@@ -48,7 +48,7 @@ final class SqlLedgerReaderWriter(
 
   private val committer = new ValidatingCommitter[Index](
     participantId,
-    () => timeServiceBackend.getCurrentTime,
+    () => timeProvider.getCurrentTime,
     SubmissionValidator.create(SqlLedgerStateAccess),
     latestSequenceNo => dispatcher.signalNewHead(latestSequenceNo + 1),
   )
@@ -105,16 +105,13 @@ final class SqlLedgerReaderWriter(
 object SqlLedgerReaderWriter {
   private val StartOffset: Offset = Offset(Array(StartIndex))
 
-  private val DefaultClock: Clock = Clock.systemUTC()
-
-  val DefaultTimeServiceBackend: TimeServiceBackend =
-    TimeServiceBackend.wallClock(DefaultClock)
+  val DefaultTimeProvider: TimeProvider = TimeProvider.UTC
 
   def owner(
       initialLedgerId: Option[LedgerId],
       participantId: ParticipantId,
       jdbcUrl: String,
-      timeServiceBackend: TimeServiceBackend,
+      timeProvider: TimeProvider = DefaultTimeProvider,
   )(
       implicit executionContext: ExecutionContext,
       materializer: Materializer,
@@ -125,8 +122,7 @@ object SqlLedgerReaderWriter {
       database = uninitializedDatabase.migrate()
       ledgerId <- ResourceOwner.forFuture(() => updateOrRetrieveLedgerId(initialLedgerId, database))
       dispatcher <- ResourceOwner.forFutureCloseable(() => newDispatcher(database))
-    } yield
-      new SqlLedgerReaderWriter(ledgerId, participantId, timeServiceBackend, database, dispatcher)
+    } yield new SqlLedgerReaderWriter(ledgerId, participantId, timeProvider, database, dispatcher)
 
   private def updateOrRetrieveLedgerId(initialLedgerId: Option[LedgerId], database: Database)(
       implicit executionContext: ExecutionContext,

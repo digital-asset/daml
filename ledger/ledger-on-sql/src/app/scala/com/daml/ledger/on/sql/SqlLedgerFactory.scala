@@ -5,7 +5,6 @@ package com.daml.ledger.on.sql
 
 import akka.stream.Materializer
 import com.daml.ledger.participant.state.kvutils.app.{Config, LedgerFactory}
-import com.daml.ledger.participant.state.v1.TimeServiceBackend
 import com.digitalasset.logging.LoggingContext
 import com.digitalasset.resources.ResourceOwner
 import scopt.OptionParser
@@ -43,12 +42,7 @@ object SqlLedgerFactory extends LedgerFactory[SqlLedgerReaderWriter, ExtraConfig
       config.ledgerId,
       config.participantId,
       jdbcUrl,
-      timeServiceBackend(config).getOrElse(
-        throw new IllegalStateException(
-          s"${getClass.getSimpleName} should always provide a timeServerBackend but didn't"))
+      SqlLedgerReaderWriter.DefaultTimeProvider
     )
   }
-
-  final override def timeServiceBackend(config: Config[ExtraConfig]): Option[TimeServiceBackend] =
-    Some(SqlLedgerReaderWriter.DefaultTimeServiceBackend)
 }

@@ -3,7 +3,7 @@
 
 package com.daml.ledger.participant.state.v1
 
-import java.time.{Clock, Instant}
+import java.time.Instant
 import java.util.concurrent.atomic.AtomicReference
 
 import com.digitalasset.api.util.TimeProvider
@@ -20,9 +20,6 @@ trait TimeServiceBackend extends TimeProvider {
 object TimeServiceBackend {
   def simple(startTime: Instant): TimeServiceBackend =
     new SimpleTimeServiceBackend(startTime)
-
-  def wallClock(clock: Clock): TimeServiceBackend =
-    new WallClockTimeServiceBackend(clock)
 
   def withObserver(
       timeProvider: TimeServiceBackend,
@@ -55,12 +52,5 @@ object TimeServiceBackend {
             onTimeChange(expectedTime).map(_ => true)(DirectExecutionContext)
           else Future.successful(false)
         }(DirectExecutionContext)
-  }
-
-  private class WallClockTimeServiceBackend(clock: Clock) extends TimeServiceBackend {
-    override def getCurrentTime: Instant = clock.instant()
-
-    override def setCurrentTime(currentTime: Instant, newTime: Instant): Future[Boolean] =
-      Future.failed(new IllegalArgumentException("WallClockTimeServiceBackend is read-only"))
   }
 }
