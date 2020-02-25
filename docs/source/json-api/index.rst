@@ -876,16 +876,6 @@ HTTP Response with Unknown Parties Warning
           "identifier": "Alice",
           "displayName": "Alice & Co. LLC",
           "isLocal": true
-        },
-        {
-          "identifier": "Bob",
-          "displayName": "Bob & Co. LLC",
-          "isLocal": true
-        },
-        {
-          "identifier": "Dave",
-          "displayName": "Dave & Co. LLC",
-          "isLocal": true
         }
       ],
       "warnings": {
