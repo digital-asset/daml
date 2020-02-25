@@ -5,16 +5,14 @@ package com.digitalasset.platform.sandbox
 
 import java.io.File
 import java.nio.file.Files
-import java.security.SecureRandom
 import java.time.Instant
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.ledger.participant.state.v1.{ParticipantId, SeedService}
 import com.daml.ledger.participant.state.{v1 => ParticipantState}
 import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.dec.DirectExecutionContext
@@ -267,12 +265,6 @@ final class SandboxServer(
           )
       }
 
-      val seedService =
-        if (config.useSortableCid)
-          Some(crypto.Hash.secureRandom(SecureRandom.getInstanceStrong.generateSeed(32)))
-        else
-          None
-
       for {
         indexAndWriteService <- indexAndWriteServiceResourceOwner.acquire()
         ledgerId <- Resource.fromFuture(indexAndWriteService.indexService.getLedgerId())
@@ -302,7 +294,7 @@ final class SandboxServer(
                   .map(TimeServiceBackend.withObserver(_, indexAndWriteService.publishHeartbeat)),
                 metrics = metrics,
                 healthChecks = healthChecks,
-                seedService = seedService,
+                seedService = config.seeding.map(SeedService(_)),
               )(mat, esf, logCtx)
               .map(_.withServices(List(resetService(ledgerId, authorizer, executionContext)))),
           currentPort.getOrElse(config.port),

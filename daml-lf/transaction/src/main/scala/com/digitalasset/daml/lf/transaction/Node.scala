@@ -282,18 +282,11 @@ object Node {
   ): Boolean =
     ScalazEqual.match2[recorded.type, isReplayedBy.type, Boolean](fallback = false) {
       case nc: NodeCreate[Cid, Val] => {
-        case NodeCreate(
-            nodeSeed2,
-            coid2,
-            coinst2,
-            optLocation2 @ _,
-            signatories2,
-            stakeholders2,
-            key2) =>
+        case NodeCreate(_, coid2, coinst2, optLocation2 @ _, signatories2, stakeholders2, key2) =>
           import nc._
           // NOTE(JM): Do not compare location annotations as they may differ due to
           // differing update expression constructed from the root node.
-          nodeSeed == nodeSeed2 && coid === coid2 && coinst === coinst2 &&
+          coid === coid2 && coinst === coinst2 &&
           signatories == signatories2 && stakeholders == stakeholders2 && key === key2
         case _ => false
       }
@@ -313,7 +306,7 @@ object Node {
       }
       case ne: NodeExercises[Nothing, Cid, Val] => {
         case NodeExercises(
-            nodeSeed2,
+            _,
             targetCoid2,
             templateId2,
             choiceId2,
@@ -329,7 +322,6 @@ object Node {
             key2,
             ) =>
           import ne._
-          nodeSeed == nodeSeed2 &&
           targetCoid === targetCoid2 && templateId == templateId2 && choiceId == choiceId2 &&
           consuming == consuming2 && actingParties == actingParties2 && chosenValue === chosenValue2 &&
           stakeholders == stakeholders2 && signatories == signatories2 && controllers == controllers2 &&
@@ -345,14 +337,24 @@ object Node {
     }(recorded, isReplayedBy)
 
   /** Useful in various circumstances -- basically this is what a ledger implementation must use as
-    * a key. The 'hash' should be used when storing the key as value serialization is not guaranteed
-    * to be stable over time (e.g. a new encoding might be introduced).
+    * a key. The 'hash' is guaranteed to be stable over time.
     */
-  sealed abstract case class GlobalKey(templateId: Identifier, key: Value[Nothing], hash: Hash)
+  final class GlobalKey private (
+      val templateId: Identifier,
+      val key: Value[Nothing],
+      val hash: Hash
+  ) extends {
+    override def equals(obj: Any): Boolean = obj match {
+      case that: GlobalKey => this.hash == that.hash
+      case _ => false
+    }
+
+    override def hashCode(): Int = hash.hashCode()
+  }
 
   object GlobalKey {
     def apply(templateId: Identifier, key: Value[Nothing]): GlobalKey =
-      new GlobalKey(templateId, key, Hash.hashContractKey(templateId, key)) {}
+      new GlobalKey(templateId, key, Hash.safeHashContractKey(templateId, key))
   }
 
   sealed trait WithTxValue2[F[+ _, + _]] {

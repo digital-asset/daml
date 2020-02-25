@@ -188,13 +188,12 @@ case class PartialTransaction(
     */
   def finish: Either[PartialTransaction, Tx.Transaction] =
     context match {
-      case ContextRoot(transactionSeed, children) if aborted.isEmpty =>
+      case ContextRoot(_, children) if aborted.isEmpty =>
         Right(
           GenTransaction(
             nodes = nodes,
             roots = children.toImmArray,
             optUsedPackages = None,
-            transactionSeed = transactionSeed,
           ),
         )
       case _ =>

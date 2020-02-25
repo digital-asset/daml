@@ -39,7 +39,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
 
   import EngineTest._
 
-  private def hash(s: String) = Some(crypto.Hash.hashPrivateKey(s))
+  private def hash(s: String) = crypto.Hash.hashPrivateKey(s)
   private def participant = Ref.ParticipantId.assertFromString("participant")
 
   private val party = Party.assertFromString("Party")
@@ -115,11 +115,11 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
   val BasicTests_WithKey = Identifier(basicTestsPkgId, "BasicTests:WithKey")
 
   def lookupKey(key: GlobalKey): Option[AbsoluteContractId] =
-    key match {
-      case GlobalKey(
+    (key.templateId, key.key) match {
+      case (
           BasicTests_WithKey,
-          ValueRecord(_, ImmArray((_, p), (_, ValueInt64(42)))),
-          hash @ _) if p == ValueParty(alice) =>
+          ValueRecord(_, ImmArray((_, ValueParty(`alice`)), (_, ValueInt64(42)))),
+          ) =>
         Some(AbsoluteContractId("1"))
       case _ =>
         None
@@ -442,7 +442,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       .consume(lookupContract, lookupPackage, lookupKey)
     res shouldBe 'right
     val interpretResult = engine
-      .submit(Commands(party, ImmArray(command), let, "test"), participant, submissionSeed)
+      .submit(Commands(party, ImmArray(command), let, "test"), participant, Some(submissionSeed))
       .consume(lookupContract, lookupPackage, lookupKey)
 
     "be translated" in {
@@ -454,7 +454,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       val txRoots = tx.roots.map(id => tx.nodes(id)).toSeq
       val reinterpretResult =
         engine
-          .reinterpret(submissionSeed, participant, Set(party), txRoots, let)
+          .reinterpret(Some(submissionSeed), participant, Set(party), txRoots, let)
           .consume(lookupContract, lookupPackage, lookupKey)
       (interpretResult |@| reinterpretResult)(_ isReplayedBy _) shouldBe Right(true)
     }
@@ -462,7 +462,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     "be validated" in {
       val Right(tx) = interpretResult
       val validated = engine
-        .validate(tx, let)
+        .validate(tx, let, participant, Some(submissionSeed))
         .consume(lookupContract, lookupPackage, lookupKey)
       validated match {
         case Left(e) =>
@@ -484,7 +484,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     val templateId = Identifier(basicTestsPkgId, "BasicTests:Simple")
     val hello = Identifier(basicTestsPkgId, "BasicTests:Hello")
     val let = Time.Timestamp.now()
-    val transactionSeed = submissionSeed.map(crypto.Hash.deriveTransactionSeed(_, participant, let))
+    val transactionSeed = crypto.Hash.deriveTransactionSeed(submissionSeed, participant, let)
     val command =
       ExerciseCommand(templateId, "1", "Hello", ValueRecord(Some(hello), ImmArray.empty))
 
@@ -502,14 +502,14 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
               submitters = Set(party),
               commands = r,
               time = let,
-              transactionSeed = transactionSeed
+              transactionSeed = Some(transactionSeed)
             )
             .consume(lookupContract, lookupPackage, lookupKey))
     val Right(tx) = interpretResult
 
     "be translated" in {
       val submitResult = engine
-        .submit(Commands(party, ImmArray(command), let, "test"), participant, submissionSeed)
+        .submit(Commands(party, ImmArray(command), let, "test"), participant, Some(submissionSeed))
         .consume(lookupContract, lookupPackage, lookupKey)
       interpretResult shouldBe 'right
       (interpretResult |@| submitResult)(_ isReplayedBy _) shouldBe Right(true)
@@ -519,14 +519,14 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       val txRoots = tx.roots.map(id => tx.nodes(id)).toSeq
       val reinterpretResult =
         engine
-          .reinterpret(submissionSeed, participant, Set(party), txRoots, let)
+          .reinterpret(Some(submissionSeed), participant, Set(party), txRoots, let)
           .consume(lookupContract, lookupPackage, lookupKey)
       (interpretResult |@| reinterpretResult)(_ isReplayedBy _) shouldBe Right(true)
     }
 
     "be validated" in {
       val validated = engine
-        .validate(tx, let)
+        .validate(tx, let, participant, Some(submissionSeed))
         .consume(lookupContract, lookupPackage, lookupKey)
       validated match {
         case Left(e) =>
@@ -566,7 +566,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
 
     "fail at submission" in {
       val submitResult = engine
-        .submit(Commands(alice, ImmArray(command), let, "test"), participant, submissionSeed)
+        .submit(Commands(alice, ImmArray(command), let, "test"), participant, Some(submissionSeed))
         .consume(lookupContractWithKey, lookupPackage, lookupKey)
       submitResult.left.value.msg should startWith("dependency error: couldn't find key")
     }
@@ -576,7 +576,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     val submissionSeed = hash("exercise-by-key command with existing key")
     val templateId = Identifier(basicTestsPkgId, "BasicTests:WithKey")
     val let = Time.Timestamp.now()
-    val transactionSeed = submissionSeed.map(crypto.Hash.deriveTransactionSeed(_, participant, let))
+    val transactionSeed = crypto.Hash.deriveTransactionSeed(submissionSeed, participant, let)
     val command = ExerciseByKeyCommand(
       templateId,
       ValueRecord(None, ImmArray((None, ValueParty(alice)), (None, ValueInt64(42)))),
@@ -598,14 +598,14 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
               submitters = Set(alice),
               commands = r,
               time = let,
-              transactionSeed = transactionSeed
+              transactionSeed = Some(transactionSeed)
             )
             .consume(lookupContractWithKey, lookupPackage, lookupKey))
     val tx = result.right.value
 
     "be translated" in {
       val submitResult = engine
-        .submit(Commands(alice, ImmArray(command), let, "test"), participant, submissionSeed)
+        .submit(Commands(alice, ImmArray(command), let, "test"), participant, Some(submissionSeed))
         .consume(lookupContractWithKey, lookupPackage, lookupKey)
       (result |@| submitResult)(_ isReplayedBy _) shouldBe Right(true)
     }
@@ -614,14 +614,14 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       val txRoots = tx.roots.map(id => tx.nodes(id)).toSeq
       val reinterpretResult =
         engine
-          .reinterpret(submissionSeed, participant, Set(alice), txRoots, let)
+          .reinterpret(Some(submissionSeed), participant, Set(alice), txRoots, let)
           .consume(lookupContractWithKey, lookupPackage, lookupKey)
       (result |@| reinterpretResult)(_ isReplayedBy _) shouldBe Right(true)
     }
 
     "be validated" in {
       val validated = engine
-        .validate(tx, let)
+        .validate(tx, let, participant, Some(submissionSeed))
         .consume(lookupContractWithKey, lookupPackage, lookupKey)
       validated match {
         case Left(e) =>
@@ -648,7 +648,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     val templateId = Identifier(basicTestsPkgId, "BasicTests:Simple")
     val hello = Identifier(basicTestsPkgId, "BasicTests:Hello")
     val let = Time.Timestamp.now()
-    val transactionSeed = submissionSeed.map(crypto.Hash.deriveTransactionSeed(_, participant, let))
+    val transactionSeed = crypto.Hash.deriveTransactionSeed(submissionSeed, participant, let)
     val command =
       CreateAndExerciseCommand(
         templateId,
@@ -671,7 +671,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
               submitters = Set(party),
               commands = r,
               time = let,
-              transactionSeed = transactionSeed
+              transactionSeed = Some(transactionSeed)
             )
             .consume(lookupContract, lookupPackage, lookupKey))
     val Right(tx) = interpretResult
@@ -688,14 +688,14 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       val txRoots = tx.roots.map(id => tx.nodes(id)).toSeq
       val reinterpretResult =
         engine
-          .reinterpret(submissionSeed, participant, Set(party), txRoots, let)
+          .reinterpret(Some(submissionSeed), participant, Set(party), txRoots, let)
           .consume(lookupContract, lookupPackage, lookupKey)
       (interpretResult |@| reinterpretResult)(_ isReplayedBy _) shouldBe Right(true)
     }
 
     "be validated" in {
       val validated = engine
-        .validate(tx, let)
+        .validate(tx, let, participant, Some(submissionSeed))
         .consume(lookupContract, lookupPackage, lookupKey)
       validated match {
         case Left(e) =>
@@ -873,7 +873,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     val templateId = Identifier(basicTestsPkgId, "BasicTests:CallablePayout")
     // we need to fix time as cid are depending on it
     val let = Time.Timestamp.assertFromString("1969-07-20T20:17:00Z")
-    val transactionSeed = submissionSeed.map(crypto.Hash.deriveTransactionSeed(_, participant, let))
+    val transactionSeed = crypto.Hash.deriveTransactionSeed(submissionSeed, participant, let)
     val command = ExerciseCommand(
       templateId,
       originalCoid,
@@ -894,14 +894,14 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
               submitters = Set(bob),
               commands = r,
               time = let,
-              transactionSeed = transactionSeed
+              transactionSeed = Some(transactionSeed)
             )
             .consume(lookupContractForPayout, lookupPackage, lookupKey))
     interpretResult shouldBe 'right
 
     "be translated" in {
       val submitResult = engine
-        .submit(Commands(bob, ImmArray(command), let, "test"), participant, submissionSeed)
+        .submit(Commands(bob, ImmArray(command), let, "test"), participant, Some(submissionSeed))
         .consume(lookupContractForPayout, lookupPackage, lookupKey)
       submitResult shouldBe 'right
 
@@ -916,7 +916,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       val txRoots = tx.roots.map(id => tx.nodes(id)).toSeq
       val reinterpretResult =
         engine
-          .reinterpret(submissionSeed, participant, Set(bob), txRoots, let)
+          .reinterpret(Some(submissionSeed), participant, Set(bob), txRoots, let)
           .consume(lookupContractForPayout, lookupPackage, lookupKey)
       (interpretResult |@| reinterpretResult)(_ isReplayedBy _) shouldBe Right(true)
     }
@@ -1072,7 +1072,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     }
 
     val let = Time.Timestamp.now()
-    val transactionSeed = submissionSeed.map(crypto.Hash.deriveTransactionSeed(_, participant, let))
+    val transactionSeed = crypto.Hash.deriveTransactionSeed(submissionSeed, participant, let)
 
     def actFetchActors[Nid, Cid, Val](n: GenNode[Nid, Cid, Val]): Set[Party] = {
       n match {
@@ -1106,7 +1106,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
               submitters = Set(exerciseActor),
               commands = r,
               time = let,
-              transactionSeed = transactionSeed
+              transactionSeed = Some(transactionSeed)
             )
             .consume(lookupContract, lookupPackage, lookupKey))
 
@@ -1133,7 +1133,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
         }
       fetchNodes.foreach {
         case (nid, n) =>
-          val fetchTx = GenTx(HashMap(nid -> n), ImmArray(nid), None, submissionSeed)
+          val fetchTx = GenTx(HashMap(nid -> n), ImmArray(nid), None)
           val Right(reinterpreted) = engine
             .reinterpret(None, participant, n.requiredAuthorizers, Seq(n), let)
             .consume(lookupContract, lookupPackage, lookupKey)
@@ -1187,7 +1187,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       val let = Time.Timestamp.now()
 
       val reinterpreted = engine
-        .reinterpret(submissionSeed, participant, Set.empty, Seq(fetchNode), let)
+        .reinterpret(Some(submissionSeed), participant, Set.empty, Seq(fetchNode), let)
         .consume(lookupContract, lookupPackage, lookupKey)
 
       reinterpreted shouldBe 'right
