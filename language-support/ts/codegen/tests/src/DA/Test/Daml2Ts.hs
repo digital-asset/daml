@@ -24,23 +24,29 @@ main = do
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
     daml2ts <- locateRunfiles (mainWorkspace </> "language-support" </> "ts" </> "codegen" </> exe "daml2ts")
     davl <- locateRunfiles ("davl" </> "released")
-    yarnPath : args <- getArgs
+    yarnPath : damlTypes : args <- getArgs
     yarn <- locateRunfiles (mainWorkspace </> yarnPath)
     withTempDir $ \rootDir ->
       withArgs args (
         defaultMain $
           withResource
-          (yarnInstall yarn rootDir) (\_ -> pure ())
+          (yarnInstall yarn damlTypes rootDir) (\_ -> pure ())
           (\_ -> tests rootDir yarn damlc daml2ts davl)
         )
 
-yarnInstall :: FilePath -> FilePath -> IO ()
-yarnInstall yarn rootDir = do
+yarnInstall :: FilePath -> FilePath -> FilePath -> IO ()
+yarnInstall yarn damlTypes rootDir = do
   let here = rootDir </> "pre-test"
   let dummyTs = here </> "dummy-ts"
   createDirectoryIfMissing True dummyTs
+  copyDirectory damlTypes (rootDir </> "daml-types")
   writePackageConfigs dummyTs
   withCurrentDirectory rootDir $ yarnProject' yarn ["install"]
+  where
+    copyDirectory from to = do
+      createDirectoryIfMissing True to
+      files <- listDirectory from
+      forM_ files $ \file -> copyFile (from </> file) (to </> file)
 
 tests :: FilePath -> FilePath -> FilePath -> FilePath -> FilePath -> TestTree
 tests rootDir yarn damlc daml2ts davl = testGroup "daml2Ts"
@@ -498,6 +504,7 @@ writePackageConfigs dir = do
          [ "{"
          , "  \"private\": true,"
          , "  \"workspaces\": ["
+         , "    \"daml-types\","
          , "    \"" <> workspace <> "\""
          , "  ]"
          , "}"

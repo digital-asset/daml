@@ -72,11 +72,15 @@ sh_test(
 da_haskell_test(
     name = "daml2ts",
     srcs = ["src/DA/Test/Daml2Ts.hs"],
-    args = ["$(rootpath //:yarn)"],
+    args = [
+        "$(location //:yarn)",
+        "$(location //language-support/ts/daml-types:npm_package)",
+    ],
     data = [
         "//:yarn",
         "//compiler/damlc",
         "//language-support/ts/codegen:daml2ts",
+        "//language-support/ts/daml-types:npm_package",
         "@davl//:released/davl-upgrade-v3-v4.dar",
         "@davl//:released/davl-upgrade-v4-v5.dar",
         "@davl//:released/davl-v3.dar",
@@ -98,4 +102,4 @@ da_haskell_test(
         "//:sdk-version-hs-lib",
         "//libs-haskell/bazel-runfiles",
     ],
-)
+) if not is_windows else None
